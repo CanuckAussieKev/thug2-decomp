@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <span>
 
@@ -15,8 +16,35 @@ struct PadSnapshot;
 // ones gave. A point that answers a question asks the sources in turn until one does.
 //
 // The grain is a call per source per start-up, frame or port poll - never per key: a source fills a port's control
-// bytes in one call, as the original's pad read did.
+// bytes in one call, as the original's pad read did. What the handlers we added read of the devices (the level
+// editor, the new front end, the mouse menus, the dev tools) is a call a frame or an event too: the keyboard's state
+// comes as one array, read by key as before.
 namespace input {
+
+// The keyboard's state now: a byte per key, by SDL's scan code (the USB keyboard usage), non-zero while it is down.
+using KeyState = std::span<const uint8_t>;
+
+// The mouse now: where it is in its window (pixels) and its buttons down (kMouseLeftMask...: bit n - 1 for button n).
+struct MouseState {
+    int x = 0;
+    int y = 0;
+    uint32_t buttons = 0;
+};
+constexpr uint32_t kMouseLeftMask = 1U << 0;
+constexpr uint32_t kMouseMiddleMask = 1U << 1;
+constexpr uint32_t kMouseRightMask = 1U << 2;
+// The cursor (input::show_cursor): shown, hidden, or only asked.
+constexpr int kCursorShow = 1;
+constexpr int kCursorHide = 0;
+constexpr int kCursorQuery = -1;
+
+// A game controller now: its axes in SDL's order (left x, left y, right x, right y: -32768..32767; the left and right
+// triggers: 0..32767) and its buttons down (bit n for SDL's game controller button n).
+struct ControllerState {
+    static constexpr int kAxes = 6;
+    std::array<int16_t, kAxes> axes{};
+    uint32_t buttons = 0;
+};
 
 // What Enter and Escape stand for in the original pad read's default keys: a pressure button 0-7, or the button
 // 0x10 / 0x20 (os_layer::set_default_enter_control / set_default_escape_control).
@@ -68,6 +96,20 @@ public:
     // A port's two motors (0-65535, `high` and `low` frequency): true if the source has the port's motors.
     virtual bool rumble(int /*port*/, uint16_t /*high*/, uint16_t /*low*/) { return false; }
 
+    // --- what the handlers we added read (a call a frame or an event) ---
+    // The keyboard's state (empty: the source has no keyboard).
+    virtual KeyState keys() { return {}; }
+    // The mouse (false: no mouse).
+    virtual bool mouse(MouseState* /*out*/) { return false; }
+    // The first attached game controller (false: none).
+    virtual bool controller(ControllerState* /*out*/) { return false; }
+    // The mouse held in the window and hidden, its motion still reported (the level editor's look): true if done.
+    virtual bool set_relative_mouse(bool /*on*/) { return false; }
+    // The cursor shown (1), hidden (0) or only asked (-1): `shown` its state after; true if the source has one.
+    virtual bool show_cursor(int /*toggle*/, int* /*shown*/) { return false; }
+    // The size of the window an event names (Event::window), in pixels: false if there is no such window.
+    virtual bool window_size(uint32_t /*window*/, int* /*width*/, int* /*height*/) { return false; }
+
     // --- the original's pad read (sio::InputPort::pull_data, which PartyMod's poll replaced: not called) ---
     // The keys it reads (0-3: os_layer::set_pad_mode's modes) and the buttons Enter and Escape stand for in the
     // default keys.
@@ -98,5 +140,13 @@ void set_default_keys(DefaultKeys keys);
 // (`pad` as the first source that has one left it; untouched if none has)
 void read_pad(int port, sio::PadSnapshot* pad);
 bool key_down(int code);
+// (each from the first source that has it: an empty KeyState, false or nothing when none has)
+KeyState keys();
+bool mouse(MouseState* out);
+bool controller(ControllerState* out);
+void set_relative_mouse(bool on);
+// (-1 when no source has a cursor)
+int show_cursor(int toggle);
+bool window_size(uint32_t window, int* width, int* height);
 
 } // namespace input

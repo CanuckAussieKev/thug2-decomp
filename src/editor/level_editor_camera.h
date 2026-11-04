@@ -5,7 +5,7 @@
 #include <string>
 
 #include "editor/level_editor.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 
 // NOT ORIGINAL - the level editor's camera tools (ours; see level_editor.h), after Unreal's and Blender's:
 //   - F frames the selection: the camera flies (a smooth move, a third of a second) to see all of it from the side it
@@ -133,7 +133,7 @@ bool get_orbiting();
 // editor puts the camera round it).
 void apply_orbit(const Rig& rig);
 // The keys: F, 1..9 / Ctrl+1..9, the numpad's 7 1 3 5 (`keys`: SDL's keyboard state; zeroed while the UI types).
-void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_open);
+void get_keys(const Rig& rig, input::KeyState keys, bool ctrl, bool browser_open);
 // At the end of the editor's frame: a flight moved on (`interrupted`: the user flew, looked or clicked), an ortho view's
 // camera kept on its axis (the wheel's and W / S's moves along the view taken as its zoom, the rest as panning).
 void after_update(const Rig& rig, int wheel, bool interrupted);

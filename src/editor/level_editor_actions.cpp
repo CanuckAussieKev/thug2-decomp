@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the level editor's actions and keymap (ours). See level_editor_actions.h.
 
 #include "editor/level_editor_actions.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 #include "base/core/span_copy.h"
 
 #include <SDL2/SDL_scancode.h>
@@ -690,7 +690,7 @@ LevelEditorActionsState& level_editor_actions_state()
 
 std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 
-uint8_t held_mods(platform::KeyState keys)
+uint8_t held_mods(input::KeyState keys)
 {
     uint8_t held = 0;
     if ((core::at(keys, SDL_SCANCODE_LCTRL) != 0U) || (core::at(keys, SDL_SCANCODE_RCTRL) != 0U)) {
@@ -844,7 +844,7 @@ std::vector<int> conflicts(int index)
     return out;
 }
 
-void begin_frame(platform::KeyState keys)
+void begin_frame(input::KeyState keys)
 {
     std::vector<ActStep>& registry = get_registry();
     level_editor_actions_state().fired_.assign(registry.size(), false);
@@ -900,7 +900,7 @@ void begin_frame(platform::KeyState keys)
     }
 }
 
-void seed_keys(platform::KeyState keys)
+void seed_keys(input::KeyState keys)
 {
     core::copy_into(keys.first(level_editor_actions_state().was_.size()), std::span(level_editor_actions_state().was_));
     level_editor_actions_state().triggered_.assign(level_editor_actions_state().triggered_.size(), false);
@@ -908,7 +908,7 @@ void seed_keys(platform::KeyState keys)
 
 bool squeezed(int index) { return index >= 0 && std::cmp_less(index, level_editor_actions_state().fired_.size()) && core::at(level_editor_actions_state().fired_, index); }
 
-bool get_held(platform::KeyState keys, int index)
+bool get_held(input::KeyState keys, int index)
 {
     const ActStep* act_step = get_pull(index);
     if (!act_step || level_editor_actions_state().capture_ >= 0) {

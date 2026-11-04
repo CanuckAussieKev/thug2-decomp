@@ -22,6 +22,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_event.h"
+#include "engine/pad_input/input_source.h"
 #include "platform/run_log.h"
 #include "engine/pad_input/device.h"
 #include "engine/ui/menu_element.h"
@@ -545,9 +546,7 @@ MouseMenusState& mouse_menus_state()
 
 void read_window_size(uint32_t window_id)
 {
-    if (SDL_Window* window = SDL_GetWindowFromID(window_id)) {
-        SDL_GetWindowSize(window, &mouse_menus_state().mouse_.window_width_, &mouse_menus_state().mouse_.window_height_);
-    }
+    input::window_size(window_id, &mouse_menus_state().mouse_.window_width_, &mouse_menus_state().mouse_.window_height_);
 }
 
 void handle_mouse_event(const input::Event& event)
@@ -970,7 +969,7 @@ void show_cursor(bool show)
     if (show == mouse_menus_state().cursor_shown_) {
         return;
     }
-    SDL_ShowCursor(show ? SDL_ENABLE : SDL_DISABLE);
+    input::show_cursor(show ? input::kCursorShow : input::kCursorHide);
     mouse_menus_state().cursor_shown_ = show;
 }
 

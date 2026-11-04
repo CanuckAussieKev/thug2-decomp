@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the level editor's camera tools (ours). See level_editor_camera.h.
 
 #include "editor/level_editor_camera.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 
 #include <SDL2/SDL.h>
 
@@ -644,7 +644,7 @@ void use_bookmark(const Rig& rig, int index, bool store)
 
 } // namespace
 
-void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_open)
+void get_keys(const Rig& rig, input::KeyState keys, bool ctrl, bool browser_open)
 {
     // (the keys from the keymap - level_editor_actions.h: rebindable)
     (void)keys;

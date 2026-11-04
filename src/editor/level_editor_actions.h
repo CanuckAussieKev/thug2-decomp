@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 #include <string_view>
 #include <functional>
 #include <string>
@@ -219,13 +219,13 @@ std::vector<int> conflicts(int index);
 
 // --- the keymap, a frame at a time (the editor's Update) ------------------------------------------------------------
 
-// The keyboard this frame (SDL_GetKeyboardState; all up while the UI types): which actions' keys were pressed.
+// The keyboard this frame (input::keys; all up while the UI types): which actions' keys were pressed.
 // `suspended`: none fire (a key being captured for rebinding).
-void begin_frame(platform::KeyState keys);
+void begin_frame(input::KeyState keys);
 // The editor starting: the keys down now count as already down (the key that opened it doesn't act at once).
-void seed_keys(platform::KeyState keys);
+void seed_keys(input::KeyState keys);
 bool squeezed(int index);
-bool get_held(platform::KeyState keys, int index);
+bool get_held(input::KeyState keys, int index);
 // As if its key had been pressed: Pressed is true next frame (the command search, menus).
 void fire_off(int index);
 // The search / a menu: `run`, else Trigger (nothing when not Enabled).

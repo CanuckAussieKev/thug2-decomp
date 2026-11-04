@@ -1,7 +1,7 @@
 // Debug mode (engine/sys/debug_mode.h).
 
 #include "engine/sys/debug_mode.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -65,7 +65,7 @@ struct Key {
     bool was_down_;
 };
 
-inline bool squeezed(Key& key_record, platform::KeyState keys)
+inline bool squeezed(Key& key_record, input::KeyState keys)
 {
     const bool down = core::at(keys, key_record.code) != 0;
     const bool pressed = down && !key_record.was_down_;
@@ -114,7 +114,7 @@ void tick_frame(modules::FrontEnd* front_end)
         frame_loop::frames_run() == 0) { // (not in the early self-tests, which run this on stand-in state)
         return;
     }
-    const platform::KeyState keys = platform::keyboard_keys();
+    const input::KeyState keys = input::keys();
     if (keys.empty()) {
         return;
     }
@@ -182,7 +182,7 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     if (!is_switched_on() || (ext::game_owner() != nullptr)) {
         return false;
     }
-    const platform::KeyState keys = platform::keyboard_keys();
+    const input::KeyState keys = input::keys();
     if (keys.empty()) {
         return false;
     }

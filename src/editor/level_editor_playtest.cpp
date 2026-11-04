@@ -1,7 +1,7 @@
 // NOT ORIGINAL - play testing from the level editor (ours). See level_editor_playtest.h.
 
 #include "game/rider/rider.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 #include "editor/level_editor_playtest.h"
 
 #include <SDL2/SDL.h>
@@ -922,12 +922,11 @@ void simulate_event(const input::Event& event)
         return;
     }
     if (event.type == input::EventType::kKeyDown && !event.repeat && ui::keys_to_editor()) {
-        const platform::KeyState keys = platform::keyboard_keys();
+        const input::KeyState keys = input::keys();
         const bool ctrl = (event.modifiers & input::kModifierCtrl) != 0;
         const bool alt = (event.modifiers & input::kModifierAlt) != 0;
-        int x = 0;
-        int y = 0;
-        const bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(input::kMouseRight)) != 0;
+        input::MouseState mouse;
+        const bool right = input::mouse(&mouse) && ((mouse.buttons & input::kMouseRightMask) != 0U);
         const bool fly_keys_safe = right || !xform::fly_always();
         (void)keys;
         if (!simulate_key_keeps(event.key, ctrl, alt, fly_keys_safe)) {

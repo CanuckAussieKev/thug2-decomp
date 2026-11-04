@@ -39,3 +39,28 @@ test("only app/ picks the DirectInput source", () => {
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp adds the source");
 });
+
+// The SDL calls that read input devices or the window's events: only the SDL source answers them (the keyboard's
+// state, the mouse, the controllers, the cursor, an event's window) and only the platform pumps the events.
+const SDL_INPUT_READS =
+    /\b(SDL_GetKeyboardState|SDL_GetMouseState|SDL_GetRelativeMouseState|SDL_GameController\w*|SDL_Joystick\w*|SDL_NumJoysticks|SDL_IsGameController|SDL_SetRelativeMouseMode|SDL_ShowCursor|SDL_PollEvent|SDL_GetWindowFromID)\s*\(/;
+
+test("the editor, the front end, the game and the engine read input through the seam", () => {
+    const readers = including(SDL_INPUT_READS);
+    const outside = readers.filter(
+        (name) =>
+            !name.startsWith("platform/") &&
+            name !== "engine/pad_input/sdl_input.cpp" &&
+            // (the screenshot's sidecar notes where the mouse is over the game window: a dev tool's note on the window)
+            name !== "devtools/screenshot.cpp",
+    );
+    assert.deepEqual(outside, []);
+    assert.ok(readers.includes("engine/pad_input/sdl_input.cpp"), "the SDL source reads SDL's input");
+});
+
+test("only the SDL source and app/ use the platform's keyboard and event pump", () => {
+    const keyboard = including(/^\s*#\s*include\s*"platform\/keyboard\.h"/m);
+    assert.deepEqual(keyboard, ["engine/pad_input/sdl_input.cpp"]);
+    const handlers = including(/\bregister_event_handler\s*\(/).filter((name) => !name.startsWith("platform/"));
+    assert.deepEqual(handlers, ["app/pc_setup.cpp", "app/winmain.cpp", "engine/pad_input/sdl_input.cpp"]);
+});

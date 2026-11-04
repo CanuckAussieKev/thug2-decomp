@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the level editor's navigation and hints: the game side (ours). See level_editor_ux8.h.
 
 #include "editor/level_editor_ux8.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 #include "base/maths/vec2.h"
 #include "base/core/span_copy.h"
 
@@ -296,21 +296,6 @@ void set_pad_mode(bool on)
 
 namespace {
 
-SDL_GameController* find_controller()
-{
-    // (the controllers the game's input opened - sio/sdl_input.cpp: the first attached)
-    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-        if (SDL_IsGameController(i) == SDL_FALSE) {
-            continue;
-        }
-        SDL_GameController* game_controller = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
-        if (game_controller && (SDL_GameControllerGetAttached(game_controller) != SDL_FALSE)) {
-            return game_controller;
-        }
-    }
-    return nullptr;
-}
-
 constexpr float kDeadzone = 0.22F;
 uint32_t& pad_was()
 {
@@ -323,26 +308,27 @@ uint32_t& pad_was()
 Pad read_pad()
 {
     Pad pad;
-    SDL_GameController* game_controller = level_editor_ux8_state().pad_mode_ ? find_controller() : nullptr;
-    if (!game_controller) {
+    // (the controllers the game's input opened - the first attached: input::controller)
+    input::ControllerState controller;
+    if (!level_editor_ux8_state().pad_mode_ || !input::controller(&controller)) {
         pad_was() = 0;
         return pad;
     }
     pad.active = true;
     auto axis = [&](SDL_GameControllerAxis a) {
-        return nav::get_stick({.raw = SDL_GameControllerGetAxis(game_controller, a), .deadzone = kDeadzone});
+        return nav::get_stick({.raw = core::at(controller.axes, a), .deadzone = kDeadzone});
     };
     pad.move_x_ = axis(SDL_CONTROLLER_AXIS_LEFTX);
     pad.move_y_ = -axis(SDL_CONTROLLER_AXIS_LEFTY);
     pad.look_x_ = axis(SDL_CONTROLLER_AXIS_RIGHTX);
     pad.look_y_ = -axis(SDL_CONTROLLER_AXIS_RIGHTY);
-    pad.up_down_ = nav::get_stick({.raw = SDL_GameControllerGetAxis(game_controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT),
+    pad.up_down_ = nav::get_stick({.raw = core::at(controller.axes, SDL_CONTROLLER_AXIS_TRIGGERRIGHT),
                                    .deadzone = kTriggerDeadzone}) -
-                   nav::get_stick({.raw = SDL_GameControllerGetAxis(game_controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT),
+                   nav::get_stick({.raw = core::at(controller.axes, SDL_CONTROLLER_AXIS_TRIGGERLEFT),
                                    .deadzone = kTriggerDeadzone});
     uint32_t now = 0;
     for (int button = 0; button < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++button) {
-        if (SDL_GameControllerGetButton(game_controller, static_cast<SDL_GameControllerButton>(button)) != 0U) {
+        if ((controller.buttons & (1U << button)) != 0U) {
             now |= 1U << button;
         }
     }
@@ -379,7 +365,7 @@ Pad read_pad()
     return pad;
 }
 
-platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
+input::KeyState pad_keys(input::KeyState keys, const Pad& pad)
 {
     static std::array<uint8_t, SDL_NUM_SCANCODES> merged;
     if (!pad.active) {

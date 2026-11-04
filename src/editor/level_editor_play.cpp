@@ -1,7 +1,7 @@
 // NOT ORIGINAL - play from here (ours). See level_editor_play.h.
 
 #include "editor/level_editor_play.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 
 #include <cstdint>
 #include <SDL2/SDL.h>
@@ -30,7 +30,7 @@ Step on_key(bool pressed, bool in_level, bool paused, bool offered)
     return Step::kPauseThenEnter;
 }
 
-bool get_key_down(platform::KeyState keys)
+bool get_key_down(input::KeyState keys)
 {
     if (keys.empty()) {
         return false;
@@ -122,7 +122,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0) {
         return;
     }
-    const platform::KeyState keys = platform::keyboard_keys();
+    const input::KeyState keys = input::keys();
     const bool down = get_key_down(keys);
     const bool pressed = down && play_start().key_up_;
     play_start().key_up_ = !down;

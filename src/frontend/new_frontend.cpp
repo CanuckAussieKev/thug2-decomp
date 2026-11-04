@@ -3,7 +3,7 @@
 // context, the automation channel's commands.
 
 #include "frontend/new_frontend.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 
 #include <windows.h>
 
@@ -2468,7 +2468,14 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
 
 // --- input ---
 
-bool get_key_down(SDL_Scancode key) { return core::at(platform::keyboard_keys(), key) != 0; }
+bool get_key_down(input::KeyState keys, SDL_Scancode key) { return core::at(keys, key) != 0; }
+
+// Whether the mouse's left button is down.
+bool left_button_down()
+{
+    input::MouseState mouse;
+    return input::mouse(&mouse) && ((mouse.buttons & input::kMouseLeftMask) != 0U);
+}
 
 void press_direction(modules::FrontEnd* front_end, Intake input)
 {
@@ -3013,10 +3020,11 @@ void tick_frame(modules::FrontEnd* front_end)
 
     if (new_frontend_state().guard_) {
         new_frontend_state().guard_time_ += dt;
-        const bool held = get_key_down(SDL_SCANCODE_RETURN) || get_key_down(SDL_SCANCODE_KP_ENTER) ||
-                          get_key_down(SDL_SCANCODE_SPACE) || get_key_down(SDL_SCANCODE_ESCAPE) ||
-                          get_key_down(SDL_SCANCODE_BACKSPACE) || new_frontend_state().buttons_down_ > 0 ||
-                          ((SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK) != 0U);
+        const input::KeyState keys = input::keys();
+        const bool held = get_key_down(keys, SDL_SCANCODE_RETURN) || get_key_down(keys, SDL_SCANCODE_KP_ENTER) ||
+                          get_key_down(keys, SDL_SCANCODE_SPACE) || get_key_down(keys, SDL_SCANCODE_ESCAPE) ||
+                          get_key_down(keys, SDL_SCANCODE_BACKSPACE) || new_frontend_state().buttons_down_ > 0 ||
+                          left_button_down();
         if (!held || new_frontend_state().guard_time_ > kGuardSeconds) {
             new_frontend_state().guard_ = false;
         }

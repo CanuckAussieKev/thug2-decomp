@@ -118,6 +118,67 @@ void read_pad(int port, sio::PadSnapshot* pad)
     }
 }
 
+KeyState keys()
+{
+    for (Source* source : sources()) {
+        const KeyState state = source->keys();
+        if (!state.empty()) {
+            return state;
+        }
+    }
+    return {};
+}
+
+bool mouse(MouseState* out)
+{
+    for (Source* source : sources()) {
+        if (source->mouse(out)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool controller(ControllerState* out)
+{
+    for (Source* source : sources()) {
+        if (source->controller(out)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void set_relative_mouse(bool on)
+{
+    for (Source* source : sources()) {
+        if (source->set_relative_mouse(on)) {
+            return;
+        }
+    }
+}
+
+int show_cursor(int toggle)
+{
+    for (Source* source : sources()) {
+        int shown = 0;
+        if (source->show_cursor(toggle, &shown)) {
+            return shown;
+        }
+    }
+    return -1;
+}
+
+bool window_size(uint32_t window, int* width, int* height)
+{
+    for (Source* source : sources()) {
+        if (source->window_size(window, width, height)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool key_down(int code)
 {
     for (Source* source : sources()) {

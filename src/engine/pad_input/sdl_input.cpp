@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
+#include <limits>
 #include <span>
 #include <vector>
 
@@ -1034,6 +1035,13 @@ void handle_input_event(SDL_Event* event)
     input::deliver(event_for_handlers(*event));
 }
 
+static_assert(input::ControllerState::kAxes == SDL_CONTROLLER_AXIS_MAX && SDL_CONTROLLER_BUTTON_MAX <= std::numeric_limits<uint32_t>::digits,
+              "input::ControllerState holds SDL's axes and buttons");
+static_assert(input::kCursorShow == SDL_ENABLE && input::kCursorHide == SDL_DISABLE && input::kCursorQuery == SDL_QUERY,
+              "input::show_cursor's values are SDL's");
+static_assert(input::kMouseLeftMask == SDL_BUTTON_LMASK && input::kMouseMiddleMask == SDL_BUTTON_MMASK &&
+                  input::kMouseRightMask == SDL_BUTTON_RMASK,
+              "input::MouseState's buttons are SDL's");
 static_assert(input::kMouseLeft == SDL_BUTTON_LEFT && input::kMouseMiddle == SDL_BUTTON_MIDDLE &&
                   input::kMouseRight == SDL_BUTTON_RIGHT,
               "input::Event's mouse buttons are SDL's");
@@ -1215,6 +1223,24 @@ public:
     void begin_poll(int port) override;
     void poll_port(input::PortPoll& poll) override;
     bool rumble(int port, uint16_t high, uint16_t low) override;
+    input::KeyState keys() override { return platform::keyboard_keys(); }
+    bool mouse(input::MouseState* out) override
+    {
+        out->buttons = SDL_GetMouseState(&out->x, &out->y);
+        return true;
+    }
+    bool controller(input::ControllerState* out) override;
+    bool set_relative_mouse(bool on) override
+    {
+        SDL_SetRelativeMouseMode(on ? SDL_TRUE : SDL_FALSE);
+        return true;
+    }
+    bool show_cursor(int toggle, int* shown) override
+    {
+        *shown = SDL_ShowCursor(toggle);
+        return true;
+    }
+    bool window_size(uint32_t window, int* width, int* height) override;
 
 private:
     static void start_sdl_input();
@@ -1272,6 +1298,45 @@ void SdlSource::poll_port(input::PortPoll& poll)
         (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !poll.blocked) {
         poll_controller(poll, core::at(sdl_input_state().players_, port).controller);
     }
+}
+
+// The first attached game controller of those SDL lists (the ones the game's input opened): its axes, then its buttons.
+bool SdlSource::controller(input::ControllerState* out)
+{
+    SDL_GameController* found = nullptr;
+    for (int i = 0; i < SDL_NumJoysticks() && !found; ++i) {
+        if (SDL_IsGameController(i) == SDL_FALSE) {
+            continue;
+        }
+        SDL_GameController* game_controller = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
+        if (game_controller && (SDL_GameControllerGetAttached(game_controller) != SDL_FALSE)) {
+            found = game_controller;
+        }
+    }
+    if (!found) {
+        return false;
+    }
+    for (int axis = 0; axis < input::ControllerState::kAxes; ++axis) {
+        core::at(out->axes, axis) = SDL_GameControllerGetAxis(found, static_cast<SDL_GameControllerAxis>(axis));
+    }
+    out->buttons = 0;
+    for (int button = 0; button < SDL_CONTROLLER_BUTTON_MAX; ++button) {
+        if (SDL_GameControllerGetButton(found, static_cast<SDL_GameControllerButton>(button)) != 0U) {
+            out->buttons |= 1U << button;
+        }
+    }
+    return true;
+}
+
+// The size of the window SDL knows by that id.
+bool SdlSource::window_size(uint32_t window, int* width, int* height)
+{
+    SDL_Window* found = SDL_GetWindowFromID(window);
+    if (!found) {
+        return false;
+    }
+    SDL_GetWindowSize(found, width, height);
+    return true;
 }
 
 // Rumble on the controller playing as `port`.

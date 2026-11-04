@@ -1,7 +1,7 @@
 // The restart tester (devtools/restart_tester.h).
 
 #include "devtools/restart_tester.h"
-#include "platform/keyboard.h"
+#include "engine/pad_input/input_source.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -225,7 +225,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!is_switched_on()) {
         return;
     }
-    const platform::KeyState keys = platform::keyboard_keys();
+    const input::KeyState keys = input::keys();
     const bool down = !keys.empty() && (core::at(keys, kKey) != 0U);
     const bool pressed = down && restart_tester_state().key_up_;
     restart_tester_state().key_up_ = !down;
