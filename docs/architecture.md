@@ -78,6 +78,19 @@ code runs (`online::install_transport_hooks`, game/online/transport_hooks.h): th
 files that still read the session (the hub's `in_net_game`, the player roster, the net-game state: objects, script
 commands, the animation channel, mlp) are the baseline's `engine -> game/online` lines, for rounds 8-10.
 
+**Where the script commands live**: the game's script commands (CFunctions) that read the skater, the session, the goals or the
+parks - `game_cfuncs`, `game_flow_cfuncs`, `game_util_cfuncs`, `trick_cfuncs`, `world_cfuncs`, `net_state_cfuncs`,
+`node_object_cfuncs`, the create-a-graphic and face-texture commands, and the code half of the member-function tables
+(`member_function_code`) - are `game/commands`; the commands that only use the engine stay beside it in
+`engine/script`, `engine/gfx`, `engine/objects`, `engine/ui` and `engine/sound`. The interpreter and the script data
+stay in `engine/script`. The command table itself - the 1,254 commands and the 250 member-function names, in the
+original's order, which is a command's identity in the script symbol tables - is composed in `app/command_table.cpp`,
+the one place that sees every library, and handed to the script engine before any original code runs
+(`app::install_command_tables`; `script::cfunction_table()` is the engine's view of it). The start-up initialisers'
+sequence (`app/startup_init.cpp`) is in `app/` for the same reason. The engine's two uses of node commands (the time of
+day creating an object from a node, the colour cycles setting a node's colour) go through hooks installed by
+`commands::install_node_hooks` (`engine/script/node_hooks.h`).
+
 **The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
 **The boundary layer** is where the game meets bytes it doesn't lay out itself. Only there do byte layouts matter;
