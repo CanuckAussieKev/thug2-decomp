@@ -1,4 +1,4 @@
-// The Win32 platform layer's Direct3D side: see platform_d3d.h.
+// The renderer's Direct3D buffers and queries (the original's Win32 platform layer): see pc_d3d_resources.h.
 
 #include "engine/gfx/pc_d3d_resources.h"
 
@@ -21,7 +21,7 @@ constexpr unsigned kVertexAlignMask = 0x1FU;
 
 namespace {
 
-// NOT ORIGINAL grouping - platform_d3d.cpp's state (the original's globals). Made on first use, never destroyed
+// NOT ORIGINAL grouping - pc_d3d_resources.cpp's state (the original's globals). Made on first use, never destroyed
 // (platform_d3d_state()).
 struct PlatformD3dState {
     IDirect3DVertexBuffer9* dynamic_vertices_{};

@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-// The Win32 platform layer's Direct3D side (0x005F45E0-0x005F5650): the renderer's dynamic vertex buffer (vertices
+// The original's Win32 platform layer's Direct3D side (0x005F45E0-0x005F5650): the renderer's dynamic vertex buffer (vertices
 // written each frame, appended until full, then started again), the quads' index buffer, occlusion queries kept by
 // a key until their answer is read, and releasing it all. (The hash_map, list and vector code between them,
 // 0x005F4890-0x005F5390, is the C++ library's - stdext::hash_map's internals: here a std::unordered_map.)

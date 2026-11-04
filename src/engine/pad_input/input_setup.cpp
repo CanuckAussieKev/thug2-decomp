@@ -1,5 +1,5 @@
-// The Win32 platform layer: input set-up, rumble and the window's message pump, with PartyMod's SDL input and
-// window (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
+// Input set-up and rumble (the original's Win32 platform layer), with PartyMod's SDL input (contains code from
+// PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "engine/pad_input/input_setup.h"
 

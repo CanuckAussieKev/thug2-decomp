@@ -11,7 +11,7 @@
 // - 0x00640AD0 and 0x00640D60 only register exit functions; every initialiser's exit function (atexit: free the
 //   tables, close the mutexes...) is left out - the game ends with ExitProcess (sys::fast_exit), which never runs them.
 // - 0x00644A30: the original's stdext::hash_map of ended occlusion queries (0x007D69FC, the C++ library's): our
-//   platform_d3d.cpp keeps them in a function-local std::unordered_map, constructed on first use.
+//   pc_d3d_resources.cpp keeps them in a function-local std::unordered_map, constructed on first use.
 // - 0x004E1950 (memory::ensure_manager) sits in the slot after the table's end marker (0x0067C140): _cinit never runs it.
 
 #include "engine/sys/startup_init.h"

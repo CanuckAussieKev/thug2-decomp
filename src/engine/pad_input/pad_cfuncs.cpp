@@ -1,4 +1,4 @@
-// Script functions about the platform.
+// Script functions about the input (PartyMod's PS2 controls).
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include "engine/pad_input/pad_cfuncs.h"

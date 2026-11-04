@@ -1,4 +1,4 @@
-// The Win32 platform layer's DirectInput side: see platform_input.h.
+// The DirectInput side of the original's Win32 platform layer: see direct_input.h.
 
 #include "engine/pad_input/direct_input.h"
 
@@ -133,7 +133,7 @@ std::array<PortControls, kPorts>& get_controls()
 }
 constexpr int kKeyNameLength = 15;
 namespace {
-// NOT ORIGINAL grouping - platform_input.cpp's state (the original's globals). Made on first use, never destroyed
+// NOT ORIGINAL grouping - direct_input.cpp's state (the original's globals). Made on first use, never destroyed
 // (platform_input_state()).
 struct PlatformInputState {
     std::array<std::array<wchar_t, kKeyNameLength>, kKeyCount> key_names_{};
