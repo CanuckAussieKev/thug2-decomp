@@ -411,6 +411,35 @@ void MaterialRef::submit_states()
     set_common_states(this);
 }
 
+// A pass's own texture coordinates, untransformed; blending with the pass before: its texture on stage 1.
+void MaterialRef::use_pass_coordinates(uint32_t pass)
+{
+    DWORD transform_flags = 0;
+    DWORD coordinates = 0;
+    renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
+    renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
+    if (transform_flags != 0U) {
+        set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+    }
+    if (coordinates != pass) {
+        set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
+    }
+    const uint32_t blend = core::at(blend_modes_, pass);
+    if (blend == kBlendModeLerpPrevious ||
+        blend == kBlendModeLerpFromPrevious) { // (blending with the pass before: its texture on stage 1)
+        set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+        if (static_cast<int>(pass) > 0) {
+            set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
+            set_texture(1, core::at(textures_, pass - 1)->texture);
+            change_phase(RenderStateId::kAddressMode1, core::at(address_modes_, pass - 1));
+            change_phase(RenderStateId::kMipLodBias1, core::at(mip_lod_bias_, pass - 1));
+        } else {
+            set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
+            set_texture(1, core::at(textures_, pass)->texture);
+        }
+    }
+}
+
 // 0x004D24D0
 void MaterialRef::submit_pass(uint32_t pass, const float* color)
 {
@@ -446,29 +475,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
                 renderer().d3d_device()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
             } else {
-                DWORD transform_flags = 0;
-                DWORD coordinates = 0;
-                renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
-                renderer().d3d_device()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
-                if (transform_flags != 0U) {
-                    set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-                }
-                if (coordinates != pass) {
-                    set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
-                }
-                const uint32_t blend = core::at(blend_modes_, pass);
-                if (blend == kBlendModeLerpPrevious || blend == kBlendModeLerpFromPrevious) { // (blending with the pass before: its texture on stage 1)
-                    set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-                    if (static_cast<int>(pass) > 0) {
-                        set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
-                        set_texture(1, core::at(textures_, pass - 1)->texture);
-                        change_phase(RenderStateId::kAddressMode1, core::at(address_modes_, pass - 1));
-                        change_phase(RenderStateId::kMipLodBias1, core::at(mip_lod_bias_, pass - 1));
-                    } else {
-                        set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
-                        set_texture(1, core::at(textures_, pass)->texture);
-                    }
-                }
+                use_pass_coordinates(pass);
             }
         }
     }

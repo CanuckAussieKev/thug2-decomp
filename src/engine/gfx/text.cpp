@@ -264,11 +264,17 @@ void GlyphRun::draw_key_char(char character, float* pen_x, float pen_y)
             .u = glyph->u1,
             .v = glyph->v0};
     get_vertex_count() += 4;
+    flush_if_full();
+    *pen_x = static_cast<float>((scale_x * spacing) + right);
+}
+
+// A full vertex store drawn and begun again.
+void GlyphRun::flush_if_full()
+{
     if (get_vertex_count() >= kVertexLimit) {
         close_sketch();
         open_sketch();
     }
-    *pen_x = static_cast<float>((scale_x * spacing) + right);
 }
 
 // 0x004CFD00
@@ -448,10 +454,7 @@ void GlyphRun::draw()
             v[3] = {
                 .x = at(x1), .y = at(y1), .z = z(), .rhw = 1.0F, .color = vertex_color, .u = glyph->u1, .v = glyph->v0};
             get_vertex_count() += 4;
-            if (get_vertex_count() >= kVertexLimit) {
-                close_sketch();
-                open_sketch();
-            }
+            flush_if_full();
             pos_x = static_cast<float>((scale_x * glyph_gap) + right);
             if (char_font != font) { // back to this font's texture
                 close_sketch();

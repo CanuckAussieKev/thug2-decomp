@@ -335,6 +335,29 @@ void toggle_fog(bool on) { render::engine::enable_fog(on); }
 constexpr uint32_t kStart = 0x0800; // PS2 control data bytes 2-3 (set while up)
 
 constexpr uint32_t kCross = 0x0040;
+
+// Whether a pad asks to skip the movie: Start released after it was seen up, or Cross pressed again.
+bool skip_pressed(sio::Hub* input, std::array<uint16_t, 4>& seen_up)
+{
+    bool skip = false;
+    for (int port = 0; port < 4 && !skip; ++port) {
+        const sio::InputPort* device = input->get_pad_at_slot(port);
+        if (!device) {
+            continue;
+        }
+        const auto& data = device->control_data();
+        if ((core::at(data, 2) << kBitsPerByte & kStart) != 0U) {
+            core::at(seen_up, port) |= kStart;
+        } else if ((core::at(seen_up, port) & kStart) != 0U) {
+            skip = true;
+        }
+        if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross)) {
+            skip = true;
+        }
+    }
+    return skip;
+}
+
 } // namespace
 
 // 0x0044FDC0
@@ -436,22 +459,7 @@ void play_movie_file(const char* name)
             // PartyMod NOPs the original's "if (frames % 5 != 0) continue;" (0x00450121): the pads are read
             // every frame, so skipping reacts at once.
             input->poll_pads();
-            bool skip = false;
-            for (int port = 0; port < 4 && !skip; ++port) {
-                const sio::InputPort* device = input->get_pad_at_slot(port);
-                if (!device) {
-                    continue;
-                }
-                const auto& data = device->control_data();
-                if ((core::at(data, 2) << kBitsPerByte & kStart) != 0U) {
-                    core::at(seen_up, port) |= kStart;
-                } else if ((core::at(seen_up, port) & kStart) != 0U) {
-                    skip = true;
-                }
-                if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross)) {
-                    skip = true;
-                }
-            }
+            const bool skip = skip_pressed(input, seen_up);
             if (skip) {
                 break;
             }

@@ -351,10 +351,9 @@ void PcParticleSystem::free_resources()
     }
 }
 
-// 0x004BB0C0
-void PcParticleSystem::draw(bool advance)
+// A new burst when the rate changed (or stopping when it's 0).
+void PcParticleSystem::start_or_stop_burst()
 {
-    // A new burst when the rate changed (or stopping when it's 0).
     if (args().rate() == 0.0F || (emitting && args().rate() == newest->rate)) {
         emitting = !(args().rate() == 0.0F);
     } else if (live < capacity) {
@@ -371,6 +370,36 @@ void PcParticleSystem::draw(bool advance)
     } else {
         emitting = false;
     }
+}
+
+// The oldest burst's particles past their lifetime dropped (the burst too when none are left and none are
+// coming): true when no burst is left.
+bool PcParticleSystem::age_out_oldest()
+{
+    ParticleBurst* first = oldest;
+    if (first->age > args().lifetime()) {
+        const int gone = truncate(((static_cast<double>(first->age) - args().lifetime()) * first->rate) + 1.0F);
+        first->count -= gone;
+        if (oldest->count <= 0 && (live != 1 || !emitting)) {
+            --live;
+            oldest = get_next(this, oldest);
+            if (live == 0) {
+                return true;
+            }
+        } else {
+            ParticleBurst* burst = oldest;
+            burst->age = static_cast<float>(burst->age - (static_cast<double>(gone) * burst->period));
+            get_skip(*oldest, gone);
+        }
+    }
+    return false;
+}
+
+// 0x004BB0C0
+void PcParticleSystem::draw(bool advance)
+{
+    // A new burst when the rate changed (or stopping when it's 0).
+    start_or_stop_burst();
     if (live == 0) {
         return;
     }
@@ -384,21 +413,8 @@ void PcParticleSystem::draw(bool advance)
     if (emitting) {
         newest->count = truncate((static_cast<double>(newest->age) * newest->rate) + 1.0F);
     }
-    ParticleBurst* first = oldest;
-    if (first->age > args().lifetime()) {
-        const int gone = truncate(((static_cast<double>(first->age) - args().lifetime()) * first->rate) + 1.0F);
-        first->count -= gone;
-        if (oldest->count <= 0 && (live != 1 || !emitting)) {
-            --live;
-            oldest = get_next(this, oldest);
-            if (live == 0) {
-                return;
-            }
-        } else {
-            ParticleBurst* burst = oldest;
-            burst->age = static_cast<float>(burst->age - (static_cast<double>(gone) * burst->period));
-            get_skip(*oldest, gone);
-        }
+    if (age_out_oldest()) {
+        return;
     }
     if (!args().local_positions()) {
         const maths::Vec4 centre = {.x = bound_ball().x, .y = bound_ball().y, .z = bound_ball().z, .w = 0.0F};

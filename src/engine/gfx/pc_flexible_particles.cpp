@@ -495,23 +495,12 @@ PcFlatRibbonParticles::PcFlatRibbonParticles(uint32_t name, int particle_cap, ui
 // 0x004BDD60
 PcFlatRibbonParticles::~PcFlatRibbonParticles() { free_material(material); }
 
-// 0x004BDDD0
-void PcFlatRibbonParticles::render()
+// The ribbons (untextured): each particle's segments as quads, in batches of the dynamic vertex buffer.
+void PcFlatRibbonParticles::draw_ribbons(const std::array<double, 3>& view_z, uint32_t particle_bytes)
 {
-    if (particle_count() <= 0) {
-        return;
-    }
-    const double row0_z = core::at(renderer().view_matrix().row, 0).z;
-    const double row1_z = core::at(renderer().view_matrix().row, 1).z;
-    const double row2_z = core::at(renderer().view_matrix().row, 2).z;
-    maths::Vec4 right;
-    maths::Vec4 u;
-    camera_axes(right, u);
-    const uint32_t particle_bytes = (segments() - 1) * 16;
-    set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
-
+    const double row0_z = core::at(view_z, 0);
+    const double row1_z = core::at(view_z, 1);
+    const double row2_z = core::at(view_z, 2);
     // The ribbons.
     core::Cursor<const FlexibleParticle> particle(particle_list());
     int remaining = (segments() - 1) * particle_count() * 4;
@@ -609,13 +598,33 @@ void PcFlatRibbonParticles::render()
                                            triangles);
         renderer().count_draw(triangles);
     }
+}
+
+// 0x004BDDD0
+void PcFlatRibbonParticles::render()
+{
+    if (particle_count() <= 0) {
+        return;
+    }
+    const double row0_z = core::at(renderer().view_matrix().row, 0).z;
+    const double row1_z = core::at(renderer().view_matrix().row, 1).z;
+    const double row2_z = core::at(renderer().view_matrix().row, 2).z;
+    maths::Vec4 right;
+    maths::Vec4 u;
+    camera_axes(right, u);
+    const uint32_t particle_bytes = (segments() - 1) * 16;
+    set_material(material->material());
+    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
+
+    draw_ribbons({{row0_z, row1_z, row2_z}}, particle_bytes);
 
     // The heads.
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(default_pixel_shader(), nullptr);
-    particle = core::Cursor<const FlexibleParticle>(particle_list());
-    remaining = particle_count() * 4;
-    index = 0;
+    core::Cursor<const FlexibleParticle> particle(particle_list());
+    int remaining = particle_count() * 4;
+    int index = 0;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0;

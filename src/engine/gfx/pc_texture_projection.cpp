@@ -173,6 +173,141 @@ void draw_projection_batches()
     batch_count() = 0;
 }
 
+namespace {
+
+// A strip triangle's three vertex indices.
+struct StripCorners {
+    uint32_t ia;
+    uint32_t ib;
+    uint32_t ic;
+};
+
+// One strip triangle of a mesh projected onto: in front of the projection and inside its square, into the
+// texture's batch (taken the first time) - split finer first with a fineness, the pieces inside kept. True when
+// a full batch ends the projection (the buffers left locked).
+bool project_triangle(PcTextureProjection* projector, ProjectionBatch*& batch, MeshRef* mesh,
+                      const gpu::VertexView& mesh_vertices, StripCorners corners)
+{
+    const uint32_t ia = corners.ia;
+    const uint32_t ib = corners.ib;
+    const uint32_t ic = corners.ic;
+    const std::array<float, 3> a0 = mesh_vertices.float3(ia);
+    const std::array<float, 3> a1 = mesh_vertices.float3(ib);
+    const std::array<float, 3> a2 = mesh_vertices.float3(ic);
+    std::array<float, 3> t0{};
+    std::array<float, 3> t1{};
+    std::array<float, 3> t2{};
+    transform_coord(t0.data(), a0.data(), &projector->projection());
+    transform_coord(t1.data(), a1.data(), &projector->projection());
+    transform_coord(t2.data(), a2.data(), &projector->projection());
+    if (core::at(t0, 2) < -1.0F && core::at(t1, 2) < -1.0F && core::at(t2, 2) < -1.0F) { // (wholly behind)
+        return false;
+    }
+    if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0),
+                                  core::at(t2, 1))) {
+        return false;
+    }
+    if (!batch) { // (null when all ten are taken: the original wrote near null, and so do we)
+        batch = get_projection_batch(image_of(projector->bitmap()), projector->blend_mode());
+    }
+    // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
+    uint32_t count = batch->triangle_count();
+    // (a batch left full by the last projection: the original wrote the triangle past its vertices)
+    if ((3 * count) + 2 >= kBatchVertices) {
+        return true; // (the buffers left locked, as for a batch filled by this one)
+    }
+    ProjectedVertex& v0 = core::at(batch->vertices(), 3 * count);
+    ProjectedVertex& v1 = core::at(batch->vertices(), (3 * count) + 1);
+    ProjectedVertex& v2 = core::at(batch->vertices(), (3 * count) + 2);
+    v0.position = a0;
+    v1.position = a1;
+    v2.position = a2;
+    v0.uv = {to_uv(core::at(t0, 0)), to_uv(core::at(t0, 1))};
+    v1.uv = {to_uv(core::at(t1, 0)), to_uv(core::at(t1, 1))};
+    v2.uv = {to_uv(core::at(t2, 0)), to_uv(core::at(t2, 1))};
+    const uint32_t colour_offset = mesh->color_offset();
+    v0.argb = opaque(mesh_vertices.word(ia, colour_offset));
+    v1.argb = opaque(mesh_vertices.word(ib, colour_offset));
+    v2.argb = opaque(mesh_vertices.word(ic, colour_offset));
+    uint8_t* pieces = nullptr;
+    core::Cursor<uint8_t> end;
+    MeshRef* format = nullptr;
+    if (projector->fineness() != 0U) {
+        // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
+        const auto& p0 = v0.position;
+        const auto& p1 = v1.position;
+        const auto& p2 = v2.position;
+        const double e1z = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
+        const double e1y = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
+        const double e1x = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
+        auto e2z = static_cast<float>(static_cast<double>(core::at(p2, 2)) - core::at(p0, 2));
+        auto e2y = static_cast<float>(static_cast<double>(core::at(p2, 1)) - core::at(p0, 1));
+        const double e2x = static_cast<double>(core::at(p2, 0)) - core::at(p0, 0);
+        auto cz = static_cast<float>((e2y * e1x) - (e2x * e1y));
+        auto cy = static_cast<float>((e2x * e1z) - (e2z * e1x));
+        const double cx = (e2z * e1y) - (e2y * e1z);
+        const double total = (static_cast<double>(cy) * cy) + (static_cast<double>(cz) * cz) + (cx * cx);
+        effects_state().set_split_area_limit(
+            static_cast<float>(total / (static_cast<double>(projector->fineness()) * kFinenessScale)));
+        effects_state().vertex_stack() = VertexStack{}; // (emptied)
+        effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
+        push_vertex(v0);
+        push_vertex(v1);
+        push_vertex(v2);
+        pieces = static_cast<uint8_t*>(memory::alloc(kPieceBufferBytes));
+        std::memset(pieces, 0, kPieceBufferBytes);
+        void* memory = memory::alloc(sizeof(MeshRef));
+        format = memory ? memory::construct_in<MeshRef>(memory) : nullptr;
+        format->set_color_offset(offsetof(ProjectedVertex, argb)); // (no check: as the original)
+        format->set_uv_offset(offsetof(ProjectedVertex, uv));
+        end = core::Cursor<uint8_t>(std::span<uint8_t>(pieces, kPieceBufferBytes));
+        while (split_next_triangle(end, format)) {
+            ;
+        }
+    }
+    // the pieces inside the projection's square, each into the batch's next triangle
+    bool full = false;
+    auto place = [&](const Triangle& piece) {
+        if (!triangle_overlaps_screen(
+                from_uv(core::at(core::at(piece, 0).uv, 0)), from_uv(core::at(core::at(piece, 0).uv, 1)),
+                from_uv(core::at(core::at(piece, 1).uv, 0)), from_uv(core::at(core::at(piece, 1).uv, 1)),
+                from_uv(core::at(core::at(piece, 2).uv, 0)), from_uv(core::at(core::at(piece, 2).uv, 1)))) {
+            return;
+        }
+        copy_triangle(std::span<ProjectedVertex>(batch->vertices()).subspan(3 * static_cast<size_t>(count), 3), piece);
+        ++count;
+        full = (3 * count) + 2 >= kBatchVertices;
+    };
+    if (projector->fineness() != 0U) {
+        // the pieces (made by the splitter as bytes, a projected vertex each)
+        const auto made_count = static_cast<size_t>(end.position()) / sizeof(ProjectedVertex);
+        const gpu::VertexView made(pieces, sizeof(ProjectedVertex), made_count);
+        for (size_t first = 0; first + 2 < made_count && !full; first += 3) {
+            place({{made.value<ProjectedVertex>(first, 0), made.value<ProjectedVertex>(first + 1, 0),
+                    made.value<ProjectedVertex>(first + 2, 0)}});
+        }
+    } else {
+        place({{v0, v1, v2}});
+    }
+    batch->set_triangle_count(count);
+    if (!full) {
+        batch->set_blend_name(projector->blend_mode());
+    }
+    if (projector->fineness() != 0U) {
+        if (format) {
+            format->~MeshRef(); // (its destructor body)
+            memory::Hub::dealloc(format);
+        }
+        memory::Hub::dealloc(pieces);
+    }
+    if (full) {
+        return true; // (the buffers left locked, as the original)
+    }
+    return false;
+}
+
+} // namespace
+
 // 0x004C7620
 void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
 {
@@ -205,116 +340,8 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 if (ia == ib || ia == ic || ib == ic) {
                     continue;
                 }
-                const std::array<float, 3> a0 = mesh_vertices.float3(ia);
-                const std::array<float, 3> a1 = mesh_vertices.float3(ib);
-                const std::array<float, 3> a2 = mesh_vertices.float3(ic);
-                std::array<float, 3> t0{};
-                std::array<float, 3> t1{};
-                std::array<float, 3> t2{};
-                transform_coord(t0.data(), a0.data(), &projection());
-                transform_coord(t1.data(), a1.data(), &projection());
-                transform_coord(t2.data(), a2.data(), &projection());
-                if (core::at(t0, 2) < -1.0F && core::at(t1, 2) < -1.0F && core::at(t2, 2) < -1.0F) { // (wholly behind)
-                    continue;
-                }
-                if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1),
-                                              core::at(t2, 0), core::at(t2, 1))) {
-                    continue;
-                }
-                if (!batch) { // (null when all ten are taken: the original wrote near null, and so do we)
-                    batch = get_projection_batch(image_of(bitmap()), blend_mode());
-                }
-                // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
-                uint32_t count = batch->triangle_count();
-                // (a batch left full by the last projection: the original wrote the triangle past its vertices)
-                if ((3 * count) + 2 >= kBatchVertices) {
-                    return; // (the buffers left locked, as for a batch filled by this one)
-                }
-                ProjectedVertex& v0 = core::at(batch->vertices(), 3 * count);
-                ProjectedVertex& v1 = core::at(batch->vertices(), (3 * count) + 1);
-                ProjectedVertex& v2 = core::at(batch->vertices(), (3 * count) + 2);
-                v0.position = a0;
-                v1.position = a1;
-                v2.position = a2;
-                v0.uv = {to_uv(core::at(t0, 0)), to_uv(core::at(t0, 1))};
-                v1.uv = {to_uv(core::at(t1, 0)), to_uv(core::at(t1, 1))};
-                v2.uv = {to_uv(core::at(t2, 0)), to_uv(core::at(t2, 1))};
-                const uint32_t colour_offset = mesh->color_offset();
-                v0.argb = opaque(mesh_vertices.word(ia, colour_offset));
-                v1.argb = opaque(mesh_vertices.word(ib, colour_offset));
-                v2.argb = opaque(mesh_vertices.word(ic, colour_offset));
-                uint8_t* pieces = nullptr;
-                core::Cursor<uint8_t> end;
-                MeshRef* format = nullptr;
-                if (fineness() != 0U) {
-                    // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
-                    const auto& p0 = v0.position;
-                    const auto& p1 = v1.position;
-                    const auto& p2 = v2.position;
-                    const double e1z = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
-                    const double e1y = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
-                    const double e1x = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
-                    auto e2z = static_cast<float>(static_cast<double>(core::at(p2, 2)) - core::at(p0, 2));
-                    auto e2y = static_cast<float>(static_cast<double>(core::at(p2, 1)) - core::at(p0, 1));
-                    const double e2x = static_cast<double>(core::at(p2, 0)) - core::at(p0, 0);
-                    auto cz = static_cast<float>((e2y * e1x) - (e2x * e1y));
-                    auto cy = static_cast<float>((e2x * e1z) - (e2z * e1x));
-                    const double cx = (e2z * e1y) - (e2y * e1z);
-                    const double total = (static_cast<double>(cy) * cy) + (static_cast<double>(cz) * cz) + (cx * cx);
-                    effects_state().set_split_area_limit(static_cast<float>(total / (static_cast<double>(fineness()) * kFinenessScale)));
-                    effects_state().vertex_stack() = VertexStack{}; // (emptied)
-                    effects_state().vertex_stack().set_vertex_size(sizeof(ProjectedVertex));
-                    push_vertex(v0);
-                    push_vertex(v1);
-                    push_vertex(v2);
-                    pieces = static_cast<uint8_t*>(memory::alloc(kPieceBufferBytes));
-                    std::memset(pieces, 0, kPieceBufferBytes);
-                    void* memory = memory::alloc(sizeof(MeshRef));
-                    format = memory ? memory::construct_in<MeshRef>(memory) : nullptr;
-                    format->set_color_offset(offsetof(ProjectedVertex, argb)); // (no check: as the original)
-                    format->set_uv_offset(offsetof(ProjectedVertex, uv));
-                    end = core::Cursor<uint8_t>(std::span<uint8_t>(pieces, kPieceBufferBytes));
-                    while (split_next_triangle(end, format)) {
-                        ;
-                    }
-                }
-                // the pieces inside the projection's square, each into the batch's next triangle
-                bool full = false;
-                auto place = [&](const Triangle& piece) {
-                    if (!triangle_overlaps_screen(
-                            from_uv(core::at(core::at(piece, 0).uv, 0)), from_uv(core::at(core::at(piece, 0).uv, 1)),
-                            from_uv(core::at(core::at(piece, 1).uv, 0)), from_uv(core::at(core::at(piece, 1).uv, 1)),
-                            from_uv(core::at(core::at(piece, 2).uv, 0)), from_uv(core::at(core::at(piece, 2).uv, 1)))) {
-                        return;
-                    }
-                    copy_triangle(std::span<ProjectedVertex>(batch->vertices()).subspan(3 * static_cast<size_t>(count), 3), piece);
-                    ++count;
-                    full = (3 * count) + 2 >= kBatchVertices;
-                };
-                if (fineness() != 0U) {
-                    // the pieces (made by the splitter as bytes, a projected vertex each)
-                    const auto made_count = static_cast<size_t>(end.position()) / sizeof(ProjectedVertex);
-                    const gpu::VertexView made(pieces, sizeof(ProjectedVertex), made_count);
-                    for (size_t first = 0; first + 2 < made_count && !full; first += 3) {
-                        place({{made.value<ProjectedVertex>(first, 0), made.value<ProjectedVertex>(first + 1, 0),
-                                made.value<ProjectedVertex>(first + 2, 0)}});
-                    }
-                } else {
-                    place({{v0, v1, v2}});
-                }
-                batch->set_triangle_count(count);
-                if (!full) {
-                    batch->set_blend_name(blend_mode());
-                }
-                if (fineness() != 0U) {
-                    if (format) {
-                        format->~MeshRef(); // (its destructor body)
-                        memory::Hub::dealloc(format);
-                    }
-                    memory::Hub::dealloc(pieces);
-                }
-                if (full) {
-                    return; // (the buffers left locked, as the original)
+                if (project_triangle(this, batch, mesh, mesh_vertices, {.ia = ia, .ib = ib, .ic = ic})) {
+                    return;
                 }
             }
             core::at(mesh->index_buffers(), 0)->get_unlock(); // (unlocked)

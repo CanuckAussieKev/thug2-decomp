@@ -161,6 +161,33 @@ int clamp_column(const WeatherRow& row, int x)
     return column;
 }
 
+// The ground's height (16ths) under a grid cell's corner `at`: a feeler from far above to far below (kNoGround
+// when it hits nothing).
+int ground_height_at(ProbeRay& feeler, maths::Vec4 at)
+{
+    feeler.change_origin(&at);
+    at.y = -kProbeHeight;
+    feeler.change_finish(&at);
+    const int height = (feeler.get_hit_shape(false, false) != 0)
+                           ? ftol(static_cast<double>(feeler.contact_pos().y) * 16.0F)
+                           : kNoGround;
+    return height;
+}
+
+// The height level already known that `height` is within kMaxHeightDifference of (-1: none).
+int matching_level(std::span<const int> known, int height)
+{
+    int found = -1;
+    for (int i = 0; std::cmp_less(i, known.size()); ++i) {
+        const int difference = core::at(known, static_cast<size_t>(i)) - height;
+        if ((difference < 0 ? -difference : difference) < kMaxHeightDifference) {
+            found = i;
+            break;
+        }
+    }
+    return found;
+}
+
 } // namespace
 
 // 0x004CC560
@@ -587,21 +614,9 @@ void PcWeather::tick_grid()
         auto at_z = static_cast<float>(cell_z << kCellShift);
         for (int cell_x = min_x; cell_x <= max_x; ++cell_x) {
             const int index = (width * row) - min_x + cell_x;
-            maths::Vec4 at = {.x = static_cast<float>(cell_x << kCellShift), .y = kProbeHeight, .z = at_z, .w = 1.0F};
-            feeler.change_origin(&at);
-            at.y = -kProbeHeight;
-            feeler.change_finish(&at);
-            const int height = (feeler.get_hit_shape(false, false) != 0)
-                                   ? ftol(static_cast<double>(feeler.contact_pos().y) * 16.0F)
-                                   : kNoGround;
-            int found = -1;
-            for (int i = 0; i < levels; ++i) {
-                const int difference = core::at(heights, i) - height;
-                if ((difference < 0 ? -difference : difference) < kMaxHeightDifference) {
-                    found = i;
-                    break;
-                }
-            }
+            const int height = ground_height_at(
+                feeler, {.x = static_cast<float>(cell_x << kCellShift), .y = kProbeHeight, .z = at_z, .w = 1.0F});
+            const int found = matching_level(std::span<const int>(heights).first(static_cast<size_t>(levels)), height);
             if (found >= 0) {
                 core::at(grid, index) = static_cast<uint8_t>(found);
             } else {

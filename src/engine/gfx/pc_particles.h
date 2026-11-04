@@ -77,6 +77,11 @@ struct PcParticleSystem final : Sparkle {
     [[nodiscard]] std::span<ParticleBurst> burst_ring() const { return {bursts, static_cast<std::size_t>(capacity)}; }
 
 private:
+    // (Parts of 0x004BB0C0, draw: a new burst when the rate changed, or stopping when it's 0; the oldest burst's
+    // particles past their lifetime dropped - true when no burst is left.)
+    void start_or_stop_burst();
+    bool age_out_oldest();
+
     bool emitting{}; // +0x190
     std::array<uint8_t, 3> unknown191{};
     int capacity{};          // +0x194: bursts (5)

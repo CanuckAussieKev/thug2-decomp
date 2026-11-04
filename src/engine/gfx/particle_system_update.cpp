@@ -278,6 +278,58 @@ void EmitterInstance::get_emit(int count)
     }
 }
 
+// SetColor: a corner's (or every corner's) end, mid and start colours, the channels given (the end set from the
+// start unless it was given); the mid time.
+void EmitterInstance::set_colours(script::Struct* params)
+{
+    int first = 0;
+    int last = 0;
+    int value = 0;
+    if (params->fetch_int_value(kCorner, &value, 0)) {
+        first = last = value;
+    } else {
+        first = 0;
+        last = get_num_colours() - 1;
+    }
+    if (first < get_num_colours() && last < get_num_colours()) {
+        for (int i = first; i < last + 1; ++i) {
+            if (i >= get_num_colours()) {
+                continue;
+            }
+            colour::Bytes end = colour::bytes_of(core::at(end_colour_, i));
+            colour::Bytes mid = colour::bytes_of(core::at(mid_colour_, i));
+            colour::Bytes start = colour::bytes_of(core::at(start_colour_, i));
+            for (int k = 0; k < 4; ++k) {
+                if (params->fetch_int_value(core::at(kEndChannels, k), &value, 0)) {
+                    core::at(end, k) =
+                        k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1) : static_cast<uint8_t>(value);
+                    end_colour_set_ = true;
+                }
+            }
+            for (int k = 0; k < 4; ++k) {
+                if (params->fetch_int_value(core::at(kMidChannels, k), &value, 0)) {
+                    core::at(mid, k) =
+                        k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1) : static_cast<uint8_t>(value);
+                }
+            }
+            for (int k = 0; k < 4; ++k) { // (the end too, unless it was given)
+                if (params->fetch_int_value(core::at(kStartChannels, k), &value, 0)) {
+                    const uint8_t byte =
+                        k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1) : static_cast<uint8_t>(value);
+                    core::at(start, k) = byte;
+                    if (!end_colour_set_) {
+                        core::at(end, k) = byte;
+                    }
+                }
+            }
+            core::at(end_colour_, i) = colour::packed_of(end);
+            core::at(mid_colour_, i) = colour::packed_of(mid);
+            core::at(start_colour_, i) = colour::packed_of(start);
+        }
+    }
+    params->fetch_float(kMidTime, &colour_mid_, 0);
+}
+
 // 0x00497B00
 bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
@@ -324,52 +376,7 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
         break;
     }
     case kSetColor: {
-        int first = 0;
-        int last = 0;
-        int value = 0;
-        if (params->fetch_int_value(kCorner, &value, 0)) {
-            first = last = value;
-        } else {
-            first = 0;
-            last = get_num_colours() - 1;
-        }
-        if (first < get_num_colours() && last < get_num_colours()) {
-            for (int i = first; i < last + 1; ++i) {
-                if (i >= get_num_colours()) {
-                    continue;
-                }
-                colour::Bytes end = colour::bytes_of(core::at(end_colour_, i));
-                colour::Bytes mid = colour::bytes_of(core::at(mid_colour_, i));
-                colour::Bytes start = colour::bytes_of(core::at(start_colour_, i));
-                for (int k = 0; k < 4; ++k) {
-                    if (params->fetch_int_value(core::at(kEndChannels, k), &value, 0)) {
-                        core::at(end, k) = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
-                                                  : static_cast<uint8_t>(value);
-                        end_colour_set_ = true;
-                    }
-                }
-                for (int k = 0; k < 4; ++k) {
-                    if (params->fetch_int_value(core::at(kMidChannels, k), &value, 0)) {
-                        core::at(mid, k) = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
-                                                  : static_cast<uint8_t>(value);
-                    }
-                }
-                for (int k = 0; k < 4; ++k) { // (the end too, unless it was given)
-                    if (params->fetch_int_value(core::at(kStartChannels, k), &value, 0)) {
-                        const uint8_t byte = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
-                                                    : static_cast<uint8_t>(value);
-                        core::at(start, k) = byte;
-                        if (!end_colour_set_) {
-                            core::at(end, k) = byte;
-                        }
-                    }
-                }
-                core::at(end_colour_, i) = colour::packed_of(end);
-                core::at(mid_colour_, i) = colour::packed_of(mid);
-                core::at(start_colour_, i) = colour::packed_of(start);
-            }
-        }
-        params->fetch_float(kMidTime, &colour_mid_, 0);
+        set_colours(params);
         break;
     }
     case kEmpty:

@@ -143,6 +143,9 @@ struct EmitterInstance : objects::SharedBase {
     void set_unknown133(bool value) { unknown133_ = value; }
 
 private:
+    // (Part of 0x00497B00, invoke_method_by_name: SetColor's corners - their end, mid and start colours.)
+    void set_colours(script::Struct* params);
+
     uint32_t unknown08{};
     memory::ListNode list_link_{};      // +0x0C: in the particle manager's list (data: the system)
     maths::Vec4 at_point_{};            // +0x20: the emitter

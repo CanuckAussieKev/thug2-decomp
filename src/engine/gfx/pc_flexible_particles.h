@@ -77,6 +77,10 @@ public:
     // 0x004BDDD0 (vtable slot 1): the ribbons (untextured), then the heads (the default pixel shader); a draw that
     // fills the buffer to within four vertices of its room stops that pass undrawn, as the original. No emission.
     void render() override;
+
+private:
+    // (Part of 0x004BDDD0, render: the ribbons, along the view matrix's z column `view_z`.)
+    void draw_ribbons(const std::array<double, 3>& view_z, uint32_t particle_bytes);
 };
 
 // The "glow" type (0x150 bytes, vtable 0x0064A540; the engine's class 0x004995B0 -

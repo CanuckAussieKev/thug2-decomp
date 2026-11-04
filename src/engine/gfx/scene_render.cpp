@@ -146,6 +146,65 @@ int compare_distances(const void* a, const void* b)
     return 0;
 }
 
+namespace {
+
+// The shadows on the meshes a pass drew: no depth writes, no anisotropic filtering meanwhile.
+void draw_pass_shadows(SceneRef* scene, Lap& pass)
+{
+    if (renderer().z_write() == 1) {
+        render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
+        renderer().set_z_write(0);
+    }
+    DWORD min_filter = 0;
+    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    if (min_filter == D3DTEXF_ANISOTROPIC) {
+        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    }
+    draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
+    if (min_filter == D3DTEXF_ANISOTROPIC) {
+        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+    }
+    if (renderer().z_write() == 0U) {
+        render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
+        renderer().set_z_write(1);
+    }
+}
+
+// A scene's flagged transparent meshes sorted by depth, from `index` on; then the rest.
+void draw_flagged_and_rest(SceneRef* scene, Lap& pass, int& index)
+{
+    // The flagged ones, sorted by depth.
+    const int end = scene->first_flagged() + scene->flagged_count();
+    int sorted = 0;
+    for (; index < end; ++index) {
+        MeshRef* mesh = core::at(scene->mesh_run(), index);
+        if (!pass.get_visible(mesh)) {
+            continue;
+        }
+        pass.remember(mesh);
+        core::at(get_sorted(), sorted).mesh = mesh;
+        core::at(get_sorted(), sorted).depth = view_setup().last_sphere_distance();
+        ++sorted;
+    }
+    if (sorted > 0) {
+        get_qsort(get_sorted().data(), sorted, sizeof(DepthOrderedMesh), &compare_distances);
+        for (int sorted_index = 0; sorted_index < sorted; ++sorted_index) {
+            pass.blit(core::at(get_sorted(), sorted_index).mesh);
+        }
+    }
+    // Then the rest.
+    for (; index < scene->mesh_count(); ++index) {
+        MeshRef* mesh = core::at(scene->mesh_run(), index);
+        if (!pass.get_visible(mesh)) {
+            continue;
+        }
+        pass.blit(mesh);
+        pass.remember(mesh);
+    }
+}
+
+} // namespace
+
 // 0x004DC700
 void draw_scene(SceneRef* scene, ScenePass scene_pass)
 {
@@ -198,23 +257,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
             }
         }
         if ((scene->flags() & kSceneFlagShadows) != 0U) { // shadows on the meshes drawn
-            if (renderer().z_write() == 1) {
-                render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
-                renderer().set_z_write(0);
-            }
-            DWORD min_filter = 0;
-            renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-            if (min_filter == D3DTEXF_ANISOTROPIC) {
-                renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-            }
-            draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
-            if (min_filter == D3DTEXF_ANISOTROPIC) {
-                renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            }
-            if (renderer().z_write() == 0U) {
-                render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
-                renderer().set_z_write(1);
-            }
+            draw_pass_shadows(scene, pass);
         }
         pass.forget_drawn();
         if ((flags & kRenderStats) != 0U) {
@@ -236,34 +279,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
         pass.remember(mesh);
     }
     if (scene->flagged_count() > 0) {
-        // The flagged ones, sorted by depth.
-        const int end = scene->first_flagged() + scene->flagged_count();
-        int sorted = 0;
-        for (; index < end; ++index) {
-            MeshRef* mesh = core::at(scene->mesh_run(), index);
-            if (!pass.get_visible(mesh)) {
-                continue;
-            }
-            pass.remember(mesh);
-            core::at(get_sorted(), sorted).mesh = mesh;
-            core::at(get_sorted(), sorted).depth = view_setup().last_sphere_distance();
-            ++sorted;
-        }
-        if (sorted > 0) {
-            get_qsort(get_sorted().data(), sorted, sizeof(DepthOrderedMesh), &compare_distances);
-            for (int sorted_index = 0; sorted_index < sorted; ++sorted_index) {
-                pass.blit(core::at(get_sorted(), sorted_index).mesh);
-            }
-        }
-        // Then the rest.
-        for (; index < scene->mesh_count(); ++index) {
-            MeshRef* mesh = core::at(scene->mesh_run(), index);
-            if (!pass.get_visible(mesh)) {
-                continue;
-            }
-            pass.blit(mesh);
-            pass.remember(mesh);
-        }
+        draw_flagged_and_rest(scene, pass, index);
     }
     if ((scene->flags() & kSceneFlagShadows) != 0U) {
         draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));

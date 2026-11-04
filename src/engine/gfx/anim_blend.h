@@ -180,6 +180,9 @@ public:
     // Pieces of invoke_method_by_name: wait_anim (0x74CF5C94), 0x922E7D14 (whether a time was passed this frame) and
     // 0xC68365EB (anim and its length to a timeline's controllers).
     int wait_anim(script::Struct* params);
+    // (Parts of 0x0047FA00, invoke_method_by_name: a timeline's info to the script; Flip.)
+    int add_timeline_info_from_script(script::Struct* params, script::Script* script);
+    int flip_from_script(uint32_t name, script::Struct* params, script::Script* script);
     int time_passed(script::Struct* params);
     int pass_anim_to_timeline(script::Struct* params, script::Script* script);
 

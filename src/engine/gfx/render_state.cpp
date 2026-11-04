@@ -161,6 +161,51 @@ constexpr float k255 = 255.0F;                                      // 0x00646B8
 // The CRT's _ftol (0x006236FC): truncation, as a 64-bit integer.
 int64_t ftol(double value) { return static_cast<int64_t>(value); }
 
+// A sampler's address modes (u in the low half, v in the high one), each set when it changed.
+void change_address_mode(RenderStateId state, uint32_t value)
+{
+    const int sampler = sampler_of(state, RenderStateId::kAddressMode0);
+    uint32_t& cached = core::at(address_modes(), sampler);
+    const uint32_t u = value & 0xFFFF;
+    if (u != (cached & kLowHalfMask)) {
+        DWORD address = 0;
+        if (address_value(u, &address)) {
+            set_sampler(sampler, D3DSAMP_ADDRESSU, address);
+        }
+        cached = (cached & kHighHalfMask) | u;
+    }
+    const uint32_t v = value & 0xFFFF0000;
+    if (v == (cached & kHighHalfMask)) {
+        return;
+    }
+    DWORD address = 0;
+    if (address_value(v >> kHalfBits, &address)) {
+        set_sampler(sampler, D3DSAMP_ADDRESSV, address);
+    }
+    cached = (cached & kLowHalfMask) | v;
+}
+
+// A sampler's filters (the magnification in the high half, the minification in the low one), each set when it
+// changed.
+void change_filter(RenderStateId state, uint32_t value)
+{
+    const int sampler = sampler_of(state, RenderStateId::kFilter0);
+    uint32_t& cached = core::at(filters(), sampler);
+    const uint32_t mag = value & 0xFFFF0000;
+    if (mag != (cached & kHighHalfMask)) {
+        set_sampler(sampler, D3DSAMP_MAGFILTER, ((value & kMagLinearBit) != 0U) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+        cached = (cached & kLowHalfMask) | mag;
+    }
+    const uint32_t min = value & 0xFFFF;
+    if (min != (cached & kLowHalfMask)) {
+        // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic in place of linear.
+        // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
+        set_sampler(sampler, D3DSAMP_MINFILTER,
+                    graphics_options::get_min_filter((value & 1) != 0, graphics_options::active_anisotropy()));
+        cached = (cached & kHighHalfMask) | min;
+    }
+}
+
 } // namespace
 
 // 0x004DAB60
@@ -210,25 +255,7 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kAddressMode1:
     case RenderStateId::kAddressMode2:
     case RenderStateId::kAddressMode3: {
-        const int sampler = sampler_of(state, RenderStateId::kAddressMode0);
-        uint32_t& cached = core::at(address_modes(), sampler);
-        const uint32_t u = value & 0xFFFF;
-        if (u != (cached & kLowHalfMask)) {
-            DWORD address = 0;
-            if (address_value(u, &address)) {
-                set_sampler(sampler, D3DSAMP_ADDRESSU, address);
-            }
-            cached = (cached & kHighHalfMask) | u;
-        }
-        const uint32_t v = value & 0xFFFF0000;
-        if (v == (cached & kHighHalfMask)) {
-            return;
-        }
-        DWORD address = 0;
-        if (address_value(v >> kHalfBits, &address)) {
-            set_sampler(sampler, D3DSAMP_ADDRESSV, address);
-        }
-        cached = (cached & kLowHalfMask) | v;
+        change_address_mode(state, value);
         return;
     }
     case RenderStateId::kMipLodBias0:
@@ -291,21 +318,7 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kFilter1:
     case RenderStateId::kFilter2:
     case RenderStateId::kFilter3: {
-        const int sampler = sampler_of(state, RenderStateId::kFilter0);
-        uint32_t& cached = core::at(filters(), sampler);
-        const uint32_t mag = value & 0xFFFF0000;
-        if (mag != (cached & kHighHalfMask)) {
-            set_sampler(sampler, D3DSAMP_MAGFILTER, ((value & kMagLinearBit) != 0U) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-            cached = (cached & kLowHalfMask) | mag;
-        }
-        const uint32_t min = value & 0xFFFF;
-        if (min != (cached & kLowHalfMask)) {
-            // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic in place of linear.
-            // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
-            set_sampler(sampler, D3DSAMP_MINFILTER,
-                        graphics_options::get_min_filter((value & 1) != 0, graphics_options::active_anisotropy()));
-            cached = (cached & kHighHalfMask) | min;
-        }
+        change_filter(state, value);
         return;
     }
     case RenderStateId::kLocalViewer:

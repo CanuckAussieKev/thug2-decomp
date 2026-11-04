@@ -63,6 +63,64 @@ void spin_around_z(Vector4& v, float angle) { v.rotate_about_z(angle); }
 // The original's _ftol (0x006236FC): truncated towards zero, as a 64-bit integer.
 int64_t get_truncated(double value) { return static_cast<int64_t>(value); }
 
+// A sprite's left and right edges (in the layout, or on the screen).
+struct SpriteEdges {
+    float left;
+    float right;
+};
+
+// An upright sprite's sides in the widescreen front end: each edge reaching past its layout edge goes to the
+// screen's edge.
+void stretch_upright_sides(SpriteEdges layout, SpriteEdges& screen, float screen_right)
+{
+    if (layout.left <= 0.0F && layout.right > 0.0F) {
+        screen.left = 0.0F;
+    }
+    if (layout.right >= kLayoutWidth && layout.left < kLayoutWidth) {
+        screen.right = screen_right;
+    }
+}
+
+// A turned sprite's sides in the widescreen front end: its left side is its two leftmost corners in the layout, the
+// right side the two rightmost; each side reaching past its layout edge goes to the screen's edge (only when the
+// sprite overlaps the layout).
+void stretch_turned_sides(std::array<Vertex, 4>& vertices, const std::array<double, 4>& layout_x, float screen_right)
+{
+    std::array<int, 4> order = {{0, 1, 2, 3}};
+    for (int outer = 0; outer < 4; ++outer) {
+        for (int inner = outer + 1; inner < 4; ++inner) {
+            if (core::at(layout_x, core::at(order, inner)) < core::at(layout_x, core::at(order, outer))) {
+                std::swap(core::at(order, outer), core::at(order, inner));
+            }
+        }
+    }
+    // (again only when the sprite overlaps the layout)
+    if (core::at(layout_x, core::at(order, 0)) <= 0.0 && core::at(layout_x, core::at(order, 3)) > 0.0) {
+        core::at(vertices, core::at(order, 0)).x = core::at(vertices, core::at(order, 1)).x = 0.0F;
+    }
+    if (core::at(layout_x, core::at(order, 3)) >= kLayoutWidth &&
+        core::at(layout_x, core::at(order, 0)) < kLayoutWidth) {
+        core::at(vertices, core::at(order, 2)).x = core::at(vertices, core::at(order, 3)).x = screen_right;
+    }
+}
+
+// The sprite log's positions seen: whether `key` is a new one reaching past the layout (`reaches`) - noted (up to
+// the limit).
+bool note_new_spot(uint32_t key, bool reaches)
+{
+    static std::array<uint32_t, kSeenSlots> s_seen;
+    static int tally = 0;
+    bool seen = false;
+    for (int i = 0; i < tally; ++i) {
+        seen |= core::at(s_seen, i) == key;
+    }
+    if (!seen && tally < kSeenLimit && reaches) {
+        core::at(s_seen, tally++) = key;
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 // 0x004DFCF0. The texture's part holding the image (u0..u1, and from v_top at the top edge to vBottom), mirrored
@@ -162,12 +220,10 @@ void QuadSprite::draw()
         if (front_end_widescreen) {
             // (only sprites overlapping the layout: one lying wholly outside it - parked off-screen, or the end
             // strip of a band - keeps its place instead of becoming a strip at the screen's edge)
-            if (layout_x0 <= 0.0F && layout_x1 > 0.0F) {
-                x0 = 0.0F;
-            }
-            if (layout_x1 >= kLayoutWidth && layout_x0 < kLayoutWidth) {
-                x1 = screen_right;
-            }
+            SpriteEdges screen{.left = x0, .right = x1};
+            stretch_upright_sides({.left = layout_x0, .right = layout_x1}, screen, screen_right);
+            x0 = screen.left;
+            x1 = screen.right;
         }
         core::at(vertices, 0).x = core::at(vertices, 1).x = x0;
         core::at(vertices, 2).x = core::at(vertices, 3).x = x1;
@@ -201,22 +257,7 @@ void QuadSprite::draw()
             // The sprite's left side is its two leftmost corners in the layout, the right side the two rightmost
             // (a turned sprite's own left corners can be on the right); each side reaching past its layout edge
             // goes to the screen's edge, as for upright sprites.
-            std::array<int, 4> order = {{0, 1, 2, 3}};
-            for (int outer = 0; outer < 4; ++outer) {
-                for (int inner = outer + 1; inner < 4; ++inner) {
-                    if (core::at(layout_x, core::at(order, inner)) < core::at(layout_x, core::at(order, outer))) {
-                        std::swap(core::at(order, outer), core::at(order, inner));
-                    }
-                }
-            }
-            // (again only when the sprite overlaps the layout)
-            if (core::at(layout_x, core::at(order, 0)) <= 0.0 && core::at(layout_x, core::at(order, 3)) > 0.0) {
-                core::at(vertices, core::at(order, 0)).x = core::at(vertices, core::at(order, 1)).x = 0.0F;
-            }
-            if (core::at(layout_x, core::at(order, 3)) >= kLayoutWidth &&
-                core::at(layout_x, core::at(order, 0)) < kLayoutWidth) {
-                core::at(vertices, core::at(order, 2)).x = core::at(vertices, core::at(order, 3)).x = screen_right;
-            }
+            stretch_turned_sides(vertices, layout_x, screen_right);
         }
     }
     // Diagnostic: thug2-decomp.ini [features] debug_sprites=1 logs, in the front end, each sprite (once per position)
@@ -230,16 +271,9 @@ void QuadSprite::draw()
             reach_right = x + reach_left; // (rotated: anything whose extent could cross an edge)
             reach_left = x - reach_left;
         }
-        static std::array<uint32_t, kSeenSlots> s_seen;
-        static int tally = 0;
         const uint32_t key = (static_cast<uint32_t>(x * 16.0F) * 2654435761U) ^ static_cast<uint32_t>(y * 16.0F) ^
                              static_cast<uint32_t>(width) << 20;
-        bool seen = false;
-        for (int i = 0; i < tally; ++i) {
-            seen |= core::at(s_seen, i) == key;
-        }
-        if (!seen && tally < kSeenLimit && (reach_left <= 0.0 || reach_right >= kLayoutWidth)) {
-            core::at(s_seen, tally++) = key;
+        if (note_new_spot(key, reach_left <= 0.0 || reach_right >= kLayoutWidth)) {
             get_log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x "
                     "%.1f %.1f "
                     "%.1f %.1f, y %.1f %.1f",

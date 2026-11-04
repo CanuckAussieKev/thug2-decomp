@@ -145,6 +145,32 @@ void MeshRef::skin_one_bone(uint8_t* out) { get_skin(this, out, 1); }
 void MeshRef::skin_two_bones(uint8_t* out) { get_skin(this, out, 2); }
 void MeshRef::skin_three_bones(uint8_t* out) { get_skin(this, out, 3); }
 
+// The level of detail drawn: the first whose distance the mesh is nearer than (by its sphere's distance from the
+// camera), or the last one there is.
+int MeshRef::lod_level()
+{
+    int level = 0;
+    if (unknown48_) { // (the levels of detail's distances)
+        const maths::Vec4 sphere = sphere_of(centre_, radius_);
+        sphere_in_view(&sphere, radius_);
+        const float distance = view_setup().last_sphere_distance();
+        for (; level < kLodLevels; ++level) {
+            if (!core::at(index_buffers_, level)) {
+                if (level > 0) {
+                    --level;
+                }
+                break;
+            }
+            if (distance <
+                core::at(std::span<const float, kLodLevelCount>(static_cast<const float*>(unknown48_), kLodLevelCount),
+                         level)) {
+                break;
+            }
+        }
+    }
+    return level;
+}
+
 // 0x004D5290
 void MeshRef::render()
 {
@@ -231,25 +257,7 @@ void MeshRef::render()
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
     }
     renderer().d3d_device()->SetStreamSource(0, vb->buffer(), vb->arena_offset(), stride_);
-    int level = 0;
-    if (unknown48_) { // (the levels of detail's distances)
-        const maths::Vec4 sphere = sphere_of(centre_, radius_);
-        sphere_in_view(&sphere, radius_);
-        const float distance = view_setup().last_sphere_distance();
-        for (; level < kLodLevels; ++level) {
-            if (!core::at(index_buffers_, level)) {
-                if (level > 0) {
-                    --level;
-                }
-                break;
-            }
-            if (distance <
-                core::at(std::span<const float, kLodLevelCount>(static_cast<const float*>(unknown48_), kLodLevelCount),
-                         level)) {
-                break;
-            }
-        }
-    }
+    const int level = lod_level();
     renderer().d3d_device()->SetIndices(index_buffer_at(this, level)->buffer());
     const uint32_t primitives = index_count_at(this, level) - 2U;
     if (renderer().shaders_available()) {

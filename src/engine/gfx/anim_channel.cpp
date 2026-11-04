@@ -1118,43 +1118,10 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
 {
     switch (name) {
     case kTimelineInfoMethod: { // the info of timeline Index (0xD2D6A582; the playing one without it) to the script
-        int index = 0;
-        if (!params->fetch_int_value(kIndex, &index, 0)) {
-            const memory::ListNode* node = timelines_.next();
-            if (!is_head(node) && node) {
-                add_timeline_info(static_cast<AnimTimeline*>(node->data()), script->args().get());
-            }
-            return 1;
-        }
-        for (AnimTrack* timeline = masked(timelines_.next()); timeline; timeline = masked(elem(timeline)->next())) {
-            if (index == 0) {
-                add_timeline_info(timeline, script->args().get());
-                break;
-            }
-            --index;
-        }
-        return 1;
+        return add_timeline_info_from_script(params, script);
     }
     case kObjFlip: { // Flip: flipped, and every timeline's (or timeline Index's) controllers told
-        int index = 0;
-        if (!params->fetch_int_value(kIndex, &index, 0)) {
-            toggle_flipped();
-            for (const memory::ListNode* node = timelines_.next(); !is_head(node) && node; node = node->next()) {
-                static_cast<AnimTrack*>(node->data())->invoke_method_by_name(name, params, script);
-            }
-            return 1;
-        }
-        if (index == 0) {
-            toggle_flipped();
-        }
-        for (AnimTrack* timeline = masked(timelines_.next()); timeline; timeline = masked(elem(timeline)->next())) {
-            if (index == 0) {
-                timeline->invoke_method_by_name(name, params, script);
-                break;
-            }
-            --index;
-        }
-        return 1;
+        return flip_from_script(name, params, script);
     }
     case kIsClipDoneMethod:
     case kAnimFinished: // (whether the animation is complete)
@@ -1248,6 +1215,51 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     default:
         return 2;
     }
+}
+
+// The info of timeline Index (the playing one without it) to the script.
+int BlendChannel::add_timeline_info_from_script(Struct* params, script::Script* script)
+{
+    int index = 0;
+    if (!params->fetch_int_value(kIndex, &index, 0)) {
+        const memory::ListNode* node = timelines_.next();
+        if (!is_head(node) && node) {
+            add_timeline_info(static_cast<AnimTimeline*>(node->data()), script->args().get());
+        }
+        return 1;
+    }
+    for (AnimTrack* timeline = masked(timelines_.next()); timeline; timeline = masked(elem(timeline)->next())) {
+        if (index == 0) {
+            add_timeline_info(timeline, script->args().get());
+            break;
+        }
+        --index;
+    }
+    return 1;
+}
+
+// Flip: flipped, and every timeline's (or timeline Index's) controllers told.
+int BlendChannel::flip_from_script(uint32_t name, Struct* params, script::Script* script)
+{
+    int index = 0;
+    if (!params->fetch_int_value(kIndex, &index, 0)) {
+        toggle_flipped();
+        for (const memory::ListNode* node = timelines_.next(); !is_head(node) && node; node = node->next()) {
+            static_cast<AnimTrack*>(node->data())->invoke_method_by_name(name, params, script);
+        }
+        return 1;
+    }
+    if (index == 0) {
+        toggle_flipped();
+    }
+    for (AnimTrack* timeline = masked(timelines_.next()); timeline; timeline = masked(elem(timeline)->next())) {
+        if (index == 0) {
+            timeline->invoke_method_by_name(name, params, script);
+            break;
+        }
+        --index;
+    }
+    return 1;
 }
 
 // The wait_anim member function (0x0047FDCE): the script waits until the playing timeline reaches a time - in

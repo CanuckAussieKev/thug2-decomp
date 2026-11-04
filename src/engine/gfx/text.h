@@ -189,6 +189,9 @@ public:
     void draw_key_char(char character, float* pen_x, float pen_y);
 
 private:
+    // A full vertex store drawn and begun again (draw, draw_key_char).
+    void flush_if_full();
+
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

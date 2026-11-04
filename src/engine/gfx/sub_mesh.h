@@ -237,6 +237,10 @@ public:
     // nearly vertical) about `pivot`: its quad's vertices turned into the billboard's own axes.
     void make_billboard(int type, const maths::Vec4* pivot, const maths::Vec4* axis);
 private:
+    // (Part of 0x004D5290, render: the level of detail drawn - the first whose distance the mesh is nearer than, or
+    // the last one there is.)
+    int lod_level();
+
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {

@@ -222,6 +222,10 @@ public:
     // colour - or `color` (three floats), unless the pass's colour isn't to be changed - as the texture factor.
     void submit_pass(uint32_t pass, const float* color);
 private:
+    // (Part of 0x004D24D0, submit_pass: a pass's own texture coordinates, untransformed - and for blending with the
+    // pass before, its texture on stage 1.)
+    void use_pass_coordinates(uint32_t pass);
+
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
