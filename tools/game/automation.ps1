@@ -46,11 +46,31 @@ function Add-GameCommands([string]$folder, [string[]]$commands) {
 }
 
 # Wait until the game has done `lines` lines of the command file (or one failed, or the game exited, or the time ran
-# out, or - with a game_health.ps1 watch - it's in trouble). Returns @{ ok; why; status; seconds; trouble } (trouble:
-# Update-GameWatch's reason, else $null).
+# out, or - with a game_health.ps1 watch - it's in trouble). Returns @{ ok; why; status; seconds; trouble; exited }
+# (trouble: Update-GameWatch's reason, else $null; exited: the game ended after doing them - a `quit`).
+#
+# A `quit` ends the game: it writes its last status ("quit -> ok", every line done) and only then shuts down, so
+# whether the process is still there when that status is read is a race. Both orders give the same answer here: with
+# the commands done and the last one a quit, the wait goes on until the process has exited (its exit code in `why`;
+# ok only with code 0), and a process found gone has its status read once more before it counts as an early exit.
 function Wait-GameCommands([string]$folder, [int]$lines, [int]$timeoutSeconds = 120, $process = $null, $gameWatch = $null) {
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $status = $null
+    # The commands done: the result - after a quit, once the process has gone (up to 30 s, more if -Seconds has more).
+    $finish = {
+        param($s)
+        $ok = -not ($s.result -match '^(error|refused):')
+        if ($process -and $s.last -eq 'quit') {
+            $left = [Math]::Max(30, $timeoutSeconds - $watch.Elapsed.TotalSeconds)
+            if (-not $process.WaitForExit([int]($left * 1000))) {
+                return @{ ok = $false; why = "$($s.result); quit, but the game still runs $([int]$left) s later"; status = $s; seconds = $watch.Elapsed.TotalSeconds }
+            }
+            $process.WaitForExit()  # (the exit code is read only once the process's streams are closed too)
+            $code = $process.ExitCode
+            return @{ ok = ($ok -and $code -eq 0); why = "$($s.result); the game exited (code $code) after its quit"; status = $s; seconds = $watch.Elapsed.TotalSeconds; exited = $true }
+        }
+        @{ ok = $ok; why = $s.result; status = $s; seconds = $watch.Elapsed.TotalSeconds }
+    }
     while ($watch.Elapsed.TotalSeconds -lt $timeoutSeconds) {
         if ($gameWatch) {
             $trouble = Update-GameWatch $gameWatch
@@ -59,15 +79,16 @@ function Wait-GameCommands([string]$folder, [int]$lines, [int]$timeoutSeconds = 
             }
         }
         if ($process -and $process.HasExited) {
+            # (its last status may have been written just before it went)
+            $s = Read-GameStatus $folder
+            if ($s -and $s.lines_done -ge $lines) { return (& $finish $s) }
+            if ($s) { $status = $s }
             return @{ ok = $false; why = "the game exited (code $($process.ExitCode))"; status = $status; seconds = $watch.Elapsed.TotalSeconds }
         }
         $s = Read-GameStatus $folder
         if ($s) {
             $status = $s
-            if ($s.lines_done -ge $lines) {
-                $ok = -not ($s.result -match '^(error|refused):')
-                return @{ ok = $ok; why = $s.result; status = $s; seconds = $watch.Elapsed.TotalSeconds }
-            }
+            if ($s.lines_done -ge $lines) { return (& $finish $s) }
         }
         Start-Sleep -Milliseconds 100
     }

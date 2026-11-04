@@ -51,7 +51,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     `logtricks [count]` (a test: one trick by skater 0 over the level's trick objects - all, or the first `count` - through
     the trick object manager's log_trick_objects; the result says how many objects / clusters and changed hands: THUG2's
     own change mask crashed past 128), `echo <text>`, `quit`. A failure or refusal
-    skips the rest of the batch.
+    skips the rest of the batch. After a `quit` the scripts wait for the process to exit and report its exit code
+    ("the game exited (code 0) after its quit"; ok only with 0), whichever came first - the game's last status or
+    its exit.
   - **Looking at one spot frame by frame** (src/devtools/test_view.h, src/platform/screenshot.h start_series):
     `teleport <x> <y> <z> [heading]` puts the skater there standing (walking, no momentum, on the ground below;
     heading in degrees as the screenshot sidecar gives it), `camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]` holds

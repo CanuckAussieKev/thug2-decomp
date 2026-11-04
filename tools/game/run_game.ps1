@@ -117,7 +117,11 @@ if ($trouble) {
     if (Test-Path $cmdFile) { Remove-Item $cmdFile -Force -ErrorAction SilentlyContinue }
     exit 5
 }
-if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $started.Elapsed.TotalSeconds } else {
+if ($p.HasExited) {
+    # (a `quit` among the commands: Wait-GameCommands waited for the process to go - an exit, not an early one)
+    $how = if ($Commands.Count -and $r.exited) { 'exited after its quit' } else { 'exited early' }
+    "$how (code $($p.ExitCode)) after {0:N1} s" -f $started.Elapsed.TotalSeconds
+} else {
     Snap "$Shot-1"
     if ($Keys -ne '') {
         if ($workspace) { $env:KEYS_POST = '1'; $env:KEYS_NO_FOCUS = '1' }
