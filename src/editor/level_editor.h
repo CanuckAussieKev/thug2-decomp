@@ -50,9 +50,9 @@ class Script;
 //                             and deletes its edited copy's files. The design: level_editor_layout.h's top.
 //   level_editor_ui.cpp       the UI (Dear ImGui, level_editor_ui.h): a toolbar, the Outliner, the Inspector, a status
 //                             bar, the help (F1), the browser (B) and the autosave offer; the lines and gizmos drawn
-//                             through its draw list. level_editor_ui_backend.cpp is the only file tied to SDL2 /
-//                             Direct3D 9 (ImGui's backends); level_editor_ui_layout.cpp the layout and input routing
-//                             (pure); engine/ui/ui_fonts.cpp Inter and JetBrains Mono in the exe
+//                             through its draw list. level_editor_ui_backend.cpp is its way to ImGui's backends
+//                             (render::UiBackend; Direct3D 9's in render_d3d9); level_editor_ui_layout.cpp the
+//                             layout and input routing (pure); engine/ui/ui_fonts.cpp Inter and JetBrains Mono in the exe
 //   level_editor_nodes.cpp    the node layer: every node of the level's node arrays in families (spawns, crowns,
 //                             flags, rails, ladders, paths, objects, scenery, lights, sounds, particles, triggers,
 //                             other) for the Outliner, the read-only Inspector and the gizmos (points, chains,

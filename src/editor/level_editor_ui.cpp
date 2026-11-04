@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the level editor's UI (ours). See level_editor_ui.h. Only ImGui's own API here: the platform and the
-// renderer are level_editor_ui_backend.cpp's.
+// renderer are level_editor_ui_backend.cpp's (render::UiBackend).
 
 #include "editor/level_editor_actions.h"
 #include "base/core/enum_ops.h"
