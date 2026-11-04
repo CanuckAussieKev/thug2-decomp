@@ -78,56 +78,20 @@ public:
         const std::size_t start = at;
         bool hex = false;
         if (lower(char_at(at)) == 'i') {
-            if (!match_word(at, "inf")) {
-                return fail_at(at);
-            }
-            if (lower(char_at(at)) == 'i' && !match_word(at, "inity")) {
-                return fail_at(at);
+            if (!read_infinity(at)) {
+                return false;
             }
         } else if (lower(char_at(at)) == 'n') {
-            if (!match_word(at, "nan")) {
-                return fail_at(at);
-            }
-            if (char_at(at) == '(') {
-                ++at;
-                while (is_word_char(char_at(at))) {
-                    ++at;
-                }
-                if (char_at(at) != ')') {
-                    return fail_at(at);
-                }
-                ++at;
+            if (!read_nan(at)) {
+                return false;
             }
         } else {
             hex = char_at(at) == '0' && lower(char_at(at + 1)) == 'x';
             if (hex) {
                 at += 2;
             }
-            auto is_mantissa_digit = [&](char character) { return hex ? is_hex_digit(character) : number_detail::is_digit(character); };
-            std::size_t digits = 0;
-            for (; is_mantissa_digit(char_at(at)); ++at) {
-                ++digits;
-            }
-            if (char_at(at) == '.') {
-                ++at;
-                for (; is_mantissa_digit(char_at(at)); ++at) {
-                    ++digits;
-                }
-            }
-            if (digits == 0) {
-                return fail_at(at);
-            }
-            if (lower(char_at(at)) == (hex ? 'p' : 'e')) {
-                ++at;
-                if (char_at(at) == '+' || char_at(at) == '-') {
-                    ++at;
-                }
-                if (!number_detail::is_digit(char_at(at))) {
-                    return fail_at(at);
-                }
-                while (number_detail::is_digit(char_at(at))) {
-                    ++at;
-                }
+            if (!read_mantissa_and_exponent(at, hex)) {
+                return false;
             }
         }
         const std::string_view number = text_.substr(start, at - start);
@@ -170,6 +134,71 @@ public:
     [[nodiscard]] int scanned() const noexcept { return fields_ == 0 && ended_ ? -1 : fields_; }
 
 private:
+    // "inf" or "infinity" (any case) at `at`; false (failed there) if not.
+    bool read_infinity(std::size_t& at) noexcept
+    {
+        if (!match_word(at, "inf")) {
+            return fail_at(at);
+        }
+        if (lower(char_at(at)) == 'i' && !match_word(at, "inity")) {
+            return fail_at(at);
+        }
+        return true;
+    }
+
+    // "nan" or "nan(...)" (any case) at `at`; false (failed there) if not.
+    bool read_nan(std::size_t& at) noexcept
+    {
+        if (!match_word(at, "nan")) {
+            return fail_at(at);
+        }
+        if (char_at(at) == '(') {
+            ++at;
+            while (is_word_char(char_at(at))) {
+                ++at;
+            }
+            if (char_at(at) != ')') {
+                return fail_at(at);
+            }
+            ++at;
+        }
+        return true;
+    }
+
+    // A number's digits (decimal or hex) with a point and an exponent at `at`; false (failed there) if not.
+    bool read_mantissa_and_exponent(std::size_t& at, bool hex) noexcept
+    {
+        auto is_mantissa_digit = [&](char character) {
+            return hex ? is_hex_digit(character) : number_detail::is_digit(character);
+        };
+        std::size_t digits = 0;
+        for (; is_mantissa_digit(char_at(at)); ++at) {
+            ++digits;
+        }
+        if (char_at(at) == '.') {
+            ++at;
+            for (; is_mantissa_digit(char_at(at)); ++at) {
+                ++digits;
+            }
+        }
+        if (digits == 0) {
+            return fail_at(at);
+        }
+        if (lower(char_at(at)) == (hex ? 'p' : 'e')) {
+            ++at;
+            if (char_at(at) == '+' || char_at(at) == '-') {
+                ++at;
+            }
+            if (!number_detail::is_digit(char_at(at))) {
+                return fail_at(at);
+            }
+            while (number_detail::is_digit(char_at(at))) {
+                ++at;
+            }
+        }
+        return true;
+    }
+
     [[nodiscard]] char char_at(std::size_t index) const noexcept { return number_detail::char_at(text_, index); }
     static constexpr char lower(char character) noexcept { return character >= 'A' && character <= 'Z' ? static_cast<char>(character - 'A' + 'a') : character; }
     static constexpr bool is_hex_digit(char character) noexcept

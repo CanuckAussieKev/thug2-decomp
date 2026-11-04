@@ -114,36 +114,37 @@ constexpr size_t kLongLongSize = 8;
 
 constexpr bool is_integer(ArgKind kind) { return kind == ArgKind::kSigned || kind == ArgKind::kUnsigned; }
 
-// Every conversion of `format` against the arguments' types.
+// A conversion's length modifier: the integer size it names (or the wide text / long double it marks).
+struct LengthModifier {
+    size_t size = kIntSize;
+    bool wide = false;
+};
+
+// A format being checked: the text and where it is read, the arguments' types and the next one to take.
 template <size_t Count>
-consteval void check(std::string_view format, const std::array<ArgType, Count>& types)
-{
+struct FormatScan {
+    std::string_view format;
+    const std::array<ArgType, Count>* types = nullptr;
+    size_t index = 0;
     size_t next = 0;
-    auto take = [&]() -> ArgType {
-        if (next >= types.size()) {
+
+    [[nodiscard]] consteval char peek(size_t at) const { return at < format.size() ? format.at(at) : '\0'; }
+
+    consteval ArgType take()
+    {
+        if (next >= types->size()) {
             format_has_too_few_arguments();
             return {};
         }
-        return types.at(next++);
-    };
-    size_t index = 0;
-    auto peek = [&](size_t at) { return at < format.size() ? format.at(at) : '\0'; };
-    while (index < format.size()) {
-        if (format.at(index) != '%') {
-            ++index;
-            continue;
-        }
-        ++index;
-        if (peek(index) == '%') {
-            ++index;
-            continue;
-        }
-        while (peek(index) == '-' || peek(index) == '+' || peek(index) == ' ' || peek(index) == '#' || peek(index) == '0') {
-            ++index;
-        }
+        return types->at(next++);
+    }
+
+    // A width or a precision: `*` takes an int argument, else its digits.
+    consteval void skip_count()
+    {
         if (peek(index) == '*') {
-            const ArgType width = take();
-            if (!is_integer(width.kind) || width.size > kIntSize) {
+            const ArgType count = take();
+            if (!is_integer(count.kind) || count.size > kIntSize) {
                 format_width_or_precision_argument_is_not_an_int();
             }
             ++index;
@@ -152,23 +153,11 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
                 ++index;
             }
         }
-        if (peek(index) == '.') {
-            ++index;
-            if (peek(index) == '*') {
-                const ArgType precision = take();
-                if (!is_integer(precision.kind) || precision.size > kIntSize) {
-                    format_width_or_precision_argument_is_not_an_int();
-                }
-                ++index;
-            } else {
-                while (peek(index) >= '0' && peek(index) <= '9') {
-                    ++index;
-                }
-            }
-        }
-        // the length modifier: the integer size it names (or the wide text / long double it marks)
-        size_t size = kIntSize;
-        bool wide = false;
+    }
+
+    consteval LengthModifier read_length()
+    {
+        LengthModifier length;
         if (peek(index) == 'h') {
             ++index;
             if (peek(index) == 'h') {
@@ -176,33 +165,34 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
             }
         } else if (peek(index) == 'l') {
             ++index;
-            size = kLongSize;
-            wide = true;
+            length.size = kLongSize;
+            length.wide = true;
             if (peek(index) == 'l') {
                 ++index;
-                size = kLongLongSize;
-                wide = false;
+                length.size = kLongLongSize;
+                length.wide = false;
             }
         } else if (peek(index) == 'I' && peek(index + 1) == '6' && peek(index + 2) == '4') {
             index += 3;
-            size = kLongLongSize;
+            length.size = kLongLongSize;
         } else if (peek(index) == 'j') {
             ++index;
-            size = kLongLongSize;
+            length.size = kLongLongSize;
         } else if (peek(index) == 'z') {
             ++index;
-            size = sizeof(size_t);
+            length.size = sizeof(size_t);
         } else if (peek(index) == 't') {
             ++index;
-            size = sizeof(std::ptrdiff_t);
+            length.size = sizeof(std::ptrdiff_t);
         } else if (peek(index) == 'L') {
             ++index;
         }
-        if (index >= format.size()) {
-            format_ends_inside_a_conversion();
-            return;
-        }
-        const char conversion = format.at(index++);
+        return length;
+    }
+
+    // The conversion's argument against what it reads.
+    consteval void check_conversion(char conversion, LengthModifier length)
+    {
         switch (conversion) {
         case 'd':
         case 'i':
@@ -212,7 +202,7 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
         case 'X':
         case 'c': {
             const ArgType arg = take();
-            if (!is_integer(arg.kind) || arg.size > size) {
+            if (!is_integer(arg.kind) || arg.size > length.size) {
                 format_argument_does_not_match_its_conversion();
             }
             break;
@@ -229,7 +219,7 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
             break;
         case 's': {
             const ArgKind kind = take().kind;
-            if (kind != (wide ? ArgKind::kWideText : ArgKind::kText) && kind != ArgKind::kNull) {
+            if (kind != (length.wide ? ArgKind::kWideText : ArgKind::kText) && kind != ArgKind::kNull) {
                 format_argument_does_not_match_its_conversion();
             }
             break;
@@ -247,7 +237,49 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
             break;
         }
     }
-    if (next != types.size()) {
+
+    // One conversion, from just past its `%`: false when the format ends inside it.
+    consteval bool check_conversion_at()
+    {
+        if (peek(index) == '%') {
+            ++index;
+            return true;
+        }
+        while (peek(index) == '-' || peek(index) == '+' || peek(index) == ' ' || peek(index) == '#' ||
+               peek(index) == '0') {
+            ++index;
+        }
+        skip_count(); // the width
+        if (peek(index) == '.') {
+            ++index;
+            skip_count(); // the precision
+        }
+        const LengthModifier length = read_length();
+        if (index >= format.size()) {
+            format_ends_inside_a_conversion();
+            return false;
+        }
+        check_conversion(format.at(index++), length);
+        return true;
+    }
+};
+
+// Every conversion of `format` against the arguments' types.
+template <size_t Count>
+consteval void check(std::string_view format, const std::array<ArgType, Count>& types)
+{
+    FormatScan<Count> scan{.format = format, .types = &types};
+    while (scan.index < format.size()) {
+        if (format.at(scan.index) != '%') {
+            ++scan.index;
+            continue;
+        }
+        ++scan.index;
+        if (!scan.check_conversion_at()) {
+            return;
+        }
+    }
+    if (scan.next != types.size()) {
         format_has_too_many_arguments();
     }
 }
