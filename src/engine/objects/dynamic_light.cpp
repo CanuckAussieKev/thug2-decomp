@@ -66,8 +66,8 @@ void fetch_tint(script::Struct* params, uint32_t name, uint32_t* color, int asse
 // An unsigned value as FILD (plus 2^32 when the top bit is set) loads it.
 double as_unsigned(uint32_t value)
 {
-    auto d = static_cast<double>(static_cast<int32_t>(value));
-    return static_cast<int32_t>(value) < 0 ? d + kTwoTo32 : d;
+    auto as_double = static_cast<double>(static_cast<int32_t>(value));
+    return static_cast<int32_t>(value) < 0 ? as_double + kTwoTo32 : as_double;
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
@@ -134,7 +134,7 @@ void DynamicLightComponent::tick_frame()
     }
     // The life's fraction.
     const auto* life = wait_and_die_;
-    double t = as_unsigned(life->elapsed()) / as_unsigned(life->lifespan());
+    double fraction = as_unsigned(life->elapsed()) / as_unsigned(life->lifespan());
     uint32_t from_color = start_color_;
     uint32_t to_color = end_color_;
     float from_radius = start_radius_;
@@ -143,24 +143,25 @@ void DynamicLightComponent::tick_frame()
     float to_intensity = end_intensity_;
     auto middle_bits = std::bit_cast<uint32_t>(middle_time_);
     if (middle_bits != kNoMiddle) {
-        if (t <= middle_time_) {
+        if (fraction <= middle_time_) {
             to_color = middle_color_;
-            t = t / middle_time_;
+            fraction = fraction / middle_time_;
             to_radius = middle_radius_;
             to_intensity = middle_intensity_;
         } else {
             from_color = middle_color_;
             from_radius = middle_radius_;
             from_intensity = middle_intensity_;
-            t = (t - middle_time_) / (1.0 - middle_time_);
+            fraction = (fraction - middle_time_) / (1.0 - middle_time_);
         }
     }
-    auto radius = static_cast<float>(((static_cast<double>(to_radius) - from_radius) * t) + from_radius);
+    auto radius = static_cast<float>(((static_cast<double>(to_radius) - from_radius) * fraction) + from_radius);
     uint32_t color = 0;
     for (int i = 0; i < 4; ++i) {
         const int from = static_cast<int>((from_color >> (8 * i)) & 0xFF);
         const int to = static_cast<int>((to_color >> (8 * i)) & 0xFF);
-        color |= static_cast<uint32_t>(static_cast<uint8_t>(get_truncated((static_cast<double>(to - from) * t) + from)))
+        color |= static_cast<uint32_t>(
+                     static_cast<uint8_t>(get_truncated((static_cast<double>(to - from) * fraction) + from)))
                  << (kBitsPerByte * i);
     }
     render::DynamicLightBase* light = light_;
@@ -170,7 +171,7 @@ void DynamicLightComponent::tick_frame()
     core::at(light->pos(), 3) = entity()->at_point().w;
     light->set_colour(color);
     light->set_intensity(
-        static_cast<float>(((static_cast<double>(to_intensity) - from_intensity) * t) + from_intensity));
+        static_cast<float>(((static_cast<double>(to_intensity) - from_intensity) * fraction) + from_intensity));
     light->set_reach(radius);
 }
 

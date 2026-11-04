@@ -126,10 +126,11 @@ void FreeLookModule::tick_frame()
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
-        const PadSnapshot* p = pad;
+        const PadSnapshot* snapshot = pad;
         const skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
-            p->up_dir().held_down() != 0, p->btn_down().held_down() != 0, p->left_side().held_down() != 0,
-            p->right_side().held_down() != 0, skater::thaw_bmx::kLookInvertDefault);
+            snapshot->up_dir().held_down() != 0, snapshot->btn_down().held_down() != 0,
+            snapshot->left_side().held_down() != 0, snapshot->right_side().held_down() != 0,
+            skater::thaw_bmx::kLookInvertDefault);
         const float tilt = in.tilt * (in.tilt < 0.0F ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, {.target = tilt, .frame = frame});
         get_ease(heading_, {.target = in.heading, .frame = frame});

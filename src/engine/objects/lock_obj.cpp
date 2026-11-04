@@ -93,8 +93,8 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     core::at(wobble_, 1) = wobble_pair.y;
     wobble_seed_ = maths::rnd(kWobbleSeedRange);
     // (the masked time is never negative: the original's 2^32 correction for a negative one never applies)
-    const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
-    auto time = static_cast<double>(t);
+    const int wobble_tick = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
+    auto time = static_cast<double>(wobble_tick);
     auto step = static_cast<double>(wobble_step());
     const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
                           std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);

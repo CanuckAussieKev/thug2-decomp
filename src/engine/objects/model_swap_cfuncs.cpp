@@ -107,23 +107,23 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
     params->read_hash_value(kObj1, &id1, 1);
     uint32_t id2 = 0;
     params->read_hash_value(kObj2, &id2, 1);
-    auto* a = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id1));
-    auto* b = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id2));
-    if (a->fetch_module(kSkaterCorePhysics)) {
-        skater = core::down_cast<objects::Rider>(a);
+    auto* first_entity = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id1));
+    auto* second_entity = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id2));
+    if (first_entity->fetch_module(kSkaterCorePhysics)) {
+        skater = core::down_cast<objects::Rider>(first_entity);
     }
-    if (b->fetch_module(kSkaterCorePhysics)) {
-        skater = core::down_cast<objects::Rider>(b);
+    if (second_entity->fetch_module(kSkaterCorePhysics)) {
+        skater = core::down_cast<objects::Rider>(second_entity);
     }
-    if (!a || !b || a == b) {
+    if (!first_entity || !second_entity || first_entity == second_entity) {
         return false;
     }
-    record_swap(a->ident(), b->ident());
+    record_swap(first_entity->ident(), second_entity->ident());
 
-    auto* model_a = core::down_cast<objects::MeshInstanceModule>(a->fetch_module(kModel));
-    auto* model_b = core::down_cast<objects::MeshInstanceModule>(b->fetch_module(kModel));
-    auto* shadow_a = core::down_cast<objects::GroundShadowModule>(a->fetch_module(kShadow));
-    auto* shadow_b = core::down_cast<objects::GroundShadowModule>(b->fetch_module(kShadow));
+    auto* model_a = core::down_cast<objects::MeshInstanceModule>(first_entity->fetch_module(kModel));
+    auto* model_b = core::down_cast<objects::MeshInstanceModule>(second_entity->fetch_module(kModel));
+    auto* shadow_a = core::down_cast<objects::GroundShadowModule>(first_entity->fetch_module(kShadow));
+    auto* shadow_b = core::down_cast<objects::GroundShadowModule>(second_entity->fetch_module(kShadow));
     if (!model_a || !model_b) {
         return false;
     }
@@ -131,8 +131,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
     shadow_b->destroy_shadow();
 
     // the skeletons swapped through a copy
-    gfx::Rig* skeleton_a = skeleton_of(a->fetch_module(kSkeleton));
-    gfx::Rig* skeleton_b = skeleton_of(b->fetch_module(kSkeleton));
+    gfx::Rig* skeleton_a = skeleton_of(first_entity->fetch_module(kSkeleton));
+    gfx::Rig* skeleton_b = skeleton_of(second_entity->fetch_module(kSkeleton));
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     void* memory = memory::alloc(sizeof(gfx::Rig));
@@ -155,17 +155,17 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
     set_model_virtual(model_a, nx_b);
     set_model_virtual(model_b, nx_a);
 
-    auto* suspend_a = core::down_cast<objects::DormancyModule>(a->fetch_module(kSuspend));
-    auto* suspend_b = core::down_cast<objects::DormancyModule>(b->fetch_module(kSuspend));
+    auto* suspend_a = core::down_cast<objects::DormancyModule>(first_entity->fetch_module(kSuspend));
+    auto* suspend_b = core::down_cast<objects::DormancyModule>(second_entity->fetch_module(kSuspend));
     suspend_a->reset_counts();
     suspend_b->reset_counts();
-    a->hold_off(false);
-    b->hold_off(false);
+    first_entity->hold_off(false);
+    second_entity->hold_off(false);
 
     if (skater) {
         // (each component's model as it is now)
-        follow_position(model_a->mesh_instance().get(), &a->at_point());
-        follow_position(model_b->mesh_instance().get(), &b->at_point());
+        follow_position(model_a->mesh_instance().get(), &first_entity->at_point());
+        follow_position(model_b->mesh_instance().get(), &second_entity->at_point());
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
             if (core::at(commands::swap_table(), i).used && core::at(commands::swap_table(), i).value == 0) {
@@ -177,8 +177,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
             skater->set_unknown31c(0);
         }
     }
-    remake_shadow(a, shadow_a, skater);
-    remake_shadow(b, shadow_b, skater);
+    remake_shadow(first_entity, shadow_a, skater);
+    remake_shadow(second_entity, shadow_b, skater);
     return true;
 }
 

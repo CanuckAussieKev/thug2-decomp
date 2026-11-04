@@ -204,11 +204,11 @@ void PadSnapshot::get_reset()
     for (const ButtonName& entry : button_names()) {
         (this->*entry.button).tick_frame(0);
     }
-    for (float& f : stick_) {
-        f = 0.0F;
+    for (float& axis : stick_) {
+        axis = 0.0F;
     }
-    for (float& f : scaled_stick_) {
-        f = 0.0F;
+    for (float& axis : scaled_stick_) {
+        axis = 0.0F;
     }
     core::at(polar_, 0) = {.angle = 0.0F, .length = 0.0F};
     core::at(polar_, 1) = {.angle = 0.0F, .length = 0.0F};
@@ -385,16 +385,16 @@ double stick_length(maths::Vec2 stick, float angle)
     const double nx = x / static_cast<double>(x > 0.0F ? 127.0F : 128.0F);
     const double ny = y / static_cast<double>(y > 0.0F ? 127.0F : 128.0F);
     // the angle brought into the quarter around up / down, then around left / right
-    const double a = angle;
+    const double angle_d = angle;
     double to_gate = 0.0;
-    if (a > -static_cast<double>(kQuarterPi) && a < kQuarterPi) {
-        to_gate = a;
-    } else if (a > kQuarterPi && a < kThreeQuarterPi) {
-        to_gate = a - kHalfPi;
-    } else if (std::fabs(a) > kThreeQuarterPi) {
-        to_gate = std::fabs(a) - maths::kPi;
+    if (angle_d > -static_cast<double>(kQuarterPi) && angle_d < kQuarterPi) {
+        to_gate = angle_d;
+    } else if (angle_d > kQuarterPi && angle_d < kThreeQuarterPi) {
+        to_gate = angle_d - kHalfPi;
+    } else if (std::fabs(angle_d) > kThreeQuarterPi) {
+        to_gate = std::fabs(angle_d) - maths::kPi;
     } else {
-        to_gate = a + kHalfPi;
+        to_gate = angle_d + kHalfPi;
     }
     const double length = std::sqrt((ny * ny) + (nx * nx)) * std::fabs(std::cos(to_gate)) *
                           static_cast<double>(float_from_bits(0x3F969696));

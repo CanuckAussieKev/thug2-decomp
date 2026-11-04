@@ -73,8 +73,8 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
     // The pose as it was (rotations past the bone count: no turn), then each bone from its mirror image.
     std::array<maths::QuatRotation, kPoseCapacity> rotations{};
     std::array<maths::Vec4, kPoseCapacity> translations{};
-    for (auto& r : rotations) {
-        r = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    for (auto& rotation : rotations) {
+        rotation = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     const int count = skeleton->get_num_bones();
     std::copy_n(pose->rotations.begin(), count > 0 ? count : 0, rotations.begin());

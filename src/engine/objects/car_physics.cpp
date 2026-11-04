@@ -143,13 +143,13 @@ void AutomobileDynamicsModule::seal()
     mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity()->fetch_module(kModel))->mesh_instance().get();
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig();
     const std::span<const render::HierarchyNode> bones = model_bones(mesh_instance_);
-    maths::Mat4 a = core::at(bones, 2).matrix();
-    matrix_multiply(&a, &a, &core::at(bones, 0).matrix());
-    maths::Mat4 b = core::at(bones, 4).matrix();
-    matrix_multiply(&b, &b, &core::at(bones, 0).matrix());
-    const double dx = static_cast<double>(core::at(a.row, 3).x) - core::at(b.row, 3).x;
-    const double dy = static_cast<double>(core::at(a.row, 3).y) - core::at(b.row, 3).y;
-    const double dz = static_cast<double>(core::at(a.row, 3).z) - core::at(b.row, 3).z;
+    maths::Mat4 left_matrix = core::at(bones, 2).matrix();
+    matrix_multiply(&left_matrix, &left_matrix, &core::at(bones, 0).matrix());
+    maths::Mat4 right_matrix = core::at(bones, 4).matrix();
+    matrix_multiply(&right_matrix, &right_matrix, &core::at(bones, 0).matrix());
+    const double dx = static_cast<double>(core::at(left_matrix.row, 3).x) - core::at(right_matrix.row, 3).x;
+    const double dy = static_cast<double>(core::at(left_matrix.row, 3).y) - core::at(right_matrix.row, 3).y;
+    const double dz = static_cast<double>(core::at(left_matrix.row, 3).z) - core::at(right_matrix.row, 3).z;
     wheel_base_ = static_cast<float>(std::fabs(std::sqrt((dz * dz) + (dy * dy) + (dx * dx))));
 }
 

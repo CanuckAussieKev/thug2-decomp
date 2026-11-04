@@ -451,17 +451,17 @@ void ChainComponent::tick_frame()
             .x = get_rounded(static_cast<double>(start.x) + turned.x), .y = get_rounded(static_cast<double>(start.y) + turned.y),
             .z = get_rounded(static_cast<double>(start.z) + turned.z), .w = get_rounded(static_cast<double>(start.w) + turned.w)};
         {
-            const maths::Mat4& m = entity()->display_matrix();
+            const maths::Mat4& matrix = entity()->display_matrix();
             const maths::Vec4& at = entity()->at_point();
-            const double x = ((static_cast<double>(start.z) * core::at(m.row, 2).x) +
-                              (static_cast<double>(start.y) * core::at(m.row, 1).x)) +
-                             (static_cast<double>(start.x) * core::at(m.row, 0).x);
-            const double y = ((static_cast<double>(start.z) * core::at(m.row, 2).y) +
-                              (static_cast<double>(start.y) * core::at(m.row, 1).y)) +
-                             (static_cast<double>(start.x) * core::at(m.row, 0).y);
-            const float z = get_rounded(((static_cast<double>(start.z) * core::at(m.row, 2).z) +
-                                         (static_cast<double>(start.y) * core::at(m.row, 1).z)) +
-                                        (static_cast<double>(start.x) * core::at(m.row, 0).z));
+            const double x = ((static_cast<double>(start.z) * core::at(matrix.row, 2).x) +
+                              (static_cast<double>(start.y) * core::at(matrix.row, 1).x)) +
+                             (static_cast<double>(start.x) * core::at(matrix.row, 0).x);
+            const double y = ((static_cast<double>(start.z) * core::at(matrix.row, 2).y) +
+                              (static_cast<double>(start.y) * core::at(matrix.row, 1).y)) +
+                             (static_cast<double>(start.x) * core::at(matrix.row, 0).y);
+            const float z = get_rounded(((static_cast<double>(start.z) * core::at(matrix.row, 2).z) +
+                                         (static_cast<double>(start.y) * core::at(matrix.row, 1).z)) +
+                                        (static_cast<double>(start.x) * core::at(matrix.row, 0).z));
             start.x = get_rounded(x + at.x);
             start.y = get_rounded(y + at.y);
             start.z = get_rounded(static_cast<double>(z) + at.z);
@@ -472,17 +472,17 @@ void ChainComponent::tick_frame()
         maths::Vec4 end = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
         if (auto* other = core::down_cast<GameEntity>(find_object(chain->obj_end()))) {
             bone_position(other->fetch_module(kSkeleton), chain->bone_end(), &end);
-            const maths::Mat4& m = other->display_matrix();
+            const maths::Mat4& matrix = other->display_matrix();
             const maths::Vec4& at = other->at_point();
-            const double x = ((static_cast<double>(end.y) * core::at(m.row, 1).x) +
-                              (static_cast<double>(end.z) * core::at(m.row, 2).x)) +
-                             (static_cast<double>(end.x) * core::at(m.row, 0).x);
-            const double y = ((static_cast<double>(end.y) * core::at(m.row, 1).y) +
-                              (static_cast<double>(end.z) * core::at(m.row, 2).y)) +
-                             (static_cast<double>(end.x) * core::at(m.row, 0).y);
-            const float z = get_rounded(((static_cast<double>(end.y) * core::at(m.row, 1).z) +
-                                         (static_cast<double>(end.z) * core::at(m.row, 2).z)) +
-                                        (static_cast<double>(end.x) * core::at(m.row, 0).z));
+            const double x = ((static_cast<double>(end.y) * core::at(matrix.row, 1).x) +
+                              (static_cast<double>(end.z) * core::at(matrix.row, 2).x)) +
+                             (static_cast<double>(end.x) * core::at(matrix.row, 0).x);
+            const double y = ((static_cast<double>(end.y) * core::at(matrix.row, 1).y) +
+                              (static_cast<double>(end.z) * core::at(matrix.row, 2).y)) +
+                             (static_cast<double>(end.x) * core::at(matrix.row, 0).y);
+            const float z = get_rounded(((static_cast<double>(end.y) * core::at(matrix.row, 1).z) +
+                                         (static_cast<double>(end.z) * core::at(matrix.row, 2).z)) +
+                                        (static_cast<double>(end.x) * core::at(matrix.row, 0).z));
             end.x = get_rounded(x + at.x);
             end.y = get_rounded(y + at.y);
             end.z = get_rounded(static_cast<double>(z) + at.z);

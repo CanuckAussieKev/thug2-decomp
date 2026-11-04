@@ -201,9 +201,9 @@ void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths:
 // 0x0057C170: the span of four values (the largest minus the smallest).
 double span4(const std::array<float, 4>& values);
 // 0x0057C360: how much the intervals [a, b] and [c, d] overlap: |b - a| + |d - c| (as a float) minus their span.
-double get_overlap(float a, float b, float c, float d);
+double get_overlap(float a, float b, float value_c, float value_d);
 // 0x0057C3A0: whether a, b, c, d step by less than `tolerance` each.
-int nearly_equal4(float a, float b, float c, float d, float tolerance);
+int nearly_equal4(float a, float b, float value_c, float value_d, float tolerance);
 // 0x0057C600: whether a rail from `a` to `b` can be grabbed: always in the park editor's level 0xD443A2BC; else
 // feelers across its middle, below it - see the source.
 bool rail_clear(maths::Vec4 a, maths::Vec4 b);

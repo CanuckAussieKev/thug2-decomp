@@ -101,7 +101,7 @@ public:
     void pass_to_each_channel(uint32_t value);
     void reset_channels();
     // 0x00419C10: 0x0047DC40 on each channel with the arguments; whether any said so.
-    bool any_channel(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
+    bool any_channel(uint32_t a, uint32_t b, uint32_t value_c, uint32_t flag_d);
     // 0x00419C70: whether every channel has bit 29 of its +0x54 (true with none).
     bool all_channels_flag29();
     // 0x00419CA0: whether the model's +0x208 has flag 0x2 and not 0x4 at its +0x44.
@@ -113,8 +113,9 @@ public:
     // Ghidra function), 0x00419B30 (set_flag_4c).
     void first_channel_47e_ff0();
     void play_animation(uint32_t anim, uint32_t b);
-    void play_animation_ex(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t g);
-    void first_channel_47e_850(float a, float b, float c, float d);
+    void play_animation_ex(uint32_t a, uint32_t b, uint32_t start, uint32_t end, uint32_t loop_type, uint32_t blend,
+                           uint32_t speed);
+    void first_channel_47e_850(float a, float b, float flag_c, float flag_d);
     void first_channel_47e_810(uint32_t a);
     void first_channel_47e_280(float a, uint32_t b);
     void first_channel_47e_450(std::span<const float, kBlendParamCount> a, uint32_t b);

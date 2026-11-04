@@ -146,18 +146,20 @@ private:
 };
 
 // The cross product's rows of a facing matrix: across = up x at (`a` kept unrounded), up again = at x across.
-void rebuild_across_and_up(maths::Mat4& m)
+void rebuild_across_and_up(maths::Mat4& matrix)
 {
-    const maths::Vec4& up = core::at(m.row, 1);
-    const maths::Vec4& at = core::at(m.row, 2);
-    const double a = (static_cast<double>(at.z) * up.y) - (static_cast<double>(at.y) * up.z);
-    auto b = static_cast<float>((static_cast<double>(at.x) * up.z) - (static_cast<double>(at.z) * up.x));
-    auto c = static_cast<float>((static_cast<double>(at.y) * up.x) - (static_cast<double>(at.x) * up.y));
-    const double up_x = (static_cast<double>(c) * at.y) - (static_cast<double>(b) * at.z);
-    const double up_y = (static_cast<double>(at.z) * a) - (static_cast<double>(c) * at.x);
-    auto up_z = static_cast<float>((static_cast<double>(b) * at.x) - (static_cast<double>(at.y) * a));
-    core::at(m.row, 0) = {.x = static_cast<float>(a), .y = b, .z = c, .w = core::at(m.row, 0).w};
-    core::at(m.row, 1) = {.x = static_cast<float>(up_x), .y = static_cast<float>(up_y), .z = up_z, .w = core::at(m.row, 1).w};
+    const maths::Vec4& up = core::at(matrix.row, 1);
+    const maths::Vec4& at = core::at(matrix.row, 2);
+    const double cross_x = (static_cast<double>(at.z) * up.y) - (static_cast<double>(at.y) * up.z);
+    auto cross_y = static_cast<float>((static_cast<double>(at.x) * up.z) - (static_cast<double>(at.z) * up.x));
+    auto cross_z = static_cast<float>((static_cast<double>(at.y) * up.x) - (static_cast<double>(at.x) * up.y));
+    const double up_x = (static_cast<double>(cross_z) * at.y) - (static_cast<double>(cross_y) * at.z);
+    const double up_y = (static_cast<double>(at.z) * cross_x) - (static_cast<double>(cross_z) * at.x);
+    auto up_z = static_cast<float>((static_cast<double>(cross_y) * at.x) - (static_cast<double>(at.y) * cross_x));
+    core::at(matrix.row,
+             0) = {.x = static_cast<float>(cross_x), .y = cross_y, .z = cross_z, .w = core::at(matrix.row, 0).w};
+    core::at(matrix.row, 1) = {
+        .x = static_cast<float>(up_x), .y = static_cast<float>(up_y), .z = up_z, .w = core::at(matrix.row, 1).w};
 }
 
 } // namespace
@@ -277,18 +279,18 @@ float PedestrianBrainModule::steer_forward()
 // 0x004EE650
 void PedestrianBrainModule::face_along(const maths::Vec4* direction)
 {
-    maths::Mat4 m;
-    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 2) = {.x = direction->x, .y = 0.0F, .z = direction->z, .w = 1.0F};
-    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    core::at(m.row, 2).make_unit();
-    core::at(m.row, 0).w = 0.0F;
-    core::at(m.row, 1).w = 0.0F;
-    rebuild_across_and_up(m);
-    entity()->display_matrix() = m;
-    entity()->basis_frame() = m;
-    saved_matrix_ = m;
+    maths::Mat4 matrix;
+    core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 2) = {.x = direction->x, .y = 0.0F, .z = direction->z, .w = 1.0F};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(matrix.row, 2).make_unit();
+    core::at(matrix.row, 0).w = 0.0F;
+    core::at(matrix.row, 1).w = 0.0F;
+    rebuild_across_and_up(matrix);
+    entity()->display_matrix() = matrix;
+    entity()->basis_frame() = matrix;
+    saved_matrix_ = matrix;
 }
 
 // 0x004EE7D0
@@ -299,8 +301,8 @@ bool PedestrianBrainModule::avoid_peds()
         return false;
     }
     const std::span<const SharedRef<Entity>> slots = peds_->slots();
-    const maths::Mat4 m = entity()->display_matrix();
-    const maths::Vec4& at = core::at(m.row, 2);
+    const maths::Mat4 matrix = entity()->display_matrix();
+    const maths::Vec4& at = core::at(matrix.row, 2);
     const float range = script::fetch_float(kAvoidPedRange);
     const float bias = script::fetch_float(kPedDodgeBias);
     const KinematicsModule* motion = get_motion(entity());
@@ -399,11 +401,11 @@ void PedestrianBrainModule::keep_to_path()
     // The closest point of the path's line (its start for a point path).
     maths::Vec4 closest = from;
     if (length_sqr != 0.0) {
-        const double t = ((ex * dx) + (ez * dz)) / length_sqr;
-        const double along_x = dx * t;
-        auto along_y = static_cast<float>(t * 0.0F);
-        auto along_z = static_cast<float>(dz * t);
-        auto along_w = static_cast<float>(dw * t);
+        const double fraction = ((ex * dx) + (ez * dz)) / length_sqr;
+        const double along_x = dx * fraction;
+        auto along_y = static_cast<float>(fraction * 0.0F);
+        auto along_z = static_cast<float>(dz * fraction);
+        auto along_w = static_cast<float>(dw * fraction);
         closest = {.x = static_cast<float>(along_x + from.x), .y = static_cast<float>(static_cast<double>(along_y) + from.y),
                    .z = static_cast<float>(static_cast<double>(along_z) + from.z),
                    .w = static_cast<float>(static_cast<double>(along_w) + from.w)};
@@ -412,15 +414,15 @@ void PedestrianBrainModule::keep_to_path()
                                  .y = 0.0F,
                                  .z = static_cast<float>(static_cast<double>(closest.z) - pz),
                                  .w = static_cast<float>(static_cast<double>(closest.w) - pw)};
-    const maths::Mat4 m = entity()->display_matrix();
-    const double exact = maths::read_turn_angle(core::at(m.row, 2), to_path);
+    const maths::Mat4 matrix = entity()->display_matrix();
+    const double exact = maths::read_turn_angle(core::at(matrix.row, 2), to_path);
     auto angle = static_cast<float>(exact);
     if (exact > kDegrees) {
         angle = static_cast<float>(
             angle - (static_cast<double>(truncate(static_cast<double>(angle) * kInverseDegrees)) * kDegrees));
     }
-    if ((static_cast<double>(core::at(m.row, 2).z) * to_path.x) -
-            (static_cast<double>(core::at(m.row, 2).x) * to_path.z) >
+    if ((static_cast<double>(core::at(matrix.row, 2).z) * to_path.x) -
+            (static_cast<double>(core::at(matrix.row, 2).x) * to_path.z) >
         0.0) {
         angle = static_cast<float>(static_cast<double>(kDegrees) - angle);
     }
@@ -457,15 +459,15 @@ void PedestrianBrainModule::move_steered()
     const double step = static_cast<double>(step_seconds_) * motion->path_speed();
     auto side_step = static_cast<float>(side * step);
     auto forward_step = static_cast<float>(step * forward);
-    const maths::Mat4 m = entity()->display_matrix();
-    const double fx = static_cast<double>(core::at(m.row, 2).x) * forward_step;
-    const double fy = static_cast<double>(core::at(m.row, 2).y) * forward_step;
-    auto fz = static_cast<float>(static_cast<double>(core::at(m.row, 2).z) * forward_step);
-    auto fw = static_cast<float>(static_cast<double>(core::at(m.row, 2).w) * forward_step);
-    const double sx = static_cast<double>(core::at(m.row, 0).x) * side_step;
-    const double sy = static_cast<double>(core::at(m.row, 0).y) * side_step;
-    auto sz = static_cast<float>(static_cast<double>(core::at(m.row, 0).z) * side_step);
-    auto sw = static_cast<float>(static_cast<double>(core::at(m.row, 0).w) * side_step);
+    const maths::Mat4 matrix = entity()->display_matrix();
+    const double fx = static_cast<double>(core::at(matrix.row, 2).x) * forward_step;
+    const double fy = static_cast<double>(core::at(matrix.row, 2).y) * forward_step;
+    auto fz = static_cast<float>(static_cast<double>(core::at(matrix.row, 2).z) * forward_step);
+    auto fw = static_cast<float>(static_cast<double>(core::at(matrix.row, 2).w) * forward_step);
+    const double sx = static_cast<double>(core::at(matrix.row, 0).x) * side_step;
+    const double sy = static_cast<double>(core::at(matrix.row, 0).y) * side_step;
+    auto sz = static_cast<float>(static_cast<double>(core::at(matrix.row, 0).z) * side_step);
+    auto sw = static_cast<float>(static_cast<double>(core::at(matrix.row, 0).w) * side_step);
     maths::Vec4& pos = entity()->at_point();
     pos.x = static_cast<float>(sx + pos.x);
     pos.y = static_cast<float>(sy + pos.y);
@@ -480,17 +482,18 @@ void PedestrianBrainModule::move_steered()
 // 0x004EEEC0
 void PedestrianBrainModule::steer_towards(maths::Vec4 target, float weight)
 {
-    const maths::Mat4 m = entity()->display_matrix();
+    const maths::Mat4 matrix = entity()->display_matrix();
     const maths::Vec4& at = entity()->at_point();
     const maths::Vec4 away = {.x = static_cast<float>(static_cast<double>(at.x) - target.x),
                               .y = 0.0F,
                               .z = static_cast<float>(static_cast<double>(at.z) - target.z),
                               .w = static_cast<float>(static_cast<double>(at.w) - target.w)};
-    double angle = maths::read_turn_angle(core::at(m.row, 2), away) + kHalfDegrees;
+    double angle = maths::read_turn_angle(core::at(matrix.row, 2), away) + kHalfDegrees;
     if (angle > kDegrees) {
         angle -= static_cast<double>(truncate(angle * kInverseDegrees)) * kDegrees;
     }
-    if ((static_cast<double>(core::at(m.row, 2).z) * away.x) - (static_cast<double>(core::at(m.row, 2).x) * away.z) >
+    if ((static_cast<double>(core::at(matrix.row, 2).z) * away.x) -
+            (static_cast<double>(core::at(matrix.row, 2).x) * away.z) >
         0.0) {
         angle = static_cast<double>(kDegrees) - angle;
     }
@@ -556,13 +559,13 @@ bool PedestrianBrainModule::turn_towards_node_after()
 void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
 {
     maths::Vec4 pos = entity()->at_point();
-    maths::Mat4 m;
+    maths::Mat4 matrix;
     if (kind_ == 0) {
         // A walker turns its orientation towards where it moved, at most so much a frame.
-        core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-        core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-        core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
-        core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+        core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+        core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+        core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         maths::Vec4 heading = core::at(entity()->display_matrix().row, 2);
         heading.make_unit();
         maths::Vec4 moved = {.x = static_cast<float>(static_cast<double>(pos.x) - old_pos.x),
@@ -582,20 +585,20 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
         const float turn = std::fabs(maths::acos_f({.value = dot, .limit = 0.0F}, &unused));
         if (!(static_cast<double>(step_seconds_) * kTurnPerSecond >= turn)) {
             static const float kMaxTurn = 0.69813174F; // (40 degrees)
-            float t = kTurnTime;
+            float turn_time = kTurnTime;
             if (turn > kMaxTurn) {
-                t = static_cast<float>(static_cast<double>(turn) / kMaxTurn * kTurnTime);
+                turn_time = static_cast<float>(static_cast<double>(turn) / kMaxTurn * kTurnTime);
             }
-            core::at(m.row, 2) = *walk::get_lerp(&pos, &heading, &moved, t);
-            core::at(m.row, 2).make_unit();
+            core::at(matrix.row, 2) = *walk::get_lerp(&pos, &heading, &moved, turn_time);
+            core::at(matrix.row, 2).make_unit();
         } else {
-            core::at(m.row, 2) = moved;
+            core::at(matrix.row, 2) = moved;
         }
-        m.square_up_axes(2);
-        entity()->basis_frame() = m;
+        matrix.square_up_axes(2);
+        entity()->basis_frame() = matrix;
     } else {
         // A skater faces where it moved (or along its path, to a lip).
-        m = entity()->display_matrix();
+        matrix = entity()->display_matrix();
         float old_w = old_pos.w;
         maths::Vec4 to = pos;
         if ((flag_bits_ & kPedFlagVertLip) != 0U) {
@@ -607,13 +610,13 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
                                .y = static_cast<float>(static_cast<double>(to.y) - old_pos.y),
                                .z = static_cast<float>(static_cast<double>(to.z) - old_pos.z),
                                .w = static_cast<float>(static_cast<double>(to.w) - old_w)};
-        core::at(m.row, 2) = heading.make_unit();
-        core::at(m.row, 0).w = 0.0F;
-        core::at(m.row, 1).w = 0.0F;
-        rebuild_across_and_up(m);
+        core::at(matrix.row, 2) = heading.make_unit();
+        core::at(matrix.row, 0).w = 0.0F;
+        core::at(matrix.row, 1).w = 0.0F;
+        rebuild_across_and_up(matrix);
     }
-    entity()->display_matrix() = m;
-    saved_matrix_ = m;
+    entity()->display_matrix() = matrix;
+    saved_matrix_ = matrix;
 }
 
 // 0x004EF740
@@ -621,19 +624,19 @@ bool PedestrianBrainModule::probe_ground(const maths::Vec4* start, const maths::
                                          GroundTriangle* triangle)
 {
     Feeler feeler;
-    render::ProbeRay* f = feeler.feeler();
-    if (f->get_collision_along(start, end, false) == 0) {
+    render::ProbeRay* feeler_ray = feeler.feeler();
+    if (feeler_ray->get_collision_along(start, end, false) == 0) {
         return false;
     }
-    const render::HitMesh* object = f->hit().object;
+    const render::HitMesh* object = feeler_ray->hit().object;
     const render::TriMeshSource* geometry = object->geometry();
-    const uint32_t face = f->hit().face;
+    const uint32_t face = feeler_ray->hit().face;
     for (int i = 0; i < 3; ++i) {
         const uint32_t vertex = geometry->face_vertex(static_cast<int>(face), i);
         core::at(triangle->corners, i) = object->read_vertex_point(static_cast<int>(static_cast<uint16_t>(vertex)));
     }
-    *point = f->contact_pos();
-    set_sound_terrain(f->hit().terrain);
+    *point = feeler_ray->contact_pos();
+    set_sound_terrain(feeler_ray->hit().terrain);
     return true;
 }
 
@@ -642,21 +645,21 @@ void PedestrianBrainModule::stick_to_ground_ped()
 {
     KinematicsModule* motion = get_motion(entity());
     // The orientation's across row again (up x at).
-    maths::Mat4& o = entity()->basis_frame();
-    const double ax = (static_cast<double>(core::at(o.row, 1).y) * core::at(o.row, 2).z) -
-                      (static_cast<double>(core::at(o.row, 1).z) * core::at(o.row, 2).y);
-    const double ay = (static_cast<double>(core::at(o.row, 1).z) * core::at(o.row, 2).x) -
-                      (static_cast<double>(core::at(o.row, 1).x) * core::at(o.row, 2).z);
-    const double az = (static_cast<double>(core::at(o.row, 1).x) * core::at(o.row, 2).y) -
-                      (static_cast<double>(core::at(o.row, 1).y) * core::at(o.row, 2).x);
-    core::at(o.row, 0).w = 0.0F;
-    core::at(o.row, 0).z = static_cast<float>(az);
-    core::at(o.row, 0).x = static_cast<float>(ax);
-    core::at(o.row, 0).y = static_cast<float>(ay);
-    core::at(o.row, 0).make_unit();
+    maths::Mat4& basis = entity()->basis_frame();
+    const double ax = (static_cast<double>(core::at(basis.row, 1).y) * core::at(basis.row, 2).z) -
+                      (static_cast<double>(core::at(basis.row, 1).z) * core::at(basis.row, 2).y);
+    const double ay = (static_cast<double>(core::at(basis.row, 1).z) * core::at(basis.row, 2).x) -
+                      (static_cast<double>(core::at(basis.row, 1).x) * core::at(basis.row, 2).z);
+    const double az = (static_cast<double>(core::at(basis.row, 1).x) * core::at(basis.row, 2).y) -
+                      (static_cast<double>(core::at(basis.row, 1).y) * core::at(basis.row, 2).x);
+    core::at(basis.row, 0).w = 0.0F;
+    core::at(basis.row, 0).z = static_cast<float>(az);
+    core::at(basis.row, 0).x = static_cast<float>(ax);
+    core::at(basis.row, 0).y = static_cast<float>(ay);
+    core::at(basis.row, 0).make_unit();
     // A probe from above to below along the display matrix's up.
-    const maths::Mat4 m = entity()->display_matrix();
-    const maths::Vec4& up = core::at(m.row, 1);
+    const maths::Mat4 matrix = entity()->display_matrix();
+    const maths::Vec4& up = core::at(matrix.row, 1);
     const maths::Vec4& pos = entity()->at_point();
     const float above = stick_above_;
     auto ux = static_cast<float>(static_cast<double>(up.x) * above);
@@ -692,15 +695,15 @@ void PedestrianBrainModule::align_to_ground()
     if (!motion) {
         return;
     }
-    GroundTriangle t{};
-    get_assign(t, GroundTriangle{motion->ground_triangle()});
-    const auto& c = t.corners;
-    const double e1x = static_cast<double>(core::at(c, 1).x) - core::at(c, 0).x;
-    const double e1y = static_cast<double>(core::at(c, 1).y) - core::at(c, 0).y;
-    const double e1z = static_cast<double>(core::at(c, 1).z) - core::at(c, 0).z;
-    auto e2x = static_cast<float>(static_cast<double>(core::at(c, 2).x) - core::at(c, 0).x);
-    auto e2y = static_cast<float>(static_cast<double>(core::at(c, 2).y) - core::at(c, 0).y);
-    const double e2z = static_cast<double>(core::at(c, 2).z) - core::at(c, 0).z;
+    GroundTriangle triangle{};
+    get_assign(triangle, GroundTriangle{motion->ground_triangle()});
+    const auto& corners = triangle.corners;
+    const double e1x = static_cast<double>(core::at(corners, 1).x) - core::at(corners, 0).x;
+    const double e1y = static_cast<double>(core::at(corners, 1).y) - core::at(corners, 0).y;
+    const double e1z = static_cast<double>(core::at(corners, 1).z) - core::at(corners, 0).z;
+    auto e2x = static_cast<float>(static_cast<double>(core::at(corners, 2).x) - core::at(corners, 0).x);
+    auto e2y = static_cast<float>(static_cast<double>(core::at(corners, 2).y) - core::at(corners, 0).y);
+    const double e2z = static_cast<double>(core::at(corners, 2).z) - core::at(corners, 0).z;
     maths::Vec4 normal = {.x = static_cast<float>((e2z * e1y) - (static_cast<double>(e2y) * e1z)),
                           .y = static_cast<float>((e1z * e2x) - (e2z * e1x)),
                           .z = static_cast<float>((static_cast<double>(e2y) * e1x) - (e1y * e2x)),
@@ -731,12 +734,12 @@ void PedestrianBrainModule::align_to_ground()
             }
         }
     }
-    maths::Mat4 m = entity()->display_matrix();
-    if (core::at(m.row, 1) != up_shown_) {
-        core::at(m.row, 1) = up_shown_;
-        m.square_up_axes(1);
-        entity()->display_matrix() = m;
-        saved_matrix_ = m;
+    maths::Mat4 matrix = entity()->display_matrix();
+    if (core::at(matrix.row, 1) != up_shown_) {
+        core::at(matrix.row, 1) = up_shown_;
+        matrix.square_up_axes(1);
+        entity()->display_matrix() = matrix;
+        saved_matrix_ = matrix;
     }
 }
 
@@ -767,15 +770,15 @@ void PedestrianBrainModule::spin_update()
     if (((flag_bits_ & kPedFlagVertRotating) != 0U) && vert_rotation_ > turn) {
         vert_rotation_ = turn;
     }
-    maths::Mat4 m = jump_matrix_;
+    maths::Mat4 matrix = jump_matrix_;
     const maths::Vec4 rotation = {.x = static_cast<float>(static_cast<double>(vert_rotation_) * kToRadians),
                                   .y = static_cast<float>(static_cast<double>(twist_rate_) * kToRadians),
                                   .z = 0.0F,
                                   .w = 1.0F};
-    m.turn_in_own_frame(rotation);
-    entity()->display_matrix() = m;
-    saved_matrix_ = m;
-    up_target_ = core::at(m.row, 1);
+    matrix.turn_in_own_frame(rotation);
+    entity()->display_matrix() = matrix;
+    saved_matrix_ = matrix;
+    up_target_ = core::at(matrix.row, 1);
     up_dir_ = up_target_;
     up_shown_ = up_dir_;
 }
@@ -784,9 +787,9 @@ void PedestrianBrainModule::spin_update()
 int PedestrianBrainModule::probe_ahead(maths::Vec4 direction, float range, maths::Vec4* out)
 {
     auto range_sqr = static_cast<float>(static_cast<double>(range) * range);
-    const maths::Mat4 m = entity()->display_matrix();
+    const maths::Mat4 matrix = entity()->display_matrix();
     maths::Vec4 dir = direction;
-    dir.flatten_onto_plane(core::at(m.row, 1));
+    dir.flatten_onto_plane(core::at(matrix.row, 1));
     const double length = std::sqrt(((static_cast<double>(dir.z) * dir.z) + (static_cast<double>(dir.y) * dir.y)) +
                                     (static_cast<double>(dir.x) * dir.x));
     if (length > 0.0) {
@@ -845,13 +848,13 @@ int PedestrianBrainModule::probe_ahead(maths::Vec4 direction, float range, maths
                              .z = static_cast<float>(static_cast<double>(dir.z) + at.z),
                              .w = static_cast<float>(static_cast<double>(dir.w) + at.w)};
     Feeler feeler(&start, &end);
-    render::ProbeRay* f = feeler.feeler();
-    f->set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-    if (f->get_hit_shape(true, false) == 0) {
+    render::ProbeRay* feeler_ray = feeler.feeler();
+    feeler_ray->set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
+    if (feeler_ray->get_hit_shape(true, false) == 0) {
         return 0;
     }
     if (out) {
-        *out = f->contact_pos();
+        *out = feeler_ray->contact_pos();
     }
     return 1;
 }
@@ -1183,8 +1186,8 @@ void PedestrianBrainModule::blocker_update()
     const maths::Vec4& at = skater->at_point();
     maths::Vec4 end;
     maths::Vec4 on_path;
-    float s = 0.0F;
-    float t = 0.0F;
+    float along_path = 0.0F;
+    float along_skater = 0.0F;
     if (!(speed_sqr < kFastSkaterSqr) && not_approaching) {
         auto ex = static_cast<float>(static_cast<double>(vel.x) * kLookAhead);
         auto ey = static_cast<float>(static_cast<double>(vel.y) * kLookAhead);
@@ -1202,7 +1205,7 @@ void PedestrianBrainModule::blocker_update()
     }
     const maths::Seg path(next_node_pos_, node_pos_);
     const maths::Seg skater_line(at, end);
-    maths::closest_points_between_lines(path, skater_line, on_path, end, s, t, true);
+    maths::closest_points_between_lines(path, skater_line, on_path, end, along_path, along_skater, true);
     double speed = std::sqrt(((static_cast<double>(vel.x) * vel.x) + (static_cast<double>(vel.y) * vel.y)) +
                              (static_cast<double>(vel.z) * vel.z));
     auto gz = static_cast<float>(static_cast<double>(on_path.z) - at.z);
@@ -1298,25 +1301,25 @@ void PedestrianBrainModule::tick_frame()
 bool PedestrianBrainModule::ped_turn_to_current_waypoint_orientation(script::Struct* params, script::Script* /*script*/)
 {
     KinematicsModule* motion = get_motion(entity());
-    maths::Mat4 m;
-    core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-    core::at(m.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
-    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    maths::Mat4 matrix;
+    core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     level_nodes::read_turn_angles(list_link_, &angles);
     maths::Mat4 rotation;
-    d3dx_multiply(m, m, maths::make_pitch_matrix(rotation, angles.x));
-    d3dx_multiply(m, m, maths::make_yaw_matrix(rotation, angles.y));
-    d3dx_multiply(m, m, maths::make_roll_matrix(rotation, angles.z));
+    d3dx_multiply(matrix, matrix, maths::make_pitch_matrix(rotation, angles.x));
+    d3dx_multiply(matrix, matrix, maths::make_yaw_matrix(rotation, angles.y));
+    d3dx_multiply(matrix, matrix, maths::make_roll_matrix(rotation, angles.z));
     for (int i = 0; i < 4; ++i) {
-        core::at(m.row, 2)[i] = static_cast<float>(static_cast<double>(core::at(m.row, 2)[i]) * kReach);
+        core::at(matrix.row, 2)[i] = static_cast<float>(static_cast<double>(core::at(matrix.row, 2)[i]) * kReach);
     }
     const maths::Vec4& at = entity()->at_point();
-    const maths::Vec4 target = {.x = static_cast<float>(static_cast<double>(core::at(m.row, 2).x) + at.x),
-                                .y = static_cast<float>(static_cast<double>(core::at(m.row, 2).y) + at.y),
-                                .z = static_cast<float>(static_cast<double>(core::at(m.row, 2).z) + at.z),
-                                .w = static_cast<float>(static_cast<double>(core::at(m.row, 2).w) + at.w)};
+    const maths::Vec4 target = {.x = static_cast<float>(static_cast<double>(core::at(matrix.row, 2).x) + at.x),
+                                .y = static_cast<float>(static_cast<double>(core::at(matrix.row, 2).y) + at.y),
+                                .z = static_cast<float>(static_cast<double>(core::at(matrix.row, 2).z) + at.z),
+                                .w = static_cast<float>(static_cast<double>(core::at(matrix.row, 2).w) + at.w)};
     motion->get_look_at(params, &target);
     return true;
 }

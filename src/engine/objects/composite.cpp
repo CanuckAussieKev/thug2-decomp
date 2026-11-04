@@ -101,8 +101,8 @@ void quat_to_matrix(const std::array<float, 4>& quat, maths::Mat4* matrix)
 }
 void matrix_to_quat(std::array<float, 4>& quat, const maths::Mat4* matrix)
 {
-    const maths::Vec4 q = maths::quat_from_matrix(*matrix);
-    quat = {{q.x, q.y, q.z, q.w}};
+    const maths::Vec4 unit_quat = maths::quat_from_matrix(*matrix);
+    quat = {{unit_quat.x, unit_quat.y, unit_quat.z, unit_quat.w}};
 }
 // A manager's object list.
 memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->fetch_object_set(); }
@@ -753,21 +753,21 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
 {
     script::VectorValue value = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
     if (params->fetch_vec(kDir, &value, 0)) {
-        maths::Mat4 m;
-        core::at(m.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-        core::at(m.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-        core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        maths::Mat4 matrix;
+        core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+        core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+        core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         if (std::fabs(value.y) > kNearlyVertical) {
-            core::at(m.row, 1) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+            core::at(matrix.row, 1) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         }
-        core::at(m.row, 2) = {.x = value.x, .y = value.y, .z = value.z, .w = 0.0F};
-        core::at(m.row, 2).make_unit();
-        core::at(m.row, 0) = perpendicular(core::at(m.row, 1), core::at(m.row, 2));
-        core::at(m.row, 0).make_unit();
-        core::at(m.row, 1) = perpendicular(core::at(m.row, 2), core::at(m.row, 0));
-        core::at(m.row, 1).make_unit();
-        basis_frame_ = m;
-        display_matrix_ = m;
+        core::at(matrix.row, 2) = {.x = value.x, .y = value.y, .z = value.z, .w = 0.0F};
+        core::at(matrix.row, 2).make_unit();
+        core::at(matrix.row, 0) = perpendicular(core::at(matrix.row, 1), core::at(matrix.row, 2));
+        core::at(matrix.row, 0).make_unit();
+        core::at(matrix.row, 1) = perpendicular(core::at(matrix.row, 2), core::at(matrix.row, 0));
+        core::at(matrix.row, 1).make_unit();
+        basis_frame_ = matrix;
+        display_matrix_ = matrix;
         return true;
     }
     if (params->fetch_vec(kQuat, &value, 0)) {
@@ -787,10 +787,10 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
     x *= kRadiansPerDegree;
     y *= kRadiansPerDegree;
     z *= kRadiansPerDegree;
-    maths::Mat4 m;
-    m.set_from_euler_angles(x, y, z);
-    basis_frame_ = m;
-    display_matrix_ = m;
+    maths::Mat4 matrix;
+    matrix.set_from_euler_angles(x, y, z);
+    basis_frame_ = matrix;
+    display_matrix_ = matrix;
     return true;
 }
 

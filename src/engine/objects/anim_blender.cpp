@@ -344,11 +344,11 @@ int AnimBlenderComponent::blend_channel(uint32_t /*unused*/, script::Struct* par
             channel = as_channel(next);
         }
     }
-    float a = 0.0F;
-    float b = 0.0F;
-    params->fetch_float(kBlendWeight, &a, 1);
-    params->fetch_float(kBlendDuration, &b, 0);
-    channel->blend_to({.target = a, .period = b});
+    float blend_weight = 0.0F;
+    float blend_duration = 0.0F;
+    params->fetch_float(kBlendWeight, &blend_weight, 1);
+    params->fetch_float(kBlendDuration, &blend_duration, 0);
+    channel->blend_to({.target = blend_weight, .period = blend_duration});
     return 1;
 }
 
@@ -473,11 +473,11 @@ void AnimBlenderComponent::reset_channels()
 }
 
 // 0x00419C10
-bool AnimBlenderComponent::any_channel(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+bool AnimBlenderComponent::any_channel(uint32_t a, uint32_t b, uint32_t value_c, uint32_t flag_d)
 {
     bool any = false;
     for (memory::ListNode* node = lanes_.next(); !is_over(node); node = node->next()) {
-        if (as_channel(node)->set_flipped(a, bool_arg(b), c, bool_arg(d))) {
+        if (as_channel(node)->set_flipped(a, bool_arg(b), value_c, bool_arg(flag_d))) {
             any = true;
         }
     }
@@ -522,20 +522,21 @@ void AnimBlenderComponent::play_animation(uint32_t anim, uint32_t b)
 }
 
 // 0x00419B50
-void AnimBlenderComponent::play_animation_ex(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f,
-                                             uint32_t g)
+void AnimBlenderComponent::play_animation_ex(uint32_t a, uint32_t b, uint32_t start, uint32_t end, uint32_t loop_type,
+                                             uint32_t blend, uint32_t speed)
 {
     if (Channel* channel = masked(lanes_.next())) {
-        channel->play_anim(a, bool_arg(b), std::bit_cast<float>(c), std::bit_cast<float>(d), static_cast<int>(e),
-                           std::bit_cast<float>(f), std::bit_cast<float>(g), nullptr);
+        channel->play_anim(a, bool_arg(b), std::bit_cast<float>(start), std::bit_cast<float>(end),
+                           static_cast<int>(loop_type), std::bit_cast<float>(blend), std::bit_cast<float>(speed),
+                           nullptr);
     }
 }
 
 // 0x00419B90
-void AnimBlenderComponent::first_channel_47e_850(float a, float b, float c, float d)
+void AnimBlenderComponent::first_channel_47e_850(float a, float b, float flag_c, float flag_d)
 {
     if (Channel* channel = masked(lanes_.next())) {
-        channel->set_speed(a, bool_arg(b), bool_arg(c), bool_arg(d));
+        channel->set_speed(a, bool_arg(b), bool_arg(flag_c), bool_arg(flag_d));
     }
 }
 
@@ -641,16 +642,16 @@ void AnimBlenderComponent::get_times(float* start, float* current, float* end)
     if (!channel) {
         return;
     }
-    float s = 0.0F;
-    float c = 0.0F;
-    float e = 0.0F;
+    float start_time = 0.0F;
+    float current_time = 0.0F;
+    float end_time = 0.0F;
     memory::ListNode* timeline = channel->timelines().next();
     if (!is_over(timeline)) {
-        static_cast<gfx::AnimTimeline*>(timeline->data())->get_times(&s, &c, &e);
+        static_cast<gfx::AnimTimeline*>(timeline->data())->get_times(&start_time, &current_time, &end_time);
     }
-    *start = s;
-    *current = c;
-    *end = e;
+    *start = start_time;
+    *current = current_time;
+    *end = end_time;
 }
 
 // 0x00419CF0

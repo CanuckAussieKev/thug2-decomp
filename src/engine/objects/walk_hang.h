@@ -20,7 +20,7 @@ namespace walk {
 // A composite object's movable contact component (the walk component's +0x1784, the skater core's +0x152C): what the
 // skater rides on.
 // 0x0043D990 (cdecl): out = a + (b - a) * t, each component rounded as the original's x87 code does. Returns out.
-maths::Vec4* get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t);
+maths::Vec4* get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float blend);
 // 0x0043DA20 (thiscall on the walk component's pad): whether its second stick's angle is within 45 degrees of a half
 // turn, the stick pushed and no down lock on it. Returns 1 / 0.
 int turned_round(const objects::PadSnapshot* pad);

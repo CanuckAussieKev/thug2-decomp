@@ -100,7 +100,7 @@ bool create_coim_heap(uint32_t size);
 // truncated): `a`, `b` and `c` kept (0x006F0D8C, 0x006F0D90 - `b` less a block header becomes the heap's +0x68 -
 // and 0x006F0D98), the script integers 0xB5527B89 and 0xD84C26CF read into 0x0067D804 / 0x0067D808, the heap made
 // `heapSize` bytes. Nothing else reads any of them.
-void init_coim(int a, uint32_t heap_size, int b, int c);
+void init_coim(int a, uint32_t heap_size, int b, int value_c);
 // 0x0045F1C0 (ResizeCOIMHeap's work): the heap made again `size` bytes, or destroyed for 0.
 void resize_coim_heap(uint32_t size);
 

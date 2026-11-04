@@ -217,11 +217,12 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         const float zero = length * 0.0F;
         to = {.x = from.x - zero, .y = from.y - length, .z = from.z - zero, .w = from.w - length};
     } else {
-        const maths::Vec4& d = *end;
+        const maths::Vec4& delta = *end;
         const double length_squared =
-            ((static_cast<double>(d.x) * d.x) + (static_cast<double>(d.y) * d.y)) + (static_cast<double>(d.z) * d.z);
+            ((static_cast<double>(delta.x) * delta.x) + (static_cast<double>(delta.y) * delta.y)) +
+            (static_cast<double>(delta.z) * delta.z);
         if (length_squared > 0.0) {
-            to = d;
+            to = delta;
             raise = false;
         } else {
             // Down the object's up by the length (x's product unrounded, as the x87 leaves it).

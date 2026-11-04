@@ -116,11 +116,11 @@ void PathFollower::refresh_placement()
     const double dy = static_cast<double>(end_point_.y) - segment_origin_.y;
     const float dz = end_point_.z - segment_origin_.z;
     const float dw = end_point_.w - segment_origin_.w;
-    auto t = static_cast<float>(static_cast<double>(along_) / byte_count_);
-    auto sx = static_cast<float>(dx * t);
-    const double sy = dy * t;
-    const double sz = static_cast<double>(dz) * t;
-    auto sw = static_cast<float>(static_cast<double>(dw) * t);
+    auto fraction = static_cast<float>(static_cast<double>(along_) / byte_count_);
+    auto sx = static_cast<float>(dx * fraction);
+    const double sy = dy * fraction;
+    const double sz = static_cast<double>(dz) * fraction;
+    auto sw = static_cast<float>(static_cast<double>(dw) * fraction);
     at_point_.x = static_cast<float>(static_cast<double>(sx) + at_point_.x);
     at_point_.y = static_cast<float>(sy + at_point_.y);
     at_point_.z = static_cast<float>(sz + at_point_.z);
@@ -410,21 +410,21 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
     case PathFollower::Phase::kBlend: {
         const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
-        auto t = static_cast<float>(along / byte_count_);
+        auto fraction = static_cast<float>(along / byte_count_);
         maths::Vec4 offset;
         if (along < byte_count_) {
             at_point_ = center_;
             offset = segment_origin_ - center_;
-            offset *= t;
+            offset *= fraction;
         } else {
             at_point_ = segment_origin_;
             offset = bend_point_ - segment_origin_;
-            offset *= static_cast<float>(static_cast<double>(t) - 1.0);
+            offset *= static_cast<float>(static_cast<double>(fraction) - 1.0);
         }
         at_point_ += offset;
         const maths::Vec4 into = segment_origin_ - center_;
         const maths::Vec4 next = bend_point_ - segment_origin_;
-        float blend = t * kHalfF;
+        float blend = fraction * kHalfF;
         if (blend >= kHalfF && ((flag_bits_ & kFlagTellNode) != 0U)) {
             const uint32_t passed = last_node_;
             flag_bits_ &= ~kFlagTellNode;

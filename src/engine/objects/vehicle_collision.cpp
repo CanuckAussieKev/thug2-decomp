@@ -61,9 +61,9 @@ const float kAlignFast = 122500.0F;                               // 0x006467C4 
 const float kAlignSlowRate = std::bit_cast<float>(0x3E99999AU);   // 0x006467C0: 0.3
 
 // The model component's 0x00420670 (not rewritten yet): its lighting from what a feeler hit.
-void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, float c)
+void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, float brightness)
 {
-    core::down_cast<MeshInstanceModule>(model)->apply_brightness(feeler, b, c);
+    core::down_cast<MeshInstanceModule>(model)->apply_brightness(feeler, b, brightness);
 }
 
 bool get_interrupted(const DrivableModule* vehicle)
@@ -80,16 +80,16 @@ double DrivableModule::get_penetration(const Contact* contact, const Collider* c
     const double dx = static_cast<double>(contact->point.x) - collider->world_corner_.x;
     const double dy = static_cast<double>(contact->point.y) - collider->world_corner_.y;
     const double dz = static_cast<double>(contact->point.z) - collider->world_corner_.z;
-    const maths::Vec4& a = core::at(collider->directions, 0);
-    const maths::Vec4& b = core::at(collider->directions, 1);
+    const maths::Vec4& direction_a = core::at(collider->directions, 0);
+    const maths::Vec4& direction_b = core::at(collider->directions, 1);
     int side = 0;
-    auto nearest = static_cast<float>(((dz * a.z) + (dy * a.y)) + (dx * a.x));
+    auto nearest = static_cast<float>(((dz * direction_a.z) + (dy * direction_a.y)) + (dx * direction_a.x));
     double distance = static_cast<double>(core::at(collider->lengths, 0)) - nearest;
     if (distance < nearest) {
         nearest = static_cast<float>(distance);
         side = 1;
     }
-    distance = ((dz * b.z) + (dy * b.y)) + (dx * b.x);
+    distance = ((dz * direction_b.z) + (dy * direction_b.y)) + (dx * direction_b.x);
     if (distance < nearest) {
         nearest = static_cast<float>(distance);
         side = 2;
@@ -103,20 +103,24 @@ double DrivableModule::get_penetration(const Contact* contact, const Collider* c
         return 0.0;
     }
     // That distance along the contact's normal.
-    const maths::Vec4& n = contact->normal;
+    const maths::Vec4& normal = contact->normal;
     switch (side) {
     case 0:
-        return nearest / (((static_cast<double>(a.z) * n.z) + (static_cast<double>(a.y) * n.y)) +
-                          (static_cast<double>(n.x) * a.x));
+        return nearest /
+               (((static_cast<double>(direction_a.z) * normal.z) + (static_cast<double>(direction_a.y) * normal.y)) +
+                (static_cast<double>(normal.x) * direction_a.x));
     case 1:
-        return -(nearest / (((static_cast<double>(a.z) * n.z) + (static_cast<double>(a.y) * n.y)) +
-                            (static_cast<double>(a.x) * n.x)));
+        return -(nearest /
+                 (((static_cast<double>(direction_a.z) * normal.z) + (static_cast<double>(direction_a.y) * normal.y)) +
+                  (static_cast<double>(direction_a.x) * normal.x)));
     case 2:
-        return nearest / (((static_cast<double>(b.z) * n.z) + (static_cast<double>(b.y) * n.y)) +
-                          (static_cast<double>(b.x) * n.x));
+        return nearest /
+               (((static_cast<double>(direction_b.z) * normal.z) + (static_cast<double>(direction_b.y) * normal.y)) +
+                (static_cast<double>(direction_b.x) * normal.x));
     default:
-        return -(nearest / (((static_cast<double>(b.z) * n.z) + (static_cast<double>(b.y) * n.y)) +
-                            (static_cast<double>(b.x) * n.x)));
+        return -(nearest /
+                 (((static_cast<double>(direction_b.z) * normal.z) + (static_cast<double>(direction_b.y) * normal.y)) +
+                  (static_cast<double>(direction_b.x) * normal.x)));
     }
 }
 
@@ -130,30 +134,31 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
             continue;
         }
         const render::RectHit& other = core::at(rect->joined(), k);
-        for (int e = 1; e >= 0; --e) {
-            const maths::Vec4& p = core::at(other.ends, e).point;
-            if (!(std::fabs(static_cast<double>(contact->point.x) - p.x) < kSameEnd)) {
+        for (int end_index = 1; end_index >= 0; --end_index) {
+            const maths::Vec4& point = core::at(other.ends, end_index).point;
+            if (!(std::fabs(static_cast<double>(contact->point.x) - point.x) < kSameEnd)) {
                 continue;
             }
-            if (!(std::fabs(static_cast<double>(contact->point.y) - p.y) < kSameEnd)) {
+            if (!(std::fabs(static_cast<double>(contact->point.y) - point.y) < kSameEnd)) {
                 continue;
             }
-            if (!(std::fabs(static_cast<double>(contact->point.z) - p.z) < kSameEnd)) {
+            if (!(std::fabs(static_cast<double>(contact->point.z) - point.z) < kSameEnd)) {
                 continue;
             }
-            const maths::Vec4& n = contact->normal;
-            if (!(((static_cast<double>(n.z) * other.normal.z) + (static_cast<double>(n.y) * other.normal.y)) +
-                      (static_cast<double>(n.x) * other.normal.x) <
+            const maths::Vec4& normal = contact->normal;
+            if (!(((static_cast<double>(normal.z) * other.normal.z) +
+                   (static_cast<double>(normal.y) * other.normal.y)) +
+                      (static_cast<double>(normal.x) * other.normal.x) <
                   kOpposite)) {
                 continue;
             }
             // On the edge between them: the normal across the hit's triangle edge, and the depth.
             const maths::Vec4& edge = core::at(core::at(rect->joined(), hit).ends, end).edge;
-            const double x = (static_cast<double>(edge.y) * n.z) - (static_cast<double>(edge.z) * n.y);
-            const double y = (static_cast<double>(edge.z) * n.x) - (static_cast<double>(edge.x) * n.z);
+            const double x = (static_cast<double>(edge.y) * normal.z) - (static_cast<double>(edge.z) * normal.y);
+            const double y = (static_cast<double>(edge.z) * normal.x) - (static_cast<double>(edge.x) * normal.z);
             contact->normal.w = 0.0F;
             contact->normal.z =
-                static_cast<float>((static_cast<double>(edge.x) * n.y) - (static_cast<double>(edge.y) * n.x));
+                static_cast<float>((static_cast<double>(edge.x) * normal.y) - (static_cast<double>(edge.y) * normal.x));
             contact->normal.x = static_cast<float>(x);
             contact->normal.y = static_cast<float>(y);
             contact->depth = static_cast<float>(get_penetration(contact, collider));
@@ -174,18 +179,19 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
 // 0x00437060
 bool DrivableModule::normal_faces_away(const Contact* contact) const
 {
-    const maths::Vec4& p = contact->point;
-    const maths::Vec4& n = contact->normal;
-    const double along =
-        (((static_cast<double>(p.z) - at_point_.z) * n.z) + ((static_cast<double>(p.y) - at_point_.y) * n.y)) +
-        ((static_cast<double>(p.x) - at_point_.x) * n.x);
+    const maths::Vec4& point = contact->point;
+    const maths::Vec4& normal = contact->normal;
+    const double along = (((static_cast<double>(point.z) - at_point_.z) * normal.z) +
+                          ((static_cast<double>(point.y) - at_point_.y) * normal.y)) +
+                         ((static_cast<double>(point.x) - at_point_.x) * normal.x);
     const bool away = along >= 0.0;
     if ((debug_mode_ != 0) && away) {
-        const maths::Vec4 tip{.x = static_cast<float>((static_cast<double>(n.x) * 48.0F) + p.x),
-                              .y = static_cast<float>((static_cast<double>(n.y) * 48.0F) + p.y),
-                              .z = static_cast<float>(static_cast<double>(static_cast<float>(n.z * 48.0F)) + p.z),
-                              .w = static_cast<float>(static_cast<double>(static_cast<float>(n.w * 48.0F)) + p.w)};
-        gfx::push_diag_line(&p, &tip, kSurfaceNormalColour, kSurfaceNormalColour, 1);
+        const maths::Vec4 tip{
+            .x = static_cast<float>((static_cast<double>(normal.x) * 48.0F) + point.x),
+            .y = static_cast<float>((static_cast<double>(normal.y) * 48.0F) + point.y),
+            .z = static_cast<float>(static_cast<double>(static_cast<float>(normal.z * 48.0F)) + point.z),
+            .w = static_cast<float>(static_cast<double>(static_cast<float>(normal.w * 48.0F)) + point.w)};
+        gfx::push_diag_line(&point, &tip, kSurfaceNormalColour, kSurfaceNormalColour, 1);
     }
     return away;
 }
@@ -204,23 +210,23 @@ void DrivableModule::move_by(const maths::Vec4* move)
         // turned back by half again.
         debug::printf(kDebugFormat, kDebugFile, kSourceLineLessThanUberFrig, "less than uber frig"); // "less than uber frig"
         const maths::Vec4& point = feeler.contact_pos();
-        const maths::Vec4& n = feeler.surface_dir();
-        at_point_.x = static_cast<float>(static_cast<double>(n.x) + point.x);
-        at_point_.y = static_cast<float>(static_cast<double>(point.y) + n.y);
-        at_point_.z = static_cast<float>(static_cast<double>(point.z) + n.z);
-        at_point_.w = static_cast<float>(static_cast<double>(point.w) + n.w);
+        const maths::Vec4& normal = feeler.surface_dir();
+        at_point_.x = static_cast<float>(static_cast<double>(normal.x) + point.x);
+        at_point_.y = static_cast<float>(static_cast<double>(point.y) + normal.y);
+        at_point_.z = static_cast<float>(static_cast<double>(point.z) + normal.z);
+        at_point_.w = static_cast<float>(static_cast<double>(point.w) + normal.w);
         const double distance = feeler.reach();
         const double vx = distance * move->x;
         const double vy = distance * move->y;
         const double vz = distance * move->z;
         const double vw = distance * move->w;
-        double twice =
-            ((static_cast<double>(n.x) * vx) + (static_cast<double>(n.y) * vy)) + (static_cast<double>(n.z) * vz);
+        double twice = ((static_cast<double>(normal.x) * vx) + (static_cast<double>(normal.y) * vy)) +
+                       (static_cast<double>(normal.z) * vz);
         twice = twice + twice;
-        auto kw = static_cast<float>(static_cast<double>(n.w) * twice);
-        auto kz = static_cast<float>(static_cast<double>(n.z) * twice);
-        auto ky = static_cast<float>(static_cast<double>(n.y) * twice);
-        const double kx = twice * n.x;
+        auto kw = static_cast<float>(static_cast<double>(normal.w) * twice);
+        auto kz = static_cast<float>(static_cast<double>(normal.z) * twice);
+        auto ky = static_cast<float>(static_cast<double>(normal.y) * twice);
+        const double kx = twice * normal.x;
         auto rx = static_cast<float>(vx - kx);
         auto ry = static_cast<float>(vy - ky);
         const double rz = vz - kz;
@@ -229,14 +235,14 @@ void DrivableModule::move_by(const maths::Vec4* move)
         at_point_.y = static_cast<float>(static_cast<double>(ry) + at_point_.y);
         at_point_.z = static_cast<float>(rz + at_point_.z);
         at_point_.w = static_cast<float>(static_cast<double>(rw) + at_point_.w);
-        const double into =
-            (((static_cast<double>(n.z) * linear_momentum_.z) + (static_cast<double>(n.y) * linear_momentum_.y)) +
-             (static_cast<double>(n.x) * linear_momentum_.x)) *
-            kBounce;
-        linear_momentum_.x = static_cast<float>(linear_momentum_.x - (static_cast<double>(n.x) * into));
-        linear_momentum_.y = static_cast<float>(linear_momentum_.y - (static_cast<double>(n.y) * into));
-        linear_momentum_.z = static_cast<float>(linear_momentum_.z - (static_cast<double>(n.z) * into));
-        linear_momentum_.w = static_cast<float>(linear_momentum_.w - (static_cast<double>(n.w) * into));
+        const double into = (((static_cast<double>(normal.z) * linear_momentum_.z) +
+                              (static_cast<double>(normal.y) * linear_momentum_.y)) +
+                             (static_cast<double>(normal.x) * linear_momentum_.x)) *
+                            kBounce;
+        linear_momentum_.x = static_cast<float>(linear_momentum_.x - (static_cast<double>(normal.x) * into));
+        linear_momentum_.y = static_cast<float>(linear_momentum_.y - (static_cast<double>(normal.y) * into));
+        linear_momentum_.z = static_cast<float>(linear_momentum_.z - (static_cast<double>(normal.z) * into));
+        linear_momentum_.w = static_cast<float>(linear_momentum_.w - (static_cast<double>(normal.w) * into));
     } else {
         at_point_.x = static_cast<float>(static_cast<double>(at_point_.x) + move->x);
         at_point_.y = static_cast<float>(static_cast<double>(move->y) + at_point_.y);
@@ -262,26 +268,29 @@ double DrivableModule::get_impulse_denominator(ImpulseLine impulse_line)
     const auto* const offset = impulse_line.offset;
     const auto* const direction = impulse_line.direction;
     // 1 / (n . (n / m + (I^-1 (r x n)) x r)).
-    const maths::Vec4& r = *offset;
-    const maths::Vec4& n = *direction;
+    const maths::Vec4& offset_ref = *offset;
+    const maths::Vec4& normal = *direction;
     const float inv_mass = inv_mass_;
     maths::Vec4 cross{};
-    cross.x = static_cast<float>((static_cast<double>(n.z) * r.y) - (static_cast<double>(r.z) * n.y));
-    cross.y = static_cast<float>((static_cast<double>(r.z) * n.x) - (static_cast<double>(r.x) * n.z));
-    cross.z = static_cast<float>((static_cast<double>(n.y) * r.x) - (static_cast<double>(n.x) * r.y));
+    cross.x = static_cast<float>((static_cast<double>(normal.z) * offset_ref.y) -
+                                 (static_cast<double>(offset_ref.z) * normal.y));
+    cross.y = static_cast<float>((static_cast<double>(offset_ref.z) * normal.x) -
+                                 (static_cast<double>(offset_ref.x) * normal.z));
+    cross.z = static_cast<float>((static_cast<double>(normal.y) * offset_ref.x) -
+                                 (static_cast<double>(normal.x) * offset_ref.y));
     cross.w = 0.0F;
-    auto linear_x = static_cast<float>(static_cast<double>(n.x) * inv_mass);
-    auto linear_y = static_cast<float>(static_cast<double>(inv_mass) * n.y);
-    auto linear_z = static_cast<float>(static_cast<double>(n.z) * inv_mass);
+    auto linear_x = static_cast<float>(static_cast<double>(normal.x) * inv_mass);
+    auto linear_y = static_cast<float>(static_cast<double>(inv_mass) * normal.y);
+    auto linear_z = static_cast<float>(static_cast<double>(normal.z) * inv_mass);
     maths::Vec4 w{};
     inv_inertia_.rotate_vector(w, cross);
-    const double tx = (static_cast<double>(w.y) * r.z) - (static_cast<double>(w.z) * r.y);
-    const double ty = (static_cast<double>(w.z) * r.x) - (static_cast<double>(w.x) * r.z);
-    auto tz = static_cast<float>((static_cast<double>(w.x) * r.y) - (static_cast<double>(w.y) * r.x));
+    const double tx = (static_cast<double>(w.y) * offset_ref.z) - (static_cast<double>(w.z) * offset_ref.y);
+    const double ty = (static_cast<double>(w.z) * offset_ref.x) - (static_cast<double>(w.x) * offset_ref.z);
+    auto tz = static_cast<float>((static_cast<double>(w.x) * offset_ref.y) - (static_cast<double>(w.y) * offset_ref.x));
     auto ux = static_cast<float>(tx + linear_x);
     const double uy = ty + linear_y;
     const double uz = static_cast<double>(tz) + linear_z;
-    return 1.0 / (((uy * n.y) + (uz * n.z)) + (static_cast<double>(ux) * n.x));
+    return 1.0 / (((uy * normal.y) + (uz * normal.z)) + (static_cast<double>(ux) * normal.x));
 }
 
 // 0x00438770
@@ -340,8 +349,8 @@ void DrivableModule::update_righting()
     maths::ArcRotationBlender blend{}; // (on the stack without a constructor in the original: zeroed here)
     maths::ArcRotationBlender* slerp = &blend;
     slerp->set_matrices(basis_frame_, target);
-    const double t = frame_clock::get_slomo_frame_seconds() / slerp->angle() * kRightingRate;
-    slerp->fetch_mat(basis_frame_, t > 1.0 ? 1.0F : static_cast<float>(t));
+    const double fraction = frame_clock::get_slomo_frame_seconds() / slerp->angle() * kRightingRate;
+    slerp->fetch_mat(basis_frame_, fraction > 1.0 ? 1.0F : static_cast<float>(fraction));
     maths::Vec4 quat{};
     matrix_to_quat(&quat, &basis_frame_);
     orientation_ = quat;
@@ -502,16 +511,16 @@ void DrivableModule::collide()
             rect.join_hits();
             for (int k = rect.joined_count() - 1; k >= 0; --k) {
                 const render::RectHit& hit = core::at(rect.joined(), k);
-                for (int e = 1; e >= 0; --e) {
+                for (int end_index = 1; end_index >= 0; --end_index) {
                     Contact& contact = core::at(contacts, contact_count_);
-                    contact.point = core::at(hit.ends, e).point;
+                    contact.point = core::at(hit.ends, end_index).point;
                     contact.normal = hit.normal;
                     contact.from_feeler_ = false;
-                    const bool on_edge = core::at(hit.ends, e).on_triangle_edge_;
+                    const bool on_edge = core::at(hit.ends, end_index).on_triangle_edge_;
                     if (!normal_faces_away(&contact)) {
                         contact.depth = on_edge ? static_cast<float>(get_penetration(&contact, &collider)) : 0.0F;
                         ++contact_count_;
-                    } else if (on_edge && find_edge_contact(&contact, &rect, &collider, k, e)) {
+                    } else if (on_edge && find_edge_contact(&contact, &rect, &collider, k, end_index)) {
                         ++contact_count_;
                     }
                 }
@@ -571,8 +580,8 @@ void DrivableModule::collide()
     if (contact_count_ == 0) {
         return;
     }
-    for (int n = contact_count_ - 1; n >= 0; --n) {
-        core::at(contacts, n).impulse = 0.0F;
+    for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
+        core::at(contacts, contact_index).impulse = 0.0F;
     }
     maths::Vec4 mom = linear_momentum_;
     maths::Vec4 rotmom = rotmom_;
@@ -582,14 +591,14 @@ void DrivableModule::collide()
     // Impulses at the contacts closing in (with restitution), up to six passes until none is.
     for (int pass = 0;;) {
         bool separating = true;
-        for (int n = contact_count_ - 1; n >= 0; --n) {
-            Contact& contact = core::at(contacts, n);
-            const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
-                                .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
-                                .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
-                                .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
+            Contact& contact = core::at(contacts, contact_index);
+            const maths::Vec4 arm{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                                  .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                                  .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                                  .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
             maths::Vec4 v{};
-            get_point_velocity(&v, &r);
+            get_point_velocity(&v, &arm);
             const maths::Vec4& nrm = contact.normal;
             const double closing_exact = ((static_cast<double>(v.z) * nrm.z) + (static_cast<double>(v.x) * nrm.x)) +
                                          (static_cast<double>(v.y) * nrm.y);
@@ -599,14 +608,14 @@ void DrivableModule::collide()
             }
             separating = false;
             auto bounce = static_cast<float>(-(static_cast<double>(closing) * restitution_));
-            const double denominator = get_impulse_denominator({.offset = &r, .direction = &nrm});
+            const double denominator = get_impulse_denominator({.offset = &arm, .direction = &nrm});
             auto impulse = static_cast<float>((static_cast<double>(bounce) - closing) * denominator);
             contact.impulse = static_cast<float>(static_cast<double>(impulse) + contact.impulse);
             const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(impulse) * nrm.x),
                                    .y = static_cast<float>(static_cast<double>(impulse) * nrm.y),
                                    .z = static_cast<float>(static_cast<double>(impulse) * nrm.z),
                                    .w = static_cast<float>(static_cast<double>(impulse) * nrm.w)};
-            apply_impulse_at_offset(&push, &r);
+            apply_impulse_at_offset(&push, &arm);
         }
         ++pass;
         if (pass > kMaxPasses || separating) {
@@ -615,8 +624,8 @@ void DrivableModule::collide()
     }
 
     // Pushed out by how deep each contact is (at most 2).
-    for (int n = contact_count_ - 1; n >= 0; --n) {
-        Contact& contact = core::at(contacts, n);
+    for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
+        Contact& contact = core::at(contacts, contact_index);
         if (contact.depth < 0.0F || contact.depth == 0.0F) {
             continue;
         }
@@ -628,28 +637,30 @@ void DrivableModule::collide()
                                 .y = static_cast<float>(static_cast<double>(push_rounded) * nrm.y),
                                 .z = static_cast<float>(static_cast<double>(push_rounded) * nrm.z),
                                 .w = static_cast<float>(push * nrm.w)};
-        const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
-                            .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
-                            .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
-                            .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
-        add_force_at_offset(&force, &r);
+        const maths::Vec4 arm{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                              .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                              .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                              .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        add_force_at_offset(&force, &arm);
     }
 
     // Friction against the sliding at each contact that took an impulse (on the velocities as they were, updated
     // by each friction impulse in turn); at most the friction coefficient times that impulse.
     const float friction = core::at(basis_frame_.row, 1).y > kUpright ? drag_factor_ : tipped_friction_;
-    for (int n = contact_count_ - 1; n >= 0; --n) {
-        const Contact& contact = core::at(contacts, n);
+    for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
+        const Contact& contact = core::at(contacts, contact_index);
         if (contact.impulse == 0.0F) {
             continue;
         }
         const maths::Vec4& nrm = contact.normal;
         auto rz = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z);
         auto ry = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y);
-        const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x), .y = ry, .z = rz,
-                            .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
-        const double cz = (static_cast<double>(ry) * rotvel.x) - (static_cast<double>(r.x) * rotvel.y);
-        const double cy = (static_cast<double>(r.x) * rotvel.z) - (static_cast<double>(rz) * rotvel.x);
+        const maths::Vec4 arm{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                              .y = ry,
+                              .z = rz,
+                              .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        const double cz = (static_cast<double>(ry) * rotvel.x) - (static_cast<double>(arm.x) * rotvel.y);
+        const double cy = (static_cast<double>(arm.x) * rotvel.z) - (static_cast<double>(rz) * rotvel.x);
         auto cx = static_cast<float>((static_cast<double>(rz) * rotvel.y) - (static_cast<double>(ry) * rotvel.z));
         auto pvz = static_cast<float>(cz + vel.z);
         const double pvy = cy + vel.y;
@@ -671,7 +682,7 @@ void DrivableModule::collide()
         const double inverse = 1.0 / speed_rounded;
         const maths::Vec4 slide{.x = static_cast<float>(slide_x * inverse), .y = static_cast<float>(slide_y * inverse),
                                 .z = static_cast<float>(slide_z * inverse), .w = static_cast<float>(slide_w * inverse)};
-        double stop = get_impulse_denominator({.offset = &r, .direction = &slide}) * speed_rounded;
+        double stop = get_impulse_denominator({.offset = &arm, .direction = &slide}) * speed_rounded;
         auto most = static_cast<float>(static_cast<double>(friction) * contact.impulse);
         stop = std::min<double>(stop, most);
         const double against = -stop;
@@ -679,14 +690,14 @@ void DrivableModule::collide()
                                .y = static_cast<float>(static_cast<double>(slide.y) * against),
                                .z = static_cast<float>(static_cast<double>(slide.z) * against),
                                .w = static_cast<float>(static_cast<double>(slide.w) * against)};
-        apply_impulse_at_offset(&push, &r);
+        apply_impulse_at_offset(&push, &arm);
         // The copies of the momenta and velocities followed along.
         mom.x = static_cast<float>(static_cast<double>(push.x) + mom.x);
         mom.y = static_cast<float>(static_cast<double>(push.y) + mom.y);
         mom.z = static_cast<float>(static_cast<double>(push.z) + mom.z);
         mom.w = static_cast<float>(static_cast<double>(push.w) + mom.w);
-        const double az = (static_cast<double>(push.y) * r.x) - (static_cast<double>(push.x) * ry);
-        const double ay = (static_cast<double>(push.x) * rz) - (static_cast<double>(push.z) * r.x);
+        const double az = (static_cast<double>(push.y) * arm.x) - (static_cast<double>(push.x) * ry);
+        const double ay = (static_cast<double>(push.x) * rz) - (static_cast<double>(push.z) * arm.x);
         const double ax = (static_cast<double>(push.z) * ry) - (static_cast<double>(push.y) * rz);
         rotmom.x = static_cast<float>(rotmom.x + ax);
         rotmom.y = static_cast<float>(ay + rotmom.y);
@@ -701,8 +712,8 @@ void DrivableModule::collide()
         rotvel.z = spin.z;
     }
 
-    for (int n = contact_count_ - 1; n >= 0; --n) {
-        const float impulse = core::at(contacts, n).impulse;
+    for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
+        const float impulse = core::at(contacts, contact_index).impulse;
         collision_impulse_ = std::max(collision_impulse_, impulse);
     }
 
@@ -710,12 +721,12 @@ void DrivableModule::collide()
     if (steering_ == 0.0F || static_cast<uint32_t>(wheels_in_contact_) < 3 || handbrake_) {
         return;
     }
-    for (int n = contact_count_ - 1; n >= 0; --n) {
-        const Contact& contact = core::at(contacts, n);
-        const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
-                            .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
-                            .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
-                            .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+    for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
+        const Contact& contact = core::at(contacts, contact_index);
+        const maths::Vec4 arm{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                              .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                              .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                              .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
         const maths::Vec4& nrm = contact.normal;
         const maths::Vec4& at = core::at(basis_frame_.row, 2);
         auto strength =
@@ -726,7 +737,7 @@ void DrivableModule::collide()
                                .y = static_cast<float>(static_cast<double>(strength) * 0.0F),
                                .z = static_cast<float>(static_cast<double>(strength) * nrm.x),
                                .w = strength};
-        apply_impulse_at_offset(&push, &r);
+        apply_impulse_at_offset(&push, &arm);
     }
 }
 

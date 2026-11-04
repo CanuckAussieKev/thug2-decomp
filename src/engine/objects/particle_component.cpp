@@ -388,23 +388,23 @@ bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::S
 // 0x0042A090
 void EffectsEmitterModule::configure_from_data(script::Struct* params)
 {
-    ParticleParams p;
+    ParticleParams particle_params;
     float scale = 1.0F;
-    p.set_emit_script(0);
+    particle_params.set_emit_script(0);
     if (params->read_hash_value(kUpdateScript, &emit_target_, 0)) {
-        p.set_emit_script(emit_target_);
-        p.set_entity_key(entity()->ident());
+        particle_params.set_emit_script(emit_target_);
+        particle_params.set_entity_key(entity()->ident());
     }
     params->fetch_int_value(kSystemLifetime, &lifespan_, 0);
-    params->read_hash_value(kName, &p.label(), 1);
-    params->read_hash_value("GroupID", &p.group_id(), 0);
-    params->read_hash_value(kTypeName, &p.unknown04(), 0);
-    p.set_use_mid(params->has_bare_flag(kUseMidPoint));
-    p.set_cull_outside(params->has_bare_flag(kCullOutsideFlag));
+    params->read_hash_value(kName, &particle_params.label(), 1);
+    params->read_hash_value("GroupID", &particle_params.group_id(), 0);
+    params->read_hash_value(kTypeName, &particle_params.unknown04(), 0);
+    particle_params.set_use_mid(params->has_bare_flag(kUseMidPoint));
+    particle_params.set_cull_outside(params->has_bare_flag(kCullOutsideFlag));
     params->fetch_float(kScale, &scale, 0);
-    params->fetch_float(kStartRadius, &core::at(p.extent(), 0), 0);
-    params->fetch_float(kMidRadius, &core::at(p.extent(), 1), 0);
-    params->fetch_float(kEndRadius, &core::at(p.extent(), 2), 0);
+    params->fetch_float(kStartRadius, &core::at(particle_params.extent(), 0), 0);
+    params->fetch_float(kMidRadius, &core::at(particle_params.extent(), 1), 0);
+    params->fetch_float(kEndRadius, &core::at(particle_params.extent(), 2), 0);
 
     // The orientation: the identity, or turned to face 0x0C4C809E (normalised).
     maths::Mat4 orient{};
@@ -421,9 +421,9 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         core::at(orient.row, 0).w = 0.0F;
         if (core::at(orient.row, 2) == up) {
             // (straight up: across from (0, 0, -1))
-            auto t = static_cast<float>(static_cast<double>(at.z) * 0.0);
-            core::at(orient.row, 0).x = static_cast<float>((static_cast<double>(at.y) * -1.0) - t);
-            core::at(orient.row, 0).y = static_cast<float>(t - (static_cast<double>(at.x) * -1.0));
+            auto scaled = static_cast<float>(static_cast<double>(at.z) * 0.0);
+            core::at(orient.row, 0).x = static_cast<float>((static_cast<double>(at.y) * -1.0) - scaled);
+            core::at(orient.row, 0).y = static_cast<float>(scaled - (static_cast<double>(at.x) * -1.0));
             core::at(orient.row, 0).z =
                 static_cast<float>((static_cast<double>(at.x) * 0.0) - (static_cast<double>(at.y) * 0.0));
         } else {
@@ -434,28 +434,28 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
                 static_cast<float>((static_cast<double>(at.z) * 0.0) - (static_cast<double>(at.x) * 0.0));
             core::at(orient.row, 0).z = static_cast<float>(at.x - y0);
         }
-        const maths::Vec4& r = core::at(orient.row, 0);
+        const maths::Vec4& right = core::at(orient.row, 0);
         core::at(orient.row, 1).w = 0.0F;
         core::at(orient.row, 1).x =
-            static_cast<float>((static_cast<double>(at.y) * r.z) - (static_cast<double>(at.z) * r.y));
+            static_cast<float>((static_cast<double>(at.y) * right.z) - (static_cast<double>(at.z) * right.y));
         core::at(orient.row, 1).y =
-            static_cast<float>((static_cast<double>(at.z) * r.x) - (static_cast<double>(at.x) * r.z));
+            static_cast<float>((static_cast<double>(at.z) * right.x) - (static_cast<double>(at.x) * right.z));
         core::at(orient.row, 1).z =
-            static_cast<float>((static_cast<double>(at.x) * r.y) - (static_cast<double>(at.y) * r.x));
+            static_cast<float>((static_cast<double>(at.x) * right.y) - (static_cast<double>(at.y) * right.x));
     }
-    for (float& size : p.extent()) {
+    for (float& size : particle_params.extent()) {
         size = static_cast<float>(static_cast<double>(size) * scale);
     }
-    params->fetch_float(kStartRadiusSpread, &core::at(p.radius(), 0), 0);
-    params->fetch_float(kMidRadiusSpread, &core::at(p.radius(), 1), 0);
-    params->fetch_float(kEndRadiusSpread, &core::at(p.radius(), 2), 0);
-    for (float& radius : p.radius()) {
+    params->fetch_float(kStartRadiusSpread, &core::at(particle_params.radius(), 0), 0);
+    params->fetch_float(kMidRadiusSpread, &core::at(particle_params.radius(), 1), 0);
+    params->fetch_float(kEndRadiusSpread, &core::at(particle_params.radius(), 2), 0);
+    for (float& radius : particle_params.radius()) {
         radius = static_cast<float>(static_cast<double>(radius) * scale);
     }
-    params->fetch_int_value(kMaxStreams, &p.unknown24(), 0);
-    params->fetch_float(kEmitRate, &p.rate(), 0);
-    params->fetch_float(kLifeTime, &p.lifetime(), 0);
-    params->fetch_float(kMidPointPCT, &p.mid_percent(), 0);
+    params->fetch_int_value(kMaxStreams, &particle_params.unknown24(), 0);
+    params->fetch_float(kEmitRate, &particle_params.rate(), 0);
+    params->fetch_float(kLifeTime, &particle_params.lifetime(), 0);
+    params->fetch_float(kMidPointPCT, &particle_params.mid_percent(), 0);
 
     // The positions and boxes: scaled, then turned by the orientation.
     auto scale_and_turn = [&](std::span<maths::Vec4, 3> v) {
@@ -473,16 +473,16 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     auto vector = [&](uint32_t name, maths::Vec4* out) {
         params->fetch_vec(name, out, 0);
     };
-    vector(params->has_bare_flag(kUseStartPosition) ? kStartPosition : kPos, &core::at(p.at_point(), 0));
-    vector(kMidPosition, &core::at(p.at_point(), 1));
-    vector(kEndPosition, &core::at(p.at_point(), 2));
-    scale_and_turn(p.at_point());
-    vector(kBoxDimsStart, &core::at(p.box(), 0));
-    vector(kBoxDimsMid, &core::at(p.box(), 1));
-    vector(kBoxDimsEnd, &core::at(p.box(), 2));
-    scale_and_turn(p.box());
-    p.set_colour_use_mid(params->has_bare_flag(kUseColorMidTime));
-    params->fetch_float(kColorMidTime, &p.mid_percent(), 0);
+    vector(params->has_bare_flag(kUseStartPosition) ? kStartPosition : kPos, &core::at(particle_params.at_point(), 0));
+    vector(kMidPosition, &core::at(particle_params.at_point(), 1));
+    vector(kEndPosition, &core::at(particle_params.at_point(), 2));
+    scale_and_turn(particle_params.at_point());
+    vector(kBoxDimsStart, &core::at(particle_params.box(), 0));
+    vector(kBoxDimsMid, &core::at(particle_params.box(), 1));
+    vector(kBoxDimsEnd, &core::at(particle_params.box(), 2));
+    scale_and_turn(particle_params.box());
+    particle_params.set_colour_use_mid(params->has_bare_flag(kUseColorMidTime));
+    params->fetch_float(kColorMidTime, &particle_params.mid_percent(), 0);
 
     // The colours (rgb from three arrays; the alphas at most 128).
     uint32_t value = 0;
@@ -490,63 +490,66 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     static const std::array<uint32_t, 3> kColours = {{0xDAB75B6CU, 0x0444769AU, 0x5A3728E7U}};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_list(core::at(kColours, i), &array, 0)) {
-            get_rgb(array, core::at(p.shade(), i), &value);
+            get_rgb(array, core::at(particle_params.shade(), i), &value);
         }
     }
     static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4CU, 0x4ABA1FF1U, 0x5CF83ACAU}};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(core::at(kAlphas, i), &value, 0)) {
             auto alpha = static_cast<uint8_t>(value);
-            core::at(core::at(p.shade(), i), 3) = alpha > kMaxShadeAlpha ? kMaxShadeAlpha : alpha;
+            core::at(core::at(particle_params.shade(), i), 3) = alpha > kMaxShadeAlpha ? kMaxShadeAlpha : alpha;
         }
     }
-    params->read_hash_value(kBlendMode, &p.blend_mode(), 0);
-    params->fetch_int_value(kAlphaCutoff, &p.unknown13c(), 0);
-    params->fetch_int_value(kFixedAlpha, &p.alpha_cut_off(), 0);
-    params->read_hash_value(kTexture, &p.texture(), 0);
-    params->fetch_int_value(kLODDist1, &p.unknown144(), 0);
-    params->fetch_int_value(kLODDist2, &p.unknown148(), 0);
-    params->fetch_int_value(kSuspendDistance, &p.unknown14c(), 0);
+    params->read_hash_value(kBlendMode, &particle_params.blend_mode(), 0);
+    params->fetch_int_value(kAlphaCutoff, &particle_params.unknown13c(), 0);
+    params->fetch_int_value(kFixedAlpha, &particle_params.alpha_cut_off(), 0);
+    params->read_hash_value(kTexture, &particle_params.texture(), 0);
+    params->fetch_int_value(kLODDist1, &particle_params.unknown144(), 0);
+    params->fetch_int_value(kLODDist2, &particle_params.unknown148(), 0);
+    params->fetch_int_value(kSuspendDistance, &particle_params.unknown14c(), 0);
     int byte_value = 0;
     params->fetch_int_value(kPriority, &byte_value, 0);
-    p.set_unknown150(static_cast<uint8_t>(byte_value));
+    particle_params.set_unknown150(static_cast<uint8_t>(byte_value));
 
     // The rotation: X, Y, then Z.
-    core::at(p.orientation_turn().row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
-    core::at(p.orientation_turn().row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
-    core::at(p.orientation_turn().row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
-    core::at(p.orientation_turn().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(particle_params.orientation_turn().row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(particle_params.orientation_turn().row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(particle_params.orientation_turn().row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(particle_params.orientation_turn().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_vec(kAngles, &angles, 0);
     maths::Mat4 rotation{};
-    matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_pitch_matrix(rotation, angles.x));
-    matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_yaw_matrix(rotation, angles.y));
-    matrix_multiply(&p.orientation_turn(), &p.orientation_turn(), &maths::make_roll_matrix(rotation, angles.z));
+    matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
+                    &maths::make_pitch_matrix(rotation, angles.x));
+    matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
+                    &maths::make_yaw_matrix(rotation, angles.y));
+    matrix_multiply(&particle_params.orientation_turn(), &particle_params.orientation_turn(),
+                    &maths::make_roll_matrix(rotation, angles.z));
 
-    p.set_local_positions(params->has_bare_flag(kLocalSpace));
-    if (p.local_positions()) {
+    particle_params.set_local_positions(params->has_bare_flag(kLocalSpace));
+    if (particle_params.local_positions()) {
         for (int i = 0; i < 3; ++i) {
-            core::at(p.offset_pos(), i) = core::at(p.at_point(), i);
+            core::at(particle_params.offset_pos(), i) = core::at(particle_params.at_point(), i);
         }
     }
-    p.set_orient_with_object(params->has_bare_flag(kEnableRotate));
-    p.set_flag158(params->has_bare_flag(kUseGlobalColorModulation));
-    effect_handle_ = stored_particle_hub()->spawn_particle(&p);
+    particle_params.set_orient_with_object(params->has_bare_flag(kEnableRotate));
+    particle_params.set_flag158(params->has_bare_flag(kUseGlobalColorModulation));
+    effect_handle_ = stored_particle_hub()->spawn_particle(&particle_params);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
     if (params->read_hash_value(kUpdateBrightnessFrom, &model, 0) && (model != 0U)) {
         mesh_instance_ = core::down_cast<GameEntity>(find_object(model))->fetch_module(kModel);
     }
-    if (p.emit_script() != 0U) {
+    if (particle_params.emit_script() != 0U) {
         script::Struct* script_params = nullptr;
         params->read_sub_struct(kParams, &script_params, 0);
-        entity()->start_script_task(p.emit_script(), 0, false, false, script_params);
+        entity()->start_script_task(particle_params.emit_script(), 0, false, false, script_params);
     }
     uint32_t value54 = kOutdoor;
     params->read_hash_value(kLightGroup, &value54, 0);
     effect_handle_->args().set_unknown50(value54);
-    if (p.flag158()) {
+    if (particle_params.flag158()) {
         effect_handle_->change_colour(nullptr);
     }
 }

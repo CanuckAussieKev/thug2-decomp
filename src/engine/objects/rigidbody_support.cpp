@@ -74,7 +74,10 @@ float get_narrow(double value) { return static_cast<float>(value); }
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
 
 // The matrix's element at byte offset `offset` from its start (the original's: row offset / 16, column 4 bytes each).
-double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset / kMatrixRowBytes)[(offset % kMatrixRowBytes) / 4]; }
+double get_m(const maths::Mat4& matrix, int offset)
+{
+    return core::at(matrix.row, offset / kMatrixRowBytes)[(offset % kMatrixRowBytes) / 4];
+}
 
 } // namespace
 
@@ -147,18 +150,20 @@ void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 void BodyDynamicsModule::seal()
 {
     audio_module_ = core::down_cast<AudioEmitterModule>(entity()->fetch_module(kSound));
-    const maths::Mat4& m = basis_frame_;
+    const maths::Mat4& basis = basis_frame_;
     for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
         Spring& spring = core::at(spring_run(), i);
-        const maths::Vec4& p = spring.point;
-        const double x =
-            ((get_wide(p.y) * get_m(m, 0x10)) + (get_wide(p.x) * get_m(m, 0x00))) + (get_wide(p.z) * get_m(m, 0x20));
-        const float y = get_narrow(((get_wide(p.x) * get_m(m, 0x04)) + (get_wide(p.z) * get_m(m, 0x24))) +
-                                   (get_wide(p.y) * get_m(m, 0x14)));
-        const float z = get_narrow(((get_wide(p.x) * get_m(m, 0x08)) + (get_wide(p.z) * get_m(m, 0x28))) +
-                                   (get_wide(p.y) * get_m(m, 0x18)));
+        const maths::Vec4& point = spring.point;
+        const double x = ((get_wide(point.y) * get_m(basis, 0x10)) + (get_wide(point.x) * get_m(basis, 0x00))) +
+                         (get_wide(point.z) * get_m(basis, 0x20));
+        const float y =
+            get_narrow(((get_wide(point.x) * get_m(basis, 0x04)) + (get_wide(point.z) * get_m(basis, 0x24))) +
+                       (get_wide(point.y) * get_m(basis, 0x14)));
+        const float z =
+            get_narrow(((get_wide(point.x) * get_m(basis, 0x08)) + (get_wide(point.z) * get_m(basis, 0x28))) +
+                       (get_wide(point.y) * get_m(basis, 0x18)));
         spring.anchor.z = get_narrow(get_wide(z) + at_point_.z);
-        spring.anchor.w = get_narrow(get_wide(p.w) + at_point_.w);
+        spring.anchor.w = get_narrow(get_wide(point.w) + at_point_.w);
         spring.anchor.x = get_narrow(x + at_point_.x);
         spring.anchor.y = get_narrow(get_wide(y) + at_point_.y);
     }
@@ -178,43 +183,43 @@ void BodyDynamicsModule::sleep()
 // 0x0042BF00 (each array from its last element back)
 void BodyDynamicsModule::update_world_points()
 {
-    const maths::Mat4& m = basis_frame_;
+    const maths::Mat4& basis = basis_frame_;
     for (int i = contact_count_ - 1; i >= 0; --i) {
-        const maths::Vec4& p = core::at(contact_run(), i);
+        const maths::Vec4& point = core::at(contact_run(), i);
         maths::Vec4& out = core::at(world_contact_points(), i);
-        const double x =
-            ((get_wide(p.y) * get_m(m, 0x10)) + (get_wide(p.z) * get_m(m, 0x20))) + (get_wide(p.x) * get_m(m, 0x00));
-        const double y =
-            ((get_wide(p.x) * get_m(m, 0x04)) + (get_wide(p.z) * get_m(m, 0x24))) + (get_wide(p.y) * get_m(m, 0x14));
-        const double z =
-            ((get_wide(p.z) * get_m(m, 0x28)) + (get_wide(p.y) * get_m(m, 0x18))) + (get_wide(p.x) * get_m(m, 0x08));
-        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = p.w};
+        const double x = ((get_wide(point.y) * get_m(basis, 0x10)) + (get_wide(point.z) * get_m(basis, 0x20))) +
+                         (get_wide(point.x) * get_m(basis, 0x00));
+        const double y = ((get_wide(point.x) * get_m(basis, 0x04)) + (get_wide(point.z) * get_m(basis, 0x24))) +
+                         (get_wide(point.y) * get_m(basis, 0x14));
+        const double z = ((get_wide(point.z) * get_m(basis, 0x28)) + (get_wide(point.y) * get_m(basis, 0x18))) +
+                         (get_wide(point.x) * get_m(basis, 0x08));
+        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = point.w};
     }
     for (int i = sphere_count_ - 1; i >= 0; --i) {
-        const maths::Vec4& p = core::at(sphere_run(), i).center;
+        const maths::Vec4& point = core::at(sphere_run(), i).center;
         maths::Vec4& out = core::at(world_sphere_centers(), i);
-        const double x =
-            ((get_wide(p.y) * get_m(m, 0x10)) + (get_wide(p.z) * get_m(m, 0x20))) + (get_wide(p.x) * get_m(m, 0x00));
-        const double y =
-            ((get_wide(p.x) * get_m(m, 0x04)) + (get_wide(p.z) * get_m(m, 0x24))) + (get_wide(p.y) * get_m(m, 0x14));
-        const double z =
-            ((get_wide(p.x) * get_m(m, 0x08)) + (get_wide(p.z) * get_m(m, 0x28))) + (get_wide(p.y) * get_m(m, 0x18));
-        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = p.w};
+        const double x = ((get_wide(point.y) * get_m(basis, 0x10)) + (get_wide(point.z) * get_m(basis, 0x20))) +
+                         (get_wide(point.x) * get_m(basis, 0x00));
+        const double y = ((get_wide(point.x) * get_m(basis, 0x04)) + (get_wide(point.z) * get_m(basis, 0x24))) +
+                         (get_wide(point.y) * get_m(basis, 0x14));
+        const double z = ((get_wide(point.x) * get_m(basis, 0x08)) + (get_wide(point.z) * get_m(basis, 0x28))) +
+                         (get_wide(point.y) * get_m(basis, 0x18));
+        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = point.w};
     }
     for (int i = spring_count_ - 1; i >= 0; --i) {
         const Spring& spring = core::at(spring_run(), i);
         if (!spring.active) {
             continue;
         }
-        const maths::Vec4& p = spring.point;
+        const maths::Vec4& point = spring.point;
         maths::Vec4& out = core::at(world_spring_points(), i);
-        const double x =
-            ((get_wide(p.z) * get_m(m, 0x20)) + (get_wide(p.y) * get_m(m, 0x10))) + (get_wide(p.x) * get_m(m, 0x00));
-        const double y =
-            ((get_wide(p.z) * get_m(m, 0x24)) + (get_wide(p.y) * get_m(m, 0x14))) + (get_wide(p.x) * get_m(m, 0x04));
-        const double z =
-            ((get_wide(p.z) * get_m(m, 0x28)) + (get_wide(p.y) * get_m(m, 0x18))) + (get_wide(p.x) * get_m(m, 0x08));
-        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = p.w};
+        const double x = ((get_wide(point.z) * get_m(basis, 0x20)) + (get_wide(point.y) * get_m(basis, 0x10))) +
+                         (get_wide(point.x) * get_m(basis, 0x00));
+        const double y = ((get_wide(point.z) * get_m(basis, 0x24)) + (get_wide(point.y) * get_m(basis, 0x14))) +
+                         (get_wide(point.x) * get_m(basis, 0x04));
+        const double z = ((get_wide(point.z) * get_m(basis, 0x28)) + (get_wide(point.y) * get_m(basis, 0x18))) +
+                         (get_wide(point.x) * get_m(basis, 0x08));
+        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = point.w};
     }
 }
 
@@ -232,11 +237,11 @@ void get_slow(maths::Vec4& v, float drag)
         v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         return;
     }
-    const double f = -(drag / speed);
-    const double dx = f * v.x;
-    const float dy = get_narrow(f * v.y);
-    const float dz = get_narrow(f * v.z);
-    const float dw = get_narrow(f * v.w);
+    const double scale = -(drag / speed);
+    const double dx = scale * v.x;
+    const float dy = get_narrow(scale * v.y);
+    const float dz = get_narrow(scale * v.z);
+    const float dw = get_narrow(scale * v.w);
     v.x = get_narrow(dx + v.x);
     v.y = get_narrow(get_wide(dy) + v.y);
     v.z = get_narrow(get_wide(dz) + v.z);
@@ -374,18 +379,18 @@ void BodyDynamicsModule::feel_pushers()
         }
 
         // The direction: the relative motion's (horizontal, unit) plus the normal, made unit, tilted up.
-        double h = std::sqrt((get_wide(rx) * rx) + (get_wide(rz) * rz));
-        if (h == 0.0) {
-            h = kSlow;
+        double horizontal_r = std::sqrt((get_wide(rx) * rx) + (get_wide(rz) * rz));
+        if (horizontal_r == 0.0) {
+            horizontal_r = kSlow;
         }
-        const double ih = 1.0 / h;
+        const double ih = 1.0 / horizontal_r;
         const float ax = get_narrow((get_wide(rx) * ih) + nx);
         const double az = (get_wide(rz) * ih) + nz;
-        double g = std::sqrt((get_wide(ax) * ax) + (az * az));
-        if (g == 0.0) {
-            g = kSlow;
+        double horizontal_a = std::sqrt((get_wide(ax) * ax) + (az * az));
+        if (horizontal_a == 0.0) {
+            horizontal_a = kSlow;
         }
-        const double ig = 1.0 / g;
+        const double ig = 1.0 / horizontal_a;
         float jz = get_narrow(az * ig);
         const float jx = get_narrow(get_wide(ax) * ig * skater_assent_cos_);
         jz = get_narrow(get_wide(jz) * skater_assent_cos_);

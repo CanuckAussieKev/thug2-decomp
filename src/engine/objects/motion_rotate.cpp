@@ -286,14 +286,14 @@ void KinematicsModule::update_turn()
 {
     auto elapsed = static_cast<float>(static_cast<double>(step_seconds_) + turn_elapsed_);
     turn_elapsed_ = elapsed;
-    float t = 0.0F;
+    float fraction = 0.0F;
     if (!(turn_time_ == 0.0F) && !(elapsed >= turn_time_)) {
-        t = static_cast<float>(static_cast<double>(elapsed) / turn_time_);
+        fraction = static_cast<float>(static_cast<double>(elapsed) / turn_time_);
     } else {
-        t = 1.0F;
+        fraction = 1.0F;
         motion_flags_ &= ~kMotionTurning;
     }
-    turn_ptr_->fetch_mat(entity()->basis_frame(), t);
+    turn_ptr_->fetch_mat(entity()->basis_frame(), fraction);
 }
 
 // --- looking at things ---

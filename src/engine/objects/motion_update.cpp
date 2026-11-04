@@ -176,11 +176,11 @@ bool KinematicsModule::update_move_to()
     const double dy = static_cast<double>(move_target_.y) - move_start_.y;
     auto dz = static_cast<float>(static_cast<double>(move_target_.z) - move_start_.z);
     auto dw = static_cast<float>(static_cast<double>(move_target_.w) - move_start_.w);
-    auto t = static_cast<float>(done / move_distance_);
-    auto x = static_cast<float>(dx * t);
-    auto y = static_cast<float>(dy * t);
-    auto w = static_cast<float>(static_cast<double>(dw) * t);
-    pos.z = static_cast<float>((static_cast<double>(dz) * t) + move_start_.z);
+    auto fraction = static_cast<float>(done / move_distance_);
+    auto x = static_cast<float>(dx * fraction);
+    auto y = static_cast<float>(dy * fraction);
+    auto w = static_cast<float>(static_cast<double>(dw) * fraction);
+    pos.z = static_cast<float>((static_cast<double>(dz) * fraction) + move_start_.z);
     pos.w = static_cast<float>(static_cast<double>(w) + move_start_.w);
     pos.x = static_cast<float>(static_cast<double>(x) + move_start_.x);
     pos.y = static_cast<float>(static_cast<double>(y) + move_start_.y);

@@ -112,7 +112,7 @@ PathFollower* motion_path(ObjectModule* motion)
 uint32_t& motion_flags(ObjectModule* motion) { return core::down_cast<KinematicsModule>(motion)->motion_flags2(); }
 
 // `out` = `in` (all four) times `m`, summed as 0x0040AF60 does.
-void xform(const maths::Mat4& m, maths::Vec4& out, const maths::Vec4& in) { m.xform(out, in); }
+void xform(const maths::Mat4& matrix, maths::Vec4& out, const maths::Vec4& in) { matrix.xform(out, in); }
 // D3DXMatrixMultiply (linked library code).
 void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
@@ -136,7 +136,10 @@ private:
 };
 
 // The angle of `v` about the y row of `m` from its at row, in the original's degrees or radians.
-float angle_in_plane(const maths::Mat4& m, const maths::Vec4& v) { return maths::get_angle_in_plane(m, v, 2, 1); }
+float angle_in_plane(const maths::Mat4& matrix, const maths::Vec4& v)
+{
+    return maths::get_angle_in_plane(matrix, v, 2, 1);
+}
 
 } // namespace
 
@@ -216,13 +219,13 @@ float ObstacleDodgeModule::side_away_from_skater()
     const float b_x = pos.x - side_x;
     const float b_y = pos.y - side_y;
     const float b_z = pos.z - side_z;
-    const maths::Vec4& s = skater->at_point();
-    auto d1x = static_cast<float>(s.x - a_x);
-    const double d1y = s.y - a_y;
-    const double d1z = static_cast<double>(s.z) - a_z;
-    const double d2x = static_cast<double>(s.x) - b_x;
-    const double d2y = static_cast<double>(s.y) - b_y;
-    const double d2z = static_cast<double>(s.z) - b_z;
+    const maths::Vec4& skater_pos = skater->at_point();
+    auto d1x = static_cast<float>(skater_pos.x - a_x);
+    const double d1y = skater_pos.y - a_y;
+    const double d1z = static_cast<double>(skater_pos.z) - a_z;
+    const double d2x = static_cast<double>(skater_pos.x) - b_x;
+    const double d2y = static_cast<double>(skater_pos.y) - b_y;
+    const double d2z = static_cast<double>(skater_pos.z) - b_z;
     const double first = ((d1z * d1z) + (d1y * d1y)) + (static_cast<double>(d1x) * d1x);
     const double second = ((d2z * d2z) + (d2y * d2y)) + (d2x * d2x);
     if (first < second) {
@@ -251,10 +254,10 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, J
     maths::Vec4 end;
     xform(out, end, landing);
     core::at(out.row, 3) = end;
-    const maths::Vec4& s = local_skater()->at_point();
-    const double dx = static_cast<double>(end.x) - s.x;
-    const double dy = static_cast<double>(end.y) - s.y;
-    const double dz = static_cast<double>(end.z) - s.z;
+    const maths::Vec4& skater_pos = local_skater()->at_point();
+    const double dx = static_cast<double>(end.x) - skater_pos.x;
+    const double dy = static_cast<double>(end.y) - skater_pos.y;
+    const double dz = static_cast<double>(end.z) - skater_pos.z;
     const double from_skater = std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx));
     if (from_skater < kNearSkaterDistance) {
         debug::printf("Too close to skater %f!\n", from_skater);

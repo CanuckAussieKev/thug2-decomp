@@ -86,23 +86,23 @@ maths::Vec4* xform(const maths::Mat4* matrix, maths::Vec4* out, const maths::Vec
 // The spread of four values: the largest less the smallest.
 double span4(const std::array<float, 4>& values)
 {
-    const float a = core::at(values, 0);
-    const float b = core::at(values, 1);
-    const float c = core::at(values, 2);
-    const float d = core::at(values, 3);
-    double low = a;
-    if (b < a) {
-        low = b;
+    const float value_a = core::at(values, 0);
+    const float value_b = core::at(values, 1);
+    const float value_c = core::at(values, 2);
+    const float value_d = core::at(values, 3);
+    double low = value_a;
+    if (value_b < value_a) {
+        low = value_b;
     }
-    low = std::min<double>(low, c);
-    low = std::min<double>(low, d);
-    double high = a;
-    if (b > a) {
-        high = b;
+    low = std::min<double>(low, value_c);
+    low = std::min<double>(low, value_d);
+    double high = value_a;
+    if (value_b > value_a) {
+        high = value_b;
     }
-    high = std::max<double>(high, c);
-    if (d > high) {
-        return d - low;
+    high = std::max<double>(high, value_c);
+    if (value_d > high) {
+        return value_d - low;
     }
     return high - low;
 }
@@ -155,17 +155,18 @@ void GrindRailHub::tidy_up()
 }
 
 // 0x0057C360
-double get_overlap(float a, float b, float c, float d)
+double get_overlap(float a, float b, float value_c, float value_d)
 {
-    auto lengths = static_cast<float>(std::fabs(static_cast<double>(d) - c) + std::fabs(static_cast<double>(b) - a));
-    return lengths - span4({{a, b, c, d}});
+    auto lengths =
+        static_cast<float>(std::fabs(static_cast<double>(value_d) - value_c) + std::fabs(static_cast<double>(b) - a));
+    return lengths - span4({{a, b, value_c, value_d}});
 }
 
 // 0x0057C3A0
-int nearly_equal4(float a, float b, float c, float d, float tolerance)
+int nearly_equal4(float a, float b, float value_c, float value_d, float tolerance)
 {
-    if (std::fabs(static_cast<double>(a) - b) < tolerance && std::fabs(static_cast<double>(b) - c) < tolerance &&
-        std::fabs(static_cast<double>(c) - d) < tolerance) {
+    if (std::fabs(static_cast<double>(a) - b) < tolerance && std::fabs(static_cast<double>(b) - value_c) < tolerance &&
+        std::fabs(static_cast<double>(value_c) - value_d) < tolerance) {
         return 1;
     }
     return 0;
@@ -283,8 +284,8 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     const float across_y = along.y;
     const auto across_z = static_cast<float>(-static_cast<double>(along.x));
     const float across_w = along.w;
-    auto sub = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
-    auto add = [](float p, float q) { return static_cast<float>(static_cast<double>(p) + q); };
+    auto sub = [](float lhs, float rhs) { return static_cast<float>(static_cast<double>(lhs) - rhs); };
+    auto add = [](float lhs, float rhs) { return static_cast<float>(static_cast<double>(lhs) + rhs); };
     const maths::Vec4 minus = {.x = sub(at_x, across_x), .y = sub(high_y, across_y), .z = sub(at_z, across_z), .w = sub(at_w, across_w)};
     const maths::Vec4 plus = {.x = add(across_x, at_x), .y = add(across_y, high_y), .z = add(across_z, at_z), .w = add(across_w, at_w)};
     // Anything across it (either way): not clear.
@@ -376,33 +377,33 @@ GrindPoint* GrindRailHub::find_node(uint32_t name)
 // 0x0057CC30
 int GrindPoint::get_wall_side(const maths::Vec4* direction)
 {
-    const maths::Vec4 p = at_point_;
-    const maths::Vec4 q = succ_->at_point_;
+    const maths::Vec4 this_point = at_point_;
+    const maths::Vec4 next_point = succ_->at_point_;
     render::ProbeRay feeler; // (what it hit let go of by its destructor, where the original lets go inline)
     // A quarter of the way along the segment, 6 below it (the original's rounding: some sums kept unrounded).
-    auto sum_y = static_cast<float>(static_cast<double>(q.y) + p.y);
-    auto sum_x = static_cast<float>(static_cast<double>(q.x) + p.x);
-    auto half_w = static_cast<float>((static_cast<double>(q.w) + p.w) * kHalf);
-    const double half_z = (static_cast<double>(q.z) + p.z) * 0.5;
+    auto sum_y = static_cast<float>(static_cast<double>(next_point.y) + this_point.y);
+    auto sum_x = static_cast<float>(static_cast<double>(next_point.x) + this_point.x);
+    auto half_w = static_cast<float>((static_cast<double>(next_point.w) + this_point.w) * kHalf);
+    const double half_z = (static_cast<double>(next_point.z) + this_point.z) * 0.5;
     const double half_y = sum_y * 0.5;
     auto half_x = static_cast<float>(sum_x * kHalf);
-    auto to_w = static_cast<float>(half_w - static_cast<double>(p.w));
-    auto to_z = static_cast<float>(half_z - p.z);
-    const double to_y = half_y - p.y;
-    const double to_x = static_cast<double>(half_x) - p.x;
+    auto to_w = static_cast<float>(half_w - static_cast<double>(this_point.w));
+    auto to_z = static_cast<float>(half_z - this_point.z);
+    const double to_y = half_y - this_point.y;
+    const double to_x = static_cast<double>(half_x) - this_point.x;
     auto quarter_w = static_cast<float>(to_w * kHalf);
     auto quarter_z = static_cast<float>(to_z * kHalf);
     auto quarter_y = static_cast<float>(to_y * kHalf);
     const double quarter_x = to_x * 0.5;
-    auto at_w = static_cast<float>(static_cast<double>(p.w) + quarter_w);
-    auto at_z = static_cast<float>(static_cast<double>(p.z) + quarter_z);
-    const double at_y = static_cast<double>(p.y) + quarter_y;
-    auto at_x = static_cast<float>(quarter_x + p.x);
+    auto at_w = static_cast<float>(static_cast<double>(this_point.w) + quarter_w);
+    auto at_z = static_cast<float>(static_cast<double>(this_point.z) + quarter_z);
+    const double at_y = static_cast<double>(this_point.y) + quarter_y;
+    auto at_x = static_cast<float>(quarter_x + this_point.x);
     auto low_y = static_cast<float>(at_y - kRailRaise);
     // Across the segment (horizontally), 4 long.
-    const double dw = static_cast<double>(q.w) - p.w;
-    auto dz = static_cast<float>(static_cast<double>(q.z) - p.z);
-    const double dx = static_cast<double>(q.x) - p.x;
+    const double dw = static_cast<double>(next_point.w) - this_point.w;
+    auto dz = static_cast<float>(static_cast<double>(next_point.z) - this_point.z);
+    const double dx = static_cast<double>(next_point.x) - this_point.x;
     auto dx_stored = static_cast<float>(dx);
     float across_y = 0.0F;
     float across_x = dz;
@@ -431,9 +432,9 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
     int side = 0;
     if (hit_one_way != hit_other_way) {
         side = hit_one_way ? -1 : 1;
-        const double dot =
-            (static_cast<double>(dx_stored) * direction->x) +
-            (((static_cast<double>(q.y) - p.y) * direction->y) + (static_cast<double>(dz) * direction->z));
+        const double dot = (static_cast<double>(dx_stored) * direction->x) +
+                           (((static_cast<double>(next_point.y) - this_point.y) * direction->y) +
+                            (static_cast<double>(dz) * direction->z));
         if (dot < 0.0) {
             side = -side;
         }
@@ -526,17 +527,17 @@ void GrindRailHub::remove_overlaps() const
     debug::printf("Starting overlapping rail removal\n");
     int removed = 0;
     for (int i = 0; i < num_; ++i) {
-        GrindPoint* a = &core::at(node_run(), i);
-        const GrindPoint* a_next = a->succ();
+        GrindPoint* grind_a = &core::at(node_run(), i);
+        const GrindPoint* a_next = grind_a->succ();
         if (!a_next) {
             continue;
         }
-        const maths::Vec4 p = a->at_point();
-        const maths::Vec4 q = a_next->at_point();
+        const maths::Vec4 a_start = grind_a->at_point();
+        const maths::Vec4 a_end = a_next->at_point();
         // Its direction (each step stored as a float, as the original), made unit length.
-        auto dx = static_cast<float>(static_cast<double>(q.x) - p.x);
-        auto dy = static_cast<float>(static_cast<double>(q.y) - p.y);
-        auto dz = static_cast<float>(static_cast<double>(q.z) - p.z);
+        auto dx = static_cast<float>(static_cast<double>(a_end.x) - a_start.x);
+        auto dy = static_cast<float>(static_cast<double>(a_end.y) - a_start.y);
+        auto dz = static_cast<float>(static_cast<double>(a_end.z) - a_start.z);
         const float raw_x = dx;
         const float raw_y = dy;
         const float raw_z = dz;
@@ -549,31 +550,32 @@ void GrindRailHub::remove_overlaps() const
             dz = static_cast<float>(dz * inverse);
         }
         // Its box, 16 bigger each way.
-        const auto lo_x = static_cast<float>(a->lower_limit().x - 16.0);
-        const auto lo_y = static_cast<float>(a->lower_limit().y - 16.0);
-        const auto lo_z = static_cast<float>(a->lower_limit().z - 16.0);
-        const auto hi_x = static_cast<float>(a->upper_limit().x + 16.0);
-        const auto hi_y = static_cast<float>(a->upper_limit().y + 16.0);
-        const auto hi_z = static_cast<float>(a->upper_limit().z + 16.0);
+        const auto lo_x = static_cast<float>(grind_a->lower_limit().x - 16.0);
+        const auto lo_y = static_cast<float>(grind_a->lower_limit().y - 16.0);
+        const auto lo_z = static_cast<float>(grind_a->lower_limit().z - 16.0);
+        const auto hi_x = static_cast<float>(grind_a->upper_limit().x + 16.0);
+        const auto hi_y = static_cast<float>(grind_a->upper_limit().y + 16.0);
+        const auto hi_z = static_cast<float>(grind_a->upper_limit().z + 16.0);
         for (int j = i + 1; j < num_; ++j) {
-            if ((a->flag_bits() & kRailFlagActive) == 0U) {
+            if ((grind_a->flag_bits() & kRailFlagActive) == 0U) {
                 break;
             }
-            GrindPoint* b = &core::at(node_run(), j);
-            const GrindPoint* b_next = b->succ();
+            GrindPoint* grind_b = &core::at(node_run(), j);
+            const GrindPoint* b_next = grind_b->succ();
             if (!b_next) {
                 continue;
             }
             // (the tests as the original's: NaN passes them)
-            if (b->lower_limit().x > hi_x || b->upper_limit().x < lo_x || b->lower_limit().z > hi_z ||
-                b->upper_limit().z < lo_z || b->lower_limit().y > hi_y || b->upper_limit().y < lo_y) {
+            if (grind_b->lower_limit().x > hi_x || grind_b->upper_limit().x < lo_x || grind_b->lower_limit().z > hi_z ||
+                grind_b->upper_limit().z < lo_z || grind_b->lower_limit().y > hi_y || grind_b->upper_limit().y < lo_y) {
                 continue;
             }
-            const maths::Vec4 r = b->at_point();
-            const maths::Vec4 s = b_next->at_point();
-            maths::Vec4 along = {
-                .x = static_cast<float>(static_cast<double>(s.x) - r.x), .y = static_cast<float>(static_cast<double>(s.y) - r.y),
-                .z = static_cast<float>(static_cast<double>(s.z) - r.z), .w = static_cast<float>(static_cast<double>(s.w) - r.w)};
+            const maths::Vec4 b_start = grind_b->at_point();
+            const maths::Vec4 b_end = b_next->at_point();
+            maths::Vec4 along = {.x = static_cast<float>(static_cast<double>(b_end.x) - b_start.x),
+                                 .y = static_cast<float>(static_cast<double>(b_end.y) - b_start.y),
+                                 .z = static_cast<float>(static_cast<double>(b_end.z) - b_start.z),
+                                 .w = static_cast<float>(static_cast<double>(b_end.w) - b_start.w)};
             along.make_unit();
             const double dot = (static_cast<double>(along.y) * dy) + (static_cast<double>(along.x) * dx) +
                                (static_cast<double>(along.z) * dz);
@@ -581,10 +583,12 @@ void GrindRailHub::remove_overlaps() const
             if (!(dot < -kParallelDot) && !(dot > kParallelDot)) {
                 continue;
             }
-            const maths::Vec4 offset = {
-                .x = static_cast<float>(static_cast<double>(r.x) - p.x), .y = static_cast<float>(static_cast<double>(r.y) - p.y),
-                .z = static_cast<float>(static_cast<double>(r.z) - p.z), .w = static_cast<float>(static_cast<double>(r.w) - p.w)};
-            maths::Vec4 direction = {.x = raw_x, .y = raw_y, .z = raw_z, .w = static_cast<float>(static_cast<double>(q.w) - p.w)};
+            const maths::Vec4 offset = {.x = static_cast<float>(static_cast<double>(b_start.x) - a_start.x),
+                                        .y = static_cast<float>(static_cast<double>(b_start.y) - a_start.y),
+                                        .z = static_cast<float>(static_cast<double>(b_start.z) - a_start.z),
+                                        .w = static_cast<float>(static_cast<double>(b_start.w) - a_start.w)};
+            maths::Vec4 direction = {
+                .x = raw_x, .y = raw_y, .z = raw_z, .w = static_cast<float>(static_cast<double>(a_end.w) - a_start.w)};
             direction.make_unit();
             maths::Vec4 apart = offset;
             apart.flatten_onto_plane(direction);
@@ -594,12 +598,12 @@ void GrindRailHub::remove_overlaps() const
             if (!(distance < kRailJoinDistance)) {
                 continue;
             }
-            int matches = get_overlap(p.x, q.x, r.x, s.x) > kRailJoinDistance ? 1 : 0;
-            if (get_overlap(p.z, q.z, r.z, s.z) > kRailJoinDistance) {
+            int matches = get_overlap(a_start.x, a_end.x, b_start.x, b_end.x) > kRailJoinDistance ? 1 : 0;
+            if (get_overlap(a_start.z, a_end.z, b_start.z, b_end.z) > kRailJoinDistance) {
                 ++matches;
             }
-            int same = (nearly_equal4(p.x, q.x, r.x, s.x, kRailJoinTolerance) != 0) ? 1 : 0;
-            if (nearly_equal4(p.z, q.z, r.z, s.z, kRailJoinTolerance) != 0) {
+            int same = (nearly_equal4(a_start.x, a_end.x, b_start.x, b_end.x, kRailJoinTolerance) != 0) ? 1 : 0;
+            if (nearly_equal4(a_start.z, a_end.z, b_start.z, b_end.z, kRailJoinTolerance) != 0) {
                 ++same;
             }
             if (same + matches < 2) {
@@ -607,10 +611,10 @@ void GrindRailHub::remove_overlaps() const
             }
             // Overlapping: the lower one goes.
             ++removed;
-            if (a->at_point().y < b->at_point().y) {
-                a->flag_bits() &= ~kRailFlagActive;
+            if (grind_a->at_point().y < grind_b->at_point().y) {
+                grind_a->flag_bits() &= ~kRailFlagActive;
             } else {
-                b->flag_bits() &= ~kRailFlagActive;
+                grind_b->flag_bits() &= ~kRailFlagActive;
             }
             break;
         }
@@ -746,9 +750,9 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
         rail.end = next->at_point();
         maths::Vec4 on_line;
         maths::Vec4 on_rail;
-        float s = 0.0F;
-        float t = 0.0F;
-        if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
+        float along_line = 0.0F;
+        float along_rail = 0.0F;
+        if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, along_line, along_rail, true)) {
             continue;
         }
         const maths::Vec4 apart = on_rail - on_line;
@@ -765,15 +769,15 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
             // Climbing up from this node.
             const maths::Mat4* orientation = get_climb_matrix(&matrix, node);
             if (!static_cast<FootMovement*>(checker)->check_ladder_line(&node->at_point(), &next->at_point(),
-                                                                        orientation, &on_rail, t, &record)) {
+                                                                        orientation, &on_rail, along_rail, &record)) {
                 continue;
             }
             *found = node;
         } else {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, next);
-            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&next->at_point(), &node->at_point(),
-                                                                        orientation, &on_rail,
-                                                                        static_cast<float>(1.0 - t), &record)) {
+            if (!static_cast<FootMovement*>(checker)->check_ladder_line(
+                    &next->at_point(), &node->at_point(), orientation, &on_rail, static_cast<float>(1.0 - along_rail),
+                    &record)) {
                 continue;
             }
             *found = next;
@@ -820,9 +824,9 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         rail.end = next->at_point();
         maths::Vec4 on_line;
         maths::Vec4 on_rail;
-        float s = 0.0F;
-        float t = 0.0F;
-        if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
+        float along_line = 0.0F;
+        float along_rail = 0.0F;
+        if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, along_line, along_rail, true)) {
             continue;
         }
         maths::Vec4 apart = on_rail - on_line;
@@ -857,7 +861,8 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         const maths::Vec4* rail_at = to_world(&rail_world, &on_rail);
         const maths::Vec4* next_pos = get_absolute_pos(&next_at, next);
         const maths::Vec4* node_pos = get_absolute_pos(&node_at, node);
-        if (!static_cast<FootMovement*>(checker)->check_rail(node_pos, next_pos, rail_at, line_at, t, &record, false)) {
+        if (!static_cast<FootMovement*>(checker)->check_rail(node_pos, next_pos, rail_at, line_at, along_rail, &record,
+                                                             false)) {
             continue;
         }
         best = distance_squared;
@@ -992,8 +997,8 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
             continue;
         }
         const int link_count = static_cast<int>(links->extent());
-        for (int l = 0; l < link_count; ++l) {
-            const uint32_t link = links->fetch_part(l);
+        for (int link_index = 0; link_index < link_count; ++link_index) {
+            const uint32_t link = links->fetch_part(link_index);
             uint32_t slot = link & mask;
             GrindPoint* other = &core::at(node_run(), entry(slot));
             while (other->label() != link) {
@@ -1054,9 +1059,9 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             rail.end = next->at_point();
             maths::Vec4 on_line;
             maths::Vec4 on_rail;
-            float s = 0.0F;
-            float t = 0.0F;
-            if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
+            float along_line = 0.0F;
+            float along_rail = 0.0F;
+            if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, along_line, along_rail, true)) {
                 continue;
             }
             const float distance = (on_rail - on_line).len_of();
@@ -1104,9 +1109,10 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             maths::Vec4 direction = *end - *start;
             const maths::Vec4& unit = direction.make_unit();
             const maths::Vec4 along = unit;
-            const double k = (static_cast<double>(offset.x) * along.x) + (static_cast<double>(offset.z) * along.z) +
-                             (static_cast<double>(offset.y) * along.y);
-            offset -= static_cast<float>(k) * along;
+            const double projection = (static_cast<double>(offset.x) * along.x) +
+                                      (static_cast<double>(offset.z) * along.z) +
+                                      (static_cast<double>(offset.y) * along.y);
+            offset -= static_cast<float>(projection) * along;
             const double distance =
                 std::sqrt((static_cast<double>(offset.x) * offset.x) + (static_cast<double>(offset.y) * offset.y) +
                           (static_cast<double>(offset.z) * offset.z));

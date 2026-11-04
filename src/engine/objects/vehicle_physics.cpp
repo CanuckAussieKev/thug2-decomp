@@ -117,16 +117,19 @@ void DrivableModule::update_wheel_friction()
         maths::Vec4 vel = wheel.vel;
         vel.flatten_onto_plane(wheel.normal);
         // The tyre's sideways direction: the body's right turned by the steering, along the ground, unit.
-        const double c = std::cos(static_cast<double>(wheel.steering));
-        const float s = std::sin(wheel.steering);
+        const double cosine = std::cos(static_cast<double>(wheel.steering));
+        const float sine = std::sin(wheel.steering);
         const auto& rows = basis_frame_.row;
         maths::Vec4 sideways;
-        sideways.x = static_cast<float>(((c * core::at(rows, 2).x) + (static_cast<double>(s) * core::at(rows, 0).x)) +
-                                        (core::at(rows, 1).x * 0.0));
-        sideways.y = static_cast<float>(((static_cast<double>(s) * core::at(rows, 0).y) + (c * core::at(rows, 2).y)) +
-                                        (core::at(rows, 1).y * 0.0));
-        sideways.z = static_cast<float>(((static_cast<double>(s) * core::at(rows, 0).z) + (c * core::at(rows, 2).z)) +
-                                        (core::at(rows, 1).z * 0.0));
+        sideways.x =
+            static_cast<float>(((cosine * core::at(rows, 2).x) + (static_cast<double>(sine) * core::at(rows, 0).x)) +
+                               (core::at(rows, 1).x * 0.0));
+        sideways.y =
+            static_cast<float>(((static_cast<double>(sine) * core::at(rows, 0).y) + (cosine * core::at(rows, 2).y)) +
+                               (core::at(rows, 1).y * 0.0));
+        sideways.z =
+            static_cast<float>(((static_cast<double>(sine) * core::at(rows, 0).z) + (cosine * core::at(rows, 2).z)) +
+                               (core::at(rows, 1).z * 0.0));
         sideways.w = 1.0F;
         sideways.flatten_onto_plane(wheel.normal);
         const double length = std::sqrt(
@@ -165,26 +168,30 @@ void DrivableModule::refresh_hit_cache()
         box.append_spot(core::at(wheels_, i).feeler_end_);
     }
     for (int i = 1; i >= 0; --i) {
-        const Collider& c = core::at(colliders_, i);
-        const maths::Vec4& o = c.world_corner_;
-        const maths::Vec4& a = core::at(c.world_edges_, 0);
-        const maths::Vec4& b = core::at(c.world_edges_, 1);
-        box.append_spot(o);
-        maths::Vec4 p;
-        p = {.x = static_cast<float>(static_cast<double>(o.x) + a.x), .y = static_cast<float>(static_cast<double>(a.y) + o.y),
-             .z = static_cast<float>(static_cast<double>(o.z) + a.z), .w = static_cast<float>(static_cast<double>(o.w) + a.w)};
-        box.append_spot(p);
-        p = {.x = static_cast<float>(static_cast<double>(o.x) + b.x), .y = static_cast<float>(static_cast<double>(b.y) + o.y),
-             .z = static_cast<float>(static_cast<double>(o.z) + b.z), .w = static_cast<float>(static_cast<double>(o.w) + b.w)};
-        box.append_spot(p);
+        const Collider& collider = core::at(colliders_, i);
+        const maths::Vec4& origin = collider.world_corner_;
+        const maths::Vec4& edge_a = core::at(collider.world_edges_, 0);
+        const maths::Vec4& edge_b = core::at(collider.world_edges_, 1);
+        box.append_spot(origin);
+        maths::Vec4 corner;
+        corner = {.x = static_cast<float>(static_cast<double>(origin.x) + edge_a.x),
+                  .y = static_cast<float>(static_cast<double>(edge_a.y) + origin.y),
+                  .z = static_cast<float>(static_cast<double>(origin.z) + edge_a.z),
+                  .w = static_cast<float>(static_cast<double>(origin.w) + edge_a.w)};
+        box.append_spot(corner);
+        corner = {.x = static_cast<float>(static_cast<double>(origin.x) + edge_b.x),
+                  .y = static_cast<float>(static_cast<double>(edge_b.y) + origin.y),
+                  .z = static_cast<float>(static_cast<double>(origin.z) + edge_b.z),
+                  .w = static_cast<float>(static_cast<double>(origin.w) + edge_b.w)};
+        box.append_spot(corner);
         // The far corner: x and y summed unrounded, z and w rounded halfway.
-        auto z_half = static_cast<float>(static_cast<double>(o.z) + a.z);
-        auto w_half = static_cast<float>(static_cast<double>(o.w) + a.w);
-        p = {.x = static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
-             .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y),
-             .z = static_cast<float>(static_cast<double>(z_half) + b.z),
-             .w = static_cast<float>(static_cast<double>(w_half) + b.w)};
-        box.append_spot(p);
+        auto z_half = static_cast<float>(static_cast<double>(origin.z) + edge_a.z);
+        auto w_half = static_cast<float>(static_cast<double>(origin.w) + edge_a.w);
+        corner = {.x = static_cast<float>((static_cast<double>(origin.x) + edge_a.x) + edge_b.x),
+                  .y = static_cast<float>((static_cast<double>(edge_a.y) + origin.y) + edge_b.y),
+                  .z = static_cast<float>(static_cast<double>(z_half) + edge_b.z),
+                  .w = static_cast<float>(static_cast<double>(w_half) + edge_b.w)};
+        box.append_spot(corner);
     }
     contact_memo_.tick_frame(box);
 }
@@ -291,19 +298,21 @@ void DrivableModule::apply_suspension()
             continue;
         }
         // The spring (by how far the suspension is compressed along the ground's normal) and the damper.
-        const maths::Vec4& n = wheel.normal;
+        const maths::Vec4& normal = wheel.normal;
         const maths::Vec4& up = core::at(basis_frame_.row, 1);
         const double up_along_normal =
-            ((static_cast<double>(up.z) * n.z) + (static_cast<double>(up.y) * n.y)) + (static_cast<double>(up.x) * n.x);
+            ((static_cast<double>(up.z) * normal.z) + (static_cast<double>(up.y) * normal.y)) +
+            (static_cast<double>(up.x) * normal.x);
         const double spring = -(up_along_normal * (static_cast<double>(wheel.rest_y_) - wheel.y) * wheel.spring_rate_);
-        const double closing = ((static_cast<double>(wheel.vel.z) * n.z) + (static_cast<double>(wheel.vel.y) * n.y)) +
-                               (static_cast<double>(wheel.vel.x) * n.x);
+        const double closing =
+            ((static_cast<double>(wheel.vel.z) * normal.z) + (static_cast<double>(wheel.vel.y) * normal.y)) +
+            (static_cast<double>(wheel.vel.x) * normal.x);
         const double force = spring - (closing * wheel.damping_rate_);
         auto force_rounded = static_cast<float>(force);
-        const maths::Vec4 push{.x = static_cast<float>(force * n.x),
-                               .y = static_cast<float>(static_cast<double>(force_rounded) * n.y),
-                               .z = static_cast<float>(static_cast<double>(force_rounded) * n.z),
-                               .w = static_cast<float>(static_cast<double>(force_rounded) * n.w)};
+        const maths::Vec4 push{.x = static_cast<float>(force * normal.x),
+                               .y = static_cast<float>(static_cast<double>(force_rounded) * normal.y),
+                               .z = static_cast<float>(static_cast<double>(force_rounded) * normal.z),
+                               .w = static_cast<float>(static_cast<double>(force_rounded) * normal.w)};
         add_force_at_point(&push, &wheel.pos, kWheelLoadColour);
         core::at(wheel.load_history_, load_index_) = force_rounded;
         // The load: the average of the last ten.
@@ -514,13 +523,13 @@ void DrivableModule::apply_brake_excess()
 void DrivableModule::update_inertia()
 {
     // R * diag(inverse moments) * R^T.
-    for (int r = 0; r < 3; ++r) {
-        core::at(inv_inertia_.row, r)[0] =
-            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, r)[0]) * core::at(inv_moments_, 0));
-        core::at(inv_inertia_.row, r)[1] =
-            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, r)[1]) * core::at(inv_moments_, 1));
-        core::at(inv_inertia_.row, r)[2] =
-            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, r)[2]) * core::at(inv_moments_, 2));
+    for (int row = 0; row < 3; ++row) {
+        core::at(inv_inertia_.row, row)[0] =
+            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, row)[0]) * core::at(inv_moments_, 0));
+        core::at(inv_inertia_.row, row)[1] =
+            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, row)[1]) * core::at(inv_moments_, 1));
+        core::at(inv_inertia_.row, row)[2] =
+            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, row)[2]) * core::at(inv_moments_, 2));
     }
     render::MatrixTranspose transposed;
     transposed.transpose_from(&basis_frame_);
@@ -565,88 +574,98 @@ void DrivableModule::update_dependents()
     com_offset_ = basis_frame_.rotate_vector(turned, balance_point_);
     update_inertia();
     step_vehicle_speeds();
-    const auto& r = basis_frame_.row;
+    const auto& rows = basis_frame_.row;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         // The suspension's top: the wheel's place turned and moved (x summed unrounded).
-        const maths::Vec4& o = wheel.offset;
-        double x = ((static_cast<double>(core::at(r, 1).x) * o.y) + (static_cast<double>(core::at(r, 2).x) * o.z)) +
-                   (static_cast<double>(core::at(r, 0).x) * o.x);
-        auto y = static_cast<float>(
-            ((static_cast<double>(core::at(r, 1).y) * o.y) + (static_cast<double>(core::at(r, 0).y) * o.x)) +
-            (static_cast<double>(core::at(r, 2).y) * o.z));
-        auto z = static_cast<float>(
-            ((static_cast<double>(core::at(r, 1).z) * o.y) + (static_cast<double>(core::at(r, 0).z) * o.x)) +
-            (static_cast<double>(core::at(r, 2).z) * o.z));
-        float w = o.w;
+        const maths::Vec4& offset = wheel.offset;
+        double x = ((static_cast<double>(core::at(rows, 1).x) * offset.y) +
+                    (static_cast<double>(core::at(rows, 2).x) * offset.z)) +
+                   (static_cast<double>(core::at(rows, 0).x) * offset.x);
+        auto y = static_cast<float>(((static_cast<double>(core::at(rows, 1).y) * offset.y) +
+                                     (static_cast<double>(core::at(rows, 0).y) * offset.x)) +
+                                    (static_cast<double>(core::at(rows, 2).y) * offset.z));
+        auto z = static_cast<float>(((static_cast<double>(core::at(rows, 1).z) * offset.y) +
+                                     (static_cast<double>(core::at(rows, 0).z) * offset.x)) +
+                                    (static_cast<double>(core::at(rows, 2).z) * offset.z));
+        float w = offset.w;
         wheel.feeler_start_.z = static_cast<float>(static_cast<double>(z) + at_point_.z);
         wheel.feeler_start_.w = static_cast<float>(static_cast<double>(w) + at_point_.w);
         wheel.feeler_start_.x = static_cast<float>(x + at_point_.x);
         wheel.feeler_start_.y = static_cast<float>(static_cast<double>(y) + at_point_.y);
         // The bottom: the place lowered to its rest less the radius.
-        maths::Vec4 e = o;
-        e.y = static_cast<float>((static_cast<double>(wheel.rest_y_) - wheel.radius) + e.y);
-        wheel.feeler_end_ = e;
-        x = ((static_cast<double>(e.x) * core::at(r, 0).x) + (static_cast<double>(core::at(r, 2).x) * e.z)) +
-            (static_cast<double>(core::at(r, 1).x) * e.y);
-        auto yy = static_cast<float>(
-            ((static_cast<double>(e.x) * core::at(r, 0).y) + (static_cast<double>(e.y) * core::at(r, 1).y)) +
-            (static_cast<double>(core::at(r, 2).y) * e.z));
-        z = static_cast<float>(
-            ((static_cast<double>(core::at(r, 2).z) * e.z) + (static_cast<double>(core::at(r, 1).z) * e.y)) +
-            (static_cast<double>(core::at(r, 0).z) * e.x));
-        w = e.w;
+        maths::Vec4 rest_offset = offset;
+        rest_offset.y = static_cast<float>((static_cast<double>(wheel.rest_y_) - wheel.radius) + rest_offset.y);
+        wheel.feeler_end_ = rest_offset;
+        x = ((static_cast<double>(rest_offset.x) * core::at(rows, 0).x) +
+             (static_cast<double>(core::at(rows, 2).x) * rest_offset.z)) +
+            (static_cast<double>(core::at(rows, 1).x) * rest_offset.y);
+        auto yy = static_cast<float>(((static_cast<double>(rest_offset.x) * core::at(rows, 0).y) +
+                                      (static_cast<double>(rest_offset.y) * core::at(rows, 1).y)) +
+                                     (static_cast<double>(core::at(rows, 2).y) * rest_offset.z));
+        z = static_cast<float>(((static_cast<double>(core::at(rows, 2).z) * rest_offset.z) +
+                                (static_cast<double>(core::at(rows, 1).z) * rest_offset.y)) +
+                               (static_cast<double>(core::at(rows, 0).z) * rest_offset.x));
+        w = rest_offset.w;
         wheel.feeler_end_.z = static_cast<float>(static_cast<double>(z) + at_point_.z);
         wheel.feeler_end_.w = static_cast<float>(static_cast<double>(w) + at_point_.w);
         wheel.feeler_end_.x = static_cast<float>(x + at_point_.x);
         wheel.feeler_end_.y = static_cast<float>(static_cast<double>(yy) + at_point_.y);
     }
     for (int i = 1; i >= 0; --i) {
-        Collider& c = core::at(colliders_, i);
+        Collider& collider = core::at(colliders_, i);
         // The corner turned and moved; the edges turned (each with its own order of sums, as the original).
-        const maths::Vec4& o = c.corner;
-        const double x =
-            ((static_cast<double>(core::at(r, 2).x) * o.z) + (static_cast<double>(core::at(r, 1).x) * o.y)) +
-            (static_cast<double>(o.x) * core::at(r, 0).x);
-        auto y = static_cast<float>(
-            ((static_cast<double>(core::at(r, 0).y) * o.x) + (static_cast<double>(core::at(r, 2).y) * o.z)) +
-            (static_cast<double>(core::at(r, 1).y) * o.y));
-        auto z = static_cast<float>(
-            ((static_cast<double>(core::at(r, 0).z) * o.x) + (static_cast<double>(core::at(r, 2).z) * o.z)) +
-            (static_cast<double>(core::at(r, 1).z) * o.y));
-        const float w = o.w;
-        c.world_corner_.z = static_cast<float>(static_cast<double>(z) + at_point_.z);
-        c.world_corner_.w = static_cast<float>(static_cast<double>(w) + at_point_.w);
-        c.world_corner_.x = static_cast<float>(x + at_point_.x);
-        c.world_corner_.y = static_cast<float>(static_cast<double>(y) + at_point_.y);
-        const maths::Vec4& a = core::at(c.edges, 0);
-        core::at(c.world_edges_, 0).z = static_cast<float>(
-            ((static_cast<double>(core::at(r, 2).z) * a.z) + (static_cast<double>(core::at(r, 0).z) * a.x)) +
-            (static_cast<double>(core::at(r, 1).z) * a.y));
-        core::at(c.world_edges_, 0).w = a.w;
-        core::at(c.world_edges_, 0).x = static_cast<float>(
-            ((static_cast<double>(core::at(r, 2).x) * a.z) + (static_cast<double>(core::at(r, 1).x) * a.y)) +
-            (static_cast<double>(a.x) * core::at(r, 0).x));
-        core::at(c.world_edges_, 0).y = static_cast<float>(
-            ((static_cast<double>(core::at(r, 2).y) * a.z) + (static_cast<double>(core::at(r, 0).y) * a.x)) +
-            (static_cast<double>(core::at(r, 1).y) * a.y));
-        const maths::Vec4& b = core::at(c.edges, 1);
-        const float bw = b.w;
-        core::at(c.world_edges_, 1).z = static_cast<float>(
-            ((static_cast<double>(core::at(r, 2).z) * b.z) + (static_cast<double>(core::at(r, 1).z) * b.y)) +
-            (static_cast<double>(b.x) * core::at(r, 0).z));
-        core::at(c.world_edges_, 1).x = static_cast<float>(
-            ((static_cast<double>(core::at(r, 0).x) * b.x) + (static_cast<double>(core::at(r, 2).x) * b.z)) +
-            (static_cast<double>(b.y) * core::at(r, 1).x));
-        core::at(c.world_edges_, 1).w = bw;
-        core::at(c.world_edges_, 1).y = static_cast<float>(
-            ((static_cast<double>(core::at(r, 1).y) * b.y) + (static_cast<double>(core::at(r, 2).y) * b.z)) +
-            (static_cast<double>(core::at(r, 0).y) * b.x));
+        const maths::Vec4& corner_origin = collider.corner;
+        const double x = ((static_cast<double>(core::at(rows, 2).x) * corner_origin.z) +
+                          (static_cast<double>(core::at(rows, 1).x) * corner_origin.y)) +
+                         (static_cast<double>(corner_origin.x) * core::at(rows, 0).x);
+        auto y = static_cast<float>(((static_cast<double>(core::at(rows, 0).y) * corner_origin.x) +
+                                     (static_cast<double>(core::at(rows, 2).y) * corner_origin.z)) +
+                                    (static_cast<double>(core::at(rows, 1).y) * corner_origin.y));
+        auto z = static_cast<float>(((static_cast<double>(core::at(rows, 0).z) * corner_origin.x) +
+                                     (static_cast<double>(core::at(rows, 2).z) * corner_origin.z)) +
+                                    (static_cast<double>(core::at(rows, 1).z) * corner_origin.y));
+        const float w = corner_origin.w;
+        collider.world_corner_.z = static_cast<float>(static_cast<double>(z) + at_point_.z);
+        collider.world_corner_.w = static_cast<float>(static_cast<double>(w) + at_point_.w);
+        collider.world_corner_.x = static_cast<float>(x + at_point_.x);
+        collider.world_corner_.y = static_cast<float>(static_cast<double>(y) + at_point_.y);
+        const maths::Vec4& edge_a = core::at(collider.edges, 0);
+        core::at(collider.world_edges_, 0).z =
+            static_cast<float>(((static_cast<double>(core::at(rows, 2).z) * edge_a.z) +
+                                (static_cast<double>(core::at(rows, 0).z) * edge_a.x)) +
+                               (static_cast<double>(core::at(rows, 1).z) * edge_a.y));
+        core::at(collider.world_edges_, 0).w = edge_a.w;
+        core::at(collider.world_edges_, 0).x =
+            static_cast<float>(((static_cast<double>(core::at(rows, 2).x) * edge_a.z) +
+                                (static_cast<double>(core::at(rows, 1).x) * edge_a.y)) +
+                               (static_cast<double>(edge_a.x) * core::at(rows, 0).x));
+        core::at(collider.world_edges_, 0).y =
+            static_cast<float>(((static_cast<double>(core::at(rows, 2).y) * edge_a.z) +
+                                (static_cast<double>(core::at(rows, 0).y) * edge_a.x)) +
+                               (static_cast<double>(core::at(rows, 1).y) * edge_a.y));
+        const maths::Vec4& edge_b = core::at(collider.edges, 1);
+        const float bw = edge_b.w;
+        core::at(collider.world_edges_, 1).z =
+            static_cast<float>(((static_cast<double>(core::at(rows, 2).z) * edge_b.z) +
+                                (static_cast<double>(core::at(rows, 1).z) * edge_b.y)) +
+                               (static_cast<double>(edge_b.x) * core::at(rows, 0).z));
+        core::at(collider.world_edges_, 1).x =
+            static_cast<float>(((static_cast<double>(core::at(rows, 0).x) * edge_b.x) +
+                                (static_cast<double>(core::at(rows, 2).x) * edge_b.z)) +
+                               (static_cast<double>(edge_b.y) * core::at(rows, 1).x));
+        core::at(collider.world_edges_, 1).w = bw;
+        core::at(collider.world_edges_, 1).y =
+            static_cast<float>(((static_cast<double>(core::at(rows, 1).y) * edge_b.y) +
+                                (static_cast<double>(core::at(rows, 2).y) * edge_b.z)) +
+                               (static_cast<double>(core::at(rows, 0).y) * edge_b.x));
         for (int k = 0; k < 2; ++k) {
-            const double inverse = 1.0 / core::at(c.lengths, k);
-            const maths::Vec4& edge = core::at(c.world_edges_, k);
-            core::at(c.directions, k) = {.x = static_cast<float>(inverse * edge.x), .y = static_cast<float>(inverse * edge.y),
-                               .z = static_cast<float>(inverse * edge.z), .w = static_cast<float>(inverse * edge.w)};
+            const double inverse = 1.0 / core::at(collider.lengths, k);
+            const maths::Vec4& edge = core::at(collider.world_edges_, k);
+            core::at(collider.directions, k) = {.x = static_cast<float>(inverse * edge.x),
+                                                .y = static_cast<float>(inverse * edge.y),
+                                                .z = static_cast<float>(inverse * edge.z),
+                                                .w = static_cast<float>(inverse * edge.w)};
         }
     }
     refresh_hit_cache();
@@ -710,26 +729,26 @@ void DrivableModule::update_wheel_contacts()
         }
     }
     // The contact points (relative to the body's position, turned) and the body's velocity there.
-    const auto& r = basis_frame_.row;
+    const auto& rows = basis_frame_.row;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        maths::Vec4& p = wheel.pos;
-        p = wheel.offset;
-        p.y = static_cast<float>((static_cast<double>(wheel.y) - wheel.radius) + p.y);
-        const double x =
-            ((static_cast<double>(p.x) * core::at(r, 0).x) + (static_cast<double>(core::at(r, 2).x) * p.z)) +
-            (static_cast<double>(core::at(r, 1).x) * p.y);
-        const double y =
-            ((static_cast<double>(p.x) * core::at(r, 0).y) + (static_cast<double>(p.y) * core::at(r, 1).y)) +
-            (static_cast<double>(core::at(r, 2).y) * p.z);
-        auto z = static_cast<float>(
-            ((static_cast<double>(core::at(r, 2).z) * p.z) + (static_cast<double>(core::at(r, 1).z) * p.y)) +
-            (static_cast<double>(core::at(r, 0).z) * p.x));
-        p.z = z;
-        p.x = static_cast<float>(x);
-        p.y = static_cast<float>(y);
+        maths::Vec4& wheel_position = wheel.pos;
+        wheel_position = wheel.offset;
+        wheel_position.y = static_cast<float>((static_cast<double>(wheel.y) - wheel.radius) + wheel_position.y);
+        const double x = ((static_cast<double>(wheel_position.x) * core::at(rows, 0).x) +
+                          (static_cast<double>(core::at(rows, 2).x) * wheel_position.z)) +
+                         (static_cast<double>(core::at(rows, 1).x) * wheel_position.y);
+        const double y = ((static_cast<double>(wheel_position.x) * core::at(rows, 0).y) +
+                          (static_cast<double>(wheel_position.y) * core::at(rows, 1).y)) +
+                         (static_cast<double>(core::at(rows, 2).y) * wheel_position.z);
+        auto z = static_cast<float>(((static_cast<double>(core::at(rows, 2).z) * wheel_position.z) +
+                                     (static_cast<double>(core::at(rows, 1).z) * wheel_position.y)) +
+                                    (static_cast<double>(core::at(rows, 0).z) * wheel_position.x));
+        wheel_position.z = z;
+        wheel_position.x = static_cast<float>(x);
+        wheel_position.y = static_cast<float>(y);
         maths::Vec4 vel;
-        wheel.vel = *get_point_velocity(&vel, &p);
+        wheel.vel = *get_point_velocity(&vel, &wheel_position);
     }
 }
 

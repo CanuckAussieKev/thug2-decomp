@@ -423,18 +423,19 @@ void PedestrianBrainModule::lip_trick_update()
              0) = {.x = static_cast<float>(sx), .y = static_cast<float>(sy), .z = static_cast<float>(sz), .w = 0.0F};
     // Up: (0, 1, 0) x across, normalised.
     auto zero_y = static_cast<float>(sy * 0.0F);
-    double a = static_cast<double>(side_z) - zero_y;
-    double b = (static_cast<double>(side_x) * 0.0F) - (static_cast<double>(side_z) * 0.0F);
-    const double c = static_cast<double>(zero_y) - side_x;
-    auto up_row_z = static_cast<float>(c);
-    const double length2 = std::sqrt(((c * up_row_z) + (b * b)) + (a * a));
+    double axis_a = static_cast<double>(side_z) - zero_y;
+    double axis_b = (static_cast<double>(side_x) * 0.0F) - (static_cast<double>(side_z) * 0.0F);
+    const double axis_c = static_cast<double>(zero_y) - side_x;
+    auto up_row_z = static_cast<float>(axis_c);
+    const double length2 = std::sqrt(((axis_c * up_row_z) + (axis_b * axis_b)) + (axis_a * axis_a));
     if (length2 > 0.0) {
         const double inverse = 1.0 / length2;
-        a *= inverse;
-        b *= inverse;
+        axis_a *= inverse;
+        axis_b *= inverse;
         up_row_z = static_cast<float>(up_row_z * inverse);
     }
-    core::at(matrix.row, 1) = {.x = static_cast<float>(a), .y = static_cast<float>(b), .z = up_row_z, .w = 0.0F};
+    core::at(matrix.row,
+             1) = {.x = static_cast<float>(axis_a), .y = static_cast<float>(axis_b), .z = up_row_z, .w = 0.0F};
     entity()->display_matrix() = matrix;
 }
 

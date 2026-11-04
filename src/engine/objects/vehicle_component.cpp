@@ -499,9 +499,9 @@ std::span<const render::HierarchyNode> model_geometry(ObjectModule* model)
     return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance()->asset_hierarchy_run();
 }
 // Wheel `i`'s place: hierarchy node 2 + i's translation.
-const maths::Vec4& wheel_place(std::span<const render::HierarchyNode> geometry, int i)
+const maths::Vec4& wheel_place(std::span<const render::HierarchyNode> geometry, int wheel)
 {
-    return core::at(core::at(geometry, 2 + i).matrix().row, 3);
+    return core::at(core::at(geometry, 2 + wheel).matrix().row, 3);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
 void* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig(); }
@@ -591,35 +591,37 @@ void DrivableModule::configure_from_data(script::Struct* params)
         float sum = 0.0F;
         for (int k = count - 1; k >= 0; --k) {
             auto* points = colliders->array_at(static_cast<uint32_t>(k));
-            Collider& c = core::at(colliders_, k);
-            auto point = [points](int i) { return points->vector_at(static_cast<uint32_t>(i)); }; // (x, y, z)
-            const script::Vector* p = point(0);
-            c.corner.x = p->x();
-            c.corner.y = p->y();
-            c.corner.z = p->z();
-            for (int e = 0; e < 2; ++e) {
-                p = point(1 + e);
-                maths::Vec4& edge = core::at(c.edges, e);
-                edge.x = p->x();
-                edge.y = p->y();
-                edge.z = p->z();
-                edge.x = static_cast<float>(static_cast<double>(edge.x) - c.corner.x);
-                edge.y = static_cast<float>(static_cast<double>(edge.y) - c.corner.y);
-                edge.z = static_cast<float>(static_cast<double>(edge.z) - c.corner.z);
-                edge.w = static_cast<float>(static_cast<double>(edge.w) - c.corner.w);
+            Collider& collider = core::at(colliders_, k);
+            auto point = [points](int wheel) { return points->vector_at(static_cast<uint32_t>(wheel)); }; // (x, y, z)
+            const script::Vector* vector = point(0);
+            collider.corner.x = vector->x();
+            collider.corner.y = vector->y();
+            collider.corner.z = vector->z();
+            for (int edge_index = 0; edge_index < 2; ++edge_index) {
+                vector = point(1 + edge_index);
+                maths::Vec4& edge = core::at(collider.edges, edge_index);
+                edge.x = vector->x();
+                edge.y = vector->y();
+                edge.z = vector->z();
+                edge.x = static_cast<float>(static_cast<double>(edge.x) - collider.corner.x);
+                edge.y = static_cast<float>(static_cast<double>(edge.y) - collider.corner.y);
+                edge.z = static_cast<float>(static_cast<double>(edge.z) - collider.corner.z);
+                edge.w = static_cast<float>(static_cast<double>(edge.w) - collider.corner.w);
             }
             auto length_squared = [](double x, double y, double z) { return ((x * x) + (y * y)) + (z * z); };
-            const maths::Vec4& o = c.corner;
-            const maths::Vec4& a = core::at(c.edges, 0);
-            const maths::Vec4& b = core::at(c.edges, 1);
-            const double s0 = length_squared(o.x, o.y, o.z);
-            const double s1 = length_squared(static_cast<double>(o.x) + a.x, static_cast<double>(a.y) + o.y,
-                                             static_cast<double>(a.z) + o.z);
-            auto s2 = static_cast<float>(length_squared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y,
-                                                        static_cast<double>(b.z) + o.z));
+            const maths::Vec4& origin = collider.corner;
+            const maths::Vec4& edge_a = core::at(collider.edges, 0);
+            const maths::Vec4& edge_b = core::at(collider.edges, 1);
+            const double s0 = length_squared(origin.x, origin.y, origin.z);
+            const double s1 =
+                length_squared(static_cast<double>(origin.x) + edge_a.x, static_cast<double>(edge_a.y) + origin.y,
+                               static_cast<double>(edge_a.z) + origin.z);
+            auto s2 = static_cast<float>(length_squared(static_cast<double>(origin.x) + edge_b.x,
+                                                        static_cast<double>(edge_b.y) + origin.y,
+                                                        static_cast<double>(edge_b.z) + origin.z));
             sum = static_cast<float>(((std::sqrt(s0) + sum) + std::sqrt(s1)) + std::sqrt(static_cast<double>(s2)));
-            core::at(c.lengths, 0) = static_cast<float>(std::sqrt(length_squared(a.y, a.z, a.x)));
-            core::at(c.lengths, 1) = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
+            core::at(collider.lengths, 0) = static_cast<float>(std::sqrt(length_squared(edge_a.y, edge_a.z, edge_a.x)));
+            core::at(collider.lengths, 1) = static_cast<float>(std::sqrt(length_squared(edge_b.y, edge_b.z, edge_b.x)));
         }
         auto distance = static_cast<float>((static_cast<double>(sum) * kThird / count) - kCameraBack);
         core::down_cast<Rider>(local_skater())->set_42b_d60(distance);
@@ -793,10 +795,10 @@ void DrivableModule::seal()
     // The colliders' lowest point.
     float lowest = core::at(colliders_, 0).corner.y;
     for (int i = 1; i >= 0; --i) {
-        const Collider& c = core::at(colliders_, i);
-        lowest = std::min(lowest, c.corner.y);
-        for (const maths::Vec4& edge : c.edges) {
-            const double end = static_cast<double>(edge.y) + c.corner.y;
+        const Collider& collider = core::at(colliders_, i);
+        lowest = std::min(lowest, collider.corner.y);
+        for (const maths::Vec4& edge : collider.edges) {
+            const double end = static_cast<double>(edge.y) + collider.corner.y;
             if (end < lowest) {
                 lowest = static_cast<float>(end);
             }
@@ -949,23 +951,23 @@ void DrivableModule::refresh_bone_rig()
     const int count = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->get_num_bones();
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
     // with the suspension's extension, but no lower than max_drawn_y_. In debug mode 2 all of them nothing.
-    for (int b = count - 1; b >= 0; --b) {
-        maths::Mat4& bone = core::at(bones, b);
+    for (int bone_index = count - 1; bone_index >= 0; --bone_index) {
+        maths::Mat4& bone = core::at(bones, bone_index);
         std::memset(&bone, 0, sizeof(bone));
         if (debug_mode_ == 2) {
             continue;
         }
-        if (b == 0) {
+        if (bone_index == 0) {
             return;
         }
-        if (b == 1) {
+        if (bone_index == 1) {
             core::at(bone.row, 0).x = 1.0F;
             core::at(bone.row, 1).z = -1.0F;
             core::at(bone.row, 2).y = 1.0F;
             core::at(bone.row, 3) = skater_bone_;
             continue;
         }
-        const Wheel& wheel = core::at(wheels_, b - 2);
+        const Wheel& wheel = core::at(wheels_, bone_index - 2);
         core::at(bone.row, 0).x = -1.0F;
         core::at(bone.row, 1).z = 1.0F;
         core::at(bone.row, 2).y = 1.0F;
@@ -1041,30 +1043,33 @@ void DrivableModule::debug_draw()
             break;
         }
         for (int spoke = kLastSpoke; spoke >= 0; --spoke) {
-            maths::Vec4 a;
-            maths::Vec4 b;
+            maths::Vec4 rim_a;
+            maths::Vec4 rim_b;
             for (const bool outer : {true, false}) {
-                get_wheel_rim_point(&a, &wheel, spoke, outer);
-                get_wheel_rim_point(&b, &wheel, spoke + 1, outer);
-                gfx::push_diag_line(&a, &b, colour, colour, 1);
+                get_wheel_rim_point(&rim_a, &wheel, spoke, outer);
+                get_wheel_rim_point(&rim_b, &wheel, spoke + 1, outer);
+                gfx::push_diag_line(&rim_a, &rim_b, colour, colour, 1);
             }
-            get_wheel_rim_point(&a, &wheel, spoke, true);
-            get_wheel_rim_point(&b, &wheel, spoke, false);
-            gfx::push_diag_line(&a, &b, colour, colour, 1);
+            get_wheel_rim_point(&rim_a, &wheel, spoke, true);
+            get_wheel_rim_point(&rim_b, &wheel, spoke, false);
+            gfx::push_diag_line(&rim_a, &rim_b, colour, colour, 1);
             // The axle: 240 either side of the wheel along its steered x, in the world.
             const maths::Vec4 up{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
             maths::Mat4 steer;
             maths::build_axis_angle_matrix(steer, up, wheel.steering);
             std::array<maths::Vec4, 2> ends{};
-            for (int e = 0; e < 2; ++e) {
-                const float side = (e != 0) ? kBelow : -kBelow;
+            for (int side_index = 0; side_index < 2; ++side_index) {
+                const float side = (side_index != 0) ? kBelow : -kBelow;
                 const maths::Vec4 local{.x = (core::at(steer.row, 0).x * side) + wheel.offset.x,
                                         .y = (core::at(steer.row, 0).y * side) + wheel.offset.y + wheel.y,
                                         .z = (core::at(steer.row, 0).z * side) + wheel.offset.z,
                                         .w = 1.0F};
                 maths::Vec4 world;
                 basis_frame_.rotate_vector(world, local);
-                core::at(ends, e) = {.x = world.x + at_point_.x, .y = world.y + at_point_.y, .z = world.z + at_point_.z, .w = world.w + at_point_.w};
+                core::at(ends, side_index) = {.x = world.x + at_point_.x,
+                                              .y = world.y + at_point_.y,
+                                              .z = world.z + at_point_.z,
+                                              .w = world.w + at_point_.w};
             }
             gfx::push_diag_line(&core::at(ends, 0), &core::at(ends, 1), kStaticWheelColour, kStaticWheelColour, 1);
         }
@@ -1121,7 +1126,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     clear_to_w1(rotmom_);
     // Settled by sixty updates without input, collision or debug drawing, the wheels kept from turning.
     passive_ = true;
-    for (int n = kProbeIterations; n != 0; --n) {
+    for (int iteration = kProbeIterations; iteration != 0; --iteration) {
         for (int i = wheel_count_ - 1; i >= 0; --i) {
             core::at(wheels_, i).spin = 0.0F;
         }

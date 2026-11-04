@@ -141,15 +141,15 @@ bool cfunc_init_coim(script::Struct* params, script::Script* /*script*/)
 {
     float factor = 0.0F;
     int size = 0;
-    int b = 0;
-    int a = 0;
+    int coim_b = 0;
+    int coim_a = 0;
     params->fetch_int_value(kSize, &size, 1);
-    params->fetch_int_value(kCoimB0847d54, &b, 1);
-    params->fetch_int_value(kCoimBb9a31b5, &a, 1);
+    params->fetch_int_value(kCoimB0847d54, &coim_b, 1);
+    params->fetch_int_value(kCoimBb9a31b5, &coim_a, 1);
     params->fetch_float(kCoim03d6dE47, &factor, 1);
     // (x87: the square unrounded, _ftol's truncation)
     const int squared = static_cast<int>(static_cast<int64_t>(static_cast<double>(factor) * factor));
-    objects::init_coim(a, static_cast<uint32_t>(size), b, squared);
+    objects::init_coim(coim_a, static_cast<uint32_t>(size), coim_b, squared);
     return true;
 }
 

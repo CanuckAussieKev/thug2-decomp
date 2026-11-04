@@ -439,20 +439,20 @@ void EditorViewModule::tick_frame()
     const double heading = (static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick(), 0)) + heading_;
     heading_ = static_cast<float>(heading);
     if (heading > maths::kTwoPi) {
-        double h = heading_;
-        h -= maths::kTwoPi;
-        while (h > maths::kTwoPi) {
-            h -= maths::kTwoPi;
+        double wrapped_heading = heading_;
+        wrapped_heading -= maths::kTwoPi;
+        while (wrapped_heading > maths::kTwoPi) {
+            wrapped_heading -= maths::kTwoPi;
         }
-        heading_ = static_cast<float>(h);
+        heading_ = static_cast<float>(wrapped_heading);
     }
     if (heading_ < 0.0F) {
-        double h = heading_;
-        h += maths::kTwoPi;
-        while (h < 0.0F) {
-            h += maths::kTwoPi;
+        double wrapped_heading = heading_;
+        wrapped_heading += maths::kTwoPi;
+        while (wrapped_heading < 0.0F) {
+            wrapped_heading += maths::kTwoPi;
         }
-        heading_ = static_cast<float>(h);
+        heading_ = static_cast<float>(wrapped_heading);
     }
     // Tilt, within the globals' range.
     const double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * core::at(pad.scaled_stick(), 1)) + lean_angle_;

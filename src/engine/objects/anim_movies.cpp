@@ -66,14 +66,14 @@ void* find_asset(uint32_t name) { return assets::asset_manager()->get_asset_data
 void start_movie(VideoEntry* movie) { movie->kickoff(); }
 
 // The timeline's code: constructor / destructor body, complete, PlayAnim (slot 3), Update (slot 2).
-void construct_timeline(AnimTimeline* t) { new (t) AnimTimeline; }
-void destroy_timeline(AnimTimeline* t) { t->~AnimTimeline(); }
-bool is_accomplished(AnimTimeline* t) { return t->is_accomplished(); }
-void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
+void construct_timeline(AnimTimeline* timeline) { new (timeline) AnimTimeline; }
+void destroy_timeline(AnimTimeline* timeline) { timeline->~AnimTimeline(); }
+bool is_accomplished(AnimTimeline* timeline) { return timeline->is_accomplished(); }
+void play_anim(AnimTimeline* timeline, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
 {
-    t->play_anim(anim, start, end, loop_type, blend, speed);
+    timeline->play_anim(anim, start, end, loop_type, blend, speed);
 }
-void update_timeline(AnimTimeline* t) { t->tick_frame(); }
+void update_timeline(AnimTimeline* timeline) { timeline->tick_frame(); }
 
 // The animation asset's code: started (0x00482F10); told a step from one time to another (0x00482F40).
 void start_asset(void* anim) { static_cast<void>(static_cast<gfx::JointClipFrames*>(anim)->arm_events()); }
@@ -86,15 +86,18 @@ float seconds_per_frame() { return kAnimMoviesSecondsPerFrame; } // 1/60
 
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
 
-void set_identity(std::span<float, maths::kMatrixFloats> m)
+void set_identity(std::span<float, maths::kMatrixFloats> elements)
 {
     for (size_t i = 0; i < maths::kMatrixFloats; ++i) {
-        core::at(m, i) = (i % kMatrixDiagonalStride == 0) ? 1.0F : 0.0F;
+        core::at(elements, i) = (i % kMatrixDiagonalStride == 0) ? 1.0F : 0.0F;
     }
 }
 
 // Row `row` of a matrix as its first three floats (x, y, z).
-std::span<float, 3> axis_of(std::span<float, maths::kMatrixFloats> m, size_t row) { return std::span<float, 3>(m.subspan(row * 4, 3)); }
+std::span<float, 3> axis_of(std::span<float, maths::kMatrixFloats> elements, size_t row)
+{
+    return std::span<float, 3>(elements.subspan(row * 4, 3));
+}
 
 // out = a x b (x, y and z; each a difference of products, rounded once).
 void cross_into(std::span<float, 3> out, std::span<const float, 3> a, std::span<const float, 3> b)
@@ -111,14 +114,14 @@ void cross_into(std::span<float, 3> out, std::span<const float, 3> a, std::span<
 }
 
 // Play: the asset's length (its first word) from 0, or backwards from a frame before its end to 0.
-void play_on(AnimTimeline* t, void* anim, int loop_type, bool backwards)
+void play_on(AnimTimeline* timeline, void* anim, int loop_type, bool backwards)
 {
     const float length = static_cast<gfx::JointClipFrames*>(anim)->duration();
     if (backwards) {
-        play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0F, loop_type, 0.0F,
-                  1.0F);
+        play_anim(timeline, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0F, loop_type,
+                  0.0F, 1.0F);
     } else {
-        play_anim(t, 0, 0.0F, length, loop_type, 0.0F, 1.0F);
+        play_anim(timeline, 0, 0.0F, length, loop_type, 0.0F, 1.0F);
     }
 }
 
@@ -307,7 +310,7 @@ void CameraAnimMovie::place_camera()
 {
     const std::span<float, 4> pos(viewer()->fetch_location()->data(), 4);
     maths::Mat4* mat = viewer()->fetch_mat();
-    const std::span<float, 16> m(mat->data(), 16);
+    const std::span<float, 16> elements(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::front_end_instance()->pad_listeners()) {
         if ((handler->control_data()->makes() & kMakesPoseFlag) != 0U) {
@@ -324,12 +327,12 @@ void CameraAnimMovie::place_camera()
             core::at(pos, i) = core::at(at, i);
         }
         std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
-        objects::quat_to_matrix(quat, origin, m);
+        objects::quat_to_matrix(quat, origin, elements);
     } else {
         // Where it is; the field of view (0: the script global's).
         core::at(pos, 0) = core::at(pos, 1) = core::at(pos, 2) = 0.0F;
         core::at(pos, 3) = 1.0F;
-        set_identity(m);
+        set_identity(elements);
         float fov = field_of_view_;
         if (fov == kFloatZero) {
             fov = script::fetch_float(kCameraFov);
@@ -372,12 +375,12 @@ void CameraAnimMovie::place_camera()
             dir[i] = core::at(pos, i) - core::at(target, i);
         }
         dir.make_unit();
-        set_identity(m);
+        set_identity(elements);
         for (int i = 0; i < 4; ++i) {
-            core::at(m, maths::kMatZx + i) = dir[i];
+            core::at(elements, maths::kMatZx + i) = dir[i];
         }
-        cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2)); // the right axis: up x at
-        core::at(m, 3) = 0.0F;
+        cross_into(axis_of(elements, 0), axis_of(elements, 1), axis_of(elements, 2)); // the right axis: up x at
+        core::at(elements, 3) = 0.0F;
         (*mat)[0].make_unit();
     } else {
         // A fixed point (the target offset), seen from the look offset.
@@ -396,27 +399,27 @@ void CameraAnimMovie::place_camera()
             y *= inverse;
             z = static_cast<float>(z * inverse);
         }
-        set_identity(m);
-        core::at(m, maths::kMatZx) = static_cast<float>(x);
-        core::at(m, maths::kMatZz) = z;
-        core::at(m, maths::kMatZy) = static_cast<float>(y);
-        core::at(m, maths::kMatZw) = 0.0F;
-        cross_into(axis_of(m, 0), axis_of(m, 1), axis_of(m, 2));
-        core::at(m, 3) = 0.0F;
-        const double a = core::at(m, 0);
-        const double b = core::at(m, 1);
-        const double c = core::at(m, 2);
-        const double size = std::sqrt((a * a) + (b * b) + (c * c));
+        set_identity(elements);
+        core::at(elements, maths::kMatZx) = static_cast<float>(x);
+        core::at(elements, maths::kMatZz) = z;
+        core::at(elements, maths::kMatZy) = static_cast<float>(y);
+        core::at(elements, maths::kMatZw) = 0.0F;
+        cross_into(axis_of(elements, 0), axis_of(elements, 1), axis_of(elements, 2));
+        core::at(elements, 3) = 0.0F;
+        const double axis_x = core::at(elements, 0);
+        const double axis_y = core::at(elements, 1);
+        const double axis_z = core::at(elements, 2);
+        const double size = std::sqrt((axis_x * axis_x) + (axis_y * axis_y) + (axis_z * axis_z));
         if (size > kFloatZero) {
             const double inverse = kAnimMoviesOne / size;
-            core::at(m, 0) = static_cast<float>(inverse * core::at(m, 0));
-            core::at(m, 1) = static_cast<float>(inverse * core::at(m, 1));
-            core::at(m, 2) = static_cast<float>(core::at(m, 2) * inverse);
+            core::at(elements, 0) = static_cast<float>(inverse * core::at(elements, 0));
+            core::at(elements, 1) = static_cast<float>(inverse * core::at(elements, 1));
+            core::at(elements, 2) = static_cast<float>(core::at(elements, 2) * inverse);
         }
     }
     // The up axis: at x right.
-    cross_into(axis_of(m, 1), axis_of(m, 2), axis_of(m, 0));
-    core::at(m, maths::kMatYw) = 0.0F;
+    cross_into(axis_of(elements, 1), axis_of(elements, 2), axis_of(elements, 0));
+    core::at(elements, maths::kMatYw) = 0.0F;
 }
 
 // 0x005876A0 (and the thunk 0x00587F60)

@@ -219,13 +219,14 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         }
         break;
     case kObjSetLightAmbientColor: {
-        int r = 0;
-        int g = 0;
-        int b = 0; // (unset when not given)
-        params->fetch_int_value(kR, &r, 0);
-        params->fetch_int_value(kG, &g, 0);
-        params->fetch_int_value(kB, &b, 0);
-        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), kHalfAlpha}};
+        int red = 0;
+        int green = 0;
+        int blue = 0; // (unset when not given)
+        params->fetch_int_value(kR, &red, 0);
+        params->fetch_int_value(kG, &green, 0);
+        params->fetch_int_value(kB, &blue, 0);
+        std::array<uint8_t, 4> rgba = {
+            {static_cast<uint8_t>(red), static_cast<uint8_t>(green), static_cast<uint8_t>(blue), kHalfAlpha}};
         change_ambient_tint(model_lights(mesh_instance_.get()), rgba.data());
         enable_ambient(model_lights(mesh_instance_.get()), true);
         break;
@@ -238,14 +239,15 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjSetLightDiffuseColor: {
         int index = 0;
-        int r = 0;
-        int g = 0;
-        int b = 0; // (unset when not given)
+        int red = 0;
+        int green = 0;
+        int blue = 0; // (unset when not given)
         params->fetch_int_value(kIndex, &index, 0);
-        params->fetch_int_value(kR, &r, 0);
-        params->fetch_int_value(kG, &g, 0);
-        params->fetch_int_value(kB, &b, 0);
-        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), kHalfAlpha}};
+        params->fetch_int_value(kR, &red, 0);
+        params->fetch_int_value(kG, &green, 0);
+        params->fetch_int_value(kB, &blue, 0);
+        std::array<uint8_t, 4> rgba = {
+            {static_cast<uint8_t>(red), static_cast<uint8_t>(green), static_cast<uint8_t>(blue), kHalfAlpha}};
         change_diffuse_hue(model_lights(mesh_instance_.get()), index, rgba.data());
         enable_diffuse(model_lights(mesh_instance_.get()), index, true);
         break;
@@ -433,26 +435,26 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjSetColor:
         if (mesh_instance_) {
-            int h = 0;
-            int s = 0;
+            int hue = 0;
+            int saturation = 0;
             int v = 0;
-            if (params->fetch_int_value(kH, &h, 0) && params->fetch_int_value(kS, &s, 0) &&
+            if (params->fetch_int_value(kH, &hue, 0) && params->fetch_int_value(kS, &saturation, 0) &&
                 params->fetch_int_value(kV, &v, 0)) {
-                mesh_instance_->set_geom_color_hsv(checksums::Name{kAll}, static_cast<float>(h),
-                                                   static_cast<float>(static_cast<double>(s) * kPercent),
+                mesh_instance_->set_geom_color_hsv(checksums::Name{kAll}, static_cast<float>(hue),
+                                                   static_cast<float>(static_cast<double>(saturation) * kPercent),
                                                    static_cast<float>(static_cast<double>(v) * kPercent));
             }
         }
         break;
     case kObjSetColorRgb:
         if (mesh_instance_) {
-            int r = 0;
-            int g = 0;
-            int b = 0;
-            if (params->fetch_int_value(kR, &r, 0) && params->fetch_int_value(kG, &g, 0) &&
-                params->fetch_int_value(kB, &b, 0)) {
-                mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),
-                                            static_cast<uint8_t>(kFullByte));
+            int red = 0;
+            int green = 0;
+            int blue = 0;
+            if (params->fetch_int_value(kR, &red, 0) && params->fetch_int_value(kG, &green, 0) &&
+                params->fetch_int_value(kB, &blue, 0)) {
+                mesh_instance_->change_tint(static_cast<uint8_t>(red), static_cast<uint8_t>(green),
+                                            static_cast<uint8_t>(blue), static_cast<uint8_t>(kFullByte));
             }
         }
         break;

@@ -34,15 +34,15 @@ render::HitMeshCache* body_cache() { return &*objects_shared().rigid_body_cache(
 // sphere's number as the friction. Whether any is touching.
 bool BodyDynamicsModule::find_contacts()
 {
-    const float r = radius_;
+    const float radius = radius_;
     maths::BBox box;
-    box.min = {.x = get_narrow(get_wide(at_point_.x) - r),
-               .y = get_narrow(get_wide(at_point_.y) - r),
-               .z = get_narrow(get_wide(at_point_.z) - r),
+    box.min = {.x = get_narrow(get_wide(at_point_.x) - radius),
+               .y = get_narrow(get_wide(at_point_.y) - radius),
+               .z = get_narrow(get_wide(at_point_.z) - radius),
                .w = get_narrow(get_wide(at_point_.w) - 1.0F)};
-    box.max = {.x = get_narrow(get_wide(r) + at_point_.x),
-               .y = get_narrow(get_wide(r) + at_point_.y),
-               .z = get_narrow(get_wide(r) + at_point_.z),
+    box.max = {.x = get_narrow(get_wide(radius) + at_point_.x),
+               .y = get_narrow(get_wide(radius) + at_point_.y),
+               .z = get_narrow(get_wide(radius) + at_point_.z),
                .w = get_narrow(get_wide(at_point_.w) + 1.0F)};
     body_cache()->tick_frame(box);
     contacts_hit_ = 0;
@@ -98,37 +98,41 @@ bool BodyDynamicsModule::find_contacts()
         for (int k = feeler.hits().count - 1; k >= 0; --k) {
             const render::SphereHit& hit = core::at(feeler.hits().hits, k);
             Contact& contact = core::at(get_contacts(), contacts_hit_);
-            const maths::Vec4& c = feeler.bound_ball().centre;
+            const maths::Vec4& ball_centre = feeler.bound_ball().centre;
             const double ox = get_wide(hit.point.x) - at_point_.x;
             const double oy = get_wide(hit.point.y) - at_point_.y;
             contact.offset.z = get_narrow(get_wide(hit.point.z) - at_point_.z);
             contact.offset.w = get_narrow(get_wide(hit.point.w) - at_point_.w);
             contact.offset.x = get_narrow(ox);
             contact.offset.y = get_narrow(oy);
-            const double nx = get_wide(hit.point.x) - c.x;
-            const double ny = get_wide(hit.point.y) - c.y;
-            contact.normal.z = get_narrow(get_wide(hit.point.z) - c.z);
-            contact.normal.w = get_narrow(get_wide(hit.point.w) - c.w);
+            const double nx = get_wide(hit.point.x) - ball_centre.x;
+            const double ny = get_wide(hit.point.y) - ball_centre.y;
+            contact.normal.z = get_narrow(get_wide(hit.point.z) - ball_centre.z);
+            contact.normal.w = get_narrow(get_wide(hit.point.w) - ball_centre.w);
             contact.normal.x = get_narrow(nx);
             contact.normal.y = get_narrow(ny);
-            maths::Vec4& n = contact.normal;
-            const float length =
-                get_narrow(std::sqrt(((get_wide(n.x) * n.x) + (get_wide(n.y) * n.y)) + (get_wide(n.z) * n.z)));
+            maths::Vec4& normal = contact.normal;
+            const float length = get_narrow(std::sqrt(
+                ((get_wide(normal.x) * normal.x) + (get_wide(normal.y) * normal.y)) + (get_wide(normal.z) * normal.z)));
             if (length == 0.0F) {
-                n = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
+                normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
             } else {
                 // (towards the centre: the hit point less the centre, reversed)
                 const double inverse = 1.0 / -get_wide(length);
-                n = {.x = get_narrow(inverse * n.x), .y = get_narrow(inverse * n.y), .z = get_narrow(inverse * n.z),
-                     .w = get_narrow(inverse * n.w)};
+                normal = {.x = get_narrow(inverse * normal.x),
+                          .y = get_narrow(inverse * normal.y),
+                          .z = get_narrow(inverse * normal.z),
+                          .w = get_narrow(inverse * normal.w)};
             }
             // (a face turned away from it, or a hit ahead of the centre of mass: none)
-            if (((get_wide(hit.normal.z) * n.z) + (get_wide(hit.normal.x) * n.x)) + (get_wide(n.y) * hit.normal.y) <
+            if (((get_wide(hit.normal.z) * normal.z) + (get_wide(hit.normal.x) * normal.x)) +
+                    (get_wide(normal.y) * hit.normal.y) <
                 0.0) {
                 continue;
             }
-            const maths::Vec4& o = contact.offset;
-            if (((get_wide(n.z) * o.z) + (get_wide(n.y) * o.y)) + (get_wide(n.x) * o.x) > 0.0) {
+            const maths::Vec4& offset = contact.offset;
+            if (((get_wide(normal.z) * offset.z) + (get_wide(normal.y) * offset.y)) + (get_wide(normal.x) * offset.x) >
+                0.0) {
                 continue;
             }
             contact.scaled = false;

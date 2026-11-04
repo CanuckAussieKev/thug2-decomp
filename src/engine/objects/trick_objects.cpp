@@ -265,14 +265,14 @@ bool TrickSpot::clear_graffiti_color(int index) const
 {
     render::WorldCell* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
-    auto r = static_cast<uint8_t>(color->fetch_part(0));
-    auto g = static_cast<uint8_t>(color->fetch_part(1));
-    auto b = static_cast<uint8_t>(color->fetch_part(2));
+    auto red = static_cast<uint8_t>(color->fetch_part(0));
+    auto green = static_cast<uint8_t>(color->fetch_part(1));
+    auto blue = static_cast<uint8_t>(color->fetch_part(2));
     uint32_t packed = 0;
     get_sector_color(sector, &packed);
     std::array<uint8_t, 4> current{};
     std::memcpy(current.data(), &packed, 4);
-    if (core::at(current, 0) == r && core::at(current, 1) == g && core::at(current, 2) == b) {
+    if (core::at(current, 0) == red && core::at(current, 1) == green && core::at(current, 2) == blue) {
         clear_sector_color(sector);
     }
     return true;

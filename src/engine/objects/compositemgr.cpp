@@ -459,13 +459,13 @@ bool create_coim_heap(uint32_t size)
 }
 
 // 0x0045F160
-void init_coim(int a, uint32_t heap_size, int b, int c)
+void init_coim(int a, uint32_t heap_size, int b, int value_c)
 {
     coim_a() = a;
     coim_b() = b;
     coim_integer0() = script::fetch_int_value(kCoimInteger0);
     coim_integer1() = script::fetch_int_value(kCoimInteger1);
-    coim_c() = c;
+    coim_c() = value_c;
     create_coim_heap(heap_size);
     debug::printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heap_size >> kKilobyteShift);
 }

@@ -17,9 +17,11 @@ gsl::owner<ObjectModule*> MatrixComponent::fabricate() { return new MatrixCompon
 MatrixComponent::MatrixComponent()
 {
     set_kind_tag(kType);
-    for (int r = 0; r < 4; ++r) {
-        core::at(basis_frame_.row, r) = {
-            .x = r == 0 ? 1.0F : 0.0F, .y = r == 1 ? 1.0F : 0.0F, .z = r == 2 ? 1.0F : 0.0F, .w = r == 3 ? 1.0F : 0.0F};
+    for (int row = 0; row < 4; ++row) {
+        core::at(basis_frame_.row, row) = {.x = row == 0 ? 1.0F : 0.0F,
+                                           .y = row == 1 ? 1.0F : 0.0F,
+                                           .z = row == 2 ? 1.0F : 0.0F,
+                                           .w = row == 3 ? 1.0F : 0.0F};
     }
 }
 

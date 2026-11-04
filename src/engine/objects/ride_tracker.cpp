@@ -13,12 +13,12 @@ namespace {
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // The rotation part only: no translation (the fourth row 0, 0, 0, 1) and a zero fourth column.
-void keep_rotation(maths::Mat4& m)
+void keep_rotation(maths::Mat4& matrix)
 {
-    core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    core::at(m.row, 0).w = 0.0F;
-    core::at(m.row, 1).w = 0.0F;
-    core::at(m.row, 2).w = 0.0F;
+    core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    core::at(matrix.row, 0).w = 0.0F;
+    core::at(matrix.row, 1).w = 0.0F;
+    core::at(matrix.row, 2).w = 0.0F;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).

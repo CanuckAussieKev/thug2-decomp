@@ -102,11 +102,11 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     beyond.w = static_cast<float>(static_cast<double>(dw) + dw + pos.w);
     feeler.change_strand(*target, beyond);
     if (feeler.get_hit_shape(1, 0)) {
-        const maths::Vec4& s = feeler.kickoff();
-        const maths::Vec4& e = feeler.get_end();
-        const double lx = static_cast<double>(e.x) - s.x;
-        const double ly = static_cast<double>(e.y) - s.y;
-        const double lz = static_cast<double>(e.z) - s.z;
+        const maths::Vec4& start = feeler.kickoff();
+        const maths::Vec4& end = feeler.get_end();
+        const double lx = static_cast<double>(end.x) - start.x;
+        const double ly = static_cast<double>(end.y) - start.y;
+        const double lz = static_cast<double>(end.z) - start.z;
         auto line_length = static_cast<float>(std::sqrt(((lx * lx) + (ly * ly)) + (lz * lz)));
         double fraction = feeler.get_fraction();
         if (fraction * line_length < kMinimumDistance) {
@@ -135,11 +135,11 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     probe.w += pos.w;
     bool hit = feeler.get_hit_shape(pos, probe, 1);
     if (hit) {
-        const maths::Vec4& p = feeler.get_point();
-        probe.x -= p.x;
-        probe.y -= p.y;
-        probe.z -= p.z;
-        probe.w -= p.w;
+        const maths::Vec4& point = feeler.get_point();
+        probe.x -= point.x;
+        probe.y -= point.y;
+        probe.z -= point.z;
+        probe.w -= point.w;
         pos.x -= probe.x;
         pos.y -= probe.y;
         pos.z -= probe.z;
@@ -153,11 +153,11 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         probe.w += pos.w;
         hit = feeler.get_hit_shape(pos, probe, 1);
         if (hit) {
-            const maths::Vec4& p = feeler.get_point();
-            const double ox = static_cast<double>(probe.x) - p.x;
-            const double oy = static_cast<double>(probe.y) - p.y;
-            const float oz = probe.z - p.z;
-            const float ow = probe.w - p.w;
+            const maths::Vec4& point = feeler.get_point();
+            const double ox = static_cast<double>(probe.x) - point.x;
+            const double oy = static_cast<double>(probe.y) - point.y;
+            const float oz = probe.z - point.z;
+            const float ow = probe.w - point.w;
             pos.x = static_cast<float>(pos.x - ox);
             pos.y = static_cast<float>(pos.y - oy);
             pos.z -= oz;

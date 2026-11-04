@@ -54,13 +54,14 @@ bool get_ground_hit(std::array<maths::Vec4, 3>& triangle, const maths::Vec4* end
                                .y = static_cast<float>(static_cast<double>(end->y) - start->y),
                                .z = static_cast<float>(static_cast<double>(end->z) - start->z),
                                .w = static_cast<float>(static_cast<double>(end->w) - start->w)};
-    float t = 0.0F;
-    if (render::ray_hits_triangle(*start, along, std::get<0>(triangle), std::get<1>(triangle), std::get<2>(triangle), &t)) {
+    float hit_distance = 0.0F;
+    if (render::ray_hits_triangle(*start, along, std::get<0>(triangle), std::get<1>(triangle), std::get<2>(triangle),
+                                  &hit_distance)) {
         // (x through the unrounded product, the others rounded first)
-        const double x = static_cast<double>(along.x) * t;
-        auto y = static_cast<float>(static_cast<double>(along.y) * t);
-        auto z = static_cast<float>(static_cast<double>(along.z) * t);
-        auto w = static_cast<float>(static_cast<double>(along.w) * t);
+        const double x = static_cast<double>(along.x) * hit_distance;
+        auto y = static_cast<float>(static_cast<double>(along.y) * hit_distance);
+        auto z = static_cast<float>(static_cast<double>(along.z) * hit_distance);
+        auto w = static_cast<float>(static_cast<double>(along.w) * hit_distance);
         out->z = static_cast<float>(static_cast<double>(z) + start->z);
         out->w = static_cast<float>(static_cast<double>(w) + start->w);
         out->x = static_cast<float>(x + start->x);
@@ -177,9 +178,9 @@ bool KinematicsModule::stick_to_ground()
                                         static_cast<float>(static_cast<double>(right.z) * 30.0F),
                                         static_cast<float>(static_cast<double>(right.w) * 30.0F)}};
     auto move = [&pos](const std::array<float, 4>& by, double scale) {
-        auto& p = pos;
+        auto& position = pos;
         for (int i = 0; i < 4; ++i) {
-            p[i] = static_cast<float>(static_cast<double>(p[i]) + (core::at(by, i) * scale));
+            position[i] = static_cast<float>(static_cast<double>(position[i]) + (core::at(by, i) * scale));
         }
     };
     // (a feeler from DistAbove over the position to DistBelow under it, feet; the products unrounded)

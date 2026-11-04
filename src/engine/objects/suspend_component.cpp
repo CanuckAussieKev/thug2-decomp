@@ -196,21 +196,21 @@ bool DormancyModule::is_far() const { return far_; }
 // 0x00433EA0
 bool DormancyModule::wants_animating(float* distance_squared)
 {
-    const float d = distance_squared_;
+    const float distance = distance_squared_;
     if (distance_squared) {
-        *distance_squared = d;
+        *distance_squared = distance;
     }
     bool animate = true;
     const double lod = core::at(lod_distances_, 0);
-    if (d > lod * lod) { // (not a number: as within)
+    if (distance > lod * lod) { // (not a number: as within)
         animate = false;
     } else {
         const float skip_every2 = script::fetch_float(0xDB120FB5);  // AnimLODInterleave2
         const double skip_every4 = script::fetch_float(0x3271AA80); // AnimLODInterleave4
         auto within2 = static_cast<float>(static_cast<double>(skip_every2) * skip_every2);
-        if (d > skip_every4 * skip_every4) {
+        if (distance > skip_every4 * skip_every4) {
             animate = (++interleave4_count() & 3) == 0;
-        } else if (d > within2) {
+        } else if (distance > within2) {
             animate = (++interleave2_count() & 1) == 0;
         }
     }

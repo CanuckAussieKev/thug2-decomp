@@ -153,8 +153,9 @@ void KinematicsModule::update_path_speed()
             path_speed_ = 0.0F;
             return;
         }
-        const double t = static_cast<double>(covered) / path_stop_distance_;
-        path_speed_ = static_cast<float>(((1.0 - t) * path_stop_start_speed_) + (t * path_min_stop_speed_));
+        const double fraction = static_cast<double>(covered) / path_stop_distance_;
+        path_speed_ =
+            static_cast<float>(((1.0 - fraction) * path_stop_start_speed_) + (fraction * path_min_stop_speed_));
         return;
     }
     if (path_speed_ < path_max_speed_) {

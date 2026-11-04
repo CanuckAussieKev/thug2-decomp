@@ -138,11 +138,11 @@ double bearing(ModelSpin& spin)
     const int elapsed = ((spin.flag_bits_ & kModelSpinRealTime) != 0)
                             ? static_cast<int>(frame_clock::get_time() - spin.outset_)
                             : frame_clock::game_clock_time_since(static_cast<int>(spin.outset_));
-    auto t = static_cast<double>(elapsed);
+    auto elapsed_time = static_cast<double>(elapsed);
     if (elapsed < 0) {
-        t += kTwoTo32; // (as unsigned)
+        elapsed_time += kTwoTo32; // (as unsigned)
     }
-    if (t > spin.period_) { // (a NaN period never ends)
+    if (elapsed_time > spin.period_) { // (a NaN period never ends)
         if ((spin.flag_bits_ & kModelSpinHold) != 0) {
             return static_cast<double>(spin.range_) + spin.base_;
         }
@@ -150,17 +150,17 @@ double bearing(ModelSpin& spin)
         return 0.0;
     }
     if (spin.power_ == 0) {
-        return (static_cast<double>(spin.range_) / spin.period_ * t) + spin.base_;
+        return (static_cast<double>(spin.range_) / spin.period_ * elapsed_time) + spin.base_;
     }
-    const double phase = t / spin.period_ * kHalfPi;
+    const double phase = elapsed_time / spin.period_ * kHalfPi;
     if (spin.power_ < 0) {
         return ((1.0 - std::sin(kHalfPi - phase)) * spin.range_) + spin.base_;
     }
-    double s = std::sin(phase);
+    double sine = std::sin(phase);
     for (int i = spin.power_ - 1; i > 0; --i) {
-        s *= s;
+        sine *= sine;
     }
-    return (s * spin.range_) + spin.base_;
+    return (sine * spin.range_) + spin.base_;
 }
 
 // 0x004204F0

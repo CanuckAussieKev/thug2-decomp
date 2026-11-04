@@ -175,8 +175,9 @@ void PinnedObjectModule::update_lock()
         object->at_point().x = x;
         object->at_point().y = y;
         // The lag for the next update: as configure_from_data's, with the update's step.
-        const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
-        auto time = static_cast<double>(t);
+        const int wobble_tick =
+            static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
+        auto time = static_cast<double>(wobble_tick);
         const double step = update_wobble_step();
         const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
                               std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
