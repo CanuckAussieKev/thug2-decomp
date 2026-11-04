@@ -213,4 +213,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     return kResultPassOn;
 }
 
+// 0x0052DAC0
+int handle_nothing(InboundMsgCtx* /*unused*/) { return kResultPassOn; }
+
 } // namespace net

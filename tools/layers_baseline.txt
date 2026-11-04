@@ -13,8 +13,6 @@ src/engine/sys/debug_mode.cpp -> src/game/front_end/front_end.h
 src/engine/sys/mlp.cpp -> src/game/online/gamenet_manager.h
 src/engine/sys/mlp.cpp -> src/game/online/thugpro_compat.h
 src/engine/sys/mlp.cpp -> src/game/skate/skate_module.h
-src/engine/sys/model_viewer.cpp -> src/game/front_end/front_end.h
-src/engine/sys/model_viewer.cpp -> src/game/online/gamenet_handlers.h
 src/formats/check/format_check.cpp -> src/wire/gamenet_messages.h
 src/formats/check/format_check.cpp -> src/wire/message_ids.h
 src/formats/check/format_check.cpp -> src/wire/net_wire.h

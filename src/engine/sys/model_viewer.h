@@ -171,6 +171,10 @@ script::Script* spawn_script_if_exists(uint32_t name);
 // 0x00576CF0: a script file reloaded by the PC tool: runnow.qb (or ..\runnow.qb) noted (0x007CE4A0), then the
 // file loaded (0x005A5960). Returns 1.
 int reload_script_file(net::InboundMsgCtx* context);
+// The pending script (0x007CE4A0): set when the PC tool reloads runnow.qb; the front end's logic (modules::FrontEnd)
+// clears it and runs the script on the home skater.
+bool pending_script();
+void set_pending_script(bool value);
 // 0x005772E0: `object` moved by `offset` along its own axes (its matrix's rotation).
 void move_object_local(objects::GameEntity* object, const maths::Vec4* offset);
 

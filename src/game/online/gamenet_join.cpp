@@ -254,9 +254,9 @@ constexpr auto kGameClientHandlers = std::to_array<HandlerEntry>({
     {.id = MessageId::kTeamGame, .code = &online::handle_kill_team_flags, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // kill the team flags
     {.id = MessageId::kGoalCompleted, .code = &online::handle_goal_completed, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // a goal beaten (relayed)
     {.id = MessageId::kGoalStarted, .code = &online::handle_goal_started, .flags = 0, .manager_data_ = true, .priority = kMidPriority},      // a goal started (relayed)
-    {.id = MessageId::kFlipProSetting, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kMidPriority},           // toggle pro set (nothing)
+    {.id = MessageId::kFlipProSetting, .code = &net::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kMidPriority},           // toggle pro set (nothing)
     {.id = MessageId::kLevelSwitch, .code = &online::on_level_switch_msg, .flags = 0, .manager_data_ = true, .priority = kTopRank},          // change level
-    {.id = MessageId::kLevelSwitch, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kTopRank},               // (and nothing)
+    {.id = MessageId::kLevelSwitch, .code = &net::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kTopRank},               // (and nothing)
     {.id = MessageId::kParkMap, .code = &online::handle_park_map, .flags = 0, .manager_data_ = true, .priority = kTopRank},              // level data
     {.id = MessageId::kRailsData, .code = &online::handle_rails_data, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank}, // rail data
     {.id = MessageId::kGoalsData, .code = &online::on_goal_sync_msg, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank},  // goals data

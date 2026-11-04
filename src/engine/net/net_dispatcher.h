@@ -140,4 +140,8 @@ public:
 using ReceivedMessageCheck = int (*)(InboundMsgCtx* context);
 void set_received_message_check(ReceivedMessageCheck check);
 
+// 0x0052DAC0: a handler that does nothing (the session's pro-set 0x70 and level-switch 0x46 messages, the viewer's
+// 0x21): kResultPassOn.
+int handle_nothing(InboundMsgCtx* context);
+
 } // namespace net

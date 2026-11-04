@@ -35,6 +35,7 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
+#include "engine/sys/model_viewer.h"
 #include <gsl/pointers>
 #include <array>
 #include "base/core/down_cast.h"
@@ -78,18 +79,6 @@ bool& stored_menus_active()
 bool menus_active() { return stored_menus_active(); }
 void set_menus_active(bool value) { stored_menus_active() = value; }
 
-namespace {
-
-bool& stored_pending_script()
-{
-    static bool pending_script{};
-    return pending_script;
-}
-
-} // namespace
-
-bool pending_script() { return stored_pending_script(); }
-void set_pending_script(bool value) { stored_pending_script() = value; }
 
 namespace {
 
@@ -522,8 +511,8 @@ void FrontEnd::tick_frame(bool game_paused)
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap());
     script::tick_child_scripts();
     modules::Skate::sole()->advance_match_flow();
-    if (pending_script()) {
-        stored_pending_script() = false;
+    if (pending_script()) { // (the viewer's runnow.qb: engine/sys/model_viewer.h)
+        set_pending_script(false);
         auto* object =
             static_cast<objects::Entity*>(modules::Skate::sole()->get_home_rider());
         script::launch_script(kPendingScript, nullptr, object, false, nullptr);

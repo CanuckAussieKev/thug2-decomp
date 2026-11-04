@@ -223,9 +223,6 @@ int handle_object_update_length(net::InboundMsgCtx* context)
     return kContinue;
 }
 
-// 0x0052DAC0
-int handle_nothing(net::InboundMsgCtx* /*unused*/) { return kContinue; }
-
 // 0x0052DAD0
 int handle_cd_key_challenge(net::InboundMsgCtx* context)
 {

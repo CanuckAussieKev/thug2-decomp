@@ -52,8 +52,7 @@ int on_hud_notice_msg(net::InboundMsgCtx* context);
 // 0x0052D980 (0x23, before the skate module's): the object update message's length, from its bits: 8 skaters'
 // bits, then for each one present a 16-bit time, 9 flags, and the fields they say are there. 1.
 int handle_object_update_length(net::InboundMsgCtx* context);
-// 0x0052DAC0 (0x70, and 0x46 after the level change): nothing. 1.
-int handle_nothing(net::InboundMsgCtx* context);
+// (0x0052DAC0, 0x70 and 0x46 after the level change - nothing: net::handle_nothing, engine/net/net_dispatcher.h.)
 // 0x0052DAD0 (0x7C): the CD key challenge: the answer (33 bytes, from the profile_password preference - through the
 // online service at +0x1C, 0x0054CA10) as message 0x7D. 1.
 int handle_cd_key_challenge(net::InboundMsgCtx* context);

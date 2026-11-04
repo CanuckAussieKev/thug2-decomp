@@ -18,12 +18,11 @@
 #include "base/core/stubs.h"
 #include "engine/memory/task_list.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
-#include "game/front_end/front_end.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "game/online/gamenet_handlers.h"
+#include "engine/net/net_dispatcher.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_manager.h"
@@ -156,6 +155,19 @@ script::Script* spawn_script_if_exists(uint32_t name)
     }
     return script::spawn_script(name, nullptr);
 }
+
+namespace {
+
+bool& stored_pending_script()
+{
+    static bool pending_script{};
+    return pending_script;
+}
+
+} // namespace
+
+bool pending_script() { return stored_pending_script(); }
+void set_pending_script(bool value) { stored_pending_script() = value; }
 
 // 0x00576CF0
 int reload_script_file(net::InboundMsgCtx* context)
@@ -570,7 +582,7 @@ void Viewer::start_callback()
     if (!debug_checks()) {
         net::Router& dispatcher = net_handler_->dispatcher();
         dispatcher.append_listener(viewer_message::kReloadScene, &handle_reload_scene, 3, nullptr, viewer_message::kListenerPriority);
-        dispatcher.append_listener(viewer_message::kNothing, &online::handle_nothing, 3, nullptr, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kNothing, &net::handle_nothing, 3, nullptr, viewer_message::kListenerPriority);
         dispatcher.append_listener(viewer_message::kReloadScript, &reload_script_file, 3, nullptr,
                                    viewer_message::kListenerPriority);
         dispatcher.append_listener(viewer_message::kAddToScene, &handle_add_to_scene, 3, nullptr, viewer_message::kListenerPriority);

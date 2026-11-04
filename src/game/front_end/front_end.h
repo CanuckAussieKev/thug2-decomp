@@ -166,7 +166,5 @@ bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Scr
 
 bool menus_active();
 void set_menus_active(bool value);
-bool pending_script();
-void set_pending_script(bool value);
 
 } // namespace modules
