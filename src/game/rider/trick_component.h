@@ -346,6 +346,17 @@ public:
     [[nodiscard]] const HitClusterLog& trick_objects() const { return trick_objects_; }
 
 private:
+    // invoke_method_by_name's longer member functions (trick_member_functions.cpp): what it returns for them.
+    int clear_panel_landed();
+    int restore_events(script::Struct* params);
+    int clear_events_of(script::Struct* params);
+    int replace_bindings(script::Struct* params);
+    int clear_panel_bailed();
+    int held(script::Struct* params);
+    int display_trick(script::Struct* params);
+    uint32_t display_flags(script::Struct* params);
+    void score_displayed_trick(modules::PointTally* score, uint32_t flags);
+
     int busy_{};                                // +0x18 (counted up and down round a trick's script)
     modules::PointTally* score_{nullptr};       // +0x1C the skater's score (set by the skater)
     PadInputModule* input_{nullptr};            // +0x20 (its disabled_ / net_disabled_: no tricks)
