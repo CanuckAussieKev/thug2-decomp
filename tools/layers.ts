@@ -78,7 +78,7 @@ export function violations(map: LayerMap = loadMap()): string[] {
 export function readBaseline(): string[] {
     if (!existsSync(BASELINE_FILE)) return [];
     return readFileSync(BASELINE_FILE, "utf8")
-        .split("\n")
+        .split(/\r?\n/) // (a CRLF checkout of the baseline too: core.autocrlf)
         .filter((line) => line !== "" && !line.startsWith("#"));
 }
 
