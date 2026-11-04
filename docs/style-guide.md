@@ -50,12 +50,15 @@ src/
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
               sounds, saves, custom parks (library thug2_formats)
   wire/       the network messages and their framing (library thug2_wire)
-  gpu/        the GPU's vertex and index buffers (library thug2_gpu)
   base/       the OS-free helpers under everything: core (checksums, formatting, text, checked indexing, the enum and
               pointer helpers), maths, two containers (lists), the bit stream and BPS patches (util) (library
               thug2_base)
   engine/     memory, lists, files, assets, script, objects, renderer, 2D, audio, sound, network transport, pad input, ui (the
               original's screen elements and our UI fonts), ext (the extension points) (library thug2_engine)
+  render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
+              textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
+              GPU's vertex and index buffers; it implements render::Device (library thug2_render_d3d9, included by
+              app/ only - and the editor until its Direct3D code goes behind the engine's interfaces)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
               network session; the transport stays in engine/net), commands (the game's script commands), world
               (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park
@@ -148,7 +151,7 @@ exceptions, all in one place:
   holder's kind (`value.structure()`, `value.word()`...); a missing script parameter's default is written out (the
   original's reads of an argument's stack slot are 0 for a name, on for a flag, 0 for a number). Byte layouts that stay (file records used
   in place, vertex buffers) are read through the boundary's accessors instead: `collision_format::FaceTable`
-  (`formats/`), `gpu::VertexView` / `VertexWriter` (`gpu/`).
+  (`formats/`), `gpu::VertexView` / `VertexWriter` (`engine/gfx/vertex_view.h`).
 - **Downcasts** go through `core::down_cast<Derived>(base)` (`base/core/down_cast.h`): code that has checked an
   object's type tag (or asked a manager for an object of a type) converts the base pointer with it; Debug builds
   assert the object really is a Derived (a class's own `is_instance(const Base&)` if it has one, else `dynamic_cast`).

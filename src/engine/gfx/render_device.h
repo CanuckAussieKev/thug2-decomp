@@ -2,7 +2,8 @@
 
 // NOT ORIGINAL - render::Device: what the engine side asks of the graphics backend. The backend is the original's PC
 // platform layer (the engine's s_plat_* calls and what they reach, 0x004B2270-0x004E0A90, with the Direct3D files of
-// our own); the engine side is everything above it - the engine's own entry points, the scenes, models, effects and
+// our own: src/render_d3d9, which the engine neither includes nor links; the comments below name its files); the
+// engine side is everything above it - the engine's own entry points, the scenes, models, effects and
 // lights as the engine sees them, the scripts, the game. Every call the engine side makes into the backend for a
 // frame, a resource, a state block or a draw batch goes through the one installed device; app/ makes it and installs
 // it at start-up (install_device), a run-time choice - Direct3D 9's (render_d3d9/d3d9_device.h) is the only one so far.
@@ -11,9 +12,10 @@
 // drawn and finished as a whole, and a lost device is reset by the engine's main loop in steps.
 //
 // The grain is coarse: a call per frame, per resource made or released, per state block, per draw batch (a flash, a
-// shatter, a splat set). Never per vertex or per object: what the engine does per vertex or per object stays a
-// direct call - a primitive's vertices (PcPrimitive's setters: plain writes into its vertex memory), the occluders
-// and a sphere's visibility (the culling, engine_glue.h), a splat triangle's collapse.
+// shatter, a splat set). Never per vertex or per object: what the engine does per vertex or per object is the engine's
+// own code, never a call into the backend - a primitive's vertices (VertexRun, vertex_run.h: plain writes into its
+// vertex memory, inline), the occluders and a sphere's visibility (the culling, occlusion.h), a splat triangle's
+// collapse (engine_splats.h).
 //
 // The methods keep the names and arguments of the functions they stand for (the backend's own, in the files the
 // comments name), and each D3D9 method is that function: the same calls to Direct3D, in the same order.
@@ -95,7 +97,7 @@ public:
     Device(Device&&) = delete;
     Device& operator=(Device&&) = delete;
 
-    // --- the frame (engine_glue.h, draw_frame.h) ---
+    // --- the frame (pc_engine.h, draw_frame.h) ---
     // The device made, then the backend's particle manager, weather and screen effects (start_engine).
     virtual void start_engine() = 0;
     // The frame's scene begun, unless the loading screen is up (begin_frame_draw).
@@ -117,7 +119,7 @@ public:
 
     // --- resources: made (null without memory) and given back; as the engine's own types (the backend's objects
     // derive from them) ---
-    // Scenes (engine_glue.h, scene_load.h): an empty one, one loaded from memory or a file, one's sectors let go.
+    // Scenes (pc_engine.h, scene_load.h): an empty one, one loaded from memory or a file, one's sectors let go.
     virtual gsl::owner<WorldScene*> make_empty_scene(const char* name, TextureSet* textures, bool with_super_sectors) = 0;
     virtual gsl::owner<WorldScene*> load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures,
                                                            bool with_super_sectors, bool flag_8d, bool mesh_flag) = 0;
@@ -129,7 +131,7 @@ public:
     virtual gsl::owner<SubMesh*> load_mesh_file(const char* name, TextureSet* textures) = 0;
     virtual gsl::owner<SubMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size,
                                                       const void* skin, size_t skin_size, TextureSet* textures) = 0;
-    // A model, a geom, a sprite, a textured quad, a render target with its texture (engine_glue.h), a model's lights
+    // A model, a geom, a sprite, a textured quad, a render target with its texture (pc_engine.h), a model's lights
     // (pc_lights.h).
     virtual gsl::owner<RenderModel*> spawn_model() = 0;
     virtual gsl::owner<Geom*> create_geom() = 0;
@@ -167,10 +169,10 @@ public:
     virtual void toggle_fog(bool on) = 0;
     virtual void set_fog_distance(float start) = 0;
     virtual void set_fog_color(uint32_t rgba) = 0;
-    // The gamma ramp from / as three factors (engine_glue.h).
+    // The gamma ramp from / as three factors (pc_engine.h).
     virtual void set_gamma(float red, float green, float blue) = 0;
     virtual std::array<float, 3> get_gamma() = 0;
-    // The 2D clip rectangle set and turned on (engine_glue.h).
+    // The 2D clip rectangle set and turned on (pc_engine.h).
     virtual void set_screen_clip(const SkinScaling* settings) = 0;
     // The primitives' states around the imposters, and their depth test (primitive_states.h, pc_primitive.h).
     virtual void set_primitive_states() = 0;
@@ -199,7 +201,7 @@ public:
     virtual void light_texture_splats(TextureSplats* splats) = 0;
     virtual void kill_all_texture_splats() = 0;
     virtual void kill_texture_splats_in_box(const maths::BBox* box) = 0;
-    // A texture's shadow caster added for a model, aimed from a camera, removed (engine_glue.h); the model whose
+    // A texture's shadow caster added for a model, aimed from a camera, removed (pc_engine.h); the model whose
     // shadow a caster's model also casts (shadow_base.h).
     virtual void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* unused) = 0;
     virtual void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camera) = 0;
@@ -209,7 +211,7 @@ public:
     virtual uint32_t occlusion_pixels() = 0;
 
     // --- what is shown: the back buffer, the screens drawn and presented outside the frame ---
-    // The front buffer saved as a JPEG (engine_glue.h).
+    // The front buffer saved as a JPEG (pc_engine.h).
     virtual void screen_shot(const char* name, int unused) = 0;
     // The frame as it will be shown, copied (the screenshot key's: screenshot_capture.h).
     virtual bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error) = 0;

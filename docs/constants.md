@@ -6,7 +6,7 @@ central constants file: a constant lives with its owner.
 - A value one function or one file uses is defined in that file's unnamed namespace (or in the function).
 - A value a subsystem shares is defined once in the header of the subsystem whose meaning it is, and every user
   includes that header.
-- Lower layers never include higher ones (wire, formats, gpu, platform and core are low; the engine is above them;
+- Lower layers never include higher ones (wire, formats, platform and base are low; the engine is above them;
   the game, the front end and the editor are on top). When two layers share a value, the lower layer owns it.
 - One meaning, one constant: two values that are merely equal are not merged. Where the same thing is needed both
   as a `std::size_t` extent and as an `int` count for loops, the two forms sit next to each other in the owner.
