@@ -2462,6 +2462,365 @@ std::vector<uint32_t> chain_of(uint32_t name)
     return {name};
 }
 
+namespace {
+
+// What a chain operation works on: the operation, the point (its node, family, whether a ledge's) and its
+// argument; where its message and the point to select go.
+struct ChainCall {
+    ChainOp op{ChainOp::kCancel};
+    uint32_t name{};
+    uint32_t arg{};
+    const nodes::Elem* node{};
+    nodes::Family family{};
+    bool ledge{};
+    std::string* message{};
+    uint32_t* select{};
+};
+
+// A point put halfway to the next one.
+bool insert_point(const ChainCall& call, State& state, Graph& graph)
+{
+    const uint32_t name = call.name;
+    const nodes::Family family = call.family;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    const std::vector<uint32_t>& links = graph[name];
+    if (links.empty()) {
+        *message = "Last point: use Extend";
+        return false;
+    }
+    const V3 point_a = place_of(name);
+    const V3 point_b = place_of(links.front());
+    const Point chain_point = append_rail_vertex(family, name, (point_a + point_b) * 0.5F, state);
+    const uint32_t made = name_hash(chain_point.name);
+    state.points.push_back(chain_point);
+    insert_after(&graph, name, made);
+    put_graph(&state, graph);
+    *select = made;
+    return get_apply(state, message, "A point put halfway to the next (Ctrl+Z takes it away)");
+}
+
+// The point deleted (an added one) or hidden (the level's).
+bool delete_point(const ChainCall& call, State& state, Graph& graph)
+{
+    const uint32_t name = call.name;
+    const nodes::Elem& node = *call.node;
+    std::string* message = call.message;
+    drop_out(&graph, name);
+    put_graph(&state, graph);
+    if (node.added) {
+        std::erase_if(state.points, [&](const Point& chain_point) { return name_hash(chain_point.name) == name; });
+    } else {
+        state.dropped.push_back(name);
+        std::ranges::sort(state.dropped);
+        // (its own links stay as the level has them: it takes no part while dropped)
+        std::erase_if(state.links, [&](const LinkEdit& link_edit) { return link_edit.name == name; });
+    }
+    return get_apply(state, message, node.added ? "Point deleted" : "Point hidden");
+}
+
+// The point unlinked from its next one: the chain split there.
+bool unlink_point(const ChainCall& call, State& state, Graph& graph)
+{
+    const uint32_t name = call.name;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    if (!uncouple(&graph, name)) {
+        *message = "It has no next point";
+        return false;
+    }
+    put_graph(&state, graph);
+    *select = name;
+    return get_apply(state, message, "Unlinked from its next point: the chain is split there");
+}
+
+// The rail's terrain (every point of it).
+bool set_terrain(const ChainCall& call, State& state)
+{
+    const uint32_t name = call.name;
+    const uint32_t arg = call.arg;
+    const nodes::Family family = call.family;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    if (family != nodes::Family::kRail) {
+        *message = "Only rails have a terrain";
+        return false;
+    }
+    std::string terrain;
+    for (const std::string& text : grind_terrain_names()) {
+        if (name_hash(text) == arg) {
+            terrain = text;
+        }
+    }
+    if (terrain.empty() || !known_terrain(arg)) {
+        *message = "Unknown terrain";
+        return false;
+    }
+    for (uint32_t point : chain_of(name)) {
+        bool added = false;
+        for (Point& chain_point : state.points) {
+            if (name_hash(chain_point.name) == point) {
+                chain_point.terrain = terrain;
+                added = true;
+            }
+        }
+        if (added) {
+            continue;
+        }
+        auto it = std::ranges::find_if(state.terrains,
+                                       [&](const TerrainEdit& terrain_edit) { return terrain_edit.name == point; });
+        if (it != state.terrains.end()) {
+            it->terrain = terrain;
+        } else {
+            state.terrains.push_back({.name = point, .terrain = terrain});
+        }
+    }
+    sort_by_name(&state.terrains);
+    *select = name;
+    return get_apply(state, message, ("The rail's terrain is " + terrain + " now").c_str());
+}
+
+// Drawing on from an end point.
+bool extend_chain(const ChainCall& call, Graph& graph)
+{
+    const uint32_t name = call.name;
+    const nodes::Family family = call.family;
+    const bool ledge = call.ledge;
+    std::string* message = call.message;
+    if (!is_last(graph, name) && !is_first(graph, name)) {
+        *message = "Select an end point to extend";
+        return false;
+    }
+    if (family == nodes::Family::kRouteWay) {
+        level_editor_chains_state().draw_ = Blit::kRouteWay;
+    } else {
+        level_editor_chains_state().draw_ = ledge ? Blit::kLedge : Blit::kRail;
+    }
+    level_editor_chains_state().draw_last_ = name;
+    level_editor_chains_state().pick_ = ChainOp::kCancel;
+    *message = "Click to add points (Enter: finish)";
+    return false;
+}
+
+// The drawn points of the rail one trick object (a cluster) or none.
+bool set_trick_object(const ChainCall& call, State& state)
+{
+    const uint32_t name = call.name;
+    const uint32_t arg = call.arg;
+    const nodes::Family family = call.family;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    if (family != nodes::Family::kRail) {
+        *message = "Only rails can be trick objects";
+        return false;
+    }
+    // (the drawn points of the rail: one cluster - the one they have, else the scenery piece's or the first's)
+    std::vector<uint32_t> rail = chain_of(name);
+    uint32_t cluster = 0;
+    for (const Point& chain_point : state.points) {
+        if (std::ranges::find(rail, name_hash(chain_point.name)) != rail.end() && (cluster == 0U)) {
+            cluster = chain_point.cluster;
+        }
+    }
+    bool any = false;
+    for (Point& chain_point : state.points) {
+        if (std::ranges::find(rail, name_hash(chain_point.name)) == rail.end()) {
+            continue;
+        }
+        if (cluster == 0U) {
+            cluster = name_hash(chain_point.name);
+        }
+        chain_point.cluster = (arg != 0U) ? cluster : 0;
+        any = true;
+    }
+    if (!any) {
+        *message = "Original rails keep their trick object setting";
+        return false;
+    }
+    *select = name;
+    return get_apply(state, message, (arg != 0U) ? "Trick object on" : "Trick object off");
+}
+
+// The rail grindable on flat ground, or not.
+bool set_grind_flat(const ChainCall& call, State& state)
+{
+    const uint32_t name = call.name;
+    const uint32_t arg = call.arg;
+    const nodes::Elem& node = *call.node;
+    const nodes::Family family = call.family;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    if (family != nodes::Family::kRail) {
+        *message = "Only rails are ground";
+        return false;
+    }
+    for (const uint32_t point : chain_of(name)) {
+        bool added = false;
+        for (Point& chain_point : state.points) {
+            if (name_hash(chain_point.name) == point) {
+                chain_point.grind_flat_ = arg != 0;
+                added = true;
+            }
+        }
+        if (added) {
+            continue;
+        }
+        auto it = std::ranges::find(state.grind_flat_, point);
+        if ((arg != 0U) && it == state.grind_flat_.end()) {
+            state.grind_flat_.push_back(point);
+        } else if ((arg == 0U) && it != state.grind_flat_.end()) {
+            state.grind_flat_.erase(it);
+        }
+    }
+    std::ranges::sort(state.grind_flat_);
+    *select = name;
+    if (arg != 0U) {
+        get_log("level editor: %s's rail grindable on flat ground - RailClear (0x0057C600) passes it as the park "
+                "editor's level passes every rail; the game itself has no node flag for this",
+                object_edit::caption(name).c_str());
+    }
+    return get_apply(state, message,
+                     (arg != 0U) ? "Grind on flat ground on" : "Ground beside it checked again, as the game does");
+}
+
+// A segment's (or the whole rail's) speed-up.
+bool set_speed(const ChainCall& call, State& state)
+{
+    const ChainOp op = call.op;
+    const uint32_t name = call.name;
+    const uint32_t arg = call.arg;
+    const nodes::Family family = call.family;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    if (family != nodes::Family::kRail) {
+        *message = "Only rails have speed-ups";
+        return false;
+    }
+    const float rate = (arg != 0U) ? clamp_speed(static_cast<float>(arg) / 10000.0F) : 0.0F;
+    const std::vector<uint32_t> points = op == ChainOp::kSpeedRail ? chain_of(name) : std::vector<uint32_t>{name};
+    int changed = 0;
+    for (uint32_t point : points) {
+        const objects::GrindPoint* rail = rail_node_named(point);
+        if (op == ChainOp::kSpeedRail && (!rail || !rail->succ())) {
+            continue; // (a rail's last point has no segment of its own)
+        }
+        bool added = false;
+        for (Point& chain_point : state.points) {
+            if (name_hash(chain_point.name) == point) {
+                chain_point.speed = rate;
+                added = true;
+            }
+        }
+        if (!added) {
+            auto it = std::ranges::find_if(state.speeds,
+                                           [&](const SpeedEdit& speed_edit) { return speed_edit.name == point; });
+            if (rate <= 0.0F && it != state.speeds.end()) {
+                state.speeds.erase(it);
+            } else if (rate > 0.0F && it != state.speeds.end()) {
+                it->rate = rate;
+            } else if (rate > 0.0F) {
+                state.speeds.push_back({.name = point, .rate = rate});
+            }
+        }
+        ++changed;
+    }
+    sort_by_name(&state.speeds);
+    *select = name;
+    std::array<char, kListTextSize> text{};
+    if (rate > 0.0F) {
+        text::format_to(text, "Speed-up on %d segment%s: %.1f%% per frame", changed, changed == 1 ? "" : "s",
+                        rate * 100.0F);
+    } else {
+        text::format_to(text, "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
+    }
+    return get_apply(state, message, text.data());
+}
+
+// The side a drawn ledge is hung from.
+bool set_hang(const ChainCall& call, State& state)
+{
+    const uint32_t name = call.name;
+    const uint32_t arg = call.arg;
+    const bool ledge = call.ledge;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    if (!ledge) {
+        *message = "Only ledges have a side to hang from";
+        return false;
+    }
+    bool any = false;
+    for (const uint32_t point : chain_of(name)) {
+        for (Point& chain_point : state.points) {
+            if (name_hash(chain_point.name) == point) {
+                chain_point.hang = static_cast<int>(arg) == kHangLeft || static_cast<int>(arg) == kHangRight
+                                       ? static_cast<int>(arg)
+                                       : 0;
+                any = true;
+            }
+        }
+    }
+    if (!any) {
+        *message = "Original ledges keep their hang side";
+        return false;
+    }
+    *select = name;
+    const char* applied = "The game decides the ledge's side";
+    if (arg == static_cast<uint32_t>(kHangLeft)) {
+        applied = "The ledge is hung from its left side";
+    } else if (arg == static_cast<uint32_t>(kHangRight)) {
+        applied = "The ledge is hung from its right side";
+    }
+    return get_apply(state, message, applied);
+}
+
+// Linking an end point: the next click picks the end it links to.
+bool arm_link(const ChainCall& call, Graph& graph)
+{
+    const uint32_t name = call.name;
+    std::string* message = call.message;
+    if (!is_last(graph, name) && !is_first(graph, name)) {
+        *message = "Select an end point to link";
+        return false;
+    }
+    level_editor_chains_state().pick_ = ChainOp::kLinkArm;
+    level_editor_chains_state().pick_from_ = name;
+    *message = "Click the end to link to (Esc: cancel)";
+    return false;
+}
+
+// A ped's or car's path: the next click picks its first waypoint (AssignArm), or its waypoint links taken away
+// (Unassign: its links to anything but waypoints kept). Only peds and cars have paths.
+bool assign_path(const ChainCall& call, bool object)
+{
+    const ChainOp op = call.op;
+    const uint32_t name = call.name;
+    std::string* message = call.message;
+    uint32_t* select = call.select;
+    if (!object) {
+        *message = "Only peds and cars have paths";
+        return false;
+    }
+    if (op == ChainOp::kAssignArm) {
+        level_editor_chains_state().pick_ = ChainOp::kAssignArm;
+        level_editor_chains_state().pick_from_ = name;
+        *message = "Click the first waypoint (Esc: cancel)";
+        return false;
+    }
+    // (its links to anything but waypoints kept)
+    State state = at_hand();
+    std::vector<uint32_t> links;
+    for (const uint32_t other : level_links_now(name)) {
+        if (family_of_name(other) != nodes::Family::kRouteWay) {
+            links.push_back(other);
+        }
+    }
+    set_link_edit(&state, name, links);
+    *select = name;
+    return get_apply(state, message, "No path now - it is made again without one");
+}
+
+} // namespace
+
 bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select)
 {
     *select = 0;
@@ -2484,27 +2843,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
     const nodes::Family family = node.family;
     const bool object = node.cls == pedestrian_class() || node.cls == vehicle_class();
     if (op == ChainOp::kAssignArm || op == ChainOp::kUnassign) {
-        if (!object) {
-            *message = "Only peds and cars have paths";
-            return false;
-        }
-        if (op == ChainOp::kAssignArm) {
-            level_editor_chains_state().pick_ = ChainOp::kAssignArm;
-            level_editor_chains_state().pick_from_ = name;
-            *message = "Click the first waypoint (Esc: cancel)";
-            return false;
-        }
-        // (its links to anything but waypoints kept)
-        State state = at_hand();
-        std::vector<uint32_t> links;
-        for (const uint32_t other : level_links_now(name)) {
-            if (family_of_name(other) != nodes::Family::kRouteWay) {
-                links.push_back(other);
-            }
-        }
-        set_link_edit(&state, name, links);
-        *select = name;
-        return get_apply(state, message, "No path now - it is made again without one");
+        return assign_path({.op = op, .name = name, .node = &node, .message = message, .select = select}, object);
     }
     const bool ledge = family == nodes::Family::kLadder && is_ledge_node(name);
     if (family == nodes::Family::kLadder && !ledge) {
@@ -2520,246 +2859,36 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
     }
     State state = at_hand();
     Graph graph = graph_of(family);
+    const ChainCall call{.op = op,
+                         .name = name,
+                         .arg = arg,
+                         .node = &node,
+                         .family = family,
+                         .ledge = ledge,
+                         .message = message,
+                         .select = select};
     switch (op) {
-    case ChainOp::kInsert: {
-        const std::vector<uint32_t>& links = graph[name];
-        if (links.empty()) {
-            *message = "Last point: use Extend";
-            return false;
-        }
-        const V3 point_a = place_of(name);
-        const V3 point_b = place_of(links.front());
-        const Point chain_point = append_rail_vertex(family, name, (point_a + point_b) * 0.5F, state);
-        const uint32_t made = name_hash(chain_point.name);
-        state.points.push_back(chain_point);
-        insert_after(&graph, name, made);
-        put_graph(&state, graph);
-        *select = made;
-        return get_apply(state, message, "A point put halfway to the next (Ctrl+Z takes it away)");
-    }
-    case ChainOp::kDelete: {
-        drop_out(&graph, name);
-        put_graph(&state, graph);
-        if (node.added) {
-            std::erase_if(state.points, [&](const Point& chain_point) { return name_hash(chain_point.name) == name; });
-        } else {
-            state.dropped.push_back(name);
-            std::ranges::sort(state.dropped);
-            // (its own links stay as the level has them: it takes no part while dropped)
-            std::erase_if(state.links, [&](const LinkEdit& link_edit) { return link_edit.name == name; });
-        }
-        return get_apply(state, message, node.added ? "Point deleted" : "Point hidden");
-    }
-    case ChainOp::kUnlink: {
-        if (!uncouple(&graph, name)) {
-            *message = "It has no next point";
-            return false;
-        }
-        put_graph(&state, graph);
-        *select = name;
-        return get_apply(state, message, "Unlinked from its next point: the chain is split there");
-    }
-    case ChainOp::kTerrain: {
-        if (family != nodes::Family::kRail) {
-            *message = "Only rails have a terrain";
-            return false;
-        }
-        std::string terrain;
-        for (const std::string& text : grind_terrain_names()) {
-            if (name_hash(text) == arg) {
-                terrain = text;
-            }
-        }
-        if (terrain.empty() || !known_terrain(arg)) {
-            *message = "Unknown terrain";
-            return false;
-        }
-        for (uint32_t point : chain_of(name)) {
-            bool added = false;
-            for (Point& chain_point : state.points) {
-                if (name_hash(chain_point.name) == point) {
-                    chain_point.terrain = terrain;
-                    added = true;
-                }
-            }
-            if (added) {
-                continue;
-            }
-            auto it = std::ranges::find_if(state.terrains,
-                                           [&](const TerrainEdit& terrain_edit) { return terrain_edit.name == point; });
-            if (it != state.terrains.end()) {
-                it->terrain = terrain;
-            } else {
-                state.terrains.push_back({.name = point, .terrain = terrain});
-            }
-        }
-        sort_by_name(&state.terrains);
-        *select = name;
-        return get_apply(state, message, ("The rail's terrain is " + terrain + " now").c_str());
-    }
-    case ChainOp::kExtend: {
-        if (!is_last(graph, name) && !is_first(graph, name)) {
-            *message = "Select an end point to extend";
-            return false;
-        }
-        if (family == nodes::Family::kRouteWay) {
-            level_editor_chains_state().draw_ = Blit::kRouteWay;
-        } else {
-            level_editor_chains_state().draw_ = ledge ? Blit::kLedge : Blit::kRail;
-        }
-        level_editor_chains_state().draw_last_ = name;
-        level_editor_chains_state().pick_ = ChainOp::kCancel;
-        *message = "Click to add points (Enter: finish)";
-        return false;
-    }
-    case ChainOp::kTrickObject: {
-        if (family != nodes::Family::kRail) {
-            *message = "Only rails can be trick objects";
-            return false;
-        }
-        // (the drawn points of the rail: one cluster - the one they have, else the scenery piece's or the first's)
-        std::vector<uint32_t> rail = chain_of(name);
-        uint32_t cluster = 0;
-        for (const Point& chain_point : state.points) {
-            if (std::ranges::find(rail, name_hash(chain_point.name)) != rail.end() && (cluster == 0U)) {
-                cluster = chain_point.cluster;
-            }
-        }
-        bool any = false;
-        for (Point& chain_point : state.points) {
-            if (std::ranges::find(rail, name_hash(chain_point.name)) == rail.end()) {
-                continue;
-            }
-            if (cluster == 0U) {
-                cluster = name_hash(chain_point.name);
-            }
-            chain_point.cluster = (arg != 0U) ? cluster : 0;
-            any = true;
-        }
-        if (!any) {
-            *message = "Original rails keep their trick object setting";
-            return false;
-        }
-        *select = name;
-        return get_apply(state, message, (arg != 0U) ? "Trick object on" : "Trick object off");
-    }
-    case ChainOp::kGrindFlat: {
-        if (family != nodes::Family::kRail) {
-            *message = "Only rails are ground";
-            return false;
-        }
-        for (const uint32_t point : chain_of(name)) {
-            bool added = false;
-            for (Point& chain_point : state.points) {
-                if (name_hash(chain_point.name) == point) {
-                    chain_point.grind_flat_ = arg != 0;
-                    added = true;
-                }
-            }
-            if (added) {
-                continue;
-            }
-            auto it = std::ranges::find(state.grind_flat_, point);
-            if ((arg != 0U) && it == state.grind_flat_.end()) {
-                state.grind_flat_.push_back(point);
-            } else if ((arg == 0U) && it != state.grind_flat_.end()) {
-                state.grind_flat_.erase(it);
-            }
-        }
-        std::ranges::sort(state.grind_flat_);
-        *select = name;
-        if (arg != 0U) {
-            get_log("level editor: %s's rail grindable on flat ground - RailClear (0x0057C600) passes it as the park "
-                    "editor's level passes every rail; the game itself has no node flag for this",
-                    object_edit::caption(name).c_str());
-        }
-        return get_apply(state, message,
-                         (arg != 0U) ? "Grind on flat ground on" : "Ground beside it checked again, as the game does");
-    }
+    case ChainOp::kInsert:
+        return insert_point(call, state, graph);
+    case ChainOp::kDelete:
+        return delete_point(call, state, graph);
+    case ChainOp::kUnlink:
+        return unlink_point(call, state, graph);
+    case ChainOp::kTerrain:
+        return set_terrain(call, state);
+    case ChainOp::kExtend:
+        return extend_chain(call, graph);
+    case ChainOp::kTrickObject:
+        return set_trick_object(call, state);
+    case ChainOp::kGrindFlat:
+        return set_grind_flat(call, state);
     case ChainOp::kSpeed:
-    case ChainOp::kSpeedRail: {
-        if (family != nodes::Family::kRail) {
-            *message = "Only rails have speed-ups";
-            return false;
-        }
-        const float rate = (arg != 0U) ? clamp_speed(static_cast<float>(arg) / 10000.0F) : 0.0F;
-        const std::vector<uint32_t> points = op == ChainOp::kSpeedRail ? chain_of(name) : std::vector<uint32_t>{name};
-        int changed = 0;
-        for (uint32_t point : points) {
-            const objects::GrindPoint* rail = rail_node_named(point);
-            if (op == ChainOp::kSpeedRail && (!rail || !rail->succ())) {
-                continue; // (a rail's last point has no segment of its own)
-            }
-            bool added = false;
-            for (Point& chain_point : state.points) {
-                if (name_hash(chain_point.name) == point) {
-                    chain_point.speed = rate;
-                    added = true;
-                }
-            }
-            if (!added) {
-                auto it = std::ranges::find_if(state.speeds,
-                                               [&](const SpeedEdit& speed_edit) { return speed_edit.name == point; });
-                if (rate <= 0.0F && it != state.speeds.end()) {
-                    state.speeds.erase(it);
-                } else if (rate > 0.0F && it != state.speeds.end()) {
-                    it->rate = rate;
-                } else if (rate > 0.0F) {
-                    state.speeds.push_back({.name = point, .rate = rate});
-                }
-            }
-            ++changed;
-        }
-        sort_by_name(&state.speeds);
-        *select = name;
-        std::array<char, kListTextSize> text{};
-        if (rate > 0.0F) {
-            text::format_to(text, "Speed-up on %d segment%s: %.1f%% per frame", changed, changed == 1 ? "" : "s",
-                            rate * 100.0F);
-        } else {
-            text::format_to(text, "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
-        }
-        return get_apply(state, message, text.data());
-    }
-    case ChainOp::kHang: {
-        if (!ledge) {
-            *message = "Only ledges have a side to hang from";
-            return false;
-        }
-        bool any = false;
-        for (const uint32_t point : chain_of(name)) {
-            for (Point& chain_point : state.points) {
-                if (name_hash(chain_point.name) == point) {
-                    chain_point.hang = static_cast<int>(arg) == kHangLeft || static_cast<int>(arg) == kHangRight
-                                           ? static_cast<int>(arg)
-                                           : 0;
-                    any = true;
-                }
-            }
-        }
-        if (!any) {
-            *message = "Original ledges keep their hang side";
-            return false;
-        }
-        *select = name;
-        const char* applied = "The game decides the ledge's side";
-        if (arg == static_cast<uint32_t>(kHangLeft)) {
-            applied = "The ledge is hung from its left side";
-        } else if (arg == static_cast<uint32_t>(kHangRight)) {
-            applied = "The ledge is hung from its right side";
-        }
-        return get_apply(state, message, applied);
-    }
-    case ChainOp::kLinkArm: {
-        if (!is_last(graph, name) && !is_first(graph, name)) {
-            *message = "Select an end point to link";
-            return false;
-        }
-        level_editor_chains_state().pick_ = ChainOp::kLinkArm;
-        level_editor_chains_state().pick_from_ = name;
-        *message = "Click the end to link to (Esc: cancel)";
-        return false;
-    }
+    case ChainOp::kSpeedRail:
+        return set_speed(call, state);
+    case ChainOp::kHang:
+        return set_hang(call, state);
+    case ChainOp::kLinkArm:
+        return arm_link(call, graph);
     default:
         return false;
     }
