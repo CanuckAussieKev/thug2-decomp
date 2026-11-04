@@ -50,11 +50,24 @@ float dot3(const Vector3& a, const Vector3& b)
     return ((core::at(a, 0) * core::at(b, 0)) + (core::at(a, 1) * core::at(b, 1))) + (core::at(a, 2) * core::at(b, 2));
 }
 
-Vector3 cross3(const Vector3& a, const Vector3& b)
+// As D3DX's x87 code works them at the FPU's 53 bits: each product exact, each sum rounded to a double, the result
+// rounded once to a float when stored.
+float dot3_x87(const Vector3& a, const Vector3& b)
 {
-    return {{(core::at(a, 1) * core::at(b, 2)) - (core::at(a, 2) * core::at(b, 1)),
-             (core::at(a, 2) * core::at(b, 0)) - (core::at(a, 0) * core::at(b, 2)),
-             (core::at(a, 0) * core::at(b, 1)) - (core::at(a, 1) * core::at(b, 0))}};
+    const double sum = ((static_cast<double>(core::at(a, 0)) * core::at(b, 0)) +
+                        (static_cast<double>(core::at(a, 1)) * core::at(b, 1))) +
+                       (static_cast<double>(core::at(a, 2)) * core::at(b, 2));
+    return static_cast<float>(sum);
+}
+Vector3 cross3_x87(const Vector3& a, const Vector3& b)
+{
+    // (a1 b1 - a2 b2)
+    auto term = [](float a1, float b1, float a2, float b2) {
+        return static_cast<float>((static_cast<double>(a1) * b1) - (static_cast<double>(a2) * b2));
+    };
+    return {{term(core::at(a, 1), core::at(b, 2), core::at(a, 2), core::at(b, 1)),
+             term(core::at(a, 2), core::at(b, 0), core::at(a, 0), core::at(b, 2)),
+             term(core::at(a, 0), core::at(b, 1), core::at(a, 1), core::at(b, 0))}};
 }
 
 Vector3 normalized(const Vector3& v)
@@ -221,20 +234,22 @@ void matrix_look_at_rh(Floats16 out, ConstFloats3 eye, ConstFloats3 at, ConstFlo
     const Vector3 from = {{core::at(eye, 0), core::at(eye, 1), core::at(eye, 2)}};
     const Vector3 back = normalized({{core::at(eye, 0) - core::at(at, 0), core::at(eye, 1) - core::at(at, 1),
                                       core::at(eye, 2) - core::at(at, 2)}});
-    const Vector3 right = normalized(cross3({{core::at(up, 0), core::at(up, 1), core::at(up, 2)}}, back));
-    const Vector3 top = cross3(back, right);
+    const Vector3 right = normalized(cross3_x87({{core::at(up, 0), core::at(up, 1), core::at(up, 2)}}, back));
+    const Vector3 top = cross3_x87(back, right);
     const Matrix result = {{core::at(right, 0), core::at(top, 0), core::at(back, 0), 0.0F,
                             core::at(right, 1), core::at(top, 1), core::at(back, 1), 0.0F,
                             core::at(right, 2), core::at(top, 2), core::at(back, 2), 0.0F,
-                            -dot3(right, from), -dot3(top, from), -dot3(back, from), 1.0F}};
+                            -dot3_x87(right, from), -dot3_x87(top, from), -dot3_x87(back, from), 1.0F}};
     std::ranges::copy(result, out.begin());
 }
 
 void matrix_perspective_rh(Floats16 out, float width, float height, float near_z, float far_z)
 {
-    const float depth = far_z / (near_z - far_z);
-    const Matrix result = {{(2.0F * near_z) / width, 0.0F, 0.0F, 0.0F,
-                            0.0F, (2.0F * near_z) / height, 0.0F, 0.0F,
+    // (x87 at 53 bits: the difference exact, each quotient rounded once to a float)
+    const double twice_near = 2.0 * near_z;
+    const auto depth = static_cast<float>(far_z / (static_cast<double>(near_z) - far_z));
+    const Matrix result = {{static_cast<float>(twice_near / width), 0.0F, 0.0F, 0.0F,
+                            0.0F, static_cast<float>(twice_near / height), 0.0F, 0.0F,
                             0.0F, 0.0F, depth, -1.0F,
                             0.0F, 0.0F, near_z * depth, 0.0F}};
     std::ranges::copy(result, out.begin());
@@ -242,9 +257,10 @@ void matrix_perspective_rh(Floats16 out, float width, float height, float near_z
 
 void matrix_ortho_rh(Floats16 out, float width, float height, float near_z, float far_z)
 {
-    const float depth = 1.0F / (near_z - far_z);
-    const Matrix result = {{2.0F / width, 0.0F, 0.0F, 0.0F,
-                            0.0F, 2.0F / height, 0.0F, 0.0F,
+    // (x87 at 53 bits: the difference exact, each quotient rounded once to a float)
+    const auto depth = static_cast<float>(1.0 / (static_cast<double>(near_z) - far_z));
+    const Matrix result = {{static_cast<float>(2.0 / width), 0.0F, 0.0F, 0.0F,
+                            0.0F, static_cast<float>(2.0 / height), 0.0F, 0.0F,
                             0.0F, 0.0F, depth, 0.0F,
                             0.0F, 0.0F, near_z * depth, 1.0F}};
     std::ranges::copy(result, out.begin());

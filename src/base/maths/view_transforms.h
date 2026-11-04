@@ -6,9 +6,10 @@
 
 // NOT ORIGINAL - the vector transforms and the viewing matrices the renderer called D3DX9 for (d3dx9_43.dll until stage
 // 11 round 16), in plain C++: row vectors, 16-float row-major matrices (maths::Mat4's layout), the right-handed viewing
-// functions. Each is the same float operations in the same order as the D3DX9 the game ran with - found by comparing
-// with it over many inputs (thug2_maths_check's "D3DX9's vector and viewing maths" section; the game's thread runs the
-// x87 at 24 bits, as Direct3D 9 leaves it, so D3DX's x87 code there rounds every step to a float as this code does).
+// functions. Each is the same operations in the same order as the D3DX9 the game ran with - found by comparing with it
+// over many inputs (thug2_maths_check's "D3DX9's vector and viewing maths" section). D3DX's vector code is SSE (floats
+// throughout); its matrix builders (the look-at's cross and dot products, the projections' quotients) are x87 code,
+// worked here as the game's thread runs it: at the FPU's 53 bits, each result rounded once to a float.
 // D3DX normalises and divides by w with the processor's estimates (rsqrtss / rcpss) refined by one Newton-Raphson step:
 // so does this code where the compiler targets SSE (estimate_reciprocal_sqrt / estimate_reciprocal), which keeps the
 // results bit for bit D3DX's on the same processor; without SSE it takes the exact quotient (a last-bit difference).
@@ -46,11 +47,11 @@ void matrix_rotation_y(Floats16 out, float angle);
 // algorithm: its results differ from D3DX's in the last bits (the renderer's one caller doesn't use them).
 bool matrix_inverse(Floats16 out, float* determinant, ConstFloats16 matrix);
 // D3DXMatrixLookAtRH: the view from `eye` towards `at` with `up` - z = normalize(eye - at), x = normalize(up x z),
-// y = z x x; the rows' translation -(axis . eye).
+// y = z x x (the cross products at 53 bits); the rows' translation -(axis . eye) (the dot products at 53 bits).
 void matrix_look_at_rh(Floats16 out, ConstFloats3 eye, ConstFloats3 at, ConstFloats3 up);
-// D3DXMatrixPerspectiveRH: 2 zn / w, 2 zn / h, zf / (zn - zf), -1, zn times that.
+// D3DXMatrixPerspectiveRH: 2 zn / w, 2 zn / h, zf / (zn - zf) (the quotients at 53 bits), -1, zn times that.
 void matrix_perspective_rh(Floats16 out, float width, float height, float near_z, float far_z);
-// D3DXMatrixOrthoRH: 2 / w, 2 / h, 1 / (zn - zf), zn times that, 1.
+// D3DXMatrixOrthoRH: 2 / w, 2 / h, 1 / (zn - zf) (the quotients at 53 bits), zn times that, 1.
 void matrix_ortho_rh(Floats16 out, float width, float height, float near_z, float far_z);
 
 // The same for the renderer's flat floats (3 or 4 a vector, as named; 16 a matrix), as D3DX took them.

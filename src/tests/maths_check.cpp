@@ -1863,8 +1863,8 @@ void matrix_product(int count, std::mt19937_64& random)
 
 // NOT ORIGINAL - D3DX9's vector transforms and viewing matrices (d3dx9_43.dll, which the renderer called until stage 11
 // round 16) against the plain C++ that replaced them (base/maths/view_transforms.h): coordinates, unit vectors and
-// matrices of the game's scales, viewing parameters of its ranges. Run with the x87 at 53 bits and at 24 (the game's
-// thread: D3DX's x87 code rounds as the control word says; its SSE code doesn't care).
+// matrices of the game's scales, viewing parameters of its ranges. Run with the x87 at 53 bits (the game's thread) and at
+// 24: D3DX's x87 code (the matrix builders) rounds as the control word says; its SSE code doesn't care.
 void view_maths(int count, std::mt19937_64& random)
 {
     using Matrix = std::array<float, maths::kMatrixFloats>;
@@ -2027,11 +2027,11 @@ int main(int argc, char** argv)
     std::mt19937_64 matrix_random(static_cast<uint64_t>(seed)); // (its own sequence, from the start)
     matrix_product(count, matrix_random);
     // (stage 11 round 16: the vector and viewing maths; one sequence, from the start, for both precisions)
-    text::print("D3DX9's vector and viewing maths against the plain C++, x87 at 53 bits\n");
+    text::print("D3DX9's vector and viewing maths against the plain C++, x87 at 53 bits (the game's thread)\n");
     std::mt19937_64 view_random(static_cast<uint64_t>(seed));
     view_maths(count, view_random);
     _controlfp_s(&previous, _PC_24, _MCW_PC);
-    text::print("D3DX9's vector and viewing maths against the plain C++, x87 at 24 bits (the game's thread)\n");
+    text::print("D3DX9's vector and viewing maths against the plain C++, x87 at 24 bits\n");
     std::mt19937_64 view_random_24(static_cast<uint64_t>(seed));
     view_maths(count, view_random_24);
     _controlfp_s(&previous, _PC_53, _MCW_PC);
