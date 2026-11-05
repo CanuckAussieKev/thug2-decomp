@@ -12,6 +12,7 @@
 #include <vector>
 #include <utility>
 #include "editor/level_editor.h"
+#include "editor/level_editor_node_create.h"
 #include "engine/render/coll_movable.h"
 #include "engine/script/node_manager.h"
 #include "game/skate/gap_checklist.h"
@@ -162,7 +163,17 @@ void on_array_removed(uint32_t name);
 
 bool array_loaded(level_nodes::NodeManager* manager, uint32_t name);
 
+void note_level();
+
 void note_undo();
+
+node_create::Spec node_spec(const Spec& spec, V3 pos, float yaw);
+
+bool name_taken(const std::string& name);
+
+V3 place_ahead(V3 size, float ahead);
+
+void fabricate(const std::vector<Placed>& made, const char* what);
 
 std::string describe(const Calls& calls, Kind kind);
 

@@ -56,6 +56,7 @@ add_library(thug2_editor STATIC
     level_editor_node_edit.cpp
     level_editor_node_create.cpp
     level_editor_triggers.cpp
+    level_editor_triggers_edit.cpp
     level_editor_triggers_draw.cpp
     level_editor_triggers_sync.cpp
     level_editor_triggers_records.cpp
