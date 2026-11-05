@@ -180,7 +180,7 @@ void FootMovement::refresh_hit_cache()
 // 0x00527BE0
 void FootMovement::restore_display_offset()
 {
-    const int state = state_;
+    const int state = phase_.state;
     if (state == 2 || state == 4) {
         return;
     }
@@ -309,7 +309,7 @@ void FootMovement::update_control()
         if (core::at(pad->polar(), 1).length == 0.0F) {
             magnitude = 0.0F;
             full = false;
-        } else if (state_ == 0 && (pad->pos_x().held_down() == 0U)) {
+        } else if (phase_.state == 0 && (pad->pos_x().held_down() == 0U)) {
             magnitude = walk_parameter(kWalkPoint);
             full = true;
         } else {
@@ -317,7 +317,7 @@ void FootMovement::update_control()
             full = true;
         }
     }
-    if (state_ == 0 && locked_to_heading_) {
+    if (phase_.state == 0 && locked_to_heading_) {
         control = facing_;
     }
 }
@@ -629,7 +629,7 @@ void FootMovement::copy_to_object()
     object->display_matrix() = matrix;
     // The object's velocity by state.
     maths::Vec4& vel = object->vel();
-    switch (state_) {
+    switch (phase_.state) {
     case 0: // on the ground, in the air
     case 1:
         vel = vel_;

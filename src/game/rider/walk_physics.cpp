@@ -198,13 +198,13 @@ void FootMovement::choose_camera(GameEntity* camera)
 // 0x005260E0
 void FootMovement::change_phase(int state)
 {
-    if (state == state_) {
+    if (state == phase_.state) {
         return;
     }
-    const int previous = state_;
-    previous_state_ = previous;
-    state_ = state;
-    state_time_ = frame_clock::game_clock_elapsed() + clock_offset();
+    const int previous = phase_.state;
+    phase_.previous = previous;
+    phase_.state = state;
+    phase_.changed_at = frame_clock::game_clock_elapsed() + clock_offset();
     if (previous == 0 || previous == 1) {
         barrier_timed_ = false;
         running_ = false;
@@ -224,12 +224,12 @@ void FootMovement::change_phase(int state)
     if (state != 1) {
         pushing_ = false;
     }
-    if (state == 0 || previous_state_ != 1) {
+    if (state == 0 || phase_.previous != 1) {
         blocked_ = false;
     }
     if (state == 2) {
         climb_scale_ = 0.0F;
-        if (previous_state_ == 1) {
+        if (phase_.previous == 1) {
             // Just caught a ledge: the pad's hang controls ignored for hang_control_debounce_time.
             objects::PadSnapshot* pad = &input_->pad_primary();
             float debounce = walk_parameter(kHangControlDebounceTime);
@@ -259,11 +259,12 @@ bool FootMovement::using_dpad()
 maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
 {
     constexpr float kCameraOffset = -18.0F; // 0x0064C614
-    const int state = state_;
+    const int state = phase_.state;
     bool offset = false;
     if (state == 1) {
-        const int previous = previous_state_;
-        offset = (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(state_time_)) < kLandSettleMs;
+        const int previous = phase_.previous;
+        offset =
+            (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(phase_.changed_at)) < kLandSettleMs;
     } else {
         offset = state > 1 && state <= 4;
     }
@@ -317,10 +318,10 @@ void FootMovement::update_run_adjustment()
 // 0x00528400
 void FootMovement::clamp_skater_speed(uint32_t stop_anim)
 {
-    if (state_ != 0) {
+    if (phase_.state != 0) {
         return;
     }
-    if (static_cast<uint32_t>(clock_since(state_time_)) < kBriefStateMs) {
+    if (static_cast<uint32_t>(clock_since(phase_.changed_at)) < kBriefStateMs) {
         last_speed_ = speed_;
         return;
     }
@@ -363,7 +364,10 @@ bool FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4*
 }
 
 // 0x00525E90
-bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*script*/) const { return state_ == 0; }
+bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return phase_.state == 0;
+}
 
 // 0x00525EA0
 bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script* /*script*/)
@@ -398,7 +402,7 @@ bool FootMovement::walk_release_hang(script::Struct* /*params*/, script::Script*
 // 0x00528580
 bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Script* script) const
 {
-    script->args()->put_int(checksums::Name{kStateTimeName}, clock_since(state_time_));
+    script->args()->put_int(checksums::Name{kStateTimeName}, clock_since(phase_.changed_at));
     return true;
 }
 
@@ -430,7 +434,7 @@ bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, scri
 // 0x005286C0
 bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::Script* script) const
 {
-    auto elapsed = static_cast<uint32_t>(clock_since(state_time_));
+    auto elapsed = static_cast<uint32_t>(clock_since(phase_.changed_at));
     script->args()->push_float(checksums::Name{kStateDuration}, static_cast<float>(static_cast<double>(elapsed) * kMs));
     return true;
 }
@@ -438,14 +442,14 @@ bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::S
 // 0x00528710
 bool FootMovement::walk_get_previous_state(script::Struct* /*params*/, script::Script* script) const
 {
-    script->args()->put_name_key(checksums::Name{kPreviousStateName}, get_state_name(previous_state_));
+    script->args()->put_name_key(checksums::Name{kPreviousStateName}, get_state_name(phase_.previous));
     return true;
 }
 
 // 0x00528740
 bool FootMovement::walk_get_state(script::Struct* /*params*/, script::Script* script) const
 {
-    script->args()->put_name_key(checksums::Name{kStateName}, get_state_name(state_));
+    script->args()->put_name_key(checksums::Name{kStateName}, get_state_name(phase_.state));
     return true;
 }
 

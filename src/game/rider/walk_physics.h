@@ -418,9 +418,18 @@ public:
     // control within ladder_control_tolerance of up or down, else still (Ladder).
     void update_ladder();
 
+    // The component's state in parts: records of its fields at their places in the original's layout (+0x.. the
+    // offset in the record, then in the component; check_layout checks them all).
+    // The state (+0x18-+0x23: change_phase): 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move.
+    struct Phase {
+        int state{};      // +0x00 (+0x18)
+        int changed_at{}; // +0x04 (+0x1C) the game clock when the state changed
+        int previous{};   // +0x08 (+0x20)
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
-    [[nodiscard]] int get_state() const { return state_; }
+    [[nodiscard]] int get_state() const { return phase_.state; }
     maths::Vec4& pos() { return pos_; }
     [[nodiscard]] const maths::Vec4& pos() const { return pos_; }
     maths::Vec4& vel() { return vel_; }
@@ -479,9 +488,7 @@ private:
     // Not original - the fields' offsets and the size checked against the original's at compile time (walk_moves.cpp).
     static void check_layout();
 
-    int state_{};                      // +0x18 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move
-    int state_time_{};                 // +0x1C the game clock when the state changed
-    int previous_state_{};             // +0x20
+    Phase phase_;                      // +0x18-+0x23 the state, when it changed and the one before
     maths::Vec4 pos_{};                // +0x24 its own copy of the object's position
     maths::Vec4 vel_{};                // +0x34 the flat velocity (y kept 0)
     float up_speed_{};                 // +0x44

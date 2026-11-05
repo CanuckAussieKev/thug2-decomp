@@ -240,9 +240,9 @@ void FootMovement::check_layout()
         std::size_t original;
     };
     constexpr std::array kLayout{
-        FieldAt{.now = offsetof(FootMovement, state_), .original = 0x18},
-        FieldAt{.now = offsetof(FootMovement, state_time_), .original = 0x1C},
-        FieldAt{.now = offsetof(FootMovement, previous_state_), .original = 0x20},
+        FieldAt{.now = offsetof(FootMovement, phase_.state), .original = 0x18},
+        FieldAt{.now = offsetof(FootMovement, phase_.changed_at), .original = 0x1C},
+        FieldAt{.now = offsetof(FootMovement, phase_.previous), .original = 0x20},
         FieldAt{.now = offsetof(FootMovement, pos_), .original = 0x24},
         FieldAt{.now = offsetof(FootMovement, vel_), .original = 0x34},
         FieldAt{.now = offsetof(FootMovement, up_speed_), .original = 0x44},
@@ -586,7 +586,7 @@ void FootMovement::tick_frame()
     position.y -= curb_offset_; // (put back below)
     update_run_adjustment();
 
-    switch (state_) {
+    switch (phase_.state) {
     case 0:
         update_ground();
         break;
@@ -617,7 +617,7 @@ void FootMovement::tick_frame()
     }
     position.y += curb_offset_;
 
-    if (state_ == 0 && static_cast<uint32_t>(get_now() - state_time_) > kStateTimeoutMs) {
+    if (phase_.state == 0 && static_cast<uint32_t>(get_now() - phase_.changed_at) > kStateTimeoutMs) {
         skater::try_acid_drop(this); // (an acid drop)
         if (halted(this)) {
             return;
@@ -625,7 +625,7 @@ void FootMovement::tick_frame()
     }
     ease_critical_point_offset();
     restore_display_offset();
-    if (state_ == 0 || state_ == 1) {
+    if (phase_.state == 0 || phase_.state == 1) {
         update_ground_below();
     }
     update_upright();
@@ -664,7 +664,7 @@ void FootMovement::update_ground()
         blocked_ = false;
     }
     jump_unsteered_ = false;
-    if (state_ != 0 || halted(this)) {
+    if (phase_.state != 0 || halted(this)) {
         clear_current_cache();
         return;
     }
@@ -681,7 +681,7 @@ void FootMovement::update_ground()
     position.w += w;
     settle_onto_floor();
 
-    if (state_ == 0 && !halted(this)) {
+    if (phase_.state == 0 && !halted(this)) {
         update_curb_float();
         objects::MovingSurfaceModule* ride = ride_;
         if (const GameEntity* inside = moving_object_around(ride, &position, &old_pos_)) {
@@ -740,17 +740,17 @@ void FootMovement::update_air()
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_projectiles();
     const maths::Vec4& old_position = old_pos_;
     collide_air_move(&old_position, &position);
-    if (state_ != 1 || halted(this)) {
+    if (phase_.state != 1 || halted(this)) {
         return;
     }
 
     // Grabbing a ledge or a ladder (not again within rehang_delay of letting go of one).
     if ((pad->shoulder_right_a().held_down() != 0U) && !jump_held_) {
-        const int previous = previous_state_;
+        const int previous = phase_.previous;
         bool grab = true;
         if (previous == 2 || previous == 3 || previous == 4) {
             auto since = static_cast<float>(
-                static_cast<double>(static_cast<uint32_t>(frame_clock::game_clock_time_since(state_time_))));
+                static_cast<double>(static_cast<uint32_t>(frame_clock::game_clock_time_since(phase_.changed_at))));
             grab = get_param(kRehangDelay) < since;
         }
         if (grab && (grab_rail(old_position, position) || grab_ladder(&old_position, &position))) {
@@ -1025,7 +1025,7 @@ void FootMovement::settle_onto_floor()
 // 0x0052AF40
 void FootMovement::get_begin(bool on_ground)
 {
-    state_time_ = get_now();
+    phase_.changed_at = get_now();
     if (on_ground) {
         change_phase(0);
         floor_normal_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
@@ -1100,7 +1100,7 @@ void FootMovement::get_jump()
     // How high: on the ground or in the air by how long jump has been held (from min_jump_factor up to 1 at
     // hold_time_for_max_jump); off a hang or a ladder hang_jump_factor.
     float factor = 0.0F;
-    switch (state_) {
+    switch (phase_.state) {
     case 0:
     case 1: {
         const float hold = walk_parameter(kHoldTimeForMaxJump);
@@ -1119,7 +1119,7 @@ void FootMovement::get_jump()
     default:
         break;
     }
-    if (state_ == 0 && feeler_hit_) {
+    if (phase_.state == 0 && feeler_hit_) {
         static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
                                                                          &feeler_); // (the ground's jump triggers)
         if (halted(this)) {
@@ -1130,7 +1130,7 @@ void FootMovement::get_jump()
 
     maths::Vec4& heading = leap_heading_;
     const maths::Vec4& facing = facing_;
-    switch (state_) {
+    switch (phase_.state) {
     case 0:
     case 1: {
         // Running: pushed along the control's direction at least as fast as jump_horiz_speed (scaled by how far
@@ -1387,7 +1387,7 @@ bool FootMovement::stop_on_foot(render::ProbeRay* feeler)
         return true;
     }
     // On steep ground: pushed down the slope by push_strength.
-    if (state_ == 0 && floor_normal_.y < kSteepGround) {
+    if (phase_.state == 0 && floor_normal_.y < kSteepGround) {
         const maths::Vec4& ground = floor_normal_;
         float x = ground.x;
         float y = 0.0F;
@@ -1453,7 +1453,7 @@ bool FootMovement::update_contacts()
         maths::Vec4& start = feeler->line().start;
         maths::Vec4& end = feeler->line().end;
         if (i == kFloorContact) {
-            if (state_ != 1) {
+            if (phase_.state != 1) {
                 contact_at(this, kFloorContact).hit = false;
                 continue;
             }
@@ -1502,7 +1502,7 @@ bool FootMovement::update_contacts()
         flatten_contact(contact, feeler);
     }
 
-    if (state_ == 0) {
+    if (phase_.state == 0) {
         if (stop_on_foot(feeler)) {
             return false;
         }

@@ -938,7 +938,7 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     if (feeler->get_hit_shape(true, false) == 0) {
         return true;
     }
-    if (state_ != 0) {
+    if (phase_.state != 0) {
         return false;
     }
     line.end = pos_;
@@ -1058,7 +1058,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     RailHit* rail = record;
     const float origin = get_param(kHangVertOriginOffset);
     // in the air: only rails at or below the line, and close to it
-    if (state_ == 1) {
+    if (phase_.state == 1) {
         if (on_rail->y > on_line->y) {
             return false;
         }
@@ -1111,7 +1111,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     feeler.set_hit_cache(&cache);
     rail->along = along;
     if (!hang_clear(&feeler, on_rail, record)) {
-        if ((state_ != 1 && away) || (((flags & kFlagRight) != 0U) && !on_right) ||
+        if ((phase_.state != 1 && away) || (((flags & kFlagRight) != 0U) && !on_right) ||
             (((flags & kFlagLeft) != 0U) && on_right) || (flip(), !hang_clear(&feeler, on_rail, record))) {
             return false;
         }
@@ -1643,7 +1643,7 @@ void objects::FootMovement::climb_ladder()
 void objects::FootMovement::update_ladder()
 {
     // the ladder's rail script for the first 25 ticks
-    if (static_cast<uint32_t>(get_now()) - static_cast<uint32_t>(state_time_) < kSettleMs) {
+    if (static_cast<uint32_t>(get_now()) - static_cast<uint32_t>(phase_.changed_at) < kSettleMs) {
         trigger_rail_script(this, kOntoLadderEvents);
     }
     jump_unsteered_ = false;

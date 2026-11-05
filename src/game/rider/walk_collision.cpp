@@ -241,7 +241,7 @@ void FootMovement::check_sticker_slap()
     if (script::fetch_float(kDisallowRewallplant) > since_wallplant) {
         return;
     }
-    const float since_state = since_as_float(state_time_);
+    const float since_state = since_as_float(phase_.changed_at);
     if (script::fetch_float(kLateJumpSlop) > since_state) {
         return;
     }
@@ -325,7 +325,7 @@ void FootMovement::ease_critical_point_offset()
     if (length_squared == 0.0F) {
         return;
     }
-    const int state = state_;
+    const int state = phase_.state;
     if (state < 0 || (state > 1 && state != 3)) {
         return;
     }
@@ -443,7 +443,7 @@ void FootMovement::try_wallplant()
     if (script::fetch_float(kDisallowRewallplant) > since_wallplant) {
         return;
     }
-    const float since_state = since_as_float(state_time_);
+    const float since_state = since_as_float(phase_.changed_at);
     if (script::fetch_float(kLateJumpSlop) > since_state) {
         return;
     }
