@@ -197,12 +197,12 @@ const std::array<V3, 3> kAxes = {
 // (as the picture shows the distance - an ortho view's far eye scaled down: level_editor_camera.h; [editor] gizmo_pct)
 float arrow_length()
 {
-    const float distance = view_cam::apparent(std::sqrt(get_dot(selection_pos() - level_editor_state().pos_, selection_pos() - level_editor_state().pos_)));
+    const float distance = view_cam::apparent(std::sqrt(get_dot(selection_pos() - fly_camera().pos_, selection_pos() - fly_camera().pos_)));
     const float length =
         std::max(20.0F, std::min(1500.0F, distance * 0.2F)) * static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0F;
     return view_cam::ortho() ? length *
-                                   std::sqrt(get_dot(selection_pos() - level_editor_state().pos_,
-                                                     selection_pos() - level_editor_state().pos_)) /
+                                   std::sqrt(get_dot(selection_pos() - fly_camera().pos_,
+                                                     selection_pos() - fly_camera().pos_)) /
                                    std::max(1.0F, distance)
                              : length;
 }
@@ -215,10 +215,10 @@ bool get_to_pixel(const TickCycle& frame, V3 point, float* px, float* py)
 {
     float nx = 0.0F;
     float ny = 0.0F;
-    if (!cast_onto(level_editor_state().pos_, frame, level_editor_state().lens_, point, kNearZ, &nx, &ny)) {
+    if (!cast_onto(fly_camera().pos_, frame, drawn_view().lens_, point, kNearZ, &nx, &ny)) {
         return false;
     }
-    ndc_to_pixel(level_editor_state().viewport_, nx, ny, px, py);
+    ndc_to_pixel(drawn_view().viewport_, nx, ny, px, py);
     return true;
 }
 
@@ -623,7 +623,7 @@ void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float 
     drag_state().drag_right_ = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
     drag_state().drag_forward_ = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
     const float depth = std::max(50.0F, -get_dot(pos - origin, frame.back));
-    drag_state().drag_units_ = kScreenSpanFactor * depth * level_editor_state().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
+    drag_state().drag_units_ = kScreenSpanFactor * depth * drawn_view().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
     float fraction = 0.0F;
     drag_state().drag_screen_ =
         !vertical && (std::fabs(make_unit(dir).y) < kScreenDragSlope ||
@@ -868,7 +868,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
             return;
         }
         const float along = scale - drag_state().axis_t0_;
-        if (std::fabs(along) > level_editor_state().orbit_distance_ * kAxisFarFactor) {
+        if (std::fabs(along) > fly_camera().orbit_distance_ * kAxisFarFactor) {
             return; // (the ray nearly along the axis: far off)
         }
         wanted = drag_state().drag_from_ + u * along;
@@ -972,11 +972,11 @@ void end_drag()
 
 void set_relative(bool on)
 {
-    if (on == level_editor_state().relative_) {
+    if (on == editor_session().relative_) {
         return;
     }
     input::set_relative_mouse(on);
-    level_editor_state().relative_ = on;
+    editor_session().relative_ = on;
 }
 
 } // namespace internal

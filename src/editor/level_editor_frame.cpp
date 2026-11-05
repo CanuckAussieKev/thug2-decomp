@@ -66,11 +66,11 @@ void tick_level_systems()
     budget::get_observe(); // (UX5: the budget's baseline - the level up, before its edited copy's layout goes in)
     layout::tick();
     triggers::get_guard();       // (no editor trigger volumes in a network session)
-    triggers::perform(level_editor_state().active_); // (exit triggers: the skater leaving one, in play)
+    triggers::perform(editor_session().active_); // (exit triggers: the skater leaving one, in play)
     // (emitters' sounds, path speeds, objects made again, the path preview - level_editor_entities.h)
     {
-        const objects::GameEntity* primary = level_editor_state().active_ ? get_primary() : nullptr;
-        entities::tick(level_editor_state().active_, primary ? primary->ident() : 0, drag_state().dragging_);
+        const objects::GameEntity* primary = editor_session().active_ ? get_primary() : nullptr;
+        entities::tick(editor_session().active_, primary ? primary->ident() : 0, drag_state().dragging_);
     }
     chains::tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
 }
@@ -87,17 +87,17 @@ void tick_hud_and_autosave()
     update_hud();
     // The autosave: the snapshot made again after each change (the frame after: the change is complete), written once a
     // minute while there are unsaved changes; an older autosave offered once the HUD is up.
-    if (level_editor_state().unsaved_ && level_editor_state().changes_ != level_editor_state().snapshot_changes_ &&
+    if (unsaved_changes().unsaved_ && unsaved_changes().changes_ != unsaved_changes().snapshot_changes_ &&
         layout::get_snapshot()) {
-        level_editor_state().snapshot_changes_ = level_editor_state().changes_;
+        unsaved_changes().snapshot_changes_ = unsaved_changes().changes_;
     }
-    if (level_editor_state().unsaved_ && SDL_GetTicks() - level_editor_state().last_autosave_ >=
+    if (unsaved_changes().unsaved_ && SDL_GetTicks() - unsaved_changes().last_autosave_ >=
                          static_cast<uint32_t>(prefs::get_pull().autosave_seconds_) * kMillisecondsPerSecond) { // ([editor] autosave_s)
-        level_editor_state().last_autosave_ = SDL_GetTicks();
+        unsaved_changes().last_autosave_ = SDL_GetTicks();
         layout::write_autosave();
     }
-    if (level_editor_state().offer_show_) {
-        level_editor_state().offer_show_ = false;
+    if (unsaved_changes().offer_show_) {
+        unsaved_changes().offer_show_ = false;
         hud::get_message("Autosave found: Ctrl+R restores, Ctrl+Shift+R discards", kAutosaveNoticeSeconds);
     }
 }
@@ -106,11 +106,11 @@ void tick_hud_and_autosave()
 double take_frame_seconds()
 {
     const uint64_t now = SDL_GetPerformanceCounter();
-    double seconds = (level_editor_state().last_counter_ != 0U)
-                         ? static_cast<double>(now - level_editor_state().last_counter_) /
+    double seconds = (editor_session().last_counter_ != 0U)
+                         ? static_cast<double>(now - editor_session().last_counter_) /
                                static_cast<double>(SDL_GetPerformanceFrequency())
                          : 0.0;
-    level_editor_state().last_counter_ = now;
+    editor_session().last_counter_ = now;
     seconds = std::min(seconds, kMaxFrameSeconds);
     return seconds;
 }
@@ -187,7 +187,7 @@ bool global_keys_and_walk(EditorFrame& editor_frame)
                             .wheel = &input.wheel},
                            (core::at(input::keys(), SDL_SCANCODE_LALT) != 0U) ||
                                (core::at(input::keys(), SDL_SCANCODE_RALT) != 0U),
-                           level_editor_state().last_have_ray_, level_editor_state().last_ray_);
+                           drawn_view().last_have_ray_, drawn_view().last_ray_);
     // The keys from the keymap (level_editor_actions.h: rebindable, [editor_keys] in the ini; the command search runs
     // them the same way).
     actions::begin_frame(keys);
@@ -207,7 +207,7 @@ bool global_keys_and_walk(EditorFrame& editor_frame)
         if (on) {
             unpick();
         }
-        ux8::set_walking(on, level_editor_state().pos_);
+        ux8::set_walking(on, fly_camera().pos_);
     }
     if (ux8::on_foot()) {
         walk_frame(input, keys, pad, seconds);
@@ -347,7 +347,7 @@ void look_and_fly(EditorFrame& editor_frame)
     set_relative(input.right || view_cam::get_orbiting());
     if (input.right) {
         const prefs::Values& prefs = prefs::get_pull(); // ([editor] look_pct, invert_y)
-        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, input.rel_x_,
+        get_look({.yaw = &fly_camera().yaw_, .pitch = &fly_camera().pitch_}, input.rel_x_,
                  prefs.invert_y_ ? -input.rel_y_ : input.rel_y_,
                  kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0F);
     }
@@ -357,18 +357,18 @@ void look_and_fly(EditorFrame& editor_frame)
         const prefs::Values& prefs = prefs::get_pull();
         const float px = pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
         const float py = -pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
-        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, px,
+        get_look({.yaw = &fly_camera().yaw_, .pitch = &fly_camera().pitch_}, px,
                  prefs.invert_y_ ? -py : py, kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0F);
     }
     view_cam::apply_orbit(rig_now());
-    editor_frame.frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+    editor_frame.frame = fly_camera().frame();
     const TickCycle& frame = editor_frame.frame;
     if (pad_sticks && (pad.move_x_ != 0.0F || pad.move_y_ != 0.0F || pad.up_down_ != 0.0F)) {
         // (UX8: the left stick flies, the triggers down / up - with a selection the camera leaves it, as the right
         // button's flying does; F frames it again)
         const V3 move =
             frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{.x = 0.0F, .y = pad.up_down_, .z = 0.0F};
-        level_editor_state().pos_ = level_editor_state().pos_ + move * static_cast<float>(level_editor_state().speed_ * (pad.fast ? kFastFlyFactor : 1.0) * seconds);
+        fly_camera().pos_ = fly_camera().pos_ + move * static_cast<float>(fly_camera().speed_ * (pad.fast ? kFastFlyFactor : 1.0) * seconds);
         if (have_selection()) {
             drag_state().free_camera_ = true;
         }
@@ -381,7 +381,7 @@ void look_and_fly(EditorFrame& editor_frame)
     if (input.right) {
         ux8::stop_glide();
     }
-    ux8::glide(&level_editor_state().pos_, seconds);
+    ux8::glide(&fly_camera().pos_, seconds);
 }
 
 // The mouse ray (once the view has been drawn): the cursor in back-buffer pixels too (the arrows).
@@ -398,7 +398,7 @@ void cast_mouse_ray(EditorFrame& editor_frame)
     dir = frame.back * -1.0F;
     back_x = 0.0F;
     back_y = 0.0F;
-    if (level_editor_state().have_view_ && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
+    if (drawn_view().have_view_ && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
         (ui::mouse_to_editor() || pad_cursor)) {
         const mouse_menus::ScreenMapping mapping =
             mouse_menus::current_mapping({.width = input.window_width_, .height = input.window_height_});
@@ -406,8 +406,8 @@ void cast_mouse_ray(EditorFrame& editor_frame)
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
         float nx = 0.0F;
         float ny = 0.0F;
-        if (pixel_to_ndc(level_editor_state().viewport_, back_x, back_y, &nx, &ny)) {
-            dir = ray_direction(frame, level_editor_state().lens_, nx, ny);
+        if (pixel_to_ndc(drawn_view().viewport_, back_x, back_y, &nx, &ny)) {
+            dir = ray_direction(frame, drawn_view().lens_, nx, ny);
             have_ray = true;
         }
     }
@@ -439,8 +439,8 @@ void apply_ray_tools(EditorFrame& editor_frame)
     if (!drag_state().dragging_) { // (digits typed while dragging aren't bookmarks - level_editor_transform.h)
         view_cam::get_keys(rig_now(), keys, ctrl, stored_browser().open); // (F, 1..9, the numpad - level_editor_camera.h)
     }
-    level_editor_state().last_have_ray_ = have_ray;
-    level_editor_state().last_ray_ = dir;
+    drawn_view().last_have_ray_ = have_ray;
+    drawn_view().last_ray_ = dir;
     // (UX8: Alt+wheel steps what a click would take through everything under the cursor; the command search's
     // Teleport to the cursor)
     if (alt && (input.wheel != 0) && !drag_state().dragging_ && !input.right && have_ray && !view_cam::get_orbiting() &&
@@ -468,7 +468,7 @@ void finish_frame(const EditorFrame& editor_frame)
         }
         end_drag();
         focus_on_selection();
-        pick_cycle().cycle_.changes = level_editor_state().changes_;
+        pick_cycle().cycle_.changes = unsaved_changes().changes_;
     }
     update_highlights();
     // The ground marker: the point below the selection's base.

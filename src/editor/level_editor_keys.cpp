@@ -134,12 +134,12 @@ void drill_through(int steps, maths::Vec2 point, V3 dir)
     } else {
         std::vector<picking::Layered> objects;
         std::vector<picking::Layered> scenery;
-        for (const auto& hit : object_edit::pick_all(level_editor_state().pos_, dir, kMaxPickDistance)) {
+        for (const auto& hit : object_edit::pick_all(fly_camera().pos_, dir, kMaxPickDistance)) {
             objects.push_back({.id = hit.first->ident(), .t = hit.second, .passed = false});
         }
         scenery::Hit first;
         std::vector<scenery::Layer> layers;
-        scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
+        scenery::get_pick(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
         scenery.reserve(layers.size());
         for (const scenery::Layer& layer : layers) {
             scenery.push_back({.id = layer.checksum, .t = layer.t, .passed = layer.passed});
@@ -148,8 +148,8 @@ void drill_through(int steps, maths::Vec2 point, V3 dir)
         pick_cycle().cycle_.have = true;
         pick_cycle().cycle_.x = x;
         pick_cycle().cycle_.y = y;
-        pick_cycle().cycle_.pos = level_editor_state().pos_;
-        pick_cycle().cycle_.changes = level_editor_state().changes_;
+        pick_cycle().cycle_.pos = fly_camera().pos_;
+        pick_cycle().cycle_.changes = unsaved_changes().changes_;
         pick_cycle().cycle_.filter = drag_state().pick_filter_;
         pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
         const objects::GameEntity* object = get_live(drag_state().hover_);
@@ -175,7 +175,7 @@ void teleport_to(V3 dir)
 {
     V3 hit{};
     const V3 ray = make_unit(dir);
-    if (!get_cast(level_editor_state().pos_, level_editor_state().pos_ + ray * kMaxPickDistance, &hit)) {
+    if (!get_cast(fly_camera().pos_, fly_camera().pos_ + ray * kMaxPickDistance, &hit)) {
         hud::get_message("No surface under cursor");
         return;
     }
@@ -183,7 +183,7 @@ void teleport_to(V3 dir)
         unpick(); // (the camera would orbit it)
     }
     view_cam::get_cancel();
-    ux8::start_glide(level_editor_state().pos_, nav::teleport_target(level_editor_state().pos_, hit));
+    ux8::start_glide(fly_camera().pos_, nav::teleport_target(fly_camera().pos_, hit));
     note_action("teleported to (%.0f, %.0f, %.0f)", hit.x, hit.y, hit.z);
 }
 
@@ -201,7 +201,7 @@ void walk_frame(const Mouse& input, input::KeyState keys, const ux8::Pad& pad, d
     const prefs::Values& prefs = prefs::get_pull();
     const float dx = input.rel_x_ + (pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds));
     const float dy = input.rel_y_ - (pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds));
-    get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, dx, prefs.invert_y_ ? -dy : dy,
+    get_look({.yaw = &fly_camera().yaw_, .pitch = &fly_camera().pitch_}, dx, prefs.invert_y_ ? -dy : dy,
              kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0F);
     static bool g_jump_was;
     const bool jump_key = actions::get_held(keys, actions::kFlyUp);
@@ -216,8 +216,8 @@ void walk_frame(const Mouse& input, input::KeyState keys, const ux8::Pad& pad, d
     in.run = (core::at(keys, SDL_SCANCODE_LSHIFT) != 0U) || (core::at(keys, SDL_SCANCODE_RSHIFT) != 0U) || pad.fast;
     g_jump_was = jump_key;
     nav::Walker& walker = ux8::walker_state();
-    nav::get_step(&walker, level_editor_state().yaw_, in, static_cast<float>(seconds), get_cast);
-    level_editor_state().pos_ = nav::eye_of(walker);
+    nav::get_step(&walker, fly_camera().yaw_, in, static_cast<float>(seconds), get_cast);
+    fly_camera().pos_ = nav::eye_of(walker);
     view_cam::after_update(rig_now(), 0, true);
 }
 
@@ -286,7 +286,7 @@ void transform_keys(input::KeyState keys, bool ctrl, bool shift, bool alt, const
         drag_state().press_y_ = input.y;
         drag_state().drag_moved_ = true;
         begin_change();
-        start_drag(level_editor_state().pos_, dir, false, frame, input.x, input.y);
+        start_drag(fly_camera().pos_, dir, false, frame, input.x, input.y);
         hud::get_message(std::string(xform::mode_name(drag_state().drag_mode_)) + ": X/Y/Z constrain, type a value, Enter applies",
                          hud::kShortMessageSeconds);
     }
@@ -315,9 +315,9 @@ void edit_keys(const EditorFrame& editor_frame)
         // (Ctrl+Shift+D: the last Ctrl+D repeated - its copies' move and turn since made again from them,
         // level_editor_transform.h)
         if (actions::squeezed(actions::kRepeatDuplicate)) {
-            repeat_duplicate(frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_));
+            repeat_duplicate(fly_camera().frame());
         } else if (actions::squeezed(actions::kDuplicate)) {
-            get_duplicate(frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_));
+            get_duplicate(fly_camera().frame());
         }
     }
     if (ctrl && !no_change && have_selection()) {
@@ -406,8 +406,8 @@ void tick_triggers_and_tools(const EditorFrame& editor_frame)
 {
     const bool no_change = editor_frame.no_change_;
     {
-        const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-        triggers::tick(level_editor_state().pos_, view.back * -1.0F, level_editor_state().yaw_);
+        const TickCycle view = fly_camera().frame();
+        triggers::tick(fly_camera().pos_, view.back * -1.0F, fly_camera().yaw_);
         // (an editor trigger selected by itself: its resize handles)
         triggers::set_selected(picked_node_index() >= 0 && triggers::has_handles(drag_state().node_name_) ? drag_state().node_name_ : 0);
         UndoStep step;
@@ -466,12 +466,12 @@ void command_keys(const EditorFrame& editor_frame)
         checks::toggle_window(); // (UX5) Alt+P: the Problems window (Hammer's Check for Problems key)
     }
     if (actions::squeezed(actions::kLogCamera)) {
-        const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+        const TickCycle view = fly_camera().frame();
         const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
         get_log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:",
-                render::current_level(), object_edit::caption(scene).c_str(), level_editor_state().yaw_ * kDegreesPerHalfTurn / maths::kPi,
-                level_editor_state().pitch_ * kDegreesPerHalfTurn / maths::kPi);
-        get_log("    {{%.3ff, %.3ff, %.3ff}, {%.6ff, %.6ff, %.6ff}, {%.6ff, %.6ff, %.6ff}},", level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z,
+                render::current_level(), object_edit::caption(scene).c_str(), fly_camera().yaw_ * kDegreesPerHalfTurn / maths::kPi,
+                fly_camera().pitch_ * kDegreesPerHalfTurn / maths::kPi);
+        get_log("    {{%.3ff, %.3ff, %.3ff}, {%.6ff, %.6ff, %.6ff}, {%.6ff, %.6ff, %.6ff}},", fly_camera().pos_.x, fly_camera().pos_.y, fly_camera().pos_.z,
                 view.back.x, view.back.y, view.back.z, view.up.x, view.up.y, view.up.z);
         hud::get_message("Camera position logged");
     }
@@ -616,8 +616,8 @@ NudgeSteps read_arrow_nudge(const EditorFrame& editor_frame)
                                     (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
         if ((fly.forward != 0) || (fly.right != 0) || (fly.up != 0)) {
             drag_state().free_camera_ = true;
-            level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly,
-                                                static_cast<float>(level_editor_state().speed_ * boost * seconds));
+            fly_camera().pos_ = get_fly(fly_camera().pos_, frame, fly,
+                                                static_cast<float>(fly_camera().speed_ * boost * seconds));
         }
     }
     return steps;
@@ -647,7 +647,7 @@ void nudge_selection(const EditorFrame& editor_frame, bool change_locked)
     }
     if (((forward_step != 0) || (right_step != 0) || (u != 0)) && !drag_state().dragging_ &&
         !drag_state().field_editing_) {
-        if (!level_editor_state().key_moving_) {
+        if (!fly_camera().key_moving_) {
             begin_change();
         }
         auto step = static_cast<float>(kObjectSpeed * boost * seconds);
@@ -660,9 +660,9 @@ void nudge_selection(const EditorFrame& editor_frame, bool change_locked)
              .z = pos.z +
                   (((forward.z * static_cast<float>(forward_step)) + (right.z * static_cast<float>(right_step))) *
                    step)});
-        level_editor_state().key_moving_ = true;
+        fly_camera().key_moving_ = true;
     } else {
-        if (level_editor_state().key_moving_) {
+        if (fly_camera().key_moving_) {
             const uint64_t serial = undo_steps().undo_.empty() ? 0 : undo_steps().undo_.back().serial;
             end_change();
             get_settle();
@@ -670,7 +670,7 @@ void nudge_selection(const EditorFrame& editor_frame, bool change_locked)
                 note_for_adjust(xform::Mode::kShiftBy, selection_pos() - undo_steps().pending_.where, true);
             }
         }
-        level_editor_state().key_moving_ = false;
+        fly_camera().key_moving_ = false;
     }
 }
 
@@ -716,7 +716,7 @@ void scale_selection_keys(const EditorFrame& editor_frame)
         const float step = shift ? scale_tool::kFineStep : scale_tool::kStep;
         const float factor = scaling > 0 ? step : 1.0F / step;
         if (alt) {
-            const TickCycle view = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+            const TickCycle view = fly_camera().frame();
             const int axis = scale_tool::main_axis(view.back);
             if (scale_selection_by(scale_tool::along_axis(axis, factor), false)) {
                 adjust::ActStep action; // (level_editor_adjust.h)
@@ -757,20 +757,20 @@ void wheel_with_selection(const EditorFrame& editor_frame)
         drag_state().drag_push_ +=
             static_cast<float>(input.wheel) *
             std::max(kMinWheelStep,
-                     std::sqrt(get_dot(pos - level_editor_state().pos_, pos - level_editor_state().pos_)) *
+                     std::sqrt(get_dot(pos - fly_camera().pos_, pos - fly_camera().pos_)) *
                          kWheelStepFraction);
     } else if ((input.wheel != 0) && drag_state().free_camera_) {
-        level_editor_state().pos_ =
-            level_editor_state().pos_ - frame.back * static_cast<float>(kWheelStep * boost * input.wheel);
+        fly_camera().pos_ =
+            fly_camera().pos_ - frame.back * static_cast<float>(kWheelStep * boost * input.wheel);
     } else if (input.wheel != 0) {
-        level_editor_state().orbit_distance_ = static_cast<float>(
+        fly_camera().orbit_distance_ = static_cast<float>(
             std::max(static_cast<double>(kMinOrbit),
                      std::min(static_cast<double>(kMaxOrbit),
-                              level_editor_state().orbit_distance_ * std::pow(kWheelZoomStep, input.wheel))));
+                              fly_camera().orbit_distance_ * std::pow(kWheelZoomStep, input.wheel))));
     }
     // The camera at that distance from it (held still while the mouse drags it or a trigger's face).
     if (!drag_state().dragging_ && !triggers::resizing() && !drag_state().free_camera_) {
-        level_editor_state().pos_ = target_of() + frame.back * level_editor_state().orbit_distance_;
+        fly_camera().pos_ = target_of() + frame.back * fly_camera().orbit_distance_;
     }
 }
 
@@ -785,7 +785,7 @@ void fly_without_selection(const EditorFrame& editor_frame)
     const TickCycle& frame = editor_frame.frame;
     // Flying: W/A/S/D along the view, Q/E down/up, the wheel forward / back, - / = the speed (not while the
     // browser has the keys: its F, arrows and Enter).
-    level_editor_state().key_moving_ = false;
+    fly_camera().key_moving_ = false;
     if (!stored_browser().open && !ctrl && (xform::fly_always() || input.right)) {
         const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
                                          (actions::get_held(keys, actions::kBack) ? 1 : 0),
@@ -795,18 +795,18 @@ void fly_without_selection(const EditorFrame& editor_frame)
                                     (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
         // ([editor] fly_accel_ms: the speed reached over that time - level_editor_camera.h)
         const float ramp = view_cam::fly_factor((fly.forward != 0) || (fly.right != 0) || (fly.up != 0), seconds);
-        level_editor_state().pos_ = get_fly(level_editor_state().pos_, frame, fly,
-                                            static_cast<float>(level_editor_state().speed_ * boost * seconds * ramp));
+        fly_camera().pos_ = get_fly(fly_camera().pos_, frame, fly,
+                                            static_cast<float>(fly_camera().speed_ * boost * seconds * ramp));
     }
     if (input.wheel != 0) {
         auto step = static_cast<float>(kWheelStep * boost * input.wheel);
-        level_editor_state().pos_ = level_editor_state().pos_ - frame.back * step;
+        fly_camera().pos_ = fly_camera().pos_ - frame.back * step;
     }
     const int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
     if (speed != 0) {
-        level_editor_state().speed_ = static_cast<float>(
+        fly_camera().speed_ = static_cast<float>(
             std::max(kMinFlySpeedDouble,
-                     std::min(kMaxFlySpeedDouble, level_editor_state().speed_ * std::pow(kSpeedStepFactor, speed))));
+                     std::min(kMaxFlySpeedDouble, fly_camera().speed_ * std::pow(kSpeedStepFactor, speed))));
     }
 }
 
@@ -827,7 +827,7 @@ void follow_selection()
     const V3 delta =
         nav::follow_step(&ux8::get_follower(), active, active ? target_of() : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F});
     if (active && drag_state().free_camera_) {
-        level_editor_state().pos_ = level_editor_state().pos_ + delta;
+        fly_camera().pos_ = fly_camera().pos_ + delta;
     }
 }
 
@@ -855,7 +855,7 @@ void move_with_keys(const EditorFrame& editor_frame)
     }
     follow_selection();
     if (stored_browser().open && selection_held && !drag_state().dragging_ && !drag_state().free_camera_) {
-        level_editor_state().pos_ = target_of() + frame.back * level_editor_state().orbit_distance_;
+        fly_camera().pos_ = target_of() + frame.back * fly_camera().orbit_distance_;
     }
 }
 

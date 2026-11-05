@@ -172,7 +172,7 @@ void push_undo(UndoStep step, const char* label)
     }
     undo_steps().redo_.clear();
     mark_unsaved();
-    ++level_editor_state().moves_;
+    ++unsaved_changes().moves_;
 }
 
 // The locks as they are now, as an undo step (before L / Unlock / Unlock all change them).
@@ -588,11 +588,11 @@ std::vector<EditorUndoRecord> redo_history()
     return out;
 }
 
-bool change_under_way() { return drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_ || triggers::resizing(); }
+bool change_under_way() { return drag_state().dragging_ || fly_camera().key_moving_ || drag_state().field_editing_ || triggers::resizing(); }
 
 void jump_history(int steps)
 {
-    if (change_under_way() || !level_editor_state().active_) {
+    if (change_under_way() || !editor_session().active_) {
         return;
     }
     for (; steps < 0 && !undo_steps().undo_.empty(); ++steps) {
@@ -607,7 +607,7 @@ void push_locks_undo_labelled(const char* label) { push_locks_undo(label); }
 
 bool apply_layout_step(const std::string& text, const char* label, std::string* message)
 {
-    if (!level_editor_state().active_ || change_under_way()) {
+    if (!editor_session().active_ || change_under_way()) {
         *message = "Not available while moving";
         return false;
     }

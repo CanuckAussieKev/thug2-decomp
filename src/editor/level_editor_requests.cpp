@@ -323,7 +323,7 @@ void unlock_request(const ui::Request& request, bool no_change)
 // The Inspector's fields (typed, or dragged to scrub): one undo step until they're let go.
 void node_set_request(const ui::Request& request)
 {
-    if (picked_node_index() >= 0 && !drag_state().dragging_ && !level_editor_state().key_moving_) {
+    if (picked_node_index() >= 0 && !drag_state().dragging_ && !fly_camera().key_moving_) {
         if (!drag_state().field_editing_) {
             begin_change();
             drag_state().field_editing_ = true;
@@ -341,7 +341,7 @@ void node_set_request(const ui::Request& request)
 void scale_set_request(const ui::Request& request)
 {
     if ((get_primary() || scenery::has_selection()) && picked_node_index() < 0 && !drag_state().dragging_ &&
-        !level_editor_state().key_moving_) {
+        !fly_camera().key_moving_) {
         if (!drag_state().field_editing_) {
             begin_change();
             drag_state().field_editing_ = true;
@@ -638,7 +638,7 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         break;
     case ui::Request::Kind::kLevelProps:
     case ui::Request::Kind::kLevelPropsDone:
-        if (!drag_state().dragging_ && !level_editor_state().key_moving_) {
+        if (!drag_state().dragging_ && !fly_camera().key_moving_) {
             level_props_request(request);
         }
         break;
@@ -665,7 +665,7 @@ namespace internal {
 // What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
 void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
 {
-    const bool no_change = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_ ||
+    const bool no_change = drag_state().dragging_ || fly_camera().key_moving_ || drag_state().field_editing_ ||
                            triggers::resizing();
     const RequestFrame request_frame{.dir = dir, .have_ray_ = have_ray, .frame = &frame, .no_change_ = no_change};
     for (const ui::Request& request : ui::take_requests()) {

@@ -94,7 +94,7 @@ void set_selection(const SelectionIds& ids)
 
 bool go_to_thing(uint32_t id)
 {
-    if (!level_editor_state().active_ || (id == 0U) || drag_state().dragging_) {
+    if (!editor_session().active_ || (id == 0U) || drag_state().dragging_) {
         return false;
     }
     const int index = nodes::get_find(id);
@@ -124,17 +124,17 @@ bool go_to_thing(uint32_t id)
 
 bool project_to_back(V3 point, float* x, float* y)
 {
-    if (!level_editor_state().active_ || !level_editor_state().have_view_) {
+    if (!editor_session().active_ || !drawn_view().have_view_) {
         return false;
     }
     float nx = 0.0F;
     float ny = 0.0F;
-    if (!cast_onto(level_editor_state().pos_,
-                   frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_),
-                   level_editor_state().lens_, point, kNearZ, &nx, &ny)) {
+    if (!cast_onto(fly_camera().pos_,
+                   fly_camera().frame(),
+                   drawn_view().lens_, point, kNearZ, &nx, &ny)) {
         return false;
     }
-    ndc_to_pixel(level_editor_state().viewport_, nx, ny, x, y);
+    ndc_to_pixel(drawn_view().viewport_, nx, ny, x, y);
     return true;
 }
 
@@ -241,14 +241,14 @@ void show_message(const std::string& text, double seconds) { hud::get_message(te
 
 bool current_view(ViewNow* view)
 {
-    if (!level_editor_state().active_ || !level_editor_state().have_view_) {
+    if (!editor_session().active_ || !drawn_view().have_view_) {
         return false;
     }
-    view->pos = level_editor_state().pos_;
-    view->yaw = level_editor_state().yaw_;
-    view->pitch = level_editor_state().pitch_;
-    view->lens = level_editor_state().lens_;
-    std::memcpy(view->viewport.data(), level_editor_state().viewport_.data(), sizeof(view->viewport));
+    view->pos = fly_camera().pos_;
+    view->yaw = fly_camera().yaw_;
+    view->pitch = fly_camera().pitch_;
+    view->lens = drawn_view().lens_;
+    std::memcpy(view->viewport.data(), drawn_view().viewport_.data(), sizeof(view->viewport));
     view->near_z_ = kNearZ;
     return true;
 }
@@ -257,21 +257,21 @@ void look_from(V3 pos, YawPitch view)
 {
     const auto yaw = view.yaw;
     const auto pitch = view.pitch;
-    if (!level_editor_state().active_) {
+    if (!editor_session().active_) {
         return;
     }
     unpick();
     drag_state().dragging_ = false;
-    level_editor_state().pos_ = pos;
-    level_editor_state().yaw_ = yaw;
-    level_editor_state().pitch_ = std::clamp(pitch, -kMaxPitchDegrees * maths::kPi / kDegreesPerHalfTurn, kMaxPitchDegrees * maths::kPi / kDegreesPerHalfTurn);
+    fly_camera().pos_ = pos;
+    fly_camera().yaw_ = yaw;
+    fly_camera().pitch_ = std::clamp(pitch, -kMaxPitchDegrees * maths::kPi / kDegreesPerHalfTurn, kMaxPitchDegrees * maths::kPi / kDegreesPerHalfTurn);
 }
 
 // (UX5 - level_editor_modules.h) the Problems window's and the notes' Go to.
 bool go_to_node_named(uint32_t name)
 {
     const int index =
-        level_editor_state().active_ && !drag_state().dragging_ && (name != 0U) ? nodes::get_find(name) : -1;
+        editor_session().active_ && !drag_state().dragging_ && (name != 0U) ? nodes::get_find(name) : -1;
     if (index < 0) {
         return false;
     }
@@ -284,7 +284,7 @@ bool go_to_node_named(uint32_t name)
 
 bool go_to_scenery(uint32_t sector)
 {
-    if (!level_editor_state().active_ || drag_state().dragging_ || (sector == 0U) || !scenery::sector_of(sector) ||
+    if (!editor_session().active_ || drag_state().dragging_ || (sector == 0U) || !scenery::sector_of(sector) ||
         scenery::why_not_movable(sector)) {
         return false;
     }
@@ -296,7 +296,7 @@ bool go_to_scenery(uint32_t sector)
 
 void go_to_point(V3 pos, float distance)
 {
-    if (!level_editor_state().active_ || drag_state().dragging_) {
+    if (!editor_session().active_ || drag_state().dragging_) {
         return;
     }
     unpick();
@@ -405,7 +405,7 @@ bool scale_by(V3 factor, bool uniform) { return scale_selection_by(factor, unifo
 std::vector<std::pair<uint32_t, uint32_t>> get_duplicate(const void* repeat)
 {
     duplicate_pairs().clear();
-    level_editor::get_duplicate(frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_), static_cast<const xform::RepeatStep*>(repeat));
+    level_editor::get_duplicate(fly_camera().frame(), static_cast<const xform::RepeatStep*>(repeat));
     return duplicate_pairs();
 }
 
@@ -436,18 +436,18 @@ void chain_changed(const void* before, uint32_t select, const std::string& messa
 }
 
 bool get_ground(V3 from, V3* ground) { return ground_below(from, ground); }
-bool get_dragging() { return level_editor_state().active_ && drag_state().dragging_; }
+bool get_dragging() { return editor_session().active_ && drag_state().dragging_; }
 int drag_mode() { return static_cast<int>(drag_state().drag_mode_); }
 maths::Vec2 get_cursor() { return {.x = drag_state().cursor_x_, .y = drag_state().cursor_y_}; }
 bool get_ray(RayOut ray)
 {
     auto* const origin = ray.origin;
     auto* const dir = ray.dir;
-    if (!level_editor_state().active_ || !level_editor_state().last_have_ray_) {
+    if (!editor_session().active_ || !drawn_view().last_have_ray_) {
         return false;
     }
-    *origin = level_editor_state().pos_;
-    *dir = level_editor_state().last_ray_;
+    *origin = fly_camera().pos_;
+    *dir = drawn_view().last_ray_;
     return true;
 }
 bool ground_mark(GroundMark mark)
@@ -461,7 +461,7 @@ bool ground_mark(GroundMark mark)
     *ground = drag_state().mark_ground_;
     return true;
 }
-float get_yaw() { return level_editor_state().yaw_; }
+float get_yaw() { return fly_camera().yaw_; }
 
 bool browser_item(int* tab, uint32_t* id)
 {
@@ -489,7 +489,7 @@ int place_armed(uint32_t* colour)
 
 V3 cursor_point()
 {
-    return level_editor::cursor_point(level_editor_state().last_ray_, level_editor_state().last_have_ray_, frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_));
+    return level_editor::cursor_point(drawn_view().last_ray_, drawn_view().last_have_ray_, fly_camera().frame());
 }
 
 } // namespace edit

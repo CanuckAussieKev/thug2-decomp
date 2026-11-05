@@ -77,50 +77,72 @@ constexpr float kMaxPickDistance = 30000.0F;
 
 constexpr float kMinOrbit = 20.0F, kMaxOrbit = 20000.0F;
 
-// NOT ORIGINAL grouping - level_editor.cpp's state (were globals). Made on first use, never destroyed
-// (level_editor_state()).
-struct LevelEditorState {
-    bool active_{};
-    // The camera we fly (the first viewport's, when the editor started) and the pose the game had given it.
+// NOT ORIGINAL grouping - level_editor.cpp's state (were globals), one record per part: the camera we fly, the view as
+// last drawn, the unsaved changes and the editor's run. Each made on first use, never destroyed, behind its accessor
+// (level_editor.cpp); a piece calls only the ones it needs.
+
+// The camera we fly: the game's camera (the first viewport's, when the editor started) and the pose the game had given
+// it; our pose, the fly speed and, with something selected, the camera's distance from it and whether the keys are
+// moving it (fly_camera()).
+struct FlyCamera {
     gfx::ViewCam* camera_{};
     maths::Vec4 saved_pos_{};
     maths::Mat4 saved_matrix_{};
-    // Our pose.
     V3 pos_{};
     float yaw_{};
     float pitch_{};
     float speed_ = kDefaultFlySpeed; // units a second (Shift: 4x)
-    // With something selected: the camera's distance from it, and whether the keys are moving it.
     float orbit_distance_ = kDefaultOrbitDistance;
     bool key_moving_{};
-    // The view as last drawn (note_view).
+
+    // The camera's frame at our yaw and pitch.
+    [[nodiscard]] TickCycle frame() const { return frame_from_yaw_pitch(yaw_, pitch_); }
+};
+
+FlyCamera& fly_camera();
+
+// The view as last drawn (note_view), and the last frame's ray under the cursor (the camera tools and play from here -
+// level_editor_camera.h, level_editor_play.h: an orbit's pivot) (drawn_view()).
+struct DrawnView {
     bool have_view_{};
     Lens lens_{};
     std::array<uint32_t, 4> viewport_{};
-    uint64_t last_counter_{};
-    bool pause_key_released_{};
-    bool exit_requested_{};
-    int saved_cursor_ = -1;
-    bool relative_{};
+    bool last_have_ray_{};
+    V3 last_ray_{};
+};
+
+DrawnView& drawn_view();
+
+// The changes made (the HUD's count), whether they are saved, and the autosave (level_editor_layout.h): which level
+// load the unsaved changes belong to, a count of changes (the snapshot made again when it moves), when it was last
+// written, and the offer of an older one (unsaved_changes()).
+struct UnsavedChanges {
     int moves_{};
     bool unsaved_{}; // (changes since the layout was last saved)
-    // The autosave (level_editor_layout.h): which level load the unsaved changes belong to, a count of changes (the
-    // snapshot made again when it moves), when it was last written, and the offer of an older one.
     int unsaved_load_ = -1;
     int changes_{};
     int snapshot_changes_{};
     uint32_t last_autosave_{};
     bool offer_show_{}; // (shown on the first frame the HUD is up)
     bool offer_pending_{}; // (Ctrl+R / Ctrl+Shift+R)
-    // What the editor last did, for the log if the game crashes (plain memory: the crash hook reads it).
-    std::array<char, kLastActionSize> last_action_ = {"none"};
-    // The camera tools and play from here (level_editor_camera.h, level_editor_play.h): the last frame's ray under the
-    // cursor (an orbit's pivot), the play key (held when the editor starts: it counts once let go).
-    bool last_have_ray_{};
-    V3 last_ray_{};
 };
 
-LevelEditorState& level_editor_state();
+UnsavedChanges& unsaved_changes();
+
+// The editor's run: on or off, the frame clock, the pause key (held when the editor starts: it counts once let go),
+// leaving asked for, the cursor as the game had it, the mouse in relative mode, and what the editor last did - for the
+// log if the game crashes (plain memory: the crash hook reads it) (editor_session()).
+struct EditorSession {
+    bool active_{};
+    uint64_t last_counter_{};
+    bool pause_key_released_{};
+    bool exit_requested_{};
+    int saved_cursor_ = -1;
+    bool relative_{};
+    std::array<char, kLastActionSize> last_action_ = {"none"};
+};
+
+EditorSession& editor_session();
 
 std::string describe_selection();
 
@@ -139,7 +161,7 @@ void apply_resume(const perform::Resume& resume);
 template <typename... Args>
 void note_action(text::FormatFor<Args...> format, Args... args)
 {
-    text::format_to(level_editor_state().last_action_, format, args...);
+    text::format_to(editor_session().last_action_, format, args...);
 }
 
 void mark_unsaved();

@@ -147,7 +147,7 @@ void place_node(int entry, V3 at)
         name = node_create::fresh_name(node_create::name_stem(place_entry.kind), node_create::name_taken);
     }
     std::vector<node_create::Spec> specs = {
-        node_create::default_spec(place_entry.kind, place_entry.team, at, level_editor_state().yaw_, name)};
+        node_create::default_spec(place_entry.kind, place_entry.team, at, fly_camera().yaw_, name)};
     if (place_entry.kind == node_create::Kind::kFlagSet &&
         !place_entry.lobby) { // (a lobby flag has no base - as the levels' own)
         specs.push_back(node_create::current_base(specs.front()));
@@ -210,12 +210,12 @@ bool place_entity(int entry, V3 at)
     if (ground_below(ground_ray_start(at, at.y, true), &ground)) {
         at = dropped_to(at, at.y, ground.y);
     }
-    entities::Placed placed = entities::get_place(index, at, level_editor_state().yaw_);
+    entities::Placed placed = entities::get_place(index, at, fly_camera().yaw_);
     if (placed.emitter) {
         const std::string name =
             node_create::fresh_name(node_create::name_stem(node_create::Kind::kSound), node_create::name_taken);
         const node_create::Spec spec =
-            node_create::default_spec(node_create::Kind::kSound, node_create::Team::kRed, at, level_editor_state().yaw_, name);
+            node_create::default_spec(node_create::Kind::kSound, node_create::Team::kRed, at, fly_camera().yaw_, name);
         std::string message;
         if (!node_create::fabricate(spec, -1, &message)) {
             hud::get_message(message, hud::kMessageSeconds);
@@ -306,7 +306,7 @@ void draw_chain_point(V3 dir, bool alt)
         const chains::State before = chains::at_hand();
         std::string message;
         uint32_t select = 0;
-        const bool made = chains::ladder_click(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &message, &select);
+        const bool made = chains::ladder_click(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &message, &select);
         after_chain_change(before, made ? select : 0, message);
         if (made && chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
             pick_cycle().place_armed_ = -1;
@@ -315,7 +315,7 @@ void draw_chain_point(V3 dir, bool alt)
     }
     V3 point{};
     uint32_t end = 0;
-    if (!chains::magnet_point(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, alt, &point, &end)) {
+    if (!chains::magnet_point(fly_camera().pos_, make_unit(dir), kMaxPickDistance, alt, &point, &end)) {
         hud::get_message("No surface under the cursor");
         return;
     }
@@ -494,11 +494,11 @@ V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame)
     V3 hit{};
     V3 ground{};
     const V3 ray = have_ray ? make_unit(dir) : frame.back * -1.0F;
-    if (get_cast(level_editor_state().pos_, level_editor_state().pos_ + ray * kMaxPickDistance, &hit)) {
+    if (get_cast(fly_camera().pos_, fly_camera().pos_ + ray * kMaxPickDistance, &hit)) {
         const V3 back = hit - ray * 5.0F + V3{.x = 0.0F, .y = 5.0F, .z = 0.0F};
         return ground_below(back, &ground) ? ground : hit;
     }
-    V3 ahead = level_editor_state().pos_ + ray * kRayReach;
+    V3 ahead = fly_camera().pos_ + ray * kRayReach;
     if (ground_below(ahead, &hit)) {
         return hit;
     }

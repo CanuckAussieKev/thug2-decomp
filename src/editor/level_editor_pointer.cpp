@@ -79,19 +79,19 @@ void update_tool_hovers(const EditorFrame& editor_frame)
     const float back_y = editor_frame.back_y_;
     // Alt while moving scenery: what it carries (level_editor_carry.h) put back and left there for this move.
     // (not with Ctrl or Shift: Ctrl+Alt / Alt+Shift snap to a vertex / a surface - level_editor_snap.h)
-    if (alt && !ctrl && !shift && (drag_state().dragging_ || level_editor_state().key_moving_) && carry::total_of() > 0) {
+    if (alt && !ctrl && !shift && (drag_state().dragging_ || fly_camera().key_moving_) && carry::total_of() > 0) {
         carry::get_leave();
         hud::get_message("Not carrying objects");
     }
     // Shift with the collision shown: the invisible wall a Shift+click would take, highlighted (level_editor_view.h).
     view::set_hover_wall(!drag_state().dragging_ && have_ray && shift && !alt && view::show_collision() && ui::underway()
-                             ? view::pick_wall(level_editor_state().pos_, make_unit(dir))
+                             ? view::pick_wall(fly_camera().pos_, make_unit(dir))
                              : 0);
-    faces::get_hover(level_editor_state().pos_, make_unit(dir), have_ray && !drag_state().dragging_ && drag_state().hover_axis_ < 0); // (map3: Faces mode's hover)
+    faces::get_hover(fly_camera().pos_, make_unit(dir), have_ray && !drag_state().dragging_ && drag_state().hover_axis_ < 0); // (map3: Faces mode's hover)
     if (ruler::get_armed() && have_ray && !drag_state().dragging_) {
-        ruler::get_hover(level_editor_state().pos_, make_unit(dir), back_x, back_y, alt); // (the ruler's next end - level_editor_ruler.h)
+        ruler::get_hover(fly_camera().pos_, make_unit(dir), back_x, back_y, alt); // (the ruler's next end - level_editor_ruler.h)
     }
-    ux9::get_hover(level_editor_state().pos_, make_unit(dir), back_x, back_y, have_ray && !drag_state().dragging_); // (UX9: the tools' next pick)
+    ux9::get_hover(fly_camera().pos_, make_unit(dir), back_x, back_y, have_ray && !drag_state().dragging_); // (UX9: the tools' next pick)
 }
 
 // Dragging (an arrow first, then an object or scenery); typed values or a modal click applied.
@@ -117,7 +117,7 @@ void update_drag(EditorFrame& editor_frame)
             if (drag_state().drag_mode_ == xform::Mode::kShiftBy) {
                 place_selection(drag_state().drag_start_);
                 drag_state().axis_ = drag_state().typed_.axis;
-                start_drag(level_editor_state().pos_, dir, false, frame, input.x, input.y);
+                start_drag(fly_camera().pos_, dir, false, frame, input.x, input.y);
                 drag_state().drag_moved_ = true;
             }
         }
@@ -125,10 +125,10 @@ void update_drag(EditorFrame& editor_frame)
         const bool vertical = shift && !ctrl && !alt;
         if (drag_state().drag_mode_ == xform::Mode::kShiftBy && drag_state().axis_ < 0 &&
             vertical != drag_state().drag_vertical_) {
-            start_drag(level_editor_state().pos_, dir, vertical, frame, input.x, input.y);
+            start_drag(fly_camera().pos_, dir, vertical, frame, input.x, input.y);
         }
         if (drag_state().drag_moved_ || drag_state().typed_apply_ || !drag_state().typed_.text.empty()) {
-            get_drag(level_editor_state().pos_, dir, frame, input.x, input.y, snapping_now(ctrl, shift, alt));
+            get_drag(fly_camera().pos_, dir, frame, input.x, input.y, snapping_now(ctrl, shift, alt));
         }
     }
     // Enter (typed values) or - Alt+G's modal transform - a click: applied.
@@ -188,14 +188,14 @@ void update_hover(const EditorFrame& editor_frame)
             const bool everything = alt || (input.middle_presses_ != 0);
             picking::Candidates candidates;
             scenery::Hit hit;
-            scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &hit);
+            scenery::get_pick(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &hit);
             // (a gizmo behind the first occluding surface under the cursor isn't taken by a plain click)
             candidates.node = ui::underway() ? nodes::pick_nearest(pick_cycle().pickables_, {.x = back_x, .y = back_y},
                                                                    kHandlePickPixels * pixel_scale(),
                                                                    gizmo_occluder(frame, dir, hit, everything))
                                              : -1;
             float object_t = kMaxPickDistance;
-            objects::GameEntity* object = object_edit::get_pick(level_editor_state().pos_, dir, kMaxPickDistance, &object_t);
+            objects::GameEntity* object = object_edit::get_pick(fly_camera().pos_, dir, kMaxPickDistance, &object_t);
             candidates.object = object != nullptr;
             candidates.object_t_ = object_t;
             // (Alt: the nearest pickable piece whatever is in front of it; a plain click: the first, if nothing occludes)
@@ -301,12 +301,12 @@ void click_to_select(const EditorFrame& editor_frame)
     // (with the collision shown, Shift+click on an invisible wall's face: that wall - level_editor_view.h)
     const uint32_t wall =
         (input.left_presses_ != 0) && shift && !alt && drag_state().hover_axis_ < 0 && view::show_collision()
-            ? view::pick_wall(level_editor_state().pos_, make_unit(dir))
+            ? view::pick_wall(fly_camera().pos_, make_unit(dir))
             : 0;
     // (a plain click on the selected wall's face: dragging it - level_editor_walls.h)
     const bool on_wall = (wall == 0U) && (input.left_presses_ != 0) && !shift && !one && drag_state().hover_axis_ < 0 &&
                          (wall_only() != 0U) && view::show_collision() &&
-                         view::pick_wall(level_editor_state().pos_, make_unit(dir)) == wall_only();
+                         view::pick_wall(fly_camera().pos_, make_unit(dir)) == wall_only();
     if ((wall == 0U) && !on_wall && drag_state().hover_axis_ < 0) {
         view::clear_wall();
     }
@@ -316,7 +316,7 @@ void click_to_select(const EditorFrame& editor_frame)
     uint32_t trigger_sector = 0;
     const bool trigger = (wall == 0U) && (input.left_presses_ != 0) && !alt && drag_state().hover_axis_ < 0 &&
                          drag_state().hover_node_ < 0 && ui::underway() &&
-                         triggers::get_pick(level_editor_state().pos_, make_unit(dir), &trigger_node, &trigger_sector,
+                         triggers::get_pick(fly_camera().pos_, make_unit(dir), &trigger_node, &trigger_sector,
                                             trigger_reach(dir));
     if (wall != 0U) {
         unpick();
@@ -371,7 +371,7 @@ void click_to_select(const EditorFrame& editor_frame)
         drag_state().press_y_ = input.y;
         drag_state().drag_moved_ = false;
         begin_change();
-        start_drag(level_editor_state().pos_, dir, shift && !ctrl && !alt && drag_state().axis_ < 0, frame, input.x,
+        start_drag(fly_camera().pos_, dir, shift && !ctrl && !alt && drag_state().axis_ < 0, frame, input.x,
                    input.y);
     }
 }
@@ -412,7 +412,7 @@ void handle_clicks(EditorFrame& editor_frame)
     // (Ctrl / Snap 25: sizes on 25s; the opposite face stays); let go, one undo step.
     if (triggers::resizing()) {
         if (input.left && have_ray) {
-            triggers::rescale(level_editor_state().pos_, dir, ctrl || drag_state().snap_always_);
+            triggers::rescale(fly_camera().pos_, dir, ctrl || drag_state().snap_always_);
         }
         if (!input.left) {
             triggers::end_resize();
@@ -443,11 +443,11 @@ void handle_clicks(EditorFrame& editor_frame)
     const bool handle_pressed = (input.left_presses_ != 0) && have_ray && !drag_state().dragging_ &&
                                 drag_state().hover_axis_ < 0 && drag_state().hover_handle_ >= 0 &&
                                 !triggers::resizing() &&
-                                triggers::begin_resize(drag_state().hover_handle_, level_editor_state().pos_, dir);
+                                triggers::begin_resize(drag_state().hover_handle_, fly_camera().pos_, dir);
     if (handle_pressed) {
         hud::get_message("Resize: drag the face (Ctrl: snap)", kResizeHintSeconds);
     } else if ((input.left_presses_ != 0) && have_ray && !drag_state().dragging_ && drag_state().hover_axis_ < 0 &&
-               ux9::occupied() && ux9::get_click(level_editor_state().pos_, make_unit(dir), back_x, back_y)) {
+               ux9::occupied() && ux9::get_click(fly_camera().pos_, make_unit(dir), back_x, back_y)) {
         // (UX9: the gap wizard's / the ground tool's pick - level_editor_ux9.h)
         note_action("ux9 tool click");
     } else if (((input.left_presses_ != 0) && have_ray && !drag_state().dragging_ && arrange::edge_picking() &&
@@ -463,7 +463,7 @@ void handle_clicks(EditorFrame& editor_frame)
     } else if ((input.left_presses_ != 0) && have_ray && !drag_state().dragging_ && faces::get_picking() &&
                drag_state().hover_axis_ < 0) {
         // (map3: Faces mode - the collision face clicked, Shift adds / drops it: level_editor_faces.h)
-        faces::click_at(level_editor_state().pos_, make_unit(dir), shift);
+        faces::click_at(fly_camera().pos_, make_unit(dir), shift);
         note_action("faces mode click: %s", faces::describe().c_str());
     } else if ((input.left_presses_ != 0) && have_ray && !drag_state().dragging_ && chains::wants_pick() &&
                drag_state().hover_axis_ < 0) {

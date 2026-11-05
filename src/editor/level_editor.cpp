@@ -93,18 +93,36 @@ constexpr std::uint32_t kPos = 0x7F261953U; // Pos
 } // namespace
 namespace internal {
 
-LevelEditorState& level_editor_state()
+FlyCamera& fly_camera()
 {
-    static core::NoDestroy<LevelEditorState> state;
-    return state.get();
+    static core::NoDestroy<FlyCamera> camera;
+    return camera.get();
+}
+
+DrawnView& drawn_view()
+{
+    static core::NoDestroy<DrawnView> view;
+    return view.get();
+}
+
+UnsavedChanges& unsaved_changes()
+{
+    static core::NoDestroy<UnsavedChanges> changes;
+    return changes.get();
+}
+
+EditorSession& editor_session()
+{
+    static core::NoDestroy<EditorSession> session;
+    return session.get();
 }
 
 // A change not saved yet (undo / redo steps, layouts restored).
 void mark_unsaved()
 {
-    level_editor_state().unsaved_ = true;
-    level_editor_state().unsaved_load_ = layout::level_loads();
-    ++level_editor_state().changes_;
+    unsaved_changes().unsaved_ = true;
+    unsaved_changes().unsaved_load_ = layout::level_loads();
+    ++unsaved_changes().changes_;
 }
 
 } // namespace internal
@@ -114,13 +132,13 @@ namespace {
 void on_crash()
 {
     static int logged = 0;
-    if (!level_editor_state().active_ && !level_editor_state().unsaved_) {
+    if (!editor_session().active_ && !unsaved_changes().unsaved_) {
         return;
     }
     if (logged < 4) {
         ++logged;
-        get_log("level editor: %s at the exception; last action: %s", level_editor_state().active_ ? "running" : "not running",
-                level_editor_state().last_action_.data());
+        get_log("level editor: %s at the exception; last action: %s", editor_session().active_ ? "running" : "not running",
+                editor_session().last_action_.data());
     }
     layout::write_autosave_from_crash();
 }
@@ -162,7 +180,7 @@ void read_window_size(uint32_t window_id)
 
 void handle_event(const input::Event& event)
 {
-    if (!level_editor_state().active_) {
+    if (!editor_session().active_) {
         return;
     }
     // (the UI first: over a panel, or while it wants the keys, the event is its own - level_editor_ui.h)
@@ -181,7 +199,7 @@ void handle_event(const input::Event& event)
     case input::EventType::kMouseButtonDown:
     case input::EventType::kMouseButtonUp: {
         const bool down = event.type == input::EventType::kMouseButtonDown;
-        if (!level_editor_state().relative_) {
+        if (!editor_session().relative_) {
             stored_mouse().x = static_cast<float>(event.x);
             stored_mouse().y = static_cast<float>(event.y);
         }
@@ -238,7 +256,7 @@ void handle_event(const input::Event& event)
                 ux9::occupied()) {     // (UX9: a tool armed)
                 drag_state().cancel_requested_ = true;
             } else {
-                level_editor_state().exit_requested_ = true;
+                editor_session().exit_requested_ = true;
             }
         }
         break;
@@ -261,7 +279,7 @@ bool& debug_enabled()
     return on;
 }
 
-bool live_now() { return level_editor_state().active_; }
+bool live_now() { return editor_session().active_; }
 
 namespace internal {
 
@@ -289,10 +307,10 @@ bool pass_pause_key(bool down)
     // (drawing a chain: Enter finishes it - level_editor_chains.h)
     if (drag_state().dragging_ || drag_state().cancel_requested_ || stored_browser().open || drag_state().help_ || have_selection() || drag_state().node_selected_ ||
         chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() || !ui::keys_to_editor()) {
-        level_editor_state().pause_key_released_ = false;
+        editor_session().pause_key_released_ = false;
         return false;
     }
-    return pass_key(&level_editor_state().pause_key_released_, down);
+    return pass_key(&editor_session().pause_key_released_, down);
 }
 
 // (offline only, outside career-type modes: no LEVEL EDITOR in a network session or in story / classic... -
@@ -308,7 +326,7 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
         get_log("level editor: off ([features] level_editor=0)");
         return false;
     }
-    if (level_editor_state().active_) {
+    if (editor_session().active_) {
         return true;
     }
     // The level becomes its edited copy (its saved layout put in place if it wasn't) - never in a network session or a
@@ -319,12 +337,12 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
         layout::panel_message(edited.c_str());
         return false;
     }
-    level_editor_state().active_ = true;
-    level_editor_state().camera_ = nullptr;
-    level_editor_state().have_view_ = false;
-    level_editor_state().last_counter_ = 0;
-    level_editor_state().pause_key_released_ = false;
-    level_editor_state().exit_requested_ = false;
+    editor_session().active_ = true;
+    fly_camera().camera_ = nullptr;
+    drawn_view().have_view_ = false;
+    editor_session().last_counter_ = 0;
+    editor_session().pause_key_released_ = false;
+    editor_session().exit_requested_ = false;
     drag_state().cancel_requested_ = false;
     drag_state().hover_ = {};
     drag_state().objects_.clear();
@@ -335,7 +353,7 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     undo_steps().undo_.clear();
     undo_steps().redo_.clear();
     undo_steps().has_pending_ = false;
-    level_editor_state().moves_ = 0;
+    unsaved_changes().moves_ = 0;
     drag_state().help_ = false;
     stored_browser() = Browser{};
     // The UI (Dear ImGui) - else the HUD of screen elements.
@@ -352,7 +370,7 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     // [Graphics] OcclusionCulling comes back when the editor closes)
     occlusion_switch().occlusion_in_play_ = render::occlusion_off();
     // (the camera tools and the preferences - level_editor_camera.h, level_editor_prefs.h)
-    level_editor_state().speed_ = static_cast<float>(prefs::get_pull().fly_speed_);
+    fly_camera().speed_ = static_cast<float>(prefs::get_pull().fly_speed_);
     view_cam::kickoff(scenery::world_scene_key(scenery::main_scene()));
     play_test::on_editor_start(); // (the trail's run ends; the level's trails file read - level_editor_playtest.h)
     actions::seed_keys(input::keys()); // (the key that opened the editor doesn't act at once)
@@ -371,15 +389,15 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     pick_cycle().pickables_.clear();
     hud::get_reset(!ui);
     stored_mouse() = Mouse{};
-    level_editor_state().saved_cursor_ = input::show_cursor(input::kCursorQuery);
+    editor_session().saved_cursor_ = input::show_cursor(input::kCursorQuery);
     input::show_cursor(input::kCursorShow);
     // (unsaved changes of an earlier level - its autosave was written when the editor was left - aren't this level's)
-    if (level_editor_state().unsaved_load_ != layout::level_loads()) {
-        level_editor_state().unsaved_ = false;
+    if (unsaved_changes().unsaved_load_ != layout::level_loads()) {
+        unsaved_changes().unsaved_ = false;
     }
-    level_editor_state().snapshot_changes_ = level_editor_state().changes_ - 1; // (a snapshot on the first frame, if unsaved)
-    level_editor_state().last_autosave_ = SDL_GetTicks();
-    level_editor_state().offer_pending_ = level_editor_state().offer_show_ = layout::autosave_offered();
+    unsaved_changes().snapshot_changes_ = unsaved_changes().changes_ - 1; // (a snapshot on the first frame, if unsaved)
+    unsaved_changes().last_autosave_ = SDL_GetTicks();
+    unsaved_changes().offer_pending_ = unsaved_changes().offer_show_ = layout::autosave_offered();
     note_action("entered the editor");
     get_log("level editor: on");
     hud::get_message(edited.empty() ? "Level Editor - F1: Keyboard Shortcuts" : edited, edited.empty() ? kWelcomeSeconds : kEditedSeconds);
@@ -444,14 +462,14 @@ void place_skater_below_camera()
     // (below the camera; else from high above it - the camera may have gone through the floor)
     V3 ground{};
     const bool found =
-        ground_below(level_editor_state().pos_, &ground) || ground_below({.x = level_editor_state().pos_.x,
-                                                                          .y = level_editor_state().pos_.y + 3000.0F,
-                                                                          .z = level_editor_state().pos_.z},
+        ground_below(fly_camera().pos_, &ground) || ground_below({.x = fly_camera().pos_.x,
+                                                                          .y = fly_camera().pos_.y + 3000.0F,
+                                                                          .z = fly_camera().pos_.z},
                                                                          &ground);
     if (!found) {
-        ground = level_editor_state().pos_;
+        ground = fly_camera().pos_;
     }
-    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, 0.0F);
+    const TickCycle frame = frame_from_yaw_pitch(fly_camera().yaw_, 0.0F);
     V3 at = {.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z};
     const float length = std::sqrt((at.x * at.x) + (at.z * at.z));
     if (length > kTinyForwardLength) {
@@ -477,14 +495,14 @@ void place_skater_below_camera()
 
 bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
 {
-    if (!level_editor_state().active_) {
+    if (!editor_session().active_) {
         return true;
     }
     play_test::on_editor_stop(); // (a simulation stopped, the world put back - level_editor_playtest.h)
     end_drag();
     scenery::finalise(); // (the moved scenery's collision where it now is, before the skater is put down)
     // (unsaved changes autosaved - unless an older autosave is still offered)
-    if (level_editor_state().unsaved_ && layout::get_snapshot()) {
+    if (unsaved_changes().unsaved_ && layout::get_snapshot()) {
         layout::write_autosave();
     }
     note_action("left the editor");
@@ -507,21 +525,21 @@ bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
     ui::halt();
     set_relative(false);
     place_skater_below_camera();
-    if (level_editor_state().camera_) {
-        level_editor_state().camera_->set_at_point(level_editor_state().saved_pos_);
-        level_editor_state().camera_->set_basis_frame(level_editor_state().saved_matrix_);
+    if (fly_camera().camera_) {
+        fly_camera().camera_->set_at_point(fly_camera().saved_pos_);
+        fly_camera().camera_->set_basis_frame(fly_camera().saved_matrix_);
     }
-    if (level_editor_state().saved_cursor_ >= 0) {
-        input::show_cursor(level_editor_state().saved_cursor_);
+    if (editor_session().saved_cursor_ >= 0) {
+        input::show_cursor(editor_session().saved_cursor_);
     }
-    level_editor_state().active_ = false;
-    level_editor_state().camera_ = nullptr;
+    editor_session().active_ = false;
+    fly_camera().camera_ = nullptr;
     drag_state().hover_ = {};
     drag_state().objects_.clear();
     drag_state().hover_sector_ = 0;
     scenery::clear_selection();
-    get_log("level editor: off (%d changes, %d scenery pieces moved since the level loaded%s)", level_editor_state().moves_,
-            scenery::get_moved_count(), level_editor_state().unsaved_ ? "; not saved" : "");
+    get_log("level editor: off (%d changes, %d scenery pieces moved since the level loaded%s)", unsaved_changes().moves_,
+            scenery::get_moved_count(), unsaved_changes().unsaved_ ? "; not saved" : "");
     return true;
 }
 
@@ -551,20 +569,20 @@ void prepare_all()
 
 void input_logic()
 {
-    if (!level_editor_state().active_) {
+    if (!editor_session().active_) {
         return;
     }
     // Play from here (F5, Ctrl+P - level_editor_play.h): the editor's camera and selection kept for the way back, then
     // left as Escape leaves it (Play closes the pause menu that brings back).
     if (perform::take_request()) {
         perform::get_keep(resume_now(), layout::level_loads());
-        level_editor_state().exit_requested_ = true;
+        editor_session().exit_requested_ = true;
         get_log("level editor: play from here");
     }
-    if (!level_editor_state().exit_requested_) {
+    if (!editor_session().exit_requested_) {
         return;
     }
-    level_editor_state().exit_requested_ = false;
+    editor_session().exit_requested_ = false;
     if (debug_enabled()) {
         get_log("level editor: Escape - running level_editor_exit");
     }
@@ -573,20 +591,20 @@ void input_logic()
 
 void place_camera(gfx::ViewCam* camera)
 {
-    if (!level_editor_state().active_ || !camera) {
+    if (!editor_session().active_ || !camera) {
         return;
     }
-    if (!level_editor_state().camera_) {
-        level_editor_state().camera_ = camera;
-        level_editor_state().saved_pos_ = camera->at_point();
-        level_editor_state().saved_matrix_ = camera->basis_frame();
-        level_editor_state().pos_ = {.x = camera->at_point().x, .y = camera->at_point().y, .z = camera->at_point().z};
+    if (!fly_camera().camera_) {
+        fly_camera().camera_ = camera;
+        fly_camera().saved_pos_ = camera->at_point();
+        fly_camera().saved_matrix_ = camera->basis_frame();
+        fly_camera().pos_ = {.x = camera->at_point().x, .y = camera->at_point().y, .z = camera->at_point().z};
         const maths::Vec4& back = core::at(camera->basis_frame().row, 2);
-        yaw_pitch_from_back({.x = back.x, .y = back.y, .z = back.z}, {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
+        yaw_pitch_from_back({.x = back.x, .y = back.y, .z = back.z}, {.yaw = &fly_camera().yaw_, .pitch = &fly_camera().pitch_});
         if (debug_enabled()) {
             get_log("level editor: camera %p at (%.1f, %.1f, %.1f), yaw %.1f, pitch %.1f degrees",
-                    static_cast<void*>(camera), level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z, level_editor_state().yaw_ * kDegreesPerHalfTurn / maths::kPi,
-                    level_editor_state().pitch_ * kDegreesPerHalfTurn / maths::kPi);
+                    static_cast<void*>(camera), fly_camera().pos_.x, fly_camera().pos_.y, fly_camera().pos_.z, fly_camera().yaw_ * kDegreesPerHalfTurn / maths::kPi,
+                    fly_camera().pitch_ * kDegreesPerHalfTurn / maths::kPi);
         }
         // (back from play from here: the camera and the selection as they were - level_editor_play.h)
         perform::Resume resume;
@@ -594,13 +612,13 @@ void place_camera(gfx::ViewCam* camera)
             apply_resume(resume);
         }
     }
-    if (camera != level_editor_state().camera_) {
+    if (camera != fly_camera().camera_) {
         return;
     }
-    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-    camera->set_at_point({.x = level_editor_state().pos_.x,
-                          .y = level_editor_state().pos_.y,
-                          .z = level_editor_state().pos_.z,
+    const TickCycle frame = fly_camera().frame();
+    camera->set_at_point({.x = fly_camera().pos_.x,
+                          .y = fly_camera().pos_.y,
+                          .z = fly_camera().pos_.z,
                           .w = 1.0F});
     core::at(camera->basis_frame().row, 0) = {.x = frame.right.x, .y = frame.right.y, .z = frame.right.z, .w = 0.0F};
     core::at(camera->basis_frame().row, 1) = {.x = frame.up.x, .y = frame.up.y, .z = frame.up.z, .w = 0.0F};
@@ -609,40 +627,40 @@ void place_camera(gfx::ViewCam* camera)
 
 float adjust_view_angle(gfx::ViewCam* camera, float angle)
 {
-    return level_editor_state().active_ && camera && camera == level_editor_state().camera_ ? view_cam::adjust_view_angle(angle) : angle;
+    return editor_session().active_ && camera && camera == fly_camera().camera_ ? view_cam::adjust_view_angle(angle) : angle;
 }
 
 float get_near_plane(gfx::ViewCam* camera, float near_z)
 {
-    return level_editor_state().active_ && camera && camera == level_editor_state().camera_ ? view_cam::get_near_plane() : near_z;
+    return editor_session().active_ && camera && camera == fly_camera().camera_ ? view_cam::get_near_plane() : near_z;
 }
 
 void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const uint32_t, 4> viewport)
 {
-    if (!level_editor_state().active_ || camera != level_editor_state().camera_) {
+    if (!editor_session().active_ || camera != fly_camera().camera_) {
         return;
     }
     const Lens lens = lens_for({.angle_degrees_ = angle, .aspect = aspect});
-    if (debug_enabled() && !level_editor_state().have_view_) {
+    if (debug_enabled() && !drawn_view().have_view_) {
         get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", core::at(viewport, 0), core::at(viewport, 1), core::at(viewport, 2),
                 core::at(viewport, 3), angle, aspect);
     }
-    level_editor_state().lens_ = lens;
-    std::ranges::copy(viewport, level_editor_state().viewport_.begin());
-    level_editor_state().have_view_ = true;
+    drawn_view().lens_ = lens;
+    std::ranges::copy(viewport, drawn_view().viewport_.begin());
+    drawn_view().have_view_ = true;
 }
 
 void tick_frame()
 {
     tick_level_systems();
-    if (!level_editor_state().active_) {
+    if (!editor_session().active_) {
         return;
     }
     tick_hud_and_autosave();
     EditorFrame editor_frame;
     editor_frame.seconds = take_frame_seconds();
     editor_frame.input = take_mouse();
-    if (!level_editor_state().camera_) {
+    if (!fly_camera().camera_) {
         return;
     }
     read_keys_and_pad(editor_frame);
@@ -650,7 +668,7 @@ void tick_frame()
         return;
     }
     handle_escape();
-    editor_frame.no_change_ = drag_state().dragging_ || level_editor_state().key_moving_ ||
+    editor_frame.no_change_ = drag_state().dragging_ || fly_camera().key_moving_ ||
                               drag_state().field_editing_ || triggers::resizing();
     tick_panels(editor_frame);
     edit_keys(editor_frame);
@@ -673,10 +691,10 @@ void tick_frame()
 
 void blit()
 {
-    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::device().device_made()) {
+    if (!editor_session().active_ || !drawn_view().have_view_ || !render::device().device_made()) {
         return;
     }
-    const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
+    const TickCycle frame = fly_camera().frame();
     // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
     // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
     static std::vector<LineVertex> lines;
@@ -696,7 +714,7 @@ void blit()
         if (std::fabs(drag_state().mark_base_.y - drag_state().mark_ground_.y) > 1.0F) {
             add_line(drag_state().mark_base_, drag_state().mark_ground_, frame, kMark, &lines);
         }
-        const float size = std::max(10.0F, std::min(60.0F, level_editor_state().orbit_distance_ * 0.05F));
+        const float size = std::max(10.0F, std::min(60.0F, fly_camera().orbit_distance_ * 0.05F));
         add_line(drag_state().mark_ground_ - V3{.x = size, .y = 0.0F, .z = 0.0F},
                  drag_state().mark_ground_ + V3{.x = size, .y = 0.0F, .z = 0.0F}, frame, kMark, &lines);
         add_line(drag_state().mark_ground_ - V3{.x = 0.0F, .y = 0.0F, .z = size},
@@ -720,7 +738,7 @@ void blit()
 std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
 {
     std::vector<std::pair<std::string, std::string>> out;
-    if (!level_editor_state().active_) {
+    if (!editor_session().active_) {
         return out;
     }
     const ui::ShapeMesh model = assemble_model();
@@ -728,9 +746,9 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
     out.emplace_back("mode", std::string(model.mode ? model.mode : "") +
                                  (ui::underway() ? " (Dear ImGui panels)" : " (old HUD)"));
     out.emplace_back("level", model.level);
-    text::format_to(text, "(%.1f, %.1f, %.1f)", level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z);
+    text::format_to(text, "(%.1f, %.1f, %.1f)", fly_camera().pos_.x, fly_camera().pos_.y, fly_camera().pos_.z);
     out.emplace_back("camera", text.data());
-    text::format_to(text, "yaw %.1f, pitch %.1f degrees", level_editor_state().yaw_ * kDegreesPerHalfTurn / maths::kPi, level_editor_state().pitch_ * kDegreesPerHalfTurn / maths::kPi);
+    text::format_to(text, "yaw %.1f, pitch %.1f degrees", fly_camera().yaw_ * kDegreesPerHalfTurn / maths::kPi, fly_camera().pitch_ * kDegreesPerHalfTurn / maths::kPi);
     out.emplace_back("camera turn", text.data());
     out.emplace_back("selected", model.selected);
     // The view options (level_editor_view.h).

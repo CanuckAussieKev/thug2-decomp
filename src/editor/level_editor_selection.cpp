@@ -386,9 +386,9 @@ nodes::Occluder gizmo_occluder(const TickCycle& frame, V3 dir, const scenery::Hi
     }
     occluder.blocked = true;
     occluder.depth = hit.block_t_ * -get_dot(make_unit(dir), frame.back);
-    occluder.units_per_pixel_ = core::at(level_editor_state().viewport_, 2) > 0
-                                    ? kScreenSpanFactor * level_editor_state().lens_.tan_x_ /
-                                          static_cast<float>(core::at(level_editor_state().viewport_, 2))
+    occluder.units_per_pixel_ = core::at(drawn_view().viewport_, 2) > 0
+                                    ? kScreenSpanFactor * drawn_view().lens_.tan_x_ /
+                                          static_cast<float>(core::at(drawn_view().viewport_, 2))
                                     : 0.0F;
     occluder.pixels = kOccluderPixels * pixel_scale();
     return occluder;
@@ -399,7 +399,7 @@ nodes::Occluder gizmo_occluder(const TickCycle& frame, V3 dir, const scenery::Hi
 float trigger_reach(V3 dir)
 {
     scenery::Hit hit;
-    scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &hit);
+    scenery::get_pick(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &hit);
     return hit.blocked ? hit.block_t_ + picking::kGizmoSlack : kFarDistance;
 }
 
@@ -408,11 +408,11 @@ float trigger_reach(V3 dir)
 // filter the same - and that click took something with more under it.
 bool cycle_holds(float x, float y, bool shift, bool everything)
 {
-    const V3 moved = level_editor_state().pos_ - pick_cycle().cycle_.pos;
+    const V3 moved = fly_camera().pos_ - pick_cycle().cycle_.pos;
     return pick_cycle().cycle_.have && !shift && !everything && pick_cycle().cycle_.index >= 0 &&
            pick_cycle().cycle_.order.size() > 1 &&
            picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) &&
-           get_dot(moved, moved) < 1.0F && pick_cycle().cycle_.changes == level_editor_state().changes_ &&
+           get_dot(moved, moved) < 1.0F && pick_cycle().cycle_.changes == unsaved_changes().changes_ &&
            pick_cycle().cycle_.filter == drag_state().pick_filter_;
 }
 
@@ -445,12 +445,12 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
     } else {
         std::vector<picking::Layered> objects;
         std::vector<picking::Layered> scenery;
-        for (const auto& hit : object_edit::pick_all(level_editor_state().pos_, dir, kMaxPickDistance)) {
+        for (const auto& hit : object_edit::pick_all(fly_camera().pos_, dir, kMaxPickDistance)) {
             objects.push_back({.id = hit.first->ident(), .t = hit.second, .passed = false});
         }
         scenery::Hit first;
         std::vector<scenery::Layer> layers;
-        scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
+        scenery::get_pick(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
         scenery.reserve(layers.size());
         for (const scenery::Layer& layer : layers) {
             scenery.push_back({.id = layer.checksum, .t = layer.t, .passed = layer.passed});
@@ -459,7 +459,7 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
         pick_cycle().cycle_.have = true;
         pick_cycle().cycle_.x = x;
         pick_cycle().cycle_.y = y;
-        pick_cycle().cycle_.pos = level_editor_state().pos_;
+        pick_cycle().cycle_.pos = fly_camera().pos_;
         pick_cycle().cycle_.filter = drag_state().pick_filter_;
         pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
         const objects::GameEntity* object = get_live(drag_state().hover_);
@@ -492,7 +492,7 @@ bool drop_under_cursor(V3 dir)
     }
     scenery::Hit first;
     std::vector<scenery::Layer> layers;
-    scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
+    scenery::get_pick(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
     std::vector<bool> passed;
     std::vector<bool> selected;
     for (const scenery::Layer& layer : layers) {

@@ -511,13 +511,13 @@ void focus_on_selection()
     }
     drag_state().free_camera_ = false; // (the camera follows the selection again)
     const V3 target = target_of();
-    const V3 back = level_editor_state().pos_ - target;
+    const V3 back = fly_camera().pos_ - target;
     const float distance = std::sqrt(get_dot(back, back));
     if (distance < 1.0F) {
         return;
     }
-    level_editor_state().orbit_distance_ = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
-    yaw_pitch_from_back(make_unit(back), {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
+    fly_camera().orbit_distance_ = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
+    yaw_pitch_from_back(make_unit(back), {.yaw = &fly_camera().yaw_, .pitch = &fly_camera().pitch_});
 }
 
 // The view options (level_editor_view.h). H / the Inspector's Hide: the selection hidden while editing (from the view
@@ -605,9 +605,9 @@ void toggle_lock()
 void get_look_at(V3 target, float distance)
 {
     const TickCycle frame =
-        frame_from_yaw_pitch(level_editor_state().yaw_, std::min(level_editor_state().pitch_, -0.35F));
-    level_editor_state().pos_ = target + frame.back * distance;
-    yaw_pitch_from_back(make_unit(level_editor_state().pos_ - target), {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
+        frame_from_yaw_pitch(fly_camera().yaw_, std::min(fly_camera().pitch_, -0.35F));
+    fly_camera().pos_ = target + frame.back * distance;
+    yaw_pitch_from_back(make_unit(fly_camera().pos_ - target), {.yaw = &fly_camera().yaw_, .pitch = &fly_camera().pitch_});
 }
 
 // --- the nodes (level_editor_nodes.h) ---
@@ -719,8 +719,8 @@ void save_layout()
 {
     std::string message;
     if (layout::store_away(&message)) {
-        level_editor_state().unsaved_ = false;
-        level_editor_state().offer_pending_ = false; // (the autosave is gone with the save)
+        unsaved_changes().unsaved_ = false;
+        unsaved_changes().offer_pending_ = false; // (the autosave is gone with the save)
     }
     hud::get_message(message, hud::kShortMessageSeconds);
     note_action("saved (Ctrl+S)");
@@ -742,7 +742,7 @@ void answer_autosave(bool discard)
         }
         note_action("restored the autosave (Ctrl+R)");
     }
-    level_editor_state().offer_pending_ = false;
+    unsaved_changes().offer_pending_ = false;
     hud::get_message(message, hud::kShortMessageSeconds);
 }
 
@@ -764,8 +764,8 @@ void reset_level_now()
     undo_steps().undo_.clear();
     undo_steps().redo_.clear();
     push_undo(step, "Reset level");
-    level_editor_state().unsaved_ = false; // (nothing to save: the level as shipped, no layout)
-    level_editor_state().offer_pending_ = false;
+    unsaved_changes().unsaved_ = false; // (nothing to save: the level as shipped, no layout)
+    unsaved_changes().offer_pending_ = false;
     note_action("reset the level");
     hud::get_message(message, hud::kLongMessageSeconds);
 }
@@ -897,16 +897,16 @@ namespace internal {
 view_cam::Rig rig_now()
 {
     view_cam::Rig rig = {};
-    rig.pos = &level_editor_state().pos_;
-    rig.yaw = &level_editor_state().yaw_;
-    rig.pitch = &level_editor_state().pitch_;
-    rig.orbit_distance_ = &level_editor_state().orbit_distance_;
-    rig.speed = &level_editor_state().speed_;
+    rig.pos = &fly_camera().pos_;
+    rig.yaw = &fly_camera().yaw_;
+    rig.pitch = &fly_camera().pitch_;
+    rig.orbit_distance_ = &fly_camera().orbit_distance_;
+    rig.speed = &fly_camera().speed_;
     rig.have_selection_ = have_selection();
-    rig.target = rig.have_selection_ ? target_of() : level_editor_state().pos_;
+    rig.target = rig.have_selection_ ? target_of() : fly_camera().pos_;
     rig.radius = rig.have_selection_ ? selection_radius() : 100.0F;
-    rig.dragging = drag_state().dragging_ || level_editor_state().key_moving_ || triggers::resizing();
-    rig.lens = level_editor_state().lens_;
+    rig.dragging = drag_state().dragging_ || fly_camera().key_moving_ || triggers::resizing();
+    rig.lens = drawn_view().lens_;
     rig.cast = &get_cast;
     rig.focus = &focus_now;
     rig.deselect = &deselect_now;
@@ -916,10 +916,10 @@ view_cam::Rig rig_now()
 perform::Resume resume_now()
 {
     perform::Resume resume;
-    resume.pos = level_editor_state().pos_;
-    resume.yaw = level_editor_state().yaw_;
-    resume.pitch = level_editor_state().pitch_;
-    resume.speed = level_editor_state().speed_;
+    resume.pos = fly_camera().pos_;
+    resume.yaw = fly_camera().yaw_;
+    resume.pitch = fly_camera().pitch_;
+    resume.speed = fly_camera().speed_;
     for (const Picked& picked : drag_state().objects_) {
         resume.objects.push_back(picked.id);
     }
@@ -932,10 +932,10 @@ perform::Resume resume_now()
 
 void apply_resume(const perform::Resume& resume)
 {
-    level_editor_state().pos_ = resume.pos;
-    level_editor_state().yaw_ = resume.yaw;
-    level_editor_state().pitch_ = resume.pitch;
-    level_editor_state().speed_ = resume.speed;
+    fly_camera().pos_ = resume.pos;
+    fly_camera().yaw_ = resume.yaw;
+    fly_camera().pitch_ = resume.pitch;
+    fly_camera().speed_ = resume.speed;
     std::vector<objects::GameEntity*> objects;
     for (const uint32_t id : resume.objects) {
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
@@ -958,10 +958,10 @@ void apply_resume(const perform::Resume& resume)
     }
     // (the camera where it was: the selection orbited from there)
     if (have_selection()) {
-        const V3 back = level_editor_state().pos_ - target_of();
-        level_editor_state().orbit_distance_ = std::max(kMinOrbit, std::min(kMaxOrbit, std::sqrt(get_dot(back, back))));
+        const V3 back = fly_camera().pos_ - target_of();
+        fly_camera().orbit_distance_ = std::max(kMinOrbit, std::min(kMaxOrbit, std::sqrt(get_dot(back, back))));
     }
-    get_log("level editor: back from play from here - the camera at (%.0f, %.0f, %.0f), %s", level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z,
+    get_log("level editor: back from play from here - the camera at (%.0f, %.0f, %.0f), %s", fly_camera().pos_.x, fly_camera().pos_.y, fly_camera().pos_.z,
             describe_selection().c_str());
 }
 

@@ -215,12 +215,12 @@ void update_hud()
     std::array<char, kHintTextSize> text{};
     // (which level: always its edited copy - never the level as shipped)
     text::format_to(text, "EDITING %.24s (EDITED COPY)   %s%s%s", layout::level_title().c_str(), mode_name(),
-                    level_editor_state().unsaved_ ? "   (unsaved)" : "", level_editor_state().offer_pending_ ? "   (autosave: Ctrl+R)" : "");
+                    unsaved_changes().unsaved_ ? "   (unsaved)" : "", unsaved_changes().offer_pending_ ? "   (autosave: Ctrl+R)" : "");
     hud::change_strand(1, text.data());
     hud::change_strand(2, "Selected: " + describe_selection());
     hud::change_strand(3, "Under the cursor: " + hover_text());
-    text::format_to(text, "Camera (%.0f, %.0f, %.0f)  speed %.0f    %d changes    %d pieces moved", level_editor_state().pos_.x, level_editor_state().pos_.y,
-                    level_editor_state().pos_.z, level_editor_state().speed_, level_editor_state().moves_, scenery::get_moved_count());
+    text::format_to(text, "Camera (%.0f, %.0f, %.0f)  speed %.0f    %d changes    %d pieces moved", fly_camera().pos_.x, fly_camera().pos_.y,
+                    fly_camera().pos_.z, fly_camera().speed_, unsaved_changes().moves_, scenery::get_moved_count());
     hud::change_strand(4, text.data());
     // (each line at most 90 characters with its colour codes - 6 a key)
     if (stored_browser().open) {
@@ -659,7 +659,7 @@ ui::ShapeMesh assemble_model()
 {
     ui::ShapeMesh model = {};
     model.carry = carry::is_switched_on();
-    model.carried = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_
+    model.carried = drag_state().dragging_ || fly_camera().key_moving_ || drag_state().field_editing_
                         ? carry::total_of()
                         : 0; // (a move under way)
     model.marks = change_marks();
@@ -673,12 +673,12 @@ ui::ShapeMesh assemble_model()
     model.hover = hover_text();
     model.message = hud::current_message();
     model.keys = keys_now();
-    model.camera = level_editor_state().pos_;
-    model.speed = level_editor_state().speed_;
-    model.changes = level_editor_state().moves_;
+    model.camera = fly_camera().pos_;
+    model.speed = fly_camera().speed_;
+    model.changes = unsaved_changes().moves_;
     model.moved = scenery::get_moved_count();
-    model.unsaved = level_editor_state().unsaved_;
-    model.offer = level_editor_state().offer_pending_;
+    model.unsaved = unsaved_changes().unsaved_;
+    model.offer = unsaved_changes().offer_pending_;
     model.can_undo_ = !undo_steps().undo_.empty();
     model.can_redo_ = !undo_steps().redo_.empty();
     model.snap_always_ = drag_state().snap_always_;

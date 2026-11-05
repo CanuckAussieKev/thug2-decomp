@@ -149,7 +149,7 @@ namespace internal {
 // A world line; `thickness` 3: drawn three times a pixel apart across it.
 void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out, int thickness)
 {
-    if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
+    if (!clip_to_near(fly_camera().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
         return;
     }
     float ax = 0.0F;
@@ -230,8 +230,8 @@ namespace internal {
 float pixel_scale()
 {
     const float gizmo = static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0F; // ([editor] gizmo_pct)
-    return (core::at(level_editor_state().viewport_, 3) > 0
-                ? static_cast<float>(core::at(level_editor_state().viewport_, 3)) / kReferenceViewHeight
+    return (core::at(drawn_view().viewport_, 3) > 0
+                ? static_cast<float>(core::at(drawn_view().viewport_, 3)) / kReferenceViewHeight
                 : 1.0F) *
            gizmo;
 }
@@ -278,7 +278,7 @@ auto ring_drawer(const GizmoView& view)
         const TickCycle& frame = *view.frame;
         const auto line = line_drawer(*view.overlay);
         auto world_line = [&](V3 a, V3 b, uint32_t colour_of_line, float thickness) {
-            if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
+            if (!clip_to_near(fly_camera().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
                 return;
             }
             float ax = 0.0F;
@@ -338,14 +338,14 @@ void add_chain_segment(const GizmoView& view, const NodeGizmo& gizmo, const node
     if (!linked_elem.has_pos_) {
         return;
     }
-    const V3 linked_delta = linked_elem.pos - level_editor_state().pos_;
+    const V3 linked_delta = linked_elem.pos - fly_camera().pos_;
     if (!gizmo.selected && !gizmo.hovered && gizmo.distance > kChainCutoff &&
         view_cam::apparent(std::sqrt(get_dot(linked_delta, linked_delta))) > kChainCutoff) {
         return;
     }
     V3 point_a = elem.pos;
     V3 point_b = linked_elem.pos;
-    if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &point_a, &point_b)) {
+    if (!clip_to_near(fly_camera().pos_, frame, kNearZ + kNearPlaneMargin, &point_a, &point_b)) {
         return;
     }
     float ax = 0.0F;
@@ -388,9 +388,9 @@ void add_chain_segment(const GizmoView& view, const NodeGizmo& gizmo, const node
                                        .bx = bx,
                                        .by = by,
                                        .segment = true,
-                                       .depth = -get_dot(middle - level_editor_state().pos_, frame.back),
-                                       .depth_a_ = -get_dot(point_a - level_editor_state().pos_, frame.back),
-                                       .depth_b_ = -get_dot(point_b - level_editor_state().pos_, frame.back)});
+                                       .depth = -get_dot(middle - fly_camera().pos_, frame.back),
+                                       .depth_a_ = -get_dot(point_a - fly_camera().pos_, frame.back),
+                                       .depth_b_ = -get_dot(point_b - fly_camera().pos_, frame.back)});
 }
 
 // A chain's node: its segments to its links; selected or hovered, a dot and its name; a rail's point, near, a dot
@@ -423,7 +423,7 @@ void add_chain_gizmo(const GizmoView& view, const NodeGizmo& gizmo, const std::v
     if (elem.family == nodes::Family::kRail && (gizmo.distance < kRailPointRange || gizmo.selected)) {
         float px = 0.0F;
         float py = 0.0F;
-        const V3 front = elem.pos - level_editor_state().pos_;
+        const V3 front = elem.pos - fly_camera().pos_;
         if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, elem.pos, &px, &py) && px >= view.left &&
             px <= view.right && py >= view.top && py <= view.bottom) {
             if (!gizmo.selected && !gizmo.hovered) {
@@ -759,13 +759,13 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     const float scale = pixel_scale();
     ui::Overlay& overlay = pick_cycle().overlay_;
-    const float left = static_cast<float>(core::at(level_editor_state().viewport_, 0)) - 40.0F;
-    const float top = static_cast<float>(core::at(level_editor_state().viewport_, 1)) - 40.0F;
+    const float left = static_cast<float>(core::at(drawn_view().viewport_, 0)) - 40.0F;
+    const float top = static_cast<float>(core::at(drawn_view().viewport_, 1)) - 40.0F;
     const float right =
-        static_cast<float>(core::at(level_editor_state().viewport_, 0) + core::at(level_editor_state().viewport_, 2)) +
+        static_cast<float>(core::at(drawn_view().viewport_, 0) + core::at(drawn_view().viewport_, 2)) +
         40.0F;
     const float bottom =
-        static_cast<float>(core::at(level_editor_state().viewport_, 1) + core::at(level_editor_state().viewport_, 3)) +
+        static_cast<float>(core::at(drawn_view().viewport_, 1) + core::at(drawn_view().viewport_, 3)) +
         40.0F;
     const GizmoView view{.frame = &frame,
                          .overlay = &overlay,
@@ -784,7 +784,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         if (shape == nodes::Shape::kNone) {
             continue;
         }
-        const V3 delta = elem.pos - level_editor_state().pos_;
+        const V3 delta = elem.pos - fly_camera().pos_;
         const NodeGizmo gizmo{
             .elem = &elem,
             .index = i,
@@ -958,38 +958,38 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
     preview::tick_cycle(&model);
     add_node_gizmos(frame, model.nodes.selected);
-    view::add_collision(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+    view::add_collision(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                         kNearZ, &pick_cycle().overlay_.under, &pick_cycle().overlay_.lines);
     // (map3: the selected collision faces, the camera nodes' frustums)
-    faces::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+    faces::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                        kNearZ, &pick_cycle().overlay_.lines);
     cameras::add_overlay(
-        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+        fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
         {.near_z_ = kNearZ,
          .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
         &pick_cycle().overlay_.lines);
     // (UX5: note pins; the problem checker run again a moment after a change)
-    notes::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+    notes::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                        kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
                        &pick_cycle().overlay_.texts);
     checks::note_model(model.changes, model.marks);
-    triggers::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+    triggers::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                           kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
     if (overlays::get_shown(overlays::kFeatureMap)) { // (the Overlays menu - level_editor_overlays.h)
         triggers::add_extras(
-            level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+            fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
             {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &pick_cycle().overlay_.lines,
             &pick_cycle().overlay_.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
     }
     triggers::add_handles(&pick_cycle().overlay_.circles); // (the selected trigger volume's resize handles)
-    entities::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+    entities::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                           kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
     play_test::add_overlay(
-        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ,
+        fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_, kNearZ,
         &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
         &pick_cycle().overlay_.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
     goal_edit::add_overlay(
-        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+        fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
         {.near_z_ = kNearZ,
          .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
         &pick_cycle().overlay_.lines,
@@ -1009,7 +1009,7 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     }
     overlays::Painter painter;
     if (overlays::painter_now(&pick_cycle().overlay_, &painter)) {
-        overlays::add_overlay(painter, drag_state().dragging_ || level_editor_state().key_moving_,
+        overlays::add_overlay(painter, drag_state().dragging_ || fly_camera().key_moving_,
                               drag_state().mark_base_, have_selection());
         arcs::add_overlay(painter, objects.empty() ? scenery::get_selection() : std::vector<uint32_t>{});
         grind_preview::add_overlay(painter, drag_state().dragging_ ? -1 : model.nodes.hovered, model.nodes.selected);
@@ -1018,7 +1018,7 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     }
     // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
     // level_editor_arrange.h)
-    arrange::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
+    arrange::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                          kNearZ, &pick_cycle().overlay_);
     thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
     ui::tick_cycle(model, pick_cycle().overlay_);
