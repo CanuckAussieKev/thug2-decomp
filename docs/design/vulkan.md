@@ -1,7 +1,8 @@
 # A Vulkan renderer, and ray tracing after it
 
-Status: design. Nothing here is implemented. Written against the `stage11` branch (2026-11-05); the numbers come
-from a scan of `src/` (see the end).
+Status: design, being implemented: V1 (the libraries), V2 (the context) and V3 (the fixed-function emulation, "V3"
+below) are done. Written against the `stage11` branch (2026-11-05); the numbers come from a scan of `src/` (see the
+end).
 
 ## The goal
 
@@ -179,6 +180,77 @@ vertex format) is a key. Each key gets a generated GLSL vertex / fragment pair c
 original generated `ps.1.1` per material. The blend, depth, cull and colour-write parts become the pipeline's fixed
 state. Pipelines are cached by (key, fixed state, render pass) and kept in a Vulkan pipeline cache on disk. The 6
 fixed `ps.1.1` shaders and the per-material generated ones are translated to GLSL by hand and by the same generator.
+
+### V3: the fixed-function emulation (done)
+
+`src/render_vulkan`: `ff_key.h` (the key), `ff_shaders.h` (key -> GLSL), `ff_uniforms.h` (the uniform blocks,
+bindings and attribute locations), `glsl_compiler.h` (GLSL -> SPIR-V, and a library of compiled shaders by key);
+`src/tests/ff_shader_check.cpp` (the check).
+
+**What the game draws with, measured from `src/render_d3d9`.** With pixel shader support (every Vulkan device), the
+backend's draws use:
+- the six fixed `ps.1.1` shaders (`0x964`, `0x95C`, `0x948`, `0x944`, `0x940`, `0x960`) and the per-material shader for
+  two to four passes. Every other pixel shader slot (`0x94C`, `0x950`, `0x954`... in `shader_slots.h`) is empty with
+  shaders, so the draws that ask for one (glows, occlusion queries, screen copies, shadow volumes) draw with the
+  texture stages as they were left;
+- the texture stages at about fifteen places (2D, text, movies, weather, glows, primitives, shadows, loading screens),
+  which set some stage states and leave the others as the draws before left them. `submit_pass` (particles) leaves
+  stage 0's COLORARG2 at TFACTOR and stage 1 enabled; environment-mapped passes leave COUNT2 and the reflection
+  vector on a stage's coordinates. So the state a draw sees depends on the order of the draws before it: the key is
+  derived at draw time from the tracked Direct3D 9-style state, not chosen per call site;
+- lighting with two directional lights, the material sources COLOR1 / COLOR2 / COLOR1 / MATERIAL, specular and the
+  local viewer (all sticky); vertex fog LINEAR by range, never table fog; alpha test GREATEREQUAL only; point sprites
+  with point scale (snow); vertex formats `XYZ | NORMAL | DIFFUSE | TEX0-4` (meshes), `XYZ [| DIFFUSE] [| TEX1]`,
+  `XYZRHW | DIFFUSE [| TEX1]`, `XYZRHW | TEX1`; never PROJECTED, never more than two stages enabled.
+
+The check's model of those draws (161 sites; the closure over every order of the sites' stage settings reaches 13,149
+stage states) makes 3,972 vertex keys and 23,304 fragment keys: 400 texture-stage combinations, 4 x 6 fixed shaders
+(fog, alpha test), and the materials' shapes (every mode at every pass for 2 and 3 passes; for 4 passes every mode at
+each pass plus every combination of the modes that read r1's or the pass before's alpha; `--all-materials` makes them
+all).
+
+**The compiler: glslang at run time.** The keys a session draws come from its scenes' materials (any of 14 shader
+modes per pass, four passes, alpha flags: 43,904 four-pass shapes alone) and from the order of the draws, so they can't
+be listed when the game is built. glslang (the Vulkan SDK 1.4.304.0 release, built from source by CMake: no Python, no
+SDK; its GLSL front end and SPIR-V back end only) is linked into `render_vulkan` and compiles each key the first time
+it is drawn (`ShaderLibrary`); V7 adds the pipeline cache on disk and can warm it from a scene's materials. SPIRV-Tools'
+validator (same release; its build needs Python 3) is linked by the check alone. Shaders target Vulkan 1.0 / SPIR-V 1.0.
+
+**The key.** `ShaderKey` = `VertexKey` (36 bytes) + `FragmentKey` (48 bytes): plain bytes with no padding, compared and
+hashed as bytes, every enumerator with Direct3D 9's own number. `normalised()` clears what a half doesn't read (stages
+after the first disabled one, arguments an operation doesn't read, CURRENT at stage 0 as DIFFUSE, lighting fields
+with lighting off, coordinates of stages not sampled, material modes without shader code...), so the halves are
+compiled separately and shared by every pipeline that uses them. It lives in `render_vulkan`: `render::Gpu` (V5a)
+carries the Direct3D 9-style state block, and the Vulkan side derives the key from it. Matrices, colours, fog
+distances, the alpha reference, the texture factor and the pixel shader constants are uniforms (`ff_uniforms.h`).
+
+**The formulas** (each written beside its code in `ff_shaders.cpp`):
+
+| part | formula |
+|---|---|
+| position | `clip = P (WV v)`, then y negated and half a pixel added (`x += w / width`, `y += w / height`: Direct3D 9's pixel centres are at whole pixels, Vulkan's at halves). Pre-transformed: `ndc = (xy + 0.5 - viewport origin) * 2 / size - 1`, `gl_Position = (ndc, z, 1) / rhw` |
+| lighting | `diffuse = Ce + Ca (Ga + sum La) + Cd sum(Ld max(N.L, 0))`, alpha `Cd.a`; `specular = Cs sum(Ls max(N.H, 0)^P)` for `N.L > 0`, `H = normalize(L + V)`; clamped to 0-1; unlit: the vertex colours (missing diffuse white, missing specular black) |
+| vertex fog | linear `(end - d) / (end - start)`, exp `e^-(d density)`, exp2 `e^-((d density)^2)`, clamped; `d` the camera-space depth or, with range fog, the distance |
+| table fog | the same per pixel from the camera-space depth |
+| texture coordinates | a set padded to `(u, v, 1, 0)` (the component after the last 1), or the camera-space normal / position / reflection `I - 2 (N.I) N`, through the texture matrix for COUNTn, divided per pixel for PROJECTED |
+| stages | every D3DTOP but PREMODULATE and the bump maps: `MODULATE a1 a2`, `MODULATE2X 2 a1 a2`, `MODULATE4X 4 a1 a2`, `ADD`, `ADDSIGNED a1 + a2 - .5`, `ADDSIGNED2X`, `SUBTRACT`, `ADDSMOOTH a1 + a2 - a1 a2`, the BLEND*ALPHA lerps, `DOTPRODUCT3 4 ((a1 - .5).(a2 - .5))` in every channel, `MULTIPLYADD`, `LERP`; COMPLEMENT and ALPHAREPLICATE on arguments; each stage's result clamped to 0-1; then the specular colour added |
+| ps.1.1 | line by line (`_x2` / `_x4` scale, `_sat`, co-issue), constants clamped to -1..1 as ps.1.x reads them, the result clamped to 0-1 |
+| alpha test | `round(alpha * 255) <op> ALPHAREF` |
+
+**Uncertain, to settle by V11's comparison:** the non-local viewer's V (Direct3D 9's documentation writes `(0, 0, 1)`;
+`(0, 0, -1)`, towards the camera, is used); whether the reflection vector's normal is normalised; a missing
+coordinate set (zeros); the fog factor of pre-transformed vertices without a specular colour (0, all fog); w-based
+table fog; how drivers quantise the alpha for the test (rounded); ps.1.x's intermediate range (unclamped here; the
+first ps.1.1 cards clamped every result to -1..1); the alpha operations of the colour-only MODULATE*_ADD* operations
+(taken as SELECTARG1). Two things of the original's own: mode 0xB on a pass after the first writes `v1`, which ps.1.1
+can't (D3DX would refuse it; ported as a write nothing reads), and the original's shader cache key keeps the fourth
+pass's texture-alpha flag in the same bit as the first pass's present bit (`pixel_shaders.cpp`), so two four-pass
+materials differing only in that flag share the first one's shader there; the key here keeps the flags apart.
+
+**The check** (`thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N]`): the model's keys,
+each half generated, compiled (8 threads) and validated by SPIRV-Tools; then each module handed to the driver and a
+pipeline made for each sampled pair (the vertex format's attributes, the descriptor layout, a colour + depth render
+pass) on the chosen device. It draws nothing: comparing pixels against Direct3D 9 is V11's.
 
 **Method by method** (`render::Device` and `UiBackend`, against Vulkan):
 
