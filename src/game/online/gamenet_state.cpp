@@ -8,6 +8,7 @@
 
 #include "engine/memory/task_list.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_created_goals.h"
 #include "game/online/hub_join.h"
 #include "game/online/hub_news.h"
 #include "game/online/hub_settings.h"
@@ -348,7 +349,7 @@ void* NewsDownload::get_pending_data(uint32_t* size)
 bool Hub::has_created_goals() { return get_goal_editor()->count_complete_goals(0) > 0; }
 
 // 0x005333A0
-void Hub::prepare_created_goals(uint32_t level)
+void CreatedGoalsMessage::prepare_created_goals(uint32_t level)
 {
     created_goals_level_ = level;
     std::memcpy(created_goals_.data(), &level, sizeof(level));
@@ -359,8 +360,8 @@ void Hub::prepare_created_goals(uint32_t level)
 }
 
 // 0x005333E0 / 0x005333F0
-void* Hub::get_created_goals_message() { return created_goals_.data(); }
-uint32_t Hub::get_created_goals_size() const { return created_goals_size_; }
+void* CreatedGoalsMessage::get_created_goals_message() { return created_goals_.data(); }
+uint32_t CreatedGoalsMessage::get_created_goals_size() const { return created_goals_size_; }
 
 } // namespace online
 

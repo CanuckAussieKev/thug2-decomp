@@ -404,8 +404,8 @@ int handle_created_data_request(net::InboundMsgCtx* context)
         app->send_bulk_message(handle, {.msg_id_ = MessageId::kRailsData, .size = kRailDataSize}, rails, "rail data", MessageGroup::kGame, false, true);
     } else if (id == MessageId::kRequestGoals && online::Hub::has_created_goals()) {
         const int handle = context->sender_conn()->hdl();
-        void* goals = manager->get_created_goals_message();
-        auto size = static_cast<uint16_t>(manager->get_created_goals_size());
+        void* goals = manager->created_goals().get_created_goals_message();
+        auto size = static_cast<uint16_t>(manager->created_goals().get_created_goals_size());
         app->send_bulk_message(handle, {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame, false, true);
     }
     return kContinue;

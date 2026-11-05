@@ -19,6 +19,7 @@
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_created_goals.h"
 #include "game/online/hub_join.h"
 #include "game/online/hub_news.h"
 #include "game/online/hub_online_service.h"
@@ -214,8 +215,6 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, last_leader_), .original = 0x1D0, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, last_leading_team_), .original = 0x1D4, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, created_goals_), .original = 0x1D8, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, created_goals_size_), .original = 0x1948, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, created_goals_level_), .original = 0x194C, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, unknown1950_), .original = 0x1950, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, room_id_), .original = 0x9950, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, master_servers_), .original = 0x9954, .smaller_by = 28},
@@ -392,6 +391,24 @@ void NewsDownload::check_layout()
         FieldAt{.now = offsetof(NewsDownload, motd_received_), .original = 0xFE09},
         FieldAt{.now = offsetof(NewsDownload, services_available_), .original = 0xFE0A},
         FieldAt{.now = sizeof(NewsDownload), .original = 0xFE0C},
+    };
+    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+                  "layout must match the original");
+}
+
+// NOT ORIGINAL
+void CreatedGoalsMessage::check_layout()
+{
+    constexpr std::size_t kAt = 0x1D8; // (each field at its offset in the hub, less the message's own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(CreatedGoalsMessage, created_goals_), .original = 0x1D8},
+        FieldAt{.now = offsetof(CreatedGoalsMessage, created_goals_size_), .original = 0x1948},
+        FieldAt{.now = offsetof(CreatedGoalsMessage, created_goals_level_), .original = 0x194C},
+        FieldAt{.now = sizeof(CreatedGoalsMessage), .original = 0x1950},
     };
     static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
                   "layout must match the original");

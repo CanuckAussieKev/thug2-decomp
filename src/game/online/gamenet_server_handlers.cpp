@@ -136,10 +136,10 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed();
     app->send_bulk_message(handle, {.msg_id_ = MessageId::kRailsData, .size = kRailDataSize}, rails, "rail data", MessageGroup::kGame, false, true);
     if (online::Hub::has_created_goals()) {
-        manager->prepare_created_goals(request.level);
+        manager->created_goals().prepare_created_goals(request.level);
         handle = context->sender_conn()->hdl();
-        void* goals = manager->get_created_goals_message();
-        auto size = static_cast<uint16_t>(manager->get_created_goals_size());
+        void* goals = manager->created_goals().get_created_goals_message();
+        auto size = static_cast<uint16_t>(manager->created_goals().get_created_goals_size());
         app->send_bulk_message(handle, {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame, false, true);
     }
     if (request.flag != 'F') {

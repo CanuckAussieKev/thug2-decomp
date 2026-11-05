@@ -407,9 +407,9 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Context /*context
         desc.set_group_id(online::MessageGroup::kGame);
         server->put_on_outbox(info->get_link_handle(), &desc);
         if ((static_cast<uint8_t>(info->is_own_player()) == 0U) && online::Hub::has_created_goals()) {
-            net->prepare_created_goals(level);
-            void* goals = net->get_created_goals_message();
-            const uint32_t size = net->get_created_goals_size();
+            net->created_goals().prepare_created_goals(level);
+            void* goals = net->created_goals().get_created_goals_message();
+            const uint32_t size = net->created_goals().get_created_goals_size();
             server->send_bulk_message(info->get_link_handle(), {.msg_id_ = online::MessageId::kGoalsData, .size = static_cast<uint16_t>(size)}, goals,
                                       "goals data", online::MessageGroup::kGame, false, true); // "goals data"
         }

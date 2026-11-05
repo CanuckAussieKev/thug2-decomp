@@ -685,9 +685,9 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(player_handle(player), &desc);
         if (online::Hub::has_created_goals()) {
-            manager->prepare_created_goals(manager->fetch_stage());
-            void* goals = manager->get_created_goals_message();
-            auto size = static_cast<uint16_t>(manager->get_created_goals_size());
+            manager->created_goals().prepare_created_goals(manager->fetch_stage());
+            void* goals = manager->created_goals().get_created_goals_message();
+            auto size = static_cast<uint16_t>(manager->created_goals().get_created_goals_size());
             server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame,
                                       false, true);
         }

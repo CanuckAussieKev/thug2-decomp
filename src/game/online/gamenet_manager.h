@@ -10,6 +10,7 @@
 #include "engine/memory/mem.h"
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
+#include "game/online/hub_created_goals.h"
 #include "game/online/hub_join.h"
 #include "game/online/hub_news.h"
 #include "game/online/hub_online_service.h"
@@ -86,7 +87,6 @@ constexpr uint16_t kJoinRefusedSize = 10;
 
 constexpr size_t kHubStartPointsSize = 8;
 constexpr size_t kHubChallengeSize = 12;
-constexpr size_t kHubCreatedGoalsSize = 0x1770;
 constexpr size_t kHubUnknown1950Size = 0x8000;
 constexpr size_t kHubMasterServersSize = 10;
 constexpr size_t kHubTeamObjectsPerTeam = 5;
@@ -181,12 +181,6 @@ public:
     void send_ready_response();
     // 0x00533380: the goal editor has created goals (0x004E7E50 with 0).
     static bool has_created_goals();
-    // 0x005333A0: the goal editor's goals for `level` written into the goals message (+0x1D8: the level, then the
-    // goals - at most 6000 bytes); +0x1948 its size, +0x194C the level.
-    void prepare_created_goals(uint32_t level);
-    // 0x005333E0 / 0x005333F0: the goals message / its size.
-    void* get_created_goals_message();
-    [[nodiscard]] uint32_t get_created_goals_size() const;
 
     // --- gamenet_members.cpp: the network mode, the team flags, preferences, the server's end (0x00533F20-0x00534FC0)
     // 0x00533F20: the network mode (flags bits 2-3): 1 LAN (bit 3), 2 internet (bit 2), else neither.
@@ -585,6 +579,9 @@ public:
     // The news and the message of the day downloaded, and the services' availability.
     NewsDownload& news() { return news_; }
     [[nodiscard]] const NewsDownload& news() const { return news_; }
+    // The created goals' message (sent to the players joining a created park).
+    CreatedGoalsMessage& created_goals() { return created_goals_; }
+    [[nodiscard]] const CreatedGoalsMessage& created_goals() const { return created_goals_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
@@ -657,12 +654,7 @@ private:
     PlayerRecord* viewed_player_{};         // +0x1CC
     PlayerRecord* last_leader_{};           // +0x1D0 the player last announced as the leader
     int last_leading_team_{};               // +0x1D4
-    // The created goals' message (prepare_created_goals): the level, then the goals. The goal editor is given 6000
-    // bytes after the level - 4 more than the buffer holds, as in the original (they would reach the size, which is
-    // written after).
-    std::array<uint8_t, kHubCreatedGoalsSize> created_goals_{}; // +0x1D8
-    uint32_t created_goals_size_{0};                            // +0x1948
-    uint32_t created_goals_level_{0};                           // +0x194C
+    CreatedGoalsMessage created_goals_;     // +0x1D8-+0x194F (+0x1BC-+0x1933 here) the created goals' message
     std::array<uint8_t, kHubUnknown1950Size> unknown1950_{}; // +0x1950
     uint32_t room_id_{};            // +0x9950 (set_room_id)
     std::array<std::array<char, kHubMasterServerNameSize>, kHubMasterServersSize> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
