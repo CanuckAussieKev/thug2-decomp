@@ -15,6 +15,7 @@
 #include "engine/gfx/viewport.h"
 #include "base/maths/vec4.h"
 #include "render_d3d9/pc_d3d_resources.h"
+#include "render_d3d9/dynamic_vertices.h"
 #include "render_d3d9/shader_slots.h"
 #include <gsl/pointers>
 #include <array>

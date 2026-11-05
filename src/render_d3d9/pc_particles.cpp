@@ -20,6 +20,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "render_d3d9/dynamic_vertices.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/sys/stopwatch.h"
 #include "render_d3d9/shader_slots.h"

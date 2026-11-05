@@ -17,6 +17,7 @@
 #include "render_d3d9/simple_material.h"
 #include "render_d3d9/dynamic_vertices.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/shader_slots.h"
 #include "engine/gfx/engine.h"

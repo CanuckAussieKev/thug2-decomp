@@ -2,6 +2,10 @@
 
 #include "render_d3d9/pc_d3d_resources.h"
 
+#include "engine/gfx/gpu_handles.h"
+#include "render_d3d9/d3d9_handles.h"
+#include "render_d3d9/dynamic_vertices.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <span>
