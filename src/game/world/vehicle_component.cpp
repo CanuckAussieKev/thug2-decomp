@@ -447,7 +447,7 @@ bool DrivableModule::kick_randomly(script::Struct* params, script::Script* /*scr
 // 0x004354B0
 bool DrivableModule::is_rider_shown(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return rider_shown_;
+    return seat_.shown;
 }
 
 // --- the component's life ---
@@ -515,7 +515,7 @@ DrivableModule::DrivableModule()
     clear_to_w1(orientation_);
     // (the colliders' vectors' constructors do nothing: 0x005902E0; contact_memo_ registered by its constructor)
     set_kind_tag(kType);
-    clear_to_w1(skater_pos_);
+    clear_to_w1(seat_.pos);
 }
 
 // 0x0043B990 (0x0043C1A0 the deleting one)
@@ -705,10 +705,10 @@ void DrivableModule::configure_from_data(script::Struct* params)
         params->fetch_vec(kPos, &at_point_, 0);
         entity()->at_point() = at_point_;
     }
-    rider_shown_ = rider_shown_ || params->has_bare_flag(kSkater);
+    seat_.shown = seat_.shown || params->has_bare_flag(kSkater);
     if (params->has_bare_flag(kSkater)) {
-        params->fetch_vec(kSkaterPos, &skater_pos_, 1); // skater_pos
-        params->read_hash_value(kSkaterAnim, &rider_anim_name_, 1);                              // skater_anim
+        params->fetch_vec(kSkaterPos, &seat_.pos, 1);         // skater_pos
+        params->read_hash_value(kSkaterAnim, &seat_.anim, 1); // skater_anim
     }
     params->read_hash_value(kSounds, &sounds_name_, 0); // sounds
 
@@ -804,7 +804,7 @@ void DrivableModule::seal()
     rider_ref_ = local_skater();
     skater_core_physics_ = rider_ref_->fetch_module(kSkaterCorePhysics);
     trigger_ptr_ = rider_ref_->fetch_module(kTrigger);
-    if (!rider_shown_) {
+    if (!seat_.shown) {
         rider_ref_->conceal(true);
     } else {
         anim_blender_ptr_ = rider_ref_->fetch_module(kAnimBlender);
@@ -831,7 +831,7 @@ void DrivableModule::seal()
         recentre(core::at(colliders_, i).corner);
     }
     recentre(skater_bone_);
-    recentre(skater_pos_);
+    recentre(seat_.pos);
     update_dependents();
     entity()->at_point() = at_point_;
     entity()->vel() = vel_;
@@ -1294,9 +1294,9 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, controls_.handbrake), .original = 0x30A, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, controls_.reverse), .original = 0x30B, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, contact_memo_), .original = 0x30C, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, rider_shown_), .original = 0x12D8, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, skater_pos_), .original = 0x12DC, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, rider_anim_name_), .original = 0x12EC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, seat_.shown), .original = 0x12D8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, seat_.pos), .original = 0x12DC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, seat_.anim), .original = 0x12EC, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, display_steering_), .original = 0x12F0, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, sounds_name_), .original = 0x12F4, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, gravity_scale_), .original = 0x12F8, .larger_by = kVectorExtra},

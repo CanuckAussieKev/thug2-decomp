@@ -27,7 +27,7 @@ class Struct;
 // each a corner and two edges) are tested against the world's collision with a rect feeler; their contact points get
 // impulses (restitution, friction) and a depth correction. Each frame the update steps the physics in up to six equal
 // sub-steps of at most 1/30 s. From the skater's input when driven; asleep (awake_ 0) once it has stood still for
-// three frames. With a skater (rider_shown_), its animation follows the steering.
+// three frames. With a skater (seat_.shown), its animation follows the steering.
 //
 // Vtable: 0 Destroy 0x0043C1A0, 1 Update 0x0043C1D0, 2 configure_from_data 0x00437D10, 3 Finalize 0x0043BA20, the empty
 // 0x005480A0 / 0x005BAB90, 0x0048DCD0, the base's Suspend, 11 0x0042BB20 (member function entries by table: the table
@@ -311,7 +311,7 @@ public:
     bool all_wheels_are_in_contact(script::Struct* params, script::Script* script) const;
     // 0x00437BC0 (0x4C73526B): an offset (0xA6F5352F) kicked about (0x00435890). True.
     bool kick_randomly(script::Struct* params, script::Script* script);
-    // 0x004354B0 Vehicle_IsSkaterVisible: rider_shown_.
+    // 0x004354B0 Vehicle_IsSkaterVisible: seat_.shown.
     bool is_rider_shown(script::Struct* params, script::Script* script) const;
 
     // --- the fields ---
@@ -403,6 +403,13 @@ private:
         bool handbrake{}; // +0x06 (+0x30A)
         bool reverse{};   // +0x07 (+0x30B)
     };
+    // The skater shown driving (+0x12D8-+0x12EF - after the wheels' vector: check_layout; configure_from_data, seal,
+    // update_skater).
+    struct Seat {
+        bool shown{};      // +0x00 (+0x12D8) (0x2ED67657) a skater is shown driving
+        maths::Vec4 pos{}; // +0x04 (+0x12DC) skater_pos (made relative to the centre of mass by Finalize)
+        uint32_t anim{};   // +0x14 (+0x12EC) skater_anim (0xDA75A33E)
+    };
 
     maths::Vec4 at_point_{};        // +0x18 the centre of mass (world)
     maths::Vec4 linear_momentum_{}; // +0x28 linear momentum
@@ -438,9 +445,7 @@ private:
     Drivetrain drivetrain_;                // +0x2D4-+0x303 the engine and the gears
     Controls controls_;                      // +0x304-+0x30B the controls this frame
     render::HitMeshCache contact_memo_;    // +0x30C the feelers' collision cache
-    bool rider_shown_{};                   // +0x12D8 (0x2ED67657) a skater is shown driving
-    maths::Vec4 skater_pos_{};             // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
-    uint32_t rider_anim_name_{};           // +0x12EC skater_anim (0xDA75A33E)
+    Seat seat_;                            // +0x12D8-+0x12EF the skater shown driving
     float display_steering_{0.0F};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
     uint32_t sounds_name_{kDefault};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     float gravity_scale_{};                // +0x12F8 (Vehicle_AdjustGravity)
@@ -455,7 +460,7 @@ private:
     int debug_mode_{0};                 // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
     bool passive_{false};               // +0x1320 no input, collision or debug drawing (set from outside)
     GameEntity* rider_ref_{};           // +0x1324 the local skater (modules::Skate's 0x00566520)
-    ObjectModule* anim_blender_ptr_{};  // +0x1328 its animation blender (with rider_shown_)
+    ObjectModule* anim_blender_ptr_{};  // +0x1328 its animation blender (with seat_.shown)
     ObjectModule* skater_core_physics_{}; // +0x132C its core physics (0x5BD63B29)
     ObjectModule* trigger_ptr_{};         // +0x1330 the object's trigger component (0xE594F0A2)
 };

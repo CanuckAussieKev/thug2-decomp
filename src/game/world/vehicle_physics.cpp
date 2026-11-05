@@ -876,7 +876,7 @@ void DrivableModule::update_skater()
     const GameEntity* object = entity();
     GameEntity* skater = rider_ref_;
     maths::Vec4 place;
-    object->basis_frame().rotate_vector(place, skater_pos_);
+    object->basis_frame().rotate_vector(place, seat_.pos);
     skater->at_point().z = static_cast<float>(static_cast<double>(object->at_point().z) + place.z);
     skater->at_point().w = static_cast<float>(static_cast<double>(object->at_point().w) + place.w);
     skater->at_point().x = static_cast<float>(static_cast<double>(place.x) + object->at_point().x);
@@ -886,29 +886,29 @@ void DrivableModule::update_skater()
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_core_physics_);
     core->display_matrix() = core->entity()->basis_frame();
     skater->vel() = object->vel();
-    if (!rider_shown_) {
+    if (!seat_.shown) {
         return;
     }
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     objects::RiderPoseState* flags = core->state();
     const float steering = (flags->flag(PoseFlag::kFlipped).on != 0U) ? display_steering_ : -display_steering_;
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_ptr_);
-    const double duration = blender->fetch_value(rider_anim_name_);
+    const double duration = blender->fetch_value(seat_.anim);
     auto frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     auto frame_bits = std::bit_cast<uint32_t>(frame);
     auto blend = std::bit_cast<uint32_t>(kBlendFullSpeed);
     if (!online::net_game_state().online_hub()->in_net_game()) {
-        blender->play_animation_ex(rider_anim_name_, 0, frame_bits, blend, 1, 0, 0);
+        blender->play_animation_ex(seat_.anim, 0, frame_bits, blend, 1, 0, 0);
         return;
     }
     // In a network game every fifteenth update is sent on (b = 1).
     int& counter = vehicle_net_update_counter();
     if (++counter == kPeriodTicks) {
         counter = 0;
-        blender->play_animation_ex(rider_anim_name_, 1, frame_bits, blend, 1, 0, 0);
+        blender->play_animation_ex(seat_.anim, 1, frame_bits, blend, 1, 0, 0);
         return;
     }
-    blender->play_animation_ex(rider_anim_name_, 0, frame_bits, blend, 1, 0, 0);
+    blender->play_animation_ex(seat_.anim, 0, frame_bits, blend, 1, 0, 0);
 }
 
 } // namespace objects
