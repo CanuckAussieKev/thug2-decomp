@@ -68,7 +68,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     for the next 1-36000 frames: frame, position, velocity, the up row's y, the SkaterState state (0 ground, 1 air,
     2 wall, 3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing, doing a trick, the combo so far
     and its multiplier, the score's +0x20, and the last ground face's flags and collision object; each `teleport`
-    while it runs adds a `# teleport ...` line. It's done at once and runs on under the next commands, so
+    while it runs adds a `# teleport ...` line. `trace <frames> objects` also writes
+    `<folder>\thug2-decomp-trace-objects.txt`: each frame a line for every object with a motion or rigid body
+    component (kind m / r / b both) - frame, id, position, velocity, the at row of its matrix. It's done at once and runs on under the next commands, so
     `teleport <x> <y> <z> <heading> board;trace 600;press up 60;wait 300` pushes off and records the ride (a manual:
     `press up 2;press down 2`; `run client_toggle_cheat cheat_flag=CHEAT_PERFECT_MANUAL on` holds its balance).
     `node tools/game/trace_summary.ts <trace.txt> [--every N | --trials]` gives the runs of one state (where, the

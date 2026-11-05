@@ -71,7 +71,10 @@ class Struct;
 //                                         ground face's flags and collision object; a `teleport` while it runs
 //                                         adds a "# teleport ..." line (tools/game/trace_summary.ts). Done at
 //                                         once: the trace runs on under the next commands (`press up 120`...); a
-//                                         new trace replaces a running one
+//                                         new trace replaces a running one. `trace <frames> objects` also writes
+//                                         thug2-decomp-trace-objects.txt: each frame a line for every object with
+//                                         a motion or rigid body component (kind m / r / b), in the object list's
+//                                         order - frame, id, position, velocity, the matrix's at row
 //   fe select <screen>/<item> [seconds]   the new front end (frontend/new_frontend.h, [features] new_frontend=1):
 //                                         waits (default 10 s) for its screen <screen> to be shown and still, then
 //                                         selects and chooses <item> - a list's item id (career, freeskate, story,

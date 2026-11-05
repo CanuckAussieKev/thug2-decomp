@@ -41,6 +41,9 @@
 #include "engine/objects/signal.h"
 #include "engine/lists/key_map.h"
 #include "engine/objects/entity.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/motion.h"
+#include "engine/objects/rigidbody_component.h"
 #include "game/world/trick_objects.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
@@ -647,8 +650,12 @@ bool parse_trace(const CommandWords& words, OrderCode& command, std::string* err
     const std::vector<std::string>& tokens = *words.tokens;
     const size_t count = tokens.size();
     command.op = Op::kTrace;
-    if (count != 2 || !read_count(::core::at(tokens, 1), 1, kMaxTraceFrames, &command.frames)) {
-        return fail_with(error, "trace <frames 1-" + std::to_string(kMaxTraceFrames) + ">");
+    if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxTraceFrames, &command.frames) ||
+        (count == 3 && ::core::at(tokens, 2) != "objects")) {
+        return fail_with(error, "trace <frames 1-" + std::to_string(kMaxTraceFrames) + "> [objects]");
+    }
+    if (count == 3) {
+        command.target = "objects";
     }
     return true;
 }
@@ -929,7 +936,7 @@ std::string describe(const OrderCode& command)
     case Op::kLogTricks:
         return "logtricks" + ((command.frames != 0) ? " " + std::to_string(command.frames) : std::string());
     case Op::kTrace:
-        return "trace " + std::to_string(command.frames);
+        return "trace " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
     }
     return "?";
 }
@@ -1175,6 +1182,7 @@ bool skater_present() { return objects::find_object(kSkater) != nullptr; }
 
 struct Trace {
     fs::OwnedStream file;
+    fs::OwnedStream objects; // (trace ... objects: the moving objects' lines)
     int left = 0;
 };
 Trace& trace_state()
@@ -1187,10 +1195,11 @@ void stop_trace()
 {
     Trace& trace = trace_state();
     trace.file.reset();
+    trace.objects.reset();
     trace.left = 0;
 }
 
-std::string start_trace(int frames)
+std::string start_trace(int frames, bool objects)
 {
     stop_trace();
     const std::string path = game_folder_path("thug2-decomp-trace.txt");
@@ -1204,7 +1213,42 @@ std::string start_trace(int frames)
     fs::disk().stream_flush(file.get());
     trace_state().file = std::move(file);
     trace_state().left = frames;
+    if (objects) {
+        const std::string objects_path = game_folder_path("thug2-decomp-trace-objects.txt");
+        fs::OwnedStream objects_file = fs::open_stream(objects_path.c_str(), "w", fs::StreamSharing::kDenyWrite);
+        if (!objects_file) {
+            stop_trace();
+            return "can't write " + objects_path;
+        }
+        fs::print_to(objects_file.get(), "# frame id kind x y z vx vy vz at_x at_y at_z\n");
+        fs::disk().stream_flush(objects_file.get());
+        trace_state().objects = std::move(objects_file);
+    }
     return {};
+}
+
+// trace ... objects: a line for each object with a motion or rigid body component (kind m / r / b both), in the
+// object list's order - its id, position, velocity and the at row of its matrix.
+void trace_object(objects::Entity* object, void* data)
+{
+    auto* composite = core::down_cast<objects::GameEntity>(object);
+    const bool motion = composite->fetch_module(objects::KinematicsModule::kType) != nullptr;
+    const bool body = composite->fetch_module(objects::BodyDynamicsModule::kType) != nullptr;
+    if (!motion && !body) {
+        return;
+    }
+    char kind = 'r';
+    if (motion) {
+        kind = body ? 'b' : 'm';
+    }
+    const maths::Vec4& pos = composite->at_point();
+    const maths::Vec4& vel = composite->vel();
+    const maths::Vec4& at = ::core::at(composite->basis_frame().row, 2);
+    fs::print_to(static_cast<fs::DiskStream*>(data), "%u 0x%08X %c %.3f %.3f %.3f %.3f %.3f %.3f %.4f %.4f %.4f\n",
+                 frame_loop::frames_run(), composite->ident(), kind, static_cast<double>(pos.x),
+                 static_cast<double>(pos.y), static_cast<double>(pos.z), static_cast<double>(vel.x),
+                 static_cast<double>(vel.y), static_cast<double>(vel.z), static_cast<double>(at.x),
+                 static_cast<double>(at.y), static_cast<double>(at.z));
 }
 
 // Once a frame: the skater's line (nothing while there's none - a level loading).
@@ -1239,6 +1283,12 @@ void trace_frame()
                        static_cast<double>(::core::at(skater->basis_frame().row, 1).y), where, physics, bailing, trick,
                        pot, static_cast<double>(multiplier), landed, ground_flags, ground_object);
         fs::disk().stream_flush(trace.file.get());
+    }
+    if (trace.objects) {
+        if (objects::EntityHub* manager = objects::object_hub_slot().get()) {
+            manager->for_each(trace_object, trace.objects.get());
+        }
+        fs::disk().stream_flush(trace.objects.get());
     }
     if (--trace.left <= 0) {
         stop_trace();
@@ -1892,7 +1942,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         return false; // (Continue: done once written)
     }
     case Op::kTrace: {
-        const std::string failed = start_trace(command.frames);
+        const std::string failed = start_trace(command.frames, command.target == "objects");
         if (failed.empty()) {
             get_finish(runner, "ok");
         } else {
