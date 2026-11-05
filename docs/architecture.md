@@ -52,7 +52,8 @@ original's DirectInput side itself is a backend (`src/input_dinput`, "The input 
 **The composition** (`src/app`): `main.cpp`, WinMain (`winmain.cpp`: the command line, the window, the devices),
 PartyMod's start-up (`pc_setup.cpp`) and the game's main (`startup.cpp`: the singletons, modules and the main loop).
 It may include every layer. `src/devtools` sits beside the editor and the new front end: the screenshot key, the
-test-automation channel (`automation`), the restart tester, the start level and the test view.
+test-automation channel (`automation`) and the restart tester (starting in a level, `game/front_end/start_level`, and
+the test views, `game/rider/test_view`, are the game's, which the editor and the dev tools both use).
 
 **The extension points** (`engine/ext/extension.h`): the engine and the game never call the editor, the front end or
 the dev tools. Where something we added runs inside the original's frame, the original code calls `ext::` at that
