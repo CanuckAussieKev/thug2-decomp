@@ -19,6 +19,8 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 | Vulkan-Headers 1.4.304 (The Khronos Group) - https://github.com/KhronosGroup/Vulkan-Headers, tag v1.4.304 | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/vulkan_libraries.cmake`): the Vulkan API's headers, used by the Vulkan renderer (`src/render_vulkan`) | Apache-2.0 (some files also MIT) - below |
 | volk 1.4.304 (Arseny Kapoulkine) - https://github.com/zeux/volk, tag 1.4.304 | downloaded at configure time (FetchContent, SHA-256 checked); built into the exe: opens the system's Vulkan loader at run time | MIT - below |
 | Vulkan Memory Allocator 3.2.1 (Advanced Micro Devices) - https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator, tag v3.2.1 | downloaded at configure time (FetchContent, SHA-256 checked): the Vulkan renderer's device memory (header only) | MIT - below |
+| glslang (The Khronos Group and contributors), Vulkan SDK 1.4.304.0 release - https://github.com/KhronosGroup/glslang, tag vulkan-sdk-1.4.304.0 | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/vulkan_libraries.cmake`): its GLSL front end and SPIR-V back end (no HLSL, no optimiser, no programs) compile the Vulkan renderer's fixed-function emulation shaders at run time (`src/render_vulkan/glsl_compiler.cpp`) | BSD 3-clause (the core), with parts under BSD 2-clause, MIT, Apache-2.0 and NVIDIA's preprocessor licence - below |
+| SPIRV-Tools and SPIRV-Headers (The Khronos Group), Vulkan SDK 1.4.304.0 release - https://github.com/KhronosGroup/SPIRV-Tools, https://github.com/KhronosGroup/SPIRV-Headers, tag vulkan-sdk-1.4.304.0 | downloaded at configure time (FetchContent, SHA-256 checked) when `THUG2_SPIRV_VALIDATOR` is on and Python 3 is found: the SPIR-V validator, linked only by the check program `thug2_ff_shader_check` (nothing of it is in the game) | SPIRV-Tools: Apache-2.0; SPIRV-Headers: the Khronos MIT-style licence (some files Apache-2.0) - below |
 | GameSpy SDK (December 2007 release, common 2.06; IGN Entertainment's 2011 open-source release) - https://github.com/nitrocaster/GameSpy, commit d1deb2d | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/gamespy_sdk.cmake`, which makes one change: the peer SDK's chat server name a variable); the modules the game uses built into the exe | BSD 3-clause - below. Its MD5 (md5c.c) is "derived from the RSA Data Security, Inc. MD5 Message-Digest Algorithm" (RSA's notice, in md5.h) |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript (commit 73fe0f9), with our changes in our fork https://github.com/CanuckAussieKev/NeverScript (branch `thug2`) | downloaded at build time into `out/neverscript/src` by `tools/build_neverscript.ps1` (a tool, not part of the game; nothing of it is in this repo) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
@@ -354,6 +356,86 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
+
+## glslang (The Khronos Group and contributors) (BSD 3-clause and others)
+
+Source: https://github.com/KhronosGroup/glslang (tag vulkan-sdk-1.4.304.0). The repository's LICENSE.txt: the core of
+glslang (without the preprocessor) is under the 3-clause BSD licence below; other files are under the 2-clause BSD
+licence, the MIT licence and the Apache License 2.0, and the preprocessor is also under NVIDIA's 2002 licence (it allows
+use, reproduction, modification and redistribution with NVIDIA's copyright notice, the licence and its disclaimers kept
+in redistributions). The full texts:
+https://github.com/KhronosGroup/glslang/blob/vulkan-sdk-1.4.304.0/LICENSE.txt
+
+```
+Copyright (C) 2015-2018 Google, Inc.
+Copyright (C) <various other dates and companies>
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+   Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+   Redistributions in binary form must reproduce the above
+   copyright notice, this list of conditions and the following
+   disclaimer in the documentation and/or other materials provided
+   with the distribution.
+
+   Neither the name of 3Dlabs Inc. Ltd. nor the names of its
+   contributors may be used to endorse or promote products derived
+   from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+```
+
+## SPIRV-Tools and SPIRV-Headers (The Khronos Group) (Apache-2.0; MIT-style)
+
+Sources: https://github.com/KhronosGroup/SPIRV-Tools and https://github.com/KhronosGroup/SPIRV-Headers (tag
+vulkan-sdk-1.4.304.0). Only the check program links them. SPIRV-Tools is under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0, the repository's LICENSE). SPIRV-Headers' files are under the licence
+below, except those its LICENSE file names (Apache-2.0):
+
+```
+Copyright (c) 2015-2024 The Khronos Group Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and/or associated documentation files (the
+"Materials"), to deal in the Materials without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Materials, and to
+permit persons to whom the Materials are furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Materials.
+
+MODIFICATIONS TO THIS FILE MAY MEAN IT NO LONGER ACCURATELY REFLECTS
+KHRONOS STANDARDS. THE UNMODIFIED, NORMATIVE VERSIONS OF KHRONOS
+SPECIFICATIONS AND HEADER INFORMATION ARE LOCATED AT
+   https://www.khronos.org/registry/
+
+THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 ```
 
 ## GameSpy SDK (IGN Entertainment) (BSD 3-clause)
