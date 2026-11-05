@@ -343,7 +343,7 @@ bool Hub::joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, Conn* conn
             reason = JoinRefusedReason::kFullObservers;
             return false;
         }
-    } else if (count_players() >= settings_.get_player_limit()) {
+    } else if (roster_.count_players() >= settings_.get_player_limit()) {
         reason = JoinRefusedReason::kFull;
         return false;
     }
@@ -702,7 +702,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     Expects(player != nullptr);
     std::strncpy(player->label().data(), msg->name.data(), kNameSize - 1);
     core::at(player->label(), kNameSize - 1) = '\0';
-    player->set_entity_key(static_cast<uint8_t>(manager->reserve_obj_id_for_player()));
+    player->set_entity_key(static_cast<uint8_t>(manager->roster().reserve_obj_id_for_player()));
     player->set_conn(context->sender_conn());
     player->flag_bits() = PlayerFlag::kNone;
     player->set_profile_id(msg->profile);

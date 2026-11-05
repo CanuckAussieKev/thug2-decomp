@@ -69,16 +69,19 @@ inline goals::Objective* get_goal(goals::GoalManager* goals, uint32_t name) { re
 // The manager's players (online::PlayerRecord, player_info.h) and joining players (JoinerRecord).
 inline PlayerRecord* find_player_by_sender(Hub* manager, net::Conn* conn)
 {
-    return manager->find_player_by_sender(conn);
+    return manager->roster().find_player_by_sender(conn);
 }
 // (the original pushes the id as 16 bits)
-inline PlayerRecord* find_player_slot_by_obj(Hub* manager, uint16_t id) { return manager->find_player_slot_by_obj(id); }
+inline PlayerRecord* find_player_slot_by_obj(Hub* manager, uint16_t id)
+{
+    return manager->roster().find_player_slot_by_obj(id);
+}
 inline PlayerRecord* find_player_slot_by_obj(Hub* manager, const uint8_t* id) // a signed byte, widened
 {
     return find_player_slot_by_obj(manager, static_cast<uint16_t>(static_cast<int8_t>(*id)));
 }
-inline PlayerRecord* find_own_player_record(Hub* manager) { return manager->get_own_player(); }
-inline PlayerRecord* is_crown_rule_active(Hub* manager) { return manager->get_hill_ruler(); }
+inline PlayerRecord* find_own_player_record(Hub* manager) { return manager->roster().get_own_player(); }
+inline PlayerRecord* is_crown_rule_active(Hub* manager) { return manager->roster().get_hill_ruler(); }
 // (0 or 1 in EAX: the original's callers test AL)
 inline bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
 inline bool is_observer(PlayerRecord* player) { return player->is_observer() != 0; }
@@ -89,19 +92,19 @@ inline int player_team(const PlayerRecord* player) { return player->team(); }
 
 inline PlayerRecord* start_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {
-    return manager->begin_player_walk(search, observers);
+    return manager->roster().begin_player_walk(search, observers);
 }
 inline PlayerRecord* step_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {
-    return manager->step_player_walk(search, observers);
+    return manager->roster().step_player_walk(search, observers);
 }
 inline JoinerRecord* first_new_player(Hub* manager, NewPlayerSearch* search)
 {
-    return manager->begin_joiner_walk(search);
+    return manager->roster().begin_joiner_walk(search);
 }
 inline JoinerRecord* next_new_player(Hub* /*manager*/, NewPlayerSearch* search)
 {
-    return online::Hub::step_joiner_walk(search);
+    return online::PlayerRoster::step_joiner_walk(search);
 }
 
 // A player's connection's handle, for AppHost::put_on_outbox (0x005434A0: 0 without a connection).

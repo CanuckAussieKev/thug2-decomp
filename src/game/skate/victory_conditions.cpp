@@ -9,6 +9,7 @@
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "game/online/player_info.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
@@ -66,9 +67,15 @@ int current_num_teams() { return static_cast<MatchRules*>(get_game_mode())->curr
 // The network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
-PlayerRecord* start_roster_sweep(PlayerSearch* search) { return online::online_hub()->begin_player_walk(search, false); }
-PlayerRecord* step_roster_sweep(PlayerSearch* search) { return online::online_hub()->step_player_walk(search, false); }
-PlayerRecord* find_own_player_record() { return online::online_hub()->get_own_player(); }
+PlayerRecord* start_roster_sweep(PlayerSearch* search)
+{
+    return online::online_hub()->roster().begin_player_walk(search, false);
+}
+PlayerRecord* step_roster_sweep(PlayerSearch* search)
+{
+    return online::online_hub()->roster().step_player_walk(search, false);
+}
+PlayerRecord* find_own_player_record() { return online::online_hub()->roster().get_own_player(); }
 bool is_eliminated(PlayerRecord* player) { return player->is_eliminated(); }
 
 } // namespace
@@ -208,7 +215,8 @@ bool EliminationVictoryCondition::has_won_match(uint32_t player)
     if (!skater) {
         return false;
     }
-    PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // the skater's player
+    PlayerRecord* info =
+        net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // the skater's player
     return !is_eliminated(info);
 }
 

@@ -230,7 +230,7 @@ void send_chat_message(Hub* manager, const char* text)
     if (*text == '\0') {
         return;
     }
-    PlayerRecord* player = manager->get_own_player();
+    PlayerRecord* player = manager->roster().get_own_player();
     const uint8_t color = is_observer(player) ? kObserverColor : team_color(player);
     post_out(manager, player_name(player), color, text);
 }

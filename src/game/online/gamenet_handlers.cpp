@@ -314,7 +314,7 @@ int handle_game_ended(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     objects::trick_spot_hub()->remove_all_clusters();
     get_run(kCreateGameEndedDialog);
-    manager->clear_roster();
+    manager->roster().clear_roster();
     return kContinue;
 }
 

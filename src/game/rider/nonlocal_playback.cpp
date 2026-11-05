@@ -95,7 +95,8 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
     online::Hub* net = online::online_hub();
     net::Conn* conn = nullptr;
     if (net->get_on_server()) {
-        const online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()));
+        const online::PlayerRecord* player =
+            net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()));
         conn = player->conn();
     } else {
         net::ConnSearch search;
@@ -137,13 +138,14 @@ void RiderRemoteSync::interpolate()
         }
         skater->show_skater();
         script::launch_script(kSkaterAppeared, nullptr, skater, false, nullptr);
-        online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // (its result unused)
+        online::online_hub()->roster().find_player_slot_by_obj(
+            static_cast<uint16_t>(skater->ident())); // (its result unused)
         update_ground_lighting();
         return;
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    auto* player = (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
+    auto* player = (online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
     if (player->has_finished_joining() == 0) {
         player->set_finished_joining();
     }
@@ -272,7 +274,7 @@ void RiderRemoteSync::get_extrapolate()
     float dir_z = dz;
     // How well the move lines up with this machine's skater's (0 to 1; 0 without one).
     double alignment = 0.0;
-    const online::PlayerRecord* local = net->get_own_player();
+    const online::PlayerRecord* local = net->roster().get_own_player();
     if (local && local->skater()) {
         maths::Vec4 theirs = local->skater()->vel();
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
@@ -520,7 +522,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     const float dz = play_pos_.z - last_play_pos_.z;
     const float dw = play_pos_.w - last_play_pos_.w;
     double alignment = 0.0;
-    const online::PlayerRecord* local = net->get_own_player();
+    const online::PlayerRecord* local = net->roster().get_own_player();
     if (local) { // (its skater isn't checked here)
         maths::Vec4 theirs = local->skater()->vel();
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};

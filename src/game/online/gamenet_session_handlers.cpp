@@ -17,6 +17,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/net/net_app.h"
@@ -179,7 +180,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     copy_name(name.data(), server_name);
     net::AppHost* server = manager->host();
     info.skill_level = static_cast<uint8_t>(manager->settings().get_difficulty_tier());
-    info.num_players = static_cast<int8_t>(manager->count_players());
+    info.num_players = static_cast<int8_t>(manager->roster().count_players());
     info.max_players = static_cast<int8_t>(manager->settings().get_player_limit());
     info.num_observers = static_cast<int8_t>(manager->count_observers());
     info.max_observers = static_cast<int8_t>(manager->settings().get_spectator_limit());
@@ -244,7 +245,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
 int handle_host_options(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    auto* host = manager->get_host_player(); // (the host's own player)
+    auto* host = manager->roster().get_host_player(); // (the host's own player)
     if (!host || host->conn() != context->sender_conn()) {
         return kDone;
     }
@@ -526,7 +527,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     victory.reset();
     get_run(kStartingNewNetGame);
     static_cast<modules::Skate*>(skate)->launch_game();
-    manager->clear_roster();
+    manager->roster().clear_roster();
     manager->set_match_being_set_up(false);
     manager->set_cheating_noted(false);
     manager->set_final_scores_received(false);

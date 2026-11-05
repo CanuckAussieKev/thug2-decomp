@@ -16,6 +16,7 @@
 #include "engine/lists/chain_start.h"
 #include "game/goals/goal_manager.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "game/online/player_info.h"
 #include "game/online/score_list.h"
 #include "engine/script/cscript.h"
@@ -162,8 +163,8 @@ void fill_elimination_ranking()
     RankingList list;
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     const bool reset_scores = goals::game_mode()->is_true(kShouldResetScores);
-    for (void* player = net->begin_player_walk(&search, false); player;
-         player = net->step_player_walk(&search, false)) {
+    for (void* player = net->roster().begin_player_walk(&search, false); player;
+         player = net->roster().step_player_walk(&search, false)) {
         const online::PlayerRecord* info = as_player(player);
         online::ScoreEntry* entry = new_entry();
         text::copy_unbounded(entry->text().data(), info->rider()->fetch_shown_name());
@@ -213,7 +214,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Contex
     if (static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0U) {
         // The teams with players, by their scores; under each its players, then its total.
         for (int team = 0; team < goals::game_mode()->current_num_teams(); ++team) {
-            if (net->count_team_players(team) == 0) {
+            if (net->roster().count_team_players(team) == 0) {
                 continue;
             }
             online::ScoreEntry* entry = new_entry();
@@ -233,8 +234,8 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Contex
         uint32_t line = 0;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head()); entry;) {
             online::ScoreEntry* next = RankingList::get_after(entry);
-            for (void* player = net->begin_player_walk(&search, false); player;
-                 player = net->step_player_walk(&search, false)) {
+            for (void* player = net->roster().begin_player_walk(&search, false); player;
+                 player = net->roster().step_player_walk(&search, false)) {
                 online::PlayerRecord* info = as_player(player);
                 if (ints::as_unsigned(info->team()) != entry->unknown44()) {
                     continue;
@@ -260,8 +261,8 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Contex
             entry = next;
         }
     } else {
-        for (void* player = net->begin_player_walk(&search, false); player;
-             player = net->step_player_walk(&search, false)) {
+        for (void* player = net->roster().begin_player_walk(&search, false); player;
+             player = net->roster().step_player_walk(&search, false)) {
             online::PlayerRecord* info = as_player(player);
             const uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();

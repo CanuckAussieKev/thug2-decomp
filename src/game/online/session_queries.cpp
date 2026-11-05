@@ -32,7 +32,7 @@ net::AppHost* client_app(int index) { return online_hub()->fetch_patron(index); 
 bool own_player_client(uint32_t object_id, net::Guest** app)
 {
     Hub* manager = online_hub();
-    PlayerRecord* player = manager->find_player_slot_by_obj(static_cast<uint16_t>(object_id));
+    PlayerRecord* player = manager->roster().find_player_slot_by_obj(static_cast<uint16_t>(object_id));
     if (!player || player->is_own_player() == 0) {
         return false;
     }

@@ -63,7 +63,7 @@ online::PlayerRecord* script_player(script::Context context)
     if (!object) {
         return nullptr;
     }
-    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident()));
+    return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(object->ident()));
 }
 
 // A message without data to every player (or every remote one) through the server.

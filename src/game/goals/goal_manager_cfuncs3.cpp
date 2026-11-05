@@ -323,7 +323,7 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Co
     }
     net::AppHost* client = net->fetch_patron(0);
     net::NetMessageInfo desc;
-    net->get_own_player();
+    net->roster().get_own_player();
     online::GoalMessage message; // (wire/gamenet_messages.h)
     message.id = net->get_game_id();
     message.goal = goal->get_objective_key();

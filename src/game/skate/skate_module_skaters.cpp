@@ -27,6 +27,7 @@
 #include "engine/pad_input/device.h"
 #include "engine/pad_input/input_hub.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "game/online/player_info.h"
 #include "engine/objects/compositemgr.h"
@@ -448,14 +449,14 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
             return found(objects::get_spawn_node(checksums::Name{kTeam}, 0, 0));
         }
         if (goals::game_mode()->get_name_key() == kNetCtf) {
-            auto* local = as_player(net->get_own_player());
+            auto* local = as_player(net->roster().get_own_player());
             if (!local || static_cast<uint32_t>(local->team()) > 3) {
                 return generic();
             }
             return core::at(kTeamRestarts, local->team());
         }
         if (goals::game_mode()->get_name_key() == kNetScavengerHunt) {
-            auto* local = as_player(net->get_own_player());
+            auto* local = as_player(net->roster().get_own_player());
             if (!local) {
                 return generic();
             }
@@ -624,7 +625,7 @@ void Skate::launch_game()
     memory::enter_heap_scope(memory::bottom_up_heap());
     debug::printf("\nLAUNCH GAME CALLED with %d skaters \n\n",
                   count_riders()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
-    if (!net->get_own_player()) {
+    if (!net->roster().get_own_player()) {
         if (static_cast<uint32_t>(goals::game_mode()->get_rider_ceiling()) > 1) {
             memory::Hub::get_pull()->init_extra_skater_heaps(goals::game_mode()->get_rider_ceiling());
         }
@@ -635,10 +636,11 @@ void Skate::launch_game()
         game_flow_->get_request(kStandardGameFlow);
     }
     PlayerSearch search;
-    if (auto* king = as_player(net->get_hill_ruler())) {
+    if (auto* king = as_player(net->roster().get_hill_ruler())) {
         king->give_crown(false);
     }
-    for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true)) {
+    for (void* player = net->roster().begin_player_walk(&search, true); player;
+         player = net->roster().step_player_walk(&search, true)) {
         as_player(player)->clear_flags();
     }
     if (goals::game_mode()->get_name_key() == kNetLobby) {
@@ -683,8 +685,9 @@ void Skate::test_rider_contacts()
         return;
     }
     PlayerSearch search;
-    as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(king->ident())))->give_crown(true);
-    for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true)) {
+    as_player(net->roster().find_player_slot_by_obj(static_cast<uint16_t>(king->ident())))->give_crown(true);
+    for (void* player = net->roster().begin_player_walk(&search, true); player;
+         player = net->roster().step_player_walk(&search, true)) {
         if (static_cast<uint8_t>(as_player(player)->is_own_player()) != 0U) {
             continue;
         }
@@ -1059,7 +1062,7 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     if (goals::game_mode()->finish_rules_reached()) {
         return;
     }
-    auto* king = as_player(net->get_hill_ruler());
+    auto* king = as_player(net->roster().get_hill_ruler());
     if (!king || king->rider()->is_halted()) {
         return;
     }

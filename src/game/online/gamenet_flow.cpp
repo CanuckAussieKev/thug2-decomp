@@ -18,6 +18,7 @@
 #include "game/online/gamenet_commands.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "game/online/gamenet_lobby.h"
@@ -153,7 +154,7 @@ void Hub::reset_to_lobby()
     get_game_mode()->apply_match_style(kNetLobby); // the game mode
     get_game_mode()->set_num_teams(teams);
     match_ended_ = false;
-    clear_roster();
+    roster_.clear_roster();
     if (PlayerRecord* king = is_crown_rule_active(this)) {
         king->give_crown(false);
     }
@@ -248,7 +249,7 @@ void Hub::start_network_game()
     last_leader_ = nullptr;  // the last leader
     last_leading_team_ = -1; // the last leading team
     clear_queued_scripts();
-    clear_roster();
+    roster_.clear_roster();
     net_game_state().set_cheat_flag(false);
     if (rating_service_->update_logged_in()) {
         rating_service_->start_game();
@@ -313,7 +314,7 @@ void Hub::auto_serve_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     if (frame_clock::get_time() - net_game_state().auto_serve_start() < kAutoServeWait ||
-        get_game_type() != kNetLobby || manager->count_players() < 2 || manager->awaiting_start_ ||
+        get_game_type() != kNetLobby || manager->roster().count_players() < 2 || manager->awaiting_start_ ||
         frame_clock::get_time() - manager->lobby_since_ <= kAutoServeIdle) {
         return;
     }
@@ -380,7 +381,7 @@ void Hub::start_game_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     bool& waiting_shown = gamenet_flow_state().waiting_shown_;
-    if (manager->count_other_players() > 0) { // players still loading
+    if (manager->roster().count_other_players() > 0) { // players still loading
         if (manager->get_on_server()) {
             if (!waiting_shown) {
                 frontend::ElementPtr menu;

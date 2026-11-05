@@ -18,6 +18,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "game/online/player_info.h"
@@ -121,8 +122,8 @@ enum class Recipients : uint8_t { kAll, kRemote, kObservers };
 // `desc` through the server to the players (all, those not local, the observers).
 void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* desc, Recipients recipients)
 {
-    for (const memory::ListNode* node = get_next_node(&manager->players()); PlayerRecord* player = data_of(node);
-         node = get_next_node(node)) {
+    for (const memory::ListNode* node = get_next_node(&manager->roster().players());
+         PlayerRecord* player = data_of(node); node = get_next_node(node)) {
         if (recipients == Recipients::kRemote && is_own_player(player)) {
             continue;
         }
@@ -172,8 +173,8 @@ bool cfunc_team_flag_taken(Struct* params, Context /*context*/)
     PlayerSearch search;
     int team = 0; // (uninitialised in the original)
     params->fetch_int_value(kTeam, &team, 0);
-    for (PlayerRecord* player = manager->begin_player_walk(&search, false); player;
-         player = manager->step_player_walk(&search, false)) {
+    for (PlayerRecord* player = manager->roster().begin_player_walk(&search, false); player;
+         player = manager->roster().step_player_walk(&search, false)) {
         if (player->get_flag_team() == team) {
             return true;
         }
@@ -209,7 +210,7 @@ bool cfunc_spawn_crown(Struct* /*params*/, Context /*context*/)
     maths::Vec4 position;
     level_nodes::fetch_place(node, &position);
     manager->crown()->init_from_node(objects::object_hub_slot().get(), node);
-    if (auto* king = manager->get_hill_ruler()) {
+    if (auto* king = manager->roster().get_hill_ruler()) {
         manager->crown()->put_on(core::down_cast<objects::GameEntity>(player_skater(king)));
     }
     return true;
@@ -316,7 +317,7 @@ bool cfunc_end_network_game(Struct* /*params*/, Context /*context*/)
 // 0x005388C0: GetMyTeam - the local player's team into the script's team.
 bool cfunc_get_my_team(Struct* /*params*/, Context context)
 {
-    if (const PlayerRecord* local = net_game_state().online_hub()->get_own_player()) {
+    if (const PlayerRecord* local = net_game_state().online_hub()->roster().get_own_player()) {
         context.args()->put_int(kTeam, player_team(local));
     }
     return true;
@@ -372,8 +373,8 @@ bool cfunc_set_num_teams(Struct* params, Context /*context*/)
     desc.set_ident(MessageId::kTeamChange);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
-    for (auto* player = manager->begin_player_walk(&search, false); player;
-         player = manager->step_player_walk(&search, false)) {
+    for (auto* player = manager->roster().begin_player_walk(&search, false); player;
+         player = manager->roster().step_player_walk(&search, false)) {
         if (player_team(player) < teams) {
             continue;
         }
@@ -391,7 +392,7 @@ bool cfunc_join_team(Struct* params, Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     net::NetMessageInfo desc;
-    auto* local = manager->get_own_player();
+    auto* local = manager->roster().get_own_player();
     if (!local || !player_skater(local)) {
         return false;
     }
@@ -432,7 +433,7 @@ bool cfunc_is_host(Struct* /*params*/, Context /*context*/)
     if ((manager->flag_bits() & kFlagsServer) != 0U) {
         return manager->host_mode() == 0;
     }
-    void* local = manager->get_own_player();
+    void* local = manager->roster().get_own_player();
     return (local != nullptr) && static_cast<PlayerRecord*>(local)->is_host_player() != 0;
 }
 
@@ -443,8 +444,8 @@ bool cfunc_all_players_are_ready(Struct* /*params*/, Context /*context*/)
     if ((manager->flag_bits() & kFlagsServer) == 0U) {
         return true;
     }
-    for (const memory::ListNode* node = get_next_node(&manager->players()); const PlayerRecord* player = data_of(node);
-         node = get_next_node(node)) {
+    for (const memory::ListNode* node = get_next_node(&manager->roster().players());
+         const PlayerRecord* player = data_of(node); node = get_next_node(node)) {
         if ((static_cast<uint8_t>(player->conn()->cur_standing()) & 1) == 0) {
             return false;
         }
@@ -462,7 +463,7 @@ bool cfunc_create_player_options(Struct* params, Context /*context*/)
     const char* name = nullptr;
     params->fetch_int_value(kIndex, &index, 0);
     params->fetch_text(kName, &name, 0);
-    const memory::ListNode* node = get_next_node(&manager->players());
+    const memory::ListNode* node = get_next_node(&manager->roster().players());
     PlayerRecord* player = data_of(node);
     if (!player) {
         return true;
@@ -504,8 +505,8 @@ bool cfunc_fill_player_list_menu(Struct* /*params*/, Context /*context*/)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap());
     int index = 0;
-    for (const memory::ListNode* node = get_next_node(&manager->players()); PlayerRecord* player = data_of(node);
-         node = get_next_node(node)) {
+    for (const memory::ListNode* node = get_next_node(&manager->roster().players());
+         PlayerRecord* player = data_of(node); node = get_next_node(node)) {
         if (is_own_player(player)) {
             ++index;
             continue;
@@ -569,8 +570,8 @@ bool cfunc_cancel_remove_player(Struct* /*params*/, Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     PlayerSearch search;
-    for (auto* player = manager->begin_player_walk(&search, false); player;
-         player = manager->step_player_walk(&search, false)) {
+    for (auto* player = manager->roster().begin_player_walk(&search, false); player;
+         player = manager->roster().step_player_walk(&search, false)) {
         player->flag_bits() &= ~PlayerFlag::kMarked;
     }
     return true;

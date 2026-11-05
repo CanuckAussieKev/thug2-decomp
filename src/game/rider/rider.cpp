@@ -549,8 +549,7 @@ float Rider::fetch_tally(int index)
     }
     // Online: the server's rules for this player.
     if (online::online_hub()->in_net_game()) {
-        auto* player =
-            online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
+        auto* player = online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (player && (player->holds_crown() != 0)) {
             stat = 1.0F;
         } else if (player && (player->is_carrying_flag() != 0)) {
@@ -559,8 +558,7 @@ float Rider::fetch_tally(int index)
             stat = kOutOfGameStat; // (no player, or neither)
         }
     } else if (rule_5a_1180()) {
-        auto* player =
-            online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
+        auto* player = online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (player && (player->holds_crown() != 0)) {
             stat = 1.0F;
         }
@@ -1005,7 +1003,7 @@ void Rider::show_skater()
 const char* Rider::fetch_shown_name()
 {
     if (online::online_hub()->in_net_game()) {
-        return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()))->label().data();
+        return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(ident()))->label().data();
     }
     return shown_name_.c_str();
 }
@@ -1859,7 +1857,7 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
     if (mode() == kNetctf || mode() == kNetking || mode() == kKing) {
         net::NetMessageInfo message;
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
-        if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident()))) {
+        if (online::PlayerRecord* player = net->roster().find_player_slot_by_obj(static_cast<uint16_t>(ident()))) {
             player->mark_capture_blocked();
         }
         message.set_ident(online::MessageId::kRiderReady);

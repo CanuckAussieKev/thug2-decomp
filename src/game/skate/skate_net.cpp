@@ -18,6 +18,7 @@
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
@@ -166,10 +167,10 @@ void get_run(uint32_t name, Struct* params = nullptr, objects::Entity* object = 
 }
 
 using online::PlayerRecord;
-PlayerRecord* find_own_player_record() { return online::online_hub()->get_own_player(); }
+PlayerRecord* find_own_player_record() { return online::online_hub()->roster().get_own_player(); }
 PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
 objects::Entity* player_skater(const PlayerRecord* player) { return player->skater(); }
@@ -420,7 +421,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     std::array<char, kTextBytes> text{};
     if ((goals::game_mode()->is_squad_match() != 0)) { // teams
         int local_team = -1;
-        PlayerRecord* local = net->get_own_player();
+        PlayerRecord* local = net->roster().get_own_player();
         if (local && (local->is_observer() == 0) && (local->has_finished_joining() != 0)) {
             local_team = local->team();
         }
@@ -437,7 +438,8 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
             }
         }
     } else {
-        PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(core::at(data, 0))));
+        PlayerRecord* player =
+            net->roster().find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(core::at(data, 0))));
         if (!player) {
             return 1;
         }
@@ -562,7 +564,7 @@ int announce_leading_team(online::Hub* net, bool final, std::array<char, kTextBy
     if (best == -1) {
         return 1;
     }
-    PlayerRecord* local = net->get_own_player();
+    PlayerRecord* local = net->roster().get_own_player();
     if (final) {
         const objects::Entity* skater = player_skater(local);
         if (skater) {
@@ -654,8 +656,8 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     int count = 0;
     PlayerRecord* best = nullptr;
     int best_score = 0;
-    for (PlayerRecord* player = net->begin_player_walk(&search, false); player;
-         player = net->step_player_walk(&search, false)) {
+    for (PlayerRecord* player = net->roster().begin_player_walk(&search, false); player;
+         player = net->roster().step_player_walk(&search, false)) {
         const int score = net->get_entrant_points(player_skater(player)->ident());
         if (score > best_score) {
             best_score = score;
@@ -668,7 +670,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     if (!best) {
         return 1;
     }
-    PlayerRecord* local = net->get_own_player();
+    PlayerRecord* local = net->roster().get_own_player();
     if (final) {
         // (the loser's event goes to the leader's skater too: the original's)
         if (is_own_player(best)) {
@@ -1095,7 +1097,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
 int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
-    PlayerRecord* player = online::online_hub()->find_player_by_sender(context->sender_conn());
+    PlayerRecord* player = online::online_hub()->roster().find_player_by_sender(context->sender_conn());
     objects::Entity* object = player ? player_skater(player) : nullptr;
     if (!object || ((player->conn()->cur_standing() & 1) == 0U) || ((context->wire_options() & 3) != 0U)) {
         // Not taken: the message's length worked out from its fields (a 32-bit time stamp, 9 field bits, then 16

@@ -26,6 +26,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "game/online/player_info.h"
@@ -86,11 +87,17 @@ std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters>& dirty_clusters()
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
-PlayerRecord* start_roster_sweep(PlayerSearch* search) { return online::online_hub()->begin_player_walk(search, false); }
-PlayerRecord* step_roster_sweep(PlayerSearch* search) { return online::online_hub()->step_player_walk(search, false); }
+PlayerRecord* start_roster_sweep(PlayerSearch* search)
+{
+    return online::online_hub()->roster().begin_player_walk(search, false);
+}
+PlayerRecord* step_roster_sweep(PlayerSearch* search)
+{
+    return online::online_hub()->roster().step_player_walk(search, false);
+}
 PlayerRecord* find_player_slot_by_obj(int id)
 {
-    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 int get_team(PlayerRecord* player) { return player->team(); }
 objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
@@ -666,7 +673,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         if (const objects::Entity* skater =
                 static_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player))) {
             if (const online::PlayerRecord* info =
-                    net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()))) {
+                    net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()))) {
                 conn = info->conn();
             }
         }
@@ -688,12 +695,12 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
             std::array<uint8_t, online::kTagStolenSize> stolen_data{};
             util::ByteWriter stolen_writer(stolen_data.data(), sizeof(stolen_data));
             online::write_tag_stolen(stolen_writer, message);
-            online::PlayerRecord* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
+            online::PlayerRecord* thief = net->roster().find_player_slot_by_obj(static_cast<uint16_t>(player));
             stolen_desc.set_content(stolen_data.data());
             stolen_desc.set_byte_count(sizeof(stolen_data));
             stolen_desc.set_ident(online::MessageId::kTagStolen);
             server->put_on_outbox(thief->get_link_handle(), &stolen_desc);
-            if (online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(victim))) {
+            if (online::PlayerRecord* info = net->roster().find_player_slot_by_obj(static_cast<uint16_t>(victim))) {
                 server->put_on_outbox(info->get_link_handle(), &desc); // (not stolen_desc: as the original)
             }
         }
@@ -715,8 +722,8 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         desc.set_ident(online::MessageId::kTrickObjects);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
         desc.set_group_id(online::MessageGroup::kGame);
-        for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
-             info = net->step_player_walk(&search, false)) {
+        for (online::PlayerRecord* info = net->roster().begin_player_walk(&search, false); info;
+             info = net->roster().step_player_walk(&search, false)) {
             server->send_bulk_message(info->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
                                       "TrickObj Buffer", online::MessageGroup::kGame, true, false);
         }
@@ -726,8 +733,8 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         desc.set_content(data.data());
         desc.set_byte_count(static_cast<uint16_t>(observed_writer.position()));
         desc.set_ident(online::MessageId::kObservedTrickObjects);
-        for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
-             info = net->step_player_walk(&search, true)) {
+        for (online::PlayerRecord* info = net->roster().begin_player_walk(&search, true); info;
+             info = net->roster().step_player_walk(&search, true)) {
             if (info->is_observer() != 0) {
                 server->send_bulk_message(info->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
                                           "TrickObj Buffer", online::MessageGroup::kGame, true, false);

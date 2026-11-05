@@ -142,7 +142,7 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Context
         if (!skater) {
             continue;
         }
-        auto* info = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
+        auto* info = (net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
         if (!info) {
             continue;
         }
@@ -162,8 +162,7 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Context
         }
     }
     if (static_cast<int>(player) > -1) {
-        team =
-            (net->find_player_slot_by_obj(static_cast<uint16_t>(player)))->team();
+        team = (net->roster().find_player_slot_by_obj(static_cast<uint16_t>(player)))->team();
     }
     results->put_int(checksums::Name{kTeam}, team);
     results->put_int(checksums::Name{kPlayer}, static_cast<int>(player));

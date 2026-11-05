@@ -172,7 +172,7 @@ bool Objective::lose()
 bool Objective::has_run_out()
 {
     online::Hub* net = online::online_hub();
-    if (!local_skater() || (net->count_players() == 0)) {
+    if (!local_skater() || (net->roster().count_players() == 0)) {
         return true;
     }
     if (core::any(cur_phase_ & Objective::State::kNoTimeLimit)) {
@@ -190,7 +190,7 @@ bool Objective::is_expired_at_end_of_run(bool force)
         return true;
     }
     objects::RiderSessionEnd* end_run = end_run_of(skater);
-    if (net->count_players() == 0) {
+    if (net->roster().count_players() == 0) {
         return true;
     }
     if (core::any(cur_phase_ & Objective::State::kNoTimeLimit)) {

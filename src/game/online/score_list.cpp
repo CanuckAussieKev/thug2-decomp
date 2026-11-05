@@ -12,6 +12,7 @@
 #include "engine/lists/chain_start.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "game/online/player_info.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -153,7 +154,7 @@ int Hub::get_entrant_points(uint32_t id)
     if (get_game_type() == kNetGoalAttack && !core::any(local->flag_bits() & PlayerFlag::kObserver)) {
         return objective_board()->count_cleared_by_player(static_cast<int>(id));
     }
-    auto* player = find_player_slot_by_obj(static_cast<uint16_t>(id));
+    auto* player = roster_.find_player_slot_by_obj(static_cast<uint16_t>(id));
     return points_of(get_score_of(player));
 }
 
@@ -171,7 +172,7 @@ void add_team_lines(Hub* manager, lists::Foremost& list, PlayerSearch& search)
 {
     std::array<ScoreEntry*, 4> teams{};
     for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
-        if (manager->count_team_players(team) <= 0) {
+        if (manager->roster().count_team_players(team) <= 0) {
             continue;
         }
         const uint32_t name = team < 4 ? core::at(kTeamNames, team) : 0;
@@ -208,7 +209,7 @@ void add_team_lines(Hub* manager, lists::Foremost& list, PlayerSearch& search)
         }
     }
     for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
-        if (manager->count_team_players(team) <= 0) {
+        if (manager->roster().count_team_players(team) <= 0) {
             continue;
         }
         ScoreEntry* entry = core::at(teams, team);

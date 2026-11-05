@@ -142,9 +142,8 @@ void ShotImpactModule::tick_frame()
         if (skater->ident() == holder_key_) {
             continue;
         }
-        auto* owner =
-            (net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
-        auto* victim = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
+        auto* owner = (net->roster().find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
+        auto* victim = (net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
         if (victim->can_be_hit_again() == 0) {
             continue;
         }

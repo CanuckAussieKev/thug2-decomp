@@ -12,6 +12,7 @@
 #include "engine/memory/task_list.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "game/online/gamenet_observer.h"
 #include "game/online/gamenet_qr2.h"
 #include "engine/net/net_app.h"
@@ -155,7 +156,7 @@ bool cfunc_player_took_flag(script::Struct* params, script::Context /*context*/)
     int team = 0;
     params->fetch_int_value(kPlayer, &player, 0);
     params->fetch_int_value(kFlagTeam, &team, 0);
-    PlayerRecord* taker = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* taker = manager->roster().find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (taker) {
         send_flag_message(manager, {.id = MessageId::kTookFlag, .player = player, .team = team}, [&] { taker->note_flag_pickup(team); });
     }
@@ -168,7 +169,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Context /*contex
     Hub* manager = net_game_state().online_hub();
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 0);
-    PlayerRecord* capturer = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* capturer = manager->roster().find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (!capturer || core::any(capturer->flag_bits() & PlayerFlag::kCaptureBlocked)) {
         return true;
     }
@@ -191,7 +192,7 @@ bool cfunc_player_retrieved_flag(script::Struct* params, script::Context /*conte
     int team = 0;
     params->fetch_int_value("player", &player, 0);
     params->fetch_int_value("flag_team", &team, 0);
-    PlayerRecord* retriever = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* retriever = manager->roster().find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (retriever) { // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
         send_flag_message(manager, {.id = MessageId::kCapturedFlag, .player = player, .team = team}, [&] { retriever->score_flag_capture(team); });
     }
@@ -203,7 +204,8 @@ bool cfunc_player_has_flag(script::Struct* params, script::Context /*context*/)
 {
     int player = 0;
     params->fetch_int_value("player", &player, 0);
-    PlayerRecord* found = net_game_state().online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* found =
+        net_game_state().online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (!found) {
         return true;
     }
@@ -216,7 +218,7 @@ bool cfunc_get_num_players_on_team(script::Struct* params, script::Context conte
     Hub* manager = net_game_state().online_hub();
     int team = 0;
     params->fetch_int_value("team", &team, 1);
-    context.args()->put_int("num_members", manager->count_team_players(team));
+    context.args()->put_int("num_members", manager->roster().count_team_players(team));
     return true;
 }
 
@@ -225,7 +227,8 @@ bool cfunc_get_players_team(script::Struct* params, script::Context context)
 {
     int id = 0;
     params->fetch_int_value(kObjId, &id, 0);
-    const PlayerRecord* player = net_game_state().online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    const PlayerRecord* player =
+        net_game_state().online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player) {
         context.args()->put_int("team", player_team(player));
     }

@@ -14,6 +14,7 @@
 #include "game/park_editing/park_editor.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_lists.h"
@@ -105,7 +106,7 @@ void Hub::add_new_player(JoinerRecord* info)
             }
         }
     }
-    PlayerRecord* player = find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(obj_id)));
+    PlayerRecord* player = roster_.find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(obj_id)));
     if (core::any(info->flag_bits() & PlayerFlag::kRejoining)) { // the old player (or the local one) goes
         if (!player) {
             player = find_own_player_record(this);
@@ -125,7 +126,7 @@ void Hub::add_new_player(JoinerRecord* info)
         player->set_drive_control_mode(info->drive_control_mode());
         player->set_accumulated_score(static_cast<int>(info->accumulated_score()));
         player->set_eliminated_time(info->eliminated_time());
-        auto* head = &players_;
+        auto* head = &roster_.players();
         memory::ListNode* node = player;
         node->set_prev(head->prev());
         node->set_next(head);
@@ -158,7 +159,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     modules::Skate* skate = modules::Skate::sole();
     net::ConnSearch search;
-    auto* node = manager->joiners_.next(); // (the joining players' first node)
+    auto* node = manager->roster_.joiners().next(); // (the joining players' first node)
     bool added = false;
     if (node->data() != memory::ListNode::head_marker() && node) {
         while (node) {
@@ -387,7 +388,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     const net::Hub* net = net::Hub::sole();
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);
-    auto* node = manager->joiners_.next(); // (the joining players' first node)
+    auto* node = manager->roster_.joiners().next(); // (the joining players' first node)
     if (node->data() != memory::ListNode::head_marker() && node) {
         while (node) {
             PlayerSearch search;
@@ -410,7 +411,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             player->set_drive_control_mode(info->drive_control_mode());
             player->set_accumulated_score(0);
             player->set_eliminated_time(0);
-            auto* head = &manager->players_;
+            auto* head = &manager->roster_.players();
             memory::ListNode* player_node = player;
             player_node->set_prev(head->prev());
             player_node->set_next(head);

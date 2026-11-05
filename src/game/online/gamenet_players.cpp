@@ -22,6 +22,7 @@
 #include "engine/sys/stopwatch.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_observer.h"
 #include "engine/net/net_app.h"
@@ -208,19 +209,19 @@ void Hub::assign_first_come_first_served()
 }
 
 // 0x0053AC40
-int Hub::reserve_obj_id_for_player()
+int PlayerRoster::reserve_obj_id_for_player()
 {
     for (int id = 0; id < kMaxObjectIds; ++id) {
         bool used = false;
         PlayerSearch search;
-        for (const PlayerRecord* player = start_roster_sweep(this, &search, false); player && !used;
-             player = step_roster_sweep(this, &search, false)) {
+        for (const PlayerRecord* player = begin_player_walk(&search, false); player && !used;
+             player = step_player_walk(&search, false)) {
             used = ints::as_signed(get_skater_id(player_skater(player))) ==
                    id; // (a player without a skater: read at 0x14)
         }
         NewPlayerSearch new_search;
-        for (const JoinerRecord* info = first_new_player(this, &new_search); info && !used;
-             info = next_new_player(this, &new_search)) {
+        for (const JoinerRecord* info = begin_joiner_walk(&new_search); info && !used;
+             info = step_joiner_walk(&new_search)) {
             const PlayerFlag flags = info->flag_bits();
             if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver)) {
                 continue; // (an observer joining takes no id)
@@ -235,11 +236,10 @@ int Hub::reserve_obj_id_for_player()
 }
 
 // 0x0053AE10
-PlayerRecord* Hub::find_player_by_sender(net::Conn* conn)
+PlayerRecord* PlayerRoster::find_player_by_sender(net::Conn* conn)
 {
     PlayerSearch search;
-    for (PlayerRecord* player = start_roster_sweep(this, &search, true); player;
-         player = step_roster_sweep(this, &search, true)) {
+    for (PlayerRecord* player = begin_player_walk(&search, true); player; player = step_player_walk(&search, true)) {
         if (player->conn() == conn) {
             return player;
         }
@@ -248,11 +248,10 @@ PlayerRecord* Hub::find_player_by_sender(net::Conn* conn)
 }
 
 // 0x0053AEA0
-PlayerRecord* Hub::find_player_slot_by_obj(uint16_t id)
+PlayerRecord* PlayerRoster::find_player_slot_by_obj(uint16_t id)
 {
     PlayerSearch search;
-    for (PlayerRecord* player = start_roster_sweep(this, &search, false); player;
-         player = step_roster_sweep(this, &search, false)) {
+    for (PlayerRecord* player = begin_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
         const objects::Entity* skater = player_skater(player);
         if (skater && get_skater_id(skater) == id) {
             return player;
@@ -389,7 +388,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         remove_player_record(player);
         if (fcfs) { // it was to serve next: someone else
             assign_first_come_first_served();
-            if (!get_host_player() && get_game_type() != kNetLobby) {
+            if (!roster_.get_host_player() && get_game_type() != kNetLobby) {
                 get_run(kNetworkEndGameSelected);
             }
         }
@@ -430,7 +429,7 @@ void Hub::re_add_pending_players()
             JoinerRecord info; // (its constructor: a skater profile)
             frames += kRejoinDelayFrames;
             text::copy_into(info.label(), player_name(player));
-            info.set_entity_key(static_cast<uint8_t>(reserve_obj_id_for_player()));
+            info.set_entity_key(static_cast<uint8_t>(roster_.reserve_obj_id_for_player()));
             info.set_conn(player->conn());
             info.flag_bits() = PlayerFlag::kRejoining;
             info.set_profile_id(player->profile_id());

@@ -21,6 +21,7 @@
 #include "game/online/gamenet_lobby.h"
 #include "platform/gamespy.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_manager.h"
 #include "engine/script/preferences.h"

@@ -22,6 +22,7 @@
 #include "game/goals/goal_manager.h"
 #include "engine/gfx/view_cam.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "game/online/player_info.h"
@@ -289,8 +290,8 @@ void Skate::enter_stage(uint32_t level)
     memory::push_mem_profile("LaunchLevel"); // "LaunchLevel"
     if (net->in_net_game() && net->get_on_server()) {
         PlayerSearch search;
-        for (void* player = net->begin_player_walk(&search, true); player;
-             player = net->step_player_walk(&search, true)) {
+        for (void* player = net->roster().begin_player_walk(&search, true); player;
+             player = net->roster().step_player_walk(&search, true)) {
             as_player(player)->await_ready_response(0);
         }
     }
@@ -318,7 +319,7 @@ void Skate::enter_stage(uint32_t level)
             }
         } else {
             online::NewPlayerSearch search;
-            if (!net->begin_joiner_walk(&search)) {
+            if (!net->roster().begin_joiner_walk(&search)) {
                 net->send_ready_response();
             }
         }
@@ -383,7 +384,8 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Context /*context
     } message{};
     message.level = level;
     message.show_warning_ = show_warning;
-    for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true)) {
+    for (void* player = net->roster().begin_player_walk(&search, true); player;
+         player = net->roster().step_player_walk(&search, true)) {
         online::PlayerRecord* info = as_player(player);
         net::NetMessageInfo desc;
         uint32_t now = frame_clock::get_time();

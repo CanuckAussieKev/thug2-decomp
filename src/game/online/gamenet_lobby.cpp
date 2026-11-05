@@ -125,7 +125,7 @@ void RoomManager::server_key_callback(void* /*unused*/, int key, void* buffer, v
         buffer_add(buffer, manager->get_game_type_name()); // the game type's name
         break;
     case kKeyNumplayers:
-        buffer_add_int(buffer, manager->count_players());
+        buffer_add_int(buffer, manager->roster().count_players());
         break;
     case kKeyMaxplayers:
         buffer_add_int(buffer, manager->settings().get_player_limit());
@@ -168,7 +168,7 @@ int RoomManager::count_callback(void* /*unused*/, int type, void* /*unused*/)
         return kServerKeyCount;
     }
     if (type == kKeyTypePlayer) {
-        return net_game_state().online_hub()->count_players();
+        return net_game_state().online_hub()->roster().count_players();
     }
     return 0;
 }

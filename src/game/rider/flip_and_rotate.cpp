@@ -49,7 +49,7 @@ constexpr uint32_t kNormal = 0xDE7A971B;
 // machine's, a player's skater's index (its +0x2BC) and the client app of an index.
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
+    return (online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(id)));
 }
 bool is_own_player(online::PlayerRecord* player) { return player->is_own_player() != 0; }
 int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_view_slot()); }

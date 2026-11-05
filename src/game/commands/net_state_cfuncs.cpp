@@ -324,11 +324,11 @@ bool cfunc_is_observing(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     online::detail::NewPlayerSearch search;
-    if (online::PlayerRecord* player = game_net->get_own_player()) {
+    if (online::PlayerRecord* player = game_net->roster().get_own_player()) {
         return player->is_observer() != 0;
     }
-    for (const online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
-         player = online::Hub::step_joiner_walk(&search)) {
+    for (const online::JoinerRecord* player = game_net->roster().begin_joiner_walk(&search); player;
+         player = online::PlayerRoster::step_joiner_walk(&search)) {
         const online::PlayerFlag flags = player->flag_bits();
         if (core::any(flags & online::PlayerFlag::kLocal) && core::any(flags & online::PlayerFlag::kObserver)) {
             return true;

@@ -12,6 +12,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -201,7 +202,7 @@ bool OnlineObjective::wants_to_end()
     }
     online::Hub* net = online::online_hub();
     PlayerSearch search;
-    if (net->count_players() == 0) {
+    if (net->roster().count_players() == 0) {
         return true;
     }
     if (core::any(cur_phase() & Objective::State::kNoTimeLimit)) {
@@ -216,8 +217,8 @@ bool OnlineObjective::wants_to_end()
     if (all_skaters_run_done() && seconds_remaining() <= 0) {
         return true;
     }
-    for (void* player = net->begin_player_walk(&search, false); player;
-         player = net->step_player_walk(&search, false)) {
+    for (void* player = net->roster().begin_player_walk(&search, false); player;
+         player = net->roster().step_player_walk(&search, false)) {
         objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->rider();
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         if (!end_run->run_done() && !skater->is_halted() && run_ending() != 2 && seconds_remaining() <= 0) {

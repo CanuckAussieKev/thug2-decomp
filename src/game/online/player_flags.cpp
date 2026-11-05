@@ -7,6 +7,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "base/core/enum_ops.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "game/online/player_info.h"
@@ -145,7 +146,7 @@ void PlayerRecord::set_finished_joining()
         break;
     }
     case 2:
-        if (!manager->get_host_player()) {
+        if (!manager->roster().get_host_player()) {
             manager->assign_first_come_first_served(); // (the game starts)
         }
         break;
@@ -295,7 +296,7 @@ void PlayerRecord::give_crown(bool king)
             get_run(kNewKingOther, params.get());
         }
         // Split screen: the other screen's player is told too.
-        if (!manager->in_net_game() && manager->find_player_slot_by_obj(get_skater_id(skater_) == 0 ? 1 : 0)) {
+        if (!manager->in_net_game() && manager->roster().find_player_slot_by_obj(get_skater_id(skater_) == 0 ? 1 : 0)) {
             const script::StructPtr params = script::make_struct();
             params->append_word(kString0, rider()->fetch_shown_name()); // (its display name)
             get_run(kNewKingOther, params.get());

@@ -13,6 +13,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/script/cscript.h"
@@ -358,7 +359,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
         return kKeep;
     }
     // Not a player yet: one of the new players waiting to be added - dropped with its connection.
-    auto* node = manager->joiners().next(); // (the new players' list, its first node)
+    auto* node = manager->roster().joiners().next(); // (the new players' list, its first node)
     if (node->data() == memory::ListNode::head_marker()) {
         return kHalt;
     }

@@ -38,6 +38,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_lists.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/gfx/cas_options.h"
@@ -164,9 +165,9 @@ void d_3d_x_matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths:
 }
 
 // The first player (observers too) for whom the PlayerRecord member `test` is true (0 / 1 in EAX: tested as AL).
-PlayerRecord* find_player(Hub* manager, int (PlayerRecord::*test)())
+PlayerRecord* find_player(PlayerRoster* roster, int (PlayerRecord::*test)())
 {
-    for (const memory::ListNode* node = get_next_node(&manager->players()); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&roster->players()); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if ((player->*test)() != 0) {
             return player;
@@ -187,7 +188,7 @@ void delete_new_player(JoinerRecord* player)
 // 0x00536820
 void Hub::remove_all_new_players()
 {
-    memory::ListNode* node = joiners_.next();
+    memory::ListNode* node = roster_.joiners().next();
     if (is_head(node)) {
         return;
     }
@@ -208,7 +209,7 @@ void Hub::remove_all_new_players()
 // 0x00536B10
 void Hub::remove_new_player(JoinerRecord* player)
 {
-    memory::ListNode* node = joiners_.next();
+    memory::ListNode* node = roster_.joiners().next();
     // (the original tests for the list's end before it tests for a null node)
     if (is_head(node) || !node) {
         return;
@@ -228,7 +229,7 @@ void Hub::remove_new_player(JoinerRecord* player)
 }
 
 // 0x00537010
-PlayerRecord* Hub::step_player_walk(PlayerSearch* search, bool observers)
+PlayerRecord* PlayerRoster::step_player_walk(PlayerSearch* search, bool observers)
 {
     PlayerSearch* sweep = search;
     auto* node = get_next_node(sweep->list_link_);
@@ -241,10 +242,10 @@ PlayerRecord* Hub::step_player_walk(PlayerSearch* search, bool observers)
 }
 
 // 0x005372C0
-PlayerRecord* Hub::begin_player_walk(PlayerSearch* search, bool observers)
+PlayerRecord* PlayerRoster::begin_player_walk(PlayerSearch* search, bool observers)
 {
     PlayerSearch* sweep = search;
-    memory::ListNode* head = &players_;
+    memory::ListNode* head = &players();
     sweep->list_link_ = head;
     memory::ListNode* node = get_next_node(head);
     sweep->list_link_ = node;
@@ -256,10 +257,10 @@ PlayerRecord* Hub::begin_player_walk(PlayerSearch* search, bool observers)
 }
 
 // 0x00537070
-JoinerRecord* Hub::begin_joiner_walk(NewPlayerSearch* search)
+JoinerRecord* PlayerRoster::begin_joiner_walk(NewPlayerSearch* search)
 {
     NewPlayerSearch* sweep = search;
-    memory::ListNode* head = &joiners_;
+    memory::ListNode* head = &joiners();
     sweep->list_link_ = head;
     memory::ListNode* node = get_next_node(head);
     sweep->list_link_ = node;
@@ -267,7 +268,7 @@ JoinerRecord* Hub::begin_joiner_walk(NewPlayerSearch* search)
 }
 
 // (no address: the lists' generic next, folded at 0x004573D0 - see the header)
-JoinerRecord* Hub::step_joiner_walk(NewPlayerSearch* search)
+JoinerRecord* PlayerRoster::step_joiner_walk(NewPlayerSearch* search)
 {
     NewPlayerSearch* sweep = search;
     memory::ListNode* next = sweep->list_link_->next();
@@ -276,9 +277,9 @@ JoinerRecord* Hub::step_joiner_walk(NewPlayerSearch* search)
 }
 
 // 0x005370A0
-JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
+JoinerRecord* PlayerRoster::fetch_incoming_player_by_obj(uint16_t id)
 {
-    const memory::ListNode* node = get_next_node(&joiners_);
+    const memory::ListNode* node = get_next_node(&joiners());
     for (auto* player = data_of<JoinerRecord>(node); player; player = data_of<JoinerRecord>(node)) {
         if (std::cmp_equal(static_cast<int8_t>(player->entity_key()), id)) {
             return player;
@@ -310,16 +311,16 @@ void Hub::set_ready_state(bool ready)
 }
 
 // 0x00537320
-PlayerRecord* Hub::get_own_player() { return find_player(this, &PlayerRecord::is_own_player); }
+PlayerRecord* PlayerRoster::get_own_player() { return find_player(this, &PlayerRecord::is_own_player); }
 
 // 0x005373D0
-PlayerRecord* Hub::get_host_player() { return find_player(this, &PlayerRecord::is_host_player); }
+PlayerRecord* PlayerRoster::get_host_player() { return find_player(this, &PlayerRecord::is_host_player); }
 
 // 0x00537480
-PlayerRecord* Hub::get_hill_ruler() { return find_player(this, &PlayerRecord::holds_crown); }
+PlayerRecord* PlayerRoster::get_hill_ruler() { return find_player(this, &PlayerRecord::holds_crown); }
 
 // 0x00537530
-int Hub::count_other_players()
+int PlayerRoster::count_other_players()
 {
     PlayerSearch search;
     int count = 0;
@@ -332,9 +333,9 @@ int Hub::count_other_players()
 }
 
 // 0x00537620
-void Hub::clear_roster()
+void PlayerRoster::clear_roster()
 {
-    for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&players()); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         player->flag_bits() &= ~kPlayerSessionFlags;
         player->set_accumulated_score(0);
@@ -379,8 +380,8 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             desc.set_group_id(MessageGroup::kGame);
         }
-        for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
-             node = get_next_node(node)) {
+        for (const memory::ListNode* node = get_next_node(&roster_.players());
+             auto* player = data_of<PlayerRecord>(node); node = get_next_node(node)) {
             host_->put_on_outbox(player_handle(player), &desc);
         }
         return;
@@ -495,7 +496,7 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
     desc.set_ident(MessageId::kFlipProSetting);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     net::AppHost* server = host_;
-    for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&roster_.players()); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if (!is_own_player(player)) {
             server->put_on_outbox(player_handle(player), &desc);
@@ -504,7 +505,7 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
 }
 
 // 0x00539880
-int Hub::count_team_players(int team)
+int PlayerRoster::count_team_players(int team)
 {
     PlayerSearch search;
     int count = 0;
@@ -513,7 +514,7 @@ int Hub::count_team_players(int team)
             ++count;
         }
     }
-    for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&joiners()); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         if (will_play(info) && info->team() == team) {
             ++count;
@@ -523,14 +524,14 @@ int Hub::count_team_players(int team)
 }
 
 // 0x00539B00
-int Hub::count_players()
+int PlayerRoster::count_players()
 {
     // The players' skater ids (zeroed first: the original's check below reads the byte after the last one noted).
     constexpr size_t kIdsSize = 12;
     std::array<uint8_t, kIdsSize> ids = {};
     int noted = 0;
     int count = 0;
-    for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&players()); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if (!is_observer(player) || core::any(player->flag_bits() & PlayerFlag::kPendingObserver)) {
             if (const objects::Entity* skater = player_skater(player)) {
@@ -539,7 +540,7 @@ int Hub::count_players()
             ++count;
         }
     }
-    for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&joiners()); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         if (!will_play(info)) {
             continue;
@@ -559,14 +560,14 @@ int Hub::count_players()
 int Hub::count_observers()
 {
     int count = 0;
-    for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&roster_.players()); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if (is_observer(player) && (player->is_pending_observer() == 0) &&
             (!is_own_player(player) || host_mode_ == 0)) {
             ++count;
         }
     }
-    for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&roster_.joiners()); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         const PlayerFlag flags = info->flag_bits();
         if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver)) {
@@ -623,7 +624,8 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || is_own_player(player)) {
         return;
     }
-    for (auto* other = begin_player_walk(&search, false); other; other = step_player_walk(&search, false)) {
+    for (auto* other = roster_.begin_player_walk(&search, false); other;
+         other = roster_.step_player_walk(&search, false)) {
         void* texture = other->get_graffiti_texture(); // its custom tag texture
         if (!texture || other == player || player_conn(player)->get_link_speed_class() == 1 ||
             !other->has_custom_tag()) {
@@ -677,7 +679,7 @@ bool Hub::prepare_local_face()
     }
     memory::Hub* memory = memory::Hub::get_pull();
     if ((flag_bits_ & 1) != 0) {
-        auto* local = get_own_player();
+        auto* local = roster_.get_own_player();
         memory->enter_heap_scope(memory->net_misc_heap());
         local->assign_face_texture_data(static_cast<uint8_t*>(memory::alloc(kFaceSize + 1)));
         memory::Hub::get_pull()->leave_heap_scope();
@@ -707,7 +709,8 @@ void Hub::send_faces_to(PlayerRecord* player)
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem) {
         return;
     }
-    for (auto* other = begin_player_walk(&search, false); other; other = step_player_walk(&search, false)) {
+    for (auto* other = roster_.begin_player_walk(&search, false); other;
+         other = roster_.step_player_walk(&search, false)) {
         if (other == player || player_conn(player)->get_link_speed_class() == 1) {
             continue;
         }
@@ -722,7 +725,7 @@ void Hub::send_faces_to(PlayerRecord* player)
 // 0x0053A310
 void Hub::add_joining_player(JoinerRecord* info, int timeout)
 {
-    memory::ListNode* head = &joiners_;
+    memory::ListNode* head = &roster_.joiners();
     for (const memory::ListNode* node = get_next_node(head); auto* listed = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         if (listed->entity_key() == info->entity_key()) {
@@ -790,13 +793,14 @@ PlayerRecord* Hub::next_cam_player()
     PlayerSearch search;
     auto can_watch = [](PlayerRecord* player) { return !player->is_scouting_level() && !player->is_eliminated(); };
     if (viewed_player_) {
-        PlayerRecord* player = begin_player_walk(&search, false);
+        PlayerRecord* player = roster_.begin_player_walk(&search, false);
         while (player && player != viewed_player_) {
-            player = step_player_walk(&search, false);
+            player = roster_.step_player_walk(&search, false);
         }
         if (player) {
             // The ones after it; past the end, from the start again.
-            for (player = step_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
+            for (player = roster_.step_player_walk(&search, false); player;
+                 player = roster_.step_player_walk(&search, false)) {
                 if (can_watch(player)) {
                     return player;
                 }
@@ -805,7 +809,8 @@ PlayerRecord* Hub::next_cam_player()
             return next_cam_player();
         }
     }
-    for (PlayerRecord* player = begin_player_walk(&search, false); player; player = step_player_walk(&search, false)) {
+    for (PlayerRecord* player = roster_.begin_player_walk(&search, false); player;
+         player = roster_.step_player_walk(&search, false)) {
         if (can_watch(player)) {
             return player;
         }
@@ -824,8 +829,8 @@ void carried_flags_task(tasks::Task<Hub>* /*unused*/)
     if (get_game_type() != kNetCtf) {
         return;
     }
-    for (auto* player = manager->begin_player_walk(&search, false); player;
-         player = manager->step_player_walk(&search, false)) {
+    for (auto* player = manager->roster().begin_player_walk(&search, false); player;
+         player = manager->roster().step_player_walk(&search, false)) {
         if (player->is_carrying_flag() == 0) { // (carries a flag)
             continue;
         }

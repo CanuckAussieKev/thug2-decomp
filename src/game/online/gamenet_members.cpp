@@ -485,12 +485,12 @@ Hub::~Hub()
     // The tasks, in the original's order.
     tasks_.delete_at_shutdown();
     // The lists: the players' nodes unlinked, then each head's destructor.
-    unlink_all_nodes(&players_);
+    unlink_all_nodes(&roster_.players());
     waiting_servers_.uncouple();
     servers_.uncouple();
     queued_scripts_.uncouple();
-    joiners_.uncouple();
-    players_.uncouple();
+    roster_.joiners().uncouple();
+    roster_.players().uncouple();
     settings_.destroy();
 }
 

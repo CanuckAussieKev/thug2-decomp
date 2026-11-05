@@ -259,7 +259,7 @@ void Balance::tick_frame()
     }
     auto* net = online::net_game_state().online_hub();
     if (net->host()) {                                                         // (the folded getter 0x005480C0)
-        net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident())); // (its result unused)
+        net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident())); // (its result unused)
     }
     // The cheese wears off.
     if (cheese_ > kCheeseFloor) {

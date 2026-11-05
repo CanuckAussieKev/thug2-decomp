@@ -17,6 +17,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_conn.h"
 #include "game/online/online_identity.h"
 #include "engine/script/preferences.h"
@@ -123,7 +124,7 @@ void server_key_callback(int key, void* buffer, void* /*unused*/)
         buffer_add(buffer, manager->get_game_type_name()); // the game type's name
         return;
     case kKeyNumplayers:
-        buffer_add_int(buffer, manager->count_players());
+        buffer_add_int(buffer, manager->roster().count_players());
         return;
     case kKeyNumteams:
         buffer_add_int(buffer, manager->settings().get_num_teams());
@@ -159,7 +160,7 @@ void player_key_callback(const QrPlayerKey& query)
     const auto index = query.index;
     auto* const buffer = query.buffer;
     Hub* manager = net_game_state().online_hub();
-    if (index >= manager->count_players()) {
+    if (index >= manager->roster().count_players()) {
         buffer_add(buffer, "");
         return;
     }
@@ -198,7 +199,7 @@ void player_key_callback(const QrPlayerKey& query)
 int count_callback(int type, void* /*unused*/)
 {
     if (type == kKeyTypePlayer) {
-        return net_game_state().online_hub()->count_players();
+        return net_game_state().online_hub()->roster().count_players();
     }
     if (type == kKeyTypeTeam) {
         return net_game_state().online_hub()->settings().get_num_teams();

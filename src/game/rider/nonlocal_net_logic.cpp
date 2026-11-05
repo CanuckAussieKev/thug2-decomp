@@ -404,7 +404,7 @@ void RiderRemoteSync::tick_frame()
     entity()->old_pos() = entity()->at_point();
     interpolate();
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
-    auto* player = static_cast<online::PlayerRecord*>(net_manager->get_own_player());
+    auto* player = static_cast<online::PlayerRecord*>(net_manager->roster().get_own_player());
     if ((player->is_observer() == 0) && (player->is_scouting_level() == 0)) {
         void* game_mode = static_cast<void*>(goals::game_mode());
         const bool extrapolate = online::net_game_state().online_hub()->players_can_collide() ||

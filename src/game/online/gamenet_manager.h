@@ -10,6 +10,7 @@
 #include "engine/memory/mem.h"
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
+#include "game/online/hub_roster.h"
 #include "game/online/hub_settings.h"
 #include "game/online/hub_tasks.h"
 #include "wire/gamenet_messages.h"
@@ -91,16 +92,6 @@ enum class EntryPhase : uint8_t {
     kCancelled = 10,
 };
 
-// A walk over the players (Hub::begin_player_walk / step_player_walk) and over the joining players
-// (begin_joiner_walk / step_joiner_walk): the current node. The original's searches (lists::Hunt<PlayerRecord> /
-// <JoinerRecord>) have vtables holding only a destructor that resets them - 0x0064C1A8 (0x00519830 / 0x0051A120),
-// 0x0064C828 (0x0052DB60 / 0x0052F730), 0x0064C82C (0x0052DB70 / 0x0052F760) - not kept.
-struct PlayerSearch {
-    memory::ListNode* list_link_ = nullptr;
-};
-struct NewPlayerSearch {
-    memory::ListNode* list_link_ = nullptr;
-};
 
 constexpr size_t kHubStartPointsSize = 8;
 constexpr size_t kHubNewsBufferSize = 0x6400;
@@ -321,30 +312,9 @@ public:
     // 0x00536B10: the joining player `player` removed (its connection terminated on the server, or on client 0 if it
     // has one).
     void remove_new_player(JoinerRecord* player);
-    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search`; without `observers`,
-    // observers are skipped. Null at the end.
-    PlayerRecord* begin_player_walk(PlayerSearch* search, bool observers);
-    PlayerRecord* step_player_walk(PlayerSearch* search, bool observers);
-    // 0x00537070: the first joining player (+0x130) through `search` (then the lists' generic next, 0x004573D0).
-    JoinerRecord* begin_joiner_walk(NewPlayerSearch* search);
-    // The next joining player through `search` (null at the end). No address of its own: the original calls the lists'
-    // generic next, folded at 0x004573D0 (NetLink::AppHost::step_conn_walk), with the manager as its unused `this`.
-    static JoinerRecord* step_joiner_walk(NewPlayerSearch* search);
-    // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
-    JoinerRecord* fetch_incoming_player_by_obj(uint16_t id);
     // 0x00537140: ready to play (cleared_to_start_) or not; when it changes, every skater of the skate module (+0x28's
     // list) told - its virtual slot 12 when ready, 11 when not.
     void set_ready_state(bool ready);
-    // 0x00537320 / 0x005373D0 / 0x00537480: the first player (observers too) that is local (flags bit 0) / the server's
-    // (bit 9) / has the crown (0x00543490). Null if none.
-    PlayerRecord* get_own_player();
-    PlayerRecord* get_host_player();
-    PlayerRecord* get_hill_ruler();
-    // 0x00537530: the players (no observers) with neither flag 0x21 (bit 0 local; bit 5) set.
-    int count_other_players();
-    // 0x00537620: every player's flags 0x100 / 0x20000 and +0x1C, +0x20, +0x34 cleared, its skater's score reset
-    // (the SkaterScore component's +0x18 - 0x00564A10).
-    void clear_roster();
     // 0x005376F0: a panel message: with `broadcast`, message 0x3F to every player through the server (the CRC of
     // `properties`, `text`, `time`, string 1 and 2 - 16 bytes each; sequenced in group 8 when `important`); else locally:
     // create_net_panel_message {text (the global text `text`, its "%s0" replaced by string 1), id = net_panel_msg,
@@ -370,13 +340,6 @@ public:
     // 0x00537F40: pro set `bit` toggled (script_flag_bits_) and told to every remote player (message 0x70: `param`, the
     // bit's byte; sequenced in group 8).
     void toggle_pro_set(uint8_t bit, uint32_t param);
-    // 0x00539880: the players (no observers) on `team` plus the joining players who will play (+0x20 flags 0x18, or
-    // not 4) on it (+0x28).
-    int count_team_players(int team);
-    // 0x00539B00: the players (non-observers, and observers with flags bit 3) plus the joining players who will play
-    // and aren't among them - the original's check compares each with the byte after the ids it noted (zero), so
-    // only joining players with object id 0 are left out.
-    int count_players();
     // 0x00539C70: the observers (not flags bit 3; the local one only in host mode 0) plus the joining observers (+0x20
     // flags 4 without 8).
     int count_observers();
@@ -517,13 +480,6 @@ public:
     // 0x0053AAC0: the first remote player with flag 0x20 gets "first come, first served" (flag 0x200 and message 0x5F
     // with the checksum of the network preference 0x043EE978's text).
     void assign_first_come_first_served();
-    // 0x0053AC40: the lowest object id (0-15) no player's skater has and no joining player (observers aside) was
-    // given; 16 if none.
-    int reserve_obj_id_for_player();
-    // 0x0053AE10: the player (observers too) of connection `conn`, or null.
-    PlayerRecord* find_player_by_sender(net::Conn* conn);
-    // 0x0053AEA0: the player (not an observer) whose skater has object id `id`, or null.
-    PlayerRecord* find_player_slot_by_obj(uint16_t id);
     // 0x0053C320: the host mode (kHostMode*): auto-serve observes (message 0x4A) and starts its task (+0xF4) with
     // the time noted (0x007CCDEC); first come first served observes and chooses who serves. Unchanged: nothing.
     void set_host_mode(int mode);
@@ -660,12 +616,12 @@ public:
     // The network and taunt preferences.
     SessionSettings& settings() { return settings_; }
     [[nodiscard]] const SessionSettings& settings() const { return settings_; }
+    // The players and the joining players.
+    PlayerRoster& roster() { return roster_; }
+    [[nodiscard]] const PlayerRoster& roster() const { return roster_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
-    memory::ListNode& players() { return players_; }
-    [[nodiscard]] const memory::ListNode& players() const { return players_; }
-    [[nodiscard]] const memory::ListNode& joiners() const { return joiners_; }
     [[nodiscard]] const memory::ListNode& queued_scripts() const { return queued_scripts_; }
     memory::ListNode& servers() { return servers_; }
     [[nodiscard]] const memory::ListNode& servers() const { return servers_; }
@@ -744,8 +700,7 @@ private:
     SessionSettings settings_;                // +0x104-+0x11B (+0x104-+0x113 here) the network and taunt preferences
     // (the list heads are 0x10 bytes here, 0x14 in the original: each field from here on 4 more bytes before the
     // original's offset - check_layout)
-    memory::ListNode players_{};              // +0x11C lists::Foremost<PlayerRecord>
-    memory::ListNode joiners_{};              // +0x130 lists::Foremost<JoinerRecord>: the joining players
+    PlayerRoster roster_;                     // +0x11C-+0x143 (+0x114-+0x133 here) the players and the joining players
     memory::ListNode queued_scripts_{};       // +0x144 the scripts to run once the level is up
     memory::ListNode servers_{};              // +0x158 lists::Foremost<HostListing>: the listed servers
     memory::ListNode waiting_servers_{};      // +0x16C lists::Foremost<HostListing>: found, not shown yet

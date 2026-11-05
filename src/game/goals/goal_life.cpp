@@ -11,6 +11,7 @@
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -258,8 +259,8 @@ bool Objective::activate()
     online::Hub* net = online::online_hub();
     PlayerSearch search;
     if (args_->has_bare_flag(kResetScore)) {
-        for (void* player = net->begin_player_walk(&search, false); player;
-             player = net->step_player_walk(&search, false)) {
+        for (void* player = net->roster().begin_player_walk(&search, false); player;
+             player = net->roster().step_player_walk(&search, false)) {
             reset_score(get_score_of(player_skater(player)));
         }
     }
@@ -640,8 +641,8 @@ bool Objective::all_skaters_run_done() const
 {
     online::Hub* net = online::online_hub();
     PlayerSearch search;
-    for (void* player = net->begin_player_walk(&search, false); player;
-         player = net->step_player_walk(&search, false)) {
+    for (void* player = net->roster().begin_player_walk(&search, false); player;
+         player = net->roster().step_player_walk(&search, false)) {
         objects::GameEntity* skater = player_skater(player);
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)

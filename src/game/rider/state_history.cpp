@@ -13,6 +13,7 @@
 
 #include "base/maths/vec4.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
 #include "game/online/player_info.h"
@@ -92,15 +93,15 @@ void* skater_manager() { return static_cast<void*>(modules::Skate::sole()); }
 
 online::PlayerRecord* find_player_slot_by_obj(int id)
 {
-    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 online::PlayerRecord* start_roster_sweep(online::PlayerSearch* search)
 {
-    return online::online_hub()->begin_player_walk(search, true);
+    return online::online_hub()->roster().begin_player_walk(search, true);
 }
 online::PlayerRecord* step_roster_sweep(online::PlayerSearch* search)
 {
-    return online::online_hub()->step_player_walk(search, true);
+    return online::online_hub()->roster().step_player_walk(search, true);
 }
 bool get_on_server() { return online::online_hub()->get_on_server(); }
 bool manager_flag4() { return online::online_hub()->in_internet_mode(); }

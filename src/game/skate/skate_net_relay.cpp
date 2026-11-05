@@ -23,6 +23,7 @@
 #include "game/goals/goal_manager.h"
 #include "base/maths/vec4.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/net/net_app.h"
@@ -161,18 +162,21 @@ objects::ObjectHubBase* entity_hub_handle()
     return static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
 }
 
-PlayerRecord* by_connection(net::Conn* conn) { return online::online_hub()->find_player_by_sender(conn); }
-PlayerRecord* by_object_id(int id) { return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
+PlayerRecord* by_connection(net::Conn* conn) { return online::online_hub()->roster().find_player_by_sender(conn); }
+PlayerRecord* by_object_id(int id)
+{
+    return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(id));
+}
 
 // A walk over the network manager's players (begin_player_walk / step_player_walk).
 struct PlayerSearch : online::PlayerSearch {
     PlayerRecord* get_first(bool observers)
     {
-        return static_cast<PlayerRecord*>(online::online_hub()->begin_player_walk(this, observers));
+        return static_cast<PlayerRecord*>(online::online_hub()->roster().begin_player_walk(this, observers));
     }
     PlayerRecord* get_next(bool observers)
     {
-        return static_cast<PlayerRecord*>(online::online_hub()->step_player_walk(this, observers));
+        return static_cast<PlayerRecord*>(online::online_hub()->roster().step_player_walk(this, observers));
     }
 };
 
@@ -883,7 +887,7 @@ float relayed_blend_period(float scaled_time, const objects::Entity* target)
     online::Hub* net = online::online_hub();
     if (net->in_net_game()) {
         // (only the camera's own player's)
-        PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident()));
+        PlayerRecord* player = net->roster().find_player_slot_by_obj(static_cast<uint16_t>(target->ident()));
         PlayerRecord* camera = net->fetch_viewed_player();
         if (!camera || player != camera) {
             scaled_time = 0.0F;
@@ -1135,14 +1139,14 @@ int SkateNet::handle_player_left(net::InboundMsgCtx* context)
     if (!reader.ok()) { // NOT ORIGINAL: too short - dropped
         return 4;
     }
-    PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    PlayerRecord* player = net->roster().find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player) {
         objects::Rider* skater = player->rider();
         net->evict_player(player, reason);
         modules::Skate::drop_skater_from_roster(skater);
     } else {
         // (one still joining)
-        online::JoinerRecord* joining = net->fetch_incoming_player_by_obj(static_cast<uint16_t>(id));
+        online::JoinerRecord* joining = net->roster().fetch_incoming_player_by_obj(static_cast<uint16_t>(id));
         if (joining) {
             net->remove_new_player(joining);
         }
@@ -1177,7 +1181,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
     }
     int owner = 0;
     if (goals::game_mode()->is_squad_match() != 0) {
-        PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(message->player));
+        PlayerRecord* player = net->roster().find_player_slot_by_obj(static_cast<uint16_t>(message->player));
         if (!player) { // NOT ORIGINAL: no such player - dropped (the original read through null)
             return 4;
         }

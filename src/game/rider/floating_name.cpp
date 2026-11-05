@@ -50,7 +50,7 @@ bool in_net_game() { return online::online_hub()->in_net_game(); }
 bool show_names() { return online::online_hub()->settings().wants_name_tags(); }
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 online::PlayerRecord* find_own_player_record() { return online::online_hub()->fetch_viewed_player(); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.

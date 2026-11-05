@@ -72,7 +72,7 @@ constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraff
 bool is_versus_session() { return modules::Skate::is_multiplayer() != 0; }
 Rider* rider_for_slot(uint32_t id) { return modules::Skate::sole()->get_rider_by_number(id); }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
-void* find_own_player_record() { return online::online_hub()->get_own_player(); }
+void* find_own_player_record() { return online::online_hub()->roster().get_own_player(); }
 uint8_t run_count() { return online::online_hub()->get_game_id(); }
 
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
