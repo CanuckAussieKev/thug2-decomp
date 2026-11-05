@@ -26,8 +26,8 @@ source is a trustworthy base. On top of that base:
 
 ## What's in it
 
-- **The game's code** as readable C++, by subsystem (`src/game/`): engine, renderer, script runtime, skater physics,
-  goals, park editor, networking, front end.
+- **The game's code** as readable C++, by subsystem (`src/engine/`, `src/game/` and the backends beside them): engine,
+  renderer, script runtime, skater physics, goals, park editor, networking, front end.
 - **PartyMod's fixes** ([PartyMod](https://github.com/PARTYMANX/partymod-thug2) v1.0.4 by PARTYMANX, MIT) as part of the
   source: an SDL2 window and input, controller and keyboard bindings, widescreen, the OpenSpy online service.
 - **Additions:** a level editor, a new front end, graphics options, a loading console, a screenshot key with the
@@ -96,7 +96,7 @@ Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
 1. In Visual Studio: **File > Open > Folder...** and pick this folder.
 2. Choose the **x86 Debug** configuration in the toolbar.
-3. **Build > Build All**. The build makes `thug2-decomp.exe` and puts `d3dx9_43.dll`, `SDL2.dll` and
+3. **Build > Build All**. The build makes `thug2-decomp.exe` and `thug2-editor.exe` (the level editor on its own) and puts `d3dx9_43.dll`, `SDL2.dll` and
    `gamecontrollerdb.txt` next to it; when `THUG2_GAME_DIR` (in `CMakeLists.txt` or the CMake cache, default
    `C:\Games\THUG2\Game`) is a game folder, all of them and the PDB are copied there too.
 
@@ -118,7 +118,7 @@ with a call stack.
 The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe`, its `Data` folder and
 `binkw32.dll` (the movie player, from your copy of the game; nothing of it is in this repository):
 
-1. Copy `thug2-decomp.exe`, `d3dx9_43.dll`, `SDL2.dll` and `gamecontrollerdb.txt` from the build folder into the game
+1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL2.dll` and `gamecontrollerdb.txt` from the build folder into the game
    folder (the build does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
@@ -131,7 +131,7 @@ Useful start-up switches:
 | How | What it does |
 |---|---|
 | `-level <name>` or `[features] start_level=<name>` | Skips the menus and starts that level in free skate. `<name>` is the level's folder name (`TR`, `BO`, `foun`, `z_ma`...). |
-| `-edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there. |
+| `-edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there. `thug2-editor.exe -edit <name>` does it in the editor's own program (no new front end, no developer tools). |
 | `-level <name> -at x,y,z[,heading]` or `[features] start_at=` | Once the level is up, the skater stands at that spot, facing `heading` (degrees, 0 = +z, 90 = +x). |
 | `node tools/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
 
@@ -345,8 +345,10 @@ each borrowed idea is credited where it's used.
 
 | Path | Contents |
 |---|---|
-| `src/app/main.cpp` | The program's entry point |
-| `src/game/` | The game's code, by subsystem: engine (`gfx`, `nx`), scripts (`script`), objects and skater (`obj`, `skater`), goals, park editor (`ed`), networking (`net`), front end (`front`)... |
+| `src/` | The program, in layers (each a CMake library; `docs/architecture.md`): `base` (checksums, formatting, maths), `platform` (the window, crash reports, the GameSpy glue), `formats` and `wire` (the game's files and network messages), `engine` (memory, files, assets, scripts, objects, the renderer, audio, network transport, pad input, the original's screen elements), `game` (skating, the rider, goals, parks, saves, the online session, the game's script commands), `frontend` (the new front end), `editor` (the level editor), `devtools` (screenshot key, test-automation channel) |
+| `src/render_d3d9/`, `audio_dsound/`, `media_bink/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, Bink, DirectInput, Win32 files, Winsock, the QB script interpreter |
+| `src/app/` | The two programs' shared start-up (`main.cpp`, WinMain, the main loop, the command and component tables) and each one's extension list; `thug2-decomp.exe` and `thug2-editor.exe` |
+| `src/tests/` | The offline checks (file formats, maths against D3DX, number parsing, printf-style formatting) |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |
 | `tools/game/` | The scripts that run and drive the game for tests, the layout baker, the level editor's offline tools |
 | `tools/pipeline/` | Submodule: the data overlay and menus, HD art, THAW's BMX; its dependencies are the level converters and their core (with the THUGPRO compatibility register) |
