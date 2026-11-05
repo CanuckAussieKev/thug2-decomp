@@ -558,11 +558,11 @@ void DrivableModule::configure_from_data(script::Struct* params)
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
         }
     }
-    params->fetch_float(kBodyRestitution, &restitution_, 0);
-    params->fetch_float(kBodyFriction, &drag_factor_, 0);
-    params->fetch_float(kBodyWipeoutFriction, &tipped_friction_, 0);
-    params->fetch_float(kBodySpring, &depth_correction_, 0);
-    params->fetch_float(kCollisionControl, &wall_steering_, 0);
+    params->fetch_float(kBodyRestitution, &response_.restitution, 0);
+    params->fetch_float(kBodyFriction, &response_.friction, 0);
+    params->fetch_float(kBodyWipeoutFriction, &response_.tipped_friction, 0);
+    params->fetch_float(kBodySpring, &response_.depth_correction, 0);
+    params->fetch_float(kCollisionControl, &response_.wall_steering, 0);
     params->fetch_float(kInAirSlerpVelocityCutoff, &align_speed_, 0);
     params->fetch_float(kInAirSlerpTimeDelay, &align_time_, 0);
     params->fetch_float(kInAirSlerpStrength, &align_rate_, 0);
@@ -1253,11 +1253,11 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, mass_.inverse), .original = 0x158, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, mass_.inverse_moments), .original = 0x15C, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, mass_.moment_w), .original = 0x168, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, restitution_), .original = 0x16C, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, drag_factor_), .original = 0x170, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, depth_correction_), .original = 0x174, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, tipped_friction_), .original = 0x178, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, wall_steering_), .original = 0x17C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, response_.restitution), .original = 0x16C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, response_.friction), .original = 0x170, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, response_.depth_correction), .original = 0x174, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, response_.tipped_friction), .original = 0x178, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, response_.wall_steering), .original = 0x17C, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, align_speed_), .original = 0x180, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, align_time_), .original = 0x184, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, align_rate_), .original = 0x188, .larger_by = 0},

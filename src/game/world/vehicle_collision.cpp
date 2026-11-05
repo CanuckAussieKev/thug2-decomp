@@ -621,7 +621,7 @@ void DrivableModule::collide()
                 continue;
             }
             separating = false;
-            auto bounce = static_cast<float>(-(static_cast<double>(closing) * restitution_));
+            auto bounce = static_cast<float>(-(static_cast<double>(closing) * response_.restitution));
             const double denominator = get_impulse_denominator({.offset = &arm, .direction = &nrm});
             auto impulse = static_cast<float>((static_cast<double>(bounce) - closing) * denominator);
             contact.impulse = static_cast<float>(static_cast<double>(impulse) + contact.impulse);
@@ -644,7 +644,7 @@ void DrivableModule::collide()
             continue;
         }
         contact.depth = std::min(contact.depth, kDeepestLevel);
-        const double push = static_cast<double>(depth_correction_) * contact.depth;
+        const double push = static_cast<double>(response_.depth_correction) * contact.depth;
         auto push_rounded = static_cast<float>(push);
         const maths::Vec4& nrm = contact.normal;
         const maths::Vec4 force{.x = static_cast<float>(static_cast<double>(push_rounded) * nrm.x),
@@ -660,7 +660,7 @@ void DrivableModule::collide()
 
     // Friction against the sliding at each contact that took an impulse (on the velocities as they were, updated
     // by each friction impulse in turn); at most the friction coefficient times that impulse.
-    const float friction = core::at(basis_frame_.row, 1).y > kUpright ? drag_factor_ : tipped_friction_;
+    const float friction = core::at(basis_frame_.row, 1).y > kUpright ? response_.friction : response_.tipped_friction;
     for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
         const Contact& contact = core::at(contacts, contact_index);
         if (contact.impulse == 0.0F) {
@@ -746,7 +746,7 @@ void DrivableModule::collide()
         auto strength =
             static_cast<float>((((static_cast<double>(at.x) * nrm.x) + (static_cast<double>(at.z) * nrm.z)) +
                                 (static_cast<double>(nrm.y) * at.y)) *
-                               contact.impulse * wall_steering_ * controls_.steering);
+                               contact.impulse * response_.wall_steering * controls_.steering);
         const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(strength) * -nrm.z),
                                .y = static_cast<float>(static_cast<double>(strength) * 0.0F),
                                .z = static_cast<float>(static_cast<double>(strength) * nrm.x),

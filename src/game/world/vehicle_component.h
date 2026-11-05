@@ -353,6 +353,14 @@ private:
         std::array<float, 3> inverse_moments{}; // +0x14 (+0x15C) 386.4 / moment_of_inertia
         float moment_w{};                       // +0x20 (+0x168) moment_of_inertia's w (never read)
     };
+    // The body's response to its contacts with the world (+0x16C-+0x17F: configure_from_data, collide).
+    struct Response {
+        float restitution{};      // +0x00 (+0x16C) body_restitution (0x79C3B862)
+        float friction{};         // +0x04 (+0x170) body_friction (0xF476273C)
+        float depth_correction{}; // +0x08 (+0x174) (0x01DD4890) the contacts' depth correction
+        float tipped_friction{};  // +0x0C (+0x178) (0x4A23A53C) the body's friction when tipped over (up.y <= 0.707)
+        float wall_steering{};    // +0x10 (+0x17C) (0xB9F026ED) the steering's turning against walls
+    };
     // The controls this frame (+0x304-+0x30B: read_controls, from the input component; or none when passive).
     struct Controls {
         float steering{}; // +0x00 (+0x304) -1 (left) .. 1 (right), squared with its sign
@@ -384,11 +392,7 @@ private:
     maths::Vec4 twist_force_{};   // +0x134 the torque this step
     float step_length_{};         // +0x144 the sub-step's length (seconds)
     Mass mass_;                   // +0x148-+0x16B the centre of mass, the inverse mass and moments
-    float restitution_{};                  // +0x16C body_restitution (0x79C3B862)
-    float drag_factor_{};                  // +0x170 body_friction (0xF476273C)
-    float depth_correction_{};             // +0x174 (0x01DD4890) the contacts' depth correction
-    float tipped_friction_{};              // +0x178 (0x4A23A53C) the body's friction when tipped over (up.y <= 0.707)
-    float wall_steering_{};                // +0x17C (0xB9F026ED) the steering's turning against walls
+    Response response_;           // +0x16C-+0x17F the body's response to its contacts
     float align_speed_{};                  // +0x180 (0x8C14709E) below this horizontal speed the body turns towards its
                                            //        facing, above it towards its velocity (0x00439D90)
     float align_time_{};                   // +0x184 (0x2C91E49B) the turning's ramp-in time in the air
