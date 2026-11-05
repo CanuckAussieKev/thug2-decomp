@@ -10,9 +10,12 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "frontend/mouse_menus.h"
 #include "frontend/new_frontend_draw.h"
 #include "frontend/new_frontend_game.h"
+#include "frontend/new_frontend_mirror.h"
 #include "frontend/new_frontend_model.h"
+#include "engine/ui/screen_element.h"
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
 #include "engine/pad_input/input_event.h"
@@ -21,6 +24,10 @@
 
 namespace frontend::new_frontend::internal {
 
+constexpr float kInvisibleThreshold = 0.001F;   // an element scaled or faded below this isn't there
+
+constexpr int kMaxParentDepth = 64;             // the most containers walked up
+
 using game_screens::Anchor;
 
 uint32_t name_hash(const char* name);
@@ -28,6 +35,8 @@ uint32_t name_hash(const char* name);
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate module's level in the front end)
 
 uint32_t current_load_state();
+
+bool in_front_end();
 
 objects::RiderStoryProgress* get_career();
 
@@ -105,5 +114,27 @@ std::string get_skater_name();
 void get_sound(const char* script, const char* flag = nullptr);
 
 const StageMap* level_played(const Section** section);
+
+uint32_t id_of_element(const UiWidget* element);
+
+UiWidget* first_child(const UiWidget* element);
+
+UiWidget* get_next(const UiWidget* element);
+
+UiWidget* active_menu(bool* in_dialog = nullptr, bool coming = false);
+
+mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog);
+
+bool stats_screen_up(const UiWidget* menu);
+
+mirror::MenuRead read_stats(UiWidget* active);
+
+void dump_left_menu(UiWidget* menu, const std::string& why);
+
+UiWidget* keyboard_of(UiWidget* menu);
+
+mirror::MenuRead read_keyboard(UiWidget* active);
+
+std::string pad_button_label_for(mirror::ButtonTag button_tag);
 
 } // namespace frontend::new_frontend::internal

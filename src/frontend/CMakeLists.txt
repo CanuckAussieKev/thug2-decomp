@@ -5,6 +5,7 @@
 add_library(thug2_frontend STATIC
     mouse_menus.cpp
     new_frontend.cpp
+    new_frontend_widgets.cpp
     new_frontend_data.cpp
     new_frontend_extension.cpp
     new_frontend_draw.cpp
