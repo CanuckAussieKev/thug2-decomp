@@ -193,19 +193,19 @@ void FootMovement::restore_display_offset()
 // 0x00527C50
 void FootMovement::update_push()
 {
-    if (!pushing_) {
+    if (!push_.on) {
         return;
     }
     maths::Vec4& pos = pos_;
-    if (pos.y > push_height_) {
-        pushing_ = false;
+    if (pos.y > push_.height) {
+        push_.on = false;
         return;
     }
-    const maths::Vec4& normal = push_normal_;
+    const maths::Vec4& normal = push_.normal;
     auto distance =
         static_cast<float>((((static_cast<double>(normal.z) * pos.z) + (static_cast<double>(normal.y) * pos.y)) +
                             (static_cast<double>(normal.x) * pos.x)) -
-                           push_plane_distance_);
+                           push_.plane_distance);
     if (!(-walk_parameter(kPushFeelerLength) < distance)) {
         return;
     }

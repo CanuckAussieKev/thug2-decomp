@@ -503,6 +503,16 @@ public:
         float target_height{};  // +0x34 (+0x18AC) the top of the ledge it makes for
     };
 
+    // The push off a wall in the air (+0x18B0-+0x18CB, update_push). An animated move's start (climb_*, pull_up,
+    // drop_to_hang) keeps its heading in normal and its elevation in height.
+    struct WallPush {
+        bool on{};                     // +0x00 (+0x18B0) pushed back off a wall in the air
+        std::array<uint8_t, 3> pad1{}; // +0x01 (+0x18B1)
+        maths::Vec4 normal{};          // +0x04 (+0x18B4) the plane's normal
+        float plane_distance{};        // +0x14 (+0x18C4)
+        float height{};                // +0x18 (+0x18C8) the push ends above it
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -549,8 +559,8 @@ public:
     [[nodiscard]] const render::ProbeRay& get_feeler() const { return ledge_.feeler; }
     [[nodiscard]] bool feeler_hit() const { return ledge_.hit; }
     void set_blocked(bool value) { blocked_ = value; }
-    maths::Vec4& push_normal() { return push_normal_; }
-    [[nodiscard]] const maths::Vec4& push_normal() const { return push_normal_; }
+    maths::Vec4& push_normal() { return push_.normal; }
+    [[nodiscard]] const maths::Vec4& push_normal() const { return push_.normal; }
     objects::AnimDoneCallback& anim_done() { return anim_done_; }
     [[nodiscard]] const objects::AnimDoneCallback& anim_done() const { return anim_done_; }
 
@@ -617,11 +627,7 @@ private:
     bool unknown1874_{}; // +0x1874 (set on a reset)
     std::array<uint8_t, 3> pad1875_{};
     Jump jump_;                   // +0x1878-+0x18AF the jump
-    bool pushing_{};              // +0x18B0 pushed back off a wall in the air
-    std::array<uint8_t, 3> pad18b1_{};
-    maths::Vec4 push_normal_{};      // +0x18B4 the plane's normal (also a hang move's heading)
-    float push_plane_distance_{};    // +0x18C4
-    float push_height_{};            // +0x18C8 (also a hang move's elevation)
+    WallPush push_;               // +0x18B0-+0x18CB the push off a wall in the air
     HangPlace hang_;                 // +0x18CC-+0x18DF the place on the rail held
     float ladder_sign_{};            // +0x18E0
     maths::Vec4 transition_start_{}; // +0x18E4 an animated move's start

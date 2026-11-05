@@ -638,8 +638,8 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     maths::Vec4& offset = critical_point_offset_;
     offset = {.x = back_f * facing.x, .y = back_f * facing.y, .z = back_f * facing.z, .w = static_cast<float>(back * facing.w)};
     offset.y = 1.0F;
-    push_normal_ = facing;
-    push_height_ = pos.y - hang_.up;
+    push_.normal = facing;
+    push_.height = pos.y - hang_.up;
     change_phase(4);
     frame_.anim = kAnimPullUpFromHang;
     return true;
@@ -686,8 +686,8 @@ bool objects::FootMovement::drop_to_hang()
     const float horiz = get_param(kHangCriticalPointHorizOffset);
     critical_point_offset_ = {.x = rail.facing.x * horiz, .y = rail.facing.y * horiz, .z = rail.facing.z * horiz,
                               .w = rail.facing.w * horiz};
-    push_normal_ = rail.facing;
-    push_height_ = pos_.y;
+    push_.normal = rail.facing;
+    push_.height = pos_.y;
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = static_cast<float>(hang_height_offset());
     change_phase(4);
@@ -1402,8 +1402,8 @@ void objects::FootMovement::climb_off_bottom()
     transition_display_offset_ = 0.0F;
     set_transition_facing(&facing, 1.0F);
     anim_waiting_ = 1;
-    push_normal_ = facing;
-    push_height_ = pos.y;
+    push_.normal = facing;
+    push_.height = pos.y;
     change_phase(4);
     frame_.anim = kAnimLadderOffBottom;
 }
@@ -1492,8 +1492,8 @@ void objects::FootMovement::climb_off_top()
     transition_display_offset_ = 0.0F;
     set_transition_facing(&facing, 1.0F);
     anim_waiting_ = 1;
-    push_normal_ = facing;
-    push_height_ = target.y;
+    push_.normal = facing;
+    push_.height = target.y;
     change_phase(4);
     frame_.anim = kAnimLadderOffTop;
 }
@@ -1518,8 +1518,8 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
     transition_display_offset_ = 0.0F;
     set_transition_facing(&ladder.facing, 1.0F);
     anim_waiting_ = 1;
-    push_normal_ = ladder.facing;
-    push_height_ = ladder.point.y;
+    push_.normal = ladder.facing;
+    push_.height = ladder.point.y;
     change_phase(4);
     frame_.anim = kAnimLadderOntoBottom;
     return true;
@@ -1545,8 +1545,8 @@ bool objects::FootMovement::climb_onto_top()
     transition_display_offset_ = 0.0F;
     set_transition_facing(&ladder.facing, 1.0F);
     anim_waiting_ = 1;
-    push_normal_ = ladder.facing;
-    push_height_ = pos_.y;
+    push_.normal = ladder.facing;
+    push_.height = pos_.y;
     change_phase(4);
     frame_.anim = kAnimLadderOntoTop;
     return true;

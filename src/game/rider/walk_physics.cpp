@@ -222,7 +222,7 @@ void FootMovement::change_phase(int state)
         climb_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     if (state != 1) {
-        pushing_ = false;
+        push_.on = false;
     }
     if (state == 0 || phase_.previous != 1) {
         blocked_ = false;

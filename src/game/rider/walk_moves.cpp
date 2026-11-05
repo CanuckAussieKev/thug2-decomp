@@ -316,11 +316,11 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, jump_.duration), .original = 0x1898},
         FieldAt{.now = offsetof(FootMovement, jump_.velocity), .original = 0x189C},
         FieldAt{.now = offsetof(FootMovement, jump_.target_height), .original = 0x18AC},
-        FieldAt{.now = offsetof(FootMovement, pushing_), .original = 0x18B0},
-        FieldAt{.now = offsetof(FootMovement, pad18b1_), .original = 0x18B1},
-        FieldAt{.now = offsetof(FootMovement, push_normal_), .original = 0x18B4},
-        FieldAt{.now = offsetof(FootMovement, push_plane_distance_), .original = 0x18C4},
-        FieldAt{.now = offsetof(FootMovement, push_height_), .original = 0x18C8},
+        FieldAt{.now = offsetof(FootMovement, push_.on), .original = 0x18B0},
+        FieldAt{.now = offsetof(FootMovement, push_.pad1), .original = 0x18B1},
+        FieldAt{.now = offsetof(FootMovement, push_.normal), .original = 0x18B4},
+        FieldAt{.now = offsetof(FootMovement, push_.plane_distance), .original = 0x18C4},
+        FieldAt{.now = offsetof(FootMovement, push_.height), .original = 0x18C8},
         FieldAt{.now = offsetof(FootMovement, hang_.along), .original = 0x18CC},
         FieldAt{.now = offsetof(FootMovement, hang_.up), .original = 0x18D0},
         FieldAt{.now = offsetof(FootMovement, hang_.out), .original = 0x18D4},
@@ -1080,7 +1080,7 @@ void FootMovement::get_begin(bool on_ground)
         heading.w = static_cast<float>(inverse * heading.w);
         leave_ride(&entity()->vel(), &entity()->vel().y);
         jump_.duration = 0.0F;
-        pushing_ = false;
+        push_.on = false;
         off_vert_ = (core_physics_->state()->flag(PoseFlag::kVertAir).on != 0U) ||
                     (core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on != 0U);
     }
@@ -1176,10 +1176,10 @@ void FootMovement::get_jump()
         break;
     }
     case 2: // hanging: off the ledge's plane, kept level
-        pushing_ = true;
-        push_normal_ = facing;
-        push_plane_distance_ = hang_plane(this);
-        push_height_ = pos_.y - hang_.up;
+        push_.on = true;
+        push_.normal = facing;
+        push_.plane_distance = hang_plane(this);
+        push_.height = pos_.y - hang_.up;
         entity()->vel().x = 0.0F;
         entity()->vel().z = 0.0F;
         heading = facing;
@@ -1190,8 +1190,8 @@ void FootMovement::get_jump()
         heading = facing;
         break;
     case 4: // moving along a hang: the plane along the facing it had when the hang began
-        pushing_ = true;
-        push_plane_distance_ = hang_plane(this);
+        push_.on = true;
+        push_.plane_distance = hang_plane(this);
         entity()->vel().x = 0.0F;
         entity()->vel().z = 0.0F;
         heading = facing;

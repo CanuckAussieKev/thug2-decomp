@@ -160,7 +160,7 @@ void FootMovement::update_curb_float()
 // 0x00526BA0
 void FootMovement::check_ceiling()
 {
-    if (pushing_) {
+    if (push_.on) {
         return;
     }
     const float height = walk_parameter(kWalkerHeight);
@@ -368,12 +368,12 @@ void FootMovement::ease_critical_point_offset()
                       static_cast<double>(offset.z));
     }
     // Pushed back off a wall: the critical point kept on its side of the plane.
-    if (pushing_) {
+    if (push_.on) {
         const maths::Vec4 point = pos + offset;
-        const maths::Vec4& normal = push_normal_;
+        const maths::Vec4& normal = push_.normal;
         const double past = (((static_cast<double>(point.z) * normal.z) + (static_cast<double>(point.y) * normal.y)) +
                              (static_cast<double>(point.x) * normal.x)) -
-                            push_plane_distance_;
+                            push_.plane_distance;
         if (past > 0.0) {
             pos -= static_cast<float>(past) * normal;
         }
