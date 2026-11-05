@@ -195,9 +195,6 @@ public:
     // to dynamic by min_dynamic_grip_velocity, doubled while braking; below min_static_grip_velocity scaled down to 0.
     // Returned unrounded (in ST0).
     double get_tyre_friction(Wheel* wheel, float slip) const;
-    // 0x00435380: the gear for a wheel spinning at `spin`: the first whose engine speed (ratio * differential *
-    // spin) isn't over upshift_rpm, else the top one.
-    int get_gear(float spin);
 
     // --- a physics step (vehicle_physics.cpp) ---
     // 0x0043AE10: what follows from the position and orientation: the matrix (row 3 the identity's), the centre of
@@ -383,6 +380,21 @@ private:
         float yaw{};  // +0x00 (+0x1A4) (0x386837DB) the turning about up damped when not steering
         float spin{}; // +0x04 (+0x1A8) (0x469CF79A) the angular momentum damped
     };
+    // The engine and the gears (+0x2D4-+0x303 - after the wheels' vector: check_layout; configure_from_data,
+    // apply_drive_torque, apply_engine_braking).
+    struct Drivetrain {
+        float engine_torque{};                 // +0x00 (+0x2D4) drive_torque (engine; * 12)
+        float engine_braking{};                // +0x04 (+0x2D8) (0xB2268648, * 12) engine braking without throttle
+        int gear_count{};                      // +0x08 (+0x2DC) gear_ratios
+        std::array<float, kMaxGears> ratios{}; // +0x0C (+0x2E0) gear_ratios' ratios
+        float reverse_ratio{};                 // +0x24 (+0x2F8) reverse_torque_ratio
+        float final_drive_ratio{};             // +0x28 (+0x2FC) differential_ratio
+        float upshift_speed{};                 // +0x2C (+0x300) upshift_rpm (rpm -> radians a second)
+
+        // 0x00435380: the gear for a wheel spinning at `spin`: the first whose engine speed (ratio * differential *
+        // spin) isn't over upshift_rpm, else the top one.
+        [[nodiscard]] int get_gear(float spin) const;
+    };
     // The controls this frame (+0x304-+0x30B: read_controls, from the input component; or none when passive).
     struct Controls {
         float steering{}; // +0x00 (+0x304) -1 (left) .. 1 (right), squared with its sign
@@ -423,13 +435,7 @@ private:
     bool can_dismount_{};                  // +0x2CC Exitable
     bool handbrake_disabled_{};            // +0x2CD no_handbrake
     std::vector<Wheel> wheels_;            // +0x2D0 (made once, by configure_from_data)
-    float engine_torque_{};                // +0x2D4 drive_torque (engine; * 12)
-    float engine_braking_{};               // +0x2D8 (0xB2268648, * 12) engine braking without throttle
-    int gear_count_{};                     // +0x2DC gear_ratios
-    std::array<float, kMaxGears> transmission_ratios_{}; // +0x2E0
-    float reverse_ratio_{};                  // +0x2F8 reverse_torque_ratio
-    float final_drive_ratio_{};              // +0x2FC differential_ratio
-    float upshift_speed_{};                  // +0x300 upshift_rpm (rpm -> radians a second)
+    Drivetrain drivetrain_;                // +0x2D4-+0x303 the engine and the gears
     Controls controls_;                      // +0x304-+0x30B the controls this frame
     render::HitMeshCache contact_memo_;    // +0x30C the feelers' collision cache
     bool rider_shown_{};                   // +0x12D8 (0x2ED67657) a skater is shown driving

@@ -193,15 +193,15 @@ double DrivableModule::get_tyre_friction(Wheel* wheel, float slip) const
 }
 
 // 0x00435380
-int DrivableModule::get_gear(float spin)
+int DrivableModule::Drivetrain::get_gear(float spin) const
 {
-    const float upshift = upshift_speed_;
+    const float upshift = upshift_speed;
     int gear = 0;
-    if (!(static_cast<double>(core::at(transmission_ratios_, 0)) * final_drive_ratio_ * spin > upshift)) {
+    if (!(static_cast<double>(core::at(ratios, 0)) * final_drive_ratio * spin > upshift)) {
         return gear;
     }
-    while (gear < gear_count_ - 1) {
-        const double engine = static_cast<double>(core::at(transmission_ratios_, gear + 1)) * final_drive_ratio_ * spin;
+    while (gear < gear_count - 1) {
+        const double engine = static_cast<double>(core::at(ratios, gear + 1)) * final_drive_ratio * spin;
         ++gear;
         if (!(engine > upshift)) {
             break;
@@ -628,25 +628,26 @@ void DrivableModule::configure_from_data(script::Struct* params)
         script::Struct* engine = nullptr;
         params->read_sub_struct(kEngine, &engine, 1);
         if (engine->has_entry_named(kDriveTorque)) {
-            engine->fetch_float(kDriveTorque, &engine_torque_, 0);
-            engine_torque_ = static_cast<float>(static_cast<double>(engine_torque_) * kFeet);
+            engine->fetch_float(kDriveTorque, &drivetrain_.engine_torque, 0);
+            drivetrain_.engine_torque = static_cast<float>(static_cast<double>(drivetrain_.engine_torque) * kFeet);
         }
         if (engine->has_entry_named(kDragTorque)) {
-            engine->fetch_float(kDragTorque, &engine_braking_, 0);
-            engine_braking_ = static_cast<float>(static_cast<double>(engine_braking_) * kFeet);
+            engine->fetch_float(kDragTorque, &drivetrain_.engine_braking, 0);
+            drivetrain_.engine_braking = static_cast<float>(static_cast<double>(drivetrain_.engine_braking) * kFeet);
         }
         if (engine->has_entry_named(kUpshiftRpm)) {
-            engine->fetch_float(kUpshiftRpm, &upshift_speed_, 0);
-            upshift_speed_ = static_cast<float>(static_cast<double>(upshift_speed_) * kRpmToRadians);
+            engine->fetch_float(kUpshiftRpm, &drivetrain_.upshift_speed, 0);
+            drivetrain_.upshift_speed =
+                static_cast<float>(static_cast<double>(drivetrain_.upshift_speed) * kRpmToRadians);
         }
-        engine->fetch_float(kDifferentialRatio, &final_drive_ratio_, 0);
-        engine->fetch_float(kReverseTorqueRatio, &reverse_ratio_, 0);
+        engine->fetch_float(kDifferentialRatio, &drivetrain_.final_drive_ratio, 0);
+        engine->fetch_float(kReverseTorqueRatio, &drivetrain_.reverse_ratio, 0);
         if (engine->has_entry_named(kGearRatios)) {
             script::Array* ratios = nullptr;
             engine->fetch_list(kGearRatios, &ratios, 1);
-            gear_count_ = static_cast<int>(ratios->extent());
-            for (int i = 0; i < gear_count_; ++i) {
-                core::at(transmission_ratios_, i) = ratios->fetch_float(static_cast<uint32_t>(i));
+            drivetrain_.gear_count = static_cast<int>(ratios->extent());
+            for (int i = 0; i < drivetrain_.gear_count; ++i) {
+                core::at(drivetrain_.ratios, i) = ratios->fetch_float(static_cast<uint32_t>(i));
             }
         }
     }
@@ -1274,13 +1275,19 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, can_dismount_), .original = 0x2CC, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, handbrake_disabled_), .original = 0x2CD, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, wheels_), .original = 0x2D0, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, engine_torque_), .original = 0x2D4, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, engine_braking_), .original = 0x2D8, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, gear_count_), .original = 0x2DC, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, transmission_ratios_), .original = 0x2E0, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, reverse_ratio_), .original = 0x2F8, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, final_drive_ratio_), .original = 0x2FC, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, upshift_speed_), .original = 0x300, .larger_by = kVectorExtra},
+        FieldAt{
+            .now = offsetof(DrivableModule, drivetrain_.engine_torque), .original = 0x2D4, .larger_by = kVectorExtra},
+        FieldAt{
+            .now = offsetof(DrivableModule, drivetrain_.engine_braking), .original = 0x2D8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, drivetrain_.gear_count), .original = 0x2DC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, drivetrain_.ratios), .original = 0x2E0, .larger_by = kVectorExtra},
+        FieldAt{
+            .now = offsetof(DrivableModule, drivetrain_.reverse_ratio), .original = 0x2F8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, drivetrain_.final_drive_ratio),
+                .original = 0x2FC,
+                .larger_by = kVectorExtra},
+        FieldAt{
+            .now = offsetof(DrivableModule, drivetrain_.upshift_speed), .original = 0x300, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, controls_.steering), .original = 0x304, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, controls_.throttle), .original = 0x308, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, controls_.brake), .original = 0x309, .larger_by = kVectorExtra},

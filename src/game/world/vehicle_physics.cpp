@@ -413,9 +413,9 @@ void DrivableModule::apply_engine_braking()
         if (!wheel.drive || wheel.state == DrivableModule::WheelState::kInAir) {
             continue;
         }
-        const int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
-        const double ratio = core::at(transmission_ratios_, gear);
-        double braking = ratio * engine_braking_ * ratio / as_unsigned(chassis_.drive_wheel_count);
+        const int gear = drivetrain_.get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
+        const double ratio = core::at(drivetrain_.ratios, gear);
+        double braking = ratio * drivetrain_.engine_braking * ratio / as_unsigned(chassis_.drive_wheel_count);
         const float stop = brake_turn_force(static_cast<double>(wheel.inv_moment_) * step_length_, wheel.spin);
         braking = std::min<double>(braking, stop);
         if (!(wheel.spin < 0.0F)) {
@@ -445,11 +445,11 @@ void DrivableModule::apply_drive_torque()
         } else {
             spin = wheel.spin < 0.0F ? -wheel.spin : 0.0F;
         }
-        const int gear = get_gear(spin);
-        double torque = static_cast<double>(core::at(transmission_ratios_, gear)) * final_drive_ratio_ *
-                        engine_torque_ / as_unsigned(chassis_.drive_wheel_count) * grip;
+        const int gear = drivetrain_.get_gear(spin);
+        double torque = static_cast<double>(core::at(drivetrain_.ratios, gear)) * drivetrain_.final_drive_ratio *
+                        drivetrain_.engine_torque / as_unsigned(chassis_.drive_wheel_count) * grip;
         if (controls_.reverse) {
-            torque = -(torque * reverse_ratio_);
+            torque = -(torque * drivetrain_.reverse_ratio);
         }
         if (controls_.handbrake && chassis_.drive_wheel_count == 4) {
             torque = torque + torque;
