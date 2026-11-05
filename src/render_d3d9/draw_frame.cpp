@@ -7,6 +7,7 @@
 #include "engine/gfx/render_camera.h"
 #include "render_d3d9/device.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "render_d3d9/pc_scene.h"
 #include "render_d3d9/view_mode.h"
 #include "render_d3d9/wireframe.h"

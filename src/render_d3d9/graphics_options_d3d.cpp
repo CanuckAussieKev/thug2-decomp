@@ -15,9 +15,7 @@
 #include <cstdint>
 
 #include "platform/run_log.h"
-#include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "render_d3d9/d3d9_state.h"
 
 namespace render::graphics_options {
 

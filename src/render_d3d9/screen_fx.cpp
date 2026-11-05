@@ -7,6 +7,7 @@
 
 #include "render_d3d9/device.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/engine_effects.h"
 #include "render_d3d9/primitive_states.h"

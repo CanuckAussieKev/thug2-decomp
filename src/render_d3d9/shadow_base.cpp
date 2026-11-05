@@ -34,7 +34,7 @@
 #include "render_d3d9/bitmap_texture.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/gpu.h"
-#include "engine/gfx/mesh_formats.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/mat4.h"
 

@@ -261,10 +261,13 @@ public:
     }
     long texture_level_size(GpuTexture* texture, uint32_t level, GpuSize* size) override
     {
-        D3DSURFACE_DESC desc{};
+        D3DSURFACE_DESC desc;
         const HRESULT result = object(texture)->GetLevelDesc(level, &desc);
-        size->width = desc.Width;
-        size->height = desc.Height;
+        *size = {};
+        if (SUCCEEDED(result)) {
+            size->width = desc.Width;
+            size->height = desc.Height;
+        }
         return result;
     }
     uint32_t release_texture(GpuTexture* texture) override { return object(texture)->Release(); }

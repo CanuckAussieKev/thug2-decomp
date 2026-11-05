@@ -22,6 +22,7 @@
 #include "render_d3d9/d3d9_handles.h"
 #include "base/core/stubs.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/graphics_options.h"
 #include "render_d3d9/pc_gamma.h"
 #include "render_d3d9/render_state.h"
