@@ -11,6 +11,7 @@
 #include "base/core/checksums.h"
 #include "game/rider/rider_created_tricks.h"
 #include "game/rider/rider_projectiles.h"
+#include "game/rider/rider_stat_overrides.h"
 #include "game/rider/rider_trick_editor.h"
 #include "game/rider/rider_traits.h"
 
@@ -34,7 +35,6 @@ namespace modules {
 class PointTally;
 }
 namespace objects {
-constexpr std::size_t kStatOverrideCount = 10;
 
 struct RiderIdentity;
 class EntityHub;
@@ -63,8 +63,6 @@ public:
     Rider& operator=(const Rider&) = delete;
     // Not original - the fields' offsets checked against the original's at compile time (rider.cpp).
     static void check_layout();
-    // 0x0057FE30: stat `index`'s override (+0x290), kept within 0-10 when 0x005A1180 says so.
-    void set_stat_override(int index, float value);
     // 0x00580490: stat `index` (the override, the default stats if none, the skate module's forced value; online
     // limits; CHEAT_STATS_13: 15; +3 with the score's bonus flag).
     float fetch_tally(int index);
@@ -241,7 +239,7 @@ private:
     RiderBoardPhysics* physics_control_;        // +0x284 SkaterPhysicsControl (0xD9151D4D)
     FootMovement* walk_;                        // +0x288 Walk (0x726E85AA)
     AttributeTracker* stats_;                   // +0x28C SkaterStatsManager (0x4FF8DAC6)
-    std::array<float, kStatOverrideCount> stat_overrides_{};                // +0x290
+    StatOverrides stat_overrides_;              // +0x290-+0x2B7 its stats as the profile set them
     int skater_number_;                         // +0x2B8
     int view_slot_;                             // +0x2BC
     int pause_state_{};                         // +0x2C0

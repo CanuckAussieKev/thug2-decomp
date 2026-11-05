@@ -3,6 +3,7 @@
 #include "game/rider/rider.h"
 #include "game/rider/rider_created_tricks.h"
 #include "game/rider/rider_projectiles.h"
+#include "game/rider/rider_stat_overrides.h"
 #include "game/rider/rider_trick_editor.h"
 #include "game/rider/rider_traits.h"
 
@@ -349,7 +350,7 @@ bool rule_5a_1180()
 } // namespace
 
 // 0x0057FE30
-void Rider::set_stat_override(int index, float value)
+void StatOverrides::set(int index, float value)
 {
     if (rule_5a_1180()) {
         if (value > kStatCeiling) {
@@ -358,8 +359,17 @@ void Rider::set_stat_override(int index, float value)
             value = 0.0F;
         }
     }
-    core::at(stat_overrides_, index) = value;
+    core::at(values_, index) = value;
 }
+
+bool StatOverrides::is_unset(int index) const
+{
+    uint32_t bits = 0;
+    std::memcpy(&bits, &core::at(values_, index), 4);
+    return bits == kUnsetStatBits;
+}
+
+float StatOverrides::value(int index) const { return core::at(values_, index); }
 
 // 0x0057FEB0 / 0x0057FEC0
 void* Rider::obtain_active_lens() const { return render::fetch_live_camera(view_slot_); }
@@ -549,9 +559,8 @@ float Rider::fetch_tally(int index)
 {
     float stat = modules::Skate::sole()->forced_stat(); // (forced by the skate module unless 0)
     if (stat == 0.0F) {
-        uint32_t bits = 0;
-        std::memcpy(&bits, &core::at(stat_overrides_, index), 4);
-        stat = bits == kUnsetStatBits ? script::fetch_float(kSkaterDefaultStats) : core::at(stat_overrides_, index);
+        stat =
+            stat_overrides_.is_unset(index) ? script::fetch_float(kSkaterDefaultStats) : stat_overrides_.value(index);
     }
     // Online: the server's rules for this player.
     if (online::online_hub()->in_net_game()) {
@@ -803,12 +812,12 @@ void Rider::set_stats_from_profile(RiderIdentity* profile)
     RiderStoryProgress* classic_stats = modules::Skate::sole()->career().get();
     if (goals::game_mode()->is_true(kIsClassic)) {
         for (int i = 0; i < kStatCount; ++i) {
-            set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(core::at(kStatNames, i))));
+            stat_overrides_.set(i, static_cast<float>(classic_stats->get_info_integer(core::at(kStatNames, i))));
         }
         return;
     }
     for (int i = 0; i < kStatCount; ++i) {
-        set_stat_override(i, static_cast<float>(profile->fetch_tally(core::at(kStatNames, i))));
+        stat_overrides_.set(i, static_cast<float>(profile->fetch_tally(core::at(kStatNames, i))));
     }
 }
 
@@ -1974,6 +1983,24 @@ void ProjectileSlots::name_all()
         core::at(slots_, i).name = checksums::hash_from_text(name.data());
         core::at(slots_, i).active = false;
     }
+}
+
+// NOT ORIGINAL
+void StatOverrides::check_layout()
+{
+    constexpr std::size_t kAt = 0x290; // (the field at its offset in the original skater, less the overrides' own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(StatOverrides, values_), .original = 0x290},
+        FieldAt{.now = sizeof(StatOverrides), .original = 0x2B8},
+    };
+    static_assert(
+        sizeof(void*) != 4 ||
+            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        "layout must match the original");
 }
 
 // NOT ORIGINAL
