@@ -205,7 +205,7 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # One static library per folder of src/, each in its folder's CMakeLists.txt, linking only the layers below it:
 #   thug2_base <- thug2_platform, thug2_formats <- thug2_wire;
 #   thug2_platform + thug2_wire <- thug2_engine <- thug2_game <- thug2_frontend, thug2_editor, thug2_devtools <- the exe (src/app);
-#   thug2_engine <- the backends: thug2_render_d3d9 (graphics), thug2_audio_dsound (sound), thug2_media_bink (movies),
+#   thug2_engine <- the backends: thug2_render_d3d9 (graphics), thug2_render_vulkan (graphics, Vulkan: not drawing yet), thug2_audio_dsound (sound), thug2_media_bink (movies),
 #   thug2_input_dinput (DirectInput), thug2_fs_win32 (files), thug2_net_winsock (sockets) - linked by the exe alone.
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -215,6 +215,9 @@ add_subdirectory(src/wire)
 add_subdirectory(src/platform)
 add_subdirectory(src/engine)
 add_subdirectory(src/render_d3d9)
+if(THUG2_VULKAN)
+    add_subdirectory(src/render_vulkan)
+endif()
 add_subdirectory(src/audio_dsound)
 add_subdirectory(src/media_bink)
 add_subdirectory(src/input_dinput)

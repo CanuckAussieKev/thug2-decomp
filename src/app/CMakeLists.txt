@@ -21,6 +21,10 @@ target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_d3d9
                                        thug2_audio_dsound thug2_media_bink thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                        thug2_script_qb thug2_engine
                                        thug2_wire thug2_formats thug2_platform thug2_base)
+# The Vulkan backend (src/render_vulkan): linked, not yet installed - nothing of it is in the exes until app/ calls it.
+if(THUG2_VULKAN)
+    target_link_libraries(thug2_app PUBLIC thug2_render_vulkan)
+endif()
 
 add_executable(thug2 WIN32
     extensions.cpp
