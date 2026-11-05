@@ -312,7 +312,7 @@ void FootMovement::update_ground_below()
     change_phase(0);
     feeler_hit_ = false;
     floor_normal_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
-    anim_state_ = kLand;
+    frame_.anim = kLand;
 }
 
 // 0x005278D0
@@ -497,7 +497,7 @@ void FootMovement::try_wallplant()
     core::down_cast<MoveExecutor>(entity()->fetch_module(kTrick))
         ->pass_to_trick_objects(contact->feeler.hit().object_checksum_);
     core_physics_->set_wallplant_time(frame_clock::game_clock_elapsed() + clock_offset());
-    anim_state_ = kWallplant;
+    frame_.anim = kWallplant;
 }
 
 // 0x005299F0
@@ -567,7 +567,7 @@ bool FootMovement::try_grind()
                       static_cast<double>(pos.z));
     }
     leave_for_ = 1;
-    anim_state_ = kRail;
+    frame_.anim = kRail;
     return true;
 }
 

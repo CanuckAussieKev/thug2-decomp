@@ -641,7 +641,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     push_normal_ = facing;
     push_height_ = pos.y - rail_up_;
     change_phase(4);
-    anim_state_ = kAnimPullUpFromHang;
+    frame_.anim = kAnimPullUpFromHang;
     return true;
 }
 
@@ -691,7 +691,7 @@ bool objects::FootMovement::drop_to_hang()
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = static_cast<float>(hang_height_offset());
     change_phase(4);
-    anim_state_ = kAnimDropToHang;
+    frame_.anim = kAnimDropToHang;
     return true;
 }
 
@@ -724,7 +724,7 @@ bool objects::FootMovement::grab_rail(maths::Vec4 start, maths::Vec4 end)
     change_phase(2);
     tell_physics_rail(this);
     trigger_rail_script(this, kHangEvents);
-    anim_state_ = kAnimHang;
+    frame_.anim = kAnimHang;
     set_physics_flag_a0(this);
     return true;
 }
@@ -984,7 +984,7 @@ void objects::FootMovement::shimmy(float move)
     const bool towards_end = dot < 0.0 ? left : !left;
     if (shimmy_blocked(&facing, along, &pos, left, &side, segment, start, end)) {
         climb_scale_ = 0.0F;
-        anim_state_ = kAnimHang;
+        frame_.anim = kAnimHang;
         return;
     }
 
@@ -1013,7 +1013,7 @@ void objects::FootMovement::shimmy(float move)
         } else {
             along = fraction < 0.0F ? 0.0F : fraction;
         }
-        anim_state_ = kAnimHang;
+        frame_.anim = kAnimHang;
     } else {
         if (past_end) {
             const float fraction = along;
@@ -1029,7 +1029,7 @@ void objects::FootMovement::shimmy(float move)
             }
             face_hang_rail(rest, along < 0.0F, direction);
         }
-        anim_state_ = left ? kAnimHangMoveLeft : kAnimHangMoveRight;
+        frame_.anim = left ? kAnimHangMoveLeft : kAnimHangMoveRight;
     }
 
     // nothing in the way from the old critical point to the new one, or it's all put back
@@ -1046,7 +1046,7 @@ void objects::FootMovement::shimmy(float move)
             offset = old_offset;
             facing = old_facing;
             climb_scale_ = 0.0F;
-            anim_state_ = kAnimHang;
+            frame_.anim = kAnimHang;
         }
     }
 }
@@ -1189,7 +1189,7 @@ void objects::FootMovement::update_hang()
             trigger_rail_script(this, kExitHangEvents);
             leap_heading_ = facing;
             leave_ride(&vel_, &up_speed_);
-            anim_state_ = kAnimAir;
+            frame_.anim = kAnimAir;
             return;
         }
     }
@@ -1206,16 +1206,16 @@ void objects::FootMovement::update_hang()
     const float rate = get_param(kHangMoveLerpRate);
     float& move_speed = climb_scale_;
     move_speed = static_cast<float>(
-        move_speed + ((static_cast<double>(wanted) - move_speed) * (static_cast<double>(rate) * frame_length_)));
+        move_speed + ((static_cast<double>(wanted) - move_speed) * (static_cast<double>(rate) * frame_.length)));
     const float speed_now = move_speed;
     const float cutoff = get_param(kHangMoveCutoff);
     if (std::fabs(speed_now) > cutoff) {
         speed_ = std::fabs(move_speed);
-        shimmy(move_speed * frame_length_);
+        shimmy(move_speed * frame_.length);
         place_on_hang();
         return;
     }
-    anim_state_ = kAnimHang;
+    frame_.anim = kAnimHang;
 }
 
 // --- ladders ---
@@ -1405,7 +1405,7 @@ void objects::FootMovement::climb_off_bottom()
     push_normal_ = facing;
     push_height_ = pos.y;
     change_phase(4);
-    anim_state_ = kAnimLadderOffBottom;
+    frame_.anim = kAnimLadderOffBottom;
 }
 
 // 0x004418B0
@@ -1495,7 +1495,7 @@ void objects::FootMovement::climb_off_top()
     push_normal_ = facing;
     push_height_ = target.y;
     change_phase(4);
-    anim_state_ = kAnimLadderOffTop;
+    frame_.anim = kAnimLadderOffTop;
 }
 
 // 0x00441DE0
@@ -1521,7 +1521,7 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
     push_normal_ = ladder.facing;
     push_height_ = ladder.point.y;
     change_phase(4);
-    anim_state_ = kAnimLadderOntoBottom;
+    frame_.anim = kAnimLadderOntoBottom;
     return true;
 }
 
@@ -1548,7 +1548,7 @@ bool objects::FootMovement::climb_onto_top()
     push_normal_ = ladder.facing;
     push_height_ = pos_.y;
     change_phase(4);
-    anim_state_ = kAnimLadderOntoTop;
+    frame_.anim = kAnimLadderOntoTop;
     return true;
 }
 
@@ -1568,7 +1568,7 @@ bool objects::FootMovement::grab_ladder(const maths::Vec4* start, const maths::V
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     change_phase(3);
     tell_physics_node(this);
-    anim_state_ = kAnimLadder;
+    frame_.anim = kAnimLadder;
     return true;
 }
 
@@ -1581,7 +1581,7 @@ void objects::FootMovement::climb_ladder()
     const double move_speed = std::cos(static_cast<double>(core::at(input->pad_primary().polar(), 1).angle)) * stick_deflection_ *
                               static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
-    auto move = static_cast<float>(move_speed * frame_length_);
+    auto move = static_cast<float>(move_speed * frame_.length);
     GrindPoint* node = hang_node_;
     const GrindPoint* other = ladder_other_end(node);
     maths::Vec4 point_a{};
@@ -1617,10 +1617,10 @@ void objects::FootMovement::climb_ladder()
     const float fraction = along;
     along = fraction > 1.0F ? 1.0F : std::max(fraction, 0.0F);
     if (along == 0.0F || along == 1.0F) {
-        anim_state_ = kAnimLadder;
+        frame_.anim = kAnimLadder;
         speed_ = 0.0F;
     } else {
-        anim_state_ = up ? kAnimLadderMoveUp : kAnimLadderMoveDown;
+        frame_.anim = up ? kAnimLadderMoveUp : kAnimLadderMoveDown;
     }
     const float climb = get_param(kLadderClimbOffset);
     const maths::Vec4& facing = facing_;
@@ -1655,7 +1655,7 @@ void objects::FootMovement::update_ladder()
         climb_ladder();
         return;
     }
-    anim_state_ = kAnimLadder;
+    frame_.anim = kAnimLadder;
     speed_ = 0.0F;
 }
 

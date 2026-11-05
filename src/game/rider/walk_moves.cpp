@@ -249,9 +249,9 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, facing_), .original = 0x48},
         FieldAt{.now = offsetof(FootMovement, up_), .original = 0x58},
         FieldAt{.now = offsetof(FootMovement, old_pos_), .original = 0x68},
-        FieldAt{.now = offsetof(FootMovement, anim_state_), .original = 0x78},
-        FieldAt{.now = offsetof(FootMovement, previous_anim_state_), .original = 0x7C},
-        FieldAt{.now = offsetof(FootMovement, frame_length_), .original = 0x80},
+        FieldAt{.now = offsetof(FootMovement, frame_.anim), .original = 0x78},
+        FieldAt{.now = offsetof(FootMovement, frame_.previous_anim), .original = 0x7C},
+        FieldAt{.now = offsetof(FootMovement, frame_.length), .original = 0x80},
         FieldAt{.now = offsetof(FootMovement, stick_heading_), .original = 0x84},
         FieldAt{.now = offsetof(FootMovement, stick_deflection_), .original = 0x94},
         FieldAt{.now = offsetof(FootMovement, control_full_), .original = 0x98},
@@ -351,7 +351,7 @@ void FootMovement::update_camera_override()
 {
     FootView* camera = walk_camera_;
     const maths::Vec4& facing = facing_;
-    switch (anim_state_) {
+    switch (frame_.anim) {
     case kAnimWait: {
         camera->set_override(true);
         // (while hang-moving, the hang move's facing)
@@ -494,7 +494,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
                                (static_cast<double>(carried.x) * velocity->x);
         if (heading > 0.0) {
             // moved on by it for the frame (x's product unrounded; y, z, w's stored first)
-            const double frame = frame_length_;
+            const double frame = frame_.length;
             auto y = static_cast<float>(frame * carried.y);
             auto z = static_cast<float>(frame * carried.z);
             auto w = static_cast<float>(frame * carried.w);
@@ -574,14 +574,14 @@ void FootMovement::tick_frame()
     if (jump_held_ && (input_->pad_primary().stick_click_left().held_down() == 0U)) {
         jump_held_ = false;
     }
-    const uint32_t previous_anim = anim_state_;
-    previous_anim_state_ = previous_anim;
-    anim_state_ = 0;
+    const uint32_t previous_anim = frame_.anim;
+    frame_.previous_anim = previous_anim;
+    frame_.anim = 0;
     update_control();
     copy_from_object();
     maths::Vec4& position = pos_;
     old_pos_ = position;
-    frame_length_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    frame_.length = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     curb_float_ = false;
     position.y -= curb_offset_; // (put back below)
     update_run_adjustment();
@@ -613,7 +613,7 @@ void FootMovement::tick_frame()
     if (!curb_float_) {
         const float rate = walk_parameter(kCurbFloatLerpDownRate);
         const double offset = curb_offset_;
-        curb_offset_ = static_cast<float>((-offset * (static_cast<double>(rate) * frame_length_)) + offset);
+        curb_offset_ = static_cast<float>((-offset * (static_cast<double>(rate) * frame_.length)) + offset);
     }
     position.y += curb_offset_;
 
@@ -632,7 +632,7 @@ void FootMovement::tick_frame()
     copy_to_object();
     update_rotate_upright();
     clamp_skater_speed(previous_anim);
-    entity()->post_own_event(anim_state_, nullptr);
+    entity()->post_own_event(frame_.anim, nullptr);
     update_anim_speed();
     update_camera_override();
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_focus_button();
@@ -652,10 +652,10 @@ void FootMovement::update_ground()
     refresh_hit_cache();
     maths::Vec4& velocity = vel_;
     update_ground_velocity(&velocity);
-    if (anim_state_ == kSkid) {
+    if (frame_.anim == kSkid) {
         const float pegged = walk_parameter(kPeggedDurationForSkid);
         if (skid_time_ < pegged) {
-            anim_state_ = kStand;
+            frame_.anim = kStand;
         }
     }
     if (update_contacts()) {
@@ -670,7 +670,7 @@ void FootMovement::update_ground()
     }
 
     // Moved on by the velocity (x's move unrounded; y, z and w's stored first).
-    const double frame = frame_length_;
+    const double frame = frame_.length;
     maths::Vec4& position = pos_;
     auto y = static_cast<float>(frame * velocity.y);
     auto z = static_cast<float>(frame * velocity.z);
@@ -707,7 +707,7 @@ void FootMovement::update_air()
 {
     const objects::PadSnapshot* pad = &input_->pad_primary();
     refresh_hit_cache();
-    anim_state_ = kAir;
+    frame_.anim = kAir;
     steer_jump();
     if (!update_contacts()) {
         blocked_ = false;
@@ -721,7 +721,7 @@ void FootMovement::update_air()
 
     // Moved on by the velocity and the extra velocity (each move unrounded), then by the vertical speed under
     // gravity.
-    const double frame = frame_length_;
+    const double frame = frame_.length;
     maths::Vec4& position = pos_;
     const maths::Vec4& velocity = vel_;
     for (int i = 0; i < 4; ++i) {
@@ -851,7 +851,7 @@ void FootMovement::update_anim_wait()
     const double x = facing.x;
     facing.x = static_cast<float>((cosine * x) + (sine * facing.z));
     facing.z = static_cast<float>(-(x * sine) + (cosine * facing.z));
-    anim_state_ = kAnimWait;
+    frame_.anim = kAnimWait;
     const double low = transition_start_offset_;
     model_lift_ = static_cast<float>(((transition_display_offset_ - low) * fraction) + low);
 }
@@ -934,7 +934,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         }
         critical_point_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         input_->pad_primary().pos_x().forget_let_go(); // (a button's release taken)
-        anim_state_ = kLand;
+        frame_.anim = kLand;
     }
     release_hit(feeler);
 }
@@ -1017,7 +1017,7 @@ void FootMovement::settle_onto_floor()
     change_phase(1);
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
-    anim_state_ = kWalkOffEdge;
+    frame_.anim = kWalkOffEdge;
     entity()->announce(kSkaterOffEdge, nullptr, 0.0F);
     release_hit(feeler);
 }
@@ -1086,7 +1086,7 @@ void FootMovement::get_begin(bool on_ground)
     }
     curb_offset_ = 0.0F;
     leave_for_ = 0;
-    previous_anim_state_ = 0;
+    frame_.previous_anim = 0;
     jump_held_ = true;
     critical_point_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     model_lift_ = 0.0F;
@@ -1316,7 +1316,7 @@ bool FootMovement::try_barrier_jump()
     change_phase(1);
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
-    anim_state_ = kJump;
+    frame_.anim = kJump;
     entity()->announce(kSkaterJump, nullptr, 0.0F);
     entity()->clear_event_handler(kJumpRequested);
     release_hit(feeler);
@@ -1400,7 +1400,7 @@ bool FootMovement::stop_on_foot(render::ProbeRay* feeler)
             y = static_cast<float>(0.0 * inverse);
             z = static_cast<float>(z * inverse);
         }
-        const double push = static_cast<double>(walk_parameter(kPushStrength)) * frame_length_;
+        const double push = static_cast<double>(walk_parameter(kPushStrength)) * frame_.length;
         position.x = static_cast<float>((x * push) + position.x);
         position.y = static_cast<float>((y * push) + position.y);
         position.z = static_cast<float>((z * push) + position.z);
@@ -1457,7 +1457,7 @@ bool FootMovement::update_contacts()
                 contact_at(this, kFloorContact).hit = false;
                 continue;
             }
-            const float frame = frame_length_;
+            const float frame = frame_.length;
             const maths::Vec4& offset = critical_point_offset_;
             const float z = position.z + offset.z;
             const float y = position.y + offset.y;
@@ -1520,7 +1520,7 @@ bool FootMovement::update_contacts()
         }
         const float distance = contact.feeler.reach();
         if (walk_parameter(kPushFeelerLength) / static_cast<double>(reach) > distance) {
-            const double push = static_cast<double>(walk_parameter(kPushStrength)) * frame_length_;
+            const double push = static_cast<double>(walk_parameter(kPushStrength)) * frame_.length;
             position.x = static_cast<float>((contact.normal.x * push) + position.x);
             position.y = static_cast<float>((contact.normal.y * push) + position.y);
             position.z = static_cast<float>((contact.normal.z * push) + position.z);

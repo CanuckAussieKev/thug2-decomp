@@ -330,8 +330,8 @@ void FootMovement::clamp_skater_speed(uint32_t stop_anim)
     const float limited = speed < last ? speed : last;
     speed_ = limited;
     last_speed_ = speed;
-    if (anim_state_ == kRun && limited == 0.0F) {
-        anim_state_ = stop_anim == kSkid ? kSkid : kStand;
+    if (frame_.anim == kRun && limited == 0.0F) {
+        frame_.anim = stop_anim == kSkid ? kSkid : kStand;
     }
 }
 

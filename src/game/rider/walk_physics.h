@@ -427,6 +427,14 @@ public:
         int previous{};   // +0x08 (+0x20)
     };
 
+    // The frame (+0x78-+0x83; tick_frame starts each with them): the animation state it ends in, sent to the object
+    // as an event (a name: Run, Stand, Skid, Land, AcidDrop, rail, Wallplant...), the last frame's, and its length.
+    struct Frame {
+        uint32_t anim{};          // +0x00 (+0x78)
+        uint32_t previous_anim{}; // +0x04 (+0x7C)
+        float length{};           // +0x08 (+0x80) in seconds
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -440,8 +448,8 @@ public:
     [[nodiscard]] const maths::Vec4& facing() const { return facing_; }
     maths::Vec4& old_pos() { return old_pos_; }
     [[nodiscard]] const maths::Vec4& old_pos() const { return old_pos_; }
-    void set_anim_state(uint32_t value) { anim_state_ = value; }
-    [[nodiscard]] float frame_length() const { return frame_length_; }
+    void set_anim_state(uint32_t value) { frame_.anim = value; }
+    [[nodiscard]] float frame_length() const { return frame_.length; }
     [[nodiscard]] bool off_vert() const { return off_vert_; }
     [[nodiscard]] const std::array<objects::WalkContact, kWalkContactSlots>& get_contacts() const { return contacts_; }
     std::array<objects::WalkContact, kWalkContactSlots>& get_contacts() { return contacts_; }
@@ -495,9 +503,7 @@ private:
     maths::Vec4 facing_{};             // +0x48 flat, unit
     maths::Vec4 up_{};                 // +0x58 the display's up, eased back upright
     maths::Vec4 old_pos_{};            // +0x68 the position as the frame began (w: 1 after a drop to hang)
-    uint32_t anim_state_{};            // +0x78 a name: Run, Stand, Skid, Land, AcidDrop, rail, Wallplant...
-    uint32_t previous_anim_state_{};   // +0x7C
-    float frame_length_{};             // +0x80 this frame's length in seconds
+    Frame frame_;                      // +0x78-+0x83 the frame's animation state and length
     maths::Vec4 stick_heading_{};      // +0x84 the way the stick points, in the world (x, z)
     float stick_deflection_{};         // +0x94 the stick's push (0-1)
     bool control_full_{};              // +0x98 a full push (always with the d-pad)

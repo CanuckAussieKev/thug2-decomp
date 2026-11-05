@@ -420,7 +420,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
         (static_cast<double>(velocity->z) * velocity->z)));
     const double wanted = get_control_speed();
     auto target = static_cast<float>(wanted);
-    anim_state_ = wanted <= 0.0 ? kStand : kRun;
+    frame_.anim = wanted <= 0.0 ? kStand : kRun;
 
     // The way it's going: the velocity's (past ignore_velocity_threshold), else the push's, else the velocity's
     // (past 0.01), else the facing.
