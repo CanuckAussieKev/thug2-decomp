@@ -74,6 +74,8 @@ uint32_t presented_width() { return present_parameters().BackBufferWidth; }
 
 uint32_t presented_height() { return present_parameters().BackBufferHeight; }
 
+bool device_made() { return d3d9::state().d3d_device() != nullptr; }
+
 GpuTexture* screen_copy_texture(int index) { return d3d9::handle(core::at(d3d9::state().screen_textures(), index)); }
 
 GpuSurface* scene_depth_surface() { return d3d9::handle(d3d9::state().z_buffer_surface()); }

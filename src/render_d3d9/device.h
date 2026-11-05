@@ -36,6 +36,8 @@ long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32
 // The back buffer's size the device was made with (its present parameters': render_d3d9/device_d3d.h).
 uint32_t presented_width();
 uint32_t presented_height();
+// Whether the device has been made (and not yet released): the Gpu may be called.
+bool device_made();
 // The default-pool surfaces the frame is drawn through (create_render_targets makes them): screen copy `index`
 // (0-8: full size to a sixteenth; render-target textures), the depth surface they are drawn with, and the back buffer
 // with its depth. As handles: the caller sets them with Gpu::set_render_target / set_depth_surface or binds the texture.

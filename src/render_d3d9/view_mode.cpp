@@ -4,10 +4,6 @@
 #include "engine/gfx/view_modes.h"
 #include "render_d3d9/d3dx.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -19,7 +15,8 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "render_d3d9/device.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace render::view_mode {
@@ -129,10 +126,10 @@ void* make_twin(void* original, Twin* twin)
     }
     void* code = nullptr;
     void* errors = nullptr;
-    IDirect3DPixelShader9* made = nullptr;
+    GpuPixelShader* made = nullptr;
     const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
-    if (result >= 0 && code && d3d9::state().d3d_device()) {
-        d3d9::state().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
+    if (result >= 0 && code && device_made()) {
+        gpu().create_pixel_shader(static_cast<const uint32_t*>(buffer_pointer(code)), &made);
     }
     if (!made && !view_mode_state().assemble_failed_logged_) {
         view_mode_state().assemble_failed_logged_ = true;
@@ -178,8 +175,8 @@ void begin_world()
     if (view_mode_state().mode_ == Mode::kUnlit) {
         renderer().set_current_pixel_shader(nullptr); // (the next SetPixelShader sends the twin)
     }
-    if (view_mode_state().mode_ == Mode::kCollisionOnly && d3d9::state().d3d_device()) {
-        d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, kViewModeClearColour, 1.0F, 0);
+    if (view_mode_state().mode_ == Mode::kCollisionOnly && device_made()) {
+        gpu().clear(0, nullptr, gpu_value::kClearTarget, kViewModeClearColour, 1.0F, 0);
     }
 }
 
@@ -213,7 +210,7 @@ void note_shader_source(void* shader, const char* source)
     }
     Twin& twin = twins()[shader];
     if (twin.tried && twin.shader && twin.shader != shader) {
-        static_cast<IDirect3DPixelShader9*>(twin.shader)->Release();
+        gpu().release_pixel_shader(static_cast<GpuPixelShader*>(twin.shader));
     }
     twin = Twin{};
     twin.source = source;
@@ -223,7 +220,7 @@ void forget_shaders()
 {
     for (auto& entry : twins()) {
         if (entry.second.tried && entry.second.shader && entry.second.shader != entry.first) {
-            static_cast<IDirect3DPixelShader9*>(entry.second.shader)->Release();
+            gpu().release_pixel_shader(static_cast<GpuPixelShader*>(entry.second.shader));
         }
     }
     twins().clear();
