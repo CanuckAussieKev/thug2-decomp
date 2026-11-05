@@ -1,12 +1,9 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
-#include <cstring>
 #include <span>
 
-#include "base/core/checked_index.h"
 #include "engine/gfx/render_camera.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/gpu_handles.h"
@@ -14,19 +11,19 @@
 #include "engine/gfx/renderer_display.h"
 #include "engine/gfx/renderer_fog.h"
 #include "engine/gfx/renderer_frame.h"
+#include "engine/gfx/renderer_pass.h"
 #include "engine/gfx/renderer_view.h"
 
-// NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
-// counters, and the render state the device was last sent (the original's globals; each member's comment or its
-// record's gives the original's address where known). No graphics API's type: the Direct3D objects themselves are in
-// render_d3d9/d3d9_state.h, for the files that talk to Direct3D.
+// NOT ORIGINAL - the renderer's state (the original's globals): what the device can do (DeviceCaps), the display drawn
+// to (DisplaySettings), the frames' counters and clocks (FrameCounters), the camera's view (ViewState), the fog
+// (FogState) and the render state the device was last sent (PassState) - each a class of its own, held by value. No
+// graphics API's type: the Direct3D objects themselves are in render_d3d9/d3d9_state.h, for the files that talk to
+// Direct3D; a backend fills the device's capabilities and the display, and PassState is the D3D9 backend's own.
 namespace render {
 
-constexpr size_t kPsConstantFloats = 20; // the pixel shader constant bank
-
 // The renderer's state (device.cpp, draw_frame.cpp and render_state.cpp use it; the rest of the game reads it through
-// these methods). Trivially destructible with constant initial values: the accessor is a constant-initialised static,
-// no guard.
+// these methods, inline one-liners that forward to the parts). Trivially destructible with constant initial values:
+// the accessor is a constant-initialised static, no guard.
 class Renderer {
 public:
     // The view as it is / put back (the level editor's preview draws with its own).
@@ -98,71 +95,49 @@ public:
     void set_fog_end(float value) { fog_.set_end(value); }
     [[nodiscard]] bool shaders_available() const { return caps_.shaders_available(); }
     void set_shaders_available(bool value) { caps_.set_shaders_available(value); }
-    [[nodiscard]] uint32_t specular_state() const { return specular_; }
-    void set_specular(uint32_t value) { specular_ = value; }
-    [[nodiscard]] uint8_t z_write() const { return z_write_; }
-    void set_z_write(uint8_t value) { z_write_ = value; }
-    [[nodiscard]] uint32_t depth_bias() const { return depth_bias_; }
-    void set_depth_bias(uint32_t value) { depth_bias_ = value; }
-    [[nodiscard]] uint32_t cull_mode() const { return cull_mode_; }
-    void set_cull_mode(uint32_t value) { cull_mode_ = value; }
-    [[nodiscard]] bool near_camera() const { return near_camera_; }
-    void set_near_camera(bool value) { near_camera_ = value; }
+    [[nodiscard]] uint32_t specular_state() const { return pass_.specular_state(); }
+    void set_specular(uint32_t value) { pass_.set_specular(value); }
+    [[nodiscard]] uint8_t z_write() const { return pass_.z_write(); }
+    void set_z_write(uint8_t value) { pass_.set_z_write(value); }
+    [[nodiscard]] uint32_t depth_bias() const { return pass_.depth_bias(); }
+    void set_depth_bias(uint32_t value) { pass_.set_depth_bias(value); }
+    [[nodiscard]] uint32_t cull_mode() const { return pass_.cull_mode(); }
+    void set_cull_mode(uint32_t value) { pass_.set_cull_mode(value); }
+    [[nodiscard]] bool near_camera() const { return pass_.near_camera(); }
+    void set_near_camera(bool value) { pass_.set_near_camera(value); }
     // The texture set on each stage, and the border colour (as the device has them).
-    [[nodiscard]] GpuTexture* stage_texture(int stage) const { return core::at(textures_, stage); }
-    void set_stage_texture(int stage, GpuTexture* texture) { core::at(textures_, stage) = texture; }
-    [[nodiscard]] uint32_t border_colour(uint32_t stage) const { return core::at(border_colours_, stage); }
-    void set_border_colour(uint32_t stage, uint32_t colour) { core::at(border_colours_, stage) = colour; }
-    [[nodiscard]] const void* pixel_shader_locked() const { return pixel_shader_locked_; }
-    void set_pixel_shader_locked(const void* value) { pixel_shader_locked_ = value; }
-    [[nodiscard]] void* current_pixel_shader() const { return current_pixel_shader_; }
-    void set_current_pixel_shader(void* value) { current_pixel_shader_ = value; }
+    [[nodiscard]] GpuTexture* stage_texture(int stage) const { return pass_.stage_texture(stage); }
+    void set_stage_texture(int stage, GpuTexture* texture) { pass_.set_stage_texture(stage, texture); }
+    [[nodiscard]] uint32_t border_colour(uint32_t stage) const { return pass_.border_colour(stage); }
+    void set_border_colour(uint32_t stage, uint32_t colour) { pass_.set_border_colour(stage, colour); }
+    [[nodiscard]] const void* pixel_shader_locked() const { return pass_.pixel_shader_locked(); }
+    void set_pixel_shader_locked(const void* value) { pass_.set_pixel_shader_locked(value); }
+    [[nodiscard]] void* current_pixel_shader() const { return pass_.current_pixel_shader(); }
+    void set_current_pixel_shader(void* value) { pass_.set_current_pixel_shader(value); }
     // The pixel shader's five constants (four passes' colours, then the fog's / constant 4).
-    [[nodiscard]] const std::array<float, kPsConstantFloats>& ps_constants() const { return ps_constant_bank_; }
-    void set_ps_constant(int index, float value) { core::at(ps_constant_bank_, index) = value; }
+    [[nodiscard]] const std::array<float, kPsConstantFloats>& ps_constants() const { return pass_.ps_constants(); }
+    void set_ps_constant(int index, float value) { pass_.set_ps_constant(index, value); }
     // The first `values.size()` constants from `values` (at most the bank's 20).
-    void load_ps_constants(std::span<const float> values)
-    {
-        std::ranges::copy(values, std::span<float>(ps_constant_bank_).first(values.size()).begin());
-    }
+    void load_ps_constants(std::span<const float> values) { pass_.load_ps_constants(values); }
     // The first `count` passes' colour constants (r, g, b and a fourth value each; at most four).
     void load_pass_colours(const std::array<std::array<float, 4>, 4>& colours, uint32_t count)
     {
-        const auto passes = std::span(colours).first(count);
-        std::memcpy(ps_constant_bank_.data(), passes.data(), passes.size_bytes());
+        pass_.load_pass_colours(colours, count);
     }
-    // A colour's scale per channel.
-    struct ColourScale {
-        double r{};
-        double g{};
-        double b{};
-    };
-
     // A pass's colour (its constant's r, g, b) scaled by r, g, b, as the instance colour does.
-    void scale_pass_colour(uint32_t pass, ColourScale scale)
-    {
-        const auto scale_red = scale.r;
-        const auto scale_green = scale.g;
-        const auto scale_blue = scale.b;
-        float& c0 = core::at(ps_constant_bank_, 4 * pass);
-        float& c1 = core::at(ps_constant_bank_, (4 * pass) + 1);
-        float& c2 = core::at(ps_constant_bank_, (4 * pass) + 2);
-        c0 = static_cast<float>(scale_red * c0);
-        c1 = static_cast<float>(scale_green * c1);
-        c2 = static_cast<float>(scale_blue * c2);
-    }
-    [[nodiscard]] uint32_t instance_colour_on() const { return instance_colour_on_; }
-    void set_instance_colour_on(uint32_t value) { instance_colour_on_ = value; }
-    [[nodiscard]] const std::array<uint8_t, 4>& instance_colour() const { return instance_colour_; }
-    void set_instance_colour(const std::array<uint8_t, 4>& value) { instance_colour_ = value; }
-    [[nodiscard]] uint8_t pixel_shader_changed() const { return pixel_shader_changed_; }
-    void set_pixel_shader_changed(uint8_t value) { pixel_shader_changed_ = value; }
-    [[nodiscard]] uint32_t vertex_format_locked() const { return vertex_format_locked_; }
-    void set_vertex_format_locked(uint32_t value) { vertex_format_locked_ = value; }
-    [[nodiscard]] uint32_t skipped_passes() const { return skipped_passes_; }
-    void set_skipped_passes(uint32_t value) { skipped_passes_ = value; }
-    [[nodiscard]] uint32_t submit_locked() const { return submit_locked_; }
-    void set_submit_locked(uint32_t value) { submit_locked_ = value; }
+    void scale_pass_colour(uint32_t pass, PassState::ColourScale scale) { pass_.scale_pass_colour(pass, scale); }
+    [[nodiscard]] uint32_t instance_colour_on() const { return pass_.instance_colour_on(); }
+    void set_instance_colour_on(uint32_t value) { pass_.set_instance_colour_on(value); }
+    [[nodiscard]] const std::array<uint8_t, 4>& instance_colour() const { return pass_.instance_colour(); }
+    void set_instance_colour(const std::array<uint8_t, 4>& value) { pass_.set_instance_colour(value); }
+    [[nodiscard]] uint8_t pixel_shader_changed() const { return pass_.pixel_shader_changed(); }
+    void set_pixel_shader_changed(uint8_t value) { pass_.set_pixel_shader_changed(value); }
+    [[nodiscard]] uint32_t vertex_format_locked() const { return pass_.vertex_format_locked(); }
+    void set_vertex_format_locked(uint32_t value) { pass_.set_vertex_format_locked(value); }
+    [[nodiscard]] uint32_t skipped_passes() const { return pass_.skipped_passes(); }
+    void set_skipped_passes(uint32_t value) { pass_.set_skipped_passes(value); }
+    [[nodiscard]] uint32_t submit_locked() const { return pass_.submit_locked(); }
+    void set_submit_locked(uint32_t value) { pass_.set_submit_locked(value); }
     [[nodiscard]] uint32_t fog_active() const { return fog_.active(); }
     void set_fog_active(uint32_t value) { fog_.set_active(value); }
     // The world transform the instances are drawn with: a copy of the given matrix (its last column 0, 0, 0, 1), or
@@ -176,24 +151,7 @@ private:
     FrameCounters frame_;     // the frames' counters and clocks
     ViewState view_;          // the camera's view (draw_frame.cpp)
     FogState fog_;            // the distance fog
-
-    // The render state the device was last sent (render_state.cpp).
-    uint32_t specular_{};
-    uint8_t z_write_{};
-    uint32_t depth_bias_{};
-    uint32_t cull_mode_{};
-    bool near_camera_{};
-    std::array<GpuTexture*, 4> textures_{};
-    std::array<uint32_t, 4> border_colours_{};
-    const void* pixel_shader_locked_{}; // (a shader set for a whole pass: set_pixel_shader leaves the device's alone)
-    void* current_pixel_shader_{};
-    std::array<float, kPsConstantFloats> ps_constant_bank_{};
-    uint32_t instance_colour_on_{};
-    std::array<uint8_t, 4> instance_colour_{};
-    uint8_t pixel_shader_changed_{};
-    uint32_t vertex_format_locked_{};
-    uint32_t skipped_passes_{};
-    uint32_t submit_locked_{};
+    PassState pass_;          // the render state the device was last sent (render_state.cpp)
 };
 
 // The renderer's state (made on first use, never destroyed).
