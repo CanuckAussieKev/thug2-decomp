@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/maths/mat4.h"
 #include <span>
 
 // NOT ORIGINAL - thug2_maths_check's references for maths::matrix_multiply (D3DXMatrixMultiply, d3dx9_43.dll) and the
@@ -8,9 +9,10 @@ namespace tests {
 
 void d3dx_matrix_multiply(float* out, const float* a, const float* b);
 
-// NOT ORIGINAL - the references for base/maths/view_transforms.h: D3DX9's own functions (`out` never an input).
-using Matrix16 = std::span<float, 16>;
-using ConstMatrix16 = std::span<const float, 16>;
+// NOT ORIGINAL - the references for base/maths/view_transforms.h: D3DX9's own functions (`out` never an input). A
+// matrix is maths::Mat4's 16 floats.
+using Matrix16 = std::span<float, maths::kMatrixFloats>;
+using ConstMatrix16 = std::span<const float, maths::kMatrixFloats>;
 using Vector3Out = std::span<float, 3>;
 using Vector3In = std::span<const float, 3>;
 using Vector4Out = std::span<float, 4>;
