@@ -337,6 +337,8 @@ public:
     [[nodiscard]] GameEntity* rider_ref() const { return rider_ref_; }
 
 private:
+    // NOT ORIGINAL: the fields at the original's offsets, checked at compile time (vehicle_component.cpp).
+    static void check_layout();
     // (Part of 0x00438BB0, collide: a collider's face against the world - where it crosses the world's faces, and
     // lines from the body's position to its four corners - as contacts; false when a trigger interrupted it.)
     bool gather_contacts(const Collider& collider, render::BoxProbe& rect, render::ProbeRay& feeler);

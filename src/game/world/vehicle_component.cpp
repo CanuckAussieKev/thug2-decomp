@@ -11,6 +11,7 @@
 #include "game/skate/skate_module.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -1209,6 +1210,106 @@ bool DrivableModule::place_before_camera(script::Struct* /*params*/, script::Scr
     entity()->basis_frame() = basis_frame_;
     update_dependents();
     return true;
+}
+
+// NOT ORIGINAL
+void DrivableModule::check_layout()
+{
+    // Each field at the original's offset (32-bit builds); after the wheels' vector each is further on by what the
+    // vector takes over the original's 4 bytes (12 in this library's Release build, 16 in Debug). Only the size
+    // counts (the component is made on the current heap).
+    constexpr std::size_t kVectorExtra = sizeof(std::vector<Wheel>) - 4;
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+        std::size_t larger_by;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(DrivableModule, at_point_), .original = 0x18, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, linear_momentum_), .original = 0x28, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, orientation_), .original = 0x38, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, rotmom_), .original = 0x48, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, awake_), .original = 0x58, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, still_frames_), .original = 0x5C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, contact_count_), .original = 0x60, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, basis_frame_), .original = 0x64, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, vel_), .original = 0xA4, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, rotvel_), .original = 0xB4, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, inv_inertia_), .original = 0xC4, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, com_offset_), .original = 0x104, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, wheels_in_contact_), .original = 0x114, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, load_index_), .original = 0x118, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, cut_short_), .original = 0x119, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, righting_), .original = 0x11A, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, righting_start_), .original = 0x11C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, kick_time_), .original = 0x120, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, force_), .original = 0x124, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, twist_force_), .original = 0x134, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, step_length_), .original = 0x144, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, balance_point_), .original = 0x148, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, inv_mass_), .original = 0x158, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, inv_moments_), .original = 0x15C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, moment_w_), .original = 0x168, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, restitution_), .original = 0x16C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, drag_factor_), .original = 0x170, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, depth_correction_), .original = 0x174, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, tipped_friction_), .original = 0x178, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, wall_steering_), .original = 0x17C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, align_speed_), .original = 0x180, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, align_time_), .original = 0x184, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, align_rate_), .original = 0x188, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, align_when_slow_), .original = 0x18C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, wheel_count_), .original = 0x190, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, drive_wheel_count_), .original = 0x194, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, max_steering_angle_), .original = 0x198, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, wheelbase_), .original = 0x19C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, track_), .original = 0x1A0, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, yaw_damping_), .original = 0x1A4, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, spin_damping_), .original = 0x1A8, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, colliders_), .original = 0x1AC, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, skater_bone_), .original = 0x2BC, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, can_dismount_), .original = 0x2CC, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, handbrake_disabled_), .original = 0x2CD, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, wheels_), .original = 0x2D0, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, engine_torque_), .original = 0x2D4, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, engine_braking_), .original = 0x2D8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, gear_count_), .original = 0x2DC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, transmission_ratios_), .original = 0x2E0, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, reverse_ratio_), .original = 0x2F8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, final_drive_ratio_), .original = 0x2FC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, upshift_speed_), .original = 0x300, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, steering_), .original = 0x304, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, throttle_), .original = 0x308, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, brake_), .original = 0x309, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, handbrake_), .original = 0x30A, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, reverse_), .original = 0x30B, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, contact_memo_), .original = 0x30C, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, rider_shown_), .original = 0x12D8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, skater_pos_), .original = 0x12DC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, rider_anim_name_), .original = 0x12EC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, display_steering_), .original = 0x12F0, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, sounds_name_), .original = 0x12F4, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, gravity_scale_), .original = 0x12F8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, gravity_time_), .original = 0x12FC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, handbrake_active_), .original = 0x1300, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, air_time_), .original = 0x1304, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, free_fall_time_), .original = 0x1308, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, collision_impulse_), .original = 0x130C, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, bone_rig_), .original = 0x1310, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, input_ptr_), .original = 0x1314, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, mesh_instance_), .original = 0x1318, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, debug_mode_), .original = 0x131C, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, passive_), .original = 0x1320, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, rider_ref_), .original = 0x1324, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, anim_blender_ptr_), .original = 0x1328, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, skater_core_physics_), .original = 0x132C, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, trigger_ptr_), .original = 0x1330, .larger_by = kVectorExtra},
+        FieldAt{.now = sizeof(DrivableModule), .original = 0x1334, .larger_by = kVectorExtra},
+    };
+    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+                      return field.now == field.original + field.larger_by;
+                  }),
+                  "layout must match the original");
 }
 
 } // namespace objects
