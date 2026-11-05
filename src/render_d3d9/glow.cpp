@@ -3,10 +3,6 @@
 #include "render_d3d9/glow.h"
 
 #include <cstddef>
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
@@ -16,13 +12,13 @@
 #include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/render_state.h"
 #include "engine/lists/key_map.h"
-#include "render_d3d9/pc_d3d_resources.h"
+#include "engine/gfx/gpu.h"
+#include "render_d3d9/dynamic_vertices.h"
 #include "render_d3d9/shader_slots.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
 #include "base/core/packed_colour.h"
 
 namespace render {
@@ -70,10 +66,10 @@ std::array<GlowVertex, 4>& glow_quad()
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int query_result(uint32_t query, uint32_t* pixels)
 {
-    DWORD seen = *pixels;
-    const HRESULT result = os_layer::get_occlusion_result(query, &seen);
+    uint32_t seen = *pixels;
+    const long result = os_layer::get_occlusion_result(query, &seen);
     *pixels = seen;
-    return result;
+    return static_cast<int>(result);
 }
 
 Glow* next_glow()
@@ -147,14 +143,14 @@ void update_glows(bool queries)
 
     if (queries) {
         // Each glow gets an occlusion query (up to three outstanding).
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+        gpu().set_render_state(GpuRenderState::kZWriteEnable, 0);
         choose_blend_mode(0);
         set_texture(0, nullptr);
         set_pixel_shader(nullptr, nullptr);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-        d3d9::state().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-        set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+        gpu().set_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpSelectArg2);
+        gpu().set_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg2);
+        gpu().set_stage_state(1, GpuStageState::kColourOp, gpu_value::kOpDisable);
+        set_vertex_format(kFvfXyz | kFvfDiffuse);
         for (; glow; glow = next_glow()) {
             if (glow->query_count_ >= 3) {
                 continue;
@@ -174,15 +170,15 @@ void update_glows(bool queries)
                 set_quad(glow, u, v, glow->query_size_, colour::Packed{kWhiteGlow});
             }
         }
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+        gpu().set_render_state(GpuRenderState::kColourWriteEnable, kColourWriteAll);
+        gpu().set_render_state(GpuRenderState::kZWriteEnable, 1);
         return;
     }
 
     // Each glow grows towards its size while its queries see it, and fades otherwise.
     choose_blend_mode(kBlendModeAlpha);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader94c), nullptr);
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     for (; glow; glow = next_glow()) {
         bool seen = false;
         if (!renderer().radeon8500()) { // (not on a Radeon 8500)
@@ -211,8 +207,8 @@ void update_glows(bool queries)
             set_quad(glow, u, v, glow->size, colour::Packed{kFadedGlow});
         }
     }
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    gpu().set_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate);
+    gpu().set_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate);
 }
 
 } // namespace render

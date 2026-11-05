@@ -177,7 +177,7 @@ uint32_t occlusion_pixels()
     if (renderer().radeon8500()) {
         return 0;
     }
-    DWORD pixels = 0;
+    uint32_t pixels = 0;
     const HRESULT result = os_layer::get_occlusion_result(core::at(view_setup().occlusion_requests(), 0).slot, &pixels);
     if (result == S_OK) {
         core::at(view_setup().occlusion_slots(), core::at(view_setup().occlusion_requests(), 0).slot) = 0;

@@ -133,7 +133,7 @@ void PcPrimitive::render()
 {
     core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode());
     material_.hand_in(); // (its set-up)
-    IDirect3DVertexBuffer9* buffer = nullptr;
+    GpuVertexBuffer* buffer = nullptr;
     uint32_t first_vertex = 0;
     uint32_t room = 0;
     set_vertex_format(vertex_format_);
@@ -144,7 +144,7 @@ void PcPrimitive::render()
     void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, {.first_vertex_ = &first_vertex, .room = &room});
     std::memcpy(out, vertices_, static_cast<uint32_t>(vertex_count_ * stride_));
     os_layer::unlock_dynamic_vertices(vertex_count_, stride_);
-    d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, stride_);
+    d3d9::state().d3d_device()->SetStreamSource(0, d3d9::object(buffer), 0, stride_);
     int primitives = 0;
     if (type_ == 0) {
         primitives = vertex_count_ / 2;
@@ -153,7 +153,7 @@ void PcPrimitive::render()
         primitives = vertex_count_ / 3;
         d3d9::state().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, primitives);
     } else {
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
+        d3d9::state().d3d_device()->SetIndices(d3d9::object(quad_index_buffer()));
         primitives = vertex_count_ / 2;
         d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertex_count_, 0,
                                            primitives);

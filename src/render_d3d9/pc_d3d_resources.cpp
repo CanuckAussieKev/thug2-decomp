@@ -87,7 +87,7 @@ void release_dynamic_vertex_buffer()
 void release_quad_index_buffer()
 {
     if (render::quad_index_buffer()) {
-        render::quad_index_buffer()->Release();
+        render::d3d9::object(render::quad_index_buffer())->Release();
     }
     render::quad_index_buffer() = nullptr;
 }
@@ -97,9 +97,9 @@ HRESULT create_quad_index_buffer(uint32_t quads)
 {
     uint16_t* index = nullptr;
     render::d3d9::state().d3d_device()->CreateIndexBuffer(quads * kIndicesPerQuad * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
-                                    &render::quad_index_buffer(), nullptr);
+                                    render::d3d9::out(&render::quad_index_buffer()), nullptr);
     void* locked = nullptr;
-    render::quad_index_buffer()->Lock(0, 0, &locked, 0);
+    render::d3d9::object(render::quad_index_buffer())->Lock(0, 0, &locked, 0);
     index = static_cast<uint16_t*>(locked);
     const std::span<uint16_t> indices(index, static_cast<size_t>(quads) * 6);
     size_t at = 0;
@@ -111,16 +111,16 @@ HRESULT create_quad_index_buffer(uint32_t quads)
         core::at(indices, at + 4) = static_cast<uint16_t>(first + 3);
         core::at(indices, at + kQuadLastIndexSlot) = static_cast<uint16_t>(first);
     }
-    return render::quad_index_buffer()->Unlock();
+    return render::d3d9::object(render::quad_index_buffer())->Unlock();
 }
 
 // 0x005F4740
-void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, VertexRoom vertex_room)
+void* lock_dynamic_vertices(uint32_t count, uint32_t stride, render::GpuVertexBuffer** buffer, VertexRoom vertex_room)
 {
     auto* const first_vertex = vertex_room.first_vertex_;
     auto* const room = vertex_room.room;
     const uint32_t first = (dynamic_vertices_used() + stride - 1) / stride;
-    *buffer = dynamic_vertices();
+    *buffer = render::d3d9::handle(dynamic_vertices());
     const uint32_t start = first * stride;
     if ((count * stride) + start > dynamic_vertices_size()) {
         // Full: start again at the beginning.
@@ -190,14 +190,14 @@ HRESULT end_occlusion_query(uint32_t key)
 }
 
 // 0x005F4C80
-HRESULT get_occlusion_result(uint32_t key, DWORD* pixels)
+long get_occlusion_result(uint32_t key, uint32_t* pixels)
 {
     auto it = ended_queries().find(key);
     if (it == ended_queries().end()) {
         return D3DERR_NOTFOUND;
     }
     IDirect3DQuery9* query = it->second;
-    const HRESULT result = query->GetData(pixels, sizeof(DWORD), 0);
+    const HRESULT result = query->GetData(pixels, sizeof(uint32_t), 0);
     if (result == S_OK) {
         ended_queries().erase(it);
         query->Release();
@@ -224,7 +224,7 @@ void release_occlusion_queries()
 void release_direct_3d()
 {
     if (render::quad_index_buffer()) {
-        render::quad_index_buffer()->Release();
+        render::d3d9::object(render::quad_index_buffer())->Release();
     }
     if (dynamic_vertices()) {
         dynamic_vertices()->Release();

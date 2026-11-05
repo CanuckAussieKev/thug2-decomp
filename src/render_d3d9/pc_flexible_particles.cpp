@@ -2,10 +2,6 @@
 
 #include "render_d3d9/pc_flexible_particles.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -19,7 +15,9 @@
 #include "engine/gfx/particle_types.h"
 #include "render_d3d9/render_state.h"
 #include "render_d3d9/simple_material.h"
-#include "render_d3d9/pc_d3d_resources.h"
+#include "render_d3d9/dynamic_vertices.h"
+#include "engine/gfx/gpu.h"
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/shader_slots.h"
 #include "engine/gfx/engine.h"
 #include <gsl/pointers>
@@ -29,7 +27,6 @@
 #include "engine/gfx/vertex_view.h"
 #include "base/core/packed_colour.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec4.h"
@@ -67,9 +64,9 @@ constexpr int kSmoothStarVertices = 8;
 constexpr int kFixedPointShift = 12;
 constexpr float kFixedPointScale = 4096.0F;
 
-IDirect3DIndexBuffer9*& quad_index_buffer()
+GpuIndexBuffer*& quad_index_buffer()
 {
-    static IDirect3DIndexBuffer9* quad_indices{};
+    static GpuIndexBuffer* quad_indices{};
     return quad_indices;
 }
 
@@ -189,7 +186,7 @@ ColourSpan colour_span(const EmitterInstance& system, float life)
 
 // The dynamic vertex buffer locked for `count` vertices of `stride` bytes: written by vertex index (the vertices that
 // fit are `room`).
-gpu::VertexWriter locked_writer(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
+gpu::VertexWriter locked_writer(uint32_t count, uint32_t stride, GpuVertexBuffer** buffer, uint32_t* first_vertex,
                                 uint32_t* room)
 {
     void* where = os_layer::lock_dynamic_vertices(count, stride, buffer, {.first_vertex_ = first_vertex, .room = room});
@@ -322,14 +319,14 @@ void PcNewFlatParticles::render()
         maths::Vec4 u;
         camera_axes(right, u);
         set_material(material->material());
-        set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+        set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
         set_pixel_shader(default_pixel_shader(), nullptr);
         core::Cursor<const float> place(position_array());
         core::Cursor<const FlexibleParticle> particle(particle_list());
         int remaining = particle_count();
         int index = 0;
         while (remaining != 0) {
-            IDirect3DVertexBuffer9* buffer = nullptr;
+            GpuVertexBuffer* buffer = nullptr;
             uint32_t first_vertex = 0;
             uint32_t room = 0;
             auto vertex = os_layer::lock_vertices<QuadVertex>(
@@ -418,10 +415,9 @@ void PcNewFlatParticles::render()
             if (quads >= room - 4) {
                 break; // (full: the original stops here, undrawn)
             }
-            d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-            d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-            d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
-                                               quads * 2);
+            gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
+            gpu().set_indices(quad_index_buffer());
+            gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, quads * 4, 0, quads * 2);
             renderer().count_draw(quads * 2);
         }
     }
@@ -507,7 +503,7 @@ void PcFlatRibbonParticles::draw_ribbons(const std::array<double, 3>& view_z, ui
     int remaining = (segments() - 1) * particle_count() * 4;
     int index = 0;
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -593,10 +589,9 @@ void PcFlatRibbonParticles::draw_ribbons(const std::array<double, 3>& view_z, ui
         if (vertices >= room - 4) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -615,19 +610,19 @@ void PcFlatRibbonParticles::render()
     camera_axes(right, u);
     const uint32_t particle_bytes = (segments() - 1) * 16;
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
 
     draw_ribbons({{row0_z, row1_z, row2_z}}, particle_bytes);
 
     // The heads.
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+    set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
     set_pixel_shader(default_pixel_shader(), nullptr);
     core::Cursor<const FlexibleParticle> particle(particle_list());
     int remaining = particle_count() * 4;
     int index = 0;
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -709,10 +704,9 @@ void PcFlatRibbonParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -746,7 +740,7 @@ void PcGlowParticles::render()
     const uint32_t particle_words = segments() * 9 * 4; // (nine vertices of four words a segment)
     uint32_t remaining = particle_count() * particle_words;
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
@@ -867,7 +861,7 @@ void PcGlowParticles::render()
         const uint32_t triangles = (words >> 4) / 3; // (the original's count: a quarter of what it wrote)
         if (!engine_parts().suppress_draw()) {                // (rendering not skipped)
             renderer().count_draw(triangles);
-            d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer.data(), sizeof(TrailVertex));
+            gpu().draw_from_memory(GpuPrimitive::kTriangleList, triangles, buffer.data(), sizeof(TrailVertex));
         }
     }
 }
@@ -895,13 +889,13 @@ void PcLineParticles::render()
         return;
     }
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     int remaining = particle_count() * 2;
     int index = 0;
     core::Cursor<const FlexibleParticle> particle(particle_list());
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -934,8 +928,8 @@ void PcLineParticles::render()
         if (vertices >= room - 2) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, lines);
+        gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
+        gpu().draw(GpuPrimitive::kLineList, first_vertex, lines);
         renderer().count_draw(lines);
     }
 }
@@ -969,10 +963,10 @@ void PcRibbonParticles::render()
     const uint32_t stride = textured ? sizeof(QuadVertex) : sizeof(TrailVertex);
     set_material(material->material());
     if (textured) {
-        set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+        set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
         set_pixel_shader(default_pixel_shader(), nullptr);
     } else {
-        set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+        set_vertex_format(kFvfXyz | kFvfDiffuse);
         set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     }
     core::Cursor<const FlexibleParticle> particle(particle_list());
@@ -981,7 +975,7 @@ void PcRibbonParticles::render()
     int index = 0;
     int remaining = particle_count() * 4;
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -1071,10 +1065,9 @@ void PcRibbonParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, stride);
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, stride);
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -1125,13 +1118,13 @@ void PcRibbonTrailParticles::render()
     const double row1_z = core::at(renderer().view_matrix().row, 1).z;
     const double row2_z = core::at(renderer().view_matrix().row, 2).z;
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     int remaining = (steps() - 1) * particle_count() * 4;
     int index = 0;
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -1236,10 +1229,9 @@ void PcRibbonTrailParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -1274,14 +1266,14 @@ void PcShadedParticles::render()
         camera_axes(right, u);
     }
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+    set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
     set_pixel_shader(material->shader(), nullptr);
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
     int remaining = particle_count() * 4;
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -1397,10 +1389,9 @@ void PcShadedParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -1435,14 +1426,14 @@ void PcSmoothParticles::render()
         camera_axes(right, u);
     }
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+    set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
     set_pixel_shader(default_pixel_shader(), nullptr);
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
     int remaining = particle_count() * kSmoothParticleVertices;
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -1535,8 +1526,8 @@ void PcSmoothParticles::render()
         if (vertices >= room - kSmoothParticleVertices) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
-        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
+        gpu().draw(GpuPrimitive::kTriangleList, first_vertex, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -1570,7 +1561,7 @@ void PcSmoothRibbonParticles::render()
     const double row1_z = core::at(renderer().view_matrix().row, 1).z;
     const double row2_z = core::at(renderer().view_matrix().row, 2).z;
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const float> head(position_array());
     core::Cursor<const float> tail(position_array(), 3 * (segments - 1) * max_particles());
@@ -1578,7 +1569,7 @@ void PcSmoothRibbonParticles::render()
     int index = 0;
     int remaining = particle_count() * kSmoothRibbonVertices;
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -1685,10 +1676,9 @@ void PcSmoothRibbonParticles::render()
         if (vertices >= room - kSmoothRibbonVertices) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -1720,7 +1710,7 @@ void PcSmoothStarParticles::render()
     maths::Vec4 u;
     camera_axes(right, u);
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
@@ -1728,7 +1718,7 @@ void PcSmoothStarParticles::render()
     int remaining = segments() * particle_count() * kSmoothStarVertices;
     constexpr float kDegrees = 0.0174532924F; // (0x00645464)
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -1882,10 +1872,9 @@ void PcSmoothStarParticles::render()
         if (vertices >= room - kSmoothStarVertices) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -1917,7 +1906,7 @@ void PcStarParticles::render()
     maths::Vec4 u;
     camera_axes(right, u);
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
@@ -1925,7 +1914,7 @@ void PcStarParticles::render()
     int remaining = segments() * particle_count() * 4;
     constexpr float kDegrees = 0.0174532924F; // (0x00645464)
     while (remaining != 0) {
-        IDirect3DVertexBuffer9* buffer = nullptr;
+        GpuVertexBuffer* buffer = nullptr;
         uint32_t first_vertex = 0;
         uint32_t room = 0;
         uint32_t vertices = 0;
@@ -2052,10 +2041,9 @@ void PcStarParticles::render()
         if (vertices >= room - 4) {
             break;
         }
-        d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-        d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
-                                           triangles);
+        gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
+        gpu().set_indices(quad_index_buffer());
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
         renderer().count_draw(triangles);
     }
 }
@@ -2117,9 +2105,9 @@ void PcGlowRibbonTrailParticles::render()
     const uint32_t per_particle = (segments() * 9 * 4) + ((history_length() - 1) * 3 * 8);
     uint32_t remaining = particle_count() * per_particle;
     set_material(material->material());
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    set_vertex_format(kFvfXyz | kFvfDiffuse);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material());
-    IDirect3DVertexBuffer9* buffer = nullptr;
+    GpuVertexBuffer* buffer = nullptr;
     uint32_t first_vertex = 0;
     uint32_t room = 0;
     const uint32_t total_vertices = ((segments() * 9) + (((history_length() * 3) - 3) * 2)) * particle_count();
@@ -2329,11 +2317,11 @@ void PcGlowRibbonTrailParticles::render()
             remaining -= per_particle;
         }
     }
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+    gpu().set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     os_layer::unlock_dynamic_vertices(total_vertices, sizeof(TrailVertex));
-    d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
-    d3d9::state().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, total_triangles);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+    gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
+    gpu().draw(GpuPrimitive::kTriangleList, first_vertex, total_triangles);
+    gpu().set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
     renderer().count_draw(total_triangles);
 }
 

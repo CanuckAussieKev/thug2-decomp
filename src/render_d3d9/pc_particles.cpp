@@ -2,10 +2,6 @@
 
 #include "render_d3d9/pc_particles.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -22,7 +18,9 @@
 #include "render_d3d9/render_state.h"
 #include "render_d3d9/simple_material.h"
 #include "engine/gfx/texture_dict.h"
-#include "render_d3d9/pc_d3d_resources.h"
+#include "render_d3d9/dynamic_vertices.h"
+#include "engine/gfx/gpu.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/sys/stopwatch.h"
 #include "render_d3d9/shader_slots.h"
 #include "platform/crt.h"
@@ -32,7 +30,6 @@
 #include "render_d3d9/pc_texture.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
 #include "base/core/raw_view.h"
@@ -430,7 +427,7 @@ void PcParticleSystem::draw(bool advance)
     std::array<float, 3> right{};
     std::array<float, 3> u{};
     camera_axes(right, u);
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+    set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
     std::array<std::array<float, 4>, 3> colour_table{};
     for (int i = 0; i < 3; ++i) {
@@ -455,7 +452,7 @@ void PcParticleSystem::draw(bool advance)
         int remaining = burst->count;
         int index = 0;
         while (remaining != 0) {
-            IDirect3DVertexBuffer9* buffer = nullptr;
+            GpuVertexBuffer* buffer = nullptr;
             uint32_t first_vertex = 0;
             uint32_t room = 0;
             auto* locked = static_cast<ParticleVertex*>(
@@ -593,10 +590,9 @@ void PcParticleSystem::draw(bool advance)
             }
             remaining -= static_cast<int>(quads);
             os_layer::unlock_dynamic_vertices(quads * 4, sizeof(ParticleVertex));
-            d3d9::state().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
-            d3d9::state().d3d_device()->SetIndices(quad_index_buffer());
-            d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
-                                               quads * 2);
+            gpu().set_stream_source(0, buffer, 0, sizeof(ParticleVertex));
+            gpu().set_indices(quad_index_buffer());
+            gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, quads * 4, 0, quads * 2);
         }
     }
 }

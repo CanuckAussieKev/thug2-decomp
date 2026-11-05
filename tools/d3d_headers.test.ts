@@ -98,6 +98,9 @@ const THROUGH_GPU = [
     "render_d3d9/pc_instance.cpp",
     "render_d3d9/pixel_shaders.cpp",
     "render_d3d9/pc_mesh_load.cpp",
+    "render_d3d9/pc_flexible_particles.cpp",
+    "render_d3d9/pc_particles.cpp",
+    "render_d3d9/glow.cpp",
 ];
 
 // render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs
