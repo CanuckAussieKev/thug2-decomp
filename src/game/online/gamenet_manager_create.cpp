@@ -1,6 +1,9 @@
 // The network manager made (online::Hub, 0x0053EE90 / 0x0053F520): its lists, preferences, tasks, the lobby,
 // vault, presence and stats managers, and the CD-key challenge. See gamenet_manager.h.
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <new>
@@ -125,6 +128,113 @@ Hub* Hub::fabricate(bool create)
     }
     ++net_game_state().game_net_references(); // (the references)
     return instance;
+}
+
+// NOT ORIGINAL
+void Hub::check_layout()
+{
+    // Each field's offset: the original's, less what the smaller members before it save here - the two preference
+    // sets are 8 bytes, not 0xC (4 each), the five list heads 0x10, not 0x14 (4 each). The size counts in the heaps.
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+        std::size_t smaller_by;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(Hub, flag_bits_), .original = 0x0, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, unknown1_), .original = 0x1, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, host_), .original = 0x4, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, client_app_), .original = 0x8, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, client1_), .original = 0xC, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, lobby_service_), .original = 0x10, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, vault_man_), .original = 0x14, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, presence_service_), .original = 0x18, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, rating_service_), .original = 0x1C, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, challenge_), .original = 0x20, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, browser_client_), .original = 0x2C, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, game_type_), .original = 0x30, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, level_), .original = 0x34, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, game_id_), .original = 0x38, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, ended_game_id_), .original = 0x39, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, match_ended_), .original = 0x3A, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, cheating_noted_), .original = 0x3B, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, join_mode_), .original = 0x3C, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, host_mode_), .original = 0x40, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, final_scores_received_), .original = 0x44, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, show_metrics_), .original = 0x45, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, show_scores_), .original = 0x46, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, show_names_), .original = 0x47, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, start_points_), .original = 0x48, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, crown_start_), .original = 0x68, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, crown_), .original = 0x6C, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, team_objects_), .original = 0x70, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, connection_job_), .original = 0xC0, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, metrics_job_), .original = 0xC4, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, score_broadcast_job_), .original = 0xC8, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, host_admit_job_), .original = 0xCC, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, guest_admit_job_), .original = 0xD0, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, keyboard_job_), .original = 0xD4, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, dialup_job_), .original = 0xD8, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, join_expiry_job_), .original = 0xDC, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, service_job_), .original = 0xE0, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, join_phase_job_), .original = 0xE4, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, start_game_job_), .original = 0xE8, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, level_change_job_), .original = 0xEC, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, server_list_job_), .original = 0xF0, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, auto_serve_job_), .original = 0xF4, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, flag_carry_job_), .original = 0xF8, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, spectator_pad_listener_), .original = 0xFC, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, spectate_request_), .original = 0x100, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, net_options_), .original = 0x104, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, taunt_options_), .original = 0x110, .smaller_by = 4},
+        FieldAt{.now = offsetof(Hub, players_), .original = 0x11C, .smaller_by = 8},
+        FieldAt{.now = offsetof(Hub, joiners_), .original = 0x130, .smaller_by = 12},
+        FieldAt{.now = offsetof(Hub, queued_scripts_), .original = 0x144, .smaller_by = 16},
+        FieldAt{.now = offsetof(Hub, servers_), .original = 0x158, .smaller_by = 20},
+        FieldAt{.now = offsetof(Hub, waiting_servers_), .original = 0x16C, .smaller_by = 24},
+        FieldAt{.now = offsetof(Hub, unknown180_), .original = 0x180, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, refused_reason_), .original = 0x184, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, last_ready_probe_id_), .original = 0x188, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, cleared_to_start_), .original = 0x18C, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, score_synced_at_), .original = 0x190, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, script_flag_bits_), .original = 0x194, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, join_phase_), .original = 0x198, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, join_ip_), .original = 0x19C, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, join_private_ip_), .original = 0x1A0, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, join_port_), .original = 0x1A4, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, modem_state_shown_), .original = 0x1A8, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, join_began_at_), .original = 0x1AC, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, lobby_since_), .original = 0x1B0, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, match_being_set_up_), .original = 0x1B4, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, awaiting_start_), .original = 0x1B5, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, service_state_), .original = 0x1B8, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, next_service_state_), .original = 0x1BC, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, service_wake_at_), .original = 0x1C0, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, online_script_), .original = 0x1C4, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, online_fail_script_), .original = 0x1C8, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, viewed_player_), .original = 0x1CC, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, last_leader_), .original = 0x1D0, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, last_leading_team_), .original = 0x1D4, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, created_goals_), .original = 0x1D8, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, created_goals_size_), .original = 0x1948, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, created_goals_level_), .original = 0x194C, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, unknown1950_), .original = 0x1950, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, room_id_), .original = 0x9950, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, master_servers_), .original = 0x9954, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, news_buffer_), .original = 0x99F4, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, motd_text_), .original = 0xFDF4, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, pending_data_), .original = 0xFDF8, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, pending_data_size_), .original = 0xFDFC, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, request_), .original = 0xFE00, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, request_started_at_), .original = 0xFE04, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, download_done_), .original = 0xFE08, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, motd_received_), .original = 0xFE09, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, services_available_), .original = 0xFE0A, .smaller_by = 28},
+        FieldAt{.now = sizeof(Hub), .original = 0xFE0C, .smaller_by = 28},
+    };
+    static_assert(std::ranges::all_of(
+                      kLayout, [](const FieldAt& field) { return field.now + field.smaller_by == field.original; }),
+                  "layout must match the original's, but for the smaller members");
 }
 
 } // namespace online

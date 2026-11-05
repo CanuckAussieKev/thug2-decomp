@@ -641,8 +641,12 @@ public:
     // tasks (the connection task started), the lobby / vault / presence / stats managers, the CD-key challenge (eight
     // random letters and digits).
     Hub();
-    // 0x0053F520: the manager (made if `create` and there's none, 0xFE0C bytes); a reference counted (0x007CCE18).
+    // 0x0053F520: the manager (made if `create` and there's none: 0xFE0C bytes, 0xFDF0 here); a reference counted
+    // (0x007CCE18).
     static Hub* fabricate(bool create);
+    // Not original - the fields' offsets and the size checked against the original's at compile time
+    // (gamenet_manager_create.cpp): the size counts in the heaps (the hub is made at start-up).
+    static void check_layout();
     // 0x0053C1F0 (+0xE8): the start of a game: while players are still loading, the server's
     // CreateWaitForPlayersDialog (no menu up) or a client's net_message_game_will_start, once; when everyone is ready
     // and the time has come, StartNetworkGame and the task removed.
@@ -791,8 +795,9 @@ private:
     std::unique_ptr<tasks::SchedulerTask> flag_carry_job_;      // +0xF8 carried_flags_task
     gsl::owner<pad_input::InputHandler*> spectator_pad_listener_{}; // +0xFC (deleted where observing ends)
     int spectate_request_{};                                           // +0x100
-    // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
-    // original, whose sets had a table): get_online_settings / get_taunt_settings.
+    // The network / taunt preferences (prefs::Preferences, made in place by make_new; 8 bytes each here, 0xC in the
+    // original, whose sets had a table - so the fields after are 4 / 8 bytes before the original's offsets, and the
+    // list heads after them 0x10 bytes each, not 0x14: check_layout): get_online_settings / get_taunt_settings.
     prefs::Preferences net_options_;   // +0x104
     prefs::Preferences taunt_options_; // +0x110
     memory::ListNode players_{};              // +0x11C lists::Foremost<PlayerRecord>
