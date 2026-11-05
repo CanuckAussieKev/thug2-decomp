@@ -197,13 +197,13 @@ void KinematicsModule::update_path()
     std::array<float, 4> back{};
     get_back(entity(), back);
     update_path_speed();
-    if (!(path_speed_ == 0.0F)) {
+    if (!(path_.speed == 0.0F)) {
         maths::Mat4& matrix = entity()->basis_frame();
         const maths::Vec4* along =
             ((motion_flags2_ & kMotion2NoPathHeading) != 0U) ? nullptr : &core::at(matrix.row, 2);
-        if (path_follower_->tick_frame(static_cast<float>(static_cast<double>(step_seconds_) * path_speed_), along)) {
+        if (path_follower_->tick_frame(static_cast<float>(static_cast<double>(step_seconds_) * path_.speed), along)) {
             motion_flags_ &= ~kMotionFollowingPath;
-            path_speed_ = 0.0F;
+            path_.speed = 0.0F;
         }
         if ((motion_flags2_ & kMotion2NoPathHeading) == 0U) {
             path_follower_->get_heading(&core::at(matrix.row, 2));

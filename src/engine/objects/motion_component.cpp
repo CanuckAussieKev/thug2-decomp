@@ -96,14 +96,14 @@ void KinematicsModule::get_reset()
     move_speed_ = 0.0F;
     move_max_speed_ = 0.0F;
     move_acceleration_ = 0.0F;
-    path_acceleration_ = 0.0F;
-    path_deceleration_ = 0.0F;
-    path_max_speed_ = 0.0F;
-    path_speed_ = 0.0F;
-    path_stop_distance_ = 0.0F;
-    path_stop_covered_ = 0.0F;
-    path_stop_start_speed_ = 0.0F;
-    path_min_stop_speed_ = 0.0F;
+    path_.acceleration = 0.0F;
+    path_.deceleration = 0.0F;
+    path_.max_speed = 0.0F;
+    path_.speed = 0.0F;
+    path_.stop_distance = 0.0F;
+    path_stop_.covered = 0.0F;
+    path_stop_.start_speed = 0.0F;
+    path_stop_.min_speed = 0.0F;
     turn_time_ = 0.0F;
     turn_elapsed_ = 0.0F;
     motion_flags_ = 0;
@@ -154,7 +154,7 @@ void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
         }
         break;
     case script::BlockReason::kPathStop:
-        if (!(path_speed_ > 0.0F)) { // (a NaN stops it too)
+        if (!(path_.speed > 0.0F)) { // (a NaN stops it too)
             script::host().stop_waiting(script);
         }
         break;
@@ -343,11 +343,11 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, motion_flags_), .original = 0x18},
         FieldAt{.now = offsetof(KinematicsModule, motion_flags2_), .original = 0x1C},
         FieldAt{.now = offsetof(KinematicsModule, move_speed_), .original = 0x20},
-        FieldAt{.now = offsetof(KinematicsModule, path_acceleration_), .original = 0x24},
-        FieldAt{.now = offsetof(KinematicsModule, path_deceleration_), .original = 0x28},
-        FieldAt{.now = offsetof(KinematicsModule, path_max_speed_), .original = 0x2C},
-        FieldAt{.now = offsetof(KinematicsModule, path_speed_), .original = 0x30},
-        FieldAt{.now = offsetof(KinematicsModule, path_stop_distance_), .original = 0x34},
+        FieldAt{.now = offsetof(KinematicsModule, path_.acceleration), .original = 0x24},
+        FieldAt{.now = offsetof(KinematicsModule, path_.deceleration), .original = 0x28},
+        FieldAt{.now = offsetof(KinematicsModule, path_.max_speed), .original = 0x2C},
+        FieldAt{.now = offsetof(KinematicsModule, path_.speed), .original = 0x30},
+        FieldAt{.now = offsetof(KinematicsModule, path_.stop_distance), .original = 0x34},
         FieldAt{.now = offsetof(KinematicsModule, ground_above_), .original = 0x38},
         FieldAt{.now = offsetof(KinematicsModule, ground_below_), .original = 0x3C},
         FieldAt{.now = offsetof(KinematicsModule, ground_triangle_), .original = 0x40},
@@ -369,9 +369,9 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, move_start_), .original = 0x18C},
         FieldAt{.now = offsetof(KinematicsModule, ground_speed_), .original = 0x19C},
         FieldAt{.now = offsetof(KinematicsModule, ground_offset_), .original = 0x1A0},
-        FieldAt{.now = offsetof(KinematicsModule, path_stop_covered_), .original = 0x1A4},
-        FieldAt{.now = offsetof(KinematicsModule, path_stop_start_speed_), .original = 0x1A8},
-        FieldAt{.now = offsetof(KinematicsModule, path_min_stop_speed_), .original = 0x1AC},
+        FieldAt{.now = offsetof(KinematicsModule, path_stop_.covered), .original = 0x1A4},
+        FieldAt{.now = offsetof(KinematicsModule, path_stop_.start_speed), .original = 0x1A8},
+        FieldAt{.now = offsetof(KinematicsModule, path_stop_.min_speed), .original = 0x1AC},
         FieldAt{.now = offsetof(KinematicsModule, stored_pos_), .original = 0x1B0},
         FieldAt{.now = offsetof(KinematicsModule, saved_node_id_), .original = 0x1C0},
         FieldAt{.now = offsetof(KinematicsModule, turn_time_), .original = 0x1C4},

@@ -145,45 +145,45 @@ void KinematicsModule::update_path_speed()
         return;
     }
     if ((motion_flags2_ & kMotionPathStopping) != 0U) {
-        if (path_stop_covered_ >= path_stop_distance_) {
+        if (path_stop_.covered >= path_.stop_distance) {
             return; // (NaN goes on)
         }
-        auto covered = static_cast<float>((static_cast<double>(step_seconds_) * path_speed_) + path_stop_covered_);
-        path_stop_covered_ = covered;
-        if (path_stop_distance_ == 0.0F || covered >= path_stop_distance_) {
-            path_speed_ = 0.0F;
+        auto covered = static_cast<float>((static_cast<double>(step_seconds_) * path_.speed) + path_stop_.covered);
+        path_stop_.covered = covered;
+        if (path_.stop_distance == 0.0F || covered >= path_.stop_distance) {
+            path_.speed = 0.0F;
             return;
         }
-        const double fraction = static_cast<double>(covered) / path_stop_distance_;
-        path_speed_ =
-            static_cast<float>(((1.0 - fraction) * path_stop_start_speed_) + (fraction * path_min_stop_speed_));
+        const double fraction = static_cast<double>(covered) / path_.stop_distance;
+        path_.speed =
+            static_cast<float>(((1.0 - fraction) * path_stop_.start_speed) + (fraction * path_stop_.min_speed));
         return;
     }
-    if (path_speed_ < path_max_speed_) {
+    if (path_.speed < path_.max_speed) {
         // Up to the path velocity.
-        if (path_acceleration_ == 0.0F) {
-            path_speed_ = path_max_speed_;
+        if (path_.acceleration == 0.0F) {
+            path_.speed = path_.max_speed;
             return;
         }
-        const double velocity = (static_cast<double>(step_seconds_) * path_acceleration_) + path_speed_;
-        path_speed_ = static_cast<float>(velocity);
-        if (velocity > path_max_speed_) {
-            path_speed_ = path_max_speed_;
+        const double velocity = (static_cast<double>(step_seconds_) * path_.acceleration) + path_.speed;
+        path_.speed = static_cast<float>(velocity);
+        if (velocity > path_.max_speed) {
+            path_.speed = path_.max_speed;
         }
         return;
     }
-    if (!(path_speed_ > path_max_speed_)) {
+    if (!(path_.speed > path_.max_speed)) {
         return; // (there, or NaN)
     }
     // Down to it.
-    if (path_deceleration_ == 0.0F) {
-        path_speed_ = path_max_speed_;
+    if (path_.deceleration == 0.0F) {
+        path_.speed = path_.max_speed;
         return;
     }
-    const double velocity = path_speed_ - (static_cast<double>(step_seconds_) * path_deceleration_);
-    path_speed_ = static_cast<float>(velocity);
-    if (velocity < path_max_speed_) {
-        path_speed_ = path_max_speed_;
+    const double velocity = path_.speed - (static_cast<double>(step_seconds_) * path_.deceleration);
+    path_.speed = static_cast<float>(velocity);
+    if (velocity < path_.max_speed) {
+        path_.speed = path_.max_speed;
     }
 }
 
@@ -216,28 +216,28 @@ int KinematicsModule::stop_rotating(script::Struct* /*params*/, script::Script* 
 // 0x004231A0
 int KinematicsModule::set_path_velocity(script::Struct* params, script::Script* /*script*/)
 {
-    get_speed(params, &path_max_speed_, kFps, kIps);
+    get_speed(params, &path_.max_speed, kFps, kIps);
     return 1;
 }
 
 // 0x00423210
 int KinematicsModule::set_path_min_stop_vel(script::Struct* params, script::Script* /*script*/)
 {
-    get_speed(params, &path_min_stop_speed_, kFps, kIps);
+    get_speed(params, &path_stop_.min_speed, kFps, kIps);
     return 1;
 }
 
 // 0x00423280
 int KinematicsModule::set_path_acceleration(script::Struct* params, script::Script* /*script*/)
 {
-    get_speed(params, &path_acceleration_, kFpsps, kIpsps);
+    get_speed(params, &path_.acceleration, kFpsps, kIpsps);
     return 1;
 }
 
 // 0x004232F0
 int KinematicsModule::set_path_deceleration(script::Struct* params, script::Script* /*script*/)
 {
-    get_speed(params, &path_deceleration_, kFpsps, kIpsps);
+    get_speed(params, &path_.deceleration, kFpsps, kIpsps);
     return 1;
 }
 
@@ -266,19 +266,19 @@ int KinematicsModule::random_path_mode(script::Struct* params, script::Script* /
 // 0x004233E0
 int KinematicsModule::stop_along_path(script::Struct* params, script::Script* /*script*/)
 {
-    path_stop_distance_ = 0.0F;
-    path_stop_covered_ = 0.0F;
-    if (path_min_stop_speed_ == 0.0F) {
-        path_min_stop_speed_ = kDefaultMinStopVelocity;
+    path_.stop_distance = 0.0F;
+    path_stop_.covered = 0.0F;
+    if (path_stop_.min_speed == 0.0F) {
+        path_stop_.min_speed = kDefaultMinStopVelocity;
     }
-    params->fetch_float(0U, &path_stop_distance_, 0);
+    params->fetch_float(0U, &path_.stop_distance, 0);
     if (!params->has_bare_flag(kInches)) {
         // (in feet: the stop's starting speed noted - not with `inches`, as the original)
-        path_stop_start_speed_ = path_speed_;
-        path_stop_distance_ *= kTwelveInchScale;
+        path_stop_.start_speed = path_.speed;
+        path_.stop_distance *= kTwelveInchScale;
     }
-    if (path_stop_distance_ == 0.0F) {
-        path_speed_ = 0.0F;
+    if (path_.stop_distance == 0.0F) {
+        path_.speed = 0.0F;
     }
     motion_flags2_ |= kMotionPathStopping;
     return 1;

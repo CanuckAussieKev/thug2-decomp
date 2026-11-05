@@ -334,13 +334,13 @@ public:
     [[nodiscard]] uint32_t motion_flags() const { return motion_flags_; }
     uint32_t& motion_flags2() { return motion_flags2_; }
     [[nodiscard]] uint32_t motion_flags2() const { return motion_flags2_; }
-    void assign_path_acceleration(float value) { path_acceleration_ = value; }
-    void assign_path_deceleration(float value) { path_deceleration_ = value; }
-    [[nodiscard]] float path_max_speed() const { return path_max_speed_; }
-    void set_path_max_speed(float value) { path_max_speed_ = value; }
-    [[nodiscard]] float path_speed() const { return path_speed_; }
-    void set_path_speed(float value) { path_speed_ = value; }
-    void set_path_stop_distance(float value) { path_stop_distance_ = value; }
+    void assign_path_acceleration(float value) { path_.acceleration = value; }
+    void assign_path_deceleration(float value) { path_.deceleration = value; }
+    [[nodiscard]] float path_max_speed() const { return path_.max_speed; }
+    void set_path_max_speed(float value) { path_.max_speed = value; }
+    [[nodiscard]] float path_speed() const { return path_.speed; }
+    void set_path_speed(float value) { path_.speed = value; }
+    void set_path_stop_distance(float value) { path_.stop_distance = value; }
     [[nodiscard]] const std::array<maths::Vec4, 3>& ground_triangle() const { return ground_triangle_; }
     void set_ground_triangle(const std::array<maths::Vec4, 3>& value) { ground_triangle_ = value; }
     void set_ground_height_only(bool value) { ground_height_only_ = value; }
@@ -349,14 +349,27 @@ public:
 private:
     // NOT ORIGINAL: the fields at the original's offsets, checked at compile time.
     static void check_layout();
+    // The component's state in parts: records of its fields at their places in the original's layout (+0x.. the
+    // offset in the record, then in the component; check_layout checks them all).
+    // The speed along a path, two records apart: its settings and the speed now (+0x24-+0x37), and a stop along it
+    // (+0x1A4-+0x1AF) - update_path_speed, the path's member functions, get_reset; the peds' logic sets them too.
+    struct PathSpeed {
+        float acceleration{};  // +0x00 (+0x24) Obj_SetPathAcceleration
+        float deceleration{};  // +0x04 (+0x28) Obj_SetPathDeceleration
+        float max_speed{};     // +0x08 (+0x2C) Obj_SetPathVelocity
+        float speed{};         // +0x0C (+0x30) the speed now
+        float stop_distance{}; // +0x10 (+0x34) Obj_StopAlongPath's (inches)
+    };
+    struct PathStop {
+        float covered{};     // +0x00 (+0x1A4) of the stop's distance (0x00423530)
+        float start_speed{}; // +0x04 (+0x1A8) the speed when the stop began
+        float min_speed{};   // +0x08 (+0x1AC) Obj_SetPathMinStopVel
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
-    float path_acceleration_{};        // +0x24 Obj_SetPathAcceleration
-    float path_deceleration_{};        // +0x28 Obj_SetPathDeceleration
-    float path_max_speed_{};           // +0x2C Obj_SetPathVelocity
-    float path_speed_{};               // +0x30 along the path: the speed now
-    float path_stop_distance_{};       // +0x34 Obj_StopAlongPath's (inches)
+    PathSpeed path_;                   // +0x24-+0x37 the speed along a path
     float ground_above_{};             // +0x38 Obj_StickToGround DistAbove (feet)
     float ground_below_{};             // +0x3C DistBelow
     std::array<maths::Vec4, 3> ground_triangle_{}; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
@@ -379,9 +392,7 @@ private:
     maths::Vec4 move_start_{};            // +0x18C
     float ground_speed_{0.0F};            // +0x19C the ground offset's speed of change
     float ground_offset_{0.0F};           // +0x1A0 how far the height has still to go to the ground
-    float path_stop_covered_{};           // +0x1A4 of the stop's distance (0x00423530)
-    float path_stop_start_speed_{};       // +0x1A8 the speed when the stop began
-    float path_min_stop_speed_{};         // +0x1AC Obj_SetPathMinStopVel
+    PathStop path_stop_;                  // +0x1A4-+0x1AF a stop along the path
     maths::Vec4 stored_pos_{};            // +0x1B0 Obj_StorePos
     uint32_t saved_node_id_{};            // +0x1C0 obj_store_node
     float turn_time_{};                   // +0x1C4 Obj_Rotate's time (0: at once)
