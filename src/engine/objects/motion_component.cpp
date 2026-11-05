@@ -72,10 +72,10 @@ KinematicsModule::~KinematicsModule()
         memory::Hub::dealloc(turn_.blender); // (no destructor run)
         turn_.blender = nullptr;
     }
-    if (FollowTrail* trail = trail_) {
+    if (FollowTrail* trail = leader_.trail) {
         // (its destructor: the empty 0x005480A0)
         memory::Hub::dealloc(trail);
-        trail_ = nullptr;
+        leader_.trail = nullptr;
     }
 }
 
@@ -385,9 +385,9 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, own_node_name_), .original = 0x1E4},
         FieldAt{.now = offsetof(KinematicsModule, list_link_), .original = 0x1E8},
         FieldAt{.now = offsetof(KinematicsModule, path_follower_), .original = 0x1EC},
-        FieldAt{.now = offsetof(KinematicsModule, trail_), .original = 0x1F0},
-        FieldAt{.now = offsetof(KinematicsModule, leave_y_unaffected_), .original = 0x1F4},
-        FieldAt{.now = offsetof(KinematicsModule, pad1f5_), .original = 0x1F5},
+        FieldAt{.now = offsetof(KinematicsModule, leader_.trail), .original = 0x1F0},
+        FieldAt{.now = offsetof(KinematicsModule, leader_.leave_y_unaffected), .original = 0x1F4},
+        FieldAt{.now = offsetof(KinematicsModule, leader_.pad5), .original = 0x1F5},
         FieldAt{.now = offsetof(KinematicsModule, jump_speed_), .original = 0x1F8},
         FieldAt{.now = offsetof(KinematicsModule, leap_pull_), .original = 0x1FC},
         FieldAt{.now = offsetof(KinematicsModule, leap_direction_), .original = 0x200},

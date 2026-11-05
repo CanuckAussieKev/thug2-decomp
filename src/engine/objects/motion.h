@@ -420,6 +420,14 @@ private:
         int period{};   // +0x0C (+0x1DC) ms
     };
 
+    // Following another object's trail (+0x1F0-+0x1F7: obj_follow_leader, update_follow_leader; the trail freed by
+    // the destructor).
+    struct FollowLeader {
+        FollowTrail* trail{};          // +0x00 (+0x1F0)
+        bool leave_y_unaffected{};     // +0x04 (+0x1F4) LeaveYUnaffected
+        std::array<uint8_t, 3> pad5{}; // +0x05 (+0x1F5)
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
@@ -439,9 +447,7 @@ private:
     uint32_t own_node_name_{};                   // +0x1E4 its own node (Name)
     uint32_t list_link_{};                       // +0x1E8 the node it's at
     std::unique_ptr<PathFollower> path_follower_; // +0x1EC
-    FollowTrail* trail_{};                       // +0x1F0 obj_follow_leader's
-    bool leave_y_unaffected_{};                  // +0x1F4 obj_follow_leader's LeaveYUnaffected
-    std::array<uint8_t, 3> pad1f5_{};
+    FollowLeader leader_;                         // +0x1F0-+0x1F7 following another object's trail
     float jump_speed_{};           // +0x1F8 up (per second)
     float leap_pull_{};            // +0x1FC
     maths::Vec4 leap_direction_{}; // +0x200 along (x, z; w kept)

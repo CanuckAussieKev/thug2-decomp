@@ -233,10 +233,10 @@ void KinematicsModule::update_path()
 // 0x004246A0
 void KinematicsModule::update_follow_leader()
 {
-    trail_->tick_frame();
+    leader_.trail->tick_frame();
     const float height = entity()->at_point().y;
-    trail_->fetch_place(&entity()->at_point(), &entity()->basis_frame());
-    if (leave_y_unaffected_) {
+    leader_.trail->fetch_place(&entity()->at_point(), &entity()->basis_frame());
+    if (leader_.leave_y_unaffected) {
         entity()->at_point().y = height;
     }
 }
@@ -350,30 +350,30 @@ void KinematicsModule::trail_behind_lead(script::Struct* params)
 {
     if (params->has_bare_flag(kOff)) {
         motion_flags_ &= ~kMotionFollowingLeader;
-        if (FollowTrail* trail = trail_) {
+        if (FollowTrail* trail = leader_.trail) {
             // (its destructor: the empty 0x005480A0)
             memory::Hub::dealloc(trail);
-            trail_ = nullptr;
+            leader_.trail = nullptr;
         }
         return;
     }
-    leave_y_unaffected_ = params->has_bare_flag("LeaveYUnaffected");
+    leader_.leave_y_unaffected = params->has_bare_flag("LeaveYUnaffected");
     motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingLeader;
     core::down_cast<PinnedObjectModule>(entity()->fetch_module(kLockObj))->lock_flags() &= ~kLockFlagLocked;
-    if (!trail_) {
+    if (!leader_.trail) {
         void* memory = memory::alloc_zeroed(sizeof(FollowTrail));
-        trail_ = memory ? memory::construct_in<FollowTrail>(memory) : nullptr;
+        leader_.trail = memory ? memory::construct_in<FollowTrail>(memory) : nullptr;
     }
-    Expects(trail_ != nullptr);
-    trail_->get_reset();
+    Expects(leader_.trail != nullptr);
+    leader_.trail->get_reset();
     float distance = 0.0F;
     params->fetch_float(kDistance, &distance, 0);
-    trail_->set_reach(distance);
+    leader_.trail->set_reach(distance);
     uint32_t leader = 0;
     params->read_hash_value(kName, &leader, 0);
-    trail_->set_entity_key(leader);
+    leader_.trail->set_entity_key(leader);
     if (params->has_bare_flag(kOrientY)) {
-        trail_->set_free_facing(true);
+        leader_.trail->set_free_facing(true);
     }
 }
 
