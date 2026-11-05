@@ -109,7 +109,7 @@ int& get_window_height() { return sdl_window_state().client_height_; }
 SDL_Window* sdl_window() { return sdl_window_state().window_; }
 HWND& game_window() { return sdl_window_state().game_window_; }
 
-HWND create_sdl_window()
+HWND create_sdl_window(WindowApi api)
 {
     load_window_settings();
     SDL_Init(SDL_INIT_VIDEO);
@@ -117,6 +117,10 @@ HWND create_sdl_window()
     uint32_t flags = sdl_window_state().windowed_ ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
     if (sdl_window_state().borderless_ && sdl_window_state().windowed_) {
         flags |= SDL_WINDOW_BORDERLESS;
+    }
+
+    if (api == WindowApi::kVulkan) {
+        flags |= SDL_WINDOW_VULKAN;
     }
 
     enforce_max_resolution();
