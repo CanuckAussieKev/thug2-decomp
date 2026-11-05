@@ -206,12 +206,12 @@ void FootMovement::change_phase(int state)
     phase_.state = state;
     phase_.changed_at = frame_clock::game_clock_elapsed() + clock_offset();
     if (previous == 0 || previous == 1) {
-        barrier_timed_ = false;
+        barrier_.timed = false;
         running_ = false;
     }
     if (previous == 1) {
-        leap_duration_ = 0.0F;
-        jump_velocity_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        jump_.duration = 0.0F;
+        jump_.velocity = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         off_vert_ = false;
     }
     if (state == 0) {

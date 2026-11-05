@@ -488,6 +488,21 @@ public:
         std::array<uint8_t, 3> padb1{}; // +0xB1 (+0x1865)
     };
 
+    // The jump, two records apart: the barrier jump's timer (+0x17A8-+0x17AF, stop_on_foot) and the jump
+    // (+0x1878-+0x18AF: get_jump, steer_jump, plan_jump_over_obstruction, update_air).
+    struct BarrierTimer {
+        bool timed{};                  // +0x00 (+0x17A8)
+        std::array<uint8_t, 3> pad1{}; // +0x01 (+0x17A9)
+        int since{};                   // +0x04 (+0x17AC)
+    };
+    struct Jump {
+        maths::Vec4 heading{};  // +0x00 (+0x1878) the flat direction of its push (also the facing kept off a hang)
+        maths::Vec4 base_vel{}; // +0x10 (+0x1888) the velocity it carries along unsteered
+        float duration{};       // +0x20 (+0x1898) its delay before it is steered
+        maths::Vec4 velocity{}; // +0x24 (+0x189C)
+        float target_height{};  // +0x34 (+0x18AC) the top of the ledge it makes for
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -592,9 +607,7 @@ private:
     maths::Vec4 floor_normal_{};                  // +0x1794 the ground's normal (the feeler's hit)
     bool running_{};                              // +0x17A4
     std::array<uint8_t, 3> pad17a5_{};
-    bool barrier_timed_{}; // +0x17A8
-    std::array<uint8_t, 3> pad17a9_{};
-    int barrier_since_{};     // +0x17AC
+    BarrierTimer barrier_;    // +0x17A8-+0x17AF the barrier jump's timer
     float standard_speed_{};  // +0x17B0 run_speed
     LedgeFeeler ledge_;       // +0x17B4-+0x1867 the ledge feeler
     float run_adjustment_{}; // +0x1868 run_speed (0) to combo_run_speed (1)
@@ -603,12 +616,7 @@ private:
     float skid_time_{};  // +0x1870
     bool unknown1874_{}; // +0x1874 (set on a reset)
     std::array<uint8_t, 3> pad1875_{};
-    maths::Vec4
-        leap_heading_{}; // +0x1878 the flat direction of the jump's push (also the facing kept on leaving a hang)
-    maths::Vec4 jump_base_vel_{}; // +0x1888 the velocity the jump carries along unsteered
-    float leap_duration_{};       // +0x1898
-    maths::Vec4 jump_velocity_{}; // +0x189C
-    float jump_target_height_{};  // +0x18AC the top of the ledge the jump makes for
+    Jump jump_;                   // +0x1878-+0x18AF the jump
     bool pushing_{};              // +0x18B0 pushed back off a wall in the air
     std::array<uint8_t, 3> pad18b1_{};
     maths::Vec4 push_normal_{};      // +0x18B4 the plane's normal (also a hang move's heading)

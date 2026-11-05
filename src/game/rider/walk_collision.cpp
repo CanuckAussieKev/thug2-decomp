@@ -420,9 +420,12 @@ void FootMovement::plan_jump_over_obstruction()
     const double time = (rise - std::sqrt(static_cast<double>(static_cast<float>(discriminant)))) * inverse;
     const double speed = -(back / time);
     auto speed_f = static_cast<float>(speed);
-    jump_velocity_ = {.x = speed_f * facing.x, .y = speed_f * facing.y, .z = speed_f * facing.z, .w = static_cast<float>(speed * facing.w)};
-    jump_target_height_ = static_cast<float>(static_cast<double>(height) + pos_.y);
-    leap_duration_ = static_cast<float>(((inverse * rise) + (inverse * rise)) - time);
+    jump_.velocity = {.x = speed_f * facing.x,
+                      .y = speed_f * facing.y,
+                      .z = speed_f * facing.z,
+                      .w = static_cast<float>(speed * facing.w)};
+    jump_.target_height = static_cast<float>(static_cast<double>(height) + pos_.y);
+    jump_.duration = static_cast<float>(((inverse * rise) + (inverse * rise)) - time);
 }
 
 // 0x005293F0
@@ -462,7 +465,7 @@ void FootMovement::try_wallplant()
     }
 
     // Off the wall: the way pushed (or the jump's way) mirrored off it, up by the hold of X.
-    maths::Vec4 direction = control_.deflection == 0.0F ? leap_heading_ : control_.heading;
+    maths::Vec4 direction = control_.deflection == 0.0F ? jump_.heading : control_.heading;
     const maths::Vec4& normal = contact->normal;
     const double into =
         ((static_cast<double>(direction.z) * normal.z) + (static_cast<double>(direction.y) * normal.y)) +
@@ -478,7 +481,7 @@ void FootMovement::try_wallplant()
     up_speed_ = static_cast<float>((((kOne - static_cast<double>(least)) * strength) + least) * rise);
     const float across = walk_parameter(kHorizWallJumpSpeed);
     vel_ = {.x = across * direction.x, .y = direction.y * across, .z = direction.z * across, .w = direction.w * across};
-    leap_heading_ = facing_;
+    jump_.heading = facing_;
     // Off a moving object: its velocity added.
     auto& feeler = contact->feeler;
     if (feeler.hit_object_alive()) {

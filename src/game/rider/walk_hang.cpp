@@ -379,7 +379,7 @@ void objects::FootMovement::end_drop_from_hang()
     change_phase(1);
     object_of(this)->post_own_event(kSkaterExitHang, nullptr);
     trigger_rail_script(this, kExitHangEvents);
-    leap_heading_ = facing_;
+    jump_.heading = facing_;
     leave_ride(&vel_, &up_speed_);
     model_lift_ = transition_display_offset_;
 }
@@ -1187,7 +1187,7 @@ void objects::FootMovement::update_hang()
             change_phase(1);
             object_of(this)->post_own_event(kSkaterExitHang, nullptr);
             trigger_rail_script(this, kExitHangEvents);
-            leap_heading_ = facing;
+            jump_.heading = facing;
             leave_ride(&vel_, &up_speed_);
             frame_.anim = kAnimAir;
             return;
@@ -1249,7 +1249,7 @@ void objects::FootMovement::end_ladder_off_top_to_air()
 {
     change_phase(1);
     trigger_rail_script(this, kExitLadderEvents);
-    leap_heading_ = facing_;
+    jump_.heading = facing_;
     leave_ride(&vel_, &up_speed_);
 }
 

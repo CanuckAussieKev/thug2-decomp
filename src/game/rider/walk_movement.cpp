@@ -349,7 +349,7 @@ double FootMovement::get_control_speed()
 // 0x00526850
 void FootMovement::steer_jump()
 {
-    float& delay = leap_duration_;
+    float& delay = jump_.duration;
     if (!(delay == 0.0F)) {
         // (still counting down: no steering yet)
         const double left = static_cast<double>(delay) - get_frame_length(this);
@@ -359,9 +359,9 @@ void FootMovement::steer_jump()
     // The velocity apart from what the jump carries along unsteered, eased toward what the push asks for: across
     // the jump's direction and along it.
     maths::Vec4& vel = vel_;
-    const maths::Vec4& carried = jump_base_vel_;
+    const maths::Vec4& carried = jump_.base_vel;
     vel = {.x = vel.x - carried.x, .y = vel.y - carried.y, .z = vel.z - carried.z, .w = vel.w - carried.w};
-    const maths::Vec4& dir = leap_heading_;
+    const maths::Vec4& dir = jump_.heading;
     const maths::Vec4& control = control_.heading;
     const float magnitude = control_.deflection;
     const float side_x = -dir.z;

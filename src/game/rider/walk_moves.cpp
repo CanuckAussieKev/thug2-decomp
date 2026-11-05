@@ -229,7 +229,7 @@ FootMovement::FootMovement()
     // (the contacts, the cache and the feeler made first by their constructors)
     set_kind_tag(kWalk); // Walk
     control_.heading = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    jump_velocity_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    jump_.velocity = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
 // The original's layout: every field at its offset, then the component's size (the pool and the heaps report).
@@ -298,9 +298,9 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, floor_normal_), .original = 0x1794},
         FieldAt{.now = offsetof(FootMovement, running_), .original = 0x17A4},
         FieldAt{.now = offsetof(FootMovement, pad17a5_), .original = 0x17A5},
-        FieldAt{.now = offsetof(FootMovement, barrier_timed_), .original = 0x17A8},
-        FieldAt{.now = offsetof(FootMovement, pad17a9_), .original = 0x17A9},
-        FieldAt{.now = offsetof(FootMovement, barrier_since_), .original = 0x17AC},
+        FieldAt{.now = offsetof(FootMovement, barrier_.timed), .original = 0x17A8},
+        FieldAt{.now = offsetof(FootMovement, barrier_.pad1), .original = 0x17A9},
+        FieldAt{.now = offsetof(FootMovement, barrier_.since), .original = 0x17AC},
         FieldAt{.now = offsetof(FootMovement, standard_speed_), .original = 0x17B0},
         FieldAt{.now = offsetof(FootMovement, ledge_.feeler), .original = 0x17B4},
         FieldAt{.now = offsetof(FootMovement, ledge_.hit), .original = 0x1864},
@@ -311,11 +311,11 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, skid_time_), .original = 0x1870},
         FieldAt{.now = offsetof(FootMovement, unknown1874_), .original = 0x1874},
         FieldAt{.now = offsetof(FootMovement, pad1875_), .original = 0x1875},
-        FieldAt{.now = offsetof(FootMovement, leap_heading_), .original = 0x1878},
-        FieldAt{.now = offsetof(FootMovement, jump_base_vel_), .original = 0x1888},
-        FieldAt{.now = offsetof(FootMovement, leap_duration_), .original = 0x1898},
-        FieldAt{.now = offsetof(FootMovement, jump_velocity_), .original = 0x189C},
-        FieldAt{.now = offsetof(FootMovement, jump_target_height_), .original = 0x18AC},
+        FieldAt{.now = offsetof(FootMovement, jump_.heading), .original = 0x1878},
+        FieldAt{.now = offsetof(FootMovement, jump_.base_vel), .original = 0x1888},
+        FieldAt{.now = offsetof(FootMovement, jump_.duration), .original = 0x1898},
+        FieldAt{.now = offsetof(FootMovement, jump_.velocity), .original = 0x189C},
+        FieldAt{.now = offsetof(FootMovement, jump_.target_height), .original = 0x18AC},
         FieldAt{.now = offsetof(FootMovement, pushing_), .original = 0x18B0},
         FieldAt{.now = offsetof(FootMovement, pad18b1_), .original = 0x18B1},
         FieldAt{.now = offsetof(FootMovement, push_normal_), .original = 0x18B4},
@@ -486,7 +486,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
 {
     objects::MovingSurfaceModule* ride = ride_;
     auto* tracker = ride->ride().get();
-    maths::Vec4& carried = jump_base_vel_;
+    maths::Vec4& carried = jump_.base_vel;
     if (tracker && tracker->entity().get_pull()) {
         carried = tracker->entity().get_pull()->vel(); // its velocity
         const double heading = (static_cast<double>(carried.z) * velocity->z) +
@@ -533,12 +533,12 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
 void FootMovement::go_to_air()
 {
     change_phase(1); // (the state: in the air)
-    maths::Vec4& heading = leap_heading_;
+    maths::Vec4& heading = jump_.heading;
     heading = entity()->vel();
     heading.y = 0.0F;
     heading.make_unit();
     leave_ride(&entity()->vel(), &entity()->vel().y);
-    maths::Vec4& carried = jump_base_vel_;
+    maths::Vec4& carried = jump_.base_vel;
     carried = entity()->vel();
     carried.y = 0.0F;
 }
@@ -727,14 +727,14 @@ void FootMovement::update_air()
     for (int i = 0; i < 4; ++i) {
         position[i] = static_cast<float>((frame * velocity[i]) + position[i]);
     }
-    maths::Vec4& extra = jump_velocity_;
+    maths::Vec4& extra = jump_.velocity;
     for (int i = 0; i < 4; ++i) {
         position[i] = static_cast<float>((frame * extra[i]) + position[i]);
     }
     float& vertical = up_speed_;
     position.y = static_cast<float>(((vertical * frame) - (frame * frame * gravity * kHalf)) + position.y);
     vertical = static_cast<float>(vertical - (gravity * frame));
-    if (position.y > jump_target_height_) {
+    if (position.y > jump_.target_height) {
         extra = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_projectiles();
@@ -1015,7 +1015,7 @@ void FootMovement::settle_onto_floor()
         return;
     }
     change_phase(1);
-    leap_heading_ = facing_;
+    jump_.heading = facing_;
     leave_ride(&vel_, &up_speed_);
     frame_.anim = kWalkOffEdge;
     entity()->announce(kSkaterOffEdge, nullptr, 0.0F);
@@ -1053,7 +1053,7 @@ void FootMovement::get_begin(bool on_ground)
         }
         // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
         // flattened; made unit length.
-        maths::Vec4& heading = leap_heading_;
+        maths::Vec4& heading = jump_.heading;
         heading = entity()->vel();
         heading.y = 0.0F;
         double length =
@@ -1079,7 +1079,7 @@ void FootMovement::get_begin(bool on_ground)
         heading.z = static_cast<float>(inverse * heading.z);
         heading.w = static_cast<float>(inverse * heading.w);
         leave_ride(&entity()->vel(), &entity()->vel().y);
-        leap_duration_ = 0.0F;
+        jump_.duration = 0.0F;
         pushing_ = false;
         off_vert_ = (core_physics_->state()->flag(PoseFlag::kVertAir).on != 0U) ||
                     (core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on != 0U);
@@ -1129,7 +1129,7 @@ void FootMovement::get_jump()
     }
     entity()->vel().y = walk_parameter(kJumpVelocity) * factor;
 
-    maths::Vec4& heading = leap_heading_;
+    maths::Vec4& heading = jump_.heading;
     const maths::Vec4& facing = facing_;
     switch (phase_.state) {
     case 0:
@@ -1316,7 +1316,7 @@ bool FootMovement::try_barrier_jump()
     }
     up_speed_ = speed;
     change_phase(1);
-    leap_heading_ = facing_;
+    jump_.heading = facing_;
     leave_ride(&vel_, &up_speed_);
     frame_.anim = kJump;
     entity()->announce(kSkaterJump, nullptr, 0.0F);
@@ -1366,11 +1366,11 @@ bool FootMovement::stop_on_foot(render::ProbeRay* feeler)
     // Walking into a barrier ahead for barrier_jump_delay: a jump over it (or another kind of jump) tried.
     if ((contact_at(this, 0).hit || contact_at(this, 1).hit || contact_at(this, kBarrierSideContact).hit) &&
         control_full_) {
-        if (!barrier_timed_) {
-            barrier_since_ = get_now();
-            barrier_timed_ = true;
+        if (!barrier_.timed) {
+            barrier_.since = get_now();
+            barrier_.timed = true;
         }
-        const int since = barrier_since_;
+        const int since = barrier_.since;
         const float delay = walk_parameter(kBarrierJumpDelay);
         auto elapsed = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - since));
         if (static_cast<double>(elapsed) > delay && (climb_onto_bottom(false) || try_barrier_jump())) {
@@ -1378,7 +1378,7 @@ bool FootMovement::stop_on_foot(render::ProbeRay* feeler)
             return true;
         }
     } else {
-        barrier_timed_ = false;
+        barrier_.timed = false;
     }
     if ((input_->pad_primary().shoulder_right_a().held_down() != 0U) && !jump_held_ && climb_onto_bottom(true)) {
         release_hit(feeler);
