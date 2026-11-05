@@ -138,9 +138,6 @@ public:
     void trail_behind_lead(script::Struct* params);
 
     // --- turning (motion_rotate.cpp) ---
-    // 0x00423F10: the axis' speed, maximum, acceleration and deceleration made positive - negative when its target
-    // angle is.
-    void set_rotation_direction(int axis);
     // One of the object's axes (0 x, 1 y, 2 z) and the direction of the turn about it.
     struct AxisSign {
         int axis{};
@@ -386,6 +383,21 @@ private:
         uint32_t arrive_node{}; // +0x20 (+0x128) Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
     };
 
+    // The turns about the object's own axes, per axis x, y, z (+0x12C-+0x18B: Obj_RotX / Y / Z, the look-ats,
+    // update_axis_rotation).
+    struct AxisTurns {
+        maths::Vec4 target{};       // +0x00 (+0x12C) the angle to turn through (radians; 0 forever)
+        maths::Vec4 done{};         // +0x10 (+0x13C) turned so far
+        maths::Vec4 max_speed{};    // +0x20 (+0x14C) the speed to reach (radians per second)
+        maths::Vec4 rates{};        // +0x30 (+0x15C) the speed now
+        maths::Vec4 acceleration{}; // +0x40 (+0x16C)
+        maths::Vec4 deceleration{}; // +0x50 (+0x17C)
+
+        // 0x00423F10: the axis' speed, maximum, acceleration and deceleration made positive - negative when its
+        // target angle is.
+        void set_direction(int axis);
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
@@ -393,12 +405,7 @@ private:
     GroundStick ground_;               // +0x38-+0x103 sticking to the ground
     ObjectGroup* path_group_{nullptr};     // +0x104 the path's group of objects (path manager)
     MoveTo move_;                          // +0x108-+0x12B moving to a point
-    maths::Vec4 rot_target_{};            // +0x12C per axis: the angle to turn through (radians; 0 forever)
-    maths::Vec4 rot_done_{};              // +0x13C per axis: turned so far
-    maths::Vec4 rot_max_speed_{};         // +0x14C per axis: the speed to reach (radians per second)
-    maths::Vec4 spin_rates_{};            // +0x15C per axis: the speed now
-    maths::Vec4 rot_acceleration_{};      // +0x16C
-    maths::Vec4 rot_deceleration_{};      // +0x17C
+    AxisTurns axes_;                       // +0x12C-+0x18B the turns about the object's axes
     maths::Vec4 move_start_{};            // +0x18C
     float ground_speed_{0.0F};            // +0x19C the ground offset's speed of change
     float ground_offset_{0.0F};           // +0x1A0 how far the height has still to go to the ground
