@@ -7,6 +7,7 @@ add_library(thug2_render_vulkan STATIC
     vulkan_loader.cpp
     vulkan_context.cpp
     ff_key.cpp
+    ff_shaders.cpp
 )
 # volk: the Vulkan loader, opened at run time (no import library) - public, as the context's header declares Vulkan's
 # functions through it; vulkan_memory_allocator: device memory (header only); sdl2: the window's Vulkan surface
