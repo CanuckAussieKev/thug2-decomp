@@ -28,6 +28,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/renderer_view.h"
 #include "base/maths/vec4.h"
 #include "base/core/packed_colour.h"
 #include "base/maths/vec2.h"
@@ -227,7 +228,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
     const Eye eye = orbit_eye(centre, fit_distance({.radius = radius, .half_angle_ = half_angle, .margin = kMargin}) / orbit.zoom, orbit);
     // (the camera's state render::choose_camera and the instance render change, saved and put back)
-    const render::ViewSnapshot saved = render::renderer().save_view();
+    const render::ViewState saved = render::renderer().save_view();
     maths::Mat4 orientation = {};
     core::at(orientation.row, 0) = {.x = eye.frame.right.x, .y = eye.frame.right.y, .z = eye.frame.right.z, .w = 0.0F};
     core::at(orientation.row, 1) = {.x = eye.frame.up.x, .y = eye.frame.up.y, .z = eye.frame.up.z, .w = 0.0F};

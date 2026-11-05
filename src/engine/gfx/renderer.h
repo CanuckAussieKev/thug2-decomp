@@ -4,7 +4,6 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <initializer_list>
 #include <span>
 
 #include "base/core/checked_index.h"
@@ -13,6 +12,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/renderer_caps.h"
 #include "engine/gfx/renderer_display.h"
+#include "engine/gfx/renderer_view.h"
 
 // NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
 // counters, and the render state the device was last sent (the original's globals; each member's comment or its
@@ -22,50 +22,14 @@ namespace render {
 
 constexpr size_t kPsConstantFloats = 20; // the pixel shader constant bank
 
-// The camera's view as render::choose_camera and the instance pass leave it: the matrices, the device viewport, the
-// camera, the view's shape (culling) and the culling world matrix (none or the copy). The level editor's preview draws
-// with its own and puts this back.
-struct ViewSnapshot {
-    maths::Mat4 world_matrix_;
-    maths::Mat4 view_matrix_;
-    maths::Mat4 projection_matrix_;
-    maths::Mat4 heading_matrix_;
-    DeviceViewport device_viewport_;
-    RenderCamera camera_;
-    ViewShape view_shape_;
-    const float* world_transform_;
-    std::array<float, maths::kMatrixFloats> world_transform_copy_;
-};
-
 // The renderer's state (device.cpp, draw_frame.cpp and render_state.cpp use it; the rest of the game reads it through
 // these methods). Trivially destructible with constant initial values: the accessor is a constant-initialised static,
 // no guard.
 class Renderer {
 public:
-    [[nodiscard]] ViewSnapshot save_view() const
-    {
-        return {.world_matrix_ = world_matrix_,
-                .view_matrix_ = view_matrix_,
-                .projection_matrix_ = projection_matrix_,
-                .heading_matrix_ = heading_matrix_,
-                .device_viewport_ = device_viewport_,
-                .camera_ = camera_,
-                .view_shape_ = view_shape_,
-                .world_transform_ = world_transform_,
-                .world_transform_copy_ = world_transform_copy_};
-    }
-    void restore_view(const ViewSnapshot& saved)
-    {
-        world_matrix_ = saved.world_matrix_;
-        view_matrix_ = saved.view_matrix_;
-        projection_matrix_ = saved.projection_matrix_;
-        heading_matrix_ = saved.heading_matrix_;
-        device_viewport_ = saved.device_viewport_;
-        camera_ = saved.camera_;
-        view_shape_ = saved.view_shape_;
-        world_transform_ = saved.world_transform_;
-        world_transform_copy_ = saved.world_transform_copy_;
-    }
+    // The view as it is / put back (the level editor's preview draws with its own).
+    [[nodiscard]] ViewState save_view() const { return view_; }
+    void restore_view(const ViewState& saved) { view_ = saved; }
     [[nodiscard]] bool stream_offset_supported() const { return caps_.stream_offset_supported(); }
     void set_stream_offset_supported(bool value) { caps_.set_stream_offset_supported(value); }
     [[nodiscard]] uint32_t loading_bar_timer() const { return loading_bar_timer_; }
@@ -90,39 +54,31 @@ public:
     void set_border_addressing_supported(bool value) { caps_.set_border_addressing_supported(value); }
     [[nodiscard]] uint32_t max_anisotropy() const { return caps_.max_anisotropy(); }
     void set_max_anisotropy(uint32_t value) { caps_.set_max_anisotropy(value); }
-    [[nodiscard]] const DeviceViewport& device_viewport() const { return device_viewport_; }
-    void set_device_viewport(const DeviceViewport& value) { device_viewport_ = value; }
+    [[nodiscard]] const DeviceViewport& device_viewport() const { return view_.device_viewport(); }
+    void set_device_viewport(const DeviceViewport& value) { view_.set_device_viewport(value); }
     // The camera (choose_camera sets it whole; the draw code's flags one by one).
-    [[nodiscard]] const RenderCamera& render_camera() const { return camera_; }
-    void set_render_camera(const RenderCamera& value) { camera_ = value; }
-    void set_custom_transforms(uint8_t value) { camera_.custom_transforms_ = value; }
-    void set_clear_colour_and_depth(bool value) { camera_.clear_colour_and_depth_ = value; }
-    void set_letterbox_active(uint8_t value) { camera_.letterbox_active_ = value; }
-    void set_background_colour(uint32_t value) { camera_.background_colour_ = value; }
-    [[nodiscard]] const ViewShape& view_shape() const { return view_shape_; }
-    void set_view_shape(const ViewShape& value) { view_shape_ = value; }
+    [[nodiscard]] const RenderCamera& render_camera() const { return view_.render_camera(); }
+    void set_render_camera(const RenderCamera& value) { view_.set_render_camera(value); }
+    void set_custom_transforms(uint8_t value) { view_.set_custom_transforms(value); }
+    void set_clear_colour_and_depth(bool value) { view_.set_clear_colour_and_depth(value); }
+    void set_letterbox_active(uint8_t value) { view_.set_letterbox_active(value); }
+    void set_background_colour(uint32_t value) { view_.set_background_colour(value); }
+    [[nodiscard]] const ViewShape& view_shape() const { return view_.view_shape(); }
+    void set_view_shape(const ViewShape& value) { view_.set_view_shape(value); }
     [[nodiscard]] bool radeon8500() const { return caps_.radeon8500(); }
     void set_radeon8500(bool value) { caps_.set_radeon8500(value); }
     [[nodiscard]] int frames_rendered() const { return frames_rendered_; }
     void count_frame() { ++frames_rendered_; }
-    [[nodiscard]] const maths::Mat4& world_matrix() const { return world_matrix_; }
-    void set_world_matrix(const maths::Mat4& value) { world_matrix_ = value; }
-    [[nodiscard]] const maths::Mat4& view_matrix() const { return view_matrix_; }
-    void set_view_matrix(const maths::Mat4& value) { view_matrix_ = value; }
-    [[nodiscard]] const maths::Mat4& projection_matrix() const { return projection_matrix_; }
-    void set_projection_matrix(const maths::Mat4& value) { projection_matrix_ = value; }
-    [[nodiscard]] const maths::Mat4& heading_matrix() const { return heading_matrix_; }
-    void set_heading_matrix(const maths::Mat4& value) { heading_matrix_ = value; }
+    [[nodiscard]] const maths::Mat4& world_matrix() const { return view_.world_matrix(); }
+    void set_world_matrix(const maths::Mat4& value) { view_.set_world_matrix(value); }
+    [[nodiscard]] const maths::Mat4& view_matrix() const { return view_.view_matrix(); }
+    void set_view_matrix(const maths::Mat4& value) { view_.set_view_matrix(value); }
+    [[nodiscard]] const maths::Mat4& projection_matrix() const { return view_.projection_matrix(); }
+    void set_projection_matrix(const maths::Mat4& value) { view_.set_projection_matrix(value); }
+    [[nodiscard]] const maths::Mat4& heading_matrix() const { return view_.heading_matrix(); }
+    void set_heading_matrix(const maths::Mat4& value) { view_.set_heading_matrix(value); }
     // The world, view and projection matrices made identity (reset_render_state).
-    void reset_transforms()
-    {
-        for (maths::Mat4* matrix : {&world_matrix_, &view_matrix_, &projection_matrix_}) {
-            const auto elements = matrix->floats();
-            for (int i = 0; i < maths::kMatrixFloats; ++i) {
-                core::at(elements, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
-            }
-        }
-    }
+    void reset_transforms() { view_.reset_transforms(); }
     [[nodiscard]] int step_seconds() const { return step_seconds_; }
     void set_step_seconds(int value) { step_seconds_ = value; }
     [[nodiscard]] int screen_copy_index() const { return screen_copy_index_; }
@@ -217,22 +173,8 @@ public:
     void set_fog_active(uint32_t value) { fog_active_ = value; }
     // The world transform the instances are drawn with: a copy of the given matrix (its last column 0, 0, 0, 1), or
     // none (null).
-    [[nodiscard]] const float* current_world_transform() const { return world_transform_; }
-    void set_world_transform(const float* matrix)
-    {
-        if (!matrix) {
-            world_transform_ = nullptr;
-            return;
-        }
-        world_transform_ = world_transform_copy_.data();
-        const std::span<const float, 16> given(matrix, 16);
-        for (int row = 0; row < 4; ++row) {
-            core::at(world_transform_copy_, (row * 4) + 0) = core::at(given, (row * 4) + 0);
-            core::at(world_transform_copy_, (row * 4) + 1) = core::at(given, (row * 4) + 1);
-            core::at(world_transform_copy_, (row * 4) + 2) = core::at(given, (row * 4) + 2);
-            core::at(world_transform_copy_, (row * 4) + 3) = row == 3 ? 1.0F : 0.0F;
-        }
-    }
+    [[nodiscard]] const float* current_world_transform() const { return view_.current_world_transform(); }
+    void set_world_transform(const float* matrix) { view_.set_world_transform(matrix); }
 
 private:
     DeviceCaps caps_;         // what the device can do
@@ -240,15 +182,9 @@ private:
 
     uint32_t loading_bar_timer_{}; // the timer's id (timeSetEvent)
 
-    // The frame's camera, matrices, viewport and counters (draw_frame.cpp).
-    DeviceViewport device_viewport_{};
-    RenderCamera camera_{};
-    ViewShape view_shape_{};
+    // The frame's view and counters (draw_frame.cpp).
+    ViewState view_;
     int frames_rendered_{};
-    maths::Mat4 world_matrix_{};
-    maths::Mat4 view_matrix_{};
-    maths::Mat4 projection_matrix_{};
-    maths::Mat4 heading_matrix_{};
     int step_seconds_{};
     int screen_copy_index_{};
     uint32_t draw_calls_{};
@@ -274,8 +210,6 @@ private:
     uint32_t skipped_passes_{};
     uint32_t submit_locked_{};
     uint32_t fog_active_{};
-    const float* world_transform_{};
-    std::array<float, maths::kMatrixFloats> world_transform_copy_{};
 };
 
 // The renderer's state (made on first use, never destroyed).
