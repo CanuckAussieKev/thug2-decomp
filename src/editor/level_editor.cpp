@@ -1,13 +1,12 @@
 // NOT ORIGINAL - the level editor (ours, added at the user's request; not the game's and not PartyMod's). See
-// level_editor.h.
+// level_editor.h. This file holds the editor's state, its events, start and stop, the frame's entry and the drawing
+// hook; the pieces (geometry / selection) are level_editor_<name>.cpp, sharing level_editor_internal.h.
 
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
 #include "base/core/enum_ops.h"
 #include "engine/pad_input/input_source.h"
-
 #include <SDL2/SDL.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -22,7 +21,6 @@
 #include <vector>
 #include <utility>
 #include <array>
-
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_level_props.h"
 #include "editor/level_editor_nav.h"
@@ -63,7 +61,6 @@
 #include "editor/level_editor_ruler.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_scenery.h"
-#include "editor/level_editor_shadows.h"
 #include "editor/level_editor_snap.h"
 #include "editor/level_editor_thumbs.h"
 #include "editor/level_editor_transform.h"
@@ -95,26 +92,17 @@
 #include "base/maths/rect.h"
 #include "base/core/checksums.h"
 #include "base/maths/trig.h"
+#include "editor/level_editor_internal.h"
 
 namespace frontend::level_editor {
-
 namespace {
 
-constexpr double kNdcSpan = 2.0;            // normalised device coordinates run from -1 to 1
-constexpr double kParallelEpsilon = 1e-12;  // a ray this close to parallel to a slab never enters it
-constexpr double kLineParallelEpsilon = 1e-9; // two lines this close to parallel have no nearest points
-constexpr float kHoldMargin = 0.05F;          // a box holds a point within this share of its size outside it
-constexpr float kGroundRayRise = 50.0F;       // the ground ray starts this far above the base
-constexpr float kDefaultFlySpeed = 800.0F;    // units a second
-constexpr float kDefaultOrbitDistance = 300.0F;
-constexpr std::size_t kLastActionSize = 128;
-constexpr double kSharedWarningSeconds = 8.0;
 constexpr float kTinyLengthSquared = 1e-6F;
 constexpr float kTurnEpsilon = 1e-6F;      // a turn smaller than this (radians) is none
 constexpr float kRatioEpsilon = 1e-4F;     // a scale ratio this close to 1 is unchanged
 constexpr float kRotPlaneMinSlope = 0.25F; // a rotation drags on the ground plane when the ray is this far from level
 constexpr float kMinRotDragPixels = 2.0F;  // a rotation drag shorter than this has no direction
-constexpr float kScreenSpanFactor = 2.0F;  // the world width of the screen is twice depth times the tangent
+
 constexpr float kScreenDragSlope = 0.34F;  // a ray flatter than this drags in the screen plane
 constexpr float kMinDragReach = 2000.0F;
 constexpr float kDragReachFactor = 3.0F;
@@ -181,7 +169,7 @@ constexpr uint32_t kLadderColour = 0xFFC88FD9;
 constexpr uint32_t kLedgeColour = 0xFFB98CFF;
 constexpr double kBriefSeconds = 1.5;
 constexpr double kPairSeconds = 2.0;
-constexpr double kCountMessageSeconds = 2.5;
+
 constexpr double kResizeHintSeconds = 3.0;
 constexpr double kAutosaveNoticeSeconds = 20.0;
 constexpr float kPlaceRaise = 150.0F; // a new spawn is put this far above the ground under it
@@ -199,9 +187,7 @@ constexpr float kRayReach = 600.0F;
 constexpr float kPasteGap = 20.0F;     // a pasted piece goes beside the original, this far apart
 constexpr float kRepeatOffset = 64.0F; // a duplicate with no repeat step goes this far to the right
 constexpr std::size_t kStatusTextSize = 160;
-constexpr float kOccluderPixels = 8.0F;  // pixels at the reference view height
-constexpr float kClickSlopPixels = 4.0F; // a click that moved less than this is the same spot
-constexpr std::size_t kPickTextSize = 64;
+
 constexpr std::size_t kMessageTextSize = 128;
 constexpr int kKeyRepeatDelay = 400;        // milliseconds before a held key repeats ...
 constexpr int kKeyRepeatStep = 83;          // ... the first repeat comes after this many of them
@@ -213,7 +199,7 @@ constexpr float kLookMargin = 1.5F; // the camera stops this many sizes away
 constexpr float kMinBoxLookDistance = 200.0F;
 constexpr float kMinFrameRadius = 50.0F;
 constexpr uint32_t kMillisecondsPerSecond = 1000U;
-constexpr int kHexLetterBase = 10;          // the value of the hex digit 'a'
+
 constexpr double kMaxFrameSeconds = 0.1;    // a frame counts for at most this long
 constexpr double kFastFlyFactor = 4.0;      // Shift flies four times as fast
 constexpr float kMinWheelStep = 20.0F;
@@ -229,378 +215,19 @@ constexpr std::size_t kMaxBoxesDrawn = 64;
 constexpr uint32_t kSegmentColour = 0xFF40E0FF;   // ARGB
 
 constexpr std::uint32_t kPos = 0x7F261953U; // Pos
-constexpr float kHalf = 0.5F;               // half
-constexpr double kHalfDouble = 0.5; // half
+
 constexpr float kQuarterTurnDegrees = 90.0F; // degrees in a quarter turn
-
-} // namespace
-
-// --- the pieces -------------------------------------------------------------------------------------------------
-
-float axis_value(V3 v, int axis) { return axis_ref(v, axis); }
-float& axis_ref(V3& v, int axis)
-{
-    if (axis == 0) {
-        return v.x;
-    }
-    if (axis == 1) {
-        return v.y;
-    }
-    return v.z;
-}
-int hex_digit(char character)
-{
-    if (character >= '0' && character <= '9') {
-        return character - '0';
-    }
-    if (character >= 'a' && character <= 'f') {
-        return character - 'a' + kHexLetterBase;
-    }
-    if (character >= 'A' && character <= 'F') {
-        return character - 'A' + kHexLetterBase;
-    }
-    return -1;
-}
-
-V3 make_unit(V3 v)
-{
-    const double length = std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y) +
-                                    (static_cast<double>(v.z) * v.z));
-    if (length <= 0.0) {
-        return v;
-    }
-    return {.x = static_cast<float>(v.x / length), .y = static_cast<float>(v.y / length), .z = static_cast<float>(v.z / length)};
-}
-
-TickCycle frame_from_yaw_pitch(float yaw, float pitch)
-{
-    const double cp = std::cos(static_cast<double>(pitch));
-    const double sp = std::sin(static_cast<double>(pitch));
-    const double cy = std::cos(static_cast<double>(yaw));
-    const double sy = std::sin(static_cast<double>(yaw));
-    const V3 forward = {.x = static_cast<float>(sy * cp), .y = static_cast<float>(sp), .z = static_cast<float>(cy * cp)};
-    TickCycle frame{};
-    frame.back = forward * -1.0F;
-    frame.right = make_unit(perpendicular({.x = 0.0F, .y = 1.0F, .z = 0.0F}, frame.back));
-    frame.up = make_unit(perpendicular(frame.back, frame.right));
-    return frame;
-}
-
-void yaw_pitch_from_back(V3 back, YawPitchOut view)
-{
-    auto* const yaw = view.yaw;
-    auto* const pitch = view.pitch;
-    const V3 forward = make_unit(back * -1.0F);
-    *yaw = static_cast<float>(std::atan2(static_cast<double>(forward.x), static_cast<double>(forward.z)));
-    *pitch = static_cast<float>(std::asin(std::max(-1.0, std::min(1.0, static_cast<double>(forward.y)))));
-}
-
-V3 get_fly(V3 pos, const TickCycle& frame, const FlyInput& input, float distance)
-{
-    const V3 forward = frame.back * -1.0F;
-    const V3 move = forward * static_cast<float>(input.forward) + frame.right * static_cast<float>(input.right) +
-                    V3{.x = 0.0F, .y = static_cast<float>(input.up), .z = 0.0F};
-    if (move.x == 0.0F && move.y == 0.0F && move.z == 0.0F) {
-        return pos;
-    }
-    return pos + make_unit(move) * distance;
-}
-
-void get_look(YawPitchOut view, float dx, float dy, float radians_per_pixel)
-{
-    auto* const yaw = view.yaw;
-    auto* const pitch = view.pitch;
-    constexpr float kLimit = 89.0F * 3.14159265F / 180.0F;
-    // (yaw turns +z towards +x, which is to the left of a view along +z: right is -yaw)
-    *yaw -= dx * radians_per_pixel;
-    *pitch = std::max(-kLimit, std::min(kLimit, *pitch - (dy * radians_per_pixel)));
-    if (*yaw > maths::kTwoPi || *yaw < -maths::kTwoPi) {
-        *yaw = std::fmod(*yaw, maths::kTwoPi);
-    }
-}
-
-Lens lens_for(LensShape lens_shape)
-{
-    const auto angle_degrees = lens_shape.angle_degrees_;
-    const auto aspect = lens_shape.aspect;
-    const double half_angle = static_cast<double>(angle_degrees) * 0.008726646F;
-    const double tan_x = std::tan(half_angle);
-    const double height_factor = 1.0 / (static_cast<double>(aspect) * 0.90909094F);
-    return {.tan_x_ = static_cast<float>(tan_x), .tan_y_ = static_cast<float>(tan_x * height_factor)};
-}
-
-bool pixel_to_ndc(std::span<const uint32_t, 4> viewport, float px, float py, float* nx, float* ny)
-{
-    if (core::at(viewport, 2) == 0 || core::at(viewport, 3) == 0) {
-        return false;
-    }
-    *nx = static_cast<float>(((static_cast<double>(px) - core::at(viewport, 0)) / core::at(viewport, 2) * kNdcSpan) -
-                             1.0);
-    *ny = static_cast<float>(1.0 -
-                             ((static_cast<double>(py) - core::at(viewport, 1)) / core::at(viewport, 3) * kNdcSpan));
-    return true;
-}
-
-void ndc_to_pixel(std::span<const uint32_t, 4> viewport, float nx, float ny, float* px, float* py)
-{
-    *px = static_cast<float>(core::at(viewport, 0) +
-                             ((static_cast<double>(nx) + 1.0) * kHalfDouble * core::at(viewport, 2)));
-    *py = static_cast<float>(core::at(viewport, 1) +
-                             ((1.0 - static_cast<double>(ny)) * kHalfDouble * core::at(viewport, 3)));
-}
-
-V3 ray_direction(const TickCycle& frame, const Lens& lens, float nx, float ny)
-{
-    return frame.back * -1.0F + frame.right * (nx * lens.tan_x_) + frame.up * (ny * lens.tan_y_);
-}
-
-bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point, float near_z, float* nx, float* ny)
-{
-    const V3 delta = point - camera_pos;
-    const float depth = -get_dot(delta, frame.back);
-    if (depth < near_z || lens.tan_x_ == 0.0F || lens.tan_y_ == 0.0F) {
-        return false;
-    }
-    *nx = get_dot(delta, frame.right) / (depth * lens.tan_x_);
-    *ny = get_dot(delta, frame.up) / (depth * lens.tan_y_);
-    return true;
-}
-
-bool ray_sphere(Ray ray, V3 centre, float radius, float* hit_distance)
-{
-    const auto origin = ray.origin;
-    const auto dir = ray.dir;
-    const V3 oc = origin - centre;
-    const double quad_a = get_dot(dir, dir);
-    const double quad_b = 2.0 * get_dot(oc, dir);
-    const double quad_c = static_cast<double>(get_dot(oc, oc)) - (radius * radius);
-    if (quad_a <= 0.0) {
-        return false;
-    }
-    const double discriminant = (quad_b * quad_b) - (4.0 * quad_a * quad_c);
-    if (discriminant < 0.0) {
-        return false;
-    }
-    const double root = std::sqrt(discriminant);
-    const double t_near = (-quad_b - root) / (2.0 * quad_a);
-    const double t_far = (-quad_b + root) / (2.0 * quad_a);
-    if (t_far < 0.0) {
-        return false;
-    }
-    *hit_distance = static_cast<float>(t_near >= 0.0 ? t_near : 0.0); // (inside: at once)
-    return true;
-}
-
-bool ray_box(Ray ray, V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, float* hit_distance)
-{
-    const auto origin = ray.origin;
-    const auto dir = ray.dir;
-    // The ray in the box's own coordinates (p = local.x * axes[0] + local.y * axes[1] + local.z * axes[2] + origin;
-    // the rows are taken as orthogonal).
-    const V3 rel = origin - box_origin;
-    std::array<double, 3> local_origin{};
-    std::array<double, 3> local_dir{};
-    for (int i = 0; i < 3; ++i) {
-        const double length_squared = get_dot(core::at(axes, i), core::at(axes, i));
-        if (length_squared <= 0.0) {
-            return false;
-        }
-        core::at(local_origin, i) = get_dot(rel, core::at(axes, i)) / length_squared;
-        core::at(local_dir, i) = get_dot(dir, core::at(axes, i)) / length_squared;
-    }
-    const std::array<double, 3> lo = {{min.x, min.y, min.z}};
-    const std::array<double, 3> hi = {{max.x, max.y, max.z}};
-    double enter = -kFarDistanceDouble;
-    double leave = kFarDistanceDouble;
-    for (int i = 0; i < 3; ++i) {
-        if (std::fabs(core::at(local_dir, i)) < kParallelEpsilon) {
-            if (core::at(local_origin, i) < core::at(lo, i) || core::at(local_origin, i) > core::at(hi, i)) {
-                return false;
-            }
-            continue;
-        }
-        double t0 = (core::at(lo, i) - core::at(local_origin, i)) / core::at(local_dir, i);
-        double t1 = (core::at(hi, i) - core::at(local_origin, i)) / core::at(local_dir, i);
-        if (t0 > t1) {
-            std::swap(t0, t1);
-        }
-        enter = std::max(enter, t0);
-        leave = std::min(leave, t1);
-        if (enter > leave) {
-            return false;
-        }
-    }
-    if (leave < 0.0) {
-        return false;
-    }
-    *hit_distance = static_cast<float>(enter >= 0.0 ? enter : 0.0);
-    return true;
-}
-
-bool ray_plane(Ray ray, V3 point, V3 normal, float* hit_distance)
-{
-    const auto origin = ray.origin;
-    const auto dir = ray.dir;
-    const double denominator = get_dot(dir, normal);
-    if (std::fabs(denominator) < kLineParallelEpsilon) {
-        return false;
-    }
-    const double hit = get_dot(point - origin, normal) / denominator;
-    if (hit < 0.0) {
-        return false;
-    }
-    *hit_distance = static_cast<float>(hit);
-    return true;
-}
-
-void box_corners(V3 box_origin, std::span<const V3, 3> axes, V3 min, V3 max, std::span<V3, kBoxCornerCount> out)
-{
-    for (int i = 0; i < kBoxCorners; ++i) {
-        const float x = ((i & 1) != 0) ? max.x : min.x;
-        const float y = ((i & 2) != 0) ? max.y : min.y;
-        const float z = ((i & 4) != 0) ? max.z : min.z;
-        core::at(out, i) = box_origin + core::at(axes, 0) * x + core::at(axes, 1) * y + core::at(axes, 2) * z;
-    }
-}
-
-bool box_looks_world_space(V3 min, V3 max, V3 object_pos)
-{
-    auto holds = [&](V3 point, float margin) {
-        return point.x >= min.x - margin && point.x <= max.x + margin && point.y >= min.y - margin &&
-               point.y <= max.y + margin && point.z >= min.z - margin && point.z <= max.z + margin;
-    };
-    const float size = std::max({max.x - min.x, max.y - min.y, max.z - min.z, 1.0F});
-    return holds(object_pos, size * kHoldMargin) && !holds({.x = 0.0F, .y = 0.0F, .z = 0.0F}, size * kHoldMargin);
-}
-
-V3 turn_about_up(V3 v, float angle)
-{
-    const double cosine = std::cos(static_cast<double>(angle));
-    const double sine = std::sin(static_cast<double>(angle));
-    return {.x = static_cast<float>((v.x * cosine) + (v.z * sine)),
-            .y = v.y,
-            .z = static_cast<float>((-v.x * sine) + (v.z * cosine))};
-}
-
-bool closest_on_axis(Ray axis, Ray line, float* along_axis)
-{
-    const auto line_origin = line.origin;
-    const auto line_dir = line.dir;
-    const auto axis_origin = axis.origin;
-    const auto u = axis.dir;
-    // Minimise |(p + u s) - (o + d t)|: with w = p - o, a = u.u, b = u.d, c = d.d, e = u.w, f = d.w,
-    // s = (b f - c e) / (a c - b b).
-    const V3 w = axis_origin - line_origin;
-    const double dot_uu = get_dot(u, u);
-    const double dot_ud = get_dot(u, line_dir);
-    const double dot_dd = get_dot(line_dir, line_dir);
-    const double dot_uw = get_dot(u, w);
-    const double dot_dw = get_dot(line_dir, w);
-    const double denominator = (dot_uu * dot_dd) - (dot_ud * dot_ud);
-    if (std::fabs(denominator) < kLineParallelEpsilon * dot_uu * dot_dd || dot_uu <= 0.0 || dot_dd <= 0.0) {
-        return false;
-    }
-    *along_axis = static_cast<float>(((dot_ud * dot_dw) - (dot_dd * dot_uw)) / denominator);
-    return true;
-}
-
-float distance_to_segment(maths::Vec2 point, maths::Vec2 a, maths::Vec2 b)
-{
-    const float x = point.x;
-    const float y = point.y;
-    const float ax = a.x;
-    const float ay = a.y;
-    const float bx = b.x;
-    const float by = b.y;
-    const double dx = bx - ax;
-    const double dy = by - ay;
-    const double length = (dx * dx) + (dy * dy);
-    double along = length > 0.0 ? (((x - ax) * dx) + ((y - ay) * dy)) / length : 0.0;
-    along = std::max(0.0, std::min(1.0, along));
-    const double px = ax + (dx * along) - x;
-    const double py = ay + (dy * along) - y;
-    return static_cast<float>(std::sqrt((px * px) + (py * py)));
-}
-
-float snap_to_grid(float value, float grid) { return grid > 0.0F ? std::round(value / grid) * grid : value; }
-
-V3 ground_ray_start(V3 pos, float base, bool from_above)
-{
-    return from_above ? V3{.x = pos.x, .y = base + kGroundRayRise, .z = pos.z}
-                      : V3{.x = pos.x, .y = base - 1.0F, .z = pos.z};
-}
-
-V3 dropped_to(V3 pos, float base, float ground_y) { return {.x = pos.x, .y = pos.y + (ground_y - base), .z = pos.z}; }
-
-bool clip_to_near(V3 camera_pos, const TickCycle& frame, float near_z, V3* a, V3* b)
-{
-    const float da = -get_dot(*a - camera_pos, frame.back);
-    const float db = -get_dot(*b - camera_pos, frame.back);
-    if (da < near_z && db < near_z) {
-        return false;
-    }
-    if (da < near_z) {
-        *a = *a + (*b - *a) * ((near_z - da) / (db - da));
-    } else if (db < near_z) {
-        *b = *b + (*a - *b) * ((near_z - db) / (da - db));
-    }
-    return true;
-}
-
-// --- the game side ----------------------------------------------------------------------------------------------
-
-namespace {
 
 constexpr float kNearZ = 2.0F; // (render::choose_camera's near plane)
 constexpr float kLookRadiansPerPixel = 0.0035F;
-constexpr float kMaxPickDistance = 30000.0F;
+
 constexpr float kMinOrbit = 20.0F, kMaxOrbit = 20000.0F;
 constexpr double kObjectSpeed = 150.0; // units a second (Shift: 4x)
 constexpr double kWheelStep = 120.0;   // units a notch while flying (Shift: 4x)
 constexpr float kArrowGrab = 8.0F;     // (pixels from a move arrow that grab it)
 
-// NOT ORIGINAL grouping - level_editor.cpp's state (were globals). Made on first use, never destroyed
-// (level_editor_state()).
-struct LevelEditorState {
-    bool active_{};
-    // The camera we fly (the first viewport's, when the editor started) and the pose the game had given it.
-    gfx::ViewCam* camera_{};
-    maths::Vec4 saved_pos_{};
-    maths::Mat4 saved_matrix_{};
-    // Our pose.
-    V3 pos_{};
-    float yaw_{};
-    float pitch_{};
-    float speed_ = kDefaultFlySpeed; // units a second (Shift: 4x)
-    // With something selected: the camera's distance from it, and whether the keys are moving it.
-    float orbit_distance_ = kDefaultOrbitDistance;
-    bool key_moving_{};
-    // The view as last drawn (note_view).
-    bool have_view_{};
-    Lens lens_{};
-    std::array<uint32_t, 4> viewport_{};
-    uint64_t last_counter_{};
-    bool pause_key_released_{};
-    bool exit_requested_{};
-    int saved_cursor_ = -1;
-    bool relative_{};
-    int moves_{};
-    bool unsaved_{}; // (changes since the layout was last saved)
-    // The autosave (level_editor_layout.h): which level load the unsaved changes belong to, a count of changes (the
-    // snapshot made again when it moves), when it was last written, and the offer of an older one.
-    int unsaved_load_ = -1;
-    int changes_{};
-    int snapshot_changes_{};
-    uint32_t last_autosave_{};
-    bool offer_show_{}; // (shown on the first frame the HUD is up)
-    bool offer_pending_{}; // (Ctrl+R / Ctrl+Shift+R)
-    // What the editor last did, for the log if the game crashes (plain memory: the crash hook reads it).
-    std::array<char, kLastActionSize> last_action_ = {"none"};
-    // The camera tools and play from here (level_editor_camera.h, level_editor_play.h): the last frame's ray under the
-    // cursor (an orbit's pivot), the play key (held when the editor starts: it counts once let go).
-    bool last_have_ray_{};
-    V3 last_ray_{};
-};
+} // namespace
+namespace internal {
 
 LevelEditorState& level_editor_state()
 {
@@ -608,10 +235,12 @@ LevelEditorState& level_editor_state()
     return state.get();
 }
 
+} // namespace internal
+namespace {
+
 std::string describe_selection();             // (the HUD's)
 int inspected_node();                         // (the node layer's)
-std::vector<picking::Lock> selection_locks(); // (picking)
-void follow_scenery();                        // (carrying - level_editor_carry.h)
+
 view_cam::Rig rig_now();
 perform::Resume resume_now();
 void apply_resume(const perform::Resume& resume);
@@ -661,93 +290,8 @@ Mouse& stored_mouse()
     return mouse.get();
 }
 
-// What is picked: the pointer (only used after checking it's still the object found under its id).
-struct Picked {
-    objects::GameEntity* object = nullptr;
-    uint32_t id = 0;
-};
-// NOT ORIGINAL grouping - the hover, the drag and its gizmo's axis, handle and plane (were globals). Made on first use,
-// never destroyed (drag_state()).
-struct DragState {
-    Picked hover_{};
-    // The selected objects (the first is the one the camera and the arrows go by); or the selected scenery
-    // (Scenery::Selection) - never both.
-    std::vector<Picked> objects_;
-    // The scene sector under the cursor (its checksum; 0: none).
-    uint32_t hover_sector_{};
-    // Dragging: free (the plane / the view's terms) or along one axis (an arrow).
-    bool dragging_{};
-    bool drag_vertical_{};
-    int axis_ = -1; // (0 / 1 / 2: dragging along x / y / z; -1: free)
-    int hover_axis_ = -1; // (the arrow under the cursor)
-    int hover_handle_ = -1; // (a selected trigger volume's resize handle under the cursor - level_editor_triggers.h)
-    bool cancel_requested_{}; // (Escape: a drag put back, the browser or the help closed - before leaving)
-    V3 drag_start_{}; // where the selection was when the drag started
-    V3 drag_offset_{};
-    V3 drag_plane_normal_{};
-    V3 drag_plane_offset_{};
-    float press_x_{};
-    float press_y_{};
-    bool drag_moved_{};
-    float drag_reach_{};
-    bool drag_screen_{};
-    V3 drag_from_{};
-    V3 drag_right_{};
-    V3 drag_forward_{};
-    float drag_mouse_x_{};
-    float drag_mouse_y_{};
-    float drag_units_{};
-    float drag_push_{};
-    float axis_t0_{};
-    // The transform tools (level_editor_transform.h): what the drag does (Move unless it started on a Rotate / Scale handle
-    // or as Alt+G's modal transform - no button held: a click or Enter applies it), what's typed, whether a turn or a scale
-    // was made (an undo step even when the position stayed), the turn and scale so far, where the cursor is (back buffer
-    // pixels), vertex snapping's corner, and the camera let go of the selection (wasd_flies=0: flying with RMB - F frames
-    // it again).
-    xform::Mode drag_mode_ = xform::Mode::kShiftBy;
-    bool modal_{};
-    bool typed_apply_{};
-    bool pending_forced_{};
-    xform::Typed typed_{};
-    V3 transform_pivot_{};
-    float rot_total_{};
-    float rot_applied_{};
-    float rot_last_{};
-    float rot_sign_ = 1.0F;
-    bool rot_by_plane_{};
-    int quarters_applied_{};
-    float scale_s0_{};
-    V3 scale_start_ = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
-    float cursor_x_{};
-    float cursor_y_{};
-    bool vertex_have_{};
-    V3 vertex_corner_{};
-    bool free_camera_{};
-    // The ground marker: the selection's base and the ground below it.
-    bool have_mark_{};
-    V3 mark_base_{};
-    V3 mark_ground_{};
-    // The help panel (F1) and the browser (B).
-    bool help_{};
-    bool snap_always_{}; // (the toolbar's Snap 25: moves snap without Ctrl)
-    // The node layer (level_editor_nodes.h): the families shown ([editor] families in the ini), a node selected by itself
-    // (a gizmo or an Outliner row that isn't an object or scenery - a point node moves and turns as objects do,
-    // level_editor_node_edit.h; chains and the rest are read-only), the gizmo under the cursor, and what the last frame
-    // drew of them (picked by screen distance).
-    uint32_t families_ = nodes::kAllFamilies;
-    bool node_selected_{};
-    int node_index_{};
-    uint32_t node_name_{};
-    bool field_editing_{}; // (the Inspector's position / heading fields are being changed: one undo step)
-    bool online_warned_{}; // (the warning for a spawn, crown or flag moved in a level shared with THUGPRO: once a run)
-    bool online_warning_shown_{}; // (its window is up)
-    int hover_node_ = -1;
-    // Picking (level_editor_picking.h): what a click in the view may take ([editor] pick=), the piece a plain click passes
-    // under the cursor (for the status bar: Alt+click takes it), and click-to-cycle - the last click's spot, what was
-    // under it in the cycle's order and which of those it took (the hover shows the next one while it holds).
-    uint32_t pick_filter_ = picking::kAll;
-    uint32_t hover_passed_{};
-};
+} // namespace
+namespace internal {
 
 DragState& drag_state()
 {
@@ -755,40 +299,14 @@ DragState& drag_state()
     return state.get();
 }
 
-struct Cycle {
-    bool have = false;
-    float x = 0.0F, y = 0.0F;
-    V3 pos = {};
-    int changes = 0;
-    uint32_t filter = 0;
-    std::vector<picking::TableRow> order;
-    int index = -1;
-};
-// NOT ORIGINAL grouping - the pick cycle, the placing, the confirmations, the pickables and the overlay (were globals).
-// Made on first use, never destroyed (pick_cycle()).
-struct PickCycle {
-    Cycle cycle_{};
-    int hover_cycle_ = -1; // (the hover is the cycle's next entry: its index)
-    // Phase 3 (level_editor_node_create.h): the Place palette (N) and its armed entry (a click in the view places it), a
-    // level's node waiting for the confirm window before it's hidden.
-    bool place_open_{};
-    int place_armed_ = -1;
-    uint32_t confirm_hide_{};
-    // Reset level (Ctrl+Shift+Delete, the toolbar): the confirm window is up; the old HUD's second press (its time).
-    bool confirm_reset_{};
-    uint32_t reset_asked_at_{};
-    // Rails (level_editor_node_edit.h): a rail node moves with its whole rail (L toggles: one point).
-    bool move_entire_rail_ = true;
-    std::vector<nodes::Pickable> pickables_;
-    ui::Overlay overlay_{};
-    int hud_taken_down_{}; // (the UI runs: frames the HUD's screen elements have been taken down)
-};
-
 PickCycle& pick_cycle()
 {
     static core::NoDestroy<PickCycle> state;
     return state.get();
 }
+
+} // namespace internal
+namespace {
 
 struct Browser {
     bool open = false;
@@ -901,401 +419,6 @@ void handle_event(const input::Event& event)
     }
 }
 
-// --- the selection ---
-
-objects::GameEntity* get_live(const Picked& picked)
-{
-    if (!picked.object) {
-        return nullptr;
-    }
-    if (objects::find_object(picked.id) != picked.object ||
-        ((picked.object->object_flags() & objects::kObjectFlagDead) != 0U)) {
-        return nullptr;
-    }
-    return picked.object;
-}
-
-// The selected objects still there (the others dropped).
-std::vector<objects::GameEntity*> selected_objects()
-{
-    std::vector<objects::GameEntity*> live;
-    std::vector<Picked> kept;
-    for (const Picked& picked : drag_state().objects_) {
-        if (objects::GameEntity* object = get_live(picked)) {
-            live.emplace_back(object);
-            kept.push_back(picked);
-        }
-    }
-    drag_state().objects_ = kept;
-    return live;
-}
-objects::GameEntity* get_primary()
-{
-    std::vector<objects::GameEntity*> objects = selected_objects();
-    return objects.empty() ? nullptr : objects.front();
-}
-// The node selected by itself, if the editor moves it (a point node): its index in Nodes::All(), else -1.
-int picked_node_index()
-{
-    if (!drag_state().node_selected_) {
-        return -1;
-    }
-    const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (drag_state().node_index_ < 0 || std::cmp_greater_equal(drag_state().node_index_, nodes.size()) ||
-        core::at(nodes, drag_state().node_index_).name != drag_state().node_name_) {
-        const int found = (drag_state().node_name_ != 0U) ? nodes::get_find(drag_state().node_name_) : -1;
-        if (found < 0) {
-            return -1;
-        }
-        drag_state().node_index_ = found;
-    }
-    return node_edit::get_movable(core::at(nodes, drag_state().node_index_)) ? drag_state().node_index_ : -1;
-}
-// That node's place now (false: none).
-bool node_values(node_edit::Values* values)
-{
-    return picked_node_index() >= 0 && node_edit::get_take_in(drag_state().node_name_, values);
-}
-// An invisible wall selected by itself (Shift+click with the collision shown - level_editor_view.h): moved, turned and
-// switched off / on as level_editor_walls.h does; 0 when none (or something else is selected).
-uint32_t wall_only()
-{
-    const uint32_t wall = view::selected_wall();
-    return (wall != 0U) && !drag_state().node_selected_ && !scenery::has_selection() && !get_primary() &&
-                   walls::is_wall(wall)
-               ? wall
-               : 0;
-}
-bool have_selection()
-{
-    return (get_primary() != nullptr) || scenery::has_selection() || picked_node_index() >= 0 || (wall_only() != 0U);
-}
-
-// A spawn, crown or flag of a level shared with THUGPRO changed by the editor (moved, added, hidden, reordered): the
-// warning, once a run (the edit is made - layouts aren't used in net games, but a layout baked into the level's files
-// would be).
-void note_online_change(nodes::Family family, const char* what, const char* verb)
-{
-    if (drag_state().online_warned_ || !nodes::get_online(family)) {
-        return;
-    }
-    const char* game = "";
-    if (!nodes::level_is_shared(&game)) {
-        return;
-    }
-    drag_state().online_warned_ = true;
-    drag_state().online_warning_shown_ = true;
-    get_log("level editor: %s %s in a level shared with THUGPRO (%s) - warned", what, verb, game);
-    hud::get_message("Shared level: spawn, crown and flag changes differ from THUGPRO players' copies", kSharedWarningSeconds);
-}
-void note_online_edit(int index)
-{
-    const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || std::cmp_greater_equal(index, nodes.size())) {
-        return;
-    }
-    note_online_change(core::at(nodes, index).family, nodes::caption(core::at(nodes, index).name).c_str(), "moved");
-}
-
-// The selected node put at `values` (an edit of the editor's: the online warning first time). A rail point takes the
-// rest of its rail with it, by as much, while Whole rail is on (L).
-void set_selected_node(const node_edit::Values& values)
-{
-    const int index = picked_node_index();
-    if (index < 0) {
-        return;
-    }
-    note_online_edit(index);
-    node_edit::Values now;
-    if (node_edit::is_chain(drag_state().node_name_) && node_edit::get_take_in(drag_state().node_name_, &now)) {
-        const V3 delta = values.pos - now.pos;
-        for (const uint32_t name : node_edit::moved_with(drag_state().node_name_, pick_cycle().move_entire_rail_)) {
-            node_edit::Values point;
-            if (node_edit::get_take_in(name, &point)) {
-                point.pos = point.pos + delta;
-                node_edit::assign_value(name, point);
-            }
-        }
-        return;
-    }
-    node_edit::assign_value(drag_state().node_name_, values);
-}
-
-// The node `index` selected by itself (nothing else).
-void select_node_only(int index)
-{
-    drag_state().objects_.clear();
-    scenery::clear_selection();
-    drag_state().node_selected_ = true;
-    drag_state().node_index_ = index;
-    drag_state().node_name_ = core::at(nodes::get_all(), index).name;
-}
-bool is_picked(objects::GameEntity* object)
-{
-    return std::ranges::any_of(drag_state().objects_, [&](const Picked& picked) { return picked.object == object; });
-}
-void select_objects(const std::vector<objects::GameEntity*>& objects)
-{
-    drag_state().objects_.clear();
-    for (objects::GameEntity* object : objects) {
-        drag_state().objects_.push_back({.object = object, .id = object->ident()});
-    }
-    if (!objects.empty()) {
-        scenery::clear_selection();
-    }
-}
-void unpick()
-{
-    drag_state().free_camera_ = false; // (the next selection is framed again - level_editor_transform.h)
-    drag_state().objects_.clear();
-    scenery::clear_selection();
-    drag_state().node_selected_ = false;
-    view::clear_wall();
-    faces::clear_selection(); // (map3: the collision faces selected - level_editor_faces.h)
-}
-
-// Where the selection is: the first object's position, else the scenery's pivot (the middle of its boxes); its base:
-// that object's feet, the scenery's bottom.
-// (a node selected by itself: its pos=, which is its base too)
-V3 selection_pos()
-{
-    if (const objects::GameEntity* object = get_primary()) {
-        return object_edit::pos_of(object);
-    }
-    node_edit::Values node;
-    if (node_values(&node)) {
-        return node.pos;
-    }
-    if (const uint32_t wall = wall_only()) {
-        return walls::get_pivot(wall);
-    }
-    return scenery::get_pivot();
-}
-float get_selection_base()
-{
-    if (const objects::GameEntity* object = get_primary()) {
-        return object->at_point().y;
-    }
-    node_edit::Values node;
-    if (node_values(&node)) {
-        return node.pos.y;
-    }
-    if (const uint32_t wall = wall_only()) {
-        return walls::get_bottom(wall);
-    }
-    return scenery::get_bottom();
-}
-// The point the camera looks at: the first object's middle, a node's place, or the scenery's pivot.
-V3 target_of()
-{
-    if (objects::GameEntity* object = get_primary()) {
-        return object_edit::current_centre(object);
-    }
-    node_edit::Values node;
-    if (node_values(&node)) {
-        return node.pos;
-    }
-    if (const uint32_t wall = wall_only()) {
-        return walls::get_pivot(wall);
-    }
-    return scenery::get_pivot();
-}
-// The selection moved so that selection_pos is `pos` (the other objects by as much).
-void place_selection(V3 pos)
-{
-    node_edit::Values node;
-    if (node_values(&node)) {
-        node.pos = pos;
-        set_selected_node(node);
-        return;
-    }
-    std::vector<objects::GameEntity*> objects = selected_objects();
-    if (const uint32_t wall = objects.empty() ? wall_only() : 0) {
-        walls::move_to(wall, pos);
-        return;
-    }
-    if (objects.empty()) {
-        scenery::move_to(pos);
-        follow_scenery();
-        return;
-    }
-    const V3 delta = pos - object_edit::pos_of(objects.front());
-    for (objects::GameEntity* object : objects) {
-        object_edit::get_place(object, object_edit::pos_of(object) + delta);
-    }
-}
-// The middle of the selection's box: the objects' model boxes (or places), the scenery's boxes; a node's or a wall's
-// place (the Centre pivot - level_editor_transform.h).
-V3 selection_centre()
-{
-    const std::vector<objects::GameEntity*> objects = selected_objects();
-    V3 min = {};
-    V3 max = {};
-    bool have = false;
-    OrientedBox box{};
-    if (!objects.empty()) {
-        for (objects::GameEntity* object : objects) {
-            V3 point_a{};
-            V3 point_b{};
-            if (object_edit::model_box(object, &box)) {
-                bounds_of(box, &point_a, &point_b);
-            } else {
-                point_a = point_b = object_edit::pos_of(object);
-            }
-            grow_box(&min, &max, have, point_a, point_b);
-            have = true;
-        }
-        return (min + max) * kHalf;
-    }
-    if (picked_node_index() >= 0 || (wall_only() != 0U)) {
-        return selection_pos();
-    }
-    for (const uint32_t checksum : scenery::get_selection()) {
-        V3 point_a{};
-        V3 point_b{};
-        if (scenery::cuboid(checksum, &box)) {
-            bounds_of(box, &point_a, &point_b);
-            grow_box(&min, &max, have, point_a, point_b);
-            have = true;
-        }
-    }
-    return have ? (min + max) * kHalf : selection_pos();
-}
-// Objects turned by `radians` about the toolbar's Pivot (Base: the first one's position; Centre: `centre`; Own: each
-// about its own).
-void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float radians, V3 centre)
-{
-    if (objects.empty() || radians == 0.0F) {
-        return;
-    }
-    const xform::Pivot pivot = xform::at_hand().pivot;
-    const V3 base = object_edit::pos_of(objects.front());
-    for (objects::GameEntity* object : objects) {
-        V3 about = base;
-        if (pivot == xform::Pivot::kOwn) {
-            about = object_edit::pos_of(object);
-        } else if (pivot == xform::Pivot::kCentre) {
-            about = centre;
-        }
-        object_edit::turn_about(object, about, radians);
-    }
-}
-// Turned a notch (an object or a node by the rotation snap's step - 15 degrees unless the toolbar says otherwise -
-// about the Pivot / its own place; scenery a quarter about its pivot).
-float notch_radians() { return xform::angle_step() * maths::kPi / kDegreesPerHalfTurn; }
-void turn_selection(int notches)
-{
-    node_edit::Values node;
-    if (node_values(&node)) {
-        node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) +
-                                                               (static_cast<float>(notches) * xform::angle_step()));
-        set_selected_node(node);
-        return;
-    }
-    const std::vector<objects::GameEntity*> objects = selected_objects();
-    if (const uint32_t wall = objects.empty() ? wall_only() : 0) {
-        walls::get_turn(wall, notches);
-        walls::finalise();
-        return;
-    }
-    if (objects.empty()) {
-        scenery::get_turn(notches);
-        follow_scenery();
-        scenery::finalise();
-        return;
-    }
-    turn_objects_by(objects, static_cast<float>(notches) * notch_radians(), selection_centre());
-}
-// After the keys or a drag: the scenery's collision lookups brought up to date.
-void get_settle()
-{
-    if (!get_primary() && scenery::has_selection()) {
-        scenery::finalise();
-    }
-    if (wall_only() != 0U) {
-        walls::finalise();
-    }
-}
-
-// --- undo / redo (Ctrl+Z / Ctrl+Y) ---
-//
-// A step is how things were before a change: the selected objects' places, or the scenery's state (Scenery::State:
-// its pieces' placements, hidden or not, its rails), or - for copies made or deleted - whether those copies exist.
-// Undoing puts that back and keeps what it replaced for redo.
-
-struct MadeCopy {
-    uint32_t name, source;
-    object_edit::State state;
-};
-struct FieldUndo {
-    uint32_t node, key;
-    fields::Own own;
-};
-struct UndoStep {
-    enum class Kind : uint8_t {
-        kObjects,
-        kScenery,
-        kMade,
-        kNodes,
-        kAdded,
-        kHidden,
-        kOrder,
-        kLevel,
-        kChains,
-        kWalls,
-        kTriggers,
-        kFields,
-        kProps,
-        kLocks,
-        kEntities,
-        kModule,
-        kGroup
-    } kind = Kind::kObjects;
-    // kGroup (UX7 - level_editor_modules.h's Edit::fold): several steps made as one action, put back last first.
-    std::vector<UndoStep> group;
-    uint64_t serial = 0; // (a number for the step: the adjust-last panel knows its step is still the newest)
-    // kEntities: path speeds and emitters' sounds to put back (level_editor_entities.h).
-    entities::State entities;
-    // kModule: a module's own step (level_editor_modules.h - face flags, clusters, cameras).
-    std::shared_ptr<ModuleStep> module;
-    // kLocks: the locks to put back (level_editor_picking.h - L, Unlock, Unlock all).
-    std::vector<picking::Lock> locks;
-    // kScenery: what the scenery carried along (level_editor_carry.h) - their places before the change.
-    std::vector<object_edit::State> carried_objects_;
-    node_edit::Step carried_nodes_;
-    // kFields (phase 6): nodes' own fields to put back (level_editor_fields.h); kProps: the level's properties.
-    std::vector<FieldUndo> fields;
-    level_props::Props props;
-    // kWalls (level_editor_walls.h): collision states to put back - an invisible wall's (wall: selected again) or the
-    // selected scenery's switches (sectors: selected again).
-    std::vector<walls::WallState> walls;
-    uint32_t wall = 0;
-    // kChains (phase 4): the chains' state to put back (level_editor_chains.h).
-    chains::State chains;
-    std::vector<object_edit::State> objects;
-    scenery::State scenery;
-    node_edit::Step nodes; // (kNodes: the nodes' places - level_editor_node_edit.h)
-    // kMade: the scenery copies and object copies, and whether they exist once this step is put back.
-    std::vector<uint32_t> sectors;
-    std::vector<MadeCopy> copies;
-    bool exist = false;
-    V3 where = {}; // (the selection's position then: whether a drag moved it)
-    // kAdded: nodes the editor added and where in the overlay (exist: whether they're there once put back); kHidden:
-    // a level's nodes and whether they're hidden once put back; kOrder: the overlay's order (names) to put back.
-    std::vector<node_create::Spec> added;
-    std::vector<int> added_at_;
-    std::vector<uint32_t> hidden_names_;
-    bool hidden = false;
-    std::vector<std::string> order;
-    // kLevel (Reset level): put back, the level is reset again (`reset`) or the layout `layout` (Write's text) put in
-    // place again.
-    bool reset = false;
-    std::string layout;
-    // kTriggers: the trigger volumes' state to put back (level_editor_triggers.h).
-    triggers::State triggers;
-    // (the undo history panel - level_editor_ux3.h: a short label given where the step is made, and what was selected)
-    std::string label, detail;
-};
 // NOT ORIGINAL grouping - the undo and redo steps and the pending one (were globals). Made on first use, never
 // destroyed (undo_steps()).
 struct UndoSteps {
@@ -1350,6 +473,9 @@ UndoStep get_snapshot()
     return step;
 }
 
+} // namespace
+namespace internal {
+
 // The scenery moved, turned or scaled: what it carries follows (a node carried in a level shared with THUGPRO: the
 // online warning).
 void follow_scenery()
@@ -1361,6 +487,9 @@ void follow_scenery()
         }
     });
 }
+
+} // namespace internal
+namespace {
 
 // A step's label when its maker gave none (by its kind).
 const char* kind_label(UndoStep::Kind kind)
@@ -1759,6 +888,9 @@ void get_restore(UndoStep& step)
     }
 }
 
+} // namespace
+namespace internal {
+
 // The same things as `step` as they are now (for the other stack).
 UndoStep at_hand(const UndoStep& step)
 {
@@ -1869,6 +1001,9 @@ UndoStep at_hand(const UndoStep& step)
     }
     return now;
 }
+
+} // namespace internal
+namespace {
 
 // Undo (`from` the undo stack, what it replaced onto redo) or redo (the other way).
 void step_history(std::vector<UndoStep>* from, std::vector<UndoStep>* to, const char* what)
@@ -2767,6 +1902,9 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
     }
 }
 
+} // namespace
+namespace internal {
+
 // --- the nodes' gizmos (level_editor_nodes.h): drawn through the UI's overlay, picked by screen distance ---
 //
 // A point (spawns, crowns, flags, sounds, particles, objects, others) is an icon in its colour - a spawn with its
@@ -2783,6 +1921,9 @@ float pixel_scale()
                 : 1.0F) *
            gizmo;
 }
+
+} // namespace internal
+namespace {
 
 constexpr uint32_t kSelectedGizmo = 0xFFFFFFFF, kHoverGizmo = 0xFFFFE070;
 
@@ -3432,7 +2573,9 @@ bool& debug_enabled()
 }
 
 bool live_now() { return level_editor_state().active_; }
+
 namespace {
+
 // NOT ORIGINAL grouping - whether occlusion is off, in the editor and in play (were globals). Made on first use, never
 // destroyed (occlusion_switch()).
 struct OcclusionSwitch {
@@ -5619,154 +4762,6 @@ void focus_on_selection()
     }
     level_editor_state().orbit_distance_ = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
     yaw_pitch_from_back(make_unit(back), {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
-}
-
-// Occlusion for gizmos (level_editor_picking.h's gizmo_in_front): the first occluding surface under the cursor as a depth
-// along the view, and what the pick radius spans there (the slack). Alt (or a middle click) reaches past: none.
-nodes::Occluder gizmo_occluder(const TickCycle& frame, V3 dir, const scenery::Hit& hit, bool everything)
-{
-    nodes::Occluder occluder;
-    if (everything || !hit.blocked) {
-        return occluder;
-    }
-    occluder.blocked = true;
-    occluder.depth = hit.block_t_ * -get_dot(make_unit(dir), frame.back);
-    occluder.units_per_pixel_ = core::at(level_editor_state().viewport_, 2) > 0
-                                    ? kScreenSpanFactor * level_editor_state().lens_.tan_x_ /
-                                          static_cast<float>(core::at(level_editor_state().viewport_, 2))
-                                    : 0.0F;
-    occluder.pixels = kOccluderPixels * pixel_scale();
-    return occluder;
-}
-
-// How far along the ray a plain click may take a trigger volume (Triggers::Pick): to the first occluding surface under
-// the cursor and kGizmoSlack past it - a volume standing on the floor still picks, one behind a wall doesn't.
-float trigger_reach(V3 dir)
-{
-    scenery::Hit hit;
-    scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &hit);
-    return hit.blocked ? hit.block_t_ + picking::kGizmoSlack : kFarDistance;
-}
-
-// Click-to-cycle (level_editor_picking.h): a plain click on the last click's spot (within 4 pixels at 720 lines), the
-// camera where it was (a click turns it to the selection, it doesn't move it), nothing changed or dragged since and the
-// filter the same - and that click took something with more under it.
-bool cycle_holds(float x, float y, bool shift, bool everything)
-{
-    const V3 moved = level_editor_state().pos_ - pick_cycle().cycle_.pos;
-    return pick_cycle().cycle_.have && !shift && !everything && pick_cycle().cycle_.index >= 0 &&
-           pick_cycle().cycle_.order.size() > 1 &&
-           picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) &&
-           get_dot(moved, moved) < 1.0F && pick_cycle().cycle_.changes == level_editor_state().changes_ &&
-           pick_cycle().cycle_.filter == drag_state().pick_filter_;
-}
-
-// The hover's entry in the click cycle's order - its node, else `object`, else its scenery (-1: none of them).
-int hover_cycle_index(const objects::GameEntity* object)
-{
-    if (drag_state().hover_node_ >= 0) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, drag_state().hover_node_);
-    }
-    if (object) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident());
-    }
-    if (drag_state().hover_sector_ != 0U) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery, drag_state().hover_sector_);
-    }
-    return -1;
-}
-
-// A plain click: the cycle's entry it takes (the hover's), or a new cycle from everything under the cursor now.
-void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
-{
-    const float x = at.x;
-    const float y = at.y;
-    if (!plain) {
-        pick_cycle().cycle_.have = false;
-        return;
-    }
-    if (pick_cycle().hover_cycle_ >= 0) {
-        pick_cycle().cycle_.index = pick_cycle().hover_cycle_;
-    } else {
-        std::vector<picking::Layered> objects;
-        std::vector<picking::Layered> scenery;
-        for (const auto& hit : object_edit::pick_all(level_editor_state().pos_, dir, kMaxPickDistance)) {
-            objects.push_back({.id = hit.first->ident(), .t = hit.second, .passed = false});
-        }
-        scenery::Hit first;
-        std::vector<scenery::Layer> layers;
-        scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
-        scenery.reserve(layers.size());
-        for (const scenery::Layer& layer : layers) {
-            scenery.push_back({.id = layer.checksum, .t = layer.t, .passed = layer.passed});
-        }
-        pick_cycle().cycle_ = Cycle{};
-        pick_cycle().cycle_.have = true;
-        pick_cycle().cycle_.x = x;
-        pick_cycle().cycle_.y = y;
-        pick_cycle().cycle_.pos = level_editor_state().pos_;
-        pick_cycle().cycle_.filter = drag_state().pick_filter_;
-        pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
-        const objects::GameEntity* object = get_live(drag_state().hover_);
-        pick_cycle().cycle_.index = hover_cycle_index(object);
-    }
-    if (pick_cycle().cycle_.index >= 0 && pick_cycle().cycle_.order.size() > 1) {
-        std::array<char, kPickTextSize> text{};
-        text::format_to(text, "%d of %d under cursor", pick_cycle().cycle_.index + 1, static_cast<int>(pick_cycle().cycle_.order.size()));
-        hud::get_message(text.data(), kCountMessageSeconds);
-    }
-}
-
-// Ctrl+click: a part of the scenery selection dropped from it - the rail point whose gizmo is under the cursor (from the
-// points carried along), else the nearest selected piece no further than what a plain click takes (a selected shadow
-// or floor in front of it too: level_editor_shadows.h's drop_target). False: nothing selected there (the click goes on
-// as a plain one).
-bool drop_under_cursor(V3 dir)
-{
-    if (!scenery::has_selection()) {
-        return false;
-    }
-    if (drag_state().hover_node_ >= 0 && std::cmp_less(drag_state().hover_node_, nodes::get_all().size())) {
-        const uint32_t name = core::at(nodes::get_all(), drag_state().hover_node_).name;
-        if (!scenery::carries_rail(name)) {
-            return false;
-        }
-        scenery::drop_rail(name);
-        hud::get_message("Removed rail point " + nodes::caption(name));
-        return true;
-    }
-    scenery::Hit first;
-    std::vector<scenery::Layer> layers;
-    scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
-    std::vector<bool> passed;
-    std::vector<bool> selected;
-    for (const scenery::Layer& layer : layers) {
-        passed.push_back(layer.passed);
-        selected.push_back(scenery::get_selected(layer.checksum));
-    }
-    const int index = members::drop_target(passed, selected);
-    if (index < 0) {
-        return false;
-    }
-    const uint32_t checksum = core::at(layers, index).checksum;
-    scenery::flip_over(checksum);
-    hud::get_message("Removed " + object_edit::caption(checksum) + " from selection");
-    return true;
-}
-
-// The selection as locks: the selected objects, else the selected scenery pieces (a node by itself: none).
-std::vector<picking::Lock> selection_locks()
-{
-    std::vector<picking::Lock> locks;
-    for (const objects::GameEntity* object : selected_objects()) {
-        locks.push_back({.kind = picking::kObjects, .id = object->ident()});
-    }
-    if (locks.empty()) {
-        for (const uint32_t sector : scenery::get_selection()) {
-            locks.push_back({.kind = picking::kScenery, .id = sector});
-        }
-    }
-    return locks;
 }
 
 // The view options (level_editor_view.h). H / the Inspector's Hide: the selection hidden while editing (from the view
@@ -8919,8 +7914,6 @@ void go_to_point(V3 pos, float distance)
     get_look_at(pos, distance);
 }
 
-// --- for the arrange tools (UX7 - level_editor_modules.h's Edit) ---
-
 namespace edit {
 
 Selected get_selection()
@@ -9198,5 +8191,4 @@ V3 cursor_point()
 }
 
 } // namespace edit
-
 } // namespace frontend::level_editor
