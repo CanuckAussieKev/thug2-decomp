@@ -479,6 +479,64 @@ one Gpu call per device call (`draw_indexed_from_memory` per text batch, `draw_f
   `imgui_texture_id.h` (Dear ImGui's backend, `render::UiBackend`; V9 makes the Vulkan one) and `d3d_matrix.h` (unused
   since V5d; V5f deleted it).
 
+### V6: the Vulkan `Gpu` and `GpuContext` for the resources (done)
+
+`src/gpu_vulkan` (the folder `render_vulkan` renamed, library `thug2_gpu_vulkan`): `gpu_vulkan.h` (`render::vulkan::gpu()`,
+`gpu_context()`; no Vulkan header seen through it), `vulkan_gpu.cpp`, `vulkan_gpu_context.cpp`, and their pieces
+`vulkan_formats`, `vulkan_memory`, `vulkan_samplers`, `vulkan_ring`, `vulkan_jpeg`, `vulkan_objects.h`, `vulkan_backend.h`;
+`src/tests/vulkan_gpu_check.cpp` (the check). Nothing draws yet and app/ doesn't install it: `renderer=vulkan` still runs
+Direct3D 9 (V7).
+
+- **The link edge first**: `render_pc` called D3DX's shader assembly (`pixel_shaders`, `view_mode`) and its JPEG writer
+  (`pc_engine`'s `screen_shot`), which `gpu_d3d9` defined. Both are `Gpu` operations now: `create_pixel_shader(source,
+  length, shader)` (Direct3D 9: `D3DXAssembleShader` then `CreatePixelShader` from its tokens, the buffers released; the
+  Vulkan `Gpu` keeps the text for V7) and `save_surface_jpeg(file, surface)` (Direct3D 9: `D3DXSaveSurfaceToFile`; Vulkan:
+  the surface's pixels made RGB and encoded with stb_image_write). `gpu_d3d9` no longer includes or links `render_pc`.
+  Direct3D 9's results are the same: the same token streams (the 22 shaders of a foun run, hashed where they are made) and
+  the same JPEG bytes (a screen shot of a fixed picture).
+- **The context**: `create_instance` opens the instance, the window's surface, the physical device (discrete first, or
+  the one asked for) and the logical device with anisotropic filtering, BC textures and wireframe where offered;
+  `create_device` makes the swapchain, the memory, the back buffer (an image of its own, B8G8R8A8: V7 presents it) and the
+  depth surface the settings name. `sample_quality_levels` answers 1 for a sample count both attachments have; `caps()`
+  comes from the features and limits; `reset()` makes the swapchain again.
+- **Formats**: A8R8G8B8 / X8R8G8B8 are B8G8R8A8 (the same bytes; X's alpha is read as 1 through the sampled view's
+  swizzle); R5G6B5, A1R5G5B5 and X1R5G5B5 are Vulkan's own 16-bit formats (the same words) where the device samples and
+  filters them, else widened to B8G8R8A8 (each channel to its nearest 8-bit value); DXT1 / DXT3 / DXT5 are BC1 (RGBA,
+  DXT1's one-bit alpha) / BC2 / BC3, the blocks uploaded as they are (a device without BC refuses them); **P8** is widened
+  through a grey palette (index n: n, n, n, opaque) - the game sets no Direct3D palette, and the Direct3D 9 drivers of
+  today don't make P8 textures, so this is a choice, in one place (`p8_palette`); depth D24S8 / D24X8 are
+  D24_UNORM_S8_UINT, else **D32_SFLOAT_S8_UINT** (the AMD iGPU here has no D24S8), D16 is D16_UNORM.
+- **Textures**: a level's lock hands out Direct3D 9's layout (rows of 4x4 blocks for BC) from a system-memory copy of the
+  level (the managed pool's own), a partial lock the area's first byte; the unlock converts the level and uploads it; a
+  read-only lock uploads nothing. A level's surface shares its texture's references, as Direct3D 9's do.
+- **Buffers** (VMA): static ones in device memory with a system-memory copy, the locked part uploaded at the unlock; dynamic
+  ones in memory the processor writes, locked in place - a discard moves to a version the device is done with (V7's
+  frames record when a version was last drawn from; until then it is the same memory), a no-overwrite keeps it. The draws
+  from memory copy their vertices and indices into a ring (a buffer per frame in flight, doubled when outgrown, the old
+  one kept until its frame comes round).
+- **Surfaces**: render targets (lockable ones read back at the lock, uploaded at the unlock; multisampled ones resolved
+  whole by `copy_surface`), depth surfaces, render-target and depth textures, system-memory surfaces; `copy_surface` is a
+  blit (or a resolve); `read_render_target` and `read_front_buffer` read the image back (the front buffer: the back
+  buffer's image, the last frame V7 will present, in the top left of the display-sized surface).
+- **Queries**: pools of 64 occlusion slots; until V7 records the draws between `begin_query` and `end_query`, the end runs
+  the query alone (0 pixels), and `query_result` answers from the pool.
+- **Samplers**: made once per combination of a stage's states (`sampler_key` from the state block): filters, addressing,
+  the border colour as the nearest of Vulkan's three (the game uses only 0, transparent black), LOD bias, the most detailed
+  level, anisotropy clamped to the device's.
+- **References**: every object counts them as Direct3D 9's does; the device holds a reference to the render targets, the
+  depth surface, the streams and the index buffer it is given; textures and shaders set in the state block are not held
+  (the block keeps their addresses - V7 must not draw with one that was released).
+- **The state block** is the interface's, recorded by its setters; the Vulkan `Gpu`'s `send_*` only answer, the reads
+  (`get_*`) answer from the block, and `save_state` / `restore_state` are the block's copy alone.
+- **Threads**: the loading screen's timer thread and the console panel draw through the `Gpu` while the main thread loads.
+  Every `Gpu` and `GpuContext` operation of the Vulkan backend takes one lock for its whole length, so their calls run one
+  at a time; the state block is recorded before the lock is taken (as with Direct3D 9: it is a record).
+- **Transfers** (uploads, read-backs, blits, resolves, the queries for now) run at once in a command buffer of their own,
+  waited for: an unlock is finished when it returns. V7 moves the draws' work into the frame's command buffers.
+- **The check** (`thug2_vulkan_gpu_check [--device N]`): every kind made, filled, read back from the device's memory,
+  compared byte for byte with what was written (the expected texels written out from the formats' definitions), and
+  released, on both GPUs here; no validation layer is installed on this machine, so the Khronos validation was not run.
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -510,7 +568,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 - done |
 | V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` / `GpuContext` | V5a | after stage 11 - done |
 | V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 - done: `render_pc` (118 files, `thug2_render_pc`), `gpu_d3d9` (11 files, `thug2_gpu_d3d9`); `render_vulkan` kept its name until V6 put the Vulkan `Gpu` in it (renamed `gpu_vulkan` then) |
-| V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 |
+| V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 - done: the Vulkan `Gpu` and `GpuContext` (nothing drawn), `thug2_vulkan_gpu_check`; the pixel shaders' assembly and the screen shot's JPEG became `Gpu` operations |
 | V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 |
 | V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 |
 | V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 |
