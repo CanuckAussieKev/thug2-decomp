@@ -464,8 +464,8 @@ bool cfunc_start_server_list(script::Struct* /*params*/, script::Context /*conte
 bool cfunc_start_lobby_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
-    if (game_net->get_service_state() == online::ServiceState::kStopped) {
-        game_net->set_next_service_state(online::ServiceState::kLobbyListStart);
+    if (game_net->service().get_service_state() == online::ServiceState::kStopped) {
+        game_net->service().set_next_service_state(online::ServiceState::kLobbyListStart);
         game_net->set_service_state(online::ServiceState::kWake);
     } else {
         game_net->set_service_state(online::ServiceState::kLobbyListStart);

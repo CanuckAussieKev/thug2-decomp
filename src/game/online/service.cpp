@@ -108,7 +108,7 @@ void show_no_servers()
 // Done: state 2, and this task stops.
 void get_finish(online::Hub* manager)
 {
-    manager->assign_service_state(online::ServiceState::kStopped);
+    manager->service().assign_service_state(online::ServiceState::kStopped);
     manager->tasks().service_job()->drop_out();
 }
 
@@ -118,22 +118,23 @@ void get_finish(online::Hub* manager)
 void service_task(tasks::Task<online::Hub>* task)
 {
     auto* manager = static_cast<online::Hub*>(task->content());
-    switch (manager->service_state()) {
+    switch (manager->service().service_state()) {
     case online::ServiceState::kWaiting: // waiting
-        if (manager->service_wake_at() != 0 && frame_clock::get_time() > manager->service_wake_at()) {
-            manager->set_service_state((manager->next_service_state()));
+        if (manager->service().service_wake_at() != 0 &&
+            frame_clock::get_time() > manager->service().service_wake_at()) {
+            manager->set_service_state((manager->service().next_service_state()));
         }
         break;
     case online::ServiceState::kStart: // start: a script, then the availability check a moment later
         push_internet_heap();
         launch_script(kAvailabilityCheckWait);
-        manager->assign_service_state(online::ServiceState::kWaiting);
-        manager->assign_next_service_state(online::ServiceState::kAvailabilityStart);
-        manager->set_service_wake_at(kAvailabilityRecheckDelay);
+        manager->service().assign_service_state(online::ServiceState::kWaiting);
+        manager->service().assign_next_service_state(online::ServiceState::kAvailabilityStart);
+        manager->service().set_service_wake_at(kAvailabilityRecheckDelay);
         pop_heap();
         break;
     case online::ServiceState::kAvailabilityStart:
-        manager->assign_service_state(online::ServiceState::kAvailabilityAnswer);
+        manager->service().assign_service_state(online::ServiceState::kAvailabilityAnswer);
         gsi_start_available_check("mototrax");
         break;
     case online::ServiceState::kAvailabilityAnswer: // the availability check's answer
@@ -146,12 +147,12 @@ void service_task(tasks::Task<online::Hub>* task)
         case 2: // unavailable
             launch_script(kServiceNeverAvailable);
             get_finish(manager);
-            manager->set_service_wake_at(0);
+            manager->service().set_service_wake_at(0);
             break;
         case 3: // temporarily unavailable
             launch_script(kServiceNotAvailable);
             get_finish(manager);
-            manager->set_service_wake_at(0);
+            manager->service().set_service_wake_at(0);
             break;
         default: // still waiting
             break;
@@ -172,8 +173,8 @@ void service_task(tasks::Task<online::Hub>* task)
             params->append_word(kText, script::QbValueKind::kString, text.data());
             script::spawn_script(kCreateMotdRetryDialog, params.get());
         }
-        manager->assign_service_state(online::ServiceState::kWaiting);
-        manager->set_service_wake_at(0);
+        manager->service().assign_service_state(online::ServiceState::kWaiting);
+        manager->service().set_service_wake_at(0);
         manager->set_download_done(false);
         start_thread(manager, kNewsThread); // (it sets state 7)
         break;
@@ -183,7 +184,7 @@ void service_task(tasks::Task<online::Hub>* task)
         // (PartyMod's time limit; the original's was 15000 ms)
         if (frame_clock::get_time() - manager->request_started_at() > kNewsTimeout || manager->download_done()) {
             ghttp_cancel_request(manager->request());
-            manager->assign_service_state(online::ServiceState::kNewsEnded);
+            manager->service().assign_service_state(online::ServiceState::kNewsEnded);
         } else {
             ghttp_think();
         }
@@ -198,7 +199,7 @@ void service_task(tasks::Task<online::Hub>* task)
         push_internet_heap();
         if (frame_clock::get_time() - manager->request_started_at() > kMotdTimeout) {
             ghttp_cancel_request(manager->request());
-            manager->assign_service_state(online::ServiceState::kMotdShow);
+            manager->service().assign_service_state(online::ServiceState::kMotdShow);
         } else {
             ghttp_think();
         }
@@ -210,8 +211,8 @@ void service_task(tasks::Task<online::Hub>* task)
         params->append_word(kText, manager->motd_text());
         launch_script(kCreateMotdMenu, params.get());
         params.reset();
-        manager->assign_service_state(online::ServiceState::kWaiting);
-        manager->set_service_wake_at(0);
+        manager->service().assign_service_state(online::ServiceState::kWaiting);
+        manager->service().set_service_wake_at(0);
         break;
     }
     case online::ServiceState::kNewsEnded: // the news download has ended
@@ -220,7 +221,7 @@ void service_task(tasks::Task<online::Hub>* task)
         manager->set_motd_received(kNewsOkValue);
         launch_script(kNewsDoneScript);
         get_finish(manager);
-        manager->set_service_wake_at(0);
+        manager->service().set_service_wake_at(0);
         break;
     case online::ServiceState::kLobbyListStart:
         launch_script(kCreateGettingLobbyListDialog);
@@ -228,15 +229,15 @@ void service_task(tasks::Task<online::Hub>* task)
         manager->lobby_service().get()->start_listing_games();
         break;
     case online::ServiceState::kLobbyListIdle:
-        manager->assign_service_state(online::ServiceState::kWaiting);
-        manager->set_service_wake_at(0);
+        manager->service().assign_service_state(online::ServiceState::kWaiting);
+        manager->service().set_service_wake_at(0);
         break;
     case online::ServiceState::kLobbyListCheck: // the lobby list: empty or not
         if (!manager->lobby_service().get()->get_lobby(0)) {
             show_no_servers();
             get_finish(manager);
         } else {
-            manager->assign_service_state(online::ServiceState::kLobbyListShow);
+            manager->service().assign_service_state(online::ServiceState::kLobbyListShow);
         }
         freeze_stream(0);
         break;

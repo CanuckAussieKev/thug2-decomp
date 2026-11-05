@@ -20,6 +20,12 @@
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_manager.h"
 #include "game/online/hub_join.h"
+#include "game/online/hub_online_service.h"
+#include "game/online/hub_roster.h"
+#include "game/online/hub_script_queue.h"
+#include "game/online/hub_server_listing.h"
+#include "game/online/hub_settings.h"
+#include "game/online/hub_tasks.h"
 #include "engine/net/net_manager.h"
 #include "game/online/service.h"
 #include "game/online/stats_man.h"
@@ -200,9 +206,7 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, lobby_since_), .original = 0x1B0, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, match_being_set_up_), .original = 0x1B4, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, awaiting_start_), .original = 0x1B5, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, service_state_), .original = 0x1B8, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, next_service_state_), .original = 0x1BC, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, service_wake_at_), .original = 0x1C0, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, service_), .original = 0x1B8, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, online_script_), .original = 0x1C4, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, online_fail_script_), .original = 0x1C8, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, viewed_player_), .original = 0x1CC, .smaller_by = 28},
@@ -353,6 +357,24 @@ void JoinState::check_layout()
         FieldAt{.now = offsetof(JoinState, join_private_ip_), .original = 0x1A0},
         FieldAt{.now = offsetof(JoinState, join_port_), .original = 0x1A4},
         FieldAt{.now = sizeof(JoinState), .original = 0x1A8},
+    };
+    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+                  "layout must match the original");
+}
+
+// NOT ORIGINAL
+void OnlineService::check_layout()
+{
+    constexpr std::size_t kAt = 0x1B8; // (each field at its offset in the hub, less the service's own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(OnlineService, service_state_), .original = 0x1B8},
+        FieldAt{.now = offsetof(OnlineService, next_service_state_), .original = 0x1BC},
+        FieldAt{.now = offsetof(OnlineService, service_wake_at_), .original = 0x1C0},
+        FieldAt{.now = sizeof(OnlineService), .original = 0x1C4},
     };
     static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
                   "layout must match the original");

@@ -214,12 +214,12 @@ bool cfunc_services_are_available(Struct* /*params*/, Context /*context*/)
     Hub* manager = net_game_state().online_hub();
     if (manager->services_available()) {
         if (!manager->motd_received()) {
-            manager->set_next_service_state(ServiceState::kWaiting);
+            manager->service().set_next_service_state(ServiceState::kWaiting);
             manager->set_service_state(ServiceState::kWake);
         }
         return true;
     }
-    manager->set_next_service_state(ServiceState::kStart);
+    manager->service().set_next_service_state(ServiceState::kStart);
     manager->set_service_state(ServiceState::kWake);
     return false;
 }

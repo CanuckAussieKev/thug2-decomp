@@ -22,6 +22,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "platform/gamespy.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_online_service.h"
 #include "game/online/hub_server_listing.h"
 #include "game/online/gamenet_lobby.h"
 #include "engine/net/net_app.h"
@@ -305,16 +306,16 @@ int HostListing::get_entrant_rank(int index)
 // --- The manager's server list ---
 
 // 0x005451B0 / 0x005451C0
-void Hub::set_next_service_state(ServiceState state) { assign_next_service_state(state); }
-ServiceState Hub::get_service_state() const { return service_state(); }
+void OnlineService::set_next_service_state(ServiceState state) { assign_next_service_state(state); }
+ServiceState OnlineService::get_service_state() const { return service_state(); }
 
 // 0x005453E0
 void Hub::set_service_state(ServiceState state)
 {
-    assign_service_state(state);
+    service_.assign_service_state(state);
     if (state == ServiceState::kWake) {
         get_logic_tasks()->queue_job(tasks_.service_job().get());
-        set_service_state(next_service_state());
+        set_service_state(service_.next_service_state());
         net_game_state().set_news_message_count(0);
     } else if (state == ServiceState::kStopped) {
         tasks_.service_job()->drop_out();
@@ -554,7 +555,7 @@ unsigned long __stdcall news_thread(void* argument)
     auto* manager = static_cast<Hub*>(argument);
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     game_spy::get_msleep(kListingPollMilliseconds);
-    manager->assign_service_state(ServiceState::kNewsDownload);
+    manager->service().assign_service_state(ServiceState::kNewsDownload);
     manager->set_request_started_at(frame_clock::get_time());
     auto& buffer = manager->news_buffer();
     std::memset(buffer.data(), 0, kNewsClearBytes);
@@ -579,7 +580,7 @@ unsigned long __stdcall motd_thread(void* argument)
                                                                                     0); // (not used)
     manager->set_request_started_at(frame_clock::get_time());
     manager->set_request(game_spy::track_usage(0, net::kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
-    manager->assign_service_state(ServiceState::kMotdShow);
+    manager->service().assign_service_state(ServiceState::kMotdShow);
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -591,7 +592,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     (void)param;
     Hub* manager = net_game_state().online_hub();
     if (result != 0) {
-        manager->assign_service_state(ServiceState::kNewsEnded);
+        manager->service().assign_service_state(ServiceState::kNewsEnded);
         return 1;
     }
     int64_t size = (static_cast<int64_t>(size_high) << kHighWordShift) | size_low;
@@ -609,7 +610,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     News news;
     if (!read_news(reader, &news) ||
         news.checksum != checksums::generate_crc_caseless(news.motd, news.size)) { // (motd: the data's start)
-        manager->assign_service_state(ServiceState::kNewsEnded);
+        manager->service().assign_service_state(ServiceState::kNewsEnded);
         return 1;
     }
     const auto text_at = static_cast<size_t>(news.data - buffer);
@@ -617,7 +618,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     manager->set_pending_data_size(news.size - news.motd_size);
     manager->set_pending_data(downloaded.subspan(text_at + news.motd_size).data());
     manager->set_motd_received(true);
-    manager->assign_service_state(ServiceState::kMotdStart);
+    manager->service().assign_service_state(ServiceState::kMotdStart);
     return 1;
 }
 

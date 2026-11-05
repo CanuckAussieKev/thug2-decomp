@@ -11,6 +11,7 @@
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
 #include "game/online/hub_join.h"
+#include "game/online/hub_online_service.h"
 #include "game/online/hub_roster.h"
 #include "game/online/hub_script_queue.h"
 #include "game/online/hub_server_listing.h"
@@ -348,9 +349,6 @@ public:
     int get_entrant_points(uint32_t id);
 
     // --- The server list (server_list.cpp) ---
-    // 0x005451B0 / 0x005451C0: the online service's next state (+0x1BC) / its state (+0x1B8).
-    void set_next_service_state(ServiceState state);
-    [[nodiscard]] ServiceState get_service_state() const;
     // 0x005453E0: the state; 1 (wake): the service task added to the logic tasks and the next state taken (the
     // time 0x007CE444 cleared); 2: the task removed.
     void set_service_state(ServiceState state);
@@ -583,6 +581,9 @@ public:
     // The join's state and the server joined.
     JoinState& join() { return join_; }
     [[nodiscard]] const JoinState& join() const { return join_; }
+    // The online service's state (service_task's).
+    OnlineService& service() { return service_; }
+    [[nodiscard]] const OnlineService& service() const { return service_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
@@ -595,13 +596,6 @@ public:
     [[nodiscard]] bool match_being_set_up() const { return match_being_set_up_; }
     void set_match_being_set_up(bool value) { match_being_set_up_ = value; }
     void set_awaiting_start(bool value) { awaiting_start_ = value; }
-    // (the states are kept in the original's 32-bit words)
-    [[nodiscard]] ServiceState service_state() const { return static_cast<ServiceState>(service_state_); }
-    void assign_service_state(ServiceState value) { service_state_ = core::to_underlying(value); }
-    [[nodiscard]] ServiceState next_service_state() const { return static_cast<ServiceState>(next_service_state_); }
-    void assign_next_service_state(ServiceState value) { next_service_state_ = core::to_underlying(value); }
-    [[nodiscard]] uint32_t service_wake_at() const { return service_wake_at_; }
-    void set_service_wake_at(uint32_t value) { service_wake_at_ = value; }
     [[nodiscard]] PlayerRecord* viewed_player() const { return viewed_player_; }
     void set_viewed_player(PlayerRecord* value) { viewed_player_ = value; }
     void set_last_leading_team(int value) { last_leading_team_ = value; }
@@ -672,9 +666,7 @@ private:
     uint32_t lobby_since_{};                // +0x1B0 when the lobby began (reset_to_lobby)
     bool match_being_set_up_{};             // +0x1B4
     bool awaiting_start_{};                 // +0x1B5
-    int service_state_{core::to_underlying(ServiceState::kStopped)}; // +0x1B8 the online service's state (service_task)
-    int next_service_state_{core::to_underlying(ServiceState::kStopped)}; // +0x1BC state 0 moves on to it at the wake time
-    uint32_t service_wake_at_{};            // +0x1C0 frame_clock::get_time() milliseconds; 0: none
+    OnlineService service_;                 // +0x1B8-+0x1C3 (+0x19C-+0x1A7 here) the online service's state
     uint32_t online_script_{};              // +0x1C4 run once online (connect_to_internet)
     uint32_t online_fail_script_{};         // +0x1C8 run if going online fails
     PlayerRecord* viewed_player_{};         // +0x1CC
