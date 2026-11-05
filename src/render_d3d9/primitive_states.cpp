@@ -41,13 +41,18 @@ void reset_primitive_states()
 // 0x004B6030
 void set_texture_stage_state(uint32_t stage, uint32_t type, uint32_t value)
 {
-    gpu().set_stage_state(stage, static_cast<GpuStageState>(type), value);
+    set_texture_stage_state(stage, static_cast<GpuStageState>(type), value);
+}
+void set_texture_stage_state(uint32_t stage, GpuStageState type, uint32_t value)
+{
+    gpu().set_stage_state(stage, type, value);
 }
 
 // 0x004B6050
-void set_transform(uint32_t type, const void* matrix)
+void set_transform(uint32_t type, const void* matrix) { set_transform(static_cast<GpuTransform>(type), matrix); }
+void set_transform(GpuTransform type, const void* matrix)
 {
-    gpu().set_transform(static_cast<GpuTransform>(type), static_cast<const float*>(matrix));
+    gpu().set_transform(type, static_cast<const float*>(matrix));
 }
 
 // 0x004B6070

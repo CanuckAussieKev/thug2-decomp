@@ -3,10 +3,6 @@
 // through the fixed-function texture stages. The animations' arithmetic keeps the original's: values its x87 code
 // kept in registers are doubles, rounded to float where it stores.
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -24,10 +20,9 @@
 #include "base/core/checked_index.h"
 #include "render_d3d9/bitmap_texture.h"
 #include <bit>
-#include "render_d3d9/d3d_matrix.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/view_setup.h"
 #include "base/maths/mat4.h"
 #include "base/core/same_bits.h"
@@ -76,10 +71,7 @@ PcMaterialState& pc_material_state()
     return state.get();
 }
 
-void device_stage_state(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
-{
-    d3d9::state().d3d_device()->SetTextureStageState(stage, type, value);
-}
+void device_stage_state(uint32_t stage, GpuStageState type, uint32_t value) { gpu().set_stage_state(stage, type, value); }
 
 constexpr uint32_t kPassUvWibble = 0x1;        // the texture matrix from the pass's UV wibble
 constexpr uint32_t kPassColorAnim = 0x2;       // (pass 0's) the material's colour animations
@@ -130,32 +122,31 @@ float wibble_offset(float time, float frequency, float phase, float amplitude, f
 void set_common_states(MaterialRef* material)
 {
     change_phase(RenderStateId::kPhaseAlphaTest, material->alpha_ref());
-    change_phase(RenderStateId::kCullMode, (material->two_sided() != 0U) ? D3DCULL_NONE : D3DCULL_CW);
+    change_phase(RenderStateId::kCullMode, (material->two_sided() != 0U) ? gpu_value::kCullNone : gpu_value::kCullClockwise);
     change_phase(RenderStateId::kDepthBias, material->depth_bias());
     material->update_uv_wibbles();
     material->update_color_anims();
     material->update_texture_anims();
     const uint32_t specular_on = renderer().specular_state();
-    D3DMATERIAL9 specular;
     if ((core::at(material->pass_flags(), 0) & kPassSpecular) != 0U) {
         if (specular_on != 0U) {
             return;
         }
         change_phase(RenderStateId::kSpecular, 1);
-        std::memset(&specular, 0, sizeof(specular));
-        specular.Specular.r = core::at(material->specular(), 0);
-        specular.Specular.g = core::at(material->specular(), 1);
-        specular.Specular.b = core::at(material->specular(), 2);
-        specular.Specular.a = 1.0F;
-        specular.Power = material->specular_power();
+        GpuMaterial specular;
+        core::at(specular.specular, 0) = core::at(material->specular(), 0);
+        core::at(specular.specular, 1) = core::at(material->specular(), 1);
+        core::at(specular.specular, 2) = core::at(material->specular(), 2);
+        core::at(specular.specular, 3) = 1.0F;
+        specular.power = material->specular_power();
+        gpu().set_material(specular);
     } else {
         if (specular_on == 0U) {
             return;
         }
         change_phase(RenderStateId::kSpecular, 0);
-        std::memset(&specular, 0, sizeof(specular));
+        gpu().set_material(GpuMaterial{});
     }
-    d3d9::state().d3d_device()->SetMaterial(&specular);
 }
 
 // A material pass and the texture stage it uses.
@@ -181,10 +172,10 @@ void set_border_color(const MaterialRef* material, PassStage pass_stage)
 
 void change_bump_map_matrix(uint32_t stage)
 {
-    device_stage_state(stage, D3DTSS_BUMPENVMAT00, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 0).x));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT01, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 0).z));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT10, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 2).x));
-    device_stage_state(stage, D3DTSS_BUMPENVMAT11, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 2).z));
+    device_stage_state(stage, GpuStageState::kBumpMatrix00, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 0).x));
+    device_stage_state(stage, GpuStageState::kBumpMatrix01, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 0).z));
+    device_stage_state(stage, GpuStageState::kBumpMatrix10, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 2).x));
+    device_stage_state(stage, GpuStageState::kBumpMatrix11, std::bit_cast<uint32_t>(core::at(renderer().heading_matrix().row, 2).z));
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
@@ -362,21 +353,21 @@ void MaterialRef::hand_in()
             change_bump_map_matrix(pass);
         }
         flags = core::at(pass_flags_, pass);
-        auto texture_matrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
+        auto texture_matrix = static_cast<GpuTransform>(core::to_underlying(GpuTransform::kTexture0) + pass);
         if (((flags & kPassEnvironment) != 0U) && renderer().near_camera()) {
             auto& matrix = pc_material_state().environment_matrix_pass_;
             core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * kHalf);
             core::at(matrix, kUvScaleV) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * kHalf);
             change_phase(RenderStateId::kLocalViewer, 1);
-            d3d9::state().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
-            device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
-            device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
+            gpu().set_transform(texture_matrix, matrix.data());
+            device_stage_state(pass, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformCount2);
+            device_stage_state(pass, GpuStageState::kTexCoordIndex, pass | gpu_value::kTexGenCameraReflection);
         } else if ((flags & kPassUvWibble) != 0U) {
-            device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
-            device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
+            device_stage_state(pass, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformCount2);
+            device_stage_state(pass, GpuStageState::kTexCoordIndex, pass);
             auto& matrix = pc_material_state().wibble_matrix_pass_;
             fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-            d3d9::state().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
+            gpu().set_transform(texture_matrix, matrix.data());
         } else {
             if (view_setup().billboard_flag() != 0U) { // (the billboard flag: a static matrix's 2x2 part reset)
                 auto& uv_matrix = pc_material_state().billboard_uv_matrix_;
@@ -387,15 +378,15 @@ void MaterialRef::hand_in()
                 core::at(uv_matrix, kUvScaleV) = 1.0F;
                 core::at(uv_matrix, maths::kMatYw) = 0;
             }
-            DWORD transform_flags = 0;
-            DWORD coordinates = 0;
-            d3d9::state().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
-            d3d9::state().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXCOORDINDEX, &coordinates);
+            uint32_t transform_flags = 0;
+            uint32_t coordinates = 0;
+            gpu().get_stage_state(pass, GpuStageState::kTextureTransformFlags, &transform_flags);
+            gpu().get_stage_state(pass, GpuStageState::kTexCoordIndex, &coordinates);
             if (transform_flags != 0U) {
-                device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+                device_stage_state(pass, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformDisable);
             }
             if (coordinates != pass) {
-                device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
+                device_stage_state(pass, GpuStageState::kTexCoordIndex, pass);
             }
         }
     }
@@ -416,27 +407,27 @@ void MaterialRef::submit_states()
 // A pass's own texture coordinates, untransformed; blending with the pass before: its texture on stage 1.
 void MaterialRef::use_pass_coordinates(uint32_t pass)
 {
-    DWORD transform_flags = 0;
-    DWORD coordinates = 0;
-    d3d9::state().d3d_device()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
-    d3d9::state().d3d_device()->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &coordinates);
+    uint32_t transform_flags = 0;
+    uint32_t coordinates = 0;
+    gpu().get_stage_state(0, GpuStageState::kTextureTransformFlags, &transform_flags);
+    gpu().get_stage_state(0, GpuStageState::kTexCoordIndex, &coordinates);
     if (transform_flags != 0U) {
-        set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+        set_texture_stage_state(0, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformDisable);
     }
     if (coordinates != pass) {
-        set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
+        set_texture_stage_state(0, GpuStageState::kTexCoordIndex, pass);
     }
     const uint32_t blend = core::at(blend_modes_, pass);
     if (blend == kBlendModeLerpPrevious ||
         blend == kBlendModeLerpFromPrevious) { // (blending with the pass before: its texture on stage 1)
-        set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+        set_texture_stage_state(1, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformDisable);
         if (static_cast<int>(pass) > 0) {
-            set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
+            set_texture_stage_state(1, GpuStageState::kTexCoordIndex, pass - 1);
             set_texture(1, core::at(textures_, pass - 1)->texture);
             change_phase(RenderStateId::kAddressMode1, core::at(address_modes_, pass - 1));
             change_phase(RenderStateId::kMipLodBias1, core::at(mip_lod_bias_, pass - 1));
         } else {
-            set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
+            set_texture_stage_state(1, GpuStageState::kTexCoordIndex, pass);
             set_texture(1, core::at(textures_, pass)->texture);
         }
     }
@@ -467,15 +458,15 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * kHalf);
                 core::at(matrix, kUvScaleV) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * kHalf);
                 change_phase(RenderStateId::kLocalViewer, 1);
-                render::set_transform(D3DTS_TEXTURE0, matrix.data());
-                set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
-                set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
+                render::set_transform(GpuTransform::kTexture0, matrix.data());
+                set_texture_stage_state(0, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformCount2);
+                set_texture_stage_state(0, GpuStageState::kTexCoordIndex, pass | gpu_value::kTexGenCameraReflection);
             } else if ((flags & kPassUvWibble) != 0U) {
-                device_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
-                device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
+                device_stage_state(0, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformCount2);
+                device_stage_state(0, GpuStageState::kTexCoordIndex, pass);
                 auto& matrix = pc_material_state().wibble_matrix_;
                 fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-                d3d9::state().d3d_device()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
+                gpu().set_transform(GpuTransform::kTexture0, matrix.data());
             } else {
                 use_pass_coordinates(pass);
             }
@@ -496,53 +487,53 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     if (core::has_bits(core::at(own, 0), half) && core::has_bits(core::at(own, 1), half) && core::has_bits(core::at(own, 2), half) &&
         !color) {
         if (!blends_with_previous) {
-            device_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-            device_stage_state(0, D3DTSS_ALPHAOP, alpha_from_texture ? D3DTOP_SELECTARG1 : D3DTOP_MODULATE2X);
-            device_stage_state(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-            device_stage_state(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-            device_stage_state(0, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
-            device_stage_state(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-            device_stage_state(0, D3DTSS_COLORARG2, D3DTA_CURRENT);
+            device_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+            device_stage_state(0, GpuStageState::kAlphaOp, alpha_from_texture ? gpu_value::kOpSelectArg1 : gpu_value::kOpModulate2x);
+            device_stage_state(1, GpuStageState::kColourOp, gpu_value::kOpDisable);
+            device_stage_state(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+            device_stage_state(0, GpuStageState::kAlphaArg2, gpu_value::kArgCurrent);
+            device_stage_state(0, GpuStageState::kColourArg1, gpu_value::kArgTexture);
+            device_stage_state(0, GpuStageState::kColourArg2, gpu_value::kArgCurrent);
             return;
         }
-        device_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-        device_stage_state(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        device_stage_state(0, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
-        device_stage_state(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        device_stage_state(0, D3DTSS_COLORARG2, D3DTA_CURRENT);
-        device_stage_state(1, D3DTSS_ALPHAOP, alpha_from_texture ? D3DTOP_SELECTARG1 : D3DTOP_MODULATE2X);
-        device_stage_state(1, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-        device_stage_state(1, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        device_stage_state(1, D3DTSS_COLORARG2, D3DTA_CURRENT);
+        device_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+        device_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg2);
+        device_stage_state(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+        device_stage_state(0, GpuStageState::kAlphaArg2, gpu_value::kArgCurrent);
+        device_stage_state(0, GpuStageState::kColourArg1, gpu_value::kArgTexture);
+        device_stage_state(0, GpuStageState::kColourArg2, gpu_value::kArgCurrent);
+        device_stage_state(1, GpuStageState::kAlphaOp, alpha_from_texture ? gpu_value::kOpSelectArg1 : gpu_value::kOpModulate2x);
+        device_stage_state(1, GpuStageState::kColourOp, gpu_value::kOpSelectArg2);
+        device_stage_state(1, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+        device_stage_state(1, GpuStageState::kColourArg2, gpu_value::kArgCurrent);
     } else {
-        device_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        device_stage_state(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        device_stage_state(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
+        device_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+        device_stage_state(0, GpuStageState::kColourArg1, gpu_value::kArgTexture);
+        device_stage_state(0, GpuStageState::kColourArg2, gpu_value::kArgTextureFactor);
         const std::span<const float, 3> factor = color ? std::span<const float, 3>(color, 3) : std::span<const float>(own).first<3>();
         const uint32_t red = factor_channel(core::at(factor, 0));
         const uint32_t green = factor_channel(core::at(factor, 1));
         const uint32_t blue = factor_channel(core::at(factor, 2));
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR,
-                                                kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
+        gpu().set_render_state(GpuRenderState::kTextureFactor,
+                               kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
         if (alpha_from_texture) {
-            device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+            device_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
         } else {
-            device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-            device_stage_state(0, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
+            device_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate2x);
+            device_stage_state(0, GpuStageState::kAlphaArg2, gpu_value::kArgCurrent);
         }
-        device_stage_state(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        device_stage_state(1, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        device_stage_state(1, D3DTSS_COLORARG1, D3DTA_CURRENT);
-        device_stage_state(1, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+        device_stage_state(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+        device_stage_state(1, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+        device_stage_state(1, GpuStageState::kColourArg1, gpu_value::kArgCurrent);
+        device_stage_state(1, GpuStageState::kColourArg2, gpu_value::kArgDiffuse);
         if (blends_with_previous) {
-            device_stage_state(1, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+            device_stage_state(1, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
         } else {
-            device_stage_state(1, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-            device_stage_state(1, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
+            device_stage_state(1, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg2);
+            device_stage_state(1, GpuStageState::kAlphaArg2, gpu_value::kArgCurrent);
         }
     }
-    device_stage_state(2, D3DTSS_COLOROP, D3DTOP_DISABLE);
+    device_stage_state(2, GpuStageState::kColourOp, gpu_value::kOpDisable);
 }
 
 } // namespace render
