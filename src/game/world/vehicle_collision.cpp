@@ -408,7 +408,7 @@ void DrivableModule::align_in_air()
     vz = vel_.z;
     const bool fast = (vx * vx) + (vz * vz) > kAlignFast;
     const float time = air_align_.time;
-    const float falling = free_fall_time_;
+    const float falling = airborne_.free_fall;
     const double ramp = falling < time ? falling : time;
     const double rate = fast ? static_cast<double>(air_align_.rate) * step_length_
                              : static_cast<double>(air_align_.rate) * step_length_ * kAlignSlowRate;

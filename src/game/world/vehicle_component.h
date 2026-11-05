@@ -329,7 +329,7 @@ public:
     [[nodiscard]] bool get_handbrake() const { return controls_.handbrake; }
     [[nodiscard]] bool get_reverse() const { return controls_.reverse; }
     [[nodiscard]] uint32_t sounds_name() const { return sounds_name_; }
-    [[nodiscard]] float air_time() const { return air_time_; }
+    [[nodiscard]] float air_time() const { return airborne_.wheels_off; }
     [[nodiscard]] float collision_impulse() const { return collision_impulse_; }
     [[nodiscard]] GameEntity* rider_ref() const { return rider_ref_; }
 
@@ -415,6 +415,11 @@ private:
         float scale{}; // +0x00 (+0x12F8) gravity's scale
         float time{};  // +0x04 (+0x12FC) seconds left of it
     };
+    // The times in the air (+0x1304-+0x130B: tick_frame; align_in_air, the sounds).
+    struct Airborne {
+        float wheels_off{}; // +0x00 (+0x1304) seconds without a wheel on the ground
+        float free_fall{};  // +0x04 (+0x1308) seconds in the air without touching anything
+    };
 
     maths::Vec4 at_point_{};        // +0x18 the centre of mass (world)
     maths::Vec4 linear_momentum_{}; // +0x28 linear momentum
@@ -455,8 +460,7 @@ private:
     uint32_t sounds_name_{kDefault};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     GravityOverride gravity_;            // +0x12F8-+0x12FF Vehicle_AdjustGravity's
     bool handbrake_active_{};              // +0x1300 (forces the brake)
-    float air_time_{};                     // +0x1304 seconds without a wheel on the ground
-    float free_fall_time_{};               // +0x1308 seconds in the air without touching anything
+    Airborne airborne_;                    // +0x1304-+0x130B the times in the air
     float collision_impulse_{};            // +0x130C the strongest contact impulse this step
     ObjectModule* bone_rig_{};             // +0x1310 the object's skeleton (0x222756D5)
     PadInputModule* input_ptr_{nullptr};   // +0x1314 the input component (0x27D7CD28)

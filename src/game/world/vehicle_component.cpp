@@ -913,14 +913,14 @@ void DrivableModule::tick_frame()
         apply_damping();
         apply_wheel_forces();
         if (wheels_in_contact_ != 0) {
-            air_time_ = 0.0F;
+            airborne_.wheels_off = 0.0F;
         } else {
-            air_time_ = static_cast<float>(static_cast<double>(step_length_) + air_time_);
+            airborne_.wheels_off = static_cast<float>(static_cast<double>(step_length_) + airborne_.wheels_off);
         }
         if (wheels_in_contact_ == 0 && !(collision_impulse_ > 0.0F)) {
-            free_fall_time_ = static_cast<float>(static_cast<double>(step_length_) + free_fall_time_);
+            airborne_.free_fall = static_cast<float>(static_cast<double>(step_length_) + airborne_.free_fall);
         } else {
-            free_fall_time_ = 0.0F;
+            airborne_.free_fall = 0.0F;
         }
     }
     if (passive_) {
@@ -1302,8 +1302,8 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, gravity_.scale), .original = 0x12F8, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, gravity_.time), .original = 0x12FC, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, handbrake_active_), .original = 0x1300, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, air_time_), .original = 0x1304, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, free_fall_time_), .original = 0x1308, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, airborne_.wheels_off), .original = 0x1304, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, airborne_.free_fall), .original = 0x1308, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, collision_impulse_), .original = 0x130C, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, bone_rig_), .original = 0x1310, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, input_ptr_), .original = 0x1314, .larger_by = kVectorExtra},
