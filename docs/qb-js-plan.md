@@ -55,7 +55,10 @@ library.
 ## References and validation
 
 Behavior references are this project's `src/engine/script/{token_reader,expression,param_struct}.cpp`,
-`cscript_exec.cpp`, `script_cfuncs.cpp` and [script-runtime.md](script-runtime.md).
+`src/script_qb/cscript_exec.cpp`, `src/engine/script/script_cfuncs.cpp` and [script-runtime.md](script-runtime.md).
+In the game a translated runtime would be a second `script::Host` (`src/engine/script/host.h`), installed by
+`src/app/main.cpp` behind the INI feature above (a host choosing per script between it and the QB interpreter's for
+the per-script selection); `docs/script-runtime.md` section 13 lists what the game asks of a host, and where.
 Use synthetic inputs in public tests; local game files remain private. Original
 executable probes are optional private checks outside tracked tools; public
 project tools are TypeScript as specified in [typescript.md](typescript.md).

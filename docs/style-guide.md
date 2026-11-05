@@ -58,8 +58,9 @@ src/
               original's screen elements and our UI fonts), ext (the extension points); pad input's sources are
               the input seam (engine/pad_input/input_source.h: SDL's is engine/pad_input/sdl_input); the files'
               sources and the disk are the file system seam (engine/file/file_system.h, disk.h); the sockets are
-              the network transport seam (engine/net/transport.h; its in-process loopback, loopback_transport.h)
-              (library thug2_engine)
+              the network transport seam (engine/net/transport.h; its in-process loopback, loopback_transport.h);
+              script is the script data model (structures, arrays, symbols, loading .qb files), the running
+              scripts' record and the script host seam (engine/script/host.h) (library thug2_engine)
   render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
               textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
               GPU's vertex and index buffers, D3DX's last calls; it implements render::Device and render::UiBackend
@@ -74,6 +75,9 @@ src/
               the file system's sources (library thug2_fs_win32, included and linked by app/ only)
   net_winsock/ the game's sockets and address lookups, Winsock's; it implements net::Transport (library
               thug2_net_winsock, included and linked by app/ only; the GameSpy SDK keeps its own sockets)
+  script_qb/  the QB script interpreter: a running script's operations, its Update and statements, waits, calls,
+              interrupts, event handlers, the list of scripts and the manager; it implements script::Host (library
+              thug2_script_qb, included and linked by app/ only)
   game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
               network session; the transport stays in engine/net), commands (the game's script commands), world
               (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park

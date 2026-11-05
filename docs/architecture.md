@@ -15,8 +15,9 @@ audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec 
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
 net_winsock/                the network sockets and address lookups (Winsock's), under the transport; only app/ includes it
-engine/                     memory, lists, files, assets, script, objects, renderer, audio, media, network transport, pad input,
-                            ui (the original's screen elements), ext (the extension points)
+script_qb/                  the QB script interpreter, behind the script host; only app/ includes it
+engine/                     memory, lists, files, assets, script (the data model and the host), objects, renderer, audio,
+                            media, network transport, pad input, ui (the original's screen elements), ext (the extension points)
 -------------------------   the boundary: where bytes come from outside the game
 formats/  wire/             file formats; network messages
 platform/                   Win32, the SDL window, the GameSpy SDK, crash reports, code addresses
@@ -90,8 +91,8 @@ input's (`sio::text_entry_flag`), and the handler that does nothing is the dispa
 parks - `game_cfuncs`, `game_flow_cfuncs`, `game_util_cfuncs`, `trick_cfuncs`, `world_cfuncs`, `net_state_cfuncs`,
 `node_object_cfuncs`, the create-a-graphic and face-texture commands, and the code half of the member-function tables
 (`member_function_code`) - are `game/commands`; the commands that only use the engine stay beside it in
-`engine/script`, `engine/gfx`, `engine/objects`, `engine/ui` and `engine/sound`. The interpreter and the script data
-stay in `engine/script`. The command table itself - the 1,254 commands and the 250 member-function names, in the
+`engine/script`, `engine/gfx`, `engine/objects`, `engine/ui` and `engine/sound`. The script data stays in
+`engine/script`; the interpreter is `script_qb/`, behind `script::Host` ("The script host seam"). The command table itself - the 1,254 commands and the 250 member-function names, in the
 original's order, which is a command's identity in the script symbol tables - is composed in `app/command_table.cpp`,
 the one place that sees every library, and handed to the script engine before any original code runs
 (`app::install_command_tables`; `script::cfunction_table()` is the engine's view of it). The start-up initialisers'
@@ -149,7 +150,7 @@ thug2_base  <-  thug2_formats  <-  thug2_wire
             <-  thug2_platform
 thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
 thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput, thug2_fs_win32,
-                  thug2_net_winsock (the backends: linked by the exe alone)
+                  thug2_net_winsock, thug2_script_qb (the backends: linked by the exe alone)
 every library  <-  thug2 (src/app: thug2-decomp.exe)
 ```
 
@@ -375,6 +376,35 @@ everything above it uses the game's own types and may change them freely.
     modes don't work over it (the SDK would be given its ids, not Winsock sockets).
   - Only `net_winsock/` includes Winsock's headers, calls its functions and links ws2_32 (the GameSpy SDK's CMake links
     it for the SDK; its glue names its types), and only app/ installs a transport (tools/net_calls.test.ts).
+- **The script host seam** (`engine/script/host.h`): what runs the game's scripts.
+  - `script::Host` is what the game asks of the script runtime, one method per function of the original's, with its
+    name, arguments and result: scripts by name (`spawn_script`, `launch_script` - to the end, at once -,
+    `run_script_once` - one Update -, `script_exists`), the spawned scripts' frame (`tick_child_scripts`, once a frame
+    from the front end's update; pausing, killing, look-ups), the stop walks, the loader's two walks (a changed script's
+    runners started again, the scripts whose code is gone stopped), and what objects, components and commands do to one
+    script: make it and give it back (`create` / `destroy`), bind it to a script (`bind_script`, `set_script_copy`),
+    give it its Update (`tick_frame`: an object's own script from its object's update, before the spawned scripts'
+    walk), set or end its wait (`get_stall`, `lull`, `gate_off`, `set_wait_on_component`, `stop_waiting`...),
+    deliver an event (`receive_event`), interrupt it (`preempt`) and change its event handlers. The grain is one
+    script operation, or one call a frame for the spawned scripts' walk - never a statement or a token: the
+    interpreter's loop (`QbScript::tick_frame` and what it runs) is inside the backend, non-virtual. The functions the
+    game calls by name (`script::launch_script`, `spawn_script`, `kill_all_child_scripts`... - about 400 calls in 140
+    files) keep their declarations (`engine/script/cscript.h`) and are the installed host's (`host.cpp`).
+    `docs/script-runtime.md` is what each operation does and when - the scheduling a second runtime has to keep.
+  - The running script is still the original's record (`script::Script`, `engine/script/cscript.h`: its layout, its
+    pool, its accessors - what the commands read: `args()`, `entity()`, `list_link()`, `script_title()`...); a
+    command still gets a `Script*` (`script::Context` is to replace it). The engine keeps the script data model:
+    structures, arrays, cells, symbols and names, the token reader and expressions (they parse a `.qb` file's values),
+    the script cache, loading `.qb` and pre-compiled files, the commands.
+  - The QB interpreter (`src/script_qb`, static library `thug2_script_qb`, on the engine) implements it:
+    `script::qb::QbScript` is the record seen by the interpreter - CScript's operations (making and tearing down,
+    binding, its Update and the statements it runs, waits, the call stack, interrupts, event handlers), a view adding
+    no fields that the record befriends - with the list of all scripts and the manager's walks (`cscript_core`,
+    `cscript_exec`, `cscript_wait`, `cscript_manager`); `qb_host.cpp` is the host, one line per method.
+    `app/main.cpp` installs it (`script::qb::host()`) first of all, before the command tables. A QuickJS runtime is
+    the planned second host (`docs/qb-js-plan.md`).
+  - Only `script_qb/` and app/ include the interpreter's headers, only app/ installs a host and links
+    `thug2_script_qb`, and outside `script_qb/` nothing names its classes (tools/script_headers.test.ts).
 - `platform/`: the operating system and the SDKs - the SDL window and its event pump, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`);
   the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), the Windows audio session API

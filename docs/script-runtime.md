@@ -3,9 +3,10 @@
 This is the behaviour spec for replacing the QB interpreter with embedded JavaScript (QuickJS), where scripts
 become generators driven by a scheduler (the project's long-term plan, see the README's Status). A port has to reproduce what is described
 here. It was put together from the CScript batch (the plan and the records of
-groups A-D), and the code was checked wherever they disagreed. The code is `src/engine/script/cscript.h` (class,
-fields, flags) plus `cscript_core.cpp` (A), `cscript_exec.cpp` (B), `cscript_wait.cpp` (C) and
-`cscript_manager.cpp` (D). For the script cache (FetchScript / ReleaseScript use counting) see "What the cache
+groups A-D), and the code was checked wherever they disagreed. The code is `src/engine/script/cscript.h` (the record:
+fields, flags) plus the QB interpreter in `src/script_qb`: `qb_script.h` (the operations), `cscript_core.cpp` (A),
+`cscript_exec.cpp` (B), `cscript_wait.cpp` (C) and `cscript_manager.cpp` (D). The rest of the game reaches it through
+`script::Host` (`src/engine/script/host.h`); section 13 lists what the host is asked for and where. For the script cache (FetchScript / ReleaseScript use counting) see "What the cache
 does" (batch 70). For the token format see `src/engine/script/qb.h`. Sections 11 and 12
 (events, objects) come from batches 75-77 (`src/engine/objects/signal.*`, `tracker.*`, `entity.*`, `entity_hub.*`), the
 front end's part of the frame (section 2) from batch 78 (`src/game/front_end/front_end.*`), the frame order, the
@@ -597,7 +598,8 @@ Stopped scripts stay on the list.
 ## 11. Events and event handlers
 
 The code: `src/engine/objects/signal.*` (the event, event listeners, the handler table; batch 75), `tracker.*` (the
-tracker, LaunchEvent, the event CFunctions; batch 76), and CScript's handler methods in `cscript_wait.cpp`.
+tracker, LaunchEvent, the event CFunctions; batch 76), and CScript's handler methods in `src/script_qb/cscript_wait.cpp`
+(the objects call them through the host: `receive_event`, `preempt`, `bind_script` + `tick_frame`, section 13).
 Everything here runs **synchronously**: an event is delivered, and its handlers run, inside the call that launched
 it. Nothing is queued for a later frame (test).
 
@@ -913,7 +915,78 @@ position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display 
 - **Dying and deletion**: as for every CMiscHub object (above): FlagAsDead -> the dead list, deleted by
   FlushDeadObjectsTask at the start of the next frame.
 
-## 13. Open questions
+## 13. The host: what the game asks of the runtime, and where
+
+Since stage 11 round 21 the interpreter is a backend (`src/script_qb`) behind `script::Host`
+(`src/engine/script/host.h`), and every call into it from the rest of the game goes through the installed host - one
+virtual call per operation, the same functions with the same arguments in the same order as before (the interpreter's
+own calls stay direct). The host's methods are what a second runtime (QuickJS) has to provide, and these are the
+places the game calls them. Nothing else runs a script statement: a statement runs only inside an Update
+(`tick_frame`), and an Update happens only here (code).
+
+**The script's record stays the engine's.** A script is the 0xF4-byte record from the CScript pool (`Host::create`:
+the pool, else the current heap; `make_new` is the constructor; `Host::destroy`: `teardown`, then the pool). Commands
+and objects read and set its fields through the record's accessors (parameters, object, node, name, spawn flags, ids,
+callback, the OnException / OnExit names, "has code"); everything that runs code, waits or walks the call stack is the
+host's.
+
+**Updates once a frame** (in frame order, section 2):
+- The object walk (logic task -900): `GameEntity::tick_frame` (0x0045D920) - an object's own script, one Update,
+  before its own update and its components (section 12.1). Inside the components' updates: a pedestrian's aux script
+  (`PedestrianBrainModule::tick_frame` 0x004F2190, one Update after its movement update), a particle emitter's tick
+  script (`EmitterInstance::tick_frame` 0x004987F0, after emitting) and its emit script (`run_emit_script` 0x00496F60:
+  one Update; finished, it is destroyed).
+- The front end's logic task (-2000): `tick_child_scripts` (step 3 of section 2), then step 4,
+  `Skate::advance_match_flow` (0x00564D60): the skate module's own script, one Update; then the game mode's
+  (`MatchFlow::tick_frame` 0x00552E40: when a new mode is pending, its script is destroyed, a new one made and bound
+  to the mode's script - its first statement runs in this same Update -; one Update; finished, it is destroyed); then
+  the queued online scripts (`launch_queued_scripts` 0x00537D90, below).
+
+**Updates at once, nested inside the caller** (one Update unless said; whatever the script was doing is replaced or
+interrupted there and then):
+- Events (section 11.4, `SignalRouteTable::forward_trigger` 0x00460470): a handler that replaces the script first runs
+  its OnExceptionRun script (`preempt`), then rebinds it and gives it one Update; a spawning handler's new script gets
+  one Update; an interrupting one is `preempt`.
+- `Entity::start_script_task` (0x00461480): the spawned script's first Update (section 12).
+- Rigid bodies' callbacks (`BodyDynamicsModule`: on_bounce 0x0042E980, resolve_contacts 0x00430140, sleep
+  0x0042BE90, feel_pushers 0x0042C140): a script spawned on the object and given one Update.
+- The screen elements' RunScriptOnScreenElement (0x004AD370): the script spawned on the element, one Update.
+- The skater: its state script (`Rider::run_state_script` 0x005823A0: bound, one Update on the local skater only;
+  `switch_to_script` 0x00582510: bound, one Update), the trick queue (`MoveExecutor::try_trick` 0x00522520, `do_next_trick` 0x00522670, `do_next_manual_trick`
+  0x005228B0, `do_extra_grind_trick` 0x00522E80: the skater's script rebound to the trick, one Update), grind and lip
+  tricks (`start_grind_trick` 0x005004B0, `start_lip_trick`), the trick goals' scripts run on an object.
+- Pedestrians: `change_phase` (0x004F0B70: the object's script rebound, one Update) and `activate_aux_script`
+  (0x004F2240).
+- The network: a SpawnScript message (`SkateNet::handle_run_script_now` 0x0056C330): spawned on its node and object
+  and given one Update; before the session is cleared to start, queued instead - run to its end later by
+  `launch_queued_scripts` (below).
+- `run_script_once` (section 9): exactly one Update of a new script, its parameters merged into the results.
+
+**Updates to the end, at once** (every loop turn one Update; a script that waits on anything but frames or time never
+ends - section 9's hazards): `launch_script` (section 9, and the callbacks of spawned scripts); a model's structure
+script (`ModelAssembler::launch_script` 0x0048B200: a private copy of the script, `set_script_copy`); the queued
+online scripts (`Hub::launch_queued_scripts` 0x00537D90: each spawned on its node and object, run to its end, then
+killed).
+
+**Spawning** never runs a statement (section 9; a C function's name is just called): a spawned script's first Update is the next `tick_child_scripts` that
+reaches it - this frame when it was spawned before the walk (by the object walk, an event, a component), next frame
+when spawned during the walk - unless its spawner gives it one at once (the list above).
+
+**Stopping** (section 10): the stop walks only reset a script (its on-exit scripts run there and then, nested); it
+stays on the list and is deleted at its next Update in the spawned walk (spawned), or by its owner or
+`delete_finished_scripts` (not spawned). `kill_spawned_script` and `kill_all_child_scripts` delete (the latter after
+the walk when called during it). The loader's walks (`load_qb` / `unload_qb`): when a `.qb` file changes a script,
+every script running it at any level is relaunched (`relaunch`, section 8) - newest first, at once; when a file is
+unloaded, every script whose code is gone at any level is stopped and reported.
+
+**Waits and events from outside the interpreter**: components set and end object waits (`set_wait_on_component`,
+`stop_waiting` - the animation, motion and path components), an object blocks its own script for good when it dies
+(`gate_off(0)`), the tracker unblocks and delivers (`receive_event`, `stop_waiting`, section 11.3), and the commands
+set the waits of section 5 (Wait: `get_stall` / `suspend_until_next_frame` / `lull` / `wait_real_time`; Block:
+`gate_off`). Each takes effect when the waiting script's wait is next counted - at once when set by the script's own
+statement (section 3), else at its next Update.
+
+## 14. Open questions
 
 - **The rest of the logic task list**: the object walk (-900) and the front end (-2000) are placed (section 2),
   but not every other logic task - e.g. the skate module's two tasks of priority -1000 made at 0x0056E2B0 (they
