@@ -3,11 +3,7 @@
 
 #include "render_d3d9/sub_mesh.h"
 #include "engine/gfx/mesh_records.h"
-#include "render_d3d9/d3d9_handles.h"
-
-#include <windows.h>
-
-#include <d3d9.h>
+#include "engine/gfx/gpu.h"
 
 #include <cmath>
 #include <cstddef>
@@ -67,13 +63,12 @@ gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 // The index buffer's Direct3D copy written again from the one in memory.
 void upload_indices(IdxStore* buffer)
 {
-    auto* d3d = d3d9::object(buffer->buffer());
     void* locked = nullptr;
-    if (FAILED(d3d->Lock(0, 0, &locked, 0))) {
+    if (gpu().lock_index_buffer(buffer->buffer(), 0, 0, &locked, 0) < 0) {
         return;
     }
     std::memcpy(locked, buffer->indices(), buffer->size());
-    d3d->Unlock();
+    gpu().unlock_index_buffer(buffer->buffer());
 }
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
 

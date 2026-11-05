@@ -1,16 +1,12 @@
 // A mesh's buffers by index (the buffers themselves: render_d3d9/vertex_buffers.cpp), its move into a vertex arena, its
 // coloured pixel shader; the skinned meshes' scaling while they load; the pixel shaders by a file's index.
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstdint>
 #include <cstring>
 #include <span>
 #include <array>
 
-#include "render_d3d9/d3d9_handles.h"
+#include "engine/gfx/gpu.h"
 #include "render_d3d9/sub_mesh.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/render_device.h"
@@ -58,7 +54,7 @@ void MeshRef::move_into_arena(VertexArena* arena)
     vb->set_arena_offset(arena->used);
     const std::span<uint8_t> locked(static_cast<uint8_t*>(arena->data), arena->size); // (the buffer, locked)
     std::memcpy(locked.subspan(arena->used, vb->size()).data(), vb->data(), vb->size());
-    d3d9::object(arena->buffer)->AddRef();
+    gpu().retain_vertex_buffer(arena->buffer);
     arena->used += (vb->size() + kBufferAlignSlack) & ~kBufferAlignMask;
 }
 

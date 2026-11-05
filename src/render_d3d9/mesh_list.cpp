@@ -2,11 +2,7 @@
 
 #include "render_d3d9/mesh_list.h"
 #include "engine/gfx/mesh_records.h"
-#include "render_d3d9/d3d9_handles.h"
-
-#include <windows.h>
-
-#include <unknwn.h> // IUnknown
+#include "engine/gfx/gpu.h"
 
 #include <algorithm>
 #include <cmath>
@@ -24,7 +20,6 @@
 #include "platform/crt.h"
 #include "base/core/checked_index.h"
 #include "render_d3d9/pc_mesh.h"
-#include <d3d9.h>
 #include <span>
 #include <functional>
 #include <gsl/pointers>
@@ -170,7 +165,7 @@ void SceneRef::destroy_body()
     }
     free_hierarchy(hierarchy_);
     if (arena_buffer_) {
-        d3d9::object(arena_buffer_)->Release();
+        gpu().release_vertex_buffer(arena_buffer_);
     }
 }
 

@@ -2,10 +2,6 @@
 // strips cleaned, destroyed; the vertex / index buffers destroyed, and all of them let go of and made again around a
 // device reset.
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <algorithm>
@@ -13,7 +9,7 @@
 #include <cstring>
 #include <span>
 
-#include "render_d3d9/d3d9_handles.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/manager.h"
@@ -30,7 +26,6 @@
 #include "engine/gfx/vertex_view.h"
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
-#include "render_d3d9/d3d9_state.h"
 #include "base/maths/mat4.h"
 #include "base/core/raw_view.h"
 
@@ -220,8 +215,8 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
 // 0x004D67F0
 void release_buffers()
 {
-    d3d9::state().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
-    d3d9::state().d3d_device()->SetIndices(nullptr);
+    gpu().set_stream_source(0, nullptr, 0, 0);
+    gpu().set_indices(nullptr);
     for (const BufferNode* node = vertex_buffer_list(); node; node = node->next) {
         auto* vb = static_cast<VertexBuffer*>(node->buffer);
         if (!vb) {
@@ -229,7 +224,7 @@ void release_buffers()
         }
         GpuVertexBuffer* buffer = vb->buffer();
         if (buffer) {
-            d3d9::object(buffer)->Release();
+            gpu().release_vertex_buffer(buffer);
             vb->set_buffer(nullptr);
         }
         vb->set_buffer(buffer); // (kept: recreate_buffers matches the shares by it)
@@ -238,7 +233,7 @@ void release_buffers()
         memory::ListNode* next = next_scene_node(node);
         if (SceneRef* meshes = scene_meshes(node)) {
             if (GpuVertexBuffer* arena = arena_buffer(meshes)) {
-                d3d9::object(arena)->Release();
+                gpu().release_vertex_buffer(arena);
             }
         }
         node = next;
@@ -249,7 +244,7 @@ void release_buffers()
             continue;
         }
         if (ib->buffer()) {
-            d3d9::object(ib->buffer())->Release();
+            gpu().release_index_buffer(ib->buffer());
         }
         ib->buffer() = nullptr;
     }
@@ -263,8 +258,8 @@ void recreate_buffers()
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
             const GpuVertexBuffer* old = arena_buffer(meshes);
-            d3d9::state().d3d_device()->CreateVertexBuffer(meshes->unknown80(), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                             d3d9::out(&arena_buffer(meshes)), nullptr);
+            gpu().create_vertex_buffer(meshes->unknown80(), gpu_value::kUsageWriteOnly, 0, gpu_value::kPoolDefault,
+                                       &arena_buffer(meshes));
             for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
                 if (vb && vb->buffer() == old) {
@@ -284,13 +279,12 @@ void recreate_buffers()
         if (!ib) {
             continue;
         }
-        d3d9::state().d3d_device()->CreateIndexBuffer(ib->size(), ib->usage() | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format()),
-                                        D3DPOOL_DEFAULT, d3d9::out(&ib->buffer()),
-                                        nullptr);
+        gpu().create_index_buffer(ib->size(), ib->usage() | gpu_value::kUsageWriteOnly, ib->format(),
+                                  gpu_value::kPoolDefault, &ib->buffer());
         void* card = nullptr;
-        if (d3d9::object(ib->buffer())->Lock(0, 0, &card, 0) >= 0) {
+        if (gpu().lock_index_buffer(ib->buffer(), 0, 0, &card, 0) >= 0) {
             std::memcpy(card, ib->indices(), ib->size());
-            d3d9::object(ib->buffer())->Unlock();
+            gpu().unlock_index_buffer(ib->buffer());
         }
     }
 }
@@ -324,24 +318,24 @@ MeshRef::~MeshRef()
             billboard_ = nullptr;
         }
         dealloc(memory::owned_element(per_vertex_data_));
-        IDirect3DVertexBuffer9* stream = nullptr;
-        UINT offset = 0;
-        UINT stream_stride = 0;
-        d3d9::state().d3d_device()->GetStreamSource(0, &stream, &offset, &stream_stride);
+        GpuVertexBuffer* stream = nullptr;
+        uint32_t offset = 0;
+        uint32_t stream_stride = 0;
+        gpu().get_stream_source(0, &stream, &offset, &stream_stride);
         if (stream) {
-            stream->Release(); // (only compared with below)
+            gpu().release_vertex_buffer(stream); // (only compared with below)
         }
         for (uint32_t i = 0; i < vertex_buffer_count_; ++i) {
             if (core::at(vertex_buffers_, i)) {
-                if (stream == d3d9::object(core::at(vertex_buffers_, i)->buffer())) {
-                    d3d9::state().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
+                if (stream == core::at(vertex_buffers_, i)->buffer()) {
+                    gpu().set_stream_source(0, nullptr, 0, 0);
                 }
                 vertex_store(i)->teardown();
                 core::at(vertex_buffers_, i) = nullptr;
             }
             if (core::at(extra_buffers_, i)) {
-                if (stream == d3d9::object(core::at(extra_buffers_, i)->buffer())) {
-                    d3d9::state().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
+                if (stream == core::at(extra_buffers_, i)->buffer()) {
+                    gpu().set_stream_source(0, nullptr, 0, 0);
                 }
                 extra_store(i)->teardown(); // (left pointing at it: cleared with the rest below)
             }

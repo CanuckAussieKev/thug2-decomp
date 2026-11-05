@@ -83,15 +83,26 @@ test("only app/ picks the Direct3D 9 device", () => {
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the device");
 });
 
+// The files of the PC layer that reach the graphics API only through render::Gpu: none includes a Direct3D header
+// (the API-neutral PC layer: V5a the render-state cache, V5b the meshes' buffers).
+const THROUGH_GPU = [
+    "render_d3d9/render_state.cpp",
+    "render_d3d9/primitive_states.cpp",
+    "render_d3d9/vertex_buffers.cpp",
+    "render_d3d9/pc_buffers.cpp",
+    "render_d3d9/mesh_list.cpp",
+    "render_d3d9/sub_mesh.cpp",
+    "render_d3d9/pc_mesh_life.cpp",
+];
+
 // render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs
-// Direct3D 9's with the device, and the render-state cache (render_state.cpp, primitive_states.cpp) reaches Direct3D
-// only through it - neither includes a Direct3D header (the first files of the API-neutral PC layer).
-test("only app/ picks the Direct3D 9 Gpu; the render-state cache sees no Direct3D header", () => {
+// Direct3D 9's with the device, and the files above reach Direct3D only through it.
+test("only app/ picks the Direct3D 9 Gpu; the files through the Gpu see no Direct3D header", () => {
     const pickers = including(/^\s*#\s*include\s*"render_d3d9\/gpu_d3d9\.h"/m);
     const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/gpu_d3d9.cpp");
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the Gpu");
-    for (const name of ["render_d3d9/render_state.cpp", "render_d3d9/primitive_states.cpp"]) {
+    for (const name of THROUGH_GPU) {
         const source = readFileSync(join(SRC, name), "utf8");
         assert.ok(!SDK_HEADER.test(source), `${name} includes a Direct3D SDK header`);
         for (const match of source.matchAll(PROJECT_INCLUDE)) {

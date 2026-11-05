@@ -9,7 +9,6 @@
 #include <cstddef>
 
 #include "render_d3d9/d3d9_handles.h"
-#include "render_d3d9/vertex_buffers.h"
 
 namespace render::d3d9 {
 
@@ -20,11 +19,7 @@ constexpr std::size_t kScreenTextureCount = 9;
 class State {
 public:
     [[nodiscard]] IDirect3DDevice9* d3d_device() const { return d3d_device_; }
-    void set_d3d_device(IDirect3DDevice9* value)
-    {
-        d3d_device_ = value;
-        set_buffer_device(handle(value)); // (the gpu buffers' device)
-    }
+    void set_d3d_device(IDirect3DDevice9* value) { d3d_device_ = value; }
     [[nodiscard]] IDirect3DDevice9* draw_device() const { return draw_device_; }
     void set_draw_device(IDirect3DDevice9* value) { draw_device_ = value; }
     std::array<IDirect3DTexture9*, kScreenTextureCount>& screen_textures() { return screen_textures_; }
