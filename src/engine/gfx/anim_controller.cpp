@@ -1,0 +1,616 @@
+// The animation controllers (standard, weighted, wobble, pose, partial animation): see anim_controller.h.
+
+#include "engine/gfx/rig.h"
+#include "engine/gfx/anim_controller.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <new>
+
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
+#include "engine/gfx/anim_cache.h"
+#include "engine/gfx/anim_track.h"
+#include "engine/gfx/boned_anim_frame_data.h"
+#include "engine/gfx/frame_source.h"
+#include "engine/gfx/model_utils.h"
+#include "engine/objects/anim_blender.h"
+#include "engine/objects/anim_movies.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/names.h"
+#include "engine/sys/game_clock.h"
+#include "platform/run_log.h"
+#include "engine/script/fwd.h"
+#include "engine/ui/screen_constants.h"
+#include "engine/objects/control_pad.h"
+#include "engine/objects/skeleton_component.h"
+#include "engine/script/script_startup.h"
+#include "base/core/down_cast.h"
+#include "base/core/no_destroy.h"
+#include <gsl/pointers>
+
+namespace gfx {
+
+constexpr double kSixteenth = 0.0625;
+constexpr double kSixteen = 16.0; // the phase is the fraction of a cycle, kept in sixteenths and scaled back
+
+memory::PoolPair& standard_pools()
+{
+    static core::NoDestroy<memory::PoolPair> standard_pools; // (CBonedAnimController; script_startup.h)
+    return standard_pools.get();
+}
+
+namespace {
+
+using script::Struct;
+
+// Member function and parameter names (checksums; those not recovered are only numbers).
+constexpr uint32_t kPlayAnim = 0xAF2FAE19, kNewSource = 0xC68365EB, kInvalidateCache = 0x5F495AE0;
+constexpr uint32_t kGlobalFrame = 0x92267217, kSetWeightedAnim = 0x5E3F0F17;
+constexpr uint32_t kSetTarget = 0xD0209498, kSetWobbleDetails = 0xEA6D0EFD;
+constexpr uint32_t kStep = 0x6AAEB76F, kSetSpeed = 0xBD4EDD44, kGetPartialAnimParams = 0xD63A1B81;
+constexpr uint32_t kReverse = 0xF5E2B871;
+constexpr uint32_t kAnimName = 0x6C2BFB7F, kStartTime = 0xD16B61E6, kEndTime = 0xAB81BB3D, kRepeatMode = 0xCD8D7C1B;
+constexpr uint32_t kBlendPeriod = 0x8F0D24ED, kSpeed = 0xF0D90109, kAnim = 0x98549BA4, kCurrent = 0x230CCBF4;
+constexpr uint32_t kWeightedAnim = 0xD697A799, kWeight = 0xC6AE16AC, kFraction = 0x4D747FA0;
+constexpr uint32_t kWobbleAmpA = 0xFD266A26, kSwayAmpSecond = 0x642F3B9C, kWobbleK1 = 0x0F43FD49;
+constexpr uint32_t kWobbleK2 = 0x964AACF3, kSpazFactor = 0xF90B0824, kFrames = 0x06C9F278;
+constexpr uint32_t kPartialAnimTime = 0xAAECB346, kPartialAnim = 0x659BF355, kPartialAnimComplete = 0x4966CC11;
+// Component types.
+constexpr uint32_t kAnimBlender = 0x7149B753, kSkeleton = 0x222756D5;
+
+constexpr int kNotMine = 2;
+
+float frames_per_second() { return frontend::kFramesPerSecond; }              // 60
+float seconds_per_frame() { return ::objects::kAnimMoviesSecondsPerFrame; } // 1/60
+float two_pi() { return frontend::kTwoPi; }
+
+// The original's _ftol (0x006236FC): truncated towards zero.
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+
+// The base controller.
+void base_init(AnimDriver* driver, Struct* params) { driver->AnimDriver::configure_from_data(params); }
+// The object (the blend timeline's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
+objects::GameEntity* object_of(AnimDriver* driver) { return driver->AnimDriver::fetch_subject(); }
+Rig* skeleton_of(AnimDriver* driver) { return driver->AnimDriver::fetch_rig(); }
+// The object's anim set (the animation blender component's 0x00419AB0) and an animation's length in it.
+uint32_t current_anim_set(objects::GameEntity* object)
+{
+    objects::ObjectModule* blender = object->fetch_module(kAnimBlender);
+    return core::down_cast<objects::AnimBlenderComponent>(blender)->get_anim_set();
+}
+
+// The timeline's pieces (thiscall, not rewritten yet).
+float get_step(AnimTimeline* timeline) { return static_cast<float>(timeline->next_time()); }
+void passed_events(AnimTimeline* timeline, float from, float to)
+{
+    core::down_cast<AnimTrack>(timeline)->fire_events(from, to);
+}
+void play_anim(AnimTimeline* timeline, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
+{
+    timeline->play_anim(anim, start, end, loop_type, blend, speed);
+}
+bool is_accomplished(AnimTimeline* timeline) { return timeline->is_accomplished(); }
+
+// Frame sources (0x0048BFC0 makes one, 0x0048BFD0 frees it) and their frames.
+gsl::owner<void*> new_source() { return render::create_frame_source(); }
+void free_source(gsl::owner<void*> source)
+{
+    gsl::owner<render::FrameSource*> frames = memory::adopt<render::FrameSource*>(source);
+    delete frames;
+}
+void* source_frame(void* source, bool done) { return static_cast<render::FrameSource*>(source)->set_done(done); }
+void* source_frame_of(void* source, uint32_t anim)
+{
+    return static_cast<render::FrameSource*>(source)->play_clip(anim);
+}
+int frame_index(void* frame) { return static_cast<JointClipFrames*>(frame)->acquire_cache_index(); }
+// NOT ORIGINAL - the frame of an animation the source's set hasn't is null, and FrameIndex reads through it (a crash at
+// 0x00482BA2, as in the original: e.g. peds whose animations weren't loaded, or a converted level's script playing one
+// the skeleton hasn't): logged first, with the animation's name.
+void* logged_source_frame_of(void* source, uint32_t set, uint32_t anim)
+{
+    void* frame = source_frame_of(source, set + anim);
+    if (!frame) {
+        const char* name = script::look_up_hash_name(anim);
+        get_log("anim: no animation 0x%08X%s%s%s in the set 0x%08X - the next step (FrameIndex 0x00482BA0) crashes",
+                anim, name ? " (" : "", name ? name : "", name ? ")" : "", set);
+    }
+    return frame;
+}
+void release_frame_index(void* frame, int index) { static_cast<JointClipFrames*>(frame)->release_cache_index(index); }
+void frame_pose(void* frame, Stance* pose, float time, int index, void* source)
+{
+    static_cast<JointClipFrames*>(frame)->get_frames(pose->rotations, pose->translations, pose->valid, time, index,
+                                                     source);
+}
+// The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
+void set_bones(void* source, const Rig* skeleton)
+{
+    RigData* bones = skeleton->payload();
+    static_cast<render::FrameSource*>(source)->set_bone_masks(bones ? bones->lod_masks().data() : nullptr);
+}
+void set_bone_count(void* source, const Rig* skeleton)
+{
+    static_cast<render::FrameSource*>(source)->set_mask_bit(static_cast<int>(skeleton->lod()));
+}
+
+// The game clock (ms) plus its offset.
+int get_clock() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
+
+// The play-anim member function's parameters (the original leaves a missing one uninitialised: 0 here).
+struct PlayParams {
+    uint32_t anim{};
+    float start = 0.0F, end = 0.0F, blend = 0.0F, speed = 0.0F;
+    int loop_type_ = 0;
+};
+PlayParams read_play_params(Struct* params)
+{
+    // (the anim name goes in the argument's own slot: the params' address if missing - none here)
+    PlayParams play;
+    play.anim = 0;
+    params->read_hash_value(kAnimName, &play.anim, 1);
+    params->fetch_float(kStartTime, &play.start, 1);
+    params->fetch_float(kEndTime, &play.end, 1);
+    params->fetch_int_value(kRepeatMode, &play.loop_type_, 1);
+    params->fetch_float(kBlendPeriod, &play.blend, 1);
+    params->fetch_float(kSpeed, &play.speed, 1);
+    return play;
+}
+
+
+} // namespace
+
+// --- the standard controller ---------------------------------------------------------------------------------
+
+// 0x004A4F30
+void* StandardAnimController::operator new(size_t size, int /*unused*/) noexcept
+{
+    return standard_pools().carve(static_cast<unsigned int>(size));
+}
+
+// 0x004A5600
+void StandardAnimController::operator delete(void* item) { standard_pools().dealloc(item); }
+
+// 0x004A4500
+StandardAnimController::StandardAnimController(AnimTimeline* timeline)
+    : AnimDriver(timeline), blend_source_(new_source()), anim_set_(current_anim_set(object_of(this)))
+{
+    frame_source_ = source_frame(blend_source_, false);
+    frame_source_ = nullptr;
+}
+
+// 0x004A4590
+StandardAnimController::~StandardAnimController()
+{
+    if (frame_source_) {
+        release_frame_index(frame_source_, frame_index_);
+    }
+    if (blend_source_) {
+        free_source(blend_source_);
+        blend_source_ = nullptr;
+    }
+    frame_source_ = nullptr;
+}
+
+// 0x004A4F70
+bool StandardAnimController::fetch_pose(Stance* pose)
+{
+    if (frame_index_ == -1) {
+        if (static_cast<JointClipFrames*>(frame_source_)->cache_slot()) { // (in the animation cache)
+            frame_index_ = frame_index(frame_source_);
+        } else {
+            frame_source_ = source_frame(blend_source_, false);
+        }
+    }
+    set_bones(blend_source_, skeleton_of(this));
+    set_bone_count(blend_source_, skeleton_of(this));
+    frame_pose(frame_source_, pose, timeline_ptr()->ongoing(), frame_index_, blend_source_);
+    source_frame(blend_source_, true);
+    return true;
+}
+
+// 0x004A4670
+int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
+{
+    switch (name) {
+    case kPlayAnim: {
+        const PlayParams play = read_play_params(params);
+        play_anim(timeline_ptr(), play.anim, play.start, play.end, play.loop_type_, play.blend, play.speed);
+        frame_source_ = logged_source_frame_of(blend_source_, anim_set_, play.anim);
+        frame_index_ = frame_index(frame_source_);
+        return 1;
+    }
+    case kNewSource: {
+        uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
+        params->read_hash_value(kAnim, &anim, 1);
+        if (frame_source_) {
+            release_frame_index(frame_source_, frame_index_);
+        }
+        if (blend_source_) {
+            free_source(blend_source_);
+            blend_source_ = nullptr;
+        }
+        blend_source_ = new_source();
+        source_frame(blend_source_, false);
+        frame_source_ = logged_source_frame_of(blend_source_, anim_set_, anim);
+        frame_index_ = frame_index(frame_source_);
+        return 1;
+    }
+    case kGlobalFrame: {
+        const int value = ClipStore::get_pull()->fetch_kind();
+        static_cast<JointClipFrames*>(frame_source_)->build_cache(value);
+        return 1;
+    }
+    case kInvalidateCache:
+        frame_source_ = source_frame(blend_source_, false);
+        return kNotMine;
+    default:
+        return kNotMine;
+    }
+}
+
+// 0x004A4620
+void StandardAnimController::tick_frame()
+{
+    const float before = timeline_ptr()->ongoing();
+    timeline_ptr()->set_ongoing(get_step(timeline_ptr()));
+    passed_events(timeline_ptr(), before, timeline_ptr()->ongoing());
+    if (timeline_ptr()->ongoing() < before) {
+        frame_source_ = source_frame(blend_source_, false);
+    }
+}
+
+// --- the weighted controller ---------------------------------------------------------------------------------
+
+// 0x004A5010
+WeightedAnimController::WeightedAnimController(AnimTimeline* timeline, objects::GameEntity* object)
+    : AnimDriver(timeline), blend_source_(new_source()),
+      anim_set_(current_anim_set(timeline ? object_of(this) : object))
+{
+    set_owner_object(timeline ? object_of(this) : object);
+    frame_source_ = source_frame(blend_source_, false);
+    frame_source_ = nullptr;
+}
+
+// 0x004A4820
+WeightedAnimController::~WeightedAnimController()
+{
+    if (blend_source_) {
+        free_source(blend_source_);
+        blend_source_ = nullptr;
+    }
+    frame_source_ = nullptr;
+}
+
+// 0x004A5660
+bool WeightedAnimController::fetch_pose(Stance* pose)
+{
+    if (!frame_source_ || !blend_source_ || weight_ <= 0.0F) {
+        return false;
+    }
+    frame_source_ = source_frame(blend_source_, false);
+    // (the skeleton component's skeleton, +0x18 - read through null without one, as the original)
+    auto skeleton = [this] {
+        objects::ObjectModule* component = owner_object()->fetch_module(kSkeleton);
+        return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig() : nullptr;
+    };
+    set_bones(blend_source_, skeleton());
+    set_bone_count(blend_source_, skeleton());
+    static_cast<JointClipFrames*>(frame_source_)
+        ->apply_additive_if_compressed(pose->rotations, pose->translations, pose->valid.data(), weight_,
+                                       static_cast<const render::FrameSource*>(blend_source_));
+    source_frame(blend_source_, true);
+    return true;
+}
+
+// 0x004A4890
+int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
+{
+    switch (name) {
+    case kPlayAnim: {
+        uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
+        if (!params->read_hash_value(kWeightedAnim, &anim, 0)) {
+            params->read_hash_value(kAnimName, &anim, 1);
+        }
+        params->fetch_float(kWeight, &weight_, 0);
+        frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
+        return 1;
+    }
+    case kSetWeightedAnim: {
+        uint32_t anim = 0;
+        if (!params->read_hash_value(kWeightedAnim, &anim, 0)) {
+            params->read_hash_value(kAnimName, &anim, 0);
+        }
+        if (anim != 0U) {
+            frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
+        }
+        params->fetch_float(kWeight, &weight_, 1);
+        return 1;
+    }
+    case kNewSource: {
+        uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
+        params->read_hash_value(kAnim, &anim, 1);
+        if (blend_source_) {
+            free_source(blend_source_);
+            blend_source_ = nullptr;
+        }
+        blend_source_ = new_source();
+        source_frame(blend_source_, false);
+        frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
+        return 1;
+    }
+    case kInvalidateCache:
+        frame_source_ = source_frame(blend_source_, false);
+        return kNotMine;
+    default:
+        return kNotMine;
+    }
+}
+
+// --- the wobble controller -----------------------------------------------------------------------------------
+
+// 0x004A49F0
+WobbleDriver::WobbleDriver(AnimTimeline* timeline)
+    : AnimDriver(timeline), blend_source_(new_source()), frame_source_(source_frame(blend_source_, false)),
+      anim_set_(current_anim_set(object_of(this)))
+{
+    amp_a_ = amp_b_ = k1_ = k2_ = spaz_factor_ = 0.0F;
+}
+
+// 0x004A4A80
+WobbleDriver::~WobbleDriver()
+{
+    if (blend_source_) {
+        free_source(blend_source_);
+        blend_source_ = nullptr;
+    }
+    if (frame_source_) {
+        frame_source_ = nullptr;
+    }
+}
+
+// 0x004A5110
+bool WobbleDriver::fetch_pose(Stance* pose)
+{
+    set_bones(blend_source_, skeleton_of(this));
+    set_bone_count(blend_source_, skeleton_of(this));
+    frame_pose(frame_source_, pose, timeline_ptr()->ongoing(), -1, blend_source_);
+    source_frame(blend_source_, true);
+    return true;
+}
+
+// 0x004A4AF0
+int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
+{
+    switch (name) {
+    case kPlayAnim: {
+        const PlayParams play = read_play_params(params);
+        play_anim(timeline_ptr(), play.anim, play.start, play.end, play.loop_type_, play.blend, play.speed);
+        frame_source_ = source_frame_of(blend_source_, anim_set_ + play.anim);
+        return 1;
+    }
+    case kInvalidateCache:
+        frame_source_ = source_frame(blend_source_, false);
+        return kNotMine;
+    case kSetTarget: {
+        float fraction = 0.0F;
+        if (params->fetch_float(kFraction, &fraction, 0)) {
+            if (fraction < 0.0F) {
+                fraction = 0.0F;
+            } else if (fraction > 1.0F) {
+                fraction = 1.0F;
+            }
+            const AnimTimeline* timeline = timeline_ptr();
+            aim_point_ = static_cast<float>(
+                ((static_cast<double>(timeline->finish()) - timeline->outset()) * fraction) + timeline->outset());
+        }
+        return 1;
+    }
+    case kSetWobbleDetails: {
+        float amp_a = 0.0F;
+        float amp_b = 0.0F;
+        float k1 = 0.0F;
+        float k2 = 0.0F;
+        float spaz = 0.0F;
+        if (params->fetch_float(kWobbleAmpA, &amp_a, 0) && params->fetch_float(kSwayAmpSecond, &amp_b, 0) &&
+            params->fetch_float(kWobbleK1, &k1, 0) && params->fetch_float(kWobbleK2, &k2, 0) &&
+            params->fetch_float(kSpazFactor, &spaz, 0)) {
+            amp_a_ = amp_a;
+            amp_b_ = amp_b;
+            k1_ = k1;
+            k2_ = k2;
+            spaz_factor_ = spaz;
+        }
+        return 1;
+    }
+    default:
+        return kNotMine;
+    }
+}
+
+// 0x004A5180: the amplitudes grow (spazFactor at the timeline's ends, 1 in its middle) with the target's distance
+// from the middle, the target is kept far enough from the ends for them, then the first sine (K1) swings the
+// second's amplitude around amp_a, and the second (K2) the time around the target; within the timeline.
+float WobbleDriver::wobble_time()
+{
+    const AnimTimeline* timeline = timeline_ptr();
+    float target = aim_point_;
+    const float k1 = k1_;
+    const float k2 = k2_;
+    const double scale = (std::fabs(target - ((static_cast<double>(timeline->outset()) + timeline->finish()) * 0.5)) *
+                          ((static_cast<double>(spaz_factor_) - 1.0) /
+                           ((static_cast<double>(timeline->finish()) - timeline->outset()) * 0.5))) +
+                         1.0;
+    auto amplitude_a = static_cast<float>(scale * amp_a_);
+    auto amplitude_b = static_cast<float>(scale * amp_b_);
+    if (static_cast<double>(target) - amplitude_a - amplitude_b < timeline->outset()) {
+        target = static_cast<float>(static_cast<double>(amplitude_b) + amplitude_a + timeline->outset());
+    }
+    if (static_cast<double>(target) + amplitude_b + amplitude_a > timeline->finish()) {
+        target = static_cast<float>(static_cast<double>(timeline->finish()) - amplitude_a - amplitude_b);
+    }
+
+    double cycles = static_cast<double>(get_clock()) * k1;
+    double phase = (cycles - (static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen)) * two_pi();
+    auto amplitude = static_cast<float>((std::sin(phase) * amplitude_b) + amplitude_a);
+    cycles = static_cast<double>(get_clock()) * k2;
+    phase = (cycles - (static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen)) * two_pi();
+    double time = (std::sin(phase) * amplitude) + target;
+    time = std::max<double>(time, timeline->outset());
+    time = std::min<double>(time, timeline->finish());
+    return static_cast<float>(time);
+}
+
+// 0x004A52E0
+void WobbleDriver::tick_frame()
+{
+    const float before = timeline_ptr()->ongoing();
+    timeline_ptr()->set_ongoing(wobble_time());
+    if (timeline_ptr()->ongoing() < before) {
+        frame_source_ = source_frame(blend_source_, false);
+    }
+}
+
+// --- the pose controller -------------------------------------------------------------------------------------
+
+// 0x004A5730
+StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
+{
+    for (maths::QuatRotation& rotation : stance_.rotations) {
+        rotation = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
+}
+
+// 0x004A4D20
+StanceDriver::~StanceDriver() = default;
+
+// 0x004A4D30
+bool StanceDriver::fetch_pose(Stance* pose)
+{
+    *pose = stance_;
+    return true;
+}
+
+// --- the partial animation controller ------------------------------------------------------------------------
+
+// 0x004A5350
+PartialClipDriver::PartialClipDriver(AnimTimeline* timeline)
+    : AnimDriver(timeline), blend_source_(new_source()), anim_set_(current_anim_set(object_of(this)))
+{
+    // (the source marked not done: its frame, kept until the end in the original, is never read)
+    static_cast<void>(source_frame(blend_source_, false));
+    void* memory = memory::alloc_zeroed(sizeof(AnimTimeline));
+    partial_ = memory ? memory::construct_in<AnimTimeline>(memory) : nullptr;
+}
+
+// 0x004A4D50
+PartialClipDriver::~PartialClipDriver()
+{
+    if (blend_source_) {
+        free_source(blend_source_);
+        blend_source_ = nullptr;
+    }
+    if (partial_) {
+        partial_->teardown(1);
+        partial_ = nullptr;
+    }
+    if (frame_source_) {
+        frame_source_ = nullptr;
+    }
+}
+
+// 0x004A5430
+bool PartialClipDriver::fetch_pose(Stance* pose)
+{
+    set_bones(blend_source_, skeleton_of(this));
+    set_bone_count(blend_source_, skeleton_of(this));
+    frame_pose(frame_source_, pose, partial_->ongoing(), -1, blend_source_);
+    source_frame(blend_source_, true);
+    return true;
+}
+
+// 0x004A4DD0
+void PartialClipDriver::configure_from_data(script::Struct* params)
+{
+    base_init(this, params);
+    uint32_t anim = 0;
+    params->read_hash_value(kAnimName, &anim, 1);
+    float start = 0.0F;
+    float end = 0.0F;
+    float current = 0.0F;
+    objects::ObjectModule* blender = object_of(this)->fetch_module(kAnimBlender);
+    // (the blender's fetch_value: the anim set's entry for the animation - its length)
+    const float duration = core::down_cast<objects::AnimBlenderComponent>(blender)->fetch_value(anim);
+    // the times and loop type given (0x004877E0, 0x00487770; cdecl)
+    fetch_anim_durations(&start, &end, current, duration, params);
+    int loop_type = 0; // (the original leaves it to 0x00487770)
+    get_anim_loop_type(&loop_type, params);
+    float speed = 1.0F;
+    params->fetch_float(kSpeed, &speed, 0);
+    params->fetch_float(kCurrent, &current, 0);
+    // the timeline's PlayAnim (the original's slot 3)
+    partial_->play_anim(anim, start, end, loop_type, 0.0F, speed);
+    if (current != 0.0F) {
+        partial_->advance_clock(current);
+    }
+    frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
+}
+
+// 0x004A54A0
+int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
+{
+    switch (name) {
+    case kStep: {
+        // the timeline stepped once by `frames` (its speed held at 0 meanwhile)
+        float frames = 0.0F; // (missing: the original's is whatever its argument slot held)
+        params->fetch_float(kFrames, &frames, 1);
+        auto speed = static_cast<float>(static_cast<double>(partial_->speed()) * frames_per_second());
+        partial_->set_speed(0.0F);
+        partial_->set_ongoing(static_cast<float>(static_cast<double>(frames) + partial_->ongoing()));
+        partial_->tick_frame();
+        partial_->set_speed(static_cast<float>(static_cast<double>(speed) * seconds_per_frame()));
+        return 1;
+    }
+    case kSetSpeed: {
+        float speed = 0.0F;
+        params->fetch_float(kSpeed, &speed, 1);
+        partial_->set_speed(static_cast<float>(static_cast<double>(speed) * seconds_per_frame()));
+        return 1;
+    }
+    case kInvalidateCache:
+        frame_source_ = source_frame(blend_source_, false);
+        return kNotMine;
+    case kGetPartialAnimParams: {
+        script->args()->push_float(checksums::Name{kPartialAnimTime}, partial_->ongoing());
+        script->args()->put_name_key(checksums::Name{kPartialAnim}, partial_->anim());
+        Struct* out = script->args().get();
+        out->put_int(checksums::Name{kPartialAnimComplete}, static_cast<int>(is_accomplished(partial_)));
+        return 1;
+    }
+    case kReverse:
+        partial_->set_direction((partial_->direction() != 0) ? 0 : -1);
+        return 1;
+    default:
+        return kNotMine;
+    }
+}
+
+// 0x004A4EF0
+void PartialClipDriver::tick_frame()
+{
+    const float before = partial_->ongoing();
+    partial_->set_ongoing(get_step(partial_));
+    if (partial_->ongoing() < before) {
+        frame_source_ = source_frame(blend_source_, false);
+    }
+}
+
+} // namespace gfx
+
+using namespace gfx;

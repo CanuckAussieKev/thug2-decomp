@@ -38,7 +38,7 @@ merged into `thug2`), push, and move `$pin` in `tools\build_neverscript.ps1` to 
 file. The text closes what was left open and marks it `/* lenient: ... */`; compiled again, the missing bracket is
 added (the bytes differ - it's the fix). Without -lenient nothing changes (every retail script decompiles exactly as
 before). The game itself: an unclosed `(` makes the expression fail at run time ("Non-zero parentheses count",
-src/game/script/eval.cpp).
+src/engine/script/expression.cpp).
 
 ## Round trip over the game's files (tested 2026-10-17)
 

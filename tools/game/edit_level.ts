@@ -1,4 +1,4 @@
-// NOT ORIGINAL - start the game straight into the level editor (src/game/front/start_level.h: `-edit <level>`).
+// NOT ORIGINAL - start the game straight into the level editor (src/game/front_end/start_level.h: `-edit <level>`).
 //
 //   node tools/game/edit_level.ts                     the installed levels, by game (as --list)
 //   node tools/game/edit_level.ts --list              the same - prints only
@@ -91,7 +91,7 @@ function text(file: QbFile, value: unknown): string | null {
 
 // The levels of a Levels.qb (structures with a load_script), in file order. `ported`: lower-case load name -> game;
 // `sceneThere(level)`: whether levels\<level>\<level>.scn.xbx is installed (asked only for levels without a scene
-// pre - as the game's StartLevel::SceneInstalled).
+// pre - as the game's begin_level::scene_installed).
 export function levelsOf(
     file: QbFile,
     ported: ReadonlyMap<string, string>,

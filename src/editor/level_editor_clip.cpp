@@ -1,0 +1,458 @@
+// NOT ORIGINAL - the level editor's clipboards: between levels as layout text, and the Inspector's transform / fields
+// (ours). See level_editor_clip.h.
+
+#include "editor/level_editor_clip.h"
+
+#include <SDL2/SDL.h>
+
+#include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <array>
+#include <string>
+#include <vector>
+
+#include "base/core/enum_ops.h"
+#include "editor/level_editor.h"
+#include "editor/level_editor_fields.h"
+#include "editor/level_editor_layout.h"
+#include "editor/level_editor_modules.h"
+#include "editor/level_editor_node_create.h"
+#include "editor/level_editor_nodes.h"
+#include "editor/level_editor_objects.h"
+#include "editor/level_editor_scale.h"
+#include "editor/level_editor_scenery.h"
+#include "editor/level_editor_triggers.h"
+#include "engine/objects/entity.h"
+#include "platform/run_log.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+
+namespace frontend::level_editor::clip {
+
+namespace {
+
+constexpr std::size_t kClipNumberText = 16; // a formatted number
+constexpr std::size_t kClipNameText = 64;   // a formatted name
+constexpr std::size_t kClipSummaryText = 96; // a formatted summary line
+
+} // namespace
+
+const char* const kHeaderComment = "# thug2-decomp clipboard";
+
+bool is_clip_text(const std::string& text)
+{
+    const size_t header_length = std::char_traits<char>::length(kHeaderComment);
+    return text.compare(0, header_length, kHeaderComment) == 0;
+}
+
+int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteHooks& hooks,
+          std::vector<std::string>* missing, std::vector<uint32_t>* copy_names)
+{
+    int added = 0;
+    auto label_of = [&](uint32_t checksum) {
+        std::string name = hooks.label ? hooks.label(checksum) : "";
+        if (name.empty()) {
+            std::array<char, kClipNumberText> text{};
+            text::format_to(text, "%08X", checksum);
+            name = text.data();
+        }
+        return name;
+    };
+    // (names taken here, or by what this paste adds)
+    std::vector<std::string> used_names;
+    auto name_free = [&](const std::string& name) {
+        return std::ranges::find(used_names, name) == used_names.end() &&
+               !(hooks.name_taken_ && hooks.name_taken_(name));
+    };
+    for (const node_create::Spec& spec : into->added) {
+        used_names.push_back(spec.name);
+    }
+    for (const triggers::Placed& trigger : into->triggers) {
+        used_names.push_back(trigger.spec.name);
+    }
+    for (const layout::CloneRecord& clone : fragment.clones) {
+        if (hooks.sector_exists_ && !hooks.sector_exists_(clone.source)) {
+            missing->push_back("scenery " + label_of(clone.source));
+            continue;
+        }
+        into->clones.push_back(clone);
+        ++added;
+    }
+    std::vector<uint32_t> used_ids;
+    used_ids.reserve(into->copies.size());
+    for (const layout::CopyRecord& copy_record : into->copies) {
+        used_ids.push_back(copy_record.name);
+    }
+    unsigned counter = 0;
+    for (const layout::CopyRecord& copy_record : fragment.copies) {
+        if (hooks.object_copyable_ && !hooks.object_copyable_(copy_record.source)) {
+            missing->push_back("object " + label_of(copy_record.source));
+            continue;
+        }
+        layout::CopyRecord copy = copy_record;
+        for (;;) {
+            std::array<char, kClipNameText> text{};
+            text::format_to(text, "level_editor_copy_%08X_p%u", copy_record.source, ++counter);
+            copy.name = fields::hash_of_name(text.data());
+            if (std::ranges::find(used_ids, copy.name) == used_ids.end() &&
+                !(hooks.id_taken_ && hooks.id_taken_(copy.name))) {
+                break;
+            }
+        }
+        used_ids.push_back(copy.name);
+        into->copies.push_back(copy);
+        if (copy_names) {
+            copy_names->push_back(copy.name);
+        }
+        ++added;
+    }
+    for (const node_create::Spec& added_spec : fragment.added) {
+        node_create::Spec spec = added_spec;
+        if (!name_free(spec.name)) {
+            node_create::Kind kind{};
+            const bool fixed = node_create::kind_of(spec, &kind) &&
+                               (node_create::is_lobby_flag(spec.name) || spec.name.starts_with("TRG_CTF_"));
+            if (fixed || !node_create::kind_of(spec, &kind)) {
+                missing->push_back(spec.name + " (the level has one by that name)");
+                continue;
+            }
+            spec.name = node_create::fresh_name(node_create::name_stem(kind),
+                                                [&](const std::string& name) { return !name_free(name); });
+        }
+        used_names.push_back(spec.name);
+        into->added.push_back(spec);
+        ++added;
+    }
+    for (const triggers::Placed& trigger : fragment.triggers) {
+        triggers::Placed placed = trigger;
+        if (!name_free(placed.spec.name)) {
+            placed.spec.name =
+                node_create::fresh_name("ed_trigger", [&](const std::string& name) { return !name_free(name); });
+        }
+        used_names.push_back(placed.spec.name);
+        into->triggers.push_back(placed);
+        ++added;
+    }
+    return added;
+}
+
+// --- the game side ---------------------------------------------------------------------------------------------------
+
+namespace {
+
+objects::GameEntity* live_object(uint32_t id)
+{
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
+    return object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) ? object : nullptr;
+}
+
+// A level's own point node as a new node of its kind (false: not a kind the editor makes).
+bool spec_of_level_node(const nodes::Elem& elem, node_create::Spec* spec)
+{
+    node_create::Kind kind{};
+    switch (elem.family) {
+    case nodes::Family::kSpawn:
+        kind = core::any(elem.restart_types_ & nodes::SpawnPointKind::kCtf) ? node_create::Kind::kTeamSpawn
+                                                                            : node_create::Kind::kSpawn;
+        break;
+    case nodes::Family::kCrown:
+        kind = node_create::Kind::kCrown;
+        break;
+    case nodes::Family::kLight:
+        kind = node_create::Kind::kLight;
+        break;
+    case nodes::Family::kSound:
+        kind = node_create::Kind::kSound;
+        break;
+    case nodes::Family::kFireOff:
+        kind = node_create::Kind::kProximityNode;
+        break;
+    default:
+        return false;
+    }
+    *spec = node_create::default_spec(kind, node_create::Team::kRed, elem.pos, elem.angles.y,
+                                      node_create::name_stem(kind) + std::string("01"));
+    spec->angles = elem.angles;
+    if (kind == node_create::Kind::kLight && elem.radius > 0.0F) {
+        spec->outer = elem.radius;
+        spec->inner = elem.inner_radius_;
+    } else if ((kind == node_create::Kind::kSound || kind == node_create::Kind::kProximityNode) && elem.radius > 0.0F) {
+        spec->radius = elem.radius;
+    }
+    return true;
+}
+
+// The Inspector's clipboard.
+struct Props {
+    bool have_transform_ = false;
+    TransformValues transform;
+    std::string from;
+    std::vector<FieldSet> fields;
+};
+
+Props& copied_props()
+{
+    static core::NoDestroy<Props> state;
+    return state.get();
+}
+
+std::vector<uint32_t> selected_nodes()
+{
+    const SelectionIds selection_ids = current_selection();
+    std::vector<uint32_t> nodes;
+    auto add = [&](uint32_t id) {
+        if (id && nodes::get_find(id) >= 0 && std::ranges::find(nodes, id) == nodes.end()) {
+            nodes.push_back(id);
+        }
+    };
+    if (selection_ids.node != 0U) {
+        add(selection_ids.node);
+    }
+    for (const uint32_t id : selection_ids.objects) {
+        add(id);
+    }
+    for (const uint32_t id : selection_ids.sectors) {
+        add(id);
+    }
+    return nodes;
+}
+
+} // namespace
+
+bool dup_from(std::string* message)
+{
+    const SelectionIds selection_ids = current_selection();
+    render::WorldScene* scene = scenery::main_scene();
+    if (!scene) {
+        *message = "Not in a level";
+        return false;
+    }
+    layout::FileLoad fragment;
+    fragment.scene = scenery::world_scene_key(scene);
+    std::vector<std::string> skipped;
+    for (const uint32_t checksum : selection_ids.sectors) {
+        layout::CloneRecord record;
+        record.source = checksum;
+        Placement now = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
+        scenery::placement_now(checksum, &now);
+        record.placement = now;
+        for (const scenery::Replicate& get_clone : scenery::get_clones()) {
+            if (get_clone.checksum == checksum) {
+                record.source = get_clone.source; // (a copy: of its source, placed relative to the source as loaded)
+                record.placement = compose(now, get_clone.source_at_copy_);
+            }
+        }
+        fragment.clones.push_back(record);
+    }
+    for (const uint32_t id : selection_ids.objects) {
+        objects::GameEntity* object = live_object(id);
+        if (!object) {
+            continue;
+        }
+        uint32_t source = id;
+        for (const object_edit::DupFrom& get_copy : object_edit::get_copies()) {
+            if (get_copy.name == id) {
+                source = get_copy.source;
+            }
+        }
+        if (!object_edit::can_copy(source)) {
+            skipped.push_back(object_edit::caption(id));
+            continue;
+        }
+        layout::CopyRecord record = {.name = 0, .source = source, .pos = {object->at_point().x, object->at_point().y, object->at_point().z}, .rows = {}};
+        for (int axis = 0; axis < 3; ++axis) {
+            core::at(record.rows, (axis * 3) + 0) = core::at(object->basis_frame().row, axis).x;
+            core::at(record.rows, (axis * 3) + 1) = core::at(object->basis_frame().row, axis).y;
+            core::at(record.rows, (axis * 3) + 2) = core::at(object->basis_frame().row, axis).z;
+        }
+        record.scale = scale_tool::get_object_scale(object);
+        fragment.copies.push_back(record);
+    }
+    if (selection_ids.node != 0U) {
+        const int index = nodes::get_find(selection_ids.node);
+        bool done = false;
+        if (index >= 0 && node_create::is_added(selection_ids.node)) {
+            for (const triggers::Placed& placed : triggers::capture_added()) {
+                if (fields::hash_of_name(placed.spec.name) == selection_ids.node ||
+                    node_create::name_hash(placed.spec.name) == selection_ids.node) {
+                    fragment.triggers.push_back(placed);
+                    done = true;
+                }
+            }
+            for (const node_create::Spec& spec : node_create::at_hand()) {
+                node_create::Kind kind{};
+                if (!done && node_create::name_hash(spec.name) == selection_ids.node && !spec.owned &&
+                    node_create::kind_of(spec, &kind)) {
+                    fragment.added.push_back(spec);
+                    done = true;
+                }
+            }
+        } else if (index >= 0) {
+            node_create::Spec spec;
+            if (spec_of_level_node(core::at(nodes::get_all(), index), &spec)) {
+                fragment.added.push_back(spec);
+                done = true;
+            }
+        }
+        if (!done) {
+            skipped.push_back(nodes::caption(selection_ids.node) + " (type not copyable)");
+        }
+    }
+    const int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
+                                       fragment.triggers.size());
+    if (count == 0) {
+        *message = skipped.empty() ? "Nothing selected to copy" : "Can't copy " + skipped.front();
+        return false;
+    }
+    const std::string text = std::string(kHeaderComment) + " - " + std::to_string(count) + " things from " +
+                             object_edit::caption(fragment.scene) + "\n" + layout::emit_out(fragment);
+    if (SDL_SetClipboardText(text.c_str()) != 0) {
+        *message = "Couldn't put it on the clipboard";
+        return false;
+    }
+    *message = "Copied " + std::to_string(count) + " to the clipboard" +
+               (skipped.empty() ? "" : " (not copied: " + skipped.front() + ")");
+    return true;
+}
+
+bool graft(std::string* message)
+{
+    char* clip = SDL_GetClipboardText();
+    const std::string text = clip ? clip : "";
+    if (clip) {
+        SDL_free(clip);
+    }
+    layout::FileLoad fragment;
+    layout::FileLoad now;
+    int line = 0;
+    // (the comment line first, then the layout's header: Read skips comments)
+    if (!is_clip_text(text) || !layout::get_take_in(text.substr(text.find('\n') + 1), &fragment, &line)) {
+        *message = "Clipboard has no editor data";
+        return false;
+    }
+    std::string current;
+    if (!layout::capture_text(&current) || !layout::get_take_in(current, &now, &line)) {
+        *message = "Not in a level";
+        return false;
+    }
+    PasteHooks hooks;
+    hooks.sector_exists_ = [](uint32_t sector) { return scenery::sector_of(sector) != nullptr; };
+    hooks.object_copyable_ = [](uint32_t object) { return object_edit::can_copy(object); };
+    hooks.name_taken_ = [](const std::string& name) { return node_create::name_taken(name); };
+    hooks.id_taken_ = [](uint32_t id) { return objects::find_object(id) != nullptr; };
+    hooks.label = [](uint32_t checksum) {
+        const char* name = object_edit::get_name_of(checksum);
+        return std::string(name ? name : "");
+    };
+    std::vector<std::string> missing;
+    std::vector<uint32_t> copies;
+    const int added = merge(fragment, &now, hooks, &missing, &copies);
+    if (added == 0) {
+        *message = "Nothing pasted - not in this level: " + (missing.empty() ? std::string("?") : missing.front()) +
+                   (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
+        return false;
+    }
+    std::string why;
+    if (!apply_layout_step(layout::emit_out(now), "Paste", &why)) {
+        *message = "Couldn't paste: " + why;
+        return false;
+    }
+    if (!copies.empty()) {
+        SelectionIds select;
+        select.objects = copies;
+        set_selection(select);
+    }
+    *message =
+        "Pasted " + std::to_string(added) + (fragment.scene == now.scene ? " (in place)" : " from another level");
+    if (!missing.empty()) {
+        *message += " - missing in this level: " + missing.front() +
+                    (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
+        for (const std::string& name : missing) {
+            get_log("level editor: paste - not in this level: %s", name.c_str());
+        }
+    }
+    return true;
+}
+
+bool copy_props(std::string* message)
+{
+    Props props;
+    props.have_transform_ = selection_transform(&props.transform);
+    std::vector<uint32_t> nodes = selected_nodes();
+    if (!nodes.empty()) {
+        const int index = nodes::get_find(nodes.front());
+        props.from = nodes::caption(nodes.front());
+        for (const fields::Row& row : fields::rows_of(core::at(nodes::get_all(), index))) {
+            // (its own editable fields - not those of a shared structure; pos / angles go with the transform)
+            if (!row.editable || row.included || row.key == fields::key_pos() || row.key == fields::key_angles() ||
+                row.key == fields::key_links()) {
+                continue;
+            }
+            props.fields.push_back(
+                {.key = row.key, .kind = static_cast<int>(row.value.kind), .text = fields::get_format(row.value, fields::get_name_of), .removed = false});
+        }
+    }
+    if (!props.have_transform_ && props.fields.empty()) {
+        *message = "Nothing selected";
+        return false;
+    }
+    copied_props() = props;
+    *message = "Copied " + describe() + "";
+    return true;
+}
+
+bool paste_transform(std::string* message)
+{
+    if (!copied_props().have_transform_) {
+        *message = "No transform copied";
+        return false;
+    }
+    if (!set_selection_transform(copied_props().transform)) {
+        *message = "Nothing selected";
+        return false;
+    }
+    *message = "Transform pasted";
+    return true;
+}
+
+bool paste_fields(std::string* message)
+{
+    if (copied_props().fields.empty()) {
+        *message = "No fields copied";
+        return false;
+    }
+    const std::vector<uint32_t> nodes = selected_nodes();
+    if (nodes.empty()) {
+        *message = "No nodes selected";
+        return false;
+    }
+    std::string why;
+    const int set = set_fields_on_nodes(nodes, copied_props().fields, "Paste fields", &why);
+    *message = (set != 0) ? "Pasted " + std::to_string(set) + " fields onto " + std::to_string(nodes.size()) +
+                                " nodes" + (why.empty() ? "" : " (" + why + ")")
+                          : "No field pasted: " + why;
+    return set > 0;
+}
+
+bool have_transform() { return copied_props().have_transform_; }
+int field_count() { return static_cast<int>(copied_props().fields.size()); }
+
+std::string describe()
+{
+    std::string text;
+    if (copied_props().have_transform_) {
+        std::array<char, kClipSummaryText> summary{};
+        text::format_to(summary, "transform (%.0f, %.0f, %.0f)", copied_props().transform.pos.x,
+                        copied_props().transform.pos.y, copied_props().transform.pos.z);
+        text = summary.data();
+    }
+    if (!copied_props().fields.empty()) {
+        text += (text.empty() ? "" : " and ") + std::to_string(copied_props().fields.size()) + " fields of " + copied_props().from;
+    }
+    return text.empty() ? "nothing" : text;
+}
+
+} // namespace frontend::level_editor::clip

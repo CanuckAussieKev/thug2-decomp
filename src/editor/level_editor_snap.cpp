@@ -1,0 +1,174 @@
+// NOT ORIGINAL - the level editor's snapping (ours; see level_editor_snap.h).
+
+#include "editor/level_editor_snap.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <span>
+#include <vector>
+#include <array>
+
+#include "editor/level_editor.h"
+#include "editor/level_editor_scenery.h"
+#include "engine/gfx/mesh_records.h"
+#include "base/maths/vec4.h"
+#include "engine/render/probe_ray.h"
+#include "engine/gfx/engine_geom.h"
+#include "engine/gfx/vertex_view.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+
+namespace frontend::level_editor::snap {
+
+namespace {
+
+constexpr float kDegenerateLengthSquared = 1e-8F; // a squared length this small is no direction
+constexpr float kDegenerateEdge = 1e-6F;          // a third edge this short makes a degenerate triangle
+constexpr float kDegenerateAreaSquared = 1e-6F;   // a flat vector this small has no direction
+constexpr int kMaxSelfHits = 8; // how often the ray restarts past the selection's own collision
+
+} // namespace
+
+int get_nearest(const std::vector<V3>& points, V3 to)
+{
+    int best = -1;
+    float best_d = 0.0F;
+    for (size_t i = 0; i < points.size(); ++i) {
+        const V3 delta = core::at(points, i) - to;
+        const float dd = get_dot(delta, delta);
+        if (best < 0 || dd < best_d) {
+            best = static_cast<int>(i);
+            best_d = dd;
+        }
+    }
+    return best;
+}
+
+int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3, float*, float*)>& project, float x,
+                      float y)
+{
+    int best = -1;
+    float best_d = 0.0F;
+    for (size_t i = 0; i < points.size(); ++i) {
+        float px = 0.0F;
+        float py = 0.0F;
+        if (!project(core::at(points, i), &px, &py)) {
+            continue;
+        }
+        const float dd = ((px - x) * (px - x)) + ((py - y) * (py - y));
+        if (best < 0 || dd < best_d) {
+            best = static_cast<int>(i);
+            best_d = dd;
+        }
+    }
+    return best;
+}
+
+bool align_rows(std::span<V3, 3> rows, V3 normal)
+{
+    const float n2 = get_dot(normal, normal);
+    if (n2 < kDegenerateLengthSquared) {
+        return false;
+    }
+    const V3 up = normal * (1.0F / std::sqrt(n2));
+    std::array<float, 3> lengths{};
+    for (int i = 0; i < 3; ++i) {
+        core::at(lengths, i) = std::sqrt(get_dot(core::at(rows, i), core::at(rows, i)));
+    }
+    if (core::at(lengths, 2) < kDegenerateEdge) {
+        return false;
+    }
+    // (the at row's heading kept: its part across the surface)
+    V3 at = core::at(rows, 2) * (1.0F / core::at(lengths, 2));
+    const V3 flat = at - up * get_dot(at, up);
+    if (get_dot(flat, flat) < kDegenerateAreaSquared) {
+        return false;
+    }
+    at = make_unit(flat);
+    const V3 right = perpendicular(up, at); // (right = up x at, as the game's rows are)
+    core::at(rows, 0) = right * core::at(lengths, 0);
+    core::at(rows, 1) = up * core::at(lengths, 1);
+    core::at(rows, 2) = at * core::at(lengths, 2);
+    return true;
+}
+
+namespace {
+
+// The feeler (as level_editor.cpp's Cast and level_editor_scenery.cpp's cast_static): constructor 0x00417760, cast
+// 0x00417710 (start, end, movables: 0 - static collision only); its normal at +0x24, its point at +0x34, the collision
+// object hit at +0x54 and its checksum at +0x58.
+bool get_cast(V3 from, V3 to, SurfaceHit* hit)
+{
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
+    if (ray->get_collision_along(&start, &end, false) == 0) {
+        return false;
+    }
+    const auto& normal = ray->hit().normal;
+    const auto& point = ray->hit().point;
+    hit->normal = {.x = normal[0], .y = normal[1], .z = normal[2]};
+    hit->point = {.x = point[0], .y = point[1], .z = point[2]};
+    hit->checksum = ray->hit().object ? ray->hit().object_checksum_ : 0;
+    return true;
+}
+
+} // namespace
+
+bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& skip, SurfaceHit* hit)
+{
+    V3 from = origin;
+    const V3 end = origin + dir * max_t;
+    // (the selection's own collision met first: the ray goes on from just past it - a few times at most)
+    for (int tries = 0; tries < kMaxSelfHits; ++tries) {
+        SurfaceHit surface_hit;
+        if (!get_cast(from, end, &surface_hit)) {
+            return false;
+        }
+        if (surface_hit.checksum == 0 || std::ranges::find(skip, surface_hit.checksum) == skip.end()) {
+            *hit = surface_hit;
+            return true;
+        }
+        from = surface_hit.point + dir * 1.0F;
+        if (get_dot(end - from, dir) <= 0.0F) {
+            return false;
+        }
+    }
+    return false;
+}
+
+std::vector<V3> sector_vertices(checksums::Name sector, size_t limit)
+{
+    const uint32_t checksum = sector.value();
+    std::vector<V3> out;
+    const render::Geom* geom = scenery::sector_geometry(checksum);
+    if (!geom) {
+        return out;
+    }
+    // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's ray_meshes reads them: each vertex's
+    // position its first 12 bytes, where the sector is now)
+    const scenery::GeomMeshes meshes = scenery::meshes_of(geom);
+    for (uint32_t i = 0; i < meshes.count && i < kMeshScanLimit && out.size() < limit; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
+        if (!mesh || mesh->billboard() || ((mesh->flags() & kMeshHiddenFlag) != 0U)) {
+            continue;
+        }
+        const render::VertexBufferData* vertices =
+            (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        if (!vertices || !vertices->data() || mesh->stride() < kPositionBytes) {
+            continue;
+        }
+        for (uint32_t vertex = 0; vertex < mesh->vertex_count() && out.size() < limit; ++vertex) {
+            const auto position =
+                gpu::VertexView(vertices->data(), mesh->stride(), mesh->vertex_count()).float3(vertex);
+            out.push_back({.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2)});
+        }
+    }
+    return out;
+}
+
+} // namespace frontend::level_editor::snap

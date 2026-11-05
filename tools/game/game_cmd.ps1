@@ -1,6 +1,6 @@
 param([string]$Game = 'C:\Games\THUG2', [string[]]$Commands = @(), [int]$Timeout = 120, [string]$Shot = '',
       [switch]$Status, [int]$HangSeconds = 45)
-# Commands to a running game through the test-automation channel (src/game/front/automation.h - [features]
+# Commands to a running game through the test-automation channel (src/devtools/automation.h - [features]
 # automation=1, the workspaces' setting): appends them to <folder>\thug2-decomp-commands.txt, waits until the game has
 # done them (its status file, <folder>\thug2-decomp-status.json), prints the result and the status.
 #   game_cmd.ps1 -Game C:\Games\THUG2-4 -Commands "waitfor ready","choose menu_singlesess","waitfor menu ss_play_level"

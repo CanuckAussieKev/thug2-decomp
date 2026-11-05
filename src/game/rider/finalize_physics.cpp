@@ -1,0 +1,118 @@
+// The skater's finalize-physics component (GameObjects::RiderPhysicsCommit): see finalize_physics.h.
+
+#include "game/rider/finalize_physics.h"
+
+#include <cmath>
+#include <cstdint>
+#include <gsl/pointers>
+
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "game/rider/looping_sound.h"
+#include "game/rider/rider.h"
+#include "engine/objects/entity.h"
+#include "game/rider/vehicle_sound.h"
+#include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/skater_sound.h"
+#include "base/core/down_cast.h"
+
+namespace objects {
+
+namespace {
+
+constexpr uint32_t kSkaterFinalizePhysics = 0x9B373E58;
+constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, kSkaterSound = 0x187574FA,
+                   kSkaterLoopingSound = 0xB5F1E9D2;
+constexpr uint32_t kSkaterMaxMaxSpeedStat = 0xCC5F87AA; // Skater_Max_Max_Speed_Stat
+
+constexpr float kStillSpeed = 1.0F; // 0x006453A8: x and z speeds below this count as straight up
+
+// The skater state component's state (+0x18), as the core physics' update dispatches on it (0x00510830): 0 ground,
+// 1 air (do_air_physics), 2-5 its other physics (3: a lip trick, which sets the core physics' +0x256 for the frame).
+constexpr int kStateAir = 1, kStateLip = 3;
+
+// The skater's physics value `name` (as get_scaled_value).
+double scaled_physics_value(GameEntity* skater, uint32_t name)
+{
+    return core::down_cast<Rider>(skater)->get_scaled_physics(name);
+}
+// The looping sound component: the speed as a fraction of the top speed.
+void set_looping_sound_speed(ObjectModule* sound, float fraction)
+{
+    core::down_cast<RiderRollingAudio>(sound)->set_pace_ratio(fraction);
+}
+
+// `value` into `stored`, `changed` set if it differs.
+template <typename T>
+void get_note(T& stored, T value, uint8_t& changed)
+{
+    changed |= stored != value ? 1 : 0;
+    stored = value;
+}
+
+} // namespace
+
+// 0x00511280
+gsl::owner<ObjectModule*> RiderPhysicsCommit::fabricate() { return new RiderPhysicsCommit; }
+
+// (the constructor: inlined in fabricate in the original)
+RiderPhysicsCommit::RiderPhysicsCommit() { set_kind_tag(kSkaterFinalizePhysics); }
+
+// 0x00511010 (0x00511020 the deleting one)
+RiderPhysicsCommit::~RiderPhysicsCommit() = default;
+
+// 0x00511050
+void RiderPhysicsCommit::seal()
+{
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    pose_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
+}
+
+// 0x00511080
+void RiderPhysicsCommit::tick_frame()
+{
+    skater::SkaterPhysicsModule* core = core_physics_;
+    objects::RiderPoseState* state = pose_;
+    // Out of a lip trick (the physics' +0x256: the frame began in one) straight up: into the air with hardly any speed
+    // across the ground. Kept while in the air.
+    if ((core->frame_began_in_lip() != 0U) && state->cur_phase() != kStateLip) {
+        state->set_lip_straight_up(0);
+        if (state->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < kStillSpeed &&
+            std::fabs(entity()->vel().z) < kStillSpeed) {
+            state->set_lip_straight_up(1);
+        }
+    }
+    if (state->cur_phase() != kStateAir) {
+        state->set_lip_straight_up(0);
+    }
+    state->set_drawn_normal(core->drawn_normal());
+    state->floor_normal() = core->floor_normal();
+
+    // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
+    entity()->basis_frame().square_up_axes(1);
+    maths::Mat4& physics_matrix = core->display_matrix();
+    physics_matrix.square_up_axes(1);
+    if (entity()->basis_frame().restore_right_angles()) {
+        physics_matrix = static_cast<ObjectModule*>(core)->entity()->basis_frame();
+    }
+    entity()->display_matrix() = physics_matrix;
+
+    // The sounds: terrain and state.
+    auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound));
+    sound->set_sliding(pose_->flag(PoseFlag::kSlide).on);
+    sound->set_surface_type(pose_->surface_type());
+    auto* looping = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound));
+    const double x = entity()->vel().x;
+    const double z = entity()->vel().z;
+    auto speed = static_cast<float>(std::sqrt((x * x) + (z * z)));
+    auto fraction = static_cast<float>(speed / scaled_physics_value(entity(), kSkaterMaxMaxSpeedStat));
+    set_looping_sound_speed(looping, fraction);
+    looping->set_no_rail_sound(pose_->flag(PoseFlag::kBailing).on);
+    uint8_t& changed = looping->sound_changed();
+    get_note(looping->sliding(), pose_->flag(PoseFlag::kSlide).on, changed);
+    get_note(looping->surface_type(), pose_->surface_type(), changed);
+    get_note(looping->cur_phase(), pose_->cur_phase(), changed);
+}
+
+} // namespace objects

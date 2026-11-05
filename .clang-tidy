@@ -1,0 +1,173 @@
+# The project's checks (docs/style-guide.md): the C++ Core Guidelines' checks, the bug-finding, modernising and
+# performance groups and the clang static analyzer, with the house naming rules. Zero warnings is the rule, and there is no NOLINT in src/ (npm test
+# fails on one: tools/no_nolint.test.ts). Code that doesn't keep a check is changed; where the original's behaviour
+# can't be kept without what a check flags, the check is configured by its own options (CheckOptions below) or
+# switched off here, the reason beside it - docs/style-guide.md "Exceptions". src/tests/.clang-tidy switches off two
+# more for the reference programs.
+# Run: clang-tidy -p out/build/<preset> --extra-arg=--target=i686-pc-windows-msvc <file>
+Checks:
+  - '-*'
+  - 'bugprone-*'
+  - 'cppcoreguidelines-*'
+  - 'misc-*'
+  - 'modernize-*'
+  - 'performance-*'
+  - 'readability-*'
+  - 'clang-analyzer-*'
+
+  # --- off: they conflict with the project's decisions ---
+  # An alias of cppcoreguidelines-avoid-magic-numbers (on above, with the same options): clang-tidy would report each
+  # finding once under either name, so the alias is left out.
+  - '-readability-magic-numbers'
+  # The project writes `int f()`; trailing return types are a style, not a Guideline.
+  - '-modernize-use-trailing-return-type'
+  # The script interpreter, the screen element tree and the scene walks recurse by design.
+  - '-misc-no-recursion'
+  # --- off: the original's behaviour needs what they flag ---
+  # rand(): the game's own random numbers are the C runtime's rand() sequence, as the original draws them (music
+  # shuffles, the pad's reconnect delay, the scripts' Random); the check flags every rand() call and has no options.
+  # Nothing in the game needs unpredictable numbers.
+  - '-misc-predictable-rand'
+  # Downcasts: every one goes through core::down_cast (base/core/down_cast.h), which checks the object's type tag
+  # in Debug before its one static_cast; the check would flag that static_cast and has no option to name it.
+  # (cppcoreguidelines-pro-type-static-cast-downcast)
+  - '-cppcoreguidelines-pro-type-static-cast-downcast'
+  # --- off: it contradicts the project's enum rule ---
+  # Enum casts outside the listed values (an optional analyzer check): flag enums hold combinations no enumerator
+  # names (FaceFlag, PlayerFlag - base/core/enum_ops.h), a value read from a file or the wire that the enum doesn't
+  # list stays representable (docs/style-guide.md "Enums"), and Direct3D's own D3DTS_WORLDMATRIX(n) is a cast past
+  # its enum's list. The check flags each, and the C++ library's own flag enums too; it has no options.
+  - '-clang-analyzer-optin.core.EnumCastOutOfRange'
+
+# SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
+ExtraArgs: ['-D__PRFCHWINTRIN_H']
+WarningsAsErrors: ''
+# Every header under src/ is ours and is checked (src/ holds no third-party code). The fetched libraries and the
+# build's own headers (_deps, SDL2's copied include folder, the generated build info, the embedded editor fonts) are
+# not, wherever the build folder is. tools/clang_tidy_filter.test.ts checks that every folder of src/ is covered.
+HeaderFilterRegex: '.*[/\\]src[/\\].*'
+ExcludeHeaderFilterRegex: '.*[/\\](_deps|sdl2-include|generated|editor_fonts)[/\\].*'
+CheckOptions:
+  # Headers we don't control and don't own the layout of: the fetched libraries (_deps: GSL, Dear ImGui, lzham, stb,
+  # the GameSpy SDK, D3DX9), SDL2's include folder, the Windows SDK (windows.h, d3d9, dsound, dinput, winsock - the
+  # headers that must follow one another), the build's generated headers and the embedded editor fonts. The check
+  # would name the SDKs' internal headers (or ask for a different one than the umbrella the SDK documents).
+  # `<new>` (the last pattern): the check doesn't count a placement new (`new (memory) T`, the game's way of
+  # constructing in its own pools) as a use of it, but GCC needs the header there - so it is left as the files include it.
+  # misc-include-cleaner is on: a file includes what it uses and nothing else. An include the check can't see a use of
+  # (a complete type behind a forward declaration, a using-directive's namespace) stays with `// IWYU pragma: keep - why`.
+  misc-include-cleaner.IgnoreHeaders: '.*[/\\]_deps[/\\].*;.*[/\\]sdl2-include[/\\].*;.*Windows Kits.*;.*[/\\]generated[/\\].*;.*[/\\]editor_fonts[/\\].*;^<?new>?$'
+  # An allocation failure ends the game whether or not it leaves a noexcept function (no handler anywhere: the
+  # game has no exception handling); the debug runtime's container moves allocate, so every move of a container
+  # would otherwise be "may throw". Every other exception still counts.
+  bugprone-exception-escape.IgnoredExceptions: 'bad_alloc,bad_array_new_length'
+  # The x87 reference functions' locals that their inline assembly writes (src/tests/maths_check.cpp): clang-tidy
+  # doesn't see an __asm block's writes, so it would take them for unchanged. They are declared with these aliases.
+  misc-const-correctness.AllowedTypes: '(^|::)Asm(Float|Double|Int|Int64|Word16)$'
+  # The game seeds the C runtime's rand() with the time, as the original does (the music shuffles): no seed type is
+  # refused (the default refuses time_t). Constant seeds are still flagged.
+  bugprone-random-generator-seed.DisallowedSeedTypes: ''
+  # The two compiler-specific macros of base/core/compiler.h that can't be functions: a pragma inside a statement
+  # (__pragma / _Pragma: a warning switched for one line) and the caller's return address (_ReturnAddress must be in
+  # the function whose return address it is).
+  cppcoreguidelines-macro-usage.AllowedRegexp: '^THUG2_(MSVC_WARNING|RETURN_ADDRESS)$'
+  # Only a literal that is exactly the constant's value (the original's own digits otherwise stay).
+  modernize-use-std-numbers.DiffThreshold: '0'
+  # The maths types check their own index (Vec4's component, Mat4's row: an index outside them ends the game with a
+  # report), as core::at does for the containers; so does core::Cursor (a position in a run of elements: the element read
+  # or written is checked against the run).
+  cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses: '::std::map;::std::unordered_map;::std::flat_map;::maths::Vec4;::maths::Mat4;::core::Cursor;::core::CStringCursor'
+  # Private data (docs/style-guide.md "Private data"): a class with an invariant keeps its data private (C.2, C.9); a
+  # value type with no invariant - the maths types (Vec4, Mat4, the rotations, BBox / Capsule / Seg), the plain records
+  # built with designated initialisers - keeps all its data public with no trivial getters / setters (C.2, C.131), its
+  # helpers free functions (C.4). So only a class that mixes public and private data is flagged - the same rule as the
+  # cppcoreguidelines alias, which has this option on by default: one rule for both.
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
+  # Adjacent parameters of one type (I.24): on (strong types - maths::Vec2 / Rect / Size, checksums::Name,
+  # colour::Packed, net::Address - and parameter records took 698 to 0).
+  # Same-meaning pairs aren't swaps: the bounds of a range (min / max, low / high, first / last,
+  # begin / end, start / finish, from / to), a copy's ends (src / dst, source / destination) and a comparison's
+  # operands (a / b, lhs / rhs). NamePrefixSuffixSilenceDissimilarityTreshold stays 1: 2 and 3 were measured and
+  # silence nothing more over src/.
+  bugprone-easily-swappable-parameters.IgnoredParameterNames: '"";iterator;Iterator;begin;Begin;end;End;first;First;last;Last;lhs;LHS;rhs;RHS;min;max;from;to;src;dst;source;destination;a;b;low;high;start;finish'
+  # The rule of five, as the Guidelines' C.21 allows it: a defaulted destructor alone, and classes that only copy
+  # (their copies stand in for moves).
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
+  # Boolean simplifications, but not De Morgan's: `!(a < b && ...)` -> `a >= b || ...` is not the same test for floats
+  # (a NaN fails every comparison - the original's `!(min <= max)` box tests count NaN as not a box), so the
+  # original's negated comparisons stay as written.
+  readability-simplify-boolean-expr.SimplifyDeMorgan: false
+  # Conditions on a pointer stay `if (p)` / `if (!p)` (C++ Core Guidelines ES.87: no redundant == / != in a
+  # condition); every other implicit conversion to or from bool is spelled out (`n != 0`, `f != 0.0F`, `p != nullptr`
+  # outside a condition), the literal suffixes upper-case as readability-uppercase-literal-suffix wants them.
+  readability-implicit-bool-conversion.AllowPointerConditions: true
+  readability-implicit-bool-conversion.UseUpperCaseLiteralSuffix: true
+  # Cognitive complexity at 50, not the check's default 25: the original's long switch-and-loop functions
+  # and the editor's UI functions were split into named steps down to 50. Most of the functions between 26 and 50 are
+  # one loop of the original or one ImGui panel, and splitting them further would scatter a decompiled routine without
+  # making it clearer. Macros' own conditionals (GSL's Expects, the THUG2_* macros) are not the reader's: not counted.
+  readability-function-cognitive-complexity.Threshold: 50
+  readability-function-cognitive-complexity.IgnoreMacros: true
+  # Names are at least 2 characters (the check's default is 3). Allowed single letters: the coordinates and components
+  # x y z w u v (a vector's or a texture's own letters) for variables, and a / b for parameters (a function of two
+  # symmetrical operands, as bugprone-easily-swappable-parameters above allows them). Loop counters keep the check's
+  # default (i, j, k, _).
+  readability-identifier-length.MinimumVariableNameLength: 2
+  readability-identifier-length.MinimumParameterNameLength: 2
+  readability-identifier-length.MinimumLoopCounterNameLength: 2
+  readability-identifier-length.IgnoredVariableNames: '^[xyzwuv]$'
+  readability-identifier-length.IgnoredParameterNames: '^[xyzwuvab]$'
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.UnionCase: CamelCase
+  # Libraries' own type names, forward-declared where only a pointer or reference is used: SDL's SDL_Event, Winsock's
+  # sockaddr.
+  readability-identifier-naming.UnionIgnoredRegexp: '^SDL_[A-Za-z]+$'
+  readability-identifier-naming.StructIgnoredRegexp: '^sockaddr$'
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.TypeAliasCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.MethodCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  # WinMain's parameters, as the Windows SDK's declaration names them (readability-inconsistent-declaration-parameter-name)
+  readability-identifier-naming.ParameterIgnoredRegexp: '^(hInstance|hPrevInstance|lpCmdLine|nShowCmd)$'
+  readability-identifier-naming.LocalVariableCase: lower_case
+  readability-identifier-naming.LocalConstantCase: lower_case
+  readability-identifier-naming.StaticVariableCase: lower_case
+  readability-identifier-naming.GlobalVariableCase: lower_case
+  readability-identifier-naming.GlobalVariablePrefix: 'g_'
+  # file statics that alias a global keep s_; the GameSpy SDK's host-name globals that platform/gamespy.cpp declares
+  # (the SDK defines them without a header)
+  readability-identifier-naming.GlobalVariableIgnoredRegexp: '^(s_[a-z0-9_]+|gPTAVercheckURL|gPTAMOTDURL|peerChatServerAddress)$'
+  readability-identifier-naming.GlobalPointerCase: lower_case
+  readability-identifier-naming.GlobalPointerPrefix: 'g_'
+  readability-identifier-naming.GlobalPointerIgnoredRegexp: '^(s_[a-z0-9_]+|Matchup3Hostname)$'
+  # Public data (a plain record, a value type: docs/style-guide.md "Private data") may be named as plain data, without
+  # the suffix - the file formats' and wire messages' fields; the game's public state records keep the suffix they
+  # have. Private and protected members take the suffix.
+  readability-identifier-naming.PublicMemberCase: lower_case
+  readability-identifier-naming.PublicMemberIgnoredRegexp: '^[a-z][a-z0-9_]*_$'
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MemberSuffix: '_'
+  # plain one-word members of small data structs (x, y, length) keep no suffix
+  readability-identifier-naming.MemberIgnoredRegexp: '^[a-z][a-z0-9]*$'
+  readability-identifier-naming.ClassMemberCase: lower_case
+  readability-identifier-naming.ClassMemberSuffix: '_'
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-identifier-naming.ConstexprVariablePrefix: 'k'
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.GlobalConstantPrefix: 'k'
+  readability-identifier-naming.GlobalConstantPointerCase: CamelCase
+  readability-identifier-naming.GlobalConstantPointerPrefix: 'k'
+  readability-identifier-naming.StaticConstantCase: CamelCase
+  readability-identifier-naming.StaticConstantPrefix: 'k'
+  readability-identifier-naming.ClassConstantCase: CamelCase
+  readability-identifier-naming.ClassConstantPrefix: 'k'
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.EnumConstantPrefix: 'k'
+  readability-identifier-naming.TemplateParameterCase: CamelCase
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

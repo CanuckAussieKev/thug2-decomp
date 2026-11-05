@@ -1,5 +1,5 @@
 // NOT ORIGINAL - tests of tools/game/collision_events.ts. LINE is a line as the game writes it
-// (src/game/skater/collision_events.h): the format both sides agree on.
+// (src/game/rider/collision_events.h): the format both sides agree on.
 
 import assert from "node:assert/strict";
 import * as fs from "node:fs";

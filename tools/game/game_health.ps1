@@ -1,7 +1,7 @@
 # Dot-sourced by run_game.ps1, game_cmd.ps1, game_lock.ps1 and load_check.ps1: is a game we started still healthy, and
 # closing one that isn't. A game is in trouble when
 #   - it exited by itself with an exit code other than 0 (the game's crash handling ends it with 3 or the exception's
-#     code after logging - src/game/sys/crash.h; a normal quit is 0),
+#     code after logging - src/platform/crash.h; a normal quit is 0),
 #   - Windows Error Reporting runs for it (a WerFault.exe whose command line names its process id),
 #   - it shows a dialog (a visible top-level #32770 window of its own: a message box - "Buffer overrun detected!",
 #     an assertion...; the game shows none since crash.h, but the game's own D3D error box and older builds do),
@@ -96,7 +96,7 @@ function Update-GameWatch($watch) {
 function Format-ExitCode([int]$code) {
     $hex = '0x{0:X8}' -f $code
     switch ($hex) {
-        '0x00000003' { return "3 (the game logged a fatal report and ended it - src/game/sys/crash.h)" }
+        '0x00000003' { return "3 (the game logged a fatal report and ended it - src/platform/crash.h)" }
         '0xC0000005' { return "$hex (access violation)" }
         '0xC0000409' { return "$hex (buffer overrun: the game's /GS check, or a fast-fail exit - nothing logged then)" }
         '0xC00000FD' { return "$hex (stack overflow)" }

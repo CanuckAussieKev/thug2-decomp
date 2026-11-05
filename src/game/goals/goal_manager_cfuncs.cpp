@@ -5,14 +5,15 @@
 
 #include "game/goals/goal_manager_cfuncs.h"
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_net_types.h"
-#include "game/goals/goal_names.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/context.h"
+#include "base/core/down_cast.h"
+#include "base/core/checksums.h"
 
-namespace Game {
+namespace goals {
 
 namespace {
 
@@ -26,253 +27,258 @@ constexpr uint32_t kSkater = 0x5B8AB877;     // skater
 constexpr uint32_t kFlag = 0x2E0B1465;       // flag
 
 // The goal the command's Name names (asserted), and that name.
-uint32_t GoalName(Script::CStruct* params)
+uint32_t get_goal_name(script::Struct* params)
 {
-    uint32_t name;
-    params->GetChecksum(kName, &name, 1);
+    uint32_t name = 0;
+    params->read_hash_value(kName, &name, 1);
     return name;
 }
 
 } // namespace
 
 // 0x005591C0
-bool __cdecl CFunc_GoalManager_EditGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_edit_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name = GoalName(params);
-    Script::CStruct* edits;
-    params->GetStructure(kParams, &edits, 1);
-    CGoal* goal = manager->m_goals.Get(name);
-    if (goal)
-        goal->EditParams(edits);
+    GoalManager* manager = get_objective_board();
+    const uint32_t name = get_goal_name(params);
+    script::Struct* edits = nullptr;
+    params->read_sub_struct(kParams, &edits, 1);
+    Objective* goal = manager->goals().get_pull(name);
+    if (goal) {
+        goal->rewrite_args(edits);
+    }
     return goal != nullptr;
 }
 
 // 0x00559230
-bool __cdecl CFunc_GoalManager_ActivateGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_activate_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name = GoalName(params);
-    bool dontAssert = params->ContainsFlag(kDontAssert);
-    return manager->ActivateGoal(name, dontAssert);
+    GoalManager* manager = get_objective_board();
+    const uint32_t name = get_goal_name(params);
+    const bool dont_assert = params->has_bare_flag(kDontAssert);
+    return manager->engage_objective(name, dont_assert);
 }
 
 // 0x00559290
-bool __cdecl CFunc_GoalManager_DeactivateGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_deactivate_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    CGoal* goal = manager->m_goals.Get(GoalName(params));
-    if (goal)
-        Virtual<bool>(goal, CGoal::kVtDeactivate, false, true);
+    GoalManager* manager = get_objective_board();
+    Objective* goal = manager->goals().get_pull(get_goal_name(params));
+    if (goal) {
+        goal->disengage(false, true);
+    }
     return goal != nullptr;
 }
 
 // 0x005592F0
-bool __cdecl CFunc_GoalManager_ClearLastGoal(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_clear_last_goal(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->m_lastGoal = 0;
+    get_objective_board()->set_previous_objective(0);
     return true;
 }
 
 // 0x00559310
-bool __cdecl CFunc_GoalManager_WinGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_win_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    return manager->WinGoal(GoalName(params));
+    GoalManager* manager = get_objective_board();
+    return manager->complete_objective(get_goal_name(params));
 }
 
 // 0x00559350
-bool __cdecl CFunc_GoalManager_LoseGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_lose_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    return manager->LoseGoal(GoalName(params));
+    GoalManager* manager = get_objective_board();
+    return manager->fail_objective(get_goal_name(params));
 }
 
 // 0x00559390
-bool __cdecl CFunc_GoalManager_DeactivateAllGoals(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_deactivate_all_goals(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    manager->DeactivateAllGoals(params->ContainsComponentNamed(kForceAll));
+    GoalManager* manager = get_objective_board();
+    manager->disengage_every_objective(params->has_entry_named(kForceAll));
     return true;
 }
 
 // 0x005593D0
-bool __cdecl CFunc_GoalManager_ActivateAllGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_activate_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->ActivateAllGoals();
+    get_objective_board()->activate_all_goals();
     return true;
 }
 
 // 0x005593F0
-bool __cdecl CFunc_GoalManager_UninitializeAllGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_uninitialize_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->UninitializeAllGoals();
+    get_objective_board()->release_every_objective();
     return true;
 }
 
 // 0x00559410: with the flag 0x687DE558 the goal's whole chain, else the goal (one not in the level is read through
 // null, as the original).
-bool __cdecl CFunc_GoalManager_UninitializeGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_uninitialize_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name = GoalName(params);
-    if (params->ContainsFlag(kWholeTree)) {
-        manager->UninitializeGoalTree(name);
+    GoalManager* manager = get_objective_board();
+    const uint32_t name = get_goal_name(params);
+    if (params->has_bare_flag(kWholeTree)) {
+        manager->release_objective_tree(name);
         return true;
     }
-    manager->m_goals.Get(name)->Uninitialize(false, 0);
+    manager->goals().get_pull(name)->uninitialize(false, 0);
     return true;
 }
 
 // 0x00559490
-bool __cdecl CFunc_GoalManager_InitializeAllGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_initialize_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->InitializeAllGoals();
+    get_objective_board()->prepare_every_objective();
     return true;
 }
 
 // 0x005594B0
-bool __cdecl CFunc_GoalManager_InitializeAllSelectedGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_initialize_all_selected_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->InitializeAllSelectedGoals();
+    get_objective_board()->prepare_picked_objectives();
     return true;
 }
 
 // 0x005594D0
-bool __cdecl CFunc_GoalManager_ActivateAllSelectedGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_activate_all_selected_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->ActivateAllSelectedGoals();
+    get_objective_board()->activate_all_selected_goals();
     return true;
 }
 
 // 0x005594F0
-bool __cdecl CFunc_GoalManager_GoalIsActive(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_goal_is_active(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    CGoal* goal = manager->m_goals.Get(GoalName(params));
-    return goal ? Virtual<bool>(goal, CGoal::kVtIsActive) : false;
+    GoalManager* manager = get_objective_board();
+    Objective* goal = manager->goals().get_pull(get_goal_name(params));
+    return goal ? goal->is_operative() : false;
 }
 
 // 0x00559540: the timer set to `time` seconds - without one, started again from the goal's own time.
-bool __cdecl CFunc_GoalManager_SetGoalTimer(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_set_goal_timer(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name = GoalName(params);
+    GoalManager* manager = get_objective_board();
+    const uint32_t name = get_goal_name(params);
     int time = -1;
-    params->GetInteger(kTime, &time, 0);
-    CGoal* goal = manager->m_goals.Get(name);
+    params->fetch_int_value(kTime, &time, 0);
+    Objective* goal = manager->goals().get_pull(name);
     if (goal) {
-        if (time == -1)
-            goal->ResetTimer();
-        else
-            goal->SetTimeLeft(time);
+        if (time == -1) {
+            goal->reset_timer();
+        } else {
+            goal->set_seconds_remaining(time);
+        }
     }
     return goal != nullptr;
 }
 
 // 0x005595D0
-bool __cdecl CFunc_GoalManager_ZeroGoalTimer(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_zero_goal_timer(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    CGoal* goal = manager->m_goals.Get(GoalName(params));
-    if (goal)
-        goal->SetTimeLeft(0);
+    GoalManager* manager = get_objective_board();
+    Objective* goal = manager->goals().get_pull(get_goal_name(params));
+    if (goal) {
+        goal->set_seconds_remaining(0);
+    }
     return goal != nullptr;
 }
 
 // 0x00559630
-bool __cdecl CFunc_GoalManager_PauseAllGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_pause_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->PauseAllGoals();
+    get_objective_board()->freeze_every_objective();
     return true;
 }
 
 // 0x00559650
-bool __cdecl CFunc_GoalManager_UnPauseAllGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_un_pause_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->UnPauseAllGoals();
+    get_objective_board()->thaw_every_objective();
     return true;
 }
 
 // 0x00559670: the goal's flag (the unnamed checksum) set to the unnamed integer - of `skater`'s flags, if given.
-bool __cdecl CFunc_GoalManager_SetGoalFlag(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_set_goal_flag(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name = GoalName(params);
-    uint32_t flag;
-    params->GetChecksum(0u, &flag, 1);
-    int value;
-    params->GetInteger(0u, &value, 1);
+    GoalManager* manager = get_objective_board();
+    const uint32_t name = get_goal_name(params);
+    uint32_t flag = 0;
+    params->read_hash_value(0U, &flag, 1);
+    int value = 0;
+    params->fetch_int_value(0U, &value, 1);
     uint32_t skater = 0;
-    params->GetChecksum(kSkater, &skater, 0);
-    CGoal* goal = manager->m_goals.Get(name);
-    if (!goal)
+    params->read_hash_value(kSkater, &skater, 0);
+    Objective* goal = manager->goals().get_pull(name);
+    if (!goal) {
         return false;
-    return Virtual<bool>(goal, CGoal::kVtSetFlag, flag, value, skater);
+    }
+    return goal->set_flag(checksums::Name{flag}, value, checksums::Name{skater});
 }
 
 // 0x00559720
-bool __cdecl CFunc_GoalManager_HasSeenGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_has_seen_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    CGoal* goal = manager->m_goals.Get(GoalName(params));
-    return goal ? goal->HasSeen() : false;
+    GoalManager* manager = get_objective_board();
+    Objective* goal = manager->goals().get_pull(get_goal_name(params));
+    return goal ? goal->has_seen() : false;
 }
 
 // 0x00559770 (a goal not in the level is read through null, as the original)
-bool __cdecl CFunc_GoalManager_AllFlagsSet(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_all_flags_set(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    return manager->m_goals.Get(GoalName(params))->AllFlagsSet();
+    GoalManager* manager = get_objective_board();
+    return manager->goals().get_pull(get_goal_name(params))->has_every_bit();
 }
 
 // 0x005597C0: the goal's `flag` is set (of `skater`'s flags, if given).
-bool __cdecl CFunc_GoalManager_GoalFlagSet(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_goal_flag_set(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name = GoalName(params);
-    uint32_t flag;
-    params->GetChecksum(kFlag, &flag, 1);
+    GoalManager* manager = get_objective_board();
+    const uint32_t name = get_goal_name(params);
+    uint32_t flag = 0;
+    params->read_hash_value(kFlag, &flag, 1);
     uint32_t skater = 0;
-    params->GetChecksum(kSkater, &skater, 0);
-    return manager->m_goals.Get(name)->GoalFlagSet(flag, skater);
+    params->read_hash_value(kSkater, &skater, 0);
+    return manager->goals().get_pull(name)->bit_is_on({.flag = flag, .sub = skater});
 }
 
 // 0x00559850: there is a last goal to retry.
-bool __cdecl CFunc_GoalManager_CanRetryGoal(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_can_retry_goal(script::Struct* /*params*/, script::Context /*context*/)
 {
-    return GetGoalManager()->m_lastGoal != 0;
+    return get_objective_board()->previous_objective() != 0;
 }
 
 // 0x00559870: the goal's parameters added to the script's.
-bool __cdecl CFunc_GoalManager_GetGoalParams(Script::CStruct* params, Script::CScript* script)
+bool cfunc_goal_manager_get_goal_params(script::Struct* params, script::Context context)
 {
-    CGoalManager* manager = GetGoalManager();
-    CGoal* goal = manager->m_goals.Get(GoalName(params));
-    script->m_params->AppendStructureIfAny(goal->GetParams());
+    GoalManager* manager = get_objective_board();
+    Objective* goal = manager->goals().get_pull(get_goal_name(params));
+    context.args()->append_structure_if_any(goal->fetch_args());
     return true;
 }
 
 // 0x005598D0
-bool __cdecl CFunc_GoalManager_CanStartGoal(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_can_start_goal(script::Struct* /*params*/, script::Context /*context*/)
 {
-    return GetGoalManager()->m_canStartGoal;
+    return get_objective_board()->start_allowed();
 }
 
 // 0x005598E0: the race goal's next waypoint (the goal taken to be a race).
-bool __cdecl CFunc_GoalManager_NextRaceWaypoint(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_next_race_waypoint(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name = GoalName(params);
-    CGoal* goal = manager->m_goals.Get(name);
-    return static_cast<CRaceGoal*>(goal)->NextRaceWaypoint(name);
+    GoalManager* manager = get_objective_board();
+    const uint32_t name = get_goal_name(params);
+    Objective* goal = manager->goals().get_pull(name);
+    return core::down_cast<RaceObjective>(goal)->advance_race_gate(name);
 }
 
 // 0x00559930
-bool __cdecl CFunc_GoalManager_NextWaypoint(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_next_waypoint(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    return manager->m_goals.Get(GoalName(params))->NextWaypoint();
+    GoalManager* manager = get_objective_board();
+    return manager->goals().get_pull(get_goal_name(params))->step_to_next_waypoint();
 }
 
-} // namespace Game
+} // namespace goals

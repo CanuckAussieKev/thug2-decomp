@@ -3,21 +3,33 @@
 #include "game/skate/profile_manager.h"
 
 #include <cstdint>
+#include "base/core/dbg.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/util/text_store.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/gfx/face_texture.h"
+#include "engine/gfx/model_appearance.h"
+#include <gsl/pointers>
+#include <array>
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
 
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/string.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/gfx/face_texture.h"
-#include "game/gfx/model_appearance.h"
-#include "game/lst/lookup_table.h"
+namespace objects {
 
-namespace Obj {
+namespace {
+constexpr int kStatCount = 10; // the stat points a rider has
 
-Obj::CPlayerProfileManager* g_profileManager;
-uint32_t g_profileManagerReferences;
+memory::HeapUnique<objects::ProfileRoster>& stored_profile_roster()
+{
+    static core::NoDestroy<memory::HeapUnique<objects::ProfileRoster>> profile_roster;
+    return profile_roster.get();
+}
+
+} // namespace
+
+objects::ProfileRoster* profile_roster() { return stored_profile_roster().get(); }
 
 namespace {
 
@@ -34,7 +46,7 @@ constexpr uint32_t kInfo = 0x3476CEA8;           // info
 constexpr uint32_t kDeckFlags = 0x95388A60;      // DeckFlags
 constexpr uint32_t kMaxSpecials = 0xAC9B9EDA;    // max_specials
 // The stats a custom skater keeps over a load (unless the save's are kept), in the order the original reads them.
-constexpr uint32_t kStats[] = {
+constexpr auto kStats = std::to_array<uint32_t>({
     0x439F4704, // Air
     0xAF895B3F, // Run
     0x9B65D7B8, // Ollie
@@ -45,328 +57,301 @@ constexpr uint32_t kStats[] = {
     0xF73A13E3, // rail_balance
     0xAE798769, // lip_balance
     0xB1FC0722, // manual_balance
-};
+});
 
-Mem::Heap* SkaterInfoHeap() { return Mem::Manager::Get()->m_skaterInfoHeap; }
+memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap(); }
 
-CPlayerProfileManager*& Instance() { return g_profileManager; }
-uint32_t& References() { return g_profileManagerReferences; }
-
-// A new profile (constructed: its defaults).
-CSkaterProfile* NewProfile()
+uint32_t& ref_tally()
 {
-    void* memory = Mem::Calloc(sizeof(CSkaterProfile));
-    return memory ? static_cast<CSkaterProfile*>(memory)->Construct() : nullptr;
+    static uint32_t profile_manager_references{};
+    return profile_manager_references;
 }
 
-// The face texture object of a model appearance (its +0x54; 0x00576E60, folded with Mdl::Viewer's getter), told a
+// A new profile (constructed: its defaults).
+gsl::owner<RiderIdentity*> new_profile()
+{
+    void* memory = memory::alloc_zeroed(sizeof(RiderIdentity));
+    return memory ? memory::construct_in<RiderIdentity>(memory) : nullptr;
+}
+
+// The face texture object of a model appearance (its +0x54; 0x00576E60, folded with modules::Viewer's getter), told a
 // face texture (0x004875F0) and whether there is one (0x00487520).
-void* FaceOf(CSkaterProfile* profile) { return *reinterpret_cast<void**>(profile->m_appearance + 0x54); }
+void* face_of(RiderIdentity* profile) { return profile->appearance()->face_skin(); }
 
 } // namespace
 
-void CSkaterProfile::SetAppearance(Script::CStruct* appearance, bool update)
+void RiderIdentity::set_appearance(script::Struct* appearance, bool update)
 {
-    reinterpret_cast<Gfx::CModelAppearance*>(this)->Load(appearance, update);
+    look_.read_in(appearance, update);
 }
 // 0x00543010
-void CSkaterProfile::DestroyBody()
+RiderIdentity::~RiderIdentity() { details_.get_clear(); } // (then the appearance's destructor)
+void RiderIdentity::erase_one()
 {
-    InfoStructure()->Clear();
-    reinterpret_cast<Gfx::CModelAppearance*>(this)->DestroyBody();
+    this->~RiderIdentity();
+    memory::Hub::dealloc(this);
 }
-void CSkaterProfile::Delete()
-{
-    InfoStructure()->Clear();
-    reinterpret_cast<Gfx::CModelAppearance*>(this)->DestroyBody();
-    Mem::Manager::Get()->Free(this);
-}
-
-// The lookup table's generic code.
-CSkaterProfile* ProfileTable::GetByIndex(int index, uint32_t* key)
-{
-    return static_cast<CSkaterProfile*>(reinterpret_cast<Lst::LookupTable*>(this)->GetItemByIndex(&index, key));
-}
-CSkaterProfile* ProfileTable::Get(uint32_t key)
-{
-    return static_cast<CSkaterProfile*>(reinterpret_cast<Lst::LookupTable*>(this)->GetItem(&key));
-}
-bool ProfileTable::Put(uint32_t key, CSkaterProfile* item)
-{
-    return reinterpret_cast<Lst::LookupTable*>(this)->PutItem(&key, item);
-}
-void ProfileTable::Remove(uint32_t key) { reinterpret_cast<Lst::LookupTable*>(this)->FlushItem(&key); }
-
-// 0x0057B9E0
-void ProfileTable::Clear()
-{
-    for (Node* node = m_first; node;) {
-        Node* next = node->next;
-        Mem::Manager::Get()->Free(node);
-        node = next;
-    }
-    m_first = nullptr;
-    m_cursor = nullptr;
-    m_count = 0;
-}
-
-// 0x0057BBF0
-void ProfileTable::Destroy() { Clear(); }
 
 // 0x0057BC00
-CPlayerProfileManager* CPlayerProfileManager::Construct()
+ProfileRoster::ProfileRoster()
 {
-    m_templates.m_count = 0;
-    m_templates.m_first = nullptr;
-    m_templates.m_cursor = nullptr;
-    m_currentIndex = 0;
-    m_profiles[0] = nullptr;
-    m_profiles[1] = nullptr;
-    m_locked = false;
-    m_extraCount = 0;
-    return this;
+    templates_.set_num(0);
+    templates_.set_first(nullptr);
+    templates_.set_cursor(nullptr);
+    core::at(profiles_, 0) = nullptr;
+    core::at(profiles_, 1) = nullptr;
 }
 
 // 0x0057BC20
-void CPlayerProfileManager::DestroyBody()
+ProfileRoster::~ProfileRoster()
 {
     // Every template (the first each time: dropped from the table as it goes; a null one dropped too).
-    for (uint32_t left = m_templates.m_count; left != 0; --left) {
-        uint32_t key;
-        if (CSkaterProfile* profile = m_templates.GetByIndex(0, &key))
-            profile->Delete();
-        m_templates.Remove(key);
+    for (uint32_t left = templates_.num(); left != 0; --left) {
+        uint32_t key = 0;
+        if (RiderIdentity* profile = templates_.get_by_index(0, &key)) {
+            profile->erase_one();
+        }
+        templates_.drop_out(key);
     }
     // The second player's copy (the first player's is a template), and the extras.
-    if (CSkaterProfile* copy = m_profiles[1])
-        copy->Delete();
-    m_profiles[1] = nullptr;
-    for (int i = 0; i < m_extraCount; ++i) {
-        if (CSkaterProfile* extra = m_extraProfiles[i])
-            extra->Delete();
-        m_extraProfiles[i] = nullptr;
+    if (RiderIdentity* copy = core::at(profiles_, 1)) {
+        copy->erase_one();
     }
-    m_templates.Clear();
+    core::at(profiles_, 1) = nullptr;
+    for (int i = 0; i < extra_count_; ++i) {
+        if (RiderIdentity* extra = core::at(extra_profiles_, i)) {
+            extra->erase_one();
+        }
+        core::at(extra_profiles_, i) = nullptr;
+    }
+    templates_.free_nodes();
 }
 
 // 0x0057B620 / 0x0057B630 / 0x0057B640
-void CPlayerProfileManager::SetCurrentIndex(int index) { m_currentIndex = index; }
-CSkaterProfile* CPlayerProfileManager::GetCurrentProfile() { return m_profiles[m_currentIndex]; }
-CSkaterProfile* CPlayerProfileManager::GetProfile(int index) { return m_profiles[index]; }
+void ProfileRoster::set_current_index(int index) { cursor_pos_ = index; }
+RiderIdentity* ProfileRoster::fetch_active_account() { return core::at(profiles_, cursor_pos_); }
+RiderIdentity* ProfileRoster::fetch_account(int index) { return core::at(profiles_, index); }
 
 // 0x0057B650
-CSkaterProfile* CPlayerProfileManager::GetExtraProfile(uint32_t name)
+RiderIdentity* ProfileRoster::get_extra_profile(uint32_t name)
 {
-    for (int i = 0; i < m_extraCount; ++i) {
-        if (m_extraNames[i] == name)
-            return m_extraProfiles[i];
+    for (int i = 0; i < extra_count_; ++i) {
+        if (core::at(extra_names_, i) == name) {
+            return core::at(extra_profiles_, i);
+        }
     }
     return nullptr;
 }
 
 // 0x0057B680
-void CPlayerProfileManager::SetLocked(bool locked) { m_locked = locked; }
+void ProfileRoster::set_locked(bool locked) { locked_ = locked; }
 
 // 0x0057B690
-void CPlayerProfileManager::Init()
+void ProfileRoster::prepare_all()
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    Script::RunScript(kInitProSkaters, nullptr, nullptr, false, nullptr);
-    uint32_t key;
-    m_profiles[0] = m_templates.GetByIndex(0, &key);
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    script::launch_script(kInitProSkaters, nullptr, nullptr, false, nullptr);
+    uint32_t key = 0;
+    core::at(profiles_, 0) = templates_.get_by_index(0, &key);
     for (int i = 1; i < 2; ++i) {
-        m_profiles[i] = NewProfile();
-        m_profiles[i]->CopyFrom(m_templates.GetByIndex(i, &key));
+        gsl::owner<RiderIdentity*> made = new_profile(); // (the roster's)
+        core::at(profiles_, i) = made;
+        core::at(profiles_, i)->copy_from(templates_.get_by_index(i, &key));
     }
-    Mem::Manager::Get()->PopContext();
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057B770
-uint32_t CPlayerProfileManager::GetTemplateName(int index)
+uint32_t ProfileRoster::get_template_name(int index)
 {
-    uint32_t key;
-    m_templates.GetByIndex(index, &key);
+    uint32_t key = 0;
+    templates_.get_by_index(index, &key);
     return key;
 }
 
 // 0x0057B790
-void CPlayerProfileManager::ResetSecondProfile()
+void ProfileRoster::reset_second_profile()
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    CSkaterProfile* copy = m_profiles[1];
-    copy->CopyFrom(m_templates.Get(copy->GetName()));
-    Mem::Manager::Get()->PopContext();
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    RiderIdentity* copy = core::at(profiles_, 1);
+    copy->copy_from(templates_.get_pull(copy->fetch_title()));
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057B7E0
-CSkaterProfile* CPlayerProfileManager::GetTemplate(uint32_t name) { return m_templates.Get(name); }
+RiderIdentity* ProfileRoster::get_template(uint32_t name) { return templates_.get_pull(name); }
 
 // 0x0057B800
-void CPlayerProfileManager::ResetTemplates()
+void ProfileRoster::reset_templates()
 {
-    uint32_t count = m_templates.m_count;
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
-        m_templates.GetByIndex(static_cast<int>(i), &key)->Reset(nullptr);
+        uint32_t key = 0;
+        templates_.get_by_index(static_cast<int>(i), &key)->get_reset(nullptr);
     }
 }
 
 // 0x0057B840
-void CPlayerProfileManager::WritePros(Script::CStruct* save)
+void ProfileRoster::write_pros(script::Struct* save)
 {
-    uint32_t count = m_templates.m_count;
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
-        CSkaterProfile* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
-        if (profile->IsPro())
-            profile->WriteToSave(save);
+        uint32_t key = 0;
+        RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
+        if (profile->is_pro()) {
+            profile->write_to_save(save);
+        }
     }
-    save->AddComponentOfType(kCurrentSkater, Script::ESYMBOLTYPE_NAME, m_profiles[m_currentIndex]->GetName());
-    Str::String displayName(m_profiles[m_currentIndex]->GetDisplayName());
-    save->AddString(kDisplayName, Script::ESYMBOLTYPE_STRING, displayName.c_str());
+    save->add_component_of_type(kCurrentSkater, script::QbValueKind::kName, core::at(profiles_, cursor_pos_)->fetch_title());
+    const text::Chars display_name(core::at(profiles_, cursor_pos_)->fetch_shown_name());
+    save->append_word(kDisplayName, script::QbValueKind::kString, display_name.c_str());
 }
 
 // 0x0057B920
-void CPlayerProfileManager::WriteCustomSkaters(Script::CStruct* save)
+void ProfileRoster::write_custom_skaters(script::Struct* save)
 {
-    uint32_t count = m_templates.m_count;
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
-        CSkaterProfile* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
-        if (!profile->IsPro())
-            profile->WriteToSave(save);
+        uint32_t key = 0;
+        RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
+        if (!profile->is_pro()) {
+            profile->write_to_save(save);
+        }
     }
 }
 
 // 0x0057B970
-bool CPlayerProfileManager::AddExtraProfile(uint32_t name)
+bool ProfileRoster::add_extra_profile(uint32_t name)
 {
-    m_extraProfiles[m_extraCount] = NewProfile();
-    m_extraNames[m_extraCount] = name;
-    ++m_extraCount;
+    gsl::owner<RiderIdentity*> made = new_profile(); // (the roster's)
+    core::at(extra_profiles_, extra_count_) = made;
+    core::at(extra_names_, extra_count_) = name;
+    ++extra_count_;
     return true;
 }
 
 // 0x0057BA20
-void CPlayerProfileManager::SetCurrentSkater(uint32_t name)
+void ProfileRoster::set_current_skater(uint32_t name)
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    if (m_currentIndex == 0)
-        m_profiles[m_currentIndex] = m_templates.Get(name);
-    else
-        m_profiles[m_currentIndex]->CopyFrom(m_templates.Get(name));
-    Mem::Manager::Get()->PopContext();
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    if (cursor_pos_ == 0) {
+        core::at(profiles_, cursor_pos_) = templates_.get_pull(name);
+    } else {
+        core::at(profiles_, cursor_pos_)->copy_from(templates_.get_pull(name));
+    }
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057BAA0
-void CPlayerProfileManager::ReadPros(Script::CStruct* save)
+void ProfileRoster::read_pros(script::Struct* save)
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    uint32_t count = m_templates.m_count;
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t key;
-        CSkaterProfile* profile = m_templates.GetByIndex(static_cast<int>(i), &key);
-        if (profile->IsPro())
-            profile->ReadFromSave(profile->GetName(), save);
+        uint32_t key = 0;
+        RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
+        if (profile->is_pro()) {
+            profile->read_from_save(profile->fetch_title(), save);
+        }
     }
     uint32_t current = 0;
-    save->GetChecksum(kCurrentSkater, &current, 0);
-    SetCurrentSkater(current);
-    Mem::Manager::Get()->PopContext();
+    save->read_hash_value(kCurrentSkater, &current, 0);
+    set_current_skater(current);
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x0057BB40
-bool CPlayerProfileManager::AddTemplate(Script::CStruct* params)
+bool ProfileRoster::add_template(script::Struct* params)
 {
-    Mem::Manager::Get()->PushContext(SkaterInfoHeap());
-    uint32_t name;
-    params->GetChecksum(kName, &name, 1);
-    CSkaterProfile* profile = NewProfile();
-    profile->Reset(params);
-    m_templates.Put(name, profile);
-    Mem::Manager::Get()->PopContext();
+    memory::Hub::get_pull()->enter_heap_scope(profile_heap());
+    uint32_t name = 0;
+    params->read_hash_value(kName, &name, 1);
+    gsl::owner<RiderIdentity*> profile = new_profile();
+    profile->get_reset(params);
+    templates_.place_in(name, profile);
+    memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }
 
 // 0x0057BD70
-bool CPlayerProfileManager::ReadCustomSkater(Script::CStruct* save, bool keepSavedStats)
+bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_stats)
 {
-    SetCurrentSkater(kCustom);
-    CSkaterProfile* profile = m_profiles[m_currentIndex];
-    Script::CStruct* custom = nullptr;
-    save->GetStructure(kCustom, &custom, 0);
+    set_current_skater(kCustom);
+    RiderIdentity* profile = core::at(profiles_, cursor_pos_);
+    script::Struct* custom = nullptr;
+    save->read_sub_struct(kCustom, &custom, 0);
     int version = 0;
-    if (!custom->GetInteger(kVersionNumber, &version, 0))
+    if (!custom->fetch_int_value(kVersionNumber, &version, 0)) {
         return false;
-    if (version != 2)
+    }
+    if (version != 2) {
         return true;
+    }
     // The appearance, and the face texture if the save has one.
-    Script::CStruct* appearance = nullptr;
-    custom->GetStructure(kAppearance, &appearance, 0);
-    profile->SetAppearance(appearance, true);
-    if (void* face = FaceOf(profile)) {
-        Script::CStruct* texture;
-        bool found = custom->GetStructure(kFaceTexture, &texture, 0);
+    script::Struct* appearance = nullptr;
+    custom->read_sub_struct(kAppearance, &appearance, 0);
+    profile->set_appearance(appearance, true);
+    if (void* face = face_of(profile)) {
+        script::Struct* texture = nullptr;
+        const bool found = custom->read_sub_struct(kFaceTexture, &texture, 0);
         if (found) {
-            static_cast<Gfx::CFaceTexture*>(face)->LoadFromStructure(texture);
-            Dbg::Printf("Face texture found\n");
+            static_cast<gfx::FaceSkin*>(face)->load_from_structure(texture);
+            debug::printf("Face texture found\n");
         } else {
-            Dbg::Printf("Face texture not found\n");
+            debug::printf("Face texture not found\n");
         }
-        static_cast<Gfx::CFaceTexture*>(face)->SetValid(found);
+        static_cast<gfx::FaceSkin*>(face)->mark_usable(found);
     }
     // The stats and specials as they are, the save's info read over them, then (unless the save's stats are kept)
     // put back.
-    int stats[10];
-    for (int i = 0; i < 10; ++i)
-        stats[i] = profile->GetStat(kStats[i]);
-    int maxSpecials = profile->GetMaxSpecials();
-    Script::CStruct* memory = Script::NewStruct();
-    Script::CStruct* specials = memory ? memory->Init() : nullptr;
-    specials->AppendStructureIfAny(profile->GetSpecials());
-    Script::CStruct* info = nullptr;
-    custom->GetStructure(kInfo, &info, 0);
-    profile->InfoStructure()->Clear();
-    profile->InfoStructure()->AppendStructureIfAny(info);
-    if (!keepSavedStats) {
-        for (int i = 0; i < 10; ++i)
-            profile->SetStat(kStats[i], stats[i]);
-        profile->SetStat(kMaxSpecials, maxSpecials);
-        profile->GetSpecials()->Clear();
-        profile->GetSpecials()->AppendStructureIfAny(specials);
+    std::array<int, kStatCount> stats{};
+    for (int i = 0; i < kStatCount; ++i) {
+        core::at(stats, i) = profile->fetch_tally(core::at(kStats, i));
+    }
+    const int max_specials = profile->get_max_specials();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
+    script::Struct* specials = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+    specials->append_structure_if_any(profile->get_specials());
+    script::Struct* info = nullptr;
+    custom->read_sub_struct(kInfo, &info, 0);
+    profile->details_params()->get_clear();
+    profile->details_params()->append_structure_if_any(info);
+    if (!keep_saved_stats) {
+        for (int i = 0; i < kStatCount; ++i) {
+            profile->set_ability_level(core::at(kStats, i), core::at(stats, i));
+        }
+        profile->set_ability_level(kMaxSpecials, max_specials);
+        profile->get_specials()->get_clear();
+        profile->get_specials()->append_structure_if_any(specials);
     }
     if (specials) {
-        specials->Clear();
-        Script::DeleteStruct(specials);
+        specials->get_clear();
+        script::delete_struct(specials);
     }
-    int deckFlags = 1; // (read, never used)
-    return custom->GetInteger(kDeckFlags, &deckFlags, 0);
+    int deck_flags = 1; // (read, never used)
+    return custom->fetch_int_value(kDeckFlags, &deck_flags, 0);
 }
 
 // 0x0057C0D0
-CPlayerProfileManager* CPlayerProfileManager::Create(bool create)
+ProfileRoster* ProfileRoster::fabricate(bool create)
 {
-    if (!Instance() && create) {
-        void* memory = Mem::Calloc(sizeof(CPlayerProfileManager), nullptr, 1);
-        Instance() = memory ? static_cast<CPlayerProfileManager*>(memory)->Construct() : nullptr;
+    if (!stored_profile_roster() && create) {
+        void* memory = memory::alloc_zeroed(sizeof(ProfileRoster), nullptr, 1);
+        stored_profile_roster() = memory::HeapUnique<ProfileRoster>(memory ? memory::construct_in<ProfileRoster>(memory) : nullptr);
     }
-    ++References();
-    return Instance();
+    ++ref_tally();
+    return stored_profile_roster().get();
 }
 
 // 0x0057C120
-void CPlayerProfileManager::Release()
+void ProfileRoster::get_release()
 {
-    if (References() > 1) {
-        --References();
+    if (ref_tally() > 1) {
+        --ref_tally();
         return;
     }
-    if (CPlayerProfileManager* manager = Instance()) {
-        manager->DestroyBody();
-        Mem::Manager::Get()->Free(manager);
-    }
-    Instance() = nullptr;
-    References() = 0;
+    memory::destroy_then_clear(stored_profile_roster()); // (its destructor, then its block given back)
+    ref_tally() = 0;
 }
 
-} // namespace Obj
+} // namespace objects

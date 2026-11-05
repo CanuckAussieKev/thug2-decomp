@@ -1,0 +1,369 @@
+// The engine's sector (see sector.h): what it does through its geometry and its collision object.
+
+#include <cstdint>
+
+#include "engine/gfx/sector.h"
+
+#include "base/core/dbg.h"
+#include "engine/memory/mem.h"
+#include "engine/gfx/engine_geom.h"
+#include "engine/gfx/engine_scene_list.h"
+#include "engine/render/coll_tri.h"
+#include "engine/render/coll_obj.h"
+#include "base/maths/vec2.h"
+#include "base/maths/vec4.h"
+#include <gsl/pointers>
+
+namespace render {
+
+constexpr int kHighByteMask = 0xFF00;
+constexpr int kCollidableMask = 0x7F;
+constexpr int kSectorHitBit = 0x80;
+
+namespace {
+
+// The geometry (the original's calls go through jumps to its virtual slots).
+Geom* geom_of(void* geom) { return static_cast<Geom*>(geom); }
+const maths::Vec4* geom_world_position(void* geom) { return geom_of(geom)->get_absolute_point(); }
+void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom*>(geom)->choose_tri_source(faces); }
+
+// The collision object's flags' low byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder (the original
+// read and wrote the byte; the high byte is kept).
+struct CollFlags {
+    HitMesh* coll;
+};
+
+[[nodiscard]] inline uint8_t low_byte(const CollFlags& flags) { return static_cast<uint8_t>(flags.coll->flag_bits()); }
+
+inline void set_low_byte(const CollFlags& flags, uint8_t low)
+{
+    flags.coll->flag_bits() = static_cast<uint16_t>((flags.coll->flag_bits() & kHighByteMask) | low);
+}
+CollFlags coll_flags(HitMesh* coll) { return {coll}; }
+
+
+} // namespace
+
+// 0x0049E900
+WorldCell::WorldCell() = default;
+
+// 0x0049E630
+WorldCell::~WorldCell()
+{
+    if (hit_body_ && ((flag_bits_ & kSectorClone) != 0U)) {
+        gsl::owner<HitMesh*> copy = memory::owned_element(hit_body_); // (a clone's own)
+        delete copy;
+    }
+    gsl::owner<Geom*> geom = memory::owned_element(geom_of(geom_handle_)); // (the sector's)
+    delete geom;
+}
+
+// 0x0049E8C0
+void WorldCell::plat_set_shatter(bool /*unused*/)
+{
+    debug::printf("STUB: PlatSetShatter\n");
+} // "STUB: PlatSetShatter\n"
+
+// 0x0049E8D0
+bool WorldCell::plat_get_shatter()
+{
+    debug::printf("STUB: PlatGetShatter\n"); // "STUB: PlatGetShatter\n"
+    return false;
+}
+
+// 0x0049E8E0 (not a function in Ghidra: only the vtable reaches it)
+gsl::owner<WorldCell*> WorldCell::plat_clone(int /*unused*/, void* /*unused*/)
+{
+    debug::printf("STUB: PlatClone\n"); // "STUB: PlatClone\n"
+    return nullptr;
+}
+
+// 0x0049EAD0
+gsl::owner<WorldCell*> WorldCell::replicate(int instance, bool flag, WorldScene* scene)
+{
+    gsl::owner<WorldCell*> clone = plat_clone(instance, scene);
+    if (!clone) {
+        return nullptr;
+    }
+    clone->checksum_ = new_sector_name();
+    clone->flag_bits_ = flag_bits_ | kSectorClone;
+    clone->rot_y_ = rot_y_;
+    if (geom_handle_) {
+        clone->geom_handle_ = static_cast<Geom*>(geom_handle_)->replicate(instance, scene);
+    }
+    if (!hit_body_) {
+        return clone;
+    }
+    HitMesh* coll = hit_body_->replicate(instance);
+    if (coll) {
+        clone->hit_body_ = coll;
+        coll->set_checksum(clone->checksum_);
+        clone->flag_bits_ &= ~kSectorInGrid;
+        if (flag) {
+            clone->flag_bits_ |= kSectorAddToGrid;
+        }
+        if (clone->geom_handle_) {
+            set_geom_coll_tri_data(clone->geom_handle_, coll->geometry());
+        }
+    } else {
+        clone->flag_bits_ &= ~kSectorInGrid;
+        clone->hit_body_ = nullptr;
+        if (clone->geom_handle_) {
+            set_geom_coll_tri_data(clone->geom_handle_, nullptr);
+        }
+    }
+    return clone;
+}
+
+// 0x0049E660
+void WorldCell::choose_geom(void* geom) { geom_handle_ = geom; }
+
+// 0x0049EAA0
+bool WorldCell::set_coll_obj(HitMesh* coll)
+{
+    if (hit_body_) {
+        return false;
+    }
+    hit_body_ = coll;
+    if (geom_handle_) {
+        set_geom_coll_tri_data(geom_handle_, coll->geometry());
+    }
+    return true;
+}
+
+// 0x0049E810
+uint32_t WorldCell::fetch_bits() const { return flag_bits_; }
+
+// 0x0049E890
+void WorldCell::change_bits(uint32_t flags) { flag_bits_ |= flags; }
+
+// 0x0049E8A0
+void WorldCell::clear_flags(uint32_t flags) { flag_bits_ &= ~flags; }
+
+// 0x0049E670
+void WorldCell::wipe_tint()
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->wipe_tint();
+    }
+}
+
+// 0x0049E980
+uint32_t* WorldCell::fetch_tint(uint32_t* out)
+{
+    if (geom_handle_) {
+        static_cast<Geom*>(geom_handle_)->fetch_tint(out);
+        return out;
+    }
+    *out = 0;
+    return out;
+}
+
+// 0x0049E680
+void WorldCell::toggle_shown(uint32_t mask)
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->toggle_shown(mask);
+    }
+}
+
+// 0x0049E690
+uint32_t WorldCell::fetch_shown() { return geom_handle_ ? geom_of(geom_handle_)->fetch_shown() : 0; }
+
+// 0x0049E9B0
+void WorldCell::change_live(bool active)
+{
+    if (hit_body_) {
+        if (active) {
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & ~4));
+        } else {
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) | 4));
+        }
+    }
+    if (geom_handle_) {
+        geom_of(geom_handle_)->change_live(active);
+    }
+}
+
+// 0x0049E9E0 (no geometry and no collision: the original reads through null)
+bool WorldCell::is_operative()
+{
+    if (geom_handle_) {
+        return geom_of(geom_handle_)->is_operative();
+    }
+    return (low_byte(coll_flags(hit_body_)) & 4) == 0;
+}
+
+// 0x0049EA30
+void WorldCell::enable_collision(bool collidable)
+{
+    if (collidable) {
+        flag_bits_ |= kSectorCollidable;
+    } else {
+        flag_bits_ &= ~kSectorCollidable;
+    }
+    if (hit_body_) {
+        if (collidable) {
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & ~2));
+        } else {
+            set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) | 2));
+        }
+    }
+}
+
+// 0x0049EA60
+void WorldCell::mark_as_occluder(bool occluder)
+{
+    if (!hit_body_) {
+        return;
+    }
+    if (!occluder) {
+        set_low_byte(coll_flags(hit_body_), static_cast<uint8_t>(low_byte(coll_flags(hit_body_)) & kCollidableMask));
+        return;
+    }
+    if ((low_byte(coll_flags(hit_body_)) & kSectorHitBit) == 0) {
+        hit_body_->flag_bits() |= kSectorHitBit;
+        hit_body_->add_occlusion_polys(); // its occlusion polygons added
+    }
+}
+
+// 0x0049E6A0
+const maths::BBox* WorldCell::fetch_bounds()
+{
+    if (geom_handle_) {
+        return geom_of(geom_handle_)->fetch_bounds();
+    }
+    return hit_body_->get_world_bounds();
+}
+
+// 0x0049E740 (both of the original's branches call the collision's: there must be one)
+const maths::Mat4* WorldCell::fetch_facing() { return hit_body_->fetch_facing(); }
+
+// 0x0049E6C0
+void WorldCell::place_at_absolute_point(const maths::Vec4* position)
+{
+    if (hit_body_) {
+        hit_body_->place_at_absolute_point(position);
+        if ((flag_bits_ & kSectorInGrid) != 0U) {
+            flag_bits_ |= kSectorMoved;
+        }
+    }
+    if (geom_handle_) {
+        geom_of(geom_handle_)->place_at_absolute_point(position);
+    }
+}
+
+// 0x0049E700
+void WorldCell::change_facing(const maths::Mat4* orientation)
+{
+    if (hit_body_) {
+        hit_body_->change_facing(orientation);
+        if ((flag_bits_ & kSectorInGrid) != 0U) {
+            flag_bits_ |= kSectorMoved;
+        }
+    }
+    if (geom_handle_) {
+        geom_of(geom_handle_)->change_facing(orientation);
+    }
+}
+
+// 0x0049E760 (the difference's remainder as C's: (turns - rot_y_ + 4) % 4 may be negative)
+void WorldCell::spin_around_up(int turns)
+{
+    const int delta = (turns - rot_y_ + 4) % 4;
+    if (hit_body_) {
+        const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_absolute_point();
+        hit_body_->rotate_y(about, delta);
+    }
+    if (geom_handle_) {
+        geom_of(geom_handle_)->rotate_y(delta);
+    }
+    rot_y_ = turns;
+}
+
+// 0x0049E7C0
+void WorldCell::change_scale(const maths::Vec4* scale)
+{
+    if (hit_body_) {
+        const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_absolute_point();
+        hit_body_->scale_about(about, scale);
+        if ((flag_bits_ & kSectorInGrid) != 0U) {
+            flag_bits_ |= kSectorMoved;
+        }
+    }
+    if (geom_handle_) {
+        geom_of(geom_handle_)->change_scale(scale);
+    }
+}
+
+// 0x0049EA00
+void WorldCell::choose_raw_verts(const maths::Vec4* vertices)
+{
+    if (!hit_body_ || !hit_body_->geometry()) {
+        return;
+    }
+    // TriMeshSource: every vertex set (0x00415C10)
+    // (the vertices are made for the collision's vertex count)
+    hit_body_->geometry()->choose_raw_verts({vertices, hit_body_->geometry()->num_vertices()});
+    if ((flag_bits_ & kSectorInGrid) != 0U) {
+        flag_bits_ |= kSectorMoved;
+    }
+}
+
+// 0x0049E820 (the geom's call through the dispatcher 0x0049F420)
+void WorldCell::play_vc_wibble_from_keyframe(int sequence, int keyframe, int time_ms)
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->play_vc_wibble_from_keyframe(sequence, keyframe, time_ms);
+    }
+}
+
+// 0x0049E830
+void WorldCell::set_uv_wibble_params(const Geom::UvWibble& wibble)
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->set_uv_wibble_params(wibble);
+    }
+}
+
+// 0x0049E840
+void WorldCell::force_uv_wobble(bool on)
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->enable_explicit_uv_wibble(static_cast<int>(on));
+    }
+}
+
+// 0x0049E850
+void WorldCell::set_uv_wibble_offsets(maths::Vec2 offsets)
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->set_uv_wibble_offsets(offsets);
+    }
+}
+
+// 0x0049E860
+void WorldCell::reset_texture_anim()
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->reset_texture_anims();
+    }
+}
+
+// 0x0049E870
+void WorldCell::start_texture_anim(bool reset)
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->start_texture_anims(reset);
+    }
+}
+
+// 0x0049E880
+void WorldCell::stop_texture_anim()
+{
+    if (geom_handle_) {
+        geom_of(geom_handle_)->stop_texture_anims();
+    }
+}
+
+} // namespace render

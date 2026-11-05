@@ -1,0 +1,120 @@
+// NOT ORIGINAL - the level editor's View and Overlays menus on the toolbar (ours). See level_editor_overlays.h. Only
+// ImGui's own API here.
+
+#include <cstddef>
+#include <cstdint>
+#include <array>
+#include <vector>
+
+#include "editor/level_editor_nodes.h"
+#include "editor/level_editor_overlays.h"
+#include "editor/level_editor_triggers.h"
+#include "editor/level_editor_ui.h"
+#include "imgui.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "editor/level_editor_gui_text.h"
+
+namespace frontend::level_editor::overlays {
+
+namespace {
+
+constexpr std::size_t kViewModeKeysSize = 16; // "Alt+<n>"
+constexpr std::size_t kOverlayItemSize = 64; // "<label>##ov<bit>"
+constexpr std::size_t kFamilyItemSize = 48; // "<family>##fam<n>"
+
+} // namespace
+
+namespace {
+
+void get_tip(const char* text)
+{
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("%s", text);
+    }
+}
+
+} // namespace
+
+void view_mode_items()
+{
+    static const std::array<const char*, kViewModes> kTips = {{
+        "As in play",
+        "Textures without lighting",
+        "Edges only",
+        "Collision only",
+    }};
+    for (int mode = 0; mode < kViewModes; ++mode) {
+        std::array<char, kViewModeKeysSize> keys{};
+        text::format_to(keys, "Alt+%d", mode + 1);
+        if (ImGui::MenuItem(view_mode_name(mode), keys.data(), view_mode() == mode)) {
+            change_view_mode(mode);
+        }
+        get_tip(core::at(kTips, mode));
+    }
+}
+
+void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* requests)
+{
+    if (ImGui::MenuItem("Collision", "C", model.view.collision)) {
+        ui::Request request{.kind = ui::Request::Kind::kCollision};
+        request.value = model.view.collision ? 0 : 1;
+        requests->push_back(request);
+    }
+    get_tip("Collision near the camera, coloured by surface");
+    if (ImGui::MenuItem("Trigger Volumes", "T", triggers::get_shown())) {
+        triggers::set_shown(!triggers::get_shown());
+    }
+    get_tip("Kill zones, teleports, gaps and script triggers");
+    for (const BitInfo& info : get_bits()) {
+        std::array<char, kOverlayItemSize> item{};
+        text::format_to(item, "%s##ov%u", info.label, info.bit);
+        if (ImGui::MenuItem(item.data(), (*info.key != '\0') ? info.key : nullptr, get_shown(info.bit))) {
+            assign_value(info.bit, !get_shown(info.bit));
+        }
+        get_tip(info.tip);
+    }
+    if (ImGui::BeginMenu("Gizmos")) {
+        const uint32_t families = model.nodes.families;
+        for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
+            auto family = static_cast<nodes::Family>(family_index);
+            if (nodes::shape_of(family) == nodes::Shape::kNone) {
+                continue; // (scenery: its own geometry shows it)
+            }
+            const bool on = (families & nodes::get_bit(family)) != 0;
+            std::array<char, kFamilyItemSize> item{};
+            text::format_to(item, "%s##fam%d", nodes::family_name(family), family_index);
+            if (ImGui::MenuItem(item.data(), nullptr, on)) {
+                ui::Request request{.kind = ui::Request::Kind::kFamilies};
+                request.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);
+                requests->push_back(request);
+            }
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Show All")) {
+            ui::Request request{.kind = ui::Request::Kind::kFamilies};
+            request.id = nodes::kAllFamilies;
+            requests->push_back(request);
+        }
+        if (ImGui::MenuItem("Hide All")) {
+            ui::Request request{.kind = ui::Request::Kind::kFamilies};
+            request.id = 0;
+            requests->push_back(request);
+        }
+        ImGui::EndMenu();
+    }
+}
+
+const std::vector<HelpRow>& help_rows()
+{
+    static const std::vector<HelpRow> kRows = {
+        {.section = "View", .keys = "Alt+1 / 2 / 3 / 4", .what = "Lit / Unlit / Wireframe / Collision only"},
+        {.section = "", .keys = "Y", .what = "Jump arcs from the selected ramp"},
+        {.section = "", .keys = "M, Shift+M", .what = "Ruler; clear measurement (Alt: no snap)"},
+        {.section = "", .keys = "Hover a rail", .what = "Grind preview"},
+        {.section = "Add Piece", .keys = "Grid / List", .what = "Thumbnail or list view; star to add to Favourites"},
+    };
+    return kRows;
+}
+
+} // namespace frontend::level_editor::overlays

@@ -1,25 +1,25 @@
 // NOT ORIGINAL - the level editor's trigger volumes (phase 5) as level data: the pure parts of
-// src/game/front/level_editor_triggers.{h,cpp} ported (the record, the compiled script - byte for byte the game's
-// Triggers::Body / QbFile, which its self-test compares with Boston's own compiled gap scripts) and what
+// src/editor/level_editor_triggers.{h,cpp} ported (the record, the compiled script - byte for byte the game's
+// triggers::get_body / qb_file, which its self-test compares with Boston's own compiled gap scripts) and what
 // tools/game/apply_layout.ts bakes from them (a node, a trigger box in the collision, the script).
 //
 // In the game (the game) an editor trigger is a run-time thing: a node in the editor's overlay node array (GenericNode,
-// type ed_trigger, TriggerScript=<name>Script), a movable collision box (Nx::CCollMovBBox, every face 0x50, named
-// after the node) and a script compiled by the editor and defined through Script::LoadQBData. Baked, the same three are
+// type ed_trigger, TriggerScript=<name>Script), a movable collision box (render::HitMovingBox, every face 0x50, named
+// after the node) and a script compiled by the editor and defined through script::load_qb_data. Baked, the same three are
 // in the level's own files:
-//   - the node: appended to the level's node array, the fields NodeCreate::Fields gives the game's node (Pos, Angles
+//   - the node: appended to the level's node array, the fields node_create::get_fields gives the game's node (Pos, Angles
 //     (0, yaw, 0), Name, Class GenericNode, Type ed_trigger, TriggerScript <name>Script);
 //   - the box: a collision object named after the node - 8 corners, 12 triangles, in the corner and face order of
 //     THUG2's own trigger boxes (Boston's TRGP_ShoppingCart), every face 0x1150 as theirs: trigger (0x40), not
 //     collidable (0x10), no skater shadow (0x100), invisible (0x1000). The trigger component's feeler only asks for
-//     0x50 (SetIgnore(0, 0x50) - level_editor_triggers.h), so it meets the box as it meets the game's;
+//     0x50 (set_excluded(0, 0x50) - level_editor_triggers.h), so it meets the box as it meets the game's;
 //   - the script: `script <name>Script <body> endscript` - the game's tokens - in the level's scripts .qb.
-// Both fire on the way in only: the game's movable box is met where a line enters it (Mth::BBox::LineIntersect), and a
-// static box's faces are one-sided - the static line test (CCollStatic::CollideWithLine 0x00413B50) takes a face only
-// through RayHitsTriangle (0x0040B420), which refuses a determinant below 0.03: a line crossing a face from behind (its
+// Both fire on the way in only: the game's movable box is met where a line enters it (maths::BBox::segment_crossing), and a
+// static box's faces are one-sided - the static line test (render::StaticCollider::collide_with_line 0x00413B50) takes a face only
+// through ray_hits_triangle (0x0040B420), which refuses a determinant below 0.03: a line crossing a face from behind (its
 // normal (v1 - v0) x (v2 - v0) along the line) doesn't meet it. The boxes' faces point outwards (as THUG2's own), so a
 // line leaving the box meets nothing. An exit trigger (exit=1: the game emulates leaving with a test of the skater's
-// place every frame - Triggers::Play) is baked with the 12 faces again, wound the other way: a line leaving the box
+// place every frame - triggers::perform) is baked with the 12 faces again, wound the other way: a line leaving the box
 // meets those, and the node's TriggerScript runs again, as the game runs it on leaving.
 
 import { checksum, Name, Struct, Vector } from "thug2-level-converter-core/level_port/qb.ts";
@@ -29,7 +29,7 @@ import { f32, pack } from "thug2-level-converter-core/lib/struct.ts";
 // (the feature map added boost - a jump boost: trigger_jump_boost speed=<strength> - and break - a breakable: its piece
 // shattered and killed, its collision off while it's breakable through `replaces`)
 export type Kind = "kill" | "teleport" | "script" | "gapstart" | "gapend" | "boost" | "break" | "camera";
-// (the game's KindWord order; "other" - a level trigger without a script - is never a record)
+// (the game's kind_word order; "other" - a level trigger without a script - is never a record)
 export const KINDS: readonly Kind[] = ["kill", "teleport", "script", "gapstart", "gapend", "boost", "break", "camera"];
 export const KIND_NAMES: Readonly<Record<Kind, string>> = {
     kill: "Kill zone",
@@ -43,7 +43,7 @@ export const KIND_NAMES: Readonly<Record<Kind, string>> = {
 };
 export const BOOST_MIN = 100;
 export const BOOST_MAX = 5000;
-// (map4) a camera trigger's seconds (Triggers::kCameraMinSeconds / kCameraMaxSeconds)
+// (map4) a camera trigger's seconds (triggers::kCameraMinSeconds / kCameraMaxSeconds)
 export const CAMERA_MIN_SECONDS = 0.5;
 export const CAMERA_MAX_SECONDS = 60;
 
@@ -53,7 +53,7 @@ export interface V3 {
     z: number;
 }
 
-// A trigger record (Triggers::Placed: its Spec and its node's place).
+// A trigger record (triggers::Placed: its Spec and its node's place).
 export interface TriggerSpec {
     name: string;
     kind: Kind;
@@ -77,7 +77,7 @@ export interface TriggerSpec {
     seconds: number;
 }
 
-// Triggers::ClampSeconds: within CAMERA_MIN_SECONDS .. CAMERA_MAX_SECONDS (a float; not a number: 3).
+// triggers::clamp_seconds: within CAMERA_MIN_SECONDS .. CAMERA_MAX_SECONDS (a float; not a number: 3).
 export function clampSeconds(seconds: number): number {
     if (!Number.isFinite(seconds)) return 3;
     return f32(Math.max(CAMERA_MIN_SECONDS, Math.min(CAMERA_MAX_SECONDS, f32(seconds))));
@@ -85,7 +85,7 @@ export function clampSeconds(seconds: number): number {
 
 export const FACE_FLAGS = 0x1150; // (THUG2's own trigger boxes': 0x40 | 0x10 | 0x100 | 0x1000)
 
-// NodeCreate::ValidName: letters, digits, '_', 1-63 characters.
+// node_create::valid_name: letters, digits, '_', 1-63 characters.
 export function validName(name: string): boolean {
     return /^[A-Za-z0-9_]{1,63}$/.test(name);
 }
@@ -95,7 +95,7 @@ function hexForm(name: string): number | null {
     return /^0[xX][0-9A-Fa-f]{8}$/.test(name) ? Number.parseInt(name.slice(2), 16) >>> 0 : null;
 }
 
-// Triggers::ChecksumOf: the hex form's value, else the name's checksum (0 for none).
+// triggers::checksum_of: the hex form's value, else the name's checksum (0 for none).
 export function checksumOf(name: string): number {
     const v = hexForm(name);
     if (v !== null) return v;
@@ -106,7 +106,7 @@ export function scriptName(spec: { name: string }): string {
     return `${spec.name}Script`;
 }
 
-// Triggers::CleanText: printable, '"' as '\'', no '#', at most 60 characters, no spaces at either end.
+// triggers::clean_text: printable, '"' as '\'', no '#', at most 60 characters, no spaces at either end.
 export function cleanText(text: string): string {
     let out = "";
     for (const c of text) {
@@ -119,13 +119,13 @@ export function cleanText(text: string): string {
     return out.replace(/^ +| +$/g, "");
 }
 
-// Triggers::ClampSize: each extent within 10 .. 50000 (a float).
+// triggers::clamp_size: each extent within 10 .. 50000 (a float).
 export function clampSize(size: V3): V3 {
     const clamp = (v: number): number => (Number.isFinite(v) ? Math.max(10, Math.min(50000, f32(v))) : 10);
     return { x: clamp(size.x), y: clamp(size.y), z: clamp(size.z) };
 }
 
-// Triggers::Problem: why it does nothing (null: it works).
+// triggers::get_problem: why it does nothing (null: it works).
 export function problem(spec: TriggerSpec): string | null {
     switch (spec.kind) {
         case "kill":
@@ -150,7 +150,7 @@ export function problem(spec: TriggerSpec): string | null {
     }
 }
 
-// --- the record (Triggers::ReadRecord) ------------------------------------------------------------------------------
+// --- the record (triggers::read_record) ------------------------------------------------------------------------------
 
 function readNumber(text: string): number | null {
     if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)) return null;
@@ -270,7 +270,7 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
     return seen.has("pos") ? spec : null;
 }
 
-// --- the compiled script (Triggers::Body / QbFile) -------------------------------------------------------------------
+// --- the compiled script (triggers::get_body / qb_file) -------------------------------------------------------------------
 
 const NAME = 0x16;
 const EQUALS = 0x07;
@@ -360,7 +360,7 @@ export function body(spec: TriggerSpec): Buffer {
     return Buffer.concat(parts);
 }
 
-// The names the game's QbFile writes for a spec's script (the script's, its target / script / gap when it has a body);
+// The names the game's qb_file writes for a spec's script (the script's, its target / script / gap when it has a body);
 // `flags`: the gap's flags too (for a level file's name table - not in the game's).
 export function scriptNames(spec: TriggerSpec, flags = false): Map<number, string> {
     const out = new Map<number, string>();
@@ -385,7 +385,7 @@ export function scriptNames(spec: TriggerSpec, flags = false): Map<number, strin
     return out;
 }
 
-// Triggers::QbFile: every spec's `script <name>Script ... endscript` (23 16 <name> 01 <body> 24 01), the names
+// triggers::qb_file: every spec's `script <name>Script ... endscript` (23 16 <name> 01 <body> 24 01), the names
 // (2B <checksum> <text> 00), the end (00).
 export function qbFile(specs: readonly TriggerSpec[]): Buffer {
     const parts: Buffer[] = [];
@@ -402,7 +402,7 @@ export function qbFile(specs: readonly TriggerSpec[]): Buffer {
 
 // --- the node and the box ---------------------------------------------------------------------------------------------
 
-// The node the game makes in its overlay (Triggers::NodeSpec through NodeCreate::Fields), as a node array entry.
+// The node the game makes in its overlay (triggers::node_spec through node_create::get_fields), as a node array entry.
 export function triggerNode(spec: TriggerSpec): Struct {
     const v = (x: number, y: number, z: number): Vector => new Vector("vector", [x, y, z]);
     const n = (text: string): Name => new Name(checksum(text));
@@ -417,14 +417,14 @@ export function triggerNode(spec: TriggerSpec): Struct {
 }
 export const NODE_NAMES = ["Pos", "Angles", "Name", "Class", "GenericNode", "Type", "ed_trigger", "TriggerScript"];
 
-// TurnAboutUp (level_editor.cpp): `v` turned by `yaw` about the world's up axis.
+// turn_about_up (level_editor.cpp): `v` turned by `yaw` about the world's up axis.
 export function turnAboutUp(v: V3, yaw: number): V3 {
     const c = Math.cos(yaw);
     const s = Math.sin(yaw);
     return { x: v.x * c + v.z * s, y: v.y, z: -v.x * s + v.z * c };
 }
 
-// The box's corners (Triggers::BoxOf: centred on pos, turned by yaw), in THUG2's own trigger boxes' order: the bottom
+// The box's corners (triggers::box_of: centred on pos, turned by yaw), in THUG2's own trigger boxes' order: the bottom
 // (x-, z+) (x-, z-) (x+, z-) (x+, z+), the top (x-, z+) (x+, z+) (x+, z-) (x-, z-) - and their 12 triangles.
 export function boxCorners(spec: Pick<TriggerSpec, "pos" | "yaw" | "size">): V3[] {
     const h = { x: spec.size.x / 2, y: spec.size.y / 2, z: spec.size.z / 2 };
@@ -494,7 +494,7 @@ export function triggerCollision(spec: TriggerSpec): ColObject {
     return o;
 }
 
-// The other end of a gap (Triggers::Partner): the index in `specs` of a trigger with the same GapID (case doesn't
+// The other end of a gap (triggers::partner): the index in `specs` of a trigger with the same GapID (case doesn't
 // matter) and the other end's kind; -1 none.
 export function partner(specs: readonly TriggerSpec[], index: number): number {
     const s = specs[index];

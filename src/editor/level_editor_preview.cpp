@@ -1,0 +1,288 @@
+// NOT ORIGINAL - the level editor's model viewer (ours). See level_editor_preview.h. No Direct3D here: the target is
+// the UI backend's, the drawing the game renderer's.
+
+#include "editor/level_editor_preview.h"
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <vector>
+#include <array>
+
+#include "editor/level_editor.h"
+#include "editor/level_editor_objects.h"
+#include "editor/level_editor_scenery.h"
+#include "editor/level_editor_ui.h"
+#include "engine/ui/ui_backend.h"
+#include "engine/gfx/engine_geom.h"
+#include "engine/gfx/render_device.h"
+#include "base/maths/mat4.h"
+#include "engine/objects/entity.h"
+#include "platform/run_log.h"
+#include "base/core/ints.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
+#include "engine/gfx/renderer_view.h"
+#include "base/maths/vec4.h"
+#include "base/core/packed_colour.h"
+#include "base/maths/vec2.h"
+#include "base/maths/trig.h"
+
+namespace frontend::level_editor::preview {
+
+namespace {
+
+constexpr float kZoomStep = 1.2F;           // the orbit's zoom change per wheel step
+constexpr float kTinySine = 1e-4F;          // below this the framing angle is too narrow to divide by
+constexpr float kTinySineReciprocal = 1e4F; // and the distance is capped to this multiple
+constexpr double kLongestFrameSeconds = 0.1; // the orbit's turn uses at most this much of a frame
+constexpr float kBoundsPadding = 4.0F;       // added around the object's bounds
+constexpr std::size_t kSizeTextSize = 96; // the "w x h x d" line
+
+} // namespace
+
+namespace {
+
+constexpr float kHalf = 0.5F; // half
+
+} // namespace
+
+// --- the pieces ---
+
+void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
+{
+    orbit->yaw -= dx * radians_per_pixel;
+    orbit->pitch = std::clamp(orbit->pitch + (dy * radians_per_pixel), kMinPitch, kMaxPitch);
+    // (the yaw kept within a turn either way: it only ever matters as an angle)
+    if (orbit->yaw > maths::kTwoPi || orbit->yaw < -maths::kTwoPi) {
+        orbit->yaw = std::fmod(orbit->yaw, maths::kTwoPi);
+    }
+}
+
+void get_wheel(Orbit* orbit, float steps)
+{
+    orbit->zoom = std::clamp(orbit->zoom * std::pow(kZoomStep, steps), kMinZoom, kMaxZoom);
+}
+
+float fit_distance(FitAt fit_at)
+{
+    const auto radius = fit_at.radius;
+    const auto half_angle = fit_at.half_angle_;
+    const auto margin = fit_at.margin;
+    const float sine = std::sin(half_angle);
+    return sine > kTinySine ? radius * margin / sine : radius * margin * kTinySineReciprocal;
+}
+
+void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)
+{
+    *centre = (min + max) * kHalf;
+    const V3 half = (max - min) * 0.5F;
+    *radius = std::max(min_radius, std::sqrt(get_dot(half, half)));
+}
+
+Eye orbit_eye(V3 centre, float distance, const Orbit& orbit)
+{
+    // (the view looks down by the eye's height angle)
+    Eye eye{};
+    eye.frame = frame_from_yaw_pitch(orbit.yaw, -orbit.pitch);
+    eye.pos = centre + eye.frame.back * distance;
+    return eye;
+}
+
+// --- the viewer ---
+
+namespace {
+
+constexpr uint32_t kBackground = 0xFF2A2C30;
+constexpr float kRadiansPerPixel = 0.01F;
+
+// NOT ORIGINAL grouping - level_editor_preview.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_preview_state()).
+struct LevelEditorPreviewState {
+    Kind kind_ = Kind::kNone;
+    uint32_t id_{};
+    Orbit orbit_{};
+    bool have_time_{};
+    std::chrono::steady_clock::time_point last_frame_;
+    std::chrono::steady_clock::time_point last_drag_;
+    bool failed_logged_{};
+};
+
+LevelEditorPreviewState& level_editor_preview_state()
+{
+    static core::NoDestroy<LevelEditorPreviewState> state;
+    return state.get();
+}
+
+// A subject's box where it is (false: gone).
+bool box_of(Kind kind, uint32_t id, OrientedBox* box)
+{
+    if (kind == Kind::kSector) {
+        return (scenery::sector_geometry(id) != nullptr) && scenery::cuboid(id, box);
+    }
+    if (kind != Kind::kObject) {
+        return false;
+    }
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
+    return (object != nullptr) && ((object->object_flags() & objects::kObjectFlagDead) == 0U) &&
+           object_edit::model_box(object, box);
+}
+bool subject_box(OrientedBox* box) { return box_of(level_editor_preview_state().kind_, level_editor_preview_state().id_, box); }
+
+void draw_subject(Kind kind, uint32_t id)
+{
+    if (kind == Kind::kSector) {
+        // (a sector: its meshes, as the world pass draws them - render::Device::draw_preview_geom)
+        if (render::Geom* geom = scenery::sector_geometry(id)) {
+            render::device().draw_preview_geom(geom, false);
+        }
+        return;
+    }
+    auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
+    for (int i = 0; object && i < kMaxGeometries; ++i) {
+        auto* geom = static_cast<render::Geom*>(object_edit::get_geometry(object, i));
+        if (!geom) {
+            break;
+        }
+        if (scenery::tintable(geom)) { // (the PC geometry class: through its instance when it has one, else its meshes)
+            render::device().draw_preview_geom(geom, true);
+        }
+    }
+}
+
+} // namespace
+
+void get_show(Kind kind, uint32_t id)
+{
+    if (kind == level_editor_preview_state().kind_ && id == level_editor_preview_state().id_) {
+        return;
+    }
+    level_editor_preview_state().kind_ = kind;
+    level_editor_preview_state().id_ = id;
+    level_editor_preview_state().orbit_ = Orbit{};
+    level_editor_preview_state().last_drag_ = {};
+}
+
+void intake(maths::Vec2 delta, float wheel)
+{
+    const auto dx = delta.x;
+    const auto dy = delta.y;
+    if (dx != 0.0F || dy != 0.0F) {
+        get_drag(&level_editor_preview_state().orbit_, dx, dy, kRadiansPerPixel);
+        level_editor_preview_state().last_drag_ = std::chrono::steady_clock::now();
+    }
+    if (wheel != 0.0F) {
+        get_wheel(&level_editor_preview_state().orbit_, wheel);
+    }
+}
+
+uint64_t render(int size)
+{
+    auto now = std::chrono::steady_clock::now();
+    const double elapsed = level_editor_preview_state().have_time_ ? std::chrono::duration<double>(now - level_editor_preview_state().last_frame_).count() : 0.0;
+    level_editor_preview_state().last_frame_ = now;
+    level_editor_preview_state().have_time_ = true;
+    if (level_editor_preview_state().kind_ == Kind::kNone) {
+        return 0;
+    }
+    // The slow turn (paused for a while after a drag).
+    if (std::chrono::duration<double>(now - level_editor_preview_state().last_drag_).count() > kTurnWait) {
+        level_editor_preview_state().orbit_.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, kLongestFrameSeconds));
+    }
+
+    OrientedBox box{};
+    if (!subject_box(&box)) {
+        return 0;
+    }
+    if (!ui_backend::begin_offscreen(size, colour::Packed{kBackground})) {
+        if (!level_editor_preview_state().failed_logged_) {
+            get_log("level editor: the Add palette's preview has no target - shown without one");
+        }
+        level_editor_preview_state().failed_logged_ = true;
+        return 0;
+    }
+    draw_view(level_editor_preview_state().kind_, level_editor_preview_state().id_, level_editor_preview_state().orbit_);
+    ui_backend::end_offscreen();
+    return ui_backend::offscreen_texture();
+}
+
+bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
+{
+    OrientedBox box{};
+    if (!box_of(kind, id, &box)) {
+        return false;
+    }
+    V3 min{};
+    V3 max{};
+    bounds_of(box, &min, &max);
+    V3 centre{};
+    float radius = 0.0F;
+    sphere_of(min, max, kBoundsPadding, &centre, &radius);
+    const Lens lens = lens_for({.angle_degrees_ = kAngle, .aspect = kSquareAspect});
+    const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
+    const Eye eye = orbit_eye(centre, fit_distance({.radius = radius, .half_angle_ = half_angle, .margin = kMargin}) / orbit.zoom, orbit);
+    // (the camera's state render::choose_camera and the instance render change, saved and put back)
+    const render::ViewState saved = render::renderer().save_view();
+    maths::Mat4 orientation = {};
+    core::at(orientation.row, 0) = {.x = eye.frame.right.x, .y = eye.frame.right.y, .z = eye.frame.right.z, .w = 0.0F};
+    core::at(orientation.row, 1) = {.x = eye.frame.up.x, .y = eye.frame.up.y, .z = eye.frame.up.z, .w = 0.0F};
+    core::at(orientation.row, 2) = {.x = eye.frame.back.x, .y = eye.frame.back.y, .z = eye.frame.back.z, .w = 0.0F};
+    core::at(orientation.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    const maths::Vec4 position = {.x = eye.pos.x, .y = eye.pos.y, .z = eye.pos.z, .w = 1.0F};
+    render::device().begin_preview_view(&orientation, &position,
+                                        {.angle = kAngle, .aspect = kSquareAspect, .zoom = 1.0F});
+    draw_subject(kind, id);
+    // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
+    // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
+    render::renderer().restore_view(saved);
+    render::device().end_preview_view();
+    return true;
+}
+
+void conceal()
+{
+    level_editor_preview_state().kind_ = Kind::kNone;
+    level_editor_preview_state().id_ = 0;
+    level_editor_preview_state().have_time_ = false;
+    ui_backend::free_offscreen();
+}
+
+void tick_cycle(ui::ShapeMesh* model)
+{
+    ui::ShapeMesh::PreviewView& view = model->preview;
+    const std::vector<ui::BrowserItem>* items = model->browser_items_;
+    if (!model->browser || !items || view.index < 0 || view.index >= ints::as_signed(items->size())) {
+        if (level_editor_preview_state().kind_ != Kind::kNone) {
+            conceal();
+        }
+        return;
+    }
+    const uint32_t id = core::at((*items), view.index).id;
+    get_show(model->browser_tab_ == 0 ? Kind::kSector : Kind::kObject, id);
+    view.name = object_edit::caption(id);
+    OrientedBox box{};
+    if (subject_box(&box)) {
+        std::array<char, kSizeTextSize> size{};
+        text::format_to(size, "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x, box.max.y - box.min.y,
+                        box.max.z - box.min.z);
+        view.size = size.data();
+    }
+    if (level_editor_preview_state().kind_ == Kind::kSector) {
+        view.type = "scene sector (scenery)";
+    } else {
+        view.type = object_edit::class_of(id);
+        const std::string file = object_edit::get_model_file(id);
+        if (!file.empty()) {
+            view.type += "  -  " + file;
+        }
+    }
+    view.texture = render(ui::preview_pixels());
+}
+
+} // namespace frontend::level_editor::preview

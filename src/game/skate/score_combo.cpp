@@ -1,752 +1,818 @@
-// Mdl::Score's combo: tricks logged and scored, the multiplier, the special meter, landing and bailing, the balance
-// meter (see score.h).
+// modules::PointTally's combo: tricks logged and scored, the multiplier, the special meter, landing and bailing, the balance
+// meter (see point_tally.h).
 
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <array>
 
-#include "game/core/crc.h"
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/front/sprite_element.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "base/lists/dynamic_table.h"
+#include "engine/lists/lookup_table.h"
+#include "game/online/gamenet_manager.h"
+#include "engine/script/param_struct.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/sprite_element.h"
 #include "game/goals/goal_manager.h"
-#include "game/mth/x87_math.h"
-#include "game/net/net_app.h"
-#include "game/net/net_client.h"
-#include "game/obj/anim_blender.h"
-#include "game/script/cscript.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_client.h"
+#include "game/online/net_game_state.h"
+#include "game/rider/rider.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module_calls.h"
+#include "wire/skater_messages.h"
+#include "formats/byte_stream.h"
+#include "engine/objects/anim_blender.h"
+#include "engine/script/cscript.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/score_internal.h"
-#include "game/skater/run_timer.h"
-#include "game/skater/stats_manager.h"
-#include "game/skater/trick_component.h"
-#include "game/sys/timer.h"
+#include "game/rider/run_timer.h"
+#include "game/rider/stats_manager.h"
+#include "game/rider/trick_component.h"
+#include "engine/sys/stopwatch.h"
+#include "game/rider/core_physics.h"
+#include "game/rider/skater_state.h"
+#include "base/core/down_cast.h"
+#include "game/rider/adjust_physics.h"
+#include "base/core/checked_index.h"
+#include "base/core/str.h"
+#include "base/core/format.h"
+#include "wire/message_ids.h"
 
-namespace Mdl {
+namespace modules {
 
-using namespace ScoreInternal;
+using namespace score_internal;
 
 namespace {
+constexpr int kTrickTwistFlagShift = 8;           // the trick flag that counts a half turn more per twist
+constexpr float kReductionToMultiplier = 0.01F;   // the repeat reduction is a percent
+constexpr double kSpinHalfStep = 0.5;             // the spin multiplier counts in halves
+constexpr double kMeterLeanDegrees = 45.0;        // the balance meter's arrow turns this far for a full lean
+constexpr float kManualMeterDegrees = 90.0F;      // the manual meter is turned a quarter
+constexpr double kHalf = 0.5;
+constexpr double kManualMeterRaise = 50.0;        // the manual meter's offsets from the middle of the bar
+constexpr double kManualMeterInset = 80.0;
+constexpr int kLogInitialCapacity = 8;
+constexpr int kLogGrowStep = 8;
+constexpr int kMaxTricksBeforeTrim = 249;         // more than this and the combo's log is trimmed
+constexpr int kTrickLimit = 250;                  // tricks a combo's log holds
+constexpr int kMaxTricksSinceNoSpin = 10;
+constexpr std::size_t kHalfCabTextBytes = 10;     // "Half\_Cab" with its terminator
+constexpr std::size_t kCabalerialTextBytes = 11;  // "Cabalerial" with its terminator
+constexpr int kSpinTrickPointsLimit = 20000;
+constexpr int kPotCountdownTicks = 150;
+constexpr int kFirefightStartSum = 100;           // the score a firefight round starts with
 
-constexpr uint32_t kTagTurnedOn = 0xC22EB9A0;        // tag_turned_on
-constexpr uint32_t kId = 0x40C698AF;                 // id
-constexpr uint32_t kShowBalanceMeter = 0xBA95DA16;   // show_balance_meter
-constexpr uint32_t kHideBalanceMeter = 0x58783B40;   // hide_balance_meter
-constexpr uint32_t kTagMode = 0x863A07E2;            // tag_mode
-constexpr uint32_t kManual = 0xEF24413B;             // Manual
-constexpr uint32_t kBalance = 0x530BE001;            // balance
-constexpr uint32_t kDebugScore = 0x1EDC33F1;         // (name unknown: the points printed)
-constexpr uint32_t kFocusTimeLimit = 0x59B9A85E;     // focus_time_limit
-constexpr uint32_t kFocusMaxTimesInCombo = 0xB33D71C0; // focus_max_times_in_combo
-constexpr uint32_t kTrickMultDegradeStart = 0xFD4625CD; // trick_mult_degrade_start
+constexpr uint32_t kTagTurnedOn = 0xC22EB9A0;             // tag_turned_on
+constexpr uint32_t kId = 0x40C698AF;                      // id
+constexpr uint32_t kShowBalanceMeter = 0xBA95DA16;        // show_balance_meter
+constexpr uint32_t kHideBalanceMeter = 0x58783B40;        // hide_balance_meter
+constexpr uint32_t kTagMode = 0x863A07E2;                 // tag_mode
+constexpr uint32_t kManual = 0xEF24413B;                  // Manual
+constexpr uint32_t kBalance = 0x530BE001;                 // balance
+constexpr uint32_t kDebugScore = 0x1EDC33F1;              // (name unknown: the points printed)
+constexpr uint32_t kFocusTimeLimit = 0x59B9A85E;          // focus_time_limit
+constexpr uint32_t kFocusMaxTimesInCombo = 0xB33D71C0;    // focus_max_times_in_combo
+constexpr uint32_t kTrickMultDegradeStart = 0xFD4625CD;   // trick_mult_degrade_start
 constexpr uint32_t kPhysicsRunTimerDuration = 0x0B84F532; // Physics_RunTimer_Duration
-constexpr uint32_t kSkaterEnterCombo = 0x670FDA8C;   // SkaterEnterCombo
-constexpr uint32_t kSpinCountSlop = 0x50C5CC2F;      // spin_count_slop
-constexpr uint32_t kOllie = 0x9B65D7B8;              // ollie
-constexpr uint32_t kSkaterSpinDisplayed = 0x68B887BB; // SkaterSpinDisplayed
-constexpr uint32_t kNetLobby = 0x1C471C60;           // NetLobby
-constexpr uint32_t kNetFirefight = 0xBFF33600;       // netfirefight
-constexpr uint32_t kFirefight = 0x3D6D444F;          // firefight
+constexpr uint32_t kSkaterEnterCombo = 0x670FDA8C;        // SkaterEnterCombo
+constexpr uint32_t kSpinCountSlop = 0x50C5CC2F;           // spin_count_slop
+constexpr uint32_t kOllie = 0x9B65D7B8;                   // ollie
+constexpr uint32_t kSkaterSpinDisplayed = 0x68B887BB;     // SkaterSpinDisplayed
+constexpr uint32_t kNetLobby = 0x1C471C60;                // NetLobby
+constexpr uint32_t kNetFirefight = 0xBFF33600;            // netfirefight
+constexpr uint32_t kFirefight = 0x3D6D444F;               // firefight
 // The trick names a spin turns into a Cab: Fakie\_Ollie and two more (names unknown).
 constexpr uint32_t kFakieOllie = 0x28C6399C;
 constexpr uint32_t kCabTrick2 = 0x8BF1B0CB;
 constexpr uint32_t kCabTrick3 = 0x428485BB;
 
-constexpr uint8_t kMsgBestCombo = 0x86;  // the best combo to the server
-constexpr uint8_t kMsgLandedScore = 0x52; // a landed combo's points to the server
-constexpr uint8_t kGroupGame = 8;
+using online::MessageId;
 
-// The message both send: the game id and the points.
+// The skater's adjust-physics component's uber-frig flag (the tricks' points are held while it's set).
+bool points_held(objects::Rider* skater)
+{
+    const objects::ObjectModule* adjust = skater->fetch_module(kSkaterAdjustPhysics);
+    return (adjust != nullptr) && (core::down_cast<const objects::RiderPhysicsTweaks>(adjust)->uber_frigged() != 0U);
+}
+
+// The points sent and the message id.
 struct PointsMessage {
-    uint8_t gameId;
-    uint8_t pad01[3];
-    int points;
+    MessageId id{};
+    int points{};
 };
 
+// `points` to the server (message `id`, the client of the skater's viewport).
+void send_points(online::Hub* net, objects::Rider* skater, PointsMessage points_message)
+{
+    const auto id = points_message.id;
+    const auto points = points_message.points;
+    net::NetMessageInfo desc;
+    // (the message both send: wire/skater_messages.h)
+    online::PointsMessage message;
+    message.points = points;
+    message.game_id = net->get_game_id();
+    std::array<uint8_t, online::kPointsSize> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
+    online::write_points(writer, message);
+    desc.set_ident(id);
+    desc.set_content(data.data());
+    desc.set_byte_count(sizeof(data));
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(online::MessageGroup::kGame);
+    core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot()))->send_to_host(&desc);
+}
+
+} // namespace
+
 // The tricks since the last no-spin one (index 0 not looked at).
-int TricksSinceNoSpin(Score* score)
+int PointTally::tricks_since_no_spin()
 {
     int since = 0;
-    for (int i = score->m_tricks - 1; i > 0; --i) {
-        if (score->Trick(i)->m_flags & kTrickNoSpin)
+    for (int i = tricks_ - 1; i > 0; --i) {
+        if ((get_trick(i)->flag_bits_ & kTrickNoSpin) != 0U) {
             break;
+        }
         ++since;
     }
     return since;
 }
 
-// The skater's adjust-physics component holding the tricks' points (its +0x1C).
-bool PointsHeld(Obj::CSkater* skater)
-{
-    auto* adjust = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterAdjustPhysics));
-    return adjust && adjust[0x1C];
-}
-
-// `points` to the server (message `id`, the client of the skater's viewport).
-void SendPoints(GameNet::Manager* net, Obj::CSkater* skater, uint8_t id, int points)
-{
-    Net::MsgDesc desc;
-    desc.Construct();
-    PointsMessage message;
-    message.points = points;
-    message.gameId = net->GetGameId();
-    desc.m_id = id;
-    desc.m_data = &message;
-    desc.m_length = sizeof(message);
-    desc.m_queue = Net::MsgDesc::kQueueSequenced;
-    desc.m_groupId = kGroupGame;
-    static_cast<Net::Client*>(net->GetClient(skater->m_viewport))->EnqueueMessageToServer(&desc);
-}
-
 // The robot counts: of the run (`run`) and of the combo; the factor back to 1.
-void ResetRobot(Score* score, bool run)
+void PointTally::reset_robot(bool run)
 {
     if (run) {
-        score->m_robotLines = 0;
-        score->m_robotNewLines = 0;
-        std::memset(score->m_lineCounts, 0, sizeof(score->m_lineCounts));
+        robot_lines_ = 0;
+        robot_new_lines_ = 0;
+        std::memset(line_counts_.data(), 0, sizeof(line_counts_));
     }
-    score->m_robotComboLines = 0;
-    score->m_robotComboFirstLines = 0;
-    score->m_robotComboNewLines = 0;
-    std::memset(score->m_comboLineCounts, 0, sizeof(score->m_comboLineCounts));
-    score->m_robotFactor = 1.0f;
+    robot_combo_lines_ = 0;
+    robot_combo_first_lines_ = 0;
+    robot_combo_new_lines_ = 0;
+    std::memset(combo_line_counts_.data(), 0, sizeof(combo_line_counts_));
+    robot_factor_ = 1.0F;
 }
 
 // The log's tricks freed and the combo emptied (Land and Bail; the pot itself is the caller's).
-void ClearCombo(Score* score)
+void PointTally::clear_combo()
 {
-    int count = score->m_log.m_count;
-    for (int i = 0; i < count; ++i)
-        Mem::Free(score->m_log.m_items[i]);
-    score->m_log.m_count = 0;
-    score->m_lastNoSpin = -1;
-    score->m_spinTrick = -1;
-    score->m_tricks = 0;
-    score->m_multiplier = 0.0f;
-    ResetRobot(score, false);
-    score->m_bonus = 0;
+    const int count = log_.num();
+    for (int i = 0; i < count; ++i) {
+        memory::dealloc(core::at(log_.item_run(), i));
+    }
+    log_.num() = 0;
+    last_no_spin_ = -1;
+    spin_trick_ = -1;
+    tricks_ = 0;
+    multiplier_ = 0.0F;
+    reset_robot(false);
+    bonus_ = 0;
 }
 
-} // namespace
-
 // 0x00562E40
-void Score::CaptureScore()
+void PointTally::bank_combo_score()
 {
-    if (!m_tricks) {
-        m_potSpecial = 0;
-        m_potScore = 0;
+    if (tricks_ == 0) {
+        pot_special_ = 0;
+        pot_score_ = 0;
         return;
     }
-    m_pot = 0;
+    pot_ = 0;
     int spin = 2;
-    for (int i = 0; i < m_tricks; ++i) {
-        STrickLog* trick = Trick(i);
-        uint32_t flags = trick->m_flags;
-        if (flags & kTrickNoSpin)
+    for (int i = 0; i < tricks_; ++i) {
+        TrickLog* trick = get_trick(i);
+        const uint32_t flags = trick->flag_bits_;
+        if ((flags & kTrickNoSpin) != 0U) {
             spin = 2;
-        else if (i == 0 || (Trick(i - 1)->m_flags & kTrickNoSpin))
-            spin = ((flags >> 8) & 1) ? trick->m_spin + 1 : SpinMultiplier(trick->m_spin);
-        int reduction = Reduction(trick->m_repeats);
-        int points = reduction * spin * trick->m_score / 200; // (percent times half the multiplier)
-        if (trick->m_kind)
-            points = points * 120 / 100;
-        if (m_debug)
-            Dbg::Printf("base %d reduction mult %.2f spin mult %.1f score = %i %s\n", trick->m_score, static_cast<double>(reduction) * static_cast<double>(0.01f),
-                        static_cast<double>(spin) * 0.5, points,
-                        trick->m_text); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
-        m_pot += points;
+        } else if (i == 0 || ((get_trick(i - 1)->flag_bits_ & kTrickNoSpin) != 0U)) {
+            spin = (((flags >> kTrickTwistFlagShift) & 1) != 0U) ? trick->twist_rate_ + 1
+                                                                 : spin_multiplier(trick->twist_rate_);
+        }
+        const int reduction = get_reduction(trick->repeats_);
+        int points = reduction * spin * trick->points_held_ / kPointsDivisor; // (percent times half the multiplier)
+        if (trick->kind_ != 0) {
+            points = points * kLandedKindBonusPercent / kPercentScale;
+        }
+        if (verbose_print_) {
+            debug::printf("base %d reduction mult %.2f spin mult %.1f score = %i %s\n", trick->points_held_,
+                          static_cast<double>(reduction) * static_cast<double>(kReductionToMultiplier), static_cast<double>(spin) * kSpinHalfStep,
+                          points,
+                          trick->text_.data()); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
+        }
+        pot_ += points;
     }
-    if (m_debug)
-        Dbg::Printf("   total %d\n", m_pot); // "   total %d\n"
-    if (Script::GetInteger(kNewSpecial)) {
-        double points = static_cast<double>(m_pot) * m_multiplier;
-        double counted = static_cast<double>(m_potSpecial);
+    if (verbose_print_) {
+        debug::printf("   total %d\n", pot_); // "   total %d\n"
+    }
+    if (script::fetch_int_value(kNewSpecial) != 0) {
+        const double points = static_cast<double>(pot_) * multiplier_;
+        auto counted = static_cast<double>(pot_special_);
         if (points > counted) {
-            m_special += Ftol(points - counted);
-            if (m_special < 0) {
-                SetSpecialActive(false);
-                m_special = 0;
+            special_ += ftol(points - counted);
+            if (special_ < 0) {
+                set_special_active(false);
+                special_ = 0;
             }
-            if (m_special >= 3000) {
-                SetSpecialActive(true);
-                m_special = 3000;
+            if (special_ >= kSpecialMeterMax) {
+                set_special_active(true);
+                special_ = kSpecialMeterMax;
             }
         }
     }
-    m_potScore = Ftol(static_cast<double>(m_pot) * m_multiplier);
-    m_potSpecial = m_potScore;
+    pot_score_ = ftol(static_cast<double>(pot_) * multiplier_);
+    pot_special_ = pot_score_;
 }
 
 // 0x00563020
-void Score::ResetScorePot()
+void PointTally::reset_score_pot()
 {
-    m_pot = 0;
-    Lst::DynamicTableDestroyer destroyer{&m_log};
-    destroyer.DeleteTableContents();
-    m_lastNoSpin = -1;
-    m_spinTrick = -1;
-    m_tricks = 0;
-    m_multiplier = 0.0f;
-    m_robotComboLines = 0;
-    m_robotComboFirstLines = 0;
-    m_robotComboNewLines = 0;
-    std::memset(m_comboLineCounts, 0, sizeof(m_comboLineCounts));
-    m_bonus = 0;
-    m_robotFactor = 1.0f;
+    pot_ = 0;
+    lists::TableReleaser destroyer{&log_};
+    destroyer.empty_table_items();
+    last_no_spin_ = -1;
+    spin_trick_ = -1;
+    tricks_ = 0;
+    multiplier_ = 0.0F;
+    robot_combo_lines_ = 0;
+    robot_combo_first_lines_ = 0;
+    robot_combo_new_lines_ = 0;
+    std::memset(combo_line_counts_.data(), 0, sizeof(combo_line_counts_));
+    bonus_ = 0;
+    robot_factor_ = 1.0F;
 }
 
 // 0x00563080
-void Score::PositionBalanceMeter(bool on, float lean, bool manual)
+void PointTally::place_balance_gauge(bool on, float lean, bool manual)
 {
-    Obj::CSkater* skater = SkaterById(m_skaterId);
-    auto* meter = static_cast<Front::CSpriteElement*>(
-        FindElement(kTheBalanceMeter + static_cast<uint32_t>(skater->GetSkaterNumber())));
-    int turnedOn = 0;
-    meter->GetIntegerTag(kTagTurnedOn, &turnedOn);
-    if (on != (turnedOn != 0)) {
-        Script::CStruct* params = NewStructure();
-        params->AddChecksum(kId, kTheBalanceMeter + static_cast<uint32_t>(skater->GetSkaterNumber()));
-        Script::RunScript(on ? kShowBalanceMeter : kHideBalanceMeter, params, nullptr, false, nullptr);
-        DeleteStructure(params);
+    const objects::Rider* skater = rider_for_slot(rider_no_);
+    auto* meter = core::down_cast<frontend::ImageWidget>(
+        find_element(kTheBalanceMeter + static_cast<uint32_t>(skater->get_skater_number())));
+    int turned_on = 0;
+    meter->read_int_tag(kTagTurnedOn, &turned_on);
+    if (on != (turned_on != 0)) {
+        const script::StructPtr params = script::make_struct();
+        params->put_name_key(checksums::Name{kId}, kTheBalanceMeter + static_cast<uint32_t>(skater->get_skater_number()));
+        script::launch_script(on ? kShowBalanceMeter : kHideBalanceMeter, params.get(), nullptr, false, nullptr);
     }
-    meter->SetChecksumTag(kTagMode, manual ? kManual : kBalance);
+    meter->write_hash_tag(kTagMode, manual ? kManual : kBalance);
     // The arrow between the two arrow positions the lean falls between.
-    double size = std::fabs(static_cast<double>(lean));
-    double steps = 1.0 / m_arrowStep;
-    int index = Ftol(steps * size);
-    double part = size - index * static_cast<double>(m_arrowStep);
-    const Script::CPair& from = m_arrows[index];
-    const Script::CPair& to = m_arrows[index + 1];
-    m_meterOffset.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
-    m_meterOffset.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
-    m_meterRotation = static_cast<float>(static_cast<double>(lean) * -45.0);
-    auto* arrow = static_cast<Front::CSpriteElement*>(meter->mp_firstChild.mp_object);
-    bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
-    double x;
-    double y;
+    const double size = std::fabs(static_cast<double>(lean));
+    const double steps = 1.0 / arrow_step_;
+    const int index = ftol(steps * size);
+    const double part = size - (index * static_cast<double>(arrow_step_));
+    const script::Pair& from = core::at(arrows_, index);
+    const script::Pair& to = core::at(arrows_, index + 1);
+    meter_offset_.x() = static_cast<float>(((static_cast<double>(to.x()) - from.x()) * steps * part) + from.x());
+    meter_offset_.y() = static_cast<float>(((static_cast<double>(to.y()) - from.y()) * steps * part) + from.y());
+    meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -kMeterLeanDegrees);
+    auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest().get_pull());
+    const bool left = !(lean >= 0.0F); // (as the FPU compares: a NaN counts as below)
+    double x = 0.0;
+    double y = 0.0;
     if (manual) {
-        meter->SetPos(m_bars[1].x, m_bars[1].y, 1);
-        meter->SetSpriteRotation(-90.0f, 1);
-        y = static_cast<double>(meter->m_height) * 0.5 + m_meterOffset.y + 50.0;
-        x = static_cast<double>(meter->m_width) * 0.5 - 80.0;
+        meter->change_location(core::at(bars_, 1).x(), core::at(bars_, 1).y(), true);
+        meter->set_sprite_rotation(-kManualMeterDegrees, true);
+        y = (static_cast<double>(meter->level_y()) * kHalf) + meter_offset_.y() + kManualMeterRaise;
+        x = (static_cast<double>(meter->span()) * kHalf) - kManualMeterInset;
     } else {
-        meter->SetPos(m_bars[0].x, m_bars[0].y, 1);
-        meter->SetSpriteRotation(0.0f, 1);
-        y = static_cast<double>(meter->m_height) * 0.5 + m_meterOffset.y;
-        x = static_cast<double>(meter->m_width) * 0.5;
+        meter->change_location(core::at(bars_, 0).x(), core::at(bars_, 0).y(), true);
+        meter->set_sprite_rotation(0.0F, true);
+        y = (static_cast<double>(meter->level_y()) * kHalf) + meter_offset_.y();
+        x = static_cast<double>(meter->span()) * kHalf;
     }
-    x = left ? x - m_meterOffset.x : x + m_meterOffset.x;
-    arrow->SetPos(static_cast<float>(x), static_cast<float>(y), 1);
-    arrow->SetSpriteRotation(-m_meterRotation, 1);
+    x = left ? x - meter_offset_.x() : x + meter_offset_.x();
+    arrow->change_location(static_cast<float>(x), static_cast<float>(y), true);
+    arrow->set_sprite_rotation(-meter_rotation_, true);
 }
 
 // 0x00563370
-void Score::SetBalanceMeter(bool on, float lean) { PositionBalanceMeter(on, lean, false); }
+void PointTally::set_teeter_gauge(bool on, float lean) { place_balance_gauge(on, lean, false); }
 
 // 0x00563390
-void Score::SetManualMeter(bool on, float lean) { PositionBalanceMeter(on, lean, true); }
+void PointTally::set_wheelie_gauge(bool on, float lean) { place_balance_gauge(on, lean, true); }
 
 // 0x00563440
-Score* Score::Construct()
+PointTally::PointTally()
+    : focus_time_limit_(script::fetch_float(kFocusTimeLimit)),
+      focus_max_times_(script::fetch_int_value(kFocusMaxTimesInCombo)),
+      log_({.capacity = kLogInitialCapacity, .grow = kLogGrowStep}),
+      verbose_print_(script::fetch_int_value(kDebugScore) !=
+                     0) // (the log's constructor: in the original, after the table's fields)
 {
-    m_seen.m_count = 0;
-    m_seen.m_first = nullptr;
-    m_seen.m_cursor = nullptr;
-    m_log.Construct(8, 8);
-    for (Script::CPair& arrow : m_arrows)
-        arrow.Init();
-    m_meterOffset.Init();
-    for (Script::CPair& bar : m_bars)
-        bar.Init();
-    m_lastNoSpin = -1;
-    m_spinTrick = -1;
-    m_skaterId = 0;
-    m_total = 0;
-    m_pot = 0;
-    m_potScore = 0;
-    m_potSpecial = 0;
-    m_tricks = 0;
-    m_multiplier = 0.0f;
-    m_special = 0;
-    SetSpecialActive(false); // (inlined there; m_specialActive isn't set before: as the original)
-    m_specialPhase = 0.0f;
-    m_bestTricks = 0;
-    m_bestCombo = 0;
-    m_bestComboSent = 0;
-    m_debug = Script::GetInteger(kDebugScore) != 0;
-    m_focusTimeLimit = Script::GetFloat(kFocusTimeLimit);
-    m_focusMaxTimes = Script::GetInteger(kFocusMaxTimesInCombo);
-    SetupBalanceMeter();
-    return this;
+    seen_.set_num(0);
+    seen_.set_first(nullptr);
+    seen_.set_cursor(nullptr);
+    // (arrows_, meter_offset_, bars_tricks_(0)ormultiplier_(0.0f)ialast_no_spin_(-1)alspin_trick_(-1)there; special_active_ isn't set before: as the original)
+    setup_balance_meter();
 }
 
 // 0x00564B80
-void Score::DestroyBody()
+PointTally::~PointTally()
 {
-    Reset();
-    Mem::FreeMalloc(m_log.m_items);
-    reinterpret_cast<Obj::ProfileTable*>(&m_seen)->Clear(); // (the lookup table's shared destructor)
+    get_reset();
+    memory::free_malloc(static_cast<void*>(log_.items()));
+    seen_.free_nodes(); // (the lookup table's shared destructor)
 }
 
 // 0x00563580
-void Score::Update()
+void PointTally::tick_frame()
 {
-    if (m_special) {
-        float special = static_cast<float>(m_special);
-        double rate = m_specialActive ? static_cast<double>(0.2f) : static_cast<double>(0.05f);
-        m_special = Ftol(special - Tmr::GetSlomoFrameSeconds() * rate);
-        if (m_special <= 0) {
-            SetSpecialActive(false);
-            m_special = 0;
+    if (special_ != 0) {
+        auto special = static_cast<float>(special_);
+        const double rate = special_active_ ? static_cast<double>(0.2F) : static_cast<double>(0.05F);
+        special_ = ftol(special - (frame_clock::get_slomo_frame_seconds() * rate));
+        if (special_ <= 0) {
+            set_special_active(false);
+            special_ = 0;
         }
     }
-    if (m_potState == 1) {
-        if (!--m_potCountdown) {
-            Obj::CSkater* skater = SkaterById(m_skaterId);
-            TrickTextCountdown(skater ? skater->GetSkaterNumber() : 0);
-            m_potState = 2;
+    if (pot_state_ == 1) {
+        if ((--pot_countdown_) == 0) {
+            const objects::Rider* skater = rider_for_slot(rider_no_);
+            move_caption_timer(skater ? skater->get_skater_number() : 0);
+            pot_state_ = 2;
         }
-    } else if (m_potState == 2) {
-        DispatchScorePot(m_potShown, 0.0f);
-        m_potShown -= ScoreIncrement(m_potShown);
-        if (m_potShown < 0) {
-            m_potShown = 0;
-            m_potState = 0;
+    } else if (pot_state_ == 2) {
+        dispatch_score_pot(pot_shown_, 0.0F);
+        pot_shown_ -= point_gain(pot_shown_);
+        if (pot_shown_ < 0) {
+            pot_shown_ = 0;
+            pot_state_ = 0;
         }
     }
-    Front::ElementPtr bar;
+    frontend::ElementPtr bar;
     {
-        Front::ElementPtr found;
-        Obj::CSkater* skater = SkaterById(m_skaterId);
-        uint32_t id = skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->GetSkaterNumber()) : kTheSpecialBarSprite;
-        bar = *Front::CScreenElementManager::Instance()->GetElement(&found, id, 0);
+        frontend::ElementPtr found;
+        const objects::Rider* skater = rider_for_slot(rider_no_);
+        const uint32_t id =
+            skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->get_skater_number()) : kTheSpecialBarSprite;
+        bar = *frontend::UiTree::fetch_part(&found, id, 0);
     }
-    double full = static_cast<double>(m_special) * static_cast<double>(1.0f / 3000.0f); // (0x0064E334)
-    float size = static_cast<float>(full);
-    if (full > 1.0)
-        size = 1.0f;
-    else if (size < 0.0f)
-        size = 0.0f;
-    Front::CScreenElement* element = bar.mp_object; // (no check: as the original)
-    element->SetScale(size, element->m_shown.scaleY, false, 0);
-    uint8_t rgba[4];
-    std::memcpy(rgba, m_barColors[0], 4);
-    if (m_specialActive) {
-        double flash = (X87::Cos(m_specialPhase) + 1.0) * 0.5;
-        m_specialPhase = static_cast<float>(static_cast<double>(m_specialRate) + m_specialPhase);
-        for (int c = 0; c < 4; ++c) {
-            int from = m_barColors[1][c];
-            rgba[c] = static_cast<uint8_t>(Ftol((m_barColors[2][c] - from) * flash + from));
+    const double full = static_cast<double>(special_) * static_cast<double>(1.0F / 3000.0F); // (0x0064E334)
+    auto size = static_cast<float>(full);
+    if (full > 1.0) {
+        size = 1.0F;
+    } else if (size < 0.0F) {
+        size = 0.0F;
+    }
+    frontend::UiWidget* element = bar.get_pull(); // (no check: as the original)
+    element->change_scale(size, element->shown().scale_y_, false, false);
+    std::array<uint8_t, 4> rgba{};
+    std::memcpy(rgba.data(), core::at(bar_colors_, 0).data(), 4);
+    if (special_active_) {
+        const double flash = (std::cos(static_cast<double>(special_phase_)) + 1.0) * 0.5;
+        special_phase_ = static_cast<float>(static_cast<double>(special_rate_) + special_phase_);
+        for (int channel = 0; channel < 4; ++channel) {
+            const int from = core::at(core::at(bar_colors_, 1), channel);
+            core::at(rgba, channel) =
+                static_cast<uint8_t>(ftol(((core::at(core::at(bar_colors_, 2), channel) - from) * flash) + from));
         }
     }
-    uint32_t color;
-    std::memcpy(&color, rgba, 4);
-    element->SetRGBA(color, 1);
+    uint32_t color = 0;
+    std::memcpy(&color, rgba.data(), 4);
+    element->change_rgba(color, true);
+}
+
+// A named trick's text shown: coloured, and the trick before it (the last one named, not "...") joined to it.
+void PointTally::show_trick_text(TrickLog* trick, const char* text, uint32_t flags)
+{
+    escape_spaces(trick->text_, text);
+    // "\c3%s%s\c0 " / "\c2%s%s\c0 " / "%s%s " with "" and the text: the colour around the text, then a space
+    const char* special_colour = ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
+    const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : special_colour;
+    text::format_to(trick->shown_, "%s%s%s ", colour, trick->text_.data(), (*colour != '\0') ? "\\c0" : "");
+    // The trick before it (the last one named, not "...") gets the " + " joining them.
+    for (int i = log_.num() - 2; i >= 0; --i) {
+        auto& shown = get_trick(i)->shown_;
+        const size_t length = std::strlen(shown.data());
+        if (core::at(shown, 0) == '.' || (length == 0U)) {
+            continue;
+        }
+        if (core::at(shown, length - 1) == ' ') {
+            core::at(shown, length - 1) = 0;
+        }
+        text::append_unbounded(shown.data(), "\\_+ "); // "\_+ "
+        break;
+    }
+}
+
+// The multiplier raised for a trick: by one, or less for one repeated past the degrade start (not for a trick
+// without a multiplier).
+void PointTally::raise_multiplier(const TrickSeen* seen, int kind, bool not_counted, uint32_t flags)
+{
+    const int degrade_start = script::fetch_int_value(kTrickMultDegradeStart);
+    ++combo_tricks_;
+    bool add_one = true;
+    if (multiplier_ != 0.0F && !not_counted) {
+        // (the original read the kind + 4th word from landed_: ongoing_'s word for the kind)
+        const int times = core::at(seen->ongoing_, kind);
+        if (times >= degrade_start) {
+            add_one = false;
+            const double added = 1.0 - ((times - degrade_start + 1) * 0.5);
+            auto added_f = static_cast<float>(added);
+            if (added > 0.0 && ((flags & kTrickNoMultiplier) == 0U)) {
+                multiplier_ = static_cast<float>(static_cast<double>(added_f) + multiplier_);
+            }
+        } else if ((flags & kTrickNoMultiplier) != 0U) {
+            add_one = false;
+        }
+    }
+    if (add_one) {
+        multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
+    }
 }
 
 // 0x00563990
-void Score::Trigger(const char* text, int score, uint32_t flags)
+void PointTally::fire_off(const char* text, ScoreFlash score_flash)
 {
-    bool unnamed = !text[0];
-    Obj::CSkater* skater = SkaterById(m_skaterId);
-    if (!skater)
+    const auto score = score_flash.score;
+    const auto flags = score_flash.flags;
+    const bool unnamed = *text == '\0';
+    objects::Rider* skater = rider_for_slot(rider_no_);
+    if (!skater) {
         return;
-    auto* trickComponent = reinterpret_cast<uint8_t*>(skater->GetComponent(kTrick));
-    auto* stats = static_cast<Obj::CStatsManagerComponent*>(skater->GetComponent(kStatsManager));
-    if (text[0])
-        trickComponent[0x13A8] = 1;
-    auto* physics = reinterpret_cast<uint8_t*>(skater->GetComponent(kSkaterCorePhysics));
-    auto* physicsSkater = *reinterpret_cast<Obj::CSkater**>(physics + 0xC);
-    uint8_t flipped = (*reinterpret_cast<uint8_t**>(physics + 0x1528))[0x28];
-    int stance = physicsSkater->m_goofy ? flipped : !flipped;
-    stats->Set10(static_cast<int>(reinterpret_cast<uintptr_t>(text)), score, stance);
-    if (m_tricks > 249) {
-        TrimLog();
-        if (m_tricks > 249) {
-            if (unnamed)
+    }
+    auto* trick_component = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
+    auto* stats = core::down_cast<objects::AttributeTracker>(skater->fetch_module(kStatsManager));
+    if (*text != '\0') {
+        trick_component->set_bailed(true);
+    }
+    auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
+    auto* physics_skater = core::down_cast<objects::Rider>(physics->entity());
+    const uint8_t flipped = physics->state()->flag(objects::PoseFlag::kFlipped).on;
+    const int stance = physics_skater->traits().goofy() ? flipped : static_cast<int>(flipped == 0U);
+    stats->set10(text, score, stance);
+    if (tricks_ > kMaxTricksBeforeTrim) {
+        trim_log();
+        if (tricks_ > kMaxTricksBeforeTrim) {
+            if (unnamed) {
                 return;
-            Dbg::Printf("Trick Limit (%d) Reached\n", 250); // "Trick Limit (%d) Reached\n"
-            LastTrick()->m_score += score;
-            if (!(flags & kTrickNoMultiplier))
-                m_multiplier = static_cast<float>(static_cast<double>(m_multiplier) + 1.0);
-            CaptureScore();
+            }
+            debug::printf("Trick Limit (%d) Reached\n", kTrickLimit); // "Trick Limit (%d) Reached\n"
+            newest_logged_trick()->points_held_ += score;
+            if ((flags & kTrickNoMultiplier) == 0U) {
+                multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
+            }
+            bank_combo_score();
             return;
         }
     }
-    Mem::PushContext(Mem::Manager::Get()->m_frontEndHeap);
-    uint32_t name = Crc::GenerateCRCFromString(text);
-    int kind = (flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6;
-    if (m_log.m_count < 250) {
-        m_log.Add(Mem::New(sizeof(STrickLog)));
-        LastTrick()->m_score = 0;
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
+    const uint32_t name = checksums::hash_from_text(text);
+    const int kind = static_cast<int>(((flags & kTrickKindHigh) != 0U) ? (flags >> 1) & 4 : (flags >> 1) & 6);
+    if (log_.num() < kTrickLimit) {
+        log_.append_one(memory::alloc(sizeof(TrickLog)));
+        newest_logged_trick()->points_held_ = 0;
     }
-    STrickLog* trick = LastTrick();
-    trick->m_score += score;
-    trick->m_name = name;
-    trick->m_kind = kind;
-    trick->m_flags = flags;
-    trick->m_spin = 0;
-    trick->m_text[0] = 0;
-    trick->m_shown[0] = 0;
-    trick->m_spinDegrees = 0;
+    TrickLog* trick = newest_logged_trick();
+    trick->points_held_ += score;
+    trick->label_ = name;
+    trick->kind_ = kind;
+    trick->flag_bits_ = flags;
+    trick->twist_rate_ = 0;
+    core::at(trick->text_, 0) = 0;
+    core::at(trick->shown_, 0) = 0;
+    trick->rotation_deg_ = 0;
     if (!unnamed) {
-        EscapeSpaces(trick->m_text, text);
-        const char* format;
-        if (flags & kTrickColour3)
-            format = "\\c3%s%s\\c0 "; // "\c3%s%s\c0 "
-        else if (flags & kTrickSpecial)
-            format = "\\c2%s%s\\c0 "; // "\c2%s%s\c0 "
-        else
-            format = "%s%s "; // "%s%s "
-        std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, "", trick->m_text);
-        // The trick before it (the last one named, not "...") gets the " + " joining them.
-        for (int i = m_log.m_count - 2; i >= 0; --i) {
-            char* shown = Trick(i)->m_shown;
-            size_t length = std::strlen(shown);
-            if (shown[0] == '.' || !length)
-                continue;
-            if (shown[length - 1] == ' ')
-                shown[length - 1] = 0;
-            std::memcpy(shown + std::strlen(shown), "\\_+ ", 5); // "\_+ "
-            break;
-        }
+        show_trick_text(trick, text, flags);
     }
-    if (m_lastNoSpin == m_tricks - 1)
-        m_spinTrick = m_tricks;
-    if (flags & kTrickNoSpin)
-        m_lastNoSpin = m_tricks;
-    auto* seen = static_cast<STrickSeen*>(m_seen.GetItem(&name));
-    bool notCounted = false;
-    if (flags & kTrickNotCounted) {
-        LastTrick()->m_repeats = 0;
-        notCounted = true;
+    if (last_no_spin_ == tricks_ - 1) {
+        spin_trick_ = tricks_;
+    }
+    if ((flags & kTrickNoSpin) != 0U) {
+        last_no_spin_ = tricks_;
+    }
+    auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry(&name));
+    bool not_counted = false;
+    if ((flags & kTrickNotCounted) != 0U) {
+        newest_logged_trick()->repeats_ = 0;
+        not_counted = true;
     } else {
         if (!seen) {
-            seen = static_cast<STrickSeen*>(Mem::New(sizeof(STrickSeen)));
-            m_seen.PutItem(&name, seen);
+            seen = static_cast<TrickSeen*>(memory::alloc(sizeof(TrickSeen)));
+            seen_.store_entry(&name, seen);
             for (int k = 0; k < 4; ++k) {
-                seen->m_landed[k] = 0;
-                seen->m_current[k] = 0;
+                core::at(seen->landed_, k) = 0;
+                core::at(seen->ongoing_, k) = 0;
             }
         }
-        int* counts = seen->m_landed; // (m_landed then m_current; the kind can reach past them, as the original)
-        LastTrick()->m_repeats = counts[kind] + counts[kind + 4];
-        ++counts[kind + 4];
+        // (the original counted through landed_ and on into ongoing_ - the kind and the kind + 4 words from landed_)
+        newest_logged_trick()->repeats_ = core::at(seen->landed_, kind) + core::at(seen->ongoing_, kind);
+        ++core::at(seen->ongoing_, kind);
     }
-    ++m_tricks;
+    ++tricks_;
     if (!unnamed) {
-        float oldMultiplier = m_multiplier;
-        int degradeStart = Script::GetInteger(kTrickMultDegradeStart);
-        ++m_comboTricks;
-        bool addOne = true;
-        if (m_multiplier != 0.0f && !notCounted) {
-            int times = seen->m_landed[kind + 4];
-            if (times >= degradeStart) {
-                addOne = false;
-                double added = 1.0 - (times - degradeStart + 1) * 0.5;
-                float addedF = static_cast<float>(added);
-                if (added > 0.0 && !(flags & kTrickNoMultiplier))
-                    m_multiplier = static_cast<float>(static_cast<double>(addedF) + m_multiplier);
-            } else if (flags & kTrickNoMultiplier) {
-                addOne = false;
+        const float old_multiplier = multiplier_;
+        raise_multiplier(seen, kind, not_counted, flags);
+        if (multiplier_ == 1.0F) {
+            auto* timer = core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer));
+            timer->set_seconds_remaining(core::down_cast<objects::Rider>(timer->entity())->get_scaled_physics(kPhysicsRunTimerDuration));
+            timer->set_resumes(0);
+            timer->set_cur_phase(2);
+            focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
+            focus_max_times_ = script::fetch_int_value(kFocusMaxTimesInCombo);
+            skater->announce(kSkaterEnterCombo, nullptr, 0.0F);
+        }
+        if (tricks_since_no_spin() > kMaxTricksSinceNoSpin) {
+            newest_logged_trick()->points_held_ = 0;
+            if (multiplier_ > 1.0F) {
+                multiplier_ = static_cast<float>(static_cast<double>(multiplier_) - 1.0);
             }
         }
-        if (addOne)
-            m_multiplier = static_cast<float>(static_cast<double>(m_multiplier) + 1.0);
-        if (m_multiplier == 1.0f) {
-            auto* timer = static_cast<Obj::CSkaterRunTimerComponent*>(skater->GetComponent(kSkaterRunTimer));
-            timer->m_timeLeft = static_cast<Obj::CSkater*>(timer->m_object)->GetScaledPhysics(kPhysicsRunTimerDuration);
-            timer->m_resumes = 0;
-            timer->m_state = 2;
-            m_focusTimeLimit = Script::GetFloat(kFocusTimeLimit);
-            m_focusMaxTimes = Script::GetInteger(kFocusMaxTimesInCombo);
-            skater->BroadcastEvent(kSkaterEnterCombo, nullptr, 0.0f);
-        }
-        if (TricksSinceNoSpin(this) > 10) {
-            LastTrick()->m_score = 0;
-            if (m_multiplier > 1.0f)
-                m_multiplier = static_cast<float>(static_cast<double>(m_multiplier) - 1.0);
-        }
-        if (PointsHeld(skater)) {
-            LastTrick()->m_score = 0;
-            m_multiplier = oldMultiplier;
+        if (points_held(skater)) {
+            newest_logged_trick()->points_held_ = 0;
+            multiplier_ = old_multiplier;
         }
     }
-    CaptureScore();
-    DispatchTrickSequence(false);
-    TrickTextPulse(skater->GetSkaterNumber());
-    m_potState = 0;
-    DispatchScorePot(m_pot, m_multiplier);
-    Mem::PopContext();
+    bank_combo_score();
+    dispatch_trick_sequence(false);
+    move_caption_pulse(skater->get_skater_number());
+    pot_state_ = 0;
+    dispatch_score_pot(pot_, multiplier_);
+    memory::leave_heap_scope();
 }
 
 // 0x00563F30
-void Score::SetSpin(int degrees)
+void PointTally::change_spin_degrees(int degrees)
 {
-    if (!m_tricks || m_spinTrick < 0)
+    if ((tricks_ == 0) || spin_trick_ < 0) {
         return;
-    Obj::CSkater* skater = SkaterById(m_skaterId);
-    bool flipped = static_cast<Obj::CAnimBlenderComponent*>(skater->GetComponent(kAnimBlender))->AllChannelsFlag29();
+    }
+    objects::Rider* skater = rider_for_slot(rider_no_);
+    const bool flipped =
+        core::down_cast<objects::AnimBlenderComponent>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
     int size = degrees;
-    const char* side;
+    const char* side = nullptr;
     if (degrees < 0) {
         size = -degrees;
         side = flipped ? "BS" : "FS"; // "BS" / "FS"
     } else {
         side = flipped ? "FS" : "BS";
     }
-    int halfTurns = (Ftol(Obj::GetPhysicsFloat(kSpinCountSlop, 0, nullptr)) + size) / 180;
-    Trick(m_spinTrick)->m_spinDegrees = degrees;
-    uint32_t crc = Crc::GenerateCRCFromString(Trick(m_spinTrick)->m_text);
+    const int half_turns = (ftol(objects::read_tuning_float(checksums::Name{kSpinCountSlop}, 0, nullptr)) + size) / 180;
+    get_trick(spin_trick_)->rotation_deg_ = degrees;
+    const uint32_t crc = checksums::hash_from_text(get_trick(spin_trick_)->text_.data());
     bool renamed = false;
     if (crc == kFakieOllie || crc == kCabTrick2 || crc == kCabTrick3) {
-        if (halfTurns == 1) {
-            std::memcpy(Trick(m_spinTrick)->m_text, "Half\\_Cab", 10); // "Half\_Cab"
+        if (half_turns == 1) {
+            std::memcpy(get_trick(spin_trick_)->text_.data(), "Half\\_Cab", kHalfCabTextBytes); // "Half\_Cab"
             renamed = true;
-        } else if (halfTurns == 2) {
-            std::memcpy(Trick(m_spinTrick)->m_text, "Cabalerial", 11); // "Cabalerial"
+        } else if (half_turns == 2) {
+            std::memcpy(get_trick(spin_trick_)->text_.data(), "Cabalerial", kCabalerialTextBytes); // "Cabalerial"
             renamed = true;
-        } else if (halfTurns > 2) {
-            Trick(m_spinTrick)->m_text[0] = 0;
-            if (side == "FS")
+        } else if (half_turns > 2) {
+            core::at(get_trick(spin_trick_)->text_, 0) = 0;
+            if (side == "FS") {
                 side = "FS Cab"; // "FS Cab"
-            if (side == "BS")
+            }
+            if (side == "BS") {
                 side = "BS Cab"; // "BS Cab"
+            }
         }
     }
-    if (Trick(m_spinTrick)->m_spin >= halfTurns)
+    if (get_trick(spin_trick_)->twist_rate_ >= half_turns) {
         return;
-    if (m_debug)
-        Dbg::Printf("New spin value %d:\n", halfTurns * 180); // "New spin value %d:\n"
-    STrickLog* trick = Trick(m_spinTrick);
-    if (trick->m_name == kOllie && halfTurns % 2 == 1) { // (an odd number of half turns: the other side)
-        if (side == "FS")
+    }
+    if (verbose_print_) {
+        debug::printf("New spin value %d:\n", half_turns * kHalfTurnDegrees); // "New spin value %d:\n"
+    }
+    TrickLog* trick = get_trick(spin_trick_);
+    if (trick->label_ == kOllie && half_turns % 2 == 1) { // (an odd number of half turns: the other side)
+        if (side == "FS") {
             side = "BS";
-        else if (side == "BS")
+        } else if (side == "BS") {
             side = "FS";
-        if (side == "FS Cab")
+        }
+        if (side == "FS Cab") {
             side = "BS Cab";
-        else if (side == "BS Cab")
+        } else if (side == "BS Cab") {
             side = "FS Cab";
+        }
     }
-    int shownDegrees = halfTurns * 180;
-    bool joined = m_log.m_count - 1 > m_spinTrick;
-    uint8_t flags = static_cast<uint8_t>(trick->m_flags);
+    const int shown_degrees = half_turns * 180;
+    const bool joined = log_.num() - 1 > spin_trick_;
+    auto flags = static_cast<uint8_t>(trick->flag_bits_);
+    // The original's formats: "\c3%s\_%d\_%s\c0[\_+ ]", "\c2%s\_%d\_%s\c0[\_+ ]", "%s\_%d\_%s[\_+ ]" (renamed: without
+    // the "%d\_") - the colour around the text, then the join to the next trick.
+    const char* special_colour = ((flags & kTrickSpecial) != 0U) ? "\\c2" : "";
+    const char* colour = ((flags & kTrickColour3) != 0U) ? "\\c3" : special_colour;
+    const char* colour_end = (*colour != '\0') ? "\\c0" : "";
+    const char* join = joined ? "\\_+ " : "";
     if (!renamed) {
-        const char* format;
-        if (flags & kTrickColour3)
-            format = (joined ? "\\c3%s\\_%d\\_%s\\c0\\_+ " : "\\c3%s\\_%d\\_%s\\c0"); // "\c3%s\_%d\_%s\c0[\_+ ]"
-        else if (flags & kTrickSpecial)
-            format = (joined ? "\\c2%s\\_%d\\_%s\\c0\\_+ " : "\\c2%s\\_%d\\_%s\\c0"); // "\c2%s\_%d\_%s\c0[\_+ ]"
-        else
-            format = (joined ? "%s\\_%d\\_%s\\_+ " : "%s\\_%d\\_%s"); // "%s\_%d\_%s[\_+ ]"
-        std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, side, shownDegrees, trick->m_text);
+        text::format_to(trick->shown_, "%s%s\\_%d\\_%s%s%s", colour, side, shown_degrees, trick->text_.data(),
+                        colour_end, join);
     } else {
-        const char* format;
-        if (flags & kTrickColour3)
-            format = (joined ? "\\c3%s\\_%s\\c0\\_+ " : "\\c3%s\\_%s\\c0"); // "\c3%s\_%s\c0[\_+ ]"
-        else if (flags & kTrickSpecial)
-            format = (joined ? "\\c2%s\\_%s\\c0\\_+ " : "\\c2%s\\_%s\\c0"); // "\c2%s\_%s\c0[\_+ ]"
-        else
-            format = (joined ? "%s\\_%s\\_+ " : "%s\\_%s"); // "%s\_%s[\_+ ]"
-        std::snprintf(trick->m_shown, sizeof(trick->m_shown), format, side, trick->m_text);
+        text::format_to(trick->shown_, "%s%s\\_%s%s%s", colour, side, trick->text_.data(), colour_end, join);
     }
-    DispatchTrickSequence(false);
-    Trick(m_spinTrick)->m_spin = halfTurns;
-    CaptureScore();
-    static_cast<Obj::CStatsManagerComponent*>(skater->GetComponent(kStatsManager))
-        ->SetValue58(static_cast<float>(shownDegrees));
-    m_potState = 0;
-    DispatchScorePot(m_pot, m_multiplier);
-    skater->BroadcastEvent(kSkaterSpinDisplayed, nullptr, 0.0f);
+    dispatch_trick_sequence(false);
+    get_trick(spin_trick_)->twist_rate_ = half_turns;
+    bank_combo_score();
+    core::down_cast<objects::AttributeTracker>(skater->fetch_module(kStatsManager))
+        ->set_value58(static_cast<float>(shown_degrees));
+    pot_state_ = 0;
+    dispatch_score_pot(pot_, multiplier_);
+    skater->announce(kSkaterSpinDisplayed, nullptr, 0.0F);
 }
 
 // 0x00564270
-void Score::TweakTrick(int points)
+void PointTally::tweak_trick(int points)
 {
-    if (m_tricks <= 0)
+    if (tricks_ <= 0) {
         return;
-    STrickLog* trick = Trick(m_tricks - 1);
-    if (!trick->m_text[0])
+    }
+    const TrickLog* trick = get_trick(tricks_ - 1);
+    if (core::at(trick->text_, 0) == '\0') {
         return;
-    if (TricksSinceNoSpin(this) > 10)
+    }
+    if (tricks_since_no_spin() > kMaxTricksSinceNoSpin) {
         return;
-    if (!(trick->m_flags & kTrickNoSpin) && trick->m_score > 20000)
+    }
+    if (((trick->flag_bits_ & kTrickNoSpin) == 0U) && trick->points_held_ > kSpinTrickPointsLimit) {
         return;
-    if (PointsHeld(SkaterById(m_skaterId)))
+    }
+    if (points_held(rider_for_slot(rider_no_))) {
         return;
-    Trick(m_tricks - 1)->m_score += points;
-    CaptureScore();
-    DispatchTrickSequence(false);
-    m_potState = 0;
-    DispatchScorePot(m_pot, m_multiplier);
+    }
+    get_trick(tricks_ - 1)->points_held_ += points;
+    bank_combo_score();
+    dispatch_trick_sequence(false);
+    pot_state_ = 0;
+    dispatch_score_pot(pot_, multiplier_);
 }
 
 // 0x00564330
-void Score::Land()
+void PointTally::land()
 {
-    GameNet::Manager* net = NetManager();
-    Game::CGameMode* mode = GameMode();
-    CaptureScore();
-    int points = Ftol(static_cast<double>(m_pot) * m_multiplier);
-    Obj::CSkater* skater = SkaterById(m_skaterId);
-    bool byClusters = Script::GetInteger(kScoreByClusters) != 0;
-    Game::GetGoalManager()->Land();
-    if (byClusters || (mode->IsTrue(kShouldModulateColor) && points > 0))
-        LogTrickObjectRequest(points);
-    static_cast<Obj::CTrickComponent*>(skater->GetComponent(kTrick))->SetTrickObjects(false);
-    if (!Script::GetInteger(kNewSpecial)) {
-        m_special += Ftol(static_cast<double>(m_pot) * m_multiplier);
-        if (m_special >= 3000) {
-            SetSpecialActive(true);
-            m_special = 3000;
+    online::Hub* net = online::online_hub();
+    goals::MatchRules* mode = get_game_mode();
+    bank_combo_score();
+    const int points = ftol(static_cast<double>(pot_) * multiplier_);
+    objects::Rider* skater = rider_for_slot(rider_no_);
+    const bool by_clusters = script::fetch_int_value(kScoreByClusters) != 0;
+    goals::get_objective_board()->land();
+    if (by_clusters || (mode->is_true(kShouldModulateColor) && points > 0)) {
+        note_tagged_prop_ask(points);
+    }
+    core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->set_trick_objects(false);
+    if (script::fetch_int_value(kNewSpecial) == 0) {
+        special_ += ftol(static_cast<double>(pot_) * multiplier_);
+        if (special_ >= kSpecialMeterMax) {
+            set_special_active(true);
+            special_ = kSpecialMeterMax;
         }
-        if (m_special < 0)
-            m_special = 0;
+        special_ = std::max(special_, 0);
     } else {
-        m_potSpecial = 0;
+        pot_special_ = 0;
     }
-    if (m_comboTricks > m_bestTricks)
-        m_bestTricks = m_comboTricks;
-    int combo = m_potScore;
-    if (combo > m_bestCombo)
-        m_bestCombo = combo;
-    m_comboTricks = 0;
-    if (combo > m_bestComboSent) {
-        if (net->InNetGame() && mode->GetNameChecksum() != kNetLobby)
-            SendPoints(net, skater, kMsgBestCombo, m_potScore);
-        m_bestComboSent = m_potScore;
+    best_tricks_ = std::max(best_tricks_, combo_tricks_);
+    const int combo = pot_score_;
+    top_chain_ = std::max(top_chain_, combo);
+    combo_tricks_ = 0;
+    if (combo > best_combo_sent_) {
+        if (net->in_net_game() && mode->get_name_key() != kNetLobby) {
+            send_points(net, skater, {.id = MessageId::kBestCombo, .points = pot_score_});
+        }
+        best_combo_sent_ = pot_score_;
     }
-    if (!mode->ShouldDegradeScore()) {
-        for (int i = 0; i < m_seen.m_count; ++i) {
-            auto* seen = static_cast<STrickSeen*>(m_seen.GetItemByIndex(&i, nullptr)); // (inlined there)
+    if (!mode->repeats_lose_points()) {
+        for (int i = 0; i < seen_.num(); ++i) {
+            auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
             for (int k = 0; k < 4; ++k) {
-                seen->m_landed[k] = 0;
-                seen->m_current[k] = 0;
+                core::at(seen->landed_, k) = 0;
+                core::at(seen->ongoing_, k) = 0;
             }
         }
-        ResetRobot(this, true);
+        reset_robot(true);
     } else {
-        for (int i = 0; i < m_seen.m_count; ++i) {
-            auto* seen = static_cast<STrickSeen*>(m_seen.GetItemByIndex(&i, nullptr));
+        for (int i = 0; i < seen_.num(); ++i) {
+            auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr));
             for (int k = 0; k < 4; ++k) {
-                seen->m_landed[k] += seen->m_current[k];
-                seen->m_current[k] = 0;
+                core::at(seen->landed_, k) += core::at(seen->ongoing_, k);
+                core::at(seen->ongoing_, k) = 0;
             }
         }
     }
-    if (m_tricks) {
-        m_potState = 1;
-        m_potShown = Ftol(static_cast<double>(m_pot) * m_multiplier);
-        m_potCountdown = 150;
-        DispatchScorePot(m_potShown, 0.0f);
-        TrickTextLanded(skater->GetSkaterNumber());
+    if (tricks_ != 0) {
+        pot_state_ = 1;
+        pot_shown_ = ftol(static_cast<double>(pot_) * multiplier_);
+        pot_countdown_ = kPotCountdownTicks;
+        dispatch_score_pot(pot_shown_, 0.0F);
+        move_caption_landed(skater->get_skater_number());
     }
-    m_pot = 0;
-    ClearCombo(this);
-    int before = GetTotalScore(); // (inlined there)
-    if (!mode->IsTrue(kShouldModulateColor) && mode->ShouldTrackTrickScore()) {
-        bool send = mode->ShouldAccumulateScore();
-        if (!send && mode->ShouldTrackBestCombo() && GetTotalScore() < points)
+    pot_ = 0;
+    clear_combo();
+    const int before = get_total_score(); // (inlined there)
+    if (!mode->is_true(kShouldModulateColor) && mode->keeps_move_points()) {
+        bool send = mode->keeps_running_total();
+        if (!send && mode->keeps_best_chain() && get_total_score() < points) {
             send = true;
+        }
         if (send) {
-            if (!net->OnServer())
-                SendPoints(net, skater, kMsgLandedScore, points);
-            SetTotalScore(mode->ShouldTrackBestCombo() ? points : m_total + points);
-        } else if (!mode->ShouldTrackBestCombo() && !static_cast<uint8_t>(mode->IsScoreFrozen())) {
-            SetTotalScore(points);
+            if (!net->get_on_server()) {
+                send_points(net, skater, {.id = MessageId::kLandedScore, .points = points});
+            }
+            set_grand_total(mode->keeps_best_chain() ? points : sum_ + points);
+        } else if (!mode->keeps_best_chain() && (static_cast<uint8_t>(mode->is_scoring_paused()) == 0U)) {
+            set_grand_total(points);
         }
     }
-    CheckHighScore(before, GetTotalScore());
-    static_cast<Obj::CSkaterRunTimerComponent*>(skater->GetComponent(kSkaterRunTimer))->Stop();
+    test_record_score(before, get_total_score());
+    core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer))->halt();
 }
 
 // 0x00564860
-void Score::Bail(bool clear)
+void PointTally::get_bail(bool clear)
 {
-    for (int i = 0; i < m_seen.m_count; ++i) {
-        auto* seen = static_cast<STrickSeen*>(m_seen.GetItemByIndex(&i, nullptr)); // (inlined there)
-        for (int k = 0; k < 4; ++k)
-            seen->m_current[k] = 0;
-    }
-    if (m_tricks) {
-        m_potState = 0;
-        if (!clear) {
-            Obj::CSkater* skater = SkaterById(m_skaterId);
-            DispatchScorePot(Ftol(static_cast<double>(m_pot) * m_multiplier), 0.0f);
-            TrickTextBail(skater->GetSkaterNumber());
-        } else {
-            DispatchTrickSequence(true);
-            DispatchScorePot(0, 0.0f);
+    for (int i = 0; i < seen_.num(); ++i) {
+        auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
+        for (int& count : seen->ongoing_) {
+            count = 0;
         }
     }
-    m_pot = 0;
-    ClearCombo(this);
-    m_special = 0;
-    SetSpecialActive(false); // (inlined there)
-    static_cast<Obj::CSkaterRunTimerComponent*>(SkaterById(m_skaterId)->GetComponent(kSkaterRunTimer))->Stop();
-    Game::GetGoalManager()->Bail();
+    if (tricks_ != 0) {
+        pot_state_ = 0;
+        if (!clear) {
+            const objects::Rider* skater = rider_for_slot(rider_no_);
+            dispatch_score_pot(ftol(static_cast<double>(pot_) * multiplier_), 0.0F);
+            move_caption_wipeout(skater->get_skater_number());
+        } else {
+            dispatch_trick_sequence(true);
+            dispatch_score_pot(0, 0.0F);
+        }
+    }
+    pot_ = 0;
+    clear_combo();
+    special_ = 0;
+    set_special_active(false); // (inlined there)
+    core::down_cast<objects::RiderRunClock>(rider_for_slot(rider_no_)->fetch_module(kSkaterRunTimer))->halt();
+    goals::get_objective_board()->get_bail();
 }
 
 // 0x00564A10
-void Score::Reset()
+void PointTally::get_reset()
 {
-    if (!SkateCalls::Skate())
+    if (!skate_calls::get_skate()) {
         return;
-    Obj::CSkater* skater = SkaterById(m_skaterId);
-    Dbg::Printf("Score::RESET ...............\n"); // "Score::RESET ...............\n"
-    ResetRobot(this, true);
-    ResetScorePot();
-    Lst::LookupTableDestroyer destroyer{&m_seen};
-    destroyer.FreeTableContents();
-    if (skater && skater->m_unknownBC) {
-        DispatchTrickSequence(false);
-        DispatchScorePot(0, 0.0f);
     }
-    m_total = GameMode()->GetNameChecksum() == kNetFirefight || GameMode()->GetNameChecksum() == kFirefight ? 100 : 0;
-    m_pot = 0;
-    m_potScore = 0;
-    m_potSpecial = 0;
-    m_special = 0;
-    m_bestComboSent = 0;
-    SetSpecialActive(false); // (inlined there)
-    m_potShown = 0;
-    m_potState = 0;
-    SetSpecialBarColors();
-    skater = SkaterById(m_skaterId);
-    if (skater && skater->m_unknownBC)
-        static_cast<Obj::CSkaterRunTimerComponent*>(skater->GetComponent(kSkaterRunTimer))->Stop();
+    objects::Rider* skater = rider_for_slot(rider_no_);
+    debug::printf("Score::RESET ...............\n"); // "PointTally::RESET ...............\n"
+    reset_robot(true);
+    reset_score_pot();
+    lists::TableItemEraser destroyer{&seen_};
+    destroyer.free_table_contents();
+    if (skater && (skater->is_local_skater() != 0U)) {
+        dispatch_trick_sequence(false);
+        dispatch_score_pot(0, 0.0F);
+    }
+    sum_ = get_game_mode()->get_name_key() == kNetFirefight || get_game_mode()->get_name_key() == kFirefight ? kFirefightStartSum : 0;
+    pot_ = 0;
+    pot_score_ = 0;
+    pot_special_ = 0;
+    special_ = 0;
+    best_combo_sent_ = 0;
+    set_special_active(false); // (inlined there)
+    pot_shown_ = 0;
+    pot_state_ = 0;
+    set_special_bar_colors();
+    skater = rider_for_slot(rider_no_);
+    if (skater && (skater->is_local_skater() != 0U)) {
+        core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer))->halt();
+    }
 }
 
 // 0x00564BE0
-void Score::UpdateSpin(int degrees)
+void PointTally::advance_turn(int degrees)
 {
-    if (m_tricks && m_spinTrick >= 0 && !(Trick(m_spinTrick)->m_flags & kTrickNoSpin))
-        SetSpin(degrees);
-}
-
-} // namespace Mdl
-
-namespace Lst {
-
-// 0x005633E0
-void LookupTableDestroyer::FreeTableContents()
-{
-    int count = m_table->m_count;
-    int index = 0;
-    for (; count > 0; --count) {
-        uint32_t key;
-        void* item = m_table->GetItemByIndex(&index, &key);
-        m_table->FlushItem(&key);
-        if (item)
-            Mem::Free(item);
+    if ((tricks_ != 0) && spin_trick_ >= 0 && ((get_trick(spin_trick_)->flag_bits_ & kTrickNoSpin) == 0U)) {
+        change_spin_degrees(degrees);
     }
 }
 
-} // namespace Lst
+} // namespace modules
+
+namespace lists {
+
+// 0x005633E0
+void TableItemEraser::free_table_contents()
+{
+    int count = lookup_table_->num();
+    const int index = 0;
+    for (; count > 0; --count) {
+        uint32_t key = 0;
+        void* item = lookup_table_->fetch_entry_at(&index, &key);
+        lookup_table_->erase_entry(&key);
+        if (item) {
+            memory::dealloc(item);
+        }
+    }
+}
+
+} // namespace lists

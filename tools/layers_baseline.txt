@@ -1,0 +1,2 @@
+# NOT ORIGINAL - the upward includes that exist today (tools/layers.ts). May only shrink: delete a line when its
+# include goes, never add one. Regenerate with: node tools/layers.ts --write

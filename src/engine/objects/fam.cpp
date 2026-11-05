@@ -1,0 +1,184 @@
+// The fam component (GameObjects::FamComponent): see fam.h. From the disassembly of 0x0041D170-0x0041D6D4.
+
+#include "engine/objects/fam.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <gsl/pointers>
+#include <array>
+
+#include "engine/assets/resource_entry.h"
+#include "engine/assets/resource_registry.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "engine/objects/anim_blender.h"
+#include "engine/audio/music_api.h"
+#include "engine/audio/stream_commands.h"
+#include "engine/script/cscript.h"
+#include "engine/script/names.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/fwd.h"
+#include "engine/objects/car_physics.h"
+#include "engine/objects/node_components.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/camera_lookaround.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
+
+namespace objects {
+namespace {
+constexpr std::size_t kFileNameBytes = 32;
+constexpr uint32_t kObjPlayFam = 0xE5894C80; // Obj_PlayFam
+constexpr uint32_t kFAM = 0x0301D67C; // FAM
+constexpr uint32_t kObjStopLastFam = 0x48AC2139; // Obj_StopLastFam (letter case unknown)
+} // namespace
+
+std::array<script::MemberFunctionEntry, 3>& fam_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 3> fam_member_functions{{
+        {.callsign_ = kObjPlayFam, .owner_kind_ = kFAM}, {.callsign_ = kObjStopLastFam, .owner_kind_ = kFAM}, {.callsign_ = 0, .owner_kind_ = kFAM}}};
+    return fam_member_functions;
+}
+
+namespace {
+
+constexpr uint32_t kFamScript = 0x074253BB;            // fam_play_stream
+constexpr uint32_t kStreamChecksum = 0x0572EA28;       // stream_checksum
+constexpr uint32_t kVol = 0xF6A36814;                  // vol
+constexpr uint32_t kPriority = 0x9D5923D8;             // priority
+constexpr uint32_t kUsePosInfo = 0xC9B0DEB7;           // use_pos_info
+constexpr uint32_t kStreamId = 0x8A68AB90;             // streamId
+constexpr uint32_t kPlayAnim = 0x93516575;             // play_anim
+constexpr uint32_t kTypeParam = 0x7321A8D6;            // type
+constexpr uint32_t kId = 0x40C698AF;                   // id
+constexpr uint32_t kPartialAnim = 0x659BF355;          // partialAnim
+constexpr uint32_t kJawRotation = 0xC0BA0665;          // jawRotation
+constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
+constexpr int kDefaultPriority = 0x66;
+
+assets::ResourceRegistry* asset_manager() { return assets::asset_manager(); }
+
+void delete_params(script::Struct* params)
+{
+    if (params) {
+        params->get_clear(); // (the destructor)
+        script::delete_struct(params);
+    }
+}
+
+} // namespace
+
+// 0x0041D200
+gsl::owner<ObjectModule*> FamComponent::fabricate() { return new FamComponent; }
+
+// (the constructor: inlined in fabricate in the original)
+FamComponent::FamComponent() { set_kind_tag(kType); }
+
+// 0x0041D170
+void FamComponent::publish_method_table()
+{
+    script::register_member_function_table(fam_member_functions());
+}
+
+// 0x0041D190 (0x0041D1A0 the deleting one)
+FamComponent::~FamComponent() = default;
+
+// 0x0041D2C0
+void FamComponent::unload_fam()
+{
+    if (fam_ == 0U) {
+        return;
+    }
+    script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->put_name_key(checksums::Name{kTypeParam}, kPartialAnim);
+    params->put_name_key(checksums::Name{kId}, kJawRotation);
+    if (entity()) {
+        entity()->fetch_module(AnimBlenderComponent::kType)
+            ->invoke_method_by_name(kRemoveAnimController, params, nullptr);
+    }
+    delete_params(params);
+    assets::ResourceRegistry* assets = asset_manager();
+    if (assets::Resource* asset = assets->obtain_loaded_item(fam_, 0)) {
+        assets->discard_loaded_item(asset);
+    }
+    fam_ = 0;
+}
+
+// 0x0041D3E0
+void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
+{
+    unload_fam();
+    std::array<char, kFileNameBytes> file_name{};
+    text::format_to(file_name, "fam\\%08x.fam",
+                    name); // (the original: the game's sprintf, 0x006234FE)
+    debug::printf("loading %s\n", file_name.data());
+    assets::ResourceRegistry* assets = asset_manager();
+    const int saved = assets->unknown18();
+    if (assets->load_anim(file_name.data(), name, anim_set, false, false)) {
+        debug::printf("loaded\n");
+        fam_ = checksums::hash_from_text(file_name.data());
+    }
+    assets->set_unknown18(saved);
+}
+
+// 0x0041D480
+bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_levels)
+{
+    const auto volume = fam_levels.volume;
+    const auto priority = fam_levels.priority;
+    if (!audio::stream_exists(name)) {
+        return false;
+    }
+    if (feed_ != 0U) {
+        script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
+        audio::halt_stream(feed_);
+        feed_ = 0;
+    }
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->put_name_key(checksums::Name{kStreamChecksum}, name);
+    if (volume != 0) {
+        params->put_int(checksums::Name{kVol}, volume);
+    }
+    if (!stream_only) {
+        params->put_int(checksums::Name{kUsePosInfo}, 0);
+        auto* blender = core::down_cast<AnimBlenderComponent>(entity()->fetch_module(AnimBlenderComponent::kType));
+        const uint32_t anim_set = blender->get_anim_set();
+        load_anim_bank(name, anim_set);
+        const uint32_t stream = audio::prime_stream(name, priority);
+        params->put_name_key(checksums::Name{kStreamId}, stream);
+        feed_ = stream;
+        if (asset_manager()->get_asset_data(anim_set + name, 0)) {
+            params->put_name_key(checksums::Name{0U}, kPlayAnim);
+        }
+    }
+    script::Script* script = script::spawn_script(kFamScript, params);
+    script->entity().assign_value(entity());
+    delete_params(params);
+    return true;
+}
+
+// 0x0041D660
+int FamComponent::obj_play_fam(script::Struct* params, script::Script* /*script*/)
+{
+    uint32_t name = 0;
+    params->read_hash_value(0U, &name, 1);
+    int volume = 0;
+    params->fetch_int_value(kVol, &volume, 0);
+    int priority = kDefaultPriority;
+    params->fetch_int_value(kPriority, &priority, 0);
+    return play_fam(name, false, {.volume = volume, .priority = priority}) ? 1 : 0;
+}
+
+// 0x0041D280
+int FamComponent::obj_stop_last_fam(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    if (feed_ != 0U) {
+        script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
+        audio::halt_stream(feed_);
+        feed_ = 0;
+    }
+    return 1;
+}
+
+} // namespace objects

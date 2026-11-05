@@ -1,5 +1,5 @@
 // NOT ORIGINAL - start the game in a level with the skater standing at a spot, to try something there by hand
-// (src/game/front/start_level.h: `-level <level> -at x,y,z[,heading]`).
+// (src/game/front_end/start_level.h: `-level <level> -at x,y,z[,heading]`).
 //
 //   node tools/game/try_spot.ts <level> <x,y,z[,heading]>   THUG2 started in free skate there; once the level is up
 //                                                            the skater stands at the spot (on the ground below it),
@@ -51,7 +51,7 @@ export interface Spot {
     heading?: number;
 }
 
-// As the game's StartLevel::ParseSpot: three or four numbers separated by commas and / or spaces, optionally in
+// As the game's begin_level::parse_spot: three or four numbers separated by commas and / or spaces, optionally in
 // parentheses. Null for anything else.
 export function parseSpot(text: string): Spot | null {
     let s = text.trim();

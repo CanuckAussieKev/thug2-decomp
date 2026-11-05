@@ -1,0 +1,480 @@
+// The object and camera animation movies, 0x005871B0-0x005880DF. See anim_movies.h.
+
+#include "engine/objects/anim_movies.h"
+
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <array>
+#include <span>
+#include <gsl/assert>
+
+#include "engine/assets/resource_registry.h"
+#include "base/core/dbg.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/gfx/anim_controller.h"
+#include "engine/gfx/boned_anim_frame_data.h"
+#include "engine/gfx/view_cam.h"
+#include "base/maths/mat4.h"
+#include "base/maths/vec4.h"
+#include "engine/objects/cutscene.h"
+#include "engine/objects/movie_manager.h"
+#include "engine/objects/node_objects.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/entity_hub.h"
+#include "engine/script/names.h"
+#include "engine/script/param_struct.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/game_hooks.h"
+#include "engine/pad_input/input_hub.h"
+#include "engine/gfx/viewport.h"
+#include "engine/objects/car_physics.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+
+namespace objects {
+
+namespace {
+constexpr std::size_t kMatrixDiagonalStride = 5;   // the diagonal of a 4 x 4 matrix is every fifth float
+constexpr unsigned kMakesPoseFlag = 0x40;
+constexpr std::size_t kQuadBytes = 16;             // four floats
+constexpr uint32_t kFov = 0x17E7321E; // Fov
+constexpr uint32_t kTargetID = 0x531E4D28; // targetID
+constexpr uint32_t kTargetOffset = 0x906642BF; // targetOffset
+constexpr uint32_t kPositionOffset = 0xA00D3D6E; // PositionOffset
+constexpr uint32_t kSetTargetObject = 0xA8D5A188; // SetTargetObject
+constexpr uint32_t kClearTargetObject = 0xD7241A6C; // ClearTargetObject
+constexpr uint32_t kCameraFov = 0x99529205; // camera_fov
+constexpr uint32_t kMoviecamDebug = 0x2F510F45; // moviecam_debug
+constexpr uint32_t kModel = 0x286A8D26; // Model
+
+constexpr uint32_t kNoAsset = 0xEE721991; // a timer, not an asset
+constexpr uint32_t kFrames = 0x019176C5;  // its length in frames
+constexpr uint32_t kLooping = 0x5EA0E211;
+constexpr uint32_t kBackwards = 0xF8CFD515;
+
+using gfx::AnimTimeline;
+
+// The base movie's code (VideoEntry, node_objects.h).
+void base_load(VideoEntry* movie, script::Struct* params) { movie->configure_from_data(params); }
+void set_held(VideoEntry* movie, int value) { movie->set_flag_1b(static_cast<uint8_t>(value)); }
+// The movie's name (movie_manager.h).
+uint32_t get_name_of(void* movie) { return movie_key_from_params(movie); }
+// The asset manager's asset by name (null if none).
+void* find_asset(uint32_t name) { return assets::asset_manager()->get_asset_data(name, 0); }
+// The movie's own Start (the original's slot 3).
+void start_movie(VideoEntry* movie) { movie->kickoff(); }
+
+// The timeline's code: constructor / destructor body, complete, PlayAnim (slot 3), Update (slot 2).
+void construct_timeline(AnimTimeline* timeline) { new (timeline) AnimTimeline; }
+void destroy_timeline(AnimTimeline* timeline) { timeline->~AnimTimeline(); }
+bool is_accomplished(AnimTimeline* timeline) { return timeline->is_accomplished(); }
+void play_anim(AnimTimeline* timeline, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
+{
+    timeline->play_anim(anim, start, end, loop_type, blend, speed);
+}
+void update_timeline(AnimTimeline* timeline) { timeline->tick_frame(); }
+
+// The animation asset's code: started (0x00482F10); told a step from one time to another (0x00482F40).
+void start_asset(void* anim) { static_cast<void>(static_cast<gfx::JointClipFrames*>(anim)->arm_events()); }
+void step_asset(void* anim, float from, float to, gfx::ViewCam* camera, bool first)
+{
+    static_cast<gfx::JointClipFrames*>(anim)->fire_events(from, to, camera, static_cast<int>(first));
+}
+
+float seconds_per_frame() { return kAnimMoviesSecondsPerFrame; } // 1/60
+
+constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
+
+void set_identity(std::span<float, maths::kMatrixFloats> elements)
+{
+    for (size_t i = 0; i < maths::kMatrixFloats; ++i) {
+        core::at(elements, i) = (i % kMatrixDiagonalStride == 0) ? 1.0F : 0.0F;
+    }
+}
+
+// Row `row` of a matrix as its first three floats (x, y, z).
+std::span<float, 3> axis_of(std::span<float, maths::kMatrixFloats> elements, size_t row)
+{
+    return std::span<float, 3>(elements.subspan(row * 4, 3));
+}
+
+// out = a x b (x, y and z; each a difference of products, rounded once).
+void cross_into(std::span<float, 3> out, std::span<const float, 3> a, std::span<const float, 3> b)
+{
+    const double x =
+        (static_cast<double>(core::at(a, 1)) * core::at(b, 2)) - (static_cast<double>(core::at(a, 2)) * core::at(b, 1));
+    const double y =
+        (static_cast<double>(core::at(a, 2)) * core::at(b, 0)) - (static_cast<double>(core::at(a, 0)) * core::at(b, 2));
+    const double z =
+        (static_cast<double>(core::at(a, 0)) * core::at(b, 1)) - (static_cast<double>(core::at(a, 1)) * core::at(b, 0));
+    core::at(out, 0) = static_cast<float>(x);
+    core::at(out, 1) = static_cast<float>(y);
+    core::at(out, 2) = static_cast<float>(z);
+}
+
+// Play: the asset's length (its first word) from 0, or backwards from a frame before its end to 0.
+void play_on(AnimTimeline* timeline, void* anim, int loop_type, bool backwards)
+{
+    const float length = static_cast<gfx::JointClipFrames*>(anim)->duration();
+    if (backwards) {
+        play_anim(timeline, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0F, loop_type,
+                  0.0F, 1.0F);
+    } else {
+        play_anim(timeline, 0, 0.0F, length, loop_type, 0.0F, 1.0F);
+    }
+}
+
+// Load's shared part: the asset named like the movie played (false: there's none), or a timer of `frames`.
+template <typename Movie>
+bool load_anim(Movie* movie, script::Struct* params)
+{
+    if (!params->has_bare_flag(kNoAsset)) {
+        void* anim = find_asset(get_name_of(movie));
+        if (!anim) {
+            return false;
+        }
+        const bool backwards = params->has_bare_flag(kBackwards);
+        const int loop_type = params->has_bare_flag(kLooping) ? 1 : 0;
+        movie->perform(anim, loop_type, backwards);
+    } else {
+        int frames = 0;
+        params->fetch_int_value(kFrames, &frames, 1);
+        movie->set_anim(nullptr);
+        play_anim(&movie->timeline(), 0, 0.0F, static_cast<float>(frames * static_cast<double>(seconds_per_frame())), 0,
+                  0.0F, 1.0F);
+    }
+    set_held(movie, 1);
+    return true;
+}
+
+} // namespace
+
+// --- the object animation movie -------------------------------------------------------------------------------
+
+// 0x005871B0
+ObjectAnimMovie::ObjectAnimMovie() { construct_timeline(&timeline_); }
+
+// 0x00587210
+ObjectAnimMovie::~ObjectAnimMovie() { destroy_timeline(&timeline_); }
+
+// 0x005875D0
+bool ObjectAnimMovie::read_in(script::Struct* params)
+{
+    base_load(this, params);
+    if (!load_anim(this, params)) {
+        return false;
+    }
+    start_movie(this);
+    return true;
+}
+
+// 0x005873A0
+void ObjectAnimMovie::perform(void* anim, int loop_type, bool backwards)
+{
+    anim_ = anim;
+    play_on(&timeline_, anim, loop_type, backwards);
+}
+
+// 0x00587270
+bool ObjectAnimMovie::kickoff()
+{
+    if (anim_) {
+        start_asset(anim_);
+    }
+    return true;
+}
+
+// 0x00587280 / 0x005872A0
+bool ObjectAnimMovie::is_finished()
+{
+    if (get_is_finished()) {
+        return true;
+    }
+    if (flag18()) {
+        return false;
+    }
+    return is_accomplished(&timeline_);
+}
+bool ObjectAnimMovie::is_held_and_complete() { return flag18() && is_accomplished(&timeline_); }
+
+// --- the camera animation movie -------------------------------------------------------------------------------
+
+// 0x005873F0
+CameraAnimMovie::CameraAnimMovie()
+{
+    construct_timeline(&timeline_);
+}
+
+// 0x005872C0
+CameraAnimMovie::~CameraAnimMovie() { destroy_timeline(&timeline_); }
+
+// 0x00587F70
+bool CameraAnimMovie::read_in(script::Struct* params)
+{
+    base_load(this, params);
+    float fov = 0.0F;
+    if (params->fetch_float(kFov, &fov, 0)) {
+        field_of_view_ = fov;
+        viewer()->change_h_fov(fov);
+    }
+    if (!load_anim(this, params)) {
+        return false;
+    }
+    load_target(params);
+    start_movie(this);
+    place_camera();
+    if (anim_) {
+        step_asset(anim_, timeline_.ongoing(), timeline_.ongoing(), viewer(), true);
+    }
+    return true;
+}
+
+// 0x00587480
+void CameraAnimMovie::load_target(script::Struct* params)
+{
+    has_goal_ = params->read_hash_value(kTargetID, &aim_point_, 0);
+    if (!has_goal_) {
+        return;
+    }
+    goal_shift_.x = goal_shift_.y = goal_shift_.z = 0.0F;
+    goal_shift_.w = 1.0F;
+    params->fetch_vec(kTargetOffset, &goal_shift_, 0);
+    const float zero = kFloatZero;
+    // (not equal, or unordered: a NaN counts as set)
+    target_offset_set_ = !(goal_shift_.x == zero) || !(goal_shift_.y == zero) || !(goal_shift_.z == zero);
+    look_offset_.x = look_offset_.y = look_offset_.z = 0.0F;
+    look_offset_.w = 1.0F;
+    look_offset_set_ = params->fetch_vec(kPositionOffset, &look_offset_, 0);
+}
+
+// 0x00587540
+void CameraAnimMovie::perform(void* anim, int loop_type, bool backwards)
+{
+    anim_ = anim;
+    play_on(&timeline_, anim, loop_type, backwards);
+}
+
+// 0x00587320
+bool CameraAnimMovie::kickoff()
+{
+    if (anim_) {
+        start_asset(anim_);
+    }
+    return true;
+}
+
+// 0x00587330 / 0x00587350
+bool CameraAnimMovie::is_finished()
+{
+    if (get_is_finished()) {
+        return true;
+    }
+    if (flag18()) {
+        return false;
+    }
+    return is_accomplished(&timeline_);
+}
+bool CameraAnimMovie::is_held_and_complete() { return flag18() && is_accomplished(&timeline_); }
+
+// 0x00587590
+bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
+{
+    if (name == kSetTargetObject) {
+        load_target(params);
+        return true;
+    }
+    if (name == kClearTargetObject) {
+        has_goal_ = false;
+        aim_point_ = 0;
+        return true;
+    }
+    // (the base class's invoke_method_by_name: a stub shared by many vtables, 0x004A0CF0 - "not handled")
+    return false;
+}
+
+// 0x00588090
+void CameraAnimMovie::tick_frame()
+{
+    const float from = timeline_.ongoing();
+    update_timeline(&timeline_);
+    viewer()->remember_prev_pos();
+    if (anim_) {
+        step_asset(anim_, from, timeline_.ongoing(), viewer(), false);
+    }
+    place_camera();
+}
+
+// 0x00587A50
+void CameraAnimMovie::place_camera()
+{
+    const std::span<float, 4> pos(viewer()->fetch_location()->data(), 4);
+    maths::Mat4* mat = viewer()->fetch_mat();
+    const std::span<float, 16> elements(mat->data(), 16);
+    // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
+    for (int i = 0; i < 2; ++i) { // (the front end's two controllers)
+        if ((game_hooks().front_end_pad(i)->control_data()->makes() & kMakesPoseFlag) != 0U) {
+            check_done(true);
+        }
+    }
+    if (anim_) {
+        // The camera from the asset's frame: its position and its rotation.
+        std::array<float, 4> quat = {{0.0F, 0.0F, 0.0F, 1.0F}};
+        std::array<float, 4> at{};
+        bool flag = false;
+        static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose({.rotations = quat, .translations = at}, &flag, timeline_.ongoing(), 0);
+        for (int i = 0; i < 4; ++i) {
+            core::at(pos, i) = core::at(at, i);
+        }
+        std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
+        objects::quat_to_matrix(quat, origin, elements);
+    } else {
+        // Where it is; the field of view (0: the script global's).
+        core::at(pos, 0) = core::at(pos, 1) = core::at(pos, 2) = 0.0F;
+        core::at(pos, 3) = 1.0F;
+        set_identity(elements);
+        float fov = field_of_view_;
+        if (fov == kFloatZero) {
+            fov = script::fetch_float(kCameraFov);
+        }
+        viewer()->change_h_fov(fov);
+    }
+    if (!has_goal_) {
+        return;
+    }
+    maths::Vec4 dir{};
+    if (aim_point_ != kFixedTarget) {
+        // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
+        auto* object = core::down_cast<GameEntity>(objects::ObjectHubBase::look_up_entity(aim_point_));
+        if (!object) {
+            return;
+        }
+        std::array<float, 4> target = {{object->at_point().x, object->at_point().y, object->at_point().z, 1.0F}};
+        maths::Mat4 frame{};
+        auto moved = [&](const maths::Vec4& offset) {
+            frame = object->basis_frame();
+            frame[3] = {.x = core::at(target, 0), .y = core::at(target, 1), .z = core::at(target, 2), .w = 1.0F};
+            frame.offset_local(offset);
+        };
+        if (target_offset_set_) {
+            moved(goal_shift_);
+            for (int i = 0; i < 4; ++i) {
+                core::at(target, i) = frame[3][i];
+            }
+        }
+        if (look_offset_set_) {
+            for (int i = 0; i < 4; ++i) {
+                core::at(pos, i) = core::at(target, i);
+            }
+            moved(look_offset_);
+            for (int i = 0; i < 4; ++i) {
+                core::at(pos, i) = frame[3][i];
+            }
+        }
+        for (int i = 0; i < 4; ++i) {
+            dir[i] = core::at(pos, i) - core::at(target, i);
+        }
+        dir.make_unit();
+        set_identity(elements);
+        for (int i = 0; i < 4; ++i) {
+            core::at(elements, maths::kMatZx + i) = dir[i];
+        }
+        cross_into(axis_of(elements, 0), axis_of(elements, 1), axis_of(elements, 2)); // the right axis: up x at
+        core::at(elements, 3) = 0.0F;
+        (*mat)[0].make_unit();
+    } else {
+        // A fixed point (the target offset), seen from the look offset.
+        for (int i = 0; i < 4; ++i) {
+            core::at(pos, i) = look_offset_[i];
+        }
+        // (x and y stay unrounded; z is stored and squared as its unrounded value times the stored one)
+        double x = static_cast<double>(core::at(pos, 0)) - goal_shift_.x;
+        double y = static_cast<double>(core::at(pos, 1)) - goal_shift_.y;
+        const double z_exact = static_cast<double>(core::at(pos, 2)) - goal_shift_.z;
+        auto z = static_cast<float>(z_exact);
+        const double length = std::sqrt((z_exact * z) + (y * y) + (x * x));
+        if (length > kFloatZero) {
+            const double inverse = kAnimMoviesOne / length;
+            x *= inverse;
+            y *= inverse;
+            z = static_cast<float>(z * inverse);
+        }
+        set_identity(elements);
+        core::at(elements, maths::kMatZx) = static_cast<float>(x);
+        core::at(elements, maths::kMatZz) = z;
+        core::at(elements, maths::kMatZy) = static_cast<float>(y);
+        core::at(elements, maths::kMatZw) = 0.0F;
+        cross_into(axis_of(elements, 0), axis_of(elements, 1), axis_of(elements, 2));
+        core::at(elements, 3) = 0.0F;
+        const double axis_x = core::at(elements, 0);
+        const double axis_y = core::at(elements, 1);
+        const double axis_z = core::at(elements, 2);
+        const double size = std::sqrt((axis_x * axis_x) + (axis_y * axis_y) + (axis_z * axis_z));
+        if (size > kFloatZero) {
+            const double inverse = kAnimMoviesOne / size;
+            core::at(elements, 0) = static_cast<float>(inverse * core::at(elements, 0));
+            core::at(elements, 1) = static_cast<float>(inverse * core::at(elements, 1));
+            core::at(elements, 2) = static_cast<float>(core::at(elements, 2) * inverse);
+        }
+    }
+    // The up axis: at x right.
+    cross_into(axis_of(elements, 1), axis_of(elements, 2), axis_of(elements, 0));
+    core::at(elements, maths::kMatYw) = 0.0F;
+}
+
+// 0x005876A0 (and the thunk 0x00587F60)
+void ObjectAnimMovie::tick_frame()
+{
+    const float from = timeline_.ongoing();
+    update_timeline(&timeline_);
+    if (anim_) {
+        step_asset(anim_, from, timeline_.ongoing(), viewer(), false);
+    }
+    // Every object the asset moves: its frame's rotation and position.
+    auto* frames = static_cast<gfx::JointClipFrames*>(anim_);
+    Expects(frames != nullptr);
+    const int count = frames->bone_count();
+    auto* quat_memory = static_cast<float*>(memory::alloc(count * kQuadBytes));
+    const auto bones = static_cast<size_t>(count);
+    const std::span<float> quats(quat_memory, bones * 4);
+    for (size_t i = 0; i < bones; ++i) {
+        const std::span<float, 4> quat = gfx::quad_at(quats, i);
+        core::at(quat, 0) = core::at(quat, 1) = core::at(quat, 2) = 0.0F;
+        core::at(quat, 3) = 1.0F;
+    }
+    auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count() * kQuadBytes));
+    const std::span<float> positions(position_memory, bones * 4);
+    auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count()));
+    static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose({.rotations = quats, .translations = positions}, flags, timeline_.ongoing(), 0);
+    for (int i = 0; i < frames->bone_count(); ++i) {
+        const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
+        auto* object = core::down_cast<GameEntity>(objects::find_object(name));
+        if (!object) {
+            debug::printf("object animation:  couldn't find object %s\n", script::find_checksum_name_or_unknown(name));
+            continue;
+        }
+        std::array<float, 4> origin = {{0.0F, 0.0F, 0.0F, 1.0F}};
+        std::array<float, maths::kMatrixFloats> matrix{};
+        objects::quat_to_matrix(gfx::quad_at(quats, static_cast<size_t>(i)), origin, matrix);
+        std::memcpy(&object->basis_frame(), matrix.data(), sizeof(matrix));    // its matrix
+        std::memcpy(&object->display_matrix(), matrix.data(), sizeof(matrix)); // and its display matrix
+        std::memcpy(&object->at_point(), gfx::quad_at(positions, static_cast<size_t>(i)).data(), kQuadBytes); // its position
+        if (script::fetch_int_value(kMoviecamDebug) != 0) {
+            debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),
+                          static_cast<double>(timeline_.ongoing()));
+            object->at_point().echo_out(); // (printed)
+            object->basis_frame().echo_out();
+        }
+        // The object's model told (the Update of its 0x286A8D26 component).
+        ObjectModule* component = object->fetch_module(kModel);
+        if (component) {
+            component->tick_frame();
+        }
+    }
+    memory::Hub::dealloc(quat_memory);
+    memory::Hub::dealloc(position_memory);
+    memory::Hub::dealloc(flags);
+}
+
+} // namespace objects

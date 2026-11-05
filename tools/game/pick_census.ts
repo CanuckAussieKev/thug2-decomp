@@ -1,6 +1,6 @@
 // The level editor's picking classes, measured offline from a level's own files (no game run): each scenery piece's
 // box, whether it has collision, its materials' first passes (flags / blend mode) and what the editor's picking rules
-// (src/game/front/level_editor_picking.h) make of it - see-through, structure, and the "level top" measure (how much
+// (src/editor/level_editor_picking.h) make of it - see-through, structure, and the "level top" measure (how much
 // of its upward-facing surface is level) the low-and-flat rule uses.
 //
 //   node tools/game/pick_census.ts <level> [--game <folder>] [--all] [--name <substring>]
@@ -9,7 +9,7 @@
 // <level>: TR, BO, foun, z_ma ... (looked for in the game's Data\levels and our overlays). Prints the pieces whose
 // class differs between the old low-flat rule (height only) and the new one (height and a level top), the
 // structure counts, the see-through counts, and with --name the pieces whose names contain the text. --ray lists
-// every piece the ray meets (its triangles), nearest first, with its class - as the editor's Scenery::Pick sees it.
+// every piece the ray meets (its triangles), nearest first, with its class - as the editor's scenery::get_pick sees it.
 //
 // Keep the thresholds here in step with level_editor_picking.h.
 

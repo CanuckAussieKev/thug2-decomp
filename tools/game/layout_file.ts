@@ -1,11 +1,11 @@
 // NOT ORIGINAL - the level editor's saved layouts (thug2-decomp-layouts\<scene>.txt) read as the game reads them
-// (src/game/front/level_editor_layout.h has the format; level_editor_fields.h the `set` record's f.<field>= values,
+// (src/editor/level_editor_layout.h has the format; level_editor_fields.h the `set` record's f.<field>= values,
 // level_editor_level_props.h the `level` record, level_editor_chains.h the phase 4 records, level_editor_walls.h the
 // `wall` record). Pure: tools/game/apply_layout.ts bakes a layout into a level's files with it.
 //
 // A record the game would refuse (malformed) is an error here too, with its line; a record of a kind this reader
 // doesn't know (a later version's) is kept in `unknown` - the bake warns about each instead of skipping it silently.
-// Phase 5's `trigger` records are read by tools/game/triggers.ts (the game's Triggers::ReadRecord, ported).
+// Phase 5's `trigger` records are read by tools/game/triggers.ts (the game's triggers::read_record, ported).
 
 import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
 import { type GroundSpec, readGroundRecord } from "./ground_pieces.ts";
@@ -16,7 +16,7 @@ export interface V3 {
     y: number;
     z: number;
 }
-// A point x as loaded is at QuarterTurn(PerAxis(x, scale), quarters) + offset (level_editor.h's Placement): `scale` is
+// A point x as loaded is at get_quarter_turn(per_axis(x, scale), quarters) + offset (level_editor.h's Placement): `scale` is
 // along the piece's own axes as loaded - uniform (`scale=s`) or stretched (`scale=x,y,z`); 1, 1, 1 unless scaled.
 export interface Placement {
     quarters: number;
@@ -115,7 +115,7 @@ export interface LevelProps {
     time?: number;
     ambient?: [number, number, number];
     fog?: [number, number, number, number, number];
-    sky?: string; // (map3) another level's sky scene - LevelProps::ValidSky
+    sky?: string; // (map3) another level's sky scene - level_props::valid_sky
 }
 // (map3 - level_editor_faces.h) a sector's collision faces' flags as edited: [face index, flags], ascending.
 export interface FaceRecord {
@@ -144,8 +144,8 @@ export interface NoteRecord {
     colour: number;
     text: string;
 }
-export const NOTE_MAX_TEXT = 500; // (bytes - Notes::kMaxText)
-// Notes::Decode: %XX escapes back into bytes (the rest as UTF-8); null for a bad escape or a raw " / #.
+export const NOTE_MAX_TEXT = 500; // (bytes - notes::kMaxText)
+// notes::decode: %XX escapes back into bytes (the rest as UTF-8); null for a bad escape or a raw " / #.
 export function decodeNoteText(encoded: string): string | null {
     const bytes: number[] = [];
     const encoder = new TextEncoder();
@@ -166,7 +166,7 @@ export function decodeNoteText(encoded: string): string | null {
     }
     return new TextDecoder().decode(Uint8Array.from(bytes.slice(0, NOTE_MAX_TEXT)));
 }
-// Notes::ReadRecord ported: the words after "note" as the line has them (comment cut) - a name, pos= (required),
+// notes::read_record ported: the words after "note" as the line has them (comment cut) - a name, pos= (required),
 // color=RRGGBB, text="..." last; a repeated key, a bad value, text= not last or not quoted refuses it (null); other
 // keys skipped.
 export function readNoteRecord(rest: string): NoteRecord | null {
@@ -213,7 +213,7 @@ export function readNoteRecord(rest: string): NoteRecord | null {
     }
     return pos ? note : null;
 }
-// LevelProps::ValidSky: 1-64 letters, digits, _, holding "_sky" (what the load takes for a sky).
+// level_props::valid_sky: 1-64 letters, digits, _, holding "_sky" (what the load takes for a sky).
 export function validSky(sky: string): boolean {
     return /^[A-Za-z0-9_]{1,64}$/.test(sky) && sky.toLowerCase().includes("_sky");
 }
@@ -288,7 +288,7 @@ function parseLinkRef(text: string, member: boolean, scenery: boolean): LinkRef 
     const id = Number.parseInt(m[1]!, 16);
     return id ? { id, clone: -1, quarters } : null;
 }
-// Links::ReadRecord ported: the words after "link" (null: malformed; later words skipped).
+// links::read_record ported: the words after "link" (null: malformed; later words skipped).
 export function readLinkRecord(words: string[]): LinkRecord | null {
     const [kind, source, members] = words;
     if ((kind !== "sector" && kind !== "object") || source === undefined || members === undefined) return null;
@@ -345,7 +345,7 @@ function parseTriple(text: string): V3 | null {
     return { x: n[0]!, y: n[1]!, z: n[2]! };
 }
 
-// "#XXXXXXXX" / "0xXXXXXXXX" / an identifier -> its checksum; null otherwise (level_editor_fields.h's ParseName).
+// "#XXXXXXXX" / "0xXXXXXXXX" / an identifier -> its checksum; null otherwise (level_editor_fields.h's parse_name).
 export function parseName(text: string): number | null {
     const t = text.trim();
     let hex: string | null = null;
@@ -457,7 +457,7 @@ function readPlacement(words: string[], at: number): Placement | null {
     return { quarters: q, offset: { x: xyz[0]!, y: xyz[1]!, z: xyz[2]! }, scale: { ...UNIT_SCALE } };
 }
 
-// A `scale=` token (level_editor_scale.h's Scale::ReadToken): one number (uniform) or exactly three separated by commas
+// A `scale=` token (level_editor_scale.h's scale_tool::read_token): one number (uniform) or exactly three separated by commas
 // (x, y, z along the piece's own axes), each a float above 0; null: malformed.
 export function readScaleToken(word: string): V3 | null {
     if (!word.startsWith("scale=") || word.length === 6) return null;
@@ -471,7 +471,7 @@ export function readScaleToken(word: string): V3 | null {
     return parts.length === 1 ? { x: n[0]!, y: n[0]!, z: n[0]! } : { x: n[0]!, y: n[1]!, z: n[2]! };
 }
 
-// The key=value fields after a sector / rail / clone / object / copy record's numbers (ReadScaleFields): scale=;
+// The key=value fields after a sector / rail / clone / object / copy record's numbers (read_scale_fields): scale=;
 // others (a later version's) skipped. Null: a bad scale.
 function readScale(words: string[], at: number): V3 | null {
     let scale: V3 = { ...UNIT_SCALE };
@@ -499,7 +499,7 @@ function keyValues(words: string[], line: number): [string, string][] {
     return out;
 }
 
-// A `proxim` record's words after "proxim" (the comment already cut) - Triggers::ReadProximRecord ported: the node in 8
+// A `proxim` record's words after "proxim" (the comment already cut) - triggers::read_proxim_record ported: the node in 8
 // hex digits, enter= / exit= names, shape=sphere|box with its radius= / size= (sizes and radii 10 .. 20000), offset=;
 // a repeated key or a bad value refuses it (null); unknown keys skipped.
 export function readProximRecord(words: string[]): ProximRecord | null {
@@ -819,7 +819,7 @@ export function readLayout(text: string): Layout {
                 break;
             }
             case "railspeed": {
-                // (the feature map: railspeed <node> <rate> - Chains::ReadRecord's: 8 hex digits, a rate in range, once)
+                // (the feature map: railspeed <node> <rate> - chains::read_record's: 8 hex digits, a rate in range, once)
                 const name = parseHex8(words[1]) ?? fail("bad checksum");
                 const rate = parseNumber(words[2]);
                 if (
@@ -856,7 +856,7 @@ export function readLayout(text: string): Layout {
                     } else if (key === "time")
                         level.time = value === "0" || value === "1" ? Number(value) : fail("bad time");
                     else if (key === "sky") {
-                        // (map3) a sky scene (%-escaped like name=; LevelProps::ValidSky)
+                        // (map3) a sky scene (%-escaped like name=; level_props::valid_sky)
                         const t = unescapeText(value);
                         level.sky = t !== null && validSky(t) ? t : fail("bad sky");
                     } else if (key === "ambient" || key === "fog") {
@@ -884,7 +884,7 @@ export function readLayout(text: string): Layout {
                 break;
             }
             case "faces": {
-                // (map3: Faces::ReadRecord) faces <checksum> <face>:<flags>,... - faces 0..65535 once each, flags 1-4 hex
+                // (map3: faces::read_record) faces <checksum> <face>:<flags>,... - faces 0..65535 once each, flags 1-4 hex
                 const sector = parseHex8(words[1]) ?? fail("bad checksum");
                 if (words.length !== 3) fail("faces: <checksum> <face>:<flags>,...");
                 const faces: [number, number][] = [];
@@ -901,7 +901,7 @@ export function readLayout(text: string): Layout {
                 break;
             }
             case "cluster": {
-                // (map3: Clusters::ReadRecord) cluster <sector> <cluster> | -
+                // (map3: clusters::read_record) cluster <sector> <cluster> | -
                 if (words.length !== 3) fail("cluster: <sector> <cluster> | -");
                 const sector = parseHex8(words[1]) ?? fail("bad checksum");
                 if (!sector) fail("bad checksum");
@@ -914,25 +914,25 @@ export function readLayout(text: string): Layout {
                 break;
             }
             case "link": {
-                // (UX7: Links::ReadRecord) link sector|object <source> <member>,...
+                // (UX7: links::read_record) link sector|object <source> <member>,...
                 layout.linkGroups.push(readLinkRecord(words.slice(1)) ?? fail("bad link"));
                 break;
             }
             case "ground": {
-                // (UX9: Ground::ReadRecord) ground <name> raise|lower rect= base= height= ramps= ... material= ...
+                // (UX9: ground::read_record) ground <name> raise|lower rect= base= height= ramps= ... material= ...
                 const ground = readGroundRecord(line.trim().replace(/^ground\s+/, ""));
                 if (ground) layout.grounds.push(ground);
                 else layout.unknown.push({ line: number, kind, text: line.trim() });
                 break;
             }
             case "note": {
-                // (UX5: Notes::ReadRecord) note <name> pos=x,y,z [color=RRGGBB] [text="..."] - editor only
+                // (UX5: notes::read_record) note <name> pos=x,y,z [color=RRGGBB] [text="..."] - editor only
                 const note = readNoteRecord(line.trim().replace(/^note\s+/, "")) ?? fail("bad note");
                 layout.notes.push(note);
                 break;
             }
             case "camera": {
-                // (map3: Cameras::ReadRecord) camera <name> pos=x,y,z [angles=x,y,z] [dist=d]
+                // (map3: cameras::read_record) camera <name> pos=x,y,z [angles=x,y,z] [dist=d]
                 const name = words[1] ?? "";
                 if (!validWord(name)) fail("bad camera name");
                 const camera: CameraRecord = {

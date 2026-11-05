@@ -1,0 +1,789 @@
+// NOT ORIGINAL - the level editor's full Inspector (phase 6, ours): a node's every field with a typed editor, and the
+// level properties (level_editor_fields.h, level_editor_level_props.h, level_editor_ui.h). Only ImGui's own API here
+// and the editor's pure / read-only calls (the node layer, Fields::rows_of); what's changed goes to the editor as
+// requests.
+
+#include <array>
+#include <cfloat>
+#include <cstdint>
+#include <cstring>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <utility>
+
+#include "editor/level_editor_fields.h"
+#include "editor/level_editor_level_props.h"
+#include "editor/level_editor_nodes.h"
+#include "editor/level_editor_ui.h"
+#include "imgui.h"
+#include "base/core/ints.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "editor/level_editor_gui_text.h"
+#include "base/core/no_destroy.h"
+#include "editor/level_editor_ui_layout.h"
+#include "editor/level_editor_ui_theme.h"
+#include "base/maths/maths.h"
+
+namespace frontend::level_editor::ui {
+
+namespace {
+
+constexpr float kChannelMax = 255.0F; // the largest 8-bit colour channel
+
+constexpr std::size_t kScratchSize = 512;        // a field's text buffer
+constexpr std::size_t kHeaderTextSize = 64;
+constexpr float kNameColumnWeight = 0.9F;  // the name column's share of the table's width ...
+constexpr float kValueColumnWeight = 1.6F; // ... and the value column's
+constexpr float kNewNameWidth = 130.0F;    // the new field's name box
+constexpr float kNewKindWidth = 90.0F;     // its kind box
+constexpr float kApplyReserve = 60.0F;     // room left at the right for the Apply button
+constexpr float kNoteReserve = 90.0F;      // room left at the right for a field's "(original: ...)" note
+constexpr std::size_t kOwnStateTextSize = 48;
+constexpr float kFogDistanceDragSpeed = 10.0F;
+constexpr int kMaxFogDistance = 100000;
+
+constexpr ImVec4 kError = ImVec4(1.0F, 0.45F, 0.4F, 1.0F);
+constexpr ImVec4 kLive = ImVec4(0.45F, 0.85F, 0.55F, 1.0F);
+constexpr ImVec4 kReload = ImVec4(0.56F, 0.71F, 0.92F, 1.0F);
+
+using ScratchBuf = std::array<char, kScratchSize>;
+
+// The text being typed into each field (kept while its box is active; otherwise the field's value now).
+struct Typing {
+    int node = -1;
+    uint32_t generation = 0;
+    uint32_t active = 0;
+    bool active_set_ = false;
+    std::unordered_map<uint32_t, ScratchBuf> buffers;
+    // The "add a field" row.
+    ScratchBuf new_name_ = {}, new_value_ = {};
+    int new_kind_ = 0;
+};
+Typing& typing()
+{
+    static Typing value;
+    return value;
+}
+
+void dup_from(ScratchBuf* buffer, const std::string& text) { text::format_to(*buffer, "%s", text.c_str()); }
+
+// A node and one of its fields' key.
+struct NodeField {
+    uint32_t node{};
+    uint32_t key{};
+};
+
+void set_field(std::vector<Request>* requests, NodeField node_field, fields::Kind kind, const std::string& text,
+               const std::string& label = "")
+{
+    const auto node = node_field.node;
+    const auto key = node_field.key;
+    Request request = {.kind = Request::Kind::kFieldSet};
+    request.node = node;
+    request.id = key;
+    request.value = static_cast<int>(kind);
+    request.text = text;
+    request.label = label;
+    requests->push_back(request);
+}
+
+void simple(std::vector<Request>* requests, Request::Kind kind, NodeField node_field)
+{
+    const auto node = node_field.node;
+    const auto key = node_field.key;
+    Request request = {.kind = kind};
+    request.node = node;
+    request.id = key;
+    requests->push_back(request);
+}
+
+const char* when_label(fields::When when)
+{
+    switch (when) {
+    case fields::When::kLive:
+        return "live";
+    case fields::When::kReload:
+        return "on reload";
+    case fields::When::kElsewhere:
+        return "above";
+    default:
+        return "read-only";
+    }
+}
+
+// A typed value checked as it's typed: the error ("" when fine) and a note (a name the game doesn't know).
+std::string get_check(const fields::Row& row, uint32_t self, const char* text, std::string* note)
+{
+    fields::Value value;
+    std::string error;
+    note->clear();
+    if (!fields::parse(row.value.kind, text, &value, &error)) {
+        return error;
+    }
+    if (row.key == fields::key_links()) {
+        if (!fields::valid_links(
+                value.list, self, [](uint32_t colour) { return nodes::get_find(colour) >= 0; }, fields::get_name_of,
+                &error)) {
+            return error;
+        }
+    } else if (value.kind == fields::Kind::kName && !fields::get_name_of(value.checksum)) {
+        *note = "unknown name (checksum used)";
+    } else if (value.kind == fields::Kind::kNames) {
+        for (const uint32_t colour : value.list) {
+            if (!fields::get_name_of(colour)) {
+                *note = "contains an unknown name";
+            }
+        }
+    }
+    return "";
+}
+
+constexpr auto kAddKinds = std::to_array<fields::Kind>({fields::Kind::kInteger, fields::Kind::kFloat, fields::Kind::kName,
+                                  fields::Kind::kChars,   fields::Kind::kVec4,  fields::Kind::kBitMark,
+                                  fields::Kind::kNames});
+
+// The node, the fonts and the requests the fields' rows share.
+struct FieldsPanel {
+    const nodes::Elem* node{};
+    ImFont* mono{};
+    ImFont* small_font{};
+    std::vector<Request>* requests{};
+};
+
+// The typing state follows the node (its boxes cleared for another node) and the node layer's generation.
+void follow_typing(int node_index)
+{
+    if (typing().node != node_index || typing().generation != nodes::get_generation()) {
+        if (typing().node != node_index) {
+            typing().buffers.clear();
+            typing().active_set_ = false;
+        }
+        typing().node = node_index;
+        typing().generation = nodes::get_generation();
+    }
+}
+
+// The name column: greyed when shared by the class, the warning colour when edited; its kind on hover.
+void field_name_cell(const fields::Row& row)
+{
+    const std::string name = fields::get_name_text(row.key, fields::get_name_of);
+    if (row.included) {
+        gui::text_disabled("%s", name.c_str());
+    } else if (row.edited) {
+        gui::text_colored(ui_theme::kWarningColour, "%s", name.c_str());
+    } else {
+        ImGui::TextUnformatted(name.c_str());
+    }
+    if (ImGui::IsItemHovered()) {
+        const char* shared = "";
+        if (row.included) {
+            shared = " (shared by the class)";
+        } else if (row.overridden) {
+            shared = " (overrides the class)";
+        }
+        gui::tooltip("%s%s%s", fields::kind_name(row.value.kind), shared, row.edited ? "\nModified" : "");
+    }
+}
+
+// A typed field's box: checked as it's typed, sent when Enter or leaving it changed it; whether its box is active.
+bool typed_field(const FieldsPanel& panel, const fields::Row& row, const std::string& text)
+{
+    bool still_active = false;
+    const bool active = typing().active_set_ && typing().active == row.key;
+    ScratchBuf& buffer = typing().buffers[row.key];
+    if (!active) {
+        dup_from(&buffer, text);
+    }
+    const bool enter = ImGui::InputText("##value", buffer.data(), buffer.size(),
+                                        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+    const bool left = ImGui::IsItemDeactivatedAfterEdit();
+    if (ImGui::IsItemActive()) {
+        typing().active = row.key;
+        typing().active_set_ = true;
+        still_active = true;
+    }
+    std::string note;
+    const std::string error = active || enter || left ? get_check(row, panel.node->name, buffer.data(), &note) : "";
+    if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
+        if (error.empty()) {
+            set_field(panel.requests, {.node = panel.node->name, .key = row.key}, row.value.kind, buffer.data());
+        }
+        typing().active_set_ = false;
+    } else if (enter || left) {
+        typing().active_set_ = false;
+    }
+    if (!error.empty() || !note.empty()) {
+        ImGui::PushFont(panel.small_font);
+        gui::text_colored(error.empty() ? ui_theme::kWarningColour : kError, "%s",
+                          error.empty() ? note.c_str() : error.c_str());
+        ImGui::PopFont();
+    }
+    return still_active;
+}
+
+// The value column: read-only text (why on hover), a flag's checkbox or a typed box; whether its box is active.
+bool field_value_cell(const FieldsPanel& panel, const fields::Row& row)
+{
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    const std::string text = fields::get_format(row.value, fields::get_name_of);
+    if (!row.editable) {
+        ImGui::BeginDisabled(true);
+        gui::text_wrapped("%s", text.c_str());
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            gui::tooltip("%s", row.why.c_str());
+        }
+    } else if (row.value.kind == fields::Kind::kBitMark) {
+        bool on = row.value.on;
+        if (ImGui::Checkbox("##flag", &on)) {
+            set_field(panel.requests, {.node = panel.node->name, .key = row.key}, fields::Kind::kBitMark,
+                      on ? "on" : "off");
+        }
+    } else {
+        return typed_field(panel, row, text);
+    }
+    return false;
+}
+
+// The when column: when a change is seen, then Home (revert) for an edited field and x (remove) for one that can go.
+void field_when_cell(const FieldsPanel& panel, const fields::Row& row)
+{
+    ImGui::PushFont(panel.small_font);
+    ImVec4 colour;
+    if (row.when == fields::When::kLive) {
+        colour = kLive;
+    } else if (row.when == fields::When::kReload) {
+        colour = kReload;
+    } else {
+        colour = ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+    }
+    gui::text_colored(
+        row.editable || row.when == fields::When::kElsewhere ? colour : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
+        "%s", row.editable || row.when == fields::When::kElsewhere ? when_label(row.when) : "read-only");
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("%s", row.editable ? row.note : row.why.c_str());
+    }
+    if (row.edited) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Home")) {
+            simple(panel.requests, Request::Kind::kFieldHome, {.node = panel.node->name, .key = row.key});
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Revert");
+        }
+    }
+    if (row.editable && !row.included && row.value.kind != fields::Kind::kBitMark && row.key != fields::key_links()) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("x")) {
+            simple(panel.requests, Request::Kind::kFieldRemove, {.node = panel.node->name, .key = row.key});
+        }
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("%s", row.overridden ? "Remove override" : "Remove field");
+        }
+    }
+    ImGui::PopFont();
+}
+
+// The fields' table; whether a typed box is still active.
+bool fields_table(const FieldsPanel& panel, const std::vector<fields::Row>& rows)
+{
+    bool still_active = false;
+    if (ImGui::BeginTable("##fields", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthStretch, kNameColumnWeight);
+        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch, kValueColumnWeight);
+        ImGui::TableSetupColumn("##when", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::PushFont(panel.mono);
+        for (const fields::Row& row : rows) {
+            ImGui::PushID(static_cast<int>(row.key));
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            field_name_cell(row);
+            ImGui::TableNextColumn();
+            if (field_value_cell(panel, row)) {
+                still_active = true;
+            }
+            ImGui::TableNextColumn();
+            field_when_cell(panel, row);
+            ImGui::PopID();
+        }
+        ImGui::PopFont();
+        ImGui::EndTable();
+    }
+    return still_active;
+}
+
+// The new field as typed: its name given, the name usable (and its checksum), the value parsed.
+struct NewField {
+    bool named{};
+    bool name_ok_{};
+    uint32_t key{};
+    bool value_ok_{};
+};
+
+// Why the new field can't be added (nullptr when it can).
+const char* why_not_added(const NewField& new_field, const std::vector<fields::Row>& rows)
+{
+    const uint32_t key = new_field.key;
+    bool exists = false;
+    for (const fields::Row& row : rows) {
+        exists = exists || row.key == key;
+    }
+    if (!new_field.named) {
+        return "Enter a field name";
+    }
+    if (!new_field.name_ok_) {
+        return "Use letters, digits and _";
+    }
+    if (exists) {
+        return "Field already exists";
+    }
+    if (key == fields::get_key_name() || key == fields::key_class() || key == fields::get_key_type() ||
+        key == fields::key_pos() || key == fields::key_angles() || key == fields::key_links()) {
+        return "Edited elsewhere";
+    }
+    if (!new_field.value_ok_) {
+        return "Invalid value";
+    }
+    return nullptr;
+}
+
+// The new field's boxes: its name, its kind, its value.
+void new_field_boxes(const FieldsPanel& panel)
+{
+    ImGui::PushFont(panel.small_font);
+    gui::text_disabled("Add Field:");
+    ImGui::PopFont();
+    ImGui::PushFont(panel.mono);
+    ImGui::SetNextItemWidth(kNewNameWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::InputTextWithHint("##newname", "name", typing().new_name_.data(), typing().new_name_.size());
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(kNewKindWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::BeginCombo("##newkind", fields::kind_name(core::at(kAddKinds, typing().new_kind_)))) {
+        for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(core::at(kAddKinds, 0))); ++i) {
+            if (ImGui::Selectable(fields::kind_name(core::at(kAddKinds, i)), i == typing().new_kind_)) {
+                typing().new_kind_ = i;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-kApplyReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::InputTextWithHint("##newvalue", "value", typing().new_value_.data(), typing().new_value_.size());
+    ImGui::PopFont();
+}
+
+// A field the node doesn't have yet.
+void add_field_row(const FieldsPanel& panel, const std::vector<fields::Row>& rows)
+{
+    new_field_boxes(panel);
+    uint32_t key = 0;
+    fields::Value value;
+    std::string error;
+    std::string name = typing().new_name_.data();
+    const bool name_ok = fields::parse_name(name, &key) && core::at(name, 0) != '#' && core::at(name, 0) != '0';
+    const bool value_ok =
+        fields::parse(core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), &value, &error);
+    const char* why =
+        why_not_added({.named = !name.empty(), .name_ok_ = name_ok, .key = key, .value_ok_ = value_ok}, rows);
+    ImGui::SameLine();
+    ImGui::BeginDisabled(why != nullptr);
+    if (ImGui::Button("Add")) {
+        set_field(panel.requests, {.node = panel.node->name, .key = key}, core::at(kAddKinds, typing().new_kind_),
+                  typing().new_value_.data(), name);
+        typing().new_name_ = {};
+        typing().new_value_ = {};
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        const char* tip = "Add field (applies on reload)";
+        if (why) {
+            tip = why == std::string("Invalid value") ? error.c_str() : why;
+        }
+        gui::tooltip("%s", tip);
+    }
+}
+
+} // namespace
+
+void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
+{
+    const std::vector<nodes::Elem>& nodes = nodes::get_all();
+    if (node_index < 0 || std::cmp_greater_equal(node_index, nodes.size())) {
+        return;
+    }
+    const nodes::Elem& node = core::at(nodes, node_index);
+    follow_typing(node_index);
+    const std::vector<fields::Row> rows = fields::rows_of(node);
+    bool any_edited = false;
+    for (const fields::Row& row : rows) {
+        any_edited = any_edited || row.edited;
+    }
+    ImGui::Spacing();
+    std::array<char, kHeaderTextSize> header{};
+    text::format_to(header, "All fields (%d)%s###fields", static_cast<int>(rows.size()), any_edited ? " - edited" : "");
+    if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen)) {
+        return;
+    }
+    const FieldsPanel panel{.node = &node, .mono = mono, .small_font = small_font, .requests = requests};
+    const bool still_active = fields_table(panel, rows);
+    if (!still_active && typing().active_set_) {
+        // (the active box went away without being let go: a row that's gone)
+        bool there = false;
+        for (const fields::Row& row : rows) {
+            there = there || row.key == typing().active;
+        }
+        typing().active_set_ = there && typing().active_set_;
+    }
+    if (!node.added) {
+        add_field_row(panel, rows);
+    }
+    ImGui::PushFont(small_font);
+    if (any_edited) {
+        if (ImGui::SmallButton("Revert All Fields")) {
+            simple(requests, Request::Kind::kFieldHome, {.node = node.name, .key = 0});
+        }
+        ImGui::SameLine();
+    }
+    gui::text_disabled("Grey: shared by the class");
+    ImGui::PopFont();
+}
+
+// --- the level properties ---
+
+namespace {
+
+struct LevelTyping {
+    ScratchBuf name = {};
+    bool name_active_ = false;
+};
+
+LevelTyping& level_typing()
+{
+    static core::NoDestroy<LevelTyping> state;
+    return state.get();
+}
+
+void send_props(std::vector<Request>* requests, const level_props::Props& props, bool done)
+{
+    Request request = {.kind = Request::Kind::kLevelProps};
+    request.props = props;
+    requests->push_back(request);
+    if (done) {
+        requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
+}
+
+// When a change is seen and its tooltip.
+struct WhenTip {
+    const char* when{};
+    const char* tip{};
+};
+
+void get_when(ImFont* small_font, WhenTip when_tip)
+{
+    const auto* const when = when_tip.when;
+    const auto* const tip = when_tip.tip;
+    ImGui::SameLine();
+    ImGui::PushFont(small_font);
+    gui::text_colored(std::strcmp(when, "on reload") == 0 ? kReload : kLive, "%s", when);
+    ImGui::PopFont();
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("%s", tip);
+    }
+}
+
+// The level, its properties being edited (each row sends them as they are then), the fonts and the requests the
+// level properties' rows share.
+struct LevelPanel {
+    const ShapeMesh::LevelView* level{};
+    level_props::Props* props{};
+    ImFont* mono{};
+    ImFont* small_font{};
+    std::vector<Request>* requests{};
+};
+
+// A new row of the table, its label in the first column; the value column next.
+void level_row(const char* label)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    gui::text_disabled("%s", label);
+    ImGui::TableNextColumn();
+}
+
+// Its name in the level select.
+void level_name_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Name");
+    if (!level_typing().name_active_) {
+        dup_from(&level_typing().name, props.name);
+    }
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    const bool enter =
+        ImGui::InputTextWithHint("##name", level.have_defaults_ ? level.defaults.name.c_str() : "Original",
+                                 level_typing().name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
+    const bool left = ImGui::IsItemDeactivatedAfterEdit();
+    level_typing().name_active_ = ImGui::IsItemActive();
+    if ((enter || left) && props.name != level_typing().name.data()) {
+        props.name = level_typing().name.data();
+        send_props(panel.requests, props, true);
+    }
+    get_when(panel.small_font, {.when = "level select", .tip = "Name in the level select. Empty: original name."});
+}
+
+// Where the skater starts.
+void level_start_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Start");
+    std::string current = "(original)";
+    for (const auto& restart : level.restarts) {
+        current = restart.first == props.start ? restart.second : current;
+    }
+    if ((props.start != 0U) && current == "(original)") {
+        current = "(missing restart)";
+    }
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::PushFont(panel.mono);
+    if (ImGui::BeginCombo("##start", current.c_str())) {
+        if (ImGui::Selectable("(original)", props.start == 0)) {
+            props.start = 0;
+            send_props(panel.requests, props, true);
+        }
+        for (const auto& restart : level.restarts) {
+            ImGui::PushID(static_cast<int>(restart.first));
+            if (ImGui::Selectable(restart.second.c_str(), props.start == restart.first)) {
+                props.start = restart.first;
+                send_props(panel.requests, props, true);
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopFont();
+    get_when(panel.small_font, {.when = "on reload", .tip = "Start position"});
+    if ((level.selected_restart_ != 0U) && level.selected_restart_ != props.start) {
+        if (ImGui::SmallButton("Use Selected Restart")) {
+            props.start = level.selected_restart_;
+            send_props(panel.requests, props, true);
+        }
+    }
+}
+
+// Time of day.
+void level_tod_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    static const auto kStates = std::to_array<const char*>({"morning", "afternoon", "evening", "night"});
+    level_row("Time of day");
+    std::array<char, kOwnStateTextSize> own_state{};
+    text::format_to(own_state, "(original: %s)",
+                    level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
+                                                                           : "afternoon");
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::BeginCombo("##tod", props.tod >= 0 ? core::at(kStates, props.tod) : own_state.data())) {
+        if (ImGui::Selectable(own_state.data(), props.tod < 0)) {
+            props.tod = -1;
+            send_props(panel.requests, props, true);
+        }
+        for (int i = 0; i < 4; ++i) {
+            if (ImGui::Selectable(core::at(kStates, i), props.tod == i)) {
+                props.tod = i;
+                send_props(panel.requests, props, true);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    get_when(panel.small_font, {.when = "live", .tip = "Time of day"});
+}
+
+// Whether time passes.
+void level_time_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Time passes");
+    const char* own_time = level.have_defaults_ && level.defaults.time == 0 ? "(original: no)" : "(original: yes)";
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    const char* time_shown = own_time;
+    if (props.time == 1) {
+        time_shown = "yes";
+    } else if (props.time == 0) {
+        time_shown = "no";
+    }
+    if (ImGui::BeginCombo("##time", time_shown)) {
+        const auto labels = std::to_array<const char*>({own_time, "no", "yes"});
+        for (int i = -1; i <= 1; ++i) {
+            if (ImGui::Selectable(core::at(labels, i + 1), props.time == i)) {
+                props.time = i;
+                send_props(panel.requests, props, true);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    get_when(panel.small_font, {.when = "on reload", .tip = "Advance time of day (career only)"});
+}
+
+// Its sky (the feature map's sky row): another level's sky scene.
+void level_sky_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    level_row("Sky");
+    const std::string own_sky =
+        "(original: " + (level.have_defaults_ && !own.sky.empty() ? own.sky : std::string("none")) + ")";
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    ImGui::PushFont(panel.mono);
+    if (ImGui::BeginCombo("##sky", props.sky.empty() ? own_sky.c_str() : props.sky.c_str())) {
+        if (ImGui::Selectable(own_sky.c_str(), props.sky.empty())) {
+            props.sky.clear();
+            send_props(panel.requests, props, true);
+        }
+        for (const std::string& sky : level_props::skies()) {
+            if (ImGui::Selectable(sky.c_str(), _stricmp(sky.c_str(), props.sky.c_str()) == 0)) {
+                props.sky = sky;
+                send_props(panel.requests, props, true);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopFont();
+    get_when(panel.small_font, {.when = "on reload", .tip = "Sky scene"});
+}
+
+// Ambient light.
+void level_ambient_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    std::vector<Request>* requests = panel.requests;
+    level_row("Ambient");
+    bool ambient = props.has_ambient_;
+    if (ImGui::Checkbox("##ambient", &ambient)) {
+        props.has_ambient_ = ambient;
+        if (ambient && level.have_defaults_) {
+            std::memcpy(props.ambient.data(), own.ambient.data(), sizeof(props.ambient));
+        }
+        send_props(requests, props, true);
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!props.has_ambient_);
+    const auto& shown = props.has_ambient_ ? props.ambient : own.ambient;
+    std::array<float, 3> colour = {{static_cast<float>(core::at(shown, 0)) / kChannelMax,
+                                    static_cast<float>(core::at(shown, 1)) / kChannelMax,
+                                    static_cast<float>(core::at(shown, 2)) / kChannelMax}};
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::ColorEdit3("##ambientcolour", colour.data(),
+                          ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
+        for (int i = 0; i < 3; ++i) {
+            core::at(props.ambient, i) =
+                level_props::get_channel(maths::round_non_negative<int>(core::at(colour, i) * kChannelMax));
+        }
+        send_props(requests, props, false);
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
+    ImGui::EndDisabled();
+    get_when(panel.small_font, {.when = "live", .tip = "Ambient light colour"});
+}
+
+// Fog: its colour, alpha and distance.
+void level_fog_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    const level_props::Props& own = level.defaults;
+    level_props::Props& props = *panel.props;
+    std::vector<Request>* requests = panel.requests;
+    level_row("Fog");
+    bool fog = props.has_fog_;
+    if (ImGui::Checkbox("##fog", &fog)) {
+        props.has_fog_ = fog;
+        if (fog && level.have_defaults_) {
+            std::memcpy(props.fog.data(), own.fog.data(), sizeof(props.fog));
+        }
+        send_props(requests, props, true);
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!props.has_fog_);
+    const auto& fog_props = props.has_fog_ ? props.fog : own.fog;
+    std::array<float, 4> fog_colour = {{static_cast<float>(core::at(fog_props, 0)) / kChannelMax,
+                                        static_cast<float>(core::at(fog_props, 1)) / kChannelMax,
+                                        static_cast<float>(core::at(fog_props, 2)) / kChannelMax,
+                                        static_cast<float>(core::at(fog_props, 3)) / kChannelMax}};
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    bool changed = false;
+    if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
+                          ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_AlphaBar)) {
+        for (int i = 0; i < 4; ++i) {
+            core::at(props.fog, i) =
+                level_props::get_channel(maths::round_non_negative<int>(core::at(fog_colour, i) * kChannelMax));
+        }
+        changed = true;
+    }
+    bool done = ImGui::IsItemDeactivatedAfterEdit();
+    int distance = core::at(fog_props, 4);
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::DragInt("##fogdist", &distance, kFogDistanceDragSpeed, 0, kMaxFogDistance, "distance %d")) {
+        core::at(props.fog, 4) = level_props::span_to(distance);
+        changed = true;
+    }
+    done = done || ImGui::IsItemDeactivatedAfterEdit();
+    if (changed) {
+        send_props(requests, props, false);
+    }
+    if (done) {
+        requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
+    ImGui::EndDisabled();
+    get_when(panel.small_font, {.when = "live", .tip = "Fog colour, alpha and distance (alpha 0: no fog)"});
+}
+
+} // namespace
+
+void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
+{
+    ImGui::Spacing();
+    ImGui::Separator();
+    if (!ImGui::CollapsingHeader("Level properties###levelprops")) {
+        return;
+    }
+    if (!level.in_level_) {
+        gui::text_disabled("No level loaded");
+        return;
+    }
+    ImGui::PushFont(small_font);
+    gui::text_disabled("Saved with the layout");
+    ImGui::PopFont();
+    level_props::Props props = level.props;
+    if (ImGui::BeginTable("##level", 2, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("##label", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch);
+        const LevelPanel panel{
+            .level = &level, .props = &props, .mono = mono, .small_font = small_font, .requests = requests};
+        level_name_row(panel);
+        level_start_row(panel);
+        level_tod_row(panel);
+        level_time_row(panel);
+        level_sky_row(panel);
+        level_ambient_row(panel);
+        level_fog_row(panel);
+        ImGui::EndTable();
+    }
+    if (!level_props::vacant(level.props)) {
+        if (ImGui::SmallButton("Revert All")) {
+            send_props(requests, level_props::Props{}, true);
+        }
+    }
+}
+
+} // namespace frontend::level_editor::ui

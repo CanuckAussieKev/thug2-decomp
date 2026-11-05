@@ -2,416 +2,341 @@
 
 #include "game/goals/goal_net_types.h"
 
+#include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <array>
 
-#include "game/core/crc.h"
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
+#include "base/core/enum_ops.h"
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
-#include "game/net/gamenet_manager.h"
-#include "game/obj/object.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "game/goals/objective.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
-#include "game/skater/end_run.h"
-#include "game/skater/skater.h"
-#include "game/core/stubs.h"
-#include "game/gfx/weather.h"
-#include "game/core/code_address.h"
+#include "game/rider/end_run.h"
+#include "game/rider/rider.h"
+#include "game/online/player_info.h"
+#include "game/skate/point_tally.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
+#include "game/online/net_game_state.h"
 
-namespace Game {
+namespace goals {
 
 namespace {
+constexpr size_t kScriptNameSize = 0x100;
 
-using namespace GoalNames;
+using namespace goal_names;
 
-constexpr uint32_t kHorseRunDone = 0xA32FAF13;     // (name unknown: the horse goal's run over)
-constexpr uint32_t kHorseSpots = 0x92C6E839;       // (name unknown: the horse spots)
-constexpr uint32_t kElimiskateInterval = 0xF92E5D89; // elimiskate_interval
-constexpr uint32_t kScavengerInterval = 0x8A6B04AD;  // scavenger_interval
-constexpr uint32_t kNetElimiskate = 0x10F84276;    // netelimiskate
-constexpr uint32_t kNetScavengerHunt = 0xFC13B531; // netscavengerhunt
-constexpr uint32_t kScavengerHunt = 0x846504FC;    // scavengerhunt
+constexpr uint32_t kHorseRunDone = 0xA32FAF13;           // (name unknown: the horse goal's run over)
+constexpr uint32_t kLetterSpots = 0x92C6E839;            // (name unknown: the horse spots)
+constexpr uint32_t kElimiskateInterval = 0xF92E5D89;     // elimiskate_interval
+constexpr uint32_t kScavengerInterval = 0x8A6B04AD;      // scavenger_interval
+constexpr uint32_t kNetElimiskate = 0x10F84276;          // netelimiskate
+constexpr uint32_t kNetScavengerHunt = 0xFC13B531;       // netscavengerhunt
+constexpr uint32_t kScavengerHunt = 0x846504FC;          // scavengerhunt
 constexpr uint32_t kScavengerCollectPeriod = 0xD4F04E7F; // scavenger_collect_period
-constexpr uint32_t kGameContinues = 0xA4BA22BA;    // game_continues_after_expiration
-constexpr uint32_t kRaceTotalLaps = 0x1DAAE95B;    // race_total_laps
-constexpr uint32_t kRaceAddTime = 0xA4038EC9;      // (name unknown: a race whose waypoints add time)
-constexpr uint32_t kRaceWaypoints = 0xA77B1F07;    // race_waypoints
-constexpr uint32_t kStartLap = 0x61FB20D5;         // start_lap
-constexpr uint32_t kLastWaypoint = 0x3442E2E0;     // last_waypoint
-constexpr uint32_t kFirstWaypoint = 0xF83B9525;    // first_waypoint
-constexpr uint32_t kScr = 0xA6D2D890;              // scr
-constexpr uint32_t kCheckpointMessage = 0x1E1B568A; // goal_race_checkpoint_message
-constexpr uint32_t kAddedTime = 0xC906B763;        // added_time
-constexpr uint32_t kGoalName = 0xBFECC45B;         // goal_name
-constexpr uint32_t kRaceNextWaypoint = 0xD3741449; // goal_race_next_waypoint
+constexpr uint32_t kGameContinues = 0xA4BA22BA;          // game_continues_after_expiration
+constexpr uint32_t kRaceTotalLaps = 0x1DAAE95B;          // race_total_laps
+constexpr uint32_t kRaceAddTime = 0xA4038EC9;            // (name unknown: a race whose waypoints add time)
+constexpr uint32_t kRaceWaypoints = 0xA77B1F07;          // race_waypoints
+constexpr uint32_t kStartLap = 0x61FB20D5;               // start_lap
+constexpr uint32_t kLastWaypoint = 0x3442E2E0;           // last_waypoint
+constexpr uint32_t kFirstWaypoint = 0xF83B9525;          // first_waypoint
+constexpr uint32_t kScr = 0xA6D2D890;                    // scr
+constexpr uint32_t kCheckpointMessage = 0x1E1B568A;      // goal_race_checkpoint_message
+constexpr uint32_t kAddedTime = 0xC906B763;              // added_time
+constexpr uint32_t kGoalName = 0xBFECC45B;               // goal_name
+constexpr uint32_t kRaceNextWaypoint = 0xD3741449;       // goal_race_next_waypoint
 
-static VtableSlot kHorseGoalVtable_slots[] = {&Game::CHorseGoal::Destroy, &Game::CHorseGoal::ShouldExpire, &Game::CHorseGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CHorseGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
-void** const kHorseGoalVtable = reinterpret_cast<void**>(kHorseGoalVtable_slots);
-static VtableSlot kNetGoalVtable_slots[] = {&Game::CNetGoal::Destroy, &Game::CNetGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CNetGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, &Game::CNetGoal::TimerBeeps,
-                 &Game::CNetGoal::HasComponentA302D7CD, &Game::CNetGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CNetGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CNetGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
-void** const kNetGoalVtable = reinterpret_cast<void**>(kNetGoalVtable_slots);
-static VtableSlot kRaceGoalVtable_slots[] = {&Game::CRaceGoal::Destroy, &Game::CRaceGoal::ShouldExpire, &Game::CRaceGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CRaceGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CRaceGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
-void** const kRaceGoalVtable = reinterpret_cast<void**>(kRaceGoalVtable_slots);
+uint32_t active_ruleset_label() { return game_mode()->get_name_key(); }
+// Whether every goal is completed (a goal attack's victory condition; the original calls the condition's check with
+// whatever ECX holds - it doesn't use its object).
+bool goals_completed() { return CompleteGoalsVictoryCondition::all_goals_complete(); }
 
-GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
-uint32_t GameModeName() { return g_gameMode->GetNameChecksum(); }
-// Whether every goal is completed (a goal attack's victory condition). CCompleteGoalsVictoryCondition::ConditionComplete
-// doesn't use its object: the original calls it with whatever ECX holds, the game mode just asked for its name.
-bool GoalsCompleted()
-{
-    return reinterpret_cast<CCompleteGoalsVictoryCondition*>(g_gameMode)->ConditionComplete();
-}
-
-struct PlayerSearch {
-    void** m_vtable = Mdl::kPlayerSearchVtable;
-    void* m_node = nullptr;
-};
-
-Script::CStruct* NewStructure()
-{
-    Script::CStruct* made = Script::NewStruct();
-    return made ? made->Init() : nullptr;
-}
-void DeleteStructure(Script::CStruct* structure)
-{
-    if (structure) {
-        structure->Clear();
-        Script::DeleteStruct(structure);
-    }
-}
+using PlayerSearch = online::PlayerSearch;
 
 } // namespace
 
-// --- CHorseGoal -----------------------------------------------------------------------------------------------------
+// --- LetterGameObjective -----------------------------------------------------------------------------------------------------
 
 // 0x005608C0
-CHorseGoal* CHorseGoal::Construct(Script::CStruct* params)
-{
-    CGoal::Construct(params);
-    m_node.vtable = kHorseGoalVtable;
-    return this;
-}
+LetterGameObjective::LetterGameObjective(script::Struct* params) : Objective(params) {}
 
 // 0x005608E0
-void CHorseGoal::DestroyBody()
-{
-    m_node.vtable = kHorseGoalVtable;
-    CGoal::DestroyBody();
-}
-
-// 0x00560980
-CHorseGoal* CHorseGoal::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+LetterGameObjective::~LetterGameObjective() = default;
 
 // 0x00560930
-bool CHorseGoal::ShouldExpire()
+bool LetterGameObjective::wants_to_end()
 {
     int done = 0;
-    m_params->GetInteger(kHorseRunDone, &done, 1);
-    return done == 1 ? false : CGoal::ShouldExpire();
+    args()->fetch_int_value(kHorseRunDone, &done, 1);
+    return done == 1 ? false : Objective::wants_to_end();
 }
 
 // 0x005608F0
-bool CHorseGoal::IsExpired()
+bool LetterGameObjective::has_run_out()
 {
     int done = 0;
-    m_params->GetInteger(kHorseRunDone, &done, 1);
-    return done == 1 ? false : CGoal::IsExpired();
+    args()->fetch_int_value(kHorseRunDone, &done, 1);
+    return done == 1 ? false : Objective::has_run_out();
 }
 
 // 0x00560970
-void CHorseGoal::Expire() { CGoal::Expire(); }
+void LetterGameObjective::expire() { Objective::expire(); }
 
 // 0x005609B0
-void CHorseGoal::Land()
+void LetterGameObjective::land()
 {
-    Script::CArray* spots;
-    m_params->GetArray(kHorseSpots, &spots, 1);
-    int count = static_cast<int>(spots->m_size);
-    int i = 0;
-    int score = 0;    // (both set before they're read)
+    script::Array* spots = nullptr;
+    args()->fetch_list(kLetterSpots, &spots, 1);
+    const int count = static_cast<int>(spots->extent());
+    int index = 0;
+    int score = 0; // (both set before they're read)
     uint32_t flag = 0;
-    for (; i < count; ++i) {
-        auto* spot = reinterpret_cast<Script::CStruct*>(spots->GetElement(static_cast<uint32_t>(i)));
-        spot->GetChecksum(kFlag, &flag, 1);
-        int set;
-        m_goalFlags->GetInteger(flag, &set, 1);
-        if (set)
+    for (; index < count; ++index) {
+        auto* spot = spots->struct_at(static_cast<uint32_t>(index));
+        spot->read_hash_value(kFlag, &flag, 1);
+        int set = 0;
+        goal_flags()->fetch_int_value(flag, &set, 1);
+        if (set != 0) {
             continue;
-        if (!spot->GetInteger(kScore, &score, 0))
-            m_params->GetInteger(kScore, &score, 1);
+        }
+        if (!spot->fetch_int_value(kScore, &score, 0)) {
+            args()->fetch_int_value(kScore, &score, 1);
+        }
         break;
     }
-    if (i == count)
+    if (index == count) {
         return;
-    int landed = *reinterpret_cast<int*>(
-        static_cast<uint8_t*>(static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater())->GetScore()) + 0x20);
+    }
+    const int landed = static_cast<modules::PointTally*>(
+                           core::down_cast<objects::Rider>(skate_calls::get_home_rider())->get_points_total())
+                           ->pot_score();
     if (landed > 0) {
-        uint32_t id = GetGoalId();
-        CGoalManager* manager = GetGoalManager();
+        const uint32_t id = get_objective_key();
+        GoalManager* manager = get_objective_board();
         if (landed > score) {
-            manager->SetGoalFlag(id, flag, 1, 0);
-            manager->NextWaypoint(id);
+            manager->raise_bit(id, checksums::Name{flag}, 1, checksums::Name{0});
+            manager->step_to_next_waypoint(id);
         } else {
-            manager->LoseGoal(id);
+            manager->fail_objective(id);
         }
     }
-    m_params->AddInteger(kHorseRunDone, 0);
+    args()->put_int(checksums::Name{kHorseRunDone}, 0);
 }
 
-// --- CNetGoal -------------------------------------------------------------------------------------------------------
+// --- OnlineObjective -------------------------------------------------------------------------------------------------------
 
 // 0x00560AC0
-CNetGoal* CNetGoal::Construct(Script::CStruct* params)
-{
-    CGoal::Construct(params);
-    m_node.vtable = kNetGoalVtable;
-    m_endRunType = 1;
-    m_initialized = false;
-    return this;
-}
+OnlineObjective::OnlineObjective(script::Struct* params) : Objective(params) { set_run_ending(1); }
 
 // 0x00560AF0
-void CNetGoal::DestroyBody()
-{
-    m_node.vtable = kNetGoalVtable;
-    CGoal::DestroyBody();
-}
-
-// 0x00560B40
-CNetGoal* CNetGoal::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+OnlineObjective::~OnlineObjective() = default;
 
 // 0x00560B00
-int CNetGoal::HasComponentA302D7CD() { return (m_state & kStateNoTimeLimit) ? 0 : 1; }
+bool OnlineObjective::shows_clock() { return !(core::any(cur_phase() & Objective::State::kNoTimeLimit)); }
 
 // 0x00560B10
-bool CNetGoal::TimerBeeps() { return GetGoalId() != kElimiskateInterval && GetGoalId() != kScavengerInterval; }
+bool OnlineObjective::timer_beeps()
+{
+    return get_objective_key() != kElimiskateInterval && get_objective_key() != kScavengerInterval;
+}
 
 // 0x00560BC0
-bool CNetGoal::Activate()
+bool OnlineObjective::activate()
 {
-    NetManager()->ClearGameOver();
-    return CGoal::Activate();
+    online::online_hub()->reset_match_ended();
+    return Objective::activate();
 }
 
 // 0x00560BE0
-bool CNetGoal::Deactivate(bool force, bool resetTree)
+bool OnlineObjective::disengage(bool force, bool reset_tree)
 {
-    if (!force && GameModeName() == kNetGoalAttack)
+    if (!force && active_ruleset_label() == kNetGoalAttack) {
         return false;
-    return CGoal::Deactivate(force, resetTree);
+    }
+    return Objective::disengage(force, reset_tree);
 }
 
 // 0x00560B70
-bool CNetGoal::Update()
+bool OnlineObjective::tick_frame()
 {
-    if (!m_initialized) {
-        Init();
-        m_initialized = true;
+    if (!is_prepared_) {
+        prepare_all();
+        is_prepared_ = true;
     }
-    if (GameModeName() == kNetGoalAttack && GoalsCompleted() && Virtual<bool>(this, kVtIsActive)) {
-        Virtual<void>(this, kVtExpire);
+    if (active_ruleset_label() == kNetGoalAttack && goals_completed() && is_operative()) {
+        expire();
         return true;
     }
-    return CGoal::Update();
+    return Objective::tick_frame();
 }
 
 // 0x00560C20
-bool CNetGoal::ShouldExpire()
+bool OnlineObjective::wants_to_end()
 {
     bool timed = false;
     bool scavenger = false;
-    if (GameModeName() == kNetElimiskate)
+    if (active_ruleset_label() == kNetElimiskate) {
         timed = true;
-    if (GameModeName() == kNetScavengerHunt || GameModeName() == kScavengerHunt) {
-        scavenger = true;
-        if (GetGoalId() != kScavengerCollectPeriod)
-            timed = true;
     }
-    if (GameModeName() == kNetGoalAttack)
-        return GoalsCompleted() && AllSkatersRunDone();
-    if (timed)
-        return m_timeLeft <= 0;
-    GameNet::Manager* net = NetManager();
-    PlayerSearch search;
-    if (!net->CountPlayers())
-        return true;
-    if (m_state & kStateNoTimeLimit)
-        return false;
-    if (!net->FinalScoresReceived() && net->InNetGame() && !scavenger)
-        return false;
-    if (m_endRunType == 2)
-        return m_timeLeft <= 0;
-    if (AllSkatersRunDone() && m_timeLeft <= 0)
-        return true;
-    for (void* player = net->FirstPlayerInfo(&search, false); player; player = net->NextPlayerInfo(&search, false)) {
-        auto* skater = *reinterpret_cast<Obj::CCompositeObject**>(static_cast<uint8_t*>(player) + 0x14);
-        auto* endRun = static_cast<Obj::CSkaterEndRunComponent*>(skater->GetComponent(kSkaterEndRun));
-        if (!endRun->RunDone() && !reinterpret_cast<uint8_t*>(skater)[0x320] && m_endRunType != 2 && m_timeLeft <= 0) {
-            m_flags |= kFlagEndOfRunStarted;
-            endRun->EndRun(false);
+    if (active_ruleset_label() == kNetScavengerHunt || active_ruleset_label() == kScavengerHunt) {
+        scavenger = true;
+        if (get_objective_key() != kScavengerCollectPeriod) {
+            timed = true;
         }
     }
-    return net->IsGameOver();
+    if (active_ruleset_label() == kNetGoalAttack) {
+        return goals_completed() && all_skaters_run_done();
+    }
+    if (timed) {
+        return seconds_remaining() <= 0;
+    }
+    online::Hub* net = online::online_hub();
+    PlayerSearch search;
+    if (net->roster().count_players() == 0) {
+        return true;
+    }
+    if (core::any(cur_phase() & Objective::State::kNoTimeLimit)) {
+        return false;
+    }
+    if (!net->final_scores_received() && net->in_net_game() && !scavenger) {
+        return false;
+    }
+    if (run_ending() == 2) {
+        return seconds_remaining() <= 0;
+    }
+    if (all_skaters_run_done() && seconds_remaining() <= 0) {
+        return true;
+    }
+    for (void* player = net->roster().begin_player_walk(&search, false); player;
+         player = net->roster().step_player_walk(&search, false)) {
+        objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->rider();
+        auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
+        if (!end_run->run_done() && !skater->is_halted() && run_ending() != 2 && seconds_remaining() <= 0) {
+            flag_bits() |= Objective::Flags::kEndOfRunStarted;
+            end_run->end_run(false);
+        }
+    }
+    return net->has_match_ended();
 }
 
 // 0x00560E20
-void CNetGoal::Expire()
+void OnlineObjective::expire()
 {
-    GameNet::Manager* net = NetManager();
-    if (!m_params->ContainsFlag(kGameContinues))
-        net->SetGameOver();
-    SetTimeLeft(0);
-    CGoal::Expire();
+    online::Hub* net = online::online_hub();
+    if (!args()->has_bare_flag(kGameContinues)) {
+        net->mark_match_ended();
+    }
+    set_seconds_remaining(0);
+    Objective::expire();
 }
 
-// --- CRaceGoal ------------------------------------------------------------------------------------------------------
+// --- RaceObjective ------------------------------------------------------------------------------------------------------
 
 // 0x00560E60
-CRaceGoal* CRaceGoal::Construct(Script::CStruct* params)
+RaceObjective::RaceObjective(script::Struct* params)
+    : Objective(params), add_time_(params->has_entry_named(kRaceAddTime))
 {
-    CGoal::Construct(params);
-    m_node.vtable = kRaceGoalVtable;
-    m_laps = 1;
-    params->GetInteger(kRaceTotalLaps, &m_laps, 0);
-    m_addTime = params->ContainsComponentNamed(kRaceAddTime);
-    return this;
+    params->fetch_int_value(kRaceTotalLaps, &laps_, 0);
 }
 
 // 0x00560EE0
-void CRaceGoal::DestroyBody()
-{
-    m_node.vtable = kRaceGoalVtable;
-    CGoal::DestroyBody();
-}
-
-// 0x00560F60
-CRaceGoal* CRaceGoal::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+RaceObjective::~RaceObjective() = default;
 
 // 0x00560EF0
-bool CRaceGoal::Activate()
+bool RaceObjective::activate()
 {
-    m_lap = 1;
-    return CGoal::Activate();
+    lap_ = 1;
+    return Objective::activate();
 }
 
 // 0x00560F00
-bool CRaceGoal::IsExpired() { return !(m_state & kStateNoTimeLimit) && m_timeLeft <= 0; }
+bool RaceObjective::has_run_out() { return !core::any(cur_phase() & Objective::State::kNoTimeLimit) && seconds_remaining() <= 0; }
 
 // 0x00560F20
-bool CRaceGoal::ShouldExpire()
+bool RaceObjective::wants_to_end()
 {
-    if ((m_state & kStateNoTimeLimit) || m_timeLeft > 0)
+    if (core::any(cur_phase() & Objective::State::kNoTimeLimit) || seconds_remaining() > 0) {
         return false;
-    CGoal::ShouldExpire();
+    }
+    Objective::wants_to_end();
     return true;
 }
 
 // 0x00560F40
-void CRaceGoal::Expire()
+void RaceObjective::expire()
 {
-    RunCallbackScript(kExpireScript);
-    Virtual<bool>(this, kVtDeactivate, false, true);
+    invoke_hook_script(kExpireScript);
+    disengage(false, true);
 }
 
 // 0x00560F90
-bool CRaceGoal::NextRaceWaypoint(uint32_t id)
+bool RaceObjective::advance_race_gate(uint32_t id)
 {
-    if (Virtual<bool>(this, kVtShouldExpire)) {
-        Dbg::Printf("expired!\n"); // "expired!\n"
+    if (wants_to_end()) {
+        debug::printf("expired!\n"); // "expired!\n"
         return false;
     }
-    Script::CArray* waypoints;
-    m_params->GetArray(kRaceWaypoints, &waypoints, 1);
-    for (uint32_t i = 0; i < waypoints->m_size; ++i) {
-        auto* waypoint = reinterpret_cast<Script::CStruct*>(waypoints->GetElement(i));
-        uint32_t flag;
-        waypoint->GetChecksum(kFlag, &flag, 1);
-        if (GoalFlagEquals(flag, 1, 0)) {
-            if (i != waypoints->m_size - 1)
+    script::Array* waypoints = nullptr;
+    args()->fetch_list(kRaceWaypoints, &waypoints, 1);
+    for (uint32_t i = 0; i < waypoints->extent(); ++i) {
+        auto* waypoint = waypoints->struct_at(i);
+        uint32_t flag = 0;
+        waypoint->read_hash_value(kFlag, &flag, 1);
+        if (bit_matches(checksums::Name{flag}, 1, checksums::Name{0})) {
+            if (i != waypoints->extent() - 1) {
                 continue;
-            if (m_lap++ >= m_laps)
+            }
+            if (lap_++ >= laps_) {
                 return true;
-            ResetGoalFlags();
-            return NextRaceWaypoint(id);
+            }
+            zero_objective_bits();
+            return advance_race_gate(id);
         }
-        Script::CStruct* params = NewStructure();
-        params->AddChecksum(kGoalIdChecksum, id);
-        if (i == 0 && m_laps > 1)
-            params->AddInteger(kStartLap, m_lap);
-        if (i == waypoints->m_size - 1 && m_lap == m_laps)
-            params->AddChecksum(kLastWaypoint, 1);
-        if (m_params->ContainsFlag(kQuickStart))
-            params->AddChecksum(0u, kQuickStart);
-        else
-            params->RemoveFlag(kQuickStart);
-        if (m_lap == 1 && i == 0) {
-            params->AddInteger(kFirstWaypoint, 1);
+        script::StructPtr params = script::make_struct();
+        params->put_name_key(checksums::Name{kGoalIdChecksum}, id);
+        if (i == 0 && laps_ > 1) {
+            params->put_int(checksums::Name{kStartLap}, lap_);
+        }
+        if (i == waypoints->extent() - 1 && lap_ == laps_) {
+            params->put_name_key(checksums::Name{kLastWaypoint}, 1);
+        }
+        if (args()->has_bare_flag(kQuickStart)) {
+            params->put_name_key(checksums::Name{0U}, kQuickStart);
         } else {
-            params->AddChecksum(kScr, kCheckpointMessage);
-            if (!(m_state & kStateNoTimeLimit) && m_addTime) {
-                int time;
-                waypoint->GetInteger(kTime, &time, 0);
-                AddTime(time);
-                params->AddInteger(kAddedTime, time);
+            params->remove_flag(kQuickStart);
+        }
+        if (lap_ == 1 && i == 0) {
+            params->put_int(checksums::Name{kFirstWaypoint}, 1);
+        } else {
+            params->put_name_key(checksums::Name{kScr}, kCheckpointMessage);
+            if (!core::any(cur_phase() & Objective::State::kNoTimeLimit) && add_time_) {
+                int time = 0;
+                waypoint->fetch_int_value(kTime, &time, 0);
+                advance_clock(time);
+                params->put_int(checksums::Name{kAddedTime}, time);
             }
         }
-        params->AppendStructureIfAny(waypoint);
-        const char* goalName;
-        m_params->GetString(kGoalName, &goalName, 1);
-        char scriptName[0x100];
-        std::snprintf(scriptName, sizeof(scriptName), "%s_next_waypoint_script_id", goalName); // "%s_next_waypoint_script_id"
-        Script::SpawnScript(kRaceNextWaypoint, params, 0, nullptr, 0, Crc::GenerateCRCFromString(scriptName), false,
-                            false, false, false);
-        DeleteStructure(params);
+        params->append_structure_if_any(waypoint);
+        const char* goal_name = nullptr;
+        args()->fetch_text(kGoalName, &goal_name, 1);
+        std::array<char, kScriptNameSize> script_name{};
+        text::format_to(script_name, "%s_next_waypoint_script_id",
+                        goal_name); // "%s_next_waypoint_script_id"
+        script::spawn_script(kRaceNextWaypoint, params.get(), {.id = checksums::hash_from_text(script_name.data())});
+        params.reset();
         return true;
     }
     return true;
 }
 
-} // namespace Game
+} // namespace goals

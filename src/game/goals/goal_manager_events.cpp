@@ -1,400 +1,394 @@
-// Game::CGoalManager: the skater's tricks landed and bails passed to the active goals, the view goals menu's info
+// goals::CGoalManager: the skater's tricks landed and bails passed to the active goals, the view goals menu's info
 // (0x0055C7E0-0x0055D3E2), and the goal manager's script commands 0x0055D3F0-0x0055D954 (see goal_manager.h,
 // goal_manager_cfuncs.h).
 
+#include <cstddef>
 #include <cstdint>
+#include <array>
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_skate_line.h"
 #include "game/goals/goal_net_types.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/trick_goals.h"
-#include "game/skater/skater.h"
-#include "game/skate/score.h"
+#include "game/rider/rider.h"
+#include "game/skate/point_tally.h"
+#include "base/core/down_cast.h"
+#include <gsl/pointers>
 
-namespace Game {
+namespace goals {
 
 namespace {
+constexpr size_t kCaptionSize = 0x200;
 
-using namespace GoalNames;
+using namespace goal_names;
 
-constexpr uint32_t kHighCombo = 0xC63432A7;              // high_combo
-constexpr uint32_t kLastScoreLanded = 0xB9072B65;       // last_score_landed
-constexpr uint32_t kHighComboCheckScore = 0x6B755ED8;   // goal_highcombo_check_score
-constexpr uint32_t kScoreGoal = 0x293B95A7;             // score_goal
-constexpr uint32_t kWinningScore = 0x3DA891B6;          // winning_score
-constexpr uint32_t kTrickObjects = 0xEFC35592;          // TrickObjects
-constexpr uint32_t kTrickBeat = 0xD0DD047B;             // TrickBeat
-constexpr uint32_t kSkateTheLine = 0xF268C278;          // SkateTheLine
+constexpr uint32_t kHighCombo = 0xC63432A7;               // high_combo
+constexpr uint32_t kLastScoreLanded = 0xB9072B65;         // last_score_landed
+constexpr uint32_t kHighComboCheckScore = 0x6B755ED8;     // goal_highcombo_check_score
+constexpr uint32_t kScoreGoal = 0x293B95A7;               // score_goal
+constexpr uint32_t kWinningScore = 0x3DA891B6;            // winning_score
+constexpr uint32_t kTrickObjects = 0xEFC35592;            // TrickObjects
+constexpr uint32_t kTrickBeat = 0xD0DD047B;               // TrickBeat
+constexpr uint32_t kSkateTheLine = 0xF268C278;            // SkateTheLine
 constexpr uint32_t kArcadeCurrentScoreTotal = 0x655F4F3F; // arcade_current_score_total
-constexpr uint32_t kGoalLoseNextFrame = 0x0FEFDA11;     // goal_lose_next_frame
-constexpr uint32_t kTrickFlag = 0x60B827D5;             // trick_flag
-constexpr uint32_t kViewGoalsText = 0x4BC5229D;         // view_goals_text
-constexpr uint32_t kBeaten = 0x38318B67;                // beaten
-constexpr uint32_t kLocked = 0x152D376E;                // locked
-constexpr uint32_t kRewardPoints = 0xBAFFB052;          // reward_points
-constexpr uint32_t kGoalDescription = 0x0C5D7E6B;       // goal_deScription
-constexpr uint32_t kViewGoalsTip = 0x63981D6F;          // view_goals_tip
-constexpr uint32_t kViewGoalsCameras = 0x22A555F7;      // view_goals_cameras
-constexpr uint32_t kNumGoals = 0x5607E8CC;              // (name unknown: a pro's number of goals)
-constexpr uint32_t kViewGoalsInfo = 0xBBC7B40D;         // view_goals_info
-constexpr uint32_t kName = 0xA1DC81F9;                  // Name
-constexpr uint32_t kParams = 0x7031F10C;                // params
-constexpr uint32_t kBeatenInLevelFlag = 0x8690A9CF;     // (name unknown: passed on, never read)
-constexpr uint32_t kNumBeaten = 0x8110DCDF;             // num_beaten
-constexpr uint32_t kSelectedOnly = 0x5685C1B7;          // selected_only
-constexpr uint32_t kClassicOnly = 0xBF6C452E;           // classic_only
-constexpr uint32_t kCreatedOnly = 0x185133BB;           // created_only
-constexpr uint32_t kGoalIdKey = 0x7C1956AF;             // goalId
-constexpr uint32_t kGoalList = 0xC7EBD48F;              // GoalList
-constexpr uint32_t kAll = 0xC4E78E22;                   // ALL
-constexpr uint32_t kText = 0xC4745838;                  // text
-constexpr uint32_t kTrickText = 0x3EAFA520;             // tricktext
-constexpr uint32_t kAttemptInfo = 0xD23AD129;           // (name unknown: GetGoalAttemptInfo's structure)
-constexpr uint32_t kSkater = 0x5B8AB877;                // skater
+constexpr uint32_t kGoalLoseNextFrame = 0x0FEFDA11;       // goal_lose_next_frame
+constexpr uint32_t kTrickMarker = 0x60B827D5;             // trick_flag
+constexpr uint32_t kViewGoalsText = 0x4BC5229D;           // view_goals_text
+constexpr uint32_t kBeaten = 0x38318B67;                  // beaten
+constexpr uint32_t kLocked = 0x152D376E;                  // locked
+constexpr uint32_t kRewardPoints = 0xBAFFB052;            // reward_points
+constexpr uint32_t kGoalDescription = 0x0C5D7E6B;         // goal_deScription
+constexpr uint32_t kViewGoalsTip = 0x63981D6F;            // view_goals_tip
+constexpr uint32_t kViewGoalsCameras = 0x22A555F7;        // view_goals_cameras
+constexpr uint32_t kNumGoals = 0x5607E8CC;                // (name unknown: a pro's number of goals)
+constexpr uint32_t kViewGoalsInfo = 0xBBC7B40D;           // view_goals_info
+constexpr uint32_t kName = 0xA1DC81F9;                    // Name
+constexpr uint32_t kParams = 0x7031F10C;                  // params
+constexpr uint32_t kBeatenInLevelFlag = 0x8690A9CF;       // (name unknown: passed on, never read)
+constexpr uint32_t kClearedCount = 0x8110DCDF;            // num_beaten
+constexpr uint32_t kChosenOnly = 0x5685C1B7;              // selected_only
+constexpr uint32_t kClassicOnly = 0xBF6C452E;             // classic_only
+constexpr uint32_t kCreatedOnly = 0x185133BB;             // created_only
+constexpr uint32_t kGoalIdKey = 0x7C1956AF;               // goalId
+constexpr uint32_t kGoalList = 0xC7EBD48F;                // GoalList
+constexpr uint32_t kAll = 0xC4E78E22;                     // ALL
+constexpr uint32_t kText = 0xC4745838;                    // text
+constexpr uint32_t kTrickText = 0x3EAFA520;               // tricktext
+constexpr uint32_t kTryDetails = 0xD23AD129;              // (name unknown: get_objective_try_details's structure)
+constexpr uint32_t kSkater = 0x5B8AB877;                  // skater
 
-const char* const kNoDescription = "Define <goal_description> for this goal and it will appear here....If you'd like, also define <view_goals_tip>, it's optional."; // "Define <goal_description> ..."
+const char* const kNoDescription = "Define <goal_description> for this goal and it will appear here....If you'd like, "
+                                   "also define <view_goals_tip>, it's optional."; // "Define <goal_description> ..."
 
-Script::CStruct* NewStructure()
-{
-    Script::CStruct* made = Script::NewStruct();
-    return made ? made->Init() : nullptr;
-}
-void DeleteStructure(Script::CStruct* structure)
-{
-    if (structure) {
-        structure->Clear();
-        Script::DeleteStruct(structure);
-    }
-}
-Script::CArray* NewArray()
-{
-    Script::CArray* made = Script::NewArray();
-    return made ? made->Init() : nullptr;
-}
-void FreeArray(Script::CArray* array)
-{
-    Script::CleanUpArray(array);
-    if (array) {
-        array->Clear();
-        Script::DeleteArray(array);
-    }
-}
 
 // The skater's score: its total (0x00561B40, no source yet) plus the pending trick's points (the base +0x14 times the
 // multiplier +0x60, truncated - _ftol).
-int TotalWithPending(void* score)
+int total_with_pending(void* score)
 {
-    auto* bytes = static_cast<uint8_t*>(score);
-    int pending = static_cast<int>(static_cast<double>(*reinterpret_cast<int*>(bytes + 0x14)) *
-                                   *reinterpret_cast<float*>(bytes + 0x60));
-    return static_cast<Mdl::Score*>(score)->GetTotalScore() + pending;
+    auto* tally = static_cast<modules::PointTally*>(score);
+    const int pending = static_cast<int>(static_cast<double>(tally->pot()) * tally->multiplier());
+    return tally->get_total_score() + pending;
 }
 
 // goal_lose_next_frame spawned for `goal`.
-void LoseNextFrame(CGoal* goal)
+void lose_next_frame(Objective* goal)
 {
-    Script::CStruct* params = NewStructure();
-    params->AddChecksum(kGoalIdChecksum, goal->GetGoalId());
-    Script::SpawnScript(kGoalLoseNextFrame, params, 0, nullptr, 0, 0, false, false, false, false);
-    DeleteStructure(params);
+    const script::StructPtr params = script::make_struct();
+    params->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
+    script::spawn_script(kGoalLoseNextFrame, params.get());
 }
 
 } // namespace
 
 // 0x0055C7E0
-void CGoalManager::Land()
+void GoalManager::land()
 {
-    CheckTrickObjects();
-    int count = m_goals.m_count; // (read once)
+    test_tagged_props();
+    const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
-        CGoal* goal = m_goals.GetByIndex(i);
-        if (!Virtual<bool>(goal, CGoal::kVtIsActive))
+        Objective* goal = goals_.get_by_index(i);
+        if (!goal->is_operative()) {
             continue;
-        if (goal->IsHorse()) {
-            static_cast<CHorseGoal*>(goal)->Land(); // (the rest skipped)
+        }
+        if (goal->is_horse()) {
+            core::down_cast<LetterGameObjective>(goal)->land(); // (the rest skipped)
             return;
         }
-        Script::CStruct* params = goal->GetParams();
-        if (params->ContainsFlag(kHighCombo)) {
-            auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
-            if (!skater)
+        script::Struct* params = goal->fetch_args();
+        if (params->has_bare_flag(kHighCombo)) {
+            auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
+            if (!skater) {
                 continue;
-            auto* score = static_cast<uint8_t*>(skater->GetScore());
-            if (*reinterpret_cast<int*>(score + 0x20) <= 0)
+            }
+            auto* score = skater->get_points_total();
+            if (score->pot_score() <= 0) {
                 continue;
-            Script::CStruct* check = NewStructure();
-            check->AddChecksum(kGoalIdChecksum, goal->GetGoalId());
-            check->AddInteger(kLastScoreLanded, *reinterpret_cast<int*>(score + 0x20));
-            Script::RunScript(kHighComboCheckScore, check, nullptr, false, nullptr);
-            DeleteStructure(check);
-        } else if (goal->GetParams()->ContainsFlag(kScoreGoal)) {
-            auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
-            if (!skater)
+            }
+            const script::StructPtr check = script::make_struct();
+            check->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
+            check->put_int(checksums::Name{kLastScoreLanded}, score->pot_score());
+            script::launch_script(kHighComboCheckScore, check.get(), nullptr, false, nullptr);
+        } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {
+            auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
+            if (!skater) {
                 continue;
-            void* score = skater->GetScore();
-            int needed;
-            goal->GetParams()->GetInteger(kScore, &needed, 1);
-            if (TotalWithPending(score) < needed)
+            }
+            void* score = skater->get_points_total();
+            int needed = 0;
+            goal->fetch_args()->fetch_int_value(kScore, &needed, 1);
+            if (total_with_pending(score) < needed) {
                 continue;
-            int total = TotalWithPending(score);
-            goal->GetParams()->AddInteger(kWinningScore, total);
-            WinGoal(goal->GetGoalId());
-            goal->GetParams()->RemoveComponent(kWinningScore);
-        } else if (goal->GetParams()->ContainsFlag(kTrickObjects)) {
-            reinterpret_cast<CTrickObjectsGoal*>(goal)->CheckScore();
-        } else if (goal->GetParams()->ContainsFlag(kTrickBeat)) {
-            reinterpret_cast<CTrickBeatGoal*>(goal)->RemoveLandedTricks();
-        } else if (goal->GetParams()->ContainsFlag(kSkateTheLine)) {
-            static_cast<CSkateLineGoal*>(goal)->Land();
-        } else if (goal->GetParams()->ContainsComponentNamed(kArcadeCurrentScoreTotal)) {
-            auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
-            if (!skater)
+            }
+            const int total = total_with_pending(score);
+            goal->fetch_args()->put_int(checksums::Name{kWinningScore}, total);
+            complete_objective(goal->get_objective_key());
+            goal->fetch_args()->erase_module(kWinningScore);
+        } else if (goal->fetch_args()->has_bare_flag(kTrickObjects)) {
+            core::down_cast<TrickObjectsGoal>(goal)->evaluate_points();
+        } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
+            core::down_cast<TrickBeatGoal>(goal)->remove_landed_tricks();
+        } else if (goal->fetch_args()->has_bare_flag(kSkateTheLine)) {
+            core::down_cast<SkateLineGoal>(goal)->land();
+        } else if (goal->fetch_args()->has_entry_named(kArcadeCurrentScoreTotal)) {
+            auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
+            if (!skater) {
                 continue;
-            void* score = skater->GetScore();
-            int current;
-            goal->GetParams()->GetInteger(kArcadeCurrentScoreTotal, &current, 0);
-            if (TotalWithPending(score) <= current)
+            }
+            void* score = skater->get_points_total();
+            int current = 0;
+            goal->fetch_args()->fetch_int_value(kArcadeCurrentScoreTotal, &current, 0);
+            if (total_with_pending(score) <= current) {
                 continue;
-            int total = TotalWithPending(score);
-            goal->GetParams()->AddInteger(kArcadeCurrentScoreTotal, total);
-        } else if (goal->RequiresCombo() && goal->GetParams()->ContainsFlag(kComboStarted)) {
-            LoseNextFrame(goal);
+            }
+            const int total = total_with_pending(score);
+            goal->fetch_args()->put_int(checksums::Name{kArcadeCurrentScoreTotal}, total);
+        } else if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag)) {
+            lose_next_frame(goal);
         }
     }
 }
 
 // 0x0055CBB0
-void CGoalManager::Bail()
+void GoalManager::get_bail()
 {
-    int count = m_goals.m_count; // (read once)
+    const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
-        CGoal* goal = m_goals.GetByIndex(i);
-        if (!Virtual<bool>(goal, CGoal::kVtIsActive))
+        Objective* goal = goals_.get_by_index(i);
+        if (!goal->is_operative()) {
             continue;
-        if (goal->RequiresCombo() && goal->GetParams()->ContainsFlag(kComboStarted))
-            LoseNextFrame(goal);
-        if (goal->IsTetris()) {
-            int flag;
-            if (goal->GetParams()->GetInteger(kTrickFlag, &flag, 0) && flag)
-                goal->GetParams()->AddInteger(kTrickFlag, 0);
-        } else if (goal->GetParams()->ContainsFlag(kTrickBeat)) {
-            reinterpret_cast<CTrickBeatGoal*>(goal)->ClearLanded();
+        }
+        if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag)) {
+            lose_next_frame(goal);
+        }
+        if (goal->is_tetris()) {
+            int flag = 0;
+            if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && (flag != 0)) {
+                goal->fetch_args()->put_int(checksums::Name{kTrickMarker}, 0);
+            }
+        } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
+            core::down_cast<TrickBeatGoal>(goal)->clear_landed();
         }
     }
 }
 
 // 0x0055CD70
-void CGoalManager::GetViewGoalsInfo(Script::CStruct* out, uint32_t skater)
+void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 {
-    Script::CStruct* byPro = NewStructure(); // each pro: its goals' info by id, and their number
-    Script::CStruct* info = NewStructure();
-    int count = m_goals.m_count; // (read once)
+    gsl::owner<script::Struct*> by_pro = script::new_struct(); // each pro: its goals' info by id, and their number
+    gsl::owner<script::Struct*> info = script::new_struct();
+    const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
-        uint32_t key;
-        CGoal* goal = m_goals.GetByIndex(i, &key);
-        uint32_t pro = goal->m_skater;
-        if (skater && pro != skater)
+        uint32_t key = 0;
+        Objective* goal = goals_.get_by_index(i, &key);
+        const uint32_t pro = goal->skater();
+        if ((skater != 0U) && pro != skater) {
             continue;
-        uint32_t id = goal->GetGoalId();
-        int beaten = Virtual<bool>(goal, CGoal::kVtHasWon) ? 1 : 0;
-        int locked = goal->IsLocked() ? 1 : 0;
-        Script::CStruct* params = goal->GetParams();
-        const char* text;
-        params->GetString(kViewGoalsText, &text, 1);
-        Script::CStruct* entry = NewStructure();
-        entry->AddChecksum(kGoalIdChecksum, id);
-        entry->AddInteger(kBeaten, beaten);
-        entry->AddInteger(kLocked, locked);
-        entry->AddInteger(kRewardPoints, goal->GetRewardPoints());
-        entry->AddString(kViewGoalsText, text);
-        const char* description = nullptr;
-        Script::CArray* descriptions = nullptr;
-        if (params->GetString(kGoalDescription, &description, 0))
-            entry->AddString(kGoalDescription, description);
-        else if (params->GetArray(kGoalDescription, &descriptions, 0))
-            entry->AddArray(kGoalDescription, descriptions);
-        else
-            entry->AddString(kGoalDescription, kNoDescription);
-        const char* tip = nullptr;
-        params->GetString(kViewGoalsTip, &tip, 0);
-        if (tip)
-            entry->AddString(kViewGoalsTip, tip);
-        Script::CArray* cameras = nullptr;
-        params->GetArray(kViewGoalsCameras, &cameras, 0);
-        if (cameras)
-            entry->AddArray(kViewGoalsCameras, cameras);
-        if (!byPro->ContainsComponentNamed(pro)) {
-            Script::CStruct* empty = NewStructure();
-            byPro->AddStructure(pro, empty);
-            DeleteStructure(empty);
         }
-        Script::CStruct* goals = nullptr;
-        byPro->GetStructure(pro, &goals, 1);
-        goals->AddStructure(id, entry);
-        DeleteStructure(entry);
+        const uint32_t id = goal->get_objective_key();
+        const int beaten = goal->has_won() ? 1 : 0;
+        const int locked = goal->is_latched() ? 1 : 0;
+        script::Struct* params = goal->fetch_args();
+        const char* text = nullptr;
+        params->fetch_text(kViewGoalsText, &text, 1);
+        script::StructPtr entry = script::make_struct();
+        entry->put_name_key(checksums::Name{kGoalIdChecksum}, id);
+        entry->put_int(checksums::Name{kBeaten}, beaten);
+        entry->put_int(checksums::Name{kLocked}, locked);
+        entry->put_int(checksums::Name{kRewardPoints}, goal->get_reward_points());
+        entry->append_word(kViewGoalsText, text);
+        const char* description = nullptr;
+        script::Array* descriptions = nullptr;
+        if (params->fetch_text(kGoalDescription, &description, 0)) {
+            entry->append_word(kGoalDescription, description);
+        } else if (params->fetch_list(kGoalDescription, &descriptions, 0)) {
+            entry->append_array_value(kGoalDescription, descriptions);
+        } else {
+            entry->append_word(kGoalDescription, kNoDescription);
+        }
+        const char* tip = nullptr;
+        params->fetch_text(kViewGoalsTip, &tip, 0);
+        if (tip) {
+            entry->append_word(kViewGoalsTip, tip);
+        }
+        script::Array* cameras = nullptr;
+        params->fetch_list(kViewGoalsCameras, &cameras, 0);
+        if (cameras) {
+            entry->append_array_value(kViewGoalsCameras, cameras);
+        }
+        if (!by_pro->has_entry_named(pro)) {
+            const script::StructPtr empty = script::make_struct();
+            by_pro->put_sub_struct(pro, empty.get());
+        }
+        script::Struct* goals = nullptr;
+        by_pro->read_sub_struct(pro, &goals, 1);
+        goals->put_sub_struct(id, entry.get());
+        entry.reset();
         int number = 0;
-        goals->GetInteger(kNumGoals, &number, 0);
-        goals->AddInteger(kNumGoals, ++number);
+        goals->fetch_int_value(kNumGoals, &number, 0);
+        goals->put_int(checksums::Name{kNumGoals}, ++number);
     }
     // Each pro's goals made an array of their structures: all as info's arrays by pro, or - for one skater - that
     // pro's array alone (the first pro's).
-    for (Script::CComponent* component = byPro->GetNextComponent(nullptr); component;) {
-        Script::CComponent* nextPro = byPro->GetNextComponent(component);
-        Script::CStruct* goals = component->structure;
-        int number;
-        goals->GetInteger(kNumGoals, &number, 1);
-        goals->RemoveComponent(kNumGoals);
-        Script::CArray* list = NewArray();
-        list->SetSizeAndType(static_cast<uint32_t>(number), Script::ESYMBOLTYPE_STRUCTURE);
+    for (script::Component* component = by_pro->step_to_entry(nullptr); component;) {
+        script::Component* next_pro = by_pro->step_to_entry(component);
+        script::Struct* goals = component->value.structure();
+        int number = 0;
+        goals->fetch_int_value(kNumGoals, &number, 1);
+        goals->erase_module(kNumGoals);
+        gsl::owner<script::Array*> list = script::new_array();
+        list->configure_size_kind(static_cast<uint32_t>(number), script::QbValueKind::kStruct);
         uint32_t index = 0;
-        for (Script::CComponent* element = goals->GetNextComponent(nullptr); element;) {
-            Script::CComponent* next = goals->GetNextComponent(element);
-            Script::CStruct* copy = NewStructure();
-            copy->AppendStructureIfAny(element->structure);
-            list->SetElement(index++, reinterpret_cast<uint32_t>(copy));
+        for (script::Component* element = goals->step_to_entry(nullptr); element;) {
+            script::Component* next = goals->step_to_entry(element);
+            gsl::owner<script::Struct*> copy = script::new_struct();
+            copy->append_structure_if_any(element->value.structure());
+            list->set_cell(index++, script::Cell::of(copy));
             element = next;
         }
-        if (skater) {
-            out->AddArrayPointer(kViewGoalsInfo, list);
-            DeleteStructure(byPro);
-            DeleteStructure(info);
+        if (skater != 0U) {
+            out->append_array_ref(kViewGoalsInfo, list);
+            script::free_struct(by_pro);
+            script::free_struct(info);
             return;
         }
-        info->AddArray(component->name, list);
-        FreeArray(list);
-        component = nextPro;
+        info->append_array_value(component->name, list);
+        free_array(list);
+        component = next_pro;
     }
-    DeleteStructure(byPro);
-    out->AddStructurePointer(kViewGoalsInfo, info);
+    script::free_struct(by_pro);
+    out->append_struct_ref(kViewGoalsInfo, info);
 }
 
 // 0x0055D3F0
-bool __cdecl CFunc_GoalManager_AddGoal(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_add_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name;
-    params->GetChecksum(kName, &name, 1);
-    Script::CStruct* goalParams;
-    params->GetStructure(kParams, &goalParams, 1);
-    return manager->AddGoal(name, goalParams);
+    GoalManager* manager = get_objective_board();
+    uint32_t name = 0;
+    params->read_hash_value(kName, &name, 1);
+    script::Struct* goal_params = nullptr;
+    params->read_sub_struct(kParams, &goal_params, 1);
+    return manager->enrol_objective(name, goal_params);
 }
 
-// 0x0055D450 (RemoveGoal, inlined)
-bool __cdecl CFunc_GoalManager_RemoveGoal(Script::CStruct* params, Script::CScript*)
+// 0x0055D450 (drop_objective, inlined)
+bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    uint32_t name;
-    params->GetChecksum(kName, &name, 1);
-    return manager->RemoveGoal(name);
+    GoalManager* manager = get_objective_board();
+    uint32_t name = 0;
+    params->read_hash_value(kName, &name, 1);
+    return manager->drop_objective(name);
 }
 
 // 0x0055D4D0
-bool __cdecl CFunc_GoalManager_RemoveAllGoals(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_remove_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->RemoveAllGoals();
+    get_objective_board()->wipe_objectives();
     return true;
 }
 
 // 0x0055D4F0
-bool __cdecl CFunc_GoalManager_RestartLastGoal(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_restart_last_goal(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->RestartLastGoal();
+    get_objective_board()->retry_previous_objective();
     return true;
 }
 
 // 0x0055D510
-bool __cdecl CFunc_GoalManager_LevelUnload(Script::CStruct*, Script::CScript*)
+bool cfunc_goal_manager_level_unload(script::Struct* /*params*/, script::Context /*context*/)
 {
-    GetGoalManager()->LevelUnload();
+    get_objective_board()->level_unload();
     return true;
 }
 
 // 0x0055D530: the beaten goals of the level the unnamed integer names, as the script's num_beaten.
-bool __cdecl CFunc_GoalManager_NumGoalsBeatenInLevel(Script::CStruct* params, Script::CScript* script)
+bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script::Context context)
 {
-    int level;
-    params->GetInteger(0u, &level, 1);
-    CGoalManager* manager = GetGoalManager();
-    int flag = params->ContainsFlag(kBeatenInLevelFlag);
-    script->m_params->AddInteger(kNumBeaten, manager->NumGoalsBeatenInLevel(level, flag));
+    int level = 0;
+    params->fetch_int_value(0U, &level, 1);
+    GoalManager* manager = get_objective_board();
+    const int flag = static_cast<int>(params->has_bare_flag(kBeatenInLevelFlag));
+    context.args()->put_int(checksums::Name{kClearedCount}, manager->count_cleared_in_stage(level, flag));
     return true;
 }
 
 // 0x0055D590
-bool __cdecl CFunc_GoalManager_AddGoalChoices(Script::CStruct* params, Script::CScript*)
+bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Context /*context*/)
 {
-    CGoalManager* manager = GetGoalManager();
-    bool selected = params->ContainsFlag(kSelectedOnly);
-    bool classic = params->ContainsFlag(kClassicOnly);
-    bool created = params->ContainsFlag(kCreatedOnly);
-    manager->AddGoalChoices(selected, classic, created);
+    GoalManager* manager = get_objective_board();
+    const bool selected = params->has_bare_flag(kChosenOnly);
+    const bool classic = params->has_bare_flag(kClassicOnly);
+    const bool created = params->has_bare_flag(kCreatedOnly);
+    manager->append_objective_options(selected, classic, created);
     return true;
 }
 
 // 0x0055D600: every goal's goalId and hasBeaten as the script's GoalList.
-bool __cdecl CFunc_GoalManager_GetGoalList(Script::CStruct*, Script::CScript* script)
+bool cfunc_goal_manager_get_goal_list(script::Struct* /*params*/, script::Context context)
 {
-    CGoalManager* manager = GetGoalManager();
-    Script::CArray* list = NewArray();
-    list->SetSizeAndType(static_cast<uint32_t>(manager->m_goals.m_count), Script::ESYMBOLTYPE_STRUCTURE);
-    for (int i = 0; i < manager->m_goals.m_count; ++i) {
-        CGoal* goal = manager->m_goals.GetByIndex(i);
-        Script::CStruct* entry = NewStructure();
-        entry->AddChecksum(kGoalIdKey, goal->GetGoalId());
-        entry->AddInteger(kHasBeaten, Virtual<bool>(goal, CGoal::kVtHasWon) ? 1 : 0);
-        list->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
+    GoalManager* manager = get_objective_board();
+    script::ArrayPtr list = script::make_array();
+    list->configure_size_kind(static_cast<uint32_t>(manager->goals().num()), script::QbValueKind::kStruct);
+    for (int i = 0; i < manager->goals().num(); ++i) {
+        Objective* goal = manager->goals().get_by_index(i);
+        gsl::owner<script::Struct*> entry = script::new_struct();
+        entry->put_name_key(checksums::Name{kGoalIdKey}, goal->get_objective_key());
+        entry->put_int(checksums::Name{kAlreadyWon}, goal->has_won() ? 1 : 0);
+        list->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
-    script->m_params->AddArray(kGoalList, list);
-    FreeArray(list);
+    context.args()->append_array_value(kGoalList, list.get());
+    list.reset();
     return true;
 }
 
 // 0x0055D7D0: with ALL every goal's texts; else goal Name's - `text` with its tricks as the script's tricktext,
 // without `text` the goal's own texts (their answer). True without Name.
-bool __cdecl CFunc_GoalManager_ReplaceTrickText(Script::CStruct* params, Script::CScript* script)
+bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Context context)
 {
-    CGoalManager* manager = GetGoalManager();
-    if (params->ContainsFlag(kAll)) {
-        manager->ReplaceTrickTextAll();
+    GoalManager* manager = get_objective_board();
+    if (params->has_bare_flag(kAll)) {
+        manager->replace_trick_text_all();
         return true;
     }
-    uint32_t name;
-    if (!params->GetChecksum(kName, &name, 0))
+    uint32_t name = 0;
+    if (!params->read_hash_value(kName, &name, 0)) {
         return true;
-    const char* text;
-    if (!params->GetString(kText, &text, 0))
-        return manager->m_goals.Get(name)->ReplaceTrickText();
-    char replaced[0x200];
-    if (manager->ReplaceTrickText(name, text, replaced, sizeof(replaced))) {
-        script->m_params->RemoveComponent(kTrickText);
-        script->m_params->AddString(kTrickText, replaced);
+    }
+    const char* text = nullptr;
+    if (!params->fetch_text(kText, &text, 0)) {
+        return manager->goals().get_pull(name)->swap_move_caption();
+    }
+    std::array<char, kCaptionSize> replaced{};
+    if (manager->swap_move_caption(name, text, replaced.data(), sizeof(replaced))) {
+        context.args()->erase_module(kTrickText);
+        context.args()->append_word(kTrickText, replaced.data());
     }
     return true;
 }
 
 // 0x0055D8E0
-bool __cdecl CFunc_GoalManager_GetGoalAttemptInfo(Script::CStruct*, Script::CScript* script)
+bool cfunc_goal_manager_get_goal_attempt_info(script::Struct* /*params*/, script::Context context)
 {
-    CGoalManager* manager = GetGoalManager();
-    Script::CStruct* results = script->m_params;
-    results->AddStructurePointer(kAttemptInfo, manager->GetGoalAttemptInfo());
+    GoalManager* manager = get_objective_board();
+    script::Struct* results = context.args().get();
+    results->append_struct_ref(kTryDetails, manager->get_objective_try_details());
     return true;
 }
 
 // 0x0055D910: the view goals menu's info (of `skater`'s goals only, if given).
-bool __cdecl CFunc_GoalManager_GetViewGoalsInfo(Script::CStruct* params, Script::CScript* script)
+bool cfunc_goal_manager_get_view_goals_info(script::Struct* params, script::Context context)
 {
-    CGoalManager* manager = GetGoalManager();
+    GoalManager* manager = get_objective_board();
     uint32_t skater = 0;
-    params->GetChecksum(kSkater, &skater, 0);
-    manager->GetViewGoalsInfo(script->m_params, skater);
+    params->read_hash_value(kSkater, &skater, 0);
+    manager->get_view_goals_info(context.args().get(), skater);
     return true;
 }
 
-} // namespace Game
+} // namespace goals

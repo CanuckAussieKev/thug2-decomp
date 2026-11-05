@@ -8,7 +8,7 @@
 // --install first backs up every file it replaces (tools/game/bake_backup.ts: <game>\thug2-decomp-bake-backups); each
 // --uninstall puts the newest backup back and removes it, so repeating it undoes the installs one by one.
 //
-// A layout (src/game/front/level_editor_layout.h - tools/game/layout_file.ts reads it) is what the editor changed in a
+// A layout (src/editor/level_editor_layout.h - tools/game/layout_file.ts reads it) is what the editor changed in a
 // level, put in place by the game only when the level's EDITED copy loads. Baked, the changes are in the level's own
 // files instead - its scene (.scn.xbx), collision (.col.xbx) and node array (.qb) - written as a new copy:
 //   - read from the game folder (--game, default C:\Games\THUG2\Game; a stock install's Game folder is stepped into):
@@ -23,22 +23,22 @@
 //     makes it again: bake again after it.
 //   - --dry-run reads and bakes in memory, writes nothing, and prints the report.
 //
-// What each record becomes (the game's meaning, src/game/front/level_editor_*.h):
+// What each record becomes (the game's meaning, src/editor/level_editor_*.h):
 //   sector / clone / rail / wall: the sector's render vertices (and normals) and its collision object moved -
-//     QuarterTurn(PerAxis(x, scale), quarters) + offset of the place as loaded (scale= one number or x,y,z along the
-//     piece's own axes); normals as the editor's Rebuild: n / scale made unit length, then turned (unscaled: turned);
+//     get_quarter_turn(per_axis(x, scale), quarters) + offset of the place as loaded (scale= one number or x,y,z along the
+//     piece's own axes); normals as the editor's reassemble: n / scale made unit length, then turned (unscaled: turned);
 //     boxes and spheres made again, the collision's
 //     BSP tree and reaches built again (thug2-level-converter-core/level_port/thug2_col.ts); a hidden sector left out of both files; a clone
 //     is a new sector and collision object (named ed_clone_<source>_<n>); a wall's `off`: its collision object left
 //     out (the render sector stays); a rail point's pos= moved (hidden: its node hidden as below, links to it cut);
 //   object / copy: the object's node's pos= and angles= (its heading - the editor only turns objects about up); a copy
 //     is a new node, its source's fields with its own name and place; a scale= becomes the node's `scale` (a float, or
-//     a vector when stretched), which the model component's InitModel reads - the model drawn scaled; its collision
+//     a vector when stretched), which the model component's set_up_mesh reads - the model drawn scaled; its collision
 //     isn't (the collision component reads no scale): warned;
 //   set: pos= / angles= and the Inspector's field edits (level_editor_fields.h): the node's own component - over its
 //     shared structure's (ncomp_...) as an override at its end, as the game does;
 //   node / point / order: the nodes the editor added, appended to the node array (the level's indexes stay) with the
-//     fields the game gives them (NodeCreate::Fields; a point copies its `like` node's), crowns in the layout's order;
+//     fields the game gives them (node_create::get_fields; a point copies its `like` node's), crowns in the layout's order;
 //   hide / drop: the node's class and type become the editor's marker ed_hidden (ed_hidden_class / ed_hidden_type keep
 //     its own) - exactly what the game does; it isn't removed (indexes stay);
 //   links / terrain: links= (names turned back into indexes) / TerrainType=;
@@ -51,7 +51,7 @@
 //     gets TRG_Flag_<Colour>Script;
 //   lock: ignored (an editor-only aid);
 //   level (level_editor_level_props.h): the level's structure in Levels.qb (Level_<x>, else the one whose level= is
-//     the level's) gets the keys the game writes into it for the edited copy (LevelProps::StructureValues): tod=
+//     the level's) gets the keys the game writes into it for the edited copy (level_props::structure_values): tod=
 //     tod_state, time= tod_manager_active, ambient= ambient_red / _green / _blue, fog= fog_red / _green / _blue /
 //     _alpha / _dist; and name= its name= (the level select's sign text is gamemenu_levelselect.qb's - not changed).
 //     start= has no key there (the game puts the skater at it with ResetSkaters once the level is up): reported;
@@ -158,7 +158,7 @@ export function quarterTurn(v: V3, quarters: number): V3 {
     }
 }
 
-// QuarterTurn(PerAxis(v, scale), quarters) + offset: the scale along the piece's own axes as loaded, then its turn.
+// get_quarter_turn(per_axis(v, scale), quarters) + offset: the scale along the piece's own axes as loaded, then its turn.
 export function applyPlacement(p: Placement, v: V3): V3 {
     const t = quarterTurn({ x: v.x * p.scale.x, y: v.y * p.scale.y, z: v.z * p.scale.z }, p.quarters);
     return { x: t.x + p.offset.x, y: t.y + p.offset.y, z: t.z + p.offset.z };
@@ -168,7 +168,7 @@ function isIdentity(p: Placement): boolean {
     return (p.quarters & 3) === 0 && isUnitScale(p.scale) && p.offset.x === 0 && p.offset.y === 0 && p.offset.z === 0;
 }
 
-// A normal of a placed piece (level_editor_scale.cpp's ScaledNormal, as Scale::Rebuild writes them): through the inverse
+// A normal of a placed piece (level_editor_scale.cpp's scaled_normal, as scale_tool::reassemble writes them): through the inverse
 // transpose of the per-axis scale (n / scale), made unit length again, then turned with the piece; unscaled: only
 // turned (not normalised again - the file's own numbers kept). A zero normal stays zero.
 export function scaledNormal(n: V3, scale: V3, quarters: number): V3 {
@@ -185,7 +185,7 @@ const FVF_XYZ = 0x002;
 const FVF_POSITION_MASK = 0x400e;
 const FVF_NORMAL = 0x010;
 
-// Where a vertex's normal is (level_editor_scale.cpp's NormalOffset): an FVF (below 0x10000 - a larger value is a shader
+// Where a vertex's normal is (level_editor_scale.cpp's surface_nudge): an FVF (below 0x10000 - a larger value is a shader
 // handle) with plain XYZ positions and NORMAL, a stride of 24 or more -> its three floats at +12 (D3D's fixed order);
 // -1: no normal there.
 export function normalOffset(fvf: number, stride: number): number {
@@ -273,7 +273,7 @@ export function placeSector(sector: Sector, p: Placement): void {
         const b = bounds(corners);
         sector.bbox = [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z];
         const c = applyPlacement(p, { x: sector.sphere[0]!, y: sector.sphere[1]!, z: sector.sphere[2]! });
-        // (the radius times the largest axis, as the editor's Rebuild)
+        // (the radius times the largest axis, as the editor's reassemble)
         sector.sphere = [c.x, c.y, c.z, (sector.sphere[3] ?? 0) * Math.max(p.scale.x, p.scale.y, p.scale.z)];
     }
 }
@@ -319,7 +319,7 @@ function cloneCollision(o: ColObject, name: number): ColObject {
     };
 }
 
-// --- shared collision (src/game/front/level_editor_shared_coll.h, ported) ---------------------------------------------
+// --- shared collision (src/editor/level_editor_shared_coll.h, ported) ---------------------------------------------
 //
 // A piece's collision isn't always its own object: collision-only objects (no render sector of their name) often hold
 // the faces of pieces nearby. When the editor moves or hides a piece it takes the faces that belong to it into a
@@ -563,10 +563,10 @@ export function anglesOfRows(rows: readonly number[]): { angles: V3; tilted: boo
     return { angles: { x: 0, y: Math.atan2(at.x, at.z), z: 0 }, tilted };
 }
 
-// An object's scale (an `object` / `copy` record's scale=) as its node's `scale`: the model component's InitModel
-// (0x00420D10, from its InitFromStructure 0x004214F0 and the member Obj_InitModel) reads `scale` from the object's
+// An object's scale (an `object` / `copy` record's scale=) as its node's `scale`: the model component's set_up_mesh
+// (0x00420D10, from its configure_from_data 0x004214F0 and the member Obj_InitModel) reads `scale` from the object's
 // structure - the node's fields, which gameobj_add_components hands the model component (`<...>`) - through 0x00487B00
-// (a float: uniform; a vector: per axis; else x= / y= / z=) and gives it to CModel::SetScale (0x00492EE0), the call the
+// (a float: uniform; a vector: per axis; else x= / y= / z=) and gives it to RenderModel::change_scale (0x00492EE0), the call the
 // editor scales the model with. Written as a float when uniform, a vector otherwise; each axis kept within 0.25 .. 4 as
 // the editor's Clamp. 1, 1, 1: nothing written (the editor leaves an object it never scaled as loaded). The object's
 // collision isn't scaled by it: the collision component (0x0041C7B0 / 0x0041C890) reads no scale - its triangles are
@@ -742,7 +742,7 @@ function includeHas(s: Struct, key: number, flag: boolean): boolean {
     return s.entries.some(([k, v]) => (flag ? k === null && v instanceof Name && v.value === key : k?.value === key));
 }
 
-// The node's own field `key` set (or removed), as the game's Fields::Set does: in its place, unless a shared structure
+// The node's own field `key` set (or removed), as the game's fields::assign_value does: in its place, unless a shared structure
 // after it has the key (then at the end, where it counts); a flag added / taken out. A shared structure's flag can't
 // be switched off for one node: false.
 export function setField(array: NodeArray, node: Struct, key: number, value: FieldValue | null): boolean {
@@ -794,7 +794,7 @@ function fieldOf(array: NodeArray, node: Struct, key: number): QbValue | undefin
 }
 
 // A particle system's emitter places (MidPosition, EndPosition: world places in its node) moved by `delta` with its
-// pos= - as the game does (level_editor_entities.h; its copies: level_editor_objects.h MakeCopy).
+// pos= - as the game does (level_editor_entities.h; its copies: level_editor_objects.h make_copy).
 export function shiftParticle(array: NodeArray, node: Struct, delta: V3): boolean {
     const cls = fieldOf(array, node, K.cls);
     if (!(cls instanceof Name) || cls.value !== K.particleObject) return false;
@@ -812,7 +812,7 @@ export function shiftParticle(array: NodeArray, node: Struct, delta: V3): boolea
 
 // (map4) A particle node moved and turned: its emitter as the node has it (at `from`, heading `fromYaw`) placed for `pos`
 // and heading `yaw` - MidPosition / EndPosition turned about the node's place and moved with it, each BoxDims* box
-// the box along the world's axes that holds the turned box - as the game's Entities::TurnParticle
+// the box along the world's axes that holds the turned box - as the game's entities::turn_particle
 // (level_editor_entities.h).
 export function turnBoxExtents(v: V3, turn: number): V3 {
     let c = Math.abs(Math.cos(turn));
@@ -866,7 +866,7 @@ function readVector(node: Struct, key: number): V3 | null {
     return v instanceof Vector && v.kind === "vector" ? { x: v.values[0]!, y: v.values[1]!, z: v.values[2]! } : null;
 }
 
-// The editor's marker (NodeCreate::Hide): class and type ed_hidden, its own kept beside.
+// The editor's marker (node_create::conceal): class and type ed_hidden, its own kept beside.
 function hideNode(array: NodeArray, i: number): void {
     const node = array.edit(i);
     const cls = getName(node, K.cls);
@@ -898,7 +898,7 @@ function linksOf(array: NodeArray, i: number): number[] {
 
 // --- (map3) camera nodes (level_editor_cameras.cpp) --------------------------------------------------------------------
 
-// Where a node of these angles looks - the game's angles-to-matrix (0x0041A730: RotationX, Y, Z) at row (Cameras::Forward).
+// Where a node of these angles looks - the game's angles-to-matrix (0x0041A730: RotationX, Y, Z) at row (cameras::get_forward).
 export function cameraForward(a: V3): V3 {
     const cx = Math.cos(a.x);
     const v = { x: f32(Math.sin(a.y) * cx), y: f32(-Math.sin(a.x)), z: f32(Math.cos(a.y) * cx) };
@@ -983,7 +983,7 @@ export function addedNode(array: NodeArray, r: Layout["nodes"][number]): Struct 
         flag("NeverSuspend");
         s.entries.push([new Name(checksum("Model")), `gameobjects\\flags\\${model}\\${model}.mdl`]);
         s.entries.push([new Name(checksum("lod_dist1")), 800], [new Name(checksum("lod_dist2")), 801]);
-        // (a team lobby flag TRG_Flag_<Colour>: its level's TRG_Flag_<Colour>Script - NodeCreate's IsLobbyFlag)
+        // (a team lobby flag TRG_Flag_<Colour>: its level's TRG_Flag_<Colour>Script - node_create's is_lobby_flag)
         if (!base) name("TriggerScript", `${/^TRG_Flag_/i.test(r.name) ? "TRG_Flag_" : "TRG_CTF_"}${team}Script`);
     } else if (same(r.cls, "LevelLight")) {
         flag("CreatedAtStart");
@@ -1047,7 +1047,7 @@ export function addedPoint(array: NodeArray, p: Layout["points"][number]): Struc
         array.remember(terrain);
     }
     if (p.cls === "RailNode" && p.cluster) {
-        // (a drawn rail's trick object: as the levels' TrickObject rails - AddFromNodeArray registers it at load)
+        // (a drawn rail's trick object: as the levels' TrickObject rails - add_from_node_array registers it at load)
         s.entries.push([null, new Name(K.trickObject)]);
         put(K.cluster, new Name(p.cluster));
         array.remember("TrickObject");
@@ -1060,7 +1060,7 @@ export function addedPoint(array: NodeArray, p: Layout["points"][number]): Struc
     return s;
 }
 
-// The crowns among the added nodes put in `order` in the slots crowns hold (NodeCreate::ApplyCrownOrder).
+// The crowns among the added nodes put in `order` in the slots crowns hold (node_create::apply_crown_order).
 export function applyCrownOrder<T extends { name: string; cls: string; type: string }>(
     list: T[],
     order: readonly string[],
@@ -1216,7 +1216,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         for (const c of layout.clones) {
             const mine = companions.find((x) => x.piece === c.source);
             // (copies of the faces: a copy's companion keeps the flags it was made with - map3's face edits go to the
-            // pieces' own, as the game's SetTakenFlags)
+            // pieces' own, as the game's set_taken_flags)
             const faces = mine ? mine.faces.map((f) => ({ ...f })) : sharedColl.gather(c.source, false);
             if (faces.length)
                 companions.push({
@@ -1228,7 +1228,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         }
     }
     // (map3) Collision faces' flags (level_editor_faces.h): by index in the collision object as loaded; a face a moved
-    // piece's companion took along gets them there and keeps 0x10 itself (Faces::Write -> SetTakenFlags).
+    // piece's companion took along gets them there and keeps 0x10 itself (faces::emit_out -> set_taken_flags).
     let faceEdits = 0;
     for (const r of layout.faces) {
         const o = colAt.get(r.checksum);
@@ -1363,7 +1363,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
     }
     // The editor's triggers (baked below): one whose name a level node or collision object has already isn't made (the
     // DLL skips "there already" too - a layout baked twice); a level trigger one stands in for (`replaces`) is off
-    // while it's there (Triggers::Sync: through the walls module) - left out of the collision.
+    // while it's there (triggers::get_sync: through the walls module) - left out of the collision.
     const triggers = layout.triggers.filter((t) => {
         const c = checksum(t.spec.name);
         if (array.index(c) < 0 && !colAt.has(c)) return true;
@@ -1610,7 +1610,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         mapScripts.push([checksum(MapFeatures.RAIL_SPEED_LOOP), MapFeatures.RAIL_SPEED_LOOP_BODY]);
         for (const n of MapFeatures.RAIL_SPEED_NAMES) mapNames.set(checksum(n), n);
     }
-    // (the feature map) Proximity nodes: their scripts (TriggerScript - Proxim_AddNode reads it at the load) and spheres.
+    // (the feature map) Proximity nodes: their scripts (TriggerScript - nearby_zone_add_node reads it at the load) and spheres.
     for (const e of layout.proxims) {
         const i = nodeAt(e.node, "proxim");
         if (i < 0) continue;
@@ -1836,7 +1836,7 @@ function describeTrigger(s: Triggers.TriggerSpec): string {
 
 // --- level properties (level_editor_level_props.h) ----------------------------------------------------------------------
 
-// LevelProps::StructureValues (the game's order and ranges: Channel 0..255, Distance 0..100000) and name=.
+// level_props::structure_values (the game's order and ranges: Channel 0..255, Distance 0..100000) and name=.
 export function levelStructureValues(level: LevelProps): [string, QbValue][] {
     const channel = (v: number): number => Math.max(0, Math.min(255, v));
     const distance = (v: number): number => Math.max(0, Math.min(100000, v));
@@ -1847,7 +1847,7 @@ export function levelStructureValues(level: LevelProps): [string, QbValue][] {
     if (level.time === 0 || level.time === 1) out.push(["tod_manager_active", level.time]);
     // (map4) The ambient light and fog as our own keys, ed_ambient=[r g b] / ed_fog=[r g b alpha distance]: THUG2 reads no
     // level structure's ambient_* / fog_* (only the time-of-day manager's states have them); the game reads these once the
-    // level is up and puts them over the manager's (level_editor_level_props.h) - as LevelProps::StructureValues.
+    // level is up and puts them over the manager's (level_editor_level_props.h) - as level_props::structure_values.
     if (level.ambient) out.push(["ed_ambient", level.ambient.map(channel)]);
     if (level.fog) out.push(["ed_fog", [...level.fog.slice(0, 4).map(channel), distance(level.fog[4])]]);
     if (level.sky && validSky(level.sky)) out.push(["sky", level.sky]); // (map3: the sky scene load_level loads)

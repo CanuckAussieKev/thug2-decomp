@@ -1,0 +1,294 @@
+// The PC's stream classes: a Bink file played for its sound (BinkStream), and the raw pcm.wad stream left from
+// the console versions (WadStream).
+
+#include "engine/audio/stream.h"
+
+#include <windows.h>
+
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+
+#include "base/core/checked_index.h"
+#include "engine/file/disk.h"
+#include "base/core/dbg.h"
+#include "engine/memory/mem.h"
+#include "engine/audio/audio_device.h"
+#include "engine/audio/audio_handles.h"
+#include "platform/process_flags.h"
+#include "engine/audio/stream_files.h"
+#include "engine/media/movie.h"
+#include "engine/audio/audio_state.h"
+#include "base/core/no_destroy.h"
+#include "platform/overlapped.h"
+
+namespace audio {
+
+namespace {
+constexpr DWORD kWin32ErrorMask = 0xFFFF;             // HRESULT_FROM_WIN32: the error code...
+constexpr unsigned kFacilityWin32Failure = 0x80070000U; // ...under the failure bit and the Win32 facility
+constexpr float kMeanScale = 0.5F;                      // the two channels' mean
+constexpr int kReadChunkBytes = 0x2000;
+
+void video_set_loudness(media::MovieHeader* bink, uint32_t track, int volume)
+{
+    // (the level the sound output gives it)
+    media::movie().set_volume(bink, {.track = track, .volume = device().track_volume(volume)});
+}
+
+constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
+constexpr uint32_t kBinkFileHandle = 0x04000000; // video_open: the name is (the address of) an open file handle
+constexpr uint32_t kIoSize = 0x40000;
+constexpr Result kInvalidArgument = static_cast<Result>(0x80070057);
+
+// NOT ORIGINAL grouping - the Bink streams' pause lock and read size. Made on first use, never destroyed
+// (bink_io_state()).
+struct BinkIoState {
+    bool pause_locked_{};
+    uint32_t io_size_{};
+};
+
+BinkIoState& bink_io_state()
+{
+    static core::NoDestroy<BinkIoState> state;
+    return state.get();
+}
+
+bool& sound_system_set() { return stream_file_state().bink_sound_set(); } // also set by 0x00452C60
+uint32_t& io_size() { return bink_io_state().io_size_; }
+bool pause_locked() { return bink_io_state().pause_locked_; }
+
+SoundOutput* sound_device() { return music_state().sound_device(); }
+
+// The pcm.wad entries open as Bink streams (the stream files, stream_files.h; opened by 0x00452A90): when last let go
+// of (the counter at 0x0069CB9C), and how many streams use it.
+CachedStreamFile& wad_file(int index) { return core::at(stream_file_state().stream_files(), index); }
+uint32_t use_counter() { return stream_file_state().stream_file_uses(); }
+
+// The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
+int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+
+constexpr float kBinkVolumeScale = 327.68F; // 0-100 to Bink's 0-32768
+constexpr int kBinkMaxVolume = 0x8000;
+constexpr float kBinkPanScale = 65536.0F; // Bink's pan: 0 left, 32768 centre, 65536 right
+
+// HRESULT_FROM_WIN32 (positive codes only).
+Result from_win32(DWORD error) { return static_cast<Result>((error & kWin32ErrorMask) | kFacilityWin32Failure); }
+
+} // namespace
+
+// --- BinkStream --------------------------------------------------------------------------------------------
+
+// 0x00452D20
+Result BinkStream::unseal(const char* path)
+{
+    if (!sound_system_set()) {
+        if (!media::movie().use_sound_output(sound_device())) {
+            debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
+        }
+        sound_system_set() = true;
+    }
+    if (io_size() != kIoSize) {
+        media::movie().set_io_size(kIoSize);
+        io_size() = kIoSize;
+    }
+    bink_ = media::movie().open(path, kBinkIoSize);
+    if (!bink_) {
+        return kInvalidArgument;
+    }
+    media::movie().set_video_on_off(bink_, 0);
+    std::memcpy(from_where_.data(), path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
+    from_handle_ = false;
+    return 0;
+}
+
+// 0x00452DC0
+void BinkStream::get_freeze(int pause)
+{
+    if (!pause_locked()) {
+        pause_requested_ = pause != 0;
+    }
+}
+
+// 0x00452DE0
+void BinkStream::change_loudness(float volume)
+{
+    loudness_ = volume;
+    int level = 0;
+    if (volume > 0.0F) {
+        level = ftol(static_cast<double>(volume) * kBinkVolumeScale);
+    }
+    video_set_loudness(bink_, 0, level); // (even with no Bink open)
+    silent_ = level == 0;
+}
+
+// 0x00452FC0
+void BinkStream::set_volume_and_pan(float left, float right)
+{
+    const double sum = static_cast<double>(left) + right;
+    loudness_ = static_cast<float>(sum * kMeanScale);
+    auto total = static_cast<float>(sum);
+    int level = 0;
+    int pan = 0;
+    if (right > 0.0F || left > 0.0F) {
+        const float louder = left > right ? left : right;
+        pan = ftol(static_cast<double>(right) / total * kBinkPanScale);
+        if (louder > 0.0F) {
+            level = ftol(static_cast<double>(louder) * kBinkVolumeScale);
+            level = std::min(level, kBinkMaxVolume);
+        }
+    }
+    if (bink_) {
+        video_set_loudness(bink_, 0, level);
+        media::movie().set_pan(bink_, {.track = 0, .pan = pan});
+    }
+    silent_ = level == 0;
+}
+
+// 0x00452E30
+void BinkStream::destruct()
+{
+    media::MovieHeader* bink = bink_;
+    bink_ = nullptr;
+    media::movie().close(bink); // (even with none open)
+    if (file_ref_ != fs::no_file() && !shared_file_) {
+        fs::disk().close(file_ref_);
+    }
+    if (wad_entry_ >= 0) {
+        CachedStreamFile& entry = wad_file(wad_entry_);
+        entry.last_use_ = use_counter();
+        if (entry.users != 0) { // (the original's count unsigned)
+            --entry.users;
+        }
+    }
+    if (memory_) {
+        memory::dealloc(memory_);
+    }
+}
+
+// 0x00452EA0
+int BinkStream::tick_frame()
+{
+    if (silent_) {
+        return 0;
+    }
+    if (pause_requested_ != is_halted_) {
+        if (!pause_requested_) {
+            if (!bink_) {
+                // Reopen where it was paused.
+                bink_ = media::movie().open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
+                if (bink_) {
+                    media::movie().set_video_on_off(bink_, 0);
+                    media::movie().go_to(bink_, {.frame = resume_frame_, .flags = 1});
+                    change_loudness(loudness_);
+                }
+            }
+        } else if (bink_) {
+            resume_frame_ = bink_->frame_num_;
+            media::movie().close(bink_);
+            bink_ = nullptr;
+        }
+        is_halted_ = pause_requested_;
+    }
+    if (!bink_) {
+        return 0;
+    }
+    while (media::movie().wait(bink_) == 0) {
+        if (!sys::app_active()) {
+            break;
+        }
+        media::movie().do_frame(bink_);
+        media::movie().next_frame(bink_);
+        if (bink_->frame_num_ == bink_->frames) {
+            if (plays_ > 0) {
+                --plays_;
+            }
+            if (plays_ == 0) {
+                finished_ = true;
+            }
+        }
+    }
+    return 0;
+}
+
+// --- WadStream ---------------------------------------------------------------------------------------------
+
+// 0x00454340
+WadStream::WadStream(bool unknown15) : unknown15_(unknown15) {}
+
+// 0x00454370
+Result WadStream::start_read()
+{
+    reading_ = true;
+    read_done_ = false;
+    ready_flag_ = 0;
+    played_ = 0;
+    unknown10_ = 0;
+    *async_ctl_ = platform::read_from(*async_ctl_, from_wad_ ? shift_ : 0, async_ctl_->hEvent);
+    if (fs::disk().read(file_ref_, octets_, kReadChunkBytes, nullptr, async_ctl_)) {
+        read_done_ = true;
+        return 0;
+    }
+    const DWORD error = fs::disk().last_error();
+    if (error == ERROR_IO_PENDING) {
+        return 0;
+    }
+    if (static_cast<int>(error) <= 0) {
+        return static_cast<Result>(error);
+    }
+    return from_win32(error);
+}
+
+// 0x00454450
+Result WadStream::open_from_wad(Hdl wad, WadSpan wad_span, void* buffer)
+{
+    const auto offset = wad_span.offset;
+    const auto size = wad_span.size;
+    file_ref_ = wad;
+    shift_ = offset;
+    unknown50_ = 0;
+    from_wad_ = true;
+    extent_ = size;
+    octets_ = buffer;
+    return start_read();
+}
+
+// 0x00454490
+Result WadStream::unseal(FileBuffer file_buffer)
+{
+    auto* const file = file_buffer.file;
+    auto* const buffer = file_buffer.buffer;
+    unknown50_ = 0;
+    file_ref_ = file;
+    if (file == fs::no_file()) {
+        // HRESULT_FROM_WIN32(GetLastError()), the macro calling it twice
+        if (static_cast<int>(GetLastError()) <= 0) {
+            return static_cast<Result>(GetLastError());
+        }
+        return from_win32(GetLastError());
+    }
+    octets_ = buffer;
+    return start_read();
+}
+
+// 0x004543F0
+bool WadStream::prefetch_complete() const
+{
+    if (cur_phase_ != 1) {
+        return false;
+    }
+    if (read_done_) {
+        return true;
+    }
+    return ready_flag_ >= played_ + kReadChunkBytes;
+}
+
+// 0x00454430
+void WadStream::get_freeze(int pause) { is_halted_ = static_cast<uint32_t>(pause) > 0; }
+
+// 0x00454440
+void WadStream::set_channel_volumes(float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/,
+                                    float /*unused*/)
+{}
+
+} // namespace audio

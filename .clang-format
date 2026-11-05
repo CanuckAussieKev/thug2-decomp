@@ -1,0 +1,20 @@
+# The project's formatting (docs/style-guide.md). clang-format -i <file>; VS / VS Code pick it up.
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 120
+AccessModifierOffset: -4
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  SplitEmptyFunction: false
+IndentCaseLabels: false
+NamespaceIndentation: None
+FixNamespaceComments: true
+SortIncludes: Never  # include order is meaningful here (windows.h before mmsystem.h / dsound.h...)
+IncludeBlocks: Preserve
+ReflowComments: false

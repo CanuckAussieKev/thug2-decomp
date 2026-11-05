@@ -1,6 +1,6 @@
 // NOT ORIGINAL - reads a Windows minidump (.dmp: %LOCALAPPDATA%\CrashDumps, written by Windows Error Reporting when
 // the game dies) without a debugger: the exception, where it happened (module + offset), the registers and the return
-// addresses found on the faulting thread's stack - the same report the game's crash logger writes (src/game/sys/crash.cpp),
+// addresses found on the faulting thread's stack - the same report the game's crash logger writes (src/platform/crash.cpp),
 // for crashes it couldn't log (a /GS fast-fail ends the process before any handler runs).
 //
 //     node tools/game/read_dump.ts <file.dmp> [--threads] [--modules]

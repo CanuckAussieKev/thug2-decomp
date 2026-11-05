@@ -15,7 +15,7 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 | Anton (The Anton Project Authors), IBM Plex Mono and IBM Plex Sans (IBM Corp.) - from https://github.com/google/fonts (ofl/anton, ofl/ibmplexmono, ofl/ibmplexsans), 2026-10-26 | tools/pipeline/fonts/*.ttf, copied into the data overlay's frontend\fonts by make_menu_level.ts (the new front end's display, mono and body faces; IBMPlexSans-Regular.ttf is the variable IBMPlexSans[wdth,wght].ttf renamed) | SIL Open Font License 1.1 - tools/pipeline/fonts/OFL-*.txt |
 | stb_image_write 1.16 (Sean Barrett) - https://github.com/nothings/stb, commit 1ee679c | downloaded at configure time (FetchContent); built into the exe: the screenshot key's PNG writer | public domain or MIT, at the user's choice - MIT below |
 | LZHAM 1.0 (Richard Geldreich, Jr.) - https://github.com/richgel999/lzham_codec, commit d379b1f | downloaded at configure time (FetchContent, SHA-256 checked); built into the exe: THUGPRO's network compression (method 3, the THUGPRO peer mode) | public domain (dedicated by its author on 2020-09-15; releases before that were MIT) - below |
-| Microsoft.DXSDK.D3DX 9.29.952.8 (Microsoft) - https://www.nuget.org/packages/Microsoft.DXSDK.D3DX | downloaded at configure time (FetchContent, SHA-256 checked): its headers and import library are used by the game (`src/game/gfx/d3dx.cpp` is the only place that calls D3DX9), and its `D3DX9_43.dll` (the DirectX SDK June 2010's runtime) is copied next to the exe | Microsoft Software License Terms "MICROSOFT DXSDK.D3DX" (the package's LICENSE.txt): use to develop and test on Windows; the listed DLLs may be redistributed in object form with an application that adds significant functionality, provided end users agree to terms protecting Microsoft at least as much and the distributor indemnifies Microsoft; no reverse engineering, no use of Microsoft's trademarks; the package's NOTICE.md lists its third-party parts (IJG jpeglib, libpng and others, with their notices) |
+| Microsoft.DXSDK.D3DX 9.29.952.8 (Microsoft) - https://www.nuget.org/packages/Microsoft.DXSDK.D3DX | downloaded at configure time (FetchContent, SHA-256 checked): its headers and import library are used by the game (`src/render_d3d9/d3dx.cpp` is the only place that calls D3DX9), and its `D3DX9_43.dll` (the DirectX SDK June 2010's runtime) is copied next to the exe | Microsoft Software License Terms "MICROSOFT DXSDK.D3DX" (the package's LICENSE.txt): use to develop and test on Windows; the listed DLLs may be redistributed in object form with an application that adds significant functionality, provided end users agree to terms protecting Microsoft at least as much and the distributor indemnifies Microsoft; no reverse engineering, no use of Microsoft's trademarks; the package's NOTICE.md lists its third-party parts (IJG jpeglib, libpng and others, with their notices) |
 | GameSpy SDK (December 2007 release, common 2.06; IGN Entertainment's 2011 open-source release) - https://github.com/nitrocaster/GameSpy, commit d1deb2d | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/gamespy_sdk.cmake`, which makes one change: the peer SDK's chat server name a variable); the modules the game uses built into the exe | BSD 3-clause - below. Its MD5 (md5c.c) is "derived from the RSA Data Security, Inc. MD5 Message-Digest Algorithm" (RSA's notice, in md5.h) |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript (commit 73fe0f9), with our changes in our fork https://github.com/CanuckAussieKev/NeverScript (branch `thug2`) | downloaded at build time into `out/neverscript/src` by `tools/build_neverscript.ps1` (a tool, not part of the game; nothing of it is in this repo) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
@@ -123,6 +123,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+## Microsoft GSL 4.2.0 (Microsoft) (MIT)
+
+Source: https://github.com/microsoft/GSL (tag v4.2.0), the C++ Core Guidelines' support library: downloaded at
+configure time (header-only), not stored in this repository.
+
+```
+Copyright (c) 2015 Microsoft Corporation. All rights reserved.
+
+This code is licensed under the MIT License (MIT).
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ## stb_image_write 1.16 (Sean Barrett) (MIT)

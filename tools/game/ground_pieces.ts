@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the level editor's raised / lowered ground pieces for the bake (UX9): the game's generator
-// (src/game/front/level_editor_ground.cpp - Ground::Build, QuarterProfile, Strip, LayoutFor, WriteVertices, ReadRecord)
+// (src/editor/level_editor_ground.cpp - ground::get_build, quarter_profile, get_strip, layout_for, write_vertices, read_record)
 // ported, and the piece made into the level's files: a new scene sector (the donor's first mesh's material and vertex
 // format, the generated vertices and a strip drawing each face both ways) and a collision object (the generated faces,
 // their flags and terrain, its tree and reaches built), both named after the piece (ed_ground01 ...); a pit's floor
@@ -275,7 +275,7 @@ export function build(input: GroundSpec): GroundMesh {
     return m;
 }
 
-// Ground::Strip: degenerate joins, each face starting at an even position; `twoSided`: each face both ways.
+// ground::get_strip: degenerate joins, each face starting at an even position; `twoSided`: each face both ways.
 export function strip(faces: readonly Face[], twoSided: boolean): number[] {
     const out: number[] = [];
     const put = (a: number, b: number, c: number): void => {
@@ -316,7 +316,7 @@ export interface VertexLayout {
     texCount: number;
 }
 
-// Ground::LayoutFor: a plain XYZ FVF's offsets (-1 none); null when not that or its size isn't `stride`.
+// ground::layout_for: a plain XYZ FVF's offsets (-1 none); null when not that or its size isn't `stride`.
 export function layoutFor(fvf: number, stride: number): VertexLayout | null {
     if (fvf <= 6 || fvf >= 0x10000 || (fvf & 0x400e) !== 0x002) return null;
     const l: VertexLayout = { normal: -1, size: -1, diffuse: -1, specular: -1, tex: -1, texCount: 0 };
@@ -358,7 +358,7 @@ export function writeVertices(mesh: GroundMesh, l: VertexLayout, stride: number,
     return out;
 }
 
-// --- the record (Ground::ReadRecord) -------------------------------------------------------------------------------
+// --- the record (ground::read_record) -------------------------------------------------------------------------------
 
 const VALID_WORD = /^[A-Za-z0-9_]{1,64}$/;
 const HEX8 = /^0[xX][0-9A-Fa-f]{8}$/;

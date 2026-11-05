@@ -1,17 +1,17 @@
 // NOT ORIGINAL - the level editor's feature map rows as level data: the pure parts of the game's rail speed-ups
-// (src/game/front/level_editor_chains.{h,cpp}: RailSpeedQb, SpeedScriptName, SpeedBody) and proximity nodes' enter /
-// exit scripts (level_editor_triggers.{h,cpp}: ProximScriptName, ProximBody) ported, for tools/game/apply_layout.ts.
+// (src/editor/level_editor_chains.{h,cpp}: rail_speed_qb, speed_script_name, speed_body) and proximity nodes' enter /
+// exit scripts (level_editor_triggers.{h,cpp}: proxim_script_name, proxim_body) ported, for tools/game/apply_layout.ts.
 //
 // - A rail speed-up (THAW's RailAccelerate): the rail point's TriggerScript becomes ed_railspeed_<node> - its own
 //   script before (called first, its arguments passed on: `<script> <...>`) then `ed_RailSpeed rate=<r>` - and the
 //   editor's two fixed scripts ed_RailSpeed / ed_RailSpeedLoop do the rest (NeverScript's output, the game's
-//   RailSpeedQb). Baked, the fixed scripts go into the level's scripts without their default `rate = 0.05` (a script
+//   rail_speed_qb). Baked, the fixed scripts go into the level's scripts without their default `rate = 0.05` (a script
 //   header's parameters aren't a body statement - putScripts writes `script <name> <body> endscript`); every caller passes
 //   rate=, so nothing reads the default.
 // - A proximity node's scripts: `if Inside { <enter> } else { <exit> }` (a branch not chosen calls the node's own script,
 //   if any), as its TriggerScript ed_proxim_<node>. The game puts it in the game's ProximNode; baked it is the node's
-//   TriggerScript (Proxim_AddNode reads that at the level's load). A box shape is the game's alone (the game's
-//   PROXIM_SHAPE_BOX takes its box from a sector named like the node): baked as a sphere around the box.
+//   TriggerScript (nearby_zone_add_node reads that at the level's load). A box shape is the game's alone (the game's
+//   kProximShapeBox takes its box from a sector named like the node): baked as a sphere around the box.
 
 import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
 import { pack } from "thug2-level-converter-core/lib/struct.ts";
@@ -22,7 +22,7 @@ function nameToken(c: number): Buffer {
     return Buffer.concat([Buffer.from([NAME]), pack("<I", c >>> 0)]);
 }
 
-// The game's RailSpeedQb (level_editor_chains.cpp): ed_RailSpeed {rate = 0.05 ...}, ed_RailSpeedLoop {rate = 0.05 ...},
+// The game's rail_speed_qb (level_editor_chains.cpp): ed_RailSpeed {rate = 0.05 ...}, ed_RailSpeedLoop {rate = 0.05 ...},
 // their names.
 export const RAIL_SPEED_QB = Buffer.from(
     "23167D9EC1F616C6C01320071ACDCC4C3D01474C00168273713A0517030000000917080000000917" +
@@ -64,7 +64,7 @@ export const RAIL_SPEED_NAMES = [
 
 const hex8 = (n: number): string => (n >>> 0).toString(16).toUpperCase().padStart(8, "0");
 
-// Chains::SpeedScriptName / Triggers::ProximScriptName.
+// chains::speed_script_name / triggers::proxim_script_name.
 export function speedScriptName(node: number): string {
     return `ed_railspeed_${hex8(node)}`;
 }
@@ -72,7 +72,7 @@ export function proximScriptName(node: number): string {
     return `ed_proxim_${hex8(node)}`;
 }
 
-// Chains::SpeedBody: [16 <original> 2C 01] 16 <ed_RailSpeed> 16 <rate> 07 1A <rate> 01.
+// chains::speed_body: [16 <original> 2C 01] 16 <ed_RailSpeed> 16 <rate> 07 1A <rate> 01.
 export function speedBody(original: number, rate: number): Buffer {
     const parts: Buffer[] = [];
     if (original) parts.push(nameToken(original), Buffer.from([0x2c, 0x01]));
@@ -81,7 +81,7 @@ export function speedBody(original: number, rate: number): Buffer {
     return Buffer.concat(parts);
 }
 
-// Triggers::ProximBody: 47 <to else> 16 <Inside> 01 [branch] 48 <to end> 01 [branch] 28 01 - each offset counted from
+// triggers::proxim_body: 47 <to else> 16 <Inside> 01 [branch] 48 <to end> 01 [branch] 28 01 - each offset counted from
 // its own first byte; a branch is `16 <script> 01`, else (none chosen) the node's own `16 <own> 2C 01`, else nothing.
 // Empty when neither script is chosen.
 export function proximBody(enter: number, exit: number, own: number): Buffer {

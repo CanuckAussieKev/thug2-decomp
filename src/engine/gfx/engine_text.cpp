@@ -1,0 +1,238 @@
+// The engine's text: see engine_text.h.
+
+#include "engine/gfx/engine_text.h"
+#include "base/core/checked_index.h"
+
+#include "base/core/str.h"
+
+#include <cstdint>
+#include <cstring>
+#include <span>
+
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/gfx/screen_2d.h"
+#include "base/maths/vec2.h"
+#include <gsl/pointers>
+
+namespace render {
+
+constexpr double kFixedPointScale = 16384.0; // 1.0 in a text scale's 2.14 fixed point
+
+namespace {
+
+// Memory from the front end's heap.
+void* front_end_new(unsigned int size)
+{
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->front_end_heap());
+    void* memory = memory::alloc(size);
+    memory::Hub::get_pull()->leave_heap_scope();
+    return memory;
+}
+
+// The effects: an array new of 96 (the count before them; each constructed by the compiler's array helper).
+CharEffect* new_effects()
+{
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->front_end_heap());
+    // (the original's array new kept the count before them; the count is fixed)
+    auto* effects = static_cast<CharEffect*>(memory::alloc(kCharEffects * sizeof(CharEffect)));
+    if (effects) {
+        for (CharEffect& effect : std::span(effects, static_cast<std::size_t>(kCharEffects))) {
+            memory::construct_in<CharEffect>(&effect);
+        }
+    }
+    memory::Hub::get_pull()->leave_heap_scope();
+    return effects;
+}
+// (their destructor is empty: the compiler's array helper runs 0x005480A0 over them)
+void delete_effects(CharEffect* effects) { memory::dealloc(effects); }
+
+// The original's _ftol (0x006236FC): truncated towards zero, the low 16 bits kept.
+int16_t get_fixed(float value)
+{
+    return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * kFixedPointScale));
+}
+
+} // namespace
+
+// 0x0048D0A0
+CharEffect::CharEffect() = default;
+
+// 0x0048D220
+GlyphString::GlyphString(void* window) : screen_region_(window) {}
+
+// 0x0048D620
+GlyphString::~GlyphString()
+{
+    if (text_buffer_) {
+        memory::dealloc(text_buffer_); // (not cleared, as the original)
+    }
+    if (effects_) {
+        delete_effects(effects_);
+        effects_ = nullptr;
+    }
+}
+
+// 0x0048D5A0
+void GlyphString::free_buffers()
+{
+    if (text_buffer_) {
+        memory::dealloc(text_buffer_);
+        text_buffer_ = nullptr;
+    }
+    if (effects_) {
+        delete_effects(effects_);
+        effects_ = nullptr;
+    }
+}
+
+// 0x0048D0C0
+void GlyphString::change_concealed(bool hidden)
+{
+    invisible_ = hidden;
+    update_hidden();
+}
+
+// 0x0048D0D0
+void GlyphString::change_typeface(Typeface* font)
+{
+    typeface_ = font;
+    update_settings();
+}
+
+// 0x0048D0E0
+void GlyphString::change_location(maths::Vec2 at)
+{
+    const float x = at.x;
+    const float y = at.y;
+    pos_x_ = x;
+    y_ = y;
+    update_settings();
+}
+
+// 0x0048D100
+void GlyphString::change_scale(maths::Vec2 scale)
+{
+    const auto x = scale.x;
+    const auto y = scale.y;
+    scale_h_ = x;
+    scale_v_ = y;
+    update_settings();
+}
+
+// 0x0048D120
+void GlyphString::change_spin(float angle, maths::Vec2 pivot)
+{
+    const auto pivot_x = pivot.x;
+    const auto pivot_y = pivot.y;
+    angle_ = angle;
+    pivot_x_ = pivot_x;
+    pivot_y_ = pivot_y;
+    update_settings();
+}
+
+// 0x0048D140
+void GlyphString::change_rank(float priority)
+{
+    rank_ = priority;
+    z_enabled_ = false;
+    update_priority();
+}
+
+// 0x0048D160
+void GlyphString::set_depth(float depth)
+{
+    layer_ = depth;
+    z_enabled_ = true;
+    update_priority();
+}
+
+// 0x0048D180
+void GlyphString::change_colour(uint32_t rgba, bool fixed)
+{
+    shade_ = rgba;
+    fixed_colour_ = fixed;
+    update_settings();
+}
+
+// 0x0048D1A0
+void GlyphString::set_override_alpha(bool on)
+{
+    override_alpha_ = on;
+    update_settings();
+}
+
+// 0x0048D1B0
+void GlyphString::change_pane(void* window)
+{
+    screen_region_ = window;
+    update_window();
+}
+
+// 0x0048D530
+void GlyphString::change_text(const char* string)
+{
+    if (!text_buffer_) {
+        text_buffer_ = static_cast<char*>(front_end_new(kTextLength));
+    }
+    text::copy_unbounded(text_buffer_, string);
+    update_settings();
+}
+
+// 0x0048D280
+void GlyphString::set_char_offset(int index, CharOffset offset)
+{
+    const auto x = offset.x;
+    const auto y = offset.y;
+    if (!effects_) {
+        effects_ = new_effects();
+    }
+    core::at(effect_run(), index).set_x(x);
+    core::at(effect_run(), index).set_y(y);
+    update_settings();
+}
+
+// 0x0048D360
+void GlyphString::set_char_scale(int index, float x, float y)
+{
+    if (!effects_) {
+        effects_ = new_effects();
+    }
+    core::at(effect_run(), index).set_xscale(get_fixed(x));
+    core::at(effect_run(), index).set_yscale(get_fixed(y));
+    update_settings();
+}
+
+// 0x0048D450
+void GlyphString::set_char_rotation(int index, float rotation)
+{
+    if (!effects_) {
+        effects_ = new_effects();
+    }
+    core::at(effect_run(), index).set_rotation(get_fixed(rotation));
+    update_settings();
+}
+
+// 0x0048D1D0
+gsl::owner<GlyphString*> new_text()
+{
+    GlyphString* text = screen_2d().free_texts();
+    if (text) {
+        screen_2d().set_free_texts(text->next_free());
+    }
+    return text;
+}
+
+// 0x0048D5F0
+void free_text(GlyphString* text)
+{
+    text->set_invisible(true);
+    text->update_hidden();
+    text->free_buffers();
+    text->set_next_free(screen_2d().free_texts());
+    screen_2d().set_free_texts(text);
+}
+
+} // namespace render

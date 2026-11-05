@@ -1,409 +1,414 @@
-// Game::CGoal and tricks: key combos picked, the texts' trick tokens, special trick slots as rewards, the trick
+// goals::Objective and tricks: key combos picked, the texts' trick tokens, special trick slots as rewards, the trick
 // objects coloured (0x00555A60-0x00555DEF, 0x005565C0-0x0055669F, 0x005568B0-0x00556F8F, 0x00557AC0-0x00557E2F;
-// see goal.h).
+// see objective.h).
 
 #include <cstdint>
+#include <array>
 
-#include "game/goals/goal.h"
+#include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
-#include "game/mth/random.h"
-#include "game/obj/trick_objects.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "base/maths/random.h"
+#include "game/world/trick_objects.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
+#include "game/rider/rider.h"
+#include "game/goals/create_a_trick.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+#include <gsl/pointers>
+#include <gsl/assert>
 
-namespace Game {
+namespace goals {
 
 namespace {
+constexpr int kPickTries = 100;         // random picks tried before giving up
+constexpr int kSpecialTrickSlots = 12;
 
-using namespace GoalCalls;
-using namespace GoalNames;
-using Obj::CSkaterProfile;
+using namespace goal_calls;
+using namespace goal_names;
+using objects::RiderIdentity;
 
-constexpr uint32_t kKeyCombos = 0x79704516;           // key_combos
-constexpr uint32_t kKeyComboString = 0x52E2851E;      // key_combo_string
-constexpr uint32_t kKeyCombo = 0xACFDB27A;            // key_combo
-constexpr uint32_t kTrickMapping = 0xD544AA2D;        // trick_mapping
-constexpr uint32_t kGoalNoValidKeyCombos = 0xF3C20AF5; // goal_no_valid_key_combos
-constexpr uint32_t kTetrisTrickText = 0x8856C817;     // goal_tetris_trick_text
-constexpr uint32_t kName = 0xA1DC81F9;                // Name
-constexpr uint32_t kPremadeCats = 0xFFD7913F;         // Premade_CATS
-constexpr uint32_t kParams = 0x7031F10C;              // params
-constexpr uint32_t kShouldRemoveTrick = 0xBC678826;   // should_remove_trick
-constexpr uint32_t kTrickName = 0xEF6FB249;           // trick_name
-constexpr uint32_t kUnassigned = 0xF60C9090;          // Unassigned
-constexpr uint32_t kId = 0x40C698AF;                  // id
-constexpr uint32_t kPremadeCatIndex = 0x0B502200;     // premade_cat_index
-constexpr uint32_t kGoalDescription = 0x0C5D7E6B;     // goal_deScription
-constexpr uint32_t kViewGoalsText = 0x4BC5229D;       // view_goals_text
-constexpr uint32_t kViewGoalsTip = 0x63981D6F;        // view_goals_tip
-constexpr uint32_t kGoalText = 0xDA441D9A;            // goal_text
-constexpr uint32_t kKeyComboText = 0x1B3B4DD8;        // key_combo_text
+constexpr uint32_t kButtonSequences = 0x79704516;         // key_combos
+constexpr uint32_t kButtonSeqText = 0x52E2851E;           // key_combo_string
+constexpr uint32_t kKeyCombo = 0xACFDB27A;                // key_combo
+constexpr uint32_t kTrickMapping = 0xD544AA2D;            // trick_mapping
+constexpr uint32_t kGoalNoValidKeyCombos = 0xF3C20AF5;    // goal_no_valid_key_combos
+constexpr uint32_t kTetrisTrickText = 0x8856C817;         // goal_tetris_trick_text
+constexpr uint32_t kName = 0xA1DC81F9;                    // Name
+constexpr uint32_t kPremadeCats = 0xFFD7913F;             // Premade_CATS
+constexpr uint32_t kParams = 0x7031F10C;                  // params
+constexpr uint32_t kShouldRemoveTrick = 0xBC678826;       // should_remove_trick
+constexpr uint32_t kTrickName = 0xEF6FB249;               // trick_name
+constexpr uint32_t kUnassigned = 0xF60C9090;              // Unassigned
+constexpr uint32_t kId = 0x40C698AF;                      // id
+constexpr uint32_t kPremadeCatIndex = 0x0B502200;         // premade_cat_index
+constexpr uint32_t kGoalDescription = 0x0C5D7E6B;         // goal_deScription
+constexpr uint32_t kViewGoalsText = 0x4BC5229D;           // view_goals_text
+constexpr uint32_t kViewGoalsTip = 0x63981D6F;            // view_goals_tip
+constexpr uint32_t kGoalText = 0xDA441D9A;                // goal_text
+constexpr uint32_t kKeyComboText = 0x1B3B4DD8;            // key_combo_text
 constexpr uint32_t kOriginalGoalDescription = 0x01F238B1; // original_goal_description
 constexpr uint32_t kOriginalViewGoalsText = 0x89E9C617;   // original_view_goals_text
 constexpr uint32_t kOriginalViewGoalsTip = 0x988330D3;    // original_view_goals_tip
 constexpr uint32_t kOriginalGoalText = 0xB0D7628F;        // original_goal_text
 constexpr uint32_t kOriginalKeyComboText = 0xE0206064;    // original_key_combo_text
-constexpr uint32_t kCat = 0x61A1BC57;                 // cat
-constexpr uint32_t kAir = 0x439F4704;                 // AIR
-constexpr uint32_t kLip = 0xA549B57B;                 // lip
-constexpr uint32_t kManual = 0xEF24413B;              // Manual
-constexpr uint32_t kSpecialTricksAir = 0x4764231D;    // goal_special_tricks_air
-constexpr uint32_t kSpecialTricksGrind = 0xF481D0CD;  // goal_special_tricks_grind
-constexpr uint32_t kSpecialTricksManual = 0xD72D5CF7; // goal_special_tricks_manual
-constexpr uint32_t kSpecialTricksLip = 0xA1B2D162;    // goal_special_tricks_lip
-constexpr uint32_t kTrickslot = 0xA92A2280;           // trickslot
-constexpr uint32_t kIndex = 0x7F8C98FE;               // index
-constexpr uint32_t kSpecialTrickIndex = 0x7F264BE9;   // special_trick_index
-constexpr uint32_t kLoadPremadeCat = 0x466576C8;      // load_premade_cat
+constexpr uint32_t kCat = 0x61A1BC57;                     // cat
+constexpr uint32_t kAir = 0x439F4704;                     // AIR
+constexpr uint32_t kLip = 0xA549B57B;                     // lip
+constexpr uint32_t kManual = 0xEF24413B;                  // Manual
+constexpr uint32_t kSpecialTricksAir = 0x4764231D;        // goal_special_tricks_air
+constexpr uint32_t kSpecialTricksGrind = 0xF481D0CD;      // goal_special_tricks_grind
+constexpr uint32_t kSpecialTricksManual = 0xD72D5CF7;     // goal_special_tricks_manual
+constexpr uint32_t kSpecialTricksLip = 0xA1B2D162;        // goal_special_tricks_lip
+constexpr uint32_t kTrickslot = 0xA92A2280;               // trickslot
+constexpr uint32_t kIndex = 0x7F8C98FE;                   // index
+constexpr uint32_t kSpecialTrickIndex = 0x7F264BE9;       // special_trick_index
+constexpr uint32_t kLoadPremadeCat = 0x466576C8;          // load_premade_cat
 
-constexpr int kTextSize = 0x200; // the texts' buffer
+constexpr int kLabelPoints = 0x200; // the texts' buffer
 
-Script::CStruct* NewStructure()
-{
-    Script::CStruct* structure = Script::NewStruct();
-    return structure ? structure->Init() : nullptr;
-}
-void DeleteStructure(Script::CStruct* structure)
-{
-    if (structure) {
-        structure->Clear();
-        Script::DeleteStruct(structure);
-    }
-}
-Script::CArray* NewArray()
-{
-    Script::CArray* array = Script::NewArray();
-    return array ? array->Init() : nullptr;
-}
 // An array a structure has copied, or a temporary one: its contents and itself freed.
-void FreeArray(Script::CArray* array)
-{
-    Script::CleanUpArray(array);
-    if (array) {
-        array->Clear();
-        Script::DeleteArray(array);
-    }
-}
-CSkaterProfile* CurrentProfile() { return Obj::g_profileManager->GetCurrentProfile(); }
+RiderIdentity* current_profile() { return objects::profile_roster()->fetch_active_account(); }
 
 } // namespace
 
 // 0x005565C0
-void CGoal::NoValidKeyCombos()
+void Objective::no_combo_sequence_left()
 {
-    Script::CStruct* params = NewStructure();
+    const script::StructPtr params = script::make_struct();
     uint32_t id = 0;
-    m_params->GetChecksum(kGoalIdName, &id, 1);
-    params->AddChecksum(kGoalIdChecksum, id);
-    Script::RunScript(kGoalNoValidKeyCombos, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    args_->read_hash_value(kGoalIdName, &id, 1);
+    params->put_name_key(checksums::Name{kGoalIdChecksum}, id);
+    script::launch_script(kGoalNoValidKeyCombos, params.get(), nullptr, false, nullptr);
 }
 
 // 0x005568B0
-int CGoal::PickKeyCombo(Script::CArray* combos)
+int Objective::pick_key_combo(script::Array* combos)
 {
-    Script::CStruct* mapping = SkateCalls::GetProfileFromParams(nullptr)->GetInfoStructure(kTrickMapping);
-    uint32_t count = combos->m_size;
+    script::Struct* mapping = skate_calls::get_profile_from_params(nullptr)->fetch_details_params(kTrickMapping);
+    const uint32_t count = combos->extent();
     uint32_t combo = 0; // (kept from one look-up to the next, as the original's)
-    auto comboAt = [combos, &combo](uint32_t index) {
-        if (combos->m_type == Script::ESYMBOLTYPE_NAME)
-            combo = combos->GetElement(index);
-        else
-            reinterpret_cast<Script::CStruct*>(combos->GetElement(index))->GetChecksum(kKeyCombo, &combo, 1);
+    auto combo_at = [combos, &combo](uint32_t index) {
+        if (combos->kind_tag() == script::QbValueKind::kName) {
+            combo = combos->fetch_part(index);
+        } else {
+            combos->struct_at(index)->read_hash_value(kKeyCombo, &combo, 1);
+        }
         return combo;
     };
     uint32_t trick = 0;
     int picked = 0;
-    for (int tries = 100; tries; --tries) {
-        picked = Mth::Rnd(static_cast<int>(count));
-        comboAt(static_cast<uint32_t>(picked));
-        mapping->GetChecksum(combo, &trick, 0);
-        if (trick)
+    for (int tries = kPickTries; tries != 0; --tries) {
+        picked = maths::rnd(static_cast<int>(count));
+        combo_at(static_cast<uint32_t>(picked));
+        mapping->read_hash_value(combo, &trick, 0);
+        if (trick != 0U) {
             return picked;
-        int slot;
-        if (mapping->GetInteger(combo, &slot, 0))
+        }
+        int slot = 0;
+        if (mapping->fetch_int_value(combo, &slot, 0)) {
             return picked;
+        }
         trick = 0;
     }
     // Then each in turn (one with a trick returns the last random pick, as the original).
     for (uint32_t i = 0; i < count; ++i) {
-        mapping->GetChecksum(comboAt(i), &trick, 0);
-        if (trick)
+        mapping->read_hash_value(combo_at(i), &trick, 0);
+        if (trick != 0U) {
             return picked;
+        }
         trick = 0;
     }
-    NoValidKeyCombos();
+    no_combo_sequence_left();
     return -1;
 }
 
 // 0x00555B50
-bool CGoal::BuildTrickTexts(Script::CArray* keyCombos, Script::CArray* keyTexts, Script::CArray* trickTexts,
-                            int premadeCat)
+bool Objective::build_trick_texts(TrickTextArrays arrays,
+                                  int premade_cat)
 {
-    Script::CStruct* comboTexts = Script::GetStructure(kTetrisTrickText);
-    void* skate = SkateCalls::Skate();
-    CSkaterProfile* profile = SkateCalls::GetProfileFromParams(nullptr);
-    Script::CStruct* mapping = profile->GetInfoStructure(kTrickMapping);
-    int count = static_cast<int>(keyCombos->m_size);
-    const char* trickText = nullptr; // (a slot with no local skater keeps the last one, as the original)
+    auto* const key_combos = arrays.key_combos_;
+    auto* const key_texts = arrays.key_texts_;
+    auto* const trick_texts = arrays.trick_texts_;
+    script::Struct* combo_texts = script::read_sub_struct(kTetrisTrickText);
+    void* skate = skate_calls::get_skate();
+    RiderIdentity* profile = skate_calls::get_profile_from_params(nullptr);
+    script::Struct* mapping = profile->fetch_details_params(kTrickMapping);
+    const int count = static_cast<int>(key_combos->extent());
+    const char* trick_text = nullptr; // (a slot with no local skater keeps the last one, as the original)
     for (int i = 0; i < count; ++i) {
-        uint32_t combo = keyCombos->GetElement(static_cast<uint32_t>(i));
+        const uint32_t combo = key_combos->fetch_part(static_cast<uint32_t>(i));
         uint32_t trick = 0;
         int slot = 0;
-        bool inSlot = false;
-        if (mapping->GetInteger(combo, &slot, 0)) {
-            inSlot = true; // (a trick slot of the skater's)
-        } else if (!mapping->GetChecksum(combo, &trick, 0)) {
+        bool in_slot = false;
+        if (mapping->fetch_int_value(combo, &slot, 0)) {
+            in_slot = true; // (a trick slot of the skater's)
+        } else if (!mapping->read_hash_value(combo, &trick, 0)) {
             // A special trick on these keys?
-            int specials = profile->GetMaxSpecials();
-            int k = 0;
-            for (; k < specials; ++k) {
-                CSkaterProfile::SpecialTrick special;
-                profile->GetSpecialTrick(&special, k);
-                if (special.keys == combo) {
-                    trick = special.trick;
+            const int specials = profile->get_max_specials();
+            int index = 0;
+            for (; index < specials; ++index) {
+                RiderIdentity::SpecialTrick special;
+                profile->get_special_trick(&special, index);
+                if (special.keys() == combo) {
+                    trick = special.trick();
                     break;
                 }
             }
-            if (k == specials)
+            if (index == specials) {
                 return false;
-        }
-        const char* keyText;
-        comboTexts->GetString(combo, &keyText, 1);
-        if (inSlot) {
-            Obj::CCompositeObject* skater = static_cast<Mdl::Skate*>(skate)->GetLocalSkater();
-            if (skater) {
-                auto* trickObject = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skater) + slot * 4 + 0x17C);
-                (*reinterpret_cast<Script::CStruct**>(trickObject + 4))->GetString(kName, &trickText, 1);
             }
-        } else if (premadeCat > -1) {
-            auto* cat = reinterpret_cast<Script::CStruct*>(
-                Script::GetArray(kPremadeCats)->GetElement(static_cast<uint32_t>(premadeCat)));
-            cat->GetString(kName, &trickText, 1);
-        } else {
-            Script::CStruct* params;
-            Script::GetStructure(trick)->GetStructure(kParams, &params, 1);
-            params->GetString(kName, &trickText, 1);
         }
-        keyTexts->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(Script::CreateString(keyText)));
-        trickTexts->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(Script::CreateString(trickText)));
+        const char* key_text = nullptr;
+        combo_texts->fetch_text(combo, &key_text, 1);
+        if (in_slot) {
+            objects::GameEntity* skater = static_cast<modules::Skate*>(skate)->get_home_rider();
+            if (skater) {
+                core::at(core::down_cast<objects::Rider>(skater)->created_tricks().slots(), slot)
+                    ->other_params()
+                    ->fetch_text(kName, &trick_text, 1);
+            }
+        } else if (premade_cat > -1) {
+            auto* cat = script::fetch_list(kPremadeCats)->struct_at(static_cast<uint32_t>(premade_cat));
+            cat->fetch_text(kName, &trick_text, 1);
+        } else {
+            script::Struct* params = nullptr;
+            script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
+            params->fetch_text(kName, &trick_text, 1);
+        }
+        key_texts->set_text(static_cast<uint32_t>(i), script::spawn_text(key_text));
+        trick_texts->set_text(static_cast<uint32_t>(i), script::spawn_text(trick_text));
     }
     return true;
 }
 
 // 0x00556A00
-bool CGoal::ReplaceTrickText()
+bool Objective::swap_move_caption()
 {
-    Script::CArray* combos = nullptr;
-    if (!m_params->GetArray(kKeyCombos, &combos, 0))
+    script::Array* combos = nullptr;
+    if (!args_->fetch_list(kButtonSequences, &combos, 0)) {
         return false;
+    }
     // The texts as written, kept the first time.
-    const char* text;
-    if (!m_params->ContainsComponentNamed(kOriginalGoalDescription)) {
-        Script::CArray* lines;
-        if (m_params->GetString(kGoalDescription, &text, 0))
-            m_params->AddString(kOriginalGoalDescription, text);
-        else if (m_params->GetArray(kGoalDescription, &lines, 0))
-            m_params->AddArray(kOriginalGoalDescription, lines);
+    const char* text = nullptr;
+    if (!args_->has_entry_named(kOriginalGoalDescription)) {
+        script::Array* lines = nullptr;
+        if (args_->fetch_text(kGoalDescription, &text, 0)) {
+            args_->append_word(kOriginalGoalDescription, text);
+        } else if (args_->fetch_list(kGoalDescription, &lines, 0)) {
+            args_->append_array_value(kOriginalGoalDescription, lines);
+        }
     }
     struct Original {
         uint32_t original;
         uint32_t text;
     };
-    static constexpr Original kKept[] = {{kOriginalViewGoalsText, kViewGoalsText},
-                                         {kOriginalViewGoalsTip, kViewGoalsTip},
-                                         {kOriginalGoalText, kGoalText},
-                                         {kOriginalKeyComboText, kKeyComboText}};
+    static constexpr auto kKept = std::to_array<Original>({{.original = kOriginalViewGoalsText, .text = kViewGoalsText},
+                                         {.original = kOriginalViewGoalsTip, .text = kViewGoalsTip},
+                                         {.original = kOriginalGoalText, .text = kGoalText},
+                                         {.original = kOriginalKeyComboText, .text = kKeyComboText}});
     for (const Original& kept : kKept) {
-        if (!m_params->ContainsComponentNamed(kept.original) && m_params->GetString(kept.text, &text, 0))
-            m_params->AddString(kept.original, text);
-    }
-    int premadeCat = -1;
-    if (m_params->ContainsFlag(kCreateATrick))
-        m_params->GetInteger(kPremadeCatIndex, &premadeCat, 1);
-    Script::CArray* keyTexts = NewArray();
-    Script::CArray* trickTexts = NewArray();
-    uint32_t count = combos->m_size;
-    keyTexts->SetSizeAndType(count, Script::ESYMBOLTYPE_STRING);
-    trickTexts->SetSizeAndType(count, Script::ESYMBOLTYPE_STRING);
-    if (!BuildTrickTexts(combos, keyTexts, trickTexts, premadeCat)) {
-        Script::CleanUpArray(keyTexts);
-        Script::CleanUpArray(trickTexts);
-        if (keyTexts) {
-            keyTexts->Clear();
-            Script::DeleteArray(keyTexts);
+        if (!args_->has_entry_named(kept.original) && args_->fetch_text(kept.text, &text, 0)) {
+            args_->append_word(kept.original, text);
         }
-        if (trickTexts) {
-            trickTexts->Clear();
-            Script::DeleteArray(trickTexts);
+    }
+    int premade_cat = -1;
+    if (args_->has_bare_flag(kCreateATrick)) {
+        args_->fetch_int_value(kPremadeCatIndex, &premade_cat, 1);
+    }
+    gsl::owner<script::Array*> key_texts = script::new_array();
+    gsl::owner<script::Array*> trick_texts = script::new_array();
+    const uint32_t count = combos->extent();
+    key_texts->configure_size_kind(count, script::QbValueKind::kString);
+    trick_texts->configure_size_kind(count, script::QbValueKind::kString);
+    if (!build_trick_texts({.key_combos_ = combos, .key_texts_ = key_texts, .trick_texts_ = trick_texts}, premade_cat)) {
+        script::release_array_storage(key_texts);
+        script::release_array_storage(trick_texts);
+        if (key_texts) {
+            key_texts->get_clear();
+            script::delete_array(key_texts);
+        }
+        if (trick_texts) {
+            trick_texts->get_clear();
+            script::delete_array(trick_texts);
         }
         return false;
     }
-    char buffer[kTextSize];
+    std::array<char, kLabelPoints> buffer{};
     text = nullptr;
-    Script::CArray* lines;
-    if (m_params->GetString(kOriginalGoalDescription, &text, 0)) {
-        ReplaceTrickTokens(text, buffer, keyTexts, trickTexts, kTextSize);
+    script::Array* lines = nullptr;
+    if (args_->fetch_text(kOriginalGoalDescription, &text, 0)) {
+        replace_trick_tokens(text, buffer, {.key_combos_ = key_texts, .tricks = trick_texts});
         // (the original adds the description as written, not the replaced text)
-        m_params->AddString(kGoalDescription, text);
-    } else if (m_params->GetArray(kOriginalGoalDescription, &lines, 0)) {
-        uint32_t size = lines->m_size;
-        Script::CArray* replaced = NewArray();
-        replaced->SetSizeAndType(size, Script::ESYMBOLTYPE_STRING);
+        args_->append_word(kGoalDescription, text);
+    } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
+        const uint32_t size = lines->extent();
+        const script::ArrayPtr replaced = script::make_array();
+        replaced->configure_size_kind(size, script::QbValueKind::kString);
         for (uint32_t i = 0; i < size; ++i) {
-            ReplaceTrickTokens(lines->GetLocalString(i), buffer, keyTexts, trickTexts, kTextSize);
-            replaced->SetElement(i, reinterpret_cast<uint32_t>(Script::CreateString(buffer)));
+            replace_trick_tokens(lines->find_inline_text(i), buffer, {.key_combos_ = key_texts, .tricks = trick_texts});
+            replaced->set_text(i, script::spawn_text(buffer.data()));
         }
-        m_params->AddArray(kGoalDescription, replaced);
-        FreeArray(replaced);
+        args_->append_array_value(kGoalDescription, replaced.get());
     }
     for (const Original& kept : kKept) {
-        if (m_params->GetString(kept.original, &text, 0)) {
-            ReplaceTrickTokens(text, buffer, keyTexts, trickTexts, kTextSize);
-            m_params->AddString(kept.text, buffer);
+        if (args_->fetch_text(kept.original, &text, 0)) {
+            replace_trick_tokens(text, buffer, {.key_combos_ = key_texts, .tricks = trick_texts});
+            args_->append_word(kept.text, buffer.data());
         }
     }
-    Script::CleanUpArray(keyTexts);
-    Script::CleanUpArray(trickTexts);
-    if (keyTexts) {
-        keyTexts->Clear();
-        Script::DeleteArray(keyTexts);
+    script::release_array_storage(key_texts);
+    script::release_array_storage(trick_texts);
+    if (key_texts) {
+        key_texts->get_clear();
+        script::delete_array(key_texts);
     }
-    if (trickTexts) {
-        trickTexts->Clear();
-        Script::DeleteArray(trickTexts);
+    if (trick_texts) {
+        trick_texts->get_clear();
+        script::delete_array(trick_texts);
     }
     return true;
 }
 
 // 0x00555A60
-void CGoal::RemoveRewardTrick()
+void Objective::remove_reward_trick()
 {
-    CSkaterProfile* profile = CurrentProfile();
-    int remove;
-    m_params->GetInteger(kShouldRemoveTrick, &remove, 1);
+    RiderIdentity* profile = current_profile();
+    int remove = 0;
+    args_->fetch_int_value(kShouldRemoveTrick, &remove, 1);
     if (remove == 1) {
-        uint32_t trick;
-        if (m_params->ContainsFlag(kCreateATrick))
+        uint32_t trick = 0;
+        if (args_->has_bare_flag(kCreateATrick)) {
             trick = 0;
-        else
-            m_params->GetChecksum(kTrickName, &trick, 1);
-        for (int i = 0; i < 12; ++i) {
-            CSkaterProfile::SpecialTrick special;
-            profile->GetSpecialTrick(&special, i);
-            if (special.trick == trick) {
-                CSkaterProfile::SpecialTrick empty;
-                empty.Construct();
-                empty.trick = kUnassigned;
-                empty.keys = kUnassigned;
-                profile->SetSpecialTrick(i, &empty, true);
-                m_params->AddInteger(kShouldRemoveTrick, 0);
+        } else {
+            args_->read_hash_value(kTrickName, &trick, 1);
+        }
+        for (int i = 0; i < kSpecialTrickSlots; ++i) {
+            RiderIdentity::SpecialTrick special;
+            profile->get_special_trick(&special, i);
+            if (special.trick() == trick) {
+                RiderIdentity::SpecialTrick empty;
+                empty.trick() = kUnassigned;
+                empty.keys() = kUnassigned;
+                profile->set_special_trick(i, &empty, true);
+                args_->put_int(checksums::Name{kShouldRemoveTrick}, 0);
                 break;
             }
         }
-        profile->AddMaxSpecials(-1);
+        profile->add_max_specials(-1);
     }
-    m_params->RemoveComponent(kKeyCombos);
-    m_params->RemoveComponent(kKeyComboString);
+    args_->erase_module(kButtonSequences);
+    args_->erase_module(kButtonSeqText);
 }
 
 // 0x00555D40
-void CGoal::ColorTrickObjects(int player, bool clear)
+void Objective::tint_tagged_props(int player, bool clear)
 {
-    Obj::CTrickObjectManager* objects = Obj::g_trickObjectManager;
-    Script::CArray* clusters = nullptr;
-    if (!m_params->GetArray(kKillClusters, &clusters, 0))
+    objects::TrickSpotHub* objects = objects::trick_spot_hub();
+    script::Array* clusters = nullptr;
+    if (!args_->fetch_list(kKillClusters, &clusters, 0)) {
         return;
-    int count = static_cast<int>(clusters->m_size);
+    }
+    const int count = static_cast<int>(clusters->extent());
     for (int i = 0; i < count; ++i) {
-        uint32_t id;
-        reinterpret_cast<Script::CStruct*>(clusters->GetElement(static_cast<uint32_t>(i)))->GetChecksum(kId, &id, 1);
-        if (!objects->GetCluster(id))
+        uint32_t id = 0;
+        clusters->struct_at(static_cast<uint32_t>(i))->read_hash_value(kId, &id, 1);
+        if (!objects->get_cluster(id)) {
             continue;
+        }
         if (clear) {
-            if (Obj::CTrickObjectCluster* cluster = objects->GetCluster(id))
-                cluster->ClearGraffitiColor(player);
+            if (objects::TrickObjectCluster* cluster = objects->get_cluster(id)) {
+                cluster->clear_graffiti_color(player);
+            }
         } else {
-            objects->GetCluster(id)->SetGraffitiColor(player);
+            objects->get_cluster(id)->set_graffiti_color(player);
         }
     }
 }
 
 // 0x00557AC0
-bool CGoal::AwardSpecialTrick()
+bool Objective::award_special_trick()
 {
-    bool cat = m_params->ContainsFlag(kCreateATrick);
-    uint32_t type;
-    m_params->GetChecksum(kTrickType, &type, 1);
+    const bool cat = args_->has_bare_flag(kCreateATrick);
+    uint32_t type = 0;
+    args_->read_hash_value(kTrickType, &type, 1);
     uint32_t trick = 0;
     int premade = 0;
-    const char* name;
+    const char* name = nullptr;
     if (cat) {
-        m_params->GetInteger(kPremadeCatIndex, &premade, 1);
-        auto* premadeCat = reinterpret_cast<Script::CStruct*>(
-            Script::GetArray(kPremadeCats)->GetElement(static_cast<uint32_t>(premade)));
-        premadeCat->GetString(kName, &name, 1);
+        args_->fetch_int_value(kPremadeCatIndex, &premade, 1);
+        auto* premade_cat = script::fetch_list(kPremadeCats)->struct_at(static_cast<uint32_t>(premade));
+        premade_cat->fetch_text(kName, &name, 1);
     } else {
-        m_params->GetChecksum(kTrickName, &trick, 1);
-        Script::CStruct* params;
-        Script::GetStructure(trick)->GetStructure(kParams, &params, 1);
-        params->GetString(kName, &name, 1);
+        args_->read_hash_value(kTrickName, &trick, 1);
+        script::Struct* params = nullptr;
+        script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
+        params->fetch_text(kName, &name, 1);
     }
-    m_params->AddString(kTrickString, name);
+    args_->append_word(kTrickString, name);
     // The key combos free for the trick's type (a create-a-trick: an air trick's).
-    Script::CStruct* free = nullptr;
+    script::Struct* free = nullptr;
     switch (type) {
     case kCat:
-    case kAir: free = Script::GetStructure(kSpecialTricksAir); break;
-    case kGrind: free = Script::GetStructure(kSpecialTricksGrind); break;
-    case kLip: free = Script::GetStructure(kSpecialTricksLip); break;
-    case kManual: free = Script::GetStructure(kSpecialTricksManual); break;
-    default: break;
+    case kAir:
+        free = script::read_sub_struct(kSpecialTricksAir);
+        break;
+    case kGrind:
+        free = script::read_sub_struct(kSpecialTricksGrind);
+        break;
+    case kLip:
+        free = script::read_sub_struct(kSpecialTricksLip);
+        break;
+    case kManual:
+        free = script::read_sub_struct(kSpecialTricksManual);
+        break;
+    default:
+        break;
     }
-    CSkaterProfile* profile = CurrentProfile();
-    int slots = profile->GetMaxSpecials();
+    RiderIdentity* profile = current_profile();
+    const int slots = profile->get_max_specials();
     uint32_t keys = 0;
     bool had = false;
     for (int i = 0; i < slots; ++i) {
-        CSkaterProfile::SpecialTrick special;
-        profile->GetSpecialTrick(&special, i);
-        if (!cat && special.trick == trick) {
-            keys = special.keys; // (the skater has it already: on its keys)
+        RiderIdentity::SpecialTrick special;
+        profile->get_special_trick(&special, i);
+        if (!cat && special.trick() == trick) {
+            keys = special.keys(); // (the skater has it already: on its keys)
             had = true;
             break;
         }
-        free->RemoveFlag(special.keys);
+        Expects(free != nullptr);
+        free->remove_flag(special.keys());
     }
     if (!had) {
-        keys = free->GetNextComponent(nullptr)->raw;
-        profile->AddMaxSpecials(1);
+        Expects(free != nullptr);
+        keys = free->step_to_entry(nullptr)->value.word();
+        profile->add_max_specials(1);
         if (cat) {
-            Script::CStruct* params = NewStructure();
-            params->AddChecksum(kTrickslot, keys);
-            params->AddInteger(kIndex, premade);
-            params->AddInteger(kSpecialTrickIndex, slots);
-            Script::RunScript(kLoadPremadeCat, params, nullptr, false, nullptr);
-            DeleteStructure(params);
+            const script::StructPtr params = script::make_struct();
+            params->put_name_key(checksums::Name{kTrickslot}, keys);
+            params->put_int(checksums::Name{kIndex}, premade);
+            params->put_int(checksums::Name{kSpecialTrickIndex}, slots);
+            script::launch_script(kLoadPremadeCat, params.get(), nullptr, false, nullptr);
         } else {
-            CSkaterProfile::SpecialTrick special;
-            special.Construct();
-            special.trick = trick;
-            special.keys = keys;
-            profile->SetSpecialTrick(slots, &special, true);
+            RiderIdentity::SpecialTrick special;
+            special.trick() = trick;
+            special.keys() = keys;
+            profile->set_special_trick(slots, &special, true);
         }
-        m_params->AddInteger(kShouldRemoveTrick, 1);
+        args_->put_int(checksums::Name{kShouldRemoveTrick}, 1);
     }
-    m_params->RemoveComponent(kKeyCombos);
-    Script::CArray* combos = NewArray();
-    combos->SetSizeAndType(1, Script::ESYMBOLTYPE_NAME);
-    combos->SetElement(0, keys);
-    m_params->AddArrayPointer(kKeyCombos, combos);
-    ReplaceTrickText();
+    args_->erase_module(kButtonSequences);
+    gsl::owner<script::Array*> combos = script::new_array();
+    combos->configure_size_kind(1, script::QbValueKind::kName);
+    combos->set_element(0, keys);
+    args_->append_array_ref(kButtonSequences, combos);
+    swap_move_caption();
     return !had;
 }
 
-} // namespace Game
+} // namespace goals

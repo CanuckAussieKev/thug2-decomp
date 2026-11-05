@@ -1,0 +1,200 @@
+#pragma once
+
+// NOT ORIGINAL - every word the new front end shows the player (ours; see new_frontend.h), in one table so the copy is
+// reviewed in one place: screen titles, item labels, helper lines (the line at the foot of a list - empty: none), kickers,
+// tags, hints, the options' names / help / choices, notes. The voice is a skate game's menus: short, plain, no
+// parentheses, no explanations of how things work, no file names or ini keys (those only behind [frontend]
+// show_ini_keys=1). The original game's own words that ours repeats (the difficulty lines, the career warning) are
+// THUG2's text as it ships. Log lines, automation replies and ids are not here (nobody playing sees them).
+namespace frontend::new_frontend::text_tools {
+
+// --- headers (the mono line at the top of the column) and screen titles ------------------------------------------
+inline constexpr const char* kTitleMain = "THUG2 / Decomp edition";
+inline constexpr const char* kTitleCareer = "Career";
+inline constexpr const char* kTitleStory = "THUG2 story";
+inline constexpr const char* kTitleClassic = "Classic mode";
+inline constexpr const char* kTitleCreate = "Create";
+inline constexpr const char* kTitleOptions = "Options";
+inline constexpr const char* kTitleFreeSkate = "Free skate";
+inline constexpr const char* kTitleChangeLevel = "Change level";
+inline constexpr const char* kTitleEditLevel = "Level editor";
+inline constexpr const char* kTitleNetLevel = "Net game level";
+inline constexpr const char* kTitlePaused = "Paused";
+inline constexpr const char* kTitleMenu = "Menu"; // (a restyled list without a title)
+inline constexpr const char* kTitleSkaters = "Select skater";
+inline constexpr const char* kTitleKeyboard = "Enter text"; // (the on-screen keyboard without a title)
+inline constexpr const char* kTitleStats = "Stats"; // (the stats screen without a title of its own)
+inline constexpr const char* kBack = "Back";                // (the header's back arrow)
+
+// --- the main menu: label, helper line, the art's kicker -----------------------------------------------------------
+inline constexpr const char* kCareer = "Career";
+inline constexpr const char* kCareerHelp = "";
+inline constexpr const char* kFreeSkate = "Free Skate";
+inline constexpr const char* kFreeSkateHelp = "No goals. No clock. Just skate.";
+inline constexpr const char* kOnline = "Online";
+inline constexpr const char* kOnlineHelp = "";
+inline constexpr const char* kCreate = "Create";
+inline constexpr const char* kCreateHelp = "";
+inline constexpr const char* kOptions = "Options";
+inline constexpr const char* kOptionsHelp = "";
+inline constexpr const char* kQuit = "Quit";
+inline constexpr const char* kQuitHelp = "";
+// The kicker over the highlighted item's big name: "Main menu — 02".
+inline constexpr const char* kMainKicker = "Main menu";
+// The last level played, on the hints row: "X Resume Airport".
+inline constexpr const char* kHintResume = "X Resume";
+
+// --- the career ---------------------------------------------------------------------------------------------------
+inline constexpr const char* kStoryThug2 = "THUG2 Story";
+inline constexpr const char* kStoryThug2Help = "The World Destruction Tour.";
+inline constexpr const char* kClassic = "Classic";
+inline constexpr const char* kClassicHelp = "Two-minute runs. Old-school goals.";
+inline constexpr const char* kStoryThug = "THUG Story";
+inline constexpr const char* kStoryThugHelp = "";
+inline constexpr const char* kComingSoon = "Coming soon"; // (the tag after a disabled item)
+inline constexpr const char* kContinue = "Continue";
+inline constexpr const char* kContinueHelp = "";
+inline constexpr const char* kNewStory = "New story";
+inline constexpr const char* kNewClassic = "New classic";
+inline constexpr const char* kNewHelp = "";
+inline constexpr const char* kLoad = "Load game";
+inline constexpr const char* kLoadHelp = "";
+// The difficulties: THUG2's own lines (its difficulty menu's helper text).
+inline constexpr const char* kNormal = "Normal";
+// Before a new career / a load over a started one: THUG2's own warning ("Any unsaved changes to your current story
+// mode will be lost." - the part in the middle is the mode).
+
+// --- create -------------------------------------------------------------------------------------------------------
+inline constexpr const char* kCas = "Create-A-Skater";
+inline constexpr const char* kCat = "Create-A-Trick";
+inline constexpr const char* kCag = "Create-A-Goal";
+inline constexpr const char* kCap = "Create-A-Park";
+inline constexpr const char* kCagr = "Create-A-Graphic";
+inline constexpr const char* kLevelEditor = "Level Editor";
+inline constexpr const char* kCreateItemHelp = "";
+
+// --- online -------------------------------------------------------------------------------------------------------
+inline constexpr const char* kLobbies = "Lobbies";
+// The mono line under the big name: "THUG2 lobbies · Beenox".
+inline constexpr const char* kIdentityThug2 = "THUG2";
+inline constexpr const char* kIdentityThugpro = "THUGPRO";
+
+// --- the pause menu -----------------------------------------------------------------------------------------------
+inline constexpr const char* kResume = "Resume";
+inline constexpr const char* kRetryGoal = "Retry goal";
+inline constexpr const char* kRestart = "Restart";
+inline constexpr const char* kChangeLevel = "Change level";
+inline constexpr const char* kPauseLevelEditor = "Level editor";
+inline constexpr const char* kPauseOptions = "Options";
+inline constexpr const char* kPauseMenu = "Pause menu";
+inline constexpr const char* kQuitToMenu = "Quit to menu";
+inline constexpr const char* kViewGoals = "View goals";
+inline constexpr const char* kYourOptions = "Your options";
+// The session row: "Best combo 20,005", "Gaps 3/14", "Time 01:52".
+inline constexpr const char* kLabelBestChain = "Best combo";
+inline constexpr const char* kGaps = "Gaps";
+inline constexpr const char* kGoals = "Goals";
+inline constexpr const char* kTime = "Time";
+
+// --- hints ----------------------------------------------------------------------------------------------------------
+inline constexpr const char* kHintSelect = "A Select";
+inline constexpr const char* kHintOpen = "A Open";
+inline constexpr const char* kHintAccept = "A Accept";
+inline constexpr const char* kHintBack = "B Back";
+inline constexpr const char* kHintResumeLevel = "B Resume";
+inline constexpr const char* kHintChange = "Left Right Change";
+// The arrow buttons in the game's own words (its helper lines' arrow glyphs).
+inline constexpr const char* kKeyUp = "Up";
+inline constexpr const char* kKeyDown = "Down";
+inline constexpr const char* kKeyLeft = "Left";
+inline constexpr const char* kKeyRight = "Right";
+inline constexpr const char* kKeyUpLeft = "Up-Left";
+inline constexpr const char* kKeyUpRight = "Up-Right";
+inline constexpr const char* kKeyDownLeft = "Down-Left";
+inline constexpr const char* kKeyDownRight = "Down-Right";
+inline constexpr const char* kHintGroup = "LB RB Group";
+inline constexpr const char* kHintSkater = "Left Right Skater";
+inline constexpr const char* kHintLoadSkater = "E Load skater";
+// (the stats screen)
+inline constexpr const char* kHintStat = "Up Down Stat";
+inline constexpr const char* kHintColumn = "Left Right Column";
+inline constexpr const char* kHintEditStat = "A Change";
+inline constexpr const char* kHintDone = "B Done";
+inline constexpr const char* kPointsLeft = "Points left";
+inline constexpr const char* kPleaseWait = "Please wait";
+
+// --- the level select ---------------------------------------------------------------------------------------------
+inline constexpr const char* kSkate = "Skate";
+inline constexpr const char* kEdit = "Edit";
+inline constexpr const char* kSelect = "Select"; // (a network game's level: chosen, not skated yet)
+inline constexpr const char* kLocked = "Locked";
+inline constexpr const char* kNoLevels = "No levels here.";
+
+// --- options ------------------------------------------------------------------------------------------------------
+inline constexpr const char* kGameOptions = "Game options";
+inline constexpr const char* kGameOptionsValue = "Sound, controls";
+inline constexpr const char* kGameOptionsHelp = "Sound, controls, display and more.";
+inline constexpr const char* kOpen = "Open";
+inline constexpr const char* kRestartToApply = "Restart to apply";
+inline constexpr const char* kCouldntSave = "Couldn't save settings.";
+inline constexpr const char* kOff = "Off";
+inline constexpr const char* kOn = "On";
+// The groups.
+inline constexpr const char* kGroupGraphics = "Graphics";
+inline constexpr const char* kGroupInterface = "Interface";
+inline constexpr const char* kGroupGameplay = "Gameplay";
+inline constexpr const char* kGroupOnline = "Online";
+inline constexpr const char* kGroupMods = "Mods";
+inline constexpr const char* kGroupSound = "Sound";
+// Each option: its name, its help line ("" none) and the choices that aren't Off / On.
+inline constexpr const char* kOptAnisotropy = "Anisotropic filtering";
+inline constexpr const char* kOptAnisotropyHelp = "Sharper textures at an angle.";
+inline constexpr const char* kOptMsaa = "Anti-aliasing";
+inline constexpr const char* kOptMsaaHelp = "Smooths jagged edges.";
+inline constexpr const char* kOptDrawDistance = "Draw distance";
+inline constexpr const char* kOptDrawDistanceHelp = "How far you can see.";
+inline constexpr const char* kOptLodDistance = "Object detail distance";
+inline constexpr const char* kOptLodDistanceHelp = "Keeps far objects detailed.";
+inline constexpr const char* kOptNewFrontend = "New front end";
+inline constexpr const char* kOptNewFrontendHelp = "Off brings back the classic menus.";
+inline constexpr const char* kOptHdUi = "HD menus";
+inline constexpr const char* kOptHdUiHelp = "Sharper menu art and fonts.";
+inline constexpr const char* kOptMouse = "Mouse in menus";
+inline constexpr const char* kOptMouseHelp = "";
+inline constexpr const char* kOptLoadingConsole = "Loading console";
+inline constexpr const char* kOptLoadingConsoleHelp = "Shows what's loading.";
+inline constexpr const char* kOptSkipIntro = "Skip intro movies";
+inline constexpr const char* kOptSkipIntroHelp = "";
+inline constexpr const char* kOptRestartTester = "Restart tester";
+inline constexpr const char* kOptRestartTesterHelp = "F8 jumps to the next restart point.";
+inline constexpr const char* kOptLevelEditor = "Level editor";
+inline constexpr const char* kOptLevelEditorHelp = "Adds Level Editor to the pause menu.";
+inline constexpr const char* kOptScreenshots = "Screenshots";
+inline constexpr const char* kOptScreenshotsHelp = "Print Screen saves a screenshot.";
+inline constexpr const char* kOptLocks = "Free Skate levels";
+inline constexpr const char* kOptLocksHelp = "";
+inline constexpr const char* kOptLocksAll = "All";
+inline constexpr const char* kOptLocksUnlocked = "Unlocked";
+inline constexpr const char* kOptIdentity = "Lobbies";
+inline constexpr const char* kOptIdentityHelp = "";
+inline constexpr const char* kOptThugproChat = "THUGPRO chat";
+inline constexpr const char* kOptThugproChatHelp = "Chat with THUGPRO players.";
+inline constexpr const char* kOptThugproParts = "THUGPRO parts";
+inline constexpr const char* kOptThugproPartsHelp = "Extra CAS parts from THUGPRO.";
+inline constexpr const char* kOptThugproPartsHidden = "Hidden";
+inline constexpr const char* kOptThugproPartsShown = "Shown";
+inline constexpr const char* kOptAnteara = "Anteara Mod";
+inline constexpr const char* kOptAntearaHelp = "";
+inline constexpr const char* kOptBmx = "THAW BMX";
+inline constexpr const char* kOptBmxHelp = "Ride BMX. F7 or the pause menu.";
+inline constexpr const char* kOptDebug = "Debug mode";
+inline constexpr const char* kOptDebugHelp = "Neversoft's debug menus and free camera.";
+inline constexpr const char* kOptContinueMusic = "Keep music playing";
+inline constexpr const char* kOptContinueMusicHelp = "The song plays on between levels.";
+
+// --- restyled original screens --------------------------------------------------------------------------------------
+inline constexpr const char* kDialogConfirm = "Confirm";
+inline constexpr const char* kDialogNotice = "Notice";
+inline constexpr const char* kSkater = "Skater";
+
+} // namespace frontend::new_frontend::text_tools

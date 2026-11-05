@@ -3,8 +3,8 @@
 The original game links a 2003-04 build of the GameSpy SDK (0x5f8160-0x622e80 in the reference build). It is not
 decompiled: the game built from this source links IGN's open-source release of the SDK (BSD-3, December 2007, common
 2.06: github.com/nitrocaster/GameSpy at commit d1deb2d, fetched by `cmake/gamespy_sdk.cmake`), through
-`src/game/net/gamespy.h`: one function per SDK call the game makes, each calling the 2007 API
-(`src/game/net/gamespy.cpp`), adapted where the API changed.
+`src/platform/gamespy.h`: one function per SDK call the game makes, each calling the 2007 API
+(`src/platform/gamespy.cpp`), adapted where the API changed.
 
 ## What the game calls (exe address -> 2007 API)
 
@@ -25,7 +25,7 @@ decompiled: the game built from this source links IGN's open-source release of t
 identical functions together. Called on a PEER it is peerGetChat (whether the chat connection exists: the lobby's
 think task asks before peerThink). Called on an SBServer it is SBServerGetPublicInetAddress.
 
-Callbacks the SDK calls in the game: the 28 PEERCallbacks (LobbyMan::InitPeer fills 16 of them by offset), the
+Callbacks the SDK calls in the game: the 28 PEERCallbacks (RoomManager::InitPeer fills 16 of them by offset), the
 listing / group-room / join / enum-players / room-keys / nick-error / connect callbacks, qr2's key / key-list / count /
 add-error callbacks, NAT negotiation's completed callback, gcd's auth callback, GP's callbacks (error, buddy request,
 buddy status, buddy message: the argument structures GPErrorArg, GPConnectResponseArg, GPRecvBuddyStatusArg,
@@ -68,7 +68,7 @@ Behaviour:
 - **peerFixNick**: the 2007 SDK's rules changed in 2004. It allows another character set (`"#$%&'()*+,-./:;<=>?@`
   and the others), puts a '_' only before @ # + :, and its chat SDK cuts nicks at 20 characters. The exe's rules: a
   '_' before a leading digit or '-', and A-Z a-z 0-9 []\`_^{|}- only. Ours keeps the game's rules
-  (`GameSpy::FixNick`, checked against the exe's).
+  (`GameSpy::fix_nick`, checked against the exe's).
 - **Nick length**: the 2007 chat SDK refuses a nick of 21 characters or more before it connects (CHAT_NICK_TOO_LONG,
   which reaches the game's nick error callback as PEER_NICK_TOO_LONG = 6). The game's callback handles only "in
   use" (1) and "invalid" (2), so with a long network name the connection would stall. The game's retry nick
@@ -76,19 +76,19 @@ Behaviour:
   treat 6 as "in use".
 - **NNBeginNegotiationWithSocket**: the exe's opens a socket of its own next to the game's. The 2007 one sends
   everything through the game's socket. The game already passes NAT negotiation packets from that socket to
-  NNProcessData (LobbyMan::QueryTask). The 2007 SDK also speaks a newer NAT negotiation protocol (version 3, the
+  NNProcessData (RoomManager::QueryTask). The 2007 SDK also speaks a newer NAT negotiation protocol (version 3, the
   report packets) than the exe's.
 - **qr2 query challenge**: the 2007 qr2 answers a "pre-query IP verify" and, if the master server sets the option, asks
   clients for it before replying to queries. Old clients (the original game) don't send it. Only relevant if OpenSpy
   sets that option.
-- **Host names** (OnlineDomain, src/game/net/online_hosts.cpp): set in the 2007 SDK's own variables: GSIACHostname (made for each availability check, which
+- **Host names** (OnlineDomain, src/game/online/online_hosts.cpp): set in the 2007 SDK's own variables: GSIACHostname (made for each availability check, which
   takes the whole host name), qr2_hostname, SBOverrideMasterServer ("<name>.ms<n>.<domain>", n from the SDK's hash
   of the game name), Matchup1/2/3Hostname, GPConnectionManagerHostname, GPSearchManagerHostname,
   StatsServerHostname, gPTAMOTDURL / gPTAVercheckURL. The chat server's name was a constant, so
   `cmake/gamespy_sdk.cmake` makes it a variable (peerChatServerAddress). gcd_hostname stays key.gamespy.com: the game
   never changed it. WinMain's first availability check runs before the PC set-up reads OnlineDomain, so it still asks
   gamespy.com.
-- **Game key** (OnlineGameKey, src/game/net/online_identity.cpp): Net::GameKey() is passed to qr2_init, peerSetTitle
+- **Game key** (OnlineGameKey, src/game/online/online_identity.cpp): NetLink::GameKey() is passed to qr2_init, peerSetTitle
   and gcd_secret_key.
 
 ## Modules built (cmake/gamespy_sdk.cmake)

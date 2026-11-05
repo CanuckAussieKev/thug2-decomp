@@ -1,0 +1,491 @@
+// Pieces of the Walk component (GameObjects::FootMovement): see walk_physics.h. From the disassembly of 0x00524E10-
+// 0x00529F62 (0x00525E40, 0x00525E90, 0x00525EA0, 0x00525F60, 0x00526060, 0x00528580-0x00528740 and 0x00528890
+// aren't Ghidra functions).
+
+#include "game/rider/walk_physics.h"
+
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <array>
+
+#include "engine/render/probe_ray.h"
+#include "engine/objects/anim_blender.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/rail_manager.h"
+#include "engine/script/cscript.h"
+#include "engine/script/names.h"
+#include "engine/script/param_struct.h"
+#include "game/skate/career.h"
+#include "game/rider/walk_fields.h"
+#include "game/rider/walk_camera.h"
+#include "engine/objects/input_component.h"
+#include "engine/objects/model_component.h"
+#include "engine/objects/trigger_component.h"
+#include "engine/objects/movable_contact.h"
+#include "game/rider/physics_control.h"
+#include "game/rider/skater_state.h"
+#include "game/rider/core_physics.h"
+#include "game/rider/tagging.h"
+#include "engine/sys/game_clock.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/objects/control_pad.h"
+#include "game/skate/skate_module.h"
+#include "engine/objects/car_physics.h"
+#include "engine/objects/node_components.h"
+#include "engine/objects/entity.h"
+#include "game/rider/vehicle_sound.h"
+#include "engine/objects/camera_lookaround.h"
+#include "game/skate/point_tally.h"
+#include "game/rider/skater_score.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "game/online/net_game_state.h"
+#include "base/core/checksums.h"
+#include "base/maths/vec4.h"
+
+namespace objects {
+namespace {
+constexpr float kSkidTimeNever = 10000.0F; // the skid timer parked far past any skid
+constexpr int kLandSettleMs = 150;
+constexpr int kBriefStateMs = 100;
+constexpr uint32_t kWalkGround = 0x893213E5; // Walk_Ground
+constexpr uint32_t kWalkName = 0x726E85AA; // Walk
+constexpr uint32_t kWalkAir = 0x5012082E; // Walk_Air
+constexpr uint32_t kWalkHang = 0x9A3CA853; // Walk_Hang
+constexpr uint32_t kWalkLadder = 0x19702CA8; // Walk_Ladder
+constexpr uint32_t kWalkAnimWait = 0x8FE2B013; // Walk_AnimWait
+constexpr uint32_t kWalkGetStateTime = 0xCE64576C; // Walk_GetStateTime
+constexpr uint32_t kWalkJump = 0x83E4BD70; // Walk_Jump
+constexpr uint32_t kWalkGetSpeedScale = 0xAF04B983; // Walk_GetSpeedScale
+constexpr uint32_t kWalkScaleAnimSpeed = 0x56112C03; // Walk_ScaleAnimSpeed
+constexpr uint32_t kWalkAnimWaitComplete = 0x9D3EEBE8; // Walk_AnimWaitComplete
+constexpr uint32_t kWalkGetHangInitAnimType = 0xC6CD659E; // Walk_GetHangInitAnimType
+constexpr uint32_t kWalkGetStateDuration = 0x55BF1CD6; // Walk_GetStateDuration
+constexpr uint32_t kWalkGetPreviousState = 0xE9B1CDE8; // Walk_GetPreviousState
+constexpr uint32_t kWalkGetState = 0xAC7B36C8; // Walk_GetState
+constexpr uint32_t kWalkGetHangAngle = 0x7E01B923; // Walk_GetHangAngle
+constexpr uint32_t kWalkReleaseHang = 0x492EBA50; // releasehang (letter case unknown)
+constexpr uint32_t kWalkSetForwardControlLock = 0xF8F754EF; // Walk_SetForwardControlLock
+constexpr uint32_t kWalkForceToAirFromHang = 0x8BC2C0EC; // Walk_ForceToAirFromHang
+constexpr uint32_t kInputName = 0x27D7CD28; // Input
+constexpr uint32_t kAnimBlenderName = 0x7149B753; // AnimBlender
+constexpr uint32_t kModelName = 0x286A8D26; // Model
+constexpr uint32_t kTriggerName = 0xE594F0A2; // Trigger
+constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // SkaterPhysicsControl
+constexpr uint32_t kMovableContactName = 0x408D2AA9; // MovableContact
+constexpr uint32_t kSkaterStateName = 0x43686585; // SkaterState
+constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29; // SkaterCorePhysics
+constexpr uint32_t kTaggingControlName = 0x380D909A; // TaggingControl
+} // namespace
+
+std::array<script::MemberFunctionEntry, kWalkMemberFunctionCount>& walk_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, kWalkMemberFunctionCount> walk_member_functions{{
+        {.callsign_ = kWalkGround, .owner_kind_ = kWalkName}, {.callsign_ = kWalkAir, .owner_kind_ = kWalkName}, {.callsign_ = kWalkHang, .owner_kind_ = kWalkName}, {.callsign_ = kWalkLadder, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkAnimWait, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetStateTime, .owner_kind_ = kWalkName}, {.callsign_ = kWalkJump, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetSpeedScale, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkScaleAnimSpeed, .owner_kind_ = kWalkName}, {.callsign_ = kWalkAnimWaitComplete, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetHangInitAnimType, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetStateDuration, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkGetPreviousState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetState, .owner_kind_ = kWalkName}, {.callsign_ = kWalkGetHangAngle, .owner_kind_ = kWalkName}, {.callsign_ = kWalkReleaseHang, .owner_kind_ = kWalkName},
+        {.callsign_ = kWalkSetForwardControlLock, .owner_kind_ = kWalkName}, {.callsign_ = kWalkForceToAirFromHang, .owner_kind_ = kWalkName}, {.callsign_ = 0, .owner_kind_ = kWalkName}}};
+    return walk_member_functions;
+}
+
+namespace {
+
+// One of the components it finds in Finalize: the object's component of `type`, kept in `slot`.
+template <typename Module>
+void find_module(GameEntity* object, Module*& slot, uint32_t type)
+{
+    slot = static_cast<Module*>(object->fetch_module(type));
+}
+
+using namespace walk_fields;
+
+// Script names.
+constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B, kProbeElevation = 0x6DA7F696,
+                   kStandPosSearchDepth = 0xAEBFA9CD, kRunAdjustRate = 0x3FB31DFC, kGravity = 0xA5E2DA58,
+                   kCheatMoon = 0x9C8C6DF1, kMaxSlowWalkSpeed = 0xF3649996, kMaxFastWalkSpeed = 0x6A5805D8,
+                   kMaxSlowRunSpeed = 0x1C94CC9C;
+constexpr uint32_t kOff = 0xD443A2BC, kRun = 0xAF895B3F, kLedgeMoveFlag = 0x6384F1DA, kLadderMove = 0xA2BFE505,
+                   kStandardSpeedName = 0xB2D59BAF, kCamIdKey = 0xC4E311FA, kWalkCameraType = 0xC7D37EC2,
+                   kStateTimeName = 0x5AB23CC9, kSpeedScale = 0x092C388F, kWalkSlow = 0x1150CABB,
+                   kWalkFast = 0x0131F2A2, kRunSlow = 0x5606D106, kRunFast = 0x4667E91F,
+                   kHangInitAnimTypeName = 0x85FA9AC4, kStateDuration = 0x4B88E4E4, kPreviousStateName = 0xF78635DA,
+                   kStateName = 0x5C6C2D04, kHangAngle = 0xEAD7D286, kOn = 0xF649D637, kSkid = 0x1D537EFF,
+                   kStand = 0x9B46E749, kSkaterScore = 0xD262802F;
+
+constexpr float kHangDebounceScale = -1000.0F;      // 0x0064604C
+constexpr float kSeventhTurn = 0.8975979089736938F; // 0x00646968 (2 pi / 7)
+constexpr float kDegrees = 57.2957763671875F;       // 0x00645468
+constexpr float kMs = 0.001F;                       // 0x006461D8 (0.0010000000474974513f)
+constexpr float kHalf = 0.5F;                       // 0x006453BC
+
+// The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
+const std::array<uint32_t, 5> kWalkStateNames{{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637}};
+uint32_t get_state_name(int state) { return core::at(kWalkStateNames, state); }
+
+// The skate module's career (0x007CE478's +0x20).
+RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
+
+// asin of `value` in degrees (x 57.29578), negated when `negate`, rounded to float once.
+float asin_degrees(double value, bool negate)
+{
+    const double angle = std::asin(value);
+    return static_cast<float>((negate ? -angle : angle) * kDegrees);
+}
+
+// get_turned_facing's turn (0x00528220): the cosine rounded to float.
+// A direction on the ground: x and z.
+struct FlatXz {
+    float x;
+    float z;
+};
+
+FlatXz turn_flat(double angle, FlatXz from)
+{
+    const double cosine = static_cast<float>(std::cos(angle));
+    const double sine = std::sin(angle);
+    return {.x = static_cast<float>((cosine * from.x) - (sine * from.z)),
+            .z = static_cast<float>((sine * from.x) + (cosine * from.z))};
+}
+
+} // namespace
+
+// 0x00525E40
+void FootMovement::publish_method_table()
+{
+    script::register_member_function_table(walk_member_functions());
+}
+
+// 0x005288B0 (0x0052A290 the deleting one)
+// (the members' destructors, as the original's order: the feeler's object let go, the cache unregistered, the
+// contacts' feelers last to first)
+FootMovement::~FootMovement() = default;
+
+// 0x00526060
+void FootMovement::configure_from_data(script::Struct* params)
+{
+    uint32_t id = 0;
+    if (params->read_hash_value(kCamIdKey, &id, 0)) {
+        auto* camera = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id));
+        camera_ = camera;
+        walk_camera_ = core::down_cast<FootView>(camera->fetch_module(kWalkCameraType));
+    }
+    unknown710_ = 0;
+}
+
+// 0x00525FB0
+void FootMovement::seal()
+{
+    find_module(entity(), input_, kInputName);           // Input
+    find_module(entity(), anim_blender_, kAnimBlenderName);    // AnimBlender
+    find_module(entity(), model_, kModelName);           // Model
+    find_module(entity(), trigger_, kTriggerName);         // Trigger
+    find_module(entity(), physics_control_, kSkaterPhysicsControl); // SkaterPhysicsControl
+    find_module(entity(), ride_, kMovableContactName);            // MovableContact
+    find_module(entity(), skater_state_, kSkaterStateName);    // SkaterState
+    find_module(entity(), core_physics_, kSkaterCorePhysics);    // SkaterCorePhysics
+    find_module(entity(), tagging_, kTaggingControlName);         // TaggingControl
+}
+
+// 0x00525E60
+void FootMovement::choose_camera(GameEntity* camera)
+{
+    camera_ = camera;
+    walk_camera_ = core::down_cast<FootView>(camera->fetch_module(kWalkCameraType));
+}
+
+// 0x005260E0
+void FootMovement::change_phase(int state)
+{
+    if (state == phase_.state) {
+        return;
+    }
+    const int previous = phase_.state;
+    phase_.previous = previous;
+    phase_.state = state;
+    phase_.changed_at = frame_clock::game_clock_elapsed() + clock_offset();
+    if (previous == 0 || previous == 1) {
+        barrier_.timed = false;
+        running_ = false;
+    }
+    if (previous == 1) {
+        jump_.duration = 0.0F;
+        jump_.velocity = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        off_vert_ = false;
+    }
+    if (state == 0) {
+        skid_time_ = kSkidTimeNever;
+        unknown1874_ = true;
+    }
+    if (state == 4) {
+        transition_.climb_offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
+    if (state != 1) {
+        push_.on = false;
+    }
+    if (state == 0 || phase_.previous != 1) {
+        blocked_ = false;
+    }
+    if (state == 2) {
+        hang_.climb_scale = 0.0F;
+        if (phase_.previous == 1) {
+            // Just caught a ledge: the pad's hang controls ignored for hang_control_debounce_time.
+            objects::PadSnapshot* pad = &input_->pad_primary();
+            float debounce = walk_parameter(kHangControlDebounceTime);
+            uint32_t now = frame_clock::get_time();
+            core::at(pad->lock(), 0) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+            debounce = walk_parameter(kHangControlDebounceTime);
+            now = frame_clock::get_time();
+            core::at(pad->lock(), 1) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+        }
+    }
+}
+
+// 0x005260C0
+void FootMovement::clear_model_offset() { model_->set_shift({.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F}); }
+
+// 0x00524E10
+bool FootMovement::using_dpad()
+{
+    const objects::PadInputModule* input = input_;
+    if (!(core::at(input->pad_primary().stick(), 2) == 0.0F) || !(core::at(input->pad_primary().stick(), 3) == 0.0F)) {
+        return false;
+    }
+    return control_full_;
+}
+
+// 0x00524E60
+maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
+{
+    constexpr float kCameraOffset = -18.0F; // 0x0064C614
+    const int state = phase_.state;
+    bool offset = false;
+    if (state == 1) {
+        const int previous = phase_.previous;
+        offset =
+            (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(phase_.changed_at)) < kLandSettleMs;
+    } else {
+        offset = state > 1 && state <= 4;
+    }
+    if (!offset) {
+        *out = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        return out;
+    }
+    const maths::Vec4& facing = facing_;
+    *out = {.x = facing.x * kCameraOffset, .y = facing.y * kCameraOffset, .z = facing.z * kCameraOffset, .w = facing.w * kCameraOffset};
+    return out;
+}
+
+// 0x00528560
+maths::Vec4* FootMovement::get_facing(maths::Vec4* out)
+{
+    *out = facing_;
+    return out;
+}
+
+// 0x00528220
+maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
+{
+    const maths::Vec4& facing = facing_;
+    const FlatXz turned = turn_flat(static_cast<double>(index) * kSeventhTurn, {.x = facing.x, .z = facing.z});
+    const float x = turned.x;
+    const float z = turned.z;
+    out->y = 0.0F;
+    out->w = 1.0F;
+    out->x = x;
+    out->z = z;
+    return out;
+}
+
+// 0x00528370
+void FootMovement::update_run_adjustment()
+{
+    const modules::PointTally* score =
+        core::down_cast<RiderPointKeeper>(entity()->fetch_module(kSkaterScore))->points_held();
+    if (truncate(static_cast<double>(score->pot()) * score->multiplier()) > 0) {
+        run_adjustment_ = 1.0F;
+        return;
+    }
+    const float rate = walk_parameter(kRunAdjustRate);
+    double adjustment = run_adjustment_ - (frame_clock::get_slomo_frame_seconds() * rate);
+    if (adjustment < 0.0) {
+        adjustment = 0.0F;
+    }
+    run_adjustment_ = static_cast<float>(adjustment);
+}
+
+// 0x00528400
+void FootMovement::clamp_skater_speed(uint32_t stop_anim)
+{
+    if (phase_.state != 0) {
+        return;
+    }
+    if (static_cast<uint32_t>(clock_since(phase_.changed_at)) < kBriefStateMs) {
+        last_speed_ = speed_;
+        return;
+    }
+    const float speed = speed_;
+    const float last = last_speed_;
+    const float limited = speed < last ? speed : last;
+    speed_ = limited;
+    last_speed_ = speed;
+    if (frame_.anim == kRun && limited == 0.0F) {
+        frame_.anim = stop_anim == kSkid ? kSkid : kStand;
+    }
+}
+
+// 0x005284C0
+double FootMovement::get_gravity()
+{
+    RiderStoryProgress* career = get_career();
+    if (!career->is_code_on(kCheatMoon)) {
+        return walk_parameter(kGravity);
+    }
+    get_career()->set_global_flag(script::fetch_int_value(kCheatMoon));
+    online::net_game_state().set_cheat_flag(true);
+    return static_cast<double>(walk_parameter(kGravity)) * kHalf;
+}
+
+// 0x00528280
+bool FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4* out, render::ProbeRay* feeler)
+{
+    const float height = walk_parameter(kProbeElevation);
+    feeler->line().start = *position;
+    feeler->line().start.y = static_cast<float>(static_cast<double>(height) + height + feeler->line().start.y);
+    feeler->line().end = *position;
+    feeler->line().end.y = feeler->line().end.y - walk_parameter(kStandPosSearchDepth);
+    if (feeler->get_hit_shape(true, false) != 0) {
+        *out = feeler->contact_pos();
+        return true;
+    }
+    *out = *position;
+    return false;
+}
+
+// 0x00525E90
+bool FootMovement::walk_ground(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return phase_.state == 0;
+}
+
+// 0x00525EA0
+bool FootMovement::walk_scale_anim_speed(script::Struct* params, script::Script* /*script*/)
+{
+    if (params->has_bare_flag(kOff)) {
+        if (anim_speed_scaling_ != 0) {
+            anim_speed_scaling_ = 0;
+            float one = 0.0F;
+            uint32_t bits = 1;
+            std::memcpy(&one, &bits, 4);
+            anim_blender_->first_channel_47e_850(1.0F, 0.0F, one, 0.0F);
+        }
+    } else if (params->has_bare_flag(kRun)) {
+        anim_speed_scaling_ = 1;
+    } else if (params->has_bare_flag(kLedgeMoveFlag)) {
+        anim_speed_scaling_ = 2;
+    } else if (params->has_bare_flag(kLadderMove)) {
+        anim_speed_scaling_ = 3;
+        ladder_sign_ = -1.0F;
+    }
+    params->fetch_float(kStandardSpeedName, &standard_speed_, 0);
+    return true;
+}
+
+// 0x00525F60
+bool FootMovement::walk_release_hang(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    end_drop_from_hang();
+    return true;
+}
+
+// 0x00528580
+bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Script* script) const
+{
+    script->args()->put_int(checksums::Name{kStateTimeName}, clock_since(phase_.changed_at));
+    return true;
+}
+
+// 0x005285C0
+bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Script* script) const
+{
+    const float speed = speed_;
+    uint32_t scale = 0;
+    if (speed < walk_parameter(kMaxSlowWalkSpeed)) {
+        scale = kWalkSlow;
+    } else if (speed < walk_parameter(kMaxFastWalkSpeed)) {
+        scale = kWalkFast;
+    } else if (speed < walk_parameter(kMaxSlowRunSpeed)) {
+        scale = kRunSlow;
+    } else {
+        scale = kRunFast;
+    }
+    script->args()->put_name_key(checksums::Name{kSpeedScale}, scale);
+    return true;
+}
+
+// 0x005286A0
+bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, script::Script* script) const
+{
+    script->args()->put_name_key(checksums::Name{kHangInitAnimTypeName}, hang_.anim_type);
+    return true;
+}
+
+// 0x005286C0
+bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::Script* script) const
+{
+    auto elapsed = static_cast<uint32_t>(clock_since(phase_.changed_at));
+    script->args()->push_float(checksums::Name{kStateDuration}, static_cast<float>(static_cast<double>(elapsed) * kMs));
+    return true;
+}
+
+// 0x00528710
+bool FootMovement::walk_get_previous_state(script::Struct* /*params*/, script::Script* script) const
+{
+    script->args()->put_name_key(checksums::Name{kPreviousStateName}, get_state_name(phase_.previous));
+    return true;
+}
+
+// 0x00528740
+bool FootMovement::walk_get_state(script::Struct* /*params*/, script::Script* script) const
+{
+    script->args()->put_name_key(checksums::Name{kStateName}, get_state_name(phase_.state));
+    return true;
+}
+
+// 0x00528770
+bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Script* script)
+{
+    // The angle the rail between the two hang nodes climbs (asin of its direction's y, in degrees), signed by
+    // which way along it the skater faces.
+    GrindRailHub* rails = hang_rail_.manager;
+    maths::Vec4 from{};
+    maths::Vec4 to{};
+    const maths::Vec4* from_point = rails->get_absolute_pos(&from, hang_rail_.node);
+    const maths::Vec4* to_point = rails->get_absolute_pos(&to, hang_rail_.next_node);
+    float dx = to_point->x - from_point->x;
+    float dy = to_point->y - from_point->y;
+    const double dz_full = static_cast<double>(to_point->z) - from_point->z;
+    auto dz = static_cast<float>(dz_full);
+    // (z's square from its unrounded difference times its rounded one, as the original's x87 code)
+    const double length = std::sqrt(((dz_full * dz) + (static_cast<double>(dy) * dy)) + (static_cast<double>(dx) * dx));
+    if (length > 0.0) {
+        const double inverse = 1.0 / length;
+        dx = static_cast<float>(dx * inverse);
+        dy = static_cast<float>(dy * inverse);
+        dz = static_cast<float>(dz * inverse);
+    }
+    const maths::Vec4& facing = facing_;
+    const bool negate = (static_cast<double>(dz) * facing.x) - (static_cast<double>(dx) * facing.z) < 0.0;
+    script->args()->push_float(checksums::Name{kHangAngle}, asin_degrees(dy, negate));
+    return true;
+}
+
+// 0x00528860
+bool FootMovement::walk_set_forward_control_lock(script::Struct* params, script::Script* /*script*/)
+{
+    locked_to_heading_ = params->has_bare_flag(kOn);
+    return true;
+}
+
+} // namespace objects

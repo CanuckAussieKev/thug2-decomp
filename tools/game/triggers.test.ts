@@ -218,7 +218,7 @@ test("triggers: the node and the box", () => {
     assert.equal(readCol(writeCol({ objects: [big] }), "col").objects[0]!.verts[0]![0], big.verts[0]![0]);
 });
 
-// The static line test's triangle test (src/game/nx/coll_tests.cpp RayHitsTriangle, 0x0040B420): a determinant below
+// The static line test's triangle test (src/engine/render/coll_tests.cpp ray_hits_triangle, 0x0040B420): a determinant below
 // 0.03 - the line crossing the face from behind - is no hit. In doubles here (only the sides matter).
 function lineHits(start: number[], end: number[], v0: number[], v1: number[], v2: number[]): boolean {
     const d = [end[0]! - start[0]!, end[1]! - start[1]!, end[2]! - start[2]!];

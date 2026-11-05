@@ -1,0 +1,88 @@
+// The engine's imposter manager: see engine_imposters.h.
+
+#include "engine/gfx/engine_imposters.h"
+
+#include <new>
+
+#include "engine/memory/mem.h"
+#include "engine/gfx/render_device.h"
+#include "engine/lists/key_map.h"
+
+namespace render {
+
+constexpr int kImposterGroupBuckets = 8;
+
+namespace {
+
+// The table's iteration, inlined in the original: the first / next value (null at the end).
+ImposterGroup* next_group(lists::KeyMap* table)
+{
+    if (!table->step_iterator() || !table->iter_item()) {
+        return nullptr;
+    }
+    return static_cast<ImposterGroup*>(table->iter_item()->value);
+}
+ImposterGroup* first_group(lists::KeyMap* table)
+{
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
+    return next_group(table);
+}
+
+} // namespace
+
+// 0x0048E3E0
+ImposterManager::ImposterManager()
+{
+    void* memory = memory::alloc(sizeof(lists::KeyMap));
+    groups_ptr_ = memory ? memory::construct_in<lists::KeyMap>(memory, kImposterGroupBuckets) : nullptr;
+}
+
+// 0x0048E260
+void ImposterManager::delete_all()
+{
+    for (const ImposterGroup* group = first_group(groups_ptr_); group;) {
+        const ImposterGroup* next = next_group(groups_ptr_);
+        gsl::owner<const ImposterGroup*> owned = memory::owned_element(group); // (the list's)
+        delete owned;
+        group = next;
+    }
+    groups_ptr_->empty_table();
+}
+
+// 0x0048E2D0
+void ImposterManager::tick_frame()
+{
+    int done = 0;
+    for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
+        group->tick_frame();
+        const float distance = group->distance_to_view();
+        if (distance <= group->near_range()) { // (NaN: as beyond it)
+            group->drop_imposter();
+        } else if (!group->has_imposter()) {
+            if (done < max_per_frame_) {
+                group->create_imposter();
+                ++done;
+            }
+        } else if (done < max_per_frame_) {
+            ++group->frame_count();
+            if (group->update_imposter()) {
+                ++done;
+            }
+        }
+    }
+}
+
+// 0x0048E370
+void ImposterManager::render()
+{
+    device().set_primitive_states();
+    for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
+        if (group->has_imposter()) {
+            group->draw_imposter();
+        }
+    }
+    device().reset_primitive_states();
+}
+
+} // namespace render

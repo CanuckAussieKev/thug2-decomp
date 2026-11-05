@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the workspaces' ini rule for the TypeScript launchers (edit_level.ts, try_spot.ts): a workspace's
-// games (C:\Games\THUG2-1, -2, ...) always run muted, [features] mute_audio=1 (src/game/sfx/mute_audio.h) - the user
+// games (C:\Games\THUG2-1, -2, ...) always run muted, [features] mute_audio=1 (src/engine/sound/mute_audio.h) - the user
 // is at the machine. The main install C:\Games\THUG2 (and anything else) is never touched. The PowerShell twin is in
 // game_exe.ps1 (Test-Workspace, Set-IniValue, Set-WorkspaceMuted: game_lock.ps1, run_game.ps1) - keep them the same.
 
@@ -48,7 +48,8 @@ export function ensureWorkspaceMuted(folder: string): boolean {
     if (!isWorkspace(folder)) return false;
     const ini = path.join(folder, "thug2-decomp.ini");
     const text = fs.existsSync(ini) ? fs.readFileSync(ini, "utf8") : "";
-    const updated = setIniValue(text, "features", "mute_audio", "1");
+    // and on the user's second monitor ([Graphics] WindowDisplay=2, src/platform/sdl_window.cpp)
+    const updated = setIniValue(setIniValue(text, "features", "mute_audio", "1"), "Graphics", "WindowDisplay", "2");
     if (updated !== text) fs.writeFileSync(ini, updated, "utf8");
     return true;
 }

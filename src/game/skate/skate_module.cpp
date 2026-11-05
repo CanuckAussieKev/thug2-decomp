@@ -1,25 +1,19 @@
-// The skate module (Mdl::Skate): the singleton and its skater count (skate_module.h).
-
-#include <cstdint>
+// The skate module (modules::Skate): the singleton and its skater count (skate_module.h).
 
 #include "game/skate/skate_module.h"
-
-namespace Mdl {
-
-Skate* g_skateModule;
-
-Skate* Skate::Instance() { return g_skateModule; }
+#include "engine/memory/arena_alloc.h"
+namespace modules {
 
 // 0x0041AD90
-int Skate::GetNumSkaters()
+int Skate::count_riders()
 {
-    Mem::ListNode* node = m_skaters.m_node.next;
+    const memory::ListNode* node = riders_.list_link().next();
     int count = 0;
-    while (reinterpret_cast<intptr_t>(node->data) != -1 && node) {
-        node = node->next;
+    while (node->data() != memory::ListNode::head_marker() && node) {
+        node = node->next();
         ++count;
     }
     return count;
 }
 
-} // namespace Mdl
+} // namespace modules

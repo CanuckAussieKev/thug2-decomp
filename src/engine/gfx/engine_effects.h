@@ -1,0 +1,180 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <array>
+#include <span>
+
+#include "engine/gfx/engine_splats.h"
+#include "base/maths/vec4.h"
+
+// The engine's effects (Nx, platform-independent; each passes on to the PC code): fog settings, the level colour,
+// shattering, texture splats aged and killed, screen flashes, and the tables they're kept in - flashes 0x007004A8,
+// spawned polygons 0x007004AC, texture splat sets 0x007004B0, recent splat positions 0x007004B4, shatters 0x007004B8
+// (lists::HashTables of 16 buckets, each keyed by its value's address) - plus the vertex stack the splats and shatters
+// split triangles on (0x006FC4A0).
+#include "base/lists/object_set.h"
+
+namespace maths {
+class BBox;
+}
+
+namespace render {
+
+constexpr std::size_t kEffectDataBytes = 0x4000;
+
+class BitmapTexture;
+
+// A screen flash (0x24 bytes; made by add_flash, engine_effects.h).
+struct Flash {
+    int viewport;     // +0x00
+    std::array<uint8_t, 4> start; // +0x04: the colour it starts with (RGBA)
+    std::array<uint8_t, 4> end;   // +0x08: and ends with
+    std::array<uint8_t, 4> now; // +0x0C: the colour now (red, green, blue, alpha)
+    uint32_t flags;   // +0x10: bit 1 picks which of draw_flashes' passes draws it; 8: it goes on while paused
+    float duration;   // +0x14
+    float time_left_; // +0x18
+    float z;          // +0x1C
+    BitmapTexture* texture; // +0x20 (null: untextured; nothing sets one)
+};
+
+// The vertex stack (0x006FC4A0): how many bytes are on it, a vertex's size, the vertices.
+struct VertexStack {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t used() const { return used_; }
+    void set_used(uint32_t value) { used_ = value; }
+    [[nodiscard]] uint32_t vertex_size() const { return vertex_size_; }
+    void set_vertex_size(uint32_t value) { vertex_size_ = value; }
+    std::array<uint8_t, kEffectDataBytes>& data() { return data_; }
+    [[nodiscard]] const std::array<uint8_t, kEffectDataBytes>& data() const { return data_; }
+
+private:
+    uint32_t used_{0};
+    uint32_t vertex_size_{0};
+    std::array<uint8_t, kEffectDataBytes> data_{};
+
+public:
+
+    // 0x00490D80: the top vertex popped into `out`.
+    void stack_off(uint8_t* out);
+    // 0x00490D20 (engine_mesh.cpp): empty, no vertex size, the data filled with 3s.
+    VertexStack() noexcept;
+    // 0x00490D50 (engine_mesh.cpp): a vertex pushed (vertexSize bytes).
+    void stack_on(const uint8_t* in);
+};
+constexpr std::size_t kVertexStackBytes = 0x4008;
+
+static_assert(sizeof(VertexStack) == kVertexStackBytes, "layout must match the original");
+
+namespace engine {
+
+// 0x00490DE0 / 0x00490E00 / 0x00490E10 / 0x00490E20: the fog on or off (0x007004C8), its distance (0x0067DDE8),
+// exponent (0x0067DDEC; nothing more on PC) and colour (0x0067DE04) kept and the platform told (pc_fog.h).
+void enable_fog(bool on);
+void set_fog_distance(float distance);
+void set_fog_exponent(float exponent);
+void set_fog_color(uint32_t rgba);
+// 0x00491290: the level colour kept (0x007004F0).
+void set_level_color(std::span<const float, 4> color);
+
+// A breakable's break-up: its pieces' velocity and spread, their speed, lifetime, floor and bounce, the texture.
+struct BreakupSettings {
+    const maths::Vec4* velocity{};
+    const maths::Vec4* vector_210e_{};
+    float value_c483_{};
+    float area{};
+    float speed{};
+    float velocity_scale_{};
+    float lifetime{};
+    float floor{};
+    float bounce{};
+    float value_2e_1c_{};
+    uint32_t texture{};
+    uint32_t value_af_1a_{};
+    int value_33d_f_{};
+};
+
+// 0x00491110 (the Shatter command's settings): the velocity the pieces get (0x007004D0) and a vector (0x007004E0,
+// the command's 0x210EA9E1), 0x0067DDDC = `value_c483` squared, the triangle split limit (0x0067DDF0) `area` squared
+// - 82944 for 0 -, the random speed (0x007004CC, 0 for 0), the velocity's scale (0x0067DDF4, 1 for 0), a shatter's
+// lifetime (0x0067DDF8, 4 for 0), floor (0x0067DDFC, -10000 for 0) and bounce (0x0067DE00, 0.8 for 0); 0x0067DDD8,
+// the texture (0x007004BC), 0x007004C0 and 0x007004C4 as given.
+void change_breakup_settings(const BreakupSettings& settings);
+// 0x00490DC0 (not a Ghidra function; what a PC sector's change_live calls): a geom shattered with the shatter texture
+// (0x007004BC, from the particles' texture dictionary 0x00700F20).
+void shatter_geom(void* geom);
+
+// 0x00490EC0: each living triangle's time
+// (ms) counted down - collapsed when it runs out -, the set's last one found again; once fewer than 0x0067DDE0 slots
+// are free, the triangles sharing the time and lifetime of the one furthest through its life (of those with both)
+// fade by 0x0067DDE4 in their six alphas (killed when all are 0).
+void age_texture_splats(TextureSplats* splats, int elapsed);
+// 0x00491F70: every set aged by the frame's time (ms), unless paused (0x006FA7D4).
+void age_all_texture_splats();
+// 0x00491F10: every set lit (light_texture_splats).
+void light_all_texture_splats();
+// 0x004915A0: the recent splat positions forgotten (freed), then every set killed.
+void kill_all_texture_splats();
+// 0x00491630: the recent splat positions in the box (min, then max at +0x10) forgotten (their time zeroed), then
+// the triangles in it killed.
+void kill_texture_splats_in_box(const maths::BBox* box);
+// 0x004916F0: the sets of a texture freed (not their materials) and taken out of the table.
+void kill_texture_splats_of_texture(uint32_t texture);
+
+// A texture splat: the ray it is cast along, its size, depth, angle and cone, its lifetime, its image and what it follows.
+struct SplatSettings {
+    const maths::Vec4* from{};
+    const maths::Vec4* to{};
+    float size{};
+    float depth{};
+    float angle{};
+    float cone_angle_{};
+    float lifetime{};
+    const char* image_label_{};
+    uint32_t unknown38{};
+    uint32_t follow{};
+    uint8_t unknown40{};
+    BitmapTexture* texture{};
+};
+
+// 0x004928A0: a texture splat along a line (from `from` to `to`, `size` wide): the texture by name from the
+// particles' dictionary unless given; the collision objects of the grids along the line whose boxes meet its box
+// (grown by `size`) gathered with their sectors (0x00700710 / 0x00700510, unbounded) and the splat made on them
+// (create_texture_splat), aged a frame and lit at once unless it follows something. With `follow` (a bone, an object):
+// a recent splat position of the same id near `from` (within 66 - squared 4356 - and half a second) is the projection's
+// up and is moved on (no splat when `from` is still at its x and z); with none, `from` is only remembered (true). The
+// fade threshold (0x0067DDE0) read from the script integer 0x26FCB7BE each time. Whether a splat was made.
+bool create_texture_splat_at(const SplatSettings& settings);
+
+// 0x00492000: each shatter's lifetime counted down: run out, it's destroyed; else a step (update_shatter). Not while
+// paused.
+void update_shatters();
+// 0x004920E0: every shatter drawn.
+void draw_shatters();
+
+// 0x004923E0: a flash added (0x24 bytes): from `start` to `end` over `duration` seconds at depth `z`. The texture
+// name isn't used.
+// A screen flash: its start and end colours, its duration, its depth and its flags.
+struct FlashSettings {
+    uint32_t start{};
+    uint32_t end{};
+    float duration{};
+    float z{};
+    uint32_t flags{};
+};
+void add_flash(int viewport, FlashSettings flash_settings, const char* texture);
+// 0x00491790: each flash's colour moved from its start to its end; run out, it's taken out and freed. Paused, only
+// the flashes with flag 8 go on.
+void update_flashes();
+// 0x00491910: the flashes of a viewport whose bit 1 matches `pass` drawn.
+void draw_flashes(int viewport, uint32_t pass);
+
+// 0x00492150: the tables made (those not made yet) and the vertex stack emptied (its vertices 0x03030303).
+void init_effects();
+// 0x00492340: every flash freed, then the spawned polygons (0x00491E10), the splats and the shatters killed.
+void kill_all_effects();
+
+} // namespace engine
+
+struct SpawnedPoly;
+} // namespace render

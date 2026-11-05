@@ -7,19 +7,19 @@ control flow and random values; the native bridge remains scalar-only.
 The supported and deferred subsets are stated below.
 
 The proposal is synchronized with source commit `a1fbb35`. Behavior references are
-[struct.h](../src/game/script/struct.h),
-[struct.cpp](../src/game/script/struct.cpp),
-[parse.cpp](../src/game/script/parse.cpp),
-[eval.h](../src/game/script/eval.h),
-[eval.cpp](../src/game/script/eval.cpp),
-[load.cpp](../src/game/script/load.cpp) and
+[param_struct.h](../src/engine/script/param_struct.h),
+[param_struct.cpp](../src/engine/script/param_struct.cpp),
+[token_reader.cpp](../src/engine/script/token_reader.cpp),
+[expression.h](../src/engine/script/expression.h),
+[expression.cpp](../src/engine/script/expression.cpp),
+[load.cpp](../src/engine/script/load.cpp) and
 [script-runtime.md](script-runtime.md). This is a selected port interface, not
 an official Neversoft specification or a declaration of complete compatibility.
 
 ## Version 1 remains supported
 
 Implemented values are `{type: 1 | 2 | 13, bits: uint32}`. Parameters are ordered
-arrays of `[nameChecksum, value]`. An absent value is `undefined`, not zero,
+arrays of `[name_hash_, value]`. An absent value is `undefined`, not zero,
 `null`, false or a type-0 component. Checksums and raw bits are integral JS
 Numbers in `[0, 4294967295]`; signed integer interpretation is `bits | 0`.
 
@@ -44,7 +44,7 @@ Number standing for a float32 payload, or implicit Unicode conversion is used.
 | 1 Integer | `{type:1, bits:u32}` | Copy bits; interpret signed only for the relevant operation |
 | 2 Float | `{type:2, bits:u32}` | Copy float32 bits, including negative zero and NaN payloads |
 | 3 String | `{type:3, bytes:number[]}` | Copy byte sequence |
-| 4 LocalString | `{type:4, bytes:number[]}` | Same payload, different type |
+| 4 LocalisedText | `{type:4, bytes:number[]}` | Same payload, different type |
 | 5 Pair | `{type:5, coordinates:[u32,u32]}` | Copy coordinate bits |
 | 6 Vector | `{type:6, coordinates:[u32,u32,u32]}` | Copy coordinate bits |
 | 10 Structure | `{type:10, members:Parameters}` | Mutable container identity; ordinary component copy is deep |
@@ -63,7 +63,7 @@ materializes an owning copy of its outer reference target, as described below.
 
 Completed-expression materialization is not yet represented separately by the
 emitter. It can retain a live container reference where the original evaluator's
-`GetResult` copies the referenced target as an owning value. This is a known
+`fetch_verdict` copies the referenced target as an owning value. This is a known
 compatibility gap; helper-level copy/reference tests do not establish complete
 expression-result compatibility.
 
@@ -90,16 +90,16 @@ the translator's construction path, not to a one-pass array factory.
 `Parameters` stays an ordered list rather than an object or Map. Multiple
 components with the same checksum can coexist when their types differ.
 
-`copy(value, "value", ctx)` follows CopyComponent(reference=0): owning
+`copy(value, "value", ctx)` follows DuplicateComponent(reference=0): owning
 structures/arrays are copied recursively, strings and coordinates are copied,
 scalars keep their bits, and existing type-20/21 references keep their target.
-`copy(value, "reference", ctx)` follows CopyComponent(reference=1): owning
+`copy(value, "reference", ctx)` follows DuplicateComponent(reference=1): owning
 structures/arrays become references to the original target; other value types
 follow their component-copy rules. Owning cycles in a deep copy fail with a
 cycle/depth error; traversal through reference targets is bounded separately.
 
 `merge(a,b,ctx)` returns a new parameter list with component copies, as
-AppendStructure does. For each incoming field, remove earlier fields with the
+MergeStructure does. For each incoming field, remove earlier fields with the
 same name when their types match, or when both types are Integer/Float.
 For unnamed Name fields (`name == 0`), matching types replace only if their
 checksum payloads also match. Append the incoming copied field at the end.
@@ -115,7 +115,7 @@ is retained. Host-specific defaults are supplied by the host, not the lookup.
 A normal parameter read uses FindLastComponent followed by a value copy.
 An expression parameter operand takes the found component, resolves a Name in
 that context and applies MakeReference. Intermediate operands and grouping can
-therefore share targets. At the outer ParseExpression/GetResult boundary,
+therefore share targets. At the outer ParseExpression/FetchVerdict boundary,
 `expressionResult(value,ctx)` copies a type-20/21 target as owning type 10/12;
 other results follow ordinary value-copy rules. Nested existing references keep
 their targets; nested owning containers are copied. An absent result remains
@@ -127,7 +127,7 @@ Thus a saved completed `(<...>)` does not acquire fields added later to the
 parameter frame, and a completed container remains detached across a wait.
 Direct helper-level references may still observe target mutations. Ordinary
 `copy(ref,"value",ctx)` keeps its reference semantics; completion is a separate
-operation, not a change to CopyComponent or ComponentsEqual. Original-x86
+operation, not a change to DuplicateComponent or ComponentsEqual. Original-x86
 corroboration and its exclusions are recorded in
 [qb-expression-result-evidence.md](qb-expression-result-evidence.md).
 
@@ -158,19 +158,19 @@ supplies a context and charges the current task or bounded module-load budget.
 Its charge callback captures that budget's owner, so a retained context cannot
 charge a different task merely because another generator has since run.
 
-`lookupGlobal(name,ctx)` implements LookUpSymbol alias following. A missing
+`lookupGlobal(name,ctx)` implements ResolveSymbol alias following. A missing
 root is `undefined`. An alias whose target is missing returns the last Name
 value, as the original does. An alias cycle or excessive depth raises an error.
 `resolve(value,ctx)` leaves non-Names unchanged and uses that lookup for Names,
 retaining the original Name when no root exists or the symbol is callable, as
-ResolveNameComponent does. Operations such as equality that instead interpret
+EvaluateNameToken does. Operations such as equality that instead interpret
 callable symbol payloads in the original must reject that case until separately
 implemented; they must not accidentally compare the preserved checksum instead.
 Resolution occurs only where
-the source operation requests it. Plain names in checksum arrays, GetChecksum
+the source operation requests it. Plain names in checksum arrays, ReadHashValue
 queries and a structure member's selector remain raw checksums.
 
-`lookupTyped(params,name,type,ctx)` follows CStruct::Search: retain the last
+`lookupTyped(params,name,type,ctx)` follows CStruct::Hunt: retain the last
 correct match, convert Integer to Float when Float is requested, resolve a
 matching Name as a global candidate, and traverse included global structures
 only through unnamed Name components on the nonmatching-name path. A later
@@ -179,11 +179,11 @@ its raw Name; resolution is for a Name standing for another requested type.
 There is no blanket reference
 tag normalization in this getter.
 
-`readChecksum(params,name,ctx)` implements the specialized GetChecksum:
+`readChecksum(params,name,ctx)` implements the specialized ReadHashValue:
 matching Name fields are raw. For an unnamed request, skip a Name that resolves
 to a global Structure; do not expand that component as a matching value.
 Nonmatching unnamed structure inclusions recurse. `readString` first performs
-the entire String search and only if absent performs LocalString search; it
+the entire String search and only if absent performs LocalisedText search; it
 does not just pick the last of either kind. `contains` follows FindComponent's
 presence/unnamed-flag behavior, not JS truthiness or last-value lookup.
 
@@ -205,7 +205,7 @@ Validation/type failures carry `ctx.site` where a context exists.
 | `string(bytes,local=false)`, `pair(coords)`, `vector(coords)` | New copied payload, preserving byte/bit representation |
 | `structure(fields,ctx)`, `array(elementType,elements,ctx)` | New owning container; copied, checked contents |
 | `copy(value,mode,ctx)` | Component copy; mode is `"value"` or `"reference"` |
-| `expressionResult(value,ctx)` | GetResult completion: copy outer reference target as owning, preserving nested references; additive API-2 capability |
+| `expressionResult(value,ctx)` | FetchVerdict completion: copy outer reference target as owning, preserving nested references; additive API-2 capability |
 | `merge(a,b,ctx)`, `append(dst,src,ctx)` | Pure merge or in-place append with typed replacement |
 | `param(params,name,mode,ctx)` | FindLastComponent; mode is `"value"` or `"expression"`; absent returns undefined |
 | `lookupGlobal(name,ctx)`, `resolve(value,ctx)` | Explicit alias lookup and Name resolution |
@@ -219,22 +219,22 @@ Validation/type failures carry `ctx.site` where a context exists.
 `binary` covers array indexing as op 5 and member selection/dot product as op 8.
 A type-21 array produces reference container elements; a type-12 array produces
 copies. A type-20 structure's selected member is copied in reference mode.
-LocalString array indexing remains unsupported until source-compatible behavior
+LocalisedText array indexing remains unsupported until source-compatible behavior
 is explicitly implemented. Bounds apply even when an original low-level getter
-would ignore a singleton index. Arithmetic delegates to eval.cpp behavior, not
+would ignore a singleton index. Arithmetic delegates to expression.cpp behavior, not
 to a generated JS operator.
 
 Operator IDs are 5 index, 7 equality, 8 dot/member, 10 subtract, 11 add,
 12 divide, 13 multiply/cross product, 18 less, 20 greater, 50 OR, 51 AND.
 Integer operations retain uint32 results; floating operations round at the
 source's float32 stores. Numerical precision cases require independent tests;
-Number arithmetic alone is not an x87 compatibility claim. GetBool is different
+Number arithmetic alone is not an x87 compatibility claim. FetchFlag is different
 from statementTruth: it keeps an Integer's word, maps nonzero Float to 1 and
-other types to 0. AND/OR evaluate both inputs and combine GetBool results
+other types to 0. AND/OR evaluate both inputs and combine FetchFlag results
 bitwise; they are not JS short-circuit operators.
 
 Equality resolves Names as ComponentsEqual does. QScript symbols compare by callable identity without execution. Numbers compare numerically;
-String and LocalString require matching types and bytewise C-string equality;
+String and LocalisedText require matching types and bytewise C-string equality;
 coordinates compare component float values. Owning type-10/12 values compare
 the same container identity, not structural contents. Reference tags 20/21
 take ComponentsEqual's default-false path, even for the same target. Structure
@@ -398,7 +398,7 @@ parameters, RNG, global reads, engine objects or renderer.
 Its single host dependency is `UnSetFlag`.
 
 The driver implements a bounded career-flag service with the behavior of
-`CFunc_UnSetFlag` (0x005AEDD0) and `CSkaterCareer::UnSetFlag` (0x00584470): direct
+`cfunc_un_set_flag` (0x005AEDD0) and `RiderStoryProgress::UnSetFlag` (0x00584470): direct
 Integer `flag`, optional direct Integer `level` (-1 means current), clear the
 selected level's bit and the level-start bit. Other getter/coercion cases are
 outside this host subset; invalid/missing arguments fault. This is a test

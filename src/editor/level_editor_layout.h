@@ -1,0 +1,350 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <vector>
+#include <array>
+
+#include "editor/level_editor_cameras.h"
+#include "editor/level_editor_chains.h"
+#include "editor/level_editor_entities.h"
+#include "editor/level_editor_clusters.h"
+#include "editor/level_editor_faces.h"
+#include "editor/level_editor_fields.h"
+#include "editor/level_editor_goals.h"
+#include "editor/level_editor_level_props.h"
+#include "editor/level_editor_links.h"
+#include "editor/level_editor_node_create.h"
+#include "editor/level_editor_notes.h"
+#include "editor/level_editor_picking.h"
+#include "editor/level_editor_scenery.h"
+#include "editor/level_editor_triggers.h"
+#include "editor/level_editor_walls.h"
+
+namespace script {
+class Context;
+class Struct;
+} // namespace script
+
+// NOT ORIGINAL - the level editor's saved layouts (ours; see level_editor.h): what the editor changed in a level,
+// written to thug2-decomp-layouts\<the level's scene>.txt next to the exe (Ctrl+S in the editor).
+//
+// A layout is the level's EDITED COPY - a level of its own, never the level itself (the user's rule, 2026-10-20):
+//   - the level as shipped always loads as shipped: picked from the level select's own entries, by -level / the
+//     automation, by career or any script, it gets no layout;
+//   - the edited copy is the level select's "<LEVEL> (EDITED)" entry, in the section EDITED LEVELS (the last; Up from
+//     the first) - made by the overlay (tools/pipeline/menu_level/level_select.ts) from LevelEditor_EditedLevels: one entry for
+//     each level with a saved layout. Choosing it runs level_select_change_level with `edited_layout`, whose first
+//     line (the overlay's) is LevelEditor_PickLevel: the request (that load script, edited or not) is kept, and the
+//     layout is put in place once that level is up (Tick) - or at once, when the level picked is the one already
+//     loaded (the level select doesn't load it again: the level switches in place between shipped and edited);
+//   - LEVEL EDITOR in the pause menu of a level as shipped (or -edit <level>) edits its edited copy: the level becomes
+//     the edited copy (its saved layout put in place first, if it has one; the file is made by the first Ctrl+S). The
+//     toolbar (and the old HUD's top line) say which one is being edited. One edited copy per level (its scene).
+//   - Network: never. No layout is put in place, and the editor doesn't start, while a network session is on (online,
+//     a network game - host or client, LAN or online - or a scene loaded for one), whatever entry was picked; the
+//     EDITED LEVELS section isn't offered in the network level select (in_server_options) or in a network game, and
+//     LevelEditor_PickLevel refuses `edited_layout` there.
+//   - Career-type modes: never either (the user's rule, 2026-10-21 - mode_refusal below: story, classic, create-a-goal,
+//     the park editor, the network and competitive modes). As for a network session: no LEVEL EDITOR, the editor
+//     doesn't start, no EDITED LEVELS section (LevelEditor_EditedLevels returns nothing), LevelEditor_PickLevel loads
+//     an edited pick as shipped, no layout is put in place; and an edited copy still loaded when the mode becomes one
+//     (Tick) is put back as shipped at once.
+//   - Older layout files (no change to the format) are the edited copies of their levels.
+//
+// The file is text, a record a line ('#' starts a comment; unknown records are skipped, so later versions can add
+// some):
+//   thug2-decomp layout 2                              the version: 1 had no `set` records; both are read (an older
+//                                                      DLL, which knows only 1, refuses a version 2 file as a whole)
+//   scene <checksum>                                   the level's main scene (its sectors' table)
+//   sector <checksum> <quarters> <x> <y> <z> <hidden>  a sector moved by (x, y, z) after `quarters` quarter turns
+//          [scale=<s> | scale=<x>,<y>,<z>]
+//   rail <name> <quarters> <x> <y> <z> <hidden>        a grind rail node, the same (moved with its scenery, or by
+//                                                      itself / its whole rail - level_editor_node_edit.h)
+//   clone <source> <quarters> <x> <y> <z>             a copy of a sector, placed relative to its source as loaded
+//   object <id> <x> <y> <z> <9 matrix numbers>         an object's position and orientation (rows: right, up, at)
+//          [scale=...]                                 and its scale along its own axes (level_editor_scale.h)
+//   copy <name> <source> <x> <y> <z> <9 numbers>       a copy of an object (made from its source's node)
+//          [scale=...]
+//   set <node> pos=<x>,<y>,<z> angles=<x>,<y>,<z>      (version 2) a level node's pos= / angles= (a point node moved or
+//                                                      turned - level_editor_node_edit.h); either may be left out,
+//                                                      other key=value fields are skipped (for later versions)
+//   node <name> <Class> type=<T> pos=x,y,z angles=x,y,z [types=A,B] [color=r,g,b] [brightness=b] [inner=i]
+//        [outer=o] [radius=r]                            (version 2, phase 3) a node the editor added
+//                                                      (level_editor_node_create.h: the rest of the node follows from
+//                                                      these); in the overlay's order - the order added crowns count in
+//   order crown <name> <name>...                       the added crowns' order (reordered: as the node records')
+//   hide <node>                                        a level's node hidden (not removed: its indexes stay)
+//   lock sector <checksum> / lock object <id>          a scenery piece / an object locked: clicks pass it
+//                                                      (level_editor_picking.h)
+//   trigger <name> <kind> pos=x,y,z yaw=r size=x,y,z ...  a trigger volume the editor added (level_editor_triggers.h:
+//                                                      its node is the overlay's, not a `node` record)
+//   proxim <node> [enter=] [exit=] [shape=] ...        a proximity node's scripts / shape (level_editor_triggers.h)
+// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock and trigger
+// records.
+//   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,...]
+//                                                      (phase 4) a rail / path point the editor added
+//   links <node> <node>,... | -                        (phase 4) a level node's links= as edited (a chain relinked, a
+//                                                      ped's / car's path)
+//   drop <node>                                        (phase 4) a level's rail / path point deleted (hidden, relinked)
+//   terrain <node> <TERRAIN_...>                       (phase 4) a level rail point's terrain (level_editor_chains.h)
+//   set <node> ... f.<field>=<value>...                (phase 6) a level node's other fields as edited in the
+//                                                      Inspector (level_editor_fields.h: typed values, `del`)
+//   level [name=<text>] [start=<node>] [tod=<state>] [time=0|1] [ambient=r,g,b] [fog=r,g,b,a,d]
+//                                                      (phase 6) the edited copy's level properties
+//                                                      (level_editor_level_props.h)
+//   wall <checksum> <quarters> <x> <y> <z> <off>       a sector's collision (level_editor_walls.h): an invisible wall's
+//                                                      moved / turned as a sector's, and whether it's switched off;
+//                                                      a drawn piece's collision switched off by itself (no move: its
+//                                                      sector record moves it)
+//   speed <node> <mph>                                 a moving object's path speed (level_editor_entities.h)
+//   emitter <node> sound=<s> vol=<v> radius=<r>        a sound emitter's sound, volume and radius (the same)
+//   ... scale=<s>                                      (after a sector / rail / clone / object / copy record's numbers,
+//   ... scale=<x>,<y>,<z>                              when not 1) a uniform or a per-axis scale (level_editor_scale.h):
+//                                                      the point x as loaded is at get_quarter_turn((x.x * sx, x.y * sy,
+//                                                      x.z * sz), quarters) + (x, y, z); an object's along its own
+//                                                      axes, about its position (its model and its collision)
+// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records and
+// the phase 4 ones (an added rail's points aren't `node` records: an older reader would make them without their rail),
+// and reads past a record's scale= (the piece then placed unscaled); an older reader of version 2 skips wall records (the
+// walls then as the level has them). A reader before the per-axis scale refuses a file with a scale=<x>,<y>,<z> on a
+// sector / rail / clone record (a uniform scale is still written scale=<s>); it ignores an object's / copy's scale.
+//   faces <checksum> <face>:<flags>,...               (map3) collision faces' flags as edited (level_editor_faces.h)
+//   cluster <sector> <cluster> | -                     (map3) a scenery piece's trick-object cluster, or none
+//                                                      (level_editor_clusters.h)
+//   camera <name> pos=x,y,z angles=x,y,z dist=d        (map3) a camera node (level_editor_cameras.h)
+//   level ... sky=<scene>                              (map3) the edited copy's sky (level_editor_level_props.h)
+//   goal <id> type=<type> name="..." ... p0=x,y,z,heading,height ...  a Create-a-Goal goal of the edited copy
+//                                                      (level_editor_goals.h - played in free skate / single session)
+// An older reader skips faces / cluster / camera / goal records and a level record's sky= (the level's own sky then).
+//   link sector|object <source> <member>,...          (UX7) linked copies (level_editor_links.h; an older reader skips
+//                                                      them: the copies stay, unlinked)
+//   note <name> pos=x,y,z color=RRGGBB text="..."      (UX5) a note pin - editor only (level_editor_notes.h)
+// (UX5) Records that didn't resolve to anything in the level when the layout went in (level_editor_checks.h) are
+// written again at the file's end, as they were, under a comment - until the Problems window drops them.
+// Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
+namespace frontend::level_editor::layout {
+
+constexpr std::size_t kRotationFloats = 9; // a 3 x 3 rotation's floats
+
+struct ObjectRecord {
+    uint32_t id{};
+    std::array<float, 3> pos{};
+    std::array<float, kRotationFloats> rows{};
+    V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+};
+struct CopyRecord {
+    uint32_t name{};
+    uint32_t source{};
+    std::array<float, 3> pos{};
+    std::array<float, kRotationFloats> rows{};
+    V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+};
+struct CloneRecord {
+    uint32_t source{};
+    Placement placement;
+};
+struct SetRecord {
+    uint32_t name;
+    bool has_pos_, has_angles_;
+    std::array<float, 3> pos;
+    std::array<float, 3> angles;
+    // (phase 6) the node's other fields as edited: f.<field>=<value> (level_editor_fields.h)
+    std::vector<fields::Edit> fields;
+};
+// The version written.
+constexpr int kVersion = 2;
+struct FileLoad {
+    int version = kVersion; // (the file's, as read)
+    uint32_t scene = 0;
+    std::vector<scenery::SectorState> sectors;
+    std::vector<scenery::RailState> rails;
+    std::vector<CloneRecord> clones;
+    std::vector<ObjectRecord> objects;
+    std::vector<CopyRecord> copies;
+    std::vector<SetRecord> nodes;
+    std::vector<node_create::Spec> added;       // `node` records, in order
+    std::vector<std::string> crown_order_;      // `order crown`
+    std::vector<uint32_t> hidden;               // `hide`
+    std::vector<picking::Lock> locks;           // `lock`
+    std::vector<triggers::Placed> triggers;     // `trigger`
+    std::vector<triggers::ProximEdit> proxims;  // `proxim` (the feature map: a proximity node's scripts / shape)
+    chains::State chains;                       // (phase 4) `point`, `links`, `drop`, `terrain`
+    entities::State entities;                   // `speed`, `emitter` (level_editor_entities.h)
+    level_props::Props level;                   // (phase 6) `level` (level_editor_level_props.h)
+    std::vector<walls::WallState> walls;        // `wall`: collision moved / switched off
+    std::vector<faces::SectorFaces> faces;      // (map3) `faces`
+    std::vector<clusters::Membership> clusters; // (map3) `cluster`
+    std::vector<cameras::ViewCam> cameras;      // (map3) `camera`
+    std::vector<goal_edit::Goal> goals;         // `goal` (level_editor_goals.h)
+    std::vector<links::LinkRecord> links;       // (UX7) `link`: linked copies (level_editor_links.h)
+    // Records this reader doesn't know, as they are (comments taken off): another module's (add_extension - the
+    // editor's own records: level_editor_organize.h) or a later version's. Write writes them back.
+    std::vector<std::string> extra;
+    std::vector<notes::Note> notes; // (UX5) `note` (level_editor_notes.h)
+    // (UX5) lines written again as they are, at the end: the loaded layout's records that didn't resolve (Capture fills
+    // it from level_editor_checks.h; Read never does - they are records like any other there)
+    std::vector<std::string> carried;
+};
+
+// Another module's records, carried by the layout (level_editor_organize.h's groups, labels, locks, snapshot name):
+// `capture` gives its lines when the level's changes are captured (Save, the autosave, undo of a reset...), `apply` takes
+// the file's lines whose first word is one of `keywords` when a layout is put in place, `reset` forgets its state when
+// the level is put back as shipped or another layout goes in place (and when a new level loads).
+struct Extension {
+    std::vector<std::string> keywords;
+    std::function<std::vector<std::string>()> capture;
+    std::function<void(const std::vector<std::string>& lines)> apply;
+    std::function<void()> reset;
+};
+void add_extension(const Extension& extension);
+
+// The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't
+// understood).
+std::string emit_out(const FileLoad& file);
+bool get_take_in(const std::string& text, FileLoad* file, int* line);
+
+// --- autosave ---------------------------------------------------------------------------------------------------
+//
+// While the editor has unsaved changes, the level's layout as it is now is also kept in
+// thug2-decomp-layouts\<scene>.autosave.txt (the same format): written every 60 s and on leaving the editor, and from
+// the crash logger (platform/run_log.h set_crash_hook - a text made after each change, written with no allocation). Never over
+// <scene>.txt: Ctrl+S saves there and deletes the autosave. Entering the editor with an autosave newer than the saved
+// layout that this run didn't write (a crash, or the game closed without saving) offers it: Ctrl+R puts it in place of
+// the current layout, Ctrl+Shift+R deletes it. While it is offered, nothing is autosaved over it.
+
+// The files' names (pure): "<8 hex digits>.txt" and "<8 hex digits>.autosave.txt".
+std::string saved_file_name(uint32_t scene);
+std::string autosave_file_name(uint32_t scene);
+// Whether an autosave is worth offering (pure): there is one, and it was written after the saved layout (or there is
+// none). Times: the files' last-write times (FILETIME as a number).
+bool autosave_newer(bool have_autosave, uint64_t autosave_time, bool have_saved, uint64_t saved_time);
+
+// The game side.
+// Ctrl+S: the level's changes written (false: nothing to write to - not in a level; `message` says what happened);
+// the level's autosave deleted.
+bool store_away(std::string* message);
+// The level's layout as it is now made into the autosave's text (after each change; false: not in a level). Kept
+// until write_autosave / the crash hook writes it.
+bool get_snapshot();
+// The snapshot written to the autosave, if it changed since it was last written (false: nothing written - nothing new,
+// or held back while an older autosave is offered, or it couldn't be written).
+bool write_autosave();
+// From the crash logger: the snapshot written as it is (no allocation; nothing if it was already written).
+void write_autosave_from_crash();
+// Entering the editor: whether this level has an autosave to offer (newer than its saved layout, not this run's).
+bool autosave_offered();
+// Ctrl+R: the current layout put back as the level has it, then the autosave's put in place (false: none, or it
+// couldn't be read). Ctrl+Shift+R: the autosave deleted. Either way it isn't offered again.
+bool restore_autosave(std::string* message);
+bool discard_autosave(std::string* message);
+// How many times a level's scenes have loaded (the editor's unsaved changes belong to one level).
+int level_loads();
+// The saved layout put in place (false: none, or not in a level, or a network session).
+bool read_in(std::string* message);
+// A scene loaded (render::cfunc_load_scene): once the level is up, its layout is put back if it was picked as the edited
+// copy (Tick).
+void on_scene_loaded(const char* name, bool is_net);
+// Once a frame (the editor's Update, on or off).
+void tick();
+// (phase 6) The node manager added a node array (level_nodes::set_node_array_added_hook): the edited copy's level array
+// gets its layout's field edits now, before the level's objects are made from it (level_editor_fields.h).
+void on_node_array_added(uint32_t array);
+// The edited copy's level properties: whether this level's saved layout names one (`props`) - for the level select.
+bool saved_props(uint32_t scene, level_props::Props* props);
+
+// --- the edited copy (see the top) ---------------------------------------------------------------------------------
+
+// The pure parts.
+// Whether the level that came up (`level_load`: its load script's checksum) gets its layout: it was picked as the
+// edited copy (`request`: that load script; 0 none) and no network session is on.
+bool apply_edited_copy(uint32_t request, uint32_t level_load, bool network);
+// The request once a level has come up: kept for that level (loaded again, it's still the edited copy), dropped for
+// any other level or a network session.
+uint32_t request_after_load(uint32_t request, uint32_t level_load, bool network);
+// What LevelEditor_PickLevel keeps: the load script when `edited` is asked for and no network session is on, else 0.
+uint32_t request_from_pick(uint32_t load, bool edited, bool network);
+// A network session from its signs: online, a network game, a scene loaded for one.
+bool network_session(bool online, bool net_game, bool net_scene);
+// The level select's text for an edited copy ("TRAINING" -> "TRAINING (EDITED)").
+std::string edited_text(const char* text);
+// (map4) The edited copy's entry: its title (the level select's text, shown above the signs when it's chosen) - its
+// level properties' name, else edited_text of the level's own text - and the label drawn on its sign (the name, at most
+// kSignLabelMax characters - longer ones cut with '.'; "EDITED" when it has none).
+constexpr size_t kSignLabelMax = 14;
+std::string edited_title(const char* level_text, const std::string& name);
+std::string sign_label(const std::string& name);
+// A file of the layouts' folder that is a saved layout - "<8 hex digits>.txt", not an autosave - and its scene.
+bool saved_layout_scene(const std::string& file_name, uint32_t* scene);
+// A level structure (levels.qb's Level_TR: load_script=Load_TR, level="TR") seen as `load` -> its scene: the scene's
+// checksum is the checksum of its `level` text (cfunc_load_scene names the scene by it).
+uint32_t scene_of_level_text(const char* level);
+
+// Game modes (the user's rule, 2026-10-21): the editor and the edited copies are offered only outside career-type modes,
+// so nothing done in an edited copy reaches the career or the save. The mode's properties, as gamemode.qb's mode_<x>
+// structures give them (is_freeskate=1 ...), read through the mode's IsTrue (0x00553220 - what GameModeEquals and
+// IsCareerMode 0x005AEFC0 ask).
+struct ModeFlags {
+    bool known = false;     // a game mode at all (modules::Skate's 0x007CE470)
+    bool freeskate = false; // is_freeskate: mode_freeskate (SKATE NOW, -level / -edit), mode_freeskate2p (2 PLAYER)
+    bool single_session_ = false; // is_singlesession: HIGH SCORE / FREE SKATE (its high score runs' records: see below)
+    bool career = false;          // is_career: story mode (goals, cash, stat points, chapters)
+    bool classic = false;         // is_classic: classic mode (goals, stat points, its records)
+    bool create_goals_ = false;   // is_creategoals: create-a-goal (the goals saved with the level); the park editor too
+    bool park_editor_ = false;    // is_parkeditor
+    bool net = false;             // is_net: the network modes
+};
+// Why the editor and edited copies aren't offered in `mode` ("story mode", "classic mode"...), nullptr when they are:
+// free skate (1 or 2 players) and single session only - a whitelist, so a mode nobody thought of is refused. (Single
+// session records high scores at the end of a high score run: UpdateRecords - game/skate/highscores.h - records nothing
+// while the edited copy is loaded. Gaps landed in free skate and single session go into the career's gap list as
+// anywhere: game/skate/edited_copy_career.h keeps them out of the save.)
+const char* mode_refusal(const ModeFlags& mode);
+
+// The game side.
+// Whether a network session is on now (layouts never apply then).
+bool network_active();
+// The game mode now (current_mode) and its refusal (nullptr: the editor and edited copies are offered).
+ModeFlags current_mode();
+const char* career_mode_active();
+// Layouts refused now: a network session or a career-type mode (`why`: the reason, for log lines and messages).
+bool get_refused(std::string* why = nullptr);
+// A message for the player outside the editor (a panel message, create_panel_message - as the restart tester's): why
+// the editor didn't start.
+void panel_message(const char* text);
+// The level loaded now is its edited copy (its layout put in place, or the editor opened in it).
+bool editing_copy();
+// Whether this level has a saved layout (an edited copy in the level select).
+bool has_saved_layout();
+// The level's name for the toolbar: its level structure's name= ("Training"), else the scene's name.
+std::string level_title();
+// Entering the editor: the level becomes its edited copy - its saved layout put in place first if it wasn't (false,
+// `message` why: not in a level, or a network session - the editor doesn't start).
+bool enter_edited_copy(std::string* message);
+// What a level reset reports: the state before it and its message.
+struct ResetText {
+    std::string* before{};
+    std::string* message{};
+};
+
+// Reset level: everything the editor changed in this level put back as the level has it (moved scenery, objects,
+// rails, nodes; hidden things shown; copies and added nodes removed), and the saved layout and its autosave deleted.
+// `before`: the layout as it was (Write's text) - put_back puts it in place again (undo, this session; the files stay
+// deleted until saved again). False: not in a level.
+bool reset_level(ResetText reset_text);
+bool put_back(const std::string& before, std::string* message);
+// The level's changes as they are now, as a layout's text (false: not in a level) - redo of an undone reset.
+bool capture_text(std::string* text);
+
+// Script commands (registered with the editor's: level_editor::register_script_functions).
+// LevelEditor_PickLevel level=<load script> [edited_layout]: the level select chose a level (the first line of
+// level_select_change_level) - the edited copy or the level as shipped.
+bool cfunc_pick_level(script::Struct* params, script::Context context);
+// LevelEditor_EditedLevels: the level select's entries for the edited copies (edited_list, edited_count) - each the
+// level's own entry (from level_select_menu_level_info and the ported levels' lists) with the text "<TEXT> (EDITED)"
+// and the flag edited_layout. False (nothing returned) when there are none or a network session is on.
+bool cfunc_edited_levels(script::Struct* params, script::Context context);
+
+} // namespace frontend::level_editor::layout

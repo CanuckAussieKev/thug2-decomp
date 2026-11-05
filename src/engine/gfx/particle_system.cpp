@@ -1,0 +1,593 @@
+// The engine's flexible particle systems (render::EmitterInstance and its types' engine classes): see particle_system.h.
+// From the disassembly of 0x00496890-0x0049A0BF (0x004968A0 isn't a Ghidra function). Emit, the member functions and
+// Update are in particle_system_update.cpp.
+
+#include "engine/gfx/particle_system.h"
+#include "engine/gfx/particle_system_internal.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <new>
+#include <array>
+#include <span>
+
+#include "base/core/dbg.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/gfx/view_cam.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/flexible_particle_manager.h"
+#include "engine/gfx/model.h"
+#include "engine/gfx/viewport.h"
+#include "base/maths/mat4.h"
+#include "engine/script/cscript.h"
+#include "engine/script/host.h"
+#include "engine/script/param_struct.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec4.h"
+#include "base/core/checksums.h"
+
+namespace render {
+
+constexpr uint32_t kNeutralColour = 0x80808080;
+constexpr float kDefaultAtX = 2048.0F;
+constexpr float kDefaultAtY = 144.0F;
+constexpr float kDefaultAtZ = 928.0F;
+constexpr float kDefaultAngleSpread = 0.5F;
+constexpr float kDefaultGravity = 0.02F;
+constexpr float kDefaultSize = 2.0F;
+constexpr float kDefaultAge = 2.0F;
+constexpr float kDefaultSpeed = 2.0F;
+constexpr unsigned kFlagBit10 = 0x10U; // (what it means is not understood; cleared on reset)
+constexpr unsigned kFlagBit100 = 0x100U;
+constexpr int kFlagWantsTime = 0x10000;
+constexpr unsigned kFlagWantsTimeU = 0x10000U;
+constexpr int kPositionBytes = 12; // a particle's position: three floats
+
+namespace {
+
+constexpr float kNearlyUp = 0.99F;        // 0x00645450
+constexpr float kFramesPerSecond = 60.0F; // 0x00645EA0
+
+gfx::ViewCam* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
+// _ftol: truncated to a 64-bit integer, its low half.
+int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+
+// The allocations of the types' constructors: the manager's, its assert flag the global byte 0x00658555.
+void* carve(unsigned int size) { return memory::Hub::get_pull()->carve(size, kAllocAssertFlag, nullptr); }
+void* allocate_zeroed(unsigned int size)
+{
+    return memory::Hub::get_pull()->allocate_zeroed(size, kAllocAssertFlag, nullptr);
+}
+
+} // namespace
+
+// (shared with the other types' constructors: particle_system_internal.h)
+namespace particle_parts {
+
+// The particles: `count` after their count (the compiler's array new; their constructor and destructor are empty).
+std::span<FlexibleParticle> new_particles(int count)
+{
+    // (the original's array new kept the count before them; nothing reads it - their destructor is empty)
+    auto* particles = static_cast<FlexibleParticle*>(carve(static_cast<unsigned int>(count) * sizeof(FlexibleParticle)));
+    return particles ? std::span<FlexibleParticle>(particles, static_cast<std::size_t>(count)) : std::span<FlexibleParticle>();
+}
+void delete_particles(std::span<FlexibleParticle> particles)
+{
+    // (the empty destructor run over each first: 0x0062382B with 0x005480A0)
+    memory::dealloc(particles.data());
+}
+
+// The three colour arrays, `count` RGBA colours each (the constructor iterator 0x00401020 runs an empty one over
+// them), each allocated only if the one before was; all grey once the three are there. Whether they are.
+bool new_colours(EmitterInstance* system, int count)
+{
+    const std::array<std::span<uint32_t>*, 3> colours = {{&system->start_colour(), &system->mid_colour(), &system->end_colour()}};
+    for (std::span<uint32_t>* const colour : colours) {
+        auto* words = static_cast<uint32_t*>(carve(static_cast<unsigned int>(count) * sizeof(uint32_t)));
+        if (!words) {
+            return false;
+        }
+        *colour = std::span<uint32_t>(words, static_cast<std::size_t>(count));
+    }
+    for (int i = 0; i < count; ++i) {
+        for (const std::span<uint32_t>* const colour : colours) {
+            core::at(*colour, i) = kNeutralColour; // (each byte 0x80)
+        }
+    }
+    return true;
+}
+
+// A type's constructor after the base's: the name and the maximum, no particles yet; the particles, then the
+// positions (`positions_zeroed`: zeroed memory), then the colours. Whether everything was allocated.
+bool construct_parts(EmitterInstance* system, checksums::Name system_name, PartSizes part_sizes,
+                     bool positions_zeroed, int colours)
+{
+    const auto particle_cap = part_sizes.particle_cap_;
+    const auto positions_size = part_sizes.positions_size_;
+    const uint32_t name = system_name.value();
+    system->set_label(name);
+    system->set_max_particles(particle_cap);
+    system->set_particle_count(0);
+    system->particle_list() = new_particles(particle_cap);
+    if (system->particle_list().empty()) {
+        return false;
+    }
+    auto* positions = static_cast<float*>(positions_zeroed ? allocate_zeroed(positions_size) : carve(positions_size));
+    if (!positions) {
+        return false;
+    }
+    system->position_array() = std::span<float>(positions, positions_size / sizeof(float));
+    return new_colours(system, colours);
+}
+
+} // namespace particle_parts
+
+using namespace particle_parts;
+
+// --- life ---
+
+void* EmitterInstance::operator new(std::size_t size) noexcept
+{
+    return allocate_zeroed(static_cast<unsigned int>(size));
+}
+
+void EmitterInstance::operator delete(void* memory) { memory::dealloc(memory); }
+
+// 0x00496F10
+EmitterInstance::EmitterInstance()
+{
+    list_link_.make_node(this);
+    get_reset();
+}
+
+// 0x00496D70
+void EmitterInstance::get_reset()
+{
+    emit_script_ptr_ = nullptr;
+    tick_script_ = nullptr;
+    script_args_ = nullptr;
+    xform_ref_ = nullptr;
+    emit_rate_ = 0.0F;
+    emit_owed_ = 0.0F;
+    lod_min_particles_ = 0;
+    lod_near_ = 0.0F;
+    lod_far_ = 0.0F;
+    at_point_ = maths::Vec4{.x = kDefaultAtX, .y = kDefaultAtY, .z = -kDefaultAtZ, .w = 0.0F};
+    last_pos_ = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    size_scale_ = 1.0F;
+    core::at(emit_range_, 0) = 1.0F;
+    core::at(emit_range_, 1) = 1.0F;
+    core::at(emit_target_, 1) = 1.0F;
+    core::at(speed_, 0) = 1.0F;
+    brightness_ = 1.0F;
+    core::at(emit_range_, 2) = 0.0F;
+    angle_spread_ = kDefaultAngleSpread;
+    core::at(force_, 0) = 0.0F;
+    core::at(force_, 1) = -kDefaultGravity;
+    core::at(force_, 2) = 0.0F;
+    core::at(emit_target_, 0) = 0.0F;
+    core::at(emit_target_, 2) = 0.0F;
+    core::at(orientation_turn_, 0) = 0.0F;
+    core::at(orientation_turn_, 1) = 0.0F;
+    core::at(orientation_turn_, 2) = 0.0F;
+    rank_ = 0;
+    for (float& size : extent_) {
+        size = kDefaultSize;
+    }
+    core::at(age_left_, 0) = kDefaultAge;
+    core::at(age_left_, 1) = kDefaultAge;
+    core::at(speed_, 1) = kDefaultSpeed;
+    flag_bits_ &= ~1U;
+    for (float& scale : colour_scale_) {
+        scale = 1.0F;
+    }
+    moving_ = false;
+    end_colour_set_ = false;
+    flag_bits_ |= 1U;
+    unknown12f_ = true;
+    flag_bits_ &= ~kFlagBit10;
+    flag_bits_ &= ~1U;
+    random_direction_ = false;
+    flag_bits_ |= kFlagBit100;
+    circular_emit_ = true;
+    aligned_ = false;
+    fading_out_ = false;
+    fill_path_ = false;
+    emitter_independent_ = false;
+    update_brightness_ = false;
+    unknown130_ = true;
+    unknown133_ = true;
+    unknown78_ = 0;
+}
+
+// 0x00498690
+EmitterInstance::~EmitterInstance()
+{
+    if (emit_script_ptr_) {
+        script::host().destroy(emit_script_ptr_);
+    }
+    if (tick_script_) {
+        script::host().destroy(tick_script_);
+    }
+    if (script::Struct* params = script_args_) {
+        params->get_clear();
+        script::delete_struct(params);
+    }
+    if (!start_colour_.empty()) {
+        memory::dealloc(start_colour_.data());
+    }
+    if (!mid_colour_.empty()) {
+        memory::dealloc(mid_colour_.data());
+    }
+    if (!end_colour_.empty()) {
+        memory::dealloc(end_colour_.data());
+    }
+    if (!position_array_.empty()) {
+        memory::dealloc(position_array_.data());
+    }
+    if (!particle_list_.empty()) {
+        delete_particles(particle_list_);
+    }
+    // the particle manager lets go of it
+    render::FlexibleParticleManager::remove_system(this);
+    list_link_.uncouple(); // (0x00496D10)
+    // (then SharedBase's: its smart pointers cleared)
+}
+
+// 0x004A1040 (the weather's "plat_render" stub, shared)
+void EmitterInstance::render() { debug::printf("STUB: plat_render\n"); }
+
+// --- settings ---
+
+// 0x004968B0
+void EmitterInstance::set_emit_range(const maths::Vec4& range)
+{
+    const auto width = range.x;
+    const auto height = range.y;
+    const auto depth = range.z;
+    core::at(emit_range_, 0) = width;
+    core::at(emit_range_, 1) = height;
+    core::at(emit_range_, 2) = depth;
+}
+
+// 0x004968E0
+void EmitterInstance::set_force(const maths::Vec4& force)
+{
+    const auto x = force.x;
+    const auto y = force.y;
+    const auto z = force.z;
+    core::at(force_, 0) = x;
+    core::at(force_, 1) = y;
+    core::at(force_, 2) = z;
+}
+
+// 0x00496910
+void EmitterInstance::set_emit_target(const maths::Vec4& target)
+{
+    const auto x = target.x;
+    const auto y = target.y;
+    const auto z = target.z;
+    core::at(emit_target_, 0) = x;
+    core::at(emit_target_, 1) = y;
+    core::at(emit_target_, 2) = z;
+}
+
+// 0x00496940
+void EmitterInstance::change_spin(const maths::Vec4& spin)
+{
+    const auto x = spin.x;
+    const auto y = spin.y;
+    const auto z = spin.z;
+    core::at(orientation_turn_, 0) = x;
+    core::at(orientation_turn_, 1) = y;
+    core::at(orientation_turn_, 2) = z;
+}
+
+// 0x00496970
+maths::Vec4 EmitterInstance::fetch_place(int particle, int step)
+{
+    const std::span<const float, 3> position = place_at(position_array_, max_particles_, step, particle);
+    return {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0F};
+}
+
+// 0x004969B0
+void EmitterInstance::change_place(int particle, int step, const maths::Vec4& place)
+{
+    const auto x = place.x;
+    const auto y = place.y;
+    const auto z = place.z;
+    const std::span<float, 3> position = place_at(position_array_, max_particles_, step, particle);
+    core::at(position, 0) = x;
+    core::at(position, 1) = y;
+    core::at(position, 2) = z;
+}
+
+// 0x004969F0
+void EmitterInstance::get_emit_matrix(maths::Mat4* out)
+{
+    if (xform_ref_) {
+        *out = *xform_ref_;
+        return;
+    }
+    core::at(out->row, 0) = maths::Vec4{.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    core::at(out->row, 1) = maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
+    core::at(out->row, 2) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
+    core::at(out->row, 3) = maths::Vec4{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    maths::Vec4& at = core::at(out->row, 2);
+    at = maths::Vec4{
+        .x = core::at(emit_target_, 0), .y = core::at(emit_target_, 1), .z = core::at(emit_target_, 2), .w = 1.0F};
+    at.make_unit();
+    // across: up x the target (along x when the target is nearly up); then the second row across both (x87, 53 bits)
+    double up = 1.0;
+    double along = 0.0;
+    if (std::fabs(at.y) > kNearlyUp) {
+        up = 0.0;
+        along = 1.0;
+    }
+    maths::Vec4& across = core::at(out->row, 0);
+    across.w = 0.0F;
+    auto z = static_cast<float>((along * at.y) - (up * at.x));
+    across.x = static_cast<float>((up * at.z) - (static_cast<double>(at.y) * 0.0));
+    across.y = static_cast<float>((static_cast<double>(at.x) * 0.0) - (along * at.z));
+    across.z = z;
+    maths::Vec4& second = core::at(out->row, 1);
+    second.w = 0.0F;
+    auto second_z = static_cast<float>((static_cast<double>(at.y) * across.x) - (static_cast<double>(at.x) * across.y));
+    second.x = static_cast<float>((static_cast<double>(across.y) * at.z) - (static_cast<double>(across.z) * at.y));
+    second.y = static_cast<float>((static_cast<double>(across.z) * at.x) - (static_cast<double>(across.x) * at.z));
+    second.z = second_z;
+}
+
+// 0x00496B40
+int EmitterInstance::lod_particle_count(int count) const
+{
+    if (lod_near_ >= lod_far_ || modules::viewport_count() > 1) { // (NaN distances go on)
+        return count;
+    }
+    gfx::ViewCam* camera = viewport_camera(0);
+    if (!camera) {
+        return count;
+    }
+    const maths::Vec4* eye = camera->fetch_location();
+    const double dx = static_cast<double>(at_point_.x) - eye->x;
+    const double dy = static_cast<double>(at_point_.y) - eye->y;
+    const double dz = static_cast<double>(at_point_.z) - eye->z;
+    auto distance = static_cast<float>((dz * dz) + (dy * dy) + (dx * dx));
+    if (distance < lod_near_) {
+        return count;
+    }
+    if (distance > lod_far_) {
+        return lod_min_particles_;
+    }
+    const double fraction = (static_cast<double>(lod_far_) - distance) / (static_cast<double>(lod_far_) - lod_near_);
+    const int lod = truncate((fraction * (max_particles_ - lod_min_particles_)) + lod_min_particles_);
+    return count < lod ? count : lod;
+}
+
+// 0x00496C30
+void EmitterInstance::update_bounds()
+{
+    float force = std::fabs(core::at(force_, 2));
+    force = std::max(force, std::fabs(core::at(force_, 1)));
+    force = std::max(force, std::fabs(core::at(force_, 0)));
+    const double travel = (static_cast<double>(force) * core::at(age_left_, 1)) + core::at(speed_, 1);
+    bounds_ = at_point_;
+    float range = core::at(emit_range_, 2);
+    range = std::max(range, core::at(emit_range_, 1));
+    range = std::max(range, core::at(emit_range_, 0));
+    bounds_.w = static_cast<float>((travel * core::at(age_left_, 1) * kFramesPerSecond) + range);
+}
+
+// 0x00496CE0
+void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
+{
+    if ((flag_bits_ & kFlagWantsTime) != 0U) {
+        for (int i = 0; i < 4; ++i) {
+            core::at(colour_scale_, i) = core::at(rgba, i);
+        }
+    }
+}
+
+// 0x00496F60
+void EmitterInstance::run_emit_script()
+{
+    if (emit_script_ptr_ && script::host().tick_frame(emit_script_ptr_) == script::ScriptOutcome::kFinished) {
+        if (script::Script* script = emit_script_ptr_) {
+            script::host().destroy(script);
+        }
+        emit_script_ptr_ = nullptr;
+    }
+}
+
+// 0x00496FA0
+void EmitterInstance::render_if_visible(bool force)
+{
+    if ((unknown12f_ && unknown130_) || force) {
+        render();
+        flag_bits_ &= ~1U;
+        unknown12f_ = false;
+    }
+}
+
+namespace {
+
+// 0x00497790 / 0x00497900: a script slot set (see SetEmitScript).
+void bind_script(EmitterInstance* system, script::Script*& slot, uint32_t script, script::Struct* params, void* object)
+{
+    if (script == 0U) {
+        if (script::Script* old = slot) {
+            script::host().destroy(old);
+        }
+        slot = nullptr;
+        return;
+    }
+    if (!slot) {
+        slot = script::host().create();
+    }
+    if (!system->script_args()) {
+        system->set_script_args(script::new_struct());
+    }
+    system->script_args()->append_structure_if_any(params);
+    script::host().bind_script(slot, script, system->script_args(), static_cast<objects::Entity*>(object));
+}
+
+} // namespace
+
+// 0x00497790
+void EmitterInstance::set_emit_script(uint32_t script, script::Struct* params, void* object)
+{
+    bind_script(this, emit_script_ptr_, script, params, object);
+}
+
+// 0x00497900
+void EmitterInstance::set_update_script(uint32_t script, script::Struct* params, void* object)
+{
+    bind_script(this, tick_script_, script, params, object);
+}
+
+// 0x00497A70
+void EmitterInstance::set_wants_time(uint8_t on)
+{
+    if (on != 0U) {
+        flag_bits_ |= kFlagWantsTimeU;
+    } else {
+        flag_bits_ &= ~kFlagWantsTimeU;
+    }
+    wants_time_ = on != 0;
+}
+
+// 0x00497AB0
+maths::Mat4* EmitterInstance::build_emitter_orientation(maths::Mat4* out)
+{
+    const maths::Vec4 angles{.x = core::at(orientation_turn_, 0),
+                             .y = core::at(orientation_turn_, 1),
+                             .z = core::at(orientation_turn_, 2),
+                             .w = 1.0F};
+    maths::Mat4 rotation{};
+    rotation.init_from_angles(angles);
+    *out = rotation;
+    return out;
+}
+
+// 0x00496890
+int EmitterInstance::get_num_colours()
+{
+    debug::printf("STUB: plat_get_num_particle_colors\n");
+    return 0;
+}
+
+// 0x004968A0
+int EmitterInstance::get_num_vertex_lists()
+{
+    debug::printf("STUB: plat_get_num_vertex_lists\n");
+    return 0;
+}
+
+// --- the types ---
+
+// 0x00499010
+NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                   int /*unused*/, int /*unused*/, float /*unused*/, int /*unused*/)
+{
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPositionBytes}, false, 1)) {
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
+    }
+}
+
+// 0x004992C0
+FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                         int /*unused*/, int /*unused*/, float /*unused*/, int history)
+    : segments_(history + 1)
+{
+    // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * segments_ * kPositionBytes)}, true,
+                        segments_ + 3)) {
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
+    }
+}
+
+// 0x00499200
+FlatRibbonParticles::~FlatRibbonParticles()
+{
+    if (!particle_list().empty()) {
+        delete_particles(particle_list());
+        particle_list() = {};
+    }
+}
+
+// 0x004991E0
+int FlatRibbonParticles::get_num_colours() { return segments_ + 3; }
+
+// 0x004995B0
+GlowParticles::GlowParticles(const ConstructArgs& args)
+{
+    const uint32_t name = args.name;
+    const int particle_cap = args.particle_cap_;
+    const int segments = args.segments;
+    const float glow_width = args.unknown;
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPositionBytes}, false, 3)) {
+        segments_ = segments;
+        set_colour_mid(-1.0F);
+        glow_width_ = glow_width;
+        flag_bits() |= 4U;
+    }
+}
+
+// 0x00499880
+GlowRibbonTrailParticles::GlowRibbonTrailParticles(const ConstructArgs& args)
+{
+    const uint32_t name = args.name;
+    const int particle_cap = args.particle_cap_;
+    const int segments = args.segments;
+    const float width = args.unknown;
+    const int history = args.history;
+    set_history_length(history + 1);
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>((history + 1) * particle_cap * kPositionBytes)}, true,
+                        history_length() + 3)) {
+        segments_ = segments;
+        set_colour_mid(-1.0F);
+        span_ = width;
+        flag_bits() |= 4U;
+    }
+}
+
+// 0x00499820 / 0x00499830
+int GlowRibbonTrailParticles::get_num_colours() { return history_length() + 3; }
+int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length(); }
+
+// 0x00499B80
+LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/, int /*unused*/,
+                             int /*unused*/, float /*unused*/, int history)
+    : steps_(history + 1)
+{
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1) * kPositionBytes)}, true,
+                        steps_)) {
+        set_colour_mid(-1.0F);
+        flag_bits() |= 4U;
+    }
+}
+
+// 0x00499E10
+ModelParticles::~ModelParticles()
+{
+    if (unknown_13c_ptr_) {
+        memory::dealloc(unknown_13c_ptr_);
+        unknown_13c_ptr_ = nullptr;
+    }
+    if (model_list_) {
+        for (unsigned int i = 0; i < model_count_; ++i) {
+            gsl::owner<RenderModel*> model = memory::owned_element(core::at(std::span<RenderModel*>(model_list_, model_count_), i)); // (the list's)
+            delete model; // (through 0x0048C3C0)
+        }
+        memory::dealloc(static_cast<void*>(model_list_));
+        model_list_ = nullptr;
+    }
+}
+
+} // namespace render

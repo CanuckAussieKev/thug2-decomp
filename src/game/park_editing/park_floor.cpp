@@ -1,0 +1,485 @@
+// The park manager's floor (park_editing::ParkLayout): the risers under raised and lowered cells, the fence round the
+// park, changing the floor's height, and the restart points put on a new park.
+
+#include "game/park_editing/park.h"
+#include "game/park_editing/park_editor.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <span>
+#include <utility>
+#include <array>
+
+#include "base/core/checksums.h"
+#include "engine/render/probe_ray.h"
+#include "base/core/checked_index.h"
+#include "base/core/format.h"
+#include "base/maths/vec4.h"
+#include "formats/park_map_format.h"
+
+namespace park_editing {
+
+namespace {
+
+constexpr int kInitialRestartCount = 18;      // the automatic restart points laid round the park's middle
+constexpr int kRestartKindExtra1 = 5;         // the four restart kinds after player 1 and 2's
+constexpr int kRestartKindExtra2 = 6;
+constexpr int kRestartKindExtra3 = 7;
+constexpr int kRestartKindExtra4 = 8;
+constexpr int kLastExtraRestart = 5;          // restart points 2 to 5 are those four
+constexpr int kFirstTypeThreeRestart = 6;     // 6 to 11: six restarts of kind 3
+constexpr int kLastTypeThreeRestart = 11;
+constexpr int kTypeThreeCenter = 9;           // the one they are spread round
+constexpr int kFirstTypeFourRestart = 12;     // 12 to 17: six restarts of kind 4
+constexpr int kLastTypeFourRestart = 17;
+constexpr int kTypeFourCenter = 15;
+constexpr int kRestartsPerKind = 6;
+constexpr int kParkCenterCell = 29;           // the grid's middle (58 / 2)
+constexpr double kHalf = 0.5;                 // half a cell
+constexpr int kCountShift = 16;               // destroyed pieces' counts: metapieces in the high half, pieces in the low
+constexpr int kCountMask = 0xFFFF;
+constexpr int kNoHeightYet = 10000;           // above any floor height
+constexpr int kRiserDepthCells = 15;          // how far down a riser's wall reaches
+constexpr std::size_t kPieceNameSize = 128;
+constexpr int kFloorModeRaise = 6;  // the build pointer's floor modes: raise 6, lower 4 (| 1: level)
+constexpr int kFloorModeLower = 4;
+
+constexpr uint32_t kRiserFloor = 0xB0A98147;      // "riser_floor"
+constexpr uint32_t kRiserFloorBelow = 0x14FD33E4; // "riser_floor_below"
+constexpr uint32_t kRiserBelow = 0x4A0D22DB;      // "riser_below"
+constexpr uint32_t kFence = 0x771994FF;           // "Sk4Ed_Fence_20x20"
+
+// The park editor (a reference taken here, let go by release_park_editor): whether the park is full.
+bool park_is_full()
+{
+    ParkBuilderMode::fabricate(false);
+    return park_editing::ParkBuilderMode::is_park_full() != 0;
+}
+void release_park_editor() { ParkBuilderMode::get_release(); }
+
+} // namespace
+
+// 0x005993E0
+void ParkLayout::generate_node_array()
+{
+    builder_->purge_auto_restart_points();
+    for (int i = 0; i < kInitialRestartCount; ++i) {
+        // Round the middle of the park: player 1 and 2's restarts, four more, six of type 3, six of type 4.
+        CellBox pos = CellBox::get_make(0, 0, 0, 0, 0, 0);
+        pos = build_area_;
+        pos.x = static_cast<uint8_t>(pos.x + (build_area_.w >> 1));
+        pos.y = 0;
+        pos.z = static_cast<uint8_t>(build_area_.z + (build_area_.l >> 1));
+        pos.w = 1;
+        pos.h = 1;
+        pos.l = 1;
+        int type = 1;
+        int count = 1;
+        if (i == 1) {
+            pos.x = static_cast<uint8_t>(pos.x + 1);
+            type = 2;
+        } else if (i == 2) {
+            pos.x = static_cast<uint8_t>(pos.x - 2);
+            pos.z = static_cast<uint8_t>(pos.z + 2);
+            type = kRestartKindExtra1;
+        } else if (i == 3) {
+            pos.z = static_cast<uint8_t>(pos.z + 2);
+            type = kRestartKindExtra2;
+        } else if (i == 4) {
+            pos.x = static_cast<uint8_t>(pos.x + 2);
+            pos.z = static_cast<uint8_t>(pos.z + 2);
+            type = kRestartKindExtra3;
+        } else if (i == kLastExtraRestart) {
+            pos.x = static_cast<uint8_t>(pos.x + 4);
+            pos.z = static_cast<uint8_t>(pos.z + 2);
+            type = kRestartKindExtra4;
+        } else if (i >= kFirstTypeThreeRestart && i <= kLastTypeThreeRestart) {
+            pos.x = static_cast<uint8_t>(pos.x + i - kTypeThreeCenter);
+            pos.z = static_cast<uint8_t>(pos.z - 2);
+            count = kRestartsPerKind;
+            type = 3;
+        }
+        bool flag = false;
+        if (i >= kFirstTypeFourRestart && i <= kLastTypeFourRestart) {
+            pos.x = static_cast<uint8_t>(pos.x + i - kTypeFourCenter);
+            pos.y = 0;
+            pos.z = static_cast<uint8_t>(pos.z - 3);
+            flag = true;
+            count = kRestartsPerKind;
+            type = 4;
+        }
+        if (!builder_->needs_restarts(type, count)) {
+            continue;
+        }
+
+        // On the floor (or the metapiece standing there), then down onto whatever is below a feeler's line.
+        pos.y = static_cast<int8_t>(get_ground_level(pos, nullptr));
+        {
+            const MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, 0));
+            if (metas.list()) {
+                pos.y = static_cast<int8_t>(metas.list()->get_placed_piece()->cell_footprint().h + pos.y);
+            }
+        }
+        maths::Vec4 point;
+        point.x =
+            static_cast<float>(((pos.x - kParkCenterCell) * static_cast<double>(kGridPitch)) + (kGridPitch * kHalf));
+        point.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
+        point.z = static_cast<float>(((pos.z - kParkCenterCell) * static_cast<double>(kGridStepAlong)) +
+                                     (kGridStepAlong * kHalf));
+        point.w = 1.0F;
+        render::ProbeRay feeler;
+        const maths::Vec4 start = {.x = point.x, .y = static_cast<float>(static_cast<double>(point.y) + 10000.0), .z = point.z,
+                                   .w = static_cast<float>(static_cast<double>(point.w) + 1.0)};
+        feeler.change_origin(&start);
+        const maths::Vec4 end = {.x = point.x, .y = static_cast<float>(static_cast<double>(point.y) - 1000.0), .z = point.z,
+                                 .w = static_cast<float>(static_cast<double>(point.w) + 1.0)};
+        feeler.change_finish(&end);
+        if (feeler.get_hit_shape(true, false) != 0) {
+            if (i >= 2 && i <= kLastExtraRestart) {
+                point.y = feeler.contact_pos().y;
+            } else {
+                point.y = static_cast<float>(static_cast<double>(feeler.contact_pos().y) + kGridStepUp);
+            }
+        }
+        builder_->plant_restart_point(&point, 0, &pos,
+                                      {.type = type, .automatic = 1, .keep_placed_ = static_cast<uint32_t>(flag)});
+        // (the feeler's destructor lets go of what it hit)
+    }
+    builder_->build_node_array(concrete_metas_);
+}
+
+// 0x00599CD0
+bool ParkLayout::can_change_floor_here(CellBox area, bool uneven)
+{
+    bool ok = false;
+    if (!park_is_full()) {
+        const MapListHolder metas(collect_pieces_in_region(area));
+        bool clear = true;
+        for (MapListNode* node = metas.list(); node; node = node->following()) {
+            if ((node->get_placed_piece()->flag_bits() & PieceGroup::kBuiltShell) == 0U) {
+                clear = false;
+                break;
+            }
+        }
+        if (clear) {
+            // Without `uneven`, the floor must be flat at the box's height.
+            bool level = true;
+            if (!uneven) {
+                bool flat = false;
+                level = get_ground_level(area, &flat) == area.y && flat;
+            }
+            if (level && !is_area_blocked(area)) {
+                ok = true;
+            }
+        }
+    }
+    release_park_editor();
+    return ok;
+}
+
+// 0x00599E20
+void ParkLayout::destroy_metas_below(CellBox area)
+{
+    CellBox below = area;
+    below.y = static_cast<int8_t>(area.y - 1);
+    below.h = 1;
+    const uint32_t destroyed = free_piece_groups_in_region(below, 4);
+    riser_metas_ += static_cast<int>(destroyed >> kCountShift);
+    riser_pieces_ += static_cast<int>(destroyed & kCountMask);
+}
+
+// 0x0059B280
+void ParkLayout::undo_floor_change()
+{
+    restore_floor_heights();
+    for (MapListNode* node = riser_list_; node; node = node->following()) {
+        node->set_piece_group(shift_placed_piece(node->get_placed_piece(), 0, -node->dy(), 0));
+    }
+}
+
+// 0x0059B2C0
+void ParkLayout::move_riser_list(MapListNode* list)
+{
+    for (MapListNode* node = list; node; node = node->following()) {
+        PieceGroup* meta = node->get_placed_piece();
+        if (node->dy() < 0) {
+            destroy_metas_below(meta->cell_footprint());
+        }
+        node->set_piece_group(shift_placed_piece(meta, 0, node->dy(), 0));
+    }
+}
+
+// 0x0059B320
+void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
+{
+    const int x = request->x;
+    const int z = request->z;
+    // (the floor's rows one after the other: the original indexed them as one run)
+    const std::span<FloorCell> cells(&core::at(core::at(floor_, 0), 0), size_t{kFloorSize} * kFloorSize);
+    auto height_at = [&](int cx, int cz) { return core::at(cells, (cx * kFloorSize) + cz).level_y_; };
+
+    // The lowest neighbour (outside the shell counts as 0).
+    int lowest = kNoHeightYet;
+    if (std::cmp_greater(x, shell_bounds_.x)) {
+        lowest = std::min(lowest, height_at(x - 1, z));
+    } else {
+        lowest = 0;
+    }
+    auto at_most_zero = [&] { lowest = std::min(lowest, 0); };
+    if (x < shell_bounds_.w + shell_bounds_.x - 1) {
+        lowest = std::min(lowest, height_at(x + 1, z));
+    } else {
+        at_most_zero();
+    }
+    if (std::cmp_greater(z, shell_bounds_.z)) {
+        lowest = std::min(lowest, height_at(x, z - 1));
+    } else {
+        at_most_zero();
+    }
+    if (z < shell_bounds_.l + shell_bounds_.z - 1) {
+        lowest = std::min(lowest, height_at(x, z + 1));
+    } else {
+        at_most_zero();
+    }
+
+    // The piece on top: a riser of the cell's height (the floor itself at 0, a dug-in floor below 0), and the
+    // riser_below wall where a neighbour is lower than this cell's floor.
+    uint32_t top = 0;
+    uint32_t below = 0;
+    int below_y = -kRiserDepthCells;
+    const int height = request->height;
+    bool in_park = false;
+    if (height > 0) {
+        std::array<char, kPieceNameSize> name{};
+        text::format_to(name, "riser_above%d", request->index);
+        top = checksums::hash_from_text(name.data());
+        request->y = 0;
+        in_park = lowest >= 0;
+        if (!in_park) {
+            below = kRiserBelow;
+        }
+    } else if (height == 0) {
+        top = kRiserFloor;
+        request->y = -1;
+        in_park = lowest >= 0;
+        if (!in_park) {
+            top = 0;
+            below = kRiserBelow;
+        }
+    } else {
+        top = kRiserFloorBelow;
+        request->y = height;
+        if (lowest < height) {
+            below_y = height - kRiserDepthCells;
+            top = 0;
+            below = kRiserBelow;
+        }
+        in_park = lowest >= 0;
+    }
+    // (outside the park's bounds, no top piece unless the floor is dug in)
+    if (in_park) {
+        if (std::cmp_less(x, build_area_.x) || x >= build_area_.x + build_area_.w) {
+            top = 0;
+        }
+        if (std::cmp_less(z, build_area_.z) || z >= build_area_.z + build_area_.l) {
+            top = 0;
+        }
+    }
+
+    // Keep what's there already, delete the rest of the inner shell in the cell.
+    const CellBox cell = CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
+                                           static_cast<uint8_t>(request->z), 1, 1, 1);
+    const MapListHolder metas(collect_pieces_in_region(cell));
+    for (MapListNode* node = metas.list(); node;) {
+        PieceGroup* meta = node->get_placed_piece();
+        node = node->following();
+        if ((meta->flag_bits() & PieceGroup::kBuiltShell) == 0U) {
+            continue;
+        }
+        if ((top != 0U) && meta->name_key() == top && meta->cell_footprint().y == request->y) {
+            top = 0;
+        } else if ((below != 0U) && meta->name_key() == below &&
+                   (static_cast<uint8_t>(meta->cell_footprint().y) == static_cast<uint8_t>(request->y) ||
+                    meta->cell_footprint().y == static_cast<int8_t>(below_y))) {
+            below = 0;
+        } else {
+            free_placed_piece(meta, 0);
+            builder_->clean_up_out_refs();
+        }
+    }
+    if (top != 0U) {
+        PieceGroup* meta = make_placed_piece(find_piece_template(top), 0);
+        place_meta_piece_in_park(CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
+                                                   static_cast<uint8_t>(request->z), 0, 0, 0),
+                                 meta);
+    }
+    if (below != 0U) {
+        PieceGroup* meta = make_placed_piece(find_piece_template(below), 0);
+        if (std::cmp_less(request->x, build_area_.x) || request->x >= build_area_.x + build_area_.w ||
+            std::cmp_less(request->z, build_area_.z) || request->z >= build_area_.z + build_area_.l) {
+            meta->flag_bits() |= PieceGroup::kRiserBelow | PieceGroup::kFlag400;
+        }
+        place_meta_piece_in_park(CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(below_y),
+                                                   static_cast<uint8_t>(request->z), 0, 0, 0),
+                                 meta);
+    }
+}
+
+// 0x0059BED0
+void ParkLayout::rebuild_inner_shell(CellBox bounds)
+{
+    build_area_ = bounds;
+    const CellBox& park = build_area_;
+    // The four strips round the park (where the walls go).
+    core::at(blocked_areas_, 0).x = static_cast<uint8_t>(park.x - 1);
+    core::at(blocked_areas_, 0).z = static_cast<uint8_t>(park.z - 1);
+    core::at(blocked_areas_, 0).w = 1;
+    core::at(blocked_areas_, 0).l = static_cast<uint8_t>(park.l + 2);
+    core::at(blocked_areas_, 1).x = static_cast<uint8_t>(park.w + park.x);
+    core::at(blocked_areas_, 1).z = static_cast<uint8_t>(park.z - 1);
+    core::at(blocked_areas_, 1).w = 1;
+    core::at(blocked_areas_, 1).l = static_cast<uint8_t>(park.l + 2);
+    core::at(blocked_areas_, 2).x = static_cast<uint8_t>(park.x - 1);
+    core::at(blocked_areas_, 2).z = static_cast<uint8_t>(park.z - 1);
+    core::at(blocked_areas_, 2).w = static_cast<uint8_t>(park.w + 2);
+    core::at(blocked_areas_, 2).l = 1;
+    core::at(blocked_areas_, 3).x = static_cast<uint8_t>(park.x - 1);
+    core::at(blocked_areas_, 3).z = static_cast<uint8_t>(park.l + park.z);
+    core::at(blocked_areas_, 3).w = static_cast<uint8_t>(park.w + 2);
+    core::at(blocked_areas_, 3).l = 1;
+
+    // Out go the fences and the player's metapieces no longer (wholly) in the park.
+    for (MapListNode* node = concrete_metas_; node;) {
+        MapListNode* next = node->following();
+        const CellBox area = node->get_placed_piece()->cell_footprint();
+        const uint32_t flags = node->get_placed_piece()->flag_bits();
+        bool destroy = false;
+        if ((flags & PieceGroup::kFence) != 0U) {
+            destroy = true;
+        } else if (((flags & PieceGroup::kBuiltShell) != 0U) || ((flags & PieceGroup::kInPark) == 0U)) {
+            destroy = false;
+        } else {
+            destroy = area.x < park.x || area.z < park.z || area.w + area.x > park.w + park.x ||
+                      area.l + area.z > park.l + park.z;
+        }
+        if (destroy) {
+            free_placed_piece(node->get_placed_piece(), 0);
+        }
+        node = next;
+    }
+    builder_->clean_up_out_refs();
+    mark_progress("RebuildInnerShell-After any inner shell clipping");
+
+    // The fence: two-cell pieces along each side, facing in, wherever the strip isn't blocked.
+    PieceGroup* fence = find_piece_template(kFence);
+    // Where a fence is tested and where it goes.
+    struct FenceSpot {
+        CellBox test{};
+        CellBox at{};
+    };
+    auto add_fence = [&](FenceSpot fence_spot, int rot) {
+        const auto test = fence_spot.test;
+        const auto at = fence_spot.at;
+        if (is_area_blocked(test)) {
+            return;
+        }
+        PieceGroup* meta = make_placed_piece(fence, 0);
+        meta->set_quarter_turns(rot);
+        meta->flag_bits() |= PieceGroup::kFence;
+        place_meta_piece_in_park(at, meta);
+    };
+    for (int cell_x = park.x; cell_x < park.w + park.x; cell_x += 2) {
+        auto px = static_cast<uint8_t>(cell_x);
+        add_fence({.test = CellBox::get_make(px, 0, park.z, 2, 1, 1), .at = CellBox::get_make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0)}, 0);
+        auto far = static_cast<uint8_t>(park.z + park.l);
+        add_fence({.test = CellBox::get_make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1), .at = CellBox::get_make(px, 0, far, 0, 0, 0)}, 2);
+    }
+    for (int cell_z = park.z; cell_z < park.l + park.z; cell_z += 2) {
+        auto pz = static_cast<uint8_t>(cell_z);
+        add_fence({.test = CellBox::get_make(park.x, 0, pz, 1, 1, 2), .at = CellBox::get_make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0)}, 1);
+        auto far = static_cast<uint8_t>(park.w + park.x);
+        add_fence({.test = CellBox::get_make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2), .at = CellBox::get_make(far, 0, pz, 0, 0, 0)}, 3);
+    }
+    mark_progress("RebuildInnerShell-After adding fence pieces");
+
+    // No floor height outside the park (the first 56 x 56 cells).
+    for (int cell_x = 0; cell_x < kShellCells; ++cell_x) {
+        for (int cell_z = 0; cell_z < kShellCells; ++cell_z) {
+            if (std::cmp_less(cell_x, park.x) || std::cmp_less(cell_z, park.z) || cell_x >= park.w + park.x ||
+                cell_z >= park.l + park.z) {
+                core::at(core::at(floor_, cell_x), cell_z).level_y_ = 0;
+            }
+        }
+    }
+    park_editing::ParkAssembler::update_bounds(((flag_bits_ & kMapLoaded) != 0U) ? map_.shell_size() : 0);
+    mark_progress("RebuildInnerShell-End");
+}
+
+// 0x0059C520
+bool ParkLayout::raise_or_lower_floor(CellBox area, int y, int target, bool raise, bool level)
+{
+    uint32_t mode = raise ? kFloorModeRaise : kFloorModeLower;
+    if (level) {
+        mode |= 1;
+    }
+    clear_floor_change_marks();
+    if (riser_list_) {
+        MapListNode::free_node_chain(riser_list_);
+    }
+    riser_list_ = nullptr;
+    riser_metas_ = 0;
+    riser_pieces_ = 0;
+    if (level && has_floor_locked_meta(area)) {
+        return false;
+    }
+    if (!build_riser_list(area, {.y = y, .height = target}, mode, &riser_list_)) {
+        restore_floor_heights();
+        return false;
+    }
+    move_riser_list(riser_list_);
+    if (!raise) {
+        destroy_metas_below(area);
+    }
+    return true;
+}
+
+// 0x0059C600
+bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
+{
+    if (!area) {
+        // The inner shell's pieces outside the park go first.
+        for (MapListNode* node = concrete_metas_; node; node = node->following()) {
+            const PieceGroup* meta = node->get_piece_group();
+            if ((meta->flag_bits() & PieceGroup::kBuiltShell) == 0U) {
+                continue;
+            }
+            const CellBox footprint = meta->cell_footprint();
+            if (footprint.x >= build_area_.x && footprint.z >= build_area_.z &&
+                footprint.w + footprint.x <= build_area_.w + build_area_.x &&
+                footprint.l + footprint.z <= build_area_.l + build_area_.z) {
+                continue;
+            }
+            free_placed_piece(node->get_placed_piece(), 0);
+        }
+        builder_->clean_up_out_refs();
+        area = &build_area_;
+    }
+    // Every cell of the area and the ring round it.
+    const std::span<const FloorCell> cells(&core::at(core::at(floor_, 0), 0), size_t{kFloorSize} * kFloorSize);
+    for (int cell_x = area->x - 1; cell_x < area->w + 1 + area->x; ++cell_x) {
+        for (int cell_z = area->z - 1; cell_z < area->l + 1 + area->z; ++cell_z) {
+            FloorPieceRequest request{};
+            request.height = core::at(cells, (cell_x * kFloorSize) + cell_z).level_y_;
+            request.index = request.height - 1;
+            request.x = cell_x;
+            request.z = cell_z;
+            rebuild_floor_piece(&request);
+        }
+    }
+    mark_progress("generate_floor_pieces");
+    return true;
+}
+
+} // namespace park_editing

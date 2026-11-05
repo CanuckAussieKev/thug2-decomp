@@ -1,23 +1,29 @@
 #pragma once
 
-// What the score's files (score.cpp, score_combo.cpp, score_net.cpp) share: the skater, the game mode, the screen
+// What the score's files (point_tally.cpp, score_combo.cpp, score_net.cpp) share: the skater, the game mode, the screen
 // elements, the trick tables and the checksums they use.
 
 #include <cstdint>
+#include <array>
 
-#include "game/front/screen_element.h"
-#include "game/front/screen_element_manager.h"
-#include "game/net/gamenet_manager.h"
-#include "game/obj/trick_objects.h"
+#include "engine/ui/screen_element.h"
+#include "engine/ui/screen_element_manager.h"
+#include "game/online/gamenet_manager.h"
+#include "game/world/trick_objects.h"
 #include "game/skate/game_mode.h"
-#include "game/script/struct.h"
-#include "game/skate/game_mode.h"
-#include "game/skate/score.h"
+#include "engine/script/param_struct.h"
+#include "game/skate/point_tally.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
+#include "game/rider/rider.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "game/online/net_game_state.h"
 
-namespace Mdl {
-namespace ScoreInternal {
+namespace modules::score_internal {
+constexpr int kRepeatsReduced = 5;       // repeats beyond the table all score the same reduction
+constexpr int kMinimumReduction = 10;
+constexpr int kSpinMultiplierCount = 6;
+constexpr int kMaxSpinMultiplier = 7;
 
 constexpr uint32_t kTheTrickText = 0x44727DAE;        // the_trick_text (+ the skater's number)
 constexpr uint32_t kTheScorePotText = 0xF4D3A70E;     // the_score_pot_text
@@ -38,32 +44,26 @@ constexpr uint32_t kAnimBlender = 0x7149B753;         // animblender
 
 // A trick's points by its repeats (percent: 100, 75, 50, 25, 10) and its spin (half the multiplier: 2 none ... 7),
 // read from the exe as the original does (an index outside the tables reads past them, as there).
-extern int g_trickReduction[5]; // (0x0064E280)
-extern int g_spinMultiplier[6]; // (0x0064E268)
-inline int Reduction(int repeats) { return repeats < 5 ? g_trickReduction[repeats] : 10; }
-inline int SpinMultiplier(int spin) { return spin < 6 ? g_spinMultiplier[spin] : 7; }
+inline constexpr std::array<int, 5> kTrickReduction{{100, 75, 50, 25, 10}}; // (0x0064E280)
+inline constexpr std::array<int, 6> kSpinMultiplier{{2, 3, 4, 5, 6, 7}}; // (0x0064E268)
+inline int get_reduction(int repeats) { return repeats < kRepeatsReduced ? core::at(kTrickReduction, repeats) : kMinimumReduction; }
+inline int spin_multiplier(int spin) { return spin < kSpinMultiplierCount ? core::at(kSpinMultiplier, spin) : kMaxSpinMultiplier; }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
-inline int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-inline Game::CGameMode* GameMode() { return Game::g_gameMode; }
-inline GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
-inline Obj::CTrickObjectManager* TrickObjects() { return Obj::g_trickObjectManager; }
-inline Obj::CSkater* SkaterById(int id)
+inline goals::MatchRules* get_game_mode() { return goals::game_mode(); }
+inline objects::TrickSpotHub* get_trick_objects() { return objects::trick_spot_hub(); }
+inline objects::Rider* rider_for_slot(int id)
 {
-    return static_cast<Obj::CSkater*>(SkateCalls::GetSkaterById(static_cast<uint32_t>(id)));
+    return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(static_cast<uint32_t>(id)));
 }
 
 // The screen element with this id (its smart pointer let go at once: the raw pointer kept, as the original).
-inline Front::CScreenElement* FindElement(uint32_t id)
+inline frontend::UiWidget* find_element(uint32_t id)
 {
-    Front::ElementPtr found;
-    return Front::CScreenElementManager::Instance()->GetElement(&found, id, 0)->mp_object;
+    frontend::ElementPtr found;
+    return frontend::UiTree::fetch_part(&found, id, 0)->get_pull();
 }
 
-// A structure from the pool (null if that fails: the original goes on with it) / deleted.
-Script::CStruct* NewStructure();
-void DeleteStructure(Script::CStruct* structure);
-
-} // namespace ScoreInternal
-} // namespace Mdl
+} // namespace modules::score_internal

@@ -1,142 +1,108 @@
-// The skate-the-line goal (CSkateLineGoal, 0x005691F0-0x0056952F; see goal_skate_line.h).
+// The skate-the-line goal (SkateLineGoal, 0x005691F0-0x0056952F; see goal_skate_line.h).
 
 #include <cstdint>
 
 #include "game/goals/goal_skate_line.h"
 
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
+#include "base/core/dbg.h"
 #include "game/goals/goal_manager.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/core/stubs.h"
-#include "game/gfx/weather.h"
-#include "game/core/code_address.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "base/core/checksums.h"
 
-namespace Game {
+namespace goals {
 
 namespace {
 
-constexpr uint32_t kRequiresLine = 0x7100155D;          // (name unknown: the line must be landed)
-constexpr uint32_t kGoalObjects = 0x3CCE31F0;           // goal_objects
-constexpr uint32_t kFlag = 0x2E0B1465;                  // flag
-constexpr uint32_t kTime = 0x906B67BA;                  // time
-constexpr uint32_t kGoalObjectsIndex = 0x89B927D0;      // goal_objects_index
-constexpr uint32_t kFirstSpotParams = 0xDB5515AA;       // first_spot_params
-constexpr uint32_t kNextCluster = 0x918C00F2;           // goal_skate_the_line_next_cluster
+constexpr uint32_t kRequiresLine = 0x7100155D;     // (name unknown: the line must be landed)
+constexpr uint32_t kGoalObjects = 0x3CCE31F0;      // goal_objects
+constexpr uint32_t kFlag = 0x2E0B1465;             // flag
+constexpr uint32_t kTime = 0x906B67BA;             // time
+constexpr uint32_t kGoalObjectsIndex = 0x89B927D0; // goal_objects_index
+constexpr uint32_t kFirstSpotParams = 0xDB5515AA;  // first_spot_params
+constexpr uint32_t kNextCluster = 0x918C00F2;      // goal_skate_the_line_next_cluster
 
-static VtableSlot kSkateLineVtable_slots[] = {&Game::CSkateLineGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CSkateLineGoal::SetFlag,
-                 &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-                 &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag,
-                 &Game::CGoal::SetNetStageFlag,
-                 &Game::CGoal::UnBeat};
-void** const kSkateLineVtable = reinterpret_cast<void**>(kSkateLineVtable_slots);
-
-Script::CStruct* NewStructure()
-{
-    Script::CStruct* made = Script::NewStruct();
-    return made ? made->Init() : nullptr;
-}
-void DeleteStructure(Script::CStruct* structure)
-{
-    if (structure) {
-        structure->Clear();
-        Script::DeleteStruct(structure);
-    }
-}
 
 } // namespace
 
 // 0x005691F0
-CSkateLineGoal* CSkateLineGoal::Construct(Script::CStruct* params)
-{
-    CGoal::Construct(params);
-    m_node.vtable = kSkateLineVtable;
-    return this;
-}
+SkateLineGoal::SkateLineGoal(script::Struct* params) : Objective(params) {}
 
 // 0x00569210
-void CSkateLineGoal::DestroyBody()
-{
-    m_node.vtable = kSkateLineVtable;
-    CGoal::DestroyBody();
-}
-
-// 0x00569290
-CSkateLineGoal* CSkateLineGoal::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+SkateLineGoal::~SkateLineGoal() = default;
 
 // 0x00569220
-bool CSkateLineGoal::Land()
+bool SkateLineGoal::land()
 {
-    if (!RequiresCombo())
+    if (!requires_combo()) {
         return false;
-    if (!m_params->ContainsFlag(kRequiresLine))
+    }
+    if (!args()->has_bare_flag(kRequiresLine)) {
         return false;
-    CGoalManager* manager = GetGoalManager();
-    if (AllFlagsSet())
-        return manager->WinGoal(GetGoalId());
-    Dbg::Printf("all flags not set\n"); // "all flags not set\n"
-    return manager->LoseGoal(GetGoalId());
+    }
+    GoalManager* manager = get_objective_board();
+    if (has_every_bit()) {
+        return manager->complete_objective(get_objective_key());
+    }
+    debug::printf("all flags not set\n"); // "all flags not set\n"
+    return manager->fail_objective(get_objective_key());
 }
 
 // 0x005692C0
-void CSkateLineGoal::NextCluster()
+void SkateLineGoal::next_cluster()
 {
-    Script::CArray* objects = nullptr;
-    m_params->GetArray(kGoalObjects, &objects, 1);
-    auto* cluster = reinterpret_cast<Script::CStruct*>(objects->GetElement(static_cast<uint32_t>(m_numFlagsSet)));
-    int time;
-    if (cluster->GetInteger(kTime, &time, 1))
-        SetTimeLeft(time);
-    Script::CStruct* params = NewStructure();
-    params->AppendStructureIfAny(m_params);
-    params->AppendStructureIfAny(cluster);
-    params->AddInteger(kGoalObjectsIndex, m_numFlagsSet);
-    if (m_numFlagsSet == 1)
-        params->AddStructure(kFirstSpotParams, reinterpret_cast<Script::CStruct*>(objects->GetElement(0)));
-    Script::RunScript(kNextCluster, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    script::Array* objects = nullptr;
+    args()->fetch_list(kGoalObjects, &objects, 1);
+    auto* cluster = objects->struct_at(static_cast<uint32_t>(num_flags_set()));
+    int time = 0;
+    if (cluster->fetch_int_value(kTime, &time, 1)) {
+        set_seconds_remaining(time);
+    }
+    const script::StructPtr params = script::make_struct();
+    params->append_structure_if_any(args().get());
+    params->append_structure_if_any(cluster);
+    params->put_int(checksums::Name{kGoalObjectsIndex}, num_flags_set());
+    if (num_flags_set() == 1) {
+        params->put_sub_struct(kFirstSpotParams, objects->struct_at(0));
+    }
+    script::launch_script(kNextCluster, params.get(), nullptr, false, nullptr);
 }
 
 // 0x00569410 (vtable +0x4C)
-bool CSkateLineGoal::SetFlag(uint32_t flag, int value, uint32_t sub)
+bool SkateLineGoal::set_flag(checksums::Name flag_name, int value, checksums::Name sub_goal)
 {
-    if (Virtual<bool>(this, kVtHasWon) || IsLocked())
+    const uint32_t flag = flag_name.value();
+    const uint32_t sub = sub_goal.value();
+    if (has_won() || is_latched()) {
         return false;
-    if (AllFlagsSet() && RequiresCombo())
+    }
+    if (has_every_bit() && requires_combo()) {
         return false;
-    Script::CArray* objects = nullptr;
-    m_params->GetArray(kGoalObjects, &objects, 1);
-    uint32_t clusterFlag;
-    reinterpret_cast<Script::CStruct*>(objects->GetElement(static_cast<uint32_t>(m_numFlagsSet)))
-        ->GetChecksum(kFlag, &clusterFlag, 1);
+    }
+    script::Array* objects = nullptr;
+    args()->fetch_list(kGoalObjects, &objects, 1);
+    uint32_t cluster_flag = 0;
+    objects->struct_at(static_cast<uint32_t>(num_flags_set()))
+        ->read_hash_value(kFlag, &cluster_flag, 1);
     bool set = false;
-    if (clusterFlag != flag)
+    if (cluster_flag != flag) {
         return set; // (only the line's next cluster)
-    if (!Virtual<bool>(this, kVtIsActive))
-        GetGoalManager()->ActivateGoal(GetGoalId(), false);
-    set = CGoal::SetFlag(flag, value, sub);
-    if (!Virtual<bool>(this, kVtIsActive))
-        return set;
-    if (!AllFlagsSet()) {
-        NextCluster();
+    }
+    if (!is_operative()) {
+        get_objective_board()->engage_objective(get_objective_key(), false);
+    }
+    set = Objective::set_flag(checksums::Name{flag}, value, checksums::Name{sub});
+    if (!is_operative()) {
         return set;
     }
-    if (!RequiresCombo())
-        GetGoalManager()->WinGoal(GetGoalId());
+    if (!has_every_bit()) {
+        next_cluster();
+        return set;
+    }
+    if (!requires_combo()) {
+        get_objective_board()->complete_objective(get_objective_key());
+    }
     return set;
 }
 
-} // namespace Game
+} // namespace goals

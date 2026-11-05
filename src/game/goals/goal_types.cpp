@@ -5,469 +5,386 @@
 #include <cmath>
 #include <cstdint>
 
-#include "game/core/mem.h"
+#include "base/core/enum_ops.h"
+#include "engine/memory/mem.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
-#include "game/gfx/camera.h"
-#include "game/mth/vector.h"
-#include "game/net/gamenet_manager.h"
-#include "game/obj/object.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
-#include "game/skate/competition.h"
+#include "engine/gfx/view_cam.h"
+#include "base/maths/vec4.h"
+#include "game/online/gamenet_manager.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "game/goals/objective.h"
+#include "game/skate/contest.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/skater.h"
-#include "game/sys/timer.h"
-#include "game/gfx/model.h"
-#include "game/gfx/engine.h"
-#include "game/skate/score.h"
-#include "game/core/code_address.h"
-#include "game/gfx/tod_manager.h"
-#include "game/core/stubs.h"
-#include "game/gfx/weather.h"
-
-namespace Game {
+#include "game/rider/rider.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/gfx/model.h"
+#include "engine/gfx/engine.h"
+#include "game/skate/point_tally.h"
+#include "engine/gfx/tod_manager.h"
+#include "engine/objects/model_component.h"
+#include "base/core/down_cast.h"
+#include "game/online/net_game_state.h"
+namespace goals {
 
 namespace {
+constexpr int kNoRecordPoints = 0x7FFFFFFF;    // no points recorded yet
+constexpr int kLastPlace = 999;                // the place a contest starts out with
+constexpr int kMillisecondsPerSecond = 1000;
+constexpr float kSphereRadius = 6.0F; // the sphere checked against the camera
 
-using namespace GoalCalls;
-using namespace GoalNames;
+using namespace goal_calls;
+using namespace goal_names;
 
-constexpr uint32_t kJustWonGoal = 0xC309CAD1;          // just_won_goal
-constexpr uint32_t kDeactivateScript = 0x01C92CAC;     // deactivate
-constexpr uint32_t kSuccessScript = 0x90FF204D;        // success
-constexpr uint32_t kTimeOnCamera = 0x9278CA8D;         // time_on_camera
-constexpr uint32_t kTotalTimeRequired = 0x184E30FD;    // total_time_required
-constexpr uint32_t kCheckpoints = 0xC808F9FB;          // (name unknown: the film checkpoints)
-constexpr uint32_t kFilmTarget = 0xD262ED09;           // film_target
-constexpr uint32_t kModel = 0x286A8D26;                // model
-constexpr uint32_t kMaxDistanceToTarget = 0x856FAB92;  // max_distance_to_target
-constexpr uint32_t kLastTimeOnCamera = 0xFC7FC309;     // last_time_on_camera
-constexpr uint32_t kGapsFound = 0x735AF2DD;            // (name unknown: the gaps found)
-constexpr uint32_t kNumGapsFound = 0xF1E59083;         // num_gaps_found
-constexpr uint32_t kNumGapsToFind = 0xE75C4BBF;        // num_gaps_to_find
-constexpr uint32_t kFindGapsFoundGap = 0x851AA6B8;     // goal_find_gaps_found_gap
+constexpr uint32_t kJustWonGoal = 0xC309CAD1;         // just_won_goal
+constexpr uint32_t kDeactivateScript = 0x01C92CAC;    // deactivate
+constexpr uint32_t kSuccessScript = 0x90FF204D;       // success
+constexpr uint32_t kTimeOnCamera = 0x9278CA8D;        // time_on_camera
+constexpr uint32_t kTotalTimeRequired = 0x184E30FD;   // total_time_required
+constexpr uint32_t kCheckpoints = 0xC808F9FB;         // (name unknown: the film checkpoints)
+constexpr uint32_t kFilmTarget = 0xD262ED09;          // film_target
+constexpr uint32_t kModel = 0x286A8D26;               // model
+constexpr uint32_t kMaxDistanceToTarget = 0x856FAB92; // max_distance_to_target
+constexpr uint32_t kLastTimeOnCamera = 0xFC7FC309;    // last_time_on_camera
+constexpr uint32_t kGapsFound = 0x735AF2DD;           // (name unknown: the gaps found)
+constexpr uint32_t kNumGapsFound = 0xF1E59083;        // num_gaps_found
+constexpr uint32_t kNumGapsToFind = 0xE75C4BBF;       // num_gaps_to_find
+constexpr uint32_t kFindGapsFoundGap = 0x851AA6B8;    // goal_find_gaps_found_gap
 
-const char* const kGotBronze = "gotBronze";    // "gotBronze"
-const char* const kGotSilver = "gotSilver";    // "gotSilver"
-const char* const kGotGold = "gotGold";      // "gotGold"
-const char* const kRewardGiven = "reward_given";  // "reward_given"
-const char* const kWinRecordName = "win_record"; // "win_record"
+const char* const kGotBronze = "gotBronze";        // "gotBronze"
+const char* const kGotSilver = "gotSilver";        // "gotSilver"
+const char* const kGotGold = "gotGold";            // "gotGold"
+const char* const kRewardGiven = "reward_given";   // "reward_given"
+const char* const kWinRecordName = "win_record";   // "win_record"
 const char* const kRewardParams = "reward_params"; // "reward_params"
 
-static VtableSlot kCompetitionGoalVtable_slots[] = {&Game::CCompetitionGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CCompetitionGoal::Expire,
-                 &Game::CCompetitionGoal::LoadSaveData, &Game::CCompetitionGoal::GetSaveData,
-                 &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue, &Game::CGoal::HasComponentA302D7CD,
-                 &Game::CGoal::Activate, &Game::CCompetitionGoal::SetActive, &Game::CGoal::Deactivate,
-                 &Game::CCompetitionGoal::SetInactive, &Game::CCompetitionGoal::Win, &Game::CGoal::Lose,
-                 &Game::CGoal::Update, &Game::CCompetitionGoal::IsPaused, &Game::CGoal::SetFlag,
-                 &Game::CGoal::StageFlagSet, &Game::CCompetitionGoal::HasWon, &Game::CGoal::NetStageFlagSet,
-                 &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-                 &Game::CCompetitionGoal::MarkWon, &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag,
-                 &Game::CCompetitionGoal::UnBeat};
-void** const kCompetitionGoalVtable = reinterpret_cast<void**>(kCompetitionGoalVtable_slots);
-static VtableSlot kFilmGoalVtable_slots[] = {&Game::CFilmGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CFilmGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CFilmGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
-void** const kFilmGoalVtable = reinterpret_cast<void**>(kFilmGoalVtable_slots);
-static VtableSlot kFindGapsGoalVtable_slots[] = {&Game::CFindGapsGoal::Destroy, &Game::CGoal::ShouldExpire, &Game::CGoal::IsExpired,
-                 &Game::CGoal::IsActive, Nx::VirtualSlot3Jump, &Game::CGoal::Expire, &Game::CGoal::LoadSaveData,
-                 &Game::CGoal::GetSaveData, &Game::CGoal::HasTimeLimit, Stubs::ReturnTrue,
-                 &Game::CGoal::HasComponentA302D7CD, &Game::CFindGapsGoal::Activate, &Game::CGoal::SetActive,
-                 &Game::CGoal::Deactivate, &Game::CGoal::SetInactive, &Game::CGoal::Win, &Game::CGoal::Lose,
-                 &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CGoal::SetFlag, &Game::CGoal::StageFlagSet,
-                 &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet, &Game::CGoal::HasWonGoalOrChild,
-                 &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry, &Game::CGoal::MarkWon,
-                 &Game::CGoal::SetStageFlag, &Game::CGoal::SetNetStageFlag, &Game::CGoal::UnBeat};
-void** const kFindGapsGoalVtable = reinterpret_cast<void**>(kFindGapsGoalVtable_slots);
+int truncate(double value) { return static_cast<int>(value); }
 
-int Truncate(double value) { return static_cast<int>(value); }
-
-Script::CStruct* NewStructure()
-{
-    Script::CStruct* structure = Script::NewStruct();
-    return structure ? structure->Init() : nullptr;
-}
-void DeleteStructure(Script::CStruct* structure)
-{
-    if (structure) {
-        structure->Clear();
-        Script::DeleteStruct(structure);
-    }
-}
-Mdl::CCompetition* TheCompetition() { return SkateCalls::SkateField<Mdl::CCompetition*>(0x360); }
+modules::Contest* the_competition() { return modules::Skate::sole()->competition().get(); }
 
 } // namespace
 
 // --- The competition ---------------------------------------------------------------------------------------------
 
 // 0x005517C0
-CCompetitionGoal* CCompetitionGoal::Construct(Script::CStruct* params)
+ContestObjective::ContestObjective(script::Struct* params) : Objective(params)
 {
-    CGoal::Construct(params);
-    m_paused = false;
-    m_gotBronze = false;
-    m_gotSilver = false;
-    m_gotGold = false;
-    m_rewardGiven = 0;
-    m_node.vtable = kCompetitionGoalVtable;
-    m_bestScore = 0x7FFFFFFF;
-    m_endRunType = 1;
-    return this;
+    set_record_points(kNoRecordPoints);
+    set_run_ending(1);
 }
 
 // 0x00551800
-void CCompetitionGoal::DestroyBody()
-{
-    m_node.vtable = kCompetitionGoalVtable;
-    CGoal::DestroyBody();
-}
-
-// 0x00551A00
-CCompetitionGoal* CCompetitionGoal::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+ContestObjective::~ContestObjective() = default;
 
 // 0x00551810
-bool CCompetitionGoal::Expire() { return RunCallbackScript(kExpireScript); }
+void ContestObjective::expire() { invoke_hook_script(kExpireScript); }
 
 // 0x00551820
-void CCompetitionGoal::SetActive()
+void ContestObjective::change_live()
 {
-    m_paused = false;
-    m_state = static_cast<uint8_t>((m_state & ~kStatePaused) | kStateActive);
+    is_halted_ = false;
+    cur_phase() = (cur_phase() & ~Objective::State::kPaused) | Objective::State::kActive;
 }
 
 // 0x00551830
-void CCompetitionGoal::SetInactive()
+void ContestObjective::clear_engaged_bit()
 {
-    m_paused = false;
-    m_state &= ~(kStateActive | kStatePaused);
+    is_halted_ = false;
+    cur_phase() &= ~(Objective::State::kActive | Objective::State::kPaused);
 }
 
 // 0x00551840
-bool CCompetitionGoal::HasWon() { return (m_flags & kFlagWon) != 0; }
+bool ContestObjective::has_won() { return core::any(flag_bits() & Objective::Flags::kWon); }
 
 // 0x00551850
-bool CCompetitionGoal::UnBeat()
+bool ContestObjective::un_beat()
 {
-    m_flags &= ~kFlagWon;
-    m_gotBronze = false;
-    m_gotSilver = false;
-    if (!Virtual<bool>(this, kVtHasWon))
+    flag_bits() &= ~Objective::Flags::kWon;
+    has_third_place_ = false;
+    has_second_place_ = false;
+    if (!has_won()) {
         return false;
-    m_gotGold = false;
+    }
+    has_top_prize_ = false;
     return true;
 }
 
 // 0x00551880
-void CCompetitionGoal::PauseCompetition() { m_paused = true; }
+void ContestObjective::freeze_contest() { is_halted_ = true; }
 
 // 0x00551890
-void CCompetitionGoal::UnPauseCompetition()
+void ContestObjective::thaw_contest()
 {
-    m_paused = false;
-    m_flags &= ~kFlagEndOfRunStarted;
+    is_halted_ = false;
+    flag_bits() &= ~Objective::Flags::kEndOfRunStarted;
 }
 
 // 0x005518A0
-int CCompetitionGoal::IsPaused() { return (m_state & kStatePaused) || m_paused ? 1 : 0; }
+bool ContestObjective::is_frozen() { return core::any(cur_phase() & Objective::State::kPaused) || is_halted_; }
 
 // 0x005518C0
-void CCompetitionGoal::LoadSaveData(Script::CStruct* data)
+void ContestObjective::restore_save_block(script::Struct* data)
 {
     // (the first value's local is the argument's slot: a missing gotBronze leaves the pointer - set)
-    int got = static_cast<int>(reinterpret_cast<uintptr_t>(data));
-    data->GetInteger(kGotBronze, &got, 0);
-    if (got)
-        m_gotBronze = true;
-    data->GetInteger(kGotSilver, &got, 0);
-    if (got)
-        m_gotBronze = true; // (the original sets gotBronze for each medal)
-    data->GetInteger(kGotGold, &got, 0);
-    if (got)
-        m_gotBronze = true;
+    int got = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
+    data->fetch_int_value(kGotBronze, &got, 0);
+    if (got != 0) {
+        has_third_place_ = true;
+    }
+    data->fetch_int_value(kGotSilver, &got, 0);
+    if (got != 0) {
+        has_third_place_ = true; // (the original sets gotBronze for each medal)
+    }
+    data->fetch_int_value(kGotGold, &got, 0);
+    if (got != 0) {
+        has_third_place_ = true;
+    }
     int given = 0; // (the original's local is left as it was when reward_given is missing)
-    data->GetInteger(kRewardGiven, &given, 0);
-    m_rewardGiven = given;
-    int record;
-    if (data->GetInteger(kWinRecordName, &record, 0))
-        m_bestScore = record;
-    CGoal::LoadSaveData(data);
+    data->fetch_int_value(kRewardGiven, &given, 0);
+    prize_paid_ = given;
+    int record = 0;
+    if (data->fetch_int_value(kWinRecordName, &record, 0)) {
+        set_record_points(record);
+    }
+    Objective::restore_save_block(data);
 }
 
 // 0x00551970
-void CCompetitionGoal::GetSaveData(Script::CStruct* data)
+void ContestObjective::capture_save_block(script::Struct* data)
 {
-    CGoal::GetSaveData(data);
-    data->AddInteger(kGotBronze, m_gotBronze ? 1 : 0);
-    data->AddChecksum(kGotSilver, m_gotSilver ? 1 : 0); // (the silver and gold medals saved as checksums)
-    data->AddChecksum(kGotGold, m_gotGold ? 1 : 0);
-    data->AddInteger(kWinRecordName, m_bestScore);
-    data->AddInteger(kRewardGiven, m_rewardGiven);
+    Objective::capture_save_block(data);
+    data->put_int(kGotBronze, has_third_place_ ? 1 : 0);
+    data->put_name_key(kGotSilver, has_second_place_ ? 1 : 0); // (the silver and gold medals saved as checksums)
+    data->put_name_key(kGotGold, has_top_prize_ ? 1 : 0);
+    data->put_int(kWinRecordName, record_points());
+    data->put_int(kRewardGiven, prize_paid_);
 }
 
 // 0x00551A30
-void CCompetitionGoal::MarkWon()
+void ContestObjective::mark_won()
 {
-    Mdl::CCompetition* competition = TheCompetition();
-    if (competition->PlaceIs(1)) {
-        m_gotGold = true;
-        m_gotSilver = true;
-        m_gotBronze = true;
-    } else if (competition->PlaceIs(2)) {
-        m_gotSilver = true;
-        m_gotBronze = true;
-    } else if (competition->PlaceIs(3)) {
-        m_gotBronze = true;
+    const modules::Contest* competition = the_competition();
+    if (competition->place_is(1)) {
+        has_top_prize_ = true;
+        has_second_place_ = true;
+        has_third_place_ = true;
+    } else if (competition->place_is(2)) {
+        has_second_place_ = true;
+        has_third_place_ = true;
+    } else if (competition->place_is(3)) {
+        has_third_place_ = true;
     }
-    m_flags |= kFlagWon;
+    flag_bits() |= Objective::Flags::kWon;
 }
 
 // 0x00551A90
-bool CCompetitionGoal::Win()
+bool ContestObjective::get_win()
 {
-    m_params->AddChecksum(kNoName, kJustWonGoal);
-    RunCallbackScript(kDeactivateScript);
-    m_params->RemoveFlag(kJustWonGoal);
-    Virtual<void>(this, kVtSetInactive);
-    if (!GameNet::g_gameNetManager->InNetGame()) {
-        Mdl::CCompetition* competition = TheCompetition();
-        int place = 999;
-        if (competition->PlaceIs(1))
+    args()->put_name_key(checksums::Name{kNoName}, kJustWonGoal);
+    invoke_hook_script(kDeactivateScript);
+    args()->remove_flag(kJustWonGoal);
+    clear_engaged_bit();
+    if (!online::net_game_state().online_hub()->in_net_game()) {
+        const modules::Contest* competition = the_competition();
+        int place = kLastPlace;
+        if (competition->place_is(1)) {
             place = 1;
-        else if (competition->PlaceIs(2))
+        } else if (competition->place_is(2)) {
             place = 2;
-        else if (competition->PlaceIs(3))
+        } else if (competition->place_is(3)) {
             place = 3;
-        if (place < m_bestScore) {
-            m_params->AddInteger(kWinRecordName, place);
-            m_bestScore = place;
+        }
+        if (place < record_points()) {
+            args()->put_int(kWinRecordName, place);
+            set_record_points(place);
         }
     }
-    Script::CStruct* rewards = NewStructure();
-    if (!Virtual<bool>(this, kVtHasWon)) {
-        Script::CStruct* own = NewStructure();
-        GetRewardsStructure(own);
-        rewards->AppendStructureIfAny(own);
-        DeleteStructure(own);
-        UnlockRewardGoals();
+    script::StructPtr rewards = script::make_struct();
+    if (!has_won()) {
+        script::StructPtr own = script::make_struct();
+        get_prize_struct(own.get());
+        rewards->append_structure_if_any(own.get());
+        own.reset();
+        open_up_prize_objectives();
     } else {
-        m_params->RemoveComponent(kRewardParams);
+        args()->erase_module(kRewardParams);
     }
-    m_params->AddStructure(kRewardParams, rewards);
-    RunCallbackScript(kSuccessScript);
-    DeleteStructure(rewards);
-    if (!Virtual<bool>(this, kVtHasWon))
-        Virtual<void>(this, kVtMarkWon);
+    args()->put_sub_struct(kRewardParams, rewards.get());
+    invoke_hook_script(kSuccessScript);
+    rewards.reset();
+    if (!has_won()) {
+        mark_won();
+    }
     return true;
 }
 
 // --- Film --------------------------------------------------------------------------------------------------------
 
 // 0x005527D0
-CFilmGoal* CFilmGoal::Construct(Script::CStruct* params)
-{
-    CGoal::Construct(params);
-    m_node.vtable = kFilmGoalVtable;
-    return this;
-}
+ShootVideoObjective::ShootVideoObjective(script::Struct* params) : Objective(params) {}
 
 // 0x005527F0
-void CFilmGoal::DestroyBody()
-{
-    m_node.vtable = kFilmGoalVtable;
-    CGoal::DestroyBody();
-}
-
-// 0x005528A0
-CFilmGoal* CFilmGoal::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+ShootVideoObjective::~ShootVideoObjective() = default;
 
 // 0x00552800
-bool CFilmGoal::Activate()
+bool ShootVideoObjective::activate()
 {
-    m_timeOnCamera = 0;
-    m_unknown7C = 0;
-    m_timeNeeded = 0;
-    m_checkpoints = 0;
-    m_filming = false;
-    m_params->AddInteger(kTimeOnCamera, 0);
-    int seconds;
-    if (m_params->GetInteger(kTotalTimeRequired, &seconds, 0)) {
-        m_timeNeeded = static_cast<uint32_t>(seconds * 1000);
-        int time;
-        m_params->GetInteger(kTime, &time, 1);
-        m_unknown7C = m_unknown7C * static_cast<uint32_t>(time) * 1000;
-        return CGoal::Activate();
+    shot_hold_time_ = 0;
+    unknown7c_ = 0;
+    time_needed_ = 0;
+    checkpoints_ = 0;
+    recording_shot_ = false;
+    args()->put_int(checksums::Name{kTimeOnCamera}, 0);
+    int seconds = 0;
+    if (args()->fetch_int_value(kTotalTimeRequired, &seconds, 0)) {
+        time_needed_ = static_cast<uint32_t>(seconds * kMillisecondsPerSecond);
+        int time = 0;
+        args()->fetch_int_value(kTime, &time, 1);
+        unknown7c_ = unknown7c_ * static_cast<uint32_t>(time) * kMillisecondsPerSecond;
+        return Objective::activate();
     }
-    m_params->GetInteger(kCheckpoints, &m_checkpoints, 0);
-    return CGoal::Activate();
+    args()->fetch_int_value(kCheckpoints, &checkpoints_, 0);
+    return Objective::activate();
 }
 
 // 0x005528D0
-bool CFilmGoal::TargetInView()
+bool ShootVideoObjective::target_in_view()
 {
-    uint32_t id;
-    m_params->GetChecksum(kFilmTarget, &id, 1);
-    Obj::CObject* target = Obj::FindObject(id);
-    if (!target)
+    uint32_t id = 0;
+    args()->read_hash_value(kFilmTarget, &id, 1);
+    objects::Entity* target = objects::find_object(id);
+    if (!target) {
         return false;
-    auto* object = static_cast<Obj::CCompositeObject*>(target);
-    void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(object->GetComponent(kModel)) + 0x208);
+    }
+    auto* object = core::down_cast<objects::GameEntity>(target);
+    void* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel))->mesh_instance().get();
     // The model's bounding sphere (0x00492F30) in the world.
-    Mth::Vector sphere;
-    const Mth::Vector* bounds = static_cast<Nx::CModel*>(model)->GetBoundingSphere(&sphere);
-    Mth::Vector centre;
+    maths::Vec4 sphere;
+    const maths::Vec4* bounds = static_cast<render::RenderModel*>(model)->fetch_bound_sphere(&sphere);
+    maths::Vec4 centre;
     centre[0] = sphere[0];
     centre[1] = sphere[1];
     centre[2] = sphere[2];
-    centre[3] = 1.0f;
+    centre[3] = 1.0F;
     (void)bounds;
-    centre.MultiplyBy(object->m_matrix);
-    for (int i = 0; i < 4; ++i)
-        centre[i] = centre[i] + object->m_pos[i];
+    centre.multiply_by(object->basis_frame());
+    for (int i = 0; i < 4; ++i) {
+        centre[i] = centre[i] + object->at_point()[i];
+    }
     // (0x0048C490: the sphere hidden from the camera)
-    if (Nx::Engine::SphereVisibleInOneViewport(&centre, 6.0f))
+    if (render::engine::sphere_visible_in_one_viewport(&centre, kSphereRadius) != 0) {
         return false;
-    auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
-    Mth::Vector* camera = static_cast<Gfx::Camera*>(skater->GetCamera())->GetPos();
-    float dx = (*camera)[0] - object->m_pos[0];
-    float dy = (*camera)[1] - object->m_pos[1];
-    float dz = (*camera)[2] - object->m_pos[2];
-    int maximum;
-    m_params->GetInteger(kMaxDistanceToTarget, &maximum, 1);
-    double distance = std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy +
-                                static_cast<double>(dx) * dx);
+    }
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
+    maths::Vec4* camera = static_cast<gfx::ViewCam*>(skater->obtain_active_lens())->fetch_location();
+    const float dx = (*camera)[0] - object->at_point()[0];
+    const float dy = (*camera)[1] - object->at_point()[1];
+    const float dz = (*camera)[2] - object->at_point()[2];
+    int maximum = 0;
+    args()->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
+    const double distance =
+        std::sqrt((static_cast<double>(dz) * dz) + (static_cast<double>(dy) * dy) + (static_cast<double>(dx) * dx));
     return static_cast<double>(maximum) > distance;
 }
 
 // 0x00552A10
-bool CFilmGoal::Update()
+bool ShootVideoObjective::tick_frame()
 {
-    m_params->AddInteger(kLastTimeOnCamera, static_cast<int>(m_timeOnCamera));
-    if (!Virtual<bool>(this, kVtIsActive) || Virtual<bool>(this, kVtIsPaused))
-        return CGoal::Update();
-    if (m_filming) {
-        if (TargetInView()) {
-            m_timeOnCamera += Truncate(Tmr::GetSlomoFrameSeconds() * Gfx::g_thousand); // (1000)
-            m_params->AddInteger(kTimeOnCamera, static_cast<int>(m_timeOnCamera));
+    args()->put_int(checksums::Name{kLastTimeOnCamera}, static_cast<int>(shot_hold_time_));
+    if (!is_operative() || is_frozen()) {
+        return Objective::tick_frame();
+    }
+    if (recording_shot_) {
+        if (target_in_view()) {
+            shot_hold_time_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
+            args()->put_int(checksums::Name{kTimeOnCamera}, static_cast<int>(shot_hold_time_));
         }
-        if (m_timeOnCamera >= m_timeNeeded) {
-            void* manager = GoalManager();
-            return WinGoal(manager, GetGoalId());
+        if (shot_hold_time_ >= time_needed_) {
+            void* manager = objective_board();
+            return complete_objective(manager, get_objective_key());
         }
         // (no time left to film enough in)
-        if (m_timeNeeded - m_timeOnCamera > static_cast<uint32_t>(m_timeLeft)) {
-            void* manager = GoalManager();
-            return LoseGoal(manager, GetGoalId());
+        if (time_needed_ - shot_hold_time_ > static_cast<uint32_t>(seconds_remaining())) {
+            void* manager = objective_board();
+            return fail_objective(manager, get_objective_key());
         }
-        return CGoal::Update();
+        return Objective::tick_frame();
     }
-    if (m_checkpoints && m_checkpointsPassed >= m_checkpoints) {
-        void* manager = GoalManager();
-        return WinGoal(manager, GetGoalId());
+    if ((checkpoints_ != 0) && checkpoints_passed_ >= checkpoints_) {
+        void* manager = objective_board();
+        return complete_objective(manager, get_objective_key());
     }
-    return CGoal::Update();
+    return Objective::tick_frame();
 }
 
 // 0x00552AF0
-void CFilmGoal::Checkpoint()
+void ShootVideoObjective::checkpoint()
 {
-    if (!TargetInView())
+    if (!target_in_view()) {
         return;
-    if (++m_checkpointsPassed > m_checkpoints) {
-        void* manager = GoalManager();
-        WinGoal(manager, GetGoalId());
+    }
+    if (++checkpoints_passed_ > checkpoints_) {
+        void* manager = objective_board();
+        complete_objective(manager, get_objective_key());
     }
 }
 
 // --- Find gaps ---------------------------------------------------------------------------------------------------
 
 // 0x00552B30
-CFindGapsGoal* CFindGapsGoal::Construct(Script::CStruct* params)
-{
-    CGoal::Construct(params);
-    m_node.vtable = kFindGapsGoalVtable;
-    return this;
-}
+HuntGapsObjective::HuntGapsObjective(script::Struct* params) : Objective(params) {}
 
 // 0x00552B50
-void CFindGapsGoal::DestroyBody()
-{
-    m_node.vtable = kFindGapsGoalVtable;
-    CGoal::DestroyBody();
-}
-
-// 0x00552B60
-CFindGapsGoal* CFindGapsGoal::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+HuntGapsObjective::~HuntGapsObjective() = default;
 
 // 0x00552B90
-void CFindGapsGoal::CheckGaps()
+void HuntGapsObjective::scan_for_gaps()
 {
-    auto* skater = static_cast<Obj::CSkater*>(SkateCalls::GetLocalSkater());
-    Script::CStruct* found;
-    m_params->GetStructure(kGapsFound, &found, 1);
-    int count;
-    m_params->GetInteger(kNumGapsFound, &count, 1);
-    auto* score = static_cast<uint8_t*>(skater->GetScore());
-    int gaps = *reinterpret_cast<int*>(score + 0x5C);
-    bool foundNew = false;
+    auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
+    script::Struct* found = nullptr;
+    args()->read_sub_struct(kGapsFound, &found, 1);
+    int count = 0;
+    args()->fetch_int_value(kNumGapsFound, &count, 1);
+    auto* score = skater->get_points_total();
+    const int gaps = score->tricks();
+    bool found_new = false;
     for (int i = 0; i < gaps; ++i) {
-        // (Mdl::Score: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
-        if (!static_cast<Mdl::Score*>(static_cast<void*>(score))->IsGap(i))
+        // (modules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
+        if (!score->is_gap(i)) {
             continue;
-        uint32_t gap = reinterpret_cast<Mdl::Score*>(score)->GetTrickName(i);
-        if (found->ContainsComponentNamed(gap))
+        }
+        const uint32_t gap = score->get_trick_name(i);
+        if (found->has_entry_named(gap)) {
             continue;
-        found->AddInteger(gap, 1);
+        }
+        found->put_int(checksums::Name{gap}, 1);
         ++count;
-        foundNew = true;
+        found_new = true;
     }
-    m_params->AddInteger(kNumGapsFound, count);
-    m_params->AddInteger(kNumberCollected, count);
-    if (!foundNew)
+    args()->put_int(checksums::Name{kNumGapsFound}, count);
+    args()->put_int(checksums::Name{kNumberCollected}, count);
+    if (!found_new) {
         return;
-    Script::CStruct* params = NewStructure();
-    params->AddChecksum(kGoalIdChecksum, GetGoalId());
-    Script::RunScript(kFindGapsFoundGap, params, nullptr, false, nullptr);
-    DeleteStructure(params);
+    }
+    const script::StructPtr params = script::make_struct();
+    params->put_name_key(checksums::Name{kGoalIdChecksum}, get_objective_key());
+    script::launch_script(kFindGapsFoundGap, params.get(), nullptr, false, nullptr);
 }
 
 // 0x00552D20
-bool CFindGapsGoal::Activate()
+bool HuntGapsObjective::activate()
 {
-    m_params->RemoveComponent(kGapsFound);
-    Script::CStruct* found = NewStructure();
-    m_params->AddStructure(kGapsFound, found);
-    DeleteStructure(found);
-    m_params->AddInteger(kNumGapsFound, 0);
-    m_params->AddInteger(kNumberCollected, 0);
-    int toFind;
-    m_params->GetInteger(kNumGapsToFind, &toFind, 1); // (read and not used)
-    return CGoal::Activate();
+    args()->erase_module(kGapsFound);
+    script::StructPtr found = script::make_struct();
+    args()->put_sub_struct(kGapsFound, found.get());
+    found.reset();
+    args()->put_int(checksums::Name{kNumGapsFound}, 0);
+    args()->put_int(checksums::Name{kNumberCollected}, 0);
+    int to_find = 0;
+    args()->fetch_int_value(kNumGapsToFind, &to_find, 1); // (read and not used)
+    return Objective::activate();
 }
 
-} // namespace Game
+} // namespace goals

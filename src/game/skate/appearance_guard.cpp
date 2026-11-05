@@ -5,124 +5,138 @@
 #include <cstdint>
 #include <vector>
 
-#include "game/script/struct.h"
-#include "game/sys/log.h"
+#include "engine/script/param_struct.h"
+#include "platform/run_log.h"
 
-namespace Obj::AppearanceGuard {
+namespace objects::appearance_guard {
 
 namespace {
 
-constexpr uint32_t kDescId = 0x4BB2084E;          // desc_id
-constexpr uint32_t kNone = 0x806FFF30;            // None
-constexpr uint32_t kBody = 0x2457F44D;            // body
+constexpr uint32_t kDescId = 0x4BB2084E;            // desc_id
+constexpr uint32_t kNone = 0x806FFF30;              // None
+constexpr uint32_t kBody = 0x2457F44D;              // body
 constexpr uint32_t kDefaultAppearance = 0x33D0ACDE; // appearance_custom_skater_male
 
 // (an appearance read from a buffer owns its slots' structures: a structure pointer - one it doesn't own - is left
 // alone)
-bool IsStructure(const Script::CComponent* component) { return component->Type() == Script::ESYMBOLTYPE_STRUCTURE; }
+bool is_structure(const script::Component* component) { return value_kind(*component) == script::QbValueKind::kStruct; }
 
-Script::CArray* GamePartList(uint32_t slot) { return Script::GetArray(slot); }
-Script::CStruct* GameDefaults() { return Script::GetStructure(kDefaultAppearance); }
-const Catalog kGameCatalog = {GamePartList, GameDefaults};
-Catalog s_catalog = kGameCatalog;
+script::Array* game_part_list(uint32_t slot) { return script::fetch_list(slot); }
+script::Struct* game_defaults() { return script::read_sub_struct(kDefaultAppearance); }
+const Catalog kGameCatalog = {.part_list_ = game_part_list, .defaults = game_defaults};
+Catalog& current_catalog()
+{
+    static Catalog catalog{kGameCatalog};
+    return catalog;
+}
 
 // The slot's part list: the global array named after it, of structures (null if there's none).
-Script::CArray* PartList(uint32_t slot)
+script::Array* part_list(uint32_t slot)
 {
-    Script::CArray* list = s_catalog.partList(slot);
-    if (!list || list->m_size == 0 || list->m_type != Script::ESYMBOLTYPE_STRUCTURE)
+    script::Array* list = current_catalog().part_list_(slot);
+    if (!list || list->extent() == 0 || list->kind_tag() != script::QbValueKind::kStruct) {
         return nullptr;
+    }
     return list;
 }
 
-bool ListHas(Script::CArray* list, uint32_t desc)
+bool list_has(script::Array* list, uint32_t desc)
 {
-    for (uint32_t i = 0; i < list->m_size; ++i) {
-        auto* part = reinterpret_cast<Script::CStruct*>(list->GetElement(i));
+    for (uint32_t i = 0; i < list->extent(); ++i) {
+        auto* part = list->struct_at(i);
         uint32_t id = 0;
-        if (part && part->GetChecksum(kDescId, &id, 0) && id == desc)
+        if (part && part->read_hash_value(kDescId, &id, 0) && id == desc) {
             return true;
+        }
     }
     return false;
 }
 
 // What a slot falls back to (0: nothing fits).
-uint32_t Fallback(uint32_t slot, Script::CArray* list)
+uint32_t get_fallback(uint32_t slot, script::Array* list)
 {
-    if (ListHas(list, kNone))
+    if (list_has(list, kNone)) {
         return kNone;
-    if (Script::CStruct* defaults = s_catalog.defaults()) {
-        Script::CStruct* part = nullptr;
-        uint32_t desc = 0;
-        if (defaults->GetStructure(slot, &part, 0) && part && part->GetChecksum(kDescId, &desc, 0) &&
-            ListHas(list, desc))
-            return desc;
     }
-    auto* first = reinterpret_cast<Script::CStruct*>(list->GetElement(0));
+    if (script::Struct* defaults = current_catalog().defaults()) {
+        script::Struct* part = nullptr;
+        uint32_t desc = 0;
+        if (defaults->read_sub_struct(slot, &part, 0) && part && part->read_hash_value(kDescId, &desc, 0) &&
+            list_has(list, desc)) {
+            return desc;
+        }
+    }
+    auto* first = list->struct_at(0);
     uint32_t desc = 0;
-    if (first && first->GetChecksum(kDescId, &desc, 0))
+    if (first && first->read_hash_value(kDescId, &desc, 0)) {
         return desc;
+    }
     return 0;
 }
 
 } // namespace
 
-const Catalog& GameCatalog() { return kGameCatalog; }
-void SetCatalog(const Catalog& catalog) { s_catalog = catalog; }
+const Catalog& game_catalog() { return kGameCatalog; }
+void set_catalog(const Catalog& catalog) { current_catalog() = catalog; }
 
-int Sanitise(Script::CStruct* appearance)
+int sanitise(script::Struct* appearance)
 {
-    if (!appearance)
+    if (!appearance) {
         return 0;
+    }
     std::vector<uint32_t> remove;
     struct Change {
-        Script::CStruct* part;
+        script::Struct* part;
         uint32_t slot, from, to;
     };
     std::vector<Change> changes;
-    bool resetBody = false;
-    for (Script::CComponent* c = appearance->GetNextComponent(nullptr); c; c = appearance->GetNextComponent(c)) {
-        if (!IsStructure(c) || !c->structure)
-            continue;
-        uint32_t desc = 0;
-        if (!c->structure->GetChecksum(kDescId, &desc, 0))
-            continue; // (not a part)
-        Script::CArray* list = PartList(c->name);
-        if (!list) {
-            Log("appearance guard (TP-R9): slot 0x%08X isn't one of ours (part 0x%08X): taken out", c->name, desc);
-            remove.push_back(c->name);
+    bool reset_body = false;
+    for (script::Component* entry = appearance->step_to_entry(nullptr); entry; entry = appearance->step_to_entry(entry)) {
+        if (!is_structure(entry) || !entry->value.structure()) {
             continue;
         }
-        if (ListHas(list, desc))
+        uint32_t desc = 0;
+        if (!entry->value.structure()->read_hash_value(kDescId, &desc, 0)) {
+            continue; // (not a part)
+        }
+        script::Array* list = part_list(entry->name);
+        if (!list) {
+            get_log("appearance guard (TP-R9): slot 0x%08X isn't one of ours (part 0x%08X): taken out", entry->name, desc);
+            remove.push_back(entry->name);
             continue;
-        if (c->name == kBody) {
-            Log("appearance guard (TP-R9): body 0x%08X isn't one of ours: the default custom skater instead", desc);
-            resetBody = true;
+        }
+        if (list_has(list, desc)) {
+            continue;
+        }
+        if (entry->name == kBody) {
+            get_log("appearance guard (TP-R9): body 0x%08X isn't one of ours: the default custom skater instead", desc);
+            reset_body = true;
             break;
         }
-        uint32_t to = Fallback(c->name, list);
-        if (!to) {
-            Log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
-                c->name, desc);
-            remove.push_back(c->name);
+        const uint32_t to = get_fallback(entry->name, list);
+        if (to == 0U) {
+            get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
+                    entry->name, desc);
+            remove.push_back(entry->name);
             continue;
         }
-        changes.push_back({c->structure, c->name, desc, to});
+        changes.push_back({.part = entry->value.structure(), .slot = entry->name, .from = desc, .to = to});
     }
-    if (resetBody) {
-        Script::CStruct* defaults = s_catalog.defaults();
-        appearance->Clear();
-        appearance->AppendStructureIfAny(defaults);
+    if (reset_body) {
+        script::Struct* defaults = current_catalog().defaults();
+        appearance->get_clear();
+        appearance->append_structure_if_any(defaults);
         return 1;
     }
     for (const Change& change : changes) {
-        Log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours: 0x%08X instead", change.slot,
-            change.from, change.to);
-        change.part->AddChecksum(kDescId, change.to);
+        get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours: 0x%08X instead", change.slot,
+                change.from, change.to);
+        change.part->put_name_key(checksums::Name{kDescId}, change.to);
     }
-    for (uint32_t slot : remove)
-        appearance->RemoveComponent(slot);
+    for (const uint32_t slot : remove) {
+        appearance->erase_module(slot);
+    }
     return static_cast<int>(changes.size() + remove.size());
 }
 
-} // namespace Obj::AppearanceGuard
+} // namespace objects::appearance_guard

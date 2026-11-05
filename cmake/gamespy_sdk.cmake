@@ -2,11 +2,11 @@
 # open-source release (BSD-3, "Copyright (c) 2011, IGN Entertainment, Inc." - see THIRD_PARTY_NOTICES.md), the
 # December 2007 SDK (common 2.06), from github.com/nitrocaster/GameSpy at a pinned commit; downloaded at configure
 # time and checked against its SHA-256 - not stored in this repo. Only the modules the game uses are built, as the
-# static C library `gamespy_sdk` (called through src/game/net/gamespy.h).
+# static C library `gamespy_sdk` (called through src/platform/gamespy.h).
 #
 # Two changes are made to the source. The peer SDK's chat server name is a constant there ("peerchat."
 # GSI_DOMAIN_NAME, Peer/peerOperations.c); it becomes a variable, peerChatServerAddress, like the SDK's other host
-# names, so the online domain (OnlineDomain) can be set at run time (src/game/net/gamespy.cpp). And the chat SDK's
+# names, so the online domain (OnlineDomain) can be set at run time (src/platform/gamespy.cpp). And the chat SDK's
 # nick checks (Chat/chatMain.h) are as the game's own copy of the SDK has them: that one checks nothing but "not
 # empty" before sending the nick (the peer cuts it at 63 characters), while the 2007 SDK refuses nicks of 21 or more
 # characters and any outside its character set - which lacks the backslash the game's nick rules allow - with a

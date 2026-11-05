@@ -1,0 +1,148 @@
+// The lockobj component (GameObjects::PinnedObjectModule): Obj_LockToObject's parameters and the update that keeps an object
+// locked to another - with THAW's no_rotate added (lock_obj.h).
+
+#include "engine/objects/lock_obj.h"
+
+#include <cmath>
+#include <cstdint>
+#include "base/maths/mat4.h"
+#include "base/maths/random.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/entity.h"
+#include "engine/script/nodes.h"
+#include "engine/script/param_struct.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/ui/screen_element_cfuncs.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec2.h"
+
+namespace objects {
+
+namespace {
+constexpr int kWobbleSeedRange = 0x400;
+constexpr double kHalf = 0.5;
+constexpr float kLockObjWobbleStep{0.006135923F};
+
+constexpr uint32_t kObjLockToObject = 0x785E57C7; // Obj_LockToObject
+constexpr uint32_t kOff = 0xD443A2BC;             // off
+constexpr uint32_t kObjectName = 0x2BFC2486;      // ObjectName
+constexpr uint32_t kBoneOffset = 0xBE9AB709;      // BoneOffset
+constexpr uint32_t kId = 0x40C698AF;              // id
+constexpr uint32_t kBone = 0xCAB94088;            // bone
+constexpr uint32_t kLagRange = 0x700C4085;        // LagRange
+constexpr uint32_t kLagWobble = 0xD25807F0;       // lagwobble
+constexpr uint32_t kAngles = 0x9D2D0915;          // Angles
+// NOT ORIGINAL: THAW's flag (THAW's names: 0xD74A6981)
+constexpr uint32_t kKeepOrientation = 0xD74A6981; // no_rotate
+
+// The wobble's step: 2 pi / 1024 as the float the original multiplies by (0x00646118; the update's own, 0x0064611C,
+// is one bit larger).
+float wobble_step() { return kLockObjWobbleStep; }
+
+// The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
+int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+
+// The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
+void angles_to_matrix(maths::Mat4* matrix, const maths::Vec4* angles) { matrix->init_from_angles(*angles); }
+
+} // namespace
+
+// 0x0041F520
+void PinnedObjectModule::configure_from_data(script::Struct* params)
+{
+    entity_label_ = 0;
+    bone_ = 0;
+    target_id_ = frontend::kUnassignedId;
+    shift_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    // (NOT ORIGINAL: kLockFlagNoRotate cleared with the original's kLockFlagAngles)
+    lock_flags_ &= ~(kLockFlagAngles | kLockFlagNoRotate);
+    if (params->has_bare_flag(kOff)) {
+        lock_flags_ &= ~kLockFlagLocked;
+        return;
+    }
+    lock_flags_ |= kLockFlagLocked;
+    params->read_hash_value(kObjectName, &entity_label_, 0);
+    auto* offset = &shift_;
+    if (!params->fetch_vec(0U, offset, 0)) {
+        params->fetch_vec(kBoneOffset, offset, 0);
+    }
+    params->read_hash_value(kId, &target_id_, 0);
+    params->read_hash_value(kBone, &bone_, 0);
+    // (updated after the target: its priority less one)
+    EntityHub* manager = object_hub_slot().get();
+    const Entity* target = objects::EntityHub::look_up_entity(target_id_);
+    if (!target) {
+        target = objects::EntityHub::look_up_entity(entity_label_);
+    }
+    if (target) {
+        const int priority = get_truncated(static_cast<double>(target->list_link().priority()) - 1.0);
+        manager->set_entity_rank(static_cast<Entity*>(entity()), priority);
+    }
+    lock_flags_ &= ~kLockFlagLag;
+    maths::Vec2 lag{.x = 1.0F, .y = 1.0F};
+    if (params->fetch_pair(kLagRange, &lag, 0)) {
+        lock_flags_ |= kLockFlagLag;
+    }
+    lag_min_ = lag.x;
+    lag_max_ = lag.y;
+    maths::Vec2 wobble_pair{.x = 0.0F, .y = 0.0F};
+    if (params->fetch_pair(kLagWobble, &wobble_pair, 0)) {
+        lock_flags_ |= kLockFlagLag;
+    }
+    core::at(wobble_, 0) = wobble_pair.x;
+    core::at(wobble_, 1) = wobble_pair.y;
+    wobble_seed_ = maths::rnd(kWobbleSeedRange);
+    // (the masked time is never negative: the original's 2^32 correction for a negative one never applies)
+    const int wobble_tick = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
+    auto time = static_cast<double>(wobble_tick);
+    auto step = static_cast<double>(wobble_step());
+    const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
+                          std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
+    lag_ =
+        static_cast<float>(((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * kHalf) +
+                           static_cast<double>(lag_min_));
+    if (params->has_entry_named(kAngles)) {
+        lock_flags_ |= kLockFlagAngles;
+    } else {
+        lock_flags_ &= ~kLockFlagAngles;
+    }
+    if ((lock_flags_ & kLockFlagAngles) != 0) {
+        maths::Vec4 angles;
+        level_nodes::read_turn_angles(params, &angles);
+        angles_to_matrix(&orientation_turn_, &angles);
+    }
+    // NOT ORIGINAL: THAW's no_rotate (kLockFlagNoRotate)
+    if (params->has_bare_flag(kKeepOrientation)) {
+        lock_flags_ |= kLockFlagNoRotate;
+    }
+}
+
+// 0x0041FF90
+void PinnedObjectModule::tick_frame()
+{
+    if ((lock_flags_ & kLockFlagLocked) == 0) {
+        return;
+    }
+    if ((lock_flags_ & kLockFlagNoRotate) == 0) {
+        update_lock();
+        return;
+    }
+    // NOT ORIGINAL: THAW's no_rotate - placed by the lock (the offset turned by the target, as THAW's ferris cars go
+    // round with the wheel), its own orientation kept.
+    const maths::Mat4 own = entity()->basis_frame();
+    update_lock();
+    entity()->basis_frame() = own;
+    entity()->display_matrix() = own;
+}
+
+// 0x0041F410
+int PinnedObjectModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
+{
+    if (name != kObjLockToObject) {
+        return 2;
+    }
+    configure_from_data(params);
+    return 1;
+}
+
+} // namespace objects

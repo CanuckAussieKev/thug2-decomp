@@ -1,0 +1,579 @@
+// Script commands of the engine, 0x00446460-0x00447220: render debugging, the animation system, the light manager,
+// the screen, texture splats, gamma and light values for scripts, clipping and fog distances, the fog colour, render
+// modes, scene lights and bone positions (see cfuncs_engine.h).
+
+#include "engine/script/cfuncs_engine.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <array>
+
+#include "base/core/checksums.h"
+#include "engine/gfx/debug_lines.h"
+#include "engine/gfx/view_cam.h"
+#include "engine/gfx/screen.h"
+#include "base/maths/shape_tests.h"
+#include "base/maths/vec4.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/entity_hub.h"
+#include "engine/objects/skeleton_component.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/context.h"
+#include "engine/gfx/anim_cache.h"
+#include "engine/gfx/anim_blend.h"
+#include "engine/gfx/boned_anim_frame_data.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/engine_effects.h"
+#include "engine/gfx/engine_glue.h"
+#include "engine/gfx/light_manager.h"
+#include "engine/gfx/viewport.h"
+#include "base/core/down_cast.h"
+#include "base/core/format.h"
+#include "engine/gfx/view_setup.h"
+#include "engine/gfx/engine_parts.h"
+#include "engine/gfx/render_device.h"
+#include "base/core/checked_index.h"
+
+namespace commands {
+
+using script::Context;
+using script::Struct;
+
+namespace {
+// A colour's bytes: memory order r, g, b, a (the shifts of green, blue, alpha) and 0xAARRGGBB (alpha, red, green).
+constexpr int kGreenShift = 8;
+constexpr int kBlueShift = 16;
+constexpr int kAlphaShift = 24;
+constexpr int kArgbAlphaShift = 24;
+constexpr int kArgbRedShift = 16;
+constexpr int kArgbGreenShift = 8;
+constexpr int kByteMask = 0xFF;
+constexpr int kFogChannelDefault = 0xFF;
+constexpr int kFogAlphaDefault = 0x80;
+constexpr int kLightAlpha = 0x80;
+constexpr uint32_t kDebugLineColour = 0xFF0000FFU;
+constexpr float kPausePosY = 240.0F;
+constexpr double kHalf = 0.5;
+constexpr float kRenderDefaultFarPlane{12.0F};
+constexpr float kRenderDefaultNearPlane{12000.0F};
+int& render_mode()
+{
+    static int render_mode{};
+    return render_mode;
+}
+
+constexpr uint32_t kIgnore1 = 0xD12347A6;        // "ignore_1"
+constexpr uint32_t kIgnore0 = 0xA6247730;        // "ignore_0"
+constexpr uint32_t kT48 = 0xC06EAD08;            // "t48"
+constexpr uint32_t kQ48 = 0xC6A56FE3;            // "q48"
+constexpr uint32_t kAnimHeapSize = 0x83DFF28A;   // "AnimHeapSize"
+constexpr uint32_t kAnimCacheSize = 0x7AA8C11C;  // (name unknown) the animation cache's second size
+constexpr uint32_t kDefCacheType = 0x891A96A9;   // "DefCacheType"
+constexpr uint32_t kCacheType3 = 0x50428FBD;     // (name unknown) cache type 3
+constexpr uint32_t kCacheType4 = 0x7ADB1481;     // (name unknown) cache type 4
+constexpr uint32_t kStandard = 0xEF082878;       // "standard": cache type 2 (others 0)
+constexpr uint32_t kMaxAnimBlends = 0x416BC96B;  // (name unknown) the first of 0x0047EB30's sizes
+constexpr uint32_t kMaxAnimSubsets = 0xD14E9A11; // "MaxAnimSubsets"
+constexpr uint32_t kDisable = 0xB0BAB2AE;        // "disable"
+constexpr uint32_t kEnable = 0x0C5F37CD;         // "enable"
+constexpr uint32_t kDefrag = 0x6A8251D1;         // "defrag"
+constexpr uint32_t kClear = 0x1A4E0EF9;          // "clear"
+constexpr uint32_t kLightCapacity = 0x50228D9E;  // "max_lights"
+constexpr uint32_t kMaxModelLights = 0x701C70AC; // (name unknown) the light manager's second count
+constexpr uint32_t kAspect = 0x0F7C3CAA;         // "aspect"
+constexpr uint32_t kAngle = 0xFF7EBAF6;          // "angle"
+constexpr uint32_t kLetterbox = 0xD4328DD3;      // "letterbox"
+constexpr uint32_t kAllow = 0x81B6BF17;          // "allow"
+constexpr uint32_t kStart = 0x6086AA70;          // "start"
+constexpr uint32_t kEnd = 0xFF03CC4E;            // "end"
+constexpr uint32_t kColor = 0x99A9B716;          // "color"
+constexpr uint32_t kFrames = 0x019176C5;         // "frames"
+constexpr uint32_t kBox = 0xF756B7C5;            // "box"
+constexpr uint32_t kHeight = 0x0AB21AF0;         // "height"
+constexpr uint32_t kDist = 0x7E832F08;           // "dist"
+constexpr uint32_t kWidth = 0x73E5BAD0;          // "width"
+constexpr uint32_t kOffset = 0xA6F5352F;         // "offset"
+constexpr uint32_t kTexture = 0x7D99F28D;        // "texture"
+constexpr uint32_t kRed = 0x059EA070;            // "red"
+constexpr uint32_t kGreen = 0x2F6511DE;          // "green"
+constexpr uint32_t kBlue = 0x61C9354B;           // "blue"
+constexpr uint32_t kAmbient = 0xBCEE1D37;        // "ambient"
+constexpr uint32_t kDirectional = 0xB8F8BBE6;    // "directional"
+constexpr uint32_t kModValueLo = 0xF2BB5523;     // "mod_value_lo"
+constexpr uint32_t kModValueHi = 0x7FB43512;     // "mod_value_hi"
+constexpr uint32_t kMode = 0x6835B854;           // "mode"
+constexpr uint32_t kIndex = 0x7F8C98FE;          // "index"
+constexpr uint32_t kHeading = 0xFD4BC03E;        // "heading"
+constexpr uint32_t kPitch = 0xD8604126;          // "pitch"
+constexpr uint32_t kUpperR = 0x93F60062;         // "R"
+constexpr uint32_t kUpperG = 0xFE2BE489;         // "G"
+constexpr uint32_t kUpperB = 0x8E411006;         // "B"
+constexpr uint32_t kAmbientRed = 0xED664897;     // "ambient_red"
+constexpr uint32_t kAmbientGreen = 0x908BF647;   // "ambient_green"
+constexpr uint32_t kAmbientBlue = 0x5F4FBA78;    // "ambient_blue"
+constexpr uint32_t kRed0 = 0xE213AEB7;           // "red_0"
+constexpr uint32_t kGreen0 = 0x6EF19631;         // "green_0"
+constexpr uint32_t kBlue0 = 0x5EC44213;          // "blue_0"
+constexpr uint32_t kRed1 = 0x95149E21;           // "red_1"
+constexpr uint32_t kGreen1 = 0x19F6A6A7;         // "green_1"
+constexpr uint32_t kBlue1 = 0x29C37285;          // "blue_1"
+constexpr uint32_t kId = 0x40C698AF;             // "id"
+constexpr uint32_t kBone = 0xCAB94088;           // "bone"
+constexpr uint32_t kSkeleton = 0x222756D5;       // "skeleton" (the component type)
+constexpr uint32_t kX = 0x7323E97C;              // "x"
+constexpr uint32_t kY = 0x0424D9EA;              // "y"
+constexpr uint32_t kZ = 0x9D2D8850;              // "z"
+
+// Compiled out of this build - jumps to the empty function 0x005480A0 (0x0048C1B0) or calls of it.
+inline void finish_rendering() {}
+inline void allow_bone_lod(bool /*allow*/) {}
+inline void print_anim_cache_info(void* /*cache*/) {}
+
+// The animation cache manager (0x006F92B0 through its getter 0x00480660).
+gfx::ClipStore* clip_store_ref() { return gfx::ClipStore::get_pull(); }
+
+// The viewport's camera `index` (0x004A0950: null if the viewport has none).
+gfx::ViewCam* viewport_camera(int index) { return render::obtain_active_lens(index); }
+
+// A colour of four bytes (red, green, blue, alpha in memory order).
+uint32_t pack_bytes(int red, int green, int blue, int alpha)
+{
+    return static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << kGreenShift |
+           static_cast<uint8_t>(blue) << kBlueShift | static_cast<uint32_t>(static_cast<uint8_t>(alpha)) << kAlphaShift;
+}
+
+} // namespace
+
+// 0x00446460: DebugRenderIgnore ignore_0=<n> ignore_1=<n> (0x0048C110). Always true.
+bool cfunc_debug_render_ignore(Struct* params, Context /*context*/)
+{
+    int ignore1 = 0;
+    int ignore0 = 0;
+    params->fetch_int_value(kIgnore1, &ignore1, 0);
+    params->fetch_int_value(kIgnore0, &ignore0, 0);
+    render::engine::set_render_ignore(ignore1, ignore0);
+    return true;
+}
+
+// 0x004464C0: InitAnimCompressTable "<file>" t48 | q48: the animation compression table loaded from the file
+// (0x00482A30 for t48, 0x004829F0 for q48; nothing for another type). Always true.
+bool cfunc_init_anim_compress_table(Struct* params, Context /*context*/)
+{
+    const char* file = nullptr; // (both asserted; uninitialised in the original)
+    uint32_t type = 0;
+    params->fetch_text(0U, &file, 1);
+    params->read_hash_value(0U, &type, 1);
+    constexpr size_t kNameSize = 256;
+    std::array<char, kNameSize> name{};
+    text::format_to(name, "%s", file); // (the original's sprintf isn't bounded)
+    if (type == kT48) {
+        gfx::load_trans_table(name.data());
+    } else if (type == kQ48) {
+        gfx::load_quat_table(name.data());
+    }
+    return true;
+}
+
+// 0x00446570: InitAnimSystem AnimHeapSize <size 2> DefCacheType <counts>: the animation cache (0x00480D10: the
+// sizes and the type - 2 standard, 3 / 4 two others, 0 anything else) and the blend system (0x0047EB30). Always true.
+bool cfunc_init_anim_system(Struct* params, Context /*context*/)
+{
+    int heap_size = 0;
+    int cache_size = 0;
+    uint32_t cache_type = 0;
+    params->fetch_int_value(kAnimHeapSize, &heap_size, 1);
+    params->fetch_int_value(kAnimCacheSize, &cache_size, 1);
+    params->read_hash_value(kDefCacheType, &cache_type, 1);
+    int type = 0;
+    if (cache_type == kCacheType3) {
+        type = 3;
+    } else if (cache_type == kCacheType4) {
+        type = 4;
+    } else {
+        type = cache_type == kStandard ? 2 : 0;
+    }
+    gfx::ClipStore::fabricate(heap_size, {.granularity = static_cast<uint32_t>(cache_size), .type = type});
+    int blends = 0;
+    int subsets = 0;
+    params->fetch_int_value(kMaxAnimBlends, &blends, 1);
+    params->fetch_int_value(kMaxAnimSubsets, &subsets, 1);
+    gfx::BlendChannel::init_buffers({.blends = blends, .subsets = subsets});
+    return true;
+}
+
+// 0x00446650: UpdateAnimCache clear | defrag (0x00480DB0(0) / 0x00480F20 on the cache); with neither, the cache's
+// information (compiled out). With enable or disable it does nothing (their code is compiled out). Always true.
+bool cfunc_update_anim_cache(Struct* params, Context /*context*/)
+{
+    const bool disable = params->has_entry_named(kDisable);
+    const bool enable = params->has_entry_named(kEnable);
+    const bool defrag = params->has_entry_named(kDefrag);
+    const bool clear = params->has_entry_named(kClear);
+    if (disable || enable) {
+        return true;
+    }
+    if (clear) {
+        clip_store_ref()->drain(false);
+    } else if (defrag) {
+        clip_store_ref()->defragment();
+    } else {
+        print_anim_cache_info(clip_store_ref());
+    }
+    return true;
+}
+
+// 0x004466F0: FinishRendering (does nothing in this build). Always true.
+bool cfunc_finish_rendering(Struct* /*params*/, Context /*context*/)
+{
+    finish_rendering();
+    return true;
+}
+
+// 0x00446700: InitLightManager max_lights=<n> <n> (0x0048EB70). Always true.
+bool cfunc_init_light_manager(Struct* params, Context /*context*/)
+{
+    int max_lights = 0;
+    int max_model_lights = 0;
+    params->fetch_int_value(kLightCapacity, &max_lights, 1);
+    params->fetch_int_value(kMaxModelLights, &max_model_lights, 1);
+    render::init_light_manager({.max_lights_ = static_cast<uint32_t>(max_lights), .max_model_lights_ = static_cast<uint32_t>(max_model_lights)});
+    return true;
+}
+
+// 0x00446760: UninitLightManager (0x0048FB60). Always true.
+bool cfunc_uninit_light_manager(Struct* /*params*/, Context /*context*/)
+{
+    render::uninit_light_manager();
+    return true;
+}
+
+// 0x00446770: PushWorldLights: the world lights saved on their stack (0x0048EA00). Always true.
+bool cfunc_push_world_lights(Struct* /*params*/, Context /*context*/)
+{
+    render::push_world_lights();
+    return true;
+}
+
+// 0x00446780 (a jump to 0x0048EA40): PopWorldLights: the world lights taken back from their stack; false if it's
+// empty.
+bool cfunc_pop_world_lights(Struct* /*params*/, Context /*context*/) { return render::pop_world_lights(); }
+
+// 0x00446790: SetScreen [aspect=<f>] [angle=<f>] [letterbox=<n>]: those given are set. Always true.
+bool cfunc_set_screen(Struct* params, Context /*context*/)
+{
+    float aspect = 0.0F;
+    if (params->fetch_float(kAspect, &aspect, 0)) {
+        render::set_screen_aspect_ratio(aspect);
+    }
+    float angle = 0.0F;
+    if (params->fetch_float(kAngle, &angle, 0)) {
+        render::set_screen_field_of_view(angle);
+    }
+    int letterbox = 0;
+    if (params->fetch_int_value(kLetterbox, &letterbox, 0)) {
+        render::set_letterbox(letterbox != 0);
+    }
+    return true;
+}
+
+// 0x00446810: AllowBoneLOD allow=<n> (does nothing in this build). Always true.
+bool cfunc_allow_bone_lod(Struct* params, Context /*context*/)
+{
+    int allow = 1;
+    params->fetch_int_value(kAllow, &allow, 0);
+    allow_bone_lod(allow > 0);
+    return true;
+}
+
+// 0x00446850: DebugLine start=<vector> end=<vector> [color=<n> (0xFF0000FF)] [frames=<n>] (drawn by compiled-out
+// code). Always true.
+bool cfunc_debug_line(Struct* params, Context /*context*/)
+{
+    script::VectorValue start{};
+    script::VectorValue end{};
+    int colour = static_cast<int>(kDebugLineColour);
+    int frames = 0;
+    params->fetch_vec(kStart, &start, 1);
+    params->fetch_vec(kEnd, &end, 1);
+    params->fetch_int_value(kColor, &colour, 0);
+    params->fetch_int_value(kFrames, &frames, 0);
+    gfx::push_diag_line(&start, &end,
+                        static_cast<uint32_t>(colour), 0, frames);
+    return true;
+}
+
+// 0x004468E0: GetPausePosByResolution: pos=(50, 240) at a 640-pixel-wide back buffer, (20, 240) otherwise, into
+// the script's params. Always true.
+bool cfunc_get_pause_pos_by_resolution(Struct* /*params*/, Context context)
+{
+    const float x = render::device().presented_width() == 640 ? 50.0F : 20.0F; // the back buffer's width
+    context.args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = kPausePosY});
+    return true;
+}
+
+// 0x00446930: KillAllTextureSplats [box={height dist width [offset=<vector>]}] | [texture=<name>]: the splats in
+// the box (feet; the box around the offset: width along x, height along y, dist along z, each centred - 0x00491630),
+// those of a texture (0x004916F0), or all of them (0x004915A0). Always true.
+bool cfunc_kill_all_texture_splats(Struct* params, Context /*context*/)
+{
+    maths::BBox box;
+    Struct* box_params = nullptr;
+    uint32_t texture = 0;
+    if (!params->read_sub_struct(kBox, &box_params, 0)) {
+        if (params->read_hash_value(kTexture, &texture, 0)) {
+            render::engine::kill_texture_splats_of_texture(texture);
+        } else {
+            render::engine::kill_all_texture_splats();
+        }
+        return true;
+    }
+    float height = 0.0F;
+    float dist = 0.0F;
+    float width = 0.0F;
+    maths::Vec4 low = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F}; // the box's corners around the offset (w unused)
+    maths::Vec4 high = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    maths::Vec4 offset = {
+        .x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F}; // (x, y, z uninitialised in the original when not given)
+    // Each size in feet to inches; the corners at minus / plus half of it (the low one not above 0, the high one not
+    // below 0 - NaN goes through). x87: the low half from the unrounded product, the high one from it rounded to a
+    // float.
+    struct Sides {
+        float low;
+        float high;
+    };
+    auto extent = [](float size) {
+        const double inches = static_cast<double>(size) * 12.0;
+        double half = inches * -kHalf;
+        Sides sides{.low = 0.0 < half ? 0.0F : static_cast<float>(half), .high = 0.0F};
+        half = static_cast<double>(static_cast<float>(inches)) * kHalf;
+        sides.high = half < 0.0 ? 0.0F : static_cast<float>(half);
+        return sides;
+    };
+    if (box_params->fetch_float(kHeight, &height, 1)) {
+        const Sides sides = extent(height);
+        low.y = sides.low;
+        high.y = sides.high;
+    }
+    if (box_params->fetch_float(kDist, &dist, 1)) {
+        const Sides sides = extent(dist);
+        low.z = sides.low;
+        high.z = sides.high;
+    }
+    if (box_params->fetch_float(kWidth, &width, 1)) {
+        const Sides sides = extent(width);
+        low.x = sides.low;
+        high.x = sides.high;
+    }
+    if (box_params->fetch_vec(kOffset, &offset, 1)) {
+        offset.feet_as_inches();
+    }
+    box.min = {.x = offset.x + low.x, .y = offset.y + low.y, .z = offset.z + low.z, .w = offset.w + 1.0F};
+    box.max = {.x = offset.x + high.x, .y = offset.y + high.y, .z = offset.z + high.z, .w = offset.w + 1.0F};
+    render::engine::kill_texture_splats_in_box(&box);
+    return true;
+}
+
+// 0x00446C20: GetGammaValues: the gamma's red, green and blue as percentages (truncated) into the script's params.
+// Always true.
+bool cfunc_get_gamma_values(Struct* /*params*/, Context context)
+{
+    const std::array<float, 3> gamma = render::device().get_gamma();
+    const float red = core::at(gamma, 0);
+    const float green = core::at(gamma, 1);
+    const float blue = core::at(gamma, 2);
+    Struct* out = context.args().get();
+    out->erase_module(kRed);
+    out->erase_module(kGreen);
+    out->erase_module(kBlue);
+    // x87: the product isn't rounded to a float before it's truncated
+    out->put_int(checksums::Name{kRed}, static_cast<int>(static_cast<double>(red) * 100.0));
+    out->put_int(checksums::Name{kGreen}, static_cast<int>(static_cast<double>(green) * 100.0));
+    out->put_int(checksums::Name{kBlue}, static_cast<int>(static_cast<double>(blue) * 100.0));
+    return true;
+}
+
+// 0x00446CD0: GetDynamicLightModulationFactor ambient | directional=<index>: the two modulation factors
+// (0x0048E9B0 / 0x0048E9D0, the second first) into the script's params as mod_value_lo and mod_value_hi. Always
+// true.
+bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Context context)
+{
+    int directional = 0;
+    float low = 0.0F;
+    float high = 0.0F;
+    if (params->has_bare_flag(kAmbient)) {
+        low = render::fetch_ambient_scale(true);
+        high = render::fetch_ambient_scale(false);
+    } else {
+        params->fetch_int_value(kDirectional, &directional, 0);
+        low = render::fetch_diffuse_scale(directional, true);
+        high = render::fetch_diffuse_scale(directional, false);
+    }
+    context.args()->push_float(checksums::Name{kModValueLo}, low);
+    context.args()->push_float(checksums::Name{kModValueHi}, high);
+    return true;
+}
+
+// 0x00446D70: SetClippingDistances Near=<f> Far=<f>: both viewport cameras' near and far planes (+0xB8 / +0xBC).
+// The defaults are the globals 0x006487D4 for Near and 0x006487D0 for Far - 12000 and 12, the wrong way round (as
+// in the original). Always true.
+bool cfunc_set_clipping_distances(Struct* params, Context /*context*/)
+{
+    float near_plane = kRenderDefaultNearPlane;
+    float far_plane = kRenderDefaultFarPlane;
+    params->fetch_float("Near", &near_plane, 0);
+    params->fetch_float("Far", &far_plane, 0);
+    for (int i = 0; i < 2; ++i) {
+        if (gfx::ViewCam* camera = viewport_camera(i)) {
+            camera->set_near_dist(near_plane);
+            camera->set_far_clip(far_plane);
+        }
+    }
+    return true;
+}
+
+// 0x00446DF0: SetFogDistance distance=<f> (0x00490E00); both viewport cameras are looked up and left alone (their
+// use is compiled out). False (and nothing) while distance clipping is on.
+bool cfunc_set_fog_distance(Struct* params, Context /*context*/)
+{
+    if (render::view_setup().distance_clipping()) {
+        return false;
+    }
+    float distance = 0.0F;
+    params->fetch_float("distance", &distance, 0);
+    render::engine::set_fog_distance(distance);
+    for (int i = 0; i < 2; ++i) {
+        viewport_camera(i);
+    }
+    return true;
+}
+
+// 0x00446E50: SetFogColor r g b a (255, 255, 255, 128): the fog colour (0x00490E20, bytes r g b a). While distance
+// clipping is on, the clear colour used with it (0x0078733C, 0xAARRGGBB) instead - and false.
+bool cfunc_set_fog_color(Struct* params, Context /*context*/)
+{
+    int red = kFogChannelDefault;
+    int green = kFogChannelDefault;
+    int blue = kFogChannelDefault;
+    int alpha = kFogAlphaDefault;
+    params->fetch_int_value("r", &red, 0);
+    params->fetch_int_value("g", &green, 0);
+    params->fetch_int_value("b", &blue, 0);
+    params->fetch_int_value("a", &alpha, 0);
+    if (render::view_setup().distance_clipping()) {
+        render::engine_parts().set_fog_colour(static_cast<uint32_t>(alpha) << kArgbAlphaShift |
+                                              (red & kByteMask) << kArgbRedShift |
+                                              (green & kByteMask) << kArgbGreenShift | (blue & kByteMask));
+        return false;
+    }
+    render::engine::set_fog_color(pack_bytes(red, green, blue, alpha));
+    return true;
+}
+
+// 0x00446F40: SetRenderMode mode=<n> (0x006FA734). Always true.
+bool cfunc_set_render_mode(Struct* params, Context /*context*/)
+{
+    int mode = 0;
+    params->fetch_int_value(kMode, &mode, 0);
+    render::engine_parts().set_render_mode(mode);
+    return true;
+}
+
+// 0x00446F70: SetWireframeMode mode=<n> (0x006FA730). Always true.
+bool cfunc_set_wireframe_mode(Struct* params, Context /*context*/)
+{
+    int mode = 0;
+    params->fetch_int_value(kMode, &mode, 0);
+    render_mode() = mode;
+    return true;
+}
+
+// 0x00446FA0: SetLightAmbientColor r g b (alpha 128, 0x0048E8F0). Returns what that returns (its AL).
+bool cfunc_set_light_ambient_color(Struct* params, Context /*context*/)
+{
+    int red = 0;
+    int green = 0;
+    int blue = 0; // (uninitialised in the original)
+    params->fetch_int_value("r", &red, 0);
+    params->fetch_int_value("g", &green, 0);
+    params->fetch_int_value("b", &blue, 0);
+    return render::set_light_ambient_color(pack_bytes(red, green, blue, kLightAlpha));
+}
+
+// 0x00447010: GetLightDirection index=<n>: the light's direction (0x0048E920) in degrees into the script's params:
+// heading (its y) and pitch (its x). Always true.
+bool cfunc_get_light_direction(Struct* params, Context context)
+{
+    int index = 0; // (uninitialised in the original)
+    params->fetch_int_value(kIndex, &index, 0);
+    maths::Vec4 direction = *render::device().get_light_direction(index);
+    direction.convert_to_degrees();
+    context.args()->push_float(checksums::Name{kHeading}, direction.y);
+    context.args()->push_float(checksums::Name{kPitch}, direction.x);
+    return true;
+}
+
+// 0x004470A0: SetLightDiffuseColor index=<n> R G B (alpha 128, 0x0048E930). Returns what that returns (its AL).
+bool cfunc_set_light_diffuse_color(Struct* params, Context /*context*/)
+{
+    int index = 0;
+    int red = 0;
+    int green = 0;
+    int blue = 0; // (uninitialised in the original)
+    params->fetch_int_value(kIndex, &index, 0);
+    params->fetch_int_value(kUpperR, &red, 0);
+    params->fetch_int_value(kUpperG, &green, 0);
+    params->fetch_int_value(kUpperB, &blue, 0);
+    return render::set_light_diffuse_color(index, pack_bytes(red, green, blue, kLightAlpha));
+}
+
+// 0x00447130: GetLightCurrentColor: the current ambient colour (0x0048E900) and the two directional lights'
+// (0x0048E950) into the script's params as ambient_red .. blue_1. Always true.
+bool cfunc_get_light_current_color(Struct* /*params*/, Context context)
+{
+    Struct* out = context.args().get();
+    uint32_t colour = 0;
+    // (the names the three channels are put under)
+    struct ChannelNames {
+        uint32_t red;
+        uint32_t green;
+        uint32_t blue;
+    };
+    auto add = [&](ChannelNames names) {
+        out->put_int(checksums::Name{names.red}, static_cast<int>(colour & kByteMask));
+        out->put_int(checksums::Name{names.green}, static_cast<int>(colour >> kGreenShift & kByteMask));
+        out->put_int(checksums::Name{names.blue}, static_cast<int>(colour >> kBlueShift & kByteMask));
+    };
+    uint32_t buffer = 0;
+    colour = *render::get_light_ambient_color(&buffer);
+    add({.red = kAmbientRed, .green = kAmbientGreen, .blue = kAmbientBlue});
+    colour = *render::get_light_diffuse_color(&buffer, 0);
+    add({.red = kRed0, .green = kGreen0, .blue = kBlue0});
+    colour = *render::get_light_diffuse_color(&buffer, 1);
+    add({.red = kRed1, .green = kGreen1, .blue = kBlue1});
+    return true;
+}
+
+// 0x00447220: GetBonePosition id=<object> bone=<name>: the bone's position (the skeleton component's 0x00432050)
+// into the script's params as x, y, z; whether the bone was found. Without the object, x / y / z are added anyway
+// (uninitialised in the original; zero here).
+bool cfunc_get_bone_position(Struct* params, Context context)
+{
+    uint32_t id = 0;
+    params->read_hash_value(kId, &id, 1);
+    bool found = false;
+    maths::Vec4 position = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
+    if (objects::Entity* object = objects::ObjectHubBase::look_up_entity(id)) {
+        uint32_t bone = 0;
+        params->read_hash_value(kBone, &bone, 1);
+        objects::ObjectModule* skeleton = core::down_cast<objects::GameEntity>(object)->fetch_module(kSkeleton);
+        found = core::down_cast<objects::BoneRigModule>(skeleton)->get_bone_position(bone, &position);
+    }
+    context.args()->push_float(checksums::Name{kX}, position.x);
+    context.args()->push_float(checksums::Name{kY}, position.y);
+    context.args()->push_float(checksums::Name{kZ}, position.z);
+    return found;
+}
+
+} // namespace commands

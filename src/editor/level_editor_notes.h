@@ -1,0 +1,76 @@
+#pragma once
+
+#include <cstdint>
+#include <span>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <array>
+
+#include "editor/level_editor.h"
+#include "editor/level_editor_ui.h"
+#include "base/core/checked_index.h"
+
+struct ImFont;
+
+// NOT ORIGINAL - the level editor's note pins (ours; see level_editor.h - the UX research's #17, after Unreal's Note
+// actor): a short text put at a point in the level - a to-do, a play-test finding ("raise this ledge") - shown in the
+// editor as a pin with its text over the view, listed in the Outliner (its Notes section: + Note here, the list, a
+// click selects and opens the note's window - its text, colour, Move here, Go to, Delete). Editor-only: a note is no
+// node and no object, nothing of it exists in play (the pins are drawn only while the editor runs), and the bake
+// (tools/game/apply_layout.ts) passes its records over silently (tools/game/layout_file.ts reads them).
+//
+// Layout record (version 2 still; an older reader skips the kind):
+//   note <name> pos=x,y,z color=RRGGBB text="..."
+// The text is percent-encoded where the line needs it: % " # (the layout's comment mark), control characters (a new
+// line is %0A) - everything else as typed (UTF-8). At most kMaxText bytes; text= comes last.
+namespace frontend::level_editor::notes {
+
+// --- the pure parts --------------------------------------------------------------------------------------------------
+
+constexpr size_t kMaxText = 500;
+constexpr const char* kStem = "ed_note";
+// The colours offered (RGB) - the first is the default.
+constexpr auto kColours = std::to_array<uint32_t>({0xFFD84A, 0xFF7A59, 0x5AC8FA, 0x7BD88F, 0xC18CFF, 0xF2F2F2});
+constexpr int kColourCount = static_cast<int>(sizeof(kColours) / sizeof(core::at(kColours, 0)));
+
+struct Note {
+    std::string name; // ed_note01...
+    V3 pos = {};
+    uint32_t colour = core::at(kColours, 0); // RGB
+    std::string text;
+};
+bool get_same(const Note& a, const Note& b);
+// The text as the record keeps it, and back (false: a bad escape).
+std::string pack_up(const std::string& text);
+bool decode(const std::string& encoded, std::string* text);
+// The record's text ("note ..."), and one read (after the word "note"; false: malformed - no pos, a bad name, colour,
+// number or escape, a key twice, text= not last / not quoted).
+std::string write_record(const Note& note);
+bool read_record(std::istringstream& in, Note* out);
+// A fresh name: the stem and the lowest two-digit number no note in `notes` has.
+std::string fresh_name(const std::vector<Note>& notes);
+// The pin's label: the text's first line, cut to `most` characters ("..." added); "(empty note)" for none.
+std::string caption(const std::string& text, size_t most);
+
+// --- the game side ------------------------------------------------------------------------------------------------
+
+const std::vector<Note>& get_all();
+// Layouts: the notes now; put in place (replacing the current - how many); all removed; a new level (forgotten).
+std::vector<Note> get_capture();
+int get_apply(const std::vector<Note>& notes);
+void reset_all();
+void forget_level();
+// "+ Note here" from elsewhere (the command search - level_editor_ux3.h): queued as the Outliner's button does.
+void add_here_queued();
+// Once a frame while the editor runs: what the UI asked for (queued).
+void tick_frame();
+// The pins over the view (the selected one brighter): a stem from the point up, a head, the text beside it.
+void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
+                 std::vector<ui::Overlay::OverlayText>* texts);
+// The Outliner's Notes section (`search`: the Outliner's search text - rows matching it) and the selected note's window.
+void outliner_section(ImFont* mono, const char* search);
+void pane(PaneArea area, float scale);
+
+} // namespace frontend::level_editor::notes

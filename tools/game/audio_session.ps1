@@ -3,7 +3,7 @@ param([Parameter(Mandatory = $true)][int]$ProcessId, [int]$Samples = 20, [int]$I
 # (what it actually plays, before the session's mute - so a muted game still shows a peak while it makes sound).
 # Prints "session pid=<n> muted=<True|False> volume=<0..1> peak max=<0..1>" per session of that process, or
 # "NO SESSION" (it hasn't opened any sound yet). Read only: it changes nothing. Used to check [features] mute_audio
-# (src/game/sfx/mute_audio.h) in the workspaces.
+# (src/engine/sound/mute_audio.h) in the workspaces.
 if (-not ('CoreAudioQuery' -as [type])) {
     Add-Type -TypeDefinition @"
 using System;

@@ -4,8 +4,8 @@ param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$G
 # A game in trouble (game_health.ps1: it crashed - exit code not 0 -, Windows Error Reporting runs for it, it shows a
 # dialog, or its window hasn't responded for -HangSeconds) is noticed while waiting, closed (WM_CLOSE, then killed),
 # and reported with the end of its log - also appended to <folder>\thug2-decomp-crashes.txt. Exit code 5 then.
-# -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front/start_level.h).
-# Commands (the test-automation channel, src/game/front/automation.h - [features] automation=1, set in the workspaces):
+# -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front_end/start_level.h).
+# Commands (the test-automation channel, src/devtools/automation.h - [features] automation=1, set in the workspaces):
 #   -Commands "waitfor ready","choose menu_singlesess",...: written to <folder>\thug2-decomp-commands.txt before the
 #                       game starts; the run waits until the game has done them (its status file) - -Seconds is then
 #                       the most it waits - and the picture is taken right after. No fixed waits, no posted keys.
@@ -117,7 +117,11 @@ if ($trouble) {
     if (Test-Path $cmdFile) { Remove-Item $cmdFile -Force -ErrorAction SilentlyContinue }
     exit 5
 }
-if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $started.Elapsed.TotalSeconds } else {
+if ($p.HasExited) {
+    # (a `quit` among the commands: Wait-GameCommands waited for the process to go - an exit, not an early one)
+    $how = if ($Commands.Count -and $r.exited) { 'exited after its quit' } else { 'exited early' }
+    "$how (code $($p.ExitCode)) after {0:N1} s" -f $started.Elapsed.TotalSeconds
+} else {
     Snap "$Shot-1"
     if ($Keys -ne '') {
         if ($workspace) { $env:KEYS_POST = '1'; $env:KEYS_NO_FOCUS = '1' }
@@ -135,7 +139,11 @@ if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $star
     "running after {0:N1} s; responding=$($p.Responding)" -f $started.Elapsed.TotalSeconds
     Stop-Process -Id $p.Id -Force
 }
-Start-Sleep -Seconds 2
+# (a killed game takes a moment to go - its log is complete and the exe free only then: waited for, up to 30 s, so
+# the next run or the lock's release doesn't find it still there)
+if (-not $p.WaitForExit(30000)) { "not gone 30 s after the kill: $(Close-Game $p)" }
+$gone = [Diagnostics.Stopwatch]::StartNew()
+while ((Get-Process -Id $p.Id -ErrorAction SilentlyContinue) -and $gone.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 250 }
 if (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) { "STILL RUNNING" } else {
     "closed"
     # (the commands are done with: a later start mustn't run them again - the status stays for reading)

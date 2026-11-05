@@ -1,0 +1,466 @@
+// The engine's scene (see engine_scene.h): its members of 0x0049D1A0-0x0049E2EF - the constructor and destructor,
+// the statistics, sectors added and cloned, the collision added and the super sectors (the collision grid) brought up
+// to date, a scene added over it - and the nodes of its sector lists.
+
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <new>
+
+#include "engine/gfx/engine_geom.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/file/packs.h"
+#include "engine/gfx/engine_glue.h"
+#include "engine/gfx/engine_scene.h"
+#include "engine/gfx/sector.h"
+#include "engine/gfx/texture_dict.h"
+#include "engine/lists/key_map.h"
+#include "engine/render/coll_grid.h"
+#include "engine/render/coll_obj.h"
+#include "engine/render/coll_static.h"
+#include "engine/script/param_struct.h"
+#include "engine/gfx/weather.h"
+#include "engine/gfx/render_device.h"
+#include "engine/memory/arena_alloc.h"
+#include "base/core/checked_index.h"
+#include <gsl/pointers>
+#include <span>
+#include <gsl/assert>
+#include "base/core/format.h"
+
+namespace render {
+
+constexpr uint32_t kFileName = 0xC3F4169AU;          // FileName
+constexpr uint32_t kSectors = 0x4A6BF967U;           // Sectors
+constexpr uint32_t kColSectors = 0x0AC30A9DU;        // ColSectors
+constexpr uint32_t kVerts = 0x969D3AF6U;             // Verts
+constexpr uint32_t kPolys = 0xD576DF05U;             // Polys
+constexpr uint32_t kBasePolys = 0x1E3061EEU;         // BasePolys
+constexpr uint32_t kEnvMapPolys = 0x78CAD2E8U;       // EnvMapPolys
+constexpr uint32_t kTextureMemory = 0x5714C480U;     // TextureMemory
+constexpr uint32_t kUpdateWeatherGrid = 0xBA1E4254U; // text unknown (a script value that has the weather grid tick)
+
+namespace {
+
+// The rest of the scene (0x0049C910-0x0049D18E, engine_scene.cpp): the sector of a name, a sector deleted, a scene
+// file's collision data read, the collision let go of.
+WorldCell* scene_sector(WorldScene* scene, uint32_t name)
+{
+    return static_cast<WorldCell*>(scene->look_up_sector(name));
+}
+bool delete_scene_sector(WorldScene* scene, WorldCell* sector) { return scene->remove_scene_sector(sector); }
+bool scene_load_collision_data(WorldScene* /*scene*/, uint8_t* data, size_t size, int* count,
+                               gsl::owner<StaticCollider*>* statics, uint8_t** objects, maths::BBox* box, int flag)
+{
+    return render::WorldScene::load_collision_data(data, size, count, statics, objects, box, flag);
+}
+bool scene_unload_collision(WorldScene* scene) { return scene->unload_collision(); }
+
+// The platform's new sector (slot 7), its geometry and collision cleared.
+gsl::owner<WorldCell*> alloc_sector(WorldScene* scene)
+{
+    gsl::owner<WorldCell*> sector = scene->plat_create_sector();
+    sector->set_geom_handle(nullptr);
+    sector->set_hit_body(nullptr);
+    return sector;
+}
+
+StaticCollider* coll_static_at(StaticCollider* statics, int count, int index)
+{
+    return &core::at(std::span<StaticCollider>(statics, static_cast<std::size_t>(count)), index);
+}
+
+// The lists (lists::Foremost / Node): a head ends its list (its data is -1).
+bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
+// The node after `node`, or null at the head.
+memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next()) ? nullptr : node->next(); }
+// The first node, or null when the list's empty (the original checks the head's next is no head and not null).
+memory::ListNode* head_of_scene_list(const memory::ListNode* head)
+{
+    return is_head(head->next()) ? nullptr : head->next();
+}
+// A head (on the stack or new).
+void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
+// A new head (null without memory).
+memory::ListNode* new_head() { return memory::ListNode::create_head(); }
+
+// A scene's sector table: `bits` of hash (null if out of memory).
+gsl::owner<lists::KeyMap*> new_sector_table(int bits)
+{
+    void* memory = memory::alloc(sizeof(lists::KeyMap));
+    return memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;
+}
+// A new node (null without memory) for `data`.
+memory::ListNode* new_node(void* data) { return memory::ListNode::create(data); }
+// `node` put at the end of the list (no memory: written through null, as the original).
+void append_last(memory::ListNode* head, memory::ListNode* node)
+{
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
+}
+// Every node of a list deleted (out of the list, freed).
+void delete_nodes(memory::ListNode* head)
+{
+    for (memory::ListNode* node = head_of_scene_list(head); node;) {
+        memory::ListNode* next = get_next_node(node);
+        memory::ListNode::destroy(node);
+        node = next;
+    }
+}
+
+// The sectors in the table in turn, as far as the first null item or value.
+template <typename Body>
+void for_each_sector(WorldScene* scene, Body body)
+{
+    scene->sectors()->set_iter_bucket(-1);
+    scene->sectors()->set_iter_item(nullptr);
+    for (;;) {
+        lists::KeyMap* table = scene->sectors();
+        if (!table->step_iterator() || !table->iter_item() || !table->iter_item()->value) {
+            break;
+        }
+        body(static_cast<WorldCell*>(table->iter_item()->value));
+    }
+}
+
+void put_sector(WorldScene* scene, WorldCell* sector)
+{
+    const uint32_t key = sector->checksum();
+    scene->sectors()->store_entry(key, sector);
+}
+
+// A geom's counts (the engine's CGeom calls: 0x0048DF70, the slot-33 dispatcher, 0x0049C6F0).
+int geom_count70(void* geom) // (through the jump 0x0048DF70)
+{
+    return static_cast<int>(static_cast<Geom*>(geom)->fetch_vertex_tally());
+}
+int geom_slot33(void* geom) { return static_cast<int>(static_cast<Geom*>(geom)->plat_get_num_render_polys()); }
+int geom_count_c_6f_0(void* /*geom*/) // (through the jump 0x0049C6F0)
+{
+    return static_cast<int>(render::Geom::get_diagnostic_count());
+}
+
+} // namespace
+
+// 0x0049D390 (the original's SEH frame around the table's `new` left out)
+WorldScene::WorldScene(int bits)
+    : sectors_(new_sector_table(bits)), hidden_sectors_(new_head()), add_scene_sectors_(new_head())
+{
+    core::at(label_, 0) = '\0';
+    core::at(pip_name_, 0) = '\0';
+    core::at(add_name_, 0) = '\0';
+}
+
+// 0x0049DD10
+WorldScene::~WorldScene()
+{
+    if (sectors_) {
+        for_each_sector(this, [](WorldCell* sector) {
+            sector->clear_flags(kSectorInGrid);
+            gsl::owner<WorldCell*> owned = memory::owned_element(sector); // (the table's)
+            delete owned;
+        });
+        if (lists::KeyMap* table = sectors_) {
+            if (table->buckets()) {
+                table->empty_table();
+                memory::dealloc(table->buckets());
+                table->set_buckets(nullptr);
+            }
+            memory::dealloc(table);
+        }
+    }
+    scene_unload_collision(this);
+    memory::ListNode::destroy(hidden_sectors_);
+    memory::ListNode::destroy(add_scene_sectors_);
+    if (add_data_) {
+        unload_tex_dict(add_data_);
+    }
+}
+
+// 0x0049D1A0 (the third count is added twice under the same name, as the original)
+void WorldScene::fetch_diagnostics(script::Struct* info)
+{
+    info->append_word(kFileName, label_.data());
+    int sectors = 0;
+    int count70 = 0;
+    int slot33 = 0;
+    int slot33_again = 0;
+    int count_c_6f_0 = 0;
+    if (sectors_) {
+        for_each_sector(this, [&](WorldCell* sector) {
+            ++sectors;
+            if (void* geom = sector->geom_handle()) {
+                count70 += geom_count70(geom);
+                slot33 += geom_slot33(geom);
+                slot33_again += geom_slot33(geom);
+                count_c_6f_0 += geom_count_c_6f_0(geom);
+            }
+        });
+    }
+    info->put_int(checksums::Name{kSectors}, sectors);
+    info->put_int(checksums::Name{kColSectors}, coll_static_count_);
+    info->put_int(checksums::Name{kVerts}, count70);
+    info->put_int(checksums::Name{kPolys}, slot33);
+    info->put_int(checksums::Name{kBasePolys}, slot33_again);
+    info->put_int(checksums::Name{kBasePolys}, slot33_again);
+    info->put_int(checksums::Name{kEnvMapPolys}, count_c_6f_0);
+    info->put_int(checksums::Name{kTextureMemory}, static_cast<int>(device().tex_dict_memory(texture_set_)));
+}
+
+// 0x0049D4E0
+void WorldScene::insert_sector(WorldCell* sector) { put_sector(this, sector); }
+
+// 0x0049D510
+uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene, int instance, bool flag,
+                                            uint32_t name)
+{
+    if (!scene) {
+        scene = this;
+    }
+    gsl::owner<WorldCell*> clone = sector->replicate(instance, flag, scene);
+    if (!clone) {
+        return 0;
+    }
+    if (name != 0U) {
+        clone->set_checksum(name);
+    }
+    put_sector(scene, clone);
+    if (flag) {
+        scene->sector_kept_ = true;
+    }
+    return clone->checksum();
+}
+
+// 0x0049DF30
+uint32_t WorldScene::clone_sector_named(uint32_t section_id, WorldScene* scene, int instance, bool flag, uint32_t name)
+{
+    WorldCell* sector = scene_sector(this, section_id);
+    if (!sector) {
+        return 0;
+    }
+    return duplicate_scene_sector(sector, scene, instance, flag, name);
+}
+
+// 0x0049D590 (the original's SEH frame around the grid's `new` left out)
+bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
+{
+    scene_load_collision_data(this, data, size, &coll_static_count_, &coll_statics_, &collision_blob_, &collision_box_,
+                              flag);
+    if (coll_static_count_ > 0) {
+        if (builds_collision_grid_) {
+            void* memory = memory::alloc(sizeof(CollGrid));
+            CollGrid* grid =
+                memory ? memory::construct_in<CollGrid>(memory) : nullptr; // (its box and cells constructed)
+            coll_grid_ = grid;
+            Expects(grid != nullptr);
+            grid->prepare_all(&collision_box_);
+            coll_grid_->get_fill(std::span<StaticCollider>(coll_statics_, static_cast<size_t>(coll_static_count_)));
+        }
+        for (int i = 0; i < coll_static_count_; ++i) {
+            const StaticCollider* coll = coll_static_at(coll_statics_, coll_static_count_, i);
+            const uint32_t name = coll->checksum();
+            gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(name));
+            if (!sector) {
+                sector = alloc_sector(this);
+                sector->set_checksum(name);
+                sector->change_live(true);
+                put_sector(this, sector);
+            }
+            sector->set_coll_obj(coll_static_at(coll_statics_, coll_static_count_, i));
+            sector->change_bits(kSectorInGrid);
+        }
+    }
+    if (script::fetch_int_value(kUpdateWeatherGrid) != 0) {
+        weather()->tick_grid(); // (through the jump 0x004A1090)
+    }
+    return true;
+}
+
+// 0x0049DF70 (the original sprintfs into its 128 bytes unbounded)
+bool WorldScene::load_collision_file(const char* name, int flag)
+{
+    text::format_to(pip_name_, "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
+    auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr));
+    if (!data) {
+        return false;
+    }
+    add_collision_data(data, static_cast<size_t>(packs::get_file_size(pip_name_.data())), flag); // (not original: sized)
+    return true;
+}
+
+// 0x0049D780 (the original's four list heads on its stack, and its SEH frame)
+void WorldScene::get_update_super_sectors(memory::ListNode* added)
+{
+    if (!coll_grid_) {
+        return;
+    }
+    memory::ListNode to_add{};
+    memory::ListNode to_remove{};
+    memory::ListNode moved{};
+    memory::ListNode to_delete{}; // (collision objects; sectors)
+    setup_list_sentinel(&to_add);
+    setup_list_sentinel(&to_remove);
+    setup_list_sentinel(&moved);
+    setup_list_sentinel(&to_delete);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap());
+    for_each_sector(this, [&](WorldCell* sector) {
+        if (sector->fetch_bits() & kSectorAddToGrid) {
+            append_last(&to_add, new_node(sector->hit_body()));
+            sector->clear_flags(kSectorAddToGrid);
+            sector->change_bits(kSectorInGrid);
+        }
+        if (sector->fetch_bits() & (kSectorDelete | kSectorRemoveFromGrid)) {
+            append_last(&to_remove, new_node(sector->hit_body()));
+            if (sector->fetch_bits() & kSectorDelete) {
+                append_last(&to_delete, new_node(sector));
+            } else {
+                sector->clear_flags(kSectorRemoveFromGrid);
+            }
+        }
+        if (sector->fetch_bits() & kSectorMoved) {
+            append_last(&moved, new_node(sector->hit_body()));
+            sector->clear_flags(kSectorMoved);
+        }
+    });
+    if (added && !is_head(added->next()) && added->next()) {
+        for (const memory::ListNode* node = added->next(); node;) {
+            const memory::ListNode* next = get_next_node(node);
+            auto* sector = static_cast<WorldCell*>(node->data());
+            bool listed = false;
+            for (const memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed;
+                 removing = get_next_node(removing)) {
+                listed = removing->data() == sector->hit_body();
+            }
+            if (!listed) {
+                append_last(&to_remove, new_node(sector->hit_body()));
+                sector->clear_flags(kSectorRemoveFromGrid);
+            }
+            node = next;
+        }
+    }
+    memory::Hub::get_pull()->leave_heap_scope();
+    coll_grid_->tick_frame(&to_add, &to_remove, &moved);
+    delete_nodes(&to_add);
+    delete_nodes(&to_remove);
+    delete_nodes(&moved);
+    for (memory::ListNode* node = head_of_scene_list(&to_delete); node;) {
+        memory::ListNode* next = get_next_node(node);
+        gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(node->data());
+        const uint32_t key = sector->checksum();
+        sectors_->erase_entry(key);
+        sector->clear_flags(kSectorInGrid);
+        delete sector;
+        memory::ListNode::destroy(node);
+        node = next;
+    }
+    sector_kept_ = false;
+}
+
+// 0x0049E1B0
+bool WorldScene::update_super_sectors_if_marked(memory::ListNode* added)
+{
+    if (!sector_kept_) {
+        return false;
+    }
+    get_update_super_sectors(added);
+    return true;
+}
+
+// 0x0049DFD0
+bool WorldScene::load_add_scene(const char* name)
+{
+    maths::BBox box;
+    if (!coll_statics_) {
+        return false;
+    }
+    text::format_to(add_pip_name_, "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
+    // (the base's collision file, not the one just named - as the original)
+    if (auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr))) {
+        scene_load_collision_data(this, data, static_cast<size_t>(packs::get_file_size(pip_name_.data())),
+                                  &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
+    }
+    if (add_coll_static_count_ > 0) {
+        for (int i = 0; i < add_coll_static_count_; ++i) {
+            const uint32_t section_id = coll_static_at(add_coll_statics_, add_coll_static_count_, i)->checksum();
+            gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(section_id));
+            if (!sector) {
+                sector = alloc_sector(this);
+                sector->set_checksum(section_id);
+                sector->change_live(true);
+                sector->change_bits(kSectorAddToGrid);
+                sector_kept_ = true;
+                put_sector(this, sector);
+                append_last(add_scene_sectors_, new_node(sector));
+            }
+            sector->set_coll_obj(coll_static_at(add_coll_statics_, add_coll_static_count_, i));
+        }
+        get_update_super_sectors(hidden_sectors_);
+    }
+    return add_collision(name);
+}
+
+// 0x0049DDE0
+bool WorldScene::flip_extra_scene()
+{
+    if (!head_of_scene_list(add_scene_sectors_)) {
+        return false;
+    }
+    added_ = !added_;
+    memory::ListNode* hide = added_ ? hidden_sectors_ : add_scene_sectors_;
+    const memory::ListNode* show = added_ ? add_scene_sectors_ : hidden_sectors_;
+    for (const memory::ListNode* node = head_of_scene_list(hide); node;) {
+        const memory::ListNode* next = get_next_node(node);
+        auto* sector = static_cast<WorldCell*>(node->data());
+        sector->change_bits(kSectorRemoveFromGrid);
+        sector_kept_ = true;
+        const uint32_t key = sector->checksum();
+        sectors_->erase_entry(key);
+        sector->change_live(false);
+        node = next;
+    }
+    for (const memory::ListNode* node = head_of_scene_list(show); node;) {
+        const memory::ListNode* next = get_next_node(node);
+        auto* sector = static_cast<WorldCell*>(node->data());
+        sector->change_bits(kSectorAddToGrid);
+        sector_kept_ = true;
+        put_sector(this, sector);
+        sector->change_live(true);
+        node = next;
+    }
+    get_update_super_sectors(hide);
+    return added_;
+}
+
+// 0x0049E200 (the added collision's array and file are let go of but not cleared, as the original)
+bool WorldScene::unload_added_scene()
+{
+    if (added_) {
+        flip_extra_scene();
+    }
+    if (!unload_add_scene()) {
+        return false;
+    }
+    delete[] add_coll_statics_; // (the vector deleting destructor; the pointer kept, as the original)
+    if (add_coll_objects_) {
+        packs::offload(add_pip_name_.data());
+    }
+    if (hidden_sectors_) {
+        delete_nodes(hidden_sectors_);
+    }
+    if (add_scene_sectors_) {
+        for (memory::ListNode* node = head_of_scene_list(add_scene_sectors_); node;) {
+            memory::ListNode* next = get_next_node(node);
+            delete_scene_sector(this, static_cast<WorldCell*>(node->data()));
+            memory::ListNode::destroy(node);
+            node = next;
+        }
+    }
+    added_ = false;
+    return true;
+}
+
+} // namespace render

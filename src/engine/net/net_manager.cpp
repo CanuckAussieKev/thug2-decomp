@@ -1,0 +1,187 @@
+// The network library's manager (NetLink::Hub): its settings getters and setters. See net_manager.h.
+
+
+#include "engine/net/net_manager.h"
+
+#include <cstdint>
+#include <cstring>
+#include <span>
+#include <string_view>
+
+#include "engine/memory/task_list.h"
+#include "engine/net/net_app.h"
+#include "engine/sys/mlp.h"
+#include "engine/assets/resource_registry.h"
+#include "base/core/checked_index.h"
+#include "engine/net/transport.h"
+#include "engine/net/shared_state.h"
+
+namespace net {
+
+namespace {
+
+// strcpy: the settings are copied with no length limit.
+void copy_string(std::span<char> out, const char* source)
+{
+    size_t at = 0;
+    for (const char character : std::string_view(source)) {
+        core::at(out, at++) = character;
+    }
+    core::at(out, at) = '\0';
+}
+
+// The setters that copy only a different string.
+void copy_if_different(std::span<char> out, const char* source)
+{
+    if (std::strcmp(source, out.data()) != 0) {
+        copy_string(out, source);
+    }
+}
+
+} // namespace
+
+Hub* Hub::sole() { return net_manager_apps_shared().net_core().get(); }
+
+// 0x00454580
+bool Hub::connect_to_internet()
+{
+    is_networked_ = true;
+    return true;
+}
+
+// 0x00454590
+bool Hub::disconnect_from_internet()
+{
+    is_networked_ = false;
+    return true;
+}
+
+// 0x004545D0
+void Hub::set_dialup_number(int index, const char* number) { copy_string(core::at(dialup_numbers_, index), number); }
+
+// 0x00454600
+void Hub::set_dialup_user_name(const char* name) { copy_string(dialup_user_name_, name); }
+
+// 0x00454620
+void Hub::set_dialup_password(const char* password) { copy_string(dialup_password_, password); }
+
+// 0x00454640
+void Hub::set_router_addr(const char* ip) { copy_if_different(router_addr_, ip); }
+
+// 0x004546A0
+void Hub::set_address_mask(const char* ip) { copy_if_different(subnet_mask_, ip); }
+
+// 0x00454710
+void Hub::set_own_address(const char* ip) { copy_if_different(local_ip_, ip); }
+
+// 0x00454770
+void Hub::set_net_link_kind(int type)
+{
+    if (connection_type_ == type) {
+        return;
+    }
+    connection_type_ = type;
+    switch (type) {
+    case kConnectionModem:
+        link_speed_ = kLinkSpeedModem;
+        break;
+    case kConnection2:
+    case kConnection4:
+        link_speed_ = kLinkSpeedBroadband;
+        break;
+    case kConnection3:
+        link_speed_ = kLinkSpeedMedium;
+        break;
+    default: // (the bandwidth stays)
+        break;
+    }
+}
+
+// 0x004547D0
+void Hub::set_adapter_kind(int type)
+{
+    if (device_type_ != type) {
+        device_type_ = type;
+    }
+}
+
+// 0x004547F0
+void Hub::set_auto_address(bool use_dhcp)
+{
+    if (use_dhcp_ != use_dhcp) {
+        use_dhcp_ = use_dhcp;
+    }
+}
+
+// 0x00454820
+void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(core::at(resolver_ips_, index), ip); }
+
+// 0x00454890
+void Hub::set_machine_label(const char* name)
+{
+    if (!name) {
+        core::at(host_name_, 0) = '\0'; // (and the copy below still reads from the null pointer, as in the original)
+    }
+    copy_string(host_name_, name);
+}
+
+// 0x004548C0
+void Hub::set_network_domain(const char* name)
+{
+    if (!name) {
+        core::at(domain_name_, 0) = '\0'; // (likewise)
+    }
+    copy_string(domain_name_, name);
+}
+
+// 0x004548F0
+uint32_t Hub::get_local_address()
+{
+    if (local_address_ != 0U) {
+        return local_address_;
+    }
+    return transport().parse_address(local_ip_.data());
+}
+
+// 0x00454910
+const char* Hub::fetch_own_address()
+{
+    const HostEntry* localhost = transport().find_host("localhost");
+    if (!localhost) {
+        return "<Unknown>";
+    }
+    const HostEntry* host = transport().find_host(transport().host_name(localhost));
+    // (Without the host, localhost's address - read from Winsock's per-thread hostent after the second lookup
+    // has used it, as the original does.)
+    if (!host) {
+        host = localhost;
+    }
+    return transport().address_text(transport().host_first_address(host));
+}
+
+// 0x004549C0
+bool Hub::load_network_drivers(const char* /*ip*/, const char* /*subnet_mask*/, const char* /*gateway*/)
+{
+    return true;
+}
+
+// 0x00454CB0
+void Hub::add_app_tasks(AppHost* app)
+{
+    frame_loop::Hub* mlp = assets::get_main_loop_manager();
+    mlp->logic_tasks().queue_job((app->receive_task()));
+    mlp->logic_tasks().queue_job((app->send_task()));
+    mlp->logic_tasks().queue_job((app->process_task()));
+    mlp->logic_tasks().queue_job((app->metrics_task()));
+}
+
+// 0x00454DE0
+const char* Hub::get_dialup_number()
+{
+    if (connection_type_ == kConnection3) {
+        return "";
+    }
+    return core::at(dialup_numbers_, dialup_number_index_).data();
+}
+
+} // namespace net

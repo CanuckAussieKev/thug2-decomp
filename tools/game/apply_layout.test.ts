@@ -353,7 +353,7 @@ test("layout_file refuses what the game refuses, with the line", () => {
     bad("node ed_x GenericNode type=Crown");
     bad("level tod=noon");
     bad("wall 00000001 0 0 0 0 2");
-    // (triggers: Triggers::ReadRecord's refusals - the kind's case, `other`, a repeated key, a bad value, no pos)
+    // (triggers: triggers::read_record's refusals - the kind's case, `other`, a repeated key, a bad value, no pos)
     bad("trigger ed_t01 Kill pos=0,0,0");
     bad("trigger ed_t01 other pos=0,0,0");
     bad("trigger ed_t01 kill pos=0,0,0 pos=1,1,1");
@@ -800,8 +800,8 @@ test("bake: ladders, trick-object rails, flat-ground rails", () => {
 
 // --- the editor's later records: per-axis scale, object scale, exit triggers (editor-scale2 / editor-polish) --------
 
-// Every record kind and key the game's writers produce (level_editor_layout.cpp Write, LevelProps::WriteRecord,
-// Triggers::Record, Fields::Token, Chains::WriteRecords), in their own forms - comments too.
+// Every record kind and key the game's writers produce (level_editor_layout.cpp Write, level_props::write_record,
+// triggers::link_record, fields::get_token, chains::write_records), in their own forms - comments too.
 test("layout_file reads every record and key the game writes", () => {
     const h = hex;
     const text = [
@@ -909,7 +909,7 @@ test("layout_file: scale= as Scale::ReadToken - one number or three, each above 
     // (other key=value fields after the numbers: a later version's - skipped)
     const l = readLayout("thug2-decomp layout 2\nscene 00000001\nsector 00000001 0 0 0 0 0 later=1 scale=3\n");
     assert.deepEqual(l.sectors[0]!.placement.scale, { x: 3, y: 3, z: 3 });
-    // exit= as Triggers::ReadRecord: 0 / 1, once
+    // exit= as triggers::read_record: 0 / 1, once
     assert.throws(() => readLayout("thug2-decomp layout 2\ntrigger ed_t kill pos=0,0,0 exit=2\n"), LayoutError);
     assert.throws(() => readLayout("thug2-decomp layout 2\ntrigger ed_t kill pos=0,0,0 exit=1 exit=1\n"), LayoutError);
 });
@@ -922,7 +922,7 @@ test("normals as the editor's Rebuild: n / scale made unit length, then turned",
     assert.ok(Math.abs(n.x - 0.3 / Math.sqrt(0.73)) < 1e-6 && Math.abs(n.y - 0.8 / Math.sqrt(0.73)) < 1e-6);
     const zero = scaledNormal({ x: 0, y: 0, z: 0 }, { x: 2, y: 1, z: 1 }, 0);
     assert.ok(zero.x === 0 && zero.y === 0 && zero.z === 0, "a zero normal stays zero");
-    // NormalOffset: an FVF with XYZ and NORMAL and a stride of 24 or more; a shader handle, XYZRHW, XYZB1: none
+    // surface_nudge: an FVF with XYZ and NORMAL and a stride of 24 or more; a shader handle, XYZRHW, XYZB1: none
     assert.equal(normalOffset(0x152, 36), 12);
     assert.equal(normalOffset(0x142, 36), -1);
     assert.equal(normalOffset(0x152, 20), -1);
@@ -1330,7 +1330,7 @@ test("layout_file: speed and emitter records as the game writes and refuses them
 });
 
 // (map4) A particle node turned: its Mid / End turned about its place and moved with it, its boxes turned (a quarter
-// turn swaps x and z) - as the game's Entities::TurnParticle.
+// turn swaps x and z) - as the game's entities::turn_particle.
 test("bake: a particle system turned - its emitter places and boxes with it", () => {
     const layout = readLayout(
         [

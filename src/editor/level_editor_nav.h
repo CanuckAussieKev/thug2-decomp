@@ -1,0 +1,129 @@
+#pragma once
+
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <vector>
+
+#include "editor/level_editor.h"
+#include "editor/level_editor_organize.h"
+
+// NOT ORIGINAL - the level editor's navigation pieces (ours; see level_editor.h, level_editor_ux8.h): the pure parts of
+// walk mode, click-to-teleport, the follow camera, wheel drill-through, the pie menus' geometry, a controller stick's
+// response and the quick selection sets. The game side (what calls them with the editor's camera, keys and the game's
+// collision ray) is level_editor_ux8.cpp.
+namespace frontend::level_editor::nav {
+
+constexpr uint32_t kDoubleClickMilliseconds = 400;
+constexpr float kDoubleClickPixels = 6.0F;
+
+// --- walk mode: the camera at a skater's eye height, with gravity and collision (Blender's walk navigation) ---------
+
+// Units: the game's (an inch). A skater stands about 72 tall.
+constexpr float kEyeHeight = 62.0F;  // the camera above the feet
+constexpr float kRadius = 14.0F;     // how near a wall the feet come
+constexpr float kStepHeight = 24.0F; // a kerb or a stair is stepped up (and down, standing on the ground)
+constexpr float kWalkSpeed = 220.0F; // units a second
+constexpr float kRunSpeed = 560.0F;  // (Shift)
+constexpr float kGravity = 1400.0F;  // units a second squared
+constexpr float kJumpSpeed = 330.0F; // up, at a jump (about 39 units high)
+constexpr float kGroundSearch = 5000.0F;
+
+// The collision ray: from `from` to `to`, the first hit (false: none).
+using Cast = std::function<bool(V3 from, V3 to, V3* hit)>;
+
+struct Walker {
+    V3 feet = {};
+    float vy = 0.0F; // up speed
+    bool grounded = false;
+};
+struct WalkInput {
+    float forward = 0.0F, right = 0.0F; // -1..1 (a stick: anything between)
+    bool jump = false;                  // pressed (a jump starts only on the ground)
+    bool run = false;
+};
+// One step: moved along the yaw's heading (frame_from_yaw_pitch's: forward = (sin yaw, 0, cos yaw)) - stopped at walls
+// (sliding along them, one axis at a time), stepping up what's no higher than kStepHeight - then falling or standing on
+// the ground below (snapped down a step while grounded); with no ground below at all it stays at its height (a level's
+// edge: it doesn't fall out of the world). A jump starts on the ground; a ceiling stops it.
+void get_step(Walker* walker, float yaw, const WalkInput& input, float seconds, const Cast& cast);
+// The camera for a walker, and a walker for a camera (dropping from where it is).
+inline V3 eye_of(const Walker& w) { return {.x = w.feet.x, .y = w.feet.y + kEyeHeight, .z = w.feet.z}; }
+Walker walker_at(V3 camera);
+
+// --- click-to-teleport ----------------------------------------------------------------------------------------------
+
+// A click: when (milliseconds) and where (pixels).
+struct Click {
+    uint32_t ms{};
+    float x{};
+    float y{};
+};
+
+// How close two clicks must be: in milliseconds and in pixels.
+struct ClickLimits {
+    uint32_t max_ms_ = kDoubleClickMilliseconds;
+    float max_pixels_ = kDoubleClickPixels;
+};
+
+// Two clicks are a double click: within `max_ms` and `max_pixels` of each other.
+bool is_double_click(Click first, Click last, ClickLimits limits = {});
+// Where a double click on a surface takes the camera: back along the ray from the point hit by kStandOff (or 80% of
+// the way there when nearer), and at least kLift above the point - looking the same way.
+constexpr float kStandOff = 260.0F;
+constexpr float kLift = 60.0F;
+V3 teleport_target(V3 camera, V3 hit);
+
+// --- the follow camera (Unity's Shift+F) ---------------------------------------------------------------------------
+
+// The selection's movement since the last frame (zero the first frame it's followed, or when `active` is false - the
+// next active frame starts afresh).
+struct Follower {
+    bool have = false;
+    V3 last = {};
+};
+V3 follow_step(Follower* follower, bool active, V3 target);
+
+// --- wheel drill-through ------------------------------------------------------------------------------------------
+
+// What's under the cursor (`count` things, front to back): from `current` (the one the hover shows; -1 none), `steps`
+// notches deeper (positive) or nearer, round the ends. -1 when there's nothing.
+int drill_index(int current, int steps, int count);
+// The click-to-cycle index that makes the hover show `shown` (the hover is the cycle's next: index + 1).
+inline int cycle_index_showing(int shown, int count) { return count > 0 ? (shown - 1 + count) % count : -1; }
+
+// --- pie menus ----------------------------------------------------------------------------------------------------
+
+// The slice under an offset from the pie's centre (screen pixels, y down): slice 0 straight up, then clockwise, each
+// 360 / count degrees round its direction; -1 within `deadzone` (or no slices).
+int slice_at(float dx, float dy, int count, float deadzone);
+// A slice's direction (unit, screen: y down).
+void slice_direction(int index, int count, float* dx, float* dy);
+// A press held this long (ms) opens the pie to run what's pointed at on letting go; a shorter tap keeps it open until a
+// click (Blender's pies).
+constexpr uint32_t kPieTapMs = 250;
+
+// --- a controller's stick -----------------------------------------------------------------------------------------
+
+// A stick's raw value and its dead zone.
+struct StickRead {
+    int raw{};
+    float deadzone{};
+};
+
+// An axis (SDL: -32768..32767) to -1..1: 0 within `deadzone` (a fraction of the range), then rescaled from there and
+// squared (fine control near the middle), the sign kept.
+float get_stick(StickRead stick);
+
+// --- quick selection sets (UX3's groups by the names "Set 1".."Set 9") ---------------------------------------------
+
+constexpr int kQuickSets = 9;
+std::string quick_set_name(int number); // "Set 3"
+// The group of that name's index (-1 none).
+int find_group(const organize::State& state, const std::string& name);
+// The group `name` made of `members` (replaced when there is one, else added at the end). False: no members.
+bool store_group(organize::State* state, const std::string& name, const std::vector<organize::Member>& members);
+// `members` taken out of group `index` (false: none of them were in it).
+bool remove_from_group(organize::State* state, int index, const std::vector<organize::Member>& members);
+
+} // namespace frontend::level_editor::nav

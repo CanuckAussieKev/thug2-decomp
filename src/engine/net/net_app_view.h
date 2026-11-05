@@ -1,0 +1,79 @@
+#pragma once
+
+// The messages a NetLink::Conn's queues share (PendingMsg, SeqQueuedMsg) and the queue links' common part. NetLink::AppHost's
+// methods 0x00456910-0x00457EB0 are defined in net_app_view.cpp (App: net_app.h; Conn: net_conn.h).
+
+#include "wire/message_ids.h"
+#include <cstddef>
+#include <cstdint>
+#include <array>
+
+#include "engine/memory/arena_alloc.h"
+#include "base/core/raw_view.h"
+
+namespace net {
+
+// A message's contents as queued for sending. Several connections' queues can share one: a reference count.
+// Two kinds: those of the normal and important queues (constructor 0x00454FA0) and those of the sequenced
+// queue (0x00455040, 0x10 bytes); the destructor 0x004550F0 (both) frees the data.
+struct PendingMsg {
+    // 0x00454FA0: a copy of `data` (`length` bytes; none if 0). With a compression method (1 RLE, 2 LZSS) the
+    // copy is compressed if that makes it smaller: the id becomes 0x12 (compressed) and the length shrinks.
+    PendingMsg(wire::MessageId id, uint16_t length, const void* data, uint8_t compression);
+    // 0x004550F0 (SeqQueuedMsg's too): the data freed.
+    ~PendingMsg();
+    PendingMsg(const PendingMsg&) = delete;
+    PendingMsg& operator=(const PendingMsg&) = delete;
+
+    // The fields other code reads and sets.
+    [[nodiscard]] wire::MessageId ident() const { return ident_; }
+    [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
+    [[nodiscard]] uint8_t* content() const { return content_; }
+    int& share_count() { return share_count_; }
+    [[nodiscard]] int share_count() const { return share_count_; }
+
+private:
+    wire::MessageId ident_; // +0x00
+    uint16_t byte_count_; // +0x02
+    uint8_t* content_{nullptr}; // +0x04
+    int share_count_{0};        // +0x08
+};
+struct SeqQueuedMsg {
+    // 0x00455040: as PendingMsg's, with the +0x08 byte.
+    // A sequenced message's group byte and whether it is compressed.
+    struct Options {
+        wire::MessageGroup group{};
+        uint8_t compression{};
+    };
+    SeqQueuedMsg(wire::MessageId id, uint16_t length, const void* data, Options options);
+    // (0x004550F0: PendingMsg's destructor - the data freed)
+    ~SeqQueuedMsg();
+    SeqQueuedMsg(const SeqQueuedMsg&) = delete;
+    SeqQueuedMsg& operator=(const SeqQueuedMsg&) = delete;
+
+    // The fields other code reads and sets.
+    [[nodiscard]] wire::MessageId ident() const { return ident_; }
+    [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
+    [[nodiscard]] uint8_t* content() const { return content_; }
+    int& share_count() { return share_count_; }
+    [[nodiscard]] int share_count() const { return share_count_; }
+
+private:
+    wire::MessageId ident_; // +0x00
+    uint16_t byte_count_; // +0x02
+    uint8_t* content_{nullptr}; // +0x04
+    wire::MessageGroup group_; // +0x08 (the constructor's 4th argument: the group)
+    int share_count_{0};  // +0x0C
+};
+
+constexpr size_t kTimedMsgNodeFieldsSize = 0x18;
+// Any of the links that queue a message on a connection (MsgNormalLink / ReliableMsgNode / OrderedMsgNode,
+// net_messages.h): list nodes (data = the link itself), deleted through their vtable's scalar deleting destructor.
+struct TimedMsgNode : memory::ListNode {
+    std::array<uint8_t, kTimedMsgNodeFieldsSize> fields_; // +0x14...: depends on the queue
+};
+
+// 0x00456B30: a call through the object's vtable slot 5 (AppHost::tear_down_state for an App) - a jump, its arguments left
+// for the callee: the linker folded the identical non-virtual wrappers of several classes into this one.
+
+} // namespace net

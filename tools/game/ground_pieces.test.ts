@@ -145,7 +145,7 @@ test("ground: the record as the game writes it", () => {
     );
     assert.equal(readGroundRecord("ed_ground01 sideways rect=0,0,100,100 base=0 height=10 material=0x00000001"), null);
     assert.ok(readGroundRecord("ed_ground01 raise rect=0,0,100,100 base=0 height=10 material=0x00000001 later=1"));
-    // (the rectangle put in order and grown to the minimum, as Normalise)
+    // (the rectangle put in order and grown to the minimum, as normalise)
     const n = readGroundRecord("ed_ground02 raise rect=400,0,0,10 base=0 height=5000 material=0x00000001")!;
     assert.deepEqual([n.x0, n.x1, n.z1, n.height], [0, 400, 50, 2000]);
 });

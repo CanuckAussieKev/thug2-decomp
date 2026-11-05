@@ -1,66 +1,73 @@
 #pragma once
 
-// The skate module (Mdl::Skate, 0x3F0 bytes, the singleton at 0x007CE478): the game's top-level state - its skaters
+// The skate module (modules::Skate, 0x3F0 bytes, the singleton at 0x007CE478): the game's top-level state - its skaters
 // (a list ordered by object id), the career, the rail manager, the game type, the level (requested, current and the
 // one before), the competition / HORSE / movie managers, the game flow and the goal manager, the per-player settings
-// and the module's own script; its logic task runs the game each frame (DoUpdate). Its code: 0x00564C10-0x005691EF
+// and the module's own script; its logic task runs the game each frame (run_frame_logic). Its code: 0x00564C10-0x005691EF
 // (skate_module_state.cpp, skate_module_skaters.cpp, skate_rankings.cpp); the network side: skate_net.h.
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
-#include "game/lst/head.h"
-#include "game/mth/vector.h"
-#include "game/sys/module.h"
+#include "engine/lists/chain_start.h"
+#include "base/maths/vec4.h"
+#include "engine/sys/game_module.h"
+#include "engine/memory/mem.h"
+#include <gsl/pointers>
+#include <array>
 
-namespace Obj {
-class CCompositeObject;
-class CObject;
-class CSkater;
-class CSkaterCareer;
-class CRailManager;
-class CMovieManager;
-struct CSkaterProfile;
+namespace objects {
+class GameEntity;
+class Entity;
+class Rider;
+class RiderStoryProgress;
+class GrindRailHub;
+class VideoHub;
+struct RiderIdentity;
 struct ChecksumSet;
-} // namespace Obj
-namespace Prefs {
+} // namespace objects
+namespace prefs {
 class Preferences;
 }
-namespace Script {
-class CScript;
-class CStruct;
-} // namespace Script
-namespace Tsk {
-class BaseTask;
-}
-namespace GameNet {
-class PlayerInfo;
-} // namespace GameNet
-namespace Game {
-class CGoalManager;
-class CGameFlow;
-} // namespace Game
-namespace Mdl {
-struct CCompetition;
-class CHorse;
-} // namespace Mdl
+namespace script {
+class Context;
+class Script;
+class Struct;
+} // namespace script
+namespace tasks {
+class SchedulerTask;
+template <typename Owner>
+class Task;
+} // namespace tasks
+namespace online {
+class PlayerRecord;
+} // namespace online
+namespace goals {
+class GoalManager;
+class MatchFlow;
+} // namespace goals
+namespace modules {
+constexpr std::size_t kScoreGoalCount = 64;
+constexpr std::size_t kParticipantCount = 8;
+constexpr std::size_t kPad47Bytes = 5;
+struct Contest;
+class LetterMatch;
+} // namespace modules
 
-namespace Mdl {
+namespace modules {
 
-// The skate module's virtual tables: itself, and the skater list's node and head (defined in skate_module_state.cpp).
-extern void** const kSkateVtable;
-extern void** const kSkaterNodeVtable;
-extern void** const kSkaterHeadVtable;
-
-class Skate : public Module {
+class Skate final : public PartUnit {
 public:
+    Skate(const Skate&) = delete;
+    Skate& operator=(const Skate&) = delete;
     // A skater slot's settings (+0x390, 8 of them).
     struct PlayerSettings {
-        int m_unknown0;   // +0 (the player's index, set by the constructor)
-        bool m_vibration; // +4 (the skater's vibration component told)
-        bool m_autoKick;  // +5 (the core physics' +0x2D9)
-        bool m_spinTaps;  // +6 (the core physics' +0x2DA)
-        uint8_t pad7;
+        int unknown0_;   // +0 (the player's index, set by the constructor)
+        bool vibration_; // +4 (the skater's vibration component told)
+        bool auto_kick_; // +5 (the core physics' +0x2D9)
+        bool spin_taps_; // +6 (the core physics' +0x2DA)
+        uint8_t spare_byte7_;
     };
     // A score goal (+0x60, 64 of them): a career goal done when the total first reaches `score`.
     struct ScoreGoal {
@@ -72,227 +79,261 @@ public:
     // The singleton (0x007CE478; null before the module starts). 0x005691A0 (cdecl): made (from the default heap,
     // Calloc mode 1) if there's none and `create`; one more reference either way. 0x00564C10 (cdecl): one reference
     // less - the last deletes it.
-    static Skate* Instance();
-    static Skate* __cdecl CreateInstance(bool create);
-    static void __cdecl DeleteInstance();
+    static Skate* sole();
+    static Skate* spawn_occurrence(bool create);
+    static void discard_occurrence();
 
     // --- made and destroyed (skate_module_skaters.cpp) ---
     // 0x00568DE0: the constructor: the module, the empty skater list, the logic task, the network tasks, the
     // managers (game flow, goals, career, rails, checksums, split-screen preferences, competition, HORSE, two movie
-    // managers), the records' 21 levels, the players' settings. Returns this.
-    Skate* Construct();
-    // 0x005663A0: the destructor body (each manager deleted). 0x00567BA0: the scalar deleting destructor (vtable
-    // slot 0).
-    void DestroyBody();
-    Skate* Destroy(uint8_t flags);
-    // 0x00564DC0 / 0x00564C50 (vtable slots 1 / 2): the module started (the permanent assets loaded, the logic task
-    // added to the main loop's) / stopped (the logic task out).
-    void StartCallback();
-    void StopCallback();
-    // 0x00564DB0 (Tsk::Task<Skate>'s vtable slot 0): the task's code run with the task. 0x00568C90: the logic task's
-    // code - DoUpdate, the skaters' collisions on the server, king of the hill's clock.
-    static void __fastcall RunTask(Tsk::BaseTask* task);
-    static void __cdecl LogicTask(Tsk::BaseTask* task);
-    // 0x00565750 / 0x00565FC0: the skater list's node's / head's scalar deleting destructors (vtables 0x0064E544 /
-    // 0x0064E5D4).
-    static Mem::ListNode* __fastcall DestroySkaterNode(Mem::ListNode* node, int, uint8_t flags);
-    static Mem::ListNode* __fastcall DestroySkaterHead(Mem::ListNode* head, int, uint8_t flags);
+    // managers), the records' 21 levels, the players' settings.
+    Skate();
+    // 0x005663A0 / 0x00567BA0: each manager deleted.
+    ~Skate() override;
+    // 0x00564DC0 / 0x00564C50: the module started (the permanent assets loaded, the logic task added to the main
+    // loop's) / stopped (the logic task out).
+    void start_callback() override;
+    void stop_callback() override;
+    // 0x00568C90: the logic task's code - run_frame_logic, the skaters' collisions on the server, king of the hill's
+    // clock.
+    static void front_end_tick(tasks::Task<Skate>* task);
+    // (0x00565750 / 0x00565FC0, the skater list's node's / head's scalar deleting destructors: never called through
+    // their tables here - the node is the skater's own, the head the module's.)
 
     // --- the skaters (skate_module_skaters.cpp) ---
     // 0x0041AD90: the number of skaters in the list (the nodes from the head's next until the head - checked by its
     // data, -1, before a node is checked for null, as the original does).
-    int GetNumSkaters();
+    int count_riders();
     // 0x005665C0: skater `index` of the list (null past the end).
-    Obj::CCompositeObject* GetSkater(int index);
+    objects::GameEntity* get_rider_at(int index);
     // 0x00566520: the first local skater (null: none). 0x00566600: the skater whose object id is `id` (null: none).
-    Obj::CSkater* GetLocalSkater();
-    Obj::CSkater* GetSkaterById(uint32_t id);
-    // Their entries (ECX kept, as the original's).
-    static void GetLocalSkaterStub();
-    static void GetSkaterByIdStub();
+    objects::Rider* get_home_rider();
+    objects::Rider* get_rider_by_number(uint32_t id);
     // 0x00567180: a skater for `profile` (a local one: the existing local skater - given `id` when it has another -
     // or a new one on the next unused skater heap); its controllers bound, the created tricks and stat goals given
     // back. 0x00565790: a skater removed (its bail board; a client's left script; the local player's created tricks
     // and stat goals kept) and deleted.
-    Obj::CSkater* AddSkater(Obj::CSkaterProfile* profile, bool local, uint32_t id, int viewport);
-    void RemoveSkater(Obj::CSkater* skater);
+    gsl::owner<objects::Rider*> spawn_skater_entity(objects::RiderIdentity* profile, bool local, uint32_t id, int viewport);
+    static void drop_skater_from_roster(objects::Rider* skater);
     // 0x00565FF0: the first skater heap no skater uses (from 0 for a local skater, 1 for another).
-    int GetNextUnusedSkaterHeapIndex(bool local);
+    int find_free_rider_heap(bool local);
     // 0x00564C60: a skater hidden or shown (`this` unused).
-    void HideSkater(Obj::CSkater* skater, bool hide);
+    static void conceal_skater(objects::Rider* skater, bool hide);
     // 0x00565BF0: a skater's shadow made again (detailed for a local skater outside split screen).
-    void SetSkaterShadow(Obj::CSkater* skater);
+    static void set_skater_shadow(objects::Rider* skater);
     // 0x00567090: each local skater's (and its camera's) input bound to its player's controller.
-    void BindControllers();
+    void bind_controllers();
     // 0x00566100: the restart point for skater `skaterId` (by game mode: the team's, HORSE's, the multiplayer start
     // positions, Player1, any). 0x00566370: a skater moved to `node` (or its restart point). 0x00566980: every
     // local skater moved there and reset.
-    uint32_t SkipToRestartPoint(uint32_t skaterId);
-    void MoveToRestart(Obj::CSkater* skater, uint32_t node, uint32_t walking);
-    void ResetSkaters(uint32_t node, uint32_t walking);
+    uint32_t warp_to_restart(uint32_t skater_id);
+    void teleport_to_spawn(objects::Rider* skater, uint32_t node, uint32_t walking);
+    // Where the skaters restart: the node, and whether walking.
+    struct SpawnChoice {
+        uint32_t node{};
+        uint32_t walking{};
+    };
+    void reset_skaters(SpawnChoice spawn_choice);
     // 0x00566BE0: the skaters' collisions (in the games that have them) and king of the hill's crown taken.
-    void CheckSkaterCollisions();
+    void test_rider_contacts();
     // 0x00567580: whether every skater's run is over (each one still going told to end; HORSE: only the skater
     // taking the run). 0x00567690 / 0x005676E0: HORSE's skater started / completed its first trick.
-    bool AllSkatersIdle();
-    bool FirstTrickStarted();
-    bool FirstTrickCompleted();
+    bool all_skaters_idle();
+    bool first_trick_started();
+    bool first_trick_completed();
     // 0x00566F40: the local skater's records of the level (high score, best combo, the longest grind / manual / lip
     // trick, the longest combo).
-    void UpdateRecords();
+    void update_records();
     // 0x00567BD0 / 0x00567C00 / 0x00567C30: a player's spin taps / autokick / vibration (and its skater's).
-    void SetSpinTaps(int player, bool on);
-    void SetAutoKick(int player, bool on);
-    void SetVibration(int player, int on);
+    void set_turn_tap_count(int player, bool on);
+    void set_auto_eject(int player, bool on);
+    void change_rumble(int player, int on);
 
     // --- the level (skate_module_state.cpp, skate_module_skaters.cpp) ---
     // 0x00565000: `level`'s script run (the players asked to be ready, the connections' time-outs stretched).
     // 0x00565A00: the level changed to `level` (request_level, the clean-up keeping the skaters, ChangeLevelGameFlow).
-    void OpenLevel(uint32_t level);
-    void ChangeLevel(uint32_t level);
+    void enter_stage(uint32_t level);
+    void change_level(uint32_t level);
     // 0x005666A0: the session's objects deleted (the skaters kept, hidden while the dead are flushed). 0x005668A0:
     // the career's level restarted. 0x00566900: the level reset (the node array, graffiti, goals, reset_level).
     // 0x00566A60: the game launched (the game flow, the king, the flags).
-    void Cleanup();
-    void RestartLevel();
-    void ResetLevel();
-    void LaunchGame();
+    void tidy_up();
+    void restart_level();
+    void reset_level();
+    void launch_game();
     // 0x00564FD0: the game type loaded into the game mode.
-    void SetCurrentGameType();
+    void set_current_game_type() const;
     // 0x00564F20: the level's objects cleaned up for the park editor.
-    void CleanupForParkEditor();
+    void tidy_before_park_build();
     // 0x00565620: the camera's position noted for the objects' updates (none in more than one viewport).
-    void PreCalculateObjectUpdateInfo();
+    void prepare_entity_update_data();
     // 0x00567710: one frame: the time of day, the suspend frame, the movies, Game_Update, the proximity nodes, the
     // unplugged controllers.
-    void DoUpdate();
+    void run_frame_logic();
+    // (Part of run_frame_logic: the controller unplugged dialog for `skater`'s pad - leaving a net game first.)
+    void show_unplugged_dialog(objects::Rider* skater);
     // 0x00564D30 (an object walk's callback): its suspend component's visibility.
-    static void __cdecl UpdateSuspendVisibility(Obj::CObject* object, void* data);
+    static void update_suspend_visibility(objects::Entity* object, void* data);
+
+    // A timer's beep: the time left, the time it started beeping and the rate.
+    struct TimerBeep {
+        float time_left_{};
+        float start_time_{};
+        float rate{};
+    };
 
     // --- small (skate_module_state.cpp) ---
     // 0x00564CA0: the timer's beeps (`script`) speeding up as `timeLeft` runs down from `startTime`.
-    void TimerBeep(float timeLeft, float startTime, float rate, const char* script);
+    static void timer_beep(TimerBeep timer_beep_in, const char* script);
     // 0x00564D50 / 0x00564D60 / 0x00564D80 / 0x00564D90 / 0x00564DA0
-    void SetUnknown370(int value);
-    void UpdateGameFlow();
-    Prefs::Preferences* GetSplitScreenPreferences();
-    Game::CGoalManager* GetGoalManager();
-    void CheckControllers();
+    void set_unknown370(int value);
+    void advance_match_flow();
+    prefs::Preferences* get_split_view_settings();
+    goals::GoalManager* get_objective_board();
+    void scan_pad_connections();
     // 0x00564F60: the voices' volumes on a pause.
-    void Pause(bool paused);
+    static void get_freeze(bool paused);
     // 0x00564F80: the profile `params`' integer `skater` names (none, or no params: the current one). 0x00564FC0:
     // profile `index`.
-    Obj::CSkaterProfile* GetProfile(Script::CStruct* params);
-    Obj::CSkaterProfile* GetProfile(int index);
+    static objects::RiderIdentity* fetch_account(script::Struct* params);
+    static objects::RiderIdentity* fetch_account(int index);
     // 0x005656C0: the career's gap checklist of the level.
-    void* GetGapChecklist();
+    void* fetch_gap_list();
     // 0x005656D0: in a net game, out of the main menu. 0x00565700: in a net mode, or the main menu / CAS asked for.
-    int InNetGameLevel();
-    bool InFrontEndOrNetMode();
+    [[nodiscard]] int in_net_game_level() const;
+    [[nodiscard]] bool in_front_end_or_net_mode() const;
     // 0x00565ED0: the module's script set to `name` (made if there's none). 0x00565F80: deleted (false: none).
-    void RunScript(uint32_t name, Script::CStruct* params);
-    bool KillScript();
+    void launch_script(uint32_t name, script::Struct* params);
+    bool kill_script();
     // 0x00569580 / 0x00569590: around the network manager's queued scripts.
-    void BeginQueuedScripts();
-    void EndQueuedScripts();
+    void begin_queued_scripts();
+    void end_queued_scripts();
     // 0x005695A0: the cheats on, as one value (their checksums OR-ed).
-    uint32_t GetCheats();
+    uint32_t get_cheats();
     // (skate_net_relay.cpp) 0x0056B890: out of the network game - PatchCleanup; a server tells everyone (0x32) and
     // is destroyed with its tasks, a client tells the server (0xB); the players and apps removed.
-    void LeaveServer();
+    void leave_server();
     // 0x0056B990: `player` told which cheats are on (0x82: a count, then the checksums).
-    void SendCheats(GameNet::PlayerInfo* player);
+    void send_cheats(online::PlayerRecord* player);
     // 0x0056BB70: the scores to each player (0x40: the time left, the cheats, `final`, each other skater's score -
     // its own too when the player doesn't keep it itself), and to a remote player fully in the cheats' check (0x80).
-    void SendScoreUpdates(bool final);
+    void broadcast_points(bool final);
 
     // --- static (cdecl) ---
     // 0x005651D0: the next player observed. 0x005651F0: a game of more than one player (1 / 0). 0x00565680: the
     // network / taunt / split-screen preferences. 0x00565D40: those `params`' prefs names. 0x00565BB0: an object
     // AbsentInNetGames in one (1 / 0). 0x00565DA0: the rails' debug drawing (compiled out).
-    static void __cdecl ObserveNextSkater();
-    static int __cdecl IsMultiplayer();
-    static Prefs::Preferences* __cdecl GetPreferences(uint32_t name);
-    static Prefs::Preferences* __cdecl GetPreferencesFromParams(Script::CStruct* params);
-    static int __stdcall ShouldBeAbsent(Script::CStruct* params);
-    static void __cdecl DebugRails();
+    static void observe_next_skater();
+    static int is_multiplayer();
+    static prefs::Preferences* get_player_options(uint32_t name);
+    static prefs::Preferences* get_preferences_from_params(script::Struct* params);
+    static int should_be_absent(script::Struct* params);
+    static void debug_rails();
 
     // --- script commands ---
     // 0x00565220 SetGameType, 0x00565250 InTeamGame, 0x00565260 ChangeLevel (the players told; the park's map /
     // rails and created goals streamed to them), 0x005654B0 LaunchLevel, 0x005654D0 RequestLevel, 0x005655B0
     // InitSkaterHeaps, 0x00566E70 Retry, 0x00566EA0 LaunchGame, 0x00566ED0 ResetLevel, 0x00568120
     // FillRankingScreen (skate_rankings.cpp).
-    static bool __cdecl CFunc_SetGameType(Script::CStruct* params, Script::CScript* script);
-    static int __cdecl CFunc_InTeamGame(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_ChangeLevel(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_LaunchLevel(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_RequestLevel(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_InitSkaterHeaps(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_Retry(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_LaunchGame(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_ResetLevel(Script::CStruct* params, Script::CScript* script);
-    static bool __cdecl CFunc_FillRankingScreen(Script::CStruct* params, Script::CScript* script);
+    static bool cfunc_set_game_type(script::Struct* params, script::Context context);
+    static bool cfunc_in_team_game(script::Struct* params, script::Context context);
+    static bool cfunc_change_level(script::Struct* params, script::Context context);
+    static bool cfunc_launch_level(script::Struct* params, script::Context context);
+    static bool cfunc_request_level(script::Struct* params, script::Context context);
+    static bool cfunc_init_skater_heaps(script::Struct* params, script::Context context);
+    static bool cfunc_retry(script::Struct* params, script::Context context);
+    static bool cfunc_launch_game(script::Struct* params, script::Context context);
+    static bool cfunc_reset_level(script::Struct* params, script::Context context);
+    static bool cfunc_fill_ranking_screen(script::Struct* params, script::Context context);
 
-    // (the list's node at `index` - Lst::Head's GetItem; the skater there, null past the end)
-    Mem::ListNode* SkaterNode(uint32_t index);
-    Obj::CSkater* SkaterAt(uint32_t index);
+    // (the list's node at `index` - lists::Foremost's fetch_entry; the skater there, null past the end)
+    memory::ListNode* skater_node(uint32_t index);
+    objects::Rider* get_skater_at(uint32_t index);
 
-    Tsk::BaseTask* m_logicTask;                   // +0x14 (Tsk::Task<Skate>, vtable 0x006476F0: LogicTask)
-    Tsk::BaseTask* m_serverTasks[2];              // +0x18 (SkateNet::CreateNetworkTasks)
-    Obj::CSkaterCareer* m_career;                 // +0x20
-    Obj::CRailManager* m_railManager;             // +0x24
-    Lst::Head m_skaters;                          // +0x28 (their nodes' data the skaters, in object id order)
-    bool m_checkControllers;                      // +0x3C
-    uint8_t pad3D[3];
-    int m_unpluggedFrames;                        // +0x40
-    bool m_runningQueuedScripts;                  // +0x44
-    bool m_levelLaunched;                         // +0x45 (OpenLevel)
-    bool m_endRun;                                // +0x46
-    uint8_t pad47[5];
-    uint32_t m_gameType;                          // +0x4C (freeskate)
-    bool m_movieCamera;                           // +0x50 a movie's camera in use
-    uint8_t pad51[3];
-    Obj::ChecksumSet* m_checksums;                // +0x54 (0x404 bytes)
-    Prefs::Preferences* m_splitscreenPreferences; // +0x58
-    bool m_levelChanged;                          // +0x5C
-    uint8_t pad5D[3];
-    ScoreGoal m_scoreGoals[64];                   // +0x60
-    Mdl::CCompetition* m_competition;             // +0x360
-    Mdl::CHorse* m_horse;                         // +0x364
-    Obj::CMovieManager* m_movies;                 // +0x368
-    Obj::CMovieManager* m_objectMovies;           // +0x36C
-    int m_unknown370;                             // +0x370
-    uint32_t m_requestedLevel;                    // +0x374
-    uint32_t m_level;                             // +0x378
-    uint32_t m_previousLevel;                     // +0x37C
-    uint32_t m_unknown380;                        // +0x380
-    bool m_newRecord;                             // +0x384 a record was set by the last UpdateRecords
-    uint8_t pad385[3];
-    Game::CGameFlow* m_gameFlow;                  // +0x388
-    Game::CGoalManager* m_goalManager;            // +0x38C
-    PlayerSettings m_players[8];                  // +0x390
-    int m_unknown3D0;                             // +0x3D0
-    bool m_debugRails;                            // +0x3D4
-    uint8_t pad3D5[3];
-    Script::CScript* m_script;                    // +0x3D8
-    bool m_noCamera;                              // +0x3DC (PreCalculateObjectUpdateInfo: no camera to measure from)
-    uint8_t pad3DD[3];
-    Mth::Vector m_cameraPos;                      // +0x3E0
+    // The fields other code reads and sets.
+    std::array<std::unique_ptr<tasks::Task<Skate>>, 2>& server_tasks() { return server_tasks_; }
+    [[nodiscard]] const std::array<std::unique_ptr<tasks::Task<Skate>>, 2>& server_tasks() const { return server_tasks_; }
+    std::unique_ptr<objects::RiderStoryProgress>& career() { return career_; }
+    [[nodiscard]] const std::unique_ptr<objects::RiderStoryProgress>& career() const { return career_; }
+    memory::HeapUnique<objects::GrindRailHub>& rail_manager() { return rail_manager_; }
+    [[nodiscard]] const memory::HeapUnique<objects::GrindRailHub>& rail_manager() const { return rail_manager_; }
+    [[nodiscard]] const lists::Foremost& riders() const { return riders_; }
+    [[nodiscard]] bool running_queued_scripts() const { return running_queued_scripts_; }
+    bool& run_over() { return run_over_; }
+    [[nodiscard]] bool run_over() const { return run_over_; }
+    std::array<ScoreGoal, kScoreGoalCount>& score_goals() { return score_goals_; }
+    [[nodiscard]] const std::array<ScoreGoal, kScoreGoalCount>& score_goals() const { return score_goals_; }
+    memory::HeapUnique<modules::Contest>& competition() { return competition_; }
+    [[nodiscard]] const memory::HeapUnique<modules::Contest>& competition() const { return competition_; }
+    memory::HeapUnique<modules::LetterMatch>& horse() { return horse_; }
+    [[nodiscard]] const memory::HeapUnique<modules::LetterMatch>& horse() const { return horse_; }
+    std::unique_ptr<objects::VideoHub>& movies() { return movies_; }
+    [[nodiscard]] const std::unique_ptr<objects::VideoHub>& movies() const { return movies_; }
+    std::unique_ptr<objects::VideoHub>& object_movies() { return object_movies_; }
+    [[nodiscard]] const std::unique_ptr<objects::VideoHub>& object_movies() const { return object_movies_; }
+    [[nodiscard]] uint32_t pending_level() const { return pending_level_; }
+    [[nodiscard]] uint32_t level() const { return level_; }
+    [[nodiscard]] uint32_t previous_level() const { return previous_level_; }
+    [[nodiscard]] uint32_t level_params() const { return level_params_; }
+    void set_level_params(uint32_t value) { level_params_ = value; }
+    [[nodiscard]] bool new_record() const { return new_record_; }
+    void set_new_record(bool value) { new_record_ = value; }
+    std::unique_ptr<goals::MatchFlow>& game_flow() { return game_flow_; }
+    [[nodiscard]] const std::unique_ptr<goals::MatchFlow>& game_flow() const { return game_flow_; }
+    memory::HeapUnique<goals::GoalManager>& goal_manager() { return goal_manager_; }
+    [[nodiscard]] const memory::HeapUnique<goals::GoalManager>& goal_manager() const { return goal_manager_; }
+    [[nodiscard]] const std::array<PlayerSettings, kParticipantCount>& participants() const { return participants_; }
+    [[nodiscard]] float forced_stat() const { return forced_stat_; }
+    void set_forced_stat(float value) { forced_stat_ = value; }
+    bool& get_debug_rails() { return debug_rails_; }
+    [[nodiscard]] bool get_debug_rails() const { return debug_rails_; }
+    [[nodiscard]] bool no_camera() const { return no_camera_; }
+    maths::Vec4& viewer_pos() { return viewer_pos_; }
+    [[nodiscard]] const maths::Vec4& viewer_pos() const { return viewer_pos_; }
+
+private:
+    std::unique_ptr<tasks::Task<Skate>> update_job_;         // +0x14 (front_end_tick)
+    std::array<std::unique_ptr<tasks::Task<Skate>>, 2> server_tasks_;                  // +0x18 (SkateNet::create_network_tasks)
+    std::unique_ptr<objects::RiderStoryProgress> career_;    // +0x20
+    memory::HeapUnique<objects::GrindRailHub> rail_manager_; // +0x24
+    lists::Foremost riders_{}; // +0x28 (their nodes' data the skaters, in object id order)
+    bool watch_for_unplug_{false}; // +0x3C
+    std::array<uint8_t, 3> pad3d_{};
+    int unplugged_frames_{0};       // +0x40
+    bool running_queued_scripts_{}; // +0x44
+    bool level_launched_{false};    // +0x45 (enter_stage)
+    bool run_over_{};             // +0x46
+    std::array<uint8_t, kPad47Bytes> pad47{};
+    static constexpr uint32_t kStartMatchStyle = 0x34861A16; // freeskate
+    uint32_t match_style_{kStartMatchStyle}; // +0x4C (freeskate)
+    bool movie_camera_{};  // +0x50 a movie's camera in use
+    std::array<uint8_t, 3> pad51{};
+    memory::HeapUnique<objects::ChecksumSet> checksums_;          // +0x54 (0x404 bytes)
+    std::unique_ptr<prefs::Preferences> splitscreen_preferences_; // +0x58
+    bool stage_switched_{};                                       // +0x5C
+    std::array<uint8_t, 3> pad5d_{};
+    std::array<ScoreGoal, kScoreGoalCount> score_goals_{};                         // +0x60
+    memory::HeapUnique<modules::Contest> competition_;    // +0x360
+    memory::HeapUnique<modules::LetterMatch> horse_;      // +0x364
+    std::unique_ptr<objects::VideoHub> movies_;           // +0x368
+    std::unique_ptr<objects::VideoHub> object_movies_;    // +0x36C
+    int unknown370_{};                                    // +0x370
+    uint32_t pending_level_{};                            // +0x374
+    uint32_t level_{};                                    // +0x378
+    uint32_t previous_level_{};                           // +0x37C
+    uint32_t level_params_{};                             // +0x380 the level's structure (its name)
+    bool new_record_{};                                   // +0x384 a record was set by the last UpdateRecords
+    std::unique_ptr<goals::MatchFlow> game_flow_;         // +0x388
+    memory::HeapUnique<goals::GoalManager> goal_manager_; // +0x38C
+    std::array<PlayerSettings, kParticipantCount> participants_{};                    // +0x390
+    float forced_stat_{};                                 // +0x3D0 every skater's stats, forced (unless 0)
+    bool debug_rails_{};                                  // +0x3D4
+    script::Script* own_script_;                          // +0x3D8
+    bool no_camera_{};         // +0x3DC (prepare_entity_update_data: no camera to measure from)
+    maths::Vec4 viewer_pos_{}; // +0x3E0
 };
-static_assert(offsetof(Skate, m_logicTask) == 0x14 && offsetof(Skate, m_skaters) == 0x28 &&
-                  offsetof(Skate, m_gameType) == 0x4C && offsetof(Skate, m_scoreGoals) == 0x60 &&
-                  offsetof(Skate, m_competition) == 0x360 && offsetof(Skate, m_gameFlow) == 0x388 &&
-                  offsetof(Skate, m_players) == 0x390 && offsetof(Skate, m_script) == 0x3D8 &&
-                  offsetof(Skate, m_cameraPos) == 0x3E0 && sizeof(Skate) == 0x3F0,
-              "layout must match the original");
 
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).
-void __cdecl FillEliminationRanking();
+void fill_elimination_ranking();
 
-// 0x00565730: the skater list head's destructor body (its node's: unlinked).
-void __fastcall SkaterHeadDestroyBody(Mem::ListNode* head);
-
-extern int g_viewportCount;
-extern Mdl::Skate* g_skateModule;
-
-} // namespace Mdl
+} // namespace modules

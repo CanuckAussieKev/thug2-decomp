@@ -1,4 +1,4 @@
-// NOT ORIGINAL - reads the game's [debug] collision_events lines (src/game/skater/collision_events.h) out of a
+// NOT ORIGINAL - reads the game's [debug] collision_events lines (src/game/rider/collision_events.h) out of a
 // thug2-decomp.log and groups them: the spots in a level where the skater's velocity turned round, with what did it.
 //
 //   node tools/game/collision_events.ts <thug2-decomp.log> [--level <name>] [--col <level | file.col.xbx>]

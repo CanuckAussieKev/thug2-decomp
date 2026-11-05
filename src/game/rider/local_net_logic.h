@@ -1,0 +1,83 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include "engine/objects/entity.h"
+#include <gsl/pointers>
+#include <array>
+
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
+namespace net {
+struct InboundMsgCtx;
+} // namespace net
+
+// The skater's local network logic component (SkaterLocalNetLogic, type 0x7CD3E6D5, its factory 0x00513630): a local
+// skater's updates to the server (message 0x23) - its position, orientation, state and controls, each sent when it
+// changed (and everything every 15th frame of its client app, unless it's the server's own skater). The update
+// (0x00512EA0 / 0x005131A0) carries the big-level positions, TP-R6 - game/online/thugpro_compat.h. Vtable 0x0064BEF0:
+// 0 Destroy, 1 Update, 2 the shared 0x004FBDA0, 3 Finalize, 12 the shared invoke_method_by_name 0x0051ADC0.
+namespace objects {
+constexpr uint8_t kNotSent = 0xFF;                  // nothing sent yet
+
+class RiderPoseState;
+
+class RiderHostSync final : public ObjectModule {
+public:
+    RiderHostSync(const RiderHostSync&) = delete;
+    RiderHostSync& operator=(const RiderHostSync&) = delete;
+    // 0x00513630 (registered by register_component_types): a new one (0 if out of memory): nothing sent yet (the state
+    // and +0x35 0xFF, so the first update sends them).
+    static gsl::owner<ObjectModule*> fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderHostSync();
+    // 0x00512E30: the destructor body (the base's).
+    ~RiderHostSync() override;
+    // 0x004FBDA0 (slot 2, the cleanup component's, folded: its +0x18 cleared): no update sent yet.
+    void configure_from_data(script::Struct* /*params*/) override { last_transmit_at_ = 0; }
+    // 0x00512E70 (vtable +0x0C): the state and core physics components found.
+    void seal() override;
+    // 0x005136C0 (vtable +0x04): in a multiplayer game with a local player (the network manager's 0x00537320),
+    // send_update.
+    void tick_frame() override;
+    // 0x005136F0 (the client's handler for message 0x4B, registered by 0x0056EB50; not a Ghidra function): someone's
+    // graffiti was stolen - the message (wire/skater_messages.h): the game id (the network manager's +0x38; another:
+    // kResultConsumed), the thief's skater id (the player who scored the clusters, as the senders write it), the
+    // victim's. The handler's data is the local skater: the thief runs GraffitiStealYou with String0 = the victim's
+    // name, the victim GraffitiStealOther with the thief's.
+    static int handle_graffiti_steal(net::InboundMsgCtx* context);
+
+    // 0x00512EA0: which fields differ from what was last sent (bits: 0-2 the position x / y / z, 3-5 the angles,
+    // 0x40 the state, 0x80 the controls, 0x100 the board component's value) - all but 0x100 when the update is
+    // forced. The angles that do are recorded as sent here.
+    uint32_t fetch_sync_field_mask();
+    // 0x005131A0: the skater's update sent to the server when its client app's frame calls for it (every 15th, or
+    // when the connection's send interval has gone by since the last; always on the server): a 32-bit time stamp,
+    // the 9 field bits, the changed fields; recorded as sent.
+    void send_update();
+
+    // The fields other code reads and sets.
+    [[nodiscard]] RiderPoseState* pose() const { return pose_; }
+    [[nodiscard]] skater::SkaterPhysicsModule* board() const { return board_; }
+
+private:
+    uint32_t last_transmit_at_{0}; // +0x18 the client app's time when the last update went
+    uint8_t sent_value_7c_{kNotSent};  // +0x1C (the core component's +0xE1)
+    uint8_t pad1d_{};
+    std::array<int16_t, 3> sent_pos_{};    // +0x1E (x, z in half units - y in quarters; whole units in a big level)
+    std::array<int16_t, 3> sent_angles_{}; // +0x24 (in 1/4096ths)
+    std::array<uint8_t, 2> pad2a_{};
+    uint32_t sent_controls_{0};          // +0x2C (a bit per control the core component holds)
+    uint32_t sent_value_6c_{0};          // +0x30 (the 0xB1D5A3E1 component's +0x18)
+    uint8_t sent_state_{0};              // +0x34 (the core component's +0x18)
+    uint8_t sent_flag74_{kNotSent};          // +0x35 (+0xE0)
+    uint8_t sent_flag75_{};              // +0x36 (+0x1C is 1)
+    uint8_t sent_flag76_{};              // +0x37 (+0x118)
+    uint32_t sent_value80_{0};           // +0x38 (the board's: +0x40's +0x22C's +0x4C)
+    RiderPoseState* pose_{nullptr};      // +0x3C the skater's SkaterState (its state and controls)
+    skater::SkaterPhysicsModule* board_{nullptr}; // +0x40 the core physics component
+};
+
+} // namespace objects

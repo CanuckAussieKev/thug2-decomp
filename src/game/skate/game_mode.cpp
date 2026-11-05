@@ -1,125 +1,146 @@
-// Game::CGameMode and Game::CGameFlow: 0x00552E10-0x00553DF9 (see game_mode.h).
+// goals::MatchRules and goals::MatchFlow: 0x00552E10-0x00553DF9 (see game_mode.h).
 
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 #include <new>
 
 #include "game/skate/game_mode.h"
 
-#include "game/core/crc.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/goals/goal.h"
-#include "game/net/gamenet_manager.h"
-#include "game/script/cscript.h"
-#include "game/script/preferences.h"
-#include "game/skate/skate_module_calls.h"
+#include "base/core/checksums.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/host.h"
+#include "game/goals/objective.h"
+#include "game/online/gamenet_manager.h"
+#include "engine/script/preferences.h"
+#include "engine/script/context.h"
+#include "game/skate/skate_module.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
-#include "game/core/code_address.h"
+#include "base/core/all_ones.h"
+#include "base/core/no_destroy.h"
+#include "game/online/net_game_state.h"
+#include <gsl/pointers>
+#include <gsl/assert>
 
-namespace Game {
+namespace goals {
 
-Game::CGameMode* g_gameMode;
-uint32_t g_gameModeReferences;
+namespace {
+constexpr int kDefaultMaxPlayers = 8;
+constexpr uint32_t kNetTrickAttack = 0x30C2FFA3;  // nettrickattack
+constexpr uint32_t kTrickAttack = 0xF9283EE7;     // trickattack
+constexpr uint32_t kNetGraffiti = 0x5E2EA50C;     // netgraffiti
+constexpr uint32_t kGraffiti = 0xC8A82B5A;        // Graffiti
+constexpr uint32_t kNetComboMambo = 0xC50AFFD0;   // netcombomambo
+constexpr uint32_t kComboMambo = 0x23EB3DA3;      // combomambo
+constexpr uint32_t kNetSlap = 0xF9D5D933;         // netslap
+constexpr uint32_t kSlap = 0xCA1F360F;            // slap
+constexpr uint32_t kNetCtf = 0x6C5FF266;          // netctf
+constexpr uint32_t kCtf = 0xA5AD2B0B;             // CTF
+constexpr uint32_t kNetElimiskate = 0x10F84276;   // netelimiskate
+constexpr uint32_t kElimiskate = 0xF6198005;      // elimiskate
+
+std::unique_ptr<goals::MatchRules>& stored_game_mode()
+{
+    static core::NoDestroy<std::unique_ptr<goals::MatchRules>> game_mode;
+    return game_mode.get();
+}
+
+} // namespace
+
+goals::MatchRules* game_mode() { return stored_game_mode().get(); }
 
 namespace {
 
-constexpr uint32_t kAccumulateScore = 0xC1F5864B;   // accumulate_score
-constexpr uint32_t kTrackBestCombo = 0xD57C16BA;    // track_best_combo
-constexpr uint32_t kScoreFrozen = 0x78FB9F04;       // score_frozen
-constexpr uint32_t kDegradeScore = 0xCA37E639;      // degrade_score
-constexpr uint32_t kTrackTrickScore = 0x47F763FF;   // track_trick_score
-constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;  // team_graffiti_mode
-constexpr uint32_t kGoals = 0x38DBE1D0;             // goals
-constexpr uint32_t kNumTeams = 0x2EBE6CD1;          // num_teams
-constexpr uint32_t kTimerBeeps = 0x035C8073;        // timer_beeps
-constexpr uint32_t kDefaultTimeLimit = 0x8D38A280;  // default_time_limit
-constexpr uint32_t kInitialPlayers = 0x6DC3D6F1;    // initial_players
-constexpr uint32_t kMaxPlayers = 0x4D42E61D;        // max_players
-constexpr uint32_t kFireballLevel = 0xCE87E4E3;     // fireball_level
-constexpr uint32_t kRound = 0x3A1115CB;             // round
-constexpr uint32_t kName = 0xA1DC81F9;              // Name
-constexpr uint32_t kKing = 0x5D32129C;              // king
-constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
-constexpr uint32_t kScoreChallenge = 0xF135ECB6;    // scorechallenge
-constexpr uint32_t kNetScoreChallenge = 0x1498240A; // netscorechallenge
-constexpr uint32_t kCreateGoals = 0xE45F0CA2;       // creategoals
-constexpr uint32_t kFirefight = 0x3D6D444F;         // firefight
-constexpr uint32_t kNetFirefight = 0xBFF33600;      // netfirefight
-constexpr uint32_t kStopAtZero = 0x48E748B5;        // stop_at_zero
-constexpr uint32_t kNetLobby = 0x1C471C60;          // NetLobby
-constexpr uint32_t kScreenMode = 0x9BAB2EAE;        // screenmode
-constexpr uint32_t kSplitScreen = 0x06AB02F2;       // splitscreen
-constexpr uint32_t kSingle = 0x3558D8E6;            // single
-constexpr uint32_t kHorse = 0x9D65D0E7;             // Horse
-constexpr uint32_t kViewportType = 0x6F82C71E;      // viewport_type
-constexpr uint32_t kChecksum = 0x21902065;          // checksum
-constexpr uint32_t kViewportVertical = 0x92F5B4CB;  // viewport_type_vertical
+constexpr uint32_t kAccumulateScore = 0xC1F5864B;    // accumulate_score
+constexpr uint32_t kTrackBestCombo = 0xD57C16BA;     // track_best_combo
+constexpr uint32_t kPointsHeldFlag = 0x78FB9F04;     // score_frozen
+constexpr uint32_t kDegradeScore = 0xCA37E639;       // degrade_score
+constexpr uint32_t kTrackTrickScore = 0x47F763FF;    // track_trick_score
+constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;   // team_graffiti_mode
+constexpr uint32_t kGoals = 0x38DBE1D0;              // goals
+constexpr uint32_t kNumTeams = 0x2EBE6CD1;           // num_teams
+constexpr uint32_t kTimerBeeps = 0x035C8073;         // timer_beeps
+constexpr uint32_t kDefaultTimeLimit = 0x8D38A280;   // default_time_limit
+constexpr uint32_t kInitialPlayers = 0x6DC3D6F1;     // initial_players
+constexpr uint32_t kMaxPlayers = 0x4D42E61D;         // max_players
+constexpr uint32_t kFireballLevel = 0xCE87E4E3;      // fireball_level
+constexpr uint32_t kRound = 0x3A1115CB;              // round
+constexpr uint32_t kName = 0xA1DC81F9;               // Name
+constexpr uint32_t kKing = 0x5D32129C;               // king
+constexpr uint32_t kNetKing = 0x6EF8FDA0;            // netking
+constexpr uint32_t kScoreChallenge = 0xF135ECB6;     // scorechallenge
+constexpr uint32_t kNetScoreChallenge = 0x1498240A;  // netscorechallenge
+constexpr uint32_t kCreateGoals = 0xE45F0CA2;        // creategoals
+constexpr uint32_t kFirefight = 0x3D6D444F;          // firefight
+constexpr uint32_t kNetFirefight = 0xBFF33600;       // netfirefight
+constexpr uint32_t kStopAtZero = 0x48E748B5;         // stop_at_zero
+constexpr uint32_t kNetLobby = 0x1C471C60;           // NetLobby
+constexpr uint32_t kScreenMode = 0x9BAB2EAE;         // screenmode
+constexpr uint32_t kSplitScreen = 0x06AB02F2;        // splitscreen
+constexpr uint32_t kSingle = 0x3558D8E6;             // single
+constexpr uint32_t kHorse = 0x9D65D0E7;              // Horse
+constexpr uint32_t kScreenLayoutKey = 0x6F82C71E;    // viewport_type
+constexpr uint32_t kChecksum = 0x21902065;           // checksum
+constexpr uint32_t kViewportVertical = 0x92F5B4CB;   // viewport_type_vertical
 constexpr uint32_t kViewportHorizontal = 0x7C442511; // viewport_type_horizontal
-constexpr uint32_t kVictoryConditions = 0x94A24C5E; // victory_conditions
-constexpr uint32_t kIsElimiskate = 0x2B1304A1;      // is_elimiskate
-constexpr uint32_t kIsScavengerHunt = 0xD4734865;   // is_scavenger_hunt
-constexpr uint32_t kModeInfo = 0xCA5F7FFB;          // mode_info
-constexpr uint32_t kDefinition = 0x97CFD027;        // definition
-constexpr uint32_t kFreeskate = 0x34861A16;         // freeskate
+constexpr uint32_t kVictoryConditions = 0x94A24C5E;  // victory_conditions
+constexpr uint32_t kIsElimiskate = 0x2B1304A1;       // is_elimiskate
+constexpr uint32_t kIsScavengerHunt = 0xD4734865;    // is_scavenger_hunt
+constexpr uint32_t kModeInfo = 0xCA5F7FFB;           // mode_info
+constexpr uint32_t kDefinition = 0x97CFD027;         // definition
+constexpr uint32_t kFreeskate = 0x34861A16;          // freeskate
 
-static VtableSlot kGameFlowVtable_slots[] = {&Game::CGameFlow::Destroy};
-void** const kGameFlowVtable = reinterpret_cast<void**>(kGameFlowVtable_slots);
-static VtableSlot kGameModeVtable_slots[] = {&Game::CGameMode::Destroy};
-void** const kGameModeVtable = reinterpret_cast<void**>(kGameModeVtable_slots);
-static VtableSlot kConditionHeadVtable_slots[] = {&Game::CGameMode::ConditionNode::DestroyHead};
-void** const kConditionHeadVtable = reinterpret_cast<void**>(kConditionHeadVtable_slots);
-static VtableSlot kConditionNodeVtable_slots[] = {&Game::CGameMode::ConditionNode::Destroy};
-void** const kConditionNodeVtable = reinterpret_cast<void**>(kConditionNodeVtable_slots);
-CVictoryCondition* const kHeadMarker = reinterpret_cast<CVictoryCondition*>(-1);
+WinRule* head_marker() { return platform::all_ones_pointer<WinRule>(); }
 
-// (the getters' local when an asserted integer isn't there: the original's is the pushed `this`)
-int Unset(const void* mode) { return static_cast<int>(reinterpret_cast<uintptr_t>(mode)); }
+// (the getters' local when an asserted integer isn't there: the original's is the pushed `this`'s address - 0 here,
+// as the other argument-slot defaults are)
+int unset(const void* /*mode*/) { return 0; }
 
-CGameMode*& TheGameMode() { return g_gameMode; }
-uint32_t& References() { return g_gameModeReferences; }
-GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
-
-// A virtual function of an object with a game vtable.
-template <typename R, typename... A>
-R VirtualCall(void* object, uint32_t slot, A... args)
+MatchRules* the_game_mode() { return stored_game_mode().get(); }
+uint32_t& ref_tally()
 {
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(object))[slot / 4])(object, args...);
+    static uint32_t game_mode_references{};
+    return game_mode_references;
 }
 
 // The goal manager (0x005591B0): 0x0055DC30 how many goals (`active`...) and 0x0055E980 its current net goal.
-void* GoalManager() { return GetGoalManager(); }
-int CountGoals(void* manager, int which) { return static_cast<CGoalManager*>(manager)->NumActiveGoals(which != 0); }
-CGoal* CurrentNetGoal(void* manager) { return static_cast<CGoalManager*>(manager)->GetActiveNetGoal(); }
-CGoal* GetGoal(void* manager, uint32_t id, int assert)
+void* objective_board() { return get_objective_board(); }
+int count_goals(void* manager, int which) { return static_cast<GoalManager*>(manager)->count_live_goals(which != 0); }
+Objective* current_net_goal(void* manager) { return static_cast<GoalManager*>(manager)->get_active_net_goal(); }
+Objective* get_goal(void* manager, uint32_t id, int assert)
 {
-    return static_cast<CGoalManager*>(manager)->GetGoal(id, assert);
+    return static_cast<GoalManager*>(manager)->get_goal(id, assert);
 }
 
-// The conditions' list: its length and its `index`th node (Lst::Head's, inlined by the original: each counts from
+// The conditions' list: its length and its `index`th node (lists::Foremost's, inlined by the original: each counts from
 // the start).
-uint32_t CountConditions(CGameMode::ConditionNode* head)
+uint32_t count_conditions(MatchRules::ConditionNode* head)
 {
     uint32_t count = 0;
-    CGameMode::ConditionNode* node = head->m_next;
-    if (node->m_condition == kHeadMarker || !node)
+    const MatchRules::ConditionNode* node = head->succ;
+    if (node->condition == head_marker() || !node) {
         return 0;
-    do {
-        node = node->m_next;
+    }
+    for (bool again = true; again; again = node->condition != head_marker() && (node != nullptr)) {
+        node = node->succ;
         ++count;
-    } while (node->m_condition != kHeadMarker && node);
+    }
     return count;
 }
-CGameMode::ConditionNode* ConditionAt(CGameMode::ConditionNode* head, uint32_t index)
+MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_t index)
 {
-    CGameMode::ConditionNode* node = head->m_next;
-    if (node->m_condition == kHeadMarker || !node)
+    MatchRules::ConditionNode* node = head->succ;
+    if (node->condition == head_marker() || !node) {
         return nullptr;
-    for (uint32_t left = index; left; --left) {
-        node = node->m_next;
-        if (node->m_condition == kHeadMarker || !node)
+    }
+    for (uint32_t left = index; left != 0U; --left) {
+        node = node->succ;
+        if (node->condition == head_marker() || !node) {
             return nullptr;
+        }
     }
     return node;
 }
@@ -128,564 +149,528 @@ CGameMode::ConditionNode* ConditionAt(CGameMode::ConditionNode* head, uint32_t i
 
 // --- The game flow -------------------------------------------------------------------------------------------
 
-// 0x00552E10
-CGameFlow* CGameFlow::Construct()
-{
-    m_vtable = kGameFlowVtable;
-    m_script = nullptr;
-    m_name = 0;
-    m_pending = false;
-    return this;
-}
-
 // 0x00552F30
-CGameFlow* CGameFlow::Destroy(uint8_t flags)
-{
-    m_vtable = kGameFlowVtable;
-    if (Script::CScript* script = m_script) {
-        script->Destroy();
-        Script::CScript::operator delete(script);
-    }
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
+MatchFlow::~MatchFlow() { script::host().destroy(own_script_); }
 
 // 0x00552E30
-void CGameFlow::Request(uint32_t name)
+void MatchFlow::get_request(uint32_t name)
 {
-    m_name = name;
-    m_pending = true;
+    label_ = name;
+    pending_ = true;
 }
 
 // 0x00552E40
-void CGameFlow::Update()
+void MatchFlow::tick_frame()
 {
-    if (m_pending) {
-        m_pending = false;
-        if (Script::CScript* old = m_script) {
-            old->Destroy();
-            Script::CScript::operator delete(old);
-        }
-        void* memory = Script::CScript::operator new(0xF4);
-        auto* script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
-        m_script = script;
-        script->SetScript(m_name, nullptr, nullptr);
+    if (pending_) {
+        pending_ = false;
+        script::host().destroy(own_script_);
+        auto* script = script::host().create();
+        own_script_ = script;
+        script::host().bind_script(script, label_, nullptr, nullptr);
     }
-    if (m_script && static_cast<int>(m_script->Update()) == 0) {
-        if (Script::CScript* done = m_script) {
-            done->Destroy();
-            Script::CScript::operator delete(done);
-        }
-        m_script = nullptr;
+    if (own_script_ && static_cast<int>(script::host().tick_frame(own_script_)) == 0) {
+        script::host().destroy(own_script_);
+        own_script_ = nullptr;
     }
 }
 
 // --- The game mode -------------------------------------------------------------------------------------------
 
 // 0x00553DB0
-CGameMode* CGameMode::Instance(bool create)
+MatchRules* MatchRules::sole(bool create)
 {
-    CGameMode* mode = TheGameMode();
+    MatchRules* mode = the_game_mode();
     if (!mode && create) {
-        void* memory = Mem::Calloc(sizeof(CGameMode), nullptr, 1);
-        mode = memory ? static_cast<CGameMode*>(memory)->Construct() : nullptr;
-        TheGameMode() = mode;
+        stored_game_mode() = std::make_unique<MatchRules>();
+        mode = stored_game_mode().get();
     }
-    ++References();
+    ++ref_tally();
     return mode;
 }
 
 // 0x00552F70
-void CGameMode::Release()
+void MatchRules::get_release()
 {
-    if (References() > 1) {
-        --References();
+    if (ref_tally() > 1) {
+        --ref_tally();
         return;
     }
-    if (CGameMode* mode = TheGameMode())
-        VirtualCall<CGameMode*>(mode, 0, static_cast<uint8_t>(1));
-    TheGameMode() = nullptr;
-    References() = 0;
+    memory::destroy_then_clear(stored_game_mode());
+    ref_tally() = 0;
 }
 
 // 0x00553D30
-CGameMode* CGameMode::Construct()
+MatchRules::MatchRules()
 {
-    m_vtable = kGameModeVtable;
-    m_params.Init();
-    m_conditions.m_condition = kHeadMarker;
-    m_conditions.m_priority = 0;
-    m_conditions.m_next = &m_conditions;
-    m_conditions.m_prev = &m_conditions;
-    m_conditions.m_vtable = kConditionHeadVtable;
-    ClearVictoryConditions();
-    LoadGameType(kFreeskate);
-    return this;
+    conditions_.condition = head_marker();
+    conditions_.rank = 0;
+    conditions_.succ = &conditions_;
+    conditions_.prev = &conditions_;
+    clear_victory_conditions();
+    apply_match_style(kFreeskate);
 }
 
-// 0x00553890
-void CGameMode::DestroyBody()
+// 0x00553890 / 0x00553CE0
+MatchRules::~MatchRules()
 {
-    m_vtable = kGameModeVtable;
-    ClearVictoryConditions();
-    // (the head's destructor: Lst::Node's, inlined)
-    m_conditions.m_vtable = kConditionNodeVtable;
-    m_conditions.m_prev->m_next = m_conditions.m_next;
-    m_conditions.m_next->m_prev = m_conditions.m_prev;
-    m_conditions.m_next = &m_conditions;
-    m_conditions.m_prev = &m_conditions;
-    m_params.Clear();
-}
-
-// 0x00553CE0
-CGameMode* CGameMode::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
+    clear_victory_conditions();
+    unlink_condition(conditions_);
+    args_.get_clear();
 }
 
 // 0x00553710
-void CGameMode::ConditionNode::DestroyBody()
+void unlink_condition(MatchRules::ConditionNode& node)
 {
-    m_vtable = kConditionNodeVtable;
-    m_prev->m_next = m_next;
-    m_next->m_prev = m_prev;
-    m_next = this;
-    m_prev = this;
-}
-
-// 0x00553730
-CGameMode::ConditionNode* CGameMode::ConditionNode::Destroy(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
-}
-
-// 0x00553CB0
-CGameMode::ConditionNode* CGameMode::ConditionNode::DestroyHead(uint8_t flags)
-{
-    DestroyBody();
-    if (flags & 1)
-        Mem::Free(this);
-    return this;
+    node.prev->succ = node.succ;
+    node.succ->prev = node.prev;
+    node.succ = &node;
+    node.prev = &node;
 }
 
 // 0x00553D10
-void CGameMode::Reset()
+void MatchRules::get_reset()
 {
-    ClearVictoryConditions();
-    LoadGameType(kFreeskate);
+    clear_victory_conditions();
+    apply_match_style(kFreeskate);
 }
 
 // 0x00553770
-void CGameMode::ClearVictoryConditions()
+void MatchRules::clear_victory_conditions() const
 {
-    ConditionNode* node = m_conditions.m_next;
-    if (node->m_condition == kHeadMarker || !node)
+    ConditionNode* node = conditions_.succ;
+    if (node->condition == head_marker() || !node) {
         return;
+    }
     while (node) {
-        ConditionNode* next = node->m_next->m_condition == kHeadMarker ? nullptr : node->m_next;
-        node->m_prev->m_next = node->m_next;
-        node->m_next->m_prev = node->m_prev;
-        node->m_next = node;
-        node->m_prev = node;
-        if (node->m_condition)
-            VirtualCall<void*>(node->m_condition, 0, static_cast<uint8_t>(1));
-        VirtualCall<void*>(node, 0, static_cast<uint8_t>(1));
+        ConditionNode* next = node->succ->condition == head_marker() ? nullptr : node->succ;
+        node->prev->succ = node->succ;
+        node->succ->prev = node->prev;
+        node->succ = node;
+        node->prev = node;
+        gsl::owner<WinRule*> condition = memory::owned_element(node->condition); // (the node's)
+        delete condition;
+        memory::dealloc(node); // (its destructor only unlinks it again)
         node = next;
     }
 }
 
 // 0x005537D0
-void CGameMode::BuildVictoryConditions()
+void MatchRules::build_victory_conditions()
 {
-    ClearVictoryConditions();
-    Script::CArray* conditions;
-    if (!m_params.GetArray(kVictoryConditions, &conditions, 0))
+    clear_victory_conditions();
+    script::Array* conditions = nullptr;
+    if (!args_.fetch_list(kVictoryConditions, &conditions, 0)) {
         return;
-    Mem::Manager* memory = Mem::Manager::Get();
-    memory->PushContext(memory->m_skaterInfoHeap);
-    for (uint32_t i = 0; i < conditions->m_size; ++i) {
-        CVictoryCondition* condition =
-            CreateVictoryCondition(reinterpret_cast<Script::CStruct*>(conditions->GetElement(i)));
-        auto* node = static_cast<ConditionNode*>(Mem::Calloc(sizeof(ConditionNode)));
+    }
+    memory::Hub* memory = memory::Hub::get_pull();
+    memory->enter_heap_scope(memory->skater_info_heap());
+    for (uint32_t i = 0; i < conditions->extent(); ++i) {
+        gsl::owner<WinRule*> condition = create_victory_condition(conditions->struct_at(i));
+        auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));
         if (node) {
-            node->m_vtable = kConditionNodeVtable;
-            node->m_condition = condition;
-            node->m_priority = 0;
-            node->m_next = node;
-            node->m_prev = node;
+            node->condition = condition;
+            node->rank = 0;
+            node->succ = node;
+            node->prev = node;
         }
         // (at the end of the list; a failed allocation writes through null, as the original)
-        node->m_prev = m_conditions.m_prev;
-        node->m_next = &m_conditions;
-        m_conditions.m_prev->m_next = node;
-        m_conditions.m_prev = node;
+        Expects(node != nullptr);
+        node->prev = conditions_.prev;
+        node->succ = &conditions_;
+        conditions_.prev->succ = node;
+        conditions_.prev = node;
     }
-    Mem::Manager::Get()->PopContext();
+    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00553910
-bool CGameMode::EndConditionsMet()
+bool MatchRules::finish_rules_reached()
 {
     int elimiskate = 0;
-    m_params.GetInteger(kIsElimiskate, &elimiskate, 0);
-    bool isElimiskate = elimiskate == 1;
+    args_.fetch_int_value(kIsElimiskate, &elimiskate, 0);
+    const bool is_elimiskate = elimiskate == 1;
     int scavenger = 0;
-    m_params.GetInteger(kIsScavengerHunt, &scavenger, 0);
-    bool isScavengerHunt = scavenger == 1;
-    if (ShouldUseClock() && !isElimiskate && !isScavengerHunt) {
-        void* manager = GoalManager();
-        if (CountGoals(manager, 1) > 0) {
-            CGoal* goal = CurrentNetGoal(manager);
-            if (goal && goal->GetTimeLeft() <= 0)
+    args_.fetch_int_value(kIsScavengerHunt, &scavenger, 0);
+    const bool is_scavenger_hunt = scavenger == 1;
+    if (uses_countdown() && !is_elimiskate && !is_scavenger_hunt) {
+        void* manager = objective_board();
+        if (count_goals(manager, 1) > 0) {
+            const Objective* goal = current_net_goal(manager);
+            if (goal && goal->get_seconds_remaining() <= 0) {
                 return true;
+            }
         }
     }
     int terminal = 0;
     int complete = 0;
-    for (uint32_t i = 0; i < CountConditions(&m_conditions); ++i) {
+    for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
         // (a node past the list would be read through null, as the original)
-        CVictoryCondition* condition = ConditionAt(&m_conditions, i)->m_condition;
-        if (VirtualCall<bool>(condition, 0x08)) {
+        WinRule* condition = condition_at(&conditions_, i)->condition;
+        if (condition->is_terminal()) {
             ++terminal;
-            if (VirtualCall<bool>(condition, 0x0C))
+            if (condition->rule_satisfied()) {
                 ++complete;
+            }
         }
     }
-    return terminal && complete == terminal;
+    return (terminal != 0) && complete == terminal;
 }
 
 // 0x00553A60
-int CGameMode::GetFirstConditionValue()
+int MatchRules::get_first_condition_value()
 {
-    for (uint32_t i = 0; i < CountConditions(&m_conditions); ++i) {
-        CVictoryCondition* condition = ConditionAt(&m_conditions, i)->m_condition;
-        if (condition)
-            return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(condition) + 4);
+    for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
+        const WinRule* condition = condition_at(&conditions_, i)->condition;
+        if (condition) {
+            return condition->target_value();
+        }
     }
     return 0;
 }
 
 // 0x00553AD0
-bool CGameMode::LoadGameType(uint32_t type)
+bool MatchRules::apply_match_style(uint32_t type)
 {
-    int maxPlayers = 8;
-    GameNet::Manager* net = NetManager();
-    if (net && net->InNetGame())
-        m_params.GetInteger(kMaxPlayers, &maxPlayers, true);
-    m_params.Clear();
-    Script::CArray* modes = Script::GetArray(kModeInfo);
-    for (uint32_t i = 0; i < modes->m_size; ++i) {
-        auto* mode = reinterpret_cast<Script::CStruct*>(modes->GetElement(i));
-        uint32_t name;
-        mode->GetChecksum(kChecksum, &name, true);
-        if (name != type)
+    int max_players = kDefaultMaxPlayers;
+    online::Hub* net = online::online_hub();
+    if (net && net->in_net_game()) {
+        args_.fetch_int_value(kMaxPlayers, &max_players, 1);
+    }
+    args_.get_clear();
+    script::Array* modes = script::fetch_list(kModeInfo);
+    for (uint32_t i = 0; i < modes->extent(); ++i) {
+        auto* mode = modes->struct_at(i);
+        uint32_t name = 0;
+        mode->read_hash_value(kChecksum, &name, 1);
+        if (name != type) {
             continue;
-        const char* definition;
-        mode->GetString(kDefinition, &definition, true);
-        m_params.AppendStructureIfAny(Script::GetStructure(definition));
-        ClearVictoryConditions();
-        BuildVictoryConditions();
-        if (net && net->InNetGame())
-            m_params.AddInteger(kMaxPlayers, maxPlayers);
+        }
+        const char* definition = nullptr;
+        mode->fetch_text(kDefinition, &definition, 1);
+        args_.append_structure_if_any(script::read_sub_struct(definition));
+        clear_victory_conditions();
+        build_victory_conditions();
+        if (net && net->in_net_game()) {
+            args_.put_int(checksums::Name{kMaxPlayers}, max_players);
+        }
         return true;
     }
     return false;
 }
 
 // 0x00553BE0
-bool CGameMode::OverrideOptions(Script::CStruct* options)
+bool MatchRules::force_match_settings(script::Struct* options)
 {
-    for (const char* name : {"time_limit_type",   // "time_limit_type"
-                             "victory_condition_type",   // "victory_condition_type"
-                             "screenmode"}) { // "screenmode"
-        if (options->ContainsComponentNamed(name))
-            m_params.RemoveComponent(Crc::GenerateCRCFromString(name));
+    for (const char* name : {"time_limit_type",        // "time_limit_type"
+                             "victory_condition_type", // "victory_condition_type"
+                             "screenmode"}) {          // "screenmode"
+        if (options->has_entry_named(name)) {
+            args_.erase_module(checksums::hash_from_text(name));
+        }
     }
-    m_params.AppendStructureIfAny(options);
-    ClearVictoryConditions();
-    BuildVictoryConditions();
-    Script::PrintContents(&m_params, 0);
+    args_.append_structure_if_any(options);
+    clear_victory_conditions();
+    build_victory_conditions();
+    script::dump_to_log(&args_, 0);
     return true;
 }
 
 // 0x00552FB0
-bool CGameMode::ShouldAccumulateScore()
+bool MatchRules::keeps_running_total()
 {
-    int accumulate = Unset(this);
-    m_params.GetInteger(kAccumulateScore, &accumulate, true);
+    int accumulate = unset(this);
+    args_.fetch_int_value(kAccumulateScore, &accumulate, 1);
     return accumulate != 0;
 }
 
 // 0x00552FD0
-bool CGameMode::ShouldTrackBestCombo()
+bool MatchRules::keeps_best_chain()
 {
-    int track;
-    if (!m_params.GetInteger(kTrackBestCombo, &track, false))
+    int track = 0;
+    if (!args_.fetch_int_value(kTrackBestCombo, &track, 0)) {
         return false;
+    }
     return track != 0;
 }
 
 // 0x00553000
-void CGameMode::SetScoreAccumulation(bool on) { m_params.AddInteger(kAccumulateScore, on); }
+void MatchRules::set_score_accumulation(bool on)
+{
+    args_.put_int(checksums::Name{kAccumulateScore}, static_cast<int>(on));
+}
 
 // 0x00553020
-void CGameMode::SetScoreFrozen(bool on) { m_params.AddInteger(kScoreFrozen, on); }
+void MatchRules::hold_points(bool on) { args_.put_int(checksums::Name{kPointsHeldFlag}, static_cast<int>(on)); }
 
 // 0x00553040
-void CGameMode::SetScoreDegradation(bool on) { m_params.AddInteger(kDegradeScore, on); }
+void MatchRules::set_score_degradation(bool on) { args_.put_int(checksums::Name{kDegradeScore}, static_cast<int>(on)); }
 
 // 0x00553060
-void CGameMode::SetTrickScoreTracking(bool on) { m_params.AddInteger(kTrackTrickScore, on); }
+void MatchRules::set_trick_score_tracking(bool on)
+{
+    args_.put_int(checksums::Name{kTrackTrickScore}, static_cast<int>(on));
+}
 
 // 0x00553080
-void CGameMode::SetTeamGraffitiMode(uint32_t mode) { m_params.AddChecksum(kTeamGraffitiMode, mode); }
+void MatchRules::set_team_graffiti_mode(uint32_t mode) { args_.put_name_key(checksums::Name{kTeamGraffitiMode}, mode); }
 
 // 0x005530A0
-void CGameMode::SetGoalsMode(uint32_t mode) { m_params.AddChecksum(kGoals, mode); }
+void MatchRules::set_goals_mode(uint32_t mode) { args_.put_name_key(checksums::Name{kGoals}, mode); }
 
 // 0x005530C0
-int CGameMode::IsScoreFrozen()
+int MatchRules::is_scoring_paused()
 {
-    int frozen = Unset(this);
-    m_params.GetInteger(kScoreFrozen, &frozen, true);
+    int frozen = unset(this);
+    args_.fetch_int_value(kPointsHeldFlag, &frozen, 1);
     return frozen != 0 ? 1 : 0;
 }
 
 // 0x005530F0
-bool CGameMode::ShouldTrackTrickScore()
+bool MatchRules::keeps_move_points()
 {
-    int track = Unset(this);
-    m_params.GetInteger(kTrackTrickScore, &track, true);
+    int track = unset(this);
+    args_.fetch_int_value(kTrackTrickScore, &track, 1);
     return track != 0;
 }
 
 // 0x00553110
-bool CGameMode::ShouldDegradeScore()
+bool MatchRules::repeats_lose_points()
 {
-    int degrade = Unset(this);
-    m_params.GetInteger(kDegradeScore, &degrade, true);
+    int degrade = unset(this);
+    args_.fetch_int_value(kDegradeScore, &degrade, 1);
     return degrade != 0;
 }
 
 // 0x00553130
-int CGameMode::NumTeams()
+int MatchRules::current_num_teams()
 {
-    int teams = Unset(this);
-    m_params.GetInteger(kNumTeams, &teams, true);
+    int teams = unset(this);
+    args_.fetch_int_value(kNumTeams, &teams, 1);
     return teams;
 }
 
 // 0x00553150
-bool CGameMode::ShouldTimerBeep()
+bool MatchRules::clock_beeps_near_end()
 {
-    int beeps = Unset(this);
-    m_params.GetInteger(kTimerBeeps, &beeps, true);
+    int beeps = unset(this);
+    args_.fetch_int_value(kTimerBeeps, &beeps, 1);
     return beeps != 0;
 }
 
 // 0x00553170
-int CGameMode::GetTimeLimit()
+int MatchRules::get_time_limit()
 {
-    int limit = Unset(this);
-    m_params.GetInteger(kDefaultTimeLimit, &limit, true);
+    int limit = unset(this);
+    args_.fetch_int_value(kDefaultTimeLimit, &limit, 1);
     return limit;
 }
 
 // 0x00553190
-int CGameMode::GetInitialNumberOfPlayers()
+int MatchRules::get_starting_rider_count()
 {
-    int players = Unset(this);
-    m_params.GetInteger(kInitialPlayers, &players, true);
+    int players = unset(this);
+    args_.fetch_int_value(kInitialPlayers, &players, 1);
     return players;
 }
 
 // 0x005531B0
-void CGameMode::SetMaximumNumberOfPlayers(int players) { m_params.AddInteger(kMaxPlayers, players); }
+void MatchRules::set_rider_ceiling(int players) { args_.put_int(checksums::Name{kMaxPlayers}, players); }
 
 // 0x005531D0
-int CGameMode::GetMaximumNumberOfPlayers()
+int MatchRules::get_rider_ceiling()
 {
-    int players = Unset(this);
-    m_params.GetInteger(kMaxPlayers, &players, true);
+    int players = unset(this);
+    args_.fetch_int_value(kMaxPlayers, &players, 1);
     return players;
 }
 
 // 0x005531F0
-int CGameMode::GetFireballLevel()
+int MatchRules::get_fireball_level()
 {
     int level = 3;
-    m_params.GetInteger(kFireballLevel, &level, 0);
+    args_.fetch_int_value(kFireballLevel, &level, 0);
     return level;
 }
 
 // 0x00553220
-bool CGameMode::IsTrue(uint32_t name)
+bool MatchRules::is_true(uint32_t name)
 {
     int value = 0;
-    m_params.GetInteger(name, &value, false);
+    args_.fetch_int_value(name, &value, 0);
     return value != 0;
 }
 
 // 0x00553250
-void CGameMode::SetRound(int round) { m_params.AddInteger(kRound, round); }
+void MatchRules::set_round(int round) { args_.put_int(checksums::Name{kRound}, round); }
 
 // 0x00553270
-int CGameMode::GetRound()
+int MatchRules::get_round()
 {
     int round = 0;
-    m_params.GetInteger(kRound, &round, false);
+    args_.fetch_int_value(kRound, &round, 0);
     return round;
 }
 
 // 0x005532A0
-uint32_t CGameMode::GetNameChecksum()
+uint32_t MatchRules::get_name_key()
 {
     uint32_t name = 0;
-    m_params.GetChecksum(kName, &name, 0);
+    args_.read_hash_value(kName, &name, 0);
     return name;
 }
 
 // 0x005532D0
-uint32_t CGameMode::GetGoalsMode()
+uint32_t MatchRules::get_goals_mode()
 {
     uint32_t mode = 0;
-    m_params.GetChecksum(kGoals, &mode, 0);
+    args_.read_hash_value(kGoals, &mode, 0);
     return mode;
 }
 
 // 0x00553300
-uint32_t CGameMode::GetTeamGraffitiMode()
+uint32_t MatchRules::get_team_graffiti_mode()
 {
     uint32_t mode = 0;
-    m_params.GetChecksum(kTeamGraffitiMode, &mode, 0);
+    args_.read_hash_value(kTeamGraffitiMode, &mode, 0);
     return mode;
 }
 
 // 0x00553330
-uint32_t CGameMode::ConvertNetNameChecksum(uint32_t name)
+uint32_t MatchRules::remap_online_name_key(uint32_t name)
 {
     switch (name) {
-    case 0x30C2FFA3: return 0xF9283EE7; // nettrickattack: trickattack
-    case 0x5E2EA50C: return 0xC8A82B5A; // netgraffiti: Graffiti
-    case 0xC50AFFD0: return 0x23EB3DA3; // netcombomambo: combomambo
-    case 0xF9D5D933: return 0xCA1F360F; // netslap: slap
-    case kNetKing: return kKing;
-    case kNetFirefight: return kFirefight;
-    case 0x6C5FF266: return 0xA5AD2B0B; // netctf: CTF
-    case 0x10F84276: return 0xF6198005; // netelimiskate: elimiskate
-    default: return name;
+    case kNetTrickAttack:
+        return kTrickAttack; // nettrickattack: trickattack
+    case kNetGraffiti:
+        return kGraffiti; // netgraffiti: Graffiti
+    case kNetComboMambo:
+        return kComboMambo; // netcombomambo: combomambo
+    case kNetSlap:
+        return kSlap; // netslap: slap
+    case kNetKing:
+        return kKing;
+    case kNetFirefight:
+        return kFirefight;
+    case kNetCtf:
+        return kCtf; // netctf: CTF
+    case kNetElimiskate:
+        return kElimiskate; // netelimiskate: elimiskate
+    default:
+        return name;
     }
 }
 
 // 0x005533B0
-int CGameMode::GetGoalTimeLeft()
+int MatchRules::get_goal_time_left()
 {
-    void* manager = GoalManager();
+    void* manager = objective_board();
     uint32_t name = 0;
-    m_params.GetChecksum(kName, &name, 0);
-    CGoal* goal = GetGoal(manager, ConvertNetNameChecksum(name), 0);
-    return goal ? goal->GetTimeLeft() : 0;
+    args_.read_hash_value(kName, &name, 0);
+    const Objective* goal = get_goal(manager, remap_online_name_key(name), 0);
+    return goal ? goal->get_seconds_remaining() : 0;
 }
 
 // 0x00553400
-void CGameMode::SetGoalTimeLeft(int seconds)
+void MatchRules::set_goal_time_left(int seconds)
 {
-    void* manager = GoalManager();
+    void* manager = objective_board();
     uint32_t name = 0;
-    m_params.GetChecksum(kName, &name, 0);
-    CGoal* goal = GetGoal(manager, ConvertNetNameChecksum(name), 0);
-    if (goal)
-        goal->SetTimeLeft(seconds);
+    args_.read_hash_value(kName, &name, 0);
+    Objective* goal = get_goal(manager, remap_online_name_key(name), 0);
+    if (goal) {
+        goal->set_seconds_remaining(seconds);
+    }
 }
 
 // 0x00553460
-bool CGameMode::ShouldUseClock()
+bool MatchRules::uses_countdown()
 {
     // (the name looked up again for each of the first four)
     uint32_t name = 0;
-    for (uint32_t clockless : {kKing, kNetKing, kScoreChallenge, kNetScoreChallenge}) {
+    for (const uint32_t clockless : {kKing, kNetKing, kScoreChallenge, kNetScoreChallenge}) {
         name = 0;
-        m_params.GetChecksum(kName, &name, 0);
-        if (name == clockless)
+        args_.read_hash_value(kName, &name, 0);
+        if (name == clockless) {
             return false;
+        }
     }
-    if (GetNameChecksum() == kCreateGoals || GetNameChecksum() == kFirefight || GetNameChecksum() == kNetFirefight)
+    if (get_name_key() == kCreateGoals || get_name_key() == kFirefight || get_name_key() == kNetFirefight) {
         return false;
+    }
     int limit = static_cast<int>(name); // (the original's local is the name's)
-    m_params.GetInteger(kDefaultTimeLimit, &limit, true);
+    args_.fetch_int_value(kDefaultTimeLimit, &limit, 1);
     return limit != 0;
 }
 
 // 0x00553550
-bool CGameMode::ShouldStopAtZero()
+bool MatchRules::clock_halts_at_zero()
 {
-    if (!Mdl::Skate::IsMultiplayer()) // (the skate module's IsMultiplayerGame)
+    if (modules::Skate::is_multiplayer() == 0) { // (the skate module's is_versus_session)
         return false;
-    if (!ShouldUseClock())
+    }
+    if (!uses_countdown()) {
         return true;
-    int stop = Unset(this);
-    m_params.GetInteger(kStopAtZero, &stop, true);
+    }
+    int stop = unset(this);
+    args_.fetch_int_value(kStopAtZero, &stop, 1);
     return stop == 1;
 }
 
 // 0x005535A0
-void CGameMode::SetNumTeams(int teams)
+void MatchRules::set_num_teams(int teams)
 {
-    GameNet::Manager* net = NetManager();
-    m_params.AddInteger(kNumTeams, teams);
+    args_.put_int(checksums::Name{kNumTeams}, teams);
     uint32_t name = 0;
-    m_params.GetChecksum(kName, &name, 0);
-    if (name == kNetLobby)
-        net->CreateTeamFlags(teams);
+    args_.read_hash_value(kName, &name, 0);
+    if (name == kNetLobby) {
+        online::Hub::build_team_flag_set(teams);
+    }
 }
 
 // 0x005535F0
-int CGameMode::IsTeamGame()
+int MatchRules::is_squad_match()
 {
-    if (!NetManager()->InNetGame())
+    if (!online::online_hub()->in_net_game()) {
         return 0;
-    int teams = Unset(this);
-    m_params.GetInteger(kNumTeams, &teams, true);
+    }
+    int teams = unset(this);
+    args_.fetch_int_value(kNumTeams, &teams, 1);
     return teams > 0 ? 1 : 0;
 }
 
 // 0x00553630
-int CGameMode::GetScreenMode()
+int MatchRules::get_view_layout()
 {
-    uint32_t mode;
-    m_params.GetChecksum(kScreenMode, &mode, true);
+    uint32_t mode = 0;
+    args_.read_hash_value(kScreenMode, &mode, 1);
     if (mode == kSplitScreen) {
-        auto* prefs = Mdl::Skate::Instance()->GetSplitScreenPreferences();
-        uint32_t viewport;
-        prefs->GetPreference(kViewportType)->GetChecksum(kChecksum, &viewport, true);
-        if (viewport == kViewportVertical)
+        auto* prefs = modules::Skate::sole()->get_split_view_settings();
+        uint32_t viewport = 0;
+        prefs->fetch_setting(kScreenLayoutKey)->read_hash_value(kChecksum, &viewport, 1);
+        if (viewport == kViewportVertical) {
             return 1;
+        }
         return viewport == kViewportHorizontal ? 2 : 1;
     }
-    if (mode == kSingle)
+    if (mode == kSingle) {
         return 0;
+    }
     return mode == kHorse ? 4 : 0;
 }
 
 // 0x005536D0
-void CGameMode::IncrementRound()
+void MatchRules::increment_round()
 {
     int round = 0;
-    m_params.GetInteger(kRound, &round, false);
-    m_params.AddInteger(kRound, round + 1);
+    args_.fetch_int_value(kRound, &round, 0);
+    args_.put_int(checksums::Name{kRound}, round + 1);
 }
 
 // 0x00553C90
-bool __cdecl CFunc_OverrideGameModeOptions(Script::CStruct* params, Script::CScript*)
+bool cfunc_override_game_mode_options(script::Struct* params, script::Context /*context*/)
 {
-    return TheGameMode()->OverrideOptions(params);
+    return the_game_mode()->force_match_settings(params);
 }
 
-} // namespace Game
+} // namespace goals

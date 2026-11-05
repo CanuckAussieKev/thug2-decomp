@@ -1,0 +1,65 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include "engine/objects/entity.h"
+#include <gsl/pointers>
+#include <array>
+
+namespace skater {
+class SkaterPhysicsModule;
+} // namespace skater
+namespace script {
+class Script;
+class Struct;
+} // namespace script
+
+// The skater's rotate component (SkaterRotate, type 0x52D61A0D, vtable 0x0064C018, 0x58 bytes): the script member
+// function Rotate - the skater turned at once about x, y or z (in degrees), or turned round (no angle), or turned
+// over a duration (seconds, or ms by default, or frames), by an angle or to face a Node, one step each frame. From
+// the disassembly of 0x00517CC0-0x0051823C.
+//
+// Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 3 Finalize, 12 invoke_method_by_name.
+namespace objects {
+
+class RiderTurning final : public ObjectModule {
+public:
+    RiderTurning(const RiderTurning&) = delete;
+    RiderTurning& operator=(const RiderTurning&) = delete;
+    // A turn about one axis over time.
+    struct Turn {
+        float remaining; // +0x00 the angle to turn (radians, positive)
+        float duration;  // +0x04 (seconds)
+        float rate;      // +0x08 radians a second (signed)
+        float turned;    // +0x0C so far
+        bool active;     // +0x10
+        std::array<uint8_t, 3> pad11;
+    };
+
+    // 0x00517D40 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
+    static gsl::owner<ObjectModule*> fabricate();
+    // The constructor (inlined in fabricate in the original).
+    RiderTurning();
+    // 0x00517CC0: the destructor body (the base's).
+    ~RiderTurning() override;
+    // 0x00517CD0 (vtable +0x08): no turns. `params` isn't read.
+    void configure_from_data(script::Struct* params) override;
+    // 0x00517D20 (vtable +0x0C): the core physics component found.
+    void seal() override;
+    // 0x00517DC0 (vtable +0x04): each active turn steps by the frame's time (the last step cut to end exactly), the
+    // object's and the core physics' matrices turned by it about the axis; with none left the component suspends
+    // itself.
+    void tick_frame() override;
+    // 0x00517EA0 (vtable +0x30): Rotate (1); 2 for any other name.
+    int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
+
+    // The fields other code reads and sets.
+    [[nodiscard]] const std::array<Turn, 3>& turns() const { return turns_; }
+
+private:
+    std::array<Turn, 3> turns_{};                           // +0x18 about x, y, z
+    skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x54 SkaterCorePhysics (0x5BD63B29)
+};
+
+} // namespace objects

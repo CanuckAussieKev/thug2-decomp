@@ -1,0 +1,201 @@
+// Script commands (CFunctions) for arrays, 0x0044AF50-0x0044B530 (see array_cfuncs.h).
+
+#include "engine/script/array_cfuncs.h"
+
+#include <cstdint>
+#include <gsl/assert>
+#include "engine/script/names.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/context.h"
+#include "platform/run_log.h"
+
+namespace commands {
+
+namespace {
+
+using script::Array;
+using script::Struct;
+
+constexpr uint32_t kArray = 0x5EF31148;     // "array"
+constexpr uint32_t kContains = 0x71059581;  // "contains"
+constexpr uint32_t kIndex1 = 0x0BA453B9;    // "Index1"
+constexpr uint32_t kIndex2 = 0x92AD0203;    // "index2"
+constexpr uint32_t kIndex3 = 0xE5AA3295;    // "index3"
+constexpr uint32_t kArraySize = 0x7F5B3D4D; // "array_size"
+constexpr uint32_t kArrayName = 0x8F61D602; // "arrayName"
+constexpr uint32_t kIndices = 0xFFC8E484;   // "indices"
+constexpr uint32_t kVal = 0x6820459A;       // "val"
+
+Array* element_array(Array* array, uint32_t index) { return array->array_at(index); }
+
+// The array named `name`: one in the calling script's parameters, else the global one.
+Array* find_array(script::Context context, uint32_t name)
+{
+    Array* array = nullptr;
+    if (!context.args()->fetch_list(name, &array, 0)) {
+        array = script::fetch_list(name);
+    }
+    return array;
+}
+
+// `array`'s element `index` added to `results` as val, by the array's type (strings through find_inline_text; types
+// with no case - scripts, functions... - add nothing).
+void add_element(Struct* results, Array* array, uint32_t index)
+{
+    switch (array->kind_tag()) {
+    case script::QbValueKind::kInteger:
+        results->put_int(checksums::Name{kVal}, static_cast<int>(array->fetch_part(index)));
+        break;
+    case script::QbValueKind::kFloat:
+        results->push_float(checksums::Name{kVal}, array->fetch_float(index));
+        break;
+    case script::QbValueKind::kString:
+    case script::QbValueKind::kInlineText:
+        results->append_word(kVal, array->find_inline_text(index));
+        break;
+    case script::QbValueKind::kPair: {
+        auto* pair = array->pair_at(index);
+        results->insert_pair(checksums::Name{kVal}, {.x = pair->x(), .y = pair->y()});
+        break;
+    }
+    case script::QbValueKind::kVector: {
+        auto* vector = array->vector_at(index);
+        results->put_vec3(checksums::Name{kVal}, {.x = vector->x(), .y = vector->y(), .z = vector->z()});
+        break;
+    }
+    case script::QbValueKind::kStruct:
+        results->put_sub_struct(kVal, array->struct_at(index));
+        break;
+    case script::QbValueKind::kArray:
+        results->append_array_value(kVal, element_array(array, index));
+        break;
+    case script::QbValueKind::kName:
+        results->put_name_key(checksums::Name{kVal}, array->fetch_part(index));
+        break;
+    default:
+        break;
+    }
+}
+
+} // namespace
+
+// 0x0044AF50: ArrayContains array=[...] contains=<value>: whether an element equals the value - integer arrays by
+// value, string arrays ignoring case, name arrays by checksum (any other array: false).
+bool cfunc_array_contains(Struct* params, script::Context /*context*/)
+{
+    Array* array = nullptr;
+    params->fetch_list(kArray, &array, 1);
+    const script::QbValueKind type = array->kind_tag();
+    for (uint32_t i = 0; i < array->extent(); ++i) {
+        switch (type) {
+        case script::QbValueKind::kInteger: {
+            int value = 0;
+            params->fetch_int_value(kContains, &value, 1);
+            if (static_cast<uint32_t>(value) == array->fetch_part(i)) {
+                return true;
+            }
+            break;
+        }
+        case script::QbValueKind::kString: {
+            const char* value = "";
+            params->fetch_text(kContains, &value, 1);
+            if (_stricmp(value, array->find_inline_text(i)) == 0) {
+                return true;
+            }
+            break;
+        }
+        case script::QbValueKind::kName: {
+            uint32_t value = 0;
+            params->read_hash_value(kContains, &value, 1);
+            if (value == array->fetch_part(i)) {
+                return true;
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    }
+    return false;
+}
+
+// 0x0044B030: GetArraySize <array> [Index1=i [index2=j [index3=k]]]: array_size = the size of the array, or of the
+// element array the indices lead to.
+bool cfunc_get_array_size(Struct* params, script::Context context)
+{
+    Array* array = nullptr;
+    params->fetch_list(0U, &array, 1);
+    int index = 0;
+    if (params->fetch_int_value(kIndex1, &index, 0)) {
+        array = element_array(array, static_cast<uint32_t>(index));
+        if (params->fetch_int_value(kIndex2, &index, 0)) {
+            array = element_array(array, static_cast<uint32_t>(index));
+            if (params->fetch_int_value(kIndex3, &index, 0)) {
+                array = element_array(array, static_cast<uint32_t>(index));
+            }
+        }
+    }
+    // (NOT ORIGINAL: no array - its parameters had none, or an index led nowhere - is logged before the original's
+    // crash on it, with the script's name: e.g. a converted level's script naming an array THUG2 hasn't)
+    if (!array) {
+        get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
+                script::find_checksum_name_or_unknown(context.script_title()));
+    }
+    Expects(array != nullptr);
+    context.args()->put_int(checksums::Name{kArraySize}, static_cast<int>(array->extent()));
+    return true;
+}
+
+// 0x0044B0F0: Get2DArrayData arrayName=<name> Index1=i index2=j: val = array[i][j] (the array the calling script's
+// own parameters name, else the global).
+bool cfunc_get_2d_array_data(Struct* params, script::Context context)
+{
+    uint32_t name = 0;
+    params->read_hash_value(kArrayName, &name, 1);
+    Array* array = find_array(context, name);
+    int first_index = 0;
+    params->fetch_int_value(kIndex1, &first_index, 1);
+    int second_index = 0;
+    params->fetch_int_value(kIndex2, &second_index, 1);
+    add_element(context.args().get(), element_array(array, static_cast<uint32_t>(first_index)),
+                static_cast<uint32_t>(second_index));
+    return true;
+}
+
+// 0x0044B300: Get3DArrayData arrayName=<name> Index1=i index2=j index3=k: val = array[i][j][k].
+bool cfunc_get_3d_array_data(Struct* params, script::Context context)
+{
+    uint32_t name = 0;
+    params->read_hash_value(kArrayName, &name, 1);
+    Array* array = find_array(context, name);
+    int first_index = 0;
+    params->fetch_int_value(kIndex1, &first_index, 1);
+    int second_index = 0;
+    params->fetch_int_value(kIndex2, &second_index, 1);
+    int third_index = 0;
+    params->fetch_int_value(kIndex3, &third_index, 1);
+    Array* plane =
+        element_array(element_array(array, static_cast<uint32_t>(first_index)), static_cast<uint32_t>(second_index));
+    add_element(context.args().get(), plane, static_cast<uint32_t>(third_index));
+    return true;
+}
+
+// 0x0044B530: GetNDArrayData arrayName=<name>: val = the element the calling script's own `indices` array leads
+// to (read from the script's parameters, not the command's). An empty indices array runs off the end, as in the
+// original.
+bool cfunc_get_nd_array_data(Struct* params, script::Context context)
+{
+    uint32_t name = 0;
+    params->read_hash_value(kArrayName, &name, 1);
+    Array* array = find_array(context, name);
+    Array* indices = nullptr;
+    context.args()->fetch_list(kIndices, &indices, 1);
+    uint32_t depth = 0;
+    for (; depth < indices->extent() - 1; ++depth) {
+        array = element_array(array, indices->fetch_part(depth));
+    }
+    add_element(context.args().get(), array, indices->fetch_part(depth));
+    return true;
+}
+
+} // namespace commands

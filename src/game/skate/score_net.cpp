@@ -1,161 +1,193 @@
-// Mdl::Score's network side: trick objects (graffiti) scored on, logged on the server and sent to the players (see
-// score.h).
+// modules::PointTally's network side: trick objects (graffiti) scored on, logged on the server and sent to the players (see
+// point_tally.h).
 
-#include "game/skate/score.h"
+#include "game/skate/point_tally.h"
 
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <memory>
+#include <algorithm>
+#include <array>
+#include <span>
 
-#include "game/core/dbg.h"
-#include "game/net/net_app.h"
-#include "game/net/net_client.h"
-#include "game/net/net_conn.h"
-#include "game/net/net_dispatcher.h"
-#include "game/net/player_info.h"
+#include "base/core/dbg.h"
+#include "game/online/gamenet_manager.h"
+#include "game/online/hub_roster.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_client.h"
+#include "game/online/net_game_state.h"
+#include "engine/net/net_conn.h"
+#include "engine/net/net_dispatcher.h"
+#include "game/online/player_info.h"
+#include "game/world/trick_objects.h"
+#include "game/skate/skate_module_calls.h"
+#include "wire/skater_messages.h"
+#include "formats/byte_stream.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score_internal.h"
-#include "game/skater/trick_component.h"
+#include "game/rider/trick_component.h"
 #include "game/skate/skate_module.h"
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "base/core/checksums.h"
+#include "wire/message_ids.h"
 
-namespace Mdl {
+namespace modules {
 
-using namespace ScoreInternal;
+using namespace score_internal;
 
 namespace {
+constexpr int kVictimSlotCount = 8; // one per skater of a game
 
 const char* const kTrickObjBuffer = "TrickObj Buffer"; // "TrickObj Buffer"
 
-// A walk over the players (GameNet::Manager::FirstPlayerInfo / NextPlayerInfo).
-struct PlayerSearch {
-    void** m_vtable = Mdl::kPlayerSearchVtable;
-    void* m_node = nullptr;
-};
+// A walk over the players (online::Hub::begin_player_walk / step_player_walk).
+using PlayerSearch = online::PlayerSearch;
 
-GameNet::PlayerInfo* AsPlayer(void* player) { return static_cast<GameNet::PlayerInfo*>(player); }
+online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
 } // namespace
 
 // 0x00561BA0
-void Score::LogTrickObjectRequest(int score)
+void PointTally::note_tagged_prop_ask(int score) const
 {
-    GameNet::Manager* net = NetManager();
-    Net::MsgDesc desc;
-    desc.Construct();
-    auto* info = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(m_skaterId)));
-    auto* client = static_cast<Net::Client*>(net->GetClient(info->m_skater->m_viewport));
-    Obj::TrickObjectsMessage message;
-    message.one = 1;
-    message.player = m_skaterId;
+    online::Hub* net = online::online_hub();
+    net::NetMessageInfo desc;
+    auto* info = as_player(net->roster().find_player_slot_by_obj(static_cast<uint16_t>(rider_no_)));
+    auto* client = core::down_cast<net::Guest>(net->fetch_patron(info->rider()->view_slot()));
+    online::TrickObjectsMessage message;
+    message.player = rider_no_;
     message.score = static_cast<uint32_t>(score);
-    message.gameId = net->GetGameId();
-    auto* trick = static_cast<Obj::CTrickComponent*>(SkaterById(m_skaterId)->GetComponent(kTrick));
-    uint32_t bytes = trick->EndTrickObjects(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(message.objects)),
-                                            sizeof(message.objects));
+    message.game_id = net->get_game_id();
+    auto* trick = core::down_cast<objects::MoveExecutor>(rider_for_slot(rider_no_)->fetch_module(kTrick));
+    const uint32_t bytes = trick->end_trick_objects(message.objects,
+                                                    sizeof(message.objects));
     message.count = bytes >> 2;
-    Dbg::Printf("Client -> server %d tricks\n", bytes >> 2); // "Client -> server %d tricks\n"
+    debug::printf("Client -> server %d tricks\n", bytes >> 2); // "Client -> server %d tricks\n"
+    std::array<uint8_t, online::kTrickObjectsHeaderSize + sizeof(message.objects)> data{};
+    util::ByteWriter writer(data.data(), sizeof(data));
+    online::write_trick_objects(writer, message);
     // (the descriptor is filled and not used: the message goes by the stream's own arguments)
-    desc.m_data = &message;
-    desc.m_length = static_cast<uint16_t>(bytes + offsetof(Obj::TrickObjectsMessage, objects));
-    desc.m_id = Obj::kMsgTrickObjects;
-    desc.m_queue = Net::MsgDesc::kQueueSequenced;
-    desc.m_groupId = Obj::kGroupGame;
-    client->StreamMessageToServer(Obj::kMsgTrickObjects, desc.m_length, &message, kTrickObjBuffer, Obj::kGroupGame,
-                                  true, false);
+    desc.set_content(data.data());
+    desc.set_byte_count(static_cast<uint16_t>(writer.position()));
+    desc.set_ident(online::MessageId::kTrickObjects);
+    desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+    desc.set_group_id(online::MessageGroup::kGame);
+    client->send_bulk_to_host(online::MessageId::kTrickObjects, desc.byte_count(), data.data(), kTrickObjBuffer, online::MessageGroup::kGame,
+                              true, false);
 }
 
 // 0x00561CB0
-void Score::LogTrickObject(int skaterId, int score, uint32_t count, uint32_t* objects, bool send)
+void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send) const
 {
-    GameNet::Manager* net = NetManager();
-    void* skate = SkateCalls::Skate();
+    online::Hub* net = online::online_hub();
+    void* skate = skate_calls::get_skate();
     PlayerSearch search;
     if (send) {
-        Net::App* server = net->m_server; // (0x005480C0)
-        Net::Conn* conn = nullptr;
-        if (Obj::CSkater* skater = SkaterById(m_skaterId)) {
-            if (auto* info = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(skater->m_id))))
-                conn = info->m_conn;
+        net::AppHost* server = net->host(); // (0x005480C0)
+        const net::Conn* conn = nullptr;
+        if (const objects::Rider* skater = rider_for_slot(rider_no_)) {
+            if (auto* info = as_player(net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())))) {
+                conn = info->conn();
+            }
         }
-        uint8_t stolen[8] = {};
-        count = TrickObjects()->LogTrickObjects(count, objects, stolen, skaterId, static_cast<uint32_t>(score));
-        if (!count)
+        std::array<uint8_t, kVictimSlotCount> stolen = {};
+        uint32_t count = get_trick_objects()->log_trick_objects(objects, stolen, skater_id, static_cast<uint32_t>(score));
+        objects = objects.first(count);
+        if (count == 0U) {
             return;
-        Obj::TagStolenMessage stolenMessage;
-        for (int victim = 0; victim < 8; ++victim) {
-            if (!stolen[victim])
+        }
+        for (int victim = 0; victim < kVictimSlotCount; ++victim) {
+            if (core::at(stolen, victim) == 0U) {
                 continue;
-            stolenMessage.thief = skaterId;
-            stolenMessage.victim = victim;
-            stolenMessage.gameId = net->GetGameId();
-            auto* thief = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(skaterId)));
-            auto* robbed = AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(victim)));
+            }
+            online::TagStolenMessage stolen_message;
+            stolen_message.thief_id = static_cast<uint32_t>(skater_id);
+            stolen_message.victim_id = static_cast<uint32_t>(victim);
+            stolen_message.game_id = net->get_game_id();
+            std::array<uint8_t, online::kTagStolenSize> stolen_data{};
+            util::ByteWriter stolen_writer(stolen_data.data(), sizeof(stolen_data));
+            online::write_tag_stolen(stolen_writer, stolen_message);
+            auto* thief = as_player(net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater_id)));
+            auto* robbed = as_player(net->roster().find_player_slot_by_obj(static_cast<uint16_t>(victim)));
             // (not between players of one team)
-            if (static_cast<uint8_t>(GameMode()->IsTeamGame()) && robbed && thief && robbed->m_team == thief->m_team)
+            if ((static_cast<uint8_t>(get_game_mode()->is_squad_match()) != 0U) && robbed && thief &&
+                robbed->team() == thief->team()) {
                 continue;
-            Net::MsgDesc desc;
-            desc.Construct();
-            desc.m_data = &stolenMessage;
-            desc.m_length = sizeof(stolenMessage);
-            desc.m_id = Obj::kMsgTagStolen;
-            server->EnqueueMessage(thief->GetConnHandle(), &desc);
-            stolenMessage.thief = skaterId;
-            stolenMessage.victim = victim;
-            stolenMessage.gameId = net->GetGameId();
-            if (robbed)
-                server->EnqueueMessage(robbed->GetConnHandle(), &desc);
+            }
+            net::NetMessageInfo desc;
+            desc.set_content(stolen_data.data());
+            desc.set_byte_count(sizeof(stolen_data));
+            desc.set_ident(online::MessageId::kTagStolen);
+            server->put_on_outbox(thief->get_link_handle(), &desc);
+            if (robbed) {
+                server->put_on_outbox(robbed->get_link_handle(), &desc);
+            }
         }
 
-        Obj::TrickObjectsMessage all;
-        all.one = 1;
-        all.player = skaterId;
-        all.score = static_cast<uint32_t>(score);
-        all.count = count;
-        all.gameId = net->GetGameId();
-        std::memcpy(all.objects, objects, count * 4);
-        Net::MsgDesc desc;
-        desc.Construct();
-        desc.m_length = static_cast<uint16_t>(count * 4 + offsetof(Obj::TrickObjectsMessage, objects));
-        desc.m_data = &all;
-        desc.m_id = Obj::kMsgTrickObjects;
-        desc.m_queue = Net::MsgDesc::kQueueSequenced;
-        desc.m_groupId = Obj::kGroupGame;
-        for (void* info = net->FirstPlayerInfo(&search, false); info; info = net->NextPlayerInfo(&search, false))
-            server->StreamMessage(AsPlayer(info)->GetConnHandle(), desc.m_id, desc.m_length, desc.m_data,
-                                  kTrickObjBuffer, Obj::kGroupGame, true, false);
-
-        Obj::ObserverTrickObjectsMessage observed;
-        observed.count = count;
-        observed.player = skaterId;
-        observed.gameId = net->GetGameId();
-        std::memcpy(observed.objects, objects, count * 4);
-        desc.m_data = &observed;
-        desc.m_length = static_cast<uint16_t>(count * 4 + offsetof(Obj::ObserverTrickObjectsMessage, objects));
-        desc.m_id = Obj::kMsgObserverTrickObjects;
-        for (void* info = net->FirstPlayerInfo(&search, true); info; info = net->NextPlayerInfo(&search, true)) {
-            if (static_cast<uint8_t>(AsPlayer(info)->IsObserver()))
-                server->StreamMessage(AsPlayer(info)->GetConnHandle(), desc.m_id, desc.m_length, desc.m_data,
-                                      kTrickObjBuffer, Obj::kGroupGame, true, false);
+        // (NOT ORIGINAL: no more names than the message holds - the original copied a remote count on past its
+        // buffer)
+        count = std::min(count, online::kMaxTrickObjects);
+        objects = objects.first(count);
+        auto all = std::make_unique<online::TrickObjectsMessage>();
+        all->player = skater_id;
+        all->score = static_cast<uint32_t>(score);
+        all->count = count;
+        all->game_id = net->get_game_id();
+        std::ranges::copy(objects, all->objects.begin());
+        std::array<uint8_t, online::kTrickObjectsHeaderSize + sizeof(all->objects)> data{};
+        util::ByteWriter writer(data.data(), sizeof(data));
+        online::write_trick_objects(writer, *all);
+        net::NetMessageInfo desc;
+        desc.set_byte_count(static_cast<uint16_t>(writer.position()));
+        desc.set_content(data.data());
+        desc.set_ident(online::MessageId::kTrickObjects);
+        desc.set_queue(net::NetMessageInfo::kLaneOrdered);
+        desc.set_group_id(online::MessageGroup::kGame);
+        for (void* info = net->roster().begin_player_walk(&search, false); info;
+             info = net->roster().step_player_walk(&search, false)) {
+            server->send_bulk_message(as_player(info)->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
+                                      kTrickObjBuffer, online::MessageGroup::kGame, true, false);
         }
-        static_cast<Mdl::Skate*>(skate)->SendScoreUpdates(false); // the skate module's score updates
-        if (conn->IsLocal()) // (no check: as the original)
+
+        util::ByteWriter observed_writer(data.data(), sizeof(data));
+        online::write_observed_trick_objects(observed_writer, *all);
+        desc.set_content(data.data());
+        desc.set_byte_count(static_cast<uint16_t>(observed_writer.position()));
+        desc.set_ident(online::MessageId::kObservedTrickObjects);
+        for (void* info = net->roster().begin_player_walk(&search, true); info;
+             info = net->roster().step_player_walk(&search, true)) {
+            if (static_cast<uint8_t>(as_player(info)->is_observer()) != 0U) {
+                server->send_bulk_message(as_player(info)->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()},
+                                          data.data(), kTrickObjBuffer, online::MessageGroup::kGame, true, false);
+            }
+        }
+        static_cast<modules::Skate*>(skate)->broadcast_points(false); // the skate module's score updates
+        if (conn->is_host_local()) {                                  // (no check: as the original)
             return;
+        }
     }
-    int owner = static_cast<uint8_t>(GameMode()->IsTeamGame())
-                    ? AsPlayer(net->PlayerByObjectId(static_cast<uint16_t>(skaterId)))->m_team
-                    : skaterId;
-    for (uint32_t i = 0; i < count; ++i)
-        TrickObjects()->SetObjectGraffitiColor(objects[i], owner);
+    const int owner = (static_cast<uint8_t>(get_game_mode()->is_squad_match()) != 0U)
+                          ? as_player(net->roster().find_player_slot_by_obj(static_cast<uint16_t>(skater_id)))->team()
+                          : skater_id;
+    for (const uint32_t name : objects) {
+        get_trick_objects()->set_object_graffiti_color(checksums::Name{name}, owner);
+    }
 }
 
 // 0x005626F0
-int __cdecl Score::HandleScoreMessage(Net::MsgHandlerContext* context)
+int PointTally::on_score_msg(net::InboundMsgCtx* context)
 {
-    auto* message = reinterpret_cast<Obj::TrickObjectsMessage*>(context->m_Msg);
-    auto* score = static_cast<Score*>(static_cast<Obj::CSkater*>(context->m_data)->GetScore());
-    if (static_cast<int8_t>(message->one) == 1 && message->gameId == NetManager()->GetGameId())
-        score->LogTrickObject(message->player, static_cast<int>(message->score), message->count, message->objects, false);
+    // (NOT ORIGINAL: one whose count is more than it holds is dropped - the original read the names on past its end)
+    util::ByteReader reader(context->body(), context->body_size());
+    auto message = std::make_unique<online::TrickObjectsMessage>();
+    if (!online::read_trick_objects(reader, message.get())) {
+        return 4;
+    }
+    auto* score = static_cast<objects::Rider*>(context->content())->get_points_total();
+    if (message->one == 1 && message->game_id == online::online_hub()->get_game_id()) {
+        score->note_tagged_prop(message->player, static_cast<int>(message->score), std::span<uint32_t>(message->objects.data(), message->count), false);
+    }
     return 1;
 }
 
-} // namespace Mdl
+} // namespace modules

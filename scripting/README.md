@@ -135,7 +135,7 @@ scheduler, legacy scalar bridge, owning rich codec/bridge, maintainer-review
 regressions and optional original-data helper. Synthetic expectations compare
 raw types/bits, fields, host effects, waits, limits and recovery. This is partial
 behavioral compatibility, not a claim that a complete original game can execute
-on the JS path. Sources: src/game/script, [the implementation plan](../docs/qb-js-plan.md)
+on the JS path. Sources: src/engine/script, [the implementation plan](../docs/qb-js-plan.md)
 and [the contract](../docs/qb-js-contract.md). Public tools use TypeScript;
 optional executable-dependent Python/Unicorn experiments are private, untracked
 validation and are not distributed project tools.

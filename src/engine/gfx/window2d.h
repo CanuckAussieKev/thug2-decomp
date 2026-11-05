@@ -1,0 +1,58 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include "engine/memory/mem.h"
+#include "base/maths/rect.h"
+
+// The engine's 2D windows (Nx; the PC's PcWindow - pc_billboards.h - derives from it): a rectangle of the 640 x 448
+// screen the window screen elements clip their sprites to. Ten are made at start-up (the PC's create_window_pool) onto
+// a free list (0x007013D0, linked through +0x14).
+namespace render {
+
+constexpr std::size_t kScreenWindowFollowingOffset = 0x14;
+constexpr std::size_t kScreenWindowBytes = 0x18;
+
+// The engine's 2D window (0x18 bytes, vtable 0x00649E58).
+class ScreenWindow : public memory::HeapObject {
+public:
+    // 0x004A1580: at (x, y), width x height, not on a list.
+    ScreenWindow(maths::PixelPoint at, maths::PixelSize size);
+    // 0x004A15B0 (0x004A1690 the scalar deleting destructor, vtable slot 0)
+    virtual ~ScreenWindow() = default;
+    ScreenWindow(const ScreenWindow&) = delete;
+    ScreenWindow& operator=(const ScreenWindow&) = delete;
+    // 0x004A1600 (vtable slot 1): the platform told of a change ("STUB: PlatUpdateEngine").
+    virtual void tick_engine();
+    // 0x004A15C0 / 0x004A15E0: the position / size set, then tick_engine.
+    void change_location(maths::PixelPoint at);
+    void change_extent(maths::PixelSize extent);
+
+    // The fields other code reads and sets.
+    void set_pos_x(int value) { pos_x_ = value; }
+    void set_y(int value) { y_ = value; }
+    void set_span(int value) { span_ = value; }
+    void set_level_y(int value) { level_y_ = value; }
+    [[nodiscard]] ScreenWindow* following() const { return following_; }
+    void set_following(ScreenWindow* value) { following_ = value; }
+
+private:
+    int pos_x_, y_;           // +0x04
+    int span_, level_y_;      // +0x0C
+    ScreenWindow* following_{nullptr}; // +0x14 on the free list
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ScreenWindow, following_) == kScreenWindowFollowingOffset && sizeof(ScreenWindow) == kScreenWindowBytes,
+                      "layout must match the original");
+    }
+};
+
+// 0x004A1620: a window from the free list (none: written through null, as the original), placed and sized - each
+// with tick_engine.
+ScreenWindow* allocate_window_2d(maths::PixelPoint at, maths::PixelSize size);
+// 0x004A1670: a window back onto the free list.
+void free_window_2d(ScreenWindow* window);
+
+} // namespace render

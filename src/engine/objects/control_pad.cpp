@@ -1,0 +1,404 @@
+// A controller's buttons and sticks (0x0046B7E0-0x0046C470). See control_pad.h.
+
+#include "engine/objects/control_pad.h"
+
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <array>
+#include <span>
+
+#include "base/core/checksums.h"
+#include "engine/pad_input/input_hub.h"
+#include "engine/objects/game_hooks.h"
+#include "engine/sys/game_clock.h"
+#include "engine/sys/stopwatch.h"
+#include "base/core/checked_index.h"
+#include "base/maths/vec2.h"
+#include "base/maths/trig.h"
+
+namespace objects {
+
+namespace {
+constexpr int kStickCentre = 0x80;                 // a stick byte at rest
+constexpr int kStickMax = 0x7F;
+constexpr int kButtonFull = 0xFF;                  // a pressed button's value
+constexpr int kDataUpDir = 6;                      // the pad data's bytes
+constexpr int kDataBtnDown = 7;
+constexpr int kDataLeftSide = 5;
+constexpr int kDataButtonBox = 0xB;
+constexpr int kDataButtonRound = 9;
+constexpr int kDataPosX = 0xA;
+constexpr int kDataButtonWedge = 8;
+constexpr int kDataShoulderLeftA = 0xC;
+constexpr int kDataShoulderRightA = 0xD;
+constexpr int kDataShoulderLeftB = 0xE;
+constexpr int kDataShoulderRightB = 0xF;
+constexpr int kBitStickClickLeft = 0x200;          // the pad's button bits
+constexpr int kBitStickClickRight = 0x400;
+constexpr int kBitChoose = 0x100;
+constexpr int kDataStickStart = 0x12;
+constexpr float kDpadLength = 127.0F;
+constexpr float kStickUnit = 0.012987013F; // 1 / 77
+constexpr float kMinStickLength = 0.001F;
+
+int& stored_clock_offset()
+{
+    static int clock_offset{};
+    return clock_offset;
+}
+
+} // namespace
+
+int clock_offset() { return stored_clock_offset(); }
+void set_clock_offset(int value) { stored_clock_offset() = value; }
+
+namespace {
+
+constexpr int kPressedAbove = 0x40;
+
+// The game clock with its offset (0x00696D60).
+int get_clock() { return frame_clock::game_clock_elapsed() + stored_clock_offset(); }
+
+// frame_clock::GetTime as the original compares it: unsigned, as a float would hold it.
+double get_now() { return static_cast<double>(frame_clock::get_time()); }
+
+constexpr float float_from_bits(uint32_t bits) noexcept { return std::bit_cast<float>(bits); }
+
+constexpr float kHalfPi = float_from_bits(0x3FC90FDB);
+constexpr float kQuarterPi = float_from_bits(0x3F490FDB);
+constexpr float kThreeQuarterPi = float_from_bits(0x4016CBE4);
+
+// A stick's data byte with 0x80 as the centre, moved 50 towards 0 (crossing it: there's no dead band) and / 77;
+// exactly centred is 0. (-0x80 counts as -0x7F.)
+void scale_stick(uint8_t byte, float* out)
+{
+    int value = byte - kStickCentre;
+    if (value == 0) {
+        *out = 0.0F;
+        return;
+    }
+    if (value == -kStickCentre) {
+        value = -kStickMax;
+    }
+    const int moved = value + (value > 0 ? -50 : 50);
+    *out = static_cast<float>(moved * static_cast<double>(kStickUnit));
+}
+
+// The button value of a pressure byte: any pressure counts as full.
+int get_full(bool down) { return down ? kButtonFull : 0; }
+
+// A lock of the second stick stays while it is set, the stick isn't centred, the stick is in the lock's
+// quarter and the time hasn't passed.
+void update_lock(uint32_t& lock, float length, bool in_quarter)
+{
+    if (lock == 0) {
+        return;
+    }
+    if (length != 0.0F && in_quarter && get_now() <= static_cast<double>(lock)) {
+        return;
+    }
+    lock = 0;
+}
+
+} // namespace
+
+// 0x0046B7E0
+void ControlButton::reset_activation() { fired_ = 0; }
+
+// 0x0046B7F0
+void ControlButton::forget_let_go() { let_go_ = 0; }
+
+// 0x0046B800
+void ControlButton::change_title(const char* name) { label_ = checksums::hash_from_text(name); }
+
+// 0x0046B820
+void ControlButton::tick_frame(int pressure)
+{
+    if (locked_until_ != 0.0F) {
+        // (compared as the original: a NaN lock keeps holding presses off)
+        if (pressure > kPressedAbove && !(get_now() > static_cast<double>(locked_until_))) {
+            return;
+        }
+        locked_until_ = 0.0F;
+    }
+    press_amount_ = pressure;
+    if (pressure > kPressedAbove) {
+        if (held_down_ == 0U) {
+            press_time_ = get_clock();
+            fired_ = 1;
+        }
+        held_down_ = 1;
+    } else {
+        if (held_down_ != 0U) {
+            release_time_ = get_clock();
+            let_go_ = 1;
+        }
+        held_down_ = 0;
+    }
+}
+
+// 0x0046B8B0
+void ControlButton::set_held_down(uint8_t down)
+{
+    if (down != 0U) {
+        if (held_down_ == 0U) {
+            press_time_ = get_clock();
+            fired_ = 1;
+        }
+    } else if (held_down_ != 0U) {
+        let_go_ = 1;
+    }
+    held_down_ = down;
+}
+
+// 0x0046B900
+int ControlButton::read_let_go_time() const
+{
+    const int released = release_time_;
+    return frame_clock::game_clock_elapsed() + (stored_clock_offset() - released);
+}
+
+// 0x0046B920
+int ControlButton::get_held_millis() const
+{
+    const int pressed = press_time_;
+    return frame_clock::game_clock_elapsed() + (stored_clock_offset() - pressed);
+}
+
+std::span<const PadSnapshot::ButtonName> PadSnapshot::button_names()
+{
+    static constexpr auto kPadButtons = std::to_array<ButtonName>({
+        {.button = &PadSnapshot::up_dir_, .name = "UP"},
+        {.button = &PadSnapshot::btn_down_, .name = "DOWN"},
+        {.button = &PadSnapshot::left_side_, .name = "LEFT"},
+        {.button = &PadSnapshot::right_side_, .name = "RIGHT"},
+        {.button = &PadSnapshot::button_box_, .name = "SQUARE"},
+        {.button = &PadSnapshot::button_round_, .name = "CIRCLE"},
+        {.button = &PadSnapshot::button_wedge_, .name = "TRIANGLE"},
+        {.button = &PadSnapshot::pos_x_, .name = "X"},
+        {.button = &PadSnapshot::shoulder_left_a_, .name = "L1"},
+        {.button = &PadSnapshot::shoulder_left_b_, .name = "L2"},
+        {.button = &PadSnapshot::stick_click_left_, .name = "L3"},
+        {.button = &PadSnapshot::shoulder_right_a_, .name = "R1"},
+        {.button = &PadSnapshot::shoulder_right_b_, .name = "R2"},
+        {.button = &PadSnapshot::stick_click_right_, .name = "R3"},
+        {.button = &PadSnapshot::outset_, .name = "START"},
+        {.button = &PadSnapshot::button_choose_, .name = "SELECT"},
+    });
+    return kPadButtons;
+}
+
+// 0x0046B940
+PadSnapshot::PadSnapshot()
+{
+    for (const ButtonName& entry : button_names()) {
+        (this->*entry.button).change_title(entry.name);
+    }
+    core::at(lock_, 0) = core::at(lock_, 1) = 0;
+}
+
+// 0x0046BB50: every button let go (a held one records its release), the sticks centred.
+void PadSnapshot::get_reset()
+{
+    for (const ButtonName& entry : button_names()) {
+        (this->*entry.button).tick_frame(0);
+    }
+    for (float& axis : stick_) {
+        axis = 0.0F;
+    }
+    for (float& axis : scaled_stick_) {
+        axis = 0.0F;
+    }
+    core::at(polar_, 0) = {.angle = 0.0F, .length = 0.0F};
+    core::at(polar_, 1) = {.angle = 0.0F, .length = 0.0F};
+    // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
+    if (game_hooks().bike.switched_on()) {
+        game_hooks().bike.update_pad_sticks(this, {});
+    }
+}
+
+// 0x0046BC60
+void PadSnapshot::get_clear()
+{
+    get_reset();
+    auto both = std::to_array<ControlButton*>({&up_dir_,          &btn_down_,        &left_side_,        &right_side_,
+                             &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_});
+    for (ControlButton* button : both) {
+        button->reset_activation();
+        button->forget_let_go();
+    }
+    // (the original's slip: R2's press is taken twice and its release kept, R3's release twice and its press kept)
+    shoulder_right_b_.reset_activation();
+    shoulder_right_b_.reset_activation();
+    stick_click_right_.forget_let_go();
+    stick_click_right_.forget_let_go();
+    auto rest = std::to_array<ControlButton*>({&button_box_, &button_round_, &pos_x_, &button_wedge_, &outset_, &button_choose_});
+    for (ControlButton* button : rest) {
+        button->reset_activation();
+        button->forget_let_go();
+    }
+}
+
+// 0x0046BDA0
+void PadSnapshot::tick_frame(const pad_input::Payload* payload)
+{
+    const auto& data = payload->incident(); // (the sticks, then a pressure per button)
+    up_dir_.tick_frame(get_full(core::at(data, kDataUpDir) != 0));
+    btn_down_.tick_frame(get_full(core::at(data, kDataBtnDown) != 0));
+    left_side_.tick_frame(get_full(core::at(data, kDataLeftSide) != 0));
+    right_side_.tick_frame(get_full(core::at(data, 4) != 0));
+    button_box_.tick_frame(get_full(core::at(data, kDataButtonBox) != 0));
+    button_round_.tick_frame(get_full(core::at(data, kDataButtonRound) != 0));
+    pos_x_.tick_frame(get_full(core::at(data, kDataPosX) != 0));
+    button_wedge_.tick_frame(get_full(core::at(data, kDataButtonWedge) != 0));
+    shoulder_left_a_.tick_frame(get_full(core::at(data, kDataShoulderLeftA) != 0));
+    shoulder_right_a_.tick_frame(get_full(core::at(data, kDataShoulderRightA) != 0));
+    shoulder_left_b_.tick_frame(get_full(core::at(data, kDataShoulderLeftB) != 0));
+    shoulder_right_b_.tick_frame(get_full(core::at(data, kDataShoulderRightB) != 0));
+    const uint32_t bits = payload->buttons();
+    stick_click_left_.tick_frame(get_full((bits & kBitStickClickLeft) != 0));
+    stick_click_right_.tick_frame(get_full((bits & kBitStickClickRight) != 0));
+    button_choose_.tick_frame(get_full((bits & kBitChoose) != 0));
+    // (START isn't read here)
+
+    for (int i = 0; i < 4; ++i) {
+        scale_stick(core::at(data, i), &core::at(scaled_stick_, i));
+    }
+    for (int i = 0; i < 4; ++i) {
+        core::at(stick_, i) = static_cast<float>(core::at(data, kDataStickStart + i) - kStickCentre);
+    }
+
+    double x = core::at(stick_, 0);
+    double y = core::at(stick_, 1);
+    core::at(polar_, 0).length = static_cast<float>(std::sqrt((x * x) + (y * y)));
+    core::at(polar_, 0).angle = static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 0)), -static_cast<double>(core::at(stick_, 1))));
+
+    x = core::at(stick_, 2);
+    y = core::at(stick_, 3);
+    const double length = std::sqrt((y * y) + (x * x));
+    core::at(polar_, 1).length = static_cast<float>(length);
+    // (compared unrounded, as the original's)
+    if (length > kMinStickLength) {
+        core::at(polar_, 1).angle =
+            static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 2)), -static_cast<double>(core::at(stick_, 3))));
+    } else {
+        // the d-pad stands in for a centred stick
+        const auto up = static_cast<uint8_t>(core::at(data, 6) != 0);
+        const auto down = static_cast<uint8_t>(core::at(data, 7) != 0);
+        const auto left = static_cast<uint8_t>(core::at(data, 5) != 0);
+        const auto right = static_cast<uint8_t>(core::at(data, 4) != 0);
+        if ((up != 0U) || (down != 0U) || (left != 0U) || (right != 0U)) {
+            core::at(polar_, 1).angle = d_pad_angle(up, down, left, right);
+            core::at(polar_, 1).length = kDpadLength;
+        } else {
+            core::at(polar_, 1).angle = 0.0F;
+            core::at(polar_, 1).length = 0.0F;
+        }
+    }
+
+    const double angle = std::fabs(static_cast<double>(core::at(polar_, 1).angle));
+    update_lock(core::at(lock_, 0), core::at(polar_, 1).length, angle < kQuarterPi);
+    update_lock(core::at(lock_, 1), core::at(polar_, 1).length, static_cast<double>(maths::kPi) - angle < kQuarterPi);
+    // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
+    // game/rider/thaw_bmx.h. Original behaviour: none.
+    if (game_hooks().bike.switched_on()) {
+        game_hooks().bike.update_pad_sticks(this, data);
+    }
+}
+
+// 0x0046C270
+ControlButton* PadSnapshot::read_button(uint32_t name)
+{
+    // (the original's order)
+    auto buttons = std::to_array<ControlButton*>({&up_dir_,           &btn_down_,          &left_side_,        &right_side_,
+                                &button_box_,       &button_round_,      &button_wedge_,     &pos_x_,
+                                &shoulder_left_a_,  &shoulder_left_b_,   &stick_click_left_, &shoulder_right_a_,
+                                &shoulder_right_b_, &stick_click_right_, &outset_,           &button_choose_});
+    for (ControlButton* button : buttons) {
+        if (button->label() == name) {
+            return button;
+        }
+    }
+    // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons by name (leftup ... rightright - its bike
+    // scripts' DoBalanceTrick ButtonA=leftright, HeldLongerThan button=leftdown). Original behaviour: null.
+    if (game_hooks().bike.switched_on()) {
+        return static_cast<ControlButton*>(game_hooks().bike.pad_stick_button(this, name));
+    }
+    return nullptr;
+}
+
+ControlButton* PadSnapshot::button_at_offset(uint32_t offset)
+{
+    // (the buttons in their order in the pad, 0x20 bytes apart)
+    auto buttons = std::to_array<ControlButton*>({&up_dir_,           &btn_down_,          &left_side_,      &right_side_,
+                                                  &shoulder_left_a_,  &shoulder_left_b_,   &stick_click_left_,
+                                                  &shoulder_right_a_, &shoulder_right_b_, &stick_click_right_,
+                                                  &button_round_,     &button_box_,        &button_wedge_,   &pos_x_,
+                                                  &outset_,           &button_choose_});
+    constexpr uint32_t kButtonSize = 0x20;
+    if (offset % kButtonSize != 0 || offset / kButtonSize >= buttons.size()) {
+        return nullptr;
+    }
+    return buttons.at(offset / kButtonSize);
+}
+
+// 0x0046BA50
+int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
+{
+    // (0x0067D8C8)
+    static constexpr std::array<int, 16> kDirections = {{0, 1, 2, 2, 3, 5, 7, 7, 4, 6, 8, 8, 4, 6, 8, 8}};
+    return core::at(kDirections, up + (2 * (down + (2 * (left + (2 * right))))));
+}
+
+// 0x0046BA80
+float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
+{
+    // (the original's static table 0x006F2270, filled on the first call; up and down together count as down,
+    // left and right together as right)
+    static const std::array<float, 16> kAngles = {{
+        0.0F,
+        0.0F,
+        maths::kPi,
+        maths::kPi,
+        -kHalfPi,
+        -kQuarterPi,
+        -kThreeQuarterPi,
+        -kThreeQuarterPi,
+        kHalfPi,
+        kQuarterPi,
+        kThreeQuarterPi,
+        kThreeQuarterPi,
+        kHalfPi,
+        kQuarterPi,
+        kThreeQuarterPi,
+        kThreeQuarterPi,
+    }};
+    return core::at(kAngles, up + (2 * (down + (2 * (left + (2 * right))))));
+}
+
+// 0x0046C370
+double stick_length(maths::Vec2 stick, float angle)
+{
+    const auto x = stick.x;
+    const auto y = stick.y;
+    const double nx = x / static_cast<double>(x > 0.0F ? 127.0F : 128.0F);
+    const double ny = y / static_cast<double>(y > 0.0F ? 127.0F : 128.0F);
+    // the angle brought into the quarter around up / down, then around left / right
+    const double angle_d = angle;
+    double to_gate = 0.0;
+    if (angle_d > -static_cast<double>(kQuarterPi) && angle_d < kQuarterPi) {
+        to_gate = angle_d;
+    } else if (angle_d > kQuarterPi && angle_d < kThreeQuarterPi) {
+        to_gate = angle_d - kHalfPi;
+    } else if (std::fabs(angle_d) > kThreeQuarterPi) {
+        to_gate = std::fabs(angle_d) - maths::kPi;
+    } else {
+        to_gate = angle_d + kHalfPi;
+    }
+    const double length = std::sqrt((ny * ny) + (nx * nx)) * std::fabs(std::cos(to_gate)) *
+                          static_cast<double>(float_from_bits(0x3F969696));
+    return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)
+}
+
+} // namespace objects

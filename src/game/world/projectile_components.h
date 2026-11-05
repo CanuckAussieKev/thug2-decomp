@@ -1,0 +1,111 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include "base/maths/vec4.h"
+#include "engine/objects/entity.h"
+#include <gsl/pointers>
+#include <array>
+#include "base/core/raw_view.h"
+
+namespace script {
+class Struct;
+} // namespace script
+
+namespace objects {
+
+class DormancyModule;
+
+class PedestrianBrainModule;
+class Rider;
+
+// The projectile collision component (type 0x7767D6D7 "projectilecollision", vtable 0x0064B830, 0x44 bytes; made by
+// 0x004F3010): a thrown projectile (a snowball, a fireball) hitting skaters in a network game. Each update, unless
+// it has hit something or its suspend component says it's far, the first skater other than its owner that can be
+// hit again (not one with no score left, for a fireball; not a team mate unless friendly fire is on) and is within
+// radius + 48 is hit: the projectile dies, death_script runs (pos, vel, scale), the hit skater's player and the owner's
+// are sent message 0x84 / 0x85 (the owner / the hit skater's id, whether it's a fireball, the score it takes); a
+// fireball takes ten times its scale off the hit skater's score - one with no score left is eliminated (hidden,
+// announce_elimination), unless it's the local player. The collide-and-die component tells it when it hits the world.
+// Outside a network game (or with player collision off, for anything but a fireball) it does nothing.
+//
+// Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data, 3 Finalize (the collide-and-die
+// component's 0x0041C330: the suspend component at +0x18); the rest the base's / shared (4 / 9 0x005480A0, 5 / 8
+// 0x005BAB90, 6 0x0048DCD0, 7 0x0045D760, 10 0x005144C0, 11 0x0045D720, 12 0x0051ADC0).
+class ShotImpactModule final : public ObjectModule {
+public:
+    ShotImpactModule(const ShotImpactModule&) = delete;
+    ShotImpactModule& operator=(const ShotImpactModule&) = delete;
+    static constexpr uint32_t kType = 0x7767D6D7;
+    static constexpr uint32_t kFireball = 0xD039432C; // projectile_type fireball
+
+    // 0x004F3010 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
+    // base's constructor, its vtable and type, no radius, scale, death script or owner, not hit.
+    static gsl::owner<ObjectModule*> fabricate();
+    // The constructor (inlined in fabricate in the original).
+    ShotImpactModule();
+    // 0x004F2F10: the base's body.
+    ~ShotImpactModule() override;
+    void reapply_from_data(script::Struct* /*params*/) override {} // (slot 5: nothing)
+    // 0x0041C330 (slot 3, the collide-and-die component's Finalize, folded): the object's suspend component kept.
+    void seal() override;
+    // 0x004F2F80 (vtable slot 2): radius, scale, owner_id, death_script, projectile_type (each asserted); vel
+    // (0, 0, 1) normalised - not read from the parameters.
+    void configure_from_data(script::Struct* params) override;
+    // 0x004F3090 (vtable slot 1): see the class.
+    void tick_frame() override;
+    // 0x004F2F40: it has hit the world (the collide-and-die component's call): no more skaters are hit.
+    void mark_hit();
+    // 0x004F2F20 (not a Ghidra function): the score a hit takes - a fireball's scale (truncated) times ten, 0 for
+    // anything else.
+    [[nodiscard]] int score_taken() const;
+
+private:
+    DormancyModule* suspend_{};  // +0x18 the suspend component (Finalize)
+    float radius_{0.0F};         // +0x1C radius
+    float size_factor_{0.0F};    // +0x20 scale
+    uint32_t on_collide_script_{0}; // +0x24 death_script
+    uint32_t holder_key_{0};        // +0x28 owner_id (the skater who threw it)
+    uint32_t projectile_type_{}; // +0x2C projectile_type
+    maths::Vec4 vel_{};          // +0x30 (0, 0, 1) normalised
+    bool hit_{false};            // +0x40
+    std::array<uint8_t, 3> pad41{};
+};
+
+// The projectile proximity component (type 0x3618B878 "projectileproximity", vtable 0x0064B864, 0x24 bytes; made by
+// 0x004F3550): a ped the local skater's projectiles can hit. Each update the first of the skater's five projectiles in
+// flight within 48 of the ped (30 up from its position) hits it - unless the ped is already shot: the ped gets the
+// ProjectileInAvoidRadius event, projectile_hit_ped runs on the skater and hit_ped_script on the ped (Ped_ID,
+// projectile_id, ammo_type: the skater's core physics +0x2FC), and the projectile is spent. The skater's targeting
+// (src/game/rider/rider.cpp) walks these components.
+//
+// Vtable: 0 the scalar deleting destructor, 1 Update, 2 configure_from_data; the rest the base's / shared (3 / 4
+// 0x005480A0, 5 0x004E3F90, 6 0x0048DCD0, 7 0x0045D760, 8 / 10 0x005BAB90, 9 0x005480A0, 11 0x0045D720, 12
+// 0x0051ADC0).
+class ProjectileProximityComponent final : public ObjectModule {
+public:
+    ProjectileProximityComponent(const ProjectileProximityComponent&) = delete;
+    ProjectileProximityComponent& operator=(const ProjectileProximityComponent&) = delete;
+    static constexpr uint32_t kType = 0x3618B878;
+
+    // 0x004F3550 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
+    static gsl::owner<ObjectModule*> fabricate();
+    // The constructor (inlined in fabricate in the original).
+    ProjectileProximityComponent();
+    // 0x004F34E0: the base's body.
+    ~ProjectileProximityComponent() override;
+    // 0x004F3520 (vtable slot 2): the local skater, the object's PedLogic component, 48 squared. (The parameters
+    // aren't read.)
+    void configure_from_data(script::Struct* params) override;
+    // 0x004F35B0 (vtable slot 1): see the class. With no skater yet, it's looked up instead; with no PedLogic
+    // component yet (and an object id), that is.
+    void tick_frame() override;
+
+private:
+    float reach_squared_{};              // +0x18 2304 (48 squared)
+    Rider* rider_ref_{};                 // +0x1C the local skater
+    PedestrianBrainModule* ped_logic_{}; // +0x20 the object's
+};
+
+} // namespace objects

@@ -14,8 +14,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (default 8 min; prints BUSY and exits 1 if still held), refuses while a game from that folder runs, and backs up
   the deployed thug2-decomp.exe (its PDB, d3dx9_43.dll, an earlier build's dinput8.dll - those that are there) and
   thug2-decomp.ini into `<folder>\.game-lock`; release puts them back as they were - in a workspace it
-  first closes a game still running from that folder (crashed, stuck or left open; recorded - "Crashes" below), in the
-  main install it never closes one. Under the lock you may copy your build's exe (with its PDB and d3dx9_43.dll) in, edit the ini, launch and close the game you started. To
+  first closes a game still running from that folder (crashed, stuck or left open; recorded - "Crashes" below) and
+  waits for it to go (`-ExitWaitSeconds`, default 60, then a kill), in the main install it never closes one; while a
+  game from the folder still runs it refuses (exit 1: the lock kept, nothing put back - release again once it has
+  exited). Under the lock you may copy your build's exe (with its PDB and d3dx9_43.dll) in, edit the ini, launch and close the game you started. To
   install something permanently (the lead installing main), also copy it over the `.backup` file before releasing.
 - **Workspace games are muted:** `game_lock.ps1` acquire, `run_game.ps1` (so load_check and the scenic captures),
   `edit_level.ts` and `try_spot.ts` set `[features] mute_audio=1` in a workspace's ini (C:\Games\THUG2-n only -
@@ -26,7 +28,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   from that folder). In a workspace it never takes the foreground: keys are posted to the window (KEYS_POST +
   KEYS_NO_FOCUS) and pictures taken with PrintWindow, so it runs while the user uses the PC. Pictures go to
   %TEMP%\thug2-shots unless -ShotDir. Don't pipe it into `Select-Object -First` (that stops it before it closes the game).
-- **Commands instead of keys (prefer these):** the game's test-automation channel (src/game/front/automation.h; on in
+- **Commands instead of keys (prefer these):** the game's test-automation channel (src/devtools/automation.h; on in
   the workspaces - `[features] automation=1`, set by make_workspace.ps1; never on in the main install). The game reads
   `<folder>\thug2-decomp-commands.txt` once a frame and writes `<folder>\thug2-decomp-status.json` (readable while it
   runs - the log isn't). Nothing is dropped and nothing waits a fixed time: a cold start to the free-skate level select
@@ -47,10 +49,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     3600 frames without waiting: the next commands - a capture, a trace - run while it's down), `wait <frames>`, `waitfor ready | frontend | ingame |
     level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `teleport`, `camera`, `capture` (below),
     `logtricks [count]` (a test: one trick by skater 0 over the level's trick objects - all, or the first `count` - through
-    the trick object manager's LogTrickObjects; the result says how many objects / clusters and changed hands: THUG2's
+    the trick object manager's log_trick_objects; the result says how many objects / clusters and changed hands: THUG2's
     own change mask crashed past 128), `echo <text>`, `quit`. A failure or refusal
-    skips the rest of the batch.
-  - **Looking at one spot frame by frame** (src/game/front/test_view.h, src/game/sys/screenshot.h StartSeries):
+    skips the rest of the batch. After a `quit` the scripts wait for the process to exit and report its exit code
+    ("the game exited (code 0) after its quit"; ok only with 0), whichever came first - the game's last status or
+    its exit.
+  - **Looking at one spot frame by frame** (src/game/rider/test_view.h, src/devtools/screenshot.h start_series):
     `teleport <x> <y> <z> [heading]` puts the skater there standing (walking, no momentum, on the ground below;
     heading in degrees as the screenshot sidecar gives it), `camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]` holds
     viewport 0's camera at that pose (a screenshot sidecar's [camera] lines), moved by (vx, vy, vz) every game frame
@@ -64,7 +68,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     for the next 1-36000 frames: frame, position, velocity, the up row's y, the SkaterState state (0 ground, 1 air,
     2 wall, 3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing, doing a trick, the combo so far
     and its multiplier, the score's +0x20, and the last ground face's flags and collision object; each `teleport`
-    while it runs adds a `# teleport ...` line. It's done at once and runs on under the next commands, so
+    while it runs adds a `# teleport ...` line. `trace <frames> objects` also writes
+    `<folder>\thug2-decomp-trace-objects.txt`: each frame a line for every object with a motion or rigid body
+    component (kind m / r / b both) - frame, id, position, velocity, the at row of its matrix. It's done at once and runs on under the next commands, so
     `teleport <x> <y> <z> <heading> board;trace 600;press up 60;wait 300` pushes off and records the ride (a manual:
     `press up 2;press down 2`; `run client_toggle_cheat cheat_flag=CHEAT_PERFECT_MANUAL on` holds its balance).
     `node tools/game/trace_summary.ts <trace.txt> [--every N | --trials]` gives the runs of one state (where, the
@@ -83,7 +89,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     net / online / internet / lobby / login / buddy / homie / gamespy / network / server / join / host / lan), `choose` /
     `focus` / `press` refuse items whose ids or event handlers lead there (MULTIPLAYER, Network / Online Play...), and
     nothing but wait / echo / quit runs while the game is online or in a network game mode. The tables are generated:
-    `node tools/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/game/front/automation_tables.inc.
+    `node tools/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/devtools/automation_tables.inc.
   - With the channel on, the game also keeps drawing while its window is in the background (PrintWindow pictures show
     the current frame; without it the main loop stops drawing when the window loses the focus).
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
@@ -92,16 +98,16 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `window_shot.ps1 -ProcessId <pid> -Path <png>` - one game window with PrintWindow, also in the background.
   `game_shot.ps1 -Path <png>` - the game's window while it's in front. **Never capture the whole screen.**
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
-  (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front/start_level.h - also `[features] start_level=` in the
+  (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front_end/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
-  (src/game/sys/debug_mode.h).
+  (src/engine/sys/debug_mode.h).
 - `node tools/game/edit_level.ts [<level>] [--game <folder>] [--list]` - for the user: no level lists the installed
   levels by game (load names and names); a level starts the game with `-edit <level>` (free skate there, intro movies
   skipped, the level editor opened once it's up - also `[features] edit_level=`). Refuses while a game runs from that
   folder; never closes one. Not for agents' test runs (no lock, no workspace handling).
 - `node tools/game/try_spot.ts <level> <x,y,z[,heading]> [--game <folder>]` - for the user: the game started with
   `-level <level> -at <spot>`: free skate there, and once the level is up the skater stands still at the spot (on the
-  ground below it, facing `heading` degrees: 0 = +z, 90 = +x; src/game/front/start_level.h - also
+  ground below it, facing `heading` degrees: 0 = +z, 90 = +x; src/game/front_end/start_level.h - also
   `[features] start_at=`). `--game` goes before a spot that starts with a minus. `--list collfix` prints the spots in
   `spots.json`'s list `collfix` (in front of THUGPRO's collision overlays in the THPS3 ports)
   with each one's command; `--list collfix <n>` starts the n-th. Refuses while a game
@@ -120,7 +126,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
   `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
   the errors (the pools: the log's `script pools in use in <level>` line, written once the level is up -
-  src/game/front/start_level.cpp; and any `pool ... full` / `80% full` line).
+  src/game/front_end/start_level.cpp; and any `pool ... full` / `80% full` line).
 
 Reference sources the agents read (re-fetch anonymously if needed; none of their code is in the repo except where
 the THIRD_PARTY_NOTICES.md files - the decomp's, the content pipeline's and the converters' - say): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene
@@ -130,7 +136,7 @@ After every run read `<folder>\thug2-decomp.log` (locked while the game runs): n
 ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
 
 ## Crashes
-- **The game never shows a dialog** (src/game/sys/crash.h): every fault - an exception, a Debug run-time check or CRT
+- **The game never shows a dialog** (src/platform/crash.h): every fault - an exception, a Debug run-time check or CRT
   error, an invalid CRT parameter, a pure virtual call, abort() - is logged with the call stack / return addresses and ends
   the process (exit code 3, 0xC0000409 for an overrun, the exception's code when unhandled). Windows Error Reporting
   shows nothing. Not catchable: our own build's /GS failures (fast fail - exit code 0xC0000409, nothing logged; WER may

@@ -1,0 +1,528 @@
+// The movie manager, 0x0057A180-0x0057B240. See movie_manager.h.
+
+#include "engine/objects/movie_manager.h"
+
+#include <cstdint>
+#include "engine/assets/resource_entry.h"
+#include "engine/assets/resource_registry.h"
+#include "base/core/dbg.h"
+#include "engine/memory/mem.h"
+#include "engine/lists/chain_start.h"
+#include "engine/gfx/viewport.h"
+#include "engine/script/fwd.h"
+#include "engine/objects/anim_movies.h"
+#include "engine/objects/cutscene.h"
+#include "engine/objects/node_objects.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/objects/game_hooks.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/objects/entity.h"
+#include "engine/memory/arena_alloc.h"
+#include "base/core/checksums.h"
+#include <gsl/pointers>
+#include <gsl/assert>
+
+namespace objects {
+
+namespace {
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // Load_MainMenu
+
+bool& stored_simulation_halted()
+{
+    static bool simulation_halted{};
+    return simulation_halted;
+}
+
+} // namespace
+
+bool simulation_halted() { return stored_simulation_halted(); }
+void set_simulation_halted(bool value) { stored_simulation_halted() = value; }
+
+namespace {
+
+int& stored_view_mode()
+{
+    static int view_mode{};
+    return view_mode;
+}
+
+} // namespace
+
+int view_mode() { return stored_view_mode(); }
+void set_view_mode(int value) { stored_view_mode() = value; }
+
+namespace {
+
+constexpr uint32_t kSkaterCameraAsset = 0xB46E218F;
+constexpr uint32_t kObjectCameraAsset = 0x12743EDB;
+constexpr uint32_t kCutscene = 0x66B7DD11;
+constexpr uint32_t kSkaterCamera = 0xF5012F52;
+
+bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
+
+void delete_movie(gsl::owner<Movie*> movie) { delete movie; }
+bool has_camera(Movie* movie) { return movie->has_camera(); }
+void halt(Movie* movie)
+{
+    Expects(movie != nullptr);
+    movie->stop();
+}
+// The movie details' (node_objects.h) part of a movie: the movie itself.
+VideoEntry* get_details(Movie* movie) { return movie; }
+uint32_t get_name_of(Movie* movie) { return movie_key_from_params(movie); }
+// The game's camera (0x004A0970).
+// The movie at `index` of the list (lists::Foremost<Movie>::fetch_entry, 0x0055D990; null past the end).
+Movie* movie_at(memory::ListNode* head, int index)
+{
+    const memory::ListNode* node = lists::node_at(*head, index);
+    return node ? static_cast<Movie*>(node->data()) : nullptr;
+}
+void set_game_camera(gfx::ViewCam* camera) { render::choose_camera(0, camera); }
+
+void uncouple(memory::ListNode* node)
+{
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
+}
+
+} // namespace
+
+// 0x0057A190
+void Entity::assign_fields_from(const Entity& other)
+{
+    // Every field but the tables (the vptr, the original's list node table word and ref_'s vptr), the smart pointer
+    // lists and the list node's links copied as they are.
+    set_smart_pointers(other.smart_pointers());
+    object_flags_ = other.object_flags_;
+    park_owner_ = other.park_owner_;
+    own_script_ = other.own_script_;
+    ident_ = other.ident_;
+    kind_tag_ = other.kind_tag_;
+    visited_mask_ = other.visited_mask_;
+    tag_table_ = other.tag_table_;
+    flag_bits_ = other.flag_bits_;
+    list_link_ = other.list_link_;
+    alias_count_ = other.alias_count_;
+    ref_.set_smart_pointers(other.ref_.smart_pointers());
+    ref_.set_owner_object(other.ref_.owner_object());
+}
+
+Entity* assign_object_fields(Entity* to, const Entity* other)
+{
+    to->assign_fields_from(*other);
+    return to;
+}
+
+// 0x0057A220
+gfx::ViewCam* assign_camera_fields(gfx::ViewCam* camera, const gfx::ViewCam* other)
+{
+    assign_object_fields(camera, other);
+    camera->old_pos() = other->old_pos();
+    camera->set_at_point(other->at_point());
+    camera->set_basis_frame(other->basis_frame());
+    camera->set_h_fov(other->h_fov());
+    camera->set_corrected_horiz_fov(other->corrected_horiz_fov());
+    camera->set_unknownb4(other->unknownb4());
+    camera->set_near_dist(other->near_dist());
+    camera->set_far_clip(other->far_clip());
+    camera->set_unknownc0(other->unknownc0());
+    return camera;
+}
+
+// 0x0057A330
+int VideoHub::total_of()
+{
+    int count = 0;
+    for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
+        ++count;
+    }
+    return count;
+}
+
+// 0x0057B0B0
+bool VideoHub::any_movies() { return total_of() != 0; }
+
+// 0x0057A360
+Movie* VideoHub::get_movie(int index)
+{
+    if (total_of() == 0) {
+        return nullptr;
+    }
+    return movie_at(&movies_, index);
+}
+
+// 0x0057A3A0
+Movie* VideoHub::find_movie(uint32_t name)
+{
+    for (int i = 0; i < total_of(); ++i) {
+        // (the movie at i, walked to inline)
+        Movie* movie = nullptr;
+        if (total_of() != 0) {
+            int left = i;
+            for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
+                if (left-- == 0) {
+                    movie = static_cast<Movie*>(node->data());
+                    break;
+                }
+            }
+        }
+        if (get_name_of(movie) == name) {
+            return movie;
+        }
+    }
+    return nullptr;
+}
+
+// 0x0057A450
+void VideoHub::keep_camera(Movie* movie)
+{
+    if (!movie || !has_camera(movie) || !movie->keeps_camera_after()) {
+        return;
+    }
+    if (stored_simulation_halted()) { // (the game paused)
+        return;
+    }
+    if (game_hooks().current_level() == kLoadMainMenu) {
+        return;
+    }
+    assign_camera_fields(&viewer_, movie->viewer());
+    keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;
+    keep_camera_ = true;
+}
+
+// 0x0057A4B0
+VideoHub::VideoHub() { movies_.make_head(); }
+
+// 0x0057A530
+gfx::ViewCam* VideoHub::obtain_active_lens()
+{
+    if (total_of() != 0) {
+        Movie* playing = movie_at(&movies_, 0);
+        if (playing && has_camera(playing)) {
+            gfx::ViewCam* const lens = playing->viewer(); // (the movie's)
+            return lens;
+        }
+    }
+    return keep_camera_ ? &viewer_ : nullptr;
+}
+
+// 0x0057A5A0
+void VideoHub::stop_all()
+{
+    for (int i = 0; i < total_of(); ++i) {
+        // (the movie at i, walked to inline; none: a null one - unreachable)
+        Movie* movie = nullptr;
+        if (total_of() != 0) {
+            int left = i;
+            for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
+                if (left-- == 0) {
+                    movie = static_cast<Movie*>(node->data());
+                    break;
+                }
+            }
+        }
+        halt(movie);
+    }
+}
+
+// 0x0057A640
+void VideoHub::clear_movies()
+{
+    if (movies_.prev() != &movies_) {
+        keep_camera((total_of() != 0) ? movie_at(&movies_, 0) : nullptr);
+    }
+    lists::delete_each<Movie>(&movies_, [](Movie* movie) { // (0x0057A2F0)
+        gsl::owner<Movie*> owned = memory::owned_element(movie); // (the list's)
+        delete owned;
+    });
+}
+
+// 0x0057A6B0
+void VideoHub::end_movie(Movie* movie)
+{
+    const uint32_t end_script = movie->label();
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->append_structure_if_any(movie->args());
+    if (total_of() == 1) {
+        keep_camera(movie);
+    }
+    halt(movie);
+    uncouple(&movie->list_link());
+    delete_movie(memory::owned_element(movie)); // (the list's)
+    const uint64_t frame = frame_clock::get_draw_frame();
+    // (the original passed the 64-bit frame to this %ld: only its low word was printed)
+    debug::printf("Details have been removed %ld\n", static_cast<uint32_t>(frame));
+    if (end_script != 0U) {
+        script::launch_script(end_script, params, nullptr, false, nullptr);
+    }
+    if (params) {
+        params->get_clear();
+        script::delete_struct(params);
+    }
+}
+
+// 0x0057A7E0
+bool VideoHub::end_movies(bool skippable)
+{
+    auto first = [this]() -> Movie* { return total_of() ? movie_at(&movies_, 0) : nullptr; };
+    bool ended = false;
+    if (!skippable) {
+        if (Movie* movie = first()) {
+            end_movie(movie);
+            ended = true;
+        }
+    } else {
+        Movie* movie = first();
+        while (movie && (movie->flag19() != 0U)) {
+            end_movie(movie);
+            // (the first one now, walked to inline)
+            movie = nullptr;
+            if ((total_of() != 0) && !is_head(movies_.next()) && movies_.next()) {
+                movie = static_cast<Movie*>(movies_.next()->data());
+            }
+            ended = true;
+        }
+    }
+    if (Movie* next = first()) {
+        next->kickoff(); // started
+    }
+    if (!ended) {
+        // (a walk over the queue that does nothing: compiled-out code)
+        for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
+        }
+    }
+    return true;
+}
+
+// 0x0057A940
+bool VideoHub::movie_call_468f_40(checksums::Name movie_name, uint32_t value)
+{
+    const uint32_t name = movie_name.value();
+    if (total_of() == 0) {
+        return false;
+    }
+    if (name == 0U) {
+        get_details(get_movie(0))->set_flag19(static_cast<uint8_t>(value)); // (the setter takes the low byte)
+        return true;
+    }
+    if (Movie* movie = find_movie(name)) {
+        get_details(movie)->set_flag19(static_cast<uint8_t>(value));
+    }
+    return true;
+}
+
+// 0x0057A9B0
+bool VideoHub::movie_call_468f_50(checksums::Name movie_name, uint32_t value)
+{
+    const uint32_t name = movie_name.value();
+    if (total_of() == 0) {
+        return false;
+    }
+    if (name == 0U) {
+        get_details(get_movie(0))->set_flag_1b(static_cast<uint8_t>(value)); // (the setter takes the low byte)
+        return true;
+    }
+    if (Movie* movie = find_movie(name)) {
+        get_details(movie)->set_flag_1b(static_cast<uint8_t>(value));
+    }
+    return true;
+}
+
+// 0x0057AA20
+bool VideoHub::is_movie_gone(uint32_t name)
+{
+    if (total_of() == 0) {
+        return true;
+    }
+    if (name == 0U) {
+        return false;
+    }
+    return find_movie(name) == nullptr;
+}
+
+// 0x0057AA70
+bool VideoHub::movie_flag18(uint32_t name)
+{
+    if (total_of() == 0) {
+        return false;
+    }
+    Movie* movie = nullptr;
+    if (name != 0U) {
+        movie = find_movie(name);
+        if (!movie) {
+            return false;
+        }
+    } else {
+        movie = get_movie(0);
+    }
+    return movie->is_held_and_complete();
+}
+
+// 0x0057AAC0
+bool VideoHub::kill_movie(uint32_t name)
+{
+    Movie* movie = find_movie(name);
+    if (!movie) {
+        return false;
+    }
+    const Movie* playing = (total_of() != 0) ? movie_at(&movies_, 0) : nullptr;
+    if (movie == playing) {
+        end_movies(false);
+        return true;
+    }
+    uncouple(&movie->list_link());
+    delete_movie(memory::owned_element(movie)); // (the list's)
+    return true;
+}
+
+// 0x0057AB60
+bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
+{
+    const bool kept_camera = keep_camera_;
+    gsl::owner<Movie*> movie = nullptr;
+    keep_camera_ = false;
+    // An object camera animation / skater camera's context: the skater's profile (0x00564FC0): its appearance and
+    // its details (+0x5C).
+    auto skater_context = [](bool skater) { return game_hooks().cutscene_skater(skater); };
+    auto new_object_camera = [](const CutsceneSkater* context) -> gsl::owner<Movie*> { return new CinematicEntry(context); };
+    if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
+        const assets::Resource* asset = assets::asset_manager()->obtain_loaded_item(name, 0);
+        if (!asset) {
+            return false; // (keep_camera_ stays cleared)
+        }
+        while (kill_movie(name)) {
+        }
+        const assets::ResourceKind kind = asset->fetch_kind(); // (the original's slot 0)
+        if (kind == assets::ResourceKind::kAnimation) {
+            movie = new ObjectAnimMovie;
+        } else if (kind == assets::ResourceKind::kCutscene) {
+            const CutsceneSkater context = skater_context(false);
+            movie = new_object_camera(&context);
+        }
+    } else if (type == kCutscene) {
+        movie = new CameraAnimMovie;
+    } else if (type == kSkaterCamera) {
+        if (total_of() != 0) {
+            for (int i = 0; i < total_of(); ++i) {
+                Movie* each = (total_of() != 0) ? movie_at(&movies_, i) : nullptr;
+                get_name_of(each); // (its name read: compiled-out debug output)
+            }
+            clear_movies();
+            keep_camera_ = false;
+        }
+        const CutsceneSkater context = skater_context(true);
+        movie = new_object_camera(&context);
+    }
+    get_details(movie)->set_value20(name); // its name
+    if (!movie->read_in(params)) {
+        delete_movie(memory::owned_element(movie)); // (the new one: never listed)
+        keep_camera_ = kept_camera;
+        return false;
+    }
+    movie->list_link().set_prev(movies_.prev());
+    movie->list_link().set_next(&movies_);
+    movies_.prev()->set_next(&movie->list_link());
+    movies_.set_prev(&movie->list_link());
+    if (total_of() == 1 && has_camera(movie)) {
+        set_game_camera(obtain_active_lens());
+    }
+    return true;
+}
+
+// 0x0057AE60
+bool VideoHub::tick_frame()
+{
+    if (keep_camera_ && frame_clock::get_draw_frame() >= keep_until_) {
+        keep_camera_ = false;
+        // (a walk over the queue that does nothing: compiled-out code)
+        for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
+        }
+    }
+    if (total_of() == 0) {
+        return false;
+    }
+    Movie* movie = movie_at(&movies_, 0);
+    if (!movie) {
+        return false;
+    }
+    // (not paused, or the view mode; paused, only a movie without flag 0x1B)
+    if (!stored_simulation_halted() || stored_view_mode() != 0 || (movie->flag_1b() == 0U)) {
+        movie->tick_frame();
+    }
+    if (movie->is_finished()) {
+        end_movies(false);
+    }
+    return total_of() != 0;
+}
+
+// 0x0057AF60
+gsl::owner<script::Struct*> VideoHub::movie_value(uint32_t name)
+{
+    if (total_of() == 0) {
+        return nullptr;
+    }
+    Movie* movie = (name != 0U) ? find_movie(name) : get_movie(0);
+    if (!movie) {
+        return nullptr;
+    }
+    return get_details(movie)->get_settings();
+}
+
+// 0x0057AFC0
+bool VideoHub::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
+{
+    Movie* movie = (total_of() != 0) ? movie_at(&movies_, 0) : nullptr;
+    Expects(movie != nullptr);
+    if (movie->invoke_method_by_name(name, params, script)) {
+        return true;
+    }
+    return Entity::invoke_method_by_name(name, params, script);
+}
+
+// 0x0057B030
+uint32_t VideoHub::get_playing_name()
+{
+    if (total_of() == 0) {
+        return 0;
+    }
+    Movie* movie = movie_at(&movies_, 0);
+    return movie ? get_name_of(movie) : 0;
+}
+
+// 0x0057B070
+bool VideoHub::playing_flag24()
+{
+    if (total_of() == 0) {
+        return true;
+    }
+    Movie* movie = movie_at(&movies_, 0);
+    return movie ? movie->can_be_skipped() : true;
+}
+
+// 0x0057B0E0 / 0x0057B120 / 0x0057B160
+void VideoHub::playing_2c() { get_movie(0)->push_option_state(); }
+void VideoHub::playing30(uint32_t value) { get_movie(0)->set_unused_option(value); }
+void VideoHub::playing34() { get_movie(0)->update_option_state(); }
+
+// 0x0057A180
+void VideoHub::use_kept_camera() { set_game_camera(&viewer_); }
+
+// 0x0057B1A0 (the camera's destructor - Entity's - runs with the members, after the queue's head is unlinked: the
+// original ran it before; the two don't touch each other)
+VideoHub::~VideoHub()
+{
+    clear_movies();
+    movies_.uncouple();
+}
+
+// (no address: the getter folded at 0x00543150 - movie_manager.h)
+uint32_t movie_key_from_params(const void* movie)
+{
+    Expects(movie != nullptr);
+    return static_cast<const VideoEntry*>(movie)->value20();
+}
+
+} // namespace objects

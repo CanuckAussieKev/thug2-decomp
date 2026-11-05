@@ -1,0 +1,139 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+#include <array>
+
+#include "editor/level_editor.h"
+#include "editor/level_editor_ui.h"
+
+// NOT ORIGINAL - the level editor's view menus (ours; see level_editor.h), on the toolbar in place of its scattered
+// view toggles:
+//   - View (Unreal's view modes): Lit / Unlit / Wireframe / Collision only - render_d3d9/view_mode.h draws them (the
+//     renderer's side; only Direct3D there). Keys Alt+1 / Alt+2 / Alt+3 / Alt+4. Collision only shows the collision
+//     view (level_editor_view.h) while it lasts, whatever C says - C's own setting is left as it was. Back to Lit when
+//     the editor closes; not remembered.
+//   - Overlays (Blender's overlay popover): one dropdown with a checkbox for every overlay - the node families' gizmos
+//     (the Outliner's chips, [editor] families=), the collision (C, [editor] collision=), the trigger volumes (T), and
+//     the ones kept here as bits of [editor] overlays= in thug2-decomp.ini (Bit below): labels over the view, the
+//     collision's legend, the feature map (speed-ups, boosts, breakables - level_editor_triggers.h's add_extras), a
+//     ground grid, what a scenery move carries (level_editor_carry.h), the Outliner's markers, jump arcs (Y,
+//     level_editor_arcs.h), the grind-line preview (level_editor_grind_preview.h) and the ruler (M,
+//     level_editor_ruler.h). Every key that switched one before still does.
+// Also here: Painter, which the overlay modules draw with (world lines, labels and dots projected to the view).
+namespace frontend::level_editor::overlays {
+
+constexpr float kLabelOffsetX = 6.0F; // a label's default offset from its point
+constexpr float kLabelOffsetY = 8.0F; // (up)
+
+using Bit = uint16_t;
+constexpr int kLabels = 1U << 0;     // texts over the view (gizmo labels, trigger names, the feature map's numbers)
+constexpr int kLegend = 1U << 1;     // the collision's legend (bottom left)
+constexpr int kFeatureMap = 1U << 2; // speed-ups' chevrons, boosts, proximity shapes, breakables (Triggers::add_extras)
+constexpr int kGrid = 1U << 3;       // a 100-unit grid on the ground below the camera (or the selection)
+constexpr int kCarryHints = 1U << 4; // what a scenery move carries, outlined while it moves
+constexpr int kOutlinerMarks = 1U << 5; // the Outliner rows' change letters (M, A, H...)
+constexpr int kJumpArcs = 1U << 6;      // Y: the selected scenery's lips and the flight arcs off them
+constexpr int kGrindPreview =
+    1U << 7;                    // the rail under the cursor: direction, segments, terrain, speed-ups, connections
+constexpr int kRuler = 1U << 8; // M: the ruler's measurement
+constexpr int kSkateability =
+    1U << 9; // (UX9) Alt+K: surfaces coloured by what a skater can do on them (level_editor_skate_view.h)
+constexpr uint32_t kAllBits = (1U << 10) - 1;
+constexpr uint32_t kDefaultBits = kAllBits & ~(kGrid | kJumpArcs | kSkateability);
+struct BitInfo {
+    uint32_t bit;
+    const char* label;
+    const char* key; // ("": none)
+    const char* tip;
+};
+// The bits in the menu's order.
+const std::vector<BitInfo>& get_bits();
+
+// The setting ([editor] overlays=, read once) and a bit switched (written to the ini).
+uint32_t at_hand();
+bool get_shown(uint32_t bit);
+void assign_value(uint32_t bit, bool on);
+
+// The editor starting / stopping (Stop: the view mode back to Lit; Collision only's forced collision view undone).
+void kickoff();
+void halt();
+// The view mode (render::view_mode::Mode as an int; 0 Lit .. 3 Collision only) - Alt+1..4 and the View menu. Collision
+// only turns the collision view on for as long as it lasts.
+int view_mode();
+void change_view_mode(int mode);
+const char* view_mode_name(int mode);
+constexpr int kViewModes = 4;
+
+// --- drawing over the view (the modules' overlays) ---------------------------------------------------------------
+
+// World lines, dots and labels projected to the view's back buffer pixels into the UI's overlay.
+struct Painter {
+    // The fields other code reads and sets.
+    [[nodiscard]] const V3& camera() const { return camera_; }
+    void set_camera(const V3& value) { camera_ = value; }
+    [[nodiscard]] const TickCycle& frame() const { return frame_; }
+    void set_frame(const TickCycle& value) { frame_ = value; }
+    [[nodiscard]] const Lens& lens() const { return lens_; }
+    void set_lens(const Lens& value) { lens_ = value; }
+    std::array<uint32_t, 4>& viewport() { return viewport_; }
+    [[nodiscard]] const std::array<uint32_t, 4>& viewport() const { return viewport_; }
+    [[nodiscard]] float near_z() const { return near_z_; }
+    void set_near_z(float value) { near_z_ = value; }
+    [[nodiscard]] ui::Overlay* overlay() const { return overlay_; }
+    void set_overlay(ui::Overlay* value) { overlay_ = value; }
+
+private:
+    V3 camera_;
+    TickCycle frame_;
+    Lens lens_;
+    std::array<uint32_t, 4> viewport_;
+    float near_z_;
+    ui::Overlay* overlay_;
+
+public:
+    // False when it is wholly behind the near plane.
+    [[nodiscard]] bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0F) const;
+    // A point's pixel (false: behind the camera).
+    bool get_pixel(V3 point, float* x, float* y) const;
+    void get_dot(V3 point, float radius, uint32_t argb, bool filled = true) const;
+    // A label just right of / above the point (pixels: `dx`, `dy`).
+    void draw_label(V3 point, uint32_t argb, const std::string& text, float dx = kLabelOffsetX,
+                    float dy = -kLabelOffsetY) const;
+    // A cross on the ground (in the plane y = p.y), `size` units.
+    void perpendicular(V3 point, float size, uint32_t argb, float thickness = 1.0F) const;
+    [[nodiscard]] float span_to(V3 point) const;
+};
+// The painter for this frame's view (false: the editor's view isn't known yet).
+bool painter_now(ui::Overlay* overlay, Painter* painter);
+
+// The grid (kGrid) and the carried things (kCarryHints) - level_editor::Blit, with the other overlays.
+void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool have_selection);
+
+// The menu bar's View menu parts (level_editor_ui_menus.cpp): the view modes (Alt+1..4), and the overlays' switches
+// with the gizmo families as a submenu; `requests`: the editor's (the families, the collision).
+void view_mode_items();
+void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* requests);
+// F1's rows for the keys bound here and in the modules (the view modes, arcs, ruler, palette, grind preview): a section
+// (empty: the one before), the keys, what they do.
+struct HelpRow {
+    const char* section;
+    const char* keys;
+    const char* what;
+};
+const std::vector<HelpRow>& help_rows();
+
+// --- the pieces (pure) -------------------------------------------------------------------------------------------
+
+// Grid lines on the plane y = `y` within `radius` of `centre` (x / z), every `spacing` units: each line's two ends,
+// every fifth (multiples of 5 x spacing) marked `major`.
+struct GridLine {
+    V3 a, b;
+    bool major;
+};
+std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing);
+// The ini's overlays= value read back (unknown bits dropped; a missing value: kDefaultBits).
+uint32_t parse_bits(int value, bool present);
+
+} // namespace frontend::level_editor::overlays

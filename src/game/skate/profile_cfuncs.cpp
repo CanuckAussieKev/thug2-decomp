@@ -4,236 +4,249 @@
 #include "game/skate/profile_cfuncs.h"
 
 #include <cstdint>
-#include <cstdio>
+#include <array>
 
-#include "game/core/manager.h"
-#include "game/script/cscript.h"
-#include "game/script/struct.h"
+#include "base/core/checked_index.h"
+#include "engine/memory/manager.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "game/ed/goal_editor.h"
-#include "game/gfx/engine.h"
-#include "game/gfx/engine_glue.h"
-#include "game/gfx/model.h"
-#include "game/gfx/model_appearance.h"
+#include "game/park_editing/goal_editor.h"
+#include "engine/gfx/engine_glue.h"
+#include "engine/gfx/model.h"
+#include "engine/gfx/model_appearance.h"
+#include "engine/gfx/render_device.h"
+#include <gsl/pointers>
+#include "base/core/format.h"
 
-namespace CFuncs {
+namespace commands {
 
-SwapSlot g_swapTable[5];
+std::array<SwapSlot, kSwapSlotCount>& swap_table()
+{
+    static std::array<SwapSlot, kSwapSlotCount> swap_table{};
+    return swap_table;
+}
 
 namespace {
+constexpr int kTextBufferBytes = 100;
+constexpr uint32_t kAllowRandom = 0xF1E3CD22U;         // allow_random
+constexpr uint32_t kMesh = 0x1E90C5A9U;                // mesh
+constexpr uint32_t kGoalsCompletedKey = 0xC661FE79U;   // (text unknown) the goals-completed text's parameter
+constexpr uint32_t kGoalsCompletedKey2 = 0xA43DC969U;  // (text unknown) the empty text's parameter
+constexpr uint32_t kLevelSteps = 0x1D8F1A7EU;          // (text unknown) the level steps list
+constexpr uint32_t kGoalsFlag = 0x38DBE1D0U;           // goals
+constexpr uint32_t kGoalFlag = 0x032314D1U;            // goal
+constexpr uint32_t kMedalsFlag = 0x56907F8BU;          // medals
+constexpr uint32_t kMedalFlag = 0x23BBA846U;           // medal
+constexpr uint32_t kGoalsForNextLevel = 0x407BFD24U;   // cfuncs_str_goalsfornextlevel
+constexpr uint32_t kMedalsForNextLevel = 0x4F3E243EU;  // cfuncs_str_medalsfornextlevel
+constexpr uint32_t kRequirementsKey = 0xAF2305A6U;     // (text unknown) the requirements text's parameter
+constexpr uint32_t kName = 0xA1DC81F9U;                // name
+constexpr uint32_t kAppearanceStructure = 0xEFC8944CU; // appearance_structure
+constexpr uint32_t kPlayer = 0x67E6859AU;              // player
+constexpr uint32_t kNoFaceTexture = 0x3AF36E6DU;       // NoFaceTexture
 
-using Script::CScript;
-using Script::CStruct;
+using script::Context;
+using script::Struct;
 
 constexpr int kSwapSlots = 5;
-SwapSlot* SwapTable() { return g_swapTable; }
 
-Obj::CPlayerProfileManager* Profiles() { return Obj::g_profileManager; }
-Obj::CSkaterCareer* Career()
-{
-    return *reinterpret_cast<Obj::CSkaterCareer**>(reinterpret_cast<uint8_t*>(Mdl::Skate::Instance()) + 0x20);
-}
-CStruct* ResultParams(CScript* script) { return *reinterpret_cast<CStruct**>(reinterpret_cast<uint8_t*>(script) + 0x14); }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
 // The skate module's profile `params`' skater names (0x00564F80).
-Obj::CSkaterProfile* SkateProfile(CStruct* params) { return Mdl::Skate::Instance()->GetProfile(params); }
+objects::RiderIdentity* skate_profile(Struct* params) { return modules::Skate::fetch_account(params); }
 
 const char* const kNoText = "---"; // "---"
 
 } // namespace
 
 // 0x005AA930
-void __cdecl SwapMapping(uint32_t a, uint32_t b)
+void swap_mapping(uint32_t a, uint32_t b)
 {
-    SwapSlot* table = SwapTable();
-    int slotA = -1;
-    int slotB = -1;
+    auto& table = swap_table();
+    int slot_a = -1;
+    int slot_b = -1;
     for (int i = 0; i < kSwapSlots; ++i) {
-        if (!table[i].used)
+        if (!core::at(table, i).used) {
             continue;
-        if (table[i].key == a)
-            slotA = i;
-        else if (table[i].key == b)
-            slotB = i;
+        }
+        if (core::at(table, i).key == a) {
+            slot_a = i;
+        } else if (core::at(table, i).key == b) {
+            slot_b = i;
+        }
     }
-    if (slotA == -1 || slotB == -1) {
+    if (slot_a == -1 || slot_b == -1) {
         for (int i = 0; i < kSwapSlots; ++i) {
-            if (table[i].used)
+            if (core::at(table, i).used) {
                 continue;
-            if (slotA == -1) {
-                slotA = i;
-                table[i].key = a;
-                table[i].value = a;
-            } else if (slotB == -1) {
-                slotB = i;
-                table[i].key = b;
-                table[i].value = b;
+            }
+            if (slot_a == -1) {
+                slot_a = i;
+                core::at(table, i).key = a;
+                core::at(table, i).value = a;
+            } else if (slot_b == -1) {
+                slot_b = i;
+                core::at(table, i).key = b;
+                core::at(table, i).value = b;
             } else {
                 continue;
             }
-            table[i].used = true;
+            core::at(table, i).used = true;
         }
     }
     // (with the table full, a slot of -1: the entry before the table, as in the original)
-    SwapSlot& first = table[slotA];
-    SwapSlot& second = table[slotB];
-    uint32_t firstValue = first.value;
-    uint32_t secondValue = second.value;
-    if (first.key == secondValue)
+    SwapSlot& first = core::at(table, slot_a);
+    SwapSlot& second = core::at(table, slot_b);
+    const uint32_t first_value = first.value;
+    const uint32_t second_value = second.value;
+    if (first.key == second_value) {
         first.used = false;
-    else
-        first.value = secondValue;
-    if (second.key == firstValue)
+    } else {
+        first.value = second_value;
+    }
+    if (second.key == first_value) {
         second.used = false;
-    else
-        second.value = firstValue;
-}
-
-// 0x005AAAA0
-void PreloadMeshes(uint32_t arrayName)
-{
-    Script::CArray* list = Script::GetArray(arrayName);
-    for (uint32_t i = 0; i < list->m_size; ++i) {
-        auto* entry = reinterpret_cast<CStruct*>(list->GetElement(i));
-        int allowRandom = 0;
-        entry->GetInteger(0xF1E3CD22u, &allowRandom, 0); // allow_random
-        if (!allowRandom)
-            continue;
-        const char* mesh;
-        if (!entry->GetString(0x1E90C5A9u, &mesh, 0)) // mesh
-            continue;
-        // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
-        void* model = Nx::CreateModel();
-        static_cast<Nx::CModel*>(model)->AddFileGeom(mesh, 0, true, 0, false, false, true, false);
-        Nx::Engine::DeleteGeomObject(model);
+    } else {
+        second.value = first_value;
     }
 }
 
-namespace {
-void __cdecl PreloadMeshesRegisters(uint32_t arrayName) { PreloadMeshes(arrayName); }
-} // namespace
-
-// 0x005AAAA0: the array's name in EAX.
-__declspec(naked) void PreloadMeshesStub()
+// 0x005AAAA0
+void preload_meshes(uint32_t array_name)
 {
-    __asm {
-        push eax
-        call PreloadMeshesRegisters
-        add esp, 4
-        ret
+    script::Array* list = script::fetch_list(array_name);
+    for (uint32_t i = 0; i < list->extent(); ++i) {
+        auto* entry = list->struct_at(i);
+        int allow_random = 0;
+        entry->fetch_int_value(kAllowRandom, &allow_random, 0); // allow_random
+        if (allow_random == 0) {
+            continue;
+        }
+        const char* mesh = nullptr;
+        if (!entry->fetch_text(kMesh, &mesh, 0)) { // mesh
+            continue;
+        }
+        // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
+        gsl::owner<render::RenderModel*> model = render::device().spawn_model();
+        model->add_file_geom(mesh, 0, true, 0, false, false, true, false);
+        delete model;
     }
 }
 
 // 0x005AAA80
-bool __cdecl CFunc_AddGoalEditorNodesToLevelNodeArray(CStruct*, CScript*)
+bool cfunc_add_goal_editor_nodes_to_level_node_array(Struct* /*params*/, Context /*context*/)
 {
     // the goal editor's nodes added (0x004E8F50, no source yet)
-    Ed::AddGoalEditorNodes(nullptr, nullptr, Mem::Manager::Get()->m_bottomUpHeap);
+    park_editing::add_goal_editor_nodes(nullptr, nullptr, memory::Hub::get_pull()->bottom_up_heap());
     return true;
 }
 
 // 0x005AAB50
-bool __cdecl CFunc_CurrentSkaterIsPro(CStruct* params, CScript*)
+bool cfunc_current_skater_is_pro(Struct* params, Context /*context*/)
 {
-    Obj::CSkaterProfile* profile = SkateProfile(params);
-    return profile && profile->IsPro();
+    objects::RiderIdentity* profile = skate_profile(params);
+    return (profile != nullptr) && profile->is_pro();
 }
 
 // 0x005AAB80
-bool __cdecl CFunc_GetGoalsCompleted(CStruct* params, CScript* script)
+bool cfunc_get_goals_completed(Struct* params, Context context)
 {
     int level = 0;
-    params->GetInteger(0u, &level, 0);
-    int goals = Career()->CountGoals(level);
-    char text[100];
-    std::snprintf(text, sizeof(text), "%d/9", goals);
-    ResultParams(script)->AddString(0xC661FE79u, Script::ESYMBOLTYPE_STRING, text);  // (name unknown)
-    ResultParams(script)->AddString(0xA43DC969u, Script::ESYMBOLTYPE_STRING, kNoText); // (name unknown)
+    params->fetch_int_value(0U, &level, 0);
+    const int goals = get_career()->count_goals(level);
+    std::array<char, kTextBufferBytes> text{};
+    text::format_to(text, "%d/9", goals);
+    context.args().get()->append_word(kGoalsCompletedKey, script::QbValueKind::kString, text.data()); // (name unknown)
+    context.args().get()->append_word(kGoalsCompletedKey2, script::QbValueKind::kString, kNoText);    // (name unknown)
     return true;
 }
 
 // 0x005AAC10
-bool __cdecl CFunc_GetNextLevelRequirements(CStruct*, CScript* script)
+bool cfunc_get_next_level_requirements(Struct* /*params*/, Context context)
 {
-    char text[100];
-    std::snprintf(text, sizeof(text), "%s", kNoText);
-    Obj::CSkaterCareer* career = Career();
-    int goals = career->CountTotalGoals();
-    int medals = career->CountLevelsWithGoals();
-    Script::CArray* steps = Script::GetArray(0x1D8F1A7Eu); // (name unknown) the level steps
-    for (uint32_t i = 0; i < steps->m_size; ++i) {
-        auto* step = reinterpret_cast<CStruct*>(steps->GetElement(i));
-        int goalsNeeded = 0;
-        int medalsNeeded = 0;
-        if (step->ContainsFlag(0x38DBE1D0u) || step->ContainsFlag(0x032314D1u)) // goals / goal
-            step->GetInteger(0u, &goalsNeeded, 0);
-        if (step->ContainsFlag(0x56907F8Bu) || step->ContainsFlag(0x23BBA846u)) // (names unknown) medals
-            step->GetInteger(0u, &medalsNeeded, 0);
-        if (goals < goalsNeeded) {
-            std::snprintf(text, sizeof(text), Script::GetString(0x407BFD24u), goalsNeeded - goals); // cfuncs_str_goalsfornextlevel
+    std::array<char, kTextBufferBytes> text{};
+    text::format_to(text, "%s", kNoText);
+    objects::RiderStoryProgress* career = get_career();
+    const int goals = career->count_total_goals();
+    const int medals = career->count_levels_with_goals();
+    script::Array* steps = script::fetch_list(kLevelSteps); // (name unknown) the level steps
+    for (uint32_t i = 0; i < steps->extent(); ++i) {
+        auto* step = steps->struct_at(i);
+        int goals_needed = 0;
+        int medals_needed = 0;
+        if (step->has_bare_flag(kGoalsFlag) || step->has_bare_flag(kGoalFlag)) { // goals / goal
+            step->fetch_int_value(0U, &goals_needed, 0);
+        }
+        if (step->has_bare_flag(kMedalsFlag) || step->has_bare_flag(kMedalFlag)) { // (names unknown) medals
+            step->fetch_int_value(0U, &medals_needed, 0);
+        }
+        if (goals < goals_needed) {
+            text::format_data_to(text, script::fetch_text(kGoalsForNextLevel),
+                                 goals_needed - goals); // cfuncs_str_goalsfornextlevel (the text is the format)
             break;
         }
-        if (medals < medalsNeeded) {
-            std::snprintf(text, sizeof(text), Script::GetString(0x4F3E243Eu), medalsNeeded - medals); // cfuncs_str_medalsfornextlevel
+        if (medals < medals_needed) {
+            text::format_data_to(text, script::fetch_text(kMedalsForNextLevel),
+                                 medals_needed - medals); // cfuncs_str_medalsfornextlevel (the text is the format)
             break;
         }
     }
-    ResultParams(script)->AddString(0xAF2305A6u, Script::ESYMBOLTYPE_STRING, text); // (name unknown)
+    context.args().get()->append_word(kRequirementsKey, script::QbValueKind::kString, text.data()); // (name unknown)
     return true;
 }
 
 // 0x005AAD70
-bool __cdecl CFunc_SetCurrentSkaterProfile(CStruct* params, CScript*)
+bool cfunc_set_current_skater_profile(Struct* params, Context /*context*/)
 {
     int index = 0;
-    params->GetInteger(0u, &index, 0);
-    Profiles()->SetCurrentIndex(index);
+    params->fetch_int_value(0U, &index, 0);
+    objects::profile_roster()->set_current_index(index);
     return true;
 }
 
 // 0x005AADA0
-bool __cdecl CFunc_AddSkaterProfile(CStruct* params, CScript*) { return Profiles()->AddTemplate(params); }
+bool cfunc_add_skater_profile(Struct* params, Context /*context*/)
+{
+    return objects::profile_roster()->add_template(params);
+}
 
 // 0x005AADC0
-bool __cdecl CFunc_AddTemporaryProfile(CStruct* params, CScript*)
+bool cfunc_add_temporary_profile(Struct* params, Context /*context*/)
 {
-    uint32_t name;
-    params->GetChecksum(0xA1DC81F9u, &name, 1); // name (asserted: used as it is)
-    return Profiles()->AddExtraProfile(name);
+    uint32_t name = 0;
+    params->read_hash_value(kName, &name, 1); // name (asserted: used as it is)
+    return objects::profile_roster()->add_extra_profile(name);
 }
 
 // 0x005AADF0
-bool __cdecl CFunc_RememberTemporaryAppearance(CStruct* params, CScript*)
+bool cfunc_remember_temporary_appearance(Struct* params, Context /*context*/)
 {
-    uint32_t name;
-    params->GetChecksum(0xA1DC81F9u, &name, 1); // name
-    // a model appearance (Gfx::CModelAppearance, 0x5C bytes: constructor 0x00488EA0, destructor body 0x004890F0)
-    alignas(4) uint8_t appearance[0x5C];
-    reinterpret_cast<Gfx::CModelAppearance*>(appearance)->Construct();
-    Obj::CPlayerProfileManager* profiles = Profiles();
-    uint8_t* source;
-    CStruct* structure = nullptr;
-    if (params->GetStructure(0xEFC8944Cu, &structure, 0)) { // appearance_structure
-        reinterpret_cast<Gfx::CModelAppearance*>(appearance)->Load(structure, true);
-        source = appearance;
+    uint32_t name = 0;
+    params->read_hash_value(kName, &name, 1); // name
+    gfx::ModelLook appearance;                      // (destroyed at the end)
+    objects::ProfileRoster* profiles = objects::profile_roster();
+    gfx::ModelLook* source = nullptr;
+    Struct* structure = nullptr;
+    if (params->read_sub_struct(kAppearanceStructure, &structure, 0)) { // appearance_structure
+        appearance.read_in(structure, true);
+        source = &appearance;
     } else {
-        int player; // (asserted: used as it is)
-        params->GetInteger(0x67E6859Au, &player, 1); // player
-        source = reinterpret_cast<uint8_t*>(profiles->GetProfile(player));
+        int player = 0;                                   // (asserted: used as it is)
+        params->fetch_int_value(kPlayer, &player, 1); // player
+        source = profiles->fetch_account(player)->appearance();
     }
-    auto* temporary = reinterpret_cast<uint8_t*>(profiles->GetExtraProfile(name));
-    if (params->ContainsFlag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure (+0x4C)
-        auto* own = reinterpret_cast<CStruct*>(temporary + 0x4C);
-        own->Clear();
-        own->AppendStructureIfAny(reinterpret_cast<CStruct*>(source + 0x4C));
+    gfx::ModelLook* temporary = profiles->get_extra_profile(name)->appearance();
+    if (params->has_bare_flag(kNoFaceTexture)) { // NoFaceTexture: only the appearance's structure
+        auto* own = &temporary->structure();
+        own->get_clear();
+        own->append_structure_if_any(&source->structure());
     } else {
-        reinterpret_cast<Gfx::CModelAppearance*>(temporary)->CopyFrom(
-            reinterpret_cast<Gfx::CModelAppearance*>(source)); // the appearance copied
+        temporary->copy_from(source); // the appearance copied
     }
-    reinterpret_cast<Gfx::CModelAppearance*>(appearance)->DestroyBody();
     return true;
 }
 
-} // namespace CFuncs
+} // namespace commands

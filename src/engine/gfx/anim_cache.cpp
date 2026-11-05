@@ -1,0 +1,585 @@
+// The animation cache (0x00480590-0x0048137B): see anim_cache.h. From the disassembly.
+
+#include "engine/gfx/anim_cache.h"
+
+#include <cstdint>
+#include <cstring>
+#include <span>
+#include <utility>
+#include <gsl/assert>
+
+#include "base/core/dbg.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/memory/slab_bank.h"
+#include "engine/sys/stopwatch.h"
+#include "engine/script/script_startup.h"
+#include "base/core/checked_index.h"
+#include "base/core/no_destroy.h"
+#include "base/core/checksums.h"
+
+namespace gfx {
+
+// A cache type's key sizes in bytes (type 2: 8 and 8, 3: 16 and 16, 4: 20 and 16).
+constexpr int kKeyBytes8 = 8;
+constexpr int kKeyBytes16 = 16;
+constexpr int kKeyBytes20 = 20;
+// A slot's clock: the top bit is set while the slot is clear, the rest is the time of its last use.
+constexpr int kClockUnset = 0x8000;
+constexpr int kClockFlagBit = 0x8000;
+constexpr int kClockTimeMask = 0x7FFF;
+constexpr int kEntryFlagKeepMask = 0xA000; // the entry's flags that survive its construction
+constexpr int kBytesPerKilobyteShift = 10;
+constexpr uint32_t kUnusedClipUsers = 999; // free_oldest's starting count: no clip has this many users
+
+memory::PoolPair& anim_slot_pools()
+{
+    static core::NoDestroy<memory::PoolPair> anim_slot_pools; // (CAnimCachePredictor; script_startup.h)
+    return anim_slot_pools.get();
+}
+
+namespace {
+
+constexpr uint32_t kAnimHeap = 0x8F21A798; // AnimHeap
+constexpr int kEntries = 50;
+constexpr int kSlots = 18;
+
+ClipStore*& get_cache()
+{
+    static ClipStore* clip_store{};
+    return clip_store;
+}
+
+
+memory::Hub* hub() { return memory::Hub::get_pull(); }
+
+// The AnimHeap made current (allocations and frees in between go to it).
+void push_anim_heap() { hub()->enter_heap_scope(hub()->fetch_heap_by_key(kAnimHeap, 1)); }
+void pop_heap() { hub()->leave_heap_scope(); }
+
+// The sizes of a rotation and a translation key for a cache type.
+void key_sizes(int type, uint8_t& rotation, uint8_t& translation)
+{
+    switch (type) {
+    case 2:
+        rotation = translation = kKeyBytes8;
+        break;
+    case 3:
+        rotation = translation = kKeyBytes16;
+        break;
+    case 4:
+        rotation = kKeyBytes20;
+        translation = kKeyBytes16;
+        break;
+    default:
+        rotation = translation = 0;
+        break;
+    }
+}
+
+// The flags with the user count changed by `delta` (13 bits, wrapping).
+uint16_t with_users(uint16_t flags, int delta)
+{
+    return static_cast<uint16_t>((flags & ~AnimCacheEntry::kUserMask) | ((flags + delta) & AnimCacheEntry::kUserMask));
+}
+
+// Every slot cleared and given back (Release and the destructor).
+void free_slots(AnimCacheEntry* entry)
+{
+    for (AnimCacheSlot*& slot : entry->slots_ptr()) {
+        if (slot) {
+            get_clear(*slot);
+            if (slot) {
+                AnimCacheSlot::dealloc(slot);
+            }
+            slot = nullptr;
+        }
+    }
+}
+
+// The fields Release and the destructor empty.
+void vacant(AnimCacheEntry* entry)
+{
+    entry->set_rotation_keys_ptr(nullptr);
+    entry->set_translation_keys_ptr(nullptr);
+    entry->set_lookup_key(nullptr);
+    entry->set_bones(0);
+    entry->set_rotation_key_size(0);
+    entry->set_translation_key_size(0);
+    entry->set_extent(0);
+    entry->set_allocated(0);
+}
+
+// The original's REP MOVSD / MOVSB copy: dwords forwards, then the odd bytes - kept for overlapping blocks (an entry
+// whose Allocate failed keeps its old, smaller block with the new size: its copy runs into what follows).
+void copy_forwards(std::span<uint8_t> to, std::span<const uint8_t> from)
+{
+    const size_t size = from.size();
+    const size_t words = size & ~size_t{3};
+    for (size_t i = 0; i < words; i += 4) { // (each word read before it is written, as MOVSD)
+        uint32_t word = 0;
+        std::memcpy(&word, from.subspan(i, sizeof(word)).data(), sizeof(word));
+        std::memcpy(to.subspan(i, sizeof(word)).data(), &word, sizeof(word));
+    }
+    for (size_t i = words; i < size; ++i) {
+        core::at(to, i) = core::at(from, i);
+    }
+}
+
+void free_data(AnimCacheEntry* entry)
+{
+    if (entry->payload()) {
+        push_anim_heap();
+        memory::Hub::dealloc(entry->payload());
+        pop_heap();
+        entry->set_payload(nullptr);
+    }
+}
+
+} // namespace
+
+// --- the slots ---
+
+// 0x00480A70
+void AnimCacheSlot::dealloc(AnimCacheSlot* slot) { anim_slot_pools().dealloc(slot); }
+
+void get_clear(AnimCacheSlot& slot)
+{
+    slot.rotation_keys_.fill(nullptr);
+    slot.translation_keys_.fill(nullptr);
+    slot.clock_ = kClockUnset;
+}
+
+// --- an entry ---
+
+AnimCacheEntry::AnimCacheEntry() { flag_bits_ &= kEntryFlagKeepMask; }
+
+// 0x00480810
+uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, KeyCounts key_counts, int type)
+{
+    const auto rotation_keys = key_counts.rotation;
+    const auto translation_keys = key_counts.translation;
+    flag_bits_ |= kReleasing;
+    bones_ = bones;
+    kind_tag_ = type;
+    key_sizes(type, rotation_key_size_, translation_key_size_);
+    const uint32_t granularity = get_cache()->granularity();
+    extent_ = (rotation_key_size_ * rotation_keys) + (translation_key_size_ * translation_keys);
+    allocated_ = ((extent_ / granularity) + 1) * granularity;
+    push_anim_heap();
+    if (hub()->obtainable() < allocated_) {
+        kind_tag_ = 0;
+        pop_heap();
+        return 0;
+    }
+    lookup_key_ = key;
+    payload_ = static_cast<uint8_t*>(memory::alloc(allocated_));
+    std::memset(payload_, 0, allocated_);
+    rotation_keys_ptr_ = payload_;
+    translation_keys_ptr_ = std::span<uint8_t>(payload_, allocated_).subspan(static_cast<size_t>(rotation_key_size_ * rotation_keys)).data();
+    pop_heap();
+    flag_bits_ &= ~(kBusy | kReleasing);
+    last_used_ = 0;
+    return allocated_;
+}
+
+// 0x00480AD0
+uint32_t AnimCacheEntry::get_release()
+{
+    // (a busy entry: forever, as the original - the flags were read once. Volatile: an empty loop that never ends
+    // is undefined behaviour in C++, a compiler may drop it.)
+    const volatile uint16_t flags = flag_bits_;
+    while ((flags & kBusy) != 0) {
+    }
+    flag_bits_ = flags | kReleasing;
+    if (release_callback_) {
+        release_callback_(release_arg_);
+        release_callback_ = nullptr;
+    }
+    const uint32_t allocated = allocated_;
+    flag_bits_ &= kReleasing;
+    vacant(this);
+    free_data(this);
+    free_slots(this);
+    kind_tag_ = 0;
+    return allocated;
+}
+
+// 0x00481200
+void AnimCacheEntry::destroy_body()
+{
+    flag_bits_ &= ~(kKeep | kBusy);
+    release_callback_ = nullptr;
+    vacant(this);
+    free_data(this);
+    if (release_callback_) { // (never: cleared above)
+        release_callback_(release_arg_);
+        release_callback_ = nullptr;
+    }
+    free_slots(this);
+    kind_tag_ = 0;
+}
+
+// 0x00480BF0
+int AnimCacheEntry::new_slot()
+{
+    for (int i = 0; i < kSlots; ++i) {
+        if (core::at(slots_ptr_, i)) {
+            continue;
+        }
+        auto* slot = anim_slot_pools().allocate<AnimCacheSlot>();
+        if (slot) {
+            slot->clock_ = kClockUnset;
+        }
+        core::at(slots_ptr_, i) = slot;
+        slot->clock_ &= kClockTimeMask; // (null: a crash, as the original)
+        core::at(slots_ptr_, i)->rotation_keys_.fill(nullptr);
+        core::at(slots_ptr_, i)->translation_keys_.fill(nullptr);
+        return i;
+    }
+    return -1;
+}
+
+// 0x00480C90
+void AnimCacheEntry::free_slot(int index)
+{
+    if ((flag_bits_ & kUserMask) == 0) {
+        return;
+    }
+    // (the original reads slots_ptr_[index] first - with -1, a user that never had a slot, the field before it - and
+    // then ignores it unless index > 0)
+    AnimCacheSlot* slot = index > 0 && std::cmp_less(index, slots_ptr_.size()) ? core::at(slots_ptr_, index) : nullptr;
+    if (slot) {
+        get_clear(*slot);
+        if (core::at(slots_ptr_, index)) {
+            AnimCacheSlot::dealloc(core::at(slots_ptr_, index));
+        }
+        core::at(slots_ptr_, index) = nullptr;
+    }
+    flag_bits_ = with_users(flag_bits_, -1);
+}
+
+// 0x00480590
+int16_t AnimCacheEntry::set_slot_time(SlotTime slot_time)
+{
+    const auto index = slot_time.index;
+    const auto time = slot_time.time;
+    AnimCacheSlot* slot = core::at(slots_ptr_, index);
+    if (!slot) {
+        return 0;
+    }
+    const uint16_t old = slot->clock_;
+    const int last = static_cast<int16_t>(old << 1) >> 1; // (15 bits, signed)
+    slot->clock_ = static_cast<uint16_t>((old & kClockFlagBit) | (static_cast<uint16_t>(time) & kClockTimeMask));
+    return static_cast<int16_t>(time - last);
+}
+
+// 0x004805E0
+uint8_t AnimCacheEntry::get_rotation_key_size() const { return rotation_key_size_; }
+
+// 0x004805F0
+uint8_t AnimCacheEntry::get_translation_key_size() const { return translation_key_size_; }
+
+// 0x00480600
+uint8_t* AnimCacheEntry::get_rotation_keys(int /*unused*/) { return rotation_keys_ptr_; }
+
+// 0x00480610
+uint8_t* AnimCacheEntry::get_translation_keys(int /*unused*/) { return translation_keys_ptr_; }
+
+// 0x00480620
+uint16_t* AnimCacheEntry::get_rotation_offsets() { return rotation_offsets_.data(); }
+
+// 0x00480630
+uint16_t* AnimCacheEntry::get_translation_offsets() { return translation_offsets_.data(); }
+
+// 0x00480640
+void AnimCacheEntry::set_release_callback(void (*callback)(void*), void* arg)
+{
+    release_callback_ = callback;
+    release_arg_ = arg;
+}
+
+// --- the cache ---
+
+// 0x00480660
+ClipStore* ClipStore::get_pull() { return get_cache(); }
+
+// 0x00480D10
+void ClipStore::fabricate(uint32_t heap_size, ClipLayout clip_layout)
+{
+    const auto granularity = clip_layout.granularity;
+    const auto type = clip_layout.type;
+    if (get_cache()) {
+        return;
+    }
+    hub()->create_labeled_zone(checksums::Name{kAnimHeap}, heap_size, "AnimHeap", 0); // "AnimHeap"
+    debug::printf("Initializing CAnimCacheManager at %dk\n",
+                  heap_size >> kBytesPerKilobyteShift); // "Initializing CAnimCacheManager at %dk\n"
+    auto* cache = static_cast<ClipStore*>(memory::alloc_zeroed(sizeof(ClipStore)));
+    if (cache) {
+        std::memset(static_cast<void*>(cache->slot_array_.data()), 0, sizeof(cache->slot_array_));
+        cache->taken_count_ = 0;
+        cache->granularity_ = 0;
+        cache->kind_tag_ = 0;
+        cache->unknownd8_ = 0;
+        cache->num_ = 0;
+        cache->evict_unused_ = false;
+    }
+    get_cache() = cache;
+    Expects(cache != nullptr);
+    cache->prepare_all({.granularity = granularity, .type = type});
+}
+
+// 0x00481340
+void ClipStore::teardown()
+{
+    if (ClipStore* cache = get_cache()) {
+        cache->destroy_body();
+        memory::dealloc(cache);
+    }
+    get_cache() = nullptr;
+    hub()->release_labeled_zone(kAnimHeap, 1);
+}
+
+// 0x00480940
+uint32_t ClipStore::heap_available()
+{
+    push_anim_heap();
+    const uint32_t available = hub()->obtainable();
+    pop_heap();
+    return available;
+}
+
+// 0x004809F0
+void ClipStore::prepare_all(ClipLayout clip_layout)
+{
+    const auto granularity = clip_layout.granularity;
+    const auto type = clip_layout.type;
+    for (AnimCacheEntry*& entry : slot_array_) {
+        entry = static_cast<AnimCacheEntry*>(memory::alloc_zeroed(sizeof(AnimCacheEntry)));
+        if (entry) {
+            new (entry) gfx::AnimCacheEntry;
+        }
+    }
+    granularity_ = granularity;
+    kind_tag_ = type;
+}
+
+// 0x004812F0
+void ClipStore::destroy_body()
+{
+    for (AnimCacheEntry*& entry : slot_array_) {
+        if (entry) {
+            entry->destroy_body();
+            memory::dealloc(entry);
+            entry = nullptr;
+        }
+    }
+    taken_count_ = 0;
+    granularity_ = 0;
+    kind_tag_ = 0;
+}
+
+// 0x00480800
+int ClipStore::fetch_kind() const { return kind_tag_; }
+
+// 0x00480670
+uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, AnimCacheEntry::KeyCounts key_counts, int type) const
+{
+    const auto rotation_keys = key_counts.rotation;
+    const auto translation_keys = key_counts.translation;
+    uint8_t rotation = 0;
+    uint8_t translation = 0;
+    key_sizes(type, rotation, translation);
+    const uint32_t size = (rotation * rotation_keys) + (translation * translation_keys);
+    return ((size / granularity_) + 1) * granularity_;
+}
+
+// 0x00480980
+AnimCacheEntry* ClipStore::add_row(const void* key, int16_t bones, int rotation_keys, int translation_keys, int type)
+{
+    int index = 0;
+    for (;; ++index) {
+        const AnimCacheEntry* entry = core::at(slot_array_, index);
+        if (entry->lookup_key() == key) {
+            return nullptr;
+        }
+        if (entry->kind_tag() == 0) {
+            break;
+        }
+        if (index + 1 >= kEntries) {
+            return nullptr;
+        }
+    }
+    const uint32_t allocated =
+        core::at(slot_array_, index)
+            ->carve(key, bones, {.rotation = rotation_keys, .translation = translation_keys}, type);
+    taken_count_ += allocated;
+    if (allocated == 0U) {
+        return nullptr;
+    }
+    ++num_;
+    return core::at(slot_array_, index);
+}
+
+// 0x004806C0
+const void* ClipStore::find_oldest(uint32_t size, uint32_t* users)
+{
+    const void* key = nullptr;
+    uint32_t oldest = frame_clock::get_time();
+    for (const AnimCacheEntry* entry : slot_array_) {
+        if (entry->allocated() >= size && entry->last_used() < oldest &&
+            ((entry->flag_bits() & AnimCacheEntry::kKeep) == 0)) {
+            *users = entry->flag_bits() & AnimCacheEntry::kUserMask;
+            oldest = entry->last_used();
+            key = entry->lookup_key();
+        }
+    }
+    return key;
+}
+
+// 0x00480ED0
+bool ClipStore::free_oldest(FreeLimit free_limit)
+{
+    const auto max_users = free_limit.max_users_;
+    const auto size = free_limit.size;
+    uint32_t users = kUnusedClipUsers;
+    const void* key = find_oldest(size, &users);
+    if (max_users > users && key) {
+        drop_out(key);
+        return true;
+    }
+    return false;
+}
+
+// 0x00480DB0
+void ClipStore::drain(bool unused_only)
+{
+    for (AnimCacheEntry* entry : slot_array_) {
+        if ((entry->kind_tag() != 0) && (!unused_only || ((entry->flag_bits() & AnimCacheEntry::kUserMask) == 0))) {
+            taken_count_ -= entry->get_release();
+        }
+    }
+}
+
+// 0x00480DF0
+void ClipStore::drop_out(const void* key)
+{
+    for (AnimCacheEntry* entry : slot_array_) {
+        if (entry->lookup_key() == key) {
+            --num_;
+            taken_count_ -= entry->get_release();
+        }
+    }
+}
+
+// 0x00480E30
+int ClipStore::add_user(const void* key)
+{
+    for (AnimCacheEntry* entry : slot_array_) {
+        if (entry->lookup_key() == key) {
+            const int slot = entry->new_slot();
+            if (slot == -1) {
+                return -1;
+            }
+            entry->flag_bits() = with_users(entry->flag_bits(), 1);
+            return slot;
+        }
+    }
+    return -1;
+}
+
+// 0x00480E80
+void ClipStore::remove_user(const void* key, int slot)
+{
+    for (AnimCacheEntry* entry : slot_array_) {
+        if (entry->lookup_key() == key) {
+            entry->free_slot(slot);
+            if (((entry->flag_bits() & AnimCacheEntry::kUserMask) == 0) && evict_unused_) {
+                drop_out(key);
+            }
+        }
+    }
+}
+
+// 0x00480F20
+int ClipStore::defragment()
+{
+    for (AnimCacheEntry* entry : slot_array_) {
+        if ((entry->kind_tag() != 0) && ((entry->flag_bits() & AnimCacheEntry::kUserMask) == 0)) {
+            taken_count_ -= entry->get_release();
+        }
+    }
+    uint32_t total = 0;
+    int with_data = 0;
+    for (const AnimCacheEntry* entry : slot_array_) {
+        if (entry->payload()) {
+            total += entry->allocated();
+            ++with_data;
+        }
+    }
+    auto* copy = static_cast<uint8_t*>(memory::alloc(total));
+    auto* old_data = static_cast<uint8_t**>(memory::alloc(with_data * 4));
+    if (!copy || !old_data) {
+        if (copy) {
+            memory::dealloc(copy);
+        }
+        for (AnimCacheEntry* entry : slot_array_) {
+            if (entry->kind_tag() != 0) {
+                taken_count_ -= entry->get_release();
+            }
+        }
+        return 0;
+    }
+    // The keys copied out, in order...
+    const std::span<uint8_t> copied(copy, total);
+    const std::span<uint8_t*> old_blocks(old_data, static_cast<size_t>(with_data));
+    size_t to = 0;
+    size_t old = 0;
+    for (const AnimCacheEntry* entry : slot_array_) {
+        if (entry->payload()) {
+            copy_forwards(copied.subspan(to, entry->allocated()), std::span<const uint8_t>(entry->payload(), entry->allocated()));
+            to += entry->allocated();
+            core::at(old_blocks, old) = entry->payload();
+            ++old;
+        }
+    }
+    // ...every entry's freed and its slots cleared, then allocated again (lowest first)...
+    uint32_t offset = 0;
+    push_anim_heap();
+    for (AnimCacheEntry* entry : slot_array_) {
+        if (entry->kind_tag() != 0) {
+            memory::Hub::dealloc(entry->payload());
+            entry->set_payload(nullptr);
+            for (AnimCacheSlot* slot : entry->slots_ptr()) {
+                if (slot) {
+                    get_clear(*slot);
+                }
+            }
+        }
+    }
+    for (AnimCacheEntry* entry : slot_array_) {
+        if (entry->kind_tag() != 0) {
+            entry->set_payload(static_cast<uint8_t*>(memory::alloc(entry->allocated())));
+        }
+    }
+    pop_heap();
+    // ...and the keys copied back, the pointers into them moved with them.
+    old = 0;
+    for (AnimCacheEntry* entry : slot_array_) {
+        if (entry->kind_tag() != 0) {
+            const std::span<uint8_t> block(entry->payload(), entry->allocated());
+            copy_forwards(block, copied.subspan(offset, entry->allocated()));
+            offset += entry->allocated();
+            // (the keys' places in the block kept)
+            const uint8_t* was = core::at(old_blocks, old++);
+            entry->set_rotation_keys_ptr(block.subspan(static_cast<size_t>(entry->rotation_keys_ptr() - was)).data());
+            entry->set_translation_keys_ptr(block.subspan(static_cast<size_t>(entry->translation_keys_ptr() - was)).data());
+        }
+    }
+    memory::dealloc(copy);
+    memory::dealloc(static_cast<void*>(old_data));
+    return 0;
+}
+
+} // namespace gfx
