@@ -37,7 +37,7 @@ The index below lists each kind of shared constant or enum and the header that h
 | The object-update stream (the skaters' states) | `wire/object_updates.h` |
 | GameSpy game / product ids, the SDK threads' stack | `game/online/online_identity.h` |
 | Server list sizes; the online service's states (`online::ServiceState`) | `game/online/server_list.h`, `game/online/service.h` |
-| Join refusal reasons and join phases (`JoinRefusedReason`, `EntryPhase`) | `game/online/gamenet_manager.h` |
+| Join refusal reasons and join phases (`JoinRefusedReason`, `EntryPhase`) | `game/online/gamenet_manager.h`, `game/online/hub_join.h` |
 | A player's flags (`online::PlayerFlag`, a flag enum) | `game/online/player_info.h` |
 | Park floor size and levels, the saved park map's layout | `formats/park_map_format.h` |
 | Park editor limits and sizes | `game/park_editing/park.h` |
