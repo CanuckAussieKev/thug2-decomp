@@ -2,6 +2,8 @@
 
 #include "engine/objects/rigidbody_component.h"
 
+#include <cstddef>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
@@ -818,5 +820,76 @@ namespace objects {
 // 0x00640900 (a static initialiser): the rigid bodies' collision cache (registered among the caches, empty).
 // (never destroyed: it stays registered to the end)
 void construct_rigid_body_cache() { objects_shared().rigid_body_cache().emplace(); }
+
+// NOT ORIGINAL
+void BodyDynamicsModule::check_layout()
+{
+    // Each field at the original's offset (32-bit builds; the size counts on the heap it is made on).
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(BodyDynamicsModule, mass_over_moment_), .original = 0x18},
+        FieldAt{.now = offsetof(BodyDynamicsModule, steady_accel_), .original = 0x1C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, restitution_), .original = 0x2C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, drag_factor_), .original = 0x30},
+        FieldAt{.now = offsetof(BodyDynamicsModule, spring_const_), .original = 0x34},
+        FieldAt{.now = offsetof(BodyDynamicsModule, unknown38_), .original = 0x38},
+        FieldAt{.now = offsetof(BodyDynamicsModule, unknown3c_), .original = 0x3C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_radius_), .original = 0x40},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_application_radius_), .original = 0x44},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_assent_cos_), .original = 0x48},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_assent_sin_), .original = 0x4C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_impulse_factor_), .original = 0x50},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_rotation_factor_), .original = 0x54},
+        FieldAt{.now = offsetof(BodyDynamicsModule, linear_sleep_squared_), .original = 0x58},
+        FieldAt{.now = offsetof(BodyDynamicsModule, angular_sleep_squared_), .original = 0x5C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, contacts_), .original = 0x60},
+        FieldAt{.now = offsetof(BodyDynamicsModule, capsule_), .original = 0x64},
+        FieldAt{.now = offsetof(BodyDynamicsModule, steer_friction_), .original = 0x88},
+        FieldAt{.now = offsetof(BodyDynamicsModule, contact_count_), .original = 0x8C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, pad8e_), .original = 0x8E},
+        FieldAt{.now = offsetof(BodyDynamicsModule, spheres_), .original = 0x90},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sphere_count_), .original = 0x94},
+        FieldAt{.now = offsetof(BodyDynamicsModule, springs_), .original = 0x98},
+        FieldAt{.now = offsetof(BodyDynamicsModule, spring_count_), .original = 0x9C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, balance_point_), .original = 0xA0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, model_offset_), .original = 0xB0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, push_cooldown_time_), .original = 0xC0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, collide_script_), .original = 0xC4},
+        FieldAt{.now = offsetof(BodyDynamicsModule, bounce_script_), .original = 0xC8},
+        FieldAt{.now = offsetof(BodyDynamicsModule, settle_script_), .original = 0xCC},
+        FieldAt{.now = offsetof(BodyDynamicsModule, script_d0_), .original = 0xD0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, callback_params_ptr_), .original = 0xD4},
+        FieldAt{.now = offsetof(BodyDynamicsModule, collide_sound_ptr_), .original = 0xD8},
+        FieldAt{.now = offsetof(BodyDynamicsModule, bounce_sfx_), .original = 0xDC},
+        FieldAt{.now = offsetof(BodyDynamicsModule, impact_quiet_ms_), .original = 0xE0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, global_collide_mute_delay_), .original = 0xE4},
+        FieldAt{.now = offsetof(BodyDynamicsModule, bounce_callback_threshold_), .original = 0xE8},
+        FieldAt{.now = offsetof(BodyDynamicsModule, bounce_full_speed_), .original = 0xEC},
+        FieldAt{.now = offsetof(BodyDynamicsModule, unknownf0_), .original = 0xF0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, flag_bits_), .original = 0xF4},
+        FieldAt{.now = offsetof(BodyDynamicsModule, wake_pos_), .original = 0xF8},
+        FieldAt{.now = offsetof(BodyDynamicsModule, die_timer_), .original = 0x108},
+        FieldAt{.now = offsetof(BodyDynamicsModule, cur_phase_), .original = 0x10C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, unknown10d_), .original = 0x10D},
+        FieldAt{.now = offsetof(BodyDynamicsModule, at_point_), .original = 0x110},
+        FieldAt{.now = offsetof(BodyDynamicsModule, vel_), .original = 0x120},
+        FieldAt{.now = offsetof(BodyDynamicsModule, orientation_), .original = 0x130},
+        FieldAt{.now = offsetof(BodyDynamicsModule, rot_vel_), .original = 0x140},
+        FieldAt{.now = offsetof(BodyDynamicsModule, basis_frame_), .original = 0x150},
+        FieldAt{.now = offsetof(BodyDynamicsModule, contacts_hit_), .original = 0x190},
+        FieldAt{.now = offsetof(BodyDynamicsModule, unknown191_), .original = 0x191},
+        FieldAt{.now = offsetof(BodyDynamicsModule, push_cooldown_), .original = 0x194},
+        FieldAt{.now = offsetof(BodyDynamicsModule, radius_), .original = 0x198},
+        FieldAt{.now = offsetof(BodyDynamicsModule, audio_module_), .original = 0x19C},
+        FieldAt{.now = sizeof(BodyDynamicsModule), .original = 0x1A0},
+    };
+    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+                      return field.now == field.original;
+                  }),
+                  "layout must match the original");
+}
 
 } // namespace objects

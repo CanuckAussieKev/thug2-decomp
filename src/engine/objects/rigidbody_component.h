@@ -250,6 +250,8 @@ public:
     void check_sleep();
 
 private:
+    // NOT ORIGINAL: the fields at the original's offsets, checked at compile time.
+    static void check_layout();
     // (Parts of 0x0042F050, configure_from_data: the shape - the contacts or spheres given, else Box, Pyramid,
     // Cylinder or Triangle; directed_friction's one structure per contact.)
     void configure_shape(script::Struct* params);
