@@ -68,9 +68,9 @@ KinematicsModule::~KinematicsModule()
     if (path_follower_) {
         memory::destroy_then_clear(path_follower_);
     }
-    if (turn_ptr_) {
-        memory::Hub::dealloc(turn_ptr_); // (no destructor run)
-        turn_ptr_ = nullptr;
+    if (turn_.blender) {
+        memory::Hub::dealloc(turn_.blender); // (no destructor run)
+        turn_.blender = nullptr;
     }
     if (FollowTrail* trail = trail_) {
         // (its destructor: the empty 0x005480A0)
@@ -104,8 +104,8 @@ void KinematicsModule::get_reset()
     path_stop_.covered = 0.0F;
     path_stop_.start_speed = 0.0F;
     path_stop_.min_speed = 0.0F;
-    turn_time_ = 0.0F;
-    turn_elapsed_ = 0.0F;
+    turn_.time = 0.0F;
+    turn_.elapsed = 0.0F;
     motion_flags_ = 0;
     motion_flags2_ = 0;
     for (maths::Vec4& corner : ground_.triangle) {
@@ -374,9 +374,9 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, path_stop_.min_speed), .original = 0x1AC},
         FieldAt{.now = offsetof(KinematicsModule, stored_.pos), .original = 0x1B0},
         FieldAt{.now = offsetof(KinematicsModule, stored_.node), .original = 0x1C0},
-        FieldAt{.now = offsetof(KinematicsModule, turn_time_), .original = 0x1C4},
-        FieldAt{.now = offsetof(KinematicsModule, turn_elapsed_), .original = 0x1C8},
-        FieldAt{.now = offsetof(KinematicsModule, turn_ptr_), .original = 0x1CC},
+        FieldAt{.now = offsetof(KinematicsModule, turn_.time), .original = 0x1C4},
+        FieldAt{.now = offsetof(KinematicsModule, turn_.elapsed), .original = 0x1C8},
+        FieldAt{.now = offsetof(KinematicsModule, turn_.blender), .original = 0x1CC},
         FieldAt{.now = offsetof(KinematicsModule, hover_base_), .original = 0x1D0},
         FieldAt{.now = offsetof(KinematicsModule, bob_now_), .original = 0x1D4},
         FieldAt{.now = offsetof(KinematicsModule, bob_height_), .original = 0x1D8},

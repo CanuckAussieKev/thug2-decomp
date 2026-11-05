@@ -262,35 +262,36 @@ void KinematicsModule::update_rotations()
 // 0x00425520
 void KinematicsModule::start_rotation(script::Struct* params, const maths::Mat4* target)
 {
-    if (!turn_ptr_) {
+    if (!turn_.blender) {
         if (!memory::manager_ready_flag()) { // (the memory manager not set up yet)
             memory::ensure_manager();
         }
         // (its constructor, 0x005902E0, does nothing)
-        turn_ptr_ = static_cast<maths::ArcRotationBlender*>(memory::Hub::get_pull()->carve(kTurnBlenderBytes, 1, nullptr));
+        turn_.blender =
+            static_cast<maths::ArcRotationBlender*>(memory::Hub::get_pull()->carve(kTurnBlenderBytes, 1, nullptr));
     }
     maths::Mat4 end;
     end = *target;
-    turn_ptr_->set_matrices(entity()->basis_frame(), end);
-    turn_elapsed_ = 0.0F;
-    turn_time_ = 0.0F;
-    params->fetch_float(kTime, &turn_time_, 0);
+    turn_.blender->set_matrices(entity()->basis_frame(), end);
+    turn_.elapsed = 0.0F;
+    turn_.time = 0.0F;
+    params->fetch_float(kTime, &turn_.time, 0);
     motion_flags_ |= kMotionTurning;
 }
 
 // 0x00424440
 void KinematicsModule::update_turn()
 {
-    auto elapsed = static_cast<float>(static_cast<double>(step_seconds_) + turn_elapsed_);
-    turn_elapsed_ = elapsed;
+    auto elapsed = static_cast<float>(static_cast<double>(step_seconds_) + turn_.elapsed);
+    turn_.elapsed = elapsed;
     float fraction = 0.0F;
-    if (!(turn_time_ == 0.0F) && !(elapsed >= turn_time_)) {
-        fraction = static_cast<float>(static_cast<double>(elapsed) / turn_time_);
+    if (!(turn_.time == 0.0F) && !(elapsed >= turn_.time)) {
+        fraction = static_cast<float>(static_cast<double>(elapsed) / turn_.time);
     } else {
         fraction = 1.0F;
         motion_flags_ &= ~kMotionTurning;
     }
-    turn_ptr_->fetch_mat(entity()->basis_frame(), fraction);
+    turn_.blender->fetch_mat(entity()->basis_frame(), fraction);
 }
 
 // --- looking at things ---

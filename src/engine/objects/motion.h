@@ -404,6 +404,14 @@ private:
         uint32_t node{};   // +0x10 (+0x1C0) obj_store_node (the path's node)
     };
 
+    // Obj_Rotate's turn to an orientation over time (+0x1C4-+0x1CF: start_rotation, update_turn; the interpolator
+    // freed by the destructor).
+    struct Turn {
+        float time{};                         // +0x00 (+0x1C4) its time (0: at once)
+        float elapsed{};                      // +0x04 (+0x1C8)
+        maths::ArcRotationBlender* blender{}; // +0x08 (+0x1CC) its interpolator (0x98 bytes; made on first use)
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
@@ -417,9 +425,7 @@ private:
     float ground_offset_{0.0F};           // +0x1A0 how far the height has still to go to the ground
     PathStop path_stop_;                  // +0x1A4-+0x1AF a stop along the path
     Stored stored_;                       // +0x1B0-+0x1C3 what the scripts stored
-    float turn_time_{};                   // +0x1C4 Obj_Rotate's time (0: at once)
-    float turn_elapsed_{};                // +0x1C8
-    maths::ArcRotationBlender* turn_ptr_{};      // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
+    Turn turn_;                           // +0x1C4-+0x1CF Obj_Rotate's turn
     float hover_base_{};                         // +0x1D0 the height without the bob
     float bob_now_{};                            // +0x1D4 the bob now
     float bob_height_{};                         // +0x1D8
