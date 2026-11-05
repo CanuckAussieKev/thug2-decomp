@@ -5,11 +5,15 @@
 // each piece that includes this has a using-directive for them (in the piece, not here: SF.7), so it sees them as it
 // saw them there.
 
+#include "frontend/new_frontend.h"
+#include "engine/pad_input/input_source.h"
 #include <windows.h>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <SDL2/SDL.h>
+#include "game/front_end/front_end.h"
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend_draw.h"
 #include "frontend/new_frontend_game.h"
@@ -18,6 +22,7 @@
 #include "engine/ui/screen_element.h"
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
+#include "game/rider/thaw_bmx.h"
 #include "engine/pad_input/input_event.h"
 #include "imgui.h"
 #include <gsl/pointers>
@@ -27,6 +32,8 @@ namespace frontend::new_frontend::internal {
 constexpr float kInvisibleThreshold = 0.001F;   // an element scaled or faded below this isn't there
 
 constexpr int kMaxParentDepth = 64;             // the most containers walked up
+
+void continue_last_level(modules::FrontEnd* front_end);
 
 using game_screens::Anchor;
 
@@ -97,6 +104,24 @@ NewFrontendState& new_frontend_state();
 
 Menu& menu_state();
 
+// Controller directions held (the d-pad, the left stick): repeated as the keyboard repeats.
+struct Repeat {
+    int direction = -1; // an Input (Up / Down / Left / Right), -1 none
+    float wait = 0.0F;
+};
+
+// NOT ORIGINAL grouping - the menu stick's repeat and its last position (were globals). Made on first use, never
+// destroyed (stick_repeat()).
+struct StickRepeat {
+    Repeat repeat_{};
+    int stick_x_ = 0;
+    int stick_y_ = 0;
+};
+
+StickRepeat& stick_repeat();
+
+constexpr float kRepeatDelay = 0.35F, kRepeatEvery = 0.09F;
+
 paint::Highscores records_for(const StageMap& level);
 
 std::vector<SectionView> get_views(bool game_rules = false);
@@ -136,5 +161,34 @@ UiWidget* keyboard_of(UiWidget* menu);
 mirror::MenuRead read_keyboard(UiWidget* active);
 
 std::string pad_button_label_for(mirror::ButtonTag button_tag);
+
+// NOT ORIGINAL grouping - the mirror of the game's menu: its hits, events, scroll and what was logged (the original's
+// globals). Made on first use, never destroyed (menu_mirror()).
+struct MenuMirror {
+    mirror::Tracker mirror_{};
+    std::vector<paint::Hit> mirror_hits_;
+    std::vector<input::Event> mirror_events_;
+    float mirror_scroll_ = 0.0F;
+    // Set while the original's screens are those of a hand-off left to them entirely: the create modes' editors (CAS,
+    // CAT, CAG, the park editor, graphics) and online - nothing restyled until ours is up again.
+    const char* left_original_ = nullptr;
+    std::string mirror_logged_;
+};
+
+MenuMirror& menu_mirror();
+
+void mirror_mouse(modules::FrontEnd* front_end);
+
+void run_action(modules::FrontEnd* front_end, const ActStep& action);
+
+bool get_key_down(input::KeyState keys, SDL_Scancode key);
+
+bool left_button_down();
+
+void press_direction(modules::FrontEnd* front_end, Intake input);
+
+void handle_queued(modules::FrontEnd* front_end, const input::Event& widget);
+
+void handle_event(const input::Event& event);
 
 } // namespace frontend::new_frontend::internal
