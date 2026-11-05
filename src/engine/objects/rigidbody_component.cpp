@@ -172,7 +172,7 @@ BodyDynamicsModule::BodyDynamicsModule()
     : skater_push_{.assent_cos = static_cast<float>(std::cos(kAssent)),
                    .assent_sin = static_cast<float>(std::sin(kAssent))}
 {
-    // (capsule_ is constructed first, as a member)
+    // (shape_.capsule is constructed first, as a member)
     orientation_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     set_kind_tag(kType);
     steady_accel_ = {.x = 0.0F, .y = -kGravity, .z = 0.0F, .w = 1.0F};
@@ -182,8 +182,8 @@ BodyDynamicsModule::BodyDynamicsModule()
 // 0x0042EF60 (0x00430DF0 the deleting one)
 BodyDynamicsModule::~BodyDynamicsModule()
 {
-    for (void* array : {static_cast<void*>(contacts_), static_cast<void*>(steer_friction_),
-                        static_cast<void*>(spheres_), static_cast<void*>(springs_)}) {
+    for (void* array : {static_cast<void*>(shape_.contacts), static_cast<void*>(shape_.directed_friction),
+                        static_cast<void*>(shape_.spheres), static_cast<void*>(shape_.springs)}) {
         if (array) {
             memory::Hub::dealloc(array);
         }
@@ -198,9 +198,9 @@ BodyDynamicsModule::~BodyDynamicsModule()
 // 0x0042D4B0
 void BodyDynamicsModule::set_contacts(script::Array* points)
 {
-    contact_count_ = static_cast<uint16_t>(points->extent());
-    contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
-    for (uint32_t i = 0; i < contact_count_; ++i) {
+    shape_.contact_count = static_cast<uint16_t>(points->extent());
+    shape_.contacts = reallocate(shape_.contacts, shape_.contact_count * sizeof(maths::Vec4));
+    for (uint32_t i = 0; i < shape_.contact_count; ++i) {
         core::at(contact_run(), i) = point_of(points->vector_at(i));
     }
 }
@@ -208,8 +208,8 @@ void BodyDynamicsModule::set_contacts(script::Array* points)
 // 0x0042D560
 void BodyDynamicsModule::set_box(const maths::Vec4* top, const maths::Vec4* bottom)
 {
-    contact_count_ = kBoxContacts;
-    contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
+    shape_.contact_count = kBoxContacts;
+    shape_.contacts = reallocate(shape_.contacts, shape_.contact_count * sizeof(maths::Vec4));
     int written = 0;
     for (const bool right : {false, true}) {
         for (const bool upper : {false, true}) {
@@ -229,8 +229,8 @@ void BodyDynamicsModule::set_pyramid(PyramidSize pyramid_size)
 {
     const auto half_height = pyramid_size.half_height_;
     const auto half_depth = pyramid_size.half_depth_;
-    contact_count_ = kPlaneContacts;
-    contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
+    shape_.contact_count = kPlaneContacts;
+    shape_.contacts = reallocate(shape_.contacts, shape_.contact_count * sizeof(maths::Vec4));
     const float base = half_height * kPyramidBase;
     core::at(contact_run(), 0) = {.x = half_depth, .y = base, .z = half_depth, .w = 1.0F};
     core::at(contact_run(), 1) = {.x = -half_depth, .y = base, .z = half_depth, .w = 1.0F};
@@ -246,8 +246,8 @@ void BodyDynamicsModule::set_cylinder(CylinderShape cylinder)
     const auto bottom_radius = cylinder.bottom_radius_;
     const auto half_height = cylinder.half_height_;
     const auto edges = cylinder.edges;
-    contact_count_ = static_cast<uint16_t>(edges * 2);
-    contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
+    shape_.contact_count = static_cast<uint16_t>(edges * 2);
+    shape_.contacts = reallocate(shape_.contacts, shape_.contact_count * sizeof(maths::Vec4));
     int written = 0;
     for (const bool upper : {false, true}) {
         const float radius = upper ? top_radius : bottom_radius;
@@ -267,8 +267,8 @@ void BodyDynamicsModule::set_cylinder(CylinderShape cylinder)
 // 0x0042D8A0
 void BodyDynamicsModule::set_triangle(const maths::Vec4* dimensions)
 {
-    contact_count_ = kCylinderContacts;
-    contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
+    shape_.contact_count = kCylinderContacts;
+    shape_.contacts = reallocate(shape_.contacts, shape_.contact_count * sizeof(maths::Vec4));
     const maths::Vec4& dims = *dimensions;
     int written = 0;
     for (const bool back : {false, true}) {
@@ -282,9 +282,9 @@ void BodyDynamicsModule::set_triangle(const maths::Vec4* dimensions)
 // 0x0042ED60
 void BodyDynamicsModule::set_spheres(script::Array* spheres)
 {
-    sphere_count_ = static_cast<uint16_t>(spheres->extent());
-    spheres_ = reallocate(spheres_, sphere_count_ * sizeof(Sphere));
-    for (uint32_t i = 0; i < sphere_count_; ++i) {
+    shape_.sphere_count = static_cast<uint16_t>(spheres->extent());
+    shape_.spheres = reallocate(shape_.spheres, shape_.sphere_count * sizeof(Sphere));
+    for (uint32_t i = 0; i < shape_.sphere_count; ++i) {
         script::Struct* settings = spheres->struct_at(i);
         settings->fetch_vec(0U, &core::at(sphere_run(), i).center, 1);
         settings->fetch_float(kRadius, &core::at(sphere_run(), i).radius, 1); // radius
@@ -334,7 +334,7 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
 float BodyDynamicsModule::shape_extent() const
 {
     float extent = 0.0F;
-    for (int i = contact_count_; i != 0;) {
+    for (int i = shape_.contact_count; i != 0;) {
         const maths::Vec4& point = core::at(contact_run(), --i);
         const double x = point.x;
         const double y = point.y;
@@ -344,7 +344,7 @@ float BodyDynamicsModule::shape_extent() const
             extent = length;
         }
     }
-    for (int i = sphere_count_; i != 0;) {
+    for (int i = shape_.sphere_count; i != 0;) {
         const Sphere& sphere = core::at(sphere_run(), --i);
         const double x = sphere.center.x;
         const double y = sphere.center.y;
@@ -367,7 +367,7 @@ void BodyDynamicsModule::turn_shape(script::Struct* params) const
     auto element = [&turn](int row_index, int column) {
         return static_cast<double>(core::at(turn.row, row_index)[column]);
     };
-    for (int i = contact_count_; i != 0;) {
+    for (int i = shape_.contact_count; i != 0;) {
         maths::Vec4& point = core::at(contact_run(), --i);
         const double x = point.x;
         const double y = point.y;
@@ -376,7 +376,7 @@ void BodyDynamicsModule::turn_shape(script::Struct* params) const
         point.x = static_cast<float>(((element(0, 0) * x) + (element(1, 0) * y)) + (element(2, 0) * z));
         point.y = static_cast<float>(((element(0, 1) * x) + (element(1, 1) * y)) + (element(2, 1) * z));
     }
-    for (int i = sphere_count_; i != 0;) {
+    for (int i = shape_.sphere_count; i != 0;) {
         maths::Vec4& point = core::at(sphere_run(), --i).center;
         const double x = point.x;
         const double y = point.y;
@@ -391,7 +391,7 @@ void BodyDynamicsModule::turn_shape(script::Struct* params) const
 void BodyDynamicsModule::configure_shape(script::Struct* params)
 {
     // The shape: the contacts or spheres given, else Box (the default), Pyramid, Cylinder or Triangle.
-    int shape = (contact_count_ != 0U) ? 4 : 0;
+    int shape = (shape_.contact_count != 0U) ? 4 : 0;
     if (params->has_entry_named(kContacts)) { // contacts
         script::Array* contacts = nullptr;
         params->fetch_list(kContacts, &contacts, 0);
@@ -468,9 +468,10 @@ void BodyDynamicsModule::configure_directed_friction(script::Struct* params)
     if (params->has_entry_named(kDirectedFriction)) { // directed_friction: one structure per contact
         script::Array* friction = nullptr;
         params->fetch_list(kDirectedFriction, &friction, 0);
-        steer_friction_ = reallocate(steer_friction_, contact_count_ * sizeof(DirectedFriction));
-        const std::span<DirectedFriction> frictions(steer_friction_, contact_count_);
-        for (int i = contact_count_; i != 0;) {
+        shape_.directed_friction =
+            reallocate(shape_.directed_friction, shape_.contact_count * sizeof(DirectedFriction));
+        const std::span<DirectedFriction> frictions(shape_.directed_friction, shape_.contact_count);
+        for (int i = shape_.contact_count; i != 0;) {
             --i;
             script::Struct* settings = friction->struct_at(static_cast<uint32_t>(i));
             DirectedFriction& directed = core::at(frictions, i);
@@ -573,10 +574,10 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     if (params->has_entry_named(kConstraints)) { // springs
         script::Array* springs = nullptr;
         params->fetch_list(kConstraints, &springs, 1);
-        spring_count_ = static_cast<uint16_t>(springs->extent());
-        springs_ = reallocate(springs_, spring_count_ * sizeof(Spring));
+        shape_.spring_count = static_cast<uint16_t>(springs->extent());
+        shape_.springs = reallocate(shape_.springs, shape_.spring_count * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
-        for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
+        for (int i = 0; std::cmp_less(i, shape_.spring_count); ++i) {
             core::at(spring_run(), i).point = point_of(springs->vector_at(static_cast<uint32_t>(i)));
             core::at(spring_run(), i).active = true;
         }
@@ -596,17 +597,17 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         vector(kCenterOfMass, &center);
     }
     if (center.x == 0.0F && center.y == 0.0F && center.z == 0.0F) {
-        for (int i = contact_count_; i != 0;) {
+        for (int i = shape_.contact_count; i != 0;) {
             const maths::Vec4& point = core::at(contact_run(), --i);
             center = {
                 .x = center.x + point.x, .y = center.y + point.y, .z = center.z + point.z, .w = center.w + point.w};
         }
-        for (int i = sphere_count_; i != 0;) {
+        for (int i = shape_.sphere_count; i != 0;) {
             const maths::Vec4& point = core::at(sphere_run(), --i).center;
             center = {
                 .x = center.x + point.x, .y = center.y + point.y, .z = center.z + point.z, .w = center.w + point.w};
         }
-        const double share = 1.0 / static_cast<double>(contact_count_ + sphere_count_);
+        const double share = 1.0 / static_cast<double>(shape_.contact_count + shape_.sphere_count);
         center = {.x = static_cast<float>(center.x * share), .y = static_cast<float>(center.y * share),
                   .z = static_cast<float>(center.z * share), .w = static_cast<float>(center.w * share)};
     }
@@ -618,13 +619,13 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     auto recentre = [&center](maths::Vec4& point) {
         point = {.x = point.x - center.x, .y = point.y - center.y, .z = point.z - center.z, .w = point.w - center.w};
     };
-    for (int i = contact_count_; i != 0;) {
+    for (int i = shape_.contact_count; i != 0;) {
         recentre(core::at(contact_run(), --i));
     }
-    for (int i = sphere_count_; i != 0;) {
+    for (int i = shape_.sphere_count; i != 0;) {
         recentre(core::at(sphere_run(), --i).center);
     }
-    for (int i = spring_count_; i != 0;) {
+    for (int i = shape_.spring_count; i != 0;) {
         recentre(core::at(spring_run(), --i).point);
     }
 
@@ -643,7 +644,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The bounding radius (squared lengths compared unrounded).
     radius_ = 0.0F;
-    for (int i = contact_count_; i != 0;) {
+    for (int i = shape_.contact_count; i != 0;) {
         const maths::Vec4& point = core::at(contact_run(), --i);
         const double x = point.x;
         const double y = point.y;
@@ -653,7 +654,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             radius_ = static_cast<float>(length_squared);
         }
     }
-    for (int i = sphere_count_; i != 0;) {
+    for (int i = shape_.sphere_count; i != 0;) {
         const Sphere& sphere = core::at(sphere_run(), --i);
         const double x = sphere.center.x;
         const double y = sphere.center.y;
@@ -849,15 +850,15 @@ void BodyDynamicsModule::check_layout()
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.rotation_factor), .original = 0x54},
         FieldAt{.now = offsetof(BodyDynamicsModule, sleep_points_.linear_squared), .original = 0x58},
         FieldAt{.now = offsetof(BodyDynamicsModule, sleep_points_.angular_squared), .original = 0x5C},
-        FieldAt{.now = offsetof(BodyDynamicsModule, contacts_), .original = 0x60},
-        FieldAt{.now = offsetof(BodyDynamicsModule, capsule_), .original = 0x64},
-        FieldAt{.now = offsetof(BodyDynamicsModule, steer_friction_), .original = 0x88},
-        FieldAt{.now = offsetof(BodyDynamicsModule, contact_count_), .original = 0x8C},
-        FieldAt{.now = offsetof(BodyDynamicsModule, pad8e_), .original = 0x8E},
-        FieldAt{.now = offsetof(BodyDynamicsModule, spheres_), .original = 0x90},
-        FieldAt{.now = offsetof(BodyDynamicsModule, sphere_count_), .original = 0x94},
-        FieldAt{.now = offsetof(BodyDynamicsModule, springs_), .original = 0x98},
-        FieldAt{.now = offsetof(BodyDynamicsModule, spring_count_), .original = 0x9C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.contacts), .original = 0x60},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.capsule), .original = 0x64},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.directed_friction), .original = 0x88},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.contact_count), .original = 0x8C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.pad2e), .original = 0x8E},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.spheres), .original = 0x90},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.sphere_count), .original = 0x94},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.springs), .original = 0x98},
+        FieldAt{.now = offsetof(BodyDynamicsModule, shape_.spring_count), .original = 0x9C},
         FieldAt{.now = offsetof(BodyDynamicsModule, balance_point_), .original = 0xA0},
         FieldAt{.now = offsetof(BodyDynamicsModule, model_offset_), .original = 0xB0},
         FieldAt{.now = offsetof(BodyDynamicsModule, push_cooldown_time_), .original = 0xC0},

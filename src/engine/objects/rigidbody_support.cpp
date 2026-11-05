@@ -153,7 +153,7 @@ void BodyDynamicsModule::seal()
 {
     audio_module_ = core::down_cast<AudioEmitterModule>(entity()->fetch_module(kSound));
     const maths::Mat4& basis = basis_frame_;
-    for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
+    for (int i = 0; std::cmp_less(i, shape_.spring_count); ++i) {
         Spring& spring = core::at(spring_run(), i);
         const maths::Vec4& point = spring.point;
         const double x = ((get_wide(point.y) * get_m(basis, 0x10)) + (get_wide(point.x) * get_m(basis, 0x00))) +
@@ -186,7 +186,7 @@ void BodyDynamicsModule::sleep()
 void BodyDynamicsModule::update_world_points()
 {
     const maths::Mat4& basis = basis_frame_;
-    for (int i = contact_count_ - 1; i >= 0; --i) {
+    for (int i = shape_.contact_count - 1; i >= 0; --i) {
         const maths::Vec4& point = core::at(contact_run(), i);
         maths::Vec4& out = core::at(world_contact_points(), i);
         const double x = ((get_wide(point.y) * get_m(basis, 0x10)) + (get_wide(point.z) * get_m(basis, 0x20))) +
@@ -197,7 +197,7 @@ void BodyDynamicsModule::update_world_points()
                          (get_wide(point.x) * get_m(basis, 0x08));
         out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = point.w};
     }
-    for (int i = sphere_count_ - 1; i >= 0; --i) {
+    for (int i = shape_.sphere_count - 1; i >= 0; --i) {
         const maths::Vec4& point = core::at(sphere_run(), i).center;
         maths::Vec4& out = core::at(world_sphere_centers(), i);
         const double x = ((get_wide(point.y) * get_m(basis, 0x10)) + (get_wide(point.z) * get_m(basis, 0x20))) +
@@ -208,7 +208,7 @@ void BodyDynamicsModule::update_world_points()
                          (get_wide(point.y) * get_m(basis, 0x18));
         out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = point.w};
     }
-    for (int i = spring_count_ - 1; i >= 0; --i) {
+    for (int i = shape_.spring_count - 1; i >= 0; --i) {
         const Spring& spring = core::at(spring_run(), i);
         if (!spring.active) {
             continue;

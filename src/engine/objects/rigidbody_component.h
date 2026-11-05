@@ -313,32 +313,39 @@ private:
         uint32_t collide_muted_until{}; // +0x10 (+0xF0) the collide sound muted until then (the clock, ms)
     };
 
+    // The shape (+0x60-+0x9F: the set_* shapes, configure_from_data; the arrays freed by the destructor): its
+    // contact points (body space), the capsule, one directed friction per point, its spheres and springs.
+    struct Shape {
+        maths::Vec4* contacts{};               // +0x00 (+0x60) the points (body space)
+        maths::Capsule capsule;                // +0x04 (+0x64)
+        DirectedFriction* directed_friction{}; // +0x28 (+0x88) one per point (directed_friction=)
+        uint16_t contact_count{};              // +0x2C (+0x8C)
+        uint16_t pad2e{};                      // +0x2E (+0x8E)
+        Sphere* spheres{};                     // +0x30 (+0x90)
+        uint16_t sphere_count{};               // +0x34 (+0x94)
+        Spring* springs{};                     // +0x38 (+0x98) (springs=)
+        uint16_t spring_count{};               // +0x3C (+0x9C)
+    };
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     Response response_;                // +0x2C-+0x37 the response to its contacts
     Damping damping_;                  // +0x38-+0x3F the damping
     SkaterPush skater_push_;           // +0x40-+0x57 how the skater pushes it
     SleepPoints sleep_points_;         // +0x58-+0x5F the speeds it falls asleep under
-    maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)
+    Shape shape_;                      // +0x60-+0x9F the shape
 
 public:
-    // NOT ORIGINAL: the shape's points, as many as contact_count_.
-    [[nodiscard]] std::span<maths::Vec4> contact_run() const { return {contacts_, contact_count_}; }
-    [[nodiscard]] std::span<Sphere> sphere_run() const { return {spheres_, sphere_count_}; }
-    [[nodiscard]] std::span<Spring> spring_run() const { return {springs_, spring_count_}; }
-private:
-    maths::Capsule capsule_;           // +0x64
+    // NOT ORIGINAL: the shape's points, spheres, springs and directed frictions, as many as there are of each.
+    [[nodiscard]] std::span<maths::Vec4> contact_run() const { return {shape_.contacts, shape_.contact_count}; }
+    [[nodiscard]] std::span<Sphere> sphere_run() const { return {shape_.spheres, shape_.sphere_count}; }
+    [[nodiscard]] std::span<Spring> spring_run() const { return {shape_.springs, shape_.spring_count}; }
+    [[nodiscard]] std::span<const DirectedFriction> steer_friction_run() const
+    {
+        return {shape_.directed_friction, shape_.contact_count};
+    }
 
-public:
-    [[nodiscard]] std::span<const DirectedFriction> steer_friction_run() const { return {steer_friction_, contact_count_}; }
 private:
-    DirectedFriction* steer_friction_{}; // +0x88 one per contact (directed_friction=)
-    uint16_t contact_count_{};           // +0x8C
-    uint16_t pad8e_{};
-    Sphere* spheres_{};                   // +0x90
-    uint16_t sphere_count_{};             // +0x94
-    Spring* springs_{};                   // +0x98 (springs=)
-    uint16_t spring_count_{};             // +0x9C
     maths::Vec4 balance_point_{};         // +0xA0 center_of_mass
     maths::Vec4 model_offset_{};          // +0xB0 the model's offset from the centre of mass
     float push_cooldown_time_{

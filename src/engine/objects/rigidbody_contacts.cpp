@@ -48,10 +48,10 @@ bool BodyDynamicsModule::find_contacts()
     contacts_hit_ = 0;
     unknown191_ = 0;
 
-    if (contact_count_ != 0) {
+    if (shape_.contact_count != 0) {
         render::ProbeRay feeler;
         feeler.set_hit_cache(body_cache());
-        for (int i = contact_count_ - 1; i >= 0; --i) {
+        for (int i = shape_.contact_count - 1; i >= 0; --i) {
             const maths::Vec4& point = core::at(world_contact_points(), i);
             Contact& contact = core::at(get_contacts(), contacts_hit_);
             feeler.line().start = at_point_;
@@ -84,7 +84,7 @@ bool BodyDynamicsModule::find_contacts()
         }
     }
 
-    for (int j = sphere_count_ - 1; j >= 0; --j) {
+    for (int j = shape_.sphere_count - 1; j >= 0; --j) {
         const maths::Vec4& centre = core::at(world_sphere_centers(), j);
         const Sphere& sphere = core::at(sphere_run(), j);
         const maths::Vec4 at = {

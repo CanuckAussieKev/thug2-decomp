@@ -101,9 +101,9 @@ void BodyDynamicsModule::apply_springs()
     // The springs' points held still: each moving point's velocity taken out by an impulse, round after round.
     int round = 0;
     bool settled = false;
-    for (bool again = true; again; again = ++round != kMaxRounds && spring_count_ != 1 && !settled) {
+    for (bool again = true; again; again = ++round != kMaxRounds && shape_.spring_count != 1 && !settled) {
         settled = true;
-        for (int i = spring_count_; i != 0;) {
+        for (int i = shape_.spring_count; i != 0;) {
             --i;
             if (!core::at(spring_run(), i).active) {
                 continue;
@@ -155,7 +155,7 @@ void BodyDynamicsModule::apply_springs()
 
     // Each point pulled towards its anchor.
     const float dt = get_narrow(frame_clock::get_slomo_frame_seconds());
-    for (int i = spring_count_; i != 0;) {
+    for (int i = shape_.spring_count; i != 0;) {
         --i;
         const Spring& spring = core::at(spring_run(), i);
         if (!spring.active) {
@@ -223,7 +223,7 @@ void BodyDynamicsModule::debug_draw()
     };
     // Every pair of contact points.
     const auto& points = world_contact_points();
-    for (int i = contact_count_ - 1; i > 0; --i) {
+    for (int i = shape_.contact_count - 1; i > 0; --i) {
         for (int j = 0; j < i; ++j) {
             const maths::Vec4 from = at(core::at(points, i));
             const maths::Vec4 to = at(core::at(points, j));
@@ -231,7 +231,7 @@ void BodyDynamicsModule::debug_draw()
         }
     }
     const auto& centers = world_sphere_centers();
-    for (int i = sphere_count_; i != 0;) {
+    for (int i = shape_.sphere_count; i != 0;) {
         --i;
         const maths::Vec4 center = at(core::at(centers, i));
         gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, kSphereSegments, colour, 1);
@@ -240,7 +240,7 @@ void BodyDynamicsModule::debug_draw()
         gfx::push_diag_marker(at_point_, kMarkerSize, kDetailMarkerColour, 1);
     }
     const auto& springs = world_spring_points();
-    for (int i = spring_count_; i != 0;) {
+    for (int i = shape_.spring_count; i != 0;) {
         --i;
         if (!core::at(spring_run(), i).active) {
             continue;
@@ -303,7 +303,7 @@ void BodyDynamicsModule::integrate(float dt)
 
     // The shape turned to the world (each set of points adds its terms in its own order).
     const maths::Mat4& basis = basis_frame_;
-    for (int i = contact_count_; i != 0;) {
+    for (int i = shape_.contact_count; i != 0;) {
         --i;
         const maths::Vec4& point = core::at(contact_run(), i);
         const double x = point.x;
@@ -315,7 +315,7 @@ void BodyDynamicsModule::integrate(float dt)
             .z = get_narrow(((get_at(basis, 2, 2) * z) + (y * get_at(basis, 1, 2))) + (get_at(basis, 0, 2) * x)),
             .w = point.w};
     }
-    for (int i = sphere_count_; i != 0;) {
+    for (int i = shape_.sphere_count; i != 0;) {
         --i;
         const maths::Vec4& point = core::at(sphere_run(), i).center;
         const double x = point.x;
@@ -327,7 +327,7 @@ void BodyDynamicsModule::integrate(float dt)
             .z = get_narrow(((get_at(basis, 2, 2) * z) + (x * get_at(basis, 0, 2))) + (y * get_at(basis, 1, 2))),
             .w = point.w};
     }
-    for (int i = spring_count_; i != 0;) {
+    for (int i = shape_.spring_count; i != 0;) {
         --i;
         if (!core::at(spring_run(), i).active) {
             continue;
@@ -438,7 +438,7 @@ void BodyDynamicsModule::resolve_contacts()
             rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             return;
         }
-        if (contact_count_ == 1 || done) {
+        if (shape_.contact_count == 1 || done) {
             break;
         }
     }
@@ -463,7 +463,7 @@ void BodyDynamicsModule::resolve_contacts()
                               .y = get_narrow(get_wide(get_narrow(back * normal_ref.y)) + vy),
                               .z = get_narrow(get_wide(get_narrow(back * normal_ref.z)) + vz),
                               .w = get_narrow(get_wide(get_narrow(back * normal_ref.w)) + vel0.w)};
-        if (steer_friction_) {
+        if (shape_.directed_friction) {
             // (the original read the friction of a sphere's number past the shape's points, the words after the
             // table: here those spheres have none)
             const std::span<const DirectedFriction> frictions = steer_friction_run();
@@ -689,7 +689,7 @@ void BodyDynamicsModule::tick_frame()
     if (find_contacts()) {
         resolve_contacts();
     }
-    if (spring_count_ != 0U) {
+    if (shape_.spring_count != 0U) {
         apply_springs();
     }
     damp();
