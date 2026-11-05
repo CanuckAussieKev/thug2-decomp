@@ -2,8 +2,10 @@
 
 #include "game/rider/rider.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -1887,6 +1889,79 @@ Rider::~Rider()
     // Out of the skater list.
     skater_link_.uncouple();
     // (then shown_name_'s destructor and GameEntity's)
+}
+
+// NOT ORIGINAL
+void Rider::check_layout()
+{
+    // Each field's offset: the original's, less what the smaller members before it save here - GameEntity is 4 bytes
+    // smaller, the skater-list node 0x10 bytes, not 0x14 (4 more). Nothing reads the skater by offset; its size counts
+    // on the heap it is made on. (32-bit builds.)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+        std::size_t smaller_by;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(Rider, stroke_kind_), .original = 0x108, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, style_), .original = 0x10C, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, goofy_), .original = 0x110, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, pro_), .original = 0x111, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, male_), .original = 0x114, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, given_name_), .original = 0x118, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, label_), .original = 0x158, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, shown_name_), .original = 0x15C, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, always_special_), .original = 0x168, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, last_restart_), .original = 0x16C, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, sparks_), .original = 0x170, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, shadow_fade_), .original = 0x174, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, unknown178_), .original = 0x178, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, trick_slots_), .original = 0x17C, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_num_anims_), .original = 0x1A8, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_bail_done_), .original = 0x1AC, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_flip_180_), .original = 0x1AD, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_anims_done_), .original = 0x1AE, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_rots_done_), .original = 0x1AF, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_hold_time_), .original = 0x1B0, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_total_x_), .original = 0x1B4, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_total_y_), .original = 0x1B8, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_total_z_), .original = 0x1BC, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, projectiles_), .original = 0x1C0, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, skater_link_), .original = 0x238, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, anim_blender_), .original = 0x24C, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, model_component_), .original = 0x250, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, shadow_), .original = 0x254, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, trick_), .original = 0x258, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, vibration_), .original = 0x25C, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, unknown260_), .original = 0x260, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, pad_input_), .original = 0x264, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, sound_), .original = 0x268, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, vehicle_sound_), .original = 0x26C, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, gap_tracker_), .original = 0x270, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, unknown274_), .original = 0x274, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, score_holder_), .original = 0x278, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, state_history_), .original = 0x27C, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, core_physics_), .original = 0x280, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, physics_control_), .original = 0x284, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, walk_), .original = 0x288, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, stats_), .original = 0x28C, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, stat_overrides_), .original = 0x290, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, skater_number_), .original = 0x2B8, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, view_slot_), .original = 0x2BC, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, pause_state_), .original = 0x2C0, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, flag_2c_4_), .original = 0x2C4, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, custom_restart_pos_), .original = 0x2C8, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, custom_restart_matrix_), .original = 0x2D8, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, custom_restart_walking_), .original = 0x318, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, custom_restart_set_), .original = 0x319, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, unknown31c_), .original = 0x31C, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, is_halted_), .original = 0x320, .smaller_by = 8},
+        FieldAt{.now = sizeof(Rider), .original = 0x324, .smaller_by = 8},
+    };
+    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+                      return field.now + field.smaller_by == field.original;
+                  }),
+                  "layout must match the original's, but for the smaller members");
 }
 
 } // namespace objects
