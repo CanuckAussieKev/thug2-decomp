@@ -43,7 +43,6 @@
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/rect.h"
-#include "render_pc/d3dx_jpg.h"
 
 namespace render {
 
@@ -66,12 +65,6 @@ uint32_t back_buffer_fill()
         return engine_parts().fog_colour();
     }
     return renderer().render_camera().background_colour_;
-}
-
-// D3DX (linked library code): a surface written to an image file (format 1: JPEG).
-long save_surface_to_file(const char* file, GpuSurface* surface)
-{
-    return d3dx::save_surface_to_jpg(file, surface);
 }
 
 // A shadow caster's key: the texture's image (its own, or its edit's: image_of).
@@ -119,7 +112,7 @@ void screen_shot(const char* name, int /*unused*/)
     GpuSurface* surface = nullptr;
     gpu().create_offscreen_surface(mode.width, mode.height, gpu_value::kFormatA8R8G8B8, gpu_value::kPoolScratch, &surface);
     gpu().read_front_buffer(surface);
-    save_surface_to_file(file.data(), surface);
+    gpu().save_surface_jpeg(file.data(), surface); // (D3DXSaveSurfaceToFile, format 1: JPEG, in the original)
     gpu().release_surface(surface);
 }
 

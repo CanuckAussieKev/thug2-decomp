@@ -296,7 +296,7 @@ everything above it uses the game's own types and may change them freely.
   SDL's Vulkan flag). Until the Vulkan backend has a `render::Device`, `vulkan` is logged as not available yet and
   Direct3D 9 runs (a build without `THUG2_VULKAN` ignores the key with a log line); choosing the Vulkan device then
   is the one `install_vulkan` in `renderer_choice.cpp`. Nothing below `app/` includes or links it
-  (tools/layers.json: render_pc and gpu_d3d9 are strict and only the app may include them; gpu_d3d9 may include render_pc's D3DX declarations, d3dx.h and d3dx_jpg.h, which render_pc calls and gpu_d3d9 defines - the one place the two libraries refer to each other, and the exes link both), so the engine, the game, the editor and
+  (tools/layers.json: render_pc and gpu_d3d9 are strict and only the app may include them; neither includes or links the other - the pixel shaders' assembly and the screen shot's JPEG, D3DX's in Direct3D 9, are `Gpu` operations), so the engine, the game, the editor and
   the front end build without Direct3D.
   - `render::Gpu` (`engine/gfx/gpu.h`): the low interface under the platform layer, which it calls where it called the
     Direct3D 9 device (design/vulkan.md, "A Vulkan backend: the shape"): resources made, locked and released (textures,

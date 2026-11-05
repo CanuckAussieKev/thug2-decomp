@@ -12,7 +12,7 @@
         "wire": { "folders": ["src/wire/"], "allowed": ["base", "formats"] },
         "engine": { "folders": ["src/engine/"], "allowed": ["base", "platform", "formats", "wire"] },
         "render_pc": { "folders": ["src/render_pc/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
-        "gpu_d3d9": { "folders": ["src/gpu_d3d9/"], "allowed": ["base", "platform", "formats", "wire", "engine", "render_pc"] },
+        "gpu_d3d9": { "folders": ["src/gpu_d3d9/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "render_vulkan": { "folders": ["src/render_vulkan/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "audio_dsound": { "folders": ["src/audio_dsound/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "media_bink": { "folders": ["src/media_bink/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },

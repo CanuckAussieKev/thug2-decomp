@@ -2,7 +2,6 @@
 
 #include "render_pc/pixel_shaders.h"
 #include "engine/gfx/mesh_formats.h"
-#include "render_pc/d3dx.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -75,16 +74,6 @@ namespace {
 
 void*& hdl(int slot) { return core::at(stored_pixel_shaders(), slot); }
 lists::KeyMap& get_cache() { return pixel_shaders_state().shader_cache_; }
-
-// An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
-void* buffer_pointer(void* buffer) { return d3dx::buffer_pointer(buffer); }
-void get_release(void* object) { d3dx::release_buffer(object); }
-
-// D3DXAssembleShader (linked library code; stdcall). Returns the HRESULT.
-long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)
-{
-    return d3dx::assemble_shader(source, length, shader, errors);
-}
 
 // Per-pass flags of a material (not rewritten yet; thiscall): bit n set for passes that take their alpha from the
 // texture alone.
@@ -162,8 +151,6 @@ void compile_pixel_shaders()
             hdl(core::at(kStandIns, i)) = &core::at(pixel_shaders_state().shader_stand_ins_, i);
         }
     } else {
-        void* shader = nullptr;
-        void* errors = nullptr;
         struct Fixed {
             const char* source;
             int handle;
@@ -177,18 +164,12 @@ void compile_pixel_shaders()
             {.source = kTextureConstantAlpha.data(), .handle = kPixelShader960},
         });
         for (const Fixed& fixed : kFixed) {
-            assemble_shader(fixed.source, static_cast<uint32_t>(std::strlen(fixed.source)), &shader, &errors);
+            // (assembled - D3DXAssembleShader in the original - and made: the Gpu's one operation)
             GpuPixelShader* made = nullptr;
-            gpu().create_pixel_shader(static_cast<const uint32_t*>(buffer_pointer(shader)), &made);
+            gpu().create_pixel_shader(fixed.source, static_cast<uint32_t>(std::strlen(fixed.source)), &made);
             hdl(fixed.handle) = made;
             // Not original - the level editor's Unlit view (render_pc/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(fixed.handle), fixed.source);
-            if (shader) {
-                get_release(shader);
-            }
-            if (errors) {
-                get_release(errors);
-            }
         }
     }
     // (the shadow casters' table was made here: lists::ObjectSet, made with the program)
@@ -314,23 +295,12 @@ void* generated_pixel_shader(const void* material)
     }
     text.append_one("mul_x2 r0.rgb, r0, v0\n");
 
-    void* shader = nullptr;
-    void* errors = nullptr;
+    // (assembled and made, as the fixed ones; an assembly error's text is not shown)
     GpuPixelShader* handle = nullptr;
-    if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) !=
-        0) {
-        buffer_pointer(errors); // (the error text, not shown)
-    }
-    gpu().create_pixel_shader(static_cast<const uint32_t*>(buffer_pointer(shader)), &handle);
+    gpu().create_pixel_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &handle);
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);
-    if (shader) {
-        get_release(shader);
-    }
-    if (errors) {
-        get_release(errors);
-    }
     return handle;
 }
 

@@ -1,5 +1,5 @@
 // The D3DX9 calls the renderer makes (see d3dx.h): Microsoft's D3DX9 through its standard API.
-#include "render_pc/d3dx.h"
+#include "gpu_d3d9/d3dx.h"
 #include "base/core/raw_view.h"
 
 #include <windows.h>
@@ -10,7 +10,6 @@
 #include <cstdint>
 #include "engine/gfx/gpu_handles.h"
 #include "gpu_d3d9/d3d9_handles.h"
-#include "render_pc/d3dx_jpg.h"
 
 namespace d3dx {
 

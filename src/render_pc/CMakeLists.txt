@@ -4,7 +4,8 @@
 # render::Gpu and render::GpuContext (engine/gfx/gpu.h, gpu_context.h), which app/ installs from a Gpu library
 # (src/gpu_d3d9 today, Vulkan later). No file of it includes a Direct3D header (tools/d3d_headers.test.ts). It includes the
 # engine and the layers below it (tools/layers.ts checks it); nothing below app/ includes or links it, so the engine builds
-# without it. It calls the D3DX wrapper declared in d3dx.h / d3dx_jpg.h, which the Direct3D 9 Gpu library defines.
+# without it, and it refers to nothing of a Gpu library (the pixel shaders' assembly and the screen shot's JPEG are Gpu
+# operations).
 add_library(thug2_render_pc STATIC
     screenshot_capture.cpp
     flash.cpp

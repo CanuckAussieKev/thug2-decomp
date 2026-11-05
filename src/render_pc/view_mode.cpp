@@ -2,7 +2,6 @@
 
 #include "render_pc/view_mode.h"
 #include "engine/gfx/view_modes.h"
-#include "render_pc/d3dx.h"
 
 #include <cctype>
 #include <cstddef>
@@ -109,14 +108,6 @@ std::map<void*, Twin>& twins()
     return value;
 }
 
-// D3DXAssembleShader (linked library code; stdcall), as render_pc/pixel_shaders.cpp calls it.
-long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)
-{
-    return d3dx::assemble_shader(source, length, shader, errors);
-}
-void* buffer_pointer(void* buffer) { return d3dx::buffer_pointer(buffer); }
-void get_release(void* object) { d3dx::release_buffer(object); }
-
 void* make_twin(void* original, Twin* twin)
 {
     twin->tried = true;
@@ -125,23 +116,16 @@ void* make_twin(void* original, Twin* twin)
         twin->shader = original;
         return original;
     }
-    void* code = nullptr;
-    void* errors = nullptr;
+    // (assembled and made by the Gpu once there is a device; the result is the assembly's when that failed)
     GpuPixelShader* made = nullptr;
-    const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
-    if (result >= 0 && code && device_made()) {
-        gpu().create_pixel_shader(static_cast<const uint32_t*>(buffer_pointer(code)), &made);
+    long result = 0;
+    if (device_made()) {
+        result = gpu().create_pixel_shader(text.c_str(), static_cast<uint32_t>(text.size()), &made);
     }
     if (!made && !view_mode_state().assemble_failed_logged_) {
         view_mode_state().assemble_failed_logged_ = true;
         get_log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",
                 static_cast<unsigned long>(result), text.c_str());
-    }
-    if (code) {
-        get_release(code);
-    }
-    if (errors) {
-        get_release(errors);
     }
     twin->shader = made ? made : original;
     return twin->shader;

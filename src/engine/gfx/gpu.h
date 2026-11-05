@@ -553,9 +553,10 @@ public:
     virtual long back_buffer(GpuSurface** surface) = 0;
     virtual long display_size(GpuSize* size) = 0;
     virtual long read_front_buffer(GpuSurface* system_copy) = 0;
-    // A pixel shader made from its ps.1.1 token stream (Direct3D 9's assembled form, as the shader text assembles to;
-    // another API reads the same tokens or the program they stand for).
-    virtual long create_pixel_shader(const uint32_t* tokens, GpuPixelShader** shader) = 0;
+    // A pixel shader made from its ps.1.1 assembler text, `length` characters (Direct3D 9 assembles it with D3DX and makes
+    // the shader from the tokens; another API keeps the text or the program it stands for). The result is the assembly's
+    // when that failed (no shader made), else the creation's.
+    virtual long create_pixel_shader(const char* source, uint32_t length, GpuPixelShader** shader) = 0;
     virtual uint32_t release_pixel_shader(GpuPixelShader* shader) = 0;
     // Occlusion queries: made, begun / ended around the draws counted, their pixel count asked (S_FALSE, 1, while not
     // ready), released. For an API with query pools: create_occlusion_query takes a slot of the frame's pool,
@@ -613,6 +614,12 @@ protected:
     virtual long send_save_state(void** api) = 0;
     virtual long send_restore_state(void* api) = 0;
     virtual uint32_t send_release_saved_state(void* api) = 0;
+
+public:
+    // A surface's pixels written to a JPEG file (the screen shot script command's front buffer: Direct3D 9 saves it with
+    // D3DX, another API reads the pixels back and encodes them itself). (Declared last: the operations above keep their
+    // places in the table of virtual functions.)
+    virtual long save_surface_jpeg(const char* file, GpuSurface* surface) = 0;
 
 private:
     GpuStateBlock block_;

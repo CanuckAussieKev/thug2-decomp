@@ -19,6 +19,7 @@
 #include "engine/gfx/mesh_formats.h"
 #include "gpu_d3d9/d3d9_handles.h"
 #include "gpu_d3d9/d3d9_state.h"
+#include "gpu_d3d9/d3dx.h"
 
 namespace render::d3d9 {
 
@@ -214,7 +215,6 @@ D3DLOCKED_RECT* d3d_locked(GpuLockedRect* locked) { return same_layout<D3DLOCKED
 const D3DMATRIX* d3d_matrix(const float* matrix) { return same_layout<D3DMATRIX>(matrix); }
 D3DMATRIX* d3d_matrix(float* matrix) { return same_layout<D3DMATRIX>(matrix); }
 D3DVIEWPORT9* d3d_viewport(GpuViewport* viewport) { return same_layout<D3DVIEWPORT9>(viewport); }
-const DWORD* d3d_tokens(const uint32_t* tokens) { return same_layout<DWORD>(tokens); }
 DWORD* d3d_dword(uint32_t* value) { return same_layout<DWORD>(value); } // (DWORD: unsigned long, uint32_t's size)
 
 D3DRENDERSTATETYPE d3d_state(GpuRenderState state) { return static_cast<D3DRENDERSTATETYPE>(state); }
@@ -396,9 +396,28 @@ public:
     }
     long read_front_buffer(GpuSurface* system_copy) override { return d3d()->GetFrontBufferData(0, object(system_copy)); }
 
-    long create_pixel_shader(const uint32_t* tokens, GpuPixelShader** shader) override
+    long save_surface_jpeg(const char* file, GpuSurface* surface) override
     {
-        return d3d()->CreatePixelShader(d3d_tokens(tokens), out(shader));
+        return d3dx::save_surface_to_jpg(file, surface);
+    }
+
+    long create_pixel_shader(const char* source, uint32_t length, GpuPixelShader** shader) override
+    {
+        // D3DXAssembleShader, then the device's shader from the tokens it made (the original's two calls), the buffers
+        // released; no shader is made when the assembly failed.
+        void* code = nullptr;
+        void* errors = nullptr;
+        long result = d3dx::assemble_shader(source, length, &code, &errors);
+        if (result >= 0 && code) {
+            result = d3d()->CreatePixelShader(static_cast<const DWORD*>(d3dx::buffer_pointer(code)), out(shader));
+        }
+        if (code) {
+            d3dx::release_buffer(code);
+        }
+        if (errors) {
+            d3dx::release_buffer(errors);
+        }
+        return result;
     }
 
     uint32_t release_pixel_shader(GpuPixelShader* shader) override { return object(shader)->Release(); }
