@@ -9,6 +9,7 @@ add_library(thug2_devtools STATIC
     test_view.cpp
     start_level.cpp
     automation.cpp
+    automation_report.cpp
     automation_parse.cpp
 )
 # (the generated build_info.h: the screenshot sidecar names the exe's source)
