@@ -1,8 +1,9 @@
 // NOT ORIGINAL - where Vulkan may be seen (docs/design/vulkan.md, docs/architecture.md "The graphics backend"): the
-// Vulkan headers (<vulkan/...>, volk, the memory allocator, SDL's Vulkan header) are included - by a file itself or
-// through another of the project's headers - only in the Vulkan backend's folder, src/render_vulkan, and by the
-// context check that tries it (src/tests/vulkan_context_check.cpp). Vulkan's functions are called there alone, and only
-// app/ (and that check) include the backend's headers: like Direct3D 9's (tools/d3d_headers.test.ts).
+// Vulkan headers (<vulkan/...>, volk, the memory allocator, SDL's Vulkan header) and the shader compiler's (glslang,
+// SPIRV-Tools) are included - by a file itself or through another of the project's headers - only in the Vulkan
+// backend's folder, src/render_vulkan, and by the context check that tries it (src/tests/vulkan_context_check.cpp).
+// Vulkan's functions are called there alone, and only app/ (and that check) include the backend's headers: like
+// Direct3D 9's (tools/d3d_headers.test.ts).
 
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -14,7 +15,8 @@ const SRC = join(import.meta.dirname, "..", "src");
 // The one program outside the backend that sees Vulkan: it makes a context with the backend's code and prints it.
 const CONTEXT_CHECK = "tests/vulkan_context_check.cpp";
 
-const SDK_HEADER = /^\s*#\s*include\s*<(vulkan\/[\w./]+|volk\.h|vk_mem_alloc\.h|SDL2\/SDL_vulkan\.h)>/m;
+const SDK_HEADER =
+    /^\s*#\s*include\s*<(vulkan\/[\w./]+|volk\.h|vk_mem_alloc\.h|SDL2\/SDL_vulkan\.h|glslang\/[\w./]+|SPIRV\/[\w./]+|spirv-tools\/[\w./]+)>/m;
 const PROJECT_INCLUDE = /^\s*#\s*include\s*"([^"]+)"/gm;
 // A call of a Vulkan function (vkCreateInstance...), of volk's (volkInitialize...) or of SDL's Vulkan side.
 const VULKAN_CALL = /\b(vk[A-Z]\w*|volk[A-Z]\w*|SDL_Vulkan_\w+)\s*\(/;
