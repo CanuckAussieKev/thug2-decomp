@@ -10,6 +10,7 @@
 
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_playtest.h"
+#include "game/skate/play_trackers.h"
 #include "imgui.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"

@@ -19,6 +19,7 @@ add_library(thug2_game STATIC
     commands/career_complete.cpp
     commands/node_hooks.cpp
     skate/edited_copy_career.cpp
+    skate/play_trackers.cpp
     skate/contest.cpp
     skate/letter_match.cpp
     skate/point_tally.cpp

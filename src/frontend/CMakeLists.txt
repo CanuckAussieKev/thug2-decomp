@@ -23,6 +23,6 @@ add_library(thug2_frontend STATIC
     new_frontend_options.cpp
 )
 target_link_libraries(thug2_frontend PUBLIC thug2_game PRIVATE imgui)
-# The sibling edges tools/layers_baseline.txt lists (frontend -> editor, devtools): static libraries that need each
+# The sibling edge tools/layers_baseline.txt lists (frontend -> devtools: start level): static libraries that need each
 # other, which CMake repeats on the link line for linkers that read the libraries once (GNU ld).
-target_link_libraries(thug2_frontend PRIVATE thug2_editor thug2_devtools)
+target_link_libraries(thug2_frontend PRIVATE thug2_devtools)

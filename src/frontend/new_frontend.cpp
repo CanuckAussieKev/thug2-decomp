@@ -26,7 +26,7 @@
 #include "base/core/checksums.h"
 #include "engine/file/file_load.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor_playtest.h"
+#include "game/skate/play_trackers.h"
 #include "engine/ui/ui_backend.h"
 #include "frontend/mouse_menus.h"
 #include "engine/ui/menu_reading.h"
