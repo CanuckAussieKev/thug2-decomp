@@ -85,10 +85,22 @@ constexpr float kGapGateSpacing = 600.0F; // the end gate is put this far ahead 
 } // namespace
 namespace internal {
 
-LevelEditorTriggersState& level_editor_triggers_state()
+EditorTriggerSet& editor_trigger_set()
 {
-    static core::NoDestroy<LevelEditorTriggersState> state;
-    return state.get();
+    static core::NoDestroy<EditorTriggerSet> triggers;
+    return triggers.get();
+}
+
+LevelTriggerSet& level_trigger_set()
+{
+    static core::NoDestroy<LevelTriggerSet> triggers;
+    return triggers.get();
+}
+
+TriggerFocus& trigger_focus()
+{
+    static core::NoDestroy<TriggerFocus> focus;
+    return focus.get();
 }
 
 TriggerEdit& trigger_edit()
@@ -266,16 +278,16 @@ void note_level()
 {
     node_create::set_array_removed_listener(&on_array_removed);
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get()) {
-        if ((level_editor_triggers_state().level_array_ != 0U) &&
-            array_loaded(manager, level_editor_triggers_state().level_array_)) {
+        if ((level_trigger_set().level_array_ != 0U) &&
+            array_loaded(manager, level_trigger_set().level_array_)) {
             return;
         }
         const uint32_t level = manager->get_last_node_array_name();
-        if ((level != 0U) && level != level_editor_triggers_state().level_array_) {
-            if (level_editor_triggers_state().level_array_ != 0U) {
+        if ((level != 0U) && level != level_trigger_set().level_array_) {
+            if (level_trigger_set().level_array_ != 0U) {
                 get_forget();
             }
-            level_editor_triggers_state().level_array_ = level;
+            level_trigger_set().level_array_ = level;
         }
     }
 }
@@ -312,7 +324,7 @@ namespace {
 std::string fresh_gap()
 {
     return node_create::fresh_name("ed_gap", [](const std::string& id) {
-        return std::ranges::any_of(level_editor_triggers_state().specs_,
+        return std::ranges::any_of(editor_trigger_set().specs_,
                                    [&](const Spec& spec) { return same_text(spec.gap, id); });
     });
 }
@@ -386,16 +398,16 @@ void fabricate(const std::vector<Placed>& made, const char* what)
             hud::get_message(message, hud::kMessageSeconds);
             break;
         }
-        level_editor_triggers_state().specs_.push_back(placed.spec);
+        editor_trigger_set().specs_.push_back(placed.spec);
         if (first < 0) {
-            first = static_cast<int>(level_editor_triggers_state().specs_.size()) - 1;
+            first = static_cast<int>(editor_trigger_set().specs_.size()) - 1;
         }
         get_log("level editor: added trigger %s (%s) at (%.1f, %.1f, %.1f)", placed.spec.name.c_str(),
                 kind_name(placed.spec.kind), placed.pos.x, placed.pos.y, placed.pos.z);
     }
     get_sync();
     if (first >= 0) {
-        trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(level_editor_triggers_state().specs_, first).name));
+        trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(editor_trigger_set().specs_, first).name));
         hud::get_message(std::string("Added ") + what, hud::kShortMessageSeconds);
     }
 }
@@ -408,18 +420,18 @@ void get_guard()
     // A breakable broken in play (its piece killed by its own script): its box goes, so it isn't shattered again.
     for (size_t i = 0; i < trigger_edit().boxes_.size();) {
         int at = -1;
-        for (size_t k = 0; k < level_editor_triggers_state().specs_.size(); ++k) {
-            if (core::at(level_editor_triggers_state().specs_, k).kind == Kind::kBreak &&
-                hash_of_name(core::at(level_editor_triggers_state().specs_, k).name) ==
+        for (size_t k = 0; k < editor_trigger_set().specs_.size(); ++k) {
+            if (core::at(editor_trigger_set().specs_, k).kind == Kind::kBreak &&
+                hash_of_name(core::at(editor_trigger_set().specs_, k).name) ==
                     core::at(trigger_edit().boxes_, i).name) {
                 at = static_cast<int>(k);
             }
         }
-        if (at >= 0 && !is_sector_enabled(checksum_of(core::at(level_editor_triggers_state().specs_, at).target))) {
+        if (at >= 0 && !is_sector_enabled(checksum_of(core::at(editor_trigger_set().specs_, at).target))) {
             free_box(core::at(trigger_edit().boxes_, i).coll);
             trigger_edit().boxes_.erase(trigger_edit().boxes_.begin() + static_cast<std::ptrdiff_t>(i));
             get_log("level editor: breakable %s broken - its box taken out until the piece is back",
-                    core::at(level_editor_triggers_state().specs_, at).name.c_str());
+                    core::at(editor_trigger_set().specs_, at).name.c_str());
         } else {
             ++i;
         }
@@ -433,12 +445,12 @@ void get_guard()
     drop_boxes();
 }
 
-const std::vector<LevelTrigger>& level_triggers() { return level_editor_triggers_state().level_; }
-const std::vector<Added>& added_triggers() { return level_editor_triggers_state().added_; }
+const std::vector<LevelTrigger>& level_triggers() { return level_trigger_set().level_; }
+const std::vector<Added>& added_triggers() { return editor_trigger_set().added_; }
 
 bool is_trigger(uint32_t name)
 {
-    return std::ranges::any_of(level_editor_triggers_state().specs_,
+    return std::ranges::any_of(editor_trigger_set().specs_,
                                [&](const Spec& spec) { return hash_of_name(spec.name) == name; });
 }
 
@@ -458,8 +470,8 @@ void set_shown(bool shown)
     config_set_int("editor", "triggers", shown ? 1 : 0);
 }
 
-uint32_t inspected_sector() { return level_editor_triggers_state().inspected_; }
-void inspect(uint32_t sector) { level_editor_triggers_state().inspected_ = sector; }
+uint32_t inspected_sector() { return trigger_focus().inspected_; }
+void inspect(uint32_t sector) { trigger_focus().inspected_ = sector; }
 
 void get_queue(std::function<void()> action) { trigger_edit().actions_.push_back(std::move(action)); }
 
@@ -469,7 +481,7 @@ void kickoff()
     scan_level();
     trigger_edit().level_gaps_read_ = false;
     // (breakables broken while playing: their pieces back to edit - and to break again)
-    for (const Spec& spec : level_editor_triggers_state().specs_) {
+    for (const Spec& spec : editor_trigger_set().specs_) {
         const uint32_t piece = spec.kind == Kind::kBreak ? checksum_of(spec.target) : 0;
         render::WorldCell* sector = (piece != 0U) ? scenery::sector_of(piece) : nullptr;
         if (sector && node_alive(spec.name) && !is_sector_enabled(piece) && !scenery::get_hidden(piece)) {
@@ -488,7 +500,7 @@ void tick(V3 camera, V3 forward, float yaw)
     trigger_edit().forward_ = forward;
     trigger_edit().yaw_ = yaw;
     note_level();
-    if (!level_editor_triggers_state().scanned_) {
+    if (!level_trigger_set().scanned_) {
         scan_level();
     }
     std::vector<std::function<void()>> actions;
@@ -598,14 +610,14 @@ void set_spec(const std::string& name, const Spec& spec, bool undo)
         note_undo();
     }
     Spec stored_spec = spec;
-    stored_spec.name = core::at(level_editor_triggers_state().specs_, index).name;
+    stored_spec.name = core::at(editor_trigger_set().specs_, index).name;
     stored_spec.size = clamp_size(stored_spec.size);
     stored_spec.text = clean_text(stored_spec.text);
     // (a gap's name, score and flags are the same at both ends)
     if (stored_spec.kind == Kind::kGapStart || stored_spec.kind == Kind::kGapEnd) {
-        for (Spec& other : level_editor_triggers_state().specs_) {
-            if (&other != &core::at(level_editor_triggers_state().specs_, index) && !stored_spec.gap.empty() &&
-                same_text(other.gap, core::at(level_editor_triggers_state().specs_, index).gap) &&
+        for (Spec& other : editor_trigger_set().specs_) {
+            if (&other != &core::at(editor_trigger_set().specs_, index) && !stored_spec.gap.empty() &&
+                same_text(other.gap, core::at(editor_trigger_set().specs_, index).gap) &&
                 (other.kind == Kind::kGapStart || other.kind == Kind::kGapEnd)) {
                 other.gap = stored_spec.gap;
                 other.text = stored_spec.text;
@@ -614,7 +626,7 @@ void set_spec(const std::string& name, const Spec& spec, bool undo)
             }
         }
     }
-    core::at(level_editor_triggers_state().specs_, index) = stored_spec;
+    core::at(editor_trigger_set().specs_, index) = stored_spec;
 }
 
 void begin_edit() { note_undo(); }
@@ -622,7 +634,7 @@ void begin_edit() { note_undo(); }
 void turn_off(uint32_t sector, bool off)
 {
     const LevelTrigger* trigger = nullptr;
-    for (const LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (const LevelTrigger& level_trigger : level_trigger_set().level_) {
         if (level_trigger.sector == sector) {
             trigger = &level_trigger;
         }
@@ -631,9 +643,9 @@ void turn_off(uint32_t sector, bool off)
         hud::get_message("Has non-trigger faces; can't be disabled", hud::kMessageSeconds);
         return;
     }
-    if (std::ranges::find(level_editor_triggers_state().switched_, sector) ==
-        level_editor_triggers_state().switched_.end()) {
-        level_editor_triggers_state().switched_.push_back(sector); // (its wall state in the undo steps from now on)
+    if (std::ranges::find(level_trigger_set().switched_, sector) ==
+        level_trigger_set().switched_.end()) {
+        level_trigger_set().switched_.push_back(sector); // (its wall state in the undo steps from now on)
     }
     note_undo();
     if (!walls::set_off(sector, off)) {
@@ -644,12 +656,12 @@ void turn_off(uint32_t sector, bool off)
                          : "Trigger " + get_label_of(sector) + " enabled");
 }
 
-void select_wall(uint32_t sector) { level_editor_triggers_state().select_wall_ = sector; }
+void select_wall(uint32_t sector) { trigger_focus().select_wall_ = sector; }
 
 void make_editable(uint32_t sector)
 {
     const LevelTrigger* trigger = nullptr;
-    for (const LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (const LevelTrigger& level_trigger : level_trigger_set().level_) {
         if (level_trigger.sector == sector) {
             trigger = &level_trigger;
         }
@@ -665,7 +677,7 @@ void make_editable(uint32_t sector)
         hud::get_message("Has non-trigger faces; can't be replaced", hud::kMessageSeconds);
         return;
     }
-    for (const Spec& spec : level_editor_triggers_state().specs_) {
+    for (const Spec& spec : editor_trigger_set().specs_) {
         if (spec.replaces == sector && node_alive(spec.name)) {
             hud::get_message("Already has an editable copy: " + spec.name, hud::kShortMessageSeconds);
             return;
@@ -687,9 +699,9 @@ void make_editable(uint32_t sector)
 void select_partner(const std::string& name)
 {
     const int index = spec_index(name);
-    const int other = partner(level_editor_triggers_state().specs_, index);
+    const int other = partner(editor_trigger_set().specs_, index);
     if (other >= 0) {
-        trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(level_editor_triggers_state().specs_, other).name));
+        trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(editor_trigger_set().specs_, other).name));
     }
 }
 
@@ -712,7 +724,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
     }
     float best = max_t;
     bool any = false;
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (!added.alive) {
             continue;
         }
@@ -726,7 +738,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
             any = *node >= 0;
         }
     }
-    for (const LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (const LevelTrigger& level_trigger : level_trigger_set().level_) {
         std::array<V3, 3> axes = {
             {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
         const V3 grow = {.x = 2.0F, .y = 2.0F, .z = 2.0F};
@@ -758,7 +770,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         any = true;
     }
     if (any && (*sector != 0U)) {
-        level_editor_triggers_state().inspected_ = *sector;
+        trigger_focus().inspected_ = *sector;
     }
     return any;
 }
@@ -801,7 +813,7 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
 
 void perform(bool editing)
 {
-    const bool any = std::ranges::any_of(level_editor_triggers_state().added_, [](const Added& a) { return a.alive && a.spec.exit; });
+    const bool any = std::ranges::any_of(editor_trigger_set().added_, [](const Added& a) { return a.alive && a.spec.exit; });
     if (editing || !any || trigger_edit().boxes_.empty() || layout::get_refused()) { // (a network session or a career-type mode)
         stored_seen().clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
@@ -811,7 +823,7 @@ void perform(bool editing)
         return;
     }
     const V3 at = {.x = skater->at_point().x, .y = skater->at_point().y, .z = skater->at_point().z};
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (!added.alive || !added.spec.exit || added.problem) {
             continue;
         }

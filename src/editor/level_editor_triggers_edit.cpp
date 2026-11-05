@@ -53,14 +53,14 @@ constexpr float kBoostHeight = 60.0F;
 State store_away()
 {
     State state;
-    state.specs = level_editor_triggers_state().specs_;
+    state.specs = editor_trigger_set().specs_;
     for (const node_create::Spec& spec : node_create::at_hand()) {
         if (spec.owned && spec_index(spec.name) >= 0) {
             state.nodes.push_back(spec);
         }
     }
-    if (!level_editor_triggers_state().switched_.empty()) {
-        state.walls = walls::store_away(level_editor_triggers_state().switched_);
+    if (!level_trigger_set().switched_.empty()) {
+        state.walls = walls::store_away(level_trigger_set().switched_);
     }
     state.proxims = stored_proxims();
     return state;
@@ -81,7 +81,7 @@ void get_restore(const State& state)
             node_create::drop_out(hash_of_name(spec.name), &removed, &at);
         }
     }
-    level_editor_triggers_state().specs_ = state.specs;
+    editor_trigger_set().specs_ = state.specs;
     std::string message;
     for (const node_create::Spec& node : state.nodes) {
         const uint32_t name = hash_of_name(node.name);
@@ -126,8 +126,8 @@ int take_select()
 
 uint32_t take_wall_select()
 {
-    const uint32_t wall = level_editor_triggers_state().select_wall_;
-    level_editor_triggers_state().select_wall_ = 0;
+    const uint32_t wall = trigger_focus().select_wall_;
+    trigger_focus().select_wall_ = 0;
     return wall;
 }
 
@@ -136,7 +136,7 @@ uint32_t take_wall_select()
 std::vector<Placed> capture_added()
 {
     std::vector<Placed> out;
-    for (const Spec& spec : level_editor_triggers_state().specs_) {
+    for (const Spec& spec : editor_trigger_set().specs_) {
         Placed placed;
         placed.spec = spec;
         if (!node_alive(spec.name) || !node_place(spec.name, &placed.pos, &placed.yaw)) {
@@ -158,7 +158,7 @@ std::vector<Placed> capture_added()
 int get_apply(const std::vector<Placed>& placed, std::string* message)
 {
     note_level();
-    if (!level_editor_triggers_state().scanned_) {
+    if (!level_trigger_set().scanned_) {
         scan_level();
     }
     int made = 0;
@@ -172,7 +172,7 @@ int get_apply(const std::vector<Placed>& placed, std::string* message)
                                     message)) {
             continue;
         }
-        level_editor_triggers_state().specs_.push_back(placed_trigger.spec);
+        editor_trigger_set().specs_.push_back(placed_trigger.spec);
         ++made;
     }
     get_sync();
@@ -181,14 +181,14 @@ int get_apply(const std::vector<Placed>& placed, std::string* message)
 
 void reset_all()
 {
-    for (const Spec& spec : std::vector<Spec>(level_editor_triggers_state().specs_)) {
+    for (const Spec& spec : std::vector<Spec>(editor_trigger_set().specs_)) {
         node_create::Spec removed;
         int at = 0;
         node_create::drop_out(hash_of_name(spec.name), &removed, &at);
     }
-    level_editor_triggers_state().specs_.clear();
-    level_editor_triggers_state().switched_.clear();
-    level_editor_triggers_state().inspected_ = 0;
+    editor_trigger_set().specs_.clear();
+    level_trigger_set().switched_.clear();
+    trigger_focus().inspected_ = 0;
     trigger_edit().has_undo_ = false;
     stored_proxims().clear(); // (sync_proxims puts their nodes back)
     get_sync();
@@ -263,7 +263,7 @@ void add_camera()
 
 const Added* breakable_of(uint32_t sector)
 {
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (added.alive && added.spec.kind == Kind::kBreak && checksum_of(added.spec.target) == sector) {
             return &added;
         }
@@ -300,7 +300,7 @@ void set_breakable(uint32_t sector, bool on)
     node_create::drop_out(hash_of_name(name), &removed, &at);
     const int index = spec_index(name);
     if (index >= 0) {
-        level_editor_triggers_state().specs_.erase(level_editor_triggers_state().specs_.begin() + index);
+        editor_trigger_set().specs_.erase(editor_trigger_set().specs_.begin() + index);
     }
     if (render::WorldCell* piece = scenery::sector_of(sector);
         piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector)) {
@@ -349,15 +349,15 @@ bool has_handles(uint32_t node) { return is_trigger(node) || is_proxim(node); }
 std::string describe()
 {
     int alive = 0;
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         alive += added.alive ? 1 : 0;
     }
     int off = 0;
-    for (const LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (const LevelTrigger& level_trigger : level_trigger_set().level_) {
         off += level_trigger.off ? 1 : 0;
     }
     std::array<char, kStatusTextSize> text{};
-    text::format_to(text, "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(level_editor_triggers_state().level_.size()), off,
+    text::format_to(text, "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(level_trigger_set().level_.size()), off,
                     alive);
     return text.data();
 }

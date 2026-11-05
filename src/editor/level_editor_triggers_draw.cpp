@@ -243,11 +243,11 @@ void draw_added_trigger(Painter& paint, const Added& added, Label& label)
                         get_dim(colour, added.spec.kind == Kind::kKill ? kKillArrowAlpha : kLinkArrowAlpha));
     }
     if (added.spec.kind == Kind::kGapStart) {
-        const int other = partner(level_editor_triggers_state().specs_, spec_index(added.spec.name));
+        const int other = partner(editor_trigger_set().specs_, spec_index(added.spec.name));
         if (other >= 0) {
-            for (const Added& partner_trigger : level_editor_triggers_state().added_) {
+            for (const Added& partner_trigger : editor_trigger_set().added_) {
                 if (partner_trigger.alive &&
-                    same_text(partner_trigger.spec.name, core::at(level_editor_triggers_state().specs_, other).name)) {
+                    same_text(partner_trigger.spec.name, core::at(editor_trigger_set().specs_, other).name)) {
                     paint.get_arrow(added.pos, partner_trigger.pos,
                                     get_dim(kind_colour(Kind::kGapEnd), kGapArrowAlpha));
                 }
@@ -298,7 +298,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     };
     // The level's: nearest first.
     std::vector<std::pair<float, const LevelTrigger*>> near;
-    for (const LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (const LevelTrigger& level_trigger : level_trigger_set().level_) {
         const float distance = distance_to(camera, level_trigger.min, level_trigger.max);
         if (distance <= kDrawRadius) {
             near.emplace_back(distance, &level_trigger);
@@ -310,7 +310,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     }
     for (const auto& candidate : near) {
         const LevelTrigger& level_trigger = *candidate.second;
-        const bool inspected = level_trigger.sector == level_editor_triggers_state().inspected_;
+        const bool inspected = level_trigger.sector == trigger_focus().inspected_;
         const uint32_t colour =
             level_trigger.off ? 0x70909090U : get_dim(kind_colour(level_trigger.kind), inspected ? 0xFFU : 0xC0U);
         const float thickness = inspected ? 2.5F : 1.0F;
@@ -347,7 +347,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         }
     }
     // The editor's.
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (!added.alive) {
             continue;
         }
@@ -526,7 +526,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
     }
     // Breakables: cracks over the piece's box (each face's middle, five jagged rays); jump boosts: an arrow up as
     // strong as they are (the level's too).
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (!added.alive) {
             continue;
         }
@@ -542,7 +542,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
                             kind_colour(Kind::kBoost));
         }
     }
-    for (const LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (const LevelTrigger& level_trigger : level_trigger_set().level_) {
         if (level_trigger.kind != Kind::kBoost || level_trigger.off) {
             continue;
         }
@@ -630,7 +630,7 @@ void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::spa
 
 const Added* alive_named(uint32_t node)
 {
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (added.alive && hash_of_name(added.spec.name) == node) {
             return &added;
         }
@@ -839,7 +839,7 @@ void rescale(V3 origin, V3 dir, bool snap)
         resize_drag().on = false;
         return;
     }
-    Spec spec = core::at(level_editor_triggers_state().specs_, index);
+    Spec spec = core::at(editor_trigger_set().specs_, index);
     if (spec.size.x != size.x || spec.size.y != size.y || spec.size.z != size.z) {
         spec.size = size;
         set_spec(resize_drag().name, spec, false);

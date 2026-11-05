@@ -59,24 +59,39 @@ constexpr float kLabelRadius = 3000.0F;
 
 constexpr int kMaxLevelDrawn = 300, kMaxLabels = 48, kMaxFacesKept = 64;
 
-// NOT ORIGINAL grouping - level_editor_triggers.cpp's state (were globals). Made on first use, never destroyed
-// (level_editor_triggers_state()).
-struct LevelEditorTriggersState {
-    // The editor's triggers (alive or not: a deleted one's spec is kept for its undo), what Tick saw of them.
+// NOT ORIGINAL grouping - level_editor_triggers.cpp's state (were globals), one record per part. Each made on first
+// use, never destroyed.
+
+// The editor's triggers (alive or not: a deleted one's spec is kept for its undo), what Tick saw of them
+// (editor_trigger_set()).
+struct EditorTriggerSet {
     std::vector<Spec> specs_;
     std::vector<Added> added_;
-    // The level's triggers (scanned when the editor starts in a level); those switched off / on here (their walls' states
-    // go in the undo steps); those switched off while an editable copy stands in for them (on again when it goes).
+};
+
+EditorTriggerSet& editor_trigger_set();
+
+// The level's triggers (scanned when the editor starts in a level); those switched off / on here (their walls' states
+// go in the undo steps); those switched off while an editable copy stands in for them (on again when it goes); and
+// the level's node array they belong to (level_trigger_set()).
+struct LevelTriggerSet {
     std::vector<LevelTrigger> level_;
     bool scanned_{};
     std::vector<uint32_t> switched_;
     std::vector<uint32_t> turned_off_;
-    uint32_t select_wall_{};
     uint32_t level_array_{};
+};
+
+LevelTriggerSet& level_trigger_set();
+
+// A level trigger to select as an invisible wall (0: none), and the level trigger shown in the Triggers window (0: none)
+// (trigger_focus()).
+struct TriggerFocus {
+    uint32_t select_wall_{};
     uint32_t inspected_{};
 };
 
-LevelEditorTriggersState& level_editor_triggers_state();
+TriggerFocus& trigger_focus();
 
 // The collision boxes.
 struct Cuboid {

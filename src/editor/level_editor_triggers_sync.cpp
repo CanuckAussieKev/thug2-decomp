@@ -68,7 +68,7 @@ render::HitMesh* coll_of(render::WorldCell* sector)
     render::HitMesh* coll = sector ? sector->hit_body() : nullptr;
     return render::is_static_collider(coll) ? coll : nullptr;
 }
-bool turned_off_by_us(uint32_t sector) { return std::ranges::find(level_editor_triggers_state().turned_off_, sector) != level_editor_triggers_state().turned_off_.end(); }
+bool turned_off_by_us(uint32_t sector) { return std::ranges::find(level_trigger_set().turned_off_, sector) != level_trigger_set().turned_off_.end(); }
 
 V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
@@ -129,7 +129,7 @@ void scan_sector(void* /*unused*/, uint32_t checksum, render::WorldCell* sector)
         level_trigger.has_node_ = true;
         node->read_hash_value(kTriggerScript, &level_trigger.script, 0);
     }
-    level_editor_triggers_state().level_.push_back(std::move(level_trigger));
+    level_trigger_set().level_.push_back(std::move(level_trigger));
 }
 
 } // namespace
@@ -137,17 +137,17 @@ namespace internal {
 
 void scan_level()
 {
-    level_editor_triggers_state().level_.clear();
-    level_editor_triggers_state().scanned_ = true;
+    level_trigger_set().level_.clear();
+    level_trigger_set().scanned_ = true;
     if (!level_nodes::node_manager_instance() || !scenery::main_scene()) {
         return;
     }
     scenery::for_each_level_sector(&scan_sector, nullptr);
-    for (LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (LevelTrigger& level_trigger : level_trigger_set().level_) {
         level_trigger.calls = get_walk(level_trigger.script);
         level_trigger.kind = kind_of_calls(level_trigger.calls, level_trigger.script != 0);
     }
-    get_log("level editor: %u trigger volumes in the level", static_cast<unsigned>(level_editor_triggers_state().level_.size()));
+    get_log("level editor: %u trigger volumes in the level", static_cast<unsigned>(level_trigger_set().level_.size()));
 }
 
 } // namespace internal
@@ -309,7 +309,7 @@ const char* game_problem(const Spec& spec)
 // and moved (an invisible wall moved by level_editor_walls.h: its faces read again when its collision's box changed).
 void refresh_level()
 {
-    for (LevelTrigger& level_trigger : level_editor_triggers_state().level_) {
+    for (LevelTrigger& level_trigger : level_trigger_set().level_) {
         render::WorldCell* sector = scenery::sector_of(level_trigger.sector);
         const render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
         auto* tri = coll ? coll->geometry() : nullptr;
@@ -338,8 +338,8 @@ namespace internal {
 
 int spec_index(const std::string& name)
 {
-    for (size_t i = 0; i < level_editor_triggers_state().specs_.size(); ++i) {
-        if (same_text(core::at(level_editor_triggers_state().specs_, i).name, name)) {
+    for (size_t i = 0; i < editor_trigger_set().specs_.size(); ++i) {
+        if (same_text(core::at(editor_trigger_set().specs_, i).name, name)) {
             return static_cast<int>(i);
         }
     }
@@ -530,8 +530,8 @@ namespace {
 void sync_added()
 {
     // What each spec is now.
-    level_editor_triggers_state().added_.clear();
-    for (const Spec& spec : level_editor_triggers_state().specs_) {
+    editor_trigger_set().added_.clear();
+    for (const Spec& spec : editor_trigger_set().specs_) {
         Added added;
         added.spec = spec;
         added.alive = node_alive(spec.name) && node_place(spec.name, &added.pos, &added.yaw);
@@ -550,7 +550,7 @@ void sync_added()
             }
             added.broken = !is_sector_enabled(checksum_of(spec.target));
         }
-        level_editor_triggers_state().added_.push_back(added);
+        editor_trigger_set().added_.push_back(added);
     }
 }
 
@@ -563,10 +563,10 @@ void sync_boxes()
     const bool network = layout::get_refused();
     for (size_t i = 0; i < trigger_edit().boxes_.size();) {
         int at = -1;
-        for (size_t k = 0; k < level_editor_triggers_state().added_.size(); ++k) {
-            if (core::at(level_editor_triggers_state().added_, k).alive &&
-                !core::at(level_editor_triggers_state().added_, k).broken &&
-                hash_of_name(core::at(level_editor_triggers_state().added_, k).spec.name) ==
+        for (size_t k = 0; k < editor_trigger_set().added_.size(); ++k) {
+            if (core::at(editor_trigger_set().added_, k).alive &&
+                !core::at(editor_trigger_set().added_, k).broken &&
+                hash_of_name(core::at(editor_trigger_set().added_, k).spec.name) ==
                     core::at(trigger_edit().boxes_, i).name) {
                 at = static_cast<int>(k);
             }
@@ -578,7 +578,7 @@ void sync_boxes()
             ++i;
         }
     }
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (!added.alive || added.broken || network) {
             continue;
         }
@@ -607,15 +607,15 @@ void sync_replaced()
     // The level's triggers an alive editable copy stands in for: switched off (through level_editor_walls.h - the
     // collision switch's one owner: WorldCell::change_live for a wall), on again once no copy stands in for them.
     std::vector<uint32_t> replaced;
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (added.alive && (added.spec.replaces != 0U) && scenery::sector_of(added.spec.replaces)) {
             replaced.push_back(added.spec.replaces);
         }
     }
-    for (size_t i = 0; i < level_editor_triggers_state().turned_off_.size();) {
-        if (std::ranges::find(replaced, core::at(level_editor_triggers_state().turned_off_, i)) == replaced.end()) {
-            walls::set_off(core::at(level_editor_triggers_state().turned_off_, i), false);
-            level_editor_triggers_state().turned_off_.erase(level_editor_triggers_state().turned_off_.begin() + static_cast<std::ptrdiff_t>(i));
+    for (size_t i = 0; i < level_trigger_set().turned_off_.size();) {
+        if (std::ranges::find(replaced, core::at(level_trigger_set().turned_off_, i)) == replaced.end()) {
+            walls::set_off(core::at(level_trigger_set().turned_off_, i), false);
+            level_trigger_set().turned_off_.erase(level_trigger_set().turned_off_.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
         }
@@ -627,7 +627,7 @@ void sync_replaced()
         if (!walls::disengaged(sector)) {
             walls::set_off(sector, true);
         }
-        level_editor_triggers_state().turned_off_.push_back(sector);
+        level_trigger_set().turned_off_.push_back(sector);
     }
 }
 
@@ -637,7 +637,7 @@ void sync_gaps(bool redefined)
 {
     // The gap list: built again as the level's load builds it; the editor's gaps no longer there taken out.
     std::vector<std::pair<std::string, int>> wanted;
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         if (added.alive && !added.problem && added.spec.kind == Kind::kGapEnd) {
             wanted.emplace_back(clean_text(added.spec.text), added.spec.score);
         }
@@ -670,7 +670,7 @@ void get_sync()
     // Their scripts (every spec's: a deleted one's undo brings its node back naming it). The game's loader defines
     // them (an unchanged script is left as it is).
     std::vector<Spec> scripted;
-    for (const Added& added : level_editor_triggers_state().added_) {
+    for (const Added& added : editor_trigger_set().added_) {
         Spec spec = added.spec;
         if (added.problem) {
             spec.kind = Kind::kOther; // (an empty script: it does nothing yet)
@@ -718,21 +718,21 @@ void get_forget()
     take_out_gaps(trigger_edit().checklist_, {});
     trigger_edit().gaps_added_.clear();
     trigger_edit().checklist_ = nullptr;
-    level_editor_triggers_state().specs_.clear();
-    level_editor_triggers_state().added_.clear();
-    level_editor_triggers_state().switched_.clear();
-    level_editor_triggers_state().turned_off_.clear(); // (their collision goes with the level)
-    level_editor_triggers_state().select_wall_ = 0;
-    level_editor_triggers_state().level_.clear();
-    level_editor_triggers_state().scanned_ = false;
+    editor_trigger_set().specs_.clear();
+    editor_trigger_set().added_.clear();
+    level_trigger_set().switched_.clear();
+    level_trigger_set().turned_off_.clear(); // (their collision goes with the level)
+    trigger_focus().select_wall_ = 0;
+    level_trigger_set().level_.clear();
+    level_trigger_set().scanned_ = false;
     trigger_edit().level_gap_names_.clear();
     trigger_edit().level_gaps_read_ = false;
     calls_cache().clear();
-    level_editor_triggers_state().inspected_ = 0;
+    trigger_focus().inspected_ = 0;
     trigger_edit().has_undo_ = false;
     trigger_edit().select_ = -1;
     trigger_edit().actions_.clear();
-    level_editor_triggers_state().level_array_ = 0;
+    level_trigger_set().level_array_ = 0;
     // (proximity nodes: put back while the level's are still there - none once nearby_zone_shutdown has run)
     if (have_proxim_manager()) {
         for (const auto& proxim_original : proxim_originals()) {
@@ -747,12 +747,12 @@ void get_forget()
 
 void on_array_removed(uint32_t name)
 {
-    if ((name == 0U) || name != level_editor_triggers_state().level_array_) {
+    if ((name == 0U) || name != level_trigger_set().level_array_) {
         return;
     }
-    if (!level_editor_triggers_state().specs_.empty()) {
+    if (!editor_trigger_set().specs_.empty()) {
         get_log("level editor: the level's node array left - its %u triggers go with it",
-                static_cast<unsigned>(level_editor_triggers_state().specs_.size()));
+                static_cast<unsigned>(editor_trigger_set().specs_.size()));
     }
     get_forget();
 }
