@@ -1,0 +1,213 @@
+// The PC engine's scene and mesh loaders: see scene_load.h.
+
+#include "render_pc/scene_load.h"
+
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <new>
+#include <span>
+
+#include "base/core/checksums.h"
+#include "base/core/dbg.h"
+#include "engine/memory/manager.h"
+#include "engine/memory/mem.h"
+#include "engine/file/file_load.h"
+#include "engine/gfx/engine_scene.h"
+#include "render_pc/geom.h"
+#include "engine/gfx/surface_material.h"
+#include "render_pc/mesh_list.h"
+#include "render_pc/pc_mesh.h"
+#include "render_pc/pc_scene.h"
+#include "render_pc/render_state.h"
+#include "render_pc/scene_file_stream.h"
+#include "formats/scene_format.h"
+#include "engine/gfx/sector.h"
+#include <gsl/pointers>
+#include <array>
+#include <gsl/assert>
+#include "base/core/down_cast.h"
+#include "base/core/checked_index.h"
+#include "engine/gfx/texture_dict.h"
+#include "base/core/format.h"
+
+namespace render {
+
+constexpr int kMaxSectorTableBits = 12;   // the sector table doubles in size up to 2^12 entries
+constexpr int kSectorRecordMinBytes = 0x38;
+constexpr std::size_t kMeshNameSize = 16;
+
+namespace {
+
+// A PC geom for a scene's sector (zeroed; its scene set).
+gsl::owner<PcGeom*> new_sector_geom(PcScene* scene)
+{
+    gsl::owner<render::PcGeom*> geom{memory::make_owned<PcGeom>()};
+    // (no check: a failed allocation writes through null, as the original)
+    geom->set_scene(scene);
+    return geom;
+}
+// The 2D clip rectangle off (0x004D3CE0).
+void clear_screen_clip() { clear_skin_scaling(); }
+
+// The scene's hash table size: 2^n entries (n 1-12), the first at least twice the sectors.
+int table_bit_width(int sectors)
+{
+    const unsigned int wanted = 2 * static_cast<unsigned int>(sectors);
+    unsigned int size = 2;
+    int bits = 1;
+    while (wanted > size && bits < kMaxSectorTableBits) {
+        size <<= 1;
+        ++bits;
+    }
+    return bits;
+}
+
+// A new mesh list with the flag at +0x40.
+SceneRef* new_mesh_list(bool mesh_flag)
+{
+    void* memory = memory::alloc(sizeof(SceneRef));
+    SceneRef* list = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
+    Expects(list != nullptr);
+    list->set_unknown40(static_cast<uint8_t>(mesh_flag));
+    return list;
+}
+
+gsl::owner<PcScene*> build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, SceneRef* list)
+{
+    auto* scene = memory::make_owned<PcScene>(table_bit_width(sectors));
+    scene->set_builds_collision_grid(with_super_sectors);
+    scene->set_is_sky(flag_8d);
+    scene->set_meshes(list);
+    return scene;
+}
+
+// The texture dictionary's table of textures by checksum.
+const lists::KeyMap* texture_table(const TextureSet* textures) { return textures->textures(); }
+
+// What both of the original's scene loaders do after the materials (0x004B3490 from memory, 0x004B36D0 from a file -
+// the same records, scene_format.h): the sectors (each loaded by `load_sector`), the hierarchy.
+// Not original - a damaged record ends the scene there (the sectors loaded so far kept, no hierarchy read); a sector
+// count past what is there reads none, a hierarchy past the end isn't read (the original read on past the scene's
+// end).
+template <typename Stream, typename LoadSector>
+gsl::owner<PcScene*> read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool flag_8d, LoadSector load_sector)
+{
+    int sectors = scene_format::take<int>(in);
+    if (sectors < 0 ||
+        !in.fits(static_cast<uint64_t>(sectors) * kSectorRecordMinBytes)) { // (each sector at least its fields)
+        sectors = 0;
+    }
+    gsl::owner<PcScene*> scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
+    for (int i = sectors; i > 0 && in.ok(); --i) {
+        gsl::owner<WorldCell*> sector = scene->spawn_sector();
+        gsl::owner<PcGeom*> geom = new_sector_geom(scene);
+        sector->choose_geom(geom);
+        geom->start_mesh_list();
+        load_sector(core::down_cast<PcSector>(sector)); // (a damaged one keeps the meshes it made)
+        scene->insert_sector(sector);
+    }
+    list->update_sphere();
+    const int nodes = scene_format::take<int>(in);
+    if (nodes > 0 && in.fits(static_cast<uint64_t>(nodes) * sizeof(HierarchyNode))) {
+        HierarchyNode* hierarchy = new_hierarchy(nodes);
+        list->set_hierarchy(hierarchy);
+        // (no check: a failed allocation reads into null, as the original)
+        in.take(hierarchy, nodes * sizeof(HierarchyNode));
+        list->set_unknown78(static_cast<uint32_t>(nodes));
+    }
+    if (!in.ok()) {
+        debug::printf("scene damaged: cut short or doesn't fit (%d sectors)\n", sectors);
+    }
+    return scene;
+}
+
+} // namespace
+
+HierarchyNode* new_hierarchy(int count)
+{
+    void* memory = memory::alloc(count * sizeof(HierarchyNode));
+    if (!memory) {
+        return nullptr;
+    }
+    auto* nodes = static_cast<HierarchyNode*>(memory);
+    for (int i = 0; i < count; ++i) {
+        new (&core::at(std::span<HierarchyNode>(nodes, static_cast<size_t>(count)), i)) HierarchyNode;
+    }
+    return nodes;
+}
+
+// (the original's delete[]: the nodes' destructor is empty)
+void free_hierarchy(HierarchyNode* nodes)
+{
+    if (nodes) {
+        memory::Hub::dealloc(nodes);
+    }
+}
+
+
+// 0x004B3490
+gsl::owner<PcScene*> load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures, bool with_super_sectors,
+                                bool flag_8d, bool mesh_flag)
+{
+    SceneRef* list = new_mesh_list(mesh_flag);
+    scene_format::MemoryStream in(data, size);
+    in.skip(scene_format::kHeaderSize);
+    list->set_materials(read_materials_from_buffer(in, texture_table(textures)));
+    return read_sectors(in, list, with_super_sectors, flag_8d,
+                        [&in](PcSector* sector) { return sector->read_from_ram_block(in); });
+}
+
+// 0x004B36D0
+gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* textures, bool with_super_sectors, bool flag_8d,
+                              bool mesh_flag, VertexArena* arena)
+{
+    SceneRef* list = new_mesh_list(mesh_flag);
+    file::Hdl file = file::unseal(name, "rb");
+    if (!file) {
+        return nullptr; // (the mesh list isn't freed, as the original)
+    }
+    scene_format::FileStream in(file);
+    in.skip(scene_format::kHeaderSize); // (the header's three words: not used)
+    list->set_materials(load_materials_from_file(in, texture_table(textures)));
+    gsl::owner<PcScene*> scene = read_sectors(in, list, with_super_sectors, flag_8d, [&in, arena](PcSector* sector) {
+        return sector->ingest_from_file(in, arena);
+    });
+    file::shut(file);
+    return scene;
+}
+
+
+// 0x004B3A20
+gsl::owner<SubMesh*> load_mesh_file(const char* name, TextureSet* textures)
+{
+    gsl::owner<PcScene*> scene = load_scene_from_file(name, textures, false, false, false, nullptr); // (the mesh's, below)
+    scene->set_checksum(checksums::hash_from_text(name));
+    scene->set_texture_set(textures);
+    scene->finish_load(name, nullptr);
+    clear_screen_clip();
+    gsl::owner<render::PcMesh*> mesh{memory::make_owned<PcMesh>(name)};
+    mesh->choose_scene(scene);
+    mesh->set_textures(textures);
+    return mesh;
+}
+
+// 0x004B3AD0
+gsl::owner<SubMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
+                              TextureSet* textures)
+{
+    std::array<char, kMeshNameSize> name{};
+    text::format_to(name, "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
+    gsl::owner<PcScene*> scene = load_scene_from_memory(data, size, textures, false, false, false); // (the mesh's, below)
+    scene->set_checksum(checksums::hash_from_text(name.data()));
+    scene->set_texture_set(textures);
+    scene->finish_load(name.data(), nullptr);
+    gsl::owner<render::PcMesh*> mesh{memory::make_owned<PcMesh>()};
+    mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);
+    clear_screen_clip();
+    mesh->choose_scene(scene);
+    mesh->set_textures(textures);
+    return mesh;
+}
+
+} // namespace render

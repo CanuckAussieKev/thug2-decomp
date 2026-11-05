@@ -2,7 +2,7 @@
 // Each site names the code it reads. The model assumes pixel shader support, as every Vulkan device has: the Direct3D 9
 // backend's stand-in stages for devices without ps.1.1 (render_state.cpp set_fixed_function_stages, the multi-pass
 // branches of pc_mesh_render.cpp / pc_billboards.cpp) never run. A pixel shader slot the backend leaves empty with
-// shaders (render_d3d9/shader_slots.h: every slot but the six fixed shaders) draws with the texture stages.
+// shaders (render_pc/shader_slots.h: every slot but the six fixed shaders) draws with the texture stages.
 #include "tests/ff_shader_check_model.h"
 
 #include <array>

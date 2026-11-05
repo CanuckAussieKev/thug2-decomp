@@ -483,7 +483,7 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
     add(out, {"    vec4 colour = current;"});
 }
 
-// --- the ps.1.1 shaders (render_d3d9/pixel_shaders.cpp), line by line -------------------------------------------------
+// --- the ps.1.1 shaders (render_pc/pixel_shaders.cpp), line by line -------------------------------------------------
 // ps.1.1's registers: v0 the diffuse colour, v1 the specular, t<n> stage n's texel, c<n> the constants - which ps.1.x
 // reads clamped to -1 - 1 - and r0 (the result) / r1 the temporaries. _x2 / _x4 double / quadruple an instruction's
 // result, _sat clamps it to 0 - 1, a '+' line is co-issued (its alpha written beside the line before's colour). The

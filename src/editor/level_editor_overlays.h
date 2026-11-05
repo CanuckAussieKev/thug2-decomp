@@ -10,7 +10,7 @@
 
 // NOT ORIGINAL - the level editor's view menus (ours; see level_editor.h), on the toolbar in place of its scattered
 // view toggles:
-//   - View (Unreal's view modes): Lit / Unlit / Wireframe / Collision only - render_d3d9/view_mode.h draws them (the
+//   - View (Unreal's view modes): Lit / Unlit / Wireframe / Collision only - render_pc/view_mode.h draws them (the
 //     renderer's side; only Direct3D there). Keys Alt+1 / Alt+2 / Alt+3 / Alt+4. Collision only shows the collision
 //     view (level_editor_view.h) while it lasts, whatever C says - C's own setting is left as it was. Back to Lit when
 //     the editor closes; not remembered.

@@ -347,7 +347,7 @@ each borrowed idea is credited where it's used.
 | Path | Contents |
 |---|---|
 | `src/` | The program, in layers (each a CMake library; `docs/architecture.md`): `base` (checksums, formatting, maths), `platform` (the window, crash reports, the GameSpy glue), `formats` and `wire` (the game's files and network messages), `engine` (memory, files, assets, scripts, objects, the renderer, audio, network transport, pad input, the original's screen elements), `game` (skating, the rider, goals, parks, saves, the online session, the game's script commands), `frontend` (the new front end), `editor` (the level editor), `devtools` (screenshot key, test-automation channel) |
-| `src/render_d3d9/`, `audio_dsound/`, `media_bink/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, Bink, DirectInput, Win32 files, Winsock, the QB script interpreter |
+| `src/render_pc/`, `audio_dsound/`, `media_bink/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, Bink, DirectInput, Win32 files, Winsock, the QB script interpreter |
 | `src/app/` | The two programs' shared start-up (`main.cpp`, WinMain, the main loop, the command and component tables) and each one's extension list; `thug2-decomp.exe` and `thug2-editor.exe` |
 | `src/tests/` | The offline checks (file formats, maths against D3DX, number parsing, printf-style formatting) |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |

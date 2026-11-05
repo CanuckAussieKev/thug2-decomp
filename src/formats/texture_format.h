@@ -12,7 +12,7 @@
 //   u32 compression (0: none, 1 / 2: DXT1, 5: DXT5), u32 palette size; the palette (palette size bytes);
 //   then each level {u32 size, `size` bytes of texels - the Direct3D surface's, rows of 4x4 blocks if compressed}.
 //
-// Read by render::load_textures_from_file / _memory (render_d3d9/pc_texture.cpp).
+// Read by render::load_textures_from_file / _memory (render_pc/pc_texture.cpp).
 namespace texture_format {
 
 constexpr size_t kDictionaryHeaderSize = 8;

@@ -17,7 +17,7 @@
 // (one palette index each, the count rounded up to 4 - an HD page: 4 bytes each, no palette); the palette (256 RGBA,
 // PS2 alpha); 4 bytes, then each glyph's rectangle in the page (u16 x, y, width, height).
 //
-// Read by render::TypefaceData::read_in (render_d3d9/text.cpp).
+// Read by render::TypefaceData::read_in (render_pc/text.cpp).
 namespace font_format {
 
 constexpr int kBitsPerByte = 8;

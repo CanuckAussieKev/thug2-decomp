@@ -62,7 +62,7 @@ src/
               the network transport seam (engine/net/transport.h; its in-process loopback, loopback_transport.h);
               script is the script data model (structures, arrays, symbols, loading .qb files), the running
               scripts' record and the script host seam (engine/script/host.h) (library thug2_engine)
-  render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
+  render_pc/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
               textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
               GPU's vertex and index buffers, D3DX's last calls; it implements render::Device and render::UiBackend
               (library thug2_render_d3d9, included and linked by app/ only)

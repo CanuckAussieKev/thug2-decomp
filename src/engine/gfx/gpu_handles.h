@@ -4,7 +4,7 @@
 // kind of object, so no header outside the backend names a graphics API (docs/architecture.md "Layers"). The pointer
 // is the backend's own object - with Direct3D 9 its COM interface, the same address the original kept -, so a handle
 // costs exactly what the original's pointer did: no wrapper, no table, no indirection. Only the files that talk to
-// Direct3D see what a handle is (render_d3d9/d3d9_handles.h converts, a cast of the pointer's type and nothing at run time).
+// Direct3D see what a handle is (render_pc/d3d9_handles.h converts, a cast of the pointer's type and nothing at run time).
 namespace render {
 
 struct GpuInstance;     // the API itself (Direct3D 9: IDirect3D9)

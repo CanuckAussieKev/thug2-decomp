@@ -112,7 +112,7 @@ enum class ColourSource : uint8_t {
 };
 
 // What replaces the texture stages: nothing (the stages run), or one of the game's ps.1.1 pixel shaders
-// (render_d3d9/pixel_shaders.cpp), each ported to GLSL by ff_shaders.cpp.
+// (render_pc/pixel_shaders.cpp), each ported to GLSL by ff_shaders.cpp.
 enum class PixelProgram : uint8_t {
     kStages = 0,                    // the fixed-function texture stages
     kTextureVertexX4 = 1,           // texture x pass colour x vertex colour x4, vertex alpha x texture alpha x2

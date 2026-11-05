@@ -76,7 +76,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
   - `formats/anim_format.h` / `.cpp`: the animation sections' addresses, kept in `uintptr_t` (x64-safe as they are),
     over files used in place (to confirm for every section during the port).
   - `platform/crash.cpp` (10, the crash report: below), `platform/gamespy.cpp` (2: NAT negotiation's `int` user word
-    holds a pointer), `platform/run_log.cpp`, `base/core/all_ones.h`, `render_d3d9/imgui_texture_id.h` (64-bit
+    holds a pointer), `platform/run_log.cpp`, `base/core/all_ones.h`, `render_pc/imgui_texture_id.h` (64-bit
     already) and `tests/format_check_files.cpp` (9).
 - **`raw::` (raw_view.h): 42 lines** (platform 15, engine/script 8, render_d3d9 8, formats 6). They read memory as
   another type. Most are layout-neutral. Each one has to be read.
@@ -109,7 +109,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 
 - `_controlfp`: only in `src/tests/maths_check.cpp`, which runs at 53 and at 24 bits. Direct3D 9 sets 24 bits on
   the thread that makes the device, because the game makes it without `D3DCREATE_FPU_PRESERVE`
-  (`render_d3d9/device.cpp`).
+  (`render_pc/device.cpp`).
 - The game's own code never sets the precision. The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
   CMake files set no `/arch`), so its `float` / `double` arithmetic is already SSE2 and doesn't depend on the x87
   control word. The x87 remains in these places in the 32-bit build:

@@ -41,7 +41,7 @@
 #include "input_dinput/dinput_source.h"
 #include "media_bink/bink_movie.h"
 #include "engine/gfx/loading_console.h"
-#include "render_d3d9/loading_console_panel.h"
+#include "render_pc/loading_console_panel.h"
 #include "game/commands/node_hooks.h"
 #include "game/front_end/pad_hooks.h"
 #include "game/online/transport_hooks.h"

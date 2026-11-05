@@ -12,7 +12,7 @@
 // graphics buffers' handles and the copies of their bytes in memory), a mesh's (its formats, counts, bounding sphere,
 // colour, buffers, collision lists) and the first part of an instance's (its flags, transform, bones and colour) - the
 // original's layouts (static_asserts below), with the accessors other code reads and sets them through. The graphics
-// backend's classes derive from them and add what they do (render_d3d9/vertex_buffers.h: VertexBuffer and IdxStore;
+// backend's classes derive from them and add what they do (render_pc/vertex_buffers.h: VertexBuffer and IdxStore;
 // sub_mesh.h: MeshRef; geom.h: Singleton); the level editor reads and edits a sector's meshes through these records
 // alone, and asks the backend for the rest (render::Device, "what our level editor asks": a geom's meshes, new buffers,
 // their upload). Nothing here calls the backend.

@@ -52,7 +52,7 @@ The index below lists each kind of shared constant or enum and the header that h
 | 2D layout sizes (640 x 480, the screen elements' 640 x 448) | `engine/gfx/screen.h` |
 | The new front end's 1280 x 720 design canvas | `frontend/new_frontend_model.h` |
 | The screen elements' float constants as the original stores them | `engine/ui/screen_constants.h` |
-| The renderer's render-state ids (`render::RenderStateId`); Direct3D values (address modes, texture ops, lock flags) | `render_d3d9/render_state.h` |
+| The renderer's render-state ids (`render::RenderStateId`); Direct3D values (address modes, texture ops, lock flags) | `render_pc/render_state.h` |
 | The materials' blend modes and the meshes' vertex format bits | `engine/gfx/mesh_formats.h` |
 | The PC geometry's record layouts (vertex / index buffers, meshes, instances: their offsets and sizes) | `engine/gfx/mesh_records.h` |
 | pi and a full turn | `base/maths/trig.h` (`maths::kPi`, `maths::kTwoPi`) |

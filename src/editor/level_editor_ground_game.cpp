@@ -89,7 +89,7 @@ render::StaticCollider* static_of(render::WorldCell* sector)
     return core::down_cast<render::StaticCollider>(coll);
 }
 
-// The buffers as MeshRef::Replicate (render_d3d9/sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy
+// The buffers as MeshRef::Replicate (render_pc/sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy
 // and the card's) and an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270) - the graphics
 // backend's (render::Device::create_vertex_buffer ...).
 gsl::owner<render::VertexBufferData*> new_vertex_buffer(uint32_t size)

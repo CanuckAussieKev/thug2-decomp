@@ -2,7 +2,7 @@
 
 // NOT ORIGINAL - render::GpuContext: how the PC layer asks the graphics API for its instance, device and swap chain
 // (docs/design/vulkan.md, V5e). render::Gpu (gpu.h) is what draws once the device exists; this is the small interface
-// that makes it, resets it and reports what it can do. Direct3D 9's implementation is render_d3d9/d3d9_context.h (it
+// that makes it, resets it and reports what it can do. Direct3D 9's implementation is render_pc/d3d9_context.h (it
 // makes the IDirect3D9, the device and its present parameters); a Vulkan one would make the instance, the physical and
 // logical device and the swap chain here.
 //

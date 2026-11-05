@@ -24,7 +24,7 @@
 #include "game/commands/face_texture_cfuncs.h"
 #include "engine/gfx/font.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "render_d3d9/movie.h"
+#include "render_pc/movie.h"
 #include "engine/gfx/world_scene.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/texture_cfuncs.h"

@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the source's layering rule (docs/architecture.md "Layers"): the named views of in-memory layouts
 // (raw::as / field_at / bytes / chars / owner_of, cell::of / pointer / address / at_address, memory::bits_as,
 // function_at, library_function) belong to the boundary layer only - src/formats, src/wire, src/platform, the GPU
-// buffers (render_d3d9/vertex_buffers, engine/gfx/vertex_view.h) and
+// buffers (render_pc/vertex_buffers, engine/gfx/vertex_view.h) and
 // the QB bytecode readers until the script runtime is replaced. Anywhere else a use is an error: a layout to be given
 // its type, or data from outside to decode at the boundary.
 //   node tools/layering.ts            each use outside the boundary (none allowed)
@@ -23,15 +23,15 @@ const BOUNDARY_FILES = new Set([
     // a script value's 32 bits, read as the kind its holder says (the QB value cell)
     "src/engine/script/cell.h",
     // the GPU's vertex and index buffers and their views (once src/gpu/)
-    "src/render_d3d9/vertex_buffers.cpp",
-    "src/render_d3d9/vertex_buffers.h",
-    "src/render_d3d9/d3d9_handles.h",
+    "src/render_pc/vertex_buffers.cpp",
+    "src/render_pc/vertex_buffers.h",
+    "src/render_pc/d3d9_handles.h",
     "src/engine/gfx/gpu_handles.h",
     "src/engine/gfx/vertex_view.h",
     // Dear ImGui's texture ids over Direct3D's textures (once in platform/)
-    "src/render_d3d9/imgui_texture_id.h",
+    "src/render_pc/imgui_texture_id.h",
     // D3DX's buffers over the callers' out-parameters (once in platform/)
-    "src/render_d3d9/d3dx.cpp",
+    "src/render_pc/d3dx.cpp",
     // binkw32's exports looked up by name (once in platform/)
     "src/media_bink/bink.cpp",
     // Winsock's generic addresses, hostent and char buffers over the game's (once platform/sockets.cpp)

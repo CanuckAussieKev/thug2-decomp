@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // The materials' blend modes and the meshes' vertex formats as the scene data stores them (a pass's blend word, a
-// mesh's flexible vertex format): what the renderer draws them with (render_d3d9/render_state.h) and what the level
+// mesh's flexible vertex format): what the renderer draws them with (render_pc/render_state.h) and what the level
 // editor reads of a material or a mesh.
 namespace render {
 

@@ -18,7 +18,7 @@
 //     with COUNTn and PROJECTED); the point size;
 //   - the fragment shader: the texture stages (every D3DTOP but premodulation and bump mapping, each stage clamped to
 //     0-1) and the specular add - or one of the game's ps.1.1 shaders ported to GLSL (the six fixed ones and the
-//     per-material generator, render_d3d9/pixel_shaders.cpp) - then fog (per vertex, or per pixel for table fog), then
+//     per-material generator, render_pc/pixel_shaders.cpp) - then fog (per vertex, or per pixel for table fog), then
 //     the alpha test against the 0-255 reference.
 namespace render::vulkan {
 
