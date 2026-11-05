@@ -4,10 +4,6 @@
 #include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/d3dx.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -28,7 +24,7 @@
 #include "render_d3d9/shadow_base.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 
 namespace render {
 
@@ -181,8 +177,8 @@ void compile_pixel_shaders()
         });
         for (const Fixed& fixed : kFixed) {
             assemble_shader(fixed.source, static_cast<uint32_t>(std::strlen(fixed.source)), &shader, &errors);
-            IDirect3DPixelShader9* made = nullptr;
-            d3d9::state().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
+            GpuPixelShader* made = nullptr;
+            gpu().create_pixel_shader(static_cast<const uint32_t*>(buffer_pointer(shader)), &made);
             hdl(fixed.handle) = made;
             // Not original - the level editor's Unlit view (render_d3d9/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(fixed.handle), fixed.source);
@@ -319,12 +315,12 @@ void* generated_pixel_shader(const void* material)
 
     void* shader = nullptr;
     void* errors = nullptr;
-    IDirect3DPixelShader9* handle = nullptr;
+    GpuPixelShader* handle = nullptr;
     if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) !=
         0) {
         buffer_pointer(errors); // (the error text, not shown)
     }
-    d3d9::state().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
+    gpu().create_pixel_shader(static_cast<const uint32_t*>(buffer_pointer(shader)), &handle);
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);
