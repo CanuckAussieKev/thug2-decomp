@@ -6,12 +6,16 @@
 
 #include "editor/level_editor_scenery.h"
 #include <cstdint>
+#include <memory>
 #include <span>
+#include <map>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include "engine/gfx/render_device.h"
 #include "editor/level_editor.h"
+#include "engine/memory/arena_alloc.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_shared_coll.h"
 #include "engine/gfx/engine_scene.h"
@@ -23,10 +27,13 @@
 #include "engine/lists/key_map.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/gfx/engine_parts.h"
 
 namespace frontend::level_editor {
 
 namespace internal {
+
+constexpr int kMaxNodeGuard = 256; // a scene list longer than this is taken as broken
 
 constexpr int kMaxSectorTableBits = 20; // the largest sector table walked
 
@@ -42,6 +49,28 @@ namespace frontend::level_editor::scenery {
 namespace internal {
 
 constexpr float kMaxSectorExtent = 4000.0F; // (larger: the ground, a street, a building block - not moved)
+
+// The scenes (0x006FA7EC's list: nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1), skies left
+// out (+0x8D: drawn in the sky pass).
+// A node of the scene list (memory::ListNode): its scene, and whether it is the list's head.
+using SceneNode = memory::ListNode;
+
+render::WorldScene* scene_of(const SceneNode* node);
+
+bool is_end(const SceneNode* node);
+
+template <typename F>
+void for_each_scene(F fn)
+{
+    auto* node = (render::engine_parts().scene_list().next());
+    for (int guard = 0; node && !is_end(node) && guard < kMaxNodeGuard; ++guard) {
+        SceneNode* next = node->next();
+        if (scene_of(node) && !scene_of(node)->is_sky()) {
+            fn(scene_of(node));
+        }
+        node = next;
+    }
+}
 
 // A scene's sector table (its sectors_ key map: 1 << bits buckets, each an item with more chained from it).
 template <typename F>
@@ -76,13 +105,58 @@ bool plain_geom(render::Geom* geom);
 
 bool geom_box(render::Geom* geom, V3* min, V3* max);
 
+const char* meshes_movable(render::Geom* geom);
+
+// What we've done to a sector: the box, turns and position when first touched, the placement since, and the engine's
+// state as we set it (checked again before each use: a level reloaded at the same addresses starts afresh).
+struct Track {
+    uint32_t checksum;
+    render::WorldScene* scene;
+    render::WorldCell* sector;
+    render::Geom* geom;
+    V3 min0, max0;
+    int quarters0;
+    V3 position0;
+    Placement placement;
+    int quarters;
+    V3 position;
+    V3 collision_moved_; // (how far its own collision has been moved since: position - position0 on sixteenths)
+    bool moved;
+    std::shared_ptr<scale_tool::Original>
+        original; // (once scaled: its vertices and collision then - level_editor_scale.h)
+};
+
+std::map<uint32_t, Track>& tracks_state();
+
+// NOT ORIGINAL grouping - level_editor_scenery.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_scenery_state()).
+struct LevelEditorSceneryState {
+    std::vector<uint32_t> selection_;
+    V3 pivot_{};
+    float half_extent_y_{}; // (the selection's bottom is this far below the pivot - quarter turns keep it)
+    std::vector<render::WorldScene*> dirty_scenes_;
+};
+
+LevelEditorSceneryState& level_editor_scenery_state();
+
 std::unordered_map<uint32_t, uint32_t>& shadow_of();
+
+bool current_box(uint32_t checksum, render::Geom* geom, OrientedBox* box);
 
 const char* get_name_of(uint32_t checksum);
 
 std::string caption(uint32_t checksum);
 
 uint32_t cluster_of(uint32_t checksum);
+
+// NOT ORIGINAL grouping - the scenery's rails and the ones dropped (were globals). Made on first use, never destroyed
+// (scenery_rails()).
+struct SceneryRails {
+    std::vector<uint32_t> rails_; // (the selection's rail nodes, by name)
+    std::vector<uint32_t> dropped_rails_; // (Ctrl+click / the Inspector's x: not carried until another group is selected)
+};
+
+SceneryRails& scenery_rails();
 
 Placement placement_of(uint32_t checksum, render::Geom* geom);
 
@@ -93,6 +167,18 @@ float geom_level_share(uint32_t checksum, render::Geom* geom);
 bool same_placement(const Placement& a, const Placement& b);
 
 std::vector<uint32_t> group_of(uint32_t checksum);
+
+// NOT ORIGINAL grouping - the group hovered and the groups by piece (were globals). Made on first use, never destroyed
+// (scenery_hover()).
+struct SceneryHover {
+    // The hovered sector's group (what a click would select), kept while the same sector is hovered.
+    uint32_t hover_group_of_{};
+    std::vector<uint32_t> hover_group_;
+};
+
+SceneryHover& scenery_hover();
+
+std::unordered_map<uint32_t, std::pair<render::Geom*, float>>& level_shares();
 
 } // namespace internal
 
