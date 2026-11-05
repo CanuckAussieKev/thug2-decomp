@@ -429,7 +429,7 @@ bool KinematicsModule::obj_follow_path_linked(script::Struct* params, script::Sc
 // 0x00425290
 bool KinematicsModule::obj_follow_path_stored(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    start_path(saved_node_id_);
+    start_path(stored_.node);
     motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingPath;
     return true;
 }

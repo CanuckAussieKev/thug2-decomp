@@ -398,6 +398,12 @@ private:
         void set_direction(int axis);
     };
 
+    // What the scripts stored (+0x1B0-+0x1C3) for the *_stored member functions to go to or look at.
+    struct Stored {
+        maths::Vec4 pos{}; // +0x00 (+0x1B0) Obj_StorePos
+        uint32_t node{};   // +0x10 (+0x1C0) obj_store_node (the path's node)
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
@@ -410,8 +416,7 @@ private:
     float ground_speed_{0.0F};            // +0x19C the ground offset's speed of change
     float ground_offset_{0.0F};           // +0x1A0 how far the height has still to go to the ground
     PathStop path_stop_;                  // +0x1A4-+0x1AF a stop along the path
-    maths::Vec4 stored_pos_{};            // +0x1B0 Obj_StorePos
-    uint32_t saved_node_id_{};            // +0x1C0 obj_store_node
+    Stored stored_;                       // +0x1B0-+0x1C3 what the scripts stored
     float turn_time_{};                   // +0x1C4 Obj_Rotate's time (0: at once)
     float turn_elapsed_{};                // +0x1C8
     maths::ArcRotationBlender* turn_ptr_{};      // +0x1CC Obj_Rotate's interpolator (0x98 bytes)

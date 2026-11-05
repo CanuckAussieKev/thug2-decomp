@@ -203,14 +203,14 @@ void KinematicsModule::update_hover()
 // 0x004237D0
 bool KinematicsModule::obj_store_pos(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    stored_pos_ = entity()->at_point();
+    stored_.pos = entity()->at_point();
     return true;
 }
 
 // 0x00423810
 bool KinematicsModule::obj_store_node(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    saved_node_id_ = path_follower_->list_link();
+    stored_.node = path_follower_->list_link();
     return true;
 }
 
@@ -372,8 +372,8 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, path_stop_.covered), .original = 0x1A4},
         FieldAt{.now = offsetof(KinematicsModule, path_stop_.start_speed), .original = 0x1A8},
         FieldAt{.now = offsetof(KinematicsModule, path_stop_.min_speed), .original = 0x1AC},
-        FieldAt{.now = offsetof(KinematicsModule, stored_pos_), .original = 0x1B0},
-        FieldAt{.now = offsetof(KinematicsModule, saved_node_id_), .original = 0x1C0},
+        FieldAt{.now = offsetof(KinematicsModule, stored_.pos), .original = 0x1B0},
+        FieldAt{.now = offsetof(KinematicsModule, stored_.node), .original = 0x1C0},
         FieldAt{.now = offsetof(KinematicsModule, turn_time_), .original = 0x1C4},
         FieldAt{.now = offsetof(KinematicsModule, turn_elapsed_), .original = 0x1C8},
         FieldAt{.now = offsetof(KinematicsModule, turn_ptr_), .original = 0x1CC},

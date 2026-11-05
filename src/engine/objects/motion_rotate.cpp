@@ -518,7 +518,7 @@ bool KinematicsModule::obj_look_at_node_linked(script::Struct* params, script::S
 bool KinematicsModule::obj_look_at_node_stored(script::Struct* params, script::Script* /*script*/)
 {
     maths::Vec4 pos;
-    level_nodes::fetch_place(saved_node_id_, &pos);
+    level_nodes::fetch_place(stored_.node, &pos);
     get_look_at(params, &pos);
     return true;
 }
@@ -538,7 +538,7 @@ bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script* /
 // 0x00426880
 bool KinematicsModule::obj_look_at_pos_stored(script::Struct* params, script::Script* /*script*/)
 {
-    get_look_at(params, &stored_pos_);
+    get_look_at(params, &stored_.pos);
     return true;
 }
 

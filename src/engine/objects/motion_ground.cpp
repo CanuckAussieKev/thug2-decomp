@@ -413,7 +413,7 @@ bool KinematicsModule::obj_skip_to_restart(script::Struct* params, script::Scrip
 // 0x004272D0
 bool KinematicsModule::obj_move_to_pos_stored(script::Struct* params, script::Script* script)
 {
-    move_to(params, script, stored_pos_, 0);
+    move_to(params, script, stored_.pos, 0);
     return true;
 }
 
