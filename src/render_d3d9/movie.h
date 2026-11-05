@@ -20,9 +20,9 @@ void draw_movie_frame(GpuTexture* texture, maths::Vec2 at, maths::Size size, flo
 
 // PartyMod's two calls in draw_movie_frame. set_movie_texture (cdecl): the renderer's texture set (0x004DA730),
 // noting the texture's size first. draw_movie_quad (in place of the device's DrawPrimitiveUP):
-// the quad's corners moved to the largest 4:3 area centred in the back buffer, then drawn.
+// the quad's corners moved to the largest 4:3 area centred in the back buffer, then drawn (through the Gpu).
 void set_movie_texture(int stage, GpuTexture* texture, int unknown);
-void draw_movie_quad(GpuDevice* device, int type, uint32_t count, void* vertices, uint32_t stride);
+void draw_movie_quad(int type, uint32_t count, void* vertices, uint32_t stride);
 
 } // namespace render
 

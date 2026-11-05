@@ -16,7 +16,6 @@ const DIRECT3D_HEADERS = new Set([
     "render_d3d9/d3d9_state.h",
     "render_d3d9/d3d9_handles.h",
     "render_d3d9/d3d_matrix.h",
-    "render_d3d9/d3dx_jpg.h",
     "render_d3d9/imgui_texture_id.h",
 ]);
 
@@ -134,6 +133,8 @@ const THROUGH_GPU = [
     "render_d3d9/bitmap_texture.cpp",
     "render_d3d9/pc_texture.cpp",
     "render_d3d9/texture_file.cpp",
+    // V5e: movies
+    "render_d3d9/movie.cpp",
 ];
 
 // render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs
