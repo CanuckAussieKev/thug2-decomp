@@ -73,7 +73,7 @@ UndoStep get_snapshot()
     if (picked_node_index() >= 0) {
         step.kind = UndoStep::Kind::kNodes;
         // (a rail point: the points that move with it too)
-        const std::vector<uint32_t> names = node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_);
+        const std::vector<uint32_t> names = node_edit::moved_with(picked_set().node_name_, tool_options().move_entire_rail_);
         for (const uint32_t name : names) {
             node_edit::note_origin(name);
         }

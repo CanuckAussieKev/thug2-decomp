@@ -190,10 +190,10 @@ std::string hover_text()
     } else if (get_live(picked_set().hover_)) {
         text = object_edit::describe(get_live(picked_set().hover_));
     }
-    if (drag_session().hover_axis_ < 0 && pick_cycle().hover_cycle_ >= 0) {
+    if (drag_session().hover_axis_ < 0 && click_cycle().hover_cycle_ >= 0) {
         std::array<char, kPlaceTextSize> place{};
-        text::format_to(place, "  (%d of %d under the cursor: click)", pick_cycle().hover_cycle_ + 1,
-                        static_cast<int>(pick_cycle().cycle_.order.size()));
+        text::format_to(place, "  (%d of %d under the cursor: click)", click_cycle().hover_cycle_ + 1,
+                        static_cast<int>(click_cycle().cycle_.order.size()));
         text += place.data();
     } else if (drag_session().hover_axis_ < 0 && (picked_set().hover_sector_ == 0U) && !get_live(picked_set().hover_) &&
                (picked_set().hover_passed_ != 0U)) {
@@ -312,7 +312,7 @@ std::vector<std::pair<std::string, std::string>> keys_now()
     }
     context.carried = drag_session().dragging_ ? carry::total_of() : 0;
     context.browser = stored_browser().open;
-    context.place_armed_ = pick_cycle().place_armed_ >= 0;
+    context.place_armed_ = place_palette().place_armed_ >= 0;
     context.ladder_drawing_ = chains::get_drawing() == chains::Blit::kLadder;
     context.chain_drawing_ = chains::get_drawing() != chains::Blit::kNone && !context.ladder_drawing_;
     context.chain_pick_ = chains::wants_pick();
@@ -549,8 +549,8 @@ void fill_nodes(ui::ShapeMesh& model)
             } else {
                 model.nodes.chain_noun_ = "rail";
             }
-            model.nodes.entire_rail_ = pick_cycle().move_entire_rail_;
-            model.nodes.rail_points_ = static_cast<int>(node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_).size());
+            model.nodes.entire_rail_ = tool_options().move_entire_rail_;
+            model.nodes.rail_points_ = static_cast<int>(node_edit::moved_with(picked_set().node_name_, tool_options().move_entire_rail_).size());
         }
     }
     model.nodes.online_warning_ = picked_set().online_warning_shown_;
@@ -608,9 +608,9 @@ void fill_level_props(ui::ShapeMesh& model, uint32_t scene)
 // (the Place palette)
 void fill_place(ui::ShapeMesh& model)
 {
-    model.place.open = pick_cycle().place_open_;
-    model.place.armed = pick_cycle().place_armed_;
-    if (pick_cycle().place_open_) {
+    model.place.open = place_palette().place_open_;
+    model.place.armed = place_palette().place_armed_;
+    if (place_palette().place_open_) {
         for (const PlaceEntry& entry : place_entries()) {
             const char* why = entry.lobby ? node_create::why_not_lobby_flag(entry.team)
                                           : node_create::get_why_not(entry.kind, entry.team);
@@ -631,8 +631,8 @@ void fill_place(ui::ShapeMesh& model)
 // (the hide confirm window)
 void fill_confirm(ui::ShapeMesh& model)
 {
-    if (pick_cycle().confirm_hide_ != 0U) {
-        const int index = nodes::get_find(pick_cycle().confirm_hide_);
+    if (confirmations().confirm_hide_ != 0U) {
+        const int index = nodes::get_find(confirmations().confirm_hide_);
         if (index >= 0) {
             const nodes::Elem& elem = core::at(nodes::get_all(), index);
             model.confirm.open = true;
@@ -647,7 +647,7 @@ void fill_confirm(ui::ShapeMesh& model)
             model.confirm.family = family;
             model.confirm.crown = elem.family == nodes::Family::kCrown;
         } else {
-            pick_cycle().confirm_hide_ = 0;
+            confirmations().confirm_hide_ = 0;
         }
     }
 }
@@ -667,7 +667,7 @@ ui::ShapeMesh assemble_model()
     model.level = (scene != 0U) ? object_edit::caption(scene) : "";
     model.level_title_ = layout::level_title();
     model.edited_saved_ = layout::has_saved_layout();
-    model.confirm_reset_ = pick_cycle().confirm_reset_;
+    model.confirm_reset_ = confirmations().confirm_reset_;
     model.mode = mode_name();
     model.selected = describe_selection();
     model.hover = hover_text();

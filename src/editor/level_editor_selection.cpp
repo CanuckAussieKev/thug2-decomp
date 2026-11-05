@@ -160,7 +160,7 @@ void set_selected_node(const node_edit::Values& values)
     node_edit::Values now;
     if (node_edit::is_chain(picked_set().node_name_) && node_edit::get_take_in(picked_set().node_name_, &now)) {
         const V3 delta = values.pos - now.pos;
-        for (const uint32_t name : node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_)) {
+        for (const uint32_t name : node_edit::moved_with(picked_set().node_name_, tool_options().move_entire_rail_)) {
             node_edit::Values point;
             if (node_edit::get_take_in(name, &point)) {
                 point.pos = point.pos + delta;
@@ -408,25 +408,25 @@ float trigger_reach(V3 dir)
 // filter the same - and that click took something with more under it.
 bool cycle_holds(float x, float y, bool shift, bool everything)
 {
-    const V3 moved = fly_camera().pos_ - pick_cycle().cycle_.pos;
-    return pick_cycle().cycle_.have && !shift && !everything && pick_cycle().cycle_.index >= 0 &&
-           pick_cycle().cycle_.order.size() > 1 &&
-           picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) &&
-           get_dot(moved, moved) < 1.0F && pick_cycle().cycle_.changes == unsaved_changes().changes_ &&
-           pick_cycle().cycle_.filter == tool_options().pick_filter_;
+    const V3 moved = fly_camera().pos_ - click_cycle().cycle_.pos;
+    return click_cycle().cycle_.have && !shift && !everything && click_cycle().cycle_.index >= 0 &&
+           click_cycle().cycle_.order.size() > 1 &&
+           picking::same_spot(x, y, click_cycle().cycle_.x, click_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) &&
+           get_dot(moved, moved) < 1.0F && click_cycle().cycle_.changes == unsaved_changes().changes_ &&
+           click_cycle().cycle_.filter == tool_options().pick_filter_;
 }
 
 // The hover's entry in the click cycle's order - its node, else `object`, else its scenery (-1: none of them).
 int hover_cycle_index(const objects::GameEntity* object)
 {
     if (picked_set().hover_node_ >= 0) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, picked_set().hover_node_);
+        return picking::get_index_of(click_cycle().cycle_.order, picking::Choice::kNode, picked_set().hover_node_);
     }
     if (object) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident());
+        return picking::get_index_of(click_cycle().cycle_.order, picking::Choice::kObject, object->ident());
     }
     if (picked_set().hover_sector_ != 0U) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery, picked_set().hover_sector_);
+        return picking::get_index_of(click_cycle().cycle_.order, picking::Choice::kScenery, picked_set().hover_sector_);
     }
     return -1;
 }
@@ -437,11 +437,11 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
     const float x = at.x;
     const float y = at.y;
     if (!plain) {
-        pick_cycle().cycle_.have = false;
+        click_cycle().cycle_.have = false;
         return;
     }
-    if (pick_cycle().hover_cycle_ >= 0) {
-        pick_cycle().cycle_.index = pick_cycle().hover_cycle_;
+    if (click_cycle().hover_cycle_ >= 0) {
+        click_cycle().cycle_.index = click_cycle().hover_cycle_;
     } else {
         std::vector<picking::Layered> objects;
         std::vector<picking::Layered> scenery;
@@ -455,19 +455,19 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
         for (const scenery::Layer& layer : layers) {
             scenery.push_back({.id = layer.checksum, .t = layer.t, .passed = layer.passed});
         }
-        pick_cycle().cycle_ = Cycle{};
-        pick_cycle().cycle_.have = true;
-        pick_cycle().cycle_.x = x;
-        pick_cycle().cycle_.y = y;
-        pick_cycle().cycle_.pos = fly_camera().pos_;
-        pick_cycle().cycle_.filter = tool_options().pick_filter_;
-        pick_cycle().cycle_.order = picking::cycle_order(picked_set().hover_node_, objects, scenery, tool_options().pick_filter_);
+        click_cycle().cycle_ = Cycle{};
+        click_cycle().cycle_.have = true;
+        click_cycle().cycle_.x = x;
+        click_cycle().cycle_.y = y;
+        click_cycle().cycle_.pos = fly_camera().pos_;
+        click_cycle().cycle_.filter = tool_options().pick_filter_;
+        click_cycle().cycle_.order = picking::cycle_order(picked_set().hover_node_, objects, scenery, tool_options().pick_filter_);
         const objects::GameEntity* object = get_live(picked_set().hover_);
-        pick_cycle().cycle_.index = hover_cycle_index(object);
+        click_cycle().cycle_.index = hover_cycle_index(object);
     }
-    if (pick_cycle().cycle_.index >= 0 && pick_cycle().cycle_.order.size() > 1) {
+    if (click_cycle().cycle_.index >= 0 && click_cycle().cycle_.order.size() > 1) {
         std::array<char, kPickTextSize> text{};
-        text::format_to(text, "%d of %d under cursor", pick_cycle().cycle_.index + 1, static_cast<int>(pick_cycle().cycle_.order.size()));
+        text::format_to(text, "%d of %d under cursor", click_cycle().cycle_.index + 1, static_cast<int>(click_cycle().cycle_.order.size()));
         hud::get_message(text.data(), kCountMessageSeconds);
     }
 }

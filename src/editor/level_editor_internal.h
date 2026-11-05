@@ -104,14 +104,16 @@ struct FlyCamera {
 
 FlyCamera& fly_camera();
 
-// The view as last drawn (note_view), and the last frame's ray under the cursor (the camera tools and play from here -
-// level_editor_camera.h, level_editor_play.h: an orbit's pivot) (drawn_view()).
+// The view as last drawn (note_view), the last frame's ray under the cursor (the camera tools and play from here -
+// level_editor_camera.h, level_editor_play.h: an orbit's pivot) and what the last frame drew of the node layer's
+// gizmos (picked by screen distance - level_editor_nodes.h) (drawn_view()).
 struct DrawnView {
     bool have_view_{};
     Lens lens_{};
     std::array<uint32_t, 4> viewport_{};
     bool last_have_ray_{};
     V3 last_ray_{};
+    std::vector<nodes::Pickable> pickables_;
 };
 
 DrawnView& drawn_view();
@@ -133,8 +135,8 @@ struct UnsavedChanges {
 UnsavedChanges& unsaved_changes();
 
 // The editor's run: on or off, the frame clock, the pause key (held when the editor starts: it counts once let go),
-// leaving asked for, Escape's cancel, the cursor as the game had it, and what the editor last did - for the log if the
-// game crashes (plain memory: the crash hook reads it) (editor_session()).
+// leaving asked for, Escape's cancel, the cursor as the game had it, the frames the old HUD has been taken down, and what
+// the editor last did - for the log if the game crashes (plain memory: the crash hook reads it) (editor_session()).
 struct EditorSession {
     bool active_{};
     uint64_t last_counter_{};
@@ -142,6 +144,7 @@ struct EditorSession {
     bool exit_requested_{};
     bool cancel_requested_{}; // (Escape: a drag put back, the browser or the help closed - before leaving)
     int saved_cursor_ = -1;
+    int hud_taken_down_{}; // (the UI runs: frames the HUD's screen elements have been taken down)
     std::array<char, kLastActionSize> last_action_ = {"none"};
 };
 
@@ -272,13 +275,15 @@ struct TransformSession {
 TransformSession& transform_session();
 
 // The tool options (tool_options()): the help panel (F1), the toolbar's Snap 25 (moves snap without Ctrl), the node
-// families shown ([editor] families in the ini - level_editor_nodes.h) and what a click in the view may take ([editor]
-// pick= - level_editor_picking.h).
+// families shown ([editor] families in the ini - level_editor_nodes.h), what a click in the view may take ([editor]
+// pick= - level_editor_picking.h), and whether a rail node moves with its whole rail (level_editor_node_edit.h - L
+// toggles: one point).
 struct ToolOptions {
     bool help_{};
     bool snap_always_{};
     uint32_t families_ = nodes::kAllFamilies;
     uint32_t pick_filter_ = picking::kAll;
+    bool move_entire_rail_ = true;
 };
 
 ToolOptions& tool_options();
@@ -293,27 +298,34 @@ struct Cycle {
     int index = -1;
 };
 
-// NOT ORIGINAL grouping - the pick cycle, the placing, the confirmations, the pickables and the overlay (were globals).
-// Made on first use, never destroyed (pick_cycle()).
-struct PickCycle {
+// NOT ORIGINAL grouping (were globals; each made on first use, never destroyed). Click-to-cycle (click_cycle()): the
+// last click's spot, what was under it in the cycle's order and which of those it took; the hover is the cycle's next
+// entry while it holds.
+struct ClickCycle {
     Cycle cycle_{};
     int hover_cycle_ = -1; // (the hover is the cycle's next entry: its index)
-    // Phase 3 (level_editor_node_create.h): the Place palette (N) and its armed entry (a click in the view places it), a
-    // level's node waiting for the confirm window before it's hidden.
-    bool place_open_{};
-    int place_armed_ = -1;
-    uint32_t confirm_hide_{};
-    // Reset level (Ctrl+Shift+Delete, the toolbar): the confirm window is up; the old HUD's second press (its time).
-    bool confirm_reset_{};
-    uint32_t reset_asked_at_{};
-    // Rails (level_editor_node_edit.h): a rail node moves with its whole rail (L toggles: one point).
-    bool move_entire_rail_ = true;
-    std::vector<nodes::Pickable> pickables_;
-    ui::Overlay overlay_{};
-    int hud_taken_down_{}; // (the UI runs: frames the HUD's screen elements have been taken down)
 };
 
-PickCycle& pick_cycle();
+ClickCycle& click_cycle();
+
+// Phase 3 (level_editor_node_create.h): the Place palette (N) and its armed entry - a click in the view places it
+// (place_palette()).
+struct PlacePalette {
+    bool place_open_{};
+    int place_armed_ = -1;
+};
+
+PlacePalette& place_palette();
+
+// The confirm windows (confirmations()): a level's node waiting for its confirm before it's hidden; Reset level
+// (Ctrl+Shift+Delete, the toolbar) - the window is up, and the old HUD's second press (its time).
+struct Confirmations {
+    uint32_t confirm_hide_{};
+    bool confirm_reset_{};
+    uint32_t reset_asked_at_{};
+};
+
+Confirmations& confirmations();
 
 struct Browser {
     bool open = false;

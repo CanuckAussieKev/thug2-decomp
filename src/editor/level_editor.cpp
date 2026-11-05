@@ -176,10 +176,22 @@ ToolOptions& tool_options()
     return options.get();
 }
 
-PickCycle& pick_cycle()
+ClickCycle& click_cycle()
 {
-    static core::NoDestroy<PickCycle> state;
-    return state.get();
+    static core::NoDestroy<ClickCycle> cycle;
+    return cycle.get();
+}
+
+PlacePalette& place_palette()
+{
+    static core::NoDestroy<PlacePalette> palette;
+    return palette.get();
+}
+
+Confirmations& confirmations()
+{
+    static core::NoDestroy<Confirmations> confirm;
+    return confirm.get();
 }
 
 Browser& stored_browser()
@@ -266,8 +278,8 @@ void handle_event(const input::Event& event)
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event.key == SDL_SCANCODE_ESCAPE && !event.repeat &&
             !actions::get_capturing()) {
-            if (drag_session().dragging_ || stored_browser().open || tool_options().help_ || pick_cycle().place_open_ ||
-                (pick_cycle().confirm_hide_ != 0U) || pick_cycle().confirm_reset_ ||
+            if (drag_session().dragging_ || stored_browser().open || tool_options().help_ || place_palette().place_open_ ||
+                (confirmations().confirm_hide_ != 0U) || confirmations().confirm_reset_ ||
                 chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() ||
                 !picked_set().objects_.empty() || scenery::has_selection() || picked_set().node_selected_ ||
                 ux8::wants_escape() || // (UX8: a pie, walking)
@@ -393,18 +405,18 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     play_test::on_editor_start(); // (the trail's run ends; the level's trails file read - level_editor_playtest.h)
     actions::seed_keys(input::keys()); // (the key that opened the editor doesn't act at once)
     render::occlusion_off() = occlusion_switch().occlusion_off_;
-    pick_cycle().hud_taken_down_ = 0;
+    editor_session().hud_taken_down_ = 0;
     tool_options().families_ = static_cast<uint32_t>(config_int("editor", "families", static_cast<int>(nodes::kAllFamilies))) &
                  nodes::kAllFamilies;
     tool_options().pick_filter_ =
         static_cast<uint32_t>(config_int("editor", "pick", static_cast<int>(picking::kAll))) & picking::kAll;
-    pick_cycle().cycle_ = Cycle{};
-    pick_cycle().hover_cycle_ = -1;
+    click_cycle().cycle_ = Cycle{};
+    click_cycle().hover_cycle_ = -1;
     picked_set().hover_passed_ = 0;
     picked_set().node_selected_ = false;
     picked_set().field_editing_ = false;
     picked_set().hover_node_ = -1;
-    pick_cycle().pickables_.clear();
+    drawn_view().pickables_.clear();
     hud::get_reset(!ui);
     stored_mouse() = Mouse{};
     editor_session().saved_cursor_ = input::show_cursor(input::kCursorQuery);

@@ -171,12 +171,12 @@ void update_hover(const EditorFrame& editor_frame)
         // (UX8: a drill-through - Alt+wheel - holds with Alt still down: its entry is the hover)
         const bool drilled = stored_drilled() && cycle_holds(input.x, input.y, false, false);
         stored_drilled() = drilled;
-        pick_cycle().hover_cycle_ =
+        click_cycle().hover_cycle_ =
             drilled || cycle_holds(input.x, input.y, shift, alt || (input.middle_presses_ != 0))
-                ? (pick_cycle().cycle_.index + 1) % static_cast<int>(pick_cycle().cycle_.order.size())
+                ? (click_cycle().cycle_.index + 1) % static_cast<int>(click_cycle().cycle_.order.size())
                 : -1;
-        if (have_ray && drag_session().hover_axis_ < 0 && pick_cycle().hover_cycle_ >= 0) {
-            const picking::TableRow& next = core::at(pick_cycle().cycle_.order, pick_cycle().hover_cycle_);
+        if (have_ray && drag_session().hover_axis_ < 0 && click_cycle().hover_cycle_ >= 0) {
+            const picking::TableRow& next = core::at(click_cycle().cycle_.order, click_cycle().hover_cycle_);
             if (next.kind == picking::Choice::kNode) {
                 picked_set().hover_node_ = static_cast<int>(next.id);
             } else if (next.kind == picking::Choice::kObject) {
@@ -190,7 +190,7 @@ void update_hover(const EditorFrame& editor_frame)
             scenery::Hit hit;
             scenery::get_pick(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &hit);
             // (a gizmo behind the first occluding surface under the cursor isn't taken by a plain click)
-            candidates.node = ui::underway() ? nodes::pick_nearest(pick_cycle().pickables_, {.x = back_x, .y = back_y},
+            candidates.node = ui::underway() ? nodes::pick_nearest(drawn_view().pickables_, {.x = back_x, .y = back_y},
                                                                    kHandlePickPixels * pixel_scale(),
                                                                    gizmo_occluder(frame, dir, hit, everything))
                                              : -1;
@@ -432,7 +432,7 @@ void handle_clicks(EditorFrame& editor_frame)
                          picked_set().hover_node_ < 0 && (get_live(picked_set().hover_) == nullptr) &&
                          (picked_set().hover_sector_ == 0U) && !faces::get_picking() && !chains::wants_pick() &&
                          chains::get_drawing() == chains::Blit::kNone &&
-                         !(pick_cycle().place_armed_ >= 0 && pick_cycle().place_open_) && !alt;
+                         !(place_palette().place_armed_ >= 0 && place_palette().place_open_) && !alt;
     // (UX8: a double click on nothing a click takes - a surface - with nothing selected (the first click deselects):
     // the camera glides there - level_editor_ux8.h)
     if (box_candidate && !ruler::get_armed() && !organize::box_armed() &&
@@ -472,16 +472,16 @@ void handle_clicks(EditorFrame& editor_frame)
     } else if ((input.left_presses_ != 0) && have_ray && !drag_session().dragging_ &&
                chains::get_drawing() != chains::Blit::kNone && drag_session().hover_axis_ < 0) {
         draw_chain_point(dir, alt);
-    } else if ((input.left_presses_ != 0) && have_ray && !drag_session().dragging_ && pick_cycle().place_armed_ >= 0 &&
-               pick_cycle().place_open_ && drag_session().hover_axis_ < 0) {
-        place_node(pick_cycle().place_armed_, cursor_point(dir, have_ray, frame));
+    } else if ((input.left_presses_ != 0) && have_ray && !drag_session().dragging_ && place_palette().place_armed_ >= 0 &&
+               place_palette().place_open_ && drag_session().hover_axis_ < 0) {
+        place_node(place_palette().place_armed_, cursor_point(dir, have_ray, frame));
         if (!shift) {
-            pick_cycle().place_armed_ = -1;
+            place_palette().place_armed_ = -1;
         }
     } else if ((input.left_presses_ != 0) && have_ray && !drag_session().dragging_ && ctrl && !alt && !shift &&
                drag_session().hover_axis_ < 0 && drop_under_cursor(dir)) {
         // (Ctrl+click: one part of the selection dropped - no drag)
-        pick_cycle().cycle_.have = false;
+        click_cycle().cycle_.have = false;
         note_action("ctrl+click - selected: %s", describe_selection().c_str());
         if (debug_enabled()) {
             get_log("level editor: ctrl+click - selected: %s", describe_selection().c_str());

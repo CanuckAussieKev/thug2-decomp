@@ -168,7 +168,7 @@ void place_node(int entry, V3 at)
         return;
     }
     push_undo(step, "Place node");
-    pick_cycle().pickables_.clear();
+    drawn_view().pickables_.clear();
     picked_set().hover_node_ = -1;
     const int index = nodes::get_find(node_create::name_hash(specs.front().name));
     if (index >= 0) {
@@ -228,7 +228,7 @@ bool place_entity(int entry, V3 at)
         step.added.push_back(spec);
         step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), name));
         push_undo(step, "Place");
-        pick_cycle().pickables_.clear();
+        drawn_view().pickables_.clear();
         picked_set().hover_node_ = -1;
         const int node = nodes::get_find(node_create::name_hash(name));
         if (node >= 0) {
@@ -267,7 +267,7 @@ bool place_entity(int entry, V3 at)
     if (!made.empty()) {
         select_objects(made);
     } else if (const int node = nodes::get_find(placed.copies.front()); node >= 0) {
-        pick_cycle().pickables_.clear();
+        drawn_view().pickables_.clear();
         select_node_only(node); // (a particle system: its node)
     }
     hud::get_message(placed.message);
@@ -308,8 +308,8 @@ void draw_chain_point(V3 dir, bool alt)
         uint32_t select = 0;
         const bool made = chains::ladder_click(fly_camera().pos_, make_unit(dir), kMaxPickDistance, &message, &select);
         after_chain_change(before, made ? select : 0, message);
-        if (made && chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
-            pick_cycle().place_armed_ = -1;
+        if (made && chain_kind_of(place_palette().place_armed_) != chains::Blit::kNone) {
+            place_palette().place_armed_ = -1;
         }
         return;
     }
@@ -327,8 +327,8 @@ void draw_chain_point(V3 dir, bool alt)
     unpick();
     after_chain_change(before, 0, message);
     if (chains::get_drawing() == chains::Blit::kNone &&
-        chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
-        pick_cycle().place_armed_ = -1; // (linked onto an end: done)
+        chain_kind_of(place_palette().place_armed_) != chains::Blit::kNone) {
+        place_palette().place_armed_ = -1; // (linked onto an end: done)
     }
 }
 
@@ -338,8 +338,8 @@ void stop_chain_drawing(const char* message)
     std::string text;
     uint32_t select = 0;
     chains::apply_op(chains::ChainOp::kCancel, 0, 0, &text, &select);
-    if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
-        pick_cycle().place_armed_ = -1;
+    if (chain_kind_of(place_palette().place_armed_) != chains::Blit::kNone) {
+        place_palette().place_armed_ = -1;
     }
     if (message) {
         hud::get_message(message);
@@ -380,7 +380,7 @@ void unlink_list_node(bool confirmed)
         object_edit::remove_copy(node.name);
         push_undo(step, "Delete copy");
         picked_set().node_selected_ = false;
-        pick_cycle().pickables_.clear();
+        drawn_view().pickables_.clear();
         picked_set().hover_node_ = -1;
         hud::get_message("Deleted");
         note_action("deleted the copy %s", nodes::caption(node.name).c_str());
@@ -399,7 +399,7 @@ void unlink_list_node(bool confirmed)
         step.added_at_.push_back(at);
         push_undo(step, "Delete node");
         picked_set().node_selected_ = false;
-        pick_cycle().pickables_.clear();
+        drawn_view().pickables_.clear();
         picked_set().hover_node_ = -1;
         note_online_change(node.family, spec.name.c_str(), "deleted");
         hud::get_message("Deleted " + spec.name);
@@ -416,7 +416,7 @@ void unlink_list_node(bool confirmed)
         return;
     }
     if (ui::underway() && !confirmed) {
-        pick_cycle().confirm_hide_ = node.name;
+        confirmations().confirm_hide_ = node.name;
         return;
     }
     if (!node_create::conceal(node.name, true)) {

@@ -295,7 +295,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
     step.added.push_back(spec);
     step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), spec.name));
     push_undo(step);
-    pick_cycle().pickables_.clear();
+    drawn_view().pickables_.clear();
     picked_set().hover_node_ = -1;
     const int index = nodes::get_find(node_create::name_hash(spec.name));
     if (index >= 0) {
@@ -446,7 +446,7 @@ void get_reset()
         // (a rail point: with the points that move with it - its whole rail while Whole rail is on)
         const UndoStep before = get_snapshot();
         bool any = false;
-        for (const uint32_t name : node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_)) {
+        for (const uint32_t name : node_edit::moved_with(picked_set().node_name_, tool_options().move_entire_rail_)) {
             node_edit::Values now;
             const node_edit::Values* origin = node_edit::get_origin(name);
             if (origin && node_edit::get_take_in(name, &now) && !node_edit::get_same(now, *origin)) {
@@ -756,7 +756,7 @@ void reset_level_now()
     UndoStep step;
     step.kind = UndoStep::Kind::kLevel;
     std::string message;
-    pick_cycle().confirm_reset_ = false;
+    confirmations().confirm_reset_ = false;
     if (!layout::reset_level({.before = &step.layout, .message = &message})) {
         hud::get_message(message, hud::kShortMessageSeconds);
         return;
@@ -774,16 +774,16 @@ void reset_level_now()
 void ask_reset_level()
 {
     if (ui::underway()) {
-        pick_cycle().confirm_reset_ = true;
+        confirmations().confirm_reset_ = true;
         return;
     }
     const uint32_t now = SDL_GetTicks();
-    if ((pick_cycle().reset_asked_at_ != 0U) && now - pick_cycle().reset_asked_at_ < kResetConfirmMilliseconds) {
-        pick_cycle().reset_asked_at_ = 0;
+    if ((confirmations().reset_asked_at_ != 0U) && now - confirmations().reset_asked_at_ < kResetConfirmMilliseconds) {
+        confirmations().reset_asked_at_ = 0;
         reset_level_now();
         return;
     }
-    pick_cycle().reset_asked_at_ = now;
+    confirmations().reset_asked_at_ = now;
     hud::get_message("Reset level? Press Ctrl+Shift+Delete again to confirm", hud::kMessageSeconds);
 }
 

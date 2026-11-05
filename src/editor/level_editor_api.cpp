@@ -478,13 +478,13 @@ void place_browser_item(V3 at, bool keep_open) { place_from_browser(at, keep_ope
 int place_armed(uint32_t* colour)
 {
     *colour = 0;
-    if (!pick_cycle().place_open_ || pick_cycle().place_armed_ < 0) {
+    if (!place_palette().place_open_ || place_palette().place_armed_ < 0) {
         return -1;
     }
-    if (std::cmp_less(pick_cycle().place_armed_, place_entries().size())) {
-        *colour = core::at(place_entries(), pick_cycle().place_armed_).colour;
+    if (std::cmp_less(place_palette().place_armed_, place_entries().size())) {
+        *colour = core::at(place_entries(), place_palette().place_armed_).colour;
     }
-    return pick_cycle().place_armed_;
+    return place_palette().place_armed_;
 }
 
 V3 cursor_point()

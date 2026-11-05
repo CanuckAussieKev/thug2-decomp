@@ -80,8 +80,8 @@ void tick_hud_and_autosave()
 {
     // (the UI runs: the HUD's elements - made by level_editor_enter after LevelEditor_Start - taken down, the first
     // few frames)
-    if (ui::underway() && pick_cycle().hud_taken_down_ < 4) {
-        ++pick_cycle().hud_taken_down_;
+    if (ui::underway() && editor_session().hud_taken_down_ < 4) {
+        ++editor_session().hud_taken_down_;
         script::launch_script("level_editor_hud_destroy", nullptr, nullptr, false);
     }
     update_hud();
@@ -245,16 +245,16 @@ void handle_escape()
             transform_session().vertex_have_ = false;
             focus_on_selection();
             hud::get_message("Cancelled");
-        } else if (pick_cycle().confirm_reset_) {
-            pick_cycle().confirm_reset_ = false;
-        } else if (pick_cycle().confirm_hide_ != 0U) {
-            pick_cycle().confirm_hide_ = 0;
+        } else if (confirmations().confirm_reset_) {
+            confirmations().confirm_reset_ = false;
+        } else if (confirmations().confirm_hide_ != 0U) {
+            confirmations().confirm_hide_ = 0;
         } else if (chains::get_drawing() != chains::Blit::kNone || chains::wants_pick()) {
             stop_chain_drawing(chains::wants_pick() ? "Cancelled" : "Drawing finished");
-        } else if (pick_cycle().place_armed_ >= 0) {
-            pick_cycle().place_armed_ = -1;
-        } else if (pick_cycle().place_open_) {
-            pick_cycle().place_open_ = false;
+        } else if (place_palette().place_armed_ >= 0) {
+            place_palette().place_armed_ = -1;
+        } else if (place_palette().place_open_) {
+            place_palette().place_open_ = false;
         } else if (stored_browser().open) {
             stored_browser().open = false;
             hud::hide_panel();
@@ -305,9 +305,9 @@ void tick_panels(EditorFrame& editor_frame)
     }
     if (actions::squeezed(actions::kPlace) && !drag_session().dragging_) {
         if (ui::underway()) {
-            pick_cycle().place_open_ = !pick_cycle().place_open_;
-            pick_cycle().place_armed_ = -1;
-            if (pick_cycle().place_open_) {
+            place_palette().place_open_ = !place_palette().place_open_;
+            place_palette().place_armed_ = -1;
+            if (place_palette().place_open_) {
                 entities::refresh_palette(); // (objects made since show up)
             }
         } else {
@@ -464,11 +464,11 @@ void finish_frame(const EditorFrame& editor_frame)
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
     if ((input.left_releases_ != 0) && !input.left) {
         if (drag_session().dragging_ && drag_session().drag_moved_) {
-            pick_cycle().cycle_.have = false; // (moved: the next click starts afresh)
+            click_cycle().cycle_.have = false; // (moved: the next click starts afresh)
         }
         end_drag();
         focus_on_selection();
-        pick_cycle().cycle_.changes = unsaved_changes().changes_;
+        click_cycle().cycle_.changes = unsaved_changes().changes_;
     }
     update_highlights();
     // The ground marker: the point below the selection's base.

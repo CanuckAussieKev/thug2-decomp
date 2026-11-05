@@ -56,7 +56,7 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
         step.kind = UndoStep::Kind::kChains;
         step.chains = before;
         push_undo(step, "Chain edit");
-        pick_cycle().pickables_.clear();
+        drawn_view().pickables_.clear();
         picked_set().hover_node_ = -1;
     }
     if (select != 0U) {
@@ -374,25 +374,25 @@ void scale_done_request()
 
 void place_toggle_request()
 {
-    pick_cycle().place_open_ = !pick_cycle().place_open_;
-    if (pick_cycle().place_open_) {
+    place_palette().place_open_ = !place_palette().place_open_;
+    if (place_palette().place_open_) {
         entities::refresh_palette();
     }
-    if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
+    if (chain_kind_of(place_palette().place_armed_) != chains::Blit::kNone) {
         stop_chain_drawing(nullptr);
     }
-    pick_cycle().place_armed_ = -1;
+    place_palette().place_armed_ = -1;
 }
 
 void place_arm_request(const ui::Request& request)
 {
-    if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
+    if (chain_kind_of(place_palette().place_armed_) != chains::Blit::kNone) {
         stop_chain_drawing(nullptr);
     }
-    pick_cycle().place_armed_ = request.value;
-    if (chain_kind_of(pick_cycle().place_armed_) != chains::Blit::kNone) {
+    place_palette().place_armed_ = request.value;
+    if (chain_kind_of(place_palette().place_armed_) != chains::Blit::kNone) {
         // (a rail / a path: drawn point by point - each click a point, Enter finishes)
-        chains::start_drawing(chain_kind_of(pick_cycle().place_armed_));
+        chains::start_drawing(chain_kind_of(place_palette().place_armed_));
         hud::get_message(chains::get_waiting(), hud::kLongMessageSeconds);
     }
 }
@@ -403,7 +403,7 @@ void chain_op_request(const ui::Request& request, bool no_change)
         const auto op = static_cast<chains::ChainOp>(request.value);
         run_chain_op(op, request.id);
         if (op == chains::ChainOp::kExtend && chains::get_drawing() != chains::Blit::kNone) {
-            pick_cycle().place_armed_ = -1; // (drawing on from the selected end: the palette's entry isn't armed)
+            place_palette().place_armed_ = -1; // (drawing on from the selected end: the palette's entry isn't armed)
             unpick();                       // (the camera flies while drawing)
         }
     }
@@ -419,14 +419,14 @@ void place_here_request(const ui::Request& request, const RequestFrame& request_
         // (where the view looks: the panel has the mouse)
         const TickCycle& frame = *request_frame.frame;
         place_node(request.value, cursor_point(frame.back * -1.0F, false, frame));
-        pick_cycle().place_armed_ = -1;
+        place_palette().place_armed_ = -1;
     }
 }
 
 void hide_confirmed_request(bool no_change)
 {
-    const uint32_t name = pick_cycle().confirm_hide_;
-    pick_cycle().confirm_hide_ = 0;
+    const uint32_t name = confirmations().confirm_hide_;
+    confirmations().confirm_hide_ = 0;
     if (!no_change && (name != 0U) && name == picked_set().node_name_) {
         unlink_list_node(true);
     }
@@ -611,7 +611,7 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         hide_confirmed_request(no_change);
         break;
     case ui::Request::Kind::kHideCancelled:
-        pick_cycle().confirm_hide_ = 0;
+        confirmations().confirm_hide_ = 0;
         break;
     case ui::Request::Kind::kResetLevel:
         if (!no_change) {
@@ -619,15 +619,15 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         }
         break;
     case ui::Request::Kind::kResetConfirmed:
-        if (!no_change && pick_cycle().confirm_reset_) {
+        if (!no_change && confirmations().confirm_reset_) {
             reset_level_now();
         }
         break;
     case ui::Request::Kind::kResetCancelled:
-        pick_cycle().confirm_reset_ = false;
+        confirmations().confirm_reset_ = false;
         break;
     case ui::Request::Kind::kReqEntireRail:
-        pick_cycle().move_entire_rail_ = request.value != 0;
+        tool_options().move_entire_rail_ = request.value != 0;
         break;
     case ui::Request::Kind::kFieldSet:
     case ui::Request::Kind::kFieldRemove:

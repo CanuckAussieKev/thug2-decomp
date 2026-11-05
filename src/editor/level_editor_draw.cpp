@@ -53,6 +53,7 @@
 #include "base/core/checked_index.h"
 #include "base/maths/rect.h"
 #include "base/maths/trig.h"
+#include "base/core/no_destroy.h"
 #include "editor/level_editor_internal.h"
 
 namespace frontend::level_editor {
@@ -111,6 +112,14 @@ constexpr uint32_t kMemberBoxColour = 0xFF00FFFF; // ARGB
 constexpr std::size_t kMaxBoxesDrawn = 64;
 
 constexpr float kArrowGrab = 8.0F;     // (pixels from a move arrow that grab it)
+
+// NOT ORIGINAL grouping - the overlay the UI draws over the view (ui::Overlay), filled each frame (was in the pick
+// cycle's record; only this piece uses it). Made on first use, never destroyed.
+ui::Overlay& drawn_overlay()
+{
+    static core::NoDestroy<ui::Overlay> overlay;
+    return overlay.get();
+}
 
 } // namespace
 namespace internal {
@@ -382,7 +391,7 @@ void add_chain_segment(const GizmoView& view, const NodeGizmo& gizmo, const node
         add_route_arrow(view, {.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = colour, .thickness = thickness});
     }
     const V3 middle = (point_a + point_b) * 0.5F;
-    pick_cycle().pickables_.push_back({.node = gizmo.index,
+    drawn_view().pickables_.push_back({.node = gizmo.index,
                                        .ax = ax,
                                        .ay = ay,
                                        .bx = bx,
@@ -434,7 +443,7 @@ void add_chain_gizmo(const GizmoView& view, const NodeGizmo& gizmo, const std::v
                                            .filled = true,
                                            .thickness = 1.0F});
             }
-            pick_cycle().pickables_.push_back({.node = gizmo.index,
+            drawn_view().pickables_.push_back({.node = gizmo.index,
                                                .ax = px,
                                                .ay = py,
                                                .bx = px,
@@ -727,7 +736,7 @@ void add_point_gizmo(const GizmoView& view, const NodeGizmo& gizmo, V3 delta)
                                  .argb = kLabelColour,
                                  .text = nodes::caption(elem.name)});
     }
-    pick_cycle().pickables_.push_back(
+    drawn_view().pickables_.push_back(
         {.node = gizmo.index, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = depth});
 }
 
@@ -755,10 +764,10 @@ void add_box_outline(ui::Overlay& overlay, float scale)
 
 void add_node_gizmos(const TickCycle& frame, int selected)
 {
-    pick_cycle().pickables_.clear();
+    drawn_view().pickables_.clear();
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     const float scale = pixel_scale();
-    ui::Overlay& overlay = pick_cycle().overlay_;
+    ui::Overlay& overlay = drawn_overlay();
     const float left = static_cast<float>(core::at(drawn_view().viewport_, 0)) - 40.0F;
     const float top = static_cast<float>(core::at(drawn_view().viewport_, 1)) - 40.0F;
     const float right =
@@ -798,7 +807,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         add_point_gizmo(view, gizmo, delta);
     }
     // (the Outliner's selectable off: drawn, not picked - level_editor_organize.h)
-    std::erase_if(pick_cycle().pickables_, [&](const nodes::Pickable& pickable) {
+    std::erase_if(drawn_view().pickables_, [&](const nodes::Pickable& pickable) {
         return pickable.node >= 0 && std::cmp_less(pickable.node, nodes.size()) &&
                !organize::gizmo_pickable(core::at(nodes, pickable.node).name);
     });
@@ -953,49 +962,49 @@ void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines)
 void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
                   const std::vector<LineVertex>& lines)
 {
-    get_clear(pick_cycle().overlay_);
+    get_clear(drawn_overlay());
     ui::ShapeMesh model = assemble_model();
     // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
     preview::tick_cycle(&model);
     add_node_gizmos(frame, model.nodes.selected);
     view::add_collision(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-                        kNearZ, &pick_cycle().overlay_.under, &pick_cycle().overlay_.lines);
+                        kNearZ, &drawn_overlay().under, &drawn_overlay().lines);
     // (map3: the selected collision faces, the camera nodes' frustums)
     faces::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-                       kNearZ, &pick_cycle().overlay_.lines);
+                       kNearZ, &drawn_overlay().lines);
     cameras::add_overlay(
         fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
         {.near_z_ = kNearZ,
          .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
-        &pick_cycle().overlay_.lines);
+        &drawn_overlay().lines);
     // (UX5: note pins; the problem checker run again a moment after a change)
     notes::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-                       kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
-                       &pick_cycle().overlay_.texts);
+                       kNearZ, &drawn_overlay().lines, &drawn_overlay().circles,
+                       &drawn_overlay().texts);
     checks::note_model(model.changes, model.marks);
     triggers::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-                          kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
+                          kNearZ, &drawn_overlay().lines, &drawn_overlay().texts);
     if (overlays::get_shown(overlays::kFeatureMap)) { // (the Overlays menu - level_editor_overlays.h)
         triggers::add_extras(
             fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-            {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &pick_cycle().overlay_.lines,
-            &pick_cycle().overlay_.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
+            {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &drawn_overlay().lines,
+            &drawn_overlay().texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
     }
-    triggers::add_handles(&pick_cycle().overlay_.circles); // (the selected trigger volume's resize handles)
+    triggers::add_handles(&drawn_overlay().circles); // (the selected trigger volume's resize handles)
     entities::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-                          kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
+                          kNearZ, &drawn_overlay().lines, &drawn_overlay().texts);
     play_test::add_overlay(
         fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_, kNearZ,
-        &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
-        &pick_cycle().overlay_.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
+        &drawn_overlay().lines, &drawn_overlay().circles,
+        &drawn_overlay().texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
     goal_edit::add_overlay(
         fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
         {.near_z_ = kNearZ,
          .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
-        &pick_cycle().overlay_.lines,
-        &pick_cycle().overlay_.texts); // (the goals' points' labels)
+        &drawn_overlay().lines,
+        &drawn_overlay().texts); // (the goals' points' labels)
     for (size_t i = 0; i + 1 < lines.size(); i += 2) {
-        pick_cycle().overlay_.lines.push_back({.ax = core::at(lines, i).x,
+        drawn_overlay().lines.push_back({.ax = core::at(lines, i).x,
                                                .ay = core::at(lines, i).y,
                                                .bx = core::at(lines, i + 1).x,
                                                .by = core::at(lines, i + 1).y,
@@ -1005,10 +1014,10 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     // The view menus' overlays (level_editor_overlays.h): labels off - the texts so far dropped; the grid and the
     // carried things, the jump arcs, the grind preview, the ruler (their own texts kept: they are the readings).
     if (!overlays::get_shown(overlays::kLabels)) {
-        pick_cycle().overlay_.texts.clear();
+        drawn_overlay().texts.clear();
     }
     overlays::Painter painter;
-    if (overlays::painter_now(&pick_cycle().overlay_, &painter)) {
+    if (overlays::painter_now(&drawn_overlay(), &painter)) {
         overlays::add_overlay(painter, drag_session().dragging_ || fly_camera().key_moving_,
                               picked_set().mark_base_, have_selection());
         arcs::add_overlay(painter, objects.empty() ? scenery::get_selection() : std::vector<uint32_t>{});
@@ -1019,9 +1028,9 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
     // level_editor_arrange.h)
     arrange::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-                         kNearZ, &pick_cycle().overlay_);
+                         kNearZ, &drawn_overlay());
     thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
-    ui::tick_cycle(model, pick_cycle().overlay_);
+    ui::tick_cycle(model, drawn_overlay());
 }
 
 } // namespace internal

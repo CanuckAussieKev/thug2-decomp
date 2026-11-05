@@ -130,7 +130,7 @@ void drill_through(int steps, maths::Vec2 point, V3 dir)
     const auto y = point.y;
     int shown = -1;
     if (cycle_holds(x, y, false, false)) {
-        shown = (pick_cycle().cycle_.index + 1) % static_cast<int>(pick_cycle().cycle_.order.size());
+        shown = (click_cycle().cycle_.index + 1) % static_cast<int>(click_cycle().cycle_.order.size());
     } else {
         std::vector<picking::Layered> objects;
         std::vector<picking::Layered> scenery;
@@ -144,26 +144,26 @@ void drill_through(int steps, maths::Vec2 point, V3 dir)
         for (const scenery::Layer& layer : layers) {
             scenery.push_back({.id = layer.checksum, .t = layer.t, .passed = layer.passed});
         }
-        pick_cycle().cycle_ = Cycle{};
-        pick_cycle().cycle_.have = true;
-        pick_cycle().cycle_.x = x;
-        pick_cycle().cycle_.y = y;
-        pick_cycle().cycle_.pos = fly_camera().pos_;
-        pick_cycle().cycle_.changes = unsaved_changes().changes_;
-        pick_cycle().cycle_.filter = tool_options().pick_filter_;
-        pick_cycle().cycle_.order = picking::cycle_order(picked_set().hover_node_, objects, scenery, tool_options().pick_filter_);
+        click_cycle().cycle_ = Cycle{};
+        click_cycle().cycle_.have = true;
+        click_cycle().cycle_.x = x;
+        click_cycle().cycle_.y = y;
+        click_cycle().cycle_.pos = fly_camera().pos_;
+        click_cycle().cycle_.changes = unsaved_changes().changes_;
+        click_cycle().cycle_.filter = tool_options().pick_filter_;
+        click_cycle().cycle_.order = picking::cycle_order(picked_set().hover_node_, objects, scenery, tool_options().pick_filter_);
         const objects::GameEntity* object = get_live(picked_set().hover_);
         shown = hover_cycle_index(object);
     }
-    const int count = static_cast<int>(pick_cycle().cycle_.order.size());
+    const int count = static_cast<int>(click_cycle().cycle_.order.size());
     if (count < 2) {
-        pick_cycle().cycle_.have = false;
+        click_cycle().cycle_.have = false;
         stored_drilled() = false;
         hud::get_message((count != 0) ? "Only one item under cursor" : "Nothing under cursor", kBriefSeconds);
         return;
     }
     const int at = nav::drill_index(shown, steps, count);
-    pick_cycle().cycle_.index = nav::cycle_index_showing(at, count);
+    click_cycle().cycle_.index = nav::cycle_index_showing(at, count);
     stored_drilled() = true;
     std::array<char, kCaptionTextSize> text{};
     text::format_to(text, "%d of %d under cursor", at + 1, count);
@@ -333,8 +333,8 @@ void edit_keys(const EditorFrame& editor_frame)
         toggle_lock();
     }
     if (l_pressed && rail_point && !no_change) {
-        pick_cycle().move_entire_rail_ = !pick_cycle().move_entire_rail_;
-        hud::get_message(pick_cycle().move_entire_rail_ ? "Move whole chain" : "Move single point");
+        tool_options().move_entire_rail_ = !tool_options().move_entire_rail_;
+        hud::get_message(tool_options().move_entire_rail_ ? "Move whole chain" : "Move single point");
     }
     // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
     // (level_editor_view.h - while editing only).
@@ -425,7 +425,7 @@ void tick_triggers_and_tools(const EditorFrame& editor_frame)
             select = goal_edit::take_select(); // (a goal just made / a point chosen in its section)
         }
         if (select >= 0 && !drag_session().dragging_) {
-            pick_cycle().pickables_.clear();
+            drawn_view().pickables_.clear();
             picked_set().hover_node_ = -1;
             select_node_only(select);
         }
@@ -484,7 +484,7 @@ void command_keys(const EditorFrame& editor_frame)
         !organize::selection_locked(true)) {
         get_reset();
     }
-    if (!no_change && !stored_browser().open && (pick_cycle().confirm_hide_ == 0U) && !pick_cycle().confirm_reset_) {
+    if (!no_change && !stored_browser().open && (confirmations().confirm_hide_ == 0U) && !confirmations().confirm_reset_) {
         if (actions::squeezed(actions::kResetLevel)) {
             ask_reset_level(); // (Ctrl+Shift+Delete: Reset level)
         } else if (actions::squeezed(actions::kDelete) && !organize::selection_locked(true)) {
@@ -510,7 +510,7 @@ void command_keys(const EditorFrame& editor_frame)
         if (end_now) {
             run_chain_op(chains::ChainOp::kExtend, 0);
             if (chains::get_drawing() != chains::Blit::kNone) {
-                pick_cycle().place_armed_ = -1;
+                place_palette().place_armed_ = -1;
                 unpick();
             }
         }
