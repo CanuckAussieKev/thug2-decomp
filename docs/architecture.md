@@ -338,9 +338,11 @@ everything above it uses the game's own types and may change them freely.
     `d3d9::object`, `handle`, and `out` for Direct3D's out-parameters). `<d3d9.h>` is included only by Direct3D's files
     and their own headers: `render_d3d9/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device,
     the depth surfaces, the back buffer, the screen copies -, `render::d3d9::state()`; the backend-free rest of the
-    renderer's state is `render::Renderer`, `engine/gfx/renderer.h`), `device_d3d.h`, `pc_d3d_resources.h`,
-    `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's), `render_d3d9/d3dx_jpg.h` and ImGui's
-    texture id over Direct3D's textures (`render_d3d9/imgui_texture_id.h`).
+    renderer's state is `render::Renderer`, `engine/gfx/renderer.h`),
+    `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's) and ImGui's texture id over Direct3D's
+    textures (`render_d3d9/imgui_texture_id.h`). The device is made through `render::GpuContext`
+    (`engine/gfx/gpu_context.h`; Direct3D 9's is `render_d3d9/d3d9_context.cpp`: the instance, the device, the present
+    parameters as API-neutral settings, the caps, the reset).
 - **The audio backend** (`src/audio_dsound`, static library `thug2_audio_dsound`, on the engine) is DirectSound. It
   implements `audio::Device` (`engine/audio/audio_device.h`): the output made and released (WinMain; the platform
   layer's 0x005F59D0 / 0x005F5A00), its devices listed (the graphics device's start-up notes the last one), and the

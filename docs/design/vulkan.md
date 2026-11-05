@@ -366,8 +366,8 @@ culling), `pc_texture_projection`, `pc_viewport` (the sun's occlusion queries), 
 `pc_gamma` and `view_mode` include no Direct3D header any more (`tools/d3d_headers.test.ts`). The same calls with the
 same numbers in the same order. `pc_d3d_resources.cpp` makes, locks and releases the dynamic vertex buffer, the quads'
 index buffer and the occlusion queries through the Gpu (`dynamic_vertices.h` gained begin / end of a query, in plain
-types); it and `graphics_options_d3d.cpp` stay Direct3D files for the device and its multisample / present parameters
-(V5e), but their surface, buffer and query calls are the Gpu's.
+types); it and `graphics_options_d3d.cpp` stayed Direct3D files for the device and its multisample / present parameters
+until V5e, which moved them behind the `GpuContext`.
 
 - **Added to the interface**: `texture_level_size` (GetLevelDesc: the blur reads the copies' sizes), `release_pixel_shader`
   (the editor's unlit twins), `gpu_value::kLockNoOverwrite`, `kResultOk`, `kResultNotReady`, `kFvfXyzRhw`. `device.h`
@@ -395,6 +395,89 @@ types); it and `graphics_options_d3d.cpp` stay Direct3D files for the device and
   bits). The volumes' draws are therefore stencil-free in this build, and a Vulkan `Gpu` needs no stencil aspect for
   parity; the numbers for it (`kStencilEnable`, the other stencil states) are recorded in the block if a build ever sets
   them, and the stencil format question in the table above (`D32_SFLOAT_S8_UINT`) stays open for then.
+
+### V5e: 2D, text, textures, loading screens, movies, screenshots, device creation through `Gpu` and `GpuContext` (done)
+
+`text`, `pc_scene`, `scene_render`, `pc_primitive`, `editor_support`, `loading_bar`, `loading_screen`,
+`loading_console_panel`, `bitmap_texture`, `pc_texture`, `texture_file`, `movie`, `screenshot_capture`, `pc_engine`,
+`device`, `d3d9_device`, `graphics_options_d3d` and `pc_d3d_resources` include no Direct3D header any more
+(`tools/d3d_headers.test.ts`). The same calls with the same numbers in the same order; the text and the 2D already made
+one Gpu call per device call (`draw_indexed_from_memory` per text batch, `draw_from_memory` per quad), nothing per glyph.
+
+- **The creation interface (`engine/gfx/gpu_context.h`, `render::GpuContext`)**, installed by `app/` beside the `Gpu`;
+  Direct3D 9's is `render_d3d9/d3d9_context.cpp`, the one place with `Direct3DCreate9`, `CreateDevice`, `Reset`, the
+  `D3DPRESENT_PARAMETERS`, the adapter's identifier, the caps and the multisample support:
+  `create_instance`, `adapter_ready`, `sample_quality_levels(samples, colour, depth, windowed)`, `configure(GpuSettings)`,
+  `create_device(GpuDeviceRequest)`, `settings()`, `adapter()`, `depth_textures_supported()`, `caps()`, `device_made()`,
+  `mark_ready()` / `ready()`, `reset()`, `shutdown()`.
+  - **Present parameters as settings (flagged)**: `GpuSettings` is the back buffer's size, windowed, vsync, the
+    multisample count and quality, and the colour and depth formats as Direct3D 9's format numbers
+    (`gpu_value::kFormat*`). Direct3D 9 fills its `D3DPRESENT_PARAMETERS` from them (vsync: the driver's default
+    interval; off: immediate); Vulkan builds the swap chain from them (size, the surface format picked to match the colour
+    format, vsync: FIFO present mode, off: MAILBOX or IMMEDIATE; windowed / full screen: a window mode of the platform's
+    windowing, there is no exclusive mode needed) and the depth and multisampled images from the depth format and sample
+    count. The window it presents to is the platform's (`sys::game_window()`), not a setting.
+  - **Device lost and reset (flagged)**: a Direct3D 9 device is lost (alt-tab from full screen) and brought back by
+    `GpuContext::reset()` with the stored settings, after the engine's loop released the default-pool objects
+    (`release_device_objects`) and before it makes them again (`restore_device_objects`): `Gpu::test_cooperative_level`
+    answers `gpu_value::kResultDeviceLost` while it is lost. In Vulkan nothing is lost like that: `reset()` is the swap
+    chain's recreation (`vkDeviceWaitIdle`, the old swap chain passed as `oldSwapchain`, the frame's images made again at
+    the stored size), and `test_cooperative_level` answers the lost value after a present or acquire returned
+    `VK_ERROR_OUT_OF_DATE_KHR` (a resize, a minimise, a display mode change) and 0 once the recreation worked; a
+    `VK_SUBOPTIMAL_KHR` is treated as out of date at the next frame. The release / restore steps are the same code: the
+    screen copies, the depth surface, the multisampled scene target, the render-target textures and the dynamic buffers
+    are Vulkan images and buffers that must be sized again.
+  - **Caps**: `GpuCaps` is the six answers the renderer reads (ps 1.1, stream offsets, max anisotropy, anisotropic
+    minification, border addressing, blend factor); a Vulkan `Gpu` answers them from the physical device's features and
+    limits (`samplerAnisotropy` / `maxSamplerAnisotropy`; border addressing is `VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER`;
+    blend factors are always available; ps 1.1 is true because the pixel shaders are made from V3's keys; stream offsets
+    are `vkCmdBindVertexBuffers` offsets, always available). `adapter()` is the physical device's name, vendor and device
+    id (the Radeon 8500 and Intel 915G checks of the original).
+  - **MSAA**: `sample_quality_levels` is Direct3D 9's `CheckDeviceMultiSampleType` on both formats; a Vulkan
+    implementation answers 1 (quality levels do not exist) for every sample count the physical device's
+    `framebufferColorSampleCounts & framebufferDepthSampleCounts` has.
+- **The frame's objects are handles in `device.cpp`** (the screen copies, their level 0, the depth surface, the back
+  buffer and its depth), not in `d3d9_state.h`: made and released through the `Gpu` in the original's order.
+- **Textures (flagged)**: made, locked, read, copied and released through `create_texture` / `lock_texture` /
+  `unlock_texture` / `texture_surface` / `texture_level_desc` / `texture_level_count` / `release_texture` with Direct3D 9's
+  format, pool and usage numbers (`gpu_value::kFormat*`, `kPool*`, `kUsageRenderTarget`). The formats the game makes:
+  A8R8G8B8, X8R8G8B8, X1R5G5B5, A1R5G5B5, DXT1, DXT5 and P8. **P8 (paletted) has no Vulkan format**: a Vulkan `Gpu`
+  expands it to RGBA8 when the texture is made (`create_texture` with `kFormatP8` allocates `VK_FORMAT_R8G8B8A8_UNORM`;
+  the caller locks and writes 8-bit indices, and `unlock_texture` expands them). The game never sets a Direct3D palette (no `SetPaletteEntries` / `SetCurrentTexturePalette`), so what a P8
+  texture shows in the original is the driver's default palette; which levels draw one at all is for V6 to find out (log
+  the P8 creations) before choosing what the expansion's palette is. Palettised images in the game's files already make
+  A8R8G8B8 and expand with `expand_palette` on the CPU; P8 is made by the texture dictionaries' 8-bit textures with no
+  palette block (`pixel_layout`) and `PcTexture::create_image`. X1R5G5B5 and
+  A1R5G5B5 are converted the same way (`VK_FORMAT_A1R5G5B5_UNORM_PACK16` exists where supported, else expand), DXT1 / DXT5
+  are `VK_FORMAT_BC1_RGBA_UNORM_BLOCK` / `BC3_UNORM_BLOCK` (the block-compressed levels uploaded as they are; level sizes
+  are in blocks, as `copy_from` and `construct_copy` already count rows). The managed pool (a system-memory copy kept
+  for the device to be reset) is a staging buffer in Vulkan; a texture made in the default pool with render-target usage
+  is an image with colour-attachment and sampled usage.
+- **Text and 2D**: `text` sets the stage and cull states and draws the batch with `draw_indexed_from_memory` (the
+  caller's indices and vertices, copied by the Gpu for this draw: a ring in Vulkan); the font page texture is one
+  `create_texture`, one `lock_texture`, one `unlock_texture`.
+- **Loading screens**: drawn by a timer thread that runs on the Gpu while the main thread loads (as the Direct3D device is
+  `D3DCREATE_MULTITHREADED`). The Gpu's state block is not locked; a Vulkan `Gpu` must serialise these calls with the main
+  thread's (a mutex on the Gpu's command recording) or the loading screen must be drawn from the main thread between
+  loading steps - decided by V10. `loading_console_panel` saves the device's whole state (`Gpu::save_state`, a state
+  block in Direct3D 9, a copy of the Gpu's state block in Vulkan: `release_saved_state` frees it), sets its own states,
+  draws, and restores (`restore_state`).
+- **Movies**: the Bink frame's decode (`copy_to_buffer`) writes straight into the locked X8R8G8B8 texture
+  (`lock_texture` / `unlock_texture`): Vulkan returns a staging buffer pointer and copies it to the image at `unlock`.
+- **Screenshots**: `capture_back_buffer` reads the back buffer through `back_buffer`, `surface_desc`,
+  `create_render_target` + `copy_surface` (the multisample resolve), `create_offscreen_surface` (system memory),
+  `read_render_target`, `lock_surface` / `unlock_surface`; `screen_shot` (the script command's JPEG) uses `display_size`,
+  `create_offscreen_surface` (scratch), `read_front_buffer` and `d3dx::save_surface_to_jpg` - the one D3DX call left in it:
+  a Vulkan backend reads the last presented image back with `lock_surface` and writes the JPEG itself.
+- **Added to the interface**: `texture_level_desc`, `texture_level_count`, `surface_desc`, `lock_surface`,
+  `unlock_surface`, `back_buffer`, `display_size`, `read_front_buffer`, `save_state` / `restore_state` /
+  `release_saved_state` (`GpuSavedState`), `gpu_value::kFormat*`, `kPoolManaged`, `kPoolSystemMemory`, `kPoolScratch`,
+  `kUsageRenderTarget`, `kResultDeviceLost`, `kResultNotFound`.
+- **What still includes a Direct3D header** (V5f's input): `gpu_d3d9.cpp` (the Gpu), `d3d9_context.cpp` (the creation),
+  `d3d9_state.h` / `.cpp` (the device and instance pointers), `d3d9_handles.h` (the handle conversions), `d3dx.cpp` (D3DX9:
+  the shader assembly and the JPEG, `d3dx.h`'s declarations are Direct3D-free), `d3d9_ui_backend.cpp` and
+  `imgui_texture_id.h` (Dear ImGui's backend, `render::UiBackend`; V9 makes the Vulkan one) and `d3d_matrix.h` (unused
+  since V5d; V5f may remove it).
 
 ## Ray tracing: what it needs on top
 
@@ -425,7 +508,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V5b | Meshes, materials, skinning, mesh lists, instances through `Gpu` | V5a | after stage 11 - done |
 | V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 - done |
 | V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 - done |
-| V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` | V5a | after stage 11 |
+| V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` / `GpuContext` | V5a | after stage 11 - done |
 | V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 |
 | V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 |
 | V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 |
