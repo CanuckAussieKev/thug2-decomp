@@ -434,7 +434,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     if (!read_level_switch(reader, &message)) {
         return kDone;
     }
-    manager->clear_queued_scripts();
+    manager->script_queue().clear_queued_scripts();
     manager->set_match_ended(false);
     if (message.flag == 0U) {
         return kContinue;
@@ -615,7 +615,7 @@ void fill_brief_game(Hub* manager, SessionBrief& info)
 void send_queued_scripts(Hub* manager, net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* player)
 {
     // The scripts spawned so far (the list at +0x144): 0x49 each.
-    auto* node = manager->queued_scripts().next(); // (the queued scripts' first node)
+    auto* node = manager->script_queue().queued_scripts().next(); // (the queued scripts' first node)
     node = node->data() == memory::ListNode::head_marker() ? nullptr : node;
     for (auto* item = node ? static_cast<PendingScriptItem*>(node->data()) : nullptr; item;) {
         desc = net::NetMessageInfo();

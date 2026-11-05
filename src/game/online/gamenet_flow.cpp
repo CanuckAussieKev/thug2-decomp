@@ -162,7 +162,7 @@ void Hub::reset_to_lobby()
     for (PlayerRecord* player = start_roster_sweep(this, &search, true); player; player = step_roster_sweep(this, &search, true)) {
         player->clear_flags(); // carries no flag
     }
-    clear_queued_scripts();
+    script_queue_.clear_queued_scripts();
     lobby_since_ = frame_clock::get_time(); // (back in the lobby: auto-serve waits from here)
 }
 
@@ -248,7 +248,7 @@ void Hub::start_network_game()
     }
     last_leader_ = nullptr;  // the last leader
     last_leading_team_ = -1; // the last leading team
-    clear_queued_scripts();
+    script_queue_.clear_queued_scripts();
     roster_.clear_roster();
     net_game_state().set_cheat_flag(false);
     if (rating_service_->update_logged_in()) {

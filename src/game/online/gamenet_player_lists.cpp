@@ -39,6 +39,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "game/online/gamenet_lists.h"
 #include "game/online/gamenet_manager.h"
 #include "game/online/hub_roster.h"
+#include "game/online/hub_script_queue.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/gfx/cas_options.h"
@@ -409,7 +410,7 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
 }
 
 // 0x00537A10
-void Hub::queue_script(ScriptCall script_call)
+void ScriptQueue::queue_script(ScriptCall script_call)
 {
     const auto node = script_call.node;
     const auto object_id = script_call.object_id_;
@@ -440,7 +441,7 @@ void Hub::queue_script(ScriptCall script_call)
 }
 
 // 0x00537B30
-void Hub::clear_queued_scripts()
+void ScriptQueue::clear_queued_scripts()
 {
     const memory::ListNode* node = get_next_node(&queued_scripts_);
     for (auto* queued = data_of<PendingScriptItem>(node); queued;) {
@@ -452,7 +453,7 @@ void Hub::clear_queued_scripts()
 }
 
 // 0x00537D90
-void Hub::launch_queued_scripts()
+void ScriptQueue::launch_queued_scripts()
 {
     memory::Hub* memory = memory::Hub::get_pull();
     modules::Skate* skate = modules::Skate::sole();
@@ -603,7 +604,7 @@ void Hub::disconnect_clients()
     tasks_.keyboard_job()->drop_out();
     tasks_.score_broadcast_job()->drop_out();
     tasks_.level_change_job()->drop_out();
-    clear_queued_scripts();
+    script_queue_.clear_queued_scripts();
     if (cleared_to_start_) {
         cleared_to_start_ = false;
         modules::Skate* skate = modules::Skate::sole();

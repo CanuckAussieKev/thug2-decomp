@@ -11,6 +11,7 @@
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
 #include "game/online/hub_roster.h"
+#include "game/online/hub_script_queue.h"
 #include "game/online/hub_settings.h"
 #include "game/online/hub_tasks.h"
 #include "wire/gamenet_messages.h"
@@ -321,22 +322,6 @@ public:
     // msg_time = time}. `object` isn't used.
     void build_net_notice(bool broadcast, uint32_t text, const char* string1, const char* string2, void* object,
                           const char* properties, bool important, int time);
-    // A script queued for a player: the node it runs from, the object and the script.
-    struct ScriptCall {
-        int node{};
-        uint32_t object_id_{};
-        uint32_t script{};
-    };
-
-    // 0x00537A10: a script queued to spawn once the level is up (+0x144; in the network heap) - unless one of the same
-    // name is queued already.
-    void queue_script(ScriptCall script_call);
-    // 0x00537B30: every queued script dropped.
-    void clear_queued_scripts();
-    // 0x00537D90: every queued script spawned at its node on its object and run to its end (in the bottom-up heap,
-    // the main volume off, between PreRunQueuedScripts and PostRunQueuedScripts and the skate module's 0x00569580 /
-    // 0x00569590), then dropped.
-    void launch_queued_scripts();
     // 0x00537F40: pro set `bit` toggled (script_flag_bits_) and told to every remote player (message 0x70: `param`, the
     // bit's byte; sequenced in group 8).
     void toggle_pro_set(uint8_t bit, uint32_t param);
@@ -619,10 +604,12 @@ public:
     // The players and the joining players.
     PlayerRoster& roster() { return roster_; }
     [[nodiscard]] const PlayerRoster& roster() const { return roster_; }
+    // The scripts to run once the level is up.
+    ScriptQueue& script_queue() { return script_queue_; }
+    [[nodiscard]] const ScriptQueue& script_queue() const { return script_queue_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
-    [[nodiscard]] const memory::ListNode& queued_scripts() const { return queued_scripts_; }
     memory::ListNode& servers() { return servers_; }
     [[nodiscard]] const memory::ListNode& servers() const { return servers_; }
     memory::ListNode& waiting_servers() { return waiting_servers_; }
@@ -701,7 +688,7 @@ private:
     // (the list heads are 0x10 bytes here, 0x14 in the original: each field from here on 4 more bytes before the
     // original's offset - check_layout)
     PlayerRoster roster_;                     // +0x11C-+0x143 (+0x114-+0x133 here) the players and the joining players
-    memory::ListNode queued_scripts_{};       // +0x144 the scripts to run once the level is up
+    ScriptQueue script_queue_; // +0x144-+0x157 (+0x134-+0x143 here) the scripts to run once the level is up
     memory::ListNode servers_{};              // +0x158 lists::Foremost<HostListing>: the listed servers
     memory::ListNode waiting_servers_{};      // +0x16C lists::Foremost<HostListing>: found, not shown yet
     uint32_t unknown180_{0};                  // +0x180 (zeroed by make_new)

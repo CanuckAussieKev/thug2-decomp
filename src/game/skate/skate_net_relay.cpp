@@ -521,7 +521,8 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
         util::ByteReader reader(context->body(), context->body_size());
         online::SpawnScript script;
         if (online::read_spawn_script(reader, &script) && script.permanent) {
-            net->queue_script({.node = script.node, .object_id_ = script.object_id, .script = script.name});
+            net->script_queue().queue_script(
+                {.node = script.node, .object_id_ = script.object_id, .script = script.name});
         }
     }
     return 1;
@@ -1280,7 +1281,8 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
         return 4;
     }
     if (!net->cleared_to_start()) {
-        net->queue_script({.node = message.node, .object_id_ = message.object_id, .script = message.name});
+        net->script_queue().queue_script(
+            {.node = message.node, .object_id_ = message.object_id, .script = message.name});
         return 1;
     }
     objects::Entity* object = objects::ObjectHubBase::look_up_entity(message.object_id);

@@ -532,7 +532,7 @@ bool cfunc_load_pending_players(script::Struct* /*params*/, script::Context /*co
 
 bool cfunc_launch_queued_scripts(script::Struct* /*params*/, script::Context /*context*/)
 {
-    online::online_hub()->launch_queued_scripts();
+    online::online_hub()->script_queue().launch_queued_scripts();
     return true;
 }
 

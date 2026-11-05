@@ -488,7 +488,7 @@ Hub::~Hub()
     unlink_all_nodes(&roster_.players());
     waiting_servers_.uncouple();
     servers_.uncouple();
-    queued_scripts_.uncouple();
+    script_queue_.queued_scripts().uncouple();
     roster_.joiners().uncouple();
     roster_.players().uncouple();
     settings_.destroy();
