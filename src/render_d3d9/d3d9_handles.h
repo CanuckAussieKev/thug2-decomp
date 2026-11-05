@@ -76,6 +76,10 @@ inline IDirect3DIndexBuffer9** out(GpuIndexBuffer** slot) noexcept
 {
     return detail::same_address<IDirect3DIndexBuffer9*>(slot);
 }
+inline IDirect3DPixelShader9** out(GpuPixelShader** slot) noexcept
+{
+    return detail::same_address<IDirect3DPixelShader9*>(slot);
+}
 inline IDirect3DQuery9** out(GpuQuery** slot) noexcept { return detail::same_address<IDirect3DQuery9*>(slot); }
 
 } // namespace render::d3d9

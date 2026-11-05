@@ -196,6 +196,11 @@ inline constexpr uint32_t kClearDepth = 2;
 inline constexpr uint32_t kClearStencil = 4;
 // a light's kind (D3DLIGHTTYPE)
 inline constexpr uint32_t kLightDirectional = 3;
+// a buffer's usage (D3DUSAGE_*), its pool (D3DPOOL_*) and a lock's flags (D3DLOCK_*)
+inline constexpr uint32_t kUsageWriteOnly = 0x8;
+inline constexpr uint32_t kPoolDefault = 0;
+inline constexpr uint32_t kLockReadOnly = 0x10;
+inline constexpr uint32_t kLockDiscard = 0x2000;
 // a call's result: an argument the API refused (D3DERR_INVALIDCALL)
 inline constexpr long kResultInvalidCall = static_cast<long>(0x8876086CU);
 } // namespace gpu_value
@@ -411,6 +416,9 @@ public:
                                     uint32_t flags) = 0;
     virtual long unlock_vertex_buffer(GpuVertexBuffer* buffer) = 0;
     virtual uint32_t release_vertex_buffer(GpuVertexBuffer* buffer) = 0;
+    // One more reference to a vertex buffer (a share of an arena's holds it; released with release_vertex_buffer);
+    // returns the count.
+    virtual uint32_t retain_vertex_buffer(GpuVertexBuffer* buffer) = 0;
     virtual long create_index_buffer(uint32_t bytes, uint32_t usage, uint32_t format, uint32_t pool,
                                      GpuIndexBuffer** buffer) = 0;
     virtual long lock_index_buffer(GpuIndexBuffer* buffer, uint32_t offset, uint32_t bytes, void** data,
@@ -432,6 +440,9 @@ public:
                               const GpuRect* target_area, uint32_t filter) = 0;
     virtual long read_render_target(GpuSurface* target, GpuSurface* system_copy) = 0;
     virtual uint32_t release_surface(GpuSurface* surface) = 0;
+    // A pixel shader made from its ps.1.1 token stream (Direct3D 9's assembled form, as the shader text assembles to;
+    // another API reads the same tokens or the program they stand for).
+    virtual long create_pixel_shader(const uint32_t* tokens, GpuPixelShader** shader) = 0;
     // Occlusion queries: made, begun / ended around the draws counted, their pixel count asked (S_FALSE, 1, while not
     // ready), released.
     virtual long create_occlusion_query(GpuQuery** query) = 0;
@@ -444,6 +455,8 @@ public:
     // and indices, copied for this draw).
     virtual long set_stream_source(uint32_t stream, GpuVertexBuffer* buffer, uint32_t offset, uint32_t stride) = 0;
     virtual long set_indices(GpuIndexBuffer* buffer) = 0;
+    // The vertex buffer a stream holds now, with its offset and stride (a reference the caller releases, or null).
+    virtual long get_stream_source(uint32_t stream, GpuVertexBuffer** buffer, uint32_t* offset, uint32_t* stride) = 0;
     virtual long draw(GpuPrimitive primitive, uint32_t first_vertex, uint32_t count) = 0;
     virtual long draw_indexed(GpuPrimitive primitive, int32_t base_vertex, uint32_t min_index, uint32_t vertex_count,
                               uint32_t first_index, uint32_t count) = 0;

@@ -143,6 +143,8 @@ static_assert(gpu_value::kAddressWrap == D3DTADDRESS_WRAP && gpu_value::kAddress
               gpu_value::kAddressBorder == D3DTADDRESS_BORDER);
 static_assert(gpu_value::kClearTarget == D3DCLEAR_TARGET && gpu_value::kClearDepth == D3DCLEAR_ZBUFFER &&
               gpu_value::kClearStencil == D3DCLEAR_STENCIL);
+static_assert(gpu_value::kUsageWriteOnly == D3DUSAGE_WRITEONLY && gpu_value::kPoolDefault == D3DPOOL_DEFAULT &&
+              gpu_value::kLockReadOnly == D3DLOCK_READONLY && gpu_value::kLockDiscard == D3DLOCK_DISCARD);
 static_assert(gpu_value::kLightDirectional == D3DLIGHT_DIRECTIONAL);
 static_assert(gpu_value::kResultInvalidCall == D3DERR_INVALIDCALL);
 
@@ -195,6 +197,7 @@ D3DLOCKED_RECT* d3d_locked(GpuLockedRect* locked) { return same_layout<D3DLOCKED
 const D3DMATRIX* d3d_matrix(const float* matrix) { return same_layout<D3DMATRIX>(matrix); }
 D3DMATRIX* d3d_matrix(float* matrix) { return same_layout<D3DMATRIX>(matrix); }
 D3DVIEWPORT9* d3d_viewport(GpuViewport* viewport) { return same_layout<D3DVIEWPORT9>(viewport); }
+const DWORD* d3d_tokens(const uint32_t* tokens) { return same_layout<DWORD>(tokens); }
 DWORD* d3d_dword(uint32_t* value) { return same_layout<DWORD>(value); } // (DWORD: unsigned long, uint32_t's size)
 
 D3DRENDERSTATETYPE d3d_state(GpuRenderState state) { return static_cast<D3DRENDERSTATETYPE>(state); }
@@ -258,6 +261,7 @@ public:
     }
     long unlock_vertex_buffer(GpuVertexBuffer* buffer) override { return object(buffer)->Unlock(); }
     uint32_t release_vertex_buffer(GpuVertexBuffer* buffer) override { return object(buffer)->Release(); }
+    uint32_t retain_vertex_buffer(GpuVertexBuffer* buffer) override { return object(buffer)->AddRef(); }
     long create_index_buffer(uint32_t bytes, uint32_t usage, uint32_t format, uint32_t pool,
                              GpuIndexBuffer** buffer) override
     {
@@ -312,6 +316,11 @@ public:
     }
     uint32_t release_surface(GpuSurface* surface) override { return object(surface)->Release(); }
 
+    long create_pixel_shader(const uint32_t* tokens, GpuPixelShader** shader) override
+    {
+        return d3d()->CreatePixelShader(d3d_tokens(tokens), out(shader));
+    }
+
     long create_occlusion_query(GpuQuery** query) override
     {
         return d3d()->CreateQuery(D3DQUERYTYPE_OCCLUSION, out(query));
@@ -329,6 +338,10 @@ public:
         return d3d()->SetStreamSource(stream, object(buffer), offset, stride);
     }
     long set_indices(GpuIndexBuffer* buffer) override { return d3d()->SetIndices(object(buffer)); }
+    long get_stream_source(uint32_t stream, GpuVertexBuffer** buffer, uint32_t* offset, uint32_t* stride) override
+    {
+        return d3d()->GetStreamSource(stream, out(buffer), offset, stride);
+    }
     long draw(GpuPrimitive primitive, uint32_t first_vertex, uint32_t count) override
     {
         return d3d()->DrawPrimitive(d3d_primitive(primitive), first_vertex, count);
