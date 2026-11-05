@@ -9,6 +9,7 @@ add_library(thug2_devtools STATIC
     test_view.cpp
     start_level.cpp
     automation.cpp
+    automation_commands.cpp
     automation_trace.cpp
     automation_report.cpp
     automation_parse.cpp
