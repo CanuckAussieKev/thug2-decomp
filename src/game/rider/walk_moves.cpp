@@ -283,9 +283,9 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, hit_cache_), .original = 0x790},
         FieldAt{.now = offsetof(FootMovement, camera_), .original = 0x175C},
         FieldAt{.now = offsetof(FootMovement, walk_camera_), .original = 0x1760},
-        FieldAt{.now = offsetof(FootMovement, hang_node_), .original = 0x1764},
-        FieldAt{.now = offsetof(FootMovement, hang_next_node_), .original = 0x1768},
-        FieldAt{.now = offsetof(FootMovement, rail_manager_), .original = 0x176C},
+        FieldAt{.now = offsetof(FootMovement, hang_rail_.node), .original = 0x1764},
+        FieldAt{.now = offsetof(FootMovement, hang_rail_.next_node), .original = 0x1768},
+        FieldAt{.now = offsetof(FootMovement, hang_rail_.manager), .original = 0x176C},
         FieldAt{.now = offsetof(FootMovement, input_), .original = 0x1770},
         FieldAt{.now = offsetof(FootMovement, anim_blender_), .original = 0x1774},
         FieldAt{.now = offsetof(FootMovement, model_), .original = 0x1778},
@@ -321,11 +321,11 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, push_normal_), .original = 0x18B4},
         FieldAt{.now = offsetof(FootMovement, push_plane_distance_), .original = 0x18C4},
         FieldAt{.now = offsetof(FootMovement, push_height_), .original = 0x18C8},
-        FieldAt{.now = offsetof(FootMovement, along_), .original = 0x18CC},
-        FieldAt{.now = offsetof(FootMovement, rail_up_), .original = 0x18D0},
-        FieldAt{.now = offsetof(FootMovement, rail_out_), .original = 0x18D4},
-        FieldAt{.now = offsetof(FootMovement, hang_init_anim_type_), .original = 0x18D8},
-        FieldAt{.now = offsetof(FootMovement, climb_scale_), .original = 0x18DC},
+        FieldAt{.now = offsetof(FootMovement, hang_.along), .original = 0x18CC},
+        FieldAt{.now = offsetof(FootMovement, hang_.up), .original = 0x18D0},
+        FieldAt{.now = offsetof(FootMovement, hang_.out), .original = 0x18D4},
+        FieldAt{.now = offsetof(FootMovement, hang_.anim_type), .original = 0x18D8},
+        FieldAt{.now = offsetof(FootMovement, hang_.climb_scale), .original = 0x18DC},
         FieldAt{.now = offsetof(FootMovement, ladder_sign_), .original = 0x18E0},
         FieldAt{.now = offsetof(FootMovement, transition_start_), .original = 0x18E4},
         FieldAt{.now = offsetof(FootMovement, unknown18f4_), .original = 0x18F4},
@@ -1178,7 +1178,7 @@ void FootMovement::get_jump()
         pushing_ = true;
         push_normal_ = facing;
         push_plane_distance_ = hang_plane(this);
-        push_height_ = pos_.y - rail_up_;
+        push_height_ = pos_.y - hang_.up;
         entity()->vel().x = 0.0F;
         entity()->vel().z = 0.0F;
         heading = facing;

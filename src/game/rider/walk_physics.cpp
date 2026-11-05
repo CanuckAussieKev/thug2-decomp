@@ -228,7 +228,7 @@ void FootMovement::change_phase(int state)
         blocked_ = false;
     }
     if (state == 2) {
-        climb_scale_ = 0.0F;
+        hang_.climb_scale = 0.0F;
         if (phase_.previous == 1) {
             // Just caught a ledge: the pad's hang controls ignored for hang_control_debounce_time.
             objects::PadSnapshot* pad = &input_->pad_primary();
@@ -427,7 +427,7 @@ bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Scri
 // 0x005286A0
 bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, script::Script* script) const
 {
-    script->args()->put_name_key(checksums::Name{kHangInitAnimTypeName}, hang_init_anim_type_);
+    script->args()->put_name_key(checksums::Name{kHangInitAnimTypeName}, hang_.anim_type);
     return true;
 }
 
@@ -458,11 +458,11 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
 {
     // The angle the rail between the two hang nodes climbs (asin of its direction's y, in degrees), signed by
     // which way along it the skater faces.
-    GrindRailHub* rails = rail_manager_;
+    GrindRailHub* rails = hang_rail_.manager;
     maths::Vec4 from{};
     maths::Vec4 to{};
-    const maths::Vec4* from_point = rails->get_absolute_pos(&from, hang_node_);
-    const maths::Vec4* to_point = rails->get_absolute_pos(&to, hang_next_node_);
+    const maths::Vec4* from_point = rails->get_absolute_pos(&from, hang_rail_.node);
+    const maths::Vec4* to_point = rails->get_absolute_pos(&to, hang_rail_.next_node);
     float dx = to_point->x - from_point->x;
     float dy = to_point->y - from_point->y;
     const double dz_full = static_cast<double>(to_point->z) - from_point->z;

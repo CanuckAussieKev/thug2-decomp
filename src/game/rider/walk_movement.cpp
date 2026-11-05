@@ -636,7 +636,7 @@ void FootMovement::copy_to_object()
         vel.y = up_speed_;
         break;
     case 2: { // hanging: sideways along the ledge
-        const float scale = climb_scale_;
+        const float scale = hang_.climb_scale;
         vel = {.x = scale * -facing.z, .y = scale * 0.0F, .z = scale * facing.x, .w = scale * 1.0F};
         break;
     }

@@ -466,6 +466,21 @@ public:
         skater::AcidDrop acid_drop{};         // +0x20 (+0x768) the acid drop found (try_acid_drop)
     };
 
+    // The hang, two records apart: the rail held (+0x1764-+0x176F; a ladder is one too) and the place on it
+    // (+0x18CC-+0x18DF).
+    struct HangRail {
+        objects::GrindPoint* node{};      // +0x00 (+0x1764) its node
+        objects::GrindPoint* next_node{}; // +0x04 (+0x1768) ... and the next
+        objects::GrindRailHub* manager{}; // +0x08 (+0x176C) whose rail manager
+    };
+    struct HangPlace {
+        float along{};        // +0x00 (+0x18CC) how far along the rail (a fraction)
+        float up{};           // +0x04 (+0x18D0) the hang point's offset from the rail: up
+        float out{};          // +0x08 (+0x18D4) ... and out
+        uint32_t anim_type{}; // +0x0C (+0x18D8) the hang's animation (SWING / WALL)
+        float climb_scale{};  // +0x10 (+0x18DC) the shimmy's speed, eased towards the control's
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -498,9 +513,9 @@ public:
     [[nodiscard]] objects::GameEntity* grind_object() const { return leaving_.grind_object; }
     skater::AcidDrop& acid_drop() { return leaving_.acid_drop; }
     [[nodiscard]] const skater::AcidDrop& acid_drop() const { return leaving_.acid_drop; }
-    [[nodiscard]] objects::GrindPoint* hang_node() const { return hang_node_; }
-    [[nodiscard]] objects::GrindRailHub* rail_manager() const { return rail_manager_; }
-    objects::GrindRailHub*& rail_manager() { return rail_manager_; }
+    [[nodiscard]] objects::GrindPoint* hang_node() const { return hang_rail_.node; }
+    [[nodiscard]] objects::GrindRailHub* rail_manager() const { return hang_rail_.manager; }
+    objects::GrindRailHub*& rail_manager() { return hang_rail_.manager; }
     objects::PadInputModule*& input() { return input_; }
     [[nodiscard]] objects::PadInputModule* input() const { return input_; }
     [[nodiscard]] objects::ActivationZoneModule* trigger() const { return trigger_; }
@@ -557,9 +572,7 @@ private:
     render::HitMeshCache hit_cache_;              // +0x790
     objects::GameEntity* camera_{};               // +0x175C
     objects::FootView* walk_camera_{};            // +0x1760
-    objects::GrindPoint* hang_node_{};            // +0x1764 the rail held: its node
-    objects::GrindPoint* hang_next_node_{};       // +0x1768 ... and the next
-    objects::GrindRailHub* rail_manager_{};       // +0x176C whose rail manager
+    HangRail hang_rail_;                          // +0x1764-+0x176F the rail held
     objects::PadInputModule* input_{nullptr};     // +0x1770 the object's components (seal)
     objects::AnimBlenderComponent* anim_blender_{nullptr}; // +0x1774
     objects::MeshInstanceModule* model_{nullptr};          // +0x1778
@@ -596,11 +609,7 @@ private:
     maths::Vec4 push_normal_{};      // +0x18B4 the plane's normal (also a hang move's heading)
     float push_plane_distance_{};    // +0x18C4
     float push_height_{};            // +0x18C8 (also a hang move's elevation)
-    float along_{};                  // +0x18CC how far along the rail (a fraction)
-    float rail_up_{};                // +0x18D0 the hang point's offset from the rail: up
-    float rail_out_{};               // +0x18D4 ... and out
-    uint32_t hang_init_anim_type_{}; // +0x18D8 the hang's animation (SWING / WALL)
-    float climb_scale_{};            // +0x18DC the shimmy's speed, eased towards the control's
+    HangPlace hang_;                 // +0x18CC-+0x18DF the place on the rail held
     float ladder_sign_{};            // +0x18E0
     maths::Vec4 transition_start_{}; // +0x18E4 an animated move's start
     std::array<uint8_t, kUnknown18f4Bytes> unknown18f4_{};
