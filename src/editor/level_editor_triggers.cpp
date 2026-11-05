@@ -54,6 +54,12 @@
 #include "editor/level_editor_triggers_internal.h"
 
 namespace frontend::level_editor::triggers {
+// What the source file's anonymous namespace held that its pieces share (level_editor_triggers_internal.h): visible
+// as it was. (In each piece, not the header: SF.7.)
+using namespace internal;
+} // namespace frontend::level_editor::triggers
+
+namespace frontend::level_editor::triggers {
 namespace {
 
 constexpr std::size_t kGapNameSize = 32;

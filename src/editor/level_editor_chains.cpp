@@ -55,6 +55,12 @@
 #include "editor/level_editor_chains_internal.h"
 
 namespace frontend::level_editor::chains {
+// What the source file's anonymous namespace held that its pieces share (level_editor_chains_internal.h): visible
+// as it was. (In each piece, not the header: SF.7.)
+using namespace internal;
+} // namespace frontend::level_editor::chains
+
+namespace frontend::level_editor::chains {
 namespace {
 
 constexpr float kMinFlatNormalY = 0.7F; // a surface normal this upright is floor, not wall

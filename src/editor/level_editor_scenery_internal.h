@@ -2,7 +2,8 @@
 
 // NOT ORIGINAL - what level_editor_scenery.cpp's pieces share (the scene walks, the tracks and rails, the placement
 // maths and the helpers more than one piece uses). They were the one file's anonymous namespaces; here they are in
-// `internal`, with a using-directive, so every piece sees them as it saw them there.
+// `internal`, and each piece that includes this has a using-directive for them (in the piece, not here: SF.7), so it
+// sees them as it saw them there.
 
 #include "editor/level_editor_scenery.h"
 #include <cstdint>
@@ -31,9 +32,7 @@
 #include <gsl/pointers>
 #include "engine/gfx/engine_parts.h"
 
-namespace frontend::level_editor {
-
-namespace internal {
+namespace frontend::level_editor::internal {
 
 constexpr int kMaxNodeGuard = 256; // a scene list longer than this is taken as broken
 
@@ -43,16 +42,9 @@ constexpr int kSectorFlagMovable = 0x40; // a sector flag; a sector that has it 
 
 constexpr int kSectorFlagMoved = 0x20;
 
-} // namespace internal
+} // namespace frontend::level_editor::internal
 
-// What the source file's anonymous namespace held that its pieces share: visible as it was.
-using namespace internal;
-
-} // namespace frontend::level_editor
-
-namespace frontend::level_editor::scenery {
-
-namespace internal {
+namespace frontend::level_editor::scenery::internal {
 
 constexpr float kMaxSectorExtent = 4000.0F; // (larger: the ground, a street, a building block - not moved)
 
@@ -69,7 +61,7 @@ template <typename F>
 void for_each_scene(F fn)
 {
     auto* node = (render::engine_parts().scene_list().next());
-    for (int guard = 0; node && !is_end(node) && guard < kMaxNodeGuard; ++guard) {
+    for (int guard = 0; node && !is_end(node) && guard < level_editor::internal::kMaxNodeGuard; ++guard) {
         SceneNode* next = node->next();
         if (scene_of(node) && !scene_of(node)->is_sky()) {
             fn(scene_of(node));
@@ -83,7 +75,7 @@ template <typename F>
 void for_each_sector(render::WorldScene* scene, F fn)
 {
     const lists::KeyMap* table = scene->sectors();
-    if (!table || table->bits() > kMaxSectorTableBits) {
+    if (!table || table->bits() > level_editor::internal::kMaxSectorTableBits) {
         return;
     }
     const lists::KeyMap::Item* buckets = table->buckets();
@@ -232,9 +224,4 @@ SceneryHover& scenery_hover();
 
 std::unordered_map<uint32_t, std::pair<render::Geom*, float>>& level_shares();
 
-} // namespace internal
-
-// What the source file's anonymous namespace held that its pieces share: visible as it was.
-using namespace internal;
-
-} // namespace frontend::level_editor::scenery
+} // namespace frontend::level_editor::scenery::internal

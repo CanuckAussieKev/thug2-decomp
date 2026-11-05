@@ -1,8 +1,8 @@
 #pragma once
 
 // NOT ORIGINAL - what level_editor_triggers.cpp's pieces share (the trigger state, the records and the helpers more
-// than one piece uses). They were the one file's anonymous namespace; here they are in `internal`, with a
-// using-directive, so every piece sees them as it saw them there.
+// than one piece uses). They were the one file's anonymous namespace; here they are in `internal`, and each piece that
+// includes this has a using-directive for them (in the piece, not here: SF.7), so it sees them as it saw them there.
 
 #include "editor/level_editor_triggers.h"
 #include <cstdint>
@@ -19,9 +19,7 @@
 #include <gsl/pointers>
 #include <array>
 
-namespace frontend::level_editor::triggers {
-
-namespace internal {
+namespace frontend::level_editor::triggers::internal {
 
 constexpr float kHalf = 0.5F;                                    // half
 
@@ -177,9 +175,4 @@ void fabricate(const std::vector<Placed>& made, const char* what);
 
 std::string describe(const Calls& calls, Kind kind);
 
-} // namespace internal
-
-// What the source file's anonymous namespace held that its pieces share: visible as it was.
-using namespace internal;
-
-} // namespace frontend::level_editor::triggers
+} // namespace frontend::level_editor::triggers::internal

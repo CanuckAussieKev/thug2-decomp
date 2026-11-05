@@ -1,9 +1,9 @@
 #pragma once
 
 // NOT ORIGINAL - what level_editor.cpp's pieces share (the editor's state, its picking / drag records and the helpers
-// more than one piece uses). They were the one file's anonymous namespace; here they are in `internal`, with a
-// using-directive, so every piece sees them as it saw them there. Only the level_editor_*.cpp pieces of the
-// editor's core include this.
+// more than one piece uses). They were the one file's anonymous namespace; here they are in `internal`, and each piece
+// that includes this has a using-directive for them (in the piece, not here: SF.7), so it sees them as it saw them
+// there. Only the level_editor_*.cpp pieces of the editor's core include this.
 
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
@@ -49,9 +49,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 
-namespace frontend::level_editor {
-
-namespace internal {
+namespace frontend::level_editor::internal {
 
 constexpr float kDefaultFlySpeed = 800.0F;    // units a second
 
@@ -723,9 +721,4 @@ void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines);
 void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
                   const std::vector<LineVertex>& lines);
 
-} // namespace internal
-
-// What the source file's anonymous namespace held that its pieces share: visible as it was.
-using namespace internal;
-
-} // namespace frontend::level_editor
+} // namespace frontend::level_editor::internal

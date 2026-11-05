@@ -1,8 +1,9 @@
 #pragma once
 
 // NOT ORIGINAL - what level_editor_ui.cpp's pieces share (the panels' state, the colours, the widgets and the helpers
-// more than one piece uses). They were the one file's anonymous namespace; here they are in `internal`, with a
-// using-directive, so every piece sees them as it saw them there.
+// more than one piece uses). They were the one file's anonymous namespace; here they are in `internal`, and each piece
+// that includes this has a using-directive for them (in the piece, not here: SF.7), so it sees them as it saw them
+// there.
 
 #include "editor/level_editor_ui.h"
 #include <cstddef>
@@ -30,9 +31,7 @@
 #include "imgui.h"
 #include "editor/level_editor_gui_text.h"
 
-namespace frontend::level_editor::ui {
-
-namespace internal {
+namespace frontend::level_editor::ui::internal {
 
 // Layout, at scale 1 unless said (the UI scale multiplies them): the Outliner, Inspector, status bar, help, browser and dialogs.
 constexpr std::size_t kSearchTextSize = 96; // a search field's text
@@ -135,9 +134,4 @@ void confirm_reset(const ShapeMesh& model);
 
 void confirm_hide(const ShapeMesh& model);
 
-} // namespace internal
-
-// What the source file's anonymous namespace held that its pieces share: visible as it was.
-using namespace internal;
-
-} // namespace frontend::level_editor::ui
+} // namespace frontend::level_editor::ui::internal

@@ -1,8 +1,8 @@
 #pragma once
 
 // NOT ORIGINAL - what level_editor_chains.cpp's pieces share (the chains' state, the graph and the helpers more than
-// one piece uses). They were the one file's anonymous namespace; here they are in `internal`, with a using-directive,
-// so every piece sees them as it saw them there.
+// one piece uses). They were the one file's anonymous namespace; here they are in `internal`, and each piece that
+// includes this has a using-directive for them (in the piece, not here: SF.7), so it sees them as it saw them there.
 
 #include "editor/level_editor_chains.h"
 #include <algorithm>
@@ -30,9 +30,7 @@
 #include <gsl/pointers>
 #include "base/maths/vec4.h"
 
-namespace frontend::level_editor::chains {
-
-namespace internal {
+namespace frontend::level_editor::chains::internal {
 
 bool same_text(const std::string& a, const char* b);
 
@@ -218,9 +216,4 @@ Graph graph_of(nodes::Family family);
 
 nodes::Family family_of_name(uint32_t name);
 
-} // namespace internal
-
-// What the source file's anonymous namespace held that its pieces share: visible as it was.
-using namespace internal;
-
-} // namespace frontend::level_editor::chains
+} // namespace frontend::level_editor::chains::internal

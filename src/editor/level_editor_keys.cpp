@@ -56,6 +56,12 @@
 #include "editor/level_editor_internal.h"
 
 namespace frontend::level_editor {
+// What the source file's anonymous namespace held that its pieces share (level_editor_internal.h): visible
+// as it was. (In each piece, not the header: SF.7.)
+using namespace internal;
+} // namespace frontend::level_editor
+
+namespace frontend::level_editor {
 namespace {
 
 constexpr double kBriefSeconds = 1.5;

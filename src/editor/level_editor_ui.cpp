@@ -49,6 +49,12 @@
 #include "editor/level_editor_ui_internal.h"
 
 namespace frontend::level_editor::ui {
+// What the source file's anonymous namespace held that its pieces share (level_editor_ui_internal.h): visible
+// as it was. (In each piece, not the header: SF.7.)
+using namespace internal;
+} // namespace frontend::level_editor::ui
+
+namespace frontend::level_editor::ui {
 namespace {
 
 constexpr float kKeyCapRounding = 3.0F; // the key hints' key caps
