@@ -116,6 +116,7 @@ add_library(thug2_engine STATIC
     gfx/spawned_polys.cpp
     gfx/renderer.cpp
     gfx/render_device.cpp
+    gfx/gpu.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp
     gfx/occlusion.cpp
