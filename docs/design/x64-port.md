@@ -157,7 +157,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 - `platform/crash.cpp` reads `CONTEXT::Eip / Esp / Ebp / Eax...` and dumps the stack in 4-byte slots. On x64 it
   needs the `Rip / Rsp...` registers, 8-byte slots and x64 unwinding (or `RtlCaptureStackBackTrace`).
   `tools/standalone/first_fault.py` and the symbolizers read x86 contexts too.
-- `platform/sockets`: `SOCKET` is 64-bit on Win64. The socket must stay in a `SOCKET`, not in a 32-bit field.
+- `net::SocketId` (`engine/net/transport.h`, a `uint32_t`: Winsock's `SOCKET` value) and `net_winsock/winsock_transport.cpp`: `SOCKET` is 64-bit on Win64. The socket must stay in a `SOCKET`-wide id (widen `SocketId`, `kNoSocket` and the records that hold it), not in a 32-bit field.
 - GameSpy callbacks are registered by code address (`code_address`, 32 lines in game/online). That is fine with
   64-bit pointers, as long as nothing narrows them (the `int` user word in NAT negotiation does).
 
