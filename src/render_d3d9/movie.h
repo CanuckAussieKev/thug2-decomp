@@ -39,7 +39,7 @@ namespace render {
 // other movies play as usual.
 bool play_movie(script::Struct* params, script::Context context);
 // The skip_intro_movies flag (read from the ini once - also on for a run started with -edit / edit_level,
-// devtools/start_level.h).
+// game/front_end/start_level.h).
 bool& skip_intro_movies();
 
 

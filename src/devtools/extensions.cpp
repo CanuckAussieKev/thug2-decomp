@@ -9,7 +9,6 @@
 #include "devtools/automation.h"
 #include "devtools/restart_tester.h"
 #include "devtools/screenshot.h"
-#include "devtools/start_level.h"
 #include "game/rider/test_view.h"
 #include "engine/ext/extension.h"
 
@@ -36,27 +35,6 @@ ext::Extension& extension()
     return restart_tester;
 }
 } // namespace frontend::restart_tester
-
-namespace frontend::begin_level {
-namespace {
-class StartLevelExtension final : public ext::Extension {
-public:
-    void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
-    {
-        if (!game_owned) {
-            tick_frame(front_end);
-        }
-    }
-    bool skips_intro_movies() override { return edit_requested(); }
-};
-} // namespace
-
-ext::Extension& extension()
-{
-    static StartLevelExtension start_level;
-    return start_level;
-}
-} // namespace frontend::begin_level
 
 namespace frontend::automation {
 namespace {

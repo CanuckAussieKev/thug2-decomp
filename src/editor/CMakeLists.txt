@@ -50,6 +50,7 @@ add_library(thug2_editor STATIC
     level_editor_gui_text.cpp
     level_editor_camera.cpp
     level_editor_play.cpp
+    level_editor_open.cpp
     level_editor_playtest.cpp
     level_editor_playtest_ui.cpp
     level_editor_prefs.cpp

@@ -18,7 +18,7 @@
 #include "game/front_end/front_end.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ext/extension.h"
-#include "devtools/start_level.h"
+#include "game/front_end/start_level.h"
 #include "game/rider/test_view.h"
 #include "engine/lists/key_map.h"
 #include "game/world/trick_objects.h"

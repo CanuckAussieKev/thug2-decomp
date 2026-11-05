@@ -47,7 +47,7 @@ The index below lists each kind of shared constant or enum and the header that h
 | Path buffer sizes (a disk path, an overlay path) | `engine/file/file_load.h` |
 | Language numbers | `base/core/language.h`; territory, hardware and display numbers: `engine/sys/game_config.h` |
 | UTF-8 byte values | `base/core/str.h` |
-| A level's load script prefix | `devtools/start_level.h` |
+| A level's load script prefix | `game/front_end/start_level.h` |
 | 2D layout sizes (640 x 480, the screen elements' 640 x 448) | `engine/gfx/screen.h` |
 | The new front end's 1280 x 720 design canvas | `frontend/new_frontend_model.h` |
 | The screen elements' float constants as the original stores them | `engine/ui/screen_constants.h` |

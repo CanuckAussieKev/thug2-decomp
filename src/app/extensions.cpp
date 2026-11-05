@@ -9,6 +9,7 @@
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend_extension.h"
 #include "game/commands/career_complete.h"
+#include "game/front_end/start_level.h"
 #include "game/rider/thaw_bmx.h"
 
 namespace app {

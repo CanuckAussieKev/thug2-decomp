@@ -14,7 +14,7 @@
 #include "game/front_end/front_end.h"
 #include "engine/ui/menu_reading.h"
 #include "engine/ui/screen_element.h"
-#include "devtools/start_level.h"
+#include "game/front_end/start_level.h"
 #include "engine/file/disk_files.h"
 #include <gsl/pointers>
 

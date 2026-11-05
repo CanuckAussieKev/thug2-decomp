@@ -41,7 +41,7 @@
 #include "engine/audio/continue_music.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
-#include "devtools/start_level.h"
+#include "game/front_end/start_level.h"
 #include "engine/gfx/font.h"
 #include "engine/gfx/hd_ui.h"
 #include "engine/objects/compositemgr.h"
@@ -209,7 +209,7 @@ MenuTick& menu_tick()
 }
 
 // The Level Editor chosen on the Create screen: the level loads, then Start pauses it and the pause menu's LEVEL
-// EDITOR opens the editor (as -edit does - devtools/start_level.h).
+// EDITOR opens the editor (as -edit does - game/front_end/start_level.h).
 enum class Edit : uint8_t { kDisengaged, kWaitLevel, kWaitPause };
 // NOT ORIGINAL grouping - the options being edited: the session, its time and presses, the values at its start, a
 // pending restart, the note (were globals). Made on first use, never destroyed (edit_session()).

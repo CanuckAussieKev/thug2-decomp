@@ -11,6 +11,7 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_layout.h"
+#include "editor/level_editor_open.h"
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_triggers.h"
@@ -57,6 +58,10 @@ public:
     }
     void draw_over_frame() override { blit(); }
     void device_lost() override { ui::device_lost(); }
+
+    // (-edit: opened in the level start level loads)
+    void open_editor_when_up() override { open_in_level::begin(); }
+    void editor_opening_frame(modules::FrontEnd* front_end) override { open_in_level::tick_frame(front_end); }
 
     void scene_loaded(const char* name, bool is_net) override { layout::on_scene_loaded(name, is_net); }
     bool plays_edited_copy() override { return layout::editing_copy(); }

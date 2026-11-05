@@ -27,7 +27,7 @@
 #include "engine/ui/screen_element_manager.h"
 #include "engine/ui/menu_reading.h"
 #include "game/front_end/menu_pad_event.h"
-#include "devtools/start_level.h"
+#include "game/front_end/start_level.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/net/net_manager.h"

@@ -5,8 +5,8 @@
 //   node tools/layers.ts              check against the baseline
 //   node tools/layers.ts --list       print every violation (the baseline's text)
 //   node tools/layers.ts --write      rewrite the baseline (only ever shorter: refuses to add a line)
-// The map's 'strict' libraries (base, platform, engine) are held at none: any upward include of theirs fails, in the
-// sources or in the baseline.
+// The map's 'strict' libraries (every library but the app's) are held at none: any upward include of theirs fails, in
+// the sources or in the baseline.
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";

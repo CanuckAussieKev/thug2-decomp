@@ -1,4 +1,4 @@
-// NOT ORIGINAL - start the game straight into the level editor (src/devtools/start_level.h: `-edit <level>`).
+// NOT ORIGINAL - start the game straight into the level editor (src/game/front_end/start_level.h: `-edit <level>`).
 //
 //   node tools/game/edit_level.ts                     the installed levels, by game (as --list)
 //   node tools/game/edit_level.ts --list              the same - prints only

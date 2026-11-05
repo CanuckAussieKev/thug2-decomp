@@ -172,7 +172,7 @@ void create_script_pools();
 // Create a pool of `count` items of `item_size` as `pools`' current pool (0x0046F090.. one per class).
 void create_pool(memory::PoolPair& pools, int item_size, int count, const char* name);
 // NOT ORIGINAL - the script pools' use logged (`script pools in use <when>: CComponent <used> (peak <peak>) of
-// <count>, CStruct ...`): what a level costs them (devtools/start_level.cpp logs it once the level is up).
+// <count>, CStruct ...`): what a level costs them (game/front_end/start_level.cpp logs it once the level is up).
 void log_script_pool_use(const char* when);
 // The permanent string heap: `size` bytes of strings, at most `count` of them.
 void allocate_permanent_string_heap(const memory::sizes::Pools& sizes);

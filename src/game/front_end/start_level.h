@@ -6,6 +6,9 @@
 namespace modules {
 struct FrontEnd;
 }
+namespace ext {
+class Extension;
+}
 
 // NOT ORIGINAL - start in a level (ours, added at the user's request; not the game's and not PartyMod's): straight into
 // free skate in a level instead of the main menu - for testing and automation.
@@ -55,6 +58,11 @@ const char* get_requested();
 bool edit_requested();
 // Once a frame from the front end's input logic (its extension).
 void tick_frame(modules::FrontEnd* front_end);
+// Start level as an extension (engine/ext/extension.h; app/ registers it): its frame, while no extension owns the game;
+// the intro movies skipped for -edit. With -edit, once the level's load began, the extensions are asked to open the
+// editor there (ext::open_editor_when_up), then given each frame (ext::editor_opening_frame) - the level editor's
+// steps: editor/level_editor_open.h.
+ext::Extension& extension();
 // What Update does once the menu is up: the level `name` (with or without Load_) in free skate. False (logged, and
 // why in `why` if given) for an unknown level or one whose scene isn't installed. (Also the automation channel's
 // `level` command - devtools/automation.h.)
