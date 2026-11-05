@@ -97,8 +97,8 @@ test("only render_d3d9/ includes ImGui's backends; only app/ picks the UI backen
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the UI backend");
 });
 
-// D3DX9 is the Direct3D 9 backend's alone (its shader assembly and JPEG writer; its maths is base/maths/view_transforms.h
-// since stage 11 round 16) - and the maths check's reference.
+// D3DX9 is the Direct3D 9 backend's alone (its shader assembly and JPEG writer; its maths is plain C++,
+// base/maths/view_transforms.h) - and the maths check's reference.
 test("only render_d3d9/ (and the maths check) includes D3DX", () => {
     const users = including(/^\s*#\s*include\s*<d3dx9\w*\.h>/m);
     assert.deepEqual(

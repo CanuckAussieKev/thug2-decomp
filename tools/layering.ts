@@ -18,31 +18,31 @@ const BOUNDARY_FILES = new Set([
     "src/base/core/raw_view.h",
     "src/base/core/pointer_cell.h",
     "src/base/core/bits_as.h",
-    // the all-ones pointer (INVALID_HANDLE_VALUE, the list heads' marker), from platform/ in stage 11 round 3
+    // the all-ones pointer (INVALID_HANDLE_VALUE, the list heads' marker), once in platform/
     "src/base/core/all_ones.h",
     // a script value's 32 bits, read as the kind its holder says (the QB value cell)
     "src/engine/script/cell.h",
-    // the GPU's vertex and index buffers and their views (src/gpu/ until stage 11 round 15)
+    // the GPU's vertex and index buffers and their views (once src/gpu/)
     "src/render_d3d9/vertex_buffers.cpp",
     "src/render_d3d9/vertex_buffers.h",
     "src/render_d3d9/d3d9_handles.h",
     "src/engine/gfx/gpu_handles.h",
     "src/engine/gfx/vertex_view.h",
-    // Direct3D's matrices over the game's (platform/ until stage 11 round 15)
+    // Direct3D's matrices over the game's (once in platform/)
     "src/render_d3d9/d3d_matrix.h",
-    // Dear ImGui's texture ids over Direct3D's textures (platform/ until stage 11 round 16)
+    // Dear ImGui's texture ids over Direct3D's textures (once in platform/)
     "src/render_d3d9/imgui_texture_id.h",
-    // D3DX's buffers over the callers' out-parameters (platform/ until stage 11 round 16)
+    // D3DX's buffers over the callers' out-parameters (once in platform/)
     "src/render_d3d9/d3dx.cpp",
-    // binkw32's exports looked up by name (platform/ until stage 11 round 17)
+    // binkw32's exports looked up by name (once in platform/)
     "src/media_bink/bink.cpp",
-    // Winsock's generic addresses, hostent and char buffers over the game's (platform/sockets.cpp until stage 11 round 20)
+    // Winsock's generic addresses, hostent and char buffers over the game's (once platform/sockets.cpp)
     "src/net_winsock/winsock_transport.cpp",
     // the QB bytecode and its pre-compiled images, read in place
     "src/engine/script/qb.cpp",
     "src/engine/script/token_reader.cpp",
     "src/engine/script/precompiled.cpp",
-    // the format check lays the readers' in-place images out itself (moved from formats/check in stage 11 round 11)
+    // the format check lays the readers' in-place images out itself (once in formats/check)
     "src/tests/format_check_files.cpp",
 ]);
 

@@ -1,6 +1,6 @@
-// NOT ORIGINAL - the Direct3D 9 UI backend (d3d9_ui_backend.h; the interface: engine/gfx/ui_backend.h). Until stage 11
-// round 16 this was the level editor's own backend file (editor/level_editor_ui_backend.cpp), which now asks for it
-// through render::ui_backend().
+// NOT ORIGINAL - the Direct3D 9 UI backend (d3d9_ui_backend.h; the interface: engine/gfx/ui_backend.h). This was once
+// the level editor's own backend file (editor/level_editor_ui_backend.cpp); the editor now asks for it through
+// render::ui_backend().
 
 #include "render_d3d9/d3d9_ui_backend.h"
 

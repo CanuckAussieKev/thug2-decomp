@@ -96,7 +96,7 @@ constexpr uint32_t kFreeskate = 0x34861A16;          // freeskate
 WinRule* head_marker() { return platform::all_ones_pointer<WinRule>(); }
 
 // (the getters' local when an asserted integer isn't there: the original's is the pushed `this`'s address - 0 here,
-// as round 3c's argument-slot defaults)
+// as the other argument-slot defaults are)
 int unset(const void* /*mode*/) { return 0; }
 
 MatchRules* the_game_mode() { return stored_game_mode().get(); }

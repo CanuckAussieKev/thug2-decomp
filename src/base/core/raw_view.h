@@ -8,8 +8,8 @@
 
 // NOT ORIGINAL - the views of the original's in-memory layouts still left: each call is a place where the code reads
 // an object through a type it wasn't declared with, or a field at a byte offset, as the original's code did. They are
-// named here instead of being written as reinterpret_casts, so they can be found and counted: stage 9's round 3
-// gives each its real type or member and removes it. (Bytes from outside the game - files, network messages - are
+// named here instead of being written as reinterpret_casts, so they can be found and counted, and each given its
+// real type or member and removed in turn. (Bytes from outside the game - files, network messages - are
 // read through the boundary layer's readers instead: src/formats, src/wire.) Nothing is converted: the same address,
 // const kept.
 namespace raw {

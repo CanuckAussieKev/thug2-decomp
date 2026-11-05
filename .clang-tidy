@@ -79,9 +79,9 @@ CheckOptions:
   # helpers free functions (C.4). So only a class that mixes public and private data is flagged - the same rule as the
   # cppcoreguidelines alias, which has this option on by default: one rule for both.
   misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
-  # Adjacent parameters of one type (I.24): on since round 4o (strong types - maths::Vec2 / Rect / Size, checksums::Name,
+  # Adjacent parameters of one type (I.24): on (strong types - maths::Vec2 / Rect / Size, checksums::Name,
   # colour::Packed, net::Address - and parameter records took 698 to 0).
-  # Same-meaning pairs aren't swaps (decision 7): the bounds of a range (min / max, low / high, first / last,
+  # Same-meaning pairs aren't swaps: the bounds of a range (min / max, low / high, first / last,
   # begin / end, start / finish, from / to), a copy's ends (src / dst, source / destination) and a comparison's
   # operands (a / b, lhs / rhs). NamePrefixSuffixSilenceDissimilarityTreshold stays 1: 2 and 3 were measured and
   # silence nothing more over src/.
@@ -100,7 +100,7 @@ CheckOptions:
   # outside a condition), the literal suffixes upper-case as readability-uppercase-literal-suffix wants them.
   readability-implicit-bool-conversion.AllowPointerConditions: true
   readability-implicit-bool-conversion.UseUpperCaseLiteralSuffix: true
-  # Cognitive complexity at 50, not the check's default 25 (stage 10): the original's long switch-and-loop functions
+  # Cognitive complexity at 50, not the check's default 25: the original's long switch-and-loop functions
   # and the editor's UI functions were split into named steps down to 50. Most of the functions between 26 and 50 are
   # one loop of the original or one ImGui panel, and splitting them further would scatter a decompiled routine without
   # making it clearer. Macros' own conditionals (GSL's Expects, the THUG2_* macros) are not the reader's: not counted.

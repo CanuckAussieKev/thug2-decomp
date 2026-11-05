@@ -4,8 +4,8 @@
 
 #include "base/maths/mat4.h"
 
-// NOT ORIGINAL - the vector transforms and the viewing matrices the renderer called D3DX9 for (d3dx9_43.dll until stage
-// 11 round 16), in plain C++: row vectors, 16-float row-major matrices (maths::Mat4's layout), the right-handed viewing
+// NOT ORIGINAL - the vector transforms and the viewing matrices the renderer called D3DX9 for (once in d3dx9_43.dll),
+// in plain C++: row vectors, 16-float row-major matrices (maths::Mat4's layout), the right-handed viewing
 // functions. Each is the same operations in the same order as the D3DX9 the game ran with - found by comparing with it
 // over many inputs (thug2_maths_check's "D3DX9's vector and viewing maths" section). D3DX's vector code is SSE (floats
 // throughout); its matrix builders (the look-at's cross and dot products, the projections' quotients) are x87 code,

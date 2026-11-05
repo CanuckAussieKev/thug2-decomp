@@ -6,7 +6,7 @@
 // NOT ORIGINAL - pointers kept in 32-bit integer cells, as the original's layouts and the script values keep them
 // (the game is 32-bit x86 by design: a cell holds a pointer exactly). Each use is a place where a pointer still
 // travels as an integer - a script value's cell, a callback's user word, an id that is an address, a hash of an
-// address; stage 9's round 3 gives the cells their pointer types where they are fields. Nothing is converted: the
+// address; the cells that are fields are still to be given their pointer types. Nothing is converted: the
 // same 32 bits.
 namespace cell {
 

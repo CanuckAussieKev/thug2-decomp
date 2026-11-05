@@ -315,7 +315,7 @@ void check_texts()
     compare("%td %zu %lu %ld %li %lld %llu", (-kPtrdiffArg), size_t{kSizeArg}, kUnsignedLongArg, -kLongArg, 3L, -1LL,
             2ULL);
     compare("%ls", L"wide");
-    // round 4b's forms: places chosen by an argument, colour / join pieces as texts, wsprintfA's integers
+    // the game's later forms: places chosen by an argument, colour / join pieces as texts, wsprintfA's integers
     for (const int places : {-2, 0, 1, 2, 3, 6}) {
         compare("(%.*f, %.*f, %.*f)|%.*f,%.*f,%.*f", places, kPlacesValueA, places, -kPlacesValueB, places, kPlacesValueC, places, kPlacesValueD,
                 places, -kPlacesValueE, places, kPlacesValueF);

@@ -10,7 +10,7 @@
 
 // NOT ORIGINAL - what our level editor (src/editor) asks of the Direct3D 9 backend, through render::Device
 // (render_device.h, "what our level editor asks"): its old HUD's lines, a PC geom's meshes and instance, the buffers its
-// ground tool makes, the Add palette's preview (until stage 11 round 16 the editor's own calls into this backend:
+// ground tool makes, the Add palette's preview (once the editor's own calls into this backend, from
 // editor/level_editor.cpp, _ground_game, _scenery, _preview).
 namespace render::editor_support {
 
