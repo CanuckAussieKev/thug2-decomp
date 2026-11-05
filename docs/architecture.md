@@ -194,7 +194,7 @@ graph TD
 the front end and the dev tools each link `thug2_game` (and Dear ImGui) alone, never one another: `thug2-editor` reaches
 neither the front end nor the dev tools. Only the exes (through `thug2_app`) link the backends. The checks in
 `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`: base;
-`thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
+`thug2_parse_check` / `thug2_printf_check`: formats; `thug2_vulkan_context_check`: the Vulkan backend). Third-party and system libraries are linked by the
 library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
 the network backend; LZHAM by the engine; DirectInput
 by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; volk, the Vulkan headers and the memory allocator by the Vulkan backend; imgui's core by the graphics backend - the loading console's

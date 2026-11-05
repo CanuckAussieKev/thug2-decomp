@@ -27,3 +27,14 @@ target_link_libraries(thug2_parse_check PRIVATE thug2_formats)
 # with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).
 add_executable(thug2_printf_check printf_check.cpp)
 target_link_libraries(thug2_printf_check PRIVATE thug2_formats)
+
+# NOT ORIGINAL - thug2_vulkan_context_check.exe: the Vulkan backend's context tried on this machine - an SDL window with
+# a Vulkan surface, the instance (validation when installed), the device, the swapchain, frames cleared and presented
+# across a resize, everything released - and what it found printed: the devices, their queue families and the depth
+# and texture formats the renderer needs (src/tests/vulkan_context_check.cpp). Needs no Vulkan SDK, only a driver.
+if(THUG2_VULKAN)
+    add_executable(thug2_vulkan_context_check vulkan_context_check.cpp)
+    target_link_libraries(thug2_vulkan_context_check PRIVATE thug2_render_vulkan)
+    # (its own main(): SDL's main wrapper isn't used)
+    target_compile_definitions(thug2_vulkan_context_check PRIVATE SDL_MAIN_HANDLED)
+endif()
