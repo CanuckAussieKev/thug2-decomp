@@ -54,6 +54,10 @@ constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater pas
 
 constexpr auto kFileName = std::to_array("editor\\thug2_decomp_triggers.qb");
 
+constexpr float kDrawRadius = 8000.0F; // (level triggers drawn within this of the camera)
+
+constexpr float kLabelRadius = 3000.0F;
+
 constexpr int kMaxLevelDrawn = 300, kMaxLabels = 48, kMaxFacesKept = 64;
 
 // NOT ORIGINAL grouping - level_editor_triggers.cpp's state (were globals). Made on first use, never destroyed
@@ -110,6 +114,8 @@ TriggerEdit& trigger_edit();
 
 uint32_t hash_of_name(const std::string& name);
 
+std::string get_label_of(uint32_t checksum);
+
 bool node_alive(const std::string& name);
 
 bool node_place(const std::string& name, V3* pos, float* yaw);
@@ -155,6 +161,10 @@ void get_forget();
 void on_array_removed(uint32_t name);
 
 bool array_loaded(level_nodes::NodeManager* manager, uint32_t name);
+
+void note_undo();
+
+std::string describe(const Calls& calls, Kind kind);
 
 } // namespace internal
 
