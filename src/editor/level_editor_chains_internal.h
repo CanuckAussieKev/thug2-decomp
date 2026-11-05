@@ -188,6 +188,12 @@ node_create::Spec spec_of(const Point& chain_point);
 
 maths::Vec4 climb_of(float facing);
 
+float facing_now(uint32_t name);
+
+float facing_original(uint32_t name);
+
+bool same_facing(float a, float b);
+
 std::vector<uint32_t> level_links_now(uint32_t name);
 
 std::vector<uint32_t> level_links_original(uint32_t name);
@@ -207,6 +213,10 @@ void link_rail_nodes(std::span<objects::GrindPoint> nodes, const std::unordered_
 void refresh_flat(objects::GrindRailHub* rails);
 
 bool flat_hook(const maths::Vec4* a, const maths::Vec4* b);
+
+Graph graph_of(nodes::Family family);
+
+nodes::Family family_of_name(uint32_t name);
 
 } // namespace internal
 
