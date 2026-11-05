@@ -70,8 +70,6 @@ constexpr std::uint32_t kUnknownMotionColour = 0xFFFFFFFF; // a motion with no c
 constexpr float kMinTurnSegment = 0.001F;                  // a trail segment shorter than this has no direction
 constexpr std::size_t kTrailLineSize = 256;
 constexpr std::size_t kFileNameSize = 32;
-constexpr double kMaxScorePoints = 2.0e9; // a score above this is taken as a misread
-constexpr int kMaxGapNodes = 4096; // gap list nodes walked before giving up
 constexpr int kRefusedCheckFrames = 60;
 constexpr std::uint32_t kRestartAskMilliseconds = 15000; // a restart request not answered by then is asked again
 constexpr int kRestartMaxFrames = 300;
@@ -485,16 +483,9 @@ namespace {
 constexpr uint32_t kSkater = 0x5B8AB877;               // Skater (the local skater's alias)
 constexpr uint32_t kSkaterState = 0x43686585;          // SkaterState
 constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3;   // SkaterBalanceTrick
-constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters)
 constexpr uint32_t kCamModuleName = 0xC4E311FA;        // (camera objects)
 
-
-goals::GapTally* get_checklist()
-{
-    modules::Skate* skate = modules::Skate::sole();
-    return skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
-}
 
 // The skater's state (the header's offsets).
 struct SkaterNow {
@@ -519,16 +510,7 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     out->pos = {.x = skater->at_point().x, .y = skater->at_point().y, .z = skater->at_point().z};
     out->motion = get_classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
-    out->pending = 0;
-    if (const objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
-        if (const modules::PointTally* point_tally =
-                core::down_cast<const objects::RiderPointKeeper>(score)->points_held()) {
-            const double points = static_cast<double>(point_tally->pot()) * point_tally->multiplier();
-            if (points > 0.0 && points < kMaxScorePoints) {
-                out->pending = static_cast<int>(points);
-            }
-        }
-    }
+    out->pending = combo_points_pending(skater);
     return true;
 }
 
@@ -634,25 +616,6 @@ bool save_file(uint32_t scene)
     return fs::write_text(trails_path(scene), get_format(levels()[scene])).written;
 }
 
-std::vector<GapRead> read_gaps()
-{
-    std::vector<GapRead> out;
-    const goals::GapTally* list = get_checklist();
-    if (!list) {
-        return out;
-    }
-    // (the list's nodes: the head's data is -1 - gap_checklist.cpp)
-    int guard = 0;
-    for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < kMaxGapNodes; node = node->next()) {
-        if (node->data() == memory::ListNode::head_marker()) {
-            break;
-        }
-        auto* gap = static_cast<goals::GapEntry*>(node->data());
-        out.push_back({.name = gap->label().c_str() ? gap->label().c_str() : "", .pending = gap->pending(), .count = gap->num(), .score = gap->points_held()});
-    }
-    return out;
-}
-
 void close_run(const char* why)
 {
     if (!level_editor_playtest_state().rec_.open) {
@@ -735,7 +698,7 @@ void link_record(modules::FrontEnd* front_end)
     level_editor_playtest_state().rec_.was_bailing_ = now.bailing;
     // The gaps: got, landed, lost.
     LevelTrails& level = levels()[level_editor_playtest_state().rec_.scene];
-    for (const GapChange& gap_change : level_editor_playtest_state().rec_.gaps.tick_frame(read_gaps())) {
+    for (const GapChange& gap_change : level_editor_playtest_state().rec_.gaps.tick_frame(read_level_gaps())) {
         if (gap_change.kind == GapChange::Kind::kGot) {
             run.events.push_back({.kind = EventKind::kGap,
                                   .pos = now.pos,
@@ -1234,7 +1197,7 @@ const LevelTrails* current_trails()
     return it == levels().end() ? nullptr : &it->second;
 }
 
-std::vector<GapRead> get_level_gaps() { return read_gaps(); }
+std::vector<GapRead> get_level_gaps() { return read_level_gaps(); }
 bool& recording()
 {
     static bool on = config_int("editor", "trail_record", 1) != 0;

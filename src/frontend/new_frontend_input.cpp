@@ -14,15 +14,12 @@
 #include <vector>
 #include <SDL2/SDL.h>
 #include <utility>
-#include "game/front_end/front_end.h"
 #include "engine/ui/menu_reading.h"
 #include "game/front_end/menu_pad_event.h"
 #include "frontend/new_frontend_draw.h"
 #include "frontend/new_frontend_game.h"
 #include "frontend/new_frontend_mirror.h"
 #include "frontend/new_frontend_model.h"
-#include "engine/ui/screen_element.h"
-#include "game/rider/thaw_bmx.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/sdl_window.h"
 #include "imgui.h"

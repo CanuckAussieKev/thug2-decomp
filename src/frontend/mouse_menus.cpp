@@ -18,7 +18,6 @@
 #include "engine/ui/screen_element_manager.h"
 #include "engine/gfx/screen.h"
 #include "engine/objects/signal.h"
-#include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/input_event.h"
 #include "engine/pad_input/input_source.h"

@@ -39,32 +39,20 @@
 #include "frontend/new_frontend_text.h"
 #include "engine/ext/extension.h"
 #include "engine/audio/continue_music.h"
-#include "engine/ui/screen_element.h"
-#include "engine/ui/screen_element_manager.h"
 #include "game/front_end/start_level.h"
-#include "engine/gfx/font.h"
 #include "engine/gfx/hd_ui.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/context.h"
-#include "game/skate/career.h"
-#include "game/skate/gap_checklist.h"
-#include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "game/rider/thaw_bmx.h"
 #include "platform/platform_system.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "game/rider/skater_state.h"
-#include "game/rider/skater_score.h"
-#include "game/skate/point_tally.h"
 #include "base/core/parse_number.h"
-#include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
@@ -83,8 +71,6 @@ using namespace internal;
 namespace frontend::new_frontend {
 namespace {
 
-constexpr double kPointsCeiling = 2.0e9;        // the most points an award is taken for
-constexpr int kMaxListNodes = 4096;             // a heap list walk stops after this many nodes
 constexpr int kMaxPictureSide = 8192;           // the loading screen pictures' limit, in texels
 constexpr int kPictureHeaderBytes = 0x20;       // the picture file's header before its texels
 constexpr int kTrueColourBits = 32;             // the bit depths the pictures may have
@@ -115,8 +101,6 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 namespace {
 
 constexpr uint32_t kSkater = 0x5B8AB877;       // Skater (the local skater's alias)
-constexpr uint32_t kSkaterState = 0x43686585;  // SkaterState
-constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore
 
 } // namespace
 namespace internal {
@@ -262,41 +246,15 @@ void update_session(float dt)
         return;
     }
     session_state().seconds += dt;
-    // The combo's points pending (the score's pot times its multiplier - level_editor_playtest.h), bails.
-    int pending = 0;
-    bool bailing = false;
-    if (objects::ObjectModule* state = skater->fetch_module(kSkaterState)) {
-        bailing = core::down_cast<objects::RiderPoseState>(state)->is_on(objects::PoseFlag::kBailing) != 0;
-    }
-    if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
-        if (const modules::PointTally* tally = core::down_cast<objects::RiderPointKeeper>(score)->points_held()) {
-            const double points = static_cast<double>(tally->pot()) * tally->multiplier();
-            if (points > 0.0 && points < kPointsCeiling) {
-                pending = static_cast<int>(points);
-            }
-        }
-    }
+    // The combo's points pending (the score's pot times its multiplier - game/skate/play_trackers.h), bails.
+    const bool bailing = level_editor::play_test::skater_bailing(skater);
+    const int pending = level_editor::play_test::combo_points_pending(skater);
     level_editor::play_test::ComboEnd end;
     if (session_state().combo.tick_frame(pending, bailing, &end) && end.landed) {
         session_state().best_combo_ = std::max(session_state().best_combo_, end.points);
     }
     // The gaps (the skate module's checklist: the level's).
-    std::vector<level_editor::play_test::GapRead> read;
-    modules::Skate* skate = modules::Skate::sole();
-    if (const goals::GapTally* list =
-            skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list())
-                  : nullptr) {
-        int guard = 0;
-        for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < kMaxListNodes;
-             node = node->next()) {
-            if (node->data() == memory::ListNode::head_marker()) {
-                break;
-            }
-            auto* gap = static_cast<goals::GapEntry*>(node->data());
-            read.push_back(
-                {.name = gap->label().c_str() ? gap->label().c_str() : "", .pending = gap->pending(), .count = gap->num(), .score = gap->points_held()});
-        }
-    }
+    const std::vector<level_editor::play_test::GapRead> read = level_editor::play_test::read_level_gaps();
     session_state().gaps_total_ = static_cast<int>(read.size());
     for (const level_editor::play_test::GapChange& change : session_state().gaps.tick_frame(read)) {
         if (change.kind == level_editor::play_test::GapChange::Kind::kLanded) {

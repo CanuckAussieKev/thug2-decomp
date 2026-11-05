@@ -4,6 +4,10 @@
 #include <string>
 #include <vector>
 
+namespace objects {
+class GameEntity;
+}
+
 // NOT ORIGINAL - following a skater's gaps and combos frame by frame (ours, from the level editor's play testing:
 // editor/level_editor_playtest.h, which records them on its trails; the new front end keeps a session's best combo and
 // gaps landed with them too). Pure: the caller reads the gap checklist and the score each frame and feeds them in.
@@ -51,5 +55,15 @@ private:
 public:
     bool tick_frame(int pending_now, bool bailing, ComboEnd* end); // true when `end` is a combo decided this frame
 };
+
+// --- what they are fed: the game's state read now ---
+// The level's gap checklist (the skate module's; empty without one): each gap's name, pending landings, times landed
+// and score.
+std::vector<GapRead> read_level_gaps();
+// A skater's combo as its score reads it: the points pending (the pot times its multiplier; 0 with none, or at 2e9 and
+// above - a misread).
+int combo_points_pending(objects::GameEntity* skater);
+// Whether the skater is bailing (its SkaterState; false without one).
+bool skater_bailing(objects::GameEntity* skater);
 
 } // namespace frontend::level_editor::play_test
