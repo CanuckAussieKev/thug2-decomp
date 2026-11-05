@@ -173,8 +173,6 @@ public:
     // 0x00435640: `force` added to the force, and its torque about the centre of mass at `point` (relative to the
     // body's position) to the torque. (`colour`: a debug line's, compiled out.)
     void add_force_at_point(const maths::Vec4* force, const maths::Vec4* point, uint32_t colour);
-    // 0x00435710: the same with the lever `offset` as it is.
-    void add_force_at_offset(const maths::Vec4* force, const maths::Vec4* offset);
     // 0x004357C0: `impulse` added to the momentum, its moment at `offset` to the angular momentum; the velocities
     // updated.
     void apply_impulse_at_offset(const maths::Vec4* impulse, const maths::Vec4* offset);
@@ -342,6 +340,16 @@ private:
 
     // The component's state in parts: records of its fields at their places in the original's layout (+0x.. the
     // offset in the record, then in the component; check_layout checks them all).
+    // The force and the torque this step (+0x124-+0x143: summed by apply_wheel_forces and collide, used by integrate;
+    // cleared by check_sleep and tick_frame).
+    struct Forces {
+        maths::Vec4 force{};  // +0x00 (+0x124)
+        maths::Vec4 torque{}; // +0x10 (+0x134)
+
+        // 0x00435710: `force` added to the force, and its torque about the centre of mass with the lever `offset` as
+        // it is (add_force_at_point's) to the torque.
+        void add_at_offset(const maths::Vec4* added, const maths::Vec4* offset);
+    };
     // The mass (+0x148-+0x16B, configure_from_data): the centre of mass in the body, the inverse mass and the inverse
     // moments of inertia (386.4 / each, as given).
     struct Mass {
@@ -439,8 +447,7 @@ private:
     bool righting_{};             // +0x11A turning itself upright
     int righting_start_{};        // +0x11C the game clock (with its offset) when it started righting itself
     float kick_time_{0.0F};       // +0x120 seconds left of a random kick (0x00435890)
-    maths::Vec4 force_{};         // +0x124 the force this step
-    maths::Vec4 twist_force_{};   // +0x134 the torque this step
+    Forces forces_;               // +0x124-+0x143 the force and torque this step
     float step_length_{};         // +0x144 the sub-step's length (seconds)
     Mass mass_;                   // +0x148-+0x16B the centre of mass, the inverse mass and moments
     Response response_;           // +0x16C-+0x17F the body's response to its contacts

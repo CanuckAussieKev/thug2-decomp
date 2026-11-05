@@ -244,10 +244,10 @@ maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::V
 // 0x00435640
 void DrivableModule::add_force_at_point(const maths::Vec4* force, const maths::Vec4* point, uint32_t /*unused*/)
 {
-    force_.x = static_cast<float>(static_cast<double>(force_.x) + force->x);
-    force_.y = static_cast<float>(static_cast<double>(force->y) + force_.y);
-    force_.z = static_cast<float>(static_cast<double>(force->z) + force_.z);
-    force_.w = static_cast<float>(static_cast<double>(force->w) + force_.w);
+    forces_.force.x = static_cast<float>(static_cast<double>(forces_.force.x) + force->x);
+    forces_.force.y = static_cast<float>(static_cast<double>(force->y) + forces_.force.y);
+    forces_.force.z = static_cast<float>(static_cast<double>(force->z) + forces_.force.z);
+    forces_.force.w = static_cast<float>(static_cast<double>(force->w) + forces_.force.w);
     // The lever from the centre of mass; its torque's x and y rounded, z not.
     const double rx = static_cast<double>(point->x) - com_offset_.x;
     const double ry = static_cast<double>(point->y) - com_offset_.y;
@@ -255,27 +255,27 @@ void DrivableModule::add_force_at_point(const maths::Vec4* force, const maths::V
     auto tx = static_cast<float>((ry * force->z) - (rz * force->y));
     auto ty = static_cast<float>((rz * force->x) - (rx * force->z));
     const double tz = (rx * force->y) - (ry * force->x);
-    twist_force_.x = static_cast<float>(static_cast<double>(tx) + twist_force_.x);
-    twist_force_.y = static_cast<float>(static_cast<double>(ty) + twist_force_.y);
-    twist_force_.z = static_cast<float>(tz + twist_force_.z);
+    forces_.torque.x = static_cast<float>(static_cast<double>(tx) + forces_.torque.x);
+    forces_.torque.y = static_cast<float>(static_cast<double>(ty) + forces_.torque.y);
+    forces_.torque.z = static_cast<float>(tz + forces_.torque.z);
     // (the colour was for a debug line, compiled out)
 }
 
 // 0x00435710
-void DrivableModule::add_force_at_offset(const maths::Vec4* force, const maths::Vec4* offset)
+void DrivableModule::Forces::add_at_offset(const maths::Vec4* added, const maths::Vec4* offset)
 {
-    force_.x = static_cast<float>(static_cast<double>(force_.x) + force->x);
-    force_.y = static_cast<float>(static_cast<double>(force->y) + force_.y);
-    force_.z = static_cast<float>(static_cast<double>(force->z) + force_.z);
-    force_.w = static_cast<float>(static_cast<double>(force->w) + force_.w);
+    force.x = static_cast<float>(static_cast<double>(force.x) + added->x);
+    force.y = static_cast<float>(static_cast<double>(added->y) + force.y);
+    force.z = static_cast<float>(static_cast<double>(added->z) + force.z);
+    force.w = static_cast<float>(static_cast<double>(added->w) + force.w);
     // The torque: x and y unrounded, z rounded.
-    const double tx = (static_cast<double>(offset->y) * force->z) - (static_cast<double>(force->y) * offset->z);
-    const double ty = (static_cast<double>(offset->z) * force->x) - (static_cast<double>(force->z) * offset->x);
+    const double tx = (static_cast<double>(offset->y) * added->z) - (static_cast<double>(added->y) * offset->z);
+    const double ty = (static_cast<double>(offset->z) * added->x) - (static_cast<double>(added->z) * offset->x);
     auto tz =
-        static_cast<float>((static_cast<double>(force->y) * offset->x) - (static_cast<double>(offset->y) * force->x));
-    twist_force_.x = static_cast<float>(tx + twist_force_.x);
-    twist_force_.y = static_cast<float>(ty + twist_force_.y);
-    twist_force_.z = static_cast<float>(static_cast<double>(tz) + twist_force_.z);
+        static_cast<float>((static_cast<double>(added->y) * offset->x) - (static_cast<double>(offset->y) * added->x));
+    torque.x = static_cast<float>(tx + torque.x);
+    torque.y = static_cast<float>(ty + torque.y);
+    torque.z = static_cast<float>(static_cast<double>(tz) + torque.z);
 }
 
 // 0x004357C0
@@ -716,8 +716,8 @@ void DrivableModule::configure_from_data(script::Struct* params)
     // weight.
     clear_to_w1(linear_momentum_);
     clear_to_w1(rotmom_);
-    clear_to_w1(force_);
-    clear_to_w1(twist_force_);
+    clear_to_w1(forces_.force);
+    clear_to_w1(forces_.torque);
     for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         wheel.y = wheel.rest_y_;
@@ -894,8 +894,8 @@ void DrivableModule::tick_frame()
     while (steps != 0) {
         --steps;
         integrate();
-        clear_to_w1(force_);
-        clear_to_w1(twist_force_);
+        clear_to_w1(forces_.force);
+        clear_to_w1(forces_.torque);
         for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
             core::at(wheels_, i).torque = 0.0F;
         }
@@ -1247,8 +1247,8 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, righting_), .original = 0x11A, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, righting_start_), .original = 0x11C, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, kick_time_), .original = 0x120, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, force_), .original = 0x124, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, twist_force_), .original = 0x134, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, forces_.force), .original = 0x124, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, forces_.torque), .original = 0x134, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, step_length_), .original = 0x144, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, mass_.balance_point), .original = 0x148, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, mass_.inverse), .original = 0x158, .larger_by = 0},

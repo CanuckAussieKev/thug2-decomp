@@ -278,7 +278,7 @@ void DrivableModule::apply_gravity()
     } else {
         gravity = static_cast<double>(gravity_.scale) / mass_.inverse * kGravity;
     }
-    force_.y = static_cast<float>(force_.y - gravity);
+    forces_.force.y = static_cast<float>(forces_.force.y - gravity);
     if (debug_mode_ != 0) {
         const maths::Vec4 down{
             .x = at_point_.x,
@@ -793,8 +793,8 @@ void DrivableModule::check_sleep()
     }
     linear_momentum_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     rotmom_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    force_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    twist_force_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    forces_.force = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    forces_.torque = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         core::at(wheels_, i).torque = 0.0F;
     }

@@ -423,18 +423,18 @@ void DrivableModule::integrate()
 {
     // The accelerations.
     const double inv_mass = mass_.inverse;
-    auto accel_x = static_cast<float>(inv_mass * force_.x);
-    auto accel_y = static_cast<float>(inv_mass * force_.y);
-    auto accel_z = static_cast<float>(inv_mass * force_.z);
-    auto accel_w = static_cast<float>(inv_mass * force_.w);
+    auto accel_x = static_cast<float>(inv_mass * forces_.force.x);
+    auto accel_y = static_cast<float>(inv_mass * forces_.force.y);
+    auto accel_z = static_cast<float>(inv_mass * forces_.force.z);
+    auto accel_w = static_cast<float>(inv_mass * forces_.force.w);
     maths::Vec4 spin_accel{};
-    inv_inertia_.rotate_vector(spin_accel, twist_force_);
+    inv_inertia_.rotate_vector(spin_accel, forces_.torque);
     // The momentum.
     double dt = step_length_;
-    auto dy = static_cast<float>(dt * force_.y);
-    auto dz = static_cast<float>(dt * force_.z);
-    auto dw = static_cast<float>(dt * force_.w);
-    linear_momentum_.x = static_cast<float>((dt * force_.x) + linear_momentum_.x);
+    auto dy = static_cast<float>(dt * forces_.force.y);
+    auto dz = static_cast<float>(dt * forces_.force.z);
+    auto dw = static_cast<float>(dt * forces_.force.w);
+    linear_momentum_.x = static_cast<float>((dt * forces_.force.x) + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(dy) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(dz) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(dw) + linear_momentum_.w);
@@ -471,10 +471,10 @@ void DrivableModule::integrate()
     quat_normalize(&orientation_, 1.0F);
     // The angular momentum.
     dt = step_length_;
-    dy = static_cast<float>(dt * twist_force_.y);
-    dz = static_cast<float>(dt * twist_force_.z);
-    dw = static_cast<float>(dt * twist_force_.w);
-    rotmom_.x = static_cast<float>((dt * twist_force_.x) + rotmom_.x);
+    dy = static_cast<float>(dt * forces_.torque.y);
+    dz = static_cast<float>(dt * forces_.torque.z);
+    dw = static_cast<float>(dt * forces_.torque.w);
+    rotmom_.x = static_cast<float>((dt * forces_.torque.x) + rotmom_.x);
     rotmom_.y = static_cast<float>(static_cast<double>(dy) + rotmom_.y);
     rotmom_.z = static_cast<float>(static_cast<double>(dz) + rotmom_.z);
     rotmom_.w = static_cast<float>(static_cast<double>(dw) + rotmom_.w);
@@ -655,7 +655,7 @@ void DrivableModule::collide()
                               .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
                               .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
                               .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
-        add_force_at_offset(&force, &arm);
+        forces_.add_at_offset(&force, &arm);
     }
 
     // Friction against the sliding at each contact that took an impulse (on the velocities as they were, updated
