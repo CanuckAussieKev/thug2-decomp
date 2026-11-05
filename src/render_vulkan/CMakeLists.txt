@@ -5,6 +5,8 @@
 # the Vulkan headers (tools/vulkan_headers.test.ts).
 add_library(thug2_render_vulkan STATIC
     vulkan_loader.cpp
+    vulkan_context.cpp
 )
-# volk: the Vulkan loader, opened at run time (no import library); vulkan_memory_allocator: device memory (header only)
-target_link_libraries(thug2_render_vulkan PUBLIC thug2_engine PRIVATE volk vulkan_memory_allocator)
+# volk: the Vulkan loader, opened at run time (no import library) - public, as the context's header declares Vulkan's
+# functions through it; vulkan_memory_allocator: device memory (header only); sdl2: the window's Vulkan surface
+target_link_libraries(thug2_render_vulkan PUBLIC thug2_engine volk PRIVATE vulkan_memory_allocator sdl2)
