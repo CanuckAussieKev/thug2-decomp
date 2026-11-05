@@ -343,7 +343,7 @@ plain draws), `pc_billboards` and `billboard_quad` (the camera-facing meshes and
 (`tools/d3d_headers.test.ts`). The same calls with the same numbers in the same order; one `Gpu` call where a device call
 was, nothing per particle. The part of the platform layer these files use - the dynamic vertex buffer's lock / unlock,
 the quads' index buffer, the occlusion answer - is `render_d3d9/dynamic_vertices.h`, in the handles' terms
-(`pc_d3d_resources.cpp` converts at the edge; V5d / V5e move its creation behind the `Gpu`).
+(`pc_d3d_resources.cpp` converts at the edge; V5d moved its creation behind the `Gpu`).
 
 - **Added to the interface**: `set_vertex_shader` / `set_vertex_constants` (recorded in the state block beside the pixel
   shader's: `vertex_shader`, `vertex_constants` c0-c7), `get_vertex_format`, `get_pixel_shader`, `get_vertex_shader`,
@@ -357,6 +357,44 @@ the quads' index buffer, the occlusion answer - is `render_d3d9/dynamic_vertices
 - State blocks, stream-source frequency, the scissor rectangle and clip planes are not used by any of these files; the
   calls the logs show (`SetStreamSourceFreq`, `SetClipPlane`, `CreateStateBlock`...) are Dear ImGui's Direct3D 9 backend,
   which is not meant to go through the `Gpu`.
+
+### V5d: screen effects, the frame, shadows, texture projections, viewports through `Gpu` (done)
+
+`screen_fx` (the screen copies' blur and bloom), `draw_frame` (transforms, black bars, the motion blur, viewport, fog
+states), `shadow_base` (the shadow textures and their projection onto the receivers; the stencil volumes' z function and
+culling), `pc_texture_projection`, `pc_viewport` (the sun's occlusion queries), `flash`, `wireframe`, `pc_fog`,
+`pc_gamma` and `view_mode` include no Direct3D header any more (`tools/d3d_headers.test.ts`). The same calls with the
+same numbers in the same order. `pc_d3d_resources.cpp` makes, locks and releases the dynamic vertex buffer, the quads'
+index buffer and the occlusion queries through the Gpu (`dynamic_vertices.h` gained begin / end of a query, in plain
+types); it and `graphics_options_d3d.cpp` stay Direct3D files for the device and its multisample / present parameters
+(V5e), but their surface, buffer and query calls are the Gpu's.
+
+- **Added to the interface**: `texture_level_size` (GetLevelDesc: the blur reads the copies' sizes), `release_pixel_shader`
+  (the editor's unlit twins), `gpu_value::kLockNoOverwrite`, `kResultOk`, `kResultNotReady`, `kFvfXyzRhw`. `device.h`
+  hands out the frame's surfaces as handles: `screen_copy_texture(i)`, `scene_depth_surface()`,
+  `back_buffer_surface()`, `back_depth_surface()`, `presented_height()`, `device_made()`.
+- **Render targets and screen copies (flagged)**: there is no "begin / end of a pass" operation, because Direct3D 9's
+  calls already carry it. `set_render_target` + `set_depth_surface` name the attachments (the pair is always set
+  together, as the original does: the screen copies, the shadow textures with a null depth, the MSAA scene surface,
+  the back buffer); a Vulkan `Gpu` opens a pass lazily at the first draw or clear and ends it at the next
+  `set_render_target` / `set_depth_surface` / `copy_surface` / `present`, or when `set_texture` binds an image that is an
+  attachment of the open pass (then the image goes to shader-read layout, and back to attachment at its next
+  `set_render_target`). A screen copy is a texture the passes sample and, through `texture_surface(level 0)`, the surface
+  set as the target; the surface reference between `texture_surface` and `release_surface` is a name for that image.
+  The MSAA scene surface is resolved with `copy_surface` (the resolve of a multisampled attachment, which Vulkan can do as
+  the pass's own resolve attachment or as `vkCmdResolveImage`). `clear` first in a pass is the load-op clear.
+  The shadow textures (`render_shadow_textures`) are one pass per caster with no depth attachment; the targets are put back
+  afterwards from the `render_target` / `depth_surface` reads, which a Vulkan `Gpu` answers from its block.
+- **Occlusion queries (flagged)**: made, begun, the quad drawn, ended, read a frame or more later (the sun's flare asks
+  with `query_result` every frame and takes 1, "not ready", for no answer yet): the Vulkan `Gpu` takes a slot of the
+  frame's query pool at `create_occlusion_query`, brackets the draws with `begin_query` / `end_query` inside one pass
+  (colour writes are off, the quad is depth-tested only), and returns the slot at `release_query`; results come back with
+  the frame's fence.
+- **Stencil (flagged)**: `draw_shadow_volumes` sets only the z function (`kZFunc`), the culling and the blend modes of its
+  passes; no stencil render state is set anywhere in the game's code, and the device's depth format is `D24X8` (no stencil
+  bits). The volumes' draws are therefore stencil-free in this build, and a Vulkan `Gpu` needs no stencil aspect for
+  parity; the numbers for it (`kStencilEnable`, the other stencil states) are recorded in the block if a build ever sets
+  them, and the stencil format question in the table above (`D32_SFLOAT_S8_UINT`) stays open for then.
 
 ## Ray tracing: what it needs on top
 
@@ -386,7 +424,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V5a | `render::Gpu`: the interface, and `render_state`'s cache and `primitive_states` through it (D3D9 implementation = today's calls) | - | after stage 11 - done: `engine/gfx/gpu.h`, `render_d3d9/gpu_d3d9.cpp` |
 | V5b | Meshes, materials, skinning, mesh lists, instances through `Gpu` | V5a | after stage 11 - done |
 | V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 - done |
-| V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 |
+| V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 - done |
 | V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` | V5a | after stage 11 |
 | V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 |
 | V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 |
