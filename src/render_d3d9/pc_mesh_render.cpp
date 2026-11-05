@@ -3,16 +3,12 @@
 // detail picked by distance, fog from three quarters of the way to the far plane.
 
 #include <cstddef>
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstdint>
 #include <array>
 #include <span>
 
 #include "base/maths/view_transforms.h"
-#include "render_d3d9/d3d9_handles.h"
+#include "engine/gfx/gpu.h"
 #include "render_d3d9/device.h"
 #include "base/maths/mat4.h"
 #include "render_d3d9/vertex_buffers.h"
@@ -28,7 +24,6 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/vertex_view.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
 #include "engine/gfx/view_setup.h"
 #include "render_d3d9/mesh_pass.h"
 #include "engine/gfx/engine_parts.h"
@@ -190,19 +185,19 @@ void MeshRef::render()
         auto start = static_cast<float>(
             end - ((static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare));
         toggle_fog(true);
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
+        gpu().set_render_state(GpuRenderState::kFogStart, std::bit_cast<uint32_t>(start));
+        gpu().set_render_state(GpuRenderState::kFogEnd, std::bit_cast<uint32_t>(end));
+        gpu().set_render_state(GpuRenderState::kFogColour, engine_parts().fog_colour());
     }
     if (core::at(index_counts_, 0) == 0U) {
         return;
     }
-    D3DMATRIX world;
+    GpuMatrix world;
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
-        d3d9::state().d3d_device()->GetTransform(D3DTS_WORLD, &world);
-        D3DMATRIX boned;
+        gpu().get_transform(GpuTransform::kWorld, world.data());
+        GpuMatrix boned;
         matrix_multiply(&boned, &core::at(bone_palette(), unknown98), &world);
-        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, &boned);
+        gpu().set_transform(GpuTransform::kWorld, boned.data());
     }
     apply_vertex_colors();
     set_vertex_format(fvf_);
@@ -217,18 +212,18 @@ void MeshRef::render()
     } else {
         mat->submit_states();
     }
-    DWORD min_filter = 0;
-    DWORD z_write = 0;
+    uint32_t min_filter = 0;
+    uint32_t z_write = 0;
     if ((flags_ & kFlagForceLinear) != 0U) {
-        d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-        if (min_filter != D3DTEXF_LINEAR) {
-            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+        gpu().get_sampler_state(0, GpuSamplerState::kMinFilter, &min_filter);
+        if (min_filter != gpu_value::kFilterLinear) {
+            gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
         }
     }
     if ((flags_ & kFlagKeepZWrite) != 0U) {
-        d3d9::state().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
+        gpu().get_render_state(GpuRenderState::kZWriteEnable, &z_write);
         if (z_write == 1) {
-            render::set_render_state(D3DRS_ZWRITEENABLE, 0);
+            render::set_render_state(GpuRenderState::kZWriteEnable, 0);
         }
     }
     VertexBuffer* vb = vertex_store(current_vertex_buffer_);
@@ -240,9 +235,9 @@ void MeshRef::render()
         uint8_t* out = vb->data(); // (locked whole with DISCARD, inline: the card's buffer written)
         vb->set_lock_size(vb->size());
         vb->set_lock_offset(0);
-        vb->set_lock_flags(D3DLOCK_DISCARD);
+        vb->set_lock_flags(gpu_value::kLockDiscard);
         void* locked = out;
-        d3d9::object(vb->buffer())->Lock(0, 0, &locked, D3DLOCK_DISCARD);
+        gpu().lock_vertex_buffer(vb->buffer(), 0, 0, &locked, gpu_value::kLockDiscard);
         out = static_cast<uint8_t*>(locked);
         switch (unknowna8_) {
         case 1:
@@ -262,14 +257,13 @@ void MeshRef::render()
     if (vertex_buffer_count_ > 1) {
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
     }
-    d3d9::state().d3d_device()->SetStreamSource(0, d3d9::object(vb->buffer()), vb->arena_offset(), stride_);
+    gpu().set_stream_source(0, vb->buffer(), vb->arena_offset(), stride_);
     const int level = lod_level();
-    d3d9::state().d3d_device()->SetIndices(d3d9::object(index_buffer_at(this, level)->buffer()));
+    gpu().set_indices(index_buffer_at(this, level)->buffer());
     const uint32_t primitives = index_count_at(this, level) - 2U;
     if (renderer().shaders_available()) {
         count_draw(primitives);
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
-                                           primitives);
+        gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < mat->pass_count(); ++pass) {
             std::array<float, 3> instance{};
@@ -284,19 +278,19 @@ void MeshRef::render()
                 tint = color_.data();
             }
             mat->submit_pass(pass, tint);
-            d3d9::state().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0,
-                                                          vertex_count_, 0, index_count_at(this, level) - 2U);
+            gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0,
+                               index_count_at(this, level) - 2U);
             count_draw(index_count_at(this, level) - 2U);
         }
     }
-    if (((flags_ & kFlagForceLinear) != 0U) && min_filter != D3DTEXF_LINEAR) {
-        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    if (((flags_ & kFlagForceLinear) != 0U) && min_filter != gpu_value::kFilterLinear) {
+        gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, min_filter);
     }
     if (((flags_ & kFlagKeepZWrite) != 0U) && z_write == 1) {
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
+        gpu().set_render_state(GpuRenderState::kZWriteEnable, 1);
     }
     if (unknown98 != -1) {
-        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, &world);
+        gpu().set_transform(GpuTransform::kWorld, world.data());
     }
     toggle_fog(false);
 }
