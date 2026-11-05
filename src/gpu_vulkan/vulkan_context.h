@@ -62,8 +62,15 @@ public:
     ~Context();
 
     // Opens the loader and makes everything for `window` (made with SDL_WINDOW_VULKAN); false (and the failed step
-    // reported) when a step fails - what was made is released by destroy().
+    // reported) when a step fails - what was made is released by destroy(). open() and make_swapchain() in turn.
     bool create(SDL_Window* window, const ContextOptions& options);
+    // Everything but the swapchain: the loader, the instance, the surface, the physical and logical device and the frames
+    // (the Gpu's context opens the device first and makes the swapchain at the device's creation).
+    bool open(SDL_Window* window, const ContextOptions& options);
+    // The swapchain at the surface's size (none while it is zero-sized); false on a failure.
+    bool make_swapchain() { return create_swapchain(); }
+    // The swapchain made again at the surface's current size (the device idle first).
+    bool remake() { return remake_swapchain(); }
     // Releases everything, the device idle first. Harmless when nothing was made.
     void destroy();
 
@@ -79,6 +86,11 @@ public:
     [[nodiscard]] VkPhysicalDevice physical_device() const { return physical_device_; }
     [[nodiscard]] VkDevice device() const { return device_; }
     [[nodiscard]] uint32_t queue_family() const { return queue_family_; }
+    [[nodiscard]] VkQueue queue() const { return queue_; }
+    // The API version the instance was made for (the loader's, at most 1.3).
+    [[nodiscard]] uint32_t api_version() const { return api_version_; }
+    // The device features switched on where the device has them: anisotropic filtering, BC textures, wireframe.
+    [[nodiscard]] const VkPhysicalDeviceFeatures& enabled_features() const { return enabled_features_; }
     [[nodiscard]] uint32_t instance_version() const { return instance_version_; }
     [[nodiscard]] bool validation_on() const { return debug_messenger_ != VK_NULL_HANDLE; }
     [[nodiscard]] VkSurfaceFormatKHR surface_format() const { return surface_format_; }
@@ -111,6 +123,8 @@ private:
     MessageSink on_message_ = nullptr;
     SDL_Window* window_ = nullptr;
     uint32_t instance_version_ = 0;
+    uint32_t api_version_ = 0;
+    VkPhysicalDeviceFeatures enabled_features_{};
     VkInstance instance_ = nullptr;
     VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
     VkSurfaceKHR surface_ = VK_NULL_HANDLE;

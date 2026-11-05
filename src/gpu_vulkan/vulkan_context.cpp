@@ -262,14 +262,19 @@ bool Context::fail(const char* step, VkResult result) const
 
 bool Context::create(SDL_Window* window, const ContextOptions& options)
 {
+    return open(window, options) && create_swapchain();
+}
+
+bool Context::open(SDL_Window* window, const ContextOptions& options)
+{
     on_message_ = options.on_message;
     window_ = window;
     if (!open_loader()) {
         return fail("opening vulkan-1.dll", VK_ERROR_INITIALIZATION_FAILED);
     }
     instance_version_ = loader_version();
-    return create_instance(options.validation) && create_surface() && pick_physical_device(options.device_index) && create_device() &&
-           create_frames() && create_swapchain();
+    return create_instance(options.validation) && create_surface() && pick_physical_device(options.device_index) &&
+           create_device() && create_frames();
 }
 
 bool Context::create_instance(bool validation)
@@ -296,6 +301,7 @@ bool Context::create_instance(bool validation)
         .engineVersion = 1,
         .apiVersion = std::min(instance_version_, kHighestApiVersion),
     };
+    api_version_ = application.apiVersion;
     const VkInstanceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pNext = nullptr,
@@ -385,6 +391,13 @@ bool Context::create_device()
         .pQueuePriorities = &priority,
     };
     const std::array<const char*, 1> extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    // The features the Gpu's resources and draws use, where the device has them (none is required).
+    VkPhysicalDeviceFeatures offered{};
+    vkGetPhysicalDeviceFeatures(physical_device_, &offered);
+    enabled_features_ = VkPhysicalDeviceFeatures{};
+    enabled_features_.samplerAnisotropy = offered.samplerAnisotropy;
+    enabled_features_.textureCompressionBC = offered.textureCompressionBC;
+    enabled_features_.fillModeNonSolid = offered.fillModeNonSolid;
     const VkDeviceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = nullptr,
@@ -395,7 +408,7 @@ bool Context::create_device()
         .ppEnabledLayerNames = nullptr,
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data(),
-        .pEnabledFeatures = nullptr,
+        .pEnabledFeatures = &enabled_features_,
     };
     const VkResult result = vkCreateDevice(physical_device_, &info, nullptr, &device_);
     if (result != VK_SUCCESS) {
