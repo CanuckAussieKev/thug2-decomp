@@ -274,15 +274,15 @@ void DrivableModule::apply_gravity()
     if (righting_ && static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
                              (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(righting_start_)) >
                          kPassMinMs) {
-        gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kRightingGravity;
+        gravity = static_cast<double>(gravity_scale_) / mass_.inverse * kRightingGravity;
     } else {
-        gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kGravity;
+        gravity = static_cast<double>(gravity_scale_) / mass_.inverse * kGravity;
     }
     force_.y = static_cast<float>(force_.y - gravity);
     if (debug_mode_ != 0) {
         const maths::Vec4 down{
             .x = at_point_.x,
-            .y = static_cast<float>((-static_cast<double>(kGravity) / inv_mass_ * 0.05F) + at_point_.y),
+            .y = static_cast<float>((-static_cast<double>(kGravity) / mass_.inverse * 0.05F) + at_point_.y),
             .z = at_point_.z,
             .w = static_cast<float>(static_cast<double>(at_point_.w) + 0.05F)};
         gfx::push_diag_line(&at_point_, &down, kGravityLineColour, kGravityLineColour, 1);
@@ -297,7 +297,7 @@ void DrivableModule::apply_suspension()
         if (wheel.state == DrivableModule::WheelState::kInAir) {
             // (In the air the history gets an even share of the weight; the average isn't updated.)
             core::at(wheel.load_history_, load_index_) =
-                static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
+                static_cast<float>(static_cast<double>(kGravity) / mass_.inverse / as_unsigned(wheel_count_));
             continue;
         }
         // The spring (by how far the suspension is compressed along the ground's normal) and the damper.
@@ -527,12 +527,12 @@ void DrivableModule::update_inertia()
 {
     // R * diag(inverse moments) * R^T.
     for (int row = 0; row < 3; ++row) {
-        core::at(inv_inertia_.row, row)[0] =
-            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, row)[0]) * core::at(inv_moments_, 0));
-        core::at(inv_inertia_.row, row)[1] =
-            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, row)[1]) * core::at(inv_moments_, 1));
-        core::at(inv_inertia_.row, row)[2] =
-            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, row)[2]) * core::at(inv_moments_, 2));
+        core::at(inv_inertia_.row, row)[0] = static_cast<float>(
+            static_cast<double>(core::at(basis_frame_.row, row)[0]) * core::at(mass_.inverse_moments, 0));
+        core::at(inv_inertia_.row, row)[1] = static_cast<float>(
+            static_cast<double>(core::at(basis_frame_.row, row)[1]) * core::at(mass_.inverse_moments, 1));
+        core::at(inv_inertia_.row, row)[2] = static_cast<float>(
+            static_cast<double>(core::at(basis_frame_.row, row)[2]) * core::at(mass_.inverse_moments, 2));
     }
     render::MatrixTranspose transposed;
     transposed.transpose_from(&basis_frame_);
@@ -574,7 +574,7 @@ void DrivableModule::update_dependents()
     quat_to_matrix(&orientation_, &basis_frame_);
     core::at(basis_frame_.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 turned;
-    com_offset_ = basis_frame_.rotate_vector(turned, balance_point_);
+    com_offset_ = basis_frame_.rotate_vector(turned, mass_.balance_point);
     update_inertia();
     step_vehicle_speeds();
     const auto& rows = basis_frame_.row;

@@ -345,6 +345,14 @@ private:
 
     // The component's state in parts: records of its fields at their places in the original's layout (+0x.. the
     // offset in the record, then in the component; check_layout checks them all).
+    // The mass (+0x148-+0x16B, configure_from_data): the centre of mass in the body, the inverse mass and the inverse
+    // moments of inertia (386.4 / each, as given).
+    struct Mass {
+        maths::Vec4 balance_point{};            // +0x00 (+0x148) (body; y from 0x93346B8C)
+        float inverse{};                        // +0x10 (+0x158) 386.4 / mass
+        std::array<float, 3> inverse_moments{}; // +0x14 (+0x15C) 386.4 / moment_of_inertia
+        float moment_w{};                       // +0x20 (+0x168) moment_of_inertia's w (never read)
+    };
     // The controls this frame (+0x304-+0x30B: read_controls, from the input component; or none when passive).
     struct Controls {
         float steering{}; // +0x00 (+0x304) -1 (left) .. 1 (right), squared with its sign
@@ -375,10 +383,7 @@ private:
     maths::Vec4 force_{};         // +0x124 the force this step
     maths::Vec4 twist_force_{};   // +0x134 the torque this step
     float step_length_{};         // +0x144 the sub-step's length (seconds)
-    maths::Vec4 balance_point_{}; // +0x148 (body; y from 0x93346B8C)
-    float inv_mass_{};            // +0x158 386.4 / mass
-    std::array<float, 3> inv_moments_{};      // +0x15C 386.4 / moment_of_inertia
-    float moment_w_{};        // +0x168 moment_of_inertia's w (never read)
+    Mass mass_;                   // +0x148-+0x16B the centre of mass, the inverse mass and moments
     float restitution_{};                  // +0x16C body_restitution (0x79C3B862)
     float drag_factor_{};                  // +0x170 body_friction (0xF476273C)
     float depth_correction_{};             // +0x174 (0x01DD4890) the contacts' depth correction

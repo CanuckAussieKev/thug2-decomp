@@ -213,7 +213,7 @@ int DrivableModule::get_gear(float spin)
 // 0x00435520
 void DrivableModule::step_vehicle_speeds()
 {
-    const double inv_mass = inv_mass_;
+    const double inv_mass = mass_.inverse;
     vel_.z = static_cast<float>(inv_mass * linear_momentum_.z);
     vel_.w = static_cast<float>(inv_mass * linear_momentum_.w);
     vel_.x = static_cast<float>(inv_mass * linear_momentum_.x);
@@ -348,7 +348,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     auto spin_w = static_cast<float>(roll);
 
     // Into the momenta: the push times the mass, the spin times the first moment of inertia (for every axis).
-    const double mass = 1.0 / inv_mass_;
+    const double mass = 1.0 / mass_.inverse;
     auto mom_y = static_cast<float>(push_y * mass);
     auto mom_z = static_cast<float>(push_z * mass);
     auto mom_w = static_cast<float>(push_w * mass);
@@ -356,7 +356,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
-    auto moment = static_cast<float>(1.0 / core::at(inv_moments_, 0));
+    auto moment = static_cast<float>(1.0 / core::at(mass_.inverse_moments, 0));
     auto turn_z = static_cast<float>(static_cast<double>(spin_z) * moment);
     auto rot_w = static_cast<float>(static_cast<double>(spin_w) * moment);
     rotmom_.x = static_cast<float>((spin_x * moment) + rotmom_.x);
@@ -384,7 +384,7 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script* /*script*/
     params->fetch_vec("angular", &angular, 0);
     linear = basis_frame_.rotate_vector(turned, linear);
     angular = basis_frame_.rotate_vector(turned, angular);
-    const double mass = 1.0 / inv_mass_;
+    const double mass = 1.0 / mass_.inverse;
     auto mom_y = static_cast<float>(linear.y * mass);
     auto mom_z = static_cast<float>(linear.z * mass);
     auto mom_w = static_cast<float>(linear.w * mass);
@@ -392,7 +392,7 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script* /*script*/
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
-    const double moment = 1.0 / core::at(inv_moments_, 0);
+    const double moment = 1.0 / core::at(mass_.inverse_moments, 0);
     auto spin_about_y = static_cast<float>(angular.y * moment);
     auto turn_z = static_cast<float>(angular.z * moment);
     auto rot_w = static_cast<float>(angular.w * moment);
@@ -540,18 +540,21 @@ void DrivableModule::configure_from_data(script::Struct* params)
         // (read into the original's argument slot: missing, the height is that pointer's bits)
         float height = 0.0F; // (missing: 0 - the original read an argument's stack slot, an address)
         params->fetch_float(kSuspensionCenterOfMass, &height, 0);
-        balance_point_ = {.x = 0.0F, .y = height, .z = 0.0F, .w = 1.0F};
+        mass_.balance_point = {.x = 0.0F, .y = height, .z = 0.0F, .w = 1.0F};
     }
     if (params->has_entry_named(kMass)) { // mass
-        params->fetch_float(kMass, &inv_mass_, 0);
-        inv_mass_ = static_cast<float>(static_cast<double>(kGravity) / inv_mass_);
+        params->fetch_float(kMass, &mass_.inverse, 0);
+        mass_.inverse = static_cast<float>(static_cast<double>(kGravity) / mass_.inverse);
     }
     if (params->has_entry_named(kMomentOfInertia)) { // moment_of_inertia (its w into +0x168)
-        maths::Vec4 moments{.x = core::at(inv_moments_, 0), .y = core::at(inv_moments_, 1), .z = core::at(inv_moments_, 2), .w = moment_w_};
+        maths::Vec4 moments{.x = core::at(mass_.inverse_moments, 0),
+                            .y = core::at(mass_.inverse_moments, 1),
+                            .z = core::at(mass_.inverse_moments, 2),
+                            .w = mass_.moment_w};
         params->fetch_vec(kMomentOfInertia, &moments, 0);
-        inv_moments_ = {{moments.x, moments.y, moments.z}};
-        moment_w_ = moments.w;
-        for (float& moment : inv_moments_) {
+        mass_.inverse_moments = {{moments.x, moments.y, moments.z}};
+        mass_.moment_w = moments.w;
+        for (float& moment : mass_.inverse_moments) {
             moment = static_cast<float>(static_cast<double>(kGravity) / moment);
         }
     }
@@ -725,7 +728,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         wheel.torque = 0.0F;
         for (int k = kLastLoadIndex; k >= 0; --k) {
             core::at(wheel.load_history_, k) =
-                static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
+                static_cast<float>(static_cast<double>(kGravity) / mass_.inverse / as_unsigned(wheel_count_));
         }
     }
     load_index_ = 0;
@@ -782,7 +785,7 @@ void DrivableModule::seal()
         wheel.offset.y = static_cast<float>(raised);
         wheel.rest_y_ =
             static_cast<float>((y - raised) - (static_cast<double>(kGravity) /
-                                               (as_unsigned(wheel_count_) * wheel.spring_rate_ * inv_mass_)));
+                                               (as_unsigned(wheel_count_) * wheel.spring_rate_ * mass_.inverse)));
     }
     // The colliders' lowest point.
     float lowest = core::at(colliders_, 0).corner.y;
@@ -1084,7 +1087,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     for (int i = 3; i >= 0; --i) {
         const Wheel& wheel = core::at(wheels_, i);
         const double rest =
-            (static_cast<double>(kGravity) / (static_cast<double>(wheel.spring_rate_) * inv_mass_ * count)) +
+            (static_cast<double>(kGravity) / (static_cast<double>(wheel.spring_rate_) * mass_.inverse * count)) +
             wheel.offset.y + wheel.rest_y_;
         height = (height + rest) - wheel.radius;
     }
@@ -1246,10 +1249,10 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, force_), .original = 0x124, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, twist_force_), .original = 0x134, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, step_length_), .original = 0x144, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, balance_point_), .original = 0x148, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, inv_mass_), .original = 0x158, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, inv_moments_), .original = 0x15C, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, moment_w_), .original = 0x168, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, mass_.balance_point), .original = 0x148, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, mass_.inverse), .original = 0x158, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, mass_.inverse_moments), .original = 0x15C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, mass_.moment_w), .original = 0x168, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, restitution_), .original = 0x16C, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, drag_factor_), .original = 0x170, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, depth_correction_), .original = 0x174, .larger_by = 0},

@@ -270,7 +270,7 @@ double DrivableModule::get_impulse_denominator(ImpulseLine impulse_line)
     // 1 / (n . (n / m + (I^-1 (r x n)) x r)).
     const maths::Vec4& offset_ref = *offset;
     const maths::Vec4& normal = *direction;
-    const float inv_mass = inv_mass_;
+    const float inv_mass = mass_.inverse;
     maths::Vec4 cross{};
     cross.x = static_cast<float>((static_cast<double>(normal.z) * offset_ref.y) -
                                  (static_cast<double>(offset_ref.z) * normal.y));
@@ -422,7 +422,7 @@ void DrivableModule::align_in_air()
 void DrivableModule::integrate()
 {
     // The accelerations.
-    const double inv_mass = inv_mass_;
+    const double inv_mass = mass_.inverse;
     auto accel_x = static_cast<float>(inv_mass * force_.x);
     auto accel_y = static_cast<float>(inv_mass * force_.y);
     auto accel_z = static_cast<float>(inv_mass * force_.z);
@@ -716,7 +716,7 @@ void DrivableModule::collide()
         rotmom.x = static_cast<float>(rotmom.x + ax);
         rotmom.y = static_cast<float>(ay + rotmom.y);
         rotmom.z = static_cast<float>(az + rotmom.z);
-        const double inv_mass = inv_mass_;
+        const double inv_mass = mass_.inverse;
         vel = {.x = static_cast<float>(inv_mass * mom.x), .y = static_cast<float>(inv_mass * mom.y),
                .z = static_cast<float>(inv_mass * mom.z), .w = static_cast<float>(inv_mass * mom.w)};
         maths::Vec4 spin{};
