@@ -132,7 +132,7 @@ void SkaterPhysicsModule::configure_from_data(script::Struct* /*params*/)
     ground_.floor_normal = ground_.drawn_normal;
     ground_.old_normal = ground_.drawn_normal;
     point_rail_spin_ = 0;
-    ammo_ = 0;
+    projectiles_.ammo = 0;
 }
 
 // 0x004FC690

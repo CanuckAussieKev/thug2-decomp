@@ -306,7 +306,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
 // 0x005013E0
 int SkaterPhysicsModule::set_ammo(script::Struct* params, script::Script* /*script*/)
 {
-    int& ammo = ammo_;
+    int& ammo = projectiles_.ammo;
     const int before = ammo;
     params->fetch_int_value(uint32_t{0}, &ammo, 0); // (the unnamed integer)
     const int change = ammo - before;

@@ -176,10 +176,10 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, on_vehicle_), .original = 0x2ED},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad2ee_), .original = 0x2EE},
         FieldAt{.now = offsetof(SkaterPhysicsModule, vehicle_), .original = 0x2F0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, projectiles_on_), .original = 0x2F4},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad2f5_), .original = 0x2F5},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, ammo_), .original = 0x2F8},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, ammo_type_), .original = 0x2FC},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, projectiles_.on), .original = 0x2F4},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, projectiles_.pad1), .original = 0x2F5},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, projectiles_.ammo), .original = 0x2F8},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, projectiles_.ammo_type), .original = 0x2FC},
         FieldAt{.now = offsetof(SkaterPhysicsModule, in_revert_), .original = 0x300},
         FieldAt{.now = offsetof(SkaterPhysicsModule, focus_on_), .original = 0x301},
         FieldAt{.now = offsetof(SkaterPhysicsModule, motoskateboard_), .original = 0x302},
@@ -246,9 +246,9 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, drop_object_hit_), .original = 0x14C0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, focus_held_), .original = 0x14C1},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad14c2_), .original = 0x14C2},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, throw_wait_), .original = 0x14C4},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, throwing_projectile_), .original = 0x14C8},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad14c9_), .original = 0x14C9},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, throwing_.wait), .original = 0x14C4},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, throwing_.on), .original = 0x14C8},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, throwing_.pad5), .original = 0x14C9},
         FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.frames), .original = 0x14CC},
         FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.velocity), .original = 0x14D0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.pos), .original = 0x14E0},
@@ -401,19 +401,19 @@ void SkaterPhysicsModule::update_focus_button()
 // 0x00500820
 void SkaterPhysicsModule::update_projectiles()
 {
-    if ((throwing_projectile_ != 0U) || (projectiles_on_ == 0U) || (state_->flag(PoseFlag::kBailing).on != 0U)) {
+    if ((throwing_.on != 0U) || (projectiles_.on == 0U) || (state_->flag(PoseFlag::kBailing).on != 0U)) {
         return;
     }
     const objects::TaggingControlComponent* other = tagging_component_;
     if (other->pending() || (other->countdown() != 0) || !(other->cooldown() == 0.0F)) {
         return;
     }
-    int& wait = throw_wait_;
+    int& wait = throwing_.wait;
     if (wait != 0) {
         --wait;
         return;
     }
-    if (ammo_ <= 0) {
+    if (projectiles_.ammo <= 0) {
         return;
     }
     if (!projectile_button_pressed() || (wait != 0)) {

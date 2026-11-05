@@ -482,13 +482,13 @@ int SkaterPhysicsModule::is_in_revert(script::Struct* /*params*/, script::Script
 // 0x004FC1D0
 int SkaterPhysicsModule::projectiles_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    projectiles_on_ = 1;
+    projectiles_.on = 1;
     return 1;
 }
 // 0x004FC1E0
 int SkaterPhysicsModule::projectiles_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    projectiles_on_ = 0;
+    projectiles_.on = 0;
     return 1;
 }
 // 0x004FC1F0
@@ -551,19 +551,19 @@ int SkaterPhysicsModule::reset_is_flipping(script::Struct* /*params*/, script::S
 // 0x004FC2A0
 int SkaterPhysicsModule::set_throwing_projectile(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    throwing_projectile_ = 1;
+    throwing_.on = 1;
     return 1;
 }
 // 0x004FC2B0
 int SkaterPhysicsModule::unset_throwing_projectile(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    throwing_projectile_ = 0;
+    throwing_.on = 0;
     return 1;
 }
 // 0x004FC2C0
 int SkaterPhysicsModule::is_throwing_projectile(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return get_is(throwing_projectile_);
+    return get_is(throwing_.on);
 }
 // 0x004FC2D0
 int SkaterPhysicsModule::end_manual_turnaround(script::Struct* /*params*/, script::Script* /*script*/)
@@ -713,7 +713,7 @@ int SkaterPhysicsModule::change_rail_adjust(script::Struct* params, script::Scri
 // 0x004FC180
 int SkaterPhysicsModule::set_ammo_type(script::Struct* params, script::Script* /*script*/)
 {
-    params->read_hash_value(0U, &ammo_type_, 0);
+    params->read_hash_value(0U, &projectiles_.ammo_type, 0);
     return 1;
 }
 // 0x004FC110
@@ -974,13 +974,13 @@ int SkaterPhysicsModule::get_last_ground_heading(script::Struct* /*params*/, scr
 // 0x004FDC30
 int SkaterPhysicsModule::get_ammo(script::Struct* /*params*/, script::Script* script) const
 {
-    script->args().get()->put_int(checksums::Name{kAmmo}, ammo_);
+    script->args().get()->put_int(checksums::Name{kAmmo}, projectiles_.ammo);
     return 1;
 }
 // 0x004FDC50
 int SkaterPhysicsModule::get_ammo_type(script::Struct* /*params*/, script::Script* script) const
 {
-    script->args().get()->put_name_key(checksums::Name{kAmmoType}, ammo_type_);
+    script->args().get()->put_name_key(checksums::Name{kAmmoType}, projectiles_.ammo_type);
     return 1;
 }
 // 0x004FDC70

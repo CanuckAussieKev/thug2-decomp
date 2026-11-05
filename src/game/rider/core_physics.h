@@ -888,6 +888,21 @@ public:
         int point{};       // +0x00 (+0x24C) the skitch point held (its index on the car)
         float direction{}; // +0x04 (+0x250) the way it last moved between points (1 left, -1 right)
     };
+    // The projectiles, in two records apart: whether they're on and the ammo (+0x2F4-+0x2FF: ProjectilesOn,
+    // SetAmmo / SetAmmoType) and the throw (+0x14C4-+0x14CB: update_projectiles, SetThrowingProjectile). (The
+    // projectile button's input, +0x308, is apart: projectile_input_.) The other script flags (+0x2D0-+0x313, +0x388,
+    // +0x3A4, +0x14C0, +0x1508) stay single fields: each is one feature's switch among others'.
+    struct Projectiles {
+        uint8_t on{};                  // +0x00 (+0x2F4) ProjectilesOn / Off
+        std::array<uint8_t, 3> pad1{}; // +0x01 (+0x2F5)
+        int ammo{};                    // +0x04 (+0x2F8) the projectile count
+        uint32_t ammo_type{};          // +0x08 (+0x2FC) SetAmmoType
+    };
+    struct Throwing {
+        int wait{};                    // +0x00 (+0x14C4) frames until the next throw
+        uint8_t on{};                  // +0x04 (+0x14C8) SetThrowingProjectile
+        std::array<uint8_t, 3> pad5{}; // +0x05 (+0x14C9)
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return ground_.display_matrix; }
@@ -927,7 +942,7 @@ public:
     [[nodiscard]] uint8_t point_rail_spin() const { return point_rail_spin_; }
     [[nodiscard]] uint8_t on_vehicle() const { return on_vehicle_; }
     [[nodiscard]] uint32_t vehicle() const { return vehicle_; }
-    [[nodiscard]] uint32_t ammo_type() const { return ammo_type_; }
+    [[nodiscard]] uint32_t ammo_type() const { return projectiles_.ammo_type; }
     [[nodiscard]] uint8_t motoskateboard() const { return motoskateboard_; }
     [[nodiscard]] uint8_t crouch_stats() const { return crouch_stats_; }
     [[nodiscard]] uint8_t no_kick() const { return no_kick_; }
@@ -1034,10 +1049,7 @@ private:
     uint8_t on_vehicle_{0};     // +0x2ED SkaterVehicleOn / Off
     std::array<uint8_t, 2> pad2ee_{};
     uint32_t vehicle_{};       // +0x2F0 SetSkaterVehicle
-    uint8_t projectiles_on_{}; // +0x2F4 ProjectilesOn / Off
-    std::array<uint8_t, 3> pad2f5_{};
-    int ammo_{};                // +0x2F8 the projectile count
-    uint32_t ammo_type_{};      // +0x2FC SetAmmoType
+    Projectiles projectiles_;  // +0x2F4-+0x2FF the projectiles and the ammo
     uint8_t in_revert_{};       // +0x300 InRevert / OutRevert
     uint8_t focus_on_{0};       // +0x301 FocusOn / FocusOff (the special's time runs)
     uint8_t motoskateboard_{};  // +0x302 moto_skateboard_on / Off
@@ -1078,9 +1090,7 @@ private:
     uint8_t drop_object_hit_{};      // +0x14C0 the acid drop's object was still there
     uint8_t focus_held_{};           // +0x14C1 the focus button toggled bullet time until it's let go
     std::array<uint8_t, 2> pad14c2_{};
-    int throw_wait_{};              // +0x14C4 frames until the next throw
-    uint8_t throwing_projectile_{}; // +0x14C8 SetThrowingProjectile
-    std::array<uint8_t, 3> pad14c9_{};
+    Throwing throwing_;                 // +0x14C4-+0x14CB the throw
     LateWallplant late_wallplant_;      // +0x14CC-+0x14FF a late wallplant
     NatasSpin natas_;                   // +0x1500-+0x1507 the natas spin
     uint8_t tantrum_{};     // +0x1508 EnterTantrum / ExitTantrum
