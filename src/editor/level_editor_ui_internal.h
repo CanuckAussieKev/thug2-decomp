@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <array>
 #include <vector>
 #include "editor/level_editor.h"
@@ -36,7 +37,13 @@ namespace internal {
 // Layout, at scale 1 unless said (the UI scale multiplies them): the Outliner, Inspector, status bar, help, browser and dialogs.
 constexpr std::size_t kSearchTextSize = 96; // a search field's text
 
+constexpr float kPanelInset = 8.0F;     // a floating panel's gap from the viewport's corner
+
 constexpr float kSwatchRounding = 2.0F;         // colour swatches (legend, Outliner and Place rows)
+
+constexpr float kBarPaddingX = 8.0F; // the menu and status bars' window padding
+
+constexpr float kBarPaddingY = 4.0F;
 
 constexpr ImVec4 kDangerButtonColour{0.29F, 0.14F, 0.13F, 1.0F};
 
@@ -94,6 +101,10 @@ void get_mono(text::FormatFor<Args...> format, Args... args)
 
 void get_muted(const char* text);
 
+ux8::Fonts ux8_fonts();
+
+bool get_matches(const std::string& text, const char* filter);
+
 constexpr ImGuiWindowFlags kPanel = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
                                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar |
                                     ImGuiWindowFlags_NoBringToFrontOnFocus;
@@ -107,6 +118,22 @@ void view_section(const ShapeMesh& model);
 void get_outliner(const ShapeMesh& model);
 
 void get_inspector(const ShapeMesh& model);
+
+void status_bar(const ShapeMesh& model);
+
+void get_help(const ShapeMesh& model);
+
+void get_browser(const ShapeMesh& model);
+
+void autosave_offer(const ShapeMesh& model);
+
+void online_warning(const ShapeMesh& model);
+
+void get_place(const ShapeMesh& model);
+
+void confirm_reset(const ShapeMesh& model);
+
+void confirm_hide(const ShapeMesh& model);
 
 } // namespace internal
 
