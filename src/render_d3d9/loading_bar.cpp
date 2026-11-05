@@ -11,7 +11,6 @@
 #include "engine/gfx/render_constants.h"
 
 #include <windows.h>
-#include <d3d9.h>
 #include <array>
 
 #include "render_d3d9/loading_console_panel.h"
@@ -20,7 +19,8 @@
 #include "engine/sys/startup_init.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/screen.h"
@@ -86,7 +86,7 @@ struct BarVertex {
 constexpr std::size_t kBarVertexBytes = 0x14;
 
 static_assert(sizeof(BarVertex) == kBarVertexBytes, "the original's vertex");
-constexpr uint32_t kBarVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE; // 0x44
+constexpr uint32_t kBarVertexFormat = kFvfXyzRhw | kFvfDiffuse; // 0x44
 
 void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)
 {
@@ -95,7 +95,7 @@ void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t r
                                       {.x = x0, .y = y1, .z = 1.0F, .rhw = 1.0F, .color = left},
                                       {.x = x1, .y = y0, .z = 1.0F, .rhw = 1.0F, .color = right},
                                       {.x = x1, .y = y1, .z = 1.0F, .rhw = 1.0F, .color = right}}};
-    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
+    gpu().draw_from_memory(GpuPrimitive::kTriangleStrip, 2, quad.data(), sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -144,7 +144,7 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
         return;
     }
     WaitForSingleObject(screen_2d().screen_mutex(), INFINITE);
-    d3d9::state().d3d_device()->BeginScene();
+    gpu().begin_scene();
     render::draw_loading_screen_picture(); // the picture, full screen
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
@@ -167,7 +167,7 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
     auto frame_right_f = static_cast<float>(frame_right);
 
     set_texture(0, nullptr);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, FALSE);
+    gpu().set_render_state(GpuRenderState::kZEnable, 0);
     set_vertex_format(kBarVertexFormat);
     if (render::select_picture_up()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
@@ -188,11 +188,11 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
               opaque(gradient_start()), opaque(gradient_end()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
     draw_quad(static_cast<float>(filled), top_f, frame_right_f, bottom_f, border_argb(), border_argb());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    gpu().set_render_state(GpuRenderState::kZEnable, 1);
     // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
     gfx::loading_console::draw_panel();
-    d3d9::state().d3d_device()->EndScene();
-    d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    gpu().end_scene();
+    gpu().present();
     ReleaseMutex(screen_2d().screen_mutex());
 }
 

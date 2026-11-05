@@ -6,7 +6,6 @@
 #include "render_d3d9/loading_screen.h"
 
 #include <windows.h>
-#include <d3d9.h>
 #include <mmsystem.h>
 
 #include <algorithm>
@@ -25,13 +24,13 @@
 #include "engine/ui/ui_fonts.h"
 #include "platform/run_log.h"
 #include "imgui.h"
-#include "base/util/com_ptr.h"
 #include "base/core/checked_index.h"
 #include "base/core/cursor.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
+#include "render_d3d9/device.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/core/packed_colour.h"
@@ -90,7 +89,7 @@ struct ConsoleFont {
     float line_height_ = 0.0F; // pixels
     float white_u_ = 0.0F;
     float white_v_ = 0.0F;
-    IDirect3DTexture9* texture_ = nullptr;
+    render::GpuTexture* texture_ = nullptr;
     bool font_tried_ = false;
 };
 
@@ -103,8 +102,7 @@ ConsoleFont& console_font()
 void build_font()
 {
     console_font().font_tried_ = true;
-    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
-    if (!device) {
+    if (!render::device_made()) {
         return;
     }
     const float pixels = std::clamp(
@@ -125,21 +123,27 @@ void build_font()
         return;
     }
     atlas.GetTexDataAsRGBA32(&rgba, &width, &height);
-    util::ComPtr<IDirect3DTexture9> texture;
-    if (FAILED(device->CreateTexture(static_cast<UINT>(width), static_cast<UINT>(height), 1, 0, D3DFMT_A8R8G8B8,
-                                     D3DPOOL_MANAGED, texture.put(), nullptr))) {
+    render::GpuTexture* texture = nullptr;
+    if (render::gpu().create_texture({.width = static_cast<uint32_t>(width),
+                                      .height = static_cast<uint32_t>(height),
+                                      .levels = 1,
+                                      .usage = 0,
+                                      .format = render::gpu_value::kFormatA8R8G8B8,
+                                      .pool = render::gpu_value::kPoolManaged},
+                                     &texture) < 0) {
         get_log("loading console: no texture for the font - no panel");
         return;
     }
-    D3DLOCKED_RECT locked;
-    if (FAILED(texture->LockRect(0, &locked, nullptr, 0))) {
+    render::GpuLockedRect locked;
+    if (render::gpu().lock_texture(texture, 0, &locked, nullptr, 0) < 0) {
+        render::gpu().release_texture(texture);
         return;
     }
-    const std::span<uint8_t> bits(static_cast<uint8_t*>(locked.pBits),
-                                  static_cast<size_t>(locked.Pitch) * static_cast<size_t>(height));
+    const std::span<uint8_t> bits(static_cast<uint8_t*>(locked.bits),
+                                  static_cast<size_t>(locked.pitch) * static_cast<size_t>(height));
     const std::span<const unsigned char> rgba_pixels(rgba, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
     for (int pixel_y = 0; pixel_y < height; ++pixel_y) {
-        const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(locked.Pitch));
+        const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(locked.pitch));
         const std::span<const unsigned char> in =
             rgba_pixels.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(width) * 4);
         for (int pixel_x = 0; pixel_x < width; ++pixel_x) {
@@ -148,7 +152,7 @@ void build_font()
             std::memcpy(row.subspan(static_cast<size_t>(pixel_x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
         }
     }
-    texture->UnlockRect(0);
+    render::gpu().unlock_texture(texture, 0);
     for (int character = kFirstPrintable; character < kPrintableEnd; ++character) {
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(character));
         if (!glyph) {
@@ -169,7 +173,7 @@ void build_font()
     console_font().line_height_ = std::round(pixels * kLineHeightFactor);
     console_font().white_u_ = atlas.TexUvWhitePixel.x;
     console_font().white_v_ = atlas.TexUvWhitePixel.y;
-    console_font().texture_ = texture.detach();
+    console_font().texture_ = texture;
     get_log("loading console: on ([features] loading_console=0 turns it off) - JetBrains Mono %.0f px", pixels);
 }
 
@@ -354,18 +358,18 @@ void CALLBACK screen_tick(UINT /*unused*/, UINT /*unused*/, DWORD_PTR /*unused*/
         return;
     }
     WaitForSingleObject(screen_mutex(), INFINITE);
-    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
-    if (device && load_screen_shown() && render::renderer().loading_bar_timer() == 0 && live_now()) {
-        device->BeginScene();
+    render::Gpu& device = render::gpu();
+    if (render::device_made() && load_screen_shown() && render::renderer().loading_bar_timer() == 0 && live_now()) {
+        device.begin_scene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
         if (blank) {
-            device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
+            device.clear(0, nullptr, render::gpu_value::kClearTarget, 0, 1.0F, 0);
         } else {
             render::draw_loading_screen_picture(); // the picture, full screen
         }
         draw_panel();
-        device->EndScene();
-        device->Present(nullptr, nullptr, nullptr, nullptr);
+        device.end_scene();
+        device.present();
     }
     ReleaseMutex(screen_mutex());
 }
@@ -410,10 +414,10 @@ void draw_panel()
     if (!live_now() || !console_font().texture_) {
         return;
     }
-    IDirect3DDevice9* device = render::d3d9::state().d3d_device();
-    if (!device) {
+    if (!render::device_made()) {
         return;
     }
+    render::Gpu& device = render::gpu();
     const double now = get_now();
     if (console_vertices().laid_out_ < 0.0 || now - console_vertices().laid_out_ >= kLayoutSeconds) {
         get_layout(now);
@@ -422,49 +426,49 @@ void draw_panel()
         return;
     }
     // The device's state saved and put back after (the renderer's cached state stays true).
-    IDirect3DStateBlock9* saved = nullptr;
-    if (FAILED(device->CreateStateBlock(D3DSBT_ALL, &saved))) {
+    render::GpuSavedState saved;
+    if (device.save_state(&saved) < 0) {
         return;
     }
-    device->SetPixelShader(nullptr);
-    device->SetVertexShader(nullptr);
-    device->SetFVF(render::kScreenVertexFormat);
-    device->SetTexture(0, console_font().texture_);
-    device->SetTexture(1, nullptr);
-    device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
-    device->SetRenderState(D3DRS_ZENABLE, FALSE);
-    device->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-    device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    device->SetRenderState(D3DRS_LIGHTING, FALSE);
-    device->SetRenderState(D3DRS_FOGENABLE, FALSE);
-    device->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-    device->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-    device->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-    device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-    device->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-    device->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
-    device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-    device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-    device->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
-    device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    device->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-    device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    device->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    device->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
-    device->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-    device->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-    device->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-    device->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
-    device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-    device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-    device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-    device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-    device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-    device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(console_vertices().vertices_.size() / 3), console_vertices().vertices_.data(),
-                            sizeof(Vertex));
-    saved->Apply();
-    saved->Release();
+    device.set_pixel_shader(nullptr);
+    device.set_vertex_shader(nullptr);
+    device.set_vertex_format(render::kScreenVertexFormat);
+    device.set_texture(0, console_font().texture_);
+    device.set_texture(1, nullptr);
+    device.set_render_state(render::GpuRenderState::kFillMode, render::gpu_value::kFillSolid);
+    device.set_render_state(render::GpuRenderState::kZEnable, 0);
+    device.set_render_state(render::GpuRenderState::kZWriteEnable, 0);
+    device.set_render_state(render::GpuRenderState::kCullMode, render::gpu_value::kCullNone);
+    device.set_render_state(render::GpuRenderState::kLighting, 0);
+    device.set_render_state(render::GpuRenderState::kFogEnable, 0);
+    device.set_render_state(render::GpuRenderState::kStencilEnable, 0);
+    device.set_render_state(render::GpuRenderState::kScissorTestEnable, 0);
+    device.set_render_state(render::GpuRenderState::kAlphaTestEnable, 0);
+    device.set_render_state(render::GpuRenderState::kAlphaBlendEnable, 1);
+    device.set_render_state(render::GpuRenderState::kSeparateAlphaBlendEnable, 0);
+    device.set_render_state(render::GpuRenderState::kBlendOp, render::gpu_value::kBlendOpAdd);
+    device.set_render_state(render::GpuRenderState::kSrcBlend, render::gpu_value::kBlendSrcAlpha);
+    device.set_render_state(render::GpuRenderState::kDestBlend, render::gpu_value::kBlendInvSrcAlpha);
+    device.set_render_state(render::GpuRenderState::kColourWriteEnable, kColourWriteAll);
+    device.set_stage_state(0, render::GpuStageState::kColourOp, render::gpu_value::kOpModulate);
+    device.set_stage_state(0, render::GpuStageState::kColourArg1, render::gpu_value::kArgTexture);
+    device.set_stage_state(0, render::GpuStageState::kColourArg2, render::gpu_value::kArgDiffuse);
+    device.set_stage_state(0, render::GpuStageState::kAlphaOp, render::gpu_value::kOpModulate);
+    device.set_stage_state(0, render::GpuStageState::kAlphaArg1, render::gpu_value::kArgTexture);
+    device.set_stage_state(0, render::GpuStageState::kAlphaArg2, render::gpu_value::kArgDiffuse);
+    device.set_stage_state(0, render::GpuStageState::kTexCoordIndex, 0);
+    device.set_stage_state(0, render::GpuStageState::kTextureTransformFlags, render::gpu_value::kTextureTransformDisable);
+    device.set_stage_state(1, render::GpuStageState::kColourOp, render::gpu_value::kOpDisable);
+    device.set_stage_state(1, render::GpuStageState::kAlphaOp, render::gpu_value::kOpDisable);
+    device.set_sampler_state(0, render::GpuSamplerState::kMinFilter, render::gpu_value::kFilterPoint);
+    device.set_sampler_state(0, render::GpuSamplerState::kMagFilter, render::gpu_value::kFilterPoint);
+    device.set_sampler_state(0, render::GpuSamplerState::kMipFilter, render::gpu_value::kFilterNone);
+    device.set_sampler_state(0, render::GpuSamplerState::kAddressU, render::gpu_value::kAddressClamp);
+    device.set_sampler_state(0, render::GpuSamplerState::kAddressV, render::gpu_value::kAddressClamp);
+    device.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(console_vertices().vertices_.size() / 3),
+                            console_vertices().vertices_.data(), sizeof(Vertex));
+    device.restore_state(saved);
+    device.release_saved_state(&saved);
 }
 
 } // namespace gfx::loading_console
