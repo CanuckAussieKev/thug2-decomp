@@ -6,10 +6,6 @@
 #include "base/core/cursor.h"
 #include "render_d3d9/geom.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -35,7 +31,8 @@
 #include "base/core/checked_index.h"
 #include "render_d3d9/pc_texture.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/effects_state.h"
 #include <bit>
 
@@ -157,20 +154,20 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
 // 0x004C7520
 void draw_projection_batches()
 {
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
-    DWORD min_filter = 0;
-    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
+    gpu().set_sampler_state(0, GpuSamplerState::kBorderColour, 0);
+    uint32_t min_filter = 0;
+    gpu().get_sampler_state(0, GpuSamplerState::kMinFilter, &min_filter);
+    gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
     for (uint32_t i = 0; i < batch_count(); ++i) {
         ProjectionBatch* batch = &core::at(get_batches(), i);
         batch->material().hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader(), &batch->material());
-        d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count(), batch->vertices().data(),
-                                       sizeof(ProjectedVertex));
+        gpu().draw_from_memory(GpuPrimitive::kTriangleList, batch->triangle_count(), batch->vertices().data(),
+                               sizeof(ProjectedVertex));
         renderer().count_draw(batch->triangle_count()); // the frame's draw calls and triangles
     }
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, min_filter);
     batch_count() = 0;
 }
 

@@ -3,11 +3,9 @@
 #include "render_d3d9/shadow_base.h"
 #include "base/maths/view_transforms.h"
 #include "engine/gfx/mesh_formats.h"
-#include "render_d3d9/d3d9_handles.h"
 
 #include <windows.h>
 
-#include <d3d9.h>
 
 #include <algorithm>
 #include <bit>
@@ -33,10 +31,10 @@
 #include "base/core/cursor.h"
 #include "base/lists/object_set.h"
 #include <span>
-#include "render_d3d9/d3d_matrix.h"
 #include "render_d3d9/bitmap_texture.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/mat4.h"
 
@@ -247,7 +245,7 @@ int clip_shadow_triangles(std::span<const uint16_t> indices)
 void shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
 {
     std::array<float, maths::kMatrixFloats> view{};
-    d3d9::state().d3d_device()->GetTransform(D3DTS_VIEW, d3d::matrix(view.data()));
+    gpu().get_transform(GpuTransform::kView, view.data());
     std::array<float, maths::kMatrixFloats> inverse{};
     matrix_inverse(inverse.data(), nullptr, view.data()); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
@@ -280,7 +278,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
     change_phase(RenderStateId::kZTest, 1);
     change_phase(RenderStateId::kPhaseAlphaTest, 0);
     if (!two_sided_stencil()) {
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
+        gpu().set_render_state(GpuRenderState::kZFunc, gpu_value::kCompareGreaterEqual);
     }
     const auto* list = static_cast<const SceneRef*>(scene);
     for (MeshRef* const mesh : list->mesh_run()) {
@@ -294,21 +292,21 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
         }
         if (!two_sided_stencil()) {
             // One side's faces, then the other's.
-            change_phase(RenderStateId::kCullMode, D3DCULL_CW);
+            change_phase(RenderStateId::kCullMode, gpu_value::kCullClockwise);
             choose_blend_mode(kShadowPassBlendA);
             draw_scene_mesh(mesh);
-            change_phase(RenderStateId::kCullMode, D3DCULL_CCW);
+            change_phase(RenderStateId::kCullMode, gpu_value::kCullCounterClockwise);
             choose_blend_mode(kShadowPassBlendB);
         } else {
-            change_phase(RenderStateId::kCullMode, D3DCULL_NONE);
+            change_phase(RenderStateId::kCullMode, gpu_value::kCullNone);
             choose_blend_mode(kShadowPassBlendC);
         }
         draw_scene_mesh(mesh);
     }
     renderer().set_pixel_shader_locked(nullptr);
     change_phase(RenderStateId::kZWrite, 1);
-    change_phase(RenderStateId::kCullMode, D3DCULL_CW);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
+    change_phase(RenderStateId::kCullMode, gpu_value::kCullClockwise);
+    gpu().set_render_state(GpuRenderState::kZFunc, gpu_value::kCompareLessEqual);
 }
 
 // 0x004DBBD0
@@ -321,28 +319,28 @@ void render_shadow_textures()
     std::array<float, maths::kMatrixFloats> saved_projection{};
     std::memcpy(saved_view.data(), view_matrix_data(), sizeof(saved_view));
     std::memcpy(saved_projection.data(), projection_matrix_data(), sizeof(saved_projection));
-    IDirect3DSurface9* render_target = nullptr;
-    IDirect3DSurface9* depth = nullptr;
+    GpuSurface* render_target = nullptr;
+    GpuSurface* depth = nullptr;
     const uint32_t saved_fog = renderer().fog_active();
-    d3d9::state().d3d_device()->GetRenderTarget(0, &render_target);
-    d3d9::state().d3d_device()->GetDepthStencilSurface(&depth);
+    gpu().render_target(0, &render_target);
+    gpu().depth_surface(&depth);
     if (renderer().fog_active() != 0U) {
         renderer().set_fog_active(0);
-        render::set_render_state(D3DRS_FOGENABLE, FALSE);
+        render::set_render_state(GpuRenderState::kFogEnable, 0);
     }
     for (ShadowCaster* caster : shadow_casters()) {
         if (!caster->model) {
             continue;
         }
-        d3d9::state().d3d_device()->SetRenderTarget(0, d3d9::object(caster->target->surface));
-        d3d9::state().d3d_device()->SetDepthStencilSurface(nullptr);
-        d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0F, 0);
+        gpu().set_render_target(0, caster->target->surface);
+        gpu().set_depth_surface(nullptr);
+        gpu().clear(0, nullptr, gpu_value::kClearTarget, 0, 1.0F, 0);
         set_view_and_projection(caster->view, caster->projection, 1);
-        d3d9::state().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(caster->view.data()));
-        d3d9::state().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(caster->projection.data()));
+        gpu().set_transform(GpuTransform::kView, caster->view.data());
+        gpu().set_transform(GpuTransform::kProjection, caster->projection.data());
         std::array<float, maths::kMatrixFloats> identity{};
         get_identity(identity);
-        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
+        gpu().set_transform(GpuTransform::kWorld, identity.data());
         auto draw_model = [](void* model) {
             const int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
@@ -365,23 +363,23 @@ void render_shadow_textures()
             }
         }
     }
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
+    gpu().set_render_state(GpuRenderState::kColourWriteEnable, kColourWriteAll);
     if (saved_fog != renderer().fog_active()) {
         renderer().set_fog_active(saved_fog);
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
+        gpu().set_render_state(GpuRenderState::kFogEnable, static_cast<uint32_t>(saved_fog != 0));
     }
     renderer().set_pixel_shader_locked(nullptr);
     set_view_and_projection(saved_view, saved_projection, 0);
-    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world_matrix_data()));
-    d3d9::state().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kWhiteColour);
-    d3d9::state().d3d_device()->SetRenderTarget(0, render_target);
-    d3d9::state().d3d_device()->SetDepthStencilSurface(depth);
+    gpu().set_transform(GpuTransform::kWorld, world_matrix_data());
+    gpu().set_transform(GpuTransform::kView, view_matrix_data());
+    gpu().set_render_state(GpuRenderState::kTextureFactor, kWhiteColour);
+    gpu().set_render_target(0, render_target);
+    gpu().set_depth_surface(depth);
     if (render_target) {
-        render_target->Release();
+        gpu().release_surface(render_target);
     }
     if (depth) {
-        depth->Release();
+        gpu().release_surface(depth);
     }
 }
 
@@ -391,15 +389,15 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
     if (engine_parts().suppress_draw()) {
         return;
     }
-    DWORD saved_min_filter = 0;
-    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &saved_min_filter);
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+    uint32_t saved_min_filter = 0;
+    gpu().get_sampler_state(0, GpuSamplerState::kMinFilter, &saved_min_filter);
+    gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
+    gpu().set_stage_state(0, GpuStageState::kTexCoordIndex, 0);
+    gpu().set_stage_state(0, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformDisable);
     const uint32_t saved_fog = renderer().fog_active();
     if (renderer().fog_active() != 0U) {
         renderer().set_fog_active(0);
-        render::set_render_state(D3DRS_FOGENABLE, FALSE);
+        render::set_render_state(GpuRenderState::kFogEnable, 0);
     }
     for (ShadowCaster* caster : shadow_casters()) {
         std::array<float, maths::kMatrixFloats> saved_view{};
@@ -415,12 +413,12 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         maths::matrix_multiply(to_texture.data(), view_projection.data(), texture_bias.data());
         shadow_texture_matrix(caster->view.data(), caster->projection.data(), caster->texture_matrix_.data(), nullptr);
         set_pixel_shader(nullptr, nullptr);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        d3d9::state().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kShadowColour); // the shadow's colour
+        gpu().set_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpSelectArg1);
+        gpu().set_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
+        gpu().set_stage_state(0, GpuStageState::kColourArg1, gpu_value::kArgTextureFactor);
+        gpu().set_stage_state(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+        gpu().set_stage_state(1, GpuStageState::kColourOp, gpu_value::kOpDisable);
+        gpu().set_render_state(GpuRenderState::kTextureFactor, kShadowColour); // the shadow's colour
         change_phase(RenderStateId::kPhaseAlphaTest, 1);
         set_texture(0, nullptr);
         set_texture(2, nullptr);
@@ -429,20 +427,20 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         set_texture(0, caster->target->texture);
         change_phase(RenderStateId::kAddressMode0, kBorderBothWays); // border
         if (renderer().border_addressing_supported()) {
-            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+            gpu().set_sampler_state(0, GpuSamplerState::kBorderColour, 0);
         }
-        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-        d3d9::state().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(projection_matrix_data()));
-        d3d9::state().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
+        gpu().set_sampler_state(0, GpuSamplerState::kMagFilter, gpu_value::kFilterLinear);
+        gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
+        gpu().set_transform(GpuTransform::kProjection, projection_matrix_data());
+        gpu().set_transform(GpuTransform::kView, view_matrix_data());
         std::array<float, maths::kMatrixFloats> identity{};
         get_identity(identity);
-        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
+        gpu().set_transform(GpuTransform::kWorld, identity.data());
         choose_blend_mode(kBlendModeMultiplyColour);
         set_view_and_projection(caster->view, caster->projection, 1);
         if (renderer().depth_bias() != kShadowDepthBias) { // (the cache's depth bias 13, its float sent directly)
             renderer().set_depth_bias(kShadowDepthBias);
-            d3d9::state().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kShadowDepthBiasBits);
+            gpu().set_render_state(GpuRenderState::kDepthBias, kShadowDepthBiasBits);
         }
         for (const MeshRef* const mesh : meshes) {
             if ((mesh->flags() & 2) != 0U) {
@@ -452,34 +450,34 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
                 !sphere_in_view(&sphere, mesh->radius())) {
                 continue;
             }
-            set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
+            set_vertex_format(kFvfXyz | kFvfTex1);
             project_shadow_vertices(std::span<const float>(mesh->positions(), 3 * static_cast<size_t>(mesh->position_count())), to_texture.data());
             const int triangles = clip_shadow_triangles(std::span<const uint16_t>(mesh->triangles(), 3 * static_cast<size_t>(mesh->triangle_count())));
             if (triangles != 0) {
-                d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles().data(),
-                                              sizeof(ShadowCornerPoint));
+                gpu().draw_from_memory(GpuPrimitive::kTriangleList, triangles, shadow_triangles().data(),
+                                       sizeof(ShadowCornerPoint));
                 renderer().count_draw(triangles); // the frame's draw calls and triangles
             }
         }
         set_view_and_projection(saved_view, saved_projection, 0);
     }
     set_pixel_shader(nullptr, nullptr);
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, saved_min_filter);
+    gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, saved_min_filter);
     if (saved_fog != renderer().fog_active()) {
         renderer().set_fog_active(saved_fog);
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, static_cast<DWORD>(saved_fog != 0));
+        gpu().set_render_state(GpuRenderState::kFogEnable, static_cast<uint32_t>(saved_fog != 0));
     }
     if (renderer().depth_bias() != 0) {
         renderer().set_depth_bias(0);
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, kNegativeZeroBits); // -0
+        gpu().set_render_state(GpuRenderState::kDepthBias, kNegativeZeroBits); // -0
     }
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-    d3d9::state().d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kWhiteColour);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    gpu().set_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate);
+    gpu().set_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate);
+    gpu().set_stage_state(0, GpuStageState::kColourArg1, gpu_value::kArgTexture);
+    gpu().set_stage_state(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+    gpu().set_stage_state(1, GpuStageState::kColourOp, gpu_value::kOpDisable);
+    gpu().set_render_state(GpuRenderState::kTextureFactor, kWhiteColour);
+    gpu().set_render_state(GpuRenderState::kZEnable, 1);
     set_texture(0, nullptr);
 }
 
