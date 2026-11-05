@@ -6,7 +6,7 @@ src/devtools/restart_tester.cpp -> src/editor/level_editor.h
 src/devtools/start_level.cpp -> src/editor/level_editor.h
 src/devtools/start_level.cpp -> src/editor/level_editor_layout.h
 src/devtools/start_level.cpp -> src/frontend/mouse_menus.h
-src/editor/level_editor.cpp -> src/frontend/mouse_menus.h
+src/editor/level_editor_frame.cpp -> src/frontend/mouse_menus.h
 src/editor/level_editor_play.cpp -> src/frontend/mouse_menus.h
 src/frontend/new_frontend.cpp -> src/devtools/automation.h
 src/frontend/new_frontend.cpp -> src/devtools/restart_tester.h

@@ -7,6 +7,8 @@
 
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
+#include "engine/pad_input/input_source.h"
+#include <SDL2/SDL.h>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -39,6 +41,7 @@
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ux3.h"
+#include "editor/level_editor_ux8.h"
 #include "editor/level_editor_walls.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -69,6 +72,8 @@ constexpr float kHalf = 0.5F;               // half
 constexpr float kQuarterTurnDegrees = 90.0F; // degrees in a quarter turn
 
 constexpr float kNearZ = 2.0F; // (render::choose_camera's near plane)
+
+constexpr float kLookRadiansPerPixel = 0.0035F;
 
 constexpr float kMaxPickDistance = 30000.0F;
 
@@ -495,6 +500,16 @@ float pixel_scale();
 
 void update_highlights();
 
+// NOT ORIGINAL grouping - whether occlusion is off, in the editor and in play (were globals). Made on first use, never
+// destroyed (occlusion_switch()).
+struct OcclusionSwitch {
+    // Occlusion culling switched off while editing (O; render::occlusion_off).
+    bool occlusion_off_ = true;
+    bool occlusion_in_play_{}; // (render::occlusion_off as it was when the editor opened)
+};
+
+OcclusionSwitch& occlusion_switch();
+
 bool get_cast(V3 from, V3 to, V3* hit);
 
 bool ground_below(V3 from, V3* ground);
@@ -587,6 +602,8 @@ void toggle_lock();
 
 void get_look_at(V3 target, float distance);
 
+bool squeezed(input::KeyState keys, SDL_Scancode key, bool* was);
+
 void select_node(int index);
 
 int flag_node_of(objects::GameEntity* object);
@@ -612,6 +629,89 @@ void focus_browser_item();
 void go_to_selection();
 
 void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame);
+
+// --- UX8 (level_editor_ux8.h): wheel drill-through, click-to-teleport, walk mode ---
+
+// The controller's right stick at full tilt: as a mouse moved this many pixels a second.
+constexpr float kPadLookPixelsPerSecond = 700.0F;
+
+bool& stored_drilled();
+
+void drill_through(int steps, maths::Vec2 point, V3 dir);
+
+void teleport_to(V3 dir);
+
+void walk_frame(const Mouse& input, input::KeyState keys, const ux8::Pad& pad, double seconds);
+
+void transform_keys(input::KeyState keys, bool ctrl, bool shift, bool alt, const Mouse& input, V3 dir, bool have_ray,
+                    const TickCycle& frame);
+
+// One editor frame's input and view, as tick_frame's steps share them.
+struct EditorFrame {
+    double seconds = 0.0;
+    Mouse input;
+    input::KeyState keys;
+    ux8::Pad pad;
+    bool pad_cursor_ = false; // the crosshair is the cursor (a game controller in controller mode)
+    bool shift = false;
+    bool ctrl = false;
+    bool alt = false;
+    double boost = 1.0;      // Shift: kFastFlyFactor
+    bool no_change_ = false; // a drag, a key move, a field edit or a resize under way: no undo / save / delete keys
+    TickCycle frame{};       // the camera's frame after this frame's looking
+    V3 dir{};                // the mouse ray (the view's direction without one)
+    bool have_ray_ = false;
+    float back_x_ = 0.0F; // the cursor in back-buffer pixels
+    float back_y_ = 0.0F;
+};
+
+void tick_level_systems();
+
+void tick_hud_and_autosave();
+
+double take_frame_seconds();
+
+Mouse take_mouse();
+
+void read_keys_and_pad(EditorFrame& editor_frame);
+
+bool global_keys_and_walk(EditorFrame& editor_frame);
+
+void handle_escape();
+
+void tick_panels(EditorFrame& editor_frame);
+
+void edit_keys(const EditorFrame& editor_frame);
+
+void view_keys();
+
+void tick_triggers_and_tools(const EditorFrame& editor_frame);
+
+void command_keys(const EditorFrame& editor_frame);
+
+void finish_chain_drawing(const Mouse& input);
+
+void look_and_fly(EditorFrame& editor_frame);
+
+void cast_mouse_ray(EditorFrame& editor_frame);
+
+void apply_ray_tools(EditorFrame& editor_frame);
+
+void browser_keys(const EditorFrame& editor_frame);
+
+void move_with_keys(const EditorFrame& editor_frame);
+
+void log_mouse_debug(const EditorFrame& editor_frame);
+
+void update_tool_hovers(const EditorFrame& editor_frame);
+
+void update_drag(EditorFrame& editor_frame);
+
+void update_hover(const EditorFrame& editor_frame);
+
+void handle_clicks(EditorFrame& editor_frame);
+
+void finish_frame(const EditorFrame& editor_frame);
 
 void add_hover_boxes(const TickCycle& frame, objects::GameEntity* hover, std::vector<LineVertex>& lines);
 
