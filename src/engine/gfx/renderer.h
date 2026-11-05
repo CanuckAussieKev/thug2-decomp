@@ -12,6 +12,7 @@
 #include "base/maths/mat4.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/renderer_caps.h"
+#include "engine/gfx/renderer_display.h"
 
 // NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
 // counters, and the render state the device was last sent (the original's globals; each member's comment or its
@@ -69,20 +70,20 @@ public:
     void set_stream_offset_supported(bool value) { caps_.set_stream_offset_supported(value); }
     [[nodiscard]] uint32_t loading_bar_timer() const { return loading_bar_timer_; }
     void set_loading_bar_timer(uint32_t value) { loading_bar_timer_ = value; }
-    [[nodiscard]] float display_factor_x() const { return display_factor_x_; }
-    void set_display_factor_x(float value) { display_factor_x_ = value; }
-    [[nodiscard]] uint8_t frequency_setting_allowed() const { return set_frequency_allowed_; }
-    void set_frequency_setting_allowed(uint8_t value) { set_frequency_allowed_ = value; }
-    [[nodiscard]] int resolution_setting() const { return resolution_setting_; }
-    void set_resolution_setting(int value) { resolution_setting_ = value; }
-    [[nodiscard]] bool antialiasing() const { return antialiasing_; }
-    void set_antialiasing(bool value) { antialiasing_ = value; }
-    [[nodiscard]] int screen_offset_y() const { return screen_offset_y_; }
-    void set_screen_offset_y(int value) { screen_offset_y_ = value; }
-    [[nodiscard]] int screen_offset_x() const { return screen_offset_x_; }
-    void set_screen_offset_x(int value) { screen_offset_x_ = value; }
-    [[nodiscard]] float display_factor_y() const { return display_factor_y_; }
-    void set_display_factor_y(float value) { display_factor_y_ = value; }
+    [[nodiscard]] float display_factor_x() const { return display_.display_factor_x(); }
+    void set_display_factor_x(float value) { display_.set_display_factor_x(value); }
+    [[nodiscard]] uint8_t frequency_setting_allowed() const { return display_.frequency_setting_allowed(); }
+    void set_frequency_setting_allowed(uint8_t value) { display_.set_frequency_setting_allowed(value); }
+    [[nodiscard]] int resolution_setting() const { return display_.resolution_setting(); }
+    void set_resolution_setting(int value) { display_.set_resolution_setting(value); }
+    [[nodiscard]] bool antialiasing() const { return display_.antialiasing(); }
+    void set_antialiasing(bool value) { display_.set_antialiasing(value); }
+    [[nodiscard]] int screen_offset_y() const { return display_.screen_offset_y(); }
+    void set_screen_offset_y(int value) { display_.set_screen_offset_y(value); }
+    [[nodiscard]] int screen_offset_x() const { return display_.screen_offset_x(); }
+    void set_screen_offset_x(int value) { display_.set_screen_offset_x(value); }
+    [[nodiscard]] float display_factor_y() const { return display_.display_factor_y(); }
+    void set_display_factor_y(float value) { display_.set_display_factor_y(value); }
     [[nodiscard]] bool blend_factor_supported() const { return caps_.blend_factor_supported(); }
     void set_blend_factor_supported(bool value) { caps_.set_blend_factor_supported(value); }
     [[nodiscard]] bool border_addressing_supported() const { return caps_.border_addressing_supported(); }
@@ -126,10 +127,10 @@ public:
     void set_step_seconds(int value) { step_seconds_ = value; }
     [[nodiscard]] int screen_copy_index() const { return screen_copy_index_; }
     void set_screen_copy_index(int value) { screen_copy_index_ = value; }
-    [[nodiscard]] int back_buffer_width() const { return back_buffer_width_; }
-    void set_back_buffer_width(int value) { back_buffer_width_ = value; }
-    [[nodiscard]] int back_buffer_height() const { return back_buffer_height_; }
-    void set_back_buffer_height(int value) { back_buffer_height_ = value; }
+    [[nodiscard]] int back_buffer_width() const { return display_.back_buffer_width(); }
+    void set_back_buffer_width(int value) { display_.set_back_buffer_width(value); }
+    [[nodiscard]] int back_buffer_height() const { return display_.back_buffer_height(); }
+    void set_back_buffer_height(int value) { display_.set_back_buffer_height(value); }
     // One draw call of `triangles` more this frame (the frame's counts).
     void count_draw(uint32_t triangles)
     {
@@ -234,18 +235,10 @@ public:
     }
 
 private:
-    DeviceCaps caps_; // what the device can do
+    DeviceCaps caps_;         // what the device can do
+    DisplaySettings display_; // the display drawn to
 
-    // The device's settings (device.cpp; the device itself and what was made with it: d3d9_state.h). The display
-    // factors scale 640x480 to the back buffer.
     uint32_t loading_bar_timer_{}; // the timer's id (timeSetEvent)
-    float display_factor_x_{}; // 640x480 -> back buffer scale
-    uint8_t set_frequency_allowed_{1};
-    int resolution_setting_{};
-    bool antialiasing_{};
-    int screen_offset_y_{};
-    int screen_offset_x_{};
-    float display_factor_y_{};
 
     // The frame's camera, matrices, viewport and counters (draw_frame.cpp).
     DeviceViewport device_viewport_{};
@@ -258,8 +251,6 @@ private:
     maths::Mat4 heading_matrix_{};
     int step_seconds_{};
     int screen_copy_index_{};
-    int back_buffer_width_{};
-    int back_buffer_height_{};
     uint32_t draw_calls_{};
     uint32_t drawn_triangles_{};
     float fog_begin_distance_{};
