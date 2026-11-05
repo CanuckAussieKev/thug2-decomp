@@ -4,6 +4,8 @@
 #include "render_d3d9/device_d3d.h"
 #include "engine/gfx/gpu_handles.h"
 #include "render_d3d9/d3d9_handles.h"
+#include "render_d3d9/device.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/graphics_options.h"
 
 #include <windows.h>
@@ -28,9 +30,9 @@ struct DeviceState {
     int samples_ = 0;
     DWORD quality_ = 0;
     // The scene surface and its depth (default pool), and the full-size copy last drawn through them.
-    IDirect3DSurface9* scene_colour_ = nullptr;
-    IDirect3DSurface9* scene_depth_ = nullptr;
-    IDirect3DTexture9* drawn_for_ = nullptr;
+    GpuSurface* scene_colour_ = nullptr;
+    GpuSurface* scene_depth_ = nullptr;
+    GpuTexture* drawn_for_ = nullptr;
     bool unresolved_ = false;
 };
 
@@ -39,8 +41,6 @@ DeviceState& device_state()
     static core::NoDestroy<DeviceState> state;
     return state.get();
 }
-
-IDirect3DTexture9* screen_copy(int index) { return core::at(d3d9::state().screen_textures(), index); }
 
 struct SupportQuery {
     IDirect3D9* d3d;
@@ -69,11 +69,10 @@ bool get_supported(int samples, void* context)
     return true;
 }
 
-template <typename T>
-void get_release(T*& pointer)
+void get_release(GpuSurface*& pointer)
 {
     if (pointer) {
-        pointer->Release();
+        gpu().release_surface(pointer);
         pointer = nullptr;
     }
 }
@@ -125,13 +124,20 @@ void create_scene_target()
     if (device_state().samples_ <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE) {
         return; // (the device was made without: the fallbacks in init_direct_3d)
     }
-    IDirect3DDevice9* device = d3d9::state().d3d_device();
-    const HRESULT colour =
-        device->CreateRenderTarget(pp.BackBufferWidth, pp.BackBufferHeight, pp.BackBufferFormat, pp.MultiSampleType,
-                                   pp.MultiSampleQuality, FALSE, &device_state().scene_colour_, nullptr);
-    const HRESULT depth =
-        device->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
-                                          pp.MultiSampleType, pp.MultiSampleQuality, TRUE, &device_state().scene_depth_, nullptr);
+    const HRESULT colour = gpu().create_render_target({.width = pp.BackBufferWidth,
+                                                       .height = pp.BackBufferHeight,
+                                                       .format = static_cast<uint32_t>(pp.BackBufferFormat),
+                                                       .samples = static_cast<uint32_t>(pp.MultiSampleType),
+                                                       .quality = pp.MultiSampleQuality,
+                                                       .lockable_or_discard = false},
+                                                      &device_state().scene_colour_);
+    const HRESULT depth = gpu().create_depth_surface({.width = pp.BackBufferWidth,
+                                                      .height = pp.BackBufferHeight,
+                                                      .format = static_cast<uint32_t>(pp.AutoDepthStencilFormat),
+                                                      .samples = static_cast<uint32_t>(pp.MultiSampleType),
+                                                      .quality = pp.MultiSampleQuality,
+                                                      .lockable_or_discard = true},
+                                                     &device_state().scene_depth_);
     if (FAILED(colour) || FAILED(depth)) {
         get_log("graphics options: no multisampled scene surface (0x%08lX / 0x%08lX) - screen effects unsmoothed",
                 static_cast<unsigned long>(colour), static_cast<unsigned long>(depth));
@@ -149,28 +155,26 @@ void release_scene_target()
 
 bool set_scene_target(GpuTexture* target)
 {
-    IDirect3DTexture9* const texture = d3d9::object(target);
-    if (!in_use() || !texture || (texture != screen_copy(0) && texture != screen_copy(1))) {
+    if (!in_use() || !target || (target != screen_copy_texture(0) && target != screen_copy_texture(1))) {
         return false;
     }
-    d3d9::state().d3d_device()->SetRenderTarget(0, device_state().scene_colour_);
-    d3d9::state().d3d_device()->SetDepthStencilSurface(device_state().scene_depth_);
-    device_state().drawn_for_ = texture;
+    gpu().set_render_target(0, device_state().scene_colour_);
+    gpu().set_depth_surface(device_state().scene_depth_);
+    device_state().drawn_for_ = target;
     device_state().unresolved_ = true;
     return true;
 }
 
 void resolve_scene_target(GpuTexture* target)
 {
-    IDirect3DTexture9* const texture = d3d9::object(target);
-    if (!in_use() || !device_state().unresolved_ || texture != device_state().drawn_for_ ||
-        !texture) {
+    if (!in_use() || !device_state().unresolved_ || target != device_state().drawn_for_ ||
+        !target) {
         return;
     }
-    IDirect3DSurface9* surface = nullptr;
-    if (SUCCEEDED(texture->GetSurfaceLevel(0, &surface)) && surface) {
-        d3d9::state().d3d_device()->StretchRect(device_state().scene_colour_, nullptr, surface, nullptr, D3DTEXF_NONE);
-        surface->Release();
+    GpuSurface* surface = nullptr;
+    if (SUCCEEDED(gpu().texture_surface(target, 0, &surface)) && surface) {
+        gpu().copy_surface(device_state().scene_colour_, nullptr, surface, nullptr, gpu_value::kFilterNone);
+        gpu().release_surface(surface);
     }
     device_state().unresolved_ = false;
 }
