@@ -78,7 +78,7 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
 {
     Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-    prefs::Preferences* preferences = manager->get_online_settings();
+    prefs::Preferences* preferences = manager->settings().get_online_settings();
     const char* email = nullptr;
     const char* password = nullptr;
     if (sys::internet_game_host() || sys::joining_internet_game()) {
@@ -98,8 +98,10 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
 void FriendsManager::send_buddy_message(int profile, const char* text)
 {
     const char* nick = nullptr;
-    net_game_state().online_hub()
-        ->get_online_settings()
+    net_game_state()
+        .online_hub()
+        ->settings()
+        .get_online_settings()
         ->fetch_setting(checksums::hash_from_text("network_id"))
         ->fetch_text(kUiString, &nick, 1);
     constexpr size_t kMessageSize = 128;

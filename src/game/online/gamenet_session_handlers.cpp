@@ -171,21 +171,21 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     }
     Hub* manager = manager_of(context);
     const char* server_name = nullptr;
-    manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
+    manager->settings().get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
     // (the answer: gamenet_messages.h)
     util::ByteReader query(context->body(), context->body_size());
     ServerInfo info;
     std::array<char, kNameSize> name{};
     copy_name(name.data(), server_name);
     net::AppHost* server = manager->host();
-    info.skill_level = static_cast<uint8_t>(manager->get_difficulty_tier());
+    info.skill_level = static_cast<uint8_t>(manager->settings().get_difficulty_tier());
     info.num_players = static_cast<int8_t>(manager->count_players());
-    info.max_players = static_cast<int8_t>(manager->get_player_limit());
+    info.max_players = static_cast<int8_t>(manager->settings().get_player_limit());
     info.num_observers = static_cast<int8_t>(manager->count_observers());
-    info.max_observers = static_cast<int8_t>(manager->get_spectator_limit());
+    info.max_observers = static_cast<int8_t>(manager->settings().get_spectator_limit());
     info.max_players = std::max(info.max_players, info.num_players);
     info.max_observers = std::max(info.max_observers, info.num_observers);
-    info.password = *manager->fetch_secret() != '\0';
+    info.password = *manager->settings().fetch_secret() != '\0';
     info.in_game = get_game_type() != kNetLobby;
     info.host_mode = static_cast<uint8_t>(manager->get_hosting_role());
     info.logged_in = manager->in_internet_mode() && manager->presence_service()->authenticated();
@@ -265,7 +265,7 @@ int handle_host_options(net::InboundMsgCtx* context)
             return kDone;
         }
         // The game's options, each a preference: its text and checksum.
-        prefs::Preferences* prefs = manager->get_online_settings();
+        prefs::Preferences* prefs = manager->settings().get_online_settings();
         // (a preference set from the request: its name, the list its choices are in, the value chosen)
         struct PreferenceSet {
             uint32_t preference{};
@@ -409,7 +409,7 @@ int handle_host_options(net::InboundMsgCtx* context)
             params->append_word(kUiString, core::at(kTexts, teams));
             params->put_name_key(checksums::Name{kChecksum}, core::at(kTeams, teams));
         }
-        manager->get_online_settings()->change_setting(kTeamMode, params.get());
+        manager->settings().get_online_settings()->change_setting(kTeamMode, params.get());
         params.reset();
         cfunc_set_num_teams(count.get(), script::Context());
         count.reset();
@@ -453,7 +453,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
         script::StructPtr params = script::make_struct();
         params->append_word(kUiString, script::QbValueKind::kString, manager->get_map_name(false));
         params->add_component_of_type(kChecksum, script::QbValueKind::kName, manager->level());
-        manager->get_online_settings()->change_setting(kLevel, params.get());
+        manager->settings().get_online_settings()->change_setting(kLevel, params.get());
         params.reset();
         if (manager->level() == kLoadSk5edGameplay) {
             net_game_state().level_change_time() += kParkLevelChangeDelay;
@@ -594,8 +594,8 @@ void fill_brief_game(Hub* manager, SessionBrief& info)
         info.game_type = get_game_type();
         info.time_left = get_game_mode()->get_goal_time_left() / kMillisecondsPerSecond;
         info.time_limit = get_game_mode()->get_time_limit();
-        info.target_score = static_cast<uint32_t>(
-            manager->get_online_settings()->get_setting_value({.preference = kTargetScore, .field = kScore}));
+        info.target_score = static_cast<uint32_t>(manager->settings().get_online_settings()->get_setting_value(
+            {.preference = kTargetScore, .field = kScore}));
         if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
             const bool scavenger = get_game_type() == kNetScavengerHunt;
             auto* goals = objective_board();
@@ -656,7 +656,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     player->flag_bits() |= PlayerFlag::kToldGameState; // told
     // (the message: gamenet_messages.h)
     SessionBrief info;
-    info.max_players = static_cast<uint8_t>(manager->get_player_limit());
+    info.max_players = static_cast<uint8_t>(manager->settings().get_player_limit());
     info.round = get_game_mode()->get_round();
     info.variant = 0;
     net::AppHost* server = manager->host();

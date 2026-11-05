@@ -504,7 +504,7 @@ void RankingsManager::start_game()
     game_ = new_game(1);
     const char* challenge = get_challenge(game_);
     auto* server = static_cast<net::AppHost*>(manager->host());
-    prefs::Preferences* prefs = manager->get_online_settings();
+    prefs::Preferences* prefs = manager->settings().get_online_settings();
     const char* host_name = nullptr;
     prefs->fetch_setting(kServerName)->fetch_text(kUiString, &host_name, 1);
     const int time_limit = prefs->get_setting_value({.preference = 0xC51BF6E3, .field = 0x906B67BA});
@@ -514,7 +514,7 @@ void RankingsManager::start_game()
     set_game_string(game_, "gametype", manager->get_game_type_name());
     set_game_int(game_, "mapcrc", static_cast<int>(manager->fetch_stage()));
     set_game_int(game_, "gametypecrc", static_cast<int>(manager->get_game_type_preference()));
-    set_game_int(game_, "maxplayers", manager->get_player_limit());
+    set_game_int(game_, "maxplayers", manager->settings().get_player_limit());
     set_game_int(game_, "timelimit", time_limit);
     set_game_int(game_, "fraglimit", frag_limit);
     for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;

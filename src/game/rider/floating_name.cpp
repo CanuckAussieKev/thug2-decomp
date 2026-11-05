@@ -47,7 +47,7 @@ constexpr float kOtherHeight = 120.0F; // above the others'
 // The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
 // this machine's player (fetch_viewed_player: its +0x1CC).
 bool in_net_game() { return online::online_hub()->in_net_game(); }
-bool show_names() { return online::online_hub()->wants_name_tags(); }
+bool show_names() { return online::online_hub()->settings().wants_name_tags(); }
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
     return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));

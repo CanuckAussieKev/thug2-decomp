@@ -328,7 +328,7 @@ void Hub::update_hosting_status()
     lobby_service_->start_hosting();
     if (presence_service_->authenticated()) { // (0x005480B0: logged in to presence)
         const char* server_name = nullptr;
-        get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
+        settings_.get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
         constexpr size_t kLocationSize = 1024;
         std::array<char, kLocationSize> location{};
         RoomManager* lobby = lobby_service_.get();
@@ -574,7 +574,8 @@ unsigned long __stdcall motd_thread(void* argument)
     auto* manager = static_cast<Hub*>(argument);
     const char* unique_id = "123456789";
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-    manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
+    manager->settings().get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id,
+                                                                                    0); // (not used)
     manager->set_request_started_at(frame_clock::get_time());
     manager->set_request(game_spy::track_usage(0, net::kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
     manager->assign_service_state(ServiceState::kMotdShow);

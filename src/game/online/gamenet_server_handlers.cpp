@@ -83,7 +83,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
     }
     net::NetMessageInfo desc;
     if (!is_own_player(player) &&
-        manager->count_observers() >= manager->get_spectator_limit()) { // the observers so far
+        manager->count_observers() >= manager->settings().get_spectator_limit()) { // the observers so far
         desc = net::NetMessageInfo();
         desc.set_ident(MessageId::kObserversFull);
         manager->host()->put_on_outbox(context->sender_conn()->hdl(), &desc);

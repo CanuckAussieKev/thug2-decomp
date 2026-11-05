@@ -196,9 +196,7 @@ void Hub::assign_first_come_first_served()
         }
         player->set_host_player(); // (its flag 0x200: first come, first served)
         uint32_t text = 0;
-        net_options_
-            .fetch_setting(kFcfsPreference)
-            ->read_hash_value("Checksum", &text, 1);
+        settings_.net_options().fetch_setting(kFcfsPreference)->read_hash_value("Checksum", &text, 1);
         desc.set_content(&text);
         desc.set_byte_count(sizeof(text));
         desc.set_ident(MessageId::kFcfsNotice);

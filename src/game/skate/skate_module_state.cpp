@@ -367,7 +367,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Context /*context
     uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 1);
     if (level == kFromSettingsMarker) {
-        level = net->get_level_preference();
+        level = net->settings().get_level_preference();
     }
     net->change_arena(level);
     const bool show_warning = params->has_entry_named(kShowWarning);
@@ -446,7 +446,7 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Context /*contex
         }
     }
     if (level == kFromSettingsMarker) {
-        level = net->get_level_preference();
+        level = net->settings().get_level_preference();
         net->change_arena(level);
     }
     skate->pending_level_ = level;
@@ -461,7 +461,7 @@ bool Skate::cfunc_init_skater_heaps(script::Struct* /*params*/, script::Context 
     if (sole()->match_style_ == kFreeskate2p) {
         skaters = 2;
     } else {
-        skaters = online::online_hub()->get_player_limit();
+        skaters = online::online_hub()->settings().get_player_limit();
         if (skaters <= 1) {
             memory::leave_heap_scope();
             return true;
@@ -488,10 +488,10 @@ void Skate::prepare_entity_update_data()
 prefs::Preferences* Skate::get_player_options(uint32_t name)
 {
     if (name == kNetwork) {
-        return online::online_hub()->get_online_settings();
+        return online::online_hub()->settings().get_online_settings();
     }
     if (name == kTaunt) {
-        return online::online_hub()->get_taunt_settings();
+        return online::online_hub()->settings().get_taunt_settings();
     }
     if (name == kSplitscreen) {
         return sole()->splitscreen_preferences_.get();

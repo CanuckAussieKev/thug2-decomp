@@ -101,7 +101,7 @@ void server_key_callback(int key, void* buffer, void* /*unused*/)
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
-        manager->net_options().fetch_setting(kServerName)->fetch_text("ui_string", &text, 0);
+        manager->settings().net_options().fetch_setting(kServerName)->fetch_text("ui_string", &text, 0);
         buffer_add(buffer, text);
         return;
     }
@@ -126,10 +126,10 @@ void server_key_callback(int key, void* buffer, void* /*unused*/)
         buffer_add_int(buffer, manager->count_players());
         return;
     case kKeyNumteams:
-        buffer_add_int(buffer, manager->get_num_teams());
+        buffer_add_int(buffer, manager->settings().get_num_teams());
         return;
     case kKeyMaxplayers:
-        buffer_add_int(buffer, manager->get_player_limit());
+        buffer_add_int(buffer, manager->settings().get_player_limit());
         return;
     case kKeyGamemode:
         if (net_game_state().game_reported() != 0U) {
@@ -141,7 +141,7 @@ void server_key_callback(int key, void* buffer, void* /*unused*/)
         }
         return;
     case kKeyPassword:
-        buffer_add_int(buffer, *manager->fetch_secret() != '\0' ? 1 : 0);
+        buffer_add_int(buffer, *manager->settings().fetch_secret() != '\0' ? 1 : 0);
         return;
     case kKeyGroupid:
         buffer_add_int(buffer, stored_lobby_group_id()); // (the lobby's group room)
@@ -201,7 +201,7 @@ int count_callback(int type, void* /*unused*/)
         return net_game_state().online_hub()->count_players();
     }
     if (type == kKeyTypeTeam) {
-        return net_game_state().online_hub()->get_num_teams();
+        return net_game_state().online_hub()->settings().get_num_teams();
     }
     return 0;
 }
@@ -211,7 +211,8 @@ void start_query_reporting(bool keep_map_name)
 {
     if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
-        net_game_state().online_hub()->net_options().fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
+        net_game_state().online_hub()->settings().net_options().fetch_setting(kLevel)->fetch_text("ui_string", &text,
+                                                                                                  0);
         text::copy_into(fallback_map_name(), text);
     }
     if (net_game_state().query_reporting()) {

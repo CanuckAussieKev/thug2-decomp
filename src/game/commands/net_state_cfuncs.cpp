@@ -356,7 +356,7 @@ bool cfunc_toggle_player_names(script::Struct* /*params*/, script::Context /*con
 {
     online::Hub* game_net = online::online_hub();
     game_net->toggle_player_names();
-    if (!game_net->wants_name_tags()) {
+    if (!game_net->settings().wants_name_tags()) {
         script::launch_script(kPlayerNamesOffScript, nullptr, nullptr, false, nullptr);
     }
     return true;
@@ -564,7 +564,7 @@ namespace {
 // A network preference's checksum (asserting it's there).
 uint32_t network_preference(uint32_t name)
 {
-    script::Struct* preference = online::online_hub()->get_online_settings()->fetch_setting(name);
+    script::Struct* preference = online::online_hub()->settings().get_online_settings()->fetch_setting(name);
     uint32_t value = 0; // (unset in the original when missing - an asserted parameter)
     preference->read_hash_value(kChecksum, &value, 1); // "checksum"
     return value;
@@ -694,13 +694,13 @@ void set_choice_preference(script::Struct* preference, const char* text, uint32_
 void init_beenox_preferences()
 {
     online::Hub* game_net = online::online_hub();
-    prefs::Preferences* prefs = game_net->get_online_settings();
+    prefs::Preferences* prefs = game_net->settings().get_online_settings();
     set_string_preference(prefs, get_checksums("server_name"), hosted_game_name().data()); // "server_name"
     set_string_preference(prefs, get_checksums("password"), network_password().data());    // "password"
     if (core::at(network_id(), 0) != '\0') {
         set_string_preference(prefs, get_checksums("network_id"), network_id().data()); // "network_id"
     }
-    game_net->set_max_players_preference(online::net_game_state().net_max_players());
+    game_net->settings().set_max_players_preference(online::net_game_state().net_max_players());
     gsl::owner<script::Struct*> teams = script::new_struct();
     switch (online::net_game_state().network_team_mode()) {
     case 0:

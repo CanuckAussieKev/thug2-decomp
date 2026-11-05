@@ -19,6 +19,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_settings.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_conn.h"
@@ -140,12 +141,12 @@ uint16_t texture_palette_size(void* /*texture*/)
 }
 
 // A network preference set from `values` (the original's new CStruct, never freed).
-void set_count_preference(Hub* manager, uint32_t preference, const char* ui_string, uint32_t checksum)
+void set_count_preference(SessionSettings* settings, uint32_t preference, const char* ui_string, uint32_t checksum)
 {
     gsl::owner<script::Struct*> values = script::new_struct();
     values->append_word(kUiString, script::QbValueKind::kString, ui_string);
     values->add_component_of_type(kChecksum, script::QbValueKind::kName, checksum);
-    manager->get_online_settings()->change_setting(preference, values);
+    settings->get_online_settings()->change_setting(preference, values);
 }
 
 } // namespace
@@ -190,7 +191,7 @@ void Hub::build_team_flag_set(int num_teams)
 }
 
 // 0x00534090
-void Hub::set_max_players_preference(int count)
+void SessionSettings::set_max_players_preference(int count)
 {
     constexpr size_t kNumNameSize = 32;
     std::array<char, kNumNameSize> num_name{};
@@ -203,7 +204,7 @@ void Hub::set_max_players_preference(int count)
 }
 
 // 0x005341B0
-void Hub::set_max_observers_preference(int count)
+void SessionSettings::set_max_observers_preference(int count)
 {
     constexpr size_t kNumNameSize = 32;
     std::array<char, kNumNameSize> num_name{};
@@ -223,7 +224,7 @@ void Hub::set_max_observers_preference(int count)
 }
 
 // 0x00534310
-const char* Hub::fetch_secret()
+const char* SessionSettings::fetch_secret()
 {
     script::Struct* preference = get_online_settings()->fetch_setting(kPassword);
     // On a miss the original returns its uninitialised local (the slot ECX was pushed into - the manager's bytes as
@@ -242,8 +243,8 @@ bool Hub::players_can_collide()
     if (in_split_screen_game()) {
         return true;
     }
-    if (get_online_settings()->get_preference_checksum({.preference = kPlayerCollision, .field = kChecksum}) ==
-        kBooleanTrue) {
+    if (settings_.get_online_settings()->get_preference_checksum(
+            {.preference = kPlayerCollision, .field = kChecksum}) == kBooleanTrue) {
         return true;
     }
     return get_game_type() == kNetSlap || get_game_type() == kSlap;
@@ -255,7 +256,8 @@ bool Hub::show_team_scores()
     if (get_game_type() == kNetLobby || !is_squad_match()) {
         return false;
     }
-    return get_online_settings()->get_preference_checksum({.preference = kScoreDisplay, .field = kChecksum}) == kScoreTeams;
+    return settings_.get_online_settings()->get_preference_checksum(
+               {.preference = kScoreDisplay, .field = kChecksum}) == kScoreTeams;
 }
 
 // 0x00534CF0
@@ -489,8 +491,7 @@ Hub::~Hub()
     queued_scripts_.uncouple();
     joiners_.uncouple();
     players_.uncouple();
-    get_taunt_settings()->~Preferences();
-    get_online_settings()->~Preferences();
+    settings_.destroy();
 }
 
 // NOT ORIGINAL (the original's destructor deletes them in its body, 0x00536D70)
@@ -503,6 +504,13 @@ void HubTasks::delete_at_shutdown()
           &join_phase_job_, &start_game_job_, &level_change_job_, &server_list_job_}) {
         memory::destroy_then_clear(*job);
     }
+}
+
+// NOT ORIGINAL (the hub's destructor's last steps, 0x00536D70)
+void SessionSettings::destroy()
+{
+    get_taunt_settings()->~Preferences();
+    get_online_settings()->~Preferences();
 }
 
 } // namespace online

@@ -229,7 +229,8 @@ int handle_cd_key_challenge(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
-    const char* password = manager->get_online_settings()->get_preference_string({.preference = kProfilePassword, .field = kUiString});
+    const char* password = manager->settings().get_online_settings()->get_preference_string(
+        {.preference = kProfilePassword, .field = kUiString});
     constexpr size_t kAnswerSize = 36;
     std::array<char, kAnswerSize> answer{};
     // 0x0054CA10: the answer to the challenge (the message itself). (Static: the original passes the online service,

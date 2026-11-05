@@ -269,7 +269,7 @@ void RoomManager::public_address_callback(void* /*unused*/, uint32_t ip, uint16_
     manager->set_join_ip(ip);
     manager->set_join_private_ip(peer_private_ip(lobby->remote_));
     const char* name = nullptr;
-    manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &name, 1);
+    manager->settings().get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &name, 1);
     constexpr size_t kLocationSize = 1024;
     std::array<char, kLocationSize> location{};
     text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
@@ -287,7 +287,8 @@ void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick
     constexpr size_t kRetrySize = 128;
     std::array<char, kRetrySize> retry{};
     if (type == kNickInUse) {
-        const char* id = net_game_state().online_hub()->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString});
+        const char* id = net_game_state().online_hub()->settings().get_online_settings()->get_preference_string(
+            {.preference = kNetworkId, .field = kUiString});
         debug::printf("Nick Error. Nick %s In Use\n", nick);
         text::format_to(retry, "a%d_%s", frame_clock::get_time(), id);
         game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry.data())); // retried with that nick
@@ -447,7 +448,8 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     Hub* manager = net_game_state().online_hub();
     constexpr size_t kNickSize = 128;
     std::array<char, kNickSize> nick{};
-    text::copy_into(nick, manager->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString}));
+    text::copy_into(nick, manager->settings().get_online_settings()->get_preference_string(
+                              {.preference = kNetworkId, .field = kUiString}));
     auto* lobby = static_cast<RoomManager*>(lobby_data);
     lobby->connecting_ = true;
     auto nick_error = &RoomManager::get_nick_error_callback;

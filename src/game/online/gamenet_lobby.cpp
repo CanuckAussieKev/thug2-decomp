@@ -103,7 +103,7 @@ bool cfunc_reset_connection_timer(script::Struct* /*params*/, script::Context /*
 void RoomManager::server_key_callback(void* /*unused*/, int key, void* buffer, void* /*unused*/)
 {
     Hub* manager = net_game_state().online_hub();
-    prefs::Preferences* prefs = manager->get_online_settings();
+    prefs::Preferences* prefs = manager->settings().get_online_settings();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
@@ -128,22 +128,22 @@ void RoomManager::server_key_callback(void* /*unused*/, int key, void* buffer, v
         buffer_add_int(buffer, manager->count_players());
         break;
     case kKeyMaxplayers:
-        buffer_add_int(buffer, manager->get_player_limit());
+        buffer_add_int(buffer, manager->settings().get_player_limit());
         break;
     case kKeyTeamplay:
         buffer_add_int(buffer, 0);
         break;
     case kKeyPassword:
-        buffer_add_int(buffer, *manager->fetch_secret() != '\0' ? 1 : 0);
+        buffer_add_int(buffer, *manager->settings().fetch_secret() != '\0' ? 1 : 0);
         break;
     case kKeyObservers:
         buffer_add_int(buffer, manager->count_observers());
         break;
     case kKeyMaxObservers:
-        buffer_add_int(buffer, manager->get_spectator_limit());
+        buffer_add_int(buffer, manager->settings().get_spectator_limit());
         break;
     case kKeySkillLevel:
-        buffer_add_int(buffer, manager->get_difficulty_tier());
+        buffer_add_int(buffer, manager->settings().get_difficulty_tier());
         break;
     case kKeyInProgress:
         buffer_add_int(buffer, get_game_type() == kNetLobby ? 0 : 1);

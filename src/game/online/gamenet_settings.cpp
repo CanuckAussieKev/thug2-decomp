@@ -120,7 +120,7 @@ void Hub::use_network_preferences()
     for (int i = 0; i < kMasterServerCount; ++i) {
         core::at(core::at(servers, i), 0) = 0;
     }
-    prefs::Preferences* preferences = get_online_settings();
+    prefs::Preferences* preferences = settings_.get_online_settings();
 
     // (the original's locals, each reused as it reuses its stack slots: a missing value leaves the last one read -
     // uninitialised at first, zero here)
@@ -249,10 +249,10 @@ void Hub::use_network_preferences()
         // A modem: at most 3 players, no observers.
         net->set_adapter_kind(device == kDeviceUsbModem ? 2 : 4);
         net->set_net_link_kind(1);
-        if (get_player_limit() > 3) {
-            set_max_players_preference(3);
+        if (settings_.get_player_limit() > 3) {
+            settings_.set_max_players_preference(3);
         }
-        set_max_observers_preference(0);
+        settings_.set_max_observers_preference(0);
     } else if (device == kDeviceBroadbandPcPppoe) {
         net->set_adapter_kind(3);
         net->set_net_link_kind(3);
@@ -270,7 +270,7 @@ uint32_t Hub::get_team_graffiti_mode()
 {
     uint32_t mode = kGraffitiIndividualScoring;
     if (in_net_game() && is_squad_match()) {
-        get_online_settings()->fetch_setting(kTeamGraffitiMode)->read_hash_value(kChecksum, &mode, 1);
+        settings_.get_online_settings()->fetch_setting(kTeamGraffitiMode)->read_hash_value(kChecksum, &mode, 1);
     }
     return mode;
 }
@@ -280,7 +280,7 @@ prefs::Preferences* Hub::get_game_preferences()
 {
     auto* skate = detail::get_skate();
     if (in_net_game()) {
-        return get_online_settings();
+        return settings_.get_online_settings();
     }
     return skate->get_split_view_settings();
 }

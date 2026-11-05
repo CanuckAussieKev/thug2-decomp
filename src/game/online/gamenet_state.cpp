@@ -8,6 +8,7 @@
 
 #include "engine/memory/task_list.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_settings.h"
 #include "game/online/hub_tasks.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -69,9 +70,9 @@ constexpr uint32_t kNetCtf = 0x6C5FF266;            // netctf
 
 // The checksum the network preference `name` is set to. On a miss (asserted, so the debug message's empty
 // function is called) the original reads its uninitialised local: the slot ECX was pushed into - the manager.
-uint32_t preference_checksum(Hub* manager, uint32_t name)
+uint32_t preference_checksum(SessionSettings* settings, uint32_t name)
 {
-    script::Struct* preference = manager->get_online_settings()->fetch_setting(name);
+    script::Struct* preference = settings->get_online_settings()->fetch_setting(name);
     uint32_t value = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     preference->read_hash_value(kChecksum, &value, 1);
     return value;
@@ -119,7 +120,7 @@ int Hub::get_entry_mode() const { return join_mode_; }
 int Hub::get_hosting_role() const { return host_mode_; }
 
 // 0x00532AE0
-int Hub::get_rank_test()
+int SessionSettings::get_rank_test()
 {
     const uint32_t value = preference_checksum(this, kRankTest);
     if (value == kRankTestLess) {
@@ -129,16 +130,28 @@ int Hub::get_rank_test()
 }
 
 // 0x00532B30
-int Hub::get_rank_limit() { return number_of(preference_checksum(this, kRankLimit), {.first = 1, .last = kMaxRankLimit, .bias = -1, .otherwise = kMaxRankLimit}); }
+int SessionSettings::get_rank_limit()
+{
+    return number_of(preference_checksum(this, kRankLimit),
+                     {.first = 1, .last = kMaxRankLimit, .bias = -1, .otherwise = kMaxRankLimit});
+}
 
 // 0x00532BE0
-int Hub::get_difficulty_tier() { return number_of(preference_checksum(this, kSkillLevel), {.first = 1, .last = kMaxSkillTier, .bias = -1, .otherwise = 2}); }
+int SessionSettings::get_difficulty_tier()
+{
+    return number_of(preference_checksum(this, kSkillLevel),
+                     {.first = 1, .last = kMaxSkillTier, .bias = -1, .otherwise = 2});
+}
 
 // 0x00532C50
-int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPlayers), {.first = 2, .last = online::kPlayerSlotCount, .bias = 0, .otherwise = 2}); }
+int SessionSettings::get_player_limit()
+{
+    return number_of(preference_checksum(this, kNumPlayers),
+                     {.first = 2, .last = online::kPlayerSlotCount, .bias = 0, .otherwise = 2});
+}
 
 // 0x00532CF0
-int Hub::get_num_teams()
+int SessionSettings::get_num_teams()
 {
     const uint32_t value = preference_checksum(this, kTeamMode);
     if (value == kTeamsNone) {
@@ -154,7 +167,11 @@ int Hub::get_num_teams()
 }
 
 // 0x00532D60
-int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNumObservers), {.first = 0, .last = kMaxSpectatorLimit, .bias = 0, .otherwise = 2}); }
+int SessionSettings::get_spectator_limit()
+{
+    return number_of(preference_checksum(this, kNumObservers),
+                     {.first = 0, .last = kMaxSpectatorLimit, .bias = 0, .otherwise = 2});
+}
 
 // 0x00532E30
 void HubTasks::remove_host_task() { auto_serve_job_->drop_out(); }
@@ -197,8 +214,8 @@ void Hub::scan_local_network()
 }
 
 // 0x00532F70 / 0x00532F80
-prefs::Preferences* Hub::get_online_settings() { return &net_options_; }
-prefs::Preferences* Hub::get_taunt_settings() { return &taunt_options_; }
+prefs::Preferences* SessionSettings::get_online_settings() { return &net_options_; }
+prefs::Preferences* SessionSettings::get_taunt_settings() { return &taunt_options_; }
 
 // 0x00532F90
 void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_.data(), words, kHubStartPointsSize * sizeof(uint32_t)); }
@@ -217,7 +234,7 @@ bool Hub::is_untimed_game()
     if (!in_net_game()) {
         return false;
     }
-    prefs::Preferences* prefs = get_online_settings();
+    prefs::Preferences* prefs = settings_.get_online_settings();
     if (mode == kNetCtf &&
         prefs->get_preference_checksum({.preference = kCtfGameType, .field = kChecksum}) != kTimedCtf) {
         return true;
@@ -230,16 +247,20 @@ void Hub::set_game_id(uint8_t id) { game_id_ = id; }
 uint8_t Hub::get_game_id() const { return game_id_; }
 
 // 0x00533080 (on a miss: the manager's address, the uninitialised local's slot)
-uint32_t Hub::get_level_preference() { return preference_checksum(this, kLevel); }
+uint32_t SessionSettings::get_level_preference() { return preference_checksum(this, kLevel); }
 
 // 0x005330B0
-int Hub::get_fireball_level() { return number_of(preference_checksum(this, kFireballDifficulty), {.first = 1, .last = kMaxFireballLevel, .bias = 0, .otherwise = 3}); }
+int SessionSettings::get_fireball_level()
+{
+    return number_of(preference_checksum(this, kFireballDifficulty),
+                     {.first = 1, .last = kMaxFireballLevel, .bias = 0, .otherwise = 3});
+}
 
 // 0x00533130
 void Hub::toggle_player_names() { show_names_ = !show_names_; }
 
 // 0x00533140
-bool Hub::wants_name_tags()
+bool SessionSettings::wants_name_tags()
 {
     uint32_t value = 0;
     get_online_settings()->fetch_setting(kShowNames)->read_hash_value(kChecksum, &value, 0);

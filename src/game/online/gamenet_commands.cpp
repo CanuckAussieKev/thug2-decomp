@@ -248,7 +248,7 @@ bool cfunc_fcfs_request_start_game(Struct* /*params*/, Context /*context*/)
 {
     StartRequest request; // (gamenet_messages.h; +0x18 is never set: the original's stack - zero here)
     Hub* manager = net_game_state().online_hub();
-    prefs::Preferences* preferences = manager->get_online_settings();
+    prefs::Preferences* preferences = manager->settings().get_online_settings();
     request.skill_level = preferences->get_preference_checksum({.preference = kSkillLevel, .field = kChecksum});
     request.fireball_level = preferences->get_preference_checksum({.preference = kFireballDifficulty, .field = kChecksum});
     uint32_t game_type = 0;
@@ -342,7 +342,8 @@ bool cfunc_reset_pro_set_flags(Struct* /*params*/, Context /*context*/)
 // 0x00536460: HasSignedDisclaimer - signed_disclaimer is boolean_true.
 bool cfunc_has_signed_disclaimer(Struct* /*params*/, Context /*context*/)
 {
-    return net_game_state().online_hub()->get_online_settings()->get_preference_checksum({.preference = kSignedDisclaimer, .field = kChecksum}) == kBooleanTrue;
+    return net_game_state().online_hub()->settings().get_online_settings()->get_preference_checksum(
+               {.preference = kSignedDisclaimer, .field = kChecksum}) == kBooleanTrue;
 }
 
 // 0x00537100: FoundServers - the server list (+0x158) has an entry.

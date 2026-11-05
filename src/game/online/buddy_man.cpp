@@ -597,7 +597,7 @@ void FriendsManager::on_buddy_status(void* /*unused*/, const void* argument, Fri
             get_run("added_buddy", params.get());
             params.reset();
             buddy->set_pending(false);
-            prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
+            prefs::Preferences* prefs = net_game_state().online_hub()->settings().get_online_settings();
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
             gsl::owner<script::Array*> memory = script::alloc_script_array();
             script::Array* buddies = memory ? memory::construct_in<script::Array>(memory) : nullptr;
@@ -628,7 +628,7 @@ void FriendsManager::on_buddy_status(void* /*unused*/, const void* argument, Fri
     }
 
     // Not on the list: someone who made us their buddy.
-    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->settings().get_online_settings();
     Buddy* buddy = alloc_friend_entry();
     buddy->set_account(status.profile);
     buddy->set_cur_standing(status.status);
@@ -751,7 +751,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
 {
     auto* man = static_cast<FriendsManager*>(parameter);
     push_bottom_up();
-    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->settings().get_online_settings();
     const char* email = prefs->get_preference_string({.preference = get_checksums("profile_email"), .field = get_checksums("ui_string")});
     const char* password = prefs->get_preference_string({.preference = get_checksums("profile_password"), .field = get_checksums("ui_string")});
     creating_profile() = true;
@@ -767,7 +767,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
 bool set_unique_id(script::Struct* /*params*/, script::Context /*context*/)
 {
     const uint32_t now = frame_clock::get_time();
-    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->settings().get_online_settings();
     script::StructPtr params = script::make_struct();
     constexpr size_t kTextSize = 32;
     std::array<char, kTextSize> text{};
@@ -918,7 +918,7 @@ bool is_already_my_buddy(script::Struct* params, script::Context /*context*/)
 // 0x0054A250: log in if the profile_success preference is boolean_true (else false).
 bool profile_log_in(script::Struct* /*params*/, script::Context /*context*/)
 {
-    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->settings().get_online_settings();
     if (prefs->get_preference_checksum({.preference = get_checksums("profile_success"),
                                         .field = get_checksums("checksum")}) != get_checksums("boolean_true")) {
         return false;

@@ -75,8 +75,7 @@ Hub::Hub()
     setup_list_sentinel(&waiting_servers_);
     tasks::PileUp* tasks = (&assets::get_main_loop_manager()->logic_tasks());
     net::Hub::sole()->set_msg_options(MessageId::kObjectUpdates, 1); // (the object update message's)
-    net_options_.read_in(kNetSettingsKey);
-    taunt_options_.read_in(kTauntSettingsKey);
+    settings_.read_in(kNetSettingsKey, kTauntSettingsKey);
     tasks_.make_all(this);
     tasks->queue_job(tasks_.connection_job().get());
     void* memory = carve(sizeof(RoomManager));
@@ -121,6 +120,13 @@ void HubTasks::make_all(Hub* hub)
     start_game_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::start_game_task), hub, 0);
     level_change_job_ = std::make_unique<tasks::Task<Hub>>(&level_change_task, hub, 0);
     flag_carry_job_ = std::make_unique<tasks::Task<Hub>>(&carried_flags_task, hub, 0);
+}
+
+// NOT ORIGINAL (the hub's constructor reads them in its body, 0x0053EE90)
+void SessionSettings::read_in(uint32_t network_key, uint32_t taunt_key)
+{
+    net_options_.read_in(network_key);
+    taunt_options_.read_in(taunt_key);
 }
 
 // 0x0053F520
@@ -177,8 +183,7 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, tasks_), .original = 0xC0, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, spectator_pad_listener_), .original = 0xFC, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, spectate_request_), .original = 0x100, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, net_options_), .original = 0x104, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, taunt_options_), .original = 0x110, .smaller_by = 4},
+        FieldAt{.now = offsetof(Hub, settings_), .original = 0x104, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, players_), .original = 0x11C, .smaller_by = 8},
         FieldAt{.now = offsetof(Hub, joiners_), .original = 0x130, .smaller_by = 12},
         FieldAt{.now = offsetof(Hub, queued_scripts_), .original = 0x144, .smaller_by = 16},
@@ -257,6 +262,26 @@ void HubTasks::check_layout()
     };
     static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
                   "layout must match the original");
+}
+
+// NOT ORIGINAL
+void SessionSettings::check_layout()
+{
+    constexpr std::size_t kAt = 0x104; // (each field at its offset in the hub, less the settings' own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+        std::size_t smaller_by; // (the network set is 8 bytes here, 0xC in the original)
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(SessionSettings, net_options_), .original = 0x104, .smaller_by = 0},
+        FieldAt{.now = offsetof(SessionSettings, taunt_options_), .original = 0x110, .smaller_by = 4},
+        FieldAt{.now = sizeof(SessionSettings), .original = 0x11C, .smaller_by = 8},
+    };
+    static_assert(
+        std::ranges::all_of(kLayout,
+                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; }),
+        "layout must match the original's, but for the smaller members");
 }
 
 } // namespace online

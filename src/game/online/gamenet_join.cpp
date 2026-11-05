@@ -173,7 +173,7 @@ int32_t get_rating(Hub* hub)
 const char* preference_text(Hub* hub, uint32_t name)
 {
     const char* text = nullptr;
-    hub->net_options().fetch_setting(name)->fetch_text(kUiString, &text, 1);
+    hub->settings().net_options().fetch_setting(name)->fetch_text(kUiString, &text, 1);
     return text;
 }
 
@@ -339,11 +339,11 @@ bool Hub::joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, Conn* conn
         return false;
     }
     if (msg->observer) {
-        if (count_observers() >= get_spectator_limit()) {
+        if (count_observers() >= settings_.get_spectator_limit()) {
             reason = JoinRefusedReason::kFullObservers;
             return false;
         }
-    } else if (count_players() >= get_player_limit()) {
+    } else if (count_players() >= settings_.get_player_limit()) {
         reason = JoinRefusedReason::kFull;
         return false;
     }
@@ -352,8 +352,8 @@ bool Hub::joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, Conn* conn
         return false;
     }
     if (conn->is_off_machine()) {
-        const int limit = get_rank_limit();
-        const int test = get_rank_test();
+        const int limit = settings_.get_rank_limit();
+        const int test = settings_.get_rank_test();
         if (test == kRankTestGreater) {
             if (msg->rank <= limit) {
                 reason = JoinRefusedReason::kRankLow;
@@ -369,7 +369,7 @@ bool Hub::joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, Conn* conn
         return false;
     }
     if (check_password) {
-        const char* password = fetch_secret();
+        const char* password = settings_.fetch_secret();
         if ((*password != '\0') && std::strcmp(password, msg->password.data()) != 0) {
             reason = JoinRefusedReason::kPassword;
             return false;
@@ -560,7 +560,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         NetMessageInfo desc = new_desc();
         ProceedInfo proceed{};
         std::memset(&proceed, 0, sizeof(proceed));
-        proceed.max_players_ = static_cast<int8_t>(manager->get_player_limit());
+        proceed.max_players_ = static_cast<int8_t>(manager->settings().get_player_limit());
         std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
         util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
@@ -623,7 +623,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     }
     ProceedInfo proceed{};
     std::memset(&proceed, 0, sizeof(proceed)); // (the original leaves the addresses as its stack had them on a LAN)
-    proceed.max_players_ = static_cast<int8_t>(manager->get_player_limit());
+    proceed.max_players_ = static_cast<int8_t>(manager->settings().get_player_limit());
     proceed.broadband = net->get_net_link_kind() != kConnectionTypeModem;
     if (manager->in_internet_mode()) {
         proceed.port = manager->join_port_;
@@ -655,7 +655,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         Hub* manager = instance->manager;
         ProceedInfo proceed{};
         std::memset(&proceed, 0, sizeof(proceed));
-        proceed.max_players_ = static_cast<int8_t>(manager->get_player_limit());
+        proceed.max_players_ = static_cast<int8_t>(manager->settings().get_player_limit());
         proceed.broadband = true;
         if (manager->in_internet_mode()) {
             proceed.port = manager->join_port_;
@@ -873,7 +873,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         std::memset(&info, 0, sizeof(info));
         text::copy_into(info.cd_key_response_, response.data());
         const char* name = nullptr; // (not used)
-        manager->net_options_.fetch_setting(kNetworkId)->fetch_text(kUiStringText.data(), &name, 1);
+        manager->settings_.net_options().fetch_setting(kNetworkId)->fetch_text(kUiStringText.data(), &name, 1);
         info.rank = static_cast<int8_t>(manager->rating_service_->get_rank());
         info.observer = manager->join_mode_ == kJoinModeObserve;
         info.version = kVersion;

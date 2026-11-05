@@ -123,7 +123,7 @@ constexpr int kGameIdRange = 0xFF;
 // JoinerRecord flags (+0x20).
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
-prefs::Preferences* net_game_options(Hub* hub) { return &hub->net_options(); }
+prefs::Preferences* net_game_options(Hub* hub) { return &hub->settings().net_options(); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 prefs::Preferences* game_preferences(Hub* hub)
 {
@@ -145,7 +145,7 @@ void Hub::reset_to_lobby()
     int teams = 0;
     if (get_on_server()) {
         level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
-        teams = get_num_teams();
+        teams = settings_.get_num_teams();
     } else {
         teams = get_game_mode()->current_num_teams();
     }
@@ -198,7 +198,7 @@ void Hub::start_network_game()
     // (the message: gamenet_messages.h; the original left its unused word at +0x10 as the stack held it)
     StartGame info;
     info.game_type = game_type_;
-    info.fireball_level = static_cast<uint32_t>(get_fireball_level());
+    info.fireball_level = static_cast<uint32_t>(settings_.get_fireball_level());
     bool untimed = false;
     for (const uint32_t type : kUntimedTypes) {
         untimed = untimed || info.game_type == type;
@@ -213,7 +213,7 @@ void Hub::start_network_game()
     info.reset_scores = prefs->get_preference_checksum({.preference = kScoreReset, .field = kChecksum}) == kBooleanTrue ? 1 : 0;
     info.stop_at_zero = is_untimed_game() ? 1 : 0;
     info.target_score = prefs->get_setting_value({.preference = kTargetScore, .field = kScore});
-    info.teams = static_cast<uint32_t>(get_num_teams());
+    info.teams = static_cast<uint32_t>(settings_.get_num_teams());
     uint32_t value = 0;
     game_preferences(this)->fetch_setting(kGoals)->read_hash_value("checksum", &value, 1);
     info.goals = value;

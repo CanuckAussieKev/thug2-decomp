@@ -153,8 +153,8 @@ void ShotImpactModule::tick_frame()
             continue;
         }
         if (team_game && owner->team() == victim->team() &&
-            net->get_online_settings()->get_preference_checksum({.preference = kFriendlyFire, .field = kChecksum}) !=
-                kBooleanTrue) {
+            net->settings().get_online_settings()->get_preference_checksum(
+                {.preference = kFriendlyFire, .field = kChecksum}) != kBooleanTrue) {
             continue;
         }
         const GameEntity* object = entity();

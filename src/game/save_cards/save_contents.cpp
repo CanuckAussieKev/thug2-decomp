@@ -158,7 +158,7 @@ void write_global_info(Struct* global)
         controllers->set_cell(static_cast<uint32_t>(i), script::Cell::of(controller));
     }
     options->append_array_ref(kPadSettingsKey, controllers);
-    options->put_sub_struct(kTaunts, preferences_structure(online::online_hub()->get_taunt_settings()));
+    options->put_sub_struct(kTaunts, preferences_structure(online::online_hub()->settings().get_taunt_settings()));
     global->append_struct_ref(kOptions, options);
 
     get_career()->write_to_structure(global);
@@ -178,7 +178,7 @@ void read_save_header(Struct* global, Script* script)
     split_screen_preferences()->set_preferences(split_screen);
     Struct* taunts = nullptr;
     options->read_sub_struct(kTaunts, &taunts, 0);
-    online::online_hub()->get_taunt_settings()->set_preferences(taunts);
+    online::online_hub()->settings().get_taunt_settings()->set_preferences(taunts);
 
     Struct* sound = nullptr;
     options->read_sub_struct(kSoundOptions, &sound, 0);
@@ -281,7 +281,8 @@ void write_save_contents(Struct* contents, uint32_t type)
         park_editing::ParkBuilderMode::export_to_struct(contents);
         return;
     case kSaveNetworkSettings:
-        contents->append_structure_if_any(preferences_structure(online::online_hub()->get_online_settings()));
+        contents->append_structure_if_any(
+            preferences_structure(online::online_hub()->settings().get_online_settings()));
         return;
     case kSaveOptionsAndPros: {
         gsl::owner<Struct*> global = script::new_struct();
@@ -352,7 +353,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
         return;
     }
     case kSaveNetworkSettings:
-        online::online_hub()->get_online_settings()->set_preferences(contents);
+        online::online_hub()->settings().get_online_settings()->set_preferences(contents);
         return;
     case kSaveOptionsAndPros: {
         uint32_t& sections = sections_to_apply_when_loading();

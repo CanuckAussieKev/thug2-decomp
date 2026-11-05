@@ -10,6 +10,7 @@
 #include "engine/memory/mem.h"
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
+#include "game/online/hub_settings.h"
 #include "game/online/hub_tasks.h"
 #include "wire/gamenet_messages.h"
 #include "engine/script/preferences.h"
@@ -144,24 +145,6 @@ public:
     [[nodiscard]] int get_entry_mode() const;
     // 0x00532AD0: host_mode_ (1: the task at +0xF4 is removed when the player list is sent - 0x0056B890).
     [[nodiscard]] int get_hosting_role() const;
-    // 0x00532AE0: the network preference rank_test: 1 rank_test_less, 2 rank_test_greater, else 0.
-    int get_rank_test();
-    // 0x00532B30: rank_limit: num_1 ... num_9 -> 0 ... 8, else 9.
-    int get_rank_limit();
-    // 0x00532BE0: skill_level: num_1 ... num_4 -> 0 ... 3, num_5 -> 4, else 2.
-    int get_difficulty_tier();
-    // 0x00532C50: num_players: num_2 ... num_8 -> 2 ... 8, else 2.
-    int get_player_limit();
-    // 0x00532CF0: team_mode: teams_none 0, teams_two 2, teams_three 3, teams_four (or anything else) 4.
-    int get_num_teams();
-    // 0x00532D60: num_observers: num_0 ... num_8 -> 0 ... 8, else 2.
-    int get_spectator_limit();
-    // 0x00533080: the level preference's checksum (level).
-    uint32_t get_level_preference();
-    // 0x005330B0: fireball_difficulty: num_1 ... num_4 -> 1 ... 4, num_5 -> 5, else 3.
-    int get_fireball_level();
-    // 0x00533140: show_names is boolean_true (a missing preference: false, not asserted).
-    bool wants_name_tags();
     // 0x00533130: the player-names flag (+0x47) toggled (TogglePlayerNames).
     void toggle_player_names();
     // 0x00532FE0: the game mode (+0x30) has no time limit: goal attack, king of the hill, score challenge (and
@@ -185,9 +168,6 @@ public:
     // 0x00532ED0: ask for servers on the LAN: message 0x11 (the time now, 12 bytes) through the lobby client to the
     // address asked for (0x007CCA84, once), else broadcast on port 5153 and to the address from the command line.
     void scan_local_network();
-    // 0x00532F70 / 0x00532F80: the network preferences (+0x104) / the taunt preferences (+0x110).
-    prefs::Preferences* get_online_settings();
-    prefs::Preferences* get_taunt_settings();
     // 0x00532F90 / 0x00532FD0: the eight words at +0x48 (the start info's, message 0x34) / one of them.
     void set_start_info_words(const uint32_t* words);
     uint32_t get_start_info_word(int index);
@@ -251,13 +231,6 @@ public:
     [[nodiscard]] int is_client_side() const;
     // 0x00533FB0: Kill_Team_Flags, then (with teams) create_team_flags {num_teams = n}.
     static void build_team_flag_set(int num_teams);
-    // 0x00534090 / 0x005341B0: the network preference num_players / num_observers set to `count` - its ui_string
-    // ("<n> <netmenu_str_players>"; for observers "no observers", "1 observer", "<n> observers") and checksum
-    // (num_<n>). The parameters are never freed (a leak the original has).
-    void set_max_players_preference(int count);
-    void set_max_observers_preference(int count);
-    // 0x00534310: the network preference password's ui_string.
-    const char* fetch_secret();
     // 0x00534340: whether skaters collide with each other: never in a finished game, free skate or horse (unless in
     // the lobby); always in split screen, with player_collision on, and in (net)slap.
     bool players_can_collide();
@@ -684,11 +657,12 @@ public:
     // The hub's fifteen tasks.
     HubTasks& tasks() { return tasks_; }
     [[nodiscard]] const HubTasks& tasks() const { return tasks_; }
+    // The network and taunt preferences.
+    SessionSettings& settings() { return settings_; }
+    [[nodiscard]] const SessionSettings& settings() const { return settings_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
-    prefs::Preferences& net_options() { return net_options_; }
-    [[nodiscard]] const prefs::Preferences& net_options() const { return net_options_; }
     memory::ListNode& players() { return players_; }
     [[nodiscard]] const memory::ListNode& players() const { return players_; }
     [[nodiscard]] const memory::ListNode& joiners() const { return joiners_; }
@@ -767,11 +741,9 @@ private:
     HubTasks tasks_;                                                             // +0xC0-+0xF8 the hub's fifteen tasks
     gsl::owner<pad_input::InputHandler*> spectator_pad_listener_{}; // +0xFC (deleted where observing ends)
     int spectate_request_{};                                           // +0x100
-    // The network / taunt preferences (prefs::Preferences, made in place by make_new; 8 bytes each here, 0xC in the
-    // original, whose sets had a table - so the fields after are 4 / 8 bytes before the original's offsets, and the
-    // list heads after them 0x10 bytes each, not 0x14: check_layout): get_online_settings / get_taunt_settings.
-    prefs::Preferences net_options_;   // +0x104
-    prefs::Preferences taunt_options_; // +0x110
+    SessionSettings settings_;                // +0x104-+0x11B (+0x104-+0x113 here) the network and taunt preferences
+    // (the list heads are 0x10 bytes here, 0x14 in the original: each field from here on 4 more bytes before the
+    // original's offset - check_layout)
     memory::ListNode players_{};              // +0x11C lists::Foremost<PlayerRecord>
     memory::ListNode joiners_{};              // +0x130 lists::Foremost<JoinerRecord>: the joining players
     memory::ListNode queued_scripts_{};       // +0x144 the scripts to run once the level is up

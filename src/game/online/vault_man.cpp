@@ -603,7 +603,7 @@ unsigned long __stdcall VaultMan::download_thread(void* url)
 unsigned long __stdcall VaultMan::upload_thread(void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().online_hub()->settings().get_online_settings();
     const char* network_id = nullptr;
     prefs->fetch_setting(get_checksums("network_id"))->fetch_text("ui_string", &network_id, 1);
     get_stall(vault->semaphore_);
