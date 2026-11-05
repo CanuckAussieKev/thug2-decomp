@@ -24,6 +24,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/legacy_command.h"
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx_parked.h"
 #include "platform/platform_config.h"
@@ -418,8 +419,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "ThawBmx_Available", .function = &cfunc_available},
-        {.name = "ThawBmx_LoadTexture", .function = &cfunc_load_texture},
+        {.name = "ThawBmx_Available", .function = &script::legacy_command<&cfunc_available>},
+        {.name = "ThawBmx_LoadTexture", .function = &script::legacy_command<&cfunc_load_texture>},
     });
     script::install_script_functions(kFunctions);
     if (!is_switched_on()) {

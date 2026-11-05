@@ -5,6 +5,7 @@
 // file reaches into a higher layer for a `class Script;`.
 namespace script {
 class Array;
+class Context;
 class Script;
 class Struct;
 } // namespace script

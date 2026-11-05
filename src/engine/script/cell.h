@@ -12,10 +12,11 @@ class Struct;
 struct Pair;
 struct Vector;
 struct MemberFunctionEntry;
-class Script;
+class Context;
 
-// A native script function (a QbValueKind::kNativeFunc symbol's value): run with its parameters and the running script.
-using NativeFunction = bool (*)(Struct* params, Script* script);
+// A native script function, a command (a QbValueKind::kNativeFunc symbol's value): run with its parameters and the
+// running script (context.h).
+using NativeFunction = bool (*)(Struct* params, Context context);
 
 // NOT ORIGINAL - one script value's 32 bits: a component's, a global symbol's or an array element's value. The kind
 // isn't kept in the cell but by its holder (the component's / symbol's type, the array's element type): an

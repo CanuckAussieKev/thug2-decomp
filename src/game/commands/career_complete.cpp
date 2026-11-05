@@ -11,6 +11,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/legacy_command.h"
 #include "base/core/down_cast.h"
 #include "game/rider/stats_manager.h"
 #include "game/goals/goal_manager.h"
@@ -217,8 +218,8 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "Career100_Available", .function = &cfunc_available},
-        {.name = "Career100_Apply", .function = &cfunc_apply},
+        {.name = "Career100_Available", .function = &script::legacy_command<&cfunc_available>},
+        {.name = "Career100_Apply", .function = &script::legacy_command<&cfunc_apply>},
     });
     script::install_script_functions(kFunctions);
 }

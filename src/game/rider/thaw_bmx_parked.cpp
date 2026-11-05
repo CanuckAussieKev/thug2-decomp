@@ -19,6 +19,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/legacy_command.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
@@ -309,9 +310,9 @@ void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Poin
 void register_parked_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "ThawBmx_HomeSpot", .function = &cfunc_home_spot},
-        {.name = "ThawBmx_WalkToBike", .function = &cfunc_walk_to_bike},
-        {.name = "ThawBmx_BikeReachable", .function = &cfunc_bike_reachable},
+        {.name = "ThawBmx_HomeSpot", .function = &script::legacy_command<&cfunc_home_spot>},
+        {.name = "ThawBmx_WalkToBike", .function = &script::legacy_command<&cfunc_walk_to_bike>},
+        {.name = "ThawBmx_BikeReachable", .function = &script::legacy_command<&cfunc_bike_reachable>},
     });
     script::install_script_functions(kFunctions);
 }

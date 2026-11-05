@@ -18,6 +18,7 @@
 #include "engine/script/cscript.h"
 #include "engine/sys/mlp.h"
 #include "engine/script/script_tables.h"
+#include "engine/script/legacy_command.h"
 #include "platform/run_log.h"
 #include "engine/objects/movie_manager.h"
 
@@ -102,8 +103,8 @@ void install()
     if (!is_switched_on()) {
         return;
     }
-    get_point("CD", &cfunc_cd);
-    get_point("NotCD", &cfunc_not_cd);
+    get_point("CD", &script::legacy_command<&cfunc_cd>);
+    get_point("NotCD", &script::legacy_command<&cfunc_not_cd>);
     get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
             "menu - and the viewer: F9 free camera)");
 }

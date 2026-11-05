@@ -29,6 +29,7 @@
 #include "engine/net/net_client.h"
 #include "engine/objects/entity.h"
 #include "script_qb/qb_script.h"
+#include "engine/script/context.h"
 #include "engine/script/cscript.h"
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
@@ -175,7 +176,7 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
         manager->enter_heap_scope(manager->script_heap());
         Script* script = QbScript::create();
         memory::Hub::get_pull()->leave_heap_scope();
-        symbol->value().function()(params, script);
+        symbol->value().function()(params, Context(script));
         QbScript::destroy(as_qb(script));
         return nullptr;
     }
@@ -246,7 +247,7 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
         }
         return;
     case QbValueKind::kNativeFunc:
-        symbol->value().function()(params, nullptr);
+        symbol->value().function()(params, Context());
         return;
     default: {
         memory::Hub* manager = memory::Hub::get_pull();

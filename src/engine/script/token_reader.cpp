@@ -15,6 +15,7 @@
 #include "engine/script/expression.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
+#include "engine/script/context.h"
 #include "engine/script/cscript.h"
 #include "engine/script/host.h"
 #include "engine/gfx/boned_anim_frame_data.h"
@@ -941,9 +942,8 @@ Tokens push_name(Tokens cursor, Struct* args, Component& value, bool after_dot)
             gsl::owner<Struct*> params = script::new_struct();
             cursor = parse_arguments(params, cursor, args);
             // (the byte the function returns, as it is)
-            using Routine = uint8_t (*)(Struct*, Script*);
             const auto routine = symbol->value().function();
-            value.value.set_word(static_cast<uint32_t>(routine(params, script)));
+            value.value.set_word(static_cast<uint32_t>(routine(params, Context(script))));
             if (params) {
                 params->get_clear();
                 delete_struct(params);

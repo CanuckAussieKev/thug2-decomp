@@ -48,6 +48,7 @@
 #include "engine/script/cache.h"
 #include "engine/script/cell.h"
 #include "script_qb/qb_script.h"
+#include "engine/script/context.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/params.h"
@@ -233,7 +234,7 @@ bool QbScript::execute_command(Tokens& pc)
         const NativeFunction function = native_function_at(pc);
         pc += 4;
         parse_function_params(pc);
-        return function(stmt_args_.get(), this);
+        return function(stmt_args_.get(), Context(this));
     }
     default:
         break;
@@ -341,7 +342,7 @@ bool QbScript::execute_command(Tokens& pc)
         return true;
     }
     case QbValueKind::kNativeFunc:
-        return symbol->value().function()(stmt_args_.get(), this);
+        return symbol->value().function()(stmt_args_.get(), Context(this));
     case QbValueKind::kNativeMethod: {
         const auto* entry = symbol->value().method();
         objects::Entity* object = entity_.get_pull();
