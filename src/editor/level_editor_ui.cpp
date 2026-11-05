@@ -79,13 +79,25 @@ constexpr ImVec4 kWallStateColour{1.0F, 0.55F, 0.3F, 1.0F};
 } // namespace
 namespace internal {
 
-LevelEditorUiState& level_editor_ui_state()
+ImguiSetup& imgui_setup()
 {
-    static core::NoDestroy<LevelEditorUiState> state;
-    return state.get();
+    static core::NoDestroy<ImguiSetup> setup;
+    return setup.get();
 }
 
-void get_ask(Request::Kind kind, int value, uint32_t id) { level_editor_ui_state().requests_.push_back({.kind = kind, .value = value, .id = id}); }
+InputRouting& input_routing()
+{
+    static core::NoDestroy<InputRouting> routing;
+    return routing.get();
+}
+
+PanelState& panel_state()
+{
+    static core::NoDestroy<PanelState> panels;
+    return panels.get();
+}
+
+void get_ask(Request::Kind kind, int value, uint32_t id) { input_routing().requests_.push_back({.kind = kind, .value = value, .id = id}); }
 
 // The accent colour ([editor] accent - level_editor_prefs.h) at `alpha`.
 ImVec4 get_accent(float alpha)
@@ -117,18 +129,18 @@ void update_scale()
         pct > 0) { // ([editor] ui_scale_pct: the automatic one overridden)
         scale = static_cast<float>(pct) / 100.0F;
     }
-    if (scale == level_editor_ui_state().scale_ &&
-        level_editor_ui_state().style_generation_ == prefs::style_generation()) {
+    if (scale == imgui_setup().scale_ &&
+        imgui_setup().style_generation_ == prefs::style_generation()) {
         return;
     }
-    level_editor_ui_state().scale_ = scale;
-    level_editor_ui_state().style_generation_ = prefs::style_generation();
+    imgui_setup().scale_ = scale;
+    imgui_setup().style_generation_ = prefs::style_generation();
     const ui_layout::FontSizes sizes = ui_layout::font_sizes_for(scale);
     const ui_theme::Fonts fonts = ui_theme::build_fonts(scale);
-    level_editor_ui_state().ui_ = fonts.ui;
-    level_editor_ui_state().small_ = fonts.small;
-    level_editor_ui_state().mono_ = fonts.mono;
-    level_editor_ui_state().heading_ = fonts.heading;
+    imgui_setup().ui_ = fonts.ui;
+    imgui_setup().small_ = fonts.small;
+    imgui_setup().mono_ = fonts.mono;
+    imgui_setup().heading_ = fonts.heading;
     ui_backend::invalidate_device_objects(); // (the font texture is made again)
     std::array<float, 3> rgb{};
     prefs::get_accent_rgb(prefs::get_pull().accent, rgb);
@@ -148,19 +160,19 @@ namespace {
 // A key in a key cap, then what it does.
 void key_hint(const char* key, const char* what)
 {
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     const ImVec2 size = ImGui::CalcTextSize(key);
     const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const float pad_x = 4.0F * level_editor_ui_state().scale_;
-    const float pad_y = 1.0F * level_editor_ui_state().scale_;
+    const float pad_x = 4.0F * imgui_setup().scale_;
+    const float pad_y = 1.0F * imgui_setup().scale_;
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2(pos.x, pos.y - pad_y), ImVec2(pos.x + size.x + (ui_layout::kBothSides * pad_x), pos.y + size.y + pad_y),
-        IM_COL32(60, 63, 68, 255), kKeyCapRounding * level_editor_ui_state().scale_);
+        IM_COL32(60, 63, 68, 255), kKeyCapRounding * imgui_setup().scale_);
     ImGui::SetCursorScreenPos(ImVec2(pos.x + pad_x, pos.y));
     ImGui::TextUnformatted(key);
     ImGui::PopFont();
-    ImGui::SameLine(0.0F, pad_x + (kKeyHintGap * level_editor_ui_state().scale_));
-    ImGui::PushFont(level_editor_ui_state().small_);
+    ImGui::SameLine(0.0F, pad_x + (kKeyHintGap * imgui_setup().scale_));
+    ImGui::PushFont(imgui_setup().small_);
     ImGui::TextUnformatted(what);
     ImGui::PopFont();
 }
@@ -172,10 +184,10 @@ namespace internal {
 ux8::Fonts ux8_fonts()
 {
     ux8::Fonts fonts;
-    fonts.ui = level_editor_ui_state().ui_;
-    fonts.small = level_editor_ui_state().small_;
-    fonts.mono = level_editor_ui_state().mono_;
-    fonts.scale = level_editor_ui_state().scale_;
+    fonts.ui = imgui_setup().ui_;
+    fonts.small = imgui_setup().small_;
+    fonts.mono = imgui_setup().mono_;
+    fonts.scale = imgui_setup().scale_;
     return fonts;
 }
 
@@ -200,7 +212,7 @@ void place_window(const ui_layout::Rect2& rect)
 
 void panel_title(const char* title)
 {
-    ImGui::PushFont(level_editor_ui_state().heading_);
+    ImGui::PushFont(imgui_setup().heading_);
     ImGui::TextUnformatted(title);
     ImGui::PopFont();
     ImGui::Separator();
@@ -218,15 +230,15 @@ void collision_legend(const ShapeMesh& model)
         !overlays::get_shown(overlays::kLegend)) { // (the Overlays menu: level_editor_overlays.h)
         return;
     }
-    const ui_layout::Rect2& view = level_editor_ui_state().layout_.viewport;
-    ImGui::SetNextWindowPos(ImVec2(view.x + (kPanelInset * level_editor_ui_state().scale_),
-                                   view.y + view.height - (kPanelInset * level_editor_ui_state().scale_)),
+    const ui_layout::Rect2& view = input_routing().layout_.viewport;
+    ImGui::SetNextWindowPos(ImVec2(view.x + (kPanelInset * imgui_setup().scale_),
+                                   view.y + view.height - (kPanelInset * imgui_setup().scale_)),
                             ImGuiCond_Always, ImVec2(0.0F, 1.0F));
     ImGui::SetNextWindowBgAlpha(kLegendBackgroundAlpha);
     ImGui::Begin("##collisionLegend", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
                      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove);
-    ImGui::PushFont(level_editor_ui_state().small_);
+    ImGui::PushFont(imgui_setup().small_);
     ImGui::TextUnformatted("Collision");
     ImGui::SameLine();
     if (ImGui::SmallButton("Hide##collisionLegend")) {
@@ -292,13 +304,13 @@ void wall_section(const ShapeMesh& model)
 {
     ImGui::Spacing();
     ImGui::Separator();
-    ImGui::PushFont(level_editor_ui_state().heading_);
+    ImGui::PushFont(imgui_setup().heading_);
     gui::text_colored(kWallNameColour, "%s", model.view.wall_name_.c_str());
     ImGui::PopFont();
     get_muted("Invisible wall");
     ImGui::SameLine();
     get_mono("0x%08X", model.view.wall);
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     gui::text_wrapped("%s", model.view.wall_info_.c_str());
     ImGui::PopFont();
     // (level_editor_walls.h: the game's own switch, WorldCell::change_live; moved and turned as scenery)
@@ -388,7 +400,7 @@ void view_section(const ShapeMesh& model)
             gui::text_disabled("%d hidden", model.view.hidden);
         }
     }
-    faces::inspector_section(level_editor_ui_state().mono_, level_editor_ui_state().small_); // (map3: the collision faces selected - level_editor_faces.h)
+    faces::inspector_section(imgui_setup().mono_, imgui_setup().small_); // (map3: the collision faces selected - level_editor_faces.h)
 }
 
 } // namespace internal
@@ -399,22 +411,22 @@ namespace {
 // The menu bar over the tool strip (level_editor_ui_strip.h).
 void get_toolbar(const ShapeMesh& model)
 {
-    place_window(level_editor_ui_state().layout_.menu);
+    place_window(input_routing().layout_.menu);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0F, 0.0F));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
     ImGui::Begin("##menubar", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar);
     ImGui::PopStyleVar(2);
     if (ImGui::BeginMenuBar()) {
-        menu_bar(model, ux8_fonts(), &level_editor_ui_state().requests_);
+        menu_bar(model, ux8_fonts(), &input_routing().requests_);
         ImGui::EndMenuBar();
     }
     ImGui::End();
 
-    place_window(level_editor_ui_state().layout_.strip);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(kBarPaddingX * level_editor_ui_state().scale_, kBarPaddingY * level_editor_ui_state().scale_));
+    place_window(input_routing().layout_.strip);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(kBarPaddingX * imgui_setup().scale_, kBarPaddingY * imgui_setup().scale_));
     ImGui::Begin("##toolstrip", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToolbarFramePaddingX * level_editor_ui_state().scale_, kToolbarFramePaddingY * level_editor_ui_state().scale_));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToolbarFramePaddingX * imgui_setup().scale_, kToolbarFramePaddingY * imgui_setup().scale_));
     ui_strip::State state;
     state.selection = std::strcmp(model.mode, "FLYING") != 0 && std::strcmp(model.mode, "ADD") != 0;
     xform::Settings& transform = xform::at_hand();
@@ -436,12 +448,12 @@ void get_toolbar(const ShapeMesh& model)
         const int index = actions::get_find(id);
         return index >= 0 ? hints::leading_key_name(actions::get_keys_text(index)) : std::string();
     };
-    const ui_layout::Rect2& strip = level_editor_ui_state().layout_.strip;
-    const float pad_x = 8.0F * level_editor_ui_state().scale_;
+    const ui_layout::Rect2& strip = input_routing().layout_.strip;
+    const float pad_x = 8.0F * imgui_setup().scale_;
     const float pad_y = std::max(0.0F, (strip.height - ImGui::GetFrameHeight()) * 0.5F);
     ui_strip::Output out;
     ui_strip::blit(state, {.x = strip.x + pad_x, .y = strip.y + pad_y}, strip.width - (ui_layout::kBothSides * pad_x),
-                   level_editor_ui_state().scale_, &out);
+                   imgui_setup().scale_, &out);
     ImGui::PopStyleVar();
     if (out.budget_hovered_) {
         budget::tooltip();
@@ -499,72 +511,72 @@ bool& is_switched_on()
     return on;
 }
 
-bool underway() { return level_editor_ui_state().running_; }
+bool underway() { return imgui_setup().running_; }
 
 int preview_pixels()
 {
-    const float scale = level_editor_ui_state().scale_ > 0.0F ? level_editor_ui_state().scale_ : 1.0F;
+    const float scale = imgui_setup().scale_ > 0.0F ? imgui_setup().scale_ : 1.0F;
     return std::clamp(maths::round_non_negative<int>(kPreviewBasePixels * scale), kPreviewMinPixels, kPreviewMaxPixels);
 }
 
 bool kickoff()
 {
-    if (level_editor_ui_state().running_) {
+    if (imgui_setup().running_) {
         return true;
     }
     if (!is_switched_on()) {
         return false;
     }
-    if (!level_editor_ui_state().created_) {
+    if (!imgui_setup().created_) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.IniFilename = nullptr; // (nothing written to the game folder)
         io.LogFilename = nullptr;
         io.ConfigWindowsMoveFromTitleBarOnly = true;
-        level_editor_ui_state().created_ = true;
+        imgui_setup().created_ = true;
     }
     if (!ui_backend::prepare_all()) {
         get_log("level editor UI: not started - the old HUD instead");
         return false;
     }
-    level_editor_ui_state().running_ = true;
-    level_editor_ui_state().scale_ = 0.0F; // (the fonts made for the window's size on the first frame)
-    level_editor_ui_state().requests_.clear();
-    level_editor_ui_state().offer_closed_ = false;
-    level_editor_ui_state().ui_buttons_ = level_editor_ui_state().editor_buttons_ = 0;
-    level_editor_ui_state().want_mouse_ = level_editor_ui_state().want_keys_ = false;
-    level_editor_ui_state().browser_shown_index_ = -1;
-    level_editor_ui_state().browser_hovered_ = level_editor_ui_state().preview_asked_ = -1;
-    level_editor_ui_state().browser_keys_won_ = false;
+    imgui_setup().running_ = true;
+    imgui_setup().scale_ = 0.0F; // (the fonts made for the window's size on the first frame)
+    input_routing().requests_.clear();
+    panel_state().offer_closed_ = false;
+    input_routing().ui_buttons_ = input_routing().editor_buttons_ = 0;
+    input_routing().want_mouse_ = input_routing().want_keys_ = false;
+    panel_state().browser_shown_index_ = -1;
+    panel_state().browser_hovered_ = panel_state().preview_asked_ = -1;
+    panel_state().browser_keys_won_ = false;
     return true;
 }
 
 void halt()
 {
-    level_editor_ui_state().running_ = false;
-    level_editor_ui_state().ui_buttons_ = level_editor_ui_state().editor_buttons_ = 0;
-    level_editor_ui_state().want_mouse_ = level_editor_ui_state().want_keys_ = false;
+    imgui_setup().running_ = false;
+    input_routing().ui_buttons_ = input_routing().editor_buttons_ = 0;
+    input_routing().want_mouse_ = input_routing().want_keys_ = false;
 }
 
 void device_lost() { ui_backend::invalidate_device_objects(); }
 
 bool route_event(const input::Event& event, bool editor_capture)
 {
-    if (!level_editor_ui_state().running_) {
+    if (!imgui_setup().running_) {
         return true;
     }
     auto route = [&](float x, float y) {
-        level_editor_ui_state().mouse_x_ = x;
-        level_editor_ui_state().mouse_y_ = y;
+        input_routing().mouse_x_ = x;
+        input_routing().mouse_y_ = y;
         return ui_layout::decide(
-            {.ui_wants_mouse_ = level_editor_ui_state().want_mouse_, .ui_wants_keyboard_ = level_editor_ui_state().want_keys_, .over_panel_ = ui_layout::on_panel(level_editor_ui_state().layout_, x, y), .editor_capture_ = editor_capture || level_editor_ui_state().editor_buttons_ != 0});
+            {.ui_wants_mouse_ = input_routing().want_mouse_, .ui_wants_keyboard_ = input_routing().want_keys_, .over_panel_ = ui_layout::on_panel(input_routing().layout_, x, y), .editor_capture_ = editor_capture || input_routing().editor_buttons_ != 0});
     };
     switch (event.type) {
     case input::EventType::kMouseMotion: {
         const ui_layout::Route mouse_route =
             route(static_cast<float>(event.x), static_cast<float>(event.y));
-        if (mouse_route.mouse_to_ui_ || (level_editor_ui_state().ui_buttons_ != 0U)) {
+        if (mouse_route.mouse_to_ui_ || (input_routing().ui_buttons_ != 0U)) {
             ui_backend::process_event(event.native);
         }
         return true; // (the editor keeps the position and the look's movement; mouse_to_editor says if it may pick)
@@ -574,11 +586,11 @@ bool route_event(const input::Event& event, bool editor_capture)
         const ui_layout::Route mouse_route =
             route(static_cast<float>(event.x), static_cast<float>(event.y));
         if (!mouse_route.mouse_to_editor_) {
-            level_editor_ui_state().ui_buttons_ |= bit;
+            input_routing().ui_buttons_ |= bit;
             ui_backend::process_event(event.native);
             return false;
         }
-        level_editor_ui_state().editor_buttons_ |= bit;
+        input_routing().editor_buttons_ |= bit;
         if (mouse_route.mouse_to_ui_) {
             ui_backend::process_event(event.native); // (ImGui loses its focus and hover; the editor has the click)
         }
@@ -586,17 +598,17 @@ bool route_event(const input::Event& event, bool editor_capture)
     }
     case input::EventType::kMouseButtonUp: {
         const uint32_t bit = 1U << (event.button & 31);
-        if ((level_editor_ui_state().ui_buttons_ & bit) != 0U) {
-            level_editor_ui_state().ui_buttons_ &= ~bit;
+        if ((input_routing().ui_buttons_ & bit) != 0U) {
+            input_routing().ui_buttons_ &= ~bit;
             ui_backend::process_event(event.native);
             return false;
         }
-        level_editor_ui_state().editor_buttons_ &= ~bit;
+        input_routing().editor_buttons_ &= ~bit;
         ui_backend::process_event(event.native); // (ImGui's button state stays true)
         return true;
     }
     case input::EventType::kMouseWheel: {
-        const ui_layout::Route mouse_route = route(level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_);
+        const ui_layout::Route mouse_route = route(input_routing().mouse_x_, input_routing().mouse_y_);
         if (!mouse_route.mouse_to_editor_) {
             ui_backend::process_event(event.native);
             return false;
@@ -608,7 +620,7 @@ bool route_event(const input::Event& event, bool editor_capture)
     case input::EventType::kTextInput:
     case input::EventType::kTextEditing:
         ui_backend::process_event(event.native);
-        return !level_editor_ui_state().want_keys_;
+        return !input_routing().want_keys_;
     default:
         ui_backend::process_event(event.native);
         return true;
@@ -617,35 +629,35 @@ bool route_event(const input::Event& event, bool editor_capture)
 
 bool mouse_to_editor()
 {
-    if (!level_editor_ui_state().running_) {
+    if (!imgui_setup().running_) {
         return true;
     }
     return ui_layout::decide(
-               {.ui_wants_mouse_ = level_editor_ui_state().want_mouse_, .ui_wants_keyboard_ = level_editor_ui_state().want_keys_, .over_panel_ = ui_layout::on_panel(level_editor_ui_state().layout_, level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_), .editor_capture_ = level_editor_ui_state().editor_buttons_ != 0})
+               {.ui_wants_mouse_ = input_routing().want_mouse_, .ui_wants_keyboard_ = input_routing().want_keys_, .over_panel_ = ui_layout::on_panel(input_routing().layout_, input_routing().mouse_x_, input_routing().mouse_y_), .editor_capture_ = input_routing().editor_buttons_ != 0})
         .mouse_to_editor_;
 }
 
-bool keys_to_editor() { return !level_editor_ui_state().running_ || !level_editor_ui_state().want_keys_; }
+bool keys_to_editor() { return !imgui_setup().running_ || !input_routing().want_keys_; }
 
-void push_request(const Request& request) { level_editor_ui_state().requests_.push_back(request); }
+void push_request(const Request& request) { input_routing().requests_.push_back(request); }
 
 std::vector<Request> take_requests()
 {
     std::vector<Request> requests;
-    requests.swap(level_editor_ui_state().requests_);
+    requests.swap(input_routing().requests_);
     return requests;
 }
 
 void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
 {
-    if (!level_editor_ui_state().running_) {
+    if (!imgui_setup().running_) {
         return;
     }
     update_scale();
     ui_backend::new_frame();
     ImGui::NewFrame();
     const ImGuiIO& io = ImGui::GetIO();
-    level_editor_ui_state().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, level_editor_ui_state().scale_, true, true);
+    input_routing().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, imgui_setup().scale_, true, true);
     // The lines and gizmos under the panels (back buffer pixels to the window's).
     int back_width = 0;
     int back_height = 0;
@@ -660,7 +672,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     }
     for (const Seg& line : overlay.lines) {
         background->AddLine(ImVec2(line.ax * sx, line.ay * sy), ImVec2(line.bx * sx, line.by * sy),
-                            get_colour(line.argb), line.thickness * level_editor_ui_state().scale_);
+                            get_colour(line.argb), line.thickness * imgui_setup().scale_);
     }
     for (const Overlay::Triangle& triangle : overlay.triangles) {
         background->AddTriangleFilled(ImVec2(triangle.ax * sx, triangle.ay * sy),
@@ -673,29 +685,29 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
                                         get_colour(circle.argb));
         } else {
             background->AddCircle(ImVec2(circle.x * sx, circle.y * sy), circle.radius * sx, get_colour(circle.argb), 0,
-                                  circle.thickness * level_editor_ui_state().scale_);
+                                  circle.thickness * imgui_setup().scale_);
         }
     }
-    if (level_editor_ui_state().mono_) {
+    if (imgui_setup().mono_) {
         for (const Overlay::OverlayText& text : overlay.texts) {
             const ImVec2 at(text.x * sx, text.y * sy);
-            const ImVec2 size = level_editor_ui_state().mono_->CalcTextSizeA(level_editor_ui_state().mono_->FontSize,
+            const ImVec2 size = imgui_setup().mono_->CalcTextSizeA(imgui_setup().mono_->FontSize,
                                                                              1e9F, 0.0F, text.text.c_str());
             background->AddRectFilled(ImVec2(at.x - kTextBackPadding, at.y - 1.0F),
                                       ImVec2(at.x + size.x + kTextBackPadding, at.y + size.y + 1.0F),
                                       IM_COL32(16, 17, 19, 170), kTextBackRounding);
-            background->AddText(level_editor_ui_state().mono_, level_editor_ui_state().mono_->FontSize, at,
+            background->AddText(imgui_setup().mono_, imgui_setup().mono_->FontSize, at,
                                 get_colour(text.argb), text.text.c_str());
         }
     }
-    ImGui::PushFont(level_editor_ui_state().ui_);
+    ImGui::PushFont(imgui_setup().ui_);
     {
         ux3::Fonts fonts;
-        fonts.ui = level_editor_ui_state().ui_;
-        fonts.small = level_editor_ui_state().small_;
-        fonts.mono = level_editor_ui_state().mono_;
-        fonts.heading = level_editor_ui_state().heading_;
-        fonts.scale = level_editor_ui_state().scale_;
+        fonts.ui = imgui_setup().ui_;
+        fonts.small = imgui_setup().small_;
+        fonts.mono = imgui_setup().mono_;
+        fonts.heading = imgui_setup().heading_;
+        fonts.scale = imgui_setup().scale_;
         ux3::set_fonts(fonts);
         ux3::Settings settings;
         settings.snap_always_ = model.snap_always_;
@@ -718,28 +730,28 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     confirm_reset(model);
     collision_legend(model);
     online_warning(model);
-    prefs::pane(level_editor_ui_state().scale_, {.heading = level_editor_ui_state().heading_, .small_font_ = level_editor_ui_state().small_}); // (level_editor_prefs.h)
-    prefs::tips_window(level_editor_ui_state().scale_, level_editor_ui_state().heading_, level_editor_ui_state().mono_);
-    play_test::pane(level_editor_ui_state().scale_, {.heading = level_editor_ui_state().heading_, .small_font_ = level_editor_ui_state().small_}); // (level_editor_playtest.h)
+    prefs::pane(imgui_setup().scale_, {.heading = imgui_setup().heading_, .small_font_ = imgui_setup().small_}); // (level_editor_prefs.h)
+    prefs::tips_window(imgui_setup().scale_, imgui_setup().heading_, imgui_setup().mono_);
+    play_test::pane(imgui_setup().scale_, {.heading = imgui_setup().heading_, .small_font_ = imgui_setup().small_}); // (level_editor_playtest.h)
     // (UX7: the Arrange window, the adjust-last panel - level_editor_arrange.h, level_editor_adjust.h)
-    arrange::pane(level_editor_ui_state().scale_);
-    adjust::get_panel(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y + level_editor_ui_state().layout_.viewport.height, level_editor_ui_state().scale_);
-    triggers::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, {.scale = level_editor_ui_state().scale_, .selected_node_ = model.nodes.selected});
+    arrange::pane(imgui_setup().scale_);
+    adjust::get_panel(input_routing().layout_.viewport.x, input_routing().layout_.viewport.y + input_routing().layout_.viewport.height, imgui_setup().scale_);
+    triggers::pane({.x = input_routing().layout_.viewport.x, .y = input_routing().layout_.viewport.y, .width = input_routing().layout_.viewport.width, .height = input_routing().layout_.viewport.height}, {.scale = imgui_setup().scale_, .selected_node_ = model.nodes.selected});
     // (UX5: the Problems window, the selected note's window)
-    checks::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_, level_editor_ui_state().mono_);
-    notes::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_);
+    checks::pane({.x = input_routing().layout_.viewport.x, .y = input_routing().layout_.viewport.y, .width = input_routing().layout_.viewport.width, .height = input_routing().layout_.viewport.height}, imgui_setup().scale_, imgui_setup().mono_);
+    notes::pane({.x = input_routing().layout_.viewport.x, .y = input_routing().layout_.viewport.y, .width = input_routing().layout_.viewport.width, .height = input_routing().layout_.viewport.height}, imgui_setup().scale_);
     // (UX9: the gap wizard's and the ground tool's forms, the skateability legend - level_editor_ux9.h)
-    ux9::get_windows(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y, level_editor_ui_state().layout_.viewport.width, level_editor_ui_state().layout_.viewport.height,
-                     level_editor_ui_state().scale_);
+    ux9::get_windows(input_routing().layout_.viewport.x, input_routing().layout_.viewport.y, input_routing().layout_.viewport.width, input_routing().layout_.viewport.height,
+                     imgui_setup().scale_);
     ux3::get_windows(model); // (the search, history, changes, keys, snapshots - level_editor_ux3.h)
-    ux8::get_windows(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y, level_editor_ui_state().layout_.viewport.width, level_editor_ui_state().layout_.viewport.height,
+    ux8::get_windows(input_routing().layout_.viewport.x, input_routing().layout_.viewport.y, input_routing().layout_.viewport.width, input_routing().layout_.viewport.height,
                      ux8_fonts()); // (UX8: the pie, the crosshair - level_editor_ux8.h)
     ux3::remember_sections();      // (the Inspector's sections folded as last time)
     ImGui::PopFont();
     ImGui::Render();
     ui_backend::render();
-    level_editor_ui_state().want_mouse_ = io.WantCaptureMouse;
-    level_editor_ui_state().want_keys_ = io.WantCaptureKeyboard;
+    input_routing().want_mouse_ = io.WantCaptureMouse;
+    input_routing().want_keys_ = io.WantCaptureKeyboard;
 }
 
 } // namespace frontend::level_editor::ui

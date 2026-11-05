@@ -44,6 +44,14 @@ using namespace internal;
 namespace frontend::level_editor::ui {
 namespace {
 
+// The Inspector's Scale: Uniform - one field changes all three in proportion (was in the UI's record; only this piece
+// uses it).
+bool& scale_locked()
+{
+    static bool locked = true;
+    return locked;
+}
+
 constexpr std::size_t kFieldLabelSize = 64; // an Inspector field's label
 constexpr std::size_t kLockTitleSize = 48;
 
@@ -78,13 +86,13 @@ void badge(const char* text, ImU32 colour)
 {
     const ImVec2 size = ImGui::CalcTextSize(text);
     const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const float pad = kBadgePadding * level_editor_ui_state().scale_;
+    const float pad = kBadgePadding * imgui_setup().scale_;
     ImGui::GetWindowDrawList()->AddRectFilled(pos,
                                               ImVec2(pos.x + size.x + (ui_layout::kBothSides * pad), pos.y + size.y),
-                                              colour, kBadgeRounding * level_editor_ui_state().scale_);
+                                              colour, kBadgeRounding * imgui_setup().scale_);
     ImGui::SetCursorScreenPos(ImVec2(pos.x + pad, pos.y));
     ImGui::TextUnformatted(text);
-    ImGui::SameLine(0.0F, pad + (kBadgeGap * level_editor_ui_state().scale_));
+    ImGui::SameLine(0.0F, pad + (kBadgeGap * imgui_setup().scale_));
 }
 
 // The node's heading: its name (or a separator), class and type, its array, Added / Hidden; online, a
@@ -92,7 +100,7 @@ void badge(const char* text, ImU32 colour)
 void node_heading(const ShapeMesh& model, const nodes::Elem& node)
 {
     if (model.nodes.node_only_) {
-        ImGui::PushFont(level_editor_ui_state().heading_);
+        ImGui::PushFont(imgui_setup().heading_);
         gui::text_wrapped("%s", (node.name != 0U) ? nodes::caption(node.name).c_str() : "(no name)");
         ImGui::PopFont();
     } else {
@@ -104,17 +112,17 @@ void node_heading(const ShapeMesh& model, const nodes::Elem& node)
         cls += " \xC2\xB7 " + nodes::caption(node.type);
     }
     get_muted(cls.c_str());
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     gui::text_disabled("node %d in %s", node.index, nodes::caption(nodes::get_array_name(node)).c_str());
     ImGui::PopFont();
     if (node.added) {
-        ImGui::PushFont(level_editor_ui_state().small_);
+        ImGui::PushFont(imgui_setup().small_);
         badge("Added", IM_COL32(46, 122, 67, 200));
         ImGui::NewLine();
         ImGui::PopFont();
     }
     if (node.hidden) {
-        ImGui::PushFont(level_editor_ui_state().small_);
+        ImGui::PushFont(imgui_setup().small_);
         badge("Hidden", IM_COL32(110, 110, 110, 220));
         ImGui::NewLine();
         gui::text_colored(ui_theme::kWarningColour, "%s", "Hidden in game. Revert to show.");
@@ -125,7 +133,7 @@ void node_heading(const ShapeMesh& model, const nodes::Elem& node)
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_ChildBg, kOnlineBackgroundColour);
         ImGui::BeginChild("##online", ImVec2(0.0F, 0.0F), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
-        ImGui::PushFont(level_editor_ui_state().heading_);
+        ImGui::PushFont(imgui_setup().heading_);
         gui::text_colored(kOnlineTextColour, "Online");
         ImGui::PopFont();
         gui::text_wrapped("Shared with THUGPRO (ported from %s). %s affect online play.", model.nodes.shared_game_,
@@ -142,7 +150,7 @@ void node_place_fields(const ShapeMesh& model)
     // Typed or dragged to scrub (Ctrl+click or a double-click types a number); one undo step a field.
     std::array<float, 3> pos = {{model.nodes.pos.x, model.nodes.pos.y, model.nodes.pos.z}};
     float heading = node_edit::get_heading_degrees(model.nodes.angles);
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     field_label("Position");
     ImGui::SetNextItemWidth(-FLT_MIN);
     const bool moved = ImGui::DragFloat3("##pos", pos.data(), 1.0F, 0.0F, 0.0F, "%.1f");
@@ -178,7 +186,7 @@ void node_place_fields(const ShapeMesh& model)
         core::at(request.b, 0) = angles.x;
         core::at(request.b, 1) = angles.y;
         core::at(request.b, 2) = angles.z;
-        level_editor_ui_state().requests_.push_back(request);
+        input_routing().requests_.push_back(request);
     }
     if (done) {
         get_ask(Request::Kind::kNodeSetDone);
@@ -204,7 +212,7 @@ void spawn_rows(const nodes::Elem& node)
                                  {.bit = nodes::SpawnPointKind::kTeam, .name = "Team"},
                                  {.bit = nodes::SpawnPointKind::kKing, .name = "KingOfTheHill"},
                                  {.bit = nodes::SpawnPointKind::kGeneric, .name = "Generic"}});
-    ImGui::PushFont(level_editor_ui_state().small_);
+    ImGui::PushFont(imgui_setup().small_);
     bool any = false;
     for (const auto& type : kTypes) {
         if (core::any(node.restart_types_ & type.bit)) {
@@ -256,7 +264,7 @@ void crown_rows(const ShapeMesh& model, const nodes::Elem& node)
 // The selected node's buttons: Drop to Ground, Revert / Show, Delete / Hide.
 void node_buttons(const ShapeMesh& model)
 {
-    ImGui::PushFont(level_editor_ui_state().small_);
+    ImGui::PushFont(imgui_setup().small_);
     gui::text_disabled("Applies: %s", model.nodes.when_applied_);
     if (model.nodes.moved) {
         ImGui::SameLine();
@@ -332,8 +340,8 @@ void node_section(const ShapeMesh& model, int index)
             field_label("Colour");
             const ImVec4 corner = ImGui::ColorConvertU32ToFloat4(get_colour(node.colour));
             ImGui::ColorButton("##colour", corner, ImGuiColorEditFlags_NoTooltip,
-                               ImVec2(kColourButtonSize * level_editor_ui_state().scale_,
-                                      kColourButtonSize * level_editor_ui_state().scale_));
+                               ImVec2(kColourButtonSize * imgui_setup().scale_,
+                                      kColourButtonSize * imgui_setup().scale_));
             ImGui::SameLine();
             get_mono("%u %u %u", (node.colour >> kRedShift) & kChannelMask, (node.colour >> kGreenShift) & kChannelMask, node.colour & kChannelMask);
             field_label("Radius");
@@ -349,7 +357,7 @@ void node_section(const ShapeMesh& model, int index)
         }
         if (!node.links.empty()) {
             field_label("Links");
-            ImGui::PushFont(level_editor_ui_state().mono_);
+            ImGui::PushFont(imgui_setup().mono_);
             for (const int link : node.links) {
                 ImGui::PushID(link);
                 if (ImGui::SmallButton(nodes::caption(core::at(nodes, link).name).c_str())) {
@@ -367,15 +375,15 @@ void node_section(const ShapeMesh& model, int index)
     // Phase 4: a rail's / path's operations, a rail's terrain, a ped's / car's path (level_editor_chains_ui.cpp).
     if ((model.nodes.node_only_ || model.chain.object) && model.chain.show) {
         ImGui::NewLine();
-        chain_section(model.chain, &level_editor_ui_state().requests_);
+        chain_section(model.chain, &input_routing().requests_);
     }
     play_test::restart_section(index); // (a restart's Play from here - level_editor_playtest.h)
-    spawn_section(index, &level_editor_ui_state().requests_); // (a HORSE spot - the feature map: level_editor_spots_ui.cpp)
+    spawn_section(index, &input_routing().requests_); // (a HORSE spot - the feature map: level_editor_spots_ui.cpp)
     if (ImGui::Button("Focus")) {
         get_ask(Request::Kind::kGoToNode, index);
     }
     // Every field of its structure, typed and editable (phase 6: level_editor_fields_ui.cpp).
-    fields_section(index, level_editor_ui_state().mono_, level_editor_ui_state().small_, &level_editor_ui_state().requests_);
+    fields_section(index, imgui_setup().mono_, imgui_setup().small_, &input_routing().requests_);
 }
 
 // The locks (level_editor_picking.h): each with Unlock.
@@ -398,7 +406,7 @@ void lock_list(const ShapeMesh& model)
             get_ask(Request::Kind::kUnlock, static_cast<int>(lock.kind), lock.id);
         }
         ImGui::SameLine();
-        ImGui::PushFont(level_editor_ui_state().mono_);
+        ImGui::PushFont(imgui_setup().mono_);
         ImGui::TextUnformatted(lock.label.c_str());
         ImGui::PopFont();
         ImGui::PopID();
@@ -417,7 +425,7 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
     const float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
     ImGui::BeginChild("##members",
                       ImVec2(0.0F, (rows * ImGui::GetFrameHeightWithSpacing()) +
-                                       (kMemberListPadding * level_editor_ui_state().scale_)),
+                                       (kMemberListPadding * imgui_setup().scale_)),
                       ImGuiChildFlags_None);
     for (size_t i = 0; i < members.size(); ++i) {
         const ShapeMesh::Selection::Member& member = core::at(members, i);
@@ -434,7 +442,7 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
             get_ask(Request::Kind::kMemberKeep, rail, member.id);
         }
         ImGui::SameLine();
-        ImGui::PushFont(level_editor_ui_state().mono_);
+        ImGui::PushFont(imgui_setup().mono_);
         ImGui::TextUnformatted(member.name.c_str());
         ImGui::PopFont();
         ImGui::SameLine();
@@ -461,9 +469,9 @@ void scale_fields(const ShapeMesh::Selection& selection)
     const std::array<float, 3> values = {{selection.scale.x, selection.scale.y, selection.scale.z}};
     static const std::array<const char*, 3> kIds = {{"##scalex", "##scaley", "##scalez"}};
     static const std::array<const char*, 3> kFormats = {{"x %.3f", "y %.3f", "z %.3f"}};
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     for (int axis = 0; axis < 3; ++axis) {
-        ImGui::SetNextItemWidth(kScaleFieldWidth * level_editor_ui_state().scale_);
+        ImGui::SetNextItemWidth(kScaleFieldWidth * imgui_setup().scale_);
         float value = core::at(values, axis);
         if (ImGui::DragFloat(core::at(kIds, axis), &value, kScaleDragSpeed, scale_tool::kMin, scale_tool::kMax,
                              core::at(kFormats, axis), ImGuiSliderFlags_AlwaysClamp)) {
@@ -471,7 +479,7 @@ void scale_fields(const ShapeMesh::Selection& selection)
             for (int component = 0; component < 3; ++component) {
                 core::at(request.a, component) = core::at(values, component);
             }
-            if (level_editor_ui_state().scale_locked_ && core::at(values, axis) > 0.0F) {
+            if (scale_locked() && core::at(values, axis) > 0.0F) {
                 // (every axis by the same ratio, clamped so none leaves 0.25..4)
                 float ratio = value / core::at(values, axis);
                 for (const float limit : values) {
@@ -483,7 +491,7 @@ void scale_fields(const ShapeMesh::Selection& selection)
             } else {
                 core::at(request.a, axis) = value;
             }
-            level_editor_ui_state().requests_.push_back(request);
+            input_routing().requests_.push_back(request);
         }
         if (ImGui::IsItemDeactivated()) {
             get_ask(Request::Kind::kScaleDone);
@@ -494,7 +502,7 @@ void scale_fields(const ShapeMesh::Selection& selection)
         }
     }
     ImGui::PopFont();
-    ImGui::Checkbox("Uniform##scalelock", &level_editor_ui_state().scale_locked_);
+    ImGui::Checkbox("Uniform##scalelock", &scale_locked());
     if (ImGui::IsItemHovered()) {
         gui::tooltip("Scale all axes together");
     }
@@ -505,17 +513,17 @@ void inspect_node(const ShapeMesh& model)
 {
     node_section(model, model.nodes.selected);
     triggers::inspector_section(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
-    entities::inspector_section(model.nodes.selected, checksums::Name{0}, level_editor_ui_state().mono_,
-                                &level_editor_ui_state().requests_); // (sound, particles, ghosts)
+    entities::inspector_section(model.nodes.selected, checksums::Name{0}, imgui_setup().mono_,
+                                &input_routing().requests_); // (sound, particles, ghosts)
     // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
     if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
-        cameras::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_,
-                                   level_editor_ui_state().small_);
+        cameras::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, imgui_setup().mono_,
+                                   imgui_setup().small_);
     }
     if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
         goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name,
-                                     level_editor_ui_state().mono_,
-                                     level_editor_ui_state().small_); // (a goal's point)
+                                     imgui_setup().mono_,
+                                     imgui_setup().small_); // (a goal's point)
     }
 }
 
@@ -581,10 +589,10 @@ namespace internal {
 
 void get_inspector(const ShapeMesh& model)
 {
-    if (!level_editor_ui_state().layout_.inspector_shown_) {
+    if (!input_routing().layout_.inspector_shown_) {
         return;
     }
-    place_window(level_editor_ui_state().layout_.inspector);
+    place_window(input_routing().layout_.inspector);
     ImGui::Begin("Inspector", nullptr, kPanel);
     panel_title("Inspector");
     const ShapeMesh::Selection& selection = model.selection;
@@ -593,7 +601,7 @@ void get_inspector(const ShapeMesh& model)
     } else if (selection.objects == 0 && selection.sectors == 0 && (model.view.wall == 0U)) {
         gui::text_disabled("Nothing selected");
     } else if (selection.objects > 0 || selection.sectors > 0) {
-        ImGui::PushFont(level_editor_ui_state().heading_);
+        ImGui::PushFont(imgui_setup().heading_);
         gui::text_wrapped("%s", selection.name.c_str());
         ImGui::PopFont();
         get_muted(selection.kind.c_str());
@@ -606,7 +614,7 @@ void get_inspector(const ShapeMesh& model)
         member_list(selection.members);
         // (map3: the selected scenery's trick-object cluster - level_editor_clusters.h)
         if (selection.sectors > 0 && selection.objects == 0) {
-            clusters::inspector_section(scenery::get_selection(), level_editor_ui_state().mono_, level_editor_ui_state().small_);
+            clusters::inspector_section(scenery::get_selection(), imgui_setup().mono_, imgui_setup().small_);
         }
         ImGui::Spacing();
         gui::text_wrapped("%s", model.selected.c_str());
@@ -618,8 +626,8 @@ void get_inspector(const ShapeMesh& model)
         }
         // (one object: its model, physics, path speed and preview - level_editor_entities.h)
         if (selection.objects == 1) {
-            entities::inspector_section(-1, checksums::Name{selection.checksum}, level_editor_ui_state().mono_,
-                                        &level_editor_ui_state().requests_);
+            entities::inspector_section(-1, checksums::Name{selection.checksum}, imgui_setup().mono_,
+                                        &input_routing().requests_);
         }
         if (model.nodes.selected >= 0) {
             node_section(model, model.nodes.selected);
@@ -639,9 +647,9 @@ void get_inspector(const ShapeMesh& model)
     view_section(model);
     entities::view_options(); // (Show uncreated objects)
     lock_list(model);
-    cameras::list_section(level_editor_ui_state().mono_, level_editor_ui_state().small_);   // (map3: the camera nodes - level_editor_cameras.h)
-    goal_edit::list_section(level_editor_ui_state().mono_, level_editor_ui_state().small_); // (Create-a-Goal goals of the edited copy - level_editor_goals.h)
-    level_section(model.level_props_, level_editor_ui_state().mono_, level_editor_ui_state().small_, &level_editor_ui_state().requests_); // (phase 6: level_editor_fields_ui.cpp)
+    cameras::list_section(imgui_setup().mono_, imgui_setup().small_);   // (map3: the camera nodes - level_editor_cameras.h)
+    goal_edit::list_section(imgui_setup().mono_, imgui_setup().small_); // (Create-a-Goal goals of the edited copy - level_editor_goals.h)
+    level_section(model.level_props_, imgui_setup().mono_, imgui_setup().small_, &input_routing().requests_); // (phase 6: level_editor_fields_ui.cpp)
     ImGui::End();
 }
 

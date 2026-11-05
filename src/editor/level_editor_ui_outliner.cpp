@@ -33,6 +33,19 @@ using namespace internal;
 namespace frontend::level_editor::ui {
 namespace {
 
+// NOT ORIGINAL grouping - the Outliner's filter: its search text and "Changed only" (were in the UI's record; only this
+// piece uses them). Made on first use, never destroyed (outliner_filter()).
+struct OutlinerFilter {
+    std::array<char, kSearchTextSize> outliner_search_{};
+    bool changed_only_{};
+};
+
+OutlinerFilter& outliner_filter()
+{
+    static core::NoDestroy<OutlinerFilter> filter;
+    return filter.get();
+}
+
 constexpr std::size_t kRowTagSize = 48; // an Outliner row's tag
 constexpr std::size_t kFamilyHeaderSize = 64; // "<family>###family<n>"
 
@@ -141,9 +154,9 @@ std::string row_tag_of(const nodes::Elem& node)
 
 void family_chips(const ShapeMesh& model)
 {
-    ImGui::PushFont(level_editor_ui_state().small_);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kChipPaddingX * level_editor_ui_state().scale_, kChipPaddingY * level_editor_ui_state().scale_));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(kChipSpacing * level_editor_ui_state().scale_, kChipSpacing * level_editor_ui_state().scale_));
+    ImGui::PushFont(imgui_setup().small_);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kChipPaddingX * imgui_setup().scale_, kChipPaddingY * imgui_setup().scale_));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(kChipSpacing * imgui_setup().scale_, kChipSpacing * imgui_setup().scale_));
     const auto& counts = nodes::get_counts();
     const float right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
     for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
@@ -186,7 +199,7 @@ float row_marks(const ShapeMesh& model, const nodes::Elem& node)
     const float row_right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x -
                             ImGui::GetStyle().ScrollbarSize - ux3::toggles_width();
     const float marks_width =
-        letters.empty() ? 0.0F : ImGui::CalcTextSize(letters.c_str()).x + (6.0F * level_editor_ui_state().scale_);
+        letters.empty() ? 0.0F : ImGui::CalcTextSize(letters.c_str()).x + (6.0F * imgui_setup().scale_);
     if (!tag.empty()) {
         const float width = ImGui::CalcTextSize(tag.c_str()).x;
         ImGui::SameLine(std::max(ImGui::GetCursorPosX(), row_right - marks_width - width));
@@ -194,7 +207,7 @@ float row_marks(const ShapeMesh& model, const nodes::Elem& node)
     }
     if (!letters.empty()) {
         ImGui::SameLine(
-            std::max(ImGui::GetCursorPosX(), row_right - marks_width + (kMarksGap * level_editor_ui_state().scale_)));
+            std::max(ImGui::GetCursorPosX(), row_right - marks_width + (kMarksGap * imgui_setup().scale_)));
         bool first = true;
         for (int bit = 0; bit < kMaxMarkers; ++bit) {
             if ((marks & (1U << bit)) == 0U) {
@@ -269,8 +282,8 @@ void outliner_family(const ShapeMesh& model, int family_index, bool follow)
     for (const int member : members) {
         auto found = model.marks.find(core::at(nodes, member).name);
         if (ux3::row_passes(core::at(nodes, member), core::at(ui_cache().cache_.labels, member),
-                            level_editor_ui_state().outliner_search_.data()) &&
-            mark_shown(found == model.marks.end() ? 0 : found->second, level_editor_ui_state().changed_only_)) {
+                            outliner_filter().outliner_search_.data()) &&
+            mark_shown(found == model.marks.end() ? 0 : found->second, outliner_filter().changed_only_)) {
             shown.push_back(member);
         }
     }
@@ -279,21 +292,21 @@ void outliner_family(const ShapeMesh& model, int family_index, bool follow)
     }
     const bool holds_selected =
         follow && std::cmp_less(selected, nodes.size()) && core::at(nodes, selected).family == family;
-    if (holds_selected || (core::at(level_editor_ui_state().outliner_search_, 0) != '\0') ||
-        level_editor_ui_state().changed_only_) {
+    if (holds_selected || (core::at(outliner_filter().outliner_search_, 0) != '\0') ||
+        outliner_filter().changed_only_) {
         ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
     }
     std::array<char, kFamilyHeaderSize> header{};
     text::format_to(header, "%s###family%d", nodes::family_name(family), family_index);
     const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
     ImGui::SameLine();
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     gui::text_disabled("%d", static_cast<int>(shown.size()));
     ImGui::PopFont();
     if (!open) {
         return;
     }
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     // (rows the clipper skips aren't laid out; the selected one is brought into view once)
     int scroll_to = -1;
     if (holds_selected) {
@@ -329,24 +342,24 @@ namespace internal {
 
 void get_outliner(const ShapeMesh& model)
 {
-    if (!level_editor_ui_state().layout_.outliner_shown_) {
+    if (!input_routing().layout_.outliner_shown_) {
         return;
     }
     update_cache();
-    place_window(level_editor_ui_state().layout_.outliner);
+    place_window(input_routing().layout_.outliner);
     ImGui::Begin("Outliner", nullptr, kPanel);
     panel_title("Outliner");
     ImGui::SetNextItemWidth(-1.0F);
     // (Select similar on a node asks for its family here - level_editor_ux3.h)
     if (const std::string asked = ux3::take_outliner_search(); !asked.empty()) {
-        text::format_to(level_editor_ui_state().outliner_search_, "%s", asked.c_str());
+        text::format_to(outliner_filter().outliner_search_, "%s", asked.c_str());
     }
-    ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6", level_editor_ui_state().outliner_search_.data(), sizeof(level_editor_ui_state().outliner_search_));
+    ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6", outliner_filter().outliner_search_.data(), sizeof(outliner_filter().outliner_search_));
     if (ImGui::IsItemHovered()) {
         gui::tooltip("Filter by name. Prefixes: rail: spawn: object: group:<name> label: locked: hidden:");
     }
     // (only the rows the editor has changed - those with markers)
-    ImGui::Checkbox("Changed Only", &level_editor_ui_state().changed_only_);
+    ImGui::Checkbox("Changed Only", &outliner_filter().changed_only_);
     if (ImGui::IsItemHovered()) {
         std::string legend = "Show changed items only. Markers:";
         for (int bit = 0; bit < kMaxMarkers; ++bit) {
@@ -372,7 +385,7 @@ void get_outliner(const ShapeMesh& model)
     for (int family_index = 0; family_index < nodes::kFamilies; ++family_index) {
         outliner_family(model, family_index, follow);
     }
-    notes::outliner_section(level_editor_ui_state().mono_, level_editor_ui_state().outliner_search_.data()); // (UX5: note pins - level_editor_notes.h)
+    notes::outliner_section(imgui_setup().mono_, outliner_filter().outliner_search_.data()); // (UX5: note pins - level_editor_notes.h)
     ImGui::EndChild();
     ImGui::End();
 }

@@ -46,9 +46,11 @@ constexpr float kBarPaddingY = 4.0F;
 
 constexpr ImVec4 kDangerButtonColour{0.29F, 0.14F, 0.13F, 1.0F};
 
-// NOT ORIGINAL grouping - level_editor_ui.cpp's state (were globals). Made on first use, never destroyed
-// (level_editor_ui_state()).
-struct LevelEditorUiState {
+// NOT ORIGINAL grouping - level_editor_ui.cpp's state (were globals), one record per part (the Outliner's filter and the
+// Inspector's scale lock are their pieces' own). Each made on first use, never destroyed.
+
+// ImGui and the style (imgui_setup()): the context, the run, the fonts and the scale they and the style were built at.
+struct ImguiSetup {
     bool created_{}; // (the ImGui context, made once)
     bool running_{}; // (between Start and Stop)
     float scale_{}; // (the fonts' and the style's scale; 0: not built)
@@ -56,9 +58,15 @@ struct LevelEditorUiState {
     ImFont* small_{};
     ImFont* mono_{};
     ImFont* heading_{};
-    bool scale_locked_ = true; // (the Inspector's Scale: Uniform - one field changes all three in proportion)
-    // The routing (level_editor_ui_layout.h): the last frame's layout and ImGui's wishes, the mouse, and which mouse
-    // buttons a press gave to the UI / to the editor (their release goes the same way).
+    int style_generation_ = -1; // (the preferences' scale / accent the style was built for)
+};
+
+ImguiSetup& imgui_setup();
+
+// The routing (level_editor_ui_layout.h - input_routing()): the last frame's layout and ImGui's wishes, the mouse, which
+// mouse buttons a press gave to the UI / to the editor (their release goes the same way), and the UI's requests to the
+// editor.
+struct InputRouting {
     ui_layout::Layout layout_{};
     bool want_mouse_{};
     bool want_keys_{};
@@ -67,20 +75,23 @@ struct LevelEditorUiState {
     uint32_t ui_buttons_{};
     uint32_t editor_buttons_{};
     std::vector<Request> requests_;
+};
+
+InputRouting& input_routing();
+
+// The panels (panel_state()): the autosave offer closed; the browser's search and the row shown, and the preview's
+// entry - the list's row under the mouse (-1: none) and whether the keys moved the highlight since the mouse last moved
+// onto a row (then the highlighted one shows); the entry asked for last.
+struct PanelState {
     bool offer_closed_{};
-    std::array<char, kSearchTextSize> outliner_search_{};
-    bool changed_only_{}; // (the Outliner's "Changed only")
     std::array<char, kSearchTextSize> browser_search_{};
     int browser_shown_index_ = -1;
-    // The preview's entry: the list's row under the mouse (-1: none) and whether the keys moved the highlight since the
-    // mouse last moved onto a row (then the highlighted one shows); the entry asked for last.
     int browser_hovered_ = -1;
     bool browser_keys_won_{};
     int preview_asked_ = -1;
-    int style_generation_ = -1; // (the preferences' scale / accent the style was built for)
 };
 
-LevelEditorUiState& level_editor_ui_state();
+PanelState& panel_state();
 
 void get_ask(Request::Kind kind, int value = 0, uint32_t id = 0);
 
@@ -93,7 +104,7 @@ ImU32 get_colour(uint32_t argb);
 template <typename... Args>
 void get_mono(text::FormatFor<Args...> format, Args... args)
 {
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     ImGui::TextUnformatted(text::format(format, args...).c_str());
     ImGui::PopFont();
 }

@@ -68,8 +68,8 @@ namespace internal {
 
 void status_bar(const ShapeMesh& model)
 {
-    place_window(level_editor_ui_state().layout_.status);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(kBarPaddingX * level_editor_ui_state().scale_, kBarPaddingY * level_editor_ui_state().scale_));
+    place_window(input_routing().layout_.status);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(kBarPaddingX * imgui_setup().scale_, kBarPaddingY * imgui_setup().scale_));
     ImGui::Begin("##status", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
     // Right: unsaved, the changes, the camera (elided before the hints are crowded out).
@@ -78,9 +78,9 @@ void status_bar(const ShapeMesh& model)
     text::format_to(right, "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  %.0f, %.0f, %.0f  \xC2\xB7  speed %.0f%s%s",
                     model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
                     model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
-    const ui_layout::Rect2& bar = level_editor_ui_state().layout_.status;
-    const float pad_x = 8.0F * level_editor_ui_state().scale_;
-    ImGui::PushFont(level_editor_ui_state().small_);
+    const ui_layout::Rect2& bar = input_routing().layout_.status;
+    const float pad_x = 8.0F * imgui_setup().scale_;
+    ImGui::PushFont(imgui_setup().small_);
     const float y = bar.y + std::max(0.0F, (bar.height - ImGui::GetTextLineHeight()) * 0.5F);
     ImGui::PopFont();
     // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
@@ -96,7 +96,7 @@ void get_help(const ShapeMesh& model)
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kHalf), ImGuiCond_Always,
                             kCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kHelpWidth * level_editor_ui_state().scale_, io.DisplaySize.y * kHelpHeightFraction));
+    ImGui::SetNextWindowSize(ImVec2(kHelpWidth * imgui_setup().scale_, io.DisplaySize.y * kHelpHeightFraction));
     bool open = true;
     ImGui::Begin("Keyboard Shortcuts", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
@@ -144,8 +144,8 @@ void get_help(const ShapeMesh& model)
         // (the columns' widths set, not fitted: a long key list would otherwise squeeze the explanations to a letter a
         // line - the keys wrap within theirs)
         if (ImGui::BeginTable("##keys", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
-            ImGui::TableSetupColumn("##section", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpNameColumnWidth * level_editor_ui_state().scale_);
-            ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpKeysColumnWidth * level_editor_ui_state().scale_);
+            ImGui::TableSetupColumn("##section", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpNameColumnWidth * imgui_setup().scale_);
+            ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, ui_layout::kHelpKeysColumnWidth * imgui_setup().scale_);
             ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
             // (the view menus' and their modules' rows after the editor's own: level_editor_overlays.h)
             std::vector<Row> rows(std::begin(kRows), std::end(kRows));
@@ -156,12 +156,12 @@ void get_help(const ShapeMesh& model)
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 if (*row.section != '\0') {
-                    ImGui::PushFont(level_editor_ui_state().heading_);
+                    ImGui::PushFont(imgui_setup().heading_);
                     ImGui::TextUnformatted(row.section);
                     ImGui::PopFont();
                 }
                 ImGui::TableNextColumn();
-                ImGui::PushFont(level_editor_ui_state().mono_);
+                ImGui::PushFont(imgui_setup().mono_);
                 ImGui::PushTextWrapPos(0.0F);
                 ImGui::PushStyleColor(ImGuiCol_Text, ui_theme::kWarningColour);
                 ImGui::TextUnformatted(row.keys);
@@ -189,7 +189,7 @@ void browser_preview(const ShapeMesh& model)
 {
     const ShapeMesh::PreviewView& preview = model.preview;
     const float width = ImGui::GetContentRegionAvail().x;
-    const float side = std::min(width, 210.0F * level_editor_ui_state().scale_);
+    const float side = std::min(width, 210.0F * imgui_setup().scale_);
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ((width - side) * kHalf));
     ImGui::InvisibleButton("##preview", ImVec2(side, side));
     ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
@@ -224,16 +224,16 @@ void browser_preview(const ShapeMesh& model)
         core::at(request.a, 0) = dx;
         core::at(request.a, 1) = dy;
         core::at(request.a, 2) = wheel;
-        level_editor_ui_state().requests_.push_back(request);
+        input_routing().requests_.push_back(request);
     }
     if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && (preview.texture != 0U)) {
         gui::tooltip("Drag to rotate, wheel to zoom");
     }
     if (!preview.name.empty()) {
-        ImGui::PushFont(level_editor_ui_state().mono_);
+        ImGui::PushFont(imgui_setup().mono_);
         gui::text_wrapped("%s", preview.name.c_str());
         ImGui::PopFont();
-        ImGui::PushFont(level_editor_ui_state().small_);
+        ImGui::PushFont(imgui_setup().small_);
         if (!preview.size.empty()) {
             get_muted(preview.size.c_str());
         }
@@ -254,14 +254,14 @@ void get_browser(const ShapeMesh& model)
         return;
     }
     ImGui::SetNextWindowPos(
-        ImVec2(level_editor_ui_state().layout_.viewport.x + level_editor_ui_state().layout_.viewport.width -
-                   (kPanelInset * level_editor_ui_state().scale_),
-               level_editor_ui_state().layout_.viewport.y + (kPanelInset * level_editor_ui_state().scale_)),
+        ImVec2(input_routing().layout_.viewport.x + input_routing().layout_.viewport.width -
+                   (kPanelInset * imgui_setup().scale_),
+               input_routing().layout_.viewport.y + (kPanelInset * imgui_setup().scale_)),
         ImGuiCond_Always, ImVec2(1.0F, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(kBrowserWidth * level_editor_ui_state().scale_,
-                                    std::min(kBrowserMaxHeight * level_editor_ui_state().scale_,
-                                             level_editor_ui_state().layout_.viewport.height -
-                                                 (kBrowserBottomMargin * level_editor_ui_state().scale_))));
+    ImGui::SetNextWindowSize(ImVec2(kBrowserWidth * imgui_setup().scale_,
+                                    std::min(kBrowserMaxHeight * imgui_setup().scale_,
+                                             input_routing().layout_.viewport.height -
+                                                 (kBrowserBottomMargin * imgui_setup().scale_))));
     bool open = true;
     std::array<char, kBrowserTitleSize> title{};
     text::format_to(title, "Add Piece (%d)###browser", static_cast<int>(model.browser_items_->size()));
@@ -285,27 +285,27 @@ void get_browser(const ShapeMesh& model)
         }
     }
     ImGui::SetNextItemWidth(-1.0F);
-    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", level_editor_ui_state().browser_search_.data(), sizeof(level_editor_ui_state().browser_search_));
+    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", panel_state().browser_search_.data(), sizeof(panel_state().browser_search_));
     const float buttons = ImGui::GetFrameHeightWithSpacing() * 3.0F; // (UX7: a row of the arrange tools')
     const std::vector<BrowserItem>& items = *model.browser_items_;
-    const bool follow = model.browser_index_ != level_editor_ui_state().browser_shown_index_; // (the keys moved it: keep it in view)
-    level_editor_ui_state().browser_shown_index_ = model.browser_index_;
+    const bool follow = model.browser_index_ != panel_state().browser_shown_index_; // (the keys moved it: keep it in view)
+    panel_state().browser_shown_index_ = model.browser_index_;
     if (follow) {
-        level_editor_ui_state().browser_keys_won_ = true;
+        panel_state().browser_keys_won_ = true;
     }
     // The entries: a grid of thumbnails or the list, All / Recent / Favourites (level_editor_thumbs.h).
     const int hovered =
-        thumbs::items_panel(model, level_editor_ui_state().browser_search_.data(), follow, -buttons, level_editor_ui_state().mono_, level_editor_ui_state().small_, level_editor_ui_state().scale_, &level_editor_ui_state().requests_);
+        thumbs::items_panel(model, panel_state().browser_search_.data(), follow, -buttons, imgui_setup().mono_, imgui_setup().small_, imgui_setup().scale_, &input_routing().requests_);
     // The preview follows the mouse over the list, or the keys when they moved the highlight since.
-    if (hovered != level_editor_ui_state().browser_hovered_) {
-        level_editor_ui_state().browser_hovered_ = hovered;
+    if (hovered != panel_state().browser_hovered_) {
+        panel_state().browser_hovered_ = hovered;
         if (hovered >= 0) {
-            level_editor_ui_state().browser_keys_won_ = false;
+            panel_state().browser_keys_won_ = false;
         }
     }
-    const int preview = level_editor_ui_state().browser_hovered_ >= 0 && !level_editor_ui_state().browser_keys_won_ ? level_editor_ui_state().browser_hovered_ : -1;
-    if (preview != level_editor_ui_state().preview_asked_) {
-        level_editor_ui_state().preview_asked_ = preview;
+    const int preview = panel_state().browser_hovered_ >= 0 && !panel_state().browser_keys_won_ ? panel_state().browser_hovered_ : -1;
+    if (preview != panel_state().preview_asked_) {
+        panel_state().preview_asked_ = preview;
         get_ask(Request::Kind::kBrowserPreview, preview);
     }
     ImGui::BeginDisabled(items.empty());
@@ -316,9 +316,9 @@ void get_browser(const ShapeMesh& model)
     if (ImGui::Button("Focus")) {
         get_ask(Request::Kind::kBrowserFocus);
     }
-    arrange::browser_extras(level_editor_ui_state().scale_); // (UX7: Replace selection, Click places - level_editor_arrange.h)
+    arrange::browser_extras(imgui_setup().scale_); // (UX7: Replace selection, Click places - level_editor_arrange.h)
     ImGui::EndDisabled();
-    ImGui::PushFont(level_editor_ui_state().small_);
+    ImGui::PushFont(imgui_setup().small_);
     get_muted("Enter: place at the cursor");
     ImGui::PopFont();
     ImGui::End();
@@ -329,12 +329,12 @@ void get_browser(const ShapeMesh& model)
 
 void autosave_offer(const ShapeMesh& model)
 {
-    if (!model.offer || level_editor_ui_state().offer_closed_) {
+    if (!model.offer || panel_state().offer_closed_) {
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
-                                                                 (kBannerTop * level_editor_ui_state().scale_)),
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, input_routing().layout_.viewport.y +
+                                                                 (kBannerTop * imgui_setup().scale_)),
                             ImGuiCond_Always, kTopCentrePivot);
     ImGui::Begin("Recover Autosave", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
@@ -352,7 +352,7 @@ void autosave_offer(const ShapeMesh& model)
     }
     ImGui::SameLine();
     if (ImGui::Button("Later")) {
-        level_editor_ui_state().offer_closed_ = true;
+        panel_state().offer_closed_ = true;
     }
     ImGui::End();
 }
@@ -364,10 +364,10 @@ void online_warning(const ShapeMesh& model)
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
-                                                                 (kBannerTop * level_editor_ui_state().scale_)),
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, input_routing().layout_.viewport.y +
+                                                                 (kBannerTop * imgui_setup().scale_)),
                             ImGuiCond_Always, kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kBannerWidth * level_editor_ui_state().scale_, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kBannerWidth * imgui_setup().scale_, 0.0F));
     ImGui::PushStyleColor(ImGuiCol_TitleBgActive, kBannerTitleColour);
     ImGui::PushStyleColor(ImGuiCol_TitleBg, kBannerTitleColour);
     ImGui::Begin("Shared Level", nullptr,
@@ -404,10 +404,10 @@ void get_place(const ShapeMesh& model)
         return;
     }
     ImGui::SetNextWindowPos(
-        ImVec2(level_editor_ui_state().layout_.viewport.x + (kPanelInset * level_editor_ui_state().scale_),
-               level_editor_ui_state().layout_.viewport.y + (kPanelInset * level_editor_ui_state().scale_)),
+        ImVec2(input_routing().layout_.viewport.x + (kPanelInset * imgui_setup().scale_),
+               input_routing().layout_.viewport.y + (kPanelInset * imgui_setup().scale_)),
         ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(kPlaceWidth * level_editor_ui_state().scale_, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kPlaceWidth * imgui_setup().scale_, 0.0F));
     bool open = true;
     ImGui::Begin("Place Node###place", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
@@ -417,7 +417,7 @@ void get_place(const ShapeMesh& model)
     // (a list that scrolls: the level's peds, cars, sets, particles and sounds make it long - level_editor_entities.h)
     const float list_height = std::min(
         (static_cast<float>(entries.size()) * ImGui::GetTextLineHeightWithSpacing()) + 8.0F,
-        std::max(160.0F * level_editor_ui_state().scale_, level_editor_ui_state().layout_.viewport.height * 0.6F));
+        std::max(160.0F * imgui_setup().scale_, input_routing().layout_.viewport.height * 0.6F));
     ImGui::BeginChild("##placelist", ImVec2(0.0F, list_height));
     for (int i = 0; std::cmp_less(i, entries.size()); ++i) {
         const ShapeMesh::PlaceView::TableRow& table_row = core::at(entries, i);
@@ -449,7 +449,7 @@ void get_place(const ShapeMesh& model)
     }
     ImGui::EndChild();
     ImGui::Separator();
-    ImGui::PushFont(level_editor_ui_state().small_);
+    ImGui::PushFont(imgui_setup().small_);
     if (model.place.armed >= 0 && std::cmp_less(model.place.armed, entries.size())) {
         gui::text_wrapped("Click to place %s. Shift+click: place more. Esc: cancel.",
                            core::at(entries, model.place.armed).label.c_str());
@@ -470,10 +470,10 @@ void confirm_reset(const ShapeMesh& model)
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
-                                                                 (kConfirmTop * level_editor_ui_state().scale_)),
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, input_routing().layout_.viewport.y +
+                                                                 (kConfirmTop * imgui_setup().scale_)),
                             ImGuiCond_Always, kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kConfirmResetWidth * level_editor_ui_state().scale_, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kConfirmResetWidth * imgui_setup().scale_, 0.0F));
     ImGui::Begin("Reset Level###confirmreset", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
@@ -500,14 +500,14 @@ void confirm_hide(const ShapeMesh& model)
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
-                                                                 (kConfirmTop * level_editor_ui_state().scale_)),
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, input_routing().layout_.viewport.y +
+                                                                 (kConfirmTop * imgui_setup().scale_)),
                             ImGuiCond_Always, kTopCentrePivot);
-    ImGui::SetNextWindowSize(ImVec2(kConfirmHideWidth * level_editor_ui_state().scale_, 0.0F));
+    ImGui::SetNextWindowSize(ImVec2(kConfirmHideWidth * imgui_setup().scale_, 0.0F));
     ImGui::Begin("Hide Original Node###confirmhide", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::PushFont(imgui_setup().mono_);
     ImGui::TextUnformatted(model.confirm.name.c_str());
     ImGui::PopFont();
     ImGui::SameLine();
