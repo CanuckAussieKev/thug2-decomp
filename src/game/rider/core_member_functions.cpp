@@ -719,9 +719,9 @@ int SkaterPhysicsModule::set_ammo_type(script::Struct* params, script::Script* /
 // 0x004FC110
 int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script* /*script*/)
 {
-    float* radius = &side_reach_;
-    float* speed = &side_push_;
-    float* third = &side_turn_;
+    float* radius = &side_.reach;
+    float* speed = &side_.push;
+    float* third = &side_.turn;
     *radius = kProbeRadius;
     *speed = 100.0F;
     *third = kProbeThird;

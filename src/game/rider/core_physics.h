@@ -743,6 +743,15 @@ public:
         // Whether it hit.
         bool probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require);
     };
+    // The side collisions (+0x2AC-+0x2CB: check_side_feelers, SetExtraPush). (The side feelers' hit times are at
+    // +0x328, apart: side_hit_times_.)
+    struct SideCollisions {
+        maths::Vec4 normal_sum{}; // +0x00 (+0x2AC) the side feelers' hit normals added up
+        float nearest{};          // +0x10 (+0x2BC) the nearest side hit's distance
+        float reach{};            // +0x14 (+0x2C0) the side collisions' reach (SetExtraPush radius; 0: off)
+        float push{};             // +0x18 (+0x2C4) their push (SetExtraPush speed)
+        float turn{};             // +0x1C (+0x2C8) their turn a second (SetExtraPush 0xDFDFEAB8)
+    };
 
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
@@ -896,11 +905,7 @@ private:
     maths::Vec4 vert_facing_{};      // +0x288 the facing up the wall, y reversed
     float vert_step_{};              // +0x298 the step the vert air feeler searches up by (6 when it starts, halved)
     std::array<uint8_t, kUnknown29cBytes> unknown29c_{};
-    maths::Vec4 side_normal_sum_{}; // +0x2AC the side feelers' hit normals added up
-    float side_nearest_{};          // +0x2BC the nearest side hit's distance
-    float side_reach_{};            // +0x2C0 the side collisions' reach (SetExtraPush radius; 0: off)
-    float side_push_{};             // +0x2C4 their push (SetExtraPush speed)
-    float side_turn_{};             // +0x2C8 their turn a second (SetExtraPush 0xDFDFEAB8)
+    SideCollisions side_; // +0x2AC-+0x2CB the side collisions
     std::array<uint8_t, 0x4> unknown2cc_{};
     uint8_t transfer_blocked_{}; // +0x2D0 a spine transfer was blocked: break_vert tries again
     std::array<uint8_t, 3> pad2d1_{};

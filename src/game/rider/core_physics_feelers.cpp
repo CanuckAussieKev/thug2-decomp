@@ -460,24 +460,24 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
     if (!feelers_.probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return;
     }
-    maths::Vec4& sum = side_normal_sum_;
+    maths::Vec4& sum = side_.normal_sum;
     const maths::Vec4& normal = feelers_.feeler.surface_dir();
     sum.x = normal.x + sum.x;
     sum.y = normal.y + sum.y;
     sum.z = normal.z + sum.z;
     sum.w = normal.w + sum.w;
-    side_nearest_ = std::min(side_nearest_, feelers_.feeler.reach());
+    side_.nearest = std::min(side_.nearest, feelers_.feeler.reach());
     core::at(side_hit_times_, side) = get_now();
 }
 
 // 0x005055B0
 void SkaterPhysicsModule::check_side_feelers()
 {
-    if (side_reach_ == 0.0F || side_push_ == 0.0F) {
+    if (side_.reach == 0.0F || side_.push == 0.0F) {
         return;
     }
-    side_normal_sum_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    side_nearest_ = 1.0F;
+    side_.normal_sum = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    side_.nearest = 1.0F;
     // The feelers start at the side collision height up the skater.
     const objects::GameEntity* object = object_of(this);
     const double height = script::fetch_float(kSideCollideHeight);
@@ -492,7 +492,7 @@ void SkaterPhysicsModule::check_side_feelers()
     // Sides 0 and 1: along the side row and back; 2 and 3: along the forward row and back.
     for (uint32_t side = 0; side < 4; ++side) {
         const maths::Vec4& row = side < 2 ? core::at(entity()->basis_frame().row, 0) : core::at(entity()->basis_frame().row, 2);
-        const double reach = side_reach_;
+        const double reach = side_.reach;
         auto x = static_cast<float>(reach * row.x);
         auto y = static_cast<float>(reach * row.y);
         auto z = static_cast<float>(reach * row.z);
@@ -511,12 +511,12 @@ void SkaterPhysicsModule::check_side_feelers()
         }
         check_side_feeler(&start, &end, side);
     }
-    if (side_nearest_ == 1.0F) { // (nothing hit: still 1)
+    if (side_.nearest == 1.0F) { // (nothing hit: still 1)
         return;
     }
     // Pushed off by the walls hit, the nearer the harder; turned along a wall it faces into.
-    maths::Vec4& push = side_normal_sum_;
-    set_length(push, static_cast<float>((1.0 - side_nearest_) * side_push_));
+    maths::Vec4& push = side_.normal_sum;
+    set_length(push, static_cast<float>((1.0 - side_.nearest) * side_.push));
     maths::Vec4& velocity = entity()->vel();
     velocity.x = push.x + velocity.x;
     velocity.y = push.y + velocity.y;
@@ -535,7 +535,7 @@ void SkaterPhysicsModule::check_side_feelers()
     along.align_to_plane(normal);
     auto angle = static_cast<float>(
         maths::get_turn_around_axis(core::at(entity()->basis_frame().row, 2), along, core::at(entity()->basis_frame().row, 1)));
-    const double turn = static_cast<double>(maths::get_sign(angle)) * side_turn_ * frame_length_;
+    const double turn = static_cast<double>(maths::get_sign(angle)) * side_.turn * frame_length_;
     auto step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn)) {
         step = angle;

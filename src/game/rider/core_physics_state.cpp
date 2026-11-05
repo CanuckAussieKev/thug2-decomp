@@ -153,11 +153,11 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, vert_facing_), .original = 0x288},
         FieldAt{.now = offsetof(SkaterPhysicsModule, vert_step_), .original = 0x298},
         FieldAt{.now = offsetof(SkaterPhysicsModule, unknown29c_), .original = 0x29C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, side_normal_sum_), .original = 0x2AC},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, side_nearest_), .original = 0x2BC},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, side_reach_), .original = 0x2C0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, side_push_), .original = 0x2C4},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, side_turn_), .original = 0x2C8},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, side_.normal_sum), .original = 0x2AC},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, side_.nearest), .original = 0x2BC},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, side_.reach), .original = 0x2C0},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, side_.push), .original = 0x2C4},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, side_.turn), .original = 0x2C8},
         FieldAt{.now = offsetof(SkaterPhysicsModule, unknown2cc_), .original = 0x2CC},
         FieldAt{.now = offsetof(SkaterPhysicsModule, transfer_blocked_), .original = 0x2D0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad2d1_), .original = 0x2D1},
@@ -313,7 +313,7 @@ void SkaterPhysicsModule::get_reset()
         ride->set_stop_time(get_now());
     }
     feelers_.floor_feeler.hit().face_flag40_ = 0;
-    side_reach_ = 0.0F;
+    side_.reach = 0.0F;
     jump_charge_ms_ = 0;
     wall_ride_start_ = 0;
     wallplant_end_ = 0;
