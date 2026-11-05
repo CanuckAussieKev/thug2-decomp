@@ -14,12 +14,14 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 #include <array>
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_level_props.h"
 #include "editor/level_editor_arrange.h"
 #include "base/maths/vec2.h"
 #include "base/core/format.h"
+#include "editor/level_editor_camera.h"
 #include "editor/level_editor_carry.h"
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_entities.h"
@@ -30,6 +32,7 @@
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_preview.h"
 #include "editor/level_editor_picking.h"
+#include "editor/level_editor_play.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_transform.h"
@@ -57,6 +60,8 @@ constexpr float kScreenSpanFactor = 2.0F;  // the world width of the screen is t
 
 constexpr std::size_t kCaptionTextSize = 96;
 
+constexpr std::size_t kStatusTextSize = 160;
+
 constexpr std::size_t kPickTextSize = 64;
 
 constexpr float kHalf = 0.5F;               // half
@@ -66,6 +71,8 @@ constexpr float kQuarterTurnDegrees = 90.0F; // degrees in a quarter turn
 constexpr float kNearZ = 2.0F; // (render::choose_camera's near plane)
 
 constexpr float kMaxPickDistance = 30000.0F;
+
+constexpr float kMinOrbit = 20.0F, kMaxOrbit = 20000.0F;
 
 // NOT ORIGINAL grouping - level_editor.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_state()).
@@ -119,6 +126,12 @@ int inspected_node();
 std::vector<picking::Lock> selection_locks();
 
 void follow_scenery();
+
+view_cam::Rig rig_now();
+
+perform::Resume resume_now();
+
+void apply_resume(const perform::Resume& resume);
 
 template <typename... Args>
 void note_action(text::FormatFor<Args...> format, Args... args)
@@ -482,6 +495,10 @@ float pixel_scale();
 
 void update_highlights();
 
+bool get_cast(V3 from, V3 to, V3* hit);
+
+bool ground_below(V3 from, V3* ground);
+
 const char* mode_name();
 
 void update_hud();
@@ -498,7 +515,27 @@ struct PlaceEntry {
 
 const std::vector<PlaceEntry>& place_entries();
 
+void place_node(int entry, V3 at);
+
+void after_chain_change(const chains::State& before, uint32_t select, const std::string& message);
+
 uint32_t chain_target();
+
+void run_chain_op(chains::ChainOp op, uint32_t arg);
+
+void field_request(const ui::Request& request);
+
+chains::Blit chain_kind_of(int entry);
+
+void draw_chain_point(V3 dir, bool alt);
+
+void stop_chain_drawing(const char* message);
+
+void unlink_list_node(bool confirmed);
+
+bool show_hidden_node();
+
+void move_selected_crown(int delta);
 
 ui::ShapeMesh assemble_model();
 
@@ -507,6 +544,26 @@ void show_help();
 void fill_browser();
 
 void show_browser();
+
+V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame);
+
+void place_from_browser(V3 at, bool keep_open = false);
+
+std::vector<std::pair<uint32_t, uint32_t>>& duplicate_pairs();
+
+void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nullptr);
+
+void repeat_duplicate(const TickCycle& frame);
+
+void switch_wall(uint32_t wall, bool off);
+
+void switch_scenery_collision(bool off);
+
+void erase_one();
+
+void get_reset();
+
+void focus_on_selection();
 
 nodes::Occluder gizmo_occluder(const TickCycle& frame, V3 dir, const scenery::Hit& hit, bool everything);
 
@@ -520,7 +577,41 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain);
 
 bool drop_under_cursor(V3 dir);
 
+void view_hide(bool isolate);
+
+void view_show_all();
+
 void show_collision(bool on);
+
+void toggle_lock();
+
+void get_look_at(V3 target, float distance);
+
+void select_node(int index);
+
+int flag_node_of(objects::GameEntity* object);
+
+void go_to_node(int index);
+
+void drop_selection();
+
+void save_layout();
+
+void answer_autosave(bool discard);
+
+void reset_level_now();
+
+void ask_reset_level();
+
+void toggle_help();
+
+void toggle_browser();
+
+void focus_browser_item();
+
+void go_to_selection();
+
+void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame);
 
 void add_hover_boxes(const TickCycle& frame, objects::GameEntity* hover, std::vector<LineVertex>& lines);
 
