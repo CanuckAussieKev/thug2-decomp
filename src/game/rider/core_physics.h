@@ -825,6 +825,39 @@ public:
         std::array<uint8_t, 3> pad1{}; // +0x01 (+0x1501)
         int time{};                    // +0x04 (+0x1504) the game clock of the natas spin's last update
     };
+    // The air, in four records apart: vert air (+0x268-+0x29B: start_vert_air, follow_vert_wall), the model's
+    // rotation in a flip spin (+0x2DC-+0x2EB: check_flip_spin, update_model_rotation), the air and landing flags
+    // the scripts set and read (+0x370-+0x377) and the air time (+0x380-+0x387). Apart: whether a model rotation
+    // is on (+0x2DB, model_rotating_: a record from there would start off its 4-byte alignment), the jump's
+    // charge (+0x378), the acid drop's height (+0x37C) and the last jump's time (+0x4EC).
+    struct VertAir {
+        maths::Vec4 takeoff{};     // +0x00 (+0x268) where the skater went up the vert wall (1 lower)
+        maths::Vec4 wall_normal{}; // +0x10 (+0x278) the vert wall's normal
+        maths::Vec4 facing{};      // +0x20 (+0x288) the facing up the wall, y reversed
+        float step{};              // +0x30 (+0x298) the vert air feeler's step up (6 when it starts, halved)
+    };
+    struct ModelRotation {
+        uint8_t flipped{};             // +0x00 (+0x2DC) a half turn about y
+        std::array<uint8_t, 3> pad1{}; // +0x01 (+0x2DD)
+        float frames_left{};           // +0x04 (+0x2E0) the rotation's frames left
+        uint8_t flip_spin_started{0};  // +0x08 (+0x2E4) a flip spin started this air (the trick's sequence check)
+        std::array<uint8_t, 3> pad9{}; // +0x09 (+0x2E5)
+        // +0x0C (+0x2E8) SetSlomo's speed (1): the rotation's step a frame, the trick windows' stretch
+        float slomo_speed{1.0F};
+    };
+    struct AirFlags {
+        uint8_t no_spin{};              // +0x00 (+0x370) no_spin / Canspin
+        uint8_t bail_on{};              // +0x01 (+0x371) BailOn / Bailoff
+        uint8_t came_down_off_spine{};  // +0x02 (+0x372)
+        uint8_t landed_from_vert{};     // +0x03 (+0x373) LandedFromVert (scripts clear it)
+        uint8_t landed_from_air_vert{}; // +0x04 (+0x374) the last landing was from vert air or an acid drop
+        uint8_t allow_lip_no_grind{};   // +0x05 (+0x375) AllowLipNoGrind
+        std::array<uint8_t, 2> pad6{};  // +0x06 (+0x376)
+    };
+    struct AirTime {
+        uint32_t start{}; // +0x00 (+0x380) the game clock when the skater went into the air
+        uint32_t end{};   // +0x04 (+0x384) ... and came out of it
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return ground_.display_matrix; }
@@ -859,8 +892,8 @@ public:
     [[nodiscard]] uint8_t auto_kick() const { return auto_kick_; }
     void set_tap_spin(uint8_t value) { tap_spin_ = value; }
     [[nodiscard]] uint8_t tap_spin() const { return tap_spin_; }
-    float& slomo_speed() { return slomo_speed_; }
-    [[nodiscard]] float slomo_speed() const { return slomo_speed_; }
+    float& slomo_speed() { return model_rotation_.slomo_speed; }
+    [[nodiscard]] float slomo_speed() const { return model_rotation_.slomo_speed; }
     [[nodiscard]] uint8_t point_rail_spin() const { return point_rail_spin_; }
     [[nodiscard]] uint8_t on_vehicle() const { return on_vehicle_; }
     [[nodiscard]] uint32_t vehicle() const { return vehicle_; }
@@ -873,8 +906,8 @@ public:
     void set_braking(uint8_t value) { braking_ = value; }
     [[nodiscard]] uint8_t rail_backwards() const { return rail_backwards_; }
     void set_rail_backwards(uint8_t value) { rail_backwards_ = value; }
-    [[nodiscard]] uint8_t landed_from_air_vert() const { return landed_from_air_vert_; }
-    [[nodiscard]] uint32_t air_start() const { return air_start_; }
+    [[nodiscard]] uint8_t landed_from_air_vert() const { return air_flags_.landed_from_air_vert; }
+    [[nodiscard]] uint32_t air_start() const { return air_time_.start; }
     [[nodiscard]] uint8_t lock_velocity() const { return lock_velocity_; }
     void set_last_spin_backside(uint8_t value) { last_spin_backside_ = value; }
     void set_rail_adjust(int value) { rail_adjust_ = value; }
@@ -956,10 +989,7 @@ private:
     float skitch_direction_{};      // +0x250
     FrameFlags frame_flags_;        // +0x254-+0x257 how the frame began
     maths::Vec4 lip_pos_{};          // +0x258 where the lip trick is (w 1; (0, 0, 0, 1) out of the lip state)
-    maths::Vec4 vert_takeoff_{};     // +0x268 where the skater went up the vert wall (1 lower)
-    maths::Vec4 vert_wall_normal_{}; // +0x278 the vert wall's normal
-    maths::Vec4 vert_facing_{};      // +0x288 the facing up the wall, y reversed
-    float vert_step_{};              // +0x298 the step the vert air feeler searches up by (6 when it starts, halved)
+    VertAir vert_;                   // +0x268-+0x29B vert air
     std::array<uint8_t, kUnknown29cBytes> unknown29c_{};
     SideCollisions side_; // +0x2AC-+0x2CB the side collisions
     std::array<uint8_t, 0x4> unknown2cc_{};
@@ -970,13 +1000,7 @@ private:
     uint8_t auto_kick_{};        // +0x2D9 ForceAutoKickOn / Off
     uint8_t tap_spin_{};         // +0x2DA spins by taps (half a turn each)
     uint8_t model_rotating_{};   // +0x2DB a timed model rotation (a flip spin) is on
-    uint8_t model_flipped_{};    // +0x2DC ... a half turn about y
-    std::array<uint8_t, 3> pad2dd_{};
-    float model_rotation_left_{}; // +0x2E0 ... its frames left
-    uint8_t flip_spin_started_{0}; // +0x2E4 a flip spin started this air (the trick component's sequence check)
-    std::array<uint8_t, 3> pad2e5_{};
-    float slomo_speed_{
-        1.0F}; // +0x2E8 SetSlomo's speed (1): the model rotation's step a frame, the trick windows' stretch
+    ModelRotation model_rotation_; // +0x2DC-+0x2EB the model's rotation (a flip spin)
     uint8_t point_rail_spin_{}; // +0x2EC in a point rail spin
     uint8_t on_vehicle_{0};     // +0x2ED SkaterVehicleOn / Off
     std::array<uint8_t, 2> pad2ee_{};
@@ -1013,17 +1037,10 @@ private:
     float limits_friction_{}; // +0x35C
     float limits_gravity_{};  // +0x360
     objects::SharedRef<objects::GameEntity> skitch_target_; // +0x364 the object being skitched on
-    uint8_t no_spin_{};                                     // +0x370 no_spin / Canspin
-    uint8_t bail_on_{};                                     // +0x371 BailOn / Bailoff
-    uint8_t came_down_off_spine_{};                         // +0x372
-    uint8_t landed_from_vert_{};                            // +0x373 LandedFromVert (scripts clear it)
-    uint8_t landed_from_air_vert_{};                        // +0x374 the last landing was from vert air or an acid drop
-    uint8_t allow_lip_no_grind_{};                          // +0x375 AllowLipNoGrind
-    std::array<uint8_t, 2> pad376_{};
+    AirFlags air_flags_;                                    // +0x370-+0x377 the air and landing flags
     int jump_charge_ms_{};       // +0x378 how long the jump was held (ms), up to the max tense time
     float drop_target_height_{}; // +0x37C the acid drop's height (DropHeight)
-    uint32_t air_start_{};       // +0x380 the game clock when the skater went into the air
-    uint32_t air_end_{};         // +0x384 ... and came out of it
+    AirTime air_time_;           // +0x380-+0x387 the air time
     uint8_t lock_velocity_{};    // +0x388 LockVelocityDirection: turns leave the velocity alone
     std::array<uint8_t, 3> pad389_{};
     WallRide wall_;                // +0x38C-+0x3A3 the wall ridden or planted on

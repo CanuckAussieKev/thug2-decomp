@@ -121,7 +121,7 @@ void SkaterPhysicsModule::get_spin()
 {
     objects::PadSnapshot* pad = &input_->pad_primary();
     objects::GameEntity* object = entity();
-    if (no_spin_ != 0U) {
+    if (air_flags_.no_spin != 0U) {
         return;
     }
     objects::RiderPoseState* flags = state_;
@@ -277,7 +277,7 @@ void SkaterPhysicsModule::face_ramp(float& speed)
             state_->set_flag(PoseFlag::kSpin, 0);
         } else {
             auto off = static_cast<float>(maths::get_turn_around_axis(
-                core::at(object->basis_frame().row, 2), vert_facing_, core::at(object->basis_frame().row, 1)));
+                core::at(object->basis_frame().row, 2), vert_.facing, core::at(object->basis_frame().row, 1)));
             auto rate = static_cast<float>(tuning_float_lookup(kFaceRampSpeed, 1, object));
             const double turn = static_cast<double>(maths::get_sign(off)) * rate;
             speed = static_cast<float>(turn);

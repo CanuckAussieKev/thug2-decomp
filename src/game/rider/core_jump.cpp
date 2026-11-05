@@ -275,7 +275,7 @@ void SkaterPhysicsModule::end_skitch()
 void SkaterPhysicsModule::step_wallplant()
 {
     const int planted = frame_.state_changed_at;
-    flip_spin_started_ = 0;
+    model_rotation_.flip_spin_started = 0;
     const uint32_t elapsed = get_since(static_cast<uint32_t>(planted));
     if (static_cast<float>(elapsed) > script::fetch_float(kWallplantDuration)) {
         // Over: into the air, with a feeler along the facing (12 ahead to 36 behind) for a trigger.

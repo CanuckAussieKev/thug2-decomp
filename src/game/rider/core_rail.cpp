@@ -196,7 +196,7 @@ void SkaterPhysicsModule::step_grind_move()
     set_flag(this, PoseFlag::kFromAcidDrop, 0);
     set_flag(this, PoseFlag::kRecoverInAir, 0);
     set_flag(this, PoseFlag::kNoAcidDrop, 0);
-    flip_spin_started_ = 0;
+    model_rotation_.flip_spin_started = 0;
     ride_moving_rail();
 
     objects::GameEntity* object = object_of(this);
@@ -566,7 +566,7 @@ void SkaterPhysicsModule::do_bike_stall_physics()
     set_flag(this, PoseFlag::kFromAcidDrop, 0);
     set_flag(this, PoseFlag::kRecoverInAir, 0);
     set_flag(this, PoseFlag::kNoAcidDrop, 0);
-    flip_spin_started_ = 0;
+    model_rotation_.flip_spin_started = 0;
     ride_moving_rail();
     rail_.wait = static_cast<int>(script::fetch_float(kRailRegrabDelay));
     set_flag(this, PoseFlag::kLipToAir, 0);

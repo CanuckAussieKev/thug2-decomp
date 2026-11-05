@@ -429,7 +429,7 @@ void SkaterPhysicsModule::check_flip_spin()
         (input->pad_primary().button_box().held_down() == 0U)) {
         return;
     }
-    model_flipped_ = 0;
+    model_rotation_.flipped = 0;
     auto* trick = core::down_cast<objects::MoveExecutor>(get_composite(object_of(this))->fetch_module(kTrickModuleKey));
     script::Array* spins = script::fetch_list(kFlipSpins);
     const int count = static_cast<int>(spins->extent());
@@ -441,7 +441,7 @@ void SkaterPhysicsModule::check_flip_spin()
         spin->read_hash_value(kSpinButton1, &core::at(sequence, 0), 0);
         spin->read_hash_value(kSpinButton2, &core::at(sequence, 1), 0);
         core::at(sequence, 2) = (input->pad_primary().button_round().held_down() != 0U) ? kCircle : kSquare;
-        if (trick->check_spin_sequence(sequence, flip_spin_started_ != 0)) {
+        if (trick->check_spin_sequence(sequence, model_rotation_.flip_spin_started != 0)) {
             found = true;
             break;
         }
@@ -450,25 +450,25 @@ void SkaterPhysicsModule::check_flip_spin()
         return;
     }
     model_rotating_ = 1;
-    model_rotation_left_ = kFlipSpinTime;
+    model_rotation_.frames_left = kFlipSpinTime;
     no_rail_tricks_ = 1;
-    flip_spin_started_ = 1;
+    model_rotation_.flip_spin_started = 1;
     auto* model =
         core::down_cast<objects::MeshInstanceModule>(get_composite(object_of(this))->fetch_module(kModelModuleName));
     int x = 0;
     int y = 0;
     int z = 0;
     if (spin->fetch_int_value(kSpinX, &x, 0) && (x != 0)) {
-        model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(x), 0, true, true, false, false);
+        model->rotate_display(model_rotation_.frames_left, 0.0F, static_cast<float>(x), 0, true, true, false, false);
     }
     if (spin->fetch_int_value(kSpinY, &y, 0) && (y != 0)) {
         if (y == kHalfTurnDegrees || y == -kHalfTurnDegrees) {
-            model_flipped_ = 1;
+            model_rotation_.flipped = 1;
         }
-        model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(y), 0, true, false, true, false);
+        model->rotate_display(model_rotation_.frames_left, 0.0F, static_cast<float>(y), 0, true, false, true, false);
     }
     if (spin->fetch_int_value(kSpinZ, &z, 0) && (z != 0)) {
-        model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(z), 0, true, false, false, true);
+        model->rotate_display(model_rotation_.frames_left, 0.0F, static_cast<float>(z), 0, true, false, false, true);
     }
     script::launch_script(kSpinScript, spin, static_cast<objects::Entity*>(object_of(this)), false, nullptr);
 }

@@ -279,9 +279,9 @@ void SkaterPhysicsModule::start_vert_air()
     const objects::GameEntity* object = object_of(this);
     tracking_print(3, &object->old_pos(), &object->at_point());
     maths::Vec4 across = ground_.floor_normal;
-    vert_wall_normal_ = ground_.floor_normal;
-    vert_takeoff_ = entity()->old_pos();
-    vert_takeoff_.y = static_cast<float>(vert_takeoff_.y - 1.0);
+    vert_.wall_normal = ground_.floor_normal;
+    vert_.takeoff = entity()->old_pos();
+    vert_.takeoff.y = static_cast<float>(vert_.takeoff.y - 1.0);
     across.y = 0.0F;
     if (!(std::sqrt((static_cast<double>(across.z) * across.z) + (static_cast<double>(across.x) * across.x)) > kFlat)) {
         set_timed_flag(this, PoseFlag::kVertAir, 0);
@@ -290,8 +290,8 @@ void SkaterPhysicsModule::start_vert_air()
     across.make_unit();
     entity()->vel().align_to_plane(across);
     turn_to_normal(across);
-    vert_facing_ = core::at(entity()->basis_frame().row, 2);
-    vert_facing_.y = -vert_facing_.y;
+    vert_.facing = core::at(entity()->basis_frame().row, 2);
+    vert_.facing.y = -vert_.facing.y;
     const double out = script::fetch_float(kVertPushOut);
     maths::Vec4& position = entity()->at_point();
     auto y = static_cast<float>(across.y * out);
@@ -304,7 +304,7 @@ void SkaterPhysicsModule::start_vert_air()
     set_timed_flag(this, PoseFlag::kVertAir, 1);
     set_timed_flag(this, PoseFlag::kVertWall, 1);
     set_timed_flag(this, PoseFlag::kSpin, 1);
-    vert_step_ = kVertStep;
+    vert_.step = kVertStep;
 }
 
 } // namespace skater

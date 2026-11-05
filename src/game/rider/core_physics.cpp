@@ -535,10 +535,10 @@ void SkaterPhysicsModule::follow_vert_wall()
     maths::Vec4& start = feelers_.probe_start;
     maths::Vec4& end = feelers_.probe_end;
     start.x = entity()->at_point().x;
-    start.y = vert_takeoff_.y;
+    start.y = vert_.takeoff.y;
     start.z = entity()->at_point().z;
     end = start;
-    const maths::Vec4& wall = vert_wall_normal_;
+    const maths::Vec4& wall = vert_.wall_normal;
     const float wz = wall.z * 30.0F;
     const float ww = wall.w * 30.0F;
     start.x = static_cast<float>((static_cast<double>(wall.x) * kWallProbeReach) + start.x);
@@ -549,7 +549,7 @@ void SkaterPhysicsModule::follow_vert_wall()
     end.y = static_cast<float>(end.y - (static_cast<double>(wall.y) * kWallProbeReach));
     end.z -= wz;
     end.w -= ww;
-    float& step = vert_step_;
+    float& step = vert_.step;
     bool found = false;
     if (step > kStepMin) {
         start.y = step + start.y;
@@ -569,7 +569,7 @@ void SkaterPhysicsModule::follow_vert_wall()
         start.y -= kLowerStep;
         end.y -= kLowerStep;
         if (feelers_.probe_touches_zone(render::kNoFaceFlags, render::FaceFlag::kVert)) {
-            vert_takeoff_.y = feelers_.feeler.contact_pos().y;
+            vert_.takeoff.y = feelers_.feeler.contact_pos().y;
             found = true;
         }
     }
@@ -579,16 +579,16 @@ void SkaterPhysicsModule::follow_vert_wall()
                                      (static_cast<double>(wall.x) * normal.x))) > kNormalTolerance) {
         // Still along the wall: stay on it (not below the height so far); its normal is the new wall normal,
         // and the skater is pushed off it by a script value.
-        const float height = point.y < vert_takeoff_.y ? vert_takeoff_.y : point.y;
+        const float height = point.y < vert_.takeoff.y ? vert_.takeoff.y : point.y;
         const float hz = point.z;
         const float hw = point.w;
-        vert_takeoff_.x = point.x;
-        vert_takeoff_.w = hw;
-        vert_takeoff_.y = height;
-        vert_takeoff_.z = hz;
+        vert_.takeoff.x = point.x;
+        vert_.takeoff.w = hw;
+        vert_.takeoff.y = height;
+        vert_.takeoff.z = hz;
         entity()->at_point().x = point.x;
         entity()->at_point().z = hz;
-        maths::Vec4& new_wall = vert_wall_normal_;
+        maths::Vec4& new_wall = vert_.wall_normal;
         new_wall = normal;
         const float push = script::fetch_float(0x78384871);
         maths::Vec4& position = entity()->at_point();
@@ -836,8 +836,9 @@ void SkaterPhysicsModule::do_air_physics()
         return;
     }
     bool recent = false;
-    if (air_start_ > ints::as_unsigned(leap_time_)) {
-        recent = static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(air_start_))) < kRecentAirMs;
+    if (air_time_.start > ints::as_unsigned(leap_time_)) {
+        recent =
+            static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(air_time_.start))) < kRecentAirMs;
     }
     AcidDrop drop{};
     objects::GameEntity* skater = entity();
@@ -853,12 +854,12 @@ void SkaterPhysicsModule::land_from_air()
     start_riding_hit_object();
     objects::RiderPoseState* flags = state_;
     if ((flags->flag(PoseFlag::kVertAir).on != 0U) || (flags->flag(PoseFlag::kAcidDrop).on != 0U)) {
-        landed_from_vert_ = 1;
-        landed_from_air_vert_ = 1;
+        air_flags_.landed_from_vert = 1;
+        air_flags_.landed_from_air_vert = 1;
     } else {
-        landed_from_air_vert_ = 0;
+        air_flags_.landed_from_air_vert = 0;
     }
-    came_down_off_spine_ = flags->flag(PoseFlag::kAcidDrop).on;
+    air_flags_.came_down_off_spine = flags->flag(PoseFlag::kAcidDrop).on;
     set_surface_kind(feelers_.feeler.hit().terrain);
     if (on_vehicle_ == 0U) {
         const uint32_t which = state_->surface_type();
@@ -878,8 +879,8 @@ void SkaterPhysicsModule::land_from_air()
         const maths::Vec4& normal = feelers_.feeler.surface_dir();
         maths::Vec4& velocity = entity()->vel();
         const objects::PadInputModule* input = input_;
-        if ((landed_from_air_vert_ == 0U) && (landed_from_vert_ == 0U) && velocity.x == 0.0F && velocity.z == 0.0F &&
-            (input->pad_primary().btn_down().held_down() != 0U)) {
+        if ((air_flags_.landed_from_air_vert == 0U) && (air_flags_.landed_from_vert == 0U) && velocity.x == 0.0F &&
+            velocity.z == 0.0F && (input->pad_primary().btn_down().held_down() != 0U)) {
             // (Landing straight down with button +0x40 held: no bounce.)
             velocity.y = 0.0F; // (the original stores the word 0)
         } else {

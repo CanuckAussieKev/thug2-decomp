@@ -285,9 +285,9 @@ uint32_t SkaterPhysicsModule::time_aloft()
 {
     const int state = state_->cur_phase();
     if (state == 1 || state == 2) {
-        return get_since(air_start_);
+        return get_since(air_time_.start);
     }
-    return air_end_ - air_start_;
+    return air_time_.end - air_time_.start;
 }
 
 // The feeler of IsFacingWall and its relatives: the unnamed distance (200), from the skater's position (raised by
@@ -391,25 +391,25 @@ int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct* /*params*/, script
 // 0x004FC000
 int SkaterPhysicsModule::can_spin(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    no_spin_ = 0;
+    air_flags_.no_spin = 0;
     return 1;
 }
 // 0x004FC010
 int SkaterPhysicsModule::bail_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    bail_on_ = 1;
+    air_flags_.bail_on = 1;
     return 1;
 }
 // 0x004FC020
 int SkaterPhysicsModule::bail_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    bail_on_ = 0;
+    air_flags_.bail_on = 0;
     return 1;
 }
 // 0x004FC030
 int SkaterPhysicsModule::bail_is_on(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return get_is(bail_on_);
+    return get_is(air_flags_.bail_on);
 }
 // 0x004FC080
 int SkaterPhysicsModule::bad_ledge(script::Struct* /*params*/, script::Script* /*script*/) const
@@ -419,35 +419,35 @@ int SkaterPhysicsModule::bad_ledge(script::Struct* /*params*/, script::Script* /
 // 0x004FC090
 int SkaterPhysicsModule::came_down_off_spine(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return get_is(came_down_off_spine_);
+    return get_is(air_flags_.came_down_off_spine);
 }
 // 0x004FC0A0
 int SkaterPhysicsModule::landed_from_vert(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return get_is(landed_from_vert_);
+    return get_is(air_flags_.landed_from_vert);
 }
 // 0x004FC0B0
 int SkaterPhysicsModule::set_landed_from_vert(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    landed_from_vert_ = 1;
+    air_flags_.landed_from_vert = 1;
     return 1;
 }
 // 0x004FC0C0
 int SkaterPhysicsModule::reset_landed_from_vert(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    landed_from_vert_ = 0;
+    air_flags_.landed_from_vert = 0;
     return 1;
 }
 // 0x004FC0D0
 int SkaterPhysicsModule::allow_lip_no_grind(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    allow_lip_no_grind_ = 1;
+    air_flags_.allow_lip_no_grind = 1;
     return 1;
 }
 // 0x004FC0E0
 int SkaterPhysicsModule::clear_allow_lip_no_grind(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    allow_lip_no_grind_ = 0;
+    air_flags_.allow_lip_no_grind = 0;
     return 1;
 }
 // 0x004FC0F0
@@ -651,7 +651,7 @@ int SkaterPhysicsModule::cancel_wallpush(script::Struct* /*params*/, script::Scr
 // 0x004FCF90
 int SkaterPhysicsModule::no_spin(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    no_spin_ = 1;
+    air_flags_.no_spin = 1;
     set_timed_flag(this, PoseFlag::kSpin, 0);
     return 1;
 }
@@ -733,7 +733,7 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script* 
 // 0x004FC340
 int SkaterPhysicsModule::doing_flip(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    if ((model_rotating_ != 0U) && model_rotation_left_ > kFlipLeftMin) {
+    if ((model_rotating_ != 0U) && model_rotation_.frames_left > kFlipLeftMin) {
         return 1;
     }
     return 0;

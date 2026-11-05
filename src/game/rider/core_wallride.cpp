@@ -96,7 +96,7 @@ void SkaterPhysicsModule::step_wall_ride()
     set_flag(this, PoseFlag::kFromAcidDrop, 0);
     set_flag(this, PoseFlag::kRecoverInAir, 0);
     set_flag(this, PoseFlag::kNoAcidDrop, 0);
-    flip_spin_started_ = 0;
+    model_rotation_.flip_spin_started = 0;
     rail_.node = nullptr;
     rail_.last_script = 0;
     wall_.ride_start = get_now();

@@ -148,10 +148,10 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, frame_flags_.began_in_lip), .original = 0x256},
         FieldAt{.now = offsetof(SkaterPhysicsModule, frame_flags_.pad3), .original = 0x257},
         FieldAt{.now = offsetof(SkaterPhysicsModule, lip_pos_), .original = 0x258},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_takeoff_), .original = 0x268},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_wall_normal_), .original = 0x278},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_facing_), .original = 0x288},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_step_), .original = 0x298},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_.takeoff), .original = 0x268},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_.wall_normal), .original = 0x278},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_.facing), .original = 0x288},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_.step), .original = 0x298},
         FieldAt{.now = offsetof(SkaterPhysicsModule, unknown29c_), .original = 0x29C},
         FieldAt{.now = offsetof(SkaterPhysicsModule, side_.normal_sum), .original = 0x2AC},
         FieldAt{.now = offsetof(SkaterPhysicsModule, side_.nearest), .original = 0x2BC},
@@ -166,12 +166,12 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, auto_kick_), .original = 0x2D9},
         FieldAt{.now = offsetof(SkaterPhysicsModule, tap_spin_), .original = 0x2DA},
         FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotating_), .original = 0x2DB},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, model_flipped_), .original = 0x2DC},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad2dd_), .original = 0x2DD},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotation_left_), .original = 0x2E0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, flip_spin_started_), .original = 0x2E4},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad2e5_), .original = 0x2E5},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, slomo_speed_), .original = 0x2E8},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotation_.flipped), .original = 0x2DC},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotation_.pad1), .original = 0x2DD},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotation_.frames_left), .original = 0x2E0},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotation_.flip_spin_started), .original = 0x2E4},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotation_.pad9), .original = 0x2E5},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, model_rotation_.slomo_speed), .original = 0x2E8},
         FieldAt{.now = offsetof(SkaterPhysicsModule, point_rail_spin_), .original = 0x2EC},
         FieldAt{.now = offsetof(SkaterPhysicsModule, on_vehicle_), .original = 0x2ED},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad2ee_), .original = 0x2EE},
@@ -208,17 +208,17 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, limits_friction_), .original = 0x35C},
         FieldAt{.now = offsetof(SkaterPhysicsModule, limits_gravity_), .original = 0x360},
         FieldAt{.now = offsetof(SkaterPhysicsModule, skitch_target_), .original = 0x364},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, no_spin_), .original = 0x370},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, bail_on_), .original = 0x371},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, came_down_off_spine_), .original = 0x372},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, landed_from_vert_), .original = 0x373},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, landed_from_air_vert_), .original = 0x374},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, allow_lip_no_grind_), .original = 0x375},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad376_), .original = 0x376},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.no_spin), .original = 0x370},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.bail_on), .original = 0x371},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.came_down_off_spine), .original = 0x372},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.landed_from_vert), .original = 0x373},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.landed_from_air_vert), .original = 0x374},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.allow_lip_no_grind), .original = 0x375},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.pad6), .original = 0x376},
         FieldAt{.now = offsetof(SkaterPhysicsModule, jump_charge_ms_), .original = 0x378},
         FieldAt{.now = offsetof(SkaterPhysicsModule, drop_target_height_), .original = 0x37C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, air_start_), .original = 0x380},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, air_end_), .original = 0x384},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_time_.start), .original = 0x380},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, air_time_.end), .original = 0x384},
         FieldAt{.now = offsetof(SkaterPhysicsModule, lock_velocity_), .original = 0x388},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad389_), .original = 0x389},
         FieldAt{.now = offsetof(SkaterPhysicsModule, wall_.normal), .original = 0x38C},
@@ -317,8 +317,8 @@ void SkaterPhysicsModule::get_reset()
     jump_charge_ms_ = 0;
     wall_.ride_start = 0;
     wall_.plant_end = 0;
-    no_spin_ = 0;
-    bail_on_ = 0;
+    air_flags_.no_spin = 0;
+    air_flags_.bail_on = 0;
     no_kick_ = 0;
     can_brake_ = 1;
     state_->set_lip_straight_up(0);
@@ -432,16 +432,16 @@ void SkaterPhysicsModule::update_model_rotation()
         return;
     }
     auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel));
-    const double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
-    model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
+    const double left = static_cast<double>(model_rotation_.frames_left) - model_rotation_.slomo_speed;
+    model_rotation_.frames_left = static_cast<float>(left); // (compared below unrounded)
     Expects(model != nullptr);
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
     if (state_->cur_phase() != 1) {
         reset_rotations();
         model_rotating_ = 0;
         no_rail_tricks_ = 0;
-        model_rotation_left_ = 0.0F;
-        flip_spin_started_ = 0;
+        model_rotation_.frames_left = 0.0F;
+        model_rotation_.flip_spin_started = 0;
         return;
     }
     if (left <= kModelRotationEnd) {
@@ -449,8 +449,8 @@ void SkaterPhysicsModule::update_model_rotation()
     }
     if (left <= 0.0) {
         model_rotating_ = 0;
-        model_rotation_left_ = 0.0F;
-        if (model_flipped_ != 0U) {
+        model_rotation_.frames_left = 0.0F;
+        if (model_rotation_.flipped != 0U) {
             core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
                 ->get_flip();
         }

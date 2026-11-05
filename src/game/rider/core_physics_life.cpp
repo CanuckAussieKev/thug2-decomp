@@ -220,14 +220,14 @@ void SkaterPhysicsModule::set_physics_state(int state)
     old = state_->cur_phase();
     if (old == kAir) {
         if (state != kAir) {
-            air_end_ = get_now();
+            air_time_.end = get_now();
             set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
             set_timed_flag(this, PoseFlag::kJumpedOffRail, 0);
             set_timed_flag(this, PoseFlag::kJumped, 0);
         }
     } else if (state == kAir) {
         if (old != kWallRide) {
-            air_start_ = get_now();
+            air_time_.start = get_now();
         }
         trick_->spin_total() = 0.0F;
         take_press(&input_->pad_primary().shoulder_left_a());

@@ -565,7 +565,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     auto ramp_vert =
         static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kLipRampVertAngle)) * kDegrees));
     bool lip = true;
-    if (allow_lip_no_grind_ == 0U) {
+    if (air_flags_.allow_lip_no_grind == 0U) {
         const objects::GameEntity* object = object_of(this);
         lip = object->vel().y > 0.0F && std::fabs(core::at(object->basis_frame().row, 1).y) < horizontal &&
               core::at(object->basis_frame().row, 2).y > 0.0F && std::fabs(ground_.floor_normal.y) < ramp_vert &&

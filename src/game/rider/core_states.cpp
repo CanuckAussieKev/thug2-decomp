@@ -45,7 +45,7 @@ void SkaterPhysicsModule::step_coping_move()
     set_flag(this, PoseFlag::kAcidDrop, 0);
     set_flag(this, PoseFlag::kFromAcidDrop, 0);
     set_flag(this, PoseFlag::kRecoverInAir, 0);
-    flip_spin_started_ = 0;
+    model_rotation_.flip_spin_started = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
     if (objects::RideTracker* tracker = get_tracker(this)) {
         if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
@@ -125,7 +125,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     jump_charge_ms_ = 0;
     wall_.ride_start = 0;
     wall_.plant_end = 0;
-    no_spin_ = 0;
+    air_flags_.no_spin = 0;
     no_kick_ = 0;
     can_brake_ = 1;
     state_->set_lip_straight_up(0); // (without its time)
