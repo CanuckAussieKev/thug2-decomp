@@ -119,7 +119,7 @@ void KinematicsModule::tick_frame()
         }
         if ((motion_flags_ & kMotionJumping) != 0U) {
             update_jump();
-            entity()->at_point() = jump_pos_;
+            entity()->at_point() = jump_.pos;
         }
     }
     // The ground offset (Obj_StickToGround's height to make up), eased in.

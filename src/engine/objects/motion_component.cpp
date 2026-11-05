@@ -300,32 +300,32 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
 // 0x00423B30
 bool KinematicsModule::obj_jump(script::Struct* params, script::Script* /*script*/)
 {
-    jump_speed_ = kJumpSpeed;
-    params->fetch_float(kSpeed, &jump_speed_, 0);
-    jump_start_speed_ = jump_speed_;
-    leap_pull_ = -kLeapPull;
-    params->fetch_float(kGravity, &leap_pull_, 0);
-    jump_start_ = entity()->at_point();
-    jump_col_above_ = kJumpProbeAbove;
-    params->fetch_float(kColDistAbove, &jump_col_above_, 0);
-    jump_col_below_ = kJumpProbeBelow;
-    params->fetch_float(kColDistBelow, &jump_col_below_, 0);
-    bool heading = params->fetch_vec(kHeading, &leap_direction_, 0);
+    jump_.speed = kJumpSpeed;
+    params->fetch_float(kSpeed, &jump_.speed, 0);
+    jump_.start_speed = jump_.speed;
+    jump_.gravity = -kLeapPull;
+    params->fetch_float(kGravity, &jump_.gravity, 0);
+    jump_.start = entity()->at_point();
+    jump_.col_above = kJumpProbeAbove;
+    params->fetch_float(kColDistAbove, &jump_.col_above, 0);
+    jump_.col_below = kJumpProbeBelow;
+    params->fetch_float(kColDistBelow, &jump_.col_below, 0);
+    bool heading = params->fetch_vec(kHeading, &jump_.direction, 0);
     if (!heading && params->has_bare_flag(kUseCurrentHeading)) {
-        leap_direction_ = core::at(entity()->display_matrix().row, 2);
+        jump_.direction = core::at(entity()->display_matrix().row, 2);
         heading = true;
     }
     if (heading) {
         // (the heading's y scales the speed up, then goes)
-        jump_has_heading_ = true;
-        jump_speed_ = static_cast<float>(static_cast<double>(leap_direction_.y) * jump_speed_);
-        leap_direction_.y = 0.0F;
+        jump_.has_heading = true;
+        jump_.speed = static_cast<float>(static_cast<double>(jump_.direction.y) * jump_.speed);
+        jump_.direction.y = 0.0F;
     } else {
-        jump_has_heading_ = false;
+        jump_.has_heading = false;
     }
-    jump_has_land_height_ = false;
-    if (params->fetch_float(kLandHeight, &leap_touchdown_y_, 0)) {
-        jump_has_land_height_ = true;
+    jump_.has_land_height = false;
+    if (params->fetch_float(kLandHeight, &jump_.land_height, 0)) {
+        jump_.has_land_height = true;
     }
     motion_flags_ |= kMotionJumping;
     return true;
@@ -388,18 +388,18 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, leader_.trail), .original = 0x1F0},
         FieldAt{.now = offsetof(KinematicsModule, leader_.leave_y_unaffected), .original = 0x1F4},
         FieldAt{.now = offsetof(KinematicsModule, leader_.pad5), .original = 0x1F5},
-        FieldAt{.now = offsetof(KinematicsModule, jump_speed_), .original = 0x1F8},
-        FieldAt{.now = offsetof(KinematicsModule, leap_pull_), .original = 0x1FC},
-        FieldAt{.now = offsetof(KinematicsModule, leap_direction_), .original = 0x200},
-        FieldAt{.now = offsetof(KinematicsModule, jump_has_heading_), .original = 0x210},
-        FieldAt{.now = offsetof(KinematicsModule, jump_pos_), .original = 0x214},
-        FieldAt{.now = offsetof(KinematicsModule, jump_start_speed_), .original = 0x224},
-        FieldAt{.now = offsetof(KinematicsModule, jump_col_above_), .original = 0x228},
-        FieldAt{.now = offsetof(KinematicsModule, jump_col_below_), .original = 0x22C},
-        FieldAt{.now = offsetof(KinematicsModule, unknown230_), .original = 0x230},
-        FieldAt{.now = offsetof(KinematicsModule, jump_has_land_height_), .original = 0x234},
-        FieldAt{.now = offsetof(KinematicsModule, leap_touchdown_y_), .original = 0x238},
-        FieldAt{.now = offsetof(KinematicsModule, jump_start_), .original = 0x23C},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.speed), .original = 0x1F8},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.gravity), .original = 0x1FC},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.direction), .original = 0x200},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.has_heading), .original = 0x210},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.pos), .original = 0x214},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.start_speed), .original = 0x224},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.col_above), .original = 0x228},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.col_below), .original = 0x22C},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.unknown38), .original = 0x230},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.has_land_height), .original = 0x234},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.land_height), .original = 0x238},
+        FieldAt{.now = offsetof(KinematicsModule, jump_.start), .original = 0x23C},
         FieldAt{.now = sizeof(KinematicsModule), .original = 0x24C},
     };
     static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {

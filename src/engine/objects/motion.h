@@ -428,6 +428,22 @@ private:
         std::array<uint8_t, 3> pad5{}; // +0x05 (+0x1F5)
     };
 
+    // Obj_Jump's jump (+0x1F8-+0x24B: obj_jump, update_jump; tick_frame takes its position).
+    struct Jump {
+        float speed{};           // +0x00 (+0x1F8) up (per second)
+        float gravity{};         // +0x04 (+0x1FC)
+        maths::Vec4 direction{}; // +0x08 (+0x200) along (x, z; w kept)
+        bool has_heading{};      // +0x18 (+0x210)
+        maths::Vec4 pos{};       // +0x1C (+0x214) its position this frame
+        float start_speed{};     // +0x2C (+0x224)
+        float col_above{};       // +0x30 (+0x228) col_dist_above
+        float col_below{};       // +0x34 (+0x22C) col_dist_below
+        uint32_t unknown38{};    // +0x38 (+0x230)
+        bool has_land_height{};  // +0x3C (+0x234)
+        float land_height{};     // +0x40 (+0x238) land_height
+        maths::Vec4 start{};     // +0x44 (+0x23C)
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
@@ -448,18 +464,7 @@ private:
     uint32_t list_link_{};                       // +0x1E8 the node it's at
     std::unique_ptr<PathFollower> path_follower_; // +0x1EC
     FollowLeader leader_;                         // +0x1F0-+0x1F7 following another object's trail
-    float jump_speed_{};           // +0x1F8 up (per second)
-    float leap_pull_{};            // +0x1FC
-    maths::Vec4 leap_direction_{}; // +0x200 along (x, z; w kept)
-    bool jump_has_heading_{};      // +0x210
-    maths::Vec4 jump_pos_{};       // +0x214 the jump's position this frame
-    float jump_start_speed_{};     // +0x224
-    float jump_col_above_{};       // +0x228 col_dist_above
-    float jump_col_below_{};       // +0x22C col_dist_below
-    uint32_t unknown230_{};
-    bool jump_has_land_height_{}; // +0x234
-    float leap_touchdown_y_{};    // +0x238
-    maths::Vec4 jump_start_{};    // +0x23C
+    Jump jump_;                                   // +0x1F8-+0x24B Obj_Jump's
 
     // 0x00425600 (thiscall; called by its member function for Obj_Rotate, 0x00426770): turn the object to an
     // orientation over time - `relative = (x, y, z)`: the object's orientation now turned by those angles about its

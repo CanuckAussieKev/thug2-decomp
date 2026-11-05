@@ -91,39 +91,41 @@ void KinematicsModule::update_jump()
     float x = pos.x;
     float z = pos.z;
     float w = pos.w;
-    const double fall = static_cast<double>(leap_pull_) * step_seconds_;
-    const double rise = (static_cast<double>(jump_speed_) * step_seconds_) + (fall * step_seconds_ * 0.5);
-    if (jump_has_heading_) {
+    const double fall = static_cast<double>(jump_.gravity) * step_seconds_;
+    const double rise = (static_cast<double>(jump_.speed) * step_seconds_) + (fall * step_seconds_ * 0.5);
+    if (jump_.has_heading) {
         // (along the heading at the start's speed: x and z through rounded products, w through an unrounded one)
         const float frame = step_seconds_;
-        const double speed = jump_start_speed_;
-        const double along_w = speed * leap_direction_.w * frame;
-        auto along_z = static_cast<float>(speed * leap_direction_.z);
-        auto along_x = static_cast<float>(speed * leap_direction_.x);
+        const double speed = jump_.start_speed;
+        const double along_w = speed * jump_.direction.w * frame;
+        auto along_z = static_cast<float>(speed * jump_.direction.z);
+        auto along_x = static_cast<float>(speed * jump_.direction.x);
         x = static_cast<float>((static_cast<double>(along_x) * frame) + x);
         z = static_cast<float>(static_cast<double>(z) + (static_cast<double>(along_z) * frame));
         w = static_cast<float>(static_cast<double>(w) + along_w);
     }
     auto y = static_cast<float>(static_cast<double>(pos.y) + rise);
-    jump_speed_ = static_cast<float>(fall + jump_speed_);
+    jump_.speed = static_cast<float>(fall + jump_.speed);
     if (rise < 0.0) {
         // (coming down: landed at land_height, or on whatever is below)
-        if (jump_has_land_height_) {
-            if (y < leap_touchdown_y_) {
+        if (jump_.has_land_height) {
+            if (y < jump_.land_height) {
                 motion_flags_ &= ~kMotionJumping;
-                y = leap_touchdown_y_;
+                y = jump_.land_height;
             }
         } else {
             render::ProbeRay feeler;
             auto above = static_cast<float>(static_cast<double>(w) + 1.0F);
-            feeler.line().start = {.x = x, .y = static_cast<float>(static_cast<double>(y) + jump_col_above_), .z = z, .w = above};
-            feeler.line().end = {.x = x, .y = static_cast<float>(static_cast<double>(y) + -jump_col_below_), .z = z, .w = above};
+            feeler.line().start = {
+                .x = x, .y = static_cast<float>(static_cast<double>(y) + jump_.col_above), .z = z, .w = above};
+            feeler.line().end = {
+                .x = x, .y = static_cast<float>(static_cast<double>(y) + -jump_.col_below), .z = z, .w = above};
             if (feeler.get_hit_shape(true, false) != 0) {
                 motion_flags_ &= ~kMotionJumping;
             }
         }
     }
-    jump_pos_ = {.x = x, .y = y, .z = z, .w = w};
+    jump_.pos = {.x = x, .y = y, .z = z, .w = w};
 }
 
 // 0x00425F40
