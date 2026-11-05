@@ -234,7 +234,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 
 | interface | declared in | implemented by | what it hides | other implementations |
 |---|---|---|---|---|
-| `render::Device`, `render::UiBackend` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h` | `thug2_render_d3d9` (`render::d3d9::device()`, `render::d3d9::ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_render_vulkan`, being written: [design/vulkan.md](design/vulkan.md)) |
+| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_d3d9` (`render::d3d9::device()`, `render::d3d9::ui_backend()`, `render::d3d9::gpu()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_render_vulkan`, being written: [design/vulkan.md](design/vulkan.md)) |
 | `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
 | `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoder (planned, for a 64-bit build) |
 | `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |
@@ -296,6 +296,16 @@ everything above it uses the game's own types and may change them freely.
   is the one `install_vulkan` in `renderer_choice.cpp`. Nothing below `app/` includes or links it
   (tools/layers.json: render_d3d9 is strict and only the app may include it), so the engine, the game, the editor and
   the front end build without Direct3D.
+  - `render::Gpu` (`engine/gfx/gpu.h`): the low interface under the platform layer, which it calls where it called the
+    Direct3D 9 device (design/vulkan.md, "A Vulkan backend: the shape"): resources made, locked and released (textures,
+    vertex and index buffers, render targets and depth surfaces, occlusion queries), the state block (render states,
+    texture stages, samplers, textures, the vertex format, the pixel shader and its constants, the material, the
+    lights, the transforms, the viewport - Direct3D 9's numbers, recorded as they pass, so another API derives its
+    shaders and pipelines from it), draws per batch (from buffers or from memory), clears, the scene, present. One
+    call per device call; Direct3D 9's (`render_d3d9/gpu_d3d9.cpp`) passes each on unchanged, and `app::install_renderer`
+    installs it with the device. The render-state cache (`render_state.cpp`, `primitive_states.cpp`) and the device's
+    state and clear wrappers go through it already and include no Direct3D header (tools/d3d_headers.test.ts); the
+    meshes, particles, effects and 2D still call the device directly until they are moved over.
   - What our level editor asks of it (`render::Device`, "what our level editor asks"; `render_d3d9/editor_support.cpp`):
     whether the device is made, its view modes (`engine/gfx/view_modes.h`), its old HUD's lines, a PC geom's meshes,
     mesh array, instance and active flag, the buffers its ground tool makes and their upload and release, and the Add

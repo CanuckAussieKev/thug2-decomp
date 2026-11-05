@@ -1,7 +1,8 @@
 # A Vulkan renderer, and ray tracing after it
 
-Status: design, being implemented: V1 (the libraries), V2 (the context) and V3 (the fixed-function emulation, "V3"
-below) are done. Written against the `stage11` branch (2026-11-05); the numbers come from a scan of `src/` (see the
+Status: design, being implemented: V1 (the libraries), V2 (the context), V3 (the fixed-function emulation, "V3"
+below), V4 (the choice at start-up) and V5a (`render::Gpu` and the render-state cache through it, "V5a" below) are
+done. Written against the `stage11` branch (2026-11-05); the numbers come from a scan of `src/` (see the
 end).
 
 ## The goal
@@ -284,6 +285,38 @@ The validation layers come from the Vulkan SDK, debug builds only.
 current drivers), so the Vulkan backend can be brought to parity on the 32-bit build, next to the Direct3D 9 backend
 and the same frames.
 
+### V5a: `render::Gpu` (done)
+
+`engine/gfx/gpu.h` declares it (beside the handles, `engine/gfx/gpu_handles.h`, which gained `GpuPixelShader` and
+`GpuQuery`); `render_d3d9/gpu_d3d9.cpp` is Direct3D 9's, installed by `app::install_renderer` with the device.
+
+- **Numbers**: the states (`GpuRenderState`, `GpuStageState`, `GpuSamplerState`, `GpuTransform`, `GpuPrimitive`)
+  and their values (`gpu_value::`) are Direct3D 9's own numbers, named; formats, pools, usages and lock flags pass
+  as Direct3D 9's numbers. `gpu_d3d9.cpp` checks every name and every structure's layout (material, light, viewport,
+  rectangles, locked rectangle, gamma ramp, matrix) against `<d3d9.h>` at compile time.
+- **Operations** (one per device call, never per vertex): the state setters; the `get_*` reads (Direct3D 9 asks the
+  device; another API can answer from the block); textures, vertex / index buffers, render targets, depth and
+  offscreen surfaces, occlusion queries made, locked, set, copied, read back and released; stream source and
+  indices; draws from buffers (indexed or not) and from memory (the `UP` draws); begin / end scene, clear, present,
+  the gamma ramp, the cooperative level.
+- **The state block** (`GpuStateBlock`): the setters are non-virtual - they record into the block, then make the one
+  virtual call. It holds every render state (0-209), 8 stages x 33 stage states, 16 samplers x 14 sampler states,
+  the 16 textures, the FVF, the pixel shader and c0-c7, the material, 8 lights and their enable bits, world / view /
+  projection / 8 texture transforms, the viewport. It starts from (and `reset_state_block` returns to) Direct3D 9's
+  documented defaults, at device creation (`reset_render_state`) and after a reset. Everything V3 lists for the
+  ShaderKey is in it; like the device, it is sticky.
+- **Moved behind it**: the render-state cache (`render_state.cpp`: `change_phase`, the vertex format, the stage
+  textures, the blend modes, the stand-in texture stages, the pixel shader and its constants, `apply_render_state`),
+  `primitive_states.cpp`, and the device's `set_render_state` / `clear_device` wrappers (which carry about 40 more
+  render-state sites in the meshes, the frame, the shadows and the wireframe view). The cache's own decisions - what
+  it skips as unchanged, in the renderer's own encodings - are unchanged; both files include no Direct3D header now.
+  In steady play about 2,300 of the frame's ~7,300 device calls go through the Gpu.
+- **Left for V5b-e**: the other files still call the device (`d3d9::state().d3d_device()`); routing one is replacing
+  each call by the Gpu's (the arguments are the same numbers). Not in the interface yet: pixel shader creation (the
+  generated `ps.1.1` and its Vulkan counterpart need a description, not tokens), the vertex shader save / restore
+  around the billboards, device creation and `Reset` with the present parameters, the front buffer's copy, state
+  blocks and the other rarely used calls.
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -309,7 +342,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V2 | A Vulkan context test program (`src/tests`): instance, device selection, an SDL window with a Vulkan surface, swapchain, a cleared frame, resize / minimise / out-of-date handling, validation in debug | V1 | now, against `stage11` |
 | V3 | The fixed-function emulation generator: the state key -> GLSL -> SPIR-V, the 6 fixed `ps.1.1` shaders and the per-material generator in GLSL, compiled offline in a test program and checked by reading the key's terms back | V1 | now, against `stage11` |
 | V4 | Choose the renderer at start-up: `[Graphics] renderer=d3d9\|vulkan`; `app/` installs the matching `Device` / `UiBackend`; the SDL window flag through `sys::create_sdl_window` | V1 | after stage 11 - done: `app/renderer_choice`, falls back to Direct3D 9 until the device exists |
-| V5a | `render::Gpu`: the interface, and `render_state`'s cache and `primitive_states` through it (D3D9 implementation = today's calls) | - | after stage 11 |
+| V5a | `render::Gpu`: the interface, and `render_state`'s cache and `primitive_states` through it (D3D9 implementation = today's calls) | - | after stage 11 - done: `engine/gfx/gpu.h`, `render_d3d9/gpu_d3d9.cpp` |
 | V5b | Meshes, materials, skinning, mesh lists, instances through `Gpu` | V5a | after stage 11 |
 | V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 |
 | V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 |
