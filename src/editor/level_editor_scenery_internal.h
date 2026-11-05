@@ -182,11 +182,11 @@ using RailNode = objects::GrindPoint;
 
 // What we've done to a rail node: where it was when first touched, the placement since, where we put it.
 struct RailTrack {
-    RailNode* node;
-    bool active0; // (flag 4 when first touched: some rails start off)
-    V3 pos0;
-    Placement placement;
-    V3 pos;
+    RailNode* node{};
+    bool active0{}; // (flag 4 when first touched: some rails start off)
+    V3 pos0{};
+    Placement placement{};
+    V3 pos{};
 };
 
 std::map<uint32_t, RailTrack>& rail_tracks();
