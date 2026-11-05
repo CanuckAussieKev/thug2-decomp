@@ -237,7 +237,7 @@ void DrivableModule::apply_damping()
     const double x = rotmom_.x;
     const double y = rotmom_.y;
     const double z = rotmom_.z;
-    const double damping = (((x * x) + (y * y)) + (z * z)) * spin_damping_ * step_length_;
+    const double damping = (((x * x) + (y * y)) + (z * z)) * damping_.spin * step_length_;
     auto damping_rounded = static_cast<float>(damping);
     const double length = std::sqrt(((x * x) + (y * y)) + (z * z));
     if (damping > length) {
@@ -255,7 +255,7 @@ void DrivableModule::apply_damping()
     // Upright on three or more wheels and not steering: the turning about up damped towards 0.
     if (controls_.steering == 0.0F && static_cast<uint32_t>(wheels_in_contact_) > 2 &&
         core::at(basis_frame_.row, 1).y > kHalf) {
-        double yaw = static_cast<double>(yaw_damping_) * step_length_;
+        double yaw = static_cast<double>(damping_.yaw) * step_length_;
         if (std::fabs(static_cast<double>(rotmom_.y)) < std::fabs(yaw)) {
             rotmom_.y = 0.0F;
             return;

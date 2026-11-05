@@ -571,8 +571,8 @@ void DrivableModule::configure_from_data(script::Struct* params)
         params->fetch_float(kMaxSteeringAngle, &chassis_.max_steering_angle, 0);
         chassis_.max_steering_angle = static_cast<float>(static_cast<double>(chassis_.max_steering_angle) * kToRadians);
     }
-    params->fetch_float(kConstantRotationalDamping, &yaw_damping_, 0);
-    params->fetch_float(kQuadraticRotationalDamping, &spin_damping_, 0);
+    params->fetch_float(kConstantRotationalDamping, &damping_.yaw, 0);
+    params->fetch_float(kQuadraticRotationalDamping, &damping_.spin, 0);
     can_dismount_ = params->has_bare_flag(kExitable);
     handbrake_disabled_ = params->has_bare_flag(kNoHandbrake);
 
@@ -1267,8 +1267,8 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, chassis_.max_steering_angle), .original = 0x198, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, chassis_.wheelbase), .original = 0x19C, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, chassis_.track), .original = 0x1A0, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, yaw_damping_), .original = 0x1A4, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, spin_damping_), .original = 0x1A8, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, damping_.yaw), .original = 0x1A4, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, damping_.spin), .original = 0x1A8, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, colliders_), .original = 0x1AC, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, skater_bone_), .original = 0x2BC, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, can_dismount_), .original = 0x2CC, .larger_by = 0},

@@ -378,6 +378,11 @@ private:
         float wheelbase{};          // +0x0C (+0x19C) (Finalize: the model's front to back wheels)
         float track{};              // +0x10 (+0x1A0) (Finalize: the model's left to right wheels)
     };
+    // The turning damped (+0x1A4-+0x1AB: configure_from_data, apply_damping).
+    struct Damping {
+        float yaw{};  // +0x00 (+0x1A4) (0x386837DB) the turning about up damped when not steering
+        float spin{}; // +0x04 (+0x1A8) (0x469CF79A) the angular momentum damped
+    };
     // The controls this frame (+0x304-+0x30B: read_controls, from the input component; or none when passive).
     struct Controls {
         float steering{}; // +0x00 (+0x304) -1 (left) .. 1 (right), squared with its sign
@@ -412,8 +417,7 @@ private:
     Response response_;           // +0x16C-+0x17F the body's response to its contacts
     AirAlign air_align_;          // +0x180-+0x18F turning level in the air
     Chassis chassis_;             // +0x190-+0x1A3 the wheels' count, drive and placing
-    float yaw_damping_{};                  // +0x1A4 (0x386837DB) the turning damped when not steering
-    float spin_damping_{};                 // +0x1A8 (0x469CF79A) the angular momentum damped
+    Damping damping_;             // +0x1A4-+0x1AB the turning damped
     std::array<Collider, 2> colliders_{};              // +0x1AC colliders (0xFC8C4AC6)
     maths::Vec4 skater_bone_{};            // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
     bool can_dismount_{};                  // +0x2CC Exitable
