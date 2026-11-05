@@ -12,7 +12,6 @@
 #include "engine/gfx/mesh_records.h"
 #include "base/core/raw_view.h"
 #include "engine/gfx/gpu.h"
-#include "engine/gfx/gpu_handles.h"
 #include "platform/crt.h"
 #include "base/core/owned_element.h"
 #include "base/core/no_destroy.h"

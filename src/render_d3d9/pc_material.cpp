@@ -18,6 +18,7 @@
 #include "render_d3d9/render_state.h"
 #include "engine/sys/stopwatch.h"
 #include "base/core/checked_index.h"
+#include "base/core/enum_ops.h"
 #include "render_d3d9/bitmap_texture.h"
 #include <bit>
 #include "base/core/no_destroy.h"

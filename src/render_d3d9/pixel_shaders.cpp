@@ -25,6 +25,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 
 namespace render {
 
