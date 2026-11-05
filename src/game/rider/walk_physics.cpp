@@ -219,7 +219,7 @@ void FootMovement::change_phase(int state)
         unknown1874_ = true;
     }
     if (state == 4) {
-        climb_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        transition_.climb_offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     if (state != 1) {
         push_.on = false;

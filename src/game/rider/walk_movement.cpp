@@ -152,12 +152,12 @@ void FootMovement::set_transition_facing(const maths::Vec4* facing, float rate)
     const maths::Vec4& current = facing_;
     const double turn = std::atan2(static_cast<double>(facing->x), static_cast<double>(facing->z)) -
                         std::atan2(static_cast<double>(current.x), static_cast<double>(current.z));
-    transition_turn_ = static_cast<float>(turn);
+    transition_.turn = static_cast<float>(turn);
     if (std::fabs(turn) > maths::kPi) { // the shorter way round
-        transition_turn_ = static_cast<float>(turn - ((turn < 0.0 ? -1.0F : kOne) * maths::kTwoPi));
+        transition_.turn = static_cast<float>(turn - ((turn < 0.0 ? -1.0F : kOne) * maths::kTwoPi));
     }
-    transition_facing_ = *facing;
-    transition_rate_ = rate;
+    transition_.facing = *facing;
+    transition_.rate = rate;
 }
 
 // 0x005277B0
@@ -575,20 +575,20 @@ void FootMovement::update_rotate_upright()
 void FootMovement::apply_transition()
 {
     auto* object = static_cast<GameEntity*>(entity());
-    const maths::Vec4& at = transition_pos_;
-    const maths::Vec4& offset = climb_offset_;
+    const maths::Vec4& at = transition_.pos;
+    const maths::Vec4& offset = transition_.climb_offset;
     object->at_point() = {.x = at.x + offset.x, .y = at.y + offset.y, .z = at.z + offset.z, .w = at.w + offset.w};
     // Upright, facing the transition's facing (row 0's w 1, as the original).
-    const maths::Vec4& facing = transition_facing_;
+    const maths::Vec4& facing = transition_.facing;
     maths::Mat4 matrix{};
     core::at(matrix.row, 0) = {.x = facing.z, .y = 0.0F, .z = -facing.x, .w = 1.0F};
     core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     core::at(matrix.row, 2) = facing;
     core::at(matrix.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     object->basis_frame() = matrix;
-    model_lift_ = transition_display_offset_;
+    model_lift_ = transition_.display_offset;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
-    script::ObjectCallback callback = anim_done_.code_;
+    script::ObjectCallback callback = transition_.done.code_;
     if (callback) {
         callback(this); // (this_adjust_ is always 0: walk_hang sets it so)
     }

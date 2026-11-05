@@ -327,17 +327,17 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, hang_.anim_type), .original = 0x18D8},
         FieldAt{.now = offsetof(FootMovement, hang_.climb_scale), .original = 0x18DC},
         FieldAt{.now = offsetof(FootMovement, ladder_sign_), .original = 0x18E0},
-        FieldAt{.now = offsetof(FootMovement, transition_start_), .original = 0x18E4},
-        FieldAt{.now = offsetof(FootMovement, unknown18f4_), .original = 0x18F4},
-        FieldAt{.now = offsetof(FootMovement, transition_pos_), .original = 0x1904},
-        FieldAt{.now = offsetof(FootMovement, transition_start_offset_), .original = 0x1914},
-        FieldAt{.now = offsetof(FootMovement, transition_display_offset_), .original = 0x1918},
-        FieldAt{.now = offsetof(FootMovement, transition_facing_), .original = 0x191C},
-        FieldAt{.now = offsetof(FootMovement, transition_rate_), .original = 0x192C},
-        FieldAt{.now = offsetof(FootMovement, transition_turn_), .original = 0x1930},
-        FieldAt{.now = offsetof(FootMovement, climb_offset_), .original = 0x1934},
-        FieldAt{.now = offsetof(FootMovement, anim_waiting_), .original = 0x1944},
-        FieldAt{.now = offsetof(FootMovement, anim_done_), .original = 0x1948},
+        FieldAt{.now = offsetof(FootMovement, transition_.start), .original = 0x18E4},
+        FieldAt{.now = offsetof(FootMovement, transition_.unknown10), .original = 0x18F4},
+        FieldAt{.now = offsetof(FootMovement, transition_.pos), .original = 0x1904},
+        FieldAt{.now = offsetof(FootMovement, transition_.start_offset), .original = 0x1914},
+        FieldAt{.now = offsetof(FootMovement, transition_.display_offset), .original = 0x1918},
+        FieldAt{.now = offsetof(FootMovement, transition_.facing), .original = 0x191C},
+        FieldAt{.now = offsetof(FootMovement, transition_.rate), .original = 0x192C},
+        FieldAt{.now = offsetof(FootMovement, transition_.turn), .original = 0x1930},
+        FieldAt{.now = offsetof(FootMovement, transition_.climb_offset), .original = 0x1934},
+        FieldAt{.now = offsetof(FootMovement, transition_.waiting), .original = 0x1944},
+        FieldAt{.now = offsetof(FootMovement, transition_.done), .original = 0x1948},
         FieldAt{.now = offsetof(FootMovement, jump_unsteered_), .original = 0x1958},
         FieldAt{.now = offsetof(FootMovement, pad1959_), .original = 0x1959},
         FieldAt{.now = sizeof(FootMovement), .original = 0x1960},
@@ -355,7 +355,7 @@ void FootMovement::update_camera_override()
     case kAnimWait: {
         camera->set_override(true);
         // (while hang-moving, the hang move's facing)
-        camera->forced_heading() = (anim_waiting_ != 0) ? transition_facing_ : facing;
+        camera->forced_heading() = (transition_.waiting != 0) ? transition_.facing : facing;
         camera->set_override_rate(kCameraRate);
         return;
     }
@@ -807,14 +807,14 @@ void FootMovement::update_anim_wait()
             static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
         } else {
             tracker = ride->ride().get();
-            maths::Vec4& carried = climb_offset_;
+            maths::Vec4& carried = transition_.climb_offset;
             carried.x += tracker->carried().x;
             carried.y += tracker->carried().y;
             carried.z += tracker->carried().z;
             carried.w += tracker->carried().w;
             tracker = ride->ride().get();
             if (tracker->turned()) {
-                maths::Vec4& facing = transition_facing_;
+                maths::Vec4& facing = transition_.facing;
                 maths::Vec4 turned{};
                 facing = tracker->turn().rotate_vector(turned, facing);
                 if (!(facing.y == 0.0F)) {
@@ -833,27 +833,27 @@ void FootMovement::update_anim_wait()
     anim_blender_->get_times(&start, &current, &end);
     auto fraction = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
     maths::Vec4 between{};
-    walk::get_lerp(&between, &transition_start_, &transition_pos_, fraction);
-    const maths::Vec4& carried = climb_offset_;
+    walk::get_lerp(&between, &transition_.start, &transition_.pos, fraction);
+    const maths::Vec4& carried = transition_.climb_offset;
     maths::Vec4& position = pos_;
     position.x = between.x + carried.x;
     position.y = between.y + carried.y;
     position.z = between.z + carried.z;
     position.w = between.w + carried.w;
-    double turn_part = fraction / static_cast<double>(transition_rate_);
+    double turn_part = fraction / static_cast<double>(transition_.rate);
     turn_part = std::min(turn_part, 1.0);
-    const double turn = transition_turn_;
+    const double turn = transition_.turn;
     const double angle = (turn * turn_part) - turn;
     maths::Vec4& facing = facing_;
-    facing = transition_facing_;
+    facing = transition_.facing;
     const double sine = std::sin(angle);
     const double cosine = std::cos(angle);
     const double x = facing.x;
     facing.x = static_cast<float>((cosine * x) + (sine * facing.z));
     facing.z = static_cast<float>(-(x * sine) + (cosine * facing.z));
     frame_.anim = kAnimWait;
-    const double low = transition_start_offset_;
-    model_lift_ = static_cast<float>(((transition_display_offset_ - low) * fraction) + low);
+    const double low = transition_.start_offset;
+    model_lift_ = static_cast<float>(((transition_.display_offset - low) * fraction) + low);
 }
 
 // 0x0052A700

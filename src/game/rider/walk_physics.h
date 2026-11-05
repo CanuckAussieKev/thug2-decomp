@@ -513,6 +513,22 @@ public:
         float height{};                // +0x18 (+0x18C8) the push ends above it
     };
 
+    // An animated move (+0x18E4-+0x1957: onto / off a ladder, a pull-up, a drop to hang - update_anim_wait,
+    // apply_transition).
+    struct Transition {
+        maths::Vec4 start{};                                // +0x00 (+0x18E4)
+        std::array<uint8_t, kUnknown18f4Bytes> unknown10{}; // +0x10 (+0x18F4)
+        maths::Vec4 pos{};                                  // +0x20 (+0x1904) its end (with the climb offset)
+        float start_offset{};                               // +0x30 (+0x1914) the height offset at its start
+        float display_offset{};                             // +0x34 (+0x1918) ... and end
+        maths::Vec4 facing{};                               // +0x38 (+0x191C) the facing turned to
+        float rate{};                                       // +0x48 (+0x192C) at this rate
+        float turn{};                                       // +0x4C (+0x1930) the turn to it (the shorter way)
+        maths::Vec4 climb_offset{};                         // +0x50 (+0x1934)
+        int waiting{};                    // +0x60 (+0x1944) an animation is playing: the callback waits
+        objects::AnimDoneCallback done{}; // +0x64 (+0x1948) its end's callback
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -561,8 +577,8 @@ public:
     void set_blocked(bool value) { blocked_ = value; }
     maths::Vec4& push_normal() { return push_.normal; }
     [[nodiscard]] const maths::Vec4& push_normal() const { return push_.normal; }
-    objects::AnimDoneCallback& anim_done() { return anim_done_; }
-    [[nodiscard]] const objects::AnimDoneCallback& anim_done() const { return anim_done_; }
+    objects::AnimDoneCallback& anim_done() { return transition_.done; }
+    [[nodiscard]] const objects::AnimDoneCallback& anim_done() const { return transition_.done; }
 
 private:
     // (Parts of 0x0052C2C0, update_contacts: a contact's normal flattened and how fast what it hit moves along it;
@@ -630,17 +646,7 @@ private:
     WallPush push_;               // +0x18B0-+0x18CB the push off a wall in the air
     HangPlace hang_;                 // +0x18CC-+0x18DF the place on the rail held
     float ladder_sign_{};            // +0x18E0
-    maths::Vec4 transition_start_{}; // +0x18E4 an animated move's start
-    std::array<uint8_t, kUnknown18f4Bytes> unknown18f4_{};
-    maths::Vec4 transition_pos_{};          // +0x1904 ... and end (with the climb offset)
-    float transition_start_offset_{};       // +0x1914 the height offset at its start
-    float transition_display_offset_{};     // +0x1918 ... and end
-    maths::Vec4 transition_facing_{};       // +0x191C
-    float transition_rate_{};               // +0x192C
-    float transition_turn_{};               // +0x1930
-    maths::Vec4 climb_offset_{};            // +0x1934
-    int anim_waiting_{};                    // +0x1944 an animation is playing: the callback waits
-    objects::AnimDoneCallback anim_done_{}; // +0x1948 its end's callback
+    Transition transition_;          // +0x18E4-+0x1957 an animated move
     bool jump_unsteered_{false};            // +0x1958 (cleared each hanging frame)
     std::array<uint8_t, kPad1959Bytes> pad1959_{};
 };

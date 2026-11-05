@@ -370,7 +370,7 @@ void objects::FootMovement::end_pull_up()
         contact_feeler(this, feeler);
     }
     critical_point_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    model_lift_ = transition_display_offset_;
+    model_lift_ = transition_.display_offset;
 }
 
 // 0x0043DB90
@@ -381,7 +381,7 @@ void objects::FootMovement::end_drop_from_hang()
     trigger_rail_script(this, kExitHangEvents);
     jump_.heading = facing_;
     leave_ride(&vel_, &up_speed_);
-    model_lift_ = transition_display_offset_;
+    model_lift_ = transition_.display_offset;
 }
 
 // 0x0043DCF0
@@ -627,12 +627,12 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     } else {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_from_hang>());
     }
-    transition_start_ = pos;
-    transition_pos_ = ground;
+    transition_.start = pos;
+    transition_.pos = ground;
     set_transition_facing(&facing_, 1.0F);
-    anim_waiting_ = 1;
-    transition_start_offset_ = model_lift_;
-    transition_display_offset_ = 0.0F;
+    transition_.waiting = 1;
+    transition_.start_offset = model_lift_;
+    transition_.display_offset = 0.0F;
     const double back = -(static_cast<double>(get_param(kPullUpOffsetForward)) + 6.0F);
     auto back_f = static_cast<float>(back);
     maths::Vec4& offset = critical_point_offset_;
@@ -678,18 +678,18 @@ bool objects::FootMovement::drop_to_hang()
     hang_.out = rail.out;
     hang_.up = rail.up;
     tagging->set_blocked(true);
-    transition_start_ = pos_;
-    transition_pos_ = rail.point;
+    transition_.start = pos_;
+    transition_.pos = rail.point;
     set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_to_hang>());
     set_transition_facing(&rail.facing, get_param(kDropToHangRotateFactor));
-    anim_waiting_ = 1;
+    transition_.waiting = 1;
     const float horiz = get_param(kHangCriticalPointHorizOffset);
     critical_point_offset_ = {.x = rail.facing.x * horiz, .y = rail.facing.y * horiz, .z = rail.facing.z * horiz,
                               .w = rail.facing.w * horiz};
     push_.normal = rail.facing;
     push_.height = pos_.y;
-    transition_start_offset_ = model_lift_;
-    transition_display_offset_ = static_cast<float>(hang_height_offset());
+    transition_.start_offset = model_lift_;
+    transition_.display_offset = static_cast<float>(hang_height_offset());
     change_phase(4);
     frame_.anim = kAnimDropToHang;
     return true;
@@ -1395,13 +1395,13 @@ void objects::FootMovement::climb_off_bottom()
         floor_normal_ = ground->surface_dir();
     }
     // the animated move there
-    transition_start_ = pos;
-    transition_pos_ = target;
+    transition_.start = pos;
+    transition_.pos = target;
     set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_bottom>());
-    transition_start_offset_ = model_lift_;
-    transition_display_offset_ = 0.0F;
+    transition_.start_offset = model_lift_;
+    transition_.display_offset = 0.0F;
     set_transition_facing(&facing, 1.0F);
-    anim_waiting_ = 1;
+    transition_.waiting = 1;
     push_.normal = facing;
     push_.height = pos.y;
     change_phase(4);
@@ -1478,8 +1478,8 @@ void objects::FootMovement::climb_off_top()
     target.y = target.y + get_param(kLadderTopOffsetUp);
     render::ProbeRay ledge;
     const bool found = find_stand_position(&target, &target, &ledge);
-    transition_start_ = pos;
-    transition_pos_ = target;
+    transition_.start = pos;
+    transition_.pos = target;
     if (found) {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top>());
         assign_feeler(&ledge_.feeler, &ledge);
@@ -1488,10 +1488,10 @@ void objects::FootMovement::climb_off_top()
     } else {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top_to_air>());
     }
-    transition_start_offset_ = model_lift_;
-    transition_display_offset_ = 0.0F;
+    transition_.start_offset = model_lift_;
+    transition_.display_offset = 0.0F;
     set_transition_facing(&facing, 1.0F);
-    anim_waiting_ = 1;
+    transition_.waiting = 1;
     push_.normal = facing;
     push_.height = target.y;
     change_phase(4);
@@ -1511,13 +1511,13 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
         return false;
     }
     grabbed_ladder(this);
-    transition_start_ = pos_;
-    transition_pos_ = ladder.point;
+    transition_.start = pos_;
+    transition_.pos = ladder.point;
     set_anim_done(this, script::object_callback<&objects::FootMovement::end_onto_ladder_bottom>());
-    transition_start_offset_ = model_lift_;
-    transition_display_offset_ = 0.0F;
+    transition_.start_offset = model_lift_;
+    transition_.display_offset = 0.0F;
     set_transition_facing(&ladder.facing, 1.0F);
-    anim_waiting_ = 1;
+    transition_.waiting = 1;
     push_.normal = ladder.facing;
     push_.height = ladder.point.y;
     change_phase(4);
@@ -1538,13 +1538,13 @@ bool objects::FootMovement::climb_onto_top()
         return false;
     }
     grabbed_ladder(this);
-    transition_start_ = pos_;
-    transition_pos_ = ladder.point;
+    transition_.start = pos_;
+    transition_.pos = ladder.point;
     set_anim_done(this, script::object_callback<&objects::FootMovement::end_onto_ladder_top>());
-    transition_start_offset_ = model_lift_;
-    transition_display_offset_ = 0.0F;
+    transition_.start_offset = model_lift_;
+    transition_.display_offset = 0.0F;
     set_transition_facing(&ladder.facing, 1.0F);
-    anim_waiting_ = 1;
+    transition_.waiting = 1;
     push_.normal = ladder.facing;
     push_.height = pos_.y;
     change_phase(4);
