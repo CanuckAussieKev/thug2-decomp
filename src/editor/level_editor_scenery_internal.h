@@ -25,6 +25,8 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/lists/key_map.h"
+#include "engine/objects/rail_manager.h"
+#include "engine/render/coll_obj.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/gfx/engine_parts.h"
@@ -36,6 +38,10 @@ namespace internal {
 constexpr int kMaxNodeGuard = 256; // a scene list longer than this is taken as broken
 
 constexpr int kMaxSectorTableBits = 20; // the largest sector table walked
+
+constexpr int kSectorFlagMovable = 0x40; // a sector flag; a sector that has it gets kSectorFlagMoved after a move (as WorldCell::place_at_absolute_point does)
+
+constexpr int kSectorFlagMoved = 0x20;
 
 } // namespace internal
 
@@ -101,6 +107,10 @@ render::WorldCell* find_sector(uint32_t checksum, render::WorldScene** scene_out
 
 render::Geom* geom_of(render::WorldCell* sector);
 
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector);
+
+uint32_t& flags_of(render::WorldCell* sector);
+
 bool plain_geom(render::Geom* geom);
 
 bool geom_box(render::Geom* geom, V3* min, V3* max);
@@ -141,13 +151,45 @@ LevelEditorSceneryState& level_editor_scenery_state();
 
 std::unordered_map<uint32_t, uint32_t>& shadow_of();
 
+bool same_v3(V3 a, V3 b);
+
+Track* track_of(uint32_t checksum);
+
 bool current_box(uint32_t checksum, render::Geom* geom, OrientedBox* box);
+
+void mark_dirty(render::WorldScene* scene);
+
+void apply_track(Track* track);
 
 const char* get_name_of(uint32_t checksum);
 
 std::string caption(uint32_t checksum);
 
+std::unordered_map<uint32_t, uint32_t>& clusters_state();
+
 uint32_t cluster_of(uint32_t checksum);
+
+// --- grind rails ---
+//
+// The level's rails: the rail manager of modules::Skate (0x007CE478, +0x24) - filled from the node array's rail_nodes and
+// ClimbingNodes by 0x0057E960 (from cfunc_parse_node_array 0x005A34E0): +0x40 its nodes, +0x48 their count, +0x50 set
+// when its rails ride an object (positions in the object's space, 0x0057CB60 - never the level's).
+// A node (objects::GrindPoint, 0x0057D090): the box of its segment (to the next node; its own point when it has none -
+// 0x0057C260), its position, the next and previous nodes, flags (4 active, 0x10 a climbing node), its node's name.
+// Skaters find rails by testing every node's box (0x0057E2D0): moving one is its position and the boxes of its segment
+// and the one before.
+using RailNode = objects::GrindPoint;
+
+// What we've done to a rail node: where it was when first touched, the placement since, where we put it.
+struct RailTrack {
+    RailNode* node;
+    bool active0; // (flag 4 when first touched: some rails start off)
+    V3 pos0;
+    Placement placement;
+    V3 pos;
+};
+
+std::map<uint32_t, RailTrack>& rail_tracks();
 
 // NOT ORIGINAL grouping - the scenery's rails and the ones dropped (were globals). Made on first use, never destroyed
 // (scenery_rails()).
@@ -157,6 +199,16 @@ struct SceneryRails {
 };
 
 SceneryRails& scenery_rails();
+
+RailNode* find_rail(uint32_t name);
+
+RailTrack* rail_track_of(uint32_t name);
+
+void apply_rails(const std::vector<uint32_t>& names);
+
+void compute_pivot();
+
+void select_rails();
 
 Placement placement_of(uint32_t checksum, render::Geom* geom);
 
