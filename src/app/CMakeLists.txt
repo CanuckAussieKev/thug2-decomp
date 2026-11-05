@@ -18,7 +18,7 @@ add_library(thug2_app OBJECT
     renderer_choice.cpp
 )
 # The layers the shared start-up composes (the backends it installs, the game and below).
-target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc
+target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc thug2_gpu_d3d9
                                        thug2_audio_dsound thug2_media_bink thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                        thug2_script_qb thug2_engine
                                        thug2_wire thug2_formats thug2_platform thug2_base)
@@ -33,7 +33,7 @@ add_executable(thug2 WIN32
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 # Every layer, highest first (the libraries bring the system and third-party libraries they need).
-target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_editor thug2_devtools thug2_game thug2_render_pc
+target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_editor thug2_devtools thug2_game thug2_render_pc thug2_gpu_d3d9
                                     thug2_audio_dsound thug2_media_bink thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                     thug2_script_qb thug2_engine
                                     thug2_wire thug2_formats thug2_platform thug2_base)
@@ -43,7 +43,7 @@ add_executable(thug2-editor WIN32
 )
 set_target_properties(thug2-editor PROPERTIES OUTPUT_NAME thug2-editor)
 # The editor, the game and below - not the new front end, not the dev tools.
-target_link_libraries(thug2-editor PRIVATE thug2_app thug2_editor thug2_game thug2_render_pc
+target_link_libraries(thug2-editor PRIVATE thug2_app thug2_editor thug2_game thug2_render_pc thug2_gpu_d3d9
                                            thug2_audio_dsound thug2_media_bink thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                            thug2_script_qb thug2_engine
                                            thug2_wire thug2_formats thug2_platform thug2_base)

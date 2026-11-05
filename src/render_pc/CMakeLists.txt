@@ -1,8 +1,10 @@
-# The Direct3D 9 graphics backend (src/render_d3d9): the original's PC platform layer - the device and its frame, the
-# scenes, meshes, textures, materials and shaders, the screen effects, the 2D and text, the movies' frames, the loading
-# screen - and the vertex and index buffers. It implements render::Device (engine/gfx/render_device.h); app/ installs it
-# (app/main.cpp). It includes the engine and the layers below it (tools/layers.ts checks it); nothing below app/ includes
-# or links it, so the engine builds without Direct3D. The sources keep their order in the engine's list before the move.
+# The PC platform layer (src/render_pc), API-neutral: the original's device and its frame, the scenes, meshes, textures,
+# materials and shaders, the screen effects, the 2D and text, the movies' frames, the loading screen, and the vertex and
+# index buffers. It implements render::Device (engine/gfx/render_device.h) and reaches the graphics API only through
+# render::Gpu and render::GpuContext (engine/gfx/gpu.h, gpu_context.h), which app/ installs from a Gpu library
+# (src/gpu_d3d9 today, Vulkan later). No file of it includes a Direct3D header (tools/d3d_headers.test.ts). It includes the
+# engine and the layers below it (tools/layers.ts checks it); nothing below app/ includes or links it, so the engine builds
+# without it. It calls the D3DX wrapper declared in d3dx.h / d3dx_jpg.h, which the Direct3D 9 Gpu library defines.
 add_library(thug2_render_pc STATIC
     screenshot_capture.cpp
     flash.cpp
@@ -49,9 +51,6 @@ add_library(thug2_render_pc STATIC
     pc_material_load.cpp
     render_state.cpp
     d3d9_device.cpp
-    gpu_d3d9.cpp
-    d3d9_context.cpp
-    d3d9_state.cpp
     shadow_base.cpp
     mesh_list.cpp
     pixel_shaders.cpp
@@ -66,11 +65,7 @@ add_library(thug2_render_pc STATIC
     graphics_options_d3d.cpp
     pc_d3d_resources.cpp
     vertex_buffers.cpp
-    d3d9_ui_backend.cpp
     editor_support.cpp
-    d3dx.cpp
 )
-# imgui: the loading console's panel (loading_console_panel.cpp: its font atlas); imgui_backends: ImGui's SDL2 and
-# Direct3D 9 backends (d3d9_ui_backend.cpp: render::UiBackend)
-# d3dx9: D3DX's shader assembly and JPEG writer (d3dx.cpp: the only file that calls it)
-target_link_libraries(thug2_render_pc PUBLIC thug2_engine PRIVATE imgui imgui_backends d3dx9)
+# imgui: the loading console's panel (loading_console_panel.cpp: its font atlas)
+target_link_libraries(thug2_render_pc PUBLIC thug2_engine PRIVATE imgui)

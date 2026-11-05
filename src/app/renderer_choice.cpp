@@ -13,10 +13,10 @@
 #include "platform/sdl_window.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
-#include "render_pc/d3d9_context.h"
+#include "gpu_d3d9/d3d9_context.h"
 #include "render_pc/d3d9_device.h"
-#include "render_pc/d3d9_ui_backend.h"
-#include "render_pc/gpu_d3d9.h"
+#include "gpu_d3d9/d3d9_ui_backend.h"
+#include "gpu_d3d9/gpu_d3d9.h"
 
 namespace app {
 

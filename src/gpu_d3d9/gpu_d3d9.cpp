@@ -2,7 +2,7 @@
 // object it names), with the arguments as they come - the numbers are Direct3D 9's own. The state block's recording
 // is the interface's (engine/gfx/gpu.h); nothing here skips, reorders or adds a call.
 
-#include "render_pc/gpu_d3d9.h"
+#include "gpu_d3d9/gpu_d3d9.h"
 
 #include <windows.h>
 
@@ -17,8 +17,8 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/mesh_formats.h"
-#include "render_pc/d3d9_handles.h"
-#include "render_pc/d3d9_state.h"
+#include "gpu_d3d9/d3d9_handles.h"
+#include "gpu_d3d9/d3d9_state.h"
 
 namespace render::d3d9 {
 

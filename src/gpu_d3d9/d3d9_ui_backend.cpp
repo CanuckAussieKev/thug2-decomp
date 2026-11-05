@@ -2,7 +2,7 @@
 // the level editor's own backend file (editor/level_editor_ui_backend.cpp); the editor now asks for it through
 // render::ui_backend().
 
-#include "render_pc/d3d9_ui_backend.h"
+#include "gpu_d3d9/d3d9_ui_backend.h"
 
 #include <d3d9.h>
 
@@ -21,8 +21,8 @@
 #include "engine/gfx/ui_backend.h"
 #include "imgui.h"
 #include "platform/run_log.h"
-#include "render_pc/d3d9_state.h"
-#include "render_pc/imgui_texture_id.h"
+#include "gpu_d3d9/d3d9_state.h"
+#include "gpu_d3d9/imgui_texture_id.h"
 
 namespace render::d3d9 {
 

@@ -25,13 +25,13 @@ const BOUNDARY_FILES = new Set([
     // the GPU's vertex and index buffers and their views (once src/gpu/)
     "src/render_pc/vertex_buffers.cpp",
     "src/render_pc/vertex_buffers.h",
-    "src/render_pc/d3d9_handles.h",
+    "src/gpu_d3d9/d3d9_handles.h",
     "src/engine/gfx/gpu_handles.h",
     "src/engine/gfx/vertex_view.h",
     // Dear ImGui's texture ids over Direct3D's textures (once in platform/)
-    "src/render_pc/imgui_texture_id.h",
+    "src/gpu_d3d9/imgui_texture_id.h",
     // D3DX's buffers over the callers' out-parameters (once in platform/)
-    "src/render_pc/d3dx.cpp",
+    "src/gpu_d3d9/d3dx.cpp",
     // binkw32's exports looked up by name (once in platform/)
     "src/media_bink/bink.cpp",
     // Winsock's generic addresses, hostent and char buffers over the game's (once platform/sockets.cpp)

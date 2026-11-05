@@ -302,7 +302,7 @@ everything above it uses the game's own types and may change them freely.
     texture stages, samplers, textures, the vertex format, the pixel shader and its constants, the material, the
     lights, the transforms, the viewport - Direct3D 9's numbers, recorded as they pass, so another API derives its
     shaders and pipelines from it), draws per batch (from buffers or from memory), clears, the scene, present. One
-    call per device call; Direct3D 9's (`render_pc/gpu_d3d9.cpp`) passes each on unchanged, and `app::install_renderer`
+    call per device call; Direct3D 9's (`gpu_d3d9/gpu_d3d9.cpp`) passes each on unchanged, and `app::install_renderer`
     installs it with the device. The render-state cache (`render_state.cpp`, `primitive_states.cpp`) and the device's
     state and clear wrappers, the meshes' buffers, drawing, materials, instances and pixel shaders go through it already
     and include no Direct3D header (tools/d3d_headers.test.ts); the particles, billboards, weather, grass, glows, splats and
@@ -318,11 +318,11 @@ everything above it uses the game's own types and may change them freely.
     end - ask of it, a frame at a time: ImGui's platform and renderer backends started on a context, a frame begun and
     its draw data drawn, the device objects dropped before a reset, the images ImGui shows (made from texels in memory)
     and the two targets the renderer draws into for the UI (the preview, the thumbnails' atlas). Direct3D 9's
-    (`render_pc/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app::install_renderer` beside the
+    (`gpu_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app::install_renderer` beside the
     device; a Vulkan one would be ImGui's SDL2 and Vulkan backends behind the same calls. Both layers
     reach it through `engine/ui/ui_backend.h` (`frontend::ui_backend`), which keeps what is the UI's own (whether a
     context is started, the log, the draw data scaled to the back buffer). Only `render_pc/` includes ImGui's backend headers (tools/d3d_headers.test.ts).
-  - D3DX: only the backend calls it (`render_pc/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
+  - D3DX: only the backend calls it (`gpu_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
     Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
     same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with
     d3dx9_43.dll; bit for bit with the x87 at 53 bits, the precision the game's thread runs at - the frames drawn
@@ -334,14 +334,14 @@ everything above it uses the game's own types and may change them freely.
   - The graphics handles (`engine/gfx/gpu_handles.h`): what a header outside Direct3D's own files holds of the graphics
     API's objects - `render::GpuDevice`, `GpuTexture`, `GpuSurface`, `GpuVertexBuffer`, `GpuIndexBuffer`,
     `GpuInstance` -, pointers to incomplete types whose value is the object's own pointer (no wrapper or table: a
-    handle costs what the original's pointer did). The backend converts them (`render_pc/d3d9_handles.h`:
+    handle costs what the original's pointer did). The backend converts them (`gpu_d3d9/d3d9_handles.h`:
     `d3d9::object`, `handle`, and `out` for Direct3D's out-parameters). `<d3d9.h>` is included only by Direct3D's files
-    and their own headers: `render_pc/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device,
+    and their own headers: `gpu_d3d9/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device,
     the depth surfaces, the back buffer, the screen copies -, `render::d3d9::state()`; the backend-free rest of the
     renderer's state is `render::Renderer`, `engine/gfx/renderer.h`),
     `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's) and ImGui's texture id over Direct3D's
-    textures (`render_pc/imgui_texture_id.h`). The device is made through `render::GpuContext`
-    (`engine/gfx/gpu_context.h`; Direct3D 9's is `render_pc/d3d9_context.cpp`: the instance, the device, the present
+    textures (`gpu_d3d9/imgui_texture_id.h`). The device is made through `render::GpuContext`
+    (`engine/gfx/gpu_context.h`; Direct3D 9's is `gpu_d3d9/d3d9_context.cpp`: the instance, the device, the present
     parameters as API-neutral settings, the caps, the reset).
 - **The audio backend** (`src/audio_dsound`, static library `thug2_audio_dsound`, on the engine) is DirectSound. It
   implements `audio::Device` (`engine/audio/audio_device.h`): the output made and released (WinMain; the platform

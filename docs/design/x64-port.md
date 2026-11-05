@@ -76,7 +76,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
   - `formats/anim_format.h` / `.cpp`: the animation sections' addresses, kept in `uintptr_t` (x64-safe as they are),
     over files used in place (to confirm for every section during the port).
   - `platform/crash.cpp` (10, the crash report: below), `platform/gamespy.cpp` (2: NAT negotiation's `int` user word
-    holds a pointer), `platform/run_log.cpp`, `base/core/all_ones.h`, `render_pc/imgui_texture_id.h` (64-bit
+    holds a pointer), `platform/run_log.cpp`, `base/core/all_ones.h`, `gpu_d3d9/imgui_texture_id.h` (64-bit
     already) and `tests/format_check_files.cpp` (9).
 - **`raw::` (raw_view.h): 42 lines** (platform 15, engine/script 8, render_d3d9 8, formats 6). They read memory as
   another type. Most are layout-neutral. Each one has to be read.

@@ -3,7 +3,7 @@
 // same order; the present parameters are kept here in Direct3D's form, set from the API-neutral settings.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (the windowed setting).
 
-#include "render_pc/d3d9_context.h"
+#include "gpu_d3d9/d3d9_context.h"
 
 #include <windows.h>
 
@@ -15,7 +15,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/gpu_context.h"
 #include "platform/sdl_window.h"
-#include "render_pc/d3d9_state.h"
+#include "gpu_d3d9/d3d9_state.h"
 
 namespace render::d3d9 {
 

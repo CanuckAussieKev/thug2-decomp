@@ -8,7 +8,7 @@
 #include <array>
 #include <cstddef>
 
-#include "render_pc/d3d9_handles.h"
+#include "gpu_d3d9/d3d9_handles.h"
 
 namespace render::d3d9 {
 

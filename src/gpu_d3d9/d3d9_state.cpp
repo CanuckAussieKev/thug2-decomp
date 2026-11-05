@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the renderer's Direct3D 9 objects (d3d9_state.h): made on first use, never destroyed.
 
-#include "render_pc/d3d9_state.h"
+#include "gpu_d3d9/d3d9_state.h"
 
 #include "base/core/no_destroy.h"
 

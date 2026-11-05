@@ -46,7 +46,7 @@ endif()
 # --- D3DX9 --------------------------------------------------------------------------------------------------
 # Microsoft's NuGet package Microsoft.DXSDK.D3DX 9.29.952.8 (the DirectX SDK June 2010's d3dx9_43.dll, import library
 # and headers; its licence is summarised in THIRD_PARTY_NOTICES.md). A .nupkg is a zip: downloaded under a .zip name
-# and checked against its SHA-256. src/render_pc/d3dx.cpp is the one place that calls it.
+# and checked against its SHA-256. src/gpu_d3d9/d3dx.cpp is the one place that calls it.
 FetchContent_Declare(d3dx9
     URL https://www.nuget.org/api/v2/package/Microsoft.DXSDK.D3DX/9.29.952.8
     URL_HASH SHA256=ead0906ae8a26c18a7525da7490127a2110f7c58f18293738283e30e97c6ea4b
@@ -63,7 +63,7 @@ set_target_properties(d3dx9 PROPERTIES
 # --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
 # Our UI layers (the level editor's src/editor/level_editor_ui*.cpp, the new front end's src/frontend/new_frontend*.cpp):
 # the core (imgui), and the official SDL2 platform backend with the Direct3D 9 renderer backend (imgui_backends: the
-# graphics backend's - only render_pc/d3d9_ui_backend.cpp includes their headers; render::UiBackend).
+# graphics backend's - only gpu_d3d9/d3d9_ui_backend.cpp includes their headers; render::UiBackend).
 FetchContent_Declare(imgui
     URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz
     URL_HASH SHA256=8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb
@@ -205,7 +205,7 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # One static library per folder of src/, each in its folder's CMakeLists.txt, linking only the layers below it:
 #   thug2_base <- thug2_platform, thug2_formats <- thug2_wire;
 #   thug2_platform + thug2_wire <- thug2_engine <- thug2_game <- thug2_frontend, thug2_editor, thug2_devtools <- the exe (src/app);
-#   thug2_engine <- the backends: thug2_render_pc (graphics), thug2_render_vulkan (graphics, Vulkan: not drawing yet), thug2_audio_dsound (sound), thug2_media_bink (movies),
+#   thug2_engine <- the backends: thug2_render_pc (graphics: the API-neutral PC platform layer) and thug2_gpu_d3d9 (its Direct3D 9 Gpu), thug2_render_vulkan (graphics, Vulkan: not drawing yet), thug2_audio_dsound (sound), thug2_media_bink (movies),
 #   thug2_input_dinput (DirectInput), thug2_fs_win32 (files), thug2_net_winsock (sockets) - linked by the exe alone.
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -215,6 +215,7 @@ add_subdirectory(src/wire)
 add_subdirectory(src/platform)
 add_subdirectory(src/engine)
 add_subdirectory(src/render_pc)
+add_subdirectory(src/gpu_d3d9)
 if(THUG2_VULKAN)
     add_subdirectory(src/render_vulkan)
 endif()

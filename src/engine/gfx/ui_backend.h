@@ -5,7 +5,7 @@
 // its draw data drawn, the device objects dropped before a reset (made again by the next frame), and the pictures ImGui
 // shows - images uploaded from texels in memory, and two targets the renderer draws into for the UI (the Add palette's
 // preview and its thumbnails' atlas). app/ makes it and installs it at start-up (install_ui_backend), as it does
-// render::Device; Direct3D 9's (render_pc/d3d9_ui_backend.h: ImGui's SDL2 and Direct3D 9 backends) is the only one
+// render::Device; Direct3D 9's (gpu_d3d9/d3d9_ui_backend.h: ImGui's SDL2 and Direct3D 9 backends) is the only one
 // so far. A Vulkan one would be ImGui's SDL2 and Vulkan backends behind the same calls: the texture ids are ImGui's
 // (ImTextureID, 64 bits - the backend's own texture names), the targets are begun and ended around the renderer's
 // draws, and a lost device is the backend's business between invalidate_device_objects and the next frame.

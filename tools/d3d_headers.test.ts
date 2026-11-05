@@ -13,9 +13,9 @@ const SRC = join(ROOT, "src");
 
 // Direct3D's own headers: the files that talk to Direct3D include them.
 const DIRECT3D_HEADERS = new Set([
-    "render_pc/d3d9_state.h",
-    "render_pc/d3d9_handles.h",
-    "render_pc/imgui_texture_id.h",
+    "gpu_d3d9/d3d9_state.h",
+    "gpu_d3d9/d3d9_handles.h",
+    "gpu_d3d9/imgui_texture_id.h",
 ]);
 
 const SDK_HEADER = /^\s*#\s*include\s*<(d3d9|d3d9types|d3d9caps|d3dx9\w*)\.h>/m;
@@ -79,89 +79,33 @@ test("only app/ picks the Direct3D 9 device", () => {
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the device");
 });
 
-// The files of the PC layer that reach the graphics API only through render::Gpu: none includes a Direct3D header
-// (the API-neutral PC layer: V5a the render-state cache, V5b the meshes' buffers, V5c the effects, V5d the frame, V5e
-// the creation, the 2D, the textures).
-const THROUGH_GPU = [
-    "render_pc/render_state.cpp",
-    "render_pc/primitive_states.cpp",
-    "render_pc/vertex_buffers.cpp",
-    "render_pc/pc_buffers.cpp",
-    "render_pc/mesh_list.cpp",
-    "render_pc/sub_mesh.cpp",
-    "render_pc/pc_mesh_life.cpp",
-    "render_pc/pc_mesh_render.cpp",
-    "render_pc/pc_material.cpp",
-    "render_pc/pc_instance.cpp",
-    "render_pc/pixel_shaders.cpp",
-    "render_pc/pc_mesh_load.cpp",
-    "render_pc/pc_flexible_particles.cpp",
-    "render_pc/pc_particles.cpp",
-    "render_pc/pc_billboards.cpp",
-    "render_pc/billboard_quad.cpp",
-    "render_pc/pc_weather.cpp",
-    "render_pc/pc_grass.cpp",
-    "render_pc/glow.cpp",
-    "render_pc/texture_splats.cpp",
-    "render_pc/shatter.cpp",
-    "render_pc/pc_fog.cpp",
-    "render_pc/pc_gamma.cpp",
-    "render_pc/wireframe.cpp",
-    "render_pc/flash.cpp",
-    "render_pc/pc_viewport.cpp",
-    "render_pc/pc_texture_projection.cpp",
-    "render_pc/shadow_base.cpp",
-    "render_pc/screen_fx.cpp",
-    "render_pc/draw_frame.cpp",
-    "render_pc/view_mode.cpp",
-    // V5e: the creation through the GpuContext, the frame's objects as handles
-    "render_pc/device.cpp",
-    "render_pc/d3d9_device.cpp",
-    "render_pc/graphics_options_d3d.cpp",
-    "render_pc/pc_d3d_resources.cpp",
-    // V5e: text and 2D, the scene's arena, the loading screen
-    "render_pc/text.cpp",
-    "render_pc/pc_scene.cpp",
-    "render_pc/scene_render.cpp",
-    "render_pc/pc_primitive.cpp",
-    "render_pc/editor_support.cpp",
-    "render_pc/loading_bar.cpp",
-    "render_pc/loading_screen.cpp",
-    "render_pc/loading_console_panel.cpp",
-    // V5e: textures, made and filled through the Gpu with D3D9 format numbers
-    "render_pc/bitmap_texture.cpp",
-    "render_pc/pc_texture.cpp",
-    "render_pc/texture_file.cpp",
-    // the files that never called the device (they hold the engine side's records), listed so that they stay free of it
-    "render_pc/draw2d.cpp",
-    "render_pc/geom.cpp",
-    "render_pc/mesh_pass.cpp",
-    "render_pc/pc_font.cpp",
-    "render_pc/pc_lights.cpp",
-    "render_pc/pc_material_load.cpp",
-    "render_pc/pc_mesh.cpp",
-    "render_pc/pc_model.cpp",
-    "render_pc/pc_sprite.cpp",
-    "render_pc/scene_load.cpp",
-    "render_pc/simple_material.cpp",
-    // V5e: movies, the screenshots
-    "render_pc/movie.cpp",
-    "render_pc/screenshot_capture.cpp",
-    "render_pc/pc_engine.cpp",
-];
+// Every file of the PC layer (src/render_pc) reaches the graphics API only through render::Gpu / render::GpuContext: none
+// includes a Direct3D SDK header or one of the Direct3D library's headers (src/gpu_d3d9), however indirectly.
+function sources(folder: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(folder, { withFileTypes: true })) {
+        const path = join(folder, entry.name);
+        if (entry.isDirectory()) sources(path, out);
+        else if (/\.(cpp|h)$/.test(entry.name)) out.push(relative(SRC, path).replaceAll("\\", "/"));
+    }
+    return out.sort();
+}
+const RENDER_PC = sources(join(SRC, "render_pc"));
 
 // render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs
 // Direct3D 9's with the device, and the files above reach Direct3D only through it.
-test("only app/ picks the Direct3D 9 Gpu; the files through the Gpu see no Direct3D header", () => {
-    const pickers = including(/^\s*#\s*include\s*"render_pc\/gpu_d3d9\.h"/m);
-    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_pc/gpu_d3d9.cpp");
+test("only app/ picks the Direct3D 9 Gpu; render_pc sees no Direct3D header", () => {
+    const pickers = including(/^\s*#\s*include\s*"gpu_d3d9\/gpu_d3d9\.h"/m);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "gpu_d3d9/gpu_d3d9.cpp");
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the Gpu");
-    for (const name of THROUGH_GPU) {
+    assert.ok(RENDER_PC.length > 100, "render_pc's files are found");
+    for (const name of RENDER_PC) {
         const source = readFileSync(join(SRC, name), "utf8");
         assert.ok(!SDK_HEADER.test(source), `${name} includes a Direct3D SDK header`);
         for (const match of source.matchAll(PROJECT_INCLUDE)) {
-            assert.ok(!DIRECT3D_HEADERS.has(match[1] ?? ""), `${name} includes ${match[1] ?? ""}`);
+            const included = match[1] ?? "";
+            assert.ok(!DIRECT3D_HEADERS.has(included), `${name} includes ${included}`);
+            assert.ok(!included.startsWith("gpu_d3d9/"), `${name} includes ${included}`);
         }
     }
 });
@@ -169,33 +113,44 @@ test("only app/ picks the Direct3D 9 Gpu; the files through the Gpu see no Direc
 // render::GpuContext (engine/gfx/gpu_context.h) makes and resets the device (the instance, the device, the present
 // parameters as API-neutral settings, the caps): app/ installs Direct3D 9's with the Gpu.
 test("only app/ picks the Direct3D 9 GpuContext", () => {
-    const pickers = including(/^\s*#\s*include\s*"render_pc\/d3d9_context\.h"/m);
-    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_pc/d3d9_context.cpp");
+    const pickers = including(/^\s*#\s*include\s*"gpu_d3d9\/d3d9_context\.h"/m);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "gpu_d3d9/d3d9_context.cpp");
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the GpuContext");
 });
 
 // Dear ImGui's platform and renderer backends are the graphics backend's (render::UiBackend, engine/gfx/ui_backend.h):
-// only render_pc/ includes their headers, and only app/ picks Direct3D 9's UI backend.
-test("only render_pc/ includes ImGui's backends; only app/ picks the UI backend", () => {
+// only gpu_d3d9/ includes their headers, and only app/ picks Direct3D 9's UI backend.
+test("only gpu_d3d9/ includes ImGui's backends; only app/ picks the UI backend", () => {
     const backends = including(/^\s*#\s*include\s*"backends\/imgui_impl_\w+\.h"/m);
     assert.deepEqual(
-        backends.filter((name) => !name.startsWith("render_pc/")),
+        backends.filter((name) => !name.startsWith("gpu_d3d9/")),
         [],
     );
-    const pickers = including(/^\s*#\s*include\s*"render_pc\/d3d9_ui_backend\.h"/m);
-    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_pc/d3d9_ui_backend.cpp");
+    const pickers = including(/^\s*#\s*include\s*"gpu_d3d9\/d3d9_ui_backend\.h"/m);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "gpu_d3d9/d3d9_ui_backend.cpp");
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the UI backend");
 });
 
 // D3DX9 is the Direct3D 9 backend's alone (its shader assembly and JPEG writer; its maths is plain C++,
 // base/maths/view_transforms.h) - and the maths check's reference.
-test("only render_pc/ (and the maths check) includes D3DX", () => {
+test("only gpu_d3d9/ (and the maths check) includes D3DX", () => {
     const users = including(/^\s*#\s*include\s*<d3dx9\w*\.h>/m);
     assert.deepEqual(
-        users.filter((name) => !name.startsWith("render_pc/") && name !== "tests/maths_check_d3dx.cpp"),
+        users.filter((name) => !name.startsWith("gpu_d3d9/") && name !== "tests/maths_check_d3dx.cpp"),
         [],
     );
-    assert.ok(users.includes("render_pc/d3dx.cpp"), "render_pc/d3dx.cpp calls D3DX");
+    assert.ok(users.includes("gpu_d3d9/d3dx.cpp"), "gpu_d3d9/d3dx.cpp calls D3DX");
+});
+
+// Only the Direct3D 9 Gpu library (src/gpu_d3d9) includes a Direct3D SDK header (the maths check's reference excepted);
+// render_pc has none and includes none of gpu_d3d9's own headers (the previous test).
+test("only gpu_d3d9/ includes <d3d9.h> or <d3dx9*.h>", () => {
+    const users = including(SDK_HEADER);
+    assert.deepEqual(
+        users.filter((name) => !name.startsWith("gpu_d3d9/") && name !== "tests/maths_check_d3dx.cpp"),
+        [],
+    );
+    assert.ok(users.includes("gpu_d3d9/gpu_d3d9.cpp"), "gpu_d3d9/gpu_d3d9.cpp calls Direct3D");
 });
