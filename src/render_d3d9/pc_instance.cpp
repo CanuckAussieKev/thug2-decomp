@@ -1,10 +1,6 @@
 // The PC instances (sSingleton, geom.h): constructed, destroyed, drawn on their own and all together; and two small
 // material helpers (the UV wibble's constructor, the texture animation's restart).
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -31,10 +27,9 @@
 #include "platform/crt.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/model.h"
-#include "render_d3d9/d3d_matrix.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/light_sets.h"
 #include "render_d3d9/mesh_pass.h"
 
@@ -68,10 +63,10 @@ namespace {
 // NOT ORIGINAL grouping - pc_instance.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_instance_state()).
 struct PcInstanceState {
-    D3DLIGHT9 device_light1_{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F}};
-    D3DLIGHT9 device_light0_{.Type = D3DLIGHT_DIRECTIONAL,
-                             .Diffuse = {.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F},
-                             .Specular = {.r = 1.0F, .g = 1.0F, .b = 1.0F, .a = 0.0F}};
+    GpuLight device_light1_{.type = gpu_value::kLightDirectional, .diffuse = {0.0F, 0.0F, 0.0F, 1.0F}};
+    GpuLight device_light0_{.type = gpu_value::kLightDirectional,
+                            .diffuse = {0.0F, 0.0F, 0.0F, 1.0F},
+                            .specular = {1.0F, 1.0F, 1.0F, 0.0F}};
     maths::Mat4* palette_base_{};
     int bone_count_{};
 };
@@ -118,9 +113,9 @@ InstanceTable& instance_table()
 Singleton*& instances() { return instance_table().instances_; }
 std::array<Singleton*, kVisibleInstanceCount>& get_visible() { return instance_table().visible_instances_; }
 
-const D3DMATRIX* get_view_world()
+const float* get_view_world()
 {
-    return d3d::matrix(renderer().world_matrix().data());
+    return renderer().world_matrix().data();
 } // the world transform to put back
 
 constexpr uint32_t kMeshLit = 0x10;       // a mesh's +0x38: it asks for lighting
@@ -168,27 +163,27 @@ void refresh_instance_lighting(Singleton* instance)
 // colour.
 void send_lights()
 {
-    D3DLIGHT9& lamp_a = pc_instance_state().device_light0_;
-    lamp_a.Diffuse.r = core::at(light_sets().light_constants(), kLampADiffuseR);
-    lamp_a.Diffuse.g = core::at(light_sets().light_constants(), kLampADiffuseG);
-    lamp_a.Diffuse.b = core::at(light_sets().light_constants(), kLampADiffuseB);
-    lamp_a.Direction.x = core::at(light_sets().light_constants(), 4);
-    lamp_a.Direction.y = core::at(light_sets().light_constants(), kLampADirectionY);
-    lamp_a.Direction.z = core::at(light_sets().light_constants(), kLampADirectionZ);
-    d3d9::state().d3d_device()->SetLight(0, &lamp_a);
-    D3DLIGHT9& lamp_b = pc_instance_state().device_light1_;
-    lamp_b.Diffuse.r = core::at(light_sets().light_constants(), kLampBDiffuseR);
-    lamp_b.Diffuse.g = core::at(light_sets().light_constants(), kLampBDiffuseG);
-    lamp_b.Diffuse.b = core::at(light_sets().light_constants(), kLampBDiffuseB);
-    lamp_b.Direction.x = core::at(light_sets().light_constants(), kLampBDirectionX);
-    lamp_b.Direction.y = core::at(light_sets().light_constants(), kLampBDirectionY);
-    lamp_b.Direction.z = core::at(light_sets().light_constants(), kLampBDirectionZ);
-    d3d9::state().d3d_device()->SetLight(1, &lamp_b);
+    GpuLight& lamp_a = pc_instance_state().device_light0_;
+    core::at(lamp_a.diffuse, 0) = core::at(light_sets().light_constants(), kLampADiffuseR);
+    core::at(lamp_a.diffuse, 1) = core::at(light_sets().light_constants(), kLampADiffuseG);
+    core::at(lamp_a.diffuse, 2) = core::at(light_sets().light_constants(), kLampADiffuseB);
+    core::at(lamp_a.direction, 0) = core::at(light_sets().light_constants(), 4);
+    core::at(lamp_a.direction, 1) = core::at(light_sets().light_constants(), kLampADirectionY);
+    core::at(lamp_a.direction, 2) = core::at(light_sets().light_constants(), kLampADirectionZ);
+    gpu().set_light(0, lamp_a);
+    GpuLight& lamp_b = pc_instance_state().device_light1_;
+    core::at(lamp_b.diffuse, 0) = core::at(light_sets().light_constants(), kLampBDiffuseR);
+    core::at(lamp_b.diffuse, 1) = core::at(light_sets().light_constants(), kLampBDiffuseG);
+    core::at(lamp_b.diffuse, 2) = core::at(light_sets().light_constants(), kLampBDiffuseB);
+    core::at(lamp_b.direction, 0) = core::at(light_sets().light_constants(), kLampBDirectionX);
+    core::at(lamp_b.direction, 1) = core::at(light_sets().light_constants(), kLampBDirectionY);
+    core::at(lamp_b.direction, 2) = core::at(light_sets().light_constants(), kLampBDirectionZ);
+    gpu().set_light(1, lamp_b);
     const uint32_t red = get_channel(core::at(light_sets().light_constants(), 0));
     const uint32_t green = get_channel(core::at(light_sets().light_constants(), 1));
     const uint32_t blue = get_channel(core::at(light_sets().light_constants(), 2));
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_AMBIENT,
-                                            kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
+    gpu().set_render_state(GpuRenderState::kAmbient,
+                           kOpaqueAlphaBits | red << kByte2Shift | green << kByte1Shift | blue);
 }
 
 
@@ -239,15 +234,15 @@ void Singleton::render(uint32_t draw_bits)
         set_world_transform(transform_.data());
         if (last_bones() != bones_) {
             if (scene_unlit(scene_)) {
-                d3d9::state().d3d_device()->SetRenderState(D3DRS_LIGHTING, FALSE);
+                gpu().set_render_state(GpuRenderState::kLighting, 0);
             } else {
                 refresh_instance_lighting(this);
-                d3d9::state().d3d_device()->SetRenderState(D3DRS_LIGHTING, TRUE);
+                gpu().set_render_state(GpuRenderState::kLighting, 1);
                 send_lights();
             }
             set_last_bones(bones_);
         }
-        d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform_.data()));
+        gpu().set_transform(GpuTransform::kWorld, transform_.data());
         pc_instance_state().palette_base_ = bones_;
         pc_instance_state().bone_count_ = bone_count_;
         mesh_pass().set_current_instance(this);
@@ -290,7 +285,7 @@ void Singleton::render(uint32_t draw_bits)
                 maths::Mat4 world = transform_;
                 maths::matrix_multiply(&world, &core::at(bone_run, bone), &world);
                 set_world_transform(world.data());
-                d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world.data()));
+                gpu().set_transform(GpuTransform::kWorld, world.data());
                 for (MeshRef* mesh : scene_->mesh_run()) {
                     if (static_cast<int8_t>(mesh->bone()) == bone) { // (its bone)
                         mesh_flags_ref(mesh) |= kMeshShown;
@@ -304,7 +299,7 @@ void Singleton::render(uint32_t draw_bits)
         }
     }
     set_world_transform(transform_.data());
-    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform_.data()));
+    gpu().set_transform(GpuTransform::kWorld, transform_.data());
     draw_scene(scene_, {.flags = draw_bits | kRenderNoCulling, .viewport = 0});
 }
 
@@ -329,7 +324,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
             instance->render(kRenderOpaque | kRenderTransparent);
         }
     }
-    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, get_view_world());
+    gpu().set_transform(GpuTransform::kWorld, get_view_world());
     set_world_transform(nullptr);
 }
 
@@ -370,9 +365,9 @@ void draw_instance_batch(BatchPass batch_pass)
             crt::get_qsort(static_cast<void*>(get_visible().data()), static_cast<uint32_t>(count), 4,
                            compare_instances); // (the C runtime's qsort)
             change_phase(kStateLighting, 1);
-            d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
-            d3d9::state().d3d_device()->LightEnable(0, TRUE);
-            d3d9::state().d3d_device()->LightEnable(1, TRUE);
+            gpu().set_render_state(GpuRenderState::kColourVertex, 1);
+            gpu().enable_light(0, true);
+            gpu().enable_light(1, true);
             set_flag_786e_b4();
             int index = 0;
             for (; index < count; ++index) {
@@ -403,12 +398,12 @@ void draw_instance_batch(BatchPass batch_pass)
             }
             renderer().set_near_camera(true);
             change_phase(kStateLighting, 0);
-            d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-            d3d9::state().d3d_device()->LightEnable(0, FALSE);
-            d3d9::state().d3d_device()->LightEnable(1, FALSE);
+            gpu().set_render_state(GpuRenderState::kColourVertex, 0);
+            gpu().enable_light(0, false);
+            gpu().enable_light(1, false);
         }
     }
-    d3d9::state().d3d_device()->SetTransform(D3DTS_WORLD, get_view_world());
+    gpu().set_transform(GpuTransform::kWorld, get_view_world());
     set_world_transform(nullptr);
 }
 
