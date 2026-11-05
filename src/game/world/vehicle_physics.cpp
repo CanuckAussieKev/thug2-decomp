@@ -274,9 +274,9 @@ void DrivableModule::apply_gravity()
     if (righting_ && static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
                              (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(righting_start_)) >
                          kPassMinMs) {
-        gravity = static_cast<double>(gravity_scale_) / mass_.inverse * kRightingGravity;
+        gravity = static_cast<double>(gravity_.scale) / mass_.inverse * kRightingGravity;
     } else {
-        gravity = static_cast<double>(gravity_scale_) / mass_.inverse * kGravity;
+        gravity = static_cast<double>(gravity_.scale) / mass_.inverse * kGravity;
     }
     force_.y = static_cast<float>(force_.y - gravity);
     if (debug_mode_ != 0) {

@@ -410,6 +410,11 @@ private:
         maths::Vec4 pos{}; // +0x04 (+0x12DC) skater_pos (made relative to the centre of mass by Finalize)
         uint32_t anim{};   // +0x14 (+0x12EC) skater_anim (0xDA75A33E)
     };
+    // Vehicle_AdjustGravity's override (+0x12F8-+0x12FF: adjust_gravity, apply_gravity, tick_frame).
+    struct GravityOverride {
+        float scale{}; // +0x00 (+0x12F8) gravity's scale
+        float time{};  // +0x04 (+0x12FC) seconds left of it
+    };
 
     maths::Vec4 at_point_{};        // +0x18 the centre of mass (world)
     maths::Vec4 linear_momentum_{}; // +0x28 linear momentum
@@ -448,8 +453,7 @@ private:
     Seat seat_;                            // +0x12D8-+0x12EF the skater shown driving
     float display_steering_{0.0F};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
     uint32_t sounds_name_{kDefault};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
-    float gravity_scale_{};                // +0x12F8 (Vehicle_AdjustGravity)
-    float gravity_time_{};                 // +0x12FC seconds left of it
+    GravityOverride gravity_;            // +0x12F8-+0x12FF Vehicle_AdjustGravity's
     bool handbrake_active_{};              // +0x1300 (forces the brake)
     float air_time_{};                     // +0x1304 seconds without a wheel on the ground
     float free_fall_time_{};               // +0x1308 seconds in the air without touching anything

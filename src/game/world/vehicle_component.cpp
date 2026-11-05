@@ -415,9 +415,9 @@ bool DrivableModule::wake(script::Struct* /*params*/, script::Script* /*script*/
 // 0x00435410
 bool DrivableModule::adjust_gravity(script::Struct* params, script::Script* /*script*/)
 {
-    params->fetch_float(kPercent, &gravity_scale_, 1);
-    gravity_scale_ = static_cast<float>(static_cast<double>(gravity_scale_) * kHundredth);
-    params->fetch_float(kDuration, &gravity_time_, 1);
+    params->fetch_float(kPercent, &gravity_.scale, 1);
+    gravity_.scale = static_cast<float>(static_cast<double>(gravity_.scale) * kHundredth);
+    params->fetch_float(kDuration, &gravity_.time, 1);
     debug::printf(kDebugFormat, kDebugFile, kSourceLineVehicle,
                   "Initiating vehicle gravity override"); // "Initiating vehicle gravity override"
     return true;
@@ -733,8 +733,8 @@ void DrivableModule::configure_from_data(script::Struct* params)
         }
     }
     load_index_ = 0;
-    gravity_time_ = 0.0F;
-    gravity_scale_ = 1.0F;
+    gravity_.time = 0.0F;
+    gravity_.scale = 1.0F;
     righting_ = false;
     bone_rig_ = entity()->fetch_module(kSkeleton);
 }
@@ -871,15 +871,15 @@ void DrivableModule::tick_frame()
     if (kick_time_ > 0.0F) {
         kick_time_ = static_cast<float>(static_cast<double>(kick_time_) - frame);
     }
-    if (!(gravity_time_ == 0.0F)) {
+    if (!(gravity_.time == 0.0F)) {
         // Vehicle_AdjustGravity's override: over when its time is up or two wheels touch.
-        const double left = static_cast<double>(gravity_time_) - frame;
-        gravity_time_ = static_cast<float>(left);
+        const double left = static_cast<double>(gravity_.time) - frame;
+        gravity_.time = static_cast<float>(left);
         if (left <= 0.0 || static_cast<uint32_t>(wheels_in_contact_) > 1) {
             debug::printf(kDebugFormat, kDebugFile, kSourceLineVehicleB,
                           "Ending vehicle gravity override"); // "Ending vehicle gravity override"
-            gravity_time_ = 0.0F;
-            gravity_scale_ = 1.0F;
+            gravity_.time = 0.0F;
+            gravity_.scale = 1.0F;
         }
     }
     // Equal steps of at most 1/30 s - six at most.
@@ -1299,8 +1299,8 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, seat_.anim), .original = 0x12EC, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, display_steering_), .original = 0x12F0, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, sounds_name_), .original = 0x12F4, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, gravity_scale_), .original = 0x12F8, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, gravity_time_), .original = 0x12FC, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, gravity_.scale), .original = 0x12F8, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, gravity_.time), .original = 0x12FC, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, handbrake_active_), .original = 0x1300, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, air_time_), .original = 0x1304, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, free_fall_time_), .original = 0x1308, .larger_by = kVectorExtra},
