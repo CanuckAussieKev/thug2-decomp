@@ -2,12 +2,15 @@
 
 ## Layers
 
-The game is one executable (`thug2-decomp.exe`, CMake target `thug2`) built from `src/`, in layers. A layer may
-include the layers below it, never the ones above. Each layer but `app/` is a static library, `thug2_<folder>`,
-defined in its folder's `CMakeLists.txt`; `app/` is the exe, which links them all.
+The source is built into two executables: `thug2-decomp.exe` (CMake target `thug2`: the game, with the new front end,
+the level editor and the developer tools) and `thug2-editor.exe` (target `thug2-editor`: the level editor on the engine
+and the game, with no new front end and no developer tools). Both are made from `src/`, in layers. A layer may include
+the layers below it, never the ones above. Each layer but `app/` is a static library, `thug2_<folder>`, defined in its
+folder's `CMakeLists.txt`; `app/` is the object library `thug2_app` (WinMain, the start-up, the main loop and the
+tables) that the two exes share, each adding its own extension list.
 
 ```
-app/                        main, WinMain, the start-up, the game's main: the composition (may include anything)
+app/                        main, WinMain, the start-up, the game's main, the two exes' extension lists: the composition (may include anything)
 editor/  frontend/  devtools/   the level editor; the new front end and mouse menus; the developer tools
 game/                       skating, the rider, goals, parks, saves, the online session (game/online)
 render_d3d9/                the graphics backend: Direct3D 9 (the original's PC platform layer); only app/ includes it
@@ -135,6 +138,7 @@ set of hooks, named for the subsystem that asks - not one set for the whole engi
 | engine/render | `render::set_feeler_query_observer` (`engine/render/probe_ray.h`) | `collision_overlay::install` (game/rider/debug_collision) | `[features] debug_collision`'s log after each feeler query |
 | engine/net | `net::SessionQueries`, the transport hooks | `online::install_session_queries` (at start-up), `online::install_transport_hooks` | above |
 | engine/script | the node hooks (`engine/script/node_hooks.h`) | `commands::install_node_hooks` | above |
+| engine/gfx (loading screen) | `gfx::loading_console::PanelHooks` (`engine/gfx/loading_console.h`) | `gfx::loading_console::install_panel` (the graphics backend) | the loading console's panel, drawn by the backend |
 
 Each hook is the game's own code that the engine called at that place: one indirect call for a direct one, none added
 per object, draw or poll. Some things moved down instead, because they need only the engine: the CAS option lists
@@ -142,44 +146,111 @@ per object, draw or poll. Some things moved down instead, because they need only
 pending script (`engine/sys/model_viewer`). `tools/layers.json` lists the engine (with base and platform) as strict:
 no upward include, not even in the baseline.
 
-**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end and the dev tools: none of the three includes another (since round 29 every library but the app's is strict, and the baseline is empty). What the editor and the front end may include of the engine and the game is an explicit list each, the `api` of their entry in `tools/layers.json`: an include of another engine or game header fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). What they share went down a layer: reading the original menus' screen elements (`engine/ui/menu_reading.h`, from the mouse menus), a menu pad event as the front end sends it (`game/front_end/menu_pad_event.h`), the Dear ImGui layers' backend (`engine/ui/ui_backend.h`), the gap and combo trackers and what feeds them (`game/skate/play_trackers.h`), starting in a level (`game/front_end/start_level.h`, with the test views' teleport, `game/rider/test_view.h`); what one asks of another goes through the extension points (`feature_switch`, `draws_unfocused`, `open_editor_when_up` / `editor_opening_frame`, the driven screens' `screen_command`...; `ext::game_owner()` for "the editor runs"). A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
+**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end and the dev tools: none of the three includes another (every library but the app's is strict, and the baseline is empty). What the editor and the front end may include of the engine and the game is an explicit list each, the `api` of their entry in `tools/layers.json`: an include of another engine or game header fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). What they share went down a layer: reading the original menus' screen elements (`engine/ui/menu_reading.h`, from the mouse menus), a menu pad event as the front end sends it (`game/front_end/menu_pad_event.h`), the Dear ImGui layers' backend (`engine/ui/ui_backend.h`), the gap and combo trackers and what feeds them (`game/skate/play_trackers.h`), starting in a level (`game/front_end/start_level.h`, with the test views' teleport, `game/rider/test_view.h`); what one asks of another goes through the extension points (`feature_switch`, `draws_unfocused`, `open_editor_when_up` / `editor_opening_frame`, the driven screens' `screen_command`...; `ext::game_owner()` for "the editor runs"). A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
 **The libraries link as the map says.** Each library links only the ones its layer may include (`PUBLIC`: their
-headers are part of its own), and reaches every one of them through those links:
+headers are part of its own), and reaches every one of them through those links. An arrow points at what a library
+links:
 
-```
-thug2_base  <-  thug2_formats  <-  thug2_wire
-            <-  thug2_platform
-thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
-thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput, thug2_fs_win32,
-                  thug2_net_winsock, thug2_script_qb (the backends: linked by the exe alone)
-thug2_game and below + the backends  <-  thug2_app (src/app: an object library - WinMain, the start-up, the main
-                                        loop, the command and component tables)
-thug2_app + every library  <-  thug2 (thug2-decomp.exe: + extensions.cpp)
-thug2_app + thug2_editor   <-  thug2-editor (thug2-editor.exe: + editor_extensions.cpp; no front end, no dev tools)
+```mermaid
+graph TD
+    thug2["thug2-decomp.exe (thug2)<br/>+ extensions.cpp"]
+    editorexe["thug2-editor.exe (thug2-editor)<br/>+ editor_extensions.cpp"]
+    app["thug2_app (OBJECT)<br/>WinMain, start-up, main loop, tables"]
+    frontend[thug2_frontend]
+    editor[thug2_editor]
+    devtools[thug2_devtools]
+    game[thug2_game]
+    engine[thug2_engine]
+    backends["the backends, one library each:<br/>render_d3d9, audio_dsound, media_bink,<br/>input_dinput, fs_win32, net_winsock, script_qb"]
+    wire[thug2_wire]
+    platform[thug2_platform]
+    formats[thug2_formats]
+    base[thug2_base]
+
+    thug2 --> app
+    thug2 --> frontend
+    thug2 --> editor
+    thug2 --> devtools
+    editorexe --> app
+    editorexe --> editor
+    app --> game
+    app --> backends
+    frontend --> game
+    editor --> game
+    devtools --> game
+    game --> engine
+    backends --> engine
+    engine --> wire
+    engine --> platform
+    wire --> formats
+    formats --> base
+    platform --> base
 ```
 
-The checks in `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`:
-base; `thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
+(Each exe also links the libraries it reaches through these, listed out in `src/app/CMakeLists.txt`.) The editor,
+the front end and the dev tools each link `thug2_game` (and Dear ImGui) alone, never one another: `thug2-editor` reaches
+neither the front end nor the dev tools. Only the exes (through `thug2_app`) link the backends. The checks in
+`src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`: base;
+`thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
 library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
 the network backend; LZHAM by the engine; DirectInput
 by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
 panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends, `imgui_backends`, by the graphics
-backend alone). `node tools/cmake_layers.ts` (part of `npm test`)
-reads the `CMakeLists.txt` files and fails when a library links outside the map or doesn't reach a library the map
-allows it, when a source sits in another library's folder, or when a `.cpp` is compiled by no target or by two.
-A sibling link (between libraries of one layer) is allowed only where `tools/layers_baseline.txt` has include
-lines between them - none since round 29: the editor, the front end and the dev tools each link `thug2_game` (and
-imgui) alone. The map's `executables` lists what an exe must do without: `thug2-editor` reaches neither the front end
-nor the dev tools. Only the exes link the backends: the editor and the front end reach the graphics
-backend through the engine's interfaces (`render::Device`, `render::UiBackend`), the engine reaches the sound output
-and the movie codec through `audio::Device` and `media::Movie`, and DirectInput through its `input::Source`.
+backend alone).
+
+**The checks that hold all this** run in `npm test`:
+
+| check | what it enforces |
+|---|---|
+| `tools/layers.ts` (`layers.test.ts`) | The layer map `tools/layers.json`: each folder belongs to a library, and an include outside the library's `allowed` list fails unless it is in `tools/layers_baseline.txt` (a ratchet: it can only shrink, and is empty now). Every library but the app's is `strict`: no upward include, not even in the baseline. The editor's and the front end's `api` are explicit lists of the engine and game headers each may include; a header outside the list fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). |
+| `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
+| `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by Direct3D's own headers in `render_d3d9/`; every other header holds the graphics handles. |
+| `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/`; the Bink wrapper only in `media_bink/`; only `app/` picks `audio::Device` and `media::Movie`. |
+| `tools/input_headers.test.ts` | `<dinput.h>` only in `input_dinput/`; SDL's input and the platform's keyboard only behind the SDL input source; only `app/` picks the sources. |
+| `tools/file_calls.test.ts` | The operating system's and the C runtime's file functions are called only in `fs_win32/`, `platform/` and `src/tests`; only `app/` installs the disk and adds the file sources. |
+| `tools/net_calls.test.ts` | Winsock's headers and functions only in `net_winsock/`; only `app/` installs the transport. |
+| `tools/script_headers.test.ts` | The interpreter's headers only in `script_qb/` and `app/`; only `app/` installs the host; nothing outside `script_qb/` names its classes. |
+| `tools/layering.ts` (`layering.test.ts`) | The named views of in-memory layouts (`cell::`, `raw::`, `bits_as`, `function_at`) only in the boundary files. |
+| `tools/no_nolint.test.ts` | No `NOLINT` in `src/`. |
 
 Nothing is registered by a static initialiser: the start-up runs explicit tables (app's start-up initialisers, the
 command table, the component registry), so the linker drops no object the game needs (a static library leaves out an
 object nothing refers to). The project's only dynamic initialisers are four list-head markers and one callback
 pointer, each used in its own file. Each library keeps its sources in the order the exe listed them before the
 split; the exe's symbols were compared before and after.
+
+## Seams
+
+A seam is an interface in the engine with an implementation in a library of its own. The engine and everything above
+it call the interface; `app/main.cpp` makes the implementation and installs it before any original code runs (the
+editor exe's start-up is the same code), so only the exes link a backend, and swapping one means installing another at that
+place. The grain of every interface is coarse - a frame, a resource, a state block, a batch, a socket, a
+file, a script operation - never a vertex, a sample, a byte or a statement.
+
+| interface | declared in | implemented by | what it hides | other implementations |
+|---|---|---|---|---|
+| `render::Device`, `render::UiBackend` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h` | `thug2_render_d3d9` (`render::d3d9::device()`, `render::d3d9::ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (planned: [design/vulkan.md](design/vulkan.md)) |
+| `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
+| `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoder (planned, for a 64-bit build) |
+| `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |
+| `fs::FileSystem` (its `fs::Source`s), `fs::Disk` | `engine/file/file_system.h`, `engine/file/disk.h` | `thug2_fs_win32` (`fs::win32::disk()`); the sources are the engine's (overlay, archives, Data folder) | the operating system's files | a std::filesystem / POSIX disk (for a GCC build) |
+| `net::Transport` | `engine/net/transport.h` | `thug2_net_winsock` (`net::winsock::transport()`) | Winsock's sockets and lookups | `engine/net/loopback_transport.h` (in-process, for protocol tests: `[debug] net_loopback=1`) |
+| `script::Host`, `script::Context` | `engine/script/host.h`, `engine/script/context.h` | `thug2_script_qb` (`script::qb::host()`) | the QB interpreter | a QuickJS runtime (planned: [qb-js-plan.md](qb-js-plan.md)) |
+| `ext::Extension` | `engine/ext/extension.h` | `thug2_frontend`, `thug2_editor`, `thug2_devtools`, and the game's features (THAW's BMX, debug mode) | what the original's frame lets our additions do | - |
+
+`script::Context` is not a backend seam: it is the view of the running script that every command receives
+(`bool f(script::Struct* params, script::Context context)`), so the commands do not depend on the runtime's record. The
+extensions are the other way round: the engine calls out to code above it, through `ext::` ("The extension points",
+above), and `app/extensions.cpp` / `app/editor_extensions.cpp` register them.
+
+The engine's own questions of the game go through small per-subsystem hook structs, each declared beside the subsystem
+that asks and installed by a function on the game's side: the table under "The engine includes nothing of the game"
+(Layers, above) lists where each lives (`engine/objects/game_hooks.h`, `engine/gfx/game_hooks.h`,
+`engine/pad_input/game_hooks.h`, `engine/sys/game_hooks.h`, `engine/net/session_query.h`, `engine/script/node_hooks.h`)
+and who installs it.
+
+## The boundary and the backends
 
 **The boundary layer** is where the game meets bytes it doesn't lay out itself. Only there do byte layouts matter;
 everything above it uses the game's own types and may change them freely.
@@ -453,3 +524,9 @@ blend channels, animation slots, script structures...) are sized by `sizeof` of 
 an object bigger than its items - a class that grows past the original's byte size stops the game with a report
 instead of running into its neighbour. The singletons are owned by type (`std::unique_ptr`, `memory::HeapUnique`);
 a loaded `.pre` archive is an index of plain records (`packs::PackedFile`) over one block of unpacked files.
+
+## Next steps
+
+The seams are what the planned work builds on: [design/x64-port.md](design/x64-port.md) (a 64-bit build: the
+pointer-width inventory and the order of the work) and [design/vulkan.md](design/vulkan.md) (a Vulkan backend behind
+`render::Device`, and ray-traced features after it).
