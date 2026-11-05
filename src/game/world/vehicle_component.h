@@ -323,9 +323,9 @@ public:
     [[nodiscard]] const maths::Vec4& vel() const { return vel_; }
     [[nodiscard]] int wheels_in_contact() const { return wheels_in_contact_; }
     [[nodiscard]] bool cut_short() const { return cut_short_; }
-    [[nodiscard]] float get_max_steering_angle() const { return max_steering_angle_; }
-    [[nodiscard]] float wheelbase() const { return wheelbase_; }
-    [[nodiscard]] float track() const { return track_; }
+    [[nodiscard]] float get_max_steering_angle() const { return chassis_.max_steering_angle; }
+    [[nodiscard]] float wheelbase() const { return chassis_.wheelbase; }
+    [[nodiscard]] float track() const { return chassis_.track; }
     [[nodiscard]] const std::vector<Wheel>& get_wheels() const { return wheels_; }
     [[nodiscard]] bool throttle() const { return controls_.throttle; }
     [[nodiscard]] bool brake() const { return controls_.brake; }
@@ -369,6 +369,15 @@ private:
         float rate{};     // +0x08 (+0x188) (0x280F0E0B) the turning's rate
         bool when_slow{}; // +0x0C (+0x18C) (0x5341806A) turn towards the facing when slow
     };
+    // The chassis (+0x190-+0x1A3: configure_from_data, seal): how many wheels and how many driven, the steering's
+    // limit, and the wheels' placing.
+    struct Chassis {
+        int wheel_count{};          // +0x00 (+0x190) Wheels
+        int drive_wheel_count{};    // +0x04 (+0x194) wheels with drive
+        float max_steering_angle{}; // +0x08 (+0x198) max_steering_angle (radians)
+        float wheelbase{};          // +0x0C (+0x19C) (Finalize: the model's front to back wheels)
+        float track{};              // +0x10 (+0x1A0) (Finalize: the model's left to right wheels)
+    };
     // The controls this frame (+0x304-+0x30B: read_controls, from the input component; or none when passive).
     struct Controls {
         float steering{}; // +0x00 (+0x304) -1 (left) .. 1 (right), squared with its sign
@@ -402,11 +411,7 @@ private:
     Mass mass_;                   // +0x148-+0x16B the centre of mass, the inverse mass and moments
     Response response_;           // +0x16C-+0x17F the body's response to its contacts
     AirAlign air_align_;          // +0x180-+0x18F turning level in the air
-    int wheel_count_{};                    // +0x190 Wheels
-    int drive_wheel_count_{};              // +0x194 wheels with drive
-    float max_steering_angle_{};           // +0x198 max_steering_angle (radians)
-    float wheelbase_{};                    // +0x19C (Finalize: the model's front to back wheels)
-    float track_{};                        // +0x1A0 (Finalize: the model's left to right wheels)
+    Chassis chassis_;             // +0x190-+0x1A3 the wheels' count, drive and placing
     float yaw_damping_{};                  // +0x1A4 (0x386837DB) the turning damped when not steering
     float spin_damping_{};                 // +0x1A8 (0x469CF79A) the angular momentum damped
     std::array<Collider, 2> colliders_{};              // +0x1AC colliders (0xFC8C4AC6)

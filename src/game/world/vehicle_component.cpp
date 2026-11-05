@@ -139,7 +139,7 @@ const float kHundredth = 0.00999999978F; // 0x0064544C
 // 0x004351C0
 void DrivableModule::update_wheel_rotations()
 {
-    for (int i = wheel_count_ - 1; i >= 0; --i) {
+    for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         const double rotation =
             ((static_cast<double>(wheel.spin) - (static_cast<double>(wheel.torque) * step_length_ * kHalf)) *
@@ -432,7 +432,7 @@ bool DrivableModule::handbrake_active(script::Struct* /*params*/, script::Script
 // 0x00435490
 bool DrivableModule::all_wheels_are_in_contact(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return wheels_in_contact_ == wheel_count_;
+    return wheels_in_contact_ == chassis_.wheel_count;
 }
 
 // 0x00437BC0
@@ -568,8 +568,8 @@ void DrivableModule::configure_from_data(script::Struct* params)
     params->fetch_float(kInAirSlerpStrength, &air_align_.rate, 0);
     air_align_.when_slow = params->has_bare_flag(kVertCorrection);
     if (params->has_entry_named(kMaxSteeringAngle)) { // max_steering_angle (degrees)
-        params->fetch_float(kMaxSteeringAngle, &max_steering_angle_, 0);
-        max_steering_angle_ = static_cast<float>(static_cast<double>(max_steering_angle_) * kToRadians);
+        params->fetch_float(kMaxSteeringAngle, &chassis_.max_steering_angle, 0);
+        chassis_.max_steering_angle = static_cast<float>(static_cast<double>(chassis_.max_steering_angle) * kToRadians);
     }
     params->fetch_float(kConstantRotationalDamping, &yaw_damping_, 0);
     params->fetch_float(kQuadraticRotationalDamping, &spin_damping_, 0);
@@ -657,27 +657,27 @@ void DrivableModule::configure_from_data(script::Struct* params)
         script::Array* wheels = nullptr;
         params->fetch_list(kWheels, &wheels, 1);
         const int count = static_cast<int>(wheels->extent());
-        wheel_count_ = count;
+        chassis_.wheel_count = count;
         if (wheels_.empty()) {
             // (the original's new[] took them from the memory manager's current heap, default-initialised: only the
             // feeler set up - a vector here, value-initialised)
             wheels_ = std::vector<Wheel>(static_cast<size_t>(count));
         }
-        for (int i = wheel_count_ - 1; i >= 0; --i) {
+        for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
             read_wheel(&core::at(wheels_, i), wheels->struct_at(static_cast<uint32_t>(i)));
         }
     }
     if (params->has_entry_named(kAllWheels)) {
         script::Struct* all = nullptr;
         params->read_sub_struct(kAllWheels, &all, 1);
-        for (int i = wheel_count_ - 1; i >= 0; --i) {
+        for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
             read_wheel(&core::at(wheels_, i), all);
         }
     }
-    drive_wheel_count_ = 0;
-    for (int i = wheel_count_ - 1; i >= 0; --i) {
+    chassis_.drive_wheel_count = 0;
+    for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         if (core::at(wheels_, i).drive) {
-            ++drive_wheel_count_;
+            ++chassis_.drive_wheel_count;
         }
     }
 
@@ -717,7 +717,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     clear_to_w1(rotmom_);
     clear_to_w1(force_);
     clear_to_w1(twist_force_);
-    for (int i = wheel_count_ - 1; i >= 0; --i) {
+    for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         wheel.y = wheel.rest_y_;
         wheel.state = DrivableModule::WheelState::kInAir;
@@ -728,7 +728,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         wheel.torque = 0.0F;
         for (int k = kLastLoadIndex; k >= 0; --k) {
             core::at(wheel.load_history_, k) =
-                static_cast<float>(static_cast<double>(kGravity) / mass_.inverse / as_unsigned(wheel_count_));
+                static_cast<float>(static_cast<double>(kGravity) / mass_.inverse / as_unsigned(chassis_.wheel_count));
         }
     }
     load_index_ = 0;
@@ -772,20 +772,20 @@ void DrivableModule::seal()
             break;
         }
     }
-    wheelbase_ = static_cast<float>(
+    chassis_.wheelbase = static_cast<float>(
         std::fabs(static_cast<double>(wheel_place(geometry, left).y) - wheel_place(geometry, fixed).y));
-    track_ = static_cast<float>(
+    chassis_.track = static_cast<float>(
         std::fabs(static_cast<double>(wheel_place(geometry, left).x) - wheel_place(geometry, right).x));
     // The suspension: the wheel's place raised by its diameter; its rest extension down from there, sagged by its
     // share of the weight.
-    for (int i = wheel_count_ - 1; i >= 0; --i) {
+    for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         const double y = wheel.offset.y;
         const double raised = (static_cast<double>(wheel.radius) + wheel.radius) + y;
         wheel.offset.y = static_cast<float>(raised);
-        wheel.rest_y_ =
-            static_cast<float>((y - raised) - (static_cast<double>(kGravity) /
-                                               (as_unsigned(wheel_count_) * wheel.spring_rate_ * mass_.inverse)));
+        wheel.rest_y_ = static_cast<float>(
+            (y - raised) -
+            (static_cast<double>(kGravity) / (as_unsigned(chassis_.wheel_count) * wheel.spring_rate_ * mass_.inverse)));
     }
     // The colliders' lowest point.
     float lowest = core::at(colliders_, 0).corner.y;
@@ -811,11 +811,11 @@ void DrivableModule::seal()
     // Everything made relative to the wheels' centre (x, z) and the colliders' lowest point.
     double sum_x = 0.0;
     double sum_z = 0.0;
-    for (int i = wheel_count_ - 1; i >= 0; --i) {
+    for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         sum_x += core::at(wheels_, i).offset.x;
         sum_z += core::at(wheels_, i).offset.z;
     }
-    const double share = 1.0 / as_unsigned(wheel_count_);
+    const double share = 1.0 / as_unsigned(chassis_.wheel_count);
     auto centre_x = static_cast<float>(sum_x * share);
     const double centre_z = sum_z * share;
     auto recentre = [centre_x, centre_z, lowest](maths::Vec4& v) {
@@ -823,7 +823,7 @@ void DrivableModule::seal()
         v.y = static_cast<float>(static_cast<double>(v.y) - lowest);
         v.z = static_cast<float>(v.z - centre_z);
     };
-    for (int i = wheel_count_ - 1; i >= 0; --i) {
+    for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         recentre(core::at(wheels_, i).offset);
     }
     for (int i = 1; i >= 0; --i) {
@@ -857,7 +857,7 @@ void DrivableModule::tick_frame()
         entity()->display_matrix() = entity()->basis_frame();
         update_steering();
         if (controls_.brake) {
-            for (int i = wheel_count_ - 1; i >= 0; --i) {
+            for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
                 core::at(wheels_, i).spin = 0.0F;
             }
         }
@@ -895,7 +895,7 @@ void DrivableModule::tick_frame()
         integrate();
         clear_to_w1(force_);
         clear_to_w1(twist_force_);
-        for (int i = wheel_count_ - 1; i >= 0; --i) {
+        for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
             core::at(wheels_, i).torque = 0.0F;
         }
         if (!passive_) {
@@ -1011,7 +1011,7 @@ void DrivableModule::debug_draw()
     if (debug_mode_ == 0) {
         return;
     }
-    for (int i = wheel_count_ - 1; i >= 0; --i) {
+    for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
         const Wheel& wheel = core::at(wheels_, i);
         uint32_t colour = 0;
         switch (wheel.state) {
@@ -1082,7 +1082,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     matrix_from_angles(&matrix, &angles);
     // How far the body's origin sits above the ground: the wheels' rest heights (sagged by their share of the
     // weight) less their radii, averaged (always four wheels).
-    const double count = as_unsigned(wheel_count_);
+    const double count = as_unsigned(chassis_.wheel_count);
     double height = 0.0;
     for (int i = 3; i >= 0; --i) {
         const Wheel& wheel = core::at(wheels_, i);
@@ -1122,7 +1122,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     // Settled by sixty updates without input, collision or debug drawing, the wheels kept from turning.
     passive_ = true;
     for (int iteration = kProbeIterations; iteration != 0; --iteration) {
-        for (int i = wheel_count_ - 1; i >= 0; --i) {
+        for (int i = chassis_.wheel_count - 1; i >= 0; --i) {
             core::at(wheels_, i).spin = 0.0F;
         }
         tick_frame();
@@ -1262,11 +1262,11 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, air_align_.time), .original = 0x184, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, air_align_.rate), .original = 0x188, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, air_align_.when_slow), .original = 0x18C, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, wheel_count_), .original = 0x190, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, drive_wheel_count_), .original = 0x194, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, max_steering_angle_), .original = 0x198, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, wheelbase_), .original = 0x19C, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, track_), .original = 0x1A0, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, chassis_.wheel_count), .original = 0x190, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, chassis_.drive_wheel_count), .original = 0x194, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, chassis_.max_steering_angle), .original = 0x198, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, chassis_.wheelbase), .original = 0x19C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, chassis_.track), .original = 0x1A0, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, yaw_damping_), .original = 0x1A4, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, spin_damping_), .original = 0x1A8, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, colliders_), .original = 0x1AC, .larger_by = 0},
