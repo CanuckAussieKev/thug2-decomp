@@ -17,6 +17,7 @@
 #include "editor/level_editor_goals.h"
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_notes.h"
+#include "base/core/format.h"
 #include "editor/level_editor_clusters.h"
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_playtest.h"
@@ -36,6 +37,8 @@ namespace internal {
 constexpr std::size_t kSearchTextSize = 96; // a search field's text
 
 constexpr float kSwatchRounding = 2.0F;         // colour swatches (legend, Outliner and Place rows)
+
+constexpr ImVec4 kDangerButtonColour{0.29F, 0.14F, 0.13F, 1.0F};
 
 // NOT ORIGINAL grouping - level_editor_ui.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_ui_state()).
@@ -79,6 +82,16 @@ ImVec4 get_accent(float alpha);
 
 ImU32 get_colour(uint32_t argb);
 
+// --- small pieces ---
+
+template <typename... Args>
+void get_mono(text::FormatFor<Args...> format, Args... args)
+{
+    ImGui::PushFont(level_editor_ui_state().mono_);
+    ImGui::TextUnformatted(text::format(format, args...).c_str());
+    ImGui::PopFont();
+}
+
 void get_muted(const char* text);
 
 constexpr ImGuiWindowFlags kPanel = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
@@ -89,7 +102,11 @@ void place_window(const ui_layout::Rect2& rect);
 
 void panel_title(const char* title);
 
+void view_section(const ShapeMesh& model);
+
 void get_outliner(const ShapeMesh& model);
+
+void get_inspector(const ShapeMesh& model);
 
 } // namespace internal
 

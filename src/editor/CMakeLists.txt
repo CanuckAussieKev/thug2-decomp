@@ -41,6 +41,7 @@ add_library(thug2_editor STATIC
     level_editor_scale.cpp
     level_editor_shared_coll.cpp
     level_editor_ui.cpp
+    level_editor_ui_inspector.cpp
     level_editor_ui_outliner.cpp
     level_editor_gui_text.cpp
     level_editor_camera.cpp
