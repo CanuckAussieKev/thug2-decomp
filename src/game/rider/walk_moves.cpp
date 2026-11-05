@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
@@ -229,6 +230,120 @@ FootMovement::FootMovement()
     set_kind_tag(kWalk); // Walk
     stick_heading_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     jump_velocity_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+}
+
+// The original's layout: every field at its offset, then the component's size (the pool and the heaps report).
+void FootMovement::check_layout()
+{
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(FootMovement, state_), .original = 0x18},
+        FieldAt{.now = offsetof(FootMovement, state_time_), .original = 0x1C},
+        FieldAt{.now = offsetof(FootMovement, previous_state_), .original = 0x20},
+        FieldAt{.now = offsetof(FootMovement, pos_), .original = 0x24},
+        FieldAt{.now = offsetof(FootMovement, vel_), .original = 0x34},
+        FieldAt{.now = offsetof(FootMovement, up_speed_), .original = 0x44},
+        FieldAt{.now = offsetof(FootMovement, facing_), .original = 0x48},
+        FieldAt{.now = offsetof(FootMovement, up_), .original = 0x58},
+        FieldAt{.now = offsetof(FootMovement, old_pos_), .original = 0x68},
+        FieldAt{.now = offsetof(FootMovement, anim_state_), .original = 0x78},
+        FieldAt{.now = offsetof(FootMovement, previous_anim_state_), .original = 0x7C},
+        FieldAt{.now = offsetof(FootMovement, frame_length_), .original = 0x80},
+        FieldAt{.now = offsetof(FootMovement, stick_heading_), .original = 0x84},
+        FieldAt{.now = offsetof(FootMovement, stick_deflection_), .original = 0x94},
+        FieldAt{.now = offsetof(FootMovement, control_full_), .original = 0x98},
+        FieldAt{.now = offsetof(FootMovement, stick_steers_), .original = 0x99},
+        FieldAt{.now = offsetof(FootMovement, jump_held_), .original = 0x9A},
+        FieldAt{.now = offsetof(FootMovement, off_vert_), .original = 0x9B},
+        FieldAt{.now = offsetof(FootMovement, model_lift_), .original = 0x9C},
+        FieldAt{.now = offsetof(FootMovement, contacts_), .original = 0xA0},
+        FieldAt{.now = offsetof(FootMovement, anim_speed_scaling_), .original = 0x700},
+        FieldAt{.now = offsetof(FootMovement, speed_), .original = 0x704},
+        FieldAt{.now = offsetof(FootMovement, last_speed_), .original = 0x708},
+        FieldAt{.now = offsetof(FootMovement, locked_to_heading_), .original = 0x70C},
+        FieldAt{.now = offsetof(FootMovement, pad70d_), .original = 0x70D},
+        FieldAt{.now = offsetof(FootMovement, unknown710_), .original = 0x710},
+        FieldAt{.now = offsetof(FootMovement, curb_offset_), .original = 0x714},
+        FieldAt{.now = offsetof(FootMovement, curb_float_), .original = 0x718},
+        FieldAt{.now = offsetof(FootMovement, pad719_), .original = 0x719},
+        FieldAt{.now = offsetof(FootMovement, critical_point_offset_), .original = 0x71C},
+        FieldAt{.now = offsetof(FootMovement, upright_time_), .original = 0x72C},
+        FieldAt{.now = offsetof(FootMovement, upright_angle_), .original = 0x730},
+        FieldAt{.now = offsetof(FootMovement, upright_axis_), .original = 0x734},
+        FieldAt{.now = offsetof(FootMovement, facing_y_), .original = 0x744},
+        FieldAt{.now = offsetof(FootMovement, leave_for_), .original = 0x748},
+        FieldAt{.now = offsetof(FootMovement, grind_point_), .original = 0x74C},
+        FieldAt{.now = offsetof(FootMovement, grind_rails_), .original = 0x75C},
+        FieldAt{.now = offsetof(FootMovement, grind_node_), .original = 0x760},
+        FieldAt{.now = offsetof(FootMovement, grind_object_), .original = 0x764},
+        FieldAt{.now = offsetof(FootMovement, acid_drop_), .original = 0x768},
+        FieldAt{.now = offsetof(FootMovement, hit_cache_), .original = 0x790},
+        FieldAt{.now = offsetof(FootMovement, camera_), .original = 0x175C},
+        FieldAt{.now = offsetof(FootMovement, walk_camera_), .original = 0x1760},
+        FieldAt{.now = offsetof(FootMovement, hang_node_), .original = 0x1764},
+        FieldAt{.now = offsetof(FootMovement, hang_next_node_), .original = 0x1768},
+        FieldAt{.now = offsetof(FootMovement, rail_manager_), .original = 0x176C},
+        FieldAt{.now = offsetof(FootMovement, input_), .original = 0x1770},
+        FieldAt{.now = offsetof(FootMovement, anim_blender_), .original = 0x1774},
+        FieldAt{.now = offsetof(FootMovement, model_), .original = 0x1778},
+        FieldAt{.now = offsetof(FootMovement, trigger_), .original = 0x177C},
+        FieldAt{.now = offsetof(FootMovement, physics_control_), .original = 0x1780},
+        FieldAt{.now = offsetof(FootMovement, ride_), .original = 0x1784},
+        FieldAt{.now = offsetof(FootMovement, skater_state_), .original = 0x1788},
+        FieldAt{.now = offsetof(FootMovement, core_physics_), .original = 0x178C},
+        FieldAt{.now = offsetof(FootMovement, tagging_), .original = 0x1790},
+        FieldAt{.now = offsetof(FootMovement, floor_normal_), .original = 0x1794},
+        FieldAt{.now = offsetof(FootMovement, running_), .original = 0x17A4},
+        FieldAt{.now = offsetof(FootMovement, pad17a5_), .original = 0x17A5},
+        FieldAt{.now = offsetof(FootMovement, barrier_timed_), .original = 0x17A8},
+        FieldAt{.now = offsetof(FootMovement, pad17a9_), .original = 0x17A9},
+        FieldAt{.now = offsetof(FootMovement, barrier_since_), .original = 0x17AC},
+        FieldAt{.now = offsetof(FootMovement, standard_speed_), .original = 0x17B0},
+        FieldAt{.now = offsetof(FootMovement, feeler_), .original = 0x17B4},
+        FieldAt{.now = offsetof(FootMovement, feeler_hit_), .original = 0x1864},
+        FieldAt{.now = offsetof(FootMovement, pad1865_), .original = 0x1865},
+        FieldAt{.now = offsetof(FootMovement, run_adjustment_), .original = 0x1868},
+        FieldAt{.now = offsetof(FootMovement, blocked_), .original = 0x186C},
+        FieldAt{.now = offsetof(FootMovement, pad186d_), .original = 0x186D},
+        FieldAt{.now = offsetof(FootMovement, skid_time_), .original = 0x1870},
+        FieldAt{.now = offsetof(FootMovement, unknown1874_), .original = 0x1874},
+        FieldAt{.now = offsetof(FootMovement, pad1875_), .original = 0x1875},
+        FieldAt{.now = offsetof(FootMovement, leap_heading_), .original = 0x1878},
+        FieldAt{.now = offsetof(FootMovement, jump_base_vel_), .original = 0x1888},
+        FieldAt{.now = offsetof(FootMovement, leap_duration_), .original = 0x1898},
+        FieldAt{.now = offsetof(FootMovement, jump_velocity_), .original = 0x189C},
+        FieldAt{.now = offsetof(FootMovement, jump_target_height_), .original = 0x18AC},
+        FieldAt{.now = offsetof(FootMovement, pushing_), .original = 0x18B0},
+        FieldAt{.now = offsetof(FootMovement, pad18b1_), .original = 0x18B1},
+        FieldAt{.now = offsetof(FootMovement, push_normal_), .original = 0x18B4},
+        FieldAt{.now = offsetof(FootMovement, push_plane_distance_), .original = 0x18C4},
+        FieldAt{.now = offsetof(FootMovement, push_height_), .original = 0x18C8},
+        FieldAt{.now = offsetof(FootMovement, along_), .original = 0x18CC},
+        FieldAt{.now = offsetof(FootMovement, rail_up_), .original = 0x18D0},
+        FieldAt{.now = offsetof(FootMovement, rail_out_), .original = 0x18D4},
+        FieldAt{.now = offsetof(FootMovement, hang_init_anim_type_), .original = 0x18D8},
+        FieldAt{.now = offsetof(FootMovement, climb_scale_), .original = 0x18DC},
+        FieldAt{.now = offsetof(FootMovement, ladder_sign_), .original = 0x18E0},
+        FieldAt{.now = offsetof(FootMovement, transition_start_), .original = 0x18E4},
+        FieldAt{.now = offsetof(FootMovement, unknown18f4_), .original = 0x18F4},
+        FieldAt{.now = offsetof(FootMovement, transition_pos_), .original = 0x1904},
+        FieldAt{.now = offsetof(FootMovement, transition_start_offset_), .original = 0x1914},
+        FieldAt{.now = offsetof(FootMovement, transition_display_offset_), .original = 0x1918},
+        FieldAt{.now = offsetof(FootMovement, transition_facing_), .original = 0x191C},
+        FieldAt{.now = offsetof(FootMovement, transition_rate_), .original = 0x192C},
+        FieldAt{.now = offsetof(FootMovement, transition_turn_), .original = 0x1930},
+        FieldAt{.now = offsetof(FootMovement, climb_offset_), .original = 0x1934},
+        FieldAt{.now = offsetof(FootMovement, anim_waiting_), .original = 0x1944},
+        FieldAt{.now = offsetof(FootMovement, anim_done_), .original = 0x1948},
+        FieldAt{.now = offsetof(FootMovement, jump_unsteered_), .original = 0x1958},
+        FieldAt{.now = offsetof(FootMovement, pad1959_), .original = 0x1959},
+        FieldAt{.now = sizeof(FootMovement), .original = 0x1960},
+    };
+    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now == field.original; }),
+                  "layout must match the original");
 }
 
 // 0x00529F80

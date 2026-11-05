@@ -476,6 +476,8 @@ private:
     void flatten_contact(objects::WalkContact& contact, render::ProbeRay* feeler);
     bool stop_on_foot(render::ProbeRay* feeler);
     bool stop_in_corner(render::ProbeRay* feeler);
+    // Not original - the fields' offsets and the size checked against the original's at compile time (walk_moves.cpp).
+    static void check_layout();
 
     int state_{};                      // +0x18 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move
     int state_time_{};                 // +0x1C the game clock when the state changed
