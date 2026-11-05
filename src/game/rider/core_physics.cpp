@@ -889,7 +889,7 @@ void SkaterPhysicsModule::land_from_air()
                 // Landing from a wall ride: along +0x490's direction in the ground's plane, unless that turns
                 // the skater upwards (0x004FF590) - then the old velocity in the plane; at least a script speed.
                 const maths::Vec4 saved = velocity;
-                velocity.change_heading(drop_heading_);
+                velocity.change_heading(drop_.heading);
                 velocity.align_to_plane(normal);
                 maths::Vec4& v = entity()->vel();
                 maths::Vec4 probe = v;

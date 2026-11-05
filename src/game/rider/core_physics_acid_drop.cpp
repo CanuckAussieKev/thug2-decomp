@@ -398,7 +398,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     along.flatten_onto_plane(normal);
     along.make_unit();
     const maths::Vec4 up = normal;
-    drop_heading_ = along;
+    drop_.heading = along;
     maths::Mat4 wall;
     core::at(wall.row, 0) = {
         .x = static_cast<float>((static_cast<double>(up.y) * along.z) - (static_cast<double>(up.z) * along.y)),
@@ -408,7 +408,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     core::at(wall.row, 1) = up;
     core::at(wall.row, 2) = along;
     core::at(wall.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    maths::Mat4& stored = drop_matrix_;
+    maths::Mat4& stored = drop_.matrix;
     stored = wall;
     if (core::at(stored.row, 2).y > 0.0F) { // (along the drop pointing up: turned round, across with it)
         core::at(stored.row, 2) *= -1.0F;
@@ -420,10 +420,10 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     facing.y = 0.0F;
     auto turn = static_cast<float>(-maths::get_turn_around_axis(facing, direction, core::at(object->basis_frame().row, 1)));
     wall.yaw_locally(turn);
-    drop_slerp_.set_matrices(start, wall);
-    drop_time_ = 0.0F;
-    drop_duration_ = time;
-    drop_last_matrix_ = start;
+    drop_.slerp.set_matrices(start, wall);
+    drop_.time = 0.0F;
+    drop_.duration = time;
+    drop_.last_matrix = start;
 
     // SkaterAcidDropTriggered with DropHeight (how far above the hit's height the skater is).
     gsl::owner<script::Struct*> params = script::new_struct();
@@ -624,17 +624,17 @@ bool SkaterPhysicsModule::try_spine_transfer()
     core::at(end.row, 1) = target_normal;
     core::at(end.row, 2) = forward;
     core::at(end.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    drop_heading_ = forward;
+    drop_.heading = forward;
     double turn = maths::get_turn_around_axis(core::at(object->basis_frame().row, 2), old_velocity, core::at(object->basis_frame().row, 1));
     if (std::fabs(turn) < kLeastTurn) {
         turn = 0.0;
     }
     end.yaw_locally(static_cast<float>(-turn));
-    maths::ArcRotationBlender& slerp = drop_slerp_;
+    maths::ArcRotationBlender& slerp = drop_.slerp;
     slerp.set_matrices(start, end);
-    drop_time_ = 0.0F;
-    drop_duration_ = time < kFlatTarget ? kFlatTarget : time;
-    drop_last_matrix_ = start;
+    drop_.time = 0.0F;
+    drop_.duration = time < kFlatTarget ? kFlatTarget : time;
+    drop_.last_matrix = start;
     maths::Mat4 halfway;
     slerp.fetch_mat(halfway, kHalf);
     if (core::at(halfway.row, 1).y < 0.0F) { // (the short way round turns upside down: the long way)

@@ -301,25 +301,25 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
     if (state_->flag(PoseFlag::kAcidDrop).on == 0U) {
         return;
     }
-    const double elapsed = static_cast<double>(frame_length_) + drop_time_;
-    drop_time_ = static_cast<float>(elapsed);
-    double progress = elapsed / drop_duration_;
+    const double elapsed = static_cast<double>(frame_length_) + drop_.time;
+    drop_.time = static_cast<float>(elapsed);
+    double progress = elapsed / drop_.duration;
     if (progress > 1.0) {
         progress = 1.0F;
     }
     // Eased: 3t^2 - 2t^3.
     auto eased = static_cast<float>((progress - kAcidDropEase) * progress * progress * kAcidDropEaseScale);
     maths::Mat4 slerped{};
-    drop_slerp_.fetch_mat(slerped, eased);
+    drop_.slerp.fetch_mat(slerped, eased);
     // The change since the last frame's matrix applied to the skater's.
-    maths::Mat4 last = drop_last_matrix_;
+    maths::Mat4 last = drop_.last_matrix;
     last.invert_orthonormal();
     maths::Mat4 change{};
     maths::get_multiply(change, last, slerped);
     maths::Mat4& matrix = entity()->basis_frame();
     maths::get_multiply(matrix, matrix, change);
     display_matrix_ = entity()->basis_frame();
-    drop_last_matrix_ = slerped;
+    drop_.last_matrix = slerped;
 }
 
 // 0x00504B40

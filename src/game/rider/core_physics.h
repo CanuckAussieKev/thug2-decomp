@@ -771,6 +771,17 @@ public:
         maths::Vec4 pos{};         // +0x14 (+0x14E0)
         maths::Vec4 wall_normal{}; // +0x24 (+0x14F0)
     };
+    // The acid drop's (and the spine transfer's) turn to the wall (+0x3B0-+0x4DF: start_acid_drop,
+    // try_spine_transfer, rotate_in_acid_drop). (Its height, +0x37C, and whether its object was still there,
+    // +0x14C0, are apart: drop_target_height_, drop_object_hit_.)
+    struct DropTurn {
+        maths::Mat4 matrix{};            // +0x00 (+0x3B0) the acid drop's orientation
+        maths::ArcRotationBlender slerp; // +0x40 (+0x3F0) to it
+        float time{};                    // +0xD8 (+0x488) the time into the drop
+        float duration{};                // +0xDC (+0x48C)
+        maths::Vec4 heading{};           // +0xE0 (+0x490)
+        maths::Mat4 last_matrix{};       // +0xF0 (+0x4A0)
+    };
 
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
@@ -825,7 +836,7 @@ public:
     [[nodiscard]] uint8_t lock_velocity() const { return lock_velocity_; }
     void set_last_spin_backside(uint8_t value) { last_spin_backside_ = value; }
     void set_rail_adjust(int value) { rail_adjust_ = value; }
-    [[nodiscard]] const maths::Mat4& drop_matrix() const { return drop_matrix_; }
+    [[nodiscard]] const maths::Mat4& drop_matrix() const { return drop_.matrix; }
     [[nodiscard]] uint32_t wallplant_time() const { return wallplant_.time; }
     void set_wallplant_time(uint32_t value) { wallplant_.time = value; }
     [[nodiscard]] objects::PadInputModule* input() const { return input_; }
@@ -995,12 +1006,7 @@ private:
     std::array<uint8_t, 2> pad3a6_{};
     int rail_adjust_{};                      // +0x3A8 change_rail_adjust (ms)
     float speed_override_{};                 // +0x3AC the speed override's factor (1: off)
-    maths::Mat4 drop_matrix_{};              // +0x3B0 the acid drop's orientation
-    maths::ArcRotationBlender drop_slerp_; // +0x3F0 to it
-    float drop_time_{};                      // +0x488 the time into the drop
-    float drop_duration_{};                  // +0x48C
-    maths::Vec4 drop_heading_{};             // +0x490
-    maths::Mat4 drop_last_matrix_{};         // +0x4A0
+    DropTurn drop_;                          // +0x3B0-+0x4DF the acid drop's turn to the wall
     WallplantTimes wallplant_;               // +0x4E0-+0x4EB the wallplant times
     int leap_time_{}; // +0x4EC the game clock when the skater last jumped
     uint8_t
