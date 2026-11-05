@@ -19,6 +19,7 @@
 #include "editor/level_editor_level_props.h"
 #include "editor/level_editor_arrange.h"
 #include "base/maths/vec2.h"
+#include "base/core/format.h"
 #include "editor/level_editor_carry.h"
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_entities.h"
@@ -55,6 +56,10 @@ constexpr float kScreenSpanFactor = 2.0F;  // the world width of the screen is t
 constexpr std::size_t kPickTextSize = 64;
 
 constexpr float kHalf = 0.5F;               // half
+
+constexpr float kQuarterTurnDegrees = 90.0F; // degrees in a quarter turn
+
+constexpr float kNearZ = 2.0F; // (render::choose_camera's near plane)
 
 constexpr float kMaxPickDistance = 30000.0F;
 
@@ -103,9 +108,32 @@ struct LevelEditorState {
 
 LevelEditorState& level_editor_state();
 
+std::string describe_selection();
+
 std::vector<picking::Lock> selection_locks();
 
 void follow_scenery();
+
+template <typename... Args>
+void note_action(text::FormatFor<Args...> format, Args... args)
+{
+    text::format_to(level_editor_state().last_action_, format, args...);
+}
+
+void mark_unsaved();
+
+// The mouse, from the events since the last Update.
+struct Mouse {
+    float x = 0.0F, y = 0.0F; // window pixels
+    int window_width_ = 0, window_height_ = 0;
+    float rel_x_ = 0.0F, rel_y_ = 0.0F;
+    int wheel = 0;
+    int left_presses_ = 0, left_releases_ = 0;
+    int middle_presses_ = 0; // (as Alt+left click: one scenery piece in / out)
+    bool left = false, right = false;
+};
+
+Mouse& stored_mouse();
 
 // What is picked: the pointer (only used after checking it's still the object found under its id).
 struct Picked {
@@ -356,7 +384,67 @@ struct UndoStep {
     std::string label, detail;
 };
 
+// NOT ORIGINAL grouping - the undo and redo steps and the pending one (were globals). Made on first use, never
+// destroyed (undo_steps()).
+struct UndoSteps {
+    std::vector<UndoStep> undo_;
+    std::vector<UndoStep> redo_;
+    uint64_t undo_serial_{};
+    UndoStep pending_{};
+    bool has_pending_{};
+};
+
+UndoSteps& undo_steps();
+
+UndoStep get_snapshot();
+
+void push_undo(UndoStep step, const char* label = nullptr);
+
+void push_locks_undo(const char* label = "Lock / unlock");
+
+bool scale_selection_by(V3 factor, bool uniform);
+
+V3 selection_scale_now();
+
+void scale_selection_to(V3 scale);
+
+V3& scale_at_field_start();
+
+void begin_change();
+
+void end_change();
+
+void get_restore(UndoStep& step);
+
 UndoStep at_hand(const UndoStep& step);
+
+void step_history(std::vector<UndoStep>* from, std::vector<UndoStep>* to, const char* what);
+
+bool get_to_pixel(const TickCycle& frame, V3 point, float* px, float* py);
+
+xform::Mode gizmo_mode();
+
+float selection_heading();
+
+xform::Gizmo gizmo_now();
+
+void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float mouse_x, float mouse_y);
+
+// What a drag snaps to (level_editor_snap.h): held keys, or the toolbar's Snap and its Snap to.
+struct Snapping {
+    bool on = false;
+    xform::SnapTarget target = xform::SnapTarget::kGrid;
+};
+
+Snapping snapping_now(bool ctrl, bool shift, bool alt);
+
+void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mouse_y, Snapping snap);
+
+void note_for_adjust(xform::Mode mode, V3 moved, bool uniform);
+
+void end_drag();
+
+void set_relative(bool on);
 
 float pixel_scale();
 
