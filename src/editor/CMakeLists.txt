@@ -72,6 +72,7 @@ add_library(thug2_editor STATIC
     level_editor_ruler.cpp
     level_editor_thumbs.cpp
     level_editor_chains.cpp
+    level_editor_chains_records.cpp
     level_editor_chains_ui.cpp
     level_editor_spots_ui.cpp
     level_editor_fields.cpp
