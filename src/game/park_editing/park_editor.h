@@ -22,6 +22,7 @@
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
 #include "base/maths/vec4.h"
+#include "engine/script/fwd.h"
 
 namespace pad_input {
 struct Payload;
@@ -240,53 +241,53 @@ CellBox* get_resize_area(CellBox* out, script::Struct* params);
 void resize_to(CellBox area);
 
 // The park editor's script commands (park_editor_cfuncs.cpp; cdecl, the Function table's).
-bool cfunc_free_up_memory_for_playing_park(script::Struct* params, script::Script* script); // 0x0058D730
-bool cfunc_is_park_unsaved(script::Struct* params, script::Script* script);                 // 0x0058D760
-bool cfunc_set_edited_park_gap_info(script::Struct* params, script::Script* script);        // 0x0058D780
+bool cfunc_free_up_memory_for_playing_park(script::Struct* params, script::Context context); // 0x0058D730
+bool cfunc_is_park_unsaved(script::Struct* params, script::Context context);                 // 0x0058D760
+bool cfunc_set_edited_park_gap_info(script::Struct* params, script::Context context);        // 0x0058D780
 bool cfunc_park_editor_selection_area_too_big_to_copy(script::Struct* params,
-                                                      script::Script* script); // 0x0058D820
+                                                      script::Context context); // 0x0058D820
 bool cfunc_copy_park_editor_selection_to_clipboard(script::Struct* params,
-                                                   script::Script* script);                // 0x0058D840
-bool cfunc_cut_park_editor_area_selection(script::Struct* params, script::Script* script); // 0x0058D870
+                                                   script::Context context);                // 0x0058D840
+bool cfunc_cut_park_editor_area_selection(script::Struct* params, script::Context context); // 0x0058D870
 bool cfunc_park_editor_area_selection_delete_pieces(script::Struct* params,
-                                                    script::Script* script);                    // 0x0058D8C0
-bool cfunc_continue_park_editor_area_selection(script::Struct* params, script::Script* script); // 0x0058D8E0
-bool cfunc_set_editor_theme(script::Struct* params, script::Script* script);                    // 0x0058D900
-bool cfunc_set_custom_park_name(script::Struct* params, script::Script* script);                // 0x0058D940
-bool cfunc_optimize_park_geometry(script::Struct* params, script::Script* script);              // 0x0058D980
-bool cfunc_get_park_ed_mem_stats(script::Struct* params, script::Script* script);               // 0x0058D9A0
-bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* script);                // 0x0058D9B0
-bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Script* script);               // 0x0058D9E0
-bool cfunc_exit_park_ed_test_play(script::Struct* params, script::Script* script);              // 0x0058DA40
-bool cfunc_park_update_usage_info(script::Struct* params, script::Script* script);              // 0x0058DA70
-bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script* script);         // 0x0058DFB0
-bool cfunc_get_park_editor_time_of_day_script(script::Struct* params, script::Script* script);  // 0x0058DFE0
-bool cfunc_rebuild_park_node_array(script::Struct* params, script::Script* script);             // 0x0058E010
-bool cfunc_get_park_editor_cursor_pos(script::Struct* params, script::Script* script);          // 0x0058E020
-bool cfunc_custom_park_mode(script::Struct* params, script::Script* script);                    // 0x0058E070
-bool cfunc_set_park_editor_max_players(script::Struct* params, script::Script* script);         // 0x0058E0F0
-bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Script* script);             // 0x0058E2D0
-bool cfunc_resize_park(script::Struct* params, script::Script* script);                         // 0x0058E5E0
-bool cfunc_get_current_park_bounds(script::Struct* params, script::Script* script);             // 0x0058E7E0
-bool cfunc_can_change_park_dimension(script::Struct* params, script::Script* script);           // 0x0058E870
-bool cfunc_save_park_to_disk(script::Struct* params, script::Script* script);                   // 0x0058E9A0
-bool cfunc_load_park_from_disk(script::Struct* params, script::Script* script);                 // 0x0058E9E0
-bool cfunc_fire_custom_park_gap(script::Struct* params, script::Script* script);                // 0x0058EA40
-bool cfunc_get_edited_park_gap_name(script::Struct* params, script::Script* script);            // 0x0058EA70
-bool cfunc_get_editor_theme(script::Struct* params, script::Script* script);                    // 0x0058EAA0
-bool cfunc_get_editor_max_themes(script::Struct* params, script::Script* script);               // 0x0058EAD0
-bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script);                // 0x0058EAF0
-bool cfunc_is_custom_park(script::Struct* params, script::Script* script);                      // 0x0058EB90
-bool cfunc_is_park_full(script::Struct* params, script::Script* script);                        // 0x0058EBB0
+                                                    script::Context context);                    // 0x0058D8C0
+bool cfunc_continue_park_editor_area_selection(script::Struct* params, script::Context context); // 0x0058D8E0
+bool cfunc_set_editor_theme(script::Struct* params, script::Context context);                    // 0x0058D900
+bool cfunc_set_custom_park_name(script::Struct* params, script::Context context);                // 0x0058D940
+bool cfunc_optimize_park_geometry(script::Struct* params, script::Context context);              // 0x0058D980
+bool cfunc_get_park_ed_mem_stats(script::Struct* params, script::Context context);               // 0x0058D9A0
+bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Context context);                // 0x0058D9B0
+bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Context context);               // 0x0058D9E0
+bool cfunc_exit_park_ed_test_play(script::Struct* params, script::Context context);              // 0x0058DA40
+bool cfunc_park_update_usage_info(script::Struct* params, script::Context context);              // 0x0058DA70
+bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Context context);         // 0x0058DFB0
+bool cfunc_get_park_editor_time_of_day_script(script::Struct* params, script::Context context);  // 0x0058DFE0
+bool cfunc_rebuild_park_node_array(script::Struct* params, script::Context context);             // 0x0058E010
+bool cfunc_get_park_editor_cursor_pos(script::Struct* params, script::Context context);          // 0x0058E020
+bool cfunc_custom_park_mode(script::Struct* params, script::Context context);                    // 0x0058E070
+bool cfunc_set_park_editor_max_players(script::Struct* params, script::Context context);         // 0x0058E0F0
+bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Context context);             // 0x0058E2D0
+bool cfunc_resize_park(script::Struct* params, script::Context context);                         // 0x0058E5E0
+bool cfunc_get_current_park_bounds(script::Struct* params, script::Context context);             // 0x0058E7E0
+bool cfunc_can_change_park_dimension(script::Struct* params, script::Context context);           // 0x0058E870
+bool cfunc_save_park_to_disk(script::Struct* params, script::Context context);                   // 0x0058E9A0
+bool cfunc_load_park_from_disk(script::Struct* params, script::Context context);                 // 0x0058E9E0
+bool cfunc_fire_custom_park_gap(script::Struct* params, script::Context context);                // 0x0058EA40
+bool cfunc_get_edited_park_gap_name(script::Struct* params, script::Context context);            // 0x0058EA70
+bool cfunc_get_editor_theme(script::Struct* params, script::Context context);                    // 0x0058EAA0
+bool cfunc_get_editor_max_themes(script::Struct* params, script::Context context);               // 0x0058EAD0
+bool cfunc_get_custom_park_name(script::Struct* params, script::Context context);                // 0x0058EAF0
+bool cfunc_is_custom_park(script::Struct* params, script::Context context);                      // 0x0058EB90
+bool cfunc_is_park_full(script::Struct* params, script::Context context);                        // 0x0058EBB0
 bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct* params,
-                                                                  script::Script* script); // 0x0058ED00
-bool cfunc_switch_to_park_editor_camera(script::Struct* params, script::Script* script);   // 0x0058F750
-bool cfunc_bind_park_editor_to_controller(script::Struct* params, script::Script* script); // 0x0058F870
+                                                                  script::Context context); // 0x0058ED00
+bool cfunc_switch_to_park_editor_camera(script::Struct* params, script::Context context);   // 0x0058F750
+bool cfunc_bind_park_editor_to_controller(script::Struct* params, script::Context context); // 0x0058F870
 // (park_editor_state.cpp)
 // 0x0058FBD0 SetParkEditorState state=<off|edit|test_play|regular_play> [command=...]: the park set up for the state
 // and the editor's state changed. False for an unknown state.
-bool cfunc_set_park_editor_state(script::Struct* params, script::Script* script);
+bool cfunc_set_park_editor_state(script::Struct* params, script::Context context);
 // 0x0058FED0 SetParkEditorPauseMode pause | unpause: the editor paused (its menu and cursor hidden) or not.
-bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* script);
+bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Context context);
 
 } // namespace park_editing

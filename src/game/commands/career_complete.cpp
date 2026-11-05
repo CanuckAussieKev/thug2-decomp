@@ -11,7 +11,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/legacy_command.h"
+#include "engine/script/context.h"
 #include "base/core/down_cast.h"
 #include "game/rider/stats_manager.h"
 #include "game/goals/goal_manager.h"
@@ -135,9 +135,9 @@ bool& is_switched_on()
     return on;
 }
 
-bool cfunc_available(script::Struct* /*params*/, script::Script* /*script*/) { return is_switched_on(); }
+bool cfunc_available(script::Struct* /*params*/, script::Context /*context*/) { return is_switched_on(); }
 
-bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
+bool cfunc_apply(script::Struct* params, script::Context /*context*/)
 {
     if (!is_switched_on()) {
         get_log("create 100%% cas: off ([features] create_100_cas=0)");
@@ -218,8 +218,8 @@ bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "Career100_Available", .function = &script::legacy_command<&cfunc_available>},
-        {.name = "Career100_Apply", .function = &script::legacy_command<&cfunc_apply>},
+        {.name = "Career100_Available", .function = &cfunc_available},
+        {.name = "Career100_Apply", .function = &cfunc_apply},
     });
     script::install_script_functions(kFunctions);
 }

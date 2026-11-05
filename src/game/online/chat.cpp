@@ -382,7 +382,7 @@ constexpr uint32_t kChatTextParam = 0x61414D56; // the chat line's parameter nam
 
 // 0x005A16B0: script function SendChatMessage <text>. Lines starting with '/' that we recognise are run as
 // chat commands instead of being sent.
-bool cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
+bool cfunc_send_chat_message(script::Struct* params, script::Context /*context*/)
 {
     const char* text = nullptr;
     script::fetch_text(params, kChatTextParam, &text);

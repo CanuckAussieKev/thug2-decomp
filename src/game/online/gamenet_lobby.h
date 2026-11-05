@@ -13,7 +13,7 @@
 #include "engine/memory/arena_alloc.h"
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 namespace tasks {
@@ -380,17 +380,17 @@ struct LobbyPlayer {
 };
 
 // The lobby's script commands from 0x00541870 on (rooms.cpp).
-bool cfunc_num_players_in_lobby(script::Struct* params, script::Script* script);              // 0x00541A70
-bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script);                  // 0x005429C0
-bool cfunc_fill_player_list(script::Struct* params, script::Script* script);                  // 0x00542AA0
-bool cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Script* script); // 0x00542B00
-bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script);                      // 0x00542CE0
-bool cfunc_choose_lobby(script::Struct* params, script::Script* script);                      // 0x00542D30
-bool cfunc_lobby_connect(script::Struct* params, script::Script* script);                     // 0x00542EE0
+bool cfunc_num_players_in_lobby(script::Struct* params, script::Context context);              // 0x00541A70
+bool cfunc_lobby_disconnect(script::Struct* params, script::Context context);                  // 0x005429C0
+bool cfunc_fill_player_list(script::Struct* params, script::Context context);                  // 0x00542AA0
+bool cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Context context); // 0x00542B00
+bool cfunc_rejoin_lobby(script::Struct* params, script::Context context);                      // 0x00542CE0
+bool cfunc_choose_lobby(script::Struct* params, script::Context context);                      // 0x00542D30
+bool cfunc_lobby_connect(script::Struct* params, script::Context context);                     // 0x00542EE0
 
 // 0x00540E00 (SendMessage text=): to the lobby's group room - or, with system_message, "<System> <text>" to the
 // console only. True.
-bool cfunc_send_message(script::Struct* params, script::Script* script);
+bool cfunc_send_message(script::Struct* params, script::Context context);
 
 constexpr size_t kQueuedPacketBytes = 0x1C;
 constexpr size_t kQueuedPacketFromSize = 16;
@@ -407,23 +407,23 @@ static_assert(sizeof(QueuedPacket) == kQueuedPacketBytes);
 // destructors that put them back - 0x0053F8B0 / 0x005407E0, 0x0053F8C0 / 0x00540810 - not kept.)
 
 // 0x0053F8A0 (ResetConnectionTimer): the connection timer (0x007CCE3C) restarted now. True.
-bool cfunc_reset_connection_timer(script::Struct* params, script::Script* script);
+bool cfunc_reset_connection_timer(script::Struct* params, script::Context context);
 
 // --- The lobby's script commands (gamenet_lobby_cfuncs.cpp) ---
 // 0x00540430 (StartNatNegotiation <ip string> <port> cookie=): a client's NAT negotiation with the server: client 0
 // made (secure), the cookie sent to the host through the peer, negotiation on the client's socket; its packets queued
 // and the NAT negotiation / query tasks started. False if the negotiation can't start.
-bool cfunc_start_nat_negotiation(script::Struct* params, script::Script* script);
+bool cfunc_start_nat_negotiation(script::Struct* params, script::Context context);
 // 0x005403E0 (CancelNatNegotiation): the client's negotiation cancelled, the two tasks off. True.
-bool cfunc_cancel_nat_negotiation(script::Struct* params, script::Script* script);
+bool cfunc_cancel_nat_negotiation(script::Struct* params, script::Context context);
 // 0x00540590 (LeaveLobby): the group room left; the presence back to its idle status unless 0xB2AB4DAB is given. True.
-bool cfunc_leave_lobby(script::Struct* params, script::Script* script);
+bool cfunc_leave_lobby(script::Struct* params, script::Context context);
 // 0x00540640 (CancelLobbyConnect): no longer connecting; a disconnect expected. True.
-bool cfunc_cancel_lobby_connect(script::Struct* params, script::Script* script);
+bool cfunc_cancel_lobby_connect(script::Struct* params, script::Context context);
 // 0x00540660 (SetQuietMode): the peer's quiet mode on, or off with the flag 0xD443A2BC. True.
-bool cfunc_set_quiet_mode(script::Struct* params, script::Script* script);
+bool cfunc_set_quiet_mode(script::Struct* params, script::Context context);
 // 0x005406C0 (CanHostGame): with restricted hosting only ten GameSpy profiles (logged in) may; otherwise whether the
 // lobby's +0x30 is below its +0x2C.
-bool cfunc_can_host_game(script::Struct* params, script::Script* script);
+bool cfunc_can_host_game(script::Struct* params, script::Context context);
 
 } // namespace online

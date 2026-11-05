@@ -18,6 +18,7 @@
 #include "game/online/gamenet_manager.h"
 #include "game/online/stats_man.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/gfx/render_constants.h"
 #include "base/core/compiler.h"
 #include "base/core/checked_index.h"
@@ -140,7 +141,7 @@ void RoomManager::room_message_callback(void* /*unused*/, int /*unused*/, const 
 }
 
 // 0x00540E00
-bool cfunc_send_message(script::Struct* params, script::Script* /*script*/)
+bool cfunc_send_message(script::Struct* params, script::Context /*context*/)
 {
     const Hub* manager = net_game_state().online_hub();
     const char* message = nullptr;

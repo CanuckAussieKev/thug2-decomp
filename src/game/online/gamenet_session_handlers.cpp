@@ -27,6 +27,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/rider/rider.h"
 #include "engine/sys/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
@@ -410,7 +411,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         }
         manager->get_online_settings()->change_setting(kTeamMode, params.get());
         params.reset();
-        cfunc_set_num_teams(count.get(), nullptr);
+        cfunc_set_num_teams(count.get(), script::Context());
         count.reset();
         break;
     }

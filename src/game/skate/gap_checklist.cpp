@@ -14,6 +14,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/career.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
@@ -393,27 +394,27 @@ void GapTally::pay_out_queued_gaps()
 }
 
 // 0x005792E0
-bool cfunc_add_gaps_to_menu(script::Struct* params, script::Script* script)
+bool cfunc_add_gaps_to_menu(script::Struct* params, script::Context context)
 {
-    return skate_checklist()->add_gaps_to_menu(params, script);
+    return skate_checklist()->add_gaps_to_menu(params, context.script());
 }
 
 // 0x00579300
-bool cfunc_create_gap_list(script::Struct* params, script::Script* script)
+bool cfunc_create_gap_list(script::Struct* params, script::Context context)
 {
-    return skate_checklist()->create_gap_list(params, script);
+    return skate_checklist()->create_gap_list(params, context.script());
 }
 
 // 0x00579320
-bool cfunc_get_level_gap_totals(script::Struct* params, script::Script* script)
+bool cfunc_get_level_gap_totals(script::Struct* params, script::Context context)
 {
     int level = 0; // (the original's is uninitialised: level= is required)
     params->fetch_int_value(kLevel, &level, 1);
-    return level_checklist(get_career(), level)->get_gap_totals(params, script);
+    return level_checklist(get_career(), level)->get_gap_totals(params, context.script());
 }
 
 // 0x00579360
-bool cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
+bool cfunc_give_all_gaps(script::Struct* params, script::Context /*context*/)
 {
     void* career = get_career();
     int level = 0;

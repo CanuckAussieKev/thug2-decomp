@@ -14,8 +14,8 @@
 #include "engine/script/host.h"
 #include "game/goals/objective.h"
 #include "game/online/gamenet_manager.h"
-#include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
@@ -668,7 +668,7 @@ void MatchRules::increment_round()
 }
 
 // 0x00553C90
-bool cfunc_override_game_mode_options(script::Struct* params, script::Script* /*script*/)
+bool cfunc_override_game_mode_options(script::Struct* params, script::Context /*context*/)
 {
     return the_game_mode()->force_match_settings(params);
 }

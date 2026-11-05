@@ -19,6 +19,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/host.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/profile_manager.h"
 #include "game/rider/controls.h"
 #include "game/rider/flip_and_rotate.h"
@@ -827,10 +828,10 @@ void MoveExecutor::tick_frame()
 }
 
 // 0x00523350
-bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
+bool cfunc_do_next_trick(script::Struct* params, script::Context context)
 {
     auto* trick =
-        core::down_cast<MoveExecutor>(core::down_cast<GameEntity>(script->entity().get_pull())->fetch_module(kTrick));
+        core::down_cast<MoveExecutor>(core::down_cast<GameEntity>(context.entity().get_pull())->fetch_module(kTrick));
     uint32_t first = 0;
     script::Struct* first_params = nullptr;
     params->read_hash_value(kScriptToRunFirst, &first, 0);

@@ -1,7 +1,7 @@
 #pragma once
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 
@@ -38,8 +38,8 @@ namespace frontend::career_complete {
 
 bool& is_switched_on();
 
-bool cfunc_available(script::Struct* params, script::Script* script); // Career100_Available
-bool cfunc_apply(script::Struct* params, script::Script* script);     // Career100_Apply
+bool cfunc_available(script::Struct* params, script::Context context); // Career100_Available
+bool cfunc_apply(script::Struct* params, script::Context context);     // Career100_Apply
 
 // Our script commands, registered after the game's own table (sys::Main, after 0x005A5E70).
 void register_script_functions();

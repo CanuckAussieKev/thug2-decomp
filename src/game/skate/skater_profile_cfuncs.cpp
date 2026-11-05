@@ -8,6 +8,7 @@
 #include "engine/script/cscript.h"
 #include "game/skate/career.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
@@ -133,7 +134,7 @@ script::Struct* table_row(script::Array* list, uint32_t index)
 // 0x005AAEF0: RestoreTemporaryAppearance name=<id> player=<n> [NoFaceTexture] - player n's profile's appearance
 // back from the temporary profile `name` (RememberTemporaryAppearance's): with NoFaceTexture only its structure
 // (cleared and copied), else the whole appearance (0x004893A0).
-bool cfunc_restore_temporary_appearance(script::Struct* params, script::Script* /*script*/)
+bool cfunc_restore_temporary_appearance(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original when missing, as the player)
     params->read_hash_value(kName, &name, 1);
@@ -154,7 +155,7 @@ bool cfunc_restore_temporary_appearance(script::Struct* params, script::Script* 
 }
 
 // 0x005AAF90: SyncPlayer2Profile - the second player's profile copied again from its template.
-bool cfunc_sync_player2_profile(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_sync_player2_profile(script::Struct* /*params*/, script::Context /*context*/)
 {
     objects::profile_roster()->reset_second_profile();
     return true;
@@ -162,7 +163,7 @@ bool cfunc_sync_player2_profile(script::Struct* /*params*/, script::Script* /*sc
 
 // 0x005ABBF0: ResetAllToDefaultStats - every skater of master_skater_list: its stats (the stat_names) and
 // points_available put back into the template of its name.
-bool cfunc_reset_all_to_default_stats(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_reset_all_to_default_stats(script::Struct* /*params*/, script::Context /*context*/)
 {
     script::Array* list = script::fetch_list(kMasterSkaterList);
     for (uint32_t i = 0; i < list->extent(); ++i) {
@@ -198,7 +199,7 @@ bool cfunc_reset_all_to_default_stats(script::Struct* /*params*/, script::Script
 
 // 0x005ABE30: ResetToDefaultProfile name=<skater> [partial=stats_and_tricks | partial=<other>] - the template reset
 // from its master_skater_list entry: entirely, its stats and tricks only, or its info only.
-bool cfunc_reset_to_default_profile(script::Struct* params, script::Script* /*script*/)
+bool cfunc_reset_to_default_profile(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kName, &name, 1);
@@ -226,7 +227,7 @@ bool cfunc_reset_to_default_profile(script::Struct* params, script::Script* /*sc
 }
 
 // 0x005ABF00: ResetAllToDefaultProfile - every master_skater_list skater's template reset from its entry.
-bool cfunc_reset_all_to_default_profile(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_reset_all_to_default_profile(script::Struct* /*params*/, script::Context /*context*/)
 {
     script::Array* list = script::fetch_list(kMasterSkaterList);
     for (uint32_t i = 0; i < list->extent(); ++i) {
@@ -240,7 +241,7 @@ bool cfunc_reset_all_to_default_profile(script::Struct* /*params*/, script::Scri
 
 // 0x005ABF70: ForEachSkaterName do=<script> [params=<s>] - the script run for every template with the parameters
 // and its name.
-bool cfunc_for_each_skater_name(script::Struct* params, script::Script* /*script*/)
+bool cfunc_for_each_skater_name(script::Struct* params, script::Context /*context*/)
 {
     uint32_t script = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kDo, &script, 1);
@@ -260,7 +261,7 @@ bool cfunc_for_each_skater_name(script::Struct* params, script::Script* /*script
 
 // 0x005AC0C0: ForEachSkaterProfile do=<script> [params=<s>] - the script run for every template with the
 // parameters and its whole info.
-bool cfunc_for_each_skater_profile(script::Struct* params, script::Script* /*script*/)
+bool cfunc_for_each_skater_profile(script::Struct* params, script::Context /*context*/)
 {
     uint32_t script = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kDo, &script, 1);
@@ -279,7 +280,7 @@ bool cfunc_for_each_skater_profile(script::Struct* params, script::Script* /*scr
 
 // 0x005AC1F0: GetSkaterProfileInfoByName name=<skater> - the template's info added to the script's parameters
 // (false without such a template).
-bool cfunc_get_skater_profile_info_by_name(script::Struct* params, script::Script* script)
+bool cfunc_get_skater_profile_info_by_name(script::Struct* params, script::Context context)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kName, &name, 1);
@@ -287,13 +288,13 @@ bool cfunc_get_skater_profile_info_by_name(script::Struct* params, script::Scrip
     if (!profile) {
         return false;
     }
-    script->args()->append_structure_if_any(profile->details_params());
+    context.args()->append_structure_if_any(profile->details_params());
     return true;
 }
 
 // 0x005AC280: SetSkaterProfileInfoByName name=<skater> params=<s> - the parameters added to the template's info
 // (false without such a template).
-bool cfunc_set_skater_profile_info_by_name(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_skater_profile_info_by_name(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kName, &name, 1);
@@ -309,7 +310,7 @@ bool cfunc_set_skater_profile_info_by_name(script::Struct* params, script::Scrip
 
 // 0x005AC320: PrintCurrentAppearance [skater=<n>] - the profile's appearance printed (compiled out: the empty
 // 0x005BAB90).
-bool cfunc_print_current_appearance(script::Struct* params, script::Script* /*script*/)
+bool cfunc_print_current_appearance(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = get_profile_from_params(params);
     script::dump_to_log(&profile->appearance()->structure());
@@ -318,7 +319,7 @@ bool cfunc_print_current_appearance(script::Struct* params, script::Script* /*sc
 
 // 0x005AC340: SetNeversoftSkater [skater=<n>] appearance=<s> info=<s> - the profile's appearance set and applied,
 // the info added, its 0x09F350E5 value set.
-bool cfunc_set_neversoft_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_neversoft_skater(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = get_profile_from_params(params);
     script::Struct* appearance = nullptr; // (uninitialised in the original when missing, as the info)
@@ -333,7 +334,7 @@ bool cfunc_set_neversoft_skater(script::Struct* params, script::Script* /*script
 
 // 0x005AC3B0: ResetSkaters [node_name=<node>] [RestartWalking] - the skate module's skaters reset at the node (its
 // 0x00566980; 0xDD7DF50E - name unknown - is read and not used).
-bool cfunc_reset_skaters(script::Struct* params, script::Script* /*script*/)
+bool cfunc_reset_skaters(script::Struct* params, script::Context /*context*/)
 {
     int unused = 0;
     params->fetch_int_value(kResetValue, &unused, 0);
@@ -346,7 +347,7 @@ bool cfunc_reset_skaters(script::Struct* params, script::Script* /*script*/)
 
 // 0x005AC410: SetSkaterProfileInfo player=<n> params=<s> - added to profile n's info. 0x005AC470:
 // GetSkaterProfileInfo player=<n> - profile n's info added to the script's parameters.
-bool cfunc_set_skater_profile_info(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_skater_profile_info(script::Struct* params, script::Context /*context*/)
 {
     int player = 0; // (uninitialised in the original when missing, as the structure)
     params->fetch_int_value(kPlayer, &player, 1);
@@ -356,17 +357,17 @@ bool cfunc_set_skater_profile_info(script::Struct* params, script::Script* /*scr
     return true;
 }
 
-bool cfunc_get_skater_profile_info(script::Struct* params, script::Script* script)
+bool cfunc_get_skater_profile_info(script::Struct* params, script::Context context)
 {
     int player = 0; // (uninitialised in the original when missing)
     params->fetch_int_value(kPlayer, &player, 1);
-    script->args()->append_structure_if_any(objects::profile_roster()->fetch_account(player)->details_params());
+    context.args()->append_structure_if_any(objects::profile_roster()->fetch_account(player)->details_params());
     return true;
 }
 
 // 0x005AC4B0: SetSkaterProfileProperty player=<n> <stat> <value> - profile n's stat (set_ability_level's answer: false out of
 // 0-10).
-bool cfunc_set_skater_profile_property(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_skater_profile_property(script::Struct* params, script::Context /*context*/)
 {
     int player = 0; // (uninitialised in the original when missing, as the stat and value)
     params->fetch_int_value(kPlayer, &player, 1);
@@ -378,7 +379,7 @@ bool cfunc_set_skater_profile_property(script::Struct* params, script::Script* /
 }
 
 // 0x005AC520: SetClassicStat <stat> <value> - the career's info value (classic mode's stats).
-bool cfunc_set_classic_stat(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_classic_stat(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderStoryProgress* career = get_career();
     uint32_t stat = 0; // (uninitialised in the original when missing, as the value)
@@ -389,7 +390,7 @@ bool cfunc_set_classic_stat(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005AC570: ToggleAlwaysSpecial [on | off] - every skater's always-special flag (+0x168) set, cleared or toggled.
-bool cfunc_toggle_always_special(script::Struct* params, script::Script* /*script*/)
+bool cfunc_toggle_always_special(script::Struct* params, script::Context /*context*/)
 {
     const bool on = params->has_bare_flag(kOn);
     const bool off = params->has_bare_flag(kOff);
@@ -412,51 +413,54 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Script* /*scrip
 
 // 0x005AE370 ... 0x005AE4F0: VibrationIsOn / VibrationOn / VibrationOff, AutoKickIsOn / On / Off, SpinTapsAreOn /
 // On / Off [<player>].
-bool cfunc_vibration_is_on(script::Struct* params, script::Script* /*script*/)
+bool cfunc_vibration_is_on(script::Struct* params, script::Context /*context*/)
 {
     return get_option(params, kVibration);
 }
-bool cfunc_vibration_on(script::Struct* params, script::Script* /*script*/)
+bool cfunc_vibration_on(script::Struct* params, script::Context /*context*/)
 {
     return set_option(params, kVibration, true);
 }
-bool cfunc_vibration_off(script::Struct* params, script::Script* /*script*/)
+bool cfunc_vibration_off(script::Struct* params, script::Context /*context*/)
 {
     return set_option(params, kVibration, false);
 }
-bool cfunc_auto_kick_is_on(script::Struct* params, script::Script* /*script*/) { return get_option(params, kAutoKick); }
-bool cfunc_auto_kick_on(script::Struct* params, script::Script* /*script*/)
+bool cfunc_auto_kick_is_on(script::Struct* params, script::Context /*context*/)
+{
+    return get_option(params, kAutoKick);
+}
+bool cfunc_auto_kick_on(script::Struct* params, script::Context /*context*/)
 {
     return set_option(params, kAutoKick, true);
 }
-bool cfunc_auto_kick_off(script::Struct* params, script::Script* /*script*/)
+bool cfunc_auto_kick_off(script::Struct* params, script::Context /*context*/)
 {
     return set_option(params, kAutoKick, false);
 }
-bool cfunc_spin_taps_are_on(script::Struct* params, script::Script* /*script*/)
+bool cfunc_spin_taps_are_on(script::Struct* params, script::Context /*context*/)
 {
     return get_option(params, kSpinTaps);
 }
-bool cfunc_spin_taps_on(script::Struct* params, script::Script* /*script*/)
+bool cfunc_spin_taps_on(script::Struct* params, script::Context /*context*/)
 {
     return set_option(params, kSpinTaps, true);
 }
-bool cfunc_spin_taps_off(script::Struct* params, script::Script* /*script*/)
+bool cfunc_spin_taps_off(script::Struct* params, script::Context /*context*/)
 {
     return set_option(params, kSpinTaps, false);
 }
 
 // 0x005AE520: GetCurrentProDisplayInfo - the current profile's display name as string.
-bool cfunc_get_current_pro_display_info(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_current_pro_display_info(script::Struct* /*params*/, script::Context context)
 {
     objects::RiderIdentity* profile = get_profile_from_params(nullptr);
-    script->args()->append_word(kString, script::QbValueKind::kString, profile->fetch_shown_name());
+    context.args()->append_word(kString, script::QbValueKind::kString, profile->fetch_shown_name());
     return true;
 }
 
 // 0x005AE900: SelectCurrentSkater name=<skater> (or the unnamed checksum) - the profile manager's current skater
 // (false if it already is); the skater of the current index given its looks.
-bool cfunc_select_current_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_select_current_skater(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     if (!params->read_hash_value(kName, &name, 0)) {
@@ -477,7 +481,7 @@ bool cfunc_select_current_skater(script::Struct* params, script::Script* /*scrip
 
 // 0x005AF950: AwardStatPoint [<n>] - n (1) stat points more: classic mode the career's, otherwise the current
 // profile's (their points_available, 0x471FC4DD); stat_play_win_sound run.
-bool cfunc_award_stat_point(script::Struct* params, script::Script* /*script*/)
+bool cfunc_award_stat_point(script::Struct* params, script::Context /*context*/)
 {
     if (game_mode_is_true(kIsClassic)) {
         objects::RiderStoryProgress* career = get_career();
@@ -496,7 +500,7 @@ bool cfunc_award_stat_point(script::Struct* params, script::Script* /*script*/)
 
 // 0x005AF9F0: AwardSpecialTrickSlot [all | profile=<name>] - one special trick slot more for every pro (all), the
 // named one, or the current profile.
-bool cfunc_award_special_trick_slot(script::Struct* params, script::Script* /*script*/)
+bool cfunc_award_special_trick_slot(script::Struct* params, script::Context /*context*/)
 {
     objects::ProfileRoster* manager = objects::profile_roster();
     if (params->has_bare_flag(kAll)) {
@@ -518,7 +522,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script* /*sc
 }
 
 // 0x005AFAA0: UpdateSkaterStats player=<n> - skater n's stats from profile n.
-bool cfunc_update_skater_stats(script::Struct* params, script::Script* /*script*/)
+bool cfunc_update_skater_stats(script::Struct* params, script::Context /*context*/)
 {
     int player = 0; // (uninitialised in the original when missing)
     params->fetch_int_value(kPlayer, &player, 1);
@@ -528,42 +532,42 @@ bool cfunc_update_skater_stats(script::Struct* params, script::Script* /*script*
 }
 
 // 0x005AFFE0: GetCurrentSkaterProfileIndex - the profile manager's current index as currentSkaterProfileIndex.
-bool cfunc_get_current_skater_profile_index(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_current_skater_profile_index(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_int(checksums::Name{kCurrentSkaterProfileIndex}, objects::profile_roster()->cursor_pos());
+    context.args()->put_int(checksums::Name{kCurrentSkaterProfileIndex}, objects::profile_roster()->cursor_pos());
     return true;
 }
 
 // 0x005B0000: GetCustomSkaterName - the custom skater's display name as display_name.
-bool cfunc_get_custom_skater_name(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_custom_skater_name(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->append_word(kDisplayName, objects::profile_roster()->get_template(kCustom)->fetch_shown_name());
+    context.args()->append_word(kDisplayName, objects::profile_roster()->get_template(kCustom)->fetch_shown_name());
     return true;
 }
 
 // 0x005B0030: GetCurrentPedProName - when the global 0x09EEBCB8 (name unknown) names a structure, that structure's
 // name as 0xF054556D (name unknown); false if it is a bare name or anything else. (No null check: the global must
 // exist.)
-bool cfunc_get_current_ped_pro_name(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_current_ped_pro_name(script::Struct* /*params*/, script::Context context)
 {
     const script::SymbolTableEntry* entry = script::resolve_symbol(kCurrentPedPro);
     if (entry->type() != script::QbValueKind::kStruct) { // (the original also tests for a name first)
         return false;
     }
-    script->args()->put_name_key(checksums::Name{kPedProName}, entry->name_value());
+    context.args()->put_name_key(checksums::Name{kPedProName}, entry->name_value());
     return true;
 }
 
 // 0x005B0280: GetStatValue <stat> [skater=<name>] - stat_value: the skate module's forced stat value (+0x3D0, unless
 // 0; then also the flag overridden), classic mode's career value, or the named pro's (else the current profile's)
 // stat.
-bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
+bool cfunc_get_stat_value(script::Struct* params, script::Context context)
 {
     const float forced = modules::Skate::sole()->forced_stat();
     if (forced != 0.0F) {
         const int value = static_cast<int>(static_cast<int64_t>(forced)); // (the original's _ftol)
-        script->args()->put_name_key(checksums::Name{kOverridden}, kOverridden);
-        script->args()->put_int(checksums::Name{kStatValue}, value);
+        context.args()->put_name_key(checksums::Name{kOverridden}, kOverridden);
+        context.args()->put_int(checksums::Name{kStatValue}, value);
         return true;
     }
     uint32_t stat = 0; // (uninitialised in the original when missing)
@@ -578,22 +582,22 @@ bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
             params->read_hash_value(kSkater, &name, 0) ? manager->get_template(name) : manager->fetch_active_account();
         value = profile->fetch_tally(stat);
     }
-    script->args()->put_int(checksums::Name{kStatValue}, value);
+    context.args()->put_int(checksums::Name{kStatValue}, value);
     return true;
 }
 
 // 0x005B0360: GetNumStatPointsAvailable player=<n> - profile n's stat points (points_available).
-bool cfunc_get_num_stat_points_available(script::Struct* params, script::Script* script)
+bool cfunc_get_num_stat_points_available(script::Struct* params, script::Context context)
 {
     int player = 0; // (uninitialised in the original when missing)
     params->fetch_int_value(kPlayer, &player, 1);
     const int points = objects::profile_roster()->fetch_account(player)->get_info_471f_c_4d_d();
-    script->args()->put_int("points_available", points);
+    context.args()->put_int("points_available", points);
     return true;
 }
 
 // 0x005B03B0: UnlockSkater name=<pro> - the pro no longer hidden (its is_hidden 0, if it was set).
-bool cfunc_unlock_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_unlock_skater(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kName, &name, 1);

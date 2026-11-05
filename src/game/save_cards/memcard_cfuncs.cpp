@@ -26,6 +26,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
+#include "engine/script/context.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
 #include "base/core/checked_index.h"
@@ -82,17 +83,17 @@ constexpr uint32_t kFilesLeft = 0x0855B2FC;      // "FilesLeft"
 
 // 0x005A6E40. Results for the script: SpaceAvailable (16 KB blocks; 0 until a card is found) and FilesLeft
 // (always 1000000). False without a card.
-bool get_mem_card_space_available(script::Struct* /*params*/, script::Script* script)
+bool get_mem_card_space_available(script::Struct* /*params*/, script::Context context)
 {
-    script->args().get()->put_int(checksums::Name{kSpaceAvailable}, 0);
-    script->args().get()->put_int(checksums::Name{kFilesLeft}, kFilesLeftNoLimit);
+    context.args().get()->put_int(checksums::Name{kSpaceAvailable}, 0);
+    context.args().get()->put_int(checksums::Name{kFilesLeft}, kFilesLeftNoLimit);
     SaveCard* card = save_cards_state().card_hub()->get_storage_slot(0, 0);
     if (!card) {
         return false;
     }
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
     // card->get_free_blocks().
-    script->args().get()->put_int(checksums::Name{kSpaceAvailable}, free_disk_blocks(card));
+    context.args().get()->put_int(checksums::Name{kSpaceAvailable}, free_disk_blocks(card));
     return true;
 }
 
@@ -243,7 +244,7 @@ bool load_save_file(FileLoad* file, const LoadRequest& request)
 // applies it (or keeps its contents in 0x007CECD4 and its type in 0x007CECD8 when kNoApply is non-zero). True if
 // the file was read. A file of the wrong size, too big, of another version or (originally) with a bad checksum
 // leaves kLoadFailed in the script's parameters. Originally from PartyMod Fixes: the checksum isn't checked.
-bool load_from_memory_card(script::Struct* params, script::Script* script)
+bool load_from_memory_card(script::Struct* params, script::Context context)
 {
     if (os_layer() != 4) {
         pause_music(1);
@@ -269,7 +270,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                                            .contents = contents,
                                            .type = type,
                                            .no_apply = no_apply,
-                                           .script = script,
+                                           .script = context.script(),
                                            .params = params});
         }
     }
@@ -285,13 +286,13 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
 // --- the save state flags -----------------------------------------------------------------------------------
 
 // 0x005A6550
-bool save_failed_due_to_insufficient_space(script::Struct* /*params*/, script::Script* /*script*/)
+bool save_failed_due_to_insufficient_space(script::Struct* /*params*/, script::Context /*context*/)
 {
     return save_cards_state().out_of_space();
 }
 
 // 0x005A6560
-bool set_sections_to_apply_when_loading(script::Struct* params, script::Script* /*script*/)
+bool set_sections_to_apply_when_loading(script::Struct* params, script::Context /*context*/)
 {
     debug::printf(
         "ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
@@ -316,7 +317,7 @@ bool set_sections_to_apply_when_loading(script::Struct* params, script::Script* 
 }
 
 // 0x005A6600
-bool get_loaded_custom_skater(script::Struct* /*params*/, script::Script* /*script*/)
+bool get_loaded_custom_skater(script::Struct* /*params*/, script::Context /*context*/)
 {
     return save_cards_state().loaded_custom_skater();
 }
@@ -338,9 +339,9 @@ SaveCard* the_card() { return save_cards_state().card_hub()->get_storage_slot(0,
 } // namespace
 
 // 0x005A6D30
-bool get_most_recent_save(script::Struct* params, script::Script* script)
+bool get_most_recent_save(script::Struct* params, script::Context context)
 {
-    script->args().get()->erase_module("MostRecentSave");
+    context.args().get()->erase_module("MostRecentSave");
     script::Array* saves = nullptr;
     params->fetch_list(0U, &saves, 0);
     if (!saves) {
@@ -368,12 +369,12 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
     if (!best) {
         return false;
     }
-    script->args().get()->put_sub_struct("MostRecentSave", best);
+    context.args().get()->put_sub_struct("MostRecentSave", best);
     return true;
 }
 
 // 0x005A7210
-bool format_card(script::Struct* /*params*/, script::Script* /*script*/)
+bool format_card(script::Struct* /*params*/, script::Context /*context*/)
 {
     pause_music(1);
     freeze_stream(1);
@@ -387,10 +388,10 @@ bool format_card(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x005A7260
-bool card_is_in_slot(script::Struct* /*params*/, script::Script* /*script*/) { return the_card() != nullptr; }
+bool card_is_in_slot(script::Struct* /*params*/, script::Context /*context*/) { return the_card() != nullptr; }
 
 // 0x005A7280
-bool card_is_formatted(script::Struct* /*params*/, script::Script* /*script*/)
+bool card_is_formatted(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (!the_card()) {
         return false;
@@ -399,7 +400,7 @@ bool card_is_formatted(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x005A72A0
-bool get_summary_info(script::Struct* params, script::Script* script)
+bool get_summary_info(script::Struct* params, script::Context context)
 {
     constexpr uint32_t kVaultData = 0xC78DABF6; // "VaultData": the kept contents' summary
     uint32_t type = 0;
@@ -407,33 +408,33 @@ bool get_summary_info(script::Struct* params, script::Script* script)
     int vault_data = 0;
     params->fetch_int_value(kVaultData, &vault_data, 0);
     if (vault_data != 0) {
-        write_summary(save_cards_state().kept_params(), *script->args().get(), save_cards_state().kept_type());
+        write_summary(save_cards_state().kept_params(), *context.args().get(), save_cards_state().kept_type());
         return true;
     }
     if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
         goals::get_objective_board()->level_unload();
     }
-    write_summary(nullptr, *script->args().get(), type);
+    write_summary(nullptr, *context.args().get(), type);
     return true;
 }
 
 // 0x005A7430
-bool get_mem_card_data_for_upload(script::Struct* /*params*/, script::Script* script)
+bool get_mem_card_data_for_upload(script::Struct* /*params*/, script::Context context)
 {
-    script->args().get()->put_name_key(checksums::Name{kType}, save_cards_state().kept_type()); // type
+    context.args().get()->put_name_key(checksums::Name{kType}, save_cards_state().kept_type()); // type
     return true;
 }
 
 // 0x005A7450
-bool get_max_thps4_files_allowed(script::Struct* /*params*/, script::Script* script)
+bool get_max_thps4_files_allowed(script::Struct* /*params*/, script::Context context)
 {
-    script->args().get()->put_int(checksums::Name{kMaxTHPS4FilesAllowed}, kMaxThps4Files); // MaxTHPS4FilesAllowed
+    context.args().get()->put_int(checksums::Name{kMaxTHPS4FilesAllowed}, kMaxThps4Files); // MaxTHPS4FilesAllowed
     return true;
 }
 
 // 0x005A7470
-bool switch_to_temp_pools_if_they_exist(script::Struct* /*params*/, script::Script* /*script*/)
+bool switch_to_temp_pools_if_they_exist(script::Struct* /*params*/, script::Context /*context*/)
 {
     ++script::component_pools().current();
     ++script::struct_pools().current();
@@ -450,7 +451,7 @@ bool switch_to_temp_pools_if_they_exist(script::Struct* /*params*/, script::Scri
 }
 
 // 0x005A74F0
-bool switch_to_regular_pools(script::Struct* /*params*/, script::Script* /*script*/)
+bool switch_to_regular_pools(script::Struct* /*params*/, script::Context /*context*/)
 {
     if ((script::component_pools().current() != 0) || (script::struct_pools().current() != 0) ||
         (script::vector_pools().current() != 0)) {

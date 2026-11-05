@@ -36,6 +36,7 @@
 #include "base/core/stubs.h"
 #include "game/goals/objective.h"
 #include "engine/script/fwd.h"
+#include "engine/script/context.h"
 #include "engine/memory/fwd.h"
 #include "game/online/fwd.h"
 #include "engine/gfx/face_texture.h"
@@ -630,10 +631,10 @@ bool is_thug2_location(const char* location)
 // --- The script commands ---
 
 // 0x00545440: PostGame - the hosting status, unless the lobby's +0x139 (0x0053F810).
-bool cfunc_post_game(script::Struct* params, script::Script* script)
+bool cfunc_post_game(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     Hub* manager = net_game_state().online_hub();
     if (!manager->lobby_service().get()->hosting()) {
         manager->update_hosting_status();
@@ -642,10 +643,10 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
 }
 
 // 0x00545F20: num_servers = the listed servers.
-bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
+bool cfunc_num_servers_in_lobby(script::Struct* params, script::Context context)
 {
     (void)params;
-    script->args()->put_int(checksums::Name{kNumServers}, total_of(&net_game_state().online_hub()->servers()));
+    context.args()->put_int(checksums::Name{kNumServers}, total_of(&net_game_state().online_hub()->servers()));
     return true;
 }
 

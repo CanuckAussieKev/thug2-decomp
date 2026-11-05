@@ -30,6 +30,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
+#include "engine/script/context.h"
 #include "game/rider/local_net_logic.h"
 #include "game/rider/rider.h"
 #include "game/rider/skater_state.h"
@@ -793,7 +794,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         break;
     }
     if (net->in_net_game() && net->get_entry_mode() == 0 &&
-        !commands::cfunc_is_observing(nullptr, nullptr)) { // IsObserving
+        !commands::cfunc_is_observing(nullptr, script::Context())) { // IsObserving
         net->prepare_local_face();
         net->send_custom_tag_texture();
     }

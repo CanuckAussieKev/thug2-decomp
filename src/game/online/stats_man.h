@@ -9,7 +9,7 @@
 #include <array>
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 namespace tasks {
@@ -293,15 +293,15 @@ private:
 };
 
 // The script commands.
-bool stats_logged_in(script::Struct* params, script::Script* script);            // 0x0054CC90
-bool stats_log_in(script::Struct* params, script::Script* script);               // 0x0054CCB0
-bool stats_log_off(script::Struct* params, script::Script* script);              // 0x0054CCC0
-bool retrieve_personal_stats(script::Struct* params, script::Script* script);    // 0x0054CE00
-bool need_to_retrieve_top_stats(script::Struct* params, script::Script* script); // 0x0054CE70
-bool raise_tallies(script::Struct* params, script::Script* script);              // 0x0054D670
-bool get_rank(script::Struct* params, script::Script* script);                   // 0x0054D6A0
-bool clean_up_top_stats(script::Struct* params, script::Script* script);         // 0x0054EA40
-bool fill_stats_arrays(script::Struct* params, script::Script* script);          // 0x0054EB00
+bool stats_logged_in(script::Struct* params, script::Context context);            // 0x0054CC90
+bool stats_log_in(script::Struct* params, script::Context context);               // 0x0054CCB0
+bool stats_log_off(script::Struct* params, script::Context context);              // 0x0054CCC0
+bool retrieve_personal_stats(script::Struct* params, script::Context context);    // 0x0054CE00
+bool need_to_retrieve_top_stats(script::Struct* params, script::Context context); // 0x0054CE70
+bool raise_tallies(script::Struct* params, script::Context context);              // 0x0054D670
+bool get_rank(script::Struct* params, script::Context context);                   // 0x0054D6A0
+bool clean_up_top_stats(script::Struct* params, script::Context context);         // 0x0054EA40
+bool fill_stats_arrays(script::Struct* params, script::Context context);          // 0x0054EB00
 
 inline constexpr float kRankScale{0.00028571428F};
 

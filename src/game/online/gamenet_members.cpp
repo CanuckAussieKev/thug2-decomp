@@ -29,6 +29,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/rider/tagging.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/gfx/cas_options.h"
@@ -123,7 +124,7 @@ bool mode_is_true(uint32_t property) { return get_game_mode()->is_true(property)
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 // The Function InSplitScreenGame (0x005A1180), called with no parameters.
-bool in_split_screen_game() { return commands::cfunc_in_split_screen_game(nullptr, nullptr); }
+bool in_split_screen_game() { return commands::cfunc_in_split_screen_game(nullptr, script::Context()); }
 
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
 bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }

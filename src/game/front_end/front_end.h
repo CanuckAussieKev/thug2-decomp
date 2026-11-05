@@ -28,7 +28,7 @@
 #include <array>
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 
@@ -156,13 +156,13 @@ void release_front_end();
 
 // The script commands.
 // 0x0054F0F0: SetMenuAutoRepeatTimes (delay rate) - seconds.
-bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* script);
+bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Context context);
 // 0x0054F150: SetMenuPadMappings [inactive|active|use_as_first x2].
-bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* script);
+bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Context context);
 // 0x0054F1B0: SetButtonEventMappings xbox=[...] block_menu_input / unblock_menu_input.
-bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* script);
+bool cfunc_set_button_event_mappings(script::Struct* params, script::Context context);
 // 0x0054FDC0: SetAnalogStickActiveForMenus (an integer, default 1).
-bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* script);
+bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Context context);
 
 bool menus_active();
 void set_menus_active(bool value);

@@ -21,6 +21,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/commands/game_cfuncs.h"
@@ -129,7 +130,7 @@ void goal_editor_write_nodes(Array* nodes, int* index, memory::Arena* heap)
 // The gap manager: the trigger script of a gap's piece
 uint32_t gap_fire_script(DuplicatedTile* piece) { return GapRegistry::sole()->get_gap_trigger_name(piece); }
 // cfunc_parse_node_array (0x005A34E0): the node manager's node array parsed (its objects made).
-void parse_node_array() { commands::cfunc_parse_node_array(nullptr, nullptr); }
+void parse_node_array() { commands::cfunc_parse_node_array(nullptr, script::Context()); }
 
 assets::NodeTableResource* node_table_resource(ParkAssembler& assembler) { return &*assembler.node_table(); }
 Struct* elem(Array* nodes, int index)

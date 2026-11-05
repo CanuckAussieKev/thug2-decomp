@@ -18,6 +18,7 @@ class PointTally;
 }
 namespace script {
 struct Component;
+class Context;
 class Script;
 class Struct;
 } // namespace script
@@ -412,7 +413,7 @@ bool is_direction(uint32_t button);
 
 // 0x00523350 (the C function DoNextTrick): the trick component's DoNextTrick with ScriptToRunFirst, Params and a
 // copy of TrickParams. True.
-bool cfunc_do_next_trick(script::Struct* params, script::Script* script);
+bool cfunc_do_next_trick(script::Struct* params, script::Context context);
 
 } // namespace objects
 

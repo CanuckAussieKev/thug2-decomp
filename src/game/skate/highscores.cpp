@@ -16,6 +16,7 @@
 #include "engine/ext/extension.h"
 #include "engine/script/cell.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
@@ -445,13 +446,13 @@ bool update_records(bool edited_copy)
 }
 
 // 0x005AEBC0
-bool cfunc_update_records(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_update_records(script::Struct* /*params*/, script::Context /*context*/)
 {
     return update_records(ext::plays_edited_copy()); // (NOT ORIGINAL: an edited copy's records kept apart - engine/ext)
 }
 
 // 0x005AEBD0
-bool cfunc_update_arcade_scores(script::Struct* params, script::Script* /*script*/)
+bool cfunc_update_arcade_scores(script::Struct* params, script::Context /*context*/)
 {
     int level = 0; // (uninitialised in the original; always set below)
     if (!params->fetch_int_value("level", &level, 0)) {
@@ -462,7 +463,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script* /*script
 }
 
 // 0x005AFAF0
-bool cfunc_update_initials(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_update_initials(script::Struct* /*params*/, script::Context /*context*/)
 {
     const int level = skate_calls::get_career()->fetch_stage();
     const BestResults* records = stored_game_records().get();
@@ -471,7 +472,7 @@ bool cfunc_update_initials(script::Struct* /*params*/, script::Script* /*script*
 }
 
 // 0x005AFB30
-bool cfunc_new_record(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_new_record(script::Struct* /*params*/, script::Context /*context*/)
 {
     return modules::Skate::sole()->new_record();
 }

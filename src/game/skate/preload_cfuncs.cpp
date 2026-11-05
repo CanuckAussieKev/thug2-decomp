@@ -22,6 +22,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/profile_cfuncs.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_module_calls.h"
@@ -135,7 +136,7 @@ void get_choose(script::Struct* option, int index)
 // 0x005AAFA0: PreloadModels - every vehicle and game object node's model (not "none"; a flag's only in a game of
 // more than one player) loaded and dropped, keeping its data: AllowReplaceTex passed on; unless nocollision, its
 // .col file too; a vehicle's .qb too.
-bool cfunc_preload_models(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_preload_models(script::Struct* /*params*/, script::Context /*context*/)
 {
     memory::push_mem_profile("PreLoadModels");
     level_nodes::start_node_walk(0);
@@ -204,7 +205,7 @@ bool cfunc_preload_models(script::Struct* /*params*/, script::Script* /*script*/
 // 0x005AB300: PreloadPedestrians [no_random] - not in a network game, nor with the global 0x2CAA92ED set (false):
 // the pedestrians' CAS part lists (unless no_random), every pedestrian node's .skin and second (.mdl) models, and the
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
-bool cfunc_preload_pedestrians(script::Struct* params, script::Script* /*script*/)
+bool cfunc_preload_pedestrians(script::Struct* params, script::Context /*context*/)
 {
     if (online::net_game_state().online_hub()->in_net_game()) {
         return false;
@@ -268,7 +269,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script* /*script*
 // candidates; the pedestrian nodes' own parts are taken; then one option of any kind (failing that one light, one
 // tan and one dark) and the rest at random among the candidates, n (the candidates) in all, numbered by
 // random_index. (No candidate left while choosing: the original loops for ever - kept.)
-bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* /*script*/)
+bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Context /*context*/)
 {
     uint32_t part = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
@@ -373,7 +374,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* 
 
 // 0x005ABB20: ReplaceCarTextures ... - every car's model component whose geoms use a texture dictionary not met yet
 // (in this walk) runs Obj_ReplaceTexture with the parameters.
-bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
+bool cfunc_replace_car_textures(script::Struct* params, script::Context context)
 {
     auto* objects = objects::object_hub_slot().get();
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
@@ -400,7 +401,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
             }
         }
         if (added) {
-            component->invoke_method_by_name(kObjReplaceTexture, params, script);
+            component->invoke_method_by_name(kObjReplaceTexture, params, context.script());
         }
     }
     return true;

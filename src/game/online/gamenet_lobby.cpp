@@ -18,6 +18,7 @@
 #include "game/online/online_identity.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/stopwatch.h"
 #include "base/core/compiler.h"
 #include "game/online/net_game_state.h"
@@ -92,7 +93,7 @@ void* RoomManager::get_lobby_handle() { return remote_; }
 bool RoomManager::in_group_room() const { return in_group_room_; }
 
 // 0x0053F8A0
-bool cfunc_reset_connection_timer(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_reset_connection_timer(script::Struct* /*params*/, script::Context /*context*/)
 {
     net_game_state().set_connection_timer(frame_clock::get_time());
     return true;

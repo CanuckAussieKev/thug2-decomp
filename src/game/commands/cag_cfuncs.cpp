@@ -11,8 +11,8 @@
 #include <cstdint>
 
 #include "base/maths/maths.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/tagging.h"
@@ -98,7 +98,7 @@ modules::Skate* get_skate() { return modules::Skate::sole(); }
 // tinted, and blended onto the tag; the tag's palette made again (kept to opaque when no layer was translucent and
 // it's an 8-bit tag); the workspace thrown away. Player 0's skater's tag is then marked custom and put on its graffiti
 // texture; with Test, the result also shown on cag_workspace_sprite. Always true.
-bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script*/)
+bool cfunc_generate_cag_texture(script::Struct* params, script::Context /*context*/)
 {
     std::array<uint8_t, kPaletteBytes> palette{}; // (filled by the tag's palette call, not here)
     Array* layers = nullptr;
@@ -198,7 +198,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script* /*script
 
 // 0x005B3ED0: SyncCAGWorkspace Skater=n: the custom tag texture copied from skater n's graffiti texture, if it has one
 // (the current profile is fetched and not used). Always true.
-bool cfunc_sync_cag_workspace(script::Struct* params, script::Script* /*script*/)
+bool cfunc_sync_cag_workspace(script::Struct* params, script::Context /*context*/)
 {
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
@@ -215,7 +215,7 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script* /*script*/
 // 0x005B3F40: Get2DPosFrom2DVec magnitude=m theta=degrees: x and Y, the vector's components (theta brought into the
 // first quadrant first, the signs put back after; the axes exactly for 0, 90, 180, 270 and 360; otherwise the fast
 // sine and cosine). Always true.
-bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script)
+bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Context context)
 {
     float magnitude = 0.0F;
     params->fetch_float(kMagnitude, &magnitude, 1);
@@ -261,15 +261,15 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
     if (negate_y) {
         y = y * -1.0F;
     }
-    script->args()->push_float(checksums::Name{kX}, x);
-    script->args()->push_float(checksums::Name{kY}, y);
+    context.args()->push_float(checksums::Name{kX}, x);
+    context.args()->push_float(checksums::Name{kY}, y);
     return true;
 }
 
 // 0x005B4150: ResolveHeadBoneScale player=n: player n's profile's appearance given each head bone group (head, nose,
 // jaw, headtop) it lacks, from its head part (skater_m_head, else skater_f_head). False without a head part; true
 // otherwise (also without a profile).
-bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script* /*script*/)
+bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Context /*context*/)
 {
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);

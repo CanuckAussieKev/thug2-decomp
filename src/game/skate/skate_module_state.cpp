@@ -35,6 +35,7 @@
 #include "engine/script/cscript.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sound/sfx.h"
 #include "game/skate/career.h"
 #include "game/skate/game_mode.h"
@@ -342,7 +343,7 @@ int Skate::is_multiplayer()
 }
 
 // 0x00565220
-bool Skate::cfunc_set_game_type(script::Struct* params, script::Script* /*script*/)
+bool Skate::cfunc_set_game_type(script::Struct* params, script::Context /*context*/)
 {
     Skate* skate = sole();
     uint32_t type = 0;
@@ -353,13 +354,13 @@ bool Skate::cfunc_set_game_type(script::Struct* params, script::Script* /*script
 
 // 0x00565250
 // (the script runtime reads the result's low byte)
-bool Skate::cfunc_in_team_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool Skate::cfunc_in_team_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     return static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0;
 }
 
 // 0x00565260
-bool Skate::cfunc_change_level(script::Struct* params, script::Script* /*script*/)
+bool Skate::cfunc_change_level(script::Struct* params, script::Context /*context*/)
 {
     debug::printf("ScriptChangeLevel\n"); // "ScriptChangeLevel\n"
     online::Hub* net = online::online_hub();
@@ -423,7 +424,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script* /*script*
 }
 
 // 0x005654B0
-bool Skate::cfunc_launch_level(script::Struct* /*params*/, script::Script* /*script*/)
+bool Skate::cfunc_launch_level(script::Struct* /*params*/, script::Context /*context*/)
 {
     Skate* skate = sole();
     skate->enter_stage(skate->pending_level_);
@@ -431,7 +432,7 @@ bool Skate::cfunc_launch_level(script::Struct* /*params*/, script::Script* /*scr
 }
 
 // 0x005654D0
-bool Skate::cfunc_request_level(script::Struct* params, script::Script* /*script*/)
+bool Skate::cfunc_request_level(script::Struct* params, script::Context /*context*/)
 {
     online::Hub* net = online::online_hub();
     Skate* skate = sole();
@@ -453,7 +454,7 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script* /*script
 }
 
 // 0x005655B0
-bool Skate::cfunc_init_skater_heaps(script::Struct* /*params*/, script::Script* /*script*/)
+bool Skate::cfunc_init_skater_heaps(script::Struct* /*params*/, script::Context /*context*/)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     int skaters = 0;

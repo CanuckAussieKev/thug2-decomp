@@ -3,8 +3,8 @@
 #include <cstdint>
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // Script commands (CFunctions) 0x005B34A0-0x005B3A90: two objects swapping their models (renderable models,
@@ -13,8 +13,8 @@ class Script;
 // (params, script) and return whether the script's `if` should be taken.
 namespace commands {
 
-bool cfunc_swap_object_models(script::Struct* params, script::Script* script);
-bool cfunc_restore_all_swapped_object_models(script::Struct* params, script::Script* script);
-bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script* script);
+bool cfunc_swap_object_models(script::Struct* params, script::Context context);
+bool cfunc_restore_all_swapped_object_models(script::Struct* params, script::Context context);
+bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Context context);
 
 } // namespace commands

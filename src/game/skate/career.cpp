@@ -12,8 +12,8 @@
 #include "game/skate/edited_copy_career.h"
 #include "base/maths/vec4.h"
 #include "engine/script/cell.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
@@ -620,10 +620,10 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
 }
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.
-bool cfunc_get_career_save_info(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_career_save_info(script::Struct* /*params*/, script::Context context)
 {
     RiderStoryProgress* career = modules::Skate::sole()->career().get();
-    career->write_to_structure(script->args().get());
+    career->write_to_structure(context.args().get());
     return true;
 }
 

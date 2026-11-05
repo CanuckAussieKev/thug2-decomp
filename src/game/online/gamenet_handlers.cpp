@@ -24,6 +24,7 @@
 #include "engine/objects/entity.h"
 #include "game/world/trick_objects.h"
 #include "engine/script/preferences.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_net.h"
 #include "base/util/bitstream.h"
 #include "game/commands/game_cfuncs.h"
@@ -121,7 +122,7 @@ int on_ready_reply_msg(net::InboundMsgCtx* context)
 int on_spectate_msg(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    cfunc_exit_surveyor_mode(nullptr, nullptr); // (the script command, without parameters)
+    cfunc_exit_surveyor_mode(nullptr, script::Context()); // (the script command, without parameters)
     manager->enter_observe_mode();
     return kContinue;
 }
@@ -300,7 +301,7 @@ int handle_park_map(net::InboundMsgCtx* context)
 int on_match_end_msg(net::InboundMsgCtx* context)
 {
     manager_of(context)->mark_match_ended();
-    if (commands::cfunc_is_observing(nullptr, nullptr) && get_game_type() == kNetGoalAttack) {
+    if (commands::cfunc_is_observing(nullptr, script::Context()) && get_game_type() == kNetGoalAttack) {
         get_run(kCreateRankings); // (IsObserving)
     }
     return kContinue;

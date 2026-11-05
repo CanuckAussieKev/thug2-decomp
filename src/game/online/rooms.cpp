@@ -21,7 +21,6 @@
 #include "game/online/gamenet_manager.h"
 #include "game/online/online_identity.h"
 #include "game/online/stats_man.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
 #include "engine/gfx/render_constants.h"
@@ -29,6 +28,7 @@
 #include "base/core/stubs.h"
 #include "game/goals/objective.h"
 #include "engine/script/fwd.h"
+#include "engine/script/context.h"
 #include "engine/memory/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -561,23 +561,23 @@ void RoomManager::join_room_callback(const JoinRoomResult& joined)
 // --- The script commands ---
 
 // 0x00541A70: num_players = the players listed in the lobby.
-bool cfunc_num_players_in_lobby(script::Struct* params, script::Script* script)
+bool cfunc_num_players_in_lobby(script::Struct* params, script::Context context)
 {
     (void)params;
     int count = 0;
     for (memory::ListNode* node = head_of_scene_list(&the_lobby()->participants()); node; node = get_next_node(node)) {
         ++count;
     }
-    script->args()->put_int(checksums::Name{kNumPlayers}, count);
+    context.args()->put_int(checksums::Name{kNumPlayers}, count);
     return true;
 }
 
 // 0x005429C0: out of the lobby and GameSpy (the peer's game stopped, its title cleared and the peer disconnected -
 // peerStopGame, peerClearTitle, peerDisconnect), the lists emptied, two of its tasks removed, then 0x00540750.
-bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
+bool cfunc_lobby_disconnect(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     const Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
@@ -604,10 +604,10 @@ bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
 
 // 0x00542AA0: the lobby's player list shown (the manager's singleton taken and given back - 0x0053F520 /
 // 0x005395C0).
-bool cfunc_fill_player_list(script::Struct* params, script::Script* script)
+bool cfunc_fill_player_list(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     const Hub* manager = Hub::fabricate(false);
     manager->lobby_service()->fill_player_list();
     release_manager();
@@ -615,19 +615,19 @@ bool cfunc_fill_player_list(script::Struct* params, script::Script* script)
 }
 
 // 0x00542B00
-bool cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Script* script)
+bool cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     the_lobby()->fill_prospective_buddy_list();
     return true;
 }
 
 // 0x00542CE0: back into the chosen lobby's group room, if any (peerJoinGroupRoom, join_room_callback).
-bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
+bool cfunc_rejoin_lobby(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     const Hub* manager = net_game_state().online_hub();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
@@ -640,9 +640,9 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
 
 // 0x00542D30: lobby `index` chosen (no null check: as the original) - its group room, numbers, name and flag kept,
 // the room joined (join_room_callback), the lobby list emptied.
-bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
+bool cfunc_choose_lobby(script::Struct* params, script::Context context)
 {
-    (void)script;
+    (void)context;
     const Hub* manager = net_game_state().online_hub();
     int index = 0;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
@@ -667,10 +667,10 @@ bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
 // lobby's first task added to the main loop's logic tasks.
 // (The original pushes the game name's address, 0x0064B1CC; online_identity.cpp wrote the configured name's address
 // over those two operands before this was source.)
-bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
+bool cfunc_lobby_connect(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     Hub* manager = net_game_state().online_hub();
     auto* logic = (&assets::get_main_loop_manager()->logic_tasks()); // (the logic tasks)
     DWORD thread_id = 0;

@@ -25,6 +25,7 @@
 #include "engine/net/net_manager.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/stopwatch.h"
 #include "game/commands/game_cfuncs.h"
 #include "platform/code_address.h"
@@ -311,7 +312,7 @@ void RoomManager::get_connect_callback(void* peer, int success, int /*unused*/, 
     net::Hub* net = net::Hub::sole();
     debug::printf("****** Connect Callback Successful\n");
     net->set_local_address(game_spy::peer_get_public_ip(peer)); // the peer's public address
-    commands::cfunc_start_lobby_list(nullptr, nullptr);
+    commands::cfunc_start_lobby_list(nullptr, script::Context());
     lobby->drop_is_expected_ = false;
     gamenet_lobby_peer_state().connected_time_ = frame_clock::get_time(); // connected
 }

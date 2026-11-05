@@ -7,7 +7,7 @@
 #include "engine/memory/arena_alloc.h"
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 namespace net {
@@ -151,15 +151,15 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
 bool is_thug2_location(const char* location);
 
 // The script commands.
-bool cfunc_post_game(script::Struct* params, script::Script* script);            // 0x00545440
-bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script); // 0x00545F20
+bool cfunc_post_game(script::Struct* params, script::Context context);            // 0x00545440
+bool cfunc_num_servers_in_lobby(script::Struct* params, script::Context context); // 0x00545F20
 
 // --- server_browser.cpp ---
 class Hub;
 // 0x00546790 / 0x005470D0 / 0x00547FA0: the chosen server described / joined / its details asked for (see the .cpp).
-bool cfunc_describe_server(script::Struct* params, script::Script* script);
-bool cfunc_choose_server(script::Struct* params, script::Script* script);
-bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script);
+bool cfunc_describe_server(script::Struct* params, script::Context context);
+bool cfunc_choose_server(script::Struct* params, script::Context context);
+bool cfunc_retrieve_server_info(script::Struct* params, script::Context context);
 // 0x005475C0: the server-list client's handler for a LAN server's reply (a Net message handler).
 int on_server_reply_msg(net::InboundMsgCtx* context);
 // A step of the SDK's game listing (its callback's arguments, in order).

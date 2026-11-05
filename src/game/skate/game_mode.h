@@ -14,6 +14,7 @@
 #include <memory>
 
 namespace script {
+class Context;
 class Script;
 } // namespace script
 
@@ -133,7 +134,7 @@ public:
 void unlink_condition(MatchRules::ConditionNode& node);
 
 // 0x00553C90: OverrideGameModeOptions - the game mode's options overridden by the command's parameters.
-bool cfunc_override_game_mode_options(script::Struct* params, script::Script* script);
+bool cfunc_override_game_mode_options(script::Struct* params, script::Context context);
 
 goals::MatchRules* game_mode();
 

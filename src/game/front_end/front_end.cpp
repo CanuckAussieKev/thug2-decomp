@@ -396,7 +396,7 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
 }
 
 // 0x0054F0F0
-bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Context /*context*/)
 {
     script::Pair times;
     params->fetch_pair(0, &times, true);
@@ -409,7 +409,7 @@ bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*
 }
 
 // 0x0054F150
-bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Context /*context*/)
 {
     script::Array* mappings = nullptr;
     params->fetch_list(0U, &mappings, 1);
@@ -430,7 +430,7 @@ bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x0054F1B0
-bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_button_event_mappings(script::Struct* params, script::Context /*context*/)
 {
     FrontEnd* front_end = front_end_instance().get();
     front_end->update_button_event_mappings(params);
@@ -635,7 +635,7 @@ void FrontEnd::get_pause_game(bool pause)
     // Back in the game with a skater: the camera's view mode back to the global's.
     gsl::owner<script::Struct*> params = new_params();
     params->put_int(checksums::Name{0U}, script::fetch_int_value(kViewMode));
-    commands::cfunc_set_view_mode(params, nullptr);
+    commands::cfunc_set_view_mode(params, script::Context());
     delete_params(params);
 }
 
@@ -720,7 +720,7 @@ void FrontEnd::update_input_mappings()
 }
 
 // 0x0054FDC0
-bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Context /*context*/)
 {
     int active = 1;
     params->fetch_int_value(0U, &active, 0);

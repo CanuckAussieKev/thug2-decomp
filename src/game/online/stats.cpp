@@ -10,6 +10,7 @@
 #include "game/online/vault_man.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/fwd.h"
+#include "engine/script/context.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
 #include "game/online/server_list.h"
@@ -55,7 +56,7 @@ const char* stats_file(int index)
 } // namespace
 
 // 0x0054DCB0
-bool retrieve_top_stats(script::Struct* params, script::Script* /*script*/)
+bool retrieve_top_stats(script::Struct* params, script::Context /*context*/)
 {
     const online::Hub* manager = online::net_game_state().online_hub();
     online::RankingsManager* stats = manager->rating_service().get();

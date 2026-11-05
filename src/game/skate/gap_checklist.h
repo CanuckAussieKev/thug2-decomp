@@ -13,6 +13,7 @@
 // (0x00584110); the skate module's (0x005656C0) is the current level's. The script commands AddGapsToMenu,
 // CreateGapList, GetLevelGapTotals and GiveAllGaps read it.
 namespace script {
+class Context;
 class Script;
 class Struct;
 } // namespace script
@@ -157,11 +158,11 @@ void add_gap_from_node_callback(script::Struct* params, const uint8_t* call);
 
 // The script commands (cdecl, the Function table's):
 // 0x005792E0 AddGapsToMenu / 0x00579300 CreateGapList: the skate module's checklist's.
-bool cfunc_add_gaps_to_menu(script::Struct* params, script::Script* script);
-bool cfunc_create_gap_list(script::Struct* params, script::Script* script);
+bool cfunc_add_gaps_to_menu(script::Struct* params, script::Context context);
+bool cfunc_create_gap_list(script::Struct* params, script::Context context);
 // 0x00579320 GetLevelGapTotals: level= (required) - the career's checklist of that level's.
-bool cfunc_get_level_gap_totals(script::Struct* params, script::Script* script);
+bool cfunc_get_level_gap_totals(script::Struct* params, script::Context context);
 // 0x00579360 GiveAllGaps: every gap of level= (default: the current level - 0x00584130) landed once more.
-bool cfunc_give_all_gaps(script::Struct* params, script::Script* script);
+bool cfunc_give_all_gaps(script::Struct* params, script::Context context);
 
 } // namespace goals

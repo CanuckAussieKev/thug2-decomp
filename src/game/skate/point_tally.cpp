@@ -31,6 +31,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/format.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_module_calls.h"
@@ -324,7 +325,7 @@ void PointTally::setup_balance_meter()
     arrow_step_ = static_cast<float>(1.0 / arrow_count_);
     script::Array* bars = nullptr;
     uint32_t name = kBarPositions;
-    if ((static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) &&
+    if ((static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, script::Context())) != 0U) &&
         get_game_mode()->get_name_key() != kHorse && get_game_mode()->get_name_key() != kNetHorse) {
         name = screen_mode() == 1 ? kBarPositionsMpV : kBarPositionsMpH;
     }

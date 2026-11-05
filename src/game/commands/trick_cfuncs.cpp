@@ -14,8 +14,8 @@
 #include "game/online/gamenet_manager.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/audio/music_player.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/pad_input/device.h"
 #include "engine/pad_input/input_hub.h"
 #include "game/skate/career.h"
@@ -144,7 +144,7 @@ uint32_t trick_type_of(Struct* trick, uint32_t* type)
 } // namespace
 
 // 0x005B0A40: FlushDeadObjects: the object manager's dead objects deleted now. Always true.
-bool cfunc_flush_dead_objects(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_flush_dead_objects(script::Struct* /*params*/, script::Context /*context*/)
 {
     static_cast<objects::MiscHub*>(objects::object_hub_slot().get())->flush_dead_objects();
     return true;
@@ -154,7 +154,7 @@ bool cfunc_flush_dead_objects(script::Struct* /*params*/, script::Script* /*scri
 // [special index=n [cat]]: in the profile (the named template, else the current one) either the special trick slot
 // `index` set (the trick, the keys, whether it's a CAT; false without index) or the trick_mapping's key combo bound
 // to the trick. True otherwise.
-bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script* /*script*/)
+bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Context /*context*/)
 {
     uint32_t key_combo = 0;
     params->read_hash_value("key_combo", &key_combo, 1);
@@ -203,7 +203,7 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script* /*scr
 // 0x005B0C00: GetKeyComboBoundToTrick trick=<name> [special] | cat_num=n [profile=<name>]: the key combo bound to
 // the trick (the profile's trick_mapping, or with `special` its special trick slots - then also current_index, the
 // slot) or to the created trick cat_num, as current_key_combo. False if none.
-bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* script)
+bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Context context)
 {
     uint32_t trick = 0;
     int cat_number = 0; // (uninitialised in the original when cat_num is missing too: an asserting get)
@@ -260,10 +260,10 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
     if (key_combo == 0U) {
         return false;
     }
-    script->args()->put_name_key("current_key_combo", key_combo);
+    context.args()->put_name_key("current_key_combo", key_combo);
     if (found_special) {
         debug::printf("current_index: %i\n", slot); // "current_index: %i\n"
-        script->args()->put_int("current_index", slot);
+        context.args()->put_int("current_index", slot);
     }
     return true;
 }
@@ -271,7 +271,7 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
 // 0x005B0DA0: UpdateTrickMappings [Skater=n]: the skater's trick component given its profile's mappings - online the
 // local skater and the first profile (not checked for null), otherwise skater n's and profile n's (nothing if either
 // is missing). Always true.
-bool cfunc_update_trick_mappings(script::Struct* params, script::Script* /*script*/)
+bool cfunc_update_trick_mappings(script::Struct* params, script::Context /*context*/)
 {
     modules::Skate* skate = get_skate();
     objects::ProfileRoster* manager = objects::profile_roster();
@@ -297,7 +297,7 @@ bool cfunc_update_trick_mappings(script::Struct* params, script::Script* /*scrip
 // ConfigurableTricks whose type (trickType, else scr, else GrindTrick) is `type` (with `special` and no type: any)
 // and whose params are IsSpecial or not as `special` asks; for grab and flip tricks also ConfigurableCats, the local
 // skater's created trick slots (1-10) that are full. False if no trick matched.
-bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Script* script)
+bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Context context)
 {
     constexpr size_t kTricksSize = 128;
     std::array<uint32_t, kTricksSize> tricks{};
@@ -349,14 +349,14 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
     for (int i = 0; i < trick_count; ++i) {
         trick_array->set_element(i, core::at(tricks, i));
     }
-    script->args()->append_array_ref(kEditableTrickList, trick_array);
+    context.args()->append_array_ref(kEditableTrickList, trick_array);
     if (cat_count > 0) {
         gsl::owner<Array*> cat_array = script::new_array();
         cat_array->configure_size_kind(cat_count, script::QbValueKind::kInteger);
         for (int i = 0; i < cat_count; ++i) {
             cat_array->set_element(i, static_cast<uint32_t>(core::at(cats, i)));
         }
-        script->args()->append_array_ref(kEditableCategoryList, cat_array);
+        context.args()->append_array_ref(kEditableCategoryList, cat_array);
     }
     return true;
 }
@@ -364,7 +364,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
 // 0x005B1140: TrickIsLocked trick=<name>: whether the trick (a global structure whose params name a Skater) is
 // locked: with the flag 0x7ABFD5B4 unless the current profile is that skater; otherwise if that skater's template is
 // hidden (is_hidden). False without the structure, its params or Skater, or with no such template.
-bool cfunc_trick_is_locked(script::Struct* params, script::Script* /*script*/)
+bool cfunc_trick_is_locked(script::Struct* params, script::Context /*context*/)
 {
     uint32_t trick = 0;
     params->read_hash_value(kTrick, &trick, 1);
@@ -400,7 +400,7 @@ bool cfunc_trick_is_locked(script::Struct* params, script::Script* /*script*/)
 // 0x005B1250: GetTrickDisplayText trick=<name>: trick_display_text, its params' name; if it has ExtraTricks (a name,
 // or an array's first) also extra_trick_string (the first extra trick's params' name) and 0xD0BCFC62 (the extra
 // tricks' name). False without the trick structure.
-bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script)
+bool cfunc_get_trick_display_text(script::Struct* params, script::Context context)
 {
     uint32_t trick = 0;
     params->read_hash_value(kTrick, &trick, 1);
@@ -412,7 +412,7 @@ bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script
     structure->read_sub_struct(kParams, &trick_params, 1);
     const char* name = nullptr;
     trick_params->fetch_text(kName, &name, 1);
-    script->args()->append_word(kTrickDisplayText, name);
+    context.args()->append_word(kTrickDisplayText, name);
     uint32_t extra = 0;
     if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
         Array* extras = nullptr;
@@ -426,45 +426,45 @@ bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script
         first->read_sub_struct(kParams, &extra_params, 1);
         const char* extra_name = nullptr;
         extra_params->fetch_text(kName, &extra_name, 1);
-        script->args()->append_word(kExtraTrickString, extra_name);
-        script->args()->put_name_key(checksums::Name{kExtraTrickName}, extra);
+        context.args()->append_word(kExtraTrickString, extra_name);
+        context.args()->put_name_key(checksums::Name{kExtraTrickName}, extra);
     }
     return true;
 }
 
 // 0x005B1380: GetSpecialTrickInfo index=n: the current profile's special trick slot n: special_trickslot (its keys),
 // special_trickname (a CAT's number as an integer, else the trick's name) and isCat. Always true.
-bool cfunc_get_special_trick_info(script::Struct* params, script::Script* script)
+bool cfunc_get_special_trick_info(script::Struct* params, script::Context context)
 {
     int index = 0;
     params->fetch_int_value(kIndex, &index, 1);
     RiderIdentity::SpecialTrick trick;
     profile_for(nullptr)->get_special_trick(&trick, index);
-    script->args()->put_name_key(checksums::Name{kSpecialTrickSlot}, trick.keys());
+    context.args()->put_name_key(checksums::Name{kSpecialTrickSlot}, trick.keys());
     if (trick.flag()) {
-        script->args()->put_int(checksums::Name{kSpecialTrickName}, static_cast<int>(trick.trick()));
+        context.args()->put_int(checksums::Name{kSpecialTrickName}, static_cast<int>(trick.trick()));
     } else {
-        script->args()->put_name_key(checksums::Name{kSpecialTrickName}, trick.trick());
+        context.args()->put_name_key(checksums::Name{kSpecialTrickName}, trick.trick());
     }
-    script->args()->put_int(checksums::Name{kIsCat}, static_cast<int>(trick.flag()));
+    context.args()->put_int(checksums::Name{kIsCat}, static_cast<int>(trick.flag()));
     return true;
 }
 
 // 0x005B1420: GetTrickType trick=<name>: trick_type, the trick structure's type (trickType, else scr, else
 // GrindTrick). Always true.
-bool cfunc_get_trick_type(script::Struct* params, script::Script* script)
+bool cfunc_get_trick_type(script::Struct* params, script::Context context)
 {
     uint32_t trick = 0;
     params->read_hash_value(kTrick, &trick, 1);
     uint32_t type = 0;
     trick_type_of(script::read_sub_struct(trick), &type);
-    script->args()->put_name_key(checksums::Name{kTrickTypeOut}, type);
+    context.args()->put_name_key(checksums::Name{kTrickTypeOut}, type);
     return true;
 }
 
 // 0x005B14A0: GetIndexOfItemContaining array=<global array> name=<component> value=<checksum> [index=start]: index,
 // the first structure from `start` whose component `name` is `value`. False if none.
-bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* script)
+bool cfunc_get_index_of_item_containing(script::Struct* params, script::Context context)
 {
     uint32_t array_name = 0;
     params->read_hash_value(kArray, &array_name, 1);
@@ -484,7 +484,7 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
         uint32_t found = 0;
         item->read_hash_value(name, &found, 1);
         if (value == found) {
-            script->args()->put_int(checksums::Name{kIndex}, index);
+            context.args()->put_int(checksums::Name{kIndex}, index);
             return true;
         }
     }
@@ -493,20 +493,20 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
 
 // 0x005B1590: GetLevelRecords [level=n]: the level's records (default: the career's level) written to the script's
 // parameters. Always true.
-bool cfunc_get_level_records(script::Struct* params, script::Script* script)
+bool cfunc_get_level_records(script::Struct* params, script::Context context)
 {
     const modules::Skate* skate = get_skate();
     int level = 0;
     if (!params->fetch_int_value(kLevel, &level, 0)) {
         level = skate->career()->fetch_stage();
     }
-    highscores::game_records()->get_level_records(level)->write_to_structure(script->args().get());
+    highscores::game_records()->get_level_records(level)->write_to_structure(context.args().get());
     return true;
 }
 
 // 0x005B15F0: ResetComboRecords: the local skater's score's three combo records (0x00561400: +0x2C, +0x30, +0x34)
 // zeroed. Always true.
-bool cfunc_reset_combo_records(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_reset_combo_records(script::Struct* /*params*/, script::Context /*context*/)
 {
     objects::GameEntity* skater = local_skater();
     if (skater) {
@@ -517,36 +517,36 @@ bool cfunc_reset_combo_records(script::Struct* /*params*/, script::Script* /*scr
 
 // 0x005B1610: GetNumberOfTrickOccurrences TrickText="text": Number_Of_Occurrences, how often the local skater's score
 // has the trick (0x005624C0 with the text's checksum, 0, 0, 1; no local skater is not checked). Always true.
-bool cfunc_get_number_of_trick_occurrences(script::Struct* params, script::Script* script)
+bool cfunc_get_number_of_trick_occurrences(script::Struct* params, script::Context context)
 {
     const char* text = nullptr;
     params->fetch_text(kTrickText, &text, 1);
     const uint32_t trick = checksums::hash_from_text(text);
     void* score = skater_score(local_skater());
     const int count = static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, 0, false, 1);
-    script->args()->put_int(checksums::Name{kNumberOfOccurrences}, count);
+    context.args()->put_int(checksums::Name{kNumberOfOccurrences}, count);
     return true;
 }
 
 // 0x005B1670: GetNumSoundtracks: numsoundtracks. Always true.
-bool cfunc_get_num_soundtracks(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_num_soundtracks(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_int(checksums::Name{kNumSoundtracks}, audio::get_num_soundtracks());
+    context.args()->put_int(checksums::Name{kNumSoundtracks}, audio::get_num_soundtracks());
     return true;
 }
 
 // 0x005B1690: GetSoundtrackName <n>: soundtrackname, user soundtrack n's name. Always true.
-bool cfunc_get_soundtrack_name(script::Struct* params, script::Script* script)
+bool cfunc_get_soundtrack_name(script::Struct* params, script::Context context)
 {
     int index = 0;
     params->fetch_int_value(0U, &index, 1);
-    script->args()->append_word(kSoundtrackName, audio::get_soundtrack_name(index));
+    context.args()->append_word(kSoundtrackName, audio::get_soundtrack_name(index));
     return true;
 }
 
 // 0x005B16D0: BindControllerToSkater controller=c skater_heap_index=n: player n reads controller c; the skate module's
 // local skaters' input components told (0x00567090). Always true.
-bool cfunc_bind_controller_to_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_bind_controller_to_skater(script::Struct* params, script::Context /*context*/)
 {
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
@@ -560,7 +560,7 @@ bool cfunc_bind_controller_to_skater(script::Struct* params, script::Script* /*s
 
 // 0x005B1730: BindFrontEndToController controller=c front_end_pad=n: the front end's pad n listens to controller c
 // (the pad that had c takes n's old controller); its input mappings updated. Always true.
-bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script* /*script*/)
+bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Context /*context*/)
 {
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
@@ -584,7 +584,7 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script* 
 
 // 0x005B17C0: ControllerBoundToDifferentSkater Skater=n controller=c: whether a local skater other than n (0-7) reads
 // controller c.
-bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::Context /*context*/)
 {
     int skater = 0;
     params->fetch_int_value(kSkater, &skater, 1);
@@ -607,7 +607,7 @@ bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::
 }
 
 // 0x005B1840: ControllerBoundToSkater controller=c Skater=n: whether player n reads controller c.
-bool cfunc_controller_bound_to_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_controller_bound_to_skater(script::Struct* params, script::Context /*context*/)
 {
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
@@ -619,7 +619,7 @@ bool cfunc_controller_bound_to_skater(script::Struct* params, script::Script* /*
 // 0x005B1890: GetKeyComboArrayFromTrickArray tricks=[...]: 0x1A4F3519, the key combo of each trick (the current
 // profile's trick_mapping, else its special trick slots; 0 if none) - a copy: the array made for it isn't freed (a
 // leak in the original). Always true.
-bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::Script* script)
+bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::Context context)
 {
     Array* tricks = nullptr;
     params->fetch_list(kTricks, &tricks, 1);
@@ -644,12 +644,12 @@ bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::
         }
         key_combos->set_element(i, key_combo);
     }
-    script->args()->append_array_value(kButtonSequences, key_combos);
+    context.args()->append_array_value(kButtonSequences, key_combos);
     return true;
 }
 
 // 0x005B1A00: FirstInputReceived: the skate module's flag (+0x3C) set (0x00564DA0). Always true.
-bool cfunc_first_input_received(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_first_input_received(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_skate()->scan_pad_connections();
     return true;
@@ -657,7 +657,7 @@ bool cfunc_first_input_received(script::Struct* /*params*/, script::Script* /*sc
 
 // 0x005B1A10: VibrateController port=p Actuator=a Percent=n: the device's actuator a at n percent. False without the
 // device.
-bool cfunc_vibrate_controller(script::Struct* params, script::Script* /*script*/)
+bool cfunc_vibrate_controller(script::Struct* params, script::Context /*context*/)
 {
     int port = 0;
     params->fetch_int_value(kPort, &port, 1);
@@ -674,7 +674,7 @@ bool cfunc_vibrate_controller(script::Struct* params, script::Script* /*script*/
 }
 
 // 0x005B1A90: LockCurrentSkaterProfileIndex [<n> (1)]: the profile manager's lock set (n != 0). Always true.
-bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Script* /*script*/)
+bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Context /*context*/)
 {
     int lock = 1;
     params->fetch_int_value(0U, &lock, 1);
@@ -684,7 +684,7 @@ bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Scr
 
 // 0x005B1AD0: SetSpecialTrickInfo slot=n trick_name=<name> key_combo=<keys>: the current profile's special trick slot
 // n set (not a CAT; the skater not told). False without a current profile.
-bool cfunc_set_special_trick_info(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_special_trick_info(script::Struct* params, script::Context /*context*/)
 {
     int slot = 0;
     params->fetch_int_value(kSlot, &slot, 1);

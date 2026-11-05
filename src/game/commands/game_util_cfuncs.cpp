@@ -14,7 +14,6 @@
 #include "base/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "base/core/checksums.h"
-#include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/highscores.h"
@@ -26,6 +25,7 @@
 #include "game/skate/point_tally.h"
 #include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
+#include "engine/script/context.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/span_copy.h"
@@ -126,7 +126,7 @@ bool array_has(Array* array, uint32_t name)
 // integer or a float; skipped if B has neither): A + (B - A) * t - for the Angles the shorter way round (the
 // difference and the result wrapped into 0-360 degrees). An integer stays an integer (truncated) only if both were integers. Always
 // true.
-bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script)
+bool cfunc_interpolate_parameters(script::Struct* params, script::Context context)
 {
     gsl::owner<Struct*> result = script::new_struct();
     Struct* from_struct = nullptr;
@@ -187,13 +187,13 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             result->push_float(checksums::Name{name}, value);
         }
     }
-    script->args()->append_struct_ref(kInterpolated, result);
+    context.args()->append_struct_ref(kInterpolated, result);
     return true;
 }
 
 // 0x005B1E00: GetTextureFromPath path="dir/name": texture, the path's last part (after the last / or \). The name is
 // copied into a 32-byte buffer, as in the original (a longer one overruns it). Always true.
-bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
+bool cfunc_get_texture_from_path(script::Struct* params, script::Context context)
 {
     const char* path = nullptr;
     params->fetch_text(kPath, &path, 1);
@@ -204,14 +204,14 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
     const std::string_view base = slash == std::string_view::npos ? full : full.substr(slash + 1);
     core::copy_into(std::span<const char>(base.data(), base.size()), std::span<char>(name).first(base.size()));
     core::at(name, base.size()) = '\0';
-    script->args()->append_word(kTexture, name.data());
+    context.args()->append_word(kTexture, name.data());
     return true;
 }
 
 // 0x005B1EA0: ClearPowerups: for each of the skate module's skaters 0-7 that exists, the power-ups of the first
 // SkaterState component the object manager has cleared - the same component each time (as in the original). Always
 // true.
-bool cfunc_clear_powerups(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_clear_powerups(script::Struct* /*params*/, script::Context /*context*/)
 {
     modules::Skate* skate = modules::Skate::sole();
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
@@ -228,7 +228,7 @@ bool cfunc_clear_powerups(script::Struct* /*params*/, script::Script* /*script*/
 // [IgnoreRailPointIndex=n] [CheckLevelGeometry]: NearestPos, the nearest rail point (also rail_id and
 // rail_point_index) or - with CheckLevelGeometry and when nearer - the park generator's nearest point, within the
 // distance. False if neither is within it.
-bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* script)
+bool cfunc_find_nearest_rail_point(script::Struct* params, script::Context context)
 {
     maths::Vec4 pos;
     params->fetch_vec(kPos, &pos, 1);
@@ -257,25 +257,25 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
     maths::Vec4 nearest;
     if (rail_distance_squared < geometry_distance_squared) {
         nearest = rail_point;
-        script->args()->put_name_key(checksums::Name{kRailId}, rail);
-        script->args()->put_int(checksums::Name{kRailPointIndex}, rail_index);
+        context.args()->put_name_key(checksums::Name{kRailId}, rail);
+        context.args()->put_int(checksums::Name{kRailPointIndex}, rail_index);
     } else {
         nearest = geometry_point;
     }
-    script->args()->put_vec3(checksums::Name{kNearestPos}, {.x = nearest.x, .y = nearest.y, .z = nearest.z});
+    context.args()->put_vec3(checksums::Name{kNearestPos}, {.x = nearest.x, .y = nearest.y, .z = nearest.z});
     return true;
 }
 
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
-bool cfunc_get_park_name(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_park_name(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->append_word(kParkName, commands::park_name().data());
+    context.args()->append_word(kParkName, commands::park_name().data());
     return false;
 }
 
 // 0x005B3180: SetSpecialBarColors Skater=n: skater n's score takes the special bar's colours from the global array
 // 0x2E8B9F1C (0x005612D0; the skater isn't checked for null). Always true.
-bool cfunc_set_special_bar_colors(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_special_bar_colors(script::Struct* params, script::Context /*context*/)
 {
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
@@ -285,16 +285,16 @@ bool cfunc_set_special_bar_colors(script::Struct* params, script::Script* /*scri
 }
 
 // 0x005B31C0: GetInitialsString: string, the records' default initials. Always true.
-bool cfunc_get_initials_string(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_initials_string(script::Struct* /*params*/, script::Context context)
 {
     auto* records = highscores::game_records();
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
-    script->args()->append_word(kString, script::QbValueKind::kString, records->default_initials());
+    context.args()->append_word(kString, script::QbValueKind::kString, records->default_initials());
     return true;
 }
 
 // 0x005B31F0: SetInitialsString [string="ABC" ("ERR")]: the records' default initials. Always true.
-bool cfunc_set_initials_string(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_initials_string(script::Struct* params, script::Context /*context*/)
 {
     auto* records = highscores::game_records();
     const char* initials = "ERR"; // "ERR"
@@ -304,15 +304,16 @@ bool cfunc_set_initials_string(script::Struct* params, script::Script* /*script*
 }
 
 // 0x005B3230: GetFireballLevel: level, the game mode's fireball level. Always true.
-bool cfunc_get_fireball_level(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_fireball_level(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_int(checksums::Name{kLevel}, static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
+    context.args()->put_int(checksums::Name{kLevel},
+                            static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
     return true;
 }
 
 // 0x005B3260: GetSkaterLastNameString <name>: last_name, the master_skater_list entry's of that name. False if there
 // is no such entry or it has no last_name.
-bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* script)
+bool cfunc_get_skater_last_name_string(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
@@ -329,7 +330,7 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
         if (!skater->fetch_text(kLastName, &last_name, 0)) {
             return false;
         }
-        script->args()->append_word(kLastName, last_name);
+        context.args()->append_word(kLastName, last_name);
         return true;
     }
     return false;
@@ -338,7 +339,7 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
 // 0x005B3300: DrawDirectionalLightLines heading=degrees pitch=degrees r= g= b=: a debug line from 75 above the local
 // skater 50 long towards the light - compiled out of this build (the drawing call is empty); the local skater isn't
 // checked for null. Always true.
-bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* /*script*/)
+bool cfunc_draw_directional_light_lines(script::Struct* params, script::Context /*context*/)
 {
     float heading = 0.0F;
     params->fetch_float(kHeading, &heading, 1);
@@ -373,7 +374,7 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* 
 }
 
 // 0x005B3470: InSlapGame: whether the game mode is netslap or slap.
-bool cfunc_in_slap_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_in_slap_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     return active_ruleset_label() == kNetSlap || active_ruleset_label() == kSlap;
 }
@@ -381,7 +382,7 @@ bool cfunc_in_slap_game(script::Struct* /*params*/, script::Script* /*script*/)
 // 0x005B46A0: SetPreferencesFromUI <which preferences> string="..." field="name" [checksum=<value>] [time=n]
 // [score=n]: the preference `field` set to {ui_string, checksum, time (time_limit / horse_time_limit), score (target
 // score: score, else time * 1000)} in the preferences the params name (0x00565D40). Always true.
-bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_preferences_from_ui(script::Struct* params, script::Context /*context*/)
 {
     auto* preferences = modules::Skate::get_preferences_from_params(params);
     const char* string = nullptr;

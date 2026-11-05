@@ -26,6 +26,7 @@
 #include "engine/sys/stopwatch.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
+#include "engine/script/context.h"
 #include "game/commands/game_cfuncs.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/skate/point_tally.h"
@@ -84,7 +85,7 @@ void Hub::add_new_player(JoinerRecord* info)
     auto obj_id = static_cast<int8_t>(info->entity_key());
     const PlayerFlag flags = info->flag_bits();
     if (!core::any(flags & PlayerFlag::kObserver)) {
-        const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr);
+        const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, script::Context());
         auto* profile =
             modules::Skate::fetch_account(split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
         if (!in_net_game()) {

@@ -19,6 +19,7 @@
 #include "game/park/park_memory.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/commands/game_cfuncs.h"
@@ -84,7 +85,7 @@ RailAuthoring* get_rail_editor() { return RailAuthoring::sole(); }
 ObjectiveAuthoring* get_goal_editor() { return ObjectiveAuthoring::get_pull(); }
 
 // GetParkEdMemStats's compiled-out report (the empty 0x005480A0, given the script).
-inline void print_mem_stats(script::Script* /*script*/) {}
+inline void print_mem_stats(script::Context /*context*/) {}
 
 // ResizePark's area (`area` = {x, z, w, l}): x, z, w, l, one floor step high. (A missing one is 0 here - the
 // original takes what's on its stack.)
@@ -136,7 +137,7 @@ CellBox& saved_area()
 } // namespace
 
 // 0x0058D730
-bool cfunc_free_up_memory_for_playing_park(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_free_up_memory_for_playing_park(script::Struct* /*params*/, script::Context /*context*/)
 {
     hub()->create_gap_manager_copy();
     hub()->teardown(1);
@@ -145,13 +146,13 @@ bool cfunc_free_up_memory_for_playing_park(script::Struct* /*params*/, script::S
 }
 
 // 0x0058D760
-bool cfunc_is_park_unsaved(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_is_park_unsaved(script::Struct* /*params*/, script::Context /*context*/)
 {
     return !hub()->has_local_park_copy();
 }
 
 // 0x0058D780
-bool cfunc_set_edited_park_gap_info(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_edited_park_gap_info(script::Struct* params, script::Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text("name", &name, 0);
@@ -165,13 +166,13 @@ bool cfunc_set_edited_park_gap_info(script::Struct* params, script::Script* /*sc
 }
 
 // 0x0058D820
-bool cfunc_park_editor_selection_area_too_big_to_copy(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_park_editor_selection_area_too_big_to_copy(script::Struct* /*params*/, script::Context /*context*/)
 {
     return get_cursor()->is_area_selection_invalid();
 }
 
 // 0x0058D840
-bool cfunc_copy_park_editor_selection_to_clipboard(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_copy_park_editor_selection_to_clipboard(script::Struct* /*params*/, script::Context /*context*/)
 {
     const bool copied = get_cursor()->copy_area_to_clipboard();
     get_cursor()->drop_area_marquee();
@@ -179,7 +180,7 @@ bool cfunc_copy_park_editor_selection_to_clipboard(script::Struct* /*params*/, s
 }
 
 // 0x0058D870
-bool cfunc_cut_park_editor_area_selection(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_cut_park_editor_area_selection(script::Struct* /*params*/, script::Context /*context*/)
 {
     const bool copied = get_cursor()->copy_area_to_clipboard();
     if (copied) {
@@ -191,20 +192,20 @@ bool cfunc_cut_park_editor_area_selection(script::Struct* /*params*/, script::Sc
 }
 
 // 0x0058D8C0
-bool cfunc_park_editor_area_selection_delete_pieces(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_park_editor_area_selection_delete_pieces(script::Struct* /*params*/, script::Context /*context*/)
 {
     return get_cursor()->destroy_selection();
 }
 
 // 0x0058D8E0
-bool cfunc_continue_park_editor_area_selection(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_continue_park_editor_area_selection(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_cursor()->restart_area_selection();
     return true;
 }
 
 // 0x0058D900
-bool cfunc_set_editor_theme(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_editor_theme(script::Struct* params, script::Context /*context*/)
 {
     int theme = 0;
     params->fetch_int_value(kTheme, &theme, 0);
@@ -213,7 +214,7 @@ bool cfunc_set_editor_theme(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0058D940
-bool cfunc_set_custom_park_name(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_custom_park_name(script::Struct* params, script::Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text("name", &name, 1);
@@ -222,21 +223,21 @@ bool cfunc_set_custom_park_name(script::Struct* params, script::Script* /*script
 }
 
 // 0x0058D980
-bool cfunc_optimize_park_geometry(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_optimize_park_geometry(script::Struct* /*params*/, script::Context /*context*/)
 {
     hub()->rebuild_park_geometry(1);
     return true;
 }
 
 // 0x0058D9A0
-bool cfunc_get_park_ed_mem_stats(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_park_ed_mem_stats(script::Struct* /*params*/, script::Context context)
 {
-    print_mem_stats(script);
+    print_mem_stats(context);
     return true;
 }
 
 // 0x0058D9B0
-bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* /*script*/)
+bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Context /*context*/)
 {
     uint32_t marker = 0;
     if (params->read_hash_value(0U, &marker, 0)) {
@@ -246,7 +247,7 @@ bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* /*script
 }
 
 // 0x0058D9E0
-bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Script* /*script*/)
+bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Context /*context*/)
 {
     int on = 0;
     params->fetch_int_value(0U, &on, 0);
@@ -257,7 +258,7 @@ bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x0058DA40
-bool cfunc_exit_park_ed_test_play(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_exit_park_ed_test_play(script::Struct* /*params*/, script::Context /*context*/)
 {
     script::launch_script(kExitTestPlay, nullptr, nullptr, false, nullptr);
     mark_progress("Ending Test Play");
@@ -265,7 +266,7 @@ bool cfunc_exit_park_ed_test_play(script::Struct* /*params*/, script::Script* /*
 }
 
 // 0x0058DA70
-bool cfunc_park_update_usage_info(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_park_update_usage_info(script::Struct* /*params*/, script::Context /*context*/)
 {
     MemoryStats stats{};
     get_memory_stats(&stats);
@@ -273,7 +274,7 @@ bool cfunc_park_update_usage_info(script::Struct* /*params*/, script::Script* /*
 }
 
 // 0x0058DFB0
-bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Context /*context*/)
 {
     uint32_t script = 0;
     params->read_hash_value(kTodScript, &script, 0);
@@ -282,33 +283,33 @@ bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script* /
 }
 
 // 0x0058DFE0
-bool cfunc_get_park_editor_time_of_day_script(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_park_editor_time_of_day_script(script::Struct* /*params*/, script::Context context)
 {
     const uint32_t tod = get_editor()->lighting_script();
     if (tod == 0U) {
         return false;
     }
-    script->args()->put_name_key(checksums::Name{kTodScript}, tod);
+    context.args()->put_name_key(checksums::Name{kTodScript}, tod);
     return true;
 }
 
 // 0x0058E010
-bool cfunc_rebuild_park_node_array(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_rebuild_park_node_array(script::Struct* /*params*/, script::Context /*context*/)
 {
     hub()->builder()->build_goal_node_array(); // the park's node array made again
     return true;
 }
 
 // 0x0058E020
-bool cfunc_get_park_editor_cursor_pos(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_park_editor_cursor_pos(script::Struct* /*params*/, script::Context context)
 {
     const maths::Vec4 pos = get_cursor()->at_point();
-    script->args()->put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
+    context.args()->put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
     return true;
 }
 
 // 0x0058E070
-bool cfunc_custom_park_mode(script::Struct* params, script::Script* /*script*/)
+bool cfunc_custom_park_mode(script::Struct* params, script::Context /*context*/)
 {
     const ParkBuilderMode* editor = get_editor();
     if (params->has_bare_flag("editing")) {
@@ -324,7 +325,7 @@ bool cfunc_custom_park_mode(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0058E0F0
-bool cfunc_set_park_editor_max_players(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_park_editor_max_players(script::Struct* params, script::Context /*context*/)
 {
     int players = 1;
     params->fetch_int_value(0U, &players, 0);
@@ -358,7 +359,7 @@ CellBox* get_resize_area(CellBox* out, script::Struct* params)
 }
 
 // 0x0058E2D0
-bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Script* /*script*/)
+bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Context /*context*/)
 {
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     script::Struct* structure = nullptr;
@@ -410,7 +411,7 @@ void resize_to(CellBox area)
 }
 
 // 0x0058E5E0
-bool cfunc_resize_park(script::Struct* params, script::Script* /*script*/)
+bool cfunc_resize_park(script::Struct* params, script::Context /*context*/)
 {
     CellBox& saved = saved_area();
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
@@ -437,18 +438,18 @@ bool cfunc_resize_park(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0058E7E0
-bool cfunc_get_current_park_bounds(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_current_park_bounds(script::Struct* /*params*/, script::Context context)
 {
     const CellBox bounds = hub()->build_area();
-    script->args()->put_int(checksums::Name{kX}, bounds.x);
-    script->args()->put_int(checksums::Name{kZ}, bounds.z);
-    script->args()->put_int(checksums::Name{kW}, bounds.w);
-    script->args()->put_int(checksums::Name{kL}, bounds.l);
+    context.args()->put_int(checksums::Name{kX}, bounds.x);
+    context.args()->put_int(checksums::Name{kZ}, bounds.z);
+    context.args()->put_int(checksums::Name{kW}, bounds.w);
+    context.args()->put_int(checksums::Name{kL}, bounds.l);
     return true;
 }
 
 // 0x0058E870
-bool cfunc_can_change_park_dimension(script::Struct* params, script::Script* /*script*/)
+bool cfunc_can_change_park_dimension(script::Struct* params, script::Context /*context*/)
 {
     const CellBox bounds = hub()->build_area();
     const CellBox shell = hub()->shell_bounds();
@@ -467,7 +468,7 @@ bool cfunc_can_change_park_dimension(script::Struct* params, script::Script* /*s
 }
 
 // 0x0058E9A0
-bool cfunc_save_park_to_disk(script::Struct* params, script::Script* /*script*/)
+bool cfunc_save_park_to_disk(script::Struct* params, script::Context /*context*/)
 {
     int slot = 0;
     params->fetch_int_value(kSlot, &slot, 1);
@@ -476,7 +477,7 @@ bool cfunc_save_park_to_disk(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0058E9E0
-bool cfunc_load_park_from_disk(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_park_from_disk(script::Struct* params, script::Context /*context*/)
 {
     int slot = 0;
     params->fetch_int_value("slot", &slot, 1);
@@ -486,43 +487,43 @@ bool cfunc_load_park_from_disk(script::Struct* params, script::Script* /*script*
 }
 
 // 0x0058EA40
-bool cfunc_fire_custom_park_gap(script::Struct* params, script::Script* script)
+bool cfunc_fire_custom_park_gap(script::Struct* params, script::Context context)
 {
     int index = 0; // (the original's is whatever was on its stack when gap_index is missing)
     params->fetch_int_value("gap_index", &index, 1);
-    gap_registry()->fire_gap(index, script);
+    gap_registry()->fire_gap(index, context.script());
     return true;
 }
 
 // 0x0058EA70
-bool cfunc_get_edited_park_gap_name(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_edited_park_gap_name(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->append_word("name", get_cursor()->get_gap_title());
+    context.args()->append_word("name", get_cursor()->get_gap_title());
     return true;
 }
 
 // 0x0058EAA0
-bool cfunc_get_editor_theme(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_editor_theme(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_int(checksums::Name{kTheme}, hub()->get_shell_size());
+    context.args()->put_int(checksums::Name{kTheme}, hub()->get_shell_size());
     return true;
 }
 
 // 0x0058EAD0
-bool cfunc_get_editor_max_themes(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_editor_max_themes(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_int(checksums::Name{kMaxThemes}, kEditorThemeCount);
+    context.args()->put_int(checksums::Name{kMaxThemes}, kEditorThemeCount);
     return true;
 }
 
 // 0x0058EAF0
-bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
+bool cfunc_get_custom_park_name(script::Struct* params, script::Context context)
 {
     int length = -1;
     params->fetch_int_value(0U, &length, 0);
     const char* name = hub()->get_park_name();
     if (length == -1) {
-        script->args()->append_word("name", name ? name : "unnamed park");
+        context.args()->append_word("name", name ? name : "unnamed park");
         return true;
     }
     // The first `length` characters (no more than the buffer holds - as the original, which doesn't check).
@@ -531,18 +532,18 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
         std::memcpy(shortened.data(), name, static_cast<size_t>(length));
     }
     core::at(shortened, length) = 0;
-    script->args()->append_word("name", shortened.data());
+    context.args()->append_word("name", shortened.data());
     return true;
 }
 
 // 0x0058EB90
-bool cfunc_is_custom_park(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_is_custom_park(script::Struct* /*params*/, script::Context /*context*/)
 {
     return get_editor()->editor_state() != ParkBuilderMode::kStateOff;
 }
 
 // 0x0058EBB0
-bool cfunc_is_park_full(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_is_park_full(script::Struct* /*params*/, script::Context /*context*/)
 {
     MemoryStats stats{};
     get_memory_stats(&stats);
@@ -551,7 +552,7 @@ bool cfunc_is_park_full(script::Struct* /*params*/, script::Script* /*script*/)
 
 // 0x0058ED00
 bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct* /*params*/,
-                                                                  script::Script* /*script*/)
+                                                                  script::Context /*context*/)
 {
     get_cursor()->switch_to_clipboard();
     park_editing::ParkBuilderMode::refresh_piece_menu();
@@ -560,7 +561,7 @@ bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct
 }
 
 // 0x0058F750
-bool cfunc_switch_to_park_editor_camera(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_switch_to_park_editor_camera(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (!objects::ObjectHubBase::look_up_entity(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
@@ -588,7 +589,7 @@ bool cfunc_switch_to_park_editor_camera(script::Struct* /*params*/, script::Scri
 }
 
 // 0x0058F870
-bool cfunc_bind_park_editor_to_controller(script::Struct* params, script::Script* /*script*/)
+bool cfunc_bind_park_editor_to_controller(script::Struct* params, script::Context /*context*/)
 {
     int controller = 0; // (the original's is whatever was on its stack when there's none)
     params->fetch_int_value(0U, &controller, 1);

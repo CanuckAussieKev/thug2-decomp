@@ -29,9 +29,9 @@
 #include "engine/script/struct_buffer.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/stream_commands.h"
-#include "engine/script/cscript.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
@@ -81,7 +81,7 @@ namespace save_cards {
 
 namespace {
 
-using script::Script;
+using script::Context;
 using script::Struct;
 
 int os_layer() { return game_config::hardware(); }
@@ -124,7 +124,7 @@ void delete_reserve_pool(memory::PoolPair& pools)
 } // namespace
 
 // 0x005A6EA0
-bool delete_mem_card_file(Struct* params, Script* /*script*/)
+bool delete_mem_card_file(Struct* params, Context /*context*/)
 {
     if (os_layer() != 4) {
         audio::pause_music(1);
@@ -251,17 +251,18 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
 }
 
 // 0x005A8500
-bool get_mem_card_space_required(Struct* params, Script* script)
+bool get_mem_card_space_required(Struct* params, Context context)
 {
     uint32_t type = 0;
     params->read_hash_value(0U, &type, 0);
     const int size = type_file_size(type);
-    script->args().get()->put_int(checksums::Name{kSpaceRequired}, save_blocks(checksums::Name{type}, size)); // SpaceRequired
+    context.args().get()->put_int(checksums::Name{kSpaceRequired},
+                                  save_blocks(checksums::Name{type}, size)); // SpaceRequired
     return true;
 }
 
 // 0x005A8550
-bool mem_card_file_exists(Struct* params, Script* script)
+bool mem_card_file_exists(Struct* params, Context context)
 {
     SaveCard* card = the_card();
     if (!card) {
@@ -310,7 +311,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
         return false;
     }
     const int size = static_cast<int>(file->seek_to({.offset = 0, .origin = 2}));
-    script->args().get()->put_int("total_file_size", save_blocks(checksums::Name{type}, size));
+    context.args().get()->put_int("total_file_size", save_blocks(checksums::Name{type}, size));
     file->drain();
     file->shut();
     delete_file_handle(file);
@@ -318,7 +319,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
 }
 
 // 0x005A8BB0
-bool clear_mem_card_data_for_upload(Struct* /*params*/, Script* /*script*/)
+bool clear_mem_card_data_for_upload(Struct* /*params*/, Context /*context*/)
 {
     Struct*& kept = save_cards_state().kept_params();
     if (kept) {
@@ -331,7 +332,7 @@ bool clear_mem_card_data_for_upload(Struct* /*params*/, Script* /*script*/)
 }
 
 // 0x005A8DA0
-bool create_temporary_mem_card_pools(Struct* /*params*/, Script* /*script*/)
+bool create_temporary_mem_card_pools(Struct* /*params*/, Context /*context*/)
 {
     if (core::at(script::component_pools().pools(), script::component_pools().current() + 1)) {
         return true;
@@ -352,7 +353,7 @@ bool create_temporary_mem_card_pools(Struct* /*params*/, Script* /*script*/)
 }
 
 // 0x005A9700
-bool remove_temporary_mem_card_pools(Struct* /*params*/, Script* /*script*/)
+bool remove_temporary_mem_card_pools(Struct* /*params*/, Context /*context*/)
 {
     delete_reserve_pool(script::component_pools());
     delete_reserve_pool(script::struct_pools());
@@ -361,7 +362,7 @@ bool remove_temporary_mem_card_pools(Struct* /*params*/, Script* /*script*/)
 }
 
 // 0x005A8BF0
-bool get_save_info(Struct* params, Script* script)
+bool get_save_info(Struct* params, Context context)
 {
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 0); // type
@@ -378,7 +379,7 @@ bool get_save_info(Struct* params, Script* script)
     Expects(summary != nullptr); // (out of memory: the original went on through null)
     write_summary(contents, *summary, type);
     const int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
-    Struct* results = script->args().get();
+    Struct* results = context.args().get();
     results->put_int(checksums::Name{kMainStructureSize}, main_size);                       // MainStructureSize
     results->put_int(checksums::Name{kSummaryInfoSize}, summary_size);                    // SummaryInfoSize
     results->put_int(checksums::Name{kMaxSummaryInfoSize}, kMaxSummaryBytes);                             // MaxSummaryInfoSize
@@ -510,14 +511,14 @@ void describe_listed_file(Struct* entry, SaveCard* card, std::array<char, kSaveD
 } // namespace
 
 // 0x005A8F70
-bool get_mem_card_directory_listing(Struct* params, Script* script)
+bool get_mem_card_directory_listing(Struct* params, Context context)
 {
     constexpr uint32_t kDirectoryListing = 0xD8580FB5;
     constexpr uint32_t kFilesLimitReached = 0x4EEC27B5;
     constexpr uint32_t kTotalFiles = 0x56B7A7F6;
-    script->args().get()->erase_module(kDirectoryListing);
-    script->args().get()->erase_module(kFilesLimitReached);
-    script->args().get()->erase_module(kTotalFiles);
+    context.args().get()->erase_module(kDirectoryListing);
+    context.args().get()->erase_module(kFilesLimitReached);
+    context.args().get()->erase_module(kTotalFiles);
     uint32_t wanted_type = 0;
     params->read_hash_value(kFileType, &wanted_type, 0); // FileType
     SaveCard* card = the_card();
@@ -598,9 +599,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             break;
         }
     }
-    script->args().get()->put_int(checksums::Name{kTotalFiles}, game_files);
+    context.args().get()->put_int(checksums::Name{kTotalFiles}, game_files);
     if (game_files >= kMaxFiles) {
-        script->args().get()->put_name_key(checksums::Name{0U}, kFilesLimitReached);
+        context.args().get()->put_name_key(checksums::Name{0U}, kFilesLimitReached);
     }
     if (listed != 0) {
         // newest first (a bubble sort by the dates)
@@ -624,7 +625,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         for (int j = 0; j < listed; ++j) {
             listing->set_cell(static_cast<uint32_t>(j), script::Cell::of(core::at(entries, j)));
         }
-        script->args().get()->append_array_ref(kDirectoryListing, listing);
+        context.args().get()->append_array_ref(kDirectoryListing, listing);
     }
     // the head unlinked (its destructor's body)
     head.prev()->set_next(head.next());
@@ -710,10 +711,10 @@ void keep_sound_going()
 }
 
 // 0x005A97E0
-bool save_to_memory_card(Struct* params, Script* /*script*/)
+bool save_to_memory_card(Struct* params, Context /*context*/)
 {
     if (os_layer() == game_config::kHardwareGameCube) {
-        create_temporary_mem_card_pools(nullptr, nullptr);
+        create_temporary_mem_card_pools(nullptr, script::Context());
     }
     if (os_layer() != 4) {
         audio::pause_music(1);
@@ -850,7 +851,7 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
         audio::freeze_stream(-1);
     }
     if (os_layer() == game_config::kHardwareGameCube) {
-        remove_temporary_mem_card_pools(nullptr, nullptr);
+        remove_temporary_mem_card_pools(nullptr, script::Context());
     }
     return saved;
 }

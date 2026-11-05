@@ -37,6 +37,8 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
+#include "engine/script/cell.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
@@ -828,7 +830,7 @@ std::string get_goal_id(int index) { return "CreatedGoal" + std::to_string(index
 
 namespace {
 
-using Function = bool (*)(script::Struct*, script::Script*);
+using Function = script::NativeFunction;
 
 // NOT ORIGINAL grouping - level_editor_goals.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_goals_state()).
@@ -1028,7 +1030,7 @@ bool goal_command(Function command, uint32_t goal)
 {
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::Name{kName}, goal); // name
-    const bool result = command(params, nullptr);
+    const bool result = command(params, script::Context());
     params->get_clear();
     script::delete_struct(params);
     return result;

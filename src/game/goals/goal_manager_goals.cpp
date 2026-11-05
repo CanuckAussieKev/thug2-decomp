@@ -17,6 +17,7 @@
 #include "engine/script/cscript.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"
 #include "game/online/net_game_state.h"
@@ -70,7 +71,10 @@ constexpr uint32_t kAttempts = 0xD023ADBE; // (name unknown: the times the beate
 
 const char* const kNetJudge = "NetJudge"; // "NetJudge"
 
-bool in_multiplayer_game() { return static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0; }
+bool in_multiplayer_game()
+{
+    return static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, script::Context())) != 0;
+}
 
 // The goal's type by its flags (made zeroed: Objective is a HeapObject; the original allocated the sizes noted with
 // the types).
@@ -227,7 +231,7 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
         if (!text || goal->is_online_objective() || (goal->parents()->objective_key_ != 0U)) {
             continue;
         }
-        online::cfunc_is_host(nullptr, nullptr); // (its answer isn't used)
+        online::cfunc_is_host(nullptr, script::Context()); // (its answer isn't used)
         if (selected_only && !goal->is_picked()) {
             continue;
         }

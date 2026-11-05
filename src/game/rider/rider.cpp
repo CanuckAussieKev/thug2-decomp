@@ -36,6 +36,7 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/assets/resource_registry.h"
 #include "game/front_end/front_end.h"
 #include "game/online/gamenet_manager.h"
@@ -334,7 +335,10 @@ constexpr uint32_t kSkaterCam1 = 0xE17B231A;           // skatercam1
 constexpr uint32_t kModelModuleName = 0x286A8D26;      // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;           // (a physics integer: pausing freezes the whole game)
 
-bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0; }
+bool rule_5a_1180()
+{
+    return static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, script::Context())) != 0;
+}
 
 } // namespace
 
@@ -1263,7 +1267,8 @@ void Rider::init_from_profile(RiderIdentity* profile)
 {
     prepare_all(profile);
     online::Hub* net = online::online_hub();
-    if ((is_local_skater() != 0U) && static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0) {
+    if ((is_local_skater() != 0U) &&
+        static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, script::Context())) != 0) {
         // Its network messages.
         net::AppHost* client = net->fetch_patron(view_slot_);
         net::Router* dispatcher = &client->dispatcher();
@@ -1817,7 +1822,7 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
             list->set_first_update(true);
         }
         if (net->in_net_game()) {
-            commands::cfunc_notify_bail_done(nullptr, nullptr);
+            commands::cfunc_notify_bail_done(nullptr, script::Context());
             core_physics_->state()->set_flag(PoseFlag::kBailing, 0);
         }
     }

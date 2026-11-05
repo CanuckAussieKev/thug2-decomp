@@ -27,6 +27,7 @@
 #include "game/online/stats_man.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/goal_manager.h"
@@ -396,7 +397,7 @@ void Hub::start_game_task(tasks::Task<Hub>* task)
         }
         return;
     }
-    if (cfunc_all_players_are_ready(nullptr, nullptr) &&    // (the script command, without parameters)
+    if (cfunc_all_players_are_ready(nullptr, script::Context()) &&           // (the script command, without parameters)
         frame_clock::get_time() >= net_game_state().net_game_start_time()) { // every one ready, and the time has come
         waiting_shown = false;
         manager->start_network_game();

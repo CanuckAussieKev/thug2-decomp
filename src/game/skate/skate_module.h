@@ -31,6 +31,7 @@ namespace prefs {
 class Preferences;
 }
 namespace script {
+class Context;
 class Script;
 class Struct;
 } // namespace script
@@ -234,16 +235,16 @@ public:
     // rails and created goals streamed to them), 0x005654B0 LaunchLevel, 0x005654D0 RequestLevel, 0x005655B0
     // InitSkaterHeaps, 0x00566E70 Retry, 0x00566EA0 LaunchGame, 0x00566ED0 ResetLevel, 0x00568120
     // FillRankingScreen (skate_rankings.cpp).
-    static bool cfunc_set_game_type(script::Struct* params, script::Script* script);
-    static bool cfunc_in_team_game(script::Struct* params, script::Script* script);
-    static bool cfunc_change_level(script::Struct* params, script::Script* script);
-    static bool cfunc_launch_level(script::Struct* params, script::Script* script);
-    static bool cfunc_request_level(script::Struct* params, script::Script* script);
-    static bool cfunc_init_skater_heaps(script::Struct* params, script::Script* script);
-    static bool cfunc_retry(script::Struct* params, script::Script* script);
-    static bool cfunc_launch_game(script::Struct* params, script::Script* script);
-    static bool cfunc_reset_level(script::Struct* params, script::Script* script);
-    static bool cfunc_fill_ranking_screen(script::Struct* params, script::Script* script);
+    static bool cfunc_set_game_type(script::Struct* params, script::Context context);
+    static bool cfunc_in_team_game(script::Struct* params, script::Context context);
+    static bool cfunc_change_level(script::Struct* params, script::Context context);
+    static bool cfunc_launch_level(script::Struct* params, script::Context context);
+    static bool cfunc_request_level(script::Struct* params, script::Context context);
+    static bool cfunc_init_skater_heaps(script::Struct* params, script::Context context);
+    static bool cfunc_retry(script::Struct* params, script::Context context);
+    static bool cfunc_launch_game(script::Struct* params, script::Context context);
+    static bool cfunc_reset_level(script::Struct* params, script::Context context);
+    static bool cfunc_fill_ranking_screen(script::Struct* params, script::Context context);
 
     // (the list's node at `index` - lists::Foremost's fetch_entry; the skater there, null past the end)
     memory::ListNode* skater_node(uint32_t index);

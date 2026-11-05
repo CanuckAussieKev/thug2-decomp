@@ -27,6 +27,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/gfx/render_constants.h"
 #include "engine/assets/resource_registry.h"
@@ -826,20 +827,20 @@ void RankingsManager::generate_auth(const char* challenge, const char* password,
 // --- the script commands ---
 
 // 0x0054CC90
-bool stats_logged_in(script::Struct* /*params*/, script::Script* /*script*/)
+bool stats_logged_in(script::Struct* /*params*/, script::Context /*context*/)
 {
     return get_attributes()->update_logged_in();
 }
 
 // 0x0054CCB0
-bool stats_log_in(script::Struct* /*params*/, script::Script* /*script*/)
+bool stats_log_in(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_attributes()->log_in();
     return true;
 }
 
 // 0x0054CCC0
-bool stats_log_off(script::Struct* /*params*/, script::Script* /*script*/)
+bool stats_log_off(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_attributes()->log_off();
     return true;
@@ -847,7 +848,7 @@ bool stats_log_off(script::Struct* /*params*/, script::Script* /*script*/)
 
 // 0x0054CE00: the player's rating and the levels' high scores and combos from persistent storage (16 requests,
 // indexes 0-15; state 5 until the answer to 14).
-bool retrieve_personal_stats(script::Struct* /*params*/, script::Script* /*script*/)
+bool retrieve_personal_stats(script::Struct* /*params*/, script::Context /*context*/)
 {
     const Hub* manager = net_game_state().online_hub();
     const void* callback = code_address(&core::gathered<RankingsManager::PersistReply, &RankingsManager::on_personal_stats, void, int,
@@ -863,13 +864,13 @@ bool retrieve_personal_stats(script::Struct* /*params*/, script::Script* /*scrip
 }
 
 // 0x0054CE70
-bool need_to_retrieve_top_stats(script::Struct* /*params*/, script::Script* /*script*/)
+bool need_to_retrieve_top_stats(script::Struct* /*params*/, script::Context /*context*/)
 {
     return get_attributes()->need_top_stats();
 }
 
 // 0x0054D670: raise_tallies [0x132AA339: the final report]
-bool raise_tallies(script::Struct* params, script::Script* /*script*/)
+bool raise_tallies(script::Struct* params, script::Context /*context*/)
 {
     const bool final = params->has_bare_flag(0x132AA339U);
     get_attributes()->raise_tallies(final);
@@ -877,14 +878,15 @@ bool raise_tallies(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0054D6A0: the rank (0..10) into the script's parameters (0x7786171A).
-bool get_rank(script::Struct* /*params*/, script::Script* script)
+bool get_rank(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_int(checksums::Name{kRANK}, current_rank(static_cast<double>(get_attributes()->personal().skill_points_)));
+    context.args()->put_int(checksums::Name{kRANK},
+                            current_rank(static_cast<double>(get_attributes()->personal().skill_points_)));
     return true;
 }
 
 // 0x0054EA40: the top lists and the stats menus' arrays emptied (once: until the top stats are needed again).
-bool clean_up_top_stats(script::Struct* /*params*/, script::Script* /*script*/)
+bool clean_up_top_stats(script::Struct* /*params*/, script::Context /*context*/)
 {
     RankingsManager* stats = get_attributes();
     if (stats->need_top_stats()) {
@@ -906,7 +908,7 @@ bool clean_up_top_stats(script::Struct* /*params*/, script::Script* /*script*/)
 
 // 0x0054EB00: FillStatsArrays <0x5EF31148: which>: the personal stats, the ratings, or a top list (its levels' best,
 // then all sorted).
-bool fill_stats_arrays(script::Struct* params, script::Script* /*script*/)
+bool fill_stats_arrays(script::Struct* params, script::Context /*context*/)
 {
     RankingsManager* stats = get_attributes();
     uint32_t which = 0;

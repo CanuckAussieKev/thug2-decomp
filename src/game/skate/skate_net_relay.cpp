@@ -41,6 +41,7 @@
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sound/surface_kind.h"
 #include "game/skate/career.h"
 #include "game/skate/game_mode.h"
@@ -580,9 +581,11 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         } else {
             // five or one left: told to everyone (0x95: the player or the team, how many)
             uint8_t count = 0;
-            if (collected == total - kHuntNearEnd && !commands::cfunc_in_split_screen_game(nullptr, nullptr)) {
+            if (collected == total - kHuntNearEnd &&
+                !commands::cfunc_in_split_screen_game(nullptr, script::Context())) {
                 count = kHuntNearEnd;
-            } else if (score_total(score) == total - 1 && !commands::cfunc_in_split_screen_game(nullptr, nullptr)) {
+            } else if (score_total(score) == total - 1 &&
+                       !commands::cfunc_in_split_screen_game(nullptr, script::Context())) {
                 count = 1;
             }
             if (count != 0U) {
@@ -1334,7 +1337,7 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
 // 0x0056C6E0
 int SkateNet::on_cheat_state_msg(net::InboundMsgCtx* context)
 {
-    commands::cfunc_clear_omnigons(nullptr, nullptr); // (the cheats off first: the function folded there)
+    commands::cfunc_clear_omnigons(nullptr, script::Context()); // (the cheats off first: the function folded there)
     // (NOT ORIGINAL: a count more than the message holds (or than 32) turns none on - the original read on past its
     // end)
     util::ByteReader reader(context->body(), context->body_size());

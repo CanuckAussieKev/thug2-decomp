@@ -4,8 +4,8 @@
 #include <array>
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // Script commands (CFunctions) and helpers 0x005AA930-0x005AAEEF: a swap table of checksum pairs, the goal editor's
@@ -33,24 +33,24 @@ void swap_mapping(uint32_t a, uint32_t b);
 void preload_meshes(uint32_t array_name);
 
 // 0x005AAA80: AddGoalEditorNodesToLevelNodeArray (on the bottom-up heap). True.
-bool cfunc_add_goal_editor_nodes_to_level_node_array(script::Struct* params, script::Script* script);
+bool cfunc_add_goal_editor_nodes_to_level_node_array(script::Struct* params, script::Context context);
 // 0x005AAB50: CurrentSkaterIsPro: whether the skate module's profile - looked up with the params pointer as the
 // index, as in the original - is a pro.
-bool cfunc_current_skater_is_pro(script::Struct* params, script::Script* script);
+bool cfunc_current_skater_is_pro(script::Struct* params, script::Context context);
 // 0x005AAB80: GetGoalsCompleted <level>: the level's goal count as "%d/9" and "---" in the script's parameters.
-bool cfunc_get_goals_completed(script::Struct* params, script::Script* script);
+bool cfunc_get_goals_completed(script::Struct* params, script::Context context);
 // 0x005AAC10: GetNextLevelRequirements: the first level step of the global array 0x1D8F1A7E still out of reach -
 // "goals for next level" / "medals for next level" with how many are missing - or "---".
-bool cfunc_get_next_level_requirements(script::Struct* params, script::Script* script);
+bool cfunc_get_next_level_requirements(script::Struct* params, script::Context context);
 // 0x005AAD70: SetCurrentSkaterProfile <index>. True.
-bool cfunc_set_current_skater_profile(script::Struct* params, script::Script* script);
+bool cfunc_set_current_skater_profile(script::Struct* params, script::Context context);
 // 0x005AADA0: AddSkaterProfile <profile>: the profile manager's add_template.
-bool cfunc_add_skater_profile(script::Struct* params, script::Script* script);
+bool cfunc_add_skater_profile(script::Struct* params, script::Context context);
 // 0x005AADC0: AddTemporaryProfile name=<id>: the profile manager's add_extra_profile.
-bool cfunc_add_temporary_profile(script::Struct* params, script::Script* script);
+bool cfunc_add_temporary_profile(script::Struct* params, script::Context context);
 // 0x005AADF0: RememberTemporaryAppearance name=<id> appearance_structure=<s> | player=<n> [NoFaceTexture]: the
 // temporary profile `name` given that appearance (or player n's profile's) - with NoFaceTexture only its
 // structure. True.
-bool cfunc_remember_temporary_appearance(script::Struct* params, script::Script* script);
+bool cfunc_remember_temporary_appearance(script::Struct* params, script::Context context);
 
 } // namespace commands

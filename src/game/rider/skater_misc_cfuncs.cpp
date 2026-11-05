@@ -21,6 +21,7 @@
 #include "game/rider/rider.h"
 #include "game/commands/cag_cfuncs.h"
 #include "engine/script/degree_ratio.h"
+#include "engine/script/context.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
@@ -82,7 +83,7 @@ void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen
 
 // 0x005B45F0: ApplyCustomLogoToPart part=<type> player=n: skater n's board element of that type shown (the skater
 // isn't checked for null). Always true.
-bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script* /*script*/)
+bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Context /*context*/)
 {
     uint32_t part = 0;
     params->read_hash_value(kPart, &part, 1);
@@ -96,9 +97,9 @@ bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script* /*s
 // velocity (truncated), and scaled_x / scaled_y / scaled_z, a direction times `scale`: moving faster than 100 across
 // the ground, the horizontal velocity's direction, otherwise the object's facing (its matrix's third row) - turned
 // about Y by the skew angle if there is one. False without an object.
-bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
+bool cfunc_get_skater_velocity(script::Struct* params, script::Context context)
 {
-    auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
+    auto* object = core::down_cast<objects::GameEntity>(context.entity().get_pull());
     if (!object) {
         return false;
     }
@@ -106,9 +107,9 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
     float scale = 1.0F;
     float skew = 0.0F;
     params->fetch_float(kTiltDegrees, &skew, 0);
-    script->args()->put_int(checksums::Name{kVelX}, ftol(velocity.x));
-    script->args()->put_int(checksums::Name{kVelY}, ftol(velocity.y));
-    script->args()->put_int(checksums::Name{kVelZ}, ftol(velocity.z));
+    context.args()->put_int(checksums::Name{kVelX}, ftol(velocity.x));
+    context.args()->put_int(checksums::Name{kVelY}, ftol(velocity.y));
+    context.args()->put_int(checksums::Name{kVelZ}, ftol(velocity.z));
     params->fetch_float(kScale, &scale, 0);
     velocity.y = 0.0F;
     // x87: z * z + x * x and its root in double
@@ -147,9 +148,9 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
             z = core::at(matrix.row, 2).z;
         }
     }
-    script->args()->put_int(checksums::Name{kScaledX}, ftol(static_cast<double>(x) * scale));
-    script->args()->put_int(checksums::Name{kScaledY}, ftol(static_cast<double>(y) * scale));
-    script->args()->put_int(checksums::Name{kScaledZ}, ftol(static_cast<double>(z) * scale));
+    context.args()->put_int(checksums::Name{kScaledX}, ftol(static_cast<double>(x) * scale));
+    context.args()->put_int(checksums::Name{kScaledY}, ftol(static_cast<double>(y) * scale));
+    context.args()->put_int(checksums::Name{kScaledZ}, ftol(static_cast<double>(z) * scale));
     return true;
 }
 
@@ -158,13 +159,13 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 // skater_play_bail_stream (stream_checksum). The voice is a pro's last name, else the profile's voice's
 // play_skater_stream_name in player_voices, else customM / customF by `is_male` (the original leaves the voice
 // unset when the profile's voice isn't in the list). Always true.
-bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
+bool cfunc_play_skater_stream(script::Struct* params, script::Context context)
 {
     std::array<char, kVoiceNameBytes> voice{};
     core::at(voice, 0) = 0; // (left as the stack had it in the original when the voice is not found)
     std::array<char, kVoiceNameBytes> stream{};
     std::array<char, kVoiceNameBytes> first_name{};
-    auto* skater = core::down_cast<objects::Rider>(script->entity().get_pull());
+    auto* skater = core::down_cast<objects::Rider>(context.entity().get_pull());
     const char* type = nullptr;
     params->fetch_text(kType, &type, 1);
     int count = kDefaultVoiceCount;
@@ -220,7 +221,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         }
         gsl::owner<Struct*> stream_params = script::new_struct();
         stream_params->put_name_key(checksums::Name{kStreamChecksum}, checksums::hash_from_text(stream.data()));
-        script::launch_script(kSkaterPlayBailStream, stream_params, script->entity().get_pull(), false, nullptr);
+        script::launch_script(kSkaterPlayBailStream, stream_params, context.entity().get_pull(), false, nullptr);
         if (stream_params) {
             // (delete inlined: the structure pool pair's Free)
             stream_params->get_clear();

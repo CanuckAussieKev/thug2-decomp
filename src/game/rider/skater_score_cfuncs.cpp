@@ -10,8 +10,8 @@
 #include "game/online/gamenet_manager.h"
 #include "game/online/player_info.h"
 #include "engine/objects/entity.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "game/skate/game_mode.h"
@@ -46,7 +46,7 @@ uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
 
 // 0x005B5770: InitializeSkaters: each skater - a local one's input reset first (vtable slot 14, reset_input) - taken
 // out of the world (the skate module's 0x00564C60 with false). Always true.
-bool cfunc_initialize_skaters(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_initialize_skaters(script::Struct* /*params*/, script::Context /*context*/)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
@@ -59,7 +59,7 @@ bool cfunc_initialize_skaters(script::Struct* /*params*/, script::Script* /*scri
 }
 
 // 0x005B57E0: ReinsertSkaters: each skater shown again, in its own skater heap. Always true.
-bool cfunc_reinsert_skaters(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_reinsert_skaters(script::Struct* /*params*/, script::Context /*context*/)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
@@ -73,7 +73,7 @@ bool cfunc_reinsert_skaters(script::Struct* /*params*/, script::Script* /*script
 
 // 0x005B5860: ResetScore [reset_all]: the local skaters' scores (with reset_all, every skater's) reset and their
 // score text shown as "0" - "0:00" in king of the hill. Always true.
-bool cfunc_reset_score(script::Struct* params, script::Script* /*script*/)
+bool cfunc_reset_score(script::Struct* params, script::Context /*context*/)
 {
     const bool all = params->has_entry_named(kResetAll);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
@@ -92,7 +92,7 @@ bool cfunc_reset_score(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005B5950: UpdateScore: each local skater's score total set again to itself (so it's shown). Always true.
-bool cfunc_update_score(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_update_score(script::Struct* /*params*/, script::Context /*context*/)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
@@ -108,7 +108,7 @@ bool cfunc_update_score(script::Struct* /*params*/, script::Script* /*script*/)
 
 // 0x005B59C0: ResetScorePot [UseBailStyle]: each local skater's score pot reset (0x00564860 with true unless
 // UseBailStyle). Always true.
-bool cfunc_reset_score_pot(script::Struct* params, script::Script* /*script*/)
+bool cfunc_reset_score_pot(script::Struct* params, script::Context /*context*/)
 {
     const bool bail_style = params->has_bare_flag(kUseBailStyle);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
@@ -123,10 +123,10 @@ bool cfunc_reset_score_pot(script::Struct* params, script::Script* /*script*/)
 // 0x005B5A40: GetCollidingPlayerAndTeam exclude_team=t radius=feet: player, the skater nearest the script's object
 // within the radius (in inches: * 12) that is in another team without the flag or in team t with it, and team, its
 // team (-1 for both if none). Always true.
-bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script* script)
+bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Context context)
 {
-    script::Struct* results = script->args().get();
-    auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
+    script::Struct* results = context.args().get();
+    auto* object = core::down_cast<objects::GameEntity>(context.entity().get_pull());
     int team = -1;
     uint32_t player = kAllBitsSet;
     float nearest = kNoHitDistance;

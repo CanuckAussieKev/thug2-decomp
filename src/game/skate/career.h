@@ -18,7 +18,7 @@ namespace goals {
 class GapTally;
 }
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 
@@ -144,6 +144,6 @@ private:
 };
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.
-bool cfunc_get_career_save_info(script::Struct* params, script::Script* script);
+bool cfunc_get_career_save_info(script::Struct* params, script::Context context);
 
 } // namespace objects

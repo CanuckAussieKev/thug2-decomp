@@ -13,6 +13,7 @@
 #include "game/rider/trick_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
 #include "engine/gfx/face_texture.h"
@@ -114,7 +115,7 @@ gfx::FaceSkin* face_of(objects::RiderIdentity* profile) { return profile->appear
 
 // 0x005AE550: SetPlayerAppearance player=<n> appearance_structure=<s> - the player's profile's appearance set (and
 // applied).
-bool cfunc_set_player_appearance(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_player_appearance(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     script::Struct* appearance = nullptr; // (uninitialised in the original when missing)
@@ -126,12 +127,12 @@ bool cfunc_set_player_appearance(script::Struct* params, script::Script* /*scrip
 // 0x005AE5B0: GetPlayerFacePoints player=<n> - the player's face points written into the script's
 // current_face_points structure (a new one added if there's none). A failed write prints the parameters (compiled
 // out).
-bool cfunc_get_player_face_points(script::Struct* params, script::Script* script)
+bool cfunc_get_player_face_points(script::Struct* params, script::Context context)
 {
     gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     script::Struct* points = nullptr;
     bool made = false;
-    if (!script->args()->read_sub_struct(kCurrentFacePoints, &points, 0)) {
+    if (!context.args()->read_sub_struct(kCurrentFacePoints, &points, 0)) {
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         points = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         made = true;
@@ -142,7 +143,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
         script::dump_to_log(params);
     }
     if (made) {
-        script->args()->put_sub_struct(kCurrentFacePoints, points);
+        context.args()->put_sub_struct(kCurrentFacePoints, points);
         if (points) {
             points->get_clear();
             script::delete_struct(points);
@@ -153,7 +154,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
 
 // 0x005AE710: SetPlayerFacePoints player=<n> [face_points=<s>] - the player's face points from the structure (or
 // the parameters themselves). A failed read prints the parameters (compiled out); the points are set anyway.
-bool cfunc_set_player_face_points(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_player_face_points(script::Struct* params, script::Context /*context*/)
 {
     gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     script::Struct* from = nullptr;
@@ -169,7 +170,7 @@ bool cfunc_set_player_face_points(script::Struct* params, script::Script* /*scri
 }
 
 // 0x005AE7A0: SetPlayerFaceTexture player=<n> texture=<file> [fullPathIncluded].
-bool cfunc_set_player_face_texture(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_player_face_texture(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
@@ -180,7 +181,7 @@ bool cfunc_set_player_face_texture(script::Struct* params, script::Script* /*scr
 }
 
 // 0x005AE820: SetPlayerFaceOverlayTexture player=<n> texture=<file>.
-bool cfunc_set_player_face_overlay_texture(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_player_face_overlay_texture(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
@@ -190,14 +191,14 @@ bool cfunc_set_player_face_overlay_texture(script::Struct* params, script::Scrip
 }
 
 // 0x005AE880: ClearPlayerFaceTexture player=<n> - the face marked not valid.
-bool cfunc_clear_player_face_texture(script::Struct* params, script::Script* /*script*/)
+bool cfunc_clear_player_face_texture(script::Struct* params, script::Context /*context*/)
 {
     face_of(rider_identity_from_params(params))->mark_usable(false);
     return true;
 }
 
 // 0x005AE8C0: PlayerFaceIsValid player=<n> (false without a face).
-bool cfunc_player_face_is_valid(script::Struct* params, script::Script* /*script*/)
+bool cfunc_player_face_is_valid(script::Struct* params, script::Context /*context*/)
 {
     const gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     return (face != nullptr) && face->is_sound();
@@ -205,19 +206,19 @@ bool cfunc_player_face_is_valid(script::Struct* params, script::Script* /*script
 
 // 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0: RefreshSkaterColors / Scale / Visibility / UV profile=<n>
 // skater=<n> - the model rebuilt with color_model_from_appearance / scale_ / hide_ / set_uv_from_appearance.
-bool cfunc_refresh_skater_colors(script::Struct* params, script::Script* /*script*/)
+bool cfunc_refresh_skater_colors(script::Struct* params, script::Context /*context*/)
 {
     return refresh_skater(params, kColorModelFromAppearance);
 }
-bool cfunc_refresh_skater_scale(script::Struct* params, script::Script* /*script*/)
+bool cfunc_refresh_skater_scale(script::Struct* params, script::Context /*context*/)
 {
     return refresh_skater(params, kScaleModelFromAppearance);
 }
-bool cfunc_refresh_skater_visibility(script::Struct* params, script::Script* /*script*/)
+bool cfunc_refresh_skater_visibility(script::Struct* params, script::Context /*context*/)
 {
     return refresh_skater(params, kHideModelFromAppearance);
 }
-bool cfunc_refresh_skater_uv(script::Struct* params, script::Script* /*script*/)
+bool cfunc_refresh_skater_uv(script::Struct* params, script::Context /*context*/)
 {
     return refresh_skater(params, kSetUvFromAppearance);
 }
@@ -226,7 +227,7 @@ bool cfunc_refresh_skater_uv(script::Struct* params, script::Script* /*script*/)
 // from profile p's (n) appearance in the skater's geometry heap (the first viewport's skater: the BailBoard object
 // killed first), then in its own heap its stats, trick mappings and looks from the profile; no_board: the board geom
 // hidden.
-bool cfunc_refresh_skater_model(script::Struct* params, script::Script* /*script*/)
+bool cfunc_refresh_skater_model(script::Struct* params, script::Context /*context*/)
 {
     int index = 0;
     params->fetch_int_value(0U, &index, 0);
@@ -266,7 +267,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script* /*script
 
 // 0x005AFF30: EditPlayerAppearance [<n>] [profile=<p>] target=<script> [target_params=<s>] - the target script run
 // with the parameters on profile p's (n) profile (passed as the script's object, as the original does).
-bool cfunc_edit_player_appearance(script::Struct* params, script::Script* /*script*/)
+bool cfunc_edit_player_appearance(script::Struct* params, script::Context /*context*/)
 {
     int index = 0;
     params->fetch_int_value(0U, &index, 0);
@@ -283,21 +284,21 @@ bool cfunc_edit_player_appearance(script::Struct* params, script::Script* /*scri
 
 // 0x005B0420: GetActualCASOptionStruct part=<slot> desc_id=<id> - the CAS option's structure added to the script's
 // parameters. Always false.
-bool cfunc_get_actual_cas_option_struct(script::Struct* params, script::Script* script)
+bool cfunc_get_actual_cas_option_struct(script::Struct* params, script::Context context)
 {
     uint32_t part = 0;
     uint32_t descriptor_id = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
     params->read_hash_value(kDescId, &descriptor_id, 1);
     script::Struct* option = objects::find_cas_option({.part = part, .descriptor_id_ = descriptor_id}, true);
-    script->args()->append_structure_if_any(option);
+    context.args()->append_structure_if_any(option);
     return false;
 }
 
 // 0x005B0480 / 0x005B0500: GetActualPlayerAppearancePart / GetPlayerAppearancePart [player=<n>] part=<slot> - the
 // part as built (its CAS option) / the appearance's own slot structure added to the script's parameters (false
 // without).
-bool cfunc_get_actual_player_appearance_part(script::Struct* params, script::Script* script)
+bool cfunc_get_actual_player_appearance_part(script::Struct* params, script::Context context)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0;
@@ -308,11 +309,11 @@ bool cfunc_get_actual_player_appearance_part(script::Struct* params, script::Scr
     if (!structure) {
         return false;
     }
-    script->args()->append_structure_if_any(structure);
+    context.args()->append_structure_if_any(structure);
     return true;
 }
 
-bool cfunc_get_player_appearance_part(script::Struct* params, script::Script* script)
+bool cfunc_get_player_appearance_part(script::Struct* params, script::Context context)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0;
@@ -323,12 +324,12 @@ bool cfunc_get_player_appearance_part(script::Struct* params, script::Script* sc
     if (!structure) {
         return false;
     }
-    script->args()->append_structure_if_any(structure);
+    context.args()->append_structure_if_any(structure);
     return true;
 }
 
 // 0x005B0580: GetPlayerAppearance [player=<n>] - a copy of the appearance's structure as profile.
-bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
+bool cfunc_get_player_appearance(script::Struct* params, script::Context context)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     // (the original checked the appearance structure's address - the profile's +0x4C - for null: never true)
@@ -336,13 +337,13 @@ bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
     gsl::owner<script::Struct*> copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     Expects(copy != nullptr);
     copy->append_structure_if_any(appearance_structure(profile));
-    script->args()->append_struct_ref("profile", copy);
+    context.args()->append_struct_ref("profile", copy);
     return true;
 }
 
 // 0x005B0670: SetPlayerAppearanceColor [player=<n>] part=<slot> h= s= v= use_default_hsv= - the slot's colour (the
 // floats truncated to integers); nothing if the appearance hasn't the slot.
-bool cfunc_set_player_appearance_color(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_player_appearance_color(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing, as the values)
@@ -367,7 +368,7 @@ bool cfunc_set_player_appearance_color(script::Struct* params, script::Script* /
 
 // 0x005B0780: SetPlayerAppearanceScale [player=<n>] part=<slot> [x=] [y=] [z=] [use_default_scale=] - the values
 // given set in the slot (made in the appearance if it hasn't the slot); the floats truncated.
-bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_player_appearance_scale(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing)
@@ -397,7 +398,7 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script* /
 
 // 0x005B0920: SetPlayerAppearanceUV [player=<n>] part=<slot> uv_u= uv_v= uv_scale= uv_rot= use_default_uv= - the
 // slot's texture placement; nothing if the appearance hasn't the slot.
-bool cfunc_set_player_appearance_uv(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_player_appearance_uv(script::Struct* params, script::Context /*context*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing, as the values)

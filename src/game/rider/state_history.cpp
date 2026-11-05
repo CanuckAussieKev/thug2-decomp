@@ -19,6 +19,7 @@
 #include "engine/objects/game_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/rider/rider.h"
 #include "game/rider/walk_physics.h"
 #include "engine/sys/stopwatch.h"
@@ -129,7 +130,7 @@ void convert_to_team(online::PlayerRecord* player, int team) { details_of(player
 uint32_t get_game_type() { return static_cast<goals::MatchRules*>(get_game_mode())->get_name_key(); }
 bool is_squad_play() { return static_cast<goals::MatchRules*>(get_game_mode())->is_squad_match() != 0; }
 bool tag_game_over() { return static_cast<goals::MatchRules*>(get_game_mode())->finish_rules_reached(); }
-bool in_slap_game() { return commands::cfunc_in_slap_game(nullptr, nullptr); }
+bool in_slap_game() { return commands::cfunc_in_slap_game(nullptr, script::Context()); }
 
 GameEntity* skater_by_index(int index) { return static_cast<modules::Skate*>(skater_manager())->get_rider_at(index); }
 const char* get_skater_name(GameEntity* skater) { return core::down_cast<Rider>(skater)->fetch_shown_name(); }

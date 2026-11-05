@@ -20,6 +20,7 @@
 #include "game/online/score_list.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/game_mode.h"
 #include "game/rider/rider.h"
 #include "base/core/ints.h"
@@ -190,7 +191,7 @@ void fill_elimination_ranking()
 }
 
 // 0x00568120
-bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Script* /*script*/)
+bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* net = online::online_hub();
     PlayerSearch search;

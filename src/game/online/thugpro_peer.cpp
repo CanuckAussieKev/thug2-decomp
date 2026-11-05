@@ -31,6 +31,8 @@
 #include "engine/gfx/engine_glue.h"
 #include "game/skate/skate_module.h"
 #include "engine/script/fwd.h"
+#include "engine/script/context.h"
+#include "engine/script/cell.h"
 #include "game/online/fwd.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -55,8 +57,8 @@ class Struct;
 class Script;
 } // namespace script
 namespace commands {
-bool cfunc_create(script::Struct* params, script::Script* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
-bool cfunc_kill(script::Struct* params, script::Script* script);   // 0x005A5030
+bool cfunc_create(script::Struct* params, script::Context context); // 0x005A4FF0 (node_object_cfuncs.cpp)
+bool cfunc_kill(script::Struct* params, script::Context context);   // 0x005A5030
 } // namespace commands
 
 namespace online::thugpro {
@@ -413,8 +415,7 @@ private:
     }
     // The script commands Kill (0x005A5030) and Create (0x005A4FF0) - prefix= or name= - run from a spawned
     // NullScript (Kill reads its script's object for some classes: it needs a real script).
-    static void object_command(bool (*command)(script::Struct*, script::Script*), uint32_t key, const char* text,
-                               uint32_t checksum)
+    static void object_command(script::NativeFunction command, uint32_t key, const char* text, uint32_t checksum)
     {
         if (!script::script_exists(kNullScript)) {
             get_log("thugpro: no NullScript - pro sets not changed");
@@ -431,7 +432,7 @@ private:
         } else {
             params->put_name_key(checksums::Name{key}, checksum);
         }
-        command(params, script);
+        command(params, script::Context(script));
         delete_params(params);
         script::kill_spawned_script(script);
     }

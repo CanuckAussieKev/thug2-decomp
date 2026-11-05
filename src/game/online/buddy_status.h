@@ -5,7 +5,7 @@
 #include "engine/memory/arena_alloc.h"
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 
@@ -22,8 +22,8 @@ namespace online {
 // +0x18, +0x1C of whatever object called them - are each object's member read directly.)
 
 // The script commands.
-bool profile_logged_in(script::Struct* params, script::Script* script);  // 0x00548360
-bool send_buddy_message(script::Struct* params, script::Script* script); // 0x00548370
-bool set_lobby_status(script::Struct* params, script::Script* script);   // 0x005483E0
+bool profile_logged_in(script::Struct* params, script::Context context);  // 0x00548360
+bool send_buddy_message(script::Struct* params, script::Context context); // 0x00548370
+bool set_lobby_status(script::Struct* params, script::Context context);   // 0x005483E0
 
 } // namespace online

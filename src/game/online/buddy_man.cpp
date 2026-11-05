@@ -39,6 +39,7 @@
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "engine/script/fwd.h"
+#include "engine/script/context.h"
 #include "engine/memory/fwd.h"
 #include "game/online/fwd.h"
 #include "engine/gfx/face_texture.h"
@@ -763,7 +764,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
 // --- The script commands ---
 
 // 0x00548940: the unique_id preference: the time now (ms) as text.
-bool set_unique_id(script::Struct* /*params*/, script::Script* /*script*/)
+bool set_unique_id(script::Struct* /*params*/, script::Context /*context*/)
 {
     const uint32_t now = frame_clock::get_time();
     prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
@@ -780,7 +781,7 @@ bool set_unique_id(script::Struct* /*params*/, script::Script* /*script*/)
 // 0x00548A40: join (or with `observe` watch) the game of the buddy chosen (its location, join_ip,
 // join_private_ip, join_port): the status set playing / observing there, then net_chosen_join_server with the port
 // and address - a buddy behind this machine's public address is joined at its private address on THUG2's port.
-bool join_buddy(script::Struct* params, script::Script* /*script*/)
+bool join_buddy(script::Struct* params, script::Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     const bool observe = params->has_bare_flag("observe");
@@ -830,7 +831,7 @@ FriendsManager* get_buddies() { return net_game_state().online_hub()->presence_s
 } // namespace
 
 // 0x00548E40: AddBuddy profile nick
-bool add_buddy(script::Struct* params, script::Script* /*script*/)
+bool add_buddy(script::Struct* params, script::Context /*context*/)
 {
     int profile = 0;
     const char* nick = nullptr;
@@ -841,32 +842,32 @@ bool add_buddy(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x00548E90
-bool has_buddies(script::Struct* /*params*/, script::Script* /*script*/)
+bool has_buddies(script::Struct* /*params*/, script::Context /*context*/)
 {
     return total_of(&get_buddies()->friends()) > 0;
 }
 
 // 0x00548ED0
-bool buddy_list_full(script::Struct* /*params*/, script::Script* /*script*/)
+bool buddy_list_full(script::Struct* /*params*/, script::Context /*context*/)
 {
     return total_of(&get_buddies()->friends()) >= kMaxBuddies;
 }
 
 // 0x00548F10
-bool any_buddy_messages_left(script::Struct* /*params*/, script::Script* /*script*/)
+bool any_buddy_messages_left(script::Struct* /*params*/, script::Context /*context*/)
 {
     return total_of(&get_buddies()->messages()) != 0;
 }
 
 // 0x00549D10
-bool profile_log_off(script::Struct* /*params*/, script::Script* /*script*/)
+bool profile_log_off(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_buddies()->log_off();
     return true;
 }
 
 // 0x00549D20: FillBuddyList [clear_list] [allow_join] [allow_remove]
-bool fill_buddy_list(script::Struct* params, script::Script* /*script*/)
+bool fill_buddy_list(script::Struct* params, script::Context /*context*/)
 {
     const bool clear = params->has_bare_flag("clear_list");
     const bool allow_join = params->has_bare_flag("allow_join");
@@ -876,14 +877,14 @@ bool fill_buddy_list(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x00549D80
-bool cancel_add_buddy(script::Struct* /*params*/, script::Script* /*script*/)
+bool cancel_add_buddy(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_buddies()->cancel_add_buddy();
     return true;
 }
 
 // 0x00549D90: RemoveBuddy profile
-bool remove_buddy(script::Struct* params, script::Script* /*script*/)
+bool remove_buddy(script::Struct* params, script::Context /*context*/)
 {
     int profile = 0;
     params->fetch_int_value("profile", &profile, 1);
@@ -893,21 +894,21 @@ bool remove_buddy(script::Struct* params, script::Script* /*script*/)
 
 // 0x00549DC0: the oldest buddy message into the script's parameters (its nick twice, the text, the sender's
 // profile) and deleted. (There must be one: AnyBuddyMessagesLeft.)
-bool show_next_buddy_message(script::Struct* /*params*/, script::Script* script)
+bool show_next_buddy_message(script::Struct* /*params*/, script::Context context)
 {
     lists::Hunt<FriendNote> search;
     FriendNote* message = search.head_element(&get_buddies()->messages());
-    script->args()->append_word(kNick, message->nick().data());
-    script->args()->append_word(kNetName, message->nick().data());
-    script->args()->append_word(kMsgBody, message->text().data());
-    script->args()->put_int(checksums::Name{kPROFILE}, message->account());
+    context.args()->append_word(kNick, message->nick().data());
+    context.args()->append_word(kNetName, message->nick().data());
+    context.args()->append_word(kMsgBody, message->text().data());
+    context.args()->put_int(checksums::Name{kPROFILE}, message->account());
     unlink_list_node(message);
     // (the original then counts the messages left and ignores the count)
     return true;
 }
 
 // 0x00549EA0: IsAlreadyMyBuddy <profile 0x7EA855F0>
-bool is_already_my_buddy(script::Struct* params, script::Script* /*script*/)
+bool is_already_my_buddy(script::Struct* params, script::Context /*context*/)
 {
     int profile = 0; // (left unset in the original when the parameter is missing)
     params->fetch_int_value(kPROFILE, &profile, 0);
@@ -915,7 +916,7 @@ bool is_already_my_buddy(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0054A250: log in if the profile_success preference is boolean_true (else false).
-bool profile_log_in(script::Struct* /*params*/, script::Script* /*script*/)
+bool profile_log_in(script::Struct* /*params*/, script::Context /*context*/)
 {
     prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
     if (prefs->get_preference_checksum({.preference = get_checksums("profile_success"),
@@ -927,14 +928,14 @@ bool profile_log_in(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x0054A2B0
-bool fill_prospective_buddy_list(script::Struct* /*params*/, script::Script* /*script*/)
+bool fill_prospective_buddy_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_buddies()->fill_prospective_buddy_list();
     return true;
 }
 
 // 0x0054A650
-bool spawn_account(script::Struct* /*params*/, script::Script* /*script*/)
+bool spawn_account(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_buddies()->spawn_account();
     return true;

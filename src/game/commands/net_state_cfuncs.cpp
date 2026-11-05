@@ -43,6 +43,7 @@
 #include "game/online/net_game_state.h"
 #include "game/online/service.h"
 #include "engine/script/script_state.h"
+#include "engine/script/context.h"
 #include "wire/message_ids.h"
 #include <gsl/pointers>
 
@@ -122,7 +123,7 @@ uint32_t get_inet_addr(const char* address) { return net::transport().parse_addr
 
 // 0x005A0880: launch_host (in the bottom-up heap): the skate module's server; the network manager's LAN mode asked
 // when it isn't on the internet (the answer unused).
-bool cfunc_start_server(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start_server(script::Struct* /*params*/, script::Context /*context*/)
 {
     memory::Hub* memory = mem_manager();
     const online::Hub* game_net = online::online_hub();
@@ -136,7 +137,7 @@ bool cfunc_start_server(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x005A08D0: LeaveServer (0x0056B890).
-bool cfunc_leave_server(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_leave_server(script::Struct* /*params*/, script::Context /*context*/)
 {
     modules::Skate::sole()->leave_server();
     return true;
@@ -145,7 +146,7 @@ bool cfunc_leave_server(script::Struct* /*params*/, script::Script* /*script*/)
 // 0x005A08E0: JoinServer ["<ip>" <port>] (in the bottom-up heap): the script 0xFF5C39B6 and the pending symbols
 // first. On the server, a local client per player of the game mode, each joined and given the skaters' handlers
 // (in a network game, 0xFF898BE6 run after each); else a client joining the address given (both needed).
-bool cfunc_join_server(script::Struct* params, script::Script* /*script*/)
+bool cfunc_join_server(script::Struct* params, script::Context /*context*/)
 {
     memory::Hub* memory = mem_manager();
     online::Hub* game_net = online::online_hub();
@@ -177,7 +178,7 @@ bool cfunc_join_server(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0A00: SetNetworkMode <0 | 1 | 2> (other values ignored).
-bool cfunc_set_network_mode(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_network_mode(script::Struct* params, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     int mode = 0;
@@ -189,7 +190,7 @@ bool cfunc_set_network_mode(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0A60: ProfileTasks [frames (1)]: the main loop's task profile over that many frames.
-bool cfunc_profile_tasks(script::Struct* params, script::Script* /*script*/)
+bool cfunc_profile_tasks(script::Struct* params, script::Context /*context*/)
 {
     auto* main_loop = assets::get_main_loop_manager();
     int frames = 1;
@@ -200,7 +201,7 @@ bool cfunc_profile_tasks(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0AB0: UseNetworkPreferences.
-bool cfunc_use_network_preferences(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_use_network_preferences(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->use_network_preferences();
     return true;
@@ -209,7 +210,7 @@ bool cfunc_use_network_preferences(script::Struct* /*params*/, script::Script* /
 // 0x005A0AC0: TestNetSetup success_script=<script>: whether the network is set up (on PC always: 0x005B9760).
 // Set up: the script run with these parameters; not: the error's text (by the net library's last error) added as
 // 0xC4745838 and the script 0x6D51F203 run with them.
-bool cfunc_test_net_setup(script::Struct* params, script::Script* /*script*/)
+bool cfunc_test_net_setup(script::Struct* params, script::Context /*context*/)
 {
     const net::Hub* net = net::net_core();
     const bool ok = stubs::return_true(); // (the net manager's setup test, a shared stub)
@@ -241,15 +242,15 @@ bool cfunc_test_net_setup(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0BD0 / 0x005A0BE0: NeedToTestNetSetup (no, on PC) / CanChangeDevices (yes): shared stubs.
-bool cfunc_need_to_test_net_setup(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_need_to_test_net_setup(script::Struct* /*params*/, script::Context /*context*/)
 {
     return stubs::return_false();
 }
-bool cfunc_can_change_devices(script::Struct* /*params*/, script::Script* /*script*/) { return stubs::return_true(); }
+bool cfunc_can_change_devices(script::Struct* /*params*/, script::Context /*context*/) { return stubs::return_true(); }
 
 // 0x005A0BF0: LoadNetworkDrivers: with the global string use_deci2 set, the globals viewer_ip, viewer_subnet and
 // viewer_gateway; else none. The net manager's answer.
-bool cfunc_load_network_drivers(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_load_network_drivers(script::Struct* /*params*/, script::Context /*context*/)
 {
     const char* use = script::fetch_text("use_deci2");
     if (!use || (*use == '\0')) {
@@ -262,7 +263,7 @@ bool cfunc_load_network_drivers(script::Struct* /*params*/, script::Script* /*sc
 }
 
 // 0x005A0C60: ConnectToInternet 0x90FF204D=<script> 0xDE64FC3E=<script>: the network manager's answer.
-bool cfunc_connect_to_internet(script::Struct* params, script::Script* /*script*/)
+bool cfunc_connect_to_internet(script::Struct* params, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     uint32_t online_script = 0;
@@ -273,17 +274,17 @@ bool cfunc_connect_to_internet(script::Struct* params, script::Script* /*script*
 }
 
 // 0x005A0CC0: CancelConnectToInternet.
-bool cfunc_cancel_connect_to_internet(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_cancel_connect_to_internet(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub::cancel_connect_to_internet();
     return true;
 }
 
 // 0x005A0CD0: IsOnline.
-bool cfunc_is_online(script::Struct* /*params*/, script::Script* /*script*/) { return net::net_core()->is_online(); }
+bool cfunc_is_online(script::Struct* /*params*/, script::Context /*context*/) { return net::net_core()->is_online(); }
 
 // 0x005A0CE0: DisconnectFromInternet [callback=<script>].
-bool cfunc_disconnect_from_internet(script::Struct* params, script::Script* /*script*/)
+bool cfunc_disconnect_from_internet(script::Struct* params, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     uint32_t callback = 0;
@@ -294,7 +295,7 @@ bool cfunc_disconnect_from_internet(script::Struct* params, script::Script* /*sc
 
 // 0x005A0D20: EnableActuators [0 | 1 (1)]: the vibration of each of the two controllers the skate module uses
 // (its +0x394 entries, 8 bytes apart) on or off.
-bool cfunc_enable_actuators(script::Struct* params, script::Script* /*script*/)
+bool cfunc_enable_actuators(script::Struct* params, script::Context /*context*/)
 {
     int enable = 1;
     params->fetch_int_value(0U, &enable, 0);
@@ -312,14 +313,14 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0D80: InNetGame.
-bool cfunc_in_net_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_in_net_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     return online::online_hub()->in_net_game();
 }
 
 // 0x005A0D90: IsObserving (4 callers): the local player's an observer; with none, a joining player that is local
 // and observing (flags 1 and 4), else whether the join mode is observing (1).
-bool cfunc_is_observing(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_is_observing(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     online::detail::NewPlayerSearch search;
@@ -337,7 +338,7 @@ bool cfunc_is_observing(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x005A0E50: SetSlomo [speed (1)]: the game clock's speed, and the local skater's component 0x5BD63B29's (+0x2E8).
-bool cfunc_set_slomo(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_slomo(script::Struct* params, script::Context /*context*/)
 {
     float speed = 1.0F;
     params->fetch_float(0U, &speed, 0);
@@ -351,7 +352,7 @@ bool cfunc_set_slomo(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0EB0: TogglePlayerNames: toggled; turned off, the script 0x271D435C runs.
-bool cfunc_toggle_player_names(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_toggle_player_names(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     game_net->toggle_player_names();
@@ -362,7 +363,7 @@ bool cfunc_toggle_player_names(script::Struct* /*params*/, script::Script* /*scr
 }
 
 // 0x005A0EF0: SetCurrentGameType (the skate module's 0x00564FD0).
-bool cfunc_set_current_game_type(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_set_current_game_type(script::Struct* /*params*/, script::Context /*context*/)
 {
     modules::Skate::sole()->set_current_game_type();
     return true;
@@ -375,7 +376,7 @@ inline void print_message_stat(int /*id*/, int /*value*/) {}
 
 // 0x005A0F00: DumpNetMessageStats: for each connection of the server (or else client 0), each message id's received
 // and sent totals read - twice each (the printing is compiled out). Always true.
-bool cfunc_dump_net_message_stats(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_dump_net_message_stats(script::Struct* /*params*/, script::Context /*context*/)
 {
     net::ConnSearch search;
     online::Hub* game_net = online::online_hub();
@@ -400,7 +401,7 @@ bool cfunc_dump_net_message_stats(script::Struct* /*params*/, script::Script* /*
 }
 
 // 0x005A1020: SetServerMode [off]: the server's side on (off without the flag "off").
-bool cfunc_set_server_mode(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_server_mode(script::Struct* params, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     game_net->set_server_mode(!params->has_bare_flag("off")); // "off"
@@ -408,10 +409,10 @@ bool cfunc_set_server_mode(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A1050: NotifyBailDone: run on a local skater, its client tells the server (message 0x45, sequenced, group 8).
-bool cfunc_notify_bail_done(script::Struct* /*params*/, script::Script* script)
+bool cfunc_notify_bail_done(script::Struct* /*params*/, script::Context context)
 {
     online::Hub* game_net = online::online_hub();
-    objects::Entity* object = script ? script->entity().get_pull() : nullptr;
+    objects::Entity* object = context ? context.entity().get_pull() : nullptr;
     if (!object || object->kind_tag() != kSkaterType) {
         return true;
     }
@@ -430,21 +431,21 @@ bool cfunc_notify_bail_done(script::Struct* /*params*/, script::Script* script)
 }
 
 // 0x005A10D0: EnterObserverMode: the observe request sent.
-bool cfunc_enter_observer_mode(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_enter_observer_mode(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->send_observe_request();
     return true;
 }
 
 // 0x005A10E0: ObserveNextSkater (the skate module's 0x005651D0).
-bool cfunc_observe_next_skater(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_observe_next_skater(script::Struct* /*params*/, script::Context /*context*/)
 {
     modules::Skate::observe_next_skater();
     return true;
 }
 
 // 0x005A10F0: RefreshServerList [force_refresh].
-bool cfunc_refresh_server_list(script::Struct* params, script::Script* /*script*/)
+bool cfunc_refresh_server_list(script::Struct* params, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     game_net->refresh_server_list(params->has_bare_flag("force_refresh")); // "force_refresh"
@@ -452,7 +453,7 @@ bool cfunc_refresh_server_list(script::Struct* params, script::Script* /*script*
 }
 
 // 0x005A1120: StartServerList.
-bool cfunc_start_server_list(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start_server_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->start_server_list();
     return true;
@@ -460,7 +461,7 @@ bool cfunc_start_server_list(script::Struct* /*params*/, script::Script* /*scrip
 
 // 0x005A1130: StartLobbyList: the service state 13 (the lobby list) - after the current one (state 1 next) when
 // the service is in state 2.
-bool cfunc_start_lobby_list(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start_lobby_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     if (game_net->get_service_state() == online::ServiceState::kStopped) {
@@ -473,13 +474,13 @@ bool cfunc_start_lobby_list(script::Struct* /*params*/, script::Script* /*script
 }
 
 // 0x005A1160 / 0x005A1170: StopServerList / FreeServerList.
-bool cfunc_stop_server_list(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_stop_server_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->stop_server_list();
     return true;
 }
 
-bool cfunc_free_server_list(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_free_server_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->empty_server_listing();
     return true;
@@ -487,33 +488,33 @@ bool cfunc_free_server_list(script::Struct* /*params*/, script::Script* /*script
 
 // 0x005A1180: InSplitScreenGame (12 callers): a multiplayer game (the skate module's 0x005651F0) that isn't a network
 // game.
-bool cfunc_in_split_screen_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_in_split_screen_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     return modules::Skate::is_multiplayer() != 0 && !game_net->in_net_game();
 }
 
 // 0x005A11B0: InMultiplayerGame (5 callers): the skate module's 0x005651F0 (a tail jump: its EAX).
-bool cfunc_in_multiplayer_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_in_multiplayer_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     return modules::Skate::is_multiplayer() != 0;
 }
 
 // 0x005A1220: OnServer.
-bool cfunc_on_server(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_on_server(script::Struct* /*params*/, script::Context /*context*/)
 {
     return online::online_hub()->get_on_server();
 }
 
 // 0x005A12D0: ToggleScores.
-bool cfunc_toggle_scores(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_toggle_scores(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->toggle_scores();
     return true;
 }
 
 // 0x005A1680: JoinWithPassword 0x61414D56="<password>": the join tried again with it.
-bool cfunc_join_with_password(script::Struct* params, script::Script* /*script*/)
+bool cfunc_join_with_password(script::Struct* params, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     const char* password = nullptr; // (unset in the original when missing - an asserted parameter)
@@ -523,33 +524,33 @@ bool cfunc_join_with_password(script::Struct* params, script::Script* /*script*/
 }
 
 // 0x005A1820 / 0x005A1830: LoadPendingPlayers / LaunchQueuedScripts.
-bool cfunc_load_pending_players(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_load_pending_players(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->re_add_pending_players();
     return true;
 }
 
-bool cfunc_launch_queued_scripts(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_launch_queued_scripts(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->launch_queued_scripts();
     return true;
 }
 
 // 0x005A1AC0: StartNetworkLobby: back to the lobby.
-bool cfunc_start_network_lobby(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start_network_lobby(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->reset_to_lobby();
     return true;
 }
 
 // 0x005A1AD0: ObserversAllowed: unless the connection is a modem (type 1).
-bool cfunc_observers_allowed(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_observers_allowed(script::Struct* /*params*/, script::Context /*context*/)
 {
     return net::net_core()->get_net_link_kind() != 1;
 }
 
 // 0x005A1AF0: NumPlayersAllowed <num_n>: over a modem, every count but 0x1FA67C3D; otherwise all.
-bool cfunc_num_players_allowed(script::Struct* params, script::Script* /*script*/)
+bool cfunc_num_players_allowed(script::Struct* params, script::Context /*context*/)
 {
     uint32_t players = 0;
     if (net::net_core()->get_net_link_kind() != 1) {
@@ -572,40 +573,40 @@ uint32_t network_preference(uint32_t name)
 
 // 0x005A1B30 / 0x005A1B70 / 0x005A1BB0: AutoDNS / UsingDefaultMasterServers / UsingDHCP: the network preferences
 // 0x5DDFCAD3 / 0xE7A3CB08 / 0xBB2EB924 are 0xF81BC89B / 0xF81BC89B / 0x2189CFF8.
-bool cfunc_auto_dns(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_auto_dns(script::Struct* /*params*/, script::Context /*context*/)
 {
     return network_preference(kAutoDns) == kBooleanTrue;
 }
-bool cfunc_using_default_master_servers(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_using_default_master_servers(script::Struct* /*params*/, script::Context /*context*/)
 {
     return network_preference(kUseDefaultMasterServers) == kBooleanTrue;
 }
-bool cfunc_using_dhcp(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_using_dhcp(script::Struct* /*params*/, script::Context /*context*/)
 {
     return network_preference(kBroadbandType) == kIpDhcp;
 }
 
 // 0x005A1BF0: InInternetMode.
-bool cfunc_in_internet_mode(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_in_internet_mode(script::Struct* /*params*/, script::Context /*context*/)
 {
     return online::online_hub()->in_internet_mode();
 }
 
 // 0x005A1C00: EnteringNetGame: a network game, and the skate module's +0x37C is 0xE92ECAFE.
-bool cfunc_entering_net_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_entering_net_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::Hub* game_net = online::online_hub();
     return game_net->in_net_game() && modules::Skate::sole()->previous_level() == kLoadMainMenu;
 }
 
 // 0x005A1C30: DeviceChosen: the network preference 0xFA187DEC isn't 0x09562A0A.
-bool cfunc_device_chosen(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_device_chosen(script::Struct* /*params*/, script::Context /*context*/)
 {
     return network_preference(kDeviceType) != kDeviceNone;
 }
 
 // 0x005A1C70: GameIsOver.
-bool cfunc_game_is_over(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_game_is_over(script::Struct* /*params*/, script::Context /*context*/)
 {
     return online::online_hub()->has_match_ended();
 }
@@ -622,7 +623,7 @@ uint32_t host_first_address(const char* name)
 
 // 0x005A28A0: TryJoinInternetGame: the server chosen in the list (0x0067EFB8, unless -1) looked for; a join is being
 // tried from now on.
-bool cfunc_try_join_internet_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_try_join_internet_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     const uint32_t server = online::net_game_state().command_line_server();
     if (server != online::kNoCommandLineServer) {
@@ -635,7 +636,7 @@ bool cfunc_try_join_internet_game(script::Struct* /*params*/, script::Script* /*
 
 // 0x005A28D0: TryJoinServerIP string="<address or host name>": the address (inet_addr, else the host's first
 // address) looked for and a join tried; nothing if neither gives one.
-bool cfunc_try_join_server_ip(script::Struct* params, script::Script* /*script*/)
+bool cfunc_try_join_server_ip(script::Struct* params, script::Context /*context*/)
 {
     const char* address = nullptr;                // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &address, 1);    // "string"
@@ -652,7 +653,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script* /*script*/
 }
 
 // 0x005A2960: TryJoinServerIPCancel.
-bool cfunc_try_join_server_ip_cancel(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_try_join_server_ip_cancel(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->find_server_at(0);
     script::script_state().set_trying_to_join(false);
@@ -661,7 +662,7 @@ bool cfunc_try_join_server_ip_cancel(script::Struct* /*params*/, script::Script*
 }
 
 // 0x005A2990: ForceServerListRefresh: the servers found so far shown.
-bool cfunc_force_server_list_refresh(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_force_server_list_refresh(script::Struct* /*params*/, script::Context /*context*/)
 {
     online::online_hub()->show_found_servers();
     return true;
@@ -744,7 +745,7 @@ void init_beenox_preferences()
 }
 
 // 0x005A4D90: InitPrefsBeenox: init_beenox_preferences. True.
-bool cfunc_init_prefs_beenox(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_init_prefs_beenox(script::Struct* /*params*/, script::Context /*context*/)
 {
     init_beenox_preferences();
     return true;

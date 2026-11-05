@@ -18,6 +18,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "platform/process_flags.h"
 #include "base/core/format.h"
 #include "game/online/net_game_state.h"
@@ -131,17 +132,17 @@ void FriendsManager::change_standing(int status, const char* text, const char* l
 // --- The script commands ---
 
 // 0x00548360: whether we're logged in to presence.
-bool profile_logged_in(script::Struct* params, script::Script* script)
+bool profile_logged_in(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     return get_buddies()->authenticated();
 }
 
 // 0x00548370: the message `string` sent to `profile` (false for none or an empty one).
-bool send_buddy_message(script::Struct* params, script::Script* script)
+bool send_buddy_message(script::Struct* params, script::Context context)
 {
-    (void)script;
+    (void)context;
     const Hub* manager = net_game_state().online_hub();
     const char* text = nullptr;
     params->fetch_text(kString, &text, 0);
@@ -155,10 +156,10 @@ bool send_buddy_message(script::Struct* params, script::Script* script)
 }
 
 // 0x005483E0: our presence status: chatting in the lobby.
-bool set_lobby_status(script::Struct* params, script::Script* script)
+bool set_lobby_status(script::Struct* params, script::Context context)
 {
     (void)params;
-    (void)script;
+    (void)context;
     const Hub* manager = net_game_state().online_hub();
     const char* lobby = manager->lobby_service()->room_name().data(); // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");

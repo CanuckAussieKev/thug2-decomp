@@ -74,6 +74,7 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/view_setup.h"
 #include "game/online/net_game_state.h"
@@ -267,12 +268,13 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     online::Hub* net = online::online_hub();
     if (local) {
         objects::RiderIdentity* source = objects::profile_roster()->fetch_account(
-            (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) ? viewport : 0);
+            (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, script::Context())) != 0U) ? viewport
+                                                                                                           : 0);
         profile->appearance()->copy_from(source->appearance());
         script::launch_script(kShowPanelStuff, nullptr, nullptr, false, nullptr);
         objects::Rider* skater = get_home_rider();
         if (skater) {
-            if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) {
+            if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, script::Context())) != 0U) {
                 if (skater->ident() == id) {
                     return skater;
                 }
@@ -313,7 +315,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
         memory::make_owned<objects::Rider>(viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local,
                                            objects::Rider::RiderSlot{.id = id, .skater_number_ = heap}, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
-    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) {
+    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, script::Context())) != 0U) {
         const script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kPlayer}, 0);
         script::launch_script(kModelApplyCustomLogos, params.get(), nullptr, false, nullptr);
@@ -337,7 +339,8 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
             memory::destroy_then_clear(skate_module_skaters_state().stat_target_info_);
         }
     }
-    if (skater->ident() == 1 && (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U)) {
+    if (skater->ident() == 1 &&
+        (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, script::Context())) != 0U)) {
         core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     }
     memory::pop_mem_profile();
@@ -377,7 +380,7 @@ void Skate::set_skater_shadow(objects::Rider* skater)
     auto* shadow = core::down_cast<objects::GroundShadowModule>(skater->fetch_module(kShadow));
     int type = (render::view_setup().hq_shadows() != 0U) ? 1 : 2;
     memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
-    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0U) {
+    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, script::Context())) != 0U) {
         type = 2;
     }
     if (skater->is_local_skater() == 0U) {
@@ -577,7 +580,7 @@ void Skate::change_level(uint32_t level)
     if (level != kLoadMainMenu) {
         params->add_component_of_type(0, script::QbValueKind::kName, kPreserveSkaters);
     }
-    commands::cfunc_cleanup(params, nullptr);
+    commands::cfunc_cleanup(params, script::Context());
     script::free_struct(params);
     stage_switched_ = true;
     game_flow_->get_request(kChangeLevelGameFlow);
@@ -599,7 +602,7 @@ void Skate::reset_level()
 {
     online::Hub* net = online::online_hub();
     tidy_up();
-    commands::cfunc_parse_node_array(nullptr, nullptr);
+    commands::cfunc_parse_node_array(nullptr, script::Context());
     run_over_ = false;
     objects::trick_spot_hub()->apply_player_graffiti();
     goals::GoalManager* goals = goals::get_objective_board();
@@ -698,7 +701,7 @@ void Skate::test_rider_contacts()
 }
 
 // 0x00566E70
-bool Skate::cfunc_retry(script::Struct* /*params*/, script::Script* /*script*/)
+bool Skate::cfunc_retry(script::Struct* /*params*/, script::Context /*context*/)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     sole()->launch_game();
@@ -707,7 +710,7 @@ bool Skate::cfunc_retry(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x00566EA0
-bool Skate::cfunc_launch_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool Skate::cfunc_launch_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     sole()->launch_game();
@@ -716,20 +719,20 @@ bool Skate::cfunc_launch_game(script::Struct* /*params*/, script::Script* /*scri
 }
 
 // 0x00566ED0
-bool Skate::cfunc_reset_level(script::Struct* /*params*/, script::Script* script)
+bool Skate::cfunc_reset_level(script::Struct* /*params*/, script::Context context)
 {
     // (the calling script isn't spawned while the level resets: its flag put back after)
     uint8_t spawned = 0;
     Skate* skate = sole();
-    if (script) {
-        spawned = script->spawn_flags() & script::kScriptFlagSpawned;
-        script->spawn_flags() &= ~script::kScriptFlagSpawned;
+    if (context) {
+        spawned = context.spawn_flags() & script::kScriptFlagSpawned;
+        context.spawn_flags() &= ~script::kScriptFlagSpawned;
     }
     memory::enter_heap_scope(memory::bottom_up_heap());
     skate->reset_level();
     memory::leave_heap_scope();
-    if (script) {
-        script->spawn_flags() = static_cast<uint8_t>((script->spawn_flags() & ~script::kScriptFlagSpawned) | spawned);
+    if (context) {
+        context.spawn_flags() = static_cast<uint8_t>((context.spawn_flags() & ~script::kScriptFlagSpawned) | spawned);
     }
     return true;
 }
@@ -973,7 +976,7 @@ void Skate::run_frame_logic()
                 objects::proximity_notify(2, second, &core::down_cast<objects::GameEntity>(second)->at_point(), 2);
             }
         }
-    } else if ((static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) != 0U) &&
+    } else if ((static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, script::Context())) != 0U) &&
                viewport_count() == 1 && viewport_camera(0)) {
         objects::proximity_notify(1, nullptr, viewport_camera(0)->fetch_location(), 1);
     }

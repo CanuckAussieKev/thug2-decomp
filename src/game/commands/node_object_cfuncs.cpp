@@ -62,6 +62,7 @@
 #include "base/core/checked_index.h"
 #include "game/online/net_game_state.h"
 #include "engine/script/script_state.h"
+#include "engine/script/context.h"
 
 namespace {
 // A node command's missing-action marker (only whether an object has the id), the colour a node gets by default.
@@ -268,7 +269,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
 
 // 0x005A2D60: CenterCamera [scale (0.9)] [x (-45)] [y (45)] [z (0)] [id=<sector>]: the viewer's camera fitted to each
 // scene in turn (fit_viewer_camera; the last one's placing stays). False without the viewer module (0x007CE4A4).
-bool cfunc_center_camera(script::Struct* params, script::Script* /*script*/)
+bool cfunc_center_camera(script::Struct* params, script::Context /*context*/)
 {
     if (objects::view_mode() == 0) {
         return false;
@@ -481,7 +482,7 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
 }
 
 // 0x005A34D0: CreateFromStructure <node structure>: create_from_node with the command's parameters.
-bool cfunc_create_from_structure(script::Struct* params, script::Script* /*script*/)
+bool cfunc_create_from_structure(script::Struct* params, script::Context /*context*/)
 {
     return create_from_node(params);
 }
@@ -575,7 +576,7 @@ void set_up_level_geometry(script::Struct* node, uint32_t index, uint32_t& objec
 // Nodes the skate module doesn't skip: proxim nodes and emitters added; the objects made at the start made (level
 // geometry only outside the park editor). Then the rails' overlaps, the gap checklist (unless 0xF7ECD937), every
 // scene's 0x0049E1B0 and the 0xA0E52802 nodes' 0x00490570. Always true.
-bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
+bool cfunc_parse_node_array(script::Struct* params, script::Context /*context*/)
 {
     memory::push_mem_profile("ParseNodeArray"); // "ParseNodeArray"
     script::Array* nodes = level_nodes::get_node_owner_nodes();
@@ -663,7 +664,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
 // 0x005A39F0: ReLoadNodeArray: the level's node array (named at 0x007CE6D8) loaded again in the debug heap: the old
 // asset unloaded and the node manager's array of the file taken out, the file loaded (NodeArrayManLoad and its .qb,
 // 0x005A5960) and the node manager's last array put back in.
-bool cfunc_re_load_node_array(script::Struct* /*params*/, script::Script* script)
+bool cfunc_re_load_node_array(script::Struct* /*params*/, script::Context context)
 {
     mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap()));
     level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance().get();
@@ -676,7 +677,7 @@ bool cfunc_re_load_node_array(script::Struct* /*params*/, script::Script* script
     const char* name = nullptr;
     file->fetch_text(0U, &name, 1);
     level_nodes::node_manager_instance()->remove_node_array_of_file(name);
-    cfunc_node_array_man_load(file, script);
+    cfunc_node_array_man_load(file, context);
     script::load_qb_file(loaded_node_list, 0);
     level_nodes::get_last_node_array();
     const uint32_t last = node_manager->get_last_node_array_name();
@@ -875,7 +876,7 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
 // 0x005A4DA0: node_command `action` on the node `name` (false in a network game for nodes the skate module skips):
 // 0 create, 1 kill, 2 show, 3 hide, 4 show and shatter, 5 alive?, 6 colour, 7 terrain; other actions false. Shown /
 // hidden for the second viewport when it's the second skater's script in a two-viewport game.
-bool node_command(checksums::Name node, int action, script::Script* script, script::Struct* params)
+bool node_command(checksums::Name node, int action, script::Context context, script::Struct* params)
 {
     const uint32_t name = node.value();
     online::Hub* game_net = online::net_game_state().online_hub();
@@ -883,15 +884,15 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
         return false;
     }
     int second_viewport = 0;
-    if (script && script->entity().get_pull() && !game_net->in_net_game() && modules::viewport_count() == 2 &&
-        script->entity().get_pull() == modules::Skate::sole()->get_rider_at(1)) {
+    if (context && context.entity().get_pull() && !game_net->in_net_game() && modules::viewport_count() == 2 &&
+        context.entity().get_pull() == modules::Skate::sole()->get_rider_at(1)) {
         second_viewport = 1;
     }
     switch (action) {
     case kNodeActionCreate:
         return create_from_node_name(name);
     case kNodeActionKill:
-        return kill_from_node_name(name, script);
+        return kill_from_node_name(name, context.script());
     case kNodeActionShow:
         return set_node_hidden(name, false, second_viewport);
     case kNodeActionHide:
@@ -913,7 +914,7 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
 // 0x005A4EF0: node_command on name= (its answer) or every node of prefix= (true; with action 5, stopping at the first
 // alive; with 0x80804991 the name is exact, not a prefix). Nothing (true) with the flags 0x2E7D5EE7 / 0xBCEB479A;
 // false without either name.
-bool node_command_by_name(script::Struct* params, script::Script* script, int action)
+bool node_command_by_name(script::Struct* params, script::Context context, int action)
 {
     if (params->has_bare_flag(kLinks) || params->has_bare_flag(kShatterSecondSkipFlag)) {
         return true;
@@ -923,7 +924,7 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
         const bool is_prefix = !params->has_bare_flag(0x80804991U);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
-            if (node_command(checksums::Name{node}, action, script, params) && action == kNodeActionAlive) {
+            if (node_command(checksums::Name{node}, action, context, params) && action == kNodeActionAlive) {
                 break;
             }
         }
@@ -933,31 +934,40 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
     if (!params->hash_from_name_or_text(kName, &name, 0)) {
         return false;
     }
-    return node_command(checksums::Name{name}, action, script, params);
+    return node_command(checksums::Name{name}, action, context, params);
 }
 
 // 0x005A4FF0: Create name= / prefix=: the dead objects flushed first (the Function 0x005B0A40), then made.
-bool cfunc_create(script::Struct* params, script::Script* script)
+bool cfunc_create(script::Struct* params, script::Context context)
 {
-    cfunc_flush_dead_objects(nullptr, nullptr);
-    return node_command_by_name(params, script, kNodeActionCreate);
+    cfunc_flush_dead_objects(nullptr, script::Context());
+    return node_command_by_name(params, context, kNodeActionCreate);
 }
 
 // 0x005A5010 / 0x005A5030 / 0x005A5050 / 0x005A5070: SetObjectColor / Kill / Visible / Invisible name= or prefix=.
-bool cfunc_set_object_color(script::Struct* params, script::Script* script)
+bool cfunc_set_object_color(script::Struct* params, script::Context context)
 {
-    return node_command_by_name(params, script, kNodeActionColour);
+    return node_command_by_name(params, context, kNodeActionColour);
 }
-bool cfunc_kill(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, kNodeActionKill); }
-bool cfunc_visible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, kNodeActionShow); }
-bool cfunc_invisible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, kNodeActionHide); }
+bool cfunc_kill(script::Struct* params, script::Context context)
+{
+    return node_command_by_name(params, context, kNodeActionKill);
+}
+bool cfunc_visible(script::Struct* params, script::Context context)
+{
+    return node_command_by_name(params, context, kNodeActionShow);
+}
+bool cfunc_invisible(script::Struct* params, script::Context context)
+{
+    return node_command_by_name(params, context, kNodeActionHide);
+}
 
 // 0x005A5090: Shatter name= / prefix= [0x9F98989E scale= (1): the calling object's velocity times scale, else
 // 0x6187906D / 0x1680A0FB / 0x8F89F141 asserted] and the shatter's settings (0x286BC297 - at least 2000, 5000 in a
 // multiplayer game -, 0xBD309DD9, 0x834A5F87, 0xE632C101, 0x7DC30BA6, 0xF01BFA01, 0xB3DE2CAC, 0xAF1A25F2 (0x54628ED7),
 // 0x2E1C4A64 (1), 0x210EA9E1 (a vector), 0xC48391A5, 0x33DF5E27): the settings given (0x00491110), then the nodes
 // shown and shattered (node_command_by_name 4, its answer).
-bool cfunc_shatter(script::Struct* params, script::Script* script)
+bool cfunc_shatter(script::Struct* params, script::Context context)
 {
     uint32_t name = 0; // (read and not used)
     float scale = 1.0F;
@@ -965,7 +975,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     maths::Vec4 velocity;
     if (params->has_bare_flag(kShatterVelocityFlag)) {
         params->fetch_float(kScale, &scale, 0); // "scale"
-        const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity().get_pull())->vel();
+        const maths::Vec4& v = core::down_cast<objects::GameEntity>(context.entity().get_pull())->vel();
         velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
         velocity.y = static_cast<float>(static_cast<double>(scale) * v.y);
         velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);
@@ -1006,7 +1016,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     }
     area = std::max(area, minimum_area);
     render::engine::change_breakup_settings({.velocity = &velocity, .vector_210e_ = &vector, .value_c483_ = value_c483, .area = area, .speed = value_bd30, .velocity_scale_ = value_834a, .lifetime = value_e632, .floor = value_7d_c3, .bounce = value_f_01b, .value_2e_1c_ = value_2e_1c, .texture = checksum_b_3d_e, .value_af_1a_ = checksum_af_1a, .value_33d_f_ = value_33d_f});
-    return node_command_by_name(params, script, kNodeActionShatter);
+    return node_command_by_name(params, context, kNodeActionShatter);
 }
 
 } // namespace commands

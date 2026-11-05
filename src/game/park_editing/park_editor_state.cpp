@@ -12,6 +12,7 @@
 #include "game/park/park_memory.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/sys/model_viewer.h"
 #include "game/park_editing/park_editing_state.h"
@@ -71,7 +72,7 @@ bool cursor_shows() { return BuildPointer::singleton()->mode_sel() != BuildPoint
 
 } // namespace
 
-bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_park_editor_state(script::Struct* params, script::Context /*context*/)
 {
     ParkBuilderMode* editor = ParkBuilderMode::sole();
     uint32_t state = 0;
@@ -156,7 +157,7 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
     }
 }
 
-bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Context /*context*/)
 {
     ParkBuilderMode* editor = ParkBuilderMode::sole();
     if (params->has_bare_flag("pause")) {

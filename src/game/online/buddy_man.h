@@ -9,7 +9,7 @@
 #include <array>
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 namespace tasks {
@@ -205,20 +205,20 @@ private:
 };
 
 // The script commands (CFunctions: the parameters, the script).
-bool set_unique_id(script::Struct* params, script::Script* script);               // 0x00548940
-bool join_buddy(script::Struct* params, script::Script* script);                  // 0x00548A40
-bool add_buddy(script::Struct* params, script::Script* script);                   // 0x00548E40
-bool has_buddies(script::Struct* params, script::Script* script);                 // 0x00548E90
-bool buddy_list_full(script::Struct* params, script::Script* script);             // 0x00548ED0
-bool any_buddy_messages_left(script::Struct* params, script::Script* script);     // 0x00548F10
-bool profile_log_off(script::Struct* params, script::Script* script);             // 0x00549D10
-bool fill_buddy_list(script::Struct* params, script::Script* script);             // 0x00549D20
-bool cancel_add_buddy(script::Struct* params, script::Script* script);            // 0x00549D80
-bool remove_buddy(script::Struct* params, script::Script* script);                // 0x00549D90
-bool show_next_buddy_message(script::Struct* params, script::Script* script);     // 0x00549DC0
-bool is_already_my_buddy(script::Struct* params, script::Script* script);         // 0x00549EA0
-bool profile_log_in(script::Struct* params, script::Script* script);              // 0x0054A250
-bool fill_prospective_buddy_list(script::Struct* params, script::Script* script); // 0x0054A2B0
-bool spawn_account(script::Struct* params, script::Script* script);               // 0x0054A650
+bool set_unique_id(script::Struct* params, script::Context context);               // 0x00548940
+bool join_buddy(script::Struct* params, script::Context context);                  // 0x00548A40
+bool add_buddy(script::Struct* params, script::Context context);                   // 0x00548E40
+bool has_buddies(script::Struct* params, script::Context context);                 // 0x00548E90
+bool buddy_list_full(script::Struct* params, script::Context context);             // 0x00548ED0
+bool any_buddy_messages_left(script::Struct* params, script::Context context);     // 0x00548F10
+bool profile_log_off(script::Struct* params, script::Context context);             // 0x00549D10
+bool fill_buddy_list(script::Struct* params, script::Context context);             // 0x00549D20
+bool cancel_add_buddy(script::Struct* params, script::Context context);            // 0x00549D80
+bool remove_buddy(script::Struct* params, script::Context context);                // 0x00549D90
+bool show_next_buddy_message(script::Struct* params, script::Context context);     // 0x00549DC0
+bool is_already_my_buddy(script::Struct* params, script::Context context);         // 0x00549EA0
+bool profile_log_in(script::Struct* params, script::Context context);              // 0x0054A250
+bool fill_prospective_buddy_list(script::Struct* params, script::Context context); // 0x0054A2B0
+bool spawn_account(script::Struct* params, script::Context context);               // 0x0054A650
 
 } // namespace online

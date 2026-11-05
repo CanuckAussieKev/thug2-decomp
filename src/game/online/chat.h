@@ -1,8 +1,8 @@
 #pragma once
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 namespace net {
@@ -46,4 +46,4 @@ int on_chat_msg(net::InboundMsgCtx* context);
 } // namespace online
 
 // Script function SendChatMessage (in the Function table).
-bool cfunc_send_chat_message(script::Struct* params, script::Script* script);
+bool cfunc_send_chat_message(script::Struct* params, script::Context context);

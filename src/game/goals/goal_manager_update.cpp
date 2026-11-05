@@ -23,6 +23,7 @@
 #include "engine/script/cscript.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/trick_goals.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
@@ -133,7 +134,7 @@ void GoalManager::revoke_every_clear()
         goal_data_->get_clear();
     }
     if (count_live_goals(false) == 0 &&
-        (static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) == 0U)) {
+        (static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, script::Context())) == 0U)) {
         script::launch_script(kShowGoalPoints, nullptr, nullptr, false, nullptr);
     }
 }
@@ -294,7 +295,7 @@ void GoalManager::tick_frame()
 }
 
 // 0x0055E860: active goals (count_all: network goals too, and those not active).
-bool cfunc_goal_manager_has_active_goals(script::Struct* params, script::Script* /*script*/)
+bool cfunc_goal_manager_has_active_goals(script::Struct* params, script::Context /*context*/)
 {
     GoalManager* manager = get_objective_board();
     const bool all = params->has_bare_flag(kCountAll);
@@ -302,21 +303,21 @@ bool cfunc_goal_manager_has_active_goals(script::Struct* params, script::Script*
 }
 
 // 0x0055E8A0
-bool cfunc_goal_manager_un_beat_all_goals(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_goal_manager_un_beat_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_objective_board()->revoke_every_clear();
     return true;
 }
 
 // 0x0055E8C0
-bool cfunc_goal_manager_add_view_goals_list(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_goal_manager_add_view_goals_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_objective_board()->append_objective_list_entries();
     return true;
 }
 
 // 0x0055E8E0: an active goal is expired (the count asked again after each).
-bool cfunc_goal_manager_goal_should_expire(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_goal_manager_goal_should_expire(script::Struct* /*params*/, script::Context /*context*/)
 {
     GoalManager* manager = get_objective_board();
     if (!manager) {
@@ -331,23 +332,23 @@ bool cfunc_goal_manager_goal_should_expire(script::Struct* /*params*/, script::S
 }
 
 // 0x0055EAC0
-bool cfunc_goal_manager_update_all_goals(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_goal_manager_update_all_goals(script::Struct* /*params*/, script::Context /*context*/)
 {
     get_objective_board()->tick_frame();
     return true;
 }
 
 // 0x0055EAE0: the active network goal's time left (ms) as the script's time_left.
-bool cfunc_goal_manager_get_time_left_in_net_game(script::Struct* /*params*/, script::Script* script)
+bool cfunc_goal_manager_get_time_left_in_net_game(script::Struct* /*params*/, script::Context context)
 {
     if (const Objective* goal = get_objective_board()->get_active_net_goal()) {
-        script->args()->put_int("time_left", goal->get_seconds_remaining()); // "time_left"
+        context.args()->put_int("time_left", goal->get_seconds_remaining()); // "time_left"
     }
     return true;
 }
 
 // 0x0055EB20: the active network goal has no time limit (true without one).
-bool cfunc_goal_manager_get_unlimited_time_in_net_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_goal_manager_get_unlimited_time_in_net_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     Objective* goal = get_objective_board()->get_active_net_goal();
     return goal ? goal->has_no_time_limit() : true;

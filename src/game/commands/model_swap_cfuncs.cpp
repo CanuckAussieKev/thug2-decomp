@@ -18,6 +18,7 @@
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/profile_cfuncs.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
@@ -100,7 +101,7 @@ void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, obje
 // heap) and shadows; the swap is recorded; a skater's model-swapped value (+0x31C) is the id of an entry whose object
 // wears no other model now (0 if none). The objects are asked for core physics before they're checked for null, as in
 // the original. False if either is missing, they're the same object or either has no model.
-bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/)
+bool cfunc_swap_object_models(script::Struct* params, script::Context /*context*/)
 {
     objects::Rider* skater = nullptr;
     uint32_t id1 = 0;
@@ -185,7 +186,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/
 // 0x005B3890: RestoreAllSwappedObjectModels: each recorded swap undone (SwapObjectModels on the entry's object and the
 // one whose model it wears), the table gone over again while it still holds swaps - at most as many times as there
 // were. Always true.
-bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script::Script* script)
+bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script::Context context)
 {
     int remaining = 0;
     for (int i = 0; i < kSwapCount; ++i) {
@@ -207,7 +208,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script:
             gsl::owner<Struct*> swap = script::new_struct();
             swap->put_name_key(checksums::Name{kObj1}, entry.key);
             swap->put_name_key(checksums::Name{kObj2}, entry.value);
-            cfunc_swap_object_models(swap, script);
+            cfunc_swap_object_models(swap, context);
             if (swap) {
                 // (delete inlined: the structure pool pair's Free)
                 swap->get_clear();
@@ -222,7 +223,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script:
 }
 
 // 0x005B3A30: GetSkaterModelIsSwapped [Skater=n]: whether skater n (or the local skater) wears another model.
-bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script* /*script*/)
+bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Context /*context*/)
 {
     int index = 0;
     const objects::Rider* skater = nullptr;

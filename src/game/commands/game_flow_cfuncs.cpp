@@ -162,7 +162,7 @@ struct FlagCommand {
 // skate module's objects, the asset tables, the level's .qb files, the geometry, without preserve_skaters the extra
 // skater heaps, the unused .pre files, the paths, the network heaps (rebuilt after, as the network says); the
 // physical memory logged. Always true.
-bool cfunc_cleanup(script::Struct* params, script::Script* script)
+bool cfunc_cleanup(script::Struct* params, script::Context context)
 {
     const audio::continue_music::Hold keep_music; // NOT ORIGINAL - continue_music: the sound sweep leaves the song
     stubs::do_nothing(); // 0x0048C1B0
@@ -177,16 +177,16 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
         preserve_skaters = params->has_bare_flag("preserve_skaters"); // "preserve_skaters"
     }
     uint8_t spawned = 0;
-    if (script) {
-        spawned = script->spawn_flags() & script::kScriptFlagSpawned;
-        script->spawn_flags() &= ~script::kScriptFlagSpawned;
+    if (context) {
+        spawned = context.spawn_flags() & script::kScriptFlagSpawned;
+        context.spawn_flags() &= ~script::kScriptFlagSpawned;
     }
     assets::ResourceRegistry* assets = assets::asset_manager();
     script::launch_script(kCleanupScript1, nullptr, nullptr, false, nullptr);
     script::launch_script(kCleanupScript2, nullptr, nullptr, false, nullptr);
     skate_module()->tidy_up(); // the skate module's objects
-    if (script) {
-        script->spawn_flags() = static_cast<uint8_t>((script->spawn_flags() & ~script::kScriptFlagSpawned) | spawned);
+    if (context) {
+        context.spawn_flags() = static_cast<uint8_t>((context.spawn_flags() & ~script::kScriptFlagSpawned) | spawned);
     }
     render::imposter_manager()->delete_all();
     render::engine::kill_all_effects();
@@ -299,7 +299,7 @@ void apply_flag_command_to_object(objects::Entity* object, void* data)
 }
 
 // 0x005A01D0
-bool flag_command_by_name(script::Struct* params, script::Script* /*script*/, int action)
+bool flag_command_by_name(script::Struct* params, script::Context /*context*/, int action)
 {
     uint32_t value = 0;
     if (action == kFlagActionException) {
@@ -341,13 +341,13 @@ bool flag_command_by_name(script::Struct* params, script::Script* /*script*/, in
 
 // 0x005A0300: MakeSkaterGoto <script> [params={...}] [skater=n]: the skater switches to the script - the calling
 // script's own skater if it runs on one, else skater n, else the local skater; only a local skater (+0xBC).
-bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
+bool cfunc_make_skater_goto(script::Struct* params, script::Context context)
 {
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
-    objects::Entity* object = script ? script->entity().get_pull() : nullptr;
+    objects::Entity* object = context ? context.entity().get_pull() : nullptr;
     objects::Rider* skater = nullptr;
     if (object && object->kind_tag() == kSkaterType) {
         skater = core::down_cast<objects::Rider>(object);
@@ -362,7 +362,7 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
     // Not original - THAW's BMX (game/rider/thaw_bmx.h skater_script): on the bike THAW's PedKnockDown takes its bike
     // branch. Original behaviour: the skater goes to `name` as given.
     if (skater && (skater->is_local_skater() != 0U)) {
-        name = skater::thaw_bmx::skater_script(skater, name, script);
+        name = skater::thaw_bmx::skater_script(skater, name, context.script());
     }
     if (skater && (skater->is_local_skater() != 0U) && (name != 0U)) {
         skater->switch_to_script(name, script_params);
@@ -372,13 +372,13 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
 
 // 0x005A03C0: MakeSkaterGosub <script> [params={...}] [skater=n (0)]: the skater (the calling script's own, else
 // skater n) runs the script as a call.
-bool cfunc_make_skater_gosub(script::Struct* params, script::Script* script)
+bool cfunc_make_skater_gosub(script::Struct* params, script::Context context)
 {
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
-    objects::Entity* object = script ? script->entity().get_pull() : nullptr;
+    objects::Entity* object = context ? context.entity().get_pull() : nullptr;
     if (!object || object->kind_tag() != kSkaterType) {
         int index = 0;
         params->fetch_int_value(kSkater, &index, 0);
@@ -393,28 +393,28 @@ bool cfunc_make_skater_gosub(script::Struct* params, script::Script* script)
 // 0x005A0460: SpawnSound <script> [Id=id] [Params={...}]: the script spawned on the calling script's object (its
 // id the calling script's spawn id unless given), remembering the caller's .qb file unless 0x01917DF2 is given. A
 // script without an object: SpawnScript.
-bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
+bool cfunc_spawn_sound(script::Struct* params, script::Context context)
 {
-    const objects::Entity* object = script->entity().get_pull();
+    const objects::Entity* object = context.entity().get_pull();
     if (!object) {
-        return cfunc_spawn_script(params, script::Context(script));
+        return cfunc_spawn_script(params, context);
     }
     uint32_t name = 0;
     if (params->read_hash_value(0U, &name, 0)) {
-        uint32_t id = script::get_spawn_id(script);
+        uint32_t id = context.get_spawn_id();
         params->read_hash_value("Id", &id, 0); // "Id"
         script::Struct* script_params = nullptr;
         params->read_sub_struct("Params", &script_params, 0); // "Params"
-        script::Script* spawned = script->entity().get_pull()->spawn_script(name, script_params, id, false);
+        script::Script* spawned = context.entity().get_pull()->spawn_script(name, script_params, id, false);
         if (!params->has_bare_flag(kKeepSpawnerFile)) {
-            script::host().set_spawner_file(spawned, script);
+            context.give_spawner_file_to(spawned);
         }
     }
     return true;
 }
 
 // 0x005A0520: PauseSkater <n> [hide]: skater n paused (vtable +0x2C) and hidden or shown.
-bool cfunc_pause_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_pause_skater(script::Struct* params, script::Context /*context*/)
 {
     const bool hide = params->has_bare_flag("hide"); // "hide"
     int index = 0;                             // (unset in the original when missing - an asserted parameter)
@@ -427,7 +427,7 @@ bool cfunc_pause_skater(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0580: UnPauseSkater <n>: skater n unpaused (vtable +0x30) and shown.
-bool cfunc_un_pause_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_un_pause_skater(script::Struct* params, script::Context /*context*/)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0U, &index, 1);
@@ -439,15 +439,15 @@ bool cfunc_un_pause_skater(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A05C0: PauseGame: the game paused, the calling script carrying on.
-bool cfunc_pause_game(script::Struct* /*params*/, script::Script* script)
+bool cfunc_pause_game(script::Struct* /*params*/, script::Context context)
 {
     modules::front_end_instance()->get_pause_game(true);
-    script::resume_child_script(script);
+    context.resume_child_script();
     return true;
 }
 
 // 0x005A05E0: UnPauseGame.
-bool cfunc_un_pause_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_un_pause_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     modules::front_end_instance()->get_pause_game(false);
     return true;
@@ -455,7 +455,7 @@ bool cfunc_un_pause_game(script::Struct* /*params*/, script::Script* /*script*/)
 
 // 0x005A05F0: GameIsPaused: whether the game is paused (0x006FA7D4) - then the flag 0x3BA1FDB9 is added to the
 // command's own parameters.
-bool cfunc_game_is_paused(script::Struct* params, script::Script* /*script*/)
+bool cfunc_game_is_paused(script::Struct* params, script::Context /*context*/)
 {
     if (!objects::simulation_halted()) {
         return false;
@@ -465,20 +465,20 @@ bool cfunc_game_is_paused(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A0620 / 0x005A0630: PauseObjects / UnPauseObjects.
-bool cfunc_pause_objects(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_pause_objects(script::Struct* /*params*/, script::Context /*context*/)
 {
     object_edit()->get_freeze(true);
     return true;
 }
 
-bool cfunc_un_pause_objects(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_un_pause_objects(script::Struct* /*params*/, script::Context /*context*/)
 {
     object_edit()->get_freeze(false);
     return true;
 }
 
 // 0x005A0640: ResetClock: on the server, the skate module's clock (+0x370) set to the game mode's time limit.
-bool cfunc_reset_clock(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_reset_clock(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (online::online_hub()->get_on_server()) {
         skate_module()->set_unknown370(game_mode_time_limit());
@@ -487,7 +487,7 @@ bool cfunc_reset_clock(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x005A0670: PadsPluggedIn.
-bool cfunc_pads_plugged_in(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_pads_plugged_in(script::Struct* /*params*/, script::Context /*context*/)
 {
     return modules::front_end_instance()->pads_plugged_in();
 }
@@ -496,7 +496,7 @@ bool cfunc_pads_plugged_in(script::Struct* /*params*/, script::Script* /*script*
 // [start_r ... start_a] [end_r ... end_a] [flags 0x70FFC649 (1), 0x19C43CF6 (2) or else 0x387C9ED6 (4),
 // 0xDF6436D2 (8)]: a screen flash (0x004923E0) from the start colour to the end one. Nothing unless duration > 0.
 // The eight colour values share one integer (as in the original): a missing one repeats the one before.
-bool cfunc_do_flash(script::Struct* params, script::Script* script)
+bool cfunc_do_flash(script::Struct* params, script::Context context)
 {
     float duration = 0.0F;
     float z = 0.0F;
@@ -519,7 +519,7 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
     }
     params->fetch_int_value(kSkater, &viewport, 0);
     if (viewport == -1) {
-        viewport = core::down_cast<objects::Rider>(script->entity().get_pull())->view_slot();
+        viewport = core::down_cast<objects::Rider>(context.entity().get_pull())->view_slot();
     }
     if (params->has_bare_flag(kFlashFlag8)) {
         flags |= kFlashFlagValue;
@@ -548,28 +548,28 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
 // 0x005A3B00 / 0x005A3B20 / 0x005A3B40 / 0x005A3B60: ClearFlag / SendFlag / QueryFlag <flag> name=<id> or
 // prefix="<nodes>"; SendException <exception> name= or prefix=: flag_command_by_name with 1 (clear), 0 (set), 2 (test),
 // 5 (exception). Whether an object did it (QueryFlag: whether one has the flag).
-bool cfunc_clear_flag(script::Struct* params, script::Script* script)
+bool cfunc_clear_flag(script::Struct* params, script::Context context)
 {
-    return flag_command_by_name(params, script, kFlagActionClear);
+    return flag_command_by_name(params, context, kFlagActionClear);
 }
 
-bool cfunc_send_flag(script::Struct* params, script::Script* script)
+bool cfunc_send_flag(script::Struct* params, script::Context context)
 {
-    return flag_command_by_name(params, script, kFlagActionSet);
+    return flag_command_by_name(params, context, kFlagActionSet);
 }
 
-bool cfunc_query_flag(script::Struct* params, script::Script* script)
+bool cfunc_query_flag(script::Struct* params, script::Context context)
 {
-    return flag_command_by_name(params, script, kFlagActionTest);
+    return flag_command_by_name(params, context, kFlagActionTest);
 }
 
-bool cfunc_send_exception(script::Struct* params, script::Script* script)
+bool cfunc_send_exception(script::Struct* params, script::Context context)
 {
-    return flag_command_by_name(params, script, kFlagActionException);
+    return flag_command_by_name(params, context, kFlagActionException);
 }
 
 // 0x005A11C0: RoundIncrement: the game mode's round (0x005536D0).
-bool cfunc_round_increment(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_round_increment(script::Struct* /*params*/, script::Context /*context*/)
 {
     game_mode_object()->increment_round();
     return true;
@@ -577,7 +577,7 @@ bool cfunc_round_increment(script::Struct* /*params*/, script::Script* /*script*
 
 // 0x005A11D0: GameModeEquals <mode> ...: whether one of the bare names is the game mode's (0x00553220: its own
 // integer of that name is set).
-bool cfunc_game_mode_equals(script::Struct* params, script::Script* /*script*/)
+bool cfunc_game_mode_equals(script::Struct* params, script::Context /*context*/)
 {
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
@@ -591,15 +591,15 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script* /*script*/)
 
 // 0x005A1230: GetCurrentLevel: the skate module's level (+0x374, as 0x651533EC - a name) and level structure name
 // (+0x380, 0x16A0B364) in the script's parameters.
-bool cfunc_get_current_level(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_current_level(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->add_component_of_type(kLEVEL, script::QbValueKind::kName, modules::Skate::sole()->pending_level());
-    script->args()->put_name_key(checksums::Name{kLevelStructure}, modules::Skate::sole()->level_params());
+    context.args()->add_component_of_type(kLEVEL, script::QbValueKind::kName, modules::Skate::sole()->pending_level());
+    context.args()->put_name_key(checksums::Name{kLevelStructure}, modules::Skate::sole()->level_params());
     return true;
 }
 
 // 0x005A1270: SetLevelStructureName name=<structure>: the skate module's +0x380.
-bool cfunc_set_level_structure_name(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_level_structure_name(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kName, &name, 1);
@@ -608,21 +608,21 @@ bool cfunc_set_level_structure_name(script::Struct* params, script::Script* /*sc
 }
 
 // 0x005A12A0: GetLevelStructureName: the skate module's +0x380 as the script's 0x63B1214E.
-bool cfunc_get_level_structure_name(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_level_structure_name(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_name_key(checksums::Name{kLevelStructureName}, modules::Skate::sole()->level_params());
+    context.args()->put_name_key(checksums::Name{kLevelStructureName}, modules::Skate::sole()->level_params());
     return true;
 }
 
 // 0x005A12C0: RestartLevel (the skate module's 0x005668A0).
-bool cfunc_restart_level(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_restart_level(script::Struct* /*params*/, script::Context /*context*/)
 {
     skate_module()->restart_level();
     return true;
 }
 
 // 0x005A12E0: GameFlow <script>: the skate module's game flow (+0x388) runs it (0x00552E30).
-bool cfunc_game_flow(script::Struct* params, script::Script* /*script*/)
+bool cfunc_game_flow(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
@@ -657,7 +657,7 @@ void update_score_display(objects::Rider* skater)
 } // namespace
 
 // 0x005A1320: ClearOmnigons: the career's 23 Omnigon flags (the values of the globals above) cleared.
-bool cfunc_clear_omnigons(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_clear_omnigons(script::Struct* /*params*/, script::Context /*context*/)
 {
     objects::RiderStoryProgress* career = modules::Skate::sole()->career().get();
     for (const uint32_t flag : kOmnigonFlags) {
@@ -668,7 +668,7 @@ bool cfunc_clear_omnigons(script::Struct* /*params*/, script::Script* /*script*/
 
 // 0x005A1540: BroadcastOmnigon <0xAE94C183=omnigon> [0xF649D637]: noted as the last one sent and, from the server,
 // sent to every remote connection (message 0x7F, 8 bytes: the Omnigon and the flag; sequenced, group 8).
-bool cfunc_broadcast_omnigon(script::Struct* params, script::Script* /*script*/)
+bool cfunc_broadcast_omnigon(script::Struct* params, script::Context /*context*/)
 {
     const online::Hub* game_net = online::online_hub();
     net::ConnSearch search;
@@ -702,9 +702,9 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script* /*script*/)
 
 // 0x005A1720: SetScreenMode <...>: the screen mode (0x004A0C20 with the command's parameters), then every skater's
 // score display brought up to date.
-bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
+bool cfunc_set_screen_mode(script::Struct* params, script::Context context)
 {
-    render::cfunc_set_screen_mode(params, script::Context(script));
+    render::cfunc_set_screen_mode(params, context);
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         if (objects::Rider* skater = get_rider_at(i)) {
             update_score_display(skater);
@@ -716,7 +716,7 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 // 0x005A1770: SetScreenModeFromGameMode: a debug message per local skater; the game mode's screen mode
 // (0x00553630) set (0x004A0AD0) unless the two split modes (1 and 2) would only swap; the local skaters' score
 // displays brought up to date.
-bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Context /*context*/)
 {
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         const objects::Rider* skater = get_rider_at(i);
@@ -746,7 +746,7 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Sc
 // the sum (logged). The cheats in the global array 0x75A23DA4 with those c1 / c2 run 0xB95B735C and their
 // cheatscript; none (or a text under 6 characters): 0x323D63FF. Always false. The text is used as a sprintf format
 // (kept: a '%' in it is interpreted).
-bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
+bool cfunc_try_cheat_string(script::Struct* params, script::Context /*context*/)
 {
     const char* text = nullptr; // (unset in the original when missing - an asserted parameter)
     params->fetch_text(kCheatText, &text, 1);
@@ -796,7 +796,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A1A90: LevelIs <level>: whether it's the skate module's level (+0x378).
-bool cfunc_level_is(script::Struct* params, script::Script* /*script*/)
+bool cfunc_level_is(script::Struct* params, script::Context /*context*/)
 {
     uint32_t level = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(0U, &level, 1);
@@ -804,7 +804,7 @@ bool cfunc_level_is(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A1F80: SetStatOverride [value (0)]: the skate module's forced stat value (+0x3D0).
-bool cfunc_set_stat_override(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_stat_override(script::Struct* params, script::Context /*context*/)
 {
     float value = 0.0F;
     params->fetch_float(0U, &value, 0);
@@ -813,7 +813,7 @@ bool cfunc_set_stat_override(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A1FB0: ToggleRails: the skate module's rail display (+0x3D4) on / off.
-bool cfunc_toggle_rails(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_toggle_rails(script::Struct* /*params*/, script::Context /*context*/)
 {
     bool& rails = modules::Skate::sole()->get_debug_rails();
     rails = !rails;
@@ -821,35 +821,35 @@ bool cfunc_toggle_rails(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x005A1FD0: GetTimeLimit: the game mode's time limit as the script's time_limit.
-bool cfunc_get_time_limit(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_time_limit(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_int(checksums::Name{kTimeLimit}, game_mode_time_limit()); // "time_limit"
+    context.args()->put_int(checksums::Name{kTimeLimit}, game_mode_time_limit()); // "time_limit"
     return true;
 }
 
 // 0x005A1FF0 / 0x005A2010: GetGoalsMode / GetTeamGraffitiMode: the same game mode value (0x005532D0) as the script's
 // 0x38DBE1D0 / 0x6835B854.
-bool cfunc_get_goals_mode(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_goals_mode(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_name_key(checksums::Name{kGOALS}, game_mode_object()->get_goals_mode());
+    context.args()->put_name_key(checksums::Name{kGOALS}, game_mode_object()->get_goals_mode());
     return true;
 }
 
-bool cfunc_get_team_graffiti_mode(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_team_graffiti_mode(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_name_key(checksums::Name{kMODE}, game_mode_object()->get_goals_mode());
+    context.args()->put_name_key(checksums::Name{kMODE}, game_mode_object()->get_goals_mode());
     return true;
 }
 
 // 0x005A2030: GetGameMode: the game mode's name (0x005532A0) as the script's 0x3E04B26B.
-bool cfunc_get_game_mode(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_game_mode(script::Struct* /*params*/, script::Context context)
 {
-    script->args()->put_name_key(checksums::Name{kGAMEMODE}, game_mode_object()->get_name_key());
+    context.args()->put_name_key(checksums::Name{kGAMEMODE}, game_mode_object()->get_name_key());
     return true;
 }
 
 // 0x005A2090: SetTesterScript <script> [params={...}] (the skate module's 0x00565ED0).
-bool cfunc_set_tester_script(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_tester_script(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
@@ -860,14 +860,14 @@ bool cfunc_set_tester_script(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005A20F0: KillTesterScript (the skate module's 0x00565F80: its answer).
-bool cfunc_kill_tester_script(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_kill_tester_script(script::Struct* /*params*/, script::Context /*context*/)
 {
     return skate_module()->kill_script();
 }
 
 // 0x005A21A0: AutoRail <...>: the skate module's rail object (+0x24) is given the parameters - a shared stub that
 // ignores them.
-bool cfunc_auto_rail(script::Struct* params, script::Script* /*script*/)
+bool cfunc_auto_rail(script::Struct* params, script::Context /*context*/)
 {
     (void)modules::Skate::sole()->rail_manager(); // (the stub's `this`)
     stubs::ignore_argument(params);
@@ -876,7 +876,7 @@ bool cfunc_auto_rail(script::Struct* params, script::Script* /*script*/)
 
 // 0x005A4170: SpawnSkaterScript <script> [params={...}] [Id=id] [Callback=<script>] [CallbackParams={...}]: the
 // script spawned at the calling script's node, running on the local skater.
-bool cfunc_spawn_skater_script(script::Struct* params, script::Script* script)
+bool cfunc_spawn_skater_script(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
@@ -888,7 +888,9 @@ bool cfunc_spawn_skater_script(script::Struct* params, script::Script* script)
     params->read_hash_value("Callback", &callback, 0); // "Callback"
     script::Struct* callback_params = nullptr;
     params->read_sub_struct("CallbackParams", &callback_params, 0); // "CallbackParams"
-    script::Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params, .node = script->list_link(), .id = id});
+    script::Script* spawned = script::spawn_script(
+        name, script_params,
+        {.callback = callback, .callback_params_ = callback_params, .node = context.list_link(), .id = id});
     spawned->entity().assign_value(get_home_rider()); // (not checked for null, as in the original)
     return true;
 }

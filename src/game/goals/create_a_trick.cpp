@@ -8,8 +8,8 @@
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "engine/objects/entity.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "base/core/down_cast.h"
@@ -91,7 +91,7 @@ CreateATrick::~CreateATrick()
 }
 
 // 0x00551CA0
-bool cfunc_get_create_a_trick_params(script::Struct* params, script::Script* script)
+bool cfunc_get_create_a_trick_params(script::Struct* params, script::Context context)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -100,14 +100,14 @@ bool cfunc_get_create_a_trick_params(script::Struct* params, script::Script* scr
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
     const CreateATrick* trick = core::at(skater->trick_slots(), index).get();
-    script->args().get()->put_sub_struct(kOtherParams, trick->other_params());
-    script->args().get()->append_array_value(kRotationInfo, trick->spin_list());
-    script->args().get()->append_array_value(kAnimationInfo, trick->animations());
+    context.args().get()->put_sub_struct(kOtherParams, trick->other_params());
+    context.args().get()->append_array_value(kRotationInfo, trick->spin_list());
+    context.args().get()->append_array_value(kAnimationInfo, trick->animations());
     return true;
 }
 
 // 0x00551D20
-bool cfunc_get_create_a_trick_other_params(script::Struct* params, script::Script* script)
+bool cfunc_get_create_a_trick_other_params(script::Struct* params, script::Context context)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -115,12 +115,12 @@ bool cfunc_get_create_a_trick_other_params(script::Struct* params, script::Scrip
     }
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots(), index)->other_params());
+    context.args().get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots(), index)->other_params());
     return true;
 }
 
 // 0x00551D80
-bool cfunc_get_create_a_trick_rotations(script::Struct* params, script::Script* script)
+bool cfunc_get_create_a_trick_rotations(script::Struct* params, script::Context context)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -128,12 +128,12 @@ bool cfunc_get_create_a_trick_rotations(script::Struct* params, script::Script* 
     }
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->append_array_value(kRotationInfo, core::at(skater->trick_slots(), index)->spin_list());
+    context.args().get()->append_array_value(kRotationInfo, core::at(skater->trick_slots(), index)->spin_list());
     return true;
 }
 
 // 0x00551DE0
-bool cfunc_get_create_a_trick_animations(script::Struct* params, script::Script* script)
+bool cfunc_get_create_a_trick_animations(script::Struct* params, script::Context context)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -141,12 +141,12 @@ bool cfunc_get_create_a_trick_animations(script::Struct* params, script::Script*
     }
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots(), index)->animations());
+    context.args().get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots(), index)->animations());
     return true;
 }
 
 // 0x00551E40
-bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_create_a_trick_params(script::Struct* params, script::Context /*context*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -177,7 +177,7 @@ bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script* /*s
 }
 
 // 0x00551F70
-bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Context /*context*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -194,7 +194,7 @@ bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Scrip
 }
 
 // 0x00551FF0
-bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Context /*context*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -211,7 +211,7 @@ bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script* 
 }
 
 // 0x00552070
-bool cfunc_set_create_a_trick_animations(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_create_a_trick_animations(script::Struct* params, script::Context /*context*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
@@ -242,13 +242,13 @@ bool store_int_field(script::Struct* params, int& (objects::Rider::*field)())
     (skater->*field)() = value;
     return true;
 }
-bool fetch_int_value(script::Script* script, int (objects::Rider::*field)() const, const char* name)
+bool fetch_int_value(script::Context context, int (objects::Rider::*field)() const, const char* name)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
         return false;
     }
-    script->args().get()->put_int(name, (skater->*field)());
+    context.args().get()->put_int(name, (skater->*field)());
     return true;
 }
 bool set_flag(script::Struct* params, bool& (objects::Rider::*field)())
@@ -262,75 +262,75 @@ bool set_flag(script::Struct* params, bool& (objects::Rider::*field)())
     (skater->*field)() = value != 0;
     return true;
 }
-bool fetch_marker(script::Script* script, bool (objects::Rider::*field)() const, const char* name)
+bool fetch_marker(script::Context context, bool (objects::Rider::*field)() const, const char* name)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
         return false;
     }
-    script->args().get()->put_int(name, (skater->*field)() ? 1 : 0);
+    context.args().get()->put_int(name, (skater->*field)() ? 1 : 0);
     return true;
 }
 
 } // namespace
 
 // 0x005520F0
-bool cfunc_cat_set_num_anims(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_num_anims(script::Struct* params, script::Context /*context*/)
 {
     return store_int_field(params, &objects::Rider::cat_num_anims);
 }
 // 0x00552130
-bool cfunc_cat_get_num_anims(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_num_anims(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(script, &objects::Rider::cat_num_anims, kNumAnimationsOn);
+    return fetch_int_value(context, &objects::Rider::cat_num_anims, kNumAnimationsOn);
 }
 // 0x00552160
-bool cfunc_cat_set_anims_done(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_anims_done(script::Struct* params, script::Context /*context*/)
 {
     return set_flag(params, &objects::Rider::cat_anims_done);
 }
 // 0x005521A0
-bool cfunc_cat_get_anims_done(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_anims_done(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_marker(script, &objects::Rider::cat_anims_done, kAnimationsDone);
+    return fetch_marker(context, &objects::Rider::cat_anims_done, kAnimationsDone);
 }
 // 0x005521F0
-bool cfunc_cat_set_rots_done(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_rots_done(script::Struct* params, script::Context /*context*/)
 {
     return set_flag(params, &objects::Rider::cat_rots_done);
 }
 // 0x00552230
-bool cfunc_cat_get_rots_done(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_rots_done(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_marker(script, &objects::Rider::cat_rots_done, kRotationsDone);
+    return fetch_marker(context, &objects::Rider::cat_rots_done, kRotationsDone);
 }
 // 0x00552280
-bool cfunc_cat_set_bail_done(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_bail_done(script::Struct* params, script::Context /*context*/)
 {
     return set_flag(params, &objects::Rider::cat_bail_done);
 }
 // 0x005522C0
-bool cfunc_cat_get_bail_done(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_bail_done(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_marker(script, &objects::Rider::cat_bail_done, kBailDone);
+    return fetch_marker(context, &objects::Rider::cat_bail_done, kBailDone);
 }
 // 0x00552310
-bool cfunc_cat_set_flip_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_flip_skater(script::Struct* params, script::Context /*context*/)
 {
     return set_flag(params, &objects::Rider::cat_flip_180);
 }
 // 0x00552350
-bool cfunc_cat_get_flip_skater(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_flip_skater(script::Struct* /*params*/, script::Context context)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
         return false;
     }
-    script->args().get()->put_int(checksums::Name{kFlipSkater180}, skater->cat_flip_180() ? 1 : 0);
+    context.args().get()->put_int(checksums::Name{kFlipSkater180}, skater->cat_flip_180() ? 1 : 0);
     return true;
 }
 // 0x005523A0
-bool cfunc_cat_set_hold_time(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_hold_time(script::Struct* params, script::Context /*context*/)
 {
     objects::Rider* skater = local_skater();
     if (!skater) {
@@ -342,44 +342,44 @@ bool cfunc_cat_set_hold_time(script::Struct* params, script::Script* /*script*/)
     return true;
 }
 // 0x005523E0
-bool cfunc_cat_get_hold_time(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_hold_time(script::Struct* /*params*/, script::Context context)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
         return false;
     }
-    script->args().get()->push_float(kHoldTime, skater->cat_hold_time());
+    context.args().get()->push_float(kHoldTime, skater->cat_hold_time());
     return true;
 }
 // 0x00552410
-bool cfunc_cat_set_total_y(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_total_y(script::Struct* params, script::Context /*context*/)
 {
     return store_int_field(params, &objects::Rider::cat_total_y);
 }
 // 0x00552450
-bool cfunc_cat_get_total_y(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_total_y(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(script, &objects::Rider::cat_total_y, kTotalY);
+    return fetch_int_value(context, &objects::Rider::cat_total_y, kTotalY);
 }
 // 0x00552480
-bool cfunc_cat_set_total_x(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_total_x(script::Struct* params, script::Context /*context*/)
 {
     return store_int_field(params, &objects::Rider::cat_total_x);
 }
 // 0x005524C0
-bool cfunc_cat_get_total_x(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_total_x(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(script, &objects::Rider::cat_total_x, kTotalX);
+    return fetch_int_value(context, &objects::Rider::cat_total_x, kTotalX);
 }
 // 0x005524F0
-bool cfunc_cat_set_total_z(script::Struct* params, script::Script* /*script*/)
+bool cfunc_cat_set_total_z(script::Struct* params, script::Context /*context*/)
 {
     return store_int_field(params, &objects::Rider::cat_total_z);
 }
 // 0x00552530
-bool cfunc_cat_get_total_z(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cat_get_total_z(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(script, &objects::Rider::cat_total_z, kTotalZ);
+    return fetch_int_value(context, &objects::Rider::cat_total_z, kTotalZ);
 }
 
 } // namespace goals

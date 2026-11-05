@@ -19,7 +19,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/legacy_command.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
@@ -184,7 +184,7 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
 }
 
 // ThawBmx_HomeSpot: pos / heading of the level's bike.
-bool cfunc_home_spot(script::Struct* /*params*/, script::Script* script)
+bool cfunc_home_spot(script::Struct* /*params*/, script::Context context)
 {
     Point pos{};
     float heading = 0.0F;
@@ -197,14 +197,14 @@ bool cfunc_home_spot(script::Struct* /*params*/, script::Script* script)
         heading = stage_map().start.heading;
         from = "near the start";
     }
-    script->args()->put_vec3("pos", {.x = pos.x, .y = pos.y, .z = pos.z});
-    script->args()->push_float("heading", heading);
+    context.args()->put_vec3("pos", {.x = pos.x, .y = pos.y, .z = pos.z});
+    context.args()->push_float("heading", heading);
     get_log("thaw_bmx: the level's bike at (%.0f, %.0f, %.0f) heading %.0f (%s)", pos.x, pos.y, pos.z, heading, from);
     return true;
 }
 
 // ThawBmx_WalkToBike id=<object>
-bool cfunc_walk_to_bike(script::Struct* params, script::Script* /*script*/)
+bool cfunc_walk_to_bike(script::Struct* params, script::Context /*context*/)
 {
     objects::Rider* skater = local_skater();
     const objects::GameEntity* bike = object_of(params);
@@ -231,7 +231,7 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script* /*script*/)
 }
 
 // ThawBmx_BikeReachable id=<object>
-bool cfunc_bike_reachable(script::Struct* params, script::Script* /*script*/)
+bool cfunc_bike_reachable(script::Struct* params, script::Context /*context*/)
 {
     const objects::Rider* skater = local_skater();
     const objects::GameEntity* bike = object_of(params);
@@ -310,9 +310,9 @@ void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Poin
 void register_parked_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "ThawBmx_HomeSpot", .function = &script::legacy_command<&cfunc_home_spot>},
-        {.name = "ThawBmx_WalkToBike", .function = &script::legacy_command<&cfunc_walk_to_bike>},
-        {.name = "ThawBmx_BikeReachable", .function = &script::legacy_command<&cfunc_bike_reachable>},
+        {.name = "ThawBmx_HomeSpot", .function = &cfunc_home_spot},
+        {.name = "ThawBmx_WalkToBike", .function = &cfunc_walk_to_bike},
+        {.name = "ThawBmx_BikeReachable", .function = &cfunc_bike_reachable},
     });
     script::install_script_functions(kFunctions);
 }

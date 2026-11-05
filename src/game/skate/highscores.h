@@ -14,8 +14,8 @@
 // number and initials). One BestResults, made by Create (0x0057EED0) and released by Release (0x0057FDB0), counted,
 // at 0x007CE4BC / 0x007CE4C0.
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 namespace highscores {
@@ -161,15 +161,15 @@ private:
 // (editor/level_editor_layout.h) nothing is recorded - +0x384 cleared as the original does first, so no new
 // record is announced - and logged. `edited_copy`: Layout::editing_copy() (a parameter, for the self-test).
 bool update_records(bool edited_copy);
-bool cfunc_update_records(script::Struct* params, script::Script* script);
+bool cfunc_update_records(script::Struct* params, script::Context context);
 
 // 0x005AEBD0: UpdateArcadeScores [level=<n>] <RecordTable> - the level's (the current career level's) arcade scores
 // read from the parameters. True.
-bool cfunc_update_arcade_scores(script::Struct* params, script::Script* script);
+bool cfunc_update_arcade_scores(script::Struct* params, script::Context context);
 // 0x005AFAF0: UpdateInitials - the current level's new records given the default initials. True.
-bool cfunc_update_initials(script::Struct* params, script::Script* script);
+bool cfunc_update_initials(script::Struct* params, script::Context context);
 // 0x005AFB30: NewRecord - whether the last UpdateRecords set a record (the skate module's +0x384).
-bool cfunc_new_record(script::Struct* params, script::Script* script);
+bool cfunc_new_record(script::Struct* params, script::Context context);
 
 highscores::BestResults* game_records();
 

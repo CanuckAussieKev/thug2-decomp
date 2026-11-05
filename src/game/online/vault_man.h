@@ -9,7 +9,7 @@
 #include <array>
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 namespace tasks {
@@ -319,13 +319,13 @@ private:
 // more than here.)
 
 // The script commands.
-bool download_file(script::Struct* params, script::Script* script);           // 0x0054AA10
-bool upload_file(script::Struct* params, script::Script* script);             // 0x0054B060
-bool cancel_file_transfer(script::Struct* params, script::Script* script);    // 0x0054B240
-bool download_directory_list(script::Struct* params, script::Script* script); // 0x0054C290
-bool free_directory_listing(script::Struct* params, script::Script* script);  // 0x0054C460
-bool fill_vault_menu(script::Struct* params, script::Script* script);         // 0x0054C470
-bool next_vault_category(script::Struct* params, script::Script* script);     // 0x0054C770
-bool prev_vault_category(script::Struct* params, script::Script* script);     // 0x0054C800
+bool download_file(script::Struct* params, script::Context context);           // 0x0054AA10
+bool upload_file(script::Struct* params, script::Context context);             // 0x0054B060
+bool cancel_file_transfer(script::Struct* params, script::Context context);    // 0x0054B240
+bool download_directory_list(script::Struct* params, script::Context context); // 0x0054C290
+bool free_directory_listing(script::Struct* params, script::Context context);  // 0x0054C460
+bool fill_vault_menu(script::Struct* params, script::Context context);         // 0x0054C470
+bool next_vault_category(script::Struct* params, script::Context context);     // 0x0054C770
+bool prev_vault_category(script::Struct* params, script::Context context);     // 0x0054C800
 
 } // namespace online

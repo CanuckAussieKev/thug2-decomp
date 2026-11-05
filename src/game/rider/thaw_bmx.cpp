@@ -25,7 +25,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/legacy_command.h"
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx_parked.h"
 #include "platform/platform_config.h"
@@ -155,7 +154,7 @@ bool load_assets()
 }
 
 // ThawBmx_Available: the feature on (and the overlay's scripts there) - the pause menu's RIDE BMX item.
-bool cfunc_available(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_available(script::Struct* /*params*/, script::Context /*context*/)
 {
     return is_switched_on() && script::script_exists(name_hash(kToggleScript));
 }
@@ -163,13 +162,13 @@ bool cfunc_available(script::Struct* /*params*/, script::Script* /*script*/)
 // ThawBmx_LoadTexture "<folder/name>": ingest_skin unless the texture is loaded already (THAW's bike manual meter
 // script, create_bike_manual_meter, loads its converted pictures with it each time a manual starts - THAW has them
 // loaded from start-up). True when the texture is there.
-bool cfunc_load_texture(script::Struct* params, script::Script* script)
+bool cfunc_load_texture(script::Struct* params, script::Context context)
 {
     const char* file = nullptr;
     if (!params->fetch_text(0U, &file, 0) || !file) {
         return false;
     }
-    return commands::texture_loaded(file) || commands::cfunc_load_texture(params, script::Context(script));
+    return commands::texture_loaded(file) || commands::cfunc_load_texture(params, context);
 }
 
 // NOT ORIGINAL grouping - thaw_bmx.cpp's state (were globals). Made on first use, never destroyed (thaw_bmx_state()).
@@ -420,8 +419,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "ThawBmx_Available", .function = &script::legacy_command<&cfunc_available>},
-        {.name = "ThawBmx_LoadTexture", .function = &script::legacy_command<&cfunc_load_texture>},
+        {.name = "ThawBmx_Available", .function = &cfunc_available},
+        {.name = "ThawBmx_LoadTexture", .function = &cfunc_load_texture},
     });
     script::install_script_functions(kFunctions);
     if (!is_switched_on()) {

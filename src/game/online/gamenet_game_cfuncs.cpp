@@ -25,6 +25,7 @@
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "engine/script/fwd.h"
+#include "engine/script/context.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
@@ -147,7 +148,7 @@ void kick_or_ban(Hub* manager, KickChoice kick_choice)
 } // namespace
 
 // 0x0053B450
-bool cfunc_player_took_flag(script::Struct* params, script::Script* /*script*/)
+bool cfunc_player_took_flag(script::Struct* params, script::Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     int player = 0;
@@ -162,7 +163,7 @@ bool cfunc_player_took_flag(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0053B5A0
-bool cfunc_player_captured_flag(script::Struct* params, script::Script* /*script*/)
+bool cfunc_player_captured_flag(script::Struct* params, script::Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     int player = 0;
@@ -183,7 +184,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script* /*script
 }
 
 // 0x0053B710
-bool cfunc_player_retrieved_flag(script::Struct* params, script::Script* /*script*/)
+bool cfunc_player_retrieved_flag(script::Struct* params, script::Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     int player = 0;
@@ -198,7 +199,7 @@ bool cfunc_player_retrieved_flag(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x0053B860
-bool cfunc_player_has_flag(script::Struct* params, script::Script* /*script*/)
+bool cfunc_player_has_flag(script::Struct* params, script::Context /*context*/)
 {
     int player = 0;
     params->fetch_int_value("player", &player, 0);
@@ -210,29 +211,29 @@ bool cfunc_player_has_flag(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0053B8A0
-bool cfunc_get_num_players_on_team(script::Struct* params, script::Script* script)
+bool cfunc_get_num_players_on_team(script::Struct* params, script::Context context)
 {
     Hub* manager = net_game_state().online_hub();
     int team = 0;
     params->fetch_int_value("team", &team, 1);
-    script->args()->put_int("num_members", manager->count_team_players(team));
+    context.args()->put_int("num_members", manager->count_team_players(team));
     return true;
 }
 
 // 0x0053B8F0
-bool cfunc_get_players_team(script::Struct* params, script::Script* script)
+bool cfunc_get_players_team(script::Struct* params, script::Context context)
 {
     int id = 0;
     params->fetch_int_value(kObjId, &id, 0);
     const PlayerRecord* player = net_game_state().online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player) {
-        script->args()->put_int("team", player_team(player));
+        context.args()->put_int("team", player_team(player));
     }
     return true;
 }
 
 // 0x0053B940
-bool cfunc_exit_surveyor_mode(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_exit_surveyor_mode(script::Struct* /*params*/, script::Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     PlayerRecord* local = find_own_player_record(manager);
@@ -249,7 +250,7 @@ bool cfunc_exit_surveyor_mode(script::Struct* /*params*/, script::Script* /*scri
 }
 
 // 0x0053D400
-bool cfunc_set_host_mode(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_host_mode(script::Struct* params, script::Context /*context*/)
 {
     int mode = 0;
     params->fetch_int_value(0U, &mode, 0);
@@ -258,7 +259,7 @@ bool cfunc_set_host_mode(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0053D440
-bool cfunc_entered_network_game(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_entered_network_game(script::Struct* /*params*/, script::Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     if (net_game_state().online_active()) { // (on the internet: the server's GameSpy reporting)
@@ -273,14 +274,14 @@ bool cfunc_entered_network_game(script::Struct* /*params*/, script::Script* /*sc
 }
 
 // 0x0053D490
-bool cfunc_kick_player(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_kick_player(script::Struct* /*params*/, script::Context /*context*/)
 {
     kick_or_ban(net_game_state().online_hub(), {.drop = kDropKicked, .request = 0});
     return true;
 }
 
 // 0x0053D5E0
-bool cfunc_ban_player(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_ban_player(script::Struct* /*params*/, script::Context /*context*/)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
@@ -290,7 +291,7 @@ bool cfunc_ban_player(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x0053D760
-bool cfunc_cancel_join_server(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_cancel_join_server(script::Struct* /*params*/, script::Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
     manager->cancel_join();
@@ -299,7 +300,7 @@ bool cfunc_cancel_join_server(script::Struct* /*params*/, script::Script* /*scri
 }
 
 // 0x0053D780
-bool cfunc_enter_surveyor_mode(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_enter_surveyor_mode(script::Struct* /*params*/, script::Context /*context*/)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_game_state().online_hub();
@@ -317,7 +318,7 @@ bool cfunc_enter_surveyor_mode(script::Struct* /*params*/, script::Script* /*scr
 }
 
 // 0x0053EA20
-bool cfunc_drop_pending_players(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_drop_pending_players(script::Struct* /*params*/, script::Context /*context*/)
 {
     net_game_state().online_hub()->drop_players_not_ready();
     return true;

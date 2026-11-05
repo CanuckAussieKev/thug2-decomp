@@ -35,6 +35,7 @@ struct WorldScene;
 }
 namespace script {
 class Array;
+class Context;
 class Script;
 class Struct;
 } // namespace script
@@ -1675,9 +1676,9 @@ private:
 
 // Park editor script commands (park_cfuncs.cpp).
 // 0x0058E120 GetParkEditorMaxPlayers: <MaxPlayers> = the park's player count.
-bool cfunc_get_park_editor_max_players(script::Struct* params, script::Script* script);
+bool cfunc_get_park_editor_max_players(script::Struct* params, script::Context context);
 // 0x0058E140 GetParkEditorMaxPlayersPossible: <MaxPlayersPossible> = how many players the park has room for.
-bool cfunc_get_park_editor_max_players_possible(script::Struct* params, script::Script* script);
+bool cfunc_get_park_editor_max_players_possible(script::Struct* params, script::Context context);
 
 inline constexpr float kParkCellSizeX{120.0F};
 inline constexpr float kParkCellSizeY{48.0F};

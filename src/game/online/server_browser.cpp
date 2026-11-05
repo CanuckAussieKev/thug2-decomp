@@ -25,8 +25,8 @@
 #include "game/online/server_list.h"
 #include "game/online/stats_man.h"
 #include "game/online/vault_man.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "platform/crt.h"
 #include "engine/net/transport.h"
 #include "engine/sys/stopwatch.h"
@@ -178,9 +178,9 @@ HostListing* find_by_sb(Hub* manager, void* sb)
 // 0x00546790: the chosen server's description (destroy_server_desc_children, then net_game_info_add_item per line:
 // game in progress, the host mode, ping - "..." unknown -, mode, skill - skill_level_info's name -, level, ranked
 // (internet), the players' count title (": n/max") and each player with its rank). No null check on the server.
-bool cfunc_describe_server(script::Struct* params, script::Script* script)
+bool cfunc_describe_server(script::Struct* params, script::Context context)
 {
-    (void)script;
+    (void)context;
     Hub* manager = net_game_state().online_hub();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
@@ -248,9 +248,9 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
 // 0x005470D0: the chosen server joined (net_chosen_join_server with its port, address and maximum players - and a
 // random cookie when it can only be reached through NAT negotiation; presence told the server's name, 0x0053F830),
 // unless it's full for how we join (CreateJoinRefusedDialog with the reason, the join-state task removed).
-bool cfunc_choose_server(script::Struct* params, script::Script* script)
+bool cfunc_choose_server(script::Struct* params, script::Context context)
 {
-    (void)script;
+    (void)context;
     Hub* manager = net_game_state().online_hub();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
@@ -291,9 +291,9 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
 
 // 0x00547FA0: the chosen server's full details asked of GameSpy (peerUpdateGame) unless they're here (true) or on the
 // LAN (true); false while asking.
-bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
+bool cfunc_retrieve_server_info(script::Struct* params, script::Context context)
 {
-    (void)script;
+    (void)context;
     Hub* manager = net_game_state().online_hub();
     if (((manager->flag_bits() >> 3) & 1) != 0) { // (0x00533F70: LAN mode)
         return true;

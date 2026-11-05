@@ -12,24 +12,24 @@
 
 #include "game/park_editing/park.h"
 
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 
 namespace park_editing {
 
 // 0x0058E120
-bool cfunc_get_park_editor_max_players(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_park_editor_max_players(script::Struct* /*params*/, script::Context context)
 {
     const ParkAssembler* generator = ParkLayout::singleton()->builder();
-    script->args()->put_int("MaxPlayers", generator->get_player_limit()); // 0xB7E39B53
+    context.args()->put_int("MaxPlayers", generator->get_player_limit()); // 0xB7E39B53
     return true;
 }
 
 // 0x0058E140
-bool cfunc_get_park_editor_max_players_possible(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_park_editor_max_players_possible(script::Struct* /*params*/, script::Context context)
 {
     const ParkAssembler* generator = ParkLayout::singleton()->builder();
-    script->args()->put_int("MaxPlayersPossible", generator->get_player_cap_limit()); // 0x1FD6359C
+    context.args()->put_int("MaxPlayersPossible", generator->get_player_cap_limit()); // 0x1FD6359C
     return true;
 }
 

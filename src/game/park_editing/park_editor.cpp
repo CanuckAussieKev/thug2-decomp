@@ -18,6 +18,7 @@
 #include "game/park/park_memory.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
@@ -723,10 +724,10 @@ void ParkBuilderMode::logic_update()
         if (cur_phase_ == kStateEdit) {
             script::Struct params;
             params.put_name_key(checksums::Name{0U}, kHide);
-            commands::cfunc_pause_skaters(&params, nullptr);
+            commands::cfunc_pause_skaters(&params, script::Context());
             params.get_clear();
         } else if (cur_phase_ == kStateTestPlay) {
-            commands::cfunc_un_pause_skaters(nullptr, nullptr);
+            commands::cfunc_un_pause_skaters(nullptr, script::Context());
         }
     }
     if (cur_phase_ != kStateEdit || !have_cursor()) {

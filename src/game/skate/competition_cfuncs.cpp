@@ -14,6 +14,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/contest.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
@@ -109,7 +110,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 // 0x005AF090: ApplySplitScreenOptions - the split screen preferences' game type loaded into the game mode; for horse
 // its time limit and word applied too (the game mode's default_time_limit and the skate module's time limit). (The
 // time_limit preference is read and not used.)
-bool cfunc_apply_split_screen_options(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_apply_split_screen_options(script::Struct* /*params*/, script::Context /*context*/)
 {
     prefs::Preferences* prefs = split_screen_preferences();
     uint32_t type = 0;
@@ -131,7 +132,7 @@ bool cfunc_apply_split_screen_options(script::Struct* /*params*/, script::Script
 
 // 0x005AF200: StartCompetition gold= silver= bronze= gold_score= silver_score= bronze_score= bail= [extra_params=]
 // - a competition started (in the skater info heap), the extra parameters added to the competition's first.
-bool cfunc_start_competition(script::Struct* params, script::Script* /*script*/)
+bool cfunc_start_competition(script::Struct* params, script::Context /*context*/)
 {
     // (uninitialised in the original when missing)
     float gold = 0.0F;
@@ -160,7 +161,7 @@ bool cfunc_start_competition(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005AF320: StartCompetitionRun.
-bool cfunc_start_competition_run(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start_competition_run(script::Struct* /*params*/, script::Context /*context*/)
 {
     the_competition()->begin_timed_session();
     return true;
@@ -168,7 +169,7 @@ bool cfunc_start_competition_run(script::Struct* /*params*/, script::Script* /*s
 
 // 0x005AF340: EndCompetitionRun - the local skater's total score ends the run; the standings sorted (in the skater
 // info heap).
-bool cfunc_end_competition_run(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_end_competition_run(script::Struct* /*params*/, script::Context /*context*/)
 {
     const int score = total_score(get_score_of(get_home_rider()));
     push_skater_info_heap();
@@ -179,14 +180,14 @@ bool cfunc_end_competition_run(script::Struct* /*params*/, script::Script* /*scr
 }
 
 // 0x005AF3A0 / 0x005AF3D0: PlaceIs <n> / RoundIs <n>.
-bool cfunc_place_is(script::Struct* params, script::Script* /*script*/)
+bool cfunc_place_is(script::Struct* params, script::Context /*context*/)
 {
     int place = 0; // (uninitialised in the original)
     params->fetch_int_value(0U, &place, 0);
     return the_competition()->place_is(place);
 }
 
-bool cfunc_round_is(script::Struct* params, script::Script* /*script*/)
+bool cfunc_round_is(script::Struct* params, script::Context /*context*/)
 {
     int round = 0; // (uninitialised in the original)
     params->fetch_int_value(0U, &round, 0);
@@ -194,7 +195,7 @@ bool cfunc_round_is(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005AF400: EndCompetition (in the skater info heap). 0x005AF440: CompetitionEnded.
-bool cfunc_end_competition(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_end_competition(script::Struct* /*params*/, script::Context /*context*/)
 {
     push_skater_info_heap();
     the_competition()->get_end();
@@ -202,39 +203,39 @@ bool cfunc_end_competition(script::Struct* /*params*/, script::Script* /*script*
     return true;
 }
 
-bool cfunc_competition_ended(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_competition_ended(script::Struct* /*params*/, script::Context /*context*/)
 {
     return the_competition()->is_ended();
 }
 
 // 0x005AF450 StartHorse, 0x005AF470 HorseEnded, 0x005AF480 HorseStatusEquals <status>, 0x005AF4A0 StartHorseRun,
 // 0x005AF4C0 EndHorseRun, 0x005AF4E0 SwitchHorsePlayers.
-bool cfunc_start_horse(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start_horse(script::Struct* /*params*/, script::Context /*context*/)
 {
     the_horse()->prepare_all();
     return true;
 }
 
-bool cfunc_horse_ended(script::Struct* /*params*/, script::Script* /*script*/) { return the_horse()->is_over(); }
+bool cfunc_horse_ended(script::Struct* /*params*/, script::Context /*context*/) { return the_horse()->is_over(); }
 
-bool cfunc_horse_status_equals(script::Struct* params, script::Script* /*script*/)
+bool cfunc_horse_status_equals(script::Struct* params, script::Context /*context*/)
 {
     return the_horse()->state_matches(params);
 }
 
-bool cfunc_start_horse_run(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start_horse_run(script::Struct* /*params*/, script::Context /*context*/)
 {
     the_horse()->begin_timed_session();
     return true;
 }
 
-bool cfunc_end_horse_run(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_end_horse_run(script::Struct* /*params*/, script::Context /*context*/)
 {
     the_horse()->end_run();
     return true;
 }
 
-bool cfunc_switch_horse_players(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_switch_horse_players(script::Struct* /*params*/, script::Context /*context*/)
 {
     the_horse()->swap_riders();
     return true;
@@ -242,7 +243,7 @@ bool cfunc_switch_horse_players(script::Struct* /*params*/, script::Script* /*sc
 
 // 0x005AF500: ApplyToHorsePanelString whichString=<s> id=<id> ... - create_horse_panel_message run on the current
 // horse skater with the parameters, the string as text and the id.
-bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Script* /*script*/)
+bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Context /*context*/)
 {
     uint32_t which = 0;
     uint32_t id = 0;
@@ -262,19 +263,19 @@ bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Script* /
 }
 
 // 0x005AF660: GetHorseString whichString=<s> - the horse's string as text.
-bool cfunc_get_horse_string(script::Struct* params, script::Script* script)
+bool cfunc_get_horse_string(script::Struct* params, script::Context context)
 {
     uint32_t which = 0;
     params->read_hash_value(kWhichString, &which, 1);
     alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
     gsl::owner<text::Chars*> text = get_horse_string(storage.data(), which);
-    script->args()->append_word(kText, text->c_str());
+    context.args()->append_word(kText, text->c_str());
     text->~Chars();
     return true;
 }
 
 // 0x005AF700: IsCurrentHorseSkater <id> - whether the current horse skater's id is the integer (or checksum) given.
-bool cfunc_is_current_horse_skater(script::Struct* params, script::Script* /*script*/)
+bool cfunc_is_current_horse_skater(script::Struct* params, script::Context /*context*/)
 {
     int id = 0; // (uninitialised in the original)
     if (params->fetch_int_value(0U, &id, 0)) {
@@ -287,7 +288,7 @@ bool cfunc_is_current_horse_skater(script::Struct* params, script::Script* /*scr
 
 // 0x005AFB40: TrickOffAllObjects <player> - the trick objects nobody holds given to the player (not with the debug
 // checks flag 0x00684FA8 set).
-bool cfunc_trick_off_all_objects(script::Struct* params, script::Script* /*script*/)
+bool cfunc_trick_off_all_objects(script::Struct* params, script::Context /*context*/)
 {
     if (!game_config::from_cd()) {
         int player = 0;
@@ -299,7 +300,7 @@ bool cfunc_trick_off_all_objects(script::Struct* params, script::Script* /*scrip
 
 // 0x005AFB80 / 0x005AFBC0: SetScoreDegradation <0/1> / SetTrickScoreTracking <0/1> (default 1): the game mode's
 // degrade_score / track_trick_score.
-bool cfunc_set_score_degradation(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_score_degradation(script::Struct* params, script::Context /*context*/)
 {
     int on = 1;
     params->fetch_int_value(0U, &on, 0);
@@ -307,7 +308,7 @@ bool cfunc_set_score_degradation(script::Struct* params, script::Script* /*scrip
     return true;
 }
 
-bool cfunc_set_trick_score_tracking(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_trick_score_tracking(script::Struct* params, script::Context /*context*/)
 {
     int on = 1;
     params->fetch_int_value(0U, &on, 0);
@@ -317,7 +318,7 @@ bool cfunc_set_trick_score_tracking(script::Struct* params, script::Script* /*sc
 
 // 0x005AFC00: SetScoreAccumulation <0/1> [freeze_score] (default 1): the game mode's accumulate_score; the score
 // frozen only when accumulation is off and freeze_score given.
-bool cfunc_set_score_accumulation(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_score_accumulation(script::Struct* params, script::Context /*context*/)
 {
     int on = 1;
     params->fetch_int_value(0U, &on, 0);
@@ -327,7 +328,7 @@ bool cfunc_set_score_accumulation(script::Struct* params, script::Script* /*scri
 }
 
 // 0x005AFC70: AddBonus skater=<n> <points> - a local skater's score's bonus increased.
-bool cfunc_add_bonus(script::Struct* params, script::Script* /*script*/)
+bool cfunc_add_bonus(script::Struct* params, script::Context /*context*/)
 {
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
@@ -342,19 +343,19 @@ bool cfunc_add_bonus(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005AFCF0: GetBonusValue skater=<n> - a local skater's bonus as bonus.
-bool cfunc_get_bonus_value(script::Struct* params, script::Script* script)
+bool cfunc_get_bonus_value(script::Struct* params, script::Context context)
 {
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
     if (skater->is_local_skater() != 0U) {
-        script->args()->put_int(checksums::Name{kBonus}, get_bonus(get_score_of(skater)));
+        context.args()->put_int(checksums::Name{kBonus}, get_bonus(get_score_of(skater)));
     }
     return true;
 }
 
 // 0x005AFD60: LocalSkaterExists.
-bool cfunc_local_skater_exists(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_local_skater_exists(script::Struct* /*params*/, script::Context /*context*/)
 {
     return get_home_rider() != nullptr;
 }
