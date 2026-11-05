@@ -150,3 +150,39 @@ test("every source is in its target's library and every .cpp is compiled once", 
 test("the repository's CMake targets mirror tools/layers.json", () => {
     assert.deepEqual(problems(loadMap(), projectTargets(), cppFilesOf(), readBaseline()), []);
 });
+
+test("the app's object library, and an exe that must do without some libraries", () => {
+    const map: LayerMap = { ...MAP, executables: { "thug2-editor": { without: ["frontend"] } } };
+    const shared: Target = {
+        name: "thug2_app",
+        kind: "library",
+        object: true,
+        file: "src/app/CMakeLists.txt",
+        sources: ["src/app/b.cpp"],
+        links: ["thug2_game"],
+    };
+    const editorExe = (links: string[]): Target => ({
+        name: "thug2-editor",
+        kind: "executable",
+        file: "src/app/CMakeLists.txt",
+        sources: ["src/app/c.cpp"],
+        links,
+    });
+    const cpp = [...CPP, "src/app/b.cpp", "src/app/c.cpp"];
+    assert.deepEqual(problems(map, [...project(), shared, editorExe(["thug2_app", "thug2_editor"])], cpp, []), []);
+    // (the exe reaching the front end, through the editor or directly)
+    const project2 = project({ thug2_editor: ["thug2_game", "thug2_frontend"] });
+    assert.ok(
+        problems(map, [...project2, shared, editorExe(["thug2_app", "thug2_editor"])], cpp, []).includes(
+            "thug2-editor reaches thug2_frontend, which it must do without",
+        ),
+    );
+    // (a static library in the app's folders, or no such exe)
+    const stat: Target = { ...shared, object: false };
+    assert.deepEqual(problems({ ...map, executables: {} }, [...project(), stat], [...CPP, "src/app/b.cpp"], []), [
+        "thug2_app: the app's folders hold executables and the object library thug2_app only",
+    ]);
+    assert.deepEqual(problems(map, project(), CPP, []), [
+        'thug2-editor: no such executable (tools/layers.json "executables")',
+    ]);
+});

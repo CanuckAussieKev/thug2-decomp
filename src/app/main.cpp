@@ -1,4 +1,5 @@
-// The game's entry point (thug2-decomp.exe).
+// The entry point of both exes - the game's (thug2-decomp.exe) and the level editor's (thug2-editor.exe): the same start-up,
+// with the exe's own extensions (app/extensions.h: extensions.cpp for the game, editor_extensions.cpp for the editor).
 //
 // What runs before this is the C runtime's start-up, as the original's entry point (0x0062583D) did before its WinMain
 // (0x004E2680): heap, threads, stdio, command line and environment, then the C and C++ initialiser tables - the
@@ -37,7 +38,6 @@
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"
-#include "devtools/automation.h"
 #include "media_bink/bink_movie.h"
 #include "render_d3d9/d3d9_device.h"
 #include "render_d3d9/d3d9_ui_backend.h"
@@ -80,7 +80,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // next to the exe and the crash handling (a crash logged with its call stack, never a dialog).
     platform::install_output_sinks();
     log_open();
-    get_log("thug2-decomp standalone");
+    get_log("%s standalone", app::exe_name());
     load_system_direct_input();
     // NOT ORIGINAL: the operating system's files (engine/file/disk.h): Win32's, before anything opens one.
     fs::install_disk(fs::win32::disk());
@@ -102,8 +102,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     script::install_host(script::qb::host());
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
-    // NOT ORIGINAL: the extensions (the editor, the new front end, the dev tools) registered before any of the
-    // original's code runs (app/extensions.h).
+    // NOT ORIGINAL: the exe's extensions (the game's: the editor, the new front end, the dev tools; the editor exe's: the
+    // editor) registered before any of the original's code runs (app/extensions.h).
     app::register_extensions();
     // NOT ORIGINAL: the online session's hooks into the network transport (game/online/transport_hooks.h).
     online::install_transport_hooks();
@@ -131,11 +131,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     media::install_movie(media::bink::movie());
     // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the original's order: DirectInput's (the
     // keyboard read once a frame, the joysticks, the original's pad read - none made since PartyMod's input), SDL's
-    // game controllers and keyboard, then the test-automation channel's pressed buttons (a dev tool: nothing pressed
-    // unless the workspace's [features] automation is on).
+    // game controllers and keyboard, then the exe's extensions' (the game's: the test-automation channel's pressed
+    // buttons - a dev tool: nothing pressed unless the workspace's [features] automation is on).
     input::add_source(input::dinput::keyboard());
     input::add_source(sio::sdl_source());
-    input::add_source(frontend::automation::input_source());
+    app::add_input_sources();
     // NOT ORIGINAL: the loading console's panel, which that backend draws (engine/gfx/loading_console.h).
     gfx::loading_console::install_panel(gfx::loading_console::panel_hooks());
     // NOT ORIGINAL: [features] debug_collision's log after each feeler query (game/rider/debug_collision.h).

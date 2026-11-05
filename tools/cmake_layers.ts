@@ -2,14 +2,17 @@
 // (tools/layers.json) that tools/layers.ts holds the includes to. It reads the root CMakeLists.txt and every
 // src/**/CMakeLists.txt (no configure needed) and checks that
 //   - each library of the map but app is one static library target, thug2_<library>, in the CMakeLists.txt of a
-//     folder of that library, and the app's folders hold only executables;
+//     folder of that library, and the app's folders hold only executables and one object library, thug2_app (what the
+//     exes share: the start-up, the main loop, the tables);
 //   - every source of a project target lies in its own library's folders, and every .cpp under src/ is compiled by
 //     exactly one project target;
 //   - a target links (target_link_libraries) only libraries its own may include, and a library reaches through its
 //     links every library the map allows it - the links mirror the map;
 //   - the one exception: sibling links between libraries the include baseline (tools/layers_baseline.txt) still has
-//     lines between (the editor / front end / dev tools, until their API is cut). Each such pair must be linked, and
-//     a link with no baseline line left fails, so the links shrink with the baseline.
+//     lines between. Each such pair must be linked, and a link with no baseline line left fails, so the links shrink
+//     with the baseline (none since the editor / front end API: the baseline is empty);
+//   - an exe the map's 'executables' names exists and reaches none of the libraries it lists as 'without' (the level
+//     editor's exe: not the front end, not the dev tools).
 //   node tools/cmake_layers.ts          check (prints the targets and their links)
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -82,6 +85,7 @@ export function parseCMake(text: string): CMakeCommand[] {
 export interface Target {
     name: string;
     kind: "library" | "executable";
+    object?: boolean; // an OBJECT library (its objects go into the targets that link it)
     file: string; // its CMakeLists.txt, from the repository root
     sources: string[]; // from the repository root
     links: string[]; // every target_link_libraries item
@@ -103,6 +107,7 @@ export function targetsOf(text: string, file: string): Target[] {
             targets.set(args[0] as string, {
                 name: args[0] as string,
                 kind: name === "add_library" ? "library" : "executable",
+                ...(name === "add_library" && args.includes("OBJECT") ? { object: true } : {}),
                 file,
                 sources,
                 links: [],
@@ -179,7 +184,8 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
         }
         libraryOfTarget.set(target.name, library);
         if (library === "app") {
-            if (target.kind !== "executable") found.push(`${target.name}: the app's folders hold executables only`);
+            if (target.kind !== "executable" && !(target.object === true && target.name === "thug2_app"))
+                found.push(`${target.name}: the app's folders hold executables and the object library thug2_app only`);
         } else if (target.kind !== "library" || target.name !== `thug2_${library}`) {
             found.push(`${target.name}: a target in ${library}'s folders must be the library thug2_${library}`);
         }
@@ -212,10 +218,10 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
         for (const link of projectLinks(target)) {
             const to = libraryOfTarget.get(link) as string;
             if (byName.get(link)?.kind !== "library") found.push(`${target.name} links the executable ${link}`);
-            else if (!allowed.has(to) && !pairs.has(`${library} -> ${to}`))
+            else if (to !== library && !allowed.has(to) && !pairs.has(`${library} -> ${to}`))
                 found.push(`${target.name} links ${link}: ${library} may not include ${to}`);
         }
-        if (target.kind !== "library") continue;
+        if (target.kind !== "library" || library === "app") continue;
         // what it reaches through its links (the sibling pairs aside) must be exactly what the map allows it; a sibling
         // link is not followed - what the sibling links is the sibling's own (the editor's backend, say)
         const siblings = siblingGroup(pairs, library);
@@ -243,6 +249,25 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
         if (from === "app" || to === "app" || target === undefined) continue;
         if (!target.links.includes(`thug2_${to}`))
             found.push(`thug2_${from} must link thug2_${to}: tools/layers_baseline.txt has ${pair} lines`);
+    }
+    // the exes that must do without some libraries
+    for (const [name, rule] of Object.entries(map.executables ?? {})) {
+        const exe = byName.get(name);
+        if (exe === undefined || exe.kind !== "executable") {
+            found.push(`${name}: no such executable (tools/layers.json "executables")`);
+            continue;
+        }
+        const reached = new Set<string>();
+        const stack = [...exe.links.filter((link) => byName.has(link))];
+        while (stack.length > 0) {
+            const link = stack.pop() as string;
+            if (reached.has(link)) continue;
+            reached.add(link);
+            stack.push(...(byName.get(link)?.links.filter((next) => byName.has(next)) ?? []));
+        }
+        for (const without of rule.without) {
+            if (reached.has(`thug2_${without}`)) found.push(`${name} reaches thug2_${without}, which it must do without`);
+        }
     }
     return found;
 }

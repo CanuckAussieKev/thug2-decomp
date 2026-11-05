@@ -58,15 +58,17 @@ place - the front end's input logic (`ext::menu_frame`), the 3D frame (`before_d
 `device_lost`), the screen elements' layout pass, the input set-up and poll (`prepare_input`, `game_owner` and its
 `pass_pause_key`, `game_input_blocked`; the buttons a dev tool presses are an input source's, "The input seam"), a scene
 loaded, the data overlay, the start-up's movies,
-the career save and the high scores - and `ext::` calls each registered `ext::Extension` in turn. An extension
+the career save and the high scores - and where one of ours asks another (a feature switch the options screen sets,
+the game drawn unfocused for a test, the editor opened in the level -edit loads, the screens a test drives) - and
+`ext::` calls each registered `ext::Extension` in turn. An extension
 overrides only its points (the defaults do nothing or pass the value on); a point that returns a value keeps the
 contract its one caller had (the first extension that owns the game takes the keyboard but for the Pause key; the
 near plane and field of view are passed from one extension to the next, starting from the original's). The grain is
 a few calls per frame, viewport or event. `app/extensions.cpp` is the exe's composition: it registers the extensions
 in the one order that is every point's call order (the mouse menus, the restart tester, THAW's BMX, the editor, debug
 mode, the start level, automation, the test view, the new front end, the screenshot key) and registers their script
-commands where the start-up did. An exe of the editor alone would register only the editor (and the game features it
-wants). Our NOT ORIGINAL game and engine features that run at those points (THAW's BMX, debug mode) are extensions
+commands where the start-up did. The editor exe's `app/editor_extensions.cpp` registers the editor and the game
+features it wants (THAW's BMX, debug mode, start level) in the same relative order. Our NOT ORIGINAL game and engine features that run at those points (THAW's BMX, debug mode) are extensions
 too; what the editor drives inside the game stays in the game (`game/skate/edited_copy_career`: the edited copy
 kept out of the career save, its gaps asked of the extensions).
 
@@ -140,7 +142,7 @@ per object, draw or poll. Some things moved down instead, because they need only
 pending script (`engine/sys/model_viewer`). `tools/layers.json` lists the engine (with base and platform) as strict:
 no upward include, not even in the baseline.
 
-**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end: neither may include the other. A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
+**The rule is checked.** `tools/layers.json` maps each folder to a library and lists the libraries it may include; `node tools/layers.ts` (part of `npm test`) fails on any include outside the map that is not in `tools/layers_baseline.txt`, and on any baseline line that no longer occurs - the baseline can only shrink. The editor is its own layer above `game`, beside the front end and the dev tools: none of the three includes another (since round 29 every library but the app's is strict, and the baseline is empty). What the editor and the front end may include of the engine and the game is an explicit list each, the `api` of their entry in `tools/layers.json`: an include of another engine or game header fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). What they share went down a layer: reading the original menus' screen elements (`engine/ui/menu_reading.h`, from the mouse menus), a menu pad event as the front end sends it (`game/front_end/menu_pad_event.h`), the Dear ImGui layers' backend (`engine/ui/ui_backend.h`), the gap and combo trackers and what feeds them (`game/skate/play_trackers.h`), starting in a level (`game/front_end/start_level.h`, with the test views' teleport, `game/rider/test_view.h`); what one asks of another goes through the extension points (`feature_switch`, `draws_unfocused`, `open_editor_when_up` / `editor_opening_frame`, the driven screens' `screen_command`...; `ext::game_owner()` for "the editor runs"). A file that only needs the name of a class takes it from the owning subsystem's `fwd.h` (`engine/script`, `engine/objects`, `game/online`, `engine/memory`, `base/maths`), not from a header of a higher layer.
 
 **The libraries link as the map says.** Each library links only the ones its layer may include (`PUBLIC`: their
 headers are part of its own), and reaches every one of them through those links:
@@ -151,7 +153,10 @@ thug2_base  <-  thug2_formats  <-  thug2_wire
 thug2_platform + thug2_wire  <-  thug2_engine  <-  thug2_game  <-  thug2_frontend, thug2_editor, thug2_devtools
 thug2_engine  <-  thug2_render_d3d9, thug2_audio_dsound, thug2_media_bink, thug2_input_dinput, thug2_fs_win32,
                   thug2_net_winsock, thug2_script_qb (the backends: linked by the exe alone)
-every library  <-  thug2 (src/app: thug2-decomp.exe)
+thug2_game and below + the backends  <-  thug2_app (src/app: an object library - WinMain, the start-up, the main
+                                        loop, the command and component tables)
+thug2_app + every library  <-  thug2 (thug2-decomp.exe: + extensions.cpp)
+thug2_app + thug2_editor   <-  thug2-editor (thug2-editor.exe: + editor_extensions.cpp; no front end, no dev tools)
 ```
 
 The checks in `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`:
@@ -163,11 +168,10 @@ panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends,
 backend alone). `node tools/cmake_layers.ts` (part of `npm test`)
 reads the `CMakeLists.txt` files and fails when a library links outside the map or doesn't reach a library the map
 allows it, when a source sits in another library's folder, or when a `.cpp` is compiled by no target or by two.
-The one exception is the editor / front end / dev tools' sibling edges (round 29's): they link each other exactly
-where `tools/layers_baseline.txt` still has include lines between them - static libraries that need each other, which
-CMake repeats on the link line for a linker that reads each library once (GNU ld) - and a sibling link with no
-baseline line left fails. A sibling's own links are its own: the front end linking the editor doesn't count as
-reaching what the editor links. Only the exe links the backends: the editor and the front end reach the graphics
+A sibling link (between libraries of one layer) is allowed only where `tools/layers_baseline.txt` has include
+lines between them - none since round 29: the editor, the front end and the dev tools each link `thug2_game` (and
+imgui) alone. The map's `executables` lists what an exe must do without: `thug2-editor` reaches neither the front end
+nor the dev tools. Only the exes link the backends: the editor and the front end reach the graphics
 backend through the engine's interfaces (`render::Device`, `render::UiBackend`), the engine reaches the sound output
 and the movie codec through `audio::Device` and `media::Movie`, and DirectInput through its `input::Source`.
 
@@ -311,7 +315,8 @@ everything above it uses the game's own types and may change them freely.
   nothing calls SDL's input (the keyboard's state, the mouse, the controllers, the cursor, the event pump), only the
   SDL source includes `platform/keyboard.h`, and only it and app/ register with the platform's pump
   (tools/input_headers.test.ts; the screenshot key's sidecar, a dev tool's note of the mouse over the window, is the
-  one exception). An editor exe adds the same sources (DirectInput's, SDL's) without the automation channel's.
+  one exception). The editor exe (`thug2-editor.exe`) adds the same sources (DirectInput's, SDL's) without the automation channel's
+(`app::add_input_sources`, per exe).
 - **The file system seam** (`engine/file/file_system.h`, `disk.h`): where files come from.
   - The game's data files ("levels\foun\foun.qb", "data/...") come from `fs::Source`s, which `app/main.cpp` adds to
     `fs::file_system()` in the order the game looks in them: the data overlay's folder (ours, first:
