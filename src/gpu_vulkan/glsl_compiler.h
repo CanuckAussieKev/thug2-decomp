@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "render_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_key.h"
 
 // NOT ORIGINAL - GLSL to SPIR-V for the Vulkan backend (glsl_compiler.cpp), through glslang (the Khronos reference
 // compiler, built from source with the game: cmake/vulkan_libraries.cmake). The fixed-function emulation's shaders are

@@ -22,8 +22,8 @@ namespace app {
 
 namespace {
 
-// False until src/render_vulkan has a render::Device (the V6 / V7 tasks, docs/design/vulkan.md). When it does: set
-// this true and make install_vulkan below install it - that is the whole change to choose it.
+// False until the Vulkan Gpu (src/gpu_vulkan) draws (the V7 task, docs/design/vulkan.md). When it does: set this true
+// and make install_vulkan below install it - that is the whole change to choose it.
 constexpr bool kVulkanDeviceExists = false;
 
 #ifdef THUG2_VULKAN
@@ -40,7 +40,7 @@ void install_direct3d9()
     render::install_ui_backend(render::d3d9::ui_backend());
 }
 
-// The one line the Vulkan device is chosen with: its device and UI backend (src/render_vulkan).
+// The one line the Vulkan backend is chosen with: its Gpu, GpuContext and UI backend (src/gpu_vulkan).
 void install_vulkan()
 {
     install_direct3d9();

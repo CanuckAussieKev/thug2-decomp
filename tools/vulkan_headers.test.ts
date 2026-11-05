@@ -1,7 +1,7 @@
 // NOT ORIGINAL - where Vulkan may be seen (docs/design/vulkan.md, docs/architecture.md "The graphics backend"): the
 // Vulkan headers (<vulkan/...>, volk, the memory allocator, SDL's Vulkan header) and the shader compiler's (glslang,
 // SPIRV-Tools) are included - by a file itself or through another of the project's headers - only in the Vulkan
-// backend's folder, src/render_vulkan, and by the checks that try it (src/tests/vulkan_context_check.cpp, the
+// backend's folder, src/gpu_vulkan, and by the checks that try it (src/tests/vulkan_context_check.cpp, the
 // fixed-function shader check src/tests/ff_shader_check*.cpp). Vulkan's functions are called there alone, and only
 // app/ (and those checks) include the backend's headers: like Direct3D 9's (tools/d3d_headers.test.ts).
 
@@ -67,16 +67,16 @@ function seeingVulkan(files: Map<string, string>): string[] {
     return [...files.keys()].filter((name) => visit(name, new Set())).sort();
 }
 
-const inBackend = (name: string): boolean => name.startsWith("render_vulkan/");
+const inBackend = (name: string): boolean => name.startsWith("gpu_vulkan/");
 
-test("only render_vulkan/ (and its checks) see the Vulkan and shader compiler headers", () => {
+test("only gpu_vulkan/ (and its checks) see the Vulkan and shader compiler headers", () => {
     const files = sources();
     const seeing = seeingVulkan(files);
     assert.deepEqual(
         seeing.filter((name) => !inBackend(name) && !isCheck(name)),
         [],
     );
-    assert.ok(seeing.includes("render_vulkan/vulkan_loader.cpp"), "the loader includes volk");
+    assert.ok(seeing.includes("gpu_vulkan/vulkan_loader.cpp"), "the loader includes volk");
     // no header outside the backend, the checks' included
     assert.deepEqual(
         seeing.filter((name) => name.endsWith(".h") && !inBackend(name)),
@@ -84,7 +84,7 @@ test("only render_vulkan/ (and its checks) see the Vulkan and shader compiler he
     );
 });
 
-test("only render_vulkan/ (and its checks) call Vulkan", () => {
+test("only gpu_vulkan/ (and its checks) call Vulkan", () => {
     const callers = [...sources()]
         .filter(([, text]) => VULKAN_CALL.test(text))
         .map(([name]) => name)
@@ -97,7 +97,7 @@ test("only render_vulkan/ (and its checks) call Vulkan", () => {
 
 test("only app/ (and its checks) include the Vulkan backend", () => {
     const includers = [...sources()]
-        .filter(([, text]) => /^\s*#\s*include\s*"render_vulkan\//m.test(text))
+        .filter(([, text]) => /^\s*#\s*include\s*"gpu_vulkan\//m.test(text))
         .map(([name]) => name)
         .filter((name) => !inBackend(name) && !name.startsWith("app/") && !isCheck(name));
     assert.deepEqual(includers, []);

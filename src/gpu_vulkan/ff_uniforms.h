@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "render_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_key.h"
 
 // NOT ORIGINAL - what the fixed-function emulation's shaders read besides their key (ff_key.h, ff_shaders.h): two
 // uniform blocks in std140 layout and the stages' textures, all in descriptor set 0, and the vertex attributes'

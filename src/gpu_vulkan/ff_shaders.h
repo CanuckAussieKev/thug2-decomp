@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "render_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_key.h"
 
 // NOT ORIGINAL - the fixed-function emulation's shader generator (docs/design/vulkan.md "Fixed-function emulation in
 // Vulkan"): GLSL 4.50 for Vulkan from a key (ff_key.h), with the uniform blocks, bindings and attribute locations of

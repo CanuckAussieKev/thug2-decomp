@@ -159,7 +159,7 @@ directly would have to repeat the whole PC platform layer: 23,600 lines, most of
 engine  --render::Device-->  render_pc/        the PC platform layer, API-neutral: scenes, meshes, materials and their
                                                passes, CPU skinning, sorting, particles, weather, shadows' logic, 2D
                              --render::Gpu-->  gpu_d3d9/    Direct3D 9: the 458 device-call lines, as they are
-                                               gpu_vulkan/  Vulkan (src/render_vulkan today: V6 renames it with the Gpu)
+                                               gpu_vulkan/  Vulkan (its Gpu and GpuContext: V6; draws: V7)
 engine  --render::UiBackend-->  d3d9 / vulkan UI backends (ImGui's dx9 / vulkan renderer backends)
 ```
 
@@ -184,7 +184,7 @@ fixed `ps.1.1` shaders and the per-material generated ones are translated to GLS
 
 ### V3: the fixed-function emulation (done)
 
-`src/render_vulkan`: `ff_key.h` (the key), `ff_shaders.h` (key -> GLSL), `ff_uniforms.h` (the uniform blocks,
+`src/gpu_vulkan`: `ff_key.h` (the key), `ff_shaders.h` (key -> GLSL), `ff_uniforms.h` (the uniform blocks,
 bindings and attribute locations), `glsl_compiler.h` (GLSL -> SPIR-V, and a library of compiled shaders by key);
 `src/tests/ff_shader_check.cpp` (the check).
 
@@ -213,7 +213,7 @@ all).
 **The compiler: glslang at run time.** The keys a session draws come from its scenes' materials (any of 14 shader
 modes per pass, four passes, alpha flags: 43,904 four-pass shapes alone) and from the order of the draws, so they can't
 be listed when the game is built. glslang (the Vulkan SDK 1.4.304.0 release, built from source by CMake: no Python, no
-SDK; its GLSL front end and SPIR-V back end only) is linked into `render_vulkan` and compiles each key the first time
+SDK; its GLSL front end and SPIR-V back end only) is linked into `gpu_vulkan` and compiles each key the first time
 it is drawn (`ShaderLibrary`); V7 adds the pipeline cache on disk and can warm it from a scene's materials. SPIRV-Tools'
 validator (same release; its build needs Python 3) is linked by the check alone. Shaders target Vulkan 1.0 / SPIR-V 1.0.
 
@@ -221,7 +221,7 @@ validator (same release; its build needs Python 3) is linked by the check alone.
 hashed as bytes, every enumerator with Direct3D 9's own number. `normalised()` clears what a half doesn't read (stages
 after the first disabled one, arguments an operation doesn't read, CURRENT at stage 0 as DIFFUSE, lighting fields
 with lighting off, coordinates of stages not sampled, material modes without shader code...), so the halves are
-compiled separately and shared by every pipeline that uses them. It lives in `render_vulkan`: `render::Gpu` (V5a)
+compiled separately and shared by every pipeline that uses them. It lives in `gpu_vulkan`: `render::Gpu` (V5a)
 carries the Direct3D 9-style state block, and the Vulkan side derives the key from it. Matrices, colours, fog
 distances, the alpha reference, the texture factor and the pixel shader constants are uniforms (`ff_uniforms.h`).
 
@@ -500,7 +500,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 
 | # | task | depends on | start |
 |---|---|---|---|
-| V1 | `src/render_vulkan` skeleton: CMake option `THUG2_VULKAN`, the fetched libraries (Vulkan-Headers, volk, VMA, glslang / shaderc), `tools/layers.json` / `cmake_layers.ts` entries, a header test (Vulkan headers only in `render_vulkan`) | - | now, against `stage11` |
+| V1 | `src/gpu_vulkan` skeleton: CMake option `THUG2_VULKAN`, the fetched libraries (Vulkan-Headers, volk, VMA, glslang / shaderc), `tools/layers.json` / `cmake_layers.ts` entries, a header test (Vulkan headers only in `gpu_vulkan`) | - | now, against `stage11` |
 | V2 | A Vulkan context test program (`src/tests`): instance, device selection, an SDL window with a Vulkan surface, swapchain, a cleared frame, resize / minimise / out-of-date handling, validation in debug | V1 | now, against `stage11` |
 | V3 | The fixed-function emulation generator: the state key -> GLSL -> SPIR-V, the 6 fixed `ps.1.1` shaders and the per-material generator in GLSL, compiled offline in a test program and checked by reading the key's terms back | V1 | now, against `stage11` |
 | V4 | Choose the renderer at start-up: `[Graphics] renderer=d3d9\|vulkan`; `app/` installs the matching `Device` / `UiBackend`; the SDL window flag through `sys::create_sdl_window` | V1 | after stage 11 - done: `app/renderer_choice`, falls back to Direct3D 9 until the device exists |
@@ -509,7 +509,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 - done |
 | V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 - done |
 | V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` / `GpuContext` | V5a | after stage 11 - done |
-| V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 - done: `render_pc` (118 files, `thug2_render_pc`), `gpu_d3d9` (11 files, `thug2_gpu_d3d9`); `render_vulkan` keeps its name until V6 puts the Vulkan `Gpu` in it (then it is renamed `gpu_vulkan`) |
+| V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 - done: `render_pc` (118 files, `thug2_render_pc`), `gpu_d3d9` (11 files, `thug2_gpu_d3d9`); `render_vulkan` kept its name until V6 put the Vulkan `Gpu` in it (renamed `gpu_vulkan` then) |
 | V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 |
 | V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 |
 | V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 |

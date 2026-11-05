@@ -22,9 +22,9 @@ target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc thug2_gpu_d3d9
                                        thug2_audio_dsound thug2_media_bink thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                        thug2_script_qb thug2_engine
                                        thug2_wire thug2_formats thug2_platform thug2_base)
-# The Vulkan backend (src/render_vulkan): linked, not yet installed - nothing of it is in the exes until app/ calls it.
+# The Vulkan backend (src/gpu_vulkan): linked, not yet installed - nothing of it is in the exes until app/ calls it.
 if(THUG2_VULKAN)
-    target_link_libraries(thug2_app PUBLIC thug2_render_vulkan)
+    target_link_libraries(thug2_app PUBLIC thug2_gpu_vulkan)
     target_compile_definitions(thug2_app PRIVATE THUG2_VULKAN)
 endif()
 

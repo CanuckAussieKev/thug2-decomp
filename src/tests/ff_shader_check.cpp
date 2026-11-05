@@ -1,5 +1,5 @@
 // NOT ORIGINAL - thug2_ff_shader_check.exe: the Vulkan backend's fixed-function emulation checked offline
-// (render_vulkan/ff_key.h, ff_shaders.h, glsl_compiler.h). It lists every shader key the Direct3D 9 backend's draws can
+// (gpu_vulkan/ff_key.h, ff_shaders.h, glsl_compiler.h). It lists every shader key the Direct3D 9 backend's draws can
 // make (ff_shader_check_model.h), generates each key's GLSL, compiles it with glslang, validates the SPIR-V with
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
@@ -30,9 +30,9 @@
 #include "base/core/enum_ops.h"
 #include "base/core/format.h"
 #include "base/core/parse_number.h"
-#include "render_vulkan/ff_key.h"
-#include "render_vulkan/ff_shaders.h"
-#include "render_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_shaders.h"
+#include "gpu_vulkan/glsl_compiler.h"
 #include "tests/ff_shader_check_gpu.h"
 #include "tests/ff_shader_check_model.h"
 

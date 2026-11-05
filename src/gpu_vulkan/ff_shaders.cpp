@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the fixed-function emulation's GLSL generator (ff_shaders.h). The formulas are Direct3D 9's as its
 // documentation states them ("Mathematics of Lighting", "Fog Formulas", D3DTEXTUREOP, D3DTSS_TCI_, ps_1_1); where the
 // documentation leaves something open, the comment beside the code says what is assumed.
-#include "render_vulkan/ff_shaders.h"
+#include "gpu_vulkan/ff_shaders.h"
 
 #include <array>
 #include <cstddef>
@@ -13,8 +13,8 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/mesh_formats.h"
-#include "render_vulkan/ff_key.h"
-#include "render_vulkan/ff_uniforms.h"
+#include "gpu_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_uniforms.h"
 
 namespace render::vulkan {
 

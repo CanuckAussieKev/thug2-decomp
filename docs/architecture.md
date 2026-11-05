@@ -15,7 +15,7 @@ editor/  frontend/  devtools/   the level editor; the new front end and mouse me
 game/                       skating, the rider, goals, parks, saves, the online session (game/online)
 render_pc/                the graphics backend's API-neutral half: the original's PC platform layer over render::Gpu; only app/ includes it
 gpu_d3d9/                 Direct3D 9's Gpu, GpuContext and UiBackend, D3DX; only app/ includes it
-render_vulkan/              the Vulkan graphics backend (not drawing yet: design/vulkan.md); only app/ includes it
+gpu_vulkan/               Vulkan's Gpu and GpuContext (not drawing yet: design/vulkan.md); only app/ includes it
 audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
@@ -165,7 +165,7 @@ graph TD
     devtools[thug2_devtools]
     game[thug2_game]
     engine[thug2_engine]
-    backends["the backends, one library each:<br/>render_pc, gpu_d3d9, render_vulkan, audio_dsound,<br/>media_bink, input_dinput, fs_win32, net_winsock, script_qb"]
+    backends["the backends, one library each:<br/>render_pc, gpu_d3d9, gpu_vulkan, audio_dsound,<br/>media_bink, input_dinput, fs_win32, net_winsock, script_qb"]
     wire[thug2_wire]
     platform[thug2_platform]
     formats[thug2_formats]
@@ -209,7 +209,7 @@ backend alone).
 | `tools/layers.ts` (`layers.test.ts`) | The layer map `tools/layers.json`: each folder belongs to a library, and an include outside the library's `allowed` list fails unless it is in `tools/layers_baseline.txt` (a ratchet: it can only shrink, and is empty now). Every library but the app's is `strict`: no upward include, not even in the baseline. The editor's and the front end's `api` are explicit lists of the engine and game headers each may include; a header outside the list fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). |
 | `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
 | `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by `gpu_d3d9/` (Direct3D's own headers there); `render_pc/` includes none, nor any of `gpu_d3d9/`'s headers, and only `app/` picks `gpu_d3d9/`'s Gpu, GpuContext, UiBackend and `render_pc/`'s device; every other header holds the graphics handles. |
-| `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL2/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `render_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`); only `app/` includes the backend. |
+| `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL2/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `gpu_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`); only `app/` includes the backend. |
 | `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/`; the Bink wrapper only in `media_bink/`; only `app/` picks `audio::Device` and `media::Movie`. |
 | `tools/input_headers.test.ts` | `<dinput.h>` only in `input_dinput/`; SDL's input and the platform's keyboard only behind the SDL input source; only `app/` picks the sources. |
 | `tools/file_calls.test.ts` | The operating system's and the C runtime's file functions are called only in `fs_win32/`, `platform/` and `src/tests`; only `app/` installs the disk and adds the file sources. |
@@ -235,7 +235,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 
 | interface | declared in | implemented by | what it hides | other implementations |
 |---|---|---|---|---|
-| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_render_vulkan`, being written: [design/vulkan.md](design/vulkan.md)) |
+| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_gpu_vulkan`, being written: [design/vulkan.md](design/vulkan.md)) |
 | `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
 | `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoder (planned, for a 64-bit build) |
 | `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |

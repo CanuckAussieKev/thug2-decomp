@@ -109,12 +109,12 @@ FetchContent_Declare(lzham
     SOURCE_SUBDIR no-cmake) # sources only: the codec's own CMake files are for gcc
 FetchContent_MakeAvailable(lzham)
 
-# --- Vulkan (the Vulkan renderer, src/render_vulkan: docs/design/vulkan.md; see THIRD_PARTY_NOTICES.md) ----------
+# --- Vulkan (the Vulkan renderer, src/gpu_vulkan: docs/design/vulkan.md; see THIRD_PARTY_NOTICES.md) ----------
 # Fetched and pinned like the others; no Vulkan SDK is needed to build. The Vulkan loader is the system's
 # vulkan-1.dll (installed with every Vulkan driver), loaded at run time by volk: nothing links an import library, and
 # a machine without Vulkan still starts the exe. The SDK's validation layers are used when they are installed and asked
-# for (src/render_vulkan/vulkan_context.h).
-option(THUG2_VULKAN "Build the Vulkan renderer's library (src/render_vulkan) and its context check" ON)
+# for (src/gpu_vulkan/vulkan_context.h).
+option(THUG2_VULKAN "Build the Vulkan renderer's library (src/gpu_vulkan) and its context check" ON)
 if(THUG2_VULKAN)
     include(cmake/vulkan_libraries.cmake)
 endif()
@@ -205,7 +205,7 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # One static library per folder of src/, each in its folder's CMakeLists.txt, linking only the layers below it:
 #   thug2_base <- thug2_platform, thug2_formats <- thug2_wire;
 #   thug2_platform + thug2_wire <- thug2_engine <- thug2_game <- thug2_frontend, thug2_editor, thug2_devtools <- the exe (src/app);
-#   thug2_engine <- the backends: thug2_render_pc (graphics: the API-neutral PC platform layer) and thug2_gpu_d3d9 (its Direct3D 9 Gpu), thug2_render_vulkan (graphics, Vulkan: not drawing yet), thug2_audio_dsound (sound), thug2_media_bink (movies),
+#   thug2_engine <- the backends: thug2_render_pc (graphics: the API-neutral PC platform layer) and thug2_gpu_d3d9 (its Direct3D 9 Gpu), thug2_gpu_vulkan (graphics, Vulkan: not drawing yet), thug2_audio_dsound (sound), thug2_media_bink (movies),
 #   thug2_input_dinput (DirectInput), thug2_fs_win32 (files), thug2_net_winsock (sockets) - linked by the exe alone.
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -217,7 +217,7 @@ add_subdirectory(src/engine)
 add_subdirectory(src/render_pc)
 add_subdirectory(src/gpu_d3d9)
 if(THUG2_VULKAN)
-    add_subdirectory(src/render_vulkan)
+    add_subdirectory(src/gpu_vulkan)
 endif()
 add_subdirectory(src/audio_dsound)
 add_subdirectory(src/media_bink)

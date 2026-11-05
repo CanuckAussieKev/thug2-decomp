@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the Vulkan backend's context: instance, surface, device, swapchain and the frames (vulkan_context.h).
-#include "render_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_context.h"
 
 #include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_video.h>
@@ -18,7 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "render_vulkan/vulkan_loader.h"
+#include "gpu_vulkan/vulkan_loader.h"
 
 namespace render::vulkan {
 

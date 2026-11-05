@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
-#include "render_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_key.h"
 
 namespace ff_check {
 

@@ -1,5 +1,5 @@
 // NOT ORIGINAL - GLSL to SPIR-V through glslang, and the fixed-function emulation's shader library (glsl_compiler.h).
-#include "render_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/glsl_compiler.h"
 
 #include <SPIRV/GlslangToSpv.h>
 #include <cstdint>
@@ -11,8 +11,8 @@
 #include <string_view>
 #include <vector>
 
-#include "render_vulkan/ff_key.h"
-#include "render_vulkan/ff_shaders.h"
+#include "gpu_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_shaders.h"
 
 namespace render::vulkan {
 

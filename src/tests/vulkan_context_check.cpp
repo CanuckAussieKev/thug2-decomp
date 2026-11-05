@@ -1,4 +1,4 @@
-// NOT ORIGINAL - thug2_vulkan_context_check.exe: tries the Vulkan backend's context (render_vulkan/vulkan_context.h)
+// NOT ORIGINAL - thug2_vulkan_context_check.exe: tries the Vulkan backend's context (gpu_vulkan/vulkan_context.h)
 // on this machine. It opens an SDL window with a Vulkan surface, makes the instance (the validation layer on when it is
 // installed), picks a device, makes the device and the swapchain, clears and presents frames (resizing the window half
 // way, then minimising and restoring it, so the swapchain is made again), and shuts down. It prints what it found: the process's width, the loader's
@@ -27,8 +27,8 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/parse_number.h"
-#include "render_vulkan/vulkan_context.h"
-#include "render_vulkan/vulkan_loader.h"
+#include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_loader.h"
 
 namespace {
 

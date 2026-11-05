@@ -3,10 +3,10 @@
 #include <unordered_set>
 #include <vector>
 
-#include "render_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_key.h"
 
 // NOT ORIGINAL - the fixed-function shader check's model of the Direct3D 9 backend (ff_shader_check_model.cpp): the
-// keys (render_vulkan/ff_key.h) the backend's draws can make, read from src/render_pc by hand. Every place that
+// keys (gpu_vulkan/ff_key.h) the backend's draws can make, read from src/render_pc by hand. Every place that
 // draws is a "site" with the texture stage states it sets before drawing and after; Direct3D 9's stage states stay as
 // the last draw left them, so the states a site draws with are its own settings over any state the sites can leave
 // behind - the closure over every order of the sites, from the device's defaults. Each draw adds the vertex formats,

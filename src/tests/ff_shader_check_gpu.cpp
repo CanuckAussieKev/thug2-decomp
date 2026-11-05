@@ -16,10 +16,10 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
-#include "render_vulkan/ff_key.h"
-#include "render_vulkan/ff_uniforms.h"
-#include "render_vulkan/vulkan_context.h"
-#include "render_vulkan/vulkan_loader.h"
+#include "gpu_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_uniforms.h"
+#include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_loader.h"
 
 namespace ff_check {
 

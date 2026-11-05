@@ -3,11 +3,11 @@
 #include <cstdint>
 #include <vector>
 
-#include "render_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_key.h"
 
 // NOT ORIGINAL - the fixed-function shader check's GPU part (ff_shader_check_gpu.cpp): every compiled module handed to
 // a Vulkan driver (vkCreateShaderModule), and a graphics pipeline made for each sampled pair of shaders - the vertex
-// format's attributes, the uniform blocks' and textures' descriptor layout of render_vulkan/ff_uniforms.h, a colour and
+// format's attributes, the uniform blocks' and textures' descriptor layout of gpu_vulkan/ff_uniforms.h, a colour and
 // depth render pass - so the driver compiles each pair and checks that the two halves' interfaces agree.
 namespace ff_check {
 

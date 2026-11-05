@@ -1,4 +1,4 @@
-# The libraries of the Vulkan renderer (src/render_vulkan; docs/design/vulkan.md "Libraries"), fetched at configure
+# The libraries of the Vulkan renderer (src/gpu_vulkan; docs/design/vulkan.md "Libraries"), fetched at configure
 # time and checked against their SHA-256, as the other fetched code is (THIRD_PARTY_NOTICES.md). Only the standard
 # Vulkan API and portable C / C++: nothing here needs MSVC.
 include(FetchContent)
@@ -43,7 +43,7 @@ target_link_libraries(vulkan_memory_allocator INTERFACE vulkan_headers)
 
 # glslang (The Khronos Group and contributors; BSD-3-Clause, BSD-2-Clause, MIT, Apache-2.0 - THIRD_PARTY_NOTICES.md),
 # the Vulkan SDK 1.4.304 release: the GLSL -> SPIR-V compiler the fixed-function emulation's shaders are compiled with
-# at run time (src/render_vulkan/glsl_compiler.h). Only its library: no HLSL front end, no optimiser (SPIRV-Tools), no
+# at run time (src/gpu_vulkan/glsl_compiler.h). Only its library: no HLSL front end, no optimiser (SPIRV-Tools), no
 # programs, no install, no tests. Its build_info.h is made by CMake's configure_file (no Python needed).
 set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
 set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
