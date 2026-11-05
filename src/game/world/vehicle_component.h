@@ -327,10 +327,10 @@ public:
     [[nodiscard]] float wheelbase() const { return wheelbase_; }
     [[nodiscard]] float track() const { return track_; }
     [[nodiscard]] const std::vector<Wheel>& get_wheels() const { return wheels_; }
-    [[nodiscard]] bool throttle() const { return throttle_; }
-    [[nodiscard]] bool brake() const { return brake_; }
-    [[nodiscard]] bool get_handbrake() const { return handbrake_; }
-    [[nodiscard]] bool get_reverse() const { return reverse_; }
+    [[nodiscard]] bool throttle() const { return controls_.throttle; }
+    [[nodiscard]] bool brake() const { return controls_.brake; }
+    [[nodiscard]] bool get_handbrake() const { return controls_.handbrake; }
+    [[nodiscard]] bool get_reverse() const { return controls_.reverse; }
     [[nodiscard]] uint32_t sounds_name() const { return sounds_name_; }
     [[nodiscard]] float air_time() const { return air_time_; }
     [[nodiscard]] float collision_impulse() const { return collision_impulse_; }
@@ -342,6 +342,17 @@ private:
     // (Part of 0x00438BB0, collide: a collider's face against the world - where it crosses the world's faces, and
     // lines from the body's position to its four corners - as contacts; false when a trigger interrupted it.)
     bool gather_contacts(const Collider& collider, render::BoxProbe& rect, render::ProbeRay& feeler);
+
+    // The component's state in parts: records of its fields at their places in the original's layout (+0x.. the
+    // offset in the record, then in the component; check_layout checks them all).
+    // The controls this frame (+0x304-+0x30B: read_controls, from the input component; or none when passive).
+    struct Controls {
+        float steering{}; // +0x00 (+0x304) -1 (left) .. 1 (right), squared with its sign
+        bool throttle{};  // +0x04 (+0x308)
+        bool brake{};     // +0x05 (+0x309)
+        bool handbrake{}; // +0x06 (+0x30A)
+        bool reverse{};   // +0x07 (+0x30B)
+    };
 
     maths::Vec4 at_point_{};        // +0x18 the centre of mass (world)
     maths::Vec4 linear_momentum_{}; // +0x28 linear momentum
@@ -397,11 +408,7 @@ private:
     float reverse_ratio_{};                  // +0x2F8 reverse_torque_ratio
     float final_drive_ratio_{};              // +0x2FC differential_ratio
     float upshift_speed_{};                  // +0x300 upshift_rpm (rpm -> radians a second)
-    float steering_{};                       // +0x304 the input: -1 (left) .. 1 (right), squared with its sign
-    bool throttle_{};                        // +0x308
-    bool brake_{};                           // +0x309
-    bool handbrake_{};                       // +0x30A
-    bool reverse_{};                         // +0x30B
+    Controls controls_;                      // +0x304-+0x30B the controls this frame
     render::HitMeshCache contact_memo_;    // +0x30C the feelers' collision cache
     bool rider_shown_{};                   // +0x12D8 (0x2ED67657) a skater is shown driving
     maths::Vec4 skater_pos_{};             // +0x12DC skater_pos (made relative to the centre of mass by Finalize)

@@ -157,9 +157,9 @@ void DrivableModule::update_wheel_rotations()
 // 0x00435250
 double DrivableModule::get_tyre_friction(Wheel* wheel, float slip) const
 {
-    if (handbrake_) {
+    if (controls_.handbrake) {
         double friction = 0.0;
-        if (throttle_) {
+        if (controls_.throttle) {
             friction = wheel->parking_grip_powered_;
             wheel->state = DrivableModule::WheelState::kHandbrakeThrottle;
         } else {
@@ -172,7 +172,7 @@ double DrivableModule::get_tyre_friction(Wheel* wheel, float slip) const
         }
         return friction;
     }
-    const double scale = brake_ ? 2.0 : 1.0; // (0x00645448 / 0x006453A8)
+    const double scale = controls_.brake ? 2.0 : 1.0; // (0x00645448 / 0x006453A8)
     if (slip < wheel->min_static_grip_vel_) {
         wheel->state = DrivableModule::WheelState::kStaticSlow;
         return static_cast<double>(wheel->static_friction_) / wheel->min_static_grip_vel_ * slip;
@@ -843,17 +843,17 @@ void DrivableModule::tick_frame()
     if (!passive_) {
         read_controls();
     } else {
-        brake_ = false;
-        handbrake_ = false;
-        throttle_ = false;
-        reverse_ = false;
-        steering_ = 0.0F;
+        controls_.brake = false;
+        controls_.handbrake = false;
+        controls_.throttle = false;
+        controls_.reverse = false;
+        controls_.steering = 0.0F;
     }
     if (awake_ == 0) {
         // Asleep: only the steering, the wheels' roll (stopped by the brake), the model and the skater.
         entity()->display_matrix() = entity()->basis_frame();
         update_steering();
-        if (brake_) {
+        if (controls_.brake) {
             for (int i = wheel_count_ - 1; i >= 0; --i) {
                 core::at(wheels_, i).spin = 0.0F;
             }
@@ -1278,11 +1278,11 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, reverse_ratio_), .original = 0x2F8, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, final_drive_ratio_), .original = 0x2FC, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, upshift_speed_), .original = 0x300, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, steering_), .original = 0x304, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, throttle_), .original = 0x308, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, brake_), .original = 0x309, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, handbrake_), .original = 0x30A, .larger_by = kVectorExtra},
-        FieldAt{.now = offsetof(DrivableModule, reverse_), .original = 0x30B, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, controls_.steering), .original = 0x304, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, controls_.throttle), .original = 0x308, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, controls_.brake), .original = 0x309, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, controls_.handbrake), .original = 0x30A, .larger_by = kVectorExtra},
+        FieldAt{.now = offsetof(DrivableModule, controls_.reverse), .original = 0x30B, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, contact_memo_), .original = 0x30C, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, rider_shown_), .original = 0x12D8, .larger_by = kVectorExtra},
         FieldAt{.now = offsetof(DrivableModule, skater_pos_), .original = 0x12DC, .larger_by = kVectorExtra},

@@ -202,13 +202,14 @@ void DrivableModule::update_steering()
 {
     const double previous = display_steering_;
     auto display = static_cast<float>(
-        ((static_cast<double>(steering_) - previous) * (static_cast<double>(step_length_) * kSteeringRate)) + previous);
+        ((static_cast<double>(controls_.steering) - previous) * (static_cast<double>(step_length_) * kSteeringRate)) +
+        previous);
     display_steering_ = display;
     float inner = 0.0F;
     float display_inner = 0.0F;
     double outer = 0.0;
     double display_outer = 0.0;
-    steering_angles(this, steering_, &inner, &outer);
+    steering_angles(this, controls_.steering, &inner, &outer);
     steering_angles(this, display, &display_inner, &display_outer);
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
@@ -223,10 +224,10 @@ void DrivableModule::update_steering()
 // 0x004360C0
 void DrivableModule::apply_damping()
 {
-    if (handbrake_ && static_cast<uint32_t>(wheels_in_contact_) > 2) {
+    if (controls_.handbrake && static_cast<uint32_t>(wheels_in_contact_) > 2) {
         return;
     }
-    if (!throttle_ && !(steering_ == 0.0F) && static_cast<uint32_t>(wheels_in_contact_) > 2) {
+    if (!controls_.throttle && !(controls_.steering == 0.0F) && static_cast<uint32_t>(wheels_in_contact_) > 2) {
         return;
     }
     if (kick_time_ > 0.0F) {
@@ -252,7 +253,8 @@ void DrivableModule::apply_damping()
         rotmom_.w = static_cast<float>(static_cast<double>(rotmom_.w) - dw);
     }
     // Upright on three or more wheels and not steering: the turning about up damped towards 0.
-    if (steering_ == 0.0F && static_cast<uint32_t>(wheels_in_contact_) > 2 && core::at(basis_frame_.row, 1).y > kHalf) {
+    if (controls_.steering == 0.0F && static_cast<uint32_t>(wheels_in_contact_) > 2 &&
+        core::at(basis_frame_.row, 1).y > kHalf) {
         double yaw = static_cast<double>(yaw_damping_) * step_length_;
         if (std::fabs(static_cast<double>(rotmom_.y)) < std::fabs(yaw)) {
             rotmom_.y = 0.0F;
@@ -403,7 +405,7 @@ void DrivableModule::apply_tyre_forces()
 // 0x004367E0
 void DrivableModule::apply_engine_braking()
 {
-    if (throttle_ || reverse_ || brake_) {
+    if (controls_.throttle || controls_.reverse || controls_.brake) {
         return;
     }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -429,16 +431,16 @@ void DrivableModule::apply_drive_torque()
     // Less drive on a slope (up.y squared / 0.9, at most 1).
     const double upright = static_cast<double>(core::at(basis_frame_.row, 1).y) * core::at(basis_frame_.row, 1).y * kUprightBoost;
     const float grip = upright > 1.0 ? 1.0F : static_cast<float>(upright);
-    if (!(throttle_ || reverse_) || brake_) {
+    if (!(controls_.throttle || controls_.reverse) || controls_.brake) {
         return;
     }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        if (!wheel.drive || (handbrake_ && wheel.steering_side_ != 0)) {
+        if (!wheel.drive || (controls_.handbrake && wheel.steering_side_ != 0)) {
             continue;
         }
         float spin = 0.0F;
-        if (!reverse_) {
+        if (!controls_.reverse) {
             spin = wheel.spin > 0.0F ? wheel.spin : 0.0F;
         } else {
             spin = wheel.spin < 0.0F ? -wheel.spin : 0.0F;
@@ -446,10 +448,10 @@ void DrivableModule::apply_drive_torque()
         const int gear = get_gear(spin);
         double torque = static_cast<double>(core::at(transmission_ratios_, gear)) * final_drive_ratio_ * engine_torque_ /
                         as_unsigned(drive_wheel_count_) * grip;
-        if (reverse_) {
+        if (controls_.reverse) {
             torque = -(torque * reverse_ratio_);
         }
-        if (handbrake_ && drive_wheel_count_ == 4) {
+        if (controls_.handbrake && drive_wheel_count_ == 4) {
             torque = torque + torque;
         }
         spin_wheel(wheel, torque * wheel.inv_moment_, step_length_);
@@ -459,7 +461,7 @@ void DrivableModule::apply_drive_torque()
 // 0x00436A90
 void DrivableModule::apply_brakes()
 {
-    if (!brake_) {
+    if (!controls_.brake) {
         return;
     }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -502,7 +504,7 @@ void DrivableModule::apply_handbrake(float scale)
 // 0x00436C20
 void DrivableModule::apply_brake_excess()
 {
-    if (!brake_) {
+    if (!controls_.brake) {
         return;
     }
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -543,7 +545,7 @@ void DrivableModule::apply_wheel_forces()
     apply_gravity();
     apply_suspension();
     update_wheel_friction();
-    if (!handbrake_) {
+    if (!controls_.handbrake) {
         apply_drive_torque();
         apply_engine_braking();
         apply_brakes();
@@ -551,9 +553,9 @@ void DrivableModule::apply_wheel_forces()
         apply_brake_excess();
         return;
     }
-    if (throttle_) {
+    if (controls_.throttle) {
         apply_drive_torque();
-        apply_handbrake(static_cast<float>(1.0 - std::fabs(static_cast<double>(steering_))));
+        apply_handbrake(static_cast<float>(1.0 - std::fabs(static_cast<double>(controls_.steering))));
         apply_tyre_forces();
         apply_brake_excess();
         return;
@@ -758,10 +760,10 @@ void DrivableModule::check_sleep()
 {
     const int still = still_frames_;
     still_frames_ = 0;
-    if (throttle_) {
+    if (controls_.throttle) {
         return;
     }
-    if (reverse_ && wheels_in_contact_ != 0) {
+    if (controls_.reverse && wheels_in_contact_ != 0) {
         return;
     }
     if (static_cast<uint32_t>(wheels_in_contact_ + contact_count_) < 3) {
@@ -806,18 +808,18 @@ void DrivableModule::read_controls()
     // The stick squared (its sign kept); else the d-pad's left / right.
     const float stick = core::at(input.scaled_stick(), 2);
     const double steering = std::fabs(static_cast<double>(stick)) * stick;
-    steering_ = static_cast<float>(steering);
+    controls_.steering = static_cast<float>(steering);
     if (steering == 0.0) {
         const bool left = input.left_side().held_down() != 0;
         const bool right = input.right_side().held_down() != 0;
         if (left && !right) {
-            steering_ = -1.0F;
+            controls_.steering = -1.0F;
         } else if (!left && right) {
-            steering_ = 1.0F;
+            controls_.steering = 1.0F;
         }
     }
-    throttle_ = input.pos_x().held_down() != 0;
-    handbrake_ = input.shoulder_right_a().held_down() != 0 && !handbrake_disabled_;
+    controls_.throttle = input.pos_x().held_down() != 0;
+    controls_.handbrake = input.shoulder_right_a().held_down() != 0 && !handbrake_disabled_;
     // The brake button: braking while moving forward, else reversing; with Exitable, the other button too, which
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
     bool pressed = false;
@@ -833,36 +835,36 @@ void DrivableModule::read_controls()
     if (pressed) {
         bool brake = false;
         const maths::Vec4& at = core::at(basis_frame_.row, 2);
-        if (!reverse_ && (!(((static_cast<double>(vel_.z) * at.z) + (static_cast<double>(vel_.y) * at.y)) +
-                                (static_cast<double>(at.x) * vel_.x) <
-                            kReverseSpeed) ||
-                          wheels_in_contact_ == 0)) {
+        if (!controls_.reverse && (!(((static_cast<double>(vel_.z) * at.z) + (static_cast<double>(vel_.y) * at.y)) +
+                                         (static_cast<double>(at.x) * vel_.x) <
+                                     kReverseSpeed) ||
+                                   wheels_in_contact_ == 0)) {
             brake = true;
         } else {
             brake = !(awake_ != 0 || wheels_in_contact_ != 0);
         }
-        brake_ = brake;
-        reverse_ = !brake;
+        controls_.brake = brake;
+        controls_.reverse = !brake;
         if (other) {
             const double forward = ((static_cast<double>(vel_.z) * at.z) + (static_cast<double>(vel_.y) * at.y)) +
                                    (static_cast<double>(vel_.x) * at.x);
             if (forward < 0.0) {
-                brake_ = true;
-                reverse_ = false;
+                controls_.brake = true;
+                controls_.reverse = false;
             }
             if (std::fabs(forward) < kStoppedSpeed) {
                 entity()->announce(kExitVehicleRequest, nullptr, 0.0F);
             }
         }
     } else {
-        reverse_ = false;
-        brake_ = false;
+        controls_.reverse = false;
+        controls_.brake = false;
     }
     if (handbrake_active_) {
-        brake_ = true;
-        reverse_ = false;
+        controls_.brake = true;
+        controls_.reverse = false;
     }
-    if (awake_ == 0 && (throttle_ || reverse_)) {
+    if (awake_ == 0 && (controls_.throttle || controls_.reverse)) {
         awake_ = 1;
         still_frames_ = 0;
     }

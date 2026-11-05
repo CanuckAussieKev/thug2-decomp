@@ -312,7 +312,7 @@ void DrivableModule::update_righting()
     const bool stuck = ((vx * vx) + (vy * vy)) + (vz * vz) < kRightingSpeed &&
                        ((sx * sx) + (sy * sy)) + (sz * sz) < kRightingSpin && collision_impulse_ > 0.0F &&
                        core::at(basis_frame_.row, 1).y < kRightingTilt &&
-                       (wheels_in_contact_ == 0 || core::at(basis_frame_.row, 1).y < 0.0F) && throttle_;
+                       (wheels_in_contact_ == 0 || core::at(basis_frame_.row, 1).y < 0.0F) && controls_.throttle;
     if (!righting_) {
         if (!stuck) {
             return;
@@ -732,7 +732,7 @@ void DrivableModule::collide()
     }
 
     // Steering against a wall: a push along it, by how much the wall faces the vehicle's front.
-    if (steering_ == 0.0F || static_cast<uint32_t>(wheels_in_contact_) < 3 || handbrake_) {
+    if (controls_.steering == 0.0F || static_cast<uint32_t>(wheels_in_contact_) < 3 || controls_.handbrake) {
         return;
     }
     for (int contact_index = contact_count_ - 1; contact_index >= 0; --contact_index) {
@@ -746,7 +746,7 @@ void DrivableModule::collide()
         auto strength =
             static_cast<float>((((static_cast<double>(at.x) * nrm.x) + (static_cast<double>(at.z) * nrm.z)) +
                                 (static_cast<double>(nrm.y) * at.y)) *
-                               contact.impulse * wall_steering_ * steering_);
+                               contact.impulse * wall_steering_ * controls_.steering);
         const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(strength) * -nrm.z),
                                .y = static_cast<float>(static_cast<double>(strength) * 0.0F),
                                .z = static_cast<float>(static_cast<double>(strength) * nrm.x),
