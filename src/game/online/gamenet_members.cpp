@@ -19,6 +19,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_managers.h"
 #include "game/online/hub_settings.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -266,7 +267,7 @@ void Hub::destroy_server()
     net::Hub* net = net::Hub::sole();
     if (host_) {
         if (!host_->is_host_local() && ((flag_bits_ & kFlagsInternet) != 0U)) {
-            lobby_service_->stop_hosting();    // the lobby's reporting stopped
+            managers_.lobby_service()->stop_hosting(); // the lobby's reporting stopped
             game_spy::nat_free_negotiations(); // (GameSpy)
         }
         net->release_app(host_);
@@ -478,10 +479,7 @@ Hub::~Hub()
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed (each while the hub still
     // points at it).
-    memory::destroy_then_clear(lobby_service_);
-    memory::destroy_then_clear(vault_man_);
-    memory::destroy_then_clear(presence_service_);
-    memory::destroy_then_clear(rating_service_);
+    managers_.destroy_all();
     // The tasks, in the original's order.
     tasks_.delete_at_shutdown();
     // The lists: the players' nodes unlinked, then each head's destructor.
@@ -492,6 +490,15 @@ Hub::~Hub()
     roster_.joiners().uncouple();
     roster_.players().uncouple();
     settings_.destroy();
+}
+
+// NOT ORIGINAL (the hub's destructor destroys them in its body, 0x00536D70)
+void ServiceManagers::destroy_all()
+{
+    memory::destroy_then_clear(lobby_service_);
+    memory::destroy_then_clear(vault_man_);
+    memory::destroy_then_clear(presence_service_);
+    memory::destroy_then_clear(rating_service_);
 }
 
 // NOT ORIGINAL (the original's destructor deletes them in its body, 0x00536D70)

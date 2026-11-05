@@ -94,7 +94,7 @@ uint32_t& last_flag_base_warning()
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
-bool in_group_room(Hub* manager) { return manager->lobby_service()->in_group_room(); }
+bool in_group_room(Hub* manager) { return manager->managers().lobby_service()->in_group_room(); }
 
 // A message for the server through client 0, sequenced in the game's group.
 void send_request(Hub* manager, MessageId id, void* data, uint16_t length)
@@ -167,7 +167,7 @@ bool cfunc_get_num_teams(Struct* /*params*/, Context context)
 // 0x00535EB0: ConnectedToPeer - the lobby has a GameSpy peer, connected (peerIsConnected).
 bool cfunc_connected_to_peer(Struct* /*params*/, Context /*context*/)
 {
-    void* peer = net_game_state().online_hub()->lobby_service()->get_lobby_handle();
+    void* peer = net_game_state().online_hub()->managers().lobby_service()->get_lobby_handle();
     return (peer != nullptr) && (game_spy::peer_is_connected(peer) != 0);
 }
 

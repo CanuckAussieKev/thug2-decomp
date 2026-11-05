@@ -110,7 +110,7 @@ uint32_t& login_start()
     return stats_login_start;
 }
 
-RankingsManager* get_attributes() { return net_game_state().online_hub()->rating_service().get(); }
+RankingsManager* get_attributes() { return net_game_state().online_hub()->managers().rating_service().get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap()); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap()); }
@@ -853,13 +853,13 @@ bool retrieve_personal_stats(script::Struct* /*params*/, script::Context /*conte
     const Hub* manager = net_game_state().online_hub();
     const void* callback = code_address(&core::gathered<RankingsManager::PersistReply, &RankingsManager::on_personal_stats, void, int,
                                                        int, int, int, int, uint32_t, char*, int, void*>);
-    int profile = manager->presence_service()->account();
+    int profile = manager->managers().presence_service()->account();
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)
-        profile = manager->presence_service()->account();
+        profile = manager->managers().presence_service()->account();
         get_persist_data_values(0, profile, 2, index, "\\THUG2HighScore\\THUG2HighCombo", callback, nullptr);
     }
-    manager->rating_service()->set_cur_phase(RankingsManager::State::kGettingStats);
+    manager->managers().rating_service()->set_cur_phase(RankingsManager::State::kGettingStats);
     return true;
 }
 

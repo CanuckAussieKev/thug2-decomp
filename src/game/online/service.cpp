@@ -226,15 +226,15 @@ void service_task(tasks::Task<online::Hub>* task)
         break;
     case online::ServiceState::kLobbyListStart:
         launch_script(kCreateGettingLobbyListDialog);
-        manager->lobby_service().get()->clear_lobbies();
-        manager->lobby_service().get()->start_listing_games();
+        manager->managers().lobby_service().get()->clear_lobbies();
+        manager->managers().lobby_service().get()->start_listing_games();
         break;
     case online::ServiceState::kLobbyListIdle:
         manager->service().assign_service_state(online::ServiceState::kWaiting);
         manager->service().set_service_wake_at(0);
         break;
     case online::ServiceState::kLobbyListCheck: // the lobby list: empty or not
-        if (!manager->lobby_service().get()->get_lobby(0)) {
+        if (!manager->managers().lobby_service().get()->get_lobby(0)) {
             show_no_servers();
             get_finish(manager);
         } else {
@@ -243,12 +243,12 @@ void service_task(tasks::Task<online::Hub>* task)
         freeze_stream(0);
         break;
     case online::ServiceState::kLobbyListEmpty:
-        manager->lobby_service().get()->clear_lobbies();
+        manager->managers().lobby_service().get()->clear_lobbies();
         show_no_servers();
         get_finish(manager);
         break;
     case online::ServiceState::kLobbyListShow:
-        manager->lobby_service().get()->populate_room_list();
+        manager->managers().lobby_service().get()->populate_room_list();
         get_finish(manager);
         break;
     default: // 1, 2: nothing to do

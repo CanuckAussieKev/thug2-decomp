@@ -59,7 +59,7 @@ const char* stats_file(int index)
 bool retrieve_top_stats(script::Struct* params, script::Context /*context*/)
 {
     const online::Hub* manager = online::net_game_state().online_hub();
-    online::RankingsManager* stats = manager->rating_service().get();
+    online::RankingsManager* stats = manager->managers().rating_service().get();
     int& current = stats->top_file();
     int index = 0;
     if (params->fetch_int_value(kFILE, &index, 0)) {

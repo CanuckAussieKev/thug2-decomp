@@ -168,7 +168,7 @@ int32_t get_rating(Hub* hub)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
     // single::PointerMember::get_pull)
-    return hub->rating_service()->get_personal_stats()->skill_points_;
+    return hub->managers().rating_service()->get_personal_stats()->skill_points_;
 }
 
 const char* preference_text(Hub* hub, uint32_t name)
@@ -412,7 +412,7 @@ void Hub::join_server(net::Address address, int index)
         get_logic_tasks()->queue_job(tasks_.join_phase_job().get());
         join_.set_entry_port(port);
         join_.set_join_ip(ip);
-        info.rank = static_cast<int8_t>(rating_service_->get_rank());
+        info.rank = static_cast<int8_t>(managers_.rating_service()->get_rank());
     }
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
@@ -454,7 +454,7 @@ void Hub::retry_entry(AppHost* client)
     core::at(info.password, 0) = '\0';
     info.broadband = net::Hub::sole()->get_net_link_kind() != kConnectionTypeModem;
     if (in_internet_mode()) {
-        info.rank = static_cast<int8_t>(rating_service_->get_rank());
+        info.rank = static_cast<int8_t>(managers_.rating_service()->get_rank());
     }
     thugpro::ConnectRequest request{};
     send_connection_request(as_client(client), info, &request);
@@ -472,7 +472,7 @@ void Hub::retry_entry_with_key(const char* password)
     (void)name;
     ConnectInfo info{};
     std::memset(&info, 0, sizeof(info));
-    info.rank = static_cast<int8_t>(rating_service_->get_rank());
+    info.rank = static_cast<int8_t>(managers_.rating_service()->get_rank());
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
     info.can_queue_up_ = true;
@@ -779,15 +779,16 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         manager->join_.set_join_ip(proceed->public_ip_);
         manager->join_.set_join_private_ip(proceed->private_ip_);
         manager->join_.set_entry_port(proceed->port);
-        if (manager->presence_service_->authenticated()) {
-            text::copy_cut(manager->lobby_service_->server_name(), proceed->server_name_.data());
+        if (manager->managers_.presence_service()->authenticated()) {
+            text::copy_cut(manager->managers_.lobby_service()->server_name(), proceed->server_name_.data());
             constexpr size_t kLocationSize = 0x1000;
             std::array<char, kLocationSize> location{};
             get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_.get_join_ip(),
                         manager->join_.get_join_private_ip(), manager->join_.get_entry_port(),
-                        manager->lobby_service_->server_name().data(), manager->lobby_service_->room_name().data());
+                        manager->managers_.lobby_service()->server_name().data(),
+                        manager->managers_.lobby_service()->room_name().data());
             const char* status = script::fetch_text(manager->join_mode_ == 0 ? kStatusPlaying : kStatusObserving);
-            manager->presence_service_->change_standing(2, status, location.data());
+            manager->managers_.presence_service()->change_standing(2, status, location.data());
         }
     }
     set_maximum_players(proceed->max_players_);
@@ -795,8 +796,8 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     JoinRequestBlock* info = &join_scratch(); // (the original's is on its stack: 4 KB)
     std::memset(static_cast<JoinRequestHeader*>(info), 0, sizeof(JoinRequestHeader));
     // NOT ORIGINAL: in the THUGPRO peer mode the profile is our machine id, as THUGPRO's client sends it (TP-R12).
-    info->profile =
-        thugpro::peer_mode() ? static_cast<int32_t>(thugpro::get_machine_id()) : manager->presence_service_->account();
+    info->profile = thugpro::peer_mode() ? static_cast<int32_t>(thugpro::get_machine_id())
+                                         : manager->managers_.presence_service()->account();
     info->rating = get_rating(manager);
     info->observer = manager->join_mode_ == kJoinModeObserve;
     info->version = kVersion;
@@ -876,7 +877,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         text::copy_into(info.cd_key_response_, response.data());
         const char* name = nullptr; // (not used)
         manager->settings_.net_options().fetch_setting(kNetworkId)->fetch_text(kUiStringText.data(), &name, 1);
-        info.rank = static_cast<int8_t>(manager->rating_service_->get_rank());
+        info.rank = static_cast<int8_t>(manager->managers_.rating_service()->get_rank());
         info.observer = manager->join_mode_ == kJoinModeObserve;
         info.version = kVersion;
         info.can_queue_up_ = true;

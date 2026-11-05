@@ -258,7 +258,7 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
 void RoomManager::public_address_callback(void* /*unused*/, uint32_t ip, uint16_t port, void* param)
 {
     Hub* manager = net_game_state().online_hub();
-    FriendsManager* buddy = manager->presence_service().get();
+    FriendsManager* buddy = manager->managers().presence_service().get();
     if (!manager->get_on_server()) {
         return;
     }
@@ -409,7 +409,7 @@ void RoomManager::nat_negotiation_completed(int result, int /*unused*/, const vo
         auto port = static_cast<uint16_t>(port_high << kByteBits | port_low); // (ntohs)
         manager->join_server({.ip = ip, .port = port}, 0);
     }
-    auto* lobby = manager->lobby_service().get();
+    auto* lobby = manager->managers().lobby_service().get();
     if (manager->get_on_server()) {
         if (--lobby->negotiations_ == 0) {
             lobby->nat_task_->drop_out();
@@ -456,7 +456,8 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     auto nick_error = &RoomManager::get_nick_error_callback;
     auto connected = &RoomManager::get_connect_callback;
     game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick.data()),
-                           manager->presence_service()->account() /* its profile */, nick_error, connected, lobby_data,
+                           manager->managers().presence_service()->account() /* its profile */, nick_error, connected,
+                           lobby_data,
                            0); // peer connect (not blocking)
     memory::Hub::get_pull()->leave_heap_scope();
     return 0;
@@ -467,7 +468,7 @@ void RoomManager::hole_punch_result_fn(void* /*unused*/, int cookie, void* /*unu
 {
     tasks::PileUp* tasks = get_logic_tasks();
     const Hub* manager = net_game_state().online_hub();
-    if (manager->lobby_service()->negotiations_ != 0) {
+    if (manager->managers().lobby_service()->negotiations_ != 0) {
         return; // (one at a time)
     }
     const net::AppHost* server = manager->host();
@@ -479,7 +480,7 @@ void RoomManager::hole_punch_result_fn(void* /*unused*/, int cookie, void* /*unu
         pop_heap();
         return;
     }
-    auto* lobby = manager->lobby_service().get();
+    auto* lobby = manager->managers().lobby_service().get();
     if (lobby->negotiations_ == 0) {
         tasks->queue_job(lobby->nat_task_.get());
     }

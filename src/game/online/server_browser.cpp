@@ -273,8 +273,8 @@ bool cfunc_choose_server(script::Struct* params, script::Context context)
         manager->tasks().join_phase_job()->drop_out();
         get_run(kJoinRefusedDialog, reply.get());
     } else {
-        if (manager->presence_service()->authenticated()) { // (0x005480B0: logged in to presence)
-            manager->lobby_service()->change_host_name(server->label().data());
+        if (manager->managers().presence_service()->authenticated()) { // (0x005480B0: logged in to presence)
+            manager->managers().lobby_service()->change_host_name(server->label().data());
         }
         const char* ip = net::transport().address_text(server->remote_ip());
         if (!server->can_reach()) {
@@ -307,7 +307,8 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Context context)
         return true;
     }
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
-    game_spy::peer_update_game(manager->lobby_service().get()->remote(), server->sb_server(), 1); // (the game's details updated)
+    game_spy::peer_update_game(manager->managers().lobby_service().get()->remote(), server->sb_server(),
+                               1); // (the game's details updated)
     ram_stats()->leave_heap_scope();
     return false;
 }
@@ -381,7 +382,11 @@ void listing_games_callback(const GamesListing& listing)
     (void)staging;
     (void)progress;
     if (success == 0) {
-        net_game_state().online_hub()->lobby_service()->set_lost_connection(); // (the lobby told the listing failed)
+        net_game_state()
+            .online_hub()
+            ->managers()
+            .lobby_service()
+            ->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {

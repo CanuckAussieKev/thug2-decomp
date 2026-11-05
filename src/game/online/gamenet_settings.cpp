@@ -432,8 +432,8 @@ const char* Hub::get_game_type_name()
 void Hub::change_arena(uint32_t level)
 {
     level_ = level;
-    void* peer = lobby_service_->get_lobby_handle();
-    if (peer && (game_spy::peer_is_connected(peer) != 0) && lobby_service_->is_hosting()) {
+    void* peer = managers_.lobby_service()->get_lobby_handle();
+    if (peer && (game_spy::peer_is_connected(peer) != 0) && managers_.lobby_service()->is_hosting()) {
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     }
     // (cleared just before it's tested: the reporting's state-changed call below never happens)

@@ -12,6 +12,7 @@
 #include "game/online/service.h"
 #include "game/online/hub_created_goals.h"
 #include "game/online/hub_join.h"
+#include "game/online/hub_managers.h"
 #include "game/online/hub_news.h"
 #include "game/online/hub_online_service.h"
 #include "game/online/hub_roster.h"
@@ -533,14 +534,6 @@ public:
     [[nodiscard]] uint8_t flag_bits() const { return flag_bits_; }
     [[nodiscard]] net::AppHost* host() const { return host_; }
     [[nodiscard]] net::AppHost* client_app() const { return client_app_; }
-    memory::HeapUnique<RoomManager>& lobby_service() { return lobby_service_; }
-    [[nodiscard]] const memory::HeapUnique<RoomManager>& lobby_service() const { return lobby_service_; }
-    memory::HeapUnique<VaultMan>& vault_man() { return vault_man_; }
-    [[nodiscard]] const memory::HeapUnique<VaultMan>& vault_man() const { return vault_man_; }
-    memory::HeapUnique<FriendsManager>& presence_service() { return presence_service_; }
-    [[nodiscard]] const memory::HeapUnique<FriendsManager>& presence_service() const { return presence_service_; }
-    memory::HeapUnique<RankingsManager>& rating_service() { return rating_service_; }
-    [[nodiscard]] const memory::HeapUnique<RankingsManager>& rating_service() const { return rating_service_; }
     [[nodiscard]] uint32_t level() const { return level_; }
     void set_level(uint32_t value) { level_ = value; }
     void set_match_ended(bool value) { match_ended_ = value; }
@@ -555,6 +548,9 @@ public:
     void set_crown(objects::CrownObject* value) { crown_ = value; }
     std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4>& team_objects() { return team_objects_; }
     [[nodiscard]] const std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4>& team_objects() const { return team_objects_; }
+    // The online services' managers (the lobby, the vault, the presence, the stats).
+    ServiceManagers& managers() { return managers_; }
+    [[nodiscard]] const ServiceManagers& managers() const { return managers_; }
     // The hub's fifteen tasks.
     HubTasks& tasks() { return tasks_; }
     [[nodiscard]] const HubTasks& tasks() const { return tasks_; }
@@ -604,10 +600,7 @@ private:
     net::AppHost* host_{nullptr};                         // +0x04
     net::AppHost* client_app_{nullptr};                   // +0x08 client 0 (the game's)
     net::AppHost* client1_{nullptr};                      // +0x0C client 1
-    memory::HeapUnique<RoomManager> lobby_service_;       // +0x10 the GameSpy lobby
-    memory::HeapUnique<VaultMan> vault_man_;              // +0x14 the content vault and HTTP transfers
-    memory::HeapUnique<FriendsManager> presence_service_; // +0x18 the GameSpy presence
-    memory::HeapUnique<RankingsManager> rating_service_;  // +0x1C the player's rating and stats
+    ServiceManagers managers_; // +0x10-+0x1C the lobby, the vault, the presence and the stats
     std::array<char, kHubChallengeSize> challenge_{};                                // +0x20 the host's CD-key challenge
     net::AppHost* browser_client_{nullptr};                                          // +0x2C the server list's client
     uint32_t game_type_{};        // +0x30 the game_type preference's checksum when the game started

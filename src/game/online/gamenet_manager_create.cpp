@@ -21,6 +21,7 @@
 #include "game/online/gamenet_manager.h"
 #include "game/online/hub_created_goals.h"
 #include "game/online/hub_join.h"
+#include "game/online/hub_managers.h"
 #include "game/online/hub_news.h"
 #include "game/online/hub_online_service.h"
 #include "game/online/hub_roster.h"
@@ -87,14 +88,7 @@ Hub::Hub()
     settings_.read_in(kNetSettingsKey, kTauntSettingsKey);
     tasks_.make_all(this);
     tasks->queue_job(tasks_.connection_job().get());
-    void* memory = carve(sizeof(RoomManager));
-    lobby_service_.reset(memory ? memory::construct_in<RoomManager>(memory) : nullptr);
-    memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
-    vault_man_.reset(memory ? new (memory) VaultMan : nullptr);
-    memory = carve(sizeof(FriendsManager));
-    presence_service_.reset(memory ? new (memory) FriendsManager : nullptr);
-    memory = carve(sizeof(RankingsManager));
-    rating_service_.reset(memory ? new (memory) RankingsManager : nullptr);
+    managers_.make_all();
     game_spy::cd_key_init(net::kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
     crt::get_srand(crt::get_instant());
@@ -129,6 +123,19 @@ void HubTasks::make_all(Hub* hub)
     start_game_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::start_game_task), hub, 0);
     level_change_job_ = std::make_unique<tasks::Task<Hub>>(&level_change_task, hub, 0);
     flag_carry_job_ = std::make_unique<tasks::Task<Hub>>(&carried_flags_task, hub, 0);
+}
+
+// NOT ORIGINAL (the hub's constructor makes them in its body, 0x0053EE90)
+void ServiceManagers::make_all()
+{
+    void* memory = carve(sizeof(RoomManager));
+    lobby_service_.reset(memory ? memory::construct_in<RoomManager>(memory) : nullptr);
+    memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
+    vault_man_.reset(memory ? new (memory) VaultMan : nullptr);
+    memory = carve(sizeof(FriendsManager));
+    presence_service_.reset(memory ? new (memory) FriendsManager : nullptr);
+    memory = carve(sizeof(RankingsManager));
+    rating_service_.reset(memory ? new (memory) RankingsManager : nullptr);
 }
 
 // NOT ORIGINAL (the hub's constructor reads them in its body, 0x0053EE90)
@@ -167,10 +174,7 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, host_), .original = 0x4, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, client_app_), .original = 0x8, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, client1_), .original = 0xC, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, lobby_service_), .original = 0x10, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, vault_man_), .original = 0x14, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, presence_service_), .original = 0x18, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, rating_service_), .original = 0x1C, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, managers_), .original = 0x10, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, challenge_), .original = 0x20, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, browser_client_), .original = 0x2C, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, game_type_), .original = 0x30, .smaller_by = 0},
@@ -409,6 +413,25 @@ void CreatedGoalsMessage::check_layout()
         FieldAt{.now = offsetof(CreatedGoalsMessage, created_goals_size_), .original = 0x1948},
         FieldAt{.now = offsetof(CreatedGoalsMessage, created_goals_level_), .original = 0x194C},
         FieldAt{.now = sizeof(CreatedGoalsMessage), .original = 0x1950},
+    };
+    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+                  "layout must match the original");
+}
+
+// NOT ORIGINAL
+void ServiceManagers::check_layout()
+{
+    constexpr std::size_t kAt = 0x10; // (each field at its offset in the hub, less the managers' own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(ServiceManagers, lobby_service_), .original = 0x10},
+        FieldAt{.now = offsetof(ServiceManagers, vault_man_), .original = 0x14},
+        FieldAt{.now = offsetof(ServiceManagers, presence_service_), .original = 0x18},
+        FieldAt{.now = offsetof(ServiceManagers, rating_service_), .original = 0x1C},
+        FieldAt{.now = sizeof(ServiceManagers), .original = 0x20},
     };
     static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
                   "layout must match the original");

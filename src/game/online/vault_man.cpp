@@ -74,7 +74,7 @@ constexpr uint32_t kDoneScript = 0x0089990F;
 constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
-VaultMan* get_vault() { return net_game_state().online_hub()->vault_man().get(); }
+VaultMan* get_vault() { return net_game_state().online_hub()->managers().vault_man().get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap()); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap()); }
@@ -592,9 +592,9 @@ unsigned long __stdcall VaultMan::download_thread(void* url)
     vault->octets_ = buffer;
     const int request = ghttp_get_ex(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
                                      code_address(&on_progress), vault->callback_, vault);
-    manager->vault_man()->req_ = request;
+    manager->managers().vault_man()->req_ = request;
     pop_heap();
-    get_release(manager->vault_man()->semaphore_);
+    get_release(manager->managers().vault_man()->semaphore_);
     game_crt_free(memory::owned_element(url)); // (the thread's: its starter made the copy)
     return 0;
 }
@@ -814,8 +814,8 @@ bool cancel_file_transfer(script::Struct* /*params*/, script::Context /*context*
 bool download_directory_list(script::Struct* params, script::Context /*context*/)
 {
     const Hub* manager = net_game_state().online_hub();
-    VaultMan* vault = manager->vault_man().get();
-    const FriendsManager* buddies = manager->presence_service().get();
+    VaultMan* vault = manager->managers().vault_man().get();
+    const FriendsManager* buddies = manager->managers().presence_service().get();
     params->read_hash_value(0U, &vault->kind_tag(), 1);
     if (const char* folder = type_folder(vault->kind_tag())) { // (an unknown type keeps the folder)
         text::format_to(vault->folder(), "%s", folder);

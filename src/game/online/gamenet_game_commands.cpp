@@ -145,7 +145,7 @@ void init_desc(net::NetMessageInfo& desc, MessageId id)
 // game is on / off (once, as `on` changes).
 void report_game_state(Hub* manager, bool on)
 {
-    auto* lobby = manager->lobby_service().get();
+    auto* lobby = manager->managers().lobby_service().get();
     void* peer = lobby->get_lobby_handle();
     if (peer && (game_spy::peer_is_connected(peer) != 0) && lobby->is_hosting()) {
         game_spy::peer_state_changed(peer);
@@ -162,7 +162,7 @@ void report_game_state(Hub* manager, bool on)
     }
 }
 
-bool is_buddy(Hub* manager, int profile) { return manager->presence_service()->is_buddy(profile); }
+bool is_buddy(Hub* manager, int profile) { return manager->managers().presence_service()->is_buddy(profile); }
 
 } // namespace
 
@@ -483,7 +483,7 @@ bool cfunc_create_player_options(Struct* params, Context /*context*/)
     script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id();
     if (((manager->flag_bits() & kFlagsInternet) != 0U) && (profile != 0) &&
-        manager->presence_service()->authenticated()) {
+        manager->managers().presence_service()->authenticated()) {
         dialog->put_int(checksums::Name{kProfile}, player->profile_id());
         dialog->append_word(kNick, player_name(player));
         dialog->put_name_key(checksums::Name{0U},
@@ -519,7 +519,7 @@ bool cfunc_fill_player_list_menu(Struct* /*params*/, Context /*context*/)
         rgba->configure_size_kind(4, script::QbValueKind::kInteger);
         uint32_t blue = 0;
         const int profile = player->profile_id();
-        if ((profile != 0) && manager->presence_service()->authenticated()) {
+        if ((profile != 0) && manager->managers().presence_service()->authenticated()) {
             if (is_buddy(manager, player->profile_id())) {
                 rgba->set_element(0, kColourHalf);
                 rgba->set_element(1, kColourHalf);

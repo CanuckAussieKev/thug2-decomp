@@ -797,7 +797,7 @@ bool join_buddy(script::Struct* params, script::Context /*context*/)
     std::array<char, kStatusSize> status{};
     text::format_to(status, "10thug211:%d:%d:%d:%s", ip, private_ip, port, location);
     bool same_address = false;
-    if (static_cast<uint32_t>(ip) == peer_public_ip(lobby_peer(manager->lobby_service().get()))) {
+    if (static_cast<uint32_t>(ip) == peer_public_ip(lobby_peer(manager->managers().lobby_service().get()))) {
         ip = private_ip;
         port = kJoinPort;
         same_address = true;
@@ -810,7 +810,7 @@ bool join_buddy(script::Struct* params, script::Context /*context*/)
         manager->set_join_mode(0);
         text = script::fetch_text("homie_status_playing");
     }
-    FriendsManager* man = manager->presence_service().get();
+    FriendsManager* man = manager->managers().presence_service().get();
     push_top_down();
     gp_set_status(man, kStatusPlaying, text, status.data());
     pop_heap();
@@ -827,7 +827,7 @@ bool join_buddy(script::Struct* params, script::Context /*context*/)
 }
 
 namespace {
-FriendsManager* get_buddies() { return net_game_state().online_hub()->presence_service().get(); }
+FriendsManager* get_buddies() { return net_game_state().online_hub()->managers().presence_service().get(); }
 } // namespace
 
 // 0x00548E40: AddBuddy profile nick

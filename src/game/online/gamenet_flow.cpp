@@ -252,8 +252,8 @@ void Hub::start_network_game()
     script_queue_.clear_queued_scripts();
     roster_.clear_roster();
     net_game_state().set_cheat_flag(false);
-    if (rating_service_->update_logged_in()) {
-        rating_service_->start_game();
+    if (managers_.rating_service()->update_logged_in()) {
+        managers_.rating_service()->start_game();
     }
 }
 
@@ -272,9 +272,9 @@ void Hub::cancel_join()
     disconnect_clients();
     tasks_.join_expiry_job()->drop_out();
     remove_all_new_players();
-    if (presence_service_->authenticated()) { // (logged in to the presence)
-        presence_service_->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
-                                           lobby_service_->room_name().data());
+    if (managers_.presence_service()->authenticated()) { // (logged in to the presence)
+        managers_.presence_service()->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
+                                                      managers_.lobby_service()->room_name().data());
     }
 }
 

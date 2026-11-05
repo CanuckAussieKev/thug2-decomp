@@ -327,13 +327,13 @@ void Hub::update_hosting_status()
 {
     net::Hub* net = net::net_core();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
-    lobby_service_->start_hosting();
-    if (presence_service_->authenticated()) { // (0x005480B0: logged in to presence)
+    managers_.lobby_service()->start_hosting();
+    if (managers_.presence_service()->authenticated()) { // (0x005480B0: logged in to presence)
         const char* server_name = nullptr;
         settings_.get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
         constexpr size_t kLocationSize = 1024;
         std::array<char, kLocationSize> location{};
-        RoomManager* lobby = lobby_service_.get();
+        RoomManager* lobby = managers_.lobby_service().get();
         if (lobby->remote()) {
             const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote()); // (the peer's private address)
             text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
@@ -341,7 +341,7 @@ void Hub::update_hosting_status()
         } else {
             text::format_to(location, "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name().data());
         }
-        presence_service_->change_standing(2, script::fetch_text(kHostingStatus), location.data());
+        managers_.presence_service()->change_standing(2, script::fetch_text(kHostingStatus), location.data());
     }
     ram_stats()->leave_heap_scope();
 }
@@ -372,8 +372,8 @@ void Hub::stop_server_list()
 {
     if (in_internet_mode()) {
         ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-        if (lobby_service_.get()->remote()) {
-            game_spy::peer_stop_listing_games(lobby_service_.get()->remote()); // (the browsing stopped)
+        if (managers_.lobby_service().get()->remote()) {
+            game_spy::peer_stop_listing_games(managers_.lobby_service().get()->remote()); // (the browsing stopped)
         }
         ram_stats()->leave_heap_scope();
         return;
@@ -523,9 +523,10 @@ void Hub::refresh_server_list(bool force)
     const Hub* manager = net_game_state().online_hub();
     std::array<uint8_t, 4> keys = {{kQr2KeyNumPlayers, kQr2KeyMaxPlayers, kQr2KeyHostPort, kQr2KeyGameType}}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-    manager->lobby_service_->clear_lost_connection();
-    game_spy::peer_start_listing_games(lobby_service_.get()->remote(), keys.data(), 4, nullptr,
-                                       code_address(&core::gathered<GamesListing, &listing_games_callback, void, void*, int, const char*, void*, int, int, int, Hub*>),
+    manager->managers_.lobby_service()->clear_lost_connection();
+    game_spy::peer_start_listing_games(managers_.lobby_service().get()->remote(), keys.data(), 4, nullptr,
+                                       code_address(&core::gathered<GamesListing, &listing_games_callback, void, void*,
+                                                                    int, const char*, void*, int, int, int, Hub*>),
                                        this); // (the games listed)
     ram_stats()->leave_heap_scope();
     ram_stats()->leave_heap_scope();
@@ -641,7 +642,7 @@ bool cfunc_post_game(script::Struct* params, script::Context context)
     (void)params;
     (void)context;
     Hub* manager = net_game_state().online_hub();
-    if (!manager->lobby_service().get()->hosting()) {
+    if (!manager->managers().lobby_service().get()->hosting()) {
         manager->update_hosting_status();
     }
     return true;

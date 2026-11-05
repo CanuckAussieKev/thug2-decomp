@@ -346,8 +346,8 @@ void Hub::evict_player(PlayerRecord* player, int reason)
             host_->put_on_outbox(player_handle(other), &desc);
         }
         if ((reason == kDropQuit || reason == kDropTimedOut || reason == kDropDropped) &&
-            rating_service_->update_logged_in()) { // (a rated game left early)
-            rating_service_->remove_player(static_cast<int>(get_skater_id(player_skater(player))));
+            managers_.rating_service()->update_logged_in()) { // (a rated game left early)
+            managers_.rating_service()->remove_player(static_cast<int>(get_skater_id(player_skater(player))));
         }
     }
     bool close = true;
@@ -506,8 +506,8 @@ void Hub::remove_players_and_apps()
 // (inline in remove_player_record / re_add_pending_players)
 void Hub::update_lobby_server()
 {
-    void* peer = lobby_service_->remote();
-    if (peer && (game_spy::peer_is_connected(peer) != 0) && lobby_service_->hosting()) {
+    void* peer = managers_.lobby_service()->remote();
+    if (peer && (game_spy::peer_is_connected(peer) != 0) && managers_.lobby_service()->hosting()) {
         game_spy::peer_state_changed(peer); // (the hosted game's details to GameSpy's peer SDK)
     }
 }
