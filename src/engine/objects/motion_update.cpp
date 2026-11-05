@@ -152,31 +152,31 @@ bool KinematicsModule::update_move_to()
 {
     std::array<float, 4> back{};
     get_back(entity(), back);
-    if (!(move_acceleration_ == 0.0F)) {
-        const double speed = (frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_) + move_speed_;
+    if (!(move_.acceleration == 0.0F)) {
+        const double speed = (frame_clock::get_slomo_frame_seconds() * 60.0 * move_.acceleration) + move_speed_;
         move_speed_ = static_cast<float>(speed);
-        if (speed >= move_max_speed_) { // (not with a NaN)
-            move_speed_ = move_max_speed_;
-            move_acceleration_ = 0.0F;
+        if (speed >= move_.max_speed) { // (not with a NaN)
+            move_speed_ = move_.max_speed;
+            move_.acceleration = 0.0F;
         }
     }
-    const double done = (static_cast<double>(move_speed_) * step_seconds_) + move_done_;
-    move_done_ = static_cast<float>(done);
+    const double done = (static_cast<double>(move_speed_) * step_seconds_) + move_.done;
+    move_.done = static_cast<float>(done);
     maths::Vec4& pos = entity()->at_point();
-    if (done >= move_distance_) {
-        pos = move_target_;
-        if (move_arrive_node_ != 0U) {
-            arrive_at_node(move_arrive_node_);
+    if (done >= move_.distance) {
+        pos = move_.target;
+        if (move_.arrive_node != 0U) {
+            arrive_at_node(move_.arrive_node);
         }
         entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         return true;
     }
     // (the fraction of the way rounded to a float; x and y through rounded products, z through an unrounded one)
-    const double dx = static_cast<double>(move_target_.x) - move_start_.x;
-    const double dy = static_cast<double>(move_target_.y) - move_start_.y;
-    auto dz = static_cast<float>(static_cast<double>(move_target_.z) - move_start_.z);
-    auto dw = static_cast<float>(static_cast<double>(move_target_.w) - move_start_.w);
-    auto fraction = static_cast<float>(done / move_distance_);
+    const double dx = static_cast<double>(move_.target.x) - move_start_.x;
+    const double dy = static_cast<double>(move_.target.y) - move_start_.y;
+    auto dz = static_cast<float>(static_cast<double>(move_.target.z) - move_start_.z);
+    auto dw = static_cast<float>(static_cast<double>(move_.target.w) - move_start_.w);
+    auto fraction = static_cast<float>(done / move_.distance);
     auto x = static_cast<float>(dx * fraction);
     auto y = static_cast<float>(dy * fraction);
     auto w = static_cast<float>(static_cast<double>(dw) * fraction);

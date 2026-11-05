@@ -90,12 +90,12 @@ void KinematicsModule::get_reset()
     rot_acceleration_ = rest;
     rot_deceleration_ = rest;
     move_start_ = rest;
-    move_target_ = rest;
-    move_distance_ = 0.0F;
-    move_done_ = 0.0F;
+    move_.target = rest;
+    move_.distance = 0.0F;
+    move_.done = 0.0F;
     move_speed_ = 0.0F;
-    move_max_speed_ = 0.0F;
-    move_acceleration_ = 0.0F;
+    move_.max_speed = 0.0F;
+    move_.acceleration = 0.0F;
     path_.acceleration = 0.0F;
     path_.deceleration = 0.0F;
     path_.max_speed = 0.0F;
@@ -354,12 +354,12 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, ground_.height_only), .original = 0x70},
         FieldAt{.now = offsetof(KinematicsModule, ground_.triangles), .original = 0x74},
         FieldAt{.now = offsetof(KinematicsModule, path_group_), .original = 0x104},
-        FieldAt{.now = offsetof(KinematicsModule, move_target_), .original = 0x108},
-        FieldAt{.now = offsetof(KinematicsModule, move_distance_), .original = 0x118},
-        FieldAt{.now = offsetof(KinematicsModule, move_done_), .original = 0x11C},
-        FieldAt{.now = offsetof(KinematicsModule, move_max_speed_), .original = 0x120},
-        FieldAt{.now = offsetof(KinematicsModule, move_acceleration_), .original = 0x124},
-        FieldAt{.now = offsetof(KinematicsModule, move_arrive_node_), .original = 0x128},
+        FieldAt{.now = offsetof(KinematicsModule, move_.target), .original = 0x108},
+        FieldAt{.now = offsetof(KinematicsModule, move_.distance), .original = 0x118},
+        FieldAt{.now = offsetof(KinematicsModule, move_.done), .original = 0x11C},
+        FieldAt{.now = offsetof(KinematicsModule, move_.max_speed), .original = 0x120},
+        FieldAt{.now = offsetof(KinematicsModule, move_.acceleration), .original = 0x124},
+        FieldAt{.now = offsetof(KinematicsModule, move_.arrive_node), .original = 0x128},
         FieldAt{.now = offsetof(KinematicsModule, rot_target_), .original = 0x12C},
         FieldAt{.now = offsetof(KinematicsModule, rot_done_), .original = 0x13C},
         FieldAt{.now = offsetof(KinematicsModule, rot_max_speed_), .original = 0x14C},

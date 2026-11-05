@@ -249,26 +249,26 @@ bool KinematicsModule::stick_to_ground()
 // 0x004269F0
 bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*/, maths::Vec4 target, uint32_t node)
 {
-    move_target_ = target;
+    move_.target = target;
     const maths::Vec4& pos = entity()->at_point();
-    const double dx = static_cast<double>(move_target_.x) - pos.x;
-    const double dy = static_cast<double>(move_target_.y) - pos.y;
-    const double dz = static_cast<double>(move_target_.z) - pos.z;
-    move_acceleration_ = 0.0F;
-    move_distance_ = static_cast<float>(std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx)));
+    const double dx = static_cast<double>(move_.target.x) - pos.x;
+    const double dy = static_cast<double>(move_.target.y) - pos.y;
+    const double dz = static_cast<double>(move_.target.z) - pos.z;
+    move_.acceleration = 0.0F;
+    move_.distance = static_cast<float>(std::sqrt(((dz * dz) + (dy * dy)) + (dx * dx)));
     move_start_ = pos;
-    move_done_ = 0.0F;
-    move_arrive_node_ = 0;
+    move_.done = 0.0F;
+    move_.arrive_node = 0;
     motion_flags_ = (motion_flags_ & ~kMotionFollowingPath) | kMotionMoving;
     float time = target.x; // (the original reads `time` into the target's x argument)
     if (params->fetch_float(kTime, &time, 0)) {
-        move_speed_ = static_cast<float>(static_cast<double>(move_distance_) / time);
+        move_speed_ = static_cast<float>(static_cast<double>(move_.distance) / time);
         return false;
     }
     float speed = 0.0F;
     if (!params->fetch_float(kSpeed, &speed, 0)) {
         // (no speed or time: there at once)
-        entity()->at_point() = move_target_;
+        entity()->at_point() = move_.target;
         motion_flags_ &= ~kMotionMoving;
         if ((node != 0U) && params->has_bare_flag(kOrient)) {
             face_node(level_nodes::fetch_vertex(node, true));
@@ -283,21 +283,21 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*
     } else if (params->has_bare_flag(kIps)) {
         units = 0;
     }
-    params->fetch_float(kAcceleration, &move_acceleration_, 0);
+    params->fetch_float(kAcceleration, &move_.acceleration, 0);
     double inches = speed; // (kept unrounded)
     if (units == 2) {
         inches = inches * kInchesPerMile * kHoursPerSecond;
-        move_acceleration_ =
-            static_cast<float>(static_cast<double>(move_acceleration_) * kInchesPerMile * kHoursPerSecond);
+        move_.acceleration =
+            static_cast<float>(static_cast<double>(move_.acceleration) * kInchesPerMile * kHoursPerSecond);
     } else if (units == 1) {
         inches = inches * maths::kInchesPerFoot;
-        move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * maths::kInchesPerFoot);
+        move_.acceleration = static_cast<float>(static_cast<double>(move_.acceleration) * maths::kInchesPerFoot);
     }
-    if (move_acceleration_ == 0.0F) {
+    if (move_.acceleration == 0.0F) {
         move_speed_ = static_cast<float>(inches);
         return false;
     }
-    move_max_speed_ = static_cast<float>(inches);
+    move_.max_speed = static_cast<float>(inches);
     move_speed_ = 0.0F;
     return false;
 }
@@ -315,7 +315,7 @@ void KinematicsModule::glide_to_node(script::Struct* params, script::Script* scr
     if (move_to(params, script, pos, name)) {
         arrive_at_node(name);
     } else {
-        move_arrive_node_ = name;
+        move_.arrive_node = name;
     }
 }
 
@@ -354,7 +354,7 @@ void KinematicsModule::move_to_link(script::Struct* params, script::Script* scri
     if (move_to(params, script, pos, 0)) {
         arrive_at_node(name);
     } else {
-        move_arrive_node_ = name;
+        move_.arrive_node = name;
     }
 }
 

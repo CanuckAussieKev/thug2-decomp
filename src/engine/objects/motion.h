@@ -376,18 +376,23 @@ private:
         std::array<std::array<maths::Vec4, 3>, 3> triangles{}; // +0x3C (+0x74) the three feelers' last triangles
     };
 
+    // Moving to a point (+0x108-+0x12B: move_to, update_move_to; its start, +0x18C, and speed now, +0x20, apart).
+    struct MoveTo {
+        maths::Vec4 target{};   // +0x00 (+0x108)
+        float distance{};       // +0x10 (+0x118) from the start to the target
+        float done{};           // +0x14 (+0x11C) how far it has gone
+        float max_speed{};      // +0x18 (+0x120) with an acceleration: the speed to reach
+        float acceleration{};   // +0x1C (+0x124)
+        uint32_t arrive_node{}; // +0x20 (+0x128) Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
     PathSpeed path_;                   // +0x24-+0x37 the speed along a path
     GroundStick ground_;               // +0x38-+0x103 sticking to the ground
     ObjectGroup* path_group_{nullptr};     // +0x104 the path's group of objects (path manager)
-    maths::Vec4 move_target_{};           // +0x108
-    float move_distance_{};               // +0x118 from the start to the target
-    float move_done_{};                   // +0x11C how far it has gone
-    float move_max_speed_{};              // +0x120 with an acceleration: the speed to reach
-    float move_acceleration_{};           // +0x124
-    uint32_t move_arrive_node_{};         // +0x128 Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
+    MoveTo move_;                          // +0x108-+0x12B moving to a point
     maths::Vec4 rot_target_{};            // +0x12C per axis: the angle to turn through (radians; 0 forever)
     maths::Vec4 rot_done_{};              // +0x13C per axis: turned so far
     maths::Vec4 rot_max_speed_{};         // +0x14C per axis: the speed to reach (radians per second)
