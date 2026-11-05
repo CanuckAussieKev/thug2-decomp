@@ -22,6 +22,7 @@
 #include "app/command_table.h"
 #include "app/extensions.h"
 #include "app/winmain.h"
+#include "app/renderer_choice.h"
 #include "audio_dsound/dsound_device.h"
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
@@ -39,12 +40,8 @@
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"
 #include "media_bink/bink_movie.h"
-#include "render_d3d9/d3d9_device.h"
-#include "render_d3d9/d3d9_ui_backend.h"
-#include "engine/gfx/ui_backend.h"
 #include "engine/gfx/loading_console.h"
 #include "render_d3d9/loading_console_panel.h"
-#include "engine/gfx/render_device.h"
 #include "game/commands/node_hooks.h"
 #include "game/front_end/pad_hooks.h"
 #include "game/online/transport_hooks.h"
@@ -117,11 +114,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     sio::install_game_hooks();
     // NOT ORIGINAL: what the engine's main loop and debug mode ask of the game (game/skate/sys_hooks.h).
     sys::install_game_hooks();
-    // NOT ORIGINAL: the graphics backend the engine draws with (engine/gfx/render_device.h): Direct3D 9, the only one.
-    render::install_device(render::d3d9::device());
-    // NOT ORIGINAL: Dear ImGui's platform and renderer backends for our UI layers - the level editor's, the new front
-    // end's (engine/gfx/ui_backend.h): Direct3D 9's.
-    render::install_ui_backend(render::d3d9::ui_backend());
+    // NOT ORIGINAL: the graphics backend the engine draws with (engine/gfx/render_device.h) and Dear ImGui's platform
+    // and renderer backends for our UI layers (engine/gfx/ui_backend.h): [Graphics] renderer= picks them
+    // (app/renderer_choice.h; Direct3D 9's today).
+    app::install_renderer();
     // NOT ORIGINAL: the sound output the engine plays on (engine/audio/audio_device.h): DirectSound's - or, with
     // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
     audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())

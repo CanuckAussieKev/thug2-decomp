@@ -15,6 +15,7 @@ add_library(thug2_app OBJECT
     winmain.cpp
     startup_init.cpp
     command_table.cpp
+    renderer_choice.cpp
 )
 # The layers the shared start-up composes (the backends it installs, the game and below).
 target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_d3d9
@@ -24,6 +25,7 @@ target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_d3d9
 # The Vulkan backend (src/render_vulkan): linked, not yet installed - nothing of it is in the exes until app/ calls it.
 if(THUG2_VULKAN)
     target_link_libraries(thug2_app PUBLIC thug2_render_vulkan)
+    target_compile_definitions(thug2_app PRIVATE THUG2_VULKAN)
 endif()
 
 add_executable(thug2 WIN32

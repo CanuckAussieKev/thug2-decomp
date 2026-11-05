@@ -80,7 +80,7 @@ test("only app/ picks the Direct3D 9 device", () => {
     const pickers = including(/^\s*#\s*include\s*"render_d3d9\/d3d9_device\.h"/m);
     const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_device.cpp");
     assert.deepEqual(outside, []);
-    assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the device");
+    assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the device");
 });
 
 // Dear ImGui's platform and renderer backends are the graphics backend's (render::UiBackend, engine/gfx/ui_backend.h):
@@ -94,7 +94,7 @@ test("only render_d3d9/ includes ImGui's backends; only app/ picks the UI backen
     const pickers = including(/^\s*#\s*include\s*"render_d3d9\/d3d9_ui_backend\.h"/m);
     const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_ui_backend.cpp");
     assert.deepEqual(outside, []);
-    assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the UI backend");
+    assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the UI backend");
 });
 
 // D3DX9 is the Direct3D 9 backend's alone (its shader assembly and JPEG writer; its maths is plain C++,
