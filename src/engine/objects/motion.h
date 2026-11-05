@@ -103,7 +103,7 @@ public:
 
     // --- the update's parts ---
     // 0x00423740: the hover's bob for now: sin(2 pi * (the game clock mod the period) / period) * amplitude (the
-    // clock's doubled count taken as unsigned), added to the height (the height without it kept in hover_base_).
+    // clock's doubled count taken as unsigned), added to the height (the height without it kept in hover_.base).
     void update_hover();
     // 0x00424200: moving to a point - the speed accelerated (60 * frame * acceleration, to the maximum), the distance
     // covered; arrived (true): at the target, the arrival node told, no velocity; else on the line from the start
@@ -198,7 +198,7 @@ public:
     void face_node(script::Struct* node);
 
     // --- jumping, the ground, moving to points (motion_ground.cpp) ---
-    // 0x00424870: one frame of the jump into jump_pos_: up by speed * frame + gravity * frame^2 / 2 (the speed
+    // 0x00424870: one frame of the jump into jump_.pos: up by speed * frame + gravity * frame^2 / 2 (the speed
     // then changed by gravity * frame), along the heading at the start's speed; coming down, it lands at
     // land_height or on whatever a feeler from col_dist_above over to col_dist_below under finds (no longer
     // jumping - the position isn't snapped to it).

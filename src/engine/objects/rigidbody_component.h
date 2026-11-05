@@ -187,7 +187,7 @@ public:
         float depth;          // +0x28
         bool active;          // +0x2C
         bool scaled;          // +0x2D impulse_scale_ worked out
-        int8_t friction;      // +0x2E its directed friction (an index into steer_friction_)
+        int8_t friction;      // +0x2E its directed friction (an index into shape_.directed_friction)
         uint8_t pad2f_;
     };
     // The shape turned to the world this frame (from the centre of mass): the contact points (0x00694E30), the
@@ -242,8 +242,8 @@ public:
     // 0x0042C950 (rigidbody_contacts.cpp): the contacts with the world this frame (Contacts(), contacts_hit_ of
     // them, unknown191_ touching): the contact points' lines and the spheres' queries. Whether any is touching.
     bool find_contacts();
-    // 0x0042C6D0: the velocity and the rotational velocity slowed by unknown38_ / unknown3c_ (each a speed taken
-    // off; slower than that: stopped - w 1).
+    // 0x0042C6D0: the velocity and the rotational velocity slowed by damping_.linear / damping_.angular (each a speed
+    // taken off; slower than that: stopped - w 1).
     void damp();
     // 0x0042C890: settled 3 frames or more and slower than both sleep points: asleep - and, dying upon settling, the
     // die timer started (1.5 s) once 48 or more from where it woke.

@@ -265,7 +265,7 @@ public:
     // stops and, from 300 ms to 5.3 s on, turns upright (a slerp, 3 a second). Upright (up.y > 0.999): not.
     void update_righting();
     // 0x00439D90: in the air (not righting or kicked), turned level towards its velocity (fast) or facing (slow, with
-    // align_when_slow_), ramped in over align_time_ of free fall.
+    // air_align_.when_slow), ramped in over air_align_.time of free fall.
     void align_in_air();
     // 0x00438BB0: the colliders against the world (rect queries and lines from the centre to their corners): the
     // contacts, impulses at those closing in (restitution; up to six passes), pushes out by their depth, friction
@@ -437,10 +437,10 @@ private:
     int still_frames_{0};           // +0x5C frames it has hardly moved (asleep after three)
     int contact_count_{0};          // +0x60 the colliders' contact points this step (in s_contacts)
     maths::Mat4 basis_frame_{};   // +0x64 the orientation as a matrix
-    maths::Vec4 vel_{};           // +0xA4 linear_momentum_ * inv_mass_
+    maths::Vec4 vel_{};           // +0xA4 linear_momentum_ * mass_.inverse
     maths::Vec4 rotvel_{};        // +0xB4 the angular velocity
     maths::Mat4 inv_inertia_{};   // +0xC4 the inverse inertia tensor in the world
-    maths::Vec4 com_offset_{};    // +0x104 balance_point_ turned into the world
+    maths::Vec4 com_offset_{};    // +0x104 mass_.balance_point turned into the world
     int wheels_in_contact_{};     // +0x114
     int8_t load_index_{};         // +0x118 the wheels' load history slot (0-9)
     bool cut_short_{};            // +0x119 a trigger's script took over during the step
@@ -463,7 +463,7 @@ private:
     Controls controls_;                      // +0x304-+0x30B the controls this frame
     render::HitMeshCache contact_memo_;    // +0x30C the feelers' collision cache
     Seat seat_;                            // +0x12D8-+0x12EF the skater shown driving
-    float display_steering_{0.0F};         // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
+    float display_steering_{0.0F}; // +0x12F0 controls_.steering smoothed (the model's wheels, the skater's animation)
     uint32_t sounds_name_{kDefault};     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
     GravityOverride gravity_;            // +0x12F8-+0x12FF Vehicle_AdjustGravity's
     bool handbrake_active_{};              // +0x1300 (forces the brake)
