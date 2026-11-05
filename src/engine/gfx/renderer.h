@@ -13,6 +13,7 @@
 #include "engine/gfx/renderer_caps.h"
 #include "engine/gfx/renderer_display.h"
 #include "engine/gfx/renderer_fog.h"
+#include "engine/gfx/renderer_frame.h"
 #include "engine/gfx/renderer_view.h"
 
 // NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
@@ -33,8 +34,8 @@ public:
     void restore_view(const ViewState& saved) { view_ = saved; }
     [[nodiscard]] bool stream_offset_supported() const { return caps_.stream_offset_supported(); }
     void set_stream_offset_supported(bool value) { caps_.set_stream_offset_supported(value); }
-    [[nodiscard]] uint32_t loading_bar_timer() const { return loading_bar_timer_; }
-    void set_loading_bar_timer(uint32_t value) { loading_bar_timer_ = value; }
+    [[nodiscard]] uint32_t loading_bar_timer() const { return frame_.loading_bar_timer(); }
+    void set_loading_bar_timer(uint32_t value) { frame_.set_loading_bar_timer(value); }
     [[nodiscard]] float display_factor_x() const { return display_.display_factor_x(); }
     void set_display_factor_x(float value) { display_.set_display_factor_x(value); }
     [[nodiscard]] uint8_t frequency_setting_allowed() const { return display_.frequency_setting_allowed(); }
@@ -68,8 +69,8 @@ public:
     void set_view_shape(const ViewShape& value) { view_.set_view_shape(value); }
     [[nodiscard]] bool radeon8500() const { return caps_.radeon8500(); }
     void set_radeon8500(bool value) { caps_.set_radeon8500(value); }
-    [[nodiscard]] int frames_rendered() const { return frames_rendered_; }
-    void count_frame() { ++frames_rendered_; }
+    [[nodiscard]] int frames_rendered() const { return frame_.frames_rendered(); }
+    void count_frame() { frame_.count_frame(); }
     [[nodiscard]] const maths::Mat4& world_matrix() const { return view_.world_matrix(); }
     void set_world_matrix(const maths::Mat4& value) { view_.set_world_matrix(value); }
     [[nodiscard]] const maths::Mat4& view_matrix() const { return view_.view_matrix(); }
@@ -80,25 +81,17 @@ public:
     void set_heading_matrix(const maths::Mat4& value) { view_.set_heading_matrix(value); }
     // The world, view and projection matrices made identity (reset_render_state).
     void reset_transforms() { view_.reset_transforms(); }
-    [[nodiscard]] int step_seconds() const { return step_seconds_; }
-    void set_step_seconds(int value) { step_seconds_ = value; }
-    [[nodiscard]] int screen_copy_index() const { return screen_copy_index_; }
-    void set_screen_copy_index(int value) { screen_copy_index_ = value; }
+    [[nodiscard]] int step_seconds() const { return frame_.step_seconds(); }
+    void set_step_seconds(int value) { frame_.set_step_seconds(value); }
+    [[nodiscard]] int screen_copy_index() const { return frame_.screen_copy_index(); }
+    void set_screen_copy_index(int value) { frame_.set_screen_copy_index(value); }
     [[nodiscard]] int back_buffer_width() const { return display_.back_buffer_width(); }
     void set_back_buffer_width(int value) { display_.set_back_buffer_width(value); }
     [[nodiscard]] int back_buffer_height() const { return display_.back_buffer_height(); }
     void set_back_buffer_height(int value) { display_.set_back_buffer_height(value); }
     // One draw call of `triangles` more this frame (the frame's counts).
-    void count_draw(uint32_t triangles)
-    {
-        ++draw_calls_;
-        drawn_triangles_ += triangles;
-    }
-    void reset_draw_counts()
-    {
-        draw_calls_ = 0;
-        drawn_triangles_ = 0;
-    }
+    void count_draw(uint32_t triangles) { frame_.count_draw(triangles); }
+    void reset_draw_counts() { frame_.reset_draw_counts(); }
     [[nodiscard]] float fog_begin_distance() const { return fog_.begin_distance(); }
     void set_fog_begin_distance(float value) { fog_.set_begin_distance(value); }
     [[nodiscard]] float fog_end() const { return fog_.end(); }
@@ -180,17 +173,9 @@ public:
 private:
     DeviceCaps caps_;         // what the device can do
     DisplaySettings display_; // the display drawn to
-
-    uint32_t loading_bar_timer_{}; // the timer's id (timeSetEvent)
-
-    // The frame's view and counters (draw_frame.cpp).
-    ViewState view_;
-    int frames_rendered_{};
-    int step_seconds_{};
-    int screen_copy_index_{};
-    uint32_t draw_calls_{};
-    uint32_t drawn_triangles_{};
-    FogState fog_; // the distance fog
+    FrameCounters frame_;     // the frames' counters and clocks
+    ViewState view_;          // the camera's view (draw_frame.cpp)
+    FogState fog_;            // the distance fog
 
     // The render state the device was last sent (render_state.cpp).
     uint32_t specular_{};
