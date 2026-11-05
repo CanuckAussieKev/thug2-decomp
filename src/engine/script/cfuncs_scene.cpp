@@ -13,8 +13,8 @@
 #include "engine/util/text_store.h"
 #include "engine/file/async.h"
 #include "engine/gfx/lens_flare.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sound/surface_kind.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
@@ -29,7 +29,7 @@
 #include <gsl/pointers>
 namespace commands {
 
-using script::Script;
+using script::Context;
 using script::Struct;
 
 namespace {
@@ -122,7 +122,7 @@ void destroy_model(gsl::owner<render::RenderModel*> model) { delete model; }
 } // namespace
 
 // 0x00445000
-bool cfunc_load_terrain_sounds(Struct* params, Script* /*script*/)
+bool cfunc_load_terrain_sounds(Struct* params, Context /*context*/)
 {
     uint32_t terrain = 0;
     if (!params->read_hash_value(kTerrain, &terrain, 0)) {
@@ -133,7 +133,7 @@ bool cfunc_load_terrain_sounds(Struct* params, Script* /*script*/)
 }
 
 // 0x00445030
-bool cfunc_preload_model(Struct* params, Script* /*script*/)
+bool cfunc_preload_model(Struct* params, Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text(kName, &name, 1);
@@ -147,14 +147,14 @@ bool cfunc_preload_model(Struct* params, Script* /*script*/)
 }
 
 // 0x00445120
-bool cfunc_unload_all_level_geometry(Struct* /*params*/, Script* /*script*/)
+bool cfunc_unload_all_level_geometry(Struct* /*params*/, Context /*context*/)
 {
     unload_all_scenes();
     return true;
 }
 
 // 0x00445320 (the scene isn't checked: a name that isn't loaded crashes, as in the original)
-bool cfunc_load_collision(Struct* params, Script* /*script*/)
+bool cfunc_load_collision(Struct* params, Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text(kScene, &name, 0);
@@ -166,7 +166,7 @@ bool cfunc_load_collision(Struct* params, Script* /*script*/)
 }
 
 // 0x00445380
-bool cfunc_add_collision(Struct* params, Script* /*script*/)
+bool cfunc_add_collision(Struct* params, Context /*context*/)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
@@ -179,7 +179,7 @@ bool cfunc_add_collision(Struct* params, Script* /*script*/)
 }
 
 // 0x004453F0
-bool cfunc_quick_reload(Struct* params, Script* /*script*/)
+bool cfunc_quick_reload(Struct* params, Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text(kScene, &name, 0);
@@ -190,7 +190,7 @@ bool cfunc_quick_reload(Struct* params, Script* /*script*/)
 }
 
 // 0x00445430
-bool cfunc_unload_anim(Struct* params, Script* /*script*/)
+bool cfunc_unload_anim(Struct* params, Context /*context*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name = nullptr;
@@ -209,7 +209,7 @@ bool cfunc_unload_anim(Struct* params, Script* /*script*/)
 }
 
 // 0x004454E0 (the script's params are passed on as the load's extra value)
-bool cfunc_load_asset(Struct* params, Script* /*script*/)
+bool cfunc_load_asset(Struct* params, Context /*context*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t parent = 0;
@@ -229,7 +229,7 @@ bool cfunc_load_asset(Struct* params, Script* /*script*/)
 }
 
 // 0x004455A0
-bool cfunc_load_anim(Struct* params, Script* /*script*/)
+bool cfunc_load_anim(Struct* params, Context /*context*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name = nullptr;
@@ -242,7 +242,7 @@ bool cfunc_load_anim(Struct* params, Script* /*script*/)
 }
 
 // 0x00445640
-bool cfunc_load_skeleton(Struct* params, Script* /*script*/)
+bool cfunc_load_skeleton(Struct* params, Context /*context*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name = nullptr;
@@ -254,7 +254,7 @@ bool cfunc_load_skeleton(Struct* params, Script* /*script*/)
 }
 
 // 0x004456A0
-bool cfunc_set_reference_checksum(Struct* params, Script* /*script*/)
+bool cfunc_set_reference_checksum(Struct* params, Context /*context*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
@@ -266,7 +266,7 @@ bool cfunc_set_reference_checksum(Struct* params, Script* /*script*/)
 }
 
 // 0x004456F0
-bool cfunc_set_default_permanent(Struct* params, Script* /*script*/)
+bool cfunc_set_default_permanent(Struct* params, Context /*context*/)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     int permanent = 0; // (uninitialised in the original without one; the getter asserts)
@@ -276,7 +276,7 @@ bool cfunc_set_default_permanent(Struct* params, Script* /*script*/)
 }
 
 // 0x00445720
-bool cfunc_add_scene(Struct* params, Script* /*script*/)
+bool cfunc_add_scene(Struct* params, Context /*context*/)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
@@ -292,7 +292,7 @@ bool cfunc_add_scene(Struct* params, Script* /*script*/)
 }
 
 // 0x004457B0
-bool cfunc_unload_scene(Struct* params, Script* /*script*/)
+bool cfunc_unload_scene(Struct* params, Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text(kScene, &name, 0);
@@ -316,7 +316,7 @@ bool cfunc_unload_scene(Struct* params, Script* /*script*/)
 }
 
 // 0x00445820 (Italian picks the German setting and Spanish the French one)
-bool cfunc_set_config(Struct* params, Script* /*script*/)
+bool cfunc_set_config(Struct* params, Context /*context*/)
 {
     uint32_t language = 0;
     params->read_hash_value(kLanguage, &language, 0);
@@ -365,7 +365,7 @@ bool cfunc_set_config(Struct* params, Script* /*script*/)
 }
 
 // 0x00445980
-bool cfunc_print_config(Struct* /*params*/, Script* /*script*/)
+bool cfunc_print_config(Struct* /*params*/, Context /*context*/)
 {
     debug::printf("\n");
     debug::printf("System Configuration:\n\n");
@@ -383,10 +383,10 @@ bool cfunc_print_config(Struct* /*params*/, Script* /*script*/)
 }
 
 // 0x00445A30
-bool cfunc_bootstrap(Struct* /*params*/, Script* /*script*/) { return config_bootstrap(); }
+bool cfunc_bootstrap(Struct* /*params*/, Context /*context*/) { return config_bootstrap(); }
 
 // 0x00445A40
-bool cfunc_init_sun(Struct* params, Script* /*script*/)
+bool cfunc_init_sun(Struct* params, Context /*context*/)
 {
     float theta = 0.0F;
     float phi = 0.0F;
@@ -407,9 +407,9 @@ bool cfunc_init_sun(Struct* params, Script* /*script*/)
 }
 
 // 0x00445B30
-bool cfunc_update_lens_flare(Struct* params, Script* script)
+bool cfunc_update_lens_flare(Struct* params, Context context)
 {
-    sun::update_flare(params, script);
+    sun::update_flare(params, context.script());
     return true;
 }
 

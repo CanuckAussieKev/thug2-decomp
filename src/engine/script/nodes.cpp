@@ -24,7 +24,6 @@
 #include "engine/script/param_struct.h"
 #include "base/core/checked_index.h"
 #include "engine/script/cscript.h"
-#include "engine/script/legacy_command.h"
 
 namespace level_nodes {
 
@@ -321,7 +320,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
             // A C function already looked up: SetEventHandler's scr= is followed.
             const script::NativeFunction function = script::native_function_at(token + 1);
             token += script::kTokenWithWordBytes;
-            if (function != &script::legacy_command<&commands::cfunc_set_event_handler>) {
+            if (function != &commands::cfunc_set_event_handler) {
                 token = script::skip_to_end_of_statement(token);
                 break;
             }

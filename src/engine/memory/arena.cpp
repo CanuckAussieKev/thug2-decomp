@@ -8,6 +8,7 @@
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/cfuncs_engine.h"
+#include "engine/script/context.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 
@@ -46,7 +47,7 @@ gsl::owner<ChunkPrefix*> header_at(uint8_t* place) { return memory::construct_in
 
 // The memory manager's heap lookup by name checksum, and the heap dump (the script command, without parameters).
 Arena* find_heap(uint32_t name) { return Hub::get_pull()->fetch_heap_by_key(name, 0); }
-void dump_heaps() { commands::cfunc_dump_heaps(nullptr, nullptr); }
+void dump_heaps() { commands::cfunc_dump_heaps(nullptr, script::Context()); }
 
 } // namespace
 

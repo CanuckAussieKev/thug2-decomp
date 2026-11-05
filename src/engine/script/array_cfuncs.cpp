@@ -4,9 +4,9 @@
 
 #include <cstdint>
 #include <gsl/assert>
-#include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "platform/run_log.h"
 
 namespace commands {
@@ -29,10 +29,10 @@ constexpr uint32_t kVal = 0x6820459A;       // "val"
 Array* element_array(Array* array, uint32_t index) { return array->array_at(index); }
 
 // The array named `name`: one in the calling script's parameters, else the global one.
-Array* find_array(script::Script* script, uint32_t name)
+Array* find_array(script::Context context, uint32_t name)
 {
     Array* array = nullptr;
-    if (!script->args()->fetch_list(name, &array, 0)) {
+    if (!context.args()->fetch_list(name, &array, 0)) {
         array = script::fetch_list(name);
     }
     return array;
@@ -81,7 +81,7 @@ void add_element(Struct* results, Array* array, uint32_t index)
 
 // 0x0044AF50: ArrayContains array=[...] contains=<value>: whether an element equals the value - integer arrays by
 // value, string arrays ignoring case, name arrays by checksum (any other array: false).
-bool cfunc_array_contains(Struct* params, script::Script* /*script*/)
+bool cfunc_array_contains(Struct* params, script::Context /*context*/)
 {
     Array* array = nullptr;
     params->fetch_list(kArray, &array, 1);
@@ -121,7 +121,7 @@ bool cfunc_array_contains(Struct* params, script::Script* /*script*/)
 
 // 0x0044B030: GetArraySize <array> [Index1=i [index2=j [index3=k]]]: array_size = the size of the array, or of the
 // element array the indices lead to.
-bool cfunc_get_array_size(Struct* params, script::Script* script)
+bool cfunc_get_array_size(Struct* params, script::Context context)
 {
     Array* array = nullptr;
     params->fetch_list(0U, &array, 1);
@@ -139,35 +139,35 @@ bool cfunc_get_array_size(Struct* params, script::Script* script)
     // crash on it, with the script's name: e.g. a converted level's script naming an array THUG2 hasn't)
     if (!array) {
         get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
-                script::find_checksum_name_or_unknown(script->script_title()));
+                script::find_checksum_name_or_unknown(context.script_title()));
     }
     Expects(array != nullptr);
-    script->args()->put_int(checksums::Name{kArraySize}, static_cast<int>(array->extent()));
+    context.args()->put_int(checksums::Name{kArraySize}, static_cast<int>(array->extent()));
     return true;
 }
 
 // 0x0044B0F0: Get2DArrayData arrayName=<name> Index1=i index2=j: val = array[i][j] (the array the calling script's
 // own parameters name, else the global).
-bool cfunc_get_2d_array_data(Struct* params, script::Script* script)
+bool cfunc_get_2d_array_data(Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);
-    Array* array = find_array(script, name);
+    Array* array = find_array(context, name);
     int first_index = 0;
     params->fetch_int_value(kIndex1, &first_index, 1);
     int second_index = 0;
     params->fetch_int_value(kIndex2, &second_index, 1);
-    add_element(script->args().get(), element_array(array, static_cast<uint32_t>(first_index)),
+    add_element(context.args().get(), element_array(array, static_cast<uint32_t>(first_index)),
                 static_cast<uint32_t>(second_index));
     return true;
 }
 
 // 0x0044B300: Get3DArrayData arrayName=<name> Index1=i index2=j index3=k: val = array[i][j][k].
-bool cfunc_get_3d_array_data(Struct* params, script::Script* script)
+bool cfunc_get_3d_array_data(Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);
-    Array* array = find_array(script, name);
+    Array* array = find_array(context, name);
     int first_index = 0;
     params->fetch_int_value(kIndex1, &first_index, 1);
     int second_index = 0;
@@ -176,25 +176,25 @@ bool cfunc_get_3d_array_data(Struct* params, script::Script* script)
     params->fetch_int_value(kIndex3, &third_index, 1);
     Array* plane =
         element_array(element_array(array, static_cast<uint32_t>(first_index)), static_cast<uint32_t>(second_index));
-    add_element(script->args().get(), plane, static_cast<uint32_t>(third_index));
+    add_element(context.args().get(), plane, static_cast<uint32_t>(third_index));
     return true;
 }
 
 // 0x0044B530: GetNDArrayData arrayName=<name>: val = the element the calling script's own `indices` array leads
 // to (read from the script's parameters, not the command's). An empty indices array runs off the end, as in the
 // original.
-bool cfunc_get_nd_array_data(Struct* params, script::Script* script)
+bool cfunc_get_nd_array_data(Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);
-    Array* array = find_array(script, name);
+    Array* array = find_array(context, name);
     Array* indices = nullptr;
-    script->args()->fetch_list(kIndices, &indices, 1);
+    context.args()->fetch_list(kIndices, &indices, 1);
     uint32_t depth = 0;
     for (; depth < indices->extent() - 1; ++depth) {
         array = element_array(array, indices->fetch_part(depth));
     }
-    add_element(script->args().get(), array, indices->fetch_part(depth));
+    add_element(context.args().get(), array, indices->fetch_part(depth));
     return true;
 }
 

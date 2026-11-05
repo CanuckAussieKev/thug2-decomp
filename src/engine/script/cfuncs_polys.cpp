@@ -12,8 +12,8 @@
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/lists/key_map.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene_list.h"
@@ -33,7 +33,7 @@
 namespace commands {
 
 using script::Array;
-using script::Script;
+using script::Context;
 using script::Struct;
 
 namespace {
@@ -154,7 +154,7 @@ void free_spawned_poly_details(void* details) { render::spawned_poly_pools().dea
 // start_colors=[[r g b a] x4] end_colors=[...] | start_color=[r g b a] end_color=[...] [flag] [just=[h v]]
 // [BlendMode] [texture]: a new spawned polygon's details filled in and passed on (0x00492450) with the two vectors.
 // Always true.
-bool cfunc_spawn_poly(Struct* params, Script* /*script*/)
+bool cfunc_spawn_poly(Struct* params, Context /*context*/)
 {
     gsl::owner<render::SpawnedPoly*> details =
         memory::adopt<render::SpawnedPoly*>(render::spawned_poly_pools().allocate<render::SpawnedPoly>());
@@ -280,7 +280,7 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
 
 // 0x00447980: CompressVC target=<n> percent=<n> [LightGroup=<name>]: every scene's (skies apart, then the first
 // sky's) vertex colours compressed towards target, to (100 - percent)% of their distance. Always true.
-bool cfunc_compress_vc(Struct* params, Script* /*script*/)
+bool cfunc_compress_vc(Struct* params, Context /*context*/)
 {
     float target = 0.0F;
     float percent = 0.0F;
@@ -342,7 +342,7 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
 }
 
 // 0x00447D90: NudgeVC percent=<n>: every scene's vertex colours (skies too) nudged by up to percent%. Always true.
-bool cfunc_nudge_vc(Struct* params, Script* /*script*/)
+bool cfunc_nudge_vc(Struct* params, Context /*context*/)
 {
     float percent = 0.0F;
     params->fetch_float(kPercent, &percent, 1);
@@ -358,7 +358,7 @@ bool cfunc_nudge_vc(Struct* params, Script* /*script*/)
 // 0x00447E00: SetLightDirection index=<n> direction=<vector> | heading=<degrees> pitch=<degrees>: the light's
 // direction (0x0048ED70; w 0): the vector, or (0, 0, 1) turned by pitch about x and then by heading about y (both
 // needed; otherwise (0, 0, 1)). Returns what 0x0048ED70 returns (its AL).
-bool cfunc_set_light_direction(Struct* params, Script* /*script*/)
+bool cfunc_set_light_direction(Struct* params, Context /*context*/)
 {
     constexpr float kRadiansPerDegree = 0.0174532924F; // (0x00645464)
     int index = 0;                                     // (uninitialised in the original)
@@ -386,14 +386,14 @@ bool cfunc_set_light_direction(Struct* params, Script* /*script*/)
 
 // 0x00447F30: GetMetrics: the renderer's metrics (0x0048CB00 into a new structure) added to the script's params as
 // Metrics. Always true.
-bool cfunc_get_metrics(Struct* /*params*/, Script* script)
+bool cfunc_get_metrics(Struct* /*params*/, Context context)
 {
     gsl::owner<Struct*> metrics = script::spawn_param_bag();
     if (metrics) {
         metrics = new (metrics) script::Struct;
     }
     render::get_scene_debug_info(metrics);
-    script->args()->put_sub_struct(kMetrics, metrics);
+    context.args()->put_sub_struct(kMetrics, metrics);
     if (metrics) {
         metrics->get_clear();
         script::delete_struct(metrics);

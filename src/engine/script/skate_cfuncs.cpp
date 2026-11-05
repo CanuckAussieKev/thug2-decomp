@@ -28,6 +28,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/script/script_state.h"
+#include "engine/script/context.h"
 
 namespace {
 constexpr size_t kLevelNameBytes = 64;
@@ -172,7 +173,7 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
 
 // 0x0059EDF0: ControllerDebounce <button> [time=seconds (1)]: the button doesn't count as pressed (for
 // ControllerPressed) for `time` seconds from now. Always true.
-bool cfunc_controller_debounce(script::Struct* params, script::Script* /*script*/)
+bool cfunc_controller_debounce(script::Struct* params, script::Context /*context*/)
 {
     float time = 1.0F;
     params->fetch_float(kTime, &time, 0);
@@ -189,7 +190,7 @@ bool cfunc_controller_debounce(script::Struct* params, script::Script* /*script*
 // 0x0059F0F0: FakeLights id=<light> <settings>: change one fake light (0x004901D0); or FakeLights
 // prefix=<name> [time=n] <settings>: set up fake lights on the nodes named with that prefix (0x0045BF90 lists
 // them; with the flag 0x80804991 the name isn't treated as a prefix) - 0x0048FE40. False without id or prefix.
-bool cfunc_fake_lights(script::Struct* params, script::Script* /*script*/)
+bool cfunc_fake_lights(script::Struct* params, script::Context /*context*/)
 {
     uint32_t id = 0;
     if (params->read_hash_value(kId, &id, 0)) {
@@ -210,7 +211,7 @@ bool cfunc_fake_lights(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0059F1B0: UpdateFxLighting (0x00491F10).
-bool cfunc_update_fx_lighting(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_update_fx_lighting(script::Struct* /*params*/, script::Context /*context*/)
 {
     render::engine::light_all_texture_splats();
     return true;
@@ -218,7 +219,7 @@ bool cfunc_update_fx_lighting(script::Struct* /*params*/, script::Script* /*scri
 
 // 0x0059F1C0: NodeExists <name>: whether the level's node array has a node of that name (0x0045BE70). The
 // name is asserted (a compiled-out assert: missing = 0).
-bool cfunc_node_exists(script::Struct* params, script::Script* /*script*/)
+bool cfunc_node_exists(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
@@ -227,7 +228,7 @@ bool cfunc_node_exists(script::Struct* params, script::Script* /*script*/)
 
 // 0x0059F1F0: LoadNodeArray "<file>": kill the session's spawned scripts, note the name (0x007CE6D8, copied
 // unchecked), load the .qb file (0x005A5960) and set up the node array (0x0045C210).
-bool cfunc_load_node_array(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_node_array(script::Struct* params, script::Context /*context*/)
 {
     memory::push_mem_profile("LoadNodeArray"); // "LoadNodeArray"
     script::kill_all_child_scripts();
@@ -242,7 +243,7 @@ bool cfunc_load_node_array(script::Struct* params, script::Script* /*script*/)
 
 // 0x0059F260: ResetCamera: not implemented on PC - for each of the two viewports with a camera (0x004A0950), a
 // debug message. Always true.
-bool cfunc_reset_camera(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_reset_camera(script::Struct* /*params*/, script::Context /*context*/)
 {
     for (int viewport = 0; viewport < 2; ++viewport) {
         if (render::obtain_active_lens(viewport)) {
@@ -253,7 +254,7 @@ bool cfunc_reset_camera(script::Struct* /*params*/, script::Script* /*script*/)
 }
 
 // 0x0059F290: SetMovementVelocity [speed (400)]: the viewer's movement speed (0x00576E80).
-bool cfunc_set_movement_velocity(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_movement_velocity(script::Struct* params, script::Context /*context*/)
 {
     float speed = kDefaultMovementSpeed;
     params->fetch_float(0U, &speed, 0);
@@ -262,7 +263,7 @@ bool cfunc_set_movement_velocity(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x0059F2C0: SetRotateVelocity [speed (120)]: the viewer's rotation speed (0x00576E90).
-bool cfunc_set_rotate_velocity(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_rotate_velocity(script::Struct* params, script::Context /*context*/)
 {
     float speed = kDefaultRotateSpeed;
     params->fetch_float(0U, &speed, 0);
@@ -271,7 +272,7 @@ bool cfunc_set_rotate_velocity(script::Struct* params, script::Script* /*script*
 }
 
 // 0x0059F2F0: ClearViewerObject: the viewer (if any) lets go of the object it shows (0x00576D40).
-bool cfunc_clear_viewer_object(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_clear_viewer_object(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (void* viewer = get_viewer()) {
         static_cast<modules::Viewer*>(viewer)->drop_viewer_entity();
@@ -280,7 +281,7 @@ bool cfunc_clear_viewer_object(script::Struct* /*params*/, script::Script* /*scr
 }
 
 // 0x0059F310: CasArtist: whether the global integer cas_artist is set.
-bool cfunc_cas_artist(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_cas_artist(script::Struct* /*params*/, script::Context /*context*/)
 {
     return script::fetch_int_value("cas_artist") != 0; // "cas_artist"
 }
@@ -289,7 +290,7 @@ bool cfunc_cas_artist(script::Struct* /*params*/, script::Script* /*script*/)
 // [online_mode_flag] [permanent] [NotSessionSpecific=n]: spawn the script at the calling script's node. The new
 // script remembers the caller's .qb file (so killing by file kills it) unless the flag 0x01917DF2 is given.
 // Always true.
-bool cfunc_spawn_script(script::Struct* params, script::Script* script)
+bool cfunc_spawn_script(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
@@ -305,24 +306,31 @@ bool cfunc_spawn_script(script::Struct* params, script::Script* script)
     const bool permanent = params->has_bare_flag(kPermanent);
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
-    script::Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params, .node = script->list_link(), .id = id, .replicate = replicate_flag, .permanent = permanent, .not_session_specific_ = not_session_specific != 0});
+    script::Script* spawned = script::spawn_script(name, script_params,
+                                                   {.callback = callback,
+                                                    .callback_params_ = callback_params,
+                                                    .node = context.list_link(),
+                                                    .id = id,
+                                                    .replicate = replicate_flag,
+                                                    .permanent = permanent,
+                                                    .not_session_specific_ = not_session_specific != 0});
     // (as in the original, not checked for null - a C function spawns no script)
     if (!params->has_bare_flag(kKeepSpawnerFile)) {
-        script::host().set_spawner_file(spawned, script);
+        context.give_spawner_file_to(spawned);
     }
     return true;
 }
 
 // 0x0059F440: UnBlockInterruptedScript: the level the calling script's interrupt interrupted goes on.
-bool cfunc_un_block_interrupted_script(script::Struct* /*params*/, script::Script* script)
+bool cfunc_un_block_interrupted_script(script::Struct* /*params*/, script::Context context)
 {
-    script::host().unblock_interrupted_script(script);
+    context.unblock_interrupted_script();
     return true;
 }
 
 // 0x0059F450: KillSpawnedScript Name=<script> (kill the spawned scripts running it at any level) or
 // Id=<id> (by spawn id, unique id or spawner file). Always true.
-bool cfunc_kill_spawned_script(script::Struct* params, script::Script* /*script*/)
+bool cfunc_kill_spawned_script(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     if (params->read_hash_value("Name", &name, 0)) { // "Name"
@@ -337,13 +345,13 @@ bool cfunc_kill_spawned_script(script::Struct* params, script::Script* /*script*
 }
 
 // 0x0059F4C0 / 0x0059F4D0: PauseSpawnedScripts / UnPauseSpawnedScripts.
-bool cfunc_pause_spawned_scripts(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_pause_spawned_scripts(script::Struct* /*params*/, script::Context /*context*/)
 {
     script::pause_spawned_scripts(true);
     return true;
 }
 
-bool cfunc_un_pause_spawned_scripts(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_un_pause_spawned_scripts(script::Struct* /*params*/, script::Context /*context*/)
 {
     script::pause_spawned_scripts(false);
     return true;
@@ -351,7 +359,7 @@ bool cfunc_un_pause_spawned_scripts(script::Struct* /*params*/, script::Script* 
 
 // 0x0059F4E0: DisplayLoadingScreen ["<image>" ("images\xxxxx")] [freeze] [blank] [seconds]: show the loading
 // screen (0x00490890); with a number, the loading bar's time (0x00490770). Always true.
-bool cfunc_display_loading_screen(script::Struct* params, script::Script* /*script*/)
+bool cfunc_display_loading_screen(script::Struct* params, script::Context /*context*/)
 {
     const char* image = "images\\xxxxx"; // "images\xxxxx"
     params->fetch_text(0U, &image, 0);
@@ -367,7 +375,7 @@ bool cfunc_display_loading_screen(script::Struct* params, script::Script* /*scri
 }
 
 // 0x0059F550: HideLoadingScreen (0x004908C0).
-bool cfunc_hide_loading_screen(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_hide_loading_screen(script::Struct* /*params*/, script::Context /*context*/)
 {
     gfx::loading_console::screen_hidden(); // not original: the loading console (gfx/loading_console.h)
     render::remove_loading_screen();
@@ -375,7 +383,7 @@ bool cfunc_hide_loading_screen(script::Struct* /*params*/, script::Script* /*scr
 }
 
 // 0x0059F560: LastBroadcastedOmnigonWas <0xAE94C183=checksum>: whether it's the last Omnigon sent.
-bool cfunc_last_broadcasted_omnigon_was(script::Struct* params, script::Script* /*script*/)
+bool cfunc_last_broadcasted_omnigon_was(script::Struct* params, script::Context /*context*/)
 {
     uint32_t omnigon = 0; // (the original leaves it unset when missing - an asserted parameter)
     params->read_hash_value(kOmnigon, &omnigon, 1);
@@ -383,7 +391,7 @@ bool cfunc_last_broadcasted_omnigon_was(script::Struct* params, script::Script* 
 }
 
 // 0x0059F590: OmnigonAllowed <0xAE94C183=checksum>: reads the parameter, always true.
-bool cfunc_omnigon_allowed(script::Struct* params, script::Script* /*script*/)
+bool cfunc_omnigon_allowed(script::Struct* params, script::Context /*context*/)
 {
     uint32_t omnigon = 0;
     params->read_hash_value(kOmnigon, &omnigon, 1);
@@ -392,7 +400,7 @@ bool cfunc_omnigon_allowed(script::Struct* params, script::Script* /*script*/)
 
 // 0x0059F5B0: SetLevelName "<name>": the level's name (0x007CE698). The original passes the name to sprintf
 // as the format (kept: a '%' in it is interpreted).
-bool cfunc_set_level_name(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_level_name(script::Struct* params, script::Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text(0U, &name, 1);
@@ -401,7 +409,7 @@ bool cfunc_set_level_name(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0059F5E0: DumpScripts [just_stack]: the script list dump is compiled out of this build. Always true.
-bool cfunc_dump_scripts(script::Struct* params, script::Script* /*script*/)
+bool cfunc_dump_scripts(script::Struct* params, script::Context /*context*/)
 {
     if (!params->has_bare_flag("just_stack")) { // "just_stack"
         dump_scripts_list(params->has_bare_flag(kDumpScriptsFlag));

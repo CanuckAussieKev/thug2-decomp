@@ -8,9 +8,9 @@
 
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/degree_ratio.h"
+#include "engine/script/context.h"
 
 namespace commands {
 
@@ -57,64 +57,70 @@ float get_argument(script::Struct* params)
 } // namespace
 
 // 0x00448AE0: Sin <degrees>: sin = the sine.
-bool cfunc_sin(script::Struct* params, script::Script* script)
+bool cfunc_sin(script::Struct* params, script::Context context)
 {
     const float angle = get_argument(params);
-    script->args()->push_float(checksums::Name{kSin}, static_cast<float>(std::sin(static_cast<double>(angle) * degree_to_radian_conv())));
+    context.args()->push_float(checksums::Name{kSin},
+                               static_cast<float>(std::sin(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
 // 0x00448B20: Cos <degrees>: cos = the cosine.
-bool cfunc_cos(script::Struct* params, script::Script* script)
+bool cfunc_cos(script::Struct* params, script::Context context)
 {
     const float angle = get_argument(params);
-    script->args()->push_float(checksums::Name{kCos}, static_cast<float>(std::cos(static_cast<double>(angle) * degree_to_radian_conv())));
+    context.args()->push_float(checksums::Name{kCos},
+                               static_cast<float>(std::cos(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
 // 0x00448B60: Tan <degrees>: tan = the tangent.
-bool cfunc_tan(script::Struct* params, script::Script* script)
+bool cfunc_tan(script::Struct* params, script::Context context)
 {
     const float angle = get_argument(params);
-    script->args()->push_float(checksums::Name{kTan}, static_cast<float>(std::tan(static_cast<double>(angle) * degree_to_radian_conv())));
+    context.args()->push_float(checksums::Name{kTan},
+                               static_cast<float>(std::tan(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
 // 0x00448BA0: ASin <value>: asin = the arc sine in degrees (the C runtime's asin).
-bool cfunc_a_sin(script::Struct* params, script::Script* script)
+bool cfunc_a_sin(script::Struct* params, script::Context context)
 {
     const float value = get_argument(params);
-    script->args()->push_float(checksums::Name{kASin}, static_cast<float>(std::asin(static_cast<double>(value)) * convert_to_degrees()));
+    context.args()->push_float(checksums::Name{kASin},
+                               static_cast<float>(std::asin(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
 // 0x00448BE0: ACos <value>: acos = the arc cosine in degrees (the C runtime's acos).
-bool cfunc_a_cos(script::Struct* params, script::Script* script)
+bool cfunc_a_cos(script::Struct* params, script::Context context)
 {
     const float value = get_argument(params);
-    script->args()->push_float(checksums::Name{kACos}, static_cast<float>(std::acos(static_cast<double>(value)) * convert_to_degrees()));
+    context.args()->push_float(checksums::Name{kACos},
+                               static_cast<float>(std::acos(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
 // 0x00448C20: ATan <value>: atan = the arc tangent in degrees.
-bool cfunc_a_tan(script::Struct* params, script::Script* script)
+bool cfunc_a_tan(script::Struct* params, script::Context context)
 {
     const float value = get_argument(params);
-    script->args()->push_float(checksums::Name{kATan}, static_cast<float>(std::atan(static_cast<double>(value)) * convert_to_degrees()));
+    context.args()->push_float(checksums::Name{kATan},
+                               static_cast<float>(std::atan(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
 // 0x00448C60: Sqrt <value>: sqrt = the square root.
-bool cfunc_sqrt(script::Struct* params, script::Script* script)
+bool cfunc_sqrt(script::Struct* params, script::Context context)
 {
     const float value = get_argument(params);
-    script->args()->push_float(checksums::Name{kSqrt}, static_cast<float>(std::sqrt(static_cast<double>(value))));
+    context.args()->push_float(checksums::Name{kSqrt}, static_cast<float>(std::sqrt(static_cast<double>(value))));
     return true;
 }
 
 // 0x00448CA0: NormalizeVector <vector>: norm = the vector scaled to length 1 (all four components scaled; a
 // zero vector as it is), length = its length (x, y, z).
-bool cfunc_normalize_vector(script::Struct* params, script::Script* script)
+bool cfunc_normalize_vector(script::Struct* params, script::Context context)
 {
     script::VectorValue v = {};
     params->fetch_vec(0U, &v, 1);
@@ -130,14 +136,14 @@ bool cfunc_normalize_vector(script::Struct* params, script::Script* script)
         v.z = static_cast<float>(v.z * scale);
         v.w = static_cast<float>(v.w * scale);
     }
-    script->args()->put_vec3(checksums::Name{kNorm}, v);
-    script->args()->push_float(checksums::Name{kLength}, length);
+    context.args()->put_vec3(checksums::Name{kNorm}, v);
+    context.args()->push_float(checksums::Name{kLength}, length);
     return true;
 }
 
 // 0x00448D70: LinearMap result=<name> From=a To=b <value> lowerbound=lo upperbound=hi: <name> = where value
 // lies between lo and hi (clamped to 0..1) mapped onto a..b.
-bool cfunc_linear_map(script::Struct* params, script::Script* script)
+bool cfunc_linear_map(script::Struct* params, script::Context context)
 {
     uint32_t result = 0;
     params->read_hash_value(kResult, &result, 1);
@@ -158,14 +164,14 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
     } else if (fraction > 1.0) {
         fraction = 1.0;
     }
-    script->args()->push_float(checksums::Name{result},
+    context.args()->push_float(checksums::Name{result},
                                static_cast<float>(((static_cast<double>(to) - from) * fraction) + from));
     return true;
 }
 
 // 0x00448E60: Clamp <value> min=lo max=hi: Clamped = the value limited to max, then to min (so min wins when
 // min > max).
-bool cfunc_clamp(script::Struct* params, script::Script* script)
+bool cfunc_clamp(script::Struct* params, script::Context context)
 {
     float value = 0.0F;
     float min = 0.0F;
@@ -175,13 +181,13 @@ bool cfunc_clamp(script::Struct* params, script::Script* script)
     params->fetch_float(kMax, &max, 1);
     float clamped = value > max ? max : value;
     clamped = std::max(clamped, min);
-    script->args()->push_float(checksums::Name{kClamped}, clamped);
+    context.args()->push_float(checksums::Name{kClamped}, clamped);
     return true;
 }
 
 // 0x00448EF0: RotateVector x=.. Y=.. z=.. [rx=degrees] [ry=..] [rz=..]: x, Y, z = the point (w = 1) turned about
 // the X axis, then Y, then Z (each rotation applied in front: identity, then Rx * m, Ry * m, Rz * m).
-bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
+bool cfunc_rotate_vector(script::Struct* params, script::Context context)
 {
     maths::Vec4 point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     params->fetch_float(kX, &point.x, 1);
@@ -202,9 +208,9 @@ bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
     maths::matrix_multiply(&matrix, &maths::make_roll_matrix(rotation, rz * degree_to_radian_conv()), &matrix);
     maths::Vec4 turned{};
     matrix.xform(turned, point);
-    script->args()->push_float(checksums::Name{kX}, turned.x);
-    script->args()->push_float(checksums::Name{kY}, turned.y);
-    script->args()->push_float(checksums::Name{kZ}, turned.z);
+    context.args()->push_float(checksums::Name{kX}, turned.x);
+    context.args()->push_float(checksums::Name{kY}, turned.y);
+    context.args()->push_float(checksums::Name{kZ}, turned.z);
     return true;
 }
 

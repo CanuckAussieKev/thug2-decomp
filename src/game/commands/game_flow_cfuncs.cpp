@@ -70,6 +70,7 @@
 #include "base/core/format.h"
 #include "game/online/net_game_state.h"
 #include "engine/script/script_state.h"
+#include "engine/script/context.h"
 #include "game/online/player_info.h"
 #include "wire/message_ids.h"
 
@@ -209,7 +210,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     }
     debug::printf(
         "Starting to unload Geometry from the engine .....\n"); // "Starting to unload Geometry from the engine .....\n"
-    cfunc_unload_all_level_geometry(nullptr, nullptr);
+    cfunc_unload_all_level_geometry(nullptr, script::Context());
     debug::printf(
         "Done unloading Geometry from the engine .....\n"); // "Done unloading Geometry from the engine .....\n"
     if (!preserve_skaters) {
@@ -396,7 +397,7 @@ bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
 {
     const objects::Entity* object = script->entity().get_pull();
     if (!object) {
-        return cfunc_spawn_script(params, script);
+        return cfunc_spawn_script(params, script::Context(script));
     }
     uint32_t name = 0;
     if (params->read_hash_value(0U, &name, 0)) {

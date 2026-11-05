@@ -21,6 +21,7 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/gfx/tod_manager.h"
 #include <gsl/pointers>
 #include <gsl/assert>
@@ -112,7 +113,7 @@ bool& script_printf_enabled() { return script_cfuncs_state().script_printf_enabl
 Component& format_text_value() { return script_cfuncs_state().format_text_value_; }
 
 // IfDebugOn / IfDebugOff's work on the calling script - compiled out of this build (an empty call, 0x005480A0).
-inline void set_script_debug(script::Script* /*script*/) {}
+inline void set_script_debug(script::Context /*context*/) {}
 
 // `text` appended at `used` of the buffer (with its terminator); returns the new end. (A text that does not fit ends
 // the game with a report; the original wrote past the buffer.)
@@ -129,12 +130,12 @@ size_t get_append(std::array<char, kFormatTextBytes>& buffer, size_t used, const
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // Wait `ms` milliseconds of the game clock or of frame time.
-void wait_ms(script::Script* script, bool real_time, int ms)
+void wait_ms(script::Context context, bool real_time, int ms)
 {
     if (real_time) {
-        script::host().wait_real_time(script, ms);
+        context.wait_real_time(ms);
     } else {
-        script::host().lull(script, ms);
+        context.lull(ms);
     }
 }
 
@@ -288,7 +289,7 @@ int format_text(script::Struct& results, script::Struct* params)
 // with the new value (its +0x08 word kept). Integers, floats and names are stored as they are, structures and arrays
 // copied; with `resolve`, a name standing for another global takes that global's value. Any other type leaves the
 // global made again but empty. False if the name isn't a global, or is a script or a C / member function.
-bool cfunc_change(script::Struct* params, script::Script* /*script*/)
+bool cfunc_change(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kGlobalName, &name, 0);
@@ -360,28 +361,28 @@ bool cfunc_change(script::Struct* params, script::Script* /*script*/)
 // (times 1000) and frames (times 16.666666) wait as milliseconds, of the game clock with the 0xC847F2B9 flag or of
 // frame time otherwise; game frames count Updates; one_per_frame counts Updates one script a frame; a bare number is
 // milliseconds. Each count truncated.
-bool cfunc_wait(script::Struct* params, script::Script* script)
+bool cfunc_wait(script::Struct* params, script::Context context)
 {
     float value = 0.0F;
     params->fetch_float(0U, &value, 0);
     const bool real_time = params->has_bare_flag(kRealTime);
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
-        wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::kThousand)); // 1000
+        wait_ms(context, real_time, truncate(static_cast<double>(value) * gfx::kThousand)); // 1000
     } else if (params->has_bare_flag(kGameFrame) || params->has_bare_flag(kGameFrames) ||
                params->has_bare_flag(kGame)) {
-        script::host().get_stall(script, truncate(value));
+        context.get_stall(truncate(value));
     } else if (params->has_bare_flag(kFrame) || params->has_bare_flag(kFrames)) {
-        wait_ms(script, real_time, truncate(static_cast<double>(value) * kScriptFrameMilliseconds)); // 16.67
+        wait_ms(context, real_time, truncate(static_cast<double>(value) * kScriptFrameMilliseconds)); // 16.67
     } else if (params->has_bare_flag(kOnePerFrame)) {
-        script::host().suspend_until_next_frame(script, truncate(value));
+        context.suspend_until_next_frame(truncate(value));
     } else {
-        wait_ms(script, real_time, truncate(value));
+        wait_ms(context, real_time, truncate(value));
     }
     return true;
 }
 
 // 0x0044A200: IntegerEquals A=<int> B=<int> (missing: 0).
-bool cfunc_integer_equals(script::Struct* params, script::Script* /*script*/)
+bool cfunc_integer_equals(script::Struct* params, script::Context /*context*/)
 {
     int value_a = 0;
     params->fetch_int_value(kA, &value_a, 0);
@@ -391,7 +392,7 @@ bool cfunc_integer_equals(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0044A260: ChecksumEquals A=<name> B=<name> (missing: 0).
-bool cfunc_checksum_equals(script::Struct* params, script::Script* /*script*/)
+bool cfunc_checksum_equals(script::Struct* params, script::Context /*context*/)
 {
     uint32_t checksum_a = 0;
     params->read_hash_value(kA, &checksum_a, 0);
@@ -402,7 +403,7 @@ bool cfunc_checksum_equals(script::Struct* params, script::Script* /*script*/)
 
 // 0x0044A2C0: StringEquals A="..." B="...": compared by checksum (so case is ignored). Both asserted (missing: the
 // original's pointer is undefined - here "").
-bool cfunc_string_equals(script::Struct* params, script::Script* /*script*/)
+bool cfunc_string_equals(script::Struct* params, script::Context /*context*/)
 {
     const char* text_a = "";
     const char* text_b = "";
@@ -413,7 +414,7 @@ bool cfunc_string_equals(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0044A320: SetScriptString index=<n> (0) string="..." ("").
-bool cfunc_set_script_string(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_script_string(script::Struct* params, script::Context /*context*/)
 {
     int index = 0;
     params->fetch_int_value(kIndex, &index, 0);
@@ -426,7 +427,7 @@ bool cfunc_set_script_string(script::Struct* params, script::Script* /*script*/)
 // 0x0044A380: GlobalExists name=<name> [type=<type name>]: whether the global exists with that type (Structure /
 // struct, checksum / name, float, array, string, vector, Integer / int, pair; no or another type name: type 0,
 // which no global has).
-bool cfunc_global_exists(script::Struct* params, script::Script* /*script*/)
+bool cfunc_global_exists(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
@@ -438,7 +439,7 @@ bool cfunc_global_exists(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0044A900: EnableScriptPrintf <0 / 1> (1): the scripts' printf on or off.
-bool cfunc_enable_script_printf(script::Struct* params, script::Script* /*script*/)
+bool cfunc_enable_script_printf(script::Struct* params, script::Context /*context*/)
 {
     int enable = 1;
     params->fetch_int_value(0U, &enable, 0);
@@ -447,15 +448,15 @@ bool cfunc_enable_script_printf(script::Struct* params, script::Script* /*script
 }
 
 // 0x0044A930: IfDebugOn / IfDebugOff (one function): compiled out - true.
-bool cfunc_if_debug_on(script::Struct* /*params*/, script::Script* script)
+bool cfunc_if_debug_on(script::Struct* /*params*/, script::Context context)
 {
-    set_script_debug(script);
+    set_script_debug(context);
     return true;
 }
 
 // 0x0044A940: StructureContains Structure={...} <name>: whether the structure has a component or a flag of that
 // name. False without a structure.
-bool cfunc_structure_contains(script::Struct* params, script::Script* /*script*/)
+bool cfunc_structure_contains(script::Struct* params, script::Context /*context*/)
 {
     script::Struct* structure = nullptr;
     if (!params->read_sub_struct(kStructure, &structure, 0)) {
@@ -470,7 +471,7 @@ bool cfunc_structure_contains(script::Struct* params, script::Script* /*script*/
 }
 
 // 0x0044A9B0: ClearStruct struct=<global>: the global structure emptied.
-bool cfunc_clear_struct(script::Struct* params, script::Script* /*script*/)
+bool cfunc_clear_struct(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kStruct, &name, 1);
@@ -479,7 +480,7 @@ bool cfunc_clear_struct(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0044A9E0: ScriptExists <name>: whether the name (following names of names) is a script.
-bool cfunc_script_exists(script::Struct* params, script::Script* /*script*/)
+bool cfunc_script_exists(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
@@ -488,7 +489,7 @@ bool cfunc_script_exists(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0044AA20: IsArray <value>: whether the unnamed value is an array.
-bool cfunc_is_array(script::Struct* params, script::Script* /*script*/)
+bool cfunc_is_array(script::Struct* params, script::Context /*context*/)
 {
     script::Array* array = nullptr;
     return params->fetch_list(0U, &array, 0);
@@ -496,7 +497,7 @@ bool cfunc_is_array(script::Struct* params, script::Script* /*script*/)
 
 // 0x0044AA50: Block [type=<event> | UntilEvent=<event>]: the script waits until an event of that type (none: until
 // unblocked).
-bool cfunc_block(script::Struct* params, script::Script* script)
+bool cfunc_block(script::Struct* params, script::Context context)
 {
     uint32_t event_type = 0;
     if (!params->is_vacant()) {
@@ -504,12 +505,12 @@ bool cfunc_block(script::Struct* params, script::Script* script)
             params->read_hash_value(kUntilEvent, &event_type, 0);
         }
     }
-    script::host().gate_off(script, event_type);
+    context.gate_off(event_type);
     return true;
 }
 
 // 0x0044AAB0: IsTrue <integer>: whether it is non-zero (missing: false).
-bool cfunc_is_true(script::Struct* params, script::Script* /*script*/)
+bool cfunc_is_true(script::Struct* params, script::Context /*context*/)
 {
     int value = 0;
     params->fetch_int_value(0U, &value, 0);
@@ -517,7 +518,7 @@ bool cfunc_is_true(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x0044AAE0: CleanUpAndRemoveSymbol <name>: the global freed and taken out of the table. False if there is none.
-bool cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Script* /*script*/)
+bool cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
@@ -531,7 +532,7 @@ bool cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Script* /*
 
 // 0x0044AB20: SetEventHandler ex=<event> scr=<script> [Group=<name> (default)] [Exception] [params={...}]: an
 // event handler of the calling script.
-bool cfunc_set_event_handler(script::Struct* params, script::Script* script)
+bool cfunc_set_event_handler(script::Struct* params, script::Context context)
 {
     uint32_t event_type = 0;
     params->read_hash_value(kEx, &event_type, 1);
@@ -542,12 +543,12 @@ bool cfunc_set_event_handler(script::Struct* params, script::Script* script)
     const bool exception = params->has_bare_flag(kException);
     script::Struct* handler_params = nullptr;
     params->read_sub_struct(kParams, &handler_params, 0);
-    script::host().set_event_handler(script, event_type, handler, group, exception, handler_params);
+    context.set_event_handler(event_type, handler, group, exception, handler_params);
     return true;
 }
 
 // 0x0044ABD0: SetExceptionHandler / SetException (one function): SetEventHandler, always as an exception.
-bool cfunc_set_exception_handler(script::Struct* params, script::Script* script)
+bool cfunc_set_exception_handler(script::Struct* params, script::Context context)
 {
     uint32_t event_type = 0;
     params->read_hash_value(kEx, &event_type, 1);
@@ -557,74 +558,74 @@ bool cfunc_set_exception_handler(script::Struct* params, script::Script* script)
     params->read_hash_value(kGroup, &group, 0);
     script::Struct* handler_params = nullptr;
     params->read_sub_struct(kParams, &handler_params, 0);
-    script::host().set_event_handler(script, event_type, handler, group, true, handler_params);
+    context.set_event_handler(event_type, handler, group, true, handler_params);
     return true;
 }
 
 // 0x0044AC70: ResetEventHandlersFromTable <global array> [Group=<name> (default)].
-bool cfunc_reset_event_handlers_from_table(script::Struct* params, script::Script* script)
+bool cfunc_reset_event_handlers_from_table(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
     script::Array* table = script::fetch_list(name);
     uint32_t group = kDefaultGroup;
     params->read_hash_value(kGroup, &group, 0);
-    script::host().reset_event_handlers_from_table(script, table, group);
+    context.reset_event_handlers_from_table(table, group);
     return true;
 }
 
 // 0x0044ACD0: ClearEventHandler <event>.
-bool cfunc_clear_event_handler(script::Struct* params, script::Script* script)
+bool cfunc_clear_event_handler(script::Struct* params, script::Context context)
 {
     uint32_t event_type = 0;
     params->read_hash_value(0U, &event_type, 1);
-    script::host().clear_event_handler(script, event_type);
+    context.clear_event_handler(event_type);
     return true;
 }
 
 // 0x0044AD00: ClearEventHandlerGroup [<group> (default)].
-bool cfunc_clear_event_handler_group(script::Struct* params, script::Script* script)
+bool cfunc_clear_event_handler_group(script::Struct* params, script::Context context)
 {
     uint32_t group = kDefaultGroup;
     params->read_hash_value(0U, &group, 0);
-    script::host().clear_event_handler_group(script, group);
+    context.clear_event_handler_group(group);
     return true;
 }
 
 // 0x0044AD30: OnExceptionRun [<script>] (none: 0 - cleared).
-bool cfunc_on_exception_run(script::Struct* params, script::Script* script)
+bool cfunc_on_exception_run(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
-    script->set_on_exception_script(name);
+    context.set_on_exception_script(name);
     return true;
 }
 
 // 0x0044AD60: OnExitRun [<script>] (none: 0 - cleared).
-bool cfunc_on_exit_run(script::Struct* params, script::Script* script)
+bool cfunc_on_exit_run(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
-    script->set_on_exit_script(name);
+    context.set_on_exit_script(name);
     return true;
 }
 
 // 0x0044AD90: PrintEventHandlerTable.
-bool cfunc_print_event_handler_table(script::Struct* /*params*/, script::Script* script)
+bool cfunc_print_event_handler_table(script::Struct* /*params*/, script::Context context)
 {
-    script::host().print_event_handler_table(script);
+    context.print_event_handler_table();
     return true;
 }
 
 // 0x0044ADA0: StopAllScripts.
-bool cfunc_stop_all_scripts(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_stop_all_scripts(script::Struct* /*params*/, script::Context /*context*/)
 {
     script::stop_all_scripts();
     return true;
 }
 
 // 0x0044ADB0: FirstTimeThisIsCalled: true the first time only (for the whole game).
-bool cfunc_first_time_this_is_called(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_first_time_this_is_called(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (!first_time_not_called()) {
         return false;
@@ -634,7 +635,7 @@ bool cfunc_first_time_this_is_called(script::Struct* /*params*/, script::Script*
 }
 
 // 0x0044ADD0: SetScriptWarningLevel [level=none (default) | warn | assert]: 0 / 1 / 2; another name changes nothing.
-bool cfunc_set_script_warning_level(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_script_warning_level(script::Struct* params, script::Context /*context*/)
 {
     uint32_t level = kLevelNone;
     params->read_hash_value(kLevel, &level, 0);
@@ -650,67 +651,67 @@ bool cfunc_set_script_warning_level(script::Struct* params, script::Script* /*sc
 
 // 0x0044AE30: CastToInteger <name>: the calling script's float parameter of that name made an integer (truncated).
 // False if there's no name or no such float.
-bool cfunc_cast_to_integer(script::Struct* params, script::Script* script)
+bool cfunc_cast_to_integer(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     if (!params->read_hash_value(0U, &name, 0)) {
         return false;
     }
     float value = 0.0F;
-    if (!script->args()->fetch_float(name, &value, 0)) {
+    if (!context.args()->fetch_float(name, &value, 0)) {
         return false;
     }
-    script->args()->erase_module(name);
-    script->args()->put_int(checksums::Name{name}, truncate(value));
+    context.args()->erase_module(name);
+    context.args()->put_int(checksums::Name{name}, truncate(value));
     return true;
 }
 
 // 0x0044AEB0: StringToInteger <name>: the calling script's string parameter of that name made an integer (each
 // character taken as a digit: c - '0', no checks). False if there's no name or no such string. (The string is read
 // after its component was removed - freed memory, as in the original.)
-bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
+bool cfunc_string_to_integer(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     if (!params->read_hash_value(0U, &name, 0)) {
         return false;
     }
     const char* string = "";
-    if (!script->args()->fetch_text(name, &string, 0)) {
+    if (!context.args()->fetch_text(name, &string, 0)) {
         return false;
     }
-    script->args()->erase_module(name);
+    context.args()->erase_module(name);
     int value = 0;
     for (const char digit : std::string_view(string)) {
         value = (value * kDecimalBase) + (digit - '0');
     }
-    script->args()->put_int(checksums::Name{name}, value);
+    context.args()->put_int(checksums::Name{name}, value);
     return true;
 }
 
 // 0x0044B720: AddParams {...}: the command's parameters added to the calling script's.
-bool cfunc_add_params(script::Struct* params, script::Script* script)
+bool cfunc_add_params(script::Struct* params, script::Context context)
 {
-    script->args()->append_structure_if_any(params);
+    context.args()->append_structure_if_any(params);
     return true;
 }
 
 // 0x0044B740: erase_module name=<name> (or the unnamed name): taken out of the calling script's parameters.
-bool cfunc_remove_component(script::Struct* params, script::Script* script)
+bool cfunc_remove_component(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     if (!params->read_hash_value(kName, &name, 0)) {
         params->read_hash_value(0U, &name, 1);
     }
-    script->args()->erase_module(name);
+    context.args()->erase_module(name);
     return true;
 }
 
 // 0x0044B790: GetScriptString index=<n> (0): string = the script string.
-bool cfunc_get_script_string(script::Struct* params, script::Script* script)
+bool cfunc_get_script_string(script::Struct* params, script::Context context)
 {
     int index = 0;
     params->fetch_int_value(kIndex, &index, 0);
-    script->args()->append_word(kString, script::get_script_string(index));
+    context.args()->append_word(kString, script::get_script_string(index));
     return true;
 }
 

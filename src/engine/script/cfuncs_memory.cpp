@@ -18,7 +18,6 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/spawned_polys.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/script_startup.h"
 #include "engine/script/cfuncs_scene.h"
@@ -26,10 +25,11 @@
 #include "base/core/format.h"
 #include "engine/sys/game_config.h"
 #include "engine/script/script_state.h"
+#include "engine/script/context.h"
 
 namespace commands {
 
-using script::Script;
+using script::Context;
 using script::Struct;
 
 namespace {
@@ -71,7 +71,7 @@ int free_sound_memory() { return stubs::return_zero(); }
 } // namespace
 
 // 0x00447FF0: PushMemProfile "<name>" (compiled out). Always true.
-bool cfunc_push_mem_profile(Struct* params, Script* /*script*/)
+bool cfunc_push_mem_profile(Struct* params, Context /*context*/)
 {
     const char* name = nullptr;
     params->fetch_text(0U, &name, 1);
@@ -80,14 +80,14 @@ bool cfunc_push_mem_profile(Struct* params, Script* /*script*/)
 }
 
 // 0x00448020: PopMemProfile (compiled out). Always true.
-bool cfunc_pop_mem_profile(Struct* /*params*/, Script* /*script*/)
+bool cfunc_pop_mem_profile(Struct* /*params*/, Context /*context*/)
 {
     memory::pop_mem_profile();
     return true;
 }
 
 // 0x00448030: SetMemThreadSafe [off] (compiled out). Always true.
-bool cfunc_set_mem_thread_safe(Struct* params, Script* /*script*/)
+bool cfunc_set_mem_thread_safe(Struct* params, Context /*context*/)
 {
     if (params->has_bare_flag(kOff)) {
         set_mem_thread_safe(false);
@@ -98,7 +98,7 @@ bool cfunc_set_mem_thread_safe(Struct* params, Script* /*script*/)
 }
 
 // 0x00448060: DumpFragments [<size> (0x3C00)] [K] (compiled out). Always true.
-bool cfunc_dump_fragments(Struct* params, Script* /*script*/)
+bool cfunc_dump_fragments(Struct* params, Context /*context*/)
 {
     int size = kDefaultFragmentDumpSize;
     params->fetch_int_value(0U, &size, 0);
@@ -107,18 +107,18 @@ bool cfunc_dump_fragments(Struct* params, Script* /*script*/)
 }
 
 // 0x00448090: MemViewToggle. Always true.
-bool cfunc_mem_view_toggle(Struct* /*params*/, Script* /*script*/)
+bool cfunc_mem_view_toggle(Struct* /*params*/, Context /*context*/)
 {
     render::toggle_mem_view();
     return true;
 }
 
 // 0x004480A0: GotExtraMemory: whether the machine has the extra memory (0x007CEFAC).
-bool cfunc_got_extra_memory(Struct* /*params*/, Script* /*script*/) { return game_config::get_extra_memory(); }
+bool cfunc_got_extra_memory(Struct* /*params*/, Context /*context*/) { return game_config::get_extra_memory(); }
 
 // 0x004480B0: MemPushContext <heap name> | 0 (the bottom-up heap; another number does nothing): allocations go to
 // that heap until MemPopContext. Always true.
-bool cfunc_mem_push_context(Struct* params, Script* /*script*/)
+bool cfunc_mem_push_context(Struct* params, Context /*context*/)
 {
     int number = 0;
     if (params->fetch_int_value(0U, &number, 0)) {
@@ -134,14 +134,14 @@ bool cfunc_mem_push_context(Struct* params, Script* /*script*/)
 }
 
 // 0x00448130: MemPopContext. Always true.
-bool cfunc_mem_pop_context(Struct* /*params*/, Script* /*script*/)
+bool cfunc_mem_pop_context(Struct* /*params*/, Context /*context*/)
 {
     hub()->leave_heap_scope();
     return true;
 }
 
 // 0x00448140: MemInitHeap name="<text>" size=<bytes>: a named heap of its own region. Always true.
-bool cfunc_mem_init_heap(Struct* params, Script* /*script*/)
+bool cfunc_mem_init_heap(Struct* params, Context /*context*/)
 {
     const char* text = nullptr; // (both asserted; uninitialised in the original)
     int size = 0;
@@ -152,19 +152,19 @@ bool cfunc_mem_init_heap(Struct* params, Script* /*script*/)
 }
 
 // 0x004481A0: MemDeleteHeap name=...: whether the named heap was there (and is deleted).
-bool cfunc_mem_delete_heap(Struct* params, Script* /*script*/)
+bool cfunc_mem_delete_heap(Struct* params, Context /*context*/)
 {
     return hub()->release_labeled_zone(get_heap_name(params), 0);
 }
 
 // 0x00448200: MemHeapExists name=...: whether there is such a named heap.
-bool cfunc_mem_heap_exists(Struct* params, Script* /*script*/)
+bool cfunc_mem_heap_exists(Struct* params, Context /*context*/)
 {
     return hub()->fetch_heap_by_key(get_heap_name(params), 0) != nullptr;
 }
 
 // 0x00448270: AnalyzeHeap [<heap name> (BottomUpHeap)] (compiled out; params may be null). Always true.
-bool cfunc_analyze_heap(Struct* params, Script* /*script*/)
+bool cfunc_analyze_heap(Struct* params, Context /*context*/)
 {
     uint32_t name = kBottomUpHeap;
     if (params) {
@@ -178,7 +178,7 @@ bool cfunc_analyze_heap(Struct* params, Script* /*script*/)
 
 // 0x004482C0: PrintMemInfo [<heap name> (BottomUpHeap)]: the heap looked up and its name copied for a compiled-out
 // report (params may be null). Always true.
-bool cfunc_print_mem_info(Struct* params, Script* /*script*/)
+bool cfunc_print_mem_info(Struct* params, Context /*context*/)
 {
     uint32_t name = kBottomUpHeap;
     if (params) {
@@ -243,7 +243,7 @@ void dump_pool_usage(bool to_dump_file, bool print)
 // 0x00448840: DumpHeaps [<flag>]: the current heap, then each heap's used / fragmented / free / minimum free sizes and
 // block count (in K, or in bytes with the flag), the sound memory free and the pools' usage - printed (params may be
 // null). Always true.
-bool cfunc_dump_heaps(Struct* params, Script* /*script*/)
+bool cfunc_dump_heaps(Struct* params, Context /*context*/)
 {
     dump_heaps_begin();
     memory::Hub* manager = hub();

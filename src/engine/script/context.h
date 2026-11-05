@@ -70,7 +70,7 @@ public:
     }
     void clear_event_handler(uint32_t event_type) const { host().clear_event_handler(script_, event_type); }
     void clear_event_handler_group(uint32_t group) const { host().clear_event_handler_group(script_, group); }
-    [[nodiscard]] int print_event_handler_table() const { return host().print_event_handler_table(script_); }
+    void print_event_handler_table() const { host().print_event_handler_table(script_); }
     void reset_event_handlers_from_table(Array* table, uint32_t group) const
     {
         host().reset_event_handlers_from_table(script_, table, group);
