@@ -155,6 +155,15 @@ test("only app/ picks the Direct3D 9 Gpu; the files through the Gpu see no Direc
     }
 });
 
+// render::GpuContext (engine/gfx/gpu_context.h) makes and resets the device (the instance, the device, the present
+// parameters as API-neutral settings, the caps): app/ installs Direct3D 9's with the Gpu.
+test("only app/ picks the Direct3D 9 GpuContext", () => {
+    const pickers = including(/^\s*#\s*include\s*"render_d3d9\/d3d9_context\.h"/m);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/d3d9_context.cpp");
+    assert.deepEqual(outside, []);
+    assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the GpuContext");
+});
+
 // Dear ImGui's platform and renderer backends are the graphics backend's (render::UiBackend, engine/gfx/ui_backend.h):
 // only render_d3d9/ includes their headers, and only app/ picks Direct3D 9's UI backend.
 test("only render_d3d9/ includes ImGui's backends; only app/ picks the UI backend", () => {
