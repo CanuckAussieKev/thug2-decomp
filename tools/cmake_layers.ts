@@ -266,7 +266,8 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
             stack.push(...(byName.get(link)?.links.filter((next) => byName.has(next)) ?? []));
         }
         for (const without of rule.without) {
-            if (reached.has(`thug2_${without}`)) found.push(`${name} reaches thug2_${without}, which it must do without`);
+            if (reached.has(`thug2_${without}`))
+                found.push(`${name} reaches thug2_${without}, which it must do without`);
         }
     }
     return found;

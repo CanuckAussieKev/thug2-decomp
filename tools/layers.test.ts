@@ -43,10 +43,9 @@ test("the ratchet reports new violations and baseline lines that are gone", () =
 
 test("the strict libraries have no upward include, in the sources or the baseline", () => {
     const map = loadMap();
-    assert.deepEqual(
-        strictViolations(map, ["src/engine/x.cpp -> src/game/y.h", "src/app/a.cpp -> src/editor/b.h"]),
-        ["src/engine/x.cpp -> src/game/y.h"],
-    );
+    assert.deepEqual(strictViolations(map, ["src/engine/x.cpp -> src/game/y.h", "src/app/a.cpp -> src/editor/b.h"]), [
+        "src/engine/x.cpp -> src/game/y.h",
+    ]);
     assert.deepEqual(strictViolations(map, [...violations(map), ...readBaseline()]), []);
 });
 
