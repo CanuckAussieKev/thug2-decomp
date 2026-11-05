@@ -271,7 +271,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         return;
     case kSaveCat: {
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
-        const goals::CreateATrick* trick_record = core::at(skater->trick_slots(), 0).get();
+        const goals::CreateATrick* trick_record = core::at(skater->created_tricks().slots(), 0).get();
         contents->put_sub_struct("other_params", trick_record->other_params());
         contents->append_array_value("rotation_info", trick_record->spin_list());
         contents->append_array_value("animation_info", trick_record->animations());
@@ -294,7 +294,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         contents->append_struct_ref(kStory, story);
         gsl::owner<Struct*> story_skater = script::new_struct();
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
-        skater->write_cat_info(story_skater);
+        skater->created_tricks().write_cat_info(story_skater);
         skater->write_list_44b_66a_9f(story_skater);
         objects::Rider::write_chapter_info(story_skater);
         contents->append_struct_ref(kStorySkater, story_skater);
@@ -331,7 +331,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
         }
         // (its fields by name: these were the original's byte offsets +4 / +8 / +0xC on a CreateATrick*, which
         // stepped whole objects past it - and the class has no vtable word here)
-        const goals::CreateATrick* trick_record = core::at(skater->trick_slots(), 0).get();
+        const goals::CreateATrick* trick_record = core::at(skater->created_tricks().slots(), 0).get();
         Struct* other = nullptr;
         contents->read_sub_struct("other_params", &other, 1);
         trick_record->other_params()->append_structure_if_any(other);

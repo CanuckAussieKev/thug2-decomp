@@ -692,7 +692,7 @@ bool FallingTricksGoal::key_combo_trick(script::Array* key_combos, StackedTrickE
         mapping->fetch_int_value(key_combo, &special_slot, 1);
         const objects::Rider* skater = local_skater();
         if (skater) {
-            core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(kName, &trick_text, 1);
+            core::at(skater->created_tricks().slots(), special_slot)->other_params()->fetch_text(kName, &trick_text, 1);
             trick_entry.taps = 1;
         }
     }
@@ -1324,8 +1324,9 @@ void TrickBeatGoal::add_tricks(int count)
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
                 const objects::Rider* skater = local_skater();
                 if (skater) {
-                    core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(
-                        kName, &trick_text, 1);
+                    core::at(skater->created_tricks().slots(), special_slot)
+                        ->other_params()
+                        ->fetch_text(kName, &trick_text, 1);
                     trick_entry.taps = 1;
                 }
             }

@@ -9,6 +9,7 @@
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "base/core/checksums.h"
+#include "game/rider/rider_created_tricks.h"
 #include "game/rider/rider_traits.h"
 
 // Pieces of the skater object (GameObjects::Rider, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at
@@ -31,8 +32,6 @@ namespace modules {
 class PointTally;
 }
 namespace objects {
-constexpr std::size_t kTrickSlotCount = 11;      // the create-a-skater tricks
-constexpr int kCatTrickCount = 11; // the same, as an int count (the loops)
 constexpr std::size_t kProjectileSlots = 5;
 constexpr int kProjectileCount = 5; // the same, as an int count (the loops)
 constexpr std::size_t kStatOverrideCount = 10;
@@ -92,9 +91,7 @@ public:
     // 0x0057FFE0 / 0x00580000: sparks on (SkaterParticles_SparksOn) / off (SkaterParticles_SparksOff, if on).
     void sparks_on();
     void sparks_off();
-    // 0x00580060: the CAT info (its tricks: each one's other params, animations and rotations), then
-    // kill_load_premade_cats. 0x00580150: the 70 entries of its +0x28C list from `params`.
-    void load_cat_info(script::Struct* params);
+    // 0x00580150: the 70 entries of its +0x28C list from `params`.
     void load_list_44b_66a_9f(script::Struct* params);
     // 0x005801B0: the chapter arrays (CHAPTER_STATUS, CHAPTER_INTROS_VIEWED, CHAPTER_OUTTROS_VIEWED) added to `save`.
     // 0x00580210: copied back from `save`.
@@ -149,8 +146,7 @@ public:
     void run_state_script(bool walk, bool other);
     // 0x00582510: its script switched to `name` (flip-and-rotate told first) and run once.
     void switch_to_script(uint32_t name, script::Struct* params);
-    // 0x005825E0: the CAT info written to `save` (tricks). 0x00582740: the +0x28C list's 70 entries written.
-    void write_cat_info(script::Struct* save);
+    // 0x00582740: the +0x28C list's 70 entries written.
     void write_list_44b_66a_9f(script::Struct* save);
     // 0x00582800: a projectile launched (LaunchProjectile) from a wrist, at the nearest target ahead (projectile
     // proximity components within Physics_Projectile_Targeting_Dist / _Angle; peds not yet shot, at a bone they
@@ -201,7 +197,8 @@ public:
     // The fields other code reads and sets.
     RiderTraits& traits() { return traits_; }
     [[nodiscard]] const RiderTraits& traits() const { return traits_; }
-    [[nodiscard]] const std::array<std::unique_ptr<goals::CreateATrick>, kTrickSlotCount>& trick_slots() const { return trick_slots_; }
+    CreatedTricks& created_tricks() { return created_tricks_; }
+    [[nodiscard]] const CreatedTricks& created_tricks() const { return created_tricks_; }
     int& cat_num_anims() { return cat_num_anims_; }
     [[nodiscard]] int cat_num_anims() const { return cat_num_anims_; }
     bool& cat_bail_done() { return cat_bail_done_; }
@@ -246,7 +243,7 @@ private:
     std::array<uint8_t, 3> pad171{};
     int shadow_fade_{}; // +0x174
     std::array<uint8_t, 4> unknown178_{};
-    std::array<std::unique_ptr<goals::CreateATrick>, kTrickSlotCount> trick_slots_; // +0x17C the created tricks
+    CreatedTricks created_tricks_; // +0x17C-+0x1A7 the created tricks
     // The create-a-trick editor's state (CAT_Set... / CAT_Get..., create_a_trick.cpp).
     int cat_num_anims_{};   // +0x1A8 num_animations_on
     bool cat_bail_done_{};  // +0x1AC bailtimescriptdone

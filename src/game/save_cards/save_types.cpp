@@ -501,7 +501,7 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
     switch (type) {
     case kSaveCat: {
         auto* skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(0));
-        Struct* trick_record = core::at(skater->trick_slots(), 0)->other_params();
+        Struct* trick_record = core::at(skater->created_tricks().slots(), 0)->other_params();
         const char* name = empty;
         trick_record->fetch_text(kName, &name, 1);
         summary->append_word(kName, name);
@@ -572,7 +572,7 @@ bool apply_cat_and_custom_skater(LoadedSkater loaded_skater)
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
     const int index = profiles->cursor_pos();
     auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(index));
-    skater->load_cat_info(loaded);
+    skater->created_tricks().load_cat_info(loaded);
     skater->load_list_44b_66a_9f(loaded);
     objects::Rider::read_chapter_info(loaded);
     return profiles->read_custom_skater(custom_skater, true);

@@ -332,7 +332,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Con
         objects::GameEntity* skater = local_skater();
         if (skater) {
             // the skater's created tricks 1-10
-            const auto& created = core::down_cast<objects::Rider>(skater)->trick_slots();
+            const auto& created = core::down_cast<objects::Rider>(skater)->created_tricks().slots();
             for (int slot = 1; slot < kTrickSlotEnd; ++slot) {
                 int full = 0;
                 if (core::at(created, slot)->other_params()->fetch_int_value(kFull, &full, 0) && (full != 0)) {

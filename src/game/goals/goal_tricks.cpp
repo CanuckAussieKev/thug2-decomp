@@ -168,8 +168,9 @@ bool Objective::build_trick_texts(TrickTextArrays arrays,
         if (in_slot) {
             objects::GameEntity* skater = static_cast<modules::Skate*>(skate)->get_home_rider();
             if (skater) {
-                core::at(core::down_cast<objects::Rider>(skater)->trick_slots(), slot)->other_params()->fetch_text(kName, &trick_text,
-                                                                                                    1);
+                core::at(core::down_cast<objects::Rider>(skater)->created_tricks().slots(), slot)
+                    ->other_params()
+                    ->fetch_text(kName, &trick_text, 1);
             }
         } else if (premade_cat > -1) {
             auto* cat = script::fetch_list(kPremadeCats)->struct_at(static_cast<uint32_t>(premade_cat));

@@ -1,6 +1,7 @@
 // Pieces of the skater object, 0x0057FE30-0x00580BD8. See rider.h.
 
 #include "game/rider/rider.h"
+#include "game/rider/rider_created_tricks.h"
 #include "game/rider/rider_traits.h"
 
 #include <algorithm>
@@ -413,14 +414,14 @@ memory::ListNode* Rider::get_skater_link() { return &skater_link_; }
 bool Rider::get_flag_2c_4() const { return flag_2c_4_; }
 
 // 0x00580060
-void Rider::load_cat_info(script::Struct* params)
+void CreatedTricks::load_cat_info(script::Struct* params) const
 {
     debug::printf("LoadCATInfo was called\n");
     script::Array* tricks = nullptr;
     params->fetch_list(kTricks, &tricks, 0);
     for (int i = 0; i < kCatTrickCount; ++i) {
         auto* trick = tricks->struct_at(i);
-        const goals::CreateATrick* info = core::at(trick_slots_, i).get();
+        const goals::CreateATrick* info = core::at(slots_, i).get();
         script::Struct* other = nullptr;
         trick->read_sub_struct(kOther, &other, 1);
         info->other_params()->append_structure_if_any(other);
@@ -1234,9 +1235,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     script::launch_script(kInitSkaterParticles, nullptr, this, false, nullptr);
     anim_blender_->play_animation(kDefaultName, std::bit_cast<uint32_t>(kDefaultAnimBlend)); // default
     if (is_local_skater() != 0U) {
-        for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_) {
-            trick = std::make_unique<goals::CreateATrick>();
-        }
+        created_tricks_.make_all();
         script::launch_script(kSpawnAddPremadeCatsToSkater, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         GameEntity::invoke_method_by_name(kSkaterPhysicsControlSwitchWalkingToSkating, nullptr, nullptr);  // SkaterPhysicsControl_SwitchWalkingToSkating
         for (int i = 0; i < kProjectileCount; ++i) {
@@ -1342,7 +1341,7 @@ void Rider::switch_to_script(uint32_t name, script::Struct* params)
 }
 
 // 0x005825E0
-void Rider::write_cat_info(script::Struct* save)
+void CreatedTricks::write_cat_info(script::Struct* save) const
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> tricks = memory ? memory::construct_in<script::Array>(memory) : nullptr;
@@ -1351,7 +1350,7 @@ void Rider::write_cat_info(script::Struct* save)
     for (int i = 0; i < kCatTrickCount; ++i) {
         gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
-        const goals::CreateATrick* info = core::at(trick_slots_, i).get();
+        const goals::CreateATrick* info = core::at(slots_, i).get();
         trick->put_sub_struct(kOther, info->other_params());
         trick->append_array_value(kAnimations, info->animations());
         trick->append_array_value(kRotations, info->spin_list());
@@ -1885,9 +1884,7 @@ Rider::~Rider()
     }
     reset_components();
     script::launch_script(kDestroySkaterParticles, nullptr, this, false, nullptr);
-    for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_) {
-        trick.reset();
-    }
+    created_tricks_.delete_all();
     if ((is_local_skater() != 0U) && view_slot_ == 1) {
         if (Entity* camera = objects::EntityHub::look_up_entity(kSkaterCam1)) {
             camera->flag_as_dead();
@@ -1915,7 +1912,7 @@ void Rider::check_layout()
         FieldAt{.now = offsetof(Rider, sparks_), .original = 0x170, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, shadow_fade_), .original = 0x174, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, unknown178_), .original = 0x178, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, trick_slots_), .original = 0x17C, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, created_tricks_), .original = 0x17C, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, cat_num_anims_), .original = 0x1A8, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, cat_bail_done_), .original = 0x1AC, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, cat_flip_180_), .original = 0x1AD, .smaller_by = 4},
@@ -1961,6 +1958,40 @@ void Rider::check_layout()
                       return field.now + field.smaller_by == field.original;
                   }),
                   "layout must match the original's, but for the smaller members");
+}
+
+// (0x00581850's part)
+void CreatedTricks::make_all()
+{
+    for (std::unique_ptr<goals::CreateATrick>& trick : slots_) {
+        trick = std::make_unique<goals::CreateATrick>();
+    }
+}
+
+// (0x00583FB0's part)
+void CreatedTricks::delete_all()
+{
+    for (std::unique_ptr<goals::CreateATrick>& trick : slots_) {
+        trick.reset();
+    }
+}
+
+// NOT ORIGINAL
+void CreatedTricks::check_layout()
+{
+    constexpr std::size_t kAt = 0x17C; // (the field at its offset in the original skater, less the tricks' own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(CreatedTricks, slots_), .original = 0x17C},
+        FieldAt{.now = sizeof(CreatedTricks), .original = 0x1A8},
+    };
+    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+                      return field.now + kAt == field.original;
+                  }),
+                  "layout must match the original");
 }
 
 // NOT ORIGINAL
