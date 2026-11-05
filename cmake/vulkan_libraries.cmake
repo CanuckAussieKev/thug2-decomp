@@ -29,17 +29,27 @@ target_include_directories(volk PUBLIC "${volk_SOURCE_DIR}")
 target_link_libraries(volk PUBLIC vulkan_headers)
 target_compile_options(volk PRIVATE /W0)
 
-# Vulkan Memory Allocator 3.2.1 (AMD, MIT): device memory for the renderer's buffers and images (header only; its
-# implementation is compiled with the first code that allocates).
+# Vulkan Memory Allocator 3.2.1 (AMD, MIT): device memory for the renderer's buffers and images. Its implementation is
+# compiled here, once (a source made in the build folder, as stb_image_write's): no Vulkan function is linked
+# (VMA_STATIC_VULKAN_FUNCTIONS 0 - there is no import library), the allocator finds them through the
+# vkGetInstanceProcAddr / vkGetDeviceProcAddr that volk loaded, given at its creation (VMA_DYNAMIC_VULKAN_FUNCTIONS 1).
 FetchContent_Declare(vulkan_memory_allocator
     URL https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/archive/refs/tags/v3.2.1.tar.gz
     URL_HASH SHA256=5e7749504cb802427ffb7bec38a0b6a15db46ae253f00560acb3e624d9fe695c
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     SOURCE_SUBDIR no-cmake)
 FetchContent_MakeAvailable(vulkan_memory_allocator)
-add_library(vulkan_memory_allocator INTERFACE)
-target_include_directories(vulkan_memory_allocator INTERFACE "${vulkan_memory_allocator_SOURCE_DIR}/include")
-target_link_libraries(vulkan_memory_allocator INTERFACE vulkan_headers)
+file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/vk_mem_alloc_impl.cpp
+    CONTENT "#define VMA_IMPLEMENTATION\n#include \"vk_mem_alloc.h\"\n")
+add_library(vulkan_memory_allocator STATIC ${CMAKE_BINARY_DIR}/vk_mem_alloc_impl.cpp)
+target_include_directories(vulkan_memory_allocator PUBLIC "${vulkan_memory_allocator_SOURCE_DIR}/include")
+target_compile_definitions(vulkan_memory_allocator PUBLIC VMA_STATIC_VULKAN_FUNCTIONS=0 VMA_DYNAMIC_VULKAN_FUNCTIONS=1)
+target_link_libraries(vulkan_memory_allocator PUBLIC vulkan_headers)
+if(MSVC)
+    target_compile_options(vulkan_memory_allocator PRIVATE /W0)
+else()
+    target_compile_options(vulkan_memory_allocator PRIVATE -w)
+endif()
 
 # glslang (The Khronos Group and contributors; BSD-3-Clause, BSD-2-Clause, MIT, Apache-2.0 - THIRD_PARTY_NOTICES.md),
 # the Vulkan SDK 1.4.304 release: the GLSL -> SPIR-V compiler the fixed-function emulation's shaders are compiled with
