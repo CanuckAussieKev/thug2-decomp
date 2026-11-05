@@ -14,8 +14,6 @@ const SRC = join(ROOT, "src");
 // Direct3D's own headers: the files that talk to Direct3D include them.
 const DIRECT3D_HEADERS = new Set([
     "render_d3d9/d3d9_state.h",
-    "render_d3d9/device_d3d.h",
-    "render_d3d9/pc_d3d_resources.h",
     "render_d3d9/d3d9_handles.h",
     "render_d3d9/d3d_matrix.h",
     "render_d3d9/d3dx_jpg.h",
@@ -84,7 +82,8 @@ test("only app/ picks the Direct3D 9 device", () => {
 });
 
 // The files of the PC layer that reach the graphics API only through render::Gpu: none includes a Direct3D header
-// (the API-neutral PC layer: V5a the render-state cache, V5b the meshes' buffers, V5c the effects).
+// (the API-neutral PC layer: V5a the render-state cache, V5b the meshes' buffers, V5c the effects, V5d the frame, V5e
+// the creation, the 2D, the textures).
 const THROUGH_GPU = [
     "render_d3d9/render_state.cpp",
     "render_d3d9/primitive_states.cpp",
@@ -117,6 +116,11 @@ const THROUGH_GPU = [
     "render_d3d9/screen_fx.cpp",
     "render_d3d9/draw_frame.cpp",
     "render_d3d9/view_mode.cpp",
+    // V5e: the creation through the GpuContext, the frame's objects as handles
+    "render_d3d9/device.cpp",
+    "render_d3d9/d3d9_device.cpp",
+    "render_d3d9/graphics_options_d3d.cpp",
+    "render_d3d9/pc_d3d_resources.cpp",
 ];
 
 // render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs

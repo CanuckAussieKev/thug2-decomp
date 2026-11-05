@@ -2,7 +2,10 @@
 
 #include "render_d3d9/pc_d3d_resources.h"
 
+#include <windows.h>
+
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "render_d3d9/dynamic_vertices.h"
 
@@ -14,7 +17,6 @@
 #include <unordered_map>
 
 #include "base/core/no_destroy.h"
-#include "render_d3d9/d3d9_state.h"
 
 namespace os_layer {
 
@@ -70,9 +72,9 @@ void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint
 }
 
 // 0x005F4620
-HRESULT create_dynamic_vertex_buffer(uint32_t size)
+long create_dynamic_vertex_buffer(uint32_t size)
 {
-    const HRESULT result = render::gpu().create_vertex_buffer(
+    const long result = render::gpu().create_vertex_buffer(
         size, render::gpu_value::kUsageDynamic | render::gpu_value::kUsageWriteOnly, 0, render::gpu_value::kPoolDefault,
         &dynamic_vertices());
     dynamic_vertices_size() = size;
@@ -98,7 +100,7 @@ void release_quad_index_buffer()
 }
 
 // 0x005F4690
-HRESULT create_quad_index_buffer(uint32_t quads)
+long create_quad_index_buffer(uint32_t quads)
 {
     uint16_t* index = nullptr;
     render::gpu().create_index_buffer(quads * kIndicesPerQuad * sizeof(uint16_t), render::gpu_value::kUsageWriteOnly,
@@ -181,7 +183,7 @@ long end_occlusion_query(uint32_t key)
 {
     render::GpuQuery* query = query_in_progress();
     if (!query) {
-        return D3DERR_NOTFOUND;
+        return render::gpu_value::kResultNotFound;
     }
     if (ended_queries().contains(key)) {
         return E_FAIL;
@@ -200,10 +202,10 @@ long get_occlusion_result(uint32_t key, uint32_t* pixels)
 {
     auto it = ended_queries().find(key);
     if (it == ended_queries().end()) {
-        return D3DERR_NOTFOUND;
+        return render::gpu_value::kResultNotFound;
     }
     render::GpuQuery* query = it->second;
-    const HRESULT result = render::gpu().query_result(query, pixels, sizeof(uint32_t), 0);
+    const long result = render::gpu().query_result(query, pixels, sizeof(uint32_t), 0);
     if (result == S_OK) {
         ended_queries().erase(it);
         render::gpu().release_query(query);
@@ -236,16 +238,9 @@ void release_direct_3d()
         render::gpu().release_vertex_buffer(dynamic_vertices());
     }
     release_occlusion_queries();
-    if (render::d3d9::state().d3d_device()) {
-        render::d3d9::state().d3d_device()->Release();
-    }
-    if (render::d3d9::state().direct_3d()) {
-        render::d3d9::state().direct_3d()->Release();
-    }
+    render::gpu_context().shutdown(); // (the device and Direct3D given back)
     render::quad_index_buffer() = nullptr;
     dynamic_vertices() = nullptr;
-    render::d3d9::state().set_d3d_device(nullptr);
-    render::d3d9::state().set_direct_3d(nullptr);
     dynamic_vertices_size() = 0;
     dynamic_vertices_used() = 0;
     dynamic_vertices_locked() = nullptr;

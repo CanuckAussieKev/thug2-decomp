@@ -5,7 +5,6 @@
 
 #include <windows.h>
 
-#include <d3d9.h>
 #include <mmsystem.h>
 
 #include <algorithm>
@@ -18,10 +17,9 @@
 
 #include "engine/audio/audio_device.h"
 #include "engine/gfx/mesh_formats.h"
-#include "render_d3d9/device_d3d.h"
-#include "render_d3d9/d3d9_handles.h"
 #include "base/core/stubs.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/graphics_options.h"
 #include "render_d3d9/pc_gamma.h"
@@ -36,7 +34,6 @@
 #include "platform/registry.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
 #include "base/maths/rect.h"
 #include "base/core/language.h"
 #include "render_d3d9/graphics_options_d3d.h"
@@ -48,7 +45,6 @@ constexpr int kDefaultDeviceHeight = 480;
 constexpr std::size_t kSoundDeviceNameSize = 200;
 constexpr std::size_t kSoundDeviceNameCopyBytes = 199; // one less: strncpy's result isn't terminated
 constexpr int kScreenOffsetLines = 16;
-constexpr int kD3dSdkVersion = 31;
 constexpr std::size_t kRearOutputNameBytes = 29; // "Realtek HD Audio rear output" with its terminator
 constexpr int kVendorIdIntel = 0x8086;
 constexpr int kDeviceIdRearOutputChipset = 0x2582;
@@ -56,7 +52,6 @@ constexpr int kScreenSurfaceCount = 9;
 constexpr int kDynamicVertexBufferBytes = 0x40000;
 constexpr int kDynamicIndexBufferBytes = 0x1000;
 constexpr int kSmallTargetSize = 256;
-constexpr int kMinAnisotropyFilterCap = 0x400; // D3DPTFILTERCAPS_MINFANISOTROPY
 constexpr int kDepthBits16 = 16;
 constexpr int kDepthBits32 = 32;
 constexpr float kFlashChannel = 0.25F;
@@ -65,27 +60,44 @@ constexpr float kDiscErrorY = 128.0F;
 constexpr uint32_t kDiscErrorScaleBits = 0x3F4CCCCDU; // 0.8
 constexpr uint32_t kNeutralColour = 0x80808080;
 
-D3DPRESENT_PARAMETERS& present_parameters()
+namespace {
+
+constexpr std::size_t kScreenCopyCount = 9;
+
+// NOT ORIGINAL grouping - the default-pool objects the frame is drawn through (the original's globals; the renderer's
+// handles, not Direct3D's types): the screen copies (full size to a sixteenth) and their level 0, the depth surface
+// they are drawn with, the back buffer with its depth. Made on first use, never destroyed (frame_targets()).
+struct FrameTargets {
+    std::array<GpuTexture*, kScreenCopyCount> screen_textures_{};
+    std::array<GpuSurface*, kScreenCopyCount> screen_surfaces_{};
+    GpuSurface* z_buffer_{};
+    GpuSurface* back_depth_{};
+    GpuSurface* back_buffer_{};
+};
+
+FrameTargets& frame_targets()
 {
-    static D3DPRESENT_PARAMETERS present_parameters; // (zero-initialised, as the global was)
-    return present_parameters;
+    static core::NoDestroy<FrameTargets> state;
+    return state.get();
 }
 
-uint32_t presented_width() { return present_parameters().BackBufferWidth; }
+} // namespace
 
-uint32_t presented_height() { return present_parameters().BackBufferHeight; }
+uint32_t presented_width() { return gpu_context().settings().width; }
 
-bool device_made() { return d3d9::state().d3d_device() != nullptr; }
+uint32_t presented_height() { return gpu_context().settings().height; }
 
-GpuTexture* screen_copy_texture(int index) { return d3d9::handle(core::at(d3d9::state().screen_textures(), index)); }
+bool device_made() { return gpu_context().device_made(); }
 
-GpuSurface* scene_depth_surface() { return d3d9::handle(d3d9::state().z_buffer_surface()); }
+GpuTexture* screen_copy_texture(int index) { return core::at(frame_targets().screen_textures_, index); }
 
-GpuSurface* back_buffer_surface() { return d3d9::handle(d3d9::state().back_buffer()); }
+GpuSurface* scene_depth_surface() { return frame_targets().z_buffer_; }
 
-GpuSurface* back_depth_surface() { return d3d9::handle(d3d9::state().back_depth()); }
+GpuSurface* back_buffer_surface() { return frame_targets().back_buffer_; }
 
-bool screen_copies_made() { return core::at(d3d9::state().screen_surfaces(), 0) != nullptr; }
+GpuSurface* back_depth_surface() { return frame_targets().back_depth_; }
+
+bool screen_copies_made() { return core::at(frame_targets().screen_surfaces_, 0) != nullptr; }
 
 namespace {
 
@@ -119,10 +131,9 @@ DeviceState& device_state()
 // NOT ORIGINAL grouping - the adapter: its identifier, depth textures, the back buffer's and screen's formats, the
 // depth bits, the debug font (the original's globals). Made on first use, never destroyed (adapter_info()).
 struct AdapterInfo {
-    D3DADAPTER_IDENTIFIER9 adapter_identifier_{};
     bool depth_textures_supported_{};
     std::array<char, kSoundDeviceNameSize> sound_device_name_{}; // the description of the last sound device listed
-    IDirect3DSurface9* depth_texture_target_{};
+    GpuSurface* depth_texture_target_{};
     uint32_t back_buffer_format_{};
     uint32_t screen_surface_format_{};
     uint32_t depth_bits_{};
@@ -156,9 +167,8 @@ void init_direct_3d()
     //   if (kShowWindowFlag) ShowWindow(Pane(), SW_MAXIMIZE);
 
     // (Direct3DCreate9 and MessageBoxA through the exe's imports)
-    IDirect3D9* d3d = Direct3DCreate9(kD3dSdkVersion); // the game's D3D_SDK_VERSION
-    d3d9::state().set_direct_3d(d3d);
-    if (!d3d) {
+    GpuContext& context = gpu_context();
+    if (!context.create_instance()) {
         // (the text and the caption are the wrong way round)
         MessageBoxA(nullptr, "Error" /* "Error" */,
                     "Direct3D could not initialize. Please download and install DirectX 9.0 or higher."
@@ -166,19 +176,15 @@ void init_direct_3d()
                     MB_OK);
         return;
     }
-    D3DDISPLAYMODE mode;
-    if (FAILED(d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &mode))) {
+    if (!context.adapter_ready()) {
         return;
     }
 
-    D3DPRESENT_PARAMETERS& pp = present_parameters();
-    pp = D3DPRESENT_PARAMETERS{.SwapEffect = D3DSWAPEFFECT_DISCARD}; // (cleared; its swap effect as set below)
-    pp.hDeviceWindow = sys::game_window();
     // Originally from PartyMod Fixes (its byte at 0x004D8720, written when its Windowed setting is on). The original: always full screen.
-    pp.Windowed = sys::get_windowed() ? TRUE : FALSE;
-    pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-    pp.BackBufferCount = 1;
-    pp.EnableAutoDepthStencil = TRUE;
+    context.configure({.windowed = sys::get_windowed(),
+                       .vsync = true,
+                       .colour_format = gpu_value::kFormatX8R8G8B8,
+                       .depth_format = gpu_value::kFormatD24X8});
     // The resolution setting (0 = the largest) picks where to start; smaller ones are tried after.
     unsigned first = 3 - gfx.resolution_setting();
     first = std::min<unsigned int>(first, 3);
@@ -187,22 +193,12 @@ void init_direct_3d()
     const std::array<int, 4> heights = {{1024, 768, 600, sys::get_window_height()}};
     bool multisample = gfx.antialiasing();
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): its sample count, whatever AntiAliasing says.
-    graphics_options::choose_multisample(d3d9::handle(d3d), D3DFMT_X8R8G8B8, D3DFMT_D24X8, sys::get_windowed());
+    graphics_options::choose_multisample(gpu_value::kFormatX8R8G8B8, gpu_value::kFormatD24X8, sys::get_windowed());
     if (graphics_options::chosen_samples() != 0) {
         multisample = true;
     }
     device_width() = core::at(widths, first);
     device_height() = core::at(heights, first);
-    pp.BackBufferWidth = core::at(widths, first);
-    pp.BackBufferHeight = core::at(heights, first);
-    if (multisample) {
-        pp.MultiSampleType = D3DMULTISAMPLE_2_SAMPLES;
-    }
-    pp.PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
-    pp.BackBufferFormat = D3DFMT_X8R8G8B8;
-    pp.AutoDepthStencilFormat = D3DFMT_D24X8;
-    pp.FullScreen_RefreshRateInHz = 0;
-    d3d9::state().set_d3d_device(nullptr);
 
     // Hardware vertex processing first, multisampling (if set) first; each at every size from `first` down.
     const std::array<std::array<bool, 2>, 4> attempts = {{{true, multisample}, {false, multisample}, {true, false}, {false, false}}};
@@ -226,27 +222,24 @@ void init_direct_3d()
     // Originally from PartyMod Fixes (its NOPs at 0x004D8891): the window is left where it is. The original:
     //   SetWindowPos(Pane(), HWND_TOP, 0, 0, device_width(), device_height(), SWP_NOZORDER);
 
-    IDirect3DDevice9* device = d3d9::state().d3d_device();
-    d3d9::state().set_draw_device(device);
+    context.mark_ready();
+    const GpuSettings made = context.settings();
     // (the back buffer size as set by CreateDevice, unsigned)
-    auto scale_x = static_cast<float>(static_cast<double>(pp.BackBufferWidth) * kPer640);
+    auto scale_x = static_cast<float>(static_cast<double>(made.width) * kPer640);
     gfx.set_display_factor_x(scale_x);
-    auto scale_y = static_cast<float>(static_cast<double>(pp.BackBufferHeight) * kPer480);
+    auto scale_y = static_cast<float>(static_cast<double>(made.height) * kPer480);
     gfx.set_screen_offset_x(0);
     gfx.set_display_factor_y(scale_y);
     gfx.set_screen_offset_y(static_cast<int>(static_cast<int64_t>(static_cast<double>(scale_y) * kOffsetLines)));
 
     // Whether depth textures (D24S8) can be used.
-    D3DDEVICE_CREATION_PARAMETERS creation;
-    device->GetCreationParameters(&creation);
-    if (d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, creation.DeviceType, pp.BackBufferFormat, 0, D3DRTYPE_TEXTURE,
-                               D3DFMT_D24S8) == D3D_OK) {
+    if (context.depth_textures_supported()) {
         adapter_info().depth_textures_supported_ = true;
     }
-    for (IDirect3DTexture9*& texture : d3d9::state().screen_textures()) {
+    for (GpuTexture*& texture : frame_targets().screen_textures_) {
         texture = nullptr;
     }
-    d3d9::state().set_z_buffer_surface(nullptr);
+    frame_targets().z_buffer_ = nullptr;
     reset_render_state();
     create_render_targets();
     // Originally from PartyMod Fixes (its jump at 0x004D8989): the cursor is left alone. The original hid it when full screen:
@@ -262,28 +255,13 @@ namespace {
 
 // The default-pool objects (released before a device reset, made again after).
 
-IDirect3DSurface9*& depth_texture_target() { return adapter_info().depth_texture_target_; }
-D3DADAPTER_IDENTIFIER9& adapter_identifier() { return adapter_info().adapter_identifier_; }
+GpuSurface*& depth_texture_target() { return adapter_info().depth_texture_target_; }
 // The description of the last sound device listed.
 std::array<char, kSoundDeviceNameSize>& sound_device_name() { return adapter_info().sound_device_name_; }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
 void create_dynamic_vertex_buffer(uint32_t size) { os_layer::create_dynamic_vertex_buffer(size); }
 void create_dynamic_index_buffer(uint32_t quads) { os_layer::create_quad_index_buffer(quads); }
-
-constexpr std::size_t kD3DCAPS9PixelShaderVersionOffset = 0xCC;
-constexpr std::size_t kD3DCAPS9DevCaps2Offset = 0xD4;
-constexpr std::size_t kD3DCAPS9TextureAddressCapsOffset = 0x4C;
-constexpr std::size_t kD3DCAPS9MaxAnisotropyOffset = 0x6C;
-constexpr std::size_t kD3DCAPS9SrcBlendCapsOffset = 0x2C;
-
-static_assert(offsetof(D3DCAPS9, PixelShaderVersion) == kD3DCAPS9PixelShaderVersionOffset && offsetof(D3DCAPS9, DevCaps2) == kD3DCAPS9DevCaps2Offset &&
-                  offsetof(D3DCAPS9, TextureAddressCaps) == kD3DCAPS9TextureAddressCapsOffset && offsetof(D3DCAPS9, MaxAnisotropy) == kD3DCAPS9MaxAnisotropyOffset &&
-                  offsetof(D3DCAPS9, SrcBlendCaps) == kD3DCAPS9SrcBlendCapsOffset,
-              "the caps the original reads");
-constexpr std::size_t kD3DADAPTERIDENTIFIER9Bytes = 0x44C;
-
-static_assert(sizeof(D3DADAPTER_IDENTIFIER9) == kD3DADAPTERIDENTIFIER9Bytes, "zeroed as 0x113 dwords");
 
 } // namespace
 
@@ -301,38 +279,33 @@ void sound_device_found(const char* description)
 }
 
 // 0x004D7C80
-HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multisample)
+long create_device(maths::PixelSize size, bool hardware_vertices, bool multisample)
 {
     const auto width = size.width;
     const auto height = size.height;
     auto& gfx = renderer();
-    D3DPRESENT_PARAMETERS& pp = present_parameters();
-    pp.BackBufferHeight = height;
-    pp.MultiSampleType = multisample ? D3DMULTISAMPLE_2_SAMPLES : D3DMULTISAMPLE_NONE;
-    // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the chosen sample count and quality instead of 2.
+    // Two samples; NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the chosen sample count and quality
+    // instead of 2.
+    uint32_t samples = multisample ? 2U : 0U;
+    uint32_t sample_quality = 0;
     if (graphics_options::chosen_samples() != 0) {
-        pp.MultiSampleType =
-            multisample ? static_cast<D3DMULTISAMPLE_TYPE>(graphics_options::chosen_samples()) : D3DMULTISAMPLE_NONE;
-        pp.MultiSampleQuality = multisample ? graphics_options::chosen_quality() : 0;
+        samples = multisample ? static_cast<uint32_t>(graphics_options::chosen_samples()) : 0U;
+        sample_quality = multisample ? graphics_options::chosen_quality() : 0U;
     }
-    pp.BackBufferWidth = width;
-    const DWORD flags =
-        (hardware_vertices ? D3DCREATE_HARDWARE_VERTEXPROCESSING : D3DCREATE_SOFTWARE_VERTEXPROCESSING) |
-        D3DCREATE_MULTITHREADED;
-    IDirect3DDevice9* device = d3d9::state().d3d_device(); // (CreateDevice's out pointer: the device's own place)
-    const HRESULT result =
-        d3d9::state().direct_3d()->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, sys::game_window(), flags, &pp, &device);
-    d3d9::state().set_d3d_device(device);
-    D3DADAPTER_IDENTIFIER9& id = adapter_identifier();
-    std::memset(&id, 0, sizeof(id));
-    d3d9::state().direct_3d()->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &id);
+    GpuContext& context = gpu_context();
+    const long result = context.create_device({.width = static_cast<uint32_t>(width),
+                                               .height = static_cast<uint32_t>(height),
+                                               .hardware_vertices = hardware_vertices,
+                                               .samples = samples,
+                                               .sample_quality = sample_quality});
+    const GpuAdapterInfo& adapter = context.adapter();
     // (the exe's import of DirectSoundEnumerateA: the sound output's devices)
     audio::device().list_outputs(&sound_device_found);
     // A Radeon 8500 (0x00786AB5)...
-    renderer().set_radeon8500(std::strstr(std::data(id.Description), "8500") != nullptr);
+    renderer().set_radeon8500(std::strstr(adapter.description.data(), "8500") != nullptr);
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
     if (std::memcmp(sound_device_name().data(), "Realtek HD Audio rear output", kRearOutputNameBytes) == 0 &&
-        id.VendorId == kVendorIdIntel && id.DeviceId == kDeviceIdRearOutputChipset) {
+        adapter.vendor_id == kVendorIdIntel && adapter.device_id == kDeviceIdRearOutputChipset) {
         gfx.set_frequency_setting_allowed(0);
     }
     return result;
@@ -342,17 +315,17 @@ HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multis
 void release_render_targets()
 {
     auto& gfx = renderer();
-    d3d9::state().set_back_buffer(nullptr);
-    d3d9::state().set_back_depth(nullptr);
+    frame_targets().back_buffer_ = nullptr;
+    frame_targets().back_depth_ = nullptr;
     for (int i = 0; i < kScreenSurfaceCount; ++i) {
-        core::at(d3d9::state().screen_surfaces(), i)->Release(); // (the surface pointers are left as they were)
-        core::at(d3d9::state().screen_textures(), i)->Release();
-        core::at(d3d9::state().screen_textures(), i) = nullptr;
+        gpu().release_surface(core::at(frame_targets().screen_surfaces_, i)); // (the surface pointers are left as they were)
+        gpu().release_texture(core::at(frame_targets().screen_textures_, i));
+        core::at(frame_targets().screen_textures_, i) = nullptr;
     }
-    d3d9::state().z_buffer_surface()->Release();
-    d3d9::state().set_z_buffer_surface(nullptr);
+    gpu().release_surface(frame_targets().z_buffer_);
+    frame_targets().z_buffer_ = nullptr;
     if (depth_texture_target()) {
-        depth_texture_target()->Release();
+        gpu().release_surface(depth_texture_target());
         depth_texture_target() = nullptr;
     }
     os_layer::release_dynamic_vertex_buffer();
@@ -367,59 +340,65 @@ void create_render_targets()
     auto& gfx = renderer();
     create_dynamic_vertex_buffer(kDynamicVertexBufferBytes);
     create_dynamic_index_buffer(kDynamicIndexBufferBytes);
+    GpuContext& context = gpu_context();
     // The screen copies: full size twice, then quarter, eighth and sixteenth sizes.
     static const std::array<uint32_t, 9> kDivisors = {{1, 1, 4, 4, 4, 8, 8, 16, 16}};
-    const D3DPRESENT_PARAMETERS& pp = present_parameters();
+    const GpuSettings made = context.settings();
     for (int i = 0; i < kScreenSurfaceCount; ++i) {
-        d3d9::state().d3d_device()->CreateTexture(pp.BackBufferWidth / core::at(kDivisors, i), pp.BackBufferHeight / core::at(kDivisors, i), 1,
-                                    D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &core::at(d3d9::state().screen_textures(), i),
-                                    nullptr);
-        core::at(d3d9::state().screen_textures(), i)->GetSurfaceLevel(0, &core::at(d3d9::state().screen_surfaces(), i));
+        gpu().create_texture({.width = made.width / core::at(kDivisors, i),
+                              .height = made.height / core::at(kDivisors, i),
+                              .levels = 1,
+                              .usage = gpu_value::kUsageRenderTarget,
+                              .format = gpu_value::kFormatX8R8G8B8,
+                              .pool = gpu_value::kPoolDefault},
+                             &core::at(frame_targets().screen_textures_, i));
+        gpu().texture_surface(core::at(frame_targets().screen_textures_, i), 0, &core::at(frame_targets().screen_surfaces_, i));
     }
-    IDirect3DSurface9* z_buffer = d3d9::state().z_buffer_surface(); // (the out pointer: its own place)
-    d3d9::state().d3d_device()->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
-                                            D3DMULTISAMPLE_NONE, 0, TRUE, &z_buffer, nullptr);
-    d3d9::state().set_z_buffer_surface(z_buffer);
-    IDirect3DSurface9* surface = d3d9::state().back_buffer(); // (the out pointers: their own places)
-    d3d9::state().d3d_device()->GetRenderTarget(0, &surface);
-    d3d9::state().set_back_buffer(surface);
-    surface = d3d9::state().back_depth();
-    d3d9::state().d3d_device()->GetDepthStencilSurface(&surface);
-    d3d9::state().set_back_depth(surface);
-    d3d9::state().back_buffer()->Release(); // (only the pointers are kept)
-    d3d9::state().back_depth()->Release();
+    gpu().create_depth_surface({.width = made.width,
+                                .height = made.height,
+                                .format = made.depth_format,
+                                .samples = 0,
+                                .quality = 0,
+                                .lockable_or_discard = true},
+                               &frame_targets().z_buffer_);
+    gpu().render_target(0, &frame_targets().back_buffer_); // (the out pointers: their own places)
+    gpu().depth_surface(&frame_targets().back_depth_);
+    gpu().release_surface(frame_targets().back_buffer_); // (only the pointers are kept)
+    gpu().release_surface(frame_targets().back_depth_);
     if (adapter_info().depth_textures_supported_) { // depth textures
-        d3d9::state().d3d_device()->CreateRenderTarget(kSmallTargetSize, kSmallTargetSize, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
-                                         &depth_texture_target(), nullptr);
+        gpu().create_render_target({.width = kSmallTargetSize,
+                                    .height = kSmallTargetSize,
+                                    .format = made.colour_format,
+                                    .samples = 0,
+                                    .quality = 0,
+                                    .lockable_or_discard = false},
+                                   &depth_texture_target());
     }
-    D3DCAPS9 caps;
-    d3d9::state().d3d_device()->GetDeviceCaps(&caps);
-    if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1)) {
+    const GpuCaps caps = context.caps();
+    if (caps.pixel_shaders_1_1) {
         renderer().set_shaders_available(true);
     }
-    if ((caps.DevCaps2 & D3DDEVCAPS2_STREAMOFFSET) != 0U) {
+    if (caps.stream_offset) {
         gfx.set_stream_offset_supported(true);
     }
-    gfx.set_max_anisotropy(caps.MaxAnisotropy);
+    gfx.set_max_anisotropy(caps.max_anisotropy);
     // NOT ORIGINAL - [Graphics] anisotropy and msaa (engine/gfx/graphics_options.h): the anisotropy this device can
     // give, and the multisampled scene surface for the screen copies.
     graphics_options::active_anisotropy() = graphics_options::device_anisotropy(
-        graphics_options::get_pull().anisotropy,
-        (caps.TextureFilterCaps & kMinAnisotropyFilterCap) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */, caps.MaxAnisotropy);
+        graphics_options::get_pull().anisotropy, caps.min_filter_anisotropic, caps.max_anisotropy);
     graphics_options::create_scene_target();
-    if ((caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER) != 0U) {
+    if (caps.border_addressing) {
         gfx.set_border_addressing_supported(true);
     }
-    gfx.set_blend_factor_supported(((caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) != 0U) &&
-                                   ((caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) != 0U));
-    renderer().set_back_buffer_width(static_cast<int>(pp.BackBufferWidth));
-    renderer().set_back_buffer_height(static_cast<int>(pp.BackBufferHeight));
-    adapter_info().back_buffer_format_ = pp.BackBufferFormat;
-    adapter_info().depth_bits_ = pp.AutoDepthStencilFormat == D3DFMT_D16 ? kDepthBits16 : kDepthBits32; // depth bits
-    if (core::at(d3d9::state().screen_surfaces(), 0)) {
-        D3DSURFACE_DESC desc;
-        core::at(d3d9::state().screen_surfaces(), 0)->GetDesc(&desc);
-        adapter_info().screen_surface_format_ = desc.Format;
+    gfx.set_blend_factor_supported(caps.blend_factor);
+    renderer().set_back_buffer_width(static_cast<int>(made.width));
+    renderer().set_back_buffer_height(static_cast<int>(made.height));
+    adapter_info().back_buffer_format_ = made.colour_format;
+    adapter_info().depth_bits_ = made.depth_format == gpu_value::kFormatD16 ? kDepthBits16 : kDepthBits32; // depth bits
+    if (core::at(frame_targets().screen_surfaces_, 0)) {
+        GpuSurfaceDesc desc;
+        gpu().surface_desc(core::at(frame_targets().screen_surfaces_, 0), &desc);
+        adapter_info().screen_surface_format_ = desc.format;
     }
     apply_render_state();
 }
@@ -452,7 +431,7 @@ void show_disc_error()
         timeKillEvent(timer); // (the exe's import)
         gfx.set_loading_bar_timer(0);
     }
-    if (!d3d9::state().draw_device()) {
+    if (!gpu_context().ready()) {
         init_direct_3d();
     }
     // "There's a problem with the disc you're using." / "It may be dirty or damaged." in the language
@@ -487,16 +466,16 @@ void show_disc_error()
     set_texture(3, nullptr);
     // Forever: the two lines, 16 apart, on a cleared screen.
     for (;;) {
-        d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
-        d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0F, 0);
+        gpu().present();
+        gpu().clear(0, nullptr, gpu_value::kClearTarget | gpu_value::kClearDepth, 0, 1.0F, 0);
         choose_blend_mode(kBlendModeAlpha);
         set_texture(0, nullptr);
         change_phase(RenderStateId::kAddressMode0, kClampBothWays);
         change_phase(RenderStateId::kDepthBias, 0);
         change_phase(RenderStateId::kPhaseAlphaTest, 1);
         change_phase(RenderStateId::kZWrite, 0);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-        d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+        gpu().set_stage_state(0, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformDisable);
+        gpu().set_stage_state(0, GpuStageState::kTexCoordIndex, 0);
         text->set_y(text->y() - kOffsetLines);
         text->set_text(first);
         text->open_sketch();

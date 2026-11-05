@@ -2,10 +2,11 @@
 
 #include <cstdint>
 
+#include "base/maths/rect.h"
 #include "engine/gfx/gpu.h"
 
-// The Direct3D 9 device (Nx engine, PC): what the rest of the engine calls. Its Direct3D side - the device made,
-// its present parameters - is in render_d3d9/device_d3d.h.
+// The Direct3D 9 device (Nx engine, PC): what the rest of the engine calls. The device itself is made through the
+// GpuContext (engine/gfx/gpu_context.h).
 namespace render {
 
 // 0x004D8650: create Direct3D and the device - full screen (or windowed, PartyMod's Windowed setting) at the
@@ -13,6 +14,14 @@ namespace render {
 // and set up the 640x480 -> back buffer conversion. With PartyMod's changes: its resolution in place of
 // 640x480, the window left alone (not maximised, moved or cursor-hidden - PartyMod's SDL window does that).
 void init_direct_3d();
+
+// 0x004D7C80: create the device at the size - hardware vertex processing if `hardware_vertices` (else software), 2x
+// multisampling if `multisample` (the msaa option's count and quality when set) - and note the adapter (a Radeon 8500;
+// an Intel 915G with Realtek audio). Returns the HRESULT.
+long create_device(maths::PixelSize size, bool hardware_vertices, bool multisample);
+// 0x004D7C20: told each sound output device's description (audio::Device::list_outputs; DirectSoundEnumerateA's
+// callback) - keeps it (0x00786AC8).
+void sound_device_found(const char* description);
 
 // 0x004D8420: the default-pool objects - the dynamic buffers, nine screen-copy render targets (full size to a
 // sixteenth), a depth surface, a 256x256 target for depth textures - then the device's capabilities and the
@@ -33,7 +42,7 @@ long set_render_state(int state, uint32_t value);
 // HRESULT.
 long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil);
 
-// The back buffer's size the device was made with (its present parameters': render_d3d9/device_d3d.h).
+// The back buffer's size the device was made with (its settings', gpu_context.h).
 uint32_t presented_width();
 uint32_t presented_height();
 // Whether the device has been made (and not yet released): the Gpu may be called.

@@ -3,8 +3,6 @@
 
 #include "render_d3d9/d3d9_device.h"
 
-#include <d3d9.h>
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -12,6 +10,7 @@
 #include <string>
 
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_context.h"
 #include "engine/gfx/render_camera.h"
 #include "base/core/checksums.h"
 #include "base/core/down_cast.h"
@@ -19,9 +18,7 @@
 #include "base/maths/rect.h"
 #include "render_d3d9/bitmap_texture.h"
 #include "engine/memory/mem.h"
-#include "render_d3d9/d3d9_state.h"
 #include "render_d3d9/device.h"
-#include "render_d3d9/device_d3d.h"
 #include "render_d3d9/draw_frame.h"
 #include "engine/gfx/engine_glue.h"
 #include "render_d3d9/pc_engine.h"
@@ -65,7 +62,7 @@ public:
     void finish_rendering() override { render::finish_rendering(); }
 
     // --- a lost device (the main loop's 0x0044EE90) ---
-    bool can_reset() override { return state().d3d_device()->TestCooperativeLevel() != D3DERR_DEVICELOST; }
+    bool can_reset() override { return render::gpu().test_cooperative_level() != gpu_value::kResultDeviceLost; }
     void release_device_objects() override
     {
         release_render_target_textures();
@@ -80,7 +77,7 @@ public:
     }
     bool reset() override
     {
-        const bool reset = state().d3d_device()->Reset(&present_parameters()) >= 0;
+        const bool reset = render::gpu_context().reset();
         // NOT ORIGINAL - the Gpu's state block (engine/gfx/gpu.h) to the defaults the reset device has.
         render::gpu().reset_state_block();
         return reset;
@@ -225,7 +222,7 @@ public:
     void show_progress_bar(float seconds) override { render::show_progress_bar(seconds); }
 
     // --- what our level editor asks ---
-    [[nodiscard]] bool device_made() override { return state().d3d_device() != nullptr; }
+    [[nodiscard]] bool device_made() override { return render::device_made(); }
     void set_view_mode(view_mode::Mode mode) override { view_mode::assign_value(mode); }
     void draw_screen_lines(std::span<const ScreenLineVertex> vertices) override
     {

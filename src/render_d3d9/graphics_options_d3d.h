@@ -22,8 +22,9 @@ uint32_t chosen_quality();
 void create_scene_target();
 void release_scene_target();
 
-// Choose them (before the device is made) for this back buffer / depth format pair and window mode.
-void choose_multisample(GpuInstance* api, uint32_t back_buffer_format, uint32_t depth_format, bool windowed);
+// Choose them (before the device is made, through the GpuContext) for this back buffer / depth format pair and window
+// mode.
+void choose_multisample(uint32_t back_buffer_format, uint32_t depth_format, bool windowed);
 // Instead of a full-size screen copy as the render target: the multisampled surface and its depth. False (nothing
 // done) when not in use or for any other texture.
 bool set_scene_target(GpuTexture* target);

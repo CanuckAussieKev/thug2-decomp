@@ -1,16 +1,11 @@
 // NOT ORIGINAL - the image-quality options on the device: see graphics_options_d3d.h.
 
 #include "render_d3d9/graphics_options_d3d.h"
-#include "render_d3d9/device_d3d.h"
 #include "engine/gfx/gpu_handles.h"
-#include "render_d3d9/d3d9_handles.h"
 #include "render_d3d9/device.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_context.h"
 #include "engine/gfx/graphics_options.h"
-
-#include <windows.h>
-
-#include <d3d9.h>
 
 #include <cstdint>
 
@@ -26,7 +21,7 @@ namespace {
 struct DeviceState {
     int active_anisotropy_ = 0;
     int samples_ = 0;
-    DWORD quality_ = 0;
+    uint32_t quality_ = 0;
     // The scene surface and its depth (default pool), and the full-size copy last drawn through them.
     GpuSurface* scene_colour_ = nullptr;
     GpuSurface* scene_depth_ = nullptr;
@@ -41,25 +36,16 @@ DeviceState& device_state()
 }
 
 struct SupportQuery {
-    IDirect3D9* d3d;
-    D3DFORMAT colour, depth;
-    BOOL windowed;
-    DWORD quality; // out: the quality levels both formats have
+    uint32_t colour, depth;
+    bool windowed;
+    uint32_t quality; // out: the quality levels both formats have
 };
 
 bool get_supported(int samples, void* context)
 {
     auto* query = static_cast<SupportQuery*>(context);
-    auto type = static_cast<D3DMULTISAMPLE_TYPE>(samples);
-    DWORD colour_levels = 0;
-    DWORD depth_levels = 0;
-    if (FAILED(query->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, query->colour,
-                                                      query->windowed, type, &colour_levels)) ||
-        FAILED(query->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, query->depth, query->windowed,
-                                                      type, &depth_levels))) {
-        return false;
-    }
-    const DWORD levels = colour_levels < depth_levels ? colour_levels : depth_levels;
+    const uint32_t levels =
+        gpu_context().sample_quality_levels(static_cast<uint32_t>(samples), query->colour, query->depth, query->windowed);
     if (levels == 0) {
         return false;
     }
@@ -86,9 +72,9 @@ bool in_use()
 uint32_t get_min_filter(bool linear, int anisotropy)
 {
     if (!linear) {
-        return D3DTEXF_POINT;
+        return gpu_value::kFilterPoint;
     }
-    return anisotropy > 0 ? D3DTEXF_ANISOTROPIC : D3DTEXF_LINEAR;
+    return anisotropy > 0 ? gpu_value::kFilterAnisotropic : gpu_value::kFilterLinear;
 }
 
 int& active_anisotropy() { return device_state().active_anisotropy_; }
@@ -97,16 +83,14 @@ int chosen_samples() { return device_state().samples_; }
 
 uint32_t chosen_quality() { return device_state().quality_; }
 
-void choose_multisample(GpuInstance* api, uint32_t back_buffer_format, uint32_t depth_format, bool windowed)
+void choose_multisample(uint32_t back_buffer_format, uint32_t depth_format, bool windowed)
 {
-    IDirect3D9* const d3d = d3d9::object(api);
     device_state().samples_ = 0;
     device_state().quality_ = 0;
-    if ((get_pull().msaa == 0) || !d3d) {
+    if (get_pull().msaa == 0) {
         return;
     }
-    SupportQuery query = {.d3d = d3d, .colour = static_cast<D3DFORMAT>(back_buffer_format), .depth = static_cast<D3DFORMAT>(depth_format),
-                          .windowed = windowed ? TRUE : FALSE, .quality = 0};
+    SupportQuery query = {.colour = back_buffer_format, .depth = depth_format, .windowed = windowed, .quality = 0};
     device_state().samples_ = pick_samples(get_pull().msaa, &get_supported, &query);
     if (device_state().samples_ != 0) {
         device_state().quality_ = query.quality - 1; // (the highest)
@@ -118,25 +102,25 @@ void choose_multisample(GpuInstance* api, uint32_t back_buffer_format, uint32_t 
 void create_scene_target()
 {
     release_scene_target();
-    const D3DPRESENT_PARAMETERS& pp = present_parameters();
-    if (device_state().samples_ <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE) {
+    const GpuSettings pp = gpu_context().settings();
+    if (device_state().samples_ <= 0 || pp.samples == 0) {
         return; // (the device was made without: the fallbacks in init_direct_3d)
     }
-    const HRESULT colour = gpu().create_render_target({.width = pp.BackBufferWidth,
-                                                       .height = pp.BackBufferHeight,
-                                                       .format = static_cast<uint32_t>(pp.BackBufferFormat),
-                                                       .samples = static_cast<uint32_t>(pp.MultiSampleType),
-                                                       .quality = pp.MultiSampleQuality,
-                                                       .lockable_or_discard = false},
-                                                      &device_state().scene_colour_);
-    const HRESULT depth = gpu().create_depth_surface({.width = pp.BackBufferWidth,
-                                                      .height = pp.BackBufferHeight,
-                                                      .format = static_cast<uint32_t>(pp.AutoDepthStencilFormat),
-                                                      .samples = static_cast<uint32_t>(pp.MultiSampleType),
-                                                      .quality = pp.MultiSampleQuality,
-                                                      .lockable_or_discard = true},
-                                                     &device_state().scene_depth_);
-    if (FAILED(colour) || FAILED(depth)) {
+    const long colour = gpu().create_render_target({.width = pp.width,
+                                                    .height = pp.height,
+                                                    .format = pp.colour_format,
+                                                    .samples = pp.samples,
+                                                    .quality = pp.sample_quality,
+                                                    .lockable_or_discard = false},
+                                                   &device_state().scene_colour_);
+    const long depth = gpu().create_depth_surface({.width = pp.width,
+                                                   .height = pp.height,
+                                                   .format = pp.depth_format,
+                                                   .samples = pp.samples,
+                                                   .quality = pp.sample_quality,
+                                                   .lockable_or_discard = true},
+                                                  &device_state().scene_depth_);
+    if (colour < 0 || depth < 0) {
         get_log("graphics options: no multisampled scene surface (0x%08lX / 0x%08lX) - screen effects unsmoothed",
                 static_cast<unsigned long>(colour), static_cast<unsigned long>(depth));
         release_scene_target();
@@ -170,7 +154,7 @@ void resolve_scene_target(GpuTexture* target)
         return;
     }
     GpuSurface* surface = nullptr;
-    if (SUCCEEDED(gpu().texture_surface(target, 0, &surface)) && surface) {
+    if (gpu().texture_surface(target, 0, &surface) >= 0 && surface) {
         gpu().copy_surface(device_state().scene_colour_, nullptr, surface, nullptr, gpu_value::kFilterNone);
         gpu().release_surface(surface);
     }

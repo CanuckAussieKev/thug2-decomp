@@ -2,9 +2,6 @@
 
 #include "render_d3d9/dynamic_vertices.h"
 
-#include <windows.h>
-#include <d3d9.h>
-
 #include <cstdint>
 
 // The original's Win32 platform layer's Direct3D side (0x005F45E0-0x005F5650): the renderer's dynamic vertex buffer (vertices
@@ -18,13 +15,13 @@ void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint
 
 // 0x005F4620 (cdecl): the dynamic vertex buffer, `size` bytes (dynamic, write-only). Returns CreateVertexBuffer's
 // result.
-HRESULT create_dynamic_vertex_buffer(uint32_t size);
+long create_dynamic_vertex_buffer(uint32_t size);
 // 0x005F4650 / 0x005F4670 (cdecl): the dynamic vertex buffer / the quads' index buffer released.
 void release_dynamic_vertex_buffer();
 void release_quad_index_buffer();
 // 0x005F4690 (cdecl): the index buffer for `quads` quads, two triangles each (0 1 2, 2 3 0). Returns Unlock's
 // result.
-HRESULT create_quad_index_buffer(uint32_t quads);
+long create_quad_index_buffer(uint32_t quads);
 // (begin_occlusion_query / end_occlusion_query: dynamic_vertices.h.)
 // 0x005F52D0 (cdecl): every kept query and the one in progress released.
 void release_occlusion_queries();
