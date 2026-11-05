@@ -12,6 +12,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/renderer_caps.h"
 #include "engine/gfx/renderer_display.h"
+#include "engine/gfx/renderer_fog.h"
 #include "engine/gfx/renderer_view.h"
 
 // NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
@@ -98,10 +99,10 @@ public:
         draw_calls_ = 0;
         drawn_triangles_ = 0;
     }
-    [[nodiscard]] float fog_begin_distance() const { return fog_begin_distance_; }
-    void set_fog_begin_distance(float value) { fog_begin_distance_ = value; }
-    [[nodiscard]] float fog_end() const { return fog_end_; }
-    void set_fog_end(float value) { fog_end_ = value; }
+    [[nodiscard]] float fog_begin_distance() const { return fog_.begin_distance(); }
+    void set_fog_begin_distance(float value) { fog_.set_begin_distance(value); }
+    [[nodiscard]] float fog_end() const { return fog_.end(); }
+    void set_fog_end(float value) { fog_.set_end(value); }
     [[nodiscard]] bool shaders_available() const { return caps_.shaders_available(); }
     void set_shaders_available(bool value) { caps_.set_shaders_available(value); }
     [[nodiscard]] uint32_t specular_state() const { return specular_; }
@@ -169,8 +170,8 @@ public:
     void set_skipped_passes(uint32_t value) { skipped_passes_ = value; }
     [[nodiscard]] uint32_t submit_locked() const { return submit_locked_; }
     void set_submit_locked(uint32_t value) { submit_locked_ = value; }
-    [[nodiscard]] uint32_t fog_active() const { return fog_active_; }
-    void set_fog_active(uint32_t value) { fog_active_ = value; }
+    [[nodiscard]] uint32_t fog_active() const { return fog_.active(); }
+    void set_fog_active(uint32_t value) { fog_.set_active(value); }
     // The world transform the instances are drawn with: a copy of the given matrix (its last column 0, 0, 0, 1), or
     // none (null).
     [[nodiscard]] const float* current_world_transform() const { return view_.current_world_transform(); }
@@ -189,8 +190,7 @@ private:
     int screen_copy_index_{};
     uint32_t draw_calls_{};
     uint32_t drawn_triangles_{};
-    float fog_begin_distance_{};
-    float fog_end_{};
+    FogState fog_; // the distance fog
 
     // The render state the device was last sent (render_state.cpp).
     uint32_t specular_{};
@@ -209,7 +209,6 @@ private:
     uint32_t vertex_format_locked_{};
     uint32_t skipped_passes_{};
     uint32_t submit_locked_{};
-    uint32_t fog_active_{};
 };
 
 // The renderer's state (made on first use, never destroyed).
