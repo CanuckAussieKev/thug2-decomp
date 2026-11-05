@@ -21,7 +21,7 @@
 
 #include "editor/level_editor_preview.h"
 #include "editor/level_editor_ui.h"
-#include "editor/level_editor_ui_backend.h"
+#include "engine/ui/ui_backend.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "base/core/checked_index.h"

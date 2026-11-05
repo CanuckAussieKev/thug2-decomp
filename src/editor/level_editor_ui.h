@@ -29,7 +29,7 @@ struct Fonts;
 //     browser (B) and the autosave offer as windows over the view.
 //   - Gizmos and lines (rails, the move arrows, boxes, the ground marker, the nodes' gizmos) are drawn through ImGui's
 //     background draw list, projected to the screen - never with the renderer's own calls (the renderer-independence
-//     rules: level_editor_ui_backend.h).
+//     rules: engine/ui/ui_backend.h).
 //   - Input: over a panel (or while ImGui holds the mouse or wants the keyboard) ImGui gets it; in the viewport the
 //     editor's camera, picking and keys work as before (level_editor_ui_layout.h's Decide).
 //   - Drawn after the game's 2D pass, where the editor draws (render::draw_world -> level_editor::Blit); nothing is drawn

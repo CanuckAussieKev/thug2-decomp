@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the level editor's transform tools on the toolbar (ours; see level_editor_transform.h). Dear ImGui only
-// (the renderer-independence rules: level_editor_ui_backend.h); the settings are plain data the editor reads next frame.
+// (the renderer-independence rules: engine/ui/ui_backend.h); the settings are plain data the editor reads next frame.
 
 #include <array>
 #include <cstddef>

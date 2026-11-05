@@ -24,7 +24,7 @@ struct ShapeMesh;
 // (the matrices and the camera 0x00786B90-0x00786CF4, the view's shape 0x00786E18, the culling matrix 0x007CA968 /
 // 0x007CA980) are put back and the frustum (0x00775B80) recomputed from them; the target, depth surface, viewport and
 // the device's transforms are the backend's to switch and put back (ui_backend::begin_offscreen / end_offscreen - the
-// renderer-independence rules: level_editor_ui_backend.h). The game's frame is drawn by then (level_editor::Blit runs
+// renderer-independence rules: engine/ui/ui_backend.h). The game's frame is drawn by then (level_editor::Blit runs
 // after the 2D pass), so only what the next frame reads before it sets its camera again matters.
 namespace frontend::level_editor::preview {
 

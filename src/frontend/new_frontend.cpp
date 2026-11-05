@@ -27,7 +27,7 @@
 #include "engine/file/file_load.h"
 #include "game/front_end/front_end.h"
 #include "editor/level_editor_playtest.h"
-#include "editor/level_editor_ui_backend.h"
+#include "engine/ui/ui_backend.h"
 #include "frontend/mouse_menus.h"
 #include "engine/ui/menu_reading.h"
 #include "game/front_end/menu_pad_event.h"
@@ -105,7 +105,6 @@ constexpr float kMaxFrameSeconds = 0.25F;
 constexpr float kGuardSeconds = 2.0F;
 constexpr float kLevelStartTimeoutSeconds = 30.0F;
 
-namespace ui_backend = frontend::level_editor::ui_backend;
 
 } // namespace
 namespace internal {

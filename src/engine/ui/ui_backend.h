@@ -6,8 +6,8 @@
 
 union SDL_Event;
 
-// NOT ORIGINAL - the level editor's UI layer, its backend (ours; see level_editor_ui.h): the editor's and the new front
-// end's way to Dear ImGui's platform and renderer backends - the installed render::UiBackend (engine/gfx/ui_backend.h;
+// NOT ORIGINAL - our Dear ImGui UI layers' backend (ours; the level editor's UI: editor/level_editor_ui.h, the new front
+// end: frontend/new_frontend.h): their way to Dear ImGui's platform and renderer backends - the installed render::UiBackend (engine/gfx/ui_backend.h;
 // app/ installs Direct3D 9's, render_d3d9/d3d9_ui_backend.h: ImGui's official SDL2 platform backend - the game's
 // window and input are SDL2's: platform/sdl_window.h, engine/pad_input/sdl_input.cpp - and its Direct3D 9 renderer
 // backend on the game's device). Renderer-independence rules (the user's requirement - Vulkan later only swaps the
@@ -17,7 +17,7 @@ union SDL_Event;
 //   - a picture ImGui shows is the UI backend's (an image it made, or its preview / atlas target).
 // ImGui's coordinates are the window's pixels (what SDL's mouse events are in); Render scales its draw data to the
 // back buffer when the two differ.
-namespace frontend::level_editor::ui_backend {
+namespace frontend::ui_backend {
 
 // The backends started on the game's window and device (once; false - logged - while either is missing or a
 // backend refuses). An ImGui context must be current.
@@ -81,4 +81,4 @@ uint64_t atlas_texture();
 uint32_t atlas_generation();
 void free_atlas();
 
-} // namespace frontend::level_editor::ui_backend
+} // namespace frontend::ui_backend

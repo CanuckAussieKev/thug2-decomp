@@ -225,9 +225,9 @@ everything above it uses the game's own types and may change them freely.
     its draw data drawn, the device objects dropped before a reset, the images ImGui shows (made from texels in memory)
     and the two targets the renderer draws into for the UI (the preview, the thumbnails' atlas). Direct3D 9's
     (`render_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app/main.cpp` beside the
-    device; a Vulkan one would be ImGui's SDL2 and Vulkan backends behind the same calls. The editor's
-    `level_editor_ui_backend` keeps what is the UI's own (whether a context is started, the log, the draw data scaled to
-    the back buffer). Only `render_d3d9/` includes ImGui's backend headers (tools/d3d_headers.test.ts).
+    device; a Vulkan one would be ImGui's SDL2 and Vulkan backends behind the same calls. Both layers
+    reach it through `engine/ui/ui_backend.h` (`frontend::ui_backend`), which keeps what is the UI's own (whether a
+    context is started, the log, the draw data scaled to the back buffer). Only `render_d3d9/` includes ImGui's backend headers (tools/d3d_headers.test.ts).
   - D3DX: only the backend calls it (`render_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
     Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
     same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with

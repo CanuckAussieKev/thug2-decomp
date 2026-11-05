@@ -53,7 +53,6 @@ add_library(thug2_editor STATIC
     level_editor_playtest.cpp
     level_editor_playtest_ui.cpp
     level_editor_prefs.cpp
-    level_editor_ui_backend.cpp
     level_editor_ui_layout.cpp
     level_editor_ui_menus.cpp
     level_editor_ui_strip.cpp

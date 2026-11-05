@@ -16,7 +16,7 @@
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_ui.h"
-#include "editor/level_editor_ui_backend.h"
+#include "engine/ui/ui_backend.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/render_device.h"
 #include "base/maths/mat4.h"

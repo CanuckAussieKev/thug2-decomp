@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the level editor's preferences and first-run tips (ours). See level_editor_prefs.h. Only ImGui's own
-// API here (the renderer-independence rules: level_editor_ui_backend.h).
+// API here (the renderer-independence rules: engine/ui/ui_backend.h).
 
 #include "editor/level_editor_prefs.h"
 

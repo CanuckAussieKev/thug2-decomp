@@ -25,6 +25,7 @@ add_library(thug2_engine STATIC
     ui/menu_element.cpp
     ui/screen_element_manager.cpp
     ui/menu_reading.cpp
+    ui/ui_backend.cpp
     ui/scrolling_menu.cpp
     ui/sprite_element.cpp
     ui/screen_element_cfuncs.cpp
@@ -309,5 +310,6 @@ add_library(thug2_engine STATIC
 # (the UI fonts, compressed at build time: ui/ui_fonts.cpp includes them)
 target_include_directories(thug2_engine PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
 add_dependencies(thug2_engine editor_fonts)
-# lzham: THUGPRO's compression method (net/net_lzham.cpp)
-target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham)
+# lzham: THUGPRO's compression method (net/net_lzham.cpp); imgui: our UI layers' backend (ui/ui_backend.cpp: the current
+# ImGui context's own part)
+target_link_libraries(thug2_engine PUBLIC thug2_wire thug2_platform PRIVATE lzham imgui)

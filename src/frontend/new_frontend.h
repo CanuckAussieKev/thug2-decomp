@@ -37,7 +37,7 @@ struct FrontEnd;
 // loaded that is in the data - whichever menu started it).
 //
 // Drawn with Dear ImGui's draw lists (its own context, its own font atlas: never ImGui's widgets or look), through the
-// level editor's backend (level_editor_ui_backend.h: renderer-independent). The layout is the design's 1280 x 720,
+// level editor's backend (engine/ui/ui_backend.h: renderer-independent). The layout is the design's 1280 x 720,
 // kept 16:9 and scaled to the window (frontend/new_frontend_model.h Frame); fonts are rasterised at the window's
 // real pixel sizes, made again when its size changes. Fonts: the overlay's frontend\fonts (Anton-Regular.ttf,
 // IBMPlexMono-Regular.ttf / -SemiBold.ttf, IBMPlexSans-Regular.ttf - SIL OFL, put there by make_menu_level.ts

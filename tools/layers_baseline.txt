@@ -4,4 +4,3 @@ src/devtools/start_level.cpp -> src/editor/level_editor.h
 src/devtools/start_level.cpp -> src/editor/level_editor_layout.h
 src/frontend/new_frontend.cpp -> src/devtools/start_level.h
 src/frontend/new_frontend.cpp -> src/editor/level_editor_playtest.h
-src/frontend/new_frontend.cpp -> src/editor/level_editor_ui_backend.h

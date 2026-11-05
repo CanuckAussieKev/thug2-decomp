@@ -1,9 +1,9 @@
-// NOT ORIGINAL - the level editor's UI backend (ours). See level_editor_ui_backend.h: the editor's and the new front
+// NOT ORIGINAL - our ImGui UI layers' backend (ours). See ui_backend.h: the editor's and the new front
 // end's way to the installed render::UiBackend (engine/gfx/ui_backend.h), which holds ImGui's platform and renderer
 // backends; here only what is the UI's own - whether a context is started, the log, the draw data scaled to the back
 // buffer.
 
-#include "editor/level_editor_ui_backend.h"
+#include "engine/ui/ui_backend.h"
 
 #include <cstdint>
 
@@ -16,7 +16,7 @@
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
 
-namespace frontend::level_editor::ui_backend {
+namespace frontend::ui_backend {
 
 namespace {
 
@@ -158,4 +158,4 @@ uint32_t atlas_generation() { return render::ui_backend().atlas_generation(); }
 
 void free_atlas() { render::ui_backend().free_atlas(); }
 
-} // namespace frontend::level_editor::ui_backend
+} // namespace frontend::ui_backend

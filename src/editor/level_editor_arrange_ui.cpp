@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the level editor's arrange tools and adjust-last panel on the UI (ours; see level_editor_arrange.h and
-// level_editor_adjust.h). Dear ImGui only (the renderer-independence rules: level_editor_ui_backend.h); what the
+// level_editor_adjust.h). Dear ImGui only (the renderer-independence rules: engine/ui/ui_backend.h); what the
 // buttons ask for is queued and done in the editor's next Update (Arrange::tick_frame runs the queue).
 
 #include <cstddef>
