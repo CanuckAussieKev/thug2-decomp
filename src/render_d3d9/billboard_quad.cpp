@@ -3,10 +3,6 @@
 #include "render_d3d9/billboard_quad.h"
 
 #include <cstddef>
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
@@ -20,7 +16,7 @@
 #include "engine/gfx/engine.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/engine_parts.h"
 
 namespace render {
@@ -37,11 +33,7 @@ namespace {
 
 // The layout's size (the constants at 0x00649FD4 and 0x006484B4).
 
-void set_texture_stage_state(int stage, int type, int value)
-{
-    d3d9::state().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
-                                       static_cast<DWORD>(value));
-}
+void set_texture_stage_state(uint32_t stage, GpuStageState type, uint32_t value) { gpu().set_stage_state(stage, type, value); }
 const std::array<uint16_t, kQuadIndexCount>& quad_indices()
 {
     static constexpr std::array<uint16_t, 6> kSpriteQuadIndices{{0, 1, 2, 1, 3, 2}};
@@ -293,12 +285,12 @@ void QuadSprite::draw()
     }
 
     set_vertex_format(kScreenVertexFormat);         // position (pre-transformed), colour, one texture coordinate
-    set_texture_stage_state(0, 1, kTextureOpModulate2x); // colour: texture x diffuse, doubled
-    set_texture_stage_state(0, 4, kTextureOpModulate2x); // alpha: the same
+    set_texture_stage_state(0, GpuStageState::kColourOp, kTextureOpModulate2x); // colour: texture x diffuse, doubled
+    set_texture_stage_state(0, GpuStageState::kAlphaOp, kTextureOpModulate2x); // alpha: the same
     if (!engine_parts().suppress_draw()) {           // (rendering not skipped)
         renderer().count_draw(2); // the frame's draw calls and triangles
-        d3d9::state().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
-                                             sizeof(Vertex));
+        gpu().draw_indexed_from_memory(GpuPrimitive::kTriangleList, 0, 4, 2, quad_indices().data(), gpu_value::kFormatIndex16,
+                                       vertices.data(), sizeof(Vertex));
     }
 }
 
@@ -308,23 +300,23 @@ void QuadSprite::open_sketch()
     render::set_vertex_format(kScreenVertexFormat); // xyzrhw, diffuse, one texture
     set_pixel_shader(nullptr, nullptr);
     if (texture) {
-        set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+        set_texture_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+        set_texture_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate2x);
         render::set_texture(0, texture->texture);
     } else {
-        set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-        set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+        set_texture_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpSelectArg2);
+        set_texture_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg2);
         render::set_texture(0, nullptr);
     }
-    set_texture_stage_state(0, D3DTSS_COLORARG2, D3DTA_CURRENT);
-    set_texture_stage_state(0, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
+    set_texture_stage_state(0, GpuStageState::kColourArg2, gpu_value::kArgCurrent);
+    set_texture_stage_state(0, GpuStageState::kAlphaArg2, gpu_value::kArgCurrent);
 }
 
 // 0x004DFA40
 void QuadSprite::close_sketch()
 {
-    set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    set_texture_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate);
+    set_texture_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate);
 }
 
 } // namespace render

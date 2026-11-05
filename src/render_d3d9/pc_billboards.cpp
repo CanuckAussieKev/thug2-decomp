@@ -3,11 +3,6 @@
 
 #include "render_d3d9/pc_billboards.h"
 #include "base/maths/view_transforms.h"
-#include "render_d3d9/d3d9_handles.h"
-
-#include <windows.h>
-
-#include <d3d9.h>
 
 #include <cmath>
 #include <cstdint>
@@ -29,7 +24,7 @@
 #include "base/core/span_copy.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/view_setup.h"
 #include "base/maths/rect.h"
@@ -173,8 +168,8 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         auto start = static_cast<float>(
             end - ((static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare));
         toggle_fog(true);
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
+        gpu().set_render_state(GpuRenderState::kFogStart, std::bit_cast<uint32_t>(start));
+        gpu().set_render_state(GpuRenderState::kFogEnd, std::bit_cast<uint32_t>(end));
     } else {
         toggle_fog(false);
     }
@@ -185,21 +180,21 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
             set_pixel_shader(mesh->pixel_shader(), nullptr);
         }
     }
-    D3DVIEWPORT9 viewport;
-    d3d9::state().d3d_device()->GetViewport(&viewport);
-    IDirect3DVertexBuffer9* stream = nullptr;
-    UINT offset = 0;
-    UINT stream_stride = 0;
-    d3d9::state().d3d_device()->GetStreamSource(0, &stream, &offset, &stream_stride);
-    IDirect3DPixelShader9* pixel_shader = nullptr;
-    d3d9::state().d3d_device()->GetPixelShader(&pixel_shader);
-    IDirect3DVertexShader9* vertex_shader = nullptr;
-    d3d9::state().d3d_device()->GetVertexShader(&vertex_shader);
-    IDirect3DIndexBuffer9* indices = nullptr;
-    d3d9::state().d3d_device()->GetIndices(&indices);
+    GpuViewport viewport;
+    gpu().get_viewport(&viewport);
+    GpuVertexBuffer* stream = nullptr;
+    uint32_t offset = 0;
+    uint32_t stream_stride = 0;
+    gpu().get_stream_source(0, &stream, &offset, &stream_stride);
+    GpuPixelShader* pixel_shader = nullptr;
+    gpu().get_pixel_shader(&pixel_shader);
+    GpuVertexShader* vertex_shader = nullptr;
+    gpu().get_vertex_shader(&vertex_shader);
+    GpuIndexBuffer* indices = nullptr;
+    gpu().get_indices(&indices);
     const uint32_t primitives = primitive_count({.type = mesh->primitive_type(), .count = core::at(mesh->index_counts(), 0)});
     uint8_t* into_block = nullptr;
-    get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, D3DLOCK_DISCARD);
+    get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, gpu_value::kLockDiscard);
     const size_t vertex_bytes = static_cast<size_t>(mesh->stride()) * mesh->vertex_count();
     core::Cursor<uint8_t> into(std::span<uint8_t>(into_block, vertex_bytes));
     core::Cursor<const uint8_t> from(std::span<const uint8_t>(get_vertex_buffer(mesh, 0)->data(), vertex_bytes));
@@ -256,31 +251,31 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         from += rest;
     }
     get_vertex_buffer(mesh, 0)->get_unlock();
-    d3d9::state().d3d_device()->SetStreamSource(0, d3d9::object(get_vertex_buffer(mesh, 0)->buffer()), 0, mesh->stride());
+    gpu().set_stream_source(0, get_vertex_buffer(mesh, 0)->buffer(), 0, mesh->stride());
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
-    d3d9::state().d3d_device()->SetIndices(d3d9::object(core::at(mesh->index_buffers(), 0)->buffer()));
-    DWORD format = 0;
-    d3d9::state().d3d_device()->GetFVF(&format);
-    d3d9::state().d3d_device()->SetFVF(mesh->fvf());
-    auto type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type());
+    gpu().set_indices(core::at(mesh->index_buffers(), 0)->buffer());
+    uint32_t format = 0;
+    gpu().get_vertex_format(&format);
+    gpu().set_vertex_format(mesh->fvf());
+    auto type = static_cast<GpuPrimitive>(mesh->primitive_type());
     if (renderer().shaders_available()) {
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count(), 0, primitives);
+        gpu().draw_indexed(type, 0, 0, mesh->vertex_count(), 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < mesh->material()->pass_count(); ++pass) {
             mesh->material()->submit_pass(pass, ((mesh->flags() & 4) != 0U) ? mesh->color().data() : nullptr);
-            d3d9::state().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count(), 0, primitives);
+            gpu().draw_indexed(type, 0, 0, mesh->vertex_count(), 0, primitives);
         }
     }
-    d3d9::state().d3d_device()->SetFVF(format);
-    d3d9::state().d3d_device()->SetStreamSource(0, stream, 0, stream_stride); // (the offset not put back, as the original)
+    gpu().set_vertex_format(format);
+    gpu().set_stream_source(0, stream, 0, stream_stride); // (the offset not put back, as the original)
     if (stream) {
-        stream->Release();
+        gpu().release_vertex_buffer(stream);
     }
-    d3d9::state().d3d_device()->SetPixelShader(pixel_shader); // (the shaders not released, as the original)
-    d3d9::state().d3d_device()->SetVertexShader(vertex_shader);
-    d3d9::state().d3d_device()->SetIndices(indices);
+    gpu().set_pixel_shader(pixel_shader); // (the shaders not released, as the original)
+    gpu().set_vertex_shader(vertex_shader);
+    gpu().set_indices(indices);
     if (indices) {
-        indices->Release();
+        gpu().release_index_buffer(indices);
     }
     toggle_fog(false);
     (void)viewport;
@@ -450,7 +445,7 @@ void BillboardBatch::render()
     core::at(view, kMatrixW) = 1.0F;
     maths::matrix_multiply(view_world.data(), view.data(), identity.data());
     maths::matrix_multiply(all.data(), projection.data(), view_world.data());
-    d3d9::state().d3d_device()->SetVertexShaderConstantF(0, all.data(), 4);
+    gpu().set_vertex_constants(0, all.data(), 4);
     auto* manager = &billboard_pool();
     const std::span<float> constants(pc_billboards_state().billboard_constants_); // c4-c6
     // (the first three floats of each of the three vectors given)
@@ -460,7 +455,7 @@ void BillboardBatch::render()
         core::copy_into(z.first(3), constants.subspan(kZAxisOffset, 3));
     };
     set_axes(manager->right(), manager->up(), manager->view());
-    d3d9::state().d3d_device()->SetVertexShaderConstantF(4, constants.data(), 3);
+    gpu().set_vertex_constants(4, constants.data(), 3);
     {
         std::array<float, 3> x_axis{};
         std::array<float, 3> y_axis{};
