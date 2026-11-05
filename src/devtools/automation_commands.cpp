@@ -19,7 +19,7 @@
 #include "engine/ui/screen_element.h"
 #include "engine/ext/extension.h"
 #include "devtools/start_level.h"
-#include "devtools/test_view.h"
+#include "game/rider/test_view.h"
 #include "engine/lists/key_map.h"
 #include "game/world/trick_objects.h"
 #include "devtools/screenshot.h"

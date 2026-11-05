@@ -6,7 +6,6 @@ add_library(thug2_devtools STATIC
     restart_tester.cpp
     screenshot.cpp
     extensions.cpp
-    test_view.cpp
     start_level.cpp
     automation.cpp
     automation_commands.cpp

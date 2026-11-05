@@ -26,6 +26,8 @@ class ViewCam;
 //   z-fighting ones flip (thug2-level-converter-core/lib/frame_diff.ts).
 // - Script command (for level scripts and the console): TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>] -
 //   false when there's no local skater.
+// A game feature the dev tools drive (their extension: devtools/extensions.h - the camera lock, the script command) and
+// start level's -at uses (game/front_end/start_level.h); the namespace is the dev tools', kept when it moved here.
 namespace frontend::test_view {
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------

@@ -54,7 +54,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     skips the rest of the batch. After a `quit` the scripts wait for the process to exit and report its exit code
     ("the game exited (code 0) after its quit"; ok only with 0), whichever came first - the game's last status or
     its exit.
-  - **Looking at one spot frame by frame** (src/devtools/test_view.h, src/platform/screenshot.h start_series):
+  - **Looking at one spot frame by frame** (src/game/rider/test_view.h, src/platform/screenshot.h start_series):
     `teleport <x> <y> <z> [heading]` puts the skater there standing (walking, no momentum, on the ground below;
     heading in degrees as the screenshot sidecar gives it), `camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]` holds
     viewport 0's camera at that pose (a screenshot sidecar's [camera] lines), moved by (vx, vy, vz) every game frame

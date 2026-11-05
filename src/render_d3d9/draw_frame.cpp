@@ -578,7 +578,7 @@ void draw_viewport(int index)
     // Not original - the extensions (engine/ext/extension.h; the level editor: while it runs, the first viewport's
     // camera is put where the editor flies).
     // Original behaviour: the camera is drawn where the game put it.
-    // (then the automation channel's camera lock - devtools/test_view.h: viewport 0's camera held at a pose)
+    // (then the automation channel's camera lock - game/rider/test_view.h: viewport 0's camera held at a pose)
     ext::place_camera(static_cast<gfx::ViewCam*>(camera), index);
     view_setup().set_drawn_viewport(index); // the viewport being drawn
     const double width = renderer().back_buffer_width();

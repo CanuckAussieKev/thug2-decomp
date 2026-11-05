@@ -55,7 +55,7 @@ class Struct;
 //   level <name>                          free skate in a level, as -level (devtools/start_level.h)
 //   teleport <x> <y> <z> [heading]        the local skater put there STANDING (walking, no momentum), on the ground
 //                                         below; heading in degrees (0 = +z, 90 = +x, as the screenshot sidecar);
-//                                         none: the way it faced (devtools/test_view.h). In a level only.
+//                                         none: the way it faced (game/rider/test_view.h). In a level only.
 //   camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]
 //                                         viewport 0's camera held at that position looking along (dx, dy, dz) every
 //                                         frame (comparable frames), moved by (vx, vy, vz) a game frame if given (a

@@ -21,7 +21,7 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_layout.h"
 #include "game/front_end/menu_pad_event.h"
-#include "devtools/test_view.h"
+#include "game/rider/test_view.h"
 #include "engine/gfx/screen.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

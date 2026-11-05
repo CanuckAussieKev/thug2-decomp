@@ -10,7 +10,7 @@
 #include "devtools/restart_tester.h"
 #include "devtools/screenshot.h"
 #include "devtools/start_level.h"
-#include "devtools/test_view.h"
+#include "game/rider/test_view.h"
 #include "engine/ext/extension.h"
 
 namespace frontend::restart_tester {
