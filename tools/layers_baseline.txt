@@ -1,12 +1,7 @@
 # NOT ORIGINAL - the upward includes that exist today (tools/layers.ts). May only shrink: delete a line when its
 # include goes, never add one. Regenerate with: node tools/layers.ts --write
-src/devtools/automation_internal.h -> src/frontend/new_frontend.h
-src/devtools/restart_tester.cpp -> src/editor/level_editor.h
 src/devtools/start_level.cpp -> src/editor/level_editor.h
 src/devtools/start_level.cpp -> src/editor/level_editor_layout.h
-src/frontend/new_frontend.cpp -> src/devtools/restart_tester.h
 src/frontend/new_frontend.cpp -> src/devtools/start_level.h
-src/frontend/new_frontend.cpp -> src/editor/level_editor.h
 src/frontend/new_frontend.cpp -> src/editor/level_editor_playtest.h
 src/frontend/new_frontend.cpp -> src/editor/level_editor_ui_backend.h
-src/frontend/new_frontend_game.cpp -> src/editor/level_editor.h

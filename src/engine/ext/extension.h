@@ -112,6 +112,32 @@ public:
         return false;
     }
 
+    // --- settings ---
+    // Its feature switch `key` (thug2-decomp.ini [features] <key>, read once; the options screen sets it live), or none
+    // (not its).
+    virtual bool* feature_switch(const char* /*key*/) { return nullptr; }
+    // While true the game keeps drawing while its window is in the background (a test's picture of the window shows the
+    // frame now).
+    virtual bool draws_unfocused() { return false; }
+
+    // --- the editor opened in a level (-edit / edit_level: game/front_end/start_level.h) ---
+    // The level's load began, and the editor is to open there once it is up.
+    virtual void open_editor_when_up() {}
+    // Once a frame after that, from start level's frame (the level loading, then up): the editor's own steps to open.
+    virtual void editor_opening_frame(modules::FrontEnd* /*front_end*/) {}
+
+    // --- the screens a test drives (the test-automation channel's `fe` commands) ---
+    // A command for the screens: false when not its; `result` and `done` as the automation channel reads them.
+    virtual bool screen_command(const std::string& /*line*/, bool* /*done*/, std::string* /*result*/) { return false; }
+    // The result of a command still waiting ("" while it waits).
+    virtual bool screen_result(std::string* /*result*/) { return false; }
+    // The command waiting given up.
+    virtual void screen_cancel() {}
+    // Whether the screen `name` is shown and not moving.
+    virtual bool screen_up(const std::string& /*name*/) { return false; }
+    // Its line of the automation channel's status file ("" when off).
+    virtual bool screen_status(std::string* /*status*/) { return false; }
+
     // --- what a dev tool offers the game's own debugging aids, and what it asks of the others ---
     // A picture of the frame being drawn, `note` in its sidecar (false: dropped - none taken).
     virtual bool request_event_shot(const std::string& /*note*/) { return false; }
@@ -156,6 +182,17 @@ void scene_loaded(const char* name, bool is_net);
 bool plays_edited_copy();
 bool added_gaps(const goals::GapTally* checklist, std::vector<std::string>* names,
                 std::vector<std::string>* level_names);
+// The first extension's switch `key` (null: none has it).
+bool* feature_switch(const char* key);
+bool draws_unfocused();
+void open_editor_when_up();
+void editor_opening_frame(modules::FrontEnd* front_end);
+// The first extension that takes it; with none: "error: no screens to drive" (done), "", nothing, false, "".
+std::string screen_command(const std::string& line, bool* done);
+std::string screen_result();
+void screen_cancel();
+bool screen_up(const std::string& name);
+std::string screen_status();
 // (the first extension that takes it)
 bool request_event_shot(const std::string& note);
 void show_notice(const std::string& text);

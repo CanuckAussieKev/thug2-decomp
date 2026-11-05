@@ -14,7 +14,7 @@
 
 #include "base/core/checksums.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
+#include "engine/ext/extension.h"
 #include "engine/gfx/screen.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -229,7 +229,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool down = !keys.empty() && (core::at(keys, kKey) != 0U);
     const bool pressed = down && restart_tester_state().key_up_;
     restart_tester_state().key_up_ = !down;
-    if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
+    if (!pressed || frame_loop::frames_run() == 0 || (ext::game_owner() != nullptr) ||
         (front_end && front_end->is_halted()) || render::current_level() == 0) {
         return;
     }

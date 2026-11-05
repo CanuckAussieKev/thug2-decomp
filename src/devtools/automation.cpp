@@ -23,6 +23,7 @@
 #include "platform/process_flags.h"
 #include "game/front_end/front_end.h"
 #include "engine/ui/screen_element.h"
+#include "engine/ext/extension.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/ui/menu_reading.h"
 #include "game/front_end/menu_pad_event.h"
@@ -911,7 +912,7 @@ void write_status(Runner& runner)
     status.result = runner.result;
     status.errors = runner.errors;
     status.refusals = runner.refusals;
-    status.frontend = frontend::new_frontend::automation_status();
+    status.frontend = ext::screen_status();
     // Written when anything but the frame count changed, or every half second.
     status.frames = 0;
     const std::string key = status_json(status);

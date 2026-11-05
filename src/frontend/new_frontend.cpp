@@ -26,7 +26,6 @@
 #include "base/core/checksums.h"
 #include "engine/file/file_load.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_ui_backend.h"
 #include "frontend/mouse_menus.h"
@@ -38,7 +37,7 @@
 #include "frontend/new_frontend_model.h"
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
-#include "devtools/restart_tester.h"
+#include "engine/ext/extension.h"
 #include "engine/audio/continue_music.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
@@ -256,7 +255,7 @@ void update_session(float dt)
         session_state() = SessionState{};
         session_state().level = level;
     }
-    if ((level == 0U) || level == kLoadMainMenu || get_paused() || level_editor::live_now()) {
+    if ((level == 0U) || level == kLoadMainMenu || get_paused() || (ext::game_owner() != nullptr)) {
         return;
     }
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
@@ -502,10 +501,8 @@ void apply_option(const ActStep& action)
         const bool on = std::strcmp(value, "0") != 0;
         if (std::strcmp(spec.key, "mouse_menus") == 0) {
             mouse_menus::is_switched_on() = on;
-        } else if (std::strcmp(spec.key, "restart_tester") == 0) {
-            restart_tester::is_switched_on() = on;
-        } else if (std::strcmp(spec.key, "level_editor") == 0) {
-            level_editor::is_switched_on() = on;
+        } else if (bool* feature = ext::feature_switch(spec.key)) {
+            *feature = on; // (the restart tester's, the level editor's)
         } else if (std::strcmp(spec.key, "continue_music") == 0) {
             audio::continue_music::is_switched_on() = on;
         } else if (std::strcmp(spec.key, "respect_locks") == 0) {
@@ -656,7 +653,7 @@ mirror::View mirror_now()
     }
     // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
     if ((current_load_state() == 0U) || loading_screen_up() || (game_screens::net_session() && !policy.online) ||
-        level_editor::live_now()) {
+        (ext::game_owner() != nullptr)) {
         return {};
     }
     // (a network game's level select: ours, never restyled as a list)
@@ -920,7 +917,7 @@ void update_cover(float dt)
     const UiWidget* active = active_menu(&in_dialog);
     Cover::Now now;
     now.target_ready_ = menu_mirror().mirror_.get_up();
-    now.gameplay = (current_load_state() == 0U) || loading_screen_up() || level_editor::live_now() ||
+    now.gameplay = (current_load_state() == 0U) || loading_screen_up() || (ext::game_owner() != nullptr) ||
                    (!in_front_end() && !get_paused() && (active == nullptr));
     now.screen = active;
     now.left_original_ = (active != nullptr) && !screen_cover().mirror_would_restyle_;
@@ -1320,7 +1317,7 @@ void tick_frame(modules::FrontEnd* front_end)
     // left them - and comes back only once the pause menu really is back (the user's report of 2026-10-25: our pause
     // menu stayed drawn over the level editor - its hand-off never finished, as this isn't called while the editor
     // runs... its extension's menu_frame calls it then too, for this).
-    if (level_editor::live_now()) {
+    if (ext::game_owner() != nullptr) {
         step_aside_for_tool();
         return;
     }
@@ -1411,7 +1408,7 @@ bool owns_mouse() { return is_switched_on() && !showing() && menu_mirror().mirro
 void before_screen_layout()
 {
     // (the level editor: Update steps ours aside and gives the original's elements back)
-    if (!is_switched_on() || level_editor::live_now()) {
+    if (!is_switched_on() || (ext::game_owner() != nullptr)) {
         return;
     }
     static std::chrono::steady_clock::time_point s_last;
@@ -1530,6 +1527,13 @@ paint::Extras restyle_extras()
 
 // --- the script commands (the overlay's menu items) ---
 
+// A feature switch another extension holds ([features] level_editor: the editor's; false without it).
+bool feature_on(const char* key)
+{
+    const bool* on = ext::feature_switch(key);
+    return (on != nullptr) && *on;
+}
+
 // NewFrontend_Item item=on | restart | levels | options | editor: whether the overlay's menus make that item of ours -
 // on: the new front end's main menu (its items, our Career menu); RESTART (free skate's pause menu); CHANGE LEVEL /
 // the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
@@ -1560,7 +1564,7 @@ bool cfunc_item(script::Struct* params, script::Context /*context*/)
         return true;
     }
     if (item == name_hash("editor")) {
-        return in_front_end() && levels && level_editor::is_switched_on() && is_script(name_hash("level_editor_enter"));
+        return in_front_end() && levels && feature_on("level_editor") && is_script(name_hash("level_editor_enter"));
     }
     return false;
 }
@@ -1608,7 +1612,7 @@ void register_script_functions()
 void blit()
 {
     // (never over a tool's own UI: the level editor - Update steps ours aside)
-    if (!is_switched_on() || level_editor::live_now() ||
+    if (!is_switched_on() || (ext::game_owner() != nullptr) ||
         (!showing() && !menu_mirror().mirror_.get_up() && !screen_cover().cover_.get_on() &&
          !screen_cover().awaiting_front_end_)) {
         return;

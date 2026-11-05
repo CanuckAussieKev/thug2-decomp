@@ -13,7 +13,6 @@
 #include <vector>
 #include "game/front_end/front_end.h"
 #include "engine/ui/menu_reading.h"
-#include "frontend/new_frontend.h" // IWYU pragma: export - the pieces use it through this header
 #include "engine/ui/screen_element.h"
 #include "devtools/start_level.h"
 #include "engine/file/disk_files.h"

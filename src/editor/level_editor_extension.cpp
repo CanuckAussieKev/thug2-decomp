@@ -3,6 +3,7 @@
 #include "editor/level_editor_extension.h"
 
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <string>
 #include <vector>
@@ -38,6 +39,11 @@ public:
     }
 
     bool owns_game() override { return live_now(); }
+    // ([features] level_editor: the pause menu's LEVEL EDITOR offered)
+    bool* feature_switch(const char* key) override
+    {
+        return std::strcmp(key, "level_editor") == 0 ? &is_switched_on() : nullptr;
+    }
     bool pass_pause_key(bool down) override { return level_editor::pass_pause_key(down); }
 
     void before_draw_world() override { tick_frame(); }

@@ -205,6 +205,92 @@ bool added_gaps(const goals::GapTally* checklist, std::vector<std::string>* name
     return false;
 }
 
+bool* feature_switch(const char* key)
+{
+    for (Extension* extension : registered()) {
+        bool* on = extension->feature_switch(key);
+        if (on != nullptr) {
+            return on;
+        }
+    }
+    return nullptr;
+}
+
+bool draws_unfocused()
+{
+    for (Extension* extension : registered()) {
+        if (extension->draws_unfocused()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void open_editor_when_up()
+{
+    for (Extension* extension : registered()) {
+        extension->open_editor_when_up();
+    }
+}
+
+void editor_opening_frame(modules::FrontEnd* front_end)
+{
+    for (Extension* extension : registered()) {
+        extension->editor_opening_frame(front_end);
+    }
+}
+
+std::string screen_command(const std::string& line, bool* done)
+{
+    std::string result;
+    for (Extension* extension : registered()) {
+        if (extension->screen_command(line, done, &result)) {
+            return result;
+        }
+    }
+    *done = true;
+    return "error: no screens to drive";
+}
+
+std::string screen_result()
+{
+    std::string result;
+    for (Extension* extension : registered()) {
+        if (extension->screen_result(&result)) {
+            return result;
+        }
+    }
+    return {};
+}
+
+void screen_cancel()
+{
+    for (Extension* extension : registered()) {
+        extension->screen_cancel();
+    }
+}
+
+bool screen_up(const std::string& name)
+{
+    for (Extension* extension : registered()) {
+        if (extension->screen_up(name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string screen_status()
+{
+    std::string status;
+    for (Extension* extension : registered()) {
+        if (extension->screen_status(&status)) {
+            return status;
+        }
+    }
+    return {};
+}
+
 bool request_event_shot(const std::string& note)
 {
     for (Extension* extension : registered()) {

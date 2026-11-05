@@ -2,6 +2,7 @@
 
 #include "devtools/extensions.h"
 
+#include <cstring>
 #include <span>
 #include <string>
 
@@ -21,6 +22,10 @@ public:
         if (!game_owned) {
             tick_frame(front_end);
         }
+    }
+    bool* feature_switch(const char* key) override
+    {
+        return std::strcmp(key, "restart_tester") == 0 ? &is_switched_on() : nullptr;
     }
 };
 } // namespace
@@ -63,6 +68,9 @@ public:
             tick_frame(front_end);
         }
     }
+    // (a test's picture of the window - PrintWindow - shows the frame now, not the last one drawn before the window lost
+    // the focus)
+    bool draws_unfocused() override { return is_switched_on(); }
 };
 } // namespace
 

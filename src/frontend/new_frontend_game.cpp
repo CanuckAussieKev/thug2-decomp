@@ -9,7 +9,7 @@
 
 #include "base/core/checksums.h"
 #include "game/front_end/front_end.h"
-#include "editor/level_editor.h"
+#include "engine/ext/extension.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "game/online/gamenet_manager.h"
@@ -113,7 +113,7 @@ UiWidget* get_find(uint32_t id)
 Anchor at_hand(modules::FrontEnd* front_end)
 {
     const uint32_t level = current_load_state();
-    if ((level == 0U) || net_session() || level_editor::live_now()) {
+    if ((level == 0U) || net_session() || (ext::game_owner() != nullptr)) {
         return Anchor::kNone;
     }
     if (level == kLoadMainMenu) {

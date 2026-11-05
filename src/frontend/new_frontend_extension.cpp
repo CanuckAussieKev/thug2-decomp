@@ -2,6 +2,8 @@
 
 #include "frontend/new_frontend_extension.h"
 
+#include <string>
+
 #include "engine/ext/extension.h"
 #include "frontend/new_frontend.h"
 
@@ -24,6 +26,25 @@ public:
 
     // ([features] new_frontend: the overlay's front_end folder holds its main-menu scripts)
     bool uses_front_end_overlay() override { return is_switched_on(); }
+
+    // (the automation channel's `fe` commands drive its screens)
+    bool screen_command(const std::string& line, bool* done, std::string* result) override
+    {
+        *result = automation_command(line, done);
+        return true;
+    }
+    bool screen_result(std::string* result) override
+    {
+        *result = automation_result();
+        return true;
+    }
+    void screen_cancel() override { automation_cancel(); }
+    bool screen_up(const std::string& name) override { return automation_screen_up(name); }
+    bool screen_status(std::string* status) override
+    {
+        *status = automation_status();
+        return true;
+    }
 };
 
 } // namespace

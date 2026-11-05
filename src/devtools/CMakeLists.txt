@@ -18,5 +18,5 @@ add_library(thug2_devtools STATIC
 target_include_directories(thug2_devtools PRIVATE "${CMAKE_BINARY_DIR}/generated")
 add_dependencies(thug2_devtools build_info)
 target_link_libraries(thug2_devtools PUBLIC thug2_game)
-# The sibling edges tools/layers_baseline.txt lists (devtools -> frontend, editor).
-target_link_libraries(thug2_devtools PRIVATE thug2_frontend thug2_editor)
+# The sibling edge tools/layers_baseline.txt lists (devtools -> editor: start level).
+target_link_libraries(thug2_devtools PRIVATE thug2_editor)

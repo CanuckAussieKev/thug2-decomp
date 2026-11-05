@@ -17,6 +17,7 @@
 #include <span>
 #include "game/front_end/front_end.h"
 #include "engine/ui/screen_element.h"
+#include "engine/ext/extension.h"
 #include "devtools/start_level.h"
 #include "devtools/test_view.h"
 #include "engine/lists/key_map.h"
@@ -59,7 +60,7 @@ bool condition_holds(const OrderCode& command)
     case Condition::kFrontEnd:
         return in_front_end();
     case Condition::kNewFrontend:
-        return frontend::new_frontend::automation_screen_up(command.target);
+        return ext::screen_up(command.target);
     case Condition::kInGame: {
         auto* front_end = modules::front_end_instance().get();
         return (current_load_state() != 0U) && !in_front_end() && skater_present() &&
@@ -152,7 +153,7 @@ std::string log_tricks(int count, std::string* failed)
 bool run_frontend_command(Runner& runner, const OrderCode& command)
 {
     bool done = true;
-    const std::string result = frontend::new_frontend::automation_command(command.target, &done);
+    const std::string result = ext::screen_command(command.target, &done);
     if (!done) {
         return false; // (Continue: once its screen is up)
     }
@@ -417,14 +418,14 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
         }
         return;
     case Op::kFrontend: {
-        const std::string result = frontend::new_frontend::automation_result();
+        const std::string result = ext::screen_result();
         if (result.empty()) {
             if (get_timed_out(runner, runner.command.seconds)) {
-                frontend::new_frontend::automation_cancel();
+                ext::screen_cancel();
                 get_fail(runner,
                          "fe " + runner.command.target + ": its screen wasn't up in " +
                              std::to_string(runner.command.seconds) + " s (" +
-                             frontend::new_frontend::automation_status() + ")",
+                             ext::screen_status() + ")",
                          false);
             }
             return;
