@@ -47,6 +47,8 @@ bool in_front_end();
 
 objects::RiderStoryProgress* get_career();
 
+modules::FrontEnd* the_front_end();
+
 bool is_script(uint32_t name);
 
 int script_integer(const std::string& name);
@@ -69,6 +71,8 @@ enum class State : uint8_t {
     kAway,      // the game's screens up (restyled or as they are)
     kLaunching, // a level started: the art up until it loads
 };
+
+const char* get_state_name(State state);
 
 // NOT ORIGINAL grouping - new_frontend.cpp's state (were globals). Made on first use, never destroyed
 // (new_frontend_state()).
@@ -190,5 +194,21 @@ void press_direction(modules::FrontEnd* front_end, Intake input);
 void handle_queued(modules::FrontEnd* front_end, const input::Event& widget);
 
 void handle_event(const input::Event& event);
+
+// --- the automation channel's commands ---
+
+struct Awaiting {
+    bool active = false;
+    bool confirm = false;
+    Screen screen = Screen::kMain;
+    std::string item;
+    std::string result; // (set once done)
+};
+
+Awaiting& stored_pending();
+
+bool shown_and_idle(Screen screen);
+
+bool get_refused(Screen screen, const std::string& item);
 
 } // namespace frontend::new_frontend::internal
