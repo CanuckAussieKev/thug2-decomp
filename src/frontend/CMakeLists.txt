@@ -11,6 +11,7 @@ add_library(thug2_frontend STATIC
     new_frontend_data.cpp
     new_frontend_extension.cpp
     new_frontend_draw.cpp
+    new_frontend_draw_shapes.cpp
     new_frontend_draw_text.cpp
     new_frontend_game.cpp
     new_frontend_mirror.cpp

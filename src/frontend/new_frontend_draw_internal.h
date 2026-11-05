@@ -12,9 +12,15 @@
 #include "frontend/new_frontend_model.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "base/maths/rect.h"
 #include "base/maths/vec2.h"
 
 namespace frontend::new_frontend::paint::internal {
+
+constexpr float kVisibleThreshold = 0.001F; // an ease or fade below this counts as not started (or gone)
+
+// --- the colours (docs/design/frontend/README.md) ---
+constexpr uint32_t kGround = 0xFF0A0A0A;
 
 constexpr uint32_t kPaper = 0xFFF2EFE8;
 
@@ -42,5 +48,33 @@ void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, maths
 float datum(const Style& style, const TickCycle& frame, float top, float line_height);
 
 std::vector<std::string> get_wrap(const Style& style, const TickCycle& frame, const std::string& text, float width);
+
+// --- shapes ---
+
+// A cut's slant: how far its top edge starts right of the box's left, and its bottom edge ends left of the box's right.
+struct Slant {
+    float top;
+    float bottom;
+};
+
+void get_cut(ImDrawList* dl, const maths::Rect& box, Slant slant, ImU32 colour);
+
+void xform(ImDrawList* dl, int start, maths::Vec2 pivot, float radians, maths::Vec2 offset);
+
+void get_arrow(ImDrawList* dl, maths::Vec2 at, float size, bool left, ImU32 colour, float* advance);
+
+// How a piece of art shows: its pan (0 - 1 across the part the box doesn't cover) and its opacity.
+struct ArtLook {
+    float pan;
+    float alpha;
+};
+
+void art_box(ImDrawList* dl, const Art& art, const maths::Rect& box, ArtLook look);
+
+void scrim(ImDrawList* dl, const TickCycle& frame, const Art& art, ArtLook look);
+
+void backdrop(ImDrawList* dl, const TickCycle& frame, const Art& art, float pan);
+
+std::string pad2(int value);
 
 } // namespace frontend::new_frontend::paint::internal
