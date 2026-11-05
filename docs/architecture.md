@@ -288,8 +288,12 @@ everything above it uses the game's own types and may change them freely.
   `SubMesh`, `TextureSet`, `ViewRegion`, `Shatter`, `VertexRun`...); the backend's objects derive from them. The
   loading console's panel, which the backend draws over the loading screen, is reached through four hooks
   (`gfx::loading_console::install_panel`). `app/main.cpp` installs Direct3D 9's (`render::d3d9::device()`,
-  `render_d3d9/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs;
-  another backend (Vulkan) would be a second implementation chosen there. Nothing below `app/` includes or links it
+  `render_d3d9/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs,
+  through `app::install_renderer` (`app/renderer_choice.cpp`): `[Graphics] renderer=d3d9|vulkan` (default d3d9) picks the
+  backend for both exes, and WinMain makes the window for the same API (`sys::create_sdl_window(sys::WindowApi)` adds
+  SDL's Vulkan flag). Until the Vulkan backend has a `render::Device`, `vulkan` is logged as not available yet and
+  Direct3D 9 runs (a build without `THUG2_VULKAN` ignores the key with a log line); choosing the Vulkan device then
+  is the one `install_vulkan` in `renderer_choice.cpp`. Nothing below `app/` includes or links it
   (tools/layers.json: render_d3d9 is strict and only the app may include it), so the engine, the game, the editor and
   the front end build without Direct3D.
   - What our level editor asks of it (`render::Device`, "what our level editor asks"; `render_d3d9/editor_support.cpp`):
@@ -303,7 +307,7 @@ everything above it uses the game's own types and may change them freely.
     end - ask of it, a frame at a time: ImGui's platform and renderer backends started on a context, a frame begun and
     its draw data drawn, the device objects dropped before a reset, the images ImGui shows (made from texels in memory)
     and the two targets the renderer draws into for the UI (the preview, the thumbnails' atlas). Direct3D 9's
-    (`render_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app/main.cpp` beside the
+    (`render_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app::install_renderer` beside the
     device; a Vulkan one would be ImGui's SDL2 and Vulkan backends behind the same calls. Both layers
     reach it through `engine/ui/ui_backend.h` (`frontend::ui_backend`), which keeps what is the UI's own (whether a
     context is started, the log, the draw data scaled to the back buffer). Only `render_d3d9/` includes ImGui's backend headers (tools/d3d_headers.test.ts).

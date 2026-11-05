@@ -234,6 +234,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `OcclusionCulling` | 1 | The original's occlusion culling; 0 draws everything in view |
 | `anisotropy` | 0 | 2-16: anisotropic filtering on every sampler |
 | `msaa` | 0 | 2 / 4 / 8 samples (the best the device has) |
+| `renderer` | d3d9 | `d3d9` or `vulkan`. The Vulkan renderer isn't available yet: `vulkan` is logged and Direct3D 9 runs |
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
 
 **`[Miscellaneous]`** - from PartyMod
