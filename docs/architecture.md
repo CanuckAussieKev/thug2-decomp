@@ -392,8 +392,14 @@ everything above it uses the game's own types and may change them freely.
     files) keep their declarations (`engine/script/cscript.h`) and are the installed host's (`host.cpp`).
     `docs/script-runtime.md` is what each operation does and when - the scheduling a second runtime has to keep.
   - The running script is still the original's record (`script::Script`, `engine/script/cscript.h`: its layout, its
-    pool, its accessors - what the commands read: `args()`, `entity()`, `list_link()`, `script_title()`...); a
-    command still gets a `Script*` (`script::Context` is to replace it). The engine keeps the script data model:
+    pool, its accessors - what objects and components read); a command gets `script::Context` (`engine/script/context.h`:
+    `bool f(script::Struct* params, script::Context context)`, the table's NativeFunction), a one-pointer view of the
+    running script passed by value - its parameters (where it leaves results), its object, spawn node and flags, the
+    script it runs, its OnException / OnExit scripts, and the host's operations on it (its wait, its event handlers,
+    Goto's restart, its spawn id, a spawned script's spawner file); `context.script()` is the record for what takes
+    one (the stop walks, member functions, objects that keep it). Inline and non-virtual: what varies between runtimes
+    is already the host's; a second runtime's commands get a Context on its own scripts' records. The engine keeps the
+    script data model:
     structures, arrays, cells, symbols and names, the token reader and expressions (they parse a `.qb` file's values),
     the script cache, loading `.qb` and pre-compiled files, the commands.
   - The QB interpreter (`src/script_qb`, static library `thug2_script_qb`, on the engine) implements it:

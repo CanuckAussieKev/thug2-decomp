@@ -23,8 +23,8 @@
 // script's first Update is the next walk that reaches it; launch_script runs a script to its end at once;
 // run_script_once gives it exactly one Update; events and interrupts run inside the call that delivers them.
 //
-// The script itself is still the original's record (cscript.h: its fields, read by the commands through its
-// accessors); script::Context (stage 11 round 22) is to take the commands' side of it.
+// The script itself is still the original's record (cscript.h: its fields, read by objects and components through
+// its accessors); a command sees it through script::Context (context.h), which forwards its operations here.
 namespace objects {
 class Entity;
 class ObjectModule;

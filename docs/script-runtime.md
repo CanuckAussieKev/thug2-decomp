@@ -926,6 +926,7 @@ places the game calls them. Nothing else runs a script statement: a statement ru
 
 **The script's record stays the engine's.** A script is the 0xF4-byte record from the CScript pool (`Host::create`:
 the pool, else the current heap; `make_new` is the constructor; `Host::destroy`: `teardown`, then the pool). Commands
+(through `script::Context`, `src/engine/script/context.h`, which the interpreter makes for each call)
 and objects read and set its fields through the record's accessors (parameters, object, node, name, spawn flags, ids,
 callback, the OnException / OnExit names, "has code"); everything that runs code, waits or walks the call stack is the
 host's.
