@@ -1,7 +1,8 @@
-// NOT ORIGINAL - the level editor's scenery (ours, added at the user's request). See level_editor_scenery.h.
+// NOT ORIGINAL - the level editor's scenery (ours, added at the user's request). See level_editor_scenery.h. This
+// file holds the placement maths, the scene and sector access, the tracks and rails, the selection and its moves;
+// the pieces (scenery_groups) are level_editor_scenery_<name>.cpp, sharing level_editor_scenery_internal.h.
 
 #include "editor/level_editor_scenery.h"
-
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -17,18 +18,15 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
 #include "engine/gfx/render_device.h"
 #include "editor/level_editor.h"
 #include "engine/memory/arena_alloc.h"
-#include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "editor/level_editor_clusters.h"
 #include "editor/level_editor_ground.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_view.h"
 #include "editor/level_editor_scale.h"
-#include "editor/level_editor_shadows.h"
 #include "editor/level_editor_shared_coll.h"
 #include "editor/level_editor_walls.h"
 #include "engine/gfx/engine_scene.h"
@@ -56,16 +54,16 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/maths.h"
+#include "editor/level_editor_scenery_internal.h"
 
 namespace frontend::level_editor {
-
 namespace {
 
 constexpr float kMinVerticalOverlap = 5.0F; // a piece must reach this far above the bounds floor to touch them
 constexpr int kColourBits = 32; // a packed colour: four 8-bit channels
 constexpr int kBitsPerChannel = 8;
 constexpr int kMaxNodeGuard = 256; // a scene list longer than this is taken as broken
-constexpr int kMaxSectorTableBits = 20; // the largest sector table walked
+
 constexpr int kSectorFlagMovable = 0x40; // a sector flag; a sector that has it gets kSectorFlagMoved after a move (as WorldCell::place_at_absolute_point does)
 constexpr int kSectorFlagMoved = 0x20;
 constexpr std::size_t kCaptionSize = 96;
@@ -74,7 +72,7 @@ constexpr float kSelectGrowth = 10.0F;   // a rail selection box is grown by thi
 constexpr int kRailNodeClimbFlag = 0x10; // a rail node flag: only used when climbing
 constexpr float kScaleTolerance = 1e-4F; // two placements are the same within these
 constexpr float kOffsetTolerance = 0.5F;
-constexpr float kTouchMargin = 2.0F;     // pieces this close count as touching
+
 constexpr int kMaxCollisionRayHits = 32; // collision met on the way before the ray gives up
 constexpr std::size_t kHoverSizeTextSize = 64;
 constexpr std::size_t kHoverLineSize = 64;
@@ -207,14 +205,11 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
     return colour;
 }
 
-// --- the game side ----------------------------------------------------------------------------------------------
-
 namespace scenery {
 namespace {
 
 constexpr float kHalf = 0.5F; // half
 
-constexpr float kMaxSectorExtent = 4000.0F; // (larger: the ground, a street, a building block - not moved)
 constexpr uint32_t kCluster = 0x1A3A966BU;  // "Cluster" (the node's TrickObject Cluster=)
 
 // The scenes (0x006FA7EC's list: nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1), skies left
@@ -237,28 +232,8 @@ void for_each_scene(F fn)
     }
 }
 
-// A scene's sector table (its sectors_ key map: 1 << bits buckets, each an item with more chained from it).
-template <typename F>
-void for_each_sector(render::WorldScene* scene, F fn)
-{
-    const lists::KeyMap* table = scene->sectors();
-    if (!table || table->bits() > kMaxSectorTableBits) {
-        return;
-    }
-    const lists::KeyMap::Item* buckets = table->buckets();
-    if (!buckets) {
-        return;
-    }
-    const uint32_t count = 1U << table->bits();
-    const std::span<const lists::KeyMap::Item> bucket_run(buckets, count);
-    for (uint32_t i = 0; i < count; ++i) {
-        for (const lists::KeyMap::Item* entry = &core::at(bucket_run, i); entry; entry = entry->next) {
-            if (entry->value) {
-                fn(entry->key, static_cast<render::WorldCell*>(entry->value));
-            }
-        }
-    }
-}
+} // namespace
+namespace internal {
 
 render::WorldCell* lookup_sector(render::WorldScene* scene, uint32_t checksum)
 {
@@ -285,9 +260,16 @@ render::WorldCell* find_sector(uint32_t checksum, render::WorldScene** scene_out
 
 // (On PC every sector's geometry is a PcGeom - as PcSector reads it.)
 render::Geom* geom_of(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
+
+} // namespace internal
+namespace {
+
 gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
 uint32_t& flags_of(render::WorldCell* sector) { return sector->flag_bits(); }
 int quarters_of(render::WorldCell* sector) { return sector->rot_y(); }
+
+} // namespace
+namespace internal {
 
 // The PC geometry of level scenery (not an instance), active.
 bool plain_geom(render::Geom* geom)
@@ -303,6 +285,9 @@ bool geom_box(render::Geom* geom, V3* min, V3* max)
     *max = {.x = box.max.x, .y = box.max.y, .z = box.max.z};
     return min->x <= max->x && min->y <= max->y && min->z <= max->z;
 }
+
+} // namespace internal
+namespace {
 
 // The geometry's world position (0x004B46A0: the first mesh's; 0 when never moved).
 V3 geom_position(render::Geom* geom)
@@ -385,12 +370,18 @@ LevelEditorSceneryState& level_editor_scenery_state()
     return state.get();
 }
 
+} // namespace
+namespace internal {
+
 // The shadows groups have taken (level_editor_shadows.h): each with the member whose name it carries (0: by place).
 std::unordered_map<uint32_t, uint32_t>& shadow_of()
 {
     static std::unordered_map<uint32_t, uint32_t> value;
     return value;
 }
+
+} // namespace internal
+namespace {
 
 bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
@@ -515,6 +506,9 @@ void apply_track(Track* track)
     mark_dirty(track->scene);
 }
 
+} // namespace
+namespace internal {
+
 const char* get_name_of(uint32_t checksum)
 {
     if (const char* name = script::kept_qb_name(checksum)) {
@@ -535,6 +529,9 @@ std::string caption(uint32_t checksum)
     return text.data();
 }
 
+} // namespace internal
+namespace {
+
 // A node's TrickObject Cluster= (0: none), by its name (0x0045C1B0) - kept, as looked up (the level doesn't change
 // while the editor is on; Reset forgets them).
 std::unordered_map<uint32_t, uint32_t>& clusters_state()
@@ -542,6 +539,10 @@ std::unordered_map<uint32_t, uint32_t>& clusters_state()
     static std::unordered_map<uint32_t, uint32_t> value;
     return value;
 }
+
+} // namespace
+namespace internal {
+
 uint32_t cluster_of(uint32_t checksum)
 {
     // (a cluster the editor set - level_editor_clusters.h: its group follows it)
@@ -561,6 +562,9 @@ uint32_t cluster_of(uint32_t checksum)
     clusters_state().emplace(checksum, cluster);
     return cluster;
 }
+
+} // namespace internal
+namespace {
 
 // --- grind rails ---
 //
@@ -774,6 +778,9 @@ void select_rails()
     }
 }
 
+} // namespace
+namespace internal {
+
 // Where the editor has put a sector (none yet: where the level has it).
 Placement placement_of(uint32_t checksum, render::Geom* geom)
 {
@@ -784,9 +791,6 @@ Placement placement_of(uint32_t checksum, render::Geom* geom)
     return {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
 }
 
-bool geom_see_through(render::Geom* geom); // (below)
-float geom_level_share(uint32_t checksum, render::Geom* geom);
-
 bool same_placement(const Placement& a, const Placement& b)
 {
     return a.quarters == b.quarters && std::fabs(a.scale.x - b.scale.x) < kScaleTolerance &&
@@ -795,271 +799,8 @@ bool same_placement(const Placement& a, const Placement& b)
            std::fabs(a.offset.z - b.offset.z) < kOffsetTolerance;
 }
 
+} // namespace internal
 namespace {
-
-// A sector of the clicked one's scene: its box, whether it is in the group, see-through, its low-and-flat share.
-struct GroupPiece {
-    uint32_t checksum;
-    V3 min, max;
-    bool in;
-    bool see_through_;
-    float level_share_; // (Picking::get_level_share: structure's low-and-flat rule)
-};
-
-// The group being made: the clicked sector and its scene, the pieces, the group, whether the clicked one is a
-// structure.
-struct GroupBuild {
-    uint32_t checksum{};
-    render::WorldScene* scene{};
-    std::vector<GroupPiece> pieces;
-    std::vector<uint32_t> group;
-    bool clicked_structure_{};
-};
-
-// (by size only: a camera nowhere near)
-constexpr V3 kNowhere = {.x = 1.0e9F, .y = 1.0e9F, .z = 1.0e9F};
-
-// A piece taken into the group (not one in it or one that can't move; a structure only when the clicked one is one).
-bool take_piece(GroupBuild& build, GroupPiece& piece)
-{
-    if (piece.in || why_not_movable(piece.checksum)) {
-        return false;
-    }
-    if (piece.checksum != build.checksum && !build.clicked_structure_ &&
-        picking::is_structure(piece.min, piece.max, kNowhere, piece.level_share_)) {
-        return false;
-    }
-    piece.in = true;
-    build.group.push_back(piece.checksum);
-    return true;
-}
-
-// A group's box.
-struct GroupBox {
-    V3 min{};
-    V3 max{};
-};
-
-// The group's box.
-GroupBox group_box(const GroupBuild& build)
-{
-    V3 group_min = {};
-    V3 group_max = {};
-    bool have = false;
-    for (const GroupPiece& piece : build.pieces) {
-        if (piece.in) {
-            grow_box(&group_min, &group_max, have, piece.min, piece.max);
-            have = true;
-        }
-    }
-    return {.min = group_min, .max = group_max};
-}
-
-// The pieces that fit in the group's box and touch one of its pieces (each round's joiners).
-std::vector<uint32_t> touching_pieces(const GroupBuild& build, const GroupBox& box)
-{
-    const V3 group_min = box.min;
-    const V3 group_max = box.max;
-    std::vector<uint32_t> joined;
-    for (const GroupPiece& piece : build.pieces) {
-        if (piece.in || !piece_fits(piece.min, piece.max, group_min, group_max)) {
-            continue;
-        }
-        for (const GroupPiece& member : build.pieces) {
-            if (member.in && piece_touches(piece.min, piece.max, member.min, member.max, kTouchMargin)) {
-                joined.push_back(piece.checksum);
-                break;
-            }
-        }
-    }
-    return joined;
-}
-
-// A free-standing group grows, three rounds at most, by what touches it inside its box (and those pieces'
-// clusters).
-void grow_group(GroupBuild& build, const GroupBox& box)
-{
-    const V3 group_min = box.min;
-    const V3 group_max = box.max;
-    // (only a free-standing thing grows: not a floor, a wall or a whole building - what stands on or against those isn't
-    // part of them)
-    const V3 group_size = group_max - group_min;
-    const bool grows = std::min({group_size.x, group_size.y, group_size.z}) >= 20.0F &&
-                       std::max({group_size.x, group_size.y, group_size.z}) <= 1500.0F;
-    for (int round = 0; grows && round < 3; ++round) {
-        const std::vector<uint32_t> joined = touching_pieces(build, box);
-        if (joined.empty()) {
-            break;
-        }
-        for (const uint32_t joining : joined) {
-            const uint32_t joining_cluster = cluster_of(joining);
-            for (GroupPiece& piece : build.pieces) {
-                if (piece.checksum == joining ||
-                    ((joining_cluster != 0U) && cluster_of(piece.checksum) == joining_cluster &&
-                     piece_fits(piece.min, piece.max, group_min, group_max))) {
-                    if (take_piece(build, piece) && debug_enabled()) {
-                        get_log("level editor:   joins: %s (%.0f x %.0f x %.0f)", caption(piece.checksum).c_str(),
-                                piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
-                    }
-                }
-            }
-        }
-    }
-}
-
-// A copy's source (itself when it isn't one).
-uint32_t source_of(uint32_t of)
-{
-    for (const Replicate& clone : get_clones()) {
-        if (clone.checksum == of) {
-            return clone.source;
-        }
-    }
-    return of;
-}
-
-// The shadow piece's caster in the group, and how it was found (nullptr: none).
-struct ShadowCaster {
-    uint32_t caster{};
-    const char* how{};
-};
-
-// By name: a group piece that is its owner (a copy's shadow: a copy of its owner, and by it - copies of one piece
-// share names).
-ShadowCaster caster_by_name(const GroupBuild& build, const GroupPiece& piece, uint32_t owner)
-{
-    const bool clone = source_of(piece.checksum) != piece.checksum;
-    for (const GroupPiece& member : build.pieces) {
-        if (member.in && source_of(member.checksum) == owner && (member.checksum != owner) == clone &&
-            (!clone || shadows::get_beside(piece.min, piece.max, member.min, member.max))) {
-            return {.caster = member.checksum, .how = "by name"};
-        }
-    }
-    return {};
-}
-
-// By place: under one of the group's pieces - not a shadow taken here - and nearer to it than to anything else
-// standing there.
-ShadowCaster caster_by_place(const GroupBuild& build, const GroupPiece& piece)
-{
-    std::vector<std::pair<V3, V3>> others;
-    for (const GroupPiece& other : build.pieces) {
-        if (!other.in && !other.see_through_ && shadows::stands_by(other.min, piece.max) &&
-            !picking::is_structure(other.min, other.max, kNowhere, other.level_share_)) {
-            others.emplace_back(other.min, other.max);
-        }
-    }
-    for (const GroupPiece& member : build.pieces) {
-        if (member.in && !shadow_of().contains(member.checksum) &&
-            shadows::falls_under(piece.min, piece.max, member.min, member.max) &&
-            shadows::nearest_to_group({.shadow_min_ = piece.min,
-                                       .shadow_max_ = piece.max,
-                                       .group_min_ = member.min,
-                                       .group_max_ = member.max},
-                                      others)) {
-            return {.caster = member.checksum, .how = "by place"};
-        }
-    }
-    return {};
-}
-
-// Its shadows (level_editor_shadows.h): by name, then - for shadow-named pieces nobody owns by name - by place, under
-// one of its pieces. Not by place for a floor or wall clicked by itself.
-void add_shadows(GroupBuild& build)
-{
-    for (GroupPiece& piece : build.pieces) {
-        if (piece.in || why_not_movable(piece.checksum)) {
-            continue;
-        }
-        const uint32_t source = source_of(piece.checksum);
-        const char* name = get_name_of(source);
-        if (!name || !shadows::shadow_name(name)) {
-            continue;
-        }
-        uint32_t owner = 0;
-        for (const std::string& candidate : shadows::owner_names(name)) {
-            const uint32_t crc = checksums::hash_from_text(candidate.c_str());
-            if (crc != source && lookup_sector(build.scene, crc)) {
-                owner = crc;
-                break;
-            }
-        }
-        ShadowCaster found;
-        if (owner != 0U) {
-            found = caster_by_name(build, piece, owner);
-        } else if (!build.clicked_structure_ && piece.see_through_) {
-            found = caster_by_place(build, piece);
-        }
-        const uint32_t caster = found.caster;
-        const char* how = found.how;
-        if (!how) {
-            continue;
-        }
-        piece.in = true;
-        build.group.push_back(piece.checksum);
-        shadow_of()[piece.checksum] = caster;
-        if (debug_enabled()) {
-            get_log("level editor:   shadow %s: %s (%.0f x %.0f x %.0f)%s%s", how, caption(piece.checksum).c_str(),
-                    piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z,
-                    (caster != 0U) ? " of " : "", (caster != 0U) ? caption(caster).c_str() : "");
-        }
-    }
-}
-
-} // namespace
-
-// The group a click on a sector selects: the sector, the rest of its cluster, and the movable pieces built onto them
-// (piece_fits / piece_touches, three rounds - each with its cluster). Decided on the level's own layout (the boxes as
-// loaded) and only among pieces the editor has moved together (the same placement): a group moved into something
-// doesn't take it in, and a piece moved away from its group no longer brings the group along. Hidden pieces aren't
-// taken, nor structure (Picking::is_structure by size - a floor, a wall) unless the clicked piece is structure itself:
-// a level's own clusters can join a small piece to the floor it lies on (TR's SkWare_Main_12, 360 x 60 x 924, and the
-// 3000 x 99 x 2431 floor SkWare_Main_9), and a click on the small piece mustn't take the floor. Then the group's shadows
-// (level_editor_shadows.h).
-std::vector<uint32_t> group_of(uint32_t checksum)
-{
-    GroupBuild build{.checksum = checksum};
-    const std::vector<uint32_t>& group = build.group;
-    render::WorldCell* clicked = find_sector(checksum, &build.scene);
-    if (why_not_movable(checksum) || !clicked) {
-        return group;
-    }
-    Placement placement = placement_of(checksum, geom_of(clicked));
-    std::vector<GroupPiece>& pieces =
-        build.pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
-    for_each_sector(build.scene, [&](uint32_t other, render::WorldCell* sector) {
-        render::Geom* geom = geom_of(sector);
-        V3 min{};
-        V3 max{};
-        if (!plain_geom(geom) || !render::device().geom_active(geom) || !geom_box(geom, &min, &max) ||
-            !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement)) {
-            return;
-        }
-        pieces.push_back({.checksum = other,
-                          .min = min,
-                          .max = max,
-                          .in = false,
-                          .see_through_ = geom_see_through(geom),
-                          .level_share_ = geom_level_share(other, geom)});
-    });
-    for (const GroupPiece& piece : pieces) {
-        if (piece.checksum == checksum) {
-            build.clicked_structure_ = picking::is_structure(piece.min, piece.max, kNowhere, piece.level_share_);
-        }
-    }
-    const uint32_t cluster = cluster_of(checksum);
-    for (GroupPiece& piece : pieces) {
-        if (piece.checksum == checksum || ((cluster != 0U) && cluster_of(piece.checksum) == cluster)) {
-            take_piece(build, piece);
-        }
-    }
-    if (group.empty()) {
-        return group;
-    }
-    grow_group(build, group_box(build));
-    add_shadows(build);
-    return std::move(build.group);
-}
 
 // NOT ORIGINAL grouping - the group hovered and the groups by piece (were globals). Made on first use, never destroyed
 // (scenery_hover()).
@@ -1132,6 +873,9 @@ bool ray_meshes(render::Geom* geom, V3 origin, V3 dir, float max_t, float* hit_d
     return found;
 }
 
+} // namespace
+namespace internal {
+
 // Whether a geometry's meshes are all see-through (Picking::material_see_through: the material's +0x20 - the first
 // pass's flags, 0x40 the scene's transparent sort - and +0x80, its blend mode; the scene loader 0x004D3390 fills both).
 bool geom_see_through(render::Geom* geom)
@@ -1152,6 +896,9 @@ bool geom_see_through(render::Geom* geom)
     return true;
 }
 
+} // namespace internal
+namespace {
+
 // The level part of a geometry's upward-facing surface (its meshes' first index buffers as strips, as ray_meshes reads
 // them; billboards left out), measured once a piece while the editor runs (moves and quarter turns don't change it).
 std::unordered_map<uint32_t, std::pair<render::Geom*, float>>& level_shares()
@@ -1159,6 +906,9 @@ std::unordered_map<uint32_t, std::pair<render::Geom*, float>>& level_shares()
     static std::unordered_map<uint32_t, std::pair<render::Geom*, float>> value;
     return value;
 }
+
+} // namespace
+namespace internal {
 
 float geom_level_share(uint32_t checksum, render::Geom* geom)
 {
@@ -1187,7 +937,7 @@ float geom_level_share(uint32_t checksum, render::Geom* geom)
     return share;
 }
 
-} // namespace
+} // namespace internal
 
 bool get_see_through(uint32_t checksum)
 {
@@ -1464,6 +1214,7 @@ const std::vector<uint32_t>& hover_group(uint32_t checksum)
 }
 
 namespace {
+
 // [features] debug_editor: how the first selected sector's meshes are drawn (whether the material lets a colour
 // through).
 void log_meshes()
@@ -1488,6 +1239,7 @@ void log_meshes()
                 static_cast<uint8_t>(render::renderer().shaders_available()));
     }
 }
+
 } // namespace
 
 void select_group(uint32_t checksum)
@@ -1749,8 +1501,6 @@ void for_each_rail_point(void (*each)(void* context, uint32_t name, V3 pos), voi
         each(context, core::at(nodes, i).label(), rail_pos(&core::at(nodes, i)));
     }
 }
-
-// --- the selection's state (undo / redo, reset, hiding) ---
 
 namespace {
 

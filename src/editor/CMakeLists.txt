@@ -39,6 +39,7 @@ add_library(thug2_editor STATIC
     level_editor_ux9.cpp
     level_editor_carry.cpp
     level_editor_scenery.cpp
+    level_editor_scenery_groups.cpp
     level_editor_scale.cpp
     level_editor_shared_coll.cpp
     level_editor_ui.cpp
