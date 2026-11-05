@@ -17,6 +17,7 @@
 // From the disassembly of 0x00571140-0x00574910 (methods __thiscall, RET n = 4 * arguments; the helpers that don't
 // use the manager __cdecl).
 namespace script {
+class Context;
 class Script;
 class Struct;
 } // namespace script
@@ -311,24 +312,24 @@ CtodManager* create_tod_manager(bool create);
 void release_tod_manager();
 
 // The script commands (0x00571FE0-0x00574870).
-bool cfunc_tod_manager_set_active(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_get_number_of_days_passed(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_set_time_multiplier(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_get_time_multiplier(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_set_tod_script(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_create(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_set_params(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_set_fog_active(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_mark_permanently_dead(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_reset(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_reset_level_lights(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_set_temp_tod(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_restore_current_tod(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_set_temp_bloom_params(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Script* script);
-bool cfunc_tod_manager_advance_tod_state(script::Struct* params, script::Script* script);
+bool cfunc_tod_manager_set_active(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_get_number_of_days_passed(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_set_time_multiplier(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_get_time_multiplier(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_set_tod_script(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_create(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_set_params(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_set_fog_active(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_mark_permanently_dead(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_reset(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_reset_level_lights(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_set_temp_tod(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_restore_current_tod(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_set_temp_bloom_params(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Context context);
+bool cfunc_tod_manager_advance_tod_state(script::Struct* params, script::Context context);
 
 inline constexpr float kThousand{1000.0F};
 inline constexpr float kHundred{100.0F};

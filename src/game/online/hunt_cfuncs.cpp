@@ -17,6 +17,7 @@
 #include "game/rider/rider.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/pad_input/device.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
@@ -201,7 +202,7 @@ bool cfunc_lobby_check_keyboard(script::Struct* /*params*/, script::Script* /*sc
     if (sio::get_keyboard_chars(typed) > 0 && core::at(typed, 0) == ' ') {
         const script::StructPtr check = script::make_struct();
         check->put_name_key(checksums::Name{kId}, kKeyboardAnchor);
-        if (!objects::cfunc_object_exists(check.get(), nullptr)) {
+        if (!objects::cfunc_object_exists(check.get(), script::Context())) {
             script::launch_script(kLobbyEnterKbChat, nullptr, nullptr, false, nullptr);
             sio::clear_keyboard_chars();
         }

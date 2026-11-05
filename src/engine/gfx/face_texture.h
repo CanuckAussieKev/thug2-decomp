@@ -6,8 +6,8 @@
 #include <span>
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 namespace render {
@@ -134,13 +134,13 @@ private:
 // Script commands (CFunctions) of the face massage. cdecl (params, script); all return true.
 namespace commands {
 // 0x00486B70: SetModelFaceTexturePoints face_points={...}: the current model points (read even when some are missing).
-bool cfunc_set_model_face_texture_points(script::Struct* params, script::Script* script);
+bool cfunc_set_model_face_texture_points(script::Struct* params, script::Context context);
 // 0x00486BC0: SetFaceMassageTextureOverlay <texture>: the overlay (unchanged if there's no such texture).
-bool cfunc_set_face_massage_texture_overlay(script::Struct* params, script::Script* script);
+bool cfunc_set_face_massage_texture_overlay(script::Struct* params, script::Context context);
 // 0x00486BF0: CombineFaceTextureWithOverlay texture=<name>: the overlay drawn over the texture (slot 41).
-bool cfunc_combine_face_texture_with_overlay(script::Struct* params, script::Script* script);
+bool cfunc_combine_face_texture_with_overlay(script::Struct* params, script::Context context);
 // 0x00486EE0: AdjustFaceTextureToModel texture=<name> face_points={...}: the texture fitted (fit_face_texture).
-bool cfunc_adjust_face_texture_to_model(script::Struct* params, script::Script* script);
+bool cfunc_adjust_face_texture_to_model(script::Struct* params, script::Context context);
 // 0x004872D0: MassageFaceTexture texture=<name> face_points={...} [no_palette_gen]: the whole massage.
-bool cfunc_massage_face_texture(script::Struct* params, script::Script* script);
+bool cfunc_massage_face_texture(script::Struct* params, script::Context context);
 } // namespace commands

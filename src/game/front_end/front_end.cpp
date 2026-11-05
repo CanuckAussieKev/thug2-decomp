@@ -24,6 +24,7 @@
 #include "engine/script/cscript.h"
 #include "game/commands/game_cfuncs.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sound/sfx.h"
 #include "engine/pad_input/device.h"
 #include "engine/pad_input/input_hub.h"
@@ -172,7 +173,7 @@ inline void report_pause_state() {}
 // Engine pieces without source yet.
 bool object_exists(script::Struct* params) // the script command ObjectExists
 {
-    return objects::cfunc_object_exists(params, nullptr);
+    return objects::cfunc_object_exists(params, script::Context());
 }
 // The module base, and the tasks (the logic and input handlers) in the main loop's / input manager's stacks.
 

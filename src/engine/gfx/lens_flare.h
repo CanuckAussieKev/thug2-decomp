@@ -13,8 +13,8 @@ namespace render {
 class VertexRun;
 } // namespace render
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // The sun and its lens flare (0x00442670-0x00443870; compiled without optimisation in the original): a sprite on a
@@ -89,11 +89,11 @@ struct FlareSetup {
 // times from LensFlare_Morph_In / LensFlare_Morph_Out / SunBurst_Out; the colour 255 255 255 128.
 void prepare_all(const FlareSetup& setup);
 // 0x00442D70: UpdateLensFlare's work: center (default 320 240), morph_time, sun_pos.
-void update_flare(script::Struct* params, script::Script* script);
+void update_flare(script::Struct* params, script::Context context);
 // 0x00442DF0 / 0x00443030: the Lens_Flare_Container faded out (alpha 0 over morph_time; with params, the elements
 // sent to sun_pos) / in (alpha 1 over 0.2). Nothing without the container.
-void hide_flare(script::Struct* params, script::Script* script);
-void unhide_flare(script::Struct* params, script::Script* script);
+void hide_flare(script::Struct* params, script::Context context);
+void unhide_flare(script::Struct* params, script::Context context);
 // 0x00443180: the sun's quad facing `camera` at `position` (its corners' x y z into `corners`, 12 floats), and
 // `prim` given the sun's texture and set up to draw it.
 void build_sun_quad(gfx::ViewCam* camera, render::VertexRun* quad, const maths::Vec4* position, std::array<float, kSunCornerFloats>& corners);

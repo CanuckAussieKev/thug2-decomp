@@ -7,6 +7,7 @@
 #include <array>
 
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/render_device.h"
@@ -84,37 +85,37 @@ void set_loading_bar_time(float seconds)
 }
 
 // 0x004907A0
-bool cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_pos(script::Struct* params, script::Context /*context*/)
 {
     return choose_pair(params, kPosX, kPosY, core::at(screen_2d().bar_position(), 0), core::at(screen_2d().bar_position(), 1));
 }
 
 // 0x004907F0
-bool cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_size(script::Struct* params, script::Context /*context*/)
 {
     return choose_pair(params, kWidth, kHeight, screen_2d().progress_width(), screen_2d().progress_height());
 }
 
 // 0x00490840
-bool cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_border(script::Struct* params, script::Context /*context*/)
 {
     return choose_pair(params, kWidth, kHeight, core::at(screen_2d().bar_border(), 0), core::at(screen_2d().bar_border(), 1));
 }
 
 // 0x004908E0
-bool cfunc_set_loading_bar_start_color(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_start_color(script::Struct* params, script::Context /*context*/)
 {
     return change_colour(params, screen_2d().progress_from_color());
 }
 
 // 0x00490960
-bool cfunc_set_loading_bar_end_color(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_end_color(script::Struct* params, script::Context /*context*/)
 {
     return change_colour(params, screen_2d().progress_to_color());
 }
 
 // 0x004909E0
-bool cfunc_set_loading_bar_border_color(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_border_color(script::Struct* params, script::Context /*context*/)
 {
     return change_colour(params, screen_2d().progress_edge_color());
 }

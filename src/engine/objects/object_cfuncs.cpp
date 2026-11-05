@@ -19,6 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/engine.h"
 #include "engine/script/degree_ratio.h"
+#include "engine/script/context.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/particle_component.h"
 #include "engine/objects/skeleton_component.h"
@@ -121,7 +122,7 @@ void flag_as_dead(objects::Entity* object) { object->flag_as_dead(); }
 } // namespace
 
 // 0x00449280: AppendNodeParams node=<name> params={...}: the parameters added to the node's own structure.
-bool cfunc_append_node_params(script::Struct* params, script::Script* /*script*/)
+bool cfunc_append_node_params(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kNode, &name, 1);
@@ -134,7 +135,7 @@ bool cfunc_append_node_params(script::Struct* params, script::Script* /*script*/
 
 // 0x004492E0: InitCOIM size=<bytes> ...: the COIM heap set up (GameObjects::InitCoim) with the three integers and the
 // float squared, truncated.
-bool cfunc_init_coim(script::Struct* params, script::Script* /*script*/)
+bool cfunc_init_coim(script::Struct* params, script::Context /*context*/)
 {
     float factor = 0.0F;
     int size = 0;
@@ -151,7 +152,7 @@ bool cfunc_init_coim(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x00449380: ResizeCOIMHeap newsize=<bytes>.
-bool cfunc_resize_coim_heap(script::Struct* params, script::Script* /*script*/)
+bool cfunc_resize_coim_heap(script::Struct* params, script::Context /*context*/)
 {
     int size = 0;
     params->fetch_int_value(kCoimNewSize, &size, 1);
@@ -160,7 +161,7 @@ bool cfunc_resize_coim_heap(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x00449540: CreateCompositeObject Components=[...] [params={...}]: a composite object made from them (finalized).
-bool cfunc_create_composite_object(script::Struct* params, script::Script* /*script*/)
+bool cfunc_create_composite_object(script::Struct* params, script::Context /*context*/)
 {
     script::Array* components = nullptr;
     params->fetch_list(kComponents, &components, 1);
@@ -171,20 +172,20 @@ bool cfunc_create_composite_object(script::Struct* params, script::Script* /*scr
 }
 
 // 0x004495A0: GetUniqueCompositeObjectID [PreferredId=<id> (8)]: UniqueID = the first id from there no object has.
-bool cfunc_get_unique_composite_object_id(script::Struct* params, script::Script* script)
+bool cfunc_get_unique_composite_object_id(script::Struct* params, script::Context context)
 {
     uint32_t id = kDefaultId;
     params->read_hash_value(kPreferredId, &id, 0);
     while (entity_for_id(id)) {
         ++id;
     }
-    script->args()->put_name_key(checksums::Name{kUniqueId}, id);
+    context.args()->put_name_key(checksums::Name{kUniqueId}, id);
     return true;
 }
 
 // 0x00449610: GetObjScreenCoords object=<id>: screen_x / screen_y = where the object's position is on the screen
 // through the first viewport's camera. False if there is no such object.
-bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
+bool cfunc_get_obj_screen_coords(script::Struct* params, script::Context context)
 {
     render::ViewRegion* camera = viewport_camera(0);
     uint32_t id = 0;
@@ -198,14 +199,14 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
     project_to_screen(camera, &object->at_point(), &at, &depth);
     const float x = at.x;
     const float y = at.y;
-    script->args()->push_float(checksums::Name{kScreenX}, x);
-    script->args()->push_float(checksums::Name{kScreenY}, y);
+    context.args()->push_float(checksums::Name{kScreenX}, x);
+    context.args()->push_float(checksums::Name{kScreenY}, y);
     return true;
 }
 
 // 0x004496B0: RunScriptOnComponentType component=<type> target=<member function> [params={...}]: the member
 // function called on every component of that type.
-bool cfunc_run_script_on_component_type(script::Struct* params, script::Script* script)
+bool cfunc_run_script_on_component_type(script::Struct* params, script::Context context)
 {
     uint32_t type = 0;
     uint32_t target = 0;
@@ -215,7 +216,7 @@ bool cfunc_run_script_on_component_type(script::Struct* params, script::Script* 
     params->read_sub_struct(kParams, &target_params, 0);
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(type); component;
          component = component->next_of_type()) {
-        component->invoke_method_by_name(target, target_params, script);
+        component->invoke_method_by_name(target, target_params, context.script());
     }
     return true;
 }
@@ -223,7 +224,7 @@ bool cfunc_run_script_on_component_type(script::Struct* params, script::Script* 
 // 0x00449740: TransformLocalToWorld local_offset=<vector> object=<id>: world_offset = the offset through the
 // object's display matrix. (No check that the object exists; missing arguments leave the original's values
 // undefined - here zero.)
-bool cfunc_transform_local_to_world(script::Struct* params, script::Script* script)
+bool cfunc_transform_local_to_world(script::Struct* params, script::Context context)
 {
     script::VectorValue offset = {};
     params->fetch_vec(kLocalOffset, &offset, 0);
@@ -233,13 +234,13 @@ bool cfunc_transform_local_to_world(script::Struct* params, script::Script* scri
     const maths::Vec4 local = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     maths::Vec4 world;
     object->display_matrix().xform(world, local);
-    script->args()->put_vec3(checksums::Name{kWorldOffset}, {.x = world.x, .y = world.y, .z = world.z});
+    context.args()->put_vec3(checksums::Name{kWorldOffset}, {.x = world.x, .y = world.y, .z = world.z});
     return true;
 }
 
 // 0x004497D0: DestroyParticlesByGroupID groupID=<id>: the renderer's particle systems of that group destroyed (if
 // there is a particle manager), and every live object with a particle component of that group marked dead.
-bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script* /*script*/)
+bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Context /*context*/)
 {
     uint32_t group = 0;
     params->read_hash_value(kGroupId, &group, 1);
@@ -257,7 +258,7 @@ bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*
 }
 
 // 0x00449850: fetch_vertex <name>: node = the node's structure. False if there is none.
-bool cfunc_get_node(script::Struct* params, script::Script* script)
+bool cfunc_get_node(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 1);
@@ -265,35 +266,35 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
     if (!node) {
         return false;
     }
-    script->args()->put_sub_struct(kNode, node);
+    context.args()->put_sub_struct(kNode, node);
     return true;
 }
 
 // 0x00449890: GetNodeName: nodename = the id of the object the script runs on. False with no object or id 0.
-bool cfunc_get_node_name(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_node_name(script::Struct* /*params*/, script::Context context)
 {
-    const objects::Entity* object = script->entity().get_pull();
+    const objects::Entity* object = context.entity().get_pull();
     if (!object || (object->ident() == 0U)) {
         return false;
     }
-    script->args()->put_name_key(checksums::Name{kNodeName}, object->ident());
+    context.args()->put_name_key(checksums::Name{kNodeName}, object->ident());
     return true;
 }
 
 // 0x004498C0: GetTriggerNodeName: nodename = the node the script was spawned for. False if none.
-bool cfunc_get_trigger_node_name(script::Struct* /*params*/, script::Script* script)
+bool cfunc_get_trigger_node_name(script::Struct* /*params*/, script::Context context)
 {
-    if (script->list_link() == 0) {
+    if (context.list_link() == 0) {
         return false;
     }
-    script->args()->put_name_key(checksums::Name{kNodeName}, static_cast<uint32_t>(script->list_link()));
+    context.args()->put_name_key(checksums::Name{kNodeName}, static_cast<uint32_t>(context.list_link()));
     return true;
 }
 
 // 0x00449A10: RunScriptOnObject id=<object> <script> [params={...}]: UniqueID is taken out of the calling script's
 // parameters; the object (found through the tracker) runs the script now as an interrupt of its own script (which,
 // if it has no object yet, is given this one). False if there is no such object.
-bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
+bool cfunc_run_script_on_object(script::Struct* params, script::Context context)
 {
     uint32_t id = 0;
     uint32_t name = 0;
@@ -301,7 +302,7 @@ bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
     params->read_hash_value(0U, &name, 1);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    script->args()->erase_module(kUniqueId);
+    context.args()->erase_module(kUniqueId);
     objects::Entity* object = objects::find_object(id);
     if (!object) {
         return false;
@@ -319,7 +320,7 @@ bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
 // times that bone's matrix in the relative object's skeleton (no RelativeTo: a crash, as in the original), and
 // with RelativeTo, times that object's display matrix at its position. The result becomes the object's position,
 // matrix (position row reset) and display matrix. (No check that the object exists.)
-bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
+bool cfunc_orient(script::Struct* params, script::Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 1);
@@ -370,7 +371,7 @@ bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
 // 0x00449F80: SetEventHandlerOnObject object=<id> ex=<event> scr=<script> [Group=<name> (default)] [Exception]
 // [params={...}]: the event handler set on the object's script (made - on the script pool - if it has none). (No
 // check that the object exists.)
-bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_event_handler_on_object(script::Struct* params, script::Context /*context*/)
 {
     uint32_t event_type = 0;
     uint32_t handler = 0;

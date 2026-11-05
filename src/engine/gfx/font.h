@@ -8,8 +8,8 @@
 #include "base/maths/rect.h"
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // Fonts loaded by the scripts (LoadFont), by name, and the meta button map the button glyphs go through.
@@ -76,7 +76,7 @@ constexpr int kFontSlots = 16;
 void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors, bool button_font);
 
 // LoadFont <name> [buttons_font] [char_spacing = n] [space_spacing = n] [color_tab = [[r g b a] ...]]
-bool cfunc_load_font(script::Struct* params, script::Script* script);
+bool cfunc_load_font(script::Struct* params, script::Context context);
 
 // The name of the button-glyph font and of the meta button map script array, as PartyMod's GlyphStyle
 // setting picks them (1 PS2, 2 GameCube, otherwise the original Xbox ones).
@@ -88,7 +88,7 @@ Typeface* get_font(uint32_t name);
 // 0x0048D6C0: the font `name` unloaded (0x004B4090) and taken out of the table (its slot's name kept).
 void unload_font(const char* name);
 // UnloadFont <name> (0x0048D7B0).
-bool cfunc_unload_font(script::Struct* params, script::Script* script);
+bool cfunc_unload_font(script::Struct* params, script::Context context);
 // 0x0048D6A0: the button glyph's character for the meta button a hex digit names (through the meta button map).
 char button_glyph(char digit);
 

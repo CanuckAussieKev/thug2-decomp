@@ -17,6 +17,7 @@
 
 namespace script {
 class Array;
+class Context;
 class Script;
 class Struct;
 } // namespace script
@@ -333,7 +334,7 @@ void add_rigid_body_pusher(GameEntity* object);
 // of the 8) - nothing if it isn't one.
 void set_rigid_body_pusher_reach(GameEntity* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
-bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* script);
+bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Context context);
 
 // (made by the start-up's construct_rigid_body_cache; never destroyed - the game ends with a quick exit)
 

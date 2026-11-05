@@ -24,6 +24,7 @@
 #include "base/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/game_clock.h"
 #include "base/core/checked_index.h"
 #include "base/core/packed_colour.h"
@@ -290,7 +291,7 @@ void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4*
         const maths::Vec4 pos = *centre + element.pos_scale_ * line;
         element.morph->push_float(checksums::Name{kTime}, time);
         element.morph->put_vec3(checksums::Name{kPos}, get_value(pos));
-        frontend::cfunc_do_screen_element_morph(element.morph, nullptr);
+        frontend::cfunc_do_screen_element_morph(element.morph, script::Context());
     }
     flare_hidden() = false;
 }
@@ -344,7 +345,7 @@ void prepare_all(const FlareSetup& setup)
 }
 
 // 0x00442D70
-void update_flare(Struct* params, script::Script* /*script*/)
+void update_flare(Struct* params, script::Context /*context*/)
 {
     script::VectorValue centre = get_value(screen_centre());
     float time = 0.0F;
@@ -358,7 +359,7 @@ void update_flare(Struct* params, script::Script* /*script*/)
 }
 
 // 0x00442DF0
-void hide_flare(Struct* params, script::Script* script)
+void hide_flare(Struct* params, script::Context context)
 {
     script::VectorValue centre = get_value(screen_centre()); // (read, not used)
     float time = 0.0F;
@@ -376,7 +377,7 @@ void hide_flare(Struct* params, script::Script* script)
     morph->put_name_key(checksums::Name{kId}, kContainer);
     morph->push_float(checksums::Name{kAlpha}, 0.0F);
     morph->push_float(checksums::Name{kTime}, time);
-    frontend::cfunc_do_screen_element_morph(morph, script);
+    frontend::cfunc_do_screen_element_morph(morph, context);
     script::free_struct(morph);
     if (params) {
         script::VectorValue sun{};
@@ -385,7 +386,7 @@ void hide_flare(Struct* params, script::Script* script)
                 FlareElement& element = core::at(element_run(), i);
                 element.morph->put_vec3(checksums::Name{kPos}, sun);
                 element.morph->push_float(checksums::Name{kTime}, time);
-                frontend::cfunc_do_screen_element_morph(element.morph, script);
+                frontend::cfunc_do_screen_element_morph(element.morph, context);
             }
         }
     }
@@ -394,7 +395,7 @@ void hide_flare(Struct* params, script::Script* script)
 }
 
 // 0x00443030
-void unhide_flare(Struct* /*params*/, script::Script* script)
+void unhide_flare(Struct* /*params*/, script::Context context)
 {
     frontend::ElementPtr container;
     frontend::UiTree::fetch_part(&container, kContainer, 0);
@@ -407,7 +408,7 @@ void unhide_flare(Struct* /*params*/, script::Script* script)
     morph->put_name_key(checksums::Name{kId}, kContainer);
     morph->push_float(checksums::Name{kAlpha}, 1.0F);
     morph->push_float(checksums::Name{kTime}, time);
-    frontend::cfunc_do_screen_element_morph(morph, script);
+    frontend::cfunc_do_screen_element_morph(morph, context);
     script::free_struct(morph);
     flare_hidden() = false;
     container.get_release();
@@ -467,7 +468,7 @@ void show_flare(const maths::Vec4* sun, float time)
         return;
     }
     if (flare_hidden()) {
-        unhide_flare(nullptr, nullptr);
+        unhide_flare(nullptr, script::Context());
         flare_hidden() = false;
     }
     place_flare_elements(time, sun, &centre);
@@ -503,7 +504,7 @@ void render(gfx::ViewCam* camera)
     maths::Vec4 to_sun = sun_pos - *camera->fetch_location();
     to_sun.make_unit();
     if (get_dot(to_sun, (*camera->fetch_mat())[2]) >= 0.0) {
-        hide_flare(nullptr, nullptr);
+        hide_flare(nullptr, script::Context());
         return;
     }
     maths::Vec4 screen = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -513,7 +514,7 @@ void render(gfx::ViewCam* camera)
     screen[0] = at.x;
     screen[1] = at.y;
     if (screen[0] == 0.0F && screen[1] == 0.0F) {
-        hide_flare(nullptr, nullptr);
+        hide_flare(nullptr, script::Context());
         return;
     }
 

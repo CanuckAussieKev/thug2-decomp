@@ -18,7 +18,7 @@
 #include "engine/script/cscript.h"
 #include "engine/sys/mlp.h"
 #include "engine/script/script_tables.h"
-#include "engine/script/legacy_command.h"
+#include "engine/script/context.h"
 #include "platform/run_log.h"
 #include "engine/objects/movie_manager.h"
 
@@ -35,13 +35,13 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 // front end's peds lose their animations - a crash at 0x00482BA0), auto_launch_viewer, the script debugger -
 // instead of the main menu; autolaunch and startup_loading_screen run with it. LoadPermSongs (called by LoadPermSounds
 // at start-up) fills the music playlist only when CD is true (or TestMusicFromHost): with CD false there's no music.
-bool is_startup_script(const script::Script* script)
+bool is_startup_script(script::Context context)
 {
-    if (!script) {
+    if (!context) {
         return false;
     }
     // (the script it's running now: CScript +0xC8)
-    const uint32_t name = script->script_title();
+    const uint32_t name = context.script_title();
     static const auto kStartup = std::to_array<uint32_t>({name_hash("default_system_startup"), name_hash("autolaunch"),
                                         name_hash("startup_loading_screen"), name_hash("LoadPermSongs")});
     return std::ranges::any_of(kStartup, [&](const uint32_t startup) { return name == startup; });
@@ -88,14 +88,14 @@ bool& is_switched_on()
     return on;
 }
 
-bool cfunc_cd(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cd(script::Struct* /*params*/, script::Context context)
 {
-    return !is_switched_on() || is_startup_script(script); // (the original: true - 0x005B9760)
+    return !is_switched_on() || is_startup_script(context); // (the original: true - 0x005B9760)
 }
 
-bool cfunc_not_cd(script::Struct* /*params*/, script::Script* script)
+bool cfunc_not_cd(script::Struct* /*params*/, script::Context context)
 {
-    return !cfunc_cd(nullptr, script); // (the original: false - 0x005B9E50)
+    return !cfunc_cd(nullptr, context); // (the original: false - 0x005B9E50)
 }
 
 void install()
@@ -103,8 +103,8 @@ void install()
     if (!is_switched_on()) {
         return;
     }
-    get_point("CD", &script::legacy_command<&cfunc_cd>);
-    get_point("NotCD", &script::legacy_command<&cfunc_not_cd>);
+    get_point("CD", &cfunc_cd);
+    get_point("NotCD", &cfunc_not_cd);
     get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
             "menu - and the viewer: F9 free camera)");
 }

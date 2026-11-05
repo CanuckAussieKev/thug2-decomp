@@ -14,8 +14,8 @@
 #include "base/core/checksums.h"
 #include "engine/gfx/glyphs.h"
 #include "engine/lists/key_map.h"
-#include "engine/script/params.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/ints.h"
@@ -132,7 +132,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
 }
 
 // 0x0048D950
-bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_font(script::Struct* params, script::Context /*context*/)
 {
     const bool button_font = params->has_bare_flag("buttons_font");
     const char* name = nullptr; // (the original leaves it unset when the name is missing)

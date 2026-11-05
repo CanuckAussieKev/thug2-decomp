@@ -11,8 +11,8 @@
 #include "engine/objects/smtptr.h"
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 namespace objects {
@@ -93,6 +93,6 @@ private:
 
 // 0x00469A80: the script command AllocatePathManMemory (0x0C230B04 groups, default 200; 0xF6A4081D slots each,
 // default 20; 0x13AFFFF9 extra slots, default 200). True.
-bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* script);
+bool cfunc_allocate_path_man_memory(script::Struct* params, script::Context context);
 
 } // namespace objects

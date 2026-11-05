@@ -409,7 +409,7 @@ bool cfunc_init_sun(Struct* params, Context /*context*/)
 // 0x00445B30
 bool cfunc_update_lens_flare(Struct* params, Context context)
 {
-    sun::update_flare(params, context.script());
+    sun::update_flare(params, context);
     return true;
 }
 

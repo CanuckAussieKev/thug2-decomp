@@ -21,6 +21,7 @@
 #include "engine/gfx/screen.h"
 #include "engine/gfx/texture_cfuncs.h"
 #include "engine/gfx/render_device.h"
+#include "engine/script/context.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -168,7 +169,7 @@ bool cfunc_load_texture(script::Struct* params, script::Script* script)
     if (!params->fetch_text(0U, &file, 0) || !file) {
         return false;
     }
-    return commands::texture_loaded(file) || commands::cfunc_load_texture(params, script);
+    return commands::texture_loaded(file) || commands::cfunc_load_texture(params, script::Context(script));
 }
 
 // NOT ORIGINAL grouping - thaw_bmx.cpp's state (were globals). Made on first use, never destroyed (thaw_bmx_state()).

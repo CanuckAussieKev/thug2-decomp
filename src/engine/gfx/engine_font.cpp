@@ -11,6 +11,7 @@
 #include "engine/gfx/font.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/render_device.h"
 
@@ -57,7 +58,7 @@ Typeface* get_font(uint32_t name)
 }
 
 // 0x0048D7B0
-bool cfunc_unload_font(script::Struct* params, script::Script* /*script*/)
+bool cfunc_unload_font(script::Struct* params, script::Context /*context*/)
 {
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
     params->fetch_text(0U, &name, 0);

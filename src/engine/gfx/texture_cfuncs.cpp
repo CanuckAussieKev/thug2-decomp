@@ -14,6 +14,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 
@@ -73,7 +74,7 @@ std::array<char, kParkNameBytes>& park_name() { return texture_flags().park_name
 namespace {
 
 using script::Component;
-using script::Script;
+using script::Context;
 using script::Struct;
 
 // The names of the texture commands' parameters.
@@ -110,7 +111,7 @@ uint32_t raw_value(const Component* component) { return component->value.word();
 } // namespace
 
 // 0x005A9D80
-bool cfunc_sce_alt_pt(Struct* /*params*/, Script* /*script*/)
+bool cfunc_sce_alt_pt(Struct* /*params*/, Context /*context*/)
 {
     texture_flags().texture_flag_ce441_ = true;
     return true;
@@ -171,7 +172,7 @@ float wrap_angle(float degrees)
 }
 
 // 0x005A9ED0
-bool cfunc_composite_object_exists(Struct* params, Script* /*script*/)
+bool cfunc_composite_object_exists(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(kNAME, &id, 1); // name (asserted: the id is used as it is)
@@ -179,7 +180,7 @@ bool cfunc_composite_object_exists(Struct* params, Script* /*script*/)
 }
 
 // 0x005A9F00
-bool cfunc_load_texture(Struct* params, Script* /*script*/)
+bool cfunc_load_texture(Struct* params, Context /*context*/)
 {
     const char* file = nullptr;
     params->fetch_text(0U, &file, 0);
@@ -190,7 +191,7 @@ bool cfunc_load_texture(Struct* params, Script* /*script*/)
 bool texture_loaded(const char* file) { return get_texture_by_name(render::engine_parts().game_texture_dict(), file) != nullptr; }
 
 // 0x005A9F60
-bool cfunc_create_texture(Struct* params, Script* /*script*/)
+bool cfunc_create_texture(Struct* params, Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
@@ -213,7 +214,7 @@ bool cfunc_create_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA040
-bool cfunc_unload_texture(Struct* params, Script* /*script*/)
+bool cfunc_unload_texture(Struct* params, Context /*context*/)
 {
     void* texture = nullptr;
     const char* file = nullptr;
@@ -232,7 +233,7 @@ bool cfunc_unload_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA0C0
-bool cfunc_generate32_bit_image(Struct* params, Script* /*script*/)
+bool cfunc_generate32_bit_image(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -253,7 +254,7 @@ bool cfunc_generate32_bit_image(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA160
-bool cfunc_put32_bit_image_into_texture(Struct* params, Script* /*script*/)
+bool cfunc_put32_bit_image_into_texture(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -271,7 +272,7 @@ bool cfunc_put32_bit_image_into_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA1E0
-bool cfunc_flip_texture(Struct* params, Script* /*script*/)
+bool cfunc_flip_texture(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -292,7 +293,7 @@ bool cfunc_flip_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA270
-bool cfunc_resize_texture_into(Struct* params, Script* /*script*/)
+bool cfunc_resize_texture_into(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -309,7 +310,7 @@ bool cfunc_resize_texture_into(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA2E0
-bool cfunc_scale_texture(Struct* params, Script* /*script*/)
+bool cfunc_scale_texture(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -322,7 +323,7 @@ bool cfunc_scale_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA340
-bool cfunc_adjust_texture_region(Struct* params, Script* /*script*/)
+bool cfunc_adjust_texture_region(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -349,7 +350,7 @@ bool cfunc_adjust_texture_region(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA460
-bool cfunc_pull_texture_to_edge(Struct* params, Script* /*script*/)
+bool cfunc_pull_texture_to_edge(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -367,7 +368,7 @@ bool cfunc_pull_texture_to_edge(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA500
-bool cfunc_adjust_texture_brightness(Struct* params, Script* /*script*/)
+bool cfunc_adjust_texture_brightness(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -387,7 +388,7 @@ bool cfunc_adjust_texture_brightness(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA590
-bool cfunc_adjust_texture_hsv(Struct* params, Script* /*script*/)
+bool cfunc_adjust_texture_hsv(Struct* params, Context /*context*/)
 {
     uint32_t id = 0;
     params->read_hash_value(0U, &id, 0);
@@ -412,7 +413,7 @@ bool cfunc_adjust_texture_hsv(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA670
-bool cfunc_copy_texture(Struct* params, Script* /*script*/)
+bool cfunc_copy_texture(Struct* params, Context /*context*/)
 {
     uint32_t source = 0;
     params->read_hash_value(kSrc, &source, 0);
@@ -425,7 +426,7 @@ bool cfunc_copy_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA6E0
-bool cfunc_combine_textures(Struct* params, Script* /*script*/)
+bool cfunc_combine_textures(Struct* params, Context /*context*/)
 {
     uint32_t source = 0; // (src and top are not initialised when missing, as in the original)
     uint32_t top = 0;
@@ -456,7 +457,7 @@ bool cfunc_combine_textures(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA7B0
-bool cfunc_load_particle_texture(Struct* params, Script* /*script*/)
+bool cfunc_load_particle_texture(Struct* params, Context /*context*/)
 {
     const char* file = nullptr;
     params->fetch_text(0U, &file, 0);
@@ -472,7 +473,7 @@ bool cfunc_load_particle_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA830
-bool cfunc_unload_particle_texture(Struct* params, Script* /*script*/)
+bool cfunc_unload_particle_texture(Struct* params, Context /*context*/)
 {
     const char* file = nullptr;
     params->fetch_text(0U, &file, 0);
@@ -484,7 +485,7 @@ bool cfunc_unload_particle_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA880
-bool cfunc_load_sfp_texture(Struct* params, Script* /*script*/)
+bool cfunc_load_sfp_texture(Struct* params, Context /*context*/)
 {
     const char* file = nullptr;
     params->fetch_text(0U, &file, 0);
@@ -492,7 +493,7 @@ bool cfunc_load_sfp_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA8B0
-bool cfunc_unload_sfp_texture(Struct* params, Script* /*script*/)
+bool cfunc_unload_sfp_texture(Struct* params, Context /*context*/)
 {
     const char* file = nullptr;
     params->fetch_text(0U, &file, 0);
@@ -503,7 +504,7 @@ bool cfunc_unload_sfp_texture(Struct* params, Script* /*script*/)
 }
 
 // 0x005AA8F0
-bool cfunc_set_park_name(Struct* params, Script* /*script*/)
+bool cfunc_set_park_name(Struct* params, Context /*context*/)
 {
     const char* name = ""; // ""
     params->fetch_text(0U, &name, 0);

@@ -27,6 +27,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/params.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/pad_input/device.h"
 #include "engine/sys/stopwatch.h"
 #include "game/skate/skate_module.h"
@@ -185,7 +186,7 @@ uint32_t& previous_taunt_stamp()
 }
 
 // The script command ObjectExists with these parameters.
-bool object_exists(script::Struct* params) { return objects::cfunc_object_exists(params, nullptr); }
+bool object_exists(script::Struct* params) { return objects::cfunc_object_exists(params, script::Context()); }
 void run_script_with(uint32_t script, script::Struct* params)
 {
     script::launch_script(script, params, nullptr, false, nullptr);

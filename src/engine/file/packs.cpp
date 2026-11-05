@@ -22,6 +22,7 @@
 #include "formats/pre_format.h"
 #include "engine/file/file_system.h"
 #include "engine/script/params.h"
+#include "engine/script/context.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
@@ -424,7 +425,7 @@ const char* pre_name(script::Struct* params)
 } // namespace
 
 // 0x005B7A60: LoadPipPre <name> [heap = ...]
-bool cfunc_load_pip_pre(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_pip_pre(script::Struct* params, script::Context /*context*/)
 {
     const char* name = pre_name(params);
     uint32_t heap = 0;
@@ -444,10 +445,10 @@ bool cfunc_load_pip_pre(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005B7410: UnLoadPipPre <name>
-bool cfunc_un_load_pip_pre(script::Struct* params, script::Script* /*script*/) { return unload_pre(pre_name(params)); }
+bool cfunc_un_load_pip_pre(script::Struct* params, script::Context /*context*/) { return unload_pre(pre_name(params)); }
 
 // 0x005B7430: DumpPipPreStatus [ShowPreedFiles] [ShowUnPreedFiles] [ShowOnlyOpenFiles] - debug output
-bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*/)
+bool cfunc_dump_pip_pre_status(script::Struct* params, script::Context /*context*/)
 {
     const bool show_files = script::has_bare_flag(params, "ShowPreedFiles");
     const bool show_loose_files = script::has_bare_flag(params, "ShowUnPreedFiles");

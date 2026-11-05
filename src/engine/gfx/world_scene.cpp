@@ -10,7 +10,7 @@
 #include "base/core/dbg.h"
 #include "base/core/str.h"
 #include "engine/ext/extension.h"
-#include "engine/script/params.h"
+#include "engine/script/context.h"
 #include <gsl/pointers>
 #include "engine/memory/mem.h"
 #include "base/core/format.h"
@@ -49,7 +49,7 @@ void* load_scene_file(const char* name, void* tex_dict, bool with_super_sectors,
 } // namespace
 
 // 0x00445130
-bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_scene(script::Struct* params, script::Context /*context*/)
 {
     const bool is_dictionary = params->has_bare_flag(kIsDictionary);
     bool is_sky = params->has_bare_flag(kIsSky);

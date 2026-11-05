@@ -20,6 +20,7 @@
 #include "base/maths/vec4.h"
 #include "engine/render/coll_grid.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/memory/arena_alloc.h"
 #include <gsl/pointers>
@@ -262,7 +263,7 @@ uint32_t new_sector_name()
 }
 
 // 0x0048CAF0
-bool cfunc_toggle_add_scenes(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_toggle_add_scenes(script::Struct* /*params*/, script::Context /*context*/)
 {
     toggle_add_scenes();
     return true;

@@ -4,8 +4,8 @@
 #include "engine/lists/pointer_ring.h"
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // The cutscene destroy list (0x007CEDD8: a std::list of commands::CutsceneDestroyEntry, movie_cfuncs.h): what a
@@ -19,9 +19,9 @@ struct CutsceneDestroyEntry;
 // instance list 0x006F0DB0).
 using CutsceneDestroyList = lists::PointerRing<CutsceneDestroyEntry>;
 
-bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* script);
-bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* script);
-bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script);
-bool cfunc_flush_cutscene_destroy_list(script::Struct* params, script::Script* script);
+bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Context context);
+bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Context context);
+bool cfunc_cutscene_spawn_script(script::Struct* params, script::Context context);
+bool cfunc_flush_cutscene_destroy_list(script::Struct* params, script::Context context);
 
 } // namespace commands

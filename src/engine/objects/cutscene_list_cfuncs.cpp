@@ -10,6 +10,7 @@
 #include "engine/objects/pager_message.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/no_destroy.h"
 namespace commands {
@@ -69,7 +70,7 @@ void delete_entry(CutsceneDestroyEntry* entry)
 
 // 0x005B5320: AddToCutsceneDestroyList name=<object> destroy_func=<script> [destroy_params={...}]: an entry (with its
 // own copy of the parameters) added at the end of the list. Always true.
-bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* /*script*/)
+bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
@@ -103,7 +104,7 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* 
 
 // 0x005B5450: RemoveFromCutsceneDestroyList name=<object>: the object's entry deleted and taken out of the list (not
 // run). False while the list is being flushed or without such an entry.
-bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* /*script*/)
+bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Context /*context*/)
 {
     if (flushing()) {
         return false;
@@ -135,14 +136,14 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
 // [online_mode_flag] [permanent] [NotSessionSpecific=n]: the script spawned as SpawnScript does (the id defaulting to the
 // calling script's .qb file - its symbol's +8), and an entry added to the cutscene destroy list that kills it
 // (cutscene_kill_spawned_script with its unique id). The spawned script isn't checked for null. Always true.
-bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
+bool cfunc_cutscene_spawn_script(script::Struct* params, script::Context context)
 {
     script::dump_to_log(params, 0);
     uint32_t name = 0;
     params->read_hash_value(0U, &name, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    uint32_t id = script::find_symbol(script->script_title())->unknown8();
+    uint32_t id = script::find_symbol(context.script_title())->unknown8();
     params->read_hash_value(kId, &id, 0);
     uint32_t callback = 0;
     params->read_hash_value(kCallback, &callback, 0);
@@ -152,8 +153,14 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     const bool permanent = params->has_bare_flag(kPermanent);
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
-    const script::Script* spawned =
-        script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params, .node = script->list_link(), .id = id, .replicate = replicate_flag, .permanent = permanent, .not_session_specific_ = not_session_specific != 0});
+    const script::Script* spawned = script::spawn_script(name, script_params,
+                                                         {.callback = callback,
+                                                          .callback_params_ = callback_params,
+                                                          .node = context.list_link(),
+                                                          .id = id,
+                                                          .replicate = replicate_flag,
+                                                          .permanent = permanent,
+                                                          .not_session_specific_ = not_session_specific != 0});
     const uint32_t unique_id = spawned->unique_id();
 
     script::StructPtr entry = script::make_struct();
@@ -163,14 +170,14 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     destroy_params->put_name_key(checksums::Name{kId}, unique_id);
     entry->put_sub_struct(kDestroyParams, destroy_params.get());
     destroy_params.reset();
-    cfunc_add_to_cutscene_destroy_list(entry.get(), nullptr);
+    cfunc_add_to_cutscene_destroy_list(entry.get(), script::Context());
     entry.reset();
     return true;
 }
 
 // 0x005B5BE0: FlushCutsceneDestroyList: each entry's destroy script run (with its parameters, on no object) and the
 // entry deleted, then the list emptied (std::list::erase, 0x004ECC30). Always true.
-bool cfunc_flush_cutscene_destroy_list(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_flush_cutscene_destroy_list(script::Struct* /*params*/, script::Context /*context*/)
 {
     CutsceneDestroyList& list = free_node_chain();
     flushing() = true;

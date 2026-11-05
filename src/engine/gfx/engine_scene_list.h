@@ -10,7 +10,7 @@ namespace maths {
 struct Seg;
 }
 namespace script {
-class Script;
+class Context;
 class Struct;
 } // namespace script
 
@@ -59,7 +59,7 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line);
 // 0x0048CA80: a sector name (0x0067DC84, counted on) that no scene has a sector of.
 uint32_t new_sector_name();
 // 0x0048CAF0: the ToggleAddScenes script command - every scene's added scene shown or hidden (0x0048C650). True.
-bool cfunc_toggle_add_scenes(script::Struct* params, script::Script* script);
+bool cfunc_toggle_add_scenes(script::Struct* params, script::Context context);
 // 0x0048CB00: the main scene's and the sky's statistics (WorldScene::fetch_diagnostics) each into a new structure, added to
 // `info` (0x9B10525C, 0x02C5EA34).
 void get_scene_debug_info(script::Struct* info);

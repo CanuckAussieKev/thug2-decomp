@@ -14,6 +14,7 @@
 #include "engine/objects/smtptr.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
 
@@ -261,7 +262,7 @@ void PathManager::carve(PathPoolSizes pool_sizes)
 }
 
 // 0x00469A80
-bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* /*script*/)
+bool cfunc_allocate_path_man_memory(script::Struct* params, script::Context /*context*/)
 {
     PathManager* manager = PathManager::sole();
     int groups = kGroupCount;

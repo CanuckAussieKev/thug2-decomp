@@ -3,8 +3,8 @@
 #include <cstdint>
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // The screen's shape and full-screen effects (Nx engine, PC): aspect ratio, field-of-view factor, letterbox and
@@ -55,6 +55,6 @@ void set_screen_blur(uint32_t amount);
 void set_letterbox(bool letterbox);
 
 // 0x0048C170: SetScreenBlur <amount>
-bool cfunc_set_screen_blur(script::Struct* params, script::Script* script);
+bool cfunc_set_screen_blur(script::Struct* params, script::Context context);
 
 } // namespace render

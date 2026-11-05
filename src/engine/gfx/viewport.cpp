@@ -14,8 +14,8 @@
 #include "engine/gfx/viewport_list.h"
 #include "engine/gfx/screen.h"
 #include "base/maths/vec4.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/view_setup.h"
@@ -347,7 +347,7 @@ void pop_occlusion_request()
 }
 
 // 0x004A07D0
-bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Context /*context*/)
 {
     float value = 0.0F;
     if (params->fetch_float(kScaleNumerator, &value, 0)) {
@@ -363,16 +363,16 @@ bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* /*s
 }
 
 // 0x004A08A0
-bool cfunc_script_get_screen_mode(script::Struct* /*params*/, script::Script* script)
+bool cfunc_script_get_screen_mode(script::Struct* /*params*/, script::Context context)
 {
-    script::Struct* results = script->args().get();
+    script::Struct* results = context.args().get();
     auto mode = static_cast<uint32_t>(view_setup().screen_mode());
     results->put_name_key(checksums::Name{kScreenMode}, mode <= kLastScreenMode ? core::at(kModeNames, mode) : 0U);
     return true;
 }
 
 // 0x004A0C20
-bool cfunc_set_screen_mode(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_screen_mode(script::Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (the original's is left uninitialised: it asserts when there's none)
     params->read_hash_value(0U, &name, 1);

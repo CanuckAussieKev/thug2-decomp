@@ -10,8 +10,8 @@ namespace file {
 class AsyncFileHandle;
 }
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 namespace lists {
@@ -186,12 +186,12 @@ int seek_to(ArchiveFile::FileInfo* file, int offset, int origin);
 int get_file_size(ArchiveFile::FileInfo* file);
 
 // Script functions (in the Function table)
-bool cfunc_load_pre_file(script::Struct* params, script::Script* script);
-bool cfunc_unload_pre_file(script::Struct* params, script::Script* script);
-bool cfunc_is_load_pre_finished(script::Struct* params, script::Script* script);
-bool cfunc_all_load_pre_finished(script::Struct* params, script::Script* script);
-bool cfunc_wait_load_pre(script::Struct* params, script::Script* script);
-bool cfunc_wait_all_load_pre(script::Struct* params, script::Script* script);
-bool cfunc_in_pre_file(script::Struct* params, script::Script* script);
+bool cfunc_load_pre_file(script::Struct* params, script::Context context);
+bool cfunc_unload_pre_file(script::Struct* params, script::Context context);
+bool cfunc_is_load_pre_finished(script::Struct* params, script::Context context);
+bool cfunc_all_load_pre_finished(script::Struct* params, script::Context context);
+bool cfunc_wait_load_pre(script::Struct* params, script::Context context);
+bool cfunc_wait_all_load_pre(script::Struct* params, script::Context context);
+bool cfunc_in_pre_file(script::Struct* params, script::Context context);
 
 } // namespace pre

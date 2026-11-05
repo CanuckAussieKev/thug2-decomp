@@ -16,6 +16,7 @@
 #include "engine/file/packs.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/checked_index.h"
 #include "base/core/span_copy.h"
 #include <gsl/pointers>
@@ -442,7 +443,7 @@ using gfx::FaceAnchors;
 using script::Struct;
 
 // 0x00486B70
-bool cfunc_set_model_face_texture_points(Struct* params, script::Script* /*script*/)
+bool cfunc_set_model_face_texture_points(Struct* params, script::Context /*context*/)
 {
     Struct* points = nullptr;
     params->read_sub_struct("face_points", &points, 0);
@@ -455,7 +456,7 @@ bool cfunc_set_model_face_texture_points(Struct* params, script::Script* /*scrip
 }
 
 // 0x00486BC0
-bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script* /*script*/)
+bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0U, &name, 0);
@@ -466,7 +467,7 @@ bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script* /*sc
 }
 
 // 0x00486BF0
-bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script* /*script*/)
+bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);
@@ -478,7 +479,7 @@ bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script* /*s
 }
 
 // 0x00486EE0
-bool cfunc_adjust_face_texture_to_model(Struct* params, script::Script* /*script*/)
+bool cfunc_adjust_face_texture_to_model(Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);
@@ -496,7 +497,7 @@ bool cfunc_adjust_face_texture_to_model(Struct* params, script::Script* /*script
 }
 
 // 0x004872D0
-bool cfunc_massage_face_texture(Struct* params, script::Script* /*script*/)
+bool cfunc_massage_face_texture(Struct* params, script::Context /*context*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);

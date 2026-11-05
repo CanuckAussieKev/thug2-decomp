@@ -5,8 +5,8 @@
 #include <cstdint>
 
 #include "base/maths/random.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/game_config.h"
 #include "engine/sys/stopwatch.h"
@@ -18,7 +18,7 @@ namespace {
 
 constexpr double kMillisecondsPerSecond = 1000.0;
 
-using script::Script;
+using script::Context;
 using script::Struct;
 
 constexpr uint32_t kPlatform = 0xC6AD2F34;    // "platform"
@@ -41,24 +41,24 @@ int script_clock() { return frame_clock::game_clock_elapsed() + objects::clock_o
 } // namespace
 
 // 0x0044E3A0: IsWIN32: whether the platform is Windows.
-bool cfunc_is_win32(Struct* /*params*/, Script* /*script*/) { return os_layer() == game_config::kHardwareWin32; }
+bool cfunc_is_win32(Struct* /*params*/, Context /*context*/) { return os_layer() == game_config::kHardwareWin32; }
 
 // 0x0044E3B0: GetPlatform: the script's platform=xbox. Always true.
-bool cfunc_get_platform(Struct* /*params*/, Script* script)
+bool cfunc_get_platform(Struct* /*params*/, Context context)
 {
-    script->args()->put_name_key(checksums::Name{kPlatform}, kXbox);
+    context.args()->put_name_key(checksums::Name{kPlatform}, kXbox);
     return true;
 }
 
 // 0x0044E3D0: Randomize: the random numbers seeded from the time. Always true.
-bool cfunc_randomize(Struct* /*params*/, Script* /*script*/)
+bool cfunc_randomize(Struct* /*params*/, Context /*context*/)
 {
     maths::seed_random(frame_clock::get_time());
     return true;
 }
 
 // 0x0044E3F0: ResetTimer: the stopwatch started. Always true.
-bool cfunc_reset_timer(Struct* /*params*/, Script* /*script*/)
+bool cfunc_reset_timer(Struct* /*params*/, Context /*context*/)
 {
     timer_start() = frame_clock::get_time();
     return true;
@@ -66,7 +66,7 @@ bool cfunc_reset_timer(Struct* /*params*/, Script* /*script*/)
 
 // 0x0044E400: TimeGreaterThan <seconds (0)>: whether more than that has passed since ResetTimer (the milliseconds
 // as unsigned; x87: seconds * 1000 against them, exactly).
-bool cfunc_time_greater_than(Struct* params, Script* /*script*/)
+bool cfunc_time_greater_than(Struct* params, Context /*context*/)
 {
     float seconds = 0.0F;
     params->fetch_float(0U, &seconds, 0);
@@ -75,19 +75,20 @@ bool cfunc_time_greater_than(Struct* params, Script* /*script*/)
 }
 
 // 0x0044E460: GetStartTime: the script clock now as the script's StartTime. Always true.
-bool cfunc_get_start_time(Struct* /*params*/, Script* script)
+bool cfunc_get_start_time(Struct* /*params*/, Context context)
 {
-    script->args()->put_int(checksums::Name{kStartTime}, script_clock());
+    context.args()->put_int(checksums::Name{kStartTime}, script_clock());
     return true;
 }
 
 // 0x0044E490: GetElapsedTime StartTime=<ms>: the milliseconds since then as the script's ElapsedTime. Always true.
 // (Original quirk: no StartTime leaves it uninitialised; here 0.)
-bool cfunc_get_elapsed_time(Struct* params, Script* script)
+bool cfunc_get_elapsed_time(Struct* params, Context context)
 {
     int start = 0;
     params->fetch_int_value(kStartTime, &start, 0);
-    script->args()->put_int(checksums::Name{kElapsedTime}, frame_clock::game_clock_elapsed() + (objects::clock_offset() - start));
+    context.args()->put_int(checksums::Name{kElapsedTime},
+                            frame_clock::game_clock_elapsed() + (objects::clock_offset() - start));
     return true;
 }
 

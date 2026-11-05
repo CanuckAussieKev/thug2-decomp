@@ -704,7 +704,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script* /*script*/)
 // score display brought up to date.
 bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 {
-    render::cfunc_set_screen_mode(params, script);
+    render::cfunc_set_screen_mode(params, script::Context(script));
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         if (objects::Rider* skater = get_rider_at(i)) {
             update_score_display(skater);

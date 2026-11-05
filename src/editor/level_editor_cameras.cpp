@@ -33,6 +33,7 @@
 #include "engine/script/node_manager.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "base/core/checked_index.h"
@@ -487,7 +488,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
         // (the last shot still playing: killed first, as the goals kill theirs)
         gsl::owner<script::Struct*> kill = script::new_struct();
         kill->put_name_key(checksums::Name{get_checksums("name")}, shot);
-        commands::cfunc_kill_skater_cam_anim(kill, script);
+        commands::cfunc_kill_skater_cam_anim(kill, script::Context(script));
         kill->get_clear();
         script::delete_struct(kill);
     }
@@ -501,7 +502,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     const int frames = shot_frames(seconds);
     anim->put_int(checksums::Name{get_checksums("frames")}, frames);
     anim->put_int(checksums::Name{get_checksums("skippable")}, 1);
-    commands::cfunc_play_skater_cam_anim(anim, script);
+    commands::cfunc_play_skater_cam_anim(anim, script::Context(script));
     anim->get_clear();
     script::delete_struct(anim);
     shot_until() = now + (frames / kFrameRateDouble);

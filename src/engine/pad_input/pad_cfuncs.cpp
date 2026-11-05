@@ -7,8 +7,7 @@
 #include "engine/script/names.h"
 #include "engine/script/script_tables.h"
 #include "engine/pad_input/sdl_input.h"
-#include "engine/script/cscript.h"
-#include "engine/script/legacy_command.h"
+#include "engine/script/context.h"
 
 namespace sys {
 
@@ -19,18 +18,18 @@ constexpr uint32_t kVehicleGrindScript = 0x47F15883;
 
 } // namespace
 
-bool cfunc_is_ps2(script::Struct* /*params*/, script::Script* script)
+bool cfunc_is_ps2(script::Struct* /*params*/, script::Context context)
 {
     if (sio::the_input_settings().ps2_controls_ == 0U) {
         return false; // (the original: 0x005B9E50)
     }
-    return (script != nullptr) && script->script_title() == kVehicleGrindScript;
+    return (context.script() != nullptr) && context.script_title() == kVehicleGrindScript;
 }
 
 void install_is_ps2()
 {
     if (script::NativeCommand* entry = script::find_c_function("IsPS2")) {
-        script::bind_native_command(*entry, &script::legacy_command<&cfunc_is_ps2>);
+        script::bind_native_command(*entry, &cfunc_is_ps2);
     }
 }
 

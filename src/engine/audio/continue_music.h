@@ -1,7 +1,7 @@
 #pragma once
 
 namespace script {
-class Script;
+class Context;
 } // namespace script
 
 // NOT ORIGINAL: thug2-decomp.ini [features] continue_music=1 (default 0: the original's behaviour) keeps the song
@@ -30,12 +30,12 @@ bool& is_switched_on();
 
 // Whether the StopMusic / SkipMusicTrack that `script` runs is a level change's or a run start's (the script is
 // cleanup_before_loading_level or GameFlow_StartRun) and is to be skipped: false when switched off.
-bool skips_script_stop(const script::Script* script);
+bool skips_script_stop(script::Context context);
 
 // Whether the PauseMusic 1 that `script` runs is a menu's (the script PauseMusicAndStreams - the pause menu, its
 // screens, the stats and goal messages, a controller pulled out) and is to be skipped: the song plays on under the
 // paused game (the user's request, 2026-11-02; the other streams still pause). False when switched off.
-bool skips_script_pause(const script::Script* script);
+bool skips_script_pause(script::Context context);
 
 // While one lives and the switch is on, stop_music leaves the music playing (a level change's own stops: ChangeLevel
 // and the level's Cleanup). Nested holds count.

@@ -7,7 +7,7 @@
 #include "engine/gfx/screen.h"
 
 #include "engine/gfx/settings.h"
-#include "engine/script/params.h"
+#include "engine/script/context.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "engine/gfx/game_hooks.h"
@@ -165,7 +165,7 @@ void set_letterbox(bool letterbox)
 
 // 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are
 // when DisableBlur is off - some patched executables "in the wild" remove the blur here.)
-bool cfunc_set_screen_blur(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_screen_blur(script::Struct* params, script::Context /*context*/)
 {
     int amount = 0;
     params->fetch_int_value(0U, &amount, 0); // the unnamed integer

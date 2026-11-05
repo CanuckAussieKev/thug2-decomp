@@ -29,6 +29,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/host.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
@@ -221,7 +222,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, checksums::Name kind, uint32_t i
 // --- the script commands --------------------------------------------------------------------------------------
 
 // 0x004AAD90: the root window (on the front end's heap), id root_window, registered.
-bool cfunc_screen_element_system_init(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_screen_element_system_init(script::Struct* /*params*/, script::Context /*context*/)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap());
@@ -233,7 +234,7 @@ bool cfunc_screen_element_system_init(script::Struct* /*params*/, script::Script
 }
 
 // 0x004AD240: the element made; its id into the script's parameters.
-bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
+bool cfunc_create_screen_element(script::Struct* params, script::Context context)
 {
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 0);
@@ -241,12 +242,12 @@ bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
     params->read_hash_value(kId, &id, 0);
     ElementPtr element;
     hub()->spawn_part(&element, checksums::Name{type}, id, params);
-    script->args()->put_name_key(checksums::Name{kId}, element->ident());
+    context.args()->put_name_key(checksums::Name{kId}, element->ident());
     return true;
 }
 
 // 0x004AD300: dont_recurse (just the element), preserve_parent (keep the element itself).
-bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script)
+bool cfunc_destroy_screen_element(script::Struct* params, script::Context context)
 {
     UiTree* manager = hub();
     uint32_t id = 0;
@@ -256,14 +257,14 @@ bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script
     const int recurse = params->has_bare_flag("dont_recurse") ? 0 : 1; // dont_recurse
     const int keep = params->has_bare_flag("preserve_parent") ? 1 : 0; // preserve_parent
     if ((recurse != 0) || (keep == 0)) {
-        manager->dismantle_part(id, recurse != 0, keep != 0, script);
+        manager->dismantle_part(id, recurse != 0, keep != 0, context.script());
     }
     return true;
 }
 
 // 0x004AD370: a member function of the element, else a script spawned on it (with callback / Params /
 // callback_params) and run once.
-bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* script)
+bool cfunc_run_script_on_screen_element(script::Struct* params, script::Context context)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -277,7 +278,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
     if (symbol && symbol->type() == script::QbValueKind::kNativeMethod) {
-        element.get_pull()->invoke_method_by_name(name, script_params, script);
+        element.get_pull()->invoke_method_by_name(name, script_params, context.script());
     } else if (Script* spawned = script::spawn_script(name, script_params, {.callback = callback, .callback_params_ = callback_params})) {
         spawned->entity().assign_value(element.get_pull());
         script::host().tick_frame(spawned);
@@ -286,7 +287,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
 }
 
 // 0x004AD4C0
-bool cfunc_set_screen_element_props(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_screen_element_props(script::Struct* params, script::Context /*context*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -297,7 +298,7 @@ bool cfunc_set_screen_element_props(script::Struct* params, script::Script* /*sc
 }
 
 // 0x004AD540 (also called directly)
-bool cfunc_do_screen_element_morph(script::Struct* params, script::Script* /*script*/)
+bool cfunc_do_screen_element_morph(script::Struct* params, script::Context /*context*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -306,7 +307,7 @@ bool cfunc_do_screen_element_morph(script::Struct* params, script::Script* /*scr
 }
 
 // 0x004AD5C0: the element's focus flag (its event sent) set, or cleared with Off.
-bool cfunc_set_screen_element_lock(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_screen_element_lock(script::Struct* params, script::Context /*context*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -315,7 +316,7 @@ bool cfunc_set_screen_element_lock(script::Struct* params, script::Script* /*scr
 }
 
 // 0x004AD650: width / height (the size times the shown scale, truncated).
-bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_dims(script::Struct* params, script::Context context)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -323,14 +324,14 @@ bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* scrip
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown().scale_x_) * element->span()));
     const int height =
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown().scale_y_) * element->level_y()));
-    script->args()->put_int(checksums::Name{kWidth}, width);
-    script->args()->put_int(checksums::Name{kHeight}, height);
+    context.args()->put_int(checksums::Name{kWidth}, width);
+    context.args()->put_int(checksums::Name{kHeight}, height);
     return true;
 }
 
 // 0x004AC750: the element's properties (an Element3d's angles too) into the script's parameters. No element:
 // false.
-bool cfunc_get_screen_element_props(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_props(script::Struct* params, script::Context context)
 {
     UiTree* manager = hub();
     ElementPtr element;
@@ -343,18 +344,18 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
         params->has_bare_flag(kDontAssert);
         return false;
     }
-    element.get_pull()->get_properties(script->args().get());
+    element.get_pull()->get_properties(context.args().get());
     if (element->kind_tag() == kElement3d) {
         auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
-        script->args()->push_float(checksums::Name{kAngleX}, core::at(e3d->angle(), 0));
-        script->args()->push_float(checksums::Name{kAngleY}, core::at(e3d->angle(), 1));
-        script->args()->push_float(checksums::Name{kAngleZ}, core::at(e3d->angle(), 2));
+        context.args()->push_float(checksums::Name{kAngleX}, core::at(e3d->angle(), 0));
+        context.args()->push_float(checksums::Name{kAngleY}, core::at(e3d->angle(), 1));
+        context.args()->push_float(checksums::Name{kAngleZ}, core::at(e3d->angle(), 2));
     }
     return true;
 }
 
 // 0x004AC900
-bool cfunc_set_root_screen_element(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_root_screen_element(script::Struct* params, script::Context /*context*/)
 {
     UiTree* manager = hub();
     uint32_t id = 0;
@@ -366,7 +367,7 @@ bool cfunc_set_root_screen_element(script::Struct* params, script::Script* /*scr
 }
 
 // 0x004AC940: the children's ids as an array `children`; none: false.
-bool cfunc_get_screen_element_children(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_children(script::Struct* params, script::Context context)
 {
     UiTree* manager = hub();
     ElementPtr element;
@@ -388,12 +389,12 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
     for (int i = 0; i < count; ++i) {
         array->set_element(i, element->find_child_at_slot(i)->ident());
     }
-    script->args()->append_array_ref(kChildren, array);
+    context.args()->append_array_ref(kChildren, array);
     return true;
 }
 
 // 0x004AD710
-bool cfunc_text_element_concatenate(script::Struct* params, script::Script* /*script*/)
+bool cfunc_text_element_concatenate(script::Struct* params, script::Context /*context*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -411,7 +412,7 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script* /*sc
 }
 
 // 0x004AD800
-bool cfunc_text_element_backspace(script::Struct* params, script::Script* /*script*/)
+bool cfunc_text_element_backspace(script::Struct* params, script::Context /*context*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -425,25 +426,25 @@ bool cfunc_text_element_backspace(script::Struct* params, script::Script* /*scri
 }
 
 // 0x004AD8D0 (the result is always false)
-bool cfunc_get_text_element_string(script::Struct* params, script::Script* script)
+bool cfunc_get_text_element_string(script::Struct* params, script::Context context)
 {
     std::array<char, kCaptionSize> text{};
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
     if (element->kind_tag() == kTextBlockElement) {
         if (text_block_string(element.get_pull(), text.data(), sizeof(text))) {
-            script->args()->append_word(kString, text.data());
+            context.args()->append_word(kString, text.data());
         }
     } else if (element->kind_tag() == kTextElement) {
         if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars()) {
-            script->args()->append_word(kString, string);
+            context.args()->append_word(kString, string);
         }
     }
     return false;
 }
 
 // 0x004AD9C0
-bool cfunc_get_text_element_length(script::Struct* params, script::Script* script)
+bool cfunc_get_text_element_length(script::Struct* params, script::Context context)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -455,21 +456,21 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
     } else {
         return false;
     }
-    script->args()->put_int(checksums::Name{kLength}, length);
+    context.args()->put_int(checksums::Name{kLength}, length);
     return true;
 }
 
 // 0x004ADA80: the top left morphed to, as the pair ScreenElementPos.
-bool cfunc_get_screen_element_position(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_position(script::Struct* params, script::Context context)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
-    script->args()->insert_pair(checksums::Name{kScreenElementPos}, element->get_top_left());
+    context.args()->insert_pair(checksums::Name{kScreenElementPos}, element->get_top_left());
     return true;
 }
 
 // 0x004ADB20: the menu's selected index against an unnamed integer, first or last. Nothing selected: false.
-bool cfunc_menu_selected_index_is(script::Struct* params, script::Script* /*script*/)
+bool cfunc_menu_selected_index_is(script::Struct* params, script::Context /*context*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -492,7 +493,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script* /*scri
 }
 
 // 0x004ADC10
-bool cfunc_screen_element_exists(script::Struct* params, script::Script* /*script*/)
+bool cfunc_screen_element_exists(script::Struct* params, script::Context /*context*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, false);
@@ -502,7 +503,7 @@ bool cfunc_screen_element_exists(script::Struct* params, script::Script* /*scrip
 // 0x004ADC80: text elements made from `text` (a string, or an array of strings run together with spaces), one
 // per line of at most `width` in `font` (and fewer than 0x60 characters), each with the other parameters. (A last
 // word that starts a new line is lost, as in the original.)
-bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script* /*script*/)
+bool cfunc_create_multiple_text_elements(script::Struct* params, script::Context /*context*/)
 {
     // (the word buffer right before the line's, as on the original's stack: an empty line's "last character" is
     // the word buffer's last)

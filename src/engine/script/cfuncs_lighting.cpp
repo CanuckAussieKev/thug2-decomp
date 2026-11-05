@@ -86,14 +86,14 @@ inline void set_color_buffer_clear(bool /*clear*/) {}
 // 0x00445B50: HideLensFlare (0x00442DF0 with the same arguments). Always true.
 bool cfunc_hide_lens_flare(Struct* params, Context context)
 {
-    sun::hide_flare(params, context.script());
+    sun::hide_flare(params, context);
     return true;
 }
 
 // 0x00445B70: UnhideLensFlare (0x00443030). Always true.
 bool cfunc_unhide_lens_flare(Struct* params, Context context)
 {
-    sun::unhide_flare(params, context.script());
+    sun::unhide_flare(params, context);
     return true;
 }
 

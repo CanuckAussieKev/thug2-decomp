@@ -34,6 +34,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/script/degree_ratio.h"
+#include "engine/script/context.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/gfx/render_constants.h"
 #include "engine/objects/particle_component.h"
@@ -1306,7 +1307,7 @@ void release_tod_manager()
 // --- the script commands ------------------------------------------------------------------------------------
 
 // 0x00571FE0: TODManager_SetActive <0|1>
-bool cfunc_tod_manager_set_active(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_active(script::Struct* params, script::Context /*context*/)
 {
     CtodManager* manager = tod_manager();
     int active = 0;
@@ -1316,17 +1317,17 @@ bool cfunc_tod_manager_set_active(script::Struct* params, script::Script* /*scri
 }
 
 // 0x00572010: TODManager_GetNumberOfDaysPassed [system_index=n] -> num_days_passed
-bool cfunc_tod_manager_get_number_of_days_passed(script::Struct* params, script::Script* script)
+bool cfunc_tod_manager_get_number_of_days_passed(script::Struct* params, script::Context context)
 {
     CtodManager* manager = tod_manager();
     int index = 0;
     params->fetch_int_value(kSystemIndex, &index, 0);
-    script->args()->put_int(checksums::Name{kNumDaysPassed}, system_at(manager, index).days_passed_);
+    context.args()->put_int(checksums::Name{kNumDaysPassed}, system_at(manager, index).days_passed_);
     return true;
 }
 
 // 0x00572060: TODManager_SetTimeMultiplier <multiplier> (default 1)
-bool cfunc_tod_manager_set_time_multiplier(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_time_multiplier(script::Struct* params, script::Context /*context*/)
 {
     float multiplier = 1.0F;
     params->fetch_float(0U, &multiplier, 0);
@@ -1338,17 +1339,17 @@ bool cfunc_tod_manager_set_time_multiplier(script::Struct* params, script::Scrip
 }
 
 // 0x005720A0: TODManager_GetTimeMultiplier -> TOD_Time_Multiplier
-bool cfunc_tod_manager_get_time_multiplier(script::Struct* /*params*/, script::Script* script)
+bool cfunc_tod_manager_get_time_multiplier(script::Struct* /*params*/, script::Context context)
 {
     if (!tod_manager()) {
         return false;
     }
-    script->args()->push_float(checksums::Name{kTimeMultiplierName}, tod_manager()->time_multiplier());
+    context.args()->push_float(checksums::Name{kTimeMultiplierName}, tod_manager()->time_multiplier());
     return true;
 }
 
 // 0x005720D0: TODManager_SetTODScript <script>
-bool cfunc_tod_manager_set_tod_script(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_tod_script(script::Struct* params, script::Context /*context*/)
 {
     CtodManager* manager = tod_manager();
     uint32_t name = 0;
@@ -1358,21 +1359,21 @@ bool cfunc_tod_manager_set_tod_script(script::Struct* params, script::Script* /*
 }
 
 // 0x00572110: TODManager_Create name= | prefix=
-bool cfunc_tod_manager_create(script::Struct* params, script::Script* script)
+bool cfunc_tod_manager_create(script::Struct* params, script::Context context)
 {
-    tod_manager()->build_tod_objects(params, script);
+    tod_manager()->build_tod_objects(params, context.script());
     return true;
 }
 
 // 0x00572BE0: TODManager_SetParams
-bool cfunc_tod_manager_set_params(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_params(script::Struct* params, script::Context /*context*/)
 {
     tod_manager()->change_args(params);
     return true;
 }
 
 // 0x00572C00: TODManager_GetCurrentTODParams [system_index=n] -> tod_params={active current_state_name lev_red ...}
-bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Script* script)
+bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Context context)
 {
     int index = -1;
     params->fetch_int_value(kSystemIndex, &index, 0);
@@ -1435,12 +1436,12 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
         array->get_clear();
         script::delete_array(array);
     }
-    script->args()->append_struct_ref(kTodParams, out);
+    context.args()->append_struct_ref(kTodParams, out);
     return true;
 }
 
 // 0x005730A0: TODManager_SetFogActive [0|1] (default 1)
-bool cfunc_tod_manager_set_fog_active(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_fog_active(script::Struct* params, script::Context /*context*/)
 {
     CtodManager* manager = tod_manager();
     int on = 1;
@@ -1450,21 +1451,21 @@ bool cfunc_tod_manager_set_fog_active(script::Struct* params, script::Script* /*
 }
 
 // 0x005735F0: TODManager_MarkPermanentlyDead name= | prefix=
-bool cfunc_tod_manager_mark_permanently_dead(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_mark_permanently_dead(script::Struct* params, script::Context /*context*/)
 {
     tod_manager()->mark_permanently_dead(params);
     return true;
 }
 
 // 0x00573610: TODManager_Reset
-bool cfunc_tod_manager_reset(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_tod_manager_reset(script::Struct* /*params*/, script::Context /*context*/)
 {
     tod_manager()->get_reset();
     return true;
 }
 
 // 0x00574480: TODManager_ResetLevelLights [state_name=]
-bool cfunc_tod_manager_reset_level_lights(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_reset_level_lights(script::Struct* params, script::Context /*context*/)
 {
     CtodManager* manager = tod_manager();
     uint32_t name = 0;
@@ -1474,28 +1475,28 @@ bool cfunc_tod_manager_reset_level_lights(script::Struct* params, script::Script
 }
 
 // 0x005744C0: TODManager_SetTempTOD <params>
-bool cfunc_tod_manager_set_temp_tod(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_temp_tod(script::Struct* params, script::Context /*context*/)
 {
     tod_manager()->set_temp_tod(params);
     return true;
 }
 
 // 0x005744E0: TODManager_RestoreCurrentTOD
-bool cfunc_tod_manager_restore_current_tod(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_tod_manager_restore_current_tod(script::Struct* /*params*/, script::Context /*context*/)
 {
     tod_manager()->restore_current_tod();
     return true;
 }
 
 // 0x005744F0: TODManager_SetTempBloomParams on= bloom1= bloom2= strength=[] color=[]
-bool cfunc_tod_manager_set_temp_bloom_params(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_temp_bloom_params(script::Struct* params, script::Context /*context*/)
 {
     tod_manager()->set_temp_bloom_params(params);
     return true;
 }
 
 // 0x00574510: TODManager_EnableBloom <0|1>
-bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Context /*context*/)
 {
     CtodManager* manager = tod_manager();
     int on = 0;
@@ -1505,7 +1506,7 @@ bool cfunc_tod_manager_enable_bloom(script::Struct* params, script::Script* /*sc
 }
 
 // 0x00574840: TODManager_SetTODInstant <state>
-bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Script* /*script*/)
+bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Context /*context*/)
 {
     uint32_t state = 0;
     params->read_hash_value(0U, &state, 1);
@@ -1517,7 +1518,7 @@ bool cfunc_tod_manager_set_tod_instant(script::Struct* params, script::Script* /
 }
 
 // 0x00574870: TODManager_AdvanceTODState: straight to the next state.
-bool cfunc_tod_manager_advance_tod_state(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_tod_manager_advance_tod_state(script::Struct* /*params*/, script::Context /*context*/)
 {
     CtodManager* manager = tod_manager();
     if (!manager) {

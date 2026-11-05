@@ -6,8 +6,8 @@
 #include "engine/file/async.h"
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // "Pip" file loading: data files are loaded whole into memory, either one at a time (up to 200, reference
@@ -71,8 +71,8 @@ bool archive_is_busy(const char* name);
 PackedFile* find_pre_entry(uint32_t checksum);
 
 // Script functions (in the Function table)
-bool cfunc_load_pip_pre(script::Struct* params, script::Script* script);
-bool cfunc_un_load_pip_pre(script::Struct* params, script::Script* script);
-bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* script);
+bool cfunc_load_pip_pre(script::Struct* params, script::Context context);
+bool cfunc_un_load_pip_pre(script::Struct* params, script::Context context);
+bool cfunc_dump_pip_pre_status(script::Struct* params, script::Context context);
 
 } // namespace packs

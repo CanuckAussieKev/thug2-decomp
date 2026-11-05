@@ -35,6 +35,7 @@
 #include "engine/sys/model_viewer.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cfuncs_scene.h"
+#include "engine/script/context.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "base/core/down_cast.h"
@@ -598,7 +599,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
     params->append_word(0U, message);
     params->put_name_key(checksums::Name{0U},
                          net::wire::value_at<uint32_t>(context->body(), viewer_message::kSecondTextOffset));
-    commands::cfunc_reload_skater_cam_anim(params.get(), nullptr);
+    commands::cfunc_reload_skater_cam_anim(params.get(), script::Context());
     params.reset();
     return 1;
 }

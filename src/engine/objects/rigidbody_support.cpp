@@ -24,6 +24,7 @@
 #include "engine/script/host.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/stopwatch.h"
 #include "base/core/checked_index.h"
 #include "base/core/down_cast.h"
@@ -83,7 +84,7 @@ double get_m(const maths::Mat4& matrix, int offset)
 } // namespace
 
 // 0x0042BAC0
-bool cfunc_toggle_rigid_body_debug(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_toggle_rigid_body_debug(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (!objects_shared().rigid_body_draw_shape()) {
         objects_shared().set_rigid_body_draw_shape(true);

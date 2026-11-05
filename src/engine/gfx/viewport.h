@@ -15,8 +15,8 @@ namespace gfx {
 class ViewCam;
 }
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // The engine's viewports (Nx): ten of them (0x00701350, made at start-up), each a rectangle of the screen in
@@ -123,11 +123,11 @@ void pop_occlusion_request();
 
 // 0x004A07D0: Set2DIn3DSpaceParams [0x33AA4915=<f>] [max_scale=<f>] [min_scale=<f>]: the size factor of screen
 // elements placed in 3D (the numerator, its upper and lower bounds). Always true.
-bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* script);
+bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Context context);
 // 0x004A08A0: ScriptGetScreenMode: screen_mode=<the mode's name> added to the script's parameters. Always true.
-bool cfunc_script_get_screen_mode(script::Struct* params, script::Script* script);
+bool cfunc_script_get_screen_mode(script::Struct* params, script::Context context);
 // 0x004A0C20: SetScreenMode <mode name>: an unknown name changes nothing. Always true.
-bool cfunc_set_screen_mode(script::Struct* params, script::Script* script);
+bool cfunc_set_screen_mode(script::Struct* params, script::Context context);
 
 // The split-screen modes' viewport maps: four viewport numbers per mode (-1: none).
 inline constexpr std::array<int, 24> kModeMaps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};

@@ -22,6 +22,7 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/params.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
@@ -693,7 +694,7 @@ const char* archive_name(script::Struct* params)
 } // namespace
 
 // 0x005B9470: LoadPreFile <name> [flags]
-bool cfunc_load_pre_file(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_pre_file(script::Struct* params, script::Context /*context*/)
 {
     const char* name = archive_name(params);
     ArchiveManager* manager = sole();
@@ -707,7 +708,7 @@ bool cfunc_load_pre_file(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005B9600: UnloadPreFile <name> [dont_assert]
-bool cfunc_unload_pre_file(script::Struct* params, script::Script* /*script*/)
+bool cfunc_unload_pre_file(script::Struct* params, script::Context /*context*/)
 {
     ArchiveManager* manager = sole();
     const char* name = archive_name(params);
@@ -716,20 +717,20 @@ bool cfunc_unload_pre_file(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005B8160: IsLoadPreFinished <name>
-bool cfunc_is_load_pre_finished(script::Struct* params, script::Script* /*script*/)
+bool cfunc_is_load_pre_finished(script::Struct* params, script::Context /*context*/)
 {
     ArchiveManager* manager = sole();
     return manager->has_finished_loading(archive_name(params));
 }
 
 // 0x005B8190: AllLoadPreFinished
-bool cfunc_all_load_pre_finished(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_all_load_pre_finished(script::Struct* /*params*/, script::Context /*context*/)
 {
     return sole()->queued_archive_count() == 0;
 }
 
 // 0x005B81B0: WaitLoadPre <name>
-bool cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
+bool cfunc_wait_load_pre(script::Struct* params, script::Context /*context*/)
 {
     ArchiveManager* manager = sole();
     const char* name = archive_name(params);
@@ -740,7 +741,7 @@ bool cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
 }
 
 // 0x005B8200: WaitAllLoadPre
-bool cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Context /*context*/)
 {
     const ArchiveManager* manager = sole();
     while (manager->queued_archive_count() != 0) {
@@ -750,7 +751,7 @@ bool cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script* /*scrip
 }
 
 // 0x005B8720: InPreFile <name> - whether the archive is loaded
-bool cfunc_in_pre_file(script::Struct* params, script::Script* /*script*/)
+bool cfunc_in_pre_file(script::Struct* params, script::Context /*context*/)
 {
     return sole()->is_loaded(archive_name(params));
 }
