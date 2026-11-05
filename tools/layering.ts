@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the source's layering rule (docs/architecture.md "Layers"): the named views of in-memory layouts
 // (raw::as / field_at / bytes / chars / owner_of, cell::of / pointer / address / at_address, memory::bits_as,
 // function_at, library_function) belong to the boundary layer only - src/formats, src/wire, src/platform, the GPU
-// buffers (render_d3d9/vertex_buffers, engine/gfx/vertex_view.h), Direct3D's matrices (render_d3d9/d3d_matrix.h) and
+// buffers (render_d3d9/vertex_buffers, engine/gfx/vertex_view.h) and
 // the QB bytecode readers until the script runtime is replaced. Anywhere else a use is an error: a layout to be given
 // its type, or data from outside to decode at the boundary.
 //   node tools/layering.ts            each use outside the boundary (none allowed)
@@ -28,8 +28,6 @@ const BOUNDARY_FILES = new Set([
     "src/render_d3d9/d3d9_handles.h",
     "src/engine/gfx/gpu_handles.h",
     "src/engine/gfx/vertex_view.h",
-    // Direct3D's matrices over the game's (once in platform/)
-    "src/render_d3d9/d3d_matrix.h",
     // Dear ImGui's texture ids over Direct3D's textures (once in platform/)
     "src/render_d3d9/imgui_texture_id.h",
     // D3DX's buffers over the callers' out-parameters (once in platform/)

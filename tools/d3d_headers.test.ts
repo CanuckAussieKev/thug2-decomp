@@ -15,7 +15,6 @@ const SRC = join(ROOT, "src");
 const DIRECT3D_HEADERS = new Set([
     "render_d3d9/d3d9_state.h",
     "render_d3d9/d3d9_handles.h",
-    "render_d3d9/d3d_matrix.h",
     "render_d3d9/imgui_texture_id.h",
 ]);
 
