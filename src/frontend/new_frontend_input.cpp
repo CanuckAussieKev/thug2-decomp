@@ -15,7 +15,8 @@
 #include <SDL2/SDL.h>
 #include <utility>
 #include "game/front_end/front_end.h"
-#include "frontend/mouse_menus.h"
+#include "engine/ui/menu_reading.h"
+#include "game/front_end/menu_pad_event.h"
 #include "frontend/new_frontend_draw.h"
 #include "frontend/new_frontend_game.h"
 #include "frontend/new_frontend_mirror.h"
@@ -53,7 +54,7 @@ struct StepContext {
 int read_selection(void* /*unused*/)
 {
     const UiWidget* menu = active_menu();
-    return menu ? mouse_menus::selected_index(menu) : -1;
+    return menu ? menu_reading::selected_index(menu) : -1;
 }
 void send_step(void* context, int direction)
 {
@@ -61,7 +62,7 @@ void send_step(void* context, int direction)
     const uint32_t sideways_event = direction < 0 ? modules::FrontEnd::kPadLeft : modules::FrontEnd::kPadRight;
     const uint32_t vertical_event = direction < 0 ? modules::FrontEnd::kPadUp : modules::FrontEnd::kPadDown;
     const uint32_t event = step->horizontal ? sideways_event : vertical_event;
-    mouse_menus::send_menu_pad_event(step->front_end_, event);
+    modules::send_menu_pad_event(step->front_end_, event);
 }
 bool step_to(modules::FrontEnd* front_end, int row)
 {
@@ -75,7 +76,7 @@ bool step_to(modules::FrontEnd* front_end, int row)
         return false; // (a row of a menu not taking the pad: the story's other stats column)
     }
     StepContext context{.front_end_ = front_end, .horizontal = v.horizontal};
-    mouse_menus::step_selection(target, mouse_menus::child_count(menu), mouse_menus::menu_wraps(menu), read_selection,
+    menu_reading::step_selection(target, menu_reading::child_count(menu), menu_reading::menu_wraps(menu), read_selection,
                                 send_step, &context);
     return read_selection(nullptr) == target;
 }
@@ -99,16 +100,16 @@ void choose_key(modules::FrontEnd* front_end, KeyPlace key)
         }
         const mirror::MenuRead now = read_keyboard(active);
         if (now.key_row_ != row) {
-            mouse_menus::send_menu_pad_event(front_end, now.key_row_ < row ? modules::FrontEnd::kPadDown
+            modules::send_menu_pad_event(front_end, now.key_row_ < row ? modules::FrontEnd::kPadDown
                                                                            : modules::FrontEnd::kPadUp);
             continue;
         }
         if (now.key_col_ != col) {
-            mouse_menus::send_menu_pad_event(front_end, now.key_col_ < col ? modules::FrontEnd::kPadRight
+            modules::send_menu_pad_event(front_end, now.key_col_ < col ? modules::FrontEnd::kPadRight
                                                                            : modules::FrontEnd::kPadLeft);
             continue;
         }
-        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
+        modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
         return;
     }
 }
@@ -133,7 +134,7 @@ bool step_to_stat(modules::FrontEnd* front_end, int row)
         return step_to(front_end, row);
     }
     if (v.selected >= 0) {
-        mouse_menus::send_menu_pad_event(front_end, row_ref.stat_column_ < core::at(v.rows, v.selected).stat_column_
+        modules::send_menu_pad_event(front_end, row_ref.stat_column_ < core::at(v.rows, v.selected).stat_column_
                                                         ? modules::FrontEnd::kPadLeft
                                                         : modules::FrontEnd::kPadRight);
     }
@@ -150,7 +151,7 @@ void stats_click(modules::FrontEnd* front_end, const paint::Hit& hit)
     if (hit.kind == paint::Hit::Kind::kItem) {
         const bool was_selected = hit.index == v.selected;
         if (step_to_stat(front_end, hit.index) && was_selected && story) {
-            mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
+            modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
         }
         return;
     }
@@ -158,9 +159,9 @@ void stats_click(modules::FrontEnd* front_end, const paint::Hit& hit)
         return;
     }
     if (story && !v.stats_editing_) {
-        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
+        modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
     }
-    mouse_menus::send_menu_pad_event(front_end, hit.index % kChoicesPerRow == 0 ? modules::FrontEnd::kPadLeft
+    modules::send_menu_pad_event(front_end, hit.index % kChoicesPerRow == 0 ? modules::FrontEnd::kPadLeft
                                                                     : modules::FrontEnd::kPadRight);
 }
 
@@ -239,7 +240,7 @@ void click_item(const MouseMirror& mouse, const paint::Hit* hit, const input::Ev
         } else if (side > 0) {
             event = modules::FrontEnd::kPadRight;
         }
-        mouse_menus::send_menu_pad_event(front_end, event);
+        modules::send_menu_pad_event(front_end, event);
     }
 }
 
@@ -249,7 +250,7 @@ bool mirror_click(const MouseMirror& mouse, const input::Event& widget)
 {
     modules::FrontEnd* front_end = mouse.front_end;
     if (widget.button == input::kMouseRight) {
-        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
+        modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
         return false;
     }
     if (widget.button != input::kMouseLeft) {
@@ -261,7 +262,7 @@ bool mirror_click(const MouseMirror& mouse, const input::Event& widget)
         return false;
     }
     if (hit->kind == paint::Hit::Kind::kBack) {
-        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
+        modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
     } else if (mouse.stats) {
         stats_click(front_end, *hit);
     } else if (hit->kind == paint::Hit::Kind::kStageMap &&

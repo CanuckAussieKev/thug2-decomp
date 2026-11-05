@@ -17,7 +17,7 @@
 #include <utility>
 #include <array>
 #include "game/front_end/front_end.h"
-#include "frontend/mouse_menus.h"
+#include "engine/ui/menu_reading.h"
 #include "frontend/new_frontend_game.h"
 #include "frontend/new_frontend_mirror.h"
 #include "frontend/new_frontend_text.h"
@@ -166,8 +166,8 @@ UiWidget* active_menu(bool* in_dialog, bool coming)
         }
         const bool here = top.in_dialog_ || id_of_element(widget) == kDialogContainer;
         top.element = get_next(widget);
-        if (mouse_menus::is_menu(widget) &&
-            (coming ? get_visible(widget) : mouse_menus::menu_gets_pad_events(widget))) {
+        if (menu_reading::is_menu(widget) &&
+            (coming ? get_visible(widget) : menu_reading::menu_takes_pad_events(widget))) {
             found = widget;
             if (here) {
                 dialog = widget;
@@ -375,7 +375,7 @@ mirror::ItemRead read_menu_item(const UiWidget* child, bool skaters, bool select
 {
     mirror::ItemRead item;
     item.id = id_of_element(child);
-    item.focusable = mouse_menus::item_focusable(child);
+    item.focusable = menu_reading::item_focusable(child);
     collect_texts(child, &item.texts, {}, &budget, false);
     if (!skaters && !selected) {
         int sprite_budget = kSpriteBudget;
@@ -486,8 +486,8 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     read.found = true;
     read.menu_id_ = id_of_element(menu);
     read.menu_key_ = menu;
-    read.vertical = mouse_menus::menu_runs_top_to_bottom(menu);
-    read.selected_index_ = mouse_menus::selected_index(menu);
+    read.vertical = menu_reading::menu_runs_top_to_bottom(menu);
+    read.selected_index_ = menu_reading::selected_index(menu);
     read.in_dialog_ = in_dialog;
     read.in_level_ = !in_front_end();
     read.graphic_editor_ = script::fetch_int_value("EG_in_create_a_graphic") == 1;
@@ -614,7 +614,7 @@ mirror::MenuRead read_stats(UiWidget* active)
     for (size_t column = 0; column < menus.size(); ++column) {
         const UiWidget* menu = core::at(menus, column);
         const bool takes_pad = menu == active && (editing == nullptr);
-        const int selected = takes_pad ? mouse_menus::selected_index(menu) : -1;
+        const int selected = takes_pad ? menu_reading::selected_index(menu) : -1;
         int index = 0;
         for (const UiWidget* child = first_child(menu); child && index < kMaxKeyboardChildren; child = get_next(child), ++index) {
             const int stat = stat_row_index(id_of_element(child));
@@ -623,7 +623,7 @@ mirror::MenuRead read_stats(UiWidget* active)
             }
             mirror::ItemRead item;
             item.id = id_of_element(child);
-            item.focusable = mouse_menus::item_focusable(child);
+            item.focusable = menu_reading::item_focusable(child);
             item.stat_index_ = stat;
             item.stat_column_ = static_cast<int>(column);
             item.stat_child_ = takes_pad ? index : -1;
@@ -839,7 +839,7 @@ mirror::MenuRead read_keyboard(UiWidget* active)
         }
         if (child == active) {
             read.key_row_ = row;
-            read.key_col_ = mouse_menus::selected_index(active);
+            read.key_col_ = menu_reading::selected_index(active);
         }
         read.keys.push_back(std::move(key_row));
         ++row;

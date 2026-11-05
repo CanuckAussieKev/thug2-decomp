@@ -20,7 +20,7 @@
 #include "game/front_end/front_end.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_layout.h"
-#include "frontend/mouse_menus.h"
+#include "game/front_end/menu_pad_event.h"
 #include "devtools/test_view.h"
 #include "engine/gfx/screen.h"
 #include "engine/objects/entity.h"
@@ -221,7 +221,7 @@ void edit_update(modules::FrontEnd* front_end)
         }
         // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
         get_log("edit level: %s is up - pausing (Start) to open the level editor", get_requested());
-        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
+        modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
         ++edit_start().presses_;
         edit_start().edit_ = Edit::kWaitPause;
         edit_start().edit_frames_ = 0;
@@ -246,7 +246,7 @@ void edit_update(modules::FrontEnd* front_end)
             edit_start().edit_ = Edit::kDone;
             return;
         }
-        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
+        modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
         ++edit_start().presses_;
         edit_start().edit_frames_ = 0;
         return;

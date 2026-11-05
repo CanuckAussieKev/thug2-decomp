@@ -1,6 +1,5 @@
 # The level editor (src/editor): the in-game level editor and its Dear ImGui UI - an extension the app registers
-# (ext::Extension); its own exe will link it too. It includes the game and below (tools/layers.ts checks it), plus the
-# front end's mouse menus until the editor / front end API (tools/layers_baseline.txt).
+# (ext::Extension); its own exe will link it too. It includes the game and below (tools/layers.ts checks it).
 add_library(thug2_editor STATIC
     level_editor.cpp
     level_editor_api.cpp
@@ -108,5 +107,3 @@ add_library(thug2_editor STATIC
 )
 # imgui: the editor's UI (level_editor_ui_theme.h includes it)
 target_link_libraries(thug2_editor PUBLIC thug2_game imgui)
-# The sibling edge tools/layers_baseline.txt lists (editor -> frontend: the mouse menus).
-target_link_libraries(thug2_editor PRIVATE thug2_frontend)

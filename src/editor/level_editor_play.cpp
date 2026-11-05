@@ -11,7 +11,7 @@
 #include "base/core/checksums.h"
 #include "game/front_end/front_end.h"
 #include "editor/level_editor_layout.h"
-#include "frontend/mouse_menus.h"
+#include "game/front_end/menu_pad_event.h"
 #include "engine/gfx/screen.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -184,7 +184,7 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
     get_log("level editor: back to the editor (the play key) - pausing");
-    mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
+    modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
     play_start().phase_ = Phase::kWaitPause;
     play_start().frames_ = 0;
 }

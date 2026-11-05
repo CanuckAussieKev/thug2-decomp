@@ -15,6 +15,7 @@ add_library(thug2_game STATIC
     park_editing/gap_slots.cpp
     park_editing/piece_menu.cpp
     front_end/front_end.cpp
+    front_end/menu_pad_event.cpp
     commands/career_complete.cpp
     commands/node_hooks.cpp
     skate/edited_copy_career.cpp

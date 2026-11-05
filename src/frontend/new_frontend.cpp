@@ -30,6 +30,8 @@
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_ui_backend.h"
 #include "frontend/mouse_menus.h"
+#include "engine/ui/menu_reading.h"
+#include "game/front_end/menu_pad_event.h"
 #include "frontend/new_frontend_draw.h"
 #include "frontend/new_frontend_game.h"
 #include "frontend/new_frontend_mirror.h"
@@ -717,7 +719,7 @@ mirror::View mirror_now()
     }
     s_last_menu = menu_id;
     {
-        const int selected = mouse_menus::selected_index(menu);
+        const int selected = menu_reading::selected_index(menu);
         const UiWidget* item = first_child(menu);
         for (int i = 0; item && i < selected; ++i) {
             item = get_next(item);
@@ -1071,7 +1073,7 @@ void edit_update(modules::FrontEnd* front_end, float dt)
             return;
         }
         // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
-        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
+        modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
         ++edit_session().edit_presses_;
         edit_session().edit_ = Edit::kWaitPause;
         edit_session().edit_frames_ = 0;
@@ -1080,7 +1082,7 @@ void edit_update(modules::FrontEnd* front_end, float dt)
     // (kWaitPause) the pause menu up with its LEVEL EDITOR: chosen.
     if (!get_paused()) {
         if (++edit_session().edit_frames_ >= kEditPauseMenuFrames && edit_session().edit_presses_ < 3) {
-            mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
+            modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
             ++edit_session().edit_presses_;
             edit_session().edit_frames_ = 0;
         }

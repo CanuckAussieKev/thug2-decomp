@@ -24,6 +24,8 @@
 #include "game/front_end/front_end.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
+#include "engine/ui/menu_reading.h"
+#include "game/front_end/menu_pad_event.h"
 #include "devtools/start_level.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "game/online/gamenet_manager.h"
@@ -266,9 +268,9 @@ std::string get_name_of(uint32_t checksum)
 
 namespace {
 
-using mouse_menus::child_count;
-using mouse_menus::is_menu;
-using mouse_menus::selected_index;
+using menu_reading::child_count;
+using menu_reading::is_menu;
+using menu_reading::selected_index;
 
 } // namespace
 namespace internal {
@@ -488,7 +490,7 @@ bool main_menu_up()
     }
     ElementPtr holder;
     UiWidget* menu = find_element(kMainVMenu, &holder);
-    return (menu != nullptr) && is_menu(menu) && mouse_menus::menu_gets_pad_events(menu);
+    return (menu != nullptr) && is_menu(menu) && menu_reading::menu_takes_pad_events(menu);
 }
 
 } // namespace
@@ -706,11 +708,11 @@ int read_target(void* /*context*/) { return target_menu() ? selected_index(targe
 void send_step(void* context, int direction)
 {
     auto* front_end = static_cast<modules::FrontEnd*>(context);
-    const bool vertical = target_menu() && mouse_menus::menu_runs_top_to_bottom(target_menu().get_pull());
+    const bool vertical = target_menu() && menu_reading::menu_runs_top_to_bottom(target_menu().get_pull());
     const uint32_t vertical_event = direction < 0 ? modules::FrontEnd::kPadUp : modules::FrontEnd::kPadDown;
     const uint32_t sideways_event = direction < 0 ? modules::FrontEnd::kPadLeft : modules::FrontEnd::kPadRight;
     const uint32_t event = vertical ? vertical_event : sideways_event;
-    mouse_menus::send_menu_pad_event(front_end, event);
+    modules::send_menu_pad_event(front_end, event);
 }
 
 // Whether the front end drops menu pad events now (as input_logic / send_menu_pad_event check): the first controller's
@@ -746,7 +748,7 @@ bool menus_ignore_pad(modules::FrontEnd* front_end)
             continue;
         }
         any_menu = true;
-        if (mouse_menus::menu_gets_pad_events(element)) {
+        if (menu_reading::menu_takes_pad_events(element)) {
             return false;
         }
     }
@@ -838,8 +840,8 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
     const UiWidget* current = child_at(menu, selected_index(menu));
     // (nothing sent while the menu doesn't take pad events, the front end blocks menu input - SetButtonEventMappings
     // block_menu_input, TemporarilyDisableInput - or the menu is on an item it passes over by itself)
-    const bool wait = !mouse_menus::menu_gets_pad_events(menu) || menu_input_blocked(front_end) ||
-                      ((current != nullptr) && mouse_menus::item_passed_over(current)) ||
+    const bool wait = !menu_reading::menu_takes_pad_events(menu) || menu_input_blocked(front_end) ||
+                      ((current != nullptr) && menu_reading::item_passed_over(current)) ||
                       (loading_screen_up() && !get_timed_out(runner, kPressWaitSeconds));
     if (wait && get_timed_out(runner, runner.command.seconds)) {
         get_fail(runner, "its menu " + get_name_of(ident_no(menu)) + " didn't take pad events", false);
@@ -850,16 +852,16 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
             return;
         }
         target_menu().assign_value(menu);
-        runner.target = mouse_menus::start_target(index, child_count(menu), mouse_menus::menu_wraps(menu));
+        runner.target = menu_reading::start_target(index, child_count(menu), menu_reading::menu_wraps(menu));
         runner.target_set_ = true;
     }
     runner.target.count = child_count(menu);
-    const mouse_menus::TargetState state =
-        mouse_menus::advance_target(runner.target, wait, read_target, send_step, front_end);
-    if (state == mouse_menus::TargetState::kMoving) {
+    const menu_reading::TargetState state =
+        menu_reading::advance_target(runner.target, wait, read_target, send_step, front_end);
+    if (state == menu_reading::TargetState::kMoving) {
         return;
     }
-    if (state == mouse_menus::TargetState::kGaveUp) {
+    if (state == menu_reading::TargetState::kGaveUp) {
         get_fail(runner, "its menu's selection didn't get to it", false);
         return;
     }
@@ -867,7 +869,7 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
         return; // (there - the choose waits for the menu to take it)
     }
     if (choose) {
-        mouse_menus::send_menu_pad_event(front_end, kPadChoose);
+        modules::send_menu_pad_event(front_end, kPadChoose);
     }
     get_finish(runner, "ok");
 }

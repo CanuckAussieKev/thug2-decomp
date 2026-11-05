@@ -14,7 +14,6 @@
 #include <vector>
 #include <SDL2/SDL.h>
 #include "game/front_end/front_end.h"
-#include "frontend/mouse_menus.h"
 #include "frontend/new_frontend_draw.h"
 #include "frontend/new_frontend_game.h"
 #include "frontend/new_frontend_mirror.h"

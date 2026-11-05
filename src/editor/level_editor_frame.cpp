@@ -34,7 +34,7 @@
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8.h"
 #include "editor/level_editor_ux9.h"
-#include "frontend/mouse_menus.h"
+#include "engine/ui/menu_reading.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -400,8 +400,8 @@ void cast_mouse_ray(EditorFrame& editor_frame)
     back_y = 0.0F;
     if (drawn_view().have_view_ && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
         (ui::mouse_to_editor() || pad_cursor)) {
-        const mouse_menus::ScreenMapping mapping =
-            mouse_menus::current_mapping({.width = input.window_width_, .height = input.window_height_});
+        const menu_reading::ScreenMapping mapping =
+            menu_reading::current_mapping({.width = input.window_width_, .height = input.window_height_});
         back_x = static_cast<float>(static_cast<double>(input.x) * mapping.back_buffer_width_ / input.window_width_);
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
         float nx = 0.0F;

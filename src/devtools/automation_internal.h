@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 #include "game/front_end/front_end.h"
-#include "frontend/mouse_menus.h" // IWYU pragma: export - the pieces use it through this header
+#include "engine/ui/menu_reading.h"
 #include "frontend/new_frontend.h" // IWYU pragma: export - the pieces use it through this header
 #include "engine/ui/screen_element.h"
 #include "devtools/start_level.h"
@@ -91,7 +91,7 @@ struct Runner {
     DWORD started = 0;
     int counter = 0;
     int phase = 0;
-    mouse_menus::Target target = {};
+    menu_reading::Target target = {};
     bool target_set_ = false;
     // the button held (port 0)
     const Button* held = nullptr;
