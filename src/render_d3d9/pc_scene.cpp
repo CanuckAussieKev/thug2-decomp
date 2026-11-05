@@ -1,11 +1,6 @@
 // The PC scene and sector, the PC screen effects: see pc_scene.h.
 
 #include "render_d3d9/pc_scene.h"
-#include "render_d3d9/d3d9_handles.h"
-
-#include <windows.h>
-
-#include <d3d9.h>
 
 #include <bit>
 #include <cstdint>
@@ -34,7 +29,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/effects_state.h"
 
 namespace render {
@@ -147,9 +142,8 @@ void PcScene::post_load(void* arena_word)
     lists::KeyMap* table = sectors();
     void* sector = first_sector(table);
     if (arena) {
-        d3d9::state().d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                         d3d9::out(&arena->buffer), nullptr);
-        d3d9::object(arena->buffer)->Lock(0, 0, &arena->data, 0);
+        gpu().create_vertex_buffer(arena->size, gpu_value::kUsageWriteOnly, 0, gpu_value::kPoolDefault, &arena->buffer);
+        gpu().lock_vertex_buffer(arena->buffer, 0, 0, &arena->data, 0);
         arena->used = 0;
         meshes_->set_arena_buffer(arena->buffer);
         meshes_->set_unknown80(arena->size);
@@ -160,7 +154,7 @@ void PcScene::post_load(void* arena_word)
         geom->add_to_mesh_list(true);
     }
     if (arena) {
-        d3d9::object(arena->buffer)->Unlock();
+        gpu().unlock_vertex_buffer(arena->buffer);
         arena->data = nullptr;
     }
     meshes_->allocate_mesh_list();

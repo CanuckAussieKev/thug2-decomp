@@ -2,10 +2,6 @@
 
 #include "render_d3d9/editor_support.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -24,8 +20,7 @@
 #include "engine/gfx/surface_material.h"
 #include "engine/memory/mem.h"
 #include "platform/crt.h"
-#include "render_d3d9/d3d9_handles.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "render_d3d9/draw_frame.h"
 #include "render_d3d9/geom.h"
 #include "render_d3d9/pc_billboards.h"
@@ -40,13 +35,13 @@ namespace {
 
 uint32_t get_stage_state(int type)
 {
-    DWORD value = 0;
-    d3d9::state().d3d_device()->GetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), &value);
+    uint32_t value = 0;
+    gpu().get_stage_state(0, static_cast<GpuStageState>(type), &value);
     return value;
 }
 void set_stage_state(int type, uint32_t value)
 {
-    d3d9::state().d3d_device()->SetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
+    gpu().set_stage_state(0, static_cast<GpuStageState>(type), value);
 }
 
 } // namespace
@@ -67,8 +62,7 @@ void draw_screen_lines(std::span<const ScreenLineVertex> vertices)
         core::at(saved, i) = get_stage_state(core::at(states, i));
         set_stage_state(core::at(states, i), core::at(values, i));
     }
-    d3d9::state().d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, static_cast<unsigned int>(count / 2), line_data,
-                                                sizeof(ScreenLineVertex));
+    gpu().draw_from_memory(GpuPrimitive::kLineList, static_cast<uint32_t>(count / 2), line_data, sizeof(ScreenLineVertex));
     for (int i = 0; i < 4; ++i) {
         set_stage_state(core::at(states, i), core::at(saved, i));
     }
@@ -136,13 +130,13 @@ void upload_vertex_buffer(VertexBufferData* buffer)
 
 void upload_index_buffer(IndexBufferData* buffer)
 {
-    auto* d3d = d3d9::object(buffer->buffer());
+    GpuIndexBuffer* const index_buffer = buffer->buffer();
     void* locked = nullptr;
-    if (!d3d || FAILED(d3d->Lock(0, 0, &locked, 0))) {
+    if (!index_buffer || gpu().lock_index_buffer(index_buffer, 0, 0, &locked, 0) < 0) {
         return;
     }
     std::memcpy(locked, buffer->indices(), buffer->size());
-    d3d->Unlock();
+    gpu().unlock_index_buffer(index_buffer);
 }
 
 void release_vertex_buffer(gsl::owner<VertexBufferData*> buffer) { static_cast<VertexBuffer*>(buffer)->teardown(); }

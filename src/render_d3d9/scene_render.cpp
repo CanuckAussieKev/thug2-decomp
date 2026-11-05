@@ -3,10 +3,6 @@
 #include "base/core/checked_index.h"
 #include "render_d3d9/scene_render.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -24,7 +20,7 @@
 #include "platform/crt.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/view_setup.h"
 
 namespace render {
@@ -153,20 +149,20 @@ namespace {
 void draw_pass_shadows(SceneRef* scene, Lap& pass)
 {
     if (renderer().z_write() == 1) {
-        render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
+        render::set_render_state(GpuRenderState::kZWriteEnable, 0);
         renderer().set_z_write(0);
     }
-    DWORD min_filter = 0;
-    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    if (min_filter == D3DTEXF_ANISOTROPIC) {
-        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    uint32_t min_filter = 0;
+    gpu().get_sampler_state(0, GpuSamplerState::kMinFilter, &min_filter);
+    if (min_filter == gpu_value::kFilterAnisotropic) {
+        gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
     }
     draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
-    if (min_filter == D3DTEXF_ANISOTROPIC) {
-        d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+    if (min_filter == gpu_value::kFilterAnisotropic) {
+        gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterAnisotropic);
     }
     if (renderer().z_write() == 0U) {
-        render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
+        render::set_render_state(GpuRenderState::kZWriteEnable, 1);
         renderer().set_z_write(1);
     }
 }

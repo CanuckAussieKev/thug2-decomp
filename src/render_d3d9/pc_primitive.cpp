@@ -2,10 +2,6 @@
 
 #include "render_d3d9/pc_primitive.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstdint>
 #include <span>
 #include <cstring>
@@ -20,7 +16,6 @@
 #include "render_d3d9/render_state.h"
 #include "render_d3d9/simple_material.h"
 #include "engine/gfx/gpu_handles.h"
-#include "render_d3d9/d3d9_handles.h"
 #include "render_d3d9/dynamic_vertices.h"
 #include "render_d3d9/shader_slots.h"
 #include "platform/crt.h"
@@ -28,7 +23,7 @@
 #include "base/core/checked_index.h"
 #include "render_d3d9/pc_texture.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "base/core/packed_colour.h"
 #include "base/maths/vec2.h"
 #include "base/maths/vec4.h"
@@ -146,19 +141,19 @@ void PcPrimitive::render()
     void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, {.first_vertex_ = &first_vertex, .room = &room});
     std::memcpy(out, vertices_, static_cast<uint32_t>(vertex_count_ * stride_));
     os_layer::unlock_dynamic_vertices(vertex_count_, stride_);
-    d3d9::state().d3d_device()->SetStreamSource(0, d3d9::object(buffer), 0, stride_);
+    gpu().set_stream_source(0, buffer, 0, stride_);
     int primitives = 0;
     if (type_ == 0) {
         primitives = vertex_count_ / 2;
-        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, primitives);
+        gpu().draw(GpuPrimitive::kLineList, first_vertex, static_cast<uint32_t>(primitives));
     } else if (type_ == 2) {
         primitives = vertex_count_ / 3;
-        d3d9::state().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, primitives);
+        gpu().draw(GpuPrimitive::kTriangleList, first_vertex, static_cast<uint32_t>(primitives));
     } else {
-        d3d9::state().d3d_device()->SetIndices(d3d9::object(quad_index_buffer()));
+        gpu().set_indices(quad_index_buffer());
         primitives = vertex_count_ / 2;
-        d3d9::state().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertex_count_, 0,
-                                           primitives);
+        gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0,
+                           static_cast<uint32_t>(vertex_count_), 0, static_cast<uint32_t>(primitives));
     }
     renderer().count_draw(primitives);
 }
@@ -397,26 +392,26 @@ void set_primitive_depth_test(DepthTest depth_test)
 {
     const auto state = depth_test.state;
     const auto value = depth_test.value;
-    DWORD function = D3DCMP_LESSEQUAL;
+    uint32_t function = gpu_value::kCompareLessEqual;
     if (state == 1) {
         switch (value) {
         case 1:
-            function = D3DCMP_NEVER;
+            function = gpu_value::kCompareNever;
             break;
         case 2:
-            function = D3DCMP_ALWAYS;
+            function = gpu_value::kCompareAlways;
             break;
         case 3:
-            function = D3DCMP_LESSEQUAL;
+            function = gpu_value::kCompareLessEqual;
             break;
         case 4:
-            function = D3DCMP_LESS;
+            function = gpu_value::kCompareLess;
             break;
         default:
             break;
         }
     }
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZFUNC, function);
+    gpu().set_render_state(GpuRenderState::kZFunc, function);
 }
 
 } // namespace render

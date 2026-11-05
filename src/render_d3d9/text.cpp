@@ -17,7 +17,6 @@
 #include <gsl/assert>
 
 #include "base/core/cursor.h"
-#include "render_d3d9/d3d9_handles.h"
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
@@ -35,7 +34,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/rect.h"
@@ -472,8 +471,7 @@ namespace {
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    d3d9::state().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
-                                       static_cast<DWORD>(value));
+    gpu().set_stage_state(static_cast<uint32_t>(stage), static_cast<GpuStageState>(type), static_cast<uint32_t>(value));
 }
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
@@ -538,11 +536,12 @@ void GlyphRun::close_sketch()
     set_texture_stage_state(1, 1, 1);      // stage 1 off
     set_vertex_format(kScreenVertexFormat);              // position (pre-transformed), colour, one texture coordinate
     set_texture(0, texture_font->texture()); // (the original also passes unknown17c_, which SetTexture doesn't take)
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    gpu().set_render_state(GpuRenderState::kCullMode, gpu_value::kCullNone);
     if (!engine_parts().suppress_draw()) {                                                      // (rendering not skipped)
         renderer().count_draw(count / 2); // the frame's draw calls and triangles
-        d3d9::state().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices().data(), D3DFMT_INDEX16,
-                                             vertex_store().data(), sizeof(TextVertex));
+        gpu().draw_indexed_from_memory(GpuPrimitive::kTriangleList, 0, static_cast<uint32_t>(count),
+                                       static_cast<uint32_t>(count / 2), quad_indices().data(),
+                                       gpu_value::kFormatIndex16, vertex_store().data(), sizeof(TextVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour and alpha back to texture x diffuse
     set_texture_stage_state(0, 4, 4);
@@ -656,11 +655,16 @@ TypefaceData* TypefaceData::read_in(const char* name)
     if (hd_scale != 1) {
         hd_ui::note_font(name, hd_scale, width, height);
     }
-    IDirect3DTexture9* texture = nullptr;
-    const HRESULT created =
-        d3d9::state().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
-    font->texture_ = d3d9::handle(texture);
-    if (created != D3D_OK) {
+    GpuTexture* texture = nullptr;
+    const long created = gpu().create_texture({.width = width,
+                                               .height = height,
+                                               .levels = 1,
+                                               .usage = 0,
+                                               .format = gpu_value::kFormatA8R8G8B8,
+                                               .pool = gpu_value::kPoolManaged},
+                                              &texture);
+    font->texture_ = texture;
+    if (created != gpu_value::kResultOk) {
         return nullptr;
     }
     // (not original - both buffers owned: the original left them allocated when the texture couldn't be locked)
@@ -690,12 +694,12 @@ TypefaceData* TypefaceData::read_in(const char* name)
         // palette indices -> colours
         os_layer::expand_palette(pixels, indices.get(), static_cast<int>(size), palette.data());
     }
-    D3DLOCKED_RECT locked;
-    if (texture->LockRect(0, &locked, nullptr, 0) != D3D_OK) {
+    GpuLockedRect locked;
+    if (gpu().lock_texture(texture, 0, &locked, nullptr, 0) != gpu_value::kResultOk) {
         return nullptr;
     }
-    std::memcpy(locked.pBits, pixels, size * 4);
-    texture->UnlockRect(0);
+    std::memcpy(locked.bits, pixels, size * 4);
+    gpu().unlock_texture(texture, 0);
     indices.reset();
     game_pixels.reset();
 

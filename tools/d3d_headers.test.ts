@@ -121,6 +121,12 @@ const THROUGH_GPU = [
     "render_d3d9/d3d9_device.cpp",
     "render_d3d9/graphics_options_d3d.cpp",
     "render_d3d9/pc_d3d_resources.cpp",
+    // V5e: text and 2D, the scene's arena, the loading screen
+    "render_d3d9/text.cpp",
+    "render_d3d9/pc_scene.cpp",
+    "render_d3d9/scene_render.cpp",
+    "render_d3d9/pc_primitive.cpp",
+    "render_d3d9/editor_support.cpp",
 ];
 
 // render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs
