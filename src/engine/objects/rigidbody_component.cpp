@@ -524,8 +524,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     params->fetch_float(kCoeffRestitution, &response_.restitution, 0); // coeff_restitution
     params->fetch_float(kCoeffFriction, &response_.friction, 0);       // coeff_friction
     params->fetch_float(kSpringConst, &response_.spring_const, 0);     // spring_const
-    params->fetch_float(kLinearDamping, &unknown38_, 0);
-    params->fetch_float(kAngularDamping, &unknown3c_, 0);
+    params->fetch_float(kLinearDamping, &damping_.linear, 0);
+    params->fetch_float(kAngularDamping, &damping_.angular, 0);
     if (params->has_entry_named(kLinearVelocitySleepPoint)) { // linear_velocity_sleep_point
         params->fetch_float(kLinearVelocitySleepPoint, &linear_sleep_squared_, 0);
         linear_sleep_squared_ = linear_sleep_squared_ * linear_sleep_squared_;
@@ -835,8 +835,8 @@ void BodyDynamicsModule::check_layout()
         FieldAt{.now = offsetof(BodyDynamicsModule, response_.restitution), .original = 0x2C},
         FieldAt{.now = offsetof(BodyDynamicsModule, response_.friction), .original = 0x30},
         FieldAt{.now = offsetof(BodyDynamicsModule, response_.spring_const), .original = 0x34},
-        FieldAt{.now = offsetof(BodyDynamicsModule, unknown38_), .original = 0x38},
-        FieldAt{.now = offsetof(BodyDynamicsModule, unknown3c_), .original = 0x3C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, damping_.linear), .original = 0x38},
+        FieldAt{.now = offsetof(BodyDynamicsModule, damping_.angular), .original = 0x3C},
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_radius_), .original = 0x40},
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_application_radius_), .original = 0x44},
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_assent_cos_), .original = 0x48},

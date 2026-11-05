@@ -261,8 +261,8 @@ double magnitude_squared(const maths::Vec4& v)
 // 0x0042C6D0
 void BodyDynamicsModule::damp()
 {
-    get_slow(vel_, unknown38_);
-    get_slow(rot_vel_, unknown3c_);
+    get_slow(vel_, damping_.linear);
+    get_slow(rot_vel_, damping_.angular);
 }
 
 // 0x0042C890 (the comparisons let a not-a-number speed through)

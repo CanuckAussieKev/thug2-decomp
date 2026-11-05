@@ -270,11 +270,16 @@ private:
         float spring_const{kDefaultSpringConst}; // +0x08 (+0x34) spring_const (10): the contacts' depth and springs
     };
 
+    // The damping (+0x38-+0x3F: configure_from_data, damp): a speed taken off each frame.
+    struct Damping {
+        float linear{};  // +0x00 (+0x38) (0xDE76C3A7)
+        float angular{}; // +0x04 (+0x3C) (0x9DA897CF)
+    };
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     Response response_;                // +0x2C-+0x37 the response to its contacts
-    float unknown38_{};                // +0x38 (0xDE76C3A7): the linear damping (0x0042C6D0)
-    float unknown3c_{};                // +0x3C (0x9DA897CF): the angular damping (0x0042C6D0)
+    Damping damping_;                  // +0x38-+0x3F the damping
     float skater_radius_{kDefaultSkaterRadius};       // +0x40 skater_collision_radius (48)
     float skater_application_radius_{kDefaultSkaterApplicationRadius}; // +0x44 skater_collision_application_radius (12)
     float skater_assent_cos_;          // +0x48 skater_collision_assent (25 degrees)
