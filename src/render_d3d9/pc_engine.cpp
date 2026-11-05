@@ -6,9 +6,6 @@
 
 #include <windows.h>
 
-#include <d3d9.h>
-
-
 #include <cstdint>
 #include <cstdio>
 #include <memory>
@@ -40,7 +37,7 @@
 #include "engine/file/disk.h"
 #include "base/core/format.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
@@ -71,7 +68,7 @@ uint32_t back_buffer_fill()
 }
 
 // D3DX (linked library code): a surface written to an image file (format 1: JPEG).
-long save_surface_to_file(const char* file, IDirect3DSurface9* surface)
+long save_surface_to_file(const char* file, GpuSurface* surface)
 {
     return d3dx::save_surface_to_jpg(file, surface);
 }
@@ -87,7 +84,7 @@ void begin_frame_draw()
     if (engine_parts().loading_screen_up()) {
         return;
     }
-    d3d9::state().d3d_device()->BeginScene();
+    gpu().begin_scene();
 }
 
 // 0x004B22B0
@@ -116,14 +113,13 @@ void screen_shot(const char* name, int /*unused*/)
             text::format_to(file, "%s%03d.jpg", name, number);
         }
     }
-    D3DDISPLAYMODE mode;
-    d3d9::state().d3d_device()->GetDisplayMode(0, &mode);
-    IDirect3DSurface9* surface = nullptr;
-    d3d9::state().d3d_device()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
-                                              nullptr);
-    d3d9::state().d3d_device()->GetFrontBufferData(0, surface);
+    GpuSize mode;
+    gpu().display_size(&mode);
+    GpuSurface* surface = nullptr;
+    gpu().create_offscreen_surface(mode.width, mode.height, gpu_value::kFormatA8R8G8B8, gpu_value::kPoolScratch, &surface);
+    gpu().read_front_buffer(surface);
     save_surface_to_file(file.data(), surface);
-    surface->Release();
+    gpu().release_surface(surface);
 }
 
 // 0x004B25F0
@@ -141,11 +137,11 @@ void finish_rendering()
     if (engine_parts().loading_screen_up()) {
         return;
     }
-    d3d9::state().d3d_device()->EndScene();
+    gpu().end_scene();
     if (engine_parts().suppress_draw()) {
         return;
     }
-    d3d9::state().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    gpu().present();
     renderer().reset_draw_counts(); // the frame's draw counts
     if (core::at(effects_state().pending_screen_shot(), 0) != '\0') {
         screen_shot(effects_state().pending_screen_shot().data(), 0);
@@ -156,21 +152,21 @@ void finish_rendering()
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (effects_state().screen_blur() != 0) {
         if (!engine_parts().suppress_draw()) {
-            d3d9::state().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
+            gpu().clear(0, nullptr, gpu_value::kClearTarget | gpu_value::kClearDepth, back_buffer_fill(), 1.0F, 0);
         }
         ++effects_state().screen_blur_frames();
         return;
     }
     if (renderer().render_camera().letterbox_active_ != 0U) {
         if (!engine_parts().suppress_draw()) {
-            clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0F, 0);
+            clear_device(0, nullptr, gpu_value::kClearTarget | gpu_value::kClearDepth, 0, 1.0F, 0);
         }
     } else if (renderer().render_camera().clear_colour_and_depth_) {
         if (!engine_parts().suppress_draw()) {
-            clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0F, 0);
+            clear_device(0, nullptr, gpu_value::kClearTarget | gpu_value::kClearDepth, back_buffer_fill(), 1.0F, 0);
         }
     } else if (!engine_parts().suppress_draw()) {
-        clear_device(0, nullptr, D3DCLEAR_ZBUFFER, renderer().render_camera().background_colour_, 1.0F, 0);
+        clear_device(0, nullptr, gpu_value::kClearDepth, renderer().render_camera().background_colour_, 1.0F, 0);
     }
     effects_state().screen_blur_frames() = 0;
 }

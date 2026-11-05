@@ -133,8 +133,10 @@ const THROUGH_GPU = [
     "render_d3d9/bitmap_texture.cpp",
     "render_d3d9/pc_texture.cpp",
     "render_d3d9/texture_file.cpp",
-    // V5e: movies
+    // V5e: movies, the screenshots
     "render_d3d9/movie.cpp",
+    "render_d3d9/screenshot_capture.cpp",
+    "render_d3d9/pc_engine.cpp",
 ];
 
 // render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs

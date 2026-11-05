@@ -8,13 +8,14 @@
 #include <d3dx9.h>
 
 #include <cstdint>
+#include "render_d3d9/d3d9_handles.h"
 #include "render_d3d9/d3dx_jpg.h"
 
 namespace d3dx {
 
-long save_surface_to_jpg(const char* file, IDirect3DSurface9* surface)
+long save_surface_to_jpg(const char* file, render::GpuSurface* surface)
 {
-    return D3DXSaveSurfaceToFileA(file, D3DXIFF_JPG, surface, nullptr, nullptr);
+    return D3DXSaveSurfaceToFileA(file, D3DXIFF_JPG, render::d3d9::object(surface), nullptr, nullptr);
 }
 
 long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)
