@@ -133,6 +133,18 @@ const THROUGH_GPU = [
     "render_d3d9/bitmap_texture.cpp",
     "render_d3d9/pc_texture.cpp",
     "render_d3d9/texture_file.cpp",
+    // the files that never called the device (they hold the engine side's records), listed so that they stay free of it
+    "render_d3d9/draw2d.cpp",
+    "render_d3d9/geom.cpp",
+    "render_d3d9/mesh_pass.cpp",
+    "render_d3d9/pc_font.cpp",
+    "render_d3d9/pc_lights.cpp",
+    "render_d3d9/pc_material_load.cpp",
+    "render_d3d9/pc_mesh.cpp",
+    "render_d3d9/pc_model.cpp",
+    "render_d3d9/pc_sprite.cpp",
+    "render_d3d9/scene_load.cpp",
+    "render_d3d9/simple_material.cpp",
     // V5e: movies, the screenshots
     "render_d3d9/movie.cpp",
     "render_d3d9/screenshot_capture.cpp",
