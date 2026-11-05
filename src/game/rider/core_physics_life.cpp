@@ -164,7 +164,7 @@ void SkaterPhysicsModule::leave_skating()
         rail_time_ = lip_time_;
     }
     objects::RiderPoseState* state = state_;
-    if (state->cur_phase() == kAir && old_state_ == kLip && (state->flag(PoseFlag::kLipToAir).on != 0U)) {
+    if (state->cur_phase() == kAir && frame_.old_state == kLip && (state->flag(PoseFlag::kLipToAir).on != 0U)) {
         set_timed_flag(this, PoseFlag::kLipToAir, 0);
     }
     state_->change_phase(kGround);
@@ -197,8 +197,8 @@ void SkaterPhysicsModule::clear_flags()
 void SkaterPhysicsModule::set_physics_state(int state)
 {
     if (state_->cur_phase() != state) {
-        state_changed_at_ = get_now();
-        old_state_ = state_->cur_phase();
+        frame_.state_changed_at = get_now();
+        frame_.old_state = state_->cur_phase();
     }
     int old = state_->cur_phase();
     maths::Vec4& lip = lip_pos_;

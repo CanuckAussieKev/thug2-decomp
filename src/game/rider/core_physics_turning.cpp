@@ -154,7 +154,7 @@ void SkaterPhysicsModule::turn_on_ground()
     if (rate == 0.0) {
         return;
     }
-    const double step = rate * frame_length_;
+    const double step = rate * frame_.length;
     auto angle = static_cast<float>(step);
     last_spin_backside_ = step > 0.0 ? 1 : 0;
     if (lock_velocity_ == 0U) {
@@ -209,7 +209,7 @@ bool SkaterPhysicsModule::turn_down_slope()
     const double off = maths::get_turn_around_axis(heading, down, core::at(object->basis_frame().row, 1));
     auto angle = static_cast<float>(off);
     const float sign = off < 0.0 ? -1.0F : 1.0F;
-    const double turn = static_cast<double>(tuning_float_lookup(kSlowTurnOnSlopes, object)) * frame_length_ * sign;
+    const double turn = static_cast<double>(tuning_float_lookup(kSlowTurnOnSlopes, object)) * frame_.length * sign;
     auto step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn)) {
         step = angle;
@@ -239,7 +239,7 @@ void SkaterPhysicsModule::natas_spin()
         rate = -rate;
     }
     last_spin_backside_ = rate > 0.0 ? 1 : 0;
-    auto step = static_cast<float>(rate * frame_length_);
+    auto step = static_cast<float>(rate * frame_.length);
     turn_matrices(step);
     float& total = trick_->spin_total();
     total = static_cast<float>((static_cast<double>(step) * kDegreesPerRadian) + total);
@@ -291,8 +291,8 @@ void SkaterPhysicsModule::lean_in_air()
     if (time < end) {
         lean = static_cast<float>((static_cast<double>(time) - start) * lean / (static_cast<double>(end) - start));
     }
-    entity()->basis_frame().pitch_locally(lean * frame_length_);
-    ground_.display_matrix.pitch_locally(lean * frame_length_);
+    entity()->basis_frame().pitch_locally(lean * frame_.length);
+    ground_.display_matrix.pitch_locally(lean * frame_.length);
 }
 
 // 0x00504A60
@@ -301,7 +301,7 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
     if (state_->flag(PoseFlag::kAcidDrop).on == 0U) {
         return;
     }
-    const double elapsed = static_cast<double>(frame_length_) + drop_.time;
+    const double elapsed = static_cast<double>(frame_.length) + drop_.time;
     drop_.time = static_cast<float>(elapsed);
     double progress = elapsed / drop_.duration;
     if (progress > 1.0) {
@@ -361,7 +361,7 @@ void SkaterPhysicsModule::recover_in_air()
     maths::Vec4 flat = {.x = up.x, .y = 0.0F, .z = up.z, .w = up.w};
     flat.make_unit();
     const maths::Vec4 axis = {.x = -flat.z, .y = 0.0F, .z = flat.x, .w = 0.0F};
-    object->basis_frame().spin_by(axis, rate * frame_length_);
+    object->basis_frame().spin_by(axis, rate * frame_.length);
     ground_.display_matrix = entity()->basis_frame();
 }
 
@@ -378,10 +378,10 @@ void SkaterPhysicsModule::keep_upright()
     const double sideways = (static_cast<double>(forward.x) * up.z) + (-static_cast<double>(forward.z) * up.x) +
                             (static_cast<double>(up.y) * 0.0F);
     double angle = 0.0;
-    if (sideways > static_cast<double>(frame_length_) * kUprightRight) {
-        angle = static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree * frame_length_;
-    } else if (sideways < static_cast<double>(frame_length_) * kUprightLeft) {
-        angle = -(static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree * frame_length_);
+    if (sideways > static_cast<double>(frame_.length) * kUprightRight) {
+        angle = static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree * frame_.length;
+    } else if (sideways < static_cast<double>(frame_.length) * kUprightLeft) {
+        angle = -(static_cast<double>(script::fetch_float(kUprightSidewaysSpeed)) * kRadiansPerDegree * frame_.length);
     } else {
         return;
     }

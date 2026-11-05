@@ -791,6 +791,20 @@ public:
         maths::Vec4 old_normal{};     // +0x60 (+0x78) the ground normal before the last change
         float normal_blend{};         // +0x70 (+0x88) old_normal to floor_normal: 1 at a change, run down to 0
     };
+    // The frame (+0x8C-+0xA7: its length, the last physics state change, where it began) and how it began
+    // (+0x254-+0x257: tick_frame).
+    struct Frame {
+        float length{};         // +0x00 (+0x8C) the frame's length (seconds, slow motion included)
+        int state_changed_at{}; // +0x04 (+0x90) the game clock when the physics state last changed
+        int old_state{};        // +0x08 (+0x94) the physics state before it
+        maths::Vec4 safe_pos{}; // +0x0C (+0x98) a position to go back to (where the frame began)
+    };
+    struct FrameFlags {
+        uint8_t landed{};              // +0x00 (+0x254) the skater landed this frame
+        uint8_t began_in_drop{};       // +0x01 (+0x255) the frame began in an acid drop (the state's +0x78)
+        uint8_t began_in_lip{};        // +0x02 (+0x256) ... in the lip state
+        std::array<uint8_t, 1> pad3{}; // +0x03 (+0x257)
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return ground_.display_matrix; }
@@ -803,10 +817,10 @@ public:
     [[nodiscard]] const maths::Vec4& old_normal() const { return ground_.old_normal; }
     float& normal_blend() { return ground_.normal_blend; }
     [[nodiscard]] float normal_blend() const { return ground_.normal_blend; }
-    [[nodiscard]] float frame_length() const { return frame_length_; }
-    [[nodiscard]] int state_changed_at() const { return state_changed_at_; }
-    maths::Vec4& safe_pos() { return safe_pos_; }
-    [[nodiscard]] const maths::Vec4& safe_pos() const { return safe_pos_; }
+    [[nodiscard]] float frame_length() const { return frame_.length; }
+    [[nodiscard]] int state_changed_at() const { return frame_.state_changed_at; }
+    maths::Vec4& safe_pos() { return frame_.safe_pos; }
+    [[nodiscard]] const maths::Vec4& safe_pos() const { return frame_.safe_pos; }
     render::ProbeRay& feeler() { return feelers_.feeler; }
     [[nodiscard]] const render::ProbeRay& feeler() const { return feelers_.feeler; }
     render::ProbeRay& floor_feeler() { return feelers_.floor_feeler; }
@@ -820,7 +834,7 @@ public:
     [[nodiscard]] objects::GrindPoint* rail_node() const { return rail_node_; }
     void set_rail_node(objects::GrindPoint* value) { rail_node_ = value; }
     void set_rail_manager(objects::GrindRailHub* value) { rail_manager_ = value; }
-    [[nodiscard]] uint8_t frame_began_in_lip() const { return frame_began_in_lip_; }
+    [[nodiscard]] uint8_t frame_began_in_lip() const { return frame_flags_.began_in_lip; }
     void set_auto_kick(uint8_t value) { auto_kick_ = value; }
     [[nodiscard]] uint8_t auto_kick() const { return auto_kick_; }
     void set_tap_spin(uint8_t value) { tap_spin_ = value; }
@@ -911,10 +925,7 @@ private:
 
     // The fields after the base's (+0x18-+0x153B). Other components and the network code read a few of them.
     GroundNormals ground_;          // +0x18-+0x8B the display matrix and the ground normals
-    float frame_length_{};          // +0x8C the frame's length (seconds, slow motion included)
-    int state_changed_at_{};        // +0x90 the game clock when the physics state last changed
-    int old_state_{};               // +0x94 the physics state before it
-    maths::Vec4 safe_pos_{};        // +0x98 a position to go back to (where the frame began)
+    Frame frame_;                   // +0x8C-+0xA7 the frame
     Feelers feelers_;               // +0xA8-+0x22B the feelers and what the last check hit
     objects::GrindPoint* rail_node_{};      // +0x22C the rail node being ground (or last ground)
     objects::GrindRailHub* rail_manager_{}; // +0x230 ... and its rail manager
@@ -929,10 +940,7 @@ private:
     std::array<uint8_t, 1> pad24b_{};
     int skitch_point_{};            // +0x24C the skitch point held (its index on the car)
     float skitch_direction_{};      // +0x250
-    uint8_t landed_this_frame_{};   // +0x254
-    uint8_t frame_began_in_drop_{}; // +0x255 the frame began in an acid drop (the state's +0x78)
-    uint8_t frame_began_in_lip_{};  // +0x256
-    std::array<uint8_t, 1> pad257_{};
+    FrameFlags frame_flags_;        // +0x254-+0x257 how the frame began
     maths::Vec4 lip_pos_{};          // +0x258 where the lip trick is (w 1; (0, 0, 0, 1) out of the lip state)
     maths::Vec4 vert_takeoff_{};     // +0x268 where the skater went up the vert wall (1 lower)
     maths::Vec4 vert_wall_normal_{}; // +0x278 the vert wall's normal

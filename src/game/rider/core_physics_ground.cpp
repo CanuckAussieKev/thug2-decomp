@@ -65,7 +65,7 @@ void SkaterPhysicsModule::apply_friction(float friction)
         return;
     }
     auto slowing =
-        static_cast<float>(static_cast<double>(length_squared) * frame_length_ * friction * kFramesPerSecond);
+        static_cast<float>(static_cast<double>(length_squared) * frame_.length * friction * kFramesPerSecond);
     maths::Vec4 change = velocity;
     change.set_length(slowing);
     const double change_squared =
@@ -155,7 +155,7 @@ void SkaterPhysicsModule::push_off()
     }
     const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || (crouch_stats_ != 0U);
     auto push = static_cast<float>(stat_value(object, crouched ? kPushCrouched : kPush));
-    const double frame = frame_length_;
+    const double frame = frame_.length;
     auto x = static_cast<float>(static_cast<double>(direction.x) * push * frame);
     const double y = static_cast<double>(direction.y) * push * frame;
     const double z = static_cast<double>(static_cast<float>(static_cast<double>(direction.z) * push)) * frame;
@@ -196,7 +196,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
         return;
     }
     const double friction_scale =
-        static_cast<double>(frame_length_) / speed_rounded * rolling_friction_ * kFramesPerSecond;
+        static_cast<double>(frame_.length) / speed_rounded * rolling_friction_ * kFramesPerSecond;
     auto dx = static_cast<float>(friction_scale * x);
     auto dy = static_cast<float>(vy * friction_scale);
     auto dz = static_cast<float>(vz * friction_scale);
@@ -246,7 +246,7 @@ void SkaterPhysicsModule::update_ground_normal()
             blend = 0.0F;
         } else {
             const double left =
-                blend - (static_cast<double>(script::fetch_float(kNormalBlendRate)) * frame_length_ * kFramesPerSecond);
+                blend - (static_cast<double>(script::fetch_float(kNormalBlendRate)) * frame_.length * kFramesPerSecond);
             auto remaining_blend = static_cast<float>(left);
             blend = remaining_blend;
             if (left > 0.0 || left != left) {

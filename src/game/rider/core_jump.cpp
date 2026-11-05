@@ -218,7 +218,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         position.w += w;
     }
     const int state = state_of(this);
-    if (state == kRail || (state == kAir && old_state_ == kRail)) {
+    if (state == kRail || (state == kAir && frame_.old_state == kRail)) {
         turn_for_rail_jump();
     }
     if (point_rail_spin_ != 0U) {
@@ -274,7 +274,7 @@ void SkaterPhysicsModule::end_skitch()
 // 0x00509050
 void SkaterPhysicsModule::step_wallplant()
 {
-    const int planted = state_changed_at_;
+    const int planted = frame_.state_changed_at;
     flip_spin_started_ = 0;
     const uint32_t elapsed = get_since(static_cast<uint32_t>(planted));
     if (static_cast<float>(elapsed) > script::fetch_float(kWallplantDuration)) {

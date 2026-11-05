@@ -264,7 +264,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
                 ((static_cast<double>(carried.z) * hit_normal->z) + (static_cast<double>(carried.y) * hit_normal->y)) +
                 (static_cast<double>(carried.x) * hit_normal->x);
             if (into > 0.0) {
-                const float frame = frame_length_;
+                const float frame = frame_.length;
                 objects::GameEntity* carried_skater = object_of(this);
                 carried_skater->at_point() += (carried * frame) * kCarryFactor;
                 entity()->vel() += carried;
@@ -352,7 +352,7 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
         return false;
     }
     const maths::Vec4 entry_velocity = entity()->vel(); // (not original: for note_path)
-    entity()->at_point() = safe_pos_;
+    entity()->at_point() = frame_.safe_pos;
     deflect_from_wall(&normal, &overlap, kDeflectFactor);
     collision_events::note_path(this, collision_events::RouteWay::kSideWall, entry_velocity); // (not original)
     // ... then, unless there's something between (a feeler from just off the hit out to the length) or a trigger's

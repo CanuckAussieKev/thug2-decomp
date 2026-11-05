@@ -189,7 +189,7 @@ void SkaterPhysicsModule::get_skitch()
         maths::Vec4 toward = target - entity()->at_point();
         auto length_sqr = static_cast<float>(length_sqr_unrounded(toward));
         auto suck =
-            static_cast<float>(static_cast<double>(tuning_float_lookup(kSkitchSuckSpeed, object)) * frame_length_);
+            static_cast<float>(static_cast<double>(tuning_float_lookup(kSkitchSuckSpeed, object)) * frame_.length);
         if (length_sqr > kSkitchLostDistanceSqr) {
             object_of(this)->post_own_event(kOffMeterBottom, nullptr);
             return;

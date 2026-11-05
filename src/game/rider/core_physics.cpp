@@ -745,7 +745,7 @@ void SkaterPhysicsModule::do_air_physics()
     // Move: position += velocity * t + (0, gravity, 0, 1) * t * t / 2, then the carried offset; velocity +=
     // (0, gravity, 0, 1) * t. (Rounded as the original: x's velocity product and the z, w sums stay unrounded.)
     {
-        const float frame_length = frame_length_;
+        const float frame_length = frame_.length;
         const double half = static_cast<double>(frame_length) * frame_length * 0.5F;
         auto zero_half = static_cast<float>(0.0 * half);
         auto half_gravity = static_cast<float>(half * gravity);
@@ -764,7 +764,7 @@ void SkaterPhysicsModule::do_air_physics()
         position.w = static_cast<float>(sw + position.w);
         entity()->at_point() += carried;
 
-        const float tt = frame_length_;
+        const float tt = frame_.length;
         const float zero = 0.0F * tt;
         const float fall = tt * gravity;
         maths::Vec4& v = entity()->vel();

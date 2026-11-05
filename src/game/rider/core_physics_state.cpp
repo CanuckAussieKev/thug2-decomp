@@ -118,10 +118,10 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.floor_normal), .original = 0x68},
         FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.old_normal), .original = 0x78},
         FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.normal_blend), .original = 0x88},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_length_), .original = 0x8C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, state_changed_at_), .original = 0x90},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, old_state_), .original = 0x94},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, safe_pos_), .original = 0x98},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_.length), .original = 0x8C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_.state_changed_at), .original = 0x90},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_.old_state), .original = 0x94},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_.safe_pos), .original = 0x98},
         FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.feeler), .original = 0xA8},
         FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.floor_feeler), .original = 0x158},
         FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.probe_start), .original = 0x208},
@@ -143,10 +143,10 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad24b_), .original = 0x24B},
         FieldAt{.now = offsetof(SkaterPhysicsModule, skitch_point_), .original = 0x24C},
         FieldAt{.now = offsetof(SkaterPhysicsModule, skitch_direction_), .original = 0x250},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, landed_this_frame_), .original = 0x254},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_began_in_drop_), .original = 0x255},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_began_in_lip_), .original = 0x256},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad257_), .original = 0x257},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_flags_.landed), .original = 0x254},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_flags_.began_in_drop), .original = 0x255},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_flags_.began_in_lip), .original = 0x256},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, frame_flags_.pad3), .original = 0x257},
         FieldAt{.now = offsetof(SkaterPhysicsModule, lip_pos_), .original = 0x258},
         FieldAt{.now = offsetof(SkaterPhysicsModule, vert_takeoff_), .original = 0x268},
         FieldAt{.now = offsetof(SkaterPhysicsModule, vert_wall_normal_), .original = 0x278},
@@ -284,13 +284,13 @@ void SkaterPhysicsModule::get_reset()
     if (!game_net->in_net_game()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
         entity()->old_pos() = entity()->at_point();
-        safe_pos_ = entity()->at_point();
+        frame_.safe_pos = entity()->at_point();
     }
     lip_pos_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    state_changed_at_ = get_now();
+    frame_.state_changed_at = get_now();
     entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     physics::change_phase(this, 0);
-    old_state_ = 0;
+    frame_.old_state = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
     for (int flag = kLastPoseFlag; flag >= 0; --flag) {
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
@@ -469,7 +469,7 @@ void SkaterPhysicsModule::update_special_time() const
         return;
     }
     if (score->focus_time_limit() > 0.0F) {
-        score->set_focus_time_limit(score->focus_time_limit() - frame_length_);
+        score->set_focus_time_limit(score->focus_time_limit() - frame_.length);
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();

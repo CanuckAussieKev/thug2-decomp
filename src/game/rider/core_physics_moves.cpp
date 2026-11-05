@@ -193,7 +193,7 @@ void SkaterPhysicsModule::update_speed_override()
 {
     objects::GameEntity* object = object_of(this);
     float& factor = speed_override_;
-    if ((frame_began_in_drop_ != 0U) && (state_->flag(PoseFlag::kAcidDrop).on == 0U) &&
+    if ((frame_flags_.began_in_drop != 0U) && (state_->flag(PoseFlag::kAcidDrop).on == 0U) &&
         (state_->flag(PoseFlag::kBailing).on == 0U)) {
         auto stat = static_cast<float>(stat_value(object, kOverrideStat));
         const double speed = length_unrounded(entity()->vel());
@@ -210,7 +210,7 @@ void SkaterPhysicsModule::update_speed_override()
         return;
     }
     limits_time_ = -1.0F;
-    const double left = factor - (static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * frame_length_);
+    const double left = factor - (static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * frame_.length);
     factor = static_cast<float>(left);
     if (left >= 1.0 || left != left) {
         auto stat = static_cast<float>(stat_value(object_of(this), kOverrideStat));

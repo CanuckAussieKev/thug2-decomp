@@ -102,23 +102,23 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     clear_flags();
     if (on_ground) {
         set_physics_state(kGround);
-        old_state_ = kGround;
+        frame_.old_state = kGround;
     } else {
         set_physics_state(kAir);
-        old_state_ = kAir;
+        frame_.old_state = kAir;
         set_flag(this, PoseFlag::kNoSecondSpin, 1);
         if (static_cast<uint8_t>(walk_->off_vert()) != 0U) {
             set_flag(this, PoseFlag::kNoAcidDrop, 1);
         }
     }
-    state_changed_at_ = get_now();
+    frame_.state_changed_at = get_now();
     ground_.display_matrix = entity()->basis_frame();
     // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
     ground_.floor_normal = core::at(entity()->basis_frame().row, 1);
     ground_.old_normal = ground_.floor_normal;
     ground_.drawn_normal = ground_.old_normal;
-    safe_pos_ = entity()->at_point();
-    entity()->old_pos() = safe_pos_;
+    frame_.safe_pos = entity()->at_point();
+    entity()->old_pos() = frame_.safe_pos;
     // The jump / trick state cleared.
     feelers_.floor_feeler.hit().face_flag40_ = 0;
     side_.reach = 0.0F;
@@ -151,8 +151,8 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
             ride_->ride_on(object);
         }
         start_grind(&grind_from->grind_point(), grind_from->grind_node(), grind_from->grind_rails(), true, true);
-        safe_pos_ = entity()->at_point();
-        entity()->old_pos() = safe_pos_;
+        frame_.safe_pos = entity()->at_point();
+        entity()->old_pos() = frame_.safe_pos;
     } else if (acid_drop) {
         start_acid_drop(acid_drop);
     }

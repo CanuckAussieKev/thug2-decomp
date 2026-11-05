@@ -102,7 +102,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     } else {
         const maths::Vec4& position = object->at_point();
         const maths::Vec4& v = object->vel();
-        const float frame_length = frame_length_;
+        const float frame_length = frame_.length;
         const float bx = frame_length * v.x;
         const float by = frame_length * v.y;
         const float bz = frame_length * v.z;
@@ -247,7 +247,7 @@ void SkaterPhysicsModule::step_grind_move()
     maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kRailGravity, object), .z = 0.0F, .w = 1.0F};
     gravity.project_onto(along);
     {
-        const float frame_length = frame_length_;
+        const float frame_length = frame_.length;
         maths::Vec4& v = entity()->vel();
         const float gy = frame_length * gravity.y;
         const float gz = frame_length * gravity.z;
@@ -461,7 +461,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     maths::Vec4& skater_position = entity()->at_point();
     const maths::Vec4 old = skater_position;
     {
-        const float frame_length = frame_length_;
+        const float frame_length = frame_.length;
         const maths::Vec4& u = entity()->vel();
         const float my = frame_length * u.y;
         const float mz = frame_length * u.z;

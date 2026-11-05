@@ -25,15 +25,15 @@ constexpr uint32_t kLeftAir = 0x5E27200A;
 // 0x00510830
 void SkaterPhysicsModule::tick_frame()
 {
-    frame_length_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    frame_.length = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     collision_events::checkpoint(this, "update-start"); // (not original)
     const bool bike = thaw_bmx::live_now(this);         // (not original: THAW's bike, thaw_bmx_physics.cpp)
     if (bike) {
         thaw_bmx::begin_frame(this);
     }
-    landed_this_frame_ = 0;
-    frame_began_in_lip_ = static_cast<uint8_t>(state_of(this) == kLip);
-    frame_began_in_drop_ = bit_mark(this, PoseFlag::kAcidDrop);
+    frame_flags_.landed = 0;
+    frame_flags_.began_in_lip = static_cast<uint8_t>(state_of(this) == kLip);
+    frame_flags_.began_in_drop = bit_mark(this, PoseFlag::kAcidDrop);
     if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
@@ -52,7 +52,7 @@ void SkaterPhysicsModule::tick_frame()
     case kAir:
         do_air_physics();
         if (state_of(this) == kGround) {
-            landed_this_frame_ = 1;
+            frame_flags_.landed = 1;
         }
         break;
     case kWallRide:

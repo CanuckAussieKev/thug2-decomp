@@ -109,7 +109,7 @@ void SkaterPhysicsModule::step_wall_ride()
     objects::GameEntity* object = object_of(this);
     const float gravity = tuning_float_lookup(kWallRideGravity, object);
     {
-        const float frame_length = frame_length_;
+        const float frame_length = frame_.length;
         const double half = static_cast<double>(frame_length) * frame_length * 0.5F;
         const double zero_half = 0.0F * half;
         auto zero_half_rounded = static_cast<float>(zero_half);
@@ -133,7 +133,7 @@ void SkaterPhysicsModule::step_wall_ride()
         position.y = carried.y + position.y;
         position.z = carried.z + position.z;
         position.w = carried.w + position.w;
-        const float tt = frame_length_;
+        const float tt = frame_.length;
         const double zero_t = 0.0F * static_cast<double>(tt);
         const float fall = tt * gravity;
         maths::Vec4& u = entity()->vel();

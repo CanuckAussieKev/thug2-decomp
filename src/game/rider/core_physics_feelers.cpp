@@ -382,7 +382,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     auto* shadow = core::down_cast<objects::GroundShadowModule>(object_of(this)->fetch_module(kShadow));
     shadow->change_place(&entity()->at_point());
     shadow->set_normal(&core::at(entity()->basis_frame().row, 1));
-    safe_pos_ = entity()->at_point();
+    frame_.safe_pos = entity()->at_point();
     entity()->old_pos() = entity()->at_point();
     object_of(this)->mark_jumped_ahead(true);
     if (entity()->is_local_skater() != 0U) {
@@ -535,7 +535,7 @@ void SkaterPhysicsModule::check_side_feelers()
     along.align_to_plane(normal);
     auto angle = static_cast<float>(
         maths::get_turn_around_axis(core::at(entity()->basis_frame().row, 2), along, core::at(entity()->basis_frame().row, 1)));
-    const double turn = static_cast<double>(maths::get_sign(angle)) * side_.turn * frame_length_;
+    const double turn = static_cast<double>(maths::get_sign(angle)) * side_.turn * frame_.length;
     auto step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn)) {
         step = angle;

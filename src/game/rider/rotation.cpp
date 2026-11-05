@@ -130,7 +130,7 @@ void SkaterPhysicsModule::get_spin()
     }
 
     float speed = 0.0F;
-    auto frame_length = [this] { return static_cast<double>(frame_length_); };
+    auto frame_length = [this] { return static_cast<double>(frame_.length); };
     const bool spinning = tap_spin_ != 0U ? read_tap_spin(pad, speed) : read_held_spin(pad, speed);
 
     // The second pair of spin buttons: the speed ramps up from 0 at one held time to full at another.
@@ -188,7 +188,7 @@ bool SkaterPhysicsModule::read_tap_spin(objects::PadSnapshot* pad, float& speed)
         spinning = true;
         speed = queued < 0.0F ? -1.0F : 1.0F;
         const double turn = stat_value(object, kTapSpinSpeed) * speed;
-        const double step = turn * static_cast<double>(frame_length_);
+        const double step = turn * static_cast<double>(frame_.length);
         if (std::fabs(queued) < std::fabs(step)) {
             queued = 0.0F;
         } else {
@@ -281,9 +281,9 @@ void SkaterPhysicsModule::face_ramp(float& speed)
             auto rate = static_cast<float>(tuning_float_lookup(kFaceRampSpeed, 1, object));
             const double turn = static_cast<double>(maths::get_sign(off)) * rate;
             speed = static_cast<float>(turn);
-            if (std::fabs(off) < std::fabs(turn * static_cast<double>(frame_length_))) {
+            if (std::fabs(off) < std::fabs(turn * static_cast<double>(frame_.length))) {
                 // (the last bit: exactly what's left)
-                speed = static_cast<float>(off / static_cast<double>(frame_length_));
+                speed = static_cast<float>(off / static_cast<double>(frame_.length));
                 state_->set_flag(PoseFlag::kSpin, 0);
             }
         }

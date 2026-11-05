@@ -102,7 +102,7 @@ void SkaterPhysicsModule::do_ground_physics()
         thaw_bmx::get_on_ground(this);
     }
     if (!bike || thaw_bmx::ground_gravity_applies(this, gravity)) {
-        const float frame_length = frame_length_;
+        const float frame_length = frame_.length;
         maths::Vec4& v = entity()->vel();
         const float gy = gravity.y * frame_length;
         const float gz = gravity.z * frame_length;
@@ -123,7 +123,7 @@ void SkaterPhysicsModule::do_ground_physics()
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
     maths::Vec4 step{};
     {
-        const float frame_length = frame_length_;
+        const float frame_length = frame_.length;
         const maths::Vec4& v = entity()->vel();
         step = {.x = frame_length * v.x, .y = frame_length * v.y, .z = frame_length * v.z, .w = frame_length * v.w};
     }
@@ -146,7 +146,7 @@ void SkaterPhysicsModule::do_ground_physics()
             objects::GameEntity* skater = object_of(this);
             skater->at_point() += get_tracker(this)->carried();
             entity()->old_pos() = entity()->at_point();
-            safe_pos_ = entity()->at_point();
+            frame_.safe_pos = entity()->at_point();
             if (get_tracker(this)->turned()) {
                 maths::Mat4& basis = entity()->basis_frame();
                 maths::matrix_multiply(&basis, &basis, &get_tracker(this)->turn());
