@@ -14,6 +14,7 @@ struct GpuSurface;      // a surface: a texture's level, the back buffer, a dept
 struct GpuVertexBuffer; // a vertex buffer on the card (IDirect3DVertexBuffer9)
 struct GpuIndexBuffer;  // an index buffer on the card (IDirect3DIndexBuffer9)
 struct GpuPixelShader;  // a pixel shader (IDirect3DPixelShader9)
+struct GpuVertexShader; // a vertex shader (IDirect3DVertexShader9)
 struct GpuQuery;        // a query: an occlusion count (IDirect3DQuery9)
 
 } // namespace render

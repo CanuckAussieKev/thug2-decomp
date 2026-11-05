@@ -42,6 +42,10 @@ inline IDirect3DPixelShader9* object(GpuPixelShader* handle) noexcept
 {
     return detail::same_address<IDirect3DPixelShader9>(handle);
 }
+inline IDirect3DVertexShader9* object(GpuVertexShader* handle) noexcept
+{
+    return detail::same_address<IDirect3DVertexShader9>(handle);
+}
 inline IDirect3DQuery9* object(GpuQuery* handle) noexcept { return detail::same_address<IDirect3DQuery9>(handle); }
 
 // The handle of a Direct3D object.
@@ -61,6 +65,10 @@ inline GpuPixelShader* handle(IDirect3DPixelShader9* object) noexcept
 {
     return detail::same_address<GpuPixelShader>(object);
 }
+inline GpuVertexShader* handle(IDirect3DVertexShader9* object) noexcept
+{
+    return detail::same_address<GpuVertexShader>(object);
+}
 inline GpuQuery* handle(IDirect3DQuery9* object) noexcept { return detail::same_address<GpuQuery>(object); }
 
 // A handle's storage as the out-parameter a Direct3D call fills (CreateTexture's IDirect3DTexture9**...): the call
@@ -79,6 +87,10 @@ inline IDirect3DIndexBuffer9** out(GpuIndexBuffer** slot) noexcept
 inline IDirect3DPixelShader9** out(GpuPixelShader** slot) noexcept
 {
     return detail::same_address<IDirect3DPixelShader9*>(slot);
+}
+inline IDirect3DVertexShader9** out(GpuVertexShader** slot) noexcept
+{
+    return detail::same_address<IDirect3DVertexShader9*>(slot);
 }
 inline IDirect3DQuery9** out(GpuQuery** slot) noexcept { return detail::same_address<IDirect3DQuery9*>(slot); }
 

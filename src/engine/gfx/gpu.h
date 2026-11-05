@@ -283,6 +283,7 @@ inline constexpr std::size_t kGpuStageStateCount = 33; // D3DTSS_ numbers 0-32
 inline constexpr std::size_t kGpuSamplerCount = 16;
 inline constexpr std::size_t kGpuSamplerStateCount = 14; // D3DSAMP_ numbers 0-13
 inline constexpr std::size_t kGpuPixelConstantCount = 8; // ps.1.1's c0-c7
+inline constexpr std::size_t kGpuVertexConstantCount = 8; // the vertex shader constants kept: c0-c7 (the billboards' c0-c6)
 inline constexpr std::size_t kGpuLightCount = 8;
 inline constexpr std::size_t kGpuMatrixFloats = 16;
 inline constexpr std::size_t kGpuTransformCount = 3 + kGpuStageCount; // world, view, projection, the stages'
@@ -298,6 +299,8 @@ struct GpuStateBlock {
     uint32_t vertex_format{}; // D3DFVF bits
     GpuPixelShader* pixel_shader{};
     std::array<std::array<float, 4>, kGpuPixelConstantCount> pixel_constants{};
+    GpuVertexShader* vertex_shader{};
+    std::array<std::array<float, 4>, kGpuVertexConstantCount> vertex_constants{};
     GpuMaterial material{};
     std::array<GpuLight, kGpuLightCount> lights{};
     uint32_t lights_enabled{}; // bit n: light n on
@@ -318,6 +321,7 @@ struct GpuStateBlock {
     void record_sampler_state(uint32_t sampler, GpuSamplerState state, uint32_t value);
     void record_texture(uint32_t stage, GpuTexture* texture);
     void record_pixel_constants(uint32_t first, const float* values, uint32_t count);
+    void record_vertex_constants(uint32_t first, const float* values, uint32_t count);
     void record_light(uint32_t index, const GpuLight& light);
     void record_light_enabled(uint32_t index, bool on);
     void record_transform(GpuTransform transform, const float* matrix);
@@ -371,6 +375,17 @@ public:
         block_.record_pixel_constants(first, values, count);
         return send_pixel_constants(first, values, count);
     }
+    // The vertex shader (null: the fixed-function pipeline) and its constants, like the pixel shader's.
+    long set_vertex_shader(GpuVertexShader* shader)
+    {
+        block_.vertex_shader = shader;
+        return send_vertex_shader(shader);
+    }
+    long set_vertex_constants(uint32_t first, const float* values, uint32_t count)
+    {
+        block_.record_vertex_constants(first, values, count);
+        return send_vertex_constants(first, values, count);
+    }
     long set_material(const GpuMaterial& material)
     {
         block_.material = material;
@@ -403,6 +418,13 @@ public:
     virtual long get_sampler_state(uint32_t sampler, GpuSamplerState state, uint32_t* value) = 0;
     virtual long get_transform(GpuTransform transform, float* matrix) = 0;
     virtual long get_viewport(GpuViewport* viewport) = 0;
+    // The vertex format, the shaders and the index buffer the API holds. The shaders and the index buffer come back
+    // with a reference the caller releases (Direct3D 9 adds one; there is no release for a shader yet - a caller that
+    // gives one back unreleased leaks it, as the original did).
+    virtual long get_vertex_format(uint32_t* fvf) = 0;
+    virtual long get_pixel_shader(GpuPixelShader** shader) = 0;
+    virtual long get_vertex_shader(GpuVertexShader** shader) = 0;
+    virtual long get_indices(GpuIndexBuffer** buffer) = 0;
 
     // Textures: made (into *texture), a level locked / unlocked, a level's surface (a reference the caller releases),
     // released.
@@ -490,6 +512,8 @@ protected:
     virtual long send_vertex_format(uint32_t fvf) = 0;
     virtual long send_pixel_shader(GpuPixelShader* shader) = 0;
     virtual long send_pixel_constants(uint32_t first, const float* values, uint32_t count) = 0;
+    virtual long send_vertex_shader(GpuVertexShader* shader) = 0;
+    virtual long send_vertex_constants(uint32_t first, const float* values, uint32_t count) = 0;
     virtual long send_material(const GpuMaterial& material) = 0;
     virtual long send_light(uint32_t index, const GpuLight& light) = 0;
     virtual long send_light_enabled(uint32_t index, bool on) = 0;

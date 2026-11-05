@@ -16,6 +16,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/d3d9_handles.h"
 #include "render_d3d9/d3d9_state.h"
 
@@ -146,6 +147,8 @@ static_assert(gpu_value::kClearTarget == D3DCLEAR_TARGET && gpu_value::kClearDep
 static_assert(gpu_value::kUsageWriteOnly == D3DUSAGE_WRITEONLY && gpu_value::kUsageDynamic == D3DUSAGE_DYNAMIC &&
               gpu_value::kPoolDefault == D3DPOOL_DEFAULT && gpu_value::kFormatIndex16 == D3DFMT_INDEX16 &&
               gpu_value::kLockReadOnly == D3DLOCK_READONLY && gpu_value::kLockDiscard == D3DLOCK_DISCARD);
+static_assert(kFvfXyz == D3DFVF_XYZ && kFvfNormal == D3DFVF_NORMAL && kFvfDiffuse == D3DFVF_DIFFUSE &&
+              kFvfSpecular == D3DFVF_SPECULAR && kFvfTex1 == D3DFVF_TEX1 && kFvfTex2 == D3DFVF_TEX2);
 static_assert(gpu_value::kLightDirectional == D3DLIGHT_DIRECTIONAL);
 static_assert(gpu_value::kResultInvalidCall == D3DERR_INVALIDCALL);
 
@@ -233,6 +236,10 @@ public:
         return d3d()->GetTransform(d3d_state(transform), d3d_matrix(matrix));
     }
     long get_viewport(GpuViewport* viewport) override { return d3d()->GetViewport(d3d_viewport(viewport)); }
+    long get_vertex_format(uint32_t* fvf) override { return d3d()->GetFVF(d3d_dword(fvf)); }
+    long get_pixel_shader(GpuPixelShader** shader) override { return d3d()->GetPixelShader(out(shader)); }
+    long get_vertex_shader(GpuVertexShader** shader) override { return d3d()->GetVertexShader(out(shader)); }
+    long get_indices(GpuIndexBuffer** buffer) override { return d3d()->GetIndices(out(buffer)); }
 
     long create_texture(const GpuTextureDesc& desc, GpuTexture** texture) override
     {
@@ -399,6 +406,11 @@ protected:
     long send_pixel_constants(uint32_t first, const float* values, uint32_t count) override
     {
         return d3d()->SetPixelShaderConstantF(first, values, count);
+    }
+    long send_vertex_shader(GpuVertexShader* shader) override { return d3d()->SetVertexShader(object(shader)); }
+    long send_vertex_constants(uint32_t first, const float* values, uint32_t count) override
+    {
+        return d3d()->SetVertexShaderConstantF(first, values, count);
     }
     long send_material(const GpuMaterial& material) override
     {

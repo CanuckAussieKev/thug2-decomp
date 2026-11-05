@@ -166,6 +166,10 @@ void GpuStateBlock::reset()
     for (auto& constant : pixel_constants) {
         constant.fill(0.0F);
     }
+    vertex_shader = nullptr;
+    for (auto& constant : vertex_constants) {
+        constant.fill(0.0F);
+    }
     material = GpuMaterial{};
     lights.fill(GpuLight{});
     lights_enabled = 0;
@@ -221,17 +225,32 @@ void GpuStateBlock::record_texture(uint32_t stage, GpuTexture* texture)
     }
 }
 
-void GpuStateBlock::record_pixel_constants(uint32_t first, const float* values, uint32_t count)
+namespace {
+// `count` four-float constants from constant `first` into `constants` (the ones past its end are not kept).
+template <std::size_t N>
+void record_constants(std::array<std::array<float, kConstantFloats>, N>& constants, uint32_t first, const float* values,
+                      uint32_t count)
 {
-    if (values == nullptr || first >= kGpuPixelConstantCount) {
+    if (values == nullptr || first >= N) {
         return;
     }
-    const std::size_t kept = std::min<std::size_t>(count, kGpuPixelConstantCount - first);
+    const std::size_t kept = std::min<std::size_t>(count, N - first);
     const std::span<const float> floats(values, kept * kConstantFloats);
     for (std::size_t i = 0; i < kept; ++i) {
-        auto& constant = core::at(pixel_constants, first + i);
+        auto& constant = core::at(constants, first + i);
         std::copy_n(floats.subspan(i * kConstantFloats).begin(), kConstantFloats, constant.begin());
     }
+}
+} // namespace
+
+void GpuStateBlock::record_pixel_constants(uint32_t first, const float* values, uint32_t count)
+{
+    record_constants(pixel_constants, first, values, count);
+}
+
+void GpuStateBlock::record_vertex_constants(uint32_t first, const float* values, uint32_t count)
+{
+    record_constants(vertex_constants, first, values, count);
 }
 
 void GpuStateBlock::record_light(uint32_t index, const GpuLight& light)

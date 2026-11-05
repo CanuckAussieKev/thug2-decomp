@@ -84,7 +84,7 @@ test("only app/ picks the Direct3D 9 device", () => {
 });
 
 // The files of the PC layer that reach the graphics API only through render::Gpu: none includes a Direct3D header
-// (the API-neutral PC layer: V5a the render-state cache, V5b the meshes' buffers).
+// (the API-neutral PC layer: V5a the render-state cache, V5b the meshes' buffers, V5c the effects).
 const THROUGH_GPU = [
     "render_d3d9/render_state.cpp",
     "render_d3d9/primitive_states.cpp",
