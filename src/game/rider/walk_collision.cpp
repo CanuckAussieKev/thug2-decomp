@@ -509,13 +509,13 @@ bool FootMovement::try_grind()
     // A rail along the move: the level's, else one riding an object (in that object's space).
     maths::Vec4& old_pos = old_pos_;
     maths::Vec4& pos = pos_;
-    maths::Vec4& point = grind_point_;
-    GrindPoint*& node = grind_node_;
+    maths::Vec4& point = leaving_.grind_point;
+    GrindPoint*& node = leaving_.grind_node;
     GrindRailHub* level_rails = modules::Skate::sole()->rail_manager().get();
     bool found = level_rails->find_grind_rail(&old_pos, &pos, &point, &node, nullptr, {.min_alignment_ = kOne, .side = 0});
     if (found) {
-        grind_rails_ = level_rails;
-        grind_object_ = nullptr;
+        leaving_.grind_rails = level_rails;
+        leaving_.grind_object = nullptr;
     } else {
         old_pos.w = kOne;
         pos.w = kOne;
@@ -538,10 +538,10 @@ bool FootMovement::try_grind()
             inverse.xform(rel_pos, pos);
             found = rails_of(component)->find_grind_rail(&local_old, &rel_pos, &point, &node, nullptr, {.min_alignment_ = kOne, .side = 0});
             if (found) {
-                grind_rails_ = rails_of(component);
+                leaving_.grind_rails = rails_of(component);
                 maths::Vec4 world_point{};
                 point = world.xform(world_point, point);
-                grind_object_ = component->entity();
+                leaving_.grind_object = component->entity();
             }
         }
         if (!found) {
@@ -549,7 +549,7 @@ bool FootMovement::try_grind()
         }
     }
     // The core physics' say, and nothing in the way to it (a wall within 6 of the rail is fine).
-    if (!core_physics_->can_grind_rail(node, grind_rails_, true)) {
+    if (!core_physics_->can_grind_rail(node, leaving_.grind_rails, true)) {
         return false;
     }
     render::ProbeRay feeler(&pos, &point);
@@ -566,7 +566,7 @@ bool FootMovement::try_grind()
                       static_cast<double>(old_pos.z), static_cast<double>(pos.x), static_cast<double>(pos.y),
                       static_cast<double>(pos.z));
     }
-    leave_for_ = 1;
+    leaving_.to = 1;
     frame_.anim = kRail;
     return true;
 }

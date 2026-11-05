@@ -456,6 +456,16 @@ public:
         maths::Vec4 axis{}; // +0x08 (+0x734) its axis
     };
 
+    // What the walk ends in (+0x748-+0x78F: try_grind, try_acid_drop; the skater's core physics reads it).
+    struct Leaving {
+        int to{};                             // +0x00 (+0x748) 1 a grind, 2 an acid drop
+        maths::Vec4 grind_point{};            // +0x04 (+0x74C) the rail's point to grind from
+        objects::GrindRailHub* grind_rails{}; // +0x14 (+0x75C) its rail manager
+        objects::GrindPoint* grind_node{};    // +0x18 (+0x760) and node
+        objects::GameEntity* grind_object{};  // +0x1C (+0x764) the object the rail rides (null: the level's)
+        skater::AcidDrop acid_drop{};         // +0x20 (+0x768) the acid drop found (try_acid_drop)
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -479,15 +489,15 @@ public:
     void set_locked_to_heading(bool value) { locked_to_heading_ = value; }
     maths::Vec4& critical_point_offset() { return critical_point_offset_; }
     [[nodiscard]] const maths::Vec4& critical_point_offset() const { return critical_point_offset_; }
-    [[nodiscard]] int leave_for() const { return leave_for_; }
-    void set_leave_for(int value) { leave_for_ = value; }
-    maths::Vec4& grind_point() { return grind_point_; }
-    [[nodiscard]] const maths::Vec4& grind_point() const { return grind_point_; }
-    [[nodiscard]] objects::GrindRailHub* grind_rails() const { return grind_rails_; }
-    [[nodiscard]] objects::GrindPoint* grind_node() const { return grind_node_; }
-    [[nodiscard]] objects::GameEntity* grind_object() const { return grind_object_; }
-    skater::AcidDrop& acid_drop() { return acid_drop_; }
-    [[nodiscard]] const skater::AcidDrop& acid_drop() const { return acid_drop_; }
+    [[nodiscard]] int leave_for() const { return leaving_.to; }
+    void set_leave_for(int value) { leaving_.to = value; }
+    maths::Vec4& grind_point() { return leaving_.grind_point; }
+    [[nodiscard]] const maths::Vec4& grind_point() const { return leaving_.grind_point; }
+    [[nodiscard]] objects::GrindRailHub* grind_rails() const { return leaving_.grind_rails; }
+    [[nodiscard]] objects::GrindPoint* grind_node() const { return leaving_.grind_node; }
+    [[nodiscard]] objects::GameEntity* grind_object() const { return leaving_.grind_object; }
+    skater::AcidDrop& acid_drop() { return leaving_.acid_drop; }
+    [[nodiscard]] const skater::AcidDrop& acid_drop() const { return leaving_.acid_drop; }
     [[nodiscard]] objects::GrindPoint* hang_node() const { return hang_node_; }
     [[nodiscard]] objects::GrindRailHub* rail_manager() const { return rail_manager_; }
     objects::GrindRailHub*& rail_manager() { return rail_manager_; }
@@ -543,12 +553,7 @@ private:
         critical_point_offset_{}; // +0x71C m_critical_point_offset (the game's own message): a ride's / hang's offset
     Upright upright_;             // +0x72C-+0x743 turning upright
     float facing_y_{};                            // +0x744 the object's at-row y (before the facing is flattened)
-    int leave_for_{};                             // +0x748 what the walk ends in - 1 a grind, 2 an acid drop
-    maths::Vec4 grind_point_{};                   // +0x74C the rail's point to grind from
-    objects::GrindRailHub* grind_rails_{};        // +0x75C its rail manager
-    objects::GrindPoint* grind_node_{};           // +0x760 and node
-    objects::GameEntity* grind_object_{};         // +0x764 the object the rail rides (null: the level's)
-    skater::AcidDrop acid_drop_{};                // +0x768 the acid drop found (try_acid_drop)
+    Leaving leaving_;                             // +0x748-+0x78F what the walk ends in
     render::HitMeshCache hit_cache_;              // +0x790
     objects::GameEntity* camera_{};               // +0x175C
     objects::FootView* walk_camera_{};            // +0x1760

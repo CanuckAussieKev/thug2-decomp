@@ -274,12 +274,12 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, upright_.angle), .original = 0x730},
         FieldAt{.now = offsetof(FootMovement, upright_.axis), .original = 0x734},
         FieldAt{.now = offsetof(FootMovement, facing_y_), .original = 0x744},
-        FieldAt{.now = offsetof(FootMovement, leave_for_), .original = 0x748},
-        FieldAt{.now = offsetof(FootMovement, grind_point_), .original = 0x74C},
-        FieldAt{.now = offsetof(FootMovement, grind_rails_), .original = 0x75C},
-        FieldAt{.now = offsetof(FootMovement, grind_node_), .original = 0x760},
-        FieldAt{.now = offsetof(FootMovement, grind_object_), .original = 0x764},
-        FieldAt{.now = offsetof(FootMovement, acid_drop_), .original = 0x768},
+        FieldAt{.now = offsetof(FootMovement, leaving_.to), .original = 0x748},
+        FieldAt{.now = offsetof(FootMovement, leaving_.grind_point), .original = 0x74C},
+        FieldAt{.now = offsetof(FootMovement, leaving_.grind_rails), .original = 0x75C},
+        FieldAt{.now = offsetof(FootMovement, leaving_.grind_node), .original = 0x760},
+        FieldAt{.now = offsetof(FootMovement, leaving_.grind_object), .original = 0x764},
+        FieldAt{.now = offsetof(FootMovement, leaving_.acid_drop), .original = 0x768},
         FieldAt{.now = offsetof(FootMovement, hit_cache_), .original = 0x790},
         FieldAt{.now = offsetof(FootMovement, camera_), .original = 0x175C},
         FieldAt{.now = offsetof(FootMovement, walk_camera_), .original = 0x1760},
@@ -1085,7 +1085,7 @@ void FootMovement::get_begin(bool on_ground)
                     (core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on != 0U);
     }
     curb_.offset = 0.0F;
-    leave_for_ = 0;
+    leaving_.to = 0;
     frame_.previous_anim = 0;
     jump_held_ = true;
     critical_point_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
