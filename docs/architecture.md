@@ -194,7 +194,7 @@ graph TD
 the front end and the dev tools each link `thug2_game` (and Dear ImGui) alone, never one another: `thug2-editor` reaches
 neither the front end nor the dev tools. Only the exes (through `thug2_app`) link the backends. The checks in
 `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`: base;
-`thug2_parse_check` / `thug2_printf_check`: formats; `thug2_vulkan_context_check`: the Vulkan backend). Third-party and system libraries are linked by the
+`thug2_parse_check` / `thug2_printf_check`: formats; `thug2_vulkan_context_check` / `thug2_ff_shader_check`: the Vulkan backend). Third-party and system libraries are linked by the
 library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
 the network backend; LZHAM by the engine; DirectInput
 by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; volk, the Vulkan headers and the memory allocator by the Vulkan backend; imgui's core by the graphics backend - the loading console's
@@ -208,7 +208,7 @@ backend alone).
 | `tools/layers.ts` (`layers.test.ts`) | The layer map `tools/layers.json`: each folder belongs to a library, and an include outside the library's `allowed` list fails unless it is in `tools/layers_baseline.txt` (a ratchet: it can only shrink, and is empty now). Every library but the app's is `strict`: no upward include, not even in the baseline. The editor's and the front end's `api` are explicit lists of the engine and game headers each may include; a header outside the list fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). |
 | `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
 | `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by Direct3D's own headers in `render_d3d9/`; every other header holds the graphics handles. |
-| `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL2/SDL_vulkan.h>`) and Vulkan's functions only in `render_vulkan/` and its context check (`src/tests/vulkan_context_check.cpp`); only `app/` includes the backend. |
+| `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL2/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `render_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`); only `app/` includes the backend. |
 | `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/`; the Bink wrapper only in `media_bink/`; only `app/` picks `audio::Device` and `media::Movie`. |
 | `tools/input_headers.test.ts` | `<dinput.h>` only in `input_dinput/`; SDL's input and the platform's keyboard only behind the SDL input source; only `app/` picks the sources. |
 | `tools/file_calls.test.ts` | The operating system's and the C runtime's file functions are called only in `fs_win32/`, `platform/` and `src/tests`; only `app/` installs the disk and adds the file sources. |

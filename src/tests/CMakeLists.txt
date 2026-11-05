@@ -38,3 +38,17 @@ if(THUG2_VULKAN)
     # (its own main(): SDL's main wrapper isn't used)
     target_compile_definitions(thug2_vulkan_context_check PRIVATE SDL_MAIN_HANDLED)
 endif()
+
+# NOT ORIGINAL - thug2_ff_shader_check.exe: the Vulkan backend's fixed-function emulation checked - every shader key the
+# Direct3D 9 backend's draws can make (a model of src/render_d3d9's draws), its GLSL generated and compiled, the SPIR-V
+# validated by SPIRV-Tools (when built: THUG2_SPIRV_VALIDATOR, cmake/vulkan_libraries.cmake) and handed to the Vulkan
+# driver as modules and pipelines (src/tests/ff_shader_check.cpp).
+if(THUG2_VULKAN)
+    add_executable(thug2_ff_shader_check ff_shader_check.cpp ff_shader_check_model.cpp ff_shader_check_gpu.cpp)
+    target_link_libraries(thug2_ff_shader_check PRIVATE thug2_render_vulkan sdl2)
+    target_compile_definitions(thug2_ff_shader_check PRIVATE SDL_MAIN_HANDLED)
+    if(THUG2_SPIRV_VALIDATOR)
+        target_link_libraries(thug2_ff_shader_check PRIVATE SPIRV-Tools-static)
+        target_compile_definitions(thug2_ff_shader_check PRIVATE THUG2_SPIRV_VALIDATOR)
+    endif()
+endif()

@@ -1,9 +1,9 @@
 // NOT ORIGINAL - where Vulkan may be seen (docs/design/vulkan.md, docs/architecture.md "The graphics backend"): the
 // Vulkan headers (<vulkan/...>, volk, the memory allocator, SDL's Vulkan header) and the shader compiler's (glslang,
 // SPIRV-Tools) are included - by a file itself or through another of the project's headers - only in the Vulkan
-// backend's folder, src/render_vulkan, and by the context check that tries it (src/tests/vulkan_context_check.cpp).
-// Vulkan's functions are called there alone, and only app/ (and that check) include the backend's headers: like
-// Direct3D 9's (tools/d3d_headers.test.ts).
+// backend's folder, src/render_vulkan, and by the checks that try it (src/tests/vulkan_context_check.cpp, the
+// fixed-function shader check src/tests/ff_shader_check*.cpp). Vulkan's functions are called there alone, and only
+// app/ (and those checks) include the backend's headers: like Direct3D 9's (tools/d3d_headers.test.ts).
 
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -12,8 +12,18 @@ import { test } from "node:test";
 
 const SRC = join(import.meta.dirname, "..", "src");
 
-// The one program outside the backend that sees Vulkan: it makes a context with the backend's code and prints it.
-const CONTEXT_CHECK = "tests/vulkan_context_check.cpp";
+// The programs outside the backend that see Vulkan: the context check (it makes a context with the backend's code and
+// prints it) and the fixed-function shader check's sources (it compiles, validates and hands the backend's shaders to
+// the driver).
+const CHECKS = new Set([
+    "tests/vulkan_context_check.cpp",
+    "tests/ff_shader_check.cpp",
+    "tests/ff_shader_check_gpu.cpp",
+    "tests/ff_shader_check_model.cpp",
+    "tests/ff_shader_check_gpu.h",
+    "tests/ff_shader_check_model.h",
+]);
+const isCheck = (name: string): boolean => CHECKS.has(name);
 
 const SDK_HEADER =
     /^\s*#\s*include\s*<(vulkan\/[\w./]+|volk\.h|vk_mem_alloc\.h|SDL2\/SDL_vulkan\.h|glslang\/[\w./]+|SPIRV\/[\w./]+|spirv-tools\/[\w./]+)>/m;
@@ -59,36 +69,36 @@ function seeingVulkan(files: Map<string, string>): string[] {
 
 const inBackend = (name: string): boolean => name.startsWith("render_vulkan/");
 
-test("only render_vulkan/ (and the context check) see the Vulkan headers", () => {
+test("only render_vulkan/ (and its checks) see the Vulkan and shader compiler headers", () => {
     const files = sources();
     const seeing = seeingVulkan(files);
     assert.deepEqual(
-        seeing.filter((name) => !inBackend(name) && name !== CONTEXT_CHECK),
+        seeing.filter((name) => !inBackend(name) && !isCheck(name)),
         [],
     );
     assert.ok(seeing.includes("render_vulkan/vulkan_loader.cpp"), "the loader includes volk");
-    // no header outside the backend, the context check's included
+    // no header outside the backend, the checks' included
     assert.deepEqual(
         seeing.filter((name) => name.endsWith(".h") && !inBackend(name)),
         [],
     );
 });
 
-test("only render_vulkan/ (and the context check) call Vulkan", () => {
+test("only render_vulkan/ (and its checks) call Vulkan", () => {
     const callers = [...sources()]
         .filter(([, text]) => VULKAN_CALL.test(text))
         .map(([name]) => name)
         .sort();
     assert.deepEqual(
-        callers.filter((name) => !inBackend(name) && name !== CONTEXT_CHECK),
+        callers.filter((name) => !inBackend(name) && !isCheck(name)),
         [],
     );
 });
 
-test("only app/ (and the context check) include the Vulkan backend", () => {
+test("only app/ (and its checks) include the Vulkan backend", () => {
     const includers = [...sources()]
         .filter(([, text]) => /^\s*#\s*include\s*"render_vulkan\//m.test(text))
         .map(([name]) => name)
-        .filter((name) => !inBackend(name) && !name.startsWith("app/") && name !== CONTEXT_CHECK);
+        .filter((name) => !inBackend(name) && !name.startsWith("app/") && !isCheck(name));
     assert.deepEqual(includers, []);
 });
