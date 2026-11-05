@@ -10,6 +10,7 @@
 #include "engine/objects/entity.h"
 #include "base/core/checksums.h"
 #include "game/rider/rider_created_tricks.h"
+#include "game/rider/rider_projectiles.h"
 #include "game/rider/rider_trick_editor.h"
 #include "game/rider/rider_traits.h"
 
@@ -33,8 +34,6 @@ namespace modules {
 class PointTally;
 }
 namespace objects {
-constexpr std::size_t kProjectileSlots = 5;
-constexpr int kProjectileCount = 5; // the same, as an int count (the loops)
 constexpr std::size_t kStatOverrideCount = 10;
 
 struct RiderIdentity;
@@ -187,14 +186,6 @@ public:
     // its created tricks deleted, the second viewport's camera marked dead, out of the skater list, then GameEntity's.
     ~Rider() override;
 
-    // A launched projectile (the skater keeps five).
-    struct Projectile {
-        uint32_t name; // projectile_0 ... projectile_4
-        bool active;
-        std::array<uint8_t, 3> pad5_;
-        maths::Vec4 pos; // +0x08 (the projectile component's position; w unused)
-    };
-
     // The fields other code reads and sets.
     RiderTraits& traits() { return traits_; }
     [[nodiscard]] const RiderTraits& traits() const { return traits_; }
@@ -202,8 +193,8 @@ public:
     [[nodiscard]] const CreatedTricks& created_tricks() const { return created_tricks_; }
     TrickEditorState& cat_editor() { return cat_editor_; }
     [[nodiscard]] const TrickEditorState& cat_editor() const { return cat_editor_; }
-    std::array<Projectile, kProjectileSlots>& projectiles() { return projectiles_; }
-    [[nodiscard]] const std::array<Projectile, kProjectileSlots>& projectiles() const { return projectiles_; }
+    ProjectileSlots& projectiles() { return projectiles_; }
+    [[nodiscard]] const ProjectileSlots& projectiles() const { return projectiles_; }
     [[nodiscard]] PadInputModule* pad_input() const { return pad_input_; }
     [[nodiscard]] RiderPointKeeper* score_holder() const { return score_holder_; }
     [[nodiscard]] RiderFrameLog* state_history() const { return state_history_; }
@@ -231,7 +222,7 @@ private:
     CreatedTricks created_tricks_; // +0x17C-+0x1A7 the created tricks
     TrickEditorState cat_editor_;  // +0x1A8-+0x1BF the create-a-trick editor's state
 
-    std::array<Projectile, kProjectileSlots> projectiles_{}; // +0x1C0
+    ProjectileSlots projectiles_;         // +0x1C0-+0x237 the projectiles it has launched
     memory::ListNode skater_link_{};      // +0x238 its node in the skate module's skater list (data = itself)
     AnimBlenderComponent* anim_blender_;  // +0x24C
     MeshInstanceModule* model_component_; // +0x250

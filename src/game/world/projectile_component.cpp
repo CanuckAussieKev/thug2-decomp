@@ -67,7 +67,7 @@ gsl::owner<ObjectModule*> ProjectileComponent::fabricate() { return new Projecti
 ProjectileComponent::ProjectileComponent() { set_kind_tag(kType); }
 
 // 0x004F37B0 (0x004F37D0 the deleting one)
-ProjectileComponent::~ProjectileComponent() { core::at(rider_ref_->projectiles(), seat_).active = false; }
+ProjectileComponent::~ProjectileComponent() { core::at(rider_ref_->projectiles().slots(), seat_).active = false; }
 
 // 0x004F3800
 void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
@@ -77,12 +77,12 @@ void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
     const uint32_t name = entity()->ident();
     seat_ = -1;
     for (int i = 0; i < kSlotCount; ++i) {
-        if (name == core::at(skater->projectiles(), i).name) {
+        if (name == core::at(skater->projectiles().slots(), i).name) {
             seat_ = i;
             break;
         }
     }
-    core::at(skater->projectiles(), seat_).active = true;
+    core::at(skater->projectiles().slots(), seat_).active = true;
 }
 
 // 0x004F3860
@@ -97,7 +97,7 @@ void ProjectileComponent::seal()
 // 0x004F3A90
 void ProjectileComponent::tick_frame()
 {
-    core::at(rider_ref_->projectiles(), seat_).pos = entity()->at_point();
+    core::at(rider_ref_->projectiles().slots(), seat_).pos = entity()->at_point();
     check_triggers();
 }
 

@@ -2,6 +2,7 @@
 
 #include "game/rider/rider.h"
 #include "game/rider/rider_created_tricks.h"
+#include "game/rider/rider_projectiles.h"
 #include "game/rider/rider_trick_editor.h"
 #include "game/rider/rider_traits.h"
 
@@ -1239,12 +1240,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         created_tricks_.make_all();
         script::launch_script(kSpawnAddPremadeCatsToSkater, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         GameEntity::invoke_method_by_name(kSkaterPhysicsControlSwitchWalkingToSkating, nullptr, nullptr);  // SkaterPhysicsControl_SwitchWalkingToSkating
-        for (int i = 0; i < kProjectileCount; ++i) {
-            std::array<char, kProjectileNameBytes> name{};
-            text::format_to(name, "projectile_%i", i);
-            core::at(projectiles_, i).name = checksums::hash_from_text(name.data());
-            core::at(projectiles_, i).active = false;
-        }
+        projectiles_.name_all();
     }
     add_rigid_body_pusher(this);
     // Its controls' tag (a custom skater's own, if it has one) and sticker.
@@ -1967,6 +1963,38 @@ void CreatedTricks::delete_all()
     for (std::unique_ptr<goals::CreateATrick>& trick : slots_) {
         trick.reset();
     }
+}
+
+// (0x00581850's part)
+void ProjectileSlots::name_all()
+{
+    for (int i = 0; i < kProjectileCount; ++i) {
+        std::array<char, kProjectileNameBytes> name{};
+        text::format_to(name, "projectile_%i", i);
+        core::at(slots_, i).name = checksums::hash_from_text(name.data());
+        core::at(slots_, i).active = false;
+    }
+}
+
+// NOT ORIGINAL
+void ProjectileSlots::check_layout()
+{
+    constexpr std::size_t kAt = 0x1C0; // (the field at its offset in the original skater, less the slots' own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(ProjectileSlots, slots_), .original = 0x1C0},
+        FieldAt{.now = offsetof(ProjectileSlots, slots_) + offsetof(Projectile, active), .original = 0x1C4},
+        FieldAt{.now = offsetof(ProjectileSlots, slots_) + offsetof(Projectile, pos), .original = 0x1C8},
+        FieldAt{.now = offsetof(ProjectileSlots, slots_) + sizeof(Projectile), .original = 0x1D8},
+        FieldAt{.now = sizeof(ProjectileSlots), .original = 0x238},
+    };
+    static_assert(
+        sizeof(void*) != 4 ||
+            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        "layout must match the original");
 }
 
 // NOT ORIGINAL

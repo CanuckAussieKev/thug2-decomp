@@ -253,7 +253,7 @@ void ProjectileProximityComponent::tick_frame()
     if (ped_logic_->get_logic_state() == kShot) {
         return;
     }
-    for (auto& projectile : rider_ref_->projectiles()) {
+    for (auto& projectile : rider_ref_->projectiles().slots()) {
         if (!projectile.active) {
             continue;
         }
