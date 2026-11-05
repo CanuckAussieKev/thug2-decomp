@@ -1,6 +1,6 @@
 // NOT ORIGINAL - the level editor's saved layouts and autosave (ours). See level_editor_layout.h. This file holds
-// capturing and applying a layout, the files, the autosave, the modes and the script commands; the piece (layout_text) is
-// level_editor_layout_<name>.cpp, sharing level_editor_layout_internal.h.
+// capturing and applying a layout, the files, the autosave, the modes and the script commands; the layout text (how
+// a layout is written and read back) is level_editor_layout_text.cpp.
 
 #include "editor/level_editor_layout.h"
 #include <windows.h>
