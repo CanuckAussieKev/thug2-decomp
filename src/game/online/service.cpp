@@ -141,7 +141,7 @@ void service_task(tasks::Task<online::Hub>* task)
         push_internet_heap();
         switch (gsi_available_check_think()) {
         case 1: // available
-            manager->set_services_available(true);
+            manager->news().set_services_available(true);
             launch_script(kRetrieveMotd);
             break;
         case 2: // unavailable
@@ -175,15 +175,16 @@ void service_task(tasks::Task<online::Hub>* task)
         }
         manager->service().assign_service_state(online::ServiceState::kWaiting);
         manager->service().set_service_wake_at(0);
-        manager->set_download_done(false);
+        manager->news().set_download_done(false);
         start_thread(manager, kNewsThread); // (it sets state 7)
         break;
     }
     case online::ServiceState::kNewsDownload: // the news download
         push_internet_heap();
         // (PartyMod's time limit; the original's was 15000 ms)
-        if (frame_clock::get_time() - manager->request_started_at() > kNewsTimeout || manager->download_done()) {
-            ghttp_cancel_request(manager->request());
+        if (frame_clock::get_time() - manager->news().request_started_at() > kNewsTimeout ||
+            manager->news().download_done()) {
+            ghttp_cancel_request(manager->news().request());
             manager->service().assign_service_state(online::ServiceState::kNewsEnded);
         } else {
             ghttp_think();
@@ -197,8 +198,8 @@ void service_task(tasks::Task<online::Hub>* task)
         break;
     case online::ServiceState::kMotdDownload: // the message of the day's download
         push_internet_heap();
-        if (frame_clock::get_time() - manager->request_started_at() > kMotdTimeout) {
-            ghttp_cancel_request(manager->request());
+        if (frame_clock::get_time() - manager->news().request_started_at() > kMotdTimeout) {
+            ghttp_cancel_request(manager->news().request());
             manager->service().assign_service_state(online::ServiceState::kMotdShow);
         } else {
             ghttp_think();
@@ -208,7 +209,7 @@ void service_task(tasks::Task<online::Hub>* task)
     case online::ServiceState::kMotdShow: { // show the message of the day
         ghttp_cleanup();
         script::StructPtr params = script::make_struct();
-        params->append_word(kText, manager->motd_text());
+        params->append_word(kText, manager->news().motd_text());
         launch_script(kCreateMotdMenu, params.get());
         params.reset();
         manager->service().assign_service_state(online::ServiceState::kWaiting);
@@ -218,7 +219,7 @@ void service_task(tasks::Task<online::Hub>* task)
     case online::ServiceState::kNewsEnded: // the news download has ended
         ghttp_cleanup();
         // Originally from PartyMod Fixes: the flag set and script 0x588ED87C (original: flag cleared, script 0xD4E84C8D)
-        manager->set_motd_received(kNewsOkValue);
+        manager->news().set_motd_received(kNewsOkValue);
         launch_script(kNewsDoneScript);
         get_finish(manager);
         manager->service().set_service_wake_at(0);

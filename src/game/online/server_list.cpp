@@ -556,16 +556,17 @@ unsigned long __stdcall news_thread(void* argument)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     game_spy::get_msleep(kListingPollMilliseconds);
     manager->service().assign_service_state(ServiceState::kNewsDownload);
-    manager->set_request_started_at(frame_clock::get_time());
-    auto& buffer = manager->news_buffer();
+    manager->news().set_request_started_at(frame_clock::get_time());
+    auto& buffer = manager->news().news_buffer();
     std::memset(buffer.data(), 0, kNewsClearBytes);
     constexpr size_t kUrlSize = 256;
     std::array<char, kUrlSize> url{};
     text::format_to(url, "%s",
                     commands::texture_flag_ce441() ? "http://www.thug2online.com/testmotd.dat"
                                                    : "http://www.thug2online.com/motd.dat");
-    manager->set_request(game_spy::http_get_ex(url.data(), nullptr, buffer.data(), static_cast<int>(kNewsBufferSize), nullptr,
-                              0, 0, code_address(stubs::do_nothing), &news_callback, manager)); // (the download started)
+    manager->news().set_request(
+        game_spy::http_get_ex(url.data(), nullptr, buffer.data(), static_cast<int>(kNewsBufferSize), nullptr, 0, 0,
+                              code_address(stubs::do_nothing), &news_callback, manager)); // (the download started)
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -578,8 +579,9 @@ unsigned long __stdcall motd_thread(void* argument)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->settings().get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id,
                                                                                     0); // (not used)
-    manager->set_request_started_at(frame_clock::get_time());
-    manager->set_request(game_spy::track_usage(0, net::kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
+    manager->news().set_request_started_at(frame_clock::get_time());
+    manager->news().set_request(
+        game_spy::track_usage(0, net::kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
     manager->service().assign_service_state(ServiceState::kMotdShow);
     ram_stats()->leave_heap_scope();
     return 0;
@@ -614,10 +616,10 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
         return 1;
     }
     const auto text_at = static_cast<size_t>(news.data - buffer);
-    manager->set_motd_text(news.motd);
-    manager->set_pending_data_size(news.size - news.motd_size);
-    manager->set_pending_data(downloaded.subspan(text_at + news.motd_size).data());
-    manager->set_motd_received(true);
+    manager->news().set_motd_text(news.motd);
+    manager->news().set_pending_data_size(news.size - news.motd_size);
+    manager->news().set_pending_data(downloaded.subspan(text_at + news.motd_size).data());
+    manager->news().set_motd_received(true);
     manager->service().assign_service_state(ServiceState::kMotdStart);
     return 1;
 }

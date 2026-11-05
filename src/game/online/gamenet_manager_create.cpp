@@ -20,6 +20,7 @@
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_manager.h"
 #include "game/online/hub_join.h"
+#include "game/online/hub_news.h"
 #include "game/online/hub_online_service.h"
 #include "game/online/hub_roster.h"
 #include "game/online/hub_script_queue.h"
@@ -218,15 +219,7 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, unknown1950_), .original = 0x1950, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, room_id_), .original = 0x9950, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, master_servers_), .original = 0x9954, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, news_buffer_), .original = 0x99F4, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, motd_text_), .original = 0xFDF4, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, pending_data_), .original = 0xFDF8, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, pending_data_size_), .original = 0xFDFC, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, request_), .original = 0xFE00, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, request_started_at_), .original = 0xFE04, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, download_done_), .original = 0xFE08, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, motd_received_), .original = 0xFE09, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, services_available_), .original = 0xFE0A, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, news_), .original = 0x99F4, .smaller_by = 28},
         FieldAt{.now = sizeof(Hub), .original = 0xFE0C, .smaller_by = 28},
     };
     static_assert(std::ranges::all_of(
@@ -375,6 +368,30 @@ void OnlineService::check_layout()
         FieldAt{.now = offsetof(OnlineService, next_service_state_), .original = 0x1BC},
         FieldAt{.now = offsetof(OnlineService, service_wake_at_), .original = 0x1C0},
         FieldAt{.now = sizeof(OnlineService), .original = 0x1C4},
+    };
+    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+                  "layout must match the original");
+}
+
+// NOT ORIGINAL
+void NewsDownload::check_layout()
+{
+    constexpr std::size_t kAt = 0x99F4; // (each field at its offset in the hub, less the download's own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(NewsDownload, news_buffer_), .original = 0x99F4},
+        FieldAt{.now = offsetof(NewsDownload, motd_text_), .original = 0xFDF4},
+        FieldAt{.now = offsetof(NewsDownload, pending_data_), .original = 0xFDF8},
+        FieldAt{.now = offsetof(NewsDownload, pending_data_size_), .original = 0xFDFC},
+        FieldAt{.now = offsetof(NewsDownload, request_), .original = 0xFE00},
+        FieldAt{.now = offsetof(NewsDownload, request_started_at_), .original = 0xFE04},
+        FieldAt{.now = offsetof(NewsDownload, download_done_), .original = 0xFE08},
+        FieldAt{.now = offsetof(NewsDownload, motd_received_), .original = 0xFE09},
+        FieldAt{.now = offsetof(NewsDownload, services_available_), .original = 0xFE0A},
+        FieldAt{.now = sizeof(NewsDownload), .original = 0xFE0C},
     };
     static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
                   "layout must match the original");

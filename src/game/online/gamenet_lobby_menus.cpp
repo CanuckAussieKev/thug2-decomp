@@ -291,7 +291,7 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
     const int lobby = server_int("lobby_num", 0);
     if (lobby != 0) {
         uint32_t size = 0;
-        const void* data = manager->get_pending_data(&size);
+        const void* data = manager->news().get_pending_data(&size);
         if (static_cast<uint32_t>(lobby) ==
             checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size))) {
             net_game_state().set_listing_found(true);

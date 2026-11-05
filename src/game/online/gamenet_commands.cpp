@@ -196,7 +196,7 @@ bool cfunc_change_level_pending(Struct* /*params*/, Context /*context*/)
 // 0x00535F30: CancelMotdDownload.
 bool cfunc_cancel_motd_download(Struct* /*params*/, Context /*context*/)
 {
-    net_game_state().online_hub()->set_download_done(true);
+    net_game_state().online_hub()->news().set_download_done(true);
     return true;
 }
 
@@ -212,8 +212,8 @@ bool cfunc_download_motd(Struct* /*params*/, Context /*context*/)
 bool cfunc_services_are_available(Struct* /*params*/, Context /*context*/)
 {
     Hub* manager = net_game_state().online_hub();
-    if (manager->services_available()) {
-        if (!manager->motd_received()) {
+    if (manager->news().services_available()) {
+        if (!manager->news().motd_received()) {
             manager->service().set_next_service_state(ServiceState::kWaiting);
             manager->set_service_state(ServiceState::kWake);
         }
@@ -227,7 +227,7 @@ bool cfunc_services_are_available(Struct* /*params*/, Context /*context*/)
 // 0x00535FA0: AlreadyGotMotd.
 bool cfunc_already_got_motd(Struct* /*params*/, Context /*context*/)
 {
-    return net_game_state().online_hub()->motd_received();
+    return net_game_state().online_hub()->news().motd_received();
 }
 
 // 0x00535FB0: JoinServerComplete - ready to play.

@@ -11,6 +11,7 @@
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
 #include "game/online/hub_join.h"
+#include "game/online/hub_news.h"
 #include "game/online/hub_online_service.h"
 #include "game/online/hub_roster.h"
 #include "game/online/hub_script_queue.h"
@@ -84,7 +85,6 @@ constexpr uint16_t kJoinRefusedSize = 10;
 
 
 constexpr size_t kHubStartPointsSize = 8;
-constexpr size_t kHubNewsBufferSize = 0x6400;
 constexpr size_t kHubChallengeSize = 12;
 constexpr size_t kHubCreatedGoalsSize = 0x1770;
 constexpr size_t kHubUnknown1950Size = 0x8000;
@@ -179,8 +179,6 @@ public:
     // 0x00533300: message 0x26 - the ready query's id the server sent (last_ready_probe_id_, message 0x25) back to the
     // server through each client (the player's connection is ready again).
     void send_ready_response();
-    // 0x00533360: the buffer at +0xFDF8 (its size in *size, +0xFDFC).
-    void* get_pending_data(uint32_t* size);
     // 0x00533380: the goal editor has created goals (0x004E7E50 with 0).
     static bool has_created_goals();
     // 0x005333A0: the goal editor's goals for `level` written into the goals message (+0x1D8: the level, then the
@@ -584,6 +582,9 @@ public:
     // The online service's state (service_task's).
     OnlineService& service() { return service_; }
     [[nodiscard]] const OnlineService& service() const { return service_; }
+    // The news and the message of the day downloaded, and the services' availability.
+    NewsDownload& news() { return news_; }
+    [[nodiscard]] const NewsDownload& news() const { return news_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
@@ -599,22 +600,6 @@ public:
     [[nodiscard]] PlayerRecord* viewed_player() const { return viewed_player_; }
     void set_viewed_player(PlayerRecord* value) { viewed_player_ = value; }
     void set_last_leading_team(int value) { last_leading_team_ = value; }
-    std::array<uint8_t, kHubNewsBufferSize>& news_buffer() { return news_buffer_; }
-    [[nodiscard]] const std::array<uint8_t, kHubNewsBufferSize>& news_buffer() const { return news_buffer_; }
-    [[nodiscard]] const char* motd_text() const { return motd_text_; }
-    void set_motd_text(const char* value) { motd_text_ = value; }
-    void set_pending_data(uint8_t* value) { pending_data_ = value; }
-    void set_pending_data_size(uint32_t value) { pending_data_size_ = value; }
-    [[nodiscard]] int request() const { return request_; }
-    void set_request(int value) { request_ = value; }
-    [[nodiscard]] uint32_t request_started_at() const { return request_started_at_; }
-    void set_request_started_at(uint32_t value) { request_started_at_ = value; }
-    [[nodiscard]] bool download_done() const { return download_done_; }
-    void set_download_done(bool value) { download_done_ = value; }
-    [[nodiscard]] bool motd_received() const { return motd_received_; }
-    void set_motd_received(bool value) { motd_received_ = value; }
-    [[nodiscard]] bool services_available() const { return services_available_; }
-    void set_services_available(bool value) { services_available_ = value; }
 
 private:
     uint8_t flag_bits_{0}; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
@@ -681,15 +666,8 @@ private:
     std::array<uint8_t, kHubUnknown1950Size> unknown1950_{}; // +0x1950
     uint32_t room_id_{};            // +0x9950 (set_room_id)
     std::array<std::array<char, kHubMasterServerNameSize>, kHubMasterServersSize> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
-    std::array<uint8_t, kHubNewsBufferSize> news_buffer_{}; // +0x99F4 the news / message of the day downloaded
-    const char* motd_text_{};       // +0xFDF4 the message of the day in news_buffer_
-    uint8_t* pending_data_{};       // +0xFDF8 the rest of the download after it
-    uint32_t pending_data_size_{};  // +0xFDFC
-    int request_{};                 // +0xFE00 the current ghttp request
-    uint32_t request_started_at_{}; // +0xFE04
-    bool download_done_{};          // +0xFE08 the news download has ended (or the MOTD was cancelled)
-    bool motd_received_{false};     // +0xFE09
-    bool services_available_{};     // +0xFE0A the GameSpy services are available
+    NewsDownload
+        news_; // +0x99F4-+0xFE0B (+0x99D8-+0xFDEF here) the news, the message of the day, the services' availability
 };
 
 // --- gamenet_players.cpp: outside the class ---

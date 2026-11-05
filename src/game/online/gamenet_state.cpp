@@ -9,6 +9,7 @@
 #include "engine/memory/task_list.h"
 #include "game/online/gamenet_manager.h"
 #include "game/online/hub_join.h"
+#include "game/online/hub_news.h"
 #include "game/online/hub_settings.h"
 #include "game/online/hub_tasks.h"
 #include "engine/net/net_app.h"
@@ -337,7 +338,7 @@ void Hub::send_ready_response()
 }
 
 // 0x00533360
-void* Hub::get_pending_data(uint32_t* size)
+void* NewsDownload::get_pending_data(uint32_t* size)
 {
     *size = pending_data_size_;
     return pending_data_;
