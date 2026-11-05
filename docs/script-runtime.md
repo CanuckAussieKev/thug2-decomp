@@ -917,7 +917,7 @@ position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display 
 
 ## 13. The host: what the game asks of the runtime, and where
 
-Since stage 11 round 21 the interpreter is a backend (`src/script_qb`) behind `script::Host`
+The interpreter is a backend (`src/script_qb`) behind `script::Host`
 (`src/engine/script/host.h`), and every call into it from the rest of the game goes through the installed host - one
 virtual call per operation, the same functions with the same arguments in the same order as before (the interpreter's
 own calls stay direct). The host's methods are what a second runtime (QuickJS) has to provide, and these are the
