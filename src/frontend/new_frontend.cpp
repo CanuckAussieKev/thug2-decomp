@@ -61,7 +61,7 @@
 #include "base/core/str.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/legacy_command.h"
+#include "engine/script/context.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/profile_manager.h"
@@ -3240,7 +3240,7 @@ paint::Extras restyle_extras()
 // the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
 // EDITOR (Create-a-modes: [features] level_editor and its scripts). False while the new front end is off, and in
 // network games: the menus as they were.
-bool cfunc_item(script::Struct* params, script::Script* /*script*/)
+bool cfunc_item(script::Struct* params, script::Context /*context*/)
 {
     if (!is_switched_on() || game_screens::net_session()) {
         return false;
@@ -3273,7 +3273,7 @@ bool cfunc_item(script::Struct* params, script::Script* /*script*/)
 // NewFrontend_Open screen=levels | editlevels | options [back=<script>]: our screen (the menu's item chose it: its own
 // sound played) - shown the next frame over whatever is up; closed with Back to the restyled menu it came from, or
 // `back` spawned (its menu went: the skate shop's).
-bool cfunc_show_new_frontend(script::Struct* params, script::Script* /*script*/)
+bool cfunc_show_new_frontend(script::Struct* params, script::Context /*context*/)
 {
     uint32_t screen = 0;
     uint32_t back = 0;
@@ -3303,8 +3303,8 @@ bool cfunc_show_new_frontend(script::Struct* params, script::Script* /*script*/)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "NewFrontend_Item", .function = &script::legacy_command<&cfunc_item>},
-        {.name = "NewFrontend_Open", .function = &script::legacy_command<&cfunc_show_new_frontend>},
+        {.name = "NewFrontend_Item", .function = &cfunc_item},
+        {.name = "NewFrontend_Open", .function = &cfunc_show_new_frontend},
     });
     script::install_script_functions(kFunctions);
 }

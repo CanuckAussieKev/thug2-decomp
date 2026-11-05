@@ -53,6 +53,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "game/skate/game_mode.h"
 #include "platform/crash.h"
 #include "platform/run_log.h"
@@ -1927,7 +1928,7 @@ bool put_back(const std::string& before, std::string* message)
     return true;
 }
 
-bool cfunc_pick_level(script::Struct* params, script::Script* /*script*/)
+bool cfunc_pick_level(script::Struct* params, script::Context /*context*/)
 {
     static const uint32_t kLevel = checksums::hash_from_text("level");
     static const uint32_t kEditedLayout = checksums::hash_from_text("edited_layout");
@@ -1966,9 +1967,9 @@ bool cfunc_pick_level(script::Struct* params, script::Script* /*script*/)
     return true;
 }
 
-bool cfunc_edited_levels(script::Struct* /*params*/, script::Script* script)
+bool cfunc_edited_levels(script::Struct* /*params*/, script::Context context)
 {
-    if (!script || !script->args() || get_refused()) {
+    if (!context || !context.args() || get_refused()) {
         return false;
     }
     std::vector<uint32_t> saved = saved_scenes();
@@ -2031,8 +2032,8 @@ bool cfunc_edited_levels(script::Struct* /*params*/, script::Script* script)
     for (size_t i = 0; i < entries.size(); ++i) {
         array->set_cell(static_cast<uint32_t>(i), script::Cell::of(core::at(entries, i)));
     }
-    script->args()->append_array_ref("edited_list", array);
-    script->args()->put_int("edited_count", static_cast<int>(entries.size()));
+    context.args()->append_array_ref("edited_list", array);
+    context.args()->put_int("edited_count", static_cast<int>(entries.size()));
     return true;
 }
 

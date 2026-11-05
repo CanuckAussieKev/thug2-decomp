@@ -15,7 +15,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/legacy_command.h"
+#include "engine/script/context.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "engine/sys/mlp.h"
@@ -78,7 +78,7 @@ bool ground_below(Vec3 point, float* y)
 }
 
 // TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>]
-bool cfunc_teleport_skater_standing(script::Struct* params, script::Script* /*script*/)
+bool cfunc_teleport_skater_standing(script::Struct* params, script::Context /*context*/)
 {
     script::VectorValue pos = {};
     if (!params || !params->fetch_vec("pos", &pos, 0)) {
@@ -220,7 +220,7 @@ void place_camera(gfx::ViewCam* camera, int viewport)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "TeleportSkaterStanding", .function = &script::legacy_command<&cfunc_teleport_skater_standing>},
+        {.name = "TeleportSkaterStanding", .function = &cfunc_teleport_skater_standing},
     });
     script::install_script_functions(kFunctions);
 }

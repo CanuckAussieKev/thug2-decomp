@@ -16,6 +16,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "base/core/no_destroy.h"
@@ -174,7 +175,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!pressed || level_editor::live_now()) {
         return;
     }
-    const bool offered = enter_script_loaded() && cfunc_available(nullptr, nullptr) && !layout::get_refused();
+    const bool offered = enter_script_loaded() && cfunc_available(nullptr, script::Context()) && !layout::get_refused();
     if (on_key(pressed, in_level, paused, offered) != Step::kPauseThenEnter) {
         if (in_level && !paused && !offered) {
             get_log("level editor: the play key - the editor isn't offered here");

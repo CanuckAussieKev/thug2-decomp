@@ -20,8 +20,8 @@ namespace objects {
 class GameEntity;
 }
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // NOT ORIGINAL - the level editor (ours, added at the user's request; not the game's and not PartyMod's).
@@ -200,9 +200,9 @@ bool& debug_enabled();
 bool live_now();
 
 // Script commands (CFunctions, registered by register_script_functions).
-bool cfunc_available(script::Struct* params, script::Script* script); // LevelEditor_Available
-bool cfunc_start(script::Struct* params, script::Script* script);     // LevelEditor_Start
-bool cfunc_stop(script::Struct* params, script::Script* script);      // LevelEditor_Stop
+bool cfunc_available(script::Struct* params, script::Context context); // LevelEditor_Available
+bool cfunc_start(script::Struct* params, script::Context context);     // LevelEditor_Start
+bool cfunc_stop(script::Struct* params, script::Context context);      // LevelEditor_Stop
 // Our extra script commands, registered after the game's own table (sys::Main, after 0x005A5E70).
 void register_script_functions();
 

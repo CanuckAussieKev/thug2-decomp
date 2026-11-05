@@ -34,6 +34,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/context.h"
+#include "engine/script/cell.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "base/core/checked_index.h"
@@ -414,7 +415,7 @@ double& shot_until()
 }
 double get_now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
-using Function = bool (*)(script::Struct*, script::Script*);
+using Function = script::NativeFunction;
 
 // A camera shot's offsets: its target's and its position's.
 struct ShotOffsets {
@@ -460,7 +461,7 @@ bool shot_offsets(uint32_t name, ShotOffsets offsets)
 
 } // namespace
 
-bool cfunc_play_camera(script::Struct* params, script::Script* script)
+bool cfunc_play_camera(script::Struct* params, script::Context context)
 {
     uint32_t name = 0;
     if (!params || !params->read_hash_value(get_checksums("camera"), &name, 0) || (name == 0U)) {
@@ -488,7 +489,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
         // (the last shot still playing: killed first, as the goals kill theirs)
         gsl::owner<script::Struct*> kill = script::new_struct();
         kill->put_name_key(checksums::Name{get_checksums("name")}, shot);
-        commands::cfunc_kill_skater_cam_anim(kill, script::Context(script));
+        commands::cfunc_kill_skater_cam_anim(kill, context);
         kill->get_clear();
         script::delete_struct(kill);
     }
@@ -502,7 +503,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     const int frames = shot_frames(seconds);
     anim->put_int(checksums::Name{get_checksums("frames")}, frames);
     anim->put_int(checksums::Name{get_checksums("skippable")}, 1);
-    commands::cfunc_play_skater_cam_anim(anim, script::Context(script));
+    commands::cfunc_play_skater_cam_anim(anim, context);
     anim->get_clear();
     script::delete_struct(anim);
     shot_until() = now + (frames / kFrameRateDouble);

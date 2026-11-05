@@ -86,7 +86,7 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/legacy_command.h"
+#include "engine/script/context.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
 #include "base/core/down_cast.h"
@@ -3473,12 +3473,12 @@ bool pass_pause_key(bool down)
 
 // (offline only, outside career-type modes: no LEVEL EDITOR in a network session or in story / classic... -
 // level_editor_layout.h)
-bool cfunc_available(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_available(script::Struct* /*params*/, script::Context /*context*/)
 {
     return is_switched_on() && render::current_level() != 0 && !layout::get_refused();
 }
 
-bool cfunc_start(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (!is_switched_on()) {
         get_log("level editor: off ([features] level_editor=0)");
@@ -3648,7 +3648,7 @@ void place_skater_below_camera()
 
 } // namespace
 
-bool cfunc_stop(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (!level_editor_state().active_) {
         return true;
@@ -3701,12 +3701,12 @@ bool cfunc_stop(script::Struct* /*params*/, script::Script* /*script*/)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {.name = "LevelEditor_Available", .function = &script::legacy_command<&cfunc_available>},
-        {.name = "LevelEditor_Start", .function = &script::legacy_command<&cfunc_start>},
-        {.name = "LevelEditor_Stop", .function = &script::legacy_command<&cfunc_stop>},
-        {.name = "LevelEditor_PickLevel", .function = &script::legacy_command<&layout::cfunc_pick_level>},
-        {.name = "LevelEditor_EditedLevels", .function = &script::legacy_command<&layout::cfunc_edited_levels>},
-        {.name = "LevelEditor_PlayCamera", .function = &script::legacy_command<&cameras::cfunc_play_camera>}, // (map4)
+        {.name = "LevelEditor_Available", .function = &cfunc_available},
+        {.name = "LevelEditor_Start", .function = &cfunc_start},
+        {.name = "LevelEditor_Stop", .function = &cfunc_stop},
+        {.name = "LevelEditor_PickLevel", .function = &layout::cfunc_pick_level},
+        {.name = "LevelEditor_EditedLevels", .function = &layout::cfunc_edited_levels},
+        {.name = "LevelEditor_PlayCamera", .function = &cameras::cfunc_play_camera}, // (map4)
     });
     script::install_script_functions(kFunctions);
 }

@@ -24,8 +24,8 @@
 #include "editor/level_editor_walls.h"
 
 namespace script {
+class Context;
 class Struct;
-class Script;
 } // namespace script
 
 // NOT ORIGINAL - the level editor's saved layouts (ours; see level_editor.h): what the editor changed in a level,
@@ -341,10 +341,10 @@ bool capture_text(std::string* text);
 // Script commands (registered with the editor's: level_editor::register_script_functions).
 // LevelEditor_PickLevel level=<load script> [edited_layout]: the level select chose a level (the first line of
 // level_select_change_level) - the edited copy or the level as shipped.
-bool cfunc_pick_level(script::Struct* params, script::Script* script);
+bool cfunc_pick_level(script::Struct* params, script::Context context);
 // LevelEditor_EditedLevels: the level select's entries for the edited copies (edited_list, edited_count) - each the
 // level's own entry (from level_select_menu_level_info and the ported levels' lists) with the text "<TEXT> (EDITED)"
 // and the flag edited_layout. False (nothing returned) when there are none or a network session is on.
-bool cfunc_edited_levels(script::Struct* params, script::Script* script);
+bool cfunc_edited_levels(script::Struct* params, script::Context context);
 
 } // namespace frontend::level_editor::layout
