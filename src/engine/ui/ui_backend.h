@@ -12,7 +12,7 @@ union SDL_Event;
 // window and input are SDL2's: platform/sdl_window.h, engine/pad_input/sdl_input.cpp - and its Direct3D 9 renderer
 // backend on the game's device). Renderer-independence rules (the user's requirement - Vulkan later only swaps the
 // UI backend):
-//   - no editor or front-end file includes Direct3D or an ImGui backend header (render_d3d9 alone does);
+//   - no editor or front-end file includes Direct3D or an ImGui backend header (gpu_d3d9 alone does);
 //   - every gizmo and line is drawn through ImGui draw lists (level_editor_ui.cpp), projected to the screen;
 //   - a picture ImGui shows is the UI backend's (an image it made, or its preview / atlas target).
 // ImGui's coordinates are the window's pixels (what SDL's mouse events are in); Render scales its draw data to the

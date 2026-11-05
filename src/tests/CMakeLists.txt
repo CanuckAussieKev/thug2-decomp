@@ -40,7 +40,7 @@ if(THUG2_VULKAN)
 endif()
 
 # NOT ORIGINAL - thug2_ff_shader_check.exe: the Vulkan backend's fixed-function emulation checked - every shader key the
-# Direct3D 9 backend's draws can make (a model of src/render_d3d9's draws), its GLSL generated and compiled, the SPIR-V
+# Direct3D 9 backend's draws can make (a model of src/render_pc's draws), its GLSL generated and compiled, the SPIR-V
 # validated by SPIRV-Tools (when built: THUG2_SPIRV_VALIDATOR, cmake/vulkan_libraries.cmake) and handed to the Vulkan
 # driver as modules and pipelines (src/tests/ff_shader_check.cpp).
 if(THUG2_VULKAN)

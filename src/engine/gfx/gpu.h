@@ -1,7 +1,7 @@
 #pragma once
 
 // NOT ORIGINAL - render::Gpu: the low interface under the PC rendering layer (docs/design/vulkan.md, "A Vulkan
-// backend: the shape"). The PC platform layer (src/render_d3d9 today: the scenes, meshes, materials and their passes,
+// backend: the shape"). The PC platform layer (src/render_pc: the scenes, meshes, materials and their passes,
 // the particles, the screen effects, the 2D) calls it where it called the Direct3D 9 device; each graphics API
 // implements it once (Direct3D 9: gpu_d3d9/gpu_d3d9.h; Vulkan later). It is never per vertex: a call per state
 // change, per draw batch, per resource made, locked or released, per clear, per frame.

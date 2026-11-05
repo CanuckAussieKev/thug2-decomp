@@ -12,11 +12,7 @@ const ROOT = join(import.meta.dirname, "..");
 const SRC = join(ROOT, "src");
 
 // Direct3D's own headers: the files that talk to Direct3D include them.
-const DIRECT3D_HEADERS = new Set([
-    "gpu_d3d9/d3d9_state.h",
-    "gpu_d3d9/d3d9_handles.h",
-    "gpu_d3d9/imgui_texture_id.h",
-]);
+const DIRECT3D_HEADERS = new Set(["gpu_d3d9/d3d9_state.h", "gpu_d3d9/d3d9_handles.h", "gpu_d3d9/imgui_texture_id.h"]);
 
 const SDK_HEADER = /^\s*#\s*include\s*<(d3d9|d3d9types|d3d9caps|d3dx9\w*)\.h>/m;
 const PROJECT_INCLUDE = /^\s*#\s*include\s*"([^"]+)"/gm;

@@ -2,7 +2,7 @@
 
 // NOT ORIGINAL - render::Device: what the engine side asks of the graphics backend. The backend is the original's PC
 // platform layer (the engine's s_plat_* calls and what they reach, 0x004B2270-0x004E0A90, with the Direct3D files of
-// our own: src/render_d3d9, which the engine neither includes nor links; the comments below name its files); the
+// our own: src/render_pc, which the engine neither includes nor links; the comments below name its files); the
 // engine side is everything above it - the engine's own entry points, the scenes, models, effects and
 // lights as the engine sees them, the scripts, the game. Every call the engine side makes into the backend for a
 // frame, a resource, a state block or a draw batch goes through the one installed device; app/ makes it and installs

@@ -159,7 +159,7 @@ directly would have to repeat the whole PC platform layer: 23,600 lines, most of
 engine  --render::Device-->  render_pc/        the PC platform layer, API-neutral: scenes, meshes, materials and their
                                                passes, CPU skinning, sorting, particles, weather, shadows' logic, 2D
                              --render::Gpu-->  gpu_d3d9/    Direct3D 9: the 458 device-call lines, as they are
-                                               gpu_vulkan/  Vulkan
+                                               gpu_vulkan/  Vulkan (src/render_vulkan today: V6 renames it with the Gpu)
 engine  --render::UiBackend-->  d3d9 / vulkan UI backends (ImGui's dx9 / vulkan renderer backends)
 ```
 
@@ -188,7 +188,7 @@ fixed `ps.1.1` shaders and the per-material generated ones are translated to GLS
 bindings and attribute locations), `glsl_compiler.h` (GLSL -> SPIR-V, and a library of compiled shaders by key);
 `src/tests/ff_shader_check.cpp` (the check).
 
-**What the game draws with, measured from `src/render_d3d9`.** With pixel shader support (every Vulkan device), the
+**What the game draws with, measured from `src/render_d3d9` (now `src/render_pc`).** With pixel shader support (every Vulkan device), the
 backend's draws use:
 - the six fixed `ps.1.1` shaders (`0x964`, `0x95C`, `0x948`, `0x944`, `0x940`, `0x960`) and the per-material shader for
   two to four passes. Every other pixel shader slot (`0x94C`, `0x950`, `0x954`... in `shader_slots.h`) is empty with
@@ -473,11 +473,11 @@ one Gpu call per device call (`draw_indexed_from_memory` per text batch, `draw_f
   `unlock_surface`, `back_buffer`, `display_size`, `read_front_buffer`, `save_state` / `restore_state` /
   `release_saved_state` (`GpuSavedState`), `gpu_value::kFormat*`, `kPoolManaged`, `kPoolSystemMemory`, `kPoolScratch`,
   `kUsageRenderTarget`, `kResultDeviceLost`, `kResultNotFound`.
-- **What still includes a Direct3D header** (V5f's input): `gpu_d3d9.cpp` (the Gpu), `d3d9_context.cpp` (the creation),
+- **What included a Direct3D header** (V5f's input; V5f moved these to `src/gpu_d3d9`, the only folder that includes one): `gpu_d3d9.cpp` (the Gpu), `d3d9_context.cpp` (the creation),
   `d3d9_state.h` / `.cpp` (the device and instance pointers), `d3d9_handles.h` (the handle conversions), `d3dx.cpp` (D3DX9:
   the shader assembly and the JPEG, `d3dx.h`'s declarations are Direct3D-free), `d3d9_ui_backend.cpp` and
   `imgui_texture_id.h` (Dear ImGui's backend, `render::UiBackend`; V9 makes the Vulkan one) and `d3d_matrix.h` (unused
-  since V5d; V5f may remove it).
+  since V5d; V5f deleted it).
 
 ## Ray tracing: what it needs on top
 
@@ -509,7 +509,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 - done |
 | V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 - done |
 | V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` / `GpuContext` | V5a | after stage 11 - done |
-| V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 |
+| V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 - done: `render_pc` (118 files, `thug2_render_pc`), `gpu_d3d9` (11 files, `thug2_gpu_d3d9`); `render_vulkan` keeps its name until V6 puts the Vulkan `Gpu` in it (then it is renamed `gpu_vulkan`) |
 | V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 |
 | V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 |
 | V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 |

@@ -42,7 +42,7 @@ by the script below and classified by the worst type it names:
 | unknown (templates, expressions) | 11 | 9 | to be read by hand |
 
 By folder, the pointer-holding asserts are mostly in `engine/gfx` (47), `engine/objects` (27), `engine/script` (27),
-`game/park_editing` (19), `engine/render` (14), `render_d3d9` (about 40 over its files), `game/world` (8),
+`game/park_editing` (19), `engine/render` (14), `render_pc` / `gpu_d3d9` (about 40 over their files), `game/world` (8),
 `engine/sys` (8), `engine/file` (7) and `engine/audio` (6).
 
 Most of these records are the original's in-memory objects (heap blocks, pool items, singletons). The asserts only
@@ -78,7 +78,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
   - `platform/crash.cpp` (10, the crash report: below), `platform/gamespy.cpp` (2: NAT negotiation's `int` user word
     holds a pointer), `platform/run_log.cpp`, `base/core/all_ones.h`, `gpu_d3d9/imgui_texture_id.h` (64-bit
     already) and `tests/format_check_files.cpp` (9).
-- **`raw::` (raw_view.h): 42 lines** (platform 15, engine/script 8, render_d3d9 8, formats 6). They read memory as
+- **`raw::` (raw_view.h): 42 lines** (platform 15, engine/script 8, render_pc / gpu_d3d9 8, formats 6). They read memory as
   another type. Most are layout-neutral. Each one has to be read.
 - **`function_at` / `code_address`: 53 lines** (game/online 32: GameSpy callbacks registered as code addresses;
   platform 16). `platform/code_address.h` asserts that a function pointer has the size of `void*` and, in one place,
@@ -109,7 +109,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 
 - `_controlfp`: only in `src/tests/maths_check.cpp`, which runs at 53 and at 24 bits. Direct3D 9 sets 24 bits on
   the thread that makes the device, because the game makes it without `D3DCREATE_FPU_PRESERVE`
-  (`render_pc/device.cpp`).
+  (`gpu_d3d9/d3d9_context.cpp`).
 - The game's own code never sets the precision. The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
   CMake files set no `/arch`), so its `float` / `double` arithmetic is already SSE2 and doesn't depend on the x87
   control word. The x87 remains in these places in the 32-bit build:
@@ -223,7 +223,7 @@ Each task is one PR. "Start after stage 11" means after branch `stage11` is merg
 | X10a | `src/media_ffmpeg`: FFmpeg's Bink 1 decoding behind `media::Movie` (video: open, frames, copy to buffer, wait, go to, pause), FFmpeg fetched as pinned LGPL DLLs; a header survey of the game's Bink files; chosen at start-up beside Bink's (`[features] movie_codec=bink\|ffmpeg`) | - | pure addition, 32-bit first |
 | X10b | FFmpeg's Bink audio into the game's sound output: a streaming buffer through `audio::Device`, track volume and pan, the sound-only streams from a path, a file handle at an offset, and memory | X10a | |
 | X10c | A/B on the 32-bit build: the movies and the music / sound streams through both codecs (frames, timing, levels); THIRD_PARTY_NOTICES and the licence notes | X10b | |
-| X11 | `render_d3d9` on x64 (D3D9 x64; handles, the dynamic buffers, `make_primitive_at`'s storage, the loading console's timer) | X6 | land before the Vulkan split (V5) or coordinate |
+| X11 | `render_pc` / `gpu_d3d9` on x64 (D3D9 x64; handles, the dynamic buffers, `make_primitive_at`'s storage, the loading console's timer) | X6 | land before the Vulkan split (V5) or coordinate |
 | X12a-e | Compile and fix by library on x64, one PR each: (a) `engine/` memory, lists, file, assets, sys; (b) `engine/` gfx, objects, render, ui; (c) `engine/` script, net, audio, sound, pad_input, media; (d) `game/`; (e) `editor/`, `frontend/`, `devtools/`, the backends (`audio_dsound`, `input_dinput`, `fs_win32`, `media_ffmpeg`), `app/` | X3-X8, X10c, X11 | C4267 / C4244 / C4311 / C4312 at 0 |
 | X13 | Tools on x64: `first_fault.py` and the symbolizers read x64 contexts and PDBs; the game scripts (`tools/game`) find the x64 exe | X8 | |
 | X14 | Floating-point equivalence: `thug2_maths_check` writes a corpus on the 32-bit build and compares with it on x64 (ulps per function); the accepted differences documented | X2 | |
@@ -270,7 +270,7 @@ choice stays either way.
   - X6 and X12a-e both touch most headers. X6 goes first and lands quickly.
   - X4 / X5 own `engine/script`. Nothing else edits it at the same time.
   - X3 and X12b both touch the collision code. X3 goes first.
-  - X11 and the Vulkan split (vulkan.md, V5) both touch `render_d3d9`. X11 is small and goes first.
+  - X11 and the Vulkan split (vulkan.md, V5) both touched `render_d3d9` (now `render_pc` and `gpu_d3d9`). X11 is small and goes first.
 
 ## Risks
 
