@@ -214,6 +214,7 @@ backend alone).
 | `tools/script_headers.test.ts` | The interpreter's headers only in `script_qb/` and `app/`; only `app/` installs the host; nothing outside `script_qb/` names its classes. |
 | `tools/layering.ts` (`layering.test.ts`) | The named views of in-memory layouts (`cell::`, `raw::`, `bits_as`, `function_at`) only in the boundary files. |
 | `tools/no_nolint.test.ts` | No `NOLINT` in `src/`. |
+| `tools/clang_tidy_filter.test.ts` | `.clang-tidy`'s header filter covers every folder of `src/` (a header outside it is never reported) and leaves out the fetched libraries and the build's generated headers. |
 
 Nothing is registered by a static initialiser: the start-up runs explicit tables (app's start-up initialisers, the
 command table, the component registry), so the linker drops no object the game needs (a static library leaves out an

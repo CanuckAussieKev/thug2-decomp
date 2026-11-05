@@ -133,7 +133,7 @@ what one file uses is in an unnamed namespace.
 
 `.clang-tidy` enables the Guidelines' checks (`cppcoreguidelines-*`) with `bugprone-*`, `misc-*`, `modernize-*`,
 `performance-*`, `readability-*` (taken whole) and the clang static analyzer (`clang-analyzer-*`), and runs them with
-zero warnings.
+zero warnings, in every file and header under `src/` (`tools/clang_tidy_filter.test.ts` checks the header filter).
 **There is no `NOLINT` in `src/`** (`npm test` fails on one: `tools/no_nolint.test.ts`). A place that doesn't keep a
 check is changed so that it does; where the original's behaviour can't be kept without what a check flags, the check is
 configured by its own options or switched off in a `.clang-tidy`, the reason written beside it - those are the project's

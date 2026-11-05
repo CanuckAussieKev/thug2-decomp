@@ -42,7 +42,11 @@ Checks:
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*[/\\]src[/\\](platform|formats|wire|gpu|engine|game|frontend|editor)[/\\].*'
+# Every header under src/ is ours and is checked (src/ holds no third-party code). The fetched libraries and the
+# build's own headers (_deps, SDL2's copied include folder, the generated build info, the embedded editor fonts) are
+# not, wherever the build folder is. tools/clang_tidy_filter.test.ts checks that every folder of src/ is covered.
+HeaderFilterRegex: '.*[/\\]src[/\\].*'
+ExcludeHeaderFilterRegex: '.*[/\\](_deps|sdl2-include|generated|editor_fonts)[/\\].*'
 CheckOptions:
   # Headers we don't control and don't own the layout of: the fetched libraries (_deps: GSL, Dear ImGui, lzham, stb,
   # the GameSpy SDK, D3DX9), SDL2's include folder, the Windows SDK (windows.h, d3d9, dsound, dinput, winsock - the
