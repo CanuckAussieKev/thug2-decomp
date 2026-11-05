@@ -13,7 +13,7 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 | Non-static data members | snake_case + `_` | `speed_`, `frame_count_` |
 | Namespace-scope variables | `g_` + snake_case (`s_` for a file's alias of one) | `g_frame_count` |
 | Constants (`constexpr` / `const`) and enumerators | `k` + PascalCase | `kMaxPlayers`, `kTimer` |
-| Namespaces | snake_case, = the folder | `maths::`, `script::` |
+| Namespaces | snake_case, named for the subsystem ("Namespaces" below) | `maths::`, `script::` |
 | Template parameters | PascalCase | `template <typename Value>` |
 | Macros (rare) | ALL_CAPS, `THUG2_` prefix | `THUG2_ASSERT` |
 | Files | snake_case, `.h` / `.cpp` | `rider_physics.cpp` |
@@ -43,8 +43,9 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 
 ```
 src/
-  app/        main, WinMain, the start-up and the game's main, the exe's extensions (extensions.cpp), the command
-              table and the component registry (the composition: may include anything)
+  app/        main, WinMain, the start-up and the game's main, the command table and the component registry (the
+              object library thug2_app, shared by both exes), and each exe's extension list (extensions.cpp for
+              thug2-decomp.exe, editor_extensions.cpp for thug2-editor.exe) - the composition: may include anything
   platform/   the window and its events, crash reports, the run log, settings, the registry, code addresses (the
               Win32 / SDL / GameSpy side; library thug2_platform)
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
@@ -78,23 +79,41 @@ src/
   script_qb/  the QB script interpreter: a running script's operations, its Update and statements, waits, calls,
               interrupts, event handlers, the list of scripts and the manager; it implements script::Host (library
               thug2_script_qb, included and linked by app/ only)
-  game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module), online (the
-              network session; the transport stays in engine/net), commands (the game's script commands), world
-              (the game's object components: the drivable vehicle, peds, projectiles, trick objects, the park
-              editor's camera) (library thug2_game)
+  game/       skating, the rider, goals, parks, saves, front_end (the original's pause / menu module, and starting in
+              a level), online (the network session; the transport stays in engine/net), commands (the game's script
+              commands), world (the game's object components: the drivable vehicle, peds, projectiles, trick
+              objects, the park editor's camera), skate (the session root, career, play trackers) (library
+              thug2_game)
   frontend/   the new front end and the mouse menus (library thug2_frontend)
-  editor/     the level editor (library thug2_editor)
-  devtools/   the developer tools (screenshot key, test-automation channel, restart tester, start level, test view;
-              library thug2_devtools)
+  editor/     the level editor (library thug2_editor; also the editor exe's whole program, with app/)
+  devtools/   the developer tools (screenshot key, test-automation channel, restart tester; library thug2_devtools).
+              Starting in a level (game/front_end/start_level) and the test views (game/rider/test_view) are the
+              game's, which the editor and the dev tools both use
   tests/      the offline checks (thug2_format_check, thug2_maths_check, thug2_parse_check, thug2_printf_check)
 ```
 
 `engine/` doesn't include `game/`, `frontend/` or `editor/`; the engine and the game reach the editor, the front end
-and the dev tools only through `engine/ext` (each of those is an `ext::Extension` that `app/` registers); `formats/`, `wire/` and `platform/` include nothing of the
-game but `base/` (they build as libraries of their own, on `thug2_base`); each folder's `CMakeLists.txt` defines its
-library, and `tools/cmake_layers.ts` checks that the libraries link as the layers allow; `base/` includes nothing but the standard library
-and GSL. One folder is one namespace (formats and wire
-keep the namespaces their headers had). The layers and their rules: docs/architecture.md.
+and the dev tools only through `engine/ext` (each of those is an `ext::Extension` that `app/` registers); `formats/`,
+`wire/` and `platform/` include nothing but `base/` and each other as the layers say (they build as libraries of their
+own); `base/` includes nothing but the standard library and GSL. The editor, the front end and the dev tools include
+`game/` and below, never one another, and only the engine and game headers listed in the `api` of their entry in
+`tools/layers.json`. Each folder's `CMakeLists.txt` defines its library; `tools/layers.ts` and `tools/cmake_layers.ts`
+check the includes and the links against the layer map. The layers and their rules, the seams and the checks:
+docs/architecture.md.
+
+### Namespaces
+
+A namespace is named for a subsystem, in snake_case, and a folder usually has one of its own (`maths::`, `lists::`,
+`audio::`, `goals::`, `online::`, `park_editing::`, `ext::`, `fs::`). Where files moved between folders they kept the
+namespace they had, so a namespace can span folders: `render::` is engine/gfx, engine/render and the Direct3D 9 backend
+(whose own names are in `render::d3d9::`), `objects::` is engine/objects, game/rider and game/world, `net::` is the
+transport and the online session's wire side, and the script commands are `script::` or `commands::` in every library
+that has some. The level editor is `frontend::level_editor::*` (and its parts: `ui`, `triggers`, `chains`, `overlays`)
+and the dev tools are `frontend::automation`, `sys::screenshot` and so on, as they were inside the front end's folder;
+the editor's is to become `editor::`, because a `frontend::` namespace in the editor library misleads (not renamed
+yet). The state classes named `Hub` (one per subsystem) keep the name. A module's internals shared by
+its pieces are in a named `internal` namespace inside the module's own, brought in by a using-directive in each piece;
+what one file uses is in an unnamed namespace.
 
 ## Code
 
@@ -142,7 +161,16 @@ exceptions, all in one place:
   without De Morgan rewrites (`SimplifyDeMorgan: false`: `!(a < b)` is not `a >= b` for floats - a NaN fails every
   comparison); `readability-implicit-bool-conversion` with `AllowPointerConditions` (ES.87); the shortest names
   `readability-identifier-length` accepts (two letters, plus the coordinates `x y z w u v` and the operands `a` / `b`);
-  and the options listed in `.clang-tidy` for the other checks.
+  `bugprone-easily-swappable-parameters` without the pairs that mean one thing (the bounds of a range - min / max,
+  first / last, from / to -, a copy's ends - src / dst -, a comparison's operands - a / b, lhs / rhs;
+  `IgnoredParameterNames`); the rule of five as C.21 allows it (`AllowSoleDefaultDtor`, `AllowMissingMoveFunctions`);
+  `misc-include-cleaner` not counting the fetched libraries' and the SDKs' headers (`IgnoreHeaders`: it would name their
+  internal headers) nor `<new>` (a placement new); `bugprone-exception-escape` not counting an allocation failure
+  (`IgnoredExceptions`); the unchecked-container-access check not applied to the classes that check their own index
+  (`ExcludeClasses`: `maths::Vec4` / `Mat4`, `core::Cursor`); `modernize-use-std-numbers` only for an exact constant
+  (`DiffThreshold: 0`); the naming rules' own spellings (`readability-identifier-naming.*`: the prefixes `g_` and `k`,
+  the `_` member suffix, the public-data and library-name exceptions above); and the options listed in `.clang-tidy`
+  for the other checks.
 - **What changed instead of an exception**, for the record: the original's integer divisions keep their quotient in
   a named integer; bit-for-bit float compares are `core::has_bits` / `same_bits` (`base/core/same_bits.h`);
   repeated branches are merged; assignments and counts come out of conditions; switches say `default: break`;
@@ -307,7 +335,13 @@ exceptions, all in one place:
   and records built with designated initialisers (the editor's painters and undo steps, the front end's draw
   context) stay aggregates. Which is which: a record whose member functions construct, tear down
   or keep state between calls (a list walker, a recorder, a ring) is a class; one whose functions only read or copy its
-  fields is a plain record. Private members take the `_` suffix (so the accessor of `next_` is `next()`). A file
+  fields is a plain record. A class with many fields that fall into groups (the skater's physics, the walking physics, the network manager, the
+car, the rider) is split into **parts**: records of its fields, nested in the class (or held by value, as collaborators
+with private data and their own methods, where the group has an invariant), at the same places in the layout so
+`sizeof` and the offsets stay as they were. A part's data is public (it is a plain record), and the class's code reads
+`part_.field`; a part may carry the methods that touch only its own fields (`Feelers::probe_touches_zone`,
+`Rail::grind_point_in_world`, `Friction::update_free_revert`) - a method that reads two parts, or the class's other
+members, stays on the class. Private members take the `_` suffix (so the accessor of `next_` is `next()`). A file
   helper that takes the class by pointer is a private member function where the class is its natural owner
   (`SkaterPhysicsModule::onto_rail`); a one-line wrapper over a member is inlined at its calls. An owner is not
   handed out: the getter is a view (`static_cast<T*>(owner_)`) and the class deletes it itself
