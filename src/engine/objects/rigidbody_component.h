@@ -287,13 +287,19 @@ private:
         float rotation_factor{1.0F}; // +0x14 (+0x54) skater_collision_rotation_factor (1)
     };
 
+    // The speeds it falls asleep under (+0x58-+0x5F: configure_from_data, check_sleep).
+    struct SleepPoints {
+        float linear_squared{100.0F};                       // +0x00 (+0x58) linear_velocity_sleep_point squared (100)
+        float angular_squared{kDefaultAngularSleepSquared}; // +0x04 (+0x5C) angular_velocity_sleep_point squared
+                                                            //        (0.16)
+    };
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     Response response_;                // +0x2C-+0x37 the response to its contacts
     Damping damping_;                  // +0x38-+0x3F the damping
     SkaterPush skater_push_;           // +0x40-+0x57 how the skater pushes it
-    float linear_sleep_squared_{100.0F};                       // +0x58 linear_velocity_sleep_point squared (100)
-    float angular_sleep_squared_{kDefaultAngularSleepSquared}; // +0x5C angular_velocity_sleep_point squared (0.16)
+    SleepPoints sleep_points_;         // +0x58-+0x5F the speeds it falls asleep under
     maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)
 
 public:

@@ -271,10 +271,10 @@ void BodyDynamicsModule::check_sleep()
     if (unknown191_ < 3) {
         return;
     }
-    if (magnitude_squared(vel_) > linear_sleep_squared_) {
+    if (magnitude_squared(vel_) > sleep_points_.linear_squared) {
         return;
     }
-    if (magnitude_squared(rot_vel_) > angular_sleep_squared_) {
+    if (magnitude_squared(rot_vel_) > sleep_points_.angular_squared) {
         return;
     }
     sleep();

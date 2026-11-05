@@ -527,12 +527,12 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     params->fetch_float(kLinearDamping, &damping_.linear, 0);
     params->fetch_float(kAngularDamping, &damping_.angular, 0);
     if (params->has_entry_named(kLinearVelocitySleepPoint)) { // linear_velocity_sleep_point
-        params->fetch_float(kLinearVelocitySleepPoint, &linear_sleep_squared_, 0);
-        linear_sleep_squared_ = linear_sleep_squared_ * linear_sleep_squared_;
+        params->fetch_float(kLinearVelocitySleepPoint, &sleep_points_.linear_squared, 0);
+        sleep_points_.linear_squared = sleep_points_.linear_squared * sleep_points_.linear_squared;
     }
     if (params->has_entry_named(kAngularVelocitySleepPoint)) { // angular_velocity_sleep_point
-        params->fetch_float(kAngularVelocitySleepPoint, &angular_sleep_squared_, 0);
-        angular_sleep_squared_ = angular_sleep_squared_ * angular_sleep_squared_;
+        params->fetch_float(kAngularVelocitySleepPoint, &sleep_points_.angular_squared, 0);
+        sleep_points_.angular_squared = sleep_points_.angular_squared * sleep_points_.angular_squared;
     }
     params->fetch_float(kSkaterCollisionImpulseFactor, &skater_push_.impulse_factor,
                         0); // skater_collision_impulse_factor
@@ -846,8 +846,8 @@ void BodyDynamicsModule::check_layout()
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.assent_sin), .original = 0x4C},
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.impulse_factor), .original = 0x50},
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.rotation_factor), .original = 0x54},
-        FieldAt{.now = offsetof(BodyDynamicsModule, linear_sleep_squared_), .original = 0x58},
-        FieldAt{.now = offsetof(BodyDynamicsModule, angular_sleep_squared_), .original = 0x5C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sleep_points_.linear_squared), .original = 0x58},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sleep_points_.angular_squared), .original = 0x5C},
         FieldAt{.now = offsetof(BodyDynamicsModule, contacts_), .original = 0x60},
         FieldAt{.now = offsetof(BodyDynamicsModule, capsule_), .original = 0x64},
         FieldAt{.now = offsetof(BodyDynamicsModule, steer_friction_), .original = 0x88},
