@@ -145,9 +145,9 @@ void rebuild_rails()
         }
     }
     if (!old.empty()) {
-        level_editor_chains_state().retired_.push_back(old.data()); // (a skater's grind may point into it: freed with the level)
+        rebuilt_rails().retired_.push_back(old.data()); // (a skater's grind may point into it: freed with the level)
     }
-    level_editor_chains_state().built_ = nodes_block;
+    rebuilt_rails().built_ = nodes_block;
     register_trick_objects();
     ++flat_chains().flat_generation_;
     scenery::rails_rebuilt();
@@ -453,11 +453,11 @@ void forget_level()
     stored_dropped().clear();
     drop_active().clear();
     terrains_state().clear();
-    level_editor_chains_state().remake_.clear();
-    level_editor_chains_state().draw_ = Blit::kNone;
-    level_editor_chains_state().draw_last_ = 0;
-    level_editor_chains_state().pick_ = ChainOp::kCancel;
-    level_editor_chains_state().ladder_have_foot_ = false;
+    rebuilt_rails().remake_.clear();
+    chain_tool().draw_ = Blit::kNone;
+    chain_tool().draw_last_ = 0;
+    chain_tool().pick_ = ChainOp::kCancel;
+    chain_tool().ladder_have_foot_ = false;
     // (the rail manager and the trick object manager are the level's: they go with it)
     extras_state().clear();
     facings_state().clear();

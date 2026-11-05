@@ -39,6 +39,7 @@
 #include <gsl/pointers>
 #include "base/core/format.h"
 #include "base/maths/vec4.h"
+#include "base/core/no_destroy.h"
 #include "editor/level_editor_chains_internal.h"
 
 namespace frontend::level_editor::chains {
@@ -61,6 +62,12 @@ constexpr float kJoinReach = 24.0F; // a free chain end within this is joined
 
 } // namespace
 namespace internal {
+
+ChainTool& chain_tool()
+{
+    static core::NoDestroy<ChainTool> tool;
+    return tool.get();
+}
 
 // The chain graph of a family's nodes (as their links= are now): rails (RailNode), paths (Waypoint).
 Graph graph_of(nodes::Family family)
@@ -171,7 +178,7 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
 {
     // (a ledge: drawn as one, or drawn on from one)
     const bool ledge = family == nodes::Family::kLadder &&
-                       (level_editor_chains_state().draw_ == Blit::kLedge || ((from != 0U) && is_ledge_node(from)));
+                       (chain_tool().draw_ == Blit::kLedge || ((from != 0U) && is_ledge_node(from)));
     Point chain_point;
     chain_point.name = fresh_point_name(family, state, ledge);
     if (family == nodes::Family::kRouteWay) {
@@ -214,8 +221,8 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
     } else if (family == nodes::Family::kRail) {
         // (a new rail: a trick object of the scenery piece the click hit, as the levels name their rails' clusters -
         // else of its own)
-        chain_point.cluster = (level_editor_chains_state().snap_sector_ != 0U)
-                                  ? level_editor_chains_state().snap_sector_
+        chain_point.cluster = (chain_tool().snap_sector_ != 0U)
+                                  ? chain_tool().snap_sector_
                                   : name_hash(chain_point.name);
     }
     return chain_point;
@@ -478,12 +485,12 @@ bool extend_chain(const ChainCall& call, Graph& graph)
         return false;
     }
     if (family == nodes::Family::kRouteWay) {
-        level_editor_chains_state().draw_ = Blit::kRouteWay;
+        chain_tool().draw_ = Blit::kRouteWay;
     } else {
-        level_editor_chains_state().draw_ = ledge ? Blit::kLedge : Blit::kRail;
+        chain_tool().draw_ = ledge ? Blit::kLedge : Blit::kRail;
     }
-    level_editor_chains_state().draw_last_ = name;
-    level_editor_chains_state().pick_ = ChainOp::kCancel;
+    chain_tool().draw_last_ = name;
+    chain_tool().pick_ = ChainOp::kCancel;
     *message = "Click to add points (Enter: finish)";
     return false;
 }
@@ -668,8 +675,8 @@ bool arm_link(const ChainCall& call, Graph& graph)
         *message = "Select an end point to link";
         return false;
     }
-    level_editor_chains_state().pick_ = ChainOp::kLinkArm;
-    level_editor_chains_state().pick_from_ = name;
+    chain_tool().pick_ = ChainOp::kLinkArm;
+    chain_tool().pick_from_ = name;
     *message = "Click the end to link to (Esc: cancel)";
     return false;
 }
@@ -687,8 +694,8 @@ bool assign_path(const ChainCall& call, bool object)
         return false;
     }
     if (op == ChainOp::kAssignArm) {
-        level_editor_chains_state().pick_ = ChainOp::kAssignArm;
-        level_editor_chains_state().pick_from_ = name;
+        chain_tool().pick_ = ChainOp::kAssignArm;
+        chain_tool().pick_from_ = name;
         *message = "Click the first waypoint (Esc: cancel)";
         return false;
     }
@@ -713,7 +720,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
     message->clear();
     if (op == ChainOp::kCancel) {
         stop_drawing();
-        level_editor_chains_state().pick_ = ChainOp::kCancel;
+        chain_tool().pick_ = ChainOp::kCancel;
         *message = "Stopped";
         return false;
     }
@@ -782,17 +789,17 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
 
 void start_drawing(Blit kind)
 {
-    level_editor_chains_state().draw_ = kind;
-    level_editor_chains_state().draw_last_ = 0;
-    level_editor_chains_state().pick_ = ChainOp::kCancel;
-    level_editor_chains_state().ladder_have_foot_ = false;
+    chain_tool().draw_ = kind;
+    chain_tool().draw_last_ = 0;
+    chain_tool().pick_ = ChainOp::kCancel;
+    chain_tool().ladder_have_foot_ = false;
 }
-Blit get_drawing() { return level_editor_chains_state().draw_; }
+Blit get_drawing() { return chain_tool().draw_; }
 void stop_drawing()
 {
-    level_editor_chains_state().draw_ = Blit::kNone;
-    level_editor_chains_state().draw_last_ = 0;
-    level_editor_chains_state().ladder_have_foot_ = false;
+    chain_tool().draw_ = Blit::kNone;
+    chain_tool().draw_last_ = 0;
+    chain_tool().ladder_have_foot_ = false;
 }
 
 namespace {
@@ -800,10 +807,10 @@ namespace {
 // The family of the chain being drawn (a ledge's points are a ladder's).
 nodes::Family drawn_family()
 {
-    if (level_editor_chains_state().draw_ == Blit::kRouteWay) {
+    if (chain_tool().draw_ == Blit::kRouteWay) {
         return nodes::Family::kRouteWay;
     }
-    if (level_editor_chains_state().draw_ == Blit::kLedge) {
+    if (chain_tool().draw_ == Blit::kLedge) {
         return nodes::Family::kLadder;
     }
     return nodes::Family::kRail;
@@ -814,12 +821,12 @@ nodes::Family drawn_family()
 bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
 {
     *select = 0;
-    if (level_editor_chains_state().draw_ == Blit::kNone || !in_level()) {
+    if (chain_tool().draw_ == Blit::kNone || !in_level()) {
         return false;
     }
-    if ((end != 0U) && (level_editor_chains_state().draw_last_ == 0U)) {
+    if ((end != 0U) && (chain_tool().draw_last_ == 0U)) {
         // (the first click on an existing end: drawing goes on from it)
-        level_editor_chains_state().draw_last_ = end;
+        chain_tool().draw_last_ = end;
         *select = end;
         *message = "Click the next point";
         return false;
@@ -827,13 +834,13 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
     const nodes::Family family = drawn_family();
     State state = at_hand();
     Graph graph = graph_of(family);
-    if ((level_editor_chains_state().draw_last_ != 0U) && !graph.contains(level_editor_chains_state().draw_last_)) {
-        level_editor_chains_state().draw_last_ = 0; // (it went: a new chain)
+    if ((chain_tool().draw_last_ != 0U) && !graph.contains(chain_tool().draw_last_)) {
+        chain_tool().draw_last_ = 0; // (it went: a new chain)
     }
-    if ((end != 0U) && (level_editor_chains_state().draw_last_ != 0U) &&
-        end != level_editor_chains_state().draw_last_) {
+    if ((end != 0U) && (chain_tool().draw_last_ != 0U) &&
+        end != chain_tool().draw_last_) {
         // (onto an existing end: linked, and the drawing done)
-        if (!get_link(&graph, level_editor_chains_state().draw_last_, end)) {
+        if (!get_link(&graph, chain_tool().draw_last_, end)) {
             *message = "Can't link: no free end";
             return false;
         }
@@ -842,22 +849,22 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *select = end;
         return get_apply(state, message, "Linked onto that end - drawing finished");
     }
-    const Point chain_point = append_rail_vertex(family, level_editor_chains_state().draw_last_, at, state);
+    const Point chain_point = append_rail_vertex(family, chain_tool().draw_last_, at, state);
     const uint32_t made = name_hash(chain_point.name);
     state.points.push_back(chain_point);
     graph[made] = {};
-    if ((level_editor_chains_state().draw_last_ != 0U) &&
-        !extend(&graph, level_editor_chains_state().draw_last_, made)) {
+    if ((chain_tool().draw_last_ != 0U) &&
+        !extend(&graph, chain_tool().draw_last_, made)) {
         *message = "Not an end point: starting a new chain";
-        level_editor_chains_state().draw_last_ = 0;
+        chain_tool().draw_last_ = 0;
     }
     put_graph(&state, graph);
     if (!change_phase(state)) {
         *message = "Not in a level";
         return false;
     }
-    const bool first = level_editor_chains_state().draw_last_ == 0;
-    level_editor_chains_state().draw_last_ = made;
+    const bool first = chain_tool().draw_last_ == 0;
+    chain_tool().draw_last_ = made;
     *select = made;
     if (message->empty()) {
         if (!first) {
@@ -880,8 +887,8 @@ bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* mess
         *message = points.size() < 2 ? "A rail needs two points" : "Not in a level";
         return false;
     }
-    const Blit drawing = level_editor_chains_state().draw_;
-    level_editor_chains_state().draw_ = Blit::kNone; // (append_rail_vertex: a plain rail, whatever is being drawn)
+    const Blit drawing = chain_tool().draw_;
+    chain_tool().draw_ = Blit::kNone; // (append_rail_vertex: a plain rail, whatever is being drawn)
     State state = at_hand();
     Graph graph = graph_of(nodes::Family::kRail);
     uint32_t last = 0;
@@ -901,7 +908,7 @@ bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* mess
         }
         last = made;
     }
-    level_editor_chains_state().draw_ = drawing;
+    chain_tool().draw_ = drawing;
     put_graph(&state, graph);
     if (!change_phase(state)) {
         *message = "Not in a level";
@@ -954,10 +961,10 @@ bool ground_below(V3 at, float* ground_y)
 bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* select)
 {
     *select = 0;
-    if (level_editor_chains_state().draw_ != Blit::kLadder || !in_level()) {
+    if (chain_tool().draw_ != Blit::kLadder || !in_level()) {
         return false;
     }
-    if (!level_editor_chains_state().ladder_have_foot_) {
+    if (!chain_tool().ladder_have_foot_) {
         V3 hit{};
         V3 normal{};
         if (!cast_ray(from, from + dir * max_t, {.point = &hit, .normal = &normal})) {
@@ -969,24 +976,24 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
             *message = "Click a wall to place the ladder's foot";
             return false;
         }
-        level_editor_chains_state().ladder_foot_ = foot;
-        level_editor_chains_state().ladder_facing_ = facing_into_wall(normal);
-        level_editor_chains_state().ladder_have_foot_ = true;
+        chain_tool().ladder_foot_ = foot;
+        chain_tool().ladder_facing_ = facing_into_wall(normal);
+        chain_tool().ladder_have_foot_ = true;
         *message = "Click to place the top";
         return false;
     }
     V3 top{};
-    if (!ladder_top(level_editor_chains_state().ladder_foot_, from, dir, &top)) {
+    if (!ladder_top(chain_tool().ladder_foot_, from, dir, &top)) {
         *message = "Top must be at least 24 units above the foot";
         return false;
     }
     // The ladder: its foot linked to its top, both facing into the wall (as THUG2's own ladders).
     State state = at_hand();
-    Point foot = append_rail_vertex(nodes::Family::kLadder, 0, level_editor_chains_state().ladder_foot_, state);
-    foot.facing = level_editor_chains_state().ladder_facing_;
+    Point foot = append_rail_vertex(nodes::Family::kLadder, 0, chain_tool().ladder_foot_, state);
+    foot.facing = chain_tool().ladder_facing_;
     state.points.push_back(foot);
     Point upper = append_rail_vertex(nodes::Family::kLadder, 0, top, state);
-    upper.facing = level_editor_chains_state().ladder_facing_;
+    upper.facing = chain_tool().ladder_facing_;
     state.points.back().links = {name_hash(upper.name)};
     state.points.push_back(upper);
     if (!change_phase(state)) {
@@ -996,11 +1003,11 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     stop_drawing();
     *select = name_hash(foot.name);
     std::array<char, kMessageTextSize> text{};
-    text::format_to(text, "Ladder added (%.0f high)", static_cast<double>(top.y - level_editor_chains_state().ladder_foot_.y));
+    text::format_to(text, "Ladder added (%.0f high)", static_cast<double>(top.y - chain_tool().ladder_foot_.y));
     *message = text.data();
     get_log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
             static_cast<double>(node_edit::get_heading_degrees(
-                {.x = 0.0F, .y = level_editor_chains_state().ladder_facing_, .z = 0.0F})));
+                {.x = 0.0F, .y = chain_tool().ladder_facing_, .z = 0.0F})));
     return true;
 }
 
@@ -1010,7 +1017,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     V3 hit{};
     V3 normal{};
     if (!cast_ray(from, from + dir * max_t, {.point = &hit, .normal = &normal},
-                  &level_editor_chains_state().snap_sector_)) {
+                  &chain_tool().snap_sector_)) {
         return false;
     }
     *point = hit;
@@ -1031,16 +1038,16 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
             &snapped);
     }
     // A free end of a chain of the kind drawn, within 24: taken as it is.
-    if (level_editor_chains_state().draw_ != Blit::kNone) {
+    if (chain_tool().draw_ != Blit::kNone) {
         const nodes::Family family = drawn_family();
         const Graph graph = graph_of(family);
         float best = kJoinReach * kJoinReach;
         for (const auto& entry : graph) {
-            if (entry.first == level_editor_chains_state().draw_last_ ||
+            if (entry.first == chain_tool().draw_last_ ||
                 (!is_last(graph, entry.first) && !is_first(graph, entry.first))) {
                 continue;
             }
-            if (level_editor_chains_state().draw_ == Blit::kLedge && !is_ledge_node(entry.first)) {
+            if (chain_tool().draw_ == Blit::kLedge && !is_ledge_node(entry.first)) {
                 continue; // (a ledge links onto ledges, not ladders)
             }
             const V3 at = place_of(entry.first);
@@ -1058,14 +1065,14 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     return true;
 }
 
-bool wants_pick() { return level_editor_chains_state().pick_ == ChainOp::kLinkArm || level_editor_chains_state().pick_ == ChainOp::kAssignArm; }
+bool wants_pick() { return chain_tool().pick_ == ChainOp::kLinkArm || chain_tool().pick_ == ChainOp::kAssignArm; }
 
 bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 {
     *select = 0;
-    const ChainOp pick = level_editor_chains_state().pick_;
-    level_editor_chains_state().pick_ = ChainOp::kCancel;
-    const uint32_t from = level_editor_chains_state().pick_from_;
+    const ChainOp pick = chain_tool().pick_;
+    chain_tool().pick_ = ChainOp::kCancel;
+    const uint32_t from = chain_tool().pick_from_;
     if (pick == ChainOp::kLinkArm) {
         const nodes::Family family = family_of_name(from);
         if (family_of_name(name) != family) {
@@ -1103,26 +1110,26 @@ bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 
 const char* get_waiting()
 {
-    if (level_editor_chains_state().pick_ == ChainOp::kLinkArm) {
+    if (chain_tool().pick_ == ChainOp::kLinkArm) {
         return "Click the end to link to (Esc: cancel)";
     }
-    if (level_editor_chains_state().pick_ == ChainOp::kAssignArm) {
+    if (chain_tool().pick_ == ChainOp::kAssignArm) {
         return "Click the first waypoint (Esc: cancel)";
     }
-    if (level_editor_chains_state().draw_ == Blit::kRail) {
-        return (level_editor_chains_state().draw_last_ != 0U) ? "Rail: click the next point (Enter: finish)"
+    if (chain_tool().draw_ == Blit::kRail) {
+        return (chain_tool().draw_last_ != 0U) ? "Rail: click the next point (Enter: finish)"
                                                               : "Rail: click the first point";
     }
-    if (level_editor_chains_state().draw_ == Blit::kRouteWay) {
-        return (level_editor_chains_state().draw_last_ != 0U) ? "Path: click the next waypoint (Enter: finish)"
+    if (chain_tool().draw_ == Blit::kRouteWay) {
+        return (chain_tool().draw_last_ != 0U) ? "Path: click the next waypoint (Enter: finish)"
                                                               : "Path: click the first waypoint";
     }
-    if (level_editor_chains_state().draw_ == Blit::kLedge) {
-        return (level_editor_chains_state().draw_last_ != 0U) ? "Ledge: click the next point (Enter: finish)"
+    if (chain_tool().draw_ == Blit::kLedge) {
+        return (chain_tool().draw_last_ != 0U) ? "Ledge: click the next point (Enter: finish)"
                                                               : "Ledge: click the first point on an edge";
     }
-    if (level_editor_chains_state().draw_ == Blit::kLadder) {
-        return level_editor_chains_state().ladder_have_foot_ ? "Ladder: click to place the top" : "Ladder: click a wall to place the foot";
+    if (chain_tool().draw_ == Blit::kLadder) {
+        return chain_tool().ladder_have_foot_ ? "Ladder: click to place the top" : "Ladder: click a wall to place the foot";
     }
     return nullptr;
 }

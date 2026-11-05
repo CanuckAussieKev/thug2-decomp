@@ -94,15 +94,22 @@ struct TerrainSet {
 
 std::map<uint32_t, TerrainSet>& terrains_state();
 
-// NOT ORIGINAL grouping - level_editor_chains.cpp's state (were globals). Made on first use, never destroyed
-// (level_editor_chains_state()).
-struct LevelEditorChainsState {
-    // The rail manager's node arrays replaced by rebuild_rails (freed with the level).
+// NOT ORIGINAL grouping - level_editor_chains.cpp's state (were globals), one record per part. Each made on first use,
+// never destroyed.
+
+// The rails rebuilt (rebuilt_rails()): the rail manager's node arrays replaced by rebuild_rails (freed with the level),
+// and objects to make again from their nodes (their path changed) once the game has removed them.
+struct RebuiltRails {
     std::vector<void*> retired_;
     objects::GrindPoint* built_{}; // (the node array rebuild_rails made last)
-    // Objects to make again from their nodes (their path changed) once the game has removed them.
     std::vector<uint32_t> remake_;
-    // Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
+};
+
+RebuiltRails& rebuilt_rails();
+
+// The chain tool (chain_tool()). Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and
+// from which node.
+struct ChainTool {
     Blit draw_ = Blit::kNone;
     uint32_t draw_last_{};
     ChainOp pick_ = ChainOp::kCancel;
@@ -115,7 +122,7 @@ struct LevelEditorChainsState {
     uint32_t snap_sector_{};
 };
 
-LevelEditorChainsState& level_editor_chains_state();
+ChainTool& chain_tool();
 
 // Added points' fields that aren't in their nodes (by name): a rail's cluster, grindable on flat ground.
 struct Extras {

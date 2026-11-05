@@ -548,10 +548,10 @@ std::map<uint32_t, TerrainSet>& terrains_state()
     return value;
 }
 
-LevelEditorChainsState& level_editor_chains_state()
+RebuiltRails& rebuilt_rails()
 {
-    static core::NoDestroy<LevelEditorChainsState> state;
-    return state.get();
+    static core::NoDestroy<RebuiltRails> rails;
+    return rails.get();
 }
 
 // Level rail points given a speed-up (their rates).
@@ -760,8 +760,8 @@ void get_remake(uint32_t name)
     if (object && ((object->object_flags() & objects::kObjectFlagDead) == 0U)) {
         object->flag_as_dead();
     }
-    if (std::ranges::find(level_editor_chains_state().remake_, name) == level_editor_chains_state().remake_.end()) {
-        level_editor_chains_state().remake_.push_back(name);
+    if (std::ranges::find(rebuilt_rails().remake_, name) == rebuilt_rails().remake_.end()) {
+        rebuilt_rails().remake_.push_back(name);
     }
     get_log("level editor: %s's path changed - it is made again from its node", object_edit::caption(name).c_str());
 }
@@ -1045,25 +1045,25 @@ void tick()
     }
     // The rail manager's old node arrays: freed once the level's rails are no longer the ones built here (the game
     // made a new level's - its Cleanup freed ours - or there are none).
-    if (!level_editor_chains_state().retired_.empty()) {
+    if (!rebuilt_rails().retired_.empty()) {
         const objects::GrindRailHub* rails = get_rails();
-        if (!rails || rails->nodes() != level_editor_chains_state().built_) {
-            for (void* nodes : level_editor_chains_state().retired_) {
+        if (!rails || rails->nodes() != rebuilt_rails().built_) {
+            for (void* nodes : rebuilt_rails().retired_) {
                 memory::free_malloc(nodes);
             }
-            level_editor_chains_state().retired_.clear();
-            level_editor_chains_state().built_ = nullptr;
+            rebuilt_rails().retired_.clear();
+            rebuilt_rails().built_ = nullptr;
         }
     }
     apply_speeds();
-    if (level_editor_chains_state().remake_.empty()) {
+    if (rebuilt_rails().remake_.empty()) {
         return;
     }
     if (!in_level()) {
-        level_editor_chains_state().remake_.clear();
+        rebuilt_rails().remake_.clear();
         return;
     }
-    for (auto it = level_editor_chains_state().remake_.begin(); it != level_editor_chains_state().remake_.end();) {
+    for (auto it = rebuilt_rails().remake_.begin(); it != rebuilt_rails().remake_.end();) {
         if (objects::find_object(*it)) {
             ++it; // (not removed yet: the game deletes dead objects in its update)
             continue;
@@ -1072,7 +1072,7 @@ void tick()
             commands::create_from_node(node);
         }
         get_log("level editor: %s made again (its path from its links)", object_edit::caption(*it).c_str());
-        it = level_editor_chains_state().remake_.erase(it);
+        it = rebuilt_rails().remake_.erase(it);
     }
 }
 
