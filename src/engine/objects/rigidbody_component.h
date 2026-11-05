@@ -276,16 +276,22 @@ private:
         float angular{}; // +0x04 (+0x3C) (0x9DA897CF)
     };
 
+    // How the skater pushes it (+0x40-+0x57: configure_from_data, feel_pushers).
+    struct SkaterPush {
+        float radius{kDefaultSkaterRadius};                        // +0x00 (+0x40) skater_collision_radius (48)
+        float application_radius{kDefaultSkaterApplicationRadius}; // +0x04 (+0x44) skater_collision_application_radius
+                                                                   //        (12)
+        float assent_cos{};          // +0x08 (+0x48) skater_collision_assent (25 degrees; the constructor's)
+        float assent_sin{};          // +0x0C (+0x4C)
+        float impulse_factor{1.0F};  // +0x10 (+0x50) skater_collision_impulse_factor (1)
+        float rotation_factor{1.0F}; // +0x14 (+0x54) skater_collision_rotation_factor (1)
+    };
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     Response response_;                // +0x2C-+0x37 the response to its contacts
     Damping damping_;                  // +0x38-+0x3F the damping
-    float skater_radius_{kDefaultSkaterRadius};       // +0x40 skater_collision_radius (48)
-    float skater_application_radius_{kDefaultSkaterApplicationRadius}; // +0x44 skater_collision_application_radius (12)
-    float skater_assent_cos_;          // +0x48 skater_collision_assent (25 degrees)
-    float skater_assent_sin_;          // +0x4C
-    float skater_impulse_factor_{1.0F};                        // +0x50 skater_collision_impulse_factor (1)
-    float skater_rotation_factor_{1.0F};                       // +0x54 skater_collision_rotation_factor (1)
+    SkaterPush skater_push_;           // +0x40-+0x57 how the skater pushes it
     float linear_sleep_squared_{100.0F};                       // +0x58 linear_velocity_sleep_point squared (100)
     float angular_sleep_squared_{kDefaultAngularSleepSquared}; // +0x5C angular_velocity_sleep_point squared (0.16)
     maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)

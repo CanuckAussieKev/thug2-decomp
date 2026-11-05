@@ -341,17 +341,17 @@ void BodyDynamicsModule::feel_pushers()
         }
         const float reach = core::at(objects_shared().rigid_body_pusher_reach(), i);
         const maths::Vec4& at = pusher->at_point();
-        const double outer = get_wide(reach) + skater_radius_;
+        const double outer = get_wide(reach) + skater_push_.radius;
         const double dz = get_wide(at_point_.z) - at.z;
         const double dx = get_wide(at_point_.x) - at.x;
         if (outer * outer < (dx * dx) + (dz * dz)) {
             continue;
         }
         const float dy = get_narrow(get_wide(at.y) - at_point_.y);
-        if (get_wide(reach) + skater_application_radius_ < dy) {
+        if (get_wide(reach) + skater_push_.application_radius < dy) {
             continue;
         }
-        if (-((get_wide(objects_shared().rigid_body_pusher_height()) + skater_application_radius_) + reach) > dy) {
+        if (-((get_wide(objects_shared().rigid_body_pusher_height()) + skater_push_.application_radius) + reach) > dy) {
             continue;
         }
 
@@ -394,11 +394,11 @@ void BodyDynamicsModule::feel_pushers()
         }
         const double ig = 1.0 / horizontal_a;
         float jz = get_narrow(az * ig);
-        const float jx = get_narrow(get_wide(ax) * ig * skater_assent_cos_);
-        jz = get_narrow(get_wide(jz) * skater_assent_cos_);
-        const double size = push * skater_impulse_factor_;
+        const float jx = get_narrow(get_wide(ax) * ig * skater_push_.assent_cos);
+        jz = get_narrow(get_wide(jz) * skater_push_.assent_cos);
+        const double size = push * skater_push_.impulse_factor;
         const maths::Vec4 impulse = {.x = get_narrow(get_wide(jx) * size),
-                                     .y = get_narrow(get_wide(skater_assent_sin_) * size),
+                                     .y = get_narrow(get_wide(skater_push_.assent_sin) * size),
                                      .z = get_narrow(get_wide(jz) * size),
                                      .w = 0.0F};
 
@@ -407,7 +407,7 @@ void BodyDynamicsModule::feel_pushers()
         float pz = get_narrow(get_wide(at.z) - at_point_.z);
         const double across = std::sqrt((px * px) + (get_wide(pz) * pz));
         if (across > 0.0) {
-            const double scale = skater_application_radius_ / across;
+            const double scale = skater_push_.application_radius / across;
             px = px * scale;
             pz = get_narrow(get_wide(pz) * scale);
         }
@@ -427,7 +427,7 @@ void BodyDynamicsModule::feel_pushers()
         const float tx = get_narrow((get_wide(impulse.z) * py) - (get_wide(pz) * impulse.y));
         const float ty = get_narrow((get_wide(pz) * impulse.x) - (get_wide(impulse.z) * px));
         const double tz = (get_wide(impulse.y) * px) - (py * impulse.x);
-        const double turn = (get_wide(skater_rotation_factor_) * mass_over_moment_) * kTurnShare;
+        const double turn = (get_wide(skater_push_.rotation_factor) * mass_over_moment_) * kTurnShare;
         const float wx = get_narrow(get_wide(tx) * turn);
         const float wy = get_narrow(get_wide(ty) * turn);
         const float wz = get_narrow(tz * turn);

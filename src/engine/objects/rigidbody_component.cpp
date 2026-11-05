@@ -169,8 +169,8 @@ gsl::owner<ObjectModule*> BodyDynamicsModule::fabricate() { return new BodyDynam
 
 // 0x0042E3F0
 BodyDynamicsModule::BodyDynamicsModule()
-    : skater_assent_cos_(static_cast<float>(std::cos(kAssent))),
-      skater_assent_sin_(static_cast<float>(std::sin(kAssent)))
+    : skater_push_{.assent_cos = static_cast<float>(std::cos(kAssent)),
+                   .assent_sin = static_cast<float>(std::sin(kAssent))}
 {
     // (capsule_ is constructed first, as a member)
     orientation_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -534,16 +534,19 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         params->fetch_float(kAngularVelocitySleepPoint, &angular_sleep_squared_, 0);
         angular_sleep_squared_ = angular_sleep_squared_ * angular_sleep_squared_;
     }
-    params->fetch_float(kSkaterCollisionImpulseFactor, &skater_impulse_factor_, 0);     // skater_collision_impulse_factor
-    params->fetch_float(kSkaterCollisionRotationFactor, &skater_rotation_factor_, 0);    // skater_collision_rotation_factor
-    params->fetch_float(kSkaterCollisionRadius, &skater_radius_, 0);             // skater_collision_radius
-    params->fetch_float(kSkaterCollisionApplicationRadius, &skater_application_radius_, 0); // skater_collision_application_radius
+    params->fetch_float(kSkaterCollisionImpulseFactor, &skater_push_.impulse_factor,
+                        0); // skater_collision_impulse_factor
+    params->fetch_float(kSkaterCollisionRotationFactor, &skater_push_.rotation_factor,
+                        0);                                               // skater_collision_rotation_factor
+    params->fetch_float(kSkaterCollisionRadius, &skater_push_.radius, 0); // skater_collision_radius
+    params->fetch_float(kSkaterCollisionApplicationRadius, &skater_push_.application_radius,
+                        0);                                                      // skater_collision_application_radius
     if (params->has_entry_named(kSkaterCollisionAssent)) {                       // skater_collision_assent (degrees)
         float degrees = 0.0F;
         params->fetch_float(kSkaterCollisionAssent, &degrees, 0);
         const double radians = static_cast<double>(degrees) * kRadiansPerDegree;
-        skater_assent_cos_ = static_cast<float>(std::cos(radians));
-        skater_assent_sin_ = static_cast<float>(std::sin(radians));
+        skater_push_.assent_cos = static_cast<float>(std::cos(radians));
+        skater_push_.assent_sin = static_cast<float>(std::sin(radians));
     }
     params->fetch_float(kPusherQuietTime, &push_cooldown_time_, 0);
     params->read_hash_value(kCollideScript, &collide_script_, 0); // CollideScript
@@ -837,12 +840,12 @@ void BodyDynamicsModule::check_layout()
         FieldAt{.now = offsetof(BodyDynamicsModule, response_.spring_const), .original = 0x34},
         FieldAt{.now = offsetof(BodyDynamicsModule, damping_.linear), .original = 0x38},
         FieldAt{.now = offsetof(BodyDynamicsModule, damping_.angular), .original = 0x3C},
-        FieldAt{.now = offsetof(BodyDynamicsModule, skater_radius_), .original = 0x40},
-        FieldAt{.now = offsetof(BodyDynamicsModule, skater_application_radius_), .original = 0x44},
-        FieldAt{.now = offsetof(BodyDynamicsModule, skater_assent_cos_), .original = 0x48},
-        FieldAt{.now = offsetof(BodyDynamicsModule, skater_assent_sin_), .original = 0x4C},
-        FieldAt{.now = offsetof(BodyDynamicsModule, skater_impulse_factor_), .original = 0x50},
-        FieldAt{.now = offsetof(BodyDynamicsModule, skater_rotation_factor_), .original = 0x54},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.radius), .original = 0x40},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.application_radius), .original = 0x44},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.assent_cos), .original = 0x48},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.assent_sin), .original = 0x4C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.impulse_factor), .original = 0x50},
+        FieldAt{.now = offsetof(BodyDynamicsModule, skater_push_.rotation_factor), .original = 0x54},
         FieldAt{.now = offsetof(BodyDynamicsModule, linear_sleep_squared_), .original = 0x58},
         FieldAt{.now = offsetof(BodyDynamicsModule, angular_sleep_squared_), .original = 0x5C},
         FieldAt{.now = offsetof(BodyDynamicsModule, contacts_), .original = 0x60},
