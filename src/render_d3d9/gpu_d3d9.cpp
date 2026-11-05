@@ -146,8 +146,10 @@ static_assert(gpu_value::kClearTarget == D3DCLEAR_TARGET && gpu_value::kClearDep
               gpu_value::kClearStencil == D3DCLEAR_STENCIL);
 static_assert(gpu_value::kUsageWriteOnly == D3DUSAGE_WRITEONLY && gpu_value::kUsageDynamic == D3DUSAGE_DYNAMIC &&
               gpu_value::kPoolDefault == D3DPOOL_DEFAULT && gpu_value::kFormatIndex16 == D3DFMT_INDEX16 &&
-              gpu_value::kLockReadOnly == D3DLOCK_READONLY && gpu_value::kLockDiscard == D3DLOCK_DISCARD);
-static_assert(kFvfXyz == D3DFVF_XYZ && kFvfNormal == D3DFVF_NORMAL && kFvfDiffuse == D3DFVF_DIFFUSE &&
+              gpu_value::kLockReadOnly == D3DLOCK_READONLY && gpu_value::kLockDiscard == D3DLOCK_DISCARD &&
+              gpu_value::kLockNoOverwrite == D3DLOCK_NOOVERWRITE);
+static_assert(gpu_value::kResultOk == S_OK && gpu_value::kResultNotReady == S_FALSE);
+static_assert(kFvfXyzRhw == D3DFVF_XYZRHW && kFvfXyz == D3DFVF_XYZ && kFvfNormal == D3DFVF_NORMAL && kFvfDiffuse == D3DFVF_DIFFUSE &&
               kFvfSpecular == D3DFVF_SPECULAR && kFvfTex1 == D3DFVF_TEX1 && kFvfTex2 == D3DFVF_TEX2);
 static_assert(gpu_value::kLightDirectional == D3DLIGHT_DIRECTIONAL);
 static_assert(gpu_value::kResultInvalidCall == D3DERR_INVALIDCALL);
@@ -162,6 +164,7 @@ static_assert(offsetof(GpuLight, direction) == offsetof(D3DLIGHT9, Direction));
 static_assert(offsetof(GpuLight, phi) == offsetof(D3DLIGHT9, Phi));
 static_assert(sizeof(GpuViewport) == sizeof(D3DVIEWPORT9));
 static_assert(offsetof(GpuViewport, min_z) == offsetof(D3DVIEWPORT9, MinZ));
+static_assert(sizeof(GpuSize) == 2 * sizeof(uint32_t));
 static_assert(sizeof(GpuRect) == sizeof(RECT) && sizeof(GpuRect) == sizeof(D3DRECT));
 static_assert(offsetof(GpuRect, bottom) == offsetof(RECT, bottom) && offsetof(GpuRect, bottom) == offsetof(D3DRECT, y2));
 static_assert(sizeof(GpuLockedRect) == sizeof(D3DLOCKED_RECT));
@@ -256,6 +259,14 @@ public:
     {
         return object(texture)->GetSurfaceLevel(level, out(surface));
     }
+    long texture_level_size(GpuTexture* texture, uint32_t level, GpuSize* size) override
+    {
+        D3DSURFACE_DESC desc{};
+        const HRESULT result = object(texture)->GetLevelDesc(level, &desc);
+        size->width = desc.Width;
+        size->height = desc.Height;
+        return result;
+    }
     uint32_t release_texture(GpuTexture* texture) override { return object(texture)->Release(); }
     long create_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t fvf, uint32_t pool,
                               GpuVertexBuffer** buffer) override
@@ -328,6 +339,8 @@ public:
     {
         return d3d()->CreatePixelShader(d3d_tokens(tokens), out(shader));
     }
+
+    uint32_t release_pixel_shader(GpuPixelShader* shader) override { return object(shader)->Release(); }
 
     long create_occlusion_query(GpuQuery** query) override
     {

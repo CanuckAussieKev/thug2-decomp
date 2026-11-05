@@ -33,8 +33,16 @@ long set_render_state(int state, uint32_t value);
 // HRESULT.
 long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil);
 
-// The back buffer's width the device was made with (its present parameters': render_d3d9/device_d3d.h).
+// The back buffer's size the device was made with (its present parameters': render_d3d9/device_d3d.h).
 uint32_t presented_width();
+uint32_t presented_height();
+// The default-pool surfaces the frame is drawn through (create_render_targets makes them): screen copy `index`
+// (0-8: full size to a sixteenth; render-target textures), the depth surface they are drawn with, and the back buffer
+// with its depth. As handles: the caller sets them with Gpu::set_render_target / set_depth_surface or binds the texture.
+GpuTexture* screen_copy_texture(int index);
+GpuSurface* scene_depth_surface();
+GpuSurface* back_buffer_surface();
+GpuSurface* back_depth_surface();
 // Whether the screen copies (create_render_targets' render-target textures) were made: their first surface is set.
 bool screen_copies_made();
 inline constexpr bool kShowWindowFlag{false}; // (the original showed the window maximised / minimised by it)

@@ -204,6 +204,10 @@ inline constexpr uint32_t kPoolDefault = 0;
 inline constexpr uint32_t kFormatIndex16 = 101;
 inline constexpr uint32_t kLockReadOnly = 0x10;
 inline constexpr uint32_t kLockDiscard = 0x2000;
+inline constexpr uint32_t kLockNoOverwrite = 0x1000;
+// a call's result: success, and the answer "not yet" (S_FALSE: a query whose count is not ready)
+inline constexpr long kResultOk = 0;
+inline constexpr long kResultNotReady = 1;
 // a call's result: an argument the API refused (D3DERR_INVALIDCALL)
 inline constexpr long kResultInvalidCall = static_cast<long>(0x8876086CU);
 } // namespace gpu_value
@@ -249,6 +253,11 @@ struct GpuRect {
     int32_t top{};
     int32_t right{};
     int32_t bottom{};
+};
+// A texture level's size in pixels.
+struct GpuSize {
+    uint32_t width{};
+    uint32_t height{};
 };
 // A locked texture level (D3DLOCKED_RECT's layout): the bytes between rows and the first byte.
 struct GpuLockedRect {
@@ -433,6 +442,8 @@ public:
                               uint32_t flags) = 0;
     virtual long unlock_texture(GpuTexture* texture, uint32_t level) = 0;
     virtual long texture_surface(GpuTexture* texture, uint32_t level, GpuSurface** surface) = 0;
+    // A texture level's size (Direct3D 9: GetLevelDesc).
+    virtual long texture_level_size(GpuTexture* texture, uint32_t level, GpuSize* size) = 0;
     virtual uint32_t release_texture(GpuTexture* texture) = 0;
     // Vertex and index buffers (bytes; Direct3D 9's usage and pool; an index buffer's format: 16 or 32-bit indices).
     virtual long create_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t fvf, uint32_t pool,
@@ -453,6 +464,16 @@ public:
     // Surfaces drawn into: render targets and depth surfaces made, set (index 0 is the main target), read back
     // (references the caller releases), copied (StretchRect's filter), a render target read into a system-memory
     // surface, released.
+    //
+    // For an API with render passes (Vulkan): a pass is not an operation here - the pass is inferred. set_render_target /
+    // set_depth_surface name the attachments the next draws and clears go into; the pass on the old attachments ends
+    // (and a new one opens, lazily, at the first draw or clear) at the next set_render_target / set_depth_surface /
+    // copy_surface / read_render_target / present, or when a texture that is an attachment of the open pass is bound
+    // with set_texture (it is then sampled: the pass ends and the image changes layout to shader-read; it goes
+    // back to attachment when it is set as the target again). A screen copy is therefore both: a texture the passes
+    // read and a surface (texture_surface, level 0) set as the target; the surface the caller holds between
+    // texture_surface and release_surface is only a name for that image. clear() at the start of a pass is the pass's
+    // clear (load-op clear), anywhere else a clear inside it. A depth surface of null leaves the pass without depth.
     virtual long create_render_target(const GpuSurfaceDesc& desc, GpuSurface** surface) = 0;
     virtual long create_depth_surface(const GpuSurfaceDesc& desc, GpuSurface** surface) = 0;
     virtual long create_offscreen_surface(uint32_t width, uint32_t height, uint32_t format, uint32_t pool,
@@ -468,8 +489,11 @@ public:
     // A pixel shader made from its ps.1.1 token stream (Direct3D 9's assembled form, as the shader text assembles to;
     // another API reads the same tokens or the program they stand for).
     virtual long create_pixel_shader(const uint32_t* tokens, GpuPixelShader** shader) = 0;
+    virtual uint32_t release_pixel_shader(GpuPixelShader* shader) = 0;
     // Occlusion queries: made, begun / ended around the draws counted, their pixel count asked (S_FALSE, 1, while not
-    // ready), released.
+    // ready), released. For an API with query pools: create_occlusion_query takes a slot of the frame's pool,
+    // begin_query / end_query bracket the draws (inside one pass), the result is read back a frame or more later
+    // (query_result answers 1, not ready, until then) and release_query returns the slot.
     virtual long create_occlusion_query(GpuQuery** query) = 0;
     virtual long begin_query(GpuQuery* query) = 0;
     virtual long end_query(GpuQuery* query) = 0;

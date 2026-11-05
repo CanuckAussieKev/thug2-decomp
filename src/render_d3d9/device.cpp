@@ -72,6 +72,16 @@ D3DPRESENT_PARAMETERS& present_parameters()
 
 uint32_t presented_width() { return present_parameters().BackBufferWidth; }
 
+uint32_t presented_height() { return present_parameters().BackBufferHeight; }
+
+GpuTexture* screen_copy_texture(int index) { return d3d9::handle(core::at(d3d9::state().screen_textures(), index)); }
+
+GpuSurface* scene_depth_surface() { return d3d9::handle(d3d9::state().z_buffer_surface()); }
+
+GpuSurface* back_buffer_surface() { return d3d9::handle(d3d9::state().back_buffer()); }
+
+GpuSurface* back_depth_surface() { return d3d9::handle(d3d9::state().back_depth()); }
+
 bool screen_copies_made() { return core::at(d3d9::state().screen_surfaces(), 0) != nullptr; }
 
 namespace {
