@@ -1,16 +1,11 @@
 // Loading an image (the engine's own format: a 32-byte header, a palette for 8-bit images, the texels swizzled -
 // formats/image_format.h) into a texture: see bitmap_texture.h.
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <span>
 
-#include "render_d3d9/d3d9_handles.h"
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -24,7 +19,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "platform/crt.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 
 namespace render {
 
@@ -74,7 +69,7 @@ void get_finish(TextureRef* texture)
     texture->depth = kTextureDepthBits;
     texture->unknownf_ = 0;
     texture->levels = 1;
-    d3d9::object(texture->texture)->UnlockRect(0);
+    gpu().unlock_texture(texture->texture, 0);
 }
 
 // The buffer the stored texels are read into. Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled image's
@@ -112,7 +107,7 @@ void apply_hd_scale(TextureRef* texture, const ImageHeader& header)
 }
 
 // Not original - HD menu UI (hd_ui.h): an upscaled opaque image (a loading screen) stored as DXT1 blocks, header format
-// hd_ui::kFormatDxt1. The Direct3D texture is made D3DFMT_DXT1 (one level: drawn full screen, about 1:1) and the blocks
+// hd_ui::kFormatDxt1. The texture is made DXT1 (one level: drawn full screen, about 1:1) and the blocks
 // are read straight into it; the TextureRef is finished like the 32-bit ones (its sizes divided by apply_hd_scale).
 bool is_hd_dxt(const ImageHeader& header)
 {
@@ -149,12 +144,17 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
     if (is_hd_dxt(header)) { // (not original - hd_ui.h)
         gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
-        d3d9::state().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
-                                    d3d9::out(&hd->texture), nullptr);
+        gpu().create_texture({.width = header.width,
+                              .height = header.height,
+                              .levels = 1,
+                              .usage = 0,
+                              .format = gpu_value::kFormatDxt1,
+                              .pool = gpu_value::kPoolManaged},
+                             &hd->texture);
         set_sizes(hd, header, false);
-        D3DLOCKED_RECT locked;
-        d3d9::object(hd->texture)->LockRect(0, &locked, nullptr, 0);
-        file::get_take_in(locked.pBits, static_cast<int>(hd_dxt_size(header)), 1, file);
+        GpuLockedRect locked;
+        gpu().lock_texture(hd->texture, 0, &locked, nullptr, 0);
+        file::get_take_in(locked.bits, static_cast<int>(hd_dxt_size(header)), 1, file);
         file::shut(file);
         get_finish(hd);
         apply_hd_scale(hd, header);
@@ -176,14 +176,19 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
     if (palettized) {
         file::get_take_in(palette.data(), static_cast<int>(header.palette_size), 1, file);
     }
-    d3d9::state().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
-                                d3d9::out(&texture->texture), nullptr);
+    gpu().create_texture({.width = header.width,
+                          .height = header.height,
+                          .levels = 1,
+                          .usage = 0,
+                          .format = gpu_value::kFormatA8R8G8B8,
+                          .pool = gpu_value::kPoolManaged},
+                         &texture->texture);
     set_sizes(texture, header, plain);
     const uint32_t size = image_format::texel_size(header, plain);
-    D3DLOCKED_RECT locked;
-    d3d9::object(texture->texture)->LockRect(0, &locked, nullptr, 0);
+    GpuLockedRect locked;
+    gpu().lock_texture(texture->texture, 0, &locked, nullptr, 0);
     if (plain && !palettized) {
-        file::get_take_in(locked.pBits, static_cast<int>(size), 1, file);
+        file::get_take_in(locked.bits, static_cast<int>(size), 1, file);
     } else {
         gsl::owner<void*> buffer = new_texel_buffer(size, header);
         file::get_take_in(buffer, static_cast<int>(size), 1, file);
@@ -192,11 +197,11 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
         if (plain) {
             texels = buffer;
         } else {
-            texels = palettized ? (indices = memory::alloc(size)) : locked.pBits;
+            texels = palettized ? (indices = memory::alloc(size)) : locked.bits;
             unswizzle(texels, buffer, header.width, header.height, bits >> 3);
         }
         if (palettized) {
-            expand_palette(locked.pBits, texels, size, palette.data());
+            expand_palette(locked.bits, texels, size, palette.data());
         }
         free_texel_buffer(buffer, header);
         memory::Hub::dealloc(indices);
@@ -223,15 +228,20 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         }
         gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
-        d3d9::state().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
-                                    d3d9::out(&hd->texture), nullptr);
+        gpu().create_texture({.width = header.width,
+                              .height = header.height,
+                              .levels = 1,
+                              .usage = 0,
+                              .format = gpu_value::kFormatDxt1,
+                              .pool = gpu_value::kPoolManaged},
+                             &hd->texture);
         if (!hd->texture) {
             return nullptr;
         }
         set_sizes(hd, header, false);
-        D3DLOCKED_RECT locked;
-        d3d9::object(hd->texture)->LockRect(0, &locked, nullptr, 0);
-        reader.bytes(locked.pBits, hd_dxt_size(header));
+        GpuLockedRect locked;
+        gpu().lock_texture(hd->texture, 0, &locked, nullptr, 0);
+        reader.bytes(locked.bits, hd_dxt_size(header));
         get_finish(hd);
         apply_hd_scale(hd, header);
         return hd;
@@ -251,8 +261,13 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
     if (palettized) {
         reader.bytes(palette.data(), image_format::kPaletteCapacity);
     }
-    d3d9::state().d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
-                                d3d9::out(&texture->texture), nullptr);
+    gpu().create_texture({.width = header.width,
+                          .height = header.height,
+                          .levels = 1,
+                          .usage = 0,
+                          .format = gpu_value::kFormatA8R8G8B8,
+                          .pool = gpu_value::kPoolManaged},
+                         &texture->texture);
     if (!texture->texture) {
         return nullptr; // (the texture object stays made and listed)
     }
@@ -265,10 +280,10 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         std::memcpy(into, reader.cursor(), available);
         std::memset(std::span<uint8_t>(static_cast<uint8_t*>(into), size).subspan(available).data(), 0, size - available);
     };
-    D3DLOCKED_RECT locked;
-    d3d9::object(texture->texture)->LockRect(0, &locked, nullptr, 0);
+    GpuLockedRect locked;
+    gpu().lock_texture(texture->texture, 0, &locked, nullptr, 0);
     if (plain && !palettized) {
-        copy_texels(locked.pBits);
+        copy_texels(locked.bits);
     } else {
         gsl::owner<void*> buffer = new_texel_buffer(size, header);
         copy_texels(buffer);
@@ -277,11 +292,11 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
         if (plain) {
             texels = buffer;
         } else {
-            texels = palettized ? (indices = memory::alloc(size)) : locked.pBits;
+            texels = palettized ? (indices = memory::alloc(size)) : locked.bits;
             unswizzle(texels, buffer, header.width, header.height, bytes_per_pixel);
         }
         if (palettized) {
-            expand_palette(locked.pBits, texels, size, palette.data());
+            expand_palette(locked.bits, texels, size, palette.data());
         }
         free_texel_buffer(buffer, header);
         memory::Hub::dealloc(indices);

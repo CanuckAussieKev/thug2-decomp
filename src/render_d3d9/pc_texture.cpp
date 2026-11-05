@@ -3,13 +3,8 @@
 
 #include "render_d3d9/pc_texture.h"
 #include "engine/gfx/hsv_colour.h"
-#include "render_d3d9/d3d9_handles.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
-
-#include <windows.h>
-
-#include <d3d9.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -35,7 +30,7 @@
 #include "base/core/cursor.h"
 #include "base/core/span_copy.h"
 #include "base/core/packed_colour.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec2.h"
 #include "base/maths/rect.h"
@@ -276,7 +271,7 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
     const uint32_t new_checksum = texture_name.value();
     const TextureRef* old = get_texture();
     if (old && old->texture) { // (released, the old texture itself kept)
-        static_cast<IUnknown*>(d3d9::object(old->texture))->Release();
+        gpu().release_texture(old->texture);
     }
     void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
@@ -296,27 +291,33 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
     case 2:
     case 4:
     case kDepth8:
-        format = D3DFMT_P8;
+        format = gpu_value::kFormatP8; // (paletted: a Vulkan Gpu expands it to RGBA at upload)
         texture->depth = kDepth8;
         break;
     case kDepth16:
-        format = D3DFMT_X1R5G5B5;
+        format = gpu_value::kFormatX1R5G5B5;
         texture->depth = kDepth16;
         break;
     case kDepth32:
-        format = D3DFMT_X8R8G8B8;
+        format = gpu_value::kFormatX8R8G8B8;
         texture->depth = kDepth32;
         break;
     default:
         break;
     }
-    IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
-    d3d9::state().d3d_device()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
-    D3DSURFACE_DESC desc;
-    (*d3d)->GetLevelDesc(0, &desc);
-    texture->height = static_cast<uint16_t>(desc.Height);
-    texture->width = static_cast<uint16_t>(desc.Width);
-    texture->unknowne_ = format == D3DFMT_P8 ? kPalettedFlag : 0;
+    GpuTexture** d3d = &texture->texture;
+    gpu().create_texture({.width = static_cast<uint32_t>(width),
+                          .height = static_cast<uint32_t>(height),
+                          .levels = 0,
+                          .usage = 0,
+                          .format = format,
+                          .pool = gpu_value::kPoolManaged},
+                         d3d);
+    GpuSize size;
+    gpu().texture_level_size(*d3d, 0, &size);
+    texture->height = static_cast<uint16_t>(size.height);
+    texture->width = static_cast<uint16_t>(size.width);
+    texture->unknowne_ = format == gpu_value::kFormatP8 ? kPalettedFlag : 0;
     return true;
 }
 
@@ -325,44 +326,49 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
 {
     const auto* source = core::down_cast<const PcTexture>(source_texture);
     const TextureRef* from = source->get_texture();
-    IDirect3DTexture9** into = d3d9::out(&get_texture()->texture);
+    GpuTexture** into = &get_texture()->texture;
     if (*into) {
-        (*into)->Release();
+        gpu().release_texture(*into);
     }
-    auto* from_texture = d3d9::object(from->texture);
-    const DWORD levels = from_texture->GetLevelCount();
-    D3DSURFACE_DESC desc;
-    from_texture->GetLevelDesc(0, &desc);
-    if (d3d9::state().d3d_device()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into,
-                                               nullptr) != D3D_OK) {
+    GpuTexture* from_texture = from->texture;
+    const uint32_t levels = gpu().texture_level_count(from_texture);
+    GpuLevelDesc desc;
+    gpu().texture_level_desc(from_texture, 0, &desc);
+    if (gpu().create_texture({.width = desc.width,
+                              .height = desc.height,
+                              .levels = levels,
+                              .usage = 0,
+                              .format = desc.format,
+                              .pool = gpu_value::kPoolManaged},
+                             into) != gpu_value::kResultOk) {
         crt::exit_fatal(0); // (the game's exit(), without the static owners' teardown)
     }
-    for (DWORD level = 0; level < levels; ++level) {
-        d3d9::object(from->texture)->GetLevelDesc(level, &desc);
+    for (uint32_t level = 0; level < levels; ++level) {
+        gpu().texture_level_desc(from->texture, level, &desc);
         uint32_t row_bytes = 0;
-        uint32_t rows = desc.Height;
-        if (desc.Format == D3DFMT_A8R8G8B8 || desc.Format == D3DFMT_X8R8G8B8) {
-            row_bytes = desc.Width << 2;
+        uint32_t rows = desc.height;
+        if (desc.format == gpu_value::kFormatA8R8G8B8 || desc.format == gpu_value::kFormatX8R8G8B8) {
+            row_bytes = desc.width << 2;
         } else { // (blocks of 4 rows; the row's bytes as the original works them out)
             rows = (rows + 3) >> 2;
-            row_bytes = desc.Format == D3DFMT_DXT1 ? desc.Width << 3 : desc.Width << 4;
+            row_bytes = desc.format == gpu_value::kFormatDxt1 ? desc.width << 3 : desc.width << 4;
         }
-        D3DLOCKED_RECT from_rect;
-        D3DLOCKED_RECT into_rect;
-        d3d9::object(from->texture)->LockRect(level, &from_rect, nullptr, 0);
-        (*into)->LockRect(level, &into_rect, nullptr, 0);
-        const std::span<uint8_t> write(static_cast<uint8_t*>(into_rect.pBits), static_cast<size_t>(into_rect.Pitch) * rows);
-        const std::span<const uint8_t> read(static_cast<const uint8_t*>(from_rect.pBits),
-                                            static_cast<size_t>(from_rect.Pitch) * rows);
+        GpuLockedRect from_rect;
+        GpuLockedRect into_rect;
+        gpu().lock_texture(from->texture, level, &from_rect, nullptr, 0);
+        gpu().lock_texture(*into, level, &into_rect, nullptr, 0);
+        const std::span<uint8_t> write(static_cast<uint8_t*>(into_rect.bits), static_cast<size_t>(into_rect.pitch) * rows);
+        const std::span<const uint8_t> read(static_cast<const uint8_t*>(from_rect.bits),
+                                            static_cast<size_t>(from_rect.pitch) * rows);
         size_t write_at = 0;
         size_t read_at = 0;
         for (uint32_t row = rows; row != 0U; --row) {
             core::copy_into(read.subspan(read_at, row_bytes), write.subspan(write_at));
-            write_at += into_rect.Pitch;
-            read_at += from_rect.Pitch;
+            write_at += into_rect.pitch;
+            read_at += from_rect.pitch;
         }
-        d3d9::object(from->texture)->UnlockRect(level);
-        (*into)->UnlockRect(level);
+        gpu().unlock_texture(from->texture, level);
+        gpu().unlock_texture(*into, level);
     }
     return true;
 }
@@ -384,13 +390,13 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     edit->pixels = static_cast<uint32_t*>(memory::alloc(bytes));
     flag_bits() |= 1;
     const std::span<uint32_t> pixels(get_edit(this)->pixels, static_cast<size_t>(width) * height);
-    auto* d3d = d3d9::object(texture->texture);
-    D3DSURFACE_DESC desc;
-    d3d->GetLevelDesc(0, &desc);
-    D3DLOCKED_RECT rect;
-    d3d->LockRect(0, &rect, nullptr, D3DLOCK_READONLY);
+    GpuTexture* d3d = texture->texture;
+    GpuSize size;
+    gpu().texture_level_size(d3d, 0, &size);
+    GpuLockedRect rect;
+    gpu().lock_texture(d3d, 0, &rect, nullptr, gpu_value::kLockReadOnly);
     if (texture->depth == kDepth32) { // (rows bottom up, the pitch taken as the width; the original also tests != 8)
-        const std::span<const uint32_t> surface(static_cast<const uint32_t*>(rect.pBits),
+        const std::span<const uint32_t> surface(static_cast<const uint32_t*>(rect.bits),
                                                 static_cast<size_t>(width) * height);
         size_t row = static_cast<size_t>(height - 1) * width;
         size_t into_at = 0;
@@ -400,7 +406,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
             row -= width;
         }
     }
-    d3d9::object(texture->texture)->UnlockRect(0);
+    gpu().unlock_texture(texture->texture, 0);
     if (keep_copy) {
         get_edit(this)->original = static_cast<uint32_t*>(memory::alloc(bytes));
         std::memcpy(get_edit(this)->original, get_edit(this)->pixels, bytes);
@@ -413,15 +419,21 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = kDepth32;
-        IDirect3DTexture9** kept_d3d = d3d9::out(&kept->texture);
-        d3d9::state().d3d_device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
-        (*kept_d3d)->GetLevelDesc(0, &desc);
-        kept->height = static_cast<uint16_t>(desc.Height);
-        kept->width = static_cast<uint16_t>(desc.Width);
-        D3DLOCKED_RECT kept_rect;
-        (*kept_d3d)->LockRect(0, &kept_rect, nullptr, 0);
-        std::memcpy(kept_rect.pBits, get_edit(this)->pixels, bytes);
-        (*kept_d3d)->UnlockRect(0);
+        GpuTexture** kept_d3d = &kept->texture;
+        gpu().create_texture({.width = width,
+                              .height = height,
+                              .levels = 0,
+                              .usage = 0,
+                              .format = gpu_value::kFormatA8R8G8B8,
+                              .pool = gpu_value::kPoolManaged},
+                             kept_d3d);
+        gpu().texture_level_size(*kept_d3d, 0, &size);
+        kept->height = static_cast<uint16_t>(size.height);
+        kept->width = static_cast<uint16_t>(size.width);
+        GpuLockedRect kept_rect;
+        gpu().lock_texture(*kept_d3d, 0, &kept_rect, nullptr, 0);
+        std::memcpy(kept_rect.bits, get_edit(this)->pixels, bytes);
+        gpu().unlock_texture(*kept_d3d, 0);
     }
     return true;
 }
@@ -1235,21 +1247,21 @@ uint32_t pixel_layout(PixelFormat pixel_format, uint32_t last)
     const auto depth = pixel_format.depth;
     if (compression != 0U) {
         if (compression == 1 || compression == 2) {
-            return D3DFMT_DXT1;
+            return gpu_value::kFormatDxt1;
         }
         if (compression == kCompressionDxt5) {
-            return D3DFMT_DXT5;
+            return gpu_value::kFormatDxt5;
         }
         return last;
     }
     if (depth == kDepth8) {
-        return D3DFMT_P8;
+        return gpu_value::kFormatP8;
     }
     if (depth == kDepth16) {
-        return D3DFMT_A1R5G5B5;
+        return gpu_value::kFormatA1R5G5B5;
     }
     if (depth == kDepth32) {
-        return D3DFMT_A8R8G8B8;
+        return gpu_value::kFormatA8R8G8B8;
     }
     return last;
 }
@@ -1315,15 +1327,20 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout({.compression = texture->unknownf_, .depth = texture->depth}, format);
         texture->height = std::max<uint16_t>(texture->height, 4);
-        IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
+        GpuTexture** d3d = &texture->texture;
         bool damaged = false;
         if (header.palette_size != 0U) {
             // Palettized: an A8R8G8B8 texture made, the palette and the levels read - and dropped (the texture's
             // texels left as they are, as the original).
             texture->depth = kDepth32;
-            format = D3DFMT_A8R8G8B8;
-            d3d9::state().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
-                                        D3DPOOL_MANAGED, d3d, nullptr);
+            format = gpu_value::kFormatA8R8G8B8;
+            gpu().create_texture({.width = texture->width,
+                                  .height = texture->height,
+                                  .levels = texture->levels,
+                                  .usage = 0,
+                                  .format = gpu_value::kFormatA8R8G8B8,
+                                  .pool = gpu_value::kPoolManaged},
+                                 d3d);
             void* palette = memory::alloc(header.palette_size);
             read(palette, static_cast<int>(header.palette_size), 1);
             for (uint32_t level = 0; level < texture->levels && !damaged; ++level) {
@@ -1333,19 +1350,24 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
                     damaged = true;
                     break;
                 }
-                D3DLOCKED_RECT rect;
-                (*d3d)->LockRect(level, &rect, nullptr, 0);
-                D3DSURFACE_DESC desc;
-                (*d3d)->GetLevelDesc(level, &desc);
+                GpuLockedRect rect;
+                gpu().lock_texture(*d3d, level, &rect, nullptr, 0);
+                GpuSize level_size;
+                gpu().texture_level_size(*d3d, level, &level_size);
                 void* texels = memory::alloc(size);
                 read(texels, static_cast<int>(size), 1);
                 memory::Hub::dealloc(texels);
-                (*d3d)->UnlockRect(level);
+                gpu().unlock_texture(*d3d, level);
             }
             memory::Hub::dealloc(palette);
         } else {
-            d3d9::state().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0,
-                                        static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
+            gpu().create_texture({.width = texture->width,
+                                  .height = texture->height,
+                                  .levels = texture->levels,
+                                  .usage = 0,
+                                  .format = format,
+                                  .pool = gpu_value::kPoolManaged},
+                                 d3d);
             texture->palette = nullptr;
             for (uint32_t level = 0; level < texture->levels; ++level) {
                 uint32_t size = 0;
@@ -1354,10 +1376,10 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
                     damaged = true;
                     break;
                 }
-                D3DLOCKED_RECT rect;
-                (*d3d)->LockRect(level, &rect, nullptr, 0);
-                read(rect.pBits, static_cast<int>(size), 1);
-                (*d3d)->UnlockRect(level);
+                GpuLockedRect rect;
+                gpu().lock_texture(*d3d, level, &rect, nullptr, 0);
+                read(rect.bits, static_cast<int>(size), 1);
+                gpu().unlock_texture(*d3d, level);
             }
         }
         add_to_table(table, texture);
@@ -1400,10 +1422,14 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
         texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout({.compression = static_cast<uint8_t>(header.compression), .depth = static_cast<uint8_t>(header.depth)}, format);
-        IDirect3DTexture9** d3d = d3d9::out(&texture->texture);
-        d3d9::state().d3d_device()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
-                                    static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
-                                    D3DPOOL_MANAGED, d3d, nullptr);
+        GpuTexture** d3d = &texture->texture;
+        gpu().create_texture({.width = static_cast<uint16_t>(header.width),
+                              .height = static_cast<uint16_t>(header.height),
+                              .levels = static_cast<uint8_t>(header.levels),
+                              .usage = 0,
+                              .format = format,
+                              .pool = gpu_value::kPoolManaged},
+                             d3d);
         // (no palette read: the memory loader expects none, as the original)
         if (header.palette_size == 0U) {
             texture->palette = nullptr;
@@ -1417,10 +1443,10 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
                 damaged = true;
                 break;
             }
-            D3DLOCKED_RECT rect;
-            (*d3d)->LockRect(level, &rect, nullptr, 0);
-            std::memcpy(rect.pBits, texels, level_bytes);
-            (*d3d)->UnlockRect(level);
+            GpuLockedRect rect;
+            gpu().lock_texture(*d3d, level, &rect, nullptr, 0);
+            std::memcpy(rect.bits, texels, level_bytes);
+            gpu().unlock_texture(*d3d, level);
         }
         add_to_table(table, texture);
         if (damaged) {
