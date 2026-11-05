@@ -563,10 +563,10 @@ void DrivableModule::configure_from_data(script::Struct* params)
     params->fetch_float(kBodyWipeoutFriction, &response_.tipped_friction, 0);
     params->fetch_float(kBodySpring, &response_.depth_correction, 0);
     params->fetch_float(kCollisionControl, &response_.wall_steering, 0);
-    params->fetch_float(kInAirSlerpVelocityCutoff, &align_speed_, 0);
-    params->fetch_float(kInAirSlerpTimeDelay, &align_time_, 0);
-    params->fetch_float(kInAirSlerpStrength, &align_rate_, 0);
-    align_when_slow_ = params->has_bare_flag(kVertCorrection);
+    params->fetch_float(kInAirSlerpVelocityCutoff, &air_align_.speed, 0);
+    params->fetch_float(kInAirSlerpTimeDelay, &air_align_.time, 0);
+    params->fetch_float(kInAirSlerpStrength, &air_align_.rate, 0);
+    air_align_.when_slow = params->has_bare_flag(kVertCorrection);
     if (params->has_entry_named(kMaxSteeringAngle)) { // max_steering_angle (degrees)
         params->fetch_float(kMaxSteeringAngle, &max_steering_angle_, 0);
         max_steering_angle_ = static_cast<float>(static_cast<double>(max_steering_angle_) * kToRadians);
@@ -1258,10 +1258,10 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, response_.depth_correction), .original = 0x174, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, response_.tipped_friction), .original = 0x178, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, response_.wall_steering), .original = 0x17C, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, align_speed_), .original = 0x180, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, align_time_), .original = 0x184, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, align_rate_), .original = 0x188, .larger_by = 0},
-        FieldAt{.now = offsetof(DrivableModule, align_when_slow_), .original = 0x18C, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, air_align_.speed), .original = 0x180, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, air_align_.time), .original = 0x184, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, air_align_.rate), .original = 0x188, .larger_by = 0},
+        FieldAt{.now = offsetof(DrivableModule, air_align_.when_slow), .original = 0x18C, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, wheel_count_), .original = 0x190, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, drive_wheel_count_), .original = 0x194, .larger_by = 0},
         FieldAt{.now = offsetof(DrivableModule, max_steering_angle_), .original = 0x198, .larger_by = 0},

@@ -367,9 +367,9 @@ void DrivableModule::align_in_air()
     }
     double vx = vel_.x;
     double vz = vel_.z;
-    const double align = align_speed_;
+    const double align = air_align_.speed;
     const bool slow = align * align > (vx * vx) + (vz * vz);
-    if (slow && !align_when_slow_) {
+    if (slow && !air_align_.when_slow) {
         return;
     }
     quat_to_matrix(&orientation_, &basis_frame_);
@@ -407,11 +407,11 @@ void DrivableModule::align_in_air()
     vx = vel_.x;
     vz = vel_.z;
     const bool fast = (vx * vx) + (vz * vz) > kAlignFast;
-    const float time = align_time_;
+    const float time = air_align_.time;
     const float falling = free_fall_time_;
     const double ramp = falling < time ? falling : time;
-    const double rate = fast ? static_cast<double>(align_rate_) * step_length_
-                             : static_cast<double>(align_rate_) * step_length_ * kAlignSlowRate;
+    const double rate = fast ? static_cast<double>(air_align_.rate) * step_length_
+                             : static_cast<double>(air_align_.rate) * step_length_ * kAlignSlowRate;
     slerp->fetch_mat(basis_frame_, static_cast<float>(ramp / time * rate));
     maths::Vec4 quat{};
     matrix_to_quat(&quat, &basis_frame_);

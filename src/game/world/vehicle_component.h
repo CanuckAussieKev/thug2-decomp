@@ -361,6 +361,14 @@ private:
         float tipped_friction{};  // +0x0C (+0x178) (0x4A23A53C) the body's friction when tipped over (up.y <= 0.707)
         float wall_steering{};    // +0x10 (+0x17C) (0xB9F026ED) the steering's turning against walls
     };
+    // Turning level in the air (+0x180-+0x18F: configure_from_data, align_in_air).
+    struct AirAlign {
+        float speed{};    // +0x00 (+0x180) (0x8C14709E) below this horizontal speed the body turns towards its facing,
+                          //        above it towards its velocity
+        float time{};     // +0x04 (+0x184) (0x2C91E49B) the turning's ramp-in time in the air
+        float rate{};     // +0x08 (+0x188) (0x280F0E0B) the turning's rate
+        bool when_slow{}; // +0x0C (+0x18C) (0x5341806A) turn towards the facing when slow
+    };
     // The controls this frame (+0x304-+0x30B: read_controls, from the input component; or none when passive).
     struct Controls {
         float steering{}; // +0x00 (+0x304) -1 (left) .. 1 (right), squared with its sign
@@ -393,11 +401,7 @@ private:
     float step_length_{};         // +0x144 the sub-step's length (seconds)
     Mass mass_;                   // +0x148-+0x16B the centre of mass, the inverse mass and moments
     Response response_;           // +0x16C-+0x17F the body's response to its contacts
-    float align_speed_{};                  // +0x180 (0x8C14709E) below this horizontal speed the body turns towards its
-                                           //        facing, above it towards its velocity (0x00439D90)
-    float align_time_{};                   // +0x184 (0x2C91E49B) the turning's ramp-in time in the air
-    float align_rate_{};                   // +0x188 (0x280F0E0B) the turning's rate
-    bool align_when_slow_{};               // +0x18C (0x5341806A) turn towards the facing when slow
+    AirAlign air_align_;          // +0x180-+0x18F turning level in the air
     int wheel_count_{};                    // +0x190 Wheels
     int drive_wheel_count_{};              // +0x194 wheels with drive
     float max_steering_angle_{};           // +0x198 max_steering_angle (radians)
