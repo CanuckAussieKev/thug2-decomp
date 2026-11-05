@@ -303,6 +303,16 @@ private:
         uint32_t stuck{0};   // +0x0C (+0xD0) (0xCCB84047): run when the contacts can't be resolved
     };
 
+    // When its sounds play, and how loud (+0xE0-+0xF3: set_sounds; feel_pushers, on_bounce). The sounds themselves
+    // (+0xD8, +0xDC) stay apart: the destructor deletes them, in its order.
+    struct SoundTiming {
+        int collide_mute_ms{kDefaultImpactQuietMs};              // +0x00 (+0xE0) CollideMuteDelay (1000)
+        int global_mute_ms{kDefaultCollideMuteDelay};            // +0x04 (+0xE4) GlobalCollideMuteDelay (100)
+        float bounce_threshold{kDefaultBounceCallbackThreshold}; // +0x08 (+0xE8) BounceVelocityCallbackThreshold (20)
+        float bounce_full_speed{kDefaultBounceFullSpeed};        // +0x0C (+0xEC) BounceVelocityFullSpeed (300)
+        uint32_t collide_muted_until{}; // +0x10 (+0xF0) the collide sound muted until then (the clock, ms)
+    };
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     Response response_;                // +0x2C-+0x37 the response to its contacts
@@ -337,11 +347,7 @@ private:
     gsl::owner<script::Struct*> callback_params_ptr_{}; // +0xD4 CallbackParams (a copy)
     gsl::owner<script::Struct*> collide_sound_ptr_{}; // +0xD8 the sound type's CollideSound (a copy)
     gsl::owner<script::Struct*> bounce_sfx_{};        // +0xDC ... BounceSound
-    int impact_quiet_ms_{kDefaultImpactQuietMs};             // +0xE0 (1000)
-    int global_collide_mute_delay_{kDefaultCollideMuteDelay};    // +0xE4 (100)
-    float bounce_callback_threshold_{kDefaultBounceCallbackThreshold}; // +0xE8 BounceVelocityCallbackThreshold (20)
-    float bounce_full_speed_{kDefaultBounceFullSpeed};        // +0xEC BounceVelocityFullSpeed (300)
-    uint32_t unknownf0_{};                // +0xF0
+    SoundTiming sound_timing_;                        // +0xE0-+0xF3 when its sounds play, and how loud
     uint32_t flag_bits_{0};               // +0xF4 FLAG_*
     maths::Vec4 wake_pos_{};              // +0xF8 where it last woke
     float die_timer_{-1.0F};              // +0x108 (-1: none)

@@ -347,7 +347,7 @@ void BodyDynamicsModule::integrate(float dt)
 // 0x0042E980
 void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
 {
-    if (!(speed > bounce_callback_threshold_)) {
+    if (!(speed > sound_timing_.bounce_threshold)) {
         return;
     }
     if (callbacks_.bounce != 0U) {
@@ -367,7 +367,8 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
         }
     }
     if (audio_module_ && bounce_sfx_ && kVoiceLimit - sound::count_playing_voices() > kVoiceReserve) {
-        const float percent = maths::confine(get_narrow(get_wide(speed) / bounce_full_speed_ * 100.0F), 0.0F, 100.0F);
+        const float percent =
+            maths::confine(get_narrow(get_wide(speed) / sound_timing_.bounce_full_speed * 100.0F), 0.0F, 100.0F);
         bounce_sfx_->push_float(checksums::Name{kPercent}, percent); // Percent
         audio_module_->emit_sound(bounce_sfx_);
     }

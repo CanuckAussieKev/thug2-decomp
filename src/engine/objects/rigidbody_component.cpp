@@ -318,15 +318,16 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
         // replaces it)
         int delay = 0;
         sounds->fetch_int_value(kCollideMuteDelay, &delay, 0);
-        impact_quiet_ms_ = delay;
+        sound_timing_.collide_mute_ms = delay;
     }
     if (sounds->has_entry_named(kGlobalCollideMuteDelay)) { // GlobalCollideMuteDelay
         int delay = 0;                         // (uninitialised in the original: only read when it's given)
         sounds->fetch_int_value(kGlobalCollideMuteDelay, &delay, 0);
-        global_collide_mute_delay_ = delay;
+        sound_timing_.global_mute_ms = delay;
     }
-    sounds->fetch_float(kBounceVelocityCallbackThreshold, &bounce_callback_threshold_, 0); // BounceVelocityCallbackThreshold
-    sounds->fetch_float(kBounceVelocityFullSpeed, &bounce_full_speed_, 0);         // BounceVelocityFullSpeed
+    sounds->fetch_float(kBounceVelocityCallbackThreshold, &sound_timing_.bounce_threshold,
+                        0); // BounceVelocityCallbackThreshold
+    sounds->fetch_float(kBounceVelocityFullSpeed, &sound_timing_.bounce_full_speed, 0); // BounceVelocityFullSpeed
 }
 
 // The shape's size: its farthest point, or sphere's edge, from the centre of mass.
@@ -867,11 +868,11 @@ void BodyDynamicsModule::check_layout()
         FieldAt{.now = offsetof(BodyDynamicsModule, callback_params_ptr_), .original = 0xD4},
         FieldAt{.now = offsetof(BodyDynamicsModule, collide_sound_ptr_), .original = 0xD8},
         FieldAt{.now = offsetof(BodyDynamicsModule, bounce_sfx_), .original = 0xDC},
-        FieldAt{.now = offsetof(BodyDynamicsModule, impact_quiet_ms_), .original = 0xE0},
-        FieldAt{.now = offsetof(BodyDynamicsModule, global_collide_mute_delay_), .original = 0xE4},
-        FieldAt{.now = offsetof(BodyDynamicsModule, bounce_callback_threshold_), .original = 0xE8},
-        FieldAt{.now = offsetof(BodyDynamicsModule, bounce_full_speed_), .original = 0xEC},
-        FieldAt{.now = offsetof(BodyDynamicsModule, unknownf0_), .original = 0xF0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sound_timing_.collide_mute_ms), .original = 0xE0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sound_timing_.global_mute_ms), .original = 0xE4},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sound_timing_.bounce_threshold), .original = 0xE8},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sound_timing_.bounce_full_speed), .original = 0xEC},
+        FieldAt{.now = offsetof(BodyDynamicsModule, sound_timing_.collide_muted_until), .original = 0xF0},
         FieldAt{.now = offsetof(BodyDynamicsModule, flag_bits_), .original = 0xF4},
         FieldAt{.now = offsetof(BodyDynamicsModule, wake_pos_), .original = 0xF8},
         FieldAt{.now = offsetof(BodyDynamicsModule, die_timer_), .original = 0x108},
