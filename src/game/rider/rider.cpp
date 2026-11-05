@@ -1,6 +1,7 @@
 // Pieces of the skater object, 0x0057FE30-0x00580BD8. See rider.h.
 
 #include "game/rider/rider.h"
+#include "game/rider/rider_traits.h"
 
 #include <algorithm>
 #include <bit>
@@ -362,7 +363,7 @@ void* Rider::obtain_active_lens() const { return render::fetch_live_camera(view_
 int Rider::get_skater_number() const { return skater_number_; }
 
 // 0x0057FED0
-bool Rider::matches_params(script::Struct* params) const
+bool RiderTraits::matches_params(script::Struct* params) const
 {
     if (params->has_bare_flag(kIsPro) && !pro_) {
         return false;
@@ -585,7 +586,7 @@ float Rider::get_scaled_value(script::Struct* params)
     const float high = range.y();
     auto result = static_cast<float>(((static_cast<double>(high) - low) * stat * kStatToFraction) + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
-    const bool goofy = core::down_cast<Rider>(core_physics_->entity())->goofy_;
+    const bool goofy = core::down_cast<Rider>(core_physics_->entity())->traits_.goofy();
     const uint8_t flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on;
     const bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
@@ -813,6 +814,17 @@ void Rider::update_from_profile(RiderIdentity* profile)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(core::at(manager->skater_heaps(), skater_number_));
+    traits_.read_from(profile);
+    if (is_local_skater() != 0U) {
+        core_physics_->state()->set_flag(PoseFlag::kFlipped, traits_.goofy() ? 0 : 1);
+        core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
+    }
+    memory::Hub::get_pull()->leave_heap_scope();
+}
+
+// (0x00580EB0's middle)
+void RiderTraits::read_from(RiderIdentity* profile)
+{
     auto checksum = [profile](uint32_t name) { return profile->get_name_key_field(name); };
     stroke_kind_ = checksum(kPushStyle);
     goofy_ = checksum(kStance) == kGoofy;
@@ -832,11 +844,6 @@ void Rider::update_from_profile(RiderIdentity* profile)
         }
     }
     label_ = profile->fetch_title();
-    if (is_local_skater() != 0U) {
-        core_physics_->state()->set_flag(PoseFlag::kFlipped, goofy_ ? 0 : 1);
-        core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
-    }
-    memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00580FF0
@@ -1007,7 +1014,7 @@ const char* Rider::fetch_shown_name()
     if (online::online_hub()->in_net_game()) {
         return online::online_hub()->roster().find_player_slot_by_obj(static_cast<uint16_t>(ident()))->label().data();
     }
-    return shown_name_.c_str();
+    return traits_.shown_name();
 }
 
 // 0x005815C0
@@ -1245,7 +1252,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     const char* tag = nullptr;
     info->fetch_text(kTagTexture, &tag, 1); // tag_texture
     ObjectModule* controls = fetch_module(kTagging);
-    if (label_ == kCustomSkater) {
+    if (traits_.label() == kCustomSkater) {
         int has_custom_tag = 0;
         info->fetch_int_value(kHasCustomTag, &has_custom_tag, 1);
         if (has_custom_tag != 0) {
@@ -1705,16 +1712,16 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case kSkaterIsNamed: { // SkaterIsNamed
         uint32_t named = 0;
         params->read_hash_value(0U, &named, 1);
-        return named == label_;
+        return named == traits_.label();
     }
     case kShouldMongo: // ShouldMongo
         if (is_local_skater() == 0U) {
             return false;
         }
-        if (stroke_kind_ == kMongoWhenSwitch) { // mongo_when_switch
+        if (traits_.stroke_kind() == kMongoWhenSwitch) { // mongo_when_switch
             return (core_physics_->is_sides_swapped() & kByteMask) != 0;
         }
-        return stroke_kind_ == kAlwaysMongo; // always_mongo
+        return traits_.stroke_kind() == kAlwaysMongo;  // always_mongo
     case kLaunchDirtyProjectile:                       // LaunchDirtyProjectile
         debug::printf("LaunchDirtyProjectile\n");
         launch_projectile();
@@ -1888,7 +1895,7 @@ Rider::~Rider()
     }
     // Out of the skater list.
     skater_link_.uncouple();
-    // (then shown_name_'s destructor and GameEntity's)
+    // (then traits_' destructor - the shown name's - and GameEntity's)
 }
 
 // NOT ORIGINAL
@@ -1903,15 +1910,7 @@ void Rider::check_layout()
         std::size_t smaller_by;
     };
     constexpr std::array kLayout{
-        FieldAt{.now = offsetof(Rider, stroke_kind_), .original = 0x108, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, style_), .original = 0x10C, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, goofy_), .original = 0x110, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, pro_), .original = 0x111, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, male_), .original = 0x114, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, given_name_), .original = 0x118, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, label_), .original = 0x158, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, shown_name_), .original = 0x15C, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, always_special_), .original = 0x168, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, traits_), .original = 0x108, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, last_restart_), .original = 0x16C, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, sparks_), .original = 0x170, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, shadow_fade_), .original = 0x174, .smaller_by = 4},
@@ -1962,6 +1961,32 @@ void Rider::check_layout()
                       return field.now + field.smaller_by == field.original;
                   }),
                   "layout must match the original's, but for the smaller members");
+}
+
+// NOT ORIGINAL
+void RiderTraits::check_layout()
+{
+    constexpr std::size_t kAt = 0x108; // (each field at its offset in the original skater, less the traits' own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(RiderTraits, stroke_kind_), .original = 0x108},
+        FieldAt{.now = offsetof(RiderTraits, style_), .original = 0x10C},
+        FieldAt{.now = offsetof(RiderTraits, goofy_), .original = 0x110},
+        FieldAt{.now = offsetof(RiderTraits, pro_), .original = 0x111},
+        FieldAt{.now = offsetof(RiderTraits, male_), .original = 0x114},
+        FieldAt{.now = offsetof(RiderTraits, given_name_), .original = 0x118},
+        FieldAt{.now = offsetof(RiderTraits, label_), .original = 0x158},
+        FieldAt{.now = offsetof(RiderTraits, shown_name_), .original = 0x15C},
+        FieldAt{.now = offsetof(RiderTraits, always_special_), .original = 0x168},
+        FieldAt{.now = sizeof(RiderTraits), .original = 0x16C},
+    };
+    static_assert(
+        sizeof(void*) != 4 ||
+            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        "layout must match the original");
 }
 
 } // namespace objects

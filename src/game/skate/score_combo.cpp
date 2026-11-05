@@ -448,7 +448,7 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
     auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = core::down_cast<objects::Rider>(physics->entity());
     const uint8_t flipped = physics->state()->flag(objects::PoseFlag::kFlipped).on;
-    const int stance = physics_skater->goofy() ? flipped : static_cast<int>(flipped == 0U);
+    const int stance = physics_skater->traits().goofy() ? flipped : static_cast<int>(flipped == 0U);
     stats->set10(text, score, stance);
     if (tricks_ > kMaxTricksBeforeTrim) {
         trim_log();

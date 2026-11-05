@@ -255,7 +255,7 @@ bool cfunc_profile_equals(script::Struct* params, script::Context context)
     if (context) {
         objects::Entity* object = context.entity().get_pull();
         if (object && object->kind_tag() == kSkaterType) {
-            return core::down_cast<objects::Rider>(object)->matches_params(params);
+            return core::down_cast<objects::Rider>(object)->traits().matches_params(params);
         }
     }
     if (!is_multiplayer()) {
@@ -265,7 +265,7 @@ bool cfunc_profile_equals(script::Struct* params, script::Context context)
     if (!skater) {
         return false;
     }
-    return skater->matches_params(params);
+    return skater->traits().matches_params(params);
 }
 
 // 0x005AEFC0: IsCareerMode - the game mode's is_career.

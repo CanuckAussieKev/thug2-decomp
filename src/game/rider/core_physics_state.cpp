@@ -302,7 +302,8 @@ void SkaterPhysicsModule::get_reset()
             sound_->set_sliding(0);
         }
     }
-    set_timed_flag(this, PoseFlag::kFlipped, static_cast<uint8_t>(!core::down_cast<objects::Rider>(entity())->goofy()));
+    set_timed_flag(this, PoseFlag::kFlipped,
+                   static_cast<uint8_t>(!core::down_cast<objects::Rider>(entity())->traits().goofy()));
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* rider = ride->ride().get()) {

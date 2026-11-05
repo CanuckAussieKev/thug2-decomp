@@ -184,9 +184,9 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Context context)
         order->set_element(i, picked);
     }
 
-    copy_string(first_name.data(), skater->given_name().data()); // (copied and not used)
-    objects::RiderIdentity* profile = objects::profile_roster()->get_template(skater->label());
-    if (skater->pro()) {
+    copy_string(first_name.data(), skater->traits().given_name().data()); // (copied and not used)
+    objects::RiderIdentity* profile = objects::profile_roster()->get_template(skater->traits().label());
+    if (skater->traits().pro()) {
         const char* last_name = nullptr;
         profile->details_params()->fetch_text(kLastName, &last_name, 1);
         copy_string(voice.data(), last_name);

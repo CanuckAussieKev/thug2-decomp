@@ -399,7 +399,7 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Context /*conte
         if (!skater) {
             continue;
         }
-        bool& special = core::down_cast<objects::Rider>(skater)->always_special();
+        bool& special = core::down_cast<objects::Rider>(skater)->traits().always_special();
         if (on) {
             special = true;
         } else if (off) {

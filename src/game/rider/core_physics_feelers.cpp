@@ -397,7 +397,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         physics::change_phase(this, 0);
         set_timed_flag(this, PoseFlag::kFlipped,
-                       static_cast<uint8_t>(!core::down_cast<objects::Rider>(entity())->goofy()));
+                       static_cast<uint8_t>(!core::down_cast<objects::Rider>(entity())->traits().goofy()));
         core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
             ->apply_flip_to_anims();
     } else if (params->has_bare_flag(kOrient)) {

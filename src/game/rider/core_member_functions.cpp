@@ -622,7 +622,7 @@ int SkaterPhysicsModule::get_flipped(script::Struct* /*params*/, script::Script*
 int SkaterPhysicsModule::get_switched(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
-    if (core::down_cast<objects::Rider>(entity())->goofy()) {
+    if (core::down_cast<objects::Rider>(entity())->traits().goofy()) {
         return flipped ? 1 : 0;
     }
     return flipped ? 0 : 1;

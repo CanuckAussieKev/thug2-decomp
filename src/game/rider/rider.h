@@ -5,11 +5,11 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/util/text_store.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "base/core/checksums.h"
+#include "game/rider/rider_traits.h"
 
 // Pieces of the skater object (GameObjects::Rider, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at
 // +0x290, the cheats and online rules on top), the physics structure for what it rides (skater_physics, or a
@@ -31,7 +31,6 @@ namespace modules {
 class PointTally;
 }
 namespace objects {
-constexpr std::size_t kGivenNameBytes = 0x40;
 constexpr std::size_t kTrickSlotCount = 11;      // the create-a-skater tricks
 constexpr int kCatTrickCount = 11; // the same, as an int count (the loops)
 constexpr std::size_t kProjectileSlots = 5;
@@ -90,9 +89,6 @@ public:
     memory::ListNode* get_skater_link();
     [[nodiscard]] bool get_flag_2c_4() const;
     modules::PointTally* get_points_total();
-    // 0x0057FED0: whether it matches `params`' description (is_pro, the custom flag, is_male / is_female, is_named,
-    // stance, style).
-    bool matches_params(script::Struct* params) const;
     // 0x0057FFE0 / 0x00580000: sparks on (SkaterParticles_SparksOn) / off (SkaterParticles_SparksOff, if on).
     void sparks_on();
     void sparks_off();
@@ -203,13 +199,8 @@ public:
     };
 
     // The fields other code reads and sets.
-    [[nodiscard]] bool goofy() const { return goofy_; }
-    [[nodiscard]] bool pro() const { return pro_; }
-    std::array<char, kGivenNameBytes>& given_name() { return given_name_; }
-    [[nodiscard]] const std::array<char, kGivenNameBytes>& given_name() const { return given_name_; }
-    [[nodiscard]] uint32_t label() const { return label_; }
-    bool& always_special() { return always_special_; }
-    [[nodiscard]] bool always_special() const { return always_special_; }
+    RiderTraits& traits() { return traits_; }
+    [[nodiscard]] const RiderTraits& traits() const { return traits_; }
     [[nodiscard]] const std::array<std::unique_ptr<goals::CreateATrick>, kTrickSlotCount>& trick_slots() const { return trick_slots_; }
     int& cat_num_anims() { return cat_num_anims_; }
     [[nodiscard]] int cat_num_anims() const { return cat_num_anims_; }
@@ -249,17 +240,7 @@ public:
     [[nodiscard]] bool is_halted() const { return is_halted_; }
 
 private:
-    uint32_t stroke_kind_{}; // +0x108 (the profile's pushstyle)
-    uint32_t style_{};       // +0x10C (skatestyle)
-    bool goofy_{};           // +0x110
-    bool pro_{};             // +0x111
-    std::array<uint8_t, 2> pad112{};
-    int male_{};              // +0x114
-    std::array<char, kGivenNameBytes> given_name_{}; // +0x118
-    uint32_t label_{};        // +0x158
-    text::Chars shown_name_; // +0x15C
-    bool always_special_{};  // +0x168 (the special meter always full)
-    std::array<uint8_t, 3> pad169_{};
+    RiderTraits traits_;      // +0x108-+0x16B what it keeps of its profile
     uint32_t last_restart_{}; // +0x16C
     bool sparks_{};           // +0x170
     std::array<uint8_t, 3> pad171{};
