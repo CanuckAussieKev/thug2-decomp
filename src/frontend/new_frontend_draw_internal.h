@@ -19,6 +19,10 @@
 
 namespace frontend::new_frontend::paint::internal {
 
+constexpr float kBodyLineHeight = 1.5F; // and of the body text
+
+constexpr float kBodyTextSize = 14.0F;
+
 constexpr float kColumnLeft = 48.0F;    // the left edge of the menu column, in design pixels
 
 constexpr float kDegreesPerHalfTurn = 180.0F;
@@ -27,7 +31,13 @@ constexpr float kHeadingTextSize = 30.0F;
 
 constexpr float kLabelTextSize = 13.0F;
 
+constexpr float kNameTextSize = 28.0F;
+
 constexpr float kNoteTextSize = 12.0F;      // text sizes in design pixels
+
+constexpr float kPanelHintsBottom = 692.0F; // the baseline of the hint bar under a panel
+
+constexpr float kRowRight = 1240.0F;        // where a row ends and its hit box with it
 
 constexpr float kRowTiltDegrees = 3.0F;     // the tilt a row starts its entrance at
 
@@ -59,6 +69,19 @@ constexpr float kButtonCutInset = 10.0F;
 constexpr float kButtonPadding = 22.0F;
 
 constexpr float kButtonArrowGap = 10.0F;
+
+constexpr float kPanelStackGap = 14.0F;
+
+constexpr float kKickerGap = 8.0F;
+
+constexpr int kHitChoiceStride = 16;    // a choice's hit id is its row times this plus the choice's number
+
+// Lists: the hit box reaches past the column, the clip around the rows and the rows kept in view.
+constexpr float kRowHitOverhang = 20.0F;
+
+constexpr float kListClipAbove = 2.0F;
+
+constexpr float kListClipBelow = 8.0F;
 
 // --- the colours (docs/design/frontend/README.md) ---
 constexpr uint32_t kGround = 0xFF0A0A0A;
@@ -225,5 +248,11 @@ struct TabRow {
 float get_tabs(Ctx& ctx, TabRow row, float y);
 
 void get_button(Ctx& ctx, maths::Vec2 at, const char* text, uint32_t colour, bool arrow, Hit::Kind kind, float alpha);
+
+void options_screen(Ctx& ctx, float window_width, float window_height);
+
+void levels_screen(Ctx& ctx, int* visible_rows);
+
+void wipe(ImDrawList* dl, const Menu& menu, maths::Size window);
 
 } // namespace frontend::new_frontend::paint::internal
