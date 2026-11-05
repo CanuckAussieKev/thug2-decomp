@@ -4,10 +4,6 @@
 
 #include "render_d3d9/pc_grass.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -41,6 +37,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "render_d3d9/render_state.h"
+#include "engine/gfx/gpu.h"
 
 namespace render {
 
@@ -141,7 +138,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         gsl::owner<VertexBuffer*> wider = new_vertex_buffer((mesh->stride() + kUvSetBytesU) * mesh->vertex_count(), 0, 0);
         uint8_t* from = nullptr;
         uint8_t* to = nullptr;
-        mesh->fetch_vertex_store(0)->get_lock(0, 0, &from, D3DLOCK_READONLY);
+        mesh->fetch_vertex_store(0)->get_lock(0, 0, &from, gpu_value::kLockReadOnly);
         wider->get_lock(0, 0, &to, 0);
         const std::span<const uint8_t> source_vertices(from, size_t{mesh->vertex_count()} * mesh->stride());
         const std::span<uint8_t> wide_vertices(to, size_t{mesh->vertex_count()} * (mesh->stride() + 8));

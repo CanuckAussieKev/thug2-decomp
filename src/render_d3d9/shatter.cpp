@@ -4,10 +4,7 @@
 #include "engine/gfx/engine_shatter.h"
 #include "base/core/cursor.h"
 #include "render_d3d9/geom.h"
-
-#include <windows.h>
-
-#include <d3d9.h>
+#include "engine/gfx/gpu.h"
 
 #include <bit>
 #include <cmath>
@@ -31,7 +28,6 @@
 #include "platform/crt.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 #include "base/maths/vec4.h"
 #include <gsl/pointers>
@@ -93,7 +89,7 @@ void draw_shatter(PcShatter* shatter)
     set_pixel_shader(mesh_pixel_shader(mesh), mesh->material());
     set_vertex_format(mesh_vertex_format(mesh));
     renderer().count_draw(triangle_count(shatter)); // the frame's draw calls and triangles
-    d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices(), mesh->stride());
+    gpu().draw_from_memory(GpuPrimitive::kTriangleList, triangle_count(shatter), shatter->vertices(), mesh->stride());
 }
 
 // 0x004B9550

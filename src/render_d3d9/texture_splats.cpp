@@ -4,13 +4,10 @@
 #include "render_d3d9/texture_splats.h"
 #include "base/maths/view_transforms.h"
 #include "engine/gfx/mesh_formats.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/engine_splats.h"
 #include "base/core/cursor.h"
 #include "render_d3d9/geom.h"
-
-#include <windows.h>
-
-#include <d3d9.h>
 
 #include <bit>
 #include <cmath>
@@ -39,7 +36,6 @@
 #include "base/core/checked_index.h"
 #include "render_d3d9/pc_texture.h"
 #include "base/core/no_destroy.h"
-#include "render_d3d9/d3d9_state.h"
 #include "engine/gfx/effects_state.h"
 #include "base/maths/vec2.h"
 
@@ -190,11 +186,11 @@ void kill_texture_splats_in_box(const maths::BBox* box)
 // 0x004B9380
 void draw_texture_splats()
 {
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
-    DWORD min_filter = 0;
-    d3d9::state().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    set_vertex_format(kFvfXyz | kFvfDiffuse | kFvfTex1);
+    gpu().set_sampler_state(0, GpuSamplerState::kBorderColour, 0);
+    uint32_t min_filter = 0;
+    gpu().get_sampler_state(0, GpuSamplerState::kMinFilter, &min_filter);
+    gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
     effects_state().splat_sets().for_each([](TextureSplats* splats) {
         if (splats->last < 0) {
             return;
@@ -216,10 +212,10 @@ void draw_texture_splats()
         }
         splats->material->hand_in(); // (the material's set-up)
         set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), splats->material);
-        d3d9::state().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices.data(),
-                                       sizeof(ProjectedVertex));
+        gpu().draw_from_memory(GpuPrimitive::kTriangleList, splats->last + 1, splats->vertices.data(),
+                               sizeof(ProjectedVertex));
     });
-    d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, min_filter);
 }
 
 // 0x004B7FA0
