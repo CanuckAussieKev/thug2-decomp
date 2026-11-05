@@ -2,6 +2,7 @@
 
 #include "game/rider/rider.h"
 #include "game/rider/rider_created_tricks.h"
+#include "game/rider/rider_trick_editor.h"
 #include "game/rider/rider_traits.h"
 
 #include <algorithm>
@@ -1913,15 +1914,7 @@ void Rider::check_layout()
         FieldAt{.now = offsetof(Rider, shadow_fade_), .original = 0x174, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, unknown178_), .original = 0x178, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, created_tricks_), .original = 0x17C, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_num_anims_), .original = 0x1A8, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_bail_done_), .original = 0x1AC, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_flip_180_), .original = 0x1AD, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_anims_done_), .original = 0x1AE, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_rots_done_), .original = 0x1AF, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_hold_time_), .original = 0x1B0, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_total_x_), .original = 0x1B4, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_total_y_), .original = 0x1B8, .smaller_by = 4},
-        FieldAt{.now = offsetof(Rider, cat_total_z_), .original = 0x1BC, .smaller_by = 4},
+        FieldAt{.now = offsetof(Rider, cat_editor_), .original = 0x1A8, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, projectiles_), .original = 0x1C0, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, skater_link_), .original = 0x238, .smaller_by = 4},
         FieldAt{.now = offsetof(Rider, anim_blender_), .original = 0x24C, .smaller_by = 8},
@@ -1992,6 +1985,32 @@ void CreatedTricks::check_layout()
                       return field.now + kAt == field.original;
                   }),
                   "layout must match the original");
+}
+
+// NOT ORIGINAL
+void TrickEditorState::check_layout()
+{
+    constexpr std::size_t kAt = 0x1A8; // (each field at its offset in the original skater, less the state's own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(TrickEditorState, num_anims_), .original = 0x1A8},
+        FieldAt{.now = offsetof(TrickEditorState, bail_done_), .original = 0x1AC},
+        FieldAt{.now = offsetof(TrickEditorState, flip_180_), .original = 0x1AD},
+        FieldAt{.now = offsetof(TrickEditorState, anims_done_), .original = 0x1AE},
+        FieldAt{.now = offsetof(TrickEditorState, rots_done_), .original = 0x1AF},
+        FieldAt{.now = offsetof(TrickEditorState, hold_time_), .original = 0x1B0},
+        FieldAt{.now = offsetof(TrickEditorState, total_x_), .original = 0x1B4},
+        FieldAt{.now = offsetof(TrickEditorState, total_y_), .original = 0x1B8},
+        FieldAt{.now = offsetof(TrickEditorState, total_z_), .original = 0x1BC},
+        FieldAt{.now = sizeof(TrickEditorState), .original = 0x1C0},
+    };
+    static_assert(
+        sizeof(void*) != 4 ||
+            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        "layout must match the original");
 }
 
 // NOT ORIGINAL

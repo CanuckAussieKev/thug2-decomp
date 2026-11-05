@@ -10,6 +10,7 @@
 #include "engine/objects/entity.h"
 #include "base/core/checksums.h"
 #include "game/rider/rider_created_tricks.h"
+#include "game/rider/rider_trick_editor.h"
 #include "game/rider/rider_traits.h"
 
 // Pieces of the skater object (GameObjects::Rider, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at
@@ -199,24 +200,8 @@ public:
     [[nodiscard]] const RiderTraits& traits() const { return traits_; }
     CreatedTricks& created_tricks() { return created_tricks_; }
     [[nodiscard]] const CreatedTricks& created_tricks() const { return created_tricks_; }
-    int& cat_num_anims() { return cat_num_anims_; }
-    [[nodiscard]] int cat_num_anims() const { return cat_num_anims_; }
-    bool& cat_bail_done() { return cat_bail_done_; }
-    [[nodiscard]] bool cat_bail_done() const { return cat_bail_done_; }
-    bool& cat_flip_180() { return cat_flip_180_; }
-    [[nodiscard]] bool cat_flip_180() const { return cat_flip_180_; }
-    bool& cat_anims_done() { return cat_anims_done_; }
-    [[nodiscard]] bool cat_anims_done() const { return cat_anims_done_; }
-    bool& cat_rots_done() { return cat_rots_done_; }
-    [[nodiscard]] bool cat_rots_done() const { return cat_rots_done_; }
-    int& cat_total_x() { return cat_total_x_; }
-    [[nodiscard]] int cat_total_x() const { return cat_total_x_; }
-    int& cat_total_y() { return cat_total_y_; }
-    [[nodiscard]] int cat_total_y() const { return cat_total_y_; }
-    int& cat_total_z() { return cat_total_z_; }
-    [[nodiscard]] int cat_total_z() const { return cat_total_z_; }
-    [[nodiscard]] float cat_hold_time() const { return cat_hold_time_; }
-    void set_cat_hold_time(float value) { cat_hold_time_ = value; }
+    TrickEditorState& cat_editor() { return cat_editor_; }
+    [[nodiscard]] const TrickEditorState& cat_editor() const { return cat_editor_; }
     std::array<Projectile, kProjectileSlots>& projectiles() { return projectiles_; }
     [[nodiscard]] const std::array<Projectile, kProjectileSlots>& projectiles() const { return projectiles_; }
     [[nodiscard]] PadInputModule* pad_input() const { return pad_input_; }
@@ -244,16 +229,7 @@ private:
     int shadow_fade_{}; // +0x174
     std::array<uint8_t, 4> unknown178_{};
     CreatedTricks created_tricks_; // +0x17C-+0x1A7 the created tricks
-    // The create-a-trick editor's state (CAT_Set... / CAT_Get..., create_a_trick.cpp).
-    int cat_num_anims_{};   // +0x1A8 num_animations_on
-    bool cat_bail_done_{};  // +0x1AC bailtimescriptdone
-    bool cat_flip_180_{};   // +0x1AD cat_flip_skater_180
-    bool cat_anims_done_{}; // +0x1AE cat_animations_done
-    bool cat_rots_done_{};  // +0x1AF cat_rotations_done
-    float cat_hold_time_{}; // +0x1B0 cat_hold_time
-    int cat_total_x_{};     // +0x1B4
-    int cat_total_y_{};     // +0x1B8
-    int cat_total_z_{};     // +0x1BC
+    TrickEditorState cat_editor_;  // +0x1A8-+0x1BF the create-a-trick editor's state
 
     std::array<Projectile, kProjectileSlots> projectiles_{}; // +0x1C0
     memory::ListNode skater_link_{};      // +0x238 its node in the skate module's skater list (data = itself)

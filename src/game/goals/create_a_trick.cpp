@@ -12,6 +12,7 @@
 #include "engine/script/context.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
+#include "game/rider/rider_trick_editor.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
@@ -234,7 +235,7 @@ namespace {
 
 // A CAT_Set... of an integer field (the command's unnamed integer) / a flag (non-zero), and its CAT_Get... into the
 // script's parameters.
-bool store_int_field(script::Struct* params, int& (objects::Rider::*field)())
+bool store_int_field(script::Struct* params, int& (objects::TrickEditorState::*field)())
 {
     objects::Rider* skater = local_skater();
     if (!skater) {
@@ -242,19 +243,19 @@ bool store_int_field(script::Struct* params, int& (objects::Rider::*field)())
     }
     int value = 0;
     params->fetch_int_value(kNoName, &value, 1);
-    (skater->*field)() = value;
+    (skater->cat_editor().*field)() = value;
     return true;
 }
-bool fetch_int_value(script::Context context, int (objects::Rider::*field)() const, const char* name)
+bool fetch_int_value(script::Context context, int (objects::TrickEditorState::*field)() const, const char* name)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
         return false;
     }
-    context.args().get()->put_int(name, (skater->*field)());
+    context.args().get()->put_int(name, (skater->cat_editor().*field)());
     return true;
 }
-bool set_flag(script::Struct* params, bool& (objects::Rider::*field)())
+bool set_flag(script::Struct* params, bool& (objects::TrickEditorState::*field)())
 {
     objects::Rider* skater = local_skater();
     if (!skater) {
@@ -262,16 +263,16 @@ bool set_flag(script::Struct* params, bool& (objects::Rider::*field)())
     }
     int value = 0;
     params->fetch_int_value(kNoName, &value, 1);
-    (skater->*field)() = value != 0;
+    (skater->cat_editor().*field)() = value != 0;
     return true;
 }
-bool fetch_marker(script::Context context, bool (objects::Rider::*field)() const, const char* name)
+bool fetch_marker(script::Context context, bool (objects::TrickEditorState::*field)() const, const char* name)
 {
     const objects::Rider* skater = local_skater();
     if (!skater) {
         return false;
     }
-    context.args().get()->put_int(name, (skater->*field)() ? 1 : 0);
+    context.args().get()->put_int(name, (skater->cat_editor().*field)() ? 1 : 0);
     return true;
 }
 
@@ -280,47 +281,47 @@ bool fetch_marker(script::Context context, bool (objects::Rider::*field)() const
 // 0x005520F0
 bool cfunc_cat_set_num_anims(script::Struct* params, script::Context /*context*/)
 {
-    return store_int_field(params, &objects::Rider::cat_num_anims);
+    return store_int_field(params, &objects::TrickEditorState::num_anims);
 }
 // 0x00552130
 bool cfunc_cat_get_num_anims(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(context, &objects::Rider::cat_num_anims, kNumAnimationsOn);
+    return fetch_int_value(context, &objects::TrickEditorState::num_anims, kNumAnimationsOn);
 }
 // 0x00552160
 bool cfunc_cat_set_anims_done(script::Struct* params, script::Context /*context*/)
 {
-    return set_flag(params, &objects::Rider::cat_anims_done);
+    return set_flag(params, &objects::TrickEditorState::anims_done);
 }
 // 0x005521A0
 bool cfunc_cat_get_anims_done(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_marker(context, &objects::Rider::cat_anims_done, kAnimationsDone);
+    return fetch_marker(context, &objects::TrickEditorState::anims_done, kAnimationsDone);
 }
 // 0x005521F0
 bool cfunc_cat_set_rots_done(script::Struct* params, script::Context /*context*/)
 {
-    return set_flag(params, &objects::Rider::cat_rots_done);
+    return set_flag(params, &objects::TrickEditorState::rots_done);
 }
 // 0x00552230
 bool cfunc_cat_get_rots_done(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_marker(context, &objects::Rider::cat_rots_done, kRotationsDone);
+    return fetch_marker(context, &objects::TrickEditorState::rots_done, kRotationsDone);
 }
 // 0x00552280
 bool cfunc_cat_set_bail_done(script::Struct* params, script::Context /*context*/)
 {
-    return set_flag(params, &objects::Rider::cat_bail_done);
+    return set_flag(params, &objects::TrickEditorState::bail_done);
 }
 // 0x005522C0
 bool cfunc_cat_get_bail_done(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_marker(context, &objects::Rider::cat_bail_done, kBailDone);
+    return fetch_marker(context, &objects::TrickEditorState::bail_done, kBailDone);
 }
 // 0x00552310
 bool cfunc_cat_set_flip_skater(script::Struct* params, script::Context /*context*/)
 {
-    return set_flag(params, &objects::Rider::cat_flip_180);
+    return set_flag(params, &objects::TrickEditorState::flip_180);
 }
 // 0x00552350
 bool cfunc_cat_get_flip_skater(script::Struct* /*params*/, script::Context context)
@@ -329,7 +330,7 @@ bool cfunc_cat_get_flip_skater(script::Struct* /*params*/, script::Context conte
     if (!skater) {
         return false;
     }
-    context.args().get()->put_int(checksums::Name{kFlipSkater180}, skater->cat_flip_180() ? 1 : 0);
+    context.args().get()->put_int(checksums::Name{kFlipSkater180}, skater->cat_editor().flip_180() ? 1 : 0);
     return true;
 }
 // 0x005523A0
@@ -341,7 +342,7 @@ bool cfunc_cat_set_hold_time(script::Struct* params, script::Context /*context*/
     }
     float time = 0.0F;
     params->fetch_float(kNoName, &time, 1);
-    skater->set_cat_hold_time(time);
+    skater->cat_editor().set_hold_time(time);
     return true;
 }
 // 0x005523E0
@@ -351,38 +352,38 @@ bool cfunc_cat_get_hold_time(script::Struct* /*params*/, script::Context context
     if (!skater) {
         return false;
     }
-    context.args().get()->push_float(kHoldTime, skater->cat_hold_time());
+    context.args().get()->push_float(kHoldTime, skater->cat_editor().hold_time());
     return true;
 }
 // 0x00552410
 bool cfunc_cat_set_total_y(script::Struct* params, script::Context /*context*/)
 {
-    return store_int_field(params, &objects::Rider::cat_total_y);
+    return store_int_field(params, &objects::TrickEditorState::total_y);
 }
 // 0x00552450
 bool cfunc_cat_get_total_y(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(context, &objects::Rider::cat_total_y, kTotalY);
+    return fetch_int_value(context, &objects::TrickEditorState::total_y, kTotalY);
 }
 // 0x00552480
 bool cfunc_cat_set_total_x(script::Struct* params, script::Context /*context*/)
 {
-    return store_int_field(params, &objects::Rider::cat_total_x);
+    return store_int_field(params, &objects::TrickEditorState::total_x);
 }
 // 0x005524C0
 bool cfunc_cat_get_total_x(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(context, &objects::Rider::cat_total_x, kTotalX);
+    return fetch_int_value(context, &objects::TrickEditorState::total_x, kTotalX);
 }
 // 0x005524F0
 bool cfunc_cat_set_total_z(script::Struct* params, script::Context /*context*/)
 {
-    return store_int_field(params, &objects::Rider::cat_total_z);
+    return store_int_field(params, &objects::TrickEditorState::total_z);
 }
 // 0x00552530
 bool cfunc_cat_get_total_z(script::Struct* /*params*/, script::Context context)
 {
-    return fetch_int_value(context, &objects::Rider::cat_total_z, kTotalZ);
+    return fetch_int_value(context, &objects::TrickEditorState::total_z, kTotalZ);
 }
 
 } // namespace goals
