@@ -113,7 +113,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     if ((flags->flag(PoseFlag::kVertAir).on == 0U) || (flags->flag(PoseFlag::kJumped).on == 0U)) {
         return false;
     }
-    if (!(trick_->spin_total() == 0.0F) || (vert_wallplanted_ != 0U)) {
+    if (!(trick_->spin_total() == 0.0F) || (wallplant_.vert_planted != 0U)) {
         return false;
     }
     // The wall within reach below the skater's up axis.
@@ -157,7 +157,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.feeler.hit().object_checksum_);
     set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
     set_timed_flag(this, PoseFlag::kNoAcidDrop, 0);
-    vert_wallplanted_ = 1;
+    wallplant_.vert_planted = 1;
     return true;
 }
 
@@ -244,7 +244,7 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     }
     // A feeler up the skater's height (just 6 for a while after a wall plant).
     const float head_height = tuning_float_lookup(kEyeLevelStat, object);
-    const uint32_t elapsed = get_since(wallplant_time_);
+    const uint32_t elapsed = get_since(wallplant_.time);
     const double reach =
         elapsed > ints::as_unsigned(script::fetch_int_value(kIgnoreCeilings)) ? head_height : kNoHeadHeight;
     object = object_of(this);
@@ -292,7 +292,7 @@ bool SkaterPhysicsModule::keep_off_ceiling_at_wall()
 {
     // A feeler up the skater's height from 18 out along +0x38C.
     objects::GameEntity* object = object_of(this);
-    const maths::Vec4& wall = wall_normal_;
+    const maths::Vec4& wall = wall_.normal;
     const double x = static_cast<double>(wall.x) * kWallOffset;
     const float y = wall.y * kWallOffset;
     const float z = wall.z * kWallOffset;

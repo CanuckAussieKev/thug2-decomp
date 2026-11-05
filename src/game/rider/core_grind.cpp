@@ -595,7 +595,7 @@ void SkaterPhysicsModule::try_grind(bool always)
         (input_->pad_primary().button_wedge().held_down() == 0U)) {
         return;
     }
-    if (get_since(wallplant_time_) < static_cast<uint32_t>(script::fetch_int_value(kDisallowGrind))) {
+    if (get_since(wallplant_.time) < static_cast<uint32_t>(script::fetch_int_value(kDisallowGrind))) {
         return;
     }
     const objects::GameEntity* object = object_of(this);

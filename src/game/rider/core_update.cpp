@@ -97,7 +97,7 @@ void SkaterPhysicsModule::tick_frame()
             ->announce((air_from_jump != 0U) ? kEnteredAir : kLeftAir, nullptr, 0.0F);
     }
     if (state_of(this) != kAir) {
-        late_wallplant_frames_ = 0;
+        late_wallplant_.frames = 0;
     }
     if (bike && thaw_bmx::live_now(this)) {
         thaw_bmx::end_frame(this); // (not original: THAW 0x005C9210, the x-up let go)

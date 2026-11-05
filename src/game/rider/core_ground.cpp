@@ -71,10 +71,10 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     rail_node_ = nullptr;
     last_rail_script_ = 0;
-    vert_wallplanted_ = 0;
+    wallplant_.vert_planted = 0;
     transfer_blocked_ = 0;
     flip_spin_started_ = 0;
-    late_wallplant_frames_ = 0;
+    late_wallplant_.frames = 0;
 
     // The heading (+0x348, degrees round from the facing).
     objects::GameEntity* object = object_of(this);

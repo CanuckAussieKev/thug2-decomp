@@ -243,7 +243,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
             entity()->vel().y = kept_y;
         }
         // (The original clears the facing's y around this copy and puts it back.)
-        late_wall_normal_ = normal;
+        late_wallplant_.wall_normal = normal;
         // The facing turned a little away from the wall; the matrix made square again around it.
         objects::GameEntity* turned_skater = object_of(this);
         core::at(turned_skater->basis_frame().row, 2) += kNudge * normal;

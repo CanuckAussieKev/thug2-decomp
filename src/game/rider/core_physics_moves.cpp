@@ -299,7 +299,7 @@ bool SkaterPhysicsModule::wall_push_off()
     if (input_->pad_primary().button_wedge().held_down() == 0U) {
         return false;
     }
-    auto since_last = static_cast<float>(get_seconds(get_since(last_push_off_)));
+    auto since_last = static_cast<float>(get_seconds(get_since(wallplant_.last_push_off)));
     if (script::fetch_float(kPushOffWait) > since_last) {
         return false;
     }
@@ -311,7 +311,7 @@ bool SkaterPhysicsModule::wall_push_off()
     if (-angle <= into) {
         return false;
     }
-    auto since_start = static_cast<float>(get_seconds(get_since(wallplant_time_)));
+    auto since_start = static_cast<float>(get_seconds(get_since(wallplant_.time)));
     if (script::fetch_float(kPushOffWait) > since_start) {
         return false;
     }
@@ -341,7 +341,7 @@ bool SkaterPhysicsModule::wall_push_off()
     object = object_of(this);
     core::at(object->basis_frame().row, 0) = maths::cross_vec(core::at(object->basis_frame().row, 1), core::at(object->basis_frame().row, 2));
     display_matrix_ = entity()->basis_frame();
-    last_push_off_ = get_now();
+    wallplant_.last_push_off = get_now();
     return true;
 }
 

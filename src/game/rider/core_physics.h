@@ -752,6 +752,25 @@ public:
         float push{};             // +0x18 (+0x2C4) their push (SetExtraPush speed)
         float turn{};             // +0x1C (+0x2C8) their turn a second (SetExtraPush 0xDFDFEAB8)
     };
+    // The wall, in three records apart: the wall ridden or planted on (+0x38C-+0x3A3), the wallplant times
+    // (+0x4E0-+0x4EB) and a late wallplant (+0x14CC-+0x14FF).
+    struct WallRide {
+        maths::Vec4 normal{}; // +0x00 (+0x38C) the wall ridden or planted on
+        int ride_start{};     // +0x10 (+0x39C) the game clock when the wall ride began
+        int plant_end{};      // +0x14 (+0x3A0) the game clock when the last wallplant ended
+    };
+    struct WallplantTimes {
+        uint32_t time{};               // +0x00 (+0x4E0) the game clock of the last wallplant
+        uint32_t last_push_off{};      // +0x04 (+0x4E4) the game clock of the last wall push-off
+        uint8_t vert_planted{};        // +0x08 (+0x4E8) a vert wallplant was done
+        std::array<uint8_t, 3> pad9{}; // +0x09 (+0x4E9)
+    };
+    struct LateWallplant {
+        int frames{};              // +0x00 (+0x14CC) frames left to press the wallplant late (cleared out of the air)
+        maths::Vec4 velocity{};    // +0x04 (+0x14D0) the velocity, position and wall when a late wallplant was armed
+        maths::Vec4 pos{};         // +0x14 (+0x14E0)
+        maths::Vec4 wall_normal{}; // +0x24 (+0x14F0)
+    };
 
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
@@ -807,8 +826,8 @@ public:
     void set_last_spin_backside(uint8_t value) { last_spin_backside_ = value; }
     void set_rail_adjust(int value) { rail_adjust_ = value; }
     [[nodiscard]] const maths::Mat4& drop_matrix() const { return drop_matrix_; }
-    [[nodiscard]] uint32_t wallplant_time() const { return wallplant_time_; }
-    void set_wallplant_time(uint32_t value) { wallplant_time_ = value; }
+    [[nodiscard]] uint32_t wallplant_time() const { return wallplant_.time; }
+    void set_wallplant_time(uint32_t value) { wallplant_.time = value; }
     [[nodiscard]] objects::PadInputModule* input() const { return input_; }
     [[nodiscard]] objects::ActivationZoneModule* trigger() const { return trigger_; }
     [[nodiscard]] objects::RiderSfxPlayer* sound() const { return sound_; }
@@ -970,9 +989,7 @@ private:
     uint32_t air_end_{};         // +0x384 ... and came out of it
     uint8_t lock_velocity_{};    // +0x388 LockVelocityDirection: turns leave the velocity alone
     std::array<uint8_t, 3> pad389_{};
-    maths::Vec4 wall_normal_{};    // +0x38C the wall ridden or planted on
-    int wall_ride_start_{};        // +0x39C the game clock when the wall ride began
-    int wallplant_end_{};          // +0x3A0 the game clock when the last wallplant ended
+    WallRide wall_;                // +0x38C-+0x3A3 the wall ridden or planted on
     uint8_t no_rail_tricks_{};     // +0x3A4 NoRailTricks (also while a flip spin ends)
     uint8_t last_spin_backside_{}; // +0x3A5 the last spin's way
     std::array<uint8_t, 2> pad3a6_{};
@@ -984,10 +1001,7 @@ private:
     float drop_duration_{};                  // +0x48C
     maths::Vec4 drop_heading_{};             // +0x490
     maths::Mat4 drop_last_matrix_{};         // +0x4A0
-    uint32_t wallplant_time_{};              // +0x4E0 the game clock of the last wallplant
-    uint32_t last_push_off_{};               // +0x4E4 the game clock of the last wall push-off
-    uint8_t vert_wallplanted_{};             // +0x4E8 a vert wallplant was done
-    std::array<uint8_t, 3> pad4e9_{};
+    WallplantTimes wallplant_;               // +0x4E0-+0x4EB the wallplant times
     int leap_time_{}; // +0x4EC the game clock when the skater last jumped
     uint8_t
         vert_air_announced_{}; // +0x4F0 the skater was announced as in vert air (0xF225FE69; 0x5E27200A when it ends)
@@ -999,10 +1013,7 @@ private:
     int throw_wait_{};              // +0x14C4 frames until the next throw
     uint8_t throwing_projectile_{}; // +0x14C8 SetThrowingProjectile
     std::array<uint8_t, 3> pad14c9_{};
-    int late_wallplant_frames_{};       // +0x14CC frames left to press the wallplant late (cleared out of the air)
-    maths::Vec4 late_velocity_{};       // +0x14D0 the velocity, position and wall when a late wallplant was armed
-    maths::Vec4 late_pos_{};            // +0x14E0
-    maths::Vec4 late_wall_normal_{};    // +0x14F0
+    LateWallplant late_wallplant_;      // +0x14CC-+0x14FF a late wallplant
     uint8_t natas_counter_clockwise_{}; // +0x1500
     std::array<uint8_t, 3> pad1501_{};
     int natas_spin_time_{}; // +0x1504 the game clock of the natas spin's last update

@@ -123,8 +123,8 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     feelers_.floor_feeler.hit().face_flag40_ = 0;
     side_.reach = 0.0F;
     jump_charge_ms_ = 0;
-    wall_ride_start_ = 0;
-    wallplant_end_ = 0;
+    wall_.ride_start = 0;
+    wall_.plant_end = 0;
     no_spin_ = 0;
     no_kick_ = 0;
     can_brake_ = 1;
@@ -133,10 +133,10 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         limits_time_ = 0.0F;
     }
     speed_override_ = 1.0F;
-    wallplant_time_ = 0;
-    last_push_off_ = 0;
+    wallplant_.time = 0;
+    wallplant_.last_push_off = 0;
     leap_time_ = 0;
-    vert_wallplanted_ = 0;
+    wallplant_.vert_planted = 0;
     if (grind_from) {
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
         objects::MovingSurfaceModule* ride = ride_;

@@ -221,9 +221,9 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, air_end_), .original = 0x384},
         FieldAt{.now = offsetof(SkaterPhysicsModule, lock_velocity_), .original = 0x388},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad389_), .original = 0x389},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, wall_normal_), .original = 0x38C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, wall_ride_start_), .original = 0x39C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, wallplant_end_), .original = 0x3A0},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, wall_.normal), .original = 0x38C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, wall_.ride_start), .original = 0x39C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, wall_.plant_end), .original = 0x3A0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, no_rail_tricks_), .original = 0x3A4},
         FieldAt{.now = offsetof(SkaterPhysicsModule, last_spin_backside_), .original = 0x3A5},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad3a6_), .original = 0x3A6},
@@ -235,10 +235,10 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, drop_duration_), .original = 0x48C},
         FieldAt{.now = offsetof(SkaterPhysicsModule, drop_heading_), .original = 0x490},
         FieldAt{.now = offsetof(SkaterPhysicsModule, drop_last_matrix_), .original = 0x4A0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, wallplant_time_), .original = 0x4E0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, last_push_off_), .original = 0x4E4},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, vert_wallplanted_), .original = 0x4E8},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad4e9_), .original = 0x4E9},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, wallplant_.time), .original = 0x4E0},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, wallplant_.last_push_off), .original = 0x4E4},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, wallplant_.vert_planted), .original = 0x4E8},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, wallplant_.pad9), .original = 0x4E9},
         FieldAt{.now = offsetof(SkaterPhysicsModule, leap_time_), .original = 0x4EC},
         FieldAt{.now = offsetof(SkaterPhysicsModule, vert_air_announced_), .original = 0x4F0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad4f1_), .original = 0x4F1},
@@ -249,10 +249,10 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, throw_wait_), .original = 0x14C4},
         FieldAt{.now = offsetof(SkaterPhysicsModule, throwing_projectile_), .original = 0x14C8},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad14c9_), .original = 0x14C9},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_frames_), .original = 0x14CC},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, late_velocity_), .original = 0x14D0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, late_pos_), .original = 0x14E0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, late_wall_normal_), .original = 0x14F0},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.frames), .original = 0x14CC},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.velocity), .original = 0x14D0},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.pos), .original = 0x14E0},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.wall_normal), .original = 0x14F0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, natas_counter_clockwise_), .original = 0x1500},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad1501_), .original = 0x1501},
         FieldAt{.now = offsetof(SkaterPhysicsModule, natas_spin_time_), .original = 0x1504},
@@ -315,8 +315,8 @@ void SkaterPhysicsModule::get_reset()
     feelers_.floor_feeler.hit().face_flag40_ = 0;
     side_.reach = 0.0F;
     jump_charge_ms_ = 0;
-    wall_ride_start_ = 0;
-    wallplant_end_ = 0;
+    wall_.ride_start = 0;
+    wall_.plant_end = 0;
     no_spin_ = 0;
     bail_on_ = 0;
     no_kick_ = 0;
@@ -326,11 +326,11 @@ void SkaterPhysicsModule::get_reset()
     if (limits_time_ != -kTimerForLevel) { // (-2: kept)
         limits_time_ = 0.0F;
     }
-    wallplant_time_ = 0;
-    last_push_off_ = 0;
+    wallplant_.time = 0;
+    wallplant_.last_push_off = 0;
     leap_time_ = 0;
     special_friction_time_ = 0.0F;
-    vert_wallplanted_ = 0;
+    wallplant_.vert_planted = 0;
     speed_override_ = 1.0F;
 }
 

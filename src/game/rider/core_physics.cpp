@@ -721,13 +721,13 @@ void SkaterPhysicsModule::do_air_physics()
     }
 
     maths::Vec4 velocity = entity()->vel();
-    int& countdown = late_wallplant_frames_;
+    int& countdown = late_wallplant_.frames;
     if (countdown > 0) {
         --countdown;
         if (wall_plant(true, false, false)) {
             countdown = 0;
         } else if (countdown == 0) {
-            core::at(entity()->basis_frame().row, 2).align_to_plane(late_wall_normal_);
+            core::at(entity()->basis_frame().row, 2).align_to_plane(late_wallplant_.wall_normal);
         }
     }
     flags = state_;
