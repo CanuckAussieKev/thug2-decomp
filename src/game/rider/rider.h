@@ -58,6 +58,12 @@ class SkaterVehicleSoundComponent;
 // slots: +0x2C get_freeze, +0x30 unpause, +0x34 init_from_profile, +0x38 reset_input, +0x3C jump_to_spawn, +0x40
 // glide_to_node, +0x44 reset_state, +0x48 set_up_network, +0x4C run_state_script. Nothing derives from the skater:
 // those are plain methods here.
+// NOT ORIGINAL (the split): its parts are classes of their own, each held in its fields' place (the order of
+// construction and destruction and every offset kept; check_layout): what it keeps of its profile (RiderTraits,
+// +0x108), its created tricks (CreatedTricks, +0x17C), the create-a-trick editor's state (TrickEditorState, +0x1A8),
+// the projectiles it has launched (ProjectileSlots, +0x1C0), its stats as the profile set them (StatOverrides,
+// +0x290) and its own restart point (CustomRestart, +0x2C8). The skater itself keeps its components, its number and
+// viewport, the sparks, shadow and pause state, and the code that uses several parts at once.
 class Rider final : public GameEntity {
 public:
     Rider(const Rider&) = delete;
