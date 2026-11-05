@@ -28,12 +28,14 @@
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"
+#include "editor/level_editor_preview.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
+#include "editor/level_editor_ux3.h"
 #include "editor/level_editor_walls.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -52,6 +54,8 @@ constexpr float kDefaultOrbitDistance = 300.0F;
 constexpr std::size_t kLastActionSize = 128;
 
 constexpr float kScreenSpanFactor = 2.0F;  // the world width of the screen is twice depth times the tangent
+
+constexpr std::size_t kCaptionTextSize = 96;
 
 constexpr std::size_t kPickTextSize = 64;
 
@@ -109,6 +113,8 @@ struct LevelEditorState {
 LevelEditorState& level_editor_state();
 
 std::string describe_selection();
+
+int inspected_node();
 
 std::vector<picking::Lock> selection_locks();
 
@@ -257,6 +263,23 @@ struct PickCycle {
 };
 
 PickCycle& pick_cycle();
+
+struct Browser {
+    bool open = false;
+    int tab = 0; // 0: scenery pieces, 1: objects
+    int index = 0;
+    int top = 0;
+    int preview = -1; // (the entry the preview shows when not the highlighted one: the one hovered in the list)
+    struct Item {
+        uint32_t id;
+        std::string label;
+    };
+    std::vector<Item> items;
+};
+
+Browser& stored_browser();
+
+constexpr int kBrowserRows = 22;
 
 objects::GameEntity* get_live(const Picked& picked);
 
@@ -446,7 +469,44 @@ void end_drag();
 
 void set_relative(bool on);
 
+int arrow_at(const TickCycle& frame, maths::Vec2 at);
+
+// --- drawing ---
+
+// A line's end in screen pixels (the device draws the old HUD's lines: render::Device::draw_screen_lines).
+using LineVertex = render::ScreenLineVertex;
+
+void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out, int thickness = 1);
+
 float pixel_scale();
+
+void update_highlights();
+
+const char* mode_name();
+
+void update_hud();
+
+// --- adding and deleting nodes (level_editor_node_create.h) ---
+
+struct PlaceEntry {
+    node_create::Kind kind;
+    node_create::Team team;
+    std::string label;
+    uint32_t colour;
+    bool lobby = false; // (a team lobby flag, TRG_Flag_<Colour>: node_create::lobby_flag_name)
+};
+
+const std::vector<PlaceEntry>& place_entries();
+
+uint32_t chain_target();
+
+ui::ShapeMesh assemble_model();
+
+void show_help();
+
+void fill_browser();
+
+void show_browser();
 
 nodes::Occluder gizmo_occluder(const TickCycle& frame, V3 dir, const scenery::Hit& hit, bool everything);
 
@@ -459,6 +519,18 @@ int hover_cycle_index(const objects::GameEntity* object);
 void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain);
 
 bool drop_under_cursor(V3 dir);
+
+void show_collision(bool on);
+
+void add_hover_boxes(const TickCycle& frame, objects::GameEntity* hover, std::vector<LineVertex>& lines);
+
+void add_selected_boxes(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                        std::vector<LineVertex>& lines);
+
+void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines);
+
+void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                  const std::vector<LineVertex>& lines);
 
 } // namespace internal
 

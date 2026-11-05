@@ -3,6 +3,8 @@
 # front end's mouse menus until the editor / front end API (tools/layers_baseline.txt).
 add_library(thug2_editor STATIC
     level_editor.cpp
+    level_editor_panels.cpp
+    level_editor_draw.cpp
     level_editor_drag.cpp
     level_editor_undo.cpp
     level_editor_selection.cpp

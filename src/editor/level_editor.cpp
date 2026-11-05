@@ -1,10 +1,9 @@
 // NOT ORIGINAL - the level editor (ours, added at the user's request; not the game's and not PartyMod's). See
 // level_editor.h. This file holds the editor's state, its events, start and stop, the frame's entry and the drawing
-// hook; the pieces (geometry / selection / undo / drag) are level_editor_<name>.cpp, sharing level_editor_internal.h.
+// hook; the pieces (geometry / selection / undo / drag / draw / panels) are level_editor_<name>.cpp, sharing level_editor_internal.h.
 
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
-#include "base/core/enum_ops.h"
 #include "engine/pad_input/input_source.h"
 #include <SDL2/SDL.h>
 #include <algorithm>
@@ -16,7 +15,6 @@
 #include <initializer_list>
 #include <span>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include <utility>
 #include <array>
@@ -41,7 +39,6 @@
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_grind_preview.h"
 #include "editor/level_editor_hud.h"
-#include "editor/level_editor_hints.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_links.h"
 #include "editor/level_editor_modules.h"
@@ -87,7 +84,6 @@
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "base/maths/rect.h"
 #include "base/core/checksums.h"
 #include "base/maths/trig.h"
 #include "editor/level_editor_internal.h"
@@ -95,81 +91,24 @@
 namespace frontend::level_editor {
 namespace {
 
-constexpr float kArrowHeadLength = 12.0F;   // pixels, at the reference view height
-constexpr int kLadderPieceCount = 8;        // a ladder segment is drawn dashed: eight pieces, every other one
-constexpr float kLadderPieceCountF = 8.0F;
-constexpr float kRouteArrowMinLength =
-    30.0F;                              // a route segment shorter than this (times the icon scale) has no arrowhead
-constexpr float kRouteArrowWing = 0.6F; // the arrowhead is this wide for its length
-constexpr float kPickDotRadius = 4.0F;
-constexpr float kLabelOffset = 8.0F;
-constexpr float kLabelDrop = 2.0F;
-constexpr uint32_t kLabelColour = 0xFFFFFFFF; // ARGB
-constexpr float kRailPointRange = 1500.0F;    // a rail shows its points within this distance
-constexpr float kRailDotRadius = 2.5F;
-constexpr float kSpawnArrowWidth = 2.5F;
-constexpr float kMinArrowPixels = 4.0F;
-constexpr float kSpawnArrowWing = 0.55F;
-constexpr float kOutlineGrow = 1.5F; // the outline circle is this much bigger
-constexpr float kHorseLabelOffset = 3.0F;
-constexpr float kHorseLabelRise = 12.0F;
-constexpr uint32_t kHorseColour = 0xFFF0943C; // ARGB
-constexpr float kCrownHeight = 1.4F;          // the crown diamond is this many radii tall
-constexpr std::size_t kOrderTextSize = 16;
-constexpr float kCrownLabelOffset = 4.0F;
-constexpr float kPoleHeight = 3.2F;          // the pennant pole, in radii
-constexpr uint32_t kPoleColour = 0xFFE0E0E0; // ARGB
-constexpr float kMarkerLineWidth = 2.0F;
-constexpr float kPennantReach = 2.2F; // in radii
-constexpr float kPennantMiddle = 2.6F;
-constexpr float kPennantBottom = 2.0F;
-constexpr float kSparkInner = 1.4F; // the spark strokes start and end this many radii out
-constexpr float kSparkOuter = 2.1F;
-constexpr float kSparkWidth = 1.5F;
-constexpr uint32_t kHalfAlpha = 0x80000000;
-constexpr float kSpeakerBack = 0.3F; // the speaker box, in radii
-constexpr float kSpeakerConeSpread = 1.1F;
-constexpr float kRingNearRange = 2000.0F; // a fire-off square shows its radius rings within this distance
-constexpr float kDiamondRadius = 0.8F;    // an object marker is a diamond of this many radii
-constexpr float kDiamondWidth = 1.5F;
-constexpr float kCoreRadius = 0.55F;
-constexpr float kRingGrow = 5.0F; // the selection ring is this much bigger
-constexpr float kDashLength = 6.0F;
-constexpr float kDashGap = 4.0F;
 constexpr double kWelcomeSeconds = 3.0;
 constexpr double kEditedSeconds = 5.0;
 constexpr int kMaxRailLogs = 8;             // misplaced rail points logged at most
 constexpr float kGroundProbeDepth = 5000.0F;
 constexpr float kTinyForwardLength = 0.0001F;
-constexpr std::size_t kPlaceTextSize = 64;
-constexpr int kHintRefreshFrames = 6;       // the key hints are made again every this many frames
-constexpr std::size_t kHintTextSize = 200;
-constexpr int kHintStrandFirst = 5;         // the HUD strand of the first hint line
-constexpr int kHintStrandSecond = 6;        // ... and of the second
+
 constexpr uint32_t kCrownColour = 0xFFFFC233;     // ARGB: the Place palette entries
 constexpr uint32_t kLightColour = 0xFFFFE9A8;
 constexpr uint32_t kSoundColour = 0xFF4FD1C5;
 constexpr uint32_t kProximityColour = 0xFFF08A3C;
-constexpr uint32_t kRailColour = 0xFF7FB2D9;
-constexpr uint32_t kPathColour = 0xFF8FD18F;
-constexpr uint32_t kLadderColour = 0xFFC88FD9;
-constexpr uint32_t kLedgeColour = 0xFFB98CFF;
+
 constexpr double kBriefSeconds = 1.5;
 constexpr double kPairSeconds = 2.0;
 
 constexpr double kResizeHintSeconds = 3.0;
 constexpr double kAutosaveNoticeSeconds = 20.0;
 constexpr float kPlaceRaise = 150.0F; // a new spawn is put this far above the ground under it
-constexpr std::size_t kCaptionTextSize = 96;
-constexpr int kModifierHintLimit = 9;       // modifier hints shown at most
-constexpr double kHalfTurnDegrees = 180.0;
-constexpr std::size_t kSizeTextSize = 48;
-constexpr float kHelpPanelX = 96.0F; // the key help panel (before the UI scale)
-constexpr float kHelpPanelY = 104.0F;
-constexpr float kHelpPanelWidth = 448.0F;
-constexpr float kBrowserPanelX = 380.0F; // the browser list panel
-constexpr float kBrowserPanelY = 34.0F;
-constexpr float kBrowserPanelWidth = 254.0F;
+
 constexpr float kRayReach = 600.0F;
 constexpr float kPasteGap = 20.0F;     // a pasted piece goes beside the original, this far apart
 constexpr float kRepeatOffset = 64.0F; // a duplicate with no repeat step goes this far to the right
@@ -196,9 +135,7 @@ constexpr double kSpeedStepFactor = 1.5;    // a fly speed step changes the spee
 constexpr int kDebugLogFrames = 60;         // the debug log reports every this many frames
 constexpr float kDragStartPixels = 4.0F;    // a press that moved this far is a drag
 constexpr float kHandlePickPixels = 8.0F;   // handles are picked within this many pixels at the reference view height
-constexpr uint32_t kGroupBoxColour = 0xFFFFFF00;  // ARGB
-constexpr uint32_t kMemberBoxColour = 0xFF00FFFF; // ARGB
-constexpr std::size_t kMaxBoxesDrawn = 64;
+
 constexpr uint32_t kSegmentColour = 0xFF40E0FF;   // ARGB
 
 constexpr std::uint32_t kPos = 0x7F261953U; // Pos
@@ -208,7 +145,6 @@ constexpr float kLookRadiansPerPixel = 0.0035F;
 constexpr float kMinOrbit = 20.0F, kMaxOrbit = 20000.0F;
 constexpr double kObjectSpeed = 150.0; // units a second (Shift: 4x)
 constexpr double kWheelStep = 120.0;   // units a notch while flying (Shift: 4x)
-constexpr float kArrowGrab = 8.0F;     // (pixels from a move arrow that grab it)
 
 } // namespace
 namespace internal {
@@ -221,8 +157,6 @@ LevelEditorState& level_editor_state()
 
 } // namespace internal
 namespace {
-
-int inspected_node();                         // (the node layer's)
 
 view_cam::Rig rig_now();
 perform::Resume resume_now();
@@ -278,27 +212,14 @@ PickCycle& pick_cycle()
     return state.get();
 }
 
-} // namespace internal
-namespace {
-
-struct Browser {
-    bool open = false;
-    int tab = 0; // 0: scenery pieces, 1: objects
-    int index = 0;
-    int top = 0;
-    int preview = -1; // (the entry the preview shows when not the highlighted one: the one hovered in the list)
-    struct Item {
-        uint32_t id;
-        std::string label;
-    };
-    std::vector<Item> items;
-};
 Browser& stored_browser()
 {
     static core::NoDestroy<Browser> browser;
     return browser.get();
 }
-constexpr int kBrowserRows = 22;
+
+} // namespace internal
+namespace {
 
 void read_window_size(uint32_t window_id)
 {
@@ -390,759 +311,6 @@ void handle_event(const input::Event& event)
     default:
         break;
     }
-}
-
-// --- the gizmo's handles ---
-//
-// Move: three arrows from the selection's position along x (red), y (green) and z (blue) - the world's or, Local, the
-// selection's own; Rotate: the heading ring about the pivot; Scale: a cube at each axis' end and one at the pivot. A
-// fifth of the camera's distance long; the handle under the cursor (within 8 pixels) lights up, and dragging it moves
-// the selection along that axis only, turns it or scales it.
-
-// The handle under the back-buffer pixel (x, y): -1 for none.
-int arrow_at(const TickCycle& frame, maths::Vec2 at)
-{
-    return xform::handle_at(
-        gizmo_now(), [&](V3 point, float* px, float* py) { return get_to_pixel(frame, point, px, py); }, at,
-        kArrowGrab);
-}
-
-// --- drawing ---
-
-// A line's end in screen pixels (the device draws the old HUD's lines: render::Device::draw_screen_lines).
-using LineVertex = render::ScreenLineVertex;
-
-void add_pixel_line(maths::Rect line, uint32_t color, std::vector<LineVertex>* out)
-{
-    const auto ax = line.x0;
-    const auto ay = line.y0;
-    const auto bx = line.x1;
-    const auto by = line.y1;
-    out->push_back({.x = ax, .y = ay, .z = 0.0F, .rhw = 1.0F, .color = color, .u = 0.0F, .v = 0.0F});
-    out->push_back({.x = bx, .y = by, .z = 0.0F, .rhw = 1.0F, .color = color, .u = 0.0F, .v = 0.0F});
-}
-
-// A world line; `thickness` 3: drawn three times a pixel apart across it.
-void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out, int thickness = 1)
-{
-    if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
-        return;
-    }
-    float ax = 0.0F;
-    float ay = 0.0F;
-    float bx = 0.0F;
-    float by = 0.0F;
-    if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by)) {
-        return;
-    }
-    const float dx = bx - ax;
-    const float dy = by - ay;
-    const float length = std::sqrt((dx * dx) + (dy * dy));
-    const float nx = length > 0.0F ? -dy / length : 0.0F;
-    const float ny = length > 0.0F ? dx / length : 0.0F;
-    for (int k = -(thickness / 2); k <= thickness / 2; ++k) {
-        add_pixel_line({.x0 = ax + (nx * static_cast<float>(k)),
-                        .y0 = ay + (ny * static_cast<float>(k)),
-                        .x1 = bx + (nx * static_cast<float>(k)),
-                        .y1 = by + (ny * static_cast<float>(k))},
-                       color, out);
-    }
-}
-
-void add_box(const OrientedBox& box, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
-{
-    std::array<V3, kBoxCornerCount> corners{};
-    box_corners(box.origin, box.axes, box.min, box.max, corners);
-    for (int i = 0; i < kBoxCorners; ++i) {
-        for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
-            if ((i & bit) == 0) {
-                add_line(core::at(corners, i), core::at(corners, i | bit), frame, color, out);
-            }
-        }
-    }
-}
-
-// An arrow: its shaft (three pixels wide) and a head of two strokes 12 pixels long.
-void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vector<LineVertex>* out)
-{
-    add_line(from, to, frame, color, out, 3);
-    float ax = 0.0F;
-    float ay = 0.0F;
-    float bx = 0.0F;
-    float by = 0.0F;
-    if (!get_to_pixel(frame, from, &ax, &ay) || !get_to_pixel(frame, to, &bx, &by)) {
-        return;
-    }
-    float dx = bx - ax;
-    float dy = by - ay;
-    float const length = std::sqrt((dx * dx) + (dy * dy));
-    if (length < 1.0F) {
-        return;
-    }
-    dx /= length;
-    dy /= length;
-    for (const float side : {-1.0F, 1.0F}) {
-        const float hx = (-dx * 0.9F) + (-dy * 0.45F * side);
-        const float hy = (-dy * 0.9F) + (dx * 0.45F * side);
-        add_pixel_line({.x0 = bx, .y0 = by, .x1 = bx + (hx * kArrowHeadLength), .y1 = by + (hy * kArrowHeadLength)},
-                       color, out);
-    }
-}
-
-} // namespace
-namespace internal {
-
-// --- the nodes' gizmos (level_editor_nodes.h): drawn through the UI's overlay, picked by screen distance ---
-//
-// A point (spawns, crowns, flags, sounds, particles, objects, others) is an icon in its colour - a spawn with its
-// heading -, a chain (rails, ladders, paths) lines along its links, a volume (lights, proximity nodes) an icon with its
-// radius as rings when it's near, hovered or selected. Only what's in front of the camera, within a distance (6000 for
-// points, 4000 for chains, 2500 for objects and particles) unless selected.
-
-// Back buffer pixels per pixel at 720 lines (the icons' size).
-float pixel_scale()
-{
-    const float gizmo = static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0F; // ([editor] gizmo_pct)
-    return (core::at(level_editor_state().viewport_, 3) > 0
-                ? static_cast<float>(core::at(level_editor_state().viewport_, 3)) / kReferenceViewHeight
-                : 1.0F) *
-           gizmo;
-}
-
-} // namespace internal
-namespace {
-
-constexpr uint32_t kSelectedGizmo = 0xFFFFFFFF, kHoverGizmo = 0xFFFFE070;
-
-// The view the gizmos are drawn in: the frame, the overlay, the pixel scale and the viewport grown by 40 pixels (a
-// gizmo outside it isn't drawn).
-struct GizmoView {
-    const TickCycle* frame{};
-    ui::Overlay* overlay{};
-    float scale{};
-    float left{};
-    float top{};
-    float right{};
-    float bottom{};
-};
-
-// One node's gizmo: the node, its index, selected / hovered, its (apparent) distance.
-struct NodeGizmo {
-    const nodes::Elem* elem{};
-    int index{};
-    bool selected{};
-    bool hovered{};
-    float distance{};
-};
-
-// A line on the overlay (pixels).
-auto line_drawer(ui::Overlay& overlay)
-{
-    return [&overlay](float ax, float ay, float bx, float by, uint32_t colour, float thickness) {
-        overlay.lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = colour, .thickness = thickness});
-    };
-}
-
-// A ring about `centre` in the plane of `u` and `v` (unit, at right angles): its sides as world lines (clipped to the
-// near plane).
-auto ring_drawer(const GizmoView& view)
-{
-    return [&view](V3 centre, float radius, V3 u, V3 v, uint32_t colour) {
-        const TickCycle& frame = *view.frame;
-        const auto line = line_drawer(*view.overlay);
-        auto world_line = [&](V3 a, V3 b, uint32_t colour_of_line, float thickness) {
-            if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &a, &b)) {
-                return;
-            }
-            float ax = 0.0F;
-            float ay = 0.0F;
-            float bx = 0.0F;
-            float by = 0.0F;
-            if (get_to_pixel(frame, a, &ax, &ay) && get_to_pixel(frame, b, &bx, &by)) {
-                line(ax, ay, bx, by, colour_of_line, thickness);
-            }
-        };
-        constexpr int kSides = 32;
-        V3 previous = centre + u * radius;
-        for (int i = 1; i <= kSides; ++i) {
-            const float angle = 2.0F * maths::kPi * static_cast<float>(i) / kSides;
-            const V3 next = centre + u * (radius * std::cos(angle)) + v * (radius * std::sin(angle));
-            world_line(previous, next, colour, 1.0F);
-            previous = next;
-        }
-    };
-}
-
-// A path's way: an arrowhead at the middle of its segment (pixels).
-void add_route_arrow(const GizmoView& view, const ui::Seg& segment)
-{
-    const float ax = segment.ax;
-    const float ay = segment.ay;
-    const float bx = segment.bx;
-    const float by = segment.by;
-    const float scale = view.scale;
-    float dx = bx - ax;
-    float dy = by - ay;
-    float const length = std::sqrt((dx * dx) + (dy * dy));
-    if (length > kRouteArrowMinLength * scale) {
-        dx /= length;
-        dy /= length;
-        const float mx = (ax + bx) * 0.5F;
-        const float my = (ay + by) * 0.5F;
-        const float half_size = 7.0F * scale;
-        view.overlay->triangles.push_back({.ax = mx + (dx * half_size),
-                                           .ay = my + (dy * half_size),
-                                           .bx = mx - (dx * half_size) - (dy * half_size * kRouteArrowWing),
-                                           .by = my - (dy * half_size) + (dx * half_size * kRouteArrowWing),
-                                           .cx = mx - (dx * half_size) + (dy * half_size * kRouteArrowWing),
-                                           .cy = my - (dy * half_size) - (dx * half_size * kRouteArrowWing),
-                                           .argb = segment.argb});
-    }
-}
-
-// A chain's segment to the linked node (`linked_elem`): drawn (a ladder's dashed, a path's with its arrow) and
-// pickable - unless both ends are far, it is behind the near plane or off the view.
-void add_chain_segment(const GizmoView& view, const NodeGizmo& gizmo, const nodes::Elem& linked_elem)
-{
-    const TickCycle& frame = *view.frame;
-    const nodes::Elem& elem = *gizmo.elem;
-    const auto line = line_drawer(*view.overlay);
-    constexpr float kChainCutoff = 4000.0F;
-    if (!linked_elem.has_pos_) {
-        return;
-    }
-    const V3 linked_delta = linked_elem.pos - level_editor_state().pos_;
-    if (!gizmo.selected && !gizmo.hovered && gizmo.distance > kChainCutoff &&
-        view_cam::apparent(std::sqrt(get_dot(linked_delta, linked_delta))) > kChainCutoff) {
-        return;
-    }
-    V3 point_a = elem.pos;
-    V3 point_b = linked_elem.pos;
-    if (!clip_to_near(level_editor_state().pos_, frame, kNearZ + kNearPlaneMargin, &point_a, &point_b)) {
-        return;
-    }
-    float ax = 0.0F;
-    float ay = 0.0F;
-    float bx = 0.0F;
-    float by = 0.0F;
-    if (!get_to_pixel(frame, point_a, &ax, &ay) || !get_to_pixel(frame, point_b, &bx, &by)) {
-        return;
-    }
-    if ((ax < view.left && bx < view.left) || (ax > view.right && bx > view.right) ||
-        (ay < view.top && by < view.top) || (ay > view.bottom && by > view.bottom)) {
-        return;
-    }
-    uint32_t colour = elem.colour;
-    if (gizmo.selected) {
-        colour = kSelectedGizmo;
-    } else if (gizmo.hovered) {
-        colour = kHoverGizmo;
-    }
-    const float plain_thickness = elem.family == nodes::Family::kRail ? 2.0F : 1.5F;
-    const float thickness = gizmo.selected || gizmo.hovered ? 3.0F : plain_thickness;
-    if (elem.family == nodes::Family::kLadder) {
-        for (int piece = 0; piece < kLadderPieceCount; piece += 2) { // (dashed)
-            line(ax + ((bx - ax) * static_cast<float>(piece) / kLadderPieceCountF),
-                 ay + ((by - ay) * static_cast<float>(piece) / kLadderPieceCountF),
-                 ax + ((bx - ax) * static_cast<float>(piece + 1) / kLadderPieceCountF),
-                 ay + ((by - ay) * static_cast<float>(piece + 1) / kLadderPieceCountF), colour, thickness);
-        }
-    } else {
-        line(ax, ay, bx, by, colour, thickness);
-    }
-    if (elem.family == nodes::Family::kRouteWay) {
-        // (the way it goes: an arrowhead at the middle)
-        add_route_arrow(view, {.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = colour, .thickness = thickness});
-    }
-    const V3 middle = (point_a + point_b) * 0.5F;
-    pick_cycle().pickables_.push_back({.node = gizmo.index,
-                                       .ax = ax,
-                                       .ay = ay,
-                                       .bx = bx,
-                                       .by = by,
-                                       .segment = true,
-                                       .depth = -get_dot(middle - level_editor_state().pos_, frame.back),
-                                       .depth_a_ = -get_dot(point_a - level_editor_state().pos_, frame.back),
-                                       .depth_b_ = -get_dot(point_b - level_editor_state().pos_, frame.back)});
-}
-
-// A chain's node: its segments to its links; selected or hovered, a dot and its name; a rail's point, near, a dot
-// of its own (picked before its segments - a point moves by itself or with its whole rail).
-void add_chain_gizmo(const GizmoView& view, const NodeGizmo& gizmo, const std::vector<nodes::Elem>& nodes)
-{
-    const TickCycle& frame = *view.frame;
-    ui::Overlay& overlay = *view.overlay;
-    const float scale = view.scale;
-    const nodes::Elem& elem = *gizmo.elem;
-    for (const int link : elem.links) {
-        add_chain_segment(view, gizmo, core::at(nodes, link));
-    }
-    if (gizmo.selected || gizmo.hovered) {
-        float px = 0.0F;
-        float py = 0.0F;
-        if (get_to_pixel(frame, elem.pos, &px, &py)) {
-            overlay.circles.push_back({.x = px,
-                                       .y = py,
-                                       .radius = kPickDotRadius * scale,
-                                       .argb = gizmo.selected ? kSelectedGizmo : kHoverGizmo,
-                                       .filled = true,
-                                       .thickness = 1.0F});
-            overlay.texts.push_back({.x = px + (kLabelOffset * scale),
-                                     .y = py - (kLabelOffset * scale),
-                                     .argb = kLabelColour,
-                                     .text = nodes::caption(elem.name)});
-        }
-    }
-    if (elem.family == nodes::Family::kRail && (gizmo.distance < kRailPointRange || gizmo.selected)) {
-        float px = 0.0F;
-        float py = 0.0F;
-        const V3 front = elem.pos - level_editor_state().pos_;
-        if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, elem.pos, &px, &py) && px >= view.left &&
-            px <= view.right && py >= view.top && py <= view.bottom) {
-            if (!gizmo.selected && !gizmo.hovered) {
-                overlay.circles.push_back({.x = px,
-                                           .y = py,
-                                           .radius = kRailDotRadius * scale,
-                                           .argb = elem.colour,
-                                           .filled = true,
-                                           .thickness = 1.0F});
-            }
-            pick_cycle().pickables_.push_back({.node = gizmo.index,
-                                               .ax = px,
-                                               .ay = py,
-                                               .bx = px,
-                                               .by = py,
-                                               .segment = false,
-                                               .depth = -get_dot(front, frame.back)});
-        }
-    }
-}
-
-// Where a marker is drawn: its pixel, its depth, its radius and colour.
-struct MarkerAt {
-    float px{};
-    float py{};
-    float depth{};
-    float radius{};
-    uint32_t colour{};
-};
-
-constexpr uint32_t kMarkerOutline = 0xC0101012;
-
-// A spawn point: a disc and its heading (an arrow along the ground); "H" for a horse spot.
-void add_spawn_marker(const GizmoView& view, const nodes::Elem& elem, const MarkerAt& marker)
-{
-    const TickCycle& frame = *view.frame;
-    ui::Overlay& overlay = *view.overlay;
-    const float scale = view.scale;
-    const auto line = line_drawer(overlay);
-    const float px = marker.px;
-    const float py = marker.py;
-    const float radius = marker.radius;
-    const uint32_t colour = marker.colour;
-    const float length = std::max(30.0F, std::min(200.0F, marker.depth * 0.08F));
-    const V3 tip = elem.pos + elem.forward * length;
-    float tx = 0.0F;
-    float ty = 0.0F;
-    if (get_to_pixel(frame, tip, &tx, &ty)) {
-        line(px, py, tx, ty, colour, kSpawnArrowWidth);
-        float dx = tx - px;
-        float dy = ty - py;
-        float const segment_length = std::sqrt((dx * dx) + (dy * dy));
-        if (segment_length > kMinArrowPixels) {
-            dx /= segment_length;
-            dy /= segment_length;
-            const float half_size = 8.0F * scale;
-            overlay.triangles.push_back({.ax = tx + (dx * half_size * kHalf),
-                                         .ay = ty + (dy * half_size * kHalf),
-                                         .bx = tx - (dx * half_size) - (dy * half_size * kSpawnArrowWing),
-                                         .by = ty - (dy * half_size) + (dx * half_size * kSpawnArrowWing),
-                                         .cx = tx - (dx * half_size) + (dy * half_size * kSpawnArrowWing),
-                                         .cy = ty - (dy * half_size) - (dx * half_size * kSpawnArrowWing),
-                                         .argb = colour});
-        }
-    }
-    overlay.circles.push_back({.x = px,
-                               .y = py,
-                               .radius = radius + (kOutlineGrow * scale),
-                               .argb = kMarkerOutline,
-                               .filled = true,
-                               .thickness = 1.0F});
-    overlay.circles.push_back({.x = px, .y = py, .radius = radius, .argb = colour, .filled = true, .thickness = 1.0F});
-    if (core::any(elem.restart_types_ &
-                  nodes::SpawnPointKind::kHorse)) { // (a HORSE spot: restart_types has Horse - the feature map)
-        overlay.texts.push_back({.x = px + radius + (kHorseLabelOffset * scale),
-                                 .y = py - radius - (kHorseLabelRise * scale),
-                                 .argb = kHorseColour,
-                                 .text = "H"});
-    }
-}
-
-// A crown: a gold diamond and its index.
-void add_crown_marker(const GizmoView& view, const nodes::Elem& elem, const MarkerAt& marker)
-{
-    ui::Overlay& overlay = *view.overlay;
-    const float px = marker.px;
-    const float py = marker.py;
-    const float radius = marker.radius;
-    const uint32_t colour = marker.colour;
-    overlay.triangles.push_back({.ax = px,
-                                 .ay = py - (radius * kCrownHeight),
-                                 .bx = px + radius,
-                                 .by = py,
-                                 .cx = px - radius,
-                                 .cy = py,
-                                 .argb = colour});
-    overlay.triangles.push_back({.ax = px - radius,
-                                 .ay = py,
-                                 .bx = px + radius,
-                                 .by = py,
-                                 .cx = px,
-                                 .cy = py + (radius * kCrownHeight),
-                                 .argb = colour});
-    std::array<char, kOrderTextSize> text{};
-    if (elem.order >= 0) {
-        text::format_to(text, "#%d", elem.order);
-    } else {
-        text::format_to(text, "hidden");
-    }
-    overlay.texts.push_back({.x = px + radius + (kCrownLabelOffset * view.scale),
-                             .y = py - (radius * kCrownHeight),
-                             .argb = colour,
-                             .text = text.data()});
-}
-
-// A light: a bulb in its colour; rings at its radii when selected or hovered.
-void add_light_marker(const GizmoView& view, const NodeGizmo& gizmo, const MarkerAt& marker)
-{
-    ui::Overlay& overlay = *view.overlay;
-    const float scale = view.scale;
-    const auto line = line_drawer(overlay);
-    const auto ring = ring_drawer(view);
-    const nodes::Elem& elem = *gizmo.elem;
-    const float px = marker.px;
-    const float py = marker.py;
-    const float radius = marker.radius;
-    const uint32_t colour = marker.colour;
-    const V3 x_axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
-    const V3 z_axis = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
-    overlay.circles.push_back({.x = px,
-                               .y = py,
-                               .radius = radius + (kOutlineGrow * scale),
-                               .argb = kMarkerOutline,
-                               .filled = true,
-                               .thickness = 1.0F});
-    overlay.circles.push_back({.x = px, .y = py, .radius = radius, .argb = colour, .filled = true, .thickness = 1.0F});
-    for (int ray = 0; ray < 4; ++ray) {
-        const float angle = (maths::kPi * 0.25F) + (maths::kPi * 0.5F * static_cast<float>(ray));
-        const float cx = std::cos(angle);
-        const float cy = std::sin(angle);
-        line(px + (cx * radius * kSparkInner), py + (cy * radius * kSparkInner), px + (cx * radius * kSparkOuter),
-             py + (cy * radius * kSparkOuter), colour, kSparkWidth);
-    }
-    if ((gizmo.selected || gizmo.hovered) && elem.radius > 0.0F) {
-        ring(elem.pos, elem.radius, x_axis, z_axis, colour);
-        if (elem.inner_radius_ > 0.0F && elem.inner_radius_ < elem.radius) {
-            ring(elem.pos, elem.inner_radius_, x_axis, z_axis, (colour & kRgbMask) | kHalfAlpha);
-        }
-    }
-}
-
-// A sound: a speaker - a box and its cone.
-void add_sound_marker(const GizmoView& view, const MarkerAt& marker)
-{
-    ui::Overlay& overlay = *view.overlay;
-    const auto line = line_drawer(overlay);
-    const float px = marker.px;
-    const float py = marker.py;
-    const float radius = marker.radius;
-    const uint32_t colour = marker.colour;
-    line(px - radius, py - (radius * kHalf), px - (radius * kSpeakerBack), py - (radius * kHalf), colour,
-         kMarkerLineWidth);
-    line(px - radius, py + (radius * kHalf), px - (radius * kSpeakerBack), py + (radius * kHalf), colour,
-         kMarkerLineWidth);
-    line(px - radius, py - (radius * kHalf), px - radius, py + (radius * kHalf), colour, kMarkerLineWidth);
-    overlay.triangles.push_back({.ax = px - (radius * kSpeakerBack),
-                                 .ay = py - (radius * kHalf),
-                                 .bx = px + radius,
-                                 .by = py - (radius * kSpeakerConeSpread),
-                                 .cx = px + radius,
-                                 .cy = py + (radius * kSpeakerConeSpread),
-                                 .argb = colour});
-    overlay.triangles.push_back({.ax = px - (radius * kSpeakerBack),
-                                 .ay = py - (radius * kHalf),
-                                 .bx = px + radius,
-                                 .by = py + (radius * kSpeakerConeSpread),
-                                 .cx = px - (radius * kSpeakerBack),
-                                 .cy = py + (radius * kHalf),
-                                 .argb = colour});
-}
-
-// A fire-off point: a square; its radius as three rings when near.
-void add_fire_off_marker(const GizmoView& view, const NodeGizmo& gizmo, const MarkerAt& marker)
-{
-    const auto line = line_drawer(*view.overlay);
-    const auto ring = ring_drawer(view);
-    const nodes::Elem& elem = *gizmo.elem;
-    const float px = marker.px;
-    const float py = marker.py;
-    const float radius = marker.radius;
-    const uint32_t colour = marker.colour;
-    const V3 x_axis = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
-    const V3 y_axis = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
-    const V3 z_axis = {.x = 0.0F, .y = 0.0F, .z = 1.0F};
-    line(px - radius, py - radius, px + radius, py - radius, colour, kMarkerLineWidth);
-    line(px + radius, py - radius, px + radius, py + radius, colour, kMarkerLineWidth);
-    line(px + radius, py + radius, px - radius, py + radius, colour, kMarkerLineWidth);
-    line(px - radius, py + radius, px - radius, py - radius, colour, kMarkerLineWidth);
-    if (elem.radius > 0.0F && (gizmo.selected || gizmo.hovered || gizmo.distance < kRingNearRange)) {
-        const uint32_t faint = (colour & 0x00FFFFFF) | 0x90000000;
-        ring(elem.pos, elem.radius, x_axis, z_axis, faint);
-        ring(elem.pos, elem.radius, x_axis, y_axis, faint);
-        ring(elem.pos, elem.radius, z_axis, y_axis, faint);
-    }
-}
-
-// The marker of a node of its family.
-void add_family_marker(const GizmoView& view, const NodeGizmo& gizmo, const MarkerAt& marker)
-{
-    ui::Overlay& overlay = *view.overlay;
-    const auto line = line_drawer(overlay);
-    const nodes::Elem& elem = *gizmo.elem;
-    const float px = marker.px;
-    const float py = marker.py;
-    const float radius = marker.radius;
-    const uint32_t colour = marker.colour;
-    switch (elem.family) {
-    case nodes::Family::kSpawn:
-        add_spawn_marker(view, elem, marker);
-        break;
-    case nodes::Family::kCrown:
-        add_crown_marker(view, elem, marker);
-        break;
-    case nodes::Family::kBitMark:
-        // A pole and a pennant in its team's colour.
-        line(px, py, px, py - (radius * kPoleHeight), kPoleColour, kMarkerLineWidth);
-        overlay.triangles.push_back({.ax = px,
-                                     .ay = py - (radius * kPoleHeight),
-                                     .bx = px + (radius * kPennantReach),
-                                     .by = py - (radius * kPennantMiddle),
-                                     .cx = px,
-                                     .cy = py - (radius * kPennantBottom),
-                                     .argb = colour});
-        overlay.circles.push_back(
-            {.x = px, .y = py, .radius = radius * kHalf, .argb = colour, .filled = true, .thickness = 1.0F});
-        break;
-    case nodes::Family::kLight:
-        add_light_marker(view, gizmo, marker);
-        break;
-    case nodes::Family::kSound:
-        add_sound_marker(view, marker);
-        break;
-    case nodes::Family::kParticle:
-        // A spark: three strokes.
-        for (int stroke = 0; stroke < 3; ++stroke) {
-            const float angle = maths::kPi * static_cast<float>(stroke) / 3.0F;
-            const float cx = std::cos(angle) * radius;
-            const float cy = std::sin(angle) * radius;
-            line(px - cx, py - cy, px + cx, py + cy, colour, kMarkerLineWidth);
-        }
-        break;
-    case nodes::Family::kFireOff:
-        add_fire_off_marker(view, gizmo, marker);
-        break;
-    case nodes::Family::kObject:
-        // A small open diamond (the object itself shows).
-        line(px, py - (radius * kDiamondRadius), px + (radius * kDiamondRadius), py, colour, kDiamondWidth);
-        line(px + (radius * kDiamondRadius), py, px, py + (radius * kDiamondRadius), colour, kDiamondWidth);
-        line(px, py + (radius * kDiamondRadius), px - (radius * kDiamondRadius), py, colour, kDiamondWidth);
-        line(px - (radius * kDiamondRadius), py, px, py - (radius * kDiamondRadius), colour, kDiamondWidth);
-        break;
-    default:
-        overlay.circles.push_back(
-            {.x = px, .y = py, .radius = radius * kCoreRadius, .argb = colour, .filled = true, .thickness = 1.0F});
-        break;
-    }
-}
-
-// A point node: its family's marker (unless far or off the view), a ring and its name when selected or hovered;
-// pickable.
-void add_point_gizmo(const GizmoView& view, const NodeGizmo& gizmo, V3 delta)
-{
-    const TickCycle& frame = *view.frame;
-    ui::Overlay& overlay = *view.overlay;
-    const float scale = view.scale;
-    const nodes::Elem& elem = *gizmo.elem;
-    const float cutoff =
-        elem.family == nodes::Family::kObject || elem.family == nodes::Family::kParticle ? 2500.0F : 6000.0F;
-    if (!gizmo.selected && !gizmo.hovered && gizmo.distance > cutoff) {
-        return;
-    }
-    float px = 0.0F;
-    float py = 0.0F;
-    if (!get_to_pixel(frame, elem.pos, &px, &py) || px < view.left || px > view.right || py < view.top ||
-        py > view.bottom) {
-        return;
-    }
-    const float depth = -get_dot(delta, frame.back);
-    const float radius = 6.0F * scale;
-    const uint32_t colour = elem.hidden ? 0x90A0A4A8 : elem.colour; // (hidden: greyed)
-    add_family_marker(view, gizmo, {.px = px, .py = py, .depth = depth, .radius = radius, .colour = colour});
-    if (gizmo.selected || gizmo.hovered) {
-        overlay.circles.push_back({.x = px,
-                                   .y = py,
-                                   .radius = radius + (kRingGrow * scale),
-                                   .argb = gizmo.selected ? kSelectedGizmo : kHoverGizmo,
-                                   .filled = false,
-                                   .thickness = kMarkerLineWidth});
-        overlay.texts.push_back({.x = px + radius + (kLabelOffset * scale),
-                                 .y = py + (kLabelDrop * scale),
-                                 .argb = kLabelColour,
-                                 .text = nodes::caption(elem.name)});
-    }
-    pick_cycle().pickables_.push_back(
-        {.node = gizmo.index, .ax = px, .ay = py, .bx = px, .by = py, .segment = false, .depth = depth});
-}
-
-// A box being dragged (level_editor_organize.h): its outline, solid inside / dashed crossing.
-void add_box_outline(ui::Overlay& overlay, float scale)
-{
-    organize::Rect2 box{};
-    bool crossing = false;
-    if (organize::box_outline(&box, &crossing)) {
-        const uint32_t colour = crossing ? 0xFF8FD18FU : 0xFFFFC870U;
-        const std::array<ui::Seg, 4> edges = {
-            {{.ax = box.x0, .ay = box.y0, .bx = box.x1, .by = box.y0, .argb = colour, .thickness = 1.5F},
-             {.ax = box.x1, .ay = box.y0, .bx = box.x1, .by = box.y1, .argb = colour, .thickness = 1.5F},
-             {.ax = box.x1, .ay = box.y1, .bx = box.x0, .by = box.y1, .argb = colour, .thickness = 1.5F},
-             {.ax = box.x0, .ay = box.y1, .bx = box.x0, .by = box.y0, .argb = colour, .thickness = 1.5F}}};
-        for (const ui::Seg& edge : edges) {
-            if (crossing) {
-                view::add_dashed(&overlay.lines, edge, kDashLength * scale, kDashGap * scale);
-            } else {
-                overlay.lines.push_back(edge);
-            }
-        }
-    }
-}
-
-void add_node_gizmos(const TickCycle& frame, int selected)
-{
-    pick_cycle().pickables_.clear();
-    const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    const float scale = pixel_scale();
-    ui::Overlay& overlay = pick_cycle().overlay_;
-    const float left = static_cast<float>(core::at(level_editor_state().viewport_, 0)) - 40.0F;
-    const float top = static_cast<float>(core::at(level_editor_state().viewport_, 1)) - 40.0F;
-    const float right =
-        static_cast<float>(core::at(level_editor_state().viewport_, 0) + core::at(level_editor_state().viewport_, 2)) +
-        40.0F;
-    const float bottom =
-        static_cast<float>(core::at(level_editor_state().viewport_, 1) + core::at(level_editor_state().viewport_, 3)) +
-        40.0F;
-    const GizmoView view{.frame = &frame,
-                         .overlay = &overlay,
-                         .scale = scale,
-                         .left = left,
-                         .top = top,
-                         .right = right,
-                         .bottom = bottom};
-    for (int i = 0; std::cmp_less(i, nodes.size()); ++i) {
-        const nodes::Elem& elem = core::at(nodes, i);
-        if (!elem.has_pos_ || ((drag_state().families_ & nodes::get_bit(elem.family)) == 0U) ||
-            organize::gizmo_hidden(elem.name)) {
-            continue;
-        }
-        const nodes::Shape shape = nodes::shape_of(elem.family);
-        if (shape == nodes::Shape::kNone) {
-            continue;
-        }
-        const V3 delta = elem.pos - level_editor_state().pos_;
-        const NodeGizmo gizmo{
-            .elem = &elem,
-            .index = i,
-            .selected = i == selected,
-            .hovered = i == drag_state().hover_node_,
-            .distance = view_cam::apparent(std::sqrt(get_dot(delta, delta)))}; // (an ortho view: level_editor_camera.h)
-        if (shape == nodes::Shape::kChain) {
-            add_chain_gizmo(view, gizmo, nodes);
-            continue;
-        }
-        add_point_gizmo(view, gizmo, delta);
-    }
-    // (the Outliner's selectable off: drawn, not picked - level_editor_organize.h)
-    std::erase_if(pick_cycle().pickables_, [&](const nodes::Pickable& pickable) {
-        return pickable.node >= 0 && std::cmp_less(pickable.node, nodes.size()) &&
-               !organize::gizmo_pickable(core::at(nodes, pickable.node).name);
-    });
-    add_box_outline(overlay, scale);
-}
-
-// --- highlighting (the things' own colour tinted: Scenery::get_tint) ---
-
-constexpr uint32_t kHoverTint = 0x8098C8C8;       // RGBA: warmer and brighter
-constexpr uint32_t kSelectedTintLow = 0x80D0A060; // a cyan pulse
-constexpr uint32_t kSelectedTintHigh = 0x80FFD850;
-constexpr uint32_t kBrowseTint = 0x8060E0E0; // the browser's entry: yellow
-bool& hover_tinted() // (else their boxes are drawn)
-{
-    static bool hover_tinted{};
-    return hover_tinted;
-}
-bool& selected_tinted()
-{
-    static bool selected_tinted{};
-    return selected_tinted;
-}
-
-bool tint_sectors(const std::vector<uint32_t>& sectors, uint32_t rgba)
-{
-    bool all = true;
-    for (const uint32_t checksum : sectors) {
-        void* geom = scenery::sector_geometry(checksum);
-        if (scenery::tintable(geom)) {
-            scenery::get_tint({.id = checksum, .index = -1}, geom, rgba);
-        } else {
-            all = false;
-        }
-    }
-    return all;
-}
-
-void update_highlights()
-{
-    const uint32_t pulse = get_pulse(kSelectedTintLow, kSelectedTintHigh, SDL_GetTicks() / 1000.0);
-    selected_tinted() = true;
-    const std::vector<objects::GameEntity*> objects = selected_objects();
-    for (objects::GameEntity* object : objects) {
-        selected_tinted() &= object_edit::get_tint(object, pulse);
-    }
-    if (objects.empty() && scenery::has_selection()) {
-        selected_tinted() = tint_sectors(scenery::get_selection(), pulse);
-    }
-    hover_tinted() = true;
-    objects::GameEntity* hover = drag_state().dragging_ ? nullptr : get_live(drag_state().hover_);
-    if (hover && !is_picked(hover)) {
-        hover_tinted() = object_edit::get_tint(hover, kHoverTint);
-    } else if (!drag_state().dragging_ && (drag_state().hover_sector_ != 0U) &&
-               !scenery::get_selected(drag_state().hover_sector_) &&
-               !scenery::why_not_movable(drag_state().hover_sector_)) {
-        hover_tinted() = tint_sectors((core::at(input::keys(), SDL_SCANCODE_LALT) != 0U) ||
-                                              (core::at(input::keys(), SDL_SCANCODE_RALT) != 0U)
-                                          ? std::vector<uint32_t>{drag_state().hover_sector_}
-                                          : scenery::hover_group(drag_state().hover_sector_),
-                                      kHoverTint);
-    }
-    // (the browser's entry where it is in the level)
-    if (stored_browser().open && std::cmp_less(stored_browser().index, stored_browser().items.size())) {
-        const uint32_t id = core::at(stored_browser().items, stored_browser().index).id;
-        if (stored_browser().tab == 0) {
-            tint_sectors({id}, kBrowseTint);
-        } else if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id))) {
-            object_edit::get_tint(object, kBrowseTint);
-        }
-    }
-    scenery::end_tints(object_edit::resolve_tint, false);
 }
 
 } // namespace
@@ -1535,178 +703,8 @@ void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const 
     level_editor_state().have_view_ = true;
 }
 
-namespace {
-
-// --- the HUD (level_editor_hud.h): what you're doing, what's selected and under the cursor, and the keys for it ---
-
-using hud::get_key;
-
-} // namespace
 namespace internal {
 
-std::string describe_selection()
-{
-    std::vector<objects::GameEntity*> objects = selected_objects();
-    if (!objects.empty()) {
-        std::string text = object_edit::describe(objects.front());
-        if (objects.size() > 1) {
-            text += "  + " + std::to_string(objects.size() - 1) + " more";
-        }
-        return text;
-    }
-    if (scenery::has_selection()) {
-        return scenery::describe_selection();
-    }
-    if (const uint32_t wall = wall_only()) {
-        return "invisible wall " + object_edit::caption(wall) + " - " + walls::describe_state(wall);
-    }
-    if (drag_state().node_selected_ && std::cmp_less(drag_state().node_index_, nodes::get_all().size())) {
-        const nodes::Elem& node = core::at(nodes::get_all(), drag_state().node_index_);
-        return "node " + nodes::caption(node.name) + " (" + nodes::caption(node.cls) + ")";
-    }
-    return "Nothing";
-}
-
-} // namespace internal
-namespace {
-
-const char* mode_name()
-{
-    if (stored_browser().open) {
-        return "ADD";
-    }
-    if (drag_state().dragging_ && drag_state().drag_mode_ == xform::Mode::kSpinBy) {
-        return "ROTATING";
-    }
-    if (drag_state().dragging_ && drag_state().drag_mode_ == xform::Mode::kScale) {
-        return "SCALING";
-    }
-    if (drag_state().dragging_ && drag_state().axis_ == 0) {
-        return "MOVING ALONG X";
-    }
-    if (drag_state().dragging_ && drag_state().axis_ == 1) {
-        return "MOVING ALONG Y";
-    }
-    if (drag_state().dragging_ && drag_state().axis_ >= 2) {
-        return "MOVING ALONG Z";
-    }
-    if (drag_state().dragging_) {
-        return "MOVING";
-    }
-    if (have_selection() || drag_state().node_selected_) {
-        return "SELECTED";
-    }
-    return "FLYING";
-}
-
-// What's under the cursor - what a click would take (level_editor_picking.h): the next of a click-to-cycle with its
-// place, or the piece a plain click passes (Alt+click takes it).
-// The gizmo's handle under the cursor, in words (level_editor_transform.h).
-std::string handle_hover_text(int handle)
-{
-    const char* axis = "";
-    if (handle == 0) {
-        axis = "X";
-    } else if (handle == 1) {
-        axis = "Y";
-    } else if (handle == 2) {
-        axis = "Z";
-    }
-    switch (gizmo_mode()) {
-    case xform::Mode::kSpinBy:
-        return "Rotate ring (Ctrl: snap)";
-    case xform::Mode::kScale:
-        return handle == xform::kCentre ? std::string("Uniform scale handle")
-                                        : std::string("the ") + axis + " handle - drag to scale it along that axis";
-    default:
-        return std::string("the ") + axis + " arrow - drag to move along it";
-    }
-}
-std::string hover_text()
-{
-    if (const uint32_t wall = view::hover_wall(); (wall != 0U) && drag_state().hover_axis_ < 0) {
-        return "Invisible wall " + object_edit::caption(wall) + " (Shift+click)";
-    }
-    if (drag_state().hover_handle_ >= 0 && drag_state().hover_axis_ < 0) {
-        return std::string("the trigger volume's ") + ((drag_state().hover_handle_ & 1) != 0 ? '+' : '-') +
-               core::at(kAxisLetters, drag_state().hover_handle_ >> 1) +
-               " face - drag to resize it";
-    }
-    std::string text = "-";
-    if (drag_state().hover_axis_ >= 0) {
-        text = handle_hover_text(drag_state().hover_axis_);
-    } else if (drag_state().hover_sector_ != 0U) {
-        text = scenery::describe_hover(drag_state().hover_sector_);
-    } else if (get_live(drag_state().hover_)) {
-        text = object_edit::describe(get_live(drag_state().hover_));
-    }
-    if (drag_state().hover_axis_ < 0 && pick_cycle().hover_cycle_ >= 0) {
-        std::array<char, kPlaceTextSize> place{};
-        text::format_to(place, "  (%d of %d under the cursor: click)", pick_cycle().hover_cycle_ + 1,
-                        static_cast<int>(pick_cycle().cycle_.order.size()));
-        text += place.data();
-    } else if (drag_state().hover_axis_ < 0 && (drag_state().hover_sector_ == 0U) && !get_live(drag_state().hover_) &&
-               (drag_state().hover_passed_ != 0U)) {
-        text = "-  (passing " + scenery::describe_hover(drag_state().hover_passed_) + " - Alt+click takes it)";
-    }
-    return text;
-}
-
-void update_hud()
-{
-    static int frames = 0;
-    hud::tick();
-    if (frames++ % kHintRefreshFrames != 0) {
-        return;
-    }
-    std::array<char, kHintTextSize> text{};
-    // (which level: always its edited copy - never the level as shipped)
-    text::format_to(text, "EDITING %.24s (EDITED COPY)   %s%s%s", layout::level_title().c_str(), mode_name(),
-                    level_editor_state().unsaved_ ? "   (unsaved)" : "", level_editor_state().offer_pending_ ? "   (autosave: Ctrl+R)" : "");
-    hud::change_strand(1, text.data());
-    hud::change_strand(2, "Selected: " + describe_selection());
-    hud::change_strand(3, "Under the cursor: " + hover_text());
-    text::format_to(text, "Camera (%.0f, %.0f, %.0f)  speed %.0f    %d changes    %d pieces moved", level_editor_state().pos_.x, level_editor_state().pos_.y,
-                    level_editor_state().pos_.z, level_editor_state().speed_, level_editor_state().moves_, scenery::get_moved_count());
-    hud::change_strand(4, text.data());
-    // (each line at most 90 characters with its colour codes - 6 a key)
-    if (stored_browser().open) {
-        hud::change_strand(kHintStrandFirst, get_key("Up/Down") + " choose   " + get_key("Left/Right") + " scenery / objects   " +
-                                  get_key("Enter") + " place it");
-        hud::change_strand(kHintStrandSecond, get_key("F") + " show me the original   " + get_key("B") + " or " + get_key("Esc") +
-                                  " close");
-    } else if (drag_state().dragging_) {
-        if (drag_state().axis_ >= 0) {
-            hud::change_strand(kHintStrandFirst, get_key("Mouse") + " moves it along the arrow   " + get_key("Ctrl") + " snap");
-        } else {
-            hud::change_strand(kHintStrandFirst, get_key("Mouse") + " move   " + get_key("Shift") + " up / down   " +
-                                      get_key("Wheel") + " push / pull   " + get_key("Ctrl") + " snap");
-        }
-        hud::change_strand(kHintStrandSecond, get_key("Esc") + " put it back where it was");
-    } else if (have_selection()) {
-        hud::change_strand(kHintStrandFirst, get_key("Drag") + " move  " + get_key("Arrows") + " one axis  " + get_key("WASDQE") +
-                                  " nudge  " + get_key("ZX") + " turn  " + get_key("[ ]") + " scale  " + get_key("G") +
-                                  " drop");
-        hud::change_strand(kHintStrandSecond, (get_primary() ? std::string() : get_key("Ctrl+click") + " remove one  ") +
-                                  get_key("Ctrl+D") + " copy  " + get_key("Del") + " hide  " + get_key("Home") +
-                                  " reset  " + get_key("Esc") + " deselect  " + get_key("F1") + " help");
-    } else {
-        hud::change_strand(kHintStrandFirst, get_key("WASD") + " fly  " + get_key("QE") + " down / up  " + get_key("Shift") +
-                                  " fast  " + get_key("RMB") + " look  " + get_key("Wheel") + " dolly");
-        hud::change_strand(kHintStrandSecond, get_key("Click") + " select  " + get_key("B") + " add  " + get_key("Ctrl+S") + " save  " +
-                                  get_key("Ctrl+Z/Y") + " undo  " + get_key("F1") + " help");
-    }
-}
-
-// --- adding and deleting nodes (level_editor_node_create.h) ---
-
-struct PlaceEntry {
-    node_create::Kind kind;
-    node_create::Team team;
-    std::string label;
-    uint32_t colour;
-    bool lobby = false; // (a team lobby flag, TRG_Flag_<Colour>: node_create::lobby_flag_name)
-};
 const std::vector<PlaceEntry>& place_entries()
 {
     static std::vector<PlaceEntry> entries;
@@ -1745,6 +743,9 @@ const std::vector<PlaceEntry>& place_entries()
     entries.push_back({.kind = Kind::kProximityNode, .team = Team::kRed, .label = "Proximity Node", .colour = kProximityColour});
     return entries;
 }
+
+} // namespace internal
+namespace {
 
 nodes::Family family_of(node_create::Kind kind)
 {
@@ -1860,6 +861,9 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
     note_action("chains: %s", message.c_str());
 }
 
+} // namespace
+namespace internal {
+
 // What the chain operations work on: the node selected by itself, else the selected object's node (a ped's / car's
 // path); 0: none.
 uint32_t chain_target()
@@ -1872,6 +876,9 @@ uint32_t chain_target()
     }
     return 0;
 }
+
+} // namespace internal
+namespace {
 
 // An Inspector / key operation on the selected node's chain.
 void run_chain_op(chains::ChainOp op, uint32_t arg)
@@ -2329,537 +1336,6 @@ void move_selected_crown(int delta)
         hud::get_message(text.data());
     }
     note_online_change(family, nodes::caption(name).c_str(), "reordered");
-}
-
-// --- the UI (level_editor_ui.h): what it shows ---
-
-std::vector<ui::BrowserItem>& ui_browser_items()
-{
-    static core::NoDestroy<std::vector<ui::BrowserItem>> ui_browser_items;
-    return ui_browser_items.get();
-}
-
-// The keys for what you're doing now (the status bar - UX8's context hints, level_editor_hints.h: from the action
-// registry's keys as bound now and the editor's state; the old HUD keeps its own lines).
-std::vector<std::pair<std::string, std::string>> keys_now()
-{
-    hints::CtxInfo context;
-    const input::KeyState keys = input::keys();
-    if (ui::keys_to_editor()) {
-        if ((core::at(keys, SDL_SCANCODE_LCTRL) != 0U) || (core::at(keys, SDL_SCANCODE_RCTRL) != 0U)) {
-            context.mods |= actions::kCtrl;
-        }
-        if ((core::at(keys, SDL_SCANCODE_LSHIFT) != 0U) || (core::at(keys, SDL_SCANCODE_RSHIFT) != 0U)) {
-            context.mods |= actions::kShift;
-        }
-        if ((core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U)) {
-            context.mods |= actions::kAlt;
-        }
-    }
-    context.rmb = stored_mouse().right;
-    context.fly_always_ = xform::fly_always();
-    if (picked_node_index() >= 0) {
-        context.selection = (wall_only() != 0U) ? hints::Selection::kWall : hints::Selection::kPointNode;
-    } else if (get_primary()) {
-        context.selection = hints::Selection::kObject;
-    } else if (wall_only() != 0U) {
-        context.selection = hints::Selection::kWall;
-    } else if (scenery::has_selection()) {
-        context.selection = hints::Selection::kScenery;
-    } else if (drag_state().node_selected_) {
-        context.selection = hints::Selection::kOtherNode;
-    }
-    context.free_camera_ = drag_state().free_camera_;
-    context.tool = static_cast<int>(xform::at_hand().mode);
-    if (drag_state().dragging_) {
-        if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
-            context.drag = hints::Drag::kSpinBy;
-        } else if (drag_state().drag_mode_ == xform::Mode::kScale) {
-            context.drag = hints::Drag::kScale;
-        } else if (drag_state().axis_ >= 0) {
-            context.drag = hints::Drag::kMoveAxis;
-        } else {
-            context.drag = hints::Drag::kShiftBy;
-        }
-    }
-    context.modal = drag_state().modal_;
-    if (drag_state().dragging_ && (!drag_state().typed_.text.empty() || drag_state().typed_.axis >= 0)) {
-        context.typed = xform::describe(drag_state().drag_mode_, drag_state().typed_,
-                                        drag_state().axis_ >= 0 && drag_state().axis_ < 3 ? drag_state().axis_ : -1);
-    }
-    context.carried = drag_state().dragging_ ? carry::total_of() : 0;
-    context.browser = stored_browser().open;
-    context.place_armed_ = pick_cycle().place_armed_ >= 0;
-    context.ladder_drawing_ = chains::get_drawing() == chains::Blit::kLadder;
-    context.chain_drawing_ = chains::get_drawing() != chains::Blit::kNone && !context.ladder_drawing_;
-    context.chain_pick_ = chains::wants_pick();
-    if (context.ladder_drawing_ || context.chain_pick_) {
-        context.chain_waiting_ = chains::get_waiting();
-    }
-    context.ruler_armed_ = ruler::get_armed();
-    context.ux9_tool_ = ux9::picking_tool();
-    context.faces_mode_ = faces::get_picking();
-    context.box_armed_ = organize::box_armed();
-    context.chain_point_ = picked_node_index() >= 0 && node_edit::is_chain(drag_state().node_name_);
-    context.following = ux8::get_following();
-    context.walking = ux8::on_foot();
-    context.pie_open_ = ux8::pie_open();
-    context.pie_sticky_ = ux8::pie_sticky();
-    context.pad = ux8::pad_mode() && ux8::pad_owns_cursor();
-    context.simulating = play_test::get_simulating();
-    if (context.mods != 0U) {
-        context.modded = hints::modifier_hints(actions::get_all(), {.mods = context.mods, .limit = kModifierHintLimit});
-    }
-    std::vector<std::pair<std::string, std::string>> out;
-    for (const hints::Hint& hint :
-         hints::get_build(context, [](const char* id) { return actions::get_keys_text(actions::get_find(id)); })) {
-        out.emplace_back(hint.keys, hint.what);
-    }
-    return out;
-}
-
-// The Outliner's markers (level_editor_ui.h's kMark*): by node name, what the editor has done to it, its object or its
-// scenery - read from each module's record of its changes.
-std::unordered_map<uint32_t, uint8_t> change_marks()
-{
-    std::unordered_map<uint32_t, uint8_t> marks;
-    auto mark = [&](uint32_t name, uint8_t bits) {
-        if (name) {
-            marks[name] |= bits;
-        }
-    };
-    for (const scenery::SectorState& sector : scenery::changed_sectors()) {
-        const bool moved = sector.placement.quarters != 0 || !is_unit_scale(sector.placement.scale) ||
-                           sector.placement.offset.x != 0.0F || sector.placement.offset.y != 0.0F ||
-                           sector.placement.offset.z != 0.0F;
-        mark(sector.checksum,
-             static_cast<uint8_t>((moved ? ui::kMarkMoved : 0) | (sector.hidden ? ui::kMarkHidden : 0)));
-    }
-    for (const scenery::RailState& rail : scenery::changed_rails()) {
-        mark(rail.name, static_cast<uint8_t>(rail.hidden ? ui::kMarkHidden : ui::kMarkMoved));
-    }
-    for (const walls::WallState& w : walls::get_changed()) {
-        const bool moved = !walls::is_home(w.placement);
-        mark(w.checksum, static_cast<uint8_t>((moved ? ui::kMarkMoved : 0) | (w.off ? ui::kMarkCollisionOff : 0)));
-    }
-    for (const uint32_t id : object_edit::get_touched()) {
-        const object_edit::State* origin = object_edit::get_origin(id);
-        auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-        if (!origin || !object) {
-            continue;
-        }
-        const maths::Vec4& point_a = core::at(origin->matrix.row, 2);
-        const maths::Vec4& point_b = core::at(object->basis_frame().row, 2);
-        if (origin->pos.x != object->at_point().x || origin->pos.y != object->at_point().y ||
-            origin->pos.z != object->at_point().z || point_a.x != point_b.x || point_a.z != point_b.z) {
-            mark(id, ui::kMarkMoved);
-        }
-    }
-    for (const node_edit::LinkRecord& link : node_edit::get_changed()) {
-        mark(link.name, ui::kMarkMoved);
-    }
-    for (const nodes::Elem& elem : nodes::get_all()) {
-        if (elem.added) {
-            mark(elem.name, ui::kMarkAdded);
-        }
-        if (elem.hidden) {
-            mark(elem.name, ui::kMarkHidden);
-        }
-    }
-    for (const uint32_t id : view::hidden_ids()) {
-        mark(id, ui::kMarkViewHidden);
-    }
-    for (const picking::Lock& lock : picking::get_locks()) {
-        mark(lock.id, ui::kMarkClickThrough);
-    }
-    return marks;
-}
-
-// (the locks: their kinds and names; whether the selection can be locked / is)
-void fill_locks(ui::ShapeMesh& model)
-{
-    for (const picking::Lock& lock : picking::get_locks()) {
-        model.locks.push_back(
-            {.kind = lock.kind, .id = lock.id,
-             .label = std::string(lock.kind == picking::kObjects ? "object " : "scenery ") + object_edit::caption(lock.id)});
-    }
-    bool all = true;
-    const std::vector<picking::Lock> selected = selection_locks();
-    for (const picking::Lock& lock : selected) {
-        all = all && picking::latched(lock.kind, lock.id);
-    }
-    model.selection_lockable_ = !selected.empty();
-    model.selection_locked_ = !selected.empty() && all;
-    model.view.can_hide_ = !selected.empty();
-}
-
-// (the view: collision, its counts, the selected wall, the selected scenery's collision switch)
-void fill_view(ui::ShapeMesh& model)
-{
-    const view::Attributes stats = view::last_stats();
-    model.view.collision = view::show_collision();
-    model.view.triangles = stats.triangles;
-    model.view.sectors = stats.sectors;
-    model.view.walls = stats.walls;
-    model.view.companions = stats.companions;
-    model.view.taken = stats.taken;
-    model.view.triggers = stats.triggers;
-    model.view.capped = stats.capped;
-    model.view.hidden = view::hidden_count();
-    if (const uint32_t wall = view::selected_wall()) {
-        model.view.wall = wall;
-        model.view.wall_name_ = object_edit::caption(wall);
-        model.view.wall_info_ = view::describe_wall(wall);
-        model.view.wall_state_ = walls::describe_state(wall);
-        model.view.wall_off_ = walls::disengaged(wall);
-        Placement placement;
-        model.view.wall_moved_ = walls::get_moved(wall, &placement);
-    }
-    model.view.off = stats.off;
-    // (the Inspector's Collision checkbox: the selected scenery's switches - level_editor_walls.h)
-    std::vector<bool> offs;
-    if (!get_primary()) {
-        for (const uint32_t checksum : scenery::get_selection()) {
-            offs.push_back(walls::disengaged(checksum));
-        }
-    }
-    model.view.scenery_collision_ = walls::get_combined(offs);
-}
-
-// (the selection: the first object or the scenery and its parts)
-void fill_selection(ui::ShapeMesh& model)
-{
-    std::vector<objects::GameEntity*> objects = selected_objects();
-    ui::ShapeMesh::Selection& selection = model.selection;
-    if (!objects.empty()) {
-        objects::GameEntity* object = objects.front();
-        selection.objects = static_cast<int>(objects.size());
-        const char* cls = object_edit::class_of(object->ident());
-        selection.kind = cls ? cls : "Object";
-        selection.name = object_edit::caption(object->ident());
-        selection.checksum = object->ident();
-        selection.pos = object_edit::pos_of(object);
-        const maths::Vec4& at = core::at(object->basis_frame().row, 2);
-        selection.scalable = scale_tool::object_scalable(object);
-        selection.scale = scale_tool::get_object_scale(object);
-        selection.has_heading_ = true;
-        selection.heading_degrees_ = static_cast<float>(
-            std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * kHalfTurnDegrees / maths::kPi);
-    } else if (scenery::has_selection()) {
-        selection.sectors = static_cast<int>(scenery::get_selection().size());
-        selection.kind = selection.sectors > 1 ? "Scenery group" : "Scenery";
-        selection.checksum = scenery::get_selection().front();
-        selection.name = object_edit::caption(selection.checksum);
-        selection.pos = scenery::get_pivot();
-        selection.scalable = true;
-        selection.scale = scenery::selection_scale();
-        if (selection.sectors > 1 || scenery::selected_rail_count() > 0) {
-            for (const uint32_t checksum : scenery::get_selection()) {
-                ui::ShapeMesh::Selection::Member member;
-                member.id = checksum;
-                member.name = object_edit::caption(checksum);
-                member.shadow = scenery::is_shadow(checksum);
-                OrientedBox box{};
-                if (scenery::cuboid(checksum, &box)) {
-                    std::array<char, kSizeTextSize> size{};
-                    const V3 extent = box_size(box);
-                    text::format_to(size, "%.0f x %.0f x %.0f", extent.x, extent.y, extent.z);
-                    member.size = size.data();
-                }
-                selection.members.push_back(member);
-            }
-            for (const uint32_t name : scenery::selected_rail_names()) {
-                ui::ShapeMesh::Selection::Member member;
-                member.rail = true;
-                member.id = name;
-                member.name = nodes::caption(name);
-                selection.members.push_back(member);
-            }
-        }
-    }
-}
-
-// (the help, the browser and its preview)
-void fill_help_and_browser(ui::ShapeMesh& model)
-{
-    model.help = drag_state().help_;
-    model.browser = stored_browser().open;
-    model.browser_tab_ = stored_browser().tab;
-    model.browser_index_ = stored_browser().index;
-    ui_browser_items().clear();
-    for (const Browser::Item& item : stored_browser().items) {
-        ui_browser_items().push_back({.id = item.id, .label = item.label});
-    }
-    model.browser_items_ = &ui_browser_items();
-    if (!stored_browser().open || stored_browser().items.empty()) {
-        model.preview.index = -1;
-    } else if (stored_browser().preview >= 0 &&
-               std::cmp_less(stored_browser().preview, stored_browser().items.size())) {
-        model.preview.index = stored_browser().preview;
-    } else {
-        model.preview.index = stored_browser().index;
-    }
-}
-
-// (the node selected: its place, its chain, added / hidden, a crown's order)
-void fill_nodes(ui::ShapeMesh& model)
-{
-    model.nodes.families = drag_state().families_;
-    model.nodes.selected = inspected_node();
-    model.nodes.hovered = drag_state().hover_node_;
-    model.nodes.node_only_ = drag_state().node_selected_ && model.nodes.selected >= 0;
-    model.nodes.level_shared_ = nodes::level_is_shared(&model.nodes.shared_game_);
-    node_edit::Values node;
-    if (model.nodes.node_only_ && node_values(&node)) {
-        model.nodes.movable = true;
-        model.nodes.pos = node.pos;
-        model.nodes.angles = node.angles;
-        const node_edit::Values* origin = node_edit::get_origin(drag_state().node_name_);
-        model.nodes.moved = (origin != nullptr) && !node_edit::get_same(node, *origin);
-        model.nodes.when_applied_ = node_edit::when_applied(core::at(nodes::get_all(), model.nodes.selected));
-        if (node_edit::is_chain(drag_state().node_name_)) {
-            model.nodes.rail = true; // (a rail's, a ladder's or a path's point: moved alone or with its chain)
-            if (chains::is_path(drag_state().node_name_)) {
-                model.nodes.chain_noun_ = "path";
-            } else if (chains::is_ladder(drag_state().node_name_)) {
-                model.nodes.chain_noun_ = "ladder";
-            } else {
-                model.nodes.chain_noun_ = "rail";
-            }
-            model.nodes.entire_rail_ = pick_cycle().move_entire_rail_;
-            model.nodes.rail_points_ = static_cast<int>(node_edit::moved_with(drag_state().node_name_, pick_cycle().move_entire_rail_).size());
-        }
-    }
-    model.nodes.online_warning_ = drag_state().online_warning_shown_;
-    if (model.nodes.node_only_ && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
-        const nodes::Elem& elem = core::at(nodes::get_all(), model.nodes.selected);
-        model.nodes.added = elem.added;
-        model.nodes.hidden = elem.hidden;
-        const char* why = nullptr;
-        model.nodes.can_hide_ = !elem.added && node_create::can_hide(elem, &why);
-        model.nodes.why_no_hide_ = why ? why : "";
-        if (elem.added && elem.family == nodes::Family::kCrown) {
-            const node_create::LinkChain list = node_create::at_hand();
-            std::string name;
-            for (const node_create::Spec& spec : list) {
-                if (node_create::name_hash(spec.name) == elem.name) {
-                    name = spec.name;
-                }
-            }
-            node_create::LinkChain up = list;
-            node_create::LinkChain down = list;
-            model.nodes.crown_up_ = node_create::move_crown(&up, name, -1);
-            model.nodes.crown_down_ = node_create::move_crown(&down, name, 1);
-        }
-    }
-}
-
-void fill_level_props(ui::ShapeMesh& model, uint32_t scene)
-{
-    // Phase 6: the level's properties, its own values (read once a level: its structure is walked for them) and
-    // its restarts.
-    static int g_defaults_for = -1;
-    static level_props::Props defaults;
-    static bool g_have_defaults = false;
-    if (g_defaults_for != layout::level_loads()) {
-        g_defaults_for = layout::level_loads();
-        g_have_defaults = level_props::level_defaults(&defaults);
-    }
-    model.level_props_.in_level_ = render::current_level() != 0 && scene != 0;
-    model.level_props_.props = level_props::at_hand();
-    model.level_props_.defaults = defaults;
-    model.level_props_.have_defaults_ = g_have_defaults;
-    for (const nodes::Elem& elem : nodes::get_all()) {
-        if (elem.family == nodes::Family::kSpawn && !elem.hidden && (elem.name != 0U)) {
-            model.level_props_.restarts.emplace_back(elem.name, nodes::caption(elem.name));
-        }
-    }
-    if (model.nodes.node_only_ && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
-        const nodes::Elem& elem = core::at(nodes::get_all(), model.nodes.selected);
-        if (elem.family == nodes::Family::kSpawn && !elem.hidden) {
-            model.level_props_.selected_restart_ = elem.name;
-        }
-    }
-}
-
-// (the Place palette)
-void fill_place(ui::ShapeMesh& model)
-{
-    model.place.open = pick_cycle().place_open_;
-    model.place.armed = pick_cycle().place_armed_;
-    if (pick_cycle().place_open_) {
-        for (const PlaceEntry& entry : place_entries()) {
-            const char* why = entry.lobby ? node_create::why_not_lobby_flag(entry.team)
-                                          : node_create::get_why_not(entry.kind, entry.team);
-            model.place.entries.push_back({.label = entry.label, .colour = entry.colour, .why = why ? why : ""});
-        }
-        // (phase 4: chains drawn point by point - level_editor_chains.h)
-        model.place.entries.push_back({.label = "Rail", .colour = kRailColour, .why = ""});
-        model.place.entries.push_back({.label = "Path", .colour = kPathColour, .why = ""});
-        model.place.entries.push_back({.label = "Ladder", .colour = kLadderColour, .why = ""});
-        model.place.entries.push_back({.label = "Ledge", .colour = kLedgeColour, .why = ""});
-        // (peds, cars, bouncy sets, particle systems, sound emitters - level_editor_entities.h; place_entity)
-        for (const entities::PaletteEntry& entry : entities::get_palette()) {
-            model.place.entries.push_back({.label = entry.label, .colour = entry.colour, .why = entry.why});
-        }
-    }
-}
-
-// (the hide confirm window)
-void fill_confirm(ui::ShapeMesh& model)
-{
-    if (pick_cycle().confirm_hide_ != 0U) {
-        const int index = nodes::get_find(pick_cycle().confirm_hide_);
-        if (index >= 0) {
-            const nodes::Elem& elem = core::at(nodes::get_all(), index);
-            model.confirm.open = true;
-            model.confirm.name = nodes::caption(elem.name);
-            std::string family = nodes::family_name(elem.family);
-            if (!family.empty() && family.back() == 's') {
-                family.pop_back(); // ("Crowns": "Crown")
-            }
-            for (char& ch : family) {
-                ch = static_cast<char>(ch >= 'A' && ch <= 'Z' ? ch - 'A' + 'a' : ch);
-            }
-            model.confirm.family = family;
-            model.confirm.crown = elem.family == nodes::Family::kCrown;
-        } else {
-            pick_cycle().confirm_hide_ = 0;
-        }
-    }
-}
-
-ui::ShapeMesh assemble_model()
-{
-    ui::ShapeMesh model = {};
-    model.carry = carry::is_switched_on();
-    model.carried = drag_state().dragging_ || level_editor_state().key_moving_ || drag_state().field_editing_
-                        ? carry::total_of()
-                        : 0; // (a move under way)
-    model.marks = change_marks();
-    const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
-    model.level = (scene != 0U) ? object_edit::caption(scene) : "";
-    model.level_title_ = layout::level_title();
-    model.edited_saved_ = layout::has_saved_layout();
-    model.confirm_reset_ = pick_cycle().confirm_reset_;
-    model.mode = mode_name();
-    model.selected = describe_selection();
-    model.hover = hover_text();
-    model.message = hud::current_message();
-    model.keys = keys_now();
-    model.camera = level_editor_state().pos_;
-    model.speed = level_editor_state().speed_;
-    model.changes = level_editor_state().moves_;
-    model.moved = scenery::get_moved_count();
-    model.unsaved = level_editor_state().unsaved_;
-    model.offer = level_editor_state().offer_pending_;
-    model.can_undo_ = !undo_steps().undo_.empty();
-    model.can_redo_ = !undo_steps().redo_.empty();
-    model.snap_always_ = drag_state().snap_always_;
-    model.pick_filter_ = drag_state().pick_filter_;
-    fill_locks(model);
-    fill_view(model);
-    fill_selection(model);
-    fill_help_and_browser(model);
-    fill_nodes(model);
-    fill_level_props(model, scene);
-    fill_place(model);
-    model.chain = (chain_target() != 0U) ? chains::view_of(chain_target()) : chains::View{};
-    if (!model.chain.waiting) {
-        model.chain.waiting = chains::get_waiting();
-    }
-    fill_confirm(model);
-    return model;
-}
-
-void show_help()
-{
-    const std::vector<std::string> lines = {
-        "LEVEL EDITOR - KEYS    (F1 or Esc closes this)",
-        "Flying       W A S D move   Q / E down / up   Shift faster   right mouse looks",
-        "             wheel forward / back   - / = flying speed",
-        "Selecting    click an object or scenery (a piece of scenery takes its group)",
-        "             floors, ceilings, rooms around you and decals are passed by a click",
-        "             click again on the same spot: the next thing under the cursor",
-        "             Shift+click adds / removes   Alt+click (middle click) one piece, any",
-        "             Ctrl+click removes one piece from the selection (a group takes its shadows too)",
-        "             L locks the selection (clicks pass it); L with nothing selected unlocks all",
-        "             what clicks take: [editor] pick= in the ini (1 nodes 2 objects 4 scenery)",
-        "             Esc or Backspace deselects",
-        "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
-        "             drag an arrow to move along that axis only",
-        "             W A S D / Q E nudge   Z / X turn   G drops it to the ground",
-        "             [ / ] scale scenery / an object down / up 10% (Shift: 1%), 0.25x to 4x",
-        "             Alt+[ / ] stretch it along the axis the camera faces most (x, y or z)",
-        "             a rail / ladder / path point moves with its whole chain - L: by itself",
-        "             scenery carries what stands on it ([editor] carry=0 off; Alt while moving leaves it)",
-        "Chains       N > Rail / Path: click points (Alt: no edge snap), Enter / right click finishes",
-        "             on a point: Insert adds one after   Del deletes   End draws on   J links   U unlinks",
-        "Editing      Ctrl+D duplicates   Del hides (a copy / added node: deletes)   Home puts back",
-        "             Ctrl+Z undo   Ctrl+Y redo   Ctrl+Shift+Del twice: reset the level",
-        "Adding       B lists the level's pieces and objects: Enter places a copy",
-        "             N: new spawns, crowns, flags, lights... - pick one, click in the view",
-        "Saving       Ctrl+S saves the edited copy (the level select's EDITED entry)",
-        "             unsaved changes are autosaved: Ctrl+R restores, Ctrl+Shift+R discards",
-        "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
-        "View         H hides the selection while editing   I or / isolates it   Alt+H shows all",
-        "             (never saved, never in play; the collision view, C, needs the UI)",
-        "Triggers     T: kill zones, teleports, gaps - shown and added with the UI only",
-        "Camera       P writes where the camera is to the log (position, back, up)",
-    };
-    hud::show_panel(lines, kHelpPanelX, kHelpPanelY, kHelpPanelWidth);
-}
-
-// --- the browser (B): the level's pieces and objects, a copy placed where the cursor points ---
-
-void fill_browser()
-{
-    stored_browser().items.clear();
-    if (stored_browser().tab == 0) {
-        for (const uint32_t checksum : scenery::movable_pieces()) {
-            OrientedBox box{};
-            std::array<char, kSizeTextSize> size = {""};
-            if (scenery::cuboid(checksum, &box)) {
-                text::format_to(size, "  %.0f x %.0f x %.0f", box.max.x - box.min.x, box.max.y - box.min.y,
-                                box.max.z - box.min.z);
-            }
-            stored_browser().items.push_back({.id = checksum, .label = object_edit::caption(checksum) + size.data()});
-        }
-        std::ranges::sort(stored_browser().items,
-                          [](const Browser::Item& a, const Browser::Item& b) { return a.label < b.label; });
-    } else {
-        for (const object_edit::TableRow& entry : object_edit::copyable()) {
-            stored_browser().items.push_back({.id = entry.name, .label = entry.label});
-        }
-    }
-    stored_browser().index = std::min(stored_browser().index, std::max(0, static_cast<int>(stored_browser().items.size()) - 1));
-    stored_browser().preview = -1;
-}
-
-void show_browser()
-{
-    std::vector<std::string> lines;
-    std::array<char, kCaptionTextSize> title{};
-    text::format_to(title, "ADD   %s / %s   (%d)", stored_browser().tab == 0 ? "SCENERY" : "scenery",
-                    stored_browser().tab == 1 ? "OBJECTS" : "objects", static_cast<int>(stored_browser().items.size()));
-    lines.emplace_back(title.data());
-    const int count = static_cast<int>(stored_browser().items.size());
-    stored_browser().top = std::min(stored_browser().top, stored_browser().index);
-    if (stored_browser().index >= stored_browser().top + kBrowserRows) {
-        stored_browser().top = stored_browser().index - kBrowserRows + 1;
-    }
-    for (int row = 0; row < kBrowserRows; ++row) {
-        const int index = stored_browser().top + row;
-        if (index >= count) {
-            const char* empty_line =
-                stored_browser().tab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)";
-            lines.emplace_back(row == 0 ? empty_line : "");
-            continue;
-        }
-        const std::string label = core::at(stored_browser().items, index).label.substr(0, 40);
-        lines.push_back(index == stored_browser().index ? get_key(("> " + label).c_str()) : "  " + label);
-    }
-    hud::show_panel(lines, kBrowserPanelX, kBrowserPanelY, kBrowserPanelWidth);
 }
 
 // Where the cursor points: the ground below the point its ray first meets the level (a wall: the floor at its foot;
@@ -3389,6 +1865,9 @@ void view_show_all()
     hud::get_message((count != 0) ? "All shown" : "Nothing hidden");
 }
 
+} // namespace
+namespace internal {
+
 // C / the toolbar's Collision.
 void show_collision(bool on)
 {
@@ -3402,6 +1881,9 @@ void show_collision(bool on)
         hud::get_message(on ? "Collision shown" : "Collision hidden");
     }
 }
+
+} // namespace internal
+namespace {
 
 // L / the Inspector's Lock: the selection locked and deselected (every click passes it from now - the Inspector lists
 // it to unlock); a selection all locked already (picked in the Outliner) unlocked; nothing selected: every lock dropped.
@@ -3475,6 +1957,9 @@ bool get_repeated(input::KeyState keys, SDL_Scancode key, uint32_t* since)
     return true;
 }
 
+} // namespace
+namespace internal {
+
 // --- the nodes (level_editor_nodes.h) ---
 
 // The node the Inspector shows: the one selected by itself, else the selected object's or scenery's own node; -1 if
@@ -3503,6 +1988,9 @@ int inspected_node()
     }
     return -1;
 }
+
+} // namespace internal
+namespace {
 
 // A node picked (a gizmo or the Outliner): an object's node selects the object, a movable scenery piece's the piece,
 // anything else the node itself.
@@ -5906,159 +4394,6 @@ void tick_frame()
     handle_clicks(editor_frame);
     finish_frame(editor_frame);
 }
-
-namespace {
-
-// The hovered thing's box when it couldn't be tinted (with the UI always): the object, or the scenery's group (its
-// one piece with Alt).
-void add_hover_boxes(const TickCycle& frame, objects::GameEntity* hover, std::vector<LineVertex>& lines)
-{
-    OrientedBox box{};
-    // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
-    // its one piece with Alt)
-    if (!hover_tinted() || ui::underway()) {
-        if (hover && !is_picked(hover) && object_edit::model_box(hover, &box)) {
-            add_box(box, frame, kGroupBoxColour, &lines);
-        } else if (!drag_state().dragging_ && (drag_state().hover_sector_ != 0U) &&
-                   !scenery::get_selected(drag_state().hover_sector_)) {
-            const input::KeyState keys = input::keys();
-            const bool one = (core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U) ||
-                             (scenery::why_not_movable(drag_state().hover_sector_) != nullptr);
-            const std::vector<uint32_t>& group = scenery::hover_group(drag_state().hover_sector_);
-            if (one || group.empty()) {
-                if (scenery::cuboid(drag_state().hover_sector_, &box)) {
-                    add_box(box, frame, kGroupBoxColour, &lines);
-                }
-            } else {
-                for (size_t i = 0; i < group.size() && i < kMaxBoxesDrawn; ++i) {
-                    if (scenery::cuboid(core::at(group, i), &box)) {
-                        add_box(box, frame, kGroupBoxColour, &lines);
-                    }
-                }
-            }
-        }
-    }
-}
-
-// The selection's boxes when it couldn't be tinted: its objects', else its scenery pieces'.
-void add_selected_boxes(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
-                        std::vector<LineVertex>& lines)
-{
-    OrientedBox box{};
-    if (!selected_tinted()) {
-        for (objects::GameEntity* object : objects) {
-            if (object_edit::model_box(object, &box)) {
-                add_box(box, frame, kMemberBoxColour, &lines);
-            }
-        }
-        for (size_t i = 0; objects.empty() && i < scenery::get_selection().size() && i < kMaxBoxesDrawn; ++i) {
-            if (scenery::cuboid(core::at(scenery::get_selection(), i), &box)) {
-                add_box(box, frame, kMemberBoxColour, &lines);
-            }
-        }
-    }
-}
-
-// The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
-// one only (a modal Rotate / Scale: the whole gizmo).
-void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines)
-{
-    if (have_selection() &&
-        (!drag_state().dragging_ || drag_state().axis_ >= 0 || drag_state().drag_mode_ != xform::Mode::kShiftBy)) {
-        const xform::Gizmo gizmo = gizmo_now();
-        for (const xform::Segment& segment : xform::gizmo_segments(gizmo)) {
-            if (drag_state().dragging_ && drag_state().axis_ >= 0 && segment.handle != drag_state().axis_) {
-                continue;
-            }
-            const uint32_t colour = xform::handle_colour(segment.handle, segment.handle == drag_state().hover_axis_ ||
-                                                                             segment.handle == drag_state().axis_);
-            if (segment.arrow) {
-                add_arrow(segment.a, segment.b, frame, colour, &lines);
-            } else {
-                add_line(segment.a, segment.b, frame, colour, &lines,
-                         segment.handle == 1 && gizmo.mode == xform::Mode::kSpinBy ? 3 : 1);
-            }
-        }
-    }
-}
-
-// With the UI: the overlays of every tool and the lines through ImGui's draw list, with the panels
-// (level_editor_ui.h).
-void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
-                  const std::vector<LineVertex>& lines)
-{
-    get_clear(pick_cycle().overlay_);
-    ui::ShapeMesh model = assemble_model();
-    // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
-    preview::tick_cycle(&model);
-    add_node_gizmos(frame, model.nodes.selected);
-    view::add_collision(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-                        kNearZ, &pick_cycle().overlay_.under, &pick_cycle().overlay_.lines);
-    // (map3: the selected collision faces, the camera nodes' frustums)
-    faces::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-                       kNearZ, &pick_cycle().overlay_.lines);
-    cameras::add_overlay(
-        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-        {.near_z_ = kNearZ,
-         .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
-        &pick_cycle().overlay_.lines);
-    // (UX5: note pins; the problem checker run again a moment after a change)
-    notes::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-                       kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
-                       &pick_cycle().overlay_.texts);
-    checks::note_model(model.changes, model.marks);
-    triggers::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-                          kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
-    if (overlays::get_shown(overlays::kFeatureMap)) { // (the Overlays menu - level_editor_overlays.h)
-        triggers::add_extras(
-            level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-            {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &pick_cycle().overlay_.lines,
-            &pick_cycle().overlay_.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
-    }
-    triggers::add_handles(&pick_cycle().overlay_.circles); // (the selected trigger volume's resize handles)
-    entities::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-                          kNearZ, &pick_cycle().overlay_.lines, &pick_cycle().overlay_.texts);
-    play_test::add_overlay(
-        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_, kNearZ,
-        &pick_cycle().overlay_.lines, &pick_cycle().overlay_.circles,
-        &pick_cycle().overlay_.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
-    goal_edit::add_overlay(
-        level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-        {.near_z_ = kNearZ,
-         .selected = model.nodes.selected >= 0 ? core::at(nodes::get_all(), model.nodes.selected).name : 0},
-        &pick_cycle().overlay_.lines,
-        &pick_cycle().overlay_.texts); // (the goals' points' labels)
-    for (size_t i = 0; i + 1 < lines.size(); i += 2) {
-        pick_cycle().overlay_.lines.push_back({.ax = core::at(lines, i).x,
-                                               .ay = core::at(lines, i).y,
-                                               .bx = core::at(lines, i + 1).x,
-                                               .by = core::at(lines, i + 1).y,
-                                               .argb = core::at(lines, i).color,
-                                               .thickness = 1.0F});
-    }
-    // The view menus' overlays (level_editor_overlays.h): labels off - the texts so far dropped; the grid and the
-    // carried things, the jump arcs, the grind preview, the ruler (their own texts kept: they are the readings).
-    if (!overlays::get_shown(overlays::kLabels)) {
-        pick_cycle().overlay_.texts.clear();
-    }
-    overlays::Painter painter;
-    if (overlays::painter_now(&pick_cycle().overlay_, &painter)) {
-        overlays::add_overlay(painter, drag_state().dragging_ || level_editor_state().key_moving_,
-                              drag_state().mark_base_, have_selection());
-        arcs::add_overlay(painter, objects.empty() ? scenery::get_selection() : std::vector<uint32_t>{});
-        grind_preview::add_overlay(painter, drag_state().dragging_ ? -1 : model.nodes.hovered, model.nodes.selected);
-        ruler::add_overlay(painter);
-        ux9::add_overlay(painter); // (UX9: skateability colours, the gap wizard's gates, the ground tool's preview)
-    }
-    // (UX7: the placement ghost, the readout while dragging, the faces snapped to, the top edges for a rail -
-    // level_editor_arrange.h)
-    arrange::add_overlay(level_editor_state().pos_, frame, level_editor_state().lens_, level_editor_state().viewport_,
-                         kNearZ, &pick_cycle().overlay_);
-    thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
-    ui::tick_cycle(model, pick_cycle().overlay_);
-}
-
-} // namespace
 
 void blit()
 {
