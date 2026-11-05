@@ -1,6 +1,9 @@
 // The motion component (GameObjects::KinematicsModule, motion.h): its life, the script's wait on it, and its simpler
 // member functions - storing positions and nodes, constant height, random links, hovering, speed, jumping.
 
+#include <cstddef>
+#include <array>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
@@ -326,6 +329,83 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script* /*script
     }
     motion_flags_ |= kMotionJumping;
     return true;
+}
+
+// NOT ORIGINAL
+void KinematicsModule::check_layout()
+{
+    // Each field at the original's offset (32-bit builds; the size counts on the heap it is made on).
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(KinematicsModule, motion_flags_), .original = 0x18},
+        FieldAt{.now = offsetof(KinematicsModule, motion_flags2_), .original = 0x1C},
+        FieldAt{.now = offsetof(KinematicsModule, move_speed_), .original = 0x20},
+        FieldAt{.now = offsetof(KinematicsModule, path_acceleration_), .original = 0x24},
+        FieldAt{.now = offsetof(KinematicsModule, path_deceleration_), .original = 0x28},
+        FieldAt{.now = offsetof(KinematicsModule, path_max_speed_), .original = 0x2C},
+        FieldAt{.now = offsetof(KinematicsModule, path_speed_), .original = 0x30},
+        FieldAt{.now = offsetof(KinematicsModule, path_stop_distance_), .original = 0x34},
+        FieldAt{.now = offsetof(KinematicsModule, ground_above_), .original = 0x38},
+        FieldAt{.now = offsetof(KinematicsModule, ground_below_), .original = 0x3C},
+        FieldAt{.now = offsetof(KinematicsModule, ground_triangle_), .original = 0x40},
+        FieldAt{.now = offsetof(KinematicsModule, ground_height_only_), .original = 0x70},
+        FieldAt{.now = offsetof(KinematicsModule, ground_triangles_), .original = 0x74},
+        FieldAt{.now = offsetof(KinematicsModule, path_group_), .original = 0x104},
+        FieldAt{.now = offsetof(KinematicsModule, move_target_), .original = 0x108},
+        FieldAt{.now = offsetof(KinematicsModule, move_distance_), .original = 0x118},
+        FieldAt{.now = offsetof(KinematicsModule, move_done_), .original = 0x11C},
+        FieldAt{.now = offsetof(KinematicsModule, move_max_speed_), .original = 0x120},
+        FieldAt{.now = offsetof(KinematicsModule, move_acceleration_), .original = 0x124},
+        FieldAt{.now = offsetof(KinematicsModule, move_arrive_node_), .original = 0x128},
+        FieldAt{.now = offsetof(KinematicsModule, rot_target_), .original = 0x12C},
+        FieldAt{.now = offsetof(KinematicsModule, rot_done_), .original = 0x13C},
+        FieldAt{.now = offsetof(KinematicsModule, rot_max_speed_), .original = 0x14C},
+        FieldAt{.now = offsetof(KinematicsModule, spin_rates_), .original = 0x15C},
+        FieldAt{.now = offsetof(KinematicsModule, rot_acceleration_), .original = 0x16C},
+        FieldAt{.now = offsetof(KinematicsModule, rot_deceleration_), .original = 0x17C},
+        FieldAt{.now = offsetof(KinematicsModule, move_start_), .original = 0x18C},
+        FieldAt{.now = offsetof(KinematicsModule, ground_speed_), .original = 0x19C},
+        FieldAt{.now = offsetof(KinematicsModule, ground_offset_), .original = 0x1A0},
+        FieldAt{.now = offsetof(KinematicsModule, path_stop_covered_), .original = 0x1A4},
+        FieldAt{.now = offsetof(KinematicsModule, path_stop_start_speed_), .original = 0x1A8},
+        FieldAt{.now = offsetof(KinematicsModule, path_min_stop_speed_), .original = 0x1AC},
+        FieldAt{.now = offsetof(KinematicsModule, stored_pos_), .original = 0x1B0},
+        FieldAt{.now = offsetof(KinematicsModule, saved_node_id_), .original = 0x1C0},
+        FieldAt{.now = offsetof(KinematicsModule, turn_time_), .original = 0x1C4},
+        FieldAt{.now = offsetof(KinematicsModule, turn_elapsed_), .original = 0x1C8},
+        FieldAt{.now = offsetof(KinematicsModule, turn_ptr_), .original = 0x1CC},
+        FieldAt{.now = offsetof(KinematicsModule, hover_base_), .original = 0x1D0},
+        FieldAt{.now = offsetof(KinematicsModule, bob_now_), .original = 0x1D4},
+        FieldAt{.now = offsetof(KinematicsModule, bob_height_), .original = 0x1D8},
+        FieldAt{.now = offsetof(KinematicsModule, bob_period_), .original = 0x1DC},
+        FieldAt{.now = offsetof(KinematicsModule, step_seconds_), .original = 0x1E0},
+        FieldAt{.now = offsetof(KinematicsModule, own_node_name_), .original = 0x1E4},
+        FieldAt{.now = offsetof(KinematicsModule, list_link_), .original = 0x1E8},
+        FieldAt{.now = offsetof(KinematicsModule, path_follower_), .original = 0x1EC},
+        FieldAt{.now = offsetof(KinematicsModule, trail_), .original = 0x1F0},
+        FieldAt{.now = offsetof(KinematicsModule, leave_y_unaffected_), .original = 0x1F4},
+        FieldAt{.now = offsetof(KinematicsModule, pad1f5_), .original = 0x1F5},
+        FieldAt{.now = offsetof(KinematicsModule, jump_speed_), .original = 0x1F8},
+        FieldAt{.now = offsetof(KinematicsModule, leap_pull_), .original = 0x1FC},
+        FieldAt{.now = offsetof(KinematicsModule, leap_direction_), .original = 0x200},
+        FieldAt{.now = offsetof(KinematicsModule, jump_has_heading_), .original = 0x210},
+        FieldAt{.now = offsetof(KinematicsModule, jump_pos_), .original = 0x214},
+        FieldAt{.now = offsetof(KinematicsModule, jump_start_speed_), .original = 0x224},
+        FieldAt{.now = offsetof(KinematicsModule, jump_col_above_), .original = 0x228},
+        FieldAt{.now = offsetof(KinematicsModule, jump_col_below_), .original = 0x22C},
+        FieldAt{.now = offsetof(KinematicsModule, unknown230_), .original = 0x230},
+        FieldAt{.now = offsetof(KinematicsModule, jump_has_land_height_), .original = 0x234},
+        FieldAt{.now = offsetof(KinematicsModule, leap_touchdown_y_), .original = 0x238},
+        FieldAt{.now = offsetof(KinematicsModule, jump_start_), .original = 0x23C},
+        FieldAt{.now = sizeof(KinematicsModule), .original = 0x24C},
+    };
+    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+                      return field.now == field.original;
+                  }),
+                  "layout must match the original");
 }
 
 } // namespace objects

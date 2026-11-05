@@ -347,6 +347,8 @@ public:
     [[nodiscard]] const std::unique_ptr<PathFollower>& path_follower() const { return path_follower_; }
 
 private:
+    // NOT ORIGINAL: the fields at the original's offsets, checked at compile time.
+    static void check_layout();
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
