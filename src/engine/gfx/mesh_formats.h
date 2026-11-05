@@ -24,6 +24,7 @@ constexpr int kBlendModePrimitive = 0x11; // choose_blend_mode: what the primiti
 constexpr int kBlendModeMask = 0xFFFFFF;  // a pass's blend mode in its blend word (the top byte: its fixed alpha, flags)
 
 // The flexible vertex format's bits the renderer and the editor read (D3DFVF_*).
+constexpr uint32_t kFvfXyz = 0x002U;
 constexpr uint32_t kFvfNormal = 0x010U;
 constexpr uint32_t kFvfDiffuse = 0x040U;
 constexpr uint32_t kFvfSpecular = 0x080U;

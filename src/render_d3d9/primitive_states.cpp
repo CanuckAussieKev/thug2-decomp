@@ -5,13 +5,10 @@
 
 #include "render_d3d9/primitive_states.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
+#include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/mesh_formats.h"
 #include "render_d3d9/render_state.h"
-#include "render_d3d9/d3d9_state.h"
 
 namespace render {
 
@@ -19,38 +16,38 @@ namespace render {
 void set_primitive_states()
 {
     choose_blend_mode(kBlendModePrimitive);
-    set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
+    set_vertex_format(kFvfXyz | kFvfTex1);
     set_pixel_shader(nullptr, nullptr);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+    gpu().set_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpSelectArg1);
+    gpu().set_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
     change_phase(RenderStateId::kAddressMode0, kClampBothWays); // (clamped both ways)
     change_phase(RenderStateId::kPhaseAlphaTest, 1);
     change_phase(RenderStateId::kZWrite, 1);
     change_phase(RenderStateId::kZTest, 1);
-    change_phase(RenderStateId::kCullMode, D3DCULL_NONE);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+    change_phase(RenderStateId::kCullMode, gpu_value::kCullNone);
+    gpu().set_stage_state(0, GpuStageState::kTextureTransformFlags, gpu_value::kTextureTransformDisable);
+    gpu().set_stage_state(0, GpuStageState::kTexCoordIndex, 0);
 }
 
 // 0x004B5FF0
 void reset_primitive_states()
 {
     set_texture(0, nullptr); // (the original passes a third 0)
-    change_phase(RenderStateId::kCullMode, D3DCULL_CW);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    d3d9::state().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    change_phase(RenderStateId::kCullMode, gpu_value::kCullClockwise);
+    gpu().set_stage_state(0, GpuStageState::kColourOp, gpu_value::kOpModulate);
+    gpu().set_stage_state(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate);
 }
 
 // 0x004B6030
 void set_texture_stage_state(uint32_t stage, uint32_t type, uint32_t value)
 {
-    d3d9::state().d3d_device()->SetTextureStageState(stage, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
+    gpu().set_stage_state(stage, static_cast<GpuStageState>(type), value);
 }
 
 // 0x004B6050
 void set_transform(uint32_t type, const void* matrix)
 {
-    d3d9::state().d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), static_cast<const D3DMATRIX*>(matrix));
+    gpu().set_transform(static_cast<GpuTransform>(type), static_cast<const float*>(matrix));
 }
 
 // 0x004B6070
@@ -59,11 +56,11 @@ long set_render_target_and_depth(RenderTargets targets)
     auto* const surface = targets.surface;
     auto* const depth = targets.depth;
     long result = 0;
-    if (d3d9::state().d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)) != 0) {
-        result = D3DERR_INVALIDCALL;
+    if (gpu().set_render_target(0, static_cast<GpuSurface*>(surface)) != 0) {
+        result = gpu_value::kResultInvalidCall;
     }
-    if (d3d9::state().d3d_device()->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(depth)) != 0) {
-        return D3DERR_INVALIDCALL;
+    if (gpu().set_depth_surface(static_cast<GpuSurface*>(depth)) != 0) {
+        return gpu_value::kResultInvalidCall;
     }
     return result;
 }

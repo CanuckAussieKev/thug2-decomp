@@ -83,6 +83,23 @@ test("only app/ picks the Direct3D 9 device", () => {
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the device");
 });
 
+// render::Gpu (engine/gfx/gpu.h) is the low interface the PC layer calls in place of the device: app/ installs
+// Direct3D 9's with the device, and the render-state cache (render_state.cpp, primitive_states.cpp) reaches Direct3D
+// only through it - neither includes a Direct3D header (the first files of the API-neutral PC layer).
+test("only app/ picks the Direct3D 9 Gpu; the render-state cache sees no Direct3D header", () => {
+    const pickers = including(/^\s*#\s*include\s*"render_d3d9\/gpu_d3d9\.h"/m);
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "render_d3d9/gpu_d3d9.cpp");
+    assert.deepEqual(outside, []);
+    assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the Gpu");
+    for (const name of ["render_d3d9/render_state.cpp", "render_d3d9/primitive_states.cpp"]) {
+        const source = readFileSync(join(SRC, name), "utf8");
+        assert.ok(!SDK_HEADER.test(source), `${name} includes a Direct3D SDK header`);
+        for (const match of source.matchAll(PROJECT_INCLUDE)) {
+            assert.ok(!DIRECT3D_HEADERS.has(match[1] ?? ""), `${name} includes ${match[1] ?? ""}`);
+        }
+    }
+});
+
 // Dear ImGui's platform and renderer backends are the graphics backend's (render::UiBackend, engine/gfx/ui_backend.h):
 // only render_d3d9/ includes their headers, and only app/ picks Direct3D 9's UI backend.
 test("only render_d3d9/ includes ImGui's backends; only app/ picks the UI backend", () => {
