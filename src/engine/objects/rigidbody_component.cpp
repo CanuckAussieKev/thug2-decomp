@@ -521,9 +521,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     if (!params->fetch_float(kConstAcc, &steady_accel_.y, 0)) {   // const_acc: a number is the y
         vector(kConstAcc, &steady_accel_);
     }
-    params->fetch_float(kCoeffRestitution, &restitution_, 0);  // coeff_restitution
-    params->fetch_float(kCoeffFriction, &drag_factor_, 0);  // coeff_friction
-    params->fetch_float(kSpringConst, &spring_const_, 0); // spring_const
+    params->fetch_float(kCoeffRestitution, &response_.restitution, 0); // coeff_restitution
+    params->fetch_float(kCoeffFriction, &response_.friction, 0);       // coeff_friction
+    params->fetch_float(kSpringConst, &response_.spring_const, 0);     // spring_const
     params->fetch_float(kLinearDamping, &unknown38_, 0);
     params->fetch_float(kAngularDamping, &unknown3c_, 0);
     if (params->has_entry_named(kLinearVelocitySleepPoint)) { // linear_velocity_sleep_point
@@ -832,9 +832,9 @@ void BodyDynamicsModule::check_layout()
     constexpr std::array kLayout{
         FieldAt{.now = offsetof(BodyDynamicsModule, mass_over_moment_), .original = 0x18},
         FieldAt{.now = offsetof(BodyDynamicsModule, steady_accel_), .original = 0x1C},
-        FieldAt{.now = offsetof(BodyDynamicsModule, restitution_), .original = 0x2C},
-        FieldAt{.now = offsetof(BodyDynamicsModule, drag_factor_), .original = 0x30},
-        FieldAt{.now = offsetof(BodyDynamicsModule, spring_const_), .original = 0x34},
+        FieldAt{.now = offsetof(BodyDynamicsModule, response_.restitution), .original = 0x2C},
+        FieldAt{.now = offsetof(BodyDynamicsModule, response_.friction), .original = 0x30},
+        FieldAt{.now = offsetof(BodyDynamicsModule, response_.spring_const), .original = 0x34},
         FieldAt{.now = offsetof(BodyDynamicsModule, unknown38_), .original = 0x38},
         FieldAt{.now = offsetof(BodyDynamicsModule, unknown3c_), .original = 0x3C},
         FieldAt{.now = offsetof(BodyDynamicsModule, skater_radius_), .original = 0x40},

@@ -261,11 +261,18 @@ private:
     // (The shape's size: its farthest point or sphere's edge from the centre of mass.)
     [[nodiscard]] float shape_extent() const;
 
+    // The component's state in parts: records of its fields at their places in the original's layout (+0x.. the
+    // offset in the record, then in the component; check_layout checks them all).
+    // The response to its contacts (+0x2C-+0x37: collide, resolve_contacts, apply_springs).
+    struct Response {
+        float restitution{kDefaultRestitution};  // +0x00 (+0x2C) coeff_restitution (0.4)
+        float friction{kDefaultDragFactor};      // +0x04 (+0x30) coeff_friction (0.5)
+        float spring_const{kDefaultSpringConst}; // +0x08 (+0x34) spring_const (10): the contacts' depth and springs
+    };
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
-    float restitution_{kDefaultRestitution}; // +0x2C coeff_restitution (0.4)
-    float drag_factor_{kDefaultDragFactor};                // +0x30 coeff_friction (0.5)
-    float spring_const_{kDefaultSpringConst};              // +0x34 spring_const (10)
+    Response response_;                // +0x2C-+0x37 the response to its contacts
     float unknown38_{};                // +0x38 (0xDE76C3A7): the linear damping (0x0042C6D0)
     float unknown3c_{};                // +0x3C (0x9DA897CF): the angular damping (0x0042C6D0)
     float skater_radius_{kDefaultSkaterRadius};       // +0x40 skater_collision_radius (48)

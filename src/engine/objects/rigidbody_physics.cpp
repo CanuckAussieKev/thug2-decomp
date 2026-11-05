@@ -180,7 +180,7 @@ void BodyDynamicsModule::apply_springs()
         const float ny = get_narrow(dy * inverse);
         const float nz = get_narrow(dz * inverse);
         const float nw = get_narrow(dw * inverse);
-        const double force = ((get_wide(length) * spring_const_) * dt) * kSpringScale;
+        const double force = ((get_wide(length) * response_.spring_const) * dt) * kSpringScale;
         const float force_f = get_narrow(force);
         const double fx = nx * force;
         const double fy = get_wide(ny) * force_f;
@@ -405,7 +405,7 @@ void BodyDynamicsModule::resolve_contacts()
             const float along_f = get_narrow(along);
             done = false;
             fastest = std::max(fastest, -along_f);
-            const float target = get_narrow(-(get_wide(along_f) * restitution_));
+            const float target = get_narrow(-(get_wide(along_f) * response_.restitution));
             if (!contact.scaled) {
                 contact.impulse_scale_ =
                     get_narrow(impulse_scale({.normal = &contact.normal, .offset = &contact.offset}));
@@ -505,7 +505,7 @@ void BodyDynamicsModule::resolve_contacts()
         across = {.x = get_narrow(across.x * inverse), .y = get_narrow(across.y * inverse), .z = get_narrow(across.z * inverse),
                   .w = get_narrow(across.w * inverse)};
         const double stop = impulse_scale({.normal = &across, .offset = &contact.offset}) * length_f;
-        const float most = get_narrow(get_wide(contact.impulse) * drag_factor_);
+        const float most = get_narrow(get_wide(contact.impulse) * response_.friction);
         const double push_scale = -(stop > most ? most : stop);
         const double jx = across.x * push_scale;
         const float jy = get_narrow(across.y * push_scale);
@@ -536,7 +536,7 @@ void BodyDynamicsModule::resolve_contacts()
         }
         const maths::Vec4& arm = contact.offset;
         const maths::Vec4& normal_ref = contact.normal;
-        const double spring_push = -((get_wide(contact.depth) * spring_const_) * dt);
+        const double spring_push = -((get_wide(contact.depth) * response_.spring_const) * dt);
         const maths::Vec4 push = {.x = get_narrow(spring_push * normal_ref.x),
                                   .y = get_narrow(spring_push * normal_ref.y),
                                   .z = get_narrow(spring_push * normal_ref.z),
@@ -583,7 +583,7 @@ void BodyDynamicsModule::collide(render::ProbeRay* feeler)
     const double along =
         ((get_wide(vel_.z) * normal_ref.z) + (get_wide(vel_.y) * normal_ref.y)) + (get_wide(vel_.x) * normal_ref.x);
     // The bounce: -(1 + restitution) of the speed along the normal.
-    const double spring_push = -((get_wide(restitution_) + 1.0F) * along);
+    const double spring_push = -((get_wide(response_.restitution) + 1.0F) * along);
     const maths::Vec4 bounce = {.x = get_narrow(spring_push * normal_ref.x),
                                 .y = get_narrow(spring_push * normal_ref.y),
                                 .z = get_narrow(spring_push * normal_ref.z),
@@ -604,7 +604,7 @@ void BodyDynamicsModule::collide(render::ProbeRay* feeler)
         const double uw = tw * inverse;
         const float most = get_narrow(std::sqrt(((get_wide(bounce.z) * bounce.z) + (get_wide(bounce.y) * bounce.y)) +
                                                 (get_wide(bounce.x) * bounce.x)) *
-                                      drag_factor_);
+                                      response_.friction);
         const double push_scale = -(length_f > most ? most : length_f);
         vel_ = {.x = get_narrow((ux * push_scale) + vel_.x),
                 .y = append_one(get_narrow(uy * push_scale), vel_.y),
