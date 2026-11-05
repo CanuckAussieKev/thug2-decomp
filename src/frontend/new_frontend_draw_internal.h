@@ -279,4 +279,12 @@ void skaters_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width
 
 void stats_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height);
 
+void list_of_items(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height, float* scroll);
+
+void pause_of_items(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height, float* scroll);
+
+void menu_of_items(Ctx& ctx, const mirror::Tracker& tracker, float* scroll);
+
+void keyboard_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height);
+
 } // namespace frontend::new_frontend::paint::internal
