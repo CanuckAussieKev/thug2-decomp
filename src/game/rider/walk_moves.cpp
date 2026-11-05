@@ -270,9 +270,9 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, curb_.floating), .original = 0x718},
         FieldAt{.now = offsetof(FootMovement, curb_.pad5), .original = 0x719},
         FieldAt{.now = offsetof(FootMovement, critical_point_offset_), .original = 0x71C},
-        FieldAt{.now = offsetof(FootMovement, upright_time_), .original = 0x72C},
-        FieldAt{.now = offsetof(FootMovement, upright_angle_), .original = 0x730},
-        FieldAt{.now = offsetof(FootMovement, upright_axis_), .original = 0x734},
+        FieldAt{.now = offsetof(FootMovement, upright_.time), .original = 0x72C},
+        FieldAt{.now = offsetof(FootMovement, upright_.angle), .original = 0x730},
+        FieldAt{.now = offsetof(FootMovement, upright_.axis), .original = 0x734},
         FieldAt{.now = offsetof(FootMovement, facing_y_), .original = 0x744},
         FieldAt{.now = offsetof(FootMovement, leave_for_), .original = 0x748},
         FieldAt{.now = offsetof(FootMovement, grind_point_), .original = 0x74C},
@@ -1036,9 +1036,9 @@ void FootMovement::get_begin(bool on_ground)
         change_phase(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
-        if ((core_physics_->state()->flag(PoseFlag::kVertAir).on != 0U) && !(upright_time_ == 0.0F)) {
+        if ((core_physics_->state()->flag(PoseFlag::kVertAir).on != 0U) && !(upright_.time == 0.0F)) {
             maths::Vec4 forward = core::at(entity()->basis_frame().row, 2);
-            forward.rotate_about_axis(upright_axis_, upright_angle_);
+            forward.rotate_about_axis(upright_.axis, upright_.angle);
             const double boost = walk_parameter(kInitialVertVelBoost);
             maths::Vec4& velocity = entity()->vel();
             auto z = static_cast<float>(forward.z * boost);

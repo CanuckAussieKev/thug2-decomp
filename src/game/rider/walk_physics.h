@@ -449,6 +449,13 @@ public:
         std::array<uint8_t, 3> pad5{}; // +0x05 (+0x719)
     };
 
+    // Turning upright (+0x72C-+0x743: update_upright, update_rotate_upright).
+    struct Upright {
+        float time{0.0F};   // +0x00 (+0x72C) the time left turning upright (0: the up vector is eased)
+        float angle{};      // +0x04 (+0x730) the turn (radians), over rotate_upright_duration
+        maths::Vec4 axis{}; // +0x08 (+0x734) its axis
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -534,9 +541,7 @@ private:
     CurbFloat curb_;      // +0x714-+0x71B the curb float
     maths::Vec4
         critical_point_offset_{}; // +0x71C m_critical_point_offset (the game's own message): a ride's / hang's offset
-    float upright_time_{0.0F};    // +0x72C the time left turning upright (0: the up vector is eased)
-    float upright_angle_{};     // +0x730 the turn upright (radians), over rotate_upright_duration
-    maths::Vec4 upright_axis_{};                  // +0x734 its axis
+    Upright upright_;             // +0x72C-+0x743 turning upright
     float facing_y_{};                            // +0x744 the object's at-row y (before the facing is flattened)
     int leave_for_{};                             // +0x748 what the walk ends in - 1 a grind, 2 an acid drop
     maths::Vec4 grind_point_{};                   // +0x74C the rail's point to grind from

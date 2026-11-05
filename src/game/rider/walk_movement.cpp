@@ -133,10 +133,10 @@ void FootMovement::update_upright()
     }
     if (up.y > kNearlyUpright) {
         up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
-        upright_time_ = 0.0F;
+        upright_.time = 0.0F;
         return;
     }
-    if (!(upright_time_ == 0.0F)) {
+    if (!(upright_.time == 0.0F)) {
         return;
     }
     const float rate = walk_parameter(kLerpUprightRate);
@@ -554,15 +554,15 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
 // 0x00529800
 void FootMovement::update_rotate_upright()
 {
-    float& left = upright_time_;
+    float& left = upright_.time;
     if (left == 0.0F) {
         return;
     }
     // This frame's share of the turn (+0x730 about +0x734) over rotate_upright_duration.
     const float duration = walk_parameter(kRotateUprightDuration);
-    auto angle = static_cast<float>(get_frame_length(this) / duration * upright_angle_);
+    auto angle = static_cast<float>(get_frame_length(this) / duration * upright_.angle);
     maths::Mat4 rotation{};
-    maths::build_axis_angle_matrix(rotation, upright_axis_, angle);
+    maths::build_axis_angle_matrix(rotation, upright_.axis, angle);
     auto* object = static_cast<GameEntity*>(entity());
     // D3DXMatrixMultiply (0x005BFA8C)
     maths::matrix_multiply(&object->basis_frame(), &object->basis_frame(), &rotation);
