@@ -11,6 +11,7 @@
 #include "engine/gfx/render_camera.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/renderer_caps.h"
 
 // NOT ORIGINAL - the renderer's state: the device's settings and capabilities, the frame's camera, matrices and
 // counters, and the render state the device was last sent (the original's globals; each member's comment or its
@@ -64,8 +65,8 @@ public:
         world_transform_ = saved.world_transform_;
         world_transform_copy_ = saved.world_transform_copy_;
     }
-    [[nodiscard]] bool stream_offset_supported() const { return stream_offset_supported_; }
-    void set_stream_offset_supported(bool value) { stream_offset_supported_ = value; }
+    [[nodiscard]] bool stream_offset_supported() const { return caps_.stream_offset_supported(); }
+    void set_stream_offset_supported(bool value) { caps_.set_stream_offset_supported(value); }
     [[nodiscard]] uint32_t loading_bar_timer() const { return loading_bar_timer_; }
     void set_loading_bar_timer(uint32_t value) { loading_bar_timer_ = value; }
     [[nodiscard]] float display_factor_x() const { return display_factor_x_; }
@@ -82,12 +83,12 @@ public:
     void set_screen_offset_x(int value) { screen_offset_x_ = value; }
     [[nodiscard]] float display_factor_y() const { return display_factor_y_; }
     void set_display_factor_y(float value) { display_factor_y_ = value; }
-    [[nodiscard]] bool blend_factor_supported() const { return blend_factor_supported_; }
-    void set_blend_factor_supported(bool value) { blend_factor_supported_ = value; }
-    [[nodiscard]] bool border_addressing_supported() const { return border_addressing_supported_; }
-    void set_border_addressing_supported(bool value) { border_addressing_supported_ = value; }
-    [[nodiscard]] uint32_t max_anisotropy() const { return max_anisotropy_; }
-    void set_max_anisotropy(uint32_t value) { max_anisotropy_ = value; }
+    [[nodiscard]] bool blend_factor_supported() const { return caps_.blend_factor_supported(); }
+    void set_blend_factor_supported(bool value) { caps_.set_blend_factor_supported(value); }
+    [[nodiscard]] bool border_addressing_supported() const { return caps_.border_addressing_supported(); }
+    void set_border_addressing_supported(bool value) { caps_.set_border_addressing_supported(value); }
+    [[nodiscard]] uint32_t max_anisotropy() const { return caps_.max_anisotropy(); }
+    void set_max_anisotropy(uint32_t value) { caps_.set_max_anisotropy(value); }
     [[nodiscard]] const DeviceViewport& device_viewport() const { return device_viewport_; }
     void set_device_viewport(const DeviceViewport& value) { device_viewport_ = value; }
     // The camera (choose_camera sets it whole; the draw code's flags one by one).
@@ -99,8 +100,8 @@ public:
     void set_background_colour(uint32_t value) { camera_.background_colour_ = value; }
     [[nodiscard]] const ViewShape& view_shape() const { return view_shape_; }
     void set_view_shape(const ViewShape& value) { view_shape_ = value; }
-    [[nodiscard]] bool radeon8500() const { return radeon8500_; }
-    void set_radeon8500(bool value) { radeon8500_ = value; }
+    [[nodiscard]] bool radeon8500() const { return caps_.radeon8500(); }
+    void set_radeon8500(bool value) { caps_.set_radeon8500(value); }
     [[nodiscard]] int frames_rendered() const { return frames_rendered_; }
     void count_frame() { ++frames_rendered_; }
     [[nodiscard]] const maths::Mat4& world_matrix() const { return world_matrix_; }
@@ -144,8 +145,8 @@ public:
     void set_fog_begin_distance(float value) { fog_begin_distance_ = value; }
     [[nodiscard]] float fog_end() const { return fog_end_; }
     void set_fog_end(float value) { fog_end_ = value; }
-    [[nodiscard]] bool shaders_available() const { return shaders_available_; }
-    void set_shaders_available(bool value) { shaders_available_ = value; }
+    [[nodiscard]] bool shaders_available() const { return caps_.shaders_available(); }
+    void set_shaders_available(bool value) { caps_.set_shaders_available(value); }
     [[nodiscard]] uint32_t specular_state() const { return specular_; }
     void set_specular(uint32_t value) { specular_ = value; }
     [[nodiscard]] uint8_t z_write() const { return z_write_; }
@@ -233,9 +234,10 @@ public:
     }
 
 private:
-    // The device's settings and capabilities (device.cpp; the device itself and what was made with it:
-    // d3d9_state.h). The display factors scale 640x480 to the back buffer.
-    bool stream_offset_supported_{};
+    DeviceCaps caps_; // what the device can do
+
+    // The device's settings (device.cpp; the device itself and what was made with it: d3d9_state.h). The display
+    // factors scale 640x480 to the back buffer.
     uint32_t loading_bar_timer_{}; // the timer's id (timeSetEvent)
     float display_factor_x_{}; // 640x480 -> back buffer scale
     uint8_t set_frequency_allowed_{1};
@@ -244,15 +246,11 @@ private:
     int screen_offset_y_{};
     int screen_offset_x_{};
     float display_factor_y_{};
-    bool blend_factor_supported_{};
-    bool border_addressing_supported_{};
-    uint32_t max_anisotropy_{};
 
     // The frame's camera, matrices, viewport and counters (draw_frame.cpp).
     DeviceViewport device_viewport_{};
     RenderCamera camera_{};
     ViewShape view_shape_{};
-    bool radeon8500_{};
     int frames_rendered_{};
     maths::Mat4 world_matrix_{};
     maths::Mat4 view_matrix_{};
@@ -268,7 +266,6 @@ private:
     float fog_end_{};
 
     // The render state the device was last sent (render_state.cpp).
-    bool shaders_available_{};
     uint32_t specular_{};
     uint8_t z_write_{};
     uint32_t depth_bias_{};
