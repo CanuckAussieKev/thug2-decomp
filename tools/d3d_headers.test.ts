@@ -1,4 +1,4 @@
-// NOT ORIGINAL - where Direct3D's headers may be seen (docs/architecture.md "gpu/"): a header under src/ includes
+// NOT ORIGINAL - where Direct3D's headers may be seen (docs/architecture.md "The graphics backend"): a header under src/ includes
 // <d3d9.h> / <d3dx9*.h> - itself or through another of the project's headers - only if it is one of Direct3D's own
 // headers below. Every other header holds the graphics handles (engine/gfx/gpu_handles.h), so a file that doesn't talk to
 // Direct3D never sees its API.
