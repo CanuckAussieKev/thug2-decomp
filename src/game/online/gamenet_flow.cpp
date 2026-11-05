@@ -18,6 +18,7 @@
 #include "game/online/gamenet_commands.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "game/online/hub_roster.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
@@ -260,8 +261,8 @@ void Hub::start_network_game()
 void Hub::cancel_join()
 {
     net::NetMessageInfo desc;
-    if (join_phase() == EntryPhase::kCancelled || join_phase() == EntryPhase::kOver ||
-        join_phase() == EntryPhase::kRefused) {
+    if (join_.join_phase() == EntryPhase::kCancelled || join_.join_phase() == EntryPhase::kOver ||
+        join_.join_phase() == EntryPhase::kRefused) {
         return;
     }
     net::AppHost* client = client_app_;
@@ -327,20 +328,20 @@ void Hub::auto_serve_task(tasks::Task<Hub>* task)
 void Hub::join_progress_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
-    switch (manager->join_phase()) {
+    switch (manager->join().join_phase()) {
     case EntryPhase::kConnecting: // 1
         get_run(kCreateConnectingDialog);
-        manager->set_join_phase(EntryPhase::kNone);
+        manager->join().set_join_phase(EntryPhase::kNone);
         break;
     case EntryPhase::kJoining: // 2 (none for the host's own client)
         if (!manager->client_app_->is_host_local()) {
             get_run(kCreateJoiningDialog);
         }
-        manager->set_join_phase(EntryPhase::kNone);
+        manager->join().set_join_phase(EntryPhase::kNone);
         break;
     case EntryPhase::kJoiningWithPassword: // 3
         get_run(kCreateTryingPasswordDialog);
-        manager->set_join_phase(EntryPhase::kTryingPassword);
+        manager->join().set_join_phase(EntryPhase::kTryingPassword);
         break;
     case EntryPhase::kJoined: { // joined
         NewPlayerSearch search;
@@ -352,7 +353,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
             manager->spectate_player(nullptr);
         }
         get_run(kEnteredNetworkGame);
-        manager->set_join_phase(EntryPhase::kEntered);
+        manager->join().set_join_phase(EntryPhase::kEntered);
         break;
     }
     case EntryPhase::kOver: // the join over
@@ -464,15 +465,15 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     }
     const net::Conn* conn = client->begin_conn_walk(&search);
     if (!conn ||
-        !(manager->join_phase() == EntryPhase::kOver || manager->join_phase() == EntryPhase::kEntered ||
-          manager->join_phase() == EntryPhase::kJoined) ||
+        !(manager->join().join_phase() == EntryPhase::kOver || manager->join().join_phase() == EntryPhase::kEntered ||
+          manager->join().join_phase() == EntryPhase::kJoined) ||
         conn->get_silence_duration() <= kSilentTimeout) {
         return;
     }
     if (skate->level() == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
         manager->tasks_.join_phase_job()->drop_out();
-        manager->set_join_phase(EntryPhase::kCancelled);
+        manager->join().set_join_phase(EntryPhase::kCancelled);
     } else {
         get_run(kCreateLostConnectionDialog);
         manager->destroy_all_players();

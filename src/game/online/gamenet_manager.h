@@ -10,6 +10,7 @@
 #include "engine/memory/mem.h"
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
+#include "game/online/hub_join.h"
 #include "game/online/hub_roster.h"
 #include "game/online/hub_script_queue.h"
 #include "game/online/hub_server_listing.h"
@@ -79,20 +80,6 @@ enum class JoinRefusedReason : int8_t {
 };
 constexpr uint16_t kJoinRefusedSize = 10;
 
-// The join's state (join_phase_, 0x005331F0 / 0x00533200).
-enum class EntryPhase : uint8_t {
-    kNone = 0, // no join
-    kConnecting = 1,
-    kJoining = 2,
-    kJoiningWithPassword = 3,
-    kTryingPassword = 4,
-    kCdKey = 5, // answered the host's CD-key challenge
-    kJoined = 6, // the host let the player in
-    kEntered = 7, // the network game's script has run
-    kOver = 8, // the join is over
-    kRefused = 9, // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
-    kCancelled = 10,
-};
 
 
 constexpr size_t kHubStartPointsSize = 8;
@@ -144,14 +131,6 @@ public:
     // their net versions) always; else, in a network game, a capture the flag that isn't timed_ctf, or the
     // stop_at_zero preference set.
     bool is_untimed_game();
-    // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90: the server joined: join_ip_,
-    // join_private_ip_, join_port_.
-    [[nodiscard]] uint32_t get_join_ip() const;
-    [[nodiscard]] uint32_t get_join_private_ip() const;
-    [[nodiscard]] int get_entry_port() const;
-    void set_join_ip(uint32_t ip);
-    void set_join_private_ip(uint32_t ip);
-    void set_entry_port(int port);
     // 0x00532EA0: client `index` (client_slot).
     net::AppHost* fetch_patron(int index);
     // 0x00532EB0: the server list's client (browser_client_).
@@ -189,9 +168,6 @@ public:
     // 0x005331D0 / 0x005331E0: the final scores have come (+0x44).
     void set_final_scores_received(bool received);
     [[nodiscard]] bool final_scores_received() const;
-    // 0x005331F0 / 0x00533200: join_phase_.
-    void set_entry_phase(EntryPhase state);
-    [[nodiscard]] EntryPhase get_entry_phase() const;
     // 0x00533210 / 0x00533220: the crown of king of the hill (+0x6C) / forgotten.
     objects::CrownObject* get_crown_holder();
     void clear_crown();
@@ -604,15 +580,15 @@ public:
     // The servers found (the server list).
     ServerListing& server_listing() { return server_listing_; }
     [[nodiscard]] const ServerListing& server_listing() const { return server_listing_; }
+    // The join's state and the server joined.
+    JoinState& join() { return join_; }
+    [[nodiscard]] const JoinState& join() const { return join_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
     void set_last_ready_probe_id(uint32_t value) { last_ready_probe_id_ = value; }
     [[nodiscard]] bool cleared_to_start() const { return cleared_to_start_; }
     [[nodiscard]] uint32_t script_flag_bits() const { return script_flag_bits_; }
-    // (the phase is kept in the original's 32-bit word)
-    [[nodiscard]] EntryPhase join_phase() const { return static_cast<EntryPhase>(join_phase_); }
-    void set_join_phase(EntryPhase value) { join_phase_ = core::to_underlying(value); }
     int& modem_state_shown() { return modem_state_shown_; }
     [[nodiscard]] int modem_state_shown() const { return modem_state_shown_; }
     [[nodiscard]] int join_began_at() const { return join_began_at_; }
@@ -689,10 +665,7 @@ private:
     bool cleared_to_start_{};               // +0x18C
     uint32_t score_synced_at_{};            // +0x190
     uint32_t script_flag_bits_{0};          // +0x194 the pro set's bits (sent as a byte)
-    int join_phase_{};                      // +0x198 EntryPhase
-    uint32_t join_ip_{};                    // +0x19C
-    uint32_t join_private_ip_{};            // +0x1A0
-    int join_port_{};                       // +0x1A4
+    JoinState join_;                        // +0x198-+0x1A7 (+0x17C-+0x18B here) the join's state and the server joined
     int modem_state_shown_{
         net::kDialupStatusDisconnected};    // +0x1A8 the net library's modem state the online state task showed last
     int join_began_at_{};                   // +0x1AC

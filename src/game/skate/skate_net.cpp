@@ -18,6 +18,7 @@
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
@@ -364,7 +365,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     params.reset();
     if (skate->pending_level() == kLoadMainMenu) {
         net->cancel_join();
-        net->set_entry_phase(online::EntryPhase::kCancelled); // back to the main menu
+        net->join().set_entry_phase(online::EntryPhase::kCancelled); // back to the main menu
         return 2;
     }
     net->remove_players();
@@ -700,7 +701,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
 int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
 {
     online::Hub* net = online::online_hub();
-    net->set_entry_phase(online::EntryPhase::kOver); // the session brief received
+    net->join().set_entry_phase(online::EntryPhase::kOver); // the session brief received
     net->empty_server_listing();
     // (the message: wire/gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the
     // original read on past it)

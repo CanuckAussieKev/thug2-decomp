@@ -12,6 +12,7 @@
 #include "engine/memory/task_list.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "game/online/hub_roster.h"
 #include "game/online/gamenet_observer.h"
 #include "game/online/gamenet_qr2.h"
@@ -298,7 +299,7 @@ bool cfunc_cancel_join_server(script::Struct* /*params*/, script::Context /*cont
 {
     Hub* manager = net_game_state().online_hub();
     manager->cancel_join();
-    manager->set_join_phase(EntryPhase::kCancelled);
+    manager->join().set_join_phase(EntryPhase::kCancelled);
     return true;
 }
 

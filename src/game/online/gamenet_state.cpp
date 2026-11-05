@@ -8,6 +8,7 @@
 
 #include "engine/memory/task_list.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "game/online/hub_settings.h"
 #include "game/online/hub_tasks.h"
 #include "engine/net/net_app.h"
@@ -177,12 +178,12 @@ int SessionSettings::get_spectator_limit()
 void HubTasks::remove_host_task() { auto_serve_job_->drop_out(); }
 
 // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90
-uint32_t Hub::get_join_ip() const { return join_ip_; }
-uint32_t Hub::get_join_private_ip() const { return join_private_ip_; }
-int Hub::get_entry_port() const { return join_port_; }
-void Hub::set_join_ip(uint32_t ip) { join_ip_ = ip; }
-void Hub::set_join_private_ip(uint32_t ip) { join_private_ip_ = ip; }
-void Hub::set_entry_port(int port) { join_port_ = port; }
+uint32_t JoinState::get_join_ip() const { return join_ip_; }
+uint32_t JoinState::get_join_private_ip() const { return join_private_ip_; }
+int JoinState::get_entry_port() const { return join_port_; }
+void JoinState::set_join_ip(uint32_t ip) { join_ip_ = ip; }
+void JoinState::set_join_private_ip(uint32_t ip) { join_private_ip_ = ip; }
+void JoinState::set_entry_port(int port) { join_port_ = port; }
 
 // 0x00532EA0 (+0x08 + index * 4: the two clients lie side by side)
 net::AppHost* Hub::fetch_patron(int index) { return client_slot(index); }
@@ -281,8 +282,8 @@ void Hub::set_final_scores_received(bool received) { final_scores_received_ = re
 bool Hub::final_scores_received() const { return final_scores_received_; }
 
 // 0x005331F0 / 0x00533200
-void Hub::set_entry_phase(EntryPhase state) { set_join_phase(state); }
-EntryPhase Hub::get_entry_phase() const { return join_phase(); }
+void JoinState::set_entry_phase(EntryPhase state) { set_join_phase(state); }
+EntryPhase JoinState::get_entry_phase() const { return join_phase(); }
 
 // 0x00533210 / 0x00533220
 objects::CrownObject* Hub::get_crown_holder() { return crown_; }

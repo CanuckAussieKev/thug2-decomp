@@ -15,6 +15,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_dispatcher.h"
@@ -110,7 +111,7 @@ void cancel_join(Hub* manager, bool notify_first)
         params->put_name_key(checksums::Name{0U}, kShowTimeout);
     }
     manager->tasks().join_phase_job()->drop_out();
-    manager->set_entry_phase(EntryPhase::kJoining);
+    manager->join().set_entry_phase(EntryPhase::kJoining);
     if (!notify_first) {
         params = script::new_struct();
         params->put_name_key(checksums::Name{0U}, kShowTimeout);

@@ -19,6 +19,7 @@
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_lobby.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "engine/net/net_manager.h"
 #include "game/online/service.h"
 #include "game/online/stats_man.h"
@@ -193,10 +194,7 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, cleared_to_start_), .original = 0x18C, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, score_synced_at_), .original = 0x190, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, script_flag_bits_), .original = 0x194, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, join_phase_), .original = 0x198, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, join_ip_), .original = 0x19C, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, join_private_ip_), .original = 0x1A0, .smaller_by = 28},
-        FieldAt{.now = offsetof(Hub, join_port_), .original = 0x1A4, .smaller_by = 28},
+        FieldAt{.now = offsetof(Hub, join_), .original = 0x198, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, modem_state_shown_), .original = 0x1A8, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, join_began_at_), .original = 0x1AC, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, lobby_since_), .original = 0x1B0, .smaller_by = 28},
@@ -339,6 +337,25 @@ void ServerListing::check_layout()
         std::ranges::all_of(kLayout,
                             [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; }),
         "layout must match the original's, but for the smaller members");
+}
+
+// NOT ORIGINAL
+void JoinState::check_layout()
+{
+    constexpr std::size_t kAt = 0x198; // (each field at its offset in the hub, less the join state's own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(JoinState, join_phase_), .original = 0x198},
+        FieldAt{.now = offsetof(JoinState, join_ip_), .original = 0x19C},
+        FieldAt{.now = offsetof(JoinState, join_private_ip_), .original = 0x1A0},
+        FieldAt{.now = offsetof(JoinState, join_port_), .original = 0x1A4},
+        FieldAt{.now = sizeof(JoinState), .original = 0x1A8},
+    };
+    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+                  "layout must match the original");
 }
 
 } // namespace online

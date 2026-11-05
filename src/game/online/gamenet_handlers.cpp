@@ -16,6 +16,7 @@
 #include "game/online/gamenet_game_cfuncs.h"
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_conn.h"
@@ -258,7 +259,7 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
-    manager->set_entry_phase(EntryPhase::kJoined);
+    manager->join().set_entry_phase(EntryPhase::kJoined);
     desc.set_ident(MessageId::kReadyToReceive);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(MessageGroup::kGame);

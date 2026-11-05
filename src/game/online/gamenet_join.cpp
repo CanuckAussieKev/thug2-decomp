@@ -25,6 +25,7 @@
 #include "game/online/chat.h"
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "game/online/gamenet_lobby.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -407,10 +408,10 @@ void Hub::join_server(net::Address address, int index)
         client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagRemote});
         join_began_at_ = milli_seconds();
         get_logic_tasks()->queue_job(tasks_.join_expiry_job().get());
-        set_join_phase(EntryPhase::kConnecting);
+        join_.set_join_phase(EntryPhase::kConnecting);
         get_logic_tasks()->queue_job(tasks_.join_phase_job().get());
-        join_port_ = port;
-        join_ip_ = ip;
+        join_.set_entry_port(port);
+        join_.set_join_ip(ip);
         info.rank = static_cast<int8_t>(rating_service_->get_rank());
     }
     info.observer = join_mode_ == kJoinModeObserve;
@@ -460,7 +461,7 @@ void Hub::retry_entry(AppHost* client)
     client->transmit(false);
     join_began_at_ = milli_seconds();
     get_logic_tasks()->queue_job(tasks_.join_expiry_job().get());
-    set_join_phase(EntryPhase::kJoining);
+    join_.set_join_phase(EntryPhase::kJoining);
 }
 
 // 0x00534BD0
@@ -481,7 +482,7 @@ void Hub::retry_entry_with_key(const char* password)
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
     get_logic_tasks()->queue_job(tasks_.join_expiry_job().get());
-    set_join_phase(EntryPhase::kJoiningWithPassword);
+    join_.set_join_phase(EntryPhase::kJoiningWithPassword);
 }
 
 const std::array<char, 10> kUiStringText{{"ui_string"}};
@@ -626,9 +627,9 @@ int Hub::on_link_established(InboundMsgCtx* context)
     proceed.max_players_ = static_cast<int8_t>(manager->settings().get_player_limit());
     proceed.broadband = net->get_net_link_kind() != kConnectionTypeModem;
     if (manager->in_internet_mode()) {
-        proceed.port = manager->join_port_;
-        proceed.private_ip_ = manager->join_private_ip_;
-        proceed.public_ip_ = manager->join_ip_;
+        proceed.port = manager->join_.get_entry_port();
+        proceed.private_ip_ = manager->join_.get_join_private_ip();
+        proceed.public_ip_ = manager->join_.get_join_ip();
     }
     std::strncpy(proceed.server_name_.data(), preference_text(manager, kServerName), kServerNameSize - 1);
     core::at(proceed.server_name_, kServerNameSize - 1) = '\0';
@@ -658,9 +659,9 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         proceed.max_players_ = static_cast<int8_t>(manager->settings().get_player_limit());
         proceed.broadband = true;
         if (manager->in_internet_mode()) {
-            proceed.port = manager->join_port_;
-            proceed.private_ip_ = manager->join_private_ip_;
-            proceed.public_ip_ = manager->join_ip_;
+            proceed.port = manager->join_.get_entry_port();
+            proceed.private_ip_ = manager->join_.get_join_private_ip();
+            proceed.public_ip_ = manager->join_.get_join_ip();
         }
         std::strncpy(proceed.server_name_.data(), preference_text(manager, kServerName), kServerNameSize - 1);
         core::at(proceed.server_name_, kServerNameSize - 1) = '\0';
@@ -775,15 +776,16 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     ProceedInfo* proceed = &answer;
     if (conn->is_off_machine()) {
         conn->set_link_speed_class(proceed->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
-        manager->join_ip_ = proceed->public_ip_;
-        manager->join_private_ip_ = proceed->private_ip_;
-        manager->join_port_ = proceed->port;
+        manager->join_.set_join_ip(proceed->public_ip_);
+        manager->join_.set_join_private_ip(proceed->private_ip_);
+        manager->join_.set_entry_port(proceed->port);
         if (manager->presence_service_->authenticated()) {
             text::copy_cut(manager->lobby_service_->server_name(), proceed->server_name_.data());
             constexpr size_t kLocationSize = 0x1000;
             std::array<char, kLocationSize> location{};
-            get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_ip_, manager->join_private_ip_,
-                        manager->join_port_, manager->lobby_service_->server_name().data(), manager->lobby_service_->room_name().data());
+            get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_.get_join_ip(),
+                        manager->join_.get_join_private_ip(), manager->join_.get_entry_port(),
+                        manager->lobby_service_->server_name().data(), manager->lobby_service_->room_name().data());
             const char* status = script::fetch_text(manager->join_mode_ == 0 ? kStatusPlaying : kStatusObserving);
             manager->presence_service_->change_standing(2, status, location.data());
         }
@@ -831,7 +833,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         desc.set_queue(NetMessageInfo::kLaneOrdered);
     }
     as_client(context->receiver_app())->send_to_host(&desc);
-    manager->set_join_phase(EntryPhase::kJoining);
+    manager->join().set_join_phase(EntryPhase::kJoining);
     return net::kResultConsumed;
 }
 
@@ -851,7 +853,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         manager->refused_reason_ = kReasonFullObservers;
         break;
     case JoinRefusedReason::kCdKey: {
-        if (manager->join_phase() == EntryPhase::kCdKey) {
+        if (manager->join().join_phase() == EntryPhase::kCdKey) {
             // Answered already: refused.
             manager->refused_reason_ = checksums::hash_from_text(kNetReasonGeneral.data());
             break;
@@ -882,11 +884,11 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         text::copy_into(info.password, join_password().data());
         thugpro::ConnectRequest request{};
         send_connection_request(as_client(manager->client_app_), info, &request);
-        manager->set_join_phase(EntryPhase::kCdKey);
+        manager->join().set_join_phase(EntryPhase::kCdKey);
         return net::kResultPassOn;
     }
     case JoinRefusedReason::kPassword:
-        if (manager->join_phase() == EntryPhase::kTryingPassword) {
+        if (manager->join().join_phase() == EntryPhase::kTryingPassword) {
             manager->refused_reason_ = kReasonWrongPassword;
             break;
         }
@@ -916,7 +918,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         break;
     }
     manager->cancel_join();
-    manager->set_join_phase(EntryPhase::kRefused);
+    manager->join().set_join_phase(EntryPhase::kRefused);
     return net::kResultMsgFreed;
 }
 

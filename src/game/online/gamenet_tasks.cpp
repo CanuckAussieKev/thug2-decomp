@@ -12,6 +12,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "game/online/gamenet_handlers.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_join.h"
 #include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
@@ -205,7 +206,7 @@ void net_metrics_task(tasks::Task<Hub>* task)
 void join_deadline_tick(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
-    if (manager->join_phase() == EntryPhase::kOver ||
+    if (manager->join().join_phase() == EntryPhase::kOver ||
         frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout) {
         return;
     }

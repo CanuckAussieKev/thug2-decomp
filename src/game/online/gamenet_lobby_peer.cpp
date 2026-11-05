@@ -266,9 +266,9 @@ void RoomManager::public_address_callback(void* /*unused*/, uint32_t ip, uint16_
     if (!lobby->remote_) {
         return;
     }
-    manager->set_entry_port(port);
-    manager->set_join_ip(ip);
-    manager->set_join_private_ip(peer_private_ip(lobby->remote_));
+    manager->join().set_entry_port(port);
+    manager->join().set_join_ip(ip);
+    manager->join().set_join_private_ip(peer_private_ip(lobby->remote_));
     const char* name = nullptr;
     manager->settings().get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &name, 1);
     constexpr size_t kLocationSize = 1024;
