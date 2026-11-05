@@ -99,7 +99,7 @@ void KinematicsModule::tick_frame()
     step_seconds_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (motion_flags_ != 0U) {
         if ((motion_flags_ & kMotionHovering) != 0U) {
-            entity()->at_point().y = hover_base_;
+            entity()->at_point().y = hover_.base;
             update_hover();
         }
         if ((motion_flags_ & kMotionRotateAxes) != 0U) {

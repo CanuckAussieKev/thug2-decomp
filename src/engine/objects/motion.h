@@ -412,6 +412,14 @@ private:
         maths::ArcRotationBlender* blender{}; // +0x08 (+0x1CC) its interpolator (0x98 bytes; made on first use)
     };
 
+    // Obj_Hover's bob (+0x1D0-+0x1DF: obj_hover, update_hover, tick_frame).
+    struct Hover {
+        float base{};   // +0x00 (+0x1D0) the height without the bob
+        float bob{};    // +0x04 (+0x1D4) the bob now
+        float height{}; // +0x08 (+0x1D8) its amplitude
+        int period{};   // +0x0C (+0x1DC) ms
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
@@ -426,10 +434,7 @@ private:
     PathStop path_stop_;                  // +0x1A4-+0x1AF a stop along the path
     Stored stored_;                       // +0x1B0-+0x1C3 what the scripts stored
     Turn turn_;                           // +0x1C4-+0x1CF Obj_Rotate's turn
-    float hover_base_{};                         // +0x1D0 the height without the bob
-    float bob_now_{};                            // +0x1D4 the bob now
-    float bob_height_{};                         // +0x1D8
-    int bob_period_{};                           // +0x1DC ms
+    Hover hover_;                         // +0x1D0-+0x1DF Obj_Hover's bob
     float step_seconds_{};                       // +0x1E0 this frame's length (seconds, slow motion included)
     uint32_t own_node_name_{};                   // +0x1E4 its own node (Name)
     uint32_t list_link_{};                       // +0x1E8 the node it's at

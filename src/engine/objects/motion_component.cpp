@@ -183,18 +183,18 @@ int KinematicsModule::invoke_method_by_name(uint32_t name, script::Struct* param
 // 0x00423740
 void KinematicsModule::update_hover()
 {
-    auto period = static_cast<uint32_t>(bob_period_);
+    auto period = static_cast<uint32_t>(hover_.period);
     const uint32_t in_period = static_cast<uint32_t>(game_clock()) % period;
     const int doubled = static_cast<int>(in_period * 2);
     auto phase = static_cast<double>(doubled);
     if (doubled < 0) {
         phase += maths::kUnsignedWrap; // (the count taken as unsigned)
     }
-    phase = phase * static_cast<double>(maths::kPi) / static_cast<double>(bob_period_); // (pi)
-    auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
-    bob_now_ = offset;
+    phase = phase * static_cast<double>(maths::kPi) / static_cast<double>(hover_.period); // (pi)
+    auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(hover_.height));
+    hover_.bob = offset;
     const float height = entity()->at_point().y;
-    hover_base_ = height;
+    hover_.base = height;
     entity()->at_point().y = static_cast<float>(static_cast<double>(offset) + height);
 }
 
@@ -240,27 +240,27 @@ bool KinematicsModule::obj_get_random_link(script::Struct* /*params*/, script::S
 bool KinematicsModule::obj_hover(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kOff)) {
-        entity()->at_point().y = hover_base_;
+        entity()->at_point().y = hover_.base;
         motion_flags_ &= ~kMotionHovering;
         return true;
     }
-    bob_now_ = 0.0F;
-    params->fetch_float(kAmp, &bob_height_, 0);
+    hover_.bob = 0.0F;
+    params->fetch_float(kAmp, &hover_.height, 0);
     float frequency = 1.0F;
     params->fetch_float(kFreq, &frequency, 0);
     int period = truncate(static_cast<double>(kMillisecondsPerSecond) / frequency); // (1000)
-    bob_period_ = period;
+    hover_.period = period;
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
     const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20U);
     const int random = maths::rnd(twice / 10);
-    period = static_cast<int>(static_cast<uint32_t>(bob_period_ - (bob_period_ / kBobSpreadDivisor)) +
+    period = static_cast<int>(static_cast<uint32_t>(hover_.period - (hover_.period / kBobSpreadDivisor)) +
                               static_cast<uint32_t>(random));
-    bob_period_ = period;
+    hover_.period = period;
     if (period <= 0) {
-        bob_period_ = 1;
+        hover_.period = 1;
     }
     motion_flags_ |= kMotionHovering;
-    hover_base_ = entity()->at_point().y;
+    hover_.base = entity()->at_point().y;
     return true;
 }
 
@@ -377,10 +377,10 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, turn_.time), .original = 0x1C4},
         FieldAt{.now = offsetof(KinematicsModule, turn_.elapsed), .original = 0x1C8},
         FieldAt{.now = offsetof(KinematicsModule, turn_.blender), .original = 0x1CC},
-        FieldAt{.now = offsetof(KinematicsModule, hover_base_), .original = 0x1D0},
-        FieldAt{.now = offsetof(KinematicsModule, bob_now_), .original = 0x1D4},
-        FieldAt{.now = offsetof(KinematicsModule, bob_height_), .original = 0x1D8},
-        FieldAt{.now = offsetof(KinematicsModule, bob_period_), .original = 0x1DC},
+        FieldAt{.now = offsetof(KinematicsModule, hover_.base), .original = 0x1D0},
+        FieldAt{.now = offsetof(KinematicsModule, hover_.bob), .original = 0x1D4},
+        FieldAt{.now = offsetof(KinematicsModule, hover_.height), .original = 0x1D8},
+        FieldAt{.now = offsetof(KinematicsModule, hover_.period), .original = 0x1DC},
         FieldAt{.now = offsetof(KinematicsModule, step_seconds_), .original = 0x1E0},
         FieldAt{.now = offsetof(KinematicsModule, own_node_name_), .original = 0x1E4},
         FieldAt{.now = offsetof(KinematicsModule, list_link_), .original = 0x1E8},
