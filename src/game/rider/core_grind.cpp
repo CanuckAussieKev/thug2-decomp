@@ -109,7 +109,7 @@ float jump_adjust_speed() { return objects::FootMovement::get_param(kJumpAdjustS
 // The rail's terrain (the node being ground) told to the flags (0x005196A0) and the sound component.
 void SkaterPhysicsModule::set_rail_terrain()
 {
-    const uint8_t terrain = rail_node_->surface_type();
+    const uint8_t terrain = rail_.node->surface_type();
     state_->set_surface_kind(terrain);
     sound_->set_surface_type(terrain);
 }
@@ -135,8 +135,8 @@ void SkaterPhysicsModule::trigger_rail_node(const std::array<int, 3>& events)
             ride->stop_riding();
         }
     }
-    static_cast<objects::ActivationZoneModule*>(trigger_)
-        ->get_trigger_node(events, rail_script_node_, nullptr, ride_object);
+    static_cast<objects::ActivationZoneModule*>(trigger_)->get_trigger_node(events, rail_.script_node, nullptr,
+                                                                            ride_object);
 }
 
 // A feeler from the skater to the point: false when it hits something more than 6 from the point. The distance
@@ -201,7 +201,7 @@ void SkaterPhysicsModule::prepare_velocity(bool exactly_still, bool from_object)
 // The flags a new rail clears (the time of getting on kept at +0x234).
 void SkaterPhysicsModule::clear_rail_flags()
 {
-    rail_time_ = get_now();
+    rail_.time = get_now();
     set_flag(this, PoseFlag::kAcidDrop, 0);
     set_flag(this, PoseFlag::kFromAcidDrop, 0);
     set_flag(this, PoseFlag::kRecoverInAir, 0);
@@ -227,9 +227,9 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
     kick.y = static_cast<float>(std::sin(angle));
     kick.z = static_cast<float>(along.z * cosine);
 
-    script::Struct* script = level_nodes::fetch_vertex(rail_node_->label(), true);
-    script->read_hash_value(kName, &rail_script_node_, 1);
-    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_script_node_);
+    script::Struct* script = level_nodes::fetch_vertex(rail_.node->label(), true);
+    script->read_hash_value(kName, &rail_.script_node, 1);
+    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_.script_node);
     uint32_t trigger_script = 0;
     if (script->read_hash_value(kTriggerScript, &trigger_script, 0)) {
         trigger_rail_node(kGrindEvents);
@@ -266,7 +266,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
     u.z += z;
     u.w += w;
     clear_rail_flags();
-    rail_wait_ = static_cast<int>(script::fetch_float(kRailRegrabDelay));
+    rail_.wait = static_cast<int>(script::fetch_float(kRailRegrabDelay));
     set_flag(this, PoseFlag::kLipToAir, 0);
     object_of(this)->vel().change_heading(kick);
     if (trigger_script != 0U) {
@@ -282,12 +282,12 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
 void SkaterPhysicsModule::spin_on_point_rail(const maths::Vec4* point)
 {
     point_rail_spin_ = 1;
-    natas_counter_clockwise_ = static_cast<uint8_t>(input_->pad_primary().shoulder_right_a().held_down() != 0);
+    natas_.counter_clockwise = static_cast<uint8_t>(input_->pad_primary().shoulder_right_a().held_down() != 0);
     if (!clear_to_point(point, true)) {
         return;
     }
     onto_rail(point, true);
-    set_surface_kind(rail_node_->surface_type());
+    set_surface_kind(rail_.node->surface_type());
     if (on_vehicle_ == 0U) {
         play_land_sound();
     }
@@ -298,7 +298,7 @@ void SkaterPhysicsModule::spin_on_point_rail(const maths::Vec4* point)
     clear_rail_flags();
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kPointRailSpin, nullptr);
     trigger_rail_script(kSpinEvents);
-    natas_spin_time_ = get_now();
+    natas_.time = get_now();
 }
 
 // (0x0050A770) A lip trick on the rail at the top of a vert ramp: stopped there, upright along the ramp's top, the
@@ -352,13 +352,13 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     const bool bike = thaw_bmx::live_now(this);
     const maths::Vec4 start_velocity = object_of(this)->vel();
     set_rail_terrain();
-    auto* node = rail_node_;
+    auto* node = rail_.node;
     const objects::GrindPoint* next = node->succ();
-    auto* manager = rail_manager_;
+    auto* manager = rail_.manager;
     maths::Vec4 from;
     maths::Vec4 to;
     const maths::Vec4* from_point = manager->get_absolute_pos(&from, node);
-    const maths::Vec4* to_point = rail_manager_->get_absolute_pos(&to, next);
+    const maths::Vec4* to_point = rail_.manager->get_absolute_pos(&to, next);
     maths::Vec4 direction = {.x = to_point->x - from_point->x,
                              .y = to_point->y - from_point->y,
                              .z = to_point->z - from_point->z,
@@ -391,12 +391,12 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     maths::Vec4 end;
     if (forward) {
         sign = 1.0F;
-        if (!next->succ() && *rail_manager_->get_absolute_pos(&end, next) == *point) {
+        if (!next->succ() && *rail_.manager->get_absolute_pos(&end, next) == *point) {
             return;
         }
     } else {
         sign = -1.0F;
-        if (!node->last_value() && *rail_manager_->get_absolute_pos(&end, node) == *point) {
+        if (!node->last_value() && *rail_.manager->get_absolute_pos(&end, node) == *point) {
             return;
         }
     }
@@ -519,7 +519,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
         start_grind_trick(static_cast<uint32_t>(pad), left_side, sideways, rail_backwards_ != 0,
                              bit_mark(this, PoseFlag::kFlipped) != 0);
     }
-    rail_time_ = get_now();
+    rail_.time = get_now();
 }
 
 // 0x0050A770
@@ -530,20 +530,20 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     auto* flip_and_rotate = core::down_cast<objects::RiderSpinAndFlip>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate));
     flip_and_rotate->do_after_anim();
-    if (rail_node_ != node) {
+    if (rail_.node != node) {
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
         const auto index =
             static_cast<uint32_t>(node - manager->nodes());
         score_->points_held()->refresh_bot_check(static_cast<int>(index));
     }
-    rail_manager_ = manager;
-    rail_node_ = node;
+    rail_.manager = manager;
+    rail_.node = node;
 
     if (!node->last_value() && !node->succ()) {
         // A point rail: a spin when a spin button is held, long enough after the last one; else a kick.
         if ((input->pad_primary().shoulder_right_a().held_down() != 0U) ||
             (input->pad_primary().shoulder_left_a().held_down() != 0U)) {
-            const int elapsed = static_cast<int>(get_since(static_cast<uint32_t>(natas_spin_time_)));
+            const int elapsed = static_cast<int>(get_since(static_cast<uint32_t>(natas_.time)));
             if (!(static_cast<double>(script::fetch_float(kNatasDelay)) * kMillisecondsPerSecond > static_cast<float>(elapsed))) {
                 spin_on_point_rail(point);
                 return;
@@ -604,7 +604,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float min_alignment = 1.0F;
     if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorLevel &&
-        static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_time_)) < static_cast<uint32_t>(rail_wait_)) {
+        static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_.time)) < static_cast<uint32_t>(rail_.wait)) {
         min_alignment =
             static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));
     }

@@ -97,8 +97,8 @@ void SkaterPhysicsModule::step_wall_ride()
     set_flag(this, PoseFlag::kRecoverInAir, 0);
     set_flag(this, PoseFlag::kNoAcidDrop, 0);
     flip_spin_started_ = 0;
-    rail_node_ = nullptr;
-    last_rail_script_ = 0;
+    rail_.node = nullptr;
+    rail_.last_script = 0;
     wall_.ride_start = get_now();
 
     // What the skater rides on carries it (its turn too).

@@ -805,6 +805,26 @@ public:
         uint8_t began_in_lip{};        // +0x02 (+0x256) ... in the lip state
         std::array<uint8_t, 1> pad3{}; // +0x03 (+0x257)
     };
+    // The rail being ground (+0x22C-+0x247: start_grind, grind_along_rail, the rail scripts) and the natas spin
+    // (+0x1500-+0x1507). Apart: the ledge flags at +0x248 (a record ending in them would be padded over the
+    // skitch's first byte, +0x24A: on_ledge_, bad_ledge_), the lip trick's position (+0x258, lip_pos_), the way
+    // round (+0x34C, rail_backwards_) and change_rail_adjust's time (+0x3A8, rail_adjust_).
+    struct Rail {
+        objects::GrindPoint* node{};      // +0x00 (+0x22C) the rail node being ground (or last ground)
+        objects::GrindRailHub* manager{}; // +0x04 (+0x230) ... and its rail manager
+        int time{};                       // +0x08 (+0x234) the game clock when the skater last got on or off a rail
+        int lip_time{};                   // +0x0C (+0x238) the game clock in the lip state (each update)
+        int wait{};                       // +0x10 (+0x23C) ms before the same rail may be ground again
+        uint32_t script_node{};           // +0x14 (+0x240) the name of the rail node whose TriggerScript last ran
+        uint32_t last_script{};           // +0x18 (+0x244) (the same, kept for the next)
+        // (Where `point` is in the world: the manager's get_absolute_pos.)
+        [[nodiscard]] maths::Vec4 grind_point_in_world(const objects::GrindPoint* point) const;
+    };
+    struct NatasSpin {
+        uint8_t counter_clockwise{};   // +0x00 (+0x1500)
+        std::array<uint8_t, 3> pad1{}; // +0x01 (+0x1501)
+        int time{};                    // +0x04 (+0x1504) the game clock of the natas spin's last update
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return ground_.display_matrix; }
@@ -831,9 +851,9 @@ public:
     [[nodiscard]] const maths::Vec4& probe_end() const { return feelers_.probe_end; }
     [[nodiscard]] uint8_t hit_skatable() const { return feelers_.hit_skatable; }
     [[nodiscard]] uint8_t hit_vert() const { return feelers_.hit_vert; }
-    [[nodiscard]] objects::GrindPoint* rail_node() const { return rail_node_; }
-    void set_rail_node(objects::GrindPoint* value) { rail_node_ = value; }
-    void set_rail_manager(objects::GrindRailHub* value) { rail_manager_ = value; }
+    [[nodiscard]] objects::GrindPoint* rail_node() const { return rail_.node; }
+    void set_rail_node(objects::GrindPoint* value) { rail_.node = value; }
+    void set_rail_manager(objects::GrindRailHub* value) { rail_.manager = value; }
     [[nodiscard]] uint8_t frame_began_in_lip() const { return frame_flags_.began_in_lip; }
     void set_auto_kick(uint8_t value) { auto_kick_ = value; }
     [[nodiscard]] uint8_t auto_kick() const { return auto_kick_; }
@@ -927,13 +947,7 @@ private:
     GroundNormals ground_;          // +0x18-+0x8B the display matrix and the ground normals
     Frame frame_;                   // +0x8C-+0xA7 the frame
     Feelers feelers_;               // +0xA8-+0x22B the feelers and what the last check hit
-    objects::GrindPoint* rail_node_{};      // +0x22C the rail node being ground (or last ground)
-    objects::GrindRailHub* rail_manager_{}; // +0x230 ... and its rail manager
-    int rail_time_{};                       // +0x234 the game clock when the skater last got on or off a rail
-    int lip_time_{};                        // +0x238 the game clock in the lip state (each update)
-    int rail_wait_{};                       // +0x23C ms before the same rail may be ground again
-    uint32_t rail_script_node_{};           // +0x240 the name of the rail node whose TriggerScript last ran
-    uint32_t last_rail_script_{};           // +0x244 (the same, kept for the next)
+    Rail rail_;                     // +0x22C-+0x247 the rail being ground
     uint8_t on_ledge_{};                    // +0x248 the rail is a ledge (the Ledge member function)
     uint8_t bad_ledge_{};                   // +0x249 a bad ledge (BadLedge)
     uint8_t skitch_moving_{};               // +0x24A moving between skitch points
@@ -1032,9 +1046,7 @@ private:
     uint8_t throwing_projectile_{}; // +0x14C8 SetThrowingProjectile
     std::array<uint8_t, 3> pad14c9_{};
     LateWallplant late_wallplant_;      // +0x14CC-+0x14FF a late wallplant
-    uint8_t natas_counter_clockwise_{}; // +0x1500
-    std::array<uint8_t, 3> pad1501_{};
-    int natas_spin_time_{}; // +0x1504 the game clock of the natas spin's last update
+    NatasSpin natas_;                   // +0x1500-+0x1507 the natas spin
     uint8_t tantrum_{};     // +0x1508 EnterTantrum / ExitTantrum
     uint8_t tagging_{};     // +0x1509 EnterTagging / ExitTagging
     std::array<uint8_t, 2> pad150a_{};
@@ -1076,8 +1088,6 @@ private:
                           VertTarget* target, bool* object_hit);
     // (core_physics_turning.cpp)
     void turn_matrices(float angle);
-    // (core_rail.cpp)
-    maths::Vec4 grind_point_in_world(const objects::GrindPoint* node);
     // (core_physics_wallplant.cpp)
     bool button_pressed(uint32_t button);
     bool wall_above_hit();

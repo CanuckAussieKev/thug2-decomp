@@ -159,9 +159,9 @@ void SkaterPhysicsModule::leave_skating()
         vert_air_announced_ = 0;
         static_cast<objects::Entity*>(object_of(this))->announce(kGetOffEvent, nullptr, 0.0F);
     }
-    rail_wait_ = static_cast<int>(ftol(script::fetch_float(kRailWaitName)));
-    if (static_cast<uint32_t>(lip_time_) > static_cast<uint32_t>(rail_time_)) {
-        rail_time_ = lip_time_;
+    rail_.wait = static_cast<int>(ftol(script::fetch_float(kRailWaitName)));
+    if (static_cast<uint32_t>(rail_.lip_time) > static_cast<uint32_t>(rail_.time)) {
+        rail_.time = rail_.lip_time;
     }
     objects::RiderPoseState* state = state_;
     if (state->cur_phase() == kAir && frame_.old_state == kLip && (state->flag(PoseFlag::kLipToAir).on != 0U)) {

@@ -86,13 +86,13 @@ void SkaterPhysicsModule::step_coping_move()
         trigger_rail_script(kLipOffEvents);
         trigger_rail_script(kOffLipEvents);
     }
-    auto* node = rail_node_;
-    if (node && rail_manager_->node_array()) {
+    auto* node = rail_.node;
+    if (node && rail_.manager->node_array()) {
         script::Struct* script = level_nodes::fetch_vertex(node->label(), true);
-        script->read_hash_value(kName, &rail_script_node_, 1);
-        static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_script_node_);
+        script->read_hash_value(kName, &rail_.script_node, 1);
+        static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_.script_node);
     }
-    lip_time_ = get_now();
+    rail_.lip_time = get_now();
 }
 
 // 0x0050C670

@@ -144,7 +144,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
     using RailNode = objects::GrindPoint; // (its succ_ the next node, last_value_ the previous)
     const auto* node = static_cast<const RailNode*>(rail);
     objects::RiderPoseState* flags = state_;
-    const RailNode* last = rail_node_;
+    const RailNode* last = rail_.node;
     auto same_rail = [&] { return last == node || last == node->last_value() || last == node->succ(); };
     // In the air after a grind: not the same rail (or its neighbours) again.
     if (flags->cur_phase() == 1 && (flags->flag(PoseFlag::kFromAcidDrop).on != 0U) &&
@@ -163,15 +163,15 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)
             auto between = [this](const void* from, const void* to) {
-                const maths::Vec4 from_position = rail_node_position(rail_manager_, from);
-                const maths::Vec4 to_position = rail_node_position(rail_manager_, to);
+                const maths::Vec4 from_position = rail_node_position(rail_.manager, from);
+                const maths::Vec4 to_position = rail_node_position(rail_.manager, to);
                 return to_position - from_position;
             };
-            const maths::Vec4 d1 = between(node, rail_node_);
-            const maths::Vec4 d2 = between(node->last_value(), rail_node_);
-            const RailNode* last_previous = rail_node_->last_value();
+            const maths::Vec4 d1 = between(node, rail_.node);
+            const maths::Vec4 d2 = between(node->last_value(), rail_.node);
+            const RailNode* last_previous = rail_.node->last_value();
             const maths::Vec4 d3 = between(node, last_previous);
-            last_previous = rail_node_->last_value();
+            last_previous = rail_.node->last_value();
             const maths::Vec4 d4 = between(node->last_value(), last_previous);
             new_rail = std::fabs(length_unrounded(d1)) > kRailEndDistance &&
                        std::fabs(length_unrounded(d2)) > kRailEndDistance &&
@@ -185,7 +185,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
 
     // The same rail: only after the wait since leaving it.
     if ((state_->flag(PoseFlag::kLipToAir).on == 0U) &&
-        get_since(static_cast<uint32_t>(rail_time_)) <= static_cast<uint32_t>(rail_wait_)) {
+        get_since(static_cast<uint32_t>(rail_.time)) <= static_cast<uint32_t>(rail_.wait)) {
         return false;
     }
     if (any_time) {

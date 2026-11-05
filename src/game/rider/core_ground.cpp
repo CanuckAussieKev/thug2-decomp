@@ -69,8 +69,8 @@ void SkaterPhysicsModule::do_ground_physics()
                           PoseFlag::kFromAcidDrop, PoseFlag::kRecoverInAir, PoseFlag::kNoAcidDrop}) {
         set_flag(this, flag, 0);
     }
-    rail_node_ = nullptr;
-    last_rail_script_ = 0;
+    rail_.node = nullptr;
+    rail_.last_script = 0;
     wallplant_.vert_planted = 0;
     transfer_blocked_ = 0;
     flip_spin_started_ = 0;

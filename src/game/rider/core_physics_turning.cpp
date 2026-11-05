@@ -235,7 +235,7 @@ void SkaterPhysicsModule::natas_spin()
     const double balance = std::fabs(static_cast<double>(balance_->get_lean()));
     // The spin slows the further off balance.
     double rate = factor - (balance / (kNatasSpinScale / static_cast<double>(factor))) + kNatasSpinBase;
-    if (natas_counter_clockwise_ != 0U) {
+    if (natas_.counter_clockwise != 0U) {
         rate = -rate;
     }
     last_spin_backside_ = rate > 0.0 ? 1 : 0;
@@ -256,7 +256,7 @@ void SkaterPhysicsModule::natas_spin()
         void* display = score_->points_held();
         static_cast<modules::PointTally*>(display)->advance_turn(shown);
     }
-    natas_spin_time_ = get_now();
+    natas_.time = get_now();
 }
 
 // 0x00504910

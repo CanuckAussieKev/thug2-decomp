@@ -130,13 +130,13 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.hit_vert), .original = 0x229},
         FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.hit_wall), .original = 0x22A},
         FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.pad183), .original = 0x22B},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_node_), .original = 0x22C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_manager_), .original = 0x230},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_time_), .original = 0x234},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, lip_time_), .original = 0x238},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_wait_), .original = 0x23C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_script_node_), .original = 0x240},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, last_rail_script_), .original = 0x244},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_.node), .original = 0x22C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_.manager), .original = 0x230},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_.time), .original = 0x234},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_.lip_time), .original = 0x238},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_.wait), .original = 0x23C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_.script_node), .original = 0x240},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rail_.last_script), .original = 0x244},
         FieldAt{.now = offsetof(SkaterPhysicsModule, on_ledge_), .original = 0x248},
         FieldAt{.now = offsetof(SkaterPhysicsModule, bad_ledge_), .original = 0x249},
         FieldAt{.now = offsetof(SkaterPhysicsModule, skitch_moving_), .original = 0x24A},
@@ -253,9 +253,9 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.velocity), .original = 0x14D0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.pos), .original = 0x14E0},
         FieldAt{.now = offsetof(SkaterPhysicsModule, late_wallplant_.wall_normal), .original = 0x14F0},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, natas_counter_clockwise_), .original = 0x1500},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad1501_), .original = 0x1501},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, natas_spin_time_), .original = 0x1504},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, natas_.counter_clockwise), .original = 0x1500},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, natas_.pad1), .original = 0x1501},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, natas_.time), .original = 0x1504},
         FieldAt{.now = offsetof(SkaterPhysicsModule, tantrum_), .original = 0x1508},
         FieldAt{.now = offsetof(SkaterPhysicsModule, tagging_), .original = 0x1509},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad150a_), .original = 0x150A},
@@ -322,7 +322,7 @@ void SkaterPhysicsModule::get_reset()
     no_kick_ = 0;
     can_brake_ = 1;
     state_->set_lip_straight_up(0);
-    rail_node_ = nullptr;
+    rail_.node = nullptr;
     if (limits_time_ != -kTimerForLevel) { // (-2: kept)
         limits_time_ = 0.0F;
     }
