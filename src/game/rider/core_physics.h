@@ -1037,6 +1037,8 @@ private:
     // (core_physics_wallplant.cpp)
     bool button_pressed(uint32_t button);
     bool wall_above_hit();
+    // The original's offsets of the fields above and its size (core_physics_state.cpp).
+    static void check_layout();
 };
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
