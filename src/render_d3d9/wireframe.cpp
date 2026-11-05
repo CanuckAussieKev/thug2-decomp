@@ -2,8 +2,7 @@
 
 #include "render_d3d9/wireframe.h"
 
-#include <d3d9.h>
-
+#include "engine/gfx/gpu.h"
 #include "render_d3d9/device.h"
 #include "engine/gfx/engine_parts.h"
 
@@ -25,14 +24,14 @@ void begin_world()
 {
     wire() = engine_parts().render_mode() != 0;
     if (wire()) {
-        set_render_state(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+        set_render_state(GpuRenderState::kFillMode, gpu_value::kFillWireframe);
     }
 }
 
 void end_world()
 {
     if (wire()) {
-        set_render_state(D3DRS_FILLMODE, D3DFILL_SOLID);
+        set_render_state(GpuRenderState::kFillMode, gpu_value::kFillSolid);
     }
     wire() = false;
 }

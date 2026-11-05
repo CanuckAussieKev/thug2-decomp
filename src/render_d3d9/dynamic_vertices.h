@@ -34,6 +34,13 @@ core::Cursor<V> lock_vertices(uint32_t count, render::GpuVertexBuffer** buffer, 
 // aligned).
 void unlock_dynamic_vertices(uint32_t count, uint32_t stride);
 
+// 0x005F4840 (cdecl): an occlusion query begun (the one in progress). Returns the result of making or issuing it
+// (a failed one released).
+long begin_occlusion_query();
+// 0x005F5650 (cdecl): the query in progress ended and kept under `key` (its Issue failing: released, but kept
+// all the same). A negative result (D3DERR_NOTFOUND) without one, E_FAIL if `key` is taken.
+long end_occlusion_query(uint32_t key);
+
 // 0x005F4C80 (cdecl): the pixels `key`'s query saw: 0 with them (the query forgotten and released), 1 not yet, a
 // negative result (Direct3D 9's D3DERR_NOTFOUND) for no such query.
 long get_occlusion_result(uint32_t key, uint32_t* pixels);

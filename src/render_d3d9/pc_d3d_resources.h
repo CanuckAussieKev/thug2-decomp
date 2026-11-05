@@ -25,12 +25,7 @@ void release_quad_index_buffer();
 // 0x005F4690 (cdecl): the index buffer for `quads` quads, two triangles each (0 1 2, 2 3 0). Returns Unlock's
 // result.
 HRESULT create_quad_index_buffer(uint32_t quads);
-// 0x005F4840 (cdecl): an occlusion query begun (the one in progress). Returns the result of making or issuing it
-// (a failed one released).
-HRESULT begin_occlusion_query();
-// 0x005F5650 (cdecl): the query in progress ended and kept under `key` (its Issue failing: released, but kept
-// all the same). D3DERR_NOTFOUND without one, E_FAIL if `key` is taken.
-HRESULT end_occlusion_query(uint32_t key);
+// (begin_occlusion_query / end_occlusion_query: dynamic_vertices.h.)
 // 0x005F52D0 (cdecl): every kept query and the one in progress released.
 void release_occlusion_queries();
 

@@ -2,10 +2,6 @@
 
 #include "render_d3d9/pc_gamma.h"
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -13,7 +9,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
-#include "render_d3d9/d3d9_state.h"
+#include "engine/gfx/gpu.h"
 
 namespace render {
 
@@ -86,10 +82,10 @@ void set_device_gamma(float red, float green, float b)
     core::at(gammas(), 1) = static_cast<float>(static_cast<double>(green) + green + kGammaOffset);
     core::at(gammas(), 2) = static_cast<float>(static_cast<double>(b) + b + kGammaOffset);
     build_gamma_ramp();
-    D3DGAMMARAMP ramp{}; // (red, green, blue: the table's three runs)
+    GpuGammaRamp ramp{}; // (red, green, blue: the table's three runs)
     static_assert(sizeof(ramp) == sizeof(pc_gamma_state().gamma_ramp_));
     std::memcpy(&ramp, pc_gamma_state().gamma_ramp_.data(), sizeof(ramp));
-    d3d9::state().d3d_device()->SetGammaRamp(0, 0, &ramp);
+    gpu().set_gamma_ramp(ramp);
 }
 
 } // namespace render
