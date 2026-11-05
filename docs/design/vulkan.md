@@ -334,6 +334,30 @@ specular material are `GpuLight` / `GpuMaterial` (Direct3D 9's layouts), the mat
   `kUsageDynamic` / `kPoolDefault` / `kFormatIndex16` / `kLockReadOnly` / `kLockDiscard`.
 - The meshes' world draws now go through the Gpu in steady play: about 6,900 of the frame's ~7,300 device calls.
 
+### V5c: particles, billboards, weather, grass, glow, splats, shatter through `Gpu` (done)
+
+`pc_flexible_particles`, `pc_particles` (the dynamic vertex buffer's batches: stream source, quads' indices, indexed and
+plain draws), `pc_billboards` and `billboard_quad` (the camera-facing meshes and the 2D sprites' quads), `pc_weather`
+(rain lines, snow points, splash quads), `pc_grass` (a lock flag only), `glow` (the occlusion-tested quads),
+`texture_splats` and `shatter` (draws from memory) include no Direct3D header any more
+(`tools/d3d_headers.test.ts`). The same calls with the same numbers in the same order; one `Gpu` call where a device call
+was, nothing per particle. The part of the platform layer these files use - the dynamic vertex buffer's lock / unlock,
+the quads' index buffer, the occlusion answer - is `render_d3d9/dynamic_vertices.h`, in the handles' terms
+(`pc_d3d_resources.cpp` converts at the edge; V5d / V5e move its creation behind the `Gpu`).
+
+- **Added to the interface**: `set_vertex_shader` / `set_vertex_constants` (recorded in the state block beside the pixel
+  shader's: `vertex_shader`, `vertex_constants` c0-c7), `get_vertex_format`, `get_pixel_shader`, `get_vertex_shader`,
+  `get_indices` (the billboards save and restore what the device holds around their draw), `GpuVertexShader`, and the
+  vertex format bits (`kFvf*`, `engine/gfx/mesh_formats.h`) checked against `<d3d9.h>`.
+- **Design choice (flagged)**: the saved shaders and index buffer come back as Direct3D 9 gives them - with a reference
+  the original never released for the shaders (it leaked them) - so `get_*` is the device's own read, one call each.
+  A Vulkan `Gpu` keeps its pipeline in the state block already, so `get_pixel_shader` / `get_vertex_shader` /
+  `get_vertex_format` / `get_indices` read the block and take no reference (the caller's release of the buffers is a
+  no-op there), and the billboard's vertex shader is its own vertex stage, selected by `set_vertex_shader`.
+- State blocks, stream-source frequency, the scissor rectangle and clip planes are not used by any of these files; the
+  calls the logs show (`SetStreamSourceFreq`, `SetClipPlane`, `CreateStateBlock`...) are Dear ImGui's Direct3D 9 backend,
+  which is not meant to go through the `Gpu`.
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -361,7 +385,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V4 | Choose the renderer at start-up: `[Graphics] renderer=d3d9\|vulkan`; `app/` installs the matching `Device` / `UiBackend`; the SDL window flag through `sys::create_sdl_window` | V1 | after stage 11 - done: `app/renderer_choice`, falls back to Direct3D 9 until the device exists |
 | V5a | `render::Gpu`: the interface, and `render_state`'s cache and `primitive_states` through it (D3D9 implementation = today's calls) | - | after stage 11 - done: `engine/gfx/gpu.h`, `render_d3d9/gpu_d3d9.cpp` |
 | V5b | Meshes, materials, skinning, mesh lists, instances through `Gpu` | V5a | after stage 11 - done |
-| V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 |
+| V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 - done |
 | V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 |
 | V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` | V5a | after stage 11 |
 | V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 |
