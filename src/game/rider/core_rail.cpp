@@ -379,16 +379,16 @@ void SkaterPhysicsModule::ride_moving_rail()
 }
 
 // (Part of 0x0050DDF0) A grind or a slide: its balance (+0x7C of the balance trick component), the Perfect Rail cheat.
-void SkaterPhysicsModule::update_grind_balance() const
+void SkaterPhysicsModule::update_grind_balance()
 {
-    const uint32_t kind = siblings_.balance->trick();
+    const uint32_t kind = balance_->trick();
     if (kind == kGrind || kind == kSlide) {
-        siblings_.balance->grind().tick_frame();
+        balance_->grind().tick_frame();
         auto career = [] { return modules::Skate::sole()->career().get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
-            siblings_.balance->grind().set_lean(0.0F);
-            siblings_.balance->grind().set_lean_speed(0.0F);
+            balance_->grind().set_lean(0.0F);
+            balance_->grind().set_lean_speed(0.0F);
             online::net_game_state().set_cheat_flag(true);
         }
     }
@@ -545,14 +545,14 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
 void SkaterPhysicsModule::finish_rail()
 {
     ground_.floor_normal = core::at(entity()->basis_frame().row, 1);
-    modules::PointTally* score = siblings_.score->points_held();
+    modules::PointTally* score = score_->points_held();
     const int time = static_cast<int>(static_cast<double>(rail_adjust_) * score->robot_factor());
     score->tweak_trick(time);
     if (rail_.manager->node_array()) {
         script::Struct* script = level_nodes::fetch_vertex(rail_.node->label(), true);
         // (0x00476EC0: read_hash_value with a bool for its last argument - the wrapper passes it on as 1)
         script->read_hash_value(kName, &rail_.script_node, 1);
-        static_cast<objects::MoveExecutor*>(siblings_.trick)->pass_to_trick_objects(rail_.script_node);
+        static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_.script_node);
     }
 }
 

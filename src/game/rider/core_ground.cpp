@@ -190,8 +190,7 @@ void SkaterPhysicsModule::do_ground_physics()
         set_flag(this, PoseFlag::kLeftVert, 1);
         set_flag(this, PoseFlag::kJumped, 1);
     }
-    static_cast<objects::MoveExecutor*>(siblings_.trick)
-        ->pass_to_trick_objects(feelers_.floor_feeler.hit().object_checksum_);
+    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.floor_feeler.hit().object_checksum_);
     queued_spin_ = 0.0F;
 }
 
@@ -199,7 +198,7 @@ void SkaterPhysicsModule::do_ground_physics()
 void SkaterPhysicsModule::tick_balance_trick(bool bike)
 {
     crouch_stats_ = 0;
-    const uint32_t kind = siblings_.balance->trick();
+    const uint32_t kind = balance_->trick();
     if (kind == 0) {
         if (bike ? thaw_bmx::should_brake(this) : should_brake()) {
             get_brake();
@@ -210,8 +209,8 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike)
             }
         }
     } else if (kind == kSkitch) {
-        siblings_.balance->skitch().tick_frame();
-        perfect_cheat(kPerfectSkitch, siblings_.balance->skitch());
+        balance_->skitch().tick_frame();
+        perfect_cheat(kPerfectSkitch, balance_->skitch());
     } else if (kind == kNoseManual || kind == kManual) {
         friction_.braking = 0;
         if (motoskateboard_ != 0U) {
@@ -220,9 +219,9 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike)
                 push_off();
             }
         }
-        siblings_.balance->manual().tick_frame();
-        static_cast<objects::MoveExecutor*>(siblings_.trick)->set_trick_objects(true);
-        perfect_cheat(kPerfectManual, siblings_.balance->manual());
+        balance_->manual().tick_frame();
+        static_cast<objects::MoveExecutor*>(trick_)->set_trick_objects(true);
+        perfect_cheat(kPerfectManual, balance_->manual());
     }
 }
 
@@ -266,8 +265,8 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             end.y = position.y - down_y;
             if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
                 const uint8_t terrain = feelers_.feeler.hit().terrain;
-                siblings_.state->set_surface_kind(terrain);
-                siblings_.sound->set_surface_type(terrain);
+                state_->set_surface_kind(terrain);
+                sound_->set_surface_type(terrain);
             }
         } else {
             check_for_ground();

@@ -328,12 +328,12 @@ void SkaterPhysicsModule::step_wall_ride()
                     return;
                 }
             }
-            objects::MoveExecutor* skater = siblings_.trick;
+            objects::MoveExecutor* skater = trick_;
             if (!skater->trick_objects_on()) {
                 skater->set_trick_objects(false);
             }
             assign_feeler(&feelers_.floor_feeler, &feelers_.feeler);
-            siblings_.sound->set_last_ground(feelers_.floor_feeler.hit().terrain);
+            sound_->set_last_ground(feelers_.floor_feeler.hit().terrain);
         }
     } else {
         off_wall_edge(true);
@@ -343,7 +343,7 @@ void SkaterPhysicsModule::step_wall_ride()
         }
     }
 
-    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (siblings_.input->pad_primary().pos_x().held_down() != 0U)) {
+    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
     // Jumping off: out from the wall and up, upright.
@@ -373,8 +373,7 @@ void SkaterPhysicsModule::step_wall_ride()
         ground_.floor_normal = ground_.drawn_normal;
         ground_.old_normal = ground_.drawn_normal;
     }
-    static_cast<objects::MoveExecutor*>(siblings_.trick)
-        ->pass_to_trick_objects(feelers_.floor_feeler.hit().object_checksum_);
+    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.floor_feeler.hit().object_checksum_);
 }
 
 } // namespace skater

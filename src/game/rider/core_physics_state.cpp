@@ -259,18 +259,18 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, tantrum_), .original = 0x1508},
         FieldAt{.now = offsetof(SkaterPhysicsModule, tagging_), .original = 0x1509},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad150a_), .original = 0x150A},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.input), .original = 0x150C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.trigger), .original = 0x1510},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.sound), .original = 0x1514},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.trick), .original = 0x1518},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.rotate), .original = 0x151C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.score), .original = 0x1520},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.balance), .original = 0x1524},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.state), .original = 0x1528},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.ride), .original = 0x152C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.physics_control), .original = 0x1530},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.walk), .original = 0x1534},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, siblings_.tagging_component), .original = 0x1538},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, input_), .original = 0x150C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, trigger_), .original = 0x1510},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, sound_), .original = 0x1514},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, trick_), .original = 0x1518},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, rotate_), .original = 0x151C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, score_), .original = 0x1520},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, balance_), .original = 0x1524},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, state_), .original = 0x1528},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, ride_), .original = 0x152C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, physics_control_), .original = 0x1530},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, walk_), .original = 0x1534},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, tagging_component_), .original = 0x1538},
         FieldAt{.now = sizeof(SkaterPhysicsModule), .original = 0x153C},
     };
     static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now == field.original; }),
@@ -295,16 +295,16 @@ void SkaterPhysicsModule::get_reset()
     for (int flag = kLastPoseFlag; flag >= 0; --flag) {
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
         if (flag == kSlideFlag) {
-            siblings_.sound->set_sliding(1);
+            sound_->set_sliding(1);
         }
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
         if (flag == kSlideFlag) {
-            siblings_.sound->set_sliding(0);
+            sound_->set_sliding(0);
         }
     }
     set_timed_flag(this, PoseFlag::kFlipped, static_cast<uint8_t>(!core::down_cast<objects::Rider>(entity())->goofy()));
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
-    objects::MovingSurfaceModule* ride = siblings_.ride;
+    objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* rider = ride->ride().get()) {
         ride->set_last_object(rider->entity().get_pull());
         rider->entity().get_release();
@@ -321,7 +321,7 @@ void SkaterPhysicsModule::get_reset()
     air_flags_.bail_on = 0;
     no_kick_ = 0;
     can_brake_ = 1;
-    siblings_.state->set_lip_straight_up(0);
+    state_->set_lip_straight_up(0);
     rail_.node = nullptr;
     if (limits_.time != -kTimerForLevel) { // (-2: kept)
         limits_.time = 0.0F;
@@ -338,7 +338,7 @@ void SkaterPhysicsModule::get_reset()
 void SkaterPhysicsModule::remember_floor_probe(const void* feeler)
 {
     feelers_.floor_feeler.get_assign(*static_cast<const render::ProbeRay*>(feeler));
-    siblings_.sound->set_last_ground(feelers_.floor_feeler.hit().terrain);
+    sound_->set_last_ground(feelers_.floor_feeler.hit().terrain);
 }
 
 // 0x00506BD0
@@ -381,7 +381,7 @@ void SkaterPhysicsModule::Friction::update_free_revert()
 // 0x005007A0
 void SkaterPhysicsModule::update_focus_button()
 {
-    objects::ControlButton* button = &siblings_.input->pad_primary().stick_click_left();
+    objects::ControlButton* button = &input_->pad_primary().stick_click_left();
     if (focus_held_ != 0U) {
         if (button->held_down() == 0U) {
             focus_held_ = 0;
@@ -401,10 +401,10 @@ void SkaterPhysicsModule::update_focus_button()
 // 0x00500820
 void SkaterPhysicsModule::update_projectiles()
 {
-    if ((throwing_.on != 0U) || (projectiles_.on == 0U) || (siblings_.state->flag(PoseFlag::kBailing).on != 0U)) {
+    if ((throwing_.on != 0U) || (projectiles_.on == 0U) || (state_->flag(PoseFlag::kBailing).on != 0U)) {
         return;
     }
-    const objects::TaggingControlComponent* other = siblings_.tagging_component;
+    const objects::TaggingControlComponent* other = tagging_component_;
     if (other->pending() || (other->countdown() != 0) || !(other->cooldown() == 0.0F)) {
         return;
     }
@@ -421,7 +421,7 @@ void SkaterPhysicsModule::update_projectiles()
     }
     wait = kProjectileWaitFrames;
     // (0x004FC420: walking.)
-    const bool walking = static_cast<objects::RiderBoardPhysics*>(siblings_.physics_control)->is_on_foot();
+    const bool walking = static_cast<objects::RiderBoardPhysics*>(physics_control_)->is_on_foot();
     script::launch_script(walking ? kWalkThrow : kSkateThrow, nullptr, object_of(this), false, nullptr);
 }
 
@@ -436,7 +436,7 @@ void SkaterPhysicsModule::update_model_rotation()
     model_rotation_.frames_left = static_cast<float>(left); // (compared below unrounded)
     Expects(model != nullptr);
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
-    if (siblings_.state->cur_phase() != 1) {
+    if (state_->cur_phase() != 1) {
         reset_rotations();
         model_rotating_ = 0;
         no_rail_tricks_ = 0;
@@ -486,7 +486,7 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct* /*params*/, script::S
 {
     const objects::GameEntity* object = object_of(this);
     const float y = object->at_point().y;
-    auto drop = static_cast<float>(y - (static_cast<double>(y) - siblings_.state->height_above_ground()));
+    auto drop = static_cast<float>(y - (static_cast<double>(y) - state_->height_above_ground()));
     const float upward = object->vel().y;
     const double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.
@@ -557,7 +557,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         script::host().bind_script(object->own_script(), tricks->fetch_part(buttons), nullptr, object);
     }
     script::host().tick_frame(object_of(this)->own_script());
-    siblings_.state->set_in_trick_move(1);
+    state_->set_in_trick_move(1);
 }
 
 } // namespace skater

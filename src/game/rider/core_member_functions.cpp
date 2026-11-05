@@ -281,9 +281,9 @@ bool hit_wall(const render::ProbeRay& feeler)
 } // namespace
 
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
-uint32_t SkaterPhysicsModule::time_aloft() const
+uint32_t SkaterPhysicsModule::time_aloft()
 {
-    const int state = siblings_.state->cur_phase();
+    const int state = state_->cur_phase();
     if (state == 1 || state == 2) {
         return get_since(air_time_.start);
     }
@@ -614,33 +614,33 @@ int SkaterPhysicsModule::get_braking(script::Struct* /*params*/, script::Script*
 // --- the timed flags ---
 
 // 0x004FC780
-int SkaterPhysicsModule::get_flipped(script::Struct* /*params*/, script::Script* /*script*/) const
+int SkaterPhysicsModule::get_flipped(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return get_is(siblings_.state->flag(PoseFlag::kFlipped).on);
+    return get_is(state_->flag(PoseFlag::kFlipped).on);
 }
 // 0x004FC7A0
 int SkaterPhysicsModule::get_switched(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    const bool flipped = siblings_.state->flag(PoseFlag::kFlipped).on != 0;
+    const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
     if (core::down_cast<objects::Rider>(entity())->goofy()) {
         return flipped ? 1 : 0;
     }
     return flipped ? 0 : 1;
 }
 // 0x004FC7E0
-int SkaterPhysicsModule::get_crouched(script::Struct* /*params*/, script::Script* /*script*/) const
+int SkaterPhysicsModule::get_crouched(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return get_is(siblings_.state->flag(PoseFlag::kCrouched).on);
+    return get_is(state_->flag(PoseFlag::kCrouched).on);
 }
 // 0x004FC800
-int SkaterPhysicsModule::first_time_on_this_rail(script::Struct* /*params*/, script::Script* /*script*/) const
+int SkaterPhysicsModule::first_time_on_this_rail(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return get_is(siblings_.state->flag(PoseFlag::kFirstTimeOnRail).on);
+    return get_is(state_->flag(PoseFlag::kFirstTimeOnRail).on);
 }
 // 0x004FC820
-int SkaterPhysicsModule::skitching(script::Struct* /*params*/, script::Script* /*script*/) const
+int SkaterPhysicsModule::skitching(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return get_is(siblings_.state->flag(PoseFlag::kSkitching).on);
+    return get_is(state_->flag(PoseFlag::kSkitching).on);
 }
 // 0x004FC840
 int SkaterPhysicsModule::cancel_wallpush(script::Struct* /*params*/, script::Script* /*script*/)
@@ -668,14 +668,14 @@ int SkaterPhysicsModule::not_in_bail(script::Struct* /*params*/, script::Script*
     return 1;
 }
 // 0x004FD020
-int SkaterPhysicsModule::is_in_bail(script::Struct* /*params*/, script::Script* /*script*/) const
+int SkaterPhysicsModule::is_in_bail(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return get_is(siblings_.state->flag(PoseFlag::kBailing).on);
+    return get_is(state_->flag(PoseFlag::kBailing).on);
 }
 // 0x004FD1C0
-int SkaterPhysicsModule::in_vert_air(script::Struct* /*params*/, script::Script* /*script*/) const
+int SkaterPhysicsModule::in_vert_air(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return get_is(siblings_.state->flag(PoseFlag::kVertAir).on);
+    return get_is(state_->flag(PoseFlag::kVertAir).on);
 }
 // 0x004FD530
 int SkaterPhysicsModule::override_cancel_ground(script::Struct* params, script::Script* /*script*/)
@@ -818,7 +818,7 @@ int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script* 
     params->read_hash_value(0U, &sound, 1);
     const bool slide = sound == kSlide;
     set_timed_flag(this, PoseFlag::kSlide, slide ? 1 : 0);
-    siblings_.sound->set_sliding(slide ? 1 : 0);
+    sound_->set_sliding(slide ? 1 : 0);
     return 1;
 }
 
@@ -835,16 +835,16 @@ int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Scrip
 }
 
 // 0x004FD140
-int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script* /*script*/) const
+int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kBackside)) {
-        const bool flipped = siblings_.state->flag(PoseFlag::kFlipped).on != 0;
+        const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
         const bool backside = last_spin_backside_ != 0;
         const bool spun_backside = flipped ? !backside : backside; // (flipped: the other way round)
         return spun_backside ? 1 : 0;
     }
     if (params->has_bare_flag(kFrontside)) {
-        const bool flipped = siblings_.state->flag(PoseFlag::kFlipped).on != 0;
+        const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
         const bool backside = last_spin_backside_ != 0;
         const bool spun_frontside = flipped ? backside : !backside;
         return spun_frontside ? 1 : 0;

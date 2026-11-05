@@ -34,7 +34,7 @@ void SkaterPhysicsModule::tick_frame()
     frame_flags_.landed = 0;
     frame_flags_.began_in_lip = static_cast<uint8_t>(state_of(this) == kLip);
     frame_flags_.began_in_drop = bit_mark(this, PoseFlag::kAcidDrop);
-    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (siblings_.input->pad_primary().pos_x().held_down() != 0U)) {
+    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
     clamp_skater_speed();

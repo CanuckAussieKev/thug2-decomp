@@ -52,12 +52,12 @@ void SkaterPhysicsModule::step_coping_move()
             stop_riding(this);
         } else {
             // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
-            auto* contact = siblings_.ride;
+            auto* contact = ride_;
             maths::Vec4 where;
             objects::GameEntity* object = object_of(this);
             contact->get_contact_point(&where);
             object->at_point() = where;
-            siblings_.ride->get_contact_point(&where);
+            ride_->get_contact_point(&where);
             lip_pos_ = where;
             if (get_tracker(this)->turned()) {
                 maths::Mat4& matrix = entity()->basis_frame();
@@ -67,17 +67,17 @@ void SkaterPhysicsModule::step_coping_move()
         }
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
-    if (siblings_.balance->trick() == kLipKind) {
+    if (balance_->trick() == kLipKind) {
         auto career = [] { return modules::Skate::sole()->career().get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
-            siblings_.balance->lip().set_lean(0.0F);
-            siblings_.balance->lip().set_lean_speed(0.0F);
+            balance_->lip().set_lean(0.0F);
+            balance_->lip().set_lean_speed(0.0F);
             online::net_game_state().set_cheat_flag(true);
         }
-        siblings_.balance->lip().tick_frame();
+        balance_->lip().tick_frame();
     }
-    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (siblings_.input->pad_primary().pos_x().held_down() != 0U)) {
+    if ((bit_mark(this, PoseFlag::kCrouched) == 0U) && (input_->pad_primary().pos_x().held_down() != 0U)) {
         set_flag(this, PoseFlag::kCrouched, 1);
     }
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
@@ -90,7 +90,7 @@ void SkaterPhysicsModule::step_coping_move()
     if (node && rail_.manager->node_array()) {
         script::Struct* script = level_nodes::fetch_vertex(node->label(), true);
         script->read_hash_value(kName, &rail_.script_node, 1);
-        static_cast<objects::MoveExecutor*>(siblings_.trick)->pass_to_trick_objects(rail_.script_node);
+        static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_.script_node);
     }
     rail_.lip_time = get_now();
 }
@@ -107,7 +107,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         set_physics_state(kAir);
         frame_.old_state = kAir;
         set_flag(this, PoseFlag::kNoSecondSpin, 1);
-        if (static_cast<uint8_t>(siblings_.walk->off_vert()) != 0U) {
+        if (static_cast<uint8_t>(walk_->off_vert()) != 0U) {
             set_flag(this, PoseFlag::kNoAcidDrop, 1);
         }
     }
@@ -128,7 +128,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     air_flags_.no_spin = 0;
     no_kick_ = 0;
     can_brake_ = 1;
-    siblings_.state->set_lip_straight_up(0); // (without its time)
+    state_->set_lip_straight_up(0); // (without its time)
     if (limits_.time != -kTimerForLevel) {
         limits_.time = 0.0F;
     }
@@ -139,7 +139,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     wallplant_.vert_planted = 0;
     if (grind_from) {
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
-        objects::MovingSurfaceModule* ride = siblings_.ride;
+        objects::MovingSurfaceModule* ride = ride_;
         if (objects::RideTracker* tracker = ride->ride().get()) {
             ride->set_last_object(tracker->entity().get_pull());
             tracker->entity().get_release();
@@ -148,7 +148,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
             ride->set_stop_time(get_now());
         }
         if (objects::GameEntity* object = grind_from->grind_object()) {
-            siblings_.ride->ride_on(object);
+            ride_->ride_on(object);
         }
         start_grind(&grind_from->grind_point(), grind_from->grind_node(), grind_from->grind_rails(), true, true);
         frame_.safe_pos = entity()->at_point();

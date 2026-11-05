@@ -86,15 +86,14 @@ constexpr const char* kLateWallplantText = "late wallplant\n"; // "late wallplan
 
 // The trick button `button` pressed now, or within Wall_Ride_Triangle_Window (0x0051ECF0 / 0x0051F6B0 on the
 // skater component).
-bool SkaterPhysicsModule::button_pressed(uint32_t button) const
+bool SkaterPhysicsModule::button_pressed(uint32_t button)
 {
-    auto* skater = static_cast<objects::MoveExecutor*>(siblings_.trick);
+    auto* skater = static_cast<objects::MoveExecutor*>(trick_);
     if (skater->is_key_held(button)) {
         return true;
     }
     const uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
-    return static_cast<objects::MoveExecutor*>(siblings_.trick)
-        ->find_press(checksums::Name{button}, {.ms = window, .mask = kAllBitsSet});
+    return static_cast<objects::MoveExecutor*>(trick_)->find_press(checksums::Name{button}, {.ms = window, .mask = kAllBitsSet});
 }
 
 // Moving up the wall: whether there's wall 6 either side of the hit point raised by 0.15 of the upward speed (along
@@ -132,7 +131,7 @@ bool SkaterPhysicsModule::air_plant_allowed(bool late, bool check_only)
     if (static_cast<double>(script::fetch_float(kWallplantDelay)) * kToMilliseconds > since_ride) {
         return false;
     }
-    if (script::fetch_float(kMinWallplantHeight) > siblings_.state->height_above_ground()) {
+    if (script::fetch_float(kMinWallplantHeight) > state_->height_above_ground()) {
         return false;
     }
     // Not a steep enough wall: only for a late plant (unless just checking, or it's vert).
@@ -147,8 +146,7 @@ bool SkaterPhysicsModule::air_plant_allowed(bool late, bool check_only)
     bool pressed = bike && thaw_bmx::wallplant_by_square(this);
     for (uint32_t i = 0; !pressed && i < tricks->extent(); ++i) {
         script::Struct* trick = tricks->struct_at(i);
-        if (static_cast<objects::MoveExecutor*>(siblings_.trick)
-                ->check_trigger(trick, {.mark_flags_ = 0, .mask = 0}, true)) {
+        if (static_cast<objects::MoveExecutor*>(trick_)->check_trigger(trick, {.mark_flags_ = 0, .mask = 0}, true)) {
             pressed = true;
             break;
         }
@@ -224,7 +222,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             return false;
         }
     }
-    if ((model_rotating_ != 0U) || (static_cast<uint8_t>(siblings_.physics_control->board_missing()) != 0U)) {
+    if ((model_rotating_ != 0U) || (static_cast<uint8_t>(physics_control_->board_missing()) != 0U)) {
         return false;
     }
 
@@ -276,17 +274,16 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             return false;
         }
     }
-    if (entity()->vel().y > 0.0F && (siblings_.input->pad_primary().button_wedge().held_down() != 0U) &&
-        !wall_above_hit()) {
+    if (entity()->vel().y > 0.0F && (input_->pad_primary().button_wedge().held_down() != 0U) && !wall_above_hit()) {
         return false;
     }
     // (not original: THAW 0x005DBB9E - no sticker slap on the bike)
     if (!thaw_bmx::live_now(this)) {
-        static_cast<objects::TaggingControlComponent*>(siblings_.tagging_component)->slap_sticker(false, walking, late);
+        static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(false, walking, late);
     }
     entity()->vel().y = 0.0F;
-    siblings_.trigger->probe_touches_zone(kSkaterEvents0064bBec, &feelers_.feeler);
-    if (siblings_.physics_control->flag26() != 0) {
+    trigger_->probe_touches_zone(kSkaterEvents0064bBec, &feelers_.feeler);
+    if (physics_control_->flag26() != 0) {
         return true;
     }
 
@@ -318,10 +315,10 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     // Riding what was hit (if it's an object still there).
     auto* feeler = &feelers_.feeler;
     if (feeler->hit_object_alive()) {
-        const bool riding = siblings_.ride->is_riding();
-        if (!riding || siblings_.ride->ride()->entity().get_pull() != feeler->get_hit_object()) {
-            siblings_.ride->stop_riding();
-            siblings_.ride->ride_on(feeler->get_hit_object());
+        const bool riding = ride_->is_riding();
+        if (!riding || ride_->ride()->entity().get_pull() != feeler->get_hit_object()) {
+            ride_->stop_riding();
+            ride_->ride_on(feeler->get_hit_object());
         }
     }
     if (!walking) {
@@ -348,7 +345,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     ground_.display_matrix = entity()->basis_frame();
     wallplant_.time = get_now();
     object_of(this)->post_own_event(kWallplant, nullptr);
-    static_cast<objects::MoveExecutor*>(siblings_.trick)->pass_to_trick_objects(feelers_.feeler.hit().object_checksum_);
+    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.feeler.hit().object_checksum_);
     set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
     set_timed_flag(this, PoseFlag::kNoAcidDrop, 0);
     set_timed_flag(this, PoseFlag::kWallplanted, 1);
@@ -410,13 +407,13 @@ bool SkaterPhysicsModule::start_wall_ride()
           core::at(object->basis_frame().row, 1).y)) {
         return false;
     }
-    objects::MoveExecutor* skater = siblings_.trick;
+    objects::MoveExecutor* skater = trick_;
     if (!skater->trick_objects_on()) {
         skater->set_trick_objects(false);
     }
     remember_floor_probe(&feelers_.feeler);
-    siblings_.trigger->probe_touches_zone(kSkaterEvents0064bB98, &feelers_.floor_feeler);
-    if (siblings_.physics_control->flag26() != 0) {
+    trigger_->probe_touches_zone(kSkaterEvents0064bB98, &feelers_.floor_feeler);
+    if (physics_control_->flag26() != 0) {
         return false;
     }
     // Nothing in the way along the move (turned along the wall, three times as far).

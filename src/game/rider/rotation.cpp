@@ -119,14 +119,14 @@ void face_along_velocity(objects::GameEntity* object)
 // 0x00504060
 void SkaterPhysicsModule::get_spin()
 {
-    objects::PadSnapshot* pad = &siblings_.input->pad_primary();
+    objects::PadSnapshot* pad = &input_->pad_primary();
     objects::GameEntity* object = entity();
     if (air_flags_.no_spin != 0U) {
         return;
     }
-    objects::RiderPoseState* flags = siblings_.state;
+    objects::RiderPoseState* flags = state_;
     if ((flags->flag(PoseFlag::kAcidDrop).on != 0U) && (flags->flag(PoseFlag::kSpin).on != 0U)) {
-        siblings_.state->set_flag(PoseFlag::kSpin, 0);
+        state_->set_flag(PoseFlag::kSpin, 0);
     }
 
     float speed = 0.0F;
@@ -134,7 +134,7 @@ void SkaterPhysicsModule::get_spin()
     const bool spinning = tap_spin_ != 0U ? read_tap_spin(pad, speed) : read_held_spin(pad, speed);
 
     // The second pair of spin buttons: the speed ramps up from 0 at one held time to full at another.
-    if ((siblings_.state->flag(PoseFlag::kNoSecondSpin).on == 0U) && !spinning) {
+    if ((state_->flag(PoseFlag::kNoSecondSpin).on == 0U) && !spinning) {
         read_second_spin(pad, speed);
     }
 
@@ -149,11 +149,11 @@ void SkaterPhysicsModule::get_spin()
     auto step = static_cast<float>(static_cast<double>(speed) * frame_length());
     body_transform(object).yaw_locally(step);
     ground_.display_matrix.yaw_locally(step);
-    float& total = siblings_.trick->spin_total();
+    float& total = trick_->spin_total();
     total = static_cast<float>((static_cast<double>(step) * kDegreesPerRadian) + total);
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
     // is short of a whole turn by more than the snap (360 - snap + 0.1).
-    flags = siblings_.state;
+    flags = state_;
     if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kAcidDrop).on == 0U)) {
         auto size = static_cast<float>(std::fabs(static_cast<double>(total)));
         const double snap = 360.0F - tuning_float_lookup(kRotationSnap, 1, object) + 0.1F;
@@ -161,7 +161,7 @@ void SkaterPhysicsModule::get_spin()
             return;
         }
     }
-    void* display = siblings_.score->points_held();
+    void* display = score_->points_held();
     static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
 }
 
@@ -216,7 +216,7 @@ bool SkaterPhysicsModule::read_held_spin(objects::PadSnapshot* pad, float& speed
             spinning = true;
             held = get_held_seconds(left);
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held) {
-                siblings_.state->set_flag(PoseFlag::kSpin, 0);
+                state_->set_flag(PoseFlag::kSpin, 0);
             }
         }
     }
@@ -227,7 +227,7 @@ bool SkaterPhysicsModule::read_held_spin(objects::PadSnapshot* pad, float& speed
             spinning = true;
             held = get_held_seconds(right);
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < held) {
-                siblings_.state->set_flag(PoseFlag::kSpin, 0);
+                state_->set_flag(PoseFlag::kSpin, 0);
             }
         }
     }
@@ -243,14 +243,14 @@ void SkaterPhysicsModule::read_second_spin(objects::PadSnapshot* pad, float& spe
         speed = static_cast<float>(stat_value(object, kSpinSpeed));
         held = get_held_time(&pad->left_side());
         if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
-            siblings_.state->set_flag(PoseFlag::kSpin, 0);
+            state_->set_flag(PoseFlag::kSpin, 0);
         }
     }
     if (pad->right_side().held_down() != 0U) {
         speed = static_cast<float>(-stat_value(object, kSpinSpeed));
         held = get_held_time(&pad->right_side());
         if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held)) {
-            siblings_.state->set_flag(PoseFlag::kSpin, 0);
+            state_->set_flag(PoseFlag::kSpin, 0);
         }
     }
     auto start = static_cast<float>(tuning_float_lookup(kSpinRampStart, 1, object));
@@ -269,12 +269,12 @@ void SkaterPhysicsModule::face_ramp(float& speed)
 {
     objects::GameEntity* object = entity();
     // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
-    objects::RiderPoseState* flags = siblings_.state;
+    objects::RiderPoseState* flags = state_;
     if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kSpin).on != 0U)) {
         const float tilt = maths::confine(core::at(object->basis_frame().row, 2).y, -1.0F, 1.0F);
         auto angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
         if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
-            siblings_.state->set_flag(PoseFlag::kSpin, 0);
+            state_->set_flag(PoseFlag::kSpin, 0);
         } else {
             auto off = static_cast<float>(maths::get_turn_around_axis(
                 core::at(object->basis_frame().row, 2), vert_.facing, core::at(object->basis_frame().row, 1)));
@@ -284,7 +284,7 @@ void SkaterPhysicsModule::face_ramp(float& speed)
             if (std::fabs(off) < std::fabs(turn * static_cast<double>(frame_.length))) {
                 // (the last bit: exactly what's left)
                 speed = static_cast<float>(off / static_cast<double>(frame_.length));
-                siblings_.state->set_flag(PoseFlag::kSpin, 0);
+                state_->set_flag(PoseFlag::kSpin, 0);
             }
         }
     }
@@ -294,7 +294,7 @@ void SkaterPhysicsModule::face_ramp(float& speed)
 void SkaterPhysicsModule::break_vert(bool force)
 {
     objects::GameEntity* object = entity();
-    objects::PadSnapshot* pad = &siblings_.input->pad_primary();
+    objects::PadSnapshot* pad = &input_->pad_primary();
     // The two buttons: both (PartyMod's PS2 controls: either - its JNZs at 0x00507184 / 0x005071AE).
     auto triggers = [&] {
         return ps2_controls() ? pad->shoulder_left_b().held_down() || pad->shoulder_right_b().held_down()
@@ -328,10 +328,10 @@ void SkaterPhysicsModule::break_vert(bool force)
         velocity[2] = static_cast<float>(velocity[2] - (static_cast<double>(ground_.drawn_normal.z) * kBreakVertPush));
         body_transform(object).pitch_locally(
             static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
-        siblings_.state->set_flag(PoseFlag::kVertAir, 0);
-        siblings_.state->set_flag(PoseFlag::kVertWall, 0);
-        siblings_.state->set_flag(PoseFlag::kLeftVert, 0);
-        siblings_.state->set_flag(PoseFlag::kRecoverInAir, 1);
+        state_->set_flag(PoseFlag::kVertAir, 0);
+        state_->set_flag(PoseFlag::kVertWall, 0);
+        state_->set_flag(PoseFlag::kLeftVert, 0);
+        state_->set_flag(PoseFlag::kRecoverInAir, 1);
         face_along_velocity(object);
         return; // (the display matrix isn't updated on this path)
     }
@@ -348,10 +348,10 @@ void SkaterPhysicsModule::break_vert(bool force)
     velocity[1] = static_cast<float>(tuning_float_lookup(kBreakVertUpScale, 1, object) * velocity[1]);
     body_transform(object).pitch_locally(
         static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
-    siblings_.state->set_flag(PoseFlag::kVertAir, 0);
-    siblings_.state->set_flag(PoseFlag::kVertWall, 0);
-    siblings_.state->set_flag(PoseFlag::kLeftVert, 0);
-    siblings_.state->set_flag(PoseFlag::kNoAcidDrop, 0);
+    state_->set_flag(PoseFlag::kVertAir, 0);
+    state_->set_flag(PoseFlag::kVertWall, 0);
+    state_->set_flag(PoseFlag::kLeftVert, 0);
+    state_->set_flag(PoseFlag::kNoAcidDrop, 0);
     face_along_velocity(object);
     ground_.display_matrix = body_transform(object);
 }

@@ -94,7 +94,7 @@ void SkaterPhysicsModule::turn_matrices(float angle)
 // 0x005002D0
 void SkaterPhysicsModule::turn_for_rail_jump()
 {
-    const objects::PadInputModule* input = siblings_.input;
+    const objects::PadInputModule* input = input_;
     float angle = 0.0F;
     if (thaw_bmx::live_now(this)) {
         // Not original: THAW 0x005CF010 - on the bike the stick's left / right (THAW's LEFTLEFT / LEFTRIGHT).
@@ -125,7 +125,7 @@ void SkaterPhysicsModule::turn_on_ground()
         thaw_bmx::turn_on_ground(this);
         return;
     }
-    objects::PadSnapshot* pad = &siblings_.input->pad_primary();
+    objects::PadSnapshot* pad = &input_->pad_primary();
     auto speed = static_cast<float>(length_unrounded(entity()->vel()));
     objects::GameEntity* object = object_of(this);
     // Left / right (&pad->left_side_ / +0x60); with the sharp turn button (+0x20) harder - and, slower than 10, the turn
@@ -226,13 +226,13 @@ void SkaterPhysicsModule::natas_spin()
         // (the perfect rail cheat: the balance held)
         career = modules::Skate::sole()->career().get();
         career->set_global_flag(script::fetch_int_value(kPerfectRail));
-        siblings_.balance->lip().set_lean(0.0F);
-        siblings_.balance->lip().set_lean_speed(0.0F);
+        balance_->lip().set_lean(0.0F);
+        balance_->lip().set_lean_speed(0.0F);
         online::net_game_state().set_cheat_flag(true);
     }
-    siblings_.balance->lip().tick_frame();
+    balance_->lip().tick_frame();
     const float factor = script::fetch_float(kNatasSpinFactor);
-    const double balance = std::fabs(static_cast<double>(siblings_.balance->get_lean()));
+    const double balance = std::fabs(static_cast<double>(balance_->get_lean()));
     // The spin slows the further off balance.
     double rate = factor - (balance / (kNatasSpinScale / static_cast<double>(factor))) + kNatasSpinBase;
     if (natas_.counter_clockwise != 0U) {
@@ -241,10 +241,10 @@ void SkaterPhysicsModule::natas_spin()
     last_spin_backside_ = rate > 0.0 ? 1 : 0;
     auto step = static_cast<float>(rate * frame_.length);
     turn_matrices(step);
-    float& total = siblings_.trick->spin_total();
+    float& total = trick_->spin_total();
     total = static_cast<float>((static_cast<double>(step) * kDegreesPerRadian) + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.
-    objects::RiderPoseState* flags = siblings_.state;
+    objects::RiderPoseState* flags = state_;
     bool show = true;
     if ((flags->flag(PoseFlag::kVertAir).on != 0U) && (flags->flag(PoseFlag::kAcidDrop).on == 0U)) {
         const float size = std::fabs(total);
@@ -252,8 +252,8 @@ void SkaterPhysicsModule::natas_spin()
         show = snap <= size;
     }
     if (show) {
-        const int shown = static_cast<int>(ftol(siblings_.trick->spin_total()));
-        void* display = siblings_.score->points_held();
+        const int shown = static_cast<int>(ftol(trick_->spin_total()));
+        void* display = score_->points_held();
         static_cast<modules::PointTally*>(display)->advance_turn(shown);
     }
     natas_.time = get_now();
@@ -262,12 +262,12 @@ void SkaterPhysicsModule::natas_spin()
 // 0x00504910
 void SkaterPhysicsModule::lean_in_air()
 {
-    objects::RiderPoseState* flags = siblings_.state;
+    objects::RiderPoseState* flags = state_;
     if ((flags->flag(PoseFlag::kAcidDrop).on != 0U) || (flags->flag(PoseFlag::kNoSecondSpin).on != 0U) ||
         (flags->flag(PoseFlag::kVertAir).on != 0U)) {
         return;
     }
-    objects::PadSnapshot* pad = &siblings_.input->pad_primary();
+    objects::PadSnapshot* pad = &input_->pad_primary();
     if ((pad->button_round().held_down() != 0U) || (pad->button_box().held_down() != 0U)) {
         return;
     }
@@ -298,7 +298,7 @@ void SkaterPhysicsModule::lean_in_air()
 // 0x00504A60
 void SkaterPhysicsModule::rotate_in_acid_drop()
 {
-    if (siblings_.state->flag(PoseFlag::kAcidDrop).on == 0U) {
+    if (state_->flag(PoseFlag::kAcidDrop).on == 0U) {
         return;
     }
     const double elapsed = static_cast<double>(frame_.length) + drop_.time;
@@ -325,10 +325,10 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
 // 0x00504B40
 void SkaterPhysicsModule::recover_in_air()
 {
-    if (siblings_.state->flag(PoseFlag::kAcidDrop).on != 0U) {
+    if (state_->flag(PoseFlag::kAcidDrop).on != 0U) {
         return;
     }
-    if (entity()->vel().y > 0.0F && siblings_.ride->ride()) {
+    if (entity()->vel().y > 0.0F && ride_->ride()) {
         return;
     }
     // Ground (not vert, not too steep) within 500 below.
@@ -345,7 +345,7 @@ void SkaterPhysicsModule::recover_in_air()
     if (feeler.surface_dir().y < kRecoverSteepest) {
         return;
     }
-    if (siblings_.state->flag(PoseFlag::kVertAir).on != 0U) {
+    if (state_->flag(PoseFlag::kVertAir).on != 0U) {
         set_timed_flag(this, PoseFlag::kVertAir, 0);
         transfer_blocked_ = 0;
     }
