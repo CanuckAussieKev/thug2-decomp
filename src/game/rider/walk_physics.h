@@ -435,6 +435,13 @@ public:
         float length{};           // +0x08 (+0x80) in seconds
     };
 
+    // The control (+0x84-+0x97, update_control): the way the stick points, in the world, and how far it's pushed.
+    // (The flags after it, +0x98-+0x9B, stay apart: a record holding two of them would be padded over the others.)
+    struct Control {
+        maths::Vec4 heading{}; // +0x00 (+0x84) (x, z)
+        float deflection{};    // +0x10 (+0x94) 0-1
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -504,8 +511,7 @@ private:
     maths::Vec4 up_{};                 // +0x58 the display's up, eased back upright
     maths::Vec4 old_pos_{};            // +0x68 the position as the frame began (w: 1 after a drop to hang)
     Frame frame_;                      // +0x78-+0x83 the frame's animation state and length
-    maths::Vec4 stick_heading_{};      // +0x84 the way the stick points, in the world (x, z)
-    float stick_deflection_{};         // +0x94 the stick's push (0-1)
+    Control control_;                  // +0x84-+0x97 the stick's push
     bool control_full_{};              // +0x98 a full push (always with the d-pad)
     bool stick_steers_{};              // +0x99 the left stick (not the d-pad) steers
     bool jump_held_{};                 // +0x9A

@@ -143,7 +143,7 @@ void FootMovement::update_curb_float()
                                      (kOne - static_cast<double>(distance)));
     float& curb = curb_offset_;
     const maths::Vec4& vel = vel_;
-    bool settled = std::fabs(curb) < kCurbStill && stick_deflection_ == 0.0F;
+    bool settled = std::fabs(curb) < kCurbStill && control_.deflection == 0.0F;
     if (settled) {
         const double least = walk_parameter(kMinCurbHeightAdjustVel);
         const double speed_squared = ((static_cast<double>(vel.x) * vel.x) + (static_cast<double>(vel.y) * vel.y)) +
@@ -462,7 +462,7 @@ void FootMovement::try_wallplant()
     }
 
     // Off the wall: the way pushed (or the jump's way) mirrored off it, up by the hold of X.
-    maths::Vec4 direction = stick_deflection_ == 0.0F ? leap_heading_ : stick_heading_;
+    maths::Vec4 direction = control_.deflection == 0.0F ? leap_heading_ : control_.heading;
     const maths::Vec4& normal = contact->normal;
     const double into =
         ((static_cast<double>(direction.z) * normal.z) + (static_cast<double>(direction.y) * normal.y)) +

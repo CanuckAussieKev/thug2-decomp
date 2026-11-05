@@ -286,11 +286,11 @@ void FootMovement::update_control()
     double turned_z = 0.0;
     double turned_x = 0.0;
     maths::spin_by(angle, forward_z, forward_x, &turned_z, &turned_x);
-    maths::Vec4& control = stick_heading_;
+    maths::Vec4& control = control_.heading;
     control.x = static_cast<float>(turned_x);
     control.z = static_cast<float>(turned_z);
 
-    float& magnitude = stick_deflection_;
+    float& magnitude = control_.deflection;
     bool& full = control_full_;
     if (!(core::at(pad->stick(), 2) == 0.0F) || !(core::at(pad->stick(), 3) == 0.0F)) {
         // The stick: its push, full from 85 %.
@@ -325,7 +325,7 @@ void FootMovement::update_control()
 // 0x00528120
 double FootMovement::get_control_speed()
 {
-    const float magnitude = stick_deflection_;
+    const float magnitude = control_.deflection;
     if (magnitude == 0.0F) {
         return 0.0;
     }
@@ -362,8 +362,8 @@ void FootMovement::steer_jump()
     const maths::Vec4& carried = jump_base_vel_;
     vel = {.x = vel.x - carried.x, .y = vel.y - carried.y, .z = vel.z - carried.z, .w = vel.w - carried.w};
     const maths::Vec4& dir = leap_heading_;
-    const maths::Vec4& control = stick_heading_;
-    const float magnitude = stick_deflection_;
+    const maths::Vec4& control = control_.heading;
+    const float magnitude = control_.deflection;
     const float side_x = -dir.z;
     const float side_z = dir.x; // (the jump's sideways direction: y 0, w 1)
     auto side_target =
@@ -382,7 +382,7 @@ void FootMovement::steer_jump()
     auto forward = static_cast<float>(((static_cast<double>(vel.z) * dir.z) + (static_cast<double>(vel.y) * dir.y)) +
                                       (static_cast<double>(vel.x) * dir.x));
     bool ease = false;
-    if (!jump_unsteered_ && stick_deflection_ == 0.0F) {
+    if (!jump_unsteered_ && control_.deflection == 0.0F) {
         // no push: along the jump, eased to a stop
         forward_target = 0.0F;
         forward = 0.0F;
@@ -424,7 +424,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
 
     // The way it's going: the velocity's (past ignore_velocity_threshold), else the push's, else the velocity's
     // (past 0.01), else the facing.
-    const float magnitude = stick_deflection_;
+    const float magnitude = control_.deflection;
     maths::Vec4 direction{};
     double direction_w = 0.0;
     if (speed > walk_parameter(kIgnoreVelocityThreshold)) {
@@ -434,7 +434,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             .x = inverse_f * velocity->x, .y = inverse_f * velocity->y, .z = inverse_f * velocity->z, .w = 0.0F};
         direction_w = inverse * velocity->w;
     } else if (!(magnitude == 0.0F)) {
-        direction = stick_heading_;
+        direction = control_.heading;
         direction_w = direction.w;
     } else if (speed > kMinMoveSpeed) {
         direction = maths::operator/(*velocity, speed);
@@ -447,7 +447,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     maths::Vec4 result = direction;
 
     if (magnitude > 0.0F) {
-        const maths::Vec4& control = stick_heading_;
+        const maths::Vec4& control = control_.heading;
         maths::Vec4& facing = facing_;
         // Pushed against the way it's going: no speed asked for.
         if (((static_cast<double>(direction.z) * control.z) + (static_cast<double>(direction.y) * control.y)) +
@@ -464,7 +464,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             // Far off the facing: turned in place at rotate_in_place_rate (walking: x walk_rotate_factor; against a
             // wall, or a wall where it turns to: x wall_rotate_factor), going the pushed way.
             const float rate = walk_parameter(kRotateInPlaceRate);
-            auto turn = static_cast<float>(frame_clock::get_slomo_frame_seconds() * stick_deflection_ * rate *
+            auto turn = static_cast<float>(frame_clock::get_slomo_frame_seconds() * control_.deflection * rate *
                                            kRadiansPerDegree);
             const bool left =
                 (static_cast<double>(facing.x) * control.z) - (static_cast<double>(control.x) * facing.z) < 0.0;
@@ -517,7 +517,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             const float worse = walk_parameter(kWorseTurnFactor);
             const float worst = walk_parameter(kWorseWorseTurnFactor);
             auto rate =
-                static_cast<float>((((static_cast<double>(worse) - worst) * turn_blend) + worst) * stick_deflection_);
+                static_cast<float>((((static_cast<double>(worse) - worst) * turn_blend) + worst) * control_.deflection);
             const double step = frame_clock::get_slomo_frame_seconds() * rate;
             if (step >= kOne) {
                 facing = control;

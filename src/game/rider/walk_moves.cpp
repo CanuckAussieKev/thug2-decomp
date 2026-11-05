@@ -228,7 +228,7 @@ FootMovement::FootMovement()
 {
     // (the contacts, the cache and the feeler made first by their constructors)
     set_kind_tag(kWalk); // Walk
-    stick_heading_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    control_.heading = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     jump_velocity_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
 }
 
@@ -252,8 +252,8 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, frame_.anim), .original = 0x78},
         FieldAt{.now = offsetof(FootMovement, frame_.previous_anim), .original = 0x7C},
         FieldAt{.now = offsetof(FootMovement, frame_.length), .original = 0x80},
-        FieldAt{.now = offsetof(FootMovement, stick_heading_), .original = 0x84},
-        FieldAt{.now = offsetof(FootMovement, stick_deflection_), .original = 0x94},
+        FieldAt{.now = offsetof(FootMovement, control_.heading), .original = 0x84},
+        FieldAt{.now = offsetof(FootMovement, control_.deflection), .original = 0x94},
         FieldAt{.now = offsetof(FootMovement, control_full_), .original = 0x98},
         FieldAt{.now = offsetof(FootMovement, stick_steers_), .original = 0x99},
         FieldAt{.now = offsetof(FootMovement, jump_held_), .original = 0x9A},
@@ -922,7 +922,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         if (along > 0.0) {
             velocity.project_onto(facing);
             stop = false;
-            if (stick_deflection_ == 0.0F) {
+            if (control_.deflection == 0.0F) {
                 auto speed = static_cast<float>(std::sqrt((static_cast<double>(velocity.x) * velocity.x) +
                                                           (static_cast<double>(velocity.y) * velocity.y) +
                                                           (static_cast<double>(velocity.z) * velocity.z)));
@@ -1137,13 +1137,13 @@ void FootMovement::get_jump()
         // the control is pushed, over the run speed's range); the heading the velocity's when moving.
         copy_from_object();
         maths::Vec4& velocity = vel_;
-        if (stick_deflection_ == 0.0F) {
+        if (control_.deflection == 0.0F) {
             heading = facing;
         } else {
             auto push = static_cast<float>(get_control_speed()); // (how far the control is pushed, 0 - 1)
             const float scaled = get_param(kJumpHorizSpeed) * push;
             auto speed = static_cast<float>(scaled / run_speed());
-            const maths::Vec4& direction = stick_heading_;
+            const maths::Vec4& direction = control_.heading;
             const double along =
                 ((static_cast<double>(velocity.z) * direction.z) + (static_cast<double>(velocity.y) * direction.y)) +
                 (static_cast<double>(velocity.x) * direction.x);
@@ -1240,7 +1240,7 @@ bool FootMovement::try_barrier_jump()
             continue;
         }
         const double limit = std::cos(walk_parameter(kBarrierJumpMaxAngle) * kDegrees);
-        const maths::Vec4& control = stick_heading_;
+        const maths::Vec4& control = control_.heading;
         const double facing_it = ((static_cast<double>(control.z) * contact.normal.z) +
                                   (static_cast<double>(control.y) * contact.normal.y)) +
                                  (static_cast<double>(control.x) * contact.normal.x);

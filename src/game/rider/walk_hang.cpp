@@ -1201,7 +1201,7 @@ void objects::FootMovement::update_hang()
     if (std::cos(static_cast<double>(tolerance) * kRadiansPerDegree) > std::fabs(sideways)) {
         const float direction = core::at(input->pad_primary().polar(), 1).angle > 0.0F ? 1.0F : -1.0F;
         const float speed = get_param(kHangMoveSpeedParam);
-        wanted = static_cast<float>(static_cast<double>(direction) * stick_deflection_ * speed);
+        wanted = static_cast<float>(static_cast<double>(direction) * control_.deflection * speed);
     }
     const float rate = get_param(kHangMoveLerpRate);
     float& move_speed = climb_scale_;
@@ -1578,8 +1578,8 @@ void objects::FootMovement::climb_ladder()
     // the control's up / down part (its angle's cosine) at ladder_move_speed
     const float speed = get_param(kLadderMoveSpeed);
     const objects::PadInputModule* input = input_;
-    const double move_speed = std::cos(static_cast<double>(core::at(input->pad_primary().polar(), 1).angle)) * stick_deflection_ *
-                              static_cast<double>(speed);
+    const double move_speed = std::cos(static_cast<double>(core::at(input->pad_primary().polar(), 1).angle)) *
+                              control_.deflection * static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
     auto move = static_cast<float>(move_speed * frame_.length);
     GrindPoint* node = hang_node_;
