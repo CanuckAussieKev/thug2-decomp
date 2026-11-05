@@ -48,8 +48,12 @@ class Responder;
 } // namespace pad_input
 
 // The game's network manager online::Hub (0x00533F20-0x0054EF60; the singleton at 0x007CCE14): the network
-// game itself - the players, the levels and modes the server picks, the lobby. Partly rewritten: the join path
-// (gamenet_join.cpp) and the level name; only the fields used so far are named.
+// game itself - its connections (the server and the clients), the match the server sets up, the join, the players'
+// arrival and departure, and the work that ties these together. Its collaborators, each a class of its own held in
+// its place among the hub's fields (game/online/hub_*.h): the online services' managers (ServiceManagers), the
+// fifteen tasks (HubTasks), the preferences (SessionSettings), the players (PlayerRoster), the queued scripts
+// (ScriptQueue), the servers found (ServerListing), the join's state (JoinState), the online service's state
+// (OnlineService), the created goals' message (CreatedGoalsMessage) and the news download (NewsDownload).
 namespace tasks {
 template <typename Owner>
 class Task;
@@ -651,8 +655,7 @@ private:
     std::array<uint8_t, kHubUnknown1950Size> unknown1950_{}; // +0x1950
     uint32_t room_id_{};            // +0x9950 (set_room_id)
     std::array<std::array<char, kHubMasterServerNameSize>, kHubMasterServersSize> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
-    NewsDownload
-        news_; // +0x99F4-+0xFE0B (+0x99D8-+0xFDEF here) the news, the message of the day, the services' availability
+    NewsDownload news_; // +0x99F4-+0xFE0B (+0x99D8-+0xFDEF here) the news download, the services' availability
 };
 
 // --- gamenet_players.cpp: outside the class ---
