@@ -266,9 +266,9 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, locked_to_heading_), .original = 0x70C},
         FieldAt{.now = offsetof(FootMovement, pad70d_), .original = 0x70D},
         FieldAt{.now = offsetof(FootMovement, unknown710_), .original = 0x710},
-        FieldAt{.now = offsetof(FootMovement, curb_offset_), .original = 0x714},
-        FieldAt{.now = offsetof(FootMovement, curb_float_), .original = 0x718},
-        FieldAt{.now = offsetof(FootMovement, pad719_), .original = 0x719},
+        FieldAt{.now = offsetof(FootMovement, curb_.offset), .original = 0x714},
+        FieldAt{.now = offsetof(FootMovement, curb_.floating), .original = 0x718},
+        FieldAt{.now = offsetof(FootMovement, curb_.pad5), .original = 0x719},
         FieldAt{.now = offsetof(FootMovement, critical_point_offset_), .original = 0x71C},
         FieldAt{.now = offsetof(FootMovement, upright_time_), .original = 0x72C},
         FieldAt{.now = offsetof(FootMovement, upright_angle_), .original = 0x730},
@@ -582,8 +582,8 @@ void FootMovement::tick_frame()
     maths::Vec4& position = pos_;
     old_pos_ = position;
     frame_.length = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    curb_float_ = false;
-    position.y -= curb_offset_; // (put back below)
+    curb_.floating = false;
+    position.y -= curb_.offset; // (put back below)
     update_run_adjustment();
 
     switch (phase_.state) {
@@ -610,12 +610,12 @@ void FootMovement::tick_frame()
     }
 
     // The step smoothing's height eases down unless held this frame.
-    if (!curb_float_) {
+    if (!curb_.floating) {
         const float rate = walk_parameter(kCurbFloatLerpDownRate);
-        const double offset = curb_offset_;
-        curb_offset_ = static_cast<float>((-offset * (static_cast<double>(rate) * frame_.length)) + offset);
+        const double offset = curb_.offset;
+        curb_.offset = static_cast<float>((-offset * (static_cast<double>(rate) * frame_.length)) + offset);
     }
-    position.y += curb_offset_;
+    position.y += curb_.offset;
 
     if (phase_.state == 0 && static_cast<uint32_t>(get_now() - phase_.changed_at) > kStateTimeoutMs) {
         skater::try_acid_drop(this); // (an acid drop)
@@ -961,8 +961,8 @@ void FootMovement::settle_onto_floor()
         }
         position.y = feeler->contact_pos().y;
         if (step > 0.0F || step < kBigStepDown) {
-            const double offset = static_cast<double>(curb_offset_) - step;
-            curb_offset_ = offset < 0.0 ? 0.0F : static_cast<float>(offset);
+            const double offset = static_cast<double>(curb_.offset) - step;
+            curb_.offset = offset < 0.0 ? 0.0F : static_cast<float>(offset);
         }
         // Onto other collision: the old ground's and the new ground's trigger kinds set off.
         render::ProbeRay* ground = &feeler_;
@@ -1084,7 +1084,7 @@ void FootMovement::get_begin(bool on_ground)
         off_vert_ = (core_physics_->state()->flag(PoseFlag::kVertAir).on != 0U) ||
                     (core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on != 0U);
     }
-    curb_offset_ = 0.0F;
+    curb_.offset = 0.0F;
     leave_for_ = 0;
     frame_.previous_anim = 0;
     jump_held_ = true;

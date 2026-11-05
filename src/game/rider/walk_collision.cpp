@@ -141,7 +141,7 @@ void FootMovement::update_curb_float()
     // slower than min_curb_height_adjust_vel (the original reads it through 0x0043DA70).
     auto target = static_cast<float>((static_cast<double>(feeler.contact_pos().y) - pos.y) *
                                      (kOne - static_cast<double>(distance)));
-    float& curb = curb_offset_;
+    float& curb = curb_.offset;
     const maths::Vec4& vel = vel_;
     bool settled = std::fabs(curb) < kCurbStill && control_.deflection == 0.0F;
     if (settled) {
@@ -154,7 +154,7 @@ void FootMovement::update_curb_float()
         const double rate = static_cast<double>(walk_parameter(kCurbFloatLerpUpRate)) * get_frame_length(this);
         curb = static_cast<float>(((static_cast<double>(target) - curb) * rate) + curb);
     }
-    curb_float_ = true;
+    curb_.floating = true;
 }
 
 // 0x00526BA0

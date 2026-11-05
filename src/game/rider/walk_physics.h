@@ -442,6 +442,13 @@ public:
         float deflection{};    // +0x10 (+0x94) 0-1
     };
 
+    // The curb float (+0x714-+0x71B, update_curb_float): the step smoothing's height offset.
+    struct CurbFloat {
+        float offset{};                // +0x00 (+0x714) the height offset
+        bool floating{};               // +0x04 (+0x718) floating over a curb this frame
+        std::array<uint8_t, 3> pad5{}; // +0x05 (+0x719)
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -524,9 +531,7 @@ private:
     bool locked_to_heading_{};         // +0x70C
     std::array<uint8_t, 3> pad70d_{};
     int unknown710_{};    // +0x710 (60 after a landing, 0 at a reset)
-    float curb_offset_{}; // +0x714 the curb float's height offset
-    bool curb_float_{};   // +0x718 floating over a curb this frame
-    std::array<uint8_t, 3> pad719_{};
+    CurbFloat curb_;      // +0x714-+0x71B the curb float
     maths::Vec4
         critical_point_offset_{}; // +0x71C m_critical_point_offset (the game's own message): a ride's / hang's offset
     float upright_time_{0.0F};    // +0x72C the time left turning upright (0: the up vector is eased)
