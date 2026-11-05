@@ -196,9 +196,12 @@ inline constexpr uint32_t kClearDepth = 2;
 inline constexpr uint32_t kClearStencil = 4;
 // a light's kind (D3DLIGHTTYPE)
 inline constexpr uint32_t kLightDirectional = 3;
-// a buffer's usage (D3DUSAGE_*), its pool (D3DPOOL_*) and a lock's flags (D3DLOCK_*)
+// a buffer's usage (D3DUSAGE_*), its pool (D3DPOOL_*), an index buffer's format (D3DFMT_INDEX16) and a lock's flags
+// (D3DLOCK_*)
 inline constexpr uint32_t kUsageWriteOnly = 0x8;
+inline constexpr uint32_t kUsageDynamic = 0x200;
 inline constexpr uint32_t kPoolDefault = 0;
+inline constexpr uint32_t kFormatIndex16 = 101;
 inline constexpr uint32_t kLockReadOnly = 0x10;
 inline constexpr uint32_t kLockDiscard = 0x2000;
 // a call's result: an argument the API refused (D3DERR_INVALIDCALL)

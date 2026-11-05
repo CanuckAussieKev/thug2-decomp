@@ -143,7 +143,8 @@ static_assert(gpu_value::kAddressWrap == D3DTADDRESS_WRAP && gpu_value::kAddress
               gpu_value::kAddressBorder == D3DTADDRESS_BORDER);
 static_assert(gpu_value::kClearTarget == D3DCLEAR_TARGET && gpu_value::kClearDepth == D3DCLEAR_ZBUFFER &&
               gpu_value::kClearStencil == D3DCLEAR_STENCIL);
-static_assert(gpu_value::kUsageWriteOnly == D3DUSAGE_WRITEONLY && gpu_value::kPoolDefault == D3DPOOL_DEFAULT &&
+static_assert(gpu_value::kUsageWriteOnly == D3DUSAGE_WRITEONLY && gpu_value::kUsageDynamic == D3DUSAGE_DYNAMIC &&
+              gpu_value::kPoolDefault == D3DPOOL_DEFAULT && gpu_value::kFormatIndex16 == D3DFMT_INDEX16 &&
               gpu_value::kLockReadOnly == D3DLOCK_READONLY && gpu_value::kLockDiscard == D3DLOCK_DISCARD);
 static_assert(gpu_value::kLightDirectional == D3DLIGHT_DIRECTIONAL);
 static_assert(gpu_value::kResultInvalidCall == D3DERR_INVALIDCALL);

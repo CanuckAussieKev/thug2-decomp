@@ -2,10 +2,6 @@
 // pixel shader from a scene file (in memory or read from a file); the skinned vertices unpacked; the vertex positions
 // a skinned model's bone scales move (while set_skin_scaling's are on); the collision positions and triangles.
 
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +12,7 @@
 #include <array>
 #include <gsl/pointers>
 
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/mesh_formats.h"
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
@@ -188,7 +185,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
             continue;
         }
         gsl::owner<void*> memory = alloc_block(sizeof(IdxStore));
-        IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2U, 0, D3DFMT_INDEX16) : nullptr;
+        IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2U, 0, gpu_value::kFormatIndex16) : nullptr;
         core::at(mesh->index_buffers(), i) = ib;
         std::memcpy(ib->indices(), core::at(body.indices, i).data(), count * 2U);
         ib->get_unlock();
@@ -211,10 +208,10 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         std::memcpy(mesh->per_vertex_bytes(), body.vertex_bytes.data(), body.vertex_bytes.size());
         mesh->buffer_flags() |= 2;
         arena = nullptr; // (written each frame: a buffer of its own)
-        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
+        mesh->set_buffer_usage(gpu_value::kUsageDynamic);
     }
     if (dynamic) {
-        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
+        mesh->set_buffer_usage(gpu_value::kUsageDynamic);
     }
     if (body.level_count > 1) {
         mesh->set_unknown48(memory::alloc(static_cast<uint32_t>(body.level_count) * 4));
@@ -242,12 +239,12 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     if (mesh->fvf()) {
         mesh->create_vertex_buffer(body.vertices.data(), size, arena);
     } else if (material) {
-        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
+        mesh->set_buffer_usage(gpu_value::kUsageDynamic);
         mesh->set_up_skinning(body.vertices.data(), size, nullptr);
     } else {
         // Not original - no material to unpack with (the original read it through null).
         debug::printf("scene mesh damaged: a skinned mesh without its material %08x\n", material_checksum);
-        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
+        mesh->set_buffer_usage(gpu_value::kUsageDynamic);
         mesh->set_vertex_count(0);
     }
     if (body.shader == 1) {
@@ -353,7 +350,7 @@ void MeshRef::build_collision()
     const gpu::VertexView vertices(vb->data(), stride_, vertex_count_); // (locked read-only, inline)
     vb->set_lock_offset(0);
     vb->set_lock_size(vb->size());
-    vb->set_lock_flags(D3DLOCK_READONLY);
+    vb->set_lock_flags(gpu_value::kLockReadOnly);
     position_count_ = vertex_count_;
     positions_ = static_cast<float*>(alloc_block(vertex_count_ * kPositionBytesU));
     const std::span<float> position_run(positions_, 3U * vertex_count_);
