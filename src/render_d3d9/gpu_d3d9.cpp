@@ -148,11 +148,20 @@ static_assert(gpu_value::kUsageWriteOnly == D3DUSAGE_WRITEONLY && gpu_value::kUs
               gpu_value::kPoolDefault == D3DPOOL_DEFAULT && gpu_value::kFormatIndex16 == D3DFMT_INDEX16 &&
               gpu_value::kLockReadOnly == D3DLOCK_READONLY && gpu_value::kLockDiscard == D3DLOCK_DISCARD &&
               gpu_value::kLockNoOverwrite == D3DLOCK_NOOVERWRITE);
+static_assert(gpu_value::kFormatA8R8G8B8 == D3DFMT_A8R8G8B8 && gpu_value::kFormatX8R8G8B8 == D3DFMT_X8R8G8B8 &&
+              gpu_value::kFormatR5G6B5 == D3DFMT_R5G6B5 && gpu_value::kFormatX1R5G5B5 == D3DFMT_X1R5G5B5 &&
+              gpu_value::kFormatA1R5G5B5 == D3DFMT_A1R5G5B5 && gpu_value::kFormatP8 == D3DFMT_P8 &&
+              gpu_value::kFormatD16 == D3DFMT_D16 && gpu_value::kFormatD24X8 == D3DFMT_D24X8 &&
+              gpu_value::kFormatD24S8 == D3DFMT_D24S8 && gpu_value::kFormatDxt1 == D3DFMT_DXT1 &&
+              gpu_value::kFormatDxt3 == D3DFMT_DXT3 && gpu_value::kFormatDxt5 == D3DFMT_DXT5);
+static_assert(gpu_value::kPoolManaged == D3DPOOL_MANAGED && gpu_value::kPoolSystemMemory == D3DPOOL_SYSTEMMEM &&
+              gpu_value::kPoolScratch == D3DPOOL_SCRATCH && gpu_value::kUsageRenderTarget == D3DUSAGE_RENDERTARGET);
 static_assert(gpu_value::kResultOk == S_OK && gpu_value::kResultNotReady == S_FALSE);
 static_assert(kFvfXyzRhw == D3DFVF_XYZRHW && kFvfXyz == D3DFVF_XYZ && kFvfNormal == D3DFVF_NORMAL && kFvfDiffuse == D3DFVF_DIFFUSE &&
               kFvfSpecular == D3DFVF_SPECULAR && kFvfTex1 == D3DFVF_TEX1 && kFvfTex2 == D3DFVF_TEX2);
 static_assert(gpu_value::kLightDirectional == D3DLIGHT_DIRECTIONAL);
 static_assert(gpu_value::kResultInvalidCall == D3DERR_INVALIDCALL);
+static_assert(gpu_value::kResultDeviceLost == D3DERR_DEVICELOST && gpu_value::kResultNotFound == D3DERR_NOTFOUND);
 
 // ... and its structures Direct3D 9's layouts.
 static_assert(sizeof(GpuMaterial) == sizeof(D3DMATERIAL9));
@@ -165,6 +174,7 @@ static_assert(offsetof(GpuLight, phi) == offsetof(D3DLIGHT9, Phi));
 static_assert(sizeof(GpuViewport) == sizeof(D3DVIEWPORT9));
 static_assert(offsetof(GpuViewport, min_z) == offsetof(D3DVIEWPORT9, MinZ));
 static_assert(sizeof(GpuSize) == 2 * sizeof(uint32_t));
+static_assert(sizeof(GpuLevelDesc) == 3 * sizeof(uint32_t));
 static_assert(sizeof(GpuRect) == sizeof(RECT) && sizeof(GpuRect) == sizeof(D3DRECT));
 static_assert(offsetof(GpuRect, bottom) == offsetof(RECT, bottom) && offsetof(GpuRect, bottom) == offsetof(D3DRECT, y2));
 static_assert(sizeof(GpuLockedRect) == sizeof(D3DLOCKED_RECT));
@@ -270,6 +280,19 @@ public:
         }
         return result;
     }
+    long texture_level_desc(GpuTexture* texture, uint32_t level, GpuLevelDesc* desc) override
+    {
+        D3DSURFACE_DESC value;
+        const HRESULT result = object(texture)->GetLevelDesc(level, &value);
+        *desc = {};
+        if (SUCCEEDED(result)) {
+            desc->width = value.Width;
+            desc->height = value.Height;
+            desc->format = static_cast<uint32_t>(value.Format);
+        }
+        return result;
+    }
+    uint32_t texture_level_count(GpuTexture* texture) override { return object(texture)->GetLevelCount(); }
     uint32_t release_texture(GpuTexture* texture) override { return object(texture)->Release(); }
     long create_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t fvf, uint32_t pool,
                               GpuVertexBuffer** buffer) override
@@ -337,6 +360,41 @@ public:
         return d3d()->GetRenderTargetData(object(target), object(system_copy));
     }
     uint32_t release_surface(GpuSurface* surface) override { return object(surface)->Release(); }
+    long surface_desc(GpuSurface* surface, GpuSurfaceDesc* desc) override
+    {
+        D3DSURFACE_DESC value{.Type = D3DRTYPE_SURFACE};
+        const HRESULT result = object(surface)->GetDesc(&value);
+        *desc = {};
+        if (SUCCEEDED(result)) {
+            desc->width = value.Width;
+            desc->height = value.Height;
+            desc->format = static_cast<uint32_t>(value.Format);
+            desc->samples = static_cast<uint32_t>(value.MultiSampleType);
+            desc->quality = value.MultiSampleQuality;
+        }
+        return result;
+    }
+    long lock_surface(GpuSurface* surface, GpuLockedRect* locked, const GpuRect* area, uint32_t flags) override
+    {
+        return object(surface)->LockRect(d3d_locked(locked), d3d_rect(area), flags);
+    }
+    long unlock_surface(GpuSurface* surface) override { return object(surface)->UnlockRect(); }
+    long back_buffer(GpuSurface** surface) override
+    {
+        return d3d()->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, out(surface));
+    }
+    long display_size(GpuSize* size) override
+    {
+        D3DDISPLAYMODE mode;
+        const HRESULT result = d3d()->GetDisplayMode(0, &mode);
+        *size = {};
+        if (SUCCEEDED(result)) {
+            size->width = mode.Width;
+            size->height = mode.Height;
+        }
+        return result;
+    }
+    long read_front_buffer(GpuSurface* system_copy) override { return d3d()->GetFrontBufferData(0, object(system_copy)); }
 
     long create_pixel_shader(const uint32_t* tokens, GpuPixelShader** shader) override
     {
@@ -448,6 +506,18 @@ protected:
         const D3DVIEWPORT9 value = d3d_value(viewport);
         return d3d()->SetViewport(&value);
     }
+    long send_save_state(void** api) override
+    {
+        IDirect3DStateBlock9* block = nullptr;
+        const HRESULT result = d3d()->CreateStateBlock(D3DSBT_ALL, &block);
+        *api = block;
+        return result;
+    }
+    long send_restore_state(void* api) override
+    {
+        return static_cast<IDirect3DStateBlock9*>(api)->Apply();
+    }
+    uint32_t send_release_saved_state(void* api) override { return static_cast<IDirect3DStateBlock9*>(api)->Release(); }
 };
 
 } // namespace

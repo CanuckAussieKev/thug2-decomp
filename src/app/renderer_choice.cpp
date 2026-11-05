@@ -12,6 +12,8 @@
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_context.h"
+#include "render_d3d9/d3d9_context.h"
 #include "render_d3d9/d3d9_device.h"
 #include "render_d3d9/d3d9_ui_backend.h"
 #include "render_d3d9/gpu_d3d9.h"
@@ -34,6 +36,7 @@ void install_direct3d9()
 {
     render::install_device(render::d3d9::device());
     render::install_gpu(render::d3d9::gpu());
+    render::install_gpu_context(render::d3d9::gpu_context());
     render::install_ui_backend(render::d3d9::ui_backend());
 }
 

@@ -205,9 +205,34 @@ inline constexpr uint32_t kFormatIndex16 = 101;
 inline constexpr uint32_t kLockReadOnly = 0x10;
 inline constexpr uint32_t kLockDiscard = 0x2000;
 inline constexpr uint32_t kLockNoOverwrite = 0x1000;
+// a texture's or surface's format (D3DFORMAT): colour, paletted (P8: 8-bit indices through a 256-colour palette, which
+// has no Vulkan format - a Vulkan Gpu expands it to RGBA at upload), compressed (the four characters, little-endian) and
+// depth
+inline constexpr uint32_t kFormatA8R8G8B8 = 21;
+inline constexpr uint32_t kFormatX8R8G8B8 = 22;
+inline constexpr uint32_t kFormatR5G6B5 = 23;
+inline constexpr uint32_t kFormatX1R5G5B5 = 24;
+inline constexpr uint32_t kFormatA1R5G5B5 = 25;
+inline constexpr uint32_t kFormatP8 = 41;
+inline constexpr uint32_t kFormatD16 = 80;
+inline constexpr uint32_t kFormatD24X8 = 77;
+inline constexpr uint32_t kFormatD24S8 = 75;
+inline constexpr uint32_t kFormatDxt1 = 0x31545844;
+inline constexpr uint32_t kFormatDxt3 = 0x33545844;
+inline constexpr uint32_t kFormatDxt5 = 0x35545844;
+// a resource's pool: in video memory (lost with the device), managed (kept in system memory too), system memory only,
+// scratch (never given to the device); a texture drawn into
+inline constexpr uint32_t kPoolManaged = 1;
+inline constexpr uint32_t kPoolSystemMemory = 2;
+inline constexpr uint32_t kPoolScratch = 3;
+inline constexpr uint32_t kUsageRenderTarget = 1;
 // a call's result: success, and the answer "not yet" (S_FALSE: a query whose count is not ready)
 inline constexpr long kResultOk = 0;
 inline constexpr long kResultNotReady = 1;
+// a call's result: the device is lost (D3DERR_DEVICELOST: test_cooperative_level), and a thing not found
+// (D3DERR_NOTFOUND: a query that was never begun)
+inline constexpr long kResultDeviceLost = static_cast<long>(0x88760868U);
+inline constexpr long kResultNotFound = static_cast<long>(0x88760866U);
 // a call's result: an argument the API refused (D3DERR_INVALIDCALL)
 inline constexpr long kResultInvalidCall = static_cast<long>(0x8876086CU);
 } // namespace gpu_value
@@ -258,6 +283,12 @@ struct GpuRect {
 struct GpuSize {
     uint32_t width{};
     uint32_t height{};
+};
+// A texture level's size and format.
+struct GpuLevelDesc {
+    uint32_t width{};
+    uint32_t height{};
+    uint32_t format{};
 };
 // A locked texture level (D3DLOCKED_RECT's layout): the bytes between rows and the first byte.
 struct GpuLockedRect {
@@ -336,6 +367,13 @@ struct GpuStateBlock {
     void record_transform(GpuTransform transform, const float* matrix);
 };
 
+// The device's state saved (Gpu::save_state), to be put back (restore_state) and released: the state block as it was and
+// the API's own record of it (Direct3D 9: a state block object).
+struct GpuSavedState {
+    GpuStateBlock block;
+    void* api{};
+};
+
 class Gpu {
 public:
     Gpu(const Gpu&) = delete;
@@ -346,6 +384,20 @@ public:
     // The state block (what this Gpu was given), and its reset to a new device's defaults.
     [[nodiscard]] const GpuStateBlock& state_block() const { return block_; }
     void reset_state_block() { block_.reset(); }
+
+    // Every state saved, and put back later (Direct3D 9's whole-device state block). The state block follows. Release the
+    // saved state when done.
+    long save_state(GpuSavedState* saved)
+    {
+        saved->block = block_;
+        return send_save_state(&saved->api);
+    }
+    long restore_state(const GpuSavedState& saved)
+    {
+        block_ = saved.block;
+        return send_restore_state(saved.api);
+    }
+    uint32_t release_saved_state(GpuSavedState* saved) { return send_release_saved_state(saved->api); }
 
     // States (recorded, then passed on).
     long set_render_state(GpuRenderState state, uint32_t value)
@@ -444,6 +496,9 @@ public:
     virtual long texture_surface(GpuTexture* texture, uint32_t level, GpuSurface** surface) = 0;
     // A texture level's size (Direct3D 9: GetLevelDesc).
     virtual long texture_level_size(GpuTexture* texture, uint32_t level, GpuSize* size) = 0;
+    // A texture level's size and format (GetLevelDesc), and how many levels it has (GetLevelCount).
+    virtual long texture_level_desc(GpuTexture* texture, uint32_t level, GpuLevelDesc* desc) = 0;
+    virtual uint32_t texture_level_count(GpuTexture* texture) = 0;
     virtual uint32_t release_texture(GpuTexture* texture) = 0;
     // Vertex and index buffers (bytes; Direct3D 9's usage and pool; an index buffer's format: 16 or 32-bit indices).
     virtual long create_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t fvf, uint32_t pool,
@@ -486,6 +541,17 @@ public:
                               const GpuRect* target_area, uint32_t filter) = 0;
     virtual long read_render_target(GpuSurface* target, GpuSurface* system_copy) = 0;
     virtual uint32_t release_surface(GpuSurface* surface) = 0;
+    // A surface's size, format and sample count (GetDesc; a reference's description, not the surface's contents).
+    virtual long surface_desc(GpuSurface* surface, GpuSurfaceDesc* desc) = 0;
+    // A surface's pixels locked for reading or writing / unlocked (a system-memory copy, a texture's level).
+    virtual long lock_surface(GpuSurface* surface, GpuLockedRect* locked, const GpuRect* area, uint32_t flags) = 0;
+    virtual long unlock_surface(GpuSurface* surface) = 0;
+    // The swap chain's back buffer (a reference the caller releases), the size the display is showing (the desktop's
+    // when windowed) and the screen as shown, read into a system-memory surface of that size (GetFrontBufferData: the
+    // front buffer; a Vulkan Gpu reads back the last presented image).
+    virtual long back_buffer(GpuSurface** surface) = 0;
+    virtual long display_size(GpuSize* size) = 0;
+    virtual long read_front_buffer(GpuSurface* system_copy) = 0;
     // A pixel shader made from its ps.1.1 token stream (Direct3D 9's assembled form, as the shader text assembles to;
     // another API reads the same tokens or the program they stand for).
     virtual long create_pixel_shader(const uint32_t* tokens, GpuPixelShader** shader) = 0;
@@ -543,6 +609,9 @@ protected:
     virtual long send_light_enabled(uint32_t index, bool on) = 0;
     virtual long send_transform(GpuTransform transform, const float* matrix) = 0;
     virtual long send_viewport(const GpuViewport& viewport) = 0;
+    virtual long send_save_state(void** api) = 0;
+    virtual long send_restore_state(void* api) = 0;
+    virtual uint32_t send_release_saved_state(void* api) = 0;
 
 private:
     GpuStateBlock block_;
