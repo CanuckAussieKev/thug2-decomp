@@ -90,7 +90,7 @@ void SkaterPhysicsModule::try_start_skitch()
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
             found = car;
-            skitch_point_ = index;
+            skitch_.point = index;
         }
     }
     if (!found) {
@@ -138,7 +138,7 @@ void SkaterPhysicsModule::get_skitch()
     } else {
         move = direction != 0.0F;
     }
-    if (move && ((skitch_moving_ == 0U) || direction != skitch_direction_)) {
+    if (move && ((skitch_moving_ == 0U) || direction != skitch_.direction)) {
         // Further and further along the skater's side (6 at a time, short of 120) until another point is nearest.
         float reach = kSkitchStep;
         double next = 0.0;
@@ -157,10 +157,10 @@ void SkaterPhysicsModule::get_skitch()
             target.x = x + position.x;
             maths::Vec4 point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             const int index = closest_tow_point(skitch, &point, &target);
-            if (index != skitch_point_) {
-                skitch_point_ = index;
+            if (index != skitch_.point) {
+                skitch_.point = index;
                 skitch_moving_ = 1;
-                skitch_direction_ = direction;
+                skitch_.direction = direction;
                 object_of(this)->post_own_event(direction == 1.0F ? kSkitchLeft : kSkitchRight, nullptr);
                 break;
             }
@@ -175,7 +175,7 @@ void SkaterPhysicsModule::get_skitch()
         return;
     }
     maths::Vec4 point;
-    if (!static_cast<objects::TowRideHandler*>(skitch)->get_hook_point(&point, skitch_point_)) {
+    if (!static_cast<objects::TowRideHandler*>(skitch)->get_hook_point(&point, skitch_.point)) {
         return;
     }
     objects::GameEntity* object = object_of(this);

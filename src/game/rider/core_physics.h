@@ -881,6 +881,13 @@ public:
         float friction{}; // +0x0C (+0x35C)
         float gravity{};  // +0x10 (+0x360)
     };
+    // The skitch point held (+0x24C-+0x253: try_start_skitch, get_skitch). Apart: whether the skater is moving
+    // between points (+0x24A, skitch_moving_: a record from there would start off its 4-byte alignment) and the
+    // object skitched on (+0x364, skitch_target_).
+    struct Skitch {
+        int point{};       // +0x00 (+0x24C) the skitch point held (its index on the car)
+        float direction{}; // +0x04 (+0x250) the way it last moved between points (1 left, -1 right)
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return ground_.display_matrix; }
@@ -1008,8 +1015,7 @@ private:
     uint8_t bad_ledge_{};                   // +0x249 a bad ledge (BadLedge)
     uint8_t skitch_moving_{};               // +0x24A moving between skitch points
     std::array<uint8_t, 1> pad24b_{};
-    int skitch_point_{};            // +0x24C the skitch point held (its index on the car)
-    float skitch_direction_{};      // +0x250
+    Skitch skitch_;                 // +0x24C-+0x253 the skitch point held
     FrameFlags frame_flags_;        // +0x254-+0x257 how the frame began
     maths::Vec4 lip_pos_{};          // +0x258 where the lip trick is (w 1; (0, 0, 0, 1) out of the lip state)
     VertAir vert_;                   // +0x268-+0x29B vert air
