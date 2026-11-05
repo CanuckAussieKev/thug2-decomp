@@ -150,7 +150,7 @@ inline void destroy_feeler(void* feeler) { static_cast<render::ProbeRay*>(feeler
 // (`a` and `b`: two face-flag masks - 0x10, 0 for the ground checks; 0, 8 across a wall.)
 inline bool get_feel(SkaterPhysicsModule* component, render::FaceFlag a, render::FaceFlag b)
 {
-    return component->probe_touches_zone(a, b);
+    return component->feelers().probe_touches_zone(a, b);
 }
 
 } // namespace skater::core_fields

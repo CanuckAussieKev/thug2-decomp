@@ -354,7 +354,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     if (!not_vert) {
         core->probe_start() = position;
         core->probe_end() = position + kTapAbove * up;
-        if (physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+        if (physics->feelers().probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             state.tap_armed_ = true;
             return;
         }
@@ -371,7 +371,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
             const maths::Vec4 to = {.x = from.x, .y = from.y - kTapDrop, .z = from.z, .w = from.w};
             core->probe_start() = from;
             core->probe_end() = to;
-            if (!physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) ||
+            if (!physics->feelers().probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) ||
                 (core::any(core->feeler().hit().face_flags_ & render::FaceFlag::kVert))) {
                 continue;
             }

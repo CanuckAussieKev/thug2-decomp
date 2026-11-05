@@ -142,20 +142,20 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     const bool sound = !params->has_bare_flag(kNoSound);
     switch (state_of(this)) {
     case kGround:
-        trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
+        trigger_feeler(this, kJumpTriggerEvents, &feelers_.floor_feeler);
         if (trigger_took_over(this)) {
             return;
         }
         std::memcpy(&last_ground_pos_, &entity()->at_point(), kPointBytes); // (where it jumped)
         if (sound) {
-            play_jump_sound(floor_feeler_.hit().terrain);
+            play_jump_sound(feelers_.floor_feeler.hit().terrain);
         }
         start_vert_air();
         set_flag(this, PoseFlag::kLeftVert, 1);
         break;
     case kAir:
         if (sound) {
-            play_jump_sound(floor_feeler_.hit().terrain);
+            play_jump_sound(feelers_.floor_feeler.hit().terrain);
         }
         break;
     case kRail:
@@ -280,14 +280,14 @@ void SkaterPhysicsModule::step_wallplant()
     if (static_cast<float>(elapsed) > script::fetch_float(kWallplantDuration)) {
         // Over: into the air, with a feeler along the facing (12 ahead to 36 behind) for a trigger.
         set_physics_state(kAir);
-        maths::Vec4& start = probe_start_;
-        maths::Vec4& end = probe_end_;
+        maths::Vec4& start = feelers_.probe_start;
+        maths::Vec4& end = feelers_.probe_end;
         start = core::at(entity()->basis_frame().row, 2) * kFeelerAhead;
         end = core::at(entity()->basis_frame().row, 2) * kFeelerBehind;
         start += entity()->at_point();
         end += entity()->at_point();
         if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
-            trigger_feeler(this, kWallplantEvents, &feeler_);
+            trigger_feeler(this, kWallplantEvents, &feelers_.feeler);
         }
         return;
     }
@@ -352,7 +352,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script* /*
         set_physics_state(kAir);
         break;
     case kGroundName:
-        floor_feeler_.hit().face_flag40_ = 0;
+        feelers_.floor_feeler.hit().face_flag40_ = 0;
         set_physics_state(kGround);
         break;
     case kLipName:

@@ -101,23 +101,23 @@ maths::Vec4 rail_node_position(void* manager, const void* node)
 
 } // namespace
 
-// 0x005003A0
-bool SkaterPhysicsModule::probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require)
+// 0x005003A0 (the component's feelers, at +0xA8, are `this`)
+bool SkaterPhysicsModule::Feelers::probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require)
 {
-    auto* feeler = &feeler_;
-    feeler->change_strand(&probe_start_, &probe_end_);
-    feeler->set_excluded({.ignore = ignore, .require = require});
-    auto hit = static_cast<uint8_t>(feeler->get_hit_shape(true, false));
+    auto* ray = &feeler;
+    ray->change_strand(&probe_start, &probe_end);
+    ray->set_excluded({.ignore = ignore, .require = require});
+    auto hit = static_cast<uint8_t>(ray->get_hit_shape(true, false));
     if (hit == 0U) {
         return false;
     }
-    if ((feeler_.hit().object_checksum_ != 0U) && (feeler_.hit().face_flag40_ != 0U)) {
-        feeler_.hit().unknown38 = 0;
+    if ((feeler.hit().object_checksum_ != 0U) && (feeler.hit().face_flag40_ != 0U)) {
+        feeler.hit().unknown38 = 0;
     }
-    const render::FaceFlag flags = feeler_.hit().face_flags_;
-    const float normal_y = feeler_.surface_dir().y;
-    hit_wall_ = 0;
-    hit_vert_ = core::any(flags & render::FaceFlag::kVert) ? 1 : 0;
+    const render::FaceFlag flags = feeler.hit().face_flags_;
+    const float normal_y = feeler.surface_dir().y;
+    hit_wall = 0;
+    hit_vert = core::any(flags & render::FaceFlag::kVert) ? 1 : 0;
     bool skatable = false;
     // Skatable by its flag, or vert unless marked not skatable.
     if (core::any(flags & render::FaceFlag::kSkatable) || (!core::any(flags & render::FaceFlag::kNotSkatable) && core::any(flags & render::FaceFlag::kVert))) {
@@ -125,8 +125,8 @@ bool SkaterPhysicsModule::probe_touches_zone(render::FaceFlag ignore, render::Fa
     } else if (core::any(flags & render::FaceFlag::kNotSkatable)) {
         skatable = false;
     } else if (core::any(flags & render::FaceFlag::kWall)) {
-        hit_skatable_ = 0;
-        hit_wall_ = 1;
+        hit_skatable = 0;
+        hit_wall = 1;
         return true;
     } else {
         // Neither: skatable unless steeper than Wall_Non_Skatable_Angle (its sine above the normal's y).
@@ -134,7 +134,7 @@ bool SkaterPhysicsModule::probe_touches_zone(render::FaceFlag ignore, render::Fa
             std::sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) * kRadiansPerDegree);
         skatable = !(limit > normal_y);
     }
-    hit_skatable_ = skatable ? 1 : 0;
+    hit_skatable = skatable ? 1 : 0;
     return true;
 }
 
@@ -213,8 +213,8 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script* /*s
     const float y = side.y * kNearGroundReach;
     const float z = side.z * kNearGroundReach;
     const float w = side.w * kNearGroundReach;
-    maths::Vec4& start = probe_start_;
-    maths::Vec4& end = probe_end_;
+    maths::Vec4& start = feelers_.probe_start;
+    maths::Vec4& end = feelers_.probe_end;
     // A feeler 20 up and down, a little to the side (Right: the other way).
     float origin_coord_x = 0.0F;
     float origin_coord_y = 0.0F;
@@ -234,15 +234,15 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script* /*s
     start.y = start.y + kNearGroundHeight;
     end = start;
     end.y = end.y - kNearGroundHeight;
-    return probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) ? 1 : 0;
+    return feelers_.probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) ? 1 : 0;
 }
 
 // 0x00500F10
 int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
-    maths::Vec4& start = probe_start_;
-    maths::Vec4& end = probe_end_;
+    maths::Vec4& start = feelers_.probe_start;
+    maths::Vec4& end = feelers_.probe_end;
     // (each line's x - and across the skater its y - from an unrounded product, as the original's FPU code has them)
     if (params->has_bare_flag(kLip)) {
         // Down from just behind the position (back along up), then from a little further.
@@ -255,7 +255,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
         start.y = end.y - (back * up.y);
         start.z = end.z - (back * up.z);
         start.w = end.w - (back * up.w);
-        if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+        if (!feelers_.probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             back = tuning_float_lookup(kLipExtraHorizOffset, object);
             down = tuning_float_lookup(kLipExtraDownOffset, object);
             const maths::Vec4& position = entity()->at_point();
@@ -266,11 +266,11 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
             start.w = position.w - (back * up2.w);
             end = start;
             end.y = end.y - down;
-            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+            if (!feelers_.probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
                 return 0;
             }
         }
-        return (hit_vert_ != 0U) ? 1 : 0;
+        return (feelers_.hit_vert != 0U) ? 1 : 0;
     }
     // Across the skater: from `across` to one side (lowered) to as far to the other.
     const float across = tuning_float_lookup(kSidewaysShift, object);
@@ -297,10 +297,10 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
         start = far_side;
         end = near_side;
     }
-    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+    if (!feelers_.probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return 0;
     }
-    return (hit_vert_ != 0U) ? 1 : 0;
+    return (feelers_.hit_vert != 0U) ? 1 : 0;
 }
 
 // 0x005013E0
@@ -393,7 +393,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         }
     }
     if (!params->has_bare_flag(kNoReset)) {
-        floor_feeler_.hit().face_flag40_ = 0;
+        feelers_.floor_feeler.hit().face_flag40_ = 0;
         entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         physics::change_phase(this, 0);
         set_timed_flag(this, PoseFlag::kFlipped,
@@ -455,18 +455,18 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
             return;
         }
     }
-    probe_start_ = *start;
-    probe_end_ = *end;
-    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+    feelers_.probe_start = *start;
+    feelers_.probe_end = *end;
+    if (!feelers_.probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return;
     }
     maths::Vec4& sum = side_normal_sum_;
-    const maths::Vec4& normal = feeler_.surface_dir();
+    const maths::Vec4& normal = feelers_.feeler.surface_dir();
     sum.x = normal.x + sum.x;
     sum.y = normal.y + sum.y;
     sum.z = normal.z + sum.z;
     sum.w = normal.w + sum.w;
-    side_nearest_ = std::min(side_nearest_, feeler_.reach());
+    side_nearest_ = std::min(side_nearest_, feelers_.feeler.reach());
     core::at(side_hit_times_, side) = get_now();
 }
 
@@ -525,7 +525,7 @@ void SkaterPhysicsModule::check_side_feelers()
     entity()->vel().align_to_plane(floor_normal_);
     object = object_of(this);
     const maths::Vec4& forward = core::at(object->basis_frame().row, 2);
-    const maths::Vec4& normal = feeler_.surface_dir();
+    const maths::Vec4& normal = feelers_.feeler.surface_dir();
     const double into = (static_cast<double>(forward.z) * normal.z) + (static_cast<double>(forward.y) * normal.y) +
                         (static_cast<double>(forward.x) * normal.x);
     if (!(into < 0.0)) {

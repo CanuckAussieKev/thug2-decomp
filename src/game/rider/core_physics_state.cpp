@@ -122,14 +122,14 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, state_changed_at_), .original = 0x90},
         FieldAt{.now = offsetof(SkaterPhysicsModule, old_state_), .original = 0x94},
         FieldAt{.now = offsetof(SkaterPhysicsModule, safe_pos_), .original = 0x98},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, feeler_), .original = 0xA8},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, floor_feeler_), .original = 0x158},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, probe_start_), .original = 0x208},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, probe_end_), .original = 0x218},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, hit_skatable_), .original = 0x228},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, hit_vert_), .original = 0x229},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, hit_wall_), .original = 0x22A},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad22b_), .original = 0x22B},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.feeler), .original = 0xA8},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.floor_feeler), .original = 0x158},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.probe_start), .original = 0x208},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.probe_end), .original = 0x218},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.hit_skatable), .original = 0x228},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.hit_vert), .original = 0x229},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.hit_wall), .original = 0x22A},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, feelers_.pad183), .original = 0x22B},
         FieldAt{.now = offsetof(SkaterPhysicsModule, rail_node_), .original = 0x22C},
         FieldAt{.now = offsetof(SkaterPhysicsModule, rail_manager_), .original = 0x230},
         FieldAt{.now = offsetof(SkaterPhysicsModule, rail_time_), .original = 0x234},
@@ -312,7 +312,7 @@ void SkaterPhysicsModule::get_reset()
         ride->ride() = nullptr;
         ride->set_stop_time(get_now());
     }
-    floor_feeler_.hit().face_flag40_ = 0;
+    feelers_.floor_feeler.hit().face_flag40_ = 0;
     side_reach_ = 0.0F;
     jump_charge_ms_ = 0;
     wall_ride_start_ = 0;
@@ -337,8 +337,8 @@ void SkaterPhysicsModule::get_reset()
 // 0x00506BA0
 void SkaterPhysicsModule::remember_floor_probe(const void* feeler)
 {
-    floor_feeler_.get_assign(*static_cast<const render::ProbeRay*>(feeler));
-    sound_->set_last_ground(floor_feeler_.hit().terrain);
+    feelers_.floor_feeler.get_assign(*static_cast<const render::ProbeRay*>(feeler));
+    sound_->set_last_ground(feelers_.floor_feeler.hit().terrain);
 }
 
 // 0x00506BD0
@@ -513,7 +513,7 @@ int SkaterPhysicsModule::orient_to_normal(script::Struct* /*params*/, script::Sc
 {
     drawn_normal_ = core::at(entity()->basis_frame().row, 1);
     floor_normal_ = core::at(entity()->basis_frame().row, 1);
-    turn_to_normal(feeler_.surface_dir());
+    turn_to_normal(feelers_.feeler.surface_dir());
     return 1;
 }
 

@@ -144,12 +144,12 @@ void SkaterPhysicsModule::trigger_rail_node(const std::array<int, 3>& events)
 // vector - rounded - x first).
 bool SkaterPhysicsModule::clear_to_point(const maths::Vec4* point, bool from_vector)
 {
-    probe_start_ = object_of(this)->at_point();
-    probe_end_ = *point;
+    feelers_.probe_start = object_of(this)->at_point();
+    feelers_.probe_end = *point;
     if (!get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return true;
     }
-    const maths::Vec4& hit = feeler_.contact_pos();
+    const maths::Vec4& hit = feelers_.feeler.contact_pos();
     double distance = 0.0;
     if (from_vector) {
         const maths::Vec4 offset = *point - hit;
@@ -450,8 +450,8 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     bool left_side = across < 0.0;
 
     // A bad ledge: feelers down beside the rail, either side.
-    maths::Vec4& start = probe_start_;
-    maths::Vec4& stop = probe_end_;
+    maths::Vec4& start = feelers_.probe_start;
+    maths::Vec4& stop = feelers_.probe_end;
     start.y = tuning_float_lookup(kGroundSnapUp, entity());
     start.x = 0.0F, start.z = 0.0F, start.w = 0.0F;
     stop.y = -script::fetch_float(kBadLedgeDropDown);

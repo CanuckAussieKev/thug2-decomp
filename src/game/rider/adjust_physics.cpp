@@ -120,7 +120,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     auto* physics = core;
     const park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::sole();
 
-    if (!physics->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+    if (!physics->feelers().probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame
         // began (a little off it each try), going the other way; out of the air states, into the air.
         int state = state_of(core);

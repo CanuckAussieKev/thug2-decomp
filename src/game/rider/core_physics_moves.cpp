@@ -305,7 +305,7 @@ bool SkaterPhysicsModule::wall_push_off()
     }
     const double angle = std::sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
     const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
-    const maths::Vec4& wall = feeler_.surface_dir();
+    const maths::Vec4& wall = feelers_.feeler.surface_dir();
     const double into = ((static_cast<double>(facing.z) * wall.z) + (static_cast<double>(facing.y) * wall.y)) +
                         (static_cast<double>(facing.x) * wall.x);
     if (-angle <= into) {

@@ -1193,7 +1193,7 @@ void air_rotation(SkaterPhysicsModule* core)
                              .y = position.y + (up.y * head),
                              .z = position.z + (up.z * head),
                              .w = position.w + (up.w * head)};
-        if (core->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+        if (core->feelers().probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             run_bike_script(core, kForceBailScript);
         }
     }
@@ -1224,7 +1224,7 @@ WheelHit feel_wheel(SkaterPhysicsModule* core, maths::Vec4& wheel, const maths::
                          .y = wheel.y + (up.y * kWheelFeelDown),
                          .z = wheel.z + (up.z * kWheelFeelDown),
                          .w = wheel.w + (up.w * kWheelFeelDown)};
-    if (!core->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
+    if (!core->feelers().probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return result;
     }
     const maths::Vec4 point = core->feeler().contact_pos();
@@ -1294,7 +1294,7 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
                          .y = position.y + (up.y * kWheelFeelDown),
                          .z = position.z + (up.z * kWheelFeelDown),
                          .w = position.w + (up.w * kWheelFeelDown)};
-    main_hit = core->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags);
+    main_hit = core->feelers().probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags);
     if (main_hit && tuning_float_lookup(kGroundSnapDown, core) < core->feeler().reach()) {
         main_hit = false;
     }

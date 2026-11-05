@@ -120,7 +120,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     safe_pos_ = entity()->at_point();
     entity()->old_pos() = safe_pos_;
     // The jump / trick state cleared.
-    floor_feeler_.hit().face_flag40_ = 0;
+    feelers_.floor_feeler.hit().face_flag40_ = 0;
     side_reach_ = 0.0F;
     jump_charge_ms_ = 0;
     wall_ride_start_ = 0;

@@ -190,7 +190,7 @@ void SkaterPhysicsModule::do_ground_physics()
         set_flag(this, PoseFlag::kLeftVert, 1);
         set_flag(this, PoseFlag::kJumped, 1);
     }
-    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(floor_feeler_.hit().object_checksum_);
+    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.floor_feeler.hit().object_checksum_);
     queued_spin_ = 0.0F;
 }
 
@@ -250,8 +250,8 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             const float up_y = up.y * kSkitchFeelUp;
             const float up_z = up.z * kSkitchFeelUp;
             const float up_w = up.w * kSkitchFeelUp;
-            maths::Vec4& start = feeler_.line().start; // (the feeler's own line)
-            maths::Vec4& end = feeler_.line().end;
+            maths::Vec4& start = feelers_.feeler.line().start; // (the feeler's own line)
+            maths::Vec4& end = feelers_.feeler.line().end;
             start.z = up_z + position.z;
             start.w = up_w + position.w;
             start.x = static_cast<float>((static_cast<double>(up.x) * kSkitchFeelUp) + position.x);
@@ -264,7 +264,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             end.x = static_cast<float>(position.x - (static_cast<double>(up.x) * kSkitchFeelDown));
             end.y = position.y - down_y;
             if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
-                const uint8_t terrain = feeler_.hit().terrain;
+                const uint8_t terrain = feelers_.feeler.hit().terrain;
                 state_->set_surface_kind(terrain);
                 sound_->set_surface_type(terrain);
             }

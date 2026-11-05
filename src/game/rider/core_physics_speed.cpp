@@ -142,7 +142,7 @@ void SkaterPhysicsModule::start_riding_hit_object()
         return;
     }
     objects::MovingSurfaceModule* ride = ride_;
-    if (!ride->start_riding(&feeler_)) {
+    if (!ride->start_riding(&feelers_.feeler)) {
         return;
     }
     const objects::GameEntity* ride_object = ride_->ride()->entity().get_pull();

@@ -502,8 +502,8 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     }
 
     // The feeler: from the last position to 6 past the new one along the move, raised by the up.
-    maths::Vec4& start = probe_start_;
-    maths::Vec4& end = probe_end_;
+    maths::Vec4& start = feelers_.probe_start;
+    maths::Vec4& end = feelers_.probe_end;
     const double ahead_x = static_cast<double>(move_direction.x) * kFeelerAhead;
     const double ahead_y = static_cast<double>(move_direction.y) * kFeelerAhead;
     const float ahead_z = move_direction.z * kFeelerAhead;
@@ -526,7 +526,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
         return;
     }
     // Something ahead: off the rail (not for faces flagged 0x10 at +0xF9, outside the park editor).
-    if (!in_park_editor() && core::any(feeler_.hit().face_flags_ & render::FaceFlag::kNoParkEdit)) {
+    if (!in_park_editor() && core::any(feelers_.feeler.hit().face_flags_ & render::FaceFlag::kNoParkEdit)) {
         return;
     }
     trigger_rail_script(kGrindOffEvents);
@@ -534,7 +534,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     skater->at_point() = skater->old_pos();
     maths::Vec4& position = entity()->at_point();
     position.y = position.y + 1.0F;
-    entity()->vel().flatten_onto_plane(feeler_.surface_dir());
+    entity()->vel().flatten_onto_plane(feelers_.feeler.surface_dir());
     set_physics_state(kAir);
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kOffRail, nullptr);
 }

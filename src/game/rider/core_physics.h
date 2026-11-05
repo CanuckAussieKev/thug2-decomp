@@ -299,11 +299,7 @@ public:
     // a new ride makes the velocity relative to it (its velocity taken off).
     void start_riding_hit_object();
 
-    // --- core_physics_feelers.cpp: the feelers ---
-    // 0x005003A0: the feeler (+0xA8) along its line (+0x208 to +0x218), faces with any of `ignore` or without all of
-    // `require` passed over, movables too. On a hit: +0x228 skatable (face flag 1, or 8 vert, or neither 2 nor 4 and
-    // no steeper than Wall_Non_Skatable_Angle), +0x229 vert (flag 8), +0x22A a wall (flag 4). Whether it hit.
-    bool probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require);
+    // --- core_physics_feelers.cpp: the feelers (Feelers::probe_touches_zone: the feeler check) ---
     // 0x00500020: whether the skater may grind `rail` (a rail node; +0x40 / +0x44 its neighbours) now: not the
     // last one (+0x22C) or its neighbours again while still in the air after it; a new rail sets flag +0x50 (in a
     // created park: one whose ends are all more than 6 from the last's); the same one only after +0x23C ms since
@@ -728,7 +724,28 @@ public:
     // it stepped up.
     bool step_up(const maths::Vec4* point);
 
+    // The component's state in parts: records of its fields at their places in the original's layout (+0x.. the
+    // offset in the record, then in the component; check_layout checks them all).
+    // The feelers (+0xA8-+0x22B): the collision feeler every check uses, a copy of it at the last ground hit, the
+    // line a check runs along and what it hit.
+    struct Feelers {
+        render::ProbeRay feeler;         // +0x00 (+0xA8)
+        render::ProbeRay floor_feeler;   // +0xB0 (+0x158) a copy of the feeler at the last ground hit
+        maths::Vec4 probe_start{};       // +0x160 (+0x208) the feeler's line (probe_touches_zone)
+        maths::Vec4 probe_end{};         // +0x170 (+0x218)
+        uint8_t hit_skatable{};          // +0x180 (+0x228) set by probe_touches_zone: the face hit is skatable
+        uint8_t hit_vert{};              // +0x181 (+0x229) ... vert (face flag 8)
+        uint8_t hit_wall{};              // +0x182 (+0x22A) ... a wall (face flag 4)
+        std::array<uint8_t, 1> pad183{}; // +0x183 (+0x22B)
+        // 0x005003A0 (on the component, its feelers at +0xA8): the feeler along its line, faces with any of `ignore`
+        // or without all of `require` passed over, movables too. On a hit: hit_skatable (face flag 1, or 8 vert, or
+        // neither 2 nor 4 and no steeper than Wall_Non_Skatable_Angle), hit_vert (flag 8), hit_wall (flag 4).
+        // Whether it hit.
+        bool probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require);
+    };
+
     // The fields other code reads and sets.
+    Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return display_matrix_; }
     [[nodiscard]] const maths::Mat4& display_matrix() const { return display_matrix_; }
     maths::Vec4& drawn_normal() { return drawn_normal_; }
@@ -743,16 +760,16 @@ public:
     [[nodiscard]] int state_changed_at() const { return state_changed_at_; }
     maths::Vec4& safe_pos() { return safe_pos_; }
     [[nodiscard]] const maths::Vec4& safe_pos() const { return safe_pos_; }
-    render::ProbeRay& feeler() { return feeler_; }
-    [[nodiscard]] const render::ProbeRay& feeler() const { return feeler_; }
-    render::ProbeRay& floor_feeler() { return floor_feeler_; }
-    [[nodiscard]] const render::ProbeRay& floor_feeler() const { return floor_feeler_; }
-    maths::Vec4& probe_start() { return probe_start_; }
-    [[nodiscard]] const maths::Vec4& probe_start() const { return probe_start_; }
-    maths::Vec4& probe_end() { return probe_end_; }
-    [[nodiscard]] const maths::Vec4& probe_end() const { return probe_end_; }
-    [[nodiscard]] uint8_t hit_skatable() const { return hit_skatable_; }
-    [[nodiscard]] uint8_t hit_vert() const { return hit_vert_; }
+    render::ProbeRay& feeler() { return feelers_.feeler; }
+    [[nodiscard]] const render::ProbeRay& feeler() const { return feelers_.feeler; }
+    render::ProbeRay& floor_feeler() { return feelers_.floor_feeler; }
+    [[nodiscard]] const render::ProbeRay& floor_feeler() const { return feelers_.floor_feeler; }
+    maths::Vec4& probe_start() { return feelers_.probe_start; }
+    [[nodiscard]] const maths::Vec4& probe_start() const { return feelers_.probe_start; }
+    maths::Vec4& probe_end() { return feelers_.probe_end; }
+    [[nodiscard]] const maths::Vec4& probe_end() const { return feelers_.probe_end; }
+    [[nodiscard]] uint8_t hit_skatable() const { return feelers_.hit_skatable; }
+    [[nodiscard]] uint8_t hit_vert() const { return feelers_.hit_vert; }
     [[nodiscard]] objects::GrindPoint* rail_node() const { return rail_node_; }
     void set_rail_node(objects::GrindPoint* value) { rail_node_ = value; }
     void set_rail_manager(objects::GrindRailHub* value) { rail_manager_ = value; }
@@ -855,14 +872,7 @@ private:
     int state_changed_at_{};        // +0x90 the game clock when the physics state last changed
     int old_state_{};               // +0x94 the physics state before it
     maths::Vec4 safe_pos_{};        // +0x98 a position to go back to (where the frame began)
-    render::ProbeRay feeler_;       // +0xA8 the collision feeler every check uses
-    render::ProbeRay floor_feeler_; // +0x158 a copy of the feeler at the last ground hit
-    maths::Vec4 probe_start_{};     // +0x208 the feeler's line (probe_touches_zone)
-    maths::Vec4 probe_end_{};       // +0x218
-    uint8_t hit_skatable_{};        // +0x228 set by probe_touches_zone: the face hit is skatable
-    uint8_t hit_vert_{};            // +0x229 ... vert (face flag 8)
-    uint8_t hit_wall_{};            // +0x22A ... a wall (face flag 4)
-    std::array<uint8_t, 1> pad22b_{};
+    Feelers feelers_;               // +0xA8-+0x22B the feelers and what the last check hit
     objects::GrindPoint* rail_node_{};      // +0x22C the rail node being ground (or last ground)
     objects::GrindRailHub* rail_manager_{}; // +0x230 ... and its rail manager
     int rail_time_{};                       // +0x234 the game clock when the skater last got on or off a rail
