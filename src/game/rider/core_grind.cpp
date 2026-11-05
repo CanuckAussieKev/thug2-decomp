@@ -444,7 +444,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     }
 
     // Which side of the rail the jump to it started (+0x338).
-    const maths::Vec4& jumped = last_ground_pos_;
+    const maths::Vec4& jumped = last_ground_.pos;
     const double across = (-(static_cast<double>(point->x) - jumped.x) * direction.z) +
                           ((static_cast<double>(point->z) - jumped.z) * direction.x);
     bool left_side = across < 0.0;

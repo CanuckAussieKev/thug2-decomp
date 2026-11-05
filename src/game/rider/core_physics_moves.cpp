@@ -204,12 +204,12 @@ void SkaterPhysicsModule::update_speed_override()
         const float most = tuning_float_lookup(kOverrideMaxFactor, object);
         const double over = static_cast<double>(speed_rounded) / stat;
         factor = over < most ? static_cast<float>(over) : most;
-        limits_max_ = std::bit_cast<float>(kNoLimit);
-        limits_max_max_ = std::bit_cast<float>(kNoLimit);
+        limits_.max = std::bit_cast<float>(kNoLimit);
+        limits_.max_max = std::bit_cast<float>(kNoLimit);
     } else if (speed_override_ == 1.0F) { // (1: off)
         return;
     }
-    limits_time_ = -1.0F;
+    limits_.time = -1.0F;
     const double left = factor - (static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * frame_.length);
     factor = static_cast<float>(left);
     if (left >= 1.0 || left != left) {
@@ -219,32 +219,32 @@ void SkaterPhysicsModule::update_speed_override()
         float limit = 0.0F;
         if (state_->cur_phase() != 1) {
             auto speed = static_cast<float>(length_unrounded(object->vel()) * kAirBoostFactor);
-            limit = least_of(max, speed, limits_max_);
+            limit = least_of(max, speed, limits_.max);
         } else {
-            const float current = limits_max_;
+            const float current = limits_.max;
             limit = max < current ? max : current;
         }
         if (limit >= stat || limit != limit) {
-            limits_max_ = limit;
+            limits_.max = limit;
             auto inverse = static_cast<float>(1.0 / stat);
-            auto share = static_cast<float>(stat_value(object, kOverrideStat) * inverse * limits_max_);
+            auto share = static_cast<float>(stat_value(object, kOverrideStat) * inverse * limits_.max);
             int& counter = grind_counter();
             counter = (counter + 1) % kCounterWrap;
-            limits_max_max_ = share;
+            limits_.max_max = share;
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)
             while (counter == 0) {
                 debug::printf("Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n",
-                              static_cast<double>(inverse) * limits_max_);
+                              static_cast<double>(inverse) * limits_.max);
                 counter = (counter + 1) % kCounterWrap;
             }
             return;
         }
     }
     factor = 1.0F;
-    if (limits_time_ == -kTimerForLevel) { // (never: it was just set to -1)
+    if (limits_.time == -kTimerForLevel) { // (never: it was just set to -1)
         return;
     }
-    limits_time_ = 0.0F;
+    limits_.time = 0.0F;
 }
 
 // 0x004FF470
@@ -351,7 +351,7 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     objects::RiderPoseState* flags = state_;
     objects::GameEntity* object = object_of(this);
     if ((flags->flag(PoseFlag::kBailing).on != 0U) || (flags->flag(PoseFlag::kSkitching).on != 0U) ||
-        (braking_ != 0U)) {
+        (friction_.braking != 0U)) {
         return;
     }
     const maths::Vec4& v = object->vel();

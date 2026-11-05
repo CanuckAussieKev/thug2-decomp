@@ -119,7 +119,7 @@ SkaterPhysicsModule::~SkaterPhysicsModule() = default;
 // 0x004FC5C0
 void SkaterPhysicsModule::configure_from_data(script::Struct* /*params*/)
 {
-    rolling_friction_ = tuning_float_lookup(kCoastDrag, object_of(this));
+    friction_.rolling = tuning_float_lookup(kCoastDrag, object_of(this));
     objects::GameEntity* object = object_of(this);
     object->at_point() = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     maths::Mat4& matrix = entity()->basis_frame();

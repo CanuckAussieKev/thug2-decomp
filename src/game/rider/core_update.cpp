@@ -45,7 +45,7 @@ void SkaterPhysicsModule::tick_frame()
 
     switch (state_of(this)) {
     case kGround:
-        last_ground_pos_ = entity()->at_point();
+        last_ground_.pos = entity()->at_point();
         do_ground_physics();
         try_start_skitch();
         break;
@@ -81,7 +81,7 @@ void SkaterPhysicsModule::tick_frame()
     collision_events::checkpoint(this, "after-4FF200"); // (not original)
     try_grind(false);                                   // (inlined in the original)
     collision_events::checkpoint(this, "try-grind");    // (not original)
-    update_free_revert();
+    friction_.update_free_revert();
     collision_events::checkpoint(this, "free-revert"); // (not original)
     update_focus_button();
     update_projectiles();

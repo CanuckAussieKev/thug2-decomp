@@ -716,7 +716,7 @@ void SkaterPhysicsModule::do_air_physics()
             keep_upright();
         }
     }
-    if (special_friction_time_ != 0.0F) {
+    if (friction_.special_time != 0.0F) {
         apply_wheel_drag();
     }
 

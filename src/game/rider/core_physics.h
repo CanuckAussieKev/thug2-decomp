@@ -252,9 +252,6 @@ public:
     // 0x00500670 (from the frame's update): the collision cache (+0x4F4) refilled for a box round the skater - 180
     // either way along x and z, 204 below and 96 above - and made the feelers' current cache (0x00691974).
     void refresh_hit_cache();
-    // 0x00500710: a free revert earned when Physics_Time_Before_Free_Revert seconds have passed since +0x31C while
-    // +0x318 (the ones pending) isn't 0 ("You earned a free revert!!!!"); the next one timed from now.
-    void update_free_revert();
     // 0x005007A0: the focus button (pad +0xE0) held longer than focus_button_pressed_time: toggle_bullettime run
     // (once until it's let go: +0x14C1).
     void update_focus_button();
@@ -571,7 +568,7 @@ public:
     // GetLastGroundHeading (last_heading: +0x348), 0x004FDC30 GetAmmo (ammo: +0x2F8), 0x004FDC50 GetAmmoType
     // (ammo_type: +0x2FC), 0x004FDC70 get_pitch_bail_dir (pitch_bail_dir: +0x2D4): added to the script's parameters.
     int get_matrix_normal(script::Struct* params, script::Script* script);
-    int get_last_ground_pos(script::Struct* params, script::Script* script);
+    int get_last_ground_pos(script::Struct* params, script::Script* script) const;
     int get_last_ground_heading(script::Struct* params, script::Script* script) const;
     int get_ammo(script::Struct* params, script::Script* script) const;
     int get_ammo_type(script::Struct* params, script::Script* script) const;
@@ -858,6 +855,32 @@ public:
         uint32_t start{}; // +0x00 (+0x380) the game clock when the skater went into the air
         uint32_t end{};   // +0x04 (+0x384) ... and came out of it
     };
+    // The speed, in three records apart: the friction (+0x314-+0x327: SetSpecialFriction, the brake, the free
+    // reverts), the last ground (+0x338-+0x34B: GetLastGroundPos / Heading) and overridelimits' limits
+    // (+0x350-+0x363). (The speed override's factor, +0x3AC, is apart: speed_override_.)
+    struct Friction {
+        float rolling{};      // +0x00 (+0x314) Physics_Rolling_Friction, or a special friction
+        int special_index{};  // +0x04 (+0x318) SetSpecialFriction's next entry (also the free reverts pending)
+        int special_start{};  // +0x08 (+0x31C) the game clock of the first (and of the last free revert)
+        float special_time{}; // +0x0C (+0x320) its duration left (0: none)
+        uint8_t braking{};    // +0x10 (+0x324)
+        std::array<uint8_t, 3> pad11{}; // +0x11 (+0x325)
+        // 0x00500710 (on the component, its friction at +0x314): a free revert earned when
+        // Physics_Time_Before_Free_Revert seconds have passed since special_start while special_index (the ones
+        // pending) isn't 0 ("You earned a free revert!!!!"); the next one timed from now.
+        void update_free_revert();
+    };
+    struct LastGround {
+        maths::Vec4 pos{}; // +0x00 (+0x338) GetLastGroundPos
+        float heading{};   // +0x10 (+0x348) degrees from the facing (GetLastGroundHeading)
+    };
+    struct SpeedLimits {
+        float time{};     // +0x00 (+0x350) overridelimits: the time left (0 off, -1 for ever, -2 for the level)
+        float max{};      // +0x04 (+0x354) the max speed while overridden
+        float max_max{};  // +0x08 (+0x358)
+        float friction{}; // +0x0C (+0x35C)
+        float gravity{};  // +0x10 (+0x360)
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return ground_.display_matrix; }
@@ -902,8 +925,8 @@ public:
     [[nodiscard]] uint8_t crouch_stats() const { return crouch_stats_; }
     [[nodiscard]] uint8_t no_kick() const { return no_kick_; }
     [[nodiscard]] uint8_t can_brake() const { return can_brake_; }
-    void set_special_friction_index(int value) { special_friction_index_ = value; }
-    void set_braking(uint8_t value) { braking_ = value; }
+    void set_special_friction_index(int value) { friction_.special_index = value; }
+    void set_braking(uint8_t value) { friction_.braking = value; }
     [[nodiscard]] uint8_t rail_backwards() const { return rail_backwards_; }
     void set_rail_backwards(uint8_t value) { rail_backwards_ = value; }
     [[nodiscard]] uint8_t landed_from_air_vert() const { return air_flags_.landed_from_air_vert; }
@@ -1020,22 +1043,12 @@ private:
     uint8_t no_kick_{};    // +0x310 kicking forbidden (can_kick_on / CanKickOff)
     uint8_t can_brake_{};  // +0x311 CanBrakeOn / Off
     std::array<uint8_t, 2> pad312_{};
-    float rolling_friction_{};      // +0x314 Physics_Rolling_Friction, or a special friction
-    int special_friction_index_{};  // +0x318 SetSpecialFriction's next entry (also the free reverts pending)
-    int special_friction_start_{};  // +0x31C the game clock of the first (and of the last free revert)
-    float special_friction_time_{}; // +0x320 its duration left (0: none)
-    uint8_t braking_{};             // +0x324
-    std::array<uint8_t, 3> pad325_{};
+    Friction friction_;                         // +0x314-+0x327 the friction
     std::array<int, 4> side_hit_times_{};       // +0x328 the game clock when each side feeler (0-3) last hit
-    maths::Vec4 last_ground_pos_{}; // +0x338 GetLastGroundPos
-    float last_heading_{};          // +0x348 degrees from the facing (GetLastGroundHeading)
+    LastGround last_ground_;                    // +0x338-+0x34B the last ground
     uint8_t rail_backwards_{};      // +0x34C the way round along the rail (flipped by turn_around)
     std::array<uint8_t, 3> pad34d_{};
-    float limits_time_{};     // +0x350 overridelimits: the time left (0 off, -1 for ever, -2 for the level)
-    float limits_max_{};      // +0x354 the max speed while overridden
-    float limits_max_max_{};  // +0x358
-    float limits_friction_{}; // +0x35C
-    float limits_gravity_{};  // +0x360
+    SpeedLimits limits_;                                    // +0x350-+0x363 overridelimits' limits
     objects::SharedRef<objects::GameEntity> skitch_target_; // +0x364 the object being skitched on
     AirFlags air_flags_;                                    // +0x370-+0x377 the air and landing flags
     int jump_charge_ms_{};       // +0x378 how long the jump was held (ms), up to the max tense time

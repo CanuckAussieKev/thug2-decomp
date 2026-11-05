@@ -174,8 +174,8 @@ void SkaterPhysicsModule::apply_stance_friction()
     objects::GameEntity* object = object_of(this);
     float crouched = tuning_float_lookup(kFrictionCrouched, object);
     float standing = tuning_float_lookup(kFriction, object);
-    if (limits_time_ != 0.0F) {
-        crouched = limits_friction_;
+    if (limits_.time != 0.0F) {
+        crouched = limits_.friction;
         standing = crouched;
     }
     apply_friction(state_->flag(PoseFlag::kCrouched).on != 0 ? crouched : standing);
@@ -196,7 +196,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
         return;
     }
     const double friction_scale =
-        static_cast<double>(frame_.length) / speed_rounded * rolling_friction_ * kFramesPerSecond;
+        static_cast<double>(frame_.length) / speed_rounded * friction_.rolling * kFramesPerSecond;
     auto dx = static_cast<float>(friction_scale * x);
     auto dy = static_cast<float>(vy * friction_scale);
     auto dz = static_cast<float>(vz * friction_scale);

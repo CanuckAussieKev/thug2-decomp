@@ -191,22 +191,22 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, no_kick_), .original = 0x310},
         FieldAt{.now = offsetof(SkaterPhysicsModule, can_brake_), .original = 0x311},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad312_), .original = 0x312},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, rolling_friction_), .original = 0x314},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, special_friction_index_), .original = 0x318},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, special_friction_start_), .original = 0x31C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, special_friction_time_), .original = 0x320},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, braking_), .original = 0x324},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, pad325_), .original = 0x325},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, friction_.rolling), .original = 0x314},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, friction_.special_index), .original = 0x318},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, friction_.special_start), .original = 0x31C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, friction_.special_time), .original = 0x320},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, friction_.braking), .original = 0x324},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, friction_.pad11), .original = 0x325},
         FieldAt{.now = offsetof(SkaterPhysicsModule, side_hit_times_), .original = 0x328},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, last_ground_pos_), .original = 0x338},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, last_heading_), .original = 0x348},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, last_ground_.pos), .original = 0x338},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, last_ground_.heading), .original = 0x348},
         FieldAt{.now = offsetof(SkaterPhysicsModule, rail_backwards_), .original = 0x34C},
         FieldAt{.now = offsetof(SkaterPhysicsModule, pad34d_), .original = 0x34D},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_time_), .original = 0x350},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_max_), .original = 0x354},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_max_max_), .original = 0x358},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_friction_), .original = 0x35C},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_gravity_), .original = 0x360},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_.time), .original = 0x350},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_.max), .original = 0x354},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_.max_max), .original = 0x358},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_.friction), .original = 0x35C},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, limits_.gravity), .original = 0x360},
         FieldAt{.now = offsetof(SkaterPhysicsModule, skitch_target_), .original = 0x364},
         FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.no_spin), .original = 0x370},
         FieldAt{.now = offsetof(SkaterPhysicsModule, air_flags_.bail_on), .original = 0x371},
@@ -323,13 +323,13 @@ void SkaterPhysicsModule::get_reset()
     can_brake_ = 1;
     state_->set_lip_straight_up(0);
     rail_.node = nullptr;
-    if (limits_time_ != -kTimerForLevel) { // (-2: kept)
-        limits_time_ = 0.0F;
+    if (limits_.time != -kTimerForLevel) { // (-2: kept)
+        limits_.time = 0.0F;
     }
     wallplant_.time = 0;
     wallplant_.last_push_off = 0;
     leap_time_ = 0;
-    special_friction_time_ = 0.0F;
+    friction_.special_time = 0.0F;
     wallplant_.vert_planted = 0;
     speed_override_ = 1.0F;
 }
@@ -360,21 +360,21 @@ void SkaterPhysicsModule::refresh_hit_cache()
 }
 
 // 0x00500710
-void SkaterPhysicsModule::update_free_revert()
+void SkaterPhysicsModule::Friction::update_free_revert()
 {
-    if (special_friction_index_ == 0) {
+    if (special_index == 0) {
         return;
     }
-    auto start = static_cast<uint32_t>(special_friction_start_);
+    auto start = static_cast<uint32_t>(special_start);
     const uint32_t wait =
         ftol(static_cast<double>(script::fetch_float(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
     if (get_since(start) <= wait) {
         return;
     }
-    --special_friction_index_;
+    --special_index;
     debug::printf(kMessageFormat, kSourceFile, kFreeRevertLine, kFreeRevertText);
-    if (special_friction_index_ != 0) {
-        special_friction_start_ = get_now();
+    if (special_index != 0) {
+        special_start = get_now();
     }
 }
 

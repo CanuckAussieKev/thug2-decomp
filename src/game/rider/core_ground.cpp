@@ -79,9 +79,9 @@ void SkaterPhysicsModule::do_ground_physics()
     // The heading (+0x348, degrees round from the facing).
     objects::GameEntity* object = object_of(this);
     const double heading = static_cast<double>(maths::fast_a_cos(core::at(object->basis_frame().row, 2).x)) * kDegreesPerRadian;
-    last_heading_ = static_cast<float>(heading);
+    last_ground_.heading = static_cast<float>(heading);
     if (core::at(object->basis_frame().row, 2).z < 0.0F) {
-        last_heading_ = static_cast<float>(kFullTurn - heading);
+        last_ground_.heading = static_cast<float>(kFullTurn - heading);
     }
     if (thaw_bmx::live_now(
             this)) { // (not original: THAW 0x005E4579, the time on vert ground noted - thaw_bmx_physics.cpp)
@@ -93,8 +93,8 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
     maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kGroundGravity, object_of(this)), .z = 0.0F, .w = 1.0F};
-    if (!(limits_time_ == 0.0F) && entity()->vel().y > 0.0F) {
-        gravity = {.x = 0.0F, .y = limits_gravity_, .z = 0.0F, .w = 1.0F};
+    if (!(limits_.time == 0.0F) && entity()->vel().y > 0.0F) {
+        gravity = {.x = 0.0F, .y = limits_.gravity, .z = 0.0F, .w = 1.0F};
     }
     gravity.flatten_onto_plane(ground_.floor_normal);
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
@@ -203,7 +203,7 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike)
         if (bike ? thaw_bmx::should_brake(this) : should_brake()) {
             get_brake();
         } else {
-            braking_ = 0;
+            friction_.braking = 0;
             if (bike ? thaw_bmx::can_kick(this) && thaw_bmx::may_accelerate(this) : can_push_off()) {
                 push_off();
             }
@@ -212,7 +212,7 @@ void SkaterPhysicsModule::tick_balance_trick(bool bike)
         balance_->skitch().tick_frame();
         perfect_cheat(kPerfectSkitch, balance_->skitch());
     } else if (kind == kNoseManual || kind == kManual) {
-        braking_ = 0;
+        friction_.braking = 0;
         if (motoskateboard_ != 0U) {
             crouch_stats_ = 1;
             if (can_push_off()) {

@@ -608,7 +608,7 @@ int SkaterPhysicsModule::is_tagging(script::Struct* /*params*/, script::Script* 
 // 0x004FC9B0
 int SkaterPhysicsModule::get_braking(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    return get_is(braking_);
+    return get_is(friction_.braking);
 }
 
 // --- the timed flags ---
@@ -826,9 +826,9 @@ int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script* 
 int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
-    float* friction = &rolling_friction_;
+    float* friction = &friction_.rolling;
     params->fetch_float(0U, friction, 0);
-    if (params->has_bare_flag(kDefault) && special_friction_time_ == 0.0F) {
+    if (params->has_bare_flag(kDefault) && friction_.special_time == 0.0F) {
         *friction = tuning_float_lookup(kCoastDrag, object);
     }
     return 1;
@@ -895,29 +895,29 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, scrip
 int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
-    float& time = limits_time_;
+    float& time = limits_.time;
     if (params->has_bare_flag(kCancelLimits)) {
         time = 0.0F;
         return 1;
     }
-    if (limits_time_ == -kTimerForLevel) { // for the level
+    if (limits_.time == -kTimerForLevel) { // for the level
         return 1;
     }
     if (params->has_bare_flag(kEnd)) {
         time = 0.0F;
         return 1;
     }
-    float* max = &limits_max_;
+    float* max = &limits_.max;
     params->fetch_float(kMax, max, 1);
-    float* max_max = &limits_max_max_;
-    limits_max_max_ = *max;
+    float* max_max = &limits_.max_max;
+    limits_.max_max = *max;
     params->fetch_float(kMaxMax, max_max, 0);
-    limits_time_ = std::bit_cast<float>(kLimitsTimeDefault);
+    limits_.time = std::bit_cast<float>(kLimitsTimeDefault);
     params->fetch_float(kTime, &time, 0);
-    float* friction = &limits_friction_;
-    limits_friction_ = std::bit_cast<float>(kLimitsFrictionDefault);
+    float* friction = &limits_.friction;
+    limits_.friction = std::bit_cast<float>(kLimitsFrictionDefault);
     params->fetch_float(kFriction, friction, 0);
-    float* gravity = &limits_gravity_;
+    float* gravity = &limits_.gravity;
     *gravity = tuning_float_lookup(kGroundGravity, object);
     params->fetch_float(kGravity, gravity, 0);
     if (params->has_bare_flag(kUntilCancelled)) {
@@ -934,17 +934,17 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 {
     script::Array* frictions = nullptr;
     params->fetch_list(0U, &frictions, 0);
-    int& index = special_friction_index_;
+    int& index = friction_.special_index;
     const int count = static_cast<int>(frictions->extent()); // (no array: the original reads through null too)
     if (index >= count) {
         index = count - 1;
     }
-    rolling_friction_ = frictions->fetch_float(static_cast<uint32_t>(index));
+    friction_.rolling = frictions->fetch_float(static_cast<uint32_t>(index));
     if (index == 0) {
-        special_friction_start_ = get_now();
+        friction_.special_start = get_now();
     }
     ++index;
-    params->fetch_float(kDuration, &special_friction_time_, 0);
+    params->fetch_float(kDuration, &friction_.special_time, 0);
     return 1;
 }
 
@@ -959,16 +959,16 @@ int SkaterPhysicsModule::get_matrix_normal(script::Struct* /*params*/, script::S
     return 1;
 }
 // 0x004FD5E0
-int SkaterPhysicsModule::get_last_ground_pos(script::Struct* /*params*/, script::Script* script)
+int SkaterPhysicsModule::get_last_ground_pos(script::Struct* /*params*/, script::Script* script) const
 {
-    const maths::Vec4& position = last_ground_pos_;
+    const maths::Vec4& position = last_ground_.pos;
     script->args().get()->put_vec3(checksums::Name{kPos}, {.x = position.x, .y = position.y, .z = position.z});
     return 1;
 }
 // 0x004FD610
 int SkaterPhysicsModule::get_last_ground_heading(script::Struct* /*params*/, script::Script* script) const
 {
-    script->args().get()->push_float(checksums::Name{kLastHeading}, last_heading_);
+    script->args().get()->push_float(checksums::Name{kLastHeading}, last_ground_.heading);
     return 1;
 }
 // 0x004FDC30

@@ -56,17 +56,17 @@ void SkaterPhysicsModule::clamp_skater_speed()
     if (thaw_bmx::live_now(this)) {
         heavy_friction = thaw_bmx::vert_speed_allowance(this, &max_max);
     }
-    float& timer = limits_time_;
+    float& timer = limits_.time;
     if (timer != 0.0F) {
         if (timer != -1.0F && timer != -kTimerForLevel) { // (-1: for good; -2: for the level)
             const double left = static_cast<double>(timer) - frame_.length;
             timer = static_cast<float>(left);
             if (left < 0.0) {
-                limits_time_ = 0.0F;
+                limits_.time = 0.0F;
             }
         }
-        max_max = limits_max_max_;
-        max = limits_max_;
+        max_max = limits_.max_max;
+        max = limits_.max;
     }
     if (speed > max_max) {
         speed = max_max;
@@ -78,13 +78,13 @@ void SkaterPhysicsModule::clamp_skater_speed()
     }
     entity()->vel().y = upward;
 
-    float& rolling = special_friction_time_;
+    float& rolling = friction_.special_time;
     if (rolling != 0.0F) {
         const double left = static_cast<double>(rolling) - frame_.length;
         rolling = static_cast<float>(left);
         if (left <= 0.0) {
-            special_friction_time_ = 0.0F;
-            rolling_friction_ = tuning_float_lookup(kCoastDrag, object);
+            friction_.special_time = 0.0F;
+            friction_.rolling = tuning_float_lookup(kCoastDrag, object);
         }
     }
 }
@@ -96,9 +96,9 @@ void SkaterPhysicsModule::get_brake()
         thaw_bmx::get_brake(this);
         return;
     }
-    braking_ = 1;
+    friction_.braking = 1;
     if (may_turn_on_slope()) { // (turning on the slope instead)
-        braking_ = 0;
+        friction_.braking = 0;
         return;
     }
     objects::GameEntity* object = object_of(this);
@@ -125,7 +125,7 @@ void SkaterPhysicsModule::apply_ground_friction()
     objects::GameEntity* object = object_of(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
     if ((auto_kick_ == 0U) && (state_->flag(PoseFlag::kBailing).on == 0U) &&
-        rolling_friction_ == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this)) {
+        friction_.rolling == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this)) {
         return;
     }
     apply_stance_friction(); // (the friction: crouched or standing)

@@ -146,7 +146,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         if (trigger_took_over(this)) {
             return;
         }
-        std::memcpy(&last_ground_pos_, &entity()->at_point(), kPointBytes); // (where it jumped)
+        std::memcpy(&last_ground_.pos, &entity()->at_point(), kPointBytes); // (where it jumped)
         if (sound) {
             play_jump_sound(feelers_.floor_feeler.hit().terrain);
         }
