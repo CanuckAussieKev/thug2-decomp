@@ -21,6 +21,7 @@
 #include "render_d3d9/device_d3d.h"
 #include "render_d3d9/d3d9_handles.h"
 #include "base/core/stubs.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/graphics_options.h"
 #include "render_d3d9/pc_gamma.h"
 #include "render_d3d9/render_state.h"
@@ -497,15 +498,16 @@ void show_disc_error()
 }
 
 // 0x0044F870
+long set_render_state(GpuRenderState state, uint32_t value) { return gpu().set_render_state(state, value); }
 long set_render_state(int state, uint32_t value)
 {
-    return d3d9::state().d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+    return set_render_state(static_cast<GpuRenderState>(state), value);
 }
 
 // 0x0044F890
 long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil)
 {
-    return d3d9::state().d3d_device()->Clear(rect_count, static_cast<const D3DRECT*>(rects), flags, color, z, stencil);
+    return gpu().clear(rect_count, static_cast<const GpuRect*>(rects), flags, color, z, stencil);
 }
 
 } // namespace render

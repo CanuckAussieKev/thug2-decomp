@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/render_camera.h"
 #include "base/core/checksums.h"
 #include "base/core/down_cast.h"
@@ -77,7 +78,13 @@ public:
         recreate_buffers();
         create_render_targets();
     }
-    bool reset() override { return state().d3d_device()->Reset(&present_parameters()) >= 0; }
+    bool reset() override
+    {
+        const bool reset = state().d3d_device()->Reset(&present_parameters()) >= 0;
+        // NOT ORIGINAL - the Gpu's state block (engine/gfx/gpu.h) to the defaults the reset device has.
+        render::gpu().reset_state_block();
+        return reset;
+    }
 
     // --- resources ---
     gsl::owner<WorldScene*> make_empty_scene(const char* name, TextureSet* textures, bool with_super_sectors) override

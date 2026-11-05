@@ -5,10 +5,6 @@
 #include "engine/gfx/surface_material.h"
 
 #include <cstddef>
-#include <windows.h>
-
-#include <d3d9.h>
-
 #include <bit>
 #include <cstdint>
 #include <array>
@@ -23,8 +19,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
-#include "render_d3d9/d3d9_state.h"
-#include "render_d3d9/d3d9_handles.h"
+#include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/effects_state.h"
@@ -131,28 +126,22 @@ uint8_t& local_viewer() { return forced_states().local_viewer_; }
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
 void* get_shader(int slot) { return core::at(pixel_shaders(), slot); }
 
-void set_tss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value)
-{
-    d3d9::state().d3d_device()->SetTextureStageState(stage, type, value);
-}
-void set_sampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value)
-{
-    d3d9::state().d3d_device()->SetSamplerState(sampler, type, value);
-}
-void set_device_render_state(D3DRENDERSTATETYPE state, DWORD value) { d3d9::state().d3d_device()->SetRenderState(state, value); }
+void set_tss(uint32_t stage, GpuStageState type, uint32_t value) { gpu().set_stage_state(stage, type, value); }
+void set_sampler(uint32_t sampler, GpuSamplerState type, uint32_t value) { gpu().set_sampler_state(sampler, type, value); }
+void set_device_render_state(GpuRenderState state, uint32_t value) { gpu().set_render_state(state, value); }
 
-// D3DTADDRESS for the renderer's addressing modes (border needs the device's support; else clamp).
-bool address_value(uint32_t mode, DWORD* value)
+// The address mode (D3DTADDRESS) for the renderer's addressing modes (border needs the device's support; else clamp).
+bool address_value(uint32_t mode, uint32_t* value)
 {
     switch (mode) {
     case 0:
-        *value = D3DTADDRESS_WRAP;
+        *value = gpu_value::kAddressWrap;
         return true;
     case 1:
-        *value = D3DTADDRESS_CLAMP;
+        *value = gpu_value::kAddressClamp;
         return true;
     case 2:
-        *value = renderer().border_addressing_supported() ? D3DTADDRESS_BORDER : D3DTADDRESS_CLAMP;
+        *value = renderer().border_addressing_supported() ? gpu_value::kAddressBorder : gpu_value::kAddressClamp;
         return true;
     default:
         return false; // (nothing sent, but the cache takes the value)
@@ -172,9 +161,9 @@ void change_address_mode(RenderStateId state, uint32_t value)
     uint32_t& cached = core::at(address_modes(), sampler);
     const uint32_t u = value & 0xFFFF;
     if (u != (cached & kLowHalfMask)) {
-        DWORD address = 0;
+        uint32_t address = 0;
         if (address_value(u, &address)) {
-            set_sampler(sampler, D3DSAMP_ADDRESSU, address);
+            set_sampler(sampler, GpuSamplerState::kAddressU, address);
         }
         cached = (cached & kHighHalfMask) | u;
     }
@@ -182,9 +171,9 @@ void change_address_mode(RenderStateId state, uint32_t value)
     if (v == (cached & kHighHalfMask)) {
         return;
     }
-    DWORD address = 0;
+    uint32_t address = 0;
     if (address_value(v >> kHalfBits, &address)) {
-        set_sampler(sampler, D3DSAMP_ADDRESSV, address);
+        set_sampler(sampler, GpuSamplerState::kAddressV, address);
     }
     cached = (cached & kLowHalfMask) | v;
 }
@@ -197,14 +186,14 @@ void change_filter(RenderStateId state, uint32_t value)
     uint32_t& cached = core::at(filters(), sampler);
     const uint32_t mag = value & 0xFFFF0000;
     if (mag != (cached & kHighHalfMask)) {
-        set_sampler(sampler, D3DSAMP_MAGFILTER, ((value & kMagLinearBit) != 0U) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+        set_sampler(sampler, GpuSamplerState::kMagFilter, ((value & kMagLinearBit) != 0U) ? gpu_value::kFilterLinear : gpu_value::kFilterPoint);
         cached = (cached & kLowHalfMask) | mag;
     }
     const uint32_t min = value & 0xFFFF;
     if (min != (cached & kLowHalfMask)) {
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic in place of linear.
         // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
-        set_sampler(sampler, D3DSAMP_MINFILTER,
+        set_sampler(sampler, GpuSamplerState::kMinFilter,
                     graphics_options::get_min_filter((value & 1) != 0, graphics_options::active_anisotropy()));
         cached = (cached & kHighHalfMask) | min;
     }
@@ -220,22 +209,22 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kZWrite:
         if (value != 0U) {
             if (gfx.z_write() == 0U) {
-                render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
+                render::set_render_state(GpuRenderState::kZWriteEnable, 1U);
                 gfx.set_z_write(1);
             }
         } else if (gfx.z_write() == 1) {
-            render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
+            render::set_render_state(GpuRenderState::kZWriteEnable, 0U);
             gfx.set_z_write(0);
         }
         return;
     case RenderStateId::kZTest:
         if (value != 0U) {
             if (get_z_test() == 0U) {
-                render::set_render_state(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
+                render::set_render_state(GpuRenderState::kZFunc, gpu_value::kCompareLessEqual);
                 get_z_test() = 1;
             }
         } else if (get_z_test() == 1) {
-            render::set_render_state(D3DRS_ZFUNC, D3DCMP_ALWAYS);
+            render::set_render_state(GpuRenderState::kZFunc, gpu_value::kCompareAlways);
             get_z_test() = 0;
         }
         return;
@@ -245,13 +234,13 @@ void change_phase(RenderStateId state, uint32_t value)
         }
         alpha_test_level() = value;
         if (value != 0U) {
-            render::set_render_state(D3DRS_ALPHAREF, value);
+            render::set_render_state(GpuRenderState::kAlphaRef, value);
             if (alpha_test() == 0U) {
-                render::set_render_state(D3DRS_ALPHATESTENABLE, TRUE);
+                render::set_render_state(GpuRenderState::kAlphaTestEnable, 1U);
                 alpha_test() = 1;
             }
         } else if (alpha_test() != 0U) {
-            render::set_render_state(D3DRS_ALPHATESTENABLE, FALSE);
+            render::set_render_state(GpuRenderState::kAlphaTestEnable, 0U);
             alpha_test() = 0;
         }
         return;
@@ -268,7 +257,7 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kMipLodBias3: {
         const int sampler = sampler_of(state, RenderStateId::kMipLodBias0);
         if (value != core::at(mip_lod_biases(), sampler)) {
-            set_sampler(sampler, D3DSAMP_MIPMAPLODBIAS, value);
+            set_sampler(sampler, GpuSamplerState::kMipLodBias, value);
             core::at(mip_lod_biases(), sampler) = value;
         }
         return;
@@ -276,32 +265,32 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kCullMode:
         if (value != renderer().cull_mode()) {
             gfx.set_cull_mode(value);
-            render::set_render_state(D3DRS_CULLMODE, value);
+            render::set_render_state(GpuRenderState::kCullMode, value);
         }
         return;
     case RenderStateId::kAlphaBlend:
         if (value != alpha_blend()) {
             alpha_blend() = value;
-            render::set_render_state(D3DRS_ALPHABLENDENABLE, static_cast<uint32_t>(value != 0));
+            render::set_render_state(GpuRenderState::kAlphaBlendEnable, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kAlphaTest:
         if (value != alpha_test()) {
             alpha_test() = value;
-            render::set_render_state(D3DRS_ALPHATESTENABLE, static_cast<uint32_t>(value != 0));
+            render::set_render_state(GpuRenderState::kAlphaTestEnable, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kSpecular:
         if (value != gfx.specular_state()) {
             gfx.set_specular(value);
-            render::set_render_state(D3DRS_SPECULARENABLE, static_cast<uint32_t>(value != 0));
-            render::set_render_state(D3DRS_LOCALVIEWER, static_cast<uint32_t>(value != 0));
+            render::set_render_state(GpuRenderState::kSpecularEnable, static_cast<uint32_t>(value != 0));
+            render::set_render_state(GpuRenderState::kLocalViewer, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kFog:
         if (value != gfx.fog_active()) {
             gfx.set_fog_active(value);
-            render::set_render_state(D3DRS_FOGENABLE, static_cast<uint32_t>(value != 0));
+            render::set_render_state(GpuRenderState::kFogEnable, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kDepthBias:
@@ -309,13 +298,13 @@ void change_phase(RenderStateId state, uint32_t value)
             gfx.set_depth_bias(value);
             // (unsigned, scaled; x87 at double precision, stored as a float)
             auto bias = static_cast<float>(static_cast<double>(value) * kDepthBiasUnit);
-            render::set_render_state(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
+            render::set_render_state(GpuRenderState::kDepthBias, std::bit_cast<uint32_t>(bias));
         }
         return;
     case RenderStateId::kLighting:
         if (value != get_lighting()) {
             get_lighting() = value;
-            render::set_render_state(D3DRS_LIGHTING, static_cast<uint32_t>(value != 0));
+            render::set_render_state(GpuRenderState::kLighting, static_cast<uint32_t>(value != 0));
         }
         return;
     case RenderStateId::kFilter0:
@@ -328,7 +317,7 @@ void change_phase(RenderStateId state, uint32_t value)
     case RenderStateId::kLocalViewer:
         if (value != local_viewer()) {
             local_viewer() = static_cast<uint8_t>(value != 0);
-            render::set_render_state(D3DRS_LOCALVIEWER, value);
+            render::set_render_state(GpuRenderState::kLocalViewer, value);
         }
         return;
     }
@@ -339,7 +328,7 @@ void change_phase(RenderStateId state, uint32_t value)
 void set_vertex_format(uint32_t fvf)
 {
     if (renderer().vertex_format_locked() == 0 && vertex_format() != fvf) {
-        d3d9::state().d3d_device()->SetFVF(fvf);
+        gpu().set_vertex_format(fvf);
         vertex_format() = fvf;
     }
 }
@@ -349,7 +338,7 @@ void set_texture(int stage, GpuTexture* texture)
 {
     auto& gfx = renderer();
     if (gfx.stage_texture(stage) != texture) {
-        d3d9::state().d3d_device()->SetTexture(stage, d3d9::object(texture));
+        gpu().set_texture(static_cast<uint32_t>(stage), texture);
         gfx.set_stage_texture(stage, texture);
     }
 }
@@ -366,9 +355,9 @@ void choose_blend_mode(uint32_t mode)
         // Fog goes black under the additive and subtractive modes (1-4).
         if (renderer().fog_active() != 0U) {
             if (kind >= 1 && kind <= 4) {
-                render::set_render_state(D3DRS_FOGCOLOR, 0);
+                render::set_render_state(GpuRenderState::kFogColour, 0);
             } else {
-                set_device_render_state(D3DRS_FOGCOLOR, engine_parts().fog_colour());
+                set_device_render_state(GpuRenderState::kFogColour, engine_parts().fog_colour());
             }
         }
         uint32_t op = 0;
@@ -377,71 +366,71 @@ void choose_blend_mode(uint32_t mode)
         switch (kind) {
         case 0:
         case kBlendModeVertexTexAlpha:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_ONE;
-            dest = D3DBLEND_ZERO;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendOne;
+            dest = gpu_value::kBlendZero;
             break;
         case 1:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_SRCALPHA;
-            dest = D3DBLEND_ONE;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendSrcAlpha;
+            dest = gpu_value::kBlendOne;
             break;
         case 2:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_BLENDFACTOR;
-            dest = D3DBLEND_ONE;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendFactor;
+            dest = gpu_value::kBlendOne;
             break;
         case 3:
-            op = D3DBLENDOP_REVSUBTRACT;
-            src = D3DBLEND_SRCALPHA;
-            dest = D3DBLEND_ONE;
+            op = gpu_value::kBlendOpRevSubtract;
+            src = gpu_value::kBlendSrcAlpha;
+            dest = gpu_value::kBlendOne;
             break;
         case 4:
-            op = D3DBLENDOP_REVSUBTRACT;
-            src = D3DBLEND_BLENDFACTOR;
-            dest = D3DBLEND_ONE;
+            op = gpu_value::kBlendOpRevSubtract;
+            src = gpu_value::kBlendFactor;
+            dest = gpu_value::kBlendOne;
             break;
         case kBlendModeAlpha:
         case kBlendModeLerpPrevious:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_SRCALPHA;
-            dest = D3DBLEND_INVSRCALPHA;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendSrcAlpha;
+            dest = gpu_value::kBlendInvSrcAlpha;
             break;
         case kBlendModeFixBlend:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_BLENDFACTOR;
-            dest = D3DBLEND_INVBLENDFACTOR;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendFactor;
+            dest = gpu_value::kBlendInvFactor;
             break;
         case kBlendModeModulate:
         case kBlendModeFixModulate:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_ZERO;
-            dest = D3DBLEND_SRCALPHA;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendZero;
+            dest = gpu_value::kBlendSrcAlpha;
             break;
         case kBlendModeBrighten:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_DESTCOLOR;
-            dest = D3DBLEND_ONE;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendDestColour;
+            dest = gpu_value::kBlendOne;
             break;
         case kBlendModeFixBrighten:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_DESTCOLOR;
-            dest = D3DBLEND_BLENDFACTOR;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendDestColour;
+            dest = gpu_value::kBlendFactor;
             break;
         case kBlendModeLerpFromPrevious:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_INVSRCALPHA;
-            dest = D3DBLEND_SRCALPHA;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendInvSrcAlpha;
+            dest = gpu_value::kBlendSrcAlpha;
             break;
         case kBlendModeMultiplyColour:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_ZERO;
-            dest = D3DBLEND_SRCCOLOR;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendZero;
+            dest = gpu_value::kBlendSrcColour;
             break;
         case kBlendModePrimitive:
-            op = D3DBLENDOP_ADD;
-            src = D3DBLEND_ONE;
-            dest = D3DBLEND_INVSRCALPHA;
+            op = gpu_value::kBlendOpAdd;
+            src = gpu_value::kBlendOne;
+            dest = gpu_value::kBlendInvSrcAlpha;
             break;
         default: // (0xE, 0x10 and anything bigger: the argument itself - not the override - for all three)
             op = src = dest = mode;
@@ -449,30 +438,30 @@ void choose_blend_mode(uint32_t mode)
         }
         // Without blend factors: the nearest the colour and source alpha can do.
         if (!renderer().blend_factor_supported()) {
-            if (src == D3DBLEND_BLENDFACTOR && dest == D3DBLEND_INVBLENDFACTOR) {
-                src = D3DBLEND_ONE;
-                dest = D3DBLEND_INVSRCALPHA;
+            if (src == gpu_value::kBlendFactor && dest == gpu_value::kBlendInvFactor) {
+                src = gpu_value::kBlendOne;
+                dest = gpu_value::kBlendInvSrcAlpha;
             } else {
-                if (src == D3DBLEND_BLENDFACTOR) {
-                    src = D3DBLEND_ZERO;
+                if (src == gpu_value::kBlendFactor) {
+                    src = gpu_value::kBlendZero;
                 }
-                if (dest == D3DBLEND_BLENDFACTOR) {
-                    dest = D3DBLEND_SRCALPHA;
-                } else if (dest == D3DBLEND_INVBLENDFACTOR) {
-                    dest = D3DBLEND_INVSRCALPHA;
+                if (dest == gpu_value::kBlendFactor) {
+                    dest = gpu_value::kBlendSrcAlpha;
+                } else if (dest == gpu_value::kBlendInvFactor) {
+                    dest = gpu_value::kBlendInvSrcAlpha;
                 }
             }
         }
         if (op != blend_op()) {
-            set_device_render_state(D3DRS_BLENDOP, op);
+            set_device_render_state(GpuRenderState::kBlendOp, op);
             blend_op() = op;
         }
         if (src != src_blend()) {
-            set_device_render_state(D3DRS_SRCBLEND, src);
+            set_device_render_state(GpuRenderState::kSrcBlend, src);
             src_blend() = src;
         }
         if (dest != dest_blend()) {
-            set_device_render_state(D3DRS_DESTBLEND, dest);
+            set_device_render_state(GpuRenderState::kDestBlend, dest);
             dest_blend() = dest;
         }
     }
@@ -480,7 +469,7 @@ void choose_blend_mode(uint32_t mode)
     uint32_t alpha = wanted & kAlphaMask;
     if (alpha != (get_blend_mode() & kAlphaMask)) {
         alpha = alpha >= kAlphaHighBit ? kAlphaMask : alpha << 1;
-        set_device_render_state(D3DRS_BLENDFACTOR, (((alpha >> kByte1Shift | alpha) >> kByte1Shift | alpha) >> kByte1Shift) | alpha);
+        set_device_render_state(GpuRenderState::kBlendFactor, (((alpha >> kByte1Shift | alpha) >> kByte1Shift | alpha) >> kByte1Shift) | alpha);
     }
     get_blend_mode() = wanted;
 }
@@ -489,66 +478,66 @@ void choose_blend_mode(uint32_t mode)
 void set_fixed_function_stages(void* shader, uint32_t factor)
 {
     // The last stage-0 state each one sets, then stage 1 off.
-    D3DTEXTURESTAGESTATETYPE last_type = D3DTSS_COLOROP; // (every branch sets it)
-    DWORD last_value = 0;
+    GpuStageState last_type = GpuStageState::kColourOp; // (every branch sets it)
+    uint32_t last_value = 0;
     if (shader == get_shader(kPixelShader964)) {
-        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE4X);
-        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-        set_tss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        set_tss(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
-        set_tss(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+        set_tss(0, GpuStageState::kColourOp, gpu_value::kOpModulate4x);
+        set_tss(0, GpuStageState::kColourArg1, gpu_value::kArgTexture);
+        set_tss(0, GpuStageState::kColourArg2, gpu_value::kArgDiffuse);
+        set_tss(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate2x);
+        set_tss(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+        set_tss(0, GpuStageState::kAlphaArg2, gpu_value::kArgDiffuse);
+        set_tss(1, GpuStageState::kColourOp, gpu_value::kOpDisable);
         return;
     }
     if (shader == get_shader(kPixelShader95c)) { // vertex colour x2 x the factor, vertex alpha
-        set_device_render_state(D3DRS_TEXTUREFACTOR, factor);
-        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        set_tss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
-        set_tss(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
-        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        last_type = D3DTSS_ALPHAARG1;
-        last_value = D3DTA_DIFFUSE;
+        set_device_render_state(GpuRenderState::kTextureFactor, factor);
+        set_tss(0, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+        set_tss(0, GpuStageState::kColourArg1, gpu_value::kArgDiffuse);
+        set_tss(0, GpuStageState::kColourArg2, gpu_value::kArgTextureFactor);
+        set_tss(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
+        last_type = GpuStageState::kAlphaArg1;
+        last_value = gpu_value::kArgDiffuse;
     } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader954)) { // the factor alone
-        set_device_render_state(D3DRS_TEXTUREFACTOR, factor);
-        set_tss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        set_tss(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
-        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        last_type = D3DTSS_ALPHAARG1;
-        last_value = D3DTA_TFACTOR;
+        set_device_render_state(GpuRenderState::kTextureFactor, factor);
+        set_tss(0, GpuStageState::kColourOp, gpu_value::kOpSelectArg1);
+        set_tss(0, GpuStageState::kColourArg1, gpu_value::kArgTextureFactor);
+        set_tss(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
+        last_type = GpuStageState::kAlphaArg1;
+        last_value = gpu_value::kArgTextureFactor;
     } else if (shader != get_shader(kPixelShader958) &&
                shader == get_shader(kPixelShader950)) { // texture x vertex colour x2, texture alpha
-        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
-        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        set_tss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        last_type = D3DTSS_ALPHAARG2;
-        last_value = D3DTA_DIFFUSE;
+        set_tss(0, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+        set_tss(0, GpuStageState::kColourArg1, gpu_value::kArgTexture);
+        set_tss(0, GpuStageState::kColourArg2, gpu_value::kArgDiffuse);
+        set_tss(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
+        set_tss(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+        last_type = GpuStageState::kAlphaArg2;
+        last_value = gpu_value::kArgDiffuse;
     } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader94c)) { // vertex colour alone
-        set_tss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        set_tss(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
-        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        last_type = D3DTSS_ALPHAARG1;
-        last_value = D3DTA_DIFFUSE;
+        set_tss(0, GpuStageState::kColourOp, gpu_value::kOpSelectArg1);
+        set_tss(0, GpuStageState::kColourArg1, gpu_value::kArgDiffuse);
+        set_tss(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
+        last_type = GpuStageState::kAlphaArg1;
+        last_value = gpu_value::kArgDiffuse;
     } else if (shader != get_shader(kPixelShader958) &&
                shader == get_shader(kPixelShader944)) { // texture alpha x vertex alpha x2
-        set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE | D3DTA_ALPHAREPLICATE);
-        set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE | D3DTA_ALPHAREPLICATE);
-        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-        set_tss(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        last_type = D3DTSS_ALPHAARG2;
-        last_value = D3DTA_DIFFUSE;
+        set_tss(0, GpuStageState::kColourOp, gpu_value::kOpModulate2x);
+        set_tss(0, GpuStageState::kColourArg1, gpu_value::kArgTexture | gpu_value::kArgAlphaReplicate);
+        set_tss(0, GpuStageState::kColourArg2, gpu_value::kArgDiffuse | gpu_value::kArgAlphaReplicate);
+        set_tss(0, GpuStageState::kAlphaOp, gpu_value::kOpModulate2x);
+        set_tss(0, GpuStageState::kAlphaArg1, gpu_value::kArgTexture);
+        last_type = GpuStageState::kAlphaArg2;
+        last_value = gpu_value::kArgDiffuse;
     } else { // kPixelShader958 and any other: the texture alone
-        set_tss(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        last_type = D3DTSS_ALPHAARG1;
-        last_value = D3DTA_TEXTURE;
+        set_tss(0, GpuStageState::kColourOp, gpu_value::kOpSelectArg1);
+        set_tss(0, GpuStageState::kColourArg1, gpu_value::kArgTexture);
+        set_tss(0, GpuStageState::kAlphaOp, gpu_value::kOpSelectArg1);
+        last_type = GpuStageState::kAlphaArg1;
+        last_value = gpu_value::kArgTexture;
     }
     set_tss(0, last_type, last_value);
-    set_tss(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+    set_tss(1, GpuStageState::kColourOp, gpu_value::kOpDisable);
 }
 
 // 0x004DAA10
@@ -577,11 +566,11 @@ void set_pixel_shader(void* shader, const MaterialRef* material)
         if (renderer().current_pixel_shader() != shader) {
             // Not original - the level editor's Unlit view (render_d3d9/view_mode.h): the shader's unlit twin during the 3D
             // passes. Original behaviour: the device gets `shader`.
-            d3d9::state().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            gpu().set_pixel_shader(static_cast<GpuPixelShader*>(view_mode::device_shader(shader)));
             gfx.set_current_pixel_shader(shader);
             gfx.set_pixel_shader_changed(1);
         }
-        d3d9::state().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), kPsConstantVectors);
+        gpu().set_pixel_constants(0, renderer().ps_constants().data(), kPsConstantVectors);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -593,12 +582,12 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
     if (renderer().pixel_shader_locked() == nullptr) {
         if (renderer().current_pixel_shader() != shader) {
             // Not original - the Unlit view's twin (view_mode.h), as in SetPixelShader.
-            d3d9::state().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            gpu().set_pixel_shader(static_cast<GpuPixelShader*>(view_mode::device_shader(shader)));
             gfx.set_current_pixel_shader(shader);
             gfx.set_pixel_shader_changed(1);
         }
-        d3d9::state().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), count);
-        d3d9::state().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constants()).subspan(kPsConstantTailOffset).data(), 1);
+        gpu().set_pixel_constants(0, renderer().ps_constants().data(), count);
+        gpu().set_pixel_constants(4, std::span(renderer().ps_constants()).subspan(kPsConstantTailOffset).data(), 1);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -612,12 +601,14 @@ void set_world_transform(const float* matrix) { renderer().set_world_transform(m
 void reset_render_state()
 {
     auto& gfx = renderer();
+    // NOT ORIGINAL - the Gpu's state block (engine/gfx/gpu.h) to a new device's defaults, as the device is.
+    gpu().reset_state_block();
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
     gfx.reset_transforms();
     get_lighting() = 0;
     gfx.set_specular(0);
-    gfx.set_cull_mode(D3DCULL_CW);
+    gfx.set_cull_mode(gpu_value::kCullClockwise);
     gfx.set_near_camera(true);
     dither() = 1;
     get_z_test() = 1;
@@ -679,61 +670,61 @@ void reset_render_state()
 void apply_render_state()
 {
     auto& gfx = renderer();
-    IDirect3DDevice9* device = d3d9::state().d3d_device();
-    device->SetRenderState(D3DRS_LOCALVIEWER, local_viewer());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_LIGHTING, get_lighting());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_SPECULARENABLE, gfx.specular_state());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_CULLMODE, renderer().cull_mode());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_DITHERENABLE, dither());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZENABLE, get_z_test());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, gfx.z_write());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, alpha_blend());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHATESTENABLE, alpha_test());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_ALPHAREF, alpha_test_level());
+    Gpu& device = gpu();
+    device.set_render_state(GpuRenderState::kLocalViewer, local_viewer());
+    device.set_render_state(GpuRenderState::kColourVertex, 0U);
+    device.set_render_state(GpuRenderState::kLighting, get_lighting());
+    device.set_render_state(GpuRenderState::kSpecularEnable, gfx.specular_state());
+    device.set_render_state(GpuRenderState::kCullMode, renderer().cull_mode());
+    device.set_render_state(GpuRenderState::kDitherEnable, dither());
+    device.set_render_state(GpuRenderState::kZEnable, get_z_test());
+    device.set_render_state(GpuRenderState::kZWriteEnable, gfx.z_write());
+    device.set_render_state(GpuRenderState::kAlphaBlendEnable, alpha_blend());
+    device.set_render_state(GpuRenderState::kAlphaTestEnable, alpha_test());
+    device.set_render_state(GpuRenderState::kAlphaFunc, gpu_value::kCompareGreaterEqual);
+    device.set_render_state(GpuRenderState::kAlphaRef, alpha_test_level());
     for (int sampler = 0; sampler < 4; ++sampler) {
         core::at(address_modes(), sampler) = 0;
         core::at(mip_lod_biases(), sampler) = 0;
         gfx.set_stage_texture(sampler, nullptr);
         core::at(filters(), sampler) = kDefaultFilters;
         gfx.set_border_colour(static_cast<uint32_t>(sampler), 0);
-        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+        device.set_sampler_state(sampler, GpuSamplerState::kMagFilter, gpu_value::kFilterLinear);
+        device.set_sampler_state(sampler, GpuSamplerState::kMipFilter, gpu_value::kFilterLinear);
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic minification on every
         // sampler at the chosen taps. (Off: the original's below.)
         if (const int taps = graphics_options::active_anisotropy()) {
-            d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
+            device.set_sampler_state(sampler, GpuSamplerState::kMinFilter, gpu_value::kFilterAnisotropic);
+            device.set_sampler_state(sampler, GpuSamplerState::kMaxAnisotropy, static_cast<uint32_t>(taps));
         } else if (sampler == 0 && renderer().back_buffer_height() <= kLowResHeight) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
-            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            device.set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterAnisotropic);
             const uint32_t anisotropy = renderer().max_anisotropy();
-            d3d9::state().d3d_device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
+            device.set_sampler_state(0, GpuSamplerState::kMaxAnisotropy, anisotropy < 3 ? anisotropy : 3);
         } else {
-            d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            device.set_sampler_state(sampler, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
         }
-        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
-        d3d9::state().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
+        device.set_sampler_state(sampler, GpuSamplerState::kAddressU, gpu_value::kAddressWrap);
+        device.set_sampler_state(sampler, GpuSamplerState::kAddressV, gpu_value::kAddressWrap);
     }
-    const D3DMATERIAL9 material = {};
-    d3d9::state().d3d_device()->SetMaterial(&material);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
+    const GpuMaterial material = {};
+    device.set_material(material);
+    device.set_render_state(GpuRenderState::kDiffuseMaterialSource, gpu_value::kSourceColour1);
+    device.set_render_state(GpuRenderState::kSpecularMaterialSource, gpu_value::kSourceColour2);
+    device.set_render_state(GpuRenderState::kAmbientMaterialSource, gpu_value::kSourceColour1);
+    device.set_render_state(GpuRenderState::kEmissiveMaterialSource, gpu_value::kSourceMaterial);
     mark_billboards_ready();
     compile_pixel_shaders();
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGENABLE, gfx.fog_active());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
-    d3d9::state().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
+    device.set_render_state(GpuRenderState::kFogEnable, gfx.fog_active());
+    device.set_render_state(GpuRenderState::kFogTableMode, gpu_value::kFogNone);
+    device.set_render_state(GpuRenderState::kRangeFogEnable, 1U);
+    device.set_render_state(GpuRenderState::kFogVertexMode, gpu_value::kFogLinear);
+    device.set_render_state(GpuRenderState::kFogColour, engine_parts().fog_colour());
+    device.set_render_state(GpuRenderState::kFogStart, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
+    device.set_render_state(GpuRenderState::kFogEnd, std::bit_cast<uint32_t>(renderer().fog_end()));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
     if (renderer().antialiasing() || (graphics_options::chosen_samples() != 0)) { // the antialiasing setting
-        d3d9::state().d3d_device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+        device.set_render_state(GpuRenderState::kMultisampleAntialias, 1U);
     }
 }
 

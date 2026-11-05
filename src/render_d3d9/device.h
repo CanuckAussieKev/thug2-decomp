@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "engine/gfx/gpu.h"
+
 // The Direct3D 9 device (Nx engine, PC): what the rest of the engine calls. Its Direct3D side - the device made,
 // its present parameters - is in render_d3d9/device_d3d.h.
 namespace render {
@@ -23,9 +25,12 @@ void load_gamma();
 // 0x004D89C0: the disc read error screen - never returns.
 [[noreturn]] void show_disc_error();
 
-// 0x0044F870: the device's SetRenderState (a D3DRENDERSTATETYPE and its value). Returns the HRESULT.
+// 0x0044F870: the device's SetRenderState (a D3DRENDERSTATETYPE and its value), through the Gpu (engine/gfx/gpu.h).
+// Returns the HRESULT.
+long set_render_state(GpuRenderState state, uint32_t value);
 long set_render_state(int state, uint32_t value);
-// 0x0044F890: the device's Clear (rectangles or the whole viewport; D3DCLEAR_* flags). Returns the HRESULT.
+// 0x0044F890: the device's Clear (rectangles or the whole viewport; D3DCLEAR_* flags), through the Gpu. Returns the
+// HRESULT.
 long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil);
 
 // The back buffer's width the device was made with (its present parameters': render_d3d9/device_d3d.h).
