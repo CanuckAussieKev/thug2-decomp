@@ -59,14 +59,14 @@ void SkaterPhysicsModule::try_start_skitch()
     if (on_vehicle_ != 0U) {
         return;
     }
-    objects::ControlButton* button = &input_->pad_primary().up_dir();
+    objects::ControlButton* button = &siblings_.input->pad_primary().up_dir();
     // (not original: THAW 0x005D33A7 - on the bike R2 held, not up)
     objects::ControlButton* hold = thaw_bmx::live_now(this) ? thaw_bmx::tow_button(this) : button;
-    if ((state_->flag(PoseFlag::kSkitching).on != 0U) || (hold->held_down() == 0U)) {
+    if ((siblings_.state->flag(PoseFlag::kSkitching).on != 0U) || (hold->held_down() == 0U)) {
         return;
     }
     auto held = static_cast<uint32_t>(time_since_press(hold));
-    if (held <= ints::as_unsigned(script::fetch_int_value(kSkitchHoldTime)) || state_->cur_phase() != 0) {
+    if (held <= ints::as_unsigned(script::fetch_int_value(kSkitchHoldTime)) || siblings_.state->cur_phase() != 0) {
         return;
     }
     // The nearest skitch point of any other object's skitch component (that's on), within Skitch_Max_Distance.
@@ -96,8 +96,8 @@ void SkaterPhysicsModule::try_start_skitch()
     if (!found) {
         return;
     }
-    take_press(&input_->pad_primary().shoulder_left_a());
-    take_press(&input_->pad_primary().shoulder_right_a());
+    take_press(&siblings_.input->pad_primary().shoulder_left_a());
+    take_press(&siblings_.input->pad_primary().shoulder_right_a());
     // (0x0041D1D0: the smart pointer set)
     skitch_target_.assign_object(found);
     found->post_own_event(kSkitched, nullptr);
@@ -107,8 +107,8 @@ void SkaterPhysicsModule::try_start_skitch()
 // 0x00501DB0
 void SkaterPhysicsModule::get_skitch()
 {
-    const objects::RideTracker* rider = ride_->ride().get();
-    objects::PadSnapshot* pad = &input_->pad_primary();
+    const objects::RideTracker* rider = siblings_.ride->ride().get();
+    objects::PadSnapshot* pad = &siblings_.input->pad_primary();
     objects::GameEntity* car = rider ? rider->entity().get_pull() : nullptr;
     if (!car) {
         object_of(this)->post_own_event(kOffMeterBottom, nullptr);
@@ -171,7 +171,7 @@ void SkaterPhysicsModule::get_skitch()
 
     // Held at the skitch point, Skitch_Offset behind it along the car; while moving to a new one, pulled towards it
     // at skitch_suck_speed (let go of when 180 or more away).
-    if (!ride_->ride() || (state_->flag(PoseFlag::kSkitching).on == 0U)) {
+    if (!siblings_.ride->ride() || (siblings_.state->flag(PoseFlag::kSkitching).on == 0U)) {
         return;
     }
     maths::Vec4 point;
@@ -184,7 +184,7 @@ void SkaterPhysicsModule::get_skitch()
     const float offset = script::fetch_float(kSkitchOffset);
     const maths::Vec4 target = point + offset * back;
     if (skitch_moving_ != 0U) {
-        const maths::Vec4 moved = ride_->ride()->carried(); // (the ride's last move)
+        const maths::Vec4 moved = siblings_.ride->ride()->carried(); // (the ride's last move)
         entity()->at_point() += moved;
         maths::Vec4 toward = target - entity()->at_point();
         auto length_sqr = static_cast<float>(length_sqr_unrounded(toward));

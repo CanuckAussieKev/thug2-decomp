@@ -73,14 +73,14 @@ float scaled_physics(objects::GameEntity* object, uint32_t name)
 } // namespace
 
 // 0x00518EE0: the jump sound, by how fast the skater goes (a fraction of the max max speed) and a terrain.
-void SkaterPhysicsModule::play_jump_sound(uint8_t terrain)
+void SkaterPhysicsModule::play_jump_sound(uint8_t terrain) const
 {
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel();
     auto speed = static_cast<float>(std::sqrt((static_cast<double>(v.x) * v.x) + (static_cast<double>(v.y) * v.y) +
                                               (static_cast<double>(v.z) * v.z)));
     const float fraction = speed / scaled_physics(object, kSpeedCapStat);
-    static_cast<objects::RiderSfxPlayer*>(sound_)->play_jump_in_state(fraction, terrain);
+    static_cast<objects::RiderSfxPlayer*>(siblings_.sound)->play_jump_in_state(fraction, terrain);
 }
 
 // 0x005092E0
@@ -132,8 +132,8 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
             stop_riding(this);
         }
     }
-    static_cast<objects::ActivationZoneModule*>(trigger_)->get_trigger_node(events, rail_.script_node, nullptr,
-                                                                            ride_object);
+    static_cast<objects::ActivationZoneModule*>(siblings_.trigger)
+        ->get_trigger_node(events, rail_.script_node, nullptr, ride_object);
 }
 
 // 0x00509450
@@ -160,7 +160,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         break;
     case kRail:
         if (sound) {
-            play_jump_sound(state_->surface_type());
+            play_jump_sound(siblings_.state->surface_type());
         }
         break;
     default:
@@ -239,7 +239,7 @@ void SkaterPhysicsModule::begin_skitch()
     if (!object) {
         return;
     }
-    ride_->ride_on(object);
+    siblings_.ride->ride_on(object);
     set_flag(this, PoseFlag::kSkitching, 1);
     skitch_moving_ = 1;
     get_skitch();
@@ -261,7 +261,7 @@ void SkaterPhysicsModule::end_skitch()
         skitched.get_release();
         skitched.target_ = nullptr;
     }
-    objects::MovingSurfaceModule* ride = ride_;
+    objects::MovingSurfaceModule* ride = siblings_.ride;
     if (objects::RideTracker* tracker = ride->ride().get()) {
         ride->set_last_object(tracker->entity().get_pull()); // (what it rode last)
         tracker->entity().get_release();

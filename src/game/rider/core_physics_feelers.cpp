@@ -143,7 +143,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
 {
     using RailNode = objects::GrindPoint; // (its succ_ the next node, last_value_ the previous)
     const auto* node = static_cast<const RailNode*>(rail);
-    objects::RiderPoseState* flags = state_;
+    objects::RiderPoseState* flags = siblings_.state;
     const RailNode* last = rail_.node;
     auto same_rail = [&] { return last == node || last == node->last_value() || last == node->succ(); };
     // In the air after a grind: not the same rail (or its neighbours) again.
@@ -184,14 +184,14 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
     }
 
     // The same rail: only after the wait since leaving it.
-    if ((state_->flag(PoseFlag::kLipToAir).on == 0U) &&
+    if ((siblings_.state->flag(PoseFlag::kLipToAir).on == 0U) &&
         get_since(static_cast<uint32_t>(rail_.time)) <= static_cast<uint32_t>(rail_.wait)) {
         return false;
     }
     if (any_time) {
         return true;
     }
-    flags = state_;
+    flags = siblings_.state;
     if (flags->cur_phase() == 4) {
         return false;
     }

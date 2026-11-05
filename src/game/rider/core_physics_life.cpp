@@ -87,7 +87,7 @@ void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b)
 bool SkaterPhysicsModule::projectile_button_pressed()
 {
     const uint32_t button = script::get_symbol_value(kProjectileControl); // (the game's string)
-    if (!trick_->check_release_press(button, false, true)) {
+    if (!siblings_.trick->check_release_press(button, false, true)) {
         return false;
     }
     projectile_input_ = -1;
@@ -97,7 +97,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 // 0x004FC440
 int SkaterPhysicsModule::is_sides_swapped()
 {
-    const uint8_t flipped = state_->flag(PoseFlag::kFlipped).on;
+    const uint8_t flipped = siblings_.state->flag(PoseFlag::kFlipped).on;
     if (core::down_cast<objects::Rider>(entity())->goofy()) {
         return flipped;
     }
@@ -105,10 +105,10 @@ int SkaterPhysicsModule::is_sides_swapped()
 }
 
 // 0x004FC470
-void SkaterPhysicsModule::set_surface_kind(uint32_t terrain)
+void SkaterPhysicsModule::set_surface_kind(uint32_t terrain) const
 {
-    state_->set_surface_kind(static_cast<uint8_t>(terrain));
-    sound_->set_surface_type(static_cast<uint8_t>(terrain));
+    siblings_.state->set_surface_kind(static_cast<uint8_t>(terrain));
+    siblings_.sound->set_surface_type(static_cast<uint8_t>(terrain));
 }
 
 // 0x004FC500 (0x00500DB0 the deleting one)
@@ -138,18 +138,18 @@ void SkaterPhysicsModule::configure_from_data(script::Struct* /*params*/)
 // 0x004FC690
 void SkaterPhysicsModule::seal()
 {
-    find_module(entity(), input_, kInputModule);             // Input
-    find_module(entity(), sound_, kSkaterSound);             // SkaterSound
-    find_module(entity(), trigger_, kTrigger);           // Trigger
-    find_module(entity(), trick_, kTrick);             // Trick
-    find_module(entity(), rotate_, kSkaterRotate);            // SkaterRotate
-    find_module(entity(), score_, kSkaterScore);             // SkaterScore
-    find_module(entity(), balance_, kSkaterBalanceTrick);           // SkaterBalanceTrick
-    find_module(entity(), state_, kSkaterState);             // SkaterState
-    find_module(entity(), ride_, kMovableContact);              // MovableContact
-    find_module(entity(), physics_control_, kSkaterPhysicsControl);   // SkaterPhysicsControl
-    find_module(entity(), walk_, kWalk);              // Walk
-    find_module(entity(), tagging_component_, kTaggingControl); // (the projectiles')
+    find_module(entity(), siblings_.input, kInputModule);                    // Input
+    find_module(entity(), siblings_.sound, kSkaterSound);                    // SkaterSound
+    find_module(entity(), siblings_.trigger, kTrigger);                      // Trigger
+    find_module(entity(), siblings_.trick, kTrick);                          // Trick
+    find_module(entity(), siblings_.rotate, kSkaterRotate);                  // SkaterRotate
+    find_module(entity(), siblings_.score, kSkaterScore);                    // SkaterScore
+    find_module(entity(), siblings_.balance, kSkaterBalanceTrick);           // SkaterBalanceTrick
+    find_module(entity(), siblings_.state, kSkaterState);                    // SkaterState
+    find_module(entity(), siblings_.ride, kMovableContact);                  // MovableContact
+    find_module(entity(), siblings_.physics_control, kSkaterPhysicsControl); // SkaterPhysicsControl
+    find_module(entity(), siblings_.walk, kWalk);                            // Walk
+    find_module(entity(), siblings_.tagging_component, kTaggingControl);     // (the projectiles')
 }
 
 // 0x004FDD50
@@ -163,15 +163,15 @@ void SkaterPhysicsModule::leave_skating()
     if (static_cast<uint32_t>(rail_.lip_time) > static_cast<uint32_t>(rail_.time)) {
         rail_.time = rail_.lip_time;
     }
-    objects::RiderPoseState* state = state_;
+    objects::RiderPoseState* state = siblings_.state;
     if (state->cur_phase() == kAir && frame_.old_state == kLip && (state->flag(PoseFlag::kLipToAir).on != 0U)) {
         set_timed_flag(this, PoseFlag::kLipToAir, 0);
     }
-    state_->change_phase(kGround);
-    state_->set_drawn_normal(maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F));
-    state_->floor_normal() = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
-    state_->drop_velocity() = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
-    state_->set_lip_straight_up(0);
+    siblings_.state->change_phase(kGround);
+    siblings_.state->set_drawn_normal(maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F));
+    siblings_.state->floor_normal() = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
+    siblings_.state->drop_velocity() = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
+    siblings_.state->set_lip_straight_up(0);
 }
 
 // 0x004FDE40
@@ -184,11 +184,11 @@ void SkaterPhysicsModule::clear_flags()
         }
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
         if (flag == kSlideFlag) {
-            sound_->set_sliding(1);
+            siblings_.sound->set_sliding(1);
         }
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
         if (flag == kSlideFlag) {
-            sound_->set_sliding(0);
+            siblings_.sound->set_sliding(0);
         }
     }
 }
@@ -196,11 +196,11 @@ void SkaterPhysicsModule::clear_flags()
 // 0x004FDED0
 void SkaterPhysicsModule::set_physics_state(int state)
 {
-    if (state_->cur_phase() != state) {
+    if (siblings_.state->cur_phase() != state) {
         frame_.state_changed_at = get_now();
-        frame_.old_state = state_->cur_phase();
+        frame_.old_state = siblings_.state->cur_phase();
     }
-    int old = state_->cur_phase();
+    int old = siblings_.state->cur_phase();
     maths::Vec4& lip = lip_pos_;
     if (old == kLip && state != kLip && (lip.x != 0.0F || lip.y != 0.0F || lip.z != 0.0F)) {
         objects::GameEntity* object = object_of(this);
@@ -211,13 +211,13 @@ void SkaterPhysicsModule::set_physics_state(int state)
         lip = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     }
     if (state != kGround) {
-        trick_->set_trick_objects(true);
+        siblings_.trick->set_trick_objects(true);
     }
-    if (state_->cur_phase() == kRail && state != kRail) {
+    if (siblings_.state->cur_phase() == kRail && state != kRail) {
         set_timed_flag(this, PoseFlag::kSlide, 0);
-        sound_->set_sliding(0);
+        siblings_.sound->set_sliding(0);
     }
-    old = state_->cur_phase();
+    old = siblings_.state->cur_phase();
     if (old == kAir) {
         if (state != kAir) {
             air_time_.end = get_now();
@@ -229,13 +229,13 @@ void SkaterPhysicsModule::set_physics_state(int state)
         if (old != kWallRide) {
             air_time_.start = get_now();
         }
-        trick_->spin_total() = 0.0F;
-        take_press(&input_->pad_primary().shoulder_left_a());
-        take_press(&input_->pad_primary().shoulder_right_a());
+        siblings_.trick->spin_total() = 0.0F;
+        take_press(&siblings_.input->pad_primary().shoulder_left_a());
+        take_press(&siblings_.input->pad_primary().shoulder_right_a());
         queued_spin_ = 0.0F;
     }
-    state_->change_phase(state);
-    sound_->set_cur_phase(state);
+    siblings_.state->change_phase(state);
+    siblings_.sound->set_cur_phase(state);
 }
 
 // 0x004FE120

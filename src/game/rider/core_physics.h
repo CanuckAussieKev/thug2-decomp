@@ -510,19 +510,19 @@ public:
     // (+0x30), IsInBail (+0x70); CancelWallpush (+0xB8 on), in_bail / NotInBail (+0x70), 0x004FD630 (checksum
     // 0x2A547E37, name not recovered: +0x30 on), OverrideCancelGround (+0x90: on unless Off), no_spin (+0x370 = 1 and
     // +0x68 off).
-    int get_flipped(script::Struct* params, script::Script* script);             // 0x004FC780
-    int get_switched(script::Struct* params, script::Script* script);            // 0x004FC7A0
-    int get_crouched(script::Struct* params, script::Script* script);            // 0x004FC7E0
-    int first_time_on_this_rail(script::Struct* params, script::Script* script); // 0x004FC800
-    int skitching(script::Struct* params, script::Script* script);               // 0x004FC820
-    int cancel_wallpush(script::Struct* params, script::Script* script);         // 0x004FC840
-    int no_spin(script::Struct* params, script::Script* script);                 // 0x004FCF90
-    int in_bail(script::Struct* params, script::Script* script);                 // 0x004FCFC0
-    int not_in_bail(script::Struct* params, script::Script* script);             // 0x004FCFF0
-    int is_in_bail(script::Struct* params, script::Script* script);              // 0x004FD020
-    int in_vert_air(script::Struct* params, script::Script* script);             // 0x004FD1C0
-    int override_cancel_ground(script::Struct* params, script::Script* script);  // 0x004FD530
-    int set_vert_air(script::Struct* params, script::Script* script);            // 0x004FD630
+    int get_flipped(script::Struct* params, script::Script* script) const;             // 0x004FC780
+    int get_switched(script::Struct* params, script::Script* script);                  // 0x004FC7A0
+    int get_crouched(script::Struct* params, script::Script* script) const;            // 0x004FC7E0
+    int first_time_on_this_rail(script::Struct* params, script::Script* script) const; // 0x004FC800
+    int skitching(script::Struct* params, script::Script* script) const;               // 0x004FC820
+    int cancel_wallpush(script::Struct* params, script::Script* script);               // 0x004FC840
+    int no_spin(script::Struct* params, script::Script* script);                       // 0x004FCF90
+    int in_bail(script::Struct* params, script::Script* script);                       // 0x004FCFC0
+    int not_in_bail(script::Struct* params, script::Script* script);                   // 0x004FCFF0
+    int is_in_bail(script::Struct* params, script::Script* script) const;              // 0x004FD020
+    int in_vert_air(script::Struct* params, script::Script* script) const;             // 0x004FD1C0
+    int override_cancel_ground(script::Struct* params, script::Script* script);        // 0x004FD530
+    int set_vert_air(script::Struct* params, script::Script* script);                  // 0x004FD630
     // 0x004FBFE0 SetSkaterVehicle: the vehicle (+0x2F0) from the unnamed checksum (asserted). 0x004FC180
     // SetAmmoType: the projectile type (+0x2FC) from the unnamed checksum, if any. 0x004FC060 change_rail_adjust: +0x3A8
     // from the unnamed integer, if any. 0x004FC040 LockVelocityDirection: +0x388 = whether `on` is there.
@@ -552,7 +552,7 @@ public:
     // (+0x320 at 0) Physics_Rolling_Friction.
     int change_wheel_drag(script::Struct* params, script::Script* script);
     // 0x004FD140 last_spin_was: backside / Frontside against the last spin's way (+0x3A5) and flipped; 1 with neither.
-    int last_spin_was(script::Struct* params, script::Script* script);
+    int last_spin_was(script::Struct* params, script::Script* script) const;
     // 0x004FD1E0 turn_to_face_velocity: unless barely moving, the skater's facing along its velocity, the right row
     // up x facing and the up row facing x right (each normalized), the display matrix the object's.
     int turn_to_face_velocity(script::Struct* params, script::Script* script);
@@ -612,7 +612,7 @@ public:
     // set, else not flipped (1 or 0).
     int is_sides_swapped();
     // 0x004FC470: the terrain under the skater (`terrain`'s low byte) told to the state and sound components.
-    void set_surface_kind(uint32_t terrain);
+    void set_surface_kind(uint32_t terrain) const;
     // 0x004FDD50 (when the skater gets off its board): the pending event (+0x4F0: 0x5E27200A broadcast), the rail
     // wait (+0x23C) from 0xE4412EB7, +0x234 at least +0x238; leaving the lip for the air: the state's +0x50 off; the
     // state to the ground (0), and the state's vectors +0xF8 / +0x108 straight up, +0xE4 (0, 0, 0, 1), +0xF4 off.
@@ -903,6 +903,21 @@ public:
         uint8_t on{};                  // +0x04 (+0x14C8) SetThrowingProjectile
         std::array<uint8_t, 3> pad5{}; // +0x05 (+0x14C9)
     };
+    // The object's other components this one works with (+0x150C-+0x153B), found by seal.
+    struct Siblings {
+        objects::PadInputModule* input{nullptr};                      // +0x00 (+0x150C) Input
+        objects::ActivationZoneModule* trigger{nullptr};              // +0x04 (+0x1510) Trigger
+        objects::RiderSfxPlayer* sound{nullptr};                      // +0x08 (+0x1514) SkaterSound
+        objects::MoveExecutor* trick{nullptr};                        // +0x0C (+0x1518) Trick
+        objects::RiderTurning* rotate{nullptr};                       // +0x10 (+0x151C) SkaterRotate
+        objects::RiderPointKeeper* score{nullptr};                    // +0x14 (+0x1520) SkaterScore
+        objects::RiderTeeterMoves* balance{nullptr};                  // +0x18 (+0x1524) SkaterBalanceTrick
+        objects::RiderPoseState* state{nullptr};                      // +0x1C (+0x1528) SkaterState
+        objects::MovingSurfaceModule* ride{nullptr};                  // +0x20 (+0x152C) MovableContact
+        objects::RiderBoardPhysics* physics_control{nullptr};         // +0x24 (+0x1530) SkaterPhysicsControl
+        objects::FootMovement* walk{nullptr};                         // +0x28 (+0x1534) Walk
+        objects::TaggingControlComponent* tagging_component{nullptr}; // +0x2C (+0x1538) the projectiles'
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
     maths::Mat4& display_matrix() { return ground_.display_matrix; }
@@ -959,15 +974,15 @@ public:
     [[nodiscard]] const maths::Mat4& drop_matrix() const { return drop_.matrix; }
     [[nodiscard]] uint32_t wallplant_time() const { return wallplant_.time; }
     void set_wallplant_time(uint32_t value) { wallplant_.time = value; }
-    [[nodiscard]] objects::PadInputModule* input() const { return input_; }
-    [[nodiscard]] objects::ActivationZoneModule* trigger() const { return trigger_; }
-    [[nodiscard]] objects::RiderSfxPlayer* sound() const { return sound_; }
-    [[nodiscard]] objects::MoveExecutor* trick() const { return trick_; }
-    [[nodiscard]] objects::RiderPointKeeper* score() const { return score_; }
-    [[nodiscard]] objects::RiderTeeterMoves* balance() const { return balance_; }
-    [[nodiscard]] objects::RiderPoseState* state() const { return state_; }
-    [[nodiscard]] objects::MovingSurfaceModule* ride() const { return ride_; }
-    [[nodiscard]] objects::RiderBoardPhysics* physics_control() const { return physics_control_; }
+    [[nodiscard]] objects::PadInputModule* input() const { return siblings_.input; }
+    [[nodiscard]] objects::ActivationZoneModule* trigger() const { return siblings_.trigger; }
+    [[nodiscard]] objects::RiderSfxPlayer* sound() const { return siblings_.sound; }
+    [[nodiscard]] objects::MoveExecutor* trick() const { return siblings_.trick; }
+    [[nodiscard]] objects::RiderPointKeeper* score() const { return siblings_.score; }
+    [[nodiscard]] objects::RiderTeeterMoves* balance() const { return siblings_.balance; }
+    [[nodiscard]] objects::RiderPoseState* state() const { return siblings_.state; }
+    [[nodiscard]] objects::MovingSurfaceModule* ride() const { return siblings_.ride; }
+    [[nodiscard]] objects::RiderBoardPhysics* physics_control() const { return siblings_.physics_control; }
 
 private:
     // (Parts of 0x00509BD0, check_for_ground: the hit under the skater - how far away, how far above it along the
@@ -1009,7 +1024,7 @@ private:
     void finish_rail();
     // (Parts of 0x0050DDF0: on a moving rail, carried along with it; a grind's or a slide's balance.)
     void ride_moving_rail();
-    void update_grind_balance();
+    void update_grind_balance() const;
     // Not original: THAW's stall state's update (THAW 0x005E2E30 - core_rail.cpp, game/rider/thaw_bmx.h).
     void do_bike_stall_physics();
     // (Part of 0x0050EE70: the move along the ground, once more for the rest when stopped short.)
@@ -1096,23 +1111,12 @@ private:
     uint8_t tantrum_{};     // +0x1508 EnterTantrum / ExitTantrum
     uint8_t tagging_{};     // +0x1509 EnterTagging / ExitTagging
     std::array<uint8_t, 2> pad150a_{};
-    objects::PadInputModule* input_{nullptr};                      // +0x150C the object's components (seal)
-    objects::ActivationZoneModule* trigger_{nullptr};              // +0x1510
-    objects::RiderSfxPlayer* sound_{nullptr};                      // +0x1514
-    objects::MoveExecutor* trick_{nullptr};                        // +0x1518
-    objects::RiderTurning* rotate_{nullptr};                       // +0x151C
-    objects::RiderPointKeeper* score_{nullptr};                    // +0x1520
-    objects::RiderTeeterMoves* balance_{nullptr};                  // +0x1524
-    objects::RiderPoseState* state_{nullptr};                      // +0x1528
-    objects::MovingSurfaceModule* ride_{nullptr};                  // +0x152C
-    objects::RiderBoardPhysics* physics_control_{nullptr};         // +0x1530
-    objects::FootMovement* walk_{nullptr};                         // +0x1534
-    objects::TaggingControlComponent* tagging_component_{nullptr}; // +0x1538 the projectiles'
+    Siblings siblings_; // +0x150C-+0x153B the object's other components (seal)
 
     // (core_grind.cpp)
-    void set_rail_terrain();
-    void play_land_sound();
-    void trigger_rail_node(const std::array<int, 3>& events);
+    void set_rail_terrain() const;
+    void play_land_sound() const;
+    void trigger_rail_node(const std::array<int, 3>& events) const;
     bool clear_to_point(const maths::Vec4* point, bool from_vector);
     void onto_rail(const maths::Vec4* point, bool always);
     void prepare_velocity(bool exactly_still, bool from_object) const;
@@ -1123,19 +1127,19 @@ private:
     void grind_along_rail(const maths::Vec4* point, bool from_object);
     bool can_grind(objects::GrindPoint* node, objects::GrindRailHub* manager);
     // (core_jump.cpp)
-    void play_jump_sound(uint8_t terrain);
+    void play_jump_sound(uint8_t terrain) const;
     // (core_member_functions.cpp)
-    uint32_t time_aloft();
+    [[nodiscard]] uint32_t time_aloft() const;
     bool feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise) const;
     // (core_physics_acid_drop.cpp)
-    bool walking_state(objects::RiderPoseState::PhysicsMode state);
+    [[nodiscard]] bool walking_state(objects::RiderPoseState::PhysicsMode state) const;
     double fall_time(float height, float upward);
     bool find_transfer_target(maths::Vec4* look, maths::Vec4* normal, bool* hip,
                           VertTarget* target, bool* object_hit);
     // (core_physics_turning.cpp)
     void turn_matrices(float angle);
     // (core_physics_wallplant.cpp)
-    bool button_pressed(uint32_t button);
+    [[nodiscard]] bool button_pressed(uint32_t button) const;
     bool wall_above_hit();
     // The original's offsets of the fields above and its size (core_physics_state.cpp).
     static void check_layout();

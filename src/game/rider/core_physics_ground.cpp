@@ -84,7 +84,7 @@ void SkaterPhysicsModule::apply_friction(float friction)
 // 0x004FE320
 bool SkaterPhysicsModule::should_brake()
 {
-    const objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = siblings_.input;
     if ((auto_kick_ == 0U) && (input->pad_primary().button_box().held_down() == 0U) &&
         speed_of(entity()->vel()) < kSlow) {
         return true;
@@ -119,7 +119,7 @@ bool SkaterPhysicsModule::may_turn_on_slope()
 // 0x004FE490
 bool SkaterPhysicsModule::can_push_off()
 {
-    const objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = siblings_.input;
     if (no_kick_ != 0U) {
         return false;
     }
@@ -130,7 +130,7 @@ bool SkaterPhysicsModule::can_push_off()
         return false;
     }
     auto speed = static_cast<float>(speed_of(entity()->vel()));
-    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || (crouch_stats_ != 0U);
+    const bool crouched = siblings_.state->flag(PoseFlag::kCrouched).on != 0 || (crouch_stats_ != 0U);
     auto limit = static_cast<float>(stat_value(object_of(this), crouched ? kPushSpeedCrouched : kKickoffSpeed));
     return !(limit < speed);
 }
@@ -153,7 +153,7 @@ void SkaterPhysicsModule::push_off()
     } else {
         direction = core::at(object->basis_frame().row, 2);
     }
-    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || (crouch_stats_ != 0U);
+    const bool crouched = siblings_.state->flag(PoseFlag::kCrouched).on != 0 || (crouch_stats_ != 0U);
     auto push = static_cast<float>(stat_value(object, crouched ? kPushCrouched : kPush));
     const double frame = frame_.length;
     auto x = static_cast<float>(static_cast<double>(direction.x) * push * frame);
@@ -178,7 +178,7 @@ void SkaterPhysicsModule::apply_stance_friction()
         crouched = limits_.friction;
         standing = crouched;
     }
-    apply_friction(state_->flag(PoseFlag::kCrouched).on != 0 ? crouched : standing);
+    apply_friction(siblings_.state->flag(PoseFlag::kCrouched).on != 0 ? crouched : standing);
 }
 
 // 0x004FE730
@@ -272,7 +272,7 @@ void SkaterPhysicsModule::update_ground_normal()
 // 0x004FEBA0
 void SkaterPhysicsModule::start_vert_air()
 {
-    if (state_->flag(PoseFlag::kOnVert).on == 0U) {
+    if (siblings_.state->flag(PoseFlag::kOnVert).on == 0U) {
         set_timed_flag(this, PoseFlag::kVertAir, 0);
         return;
     }

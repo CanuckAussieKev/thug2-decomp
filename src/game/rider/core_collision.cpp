@@ -203,7 +203,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 
     // A bonk - unless a wallplant (not with +0x302) or 0x00508140 takes over.
     bool done = false;
-    if ((state_->in_trick_move() == 0U) && (bit_mark(this, PoseFlag::kBailing) == 0U)) {
+    if ((siblings_.state->in_trick_move() == 0U) && (bit_mark(this, PoseFlag::kBailing) == 0U)) {
         if (((motoskateboard_ == 0U) && wall_plant(false, false, false)) || start_wall_ride()) {
             done = true;
         }
@@ -221,7 +221,8 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
                 objects::GameEntity* skater = object_of(this);
                 auto speed = static_cast<float>(length_of(skater->vel()));
                 const float fraction = speed / core::down_cast<objects::Rider>(skater)->get_scaled_physics(kSpeedCapStat);
-                static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk({.speed = fraction, .terrain = terrain});
+                static_cast<objects::RiderSfxPlayer*>(siblings_.sound)
+                    ->play_bonk({.speed = fraction, .terrain = terrain});
             } else {
                 script::launch_script(kVehicleLandSound, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
                                       nullptr);
@@ -319,7 +320,8 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
     const maths::Vec4 normal = feelers_.feeler.surface_dir();
     float overlap = 0.0F; // (uninitialised in the original when not in the air)
     if (state_of(this) == kAir) {
-        if ((state_->in_trick_move() == 0U) && (bit_mark(this, PoseFlag::kBailing) == 0U) && start_wall_ride()) {
+        if ((siblings_.state->in_trick_move() == 0U) && (bit_mark(this, PoseFlag::kBailing) == 0U) &&
+            start_wall_ride()) {
             return true;
         }
         // Pushed out of it by a tenth of how far into it the skater is (the hit's distance under the reach, less
@@ -336,7 +338,7 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
         }
         into.set_length(overlap);
         entity()->at_point() -= into / kOverlapDivisor;
-        const objects::PadInputModule* input = input_;
+        const objects::PadInputModule* input = siblings_.input;
         if (state_of(this) != kAir && (input->pad_primary().shoulder_right_a().held_down() == 0U) &&
             (input->pad_primary().shoulder_left_a().held_down() == 0U) &&
             (input->pad_primary().left_side().held_down() == 0U) &&

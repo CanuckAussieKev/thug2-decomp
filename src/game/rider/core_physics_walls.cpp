@@ -101,19 +101,19 @@ bool SkaterPhysicsModule::vert_wallplant()
         return false;
     }
     // The trick button pressed (or pressed within Wall_Ride_Triangle_Window).
-    void* skater = trick_;
+    void* skater = siblings_.trick;
     if (!static_cast<objects::MoveExecutor*>(skater)->is_key_held(kTrickKeyName)) {
         const uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
-        if (!static_cast<objects::MoveExecutor*>(trick_)->find_press(checksums::Name{kTrickKeyName},
-                                                                     {.ms = window, .mask = kAllButtons})) {
+        if (!static_cast<objects::MoveExecutor*>(siblings_.trick)
+                 ->find_press(checksums::Name{kTrickKeyName}, {.ms = window, .mask = kAllButtons})) {
             return false;
         }
     }
-    objects::RiderPoseState* flags = state_;
+    objects::RiderPoseState* flags = siblings_.state;
     if ((flags->flag(PoseFlag::kVertAir).on == 0U) || (flags->flag(PoseFlag::kJumped).on == 0U)) {
         return false;
     }
-    if (!(trick_->spin_total() == 0.0F) || (wallplant_.vert_planted != 0U)) {
+    if (!(siblings_.trick->spin_total() == 0.0F) || (wallplant_.vert_planted != 0U)) {
         return false;
     }
     // The wall within reach below the skater's up axis.
@@ -134,18 +134,20 @@ bool SkaterPhysicsModule::vert_wallplant()
     if (static_cast<double>(script::fetch_int_value(kWallplantVelocityLimit)) > object->vel().y) {
         return false;
     }
-    if (state_->height_above_ground() < kMinWallplantHeight) {
+    if (siblings_.state->height_above_ground() < kMinWallplantHeight) {
         return false;
     }
     if (!(core::any(feelers_.feeler.hit().face_flags_ & render::FaceFlag::kVert)) &&
         std::fabs(feelers_.feeler.surface_dir().y) > kMaxWallplantTilt) {
         return false;
     }
-    if (!static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(true, false, false)) {
+    if (!static_cast<objects::TaggingControlComponent*>(siblings_.tagging_component)
+             ->slap_sticker(true, false, false)) {
         return false;
     }
-    static_cast<objects::ActivationZoneModule*>(trigger_)->probe_touches_zone(kJumpTriggerEvents, &feelers_.feeler);
-    if (physics_control_->flag26() != 0) {
+    static_cast<objects::ActivationZoneModule*>(siblings_.trigger)
+        ->probe_touches_zone(kJumpTriggerEvents, &feelers_.feeler);
+    if (siblings_.physics_control->flag26() != 0) {
         return true;
     }
     object = object_of(this);
@@ -154,7 +156,7 @@ bool SkaterPhysicsModule::vert_wallplant()
             static_cast<float>(script::fetch_int_value(kWallplantBoost) + static_cast<double>(object->vel().y));
     }
     object_of(this)->post_own_event(kVertWallPlant, nullptr);
-    static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.feeler.hit().object_checksum_);
+    static_cast<objects::MoveExecutor*>(siblings_.trick)->pass_to_trick_objects(feelers_.feeler.hit().object_checksum_);
     set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
     set_timed_flag(this, PoseFlag::kNoAcidDrop, 0);
     wallplant_.vert_planted = 1;
@@ -170,7 +172,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     }
     // Held against a wall to the left or right: a feeler that far out, Skate_wall_lean_push_length after
     // Skate_wall_lean_push_time.
-    objects::PadSnapshot* pad = &input_->pad_primary();
+    objects::PadSnapshot* pad = &siblings_.input->pad_primary();
     int held = 0;
     if (pad->left_side().held_down() != 0U) {
         held = time_since_press(&pad->left_side());
@@ -397,8 +399,8 @@ void SkaterPhysicsModule::check_wall_ahead()
             return;
         }
     }
-    static_cast<objects::ActivationZoneModule*>(trigger_)->probe_touches_zone(kBonkEvents, &feelers_.feeler);
-    if (physics_control_->flag26() == 0U) {
+    static_cast<objects::ActivationZoneModule*>(siblings_.trigger)->probe_touches_zone(kBonkEvents, &feelers_.feeler);
+    if (siblings_.physics_control->flag26() == 0U) {
         bounce_off_wall_ahead(&normal);
     }
 }
@@ -441,14 +443,15 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
         if (script::fetch_float(kDontFlailSpeed) < speed) {
             const uint32_t left_turn = angle < 0.0F ? 1 : 0;
             const bool same =
-                (state_->flag(PoseFlag::kFlipped).on ^ left_turn) == 0; // (flag +0x28 against the turn's side)
+                (siblings_.state->flag(PoseFlag::kFlipped).on ^ left_turn) == 0; // (flag +0x28 against the turn's side)
             object_of(this)->post_own_event(same ? kFlailRight : kFlailLeft, nullptr);
             if (on_vehicle_ == 0U) {
                 // (The original passes the surface byte in a word whose upper bytes are the angle's.)
                 auto angle_bits = std::bit_cast<uint32_t>(angle);
                 const uint32_t surface = (angle_bits & 0xFFFFFF00U) | feelers_.feeler.hit().terrain;
                 auto impact = static_cast<float>(speed / stat_value(object_of(this), kMaxMaxSpeedStat));
-                static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk({.speed = impact, .terrain = static_cast<int>(surface)});
+                static_cast<objects::RiderSfxPlayer*>(siblings_.sound)
+                    ->play_bonk({.speed = impact, .terrain = static_cast<int>(surface)});
             } else {
                 script::launch_script(kVehicleLandSound, nullptr, object_of(this), false, nullptr);
             }

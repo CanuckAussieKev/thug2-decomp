@@ -193,8 +193,8 @@ void SkaterPhysicsModule::update_speed_override()
 {
     objects::GameEntity* object = object_of(this);
     float& factor = speed_override_;
-    if ((frame_flags_.began_in_drop != 0U) && (state_->flag(PoseFlag::kAcidDrop).on == 0U) &&
-        (state_->flag(PoseFlag::kBailing).on == 0U)) {
+    if ((frame_flags_.began_in_drop != 0U) && (siblings_.state->flag(PoseFlag::kAcidDrop).on == 0U) &&
+        (siblings_.state->flag(PoseFlag::kBailing).on == 0U)) {
         auto stat = static_cast<float>(stat_value(object, kOverrideStat));
         const double speed = length_unrounded(entity()->vel());
         auto speed_rounded = static_cast<float>(speed);
@@ -217,7 +217,7 @@ void SkaterPhysicsModule::update_speed_override()
         auto max = static_cast<float>(static_cast<double>(stat) * factor);
         object = object_of(this);
         float limit = 0.0F;
-        if (state_->cur_phase() != 1) {
+        if (siblings_.state->cur_phase() != 1) {
             auto speed = static_cast<float>(length_unrounded(object->vel()) * kAirBoostFactor);
             limit = least_of(max, speed, limits_.max);
         } else {
@@ -251,7 +251,7 @@ void SkaterPhysicsModule::update_speed_override()
 double SkaterPhysicsModule::get_gravity()
 {
     objects::GameEntity* object = object_of(this);
-    objects::RiderPoseState* flags = state_;
+    objects::RiderPoseState* flags = siblings_.state;
     const float gravity = tuning_float_lookup(kGravity, object);
     const bool vert = (flags->flag(PoseFlag::kVertAir).on != 0U) || (flags->flag(PoseFlag::kAcidDrop).on != 0U);
     auto result = static_cast<float>(
@@ -296,7 +296,7 @@ void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
 // 0x004FF670
 bool SkaterPhysicsModule::wall_push_off()
 {
-    if (input_->pad_primary().button_wedge().held_down() == 0U) {
+    if (siblings_.input->pad_primary().button_wedge().held_down() == 0U) {
         return false;
     }
     auto since_last = static_cast<float>(get_seconds(get_since(wallplant_.last_push_off)));
@@ -316,7 +316,7 @@ bool SkaterPhysicsModule::wall_push_off()
         return false;
     }
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kPushOffEvent, nullptr);
-    if (state_->flag(PoseFlag::kCancelWallpush).on != 0U) {
+    if (siblings_.state->flag(PoseFlag::kCancelWallpush).on != 0U) {
         set_timed_flag(this, PoseFlag::kCancelWallpush, 0);
         return false;
     }
@@ -348,7 +348,7 @@ bool SkaterPhysicsModule::wall_push_off()
 // 0x004FF920
 void SkaterPhysicsModule::turn_round_if_backwards()
 {
-    objects::RiderPoseState* flags = state_;
+    objects::RiderPoseState* flags = siblings_.state;
     objects::GameEntity* object = object_of(this);
     if ((flags->flag(PoseFlag::kBailing).on != 0U) || (flags->flag(PoseFlag::kSkitching).on != 0U) ||
         (friction_.braking != 0U)) {
@@ -367,11 +367,11 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     }
     bool special = on_vehicle_ != 0U;
     if (!special) {
-        const uint32_t trick = balance_->trick();
+        const uint32_t trick = siblings_.balance->trick();
         special = trick == kBalanceTrickA || trick == kBalanceTrickB;
     }
     if (special) {
-        const uint32_t board = checksums::hash_from_text(trick_->trick_name().data());
+        const uint32_t board = checksums::hash_from_text(siblings_.trick->trick_name().data());
         bool plain = false;
         for (const uint32_t listed_board : kBoards) {
             plain = plain || board == listed_board;
@@ -403,8 +403,8 @@ void SkaterPhysicsModule::turn_round_if_backwards()
 // 0x004FFB10
 bool SkaterPhysicsModule::jump_released()
 {
-    objects::RiderPoseState* flags = state_;
-    objects::ControlButton* button = &input_->pad_primary().pos_x();
+    objects::RiderPoseState* flags = siblings_.state;
+    objects::ControlButton* button = &siblings_.input->pad_primary().pos_x();
     if ((flags->flag(PoseFlag::kCrouched).on == 0U) || (button->held_down() != 0U)) {
         return false;
     }
@@ -418,10 +418,10 @@ bool SkaterPhysicsModule::jump_released()
 // 0x004FFB90
 void SkaterPhysicsModule::check_flip_spin()
 {
-    if (state_->flag(PoseFlag::kBailing).on != 0U) {
+    if (siblings_.state->flag(PoseFlag::kBailing).on != 0U) {
         return;
     }
-    const objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = siblings_.input;
     if (model_rotating_ != 0U) {
         return;
     }
@@ -476,7 +476,7 @@ void SkaterPhysicsModule::check_flip_spin()
 // 0x004FFDB0
 bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
 {
-    if (state_->flag(PoseFlag::kBailing).on != 0U) {
+    if (siblings_.state->flag(PoseFlag::kBailing).on != 0U) {
         return false;
     }
     render::ProbeRay feeler;
