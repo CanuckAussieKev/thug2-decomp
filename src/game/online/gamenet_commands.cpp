@@ -349,7 +349,8 @@ bool cfunc_has_signed_disclaimer(Struct* /*params*/, Context /*context*/)
 // 0x00537100: FoundServers - the server list (+0x158) has an entry.
 bool cfunc_found_servers(Struct* /*params*/, Context /*context*/)
 {
-    const memory::ListNode* node = net_game_state().online_hub()->servers().next(); // (the list's first node)
+    const memory::ListNode* node =
+        net_game_state().online_hub()->server_listing().servers().next(); // (the list's first node)
     int count = 0;
     // (the head's mark tested before a null node, as in the original)
     while (node->data() != memory::ListNode::head_marker() && node) {

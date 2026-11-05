@@ -12,6 +12,7 @@
 #include "game/online/service.h"
 #include "game/online/hub_roster.h"
 #include "game/online/hub_script_queue.h"
+#include "game/online/hub_server_listing.h"
 #include "game/online/hub_settings.h"
 #include "game/online/hub_tasks.h"
 #include "wire/gamenet_messages.h"
@@ -388,19 +389,12 @@ public:
     void stop_server_list();
     // 0x005456B0: destroy_server_menu_children and add_no_servers_found_message (with refocus).
     static void show_no_servers_found(bool refocus);
-    // 0x00546010: no server chosen (+0x8B) / 0x00546070: the servers in the menu (+0x8A).
-    void clear_chosen_servers();
-    int num_servers_in_menu();
     // 0x005460D0: `server` added to the server list menu (the first one clears the "none found" message):
     // server_list_menu_add_item with its name, mode, id (internet: its SBServer; LAN: itself), the menu's
     // scripts and their parameters. (`index` isn't used.)
     void show_server_in_menu(void* item, int index);
     // 0x005462F0: every server (waiting and listed) deleted; in LAN mode 0x00534D50.
     void empty_server_listing();
-    // 0x00546400: whether a server named `name` (case ignored) at `ip` is listed or waiting.
-    bool has_server(const char* name, uint32_t ip);
-    // 0x005464D0: the listed server with id `id` (internet: its SBServer; LAN: itself), or null.
-    void* fetch_host(uint32_t id);
     // 0x00547320: the "none found" message, then each waiting server moved to the list and the menu;
     // update_lobby_server_list.
     void show_found_servers();
@@ -607,13 +601,12 @@ public:
     // The scripts to run once the level is up.
     ScriptQueue& script_queue() { return script_queue_; }
     [[nodiscard]] const ScriptQueue& script_queue() const { return script_queue_; }
+    // The servers found (the server list).
+    ServerListing& server_listing() { return server_listing_; }
+    [[nodiscard]] const ServerListing& server_listing() const { return server_listing_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
-    memory::ListNode& servers() { return servers_; }
-    [[nodiscard]] const memory::ListNode& servers() const { return servers_; }
-    memory::ListNode& waiting_servers() { return waiting_servers_; }
-    [[nodiscard]] const memory::ListNode& waiting_servers() const { return waiting_servers_; }
     void set_last_ready_probe_id(uint32_t value) { last_ready_probe_id_ = value; }
     [[nodiscard]] bool cleared_to_start() const { return cleared_to_start_; }
     [[nodiscard]] uint32_t script_flag_bits() const { return script_flag_bits_; }
@@ -689,8 +682,7 @@ private:
     // original's offset - check_layout)
     PlayerRoster roster_;                     // +0x11C-+0x143 (+0x114-+0x133 here) the players and the joining players
     ScriptQueue script_queue_; // +0x144-+0x157 (+0x134-+0x143 here) the scripts to run once the level is up
-    memory::ListNode servers_{};              // +0x158 lists::Foremost<HostListing>: the listed servers
-    memory::ListNode waiting_servers_{};      // +0x16C lists::Foremost<HostListing>: found, not shown yet
+    ServerListing server_listing_;            // +0x158-+0x17F (+0x144-+0x163 here) the servers found
     uint32_t unknown180_{0};                  // +0x180 (zeroed by make_new)
     uint32_t refused_reason_{};             // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
     uint32_t last_ready_probe_id_{};        // +0x188

@@ -22,6 +22,7 @@
 #include "game/online/gamenet_handler_util.h"
 #include "platform/gamespy.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_server_listing.h"
 #include "game/online/gamenet_lobby.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_manager.h"
@@ -197,13 +198,13 @@ uint32_t next_server_id()
 void move_waiting_servers(Hub* manager)
 {
     online::Hub::show_no_servers_found(true);
-    memory::ListNode* node = head_of_scene_list(&manager->waiting_servers());
+    memory::ListNode* node = head_of_scene_list(&manager->server_listing().waiting_servers());
     auto* server = data_of<HostListing>(node);
     while (server) {
         node = get_next_node(node);
         auto* following = data_of<HostListing>(node);
         unlink_node(server);
-        memory::ListNode* list = &manager->servers();
+        memory::ListNode* list = &manager->server_listing().servers();
         manager->show_server_in_menu(server, total_of(list));
         get_append(list, server);
         server = following;
@@ -394,7 +395,7 @@ void Hub::show_no_servers_found(bool refocus)
 }
 
 // 0x00546010
-void Hub::clear_chosen_servers()
+void ServerListing::clear_chosen_servers()
 {
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data());
@@ -406,7 +407,7 @@ void Hub::clear_chosen_servers()
 }
 
 // 0x00546070
-int Hub::num_servers_in_menu()
+int ServerListing::num_servers_in_menu()
 {
     int count = 0;
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
@@ -427,7 +428,7 @@ void Hub::show_server_in_menu(void* item, int index)
     (void)index;
     auto* server = static_cast<HostListing*>(item);
     ram_stats()->enter_heap_scope(ram_stats()->front_end_heap());
-    if (num_servers_in_menu() == 0) {
+    if (server_listing_.num_servers_in_menu() == 0) {
         get_run(kDestroyServerChildren);
     }
     get_run(kPrepareServerMenu);
@@ -454,15 +455,15 @@ void Hub::show_server_in_menu(void* item, int index)
 // 0x005462F0
 void Hub::empty_server_listing()
 {
-    delete_all(&waiting_servers_);
-    delete_all(&servers_);
+    delete_all(&server_listing_.waiting_servers());
+    delete_all(&server_listing_.servers());
     if (is_local_network_play() != 0) {
         destroy_match_client();
     }
 }
 
 // 0x00546400
-bool Hub::has_server(const char* name, uint32_t ip)
+bool ServerListing::has_server(const char* name, uint32_t ip)
 {
     for (memory::ListNode* list :
          {&servers_, &waiting_servers_}) {
@@ -480,7 +481,7 @@ bool Hub::has_server(const char* name, uint32_t ip)
 }
 
 // 0x005464D0
-void* Hub::fetch_host(uint32_t id)
+void* ServerListing::fetch_host(uint32_t id)
 {
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
         auto* server = static_cast<HostListing*>(node->data());
@@ -647,7 +648,8 @@ bool cfunc_post_game(script::Struct* params, script::Context context)
 bool cfunc_num_servers_in_lobby(script::Struct* params, script::Context context)
 {
     (void)params;
-    context.args()->put_int(checksums::Name{kNumServers}, total_of(&net_game_state().online_hub()->servers()));
+    context.args()->put_int(checksums::Name{kNumServers},
+                            total_of(&net_game_state().online_hub()->server_listing().servers()));
     return true;
 }
 

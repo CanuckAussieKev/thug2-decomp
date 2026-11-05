@@ -71,8 +71,8 @@ Hub::Hub()
     setup_list_sentinel(&roster_.players()); // the players
     setup_list_sentinel(&roster_.joiners()); // the joining players
     setup_list_sentinel(&script_queue_.queued_scripts()); // the queued scripts
-    setup_list_sentinel(&servers_);        // the servers
-    setup_list_sentinel(&waiting_servers_);
+    setup_list_sentinel(&server_listing_.servers());      // the servers
+    setup_list_sentinel(&server_listing_.waiting_servers());
     tasks::PileUp* tasks = (&assets::get_main_loop_manager()->logic_tasks());
     net::Hub::sole()->set_msg_options(MessageId::kObjectUpdates, 1); // (the object update message's)
     settings_.read_in(kNetSettingsKey, kTauntSettingsKey);
@@ -186,8 +186,7 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, settings_), .original = 0x104, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, roster_), .original = 0x11C, .smaller_by = 8},
         FieldAt{.now = offsetof(Hub, script_queue_), .original = 0x144, .smaller_by = 16},
-        FieldAt{.now = offsetof(Hub, servers_), .original = 0x158, .smaller_by = 20},
-        FieldAt{.now = offsetof(Hub, waiting_servers_), .original = 0x16C, .smaller_by = 24},
+        FieldAt{.now = offsetof(Hub, server_listing_), .original = 0x158, .smaller_by = 20},
         FieldAt{.now = offsetof(Hub, unknown180_), .original = 0x180, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, refused_reason_), .original = 0x184, .smaller_by = 28},
         FieldAt{.now = offsetof(Hub, last_ready_probe_id_), .original = 0x188, .smaller_by = 28},
@@ -315,6 +314,26 @@ void ScriptQueue::check_layout()
     constexpr std::array kLayout{
         FieldAt{.now = offsetof(ScriptQueue, queued_scripts_), .original = 0x144, .smaller_by = 0},
         FieldAt{.now = sizeof(ScriptQueue), .original = 0x158, .smaller_by = 4},
+    };
+    static_assert(
+        std::ranges::all_of(kLayout,
+                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; }),
+        "layout must match the original's, but for the smaller members");
+}
+
+// NOT ORIGINAL
+void ServerListing::check_layout()
+{
+    constexpr std::size_t kAt = 0x158; // (each field at its offset in the hub, less the listing's own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+        std::size_t smaller_by; // (a list head is 0x10 bytes here, 0x14 in the original)
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(ServerListing, servers_), .original = 0x158, .smaller_by = 0},
+        FieldAt{.now = offsetof(ServerListing, waiting_servers_), .original = 0x16C, .smaller_by = 4},
+        FieldAt{.now = sizeof(ServerListing), .original = 0x180, .smaller_by = 8},
     };
     static_assert(
         std::ranges::all_of(kLayout,

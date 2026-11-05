@@ -486,8 +486,8 @@ Hub::~Hub()
     tasks_.delete_at_shutdown();
     // The lists: the players' nodes unlinked, then each head's destructor.
     unlink_all_nodes(&roster_.players());
-    waiting_servers_.uncouple();
-    servers_.uncouple();
+    server_listing_.waiting_servers().uncouple();
+    server_listing_.servers().uncouple();
     script_queue_.queued_scripts().uncouple();
     roster_.joiners().uncouple();
     roster_.players().uncouple();

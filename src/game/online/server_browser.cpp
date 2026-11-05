@@ -159,7 +159,7 @@ void read_server_players(HostListing* server, void* sb)
 HostListing* find_by_sb(Hub* manager, void* sb)
 {
     VaultSearch search;
-    auto* server = static_cast<HostListing*>(search.head_element(&manager->servers())); // (the first)
+    auto* server = static_cast<HostListing*>(search.head_element(&manager->server_listing().servers())); // (the first)
     while (server) {
         memory::ListNode* next = search.list_link()->next();
         memory::ListNode* node = next->data() == memory::ListNode::head_marker() ? nullptr : next;
@@ -184,7 +184,7 @@ bool cfunc_describe_server(script::Struct* params, script::Context context)
     Hub* manager = net_game_state().online_hub();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
-    auto* server = static_cast<HostListing*>(manager->fetch_host(id));
+    auto* server = static_cast<HostListing*>(manager->server_listing().fetch_host(id));
     get_run(kDestroyDescChildren);
     ram_stats()->enter_heap_scope(ram_stats()->front_end_heap());
     if (server->started()) {
@@ -254,8 +254,8 @@ bool cfunc_choose_server(script::Struct* params, script::Context context)
     Hub* manager = net_game_state().online_hub();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
-    manager->clear_chosen_servers();
-    auto* server = static_cast<HostListing*>(manager->fetch_host(id));
+    manager->server_listing().clear_chosen_servers();
+    auto* server = static_cast<HostListing*>(manager->server_listing().fetch_host(id));
     uint32_t refused = 0;
     if (manager->get_entry_mode() == 0) {
         if (server->num_players() >= server->max_players()) {
@@ -300,8 +300,8 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Context context)
     }
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
-    auto* server = static_cast<HostListing*>(manager->fetch_host(id));
-    manager->clear_chosen_servers();
+    auto* server = static_cast<HostListing*>(manager->server_listing().fetch_host(id));
+    manager->server_listing().clear_chosen_servers();
     server->set_chosen(true);
     if (server->detailed()) {
         return true;
@@ -331,7 +331,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     util::ByteReader reader(context->body(), context->body_size());
     auto reply = std::make_unique<ServerInfo>();
     read_server_info(reader, reply.get());
-    if (manager->has_server(reply->name.data(), context->sender_conn()->remote_ip())) {
+    if (manager->server_listing().has_server(reply->name.data(), context->sender_conn()->remote_ip())) {
         return kDone;
     }
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
@@ -356,7 +356,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     for (int i = 0; i < server->num_players() && i < kServerInfoPlayers; ++i) {
         server->enroll_player(core::at(reply->players, i).data(), 0);
     }
-    get_append(&manager->waiting_servers(), server);
+    get_append(&manager->server_listing().waiting_servers(), server);
     ram_stats()->leave_heap_scope();
     return kContinue;
 }
@@ -415,7 +415,7 @@ void listing_games_callback(const GamesListing& listing)
         }
         read_server_keys(server, sb);
         read_server_players(server, sb);
-        memory::ListNode* list = &manager->servers();
+        memory::ListNode* list = &manager->server_listing().servers();
         get_append(list, server);
         if (game_spy::server_has_basic_keys(sb) != 0) {        // (it has its basic keys)
             const int index = gfx::count_list_items(list) - 1; // (the list's count)
