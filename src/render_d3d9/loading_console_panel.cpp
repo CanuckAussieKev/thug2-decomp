@@ -30,6 +30,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "render_d3d9/device.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"

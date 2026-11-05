@@ -21,6 +21,7 @@
 #include "engine/memory/mem.h"
 #include "platform/crt.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "render_d3d9/draw_frame.h"
 #include "render_d3d9/geom.h"
 #include "render_d3d9/pc_billboards.h"

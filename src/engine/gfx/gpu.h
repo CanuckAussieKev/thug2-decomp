@@ -295,7 +295,8 @@ struct GpuLockedRect {
     int32_t pitch{};
     void* bits{};
 };
-// A texture to make (CreateTexture's arguments: Direct3D 9's usage, format and pool numbers).
+// A texture to make (CreateTexture's arguments: Direct3D 9's usage, format and pool numbers; levels 0: the whole chain
+// of smaller levels down to 1x1).
 struct GpuTextureDesc {
     uint32_t width{};
     uint32_t height{};

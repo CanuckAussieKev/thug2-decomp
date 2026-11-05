@@ -10,9 +10,7 @@
 #include <d3d9.h>
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 
 #include "base/core/no_destroy.h"
 #include "engine/gfx/gpu_context.h"
@@ -48,18 +46,18 @@ public:
         return SUCCEEDED(state().direct_3d()->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &mode));
     }
 
-    uint32_t sample_quality_levels(uint32_t samples, uint32_t colour_format, uint32_t depth_format,
-                                   bool windowed) override
+    uint32_t sample_quality_levels(const GpuSampleQuery& query) override
     {
         IDirect3D9* const d3d = state().direct_3d();
-        const auto type = static_cast<D3DMULTISAMPLE_TYPE>(samples);
+        const auto type = static_cast<D3DMULTISAMPLE_TYPE>(query.samples);
+        const BOOL windowed = query.windowed ? TRUE : FALSE;
         DWORD colour_levels = 0;
         DWORD depth_levels = 0;
         if (FAILED(d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,
-                                                   static_cast<D3DFORMAT>(colour_format), windowed ? TRUE : FALSE, type,
+                                                   static_cast<D3DFORMAT>(query.colour_format), windowed, type,
                                                    &colour_levels)) ||
             FAILED(d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,
-                                                   static_cast<D3DFORMAT>(depth_format), windowed ? TRUE : FALSE, type,
+                                                   static_cast<D3DFORMAT>(query.depth_format), windowed, type,
                                                    &depth_levels))) {
             return 0;
         }
@@ -100,7 +98,7 @@ public:
         D3DADAPTER_IDENTIFIER9 id{};
         state().direct_3d()->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &id);
         adapter_ = {};
-        std::memcpy(adapter_.description.data(), id.Description, adapter_.description.size());
+        std::ranges::copy(id.Description, adapter_.description.begin());
         adapter_.vendor_id = id.VendorId;
         adapter_.device_id = id.DeviceId;
         return result;
@@ -164,7 +162,7 @@ public:
     }
 
 private:
-    D3DPRESENT_PARAMETERS present_parameters_{}; // (zero-initialised, as the global was)
+    D3DPRESENT_PARAMETERS present_parameters_{.SwapEffect = D3DSWAPEFFECT_DISCARD}; // (otherwise zero, as the global was)
     GpuAdapterInfo adapter_{};
 };
 

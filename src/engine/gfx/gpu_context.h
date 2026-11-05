@@ -52,10 +52,19 @@ struct GpuCaps {
 };
 
 // The adapter the device was made on (asked after the device).
+inline constexpr std::size_t kGpuAdapterNameBytes = 512;
 struct GpuAdapterInfo {
-    std::array<char, 512> description{};
+    std::array<char, kGpuAdapterNameBytes> description{};
     uint32_t vendor_id{};
     uint32_t device_id{};
+};
+
+// A multisample count to ask about: the formats it must work with, and the window mode.
+struct GpuSampleQuery {
+    uint32_t samples{};
+    uint32_t colour_format{};
+    uint32_t depth_format{};
+    bool windowed{};
 };
 
 // A device to make: the back buffer's size, hardware or software vertex processing, the multisampling.
@@ -79,8 +88,7 @@ public:
     // The display adapter can be asked its mode (Direct3D 9: GetAdapterDisplayMode).
     virtual bool adapter_ready() = 0;
     // The most quality levels both formats have at this many samples (0: not supported) - the sample counts to try.
-    virtual uint32_t sample_quality_levels(uint32_t samples, uint32_t colour_format, uint32_t depth_format,
-                                           bool windowed) = 0;
+    virtual uint32_t sample_quality_levels(const GpuSampleQuery& query) = 0;
     // The settings every device attempt shares (windowed, vsync, formats; the window it presents to is the platform's).
     virtual void configure(const GpuSettings& settings) = 0;
     // The device made at this size and multisampling (the settings above, also kept as the reset's), and the adapter

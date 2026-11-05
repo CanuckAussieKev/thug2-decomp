@@ -206,7 +206,7 @@ void draw_loading_screen_picture()
 void hide_loading_screen()
 {
     get_lock();
-    gpu().set_render_state(GpuRenderState::kFogEnable, static_cast<uint32_t>(renderer().fog_active()));
+    gpu().set_render_state(GpuRenderState::kFogEnable, renderer().fog_active());
     if (renderer().loading_bar_timer() != 0U) {
         stop_timer(renderer().loading_bar_timer());
         renderer().set_loading_bar_timer(0);
@@ -219,7 +219,7 @@ void hide_loading_screen()
 void free_loading_screen_sprite()
 {
     get_lock();
-    gpu().set_render_state(GpuRenderState::kFogEnable, static_cast<uint32_t>(renderer().fog_active()));
+    gpu().set_render_state(GpuRenderState::kFogEnable, renderer().fog_active());
     memory::destroy_then_clear(loading_screen_state().loading_screen_sprite_); // (the engine's delete through slot 0)
     get_unlock();
 }

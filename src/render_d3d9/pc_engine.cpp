@@ -38,6 +38,7 @@
 #include "base/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"

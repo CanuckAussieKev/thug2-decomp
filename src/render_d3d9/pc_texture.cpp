@@ -31,6 +31,7 @@
 #include "base/core/span_copy.h"
 #include "base/core/packed_colour.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec2.h"
 #include "base/maths/rect.h"

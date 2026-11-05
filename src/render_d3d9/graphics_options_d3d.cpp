@@ -44,8 +44,10 @@ struct SupportQuery {
 bool get_supported(int samples, void* context)
 {
     auto* query = static_cast<SupportQuery*>(context);
-    const uint32_t levels =
-        gpu_context().sample_quality_levels(static_cast<uint32_t>(samples), query->colour, query->depth, query->windowed);
+    const uint32_t levels = gpu_context().sample_quality_levels({.samples = static_cast<uint32_t>(samples),
+                                                                 .colour_format = query->colour,
+                                                                 .depth_format = query->depth,
+                                                                 .windowed = query->windowed});
     if (levels == 0) {
         return false;
     }

@@ -13,7 +13,6 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
-#include <iterator>
 
 #include "engine/audio/audio_device.h"
 #include "engine/gfx/mesh_formats.h"

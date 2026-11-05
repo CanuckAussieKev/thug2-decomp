@@ -8,6 +8,7 @@
 #include <d3dx9.h>
 
 #include <cstdint>
+#include "engine/gfx/gpu_handles.h"
 #include "render_d3d9/d3d9_handles.h"
 #include "render_d3d9/d3dx_jpg.h"
 

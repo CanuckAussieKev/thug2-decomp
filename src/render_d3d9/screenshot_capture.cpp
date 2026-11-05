@@ -13,6 +13,7 @@
 #include "base/core/format.h"
 #include "platform/screenshot_files.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
 #include "render_d3d9/device.h"
 #include "engine/gfx/engine_parts.h"
 
