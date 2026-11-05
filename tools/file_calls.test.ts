@@ -62,10 +62,12 @@ test("files are written only by fs_win32/, platform/, tests/ and the base's fpri
     );
 });
 
+// (the Vulkan Gpu check is a program of its own: it installs the disk the Gpu writes the screen shot's JPEG through)
+const OWN_DISK = new Set(["fs_win32/win32_disk.cpp", "tests/vulkan_gpu_check.cpp"]);
 test("only app/ installs the Win32 disk and adds the data sources", () => {
     const pickers = using(/^\s*#\s*include\s*"fs_win32\/win32_disk\.h"/m);
     assert.deepEqual(
-        pickers.filter((name) => !name.startsWith("app/") && name !== "fs_win32/win32_disk.cpp"),
+        pickers.filter((name) => !name.startsWith("app/") && !OWN_DISK.has(name)),
         [],
     );
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the disk");

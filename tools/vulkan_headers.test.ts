@@ -17,6 +17,7 @@ const SRC = join(import.meta.dirname, "..", "src");
 // the driver).
 const CHECKS = new Set([
     "tests/vulkan_context_check.cpp",
+    "tests/vulkan_gpu_check.cpp",
     "tests/ff_shader_check.cpp",
     "tests/ff_shader_check_gpu.cpp",
     "tests/ff_shader_check_model.cpp",

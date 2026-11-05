@@ -52,3 +52,14 @@ if(THUG2_VULKAN)
         target_compile_definitions(thug2_ff_shader_check PRIVATE THUG2_SPIRV_VALIDATOR)
     endif()
 endif()
+
+# NOT ORIGINAL - thug2_vulkan_gpu_check.exe: the Vulkan Gpu's resources tried on this machine through render::Gpu and
+# render::GpuContext - every texture format the game makes (BC, the 16-bit formats native and widened, P8), every level,
+# buffers static and dynamic, render targets, depth surfaces, copies, read-backs, queries, samplers, the ring, two
+# threads at once - each made, filled, read back from the device's memory, compared and released (src/tests/
+# vulkan_gpu_check.cpp; --device N picks another GPU).
+if(THUG2_VULKAN)
+    add_executable(thug2_vulkan_gpu_check vulkan_gpu_check.cpp)
+    target_link_libraries(thug2_vulkan_gpu_check PRIVATE thug2_gpu_vulkan thug2_fs_win32 sdl2)
+    target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
+endif()
