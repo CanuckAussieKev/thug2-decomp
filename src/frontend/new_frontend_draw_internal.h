@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "frontend/new_frontend_mirror.h"
 #include "frontend/new_frontend_model.h"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -25,9 +26,15 @@ constexpr float kBodyTextSize = 14.0F;
 
 constexpr float kColumnLeft = 48.0F;    // the left edge of the menu column, in design pixels
 
+constexpr float kColumnRight = 1232.0F; // its right edge
+
 constexpr float kDegreesPerHalfTurn = 180.0F;
 
+constexpr float kHalf = 0.5F;
+
 constexpr float kHeadingTextSize = 30.0F;
+
+constexpr float kHintsBottom = 688.0F; // the baseline of the hint bar
 
 constexpr float kLabelTextSize = 13.0F;
 
@@ -44,6 +51,8 @@ constexpr float kRowTiltDegrees = 3.0F;     // the tilt a row starts its entranc
 constexpr float kTabLineHeight = 1.05F;
 
 constexpr float kTextLineHeight = 1.3F; // the line height (times the text size) of the small text
+
+constexpr float kTitleTextSize = 72.0F;
 
 constexpr float kVisibleThreshold = 0.001F; // an ease or fade below this counts as not started (or gone)
 
@@ -254,5 +263,20 @@ void options_screen(Ctx& ctx, float window_width, float window_height);
 void levels_screen(Ctx& ctx, int* visible_rows);
 
 void wipe(ImDrawList* dl, const Menu& menu, maths::Size window);
+
+// Where paragraphs go: from design y `top`, at most `lines` lines, in `colour`.
+struct TextBlock {
+    float top{};
+    int lines{};
+    uint32_t colour = kMuted;
+};
+
+float paragraphs(Ctx& ctx, const std::vector<std::string>& texts, Band band, TextBlock block);
+
+void dialog_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height);
+
+void skaters_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height);
+
+void stats_screen(Ctx& ctx, const mirror::Tracker& tracker, float window_width, float window_height);
 
 } // namespace frontend::new_frontend::paint::internal
