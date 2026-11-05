@@ -364,8 +364,8 @@ void objects::FootMovement::end_pull_up()
     change_phase(0);
     object_of(this)->post_own_event(kSkaterExitHang, nullptr);
     trigger_rail_script(this, kExitHangEvents);
-    if (feeler_hit_) {
-        auto* feeler = &feeler_;
+    if (ledge_.hit) {
+        auto* feeler = &ledge_.feeler;
         trigger_feeler(this, kPullUpEvents, feeler);
         contact_feeler(this, feeler);
     }
@@ -621,8 +621,8 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     // the animated move: walking at the end (the ledge's feeler kept), or in the air with no ground
     if (found) {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_pull_up>());
-        assign_feeler(&feeler_, &ledge);
-        feeler_hit_ = true;
+        assign_feeler(&ledge_.feeler, &ledge);
+        ledge_.hit = true;
         floor_normal_ = ledge.surface_dir();
     } else {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_from_hang>());
@@ -1225,8 +1225,8 @@ void objects::FootMovement::end_ladder_off_bottom()
 {
     change_phase(0);
     trigger_rail_script(this, kExitLadderEvents);
-    if (feeler_hit_) {
-        auto* feeler = &feeler_;
+    if (ledge_.hit) {
+        auto* feeler = &ledge_.feeler;
         trigger_feeler(this, kLadderOffBottomEvents, feeler);
         contact_feeler(this, feeler);
     }
@@ -1237,8 +1237,8 @@ void objects::FootMovement::end_ladder_off_top()
 {
     change_phase(0);
     trigger_rail_script(this, kExitLadderEvents);
-    if (feeler_hit_) {
-        auto* feeler = &feeler_;
+    if (ledge_.hit) {
+        auto* feeler = &ledge_.feeler;
         trigger_feeler(this, kLadderOffTopEvents, feeler);
         contact_feeler(this, feeler);
     }
@@ -1388,9 +1388,9 @@ void objects::FootMovement::climb_off_bottom()
                           .z = pos.z - fz,
                           .w = pos.w - fw};
     target.y = target.y - get_param(kLadderBottomOffsetUp);
-    render::ProbeRay* ground = &feeler_;
+    render::ProbeRay* ground = &ledge_.feeler;
     const bool found = find_stand_position(&target, &target, ground);
-    feeler_hit_ = found;
+    ledge_.hit = found;
     if (found) {
         floor_normal_ = ground->surface_dir();
     }
@@ -1482,9 +1482,9 @@ void objects::FootMovement::climb_off_top()
     transition_pos_ = target;
     if (found) {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top>());
-        assign_feeler(&feeler_, &ledge);
-        feeler_hit_ = true;
-        floor_normal_ = feeler_.surface_dir();
+        assign_feeler(&ledge_.feeler, &ledge);
+        ledge_.hit = true;
+        floor_normal_ = ledge_.feeler.surface_dir();
     } else {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top_to_air>());
     }

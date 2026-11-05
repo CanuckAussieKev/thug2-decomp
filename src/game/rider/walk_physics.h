@@ -481,6 +481,13 @@ public:
         float climb_scale{};  // +0x10 (+0x18DC) the shimmy's speed, eased towards the control's
     };
 
+    // The ledge feeler (+0x17B4-+0x1867): the triggers' and a pull-up's feeler, and whether it hit (the ground).
+    struct LedgeFeeler {
+        render::ProbeRay feeler;        // +0x00 (+0x17B4)
+        bool hit{};                     // +0xB0 (+0x1864)
+        std::array<uint8_t, 3> padb1{}; // +0xB1 (+0x1865)
+    };
+
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
     // The fields other code reads and sets.
     [[nodiscard]] int get_state() const { return phase_.state; }
@@ -523,9 +530,9 @@ public:
     [[nodiscard]] objects::MovingSurfaceModule* ride() const { return ride_; }
     [[nodiscard]] skater::SkaterPhysicsModule* core_physics() const { return core_physics_; }
     [[nodiscard]] bool running() const { return running_; }
-    render::ProbeRay& get_feeler() { return feeler_; }
-    [[nodiscard]] const render::ProbeRay& get_feeler() const { return feeler_; }
-    [[nodiscard]] bool feeler_hit() const { return feeler_hit_; }
+    render::ProbeRay& get_feeler() { return ledge_.feeler; }
+    [[nodiscard]] const render::ProbeRay& get_feeler() const { return ledge_.feeler; }
+    [[nodiscard]] bool feeler_hit() const { return ledge_.hit; }
     void set_blocked(bool value) { blocked_ = value; }
     maths::Vec4& push_normal() { return push_normal_; }
     [[nodiscard]] const maths::Vec4& push_normal() const { return push_normal_; }
@@ -589,9 +596,7 @@ private:
     std::array<uint8_t, 3> pad17a9_{};
     int barrier_since_{};     // +0x17AC
     float standard_speed_{};  // +0x17B0 run_speed
-    render::ProbeRay feeler_; // +0x17B4 the triggers' and a pull-up's ledge feeler
-    bool feeler_hit_{};       // +0x1864 whether that feeler hit something (the ground)
-    std::array<uint8_t, 3> pad1865_{};
+    LedgeFeeler ledge_;       // +0x17B4-+0x1867 the ledge feeler
     float run_adjustment_{}; // +0x1868 run_speed (0) to combo_run_speed (1)
     bool blocked_{};         // +0x186C
     std::array<uint8_t, 3> pad186d_{};

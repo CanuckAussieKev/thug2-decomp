@@ -310,7 +310,7 @@ void FootMovement::update_ground_below()
     locked_to_heading_ = true;
     unknown710_ = kUnknown710Reset;
     change_phase(0);
-    feeler_hit_ = false;
+    ledge_.hit = false;
     floor_normal_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     frame_.anim = kLand;
 }

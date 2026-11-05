@@ -302,9 +302,9 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, pad17a9_), .original = 0x17A9},
         FieldAt{.now = offsetof(FootMovement, barrier_since_), .original = 0x17AC},
         FieldAt{.now = offsetof(FootMovement, standard_speed_), .original = 0x17B0},
-        FieldAt{.now = offsetof(FootMovement, feeler_), .original = 0x17B4},
-        FieldAt{.now = offsetof(FootMovement, feeler_hit_), .original = 0x1864},
-        FieldAt{.now = offsetof(FootMovement, pad1865_), .original = 0x1865},
+        FieldAt{.now = offsetof(FootMovement, ledge_.feeler), .original = 0x17B4},
+        FieldAt{.now = offsetof(FootMovement, ledge_.hit), .original = 0x1864},
+        FieldAt{.now = offsetof(FootMovement, ledge_.padb1), .original = 0x1865},
         FieldAt{.now = offsetof(FootMovement, run_adjustment_), .original = 0x1868},
         FieldAt{.now = offsetof(FootMovement, blocked_), .original = 0x186C},
         FieldAt{.now = offsetof(FootMovement, pad186d_), .original = 0x186D},
@@ -896,9 +896,9 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
     position = feeler->contact_pos();
     up_speed_ = 0.0F;
     change_phase(0);
-    render::ProbeRay* ground = &feeler_;
+    render::ProbeRay* ground = &ledge_.feeler;
     ground->get_assign(*feeler); // (the feeler copied)
-    feeler_hit_ = true;
+    ledge_.hit = true;
     static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c648, ground);
     if (!halted(this)) {
         floor_normal_ = feeler->surface_dir();
@@ -965,9 +965,9 @@ void FootMovement::settle_onto_floor()
             curb_.offset = offset < 0.0 ? 0.0F : static_cast<float>(offset);
         }
         // Onto other collision: the old ground's and the new ground's trigger kinds set off.
-        render::ProbeRay* ground = &feeler_;
+        render::ProbeRay* ground = &ledge_.feeler;
         if (ground->hit().object != feeler->hit().object) {
-            if (feeler_hit_) {
+            if (ledge_.hit) {
                 static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c660, ground);
                 if (halted(this)) {
                     return;
@@ -979,7 +979,7 @@ void FootMovement::settle_onto_floor()
             }
         }
         ground->get_assign(*feeler); // (the feeler copied)
-        feeler_hit_ = true;
+        ledge_.hit = true;
         floor_normal_ = feeler->surface_dir();
         static_cast<MovingSurfaceModule*>(ride_)->start_riding(feeler); // (what it stands on)
         // (the terrain byte, passed as the dword there)
@@ -993,8 +993,8 @@ void FootMovement::settle_onto_floor()
     if (feeler->get_hit_shape(true, false) != 0) {
         put_off(&position, feeler, kWallGap);
     }
-    if (feeler_hit_) {
-        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c630, &feeler_);
+    if (ledge_.hit) {
+        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c630, &ledge_.feeler);
         if (halted(this)) {
             release_hit(feeler);
             return;
@@ -1029,7 +1029,7 @@ void FootMovement::get_begin(bool on_ground)
     if (on_ground) {
         change_phase(0);
         floor_normal_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
-        feeler_hit_ = false;
+        ledge_.hit = false;
         entity()->vel().y = 0.0F;
         off_vert_ = false;
     } else {
@@ -1119,9 +1119,10 @@ void FootMovement::get_jump()
     default:
         break;
     }
-    if (phase_.state == 0 && feeler_hit_) {
-        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
-                                                                         &feeler_); // (the ground's jump triggers)
+    if (phase_.state == 0 && ledge_.hit) {
+        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(
+            kWalkEvents0064c63c,
+            &ledge_.feeler); // (the ground's jump triggers)
         if (halted(this)) {
             return;
         }
@@ -1304,9 +1305,10 @@ bool FootMovement::try_barrier_jump()
     auto rise = static_cast<float>(((static_cast<double>(clearance) + top) + step) - position.y);
     const double gravity = static_cast<float>(get_gravity());
     auto speed = static_cast<float>(std::sqrt(gravity * rise * kJumpSpeedFactor));
-    if (feeler_hit_) {
-        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
-                                                                         &feeler_); // (the ground's jump triggers)
+    if (ledge_.hit) {
+        static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(
+            kWalkEvents0064c63c,
+            &ledge_.feeler); // (the ground's jump triggers)
         if (halted(this)) {
             release_hit(feeler);
             return true;
