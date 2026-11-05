@@ -130,16 +130,21 @@ struct Track {
 
 std::map<uint32_t, Track>& tracks_state();
 
-// NOT ORIGINAL grouping - level_editor_scenery.cpp's state (were globals). Made on first use, never destroyed
-// (level_editor_scenery_state()).
-struct LevelEditorSceneryState {
+// NOT ORIGINAL grouping - level_editor_scenery.cpp's state (were globals), one record per part. Each made on first use,
+// never destroyed.
+
+// The selected scenery (picked_scenery()): its sectors, the pivot it moves and turns about, and how far its bottom is
+// below the pivot.
+struct PickedScenery {
     std::vector<uint32_t> selection_;
     V3 pivot_{};
     float half_extent_y_{}; // (the selection's bottom is this far below the pivot - quarter turns keep it)
-    std::vector<render::WorldScene*> dirty_scenes_;
 };
 
-LevelEditorSceneryState& level_editor_scenery_state();
+PickedScenery& picked_scenery();
+
+// The scenes whose super sectors are to be updated after a move (dirty_scenes()).
+std::vector<render::WorldScene*>& dirty_scenes();
 
 std::unordered_map<uint32_t, uint32_t>& shadow_of();
 

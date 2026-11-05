@@ -71,8 +71,8 @@ bool is_operative(render::WorldCell* sector) { return sector->is_operative(); }
 State save_state()
 {
     State state;
-    state.selection = level_editor_scenery_state().selection_;
-    for (const uint32_t checksum : level_editor_scenery_state().selection_) {
+    state.selection = picked_scenery().selection_;
+    for (const uint32_t checksum : picked_scenery().selection_) {
         render::WorldCell* sector = find_sector(checksum, nullptr);
         if (!sector) {
             continue;
@@ -133,7 +133,7 @@ void restore_state(const State& state)
     for (const RailState& saved : state.rails) {
         scenery_rails().rails_.push_back(saved.name);
     }
-    level_editor_scenery_state().selection_ = state.selection;
+    picked_scenery().selection_ = state.selection;
     compute_pivot();
 }
 
@@ -280,7 +280,7 @@ void add_group(uint32_t checksum)
 {
     for (const uint32_t member : group_of(checksum)) {
         if (!get_selected(member)) {
-            level_editor_scenery_state().selection_.push_back(member);
+            picked_scenery().selection_.push_back(member);
         }
     }
     compute_pivot();
@@ -333,14 +333,14 @@ void hide_selection()
 
 bool selection_moved(Placement* placement)
 {
-    if (level_editor_scenery_state().selection_.empty()) {
+    if (picked_scenery().selection_.empty()) {
         return false;
     }
-    render::WorldCell* sector = find_sector(core::at(level_editor_scenery_state().selection_, 0), nullptr);
+    render::WorldCell* sector = find_sector(core::at(picked_scenery().selection_, 0), nullptr);
     if (!sector) {
         return false;
     }
-    *placement = placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector));
+    *placement = placement_of(core::at(picked_scenery().selection_, 0), geom_of(sector));
     return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0F ||
            placement->offset.y != 0.0F || placement->offset.z != 0.0F;
 }
@@ -484,13 +484,13 @@ void end_tints(void* (*resolve)(TintOwner), bool all)
 
 void finalise()
 {
-    if (level_editor_scenery_state().dirty_scenes_.empty()) {
+    if (dirty_scenes().empty()) {
         return;
     }
     // As the park editor does (0x00592090): the scene's UpdateSuperSectors (thiscall, a list of sectors to add - none)
     // with the bottom-up heap current.
     memory::Hub* manager = memory::Hub::get_pull();
-    for (render::WorldScene* scene : level_editor_scenery_state().dirty_scenes_) {
+    for (render::WorldScene* scene : dirty_scenes()) {
         bool live = false;
         for_each_scene([&](render::WorldScene* world_scene) { live |= world_scene == scene; });
         if (!live || !scene->coll_grid()) {
@@ -506,10 +506,10 @@ void finalise()
         shared_collision::finalise(scene); // (the pieces' shared collision: level_editor_shared_coll.h)
     }
     if (debug_enabled()) {
-        get_log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(level_editor_scenery_state().dirty_scenes_.size()),
-                level_editor_scenery_state().dirty_scenes_.size() == 1 ? "" : "s");
+        get_log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(dirty_scenes().size()),
+                dirty_scenes().size() == 1 ? "" : "s");
     }
-    level_editor_scenery_state().dirty_scenes_.clear();
+    dirty_scenes().clear();
 }
 
 void note_collision_moved(uint32_t checksum)

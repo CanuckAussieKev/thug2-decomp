@@ -385,25 +385,25 @@ std::string describe_hover(uint32_t checksum)
 
 std::string describe_selection()
 {
-    if (level_editor_scenery_state().selection_.empty()) {
+    if (picked_scenery().selection_.empty()) {
         return "-";
     }
-    std::string text = "scenery " + caption(core::at(level_editor_scenery_state().selection_, 0));
+    std::string text = "scenery " + caption(core::at(picked_scenery().selection_, 0));
     std::array<char, kSelectionMoreSize> more{};
     int quarters = 0;
     V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
-    auto it = tracks_state().find(core::at(level_editor_scenery_state().selection_, 0));
+    auto it = tracks_state().find(core::at(picked_scenery().selection_, 0));
     if (it != tracks_state().end()) {
         quarters = it->second.placement.quarters;
         scale = it->second.placement.scale;
     }
-    text::format_to(more, "  at (%.0f, %.0f, %.0f)  turned %d", level_editor_scenery_state().pivot_.x, level_editor_scenery_state().pivot_.y, level_editor_scenery_state().pivot_.z, quarters * kDegreesPerQuarterTurn);
+    text::format_to(more, "  at (%.0f, %.0f, %.0f)  turned %d", picked_scenery().pivot_.x, picked_scenery().pivot_.y, picked_scenery().pivot_.z, quarters * kDegreesPerQuarterTurn);
     if (!is_unit_scale(scale)) {
         const size_t used = std::strlen(more.data());
         text::format_to(std::span(more).subspan(used), "  scaled %s", scale_tool::describe(scale).c_str());
     }
-    if (level_editor_scenery_state().selection_.size() > 1) {
-        text += " + " + std::to_string(level_editor_scenery_state().selection_.size() - 1) + " more";
+    if (picked_scenery().selection_.size() > 1) {
+        text += " + " + std::to_string(picked_scenery().selection_.size() - 1) + " more";
     }
     if (!scenery_rails().rails_.empty()) {
         text += ", " + std::to_string(scenery_rails().rails_.size()) + " rail points";
@@ -411,14 +411,14 @@ std::string describe_selection()
     return text + more.data();
 }
 
-bool has_selection() { return !level_editor_scenery_state().selection_.empty(); }
-const std::vector<uint32_t>& get_selection() { return level_editor_scenery_state().selection_; }
+bool has_selection() { return !picked_scenery().selection_.empty(); }
+const std::vector<uint32_t>& get_selection() { return picked_scenery().selection_; }
 
-bool get_selected(uint32_t checksum) { return std::ranges::find(level_editor_scenery_state().selection_, checksum) != level_editor_scenery_state().selection_.end(); }
+bool get_selected(uint32_t checksum) { return std::ranges::find(picked_scenery().selection_, checksum) != picked_scenery().selection_.end(); }
 
 void clear_selection()
 {
-    level_editor_scenery_state().selection_.clear();
+    picked_scenery().selection_.clear();
     scenery_rails().rails_.clear();
     scenery_rails().dropped_rails_.clear();
 }

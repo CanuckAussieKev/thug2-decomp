@@ -318,10 +318,16 @@ std::map<uint32_t, Track>& tracks_state()
     return value;
 }
 
-LevelEditorSceneryState& level_editor_scenery_state()
+PickedScenery& picked_scenery()
 {
-    static core::NoDestroy<LevelEditorSceneryState> state;
-    return state.get();
+    static core::NoDestroy<PickedScenery> picked;
+    return picked.get();
+}
+
+std::vector<render::WorldScene*>& dirty_scenes()
+{
+    static core::NoDestroy<std::vector<render::WorldScene*>> scenes;
+    return scenes.get();
 }
 
 // The shadows groups have taken (level_editor_shadows.h): each with the member whose name it carries (0: by place).
@@ -390,9 +396,9 @@ bool current_box(uint32_t checksum, render::Geom* geom, OrientedBox* box)
 
 void mark_dirty(render::WorldScene* scene)
 {
-    if (std::ranges::find(level_editor_scenery_state().dirty_scenes_, scene) ==
-        level_editor_scenery_state().dirty_scenes_.end()) {
-        level_editor_scenery_state().dirty_scenes_.push_back(scene);
+    if (std::ranges::find(dirty_scenes(), scene) ==
+        dirty_scenes().end()) {
+        dirty_scenes().push_back(scene);
     }
 }
 
@@ -629,8 +635,8 @@ void compute_pivot()
     bool have = false;
     // (its shadows left out while it has anything else: a shadow lies wider than its caster, on the floor below)
     const bool casters =
-        std::ranges::any_of(level_editor_scenery_state().selection_, [](uint32_t checksum) { return !shadow_of().contains(checksum); });
-    for (const uint32_t checksum : level_editor_scenery_state().selection_) {
+        std::ranges::any_of(picked_scenery().selection_, [](uint32_t checksum) { return !shadow_of().contains(checksum); });
+    for (const uint32_t checksum : picked_scenery().selection_) {
         if (casters && shadow_of().contains(checksum)) {
             continue;
         }
@@ -644,8 +650,8 @@ void compute_pivot()
         grow_box(&min, &max, have, point_a, point_b);
         have = true;
     }
-    level_editor_scenery_state().pivot_ = have ? (min + max) * kHalf : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
-    level_editor_scenery_state().half_extent_y_ = have ? (max.y - min.y) * kHalf : 0.0F;
+    picked_scenery().pivot_ = have ? (min + max) * kHalf : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
+    picked_scenery().half_extent_y_ = have ? (max.y - min.y) * kHalf : 0.0F;
 }
 
 // The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
@@ -655,12 +661,12 @@ void select_rails()
     scenery_rails().rails_.clear();
     const std::span<RailNode> nodes = rail_nodes();
     const int count = static_cast<int>(nodes.size());
-    if (level_editor_scenery_state().selection_.empty() || nodes.empty()) {
+    if (picked_scenery().selection_.empty() || nodes.empty()) {
         return;
     }
     std::vector<uint32_t> clusters;
     std::vector<std::pair<V3, V3>> boxes;
-    for (const uint32_t checksum : level_editor_scenery_state().selection_) {
+    for (const uint32_t checksum : picked_scenery().selection_) {
         if (is_clone(checksum)) {
             continue; // (a copy has no rails of its own: the source's stay with the source)
         }
@@ -725,10 +731,10 @@ namespace {
 // through).
 void log_meshes()
 {
-    if (!debug_enabled() || level_editor_scenery_state().selection_.empty()) {
+    if (!debug_enabled() || picked_scenery().selection_.empty()) {
         return;
     }
-    const render::Geom* geom = sector_geometry(core::at(level_editor_scenery_state().selection_, 0));
+    const render::Geom* geom = sector_geometry(core::at(picked_scenery().selection_, 0));
     const GeomMeshes meshes = meshes_of(geom); // (none without a geom)
     for (uint32_t i = 0; i < meshes.count && i < 4; ++i) {
         const render::MeshData* mesh = meshes.at(i);
@@ -750,7 +756,7 @@ void log_meshes()
 
 void select_group(uint32_t checksum)
 {
-    level_editor_scenery_state().selection_ = group_of(checksum);
+    picked_scenery().selection_ = group_of(checksum);
     scenery_rails().dropped_rails_.clear();
     compute_pivot();
     select_rails();
@@ -758,10 +764,10 @@ void select_group(uint32_t checksum)
     if (debug_enabled()) {
         get_log(
             "level editor: selected scenery %s, %u sector%s (cluster %08X), %u rail node%s, pivot (%.1f, %.1f, %.1f)",
-            caption(checksum).c_str(), static_cast<unsigned>(level_editor_scenery_state().selection_.size()), level_editor_scenery_state().selection_.size() == 1 ? "" : "s",
-            cluster_of(checksum), static_cast<unsigned>(scenery_rails().rails_.size()), scenery_rails().rails_.size() == 1 ? "" : "s", level_editor_scenery_state().pivot_.x,
-            level_editor_scenery_state().pivot_.y, level_editor_scenery_state().pivot_.z);
-        for (const uint32_t member : level_editor_scenery_state().selection_) {
+            caption(checksum).c_str(), static_cast<unsigned>(picked_scenery().selection_.size()), picked_scenery().selection_.size() == 1 ? "" : "s",
+            cluster_of(checksum), static_cast<unsigned>(scenery_rails().rails_.size()), scenery_rails().rails_.size() == 1 ? "" : "s", picked_scenery().pivot_.x,
+            picked_scenery().pivot_.y, picked_scenery().pivot_.z);
+        for (const uint32_t member : picked_scenery().selection_) {
             get_log("level editor:   %s%s", caption(member).c_str(), is_shadow(member) ? " (shadow)" : "");
         }
     }
@@ -769,26 +775,26 @@ void select_group(uint32_t checksum)
 
 void flip_over(uint32_t checksum)
 {
-    auto it = std::ranges::find(level_editor_scenery_state().selection_, checksum);
-    if (it != level_editor_scenery_state().selection_.end()) {
-        level_editor_scenery_state().selection_.erase(it);
+    auto it = std::ranges::find(picked_scenery().selection_, checksum);
+    if (it != picked_scenery().selection_.end()) {
+        picked_scenery().selection_.erase(it);
     } else if (!why_not_movable(checksum)) {
-        level_editor_scenery_state().selection_.push_back(checksum);
+        picked_scenery().selection_.push_back(checksum);
     }
     compute_pivot();
     select_rails();
 }
 
-V3 get_pivot() { return level_editor_scenery_state().pivot_; }
+V3 get_pivot() { return picked_scenery().pivot_; }
 
-float get_bottom() { return level_editor_scenery_state().pivot_.y - level_editor_scenery_state().half_extent_y_; }
+float get_bottom() { return picked_scenery().pivot_.y - picked_scenery().half_extent_y_; }
 
 void set_selection(const std::vector<uint32_t>& sectors)
 {
-    level_editor_scenery_state().selection_.clear();
+    picked_scenery().selection_.clear();
     for (const uint32_t checksum : sectors) {
         if (!why_not_movable(checksum)) {
-            level_editor_scenery_state().selection_.push_back(checksum);
+            picked_scenery().selection_.push_back(checksum);
         }
     }
     compute_pivot();
@@ -797,11 +803,11 @@ void set_selection(const std::vector<uint32_t>& sectors)
 
 void move_to(V3 pivot)
 {
-    const V3 delta = pivot - level_editor_scenery_state().pivot_;
+    const V3 delta = pivot - picked_scenery().pivot_;
     if (delta.x == 0.0F && delta.y == 0.0F && delta.z == 0.0F) {
         return;
     }
-    for (const uint32_t checksum : level_editor_scenery_state().selection_) {
+    for (const uint32_t checksum : picked_scenery().selection_) {
         if (Track* track = track_of(checksum)) {
             move_by(&track->placement, delta);
             apply_track(track);
@@ -813,7 +819,7 @@ void move_to(V3 pivot)
         }
     }
     apply_rails(scenery_rails().rails_);
-    level_editor_scenery_state().pivot_ = pivot;
+    picked_scenery().pivot_ = pivot;
     scenery_hover().hover_group_of_ = 0;
 }
 
@@ -822,16 +828,16 @@ void get_turn(int quarters)
     if ((quarters & 3) == 0) {
         return;
     }
-    for (const uint32_t checksum : level_editor_scenery_state().selection_) {
+    for (const uint32_t checksum : picked_scenery().selection_) {
         if (Track* track = track_of(checksum)) {
-            turn_about(&track->placement, level_editor_scenery_state().pivot_, quarters);
+            turn_about(&track->placement, picked_scenery().pivot_, quarters);
             apply_track(track);
         }
     }
     log_meshes();
     for (const uint32_t name : scenery_rails().rails_) {
         if (RailTrack* track = rail_track_of(name)) {
-            turn_about(&track->placement, level_editor_scenery_state().pivot_, quarters);
+            turn_about(&track->placement, picked_scenery().pivot_, quarters);
         }
     }
     apply_rails(scenery_rails().rails_);
@@ -842,21 +848,21 @@ void get_turn(int quarters)
 
 V3 selection_scale()
 {
-    if (level_editor_scenery_state().selection_.empty()) {
+    if (picked_scenery().selection_.empty()) {
         return {.x = 1.0F, .y = 1.0F, .z = 1.0F};
     }
-    render::WorldCell* sector = find_sector(core::at(level_editor_scenery_state().selection_, 0), nullptr);
-    return sector ? placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector)).scale
+    render::WorldCell* sector = find_sector(core::at(picked_scenery().selection_, 0), nullptr);
+    return sector ? placement_of(core::at(picked_scenery().selection_, 0), geom_of(sector)).scale
                   : V3{.x = 1.0F, .y = 1.0F, .z = 1.0F};
 }
 
 int selection_quarters()
 {
-    if (level_editor_scenery_state().selection_.empty()) {
+    if (picked_scenery().selection_.empty()) {
         return 0;
     }
-    render::WorldCell* sector = find_sector(core::at(level_editor_scenery_state().selection_, 0), nullptr);
-    return sector ? placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector)).quarters : 0;
+    render::WorldCell* sector = find_sector(core::at(picked_scenery().selection_, 0), nullptr);
+    return sector ? placement_of(core::at(picked_scenery().selection_, 0), geom_of(sector)).quarters : 0;
 }
 
 V3 scale_selection(V3 factor, bool uniform)
@@ -864,7 +870,7 @@ V3 scale_selection(V3 factor, bool uniform)
     const V3 unchanged = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
     std::vector<V3> scales;
     std::vector<V3> limits; // (along the world's axes)
-    for (const uint32_t checksum : level_editor_scenery_state().selection_) {
+    for (const uint32_t checksum : picked_scenery().selection_) {
         if (Track* track = track_of(checksum)) {
             if (!track->original) { // (kept now, as apply_track would: a piece that can't be copied stops the lot)
                 track->original = scale_tool::get_capture(track->sector, track->geom, track->quarters, track->position);
@@ -883,8 +889,8 @@ V3 scale_selection(V3 factor, bool uniform)
         return unchanged;
     }
     // About the middle of the selection's bottom: it keeps standing where it stands.
-    const V3 anchor = {.x = level_editor_scenery_state().pivot_.x, .y = get_bottom(), .z = level_editor_scenery_state().pivot_.z};
-    for (const uint32_t checksum : level_editor_scenery_state().selection_) {
+    const V3 anchor = {.x = picked_scenery().pivot_.x, .y = get_bottom(), .z = picked_scenery().pivot_.z};
+    for (const uint32_t checksum : picked_scenery().selection_) {
         if (Track* track = track_of(checksum)) {
             scale_tool::scale_about(&track->placement, anchor, factor);
             apply_track(track);
@@ -896,8 +902,8 @@ V3 scale_selection(V3 factor, bool uniform)
         }
     }
     apply_rails(scenery_rails().rails_);
-    level_editor_scenery_state().half_extent_y_ *= factor.y;
-    level_editor_scenery_state().pivot_ = {.x = anchor.x, .y = anchor.y + level_editor_scenery_state().half_extent_y_, .z = anchor.z};
+    picked_scenery().half_extent_y_ *= factor.y;
+    picked_scenery().pivot_ = {.x = anchor.x, .y = anchor.y + picked_scenery().half_extent_y_, .z = anchor.z};
     scenery_hover().hover_group_of_ = 0;
     return factor;
 }
