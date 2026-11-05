@@ -109,6 +109,16 @@ FetchContent_Declare(lzham
     SOURCE_SUBDIR no-cmake) # sources only: the codec's own CMake files are for gcc
 FetchContent_MakeAvailable(lzham)
 
+# --- Vulkan (the Vulkan renderer, src/render_vulkan: docs/design/vulkan.md; see THIRD_PARTY_NOTICES.md) ----------
+# Fetched and pinned like the others; no Vulkan SDK is needed to build. The Vulkan loader is the system's
+# vulkan-1.dll (installed with every Vulkan driver), loaded at run time by volk: nothing links an import library, and
+# a machine without Vulkan still starts the exe. The SDK's validation layers are used when they are installed and asked
+# for (src/render_vulkan/vulkan_context.h).
+option(THUG2_VULKAN "Build the Vulkan renderer's library (src/render_vulkan) and its context check" ON)
+if(THUG2_VULKAN)
+    include(cmake/vulkan_libraries.cmake)
+endif()
+
 # --- The GameSpy SDK (IGN's BSD-3 release) ---------------------------------------------------------------------
 include(cmake/gamespy_sdk.cmake)
 file(GLOB LZHAM_DECOMP_SOURCES ${lzham_SOURCE_DIR}/lzhamdecomp/*.cpp)
