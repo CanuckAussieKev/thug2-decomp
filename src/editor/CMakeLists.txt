@@ -18,6 +18,7 @@ add_library(thug2_editor STATIC
     level_editor_geometry.cpp
     level_editor_hud.cpp
     level_editor_layout.cpp
+    level_editor_layout_text.cpp
     level_editor_objects.cpp
     level_editor_picking.cpp
     level_editor_shadows.cpp
