@@ -73,7 +73,7 @@ UndoStep get_snapshot()
     if (picked_node_index() >= 0) {
         step.kind = UndoStep::Kind::kNodes;
         // (a rail point: the points that move with it too)
-        const std::vector<uint32_t> names = node_edit::moved_with(drag_state().node_name_, pick_cycle().move_entire_rail_);
+        const std::vector<uint32_t> names = node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_);
         for (const uint32_t name : names) {
             node_edit::note_origin(name);
         }
@@ -189,7 +189,7 @@ void push_locks_undo(const char* label)
 void begin_change()
 {
     undo_steps().has_pending_ = have_selection();
-    drag_state().pending_forced_ = false;
+    transform_session().pending_forced_ = false;
     if (undo_steps().has_pending_) {
         undo_steps().pending_ = get_snapshot();
     }
@@ -205,10 +205,10 @@ void end_change()
                              ? node_edit::differs(undo_steps().pending_.nodes, node_edit::get_take_in) // (moved or turned)
                              : undo_steps().pending_.where.x != now.x || undo_steps().pending_.where.y != now.y || undo_steps().pending_.where.z != now.z;
     // (a turn or a scale by a drag - level_editor_transform.h: a step though the position may be where it was)
-    if (changed || drag_state().pending_forced_) {
+    if (changed || transform_session().pending_forced_) {
         push_undo(undo_steps().pending_, "Move");
     }
-    drag_state().pending_forced_ = false;
+    transform_session().pending_forced_ = false;
 }
 
 } // namespace internal
@@ -226,7 +226,7 @@ void set_exist(UndoStep* step, bool exist)
         }
         scenery::apply_states(states, {});
         if (exist) {
-            drag_state().objects_.clear();
+            picked_set().objects_.clear();
             scenery::set_selection(step->sectors);
         } else {
             scenery::clear_selection();
@@ -255,7 +255,7 @@ void set_exist(UndoStep* step, bool exist)
         if (exist) {
             select_objects(made);
         } else {
-            drag_state().objects_.clear();
+            picked_set().objects_.clear();
         }
     }
 }
@@ -286,7 +286,7 @@ void restore_added(const UndoStep& step)
             int at = 0;
             node_create::drop_out(node_create::name_hash(spec.name), &removed, &at);
         }
-        drag_state().node_selected_ = false;
+        picked_set().node_selected_ = false;
     }
 }
 
@@ -308,7 +308,7 @@ void get_restore(UndoStep& step)
         break;
     }
     case UndoStep::Kind::kScenery:
-        drag_state().objects_.clear();
+        picked_set().objects_.clear();
         scenery::restore_state(step.scenery);
         // (what it carried: back where it was - level_editor_carry.h)
         for (const object_edit::State& state : step.carried_objects_) {
@@ -356,9 +356,9 @@ void get_restore(UndoStep& step)
     case UndoStep::Kind::kLevel: {
         std::string message;
         std::string before;
-        drag_state().objects_.clear();
+        picked_set().objects_.clear();
         scenery::clear_selection();
-        drag_state().node_selected_ = false;
+        picked_set().node_selected_ = false;
         if (step.reset) {
             layout::reset_level({.before = &before, .message = &message});
         } else {
@@ -372,17 +372,17 @@ void get_restore(UndoStep& step)
             unpick();
             view::select_wall(step.wall);
         } else if (!step.sectors.empty()) {
-            drag_state().objects_.clear();
-            drag_state().node_selected_ = false;
+            picked_set().objects_.clear();
+            picked_set().node_selected_ = false;
             view::clear_wall();
             scenery::set_selection(step.sectors);
         }
         break;
     case UndoStep::Kind::kChains:
-        drag_state().node_selected_ = drag_state().node_selected_ && nodes::get_find(drag_state().node_name_) >= 0;
+        picked_set().node_selected_ = picked_set().node_selected_ && nodes::get_find(picked_set().node_name_) >= 0;
         chains::change_phase(step.chains);
-        if (drag_state().node_selected_ && nodes::get_find(drag_state().node_name_) < 0) {
-            drag_state().node_selected_ = false;
+        if (picked_set().node_selected_ && nodes::get_find(picked_set().node_name_) < 0) {
+            picked_set().node_selected_ = false;
         }
         break;
 
@@ -391,7 +391,7 @@ void get_restore(UndoStep& step)
             fields::place_in(field.node, field.key, field.own);
         }
         const int index = step.fields.empty() ? -1 : nodes::get_find(step.fields.front().node);
-        if (index >= 0 && drag_state().node_name_ != step.fields.front().node) {
+        if (index >= 0 && picked_set().node_name_ != step.fields.front().node) {
             select_node_only(index);
         }
         break;
@@ -588,7 +588,7 @@ std::vector<EditorUndoRecord> redo_history()
     return out;
 }
 
-bool change_under_way() { return drag_state().dragging_ || fly_camera().key_moving_ || drag_state().field_editing_ || triggers::resizing(); }
+bool change_under_way() { return drag_session().dragging_ || fly_camera().key_moving_ || picked_set().field_editing_ || triggers::resizing(); }
 
 void jump_history(int steps)
 {
@@ -715,7 +715,7 @@ void remove_copies(const std::vector<uint32_t>& ids)
     for (const MadeCopy& copy : step.copies) {
         object_edit::remove_copy(copy.name);
     }
-    drag_state().objects_.clear();
+    picked_set().objects_.clear();
     push_undo(step, "Remove copies");
 }
 

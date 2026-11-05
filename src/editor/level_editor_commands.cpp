@@ -261,7 +261,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
     node_create::LinkChain list = node_create::at_hand();
     int at = -1;
     for (int i = 0; std::cmp_less(i, list.size()); ++i) {
-        if (node_create::name_hash(core::at(list, i).name) == drag_state().node_name_) {
+        if (node_create::name_hash(core::at(list, i).name) == picked_set().node_name_) {
             at = i;
         }
     }
@@ -296,7 +296,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
     step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), spec.name));
     push_undo(step);
     pick_cycle().pickables_.clear();
-    drag_state().hover_node_ = -1;
+    picked_set().hover_node_ = -1;
     const int index = nodes::get_find(node_create::name_hash(spec.name));
     if (index >= 0) {
         select_node_only(index);
@@ -320,7 +320,7 @@ void repeat_duplicate(const TickCycle& frame)
     const std::vector<objects::GameEntity*> objects = selected_objects();
     if (picked_node_index() >= 0) {
         kind = xform::Kind::kElem;
-        ids.push_back(drag_state().node_name_);
+        ids.push_back(picked_set().node_name_);
     } else if (!objects.empty()) {
         kind = xform::Kind::kObject;
         for (const objects::GameEntity* object : objects) {
@@ -413,7 +413,7 @@ void erase_one()
         for (const MadeCopy& copy : step.copies) {
             object_edit::remove_copy(copy.name);
         }
-        drag_state().objects_.clear();
+        picked_set().objects_.clear();
         push_undo(step, "Delete copies");
         hud::get_message("Deleted");
         note_action("deleted object copies (Delete)");
@@ -446,7 +446,7 @@ void get_reset()
         // (a rail point: with the points that move with it - its whole rail while Whole rail is on)
         const UndoStep before = get_snapshot();
         bool any = false;
-        for (const uint32_t name : node_edit::moved_with(drag_state().node_name_, pick_cycle().move_entire_rail_)) {
+        for (const uint32_t name : node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_)) {
             node_edit::Values now;
             const node_edit::Values* origin = node_edit::get_origin(name);
             if (origin && node_edit::get_take_in(name, &now) && !node_edit::get_same(now, *origin)) {
@@ -460,14 +460,14 @@ void get_reset()
         } else {
             hud::get_message("Already original");
         }
-        if (chains::is_ladder(drag_state().node_name_)) {
+        if (chains::is_ladder(picked_set().node_name_)) {
             run_chain_op(chains::ChainOp::kFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
         }
-        if (chains::view_of(drag_state().node_name_).speed > 0.0F) {
+        if (chains::view_of(picked_set().node_name_).speed > 0.0F) {
             run_chain_op(chains::ChainOp::kSpeed, 0); // (a rail point's speed-up taken off: its own undo step)
         }
-        if (triggers::proxim_of(drag_state().node_name_)) {
-            triggers::set_proxim(triggers::ProximEdit{.node = drag_state().node_name_}, true); // (a proximity node's scripts / shape)
+        if (triggers::proxim_of(picked_set().node_name_)) {
+            triggers::set_proxim(triggers::ProximEdit{.node = picked_set().node_name_}, true); // (a proximity node's scripts / shape)
         }
     } else if (!objects.empty()) {
         const UndoStep before = get_snapshot();
@@ -509,7 +509,7 @@ void focus_on_selection()
     if (!have_selection()) {
         return;
     }
-    drag_state().free_camera_ = false; // (the camera follows the selection again)
+    fly_camera().free_camera_ = false; // (the camera follows the selection again)
     const V3 target = target_of();
     const V3 back = fly_camera().pos_ - target;
     const float distance = std::sqrt(get_dot(back, back));
@@ -571,7 +571,7 @@ void show_collision(bool on)
 void toggle_lock()
 {
     const std::vector<picking::Lock> locks = selection_locks();
-    if (locks.empty() && !drag_state().node_selected_ && !picking::get_locks().empty()) {
+    if (locks.empty() && !picked_set().node_selected_ && !picking::get_locks().empty()) {
         // (nothing selected: every lock dropped - the old HUD has no Inspector to unlock one)
         std::array<char, kPickTextSize> text{};
         text::format_to(text, "Unlocked %d", static_cast<int>(picking::get_locks().size()));
@@ -581,7 +581,7 @@ void toggle_lock()
         return;
     }
     if (locks.empty()) {
-        hud::get_message(drag_state().node_selected_ ? "Nodes can't be locked" : "Nothing selected");
+        hud::get_message(picked_set().node_selected_ ? "Nodes can't be locked" : "Nothing selected");
         return;
     }
     bool all = true;
@@ -617,17 +617,17 @@ void get_look_at(V3 target, float distance)
 int inspected_node()
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (drag_state().node_selected_) {
-        if (std::cmp_less(drag_state().node_index_, nodes.size()) &&
-            core::at(nodes, drag_state().node_index_).name == drag_state().node_name_) {
-            return drag_state().node_index_;
+    if (picked_set().node_selected_) {
+        if (std::cmp_less(picked_set().node_index_, nodes.size()) &&
+            core::at(nodes, picked_set().node_index_).name == picked_set().node_name_) {
+            return picked_set().node_index_;
         }
-        const int found = (drag_state().node_name_ != 0U) ? nodes::get_find(drag_state().node_name_) : -1;
+        const int found = (picked_set().node_name_ != 0U) ? nodes::get_find(picked_set().node_name_) : -1;
         if (found < 0) {
-            drag_state().node_selected_ = false; // (another level)
+            picked_set().node_selected_ = false; // (another level)
             return -1;
         }
-        drag_state().node_index_ = found;
+        picked_set().node_index_ = found;
         return found;
     }
     if (const objects::GameEntity* object = get_primary()) {
@@ -644,7 +644,7 @@ int inspected_node()
 void select_node(int index)
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || std::cmp_greater_equal(index, nodes.size()) || drag_state().dragging_) {
+    if (index < 0 || std::cmp_greater_equal(index, nodes.size()) || drag_session().dragging_) {
         return;
     }
     const nodes::Elem& node = core::at(nodes, index);
@@ -654,15 +654,15 @@ void select_node(int index)
         OrientedBox box{};
         if (object && ((object->object_flags() & objects::kObjectFlagDead) == 0U) &&
             object_edit::model_box(object, &box)) {
-            drag_state().node_selected_ = false;
+            picked_set().node_selected_ = false;
             select_objects({object});
             note_action("selected %s (its node)", nodes::caption(node.name).c_str());
             return;
         }
     }
     if (node.family == nodes::Family::kScenery && !scenery::why_not_movable(node.name)) {
-        drag_state().node_selected_ = false;
-        drag_state().objects_.clear();
+        picked_set().node_selected_ = false;
+        picked_set().objects_.clear();
         scenery::set_selection({node.name});
         note_action("selected %s (its node)", nodes::caption(node.name).c_str());
         return;
@@ -699,7 +699,7 @@ void go_to_node(int index)
 // from above an object's feet).
 void drop_selection()
 {
-    if (!have_selection() || drag_state().dragging_) {
+    if (!have_selection() || drag_session().dragging_) {
         return;
     }
     const V3 pos = selection_pos();
@@ -789,9 +789,9 @@ void ask_reset_level()
 
 void toggle_help()
 {
-    drag_state().help_ = !drag_state().help_;
+    tool_options().help_ = !tool_options().help_;
     stored_browser().open = false;
-    if (drag_state().help_) {
+    if (tool_options().help_) {
         show_help();
     } else {
         hud::hide_panel();
@@ -800,11 +800,11 @@ void toggle_help()
 
 void toggle_browser()
 {
-    if (drag_state().dragging_) {
+    if (drag_session().dragging_) {
         return;
     }
     stored_browser().open = !stored_browser().open;
-    drag_state().help_ = false;
+    tool_options().help_ = false;
     if (stored_browser().open) {
         fill_browser();
     } else {
@@ -905,7 +905,7 @@ view_cam::Rig rig_now()
     rig.have_selection_ = have_selection();
     rig.target = rig.have_selection_ ? target_of() : fly_camera().pos_;
     rig.radius = rig.have_selection_ ? selection_radius() : 100.0F;
-    rig.dragging = drag_state().dragging_ || fly_camera().key_moving_ || triggers::resizing();
+    rig.dragging = drag_session().dragging_ || fly_camera().key_moving_ || triggers::resizing();
     rig.lens = drawn_view().lens_;
     rig.cast = &get_cast;
     rig.focus = &focus_now;
@@ -920,12 +920,12 @@ perform::Resume resume_now()
     resume.yaw = fly_camera().yaw_;
     resume.pitch = fly_camera().pitch_;
     resume.speed = fly_camera().speed_;
-    for (const Picked& picked : drag_state().objects_) {
+    for (const Picked& picked : picked_set().objects_) {
         resume.objects.push_back(picked.id);
     }
     resume.sectors = scenery::get_selection();
-    if (drag_state().node_selected_ && drag_state().objects_.empty() && resume.sectors.empty()) {
-        resume.node = drag_state().node_name_;
+    if (picked_set().node_selected_ && picked_set().objects_.empty() && resume.sectors.empty()) {
+        resume.node = picked_set().node_name_;
     }
     return resume;
 }

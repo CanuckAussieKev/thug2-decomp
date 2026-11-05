@@ -78,12 +78,14 @@ constexpr float kMaxPickDistance = 30000.0F;
 constexpr float kMinOrbit = 20.0F, kMaxOrbit = 20000.0F;
 
 // NOT ORIGINAL grouping - level_editor.cpp's state (were globals), one record per part: the camera we fly, the view as
-// last drawn, the unsaved changes and the editor's run. Each made on first use, never destroyed, behind its accessor
-// (level_editor.cpp); a piece calls only the ones it needs.
+// last drawn, the unsaved changes, the editor's run; below, what is picked, the drag, the transform tools and the tool
+// options. Each made on first use, never destroyed, behind its accessor (level_editor.cpp); a piece calls only the ones
+// it needs.
 
 // The camera we fly: the game's camera (the first viewport's, when the editor started) and the pose the game had given
 // it; our pose, the fly speed and, with something selected, the camera's distance from it and whether the keys are
-// moving it (fly_camera()).
+// moving it, and whether the camera let go of the selection (wasd_flies=0: flying with RMB - F frames it again)
+// (fly_camera()).
 struct FlyCamera {
     gfx::ViewCam* camera_{};
     maths::Vec4 saved_pos_{};
@@ -94,6 +96,7 @@ struct FlyCamera {
     float speed_ = kDefaultFlySpeed; // units a second (Shift: 4x)
     float orbit_distance_ = kDefaultOrbitDistance;
     bool key_moving_{};
+    bool free_camera_{};
 
     // The camera's frame at our yaw and pitch.
     [[nodiscard]] TickCycle frame() const { return frame_from_yaw_pitch(yaw_, pitch_); }
@@ -130,15 +133,15 @@ struct UnsavedChanges {
 UnsavedChanges& unsaved_changes();
 
 // The editor's run: on or off, the frame clock, the pause key (held when the editor starts: it counts once let go),
-// leaving asked for, the cursor as the game had it, the mouse in relative mode, and what the editor last did - for the
-// log if the game crashes (plain memory: the crash hook reads it) (editor_session()).
+// leaving asked for, Escape's cancel, the cursor as the game had it, and what the editor last did - for the log if the
+// game crashes (plain memory: the crash hook reads it) (editor_session()).
 struct EditorSession {
     bool active_{};
     uint64_t last_counter_{};
     bool pause_key_released_{};
     bool exit_requested_{};
+    bool cancel_requested_{}; // (Escape: a drag put back, the browser or the help closed - before leaving)
     int saved_cursor_ = -1;
-    bool relative_{};
     std::array<char, kLastActionSize> last_action_ = {"none"};
 };
 
@@ -185,22 +188,40 @@ struct Picked {
     uint32_t id = 0;
 };
 
-// NOT ORIGINAL grouping - the hover, the drag and its gizmo's axis, handle and plane (were globals). Made on first use,
-// never destroyed (drag_state()).
-struct DragState {
+// What is picked (picked_set()): the hover; the selected objects (the first is the one the camera and the arrows go
+// by), or the selected scenery (Scenery::Selection) - never both; the scene sector under the cursor (its checksum; 0:
+// none); the piece a plain click passes under the cursor (for the status bar: Alt+click takes it); the node layer
+// (level_editor_nodes.h): a node selected by itself (a gizmo or an Outliner row that isn't an object or scenery - a
+// point node moves and turns as objects do, level_editor_node_edit.h; chains and the rest are read-only) and the node
+// gizmo under the cursor; and the ground marker: the selection's base and the ground below it.
+struct PickedSet {
     Picked hover_{};
-    // The selected objects (the first is the one the camera and the arrows go by); or the selected scenery
-    // (Scenery::Selection) - never both.
     std::vector<Picked> objects_;
-    // The scene sector under the cursor (its checksum; 0: none).
     uint32_t hover_sector_{};
-    // Dragging: free (the plane / the view's terms) or along one axis (an arrow).
+    uint32_t hover_passed_{};
+    bool node_selected_{};
+    int node_index_{};
+    uint32_t node_name_{};
+    int hover_node_ = -1;
+    bool field_editing_{}; // (the Inspector's position / heading fields are being changed: one undo step)
+    bool online_warned_{}; // (the warning for a spawn, crown or flag moved in a level shared with THUGPRO: once a run)
+    bool online_warning_shown_{}; // (its window is up)
+    bool have_mark_{};
+    V3 mark_base_{};
+    V3 mark_ground_{};
+};
+
+PickedSet& picked_set();
+
+// The drag (drag_session()): free (the plane / the view's terms) or along one axis (an arrow); the gizmo's arrow and a
+// selected trigger volume's resize handle under the cursor; where the selection was when it started and the terms it
+// goes by; and the mouse in relative mode.
+struct DragSession {
     bool dragging_{};
     bool drag_vertical_{};
     int axis_ = -1; // (0 / 1 / 2: dragging along x / y / z; -1: free)
     int hover_axis_ = -1; // (the arrow under the cursor)
     int hover_handle_ = -1; // (a selected trigger volume's resize handle under the cursor - level_editor_triggers.h)
-    bool cancel_requested_{}; // (Escape: a drag put back, the browser or the help closed - before leaving)
     V3 drag_start_{}; // where the selection was when the drag started
     V3 drag_offset_{};
     V3 drag_plane_normal_{};
@@ -218,11 +239,16 @@ struct DragState {
     float drag_units_{};
     float drag_push_{};
     float axis_t0_{};
-    // The transform tools (level_editor_transform.h): what the drag does (Move unless it started on a Rotate / Scale handle
-    // or as Alt+G's modal transform - no button held: a click or Enter applies it), what's typed, whether a turn or a scale
-    // was made (an undo step even when the position stayed), the turn and scale so far, where the cursor is (back buffer
-    // pixels), vertex snapping's corner, and the camera let go of the selection (wasd_flies=0: flying with RMB - F frames
-    // it again).
+    bool relative_{};
+};
+
+DragSession& drag_session();
+
+// The transform tools (level_editor_transform.h - transform_session()): what the drag does (Move unless it started on
+// a Rotate / Scale handle or as Alt+G's modal transform - no button held: a click or Enter applies it), what's typed,
+// whether a turn or a scale was made (an undo step even when the position stayed), the turn and scale so far, where
+// the cursor is (back buffer pixels) and vertex snapping's corner.
+struct TransformSession {
     xform::Mode drag_mode_ = xform::Mode::kShiftBy;
     bool modal_{};
     bool typed_apply_{};
@@ -241,34 +267,21 @@ struct DragState {
     float cursor_y_{};
     bool vertex_have_{};
     V3 vertex_corner_{};
-    bool free_camera_{};
-    // The ground marker: the selection's base and the ground below it.
-    bool have_mark_{};
-    V3 mark_base_{};
-    V3 mark_ground_{};
-    // The help panel (F1) and the browser (B).
-    bool help_{};
-    bool snap_always_{}; // (the toolbar's Snap 25: moves snap without Ctrl)
-    // The node layer (level_editor_nodes.h): the families shown ([editor] families in the ini), a node selected by itself
-    // (a gizmo or an Outliner row that isn't an object or scenery - a point node moves and turns as objects do,
-    // level_editor_node_edit.h; chains and the rest are read-only), the gizmo under the cursor, and what the last frame
-    // drew of them (picked by screen distance).
-    uint32_t families_ = nodes::kAllFamilies;
-    bool node_selected_{};
-    int node_index_{};
-    uint32_t node_name_{};
-    bool field_editing_{}; // (the Inspector's position / heading fields are being changed: one undo step)
-    bool online_warned_{}; // (the warning for a spawn, crown or flag moved in a level shared with THUGPRO: once a run)
-    bool online_warning_shown_{}; // (its window is up)
-    int hover_node_ = -1;
-    // Picking (level_editor_picking.h): what a click in the view may take ([editor] pick=), the piece a plain click passes
-    // under the cursor (for the status bar: Alt+click takes it), and click-to-cycle - the last click's spot, what was
-    // under it in the cycle's order and which of those it took (the hover shows the next one while it holds).
-    uint32_t pick_filter_ = picking::kAll;
-    uint32_t hover_passed_{};
 };
 
-DragState& drag_state();
+TransformSession& transform_session();
+
+// The tool options (tool_options()): the help panel (F1), the toolbar's Snap 25 (moves snap without Ctrl), the node
+// families shown ([editor] families in the ini - level_editor_nodes.h) and what a click in the view may take ([editor]
+// pick= - level_editor_picking.h).
+struct ToolOptions {
+    bool help_{};
+    bool snap_always_{};
+    uint32_t families_ = nodes::kAllFamilies;
+    uint32_t pick_filter_ = picking::kAll;
+};
+
+ToolOptions& tool_options();
 
 struct Cycle {
     bool have = false;

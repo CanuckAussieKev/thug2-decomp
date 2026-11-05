@@ -70,7 +70,7 @@ void tick_level_systems()
     // (emitters' sounds, path speeds, objects made again, the path preview - level_editor_entities.h)
     {
         const objects::GameEntity* primary = editor_session().active_ ? get_primary() : nullptr;
-        entities::tick(editor_session().active_, primary ? primary->ident() : 0, drag_state().dragging_);
+        entities::tick(editor_session().active_, primary ? primary->ident() : 0, drag_session().dragging_);
     }
     chains::tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
 }
@@ -156,7 +156,7 @@ void read_keys_and_pad(EditorFrame& editor_frame)
             input.y = cy;
         }
         if (ux8::pad_cancel(pad)) {
-            drag_state().cancel_requested_ = true;
+            editor_session().cancel_requested_ = true;
         }
     }
     editor_frame.shift = (core::at(keys, SDL_SCANCODE_LSHIFT) != 0U) || (core::at(keys, SDL_SCANCODE_RSHIFT) != 0U);
@@ -164,7 +164,7 @@ void read_keys_and_pad(EditorFrame& editor_frame)
     editor_frame.alt = (core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U);
     editor_frame.boost = editor_frame.shift ? kFastFlyFactor : 1.0;
     if (!have_selection()) {
-        drag_state().dragging_ = false;
+        drag_session().dragging_ = false;
     }
 }
 
@@ -192,17 +192,17 @@ bool global_keys_and_walk(EditorFrame& editor_frame)
     // them the same way).
     actions::begin_frame(keys);
     // Play from here (F5, Ctrl+P - level_editor_play.h); the preferences (Ctrl+, - level_editor_prefs.h).
-    if (actions::squeezed(actions::kPlay) && !drag_state().dragging_) {
+    if (actions::squeezed(actions::kPlay) && !drag_session().dragging_) {
         perform::get_request();
     }
     if (actions::squeezed(actions::kPreferences) && ui::underway()) {
         prefs::unseal() = !prefs::unseal();
     }
     // Simulate (F6) and the Trail window (F7) - level_editor_playtest.h.
-    play_test::tick(drag_state().dragging_);
+    play_test::tick(drag_session().dragging_);
     // Walk mode (UX8 - level_editor_ux8.h: Shift+`): the camera at a skater's eye height; the editor's other keys and
     // clicks rest meanwhile.
-    if (ux8::take_walk_toggle() && !drag_state().dragging_) {
+    if (ux8::take_walk_toggle() && !drag_session().dragging_) {
         const bool on = !ux8::on_foot();
         if (on) {
             unpick();
@@ -219,30 +219,30 @@ bool global_keys_and_walk(EditorFrame& editor_frame)
 // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
 void handle_escape()
 {
-    if (drag_state().cancel_requested_) {
-        drag_state().cancel_requested_ = false;
-        if (ux8::get_cancel() || (!drag_state().dragging_ && ux9::get_cancel())) {
+    if (editor_session().cancel_requested_) {
+        editor_session().cancel_requested_ = false;
+        if (ux8::get_cancel() || (!drag_session().dragging_ && ux9::get_cancel())) {
             // (UX8: a pie menu closed; UX9: the gap wizard / the ground tool given up first - level_editor_ux9.h)
         } else if (triggers::resizing()) {
             triggers::end_resize(); // (kept as far as it went - Ctrl+Z puts the size back)
-        } else if (drag_state().dragging_) {
+        } else if (drag_session().dragging_) {
             // (a turn, a scale or an object stood on a slope: the step taken when it started put back -
             // level_editor_transform.h)
-            if (undo_steps().has_pending_ && (drag_state().drag_mode_ != xform::Mode::kShiftBy || drag_state().pending_forced_)) {
+            if (undo_steps().has_pending_ && (transform_session().drag_mode_ != xform::Mode::kShiftBy || transform_session().pending_forced_)) {
                 carry::disarm();
                 get_restore(undo_steps().pending_);
             } else {
-                place_selection(drag_state().drag_start_);
+                place_selection(drag_session().drag_start_);
             }
             get_settle();
-            drag_state().dragging_ = false;
-            drag_state().axis_ = -1;
+            drag_session().dragging_ = false;
+            drag_session().axis_ = -1;
             undo_steps().has_pending_ = false;
-            drag_state().pending_forced_ = false;
-            drag_state().drag_mode_ = xform::Mode::kShiftBy;
-            drag_state().modal_ = false;
-            drag_state().typed_ = {};
-            drag_state().vertex_have_ = false;
+            transform_session().pending_forced_ = false;
+            transform_session().drag_mode_ = xform::Mode::kShiftBy;
+            transform_session().modal_ = false;
+            transform_session().typed_ = {};
+            transform_session().vertex_have_ = false;
             focus_on_selection();
             hud::get_message("Cancelled");
         } else if (pick_cycle().confirm_reset_) {
@@ -258,10 +258,10 @@ void handle_escape()
         } else if (stored_browser().open) {
             stored_browser().open = false;
             hud::hide_panel();
-        } else if (drag_state().help_) {
-            drag_state().help_ = false;
+        } else if (tool_options().help_) {
+            tool_options().help_ = false;
             hud::hide_panel();
-        } else if (have_selection() || drag_state().node_selected_) {
+        } else if (have_selection() || picked_set().node_selected_) {
             unpick();
         } else if (faces::has_selection()) {
             faces::clear_selection(); // (map3)
@@ -288,11 +288,11 @@ void tick_panels(EditorFrame& editor_frame)
         ux8.left_presses_ = &input.left_presses_;
         ux8.left_releases_ = &input.left_releases_;
         ux8.right = input.right;
-        ux8.dragging = drag_state().dragging_;
+        ux8.dragging = drag_session().dragging_;
         ux8.browser = stored_browser().open;
         ux8.keys = keys;
         ux8.pad = pad;
-        ux8.have_selection_ = have_selection() || drag_state().node_selected_;
+        ux8.have_selection_ = have_selection() || picked_set().node_selected_;
         ux8::tick_frame(ux8);
     }
 
@@ -300,10 +300,10 @@ void tick_panels(EditorFrame& editor_frame)
     if (actions::squeezed(actions::kHelp)) {
         toggle_help();
     }
-    if (actions::squeezed(actions::kBrowser) && !drag_state().dragging_) {
+    if (actions::squeezed(actions::kBrowser) && !drag_session().dragging_) {
         toggle_browser();
     }
-    if (actions::squeezed(actions::kPlace) && !drag_state().dragging_) {
+    if (actions::squeezed(actions::kPlace) && !drag_session().dragging_) {
         if (ui::underway()) {
             pick_cycle().place_open_ = !pick_cycle().place_open_;
             pick_cycle().place_armed_ = -1;
@@ -370,10 +370,10 @@ void look_and_fly(EditorFrame& editor_frame)
             frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{.x = 0.0F, .y = pad.up_down_, .z = 0.0F};
         fly_camera().pos_ = fly_camera().pos_ + move * static_cast<float>(fly_camera().speed_ * (pad.fast ? kFastFlyFactor : 1.0) * seconds);
         if (have_selection()) {
-            drag_state().free_camera_ = true;
+            fly_camera().free_camera_ = true;
         }
-        if (drag_state().dragging_ && pad_cursor) {
-            drag_state().drag_moved_ = true; // (the crosshair stays put: the camera's move is the drag's)
+        if (drag_session().dragging_ && pad_cursor) {
+            drag_session().drag_moved_ = true; // (the crosshair stays put: the camera's move is the drag's)
         }
         ux8::stop_glide();
     }
@@ -427,8 +427,8 @@ void apply_ray_tools(EditorFrame& editor_frame)
     const bool have_ray = editor_frame.have_ray_;
     const float back_x = editor_frame.back_x_;
     const float back_y = editor_frame.back_y_;
-    drag_state().cursor_x_ = back_x;
-    drag_state().cursor_y_ = back_y;
+    transform_session().cursor_x_ = back_x;
+    transform_session().cursor_y_ = back_y;
     apply_ui_requests(dir, have_ray, frame);
     transform_keys(keys, ctrl, shift, alt, input, dir, have_ray, frame);
     // (UX7: the arrange tools' keys, the adjust panel's changes, the linked copies - level_editor_arrange.h,
@@ -436,19 +436,19 @@ void apply_ray_tools(EditorFrame& editor_frame)
     arrange::tick_frame();
     adjust::tick();
     links::tick();
-    if (!drag_state().dragging_) { // (digits typed while dragging aren't bookmarks - level_editor_transform.h)
+    if (!drag_session().dragging_) { // (digits typed while dragging aren't bookmarks - level_editor_transform.h)
         view_cam::get_keys(rig_now(), keys, ctrl, stored_browser().open); // (F, 1..9, the numpad - level_editor_camera.h)
     }
     drawn_view().last_have_ray_ = have_ray;
     drawn_view().last_ray_ = dir;
     // (UX8: Alt+wheel steps what a click would take through everything under the cursor; the command search's
     // Teleport to the cursor)
-    if (alt && (input.wheel != 0) && !drag_state().dragging_ && !input.right && have_ray && !view_cam::get_orbiting() &&
+    if (alt && (input.wheel != 0) && !drag_session().dragging_ && !input.right && have_ray && !view_cam::get_orbiting() &&
         !stored_browser().open) {
         drill_through(-input.wheel, {.x = input.x, .y = input.y}, dir);
         input.wheel = 0;
     }
-    if (ux8::take_teleport() && have_ray && !drag_state().dragging_) {
+    if (ux8::take_teleport() && have_ray && !drag_session().dragging_) {
         teleport_to(dir);
     }
 }
@@ -463,7 +463,7 @@ void finish_frame(const EditorFrame& editor_frame)
     organize::box_track(input.left, back_x, back_y);
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
     if ((input.left_releases_ != 0) && !input.left) {
-        if (drag_state().dragging_ && drag_state().drag_moved_) {
+        if (drag_session().dragging_ && drag_session().drag_moved_) {
             pick_cycle().cycle_.have = false; // (moved: the next click starts afresh)
         }
         end_drag();
@@ -472,14 +472,14 @@ void finish_frame(const EditorFrame& editor_frame)
     }
     update_highlights();
     // The ground marker: the point below the selection's base.
-    drag_state().have_mark_ = false;
+    picked_set().have_mark_ = false;
     if (have_selection()) {
         const V3 pos = selection_pos();
-        drag_state().mark_base_ = {.x = pos.x, .y = get_selection_base(), .z = pos.z};
+        picked_set().mark_base_ = {.x = pos.x, .y = get_selection_base(), .z = pos.z};
         const V3 from = get_primary() || picked_node_index() >= 0
-                            ? drag_state().mark_base_ + V3{.x = 0.0F, .y = 2.0F, .z = 0.0F}
-                            : drag_state().mark_base_ - V3{.x = 0.0F, .y = 1.0F, .z = 0.0F};
-        drag_state().have_mark_ = ground_below(from, &drag_state().mark_ground_);
+                            ? picked_set().mark_base_ + V3{.x = 0.0F, .y = 2.0F, .z = 0.0F}
+                            : picked_set().mark_base_ - V3{.x = 0.0F, .y = 1.0F, .z = 0.0F};
+        picked_set().have_mark_ = ground_below(from, &picked_set().mark_ground_);
     }
     // The camera tools' end of the frame: a flight, an ortho view kept on its axis (level_editor_camera.h).
     const bool flew = actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kBack) ||

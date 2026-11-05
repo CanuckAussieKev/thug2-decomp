@@ -71,13 +71,13 @@ std::vector<objects::GameEntity*> selected_objects()
 {
     std::vector<objects::GameEntity*> live;
     std::vector<Picked> kept;
-    for (const Picked& picked : drag_state().objects_) {
+    for (const Picked& picked : picked_set().objects_) {
         if (objects::GameEntity* object = get_live(picked)) {
             live.emplace_back(object);
             kept.push_back(picked);
         }
     }
-    drag_state().objects_ = kept;
+    picked_set().objects_ = kept;
     return live;
 }
 objects::GameEntity* get_primary()
@@ -88,31 +88,31 @@ objects::GameEntity* get_primary()
 // The node selected by itself, if the editor moves it (a point node): its index in Nodes::All(), else -1.
 int picked_node_index()
 {
-    if (!drag_state().node_selected_) {
+    if (!picked_set().node_selected_) {
         return -1;
     }
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (drag_state().node_index_ < 0 || std::cmp_greater_equal(drag_state().node_index_, nodes.size()) ||
-        core::at(nodes, drag_state().node_index_).name != drag_state().node_name_) {
-        const int found = (drag_state().node_name_ != 0U) ? nodes::get_find(drag_state().node_name_) : -1;
+    if (picked_set().node_index_ < 0 || std::cmp_greater_equal(picked_set().node_index_, nodes.size()) ||
+        core::at(nodes, picked_set().node_index_).name != picked_set().node_name_) {
+        const int found = (picked_set().node_name_ != 0U) ? nodes::get_find(picked_set().node_name_) : -1;
         if (found < 0) {
             return -1;
         }
-        drag_state().node_index_ = found;
+        picked_set().node_index_ = found;
     }
-    return node_edit::get_movable(core::at(nodes, drag_state().node_index_)) ? drag_state().node_index_ : -1;
+    return node_edit::get_movable(core::at(nodes, picked_set().node_index_)) ? picked_set().node_index_ : -1;
 }
 // That node's place now (false: none).
 bool node_values(node_edit::Values* values)
 {
-    return picked_node_index() >= 0 && node_edit::get_take_in(drag_state().node_name_, values);
+    return picked_node_index() >= 0 && node_edit::get_take_in(picked_set().node_name_, values);
 }
 // An invisible wall selected by itself (Shift+click with the collision shown - level_editor_view.h): moved, turned and
 // switched off / on as level_editor_walls.h does; 0 when none (or something else is selected).
 uint32_t wall_only()
 {
     const uint32_t wall = view::selected_wall();
-    return (wall != 0U) && !drag_state().node_selected_ && !scenery::has_selection() && !get_primary() &&
+    return (wall != 0U) && !picked_set().node_selected_ && !scenery::has_selection() && !get_primary() &&
                    walls::is_wall(wall)
                ? wall
                : 0;
@@ -127,15 +127,15 @@ bool have_selection()
 // would be).
 void note_online_change(nodes::Family family, const char* what, const char* verb)
 {
-    if (drag_state().online_warned_ || !nodes::get_online(family)) {
+    if (picked_set().online_warned_ || !nodes::get_online(family)) {
         return;
     }
     const char* game = "";
     if (!nodes::level_is_shared(&game)) {
         return;
     }
-    drag_state().online_warned_ = true;
-    drag_state().online_warning_shown_ = true;
+    picked_set().online_warned_ = true;
+    picked_set().online_warning_shown_ = true;
     get_log("level editor: %s %s in a level shared with THUGPRO (%s) - warned", what, verb, game);
     hud::get_message("Shared level: spawn, crown and flag changes differ from THUGPRO players' copies", kSharedWarningSeconds);
 }
@@ -158,9 +158,9 @@ void set_selected_node(const node_edit::Values& values)
     }
     note_online_edit(index);
     node_edit::Values now;
-    if (node_edit::is_chain(drag_state().node_name_) && node_edit::get_take_in(drag_state().node_name_, &now)) {
+    if (node_edit::is_chain(picked_set().node_name_) && node_edit::get_take_in(picked_set().node_name_, &now)) {
         const V3 delta = values.pos - now.pos;
-        for (const uint32_t name : node_edit::moved_with(drag_state().node_name_, pick_cycle().move_entire_rail_)) {
+        for (const uint32_t name : node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_)) {
             node_edit::Values point;
             if (node_edit::get_take_in(name, &point)) {
                 point.pos = point.pos + delta;
@@ -169,27 +169,27 @@ void set_selected_node(const node_edit::Values& values)
         }
         return;
     }
-    node_edit::assign_value(drag_state().node_name_, values);
+    node_edit::assign_value(picked_set().node_name_, values);
 }
 
 // The node `index` selected by itself (nothing else).
 void select_node_only(int index)
 {
-    drag_state().objects_.clear();
+    picked_set().objects_.clear();
     scenery::clear_selection();
-    drag_state().node_selected_ = true;
-    drag_state().node_index_ = index;
-    drag_state().node_name_ = core::at(nodes::get_all(), index).name;
+    picked_set().node_selected_ = true;
+    picked_set().node_index_ = index;
+    picked_set().node_name_ = core::at(nodes::get_all(), index).name;
 }
 bool is_picked(objects::GameEntity* object)
 {
-    return std::ranges::any_of(drag_state().objects_, [&](const Picked& picked) { return picked.object == object; });
+    return std::ranges::any_of(picked_set().objects_, [&](const Picked& picked) { return picked.object == object; });
 }
 void select_objects(const std::vector<objects::GameEntity*>& objects)
 {
-    drag_state().objects_.clear();
+    picked_set().objects_.clear();
     for (objects::GameEntity* object : objects) {
-        drag_state().objects_.push_back({.object = object, .id = object->ident()});
+        picked_set().objects_.push_back({.object = object, .id = object->ident()});
     }
     if (!objects.empty()) {
         scenery::clear_selection();
@@ -197,10 +197,10 @@ void select_objects(const std::vector<objects::GameEntity*>& objects)
 }
 void unpick()
 {
-    drag_state().free_camera_ = false; // (the next selection is framed again - level_editor_transform.h)
-    drag_state().objects_.clear();
+    fly_camera().free_camera_ = false; // (the next selection is framed again - level_editor_transform.h)
+    picked_set().objects_.clear();
     scenery::clear_selection();
-    drag_state().node_selected_ = false;
+    picked_set().node_selected_ = false;
     view::clear_wall();
     faces::clear_selection(); // (map3: the collision faces selected - level_editor_faces.h)
 }
@@ -413,20 +413,20 @@ bool cycle_holds(float x, float y, bool shift, bool everything)
            pick_cycle().cycle_.order.size() > 1 &&
            picking::same_spot(x, y, pick_cycle().cycle_.x, pick_cycle().cycle_.y, kClickSlopPixels * pixel_scale()) &&
            get_dot(moved, moved) < 1.0F && pick_cycle().cycle_.changes == unsaved_changes().changes_ &&
-           pick_cycle().cycle_.filter == drag_state().pick_filter_;
+           pick_cycle().cycle_.filter == tool_options().pick_filter_;
 }
 
 // The hover's entry in the click cycle's order - its node, else `object`, else its scenery (-1: none of them).
 int hover_cycle_index(const objects::GameEntity* object)
 {
-    if (drag_state().hover_node_ >= 0) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, drag_state().hover_node_);
+    if (picked_set().hover_node_ >= 0) {
+        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, picked_set().hover_node_);
     }
     if (object) {
         return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident());
     }
-    if (drag_state().hover_sector_ != 0U) {
-        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery, drag_state().hover_sector_);
+    if (picked_set().hover_sector_ != 0U) {
+        return picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery, picked_set().hover_sector_);
     }
     return -1;
 }
@@ -460,9 +460,9 @@ void note_click_for_cycle(maths::Vec2 at, V3 dir, bool plain)
         pick_cycle().cycle_.x = x;
         pick_cycle().cycle_.y = y;
         pick_cycle().cycle_.pos = fly_camera().pos_;
-        pick_cycle().cycle_.filter = drag_state().pick_filter_;
-        pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
-        const objects::GameEntity* object = get_live(drag_state().hover_);
+        pick_cycle().cycle_.filter = tool_options().pick_filter_;
+        pick_cycle().cycle_.order = picking::cycle_order(picked_set().hover_node_, objects, scenery, tool_options().pick_filter_);
+        const objects::GameEntity* object = get_live(picked_set().hover_);
         pick_cycle().cycle_.index = hover_cycle_index(object);
     }
     if (pick_cycle().cycle_.index >= 0 && pick_cycle().cycle_.order.size() > 1) {
@@ -481,8 +481,8 @@ bool drop_under_cursor(V3 dir)
     if (!scenery::has_selection()) {
         return false;
     }
-    if (drag_state().hover_node_ >= 0 && std::cmp_less(drag_state().hover_node_, nodes::get_all().size())) {
-        const uint32_t name = core::at(nodes::get_all(), drag_state().hover_node_).name;
+    if (picked_set().hover_node_ >= 0 && std::cmp_less(picked_set().hover_node_, nodes::get_all().size())) {
+        const uint32_t name = core::at(nodes::get_all(), picked_set().hover_node_).name;
         if (!scenery::carries_rail(name)) {
             return false;
         }

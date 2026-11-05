@@ -776,7 +776,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                          .bottom = bottom};
     for (int i = 0; std::cmp_less(i, nodes.size()); ++i) {
         const nodes::Elem& elem = core::at(nodes, i);
-        if (!elem.has_pos_ || ((drag_state().families_ & nodes::get_bit(elem.family)) == 0U) ||
+        if (!elem.has_pos_ || ((tool_options().families_ & nodes::get_bit(elem.family)) == 0U) ||
             organize::gizmo_hidden(elem.name)) {
             continue;
         }
@@ -789,7 +789,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             .elem = &elem,
             .index = i,
             .selected = i == selected,
-            .hovered = i == drag_state().hover_node_,
+            .hovered = i == picked_set().hover_node_,
             .distance = view_cam::apparent(std::sqrt(get_dot(delta, delta)))}; // (an ortho view: level_editor_camera.h)
         if (shape == nodes::Shape::kChain) {
             add_chain_gizmo(view, gizmo, nodes);
@@ -851,16 +851,16 @@ void update_highlights()
         selected_tinted() = tint_sectors(scenery::get_selection(), pulse);
     }
     hover_tinted() = true;
-    objects::GameEntity* hover = drag_state().dragging_ ? nullptr : get_live(drag_state().hover_);
+    objects::GameEntity* hover = drag_session().dragging_ ? nullptr : get_live(picked_set().hover_);
     if (hover && !is_picked(hover)) {
         hover_tinted() = object_edit::get_tint(hover, kHoverTint);
-    } else if (!drag_state().dragging_ && (drag_state().hover_sector_ != 0U) &&
-               !scenery::get_selected(drag_state().hover_sector_) &&
-               !scenery::why_not_movable(drag_state().hover_sector_)) {
+    } else if (!drag_session().dragging_ && (picked_set().hover_sector_ != 0U) &&
+               !scenery::get_selected(picked_set().hover_sector_) &&
+               !scenery::why_not_movable(picked_set().hover_sector_)) {
         hover_tinted() = tint_sectors((core::at(input::keys(), SDL_SCANCODE_LALT) != 0U) ||
                                               (core::at(input::keys(), SDL_SCANCODE_RALT) != 0U)
-                                          ? std::vector<uint32_t>{drag_state().hover_sector_}
-                                          : scenery::hover_group(drag_state().hover_sector_),
+                                          ? std::vector<uint32_t>{picked_set().hover_sector_}
+                                          : scenery::hover_group(picked_set().hover_sector_),
                                       kHoverTint);
     }
     // (the browser's entry where it is in the level)
@@ -885,14 +885,14 @@ void add_hover_boxes(const TickCycle& frame, objects::GameEntity* hover, std::ve
     if (!hover_tinted() || ui::underway()) {
         if (hover && !is_picked(hover) && object_edit::model_box(hover, &box)) {
             add_box(box, frame, kGroupBoxColour, &lines);
-        } else if (!drag_state().dragging_ && (drag_state().hover_sector_ != 0U) &&
-                   !scenery::get_selected(drag_state().hover_sector_)) {
+        } else if (!drag_session().dragging_ && (picked_set().hover_sector_ != 0U) &&
+                   !scenery::get_selected(picked_set().hover_sector_)) {
             const input::KeyState keys = input::keys();
             const bool one = (core::at(keys, SDL_SCANCODE_LALT) != 0U) || (core::at(keys, SDL_SCANCODE_RALT) != 0U) ||
-                             (scenery::why_not_movable(drag_state().hover_sector_) != nullptr);
-            const std::vector<uint32_t>& group = scenery::hover_group(drag_state().hover_sector_);
+                             (scenery::why_not_movable(picked_set().hover_sector_) != nullptr);
+            const std::vector<uint32_t>& group = scenery::hover_group(picked_set().hover_sector_);
             if (one || group.empty()) {
-                if (scenery::cuboid(drag_state().hover_sector_, &box)) {
+                if (scenery::cuboid(picked_set().hover_sector_, &box)) {
                     add_box(box, frame, kGroupBoxColour, &lines);
                 }
             } else {
@@ -930,14 +930,14 @@ void add_selected_boxes(const TickCycle& frame, const std::vector<objects::GameE
 void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines)
 {
     if (have_selection() &&
-        (!drag_state().dragging_ || drag_state().axis_ >= 0 || drag_state().drag_mode_ != xform::Mode::kShiftBy)) {
+        (!drag_session().dragging_ || drag_session().axis_ >= 0 || transform_session().drag_mode_ != xform::Mode::kShiftBy)) {
         const xform::Gizmo gizmo = gizmo_now();
         for (const xform::Segment& segment : xform::gizmo_segments(gizmo)) {
-            if (drag_state().dragging_ && drag_state().axis_ >= 0 && segment.handle != drag_state().axis_) {
+            if (drag_session().dragging_ && drag_session().axis_ >= 0 && segment.handle != drag_session().axis_) {
                 continue;
             }
-            const uint32_t colour = xform::handle_colour(segment.handle, segment.handle == drag_state().hover_axis_ ||
-                                                                             segment.handle == drag_state().axis_);
+            const uint32_t colour = xform::handle_colour(segment.handle, segment.handle == drag_session().hover_axis_ ||
+                                                                             segment.handle == drag_session().axis_);
             if (segment.arrow) {
                 add_arrow(segment.a, segment.b, frame, colour, &lines);
             } else {
@@ -1009,10 +1009,10 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     }
     overlays::Painter painter;
     if (overlays::painter_now(&pick_cycle().overlay_, &painter)) {
-        overlays::add_overlay(painter, drag_state().dragging_ || fly_camera().key_moving_,
-                              drag_state().mark_base_, have_selection());
+        overlays::add_overlay(painter, drag_session().dragging_ || fly_camera().key_moving_,
+                              picked_set().mark_base_, have_selection());
         arcs::add_overlay(painter, objects.empty() ? scenery::get_selection() : std::vector<uint32_t>{});
-        grind_preview::add_overlay(painter, drag_state().dragging_ ? -1 : model.nodes.hovered, model.nodes.selected);
+        grind_preview::add_overlay(painter, drag_session().dragging_ ? -1 : model.nodes.hovered, model.nodes.selected);
         ruler::add_overlay(painter);
         ux9::add_overlay(painter); // (UX9: skateability colours, the gap wizard's gates, the ground tool's preview)
     }

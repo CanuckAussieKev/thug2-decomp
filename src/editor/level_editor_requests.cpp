@@ -57,15 +57,15 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
         step.chains = before;
         push_undo(step, "Chain edit");
         pick_cycle().pickables_.clear();
-        drag_state().hover_node_ = -1;
+        picked_set().hover_node_ = -1;
     }
     if (select != 0U) {
         const int index = nodes::get_find(select);
         if (index >= 0) {
             select_node_only(index);
         }
-    } else if (drag_state().node_selected_ && nodes::get_find(drag_state().node_name_) < 0) {
-        drag_state().node_selected_ = false;
+    } else if (picked_set().node_selected_ && nodes::get_find(picked_set().node_name_) < 0) {
+        picked_set().node_selected_ = false;
     }
     if (!message.empty()) {
         hud::get_message(message, hud::kMessageSeconds);
@@ -77,8 +77,8 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
 // path); 0: none.
 uint32_t chain_target()
 {
-    if (drag_state().node_selected_ && (drag_state().node_name_ != 0U)) {
-        return drag_state().node_name_;
+    if (picked_set().node_selected_ && (picked_set().node_name_ != 0U)) {
+        return picked_set().node_name_;
     }
     if (const objects::GameEntity* object = get_primary()) {
         return nodes::get_find(object->ident()) >= 0 ? object->ident() : 0;
@@ -97,7 +97,7 @@ void run_chain_op(chains::ChainOp op, uint32_t arg)
     std::string message;
     uint32_t select = 0;
     chains::apply_op(op, target, arg, &message, &select);
-    if (select == target && !drag_state().node_selected_) {
+    if (select == target && !picked_set().node_selected_) {
         select = 0; // (a ped / car stays selected as the object)
     }
     after_chain_change(before, select, message);
@@ -274,7 +274,7 @@ void browser_tab_request(const ui::Request& request)
 // The Inspector's list of the scenery selection's parts: x / Keep only this.
 void member_request(const ui::Request& request)
 {
-    if (drag_state().dragging_ || !scenery::has_selection()) {
+    if (drag_session().dragging_ || !scenery::has_selection()) {
         return;
     }
     if (request.value != 0) {
@@ -303,8 +303,8 @@ void member_request(const ui::Request& request)
 
 void select_scenery_request(const ui::Request& request)
 {
-    if (!drag_state().dragging_ && !scenery::why_not_movable(request.id)) {
-        drag_state().objects_.clear();
+    if (!drag_session().dragging_ && !scenery::why_not_movable(request.id)) {
+        picked_set().objects_.clear();
         scenery::set_selection({request.id});
         go_to_selection();
         note_action("selected in the Outliner: %s", describe_selection().c_str());
@@ -323,10 +323,10 @@ void unlock_request(const ui::Request& request, bool no_change)
 // The Inspector's fields (typed, or dragged to scrub): one undo step until they're let go.
 void node_set_request(const ui::Request& request)
 {
-    if (picked_node_index() >= 0 && !drag_state().dragging_ && !fly_camera().key_moving_) {
-        if (!drag_state().field_editing_) {
+    if (picked_node_index() >= 0 && !drag_session().dragging_ && !fly_camera().key_moving_) {
+        if (!picked_set().field_editing_) {
             begin_change();
-            drag_state().field_editing_ = true;
+            picked_set().field_editing_ = true;
         }
         node_edit::Values values;
         values.pos = {.x = core::at(request.a, 0), .y = core::at(request.a, 1), .z = core::at(request.a, 2)};
@@ -340,11 +340,11 @@ void node_set_request(const ui::Request& request)
 // while dragged or typed; one undo step until let go.
 void scale_set_request(const ui::Request& request)
 {
-    if ((get_primary() || scenery::has_selection()) && picked_node_index() < 0 && !drag_state().dragging_ &&
+    if ((get_primary() || scenery::has_selection()) && picked_node_index() < 0 && !drag_session().dragging_ &&
         !fly_camera().key_moving_) {
-        if (!drag_state().field_editing_) {
+        if (!picked_set().field_editing_) {
             begin_change();
-            drag_state().field_editing_ = true;
+            picked_set().field_editing_ = true;
             scale_at_field_start() = selection_scale_now();
         }
         scale_selection_to({.x = core::at(request.a, 0), .y = core::at(request.a, 1), .z = core::at(request.a, 2)});
@@ -356,10 +356,10 @@ void scale_set_request(const ui::Request& request)
 
 void scale_done_request()
 {
-    if (!drag_state().field_editing_) {
+    if (!picked_set().field_editing_) {
         return;
     }
-    drag_state().field_editing_ = false;
+    picked_set().field_editing_ = false;
     if (!get_primary()) {
         scenery::finalise();
     }
@@ -427,14 +427,14 @@ void hide_confirmed_request(bool no_change)
 {
     const uint32_t name = pick_cycle().confirm_hide_;
     pick_cycle().confirm_hide_ = 0;
-    if (!no_change && (name != 0U) && name == drag_state().node_name_) {
+    if (!no_change && (name != 0U) && name == picked_set().node_name_) {
         unlink_list_node(true);
     }
 }
 
 void select_object_request(const ui::Request& request)
 {
-    if (!drag_state().dragging_) {
+    if (!drag_session().dragging_) {
         if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(request.id))) {
             select_objects({object});
             go_to_selection();
@@ -485,7 +485,7 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         }
         break;
     case ui::Request::Kind::kBrowserPlace:
-        if (stored_browser().open && !drag_state().dragging_) {
+        if (stored_browser().open && !drag_session().dragging_) {
             place_from_browser(cursor_point(request_frame.dir, request_frame.have_ray_, *request_frame.frame));
         }
         break;
@@ -498,12 +498,12 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         drop_selection();
         break;
     case ui::Request::Kind::kDeselect:
-        if (!drag_state().dragging_) {
+        if (!drag_session().dragging_) {
             unpick();
         }
         break;
     case ui::Request::Kind::kSnapAlways:
-        drag_state().snap_always_ = request.value != 0;
+        tool_options().snap_always_ = request.value != 0;
         break;
     case ui::Request::Kind::kMemberRemove:
     case ui::Request::Kind::kMemberKeep:
@@ -513,12 +513,12 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         select_scenery_request(request);
         break;
     case ui::Request::Kind::kFamilies:
-        drag_state().families_ = request.id & nodes::kAllFamilies;
-        config_set_int("editor", "families", static_cast<int>(drag_state().families_));
+        tool_options().families_ = request.id & nodes::kAllFamilies;
+        config_set_int("editor", "families", static_cast<int>(tool_options().families_));
         break;
     case ui::Request::Kind::kPickFilter:
-        drag_state().pick_filter_ = request.id & picking::kAll;
-        config_set_int("editor", "pick", static_cast<int>(drag_state().pick_filter_));
+        tool_options().pick_filter_ = request.id & picking::kAll;
+        config_set_int("editor", "pick", static_cast<int>(tool_options().pick_filter_));
         break;
     case ui::Request::Kind::kToggleLock:
         toggle_lock();
@@ -565,8 +565,8 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         node_set_request(request);
         break;
     case ui::Request::Kind::kNodeSetDone:
-        if (drag_state().field_editing_) {
-            drag_state().field_editing_ = false;
+        if (picked_set().field_editing_) {
+            picked_set().field_editing_ = false;
             end_change();
         }
         break;
@@ -582,7 +582,7 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         }
         break;
     case ui::Request::Kind::kOnlineWarningSeen:
-        drag_state().online_warning_shown_ = false;
+        picked_set().online_warning_shown_ = false;
         break;
     case ui::Request::Kind::kGoToNode:
         go_to_node(request.value);
@@ -638,7 +638,7 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         break;
     case ui::Request::Kind::kLevelProps:
     case ui::Request::Kind::kLevelPropsDone:
-        if (!drag_state().dragging_ && !fly_camera().key_moving_) {
+        if (!drag_session().dragging_ && !fly_camera().key_moving_) {
             level_props_request(request);
         }
         break;
@@ -665,7 +665,7 @@ namespace internal {
 // What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
 void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
 {
-    const bool no_change = drag_state().dragging_ || fly_camera().key_moving_ || drag_state().field_editing_ ||
+    const bool no_change = drag_session().dragging_ || fly_camera().key_moving_ || picked_set().field_editing_ ||
                            triggers::resizing();
     const RequestFrame request_frame{.dir = dir, .have_ray_ = have_ray, .frame = &frame, .no_change_ = no_change};
     for (const ui::Request& request : ui::take_requests()) {

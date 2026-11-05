@@ -229,7 +229,7 @@ namespace {
 
 // What the selection can do: a chain's point doesn't turn (a ladder turns whole with Z / X); only scenery and objects
 // with a model scale.
-bool selection_turns() { return !(picked_node_index() >= 0 && node_edit::is_chain(drag_state().node_name_)); }
+bool selection_turns() { return !(picked_node_index() >= 0 && node_edit::is_chain(picked_set().node_name_)); }
 bool selection_scales()
 {
     if (picked_node_index() >= 0 || (wall_only() != 0U)) {
@@ -336,11 +336,11 @@ namespace internal {
 xform::Gizmo gizmo_now()
 {
     xform::Gizmo gizmo;
-    gizmo.mode = drag_state().dragging_ ? drag_state().drag_mode_ : gizmo_mode();
+    gizmo.mode = drag_session().dragging_ ? transform_session().drag_mode_ : gizmo_mode();
     if (gizmo.mode == xform::Mode::kShiftBy) {
         gizmo.pivot = selection_pos();
-    } else if (drag_state().dragging_) {
-        gizmo.pivot = drag_state().transform_pivot_;
+    } else if (drag_session().dragging_) {
+        gizmo.pivot = transform_session().transform_pivot_;
     } else {
         gizmo.pivot = transform_pivot(gizmo.mode);
     }
@@ -360,13 +360,13 @@ void apply_turn_to(float target)
     const std::vector<objects::GameEntity*> objects = selected_objects();
     node_edit::Values node;
     if (!objects.empty()) {
-        const float delta = target - drag_state().rot_applied_;
+        const float delta = target - transform_session().rot_applied_;
         if (std::fabs(delta) < kTurnEpsilon) {
             return;
         }
-        turn_objects_by(objects, delta, drag_state().transform_pivot_);
+        turn_objects_by(objects, delta, transform_session().transform_pivot_);
     } else if (node_values(&node)) {
-        const float delta = target - drag_state().rot_applied_;
+        const float delta = target - transform_session().rot_applied_;
         if (std::fabs(delta) < kTurnEpsilon) {
             return;
         }
@@ -375,14 +375,14 @@ void apply_turn_to(float target)
         set_selected_node(node);
     } else {
         const int quarters = xform::get_quarters(target);
-        if (quarters == drag_state().quarters_applied_) {
+        if (quarters == transform_session().quarters_applied_) {
             return;
         }
-        turn_selection(quarters - drag_state().quarters_applied_);
-        drag_state().quarters_applied_ = quarters;
+        turn_selection(quarters - transform_session().quarters_applied_);
+        transform_session().quarters_applied_ = quarters;
     }
-    drag_state().rot_applied_ = target;
-    drag_state().pending_forced_ = true;
+    transform_session().rot_applied_ = target;
+    transform_session().pending_forced_ = true;
 }
 
 // The scale made since the drag started, along the gizmo's axes: the selection's scale (along its own axes) over its
@@ -390,9 +390,9 @@ void apply_turn_to(float target)
 V3 scale_applied_now()
 {
     const V3 now = selection_scale_now();
-    V3 ratio = {.x = now.x / drag_state().scale_start_.x,
-                .y = now.y / drag_state().scale_start_.y,
-                .z = now.z / drag_state().scale_start_.z};
+    V3 ratio = {.x = now.x / transform_session().scale_start_.x,
+                .y = now.y / transform_session().scale_start_.y,
+                .z = now.z / transform_session().scale_start_.z};
     if (xform::at_hand().space == xform::Space::kLocal) {
         return ratio;
     }
@@ -448,8 +448,8 @@ void apply_scale_to(V3 wanted, bool uniform)
             selection_axes(axes);
             const std::array<float, 3> ratios = {{ratio.x, ratio.y, ratio.z}};
             for (size_t i = 0; i < objects.size(); ++i) {
-                const V3 delta = core::at(before, i) - drag_state().transform_pivot_;
-                V3 placed = drag_state().transform_pivot_;
+                const V3 delta = core::at(before, i) - transform_session().transform_pivot_;
+                V3 placed = transform_session().transform_pivot_;
                 for (int axis_index = 0; axis_index < 3; ++axis_index) {
                     placed = placed + core::at(axes, axis_index) *
                                           (get_dot(delta, core::at(axes, axis_index)) * core::at(ratios, axis_index));
@@ -465,7 +465,7 @@ void apply_scale_to(V3 wanted, bool uniform)
         }
         follow_scenery();
     }
-    drag_state().pending_forced_ = true;
+    transform_session().pending_forced_ = true;
 }
 
 // A Rotate / Scale drag starting (on a handle, or Alt+G's modal one): its pivot; the cursor's angle about it (on the
@@ -473,19 +473,19 @@ void apply_scale_to(V3 wanted, bool uniform)
 // or its distance from it (a handle's axis, else in pixels from the pivot's pixel).
 void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
 {
-    drag_state().transform_pivot_ = transform_pivot(drag_state().drag_mode_);
-    if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
-        drag_state().rot_total_ = drag_state().rot_applied_ = 0.0F;
-        drag_state().quarters_applied_ = 0;
-        drag_state().rot_sign_ = 1.0F;
-        drag_state().rot_last_ = 0.0F;
+    transform_session().transform_pivot_ = transform_pivot(transform_session().drag_mode_);
+    if (transform_session().drag_mode_ == xform::Mode::kSpinBy) {
+        transform_session().rot_total_ = transform_session().rot_applied_ = 0.0F;
+        transform_session().quarters_applied_ = 0;
+        transform_session().rot_sign_ = 1.0F;
+        transform_session().rot_last_ = 0.0F;
         float fraction = 0.0F;
-        drag_state().rot_by_plane_ = std::fabs(make_unit(dir).y) > kRotPlaneMinSlope &&
-                                     ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_,
+        transform_session().rot_by_plane_ = std::fabs(make_unit(dir).y) > kRotPlaneMinSlope &&
+                                     ray_plane({.origin = origin, .dir = dir}, transform_session().transform_pivot_,
                                                {.x = 0.0F, .y = 1.0F, .z = 0.0F}, &fraction) &&
                                      fraction < kMaxPickDistance;
-        if (drag_state().rot_by_plane_) {
-            drag_state().rot_last_ = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * fraction);
+        if (transform_session().rot_by_plane_) {
+            transform_session().rot_last_ = xform::turn_around_axis(transform_session().transform_pivot_, origin + dir * fraction);
             return;
         }
         float px = 0.0F;
@@ -495,26 +495,26 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
         float bx = 0.0F;
         float by = 0.0F;
         float const reach = arrow_length();
-        if (!get_to_pixel(frame, drag_state().transform_pivot_, &px, &py)) {
+        if (!get_to_pixel(frame, transform_session().transform_pivot_, &px, &py)) {
             return;
         }
-        drag_state().rot_last_ = std::atan2(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
-        if (get_to_pixel(frame, drag_state().transform_pivot_ + V3{.x = 0.0F, .y = 0.0F, .z = reach}, &ax, &ay) &&
-            get_to_pixel(frame, drag_state().transform_pivot_ + V3{.x = reach, .y = 0.0F, .z = 0.0F}, &bx, &by)) {
-            drag_state().rot_sign_ =
+        transform_session().rot_last_ = std::atan2(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py);
+        if (get_to_pixel(frame, transform_session().transform_pivot_ + V3{.x = 0.0F, .y = 0.0F, .z = reach}, &ax, &ay) &&
+            get_to_pixel(frame, transform_session().transform_pivot_ + V3{.x = reach, .y = 0.0F, .z = 0.0F}, &bx, &by)) {
+            transform_session().rot_sign_ =
                 xform::get_wrap(std::atan2(bx - px, by - py) - std::atan2(ax - px, ay - py)) < 0.0F ? -1.0F : 1.0F;
         }
         return;
     }
-    drag_state().scale_start_ = selection_scale_now();
-    drag_state().scale_s0_ = 0.0F;
-    if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
-        closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &drag_state().scale_s0_);
+    transform_session().scale_start_ = selection_scale_now();
+    transform_session().scale_s0_ = 0.0F;
+    if (drag_session().axis_ >= 0 && drag_session().axis_ < 3) {
+        closest_on_axis({.origin = transform_session().transform_pivot_, .dir = axis_vector(drag_session().axis_)}, {.origin = origin, .dir = dir}, &transform_session().scale_s0_);
     } else {
         float px = 0.0F;
         float py = 0.0F;
-        if (get_to_pixel(frame, drag_state().transform_pivot_, &px, &py)) {
-            drag_state().scale_s0_ = std::hypot(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
+        if (get_to_pixel(frame, transform_session().transform_pivot_, &px, &py)) {
+            transform_session().scale_s0_ = std::hypot(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py);
         }
     }
 }
@@ -523,7 +523,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
     float typed = 0.0F;
     float target = 0.0F;
-    if (xform::typed_value(drag_state().typed_, &typed)) {
+    if (xform::typed_value(transform_session().typed_, &typed)) {
         target = typed * maths::kPi / kDegreesPerHalfTurn;
     } else {
         float angle = 0.0F;
@@ -531,24 +531,24 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
         float fraction = 0.0F;
         float px = 0.0F;
         float py = 0.0F;
-        if (drag_state().rot_by_plane_) {
-            if (ray_plane({.origin = origin, .dir = dir}, drag_state().transform_pivot_,
+        if (transform_session().rot_by_plane_) {
+            if (ray_plane({.origin = origin, .dir = dir}, transform_session().transform_pivot_,
                           {.x = 0.0F, .y = 1.0F, .z = 0.0F}, &fraction) &&
                 fraction < kMaxPickDistance) {
-                angle = xform::turn_around_axis(drag_state().transform_pivot_, origin + dir * fraction);
+                angle = xform::turn_around_axis(transform_session().transform_pivot_, origin + dir * fraction);
                 have = true;
             }
-        } else if (get_to_pixel(frame, drag_state().transform_pivot_, &px, &py) &&
-                   std::hypot(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py) > kMinRotDragPixels) {
-            angle = std::atan2(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py);
+        } else if (get_to_pixel(frame, transform_session().transform_pivot_, &px, &py) &&
+                   std::hypot(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py) > kMinRotDragPixels) {
+            angle = std::atan2(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py);
             have = true;
         }
         if (have) {
-            const float delta = xform::get_wrap(angle - drag_state().rot_last_);
-            drag_state().rot_last_ = angle;
-            drag_state().rot_total_ += drag_state().rot_by_plane_ ? delta : delta * drag_state().rot_sign_;
+            const float delta = xform::get_wrap(angle - transform_session().rot_last_);
+            transform_session().rot_last_ = angle;
+            transform_session().rot_total_ += transform_session().rot_by_plane_ ? delta : delta * transform_session().rot_sign_;
         }
-        target = snap ? xform::snap_angle({.radians = drag_state().rot_total_, .step_degrees_ = xform::angle_step()}) : drag_state().rot_total_;
+        target = snap ? xform::snap_angle({.radians = transform_session().rot_total_, .step_degrees_ = xform::angle_step()}) : transform_session().rot_total_;
     }
     apply_turn_to(target);
 }
@@ -557,14 +557,14 @@ void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
     // (the typed axis, else the arrow's, else none: uniform)
     int axis = -1;
-    if (drag_state().typed_.axis >= 0) {
-        axis = drag_state().typed_.axis;
-    } else if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
-        axis = drag_state().axis_;
+    if (transform_session().typed_.axis >= 0) {
+        axis = transform_session().typed_.axis;
+    } else if (drag_session().axis_ >= 0 && drag_session().axis_ < 3) {
+        axis = drag_session().axis_;
     }
     float factor = 1.0F;
     float typed = 0.0F;
-    if (xform::typed_value(drag_state().typed_, &typed)) {
+    if (xform::typed_value(transform_session().typed_, &typed)) {
         if (typed <= 0.0F) {
             return;
         }
@@ -573,17 +573,17 @@ void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
         float scale = 0.0F;
         float px = 0.0F;
         float py = 0.0F;
-        if (drag_state().axis_ >= 0 && drag_state().axis_ < 3) {
-            if (!closest_on_axis({.origin = drag_state().transform_pivot_, .dir = axis_vector(drag_state().axis_)},
+        if (drag_session().axis_ >= 0 && drag_session().axis_ < 3) {
+            if (!closest_on_axis({.origin = transform_session().transform_pivot_, .dir = axis_vector(drag_session().axis_)},
                                  {.origin = origin, .dir = dir}, &scale)) {
                 return;
             }
-            factor = xform::factor_along(drag_state().scale_s0_, scale);
+            factor = xform::factor_along(transform_session().scale_s0_, scale);
         } else {
-            if (!get_to_pixel(frame, drag_state().transform_pivot_, &px, &py)) {
+            if (!get_to_pixel(frame, transform_session().transform_pivot_, &px, &py)) {
                 return;
             }
-            factor = xform::factor_from_pixels(drag_state().scale_s0_, std::hypot(drag_state().cursor_x_ - px, drag_state().cursor_y_ - py));
+            factor = xform::factor_from_pixels(transform_session().scale_s0_, std::hypot(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py));
         }
         if (snap) {
             factor = xform::snap_factor(factor);
@@ -602,40 +602,40 @@ namespace internal {
 
 void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float mouse_x, float mouse_y)
 {
-    if (drag_state().drag_mode_ != xform::Mode::kShiftBy) {
+    if (transform_session().drag_mode_ != xform::Mode::kShiftBy) {
         start_transform_drag(origin, dir, frame);
         return;
     }
     const V3 pos = selection_pos();
-    drag_state().drag_vertical_ = vertical;
-    drag_state().drag_from_ = pos;
-    drag_state().drag_mouse_x_ = mouse_x;
-    drag_state().drag_mouse_y_ = mouse_y;
-    drag_state().drag_push_ = 0.0F;
-    if (drag_state().axis_ >= 0) {
-        drag_state().axis_t0_ = 0.0F;
-        closest_on_axis({.origin = pos, .dir = axis_vector(drag_state().axis_)}, {.origin = origin, .dir = dir}, &drag_state().axis_t0_);
+    drag_session().drag_vertical_ = vertical;
+    drag_session().drag_from_ = pos;
+    drag_session().drag_mouse_x_ = mouse_x;
+    drag_session().drag_mouse_y_ = mouse_y;
+    drag_session().drag_push_ = 0.0F;
+    if (drag_session().axis_ >= 0) {
+        drag_session().axis_t0_ = 0.0F;
+        closest_on_axis({.origin = pos, .dir = axis_vector(drag_session().axis_)}, {.origin = origin, .dir = dir}, &drag_session().axis_t0_);
         return;
     }
-    drag_state().drag_plane_normal_ = drag_plane_normal(vertical, frame);
-    drag_state().drag_plane_offset_ =
+    drag_session().drag_plane_normal_ = drag_plane_normal(vertical, frame);
+    drag_session().drag_plane_offset_ =
         vertical ? V3{.x = 0.0F, .y = 0.0F, .z = 0.0F} : V3{.x = 0.0F, .y = get_selection_base() - pos.y, .z = 0.0F};
-    drag_state().drag_right_ = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
-    drag_state().drag_forward_ = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
+    drag_session().drag_right_ = make_unit({.x = frame.right.x, .y = 0.0F, .z = frame.right.z});
+    drag_session().drag_forward_ = make_unit({.x = -frame.back.x, .y = 0.0F, .z = -frame.back.z});
     const float depth = std::max(50.0F, -get_dot(pos - origin, frame.back));
-    drag_state().drag_units_ = kScreenSpanFactor * depth * drawn_view().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
+    drag_session().drag_units_ = kScreenSpanFactor * depth * drawn_view().lens_.tan_x_ / static_cast<float>(std::max(1, stored_mouse().window_width_));
     float fraction = 0.0F;
-    drag_state().drag_screen_ =
+    drag_session().drag_screen_ =
         !vertical && (std::fabs(make_unit(dir).y) < kScreenDragSlope ||
-                      !ray_plane({.origin = origin, .dir = dir}, pos + drag_state().drag_plane_offset_,
-                                 drag_state().drag_plane_normal_, &fraction));
-    const V3 point = pos + drag_state().drag_plane_offset_;
-    drag_state().drag_offset_ = !drag_state().drag_screen_ && ray_plane({.origin = origin, .dir = dir}, point,
-                                                                        drag_state().drag_plane_normal_, &fraction)
+                      !ray_plane({.origin = origin, .dir = dir}, pos + drag_session().drag_plane_offset_,
+                                 drag_session().drag_plane_normal_, &fraction));
+    const V3 point = pos + drag_session().drag_plane_offset_;
+    drag_session().drag_offset_ = !drag_session().drag_screen_ && ray_plane({.origin = origin, .dir = dir}, point,
+                                                                        drag_session().drag_plane_normal_, &fraction)
                                     ? point - (origin + dir * fraction)
                                     : V3{.x = 0.0F, .y = 0.0F, .z = 0.0F};
-    drag_state().drag_reach_ = std::max(kMinDragReach, kDragReachFactor * fraction);
-    drag_state().drag_offset_ = drag_state().drag_offset_ - drag_state().drag_plane_offset_;
+    drag_session().drag_reach_ = std::max(kMinDragReach, kDragReachFactor * fraction);
+    drag_session().drag_offset_ = drag_session().drag_offset_ - drag_session().drag_plane_offset_;
 }
 
 Snapping snapping_now(bool ctrl, bool shift, bool alt)
@@ -650,7 +650,7 @@ Snapping snapping_now(bool ctrl, bool shift, bool alt)
         snap.target = xform::SnapTarget::kWorldGrid;
     } else if (ctrl) {
         snap.target = xform::SnapTarget::kGrid;
-    } else if (drag_state().snap_always_) {
+    } else if (tool_options().snap_always_) {
         snap.target = xform::at_hand().target;
     } else {
         snap.on = false;
@@ -729,7 +729,7 @@ void surface_drag(V3 origin, V3 dir)
                 core::at(matrix->row, i).y = core::at(rows, i).y;
                 core::at(matrix->row, i).z = core::at(rows, i).z;
             }
-            drag_state().pending_forced_ = true;
+            transform_session().pending_forced_ = true;
         }
     }
 }
@@ -742,16 +742,16 @@ void vertex_drag(Ray ray, const TickCycle& frame)
     const auto dir = ray.dir;
     const V3 unit = make_unit(dir);
     const V3 pos = selection_pos();
-    if (!drag_state().vertex_have_) {
+    if (!transform_session().vertex_have_) {
         std::vector<V3> corners = selection_corners();
         const int nearest = snap::nearest_on_screen(
             corners, [&](V3 point, float* x, float* y) { return get_to_pixel(frame, point, x, y); },
-            drag_state().cursor_x_, drag_state().cursor_y_);
+            transform_session().cursor_x_, transform_session().cursor_y_);
         if (nearest < 0) {
             return;
         }
-        drag_state().vertex_corner_ = core::at(corners, nearest) - pos;
-        drag_state().vertex_have_ = true;
+        transform_session().vertex_corner_ = core::at(corners, nearest) - pos;
+        transform_session().vertex_have_ = true;
     }
     std::vector<V3> targets;
     V3 at = {};
@@ -788,7 +788,7 @@ void vertex_drag(Ray ray, const TickCycle& frame)
     if (nearest < 0) {
         return;
     }
-    const V3 wanted = core::at(targets, nearest) - drag_state().vertex_corner_;
+    const V3 wanted = core::at(targets, nearest) - transform_session().vertex_corner_;
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z) {
         place_selection(wanted);
     }
@@ -798,12 +798,12 @@ void vertex_drag(Ray ray, const TickCycle& frame)
 void typed_drag(V3 pos, float typed)
 {
     int axis = 0;
-    if (drag_state().typed_.axis >= 0) {
-        axis = drag_state().typed_.axis;
-    } else if (drag_state().axis_ >= 0) {
-        axis = drag_state().axis_;
+    if (transform_session().typed_.axis >= 0) {
+        axis = transform_session().typed_.axis;
+    } else if (drag_session().axis_ >= 0) {
+        axis = drag_session().axis_;
     }
-    const V3 wanted = drag_state().drag_start_ + axis_vector(axis) * typed;
+    const V3 wanted = drag_session().drag_start_ + axis_vector(axis) * typed;
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z) {
         place_selection(wanted);
     }
@@ -814,10 +814,10 @@ void typed_drag(V3 pos, float typed)
 V3 flush_with_neighbours(V3 pos, V3 wanted)
 {
     // (the axes as bits: the arrow's axis in world space - none in local space -, else y up / down, else x and z)
-    const int free_axes = drag_state().drag_vertical_ ? 2 : 5;
+    const int free_axes = drag_session().drag_vertical_ ? 2 : 5;
     int axes = free_axes;
-    if (drag_state().axis_ >= 0) {
-        axes = xform::at_hand().space == xform::Space::kWorld ? 1 << drag_state().axis_ : 0;
+    if (drag_session().axis_ >= 0) {
+        axes = xform::at_hand().space == xform::Space::kWorld ? 1 << drag_session().axis_ : 0;
     }
     if (axes != 0) {
         wanted = arrange::edge_snapped(pos, wanted, axes);
@@ -830,23 +830,23 @@ namespace internal {
 
 void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mouse_y, Snapping snap)
 {
-    if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
+    if (transform_session().drag_mode_ == xform::Mode::kSpinBy) {
         rotate_drag(origin, dir, frame, snap.on);
         return;
     }
-    if (drag_state().drag_mode_ == xform::Mode::kScale) {
+    if (transform_session().drag_mode_ == xform::Mode::kScale) {
         scale_drag(origin, dir, frame, snap.on);
         return;
     }
     const V3 pos = selection_pos();
     // (a typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started)
     float typed = 0.0F;
-    if (xform::typed_value(drag_state().typed_, &typed)) {
+    if (xform::typed_value(transform_session().typed_, &typed)) {
         typed_drag(pos, typed);
         return;
     }
     if (!snap.on || snap.target != xform::SnapTarget::kVertex) {
-        drag_state().vertex_have_ = false;
+        transform_session().vertex_have_ = false;
     }
     if (snap.on && snap.target == xform::SnapTarget::kSurface) {
         surface_drag(origin, dir);
@@ -861,56 +861,56 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     float grid = xform::get_grid();
     auto relative = [&](float delta) { return xform::snap_relative(delta, grid); };
     V3 wanted{};
-    if (drag_state().axis_ >= 0) {
-        const V3 u = axis_vector(drag_state().axis_);
+    if (drag_session().axis_ >= 0) {
+        const V3 u = axis_vector(drag_session().axis_);
         float scale = 0.0F;
-        if (!closest_on_axis({.origin = drag_state().drag_from_, .dir = u}, {.origin = origin, .dir = dir}, &scale)) {
+        if (!closest_on_axis({.origin = drag_session().drag_from_, .dir = u}, {.origin = origin, .dir = dir}, &scale)) {
             return;
         }
-        const float along = scale - drag_state().axis_t0_;
+        const float along = scale - drag_session().axis_t0_;
         if (std::fabs(along) > fly_camera().orbit_distance_ * kAxisFarFactor) {
             return; // (the ray nearly along the axis: far off)
         }
-        wanted = drag_state().drag_from_ + u * along;
+        wanted = drag_session().drag_from_ + u * along;
         if (snap.on && absolute && xform::at_hand().space == xform::Space::kWorld) {
-            float& component = axis_ref(wanted, drag_state().axis_);
+            float& component = axis_ref(wanted, drag_session().axis_);
             component = snap_to_grid(component, grid);
         } else if (snap.on) {
-            const float total = get_dot(wanted - drag_state().drag_start_, u);
+            const float total = get_dot(wanted - drag_session().drag_start_, u);
             wanted = wanted + u * (relative(total) - total);
         }
-    } else if (drag_state().drag_screen_) {
+    } else if (drag_session().drag_screen_) {
         // (away for the cursor going up: 2.5 times a pixel's span, the ground being seen end-on)
-        const float right = (mouse_x - drag_state().drag_mouse_x_) * drag_state().drag_units_;
-        const float away = (drag_state().drag_mouse_y_ - mouse_y) * drag_state().drag_units_ * 2.5F;
-        wanted = drag_state().drag_from_ + drag_state().drag_right_ * right + drag_state().drag_forward_ * away;
+        const float right = (mouse_x - drag_session().drag_mouse_x_) * drag_session().drag_units_;
+        const float away = (drag_session().drag_mouse_y_ - mouse_y) * drag_session().drag_units_ * 2.5F;
+        wanted = drag_session().drag_from_ + drag_session().drag_right_ * right + drag_session().drag_forward_ * away;
         wanted.y = pos.y;
     } else {
         float fraction = 0.0F;
-        if (!ray_plane({.origin = origin, .dir = dir}, pos + drag_state().drag_plane_offset_,
-                       drag_state().drag_plane_normal_, &fraction) ||
-            fraction > drag_state().drag_reach_) {
+        if (!ray_plane({.origin = origin, .dir = dir}, pos + drag_session().drag_plane_offset_,
+                       drag_session().drag_plane_normal_, &fraction) ||
+            fraction > drag_session().drag_reach_) {
             return; // (towards the horizon)
         }
-        wanted = origin + dir * fraction + drag_state().drag_offset_;
-        if (drag_state().drag_vertical_) {
+        wanted = origin + dir * fraction + drag_session().drag_offset_;
+        if (drag_session().drag_vertical_) {
             wanted = {.x = pos.x, .y = wanted.y, .z = pos.z};
         } else {
             wanted.y = pos.y;
         }
     }
-    if (drag_state().axis_ < 0) {
-        if (!drag_state().drag_vertical_) {
-            wanted = wanted + drag_state().drag_forward_ * drag_state().drag_push_;
+    if (drag_session().axis_ < 0) {
+        if (!drag_session().drag_vertical_) {
+            wanted = wanted + drag_session().drag_forward_ * drag_session().drag_push_;
         }
         if (snap.on && absolute) {
-            wanted = drag_state().drag_vertical_ ? V3{.x = wanted.x, .y = snap_to_grid(wanted.y, grid), .z = wanted.z}
+            wanted = drag_session().drag_vertical_ ? V3{.x = wanted.x, .y = snap_to_grid(wanted.y, grid), .z = wanted.z}
                                      : V3{.x = snap_to_grid(wanted.x, grid), .y = wanted.y, .z = snap_to_grid(wanted.z, grid)};
         } else if (snap.on) {
-            V3 delta = wanted - drag_state().drag_start_;
-            delta = drag_state().drag_vertical_ ? V3{.x = delta.x, .y = relative(delta.y), .z = delta.z}
+            V3 delta = wanted - drag_session().drag_start_;
+            delta = drag_session().drag_vertical_ ? V3{.x = delta.x, .y = relative(delta.y), .z = delta.z}
                                                 : V3{.x = relative(delta.x), .y = delta.y, .z = relative(delta.z)};
-            wanted = drag_state().drag_start_ + delta;
+            wanted = drag_session().drag_start_ + delta;
         }
     }
     // (no snapping held: a scenery piece's box faces flush with its neighbours' - level_editor_arrange.h)
@@ -930,7 +930,7 @@ void note_for_adjust(xform::Mode mode, V3 moved, bool uniform)
         action.kind = adjust::Kind::kTurn;
         action.quarters = (get_primary() == nullptr) && picked_node_index() < 0;
         action.degrees =
-            action.quarters ? static_cast<float>(drag_state().quarters_applied_) * kQuarterTurnDegrees : drag_state().rot_applied_ * kDegreesPerHalfTurn / maths::kPi;
+            action.quarters ? static_cast<float>(transform_session().quarters_applied_) * kQuarterTurnDegrees : transform_session().rot_applied_ * kDegreesPerHalfTurn / maths::kPi;
     } else if (mode == xform::Mode::kScale) {
         action.kind = adjust::Kind::kScale;
         action.factor = scale_applied_now();
@@ -944,39 +944,39 @@ void note_for_adjust(xform::Mode mode, V3 moved, bool uniform)
 
 void end_drag()
 {
-    if (!drag_state().dragging_) {
+    if (!drag_session().dragging_) {
         return;
     }
-    drag_state().dragging_ = false;
-    const bool uniform = drag_state().axis_ < 0 && drag_state().typed_.axis < 0;
-    drag_state().axis_ = -1;
+    drag_session().dragging_ = false;
+    const bool uniform = drag_session().axis_ < 0 && transform_session().typed_.axis < 0;
+    drag_session().axis_ = -1;
     const uint64_t serial = undo_steps().undo_.empty() ? 0 : undo_steps().undo_.back().serial;
     end_change();
     get_settle();
     if (!undo_steps().undo_.empty() && undo_steps().undo_.back().serial != serial) {
-        note_for_adjust(drag_state().drag_mode_, selection_pos() - drag_state().drag_start_, uniform);
+        note_for_adjust(transform_session().drag_mode_, selection_pos() - drag_session().drag_start_, uniform);
     }
     const V3 at = selection_pos();
     const char* done = "dragged";
-    if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
+    if (transform_session().drag_mode_ == xform::Mode::kSpinBy) {
         done = "turned";
-    } else if (drag_state().drag_mode_ == xform::Mode::kScale) {
+    } else if (transform_session().drag_mode_ == xform::Mode::kScale) {
         done = "scaled";
     }
     note_action("%s to (%.0f, %.0f, %.0f): %s", done, at.x, at.y, at.z, describe_selection().c_str());
-    drag_state().drag_mode_ = xform::Mode::kShiftBy;
-    drag_state().modal_ = false;
-    drag_state().typed_ = {};
-    drag_state().vertex_have_ = false;
+    transform_session().drag_mode_ = xform::Mode::kShiftBy;
+    transform_session().modal_ = false;
+    transform_session().typed_ = {};
+    transform_session().vertex_have_ = false;
 }
 
 void set_relative(bool on)
 {
-    if (on == editor_session().relative_) {
+    if (on == drag_session().relative_) {
         return;
     }
     input::set_relative_mouse(on);
-    editor_session().relative_ = on;
+    drag_session().relative_ = on;
 }
 
 } // namespace internal

@@ -110,8 +110,8 @@ std::string describe_selection()
     if (const uint32_t wall = wall_only()) {
         return "invisible wall " + object_edit::caption(wall) + " - " + walls::describe_state(wall);
     }
-    if (drag_state().node_selected_ && std::cmp_less(drag_state().node_index_, nodes::get_all().size())) {
-        const nodes::Elem& node = core::at(nodes::get_all(), drag_state().node_index_);
+    if (picked_set().node_selected_ && std::cmp_less(picked_set().node_index_, nodes::get_all().size())) {
+        const nodes::Elem& node = core::at(nodes::get_all(), picked_set().node_index_);
         return "node " + nodes::caption(node.name) + " (" + nodes::caption(node.cls) + ")";
     }
     return "Nothing";
@@ -122,25 +122,25 @@ const char* mode_name()
     if (stored_browser().open) {
         return "ADD";
     }
-    if (drag_state().dragging_ && drag_state().drag_mode_ == xform::Mode::kSpinBy) {
+    if (drag_session().dragging_ && transform_session().drag_mode_ == xform::Mode::kSpinBy) {
         return "ROTATING";
     }
-    if (drag_state().dragging_ && drag_state().drag_mode_ == xform::Mode::kScale) {
+    if (drag_session().dragging_ && transform_session().drag_mode_ == xform::Mode::kScale) {
         return "SCALING";
     }
-    if (drag_state().dragging_ && drag_state().axis_ == 0) {
+    if (drag_session().dragging_ && drag_session().axis_ == 0) {
         return "MOVING ALONG X";
     }
-    if (drag_state().dragging_ && drag_state().axis_ == 1) {
+    if (drag_session().dragging_ && drag_session().axis_ == 1) {
         return "MOVING ALONG Y";
     }
-    if (drag_state().dragging_ && drag_state().axis_ >= 2) {
+    if (drag_session().dragging_ && drag_session().axis_ >= 2) {
         return "MOVING ALONG Z";
     }
-    if (drag_state().dragging_) {
+    if (drag_session().dragging_) {
         return "MOVING";
     }
-    if (have_selection() || drag_state().node_selected_) {
+    if (have_selection() || picked_set().node_selected_) {
         return "SELECTED";
     }
     return "FLYING";
@@ -174,30 +174,30 @@ std::string handle_hover_text(int handle)
 }
 std::string hover_text()
 {
-    if (const uint32_t wall = view::hover_wall(); (wall != 0U) && drag_state().hover_axis_ < 0) {
+    if (const uint32_t wall = view::hover_wall(); (wall != 0U) && drag_session().hover_axis_ < 0) {
         return "Invisible wall " + object_edit::caption(wall) + " (Shift+click)";
     }
-    if (drag_state().hover_handle_ >= 0 && drag_state().hover_axis_ < 0) {
-        return std::string("the trigger volume's ") + ((drag_state().hover_handle_ & 1) != 0 ? '+' : '-') +
-               core::at(kAxisLetters, drag_state().hover_handle_ >> 1) +
+    if (drag_session().hover_handle_ >= 0 && drag_session().hover_axis_ < 0) {
+        return std::string("the trigger volume's ") + ((drag_session().hover_handle_ & 1) != 0 ? '+' : '-') +
+               core::at(kAxisLetters, drag_session().hover_handle_ >> 1) +
                " face - drag to resize it";
     }
     std::string text = "-";
-    if (drag_state().hover_axis_ >= 0) {
-        text = handle_hover_text(drag_state().hover_axis_);
-    } else if (drag_state().hover_sector_ != 0U) {
-        text = scenery::describe_hover(drag_state().hover_sector_);
-    } else if (get_live(drag_state().hover_)) {
-        text = object_edit::describe(get_live(drag_state().hover_));
+    if (drag_session().hover_axis_ >= 0) {
+        text = handle_hover_text(drag_session().hover_axis_);
+    } else if (picked_set().hover_sector_ != 0U) {
+        text = scenery::describe_hover(picked_set().hover_sector_);
+    } else if (get_live(picked_set().hover_)) {
+        text = object_edit::describe(get_live(picked_set().hover_));
     }
-    if (drag_state().hover_axis_ < 0 && pick_cycle().hover_cycle_ >= 0) {
+    if (drag_session().hover_axis_ < 0 && pick_cycle().hover_cycle_ >= 0) {
         std::array<char, kPlaceTextSize> place{};
         text::format_to(place, "  (%d of %d under the cursor: click)", pick_cycle().hover_cycle_ + 1,
                         static_cast<int>(pick_cycle().cycle_.order.size()));
         text += place.data();
-    } else if (drag_state().hover_axis_ < 0 && (drag_state().hover_sector_ == 0U) && !get_live(drag_state().hover_) &&
-               (drag_state().hover_passed_ != 0U)) {
-        text = "-  (passing " + scenery::describe_hover(drag_state().hover_passed_) + " - Alt+click takes it)";
+    } else if (drag_session().hover_axis_ < 0 && (picked_set().hover_sector_ == 0U) && !get_live(picked_set().hover_) &&
+               (picked_set().hover_passed_ != 0U)) {
+        text = "-  (passing " + scenery::describe_hover(picked_set().hover_passed_) + " - Alt+click takes it)";
     }
     return text;
 }
@@ -228,8 +228,8 @@ void update_hud()
                                   get_key("Enter") + " place it");
         hud::change_strand(kHintStrandSecond, get_key("F") + " show me the original   " + get_key("B") + " or " + get_key("Esc") +
                                   " close");
-    } else if (drag_state().dragging_) {
-        if (drag_state().axis_ >= 0) {
+    } else if (drag_session().dragging_) {
+        if (drag_session().axis_ >= 0) {
             hud::change_strand(kHintStrandFirst, get_key("Mouse") + " moves it along the arrow   " + get_key("Ctrl") + " snap");
         } else {
             hud::change_strand(kHintStrandFirst, get_key("Mouse") + " move   " + get_key("Shift") + " up / down   " +
@@ -289,28 +289,28 @@ std::vector<std::pair<std::string, std::string>> keys_now()
         context.selection = hints::Selection::kWall;
     } else if (scenery::has_selection()) {
         context.selection = hints::Selection::kScenery;
-    } else if (drag_state().node_selected_) {
+    } else if (picked_set().node_selected_) {
         context.selection = hints::Selection::kOtherNode;
     }
-    context.free_camera_ = drag_state().free_camera_;
+    context.free_camera_ = fly_camera().free_camera_;
     context.tool = static_cast<int>(xform::at_hand().mode);
-    if (drag_state().dragging_) {
-        if (drag_state().drag_mode_ == xform::Mode::kSpinBy) {
+    if (drag_session().dragging_) {
+        if (transform_session().drag_mode_ == xform::Mode::kSpinBy) {
             context.drag = hints::Drag::kSpinBy;
-        } else if (drag_state().drag_mode_ == xform::Mode::kScale) {
+        } else if (transform_session().drag_mode_ == xform::Mode::kScale) {
             context.drag = hints::Drag::kScale;
-        } else if (drag_state().axis_ >= 0) {
+        } else if (drag_session().axis_ >= 0) {
             context.drag = hints::Drag::kMoveAxis;
         } else {
             context.drag = hints::Drag::kShiftBy;
         }
     }
-    context.modal = drag_state().modal_;
-    if (drag_state().dragging_ && (!drag_state().typed_.text.empty() || drag_state().typed_.axis >= 0)) {
-        context.typed = xform::describe(drag_state().drag_mode_, drag_state().typed_,
-                                        drag_state().axis_ >= 0 && drag_state().axis_ < 3 ? drag_state().axis_ : -1);
+    context.modal = transform_session().modal_;
+    if (drag_session().dragging_ && (!transform_session().typed_.text.empty() || transform_session().typed_.axis >= 0)) {
+        context.typed = xform::describe(transform_session().drag_mode_, transform_session().typed_,
+                                        drag_session().axis_ >= 0 && drag_session().axis_ < 3 ? drag_session().axis_ : -1);
     }
-    context.carried = drag_state().dragging_ ? carry::total_of() : 0;
+    context.carried = drag_session().dragging_ ? carry::total_of() : 0;
     context.browser = stored_browser().open;
     context.place_armed_ = pick_cycle().place_armed_ >= 0;
     context.ladder_drawing_ = chains::get_drawing() == chains::Blit::kLadder;
@@ -323,7 +323,7 @@ std::vector<std::pair<std::string, std::string>> keys_now()
     context.ux9_tool_ = ux9::picking_tool();
     context.faces_mode_ = faces::get_picking();
     context.box_armed_ = organize::box_armed();
-    context.chain_point_ = picked_node_index() >= 0 && node_edit::is_chain(drag_state().node_name_);
+    context.chain_point_ = picked_node_index() >= 0 && node_edit::is_chain(picked_set().node_name_);
     context.following = ux8::get_following();
     context.walking = ux8::on_foot();
     context.pie_open_ = ux8::pie_open();
@@ -505,7 +505,7 @@ void fill_selection(ui::ShapeMesh& model)
 // (the help, the browser and its preview)
 void fill_help_and_browser(ui::ShapeMesh& model)
 {
-    model.help = drag_state().help_;
+    model.help = tool_options().help_;
     model.browser = stored_browser().open;
     model.browser_tab_ = stored_browser().tab;
     model.browser_index_ = stored_browser().index;
@@ -527,33 +527,33 @@ void fill_help_and_browser(ui::ShapeMesh& model)
 // (the node selected: its place, its chain, added / hidden, a crown's order)
 void fill_nodes(ui::ShapeMesh& model)
 {
-    model.nodes.families = drag_state().families_;
+    model.nodes.families = tool_options().families_;
     model.nodes.selected = inspected_node();
-    model.nodes.hovered = drag_state().hover_node_;
-    model.nodes.node_only_ = drag_state().node_selected_ && model.nodes.selected >= 0;
+    model.nodes.hovered = picked_set().hover_node_;
+    model.nodes.node_only_ = picked_set().node_selected_ && model.nodes.selected >= 0;
     model.nodes.level_shared_ = nodes::level_is_shared(&model.nodes.shared_game_);
     node_edit::Values node;
     if (model.nodes.node_only_ && node_values(&node)) {
         model.nodes.movable = true;
         model.nodes.pos = node.pos;
         model.nodes.angles = node.angles;
-        const node_edit::Values* origin = node_edit::get_origin(drag_state().node_name_);
+        const node_edit::Values* origin = node_edit::get_origin(picked_set().node_name_);
         model.nodes.moved = (origin != nullptr) && !node_edit::get_same(node, *origin);
         model.nodes.when_applied_ = node_edit::when_applied(core::at(nodes::get_all(), model.nodes.selected));
-        if (node_edit::is_chain(drag_state().node_name_)) {
+        if (node_edit::is_chain(picked_set().node_name_)) {
             model.nodes.rail = true; // (a rail's, a ladder's or a path's point: moved alone or with its chain)
-            if (chains::is_path(drag_state().node_name_)) {
+            if (chains::is_path(picked_set().node_name_)) {
                 model.nodes.chain_noun_ = "path";
-            } else if (chains::is_ladder(drag_state().node_name_)) {
+            } else if (chains::is_ladder(picked_set().node_name_)) {
                 model.nodes.chain_noun_ = "ladder";
             } else {
                 model.nodes.chain_noun_ = "rail";
             }
             model.nodes.entire_rail_ = pick_cycle().move_entire_rail_;
-            model.nodes.rail_points_ = static_cast<int>(node_edit::moved_with(drag_state().node_name_, pick_cycle().move_entire_rail_).size());
+            model.nodes.rail_points_ = static_cast<int>(node_edit::moved_with(picked_set().node_name_, pick_cycle().move_entire_rail_).size());
         }
     }
-    model.nodes.online_warning_ = drag_state().online_warning_shown_;
+    model.nodes.online_warning_ = picked_set().online_warning_shown_;
     if (model.nodes.node_only_ && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
         const nodes::Elem& elem = core::at(nodes::get_all(), model.nodes.selected);
         model.nodes.added = elem.added;
@@ -659,7 +659,7 @@ ui::ShapeMesh assemble_model()
 {
     ui::ShapeMesh model = {};
     model.carry = carry::is_switched_on();
-    model.carried = drag_state().dragging_ || fly_camera().key_moving_ || drag_state().field_editing_
+    model.carried = drag_session().dragging_ || fly_camera().key_moving_ || picked_set().field_editing_
                         ? carry::total_of()
                         : 0; // (a move under way)
     model.marks = change_marks();
@@ -681,8 +681,8 @@ ui::ShapeMesh assemble_model()
     model.offer = unsaved_changes().offer_pending_;
     model.can_undo_ = !undo_steps().undo_.empty();
     model.can_redo_ = !undo_steps().redo_.empty();
-    model.snap_always_ = drag_state().snap_always_;
-    model.pick_filter_ = drag_state().pick_filter_;
+    model.snap_always_ = tool_options().snap_always_;
+    model.pick_filter_ = tool_options().pick_filter_;
     fill_locks(model);
     fill_view(model);
     fill_selection(model);

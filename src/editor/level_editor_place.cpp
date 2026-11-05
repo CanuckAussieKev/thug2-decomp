@@ -169,7 +169,7 @@ void place_node(int entry, V3 at)
     }
     push_undo(step, "Place node");
     pick_cycle().pickables_.clear();
-    drag_state().hover_node_ = -1;
+    picked_set().hover_node_ = -1;
     const int index = nodes::get_find(node_create::name_hash(specs.front().name));
     if (index >= 0) {
         select_node_only(index);
@@ -229,7 +229,7 @@ bool place_entity(int entry, V3 at)
         step.added_at_.push_back(node_create::get_index_of(node_create::at_hand(), name));
         push_undo(step, "Place");
         pick_cycle().pickables_.clear();
-        drag_state().hover_node_ = -1;
+        picked_set().hover_node_ = -1;
         const int node = nodes::get_find(node_create::name_hash(name));
         if (node >= 0) {
             select_node_only(node);
@@ -379,9 +379,9 @@ void unlink_list_node(bool confirmed)
         step.copies.push_back({.name = node.name, .source = source, .state = object_edit::store_away(object)});
         object_edit::remove_copy(node.name);
         push_undo(step, "Delete copy");
-        drag_state().node_selected_ = false;
+        picked_set().node_selected_ = false;
         pick_cycle().pickables_.clear();
-        drag_state().hover_node_ = -1;
+        picked_set().hover_node_ = -1;
         hud::get_message("Deleted");
         note_action("deleted the copy %s", nodes::caption(node.name).c_str());
         return;
@@ -398,9 +398,9 @@ void unlink_list_node(bool confirmed)
         step.added.push_back(spec);
         step.added_at_.push_back(at);
         push_undo(step, "Delete node");
-        drag_state().node_selected_ = false;
+        picked_set().node_selected_ = false;
         pick_cycle().pickables_.clear();
-        drag_state().hover_node_ = -1;
+        picked_set().hover_node_ = -1;
         note_online_change(node.family, spec.name.c_str(), "deleted");
         hud::get_message("Deleted " + spec.name);
         note_action("deleted the added node %s", spec.name.c_str());
@@ -520,7 +520,7 @@ void place_from_browser(V3 at, bool keep_open)
             hud::get_message("Couldn't copy the piece");
             return;
         }
-        drag_state().objects_.clear();
+        picked_set().objects_.clear();
         scenery::set_selection({copy});
         const V3 pivot = scenery::get_pivot();
         scenery::move_to({.x = at.x, .y = at.y + (pivot.y - scenery::get_bottom()), .z = at.z});

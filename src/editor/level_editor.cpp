@@ -152,10 +152,28 @@ Mouse& stored_mouse()
     return mouse.get();
 }
 
-DragState& drag_state()
+PickedSet& picked_set()
 {
-    static core::NoDestroy<DragState> state;
-    return state.get();
+    static core::NoDestroy<PickedSet> picked;
+    return picked.get();
+}
+
+DragSession& drag_session()
+{
+    static core::NoDestroy<DragSession> drag;
+    return drag.get();
+}
+
+TransformSession& transform_session()
+{
+    static core::NoDestroy<TransformSession> transform;
+    return transform.get();
+}
+
+ToolOptions& tool_options()
+{
+    static core::NoDestroy<ToolOptions> options;
+    return options.get();
 }
 
 PickCycle& pick_cycle()
@@ -185,7 +203,7 @@ void handle_event(const input::Event& event)
     }
     // (the UI first: over a panel, or while it wants the keys, the event is its own - level_editor_ui.h)
     if (ui::underway() &&
-        !ui::route_event(event, drag_state().dragging_ || stored_mouse().right || triggers::resizing())) {
+        !ui::route_event(event, drag_session().dragging_ || stored_mouse().right || triggers::resizing())) {
         return;
     }
     switch (event.type) {
@@ -199,7 +217,7 @@ void handle_event(const input::Event& event)
     case input::EventType::kMouseButtonDown:
     case input::EventType::kMouseButtonUp: {
         const bool down = event.type == input::EventType::kMouseButtonDown;
-        if (!editor_session().relative_) {
+        if (!drag_session().relative_) {
             stored_mouse().x = static_cast<float>(event.x);
             stored_mouse().y = static_cast<float>(event.y);
         }
@@ -219,7 +237,7 @@ void handle_event(const input::Event& event)
         break;
     case input::EventType::kKeyDown:
         // While dragging: X / Y / Z, digits, - . and Backspace typed (level_editor_transform.h), Enter applies.
-        if (drag_state().dragging_) {
+        if (drag_session().dragging_) {
             const auto code = static_cast<SDL_Scancode>(event.key);
             char character = 0;
             if (code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9) {
@@ -238,23 +256,23 @@ void handle_event(const input::Event& event)
                 character = static_cast<char>('x' + (code - SDL_SCANCODE_X));
             }
             if (code == SDL_SCANCODE_RETURN || code == SDL_SCANCODE_KP_ENTER) {
-                drag_state().typed_apply_ = true;
+                transform_session().typed_apply_ = true;
                 break;
             }
-            if ((character != '\0') && xform::type_key(&drag_state().typed_, character)) {
+            if ((character != '\0') && xform::type_key(&transform_session().typed_, character)) {
                 break;
             }
         }
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event.key == SDL_SCANCODE_ESCAPE && !event.repeat &&
             !actions::get_capturing()) {
-            if (drag_state().dragging_ || stored_browser().open || drag_state().help_ || pick_cycle().place_open_ ||
+            if (drag_session().dragging_ || stored_browser().open || tool_options().help_ || pick_cycle().place_open_ ||
                 (pick_cycle().confirm_hide_ != 0U) || pick_cycle().confirm_reset_ ||
                 chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() ||
-                !drag_state().objects_.empty() || scenery::has_selection() || drag_state().node_selected_ ||
+                !picked_set().objects_.empty() || scenery::has_selection() || picked_set().node_selected_ ||
                 ux8::wants_escape() || // (UX8: a pie, walking)
                 ux9::occupied()) {     // (UX9: a tool armed)
-                drag_state().cancel_requested_ = true;
+                editor_session().cancel_requested_ = true;
             } else {
                 editor_session().exit_requested_ = true;
             }
@@ -305,7 +323,7 @@ bool pass_pause_key(bool down)
     // (while dragging, browsing, reading the help or with something selected the key closes / deselects that instead - handle_event - and counts again
     // only once it has been up)
     // (drawing a chain: Enter finishes it - level_editor_chains.h)
-    if (drag_state().dragging_ || drag_state().cancel_requested_ || stored_browser().open || drag_state().help_ || have_selection() || drag_state().node_selected_ ||
+    if (drag_session().dragging_ || editor_session().cancel_requested_ || stored_browser().open || tool_options().help_ || have_selection() || picked_set().node_selected_ ||
         chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() || !ui::keys_to_editor()) {
         editor_session().pause_key_released_ = false;
         return false;
@@ -343,18 +361,18 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     editor_session().last_counter_ = 0;
     editor_session().pause_key_released_ = false;
     editor_session().exit_requested_ = false;
-    drag_state().cancel_requested_ = false;
-    drag_state().hover_ = {};
-    drag_state().objects_.clear();
-    drag_state().hover_sector_ = 0;
+    editor_session().cancel_requested_ = false;
+    picked_set().hover_ = {};
+    picked_set().objects_.clear();
+    picked_set().hover_sector_ = 0;
     scenery::get_reset();
-    drag_state().dragging_ = false;
-    drag_state().axis_ = drag_state().hover_axis_ = -1;
+    drag_session().dragging_ = false;
+    drag_session().axis_ = drag_session().hover_axis_ = -1;
     undo_steps().undo_.clear();
     undo_steps().redo_.clear();
     undo_steps().has_pending_ = false;
     unsaved_changes().moves_ = 0;
-    drag_state().help_ = false;
+    tool_options().help_ = false;
     stored_browser() = Browser{};
     // The UI (Dear ImGui) - else the HUD of screen elements.
     const bool ui = ui::kickoff();
@@ -376,16 +394,16 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     actions::seed_keys(input::keys()); // (the key that opened the editor doesn't act at once)
     render::occlusion_off() = occlusion_switch().occlusion_off_;
     pick_cycle().hud_taken_down_ = 0;
-    drag_state().families_ = static_cast<uint32_t>(config_int("editor", "families", static_cast<int>(nodes::kAllFamilies))) &
+    tool_options().families_ = static_cast<uint32_t>(config_int("editor", "families", static_cast<int>(nodes::kAllFamilies))) &
                  nodes::kAllFamilies;
-    drag_state().pick_filter_ =
+    tool_options().pick_filter_ =
         static_cast<uint32_t>(config_int("editor", "pick", static_cast<int>(picking::kAll))) & picking::kAll;
     pick_cycle().cycle_ = Cycle{};
     pick_cycle().hover_cycle_ = -1;
-    drag_state().hover_passed_ = 0;
-    drag_state().node_selected_ = false;
-    drag_state().field_editing_ = false;
-    drag_state().hover_node_ = -1;
+    picked_set().hover_passed_ = 0;
+    picked_set().node_selected_ = false;
+    picked_set().field_editing_ = false;
+    picked_set().hover_node_ = -1;
     pick_cycle().pickables_.clear();
     hud::get_reset(!ui);
     stored_mouse() = Mouse{};
@@ -534,9 +552,9 @@ bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
     }
     editor_session().active_ = false;
     fly_camera().camera_ = nullptr;
-    drag_state().hover_ = {};
-    drag_state().objects_.clear();
-    drag_state().hover_sector_ = 0;
+    picked_set().hover_ = {};
+    picked_set().objects_.clear();
+    picked_set().hover_sector_ = 0;
     scenery::clear_selection();
     get_log("level editor: off (%d changes, %d scenery pieces moved since the level loaded%s)", unsaved_changes().moves_,
             scenery::get_moved_count(), unsaved_changes().unsaved_ ? "; not saved" : "");
@@ -668,8 +686,8 @@ void tick_frame()
         return;
     }
     handle_escape();
-    editor_frame.no_change_ = drag_state().dragging_ || fly_camera().key_moving_ ||
-                              drag_state().field_editing_ || triggers::resizing();
+    editor_frame.no_change_ = drag_session().dragging_ || fly_camera().key_moving_ ||
+                              picked_set().field_editing_ || triggers::resizing();
     tick_panels(editor_frame);
     edit_keys(editor_frame);
     view_keys();
@@ -700,7 +718,7 @@ void blit()
     static std::vector<LineVertex> lines;
     lines.clear();
     const std::vector<objects::GameEntity*> objects = selected_objects();
-    objects::GameEntity* hover = drag_state().dragging_ ? nullptr : get_live(drag_state().hover_);
+    objects::GameEntity* hover = drag_session().dragging_ ? nullptr : get_live(picked_set().hover_);
     add_hover_boxes(frame, hover, lines);
     add_selected_boxes(frame, objects, lines);
     if (objects.empty()) {
@@ -709,16 +727,16 @@ void blit()
         }
     }
     // The ground marker: a line from the selection's base down (or up) to the ground below it, and a cross there.
-    if (drag_state().have_mark_ && have_selection()) {
+    if (picked_set().have_mark_ && have_selection()) {
         constexpr uint32_t kMark = 0xFFFFE070;
-        if (std::fabs(drag_state().mark_base_.y - drag_state().mark_ground_.y) > 1.0F) {
-            add_line(drag_state().mark_base_, drag_state().mark_ground_, frame, kMark, &lines);
+        if (std::fabs(picked_set().mark_base_.y - picked_set().mark_ground_.y) > 1.0F) {
+            add_line(picked_set().mark_base_, picked_set().mark_ground_, frame, kMark, &lines);
         }
         const float size = std::max(10.0F, std::min(60.0F, fly_camera().orbit_distance_ * 0.05F));
-        add_line(drag_state().mark_ground_ - V3{.x = size, .y = 0.0F, .z = 0.0F},
-                 drag_state().mark_ground_ + V3{.x = size, .y = 0.0F, .z = 0.0F}, frame, kMark, &lines);
-        add_line(drag_state().mark_ground_ - V3{.x = 0.0F, .y = 0.0F, .z = size},
-                 drag_state().mark_ground_ + V3{.x = 0.0F, .y = 0.0F, .z = size}, frame, kMark, &lines);
+        add_line(picked_set().mark_ground_ - V3{.x = size, .y = 0.0F, .z = 0.0F},
+                 picked_set().mark_ground_ + V3{.x = size, .y = 0.0F, .z = 0.0F}, frame, kMark, &lines);
+        add_line(picked_set().mark_ground_ - V3{.x = 0.0F, .y = 0.0F, .z = size},
+                 picked_set().mark_ground_ + V3{.x = 0.0F, .y = 0.0F, .z = size}, frame, kMark, &lines);
     }
     // The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
     // one only (a modal Rotate / Scale: the whole gizmo).

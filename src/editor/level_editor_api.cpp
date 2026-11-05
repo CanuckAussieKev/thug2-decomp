@@ -57,15 +57,15 @@ SelectionIds current_selection()
     if (ids.objects.empty()) {
         ids.sectors = scenery::get_selection();
     }
-    if (ids.objects.empty() && ids.sectors.empty() && drag_state().node_selected_ && inspected_node() >= 0) {
-        ids.node = drag_state().node_name_;
+    if (ids.objects.empty() && ids.sectors.empty() && picked_set().node_selected_ && inspected_node() >= 0) {
+        ids.node = picked_set().node_name_;
     }
     return ids;
 }
 
 void set_selection(const SelectionIds& ids)
 {
-    if (drag_state().dragging_) {
+    if (drag_session().dragging_) {
         return;
     }
     unpick();
@@ -94,7 +94,7 @@ void set_selection(const SelectionIds& ids)
 
 bool go_to_thing(uint32_t id)
 {
-    if (!editor_session().active_ || (id == 0U) || drag_state().dragging_) {
+    if (!editor_session().active_ || (id == 0U) || drag_session().dragging_) {
         return false;
     }
     const int index = nodes::get_find(id);
@@ -138,7 +138,7 @@ bool project_to_back(V3 point, float* x, float* y)
     return true;
 }
 
-uint32_t pick_filter_now() { return drag_state().pick_filter_; }
+uint32_t pick_filter_now() { return tool_options().pick_filter_; }
 
 int set_fields_on_nodes(const std::vector<uint32_t>& nodes, const std::vector<FieldSet>& fields, const char* label,
                         std::string* message)
@@ -261,7 +261,7 @@ void look_from(V3 pos, YawPitch view)
         return;
     }
     unpick();
-    drag_state().dragging_ = false;
+    drag_session().dragging_ = false;
     fly_camera().pos_ = pos;
     fly_camera().yaw_ = yaw;
     fly_camera().pitch_ = std::clamp(pitch, -kMaxPitchDegrees * maths::kPi / kDegreesPerHalfTurn, kMaxPitchDegrees * maths::kPi / kDegreesPerHalfTurn);
@@ -271,7 +271,7 @@ void look_from(V3 pos, YawPitch view)
 bool go_to_node_named(uint32_t name)
 {
     const int index =
-        editor_session().active_ && !drag_state().dragging_ && (name != 0U) ? nodes::get_find(name) : -1;
+        editor_session().active_ && !drag_session().dragging_ && (name != 0U) ? nodes::get_find(name) : -1;
     if (index < 0) {
         return false;
     }
@@ -284,7 +284,7 @@ bool go_to_node_named(uint32_t name)
 
 bool go_to_scenery(uint32_t sector)
 {
-    if (!editor_session().active_ || drag_state().dragging_ || (sector == 0U) || !scenery::sector_of(sector) ||
+    if (!editor_session().active_ || drag_session().dragging_ || (sector == 0U) || !scenery::sector_of(sector) ||
         scenery::why_not_movable(sector)) {
         return false;
     }
@@ -296,7 +296,7 @@ bool go_to_scenery(uint32_t sector)
 
 void go_to_point(V3 pos, float distance)
 {
-    if (!editor_session().active_ || drag_state().dragging_) {
+    if (!editor_session().active_ || drag_session().dragging_) {
         return;
     }
     unpick();
@@ -316,7 +316,7 @@ Selected get_selection()
         }
     } else if (picked_node_index() >= 0) {
         out.kind = Kind::kElem;
-        out.ids.push_back(drag_state().node_name_);
+        out.ids.push_back(picked_set().node_name_);
     } else if (const uint32_t wall = wall_only()) {
         out.kind = Kind::kWall;
         out.ids.push_back(wall);
@@ -343,8 +343,8 @@ void choose_one(const Selected& selected)
         break;
     }
     case Kind::kScenery:
-        drag_state().objects_.clear();
-        drag_state().node_selected_ = false;
+        picked_set().objects_.clear();
+        picked_set().node_selected_ = false;
         view::clear_wall();
         scenery::set_selection(selected.ids);
         break;
@@ -374,7 +374,7 @@ V3 current_centre() { return selection_centre(); }
 void get_begin() { begin_change(); }
 void get_end()
 {
-    drag_state().pending_forced_ = true;
+    transform_session().pending_forced_ = true;
     end_change();
     get_settle();
 }
@@ -436,9 +436,9 @@ void chain_changed(const void* before, uint32_t select, const std::string& messa
 }
 
 bool get_ground(V3 from, V3* ground) { return ground_below(from, ground); }
-bool get_dragging() { return editor_session().active_ && drag_state().dragging_; }
-int drag_mode() { return static_cast<int>(drag_state().drag_mode_); }
-maths::Vec2 get_cursor() { return {.x = drag_state().cursor_x_, .y = drag_state().cursor_y_}; }
+bool get_dragging() { return editor_session().active_ && drag_session().dragging_; }
+int drag_mode() { return static_cast<int>(transform_session().drag_mode_); }
+maths::Vec2 get_cursor() { return {.x = transform_session().cursor_x_, .y = transform_session().cursor_y_}; }
 bool get_ray(RayOut ray)
 {
     auto* const origin = ray.origin;
@@ -454,11 +454,11 @@ bool ground_mark(GroundMark mark)
 {
     auto* const base = mark.base;
     auto* const ground = mark.ground;
-    if (!drag_state().have_mark_ || !have_selection()) {
+    if (!picked_set().have_mark_ || !have_selection()) {
         return false;
     }
-    *base = drag_state().mark_base_;
-    *ground = drag_state().mark_ground_;
+    *base = picked_set().mark_base_;
+    *ground = picked_set().mark_ground_;
     return true;
 }
 float get_yaw() { return fly_camera().yaw_; }
