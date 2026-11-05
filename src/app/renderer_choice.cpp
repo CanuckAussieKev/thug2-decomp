@@ -11,8 +11,10 @@
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
+#include "engine/gfx/gpu.h"
 #include "render_d3d9/d3d9_device.h"
 #include "render_d3d9/d3d9_ui_backend.h"
+#include "render_d3d9/gpu_d3d9.h"
 
 namespace app {
 
@@ -31,6 +33,7 @@ constexpr bool kVulkanBuilt = false;
 void install_direct3d9()
 {
     render::install_device(render::d3d9::device());
+    render::install_gpu(render::d3d9::gpu());
     render::install_ui_backend(render::d3d9::ui_backend());
 }
 

@@ -49,6 +49,7 @@ add_library(thug2_render_d3d9 STATIC
     pc_material_load.cpp
     render_state.cpp
     d3d9_device.cpp
+    gpu_d3d9.cpp
     d3d9_state.cpp
     shadow_base.cpp
     mesh_list.cpp

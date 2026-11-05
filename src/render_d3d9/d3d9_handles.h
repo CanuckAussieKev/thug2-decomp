@@ -38,6 +38,11 @@ inline IDirect3DIndexBuffer9* object(GpuIndexBuffer* handle) noexcept
 {
     return detail::same_address<IDirect3DIndexBuffer9>(handle);
 }
+inline IDirect3DPixelShader9* object(GpuPixelShader* handle) noexcept
+{
+    return detail::same_address<IDirect3DPixelShader9>(handle);
+}
+inline IDirect3DQuery9* object(GpuQuery* handle) noexcept { return detail::same_address<IDirect3DQuery9>(handle); }
 
 // The handle of a Direct3D object.
 inline GpuInstance* handle(IDirect3D9* object) noexcept { return detail::same_address<GpuInstance>(object); }
@@ -52,6 +57,11 @@ inline GpuIndexBuffer* handle(IDirect3DIndexBuffer9* object) noexcept
 {
     return detail::same_address<GpuIndexBuffer>(object);
 }
+inline GpuPixelShader* handle(IDirect3DPixelShader9* object) noexcept
+{
+    return detail::same_address<GpuPixelShader>(object);
+}
+inline GpuQuery* handle(IDirect3DQuery9* object) noexcept { return detail::same_address<GpuQuery>(object); }
 
 // A handle's storage as the out-parameter a Direct3D call fills (CreateTexture's IDirect3DTexture9**...): the call
 // writes the new object's pointer straight into the handle, as the original's calls wrote into their fields - on
@@ -66,5 +76,6 @@ inline IDirect3DIndexBuffer9** out(GpuIndexBuffer** slot) noexcept
 {
     return detail::same_address<IDirect3DIndexBuffer9*>(slot);
 }
+inline IDirect3DQuery9** out(GpuQuery** slot) noexcept { return detail::same_address<IDirect3DQuery9*>(slot); }
 
 } // namespace render::d3d9
