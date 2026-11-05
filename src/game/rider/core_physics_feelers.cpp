@@ -378,7 +378,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     objects::GameEntity* object = object_of(this);
     objects::ObjectModule* motion = object->fetch_module(kMotion);
     const bool moved = motion->invoke_method_by_name(kObjMoveToNode, params, script) != 0;
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     auto* shadow = core::down_cast<objects::GroundShadowModule>(object_of(this)->fetch_module(kShadow));
     shadow->change_place(&entity()->at_point());
     shadow->set_normal(&core::at(entity()->basis_frame().row, 1));
@@ -522,7 +522,7 @@ void SkaterPhysicsModule::check_side_feelers()
     velocity.y = push.y + velocity.y;
     velocity.z = push.z + velocity.z;
     velocity.w = push.w + velocity.w;
-    entity()->vel().align_to_plane(floor_normal_);
+    entity()->vel().align_to_plane(ground_.floor_normal);
     object = object_of(this);
     const maths::Vec4& forward = core::at(object->basis_frame().row, 2);
     const maths::Vec4& normal = feelers_.feeler.surface_dir();
@@ -541,7 +541,7 @@ void SkaterPhysicsModule::check_side_feelers()
         step = angle;
     }
     entity()->basis_frame().yaw_locally(step);
-    display_matrix_.yaw_locally(step);
+    ground_.display_matrix.yaw_locally(step);
 }
 
 // 0x005054A0
@@ -565,7 +565,7 @@ bool SkaterPhysicsModule::apply_model_rotations()
         quat->init_from_axis_angle(axis, angle);
         velocity = *quat->spin_by(&axis, velocity);
     }
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     get_clear(core::at(model->twist_rate(), 0));
     get_clear(*y_rotation);
     get_clear(core::at(model->twist_rate(), 2));

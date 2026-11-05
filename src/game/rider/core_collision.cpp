@@ -140,7 +140,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     const maths::Vec4* hit_normal = &feelers_.feeler.surface_dir();
     if (feelers_.hit_skatable != 0U) {
         // Something to skate on: only a wall when it's unlike the ground (and not facing up).
-        const maths::Vec4& ground = floor_normal_;
+        const maths::Vec4& ground = ground_.floor_normal;
         const double dot = ((static_cast<double>(normal.z) * ground.z) + (static_cast<double>(normal.y) * ground.y)) +
                            (static_cast<double>(normal.x) * ground.x);
         if (!(dot < static_cast<double>(kSteepDot)) || !(normal.y < kFloorLeanY)) {

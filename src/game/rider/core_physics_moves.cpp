@@ -333,14 +333,14 @@ bool SkaterPhysicsModule::wall_push_off()
     } else {
         v = -script::fetch_float(kPushOffSpeed) * core::at(entity()->basis_frame().row, 2);
     }
-    entity()->vel().align_to_plane(floor_normal_);
+    entity()->vel().align_to_plane(ground_.floor_normal);
     objects::GameEntity* object = object_of(this);
     core::at(object->basis_frame().row, 2) = object->vel();
     core::at(entity()->basis_frame().row, 2).make_unit();
-    core::at(entity()->basis_frame().row, 1) = floor_normal_;
+    core::at(entity()->basis_frame().row, 1) = ground_.floor_normal;
     object = object_of(this);
     core::at(object->basis_frame().row, 0) = maths::cross_vec(core::at(object->basis_frame().row, 1), core::at(object->basis_frame().row, 2));
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     wallplant_.last_push_off = get_now();
     return true;
 }
@@ -390,9 +390,9 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     facing = -facing;
     maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     right = -right;
-    maths::Vec4& display_facing = core::at(display_matrix_.row, 2);
+    maths::Vec4& display_facing = core::at(ground_.display_matrix.row, 2);
     display_facing = -display_facing;
-    maths::Vec4& display_right = core::at(display_matrix_.row, 0);
+    maths::Vec4& display_right = core::at(ground_.display_matrix.row, 0);
     display_right = -display_right;
     if (script::fetch_int_value(kNoTurnRoundScript) == 0) {
         script::launch_script(kTurnRoundScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false,

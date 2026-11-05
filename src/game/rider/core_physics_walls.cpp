@@ -384,7 +384,7 @@ void SkaterPhysicsModule::check_wall_ahead()
     const maths::Vec4 normal = feelers_.feeler.surface_dir();
     if (feelers_.hit_skatable != 0U) {
         // Skatable and not flat against the ground: pushed out of it a little.
-        const maths::Vec4& ground = floor_normal_;
+        const maths::Vec4& ground = ground_.floor_normal;
         const double into = (static_cast<double>(normal.z) * ground.z) + (static_cast<double>(normal.y) * ground.y) +
                             (static_cast<double>(normal.x) * ground.x);
         if (!(std::fabs(into) < kWallFlat)) {
@@ -518,7 +518,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     auto back_angle = static_cast<float>(back);
     turn_velocity(entity()->vel(), back);
     entity()->basis_frame().yaw_locally(back_angle);
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     entity()->vel() *= kWallHitSlowdown;
     collision_events::note_path(this, collision_events::RouteWay::kWallAheadCorner, entry_velocity); // (not original)
     if (script::fetch_float(kDontFlailSpeed) < moved) {

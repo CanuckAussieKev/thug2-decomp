@@ -394,7 +394,7 @@ bool SkaterPhysicsModule::keep_to_ground(GroundReach hit, bool bike)
         static_cast<float>((static_cast<double>(facing.x) * normal.x) + (static_cast<double>(facing.z) * normal.z) +
                            (static_cast<double>(facing.y) * normal.y));
     in_hit_plane.align_to_plane(normal);
-    in_ground_plane.align_to_plane(floor_normal_);
+    in_ground_plane.align_to_plane(ground_.floor_normal);
     auto turn = static_cast<float>((static_cast<double>(in_ground_plane.x) * in_hit_plane.x) +
                                    (static_cast<double>(in_ground_plane.z) * in_hit_plane.z) +
                                    (static_cast<double>(in_ground_plane.y) * in_hit_plane.y));
@@ -629,7 +629,7 @@ bool SkaterPhysicsModule::land_on_hit(maths::Vec4& from, const maths::Vec4& carr
         entity()->vel().align_to_plane(normal);
         core::at(entity()->basis_frame().row, 2).align_to_plane(normal);
         entity()->basis_frame().square_up_axes(2);
-        display_matrix_ = entity()->basis_frame();
+        ground_.display_matrix = entity()->basis_frame();
         const float push = tuning_float_lookup(0x23410C14, object);
         entity()->at_point() += normal * push;
         set_timed_flag(state_, PoseFlag::kNoAcidDrop, 1);
@@ -796,7 +796,7 @@ void SkaterPhysicsModule::do_air_physics()
     {
         if ((state_->flag(PoseFlag::kVertAir).on == 0U) || (state_->flag(PoseFlag::kAcidDrop).on != 0U) ||
             (model_rotating_ != 0U) || core::at(rotate_->turns(), 0).active || core::at(rotate_->turns(), 2).active) {
-            display_matrix_ = entity()->basis_frame();
+            ground_.display_matrix = entity()->basis_frame();
         } else {
             update_ground_normal();
         }
@@ -914,23 +914,23 @@ void SkaterPhysicsModule::land_from_air()
             // lerp started) - the bike eases into the landing instead of snapping to the ground.
             const maths::Vec4 up = core::at(entity()->basis_frame().row, 1);
             const maths::Vec4 hit = normal;
-            drawn_normal_ = up;
-            floor_normal_ = up;
-            old_normal_ = drawn_normal_;
+            ground_.drawn_normal = up;
+            ground_.floor_normal = up;
+            ground_.old_normal = ground_.drawn_normal;
             find_nearest_wall_side();
-            display_matrix_ = entity()->basis_frame();
+            ground_.display_matrix = entity()->basis_frame();
             turn_to_normal(hit);
             static_cast<objects::Entity*>(entity())->post_own_event(kLandedName, nullptr);
             return;
         }
-        maths::Vec4& ground = drawn_normal_;
+        maths::Vec4& ground = ground_.drawn_normal;
         ground = normal;
-        floor_normal_ = ground;
-        old_normal_ = ground;
+        ground_.floor_normal = ground;
+        ground_.old_normal = ground;
         find_nearest_wall_side();
         core::at(entity()->basis_frame().row, 1) = ground;
         entity()->basis_frame().square_up_axes(1);
-        display_matrix_ = entity()->basis_frame();
+        ground_.display_matrix = entity()->basis_frame();
     }
     static_cast<objects::Entity*>(entity())->post_own_event(kLandedName, nullptr);
 }

@@ -62,7 +62,7 @@ void SkaterPhysicsModule::off_wall_edge(bool reset_display)
 {
     turn_to_normal(kUpAxis);
     if (reset_display) {
-        display_matrix_ = entity()->basis_frame();
+        ground_.display_matrix = entity()->basis_frame();
     }
     add_scaled(entity()->at_point(), wall_.normal, kPushOff);
     set_physics_state(kAir);
@@ -82,7 +82,7 @@ maths::Vec4 SkaterPhysicsModule::carried_on_wall()
             if (get_tracker(this)->turned()) {
                 maths::Mat4& basis = entity()->basis_frame();
                 maths::matrix_multiply(&basis, &basis, &get_tracker(this)->turn());
-                maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                maths::matrix_multiply(&ground_.display_matrix, &ground_.display_matrix, &get_tracker(this)->turn());
             }
         }
     }
@@ -192,7 +192,7 @@ void SkaterPhysicsModule::step_wall_ride()
         right_row.x = rx;
         right_row.y = ry;
         core::at(entity()->basis_frame().row, 0).make_unit();
-        display_matrix_ = entity()->basis_frame();
+        ground_.display_matrix = entity()->basis_frame();
     }
 
     // A feeler ahead along the move (Skater_First_Forward_Collision_Length past the new position).
@@ -239,7 +239,7 @@ void SkaterPhysicsModule::step_wall_ride()
             // Round a corner: the new wall.
             wall_.normal = hit;
             turn_to_normal(wall_.normal);
-            display_matrix_ = entity()->basis_frame();
+            ground_.display_matrix = entity()->basis_frame();
             entity()->vel().align_to_plane(wall_.normal);
         } else if (hit.y > kTopFacesUp) {
             // Onto the top: the ground (a grind first), upright on it, heading along the velocity.
@@ -253,13 +253,13 @@ void SkaterPhysicsModule::step_wall_ride()
             core::at(skater->basis_frame().row, 0) =
                 maths::cross_vec(core::at(skater->basis_frame().row, 1), core::at(skater->basis_frame().row, 2));
             core::at(entity()->basis_frame().row, 0).make_unit();
-            display_matrix_ = entity()->basis_frame();
+            ground_.display_matrix = entity()->basis_frame();
             auto* queries = core::down_cast<objects::RiderFrameLookups>(
                 static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kMatrixQueries));
             queries->set_basis_frame(queries->entity()->basis_frame());
-            old_normal_ = core::at(entity()->basis_frame().row, 1);
-            drawn_normal_ = core::at(entity()->basis_frame().row, 1);
-            floor_normal_ = core::at(entity()->basis_frame().row, 1);
+            ground_.old_normal = core::at(entity()->basis_frame().row, 1);
+            ground_.drawn_normal = core::at(entity()->basis_frame().row, 1);
+            ground_.floor_normal = core::at(entity()->basis_frame().row, 1);
             try_grind(true);
             if (state_of(this) == kRail) {
                 return;
@@ -304,12 +304,12 @@ void SkaterPhysicsModule::step_wall_ride()
         skater_position.z = w.z + skater_position.z, skater_position.w = w.w + skater_position.w;
         entity()->vel().align_to_plane(wall_.normal);
         turn_to_normal(wall_.normal);
-        display_matrix_ = entity()->basis_frame();
+        ground_.display_matrix = entity()->basis_frame();
         if (feelers_.hit_wall == 0U) {
             // Not a wall to ride: pushed away from it into the air.
             add_scaled(entity()->vel(), wall_.normal, kPushAway);
             turn_to_normal(kUpAxis);
-            display_matrix_ = entity()->basis_frame();
+            ground_.display_matrix = entity()->basis_frame();
             set_physics_state(kAir);
             static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0F);
             static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
@@ -367,11 +367,11 @@ void SkaterPhysicsModule::step_wall_ride()
         vy = script::fetch_float(kJumpUpSpeed) + vy;
         core::at(entity()->basis_frame().row, 1) = kUpAxis;
         entity()->basis_frame().square_up_axes(1);
-        display_matrix_ = entity()->basis_frame();
-        normal_blend_ = 0.0F;
-        drawn_normal_ = core::at(entity()->basis_frame().row, 1);
-        floor_normal_ = drawn_normal_;
-        old_normal_ = drawn_normal_;
+        ground_.display_matrix = entity()->basis_frame();
+        ground_.normal_blend = 0.0F;
+        ground_.drawn_normal = core::at(entity()->basis_frame().row, 1);
+        ground_.floor_normal = ground_.drawn_normal;
+        ground_.old_normal = ground_.drawn_normal;
     }
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.floor_feeler.hit().object_checksum_);
 }

@@ -887,7 +887,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, scrip
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);
     up.make_unit();
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     return 1;
 }
 
@@ -1014,7 +1014,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script* 
     core::down_cast<objects::RiderSpinAndFlip>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate))
         ->get_flip();
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     return 1;
 }
 

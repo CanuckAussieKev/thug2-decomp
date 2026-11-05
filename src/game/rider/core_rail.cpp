@@ -369,7 +369,8 @@ void SkaterPhysicsModule::ride_moving_rail()
                     if (get_tracker(this)->turned()) {
                         maths::Mat4& basis = entity()->basis_frame();
                         maths::matrix_multiply(&basis, &basis, &get_tracker(this)->turn());
-                        maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                        maths::matrix_multiply(&ground_.display_matrix, &ground_.display_matrix,
+                                               &get_tracker(this)->turn());
                     }
                 }
             }
@@ -417,19 +418,19 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     // to it, the display and the object's matrices built around them (level rights).
     const float way = (rail_backwards_ != 0U) ? -sign : sign;
     const maths::Vec4 facing = {.x = direction.x * way, .y = direction.y * way, .z = direction.z * way, .w = way * direction.w};
-    maths::Vec4& display = core::at(display_matrix_.row, 2);
+    maths::Vec4& display = core::at(ground_.display_matrix.row, 2);
     maths::Vec4 turned;
     walk::get_lerp(&turned, &display, &facing, kTurnFacing);
     display = turned;
     display.make_unit();
-    maths::Vec4& right = core::at(display_matrix_.row, 0);
-    right.x = core::at(display_matrix_.row, 2).z;
+    maths::Vec4& right = core::at(ground_.display_matrix.row, 0);
+    right.x = core::at(ground_.display_matrix.row, 2).z;
     right.z = -display.x;
     right.y = 0.0F;
     right.w = 0.0F;
     right.make_unit();
-    core::at(display_matrix_.row, 1) = maths::cross_vec(display, right);
-    core::at(display_matrix_.row, 1).make_unit();
+    core::at(ground_.display_matrix.row, 1) = maths::cross_vec(display, right);
+    core::at(ground_.display_matrix.row, 1).make_unit();
     objects::GameEntity* object = object_of(this);
     core::at(object->basis_frame().row, 2) = facing;
     core::at(entity()->basis_frame().row, 2).make_unit();
@@ -543,7 +544,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
 // time (0x00564270, +0x3A8 scaled), the node's Name.
 void SkaterPhysicsModule::finish_rail()
 {
-    floor_normal_ = core::at(entity()->basis_frame().row, 1);
+    ground_.floor_normal = core::at(entity()->basis_frame().row, 1);
     modules::PointTally* score = score_->points_held();
     const int time = static_cast<int>(static_cast<double>(rail_adjust_) * score->robot_factor());
     score->tweak_trick(time);
@@ -597,19 +598,19 @@ void SkaterPhysicsModule::do_bike_stall_physics()
             direction.make_unit();
             rail_time_ = get_now();
             const maths::Vec4 facing = thaw_bmx::bike::stall_facing(core::at(entity()->basis_frame().row, 2), direction);
-            maths::Vec4& display = core::at(display_matrix_.row, 2);
+            maths::Vec4& display = core::at(ground_.display_matrix.row, 2);
             maths::Vec4 turned;
             walk::get_lerp(&turned, &display, &facing, kTurnFacing);
             display = turned;
             display.make_unit();
-            maths::Vec4& right = core::at(display_matrix_.row, 0);
-            right.x = core::at(display_matrix_.row, 2).z;
+            maths::Vec4& right = core::at(ground_.display_matrix.row, 0);
+            right.x = core::at(ground_.display_matrix.row, 2).z;
             right.z = -display.x;
             right.y = 0.0F;
             right.w = 0.0F;
             right.make_unit();
-            core::at(display_matrix_.row, 1) = maths::cross_vec(display, right);
-            core::at(display_matrix_.row, 1).make_unit();
+            core::at(ground_.display_matrix.row, 1) = maths::cross_vec(display, right);
+            core::at(ground_.display_matrix.row, 1).make_unit();
             objects::GameEntity* object = object_of(this);
             core::at(object->basis_frame().row, 2) = facing;
             core::at(object->basis_frame().row, 2).make_unit();

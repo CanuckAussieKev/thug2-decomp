@@ -89,14 +89,14 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     // Moving: the velocity turned into the ground's plane.
     if (length_of(object->vel()) > kMoving) {
-        object->vel().align_to_plane(floor_normal_);
+        object->vel().align_to_plane(ground_.floor_normal);
     }
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
     maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kGroundGravity, object_of(this)), .z = 0.0F, .w = 1.0F};
     if (!(limits_time_ == 0.0F) && entity()->vel().y > 0.0F) {
         gravity = {.x = 0.0F, .y = limits_gravity_, .z = 0.0F, .w = 1.0F};
     }
-    gravity.flatten_onto_plane(floor_normal_);
+    gravity.flatten_onto_plane(ground_.floor_normal);
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
     if (bike) {
         thaw_bmx::get_on_ground(this);
@@ -150,7 +150,7 @@ void SkaterPhysicsModule::do_ground_physics()
             if (get_tracker(this)->turned()) {
                 maths::Mat4& basis = entity()->basis_frame();
                 maths::matrix_multiply(&basis, &basis, &get_tracker(this)->turn());
-                maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                maths::matrix_multiply(&ground_.display_matrix, &ground_.display_matrix, &get_tracker(this)->turn());
             }
         }
     }

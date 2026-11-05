@@ -62,7 +62,7 @@ void SkaterPhysicsModule::step_coping_move()
             if (get_tracker(this)->turned()) {
                 maths::Mat4& matrix = entity()->basis_frame();
                 maths::matrix_multiply(&matrix, &matrix, &get_tracker(this)->turn());
-                maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+                maths::matrix_multiply(&ground_.display_matrix, &ground_.display_matrix, &get_tracker(this)->turn());
             }
         }
     }
@@ -112,11 +112,11 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         }
     }
     state_changed_at_ = get_now();
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
-    floor_normal_ = core::at(entity()->basis_frame().row, 1);
-    old_normal_ = floor_normal_;
-    drawn_normal_ = old_normal_;
+    ground_.floor_normal = core::at(entity()->basis_frame().row, 1);
+    ground_.old_normal = ground_.floor_normal;
+    ground_.drawn_normal = ground_.old_normal;
     safe_pos_ = entity()->at_point();
     entity()->old_pos() = safe_pos_;
     // The jump / trick state cleared.

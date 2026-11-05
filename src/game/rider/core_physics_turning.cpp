@@ -88,7 +88,7 @@ void turn_velocity(maths::Vec4& velocity, double angle)
 void SkaterPhysicsModule::turn_matrices(float angle)
 {
     object_of(this)->basis_frame().yaw_locally(angle);
-    display_matrix_.yaw_locally(angle);
+    ground_.display_matrix.yaw_locally(angle);
 }
 
 // 0x005002D0
@@ -204,7 +204,7 @@ bool SkaterPhysicsModule::turn_down_slope()
     const maths::Vec4 heading =
         length_unrounded(object->vel()) < kSlopeTurnSpeed ? core::at(object->basis_frame().row, 2) : object->vel();
     maths::Vec4 down = {.x = 0.0F, .y = -1.0F, .z = 0.0F, .w = 1.0F};
-    down.flatten_onto_plane(floor_normal_);
+    down.flatten_onto_plane(ground_.floor_normal);
     object = object_of(this);
     const double off = maths::get_turn_around_axis(heading, down, core::at(object->basis_frame().row, 1));
     auto angle = static_cast<float>(off);
@@ -292,7 +292,7 @@ void SkaterPhysicsModule::lean_in_air()
         lean = static_cast<float>((static_cast<double>(time) - start) * lean / (static_cast<double>(end) - start));
     }
     entity()->basis_frame().pitch_locally(lean * frame_length_);
-    display_matrix_.pitch_locally(lean * frame_length_);
+    ground_.display_matrix.pitch_locally(lean * frame_length_);
 }
 
 // 0x00504A60
@@ -318,7 +318,7 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
     maths::get_multiply(change, last, slerped);
     maths::Mat4& matrix = entity()->basis_frame();
     maths::get_multiply(matrix, matrix, change);
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     drop_.last_matrix = slerped;
 }
 
@@ -362,7 +362,7 @@ void SkaterPhysicsModule::recover_in_air()
     flat.make_unit();
     const maths::Vec4 axis = {.x = -flat.z, .y = 0.0F, .z = flat.x, .w = 0.0F};
     object->basis_frame().spin_by(axis, rate * frame_length_);
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
 }
 
 // 0x00504DF0
@@ -386,7 +386,7 @@ void SkaterPhysicsModule::keep_upright()
         return;
     }
     entity()->basis_frame().roll_in_own_frame(static_cast<float>(angle));
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
 }
 
 } // namespace skater

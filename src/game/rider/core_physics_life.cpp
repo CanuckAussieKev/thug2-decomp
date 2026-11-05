@@ -127,10 +127,10 @@ void SkaterPhysicsModule::configure_from_data(script::Struct* /*params*/)
     core::at(matrix.row, 1) = maths::Vec4(0.0F, 1.0F, 0.0F, 0.0F);
     core::at(matrix.row, 2) = maths::Vec4(0.0F, 0.0F, 1.0F, 0.0F);
     core::at(matrix.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
-    display_matrix_ = entity()->basis_frame();
-    drawn_normal_ = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
-    floor_normal_ = drawn_normal_;
-    old_normal_ = drawn_normal_;
+    ground_.display_matrix = entity()->basis_frame();
+    ground_.drawn_normal = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
+    ground_.floor_normal = ground_.drawn_normal;
+    ground_.old_normal = ground_.drawn_normal;
     point_rail_spin_ = 0;
     ammo_ = 0;
 }
@@ -246,7 +246,7 @@ void SkaterPhysicsModule::turn_around()
     facing = maths::Vec4(-facing.x, -facing.y, -facing.z, -facing.w);
     maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     right = maths::Vec4(-right.x, -right.y, -right.z, -right.w);
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     rail_backwards_ = (rail_backwards_ != 0U) ? 0 : 1;
 }
 

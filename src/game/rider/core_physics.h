@@ -783,18 +783,26 @@ public:
         maths::Mat4 last_matrix{};       // +0xF0 (+0x4A0)
     };
 
+    // The display matrix and the ground normals (+0x18-+0x8B: update_ground_normal, turn_to_normal, land_from_air).
+    struct GroundNormals {
+        maths::Mat4 display_matrix{}; // +0x00 (+0x18) the matrix the skater is drawn with
+        maths::Vec4 drawn_normal{};   // +0x40 (+0x58) the ground normal the display matrix leans to (from old_normal)
+        maths::Vec4 floor_normal{};   // +0x50 (+0x68) the ground normal: the skater's up on the ground
+        maths::Vec4 old_normal{};     // +0x60 (+0x78) the ground normal before the last change
+        float normal_blend{};         // +0x70 (+0x88) old_normal to floor_normal: 1 at a change, run down to 0
+    };
     // The fields other code reads and sets.
     Feelers& feelers() { return feelers_; }
-    maths::Mat4& display_matrix() { return display_matrix_; }
-    [[nodiscard]] const maths::Mat4& display_matrix() const { return display_matrix_; }
-    maths::Vec4& drawn_normal() { return drawn_normal_; }
-    [[nodiscard]] const maths::Vec4& drawn_normal() const { return drawn_normal_; }
-    [[nodiscard]] const maths::Vec4& floor_normal() const { return floor_normal_; }
-    void set_floor_normal(const maths::Vec4& value) { floor_normal_ = value; }
-    maths::Vec4& old_normal() { return old_normal_; }
-    [[nodiscard]] const maths::Vec4& old_normal() const { return old_normal_; }
-    float& normal_blend() { return normal_blend_; }
-    [[nodiscard]] float normal_blend() const { return normal_blend_; }
+    maths::Mat4& display_matrix() { return ground_.display_matrix; }
+    [[nodiscard]] const maths::Mat4& display_matrix() const { return ground_.display_matrix; }
+    maths::Vec4& drawn_normal() { return ground_.drawn_normal; }
+    [[nodiscard]] const maths::Vec4& drawn_normal() const { return ground_.drawn_normal; }
+    [[nodiscard]] const maths::Vec4& floor_normal() const { return ground_.floor_normal; }
+    void set_floor_normal(const maths::Vec4& value) { ground_.floor_normal = value; }
+    maths::Vec4& old_normal() { return ground_.old_normal; }
+    [[nodiscard]] const maths::Vec4& old_normal() const { return ground_.old_normal; }
+    float& normal_blend() { return ground_.normal_blend; }
+    [[nodiscard]] float normal_blend() const { return ground_.normal_blend; }
     [[nodiscard]] float frame_length() const { return frame_length_; }
     [[nodiscard]] int state_changed_at() const { return state_changed_at_; }
     maths::Vec4& safe_pos() { return safe_pos_; }
@@ -902,11 +910,7 @@ private:
     void land_from_air();
 
     // The fields after the base's (+0x18-+0x153B). Other components and the network code read a few of them.
-    maths::Mat4 display_matrix_{};  // +0x18 the matrix the skater is drawn with
-    maths::Vec4 drawn_normal_{};    // +0x58 the ground normal the display matrix leans to (blended from old_normal_)
-    maths::Vec4 floor_normal_{};    // +0x68 the ground normal: the skater's up on the ground
-    maths::Vec4 old_normal_{};      // +0x78 the ground normal before the last change
-    float normal_blend_{};          // +0x88 old_normal_ to floor_normal_: 1 at a change, run down to 0
+    GroundNormals ground_;          // +0x18-+0x8B the display matrix and the ground normals
     float frame_length_{};          // +0x8C the frame's length (seconds, slow motion included)
     int state_changed_at_{};        // +0x90 the game clock when the physics state last changed
     int old_state_{};               // +0x94 the physics state before it

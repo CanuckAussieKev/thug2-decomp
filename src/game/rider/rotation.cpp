@@ -148,7 +148,7 @@ void SkaterPhysicsModule::get_spin()
     last_spin_backside_ = static_cast<uint8_t>(speed > 0.0F);
     auto step = static_cast<float>(static_cast<double>(speed) * frame_length());
     body_transform(object).yaw_locally(step);
-    display_matrix_.yaw_locally(step);
+    ground_.display_matrix.yaw_locally(step);
     float& total = trick_->spin_total();
     total = static_cast<float>((static_cast<double>(step) * kDegreesPerRadian) + total);
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
@@ -321,11 +321,11 @@ void SkaterPhysicsModule::break_vert(bool force)
     auto& velocity = object->vel();
     if (triggers() || (transfer_blocked_ != 0U) || (bike && thaw_bmx::vert_tap_held(this))) {
         if (try_spine_transfer()) {
-            display_matrix_ = body_transform(object);
+            ground_.display_matrix = body_transform(object);
             return;
         }
-        velocity[0] = static_cast<float>(velocity[0] - (static_cast<double>(drawn_normal_.x) * kBreakVertPush));
-        velocity[2] = static_cast<float>(velocity[2] - (static_cast<double>(drawn_normal_.z) * kBreakVertPush));
+        velocity[0] = static_cast<float>(velocity[0] - (static_cast<double>(ground_.drawn_normal.x) * kBreakVertPush));
+        velocity[2] = static_cast<float>(velocity[2] - (static_cast<double>(ground_.drawn_normal.z) * kBreakVertPush));
         body_transform(object).pitch_locally(
             static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
         state_->set_flag(PoseFlag::kVertAir, 0);
@@ -343,8 +343,8 @@ void SkaterPhysicsModule::break_vert(bool force)
     auto length_sqr_stored = static_cast<float>(length_sqr);
     const double slow =
         tuning_float_lookup(kBreakVertSlow, 1, object) * std::sqrt(static_cast<double>(length_sqr_stored));
-    velocity[0] = static_cast<float>(velocity[0] - (slow * drawn_normal_.x));
-    velocity[2] = static_cast<float>(velocity[2] - (slow * drawn_normal_.z));
+    velocity[0] = static_cast<float>(velocity[0] - (slow * ground_.drawn_normal.x));
+    velocity[2] = static_cast<float>(velocity[2] - (slow * ground_.drawn_normal.z));
     velocity[1] = static_cast<float>(tuning_float_lookup(kBreakVertUpScale, 1, object) * velocity[1]);
     body_transform(object).pitch_locally(
         static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
@@ -353,7 +353,7 @@ void SkaterPhysicsModule::break_vert(bool force)
     state_->set_flag(PoseFlag::kLeftVert, 0);
     state_->set_flag(PoseFlag::kNoAcidDrop, 0);
     face_along_velocity(object);
-    display_matrix_ = body_transform(object);
+    ground_.display_matrix = body_transform(object);
 }
 
 } // namespace skater

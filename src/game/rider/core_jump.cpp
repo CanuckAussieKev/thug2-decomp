@@ -185,7 +185,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     maths::Vec4& velocity = entity()->vel();
     if ((bit_mark(this, PoseFlag::kVertAir) != 0U) && velocity.y < 0.0F) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
-        const maths::Vec4& away = drawn_normal_;
+        const maths::Vec4& away = ground_.drawn_normal;
         const float z = speed * away.z;
         const float w = speed * away.w;
         velocity.x = static_cast<float>((static_cast<double>(speed) * away.x) + velocity.x);
@@ -307,7 +307,7 @@ void SkaterPhysicsModule::step_wallplant()
     if (tracker->turned()) {
         maths::Mat4& matrix = entity()->basis_frame();
         maths::matrix_multiply(&matrix, &matrix, &tracker->turn());
-        maths::matrix_multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn());
+        maths::matrix_multiply(&ground_.display_matrix, &ground_.display_matrix, &get_tracker(this)->turn());
     }
 }
 
@@ -345,7 +345,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script* /*
     }
     if (state_of(this) == kWallRide) {
         turn_to_normal(maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F});
-        display_matrix_ = entity()->basis_frame();
+        ground_.display_matrix = entity()->basis_frame();
     }
     switch (state) {
     case kAirName:

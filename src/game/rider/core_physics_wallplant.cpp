@@ -342,7 +342,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     core::at(entity()->basis_frame().row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     object = object_of(this);
     core::at(object->basis_frame().row, 0) = maths::cross_vec(core::at(object->basis_frame().row, 1), core::at(object->basis_frame().row, 2));
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     wallplant_.time = get_now();
     object_of(this)->post_own_event(kWallplant, nullptr);
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feelers_.feeler.hit().object_checksum_);
@@ -437,7 +437,7 @@ bool SkaterPhysicsModule::start_wall_ride()
     object = object_of(this);
     core::at(object->basis_frame().row, 0) = maths::cross_vec(core::at(object->basis_frame().row, 1), core::at(object->basis_frame().row, 2));
     core::at(entity()->basis_frame().row, 0).make_unit();
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
     const maths::Vec4& velocity = entity()->vel();
     const double side = (static_cast<double>(wall.x) * velocity.z) + (-static_cast<double>(wall.z) * velocity.x) +
                         (static_cast<double>(velocity.y) * 0.0F);

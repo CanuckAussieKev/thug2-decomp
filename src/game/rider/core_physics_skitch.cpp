@@ -205,7 +205,7 @@ void SkaterPhysicsModule::get_skitch()
         entity()->at_point() = target;
     }
     entity()->basis_frame() = car->display_matrix(); // (the car's display matrix)
-    display_matrix_ = entity()->basis_frame();
+    ground_.display_matrix = entity()->basis_frame();
 }
 
 } // namespace skater

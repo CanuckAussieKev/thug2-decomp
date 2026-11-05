@@ -113,11 +113,11 @@ void SkaterPhysicsModule::check_layout()
         std::size_t original;
     };
     constexpr std::array kLayout{
-        FieldAt{.now = offsetof(SkaterPhysicsModule, display_matrix_), .original = 0x18},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, drawn_normal_), .original = 0x58},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, floor_normal_), .original = 0x68},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, old_normal_), .original = 0x78},
-        FieldAt{.now = offsetof(SkaterPhysicsModule, normal_blend_), .original = 0x88},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.display_matrix), .original = 0x18},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.drawn_normal), .original = 0x58},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.floor_normal), .original = 0x68},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.old_normal), .original = 0x78},
+        FieldAt{.now = offsetof(SkaterPhysicsModule, ground_.normal_blend), .original = 0x88},
         FieldAt{.now = offsetof(SkaterPhysicsModule, frame_length_), .original = 0x8C},
         FieldAt{.now = offsetof(SkaterPhysicsModule, state_changed_at_), .original = 0x90},
         FieldAt{.now = offsetof(SkaterPhysicsModule, old_state_), .original = 0x94},
@@ -511,8 +511,8 @@ int SkaterPhysicsModule::can_kick(script::Struct* /*params*/, script::Script* /*
 // 0x00500E90
 int SkaterPhysicsModule::orient_to_normal(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    drawn_normal_ = core::at(entity()->basis_frame().row, 1);
-    floor_normal_ = core::at(entity()->basis_frame().row, 1);
+    ground_.drawn_normal = core::at(entity()->basis_frame().row, 1);
+    ground_.floor_normal = core::at(entity()->basis_frame().row, 1);
     turn_to_normal(feelers_.feeler.surface_dir());
     return 1;
 }

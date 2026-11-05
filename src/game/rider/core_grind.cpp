@@ -174,7 +174,7 @@ void SkaterPhysicsModule::onto_rail(const maths::Vec4* point, bool always)
     transfer_blocked_ = 0;
     if (always || state_of(this) == kWallRide) {
         turn_to_normal(kUpAxis);
-        display_matrix_ = object_of(this)->basis_frame();
+        ground_.display_matrix = object_of(this)->basis_frame();
     }
     set_physics_state(kRail);
 }
@@ -316,7 +316,7 @@ void SkaterPhysicsModule::start_lip_trick(const maths::Vec4* point)
     set_physics_state(kLip);
     object_of(this)->at_point() = *point;
     // Up: the ramp's normal, level; facing straight up; right across.
-    const maths::Vec4& ground = floor_normal_;
+    const maths::Vec4& ground = ground_.floor_normal;
     maths::Vec4 up = {.x = ground.x, .y = 0.0F, .z = ground.z, .w = ground.w};
     up.make_unit();
     objects::GameEntity* object = object_of(this);
@@ -328,7 +328,7 @@ void SkaterPhysicsModule::start_lip_trick(const maths::Vec4* point)
     right.w = 0.0F;
     right.x = -u.z;
     right.z = u.x;
-    display_matrix_ = object_of(this)->basis_frame();
+    ground_.display_matrix = object_of(this)->basis_frame();
     auto* gap = core::down_cast<objects::RiderGapTracker>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterGap));
     gap->scan_for_gaps({.cancel = 0, .require = kGapRequireFlags});
@@ -568,7 +568,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     if (allow_lip_no_grind_ == 0U) {
         const objects::GameEntity* object = object_of(this);
         lip = object->vel().y > 0.0F && std::fabs(core::at(object->basis_frame().row, 1).y) < horizontal &&
-              core::at(object->basis_frame().row, 2).y > 0.0F && std::fabs(floor_normal_.y) < ramp_vert &&
+              core::at(object->basis_frame().row, 2).y > 0.0F && std::fabs(ground_.floor_normal.y) < ramp_vert &&
               std::fabs(core::at(object->basis_frame().row, 0).y) < allow;
     }
     // (not original: THAW 0x005E1B31 - no lip trick on the bike)

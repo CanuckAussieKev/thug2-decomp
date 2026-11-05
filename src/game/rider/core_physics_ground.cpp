@@ -113,7 +113,7 @@ bool SkaterPhysicsModule::may_turn_on_slope()
     if (!(script::fetch_float(kSlopeTurnSpeed) > speed)) {
         return false;
     }
-    return script::fetch_float(kSlopeTurnNormal) > floor_normal_.y;
+    return script::fetch_float(kSlopeTurnNormal) > ground_.floor_normal.y;
 }
 
 // 0x004FE490
@@ -228,10 +228,10 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
             normal = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
         }
     }
-    if (floor_normal_ != normal) {
-        floor_normal_ = normal;
-        old_normal_ = drawn_normal_;
-        normal_blend_ = 1.0F;
+    if (ground_.floor_normal != normal) {
+        ground_.floor_normal = normal;
+        ground_.old_normal = ground_.drawn_normal;
+        ground_.normal_blend = 1.0F;
         core::at(entity()->basis_frame().row, 1) = normal;
         entity()->basis_frame().square_up_axes(1);
     }
@@ -240,9 +240,9 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
 // 0x004FEA50
 void SkaterPhysicsModule::update_ground_normal()
 {
-    float& blend = normal_blend_;
+    float& blend = ground_.normal_blend;
     if (blend != 0.0F) {
-        if (old_normal_ == floor_normal_) {
+        if (ground_.old_normal == ground_.floor_normal) {
             blend = 0.0F;
         } else {
             const double left =
@@ -251,21 +251,21 @@ void SkaterPhysicsModule::update_ground_normal()
             blend = remaining_blend;
             if (left > 0.0 || left != left) {
                 maths::Vec4 blended;
-                walk::get_lerp(&blended, &floor_normal_, &old_normal_, remaining_blend);
-                drawn_normal_ = blended;
-                drawn_normal_.make_unit();
+                walk::get_lerp(&blended, &ground_.floor_normal, &ground_.old_normal, remaining_blend);
+                ground_.drawn_normal = blended;
+                ground_.drawn_normal.make_unit();
             } else {
                 blend = 0.0F;
-                drawn_normal_ = floor_normal_;
+                ground_.drawn_normal = ground_.floor_normal;
             }
         }
     }
-    if (core::at(display_matrix_.row, 1) != drawn_normal_) {
-        core::at(display_matrix_.row, 1) = drawn_normal_;
-        maths::Mat4& display = display_matrix_;
+    if (core::at(ground_.display_matrix.row, 1) != ground_.drawn_normal) {
+        core::at(ground_.display_matrix.row, 1) = ground_.drawn_normal;
+        maths::Mat4& display = ground_.display_matrix;
         display.square_up_axes(1);
         core::at(display.row, 0) = core::at(entity()->basis_frame().row, 0);
-        core::at(display_matrix_.row, 2) = core::at(entity()->basis_frame().row, 2);
+        core::at(ground_.display_matrix.row, 2) = core::at(entity()->basis_frame().row, 2);
     }
 }
 
@@ -278,8 +278,8 @@ void SkaterPhysicsModule::start_vert_air()
     }
     const objects::GameEntity* object = object_of(this);
     tracking_print(3, &object->old_pos(), &object->at_point());
-    maths::Vec4 across = floor_normal_;
-    vert_wall_normal_ = floor_normal_;
+    maths::Vec4 across = ground_.floor_normal;
+    vert_wall_normal_ = ground_.floor_normal;
     vert_takeoff_ = entity()->old_pos();
     vert_takeoff_.y = static_cast<float>(vert_takeoff_.y - 1.0);
     across.y = 0.0F;
