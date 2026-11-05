@@ -27,7 +27,7 @@ void draw_movie_quad(GpuDevice* device, int type, uint32_t count, void* vertices
 } // namespace render
 
 namespace script {
-class Script;
+class Context;
 class Struct;
 }
 
@@ -37,7 +37,7 @@ namespace render {
 // start-up logo and intro movies (ATVI, Beenox_Shift, Dolby_Digital, Intel_intro, NSlogo, intro, introf) are
 // skipped, and so is any movie the start-up script startup_loading_screen plays (Anteara Mod's Shorty's movie);
 // other movies play as usual.
-bool play_movie(script::Struct* params, script::Script* script);
+bool play_movie(script::Struct* params, script::Context context);
 // The skip_intro_movies flag (read from the ini once - also on for a run started with -edit / edit_level,
 // devtools/start_level.h).
 bool& skip_intro_movies();

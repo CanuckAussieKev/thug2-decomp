@@ -31,6 +31,7 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/context.h"
 #include "engine/sound/sfx.h"
 #include "engine/pad_input/device.h"
 #include "engine/sys/mlp.h"
@@ -528,13 +529,13 @@ bool& skip_intro_movies()
 
 // 0x0059F0C0: the PlayMovie script command: play the movie named by the unnamed string (through the jump at
 // 0x0044F830).
-bool play_movie(script::Struct* params, script::Script* script)
+bool play_movie(script::Struct* params, script::Context context)
 {
     const char* name = nullptr;
     if (!params->fetch_text(0U, &name, 1)) {
         return false;
     }
-    if (skip_intro_movies() && (is_intro_movie(name) || from_start_up_script(script))) {
+    if (skip_intro_movies() && (is_intro_movie(name) || from_start_up_script(context.script()))) {
         get_log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);
         return true;
     }
