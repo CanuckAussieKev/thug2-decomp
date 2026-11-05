@@ -304,8 +304,9 @@ everything above it uses the game's own types and may change them freely.
     shaders and pipelines from it), draws per batch (from buffers or from memory), clears, the scene, present. One
     call per device call; Direct3D 9's (`render_d3d9/gpu_d3d9.cpp`) passes each on unchanged, and `app::install_renderer`
     installs it with the device. The render-state cache (`render_state.cpp`, `primitive_states.cpp`) and the device's
-    state and clear wrappers go through it already and include no Direct3D header (tools/d3d_headers.test.ts); the
-    meshes, particles, effects and 2D still call the device directly until they are moved over.
+    state and clear wrappers, the meshes' buffers, drawing, materials, instances and pixel shaders go through it already
+    and include no Direct3D header (tools/d3d_headers.test.ts); the particles, effects and 2D still call the device
+    directly until they are moved over.
   - What our level editor asks of it (`render::Device`, "what our level editor asks"; `render_d3d9/editor_support.cpp`):
     whether the device is made, its view modes (`engine/gfx/view_modes.h`), its old HUD's lines, a PC geom's meshes,
     mesh array, instance and active flag, the buffers its ground tool makes and their upload and release, and the Add

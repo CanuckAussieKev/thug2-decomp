@@ -317,6 +317,23 @@ and the same frames.
   around the billboards, device creation and `Reset` with the present parameters, the front buffer's copy, state
   blocks and the other rarely used calls.
 
+### V5b: meshes, materials, instances through `Gpu` (done)
+
+`vertex_buffers`, `pc_buffers`, `mesh_list`, `sub_mesh`, `pc_mesh_life` (the buffers made, locked, retained, released,
+unbound and made again after a reset), `pc_mesh_render` (the skinned mesh's fog, world transform, lock and indexed
+draw), `pc_material` (the stage states, the texture matrices, the texture factor, the specular material),
+`pc_instance` (the two lights, the world transform, the vertex colour state), `pixel_shaders` (the shaders made) and
+`pc_mesh_load` (the buffers' usage, format and lock numbers) include no Direct3D header any more
+(`tools/d3d_headers.test.ts`). The same calls with the same numbers in the same order; the lights and the
+specular material are `GpuLight` / `GpuMaterial` (Direct3D 9's layouts), the matrices plain floats.
+
+- **Added to the interface**: `retain_vertex_buffer` (a share of an arena's holds a reference), `get_stream_source`
+  (a mesh's destruction asks which buffer the stream holds, to unbind it), `create_pixel_shader` (the ps.1.1 token
+  stream the assembler made: Direct3D 9 passes it on, another API reads the tokens or the program they stand for -
+  the text is still assembled by the D3DX wrapper, which is V5e's to move), `gpu_value::kUsageWriteOnly` /
+  `kUsageDynamic` / `kPoolDefault` / `kFormatIndex16` / `kLockReadOnly` / `kLockDiscard`.
+- The meshes' world draws now go through the Gpu in steady play: about 6,900 of the frame's ~7,300 device calls.
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -343,7 +360,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V3 | The fixed-function emulation generator: the state key -> GLSL -> SPIR-V, the 6 fixed `ps.1.1` shaders and the per-material generator in GLSL, compiled offline in a test program and checked by reading the key's terms back | V1 | now, against `stage11` |
 | V4 | Choose the renderer at start-up: `[Graphics] renderer=d3d9\|vulkan`; `app/` installs the matching `Device` / `UiBackend`; the SDL window flag through `sys::create_sdl_window` | V1 | after stage 11 - done: `app/renderer_choice`, falls back to Direct3D 9 until the device exists |
 | V5a | `render::Gpu`: the interface, and `render_state`'s cache and `primitive_states` through it (D3D9 implementation = today's calls) | - | after stage 11 - done: `engine/gfx/gpu.h`, `render_d3d9/gpu_d3d9.cpp` |
-| V5b | Meshes, materials, skinning, mesh lists, instances through `Gpu` | V5a | after stage 11 |
+| V5b | Meshes, materials, skinning, mesh lists, instances through `Gpu` | V5a | after stage 11 - done |
 | V5c | Particles, billboards, weather, grass, glow, texture splats, shatter through `Gpu` | V5a | after stage 11 |
 | V5d | Screen effects, draw frame, shadows (texture and stencil), texture projection, viewports through `Gpu` | V5a | after stage 11 |
 | V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` | V5a | after stage 11 |
