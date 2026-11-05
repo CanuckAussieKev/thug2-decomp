@@ -8,11 +8,14 @@
 #include <windows.h>
 #include <cstdint>
 #include <string>
+#include "engine/file/disk_files.h"
 #include <gsl/pointers>
 
 namespace frontend::automation::internal {
 
 constexpr int kDirectionZIndex = 5;                 // a camera command's numbers: position 0-2, direction 3-5, drift 6-8
+
+constexpr uint32_t kSkater = 0x5B8AB877;       // Skater (the local skater's alias)
 
 uint32_t name_hash(const std::string& name);
 
@@ -21,5 +24,19 @@ std::string get_lower(std::string text);
 bool is_identifier(const std::string& text);
 
 bool is_hex(const std::string& text);
+
+// --- trace: the skater frame by frame ---------------------------------------------------------------------------
+
+struct Trace {
+    fs::OwnedStream file;
+    fs::OwnedStream objects; // (trace ... objects: the moving objects' lines)
+    int left = 0;
+};
+
+Trace& trace_state();
+
+std::string start_trace(int frames, bool objects);
+
+void trace_frame();
 
 } // namespace frontend::automation::internal
