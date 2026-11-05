@@ -174,8 +174,8 @@ void BodyDynamicsModule::seal()
 // 0x0042BE90
 void BodyDynamicsModule::sleep()
 {
-    if (settle_script_ != 0U) {
-        script::host().tick_frame(entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false));
+    if (callbacks_.settle != 0U) {
+        script::host().tick_frame(entity()->spawn_script(callbacks_.settle, callback_params_ptr_, 0, false));
     }
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     rot_vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -438,8 +438,8 @@ void BodyDynamicsModule::feel_pushers()
 
         wake();
         push_cooldown_ = push_cooldown_time_;
-        if (collide_script_ != 0U) {
-            script::host().tick_frame(entity()->spawn_script(collide_script_, callback_params_ptr_, 0, false));
+        if (callbacks_.collide != 0U) {
+            script::host().tick_frame(entity()->spawn_script(callbacks_.collide, callback_params_ptr_, 0, false));
         }
         hide_sector(checksums::fold_text_into_checksum(entity()->ident(), "_Shadow"));
         const int now = static_cast<int>(frame_clock::get_time());

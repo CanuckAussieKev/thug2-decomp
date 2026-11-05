@@ -294,6 +294,15 @@ private:
                                                             //        (0.16)
     };
 
+    // The scripts it runs (+0xC4-+0xD3: configure_from_data; feel_pushers, on_bounce, sleep, resolve_contacts).
+    // Their parameters (+0xD4) stay apart: the destructor deletes them, in its order.
+    struct Callbacks {
+        uint32_t collide{0}; // +0x00 (+0xC4) CollideScript
+        uint32_t bounce{0};  // +0x04 (+0xC8) BounceScript
+        uint32_t settle{0};  // +0x08 (+0xCC) SettleScript
+        uint32_t stuck{0};   // +0x0C (+0xD0) (0xCCB84047): run when the contacts can't be resolved
+    };
+
     float mass_over_moment_{kDefaultMassOverMoment}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     Response response_;                // +0x2C-+0x37 the response to its contacts
@@ -324,10 +333,7 @@ private:
     maths::Vec4 model_offset_{};          // +0xB0 the model's offset from the centre of mass
     float push_cooldown_time_{
         kPusherQuietSeconds};               // +0xC0 (0x1F4D0CA5; 1/12): seconds the pushers aren't felt after a push
-    uint32_t collide_script_{0};            // +0xC4 CollideScript
-    uint32_t bounce_script_{0};             // +0xC8 BounceScript
-    uint32_t settle_script_{0};             // +0xCC SettleScript
-    uint32_t script_d0_{0};                 // +0xD0 (0xCCB84047): run when the contacts can't be resolved
+    Callbacks callbacks_;                   // +0xC4-+0xD3 the scripts it runs
     gsl::owner<script::Struct*> callback_params_ptr_{}; // +0xD4 CallbackParams (a copy)
     gsl::owner<script::Struct*> collide_sound_ptr_{}; // +0xD8 the sound type's CollideSound (a copy)
     gsl::owner<script::Struct*> bounce_sfx_{};        // +0xDC ... BounceSound

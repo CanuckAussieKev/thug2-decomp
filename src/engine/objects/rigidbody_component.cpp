@@ -549,10 +549,10 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         skater_push_.assent_sin = static_cast<float>(std::sin(radians));
     }
     params->fetch_float(kPusherQuietTime, &push_cooldown_time_, 0);
-    params->read_hash_value(kCollideScript, &collide_script_, 0); // CollideScript
-    params->read_hash_value(kBounceScript, &bounce_script_, 0);  // BounceScript
-    params->read_hash_value(kSettleScript, &settle_script_, 0);  // SettleScript
-    params->read_hash_value(kStuckScript, &script_d0_, 0);
+    params->read_hash_value(kCollideScript, &callbacks_.collide, 0); // CollideScript
+    params->read_hash_value(kBounceScript, &callbacks_.bounce, 0);   // BounceScript
+    params->read_hash_value(kSettleScript, &callbacks_.settle, 0);   // SettleScript
+    params->read_hash_value(kStuckScript, &callbacks_.stuck, 0);
     if (params->has_entry_named(kCallbackParams)) { // CallbackParams (the old copy is kept - leaked)
         script::Struct* callback = nullptr;
         params->read_sub_struct(kCallbackParams, &callback, 1);
@@ -860,10 +860,10 @@ void BodyDynamicsModule::check_layout()
         FieldAt{.now = offsetof(BodyDynamicsModule, balance_point_), .original = 0xA0},
         FieldAt{.now = offsetof(BodyDynamicsModule, model_offset_), .original = 0xB0},
         FieldAt{.now = offsetof(BodyDynamicsModule, push_cooldown_time_), .original = 0xC0},
-        FieldAt{.now = offsetof(BodyDynamicsModule, collide_script_), .original = 0xC4},
-        FieldAt{.now = offsetof(BodyDynamicsModule, bounce_script_), .original = 0xC8},
-        FieldAt{.now = offsetof(BodyDynamicsModule, settle_script_), .original = 0xCC},
-        FieldAt{.now = offsetof(BodyDynamicsModule, script_d0_), .original = 0xD0},
+        FieldAt{.now = offsetof(BodyDynamicsModule, callbacks_.collide), .original = 0xC4},
+        FieldAt{.now = offsetof(BodyDynamicsModule, callbacks_.bounce), .original = 0xC8},
+        FieldAt{.now = offsetof(BodyDynamicsModule, callbacks_.settle), .original = 0xCC},
+        FieldAt{.now = offsetof(BodyDynamicsModule, callbacks_.stuck), .original = 0xD0},
         FieldAt{.now = offsetof(BodyDynamicsModule, callback_params_ptr_), .original = 0xD4},
         FieldAt{.now = offsetof(BodyDynamicsModule, collide_sound_ptr_), .original = 0xD8},
         FieldAt{.now = offsetof(BodyDynamicsModule, bounce_sfx_), .original = 0xDC},

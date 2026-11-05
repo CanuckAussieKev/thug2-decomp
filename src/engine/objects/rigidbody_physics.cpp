@@ -350,7 +350,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
     if (!(speed > bounce_callback_threshold_)) {
         return;
     }
-    if (bounce_script_ != 0U) {
+    if (callbacks_.bounce != 0U) {
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params) {
             params = new (params) script::Struct;
@@ -360,7 +360,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
             params->merge_structure(callback_params_ptr_);
         }
         params->put_vec3(checksums::Name{kBouncePos}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
-        script::host().tick_frame(entity()->spawn_script(bounce_script_, params, 0, false));
+        script::host().tick_frame(entity()->spawn_script(callbacks_.bounce, params, 0, false));
         if (params) {
             params->get_clear();
             script::delete_struct(params);
@@ -429,8 +429,8 @@ void BodyDynamicsModule::resolve_contacts()
         }
         if (++round == kMaxRounds) {
             // Stuck: the script, or no velocity at all.
-            if (script_d0_ != 0U) {
-                script::host().tick_frame(entity()->spawn_script(script_d0_, callback_params_ptr_, 0, false));
+            if (callbacks_.stuck != 0U) {
+                script::host().tick_frame(entity()->spawn_script(callbacks_.stuck, callback_params_ptr_, 0, false));
                 return;
             }
             vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
