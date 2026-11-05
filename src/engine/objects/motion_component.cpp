@@ -108,10 +108,10 @@ void KinematicsModule::get_reset()
     turn_elapsed_ = 0.0F;
     motion_flags_ = 0;
     motion_flags2_ = 0;
-    for (maths::Vec4& corner : ground_triangle_) {
+    for (maths::Vec4& corner : ground_.triangle) {
         corner = rest;
     }
-    for (auto& triangle : ground_triangles_) {
+    for (auto& triangle : ground_.triangles) {
         for (maths::Vec4& corner : triangle) {
             corner = rest;
         }
@@ -348,11 +348,11 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, path_.max_speed), .original = 0x2C},
         FieldAt{.now = offsetof(KinematicsModule, path_.speed), .original = 0x30},
         FieldAt{.now = offsetof(KinematicsModule, path_.stop_distance), .original = 0x34},
-        FieldAt{.now = offsetof(KinematicsModule, ground_above_), .original = 0x38},
-        FieldAt{.now = offsetof(KinematicsModule, ground_below_), .original = 0x3C},
-        FieldAt{.now = offsetof(KinematicsModule, ground_triangle_), .original = 0x40},
-        FieldAt{.now = offsetof(KinematicsModule, ground_height_only_), .original = 0x70},
-        FieldAt{.now = offsetof(KinematicsModule, ground_triangles_), .original = 0x74},
+        FieldAt{.now = offsetof(KinematicsModule, ground_.above), .original = 0x38},
+        FieldAt{.now = offsetof(KinematicsModule, ground_.below), .original = 0x3C},
+        FieldAt{.now = offsetof(KinematicsModule, ground_.triangle), .original = 0x40},
+        FieldAt{.now = offsetof(KinematicsModule, ground_.height_only), .original = 0x70},
+        FieldAt{.now = offsetof(KinematicsModule, ground_.triangles), .original = 0x74},
         FieldAt{.now = offsetof(KinematicsModule, path_group_), .original = 0x104},
         FieldAt{.now = offsetof(KinematicsModule, move_target_), .original = 0x108},
         FieldAt{.now = offsetof(KinematicsModule, move_distance_), .original = 0x118},

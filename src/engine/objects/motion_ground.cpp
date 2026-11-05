@@ -129,12 +129,12 @@ void KinematicsModule::update_jump()
 // 0x00425F40
 bool KinematicsModule::stick_to_ground()
 {
-    if (ground_above_ == 0.0F && ground_below_ == 0.0F) {
+    if (ground_.above == 0.0F && ground_.below == 0.0F) {
         return false;
     }
     maths::Mat4& matrix = entity()->basis_frame();
     maths::Vec4& pos = entity()->at_point();
-    if (ground_height_only_) {
+    if (ground_.height_only) {
         // The right axis from up and at, then the ground under it: the height to make up (Update eases it in).
         const maths::Vec4& up = core::at(matrix.row, 1);
         const maths::Vec4& at = core::at(matrix.row, 2);
@@ -143,13 +143,13 @@ bool KinematicsModule::stick_to_ground()
         auto right_z = static_cast<float>((static_cast<double>(at.y) * up.x) - (static_cast<double>(up.y) * at.x));
         core::at(matrix.row, 0) = {.x = right_x, .y = right_y, .z = right_z, .w = 0.0F};
         core::at(matrix.row, 0).make_unit();
-        auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * maths::kInchesPerFoot);
-        const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0F);
+        auto above = static_cast<float>(std::fabs(static_cast<double>(ground_.above)) * maths::kInchesPerFoot);
+        const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_.below)) * 12.0F);
         auto w = static_cast<float>(static_cast<double>(pos.w) + 1.0F);
         const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(above) + pos.y), .z = pos.z, .w = w};
         const maths::Vec4 end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(below) + pos.y), .z = pos.z, .w = w};
         maths::Vec4 hit;
-        if (!get_ground_hit(ground_triangle_, &end, &start, &hit)) {
+        if (!get_ground_hit(ground_.triangle, &end, &start, &hit)) {
             return false;
         }
         ground_offset_ = static_cast<float>(static_cast<double>(hit.y) - pos.y);
@@ -190,12 +190,12 @@ bool KinematicsModule::stick_to_ground()
         const float z = pos.z;
         const float w = pos.w;
         *start = {.x = x,
-                  .y = static_cast<float>((static_cast<double>(ground_above_) * maths::kInchesPerFoot) + y),
+                  .y = static_cast<float>((static_cast<double>(ground_.above) * maths::kInchesPerFoot) + y),
                   .z = z,
                   .w = w};
         *end = {.x = x,
                 .y = static_cast<float>(static_cast<double>(y) -
-                                        (static_cast<double>(ground_below_) * maths::kInchesPerFoot)),
+                                        (static_cast<double>(ground_.below) * maths::kInchesPerFoot)),
                 .z = z,
                 .w = w};
     };
@@ -207,11 +207,11 @@ bool KinematicsModule::stick_to_ground()
     move(ahead, -1.0);
     move(side, 1.0);
     line(&start, &end);
-    const bool hit_right = get_ground_hit(core::at(ground_triangles_, 0), &end, &start, &back_right);
+    const bool hit_right = get_ground_hit(core::at(ground_.triangles, 0), &end, &start, &back_right);
     move(side, -kStepDistance);
     line(&start, &end);
     bool hit_left = false;
-    if (get_ground_hit(core::at(ground_triangles_, 1), &end, &start, &back_left)) {
+    if (get_ground_hit(core::at(ground_.triangles, 1), &end, &start, &back_left)) {
         hit_left = true;
         if (hit_right) {
             right = {.x = static_cast<float>(static_cast<double>(back_right.x) - back_left.x),
@@ -225,7 +225,7 @@ bool KinematicsModule::stick_to_ground()
     move(side, 1.0);
     line(&start, &end);
     move(ahead, -1.0); // (back where it was)
-    if (!get_ground_hit(core::at(ground_triangles_, 2), &end, &start, &front) || !hit_left || !hit_right) {
+    if (!get_ground_hit(core::at(ground_.triangles, 2), &end, &start, &front) || !hit_left || !hit_right) {
         return false;
     }
     // The height: half way between the back's middle and the front; at: towards the front from the back's
@@ -380,14 +380,14 @@ void KinematicsModule::move_along(script::Struct* params, script::Script* script
 // 0x004268C0
 bool KinematicsModule::obj_stick_to_ground(script::Struct* params, script::Script* /*script*/)
 {
-    params->fetch_float(kDistAbove, &ground_above_, 0);
-    params->fetch_float(kDistBelow, &ground_below_, 0);
+    params->fetch_float(kDistAbove, &ground_.above, 0);
+    params->fetch_float(kDistBelow, &ground_.below, 0);
     if (params->has_bare_flag(kOff)) {
         motion_flags2_ &= ~kMotion2StickToGround;
         return true;
     }
     motion_flags2_ |= kMotion2StickToGround;
-    if (ground_above_ == 0.0F && ground_below_ == 0.0F) {
+    if (ground_.above == 0.0F && ground_.below == 0.0F) {
         return false;
     }
     stick_to_ground();

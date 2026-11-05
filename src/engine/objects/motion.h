@@ -341,9 +341,9 @@ public:
     [[nodiscard]] float path_speed() const { return path_.speed; }
     void set_path_speed(float value) { path_.speed = value; }
     void set_path_stop_distance(float value) { path_.stop_distance = value; }
-    [[nodiscard]] const std::array<maths::Vec4, 3>& ground_triangle() const { return ground_triangle_; }
-    void set_ground_triangle(const std::array<maths::Vec4, 3>& value) { ground_triangle_ = value; }
-    void set_ground_height_only(bool value) { ground_height_only_ = value; }
+    [[nodiscard]] const std::array<maths::Vec4, 3>& ground_triangle() const { return ground_.triangle; }
+    void set_ground_triangle(const std::array<maths::Vec4, 3>& value) { ground_.triangle = value; }
+    void set_ground_height_only(bool value) { ground_.height_only = value; }
     [[nodiscard]] const std::unique_ptr<PathFollower>& path_follower() const { return path_follower_; }
 
 private:
@@ -366,16 +366,21 @@ private:
         float min_speed{};   // +0x08 (+0x1AC) Obj_SetPathMinStopVel
     };
 
+    // Sticking to the ground (+0x38-+0x103: obj_stick_to_ground, stick_to_ground; the peds' logic and the cars).
+    struct GroundStick {
+        float above{};                         // +0x00 (+0x38) Obj_StickToGround DistAbove (feet)
+        float below{};                         // +0x04 (+0x3C) DistBelow
+        std::array<maths::Vec4, 3> triangle{}; // +0x08 (+0x40) the last ground triangle hit (0x00425CB0 tries it first)
+        bool height_only{true}; // +0x38 (+0x70) (constructor: true; cars: false) - false: three feelers turn it to
+                                //        the ground
+        std::array<std::array<maths::Vec4, 3>, 3> triangles{}; // +0x3C (+0x74) the three feelers' last triangles
+    };
+
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
     PathSpeed path_;                   // +0x24-+0x37 the speed along a path
-    float ground_above_{};             // +0x38 Obj_StickToGround DistAbove (feet)
-    float ground_below_{};             // +0x3C DistBelow
-    std::array<maths::Vec4, 3> ground_triangle_{}; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
-    bool ground_height_only_{
-        true}; // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
-    std::array<std::array<maths::Vec4, 3>, 3> ground_triangles_{}; // +0x74 the three feelers' last triangles
+    GroundStick ground_;               // +0x38-+0x103 sticking to the ground
     ObjectGroup* path_group_{nullptr};     // +0x104 the path's group of objects (path manager)
     maths::Vec4 move_target_{};           // +0x108
     float move_distance_{};               // +0x118 from the start to the target
