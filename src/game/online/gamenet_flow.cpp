@@ -268,7 +268,7 @@ void Hub::cancel_join()
     send_to_server(client, &desc);
     client->transmit(false);
     disconnect_clients();
-    join_expiry_job_->drop_out();
+    tasks_.join_expiry_job()->drop_out();
     remove_all_new_players();
     if (presence_service_->authenticated()) { // (logged in to the presence)
         presence_service_->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
@@ -356,19 +356,19 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
     }
     case EntryPhase::kOver: // the join over
         get_run(kDialogBoxExit);
-        manager->join_expiry_job_->drop_out();
-        manager->join_phase_job_->drop_out();
+        manager->tasks_.join_expiry_job()->drop_out();
+        manager->tasks_.join_phase_job()->drop_out();
         break;
     case EntryPhase::kRefused: { // 9
         script::StructPtr params = script::make_struct();
         params->put_name_key(checksums::Name{kReason}, manager->refused_reason_);
-        manager->join_phase_job_->drop_out();
+        manager->tasks_.join_phase_job()->drop_out();
         get_run(kCreateJoinRefusedDialog, params.get());
         params.reset();
         break;
     }
     case EntryPhase::kCancelled: // cancelled
-        manager->join_phase_job_->drop_out();
+        manager->tasks_.join_phase_job()->drop_out();
         break;
     default:
         break;
@@ -401,7 +401,7 @@ void Hub::start_game_task(tasks::Task<Hub>* task)
         frame_clock::get_time() >= net_game_state().net_game_start_time()) { // every one ready, and the time has come
         waiting_shown = false;
         manager->start_network_game();
-        manager->start_game_job_->drop_out();
+        manager->tasks_.start_game_job()->drop_out();
     }
 }
 
@@ -470,7 +470,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     }
     if (skate->level() == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
-        manager->join_phase_job_->drop_out();
+        manager->tasks_.join_phase_job()->drop_out();
         manager->set_join_phase(EntryPhase::kCancelled);
     } else {
         get_run(kCreateLostConnectionDialog);

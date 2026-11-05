@@ -320,7 +320,7 @@ bool Hub::connect_to_internet(ConnectScripts scripts)
         if (!online) {
             // A modem or a PPPoE connection carries on in the online state's task.
             if (net->get_net_link_kind() == 1 || net->get_net_link_kind() == 3) {
-                tasks->queue_job(dialup_job_.get());
+                tasks->queue_job(tasks_.dialup_job().get());
             }
             return online;
         }
@@ -340,7 +340,7 @@ void Hub::disconnect_from_internet(uint32_t script)
     if (script != 0U) {
         online_fail_script_ = script;
     }
-    tasks->queue_job(dialup_job_.get());
+    tasks->queue_job(tasks_.dialup_job().get());
     set_service_state(ServiceState::kStopped);
     net->disconnect_from_internet();
 }
@@ -350,13 +350,13 @@ void Hub::cancel_connect_to_internet()
 {
     Hub* manager = net_game_state().online_hub();
     net::Hub* net = net::Hub::sole();
-    tasks::SchedulerTask* task = manager->dialup_job_.get();
+    tasks::SchedulerTask* task = manager->tasks_.dialup_job().get();
     switch (net->get_dialup_status()) {
     case 0:
     case 1:
         task->drop_out();
         manager->modem_state_shown_ = -1;
-        get_logic_tasks()->queue_job(manager->dialup_job_.get());
+        get_logic_tasks()->queue_job(manager->tasks_.dialup_job().get());
         manager->set_service_state(ServiceState::kStopped);
         net::Hub::sole()->disconnect_from_internet();
         break;

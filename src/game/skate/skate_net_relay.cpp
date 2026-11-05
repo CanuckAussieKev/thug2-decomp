@@ -1408,7 +1408,7 @@ void Skate::leave_server()
         net::NetMessageInfo desc;
         net::AppHost* server = server_app();
         if (net->get_hosting_role() == 1) {
-            net->remove_host_task();
+            net->tasks().remove_host_task();
         }
         desc.set_ident(online::MessageId::kServerQuit);
         desc.set_rank(kBroadcastRank);

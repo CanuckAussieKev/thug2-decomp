@@ -106,7 +106,7 @@ void level_change_task(tasks::Task<Hub>* task)
          player = step_roster_sweep(manager, &search, true)) {
         player->clear_flags(); // carries no flag
     }
-    manager->level_change_job()->drop_out();
+    manager->tasks().level_change_job()->drop_out();
 }
 
 namespace {
@@ -208,7 +208,7 @@ void join_deadline_tick(tasks::Task<Hub>* task)
         frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout) {
         return;
     }
-    manager->join_phase_job()->drop_out();
+    manager->tasks().join_phase_job()->drop_out();
     get_run(kShowJoinTimeoutNotice);
 }
 

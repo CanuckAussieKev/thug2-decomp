@@ -268,8 +268,8 @@ void Hub::destroy_server()
             game_spy::nat_free_negotiations(); // (GameSpy)
         }
         net->release_app(host_);
-        host_admit_job_->drop_out();
-        start_game_job_->drop_out();
+        tasks_.host_admit_job()->drop_out();
+        tasks_.start_game_job()->drop_out();
         host_ = nullptr;
     }
     flag_bits_ &= ~kFlagsServer;
@@ -420,9 +420,9 @@ void Hub::toggle_net_metrics()
     tasks::PileUp* tasks = get_logic_tasks();
     show_metrics_ = !show_metrics_;
     if (show_metrics_) {
-        tasks->queue_job(metrics_job_.get());
+        tasks->queue_job(tasks_.metrics_job().get());
     } else {
-        metrics_job_->drop_out();
+        tasks_.metrics_job()->drop_out();
     }
 }
 
@@ -480,13 +480,8 @@ Hub::~Hub()
     memory::destroy_then_clear(vault_man_);
     memory::destroy_then_clear(presence_service_);
     memory::destroy_then_clear(rating_service_);
-    // The tasks, in the original's order. (NOT ORIGINAL: the five the original never deleted - score broadcast,
-    // dial-up, join expiry, auto serve, flag carry - go with the hub's members after.)
-    for (std::unique_ptr<tasks::SchedulerTask>* job :
-         {&guest_admit_job_, &host_admit_job_, &connection_job_, &metrics_job_, &keyboard_job_, &service_job_,
-          &join_phase_job_, &start_game_job_, &level_change_job_, &server_list_job_}) {
-        memory::destroy_then_clear(*job);
-    }
+    // The tasks, in the original's order.
+    tasks_.delete_at_shutdown();
     // The lists: the players' nodes unlinked, then each head's destructor.
     unlink_all_nodes(&players_);
     waiting_servers_.uncouple();
@@ -496,6 +491,18 @@ Hub::~Hub()
     players_.uncouple();
     get_taunt_settings()->~Preferences();
     get_online_settings()->~Preferences();
+}
+
+// NOT ORIGINAL (the original's destructor deletes them in its body, 0x00536D70)
+void HubTasks::delete_at_shutdown()
+{
+    // (NOT ORIGINAL: the five the original never deleted - score broadcast, dial-up, join expiry, auto serve, flag
+    // carry - go with the hub's members after.)
+    for (std::unique_ptr<tasks::SchedulerTask>* job :
+         {&guest_admit_job_, &host_admit_job_, &connection_job_, &metrics_job_, &keyboard_job_, &service_job_,
+          &join_phase_job_, &start_game_job_, &level_change_job_, &server_list_job_}) {
+        memory::destroy_then_clear(*job);
+    }
 }
 
 } // namespace online

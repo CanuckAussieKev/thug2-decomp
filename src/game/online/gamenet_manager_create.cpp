@@ -77,22 +77,8 @@ Hub::Hub()
     net::Hub::sole()->set_msg_options(MessageId::kObjectUpdates, 1); // (the object update message's)
     net_options_.read_in(kNetSettingsKey);
     taunt_options_.read_in(kTauntSettingsKey);
-    connection_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::connection_task), this, kEarlyTaskPriority);
-    metrics_job_ = std::make_unique<tasks::Task<Hub>>(&net_metrics_task, this, 0);
-    server_list_job_ = std::make_unique<tasks::Task<Hub>>((&online::server_list_task), this, 0);
-    auto_serve_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::auto_serve_task), this, 0);
-    score_broadcast_job_ = std::make_unique<tasks::Task<Hub>>((&online::score_broadcast_tick), this, 0);
-    guest_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::guest_player_intake_tick), this, kEarlyTaskPriority);
-    host_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::host_player_intake_tick), this, kEarlyTaskPriority);
-    keyboard_job_ = std::make_unique<tasks::Task<Hub>>(&keyboard_task, this, 0);
-    dialup_job_ = std::make_unique<tasks::Task<Hub>>(&dialup_progress_tick, this, 0);
-    join_expiry_job_ = std::make_unique<tasks::Task<Hub>>(&join_deadline_tick, this, 0);
-    service_job_ = std::make_unique<tasks::Task<Hub>>((&net::service_task), this, 0);
-    join_phase_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::join_progress_tick), this, 0);
-    start_game_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::start_game_task), this, 0);
-    level_change_job_ = std::make_unique<tasks::Task<Hub>>(&level_change_task, this, 0);
-    flag_carry_job_ = std::make_unique<tasks::Task<Hub>>(&carried_flags_task, this, 0);
-    tasks->queue_job(connection_job_.get());
+    tasks_.make_all(this);
+    tasks->queue_job(tasks_.connection_job().get());
     void* memory = carve(sizeof(RoomManager));
     lobby_service_.reset(memory ? memory::construct_in<RoomManager>(memory) : nullptr);
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
@@ -115,6 +101,26 @@ Hub::Hub()
         core::at(challenge_, i) = static_cast<char>(character);
     }
     core::at(challenge_, kChallengeLength) = '\0';
+}
+
+// NOT ORIGINAL (the hub's constructor makes them in its body, 0x0053EE90)
+void HubTasks::make_all(Hub* hub)
+{
+    connection_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::connection_task), hub, kEarlyTaskPriority);
+    metrics_job_ = std::make_unique<tasks::Task<Hub>>(&net_metrics_task, hub, 0);
+    server_list_job_ = std::make_unique<tasks::Task<Hub>>((&online::server_list_task), hub, 0);
+    auto_serve_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::auto_serve_task), hub, 0);
+    score_broadcast_job_ = std::make_unique<tasks::Task<Hub>>((&online::score_broadcast_tick), hub, 0);
+    guest_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::guest_player_intake_tick), hub, kEarlyTaskPriority);
+    host_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::host_player_intake_tick), hub, kEarlyTaskPriority);
+    keyboard_job_ = std::make_unique<tasks::Task<Hub>>(&keyboard_task, hub, 0);
+    dialup_job_ = std::make_unique<tasks::Task<Hub>>(&dialup_progress_tick, hub, 0);
+    join_expiry_job_ = std::make_unique<tasks::Task<Hub>>(&join_deadline_tick, hub, 0);
+    service_job_ = std::make_unique<tasks::Task<Hub>>((&net::service_task), hub, 0);
+    join_phase_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::join_progress_tick), hub, 0);
+    start_game_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::start_game_task), hub, 0);
+    level_change_job_ = std::make_unique<tasks::Task<Hub>>(&level_change_task, hub, 0);
+    flag_carry_job_ = std::make_unique<tasks::Task<Hub>>(&carried_flags_task, hub, 0);
 }
 
 // 0x0053F520
@@ -168,21 +174,7 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, crown_start_), .original = 0x68, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, crown_), .original = 0x6C, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, team_objects_), .original = 0x70, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, connection_job_), .original = 0xC0, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, metrics_job_), .original = 0xC4, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, score_broadcast_job_), .original = 0xC8, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, host_admit_job_), .original = 0xCC, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, guest_admit_job_), .original = 0xD0, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, keyboard_job_), .original = 0xD4, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, dialup_job_), .original = 0xD8, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, join_expiry_job_), .original = 0xDC, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, service_job_), .original = 0xE0, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, join_phase_job_), .original = 0xE4, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, start_game_job_), .original = 0xE8, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, level_change_job_), .original = 0xEC, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, server_list_job_), .original = 0xF0, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, auto_serve_job_), .original = 0xF4, .smaller_by = 0},
-        FieldAt{.now = offsetof(Hub, flag_carry_job_), .original = 0xF8, .smaller_by = 0},
+        FieldAt{.now = offsetof(Hub, tasks_), .original = 0xC0, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, spectator_pad_listener_), .original = 0xFC, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, spectate_request_), .original = 0x100, .smaller_by = 0},
         FieldAt{.now = offsetof(Hub, net_options_), .original = 0x104, .smaller_by = 0},
@@ -235,6 +227,36 @@ void Hub::check_layout()
     static_assert(std::ranges::all_of(
                       kLayout, [](const FieldAt& field) { return field.now + field.smaller_by == field.original; }),
                   "layout must match the original's, but for the smaller members");
+}
+
+// NOT ORIGINAL
+void HubTasks::check_layout()
+{
+    constexpr std::size_t kAt = 0xC0; // (each field at its offset in the hub, less the tasks' own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(HubTasks, connection_job_), .original = 0xC0},
+        FieldAt{.now = offsetof(HubTasks, metrics_job_), .original = 0xC4},
+        FieldAt{.now = offsetof(HubTasks, score_broadcast_job_), .original = 0xC8},
+        FieldAt{.now = offsetof(HubTasks, host_admit_job_), .original = 0xCC},
+        FieldAt{.now = offsetof(HubTasks, guest_admit_job_), .original = 0xD0},
+        FieldAt{.now = offsetof(HubTasks, keyboard_job_), .original = 0xD4},
+        FieldAt{.now = offsetof(HubTasks, dialup_job_), .original = 0xD8},
+        FieldAt{.now = offsetof(HubTasks, join_expiry_job_), .original = 0xDC},
+        FieldAt{.now = offsetof(HubTasks, service_job_), .original = 0xE0},
+        FieldAt{.now = offsetof(HubTasks, join_phase_job_), .original = 0xE4},
+        FieldAt{.now = offsetof(HubTasks, start_game_job_), .original = 0xE8},
+        FieldAt{.now = offsetof(HubTasks, level_change_job_), .original = 0xEC},
+        FieldAt{.now = offsetof(HubTasks, server_list_job_), .original = 0xF0},
+        FieldAt{.now = offsetof(HubTasks, auto_serve_job_), .original = 0xF4},
+        FieldAt{.now = offsetof(HubTasks, flag_carry_job_), .original = 0xF8},
+        FieldAt{.now = sizeof(HubTasks), .original = 0xFC},
+    };
+    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+                  "layout must match the original");
 }
 
 } // namespace online

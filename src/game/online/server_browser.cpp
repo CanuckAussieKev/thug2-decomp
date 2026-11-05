@@ -270,7 +270,7 @@ bool cfunc_choose_server(script::Struct* params, script::Context context)
     if (refused != 0U) {
         reply->put_name_key(checksums::Name{kReason}, refused);
         reply->put_name_key(checksums::Name{kJustDialog}, 0);
-        manager->join_phase_job()->drop_out();
+        manager->tasks().join_phase_job()->drop_out();
         get_run(kJoinRefusedDialog, reply.get());
     } else {
         if (manager->presence_service()->authenticated()) { // (0x005480B0: logged in to presence)

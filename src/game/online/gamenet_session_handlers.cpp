@@ -439,7 +439,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
         return kContinue;
     }
     auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks());
-    auto* change_task = manager->level_change_job().get();
+    auto* change_task = manager->tasks().level_change_job().get();
     if (change_task->is_on_task_list()) {
         if (!manager->get_on_server()) {
             manager->set_level(message.level);

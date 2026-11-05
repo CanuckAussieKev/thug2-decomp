@@ -109,7 +109,7 @@ void show_no_servers()
 void get_finish(online::Hub* manager)
 {
     manager->assign_service_state(online::ServiceState::kStopped);
-    manager->service_job()->drop_out();
+    manager->tasks().service_job()->drop_out();
 }
 
 } // namespace

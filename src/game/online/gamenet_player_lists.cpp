@@ -585,7 +585,7 @@ void Hub::disconnect_clients()
             continue;
         }
         if (i == 0 && !client_app_->is_host_local()) {
-            guest_admit_job_->drop_out();
+            tasks_.guest_admit_job()->drop_out();
         }
         net->release_app(client_slot(i));
         client_slot(i) = nullptr;
@@ -599,9 +599,9 @@ void Hub::disconnect_clients()
         net_game_state().set_query_reporting(false);
     }
     game_spy::cd_key_disconnect_all(net::kGameSpyGameId);
-    keyboard_job_->drop_out();
-    score_broadcast_job_->drop_out();
-    level_change_job_->drop_out();
+    tasks_.keyboard_job()->drop_out();
+    tasks_.score_broadcast_job()->drop_out();
+    tasks_.level_change_job()->drop_out();
     clear_queued_scripts();
     if (cleared_to_start_) {
         cleared_to_start_ = false;

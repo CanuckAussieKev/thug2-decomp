@@ -10,6 +10,7 @@
 #include "engine/memory/mem.h"
 #include "base/core/enum_ops.h"
 #include "game/online/service.h"
+#include "game/online/hub_tasks.h"
 #include "wire/gamenet_messages.h"
 #include "engine/script/preferences.h"
 #include "engine/net/net_address.h"
@@ -167,8 +168,6 @@ public:
     // their net versions) always; else, in a network game, a capture the flag that isn't timed_ctf, or the
     // stop_at_zero preference set.
     bool is_untimed_game();
-    // 0x00532E30: the task at +0xF4 taken off its list.
-    void remove_host_task();
     // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90: the server joined: join_ip_,
     // join_private_ip_, join_port_.
     [[nodiscard]] uint32_t get_join_ip() const;
@@ -682,22 +681,9 @@ public:
     void set_crown(objects::CrownObject* value) { crown_ = value; }
     std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4>& team_objects() { return team_objects_; }
     [[nodiscard]] const std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4>& team_objects() const { return team_objects_; }
-    std::unique_ptr<tasks::SchedulerTask>& score_broadcast_job() { return score_broadcast_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& score_broadcast_job() const { return score_broadcast_job_; }
-    std::unique_ptr<tasks::SchedulerTask>& guest_admit_job() { return guest_admit_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& guest_admit_job() const { return guest_admit_job_; }
-    std::unique_ptr<tasks::SchedulerTask>& keyboard_job() { return keyboard_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& keyboard_job() const { return keyboard_job_; }
-    std::unique_ptr<tasks::SchedulerTask>& service_job() { return service_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& service_job() const { return service_job_; }
-    std::unique_ptr<tasks::SchedulerTask>& join_phase_job() { return join_phase_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& join_phase_job() const { return join_phase_job_; }
-    std::unique_ptr<tasks::SchedulerTask>& start_game_job() { return start_game_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& start_game_job() const { return start_game_job_; }
-    std::unique_ptr<tasks::SchedulerTask>& level_change_job() { return level_change_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& level_change_job() const { return level_change_job_; }
-    std::unique_ptr<tasks::SchedulerTask>& flag_carry_job() { return flag_carry_job_; }
-    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& flag_carry_job() const { return flag_carry_job_; }
+    // The hub's fifteen tasks.
+    HubTasks& tasks() { return tasks_; }
+    [[nodiscard]] const HubTasks& tasks() const { return tasks_; }
     void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
     // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
     void delete_spectator_pad_listener();
@@ -778,21 +764,7 @@ private:
     int crown_start_{};           // +0x68 the crown's starting point (sent as a signed byte)
     objects::CrownObject* crown_{}; // +0x6C king of the hill's crown
     std::array<std::array<uint32_t, kHubTeamObjectsPerTeam>, 4> team_objects_{}; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
-    std::unique_ptr<tasks::SchedulerTask> connection_job_;      // +0xC0 connection_task
-    std::unique_ptr<tasks::SchedulerTask> metrics_job_;         // +0xC4 the net metrics' task
-    std::unique_ptr<tasks::SchedulerTask> score_broadcast_job_; // +0xC8 score_broadcast_tick
-    std::unique_ptr<tasks::SchedulerTask> host_admit_job_;      // +0xCC
-    std::unique_ptr<tasks::SchedulerTask> guest_admit_job_;     // +0xD0
-    std::unique_ptr<tasks::SchedulerTask> keyboard_job_;        // +0xD4 the chat keyboard's task
-    std::unique_ptr<tasks::SchedulerTask> dialup_job_;          // +0xD8 the online state task (dialup_progress_tick)
-    std::unique_ptr<tasks::SchedulerTask> join_expiry_job_;     // +0xDC
-    std::unique_ptr<tasks::SchedulerTask> service_job_;         // +0xE0 the online service task (net::service_task)
-    std::unique_ptr<tasks::SchedulerTask> join_phase_job_;      // +0xE4
-    std::unique_ptr<tasks::SchedulerTask> start_game_job_;      // +0xE8 start_game_task
-    std::unique_ptr<tasks::SchedulerTask> level_change_job_;    // +0xEC level_change_task
-    std::unique_ptr<tasks::SchedulerTask> server_list_job_;     // +0xF0 server_list_task (the server-list client's)
-    std::unique_ptr<tasks::SchedulerTask> auto_serve_job_;      // +0xF4 auto_serve_task
-    std::unique_ptr<tasks::SchedulerTask> flag_carry_job_;      // +0xF8 carried_flags_task
+    HubTasks tasks_;                                                             // +0xC0-+0xF8 the hub's fifteen tasks
     gsl::owner<pad_input::InputHandler*> spectator_pad_listener_{}; // +0xFC (deleted where observing ends)
     int spectate_request_{};                                           // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 8 bytes each here, 0xC in the

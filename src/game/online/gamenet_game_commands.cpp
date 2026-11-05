@@ -223,7 +223,8 @@ bool cfunc_start_network_game(Struct* /*params*/, Context /*context*/)
     Hub* manager = net_game_state().online_hub();
     tasks::PileUp* tasks = get_logic_tasks();
     report_game_state(manager, true);
-    if (manager->start_game_job()->is_on_task_list() || manager->level_change_job()->is_on_task_list()) {
+    if (manager->tasks().start_game_job()->is_on_task_list() ||
+        manager->tasks().level_change_job()->is_on_task_list()) {
         return true;
     }
     manager->set_match_being_set_up(true);
@@ -234,7 +235,7 @@ bool cfunc_start_network_game(Struct* /*params*/, Context /*context*/)
     } else {
         net_game_state().set_net_game_start_time(frame_clock::get_time() + kMatchStartDelay);
     }
-    tasks->queue_job(manager->start_game_job().get());
+    tasks->queue_job(manager->tasks().start_game_job().get());
     if (manager->in_net_game()) {
         const uint32_t text = manager->host_mode() == 1 ? kAutoStarting : kStarting;
         manager->build_net_notice(true, text, manager->get_game_type_name(), nullptr, nullptr, kNetStatusProps, true,

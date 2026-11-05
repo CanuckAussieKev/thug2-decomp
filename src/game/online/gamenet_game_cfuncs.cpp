@@ -266,9 +266,9 @@ bool cfunc_entered_network_game(script::Struct* /*params*/, script::Context /*co
         start_query_reporting(false);
     }
     tasks::PileUp* tasks = get_logic_tasks();
-    tasks->queue_job(manager->keyboard_job().get());
+    tasks->queue_job(manager->tasks().keyboard_job().get());
     sio::text_entry_flag() = true;
-    tasks->queue_job(manager->score_broadcast_job().get());
+    tasks->queue_job(manager->tasks().score_broadcast_job().get());
     manager->set_show_scores(true);
     return true;
 }

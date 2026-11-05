@@ -8,6 +8,7 @@
 
 #include "engine/memory/task_list.h"
 #include "game/online/gamenet_manager.h"
+#include "game/online/hub_tasks.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/script/preferences.h"
@@ -156,7 +157,7 @@ int Hub::get_num_teams()
 int Hub::get_spectator_limit() { return number_of(preference_checksum(this, kNumObservers), {.first = 0, .last = kMaxSpectatorLimit, .bias = 0, .otherwise = 2}); }
 
 // 0x00532E30
-void Hub::remove_host_task() { auto_serve_job_->drop_out(); }
+void HubTasks::remove_host_task() { auto_serve_job_->drop_out(); }
 
 // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90
 uint32_t Hub::get_join_ip() const { return join_ip_; }

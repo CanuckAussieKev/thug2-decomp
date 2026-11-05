@@ -279,7 +279,7 @@ int handle_ready_to_play(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
     if (!context->receiver_app()->is_host_local()) {
-        logic_tasks->queue_job(manager->guest_admit_job().get());
+        logic_tasks->queue_job(manager->tasks().guest_admit_job().get());
     }
     return kContinue;
 }

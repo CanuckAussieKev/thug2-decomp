@@ -406,9 +406,9 @@ void Hub::join_server(net::Address address, int index)
         as_client(client)->dial_server({.ip = ip, .port = port});
         client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagRemote});
         join_began_at_ = milli_seconds();
-        get_logic_tasks()->queue_job(join_expiry_job_.get());
+        get_logic_tasks()->queue_job(tasks_.join_expiry_job().get());
         set_join_phase(EntryPhase::kConnecting);
-        get_logic_tasks()->queue_job(join_phase_job_.get());
+        get_logic_tasks()->queue_job(tasks_.join_phase_job().get());
         join_port_ = port;
         join_ip_ = ip;
         info.rank = static_cast<int8_t>(rating_service_->get_rank());
@@ -459,7 +459,7 @@ void Hub::retry_entry(AppHost* client)
     send_connection_request(as_client(client), info, &request);
     client->transmit(false);
     join_began_at_ = milli_seconds();
-    get_logic_tasks()->queue_job(join_expiry_job_.get());
+    get_logic_tasks()->queue_job(tasks_.join_expiry_job().get());
     set_join_phase(EntryPhase::kJoining);
 }
 
@@ -480,7 +480,7 @@ void Hub::retry_entry_with_key(const char* password)
     thugpro::ConnectRequest request{};
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
-    get_logic_tasks()->queue_job(join_expiry_job_.get());
+    get_logic_tasks()->queue_job(tasks_.join_expiry_job().get());
     set_join_phase(EntryPhase::kJoiningWithPassword);
 }
 
@@ -540,7 +540,7 @@ AppHost* Hub::start_host_session(bool local, bool secure)
         host_mode_ = 0; // serve
     }
     if (server) {
-        get_logic_tasks()->queue_job(host_admit_job_.get());
+        get_logic_tasks()->queue_job(tasks_.host_admit_job().get());
         add_handlers(host_, this, kServerHandlers);
         score_synced_at_ = 0;
         awaiting_start_ = false;
@@ -893,12 +893,12 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         // Ask for it.
         memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
         script::launch_script(kCreateEnterPasswordControl, nullptr, nullptr, false, nullptr);
-        manager->join_expiry_job_->drop_out();
+        manager->tasks_.join_expiry_job()->drop_out();
         memory::Hub::get_pull()->leave_heap_scope();
         return net::kResultPassOn;
     case JoinRefusedReason::kInProgress:
         script::launch_script(kCreateGameInProgressDialog, nullptr, nullptr, false, nullptr);
-        manager->join_expiry_job_->drop_out();
+        manager->tasks_.join_expiry_job()->drop_out();
         return net::kResultPassOn;
     case JoinRefusedReason::kRankLow:
         manager->refused_reason_ = kReasonRankLow;

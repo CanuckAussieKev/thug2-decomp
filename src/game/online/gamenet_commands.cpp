@@ -113,14 +113,14 @@ void send_request(Hub* manager, MessageId id, void* data, uint16_t length)
 // 0x00535DA0: StartCTFGame - capture the flag's task into the logic tasks.
 bool cfunc_start_ctf_game(Struct* /*params*/, Context /*context*/)
 {
-    get_logic_tasks()->queue_job(net_game_state().online_hub()->flag_carry_job().get());
+    get_logic_tasks()->queue_job(net_game_state().online_hub()->tasks().flag_carry_job().get());
     return true;
 }
 
 // 0x00535DC0: EndCTFGame - its task removed.
 bool cfunc_end_ctf_game(Struct* /*params*/, Context /*context*/)
 {
-    net_game_state().online_hub()->flag_carry_job()->drop_out();
+    net_game_state().online_hub()->tasks().flag_carry_job()->drop_out();
     return true;
 }
 
@@ -190,7 +190,7 @@ bool cfunc_is_auto_serving(Struct* /*params*/, Context /*context*/)
 // 0x00535F20: ChangeLevelPending - the level change's task is in a list.
 bool cfunc_change_level_pending(Struct* /*params*/, Context /*context*/)
 {
-    return net_game_state().online_hub()->level_change_job()->is_on_task_list();
+    return net_game_state().online_hub()->tasks().level_change_job()->is_on_task_list();
 }
 
 // 0x00535F30: CancelMotdDownload.

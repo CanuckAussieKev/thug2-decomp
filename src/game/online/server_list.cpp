@@ -312,11 +312,11 @@ void Hub::set_service_state(ServiceState state)
 {
     assign_service_state(state);
     if (state == ServiceState::kWake) {
-        get_logic_tasks()->queue_job(service_job_.get());
+        get_logic_tasks()->queue_job(tasks_.service_job().get());
         set_service_state(next_service_state());
         net_game_state().set_news_message_count(0);
     } else if (state == ServiceState::kStopped) {
-        service_job_->drop_out();
+        tasks_.service_job()->drop_out();
     }
 }
 
@@ -358,7 +358,7 @@ bool Hub::start_server_list()
     if (!client) {
         return false;
     }
-    tasks::SchedulerTask* task = server_list_job_.get();
+    tasks::SchedulerTask* task = tasks_.server_list_job().get();
     if (!task->is_on_task_list()) {
         logic->queue_job(task);
     }
@@ -379,7 +379,7 @@ void Hub::stop_server_list()
     if (net::AppHost* client = get_matchmaking_client()) {
         client->dispatcher().tear_down_state();
     }
-    server_list_job_->drop_out();
+    tasks_.server_list_job()->drop_out();
 }
 
 // 0x005456B0
