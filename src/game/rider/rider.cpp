@@ -2,6 +2,7 @@
 
 #include "game/rider/rider.h"
 #include "game/rider/rider_created_tricks.h"
+#include "game/rider/rider_custom_restart.h"
 #include "game/rider/rider_projectiles.h"
 #include "game/rider/rider_stat_overrides.h"
 #include "game/rider/rider_trick_editor.h"
@@ -1655,9 +1656,9 @@ void Rider::relaunch(uint32_t a, uint32_t b)
 // The custom restart's position and orientation put back (SkipToCustomRestart, and SetCustomRestart Set).
 void Rider::skip_to_custom_restart()
 {
-    jump_to_spawn({.node = 0, .walking = static_cast<uint32_t>(custom_restart_walking_)});
-    at_point() = custom_restart_pos_;
-    basis_frame() = custom_restart_matrix_;
+    jump_to_spawn({.node = 0, .walking = static_cast<uint32_t>(custom_restart_.walking())});
+    at_point() = custom_restart_.pos();
+    basis_frame() = custom_restart_.matrix();
     core_physics_->safe_pos() = at_point();
     old_pos() = at_point();
     mark_jumped_ahead(true);
@@ -1742,18 +1743,18 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         return true;
     case kSetCustomRestart:                             // SetCustomRestart
         if (params->has_bare_flag(kSet)) { // Set: here and now - and skipped to
-            custom_restart_set_ = true;
-            custom_restart_pos_ = at_point();
-            custom_restart_matrix_ = basis_frame();
-            custom_restart_walking_ = physics_control_->is_on_foot();
+            custom_restart_.set_is_set(true);
+            custom_restart_.set_pos(at_point());
+            custom_restart_.set_matrix(basis_frame());
+            custom_restart_.set_walking(physics_control_->is_on_foot());
             skip_to_custom_restart();
             return true;
         }
         if (params->has_bare_flag(kClear)) { // clear
-            custom_restart_set_ = false;
+            custom_restart_.set_is_set(false);
             return true;
         }
-        return custom_restart_set_;
+        return custom_restart_.is_set();
     case kSkipToCustomRestart: // SkipToCustomRestart
         skip_to_custom_restart();
         return true;
@@ -1944,10 +1945,7 @@ void Rider::check_layout()
         FieldAt{.now = offsetof(Rider, view_slot_), .original = 0x2BC, .smaller_by = 8},
         FieldAt{.now = offsetof(Rider, pause_state_), .original = 0x2C0, .smaller_by = 8},
         FieldAt{.now = offsetof(Rider, flag_2c_4_), .original = 0x2C4, .smaller_by = 8},
-        FieldAt{.now = offsetof(Rider, custom_restart_pos_), .original = 0x2C8, .smaller_by = 8},
-        FieldAt{.now = offsetof(Rider, custom_restart_matrix_), .original = 0x2D8, .smaller_by = 8},
-        FieldAt{.now = offsetof(Rider, custom_restart_walking_), .original = 0x318, .smaller_by = 8},
-        FieldAt{.now = offsetof(Rider, custom_restart_set_), .original = 0x319, .smaller_by = 8},
+        FieldAt{.now = offsetof(Rider, custom_restart_), .original = 0x2C8, .smaller_by = 8},
         FieldAt{.now = offsetof(Rider, unknown31c_), .original = 0x31C, .smaller_by = 8},
         FieldAt{.now = offsetof(Rider, is_halted_), .original = 0x320, .smaller_by = 8},
         FieldAt{.now = sizeof(Rider), .original = 0x324, .smaller_by = 8},
@@ -1983,6 +1981,27 @@ void ProjectileSlots::name_all()
         core::at(slots_, i).name = checksums::hash_from_text(name.data());
         core::at(slots_, i).active = false;
     }
+}
+
+// NOT ORIGINAL
+void CustomRestart::check_layout()
+{
+    constexpr std::size_t kAt = 0x2C8; // (each field at its offset in the original skater, less the restart's own)
+    struct FieldAt {
+        std::size_t now;
+        std::size_t original;
+    };
+    constexpr std::array kLayout{
+        FieldAt{.now = offsetof(CustomRestart, pos_), .original = 0x2C8},
+        FieldAt{.now = offsetof(CustomRestart, matrix_), .original = 0x2D8},
+        FieldAt{.now = offsetof(CustomRestart, walking_), .original = 0x318},
+        FieldAt{.now = offsetof(CustomRestart, set_), .original = 0x319},
+        FieldAt{.now = sizeof(CustomRestart), .original = 0x31C},
+    };
+    static_assert(
+        sizeof(void*) != 4 ||
+            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        "layout must match the original");
 }
 
 // NOT ORIGINAL

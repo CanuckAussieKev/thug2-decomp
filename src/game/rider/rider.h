@@ -10,6 +10,7 @@
 #include "engine/objects/entity.h"
 #include "base/core/checksums.h"
 #include "game/rider/rider_created_tricks.h"
+#include "game/rider/rider_custom_restart.h"
 #include "game/rider/rider_projectiles.h"
 #include "game/rider/rider_stat_overrides.h"
 #include "game/rider/rider_trick_editor.h"
@@ -199,13 +200,8 @@ public:
     [[nodiscard]] skater::SkaterPhysicsModule* core_physics() const { return core_physics_; }
     [[nodiscard]] FootMovement* walk() const { return walk_; }
     [[nodiscard]] int view_slot() const { return view_slot_; }
-    [[nodiscard]] const maths::Vec4& custom_restart_pos() const { return custom_restart_pos_; }
-    void set_custom_restart_pos(const maths::Vec4& value) { custom_restart_pos_ = value; }
-    maths::Mat4& custom_restart_matrix() { return custom_restart_matrix_; }
-    [[nodiscard]] const maths::Mat4& custom_restart_matrix() const { return custom_restart_matrix_; }
-    void set_custom_restart_matrix(const maths::Mat4& value) { custom_restart_matrix_ = value; }
-    [[nodiscard]] bool custom_restart_walking() const { return custom_restart_walking_; }
-    void set_custom_restart_walking(bool value) { custom_restart_walking_ = value; }
+    CustomRestart& custom_restart() { return custom_restart_; }
+    [[nodiscard]] const CustomRestart& custom_restart() const { return custom_restart_; }
     [[nodiscard]] uint32_t unknown31c() const { return unknown31c_; }
     void set_unknown31c(uint32_t value) { unknown31c_ = value; }
     [[nodiscard]] bool is_halted() const { return is_halted_; }
@@ -245,11 +241,7 @@ private:
     int pause_state_{};                         // +0x2C0
     bool flag_2c_4_{false};                     // +0x2C4
     std::array<uint8_t, 3> pad2c5_{};
-    maths::Vec4 custom_restart_pos_{};    // +0x2C8 (SetCustomRestart)
-    maths::Mat4 custom_restart_matrix_{}; // +0x2D8
-    bool custom_restart_walking_{};       // +0x318
-    bool custom_restart_set_{};           // +0x319
-    std::array<uint8_t, 2> pad31a_{};
+    CustomRestart custom_restart_; // +0x2C8-+0x31B its own restart point (SetCustomRestart)
     uint32_t unknown31c_; // +0x31C
     bool is_halted_{};    // +0x320
     std::array<uint8_t, 3> pad321{};
