@@ -127,6 +127,10 @@ what one file uses is in an unnamed namespace.
 - Standard C++ only, buildable by MSVC and GCC: no inline assembly (the original's x87 maths is plain `<cmath>` -
   results may differ from the original's in the last bits, which is accepted), no compiler-specific keywords outside
   `src/base/core/compiler.h`.
+- The C runtime's maths of a float (`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `log`, `log10`,
+  `pow`) is called through `maths::runtime32::` (`base/maths/trig.h`), not `std::`: the 64-bit runtime's float
+  routines round differently from the 32-bit one's, which are the double functions rounded once (docs/design/x64-port.md,
+  "Floating point: measured"). Doubles and `sqrt` stay `std::`.
 - Conditions say what they test (readability-implicit-bool-conversion): a pointer stands alone (`if (p)`, `if (!p)` -
   ES.87), everything else is compared: `n != 0`, `(flags & kBit) != 0U`, `*text != '\0'`, a Win32 BOOL `!= FALSE`,
   an SDL_bool `!= SDL_FALSE`, a flag enum `core::any(flags & Flags::kA)`; a bool counted or stored as a number is

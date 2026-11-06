@@ -26,8 +26,8 @@ Vec4& Mat4::operator[](int index) { return core::at(row, index); }
 // 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
 Mat4& make_pitch_matrix(Mat4& matrix, float angle)
 {
-    const float sine = std::sin(angle);
-    const float cosine = std::cos(angle);
+    const float sine = runtime32::sin(angle);
+    const float cosine = runtime32::cos(angle);
     core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     core::at(matrix.row, 1) = {.x = 0.0F, .y = cosine, .z = sine, .w = 0.0F};
     core::at(matrix.row, 2) = {.x = 0.0F, .y = -sine, .z = cosine, .w = 0.0F};
@@ -38,8 +38,8 @@ Mat4& make_pitch_matrix(Mat4& matrix, float angle)
 // 0x00404E20
 Mat4& make_yaw_matrix(Mat4& matrix, float angle)
 {
-    const float sine = std::sin(angle);
-    const float cosine = std::cos(angle);
+    const float sine = runtime32::sin(angle);
+    const float cosine = runtime32::cos(angle);
     core::at(matrix.row, 0) = {.x = cosine, .y = 0.0F, .z = -sine, .w = 0.0F};
     core::at(matrix.row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
     core::at(matrix.row, 2) = {.x = sine, .y = 0.0F, .z = cosine, .w = 0.0F};
@@ -50,8 +50,8 @@ Mat4& make_yaw_matrix(Mat4& matrix, float angle)
 // 0x00404E70
 Mat4& make_roll_matrix(Mat4& matrix, float angle)
 {
-    const float sine = std::sin(angle);
-    const float cosine = std::cos(angle);
+    const float sine = runtime32::sin(angle);
+    const float cosine = runtime32::cos(angle);
     core::at(matrix.row, 0) = {.x = cosine, .y = sine, .z = 0.0F, .w = 0.0F};
     core::at(matrix.row, 1) = {.x = -sine, .y = cosine, .z = 0.0F, .w = 0.0F};
     core::at(matrix.row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
@@ -368,7 +368,7 @@ float get_angle_in_plane(const Mat4& matrix, const Vec4& v, int ref_axis, int no
     } else if (cosine < -1.0F) {
         cosine = -1.0F;
     }
-    const float angle = std::acos(cosine);
+    const float angle = runtime32::acos(cosine);
 
     // Which way round: compare ref x in_plane with the plane normal on its largest axis.
     const Vec4 cross{.x = (ref.y * in_plane.z) - (ref.z * in_plane.y),
@@ -542,8 +542,8 @@ Mat4& build_axis_angle_matrix(Mat4& matrix, AxisAngle axis_angle)
 {
     const auto axis = axis_angle.axis;
     const auto angle = axis_angle.angle;
-    const float sine = std::sin(angle);
-    const float cosine = std::cos(angle);
+    const float sine = runtime32::sin(angle);
+    const float cosine = runtime32::cos(angle);
     const int first_axis = (axis + 1) % 3;
     const int second_axis = (axis + 2) % 3;
     core::at(matrix.row, 0) = {.x = 1.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
@@ -654,16 +654,16 @@ Mat4& Mat4::set_from_euler_angles(float x, float y, float z)
     // As the original's x87 code: the cosines and sin z stored as floats, sin x and sin y kept on the FPU at full
     // precision (their products rounded to 53 bits), the sums too until each element is stored; cos x * sin y stored
     // once and reused.
-    const float cx = std::cos(x);
-    const float cy = std::cos(y);
-    const float cz = std::cos(z);
-    const float sz = std::sin(z);
+    const float cx = runtime32::cos(x);
+    const float cy = runtime32::cos(y);
+    const float cz = runtime32::cos(z);
+    const float sz = runtime32::sin(z);
     auto cxsy = static_cast<float>(std::sin(static_cast<double>(y)) * cx);
     const double sysx = std::sin(static_cast<double>(y)) * std::sin(static_cast<double>(x));
     auto narrow = [](double v) { return static_cast<float>(v); };
     core::at(row, 0) = {.x = narrow(static_cast<double>(cz) * cy),
                         .y = narrow(-(static_cast<double>(sz) * cy)),
-                        .z = -std::sin(y),
+                        .z = -runtime32::sin(y),
                         .w = 0.0F};
     core::at(row, 1) = {.x = narrow((static_cast<double>(sz) * cx) - (sysx * cz)),
                         .y = narrow((sysx * sz) + (static_cast<double>(cz) * cx)),

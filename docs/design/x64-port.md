@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X10a (FFmpeg's Bink video). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X10a (FFmpeg's Bink video), X14 (floating point measured: the corpus). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -132,7 +132,8 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 - The game's own code never sets the precision. The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
   CMake files set no `/arch`), so its `float` / `double` arithmetic is already SSE2 and doesn't depend on the x87
   control word. The x87 remains in these places in the 32-bit build:
-  - the C runtime's maths functions, where the x86 CRT picks an x87 path (to confirm per function);
+  - the C runtime's `sqrt` of a double (the x86 runtime's is the x87's FSQRT, so it rounds as the control word says;
+    measured by X14: no other function of `<cmath>` the game calls depends on it - below);
   - `float` return values in `ST(0)`. This is exact at 24 bits for floats;
   - `d3dx9_43.dll`'s own code. Only the backend calls it now: shader assembly and the JPEG.
 - On x64, MSVC uses SSE2 only and the x64 CRT's `sin` / `cos` / `atan2` / `pow` / `sqrt` are different
@@ -145,13 +146,60 @@ Counted over 335,402 non-blank source lines, with comments stripped:
   - the QB numeric profile (`docs/qb-numeric-precision.md`: the gameplay profile is x87 precision 24) and RandomRange.
 - What equivalence can mean here: the same results bit for bit where the code does integer, fixed-point or IEEE
   `+ - * /` work at the same widths (SSE2 on both builds), and the same results within a last-bit tolerance for the
-  CRT's transcendentals. Task X14 turns `thug2_maths_check` into a two-build check: the 32-bit build writes a corpus
-  of inputs and results, and the 64-bit build compares with it and lists every function that differs, with its
-  largest difference in ulps. The accepted differences are recorded in docs/qb-numeric-precision.md and the style
-  guide. No replay harness is proposed; play-testing confirms the feel.
+  CRT's transcendentals. Measured by X14 (below); the accepted differences are listed there.
 - Online: messages carry positions and states quantised by the wire encoders (`wire/`). Peers simulate their own
   skaters and send states; they don't run in lockstep. A 64-bit peer should therefore play with 32-bit peers and with
   the original. To confirm by a local session test, as the GameSpy work was.
+
+### Floating point: measured (X14)
+
+`thug2_maths_check --write-corpus <file> [53|24]` on the 32-bit build writes a corpus: every checked function's inputs
+and results, bit for bit, with the x87 at 53 bits or at 24 (as Direct3D 9 leaves the game's thread). `thug2_maths_check
+--compare-corpus <file>` on another build reads the same inputs back, works the functions out again and reports, per
+function, how many results differ, the largest and mean difference in ulps of the stored type and the largest absolute
+one. The corpus (`src/tests/maths_corpus.h`, `maths_corpus_cases.cpp`) covers the C runtime's `<cmath>` as the game
+calls it (doubles and floats), every function in `base/maths` (maths.h, trig.h, random.h, vec4.h, mat4.h,
+quat_rotation.h, rotation_blend.h, shape_tests.h, view_transforms.h), the game files' formulas that replaced their x87
+code (the functions `thug2_maths_check` checks against the x87 reference) and D3DX9's maths. 20,000 inputs per case
+(114 MB; not committed - written by the 32-bit build when wanted). The 32-bit build compared with its own corpus: no
+differences (the cases are deterministic).
+
+Results, the 64-bit build against the 32-bit build's corpus at 53 bits (151 of the 193 functions have no difference):
+
+| what | differs | why | decision |
+|---|---|---|---|
+| all of `base/maths` that returns floats: vectors, matrices, quaternions, the rotation blender, shape tests, view transforms, matrix product, random | 0 | the same SSE2 operations in the same order on both builds | - |
+| `base/maths`' float trigonometry (`make_*_matrix`, `create_rotate_2d`, `set_from_euler_angles`, `get_angle_in_plane`, `matrix_rotation_y`...) | 0.03-1.9% by 1 float ulp before; 0 now | the 64-bit runtime's `sinf` / `cosf` / `acosf` are float routines of their own; the 32-bit runtime's are the double functions rounded once (corecrt_math.h) | fixed: `maths::runtime32::` (trig.h) works a float as the 32-bit runtime does; on 32-bit x86 it is the runtime's own function (the objects compare identical but for line numbers) |
+| the runtime's float functions called as `std::` (outside `base/maths`) | `asin(float)` 6.4%, `acos(float)` 2.1%, `sin` / `cos` / `tan(float)` 0.03-0.11%, `exp` / `log` / `pow(float)` < 0.1%; 1 float ulp | as above | float maths outside `base/maths` is to call `maths::runtime32::` too (a mechanical sweep: the x86 objects show the callers - their calls to `?sin@@YAMM@Z` and the other float overloads) |
+| the runtime's doubles | `sin` / `cos` / `tan` 3-4.4%, `asin` / `acos` 6.8-7.4%, `atan2` 0.09%, `exp` 0.7%, `pow` 0.1%, `hypot` 34% (2 ulps); 1 double ulp | the 32-bit and 64-bit runtimes are different implementations (the 64-bit one's FMA3 paths off: the same picture) | accepted: 1 double ulp, 1e-16 relative; rounded to float (what the game stores) the results agree - `sin -> float`, `cos -> float`, `atan2 -> float`, `turn_flat`, `turn_move`, `probe_tip`, the view camera's fov: 0 differences. Matching them would mean one maths library for both builds, which changes the 32-bit build's results |
+| doubles worked from them: `maths::spin_by`, `neg_asin_cos`' 1 / cos, `read_turn_angle`, `get_turn_around_axis` | 3.4% (up to 8192 ulps: a difference of two products), 7.2%, 6.9%, 6.3% | the runtime's doubles, carried | accepted (relative size as above; the large ulps are cancellation near zero) |
+| D3DX9's maths, its 64-bit DLL against its 32-bit one | the matrix product 11.8%, the vector transforms 14-73%, normalize 59%, the inverse 59%, look-at 38%, perspective / ortho 2-3% | D3DX's 64-bit code is another implementation (other sums, its own reciprocal estimates; its perspective and ortho builders work in float, as the 32-bit one does at 24 bits) | no consequence: the game calls none of D3DX's maths (our C++ replaced it, and that is identical on both builds); this explains the 64-bit "plain C++ against D3DX" differences X2 measured |
+
+The x87's precision on the 32-bit build (the corpus at 24 bits against the 32-bit build at 53): of the runtime's
+functions only `sqrt` of a double depends on it (the x86 runtime's is the x87's FSQRT): at 24 bits it rounds to a
+float's 24 bits, in every result. A Direct3D 9 device made without `D3DCREATE_FPU_PRESERVE` sets 24 bits on its
+thread (measured: the x87 control word goes from 53 to 24 bits, MXCSR unchanged, nothing on x64), so on the 32-bit
+build with `renderer=d3d9` every double square root on the game's thread is rounded to 24 bits; with Vulkan (the
+default) it isn't. `make_unit`, `set_length` and the rotations built from lengths (`square_up_axes`, `get_rotation_axis_angle`,
+the quaternions, the rotation blender) differ by 1 float ulp in 3-27% of results between the two, `get_distance` in
+all of them (a 24-bit double). The 64-bit build has no x87 precision: it computes as the 32-bit build with Vulkan. D3DX9's
+32-bit look-at, perspective and ortho builders depend on the precision too (none of them is called). Accepted: the
+64-bit build matches the 32-bit build's default renderer; the 32-bit Direct3D 9 path is the one that differs, and
+`base/maths` documents its double intermediates as the x87's at 53 bits.
+
+Other observations:
+- The SSE reciprocal estimates (`maths::estimate_reciprocal`, `estimate_reciprocal_sqrt`: `rcpss` / `rsqrtss`) give the
+  same results on both builds on one processor, but they are the processor's own: another vendor's can differ. They
+  are used only by the renderer (`pc_mesh_render`, `pc_texture_projection`, `shadow_base`, `texture_splats`).
+- No integer / float truncation, uninitialised value or order-of-evaluation difference showed up: every difference
+  above has its cause in the C runtime or in D3DX.
+
+What X15 compares (traces of the same input on the 32-bit build with `renderer=vulkan` and on the 64-bit build, a
+fixed frame time, the same seeds), per frame: the skater's position, velocity and orientation matrix; its state (on the
+ground, rail, lip, wall, in the air; walking) and the feelers' hits; the trick, score and combo state; the camera's
+matrix; the script's numeric results (`RandomRange`, the float cells); the animation blend's matrices. The first frame
+that differs and by how much, against the noise floor of the 32-bit build with `renderer=d3d9` against itself with
+Vulkan (the square root above): a divergence from the 64-bit build no larger than that one is the accepted kind.
 
 ### Memory: pools, heaps and fixed regions
 

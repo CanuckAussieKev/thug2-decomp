@@ -123,8 +123,8 @@ float keep_within(float value, Within within)
 // 0x004058B0
 void create_rotate_2d(std::span<float, 4> out, float angle)
 {
-    const float sine = std::sin(angle);
-    const float cosine = std::cos(angle);
+    const float sine = runtime32::sin(angle);
+    const float cosine = runtime32::cos(angle);
     core::at(out, 0) = cosine;
     core::at(out, 1) = sine;
     core::at(out, 2) = -sine;
