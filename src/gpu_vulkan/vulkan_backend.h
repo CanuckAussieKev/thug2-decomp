@@ -269,6 +269,29 @@ Image* record_gamma_pass(Backend& state, Image* frame);
 void record_begin_query(Backend& state, const GpuStateBlock& block, Query* query);
 void record_end_query(Backend& state, Query* query);
 
+// The UI's draws (vulkan_ui_backend.cpp: Dear ImGui's draw data). One draw: `indices` indices from `first_index` (into
+// the batch's), their vertices counted from `base_vertex`, the texture (null, or released: the blank one), the clip
+// rectangle in the target's pixels.
+struct UiDraw {
+    Texture* texture = nullptr;
+    GpuRect clip{};
+    uint32_t first_index = 0;
+    uint32_t indices = 0;
+    int32_t base_vertex = 0;
+};
+// A frame's UI: its vertices (Pipelines::kUiVertexBytes each: ImGui's), 16-bit indices, the rectangle it covers (left,
+// top, width, height in the target's pixels: ImGui's display) and the draws.
+struct UiBatch {
+    std::span<const uint8_t> vertices;
+    std::span<const uint16_t> indices;
+    std::array<float, 4> display{};
+    std::span<const UiDraw> draws;
+};
+// The batch drawn into the device's targets (render target 0) over what is there, in the stream: in the pass on them
+// (opened, after the pass on others ended, as a draw does), its textures made ready to be sampled first; the stream's
+// bound state forgotten after (Pipelines::ui_pass's is its own).
+long record_ui_draws(Backend& state, const UiBatch& batch);
+
 // The checks' views (src/tests/vulkan_gpu_check.cpp): an object's image, a level read back in the image's format, a
 // buffer's device memory read back.
 const Texture* texture_of(GpuTexture* texture);

@@ -59,6 +59,7 @@ constexpr VkDeviceSize kLeastUniformAlignment = 16;
 constexpr std::size_t kMostClearRects = 8;
 constexpr uint64_t kReportBadTarget = 0x7A55U; // (the once-only reports' keys)
 constexpr uint64_t kReportGamma = 0x6A33U;
+constexpr uint64_t kReportUi = 0x0175U;
 constexpr double kMilliseconds = 1000.0;
 constexpr double kMegabyte = 1024.0 * 1024.0;
 
@@ -386,6 +387,25 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     bound.descriptors_set = true;
 }
 
+// A texture's image made ready to be sampled; null (the blank texture) when there is none, it was released while still
+// set, or the open pass draws into it.
+Image* image_to_sample(Backend& state, Texture* texture)
+{
+    if (texture == nullptr || !state.textures.contains(texture)) {
+        return nullptr;
+    }
+    Image* image = &texture->image;
+    if (image->layout != image->resting) {
+        if (state.pass.open && (image == state.pass.colour_image || image == state.pass.depth_image)) {
+            return nullptr; // (sampled while drawn into)
+        }
+        VkCommandBuffer commands = outside_pass(state);
+        Memory::transition(commands, image, image->resting);
+        image->used = state.frames.serial();
+    }
+    return image;
+}
+
 // The stages' textures a draw samples: each one's image (null: the blank texture), made ready to be sampled.
 std::array<Image*, kStageCount> sampled_images(Backend& state, const GpuStateBlock& block, uint32_t sampled)
 {
@@ -395,20 +415,7 @@ std::array<Image*, kStageCount> sampled_images(Backend& state, const GpuStateBlo
             continue;
         }
         Texture* const texture = core::at(block.textures, stage) ? object(core::at(block.textures, stage)) : nullptr;
-        if (texture == nullptr || !state.textures.contains(texture)) {
-            continue; // (none set, or released while still set: the blank texture)
-        }
-        Image* image = &texture->image;
-        if (image->layout != image->resting) {
-            if (state.pass.open && (image == state.pass.colour_image || image == state.pass.depth_image)) {
-                image = nullptr; // (sampled while drawn into: the blank texture)
-            } else {
-                VkCommandBuffer commands = outside_pass(state);
-                Memory::transition(commands, image, image->resting);
-                image->used = state.frames.serial();
-            }
-        }
-        core::at(images, stage) = image;
+        core::at(images, stage) = image_to_sample(state, texture);
     }
     return images;
 }
@@ -1099,6 +1106,111 @@ void record_end_query(Backend& state, Query* query)
         end_query_in_pass(state.frames.stream(), state, query);
         open.erase(found);
     }
+}
+
+long record_ui_draws(Backend& state, const UiBatch& batch)
+{
+    const float width = core::at(batch.display, 2);
+    const float height = core::at(batch.display, 3);
+    if (!state.draws_made || batch.draws.empty() || batch.vertices.empty() || batch.indices.empty() || width <= 0.0F ||
+        height <= 0.0F) {
+        return kOk;
+    }
+    // (as a draw: the pass on other targets ended first, so what it drew can be sampled)
+    if (state.pass.open && (state.pass.colour != core::at(state.targets, 0) || state.pass.depth != state.depth)) {
+        end_pass(state);
+    }
+    std::vector<Image*> images;
+    images.reserve(batch.draws.size());
+    for (const UiDraw& draw : batch.draws) {
+        images.push_back(image_to_sample(state, draw.texture));
+    }
+    if (!ensure_pass(state, nullptr)) {
+        return kOk;
+    }
+    const OpenPass& pass = state.pass;
+    std::string error;
+    const VkPipeline pipeline = state.pipelines.ui_pass(
+        pass.colour_image->format, pass.depth_image != nullptr ? pass.depth_image->format : VK_FORMAT_UNDEFINED,
+        static_cast<uint32_t>(pass.colour_image->samples), &error);
+    const SamplerKey linear{.address_u = gpu_value::kAddressClamp,
+                            .address_v = gpu_value::kAddressClamp,
+                            .address_w = gpu_value::kAddressClamp,
+                            .mag_filter = gpu_value::kFilterLinear,
+                            .min_filter = gpu_value::kFilterLinear};
+    const VkSampler sampler = state.samplers.sampler(linear);
+    // the display's rectangle to the target's -1 - 1: x' = x * 2 / width - 1 - left * 2 / width (and y the same)
+    const float left = core::at(batch.display, 0);
+    const float top = core::at(batch.display, 1);
+    const std::array<float, 4> transform{2.0F / width, 2.0F / height, -1.0F - (left * 2.0F / width),
+                                         -1.0F - (top * 2.0F / height)};
+    const void* const transform_bytes = transform.data();
+    const void* const index_bytes = batch.indices.data();
+    const std::optional<RingSpan> vertices = state.ring.copy(batch.vertices, kLeastUniformAlignment);
+    const std::optional<RingSpan> indices =
+        state.ring.copy(std::span(static_cast<const uint8_t*>(index_bytes), batch.indices.size_bytes()),
+                        kLeastUniformAlignment);
+    const std::optional<RingSpan> block =
+        state.ring.copy(std::span(static_cast<const uint8_t*>(transform_bytes), sizeof(transform)), state.uniform_alignment);
+    if (pipeline == VK_NULL_HANDLE || sampler == VK_NULL_HANDLE || !vertices || !indices || !block) {
+        if (first_report(state, kReportUi)) {
+            get_log("vulkan: the UI not drawn (%s)", error.empty() ? "no room for its vertices" : error.c_str());
+        }
+        return kOk;
+    }
+    VkCommandBuffer commands = stream(state);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    const VkViewport viewport{.x = 0.0F, .y = 0.0F, .width = width, .height = height, .minDepth = 0.0F, .maxDepth = 1.0F};
+    vkCmdSetViewport(commands, 0, 1, &viewport);
+    vkCmdBindVertexBuffers(commands, 0, 1, &vertices->buffer, &vertices->offset);
+    vkCmdBindIndexBuffer(commands, indices->buffer, indices->offset, VK_INDEX_TYPE_UINT16);
+    const VkDescriptorBufferInfo uniforms{.buffer = block->buffer, .offset = block->offset, .range = sizeof(transform)};
+    const Image* pushed = nullptr;
+    bool any_pushed = false;
+    const auto area_width = static_cast<int32_t>(pass.area.width);
+    const auto area_height = static_cast<int32_t>(pass.area.height);
+    const uint64_t serial = state.frames.serial();
+    for (std::size_t at = 0; at < batch.draws.size(); ++at) {
+        const UiDraw& draw = core::at(batch.draws, at);
+        const GpuRect clip{.left = std::max(draw.clip.left, 0),
+                           .top = std::max(draw.clip.top, 0),
+                           .right = std::min(draw.clip.right, area_width),
+                           .bottom = std::min(draw.clip.bottom, area_height)};
+        if (draw.indices == 0 || clip.right <= clip.left || clip.bottom <= clip.top) {
+            continue;
+        }
+        const Image* const image = core::at(images, at);
+        if (!any_pushed || image != pushed) {
+            const Image& shown = image != nullptr ? *image : state.blank;
+            const VkDescriptorImageInfo texture{.sampler = sampler, .imageView = shown.view, .imageLayout = shown.layout};
+            std::array<VkWriteDescriptorSet, 2> writes{};
+            for (VkWriteDescriptorSet& write : writes) {
+                write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                write.descriptorCount = 1;
+            }
+            writes.front().dstBinding = kVertexUniformsBinding;
+            writes.front().descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            writes.front().pBufferInfo = &uniforms;
+            writes.back().dstBinding = kFirstTextureBinding;
+            writes.back().descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes.back().pImageInfo = &texture;
+            vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0,
+                                      static_cast<uint32_t>(writes.size()), writes.data());
+            pushed = image;
+            any_pushed = true;
+        }
+        const VkRect2D scissor{.offset = {.x = clip.left, .y = clip.top},
+                               .extent = {.width = static_cast<uint32_t>(clip.right - clip.left),
+                                          .height = static_cast<uint32_t>(clip.bottom - clip.top)}};
+        vkCmdSetScissor(commands, 0, 1, &scissor);
+        vkCmdDrawIndexed(commands, draw.indices, 1, draw.first_index, draw.base_vertex, 0);
+        if (core::at(images, at) != nullptr) {
+            core::at(images, at)->used = serial;
+        }
+        ++state.stats.draws;
+    }
+    state.bound = BoundState{}; // (the draws' pipeline, descriptors, buffers and dynamic states are gone)
+    return kOk;
 }
 
 } // namespace render::vulkan

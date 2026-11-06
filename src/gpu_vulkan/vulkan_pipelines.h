@@ -80,6 +80,18 @@ public:
     // pixel, no blending and no depth, into one single-sampled target of `colour_format`; the viewport and scissor
     // dynamic. VK_NULL_HANDLE when it doesn't compile or the driver refuses it (reported through `error`).
     VkPipeline screen_pass(VkFormat colour_format, const std::string& fragment, std::string* error);
+    // The UI's pipeline (made the first time; vulkan_ui_backend.cpp draws Dear ImGui's draw lists with it): triangles of
+    // ImGui's vertices (a position and texture coordinates as two floats each, a colour as four bytes - red first; 20
+    // bytes), each position mapped by the vertex uniform block's first vec4 (xy scale, zw offset) to the target, the
+    // colour times t0 (binding kFirstTextureBinding), alpha-blended over the target as ImGui's Direct3D 9 backend does
+    // (colour: source alpha / one minus it; alpha: one / one minus source alpha), no culling, no depth test or writes;
+    // into the attachments of the open pass (`colour_format`, `depth_format` - VK_FORMAT_UNDEFINED: none - and
+    // `samples`); the viewport and scissor dynamic. VK_NULL_HANDLE when it doesn't compile or the driver refuses it.
+    VkPipeline ui_pass(VkFormat colour_format, VkFormat depth_format, uint32_t samples, std::string* error);
+    // The UI's vertex (ImDrawVert's): its size, and where its texture coordinates and colour are.
+    static constexpr uint32_t kUiVertexBytes = 20;
+    static constexpr uint32_t kUiUvOffset = 8;
+    static constexpr uint32_t kUiColourOffset = 16;
 
 private:
     VkShaderModule module(bool vertex, const ShaderKey& key, std::string* error);
@@ -96,7 +108,7 @@ private:
     std::unordered_map<VertexKey, VkShaderModule, VertexKeyHash> vertex_modules_;
     std::unordered_map<FragmentKey, VkShaderModule, FragmentKeyHash> fragment_modules_;
     std::unordered_map<uint64_t, VkShaderModule> screen_modules_; // by the GLSL's hash
-    std::unordered_map<uint64_t, VkPipeline> screen_pipelines_;   // by the fragment's hash and the format
+    std::unordered_map<uint64_t, VkPipeline> screen_pipelines_;   // by the fragment's hash and the format (and the UI's)
     std::unordered_map<uint64_t, std::vector<uint32_t>> spirv_; // by the GLSL's hash
     bool dirty_ = false;
     PipelineStats stats_;
