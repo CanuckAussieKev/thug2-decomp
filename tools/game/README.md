@@ -149,6 +149,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
   the errors (the pools: the log's `script pools in use in <level>` line, written once the level is up -
   src/game/front_end/start_level.cpp; and any `pool ... full` / `80% full` line).
+- `node tools/game/heap_report.ts <log> [<second log>]` - the memory manager's heaps once each level was up (the log's
+  `memory heap in <level>:` lines: region, use, peak and blocks of every heap, src/engine/memory/memory_report.h) as a
+  table; with two logs (a 32-bit and an x64 build's) side by side - each heap's region and peak in both, the growth
+  and the room left; a peak within 10% of its region is marked TIGHT.
 
 Reference sources the agents read (re-fetch anonymously if needed; none of their code is in the repo except where
 the THIRD_PARTY_NOTICES.md files - the decomp's, the content pipeline's and the converters' - say): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene

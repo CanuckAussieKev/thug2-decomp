@@ -2,6 +2,7 @@
 // double precision where it keeps them in registers).
 
 #include "render_pc/sub_mesh.h"
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
 
@@ -54,7 +55,8 @@ uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.
 gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    gsl::owner<void*> memory = crt::alloc_block(kIdxStoreBytes);
+    static_assert(core::layout_32bit(sizeof(IdxStore) == kIdxStoreBytes), "the original allocates this many bytes");
+    gsl::owner<void*> memory = crt::alloc_block(sizeof(IdxStore));
     if (!memory) {
         return nullptr;
     }

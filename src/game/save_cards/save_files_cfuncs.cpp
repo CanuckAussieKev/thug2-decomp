@@ -2,6 +2,7 @@
 
 #include "game/save_cards/save_files_cfuncs.h"
 
+#include "base/core/layout_32bit.h"
 #include "base/core/str.h"
 
 #include <cstddef>
@@ -48,6 +49,9 @@ constexpr int kReserveStructItemBytes = 0x08;
 constexpr int kReserveStructCount = 50000;
 constexpr int kReserveVectorItemBytes = 0x10;
 constexpr int kReserveVectorCount = 10000;
+static_assert(core::layout_32bit(sizeof(script::Component) == kReserveComponentItemBytes && sizeof(script::Struct) == kReserveStructItemBytes &&
+                                   sizeof(script::Vector) == kReserveVectorItemBytes),
+              "the original's item sizes (sizeof on x64)");
 constexpr int kMaxSummaryBytes = 100;        // MaxSummaryInfoSize
 constexpr int kTypeLetterOffset = 7;      // the type's letter in a file label, after the 7 characters of the folder's name
 constexpr int kHardwareUnlisted = 8;         // a platform number the tables don't list (treated like the PC's)
@@ -340,13 +344,13 @@ bool create_temporary_mem_card_pools(Struct* /*params*/, Context /*context*/)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     memory::push_mem_profile("Mem card CComponent");
-    create_reserve_pool(script::component_pools(), kReserveComponentItemBytes, kReserveComponentCount, "Reserve CComponent");
+    create_reserve_pool(script::component_pools(), static_cast<int>(sizeof(script::Component)), kReserveComponentCount, "Reserve CComponent");
     memory::pop_mem_profile();
     memory::push_mem_profile("Mem card CStruct");
-    create_reserve_pool(script::struct_pools(), kReserveStructItemBytes, kReserveStructCount, "Reserve CStruct");
+    create_reserve_pool(script::struct_pools(), static_cast<int>(sizeof(script::Struct)), kReserveStructCount, "Reserve CStruct");
     memory::pop_mem_profile();
     memory::push_mem_profile("Mem card CVector");
-    create_reserve_pool(script::vector_pools(), kReserveVectorItemBytes, kReserveVectorCount, "Reserve CVector");
+    create_reserve_pool(script::vector_pools(), static_cast<int>(sizeof(script::Vector)), kReserveVectorCount, "Reserve CVector");
     memory::pop_mem_profile();
     memory::Hub::get_pull()->leave_heap_scope();
     return true;

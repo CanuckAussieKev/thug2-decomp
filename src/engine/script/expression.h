@@ -93,6 +93,6 @@ private:
         static_assert(core::layout_32bit(offsetof(ValueResolver, unknown1f4_) == kValueResolverUnknown1f4Offset), "layout must match the original");
     }
 };
-static_assert(sizeof(Component) * kValueStackDepth == kValueStackBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Component) * kValueStackDepth == kValueStackBytes), "layout must match the original");
 
 } // namespace script

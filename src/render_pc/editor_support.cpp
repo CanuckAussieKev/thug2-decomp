@@ -11,6 +11,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/down_cast.h"
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/gfx/engine_geom.h"
@@ -114,7 +115,8 @@ gsl::owner<VertexBufferData*> create_vertex_buffer(uint32_t bytes) { return new_
 
 gsl::owner<IndexBufferData*> create_index_buffer(uint32_t bytes)
 {
-    gsl::owner<void*> memory = crt::alloc_block(kIndexStoreBytes);
+    static_assert(core::layout_32bit(sizeof(IdxStore) == kIndexStoreBytes), "the original allocates this many bytes");
+    gsl::owner<void*> memory = crt::alloc_block(sizeof(IdxStore));
     if (!memory) {
         return nullptr;
     }

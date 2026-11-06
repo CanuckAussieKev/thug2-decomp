@@ -334,7 +334,7 @@ void unload_qb(uint32_t file_checksum)
     }
     if (count != 0) {
         memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
-        auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * 4));
+        auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * memory::kPointerBytes));
         memory::leave_heap_scope();
         const std::span<SymbolTableEntry*> symbols(block, static_cast<size_t>(count));
         size_t next = 0;

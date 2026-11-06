@@ -40,7 +40,7 @@ namespace lists {
 
 // 0x00561470
 GrowableMap::GrowableMap(Sizes sizes)
-    : items_(static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(sizes.capacity) * 4))),
+    : items_(static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(sizes.capacity) * memory::kPointerBytes))),
       capacity_(sizes.capacity), grow_(sizes.grow)
 {
     std::ranges::fill(item_run(), nullptr);
@@ -54,7 +54,7 @@ void GrowableMap::append_one(void* item)
 {
     if (capacity_ <= num_) {
         const int capacity = capacity_ + grow_;
-        auto** items = static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * 4));
+        auto** items = static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * memory::kPointerBytes));
         const std::span<void*> grown(items, static_cast<std::size_t>(capacity));
         std::ranges::copy(item_run(), grown.begin());
         std::ranges::fill(grown.subspan(static_cast<std::size_t>(capacity_)), nullptr);

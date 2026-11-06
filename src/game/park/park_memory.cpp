@@ -14,6 +14,7 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
+#include "engine/memory/memory_sizes.h"
 #include "engine/memory/slab_bank.h"
 #include "game/park_editing/park.h"
 #include "engine/script/cscript.h"
@@ -203,13 +204,13 @@ void remove_piece_dma(const PieceGroup* meta)
 }
 
 // 0x0059E210
-void create_map_list_node_pool(int count, const char* name) { make_pool(node_pools(), kMapListNodeByteSize, count, name); }
+void create_map_list_node_pool(int count, const char* name) { make_pool(node_pools(), static_cast<int>(sizeof(MapListNode)), count, name); }
 
 // 0x0059E290
-void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), kClipboardEntryByteSize, count, name); }
+void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), static_cast<int>(sizeof(ClipboardEntry)), count, name); }
 
 // 0x0059E310
-void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), kClipboardByteSize, count, name); }
+void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), static_cast<int>(sizeof(Clipboard)), count, name); }
 
 // 0x0059E390
 void get_marker(uint32_t marker)
@@ -421,7 +422,8 @@ void prepare_all(uint32_t level)
     gsl::owner<memory::MemoryArena*> region = nullptr;
     if (memory) {
         const int size = get_memory_value("park_heap_size", -1); // "park_heap_size"
-        region = memory::construct_in<memory::MemoryArena>(memory, static_cast<uint32_t>(size));
+        // Not original - twice the size on x64 (memory::sizes::region_bytes); the original's on the 32-bit build.
+        region = memory::construct_in<memory::MemoryArena>(memory, memory::sizes::region_bytes(static_cast<uint32_t>(size)));
     }
     park_memory_state().park_region_ = memory::take_unique<memory::Zone>(region);
     park_heap() = manager->add_heap(park_memory_state().park_region_.get(), direction, name);

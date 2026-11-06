@@ -17,6 +17,10 @@ class Arena;
 // Note the argument order: size first.
 void* get_clear(unsigned int size, void* dest);
 
+// NOT ORIGINAL - a pointer's bytes in an array of them on a heap: 4 on the 32-bit build (the original's `count * 4`),
+// 8 on x64.
+inline constexpr unsigned int kPointerBytes = sizeof(void*);
+
 // General allocation from the default heap (the engine's operator new). Makes sure the memory system is
 // set up first.
 void* alloc(unsigned int size);
