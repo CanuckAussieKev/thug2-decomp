@@ -331,7 +331,7 @@ bool Context::create_instance(bool validation)
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data(),
     };
-    VkResult result = vkCreateInstance(&info, nullptr, &instance_);
+    const VkResult result = vkCreateInstance(&info, nullptr, &instance_);
     if (result == VK_ERROR_LAYER_NOT_PRESENT && use_validation) {
         // (the layer is listed but can't be loaded into this process - a 64-bit layer for a 32-bit one): without it
         report("the validation layer is listed but can't be loaded into this process - going on without it");
