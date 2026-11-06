@@ -25,7 +25,7 @@ namespace audio::dsound {
 namespace {
 
 constexpr size_t kDscapsBytes = 0x60;     // DirectSound's structures as this build's headers lay them out
-constexpr size_t kBufferDescBytes = 4 * sizeof(uint32_t) + sizeof(void*) + 16; // 0x24 on 32-bit, 0x28 on 64-bit
+constexpr size_t kBufferDescBytes = (4 * sizeof(uint32_t)) + sizeof(void*) + 16; // 0x24 on 32-bit, 0x28 on 64-bit
 constexpr size_t kGuidBytes = 16;
 
 // DirectSound's GUIDs, as the exe's data has them (dsound.lib's): IID_IDirectSound3DBuffer, IID_IDirectSound3DListener.
