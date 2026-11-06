@@ -540,6 +540,78 @@ int& collision_objects()
     return collision_objects;
 }
 
+// A collision record's array fields and a tree node's size and link word.
+constexpr size_t kRecordFaces = 0x0C;
+constexpr size_t kRecordVertices = 0x30;
+constexpr size_t kRecordTree = 0x34;
+constexpr size_t kRecordVertexBytes = 0x38;
+constexpr size_t kTreeNodeBytes = 8;
+constexpr size_t kTreeLinkOffset = 4;
+
+// A tree's node: its offset in the node section and its depth.
+struct TreeNodeAt {
+    size_t node{};
+    int depth{};
+};
+
+// A tree's node checked in the fixed-up copy against the file's offsets: a split node's link reaches the children
+// its offset named, its flag bits kept; a leaf's its face list.
+bool tree_links_resolve(std::span<const uint8_t> nodes, const collision_format::CollisionLayout& fixed, TreeNodeAt at_node)
+{
+    constexpr int kDeepest = 64;
+    const size_t node = at_node.node;
+    const uint32_t tag = word_at(nodes, node);
+    const uint32_t link = word_at(nodes, node + kTreeLinkOffset);
+    const uintptr_t at = fixed.nodes + node;
+    const uint32_t moved =
+        word_at(std::span<const uint8_t>(core::at_address<const uint8_t>(at), kTreeNodeBytes), kTreeLinkOffset);
+    if ((tag & 3) == 3) {
+        return core::address(collision_format::tree_leaf_faces(core::at_address<const void>(at), moved)) ==
+               fixed.face_lists + (static_cast<uintptr_t>(link) * 2);
+    }
+    const size_t children = link & ~3U;
+    const int depth = at_node.depth + 1;
+    return depth <= kDeepest &&
+           core::address(collision_format::tree_children(core::at_address<const uint8_t>(at), moved)) ==
+               fixed.nodes + children &&
+           (moved & 3) == (link & 3) && tree_links_resolve(nodes, fixed, {.node = children, .depth = depth}) &&
+           tree_links_resolve(nodes, fixed, {.node = children + kTreeNodeBytes, .depth = depth});
+}
+
+// The fix-up (collision_format::relocate_object) of a second copy: every object's array links and its tree's links
+// reach the places the file's offsets name.
+bool links_resolve(std::span<const uint8_t> image, const collision_format::CollisionHeader& header,
+                   const collision_format::CollisionLayout& layout)
+{
+    std::vector<uint8_t> copy(image.size() + kLoadAlignment);
+    auto* base =
+        core::at_address<uint8_t>((core::address(copy.data()) + kLoadAlignmentRoundUp) & ~static_cast<uintptr_t>(kLoadAlignmentRoundUp));
+    std::memcpy(base, image.data(), image.size());
+    const std::span<uint8_t> file(base, image.size());
+    collision_format::CollisionHeader again;
+    collision_format::CollisionLayout fixed;
+    if (!collision_format::lay_out_collision(file, &again, &fixed)) {
+        return false;
+    }
+    const uintptr_t start = core::address(image.data());
+    const std::span<const uint8_t> nodes = image.subspan(layout.nodes - start, layout.face_lists - layout.nodes);
+    for (int i = 0; i < header.object_count; ++i) {
+        const size_t at = collision_format::kHeaderSize + (static_cast<size_t>(i) * collision_format::kObjectSize);
+        collision_format::relocate_object(file, i, fixed);
+        const void* record = core::at_address<const void>(core::address(base) + at);
+        auto reaches = [&](size_t field, uintptr_t section) {
+            return core::address(collision_format::record_array<const uint8_t>(record, word_at(file, at + field))) ==
+                   section + word_at(image, at + field);
+        };
+        if (!reaches(kRecordFaces, fixed.faces) || !reaches(kRecordVertices, fixed.vertices) ||
+            !reaches(kRecordTree, fixed.nodes) || !reaches(kRecordVertexBytes, fixed.vertex_bytes) ||
+            !tree_links_resolve(nodes, fixed, {.node = word_at(image, at + kRecordTree), .depth = 0})) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void check_collision(const std::string& name, const uint8_t* data, size_t size)
 {
     // (the game's files are loaded 16-byte aligned: a copy so)
@@ -562,8 +634,8 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     const uintptr_t vertices = align(objects + (static_cast<uintptr_t>(word(4)) * 0x40), 16);
     const uintptr_t vertex_bytes = vertices + (6 * static_cast<uintptr_t>(word(0x18) + (2 * word(0x14))));
     const uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
-    auto nodes_at = static_cast<uintptr_t>((kReferenceLargeFaceBytes * word(kReferenceLargeFaceCountOffset)) +
-                                           (kReferenceSmallFaceBytes * word(kReferenceSmallFaceCountOffset)));
+    auto nodes_at = (kReferenceLargeFaceBytes * static_cast<uintptr_t>(word(kReferenceLargeFaceCountOffset))) +
+                    (kReferenceSmallFaceBytes * static_cast<uintptr_t>(word(kReferenceSmallFaceCountOffset)));
     const uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
     const uintptr_t nodes = faces + faces_size + 4;
     const uintptr_t face_lists = nodes + word_at(image, faces + faces_size - core::address(base));
@@ -571,7 +643,9 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
               layout.faces == faces && layout.face_buffers == faces + nodes_at && layout.nodes == nodes &&
               layout.face_lists == face_lists,
           name + ": the sections as the original's arithmetic");
-    check(collision_format::check_collision_objects(image, header, layout), name + ": every object within its sections");
+    const bool within = collision_format::check_collision_objects(image, header, layout);
+    check(within, name + ": every object within its sections");
+    check(!within || links_resolve(image, header, layout), name + ": the fixed-up links reach their places");
     collision_objects() += header.object_count;
     // a size short of the tree's: refused
     collision_format::CollisionHeader again;
@@ -729,7 +803,7 @@ struct SceneWalk {
         for (int k = 0; k < kIndexBufferCount; ++k) {
             const uint32_t count = word(2);
             out->indices += count;
-            skip(count * 2);
+            skip(static_cast<size_t>(count) * 2);
         }
         skip(1);
         const uint32_t vertex_count = word(2);
@@ -1104,7 +1178,7 @@ AnimStats& anim_stats()
 std::ptrdiff_t reference_aligned(std::ptrdiff_t offset) { return offset + ((4 - (offset & 3)) & 3); }
 std::ptrdiff_t reference_past_bone_bits(std::span<const uint8_t> image, std::ptrdiff_t offset)
 {
-    return offset + (((static_cast<int32_t>(word_at(image, static_cast<size_t>(offset))) - 1) / kBoneBitsPerWord) * 4) +
+    return offset + (static_cast<std::ptrdiff_t>((static_cast<int32_t>(word_at(image, static_cast<size_t>(offset))) - 1) / kBoneBitsPerWord) * 4) +
            kBoneBitsHeaderBytes;
 }
 
@@ -1131,7 +1205,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     const std::ptrdiff_t keys = 0xC;
     const uintptr_t address = core::address(base);
     auto word = [image, keys](size_t index) { return word_at(image, static_cast<size_t>(keys) + (index * 4)); };
-    const int bones = static_cast<int>(word(0));
+    const auto bones = static_cast<std::ptrdiff_t>(static_cast<int>(word(0)));
     std::ptrdiff_t events = 0;
     if ((flags & anim_format::kFloatKeys) != 0U) {
         ++anim_stats().float_keys;
@@ -1144,7 +1218,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
         }
         const std::ptrdiff_t counts = offset;
         offset = reference_aligned(offset + (bones * (((flags & kReferenceWideCountsFlag) != 0U) ? 4 : 2)));
-        const int key_size = ((flags & 0x8000000) != 0U) || ((flags & 0x1000000) != 0U) ? 16 : 8;
+        const std::ptrdiff_t key_size = ((flags & 0x8000000) != 0U) || ((flags & 0x1000000) != 0U) ? 16 : 8;
         const std::ptrdiff_t rotation = offset;
         const std::ptrdiff_t translation = offset + (static_cast<int16_t>(word(1)) * key_size);
         offset = translation + (static_cast<int16_t>(word(2)) * key_size);

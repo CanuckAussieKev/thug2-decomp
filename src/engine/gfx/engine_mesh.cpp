@@ -72,7 +72,7 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
     for (int i = 0; i < header.object_count; ++i) {
         collision_format::relocate_object(file, i, layout);
         auto* object = collision_format::object_record<TriMeshSource>(file, i);
-        object->set_up_all_faces();
+        static_cast<void>(object->set_up_all_faces());
         box_.append_spot(object->bounds().min);
         box_.append_spot(object->bounds().max);
     }

@@ -196,7 +196,7 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl
     for (int i = 0; i < header.object_count; ++i) {
         collision_format::relocate_object(file, i, layout);
         auto* geometry = collision_format::object_record<TriMeshSource>(file, i);
-        geometry->set_up_all_faces();
+        static_cast<void>(geometry->set_up_all_faces());
         StaticCollider* object = &core::at(std::span<StaticCollider>(*statics, static_cast<std::size_t>(header.object_count)), i);
         object->assign_shape_data(geometry);
         buffer = object->take_buffer(buffer, geometry);

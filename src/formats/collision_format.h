@@ -8,11 +8,13 @@
 #include "formats/byte_stream.h"
 #include "base/core/enum_ops.h"
 #include "base/core/address.h"
-#include "base/core/pointer_cell.h"
 #include "base/core/raw_view.h"
 
+#include <gsl/assert>
+
 // NOT ORIGINAL - the collision file format (.col, PC: "x.col.xbx": a level's or a skinned model's collision), its
-// header read through util::ByteReader, its sections laid out and checked before the game fixes it up in place.
+// header read through util::ByteReader, its sections laid out and checked before the game fixes it up in place (its
+// offsets made links: link_from below).
 //
 // A collision file (little-endian; the sections aligned as addresses, the file loaded 16-byte aligned):
 //   header  u32 version (10), i32 object count, u32 vertex byte count (one per vertex), u32 large face count
@@ -84,14 +86,15 @@ inline uint8_t* face_buffers(const CollisionLayout& layout) { return core::at_ad
 // section isn't within the file.
 bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, CollisionLayout* layout);
 
-// Every object's arrays and its tree (before the fix-up: offsets) within their sections. False at the first that
-// isn't.
+// Every object's arrays and its tree (before the fix-up: offsets) within their sections, its tree's first node
+// 4-aligned (as every node is: a node's links are distances from it). False at the first that isn't.
 bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeader& header, const CollisionLayout& layout);
 
 // The fix-up of object `index`'s record in place (the objects start at the file's +0x20): its array offsets (faces
-// +0x0C, vertices +0x30, tree +0x34, vertex bytes +0x38) made addresses in their sections, and its tree's links -
-// a split node's children (the offset in bytes from the first node, its two flag bits kept) and a leaf's face list
-// (the offset in u16s into the face lists) - made addresses too, the less child's subtree first.
+// +0x0C, vertices +0x30, tree +0x34, vertex bytes +0x38) made links from the record to their places in their
+// sections, and its tree's offsets - a split node's children (the offset in bytes from the first node, its two flag
+// bits kept) and a leaf's face list (the offset in u16s into the face lists) - links from the node, the less child's
+// subtree first. (The original made them all addresses.)
 void relocate_object(std::span<uint8_t> file, int index, const CollisionLayout& layout);
 // Object `index`'s record (the file's objects start at +0x20) as the game's own type for it (of the record's size and
 // layout), used in place.
@@ -109,20 +112,70 @@ Record* first_object_record(std::span<uint8_t> file)
     return raw::as<Record>(file.subspan(std::min(kHeaderSize, file.size())).data());
 }
 
-// A BSP node's link word once fixed up (x86's 32 bits hold an address): a leaf's face list, a split node's children
-// (the low two bits its flags), and the link that points at `target` (no flags).
-inline uint16_t* tree_leaf_faces(uint32_t link) { return cell::pointer<uint16_t>(link); }
-template <typename Node>
-Node* tree_children(uint32_t link)
+// The links of a laid-out collision file - an object record's arrays, a BSP node's children and its face list - are
+// 32 bits each: the distance in bytes from the record or node that holds the link to what it links to (the original
+// wrote 32-bit addresses there). The same on any build and wherever the data is: a tree copied as one block keeps its
+// children's links as they are. A distance is less than 2 GB either way; on x64 a target farther than that stops the
+// game (GSL's contract check) instead of losing the distance's top bits.
+inline uint32_t link_from(const void* holder, const void* target) noexcept
 {
-    return cell::pointer<Node>(link & ~3U);
+    const uintptr_t distance = core::address(target) - core::address(holder);
+    if constexpr (sizeof(uintptr_t) > sizeof(uint32_t)) {
+        const auto signed_distance = static_cast<intptr_t>(distance);
+        Expects(signed_distance >= INT32_MIN && signed_distance <= INT32_MAX); // (x64: too far for a link)
+    }
+    return static_cast<uint32_t>(distance);
 }
-inline uint32_t tree_link_to(const void* target) { return cell::of(target); }
-// A link of a tree copied elsewhere: the same place in the copy (`from` the copied block's start, `to` the copy's),
-// the flag bits kept.
-inline uint32_t tree_link_moved(uint32_t link, const void* from, const void* to)
+// What a link held at `holder` links to. (The address round trip is std::bit_cast's own builtin - the same on MSVC,
+// GCC and Clang - written out here and in record_array: a debug build calls every function, std::bit_cast too, and
+// the collision queries resolve links in their inner loops - a face's record, its vertices.)
+template <typename T>
+T* linked(const void* holder, uint32_t link) noexcept
 {
-    return link + (cell::of(to) - cell::of(from));
+    const auto distance = static_cast<intptr_t>(static_cast<int32_t>(link));
+    return __builtin_bit_cast(T*, __builtin_bit_cast(uintptr_t, holder) + static_cast<uintptr_t>(distance));
+}
+
+// An object record's array link: null as 0 (an array is never the record itself).
+inline uint32_t record_link(const void* record, const void* target)
+{
+    if (!target) {
+        return 0;
+    }
+    Expects(target != record);
+    return link_from(record, target);
+}
+template <typename T>
+T* record_array(const void* record, uint32_t link) noexcept
+{
+    const auto distance = static_cast<intptr_t>(static_cast<int32_t>(link));
+    return link != 0 ? __builtin_bit_cast(T*, __builtin_bit_cast(uintptr_t, record) + static_cast<uintptr_t>(distance)) : nullptr;
+}
+
+// A BSP node's link word (collision_format.h's tree, render::HitTreeNode): a leaf's face list, a split node's
+// children (the link's low two bits its flags), and the link from `node` to `target` (no flags).
+inline uint16_t* tree_leaf_faces(const void* node, uint32_t link) noexcept { return linked<uint16_t>(node, link); }
+template <typename Node>
+Node* tree_children(const Node* node, uint32_t link) noexcept
+{
+    return linked<Node>(node, link & ~3U);
+}
+inline uint32_t tree_link_to(const void* node, const void* target) noexcept { return link_from(node, target); }
+// A leaf copied: its node from `node` to `copy`, the block of face lists its link reaches from `faces_from` to
+// `faces_to`.
+struct LeafCopy {
+    const void* node = nullptr;
+    const void* copy = nullptr;
+    const void* faces_from = nullptr;
+    const void* faces_to = nullptr;
+};
+// The copied leaf's link: the same place in the copied face lists. (A split node's link needs nothing: its children
+// are copied with it, the same distance away.)
+inline uint32_t tree_leaf_link_moved(uint32_t link, const LeafCopy& leaf)
+{
+    const uintptr_t target =
+        core::address(tree_leaf_faces(leaf.node, link)) - core::address(leaf.faces_from) + core::address(leaf.faces_to);
+    return link_from(leaf.copy, core::at_address<const void>(target));
 }
 
 // A collision object's faces, used in place: `count` records of 10 bytes (u16 flags, u16 terrain, three u16 vertex

@@ -57,7 +57,7 @@ the condition on a 32-bit build, true on any other). The x64 compiler chose them
 translation unit of `src/` compiled syntax-only (`/Zs`) by the x64 `cl.exe` with the x86 build's flags, and each
 assert that failed there was wrapped - 259 of them (11 of the earlier `sizeof(void*) != 4 ||` form among them), all
 the original's in-memory objects. The asserts that hold on x64 too stay unconditional. Still failing on x64, for
-their tasks: the collision file's object record `TriMeshSource` (`engine/render/coll_tri.h`, used in place: X3), the
+their tasks: the collision file's object record `TriMeshSource` (`engine/render/coll_tri.h`, used in place: X3 - it holds since X3, its arrays 32-bit links), the
 script value `Component` / `Struct` and the expression stack (`engine/script`: X4), and `SOCKET`'s width
 (`platform/gamespy.cpp`, `net_winsock`: X8). DirectSound's buffer description is the one SDK structure whose size
 changes (0x24 / 0x28 bytes): its constants (`audio_dsound`, `engine/sound`) follow the pointer size.
@@ -81,11 +81,19 @@ Counted over 335,402 non-blank source lines, with comments stripped:
     `relocate_component`, `relocate_array`). The image's records are the runtime's own `Struct` / `Component` /
     `Array`, with 32-bit pointers made from offsets (task X5).
   - `formats/collision_format.h` / `.cpp` and `engine/render/coll_tri.h`: a collision file's object records (0x40
-    bytes each, `object_record<TriMeshSource>`) and its BSP tree are fixed up in place. The array offsets become
-    addresses, and a tree node's 32-bit link word becomes the address of its children (with two flag bits) or of its
-    face list (task X3). This sits on the collision hot path.
+    bytes each, `object_record<TriMeshSource>`) and its BSP tree are fixed up in place. Since X3 the fix-up writes
+    32-bit links, not addresses: a record's array fields and a tree node's link word hold the distance in bytes from
+    the record or node to what they link to (`collision_format::link_from` / `linked`; a record's arrays 0 for none:
+    `record_link` / `record_array`; a node's `tree_children(node, link)` and `tree_leaf_faces(node, link)`), on both
+    builds. Resolving one is an add (and a mask for the children), as the hot path needs. A tree copied as one block
+    keeps its split nodes' links unchanged; a copied `TriMeshSource` makes its links from the copy (its copy
+    constructor and assignment). On x64 a target more than 2 GB away stops the game (GSL's contract check): the
+    file's sections are always within the file, and the replicated copies within the game's main block.
   - `formats/anim_format.h` / `.cpp`: the animation sections' addresses, kept in `uintptr_t` (x64-safe as they are),
-    over files used in place (to confirm for every section during the port).
+    over files used in place. X3's survey: nothing is written into the file - the addresses go into the
+    animation's own in-memory object (`JointClipFrames`, engine/gfx: X6's / X12's), as do the other formats'
+    (scene, texture, skeleton, font, image, pre, save, park map, wave: read through `util::ByteReader` or viewed as
+    bytes and characters). `wire/` reads and writes every message through the byte readers: no pointers.
   - `platform/crash.cpp` (10, the crash report: below), `platform/gamespy.cpp` (2: NAT negotiation's `int` user word
     holds a pointer), `platform/run_log.cpp`, `base/core/all_ones.h`, `gpu_d3d9/imgui_texture_id.h` (64-bit
     already) and `tests/format_check_files.cpp` (9).
