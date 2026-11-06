@@ -92,6 +92,26 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     `node tools/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/devtools/automation_tables.inc.
   - With the channel on, the game also keeps drawing while its window is in the background (PrintWindow pictures show
     the current frame; without it the main loop stops drawing when the window loses the focus).
+- `node tools/game/renderer_parity.ts run <plan.json> --game C:\Games\THUG2-<n> --out <folder> [--runs N]
+  [--renderers d3d9,vulkan] [--groups a,b] [--build <folder>] [--exp-build <folder>] [--owner <name>]
+  [--set Section.key=value]... [--pictures]` - the two renderers side by side: for each run, renderer and group of the
+  plan (`renderer_parity.json`: the five smoke levels' spots, the new front end's menus, the level editor, a frame-time
+  run per level), the workspace's ini written with `[Graphics] renderer=` and the plan's / --set's values, the game started
+  through run_game.ps1 and the group's spots captured with the automation channel (`teleport`, `camera`, `capture 1` -
+  the frame the screenshot key would save) into `<out>/<renderer>/run<k>/<spot>.png`. The whole run holds the
+  workspace's lock (game_lock.ps1 with `--owner`; --build's thug2-decomp.exe, .pdb and d3dx9_43.dll copied in, all put
+  back at the release). Workspaces only - it refuses any other folder. Groups: `spots` (each its commands, then a
+  capture), `commands` (with `capture <n> <name>` lines of their own: the front end), `window` (the window's PrintWindow
+  picture at full size after `seconds` - the level editor, where the channel stops), `collect` (the .png / .ppm files a
+  measuring build writes into the `{dir}` its `env` names: movie and loading-screen frames; `exp` groups run
+  `--exp-build`'s exe), `frametime: <frames>` (that many frames timed from the status file, polled every 100 ms, and the
+  Vulkan log's "ms a frame" line). Then `compare`:
+  `node tools/game/renderer_parity.ts compare <folder> [--threshold 8] [--grow 1] [--pictures]` - per picture name, each
+  renderer's noise (the pixels that differ by more than the threshold between any two of its runs), the union grown by
+  `--grow` pixels, and run 1 of each renderer compared outside it: the mean channel difference, the mean signed one
+  (Vulkan minus Direct3D 9), the largest, the pixels over the threshold, their bounding rectangle and the three 80x80
+  cells holding most of them; also the same over every pixel. `report.txt` / `report.json`; `--pictures` writes
+  `sbs/<name>.png` (Direct3D 9 | Vulkan | the difference x4, the noise mask blue).
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
   doesn't reach SDL). Keys: down, up, left, right, enter, esc, `pause` (4 s), `shot`, `hold:<key>:<ms>`,
   `now:<key>`, `ctrl:<key>` (the mouse commands only work with the game in front - not in workspaces).
