@@ -65,6 +65,9 @@ uint32_t script_heap_extra();
 // rest of the original's 64 MB once more (region_bytes: what it holds beside the script region - the level's scenes,
 // collision, nodes and objects, the other regions - at most doubles; ~60 MB).
 uint32_t main_block_size();
+// NOT ORIGINAL - the part of main_block_size the 64-bit build adds beside the script region (its region_bytes term, in
+// whole 64 KB): 0 on the 32-bit build. The park editor's memory meter leaves it out of the main heap's free bytes.
+uint32_t main_block_x64_room();
 
 // NOT ORIGINAL - the slots of the node manager's name hash (engine/script/node_manager.h): the original's 0x4000 (16,384
 // - a level with more named nodes filled it and its lookups never ended), ours 0x10000 by default (THP8's whole town,

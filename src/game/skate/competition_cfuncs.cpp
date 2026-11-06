@@ -249,7 +249,7 @@ bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Context /
     uint32_t id = 0;
     params->read_hash_value(kWhichString, &which, 1);
     params->read_hash_value(kId, &id, 1);
-    alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
+    alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
     gsl::owner<text::Chars*> text = get_horse_string(storage.data(), which);
     objects::GameEntity* skater = get_rider_by_number(current_horse_skater());
     script::StructPtr panel = script::make_struct();
@@ -267,7 +267,7 @@ bool cfunc_get_horse_string(script::Struct* params, script::Context context)
 {
     uint32_t which = 0;
     params->read_hash_value(kWhichString, &which, 1);
-    alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
+    alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
     gsl::owner<text::Chars*> text = get_horse_string(storage.data(), which);
     context.args()->append_word(kText, text->c_str());
     text->~Chars();

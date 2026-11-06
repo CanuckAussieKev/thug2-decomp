@@ -254,6 +254,8 @@ public:
         int type{};
         int index{};
         int success{};
+        // Not original - the SDK's time_t (64 bits with the compilers this builds with; the original's SDK had a 32-bit
+        // one: read as 32 bits, the data, its length and the instance came one word late)
         std::time_t modified{};
         char* data{};
         int length{};

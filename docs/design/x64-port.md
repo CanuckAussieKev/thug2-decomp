@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X3 (formats / wire, collision links as offsets), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a / X10b (FFmpeg's Bink video and sound), X11 (the renderers compile on x64), X12a / X12b (engine), X13 (the tools read x64), X14 (floating point measured: the corpus). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X3 (formats / wire, collision links as offsets), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a / X10b (FFmpeg's Bink video and sound), X11 (the renderers compile on x64), X12a-d (engine and game), X13 (the tools read x64), X14 (floating point measured: the corpus). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -242,8 +242,10 @@ flare's 0x200 (now `render::kStackPrimitiveBytes`, asserted by the backend). The
 The 32-bit build's sizes are unchanged (asserted). After a level loads the log lists every heap
 (`memory heap in <level>: region=... used=... peak=... blocks=... peak_blocks=... name=...`);
 `node tools/game/heap_report.ts <x86 log> <x64 log>` compares two builds heap by heap (task X15 runs it on x64).
-The park editor's memory meter reads the main and park heaps' free bytes, which are larger on x64: to be settled
-with X15's measurement.
+The park editor's memory meter reads the main and park heaps' free bytes, which are larger on x64. Since X12d the
+64-bit build leaves out what it added: the main block's room beside the script region
+(`memory::sizes::main_block_x64_room`, also left out of the top-down figure, the same region) and the park heap's
+`region_bytes` room (below).
 
 ### Platform
 
@@ -466,6 +468,43 @@ warning and links every check whose libraries they are (the Vulkan checks includ
   playing sounds, streams) are allocated by `sizeof` or held in arrays of their type, a wave's buffer description
   is DirectSound's size for the build (0x24 / 0x28) and the backends' sound objects are pointers; the controllers'
   recordings (`PadFrameRecord`) hold no pointers; the movie codec's handles are pointers.
+
+**Done in X12d** (`game/`): all 243 translation units compile to x64 objects with the build's flags with no warning
+(C4267 / C4244 / C4311 / C4312 at 0) and no error, and clang-tidy with the x86_64 target finds no narrowing in them.
+What changed or was checked:
+- **Compiler and tidy:** the memory figures `GlobalMemoryStatus` gives (`SIZE_T`) printed with `%zu`; the joining
+  player's appearance size taken as `std::min<size_t>`; the park rails' pool item size an `int`; the collision log's
+  caller (`FeelerResult::caller`) taken and printed at the pointer's width (`%08zX`); products made in `size_t`
+  before they become a size (the goal groups' table, the career's goal words, the news buffer, the park floor's
+  cell index).
+- **Placement storage:** the horse game's text (`text::Chars`, which holds a pointer) was made in 4-byte aligned
+  stack bytes; it is aligned for `Chars` now.
+- **Callbacks the GameSpy SDK calls through a plain pointer** (the compiler doesn't check them): each one's
+  parameters were compared with the SDK's typedef. The news download's completion read the SDK's 64-bit byte count
+  as two 32-bit words (the same on x86's stack; on x64 it is one register, and `param` came a slot late): it takes one
+  `int64_t`. The persistent data's answer (`PersDataCallbackFn`) read the SDK's `time_t` as 32 bits; it is 64 bits
+  with the compilers this builds with (the original's SDK had a 32-bit one), so on both builds the data, its length
+  and the instance came a word late: the reply's `modified` is a `std::time_t`. The others match (pointers, `int`s,
+  `SOCKET` as `uintptr_t`, the NAT user word as an index).
+- **The park editor's memory meter:** the 64-bit build's main block has room beside the script region that the 32-bit
+  build's hasn't (`memory::sizes::main_block_x64_room`, ~60 MB), and the park heap's region is twice the size
+  (`region_bytes`). The meter takes that room off the main heap's free bytes (and off the largest free block when the
+  region's unclaimed space is the largest), off the top-down figure (the same region) and off the park heap's. Every
+  block on x64 is at least as big as on x86, so the meter reads at least as full as the 32-bit build would with the
+  same park: a park built to the meter's limit on x64 fits the 32-bit build. It is stricter than the 32-bit build by
+  what the heaps' contents grow (the regions doubled inside the main heap, the records' pointers); X15's heap report
+  shows by how much. On x86 the room is 0 and those lines are left out (`if constexpr`).
+- **Saves and the wire stay 32-bit layouts:** the save files are a header written through `formats/save_file_format`
+  and script structures written by kind through `script::emit_into_buffer` (names, integers, floats, strings,
+  vectors, nested structures and arrays - never a cell's address); the park map and the rails go through
+  `formats/park_map_format` / `rail_buffer_format`, the created goals through the same structure writer. The game's
+  network messages are byte arrays, `util::ByteWriter`s, integers or records of integers and characters; none holds a
+  pointer.
+- **Checked, nothing to change:** no `reinterpret_cast`, union or address hashing in `game/`; scripts' array elements
+  read as 32-bit values (`fetch_part`, `Cell::word`) only from name / integer arrays or kind-checked components (a
+  pointer would stop at `word`'s check); the pad's buttons found by their logical offset (a table, not the layout);
+  fixed allocations by `sizeof` (X7) and the other constant-sized ones are bytes; the camera state's stack bytes hold
+  floats; the copies with fixed sizes copy floats, colours and names.
 
 ### CMake and presets
 

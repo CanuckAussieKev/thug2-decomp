@@ -20,6 +20,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "base/core/ints.h"
+#include "base/core/layout_32bit.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include <gsl/pointers>
@@ -51,6 +52,8 @@ struct ParkMemoryState {
     int park_memory_unknown_7c_e_68c_{};
     int dma_pieces_{};
     bool counts_dirty_{};
+    // NOT ORIGINAL - the room region_bytes added to the park heap's region on the 64-bit build (0 on the 32-bit one)
+    uint32_t park_heap_x64_room_{};
 };
 
 ParkMemoryState& park_memory_state()
@@ -86,6 +89,25 @@ int park_max_players() { return park_assembler_ref()->get_player_limit(); }
 
 // A heap's free memory: its region's unclaimed space and its free blocks.
 int free_memory(memory::Arena* heap) { return heap->region()->free_byte_count() + heap->free_size(); }
+
+// NOT ORIGINAL - the meter on the 64-bit build: its main block and its park heap have more room than the 32-bit
+// build's (memory::sizes::main_block_x64_room, region_bytes), and every block in them is at least as big as the 32-bit
+// build's. The meter leaves that room out of the free bytes it reads, so it reads at least as full as the 32-bit build
+// would with the same park, and a park built to its limit on x64 still fits the 32-bit build. (Stricter than the 32-bit
+// build by what the heaps' contents grow on x64; the main block's 64 KB rounding is far less than what the doubled
+// regions in it take.)
+[[maybe_unused]] int main_block_x64_room() { return static_cast<int>(memory::sizes::main_block_x64_room()); }
+// The main heap's largest free block as the meter counts it: the region's unclaimed space less the x64 room.
+int meter_largest_free(memory::Arena* heap)
+{
+    const auto largest = ints::as_signed(heap->largest_free());
+    if constexpr (core::kPointers32Bit) {
+        return largest;
+    } else {
+        const int unclaimed = heap->region()->free_byte_count();
+        return largest > unclaimed ? largest : unclaimed - main_block_x64_room(); // (a free block, or the unclaimed space)
+    }
+}
 
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
 {
@@ -319,14 +341,20 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     main_pad += (park_max_players() * kPerPlayerHeapPad) - kPerPlayerHeapPad;
     stats.main_heap_free_ = main_region->free_byte_count() + main_heap->free_size();
     stats.main_heap_free_ -= get_memory_value("anim_set_mem", -1) + main_pad; // "anim_set_mem"
+    if constexpr (!core::kPointers32Bit) {
+        stats.main_heap_free_ -= main_block_x64_room(); // (Not original - the 64-bit build's room left out)
+    }
     const int park_pad = get_memory_value("park_heap_pad", -1);               // "park_heap_pad"
     stats.park_bytes_in_use_ = park_heap()->used_size();
     stats.park_heap_free_ = park_memory_state().park_region_->free_byte_count() + (park_heap()->free_size() - park_pad);
+    if constexpr (!core::kPointers32Bit) {
+        stats.park_heap_free_ -= static_cast<int>(park_memory_state().park_heap_x64_room_);
+    }
 
     // Fragmented: the largest block is all that can be counted on.
-    if (ints::as_signed(main_heap->largest_free()) < stats.main_heap_free_ &&
-        ints::as_signed(main_heap->largest_free()) < main_pad && stats.main_heap_free_ >= main_pad) {
-        stats.main_heap_free_ = static_cast<int>(main_heap->largest_free());
+    const int largest = meter_largest_free(main_heap);
+    if (largest < stats.main_heap_free_ && largest < main_pad && stats.main_heap_free_ >= main_pad) {
+        stats.main_heap_free_ = largest;
         stats.main_heap_fragmented_ = true;
     } else {
         stats.main_heap_fragmented_ = false;
@@ -349,7 +377,11 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     stats.park_heap_usage_ = static_cast<float>(park);
     update_max(stats, {.value = park, .stored = stats.park_heap_usage_});
 
-    auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap()->region()->free_byte_count());
+    int top_down_unclaimed = memory::Hub::get_pull()->top_down_heap()->region()->free_byte_count();
+    if constexpr (!core::kPointers32Bit) {
+        top_down_unclaimed -= main_block_x64_room(); // (the main block's region: the same room)
+    }
+    auto top_down_free = static_cast<float>(top_down_unclaimed);
     const double top_down =
         2.0 - (static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1)); // "top_down_required"
     stats.top_down_usage_ = static_cast<float>(top_down);
@@ -424,6 +456,9 @@ void prepare_all(uint32_t level)
         const int size = get_memory_value("park_heap_size", -1); // "park_heap_size"
         // Not original - twice the size on x64 (memory::sizes::region_bytes); the original's on the 32-bit build.
         region = memory::construct_in<memory::MemoryArena>(memory, memory::sizes::region_bytes(static_cast<uint32_t>(size)));
+        if constexpr (!core::kPointers32Bit) {
+            park_memory_state().park_heap_x64_room_ = memory::sizes::region_bytes(static_cast<uint32_t>(size)) - static_cast<uint32_t>(size);
+        }
     }
     park_memory_state().park_region_ = memory::take_unique<memory::Zone>(region);
     park_heap() = manager->add_heap(park_memory_state().park_region_.get(), direction, name);

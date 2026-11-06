@@ -144,7 +144,8 @@ unsigned long __stdcall motd_thread(void* argument);
 // 0x00545490 (GHTTP's completion callback, `param` the... not used: the manager is the singleton): a failed
 // download is state 11; else the data XOR 0x6D, its checksum (the first word, over the size in the second word -
 // 0x00401B30) checked (wrong: state 11), the text noted (+0xFDF4) with what follows it (+0xFDF8 / +0xFDFC), the
-// news ok (+0xFE09) and state 8. 1.
+// news ok (+0xFE09) and state 8. 1. (The SDK's byte count is one 64-bit argument: the original read it as two 32-bit
+// stack words, the same on x86; on x64 it is one register.)
 int news_callback(void* request, int result, uint8_t* buffer, int64_t size, void* param);
 
 // 0x00548040: whether a GameSpy location string is THUG2's ("10thug211" before the first ':').

@@ -71,7 +71,7 @@ constexpr uint8_t kQr2KeyMaxPlayers = 10;
 constexpr uint8_t kQr2KeyHostPort = 4;
 constexpr uint8_t kQr2KeyGameType = 6;
 constexpr int kListingPollMilliseconds = 100;
-constexpr size_t kNewsClearBytes = 0x1900 * 4;
+constexpr size_t kNewsClearBytes = size_t{0x1900} * 4;
 constexpr uint8_t kNewsScramble = 0x6D;
 
 // Names.
