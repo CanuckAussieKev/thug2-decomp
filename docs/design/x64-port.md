@@ -337,6 +337,24 @@ not on `THUG2_X64_READY` yet: they link `thug2_engine`, which becomes x64-ready 
   `D3DXSaveSurfaceToFileA`) and `bin/x64/D3DX9_43.dll`; Direct3D 9's `d3d9.lib` and winmm come from the Windows SDK for
   each architecture; volk opens the system's 64-bit Vulkan loader.
 
+**Done in X12a** (`engine/` memory, lists, file, assets, sys): every translation unit of the five folders compiles to
+an x64 object with the build's flags with no warning and no error, and clang-tidy with the x86_64 target finds nothing
+in them. With these fixes the whole of `engine/` (304 translation units) compiles to x64 objects with no warning and no
+error; what is left for X12b / X12c is the review the compiler can't do and their folders' x86_64 clang-tidy. What
+changed or was checked:
+- **The memory manager:** the code and data bounds it prints are addresses, printed at the pointer's width
+  (`%08zX`); the static storage the manager, its main region and its two heaps are made in is aligned for them.
+  Block offsets in the heaps' memory are 32-bit and checked against it (the main block's size is 32-bit on both
+  builds); the block header is 32 bytes on x64 (since X7).
+- **The asset loaders' parameter blocks:** a caller's parameters are copied into a pool block as words. The skinned
+  model's hold the `.cas` contents' address, so they are copied by `sizeof` (5 words on x86, 6 on x64); the other
+  asset types' parameters hold no pointers and keep their fixed sizes on both builds (asserted).
+- **Checked, nothing to change:** the file system's handles are pointers (`fs::Handle`, the disk's `DiskFile*` is
+  Win32's `HANDLE`); file sizes and offsets are the game's 32-bit values (`long` stream positions are 32-bit on Win64
+  too); the asset manager and the hash tables key by 32-bit checksums, never by address; the lists' nodes, the pools'
+  free lists and the item pools hold pointers and are sized by `sizeof`; the timers are 64-bit counters.
+- `engine/util/lzss.cpp`'s match tree takes a 32-bit byte count (its runs are small).
+
 ### CMake and presets
 
 - `CMakePresets.json` has `x86-debug` / `x86-release` only. The root `CMakeLists.txt` refuses other architectures and
