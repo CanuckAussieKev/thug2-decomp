@@ -16,6 +16,7 @@
 #include <iterator>
 #include <string>
 #include <algorithm>
+#include <deque>
 
 namespace game_spy {
 
@@ -60,7 +61,6 @@ THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN 
 #include "qr2/qr2.h"
 #include "serverbrowsing/sb_serverbrowsing.h"
 #include "platform/code_address.h"
-#include "base/core/address.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 THUG2_MSVC_WARNING(pop)
@@ -78,7 +78,8 @@ extern char* Matchup3Hostname; // (natneg.c; natneg.h declares only the first tw
 
 static_assert(sizeof(PEERCallbacks) == sizeof(game_spy::PeerCallbacks), "PEERCallbacks: 28 callbacks + param");
 static_assert(sizeof(GPBuddyStatus) == game_spy::kGpBuddyStatusSize, "GPBuddyStatus with quietModeFlags");
-static_assert(sizeof(SOCKET) == sizeof(uint32_t), "a 32-bit build");
+// The game keeps a socket as Winsock's SOCKET value: pointer-sized (net::SocketId - 32 bits on x86, 64 on x64).
+static_assert(sizeof(SOCKET) == sizeof(uintptr_t), "SOCKET: pointer-sized");
 
 namespace game_spy {
 
@@ -257,24 +258,36 @@ NatCompleted& nat_completed()
     return nat_completed;
 }
 
-// The SDK's completion callback: the user data back to the integer it was made from.
+// NOT ORIGINAL - the negotiations' user words: the game gives an integer (its cookie) where the SDK takes a void*.
+// The SDK is handed a pointer to the integer, kept here, instead of the integer carried in the pointer (a 32-bit
+// build's cast that doesn't hold a pointer's width): the completion reads it back, the same value on every build.
+// An entry stays until the negotiations are freed (NNFreeNegotiateList: no callback comes after it); a deque never
+// moves its elements as it grows.
+std::deque<int>& nat_user_words()
+{
+    static core::NoDestroy<std::deque<int>> words;
+    return words.get();
+}
+
+// The SDK's completion callback: the user data back to the integer it points to.
 void nat_completed_relay(NegotiateResult result, SOCKET socket, sockaddr_in* address, void* user_data)
 {
     if (nat_completed()) {
-        nat_completed()(static_cast<int>(result), static_cast<int>(socket), address,
-                        static_cast<int>(core::address(user_data)));
+        nat_completed()(static_cast<int>(result), static_cast<uintptr_t>(socket), address,
+                        *static_cast<const int*>(user_data));
     }
 }
 
 } // namespace
 
-int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, NatCompleted completed,
+int nat_begin_with_socket(uintptr_t socket, int cookie, int client_index, HookFn progress, NatCompleted completed,
                           int user_data)
 {
     nat_completed() = completed;
-    return static_cast<int>(NNBeginNegotiationWithSocket(
-        static_cast<SOCKET>(socket), cookie, client_index, as<NegotiateProgressFunc>(progress),
-        completed ? &nat_completed_relay : nullptr, core::at_address<void>(static_cast<uintptr_t>(user_data))));
+    int& word = nat_user_words().emplace_back(user_data);
+    return static_cast<int>(NNBeginNegotiationWithSocket(static_cast<SOCKET>(socket), cookie, client_index,
+                                                         as<NegotiateProgressFunc>(progress),
+                                                         completed ? &nat_completed_relay : nullptr, &word));
 }
 void nat_think() { NNThink(); }
 void nat_process_data(char* data, int length, void* from)
@@ -282,7 +295,11 @@ void nat_process_data(char* data, int length, void* from)
     NNProcessData(data, length, static_cast<sockaddr_in*>(from));
 }
 void nat_cancel(int cookie) { NNCancel(cookie); }
-void nat_free_negotiations() { NNFreeNegotiateList(); }
+void nat_free_negotiations()
+{
+    NNFreeNegotiateList();
+    nat_user_words().clear();
+}
 
 // --- peer ---
 
@@ -411,7 +428,7 @@ void peer_update_game(void* peer, void* server, int full_update)
 {
     peerUpdateGame(peer, static_cast<SBServer>(server), static_cast<PEERBool>(full_update));
 }
-int peer_start_reporting_with_socket(void* peer, uint32_t socket, int port)
+int peer_start_reporting_with_socket(void* peer, uintptr_t socket, int port)
 {
     return static_cast<int>(
         peerStartReportingWithSocket(peer, static_cast<SOCKET>(socket), static_cast<unsigned short>(port)));

@@ -31,6 +31,14 @@ test("targets take their sources from their folder and collect their links", () 
     });
 });
 
+test("target_sources adds to a target made above it, in its own folder", () => {
+    const [target] = targetsOf(
+        "add_library(thug2_platform STATIC\n    a.cpp\n)\nif(X)\n    target_sources(thug2_platform PRIVATE b.cpp)\nendif()\n",
+        "src/platform/CMakeLists.txt",
+    );
+    assert.deepEqual(target?.sources, ["src/platform/a.cpp", "src/platform/b.cpp"]);
+});
+
 // A small map: base <- engine <- game, and two siblings above the game.
 const MAP: LayerMap = {
     libraries: {

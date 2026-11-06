@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X10a (FFmpeg's Bink video). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X10a (FFmpeg's Bink video). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -197,6 +197,20 @@ with X15's measurement.
 - `net::SocketId` (`engine/net/transport.h`, a `uint32_t`: Winsock's `SOCKET` value) and `net_winsock/winsock_transport.cpp`: `SOCKET` is 64-bit on Win64. The socket must stay in a `SOCKET`-wide id (widen `SocketId`, `kNoSocket` and the records that hold it), not in a 32-bit field.
 - GameSpy callbacks are registered by code address (`code_address`, 32 lines in game/online). That is fine with
   64-bit pointers, as long as nothing narrows them (the `int` user word in NAT negotiation does).
+
+Since X8: `platform` is x64-ready. The crash report reads the context through `instruction_pointer` /
+`stack_pointer`; on x64 it logs `RAX`-`R15`, the top of the stack in 8-byte slots (as many slots as x86's), the calls
+unwound from the context (`RtlLookupFunctionEntry` / `RtlVirtualUnwind`, guarded: `[rsp=...] <module>+0x...` lines)
+and the same return-address scan as x86 over 8-byte slots. The x86 report is unchanged, line for line;
+`thug2_crash_check [kind]` (src/tests/crash_check.cpp) causes any of the test faults a few calls deep for either
+build. `net::SocketId` is `uintptr_t` (`kNoSocket` all ones, asserted equal to `INVALID_SOCKET`), and `AppHost`
+keeps it at that width; the GameSpy glue's sockets (`nat_begin_with_socket`, `peer_start_reporting_with_socket`,
+NAT completion) are `uintptr_t` too. NAT negotiation's integer user word is no longer carried in the SDK's `void*`:
+the glue keeps the integers in a table (a `std::deque`, emptied with the SDK's negotiation list) and hands the SDK a
+pointer to one - the same value back on either build. `code_address.h`'s 32-bit `function_at(uint32_t)` is gone (X5
+left it unused). The GameSpy glue (`gamespy.cpp`) is built only where the SDK is (`THUG2_GAMESPY_SDK`): online is off
+on x64 until X9 lists `gamespy_sdk`. `net_winsock` compiles for the SOCKET width now but links the engine, so it is
+listed with it (X12c).
 
 ### Third-party pieces
 

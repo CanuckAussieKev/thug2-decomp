@@ -102,11 +102,11 @@ void call_qr2_buffer_add(void* buffer, const char* text);
 void get_qr2_buffer_add_int(void* buffer, int value);
 void qr2_key_buffer_add(void* key_buffer, int key_id);
 
-// NAT negotiation
-// `progress`: void(int state, void* user_data); `completed` gets the result, the socket, the address found
+// NAT negotiation (a socket here and below: Winsock's SOCKET value, pointer-sized - the game's net::SocketId)
+// `progress`: void(int state, void* user_data - a pointer to the integer); `completed` gets the result, the socket, the address found
 // (a sockaddr_in) and `user_data` (the game passes the negotiation's cookie). One negotiation's completion at a time.
-using NatCompleted = void (*)(int result, int socket, const void* address, int user_data);
-int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, NatCompleted completed,
+using NatCompleted = void (*)(int result, uintptr_t socket, const void* address, int user_data);
+int nat_begin_with_socket(uintptr_t socket, int cookie, int client_index, HookFn progress, NatCompleted completed,
                           int user_data);
 void nat_think();
 void nat_process_data(char* data, int length, void* from);
@@ -148,7 +148,7 @@ void peer_start_listing_games(void* peer, const uint8_t* fields, int count, cons
                               void* param);
 void peer_stop_listing_games(void* peer);
 void peer_update_game(void* peer, void* server, int full_update);
-int peer_start_reporting_with_socket(void* peer, uint32_t socket, int port);
+int peer_start_reporting_with_socket(void* peer, uintptr_t socket, int port);
 void peer_stop_game(void* peer);
 void peer_state_changed(void* peer);
 

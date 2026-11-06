@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "base/core/no_destroy.h"
 #include "base/core/raw_view.h"
@@ -33,8 +34,9 @@ static_assert(kFamilyIpv4 == AF_INET);
 static_assert(kAnyAddress == INADDR_ANY);
 static_assert(kNoAddress == INADDR_NONE);
 static_assert(kBroadcastAddress == INADDR_BROADCAST);
-// The socket's value is Winsock's (a 32-bit build), and the errors are Winsock's numbers.
+// The socket's value is Winsock's (pointer-sized on either architecture), and the errors are Winsock's numbers.
 static_assert(sizeof(SOCKET) == sizeof(SocketId));
+static_assert(std::cmp_equal(kNoSocket, INVALID_SOCKET));
 static_assert(kSocketError == SOCKET_ERROR);
 static_assert(kErrorWouldBlock == WSAEWOULDBLOCK);
 static_assert(kErrorInProgress == WSAEINPROGRESS);
