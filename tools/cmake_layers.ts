@@ -112,6 +112,17 @@ export function targetsOf(text: string, file: string): Target[] {
                 sources,
                 links: [],
             });
+        } else if (name === "target_sources" && args.length > 0) {
+            // (sources added to a target defined above it - e.g. in an if() on what the configure builds)
+            const target = targets.get(args[0] as string);
+            if (target !== undefined) {
+                target.sources.push(
+                    ...args
+                        .slice(1)
+                        .filter((arg) => !LINK_KEYWORDS.has(arg) && !arg.startsWith("$"))
+                        .map((arg) => posix.normalize(posix.join(folder, arg))),
+                );
+            }
         } else if (name === "target_link_libraries" && args.length > 0) {
             const target = targets.get(args[0] as string);
             if (target !== undefined) target.links.push(...args.slice(1).filter((arg) => !LINK_KEYWORDS.has(arg)));

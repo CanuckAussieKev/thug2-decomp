@@ -37,6 +37,13 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_printf_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
+# deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
+if(TARGET thug2_platform)
+    add_executable(thug2_crash_check crash_check.cpp)
+    target_link_libraries(thug2_crash_check PRIVATE thug2_platform)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_context_check.exe: the Vulkan backend's context tried on this machine - an SDL window with
 # a Vulkan surface, the instance (validation when installed), the device, the swapchain, frames cleared and presented
 # across a resize, everything released - and what it found printed: the devices, their queue families and the depth

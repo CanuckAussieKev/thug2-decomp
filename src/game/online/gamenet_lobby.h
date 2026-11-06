@@ -102,7 +102,7 @@ public:
     // 0x00540300 (NAT negotiation's end, `result` 0 = success): a client joins the server at the address found; the
     // server counts down (the task off at 0); a client's negotiation is cleaned up (failure:
     // 0x3A9FB574).
-    static void nat_negotiation_completed(int result, int socket, const void* address, int user_data);
+    static void nat_negotiation_completed(int result, uintptr_t socket, const void* address, int user_data);
     // 0x0053F6C0 (an app's foreign packet): qr2 queries ("\" or FE FD) and NAT negotiation packets (FD FC 1E 66 6A
     // B2...) copied into the queue (at most 199) for the query task.
     static void queue_packet(const uint8_t* data, int length, const void* from);

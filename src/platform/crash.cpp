@@ -30,9 +30,10 @@
 #endif
 
 #include "platform/run_log.h"
-#include "base/core/compiler.h"
+#ifndef _WIN64
+#include "base/core/compiler.h" // (THUG2_NOINLINE: the x86 run-time check fault)
+#endif
 #include "base/core/address.h"
-#include "base/core/pointer_cell.h"
 #include "platform/code_address.h"
 #include "platform/crt.h"
 #include "base/core/checked_index.h"
@@ -49,15 +50,18 @@ constexpr int kModRmFieldMask = 7;
 // The lengths of an FF /2 call: ModRM alone, + SIB or a byte's displacement, + both, + four bytes', + SIB and four.
 constexpr std::array kIndirectCallLengths = {2, 3, 4, 6, 7};
 
-// The stack scans and the dump of the top of the stack (eight words a line: the words 0-4 are not named).
+// The stack scans and the dump of the top of the stack (a line of 0x20 bytes: eight words on x86, four on x64 - the
+// words past 4 are not named). Both look at as many stack slots on x64 as on x86 (a slot: a pointer's size).
 constexpr int kStackScanAddresses = 24;
-constexpr int kStackScanBytes = 0x2000;
+constexpr uintptr_t kStackScanBytes = 0x800 * sizeof(uintptr_t);
 constexpr std::size_t kBacktraceFrames = 24;
-constexpr int kStackDumpBytes = 0x80;
-constexpr int kStackDumpLineBytes = 0x20;
+constexpr uintptr_t kStackDumpBytes = 0x20 * sizeof(uintptr_t);
+constexpr uintptr_t kStackDumpLineBytes = 0x20;
+#ifndef _WIN64
 constexpr int kDumpWord5 = 5;
 constexpr int kDumpWord6 = 6;
 constexpr int kDumpWord7 = 7;
+#endif
 
 constexpr int kExecuteFault = 8; // ExceptionInformation[0]: the fault was an instruction fetch (DEP)
 constexpr std::size_t kReportTextSize = 1024;
@@ -66,6 +70,24 @@ constexpr uint32_t kStatusStackBufferOverrun = 0xC0000409U;  // STATUS_STACK_BUF
 constexpr uint32_t kStatusHeapCorruption = 0xC0000374U;      // STATUS_HEAP_CORRUPTION
 constexpr uint32_t kStatusInvalidCrtParameter = 0xC0000417U; // STATUS_INVALID_CRUNTIME_PARAMETER
 constexpr int kHangSleepMs = 1000;
+
+// A context's instruction and stack pointers: EIP / ESP on x86, RIP / RSP on x64.
+uintptr_t instruction_pointer(const CONTEXT& context)
+{
+#ifdef _WIN64
+    return context.Rip;
+#else
+    return context.Eip;
+#endif
+}
+uintptr_t stack_pointer(const CONTEXT& context)
+{
+#ifdef _WIN64
+    return context.Rsp;
+#else
+    return context.Esp;
+#endif
+}
 
 // NOT ORIGINAL grouping - crash.cpp's state (were globals). Made on first use, never destroyed (crash_state()).
 struct CrashState {
@@ -161,7 +183,7 @@ bool after_call(uintptr_t address)
 }
 
 // The return addresses found on the stack from `esp` up (a scan, not a walk: optimized code - the game's - has no
-// frame chain; some may be stale).
+// frame chain; some may be stale). A slot is a pointer's size: 4 bytes on x86, 8 on x64.
 } // namespace
 
 void crash_log_stack_scan(uintptr_t esp)
@@ -170,16 +192,21 @@ void crash_log_stack_scan(uintptr_t esp)
     std::array<char, MAX_PATH> name = {"?"};
     uintptr_t offset = 0;
     int found = 0;
-    for (uintptr_t slot = esp; found < kStackScanAddresses && slot < esp + kStackScanBytes; slot += 4) {
-        if (!readable(slot, 4, false)) {
+    for (uintptr_t slot = esp; found < kStackScanAddresses && slot < esp + kStackScanBytes; slot += sizeof(uintptr_t)) {
+        if (!readable(slot, sizeof(uintptr_t), false)) {
             break;
         }
-        const uintptr_t value = *core::at_address<const uint32_t>(slot);
+        const uintptr_t value = *core::at_address<const uintptr_t>(slot);
         if (!after_call(value) || !module_of(value, name, &offset)) {
             continue;
         }
+#ifdef _WIN64
+        get_log("    [rsp+0x%X] %s+0x%X (%016llX)", static_cast<unsigned>(slot - esp), name.data(),
+                static_cast<unsigned>(offset), static_cast<unsigned long long>(value));
+#else
         get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name.data(), static_cast<unsigned>(offset),
                 static_cast<unsigned>(value));
+#endif
         ++found;
     }
 }
@@ -200,16 +227,79 @@ void log_backtrace()
     }
 }
 
-// An exception's report: where, the registers, the top of the stack, the return addresses on it.
+#ifdef _WIN64
+// One step of the x64 unwinder (the function's unwind data, as the system's own exception dispatch reads it):
+// `context` becomes its caller's - false at the end of the stack. A function without unwind data is a leaf: its return
+// address is at RSP.
+bool unwind_to_caller(CONTEXT* context)
+{
+    DWORD64 image_base = 0;
+    PRUNTIME_FUNCTION function = RtlLookupFunctionEntry(context->Rip, &image_base, nullptr);
+    if (!function) {
+        if (!readable(context->Rsp, sizeof(DWORD64), false)) {
+            return false;
+        }
+        context->Rip = *core::at_address<const DWORD64>(context->Rsp);
+        context->Rsp += sizeof(DWORD64);
+    } else {
+        void* handler_data = nullptr;
+        DWORD64 establisher_frame = 0;
+        RtlVirtualUnwind(UNW_FLAG_NHANDLER, image_base, context->Rip, function, context, &handler_data,
+                         &establisher_frame, nullptr);
+    }
+    return context->Rip != 0;
+}
+
+// The same, guarded: a broken stack the unwinder reads past ends the walk instead of faulting again (MSVC's
+// structured exception handling; other compilers unwind unguarded).
+bool unwind_to_caller_guarded(CONTEXT* context)
+{
+#ifdef _MSC_VER
+    __try {
+        return unwind_to_caller(context);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+#else
+    return unwind_to_caller(context);
+#endif
+}
+
+// The calls that led to the fault, unwound from its context: each frame's stack pointer and code address, newest
+// first (x64 code has unwind data, so this is a walk - x86's report can only scan).
+void log_unwound_calls(const CONTEXT& fault)
+{
+    get_log("  calls (unwound from the context, newest first):");
+    CONTEXT context = fault;
+    for (std::size_t frame = 0; frame < kBacktraceFrames; ++frame) {
+        std::array<char, MAX_PATH> name = {"?"};
+        uintptr_t offset = context.Rip;
+        module_of(context.Rip, name, &offset);
+        get_log("    [rsp=%016llX] %s+0x%X (%016llX)", context.Rsp, name.data(), static_cast<unsigned>(offset),
+                context.Rip);
+        if (!unwind_to_caller_guarded(&context)) {
+            break;
+        }
+    }
+}
+#endif
+
+// An exception's report: where, the registers, the top of the stack, the return addresses on it (on x64 also the calls
+// unwound from the context).
 void report_exception(const EXCEPTION_POINTERS* info, const char* note)
 {
     const CONTEXT* context = info->ContextRecord;
     const DWORD code = info->ExceptionRecord->ExceptionCode;
     std::array<char, MAX_PATH> name = {"?"};
-    uintptr_t offset = context->Eip;
-    module_of(context->Eip, name, &offset);
+    uintptr_t offset = instruction_pointer(*context);
+    module_of(instruction_pointer(*context), name, &offset);
+#ifdef _WIN64
+    get_log("EXCEPTION 0x%08X at %s+0x%X (%016llX) %s", static_cast<unsigned>(code), name.data(),
+            static_cast<unsigned>(offset), context->Rip, note);
+#else
     get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name.data(),
             static_cast<unsigned>(offset), static_cast<unsigned>(context->Eip), note);
+#endif
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2) {
         const char* access = "reading";
         if (info->ExceptionRecord->ExceptionInformation[0] == kExecuteFault) {
@@ -217,8 +307,31 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
         } else if (info->ExceptionRecord->ExceptionInformation[0] != 0) {
             access = "writing";
         }
+#ifdef _WIN64
+        get_log("  %s address %016llX", access, info->ExceptionRecord->ExceptionInformation[1]);
+#else
         get_log("  %s address %08X", access, static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
+#endif
     }
+#ifdef _WIN64
+    get_log("  RAX %016llX RBX %016llX RCX %016llX RDX %016llX", context->Rax, context->Rbx, context->Rcx,
+            context->Rdx);
+    get_log("  RSI %016llX RDI %016llX RBP %016llX RSP %016llX", context->Rsi, context->Rdi, context->Rbp,
+            context->Rsp);
+    get_log("  R8  %016llX R9  %016llX R10 %016llX R11 %016llX", context->R8, context->R9, context->R10, context->R11);
+    get_log("  R12 %016llX R13 %016llX R14 %016llX R15 %016llX", context->R12, context->R13, context->R14,
+            context->R15);
+    // The top of the stack as it is (the callee's home space, arguments, saved registers, locals).
+    for (uintptr_t slot = context->Rsp; slot < context->Rsp + kStackDumpBytes; slot += kStackDumpLineBytes) {
+        if (!readable(slot, kStackDumpLineBytes, false)) {
+            break;
+        }
+        const std::span<const uint64_t, 4> w(core::at_address<const uint64_t>(slot), 4);
+        get_log("  [rsp+0x%02X] %016llX %016llX %016llX %016llX", static_cast<unsigned>(slot - context->Rsp),
+                core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3));
+    }
+    log_unwound_calls(*context);
+#else
     get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X",
             static_cast<unsigned>(context->Eax), static_cast<unsigned>(context->Ebx),
             static_cast<unsigned>(context->Ecx), static_cast<unsigned>(context->Edx),
@@ -234,7 +347,8 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
                 core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3), core::at(w, 4), core::at(w, kDumpWord5),
                 core::at(w, kDumpWord6), core::at(w, kDumpWord7));
     }
-    crash_log_stack_scan(context->Esp);
+#endif
+    crash_log_stack_scan(stack_pointer(*context));
 }
 
 // Crashes (access violations and other fatal exceptions) are logged before Windows ends the game - first chance: an
@@ -254,7 +368,7 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
                            static_cast<LPCSTR>(code_address(&crash_logger)), &ours);
         HMODULE at = nullptr;
         GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           cell::pointer<const char>(info->ContextRecord->Eip), &at);
+                           core::at_address<const char>(instruction_pointer(*info->ContextRecord)), &at);
         if (at != ours && at != GetModuleHandleA(nullptr)) {
             return EXCEPTION_CONTINUE_SEARCH;
         }
@@ -268,7 +382,7 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
     ++logged;
     report_exception(info, "(first chance: if the code handles it, nothing more happens)");
     crash_state().reported_record_ = info->ExceptionRecord;
-    crash_state().reported_address_ = info->ContextRecord->Eip;
+    crash_state().reported_address_ = instruction_pointer(*info->ContextRecord);
     // (then whoever asked: the level editor's last action and autosave - set_crash_hook)
     run_crash_hook();
     return EXCEPTION_CONTINUE_SEARCH;
@@ -279,7 +393,7 @@ LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
 {
     const DWORD code = info->ExceptionRecord->ExceptionCode;
     if (info->ExceptionRecord != crash_state().reported_record_ ||
-        info->ContextRecord->Eip != crash_state().reported_address_) {
+        instruction_pointer(*info->ContextRecord) != crash_state().reported_address_) {
         report_exception(info, "(unhandled)");
     }
     get_log("  unhandled: nothing caught exception 0x%08X", static_cast<unsigned>(code));
@@ -358,10 +472,10 @@ extern "C" int rtc_error_handler(int type, const wchar_t* /*unused*/, int /*unus
 }
 #endif
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(_WIN64)
 void __stdcall pops_its_argument(int /*unused*/) {}
 // A __stdcall function called as __cdecl: it pops its argument and so does the caller - ESP ends up 4 off, which
-// the /RTCs check after the call reports.
+// the /RTCs check after the call reports. (x86 only: x64 has one calling convention.)
 THUG2_NOINLINE void call_with_wrong_convention()
 {
     auto call = function_at<void (*)(int)>(code_address(&pops_its_argument));
@@ -525,7 +639,7 @@ bool cause_test_fault(TestFault fault)
         break;
     }
     case TestFault::kRunTimeCheck:
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(_WIN64)
         call_with_wrong_convention();
         break;
 #else

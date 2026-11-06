@@ -24,6 +24,7 @@
 #include "game/online/hub_roster.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_manager.h"
+#include "engine/net/transport.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/context.h"
@@ -131,7 +132,7 @@ void nat_think() { game_spy::nat_think(); }
 void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }
 void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
 // (the cookie is the user data)
-int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, game_spy::NatCompleted completed,
+int nat_begin(net::SocketId socket, int cookie, int client_index, void* progress, game_spy::NatCompleted completed,
               int user_data)
 {
     return game_spy::nat_begin_with_socket(socket, cookie, client_index, progress, completed, user_data);
@@ -396,7 +397,7 @@ void RoomManager::start_hosting()
 }
 
 // 0x00540300
-void RoomManager::nat_negotiation_completed(int result, int /*unused*/, const void* address, int user_data)
+void RoomManager::nat_negotiation_completed(int result, uintptr_t /*unused*/, const void* address, int user_data)
 {
     Hub* manager = net_game_state().online_hub();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found

@@ -24,9 +24,10 @@
 namespace net {
 
 // A socket: the transport's own value - Winsock's SOCKET (what the original kept at AppHost +0x1428 and gave the
-// GameSpy SDK). kNoSocket is the failed open (INVALID_SOCKET).
-using SocketId = uint32_t;
-constexpr SocketId kNoSocket = 0xFFFFFFFF;
+// GameSpy SDK), pointer-sized as SOCKET is: 32 bits on x86, 64 on x64. kNoSocket is the failed open (INVALID_SOCKET:
+// all ones).
+using SocketId = uintptr_t;
+constexpr SocketId kNoSocket = ~SocketId{0};
 // What a failed call answers (SOCKET_ERROR).
 constexpr int kSocketError = -1;
 
