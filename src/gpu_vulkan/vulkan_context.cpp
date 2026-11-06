@@ -306,6 +306,9 @@ bool Context::create_instance(bool validation)
     SDL_Vulkan_GetInstanceExtensions(window_, &sdl_count, extensions.data());
     const bool use_validation = validation && instance_layer_available(kValidationLayer) &&
                                 has_extension(instance_extensions(), VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    if (validation && !use_validation) {
+        report("validation asked for, but the layer or VK_EXT_debug_utils isn't there - going on without it");
+    }
     std::vector<const char*> layers;
     if (use_validation) {
         layers.push_back(kValidationLayer);
@@ -358,6 +361,7 @@ bool Context::create_instance(bool validation)
         if (made != VK_SUCCESS) {
             return fail("vkCreateDebugUtilsMessengerEXT", made);
         }
+        report("the validation layer is on (its warnings and errors logged)");
     }
     return true;
 }
