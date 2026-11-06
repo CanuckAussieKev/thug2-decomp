@@ -793,7 +793,7 @@ bool cfunc_launch_event(script::Struct* params, script::Context context)
         for (script::Component* component = structure->step_to_entry(nullptr); component;
              component = structure->step_to_entry(component)) {
             tracker->set_launched_from_script(from_script());
-            tracker->launch_event(component->value.word(), target, source, data, broadcast, radius);
+            tracker->launch_event(component->value.low_word(), target, source, data, broadcast, radius);
         }
     }
     return true;

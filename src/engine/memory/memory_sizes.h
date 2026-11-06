@@ -14,6 +14,7 @@
 // every other heap keeps the room it had (they never shrink below the original's).
 namespace memory::sizes {
 
+// (the item sizes below are the original's, x86's; on x64 the classes are bigger and the pools with them)
 struct Pools {
     int script_cache_entries_; // CScriptCacheEntry (0x14 bytes)
     int components;            // CComponent (0x10)

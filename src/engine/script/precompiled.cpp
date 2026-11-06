@@ -25,7 +25,7 @@ namespace script {
 namespace {
 
 // A stored offset made an address.
-void relocate(Cell& value, uint32_t base) { value = Cell::of_word(value.word() + base); }
+void relocate(Cell& value, uint32_t base) { value = Cell::of_bits(value.bits() + base); }
 template <typename T>
 void relocate(T*& pointer, uint32_t base)
 {

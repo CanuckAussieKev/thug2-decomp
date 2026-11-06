@@ -26,6 +26,7 @@
 #include "engine/script/tokens.h"
 #include "platform/run_log.h"
 #include "base/core/bits_as.h"
+#include "base/core/pointer_cell.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
@@ -33,16 +34,18 @@
 
 namespace script {
 namespace {
-// The pools' item sizes (the classes' sizes).
-constexpr int kScriptCacheEntryPoolBytes = 0x14;
-constexpr int kComponentPoolBytes = 0x10;
-constexpr int kStructPoolBytes = 8;
-constexpr int kVectorPoolBytes = 0x10;
-constexpr int kPairPoolBytes = 0x0C;
-constexpr int kArrayPoolBytes = 0x0C;
-constexpr int kSymbolPoolBytes = 0x14;
-constexpr int kScriptPoolBytes = 0xF4;
-constexpr int kStoredRandomPoolBytes = 0x60;
+// The pools' item sizes: the classes' sizes (on x86 the original's - asserted in engine/memory/memory_sizes.cpp).
+template <typename T>
+constexpr int kItemBytes = static_cast<int>(sizeof(T));
+constexpr int kScriptCacheEntryPoolBytes = kItemBytes<ScriptCacheEntry>;
+constexpr int kComponentPoolBytes = kItemBytes<Component>;
+constexpr int kStructPoolBytes = kItemBytes<Struct>;
+constexpr int kVectorPoolBytes = kItemBytes<Vector>;
+constexpr int kPairPoolBytes = kItemBytes<Pair>;
+constexpr int kArrayPoolBytes = kItemBytes<Array>;
+constexpr int kSymbolPoolBytes = kItemBytes<SymbolTableEntry>;
+constexpr int kScriptPoolBytes = kItemBytes<Script>;
+constexpr int kStoredRandomPoolBytes = kItemBytes<StoredRandom>;
 // The byte-by-byte word readers and writers.
 constexpr int kShiftByte1 = 8;
 constexpr int kShiftByte2 = 16;
@@ -54,8 +57,8 @@ constexpr int kLabelBucketBytes = 12;
 constexpr int kLabelBucketWords = 3;
 constexpr uint32_t kLabelBucketMask = 0xFFF;
 // A shuffle swaps this many pairs for each choice.
-// The permanent string table: one 8-byte entry per string.
-constexpr uint32_t kPermanentStringEntryBytes = 8;
+// The permanent string table: one entry per string (8 bytes on x86: memory_sizes.cpp).
+constexpr uint32_t kPermanentStringEntryBytes = sizeof(PermanentString);
 constexpr std::size_t kPendingSymbolCapacity = 500;
 } // namespace
 
@@ -328,10 +331,10 @@ void prepare_script_tokens(std::span<uint8_t> code)
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type() == QbValueKind::kNativeFunc) {
                     name[0] = token_byte(QbToken::kNativeFunction);
-                    store_word32(name + 1, symbol->value().word());
+                    store_word32(name + 1, cell::of(symbol->value().function())); // (a 32-bit operand: X5)
                 } else if (symbol->type() == QbValueKind::kNativeMethod) {
-                    if (symbol->value().word() != 0U) {
-                        store_word32(name + 1, symbol->value().word());
+                    if (!symbol->value().empty()) {
+                        store_word32(name + 1, cell::of(symbol->value().method()));
                         name[0] = token_byte(QbToken::kMemberFunction);
                     } else {
                         name[0] = token_byte(QbToken::kMemberFunctionName);
@@ -668,7 +671,7 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     default:
         break;
     }
-    symbol->value().set_word(0);
+    symbol->value().clear();
     free_symbol(symbol);
 }
 

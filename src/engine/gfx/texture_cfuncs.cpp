@@ -106,7 +106,7 @@ void unload_texture_from(void* dictionary, void* texture)
 }
 
 // A component's raw value.
-uint32_t raw_value(const Component* component) { return component->value.word(); }
+uint32_t raw_value(const Component* component) { return component->value.low_word(); }
 
 } // namespace
 

@@ -223,7 +223,7 @@ int format_text(script::Struct& results, script::Struct* params)
         }
         Component& value = format_text_value();
         copy_value_kind(value, *found);
-        value.value.set_word(found->value.word());
+        value.value = found->value;
         script::evaluate_name_token(&value);
         constexpr size_t kTextSize = 100;
         std::array<char, kTextSize> text{}; // (the original's sprintf into it is unbounded)
@@ -320,11 +320,11 @@ bool cfunc_change(script::Struct* params, script::Context /*context*/)
     Component copy;
     script::construct_component(&copy);
     copy_value_kind(copy, *value);
-    copy.value.set_word(value->value.word());
+    copy.value = value->value;
     if (value_kind(copy) == script::QbValueKind::kName && params->has_bare_flag(kResolve)) {
         if (SymbolTableEntry* resolved = script::resolve_symbol(copy.value.word())) {
             set_value_kind(copy, resolved->type());
-            copy.value.set_word(resolved->value().word());
+            copy.value = resolved->value();
         }
     }
     switch (value_kind(copy)) {
@@ -332,7 +332,7 @@ bool cfunc_change(script::Struct* params, script::Context /*context*/)
     case script::QbValueKind::kFloat:
     case script::QbValueKind::kName:
         entry->set_type(value_kind(copy));
-        entry->value().set_word(copy.value.word());
+        entry->value() = copy.value;
         break;
     case script::QbValueKind::kStruct: {
         entry->set_type(script::QbValueKind::kStruct);

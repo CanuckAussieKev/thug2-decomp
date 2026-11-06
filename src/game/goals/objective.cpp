@@ -419,7 +419,7 @@ void Objective::restore_save_block(script::Struct* data)
         for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
             script::Component* next = goal_flags_->step_to_entry(component);
             ++num_flags_;
-            if (component->value.word() != 0U) {
+            if (!component->value.empty()) {
                 ++num_flags_set_;
             }
             component = next;

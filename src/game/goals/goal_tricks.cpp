@@ -386,7 +386,7 @@ bool Objective::award_special_trick()
     }
     if (!had) {
         Expects(free != nullptr);
-        keys = free->step_to_entry(nullptr)->value.word();
+        keys = free->step_to_entry(nullptr)->value.low_word();
         profile->add_max_specials(1);
         if (cat) {
             const script::StructPtr params = script::make_struct();

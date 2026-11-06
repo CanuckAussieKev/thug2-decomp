@@ -68,7 +68,8 @@ public:
     // Grow the array to `size` elements, keeping the old ones (the new ones are zero; shrinking isn't supported).
     void rescale(uint32_t size);
 
-    // The elements. Any 32-bit value (integer, checksum, structure, array...) by set_element / fetch_part.
+    // The elements. A 32-bit value (an integer, a checksum) by set_element / fetch_part; any kind's whole cell (a
+    // structure, an array...) by cell_at / set_cell.
     void set_element(uint32_t index, uint32_t value);
     void change_float(uint32_t index, float value);
     uint32_t fetch_part(uint32_t index);
@@ -76,7 +77,7 @@ public:
     char* find_inline_text(uint32_t index);
     // An integer array's elements are converted.
     float fetch_float(uint32_t index);
-    // The element as the pointer its 32-bit cell holds, by the array's type (a structure / array / pair / vector
+    // The element as the pointer its cell holds, by the array's type (a structure / array / pair / vector
     // array's element).
     Struct* struct_at(uint32_t index);
     Array* array_at(uint32_t index);
@@ -105,7 +106,7 @@ private:
     uint16_t unknown2_{};
     uint32_t extent_{0};
     // One cell: the element block (Cell::block), or the one element itself - which by extent_ (the arrays are
-    // pooled 12-byte records, as the original's).
+    // pooled records: 12 bytes on x86, as the original's).
     Cell storage_;
 };
 static_assert(sizeof(Array) == kArrayBytes, "layout must match the original");
@@ -436,5 +437,9 @@ memory::PoolPair& symbol_pools();
 memory::PoolPair& vector_pools();
 memory::PoolPair& script_pools();
 
-struct PermanentString;
+// A permanent string table entry: the string's checksum and the string.
+struct PermanentString {
+    uint32_t checksum;
+    char* string;
+};
 } // namespace script
