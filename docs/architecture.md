@@ -378,7 +378,8 @@ everything above it uses the game's own types and may change them freely.
   An open movie is a `media::ffmpeg::Playback`, whose first part is the header; its frame counters, its pace (`wait`)
   and its pause follow binkw32's, and its frames are copied as binkw32's BINKSURFACE32 (within a few steps of 255 per
   colour byte: `src/tests/movie_codec_check.cpp` compares the two codecs on the player's files). `app/movie_choice.cpp`
-  installs it with `[features] movie_codec=ffmpeg` when the DLLs load (Bink otherwise, and by default). Its sound
+  installs it with `[features] movie_codec=ffmpeg` when the DLLs load (Bink otherwise, and by default); a 64-bit
+  build has no Bink codec (binkw32.dll is 32-bit: `media_bink` is built for x86 only) and always installs it. Its sound
   (`media::ffmpeg::Sound`, FFmpeg's Bink audio decoder) plays through `audio::Device` - a looping buffer per movie,
   kept filled ahead of its play position through the device's streaming calls (`buffer_position`, `write_buffer`,
   `resume_buffer`), its volume and pan the track's as binkw32 converts them, its play position the frames' clock -, so
