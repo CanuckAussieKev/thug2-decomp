@@ -1,0 +1,512 @@
+// NOT ORIGINAL - the Vulkan Gpu's pipelines and their caches (vulkan_pipelines.h).
+#include "gpu_vulkan/vulkan_pipelines.h"
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
+#include <volk.h>
+
+#include "base/core/checked_index.h"
+#include "engine/file/disk.h"
+#include "gpu_vulkan/ff_key.h"
+#include "gpu_vulkan/ff_shaders.h"
+#include "gpu_vulkan/ff_uniforms.h"
+#include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/vulkan_draw_state.h"
+
+namespace render::vulkan {
+
+namespace {
+
+constexpr const char* kShaderFile = "thug2-decomp-vulkan-shaders.bin";
+constexpr const char* kPipelineFile = "thug2-decomp-vulkan-pipelines.bin";
+constexpr uint32_t kShaderFileMagic = 0x53324854U; // "TH2S"
+constexpr uint32_t kShaderFileVersion = 1;
+constexpr uint64_t kFnvOffset = 0xCBF29CE484222325ULL;
+constexpr uint64_t kFnvPrime = 0x100000001B3ULL;
+constexpr std::size_t kMostSpirvWords = 1U << 20U; // (a sanity limit for the file's entries)
+
+uint64_t fnv1a(std::span<const uint8_t> bytes)
+{
+    uint64_t hash = kFnvOffset;
+    for (const uint8_t byte : bytes) {
+        hash = (hash ^ byte) * kFnvPrime;
+    }
+    return hash;
+}
+
+uint64_t text_hash(const std::string& text)
+{
+    const std::span<const char> chars(text);
+    uint64_t hash = kFnvOffset;
+    for (const char ch : chars) {
+        hash = (hash ^ static_cast<uint8_t>(ch)) * kFnvPrime;
+    }
+    return hash;
+}
+
+double seconds_since(std::chrono::steady_clock::time_point start)
+{
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
+
+// A whole file's bytes (empty when it isn't there).
+std::vector<uint8_t> read_file(const std::string& path)
+{
+    std::vector<uint8_t> bytes;
+    fs::DiskStream* const in = fs::disk().open_stream(path.c_str(), "rb", fs::StreamSharing::kAll);
+    if (in == nullptr) {
+        return bytes;
+    }
+    if (fs::disk().stream_seek(in, 0, SEEK_END) == 0) {
+        const long size = fs::disk().stream_tell(in);
+        if (size > 0 && fs::disk().stream_seek(in, 0, SEEK_SET) == 0) {
+            bytes.resize(static_cast<std::size_t>(size));
+            const std::size_t got = fs::disk().stream_read(in, bytes.data(), 1, bytes.size());
+            bytes.resize(got);
+        }
+    }
+    fs::disk().stream_close(in);
+    return bytes;
+}
+
+bool write_file(const std::string& path, std::span<const uint8_t> bytes)
+{
+    fs::DiskStream* const out = fs::disk().open_stream(path.c_str(), "wb", fs::StreamSharing::kAll);
+    if (out == nullptr) {
+        return false;
+    }
+    const std::size_t written = fs::disk().stream_write(out, bytes.data(), 1, bytes.size());
+    return fs::disk().stream_close(out) == 0 && written == bytes.size();
+}
+
+// A little-endian reader over a file's bytes.
+class Reader {
+public:
+    explicit Reader(std::span<const uint8_t> bytes) : bytes_(bytes) {}
+    template <typename T>
+    bool read(T* value)
+    {
+        if (at_ + sizeof(T) > bytes_.size()) {
+            return false;
+        }
+        std::memcpy(value, bytes_.subspan(at_, sizeof(T)).data(), sizeof(T));
+        at_ += sizeof(T);
+        return true;
+    }
+    bool read_words(std::size_t count, std::vector<uint32_t>* words)
+    {
+        const std::size_t size = count * sizeof(uint32_t);
+        if (at_ + size > bytes_.size()) {
+            return false;
+        }
+        words->resize(count);
+        std::memcpy(words->data(), bytes_.subspan(at_, size).data(), size);
+        at_ += size;
+        return true;
+    }
+
+private:
+    std::span<const uint8_t> bytes_;
+    std::size_t at_ = 0;
+};
+
+template <typename T>
+void append(std::vector<uint8_t>& out, const T& value)
+{
+    std::array<uint8_t, sizeof(T)> raw{};
+    std::memcpy(raw.data(), &value, sizeof(T));
+    out.insert(out.end(), raw.begin(), raw.end());
+}
+
+} // namespace
+
+std::size_t PipelineKeyHash::operator()(const PipelineKey& key) const
+{
+    std::array<uint8_t, sizeof(PipelineKey)> raw{};
+    std::memcpy(raw.data(), &key, sizeof(PipelineKey));
+    return static_cast<std::size_t>(fnv1a(raw));
+}
+
+bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder)
+{
+    device_ = device;
+    folder_ = folder;
+    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount> bindings{};
+    core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
+                             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                             .descriptorCount = 1,
+                             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                             .pImmutableSamplers = nullptr};
+    core::at(bindings, 1) = {.binding = kFragmentUniformsBinding,
+                             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                             .descriptorCount = 1,
+                             .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                             .pImmutableSamplers = nullptr};
+    for (uint32_t stage = 0; stage < kStageCount; ++stage) {
+        core::at(bindings, 2 + stage) = {.binding = kFirstTextureBinding + stage,
+                                         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                         .descriptorCount = 1,
+                                         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                         .pImmutableSamplers = nullptr};
+    }
+    const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                                                   .pNext = nullptr,
+                                                   .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+                                                   .bindingCount = static_cast<uint32_t>(bindings.size()),
+                                                   .pBindings = bindings.data()};
+    if (vkCreateDescriptorSetLayout(device_, &set_info, nullptr, &set_layout_) != VK_SUCCESS) {
+        return false;
+    }
+    const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                                                 .pNext = nullptr,
+                                                 .flags = 0,
+                                                 .setLayoutCount = 1,
+                                                 .pSetLayouts = &set_layout_,
+                                                 .pushConstantRangeCount = 0,
+                                                 .pPushConstantRanges = nullptr};
+    if (vkCreatePipelineLayout(device_, &layout_info, nullptr, &layout_) != VK_SUCCESS) {
+        return false;
+    }
+    load(folder);
+    return true;
+}
+
+void Pipelines::load(const std::string& folder)
+{
+    std::vector<uint8_t> cache_bytes;
+    if (!folder.empty()) {
+        cache_bytes = read_file(folder + kPipelineFile);
+        const std::vector<uint8_t> shader_bytes = read_file(folder + kShaderFile);
+        Reader reader(shader_bytes);
+        uint32_t magic = 0;
+        uint32_t version = 0;
+        uint32_t count = 0;
+        if (reader.read(&magic) && reader.read(&version) && reader.read(&count) && magic == kShaderFileMagic &&
+            version == kShaderFileVersion) {
+            for (uint32_t entry = 0; entry < count; ++entry) {
+                uint64_t hash = 0;
+                uint32_t words = 0;
+                std::vector<uint32_t> spirv;
+                if (!reader.read(&hash) || !reader.read(&words) || words > kMostSpirvWords ||
+                    !reader.read_words(words, &spirv)) {
+                    break;
+                }
+                spirv_.emplace(hash, std::move(spirv));
+            }
+        }
+    }
+    VkPipelineCacheCreateInfo info{.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+                                   .pNext = nullptr,
+                                   .flags = 0,
+                                   .initialDataSize = cache_bytes.size(),
+                                   .pInitialData = cache_bytes.empty() ? nullptr : cache_bytes.data()};
+    if (vkCreatePipelineCache(device_, &info, nullptr, &cache_) != VK_SUCCESS) {
+        // (another driver's or a damaged file: an empty cache)
+        info.initialDataSize = 0;
+        info.pInitialData = nullptr;
+        if (vkCreatePipelineCache(device_, &info, nullptr, &cache_) != VK_SUCCESS) {
+            cache_ = VK_NULL_HANDLE;
+        }
+    }
+}
+
+void Pipelines::save()
+{
+    if (!dirty_ || folder_.empty() || device_ == nullptr) {
+        return;
+    }
+    dirty_ = false;
+    std::vector<uint8_t> shaders;
+    append(shaders, kShaderFileMagic);
+    append(shaders, kShaderFileVersion);
+    append(shaders, static_cast<uint32_t>(spirv_.size()));
+    for (const auto& [hash, words] : spirv_) {
+        append(shaders, hash);
+        append(shaders, static_cast<uint32_t>(words.size()));
+        const std::size_t at = shaders.size();
+        shaders.resize(at + (words.size() * sizeof(uint32_t)));
+        std::memcpy(std::span(shaders).subspan(at).data(), words.data(), words.size() * sizeof(uint32_t));
+    }
+    write_file(folder_ + kShaderFile, shaders);
+    if (cache_ != VK_NULL_HANDLE) {
+        std::size_t size = 0;
+        if (vkGetPipelineCacheData(device_, cache_, &size, nullptr) == VK_SUCCESS && size > 0) {
+            std::vector<uint8_t> data(size);
+            if (vkGetPipelineCacheData(device_, cache_, &size, data.data()) == VK_SUCCESS) {
+                data.resize(size);
+                write_file(folder_ + kPipelineFile, data);
+            }
+        }
+    }
+}
+
+void Pipelines::shutdown()
+{
+    if (device_ == nullptr) {
+        return;
+    }
+    save();
+    for (const auto& [key, pipeline] : pipelines_) {
+        if (pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device_, pipeline, nullptr);
+        }
+    }
+    for (const auto& [key, module] : vertex_modules_) {
+        if (module != VK_NULL_HANDLE) {
+            vkDestroyShaderModule(device_, module, nullptr);
+        }
+    }
+    for (const auto& [key, module] : fragment_modules_) {
+        if (module != VK_NULL_HANDLE) {
+            vkDestroyShaderModule(device_, module, nullptr);
+        }
+    }
+    pipelines_.clear();
+    vertex_modules_.clear();
+    fragment_modules_.clear();
+    spirv_.clear();
+    if (cache_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineCache(device_, cache_, nullptr);
+    }
+    if (layout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device_, layout_, nullptr);
+    }
+    if (set_layout_ != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(device_, set_layout_, nullptr);
+    }
+    cache_ = VK_NULL_HANDLE;
+    layout_ = VK_NULL_HANDLE;
+    set_layout_ = VK_NULL_HANDLE;
+    device_ = nullptr;
+    stats_ = {};
+}
+
+VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string* error)
+{
+    if (vertex) {
+        const auto found = vertex_modules_.find(key.vertex);
+        if (found != vertex_modules_.end()) {
+            return found->second;
+        }
+    } else {
+        const auto found = fragment_modules_.find(key.fragment);
+        if (found != fragment_modules_.end()) {
+            return found->second;
+        }
+    }
+    const std::string source = vertex ? vertex_shader_glsl(key.vertex) : fragment_shader_glsl(key.fragment);
+    const uint64_t hash = text_hash(source);
+    auto kept = spirv_.find(hash);
+    if (kept == spirv_.end()) {
+        const auto start = std::chrono::steady_clock::now();
+        CompiledShader compiled = compile_glsl(vertex ? ShaderStage::kVertex : ShaderStage::kFragment, source);
+        stats_.compile_seconds += seconds_since(start);
+        ++stats_.shaders_compiled;
+        if (!compiled.ok) {
+            if (error != nullptr) {
+                *error = compiled.log + "\n" + source;
+            }
+            kept = spirv_.emplace(hash, std::vector<uint32_t>{}).first;
+        } else {
+            kept = spirv_.emplace(hash, std::move(compiled.spirv)).first;
+            dirty_ = true;
+        }
+    } else {
+        ++stats_.shaders_from_disk;
+    }
+    VkShaderModule made = VK_NULL_HANDLE;
+    if (!kept->second.empty()) {
+        const VkShaderModuleCreateInfo info{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                                            .pNext = nullptr,
+                                            .flags = 0,
+                                            .codeSize = kept->second.size() * sizeof(uint32_t),
+                                            .pCode = kept->second.data()};
+        if (vkCreateShaderModule(device_, &info, nullptr, &made) != VK_SUCCESS) {
+            made = VK_NULL_HANDLE;
+        }
+    }
+    if (vertex) {
+        vertex_modules_.emplace(key.vertex, made);
+    } else {
+        fragment_modules_.emplace(key.fragment, made);
+    }
+    return made;
+}
+
+VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
+{
+    const auto found = pipelines_.find(key);
+    if (found != pipelines_.end()) {
+        return found->second;
+    }
+    const VkShaderModule vertex = module(true, key.shaders, error);
+    const VkShaderModule fragment = module(false, key.shaders, error);
+    VkPipeline made = VK_NULL_HANDLE;
+    if (vertex != VK_NULL_HANDLE && fragment != VK_NULL_HANDLE) {
+        const std::array<VkPipelineShaderStageCreateInfo, 2> stages{{
+            {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+             .pNext = nullptr,
+             .flags = 0,
+             .stage = VK_SHADER_STAGE_VERTEX_BIT,
+             .module = vertex,
+             .pName = "main",
+             .pSpecializationInfo = nullptr},
+            {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+             .pNext = nullptr,
+             .flags = 0,
+             .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+             .module = fragment,
+             .pName = "main",
+             .pSpecializationInfo = nullptr},
+        }};
+        const VertexLayout layout = vertex_layout(key.shaders.vertex.fvf);
+        const VkVertexInputBindingDescription binding{
+            .binding = 0, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
+        const VkPipelineVertexInputStateCreateInfo input{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .vertexBindingDescriptionCount = 1,
+            .pVertexBindingDescriptions = &binding,
+            .vertexAttributeDescriptionCount = layout.count,
+            .pVertexAttributeDescriptions = layout.attributes.data()};
+        constexpr std::array<VkPrimitiveTopology, 3> kClassTopology{
+            VK_PRIMITIVE_TOPOLOGY_POINT_LIST, VK_PRIMITIVE_TOPOLOGY_LINE_LIST, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+        const VkPipelineInputAssemblyStateCreateInfo assembly{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .topology = core::at(kClassTopology, std::min<std::size_t>(key.topology_class, 2)),
+            .primitiveRestartEnable = VK_FALSE};
+        const VkPipelineViewportStateCreateInfo viewport{.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                                                         .pNext = nullptr,
+                                                         .flags = 0,
+                                                         .viewportCount = 1,
+                                                         .pViewports = nullptr,
+                                                         .scissorCount = 1,
+                                                         .pScissors = nullptr};
+        const VkPipelineRasterizationStateCreateInfo raster{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .depthClampEnable = VK_FALSE,
+            .rasterizerDiscardEnable = VK_FALSE,
+            .polygonMode = key.wireframe != 0 ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
+            .cullMode = VK_CULL_MODE_NONE,
+            .frontFace = VK_FRONT_FACE_CLOCKWISE,
+            .depthBiasEnable = VK_TRUE,
+            .depthBiasConstantFactor = 0.0F,
+            .depthBiasClamp = 0.0F,
+            .depthBiasSlopeFactor = 0.0F,
+            .lineWidth = 1.0F};
+        const VkPipelineMultisampleStateCreateInfo multisample{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .rasterizationSamples = static_cast<VkSampleCountFlagBits>(key.samples),
+            .sampleShadingEnable = VK_FALSE,
+            .minSampleShading = 0.0F,
+            .pSampleMask = nullptr,
+            .alphaToCoverageEnable = VK_FALSE,
+            .alphaToOneEnable = VK_FALSE};
+        const VkPipelineDepthStencilStateCreateInfo depth{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .depthTestEnable = VK_TRUE,
+            .depthWriteEnable = VK_TRUE,
+            .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
+            .depthBoundsTestEnable = VK_FALSE,
+            .stencilTestEnable = VK_FALSE,
+            .front = {},
+            .back = {},
+            .minDepthBounds = 0.0F,
+            .maxDepthBounds = 1.0F};
+        const VkBlendFactor source = blend_factor(key.source_blend);
+        const VkBlendFactor dest = blend_factor(key.dest_blend);
+        const VkBlendOp operation = blend_op(key.blend_operation);
+        const VkPipelineColorBlendAttachmentState blend_attachment{
+            .blendEnable = key.blend != 0 ? VK_TRUE : VK_FALSE,
+            .srcColorBlendFactor = source,
+            .dstColorBlendFactor = dest,
+            .colorBlendOp = operation,
+            .srcAlphaBlendFactor = source,
+            .dstAlphaBlendFactor = dest,
+            .alphaBlendOp = operation,
+            .colorWriteMask = key.write_mask};
+        const VkPipelineColorBlendStateCreateInfo blend{.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                                                        .pNext = nullptr,
+                                                        .flags = 0,
+                                                        .logicOpEnable = VK_FALSE,
+                                                        .logicOp = VK_LOGIC_OP_COPY,
+                                                        .attachmentCount = 1,
+                                                        .pAttachments = &blend_attachment,
+                                                        .blendConstants = {}};
+        constexpr std::array<VkDynamicState, 11> kDynamic{
+            VK_DYNAMIC_STATE_VIEWPORT,           VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_CULL_MODE,          VK_DYNAMIC_STATE_FRONT_FACE,
+            VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY, VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
+            VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE, VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
+            VK_DYNAMIC_STATE_DEPTH_BIAS,         VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+            VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE};
+        const VkPipelineDynamicStateCreateInfo dynamic{.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                                                       .pNext = nullptr,
+                                                       .flags = 0,
+                                                       .dynamicStateCount = static_cast<uint32_t>(kDynamic.size()),
+                                                       .pDynamicStates = kDynamic.data()};
+        const auto colour_format = static_cast<VkFormat>(key.colour_format);
+        const VkPipelineRenderingCreateInfo rendering{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                                                      .pNext = nullptr,
+                                                      .viewMask = 0,
+                                                      .colorAttachmentCount = 1,
+                                                      .pColorAttachmentFormats = &colour_format,
+                                                      .depthAttachmentFormat = static_cast<VkFormat>(key.depth_format),
+                                                      .stencilAttachmentFormat = VK_FORMAT_UNDEFINED};
+        const VkGraphicsPipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                                                .pNext = &rendering,
+                                                .flags = 0,
+                                                .stageCount = static_cast<uint32_t>(stages.size()),
+                                                .pStages = stages.data(),
+                                                .pVertexInputState = &input,
+                                                .pInputAssemblyState = &assembly,
+                                                .pTessellationState = nullptr,
+                                                .pViewportState = &viewport,
+                                                .pRasterizationState = &raster,
+                                                .pMultisampleState = &multisample,
+                                                .pDepthStencilState = &depth,
+                                                .pColorBlendState = &blend,
+                                                .pDynamicState = &dynamic,
+                                                .layout = layout_,
+                                                .renderPass = VK_NULL_HANDLE,
+                                                .subpass = 0,
+                                                .basePipelineHandle = VK_NULL_HANDLE,
+                                                .basePipelineIndex = -1};
+        const auto start = std::chrono::steady_clock::now();
+        if (vkCreateGraphicsPipelines(device_, cache_, 1, &info, nullptr, &made) != VK_SUCCESS) {
+            made = VK_NULL_HANDLE;
+            if (error != nullptr && error->empty()) {
+                *error = "vkCreateGraphicsPipelines refused it";
+            }
+        }
+        stats_.pipeline_seconds += seconds_since(start);
+    }
+    if (made == VK_NULL_HANDLE) {
+        ++stats_.refused;
+    } else {
+        ++stats_.pipelines;
+        dirty_ = true;
+    }
+    pipelines_.emplace(key, made);
+    return made;
+}
+
+} // namespace render::vulkan
