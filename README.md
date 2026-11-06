@@ -234,9 +234,9 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `OcclusionCulling` | 1 | The original's occlusion culling; 0 draws everything in view |
 | `anisotropy` | 0 | 2-16: anisotropic filtering on every sampler |
 | `msaa` | 0 | 2 / 4 / 8 samples (the best the device has) |
-| `renderer` | d3d9 | `d3d9` or `vulkan`. Vulkan draws the levels, their effects and the editor's and the new front end's Dear ImGui parts; without a Vulkan 1.3 device Direct3D 9 runs |
-| `vulkan_device` | -1 | With `renderer=vulkan`: the GPU, by Vulkan's numbering (-1: the best, a discrete one first) |
-| `vulkan_validation` | 0 | With `renderer=vulkan`: 1 uses the Khronos validation layer when a 32-bit one can be loaded (its messages in the log) |
+| `renderer` | vulkan | `vulkan` or `d3d9`: `renderer=d3d9` runs the game on Direct3D 9. Without a Vulkan 1.3 device (dynamic rendering, push descriptors) or its loader, Direct3D 9 runs anyway, and the log says why |
+| `vulkan_device` | -1 | On Vulkan: the GPU, by Vulkan's numbering (-1: the best, a discrete one first) |
+| `vulkan_validation` | 0 | On Vulkan: 1 uses the Khronos validation layer when a 32-bit one can be loaded (its messages in the log) |
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
 
 **`[Miscellaneous]`** - from PartyMod

@@ -28,6 +28,8 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   from that folder). In a workspace it never takes the foreground: keys are posted to the window (KEYS_POST +
   KEYS_NO_FOCUS) and pictures taken with PrintWindow, so it runs while the user uses the PC. Pictures go to
   %TEMP%\thug2-shots unless -ShotDir. Don't pipe it into `Select-Object -First` (that stops it before it closes the game).
+  `-Renderer d3d9|vulkan` writes `[Graphics] renderer=` in a workspace's ini first (Vulkan is the game's default: a
+  Direct3D 9 test run says `-Renderer d3d9`; load_check.ps1 passes its own `-Renderer` on).
 - **Commands instead of keys (prefer these):** the game's test-automation channel (src/devtools/automation.h; on in
   the workspaces - `[features] automation=1`, set by make_workspace.ps1; never on in the main install). The game reads
   `<folder>\thug2-decomp-commands.txt` once a frame and writes `<folder>\thug2-decomp-status.json` (readable while it

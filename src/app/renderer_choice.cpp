@@ -30,7 +30,7 @@ constexpr bool kVulkanBuilt = true;
 #else
 constexpr bool kVulkanBuilt = false;
 #endif
-// The Vulkan Gpu draws (src/gpu_vulkan, docs/design/vulkan.md V7): renderer=vulkan uses it when this machine can.
+// The Vulkan Gpu draws (src/gpu_vulkan, docs/design/vulkan.md V7): the default renderer when this machine can.
 constexpr bool kVulkanDeviceExists = kVulkanBuilt;
 
 void install_direct3d9()
@@ -68,8 +68,8 @@ bool vulkan_usable()
         get_log("renderer: Vulkan on %s%s", found.device.c_str(), index >= 0 ? " (vulkan_device)" : "");
         return true;
     }
-    get_log("renderer=vulkan: %s%s%s; using Direct3D 9", found.device.c_str(), found.device.empty() ? "" : ": ",
-            found.problem.c_str());
+    get_log("renderer: Vulkan can't draw here - %s%s%s; using Direct3D 9 (renderer=d3d9 in [Graphics] chooses it)",
+            found.device.c_str(), found.device.empty() ? "" : ": ", found.problem.c_str());
     return false;
 #else
     return false;
@@ -96,19 +96,23 @@ Renderer read_choice()
     // (main runs before the PC set-up that finds the settings file; finding it again there changes nothing)
     build_info::prepare_all();
     std::array<char, kValueSize> buffer{};
-    build_info::fetch_text(build_info::kGraphics, "renderer", "d3d9", buffer.data(), buffer.size());
+    // (Vulkan is the default: no key, an empty one or anything but d3d9 - which is logged - asks for it)
+    build_info::fetch_text(build_info::kGraphics, "renderer", "vulkan", buffer.data(), buffer.size());
     std::string value(buffer.data());
     std::ranges::transform(value, value.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    if (value == "vulkan") {
-        if (!kVulkanBuilt) {
-            get_log("renderer=vulkan ignored: this build was made without the Vulkan library (THUG2_VULKAN); using Direct3D 9");
-        } else if (!kVulkanDeviceExists) {
-            get_log("renderer=vulkan: the Vulkan renderer is not available yet; using Direct3D 9");
-        } else if (vulkan_usable()) {
-            return Renderer::kVulkan;
-        }
-    } else if (value != "d3d9" && !value.empty()) {
-        get_log("renderer=%s is not a renderer (d3d9 or vulkan); using Direct3D 9", value.c_str());
+    if (value == "d3d9") {
+        get_log("renderer: Direct3D 9 (renderer=d3d9)");
+        return Renderer::kDirect3D9;
+    }
+    if (value != "vulkan" && !value.empty()) {
+        get_log("renderer=%s is not a renderer (vulkan or d3d9); Vulkan, the default", value.c_str());
+    }
+    if (!kVulkanBuilt) {
+        get_log("renderer: this build was made without the Vulkan library (THUG2_VULKAN); using Direct3D 9");
+    } else if (!kVulkanDeviceExists) {
+        get_log("renderer: the Vulkan renderer is not available; using Direct3D 9");
+    } else if (vulkan_usable()) {
+        return Renderer::kVulkan;
     }
     return Renderer::kDirect3D9;
 }

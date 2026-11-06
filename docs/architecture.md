@@ -291,9 +291,9 @@ everything above it uses the game's own types and may change them freely.
   loading console's panel, which the backend draws over the loading screen, is reached through four hooks
   (`gfx::loading_console::install_panel`). `app/main.cpp` installs Direct3D 9's (`render::d3d9::device()`,
   `render_pc/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs,
-  through `app::install_renderer` (`app/renderer_choice.cpp`): `[Graphics] renderer=d3d9|vulkan` (default d3d9) picks the
+  through `app::install_renderer` (`app/renderer_choice.cpp`): `[Graphics] renderer=vulkan|d3d9` (default vulkan; `d3d9` for Direct3D 9) picks the
   backend for both exes, and WinMain makes the window for the same API (`sys::create_sdl_window(sys::WindowApi)` adds
-  SDL's Vulkan flag). `vulkan` installs render_pc's device over the Vulkan `Gpu` and `GpuContext` (`install_vulkan`
+  SDL's Vulkan flag). Vulkan installs render_pc's device over the Vulkan `Gpu` and `GpuContext` (`install_vulkan`
   in `renderer_choice.cpp`), after asking, before the window is made, whether the device it would use can draw
   (`render::vulkan::usable`: the loader, Vulkan 1.3's dynamic rendering, push descriptors) - Direct3D 9 runs when it
   can't, and in a build without `THUG2_VULKAN` (both with a log line); `[Graphics] vulkan_device` picks the GPU. Nothing below `app/` includes or links it

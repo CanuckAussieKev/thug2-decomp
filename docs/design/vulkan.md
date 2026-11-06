@@ -1,6 +1,7 @@
 # A Vulkan renderer, and ray tracing after it
 
-Status: design, being implemented: V1 (the libraries), V2 (the context), V3 (the fixed-function emulation, "V3"
+Status: Vulkan is the default renderer since V11 (`[Graphics] renderer=d3d9` chooses Direct3D 9; Direct3D 9 also runs
+when Vulkan can't start, with a log line). History: V1 (the libraries), V2 (the context), V3 (the fixed-function emulation, "V3"
 below), V4 (the choice at start-up) and V5a (`render::Gpu` and the render-state cache through it, "V5a" below) are
 done. Written against the `stage11` branch (2026-11-05); the numbers come from a scan of `src/` (see the
 end).
@@ -796,7 +797,15 @@ level's run, which includes its captures): Direct3D 9 foun 35.4, z_dt 58.2, BO 2
 63.0, 33.3, 59.6, 53.0 - Vulkan 10-40% slower in Debug, processor-bound (under 0.2 ms a frame waiting for the device).
 The game's own frames run at 60 a second on both (the status file: 17.0-17.2 ms).
 
-**Validation**: the Khronos layer (32-bit, core checks) on in the five levels, the front end and the editor: 0 messages.
+**Validation**: the Khronos layer (32-bit) on: core checks in the five levels, the front end and the editor, 0
+messages; synchronization checks in foun's tricks run, 9 write-after-write hazards between copies into one static buffer
+(in one command buffer and across submissions) - the copies now wait for the ones before them - then 0. Then core and
+synchronization checks (submit-time validation on) over the start-up movies, four loads in a row (the loading
+screens' timer threads), the level editor in its Unlit view mode, a minimise / restore and full screen with alt-tab, on
+the NVIDIA and the AMD GPU: 0 messages. GPU-assisted validation (foun): only its own notes on the features it turned
+on. Best practices (with the NVIDIA and AMD checks): performance advice only (dynamic states, barrier and pipeline-bind
+counts, memory priorities, fences), and images moved from an undefined layout straight to sampling - textures and
+targets sampled before anything wrote them, which Direct3D 9 leaves undefined too.
 
 **Memory** (32-bit, windowed 1280x720): Vulkan 477-500 MB private and 886-916 MB of address space free in the five
 levels and the editor; Direct3D 9 237 MB / 1,370 MB in foun. Full screen remains the tightest (V10: 567 MB, 804 MB free).
