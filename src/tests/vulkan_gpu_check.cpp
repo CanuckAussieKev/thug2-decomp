@@ -931,6 +931,79 @@ void check_draws(render::Gpu& gpu, Tally* tally)
                               static_cast<unsigned>(state.pipelines.stats().refused)));
 }
 
+// A pre-transformed vertex with a colour and a texture coordinate (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1).
+struct TexturedScreenVertex {
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
+    float rhw = 1.0F;
+    uint32_t colour = 0;
+    float u = 0.0F;
+    float v = 0.0F;
+};
+constexpr uint32_t kTexturedScreenFvf = kScreenFvf | 0x100U;
+
+// The screen effects' pattern: a render-target texture set as the target (the viewport follows it, as Direct3D 9's
+// SetRenderTarget resets it), cleared - its pass opened - then the back buffer set and the texture drawn from at once:
+// what the texture's pass drew is what is sampled (the pass on the other target ends first).
+void check_target_chain(render::Gpu& gpu, Tally* tally)
+{
+    text::print("render-target chain:\n");
+    using render::GpuStageState;
+    constexpr uint32_t kSide = 64;
+    GpuTexture* texture = nullptr;
+    GpuSurface* level = nullptr;
+    GpuSurface* back = nullptr;
+    bool ok = gpu.create_texture({.width = kSide,
+                                  .height = kSide,
+                                  .levels = 1,
+                                  .usage = value::kUsageRenderTarget,
+                                  .format = value::kFormatX8R8G8B8,
+                                  .pool = value::kPoolDefault},
+                                 &texture) == value::kResultOk &&
+              gpu.texture_surface(texture, 0, &level) == value::kResultOk && gpu.back_buffer(&back) == value::kResultOk;
+    render::GpuViewport viewport{};
+    ok = ok && gpu.set_render_target(0, level) == value::kResultOk && gpu.get_viewport(&viewport) == value::kResultOk;
+    tally->check(ok && viewport.x == 0 && viewport.y == 0 && viewport.width == kSide && viewport.height == kSide,
+                 text::format("set_render_target resets the viewport to the target: %ux%u", viewport.width,
+                              viewport.height));
+    ok = ok && gpu.clear(0, nullptr, value::kClearTarget, kDrawnGreen, 1.0F, 0) == value::kResultOk;
+    ok = ok && gpu.set_render_target(0, back) == value::kResultOk && gpu.get_viewport(&viewport) == value::kResultOk &&
+         viewport.width == static_cast<uint32_t>(kWindowWidth) && viewport.height == static_cast<uint32_t>(kWindowHeight);
+    gpu.set_depth_surface(nullptr);
+    gpu.set_vertex_format(kTexturedScreenFvf);
+    gpu.set_texture(0, texture);
+    gpu.set_stage_state(0, GpuStageState::kColourOp, value::kOpSelectArg1);
+    gpu.set_stage_state(0, GpuStageState::kColourArg1, value::kArgTexture);
+    gpu.set_stage_state(0, GpuStageState::kAlphaOp, value::kOpSelectArg1);
+    gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgTexture);
+    const auto width = static_cast<float>(kWindowWidth);
+    const auto height = static_cast<float>(kWindowHeight);
+    const std::array<TexturedScreenVertex, 4> quad{{{.x = 0.0F, .y = 0.0F, .colour = kDrawnRed, .u = 0.0F, .v = 0.0F},
+                                                     {.x = width, .y = 0.0F, .colour = kDrawnRed, .u = 1.0F, .v = 0.0F},
+                                                     {.x = 0.0F, .y = height, .colour = kDrawnRed, .u = 0.0F, .v = 1.0F},
+                                                     {.x = width, .y = height, .colour = kDrawnRed, .u = 1.0F, .v = 1.0F}}};
+    ok = ok && gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, quad.data(), sizeof(TexturedScreenVertex)) ==
+                   value::kResultOk;
+    gpu.set_texture(0, nullptr);
+    std::vector<uint8_t> shown;
+    ok = ok && render::vulkan::read_surface(back, &shown) &&
+         shown.size() == static_cast<std::size_t>(kWindowWidth) * kWindowHeight * kPixelBytes;
+    constexpr uint32_t kRgb = 0x00FFFFFFU;
+    const uint32_t middle = ok ? pixel_at(shown, kWindowWidth / 2, kWindowHeight / 2) : 0U;
+    tally->check(ok && (middle & kRgb) == (kDrawnGreen & kRgb),
+                 text::format("a target drawn from straight after its pass: 0x%08X (0x%08X expected)", middle,
+                              kDrawnGreen));
+    for (GpuSurface* surface : {level, back}) {
+        if (surface != nullptr) {
+            gpu.release_surface(surface);
+        }
+    }
+    if (texture != nullptr) {
+        gpu.release_texture(texture);
+    }
+}
+
 void check_threads(render::Gpu& gpu, Tally* tally)
 {
     text::print("threads:\n");
@@ -1030,6 +1103,7 @@ int run(const Options& options, SDL_Window* window)
     check_buffers(gpu, &tally);
     check_others(gpu, &tally);
     check_draws(gpu, &tally);
+    check_target_chain(gpu, &tally);
     check_threads(gpu, &tally);
 
     const VmaTotalStatistics after = state.memory.statistics();

@@ -690,6 +690,11 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     if (call.stride < layout.bytes) {
         return kOk; // (the stream's stride shorter than its format: nothing sensible to draw)
     }
+    // The pass on other targets ended first: what it drew into can be sampled now (the screen effects draw from the
+    // target before into the next one - kept open, its attachment would be taken for one sampled while drawn into).
+    if (state.pass.open && (state.pass.colour != core::at(state.targets, 0) || state.pass.depth != state.depth)) {
+        end_pass(state);
+    }
     const std::array<Image*, kStageCount> images = sampled_images(state, block, sampled_stages(shaders.fragment));
     if (!ensure_pass(state, nullptr)) {
         return kOk;
