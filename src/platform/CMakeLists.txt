@@ -23,7 +23,7 @@ target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
 # stb_image_write: the PNG files
 target_link_libraries(thug2_platform PUBLIC thug2_base sdl2 ole32 d3d9 winmm stb_image_write)
 # The GameSpy glue (gamespy.cpp: it links the SDK, which links Winsock, ws2_32, itself) - in a configure that builds
-# the SDK (THUG2_X64_READY: not on x64 yet, so online is off there).
+# the SDK (THUG2_GAMESPY_SDK: x86 and, since X9, x64).
 if(THUG2_GAMESPY_SDK)
     target_sources(thug2_platform PRIVATE gamespy.cpp)
     target_link_libraries(thug2_platform PUBLIC gamespy_sdk)

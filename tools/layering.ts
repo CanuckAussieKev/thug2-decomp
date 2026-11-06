@@ -45,6 +45,9 @@ const BOUNDARY_FILES = new Set([
     "src/engine/script/precompiled.cpp",
     // the format check lays the readers' in-place images out itself (once in formats/check)
     "src/tests/format_check_files.cpp",
+    // the GameSpy check's fake servers: Winsock's generic addresses and the SDK's char buffers over its own bytes
+    // (a check of platform/gamespy.cpp, which is in the boundary)
+    "src/tests/gamespy_check.cpp",
 ]);
 
 const VIEW =

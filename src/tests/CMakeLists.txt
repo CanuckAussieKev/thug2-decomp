@@ -44,6 +44,15 @@ if(TARGET thug2_platform)
     target_link_libraries(thug2_crash_check PRIVATE thug2_platform)
 endif()
 
+# NOT ORIGINAL - thug2_gamespy_check.exe: the GameSpy SDK and its glue driven without the network - its pure helpers,
+# the peer's queued callbacks, a NAT negotiation and a qr2 heartbeat and query against fake servers on the loopback
+# addresses only - printing what each produced, so that the x86 and x64 builds can be compared byte for byte
+# (src/tests/gamespy_check.cpp).
+if(TARGET thug2_platform AND THUG2_GAMESPY_SDK)
+    add_executable(thug2_gamespy_check gamespy_check.cpp)
+    target_link_libraries(thug2_gamespy_check PRIVATE thug2_platform)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_context_check.exe: the Vulkan backend's context tried on this machine - an SDL window with
 # a Vulkan surface, the instance (validation when installed), the device, the swapchain, frames cleared and presented
 # across a resize, everything released - and what it found printed: the devices, their queue families and the depth

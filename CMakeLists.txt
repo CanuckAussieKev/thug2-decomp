@@ -16,7 +16,7 @@ endif()
 # are all built; "gamespy_sdk" here builds the GameSpy SDK. The fetched libraries the others compile themselves
 # (Dear ImGui, stb_image_write, LZHAM, volk, VMA, glslang) are built on x64 only when a library here links them.
 # An x86 configure builds everything, whatever the list says.
-set(THUG2_X64_READY base formats wire platform)
+set(THUG2_X64_READY base formats wire platform gamespy_sdk)
 
 # Whether this configure builds `name` (a library of src/, or gamespy_sdk): always on x86; on x64 when x64-ready.
 function(thug2_builds name result)
@@ -143,7 +143,7 @@ endif()
 include(cmake/ffmpeg.cmake)
 
 # --- The GameSpy SDK (IGN's BSD-3 release) ---------------------------------------------------------------------
-# (on x64 once its 64-bit build is checked: docs/design/x64-port.md, X9)
+# (on x64 too, since X9: its 64-bit fixes are in cmake/gamespy_sdk.cmake, the checks in docs/gamespy.md)
 thug2_builds(gamespy_sdk THUG2_GAMESPY_SDK)
 if(THUG2_GAMESPY_SDK)
     include(cmake/gamespy_sdk.cmake)

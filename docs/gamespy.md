@@ -43,7 +43,12 @@ Signatures (adapted in gamespy.cpp):
   CDResponseMethod_NEWAUTH (0). The algorithm is the same ("%s%d%s" of key, random % 0xFFFF and challenge, MD5'd,
   after MD5(key) and the random number as 8 hex digits).
 - Everything else the game calls has the same arguments in the same order. The GHTTPByteCount of ghttp's callbacks
-  is 64-bit in both (MSVC's _INTEGRAL_MAX_BITS is 64), so NewsCallback's (low, high) pair stays.
+  is 64-bit in both (MSVC's _INTEGRAL_MAX_BITS is 64). The news callback takes it as one int64_t (on x86 the same two
+  stack words as the original's (low, high) pair; on x64 one register, where a pair would have shifted `param`).
+- **PersDataCallbackFn**'s `modified` is a time_t: 32 bits in the game's SDK (VC 7.1), 64 bits in the 2007 SDK as
+  built here. The persistent-data callback's record (PersistReply, game/online/stats_man.h) follows the SDK's (until
+  X9 it had a 32-bit field, so on x86 `data` read the time's high half and `length` the data pointer);
+  gamespy.cpp asserts the signature.
 
 Structures and enums:
 - **PEERCallbacks**: 0x74 bytes in both (28 callbacks and the parameter). Every field the game fills is at the same
@@ -74,8 +79,9 @@ Behaviour:
   use" (1) and "invalid" (2), so with a long network name the connection would stall. The game's retry nick
   "a<time>_<network id>" gets long quickly. **Open**: to check against OpenSpy, and decide whether the callback should
   treat 6 as "in use".
-- **NNBeginNegotiationWithSocket**: the exe's opens a socket of its own next to the game's. The 2007 one sends
-  everything through the game's socket. The game already passes NAT negotiation packets from that socket to
+- **NNBeginNegotiationWithSocket**: the exe's opens a socket of its own next to the game's. The 2007 one does too
+  (the NN1-3 INITs, the CONNECT_ACK and the report go through it) and sends the GP INIT and the pings through the
+  game's socket (thug2_gamespy_check shows the packets). The game already passes NAT negotiation packets from that socket to
   NNProcessData (RoomManager::QueryTask). The 2007 SDK also speaks a newer NAT negotiation protocol (version 3, the
   report packets) than the exe's.
 - **qr2 query challenge**: the 2007 qr2 answers a "pre-query IP verify" and, if the master server sets the option, asks
@@ -97,7 +103,55 @@ common (gsPlatform*, gsAvailable, gsCore, gsCrypt, gsLargeInt, gsSSL, gsRC4, gsS
 gsMemory, gsDebug, gsAssert, gsStringUtil; darray, hashtable, md5), qr2, natneg, serverbrowsing, Chat, Peer, pinger
 (peer's pings), GP and gt2 (GP's peer messages go through gsUdpEngine, which is built on gt2), ghttp, pt, gstats,
 gcdkey. Not built: Voice2, sake, sc, webservices, the samples (nonport.c, common/win32/Win32Common.c). It builds as C
-with MSVC, warnings off. MinGW-w64 isn't tried yet: the win32 platform layer is plain Winsock / Win32.
+with MSVC, warnings off but for the pointer <-> integer ones (errors: above), for x86 and x64. MinGW-w64 isn't tried yet: the win32 platform layer is plain Winsock / Win32.
+
+## 64-bit builds (since X9)
+
+The SDK builds for x64 from the same source. Its x64 build was surveyed at /W4 (172 warnings in the modules built)
+and every pointer <-> integer warning read:
+
+- **Fixed: the peer's callback queue** (Peer/peerMain.h). `PEERCBType`, the type each queued operation and callback
+  keeps its callback address in, is `int` there (`void*` only on PS3): every peerConnect / peerJoin... /
+  peerList... / peerGetRoomKeys / nick-error / listing-games callback address was cut to 32 bits and called
+  through the cut value - on x64, where the exe's code is above 4 GB, a crash. It is `intptr_t` now
+  (cmake/gamespy_sdk.cmake). 97 of the 104 C4311 / C4312 warnings were this one type (Peer/peerCallbacks.c,
+  peerOperations.c, peerSB.c, peerAutoMatch.c).
+- **Changed for the warning only: GP's index through a pointer** (GP/gpiBuddy.c, GP/gpiProfile.c, 7 lines):
+  `(void *)(unsigned long)index` and back `(int)(unsigned long)data`, a round trip that keeps the index on x64 too.
+  They go through `intptr_t` so that C4311 / C4312 can be errors in the SDK's build (`/we4311 /we4312`): a new
+  pointer cut fails the x64 build.
+- **Read and left: the rest** - 30 C4267 and 25 C4244: `strlen` / pointer differences into `int` lengths of
+  buffers of at most a few KB (MD5 input lengths, the chat / GP / HTTP buffers, darray indexes, base64), none near
+  2 GB; three C5287 (enum comparisons) and the C4456 / C4459 shadowing. Sockets are `SOCKET` everywhere in the
+  modules built (natneg, qr2, gt2, chat, ghttp, gcdkey); the only `(unsigned int)` of a socket is a debug log line.
+  `long` is 32 bits on Win64 (LLP64), so the IP addresses and times in `unsigned long` keep their width. gt2Encode's
+  `_WIN64` variadic path is used only by gt2's samples.
+
+On x86 the three changes compile to the same code: every object of the SDK built before and after them has the same
+disassembly (dumpbin /disasm, 88 of 88 objects), since `intptr_t` is `int` there and `unsigned long` the same width.
+
+The structures and callbacks the game shares with the SDK, checked for x64 (gamespy.cpp asserts what can be):
+`PEERCallbacks` (28 callbacks + param, the size of the game's PeerCallbacks on both), `GPBuddyStatus` (0x214, the
+fields' offsets), GP's callback arguments (ints, then the message pointer at 8 on both), `SOCKET` (pointer-sized, the
+game's `uintptr_t`), the GPConnection slot (FriendsManager's first member, a `void*`), NAT negotiation's user word (a
+pointer to the integer since X8), persistent storage's `time_t` and ghttp's 64-bit byte counts (asserted), and every
+callback the game registers, read against the SDK's typedef for argument widths: the peer callbacks it sets, the
+peer's connect / nick error / group rooms / join / enum players / room keys / listing callbacks, qr2's six, NAT
+negotiation's two, gcd's two, GP's four, ghttp's progress / completion ones and gstats' persistent-data one. Two
+were wrong: the news callback (ghttp's 64-bit length taken as two 32-bit arguments - on x64 that moved `param`) and
+the persistent-data callback (a 32-bit `modified` - wrong on x86 too). Both are fixed. The ghttp requests the game
+declares as `void*` are `int` in the SDK and unused by the game's callbacks.
+
+`thug2_gamespy_check` (src/tests/gamespy_check.cpp) drives the SDK and the glue without the network and prints what
+each part made: the CD-key response, the stats login hash, the nick and user-name mangling, the chat and browsing
+ciphers, base64, the peer's queued callbacks (a connect and a group-room listing that fail at once without a title:
+the queue PEERCBType holds), and qr2's heartbeat and the answer to a query against a fake master on 127.0.0.1
+(through the glue's buffer functions), and a whole NAT negotiation through the glue against fake matchup servers on
+127.0.0.1-3 and a partner, ending in the completion with the game's socket and cookie. The 32-bit and 64-bit builds
+print the same, line for line (but the first, which names the width); against the SDK without the PEERCBType change
+the 64-bit check crashes in the peer's callbacks. Some of the SDK's sockets are bound to every interface (natneg's,
+unbound until it sends), though nothing leaves the loopback: the first run from a new path can bring up the
+firewall's prompt - cancel it, the loopback needs no rule.
 
 ## Proven, and what still needs the network
 
