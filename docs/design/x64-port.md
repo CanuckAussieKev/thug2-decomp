@@ -366,6 +366,26 @@ changed or was checked:
   free lists and the item pools hold pointers and are sized by `sizeof`; the timers are 64-bit counters.
 - `engine/util/lzss.cpp`'s match tree takes a 32-bit byte count (its runs are small).
 
+**Done in X12b** (`engine/` gfx, objects, render, ui): all 190 translation units compile to x64 objects with the
+build's flags with no warning and no error, and clang-tidy with the x86_64 target finds no narrowing in them (its
+narrowing and widening checks and clang's 64-to-32 and pointer <-> integer warnings). What changed or was checked:
+- **Products widened before they become a size or an offset** (bugprone-implicit-widening-of-multiplication-result /
+  misplaced-widening-cast on x86_64): a particle's place in the history positions, the animation keys' word offsets
+  and their count table's index, an animation cache entry's translation keys, the collision tree copy's face bytes and
+  the grid's scratch counts, the bone volume table's clearing (`sizeof` the pointer), the model particles' position
+  count, the model widget's corner array, the script array's count word. The same code on x86.
+- **The feeler observer's caller** (`render::FeelerResult::caller`, a return address for the collision log) is
+  pointer-sized; it was narrowed to 32 bits. Its reader, the collision log in `game/rider`, prints it in X12d.
+- **Checked, nothing to change:** the components are made by `new` (sizeof; their byte constants are only asserted);
+  the sets of objects known by their address (flashes, spawned polygons, splats, shadow edges) hold the pointers
+  themselves (`lists::ObjectSet`); objects, screen elements and the scripts' references to them are 32-bit checksums,
+  never addresses; placement storage for objects with pointers is aligned for them (the scene load's description,
+  the lens flare's primitive); the animation files are read through byte readers, their sections' addresses kept in
+  the animation's own object; the fixed-size copies (`memcpy` of 4 bytes, the particle configurations' copy up to a
+  field) are of floats, colours and records without pointers. The script methods that read a float into the stack slot of
+  their parameters' pointer when the float is missing (the original's leftover: a meaningless default) read the
+  pointer's low 32 bits on x64 - as meaningless.
+
 ### CMake and presets
 
 - `CMakePresets.json` has `x86-debug` / `x86-release` only. The root `CMakeLists.txt` refuses other architectures and

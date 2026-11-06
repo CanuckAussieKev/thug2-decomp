@@ -77,7 +77,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
     if (particle_list().empty()) {
         return;
     }
-    position_array() = counted_words<float>(carve(model_count_ * kPositionBytes), model_count_ * 3);
+    position_array() = counted_words<float>(carve(model_count_ * kPositionBytes), static_cast<size_t>(model_count_) * 3);
     if (position_array().empty()) {
         return;
     }

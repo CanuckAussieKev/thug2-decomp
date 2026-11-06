@@ -418,8 +418,8 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
         int rot_count = 0;
         int trans_count = 0;
         if ((flag_bits_ & kShortCounts) != 0U) {
-            rot_count = anim_format::wide_key_count(key_count_run(), i * 2);
-            trans_count = anim_format::wide_key_count(key_count_run(), (i * 2) + 1);
+            rot_count = anim_format::wide_key_count(key_count_run(), static_cast<size_t>(i) * 2);
+            trans_count = anim_format::wide_key_count(key_count_run(), (static_cast<size_t>(i) * 2) + 1);
         } else {
             rot_count = core::at(key_count_run(), i * 2);
             trans_count = core::at(key_count_run(), (i * 2) + 1);

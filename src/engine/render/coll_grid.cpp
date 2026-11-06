@@ -275,8 +275,8 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     }
     // how many each cell has so far (a scratch block on the top-down heap)
     memory::enter_heap_scope(memory::top_down_heap());
-    auto* filled_block = static_cast<int*>(memory::alloc(kSize * kSize * sizeof(int)));
-    std::memset(filled_block, 0, kSize * kSize * sizeof(int));
+    auto* filled_block = static_cast<int*>(memory::alloc(size_t{kSize} * kSize * sizeof(int)));
+    std::memset(filled_block, 0, size_t{kSize} * kSize * sizeof(int));
     memory::leave_heap_scope();
     const std::span<int> filled(filled_block, static_cast<size_t>(kSize) * kSize);
     for (StaticCollider& object : statics) {

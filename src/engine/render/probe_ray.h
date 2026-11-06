@@ -141,7 +141,7 @@ void set_current_cache(HitMeshCache* cache);
 // from app/main.cpp before any of the original's code runs). Not set: no one.
 struct FeelerResult {
     int hit{};
-    uint32_t caller{};
+    uintptr_t caller{}; // (a code address: pointer-sized)
 };
 using FeelerQueryObserver = void (*)(const void* feeler, FeelerResult feeler_result);
 void set_feeler_query_observer(FeelerQueryObserver observer);
