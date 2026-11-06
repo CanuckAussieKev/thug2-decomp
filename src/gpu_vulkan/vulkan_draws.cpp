@@ -1018,9 +1018,18 @@ long record_present(Backend& state)
     }
     end_pass(state);
     Context& context = state.context;
+    if (context.surface_changed()) {
+        context.window_resized();
+    }
     if (context.swapchain_stale()) {
         finish_work(state);
         context.remake();
+        const VkExtent2D made = context.swapchain_stale() ? VkExtent2D{} : context.extent();
+        if (made.width != state.shown_extent.width || made.height != state.shown_extent.height) {
+            get_log("vulkan: the swapchain made again: %ux%u%s", made.width, made.height,
+                    made.width == 0 ? " (minimised: nothing shown until it has a size)" : "");
+            state.shown_extent = made;
+        }
     }
     VkSemaphore acquired = VK_NULL_HANDLE;
     VkSemaphore presented = VK_NULL_HANDLE;

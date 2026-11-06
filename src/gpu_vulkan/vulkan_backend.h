@@ -193,6 +193,7 @@ struct Backend {
     Buffer* indices = nullptr;
     bool in_scene = false;
     uint64_t frame = 0; // frames presented
+    VkExtent2D shown_extent{}; // the swapchain's size when last made again (logged when it changes)
     GpuGammaRamp gamma{};
 };
 

@@ -100,6 +100,9 @@ public:
     FrameResult clear_frame(const std::array<float, 4>& colour);
     // The window's size changed: the swapchain is made again after the next present.
     void window_resized() { resized_ = true; }
+    // Whether the surface's size is no longer the swapchain's (the window resized, minimised or restored without the
+    // presents being told - not every driver reports it as out of date).
+    [[nodiscard]] bool surface_changed() const;
     // A line to the sink (the validation layer's messages come through here).
     void report(const std::string& text) const;
 

@@ -577,6 +577,19 @@ void Context::destroy_swapchain(VkSwapchainKHR swapchain)
     }
 }
 
+bool Context::surface_changed() const
+{
+    if (swapchain_ == VK_NULL_HANDLE || resized_) {
+        return false;
+    }
+    VkSurfaceCapabilitiesKHR caps; // (filled by the call below)
+    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface_, &caps) != VK_SUCCESS) {
+        return false;
+    }
+    const VkExtent2D now = choose_extent(caps, window_);
+    return now.width != extent_.width || now.height != extent_.height;
+}
+
 bool Context::remake_swapchain()
 {
     vkDeviceWaitIdle(device_);
