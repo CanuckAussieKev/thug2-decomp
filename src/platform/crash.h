@@ -12,6 +12,8 @@
 //   EXCEPTION 0x... at <module>+0x...      a fatal exception, first chance (code that handles it carries on) - the
 //                                          registers, the top of the stack and the return addresses found on it;
 //                                          "  unhandled: ..." follows when nothing handled it and the process ends
+//                                          (x86: EAX..ESP and 4-byte stack slots; x64: RAX..R15, 8-byte slots and the
+//                                          calls unwound from the exception's context)
 //   RUN-TIME CHECK FAILURE #n: ...         a Debug build's /RTC check (ESP not saved, a variable used uninitialised...)
 //   DEBUG CRT REPORT (type n): ...         a Debug CRT assertion (logged, then carries on, as its dialog's Ignore) or
 //                                          error (the process ends)
@@ -44,7 +46,7 @@ bool is_fatal_exception(uint32_t code, bool* any_module);
 // src/devtools/automation.h).
 enum class TestFault : uint8_t {
     kAccess,           // a write to address 0: EXCEPTION, then unhandled
-    kRunTimeCheck,     // a call that leaves ESP wrong (Debug /RTC builds): RUN-TIME CHECK FAILURE
+    kRunTimeCheck,     // a call that leaves ESP wrong (Debug /RTC builds, x86): RUN-TIME CHECK FAILURE
     kCrtError,         // _RPT0(_CRT_ERROR, ...) (Debug CRT): DEBUG CRT REPORT (type 1)
     kInvalidParameter, // _invalid_parameter_noinfo: INVALID PARAMETER
     kPureCall,         // _purecall: PURE VIRTUAL CALL
@@ -60,13 +62,13 @@ const char* test_fault_name(TestFault fault);
 // The kinds, space-separated (for messages).
 const char* test_fault_names();
 // Logs "crash test: <kind>" and causes it. Returns false for a kind this build can't cause (kRunTimeCheck and kCrtError
-// in a Release build), true if it was caused and the process still runs (a handler that didn't end it: a bug).
+// in a Release build, kRunTimeCheck on x64), true if it was caused and the process still runs (a handler that didn't end it: a bug).
 bool cause_test_fault(TestFault fault);
 
 // The end of every fatal report: the crash hook, the exit code logged, the
 // process ended.
 [[noreturn]] void crash_end_process(unsigned exit_code);
-// The return addresses found on the stack from `esp` up, logged.
+// The return addresses found on the stack from `esp` (ESP / RSP) up, logged.
 void crash_log_stack_scan(uintptr_t esp);
 
 // Calls `function`, catching a hardware exception (an access violation...) it raises: false if one was caught. For
