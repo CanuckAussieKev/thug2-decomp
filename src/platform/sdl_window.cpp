@@ -27,10 +27,20 @@ constexpr int kMinClientHeight = 480;
 namespace {
 
 // SDL 3's name for its Windows DPI-awareness setting (read when its video starts; no SDL_HINT_ constant names it).
-// "unaware", as SDL 2 left the process: Windows scales the window on a scaled display, and the desktop's size and the
-// display modes are the numbers they were with SDL 2 - SDL 3's own default (per-monitor aware) would make the default
-// resolution (ResolutionX / ResolutionY 0: the desktop's) the display's physical pixels.
 constexpr const char* kDpiAwarenessHint = "SDL_WINDOWS_DPI_AWARENESS";
+
+// NOT ORIGINAL: [Graphics] dpi_aware (default 1) - the process is per-monitor DPI aware (V2; approach from PartyMod's
+// partymod-common, which declares the same awareness): on a display scaled above 100% the window is the game's size in
+// real pixels, drawn sharp, not stretched by Windows. ResolutionX / ResolutionY are then the window's client area and
+// the back buffer, both in physical pixels (on Windows SDL 3's window coordinates are pixels with or without its high
+// pixel density flag, so the mouse, the window size the menus and the editor read and both renderers' back buffers
+// agree), and 0 is the desktop's physical size. A window moved to a display of another scale keeps its client size
+// in pixels (SDL keeps it). 0: DPI-unaware, as SDL 2 left the process - Windows scales the window by the display's
+// scale (blurred, and larger than its pixels).
+const char* dpi_awareness()
+{
+    return build_info::fetch_flag(build_info::kGraphics, "dpi_aware", true) ? "permonitorv2" : "unaware";
+}
 
 // NOT ORIGINAL grouping - sdl_window.cpp's state (the original's globals). Made on first use, never destroyed
 // (sdl_window_state()).
@@ -112,6 +122,16 @@ void choose_fullscreen_mode(SDL_Window* window)
     SDL_SetWindowFullscreen(window, true);
 }
 
+// NOT ORIGINAL - a log line: the window's size in pixels, the display's scale and the DPI awareness asked for.
+void log_window_size(SDL_Window* window)
+{
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSizeInPixels(window, &width, &height);
+    debug_log::printf(debug_log::StageMap::kInfo, "Window: %dx%d pixels, display scale %.2f (DPI awareness %s)\n",
+                      width, height, static_cast<double>(SDL_GetWindowDisplayScale(window)), dpi_awareness());
+}
+
 } // namespace
 
 bool& get_windowed() { return sdl_window_state().windowed_; }
@@ -131,7 +151,7 @@ void keep_text_input()
 HWND create_sdl_window(WindowApi api)
 {
     load_window_settings();
-    SDL_SetHint(kDpiAwarenessHint, "unaware");
+    SDL_SetHint(kDpiAwarenessHint, dpi_awareness());
     // (no on-screen keyboard with the text input - SDL 2 had none on Windows)
     SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
     SDL_Init(SDL_INIT_VIDEO);
@@ -177,6 +197,7 @@ HWND create_sdl_window(WindowApi api)
         }
         handle = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window_state().window_),
                                                          SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+        log_window_size(sdl_window_state().window_);
     }
     keep_text_input();
     set_app_active(true);

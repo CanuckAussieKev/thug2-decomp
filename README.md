@@ -224,7 +224,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 
 | Key | Default | Effect |
 |---|---|---|
-| `ResolutionX` / `ResolutionY` | 0 | The game's resolution; 0 = the desktop's |
+| `ResolutionX` / `ResolutionY` | 0 | The game's resolution in pixels (in a window: its inside); 0 = the desktop's |
+| `dpi_aware` | 1 | On a display scaled above 100%, the window is the resolution's real pixels, sharp; 0 lets Windows scale it up (blurred, as before) |
 | `Windowed` / `Borderless` | 0 | Runs in a window / a borderless window |
 | `AntiAliasing` | 0 | Multisample anti-aliasing |
 | `HQShadows` | 0 | High-quality shadows |
