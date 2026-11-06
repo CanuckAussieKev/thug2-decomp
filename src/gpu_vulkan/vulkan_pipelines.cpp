@@ -15,6 +15,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/layout_32bit.h"
 #include "engine/file/disk.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_shaders.h"
@@ -26,8 +27,13 @@ namespace render::vulkan {
 
 namespace {
 
-constexpr const char* kShaderFile = "thug2-decomp-vulkan-shaders.bin";
-constexpr const char* kPipelineFile = "thug2-decomp-vulkan-pipelines.bin";
+// The 64-bit build keeps its caches in files of its own: the pipeline cache is the driver's data, and a 32-bit and a
+// 64-bit driver are different binaries whose caches may carry the same device UUID in their headers; the shader file
+// goes with it, so that each build's pair stays together. The 32-bit build's names are unchanged.
+constexpr const char* kShaderFile =
+    core::kPointers32Bit ? "thug2-decomp-vulkan-shaders.bin" : "thug2-decomp-vulkan-shaders-x64.bin";
+constexpr const char* kPipelineFile =
+    core::kPointers32Bit ? "thug2-decomp-vulkan-pipelines.bin" : "thug2-decomp-vulkan-pipelines-x64.bin";
 constexpr uint32_t kShaderFileMagic = 0x53324854U; // "TH2S"
 constexpr uint32_t kShaderFileVersion = 1;
 constexpr uint64_t kFnvOffset = 0xCBF29CE484222325ULL;

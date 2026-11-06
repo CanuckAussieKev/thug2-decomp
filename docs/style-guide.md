@@ -148,7 +148,9 @@ exceptions, all in one place:
   design), `misc-predictable-rand` (the game's numbers are the C runtime's `rand()` sequence, as the original's),
   `cppcoreguidelines-pro-type-static-cast-downcast` (every downcast goes through `core::down_cast`, below),
   `clang-analyzer-optin.core.EnumCastOutOfRange` (flag enums hold combinations no enumerator names, and a value from
-  a file or the wire that an enum doesn't list stays representable - "Enums", below).
+  a file or the wire that an enum doesn't list stays representable - "Enums", below), `misc-misplaced-const` (a
+  `const VkPipeline` is a constant handle; Vulkan's handles are integers on x86 and opaque pointers on x64, where the
+  check flags it and `const auto` is flagged by `readability-qualified-auto` instead).
   `src/tests/.clang-tidy`: the reference programs call the C runtime's `atoi` / `sscanf_s` / `snprintf` to compare
   with, so the string-to-number and vararg checks are off there.
 - **Configured** (`CheckOptions`): public data is named as plain data, without the member suffix (the format

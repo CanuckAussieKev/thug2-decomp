@@ -23,6 +23,11 @@ Checks:
   - '-modernize-use-trailing-return-type'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
+  # Vulkan's non-dispatchable handles (VkPipeline, VkImage...) are uint64_t on a 32-bit build and pointers to opaque
+  # structures on a 64-bit one. `const VkPipeline pipeline` - a handle that doesn't change - is flagged on x64 only
+  # ("the pointer is const, not what it points to": what is meant), and `const auto` instead is flagged there by
+  # readability-qualified-auto (`auto *const`, which doesn't compile on x86), so no spelling is clean on both builds.
+  - '-misc-misplaced-const'
   # --- off: the original's behaviour needs what they flag ---
   # rand(): the game's own random numbers are the C runtime's rand() sequence, as the original draws them (music
   # shuffles, the pad's reconnect delay, the scripts' Random); the check flags every rand() call and has no options.

@@ -19,7 +19,8 @@
 //
 // The shaders are generated (ff_shaders.h) and compiled by glslang at run time; the SPIR-V is kept on disk by the hash
 // of its GLSL (thug2-decomp-vulkan-shaders.bin), and the driver's pipeline cache beside it
-// (thug2-decomp-vulkan-pipelines.bin), so a second run of a level makes its pipelines from both.
+// (thug2-decomp-vulkan-pipelines.bin), so a second run of a level makes its pipelines from both. The 64-bit build's
+// files end in -x64 (an x86 driver's cache is never given to x64's).
 namespace render::vulkan {
 
 struct PipelineKey {

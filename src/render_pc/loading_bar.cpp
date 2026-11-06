@@ -137,8 +137,8 @@ void update_loading_bar_colors()
 // transparent), the gradient over its whole width, and the part not reached yet covered with the border colour
 // again. The bar fills with time (the seconds DisplayLoadingScreen was given), not with what has loaded; it stops
 // full. Not original: the loading console's panel (engine/gfx/loading_console.h) is drawn before the scene ends.
-void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /*unused*/, unsigned long /*unused*/,
-                                         unsigned long /*unused*/, unsigned long /*unused*/)
+void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /*unused*/, DWORD_PTR /*unused*/,
+                                         DWORD_PTR /*unused*/, DWORD_PTR /*unused*/)
 {
     if ((renderer().loading_bar_timer() == 0U) || !engine_parts().loading_screen_up()) {
         return;

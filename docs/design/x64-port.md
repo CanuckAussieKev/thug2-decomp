@@ -208,7 +208,7 @@ with X15's measurement.
 | Dear ImGui 1.91.9b | source | source; nothing to change |
 | LZHAM (source) | 32-bit | builds for x64 (its own `LZHAM_64BIT` paths; to confirm the defines the CMake list needs) |
 | stb_image_write | source | nothing to change |
-| D3DX9 (Microsoft.DXSDK.D3DX NuGet) | `release/lib/x86`, `bin/x86/D3DX9_43.dll` | the package has x64 (`lib/x64`, `bin/x64`; to confirm the paths) |
+| D3DX9 (Microsoft.DXSDK.D3DX NuGet) | `release/lib/x86`, `bin/x86/D3DX9_43.dll` | the package has x64 (`lib/x64`, `bin/x64`; confirmed in X11) |
 | Direct3D 9, DirectInput 8, DirectSound | system | x64 versions ship with Windows |
 | GSL (headers), the C++ standard library | - | nothing to change |
 
@@ -293,6 +293,27 @@ confirmed by a header survey of the player's data in task X10a. The FFmpeg backe
   codec refuses it too (it reads the header's size word, zero, and no further). Only the names were wrong (the flag
   0x04000000 is Bink's from-memory flag, not a file handle).
 - **Left for X10c:** the A/B listening on the 32-bit build, the THIRD_PARTY_NOTICES entry and the licence notes.
+
+**Done in X11** (`render_pc`, `gpu_d3d9`, `gpu_vulkan`): every translation unit of the three compiles to objects with
+the x64 compiler and the build's flags with no warning (C4267 / C4244 / C4311 / C4312 included) and no error. They are
+not on `THUG2_X64_READY` yet: they link `thug2_engine`, which becomes x64-ready with X12. What changed or was checked:
+- **The loading bar's timer callback** (`draw_loading_screen_frame`) takes `LPTIMECALLBACK`'s `DWORD_PTR` words (the
+  loading console's own timer already did).
+- **Pointer arrays sorted by qsort:** the billboard batches and the visible instances were sorted as 4-byte elements;
+  they are `sizeof` their pointer now (on x64 a 4-byte element would have sorted halves of pointers).
+- **Handles:** a graphics handle is its object's address on both backends (`gpu_d3d9/d3d9_handles.h`,
+  `gpu_vulkan/vulkan_objects.h`), and the UI's texture ids are 64-bit on both. Vulkan's non-dispatchable handles are
+  `uint64_t` on x86 and pointers on x64; nothing stores one in a 32-bit field or a cell (the compiler would refuse the
+  pointer on x64).
+- **The dynamic vertex and index buffers:** offsets and sizes are Direct3D 9's `UINT` (32 bits on both builds); the
+  pointers into a lock are pointers.
+- **`make_primitive_at`:** `PcPrimitive` is asserted against `render::kStackPrimitiveBytes` (since X7).
+- **The Vulkan caches:** the 64-bit build keeps its shader and pipeline caches in files of their own
+  (`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`): a 32-bit and a 64-bit driver are
+  different binaries, so an x86 driver's pipeline cache is never given to x64's.
+- **Libraries:** D3DX9's package has `lib/x64/d3dx9.lib` (x64, exporting `D3DXAssembleShader` and
+  `D3DXSaveSurfaceToFileA`) and `bin/x64/D3DX9_43.dll`; Direct3D 9's `d3d9.lib` and winmm come from the Windows SDK for
+  each architecture; volk opens the system's 64-bit Vulkan loader.
 
 ### CMake and presets
 
