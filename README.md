@@ -106,7 +106,7 @@ From the command line:
 npm install                          (once: the TypeScript tools' dependencies, the level converters among them)
 tools\build_neverscript.ps1          (once: out\neverscript\ns.exe)
 tools\verify_build.cmd               (builds out\build\verify\thug2-decomp.exe; nothing copied)
-node tools/ffmpeg/build_ffmpeg.ts    (optional: FFmpeg's DLLs for movie_codec=ffmpeg; on Linux, or WSL with mingw-w64)
+node tools/ffmpeg/build_ffmpeg.ts    (FFmpeg's DLLs: optional on 32-bit, needed on 64-bit - see "FFmpeg's DLLs" below)
 npm run typecheck && npm run lint && npm test
 ```
 
@@ -128,6 +128,27 @@ The game runs from the game folder of your THUG2 install - the folder with `THUG
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
 3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
+
+### FFmpeg's DLLs
+
+The movies and the sound streams are decoded by FFmpeg's Bink decoders (LGPL 2.1 or later; `THIRD_PARTY_NOTICES.md`). The
+64-bit build always uses them; the 32-bit build uses `binkw32.dll` unless `[features] movie_codec=ffmpeg` is set (the
+default is `bink`; if the DLLs are missing it falls back to Bink and the log says why). Build the four DLLs
+(`avutil-59.dll`, `avcodec-61.dll`, `avformat-61.dll`, `swscale-8.dll`) from FFmpeg's release source:
+
+```
+node tools/ffmpeg/build_ffmpeg.ts --arch x64     (or --arch x86, the default; output in outfmpeg\<arch>in)
+```
+
+It needs Linux, or Windows with WSL (an Ubuntu distribution; `--distro` picks another), with the mingw-w64 cross compilers:
+
+```
+sudo apt-get install gcc-mingw-w64-i686-win32 gcc-mingw-w64-x86-64-win32 gcc make xz-utils
+```
+
+The build fetches the release tarball and checks its SHA-256. The CMake build copies the DLLs next to the exe; when you
+copy the game by hand, put them there with the other DLLs. They are loaded by name at run time, so any LGPL build of the
+same major versions can replace them.
 
 ## Playing
 

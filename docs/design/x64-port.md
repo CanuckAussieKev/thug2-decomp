@@ -388,7 +388,7 @@ confirmed by a header survey of the player's data in task X10a. The FFmpeg backe
   so a paused pcm.wad stream stays silent after its pause. That is the original's behaviour and is kept; the FFmpeg
   codec refuses it too (it reads the header's size word, zero, and no further). Only the names were wrong (the flag
   0x04000000 is Bink's from-memory flag, not a file handle).
-- **Left for X10c:** the A/B listening on the 32-bit build, the THIRD_PARTY_NOTICES entry and the licence notes.
+- **X10c, notices done:** THIRD_PARTY_NOTICES has the FFmpeg entry (LGPL 2.1 text, the pinned release and hash, configure's flags, replaceable DLLs) and the README says how to build and place the DLLs. **Left:** the A/B listening on the 32-bit build (the user's).
 
 **Done in X11** (`render_pc`, `gpu_d3d9`, `gpu_vulkan`): every translation unit of the three compiles to objects with
 the x64 compiler and the build's flags with no warning (C4267 / C4244 / C4311 / C4312 included) and no error. They are
@@ -580,7 +580,7 @@ Each task is one PR. "Start after stage 11" means after branch `stage11` is merg
 | X9 | The GameSpy SDK for x64: built from source, its structures checked against what the game reads, a local protocol test as for the 32-bit swap | X1, X8 | |
 | X10a | `src/media_ffmpeg`: FFmpeg's Bink 1 decoding behind `media::Movie` (video: open, frames, copy to buffer, wait, go to, pause), FFmpeg fetched as pinned LGPL DLLs; a header survey of the game's Bink files; chosen at start-up beside Bink's (`[features] movie_codec=bink\|ffmpeg`) | - | pure addition, 32-bit first |
 | X10b | FFmpeg's Bink audio into the game's sound output: a streaming buffer through `audio::Device`, track volume and pan, the sound-only streams from a path, a file handle at an offset, and memory | X10a | |
-| X10c | A/B on the 32-bit build: the movies and the music / sound streams through both codecs (frames, timing, levels); THIRD_PARTY_NOTICES and the licence notes | X10b | |
+| X10c | A/B on the 32-bit build: the movies and the music / sound streams through both codecs (frames, timing, levels); THIRD_PARTY_NOTICES and the licence notes | X10b | Notices and README done; A/B listening is the user's, later |
 | X11 | `render_pc` / `gpu_d3d9` on x64 (D3D9 x64; handles, the dynamic buffers, `make_primitive_at`'s storage, the loading console's timer) | X6 | land before the Vulkan split (V5) or coordinate |
 | X12a-e | Compile and fix by library on x64, one PR each: (a) `engine/` memory, lists, file, assets, sys; (b) `engine/` gfx, objects, render, ui; (c) `engine/` script, net, audio, sound, pad_input, media; (d) `game/`; (e) `editor/`, `frontend/`, `devtools/`, the backends (`audio_dsound`, `input_dinput`, `fs_win32`, `media_ffmpeg`), `app/` | X3-X8, X10c, X11 | C4267 / C4244 / C4311 / C4312 at 0 |
 | X13 | Tools on x64: `first_fault.py` and the symbolizers read x64 contexts and PDBs; the game scripts (`tools/game`) find the x64 exe | X8 | done |
