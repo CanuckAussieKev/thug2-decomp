@@ -947,8 +947,8 @@ void check_draws(render::Gpu& gpu, Tally* tally)
 void check_unbound_texture(render::Gpu& gpu, Tally* tally)
 {
     using render::GpuStageState;
-    const auto width = static_cast<float>(kWindowWidth);
-    const auto height = static_cast<float>(kWindowHeight);
+    const auto right = static_cast<float>(kWindowWidth);
+    const auto bottom = static_cast<float>(kWindowHeight);
     gpu.set_vertex_format(kScreenFvf);
     gpu.set_pixel_shader(nullptr);
     gpu.set_texture(0, nullptr);
@@ -958,7 +958,7 @@ void check_unbound_texture(render::Gpu& gpu, Tally* tally)
     gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgTexture);
     gpu.set_stage_state(1, GpuStageState::kColourOp, value::kOpDisable);
     gpu.set_stage_state(1, GpuStageState::kAlphaOp, value::kOpDisable);
-    const std::array<ScreenVertex, 4> whole = screen_rect(0.0F, 0.0F, width, height, kDrawnGreen);
+    const std::array<ScreenVertex, 4> whole = screen_rect(0.0F, 0.0F, right, bottom, kDrawnGreen);
     bool ok = gpu.clear(0, nullptr, value::kClearTarget, kClearBlue, 1.0F, 0) == value::kResultOk &&
               gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, whole.data(), sizeof(ScreenVertex)) ==
                   value::kResultOk &&
