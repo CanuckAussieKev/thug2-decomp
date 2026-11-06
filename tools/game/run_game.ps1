@@ -1,10 +1,13 @@
 param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$Game = 'C:\Games\THUG2',
       [string]$ShotDir = '', [string]$Level = '', [string[]]$Commands = @(),
-      [switch]$WaitReady, [string]$Run = '', [int]$HangSeconds = 45, [string]$Renderer = '')
+      [switch]$WaitReady, [string]$Run = '', [int]$HangSeconds = 45, [string]$Renderer = '',
+      [ValidateSet('', 'x86', 'x64')][string]$Arch = '')
 # A game in trouble (game_health.ps1: it crashed - exit code not 0 -, Windows Error Reporting runs for it, it shows a
 # dialog, or its window hasn't responded for -HangSeconds) is noticed while waiting, closed (WM_CLOSE, then killed),
 # and reported with the end of its log - also appended to <folder>\thug2-decomp-crashes.txt. Exit code 5 then.
 # -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front_end/start_level.h).
+# -Arch x86|x64: the folder's thug2-decomp.exe must be a 32-bit / 64-bit build, else nothing is started (exit 2) -
+#                       deploy_build.ps1 -Arch puts one there. Without it either runs; a 64-bit one says so.
 # -Renderer d3d9|vulkan: [Graphics] renderer= written in a workspace's ini first (Vulkan is the default renderer: a
 #                       Direct3D 9 test run says -Renderer d3d9). Never in the main install.
 # Commands (the test-automation channel, src/devtools/automation.h - [features] automation=1, set in the workspaces):
@@ -29,6 +32,9 @@ $Game = Resolve-GameFolder $Game
 if (-not (Find-GameExe $Game)) { "NO GAME IN $Game (no $($GameExeNames -join ' or ') in it or in its Game folder)"; exit 2 }
 $exe = Find-LaunchExe $Game
 if (-not $exe) { "NO $LaunchExeName IN $Game (build it and copy it in with its DLLs: the decomp's README, 'Running')"; exit 2 }
+$exeArch = Get-PeArch $exe
+if ($Arch -and $exeArch -ne $Arch) { "$exe is $(if ($exeArch) { $exeArch } else { 'not a PE file' }), not $Arch (deploy_build.ps1 -Game $Game -Arch $Arch, under the lock) - not started"; exit 2 }
+if ($exeArch -eq 'x64') { "starting the 64-bit build: $exe" }
 $workspace = $Game -notin @('C:\Games\THUG2', 'C:\Games\THUG2\Game')
 function Get-GamesHere { Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $Game } }
 # Never close a game that's already running: the user may be playing. Refuse instead.

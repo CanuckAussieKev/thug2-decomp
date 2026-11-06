@@ -26,9 +26,28 @@ if (Test-Path -LiteralPath $localJson) {
 $LaunchExeName = 'thug2-decomp.exe'
 # (ours, and the game's own exe started by hand)
 $GameProcessNames = @(@($LaunchExeName) + $GameExeNames | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) })
-# The files of ours a game lock backs up and puts back (those that are there): the exe, its PDB and its D3DX9; an
-# earlier development build's dinput8.dll.
-$DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'd3dx9_43.dll', 'dinput8.dll')
+# The files of ours a game lock backs up and puts back (those that are there; the ones that weren't are removed at
+# release): the exe, its PDB, the editor's program, the DLLs next to them (D3DX9, SDL2, FFmpeg's), the controller
+# database; an earlier development build's dinput8.dll. The same names for a 32-bit and a 64-bit build: a build is
+# deployed INSTEAD of the one in the folder (deploy_build.ps1), under the lock, and release puts the other back.
+$DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'thug2-editor.exe', 'thug2-editor.pdb', 'd3dx9_43.dll',
+                   'SDL2.dll', 'gamecontrollerdb.txt', 'avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll',
+                   'swscale-8.dll', 'dinput8.dll')
+
+# A PE file's machine: 'x86', 'x64', or $null when it isn't a PE file (what a 32-bit or 64-bit build of the game is).
+function Get-PeArch([string]$path) {
+    try {
+        $fs = [IO.File]::OpenRead($path)
+        try {
+            $head = New-Object byte[] 64
+            if ($fs.Read($head, 0, 64) -lt 64 -or $head[0] -ne 0x4D -or $head[1] -ne 0x5A) { return $null }
+            $fs.Position = [BitConverter]::ToInt32($head, 60)
+            $pe = New-Object byte[] 6
+            if ($fs.Read($pe, 0, 6) -lt 6 -or [BitConverter]::ToInt32($pe, 0) -ne 0x4550) { return $null }
+            switch ([BitConverter]::ToUInt16($pe, 4)) { 0x14C { return 'x86' } 0x8664 { return 'x64' } default { return $null } }
+        } finally { $fs.Dispose() }
+    } catch { return $null }
+}
 
 # Each game's marker files / folders (the PowerShell twin of thug2-level-converter-core/lib/install.ts's INSTALLS - keep them the same): any
 # one entry identifies the game's folder; an entry is one or more paths that must all be in it (case doesn't matter on

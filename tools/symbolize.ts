@@ -1,11 +1,16 @@
-// NOT ORIGINAL - turns the thug2-decomp.exe+0x... offsets of a crash report in thug2-decomp.log into function names and
-// source lines.
+// NOT ORIGINAL - turns the <module>+0x... offsets of a crash report in thug2-decomp.log into function names and source
+// lines. The report of a 32-bit or a 64-bit build (RAX..R15, the "calls (unwound from the context ...)" lines with
+// their 16-digit addresses): the offsets are the same kind, and the PDBs of either.
 //
-//     node tools/symbolize.ts [--pdb-dir out/build/verify] [log or offsets...]
+//     node tools/symbolize.ts [--pdb-dir out/build/verify] [--module thug2-decomp.exe] [log or offsets...]
 //
-// With a log file: symbolizes every "thug2-decomp.exe+0x..." in its last crash report (EXCEPTION, RUN-TIME CHECK
-// FAILURE, ... - src/platform/crash.h; also tools/game/read_dump.ts's output saved to a file). With hex
-// offsets (or "thug2-decomp.exe+0x..."): those.
+// With a log file: symbolizes every "<module>+0x..." in its last crash report (EXCEPTION, RUN-TIME CHECK
+// FAILURE, ... - src/platform/crash.h; also tools/game/read_dump.ts's output saved to a file) for each module the
+// report names that has a file (exe or DLL, with its PDB beside it) in the PDB folder - the game's exe, a test
+// program's (thug2_crash_check.exe...), our own DLLs; the system's modules (KERNEL32, ntdll) are skipped. With hex
+// offsets: those, in --module (default thug2-decomp.exe); "<module>+0x..." names its own module.
+// A line is "0x<offset>  <function>+0x<displacement>  <file>:<line>", with the module's name in front for any module
+// but thug2-decomp.exe.
 // The PDB must come from the same build as the exe that crashed (compare the deployed exe's timestamp).
 // Uses Windows' dbghelp.dll - through Windows PowerShell's Add-Type (C# P/Invoke), as Node has no FFI.
 
@@ -16,32 +21,55 @@ import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converte
 import { parseHexInt } from "thug2-level-converter-core/lib/numbers.ts";
 import { readText, splitLines } from "thug2-level-converter-core/lib/text.ts";
 
-const USAGE = "usage: symbolize.ts [--pdb-dir PDB_DIR] [items ...]";
+const USAGE = "usage: symbolize.ts [--pdb-dir PDB_DIR] [--module NAME] [items ...]";
 
 const BASE = 0x10000000; // any base: offsets are relative
 
 // The game's module in a report: the exe (an older build's thug2_standalone.exe too).
 const EXE = "thug2-decomp.exe";
-const MODULE_OFFSET = /(?:thug2-decomp|thug2_standalone)\.exe\+0x([0-9A-Fa-f]+)/gi;
+// Every "<module>+0x<offset>" of a report (a module's file name: letters, digits, _ - . and no spaces).
+const MODULE_OFFSET = /([A-Za-z0-9_.-]+\.(?:exe|dll))\+0x([0-9A-Fa-f]+)/gi;
+
+export interface ModuleOffset {
+    module: string; // as the report names it (case kept)
+    offset: number;
+}
+
+// The module's file name the PDB folder is searched for: the older exe name is the exe.
+export function moduleFile(module: string): string {
+    return /^thug2_standalone\.exe$/i.test(module) ? EXE : module;
+}
+
+// Every "<module>+0x<offset>" in the text, in order.
+export function moduleOffsets(text: string): ModuleOffset[] {
+    return [...text.matchAll(MODULE_OFFSET)].map((m) => ({ module: m[1]!, offset: Number.parseInt(m[2]!, 16) }));
+}
 
 // A report's first line: EXCEPTION, RUN-TIME CHECK FAILURE, DEBUG CRT REPORT, INVALID PARAMETER, PURE VIRTUAL CALL,
 // ABORT, BUFFER OVERRUN DETECTED, GAME CRT MESSAGE (src/platform/crash.h).
 export const REPORT_START =
     /^(?:EXCEPTION |RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|INVALID PARAMETER|PURE VIRTUAL CALL|ABORT|BUFFER OVERRUN|GAME CRT MESSAGE)/gm;
 
-export function offsetsFromLog(file: string): number[] {
-    const text = readText(file, "replace");
+// The last crash report in a log's text: its first line and every "<module>+0x<offset>" in it; undefined when the
+// text has no report.
+export function lastReport(text: string): { first: string; refs: ModuleOffset[] } | undefined {
     // (the last report of any kind - src/platform/crash.h; read_dump.ts's output too)
     const starts = [...text.matchAll(REPORT_START)];
     const start = starts.length ? starts[starts.length - 1]!.index! : -1;
-    if (start < 0) exitWith(`no EXCEPTION (or other crash) report in ${file}`);
+    if (start < 0) return undefined;
     let report = text.slice(start);
     // the report: its first line and the indented lines after it
     const first = report.indexOf("\n") + 1;
     const end = /\n(?! )/.exec(report.slice(first));
     if (end) report = report.slice(0, first + end.index);
-    print(splitLines(report)[0]);
-    return [...report.matchAll(MODULE_OFFSET)].map((m) => Number.parseInt(m[1]!, 16));
+    return { first: splitLines(report)[0]!, refs: moduleOffsets(report) };
+}
+
+export function offsetsFromLog(file: string): ModuleOffset[] {
+    const report = lastReport(readText(file, "replace"));
+    if (!report) exitWith(`no EXCEPTION (or other crash) report in ${file}`);
+    print(report.first);
+    return report.refs;
 }
 
 // dbghelp's SymFromAddr / SymGetLineFromAddr64 for each offset (a 64-bit PowerShell: SYMBOL_INFO is 88 bytes, its
@@ -110,23 +138,13 @@ exit [Thug2Symbolize]::Run($args_dll, $args_dir, $args_size, [uint64[]]$args_off
 
 const psString = (s: string): string => `'${s.replaceAll("'", "''")}'`;
 
-function main(): number {
-    const { values, positionals } = parseCli(USAGE, {
-        allowPositionals: true,
-        options: { "pdb-dir": { type: "string", default: path.join("out", "build", "verify") } },
-    });
-    const items = positionals.length ? positionals : ["C:\\Games\\THUG2\\Game\\thug2-decomp.log"];
-    const offsets: number[] = [];
-    for (const item of items) {
-        if (fs.statSync(item, { throwIfNoEntry: false })?.isFile()) offsets.push(...offsetsFromLog(item));
-        else offsets.push(parseHexInt(item.replace(/^(?:thug2-decomp|thug2_standalone)\.exe\+/i, ""))); // as read_dump prints it
-    }
-
-    const dll = path.resolve(values["pdb-dir"], EXE);
+// dbghelp's answer for one module's offsets: one line each, in order (see HELPER).
+function symbolizeModule(dll: string, offsets: number[]): string[] {
     const size = fs.statSync(dll).size;
     const script =
         `$args_dll = ${psString(dll)}; $args_dir = ${psString(path.dirname(dll))}; $args_size = ${size}; ` +
-        `$args_base = ${BASE}; $args_offsets = @(${offsets.length ? offsets.join(",") : ""});\n${HELPER}`;
+        `$args_base = ${BASE}; $args_offsets = @(${offsets.length ? offsets.join(",") : ""});
+${HELPER}`;
     const r = spawnSync(
         "powershell.exe",
         [
@@ -144,11 +162,76 @@ function main(): number {
         .replace(/\r\n/g, "\n")
         .split("\n")
         .filter((l) => l !== "");
-    for (const l of lines) {
-        if (l.startsWith("!")) exitWith(l.slice(1));
-        print(l);
-    }
+    for (const l of lines) if (l.startsWith("!")) exitWith(l.slice(1));
     if (r.status !== 0) exitWith(`dbghelp failed: ${(r.stderr ?? "").trim()}`);
+    return lines;
+}
+
+// The report's offsets, grouped by the module file the PDB folder has (the others - system DLLs - come back in
+// `skipped`); `order` is the report's order, as indexes into the group.
+export function groupByModule(
+    refs: ModuleOffset[],
+    fileFor: (module: string) => string | undefined,
+): {
+    groups: Map<string, { file: string; offsets: number[] }>;
+    order: { key: string; index: number }[];
+    skipped: string[];
+} {
+    const groups = new Map<string, { file: string; offsets: number[] }>();
+    const order: { key: string; index: number }[] = [];
+    const skipped = new Set<string>();
+    for (const ref of refs) {
+        const key = moduleFile(ref.module).toLowerCase();
+        const file = fileFor(moduleFile(ref.module));
+        if (file === undefined) {
+            skipped.add(ref.module);
+            continue;
+        }
+        let group = groups.get(key);
+        if (!group) {
+            group = { file, offsets: [] };
+            groups.set(key, group);
+        }
+        order.push({ key, index: group.offsets.length });
+        group.offsets.push(ref.offset);
+    }
+    return { groups, order, skipped: [...skipped] };
+}
+
+function main(): number {
+    const { values, positionals } = parseCli(USAGE, {
+        allowPositionals: true,
+        options: {
+            "pdb-dir": { type: "string", default: path.join("out", "build", "verify") },
+            module: { type: "string", default: EXE },
+        },
+    });
+    const items = positionals.length ? positionals : ["C:\\Games\\THUG2\\Game\\thug2-decomp.log"];
+    const refs: ModuleOffset[] = [];
+    for (const item of items) {
+        if (fs.statSync(item, { throwIfNoEntry: false })?.isFile()) refs.push(...offsetsFromLog(item));
+        else {
+            const named = moduleOffsets(item); // as read_dump prints it
+            refs.push(...(named.length ? named : [{ module: values.module, offset: parseHexInt(item) }]));
+        }
+    }
+
+    const dir = path.resolve(values["pdb-dir"]);
+    const fileFor = (module: string): string | undefined => {
+        const file = path.join(dir, module);
+        return fs.statSync(file, { throwIfNoEntry: false })?.isFile() ? file : undefined;
+    };
+    const { groups, order, skipped } = groupByModule(refs, fileFor);
+    if (!groups.has(EXE) && refs.some((r) => moduleFile(r.module).toLowerCase() === EXE)) {
+        exitWith(`${path.join(dir, EXE)} isn't there (--pdb-dir)`);
+    }
+    const results = new Map<string, string[]>();
+    for (const [key, group] of groups) results.set(key, symbolizeModule(group.file, group.offsets));
+    for (const { key, index } of order) {
+        const line = results.get(key)![index] ?? "?";
+        print(key === EXE ? line : `${path.basename(groups.get(key)!.file)} ${line}`);
+    }
+    if (skipped.length) process.stderr.write(`(no file in ${dir} for: ${skipped.join(", ")})\n`);
     return 0;
 }
 

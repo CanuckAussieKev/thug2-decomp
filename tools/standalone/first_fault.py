@@ -1,13 +1,15 @@
-r"""NOT ORIGINAL - run a 32-bit exe under the Win32 debug API and report its first fault: the exception, the registers,
-the frame-pointer chain and a scan of the stack for return addresses (words just after a call instruction in a loaded
-module), each resolved offline against the module's PDB (addr2sym.py). Also prints the program's OutputDebugString
-text and its exit code. No cdb / WinDbg needed.
+r"""NOT ORIGINAL - run an exe (32-bit or 64-bit: picked by the file's PE machine) under the Win32 debug API and report
+its first fault: the exception, the registers, the calls (a 32-bit target's frame-pointer chain; a 64-bit target's
+stack unwound by dbghelp from the modules' unwind data) and a scan of the stack for return addresses (words just after
+a call instruction in a loaded module), each resolved offline against the module's PDB (addr2sym.py). Also prints the
+program's OutputDebugString text and its exit code. No cdb / WinDbg needed. A 64-bit target needs a 64-bit Python.
 
     python -I tools/standalone/first_fault.py <exe> <working folder> [--seconds N] [--second-chance] [-- args...]
 
 --seconds N      stop the program (and say so) when nothing went wrong in N seconds (default 120)
---watch <rva>    a hardware breakpoint on writes to the 4 bytes at the exe's base + rva (addr2sym.py name=<symbol>
+--watch <rva>    a hardware breakpoint on writes to the bytes at the exe's base + rva (addr2sym.py name=<symbol>
                  finds it): every write is printed with its caller chain, and the run goes on
+--watch-size N   how many bytes --watch watches: 1, 2, 4 (the default) or 8 (a 64-bit target only)
 --monitor N      as soon as the program's window exists, centre it on \\.\DISPLAYN without activating it (e.g. 2
                  when the primary monitor is busy)
 --second-chance  report only exceptions the program doesn't handle itself (default: the first chance of an access
@@ -155,6 +157,94 @@ class WOW64_CONTEXT(ctypes.Structure):
                 "Edx", "Ecx", "Eax", "Ebp", "Eip", "SegCs", "EFlags", "Esp", "SegSs")] + [("Ext", ctypes.c_byte * 512)]
 
 
+class CONTEXT64(ctypes.Structure):
+    """winnt.h's CONTEXT for AMD64 (1232 bytes; GetThreadContext wants it 16-byte aligned: new_context64())."""
+    _fields_ = [("P1Home", ctypes.c_ulonglong), ("P2Home", ctypes.c_ulonglong), ("P3Home", ctypes.c_ulonglong),
+                ("P4Home", ctypes.c_ulonglong), ("P5Home", ctypes.c_ulonglong), ("P6Home", ctypes.c_ulonglong),
+                ("ContextFlags", W.DWORD), ("MxCsr", W.DWORD),
+                ("SegCs", W.WORD), ("SegDs", W.WORD), ("SegEs", W.WORD), ("SegFs", W.WORD), ("SegGs", W.WORD),
+                ("SegSs", W.WORD), ("EFlags", W.DWORD)] + \
+               [(n, ctypes.c_ulonglong) for n in ("Dr0", "Dr1", "Dr2", "Dr3", "Dr6", "Dr7", "Rax", "Rcx", "Rdx", "Rbx",
+                "Rsp", "Rbp", "Rsi", "Rdi", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15", "Rip")] + \
+               [("FltSave", ctypes.c_byte * 512), ("VectorRegister", ctypes.c_byte * 416),
+                ("VectorControl", ctypes.c_ulonglong), ("DebugControl", ctypes.c_ulonglong),
+                ("LastBranchToRip", ctypes.c_ulonglong), ("LastBranchFromRip", ctypes.c_ulonglong),
+                ("LastExceptionToRip", ctypes.c_ulonglong), ("LastExceptionFromRip", ctypes.c_ulonglong)]
+
+
+CONTEXT_AMD64 = 0x100000
+CONTEXT64_CONTROL_INTEGER = CONTEXT_AMD64 | 0x3
+CONTEXT64_DEBUG_REGISTERS = CONTEXT_AMD64 | 0x10
+assert ctypes.sizeof(CONTEXT64) == 1232 and CONTEXT64.Rax.offset == 120 and CONTEXT64.Rip.offset == 248
+
+
+def new_context64(flags):
+    """A CONTEXT64 at a 16-byte aligned address (its buffer kept alive in .raw)."""
+    raw = ctypes.create_string_buffer(ctypes.sizeof(CONTEXT64) + 16)
+    ctx = CONTEXT64.from_address((ctypes.addressof(raw) + 15) & ~15)
+    ctx.raw = raw
+    ctx.ContextFlags = flags
+    return ctx
+
+
+class ADDRESS64(ctypes.Structure):
+    _fields_ = [("Offset", ctypes.c_ulonglong), ("Segment", W.WORD), ("Mode", ctypes.c_int)]
+
+
+class KDHELP64(ctypes.Structure):
+    _fields_ = [("Thread", ctypes.c_ulonglong), ("ThCallbackStack", W.DWORD), ("ThCallbackBStore", W.DWORD),
+                ("NextCallback", W.DWORD), ("FramePointer", W.DWORD)] + \
+               [(n, ctypes.c_ulonglong) for n in ("KiCallUserMode", "KeUserCallbackDispatcher", "SystemRangeStart",
+                "KiUserExceptionDispatcher", "StackBase", "StackLimit")] + [("Reserved", ctypes.c_ulonglong * 5)]
+
+
+class STACKFRAME64(ctypes.Structure):
+    _fields_ = [("AddrPC", ADDRESS64), ("AddrReturn", ADDRESS64), ("AddrFrame", ADDRESS64), ("AddrStack", ADDRESS64),
+                ("AddrBStore", ADDRESS64), ("FuncTableEntry", ctypes.c_void_p), ("Params", ctypes.c_ulonglong * 4),
+                ("Far", W.BOOL), ("Virtual", W.BOOL), ("Reserved", ctypes.c_ulonglong * 3), ("KdHelp", KDHELP64)]
+
+
+_dbghelp = ctypes.WinDLL("dbghelp", use_last_error=True)
+_dbghelp.SymInitialize.argtypes = [W.HANDLE, ctypes.c_char_p, W.BOOL]
+_dbghelp.SymCleanup.argtypes = [W.HANDLE]
+_dbghelp.StackWalk64.argtypes = [W.DWORD, W.HANDLE, W.HANDLE, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                 ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+_dbghelp.StackWalk64.restype = W.BOOL
+k32.OpenThread.restype = W.HANDLE
+k32.GetThreadContext.argtypes = [W.HANDLE, ctypes.c_void_p]
+k32.SetThreadContext.argtypes = [W.HANDLE, ctypes.c_void_p]
+
+
+def pe_machine(path):
+    """The PE file's machine field (0x14C x86, 0x8664 x64), or None when it isn't a PE file."""
+    with open(path, "rb") as f:
+        head = f.read(0x40)
+        if len(head) < 0x40 or head[:2] != b"MZ":
+            return None
+        f.seek(struct.unpack_from("<I", head, 0x3C)[0])
+        sig = f.read(6)
+    return struct.unpack_from("<H", sig, 4)[0] if sig[:4] == b"PE\0\0" else None
+
+
+def unwind64(process, thread, ctx, limit=48):
+    """A 64-bit thread's calls, newest first (the faulting instruction first): dbghelp's StackWalk64 over the modules'
+    unwind data. [(rip, rsp)]. The process must be known to dbghelp (SymInitialize)."""
+    frames = []
+    frame = STACKFRAME64()
+    frame.AddrPC.Offset, frame.AddrFrame.Offset, frame.AddrStack.Offset = ctx.Rip, ctx.Rbp, ctx.Rsp
+    frame.AddrPC.Mode = frame.AddrFrame.Mode = frame.AddrStack.Mode = 3  # AddrModeFlat
+    walk = new_context64(CONTEXT64_CONTROL_INTEGER)  # (StackWalk64 changes the context it is given)
+    ctypes.memmove(ctypes.addressof(walk), ctypes.addressof(ctx), ctypes.sizeof(CONTEXT64))
+    table = ctypes.cast(_dbghelp.SymFunctionTableAccess64, ctypes.c_void_p)
+    module_base = ctypes.cast(_dbghelp.SymGetModuleBase64, ctypes.c_void_p)
+    while len(frames) < limit and _dbghelp.StackWalk64(0x8664, process, thread, ctypes.byref(frame),
+                                                       ctypes.addressof(walk), None, table, module_base, None):
+        if frame.AddrPC.Offset == 0:
+            break
+        frames.append((frame.AddrPC.Offset, frame.AddrStack.Offset))
+    return frames
+
+
 class Module:
     def __init__(self, base, path, size):
         self.base, self.path, self.size = base, path, size
@@ -185,6 +275,13 @@ def main():
         i = args.index("--watch")
         watch = int(args[i + 1], 16)
         del args[i:i + 2]
+    watch_size = 4
+    if "--watch-size" in args:
+        i = args.index("--watch-size")
+        watch_size = int(args[i + 1])
+        del args[i:i + 2]
+        if watch_size not in (1, 2, 4, 8):
+            raise SystemExit("--watch-size 1, 2, 4 or 8")
     monitor = None
     if "--monitor" in args:
         i = args.index("--monitor")
@@ -197,6 +294,15 @@ def main():
     if len(args) != 2:
         raise SystemExit(__doc__)
     exe, cwd = os.path.abspath(args[0]), os.path.abspath(args[1])
+    machine = pe_machine(exe)
+    if machine not in (0x14C, 0x8664):
+        raise SystemExit(f"{exe} isn't an x86 or x64 PE file (machine {machine})")
+    x64 = machine == 0x8664
+    if x64 and ctypes.sizeof(ctypes.c_void_p) != 8:
+        raise SystemExit("a 64-bit target needs a 64-bit Python")
+    if watch_size == 8 and not x64:
+        raise SystemExit("--watch-size 8 is for a 64-bit target")
+    hex_width = 16 if x64 else 8
     command = f'"{exe}"' + "".join(f" {a}" for a in program_args)
 
     si = STARTUPINFO()
@@ -215,6 +321,10 @@ def main():
     def dword(addr):
         b = read(addr, 4)
         return struct.unpack("<I", b)[0] if len(b) == 4 else None
+
+    def qword(addr):
+        b = read(addr, 8)
+        return struct.unpack("<Q", b)[0] if len(b) == 8 else None
 
     def image_size(base):
         pe = dword(base + 0x3C)
@@ -255,14 +365,65 @@ def main():
         # DR0 = the address, DR7: local enable 0, break on write (RW0 = 01), 4 bytes (LEN0 = 11)
         if not watched:
             return
+        length = {1: 0, 2: 1, 4: 3, 8: 2}[watch_size]  # DR7's LEN0 field
+        if x64:
+            ctx = new_context64(CONTEXT64_DEBUG_REGISTERS)
+            if k32.GetThreadContext(thread, ctypes.addressof(ctx)):
+                ctx.Dr0 = watched[0]
+                ctx.Dr7 = (ctx.Dr7 & ~0xF0003) | 0x1 | (0x1 << 16) | (length << 18)
+                k32.SetThreadContext(thread, ctypes.addressof(ctx))
+            return
         ctx = WOW64_CONTEXT()
         ctx.ContextFlags = 0x10010
         if k32.Wow64GetThreadContext(thread, ctypes.byref(ctx)):
             ctx.Dr0 = watched[0]
-            ctx.Dr7 = (ctx.Dr7 & ~0xF0003) | 0x1 | (0x1 << 16) | (0x3 << 18)
+            ctx.Dr7 = (ctx.Dr7 & ~0xF0003) | 0x1 | (0x1 << 16) | (length << 18)
             k32.Wow64SetThreadContext(thread, ctypes.byref(ctx))
 
+    symbols_ready = []  # dbghelp knows the program (for StackWalk64) once this has an entry
+
+    def report64(ev, rec, what, scan=True):
+        th = k32.OpenThread(0x1FFFFF, False, ev.dwThreadId)
+        ctx = new_context64(CONTEXT64_CONTROL_INTEGER)
+        k32.GetThreadContext(th, ctypes.addressof(ctx))
+        info = rec.ExceptionInformation
+        extra = ""
+        if rec.ExceptionCode == 0xC0000005 and rec.NumberParameters >= 2:
+            extra = f", {['read', 'write', '?', '?', '?', '?', '?', '?', 'execute'][min(info[0], 8)]} of 0x{info[1]:016X}"
+        if watched and rec.ExceptionCode == 0x80000004:
+            held = int.from_bytes(read(watched[0], watch_size), "little")
+            extra = f", 0x{watched[0]:016X} now holds 0x{held:0{watch_size * 2}X}"
+        print(f"{what} 0x{rec.ExceptionCode:08X} at RIP 0x{ctx.Rip:016X} {name(ctx.Rip)}{extra}, "
+              f"{'first' if ev.u.Exception.dwFirstChance else 'second'} chance, thread {ev.dwThreadId}")
+        if scan:
+            regs = ("Rax", "Rbx", "Rcx", "Rdx", "Rsi", "Rdi", "Rbp", "Rsp", "R8", "R9", "R10", "R11", "R12", "R13", "R14",
+                    "R15")
+            for i in range(0, len(regs), 4):
+                print("  " + " ".join(f"{n.upper():<3} {getattr(ctx, n):016X}" for n in regs[i:i + 4]))
+        if not symbols_ready:
+            # (our own search path: no symbol server; deferred loads: only the modules a frame is in)
+            _dbghelp.SymSetOptions(0x2 | 0x4 | 0x80000)
+            _dbghelp.SymInitialize(pi.hProcess, os.path.dirname(exe).encode(), True)
+            symbols_ready.append(True)
+        print("  calls (unwound from the context, newest first):")
+        for rip, rsp in unwind64(pi.hProcess, th, ctx, 48 if scan else 12):
+            print(f"    [rsp={rsp:016X}] {rip:016X} {name(rip)}")
+        if not scan:
+            return
+        print("  stack scan (return addresses):")
+        shown = 0
+        for i in range(0, 0x4000, 8):
+            v = qword(ctx.Rsp + i)
+            if v is None or shown >= 40:
+                break
+            if after_call(v):
+                print(f"    rsp+{i:04X}: {v:016X} {name(v)}")
+                shown += 1
+
     def report(ev, rec, what, scan=True):
+        if x64:
+            report64(ev, rec, what, scan)
+            return
         th = k32.OpenThread(0x1FFFFF, False, ev.dwThreadId)
         ctx = WOW64_CONTEXT()
         ctx.ContextFlags = 0x10007
@@ -330,10 +491,10 @@ def main():
         if code == CREATE_PROCESS_DEBUG_EVENT:
             base = ev.u.CreateProcessInfo.lpBaseOfImage
             modules.append(Module(base, exe, image_size(base)))
-            print(f"{os.path.basename(exe)} loaded at 0x{base:08X}")
+            print(f"{os.path.basename(exe)} loaded at 0x{base:0{hex_width}X}")
             if watch is not None:
                 watched.append(base + watch)
-                print(f"watching writes to 0x{base + watch:08X}")
+                print(f"watching writes to 0x{base + watch:0{hex_width}X}")
                 arm(ev.u.CreateProcessInfo.hThread)
         elif code == CREATE_THREAD_DEBUG_EVENT:
             arm(ev.u.CreateThread.hThread)
@@ -372,6 +533,8 @@ def main():
             done = True
         if not done:
             k32.ContinueDebugEvent(ev.dwProcessId, ev.dwThreadId, cont)
+    if symbols_ready:
+        _dbghelp.SymCleanup(pi.hProcess)
     k32.TerminateProcess(pi.hProcess, 1)
     k32.WaitForSingleObject(pi.hProcess, 10000)
 
