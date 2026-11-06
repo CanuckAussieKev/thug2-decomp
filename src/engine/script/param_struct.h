@@ -7,6 +7,7 @@
 #include <gsl/pointers>
 #include "base/core/checksums.h"
 #include "base/core/enum_ops.h"
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec2.h"
 #include "base/maths/vec4.h"
 #include "engine/script/cell.h"
@@ -109,7 +110,7 @@ private:
     // pooled records: 12 bytes on x86, as the original's).
     Cell storage_;
 };
-static_assert(sizeof(Array) == kArrayBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Array) == kArrayBytes), "layout must match the original");
 
 // Pair and vector values are separate objects; the coordinates start at +4.
 // Their constructors clear only byte 0 of the first word.
@@ -178,7 +179,7 @@ inline void copy_value_kind(Component& to, const Component& from)
 {
     to.type_and_flag_ = static_cast<uint8_t>((to.type_and_flag_ & 1) | (from.type_and_flag_ & kComponentTypeBits));
 }
-static_assert(sizeof(Component) == kComponentBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Component) == kComponentBytes), "layout must match the original");
 
 struct SymbolTableEntry {
     SymbolTableEntry();
@@ -427,7 +428,7 @@ private:
     uint16_t unknown2_{};
     Component* head_{nullptr};
 };
-static_assert(sizeof(Struct) == kStructBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Struct) == kStructBytes), "layout must match the original");
 
 // The CStruct pool pair (script/struct.cpp).
 memory::PoolPair& struct_pools();

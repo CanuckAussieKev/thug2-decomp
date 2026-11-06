@@ -11,6 +11,7 @@
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
+#include "engine/memory/memory_sizes.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/viewport.h"
@@ -64,7 +65,8 @@ FlexibleParticleManager::FlexibleParticleManager()
     if (size == 0) {
         size = kDefaultHeapSize;
     }
-    zone_ = new memory::MemoryArena(static_cast<uint32_t>(size));
+    // Not original - twice the size on x64 (memory::sizes::region_bytes); the original's on the 32-bit build.
+    zone_ = new memory::MemoryArena(memory::sizes::region_bytes(static_cast<uint32_t>(size)));
     arena_ = memory::Hub::get_pull()->add_heap(zone_, 1, kHeapName);
     temp_region_ = nullptr;
     temp_heap_ = nullptr;
@@ -104,7 +106,7 @@ void FlexibleParticleManager::delete_temp_heap()
 bool FlexibleParticleManager::create_temp_heap(uint32_t size)
 {
     delete_temp_heap();
-    temp_region_ = new memory::MemoryArena(size);
+    temp_region_ = new memory::MemoryArena(memory::sizes::region_bytes(size)); // (not original: x64 twice the size)
     if (!temp_region_) {
         return false;
     }

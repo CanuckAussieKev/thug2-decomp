@@ -83,7 +83,7 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
     }
     model_path_for(model, kModelExtension, file_name.data());
     text::to_lower_text(file_name.data());
-    model_list_ = static_cast<RenderModel**>(allocate_zeroed(model_count_ * 4));
+    model_list_ = static_cast<RenderModel**>(allocate_zeroed(model_count_ * memory::kPointerBytes));
     if (!model_list_) {
         return;
     }

@@ -1,12 +1,14 @@
 // The network manager's player queries and the observer's camera (online::Hub, 0x0053A910-0x0053AF90), and the
 // host mode (0x0053C320). See gamenet_manager.h.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <array>
 #include <gsl/assert>
 
 #include "engine/memory/manager.h"
+#include "base/core/layout_32bit.h"
 #include "game/online/player_info.h"
 #include "base/core/enum_ops.h"
 #include "platform/gamespy.h"
@@ -81,6 +83,10 @@ constexpr int kMaxObjectIds = 16;
 // PlayerRecord flags (+0x1D0).
 constexpr PlayerFlag kPlayerFcfsCandidate = PlayerFlag::kLocal | PlayerFlag::kFullyIn; // (0x00543380)
 constexpr uint32_t kPlayerInfoSize = 0x1F0;
+// A player's block: the original's 0x1F0 bytes - more than the record needs on the 32-bit build -, or the record's
+// size where that is bigger (x64).
+static_assert(core::layout_32bit(sizeof(PlayerRecord) <= kPlayerInfoSize), "the original allocates this many bytes");
+constexpr uint32_t kPlayerBlockBytes = std::max(kPlayerInfoSize, static_cast<uint32_t>(sizeof(PlayerRecord)));
 
 
 constexpr int kPanelTime = 2000;
@@ -265,7 +271,7 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, PlayerFl
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
-    void* block = memory::alloc_zeroed(kPlayerInfoSize);
+    void* block = memory::alloc_zeroed(kPlayerBlockBytes);
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, flags) : nullptr;
     Expects(player != nullptr);
     player->set_skater(core::down_cast<objects::Rider>(skater)); // (out of memory: written through null, as the original)

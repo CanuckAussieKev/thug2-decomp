@@ -25,18 +25,20 @@ namespace memory {
 
 namespace {
 constexpr size_t kRegionAlignment = 16;
-constexpr int kFrontEndRegionBootstrapBytes = 1000000;
-constexpr int kFrontEndRegionBytes = 1100000;
-constexpr int kSkaterInfoRegionBytes = 82000;
-constexpr int kThemeRegionBytes = 0x3C00;
-constexpr int kSkaterRegionBytes = 0x1AFA4;
-constexpr int kSkaterGeomRegionBytes = 0x73F78;
+// The fixed regions: the original's sizes (sizes::region_bytes: twice them on x64; the named texture heaps are doubled
+// by create_labeled_zone).
+constexpr uint32_t kFrontEndRegionBootstrapBytes = sizes::region_bytes(1000000);
+constexpr uint32_t kFrontEndRegionBytes = sizes::region_bytes(1100000);
+constexpr uint32_t kSkaterInfoRegionBytes = sizes::region_bytes(82000);
+constexpr uint32_t kThemeRegionBytes = sizes::region_bytes(0x3C00);
+constexpr uint32_t kSkaterRegionBytes = sizes::region_bytes(0x1AFA4);
+constexpr uint32_t kSkaterGeomRegionBytes = sizes::region_bytes(0x73F78);
 constexpr uint32_t kPermanentTextureHeapId = 0x0B1BA9DE;   // PermanentTextureHeap
-constexpr int kPermanentTextureHeapBytes = 0x16800;
+constexpr uint32_t kPermanentTextureHeapBytes = 0x16800;
 constexpr uint32_t kUnloadableTextureHeapId = 0x33B42C96;  // UnloadableTextureHeap
-constexpr int kUnloadableTextureHeapBytes = 0x49C00;
-constexpr int kNetExtrasRegionBytes = 160000;
-constexpr int kOnlineRegionBytes = 450000;
+constexpr uint32_t kUnloadableTextureHeapBytes = 0x49C00;
+constexpr uint32_t kNetExtrasRegionBytes = sizes::region_bytes(160000);
+constexpr uint32_t kOnlineRegionBytes = sizes::region_bytes(450000);
 
 void* heap_allocate(MemSource* heap, uint32_t size, int halt_if_exhausted)
 {
@@ -693,7 +695,8 @@ void Hub::create_labeled_zone(checksums::Name zone_name, uint32_t size, const ch
     Expects(named != nullptr);
     named->name = name;
     std::memcpy(named->text.data(), text, std::strlen(text) + 1); // (unbounded, as in the original)
-    named->region = memory::take_unique<Zone>(new_alloc_region(size));
+    // Not original - twice the size on x64 (sizes::region_bytes); the original's on the 32-bit build.
+    named->region = memory::take_unique<Zone>(new_alloc_region(sizes::region_bytes(size)));
     named->heap = add_heap(named->region.get(), MemSource::kGrowUp, named->text.data());
     named->used = true;
 }

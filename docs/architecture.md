@@ -559,7 +559,9 @@ the singletons are never destroyed under the game's live objects.
 **Layouts freed above the boundary change sizes**: the game's fixed-size pools (`memory::PoolPair` / `SlabBank`:
 blend channels, animation slots, script structures...) are sized by `sizeof` of what they hold, and a pool refuses
 an object bigger than its items - a class that grows past the original's byte size stops the game with a report
-instead of running into its neighbour. The singletons are owned by type (`std::unique_ptr`, `memory::HeapUnique`);
+instead of running into its neighbour. Allocations of single records and of pointer arrays are sized by `sizeof` too,
+and the fixed regions and heaps (`memory::sizes::region_bytes`) are the original's sizes on the 32-bit build and twice
+them on x64, where no record more than doubles. The singletons are owned by type (`std::unique_ptr`, `memory::HeapUnique`);
 a loaded `.pre` archive is an index of plain records (`packs::PackedFile`) over one block of unpacked files.
 
 ## Next steps

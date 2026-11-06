@@ -9,6 +9,7 @@
 #include <span>
 
 #include "base/core/checksums.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
 #include "engine/gfx/engine_effects.h"
@@ -41,7 +42,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unboun
 
 namespace render {
 
-constexpr int kSmallBlockBytes = 8;
+constexpr int kSmallBlockBytes = 8; // (the original's: sizeof on x64)
 constexpr std::size_t kEnginePathSize = 0x200;
 constexpr std::size_t kEngineFileNameSize = 0x80;
 
@@ -121,7 +122,8 @@ void prepare_all(uint32_t text_pool_size)
     engine_parts().flexible_particle_manager() = std::make_unique<FlexibleParticleManager>();
     memory::pop_mem_profile();
     memory::push_mem_profile("CImposterManager");
-    void* memory = memory::alloc(kSmallBlockBytes);
+    static_assert(core::layout_32bit(sizeof(ImposterManager) == kSmallBlockBytes), "the original allocates this many bytes");
+    void* memory = memory::alloc(sizeof(ImposterManager));
     engine_parts().imposter_manager() = memory::HeapUnique<ImposterManager>(memory ? memory::construct_in<ImposterManager>(memory) : nullptr);
     memory::pop_mem_profile();
     memory::push_mem_profile("MiscFXInitialize");

@@ -11,6 +11,7 @@
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
+#include "engine/memory/memory_sizes.h"
 #include "engine/memory/task_list.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -110,7 +111,7 @@ std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount>& object_memb
 }
 
 namespace {
-constexpr int kCompositeMgrBlockHeaderSize{16};
+constexpr int kCompositeMgrBlockHeaderSize{static_cast<int>(memory::kBlockHeaderSize)}; // (16 bytes; 32 on x64)
 // NOT ORIGINAL grouping - compositemgr.cpp's state (the original's globals). Made on first use, never destroyed
 // (compositemgr_state()).
 struct CompositemgrState {
@@ -449,10 +450,10 @@ bool create_coim_heap(uint32_t size)
 {
     destroy_coim_heap();
     if (size != 0U) {
-        coim_region() = std::make_unique<memory::MemoryArena>(size);
+        coim_region() = std::make_unique<memory::MemoryArena>(memory::sizes::region_bytes(size)); // (not original: x64 twice)
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region().get(), 1, "COIMHeap");
         coim_heap()->set_unknown64(true);
-        coim_heap()->set_unknown68(coim_b() - kCompositeMgrBlockHeaderSize); // (16: a block header)
+        coim_heap()->set_unknown68(coim_b() - kCompositeMgrBlockHeaderSize); // (less a block header)
         script::fetch_int_value(kCoimUnusedInteger);                                    // (the result isn't used)
     }
     return false;

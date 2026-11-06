@@ -8,6 +8,7 @@
 
 #include "engine/gfx/mesh_formats.h"
 #include "base/core/dbg.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
 #include "render_pc/scene_file_stream.h"
@@ -28,7 +29,8 @@ constexpr int kMaxDepthBias = 0x10;
 constexpr int kAlphaShift = 24;
 constexpr int kAlphaScale = 128;
 constexpr int kAddressVShift = 16;       // an address mode: U in the low half, V in the high
-constexpr int kTextureKeyBytes = 8;
+constexpr int kTextureKeyBytes = 8; // (the original's key size: sizeof on x64)
+static_assert(core::layout_32bit(sizeof(TextureKey) == kTextureKeyBytes), "the original allocates this many bytes a key");
 constexpr int kPassFlagNoColourChange = 0x10000000;
 constexpr int kPassFlagSpecular = 0x100;
 
@@ -130,7 +132,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             core::at(material->texture_anim()->phases, pass) = in.texture_phase;
             core::at(material->texture_anim()->loops, pass) = in.texture_loops;
             core::at(material->texture_anim()->keys, pass) =
-                static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * kTextureKeyBytes));
+                static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * sizeof(TextureKey)));
             for (int k = 0; k < keys; ++k) {
                 const scene_format::TextureFrame& frame = core::at(in.texture_keys, static_cast<size_t>(k));
                 TextureKey& key = core::at(key_run(*(material->texture_anim()), static_cast<size_t>(pass)), k);

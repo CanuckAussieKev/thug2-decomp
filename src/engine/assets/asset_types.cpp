@@ -11,6 +11,7 @@
 #include "engine/assets/resource_entry.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
@@ -47,7 +48,8 @@ constexpr size_t kParamsPoolBytes = kParamBlockCount * kParamBlockBytes;
 constexpr size_t kPathSize = 256;
 constexpr size_t kSkinNameSize = 512;
 constexpr size_t kArrayNameSize = 128;
-constexpr int kAnimFramesBytes = 0x3C;
+constexpr int kAnimFramesBytes = 0x3C; // (the original's allocation: sizeof on x64)
+static_assert(core::layout_32bit(sizeof(gfx::JointClipFrames) == kAnimFramesBytes), "the original allocates this many bytes");
 constexpr int kNodeTableParamBytes = 0x40;
 constexpr int kNodeTableParamWords = 0x10;
 constexpr int kSceneParamWords = 0x12;
@@ -321,7 +323,7 @@ int AnimResource::read_in(const char* name, bool async, bool use_archive, void* 
 // 0x004074F0
 bool AnimResource::finish_loading(void* buffer, uint32_t size)
 {
-    void* memory = memory::alloc(kAnimFramesBytes);
+    void* memory = memory::alloc(sizeof(gfx::JointClipFrames));
     void* frames = memory ? construct_anim_frames(memory) : nullptr;
     if (!load_anim_frames(frames, buffer, size)) { // (called on a failed allocation too, as in the original)
         script::fetch_int_value(kAssertOnMissingAssets);

@@ -162,7 +162,7 @@ void broadcast_event(ScriptList* list, Signal& event, float radius)
         // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
         // is skipped.
         using Pointer = SharedRef<SharedBase>;
-        auto* scripts_block = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
+        auto* scripts_block = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * memory::kPointerBytes));
         const std::span<script::Script*> scripts(scripts_block, static_cast<std::size_t>(count));
         // (the original's new[]: its count before them - here the count is the local one)
         auto* pointers_block = static_cast<Pointer*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer)));

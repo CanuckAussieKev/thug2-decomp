@@ -8,6 +8,7 @@
 #include <gsl/pointers>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -38,7 +39,8 @@
 
 namespace objects {
 namespace {
-constexpr std::size_t kBoneBlockBytes = 0x1C;
+constexpr std::size_t kBoneBlockBytes = 0x1C; // (the original's allocation: sizeof on x64)
+static_assert(core::layout_32bit(sizeof(gfx::Rig) == kBoneBlockBytes), "the original allocates this many bytes");
 constexpr uint32_t kFlagBoneRigHidden = 0x8000000;
 constexpr float kDropLifetime = 5.0F;
 constexpr float kDropdownLengthDefault = 3.0F;
@@ -143,7 +145,7 @@ BoneRigModule::~BoneRigModule()
 void BoneRigModule::prepare_rig(uint32_t name)
 {
     void* asset = assets::asset_manager()->get_asset_data(name, 0);
-    void* memory = memory::alloc(kBoneBlockBytes);
+    void* memory = memory::alloc(sizeof(gfx::Rig));
     bone_rig_ = memory ? memory::construct_in<gfx::Rig>(memory, static_cast<gfx::RigData*>(asset)) : nullptr;
 }
 
@@ -154,7 +156,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
     if (params->read_hash_value(kCopySkeletonFrom, &from, 0)) {
         auto* other = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(from));
         auto* other_skeleton = core::down_cast<BoneRigModule>(other->fetch_module(kType));
-        void* memory = memory::alloc(kBoneBlockBytes);
+        void* memory = memory::alloc(sizeof(gfx::Rig));
         bone_rig_ = memory ? static_cast<gfx::Rig*>(memory)->construct_copy(other_skeleton->bone_rig_) : nullptr;
         return;
     }

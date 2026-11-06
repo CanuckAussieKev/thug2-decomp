@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X10a (FFmpeg's Bink video). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X10a (FFmpeg's Bink video). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -162,6 +162,32 @@ Counted over 335,402 non-blank source lines, with comments stripped:
   the 32-bit sizes don't change.
 - **Stack storage sized in bytes:** `render::Device::make_primitive_at` builds a primitive drawer in 0x200 bytes of
   the lens flare's stack. That size must be checked against the x64 object.
+
+Since X7: the sizes of the records the regions, pools and fixed allocations hold were measured with the x64 compiler
+(a syntax-only probe over their headers: `ProbeSize_<sizeof(T)>`). The block header (`memory::ChunkPrefix`) is 32
+bytes on x64 (two pointers, padded to keep blocks 16-byte aligned), a list node 32, a script component 24, a
+structure 16, an array 16, a symbol 32, a script 400 (0xF4 on x86); `PcPrimitive` is 0x1A0 bytes, inside the lens
+flare's 0x200 (now `render::kStackPrimitiveBytes`, asserted by the backend). The rules:
+- every fixed allocation of a record that grows is `sizeof` (the original's count asserted on x86): the animation
+  frames, the imposter manager, network messages and connections, bone volumes and rigs, the online player records,
+  the park editor's records and pools, the skater's score, the index stores, texture animation keys, the script
+  structures made outside their pool, the save's reserve pools, and the pools of animation controllers, spawned
+  polygons and event receiver lists; the pointer arrays (`count * 4`) are `count * memory::kPointerBytes`; script
+  structures made in stack bytes take `sizeof` and its alignment.
+- every fixed region and heap made with a size - the skater, skater geometry, skater info, theme, front end, network
+  and online regions, the named heaps (the texture heaps, the animation heaps, `MemInitHeap`'s), the flexible
+  particles', the park editor's and the COIM heap - is `memory::sizes::region_bytes(original)`: the original's on
+  x86, twice it on x64. The bound behind it: on x64 a pointer and a block header double and nothing else grows, so no
+  allocation more than doubles (a record's members can be laid out at twice their x86 offsets), and whatever fits in
+  a region on x86 fits in twice the bytes on x64. The cutscene heaps take what is left of the top-down heap, as before.
+- the main block grows on x64 by what the original's 64 MB held beside the script region (~60 MB: the level's data
+  and the other regions, each at most doubling), the script region by its room beside the pools (~2 MB); the pools
+  themselves were already counted at their x64 item sizes (X4).
+The 32-bit build's sizes are unchanged (asserted). After a level loads the log lists every heap
+(`memory heap in <level>: region=... used=... peak=... blocks=... peak_blocks=... name=...`);
+`node tools/game/heap_report.ts <x86 log> <x64 log>` compares two builds heap by heap (task X15 runs it on x64).
+The park editor's memory meter reads the main and park heaps' free bytes, which are larger on x64: to be settled
+with X15's measurement.
 
 ### Platform
 

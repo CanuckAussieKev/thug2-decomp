@@ -135,6 +135,9 @@ uint32_t script_region_size()
     if (extra != 0U) {
         extra += kScriptHeapOverhead; // (the heap's block headers and alignment for the eleven allocations)
     }
+    // (x64: the original's room beside its pools - for scripts, strings, node prefixes - doubled, as every region's)
+    const uint32_t beside_pools = kOriginalScriptRegion - pool_bytes(kOriginal, kOriginalItems);
+    extra += region_bytes(beside_pools) - beside_pools;
     return kOriginalScriptRegion + ((extra + kAlign16) & ~kAlign16MaskUnsigned) + script_heap_extra();
 }
 
@@ -155,8 +158,11 @@ uint32_t script_heap_extra()
 
 uint32_t main_block_size()
 {
+    // (x64: what the original's block held beside the script region doubled, as every region's)
+    constexpr uint32_t kBesideScriptRegion = kOriginalMainBlock - kOriginalScriptRegion;
     const uint32_t extra = script_region_size() - kOriginalScriptRegion +
-                           get_grown(hash_item_bytes(at_hand(), kItems), hash_item_bytes(kOriginal, kOriginalItems));
+                           get_grown(hash_item_bytes(at_hand(), kItems), hash_item_bytes(kOriginal, kOriginalItems)) +
+                           (region_bytes(kBesideScriptRegion) - kBesideScriptRegion);
     return kOriginalMainBlock + ((extra + kBlockGranuleMask) & ~kBlockGranuleMaskUnsigned);
 }
 

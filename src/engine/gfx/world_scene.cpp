@@ -18,7 +18,7 @@
 namespace render {
 
 constexpr std::size_t kTexturePathSize = 128;
-constexpr std::size_t kLoadDescriptionBytes = 8;
+constexpr std::size_t kLoadDescriptionBytes = sizeof(script::Struct); // (8 bytes: the original's; 16 on x64)
 
 namespace {
 
@@ -65,7 +65,7 @@ bool cfunc_load_scene(script::Struct* params, script::Context /*context*/)
     void* tex_dict = read_texture_dictionary(texture_path.data(), 1, 0, 0, 0);
 
     // A structure describing the load is built here and never used (left from an older interface).
-    alignas(4) std::array<uint8_t, kLoadDescriptionBytes> memory{};
+    alignas(script::Struct) std::array<uint8_t, kLoadDescriptionBytes> memory{};
     gsl::owner<script::Struct*> description{memory::construct_in<script::Struct>(memory.data())};
     description->put_name_key(checksums::Name{kTexDict}, checksums::hash_from_text(texture_path.data()));
     if (text::find_caseless({.haystack = name, .needle = "_sky"}) || is_sky) {

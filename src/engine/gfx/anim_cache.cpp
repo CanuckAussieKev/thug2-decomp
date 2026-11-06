@@ -519,7 +519,7 @@ int ClipStore::defragment()
         }
     }
     auto* copy = static_cast<uint8_t*>(memory::alloc(total));
-    auto* old_data = static_cast<uint8_t**>(memory::alloc(with_data * 4));
+    auto* old_data = static_cast<uint8_t**>(memory::alloc(static_cast<unsigned int>(with_data) * memory::kPointerBytes));
     if (!copy || !old_data) {
         if (copy) {
             memory::dealloc(copy);

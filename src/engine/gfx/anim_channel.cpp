@@ -13,6 +13,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "wire/message_ids.h"
 #include "base/core/dbg.h"
 #include "engine/memory/manager.h"
@@ -52,7 +53,8 @@ namespace gfx {
 
 // Text unknown for the checksums named by use (script method / parameter names).
 constexpr uint8_t kNoWobbleValue = 0xFF;                    // the "last sent" wobble values before anything was sent
-constexpr int kParamBagBytes = 8;
+constexpr int kParamBagBytes = 8; // (the original's: sizeof on x64)
+static_assert(core::layout_32bit(sizeof(script::Struct) == kParamBagBytes), "the original allocates this many bytes");
 constexpr int kBoneCountMask = 0x0FFFFFFF;
 constexpr int kBoneRecordBytes = 16;
 constexpr int kFlippedFlagBit = 29;                         // flag_bits_: the animation plays flipped
@@ -269,7 +271,7 @@ void post_out(net::Guest* app, net::NetMessageInfo& message, online::MessageId i
 // A structure made and freed as the original's inlined new / delete do.
 gsl::owner<Struct*> spawn_param_bag()
 {
-    void* memory = script::struct_pools().carve(kParamBagBytes);
+    void* memory = script::struct_pools().carve(sizeof(script::Struct));
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 

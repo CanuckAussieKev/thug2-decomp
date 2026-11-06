@@ -1,6 +1,7 @@
 // A scene's mesh list and materials: see mesh_list.h.
 
 #include "render_pc/mesh_list.h"
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
 
@@ -58,7 +59,8 @@ void unlock_indices(void* buffer) { static_cast<IdxStore*>(buffer)->get_unlock()
 void release_index_buffer(void* buffer) { static_cast<IdxStore*>(buffer)->teardown(); }
 gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    gsl::owner<void*> memory = crt::alloc_block(kIndexStoreBytes); // (the renderer's operator new: a jump to the C runtime's malloc)
+    static_assert(core::layout_32bit(sizeof(IdxStore) == kIndexStoreBytes), "the original allocates this many bytes");
+    gsl::owner<void*> memory = crt::alloc_block(sizeof(IdxStore)); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory) {
         return nullptr;
     }
@@ -188,7 +190,7 @@ void SceneRef::update_sphere()
 void SceneRef::allocate_mesh_list()
 {
     if (mesh_count_ > 0) {
-        meshes_ = static_cast<MeshRef**>(memory::alloc(mesh_count_ * 4));
+        meshes_ = static_cast<MeshRef**>(memory::alloc(mesh_count_ * memory::kPointerBytes));
     }
 }
 

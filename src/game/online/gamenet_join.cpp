@@ -699,7 +699,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         context->sender_conn()->mark_stale();
         return net::kResultStop;
     }
-    void* memory = memory::alloc_zeroed(kPlayerInfoSize);
+    void* memory = memory::alloc_zeroed(sizeof(JoinerRecord));
     auto* player = memory ? memory::construct_in<JoinerRecord>(memory) : nullptr;
     Expects(player != nullptr);
     std::strncpy(player->label().data(), msg->name.data(), kNameSize - 1);

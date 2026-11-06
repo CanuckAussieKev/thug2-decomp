@@ -996,7 +996,7 @@ bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const a
         event_count_ = static_cast<int16_t>(header.custom_key_count);
         return true;
     }
-    events_ptr_ = memory::adopt<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
+    events_ptr_ = memory::adopt<UserClipKey**>(memory::alloc_block(header.custom_key_count * memory::kPointerBytes));
     const std::span<UserClipKey*> made(events_ptr_, header.custom_key_count);
     util::ByteReader reader = anim_format::custom_key_reader(layout);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {

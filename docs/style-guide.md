@@ -250,6 +250,12 @@ exceptions, all in one place:
   object it visits.
 - **Pools** (`memory::PoolPair`, `SlabBank`) are sized by `sizeof` of what they hold; a pool's `carve` refuses an
   object bigger than its items (a class that grew past the original's byte size ends the game with a report).
+- **Allocations of a record or of pointers are sized by `sizeof`**, never by the original's byte count: a record's
+  block is `alloc(sizeof(T))` with the original's size asserted beside it on the 32-bit build
+  (`static_assert(core::layout_32bit(sizeof(T) == kTBytes))`), an array of pointers `count * memory::kPointerBytes`
+  (the original's `count * 4`), a record made in stack bytes `alignas(T) std::array<uint8_t, sizeof(T)>`. A fixed
+  region's or heap's size goes through `memory::sizes::region_bytes` (the original's on the 32-bit build, twice it
+  on x64).
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
 - **Constructor bodies in the original's order**: members are initialised in the list or by a default member

@@ -117,8 +117,8 @@ double capsule_volume(const maths::Capsule& capsule)
 // The array of `count` volumes, zeroed (no memory: a crash, as the original).
 BoneVolume** new_volume_array(uint32_t count)
 {
-    auto* volumes = static_cast<BoneVolume**>(memory::alloc(count * 4));
-    std::memset(static_cast<void*>(volumes), 0, count * 4);
+    auto* volumes = static_cast<BoneVolume**>(memory::alloc(count * memory::kPointerBytes));
+    std::memset(static_cast<void*>(volumes), 0, count * memory::kPointerBytes);
     return volumes;
 }
 
