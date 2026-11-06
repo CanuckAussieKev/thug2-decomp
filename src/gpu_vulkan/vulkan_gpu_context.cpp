@@ -214,13 +214,14 @@ Usable usable(int device_index)
     return {.usable = probe.usable, .device = std::move(probe.device), .problem = std::move(probe.problem)};
 }
 
-void configure(int device_index, const std::string& cache_folder)
+void configure(const Choices& choices)
 {
     Backend& state = backend();
     const std::scoped_lock lock(state.mutex);
-    state.options.device_index = device_index;
+    state.options.device_index = choices.device_index;
+    state.options.validation = choices.validation;
     state.options.on_message = log_message;
-    state.cache_folder = cache_folder;
+    state.cache_folder = choices.cache_folder;
 }
 
 void set_context_options(const ContextOptions& options, SDL_Window* window)

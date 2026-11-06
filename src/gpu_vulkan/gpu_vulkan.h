@@ -31,8 +31,14 @@ struct Usable {
 };
 Usable usable(int device_index);
 
-// Before the context is made: the physical device to use (-1: the best) and the folder the shader and pipeline caches
-// are kept in (ending in a separator; empty: none kept).
-void configure(int device_index, const std::string& cache_folder);
+// Before the context is made: the physical device to use (-1: the best), the folder the shader and pipeline caches are
+// kept in (ending in a separator; empty: none kept), and whether to use the Khronos validation layer when it can be
+// loaded (its messages go to the log).
+struct Choices {
+    int device_index = -1;
+    std::string cache_folder;
+    bool validation = false;
+};
+void configure(const Choices& choices);
 
 } // namespace render::vulkan
