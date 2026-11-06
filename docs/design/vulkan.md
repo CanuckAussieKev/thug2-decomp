@@ -592,7 +592,8 @@ Direct3D 9 (V7).
   first); a slot is reset before the stream of a submission that hasn't used it; a result is given once its submission
   is known to have finished (a slot used before may still hold an earlier result).
 - **Not yet** (V8-V10): the UI backend refuses to start on Vulkan (logged once): the editor uses its old HUD and the new
-  front end isn't drawn, which is safe - both check that the backend started. The gamma ramp is kept, not applied.
+  front end isn't drawn, which is safe - both check that the backend started. The gamma ramp is kept, not applied
+  (applied since V8).
   Movies and the loading screens draw through the same `Gpu` and run (the loading screen's timer thread under the
   backend's lock), as they are; V10 decides how they should.
 - **Measured** (foun, the Debug build, the screenshot spot): about 370 draws and 12 passes a frame, 30-33 ms a frame
@@ -603,12 +604,42 @@ Direct3D 9 (V7).
 - **Compared with Direct3D 9** at the screenshot spot: the world, its textures and lighting, the skater and the HUD
   draw the same; the Vulkan picture is brighter overall (Direct3D 9's pixels are about 0.88
   of Vulkan's, a uniform scale - a full-screen pass Vulkan doesn't draw the same yet, to be found in V8) and the
-  skater's texture shadow is missing (texture shadows: V8). Both GPUs here (NVIDIA RTX 5070 Ti, AMD Radeon iGPU) draw it;
+  skater's texture shadow is missing (texture shadows: V8). (Both found and fixed in V8, below.) Both GPUs here (NVIDIA RTX 5070 Ti, AMD Radeon iGPU) draw it;
   they differ from each other by 0.6 of 255 on average.
 - **The check**: `thug2_vulkan_gpu_check` draws end to end too - a clear that opens the back buffer's pass, a
   pre-transformed strip and an indexed draw from memory read back pixel for pixel, an occlusion query's count: 109
   checks on both GPUs. The Khronos validation layer still can't run: the SDK installed here has only a 64-bit layer, and
   the game is a 32-bit process (the context leaves a layer that can't be loaded out).
+
+### V8: the effects at parity (done)
+
+- **The brighter picture was the bloom.** The screen effects draw from the target they drew into just before (the
+  quarter-size copy into the cut-off, the cut-off into the blur, each blur pass into the next). The pass on the earlier
+  target was still open when the next draw chose its textures, so the texture was taken for one sampled while drawn into
+  and the blank white one used instead: the blur passes wrote their vertex colours, and the bloom added an even grey over
+  the whole frame (about 13%). A draw on other targets now ends the open pass before its textures are chosen. On both
+  backends the bloom at the screenshot spot in foun now adds nothing (its cut-off, 0.94, is above every texel of the
+  half-brightness copy), as Direct3D 9's always did.
+- **Texture shadows** were drawn into a viewport of the screen's size and clipped away: Direct3D 9's `SetRenderTarget`
+  resets the viewport to the whole of the new target 0 and the game relies on it (the shadow textures, the screen copies
+  and the back buffer get no viewport of their own); the Vulkan `Gpu` now does the same. The game's shadow textures are
+  colour render targets drawn with the casters' colour, not depth textures, so no comparison sampling is needed.
+- **The gamma ramp**: Direct3D 9 gives a swap chain's ramp to the display hardware in full screen only (in a window it is
+  ignored without an error); each channel's 8-bit value is looked up in its 256 entries and the entry's top 8 bits shown.
+  In full screen, and only when the ramp changes something (the game's default doesn't), the present puts the frame
+  through a lookup pass first: copied into a sampled image, drawn through the ramp into another, copied into the
+  swapchain's image. Full-screen passes have their own pipelines (`Pipelines::screen_pass`: a triangle from three
+  vertices without a vertex buffer, the draws' pipeline layout).
+- **The swapchain**: each present compares the surface's current extent with the swapchain's (not every driver reports a
+  minimised or resized window as out of date) and makes it again when they differ - none while minimised.
+- **Compared with Direct3D 9** (the Debug build, NVIDIA RTX 5070 Ti, `msaa=8`, five spots: foun's screenshot spot and
+  the free-skate starts of z_ho, BO, sch and z_dt): mean channel differences 0.29-0.51 of 255, 0.6-1.1% of the pixels by
+  more than 8; no uniform difference left (mean signed differences 0.07-0.26). What is left: the edges of the
+  multisampled scene (the two APIs' 8-sample patterns and resolves differ by a pixel's share along every edge) and
+  whatever moves with time (animated machinery, traffic lights, screens, pedestrians and the skater's idle pose differ
+  between runs on Direct3D 9 too). The skater's shadow, the bloom, the sun's glow and the lights' glows draw on both.
+- **The checks**: `thug2_vulkan_gpu_check` adds the viewport after `set_render_target`, a target drawn from straight
+  after its pass, and the gamma pass (the identity ramp makes none; a halving ramp halves a target's pixels).
 
 ## Ray tracing: what it needs on top
 
@@ -643,7 +674,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 - done: `render_pc` (118 files, `thug2_render_pc`), `gpu_d3d9` (11 files, `thug2_gpu_d3d9`); `render_vulkan` kept its name until V6 put the Vulkan `Gpu` in it (renamed `gpu_vulkan` then) |
 | V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 - done: the Vulkan `Gpu` and `GpuContext` (nothing drawn), `thug2_vulkan_gpu_check`; the pixel shaders' assembly and the screen shot's JPEG became `Gpu` operations |
 | V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 - done: foun drawn and skated with `renderer=vulkan` on both GPUs here; passes, frames in flight, batched uploads, deferred deletion, the present; `[Graphics] vulkan_device` |
-| V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 |
+| V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 - done: the bloom's blank textures (the brighter picture) and the shadow textures' viewport fixed, the gamma pass in full screen, the swapchain following the surface; five spots compared with Direct3D 9 |
 | V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 |
 | V10 | Movies, loading screens, screenshots and the editor's methods on Vulkan | V7, V5e | after stage 11 |
 | V11 | Parity: a screenshot comparison between the two backends at the same spot and frame (the automation channel's teleport and capture), with each backend's run-to-run noise as the baseline; the front end, the editor, five levels; frame times | V8-V10 | after stage 11 |
