@@ -4,6 +4,8 @@
 
 #include <windows.h>
 
+#include <cstdint>
+
 struct SDL_Window;
 
 // The game's window on PC: an SDL window ([Graphics] in thug2-decomp.ini: ResolutionX / ResolutionY - 0 = the
@@ -12,10 +14,14 @@ struct SDL_Window;
 // device at its size, windowed or not.
 namespace sys {
 
+// The graphics API the window is made for: Vulkan's needs SDL's Vulkan window flag (NOT ORIGINAL; chosen by the app's
+// renderer selection, app/renderer_choice.h).
+enum class WindowApi : uint8_t { kDirect3D9, kVulkan };
+
 // Read the settings, make the window (WinMain) and show it; the cursor hidden; the game's focus flag (0x007CCBE4) set.
-// Returns the window's Win32 handle. (WinMain registers the handler of its focus events first: they set the focus
+// `api` adds the Vulkan flag for a Vulkan window. Returns the window's Win32 handle. (WinMain registers the handler of its focus events first: they set the focus
 // flag and allow / stop device recreation, 0x00786AB4.)
-HWND create_sdl_window();
+HWND create_sdl_window(WindowApi api = WindowApi::kDirect3D9);
 // The window's Win32 handle where WinMain keeps it (the original's 0x007D6A28; null before the window is made): the
 // device is made for it, DirectSound and DirectInput cooperate with it.
 HWND& game_window();

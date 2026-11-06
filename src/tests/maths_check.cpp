@@ -16,6 +16,7 @@
 #include <random>
 #include <span>
 
+#include "tests/no_error_dialogs.h"
 #include "base/maths/trig.h"
 #include "base/core/parse_number.h"
 #include "base/core/checked_index.h"
@@ -2010,6 +2011,7 @@ void view_maths(int count, std::mt19937_64& random)
 
 int main(int argc, char** argv)
 {
+    tests::no_error_dialogs();
 #if defined(_MSC_VER) && defined(_M_IX86) // (the x87 reference: MSVC's inline assembly, 32-bit x86)
     const std::span<char*> arguments(argv, static_cast<size_t>(argc));
     const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;

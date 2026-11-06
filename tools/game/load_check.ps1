@@ -1,5 +1,5 @@
 param([Parameter(Mandatory = $true)][string]$Game, [Parameter(Mandatory = $true)][string[]]$Levels,
-      [int]$Seconds = 50, [string]$ShotDir = '')
+      [int]$Seconds = 50, [string]$ShotDir = '', [string]$Renderer = '')
 # Loads each named level into free skate in the -Game folder and reports whether it loaded and ran without errors:
 #   load_check.ps1 -Game C:\Games\THUG2-2 -Levels thaw_dt, thaw_ma
 # Take the folder's lock first (game_lock.ps1). Each level: run_game.ps1 starts the game with -level <name> (straight
@@ -13,7 +13,7 @@ if (-not $ShotDir) { $ShotDir = Join-Path $env:TEMP 'thug2-shots' }
 $log = Join-Path $Game 'thug2-decomp.log'
 foreach ($l in $Levels) {
     Remove-Item $log -ErrorAction SilentlyContinue
-    $r = & "$PSScriptRoot\run_game.ps1" -Game $Game -Seconds $Seconds -Shot $l -ShotDir $ShotDir -Level $l
+    $r = & "$PSScriptRoot\run_game.ps1" -Game $Game -Seconds $Seconds -Shot $l -ShotDir $ShotDir -Level $l -Renderer $Renderer
     $text = Get-Content $log -ErrorAction SilentlyContinue
     # (case-sensitive: the scripts' SetOnExceptionScript lines aren't errors; the reports: src/platform/crash.h)
     $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|^INVALID PARAMETER|^PURE VIRTUAL CALL|^ABORT|^BUFFER OVERRUN|^GAME CRT MESSAGE|SELFTEST' |

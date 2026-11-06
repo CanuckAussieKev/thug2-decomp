@@ -51,7 +51,7 @@ class Struct;
 //   level_editor_ui.cpp       the UI (Dear ImGui, level_editor_ui.h): a toolbar, the Outliner, the Inspector, a status
 //                             bar, the help (F1), the browser (B) and the autosave offer; the lines and gizmos drawn
 //                             through its draw list. level_editor_ui_backend.cpp is its way to ImGui's backends
-//                             (render::UiBackend; Direct3D 9's in render_d3d9); level_editor_ui_layout.cpp the
+//                             (render::UiBackend; Direct3D 9's in gpu_d3d9); level_editor_ui_layout.cpp the
 //                             layout and input routing (pure); engine/ui/ui_fonts.cpp Inter and JetBrains Mono in the exe
 //   level_editor_nodes.cpp    the node layer: every node of the level's node arrays in families (spawns, crowns,
 //                             flags, rails, ladders, paths, objects, scenery, lights, sounds, particles, triggers,
@@ -80,7 +80,7 @@ class Struct;
 //                             walls deleted (Delete) / restored and moved / turned, a drawn piece's collision off by
 //                             itself (the Inspector's Collision); undo, `wall` layout records
 //   level_editor_overlays.cpp the toolbar's View menu (Lit / Unlit / Wireframe / Collision only, Alt+1..4 - drawn by
-//                             render_d3d9/view_mode.h) and Overlays menu (every overlay's checkbox, [editor] overlays=);
+//                             render_pc/view_mode.h) and Overlays menu (every overlay's checkbox, [editor] overlays=);
 //                             level_editor_arcs.cpp jump arcs off the selected scenery's lips (Y),
 //                             level_editor_grind_preview.cpp the rail under the cursor whole, level_editor_ruler.cpp
 //                             the ruler (M), level_editor_thumbs.cpp the Add palette's thumbnail grid, Recent, Favourites

@@ -2,11 +2,11 @@
 
 // NOT ORIGINAL - render::Device: what the engine side asks of the graphics backend. The backend is the original's PC
 // platform layer (the engine's s_plat_* calls and what they reach, 0x004B2270-0x004E0A90, with the Direct3D files of
-// our own: src/render_d3d9, which the engine neither includes nor links; the comments below name its files); the
+// our own: src/render_pc, which the engine neither includes nor links; the comments below name its files); the
 // engine side is everything above it - the engine's own entry points, the scenes, models, effects and
 // lights as the engine sees them, the scripts, the game. Every call the engine side makes into the backend for a
 // frame, a resource, a state block or a draw batch goes through the one installed device; app/ makes it and installs
-// it at start-up (install_device), a run-time choice - Direct3D 9's (render_d3d9/d3d9_device.h) is the only one so far.
+// it at start-up (install_device), a run-time choice - Direct3D 9's (render_pc/d3d9_device.h) is the only one so far.
 // The interface is shaped so that another backend (Vulkan) can stand in: resources are made explicitly and given
 // back, states are set as the engine groups them (the fog, the gamma, the primitives' states), the frame is begun,
 // drawn and finished as a whole, and a lost device is reset by the engine's main loop in steps.
@@ -245,7 +245,7 @@ public:
     // --- what our level editor asks of the backend (NOT ORIGINAL: editor/; one call per frame, per view or per edit) ---
     // Whether the device is made (the editor draws nothing before).
     [[nodiscard]] virtual bool device_made() = 0;
-    // The editor's view mode (view_modes.h; render_d3d9/view_mode.h draws it).
+    // The editor's view mode (view_modes.h; render_pc/view_mode.h draws it).
     virtual void set_view_mode(view_mode::Mode mode) = 0;
     // Lines over the frame, a pair of vertices each, in the vertices' colours: no texture, no pixel shader, the
     // renderer's cached state kept and the texture stage it changes put back after (the editor's old HUD).
@@ -258,7 +258,7 @@ public:
     // A PC geom's instance (its record's first part; null: none, or another kind) and its own active flag.
     [[nodiscard]] virtual InstanceData* geom_instance(const Geom* geom) = 0;
     [[nodiscard]] virtual bool geom_active(const Geom* geom) = 0;
-    // Buffers for a sector's mesh as MeshRef::replicate makes them (render_d3d9/sub_mesh.h; null without memory): a
+    // Buffers for a sector's mesh as MeshRef::replicate makes them (render_pc/sub_mesh.h; null without memory): a
     // vertex buffer of `bytes` (a copy in memory and the card's), an index buffer of `bytes`; their copies written to the
     // card; each destroyed (the card's buffer released, the copy and itself freed).
     virtual gsl::owner<VertexBufferData*> create_vertex_buffer(uint32_t bytes) = 0;

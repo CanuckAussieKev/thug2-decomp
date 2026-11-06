@@ -1,10 +1,12 @@
 param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$Game = 'C:\Games\THUG2',
       [string]$ShotDir = '', [string]$Level = '', [string[]]$Commands = @(),
-      [switch]$WaitReady, [string]$Run = '', [int]$HangSeconds = 45)
+      [switch]$WaitReady, [string]$Run = '', [int]$HangSeconds = 45, [string]$Renderer = '')
 # A game in trouble (game_health.ps1: it crashed - exit code not 0 -, Windows Error Reporting runs for it, it shows a
 # dialog, or its window hasn't responded for -HangSeconds) is noticed while waiting, closed (WM_CLOSE, then killed),
 # and reported with the end of its log - also appended to <folder>\thug2-decomp-crashes.txt. Exit code 5 then.
 # -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front_end/start_level.h).
+# -Renderer d3d9|vulkan: [Graphics] renderer= written in a workspace's ini first (Vulkan is the default renderer: a
+#                       Direct3D 9 test run says -Renderer d3d9). Never in the main install.
 # Commands (the test-automation channel, src/devtools/automation.h - [features] automation=1, set in the workspaces):
 #   -Commands "waitfor ready","choose menu_singlesess",...: written to <folder>\thug2-decomp-commands.txt before the
 #                       game starts; the run waits until the game has done them (its status file) - -Seconds is then
@@ -53,6 +55,13 @@ $gameArgs = @()
 if ($Level) { $gameArgs += @('-level', $Level) }
 if ($Run) { $gameArgs += @('-run', $Run) }
 Set-WorkspaceMuted $Game  # (a workspace's games always run muted: [features] mute_audio=1)
+if ($Renderer) {
+    if (-not (Test-Workspace $Game)) { "-Renderer is for the workspaces only - $Game's ini left alone"; exit 2 }
+    if ($Renderer -notin @('d3d9', 'vulkan')) { "-Renderer d3d9 or vulkan, not $Renderer"; exit 2 }
+    $iniPath = Join-Path $Game 'thug2-decomp.ini'
+    $iniText = if (Test-Path $iniPath) { [IO.File]::ReadAllText($iniPath) } else { '' }
+    [IO.File]::WriteAllText($iniPath, (Set-IniValue $iniText 'Graphics' 'renderer' $Renderer))
+}
 $started = [Diagnostics.Stopwatch]::StartNew()
 $startTime = Get-Date
 if ($gameArgs.Count) { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -ArgumentList $gameArgs -PassThru }

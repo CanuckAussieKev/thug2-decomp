@@ -34,7 +34,8 @@
 #include "app/startup.h"
 #include "app/pc_setup.h"
 #include "engine/pad_input/input_setup.h"
-#include "render_d3d9/device.h"
+#include "render_pc/device.h"
+#include "app/renderer_choice.h"
 #include "engine/pad_input/port_controls.h"
 #include "platform/platform_system.h"
 #include "platform/process_flags.h"
@@ -399,7 +400,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     //     create_game_window(<the title> as the class name, title, 100, {.width = 100, .height = 640}, 480, get_window_proc 0x004E16B0,
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
     os_layer::register_event_handler(handle_window_event);
-    sys::game_window() = create_sdl_window();
+    sys::game_window() = create_sdl_window(app::renderer_window_api());
     os_layer::process_window_events();
     if (!sys::game_window()) {
         return 0;

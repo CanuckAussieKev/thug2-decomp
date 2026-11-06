@@ -19,7 +19,7 @@ test("folders belong to the library of their longest prefix", () => {
     const map = loadMap();
     assert.equal(libraryOf(map, "src/base/core/str.cpp"), "base");
     assert.equal(libraryOf(map, "src/engine/gfx/engine.cpp"), "engine");
-    assert.equal(libraryOf(map, "src/render_d3d9/geom.cpp"), "render_d3d9");
+    assert.equal(libraryOf(map, "src/render_pc/geom.cpp"), "render_pc");
     assert.equal(libraryOf(map, "src/game/rider/rider.h"), "game");
     assert.equal(libraryOf(map, "src/app/main.cpp"), "app");
     assert.equal(libraryOf(map, "docs/x.h"), undefined);

@@ -15,6 +15,7 @@
 #include <vector>
 #include <array>
 
+#include "tests/no_error_dialogs.h"
 #include "base/core/parse_number.h"
 #include "base/core/checked_index.h"
 #include "base/core/field_reader.h"
@@ -180,6 +181,7 @@ void check_fields(const std::string& text)
 
 int main(int argc, char** argv)
 {
+    tests::no_error_dialogs();
     const std::vector<std::string> fixed = {
         "", " ", "0", "-0", "+0", "1", "-1", "+1", "42", "  42", "\t\n\v\f\r 42", "42abc", "abc", "-", "+", "--1",
         "+-1", "-+1", " - 1", "2147483647", "2147483648", "-2147483648", "-2147483649", "99999999999999999999",

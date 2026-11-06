@@ -1,0 +1,129 @@
+{
+  "_about": "The spots tools/game/renderer_parity.ts compares between renderer=d3d9 and renderer=vulkan: the five smoke levels (the skater stood still with `teleport`, the camera held with `camera` - poses from screenshot sidecars), the new front end's menus, the level editor (a window picture), and a frame-time run in each level (the camera drifting for 900 frames). The exp groups need a measuring build (--exp-build) that dumps movie and loading-screen frames into THUG2_EXP_DIR and starts in the view mode THUG2_EXP_VIEW; without one, leave them out with --groups.",
+  "groups": [
+    {
+      "name": "foun",
+      "level": "foun",
+      "spots": [
+        { "name": "foun-shot", "commands": ["teleport -4087.3 -390 2386.6 -177.3", "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949", "wait 120"] },
+        { "name": "foun-sky", "commands": ["camera -4080.9 -293.7 2523.3 0.6 0.35 -0.72", "wait 60"] },
+        { "name": "foun-deck", "commands": ["teleport -3568.4 -202 -959.1 105", "camera off", "wait 150"] }
+      ],
+      "commands": ["teleport -4087.3 -390 2386.6 -177.3", "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.4 0 0.4", "wait 30"],
+      "frametime": 900
+    },
+    {
+      "name": "z_dt",
+      "level": "z_dt",
+      "spots": [
+        { "name": "z_dt-street", "commands": ["teleport -1420.8 6.0 2407.4 99.9", "camera -1338.5 83.4 2291.3 -0.570 -0.178 0.802", "wait 120"] },
+        { "name": "z_dt-back", "commands": ["camera -1338.5 83.4 2291.3 0.570 -0.05 -0.802", "wait 60"] }
+      ],
+      "commands": ["camera -1338.5 83.4 2291.3 -0.570 -0.178 0.802 0.4 0 0.4", "wait 30"],
+      "frametime": 900
+    },
+    {
+      "name": "BO",
+      "level": "BO",
+      "spots": [
+        { "name": "BO-yard", "commands": ["teleport 1029.6 286.2 -2171.4 53.2", "camera 1003.8 308.6 -1989.1 0.158 0.145 -0.977", "wait 120"] },
+        { "name": "BO-up", "commands": ["teleport 695.8 396.8 -2719.6 0.3", "camera 877.5 348.8 -2724.2 -0.898 0.438 0.031", "wait 120"] },
+        { "name": "BO-far", "commands": ["teleport 2882.2 131.3 -2114.5 114.1", "camera 2980.2 212.8 -1996.2 -0.626 -0.191 -0.756", "wait 120"] }
+      ],
+      "commands": ["camera 1003.8 308.6 -1989.1 0.158 0.145 -0.977 0.4 0 -0.4", "wait 30"],
+      "frametime": 900
+    },
+    {
+      "name": "z_ho",
+      "level": "z_ho",
+      "spots": [
+        { "name": "z_ho-start", "commands": ["teleport -2785.2 -220.1 2824.3 52.8", "camera -2639.7 -154.6 2904.4 -0.768 -0.144 -0.624", "wait 120"] },
+        { "name": "z_ho-turn", "commands": ["teleport -2309.0 -240.0 3162.6 -158.1", "camera -2430.9 -159.5 3232.0 0.851 -0.202 -0.485", "wait 120"] }
+      ],
+      "commands": ["camera -2639.7 -154.6 2904.4 -0.768 -0.144 -0.624 -0.4 0 -0.4", "wait 30"],
+      "frametime": 900
+    },
+    {
+      "name": "sch",
+      "level": "sch",
+      "spots": [
+        { "name": "sch-court", "commands": ["teleport 1584.1 -413.5 1433.4 165.2", "camera 1580.0 -364.8 1601.2 0.026 0.008 -1.000", "wait 120"] },
+        { "name": "sch-trees", "commands": ["teleport 1320.4 -474.7 1567.1 -10.1", "camera 1172.1 -395.9 1586.3 0.976 -0.179 -0.126", "wait 120"] }
+      ],
+      "commands": ["camera 1580.0 -364.8 1601.2 0.026 0.008 -1.000 0.4 0 0.4", "wait 30"],
+      "frametime": 900
+    },
+    {
+      "name": "frontend",
+      "commands": [
+        "waitfor ready 300",
+        "wait 120",
+        "capture 1 fe-main",
+        "choose menu_newfe_options",
+        "wait 90",
+        "capture 1 fe-options",
+        "fe press back",
+        "wait 60",
+        "choose menu_createamodes",
+        "wait 90",
+        "capture 1 fe-create",
+        "press circle 3",
+        "wait 60",
+        "choose menu_singlesess",
+        "wait 120",
+        "capture 1 fe-skater",
+        "choose select_skater_hmenu",
+        "wait 120",
+        "capture 1 fe-mode",
+        "choose ss_play_level",
+        "wait 150",
+        "capture 1 fe-levels"
+      ]
+    },
+    {
+      "name": "editor",
+      "ini": { "features.edit_level": "foun" },
+      "seconds": 75,
+      "window": true
+    },
+    {
+      "name": "unlit",
+      "exp": true,
+      "level": "foun",
+      "env": { "THUG2_EXP_VIEW": "1" },
+      "spots": [{ "name": "unlit-shot", "commands": ["teleport -4087.3 -390 2386.6 -177.3", "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949", "wait 120"] }]
+    },
+    {
+      "name": "wireframe",
+      "exp": true,
+      "level": "foun",
+      "env": { "THUG2_EXP_VIEW": "2" },
+      "spots": [{ "name": "wireframe-shot", "commands": ["teleport -4087.3 -390 2386.6 -177.3", "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949", "wait 120"] }]
+    },
+    {
+      "name": "collision",
+      "exp": true,
+      "level": "foun",
+      "env": { "THUG2_EXP_VIEW": "3" },
+      "spots": [{ "name": "collision-shot", "commands": ["teleport -4087.3 -390 2386.6 -177.3", "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949", "wait 120"] }]
+    },
+    {
+      "name": "movies",
+      "exp": true,
+      "ini": { "features.skip_intro_movies": "0" },
+      "env": { "THUG2_EXP_MOVIE_FRAMES": "30,120,300", "THUG2_EXP_DIR": "{dir}", "THUG2_EXP_TAG": "x" },
+      "seconds": 300,
+      "collect": true,
+      "commands": ["waitfor ready 600"]
+    },
+    {
+      "name": "loads",
+      "exp": true,
+      "level": "foun",
+      "env": { "THUG2_EXP_LOAD_EVERY": "6", "THUG2_EXP_DIR": "{dir}\\", "THUG2_EXP_TAG": "x" },
+      "seconds": 300,
+      "collect": true,
+      "commands": ["level z_dt", "waitfor level z_dt 300", "level sch", "waitfor level sch 300"]
+    }
+  ]
+}

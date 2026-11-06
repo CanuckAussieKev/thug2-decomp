@@ -53,7 +53,7 @@ bool prepare_all()
         return false;
     }
     if (started == render::UiStart::kDeviceRefused) {
-        get_log("level editor UI: ImGui's Direct3D 9 backend refused the device");
+        get_log("level editor UI: ImGui's renderer backend (%s) refused the device", render::ui_backend().describe());
         return false;
     }
     get_log("level editor UI: Dear ImGui %s on %s", ImGui::GetVersion(), render::ui_backend().describe());

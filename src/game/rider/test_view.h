@@ -63,7 +63,7 @@ struct CameraHold {
 bool lock_camera(const CameraHold& hold);
 void unlock_camera();
 bool camera_locked();
-// The renderer, a viewport's camera before it's drawn (render_d3d9/draw_frame.cpp): placed while locked.
+// The renderer, a viewport's camera before it's drawn (render_pc/draw_frame.cpp): placed while locked.
 void place_camera(gfx::ViewCam* camera, int viewport);
 // TeleportSkaterStanding (sys/main.cpp, after the game's own commands).
 void register_script_functions();

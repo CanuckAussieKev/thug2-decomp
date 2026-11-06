@@ -62,10 +62,12 @@ src/
               the network transport seam (engine/net/transport.h; its in-process loopback, loopback_transport.h);
               script is the script data model (structures, arrays, symbols, loading .qb files), the running
               scripts' record and the script host seam (engine/script/host.h) (library thug2_engine)
-  render_d3d9/ the graphics backend, Direct3D 9: the original's PC platform layer (the device, scenes, meshes,
+  render_pc/ the graphics backend's API-neutral half: the original's PC platform layer (the device, scenes, meshes,
               textures, materials, shaders, screen effects, 2D and text, movies' frames, the loading screen) and the
-              GPU's vertex and index buffers, D3DX's last calls; it implements render::Device and render::UiBackend
-              (library thug2_render_d3d9, included and linked by app/ only)
+              vertex and index buffers; it implements render::Device over render::Gpu (library thug2_render_pc,
+              included and linked by app/ only)
+  gpu_d3d9/  Direct3D 9's render::Gpu, render::GpuContext and render::UiBackend, and D3DX (library thug2_gpu_d3d9,
+              included and linked by app/ only)
   audio_dsound/ the sound backend, DirectSound: the output and the voices; it implements audio::Device (library
               thug2_audio_dsound, included and linked by app/ only)
   media_bink/ the movie codec, Bink (the player's binkw32.dll): the movies and the music / sound streams; it

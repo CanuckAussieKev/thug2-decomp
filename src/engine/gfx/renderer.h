@@ -17,7 +17,7 @@
 // NOT ORIGINAL - the renderer's state (the original's globals): what the device can do (DeviceCaps), the display drawn
 // to (DisplaySettings), the frames' counters and clocks (FrameCounters), the camera's view (ViewState), the fog
 // (FogState) and the render state the device was last sent (PassState) - each a class of its own, held by value. No
-// graphics API's type: the Direct3D objects themselves are in render_d3d9/d3d9_state.h, for the files that talk to
+// graphics API's type: the Direct3D objects themselves are in gpu_d3d9/d3d9_state.h, for the files that talk to
 // Direct3D; a backend fills the device's capabilities and the display, and PassState is the D3D9 backend's own.
 namespace render {
 

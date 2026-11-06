@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // The materials' blend modes and the meshes' vertex formats as the scene data stores them (a pass's blend word, a
-// mesh's flexible vertex format): what the renderer draws them with (render_d3d9/render_state.h) and what the level
+// mesh's flexible vertex format): what the renderer draws them with (render_pc/render_state.h) and what the level
 // editor reads of a material or a mesh.
 namespace render {
 
@@ -24,6 +24,8 @@ constexpr int kBlendModePrimitive = 0x11; // choose_blend_mode: what the primiti
 constexpr int kBlendModeMask = 0xFFFFFF;  // a pass's blend mode in its blend word (the top byte: its fixed alpha, flags)
 
 // The flexible vertex format's bits the renderer and the editor read (D3DFVF_*).
+constexpr uint32_t kFvfXyz = 0x002U;
+constexpr uint32_t kFvfXyzRhw = 0x004U; // pre-transformed (screen) positions
 constexpr uint32_t kFvfNormal = 0x010U;
 constexpr uint32_t kFvfDiffuse = 0x040U;
 constexpr uint32_t kFvfSpecular = 0x080U;

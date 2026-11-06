@@ -1,6 +1,6 @@
 #pragma once
 
-// NOT ORIGINAL - media::Movie: what the engine asks of the movie codec. The game's movies (render_d3d9/movie.cpp:
+// NOT ORIGINAL - media::Movie: what the engine asks of the movie codec. The game's movies (render_pc/movie.cpp:
 // the start-up logos, the intro, the cutscene movies) and its music and sound streams (engine/audio/bink_stream*.cpp:
 // sound-only movie files, from a path, an open file handle or memory) are Bink files, played by binkw32.dll - the
 // player's own copy, looked up by name on first use (media_bink/bink.h). The engine opens, decodes, steps, seeks and

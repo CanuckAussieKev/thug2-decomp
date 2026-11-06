@@ -15,6 +15,7 @@
 #include <string_view>
 #include <vector>
 
+#include "tests/no_error_dialogs.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 
@@ -333,6 +334,7 @@ void check_texts()
 
 int main()
 {
+    tests::no_error_dialogs();
     check_integers();
     check_floats();
     check_texts();

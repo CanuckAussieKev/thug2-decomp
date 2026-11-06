@@ -52,7 +52,9 @@ test("the editor, the front end, the game and the engine read input through the 
             !name.startsWith("platform/") &&
             name !== "engine/pad_input/sdl_input.cpp" &&
             // (the screenshot's sidecar notes where the mouse is over the game window: a dev tool's note on the window)
-            name !== "devtools/screenshot.cpp",
+            name !== "devtools/screenshot.cpp" &&
+            // (the Vulkan context check is a program of its own with its own window: it pumps that window's events)
+            name !== "tests/vulkan_context_check.cpp",
     );
     assert.deepEqual(outside, []);
     assert.ok(readers.includes("engine/pad_input/sdl_input.cpp"), "the SDL source reads SDL's input");

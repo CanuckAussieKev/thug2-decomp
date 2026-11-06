@@ -83,9 +83,23 @@ switch ($Action) {
             exit 1
         }
         $had = @(Get-Content (Join-Path $lock 'deployed.txt') -ErrorAction SilentlyContinue | Where-Object { $_ })
+        # (a game that has just exited can hold its exe open for a moment: each copy tried again for up to 10 s, and
+        # the lock - with its backups - kept if one still fails)
+        $failed = @()
         foreach ($f in $DeployedFiles) {
-            if ($f -in $had) { Copy-Item (Join-Path $lock "$f.backup") (Join-Path $game $f) -Force }
-            elseif (Test-Path (Join-Path $game $f)) { Remove-Item (Join-Path $game $f) -Force }
+            $done = $false
+            for ($try = 0; $try -lt 20 -and -not $done; $try++) {
+                try {
+                    if ($f -in $had) { Copy-Item (Join-Path $lock "$f.backup") (Join-Path $game $f) -Force -ErrorAction Stop }
+                    elseif (Test-Path (Join-Path $game $f)) { Remove-Item (Join-Path $game $f) -Force -ErrorAction Stop }
+                    $done = $true
+                } catch { Start-Sleep -Milliseconds 500 }
+            }
+            if (-not $done) { $failed += $f }
+        }
+        if ($failed.Count) {
+            "NOT RELEASED - $($failed -join ', ') couldn't be put back (in use?); the lock and its backups are kept: release again"
+            exit 1
         }
         Copy-Item (Join-Path $lock 'thug2-decomp.ini.backup') (Join-Path $game 'thug2-decomp.ini') -Force
         Remove-Item $lock -Recurse -Force

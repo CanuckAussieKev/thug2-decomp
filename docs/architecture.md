@@ -13,7 +13,9 @@ tables) that the two exes share, each adding its own extension list.
 app/                        main, WinMain, the start-up, the game's main, the two exes' extension lists: the composition (may include anything)
 editor/  frontend/  devtools/   the level editor; the new front end and mouse menus; the developer tools
 game/                       skating, the rider, goals, parks, saves, the online session (game/online)
-render_d3d9/                the graphics backend: Direct3D 9 (the original's PC platform layer); only app/ includes it
+render_pc/                the graphics backend's API-neutral half: the original's PC platform layer over render::Gpu; only app/ includes it
+gpu_d3d9/                 Direct3D 9's Gpu, GpuContext and UiBackend, D3DX; only app/ includes it
+gpu_vulkan/               Vulkan's Gpu and GpuContext (renderer=vulkan: design/vulkan.md); only app/ includes it
 audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
@@ -163,7 +165,7 @@ graph TD
     devtools[thug2_devtools]
     game[thug2_game]
     engine[thug2_engine]
-    backends["the backends, one library each:<br/>render_d3d9, audio_dsound, media_bink,<br/>input_dinput, fs_win32, net_winsock, script_qb"]
+    backends["the backends, one library each:<br/>render_pc, gpu_d3d9, gpu_vulkan, audio_dsound,<br/>media_bink, input_dinput, fs_win32, net_winsock, script_qb"]
     wire[thug2_wire]
     platform[thug2_platform]
     formats[thug2_formats]
@@ -193,10 +195,10 @@ graph TD
 the front end and the dev tools each link `thug2_game` (and Dear ImGui) alone, never one another: `thug2-editor` reaches
 neither the front end nor the dev tools. Only the exes (through `thug2_app`) link the backends. The checks in
 `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`: base;
-`thug2_parse_check` / `thug2_printf_check`: formats). Third-party and system libraries are linked by the
+`thug2_parse_check` / `thug2_printf_check`: formats; `thug2_vulkan_context_check` / `thug2_ff_shader_check` / `thug2_vulkan_gpu_check`: the Vulkan backend). Third-party and system libraries are linked by the
 library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
 the network backend; LZHAM by the engine; DirectInput
-by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; imgui's core by the graphics backend - the loading console's
+by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; volk, the Vulkan headers and the memory allocator by the Vulkan backend; imgui's core by the graphics backend - the loading console's
 panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends, `imgui_backends`, by the graphics
 backend alone).
 
@@ -206,7 +208,8 @@ backend alone).
 |---|---|
 | `tools/layers.ts` (`layers.test.ts`) | The layer map `tools/layers.json`: each folder belongs to a library, and an include outside the library's `allowed` list fails unless it is in `tools/layers_baseline.txt` (a ratchet: it can only shrink, and is empty now). Every library but the app's is `strict`: no upward include, not even in the baseline. The editor's and the front end's `api` are explicit lists of the engine and game headers each may include; a header outside the list fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). |
 | `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
-| `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by Direct3D's own headers in `render_d3d9/`; every other header holds the graphics handles. |
+| `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by `gpu_d3d9/` (Direct3D's own headers there); `render_pc/` includes none, nor any of `gpu_d3d9/`'s headers, and only `app/` picks `gpu_d3d9/`'s Gpu, GpuContext, UiBackend and `render_pc/`'s device; every other header holds the graphics handles. |
+| `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL2/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `gpu_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`, `src/tests/vulkan_gpu_check.cpp`); only `app/` includes the backend. |
 | `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/`; the Bink wrapper only in `media_bink/`; only `app/` picks `audio::Device` and `media::Movie`. |
 | `tools/input_headers.test.ts` | `<dinput.h>` only in `input_dinput/`; SDL's input and the platform's keyboard only behind the SDL input source; only `app/` picks the sources. |
 | `tools/file_calls.test.ts` | The operating system's and the C runtime's file functions are called only in `fs_win32/`, `platform/` and `src/tests`; only `app/` installs the disk and adds the file sources. |
@@ -232,7 +235,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 
 | interface | declared in | implemented by | what it hides | other implementations |
 |---|---|---|---|---|
-| `render::Device`, `render::UiBackend` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h` | `thug2_render_d3d9` (`render::d3d9::device()`, `render::d3d9::ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (planned: [design/vulkan.md](design/vulkan.md)) |
+| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_gpu_vulkan`: `render::vulkan::gpu()`, `gpu_context()`, `ui_backend()` - drawing, with the screen effects and the ImGui parts: [design/vulkan.md](design/vulkan.md)) |
 | `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
 | `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoder (planned, for a 64-bit build) |
 | `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |
@@ -270,7 +273,8 @@ everything above it uses the game's own types and may change them freely.
   (`gamenet_messages`, `skater_messages`, `play_messages`, `skate_net_messages`), byte-compatible with the
   original's and THUGPRO's peers. Encoders and decoders over the same byte stream; a short or oversized message is
   refused, not read past.
-- **The graphics backend** (`src/render_d3d9`, static library `thug2_render_d3d9`, on the engine) is the original's PC
+- **The graphics backend** is two static libraries on the engine: `src/render_pc` (`thug2_render_pc`), the API-neutral
+  half, and `src/gpu_d3d9` (`thug2_gpu_d3d9`), Direct3D 9's Gpu, GpuContext and UiBackend plus D3DX (below). `render_pc` is the original's PC
   platform layer: the engine's `s_plat_*` calls and what they reach (0x004B2270-0x004E0A90 in the reference build), the
   Direct3D files of our own and the GPU buffers. It implements `render::Device` (`engine/gfx/render_device.h`); the
   engine side (the engine's own graphics, the objects, scripts, UI, file loading, the game, the dev tools) asks it for
@@ -286,11 +290,27 @@ everything above it uses the game's own types and may change them freely.
   `SubMesh`, `TextureSet`, `ViewRegion`, `Shatter`, `VertexRun`...); the backend's objects derive from them. The
   loading console's panel, which the backend draws over the loading screen, is reached through four hooks
   (`gfx::loading_console::install_panel`). `app/main.cpp` installs Direct3D 9's (`render::d3d9::device()`,
-  `render_d3d9/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs;
-  another backend (Vulkan) would be a second implementation chosen there. Nothing below `app/` includes or links it
-  (tools/layers.json: render_d3d9 is strict and only the app may include it), so the engine, the game, the editor and
+  `render_pc/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs,
+  through `app::install_renderer` (`app/renderer_choice.cpp`): `[Graphics] renderer=vulkan|d3d9` (default vulkan; `d3d9` for Direct3D 9) picks the
+  backend for both exes, and WinMain makes the window for the same API (`sys::create_sdl_window(sys::WindowApi)` adds
+  SDL's Vulkan flag). Vulkan installs render_pc's device over the Vulkan `Gpu` and `GpuContext` (`install_vulkan`
+  in `renderer_choice.cpp`), after asking, before the window is made, whether the device it would use can draw
+  (`render::vulkan::usable`: the loader, Vulkan 1.3's dynamic rendering, push descriptors) - Direct3D 9 runs when it
+  can't, and in a build without `THUG2_VULKAN` (both with a log line); `[Graphics] vulkan_device` picks the GPU. Nothing below `app/` includes or links it
+  (tools/layers.json: render_pc and gpu_d3d9 are strict and only the app may include them; neither includes or links the other - the pixel shaders' assembly and the screen shot's JPEG, D3DX's in Direct3D 9, are `Gpu` operations), so the engine, the game, the editor and
   the front end build without Direct3D.
-  - What our level editor asks of it (`render::Device`, "what our level editor asks"; `render_d3d9/editor_support.cpp`):
+  - `render::Gpu` (`engine/gfx/gpu.h`): the low interface under the platform layer, which it calls where it called the
+    Direct3D 9 device (design/vulkan.md, "A Vulkan backend: the shape"): resources made, locked and released (textures,
+    vertex and index buffers, render targets and depth surfaces, occlusion queries), the state block (render states,
+    texture stages, samplers, textures, the vertex format, the pixel shader and its constants, the material, the
+    lights, the transforms, the viewport - Direct3D 9's numbers, recorded as they pass, so another API derives its
+    shaders and pipelines from it), draws per batch (from buffers or from memory), clears, the scene, present. One
+    call per device call; Direct3D 9's (`gpu_d3d9/gpu_d3d9.cpp`) passes each on unchanged, and `app::install_renderer`
+    installs it with the device. The render-state cache (`render_state.cpp`, `primitive_states.cpp`) and the device's
+    state and clear wrappers, the meshes' buffers, drawing, materials, instances and pixel shaders go through it already
+    and include no Direct3D header (tools/d3d_headers.test.ts); the particles, billboards, weather, grass, glows, splats and
+    shatter do too; the screen effects, shadows and 2D still call the device directly until they are moved over.
+  - What our level editor asks of it (`render::Device`, "what our level editor asks"; `render_pc/editor_support.cpp`):
     whether the device is made, its view modes (`engine/gfx/view_modes.h`), its old HUD's lines, a PC geom's meshes,
     mesh array, instance and active flag, the buffers its ground tool makes and their upload and release, and the Add
     palette's preview (the camera, a geom drawn, the frustum put back). The editor reads and edits a sector's meshes
@@ -301,11 +321,11 @@ everything above it uses the game's own types and may change them freely.
     end - ask of it, a frame at a time: ImGui's platform and renderer backends started on a context, a frame begun and
     its draw data drawn, the device objects dropped before a reset, the images ImGui shows (made from texels in memory)
     and the two targets the renderer draws into for the UI (the preview, the thumbnails' atlas). Direct3D 9's
-    (`render_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app/main.cpp` beside the
-    device; a Vulkan one would be ImGui's SDL2 and Vulkan backends behind the same calls. Both layers
+    (`gpu_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app::install_renderer` beside the
+    device; Vulkan's (`gpu_vulkan/vulkan_ui_backend.cpp`) keeps ImGui's SDL2 backend and draws the lists through the Vulkan `Gpu`. Both layers
     reach it through `engine/ui/ui_backend.h` (`frontend::ui_backend`), which keeps what is the UI's own (whether a
-    context is started, the log, the draw data scaled to the back buffer). Only `render_d3d9/` includes ImGui's backend headers (tools/d3d_headers.test.ts).
-  - D3DX: only the backend calls it (`render_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
+    context is started, the log, the draw data scaled to the back buffer). Only `gpu_d3d9/` and `gpu_vulkan/` (the SDL2 one) include ImGui's backend headers (tools/d3d_headers.test.ts).
+  - D3DX: only the backend calls it (`gpu_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
     Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
     same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with
     d3dx9_43.dll; bit for bit with the x87 at 53 bits, the precision the game's thread runs at - the frames drawn
@@ -317,13 +337,15 @@ everything above it uses the game's own types and may change them freely.
   - The graphics handles (`engine/gfx/gpu_handles.h`): what a header outside Direct3D's own files holds of the graphics
     API's objects - `render::GpuDevice`, `GpuTexture`, `GpuSurface`, `GpuVertexBuffer`, `GpuIndexBuffer`,
     `GpuInstance` -, pointers to incomplete types whose value is the object's own pointer (no wrapper or table: a
-    handle costs what the original's pointer did). The backend converts them (`render_d3d9/d3d9_handles.h`:
+    handle costs what the original's pointer did). The backend converts them (`gpu_d3d9/d3d9_handles.h`:
     `d3d9::object`, `handle`, and `out` for Direct3D's out-parameters). `<d3d9.h>` is included only by Direct3D's files
-    and their own headers: `render_d3d9/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device,
+    and their own headers: `gpu_d3d9/d3d9_state.h` (the renderer's Direct3D objects - Direct3D itself, the device,
     the depth surfaces, the back buffer, the screen copies -, `render::d3d9::state()`; the backend-free rest of the
-    renderer's state is `render::Renderer`, `engine/gfx/renderer.h`), `device_d3d.h`, `pc_d3d_resources.h`,
-    `d3d9_handles.h`, `d3d_matrix.h` (Direct3D's matrices over the game's), `render_d3d9/d3dx_jpg.h` and ImGui's
-    texture id over Direct3D's textures (`render_d3d9/imgui_texture_id.h`).
+    renderer's state is `render::Renderer`, `engine/gfx/renderer.h`),
+    `d3d9_handles.h` and ImGui's texture id over Direct3D's
+    textures (`gpu_d3d9/imgui_texture_id.h`). The device is made through `render::GpuContext`
+    (`engine/gfx/gpu_context.h`; Direct3D 9's is `gpu_d3d9/d3d9_context.cpp`: the instance, the device, the present
+    parameters as API-neutral settings, the caps, the reset).
 - **The audio backend** (`src/audio_dsound`, static library `thug2_audio_dsound`, on the engine) is DirectSound. It
   implements `audio::Device` (`engine/audio/audio_device.h`): the output made and released (WinMain; the platform
   layer's 0x005F59D0 / 0x005F5A00), its devices listed (the graphics device's start-up notes the last one), and the
@@ -341,7 +363,7 @@ everything above it uses the game's own types and may change them freely.
   sound. Only `audio_dsound/` includes `<dsound.h>` (tools/audio_headers.test.ts).
 - **The movie codec** (`src/media_bink`, static library `thug2_media_bink`, on the engine) is Bink: the player's own
   binkw32.dll, each export looked up by name on first use (`media_bink/bink.h`). It implements `media::Movie`
-  (`engine/media/movie.h`): the movies (`render_d3d9/movie.cpp`) and the music and sound streams
+  (`engine/media/movie.h`): the movies (`render_pc/movie.cpp`) and the music and sound streams
   (`engine/audio/bink_stream*.cpp`, sound-only Bink files from a path, a file handle or memory) open, decode, step,
   seek and pause through it and set their tracks' volume and pan; an open movie is its header
   (`media::MovieHeader`, the fields of Bink's BINK the game reads). Its sound plays into the sound output

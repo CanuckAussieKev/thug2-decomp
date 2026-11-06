@@ -1,5 +1,5 @@
 # The checks (src/tests): offline programs that compare the project's own formats, parsing, formatting and maths
-# with references. Each links only the libraries it checks.
+# with references. Each links only the libraries it checks, and none ever waits on an error dialog (no_error_dialogs.h).
 # NOT ORIGINAL - thug2_format_check.exe: offline checks of the file, save and network format readers / writers
 # (src/tests/format_check.cpp; give it save files or folders: `thug2_format_check <game>/Save`).
 add_executable(thug2_format_check
@@ -27,3 +27,40 @@ target_link_libraries(thug2_parse_check PRIVATE thug2_formats)
 # with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).
 add_executable(thug2_printf_check printf_check.cpp)
 target_link_libraries(thug2_printf_check PRIVATE thug2_formats)
+
+# NOT ORIGINAL - thug2_vulkan_context_check.exe: the Vulkan backend's context tried on this machine - an SDL window with
+# a Vulkan surface, the instance (validation when installed), the device, the swapchain, frames cleared and presented
+# across a resize, everything released - and what it found printed: the devices, their queue families and the depth
+# and texture formats the renderer needs (src/tests/vulkan_context_check.cpp). Needs no Vulkan SDK, only a driver.
+if(THUG2_VULKAN)
+    add_executable(thug2_vulkan_context_check vulkan_context_check.cpp)
+    target_link_libraries(thug2_vulkan_context_check PRIVATE thug2_gpu_vulkan)
+    # (its own main(): SDL's main wrapper isn't used)
+    target_compile_definitions(thug2_vulkan_context_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_ff_shader_check.exe: the Vulkan backend's fixed-function emulation checked - every shader key the
+# Direct3D 9 backend's draws can make (a model of src/render_pc's draws), its GLSL generated and compiled, the SPIR-V
+# validated by SPIRV-Tools (when built: THUG2_SPIRV_VALIDATOR, cmake/vulkan_libraries.cmake) and handed to the Vulkan
+# driver as modules and pipelines (src/tests/ff_shader_check.cpp).
+if(THUG2_VULKAN)
+    add_executable(thug2_ff_shader_check ff_shader_check.cpp ff_shader_check_model.cpp ff_shader_check_gpu.cpp
+       )
+    target_link_libraries(thug2_ff_shader_check PRIVATE thug2_gpu_vulkan sdl2)
+    target_compile_definitions(thug2_ff_shader_check PRIVATE SDL_MAIN_HANDLED)
+    if(THUG2_SPIRV_VALIDATOR)
+        target_link_libraries(thug2_ff_shader_check PRIVATE SPIRV-Tools-static)
+        target_compile_definitions(thug2_ff_shader_check PRIVATE THUG2_SPIRV_VALIDATOR)
+    endif()
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_gpu_check.exe: the Vulkan Gpu's resources tried on this machine through render::Gpu and
+# render::GpuContext - every texture format the game makes (BC, the 16-bit formats native and widened, P8), every level,
+# buffers static and dynamic, render targets, depth surfaces, copies, read-backs, queries, samplers, the ring, two
+# threads at once - each made, filled, read back from the device's memory, compared and released (src/tests/
+# vulkan_gpu_check.cpp; --device N picks another GPU).
+if(THUG2_VULKAN)
+    add_executable(thug2_vulkan_gpu_check vulkan_gpu_check.cpp)
+    target_link_libraries(thug2_vulkan_gpu_check PRIVATE thug2_gpu_vulkan thug2_fs_win32 sdl2)
+    target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
+endif()

@@ -13,9 +13,14 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 | Inter 4.1 (The Inter Project Authors) - https://github.com/rsms/inter | downloaded at configure time (FetchContent); Inter-Regular and Inter-SemiBold compressed into the exe (the level editor's UI font) | SIL Open Font License 1.1 - below |
 | JetBrains Mono 2.304 (The JetBrains Mono Project Authors) - https://github.com/JetBrains/JetBrainsMono | downloaded at configure time (FetchContent); JetBrainsMono-Regular compressed into the exe (the level editor's numbers and names) | SIL Open Font License 1.1 - below |
 | Anton (The Anton Project Authors), IBM Plex Mono and IBM Plex Sans (IBM Corp.) - from https://github.com/google/fonts (ofl/anton, ofl/ibmplexmono, ofl/ibmplexsans), 2026-10-26 | tools/pipeline/fonts/*.ttf, copied into the data overlay's frontend\fonts by make_menu_level.ts (the new front end's display, mono and body faces; IBMPlexSans-Regular.ttf is the variable IBMPlexSans[wdth,wght].ttf renamed) | SIL Open Font License 1.1 - tools/pipeline/fonts/OFL-*.txt |
-| stb_image_write 1.16 (Sean Barrett) - https://github.com/nothings/stb, commit 1ee679c | downloaded at configure time (FetchContent); built into the exe: the screenshot key's PNG writer | public domain or MIT, at the user's choice - MIT below |
+| stb_image_write 1.16 (Sean Barrett) - https://github.com/nothings/stb, commit 1ee679c | downloaded at configure time (FetchContent); built into the exe: the screenshot key's PNG writer, and the Vulkan renderer's JPEG writer (the screen shot script command) | public domain or MIT, at the user's choice - MIT below |
 | LZHAM 1.0 (Richard Geldreich, Jr.) - https://github.com/richgel999/lzham_codec, commit d379b1f | downloaded at configure time (FetchContent, SHA-256 checked); built into the exe: THUGPRO's network compression (method 3, the THUGPRO peer mode) | public domain (dedicated by its author on 2020-09-15; releases before that were MIT) - below |
-| Microsoft.DXSDK.D3DX 9.29.952.8 (Microsoft) - https://www.nuget.org/packages/Microsoft.DXSDK.D3DX | downloaded at configure time (FetchContent, SHA-256 checked): its headers and import library are used by the game (`src/render_d3d9/d3dx.cpp` is the only place that calls D3DX9), and its `D3DX9_43.dll` (the DirectX SDK June 2010's runtime) is copied next to the exe | Microsoft Software License Terms "MICROSOFT DXSDK.D3DX" (the package's LICENSE.txt): use to develop and test on Windows; the listed DLLs may be redistributed in object form with an application that adds significant functionality, provided end users agree to terms protecting Microsoft at least as much and the distributor indemnifies Microsoft; no reverse engineering, no use of Microsoft's trademarks; the package's NOTICE.md lists its third-party parts (IJG jpeglib, libpng and others, with their notices) |
+| Microsoft.DXSDK.D3DX 9.29.952.8 (Microsoft) - https://www.nuget.org/packages/Microsoft.DXSDK.D3DX | downloaded at configure time (FetchContent, SHA-256 checked): its headers and import library are used by the game (`src/gpu_d3d9/d3dx.cpp` is the only place that calls D3DX9), and its `D3DX9_43.dll` (the DirectX SDK June 2010's runtime) is copied next to the exe | Microsoft Software License Terms "MICROSOFT DXSDK.D3DX" (the package's LICENSE.txt): use to develop and test on Windows; the listed DLLs may be redistributed in object form with an application that adds significant functionality, provided end users agree to terms protecting Microsoft at least as much and the distributor indemnifies Microsoft; no reverse engineering, no use of Microsoft's trademarks; the package's NOTICE.md lists its third-party parts (IJG jpeglib, libpng and others, with their notices) |
+| Vulkan-Headers 1.4.304 (The Khronos Group) - https://github.com/KhronosGroup/Vulkan-Headers, tag v1.4.304 | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/vulkan_libraries.cmake`): the Vulkan API's headers, used by the Vulkan renderer (`src/gpu_vulkan`) | Apache-2.0 (some files also MIT) - below |
+| volk 1.4.304 (Arseny Kapoulkine) - https://github.com/zeux/volk, tag 1.4.304 | downloaded at configure time (FetchContent, SHA-256 checked); built into the exe: opens the system's Vulkan loader at run time | MIT - below |
+| Vulkan Memory Allocator 3.2.1 (Advanced Micro Devices) - https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator, tag v3.2.1 | downloaded at configure time (FetchContent, SHA-256 checked): the Vulkan renderer's device memory (its implementation compiled once, `cmake/vulkan_libraries.cmake`) | MIT - below |
+| glslang (The Khronos Group and contributors), Vulkan SDK 1.4.304.0 release - https://github.com/KhronosGroup/glslang, tag vulkan-sdk-1.4.304.0 | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/vulkan_libraries.cmake`): its GLSL front end and SPIR-V back end (no HLSL, no optimiser, no programs) compile the Vulkan renderer's fixed-function emulation shaders at run time (`src/gpu_vulkan/glsl_compiler.cpp`) | BSD 3-clause (the core), with parts under BSD 2-clause, MIT, Apache-2.0 and NVIDIA's preprocessor licence - below |
+| SPIRV-Tools and SPIRV-Headers (The Khronos Group), Vulkan SDK 1.4.304.0 release - https://github.com/KhronosGroup/SPIRV-Tools, https://github.com/KhronosGroup/SPIRV-Headers, tag vulkan-sdk-1.4.304.0 | downloaded at configure time (FetchContent, SHA-256 checked) when `THUG2_SPIRV_VALIDATOR` is on and Python 3 is found: the SPIR-V validator, linked only by the check program `thug2_ff_shader_check` (nothing of it is in the game) | SPIRV-Tools: Apache-2.0; SPIRV-Headers: the Khronos MIT-style licence (some files Apache-2.0) - below |
 | GameSpy SDK (December 2007 release, common 2.06; IGN Entertainment's 2011 open-source release) - https://github.com/nitrocaster/GameSpy, commit d1deb2d | downloaded at configure time (FetchContent, SHA-256 checked; `cmake/gamespy_sdk.cmake`, which makes one change: the peer SDK's chat server name a variable); the modules the game uses built into the exe | BSD 3-clause - below. Its MD5 (md5c.c) is "derived from the RSA Data Security, Inc. MD5 Message-Digest Algorithm" (RSA's notice, in md5.h) |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript (commit 73fe0f9), with our changes in our fork https://github.com/CanuckAussieKev/NeverScript (branch `thug2`) | downloaded at build time into `out/neverscript/src` by `tools/build_neverscript.ps1` (a tool, not part of the game; nothing of it is in this repo) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
@@ -278,6 +283,159 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
+## Vulkan-Headers 1.4.304 (The Khronos Group) (Apache-2.0)
+
+Source: https://github.com/KhronosGroup/Vulkan-Headers (tag v1.4.304)
+
+```
+Copyright 2015-2023 The Khronos Group Inc.
+
+Files in this repository fall under one of these licenses:
+
+- `Apache-2.0`
+- `MIT`
+
+Note: With the exception of `parse_dependency.py` the files using `MIT` license
+also fall under `Apache-2.0`. Example:
+
+SPDX-License-Identifier: Apache-2.0 OR MIT
+```
+
+The full text of the Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0 (the repository's
+LICENSES/Apache-2.0.txt).
+
+## volk 1.4.304 (Arseny Kapoulkine) (MIT)
+
+Source: https://github.com/zeux/volk (tag 1.4.304)
+
+```
+Copyright (c) 2018-2024 Arseny Kapoulkine
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Vulkan Memory Allocator 3.2.1 (Advanced Micro Devices) (MIT)
+
+Source: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator (tag v3.2.1)
+
+```
+Copyright (c) 2017-2025 Advanced Micro Devices, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+## glslang (The Khronos Group and contributors) (BSD 3-clause and others)
+
+Source: https://github.com/KhronosGroup/glslang (tag vulkan-sdk-1.4.304.0). The repository's LICENSE.txt: the core of
+glslang (without the preprocessor) is under the 3-clause BSD licence below; other files are under the 2-clause BSD
+licence, the MIT licence and the Apache License 2.0, and the preprocessor is also under NVIDIA's 2002 licence (it allows
+use, reproduction, modification and redistribution with NVIDIA's copyright notice, the licence and its disclaimers kept
+in redistributions). The full texts:
+https://github.com/KhronosGroup/glslang/blob/vulkan-sdk-1.4.304.0/LICENSE.txt
+
+```
+Copyright (C) 2015-2018 Google, Inc.
+Copyright (C) <various other dates and companies>
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+   Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+   Redistributions in binary form must reproduce the above
+   copyright notice, this list of conditions and the following
+   disclaimer in the documentation and/or other materials provided
+   with the distribution.
+
+   Neither the name of 3Dlabs Inc. Ltd. nor the names of its
+   contributors may be used to endorse or promote products derived
+   from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+```
+
+## SPIRV-Tools and SPIRV-Headers (The Khronos Group) (Apache-2.0; MIT-style)
+
+Sources: https://github.com/KhronosGroup/SPIRV-Tools and https://github.com/KhronosGroup/SPIRV-Headers (tag
+vulkan-sdk-1.4.304.0). Only the check program links them. SPIRV-Tools is under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0, the repository's LICENSE). SPIRV-Headers' files are under the licence
+below, except those its LICENSE file names (Apache-2.0):
+
+```
+Copyright (c) 2015-2024 The Khronos Group Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and/or associated documentation files (the
+"Materials"), to deal in the Materials without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Materials, and to
+permit persons to whom the Materials are furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Materials.
+
+MODIFICATIONS TO THIS FILE MAY MEAN IT NO LONGER ACCURATELY REFLECTS
+KHRONOS STANDARDS. THE UNMODIFIED, NORMATIVE VERSIONS OF KHRONOS
+SPECIFICATIONS AND HEADER INFORMATION ARE LOCATED AT
+   https://www.khronos.org/registry/
+
+THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 ```
 
 ## GameSpy SDK (IGN Entertainment) (BSD 3-clause)

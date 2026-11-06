@@ -6,7 +6,7 @@ native Runtime before the other helpers. Production generated modules do not
 carry a helper copy.
 
 The gameplay profile uses x87 precision control 24 (FPCW `0x007f`). Device
-creation in `src/render_d3d9/device.cpp` does not request FPU preservation, so the
+creation in `src/gpu_d3d9/d3d9_context.cpp` does not request FPU preservation, so the
 Direct3D game-thread profile differs from the offline CRT/self-test profile.
 `round(n,d,e,precision=24)` represents exact `(n/d)*2^e`, rounding nearest-even
 to a 24-, 53- or 64-bit significand. Explicit offline profiles are available
