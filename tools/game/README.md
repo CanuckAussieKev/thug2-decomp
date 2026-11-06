@@ -17,8 +17,20 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   first closes a game still running from that folder (crashed, stuck or left open; recorded - "Crashes" below) and
   waits for it to go (`-ExitWaitSeconds`, default 60, then a kill), in the main install it never closes one; while a
   game from the folder still runs it refuses (exit 1: the lock kept, nothing put back - release again once it has
-  exited). Under the lock you may copy your build's exe (with its PDB and d3dx9_43.dll) in, edit the ini, launch and close the game you started. To
+  exited). Under the lock you may copy your build's exe (with its PDB and d3dx9_43.dll) in - or run
+  `deploy_build.ps1`, below - edit the ini, launch and close the game you started. To
   install something permanently (the lead installing main), also copy it over the `.backup` file before releasing.
+- `deploy_build.ps1 -Game <folder> -Arch x86|x64 [-BuildDir <cmake build folder>]` - puts a build into a game folder
+  under its lock (refused without the lock, or while a game runs from it): thug2-decomp.exe, its PDB, the editor, and the
+  DLLs the build copied beside them (d3dx9_43.dll, SDL2.dll, FFmpeg's four, gamecontrollerdb.txt) - those the build has.
+  **A 32-bit and a 64-bit build have the same file names, so a build goes IN PLACE of the one in the folder** (the
+  folder is never both); the lock backs the same file list up (game_exe.ps1 `$DeployedFiles`), so `release` brings the
+  folder back as acquired, whichever machine was deployed. Every exe / DLL is checked to be `-Arch`'s machine (default
+  build folder `out\build\<Arch>-debug`). A 64-bit build can't load binkw32.dll: in a workspace the ini gets
+  `[features] movie_codec=ffmpeg` (release puts the ini back), and it warns when FFmpeg's x64 DLLs
+  (`node tools/ffmpeg/build_ffmpeg.ts --arch x64`) aren't in the build folder. `run_game.ps1 -Arch x86|x64` (and
+  load_check.ps1) starts nothing when the folder's exe is the other machine; without it either runs (a 64-bit one is
+  announced). The TypeScript launchers (edit_level.ts, try_spot.ts...) start whatever thug2-decomp.exe is there.
 - **Workspace games are muted:** `game_lock.ps1` acquire, `run_game.ps1` (so load_check and the scenic captures),
   `edit_level.ts` and `try_spot.ts` set `[features] mute_audio=1` in a workspace's ini (C:\Games\THUG2-n only -
   game_exe.ps1 Set-WorkspaceMuted / workspace_ini.ts; never the main install's). The user is at the machine.
@@ -174,7 +186,7 @@ ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
   load_check.ps1 reports it per level and goes on; `game_lock.ps1 -Action release` closes a game still running from a
   workspace first (never in the main install).
 - **Then:** read the log, `node tools/symbolize.ts --pdb-dir <the build that crashed> <folder>\thug2-decomp.log`
-  (the last report of any kind), record it in your pending doc, carry on.
+  (the last report of any kind; a 64-bit build's report the same way), record it in your pending doc, carry on.
 - **A dump** (`%LOCALAPPDATA%\CrashDumps\THUG2*.dmp`, written by WER when LocalDumps is on - a crash from before the
   game logged it, or a fast fail): `node tools/game/read_dump.ts <dmp> [--image <build>\thug2-decomp.exe] [--threads]`
   gives the exception, registers and return addresses (checked against the module files: with --image, the build's

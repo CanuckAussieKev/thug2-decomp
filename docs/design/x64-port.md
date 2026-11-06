@@ -201,10 +201,21 @@ with X15's measurement.
 
 - `platform/crash.cpp` reads `CONTEXT::Eip / Esp / Ebp / Eax...` and dumps the stack in 4-byte slots. On x64 it
   needs the `Rip / Rsp...` registers, 8-byte slots and x64 unwinding (or `RtlCaptureStackBackTrace`).
-  `tools/standalone/first_fault.py` and the symbolizers read x86 contexts too.
+  `tools/standalone/first_fault.py` and the symbolizers read x86 contexts too (x64: Since X13, below).
 - `net::SocketId` (`engine/net/transport.h`, a `uint32_t`: Winsock's `SOCKET` value) and `net_winsock/winsock_transport.cpp`: `SOCKET` is 64-bit on Win64. The socket must stay in a `SOCKET`-wide id (widen `SocketId`, `kNoSocket` and the records that hold it), not in a 32-bit field.
 - GameSpy callbacks are registered by code address (`code_address`, 32 lines in game/online). That is fine with
   64-bit pointers, as long as nothing narrows them (the `int` user word in NAT negotiation does).
+
+Since X13: the tools read x64. `tools/symbolize.ts` names the offsets of every module the report names that has a file
+in `--pdb-dir` (the game's exe, a test program, our DLLs; the system's are skipped), from 32-bit and 64-bit reports and
+PDBs alike. `tools/standalone/first_fault.py` picks the target's debug API by the exe's PE machine: a 32-bit target
+through WOW64 as before; a 64-bit one with the AMD64 `CONTEXT` (RAX-R15, Dr0-Dr7 for `--watch`, `--watch-size 8` for a
+pointer), the calls unwound by dbghelp's `StackWalk64` from the modules' unwind data, and the stack scan over 8-byte
+slots. `tools/game` deploys a build with `deploy_build.ps1 -Game <folder> -Arch x86|x64` under the game lock: the same
+file names for either machine (thug2-decomp.exe, d3dx9_43.dll, SDL2.dll, FFmpeg's DLLs), the build going IN PLACE of the
+one in the folder, and `game_lock.ps1`'s release giving the folder back as acquired; `run_game.ps1` / `load_check.ps1`
+take `-Arch` to refuse a folder holding the other machine's exe. `tools/game/read_dump.ts` (WER dumps) still reads
+32-bit contexts only.
 
 Since X8: `platform` is x64-ready. The crash report reads the context through `instruction_pointer` /
 `stack_pointer`; on x64 it logs `RAX`-`R15`, the top of the stack in 8-byte slots (as many slots as x86's), the calls
@@ -370,7 +381,7 @@ Each task is one PR. "Start after stage 11" means after branch `stage11` is merg
 | X10c | A/B on the 32-bit build: the movies and the music / sound streams through both codecs (frames, timing, levels); THIRD_PARTY_NOTICES and the licence notes | X10b | |
 | X11 | `render_pc` / `gpu_d3d9` on x64 (D3D9 x64; handles, the dynamic buffers, `make_primitive_at`'s storage, the loading console's timer) | X6 | land before the Vulkan split (V5) or coordinate |
 | X12a-e | Compile and fix by library on x64, one PR each: (a) `engine/` memory, lists, file, assets, sys; (b) `engine/` gfx, objects, render, ui; (c) `engine/` script, net, audio, sound, pad_input, media; (d) `game/`; (e) `editor/`, `frontend/`, `devtools/`, the backends (`audio_dsound`, `input_dinput`, `fs_win32`, `media_ffmpeg`), `app/` | X3-X8, X10c, X11 | C4267 / C4244 / C4311 / C4312 at 0 |
-| X13 | Tools on x64: `first_fault.py` and the symbolizers read x64 contexts and PDBs; the game scripts (`tools/game`) find the x64 exe | X8 | |
+| X13 | Tools on x64: `first_fault.py` and the symbolizers read x64 contexts and PDBs; the game scripts (`tools/game`) find the x64 exe | X8 | done |
 | X14 | Floating-point equivalence: `thug2_maths_check` writes a corpus on the 32-bit build and compares with it on x64 (ulps per function); the accepted differences documented | X2 | |
 | X15 | The first x64 run: the smoke levels, the front end, the editor, a local online session with a 32-bit peer; deploy (x64 DLLs: SDL2, D3DX9, FFmpeg); README "Running" for x64 | X9, X12, X13 | |
 

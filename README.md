@@ -328,9 +328,11 @@ hosts or enters a lobby.
    registers and return addresses; debug-CRT reports and run-time check failures come with a call stack. `pool <name>
    full` means one of the game's fixed pools ran out (usually a converted level that's too big; see `[memory]`).
 2. **Name the functions:** `node tools/symbolize.ts --pdb-dir <build folder> <path to thug2-decomp.log>` turns the
-   last crash's addresses into function names and source lines. The PDB must come from the same build.
+   last crash's addresses into function names and source lines, for any module of the report that has its file (and PDB)
+   in that folder - a 32-bit or a 64-bit build alike. The PDB must come from the same build.
 3. **Without a log line:** `python tools/standalone/first_fault.py <exe> <game folder>` runs the game under the
-   debugger API and reports its first fault with registers, the stack and symbol names.
+   debugger API and reports its first fault with registers, the stack and symbol names (a 32-bit or a 64-bit exe: the
+   file's machine decides; `--watch <rva> [--watch-size 1|2|4|8]` reports each write to an address).
 4. **Report it with the screenshot key:** it saves a PNG and a `.txt` with the level, mode, skater and camera
    positions, the editor's state and the log's last lines.
 
