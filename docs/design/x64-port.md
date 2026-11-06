@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -258,6 +258,16 @@ X10a -> X10b -> X10c -----------------------------------/
 
 The QuickJS replacement of the interpreter (planned later) replaces the interpreter, not the data model, so this
 choice stays either way.
+
+Since X4: `script::Cell` holds a `uintptr_t`. Names, integers and floats are its low 32 bits (`word`, `integer`,
+`real`; `low_word` where the game reads a component of a kind it doesn't check as a name), pointers the whole cell,
+and a copy of any kind copies the `Cell`; `empty`, `same_bits` and `holds_word` test it whatever its kind. On x64
+`word()` of a cell holding a pointer above 4 GB stops the game. The pools' item sizes are `sizeof` (qb.cpp,
+`memory_sizes.cpp`, the HashItem pool), with the original's sizes asserted on x86; the script region grows by what the
+pools take more than the original's pools at the original's sizes. Left for X5: the call tokens' 32-bit operands
+(`prepare_script_tokens` stores the function's address through `cell::of`, which stops on x64) and the precompiled
+images' records, which are the runtime's own `Struct` / `Component` / `Array` / `SymbolTableEntry` laid out in
+32 bits. The layout asserts of the records that hold a cell are X6's.
 
 ## Conflicts and where PRs go
 

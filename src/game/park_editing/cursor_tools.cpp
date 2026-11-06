@@ -72,7 +72,7 @@ void BuildPointer::set_gap_void_mask(script::Struct* flags)
     uint32_t cancel = 0;
     for (script::Component* component = flags->step_to_entry(nullptr); component;
          component = flags->step_to_entry(component)) {
-        cancel |= static_cast<uint32_t>(script::fetch_int_value(component->value.word()));
+        cancel |= static_cast<uint32_t>(script::fetch_int_value(component->value.low_word()));
     }
     gap_.set_cancel_flags(cancel);
     store_gap_details(gap_.slot_index(), &gap_);

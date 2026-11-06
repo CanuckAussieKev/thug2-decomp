@@ -408,7 +408,7 @@ void QbScript::reset_event_handlers_from_table(Array* table, uint32_t group)
         const Component* type = flag->next;
         const Component* script = type->next;
         const Component* params = script->next;
-        signal_routes_->append_listener(this, {.type = type->value.word(), .script_name_ = script->value.word(), .group = group}, flag->value.word() == kExceptionFlag,
+        signal_routes_->append_listener(this, {.type = type->value.low_word(), .script_name_ = script->value.low_word(), .group = group}, flag->value.low_word() == kExceptionFlag,
                                         params ? params->value.structure() : nullptr);
     }
     // (the group's handlers not added again go)

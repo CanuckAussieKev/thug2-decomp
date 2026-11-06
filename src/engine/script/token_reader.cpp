@@ -364,7 +364,7 @@ void evaluate_name_token(Component* component)
     case QbValueKind::kArray:
     case QbValueKind::kName:
         change_species(component, symbol->type());
-        component->value.set_word(symbol->value().word());
+        component->value = symbol->value();
         break;
     default:
         break;
@@ -925,15 +925,15 @@ Tokens push_name(Tokens cursor, Struct* args, Component& value, bool after_dot)
         case QbValueKind::kVector:
         case QbValueKind::kName:
             change_species(&value, symbol->type());
-            value.value.set_word(symbol->value().word());
+            value.value = symbol->value();
             break;
         case QbValueKind::kStruct:
             change_species(&value, QbValueKind::kStructRef);
-            value.value.set_word(symbol->value().word());
+            value.value = symbol->value();
             break;
         case QbValueKind::kArray:
             change_species(&value, QbValueKind::kArrayRef);
-            value.value.set_word(symbol->value().word());
+            value.value = symbol->value();
             break;
         case QbValueKind::kNativeFunc: {
             // Called now, with the arguments that follow.
@@ -1052,7 +1052,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             cursor = parse_value(cursor, args, &value);
             cursor = push_name(cursor, args, value, after_dot);
             value.type_and_flag_ &= 1;
-            value.value.set_word(0);
+            value.value.clear();
             pushed();
             continue;
         }
@@ -1104,12 +1104,12 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             const Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
                 copy_value_kind(value, *found);
-                value.value.set_word(found->value.word());
+                value.value = found->value;
                 evaluate_name_token(&value);
                 make_reference(&value);
                 evaluator.intake(&value);
                 value.type_and_flag_ &= 1;
-                value.value.set_word(0);
+                value.value.clear();
             }
             pushed();
             continue;

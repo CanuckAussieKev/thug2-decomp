@@ -145,7 +145,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
     case QbValueKind::kStruct:
         if (reference != 0) {
             set_value_kind(*to, QbValueKind::kStructRef);
-            to->value.set_word(array->fetch_part(index));
+            to->value = array->cell_at(index);
         } else {
             gsl::owner<Struct*> structure = spawn_param_bag();
             to->value.set_structure(structure ? memory::construct_in<script::Struct>(structure) : nullptr);
@@ -155,7 +155,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
     case QbValueKind::kArray:
         if (reference != 0) {
             set_value_kind(*to, QbValueKind::kArrayRef);
-            to->value.set_word(array->fetch_part(index));
+            to->value = array->cell_at(index);
         } else {
             gsl::owner<Array*> copy = alloc_script_array();
             to->value.set_array(copy ? memory::construct_in<script::Array>(copy) : nullptr);
@@ -165,7 +165,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
     default:
         // (local strings and the rest can't be taken out of arrays: the component is left empty)
         to->type_and_flag_ &= 1;
-        to->value.set_word(0);
+        to->value.clear();
         break;
     }
 }
@@ -963,7 +963,7 @@ void ValueResolver::execute()
     Component* operand_a = &core::at(values_, value_top_ - 1);
     Component& result = get_result();
     result.type_and_flag_ &= 1;
-    result.value.set_word(0);
+    result.value.clear();
     const QbValueKind type_a = value_kind(*operand_a);
     const QbValueKind type_b = value_kind(*operand_b);
 
@@ -1024,9 +1024,9 @@ void ValueResolver::execute()
     release_component(operand_a);
     release_component(operand_b);
     copy_value_kind(*operand_a, result);
-    operand_a->value.set_word(result.value.word());
+    operand_a->value = result.value;
     result.type_and_flag_ &= 1;
-    result.value.set_word(0);
+    result.value.clear();
     --value_top_;
     core::at(operators_, operator_top_).op = kNoOperator;
     if (operator_top_ == 0) {

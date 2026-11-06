@@ -556,7 +556,7 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kStance:
         case kPushStyle:
         case kName:
-            sent->add_component_of_type(entry->name, script::QbValueKind::kName, entry->value.word());
+            sent->add_component_of_type(entry->name, script::QbValueKind::kName, entry->value.low_word());
             break;
         case kOllie:
         case kIsMale:
@@ -571,7 +571,7 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kIsPro:
         case kSpin:
         case kRailBalance:
-            sent->add_component_of_type(entry->name, script::QbValueKind::kInteger, entry->value.word());
+            sent->add_component_of_type(entry->name, script::QbValueKind::kInteger, entry->value.low_word());
             break;
         default:
             break;

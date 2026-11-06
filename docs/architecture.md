@@ -534,8 +534,10 @@ points) and `tokens_at` finds a pointer's block in a table of the blocks of code
 `.clang-tidy` keeps `reinterpret_cast` and integer-to-pointer casts out of `src/` entirely.
 
 **The script values** are `script::Cell`s (`engine/script/cell.h`): a component's, a global symbol's or an array
-element's 32 bits, read and written by the accessor of the kind its holder records (an externally tagged union -
-the holders are pooled records of the original's sizes). The union access is inside `Cell` only. Structures and
+element's value, read and written by the accessor of the kind its holder records (an externally tagged union -
+the holders are pooled records, of the original's sizes on x86). A cell is a pointer wide (`uintptr_t`): names,
+integers and floats are its low 32 bits (`word`, `integer`, `real`), a pointer is the whole cell, and a copy of any
+kind is the whole `Cell`. The union access is inside `Cell` only. Structures and
 arrays are made and freed by `script::new_struct` / `new_array` / `free_struct` / `free_array` (the pools'
 factory and deleter), held in a scope or member by `script::StructPtr` / `ArrayPtr`.
 

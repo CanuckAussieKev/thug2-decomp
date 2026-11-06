@@ -21,7 +21,7 @@ const BOUNDARY_FILES = new Set([
     "src/base/core/bits_as.h",
     // the all-ones pointer (INVALID_HANDLE_VALUE, the list heads' marker), once in platform/
     "src/base/core/all_ones.h",
-    // a script value's 32 bits, read as the kind its holder says (the QB value cell)
+    // a script value's cell (pointer-wide), read as the kind its holder says (the QB value cell)
     "src/engine/script/cell.h",
     // the GPU's vertex and index buffers and their views (once src/gpu/)
     "src/render_pc/vertex_buffers.cpp",

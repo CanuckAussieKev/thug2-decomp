@@ -506,13 +506,13 @@ bool cfunc_permute_array(Struct* params, Context context)
     const int size = static_cast<int>(array->extent());
     if (size != 0) {
         const std::span<Cell> elements = array->cells();
-        const uint32_t old_last = core::at(elements, size - 1).word();
+        const Cell old_last = core::at(elements, size - 1);
         for (int swaps = size * script::kShuffleSwapsPerChoice; swaps > 0; --swaps) {
             const int first = maths::rnd(size);
             const int second = maths::rnd(size);
             std::swap(core::at(elements, first), core::at(elements, second));
         }
-        if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && core::at(elements, 0).word() == old_last) {
+        if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && core::at(elements, 0).same_bits(old_last)) {
             // "MakeNewFirstDifferFromOldLast"
             const int other = maths::rnd(size - 1) + 1;
             std::swap(core::at(elements, 0), core::at(elements, other));

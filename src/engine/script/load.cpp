@@ -90,8 +90,8 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
         const Tokens end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
         symbol->set_type(value_kind(*value));
-        symbol->value().set_word(value->value.word());
-        value->value.set_word(0);
+        symbol->value() = value->value;
+        value->value.clear();
         free_component(value);
         return end;
     }

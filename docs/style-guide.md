@@ -185,8 +185,12 @@ exceptions, all in one place:
   type, and the closed sets among them are scoped enums (below);
   the original's whole-object clears and copies of objects that aren't trivially copyable are `raw::zero_object` /
   `raw::copy_object` (`base/core/raw_view.h`, with the other named views).
-- **The script values' cells** (`engine/script/cell.h`): one 32-bit word, read as the kind its holder says
-  (`std::bit_cast`, `cell::pointer`) - a boundary file for the layering rule, like the QB readers.
+- **The script values' cells** (`engine/script/cell.h`): one pointer-wide value (`uintptr_t`), read as the kind its
+  holder says (`std::bit_cast`, `core::at_address`) - a boundary file for the layering rule, like the QB readers.
+  A name, an integer or a float is the low 32 bits (`word()`, `integer()`, `real()`; `low_word()` where the game
+  reads a value of a kind it didn't check as a name); a copy of a cell of any kind copies the `Cell` (never
+  `set_word(x.word())`), a test for "no value" is `empty()`, a comparison of any kind is `same_bits` /
+  `holds_word`. On x64 `word()` of a cell holding a pointer above 4 GB stops the game.
 - **No `reinterpret_cast`, no integer-to-pointer cast** anywhere in `src/` (both checks on). Bytes from outside
   are read by the boundary layer's readers (`formats/`, `wire/`); casts between related classes are `static_cast`;
   what is left of the original's ways of reaching memory has a name, so it can be counted and removed:
@@ -199,7 +203,7 @@ exceptions, all in one place:
   its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).
   Code outside the boundary uses none of them: a field gets its member, a pointer its type (`npm test` fails on any
   use outside the boundary - `tools/layering.ts`). A script value is a `script::Cell`, read by its
-  holder's kind (`value.structure()`, `value.word()`...); a missing script parameter's default is written out (the
+  holder's kind (`value.structure()`, `value.word()`, `value.integer()`...); a missing script parameter's default is written out (the
   original's reads of an argument's stack slot are 0 for a name, on for a flag, 0 for a number). Byte layouts that stay (file records used
   in place, vertex buffers) are read through the boundary's accessors instead: `collision_format::FaceTable`
   (`formats/`), `gpu::VertexView` / `VertexWriter` (`engine/gfx/vertex_view.h`).
