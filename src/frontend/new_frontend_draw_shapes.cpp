@@ -3,7 +3,6 @@
 
 #include "frontend/new_frontend_draw.h"
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -19,6 +18,7 @@
 #include "base/maths/rect.h"
 #include "base/maths/vec2.h"
 #include "frontend/new_frontend_draw_internal.h"
+#include "base/maths/trig.h"
 
 namespace frontend::new_frontend::paint {
 // What the source file's anonymous namespace held that its pieces share (new_frontend_draw_internal.h): visible as it
@@ -60,8 +60,8 @@ void xform(ImDrawList* dl, int start, maths::Vec2 pivot, float radians, maths::V
     const float py = pivot.y;
     const float dx = offset.x;
     const float dy = offset.y;
-    const float cosine = std::cos(radians);
-    const float sine = std::sin(radians);
+    const float cosine = maths::runtime32::cos(radians);
+    const float sine = maths::runtime32::sin(radians);
     for (int i = start; i < dl->VtxBuffer.Size; ++i) {
         ImVec2& vertex_position = core::at(dl->VtxBuffer, i).pos;
         const float x = vertex_position.x - px;

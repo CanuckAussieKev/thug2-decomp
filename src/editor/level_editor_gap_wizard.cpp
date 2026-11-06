@@ -29,6 +29,7 @@
 #include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "base/core/no_destroy.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::gap_wizard {
 
@@ -142,7 +143,7 @@ float get_heading_of(V3 direction)
     if (std::fabs(direction.x) < kTinyLength && std::fabs(direction.z) < kTinyLength) {
         return 0.0F;
     }
-    return std::atan2(direction.x, direction.z);
+    return maths::runtime32::atan2(direction.x, direction.z);
 }
 
 Gate gate_for(const Spot& spot, V3 toward)

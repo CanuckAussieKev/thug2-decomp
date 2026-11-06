@@ -30,6 +30,7 @@
 #include "base/core/no_destroy.h"
 #include "base/core/packed_colour.h"
 #include "editor/level_editor.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::thumbs {
 
@@ -428,7 +429,7 @@ void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
         const float angle = -1.5707963F + (0.62831853F * static_cast<float>(i));
         const float point_radius = ((i & 1) != 0) ? radius * 0.45F : radius;
         core::at(points, i) =
-            ImVec2(centre.x + (std::cos(angle) * point_radius), centre.y + (std::sin(angle) * point_radius));
+            ImVec2(centre.x + (maths::runtime32::cos(angle) * point_radius), centre.y + (maths::runtime32::sin(angle) * point_radius));
     }
     if (filled) {
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)

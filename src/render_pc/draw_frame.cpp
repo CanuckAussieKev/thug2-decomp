@@ -57,6 +57,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
 #include "render_pc/graphics_options_d3d.h"
+#include "base/maths/trig.h"
 
 namespace render {
 
@@ -342,7 +343,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     set_transform(3, &gfx.projection_matrix());
 
     ViewShape shape = gfx.view_shape();
-    shape.tan_x_ = std::tan(static_cast<float>(half_angle));
+    shape.tan_x_ = maths::runtime32::tan(static_cast<float>(half_angle));
     shape.tan_y_ = -(height_factor * shape.tan_x_);
     const double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
     const double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;

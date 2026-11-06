@@ -53,6 +53,7 @@
 #include "base/core/no_destroy.h"
 #include "base/maths/vec4.h"
 #include "engine/script/qb.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::entities {
 
@@ -1005,7 +1006,7 @@ float preview_mph(uint32_t name)
 float current_heading(const objects::GameEntity* object)
 {
     const maths::Vec4& at = core::at(object->basis_frame().row, 2);
-    return std::atan2(at.x, at.z);
+    return maths::runtime32::atan2(at.x, at.z);
 }
 
 void preview_place(float distance)
@@ -1019,7 +1020,7 @@ void preview_place(float distance)
     }
     object_edit::get_place(object, pos);
     if (dir.x != 0.0F || dir.z != 0.0F) {
-        object_edit::turn_about(object, pos, std::atan2(dir.x, dir.z) - current_heading(object));
+        object_edit::turn_about(object, pos, maths::runtime32::atan2(dir.x, dir.z) - current_heading(object));
     }
 }
 

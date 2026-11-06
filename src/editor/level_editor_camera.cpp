@@ -466,7 +466,7 @@ void filter_mouse(const Rig& rig, MouseIn mouse_in, bool alt, bool have_last_ray
 {
     // The wheel with the right button held: the flying speed (Unreal's).
     if (mouse_in.right && (*mouse_in.wheel != 0) && !level_editor_camera_state().orbit_.orbiting) {
-        *rig.speed = std::clamp(*rig.speed * std::pow(kWheelSpeedStep, static_cast<float>(*mouse_in.wheel)),
+        *rig.speed = std::clamp(*rig.speed * maths::runtime32::pow(kWheelSpeedStep, static_cast<float>(*mouse_in.wheel)),
                                 kMinFlySpeed, kMaxFlySpeed);
         *mouse_in.wheel = 0;
         std::array<char, kSpeedTextSize> text{};
@@ -545,7 +545,7 @@ void apply_orbit(const Rig& rig)
         // (the editor puts the camera round it at its orbit distance: the wheel nearer / further)
         if (wheel != 0) {
             *rig.orbit_distance_ =
-                std::clamp(*rig.orbit_distance_ * std::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrbitDistance, kMaxOrbitDistance);
+                std::clamp(*rig.orbit_distance_ * maths::runtime32::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrbitDistance, kMaxOrbitDistance);
         }
         return;
     }
@@ -557,7 +557,7 @@ void apply_orbit(const Rig& rig)
     if (wheel != 0) {
         const V3 offset = pos - level_editor_camera_state().orbit_.pivot;
         const float length = std::sqrt(get_dot(offset, offset));
-        const float wanted = std::clamp(length * std::pow(0.85F, static_cast<float>(wheel)), 20.0F, 30000.0F);
+        const float wanted = std::clamp(length * maths::runtime32::pow(0.85F, static_cast<float>(wheel)), 20.0F, 30000.0F);
         if (length > kMinDirectionLength) {
             pos = level_editor_camera_state().orbit_.pivot + offset * (wanted / length);
         }
@@ -751,7 +751,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
     if (rig.have_selection_) {
         if ((wheel != 0) && !rig.dragging) {
             stored_ortho().equivalent =
-                std::clamp(stored_ortho().equivalent * std::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrthoEquivalent, kMaxOrthoEquivalent);
+                std::clamp(stored_ortho().equivalent * maths::runtime32::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrthoEquivalent, kMaxOrthoEquivalent);
         }
         stored_ortho().pivot = rig.target;
     } else {

@@ -217,7 +217,7 @@ void Recorder::feed(V3 pos, Motion motion)
             const float lb = len_of(before);
             if (lb > kMinTurnSegment) {
                 const float cosine = get_dot(before, delta) / (lb * distance);
-                keep = cosine < std::cos(kTurnDegrees * maths::kPi / kDegreesPerHalfTurn);
+                keep = cosine < maths::runtime32::cos(kTurnDegrees * maths::kPi / kDegreesPerHalfTurn);
             }
         }
     }

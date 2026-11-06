@@ -30,6 +30,7 @@
 #include "base/core/no_destroy.h"
 #include "base/maths/vec4.h"
 #include "editor/level_editor_triggers_internal.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::triggers {
 // What the source file's anonymous namespace held that its pieces share (level_editor_triggers_internal.h): visible
@@ -436,8 +437,8 @@ void draw_proxim_node(Painter& paint, V3 camera, std::vector<ui::Overlay::Overla
             V3 previous = at + core::at(plane, 0) * proxim_node->radius();
             for (int i = 1; i <= kSides; ++i) {
                 const float angle = 2.0F * 3.14159265F * static_cast<float>(i) / kSides;
-                const V3 next = at + core::at(plane, 0) * (proxim_node->radius() * std::cos(angle)) +
-                                core::at(plane, 1) * (proxim_node->radius() * std::sin(angle));
+                const V3 next = at + core::at(plane, 0) * (proxim_node->radius() * maths::runtime32::cos(angle)) +
+                                core::at(plane, 1) * (proxim_node->radius() * maths::runtime32::sin(angle));
                 paint.get_seg(previous, next, colour, 1.0F);
                 previous = next;
             }
@@ -486,8 +487,8 @@ void draw_breakable(Painter& paint, const Added& added, std::vector<ui::Overlay:
             for (int step = 1; step <= 3; ++step) {
                 const float reach = static_cast<float>(step) / 3.0F;
                 const float jag = ((step & 1) != 0) ? 0.18F : -0.12F;
-                const V3 next = centre + across * (std::cos(angle + jag) * width * 0.8F * reach) +
-                                up * (std::sin(angle + jag) * half.y * 0.8F * reach);
+                const V3 next = centre + across * (maths::runtime32::cos(angle + jag) * width * 0.8F * reach) +
+                                up * (maths::runtime32::sin(angle + jag) * half.y * 0.8F * reach);
                 paint.get_seg(previous, next, colour, kCrackThickness);
                 previous = next;
             }

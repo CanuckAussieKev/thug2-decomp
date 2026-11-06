@@ -146,7 +146,7 @@ const char* get_name(Kind kind)
 float get_threshold(float angle, float factor)
 {
     if (!std::isfinite(angle) || !std::isfinite(factor) || !(factor > 0.0F)) {
-        return std::sin(kVertAngleDegrees * maths::kPi / kDegreesPerHalfTurn);
+        return maths::runtime32::sin(kVertAngleDegrees * maths::kPi / kDegreesPerHalfTurn);
     }
     return std::max(0.0F, std::min(1.0F, static_cast<float>(std::sin(static_cast<double>(angle) * factor))));
 }

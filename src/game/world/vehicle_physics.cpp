@@ -31,6 +31,7 @@
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
+#include "base/maths/trig.h"
 
 namespace objects {
 
@@ -119,7 +120,7 @@ void DrivableModule::update_wheel_friction()
         vel.flatten_onto_plane(wheel.normal);
         // The tyre's sideways direction: the body's right turned by the steering, along the ground, unit.
         const double cosine = std::cos(static_cast<double>(wheel.steering));
-        const float sine = std::sin(wheel.steering);
+        const float sine = maths::runtime32::sin(wheel.steering);
         const auto& rows = basis_frame_.row;
         maths::Vec4 sideways;
         sideways.x =

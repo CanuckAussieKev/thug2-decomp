@@ -4,7 +4,6 @@
 #include "editor/level_editor_view.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -438,7 +437,7 @@ std::string describe(objects::GameEntity* object)
     std::array<char, kDescribeSize> text{};
     text::format_to(text, "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident()),
                     caption(object->ident()).c_str(), object->at_point().x, object->at_point().y, object->at_point().z,
-                    std::atan2(at.x, at.z) * kDegreesPerHalfTurn / maths::kPi);
+                    maths::runtime32::atan2(at.x, at.z) * kDegreesPerHalfTurn / maths::kPi);
     return text.data();
 }
 
