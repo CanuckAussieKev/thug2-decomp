@@ -553,7 +553,8 @@ Image* record_gamma_pass(Backend& state, Image* frame)
     }
     std::string error;
     const VkPipeline pipeline = state.pipelines.screen_pass(frame->format, kGammaFragment, &error);
-    const std::span<const uint8_t> raw(reinterpret_cast<const uint8_t*>(entries->data()), sizeof(*entries));
+    const void* const bytes = entries->data();
+    const std::span<const uint8_t> raw(static_cast<const uint8_t*>(bytes), sizeof(*entries));
     const std::optional<RingSpan> block = state.ring.copy(raw, state.uniform_alignment);
     if (pipeline == VK_NULL_HANDLE || !block) {
         if (first_report(state, kReportGamma)) {

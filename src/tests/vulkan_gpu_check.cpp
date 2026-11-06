@@ -1010,12 +1010,13 @@ void check_target_chain(render::Gpu& gpu, Tally* tally)
 void check_gamma(render::Gpu& gpu, Tally* tally)
 {
     text::print("gamma ramp:\n");
+    constexpr uint32_t kEntryShift = 8; // (an entry's value in its top 8 bits)
     render::GpuGammaRamp identity{};
     render::GpuGammaRamp halving{};
     for (std::size_t channel = 0; channel < 3; ++channel) {
         for (std::size_t index = 0; index < render::kGpuGammaSteps; ++index) {
-            core::at(core::at(identity, channel), index) = static_cast<uint16_t>(index << 8U);
-            core::at(core::at(halving, channel), index) = static_cast<uint16_t>((index / 2) << 8U);
+            core::at(core::at(identity, channel), index) = static_cast<uint16_t>(index << kEntryShift);
+            core::at(core::at(halving, channel), index) = static_cast<uint16_t>((index / 2) << kEntryShift);
         }
     }
     GpuSurface* target = nullptr;
