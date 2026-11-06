@@ -5,7 +5,8 @@
 // sound-only movie files, from a path, an open file handle or memory) are Bink files, played by binkw32.dll - the
 // player's own copy, looked up by name on first use (media_bink/bink.h). The engine opens, decodes, steps, seeks and
 // pauses them and sets their sound through this interface; app/ makes it and installs it at start-up
-// (install_movie), as it does render::Device and audio::Device: Bink's (media_bink/bink_movie.h) is the only one.
+// (install_movie), as it does render::Device and audio::Device: Bink's (media_bink/bink_movie.h), or with [features]
+// movie_codec=ffmpeg FFmpeg's Bink decoders (media_ffmpeg/ffmpeg_movie.h: app/movie_choice.h).
 // A movie's sound plays into the sound output (use_sound_output: audio::Device's output, engine/audio/audio_device.h),
 // at the level the output gives it (audio::Device::track_volume).
 //

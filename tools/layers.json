@@ -1,7 +1,7 @@
 {
-    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_pc, gpu_vulkan, audio_dsound, media_bink, input_dinput, fs_win32, net_winsock, script_qb) are included by app/ only: the editor and the front end reach the graphics backend through the engine's interfaces (render::Device, render::UiBackend; render_pc implements render::Device over render::Gpu, gpu_d3d9 is Direct3D 9's Gpu, GpuContext and UiBackend, gpu_vulkan Vulkan's), the engine reaches the sound output through audio::Device, the movie codec through media::Movie, DirectInput through its input::Source, the operating system's files through fs::Disk, Winsock's sockets through net::Transport and the QB script interpreter through script::Host. The editor's and the front end's 'api' lists the engine and game headers each may include (tools/layers.ts --api <library> prints what they include now); 'executables' says what an exe must do without (tools/cmake_layers.ts).",
+    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_pc, gpu_vulkan, audio_dsound, media_bink, media_ffmpeg, input_dinput, fs_win32, net_winsock, script_qb) are included by app/ only: the editor and the front end reach the graphics backend through the engine's interfaces (render::Device, render::UiBackend; render_pc implements render::Device over render::Gpu, gpu_d3d9 is Direct3D 9's Gpu, GpuContext and UiBackend, gpu_vulkan Vulkan's), the engine reaches the sound output through audio::Device, the movie codec through media::Movie, DirectInput through its input::Source, the operating system's files through fs::Disk, Winsock's sockets through net::Transport and the QB script interpreter through script::Host. The editor's and the front end's 'api' lists the engine and game headers each may include (tools/layers.ts --api <library> prints what they include now); 'executables' says what an exe must do without (tools/cmake_layers.ts).",
     "executables": { "thug2-editor": { "without": ["frontend", "devtools"] } },
-    "strict": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_bink", "input_dinput", "fs_win32", "net_winsock", "script_qb", "game", "frontend", "editor", "devtools"],
+    "strict": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_bink", "media_ffmpeg", "input_dinput", "fs_win32", "net_winsock", "script_qb", "game", "frontend", "editor", "devtools"],
     "libraries": {
         "base": {
             "folders": ["src/base/"],
@@ -16,6 +16,7 @@
         "gpu_vulkan": { "folders": ["src/gpu_vulkan/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "audio_dsound": { "folders": ["src/audio_dsound/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "media_bink": { "folders": ["src/media_bink/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
+        "media_ffmpeg": { "folders": ["src/media_ffmpeg/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "input_dinput": { "folders": ["src/input_dinput/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "fs_win32": { "folders": ["src/fs_win32/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
         "net_winsock": { "folders": ["src/net_winsock/"], "allowed": ["base", "platform", "formats", "wire", "engine"] },
@@ -181,7 +182,7 @@
         },
         "app": {
             "folders": ["src/app/", "src/tests/"],
-            "allowed": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_bink", "input_dinput", "fs_win32", "net_winsock", "script_qb", "game", "frontend", "editor", "devtools"]
+            "allowed": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_bink", "media_ffmpeg", "input_dinput", "fs_win32", "net_winsock", "script_qb", "game", "frontend", "editor", "devtools"]
         }
     }
 }

@@ -72,6 +72,8 @@ src/
               thug2_audio_dsound, included and linked by app/ only)
   media_bink/ the movie codec, Bink (the player's binkw32.dll): the movies and the music / sound streams; it
               implements media::Movie (library thug2_media_bink, included and linked by app/ only)
+  media_ffmpeg/ the other movie codec, FFmpeg's Bink decoders (its LGPL DLLs, loaded by name): it implements
+              media::Movie (library thug2_media_ffmpeg, included and linked by app/ only)
   input_dinput/ the original's DirectInput side: its keyboard, joysticks and mouse, the pad read, the device set-up;
               an input::Source (library thug2_input_dinput, included and linked by app/ only)
   fs_win32/   the operating system's files, Win32's: files by path, streams, folders; it implements fs::Disk under

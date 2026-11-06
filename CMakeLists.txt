@@ -140,6 +140,8 @@ if(THUG2_VULKAN)
     include(cmake/vulkan_libraries.cmake)
 endif()
 
+include(cmake/ffmpeg.cmake)
+
 # --- The GameSpy SDK (IGN's BSD-3 release) ---------------------------------------------------------------------
 # (on x64 once its 64-bit build is checked: docs/design/x64-port.md, X9)
 thug2_builds(gamespy_sdk THUG2_GAMESPY_SDK)
@@ -235,7 +237,7 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 # (on x64 only the x64-ready ones: THUG2_X64_READY above; the checks build when the libraries they link do)
-foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gpu_vulkan audio_dsound media_bink
+foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gpu_vulkan audio_dsound media_bink media_ffmpeg
                          input_dinput fs_win32 net_winsock script_qb game frontend editor devtools app)
     thug2_builds(${library} build_library)
     if(build_library AND NOT (library STREQUAL "gpu_vulkan" AND NOT THUG2_VULKAN))

@@ -106,6 +106,7 @@ From the command line:
 npm install                          (once: the TypeScript tools' dependencies, the level converters among them)
 tools\build_neverscript.ps1          (once: out\neverscript\ns.exe)
 tools\verify_build.cmd               (builds out\build\verify\thug2-decomp.exe; nothing copied)
+node tools/ffmpeg/build_ffmpeg.ts    (optional: FFmpeg's DLLs for movie_codec=ffmpeg; on Linux, or WSL with mingw-w64)
 npm run typecheck && npm run lint && npm test
 ```
 
@@ -191,6 +192,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | Key | Default | Effect |
 |---|---|---|
 | `skip_intro_movies` | 0 | Skips the logo and intro movies at start-up |
+| `movie_codec` | bink | `bink` or `ffmpeg`: `ffmpeg` decodes the movies with FFmpeg's Bink decoders instead of `binkw32.dll` (the DLLs `avutil-59.dll`, `avcodec-61.dll`, `avformat-61.dll` and `swscale-8.dll` next to the exe - `node tools/ffmpeg/build_ffmpeg.ts` builds them, and the build copies them along). Picture only for now: with `ffmpeg` the movies and the music play silent. Without the DLLs Bink plays them, and the log says why |
 | `mute_audio` | 0 | Silences all sound from the first frame |
 | `continue_music` | 0 | The song playing carries on through level loads (the skate shop, CAS and the park editor included) and run starts instead of being stopped or skipped; the playlist goes on when it ends. Skip, music volume 0, movies and cutscenes still stop it |
 | `widescreen_menus` | 1 | 0 brings back PartyMod's pillarboxed 4:3 front end |

@@ -23,6 +23,7 @@
 #include "app/extensions.h"
 #include "app/winmain.h"
 #include "app/renderer_choice.h"
+#include "app/movie_choice.h"
 #include "audio_dsound/dsound_device.h"
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
@@ -39,7 +40,6 @@
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"
-#include "media_bink/bink_movie.h"
 #include "engine/gfx/loading_console.h"
 #include "render_pc/loading_console_panel.h"
 #include "game/commands/node_hooks.h"
@@ -123,8 +123,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
                                                : audio::dsound::device());
     // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): Bink's (the player's
-    // binkw32.dll).
-    media::install_movie(media::bink::movie());
+    // binkw32.dll) - or, with [features] movie_codec=ffmpeg, FFmpeg's Bink decoders (app/movie_choice.h).
+    media::install_movie(app::chosen_movie_codec());
     // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the original's order: DirectInput's (the
     // keyboard read once a frame, the joysticks, the original's pad read - none made since PartyMod's input), SDL's
     // game controllers and keyboard, then the exe's extensions' (the game's: the test-automation channel's pressed
