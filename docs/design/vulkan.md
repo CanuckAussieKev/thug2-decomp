@@ -160,7 +160,7 @@ engine  --render::Device-->  render_pc/        the PC platform layer, API-neutra
                                                passes, CPU skinning, sorting, particles, weather, shadows' logic, 2D
                              --render::Gpu-->  gpu_d3d9/    Direct3D 9: the 458 device-call lines, as they are
                                                gpu_vulkan/  Vulkan (its Gpu and GpuContext: V6; draws: V7)
-engine  --render::UiBackend-->  d3d9 / vulkan UI backends (ImGui's dx9 / vulkan renderer backends)
+engine  --render::UiBackend-->  d3d9 / vulkan UI backends (ImGui's dx9 renderer backend / the Vulkan Gpu)
 ```
 
 `render::Gpu` is the lower interface. It is still coarse, never per vertex:
@@ -269,7 +269,7 @@ pass) on the chosen device. It draws nothing: comparing pixels against Direct3D 
 | `screen_shot`, `capture_back_buffer` | the swapchain image (made with `TRANSFER_SRC`) copied to a host buffer; the JPEG written by stb's JPEG writer instead of D3DX |
 | loading screen, bar, console panel, disc error, movies | screen-space draws through `Gpu`; a movie's frames uploaded to a dynamic texture each frame |
 | the editor's methods | the same records (`engine/gfx/mesh_records.h`), which the editor reads directly: `render_pc` keeps them, so the Vulkan side only provides the buffers' upload and the preview's target |
-| `UiBackend` | ImGui's SDL2 + Vulkan backends (`imgui_impl_vulkan`); `UiTextureId` = a descriptor set's handle (64 bits); the preview and atlas as images with their own depth; `invalidate_device_objects` = drop the font image |
+| `UiBackend` | ImGui's SDL2 backend, its draw lists drawn by the Vulkan `Gpu` in its own frame (not `imgui_impl_vulkan`: V9); `UiTextureId` = a `Gpu` texture's handle (64 bits); the preview and atlas as render-target textures with their own depth; `invalidate_device_objects` = drop the font image |
 | MSAA | sample counts 2/4/8 as the device has them; resolve before the screen copies and present |
 
 **Libraries** (fetched and pinned like the others, licences to confirm before adding):
@@ -277,7 +277,7 @@ pass) on the chosen device. It draws nothing: comparing pixels against Direct3D 
 - volk, the loader (MIT);
 - Vulkan Memory Allocator (MIT);
 - a GLSL -> SPIR-V compiler at build time: glslang (BSD-3 / Apache-2.0) or shaderc (Apache-2.0);
-- ImGui's Vulkan backend (MIT, already fetched with ImGui).
+- (ImGui's Vulkan backend: not used - V9 draws ImGui's lists through the Vulkan `Gpu`.)
 
 The validation layers come from the Vulkan SDK, debug builds only.
 
@@ -476,7 +476,7 @@ one Gpu call per device call (`draw_indexed_from_memory` per text batch, `draw_f
 - **What included a Direct3D header** (V5f's input; V5f moved these to `src/gpu_d3d9`, the only folder that includes one): `gpu_d3d9.cpp` (the Gpu), `d3d9_context.cpp` (the creation),
   `d3d9_state.h` / `.cpp` (the device and instance pointers), `d3d9_handles.h` (the handle conversions), `d3dx.cpp` (D3DX9:
   the shader assembly and the JPEG, `d3dx.h`'s declarations are Direct3D-free), `d3d9_ui_backend.cpp` and
-  `imgui_texture_id.h` (Dear ImGui's backend, `render::UiBackend`; V9 makes the Vulkan one) and `d3d_matrix.h` (unused
+  `imgui_texture_id.h` (Dear ImGui's backend, `render::UiBackend`; V9 made the Vulkan one) and `d3d_matrix.h` (unused
   since V5d; V5f deleted it).
 
 ### V6: the Vulkan `Gpu` and `GpuContext` for the resources (done)
@@ -641,6 +641,44 @@ Direct3D 9 (V7).
 - **The checks**: `thug2_vulkan_gpu_check` adds the viewport after `set_render_target`, a target drawn from straight
   after its pass, and the gamma pass (the identity ramp makes none; a halving ramp halves a target's pixels).
 
+### V9: `render::UiBackend` on Vulkan (done)
+
+- **The choice: the Vulkan `Gpu` draws ImGui's lists itself; ImGui's own Vulkan renderer backend is not used.** Its
+  backend records into a command buffer it is handed inside a render pass (or dynamic rendering) it is told the format
+  of, and keeps its own descriptor pool, pipeline, buffer rotation and font upload (a command pool and a queue submit
+  of its own, then a wait for the queue). The `Gpu`'s frame is different: passes are inferred, not opened by the
+  caller; one stream command buffer per frame; two frames in flight with submission serials and deferred deletion;
+  push descriptors and one pipeline layout; and a second thread (the loading screen's) presents through the same
+  queue under the backend's lock. Fitting ImGui's backend in would mean exposing the stream and the open pass, keeping
+  its buffers in step with our frames, and freeing its descriptor sets only once no frame in flight uses them. Drawing
+  the lists through the `Gpu` is less code and fits by construction: ImGui's SDL2 platform backend stays as it is.
+- **The draws** (`vulkan_ui_backend.cpp`, `record_ui_draws` in `vulkan_draws.cpp`): `render_draw_data` gathers the
+  lists' vertices (ImGui's 20-byte vertex) and 16-bit indices into one batch, each command's clip rectangle, texture
+  and base vertex; the batch goes into the draws' ring (per frame in flight) and is drawn in the stream, in the pass on
+  the device's target 0 - the back buffer, multisampled when the game's `msaa` is on - so it is part of the frame the
+  present copies into the swapchain. As a game draw does, the pass on other targets is ended first and each texture
+  made ready to be sampled (the preview drawn just before is sampled from its own finished pass). `Pipelines::ui_pass`
+  makes one pipeline per attachment formats and sample count: ImGui's vertex layout, the colour times the texture,
+  alpha blending as ImGui's Direct3D 9 backend does it (colour: source alpha / one minus it; alpha: one / one minus
+  source alpha), no depth test, the scissor per draw. The stream's bound state is forgotten after (the game's next
+  draw binds its own pipeline and sets its states again). `start` makes the pipeline for the back buffer at once and
+  refuses (`kDeviceRefused`) when the driver won't, so the editor's old HUD and the original menus stand in then.
+- **Images**: `create_texture` makes a `Gpu` texture in the managed pool (A8R8G8B8 or DXT1, one level), filled through
+  a lock; its id is its handle as 64 bits. Released through the `Gpu`, an image is destroyed only once the frames that
+  may draw it have finished. The font atlas is one of them, made by `new_frame` when the context has none (ImGui's
+  RGBA texels as BGRA); `invalidate_device_objects` releases it - a reset, or the fonts built again at another UI scale
+  (the editor's and the new front end's scales are theirs: the draw data arrives scaled to the back buffer).
+- **The preview and the thumbnails' atlas**: render-target textures (X8R8G8B8) with depth surfaces of their own in the
+  game depth's format, made on first use. `begin_offscreen` / `begin_atlas_cell` save the target, the depth surface,
+  the viewport and the world / view / projection transforms and switch to the picture through the `Gpu`'s own calls
+  (so its state block stays true), and clear it (the atlas once whole when new, then the cell); `end_*` put them back.
+- **A device reset**: the Vulkan `Gpu` loses nothing (`GpuContext::reset` makes the swapchain again); the editor and
+  the front end still drop the font atlas and the two pictures around it, as on Direct3D 9, and they are made again on
+  next use. The engine's log line for a refusing renderer backend now names the backend in use.
+- **The checks**: `thug2_vulkan_gpu_check` adds the UI backend: an image from texels, the preview begun and ended (the
+  target and viewport put back), an atlas cell, and the UI's draws read back - a textured rectangle, the preview's
+  picture clipped to its top half, a half-transparent rectangle blended over another.
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -675,7 +713,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 - done: the Vulkan `Gpu` and `GpuContext` (nothing drawn), `thug2_vulkan_gpu_check`; the pixel shaders' assembly and the screen shot's JPEG became `Gpu` operations |
 | V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 - done: foun drawn and skated with `renderer=vulkan` on both GPUs here; passes, frames in flight, batched uploads, deferred deletion, the present; `[Graphics] vulkan_device` |
 | V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 - done: the bloom's blank textures (the brighter picture) and the shadow textures' viewport fixed, the gamma pass in full screen, the swapchain following the surface; five spots compared with Direct3D 9 |
-| V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 |
+| V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 - done: ImGui's lists drawn by the Vulkan `Gpu` (ImGui's SDL2 backend kept), images as `Gpu` textures, the preview and atlas through the `Gpu`; the new front end and the level editor (in the game and the editor exe) draw on Vulkan |
 | V10 | Movies, loading screens, screenshots and the editor's methods on Vulkan | V7, V5e | after stage 11 |
 | V11 | Parity: a screenshot comparison between the two backends at the same spot and frame (the automation channel's teleport and capture), with each backend's run-to-run noise as the baseline; the front end, the editor, five levels; frame times | V8-V10 | after stage 11 |
 | R1 | The frame as data: `render_pc` fills the per-frame instance / light / camera record; stable mesh and material ids | V5f | after V11 and the x64 port |
