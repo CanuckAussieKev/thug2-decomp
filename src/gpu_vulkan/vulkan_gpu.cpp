@@ -498,6 +498,12 @@ long unlock_buffer(Backend& state, Buffer* buffer)
         return kInvalid;
     }
     const TransferTarget target = transfer_commands(state, version.last_use);
+    const uint64_t serial = state.frames.serial();
+    if (version.copied == serial && version.copied_in_stream == target.in_stream) {
+        copy_after_copy(target.commands);
+    }
+    version.copied = serial;
+    version.copied_in_stream = target.in_stream;
     const VkBufferCopy region{.srcOffset = staged->offset, .dstOffset = buffer->lock_offset, .size = written.size()};
     vkCmdCopyBuffer(target.commands, staged->buffer, version.memory.buffer, 1, &region);
     if (target.in_stream) {

@@ -67,6 +67,8 @@ struct Surface {
 struct BufferVersion {
     DeviceBuffer memory;
     uint64_t last_use = 0; // the last submission that drew from it or copied into it (vulkan_frames.h)
+    uint64_t copied = 0;   // the last submission whose uploads or stream copied into it (copied_in_stream: which)
+    bool copied_in_stream = false;
 };
 
 // A vertex or index buffer (GpuVertexBuffer, GpuIndexBuffer). A static one is device memory with a system-memory copy

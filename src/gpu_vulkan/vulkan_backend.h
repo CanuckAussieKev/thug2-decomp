@@ -230,6 +230,9 @@ TransferTarget transfer_commands(Backend& state, uint64_t touched);
 // After a transfer of `staged` bytes: the stream's reads of buffers wait for it (when it went into the stream); the
 // frame's work is finished when the staging ring has grown past its limit (loading).
 void transfer_done(Backend& state, const TransferTarget& target, VkDeviceSize staged);
+// Before a copy into what an earlier copy of the same command buffer wrote: that copy's writes waited for (two copies
+// into one buffer are otherwise unordered - a static buffer unlocked twice before its uploads are submitted).
+void copy_after_copy(VkCommandBuffer commands);
 // An image or buffer released: destroyed once the submissions that may use it have finished.
 void retire_image(Backend& state, Image* image);
 void retire_buffer(Backend& state, DeviceBuffer* buffer);

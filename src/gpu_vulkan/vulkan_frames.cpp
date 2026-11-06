@@ -120,8 +120,10 @@ VkCommandBuffer Frames::uploads()
     Slot& now = slot();
     if (!now.uploads_begun) {
         now.uploads_begun = begin(now.uploads);
-        // the earlier submissions' reads of what these transfers overwrite (images have their own barriers)
-        memory_barrier(now.uploads, kBufferReaders, 0, VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
+        // the earlier submissions' reads of what these transfers overwrite, and their copies into the same buffers
+        // (images have their own barriers)
+        memory_barrier(now.uploads, kBufferReaders | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
     }
     return now.uploads;
 }

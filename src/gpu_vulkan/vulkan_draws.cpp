@@ -785,9 +785,17 @@ TransferTarget transfer_commands(Backend& state, uint64_t touched)
         return {.commands = state.frames.uploads(), .in_stream = false};
     }
     VkCommandBuffer commands = outside_pass(state);
-    // the stream's reads before it of the buffers it may overwrite (images have their own barriers)
-    memory_barrier(commands, kBufferReaders, 0, VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
+    // the stream's reads before it of the buffers it may overwrite, and the copies before it into them (images have
+    // their own barriers)
+    memory_barrier(commands, kBufferReaders | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                   VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
     return {.commands = commands, .in_stream = true};
+}
+
+void copy_after_copy(VkCommandBuffer commands)
+{
+    memory_barrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                   VK_ACCESS_TRANSFER_WRITE_BIT);
 }
 
 void transfer_done(Backend& state, const TransferTarget& target, VkDeviceSize staged)
