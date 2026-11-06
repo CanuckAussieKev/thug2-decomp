@@ -662,6 +662,7 @@ public:
     long get_viewport(GpuViewport* viewport) override
     {
         const std::scoped_lock lock(backend().mutex);
+        default_viewport(backend());
         *viewport = state_block().viewport;
         return kOk;
     }
@@ -1254,6 +1255,7 @@ public:
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
+        default_viewport(state);
         const StreamSource& source = core::at(state.streams, 0);
         if (source.buffer == nullptr || !state.buffers.contains(source.buffer)) {
             return kOk;
@@ -1275,6 +1277,7 @@ public:
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
+        default_viewport(state);
         const StreamSource& source = core::at(state.streams, 0);
         Buffer* const indices = state.indices;
         if (source.buffer == nullptr || indices == nullptr || !state.buffers.contains(source.buffer) ||
@@ -1305,6 +1308,7 @@ public:
         // (the vertices copied into the frame's ring)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
+        default_viewport(state);
         const std::size_t bytes = static_cast<std::size_t>(vertices_for(primitive, count)) * stride;
         if (!state.memory.ready() || vertices == nullptr || bytes == 0) {
             return state.memory.ready() ? kOk : kInvalid;
@@ -1329,6 +1333,7 @@ public:
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
+        default_viewport(state);
         if (!state.memory.ready()) {
             return kInvalid;
         }
@@ -1391,6 +1396,7 @@ public:
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
+        default_viewport(state);
         const std::span<const GpuRect> areas =
             rects != nullptr ? std::span(rects, rect_count) : std::span<const GpuRect>();
         return record_clear(state, state_block(), areas, {.flags = flags, .colour = colour, .z = z});
@@ -1441,6 +1447,24 @@ protected:
     }
     long send_restore_state(void* /*api*/) override { return kOk; }
     uint32_t send_release_saved_state(void* /*api*/) override { return 0; }
+
+private:
+    // Direct3D 9's device has a viewport from its creation and after a reset: the whole of render target 0. The state
+    // block's is none then (reset_state_block: zero width and height) - taken as that one at the first draw, clear or
+    // question (the game's movies and first loading screen draw before anything sets one). The caller holds the lock.
+    void default_viewport(const Backend& state)
+    {
+        const GpuViewport& now = state_block().viewport;
+        const Surface* const target = core::at(state.targets, 0);
+        if (now.width == 0 && now.height == 0 && target != nullptr) {
+            set_viewport({.x = 0,
+                          .y = 0,
+                          .width = target->extent.width,
+                          .height = target->extent.height,
+                          .min_z = 0.0F,
+                          .max_z = 1.0F});
+        }
+    }
 };
 
 VulkanGpu& vulkan_gpu()
@@ -1471,6 +1495,40 @@ bool sampled_and_filtered(VkPhysicalDevice device, VkFormat format)
     return (properties.optimalTilingFeatures & kWanted) == kWanted;
 }
 
+// The back buffer (drawn into, copied into the swapchain by the present) and the depth surface the settings ask for,
+// made at their size and samples: the device's own references (Backend::back_buffer / auto_depth), not bound.
+bool make_device_surfaces(Backend& state)
+{
+    GpuSurface* back = nullptr;
+    GpuSurface* depth = nullptr;
+    const GpuSettings& settings = state.settings;
+    if (make_render_target(state,
+                           {.width = settings.width,
+                            .height = settings.height,
+                            .format = gpu_value::kFormatA8R8G8B8,
+                            .samples = settings.samples,
+                            .quality = settings.sample_quality,
+                            .lockable_or_discard = false},
+                           &back) != kOk) {
+        return false;
+    }
+    if (make_depth_surface(state,
+                           {.width = settings.width,
+                            .height = settings.height,
+                            .format = settings.depth_format,
+                            .samples = settings.samples,
+                            .quality = settings.sample_quality,
+                            .lockable_or_discard = true},
+                           &depth) != kOk) {
+        release(state, object(back));
+        return false;
+    }
+    state.back_buffer = object(back);
+    state.back_buffer->d3d_format = settings.colour_format;
+    state.auto_depth = object(depth);
+    return true;
+}
+
 } // namespace
 
 long create_device_objects(Backend& state)
@@ -1495,35 +1553,44 @@ long create_device_objects(Backend& state)
     if (!state.ring.init(&state.memory) || !create_draw_objects(state)) {
         return kInvalid;
     }
-    // the back buffer (drawn into, presented by V7) and the depth surface the present parameters ask for
-    GpuSurface* back = nullptr;
-    GpuSurface* depth = nullptr;
-    const GpuSettings& settings = state.settings;
-    if (make_render_target(state,
-                           {.width = settings.width,
-                            .height = settings.height,
-                            .format = gpu_value::kFormatA8R8G8B8,
-                            .samples = settings.samples,
-                            .quality = settings.sample_quality,
-                            .lockable_or_discard = false},
-                           &back) != kOk ||
-        make_depth_surface(state,
-                           {.width = settings.width,
-                            .height = settings.height,
-                            .format = settings.depth_format,
-                            .samples = settings.samples,
-                            .quality = settings.sample_quality,
-                            .lockable_or_discard = true},
-                           &depth) != kOk) {
+    if (!make_device_surfaces(state)) {
         return kInvalid;
     }
-    state.back_buffer = object(back);
-    state.back_buffer->d3d_format = settings.colour_format;
-    state.auto_depth = object(depth);
     rebind(state, &core::at(state.targets, 0), state.back_buffer);
     rebind(state, &state.depth, state.auto_depth);
     vulkan_gpu().reset_state_block();
     return kOk;
+}
+
+bool reset_device_bindings(Backend& state)
+{
+    const GpuSettings& settings = state.settings;
+    const Surface* const back = state.back_buffer;
+    if (back == nullptr || back->extent.width != settings.width || back->extent.height != settings.height ||
+        back->samples != settings.samples || back->quality != settings.sample_quality) {
+        Surface* const old_back = state.back_buffer;
+        Surface* const old_depth = state.auto_depth;
+        if (!make_device_surfaces(state)) {
+            state.back_buffer = old_back;
+            state.auto_depth = old_depth;
+            return false;
+        }
+        rebind(state, &core::at(state.targets, 0), state.back_buffer);
+        rebind(state, &state.depth, state.auto_depth);
+        release(state, old_back); // (the device's own references: destroyed once nothing else holds them)
+        release(state, old_depth);
+    }
+    rebind(state, &core::at(state.targets, 0), state.back_buffer);
+    for (std::size_t index = 1; index < kRenderTargetCount; ++index) {
+        rebind(state, &core::at(state.targets, index), static_cast<Surface*>(nullptr));
+    }
+    rebind(state, &state.depth, state.auto_depth);
+    for (StreamSource& source : state.streams) {
+        rebind(state, &source.buffer, static_cast<Buffer*>(nullptr));
+        source = {};
+    }
+    rebind(state, &state.indices, static_cast<Buffer*>(nullptr));
+    return true;
 }
 
 void release_device_objects(Backend& state)

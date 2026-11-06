@@ -209,6 +209,10 @@ void set_context_options(const ContextOptions& options, SDL_Window* window);
 // the lock.
 long create_device_objects(Backend& state);
 void release_device_objects(Backend& state);
+// What Direct3D 9's Reset does to the device's bindings (the PC layer resets the state block after it): the back buffer
+// and its depth surface made again when the settings' size or samples changed, render target 0 the back buffer and the
+// others none, the depth surface the device's own, no vertex streams or indices. The caller holds the lock.
+bool reset_device_bindings(Backend& state);
 
 // --- the draws, the frame, the transfers (vulkan_draws.cpp); the caller holds the lock ------------------------------
 

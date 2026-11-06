@@ -89,6 +89,9 @@ constexpr int kRingDraws = 400;       // 400 draws of 4 KB: past the ring's firs
 constexpr uint32_t kRingVertices = 256;
 constexpr uint32_t kRingStride = 16;
 constexpr int kThreadRounds = 200;
+constexpr int kReadBackEvery = 40; // (the loading thread's rounds between read-backs: everything finished mid-frame)
+constexpr uint32_t kResetWidth = 320; // (a reset at another size: the back buffer made again)
+constexpr uint32_t kResetHeight = 200;
 constexpr uint32_t kPixelBytes = 4;
 constexpr uint32_t kUsageDynamicWriteOnly = value::kUsageDynamic | value::kUsageWriteOnly;
 constexpr uint32_t kFvf = 0x142; // XYZ | DIFFUSE | TEX1
@@ -1324,6 +1327,126 @@ void check_threads(render::Gpu& gpu, Tally* tally)
                  text::format("%d rounds on each of two threads, 0 failed (%d)", kThreadRounds, failures.load()));
 }
 
+// The loading screen's way: a timer thread draws whole frames (scene, clear, a draw, present) while the main thread
+// loads - textures and static buffers made, filled and released, now and then a read-back of the back buffer (which
+// finishes the work recorded so far, the other thread's half-drawn frame with it).
+void check_loading_threads(render::Gpu& gpu, Tally* tally)
+{
+    const render::vulkan::Backend& state = render::vulkan::backend();
+    const uint64_t frames_before = state.frame;
+    std::atomic<int> failures{0};
+    std::thread screen([&gpu, &failures] {
+        const std::vector<uint8_t> vertices =
+            pattern_bytes(Seed{11}, static_cast<std::size_t>(kRingVertices) * kRingStride);
+        for (int round = 0; round < kThreadRounds; ++round) {
+            if (gpu.begin_scene() != value::kResultOk ||
+                gpu.clear(0, nullptr, value::kClearTarget, 0, 1.0F, 0) != value::kResultOk ||
+                gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, kRingVertices - 2, vertices.data(),
+                                     kRingStride) != value::kResultOk ||
+                gpu.end_scene() != value::kResultOk || gpu.present() != value::kResultOk) {
+                ++failures;
+            }
+        }
+    });
+    int loaded = 0;
+    int read_backs = 0;
+    for (int round = 0; round < kThreadRounds; ++round) {
+        GpuTexture* texture = nullptr;
+        render::GpuVertexBuffer* buffer = nullptr;
+        GpuLockedRect locked;
+        void* bytes = nullptr;
+        const bool made =
+            gpu.create_texture({.width = kTextureWidth,
+                                .height = kTextureHeight,
+                                .levels = 0,
+                                .usage = 0,
+                                .format = value::kFormatA8R8G8B8,
+                                .pool = value::kPoolManaged},
+                               &texture) == value::kResultOk &&
+            gpu.lock_texture(texture, 0, &locked, nullptr, 0) == value::kResultOk &&
+            gpu.unlock_texture(texture, 0) == value::kResultOk &&
+            gpu.create_vertex_buffer(kBufferBytes, 0, 0, value::kPoolManaged, &buffer) == value::kResultOk &&
+            gpu.lock_vertex_buffer(buffer, 0, 0, &bytes, 0) == value::kResultOk &&
+            gpu.unlock_vertex_buffer(buffer) == value::kResultOk;
+        const bool released = (texture == nullptr || gpu.release_texture(texture) == 0) &&
+                              (buffer == nullptr || gpu.release_vertex_buffer(buffer) == 0);
+        loaded += made && released ? 1 : 0;
+        if (round % kReadBackEvery == 0) {
+            GpuSurface* back = nullptr;
+            std::vector<uint8_t> shown;
+            const bool read = gpu.back_buffer(&back) == value::kResultOk && render::vulkan::read_surface(back, &shown);
+            read_backs += read ? 1 : 0;
+            if (back != nullptr) {
+                gpu.release_surface(back);
+            }
+        }
+    }
+    screen.join();
+    const auto presented = static_cast<int>(state.frame - frames_before);
+    tally->check(failures.load() == 0 && loaded == kThreadRounds && read_backs == kThreadRounds / kReadBackEvery &&
+                     presented == kThreadRounds,
+                 text::format("a thread drawing %d whole frames while the main thread loads (%d of %d rounds, %d "
+                              "read-backs): %d failed",
+                              presented, loaded, kThreadRounds, read_backs, failures.load()));
+}
+
+// A reset as the PC layer makes one at the size given (its default-pool objects released before, the state block reset
+// after): the back buffer and depth surface bound and of that size, the viewport theirs, a frame drawn and presented.
+bool reset_to(render::Gpu& gpu, render::GpuContext& context, render::GpuSettings settings)
+{
+    context.configure(settings);
+    const bool reset = context.reset();
+    gpu.reset_state_block();
+    GpuSurface* back = nullptr;
+    GpuSurface* target = nullptr;
+    GpuSurface* depth = nullptr;
+    render::GpuSurfaceDesc back_desc{};
+    render::GpuSurfaceDesc depth_desc{};
+    const bool bound = gpu.back_buffer(&back) == value::kResultOk &&
+                       gpu.surface_desc(back, &back_desc) == value::kResultOk &&
+                       gpu.render_target(0, &target) == value::kResultOk && target == back &&
+                       gpu.depth_surface(&depth) == value::kResultOk &&
+                       gpu.surface_desc(depth, &depth_desc) == value::kResultOk;
+    for (GpuSurface* surface : {back, target, depth}) {
+        if (surface != nullptr) {
+            gpu.release_surface(surface);
+        }
+    }
+    render::GpuViewport viewport{};
+    const bool sized = back_desc.width == settings.width && back_desc.height == settings.height &&
+                       depth_desc.width == settings.width && depth_desc.height == settings.height &&
+                       gpu.get_viewport(&viewport) == value::kResultOk && viewport.width == settings.width &&
+                       viewport.height == settings.height;
+    const bool drawn =
+        gpu.begin_scene() == value::kResultOk &&
+        gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, 0, 1.0F, 0) == value::kResultOk &&
+        gpu.end_scene() == value::kResultOk && gpu.present() == value::kResultOk;
+    return reset && bound && sized && drawn;
+}
+
+// The viewport a new device has: Direct3D 9's is the whole of render target 0. A reset after the settings' size
+// changed makes the back buffer again at the new size and binds it; a reset at the old size puts it back.
+void check_reset(render::Gpu& gpu, render::GpuContext& context, Tally* tally)
+{
+    text::print("viewport and reset:\n");
+    render::GpuViewport viewport{};
+    bool ok = gpu.get_viewport(&viewport) == value::kResultOk && viewport.x == 0 && viewport.y == 0 &&
+              viewport.width == static_cast<uint32_t>(kWindowWidth) &&
+              viewport.height == static_cast<uint32_t>(kWindowHeight);
+    tally->check(ok, text::format("a new device's viewport: the back buffer's whole (%ux%u)", viewport.width,
+                                  viewport.height));
+    const render::GpuSettings original = context.settings();
+    render::GpuSettings smaller = original;
+    smaller.width = kResetWidth;
+    smaller.height = kResetHeight;
+    ok = reset_to(gpu, context, smaller);
+    tally->check(ok, text::format("a reset at %ux%u: the back buffer and depth made again and bound, the viewport "
+                                  "theirs, a frame presented",
+                                  kResetWidth, kResetHeight));
+    ok = reset_to(gpu, context, original);
+    tally->check(ok, text::format("a reset at %ux%u again: the same", original.width, original.height));
+}
+
 int window_position(int display)
 {
     const int displays = SDL_GetNumVideoDisplays();
@@ -1382,6 +1505,7 @@ int run(const Options& options, SDL_Window* window)
     text::print("memory: %u allocations for the device's own objects (back buffer, depth, ring)\n", baseline);
 
     Tally tally;
+    check_reset(gpu, context, &tally);
     check_textures(gpu, &tally, false);
     check_textures(gpu, &tally, true);
     check_surfaces(gpu, context, &tally);
@@ -1393,6 +1517,7 @@ int run(const Options& options, SDL_Window* window)
     check_gamma(gpu, &tally);
     check_ui(gpu, &tally);
     check_threads(gpu, &tally);
+    check_loading_threads(gpu, &tally);
 
     const VmaTotalStatistics after = state.memory.statistics();
     const bool all_released = after.total.statistics.allocationCount == baseline && state.textures.size() == 0 &&

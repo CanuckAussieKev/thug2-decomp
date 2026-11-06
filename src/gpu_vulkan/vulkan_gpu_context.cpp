@@ -175,13 +175,14 @@ public:
         return backend().ready;
     }
 
-    // Nothing is lost in Vulkan as Direct3D 9's device is: the swapchain is made again at the window's size (the PC layer
-    // has released and makes again its default-pool objects around this, as for Direct3D 9).
+    // Nothing is lost in Vulkan as Direct3D 9's device is: the swapchain is made again at the window's size and the
+    // device's bindings put back as Direct3D 9's Reset leaves them - the back buffer made again when the settings' size
+    // changed (the PC layer has released and makes again its default-pool objects around this, as for Direct3D 9).
     bool reset() override
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
-        return state.device_made && finish_work(state) && state.context.remake();
+        return state.device_made && finish_work(state) && state.context.remake() && reset_device_bindings(state);
     }
 
     void shutdown() override
