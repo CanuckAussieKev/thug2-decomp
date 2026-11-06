@@ -101,7 +101,7 @@ public:
     virtual KeyState keys() { return {}; }
     // The mouse (false: no mouse).
     virtual bool mouse(MouseState* /*out*/) { return false; }
-    // The first attached game controller (false: none).
+    // The first attached game controller - SDL's: outside split screen the one pressed last (false: none).
     virtual bool controller(ControllerState* /*out*/) { return false; }
     // The mouse held in the window and hidden, its motion still reported (the level editor's look): true if done.
     virtual bool set_relative_mouse(bool /*on*/) { return false; }

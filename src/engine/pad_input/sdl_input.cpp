@@ -1511,7 +1511,8 @@ void SdlSource::poll_port(input::PortPoll& poll)
     }
 }
 
-// The first attached game controller of those SDL lists (the ones the game's input opened): its axes, then its buttons.
+// The first attached game controller of those SDL lists (the ones the game's input opened) - outside split screen
+// the one pressed last (single_player_any_pad): its axes, then its buttons.
 bool SdlSource::controller(input::ControllerState* out)
 {
     SDL_Gamepad* found = nullptr;
@@ -1527,6 +1528,10 @@ bool SdlSource::controller(input::ControllerState* out)
         }
     }
     SDL_free(gamepads);
+    // (not original - single_player_any_pad: the controller pressed last, where there is one)
+    if (any_pad_drives_player_one() && sdl_input_state().active_ && SDL_GamepadConnected(sdl_input_state().active_)) {
+        found = sdl_input_state().active_;
+    }
     if (!found) {
         return false;
     }
