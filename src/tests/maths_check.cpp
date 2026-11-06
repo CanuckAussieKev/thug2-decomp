@@ -4,7 +4,9 @@
 // function, how many results differ and the largest difference in units in the last place (ulps) of the stored type.
 // It runs twice: at the x87's default 53-bit precision and at 24 bits - what Direct3D 9 sets on the thread that
 // creates the device (the game creates it without D3DCREATE_FPU_PRESERVE), i.e. the precision the original's x87
-// code ran at in the game.
+// code ran at in the game. Its D3DX half - D3DX9's matrix product, vector transforms and viewing matrices against
+// the plain C++ that replaced them - runs on x64 too (once: SSE2 has no precision to set), where there is no x87
+// reference.
 
 #include <cmath>
 #include <algorithm>
@@ -20,14 +22,11 @@
 #include "base/maths/trig.h"
 #include "base/core/parse_number.h"
 #include "base/core/checked_index.h"
-
-#if defined(_MSC_VER) && defined(_M_IX86)
 #include <array>
 #include "base/core/format.h"
 #include "base/maths/mat4.h"
 #include "tests/maths_check_d3dx.h"
 #include "base/maths/view_transforms.h"
-#endif
 
 namespace {
 
@@ -1462,6 +1461,8 @@ void skin_file(const fresh::Skin& v, float* out_floats)
 
 } // namespace ref
 
+#endif // the x87 reference
+
 // --- the comparison ----------------------------------------------------------------------------------------------
 
 // The distance in ulps between two doubles / floats (NaNs equal to each other; a NaN against a number: a huge value).
@@ -1555,6 +1556,8 @@ void compare_bool(Tally& tally, bool a, bool b, double input)
 {
     tally.add({.distance = static_cast<uint64_t>(a != b), .difference = static_cast<double>(a != b), .input = input});
 }
+
+#if defined(_MSC_VER) && defined(_M_IX86) // (the x87 reference: MSVC's inline assembly, 32-bit x86)
 
 void run(int count, std::mt19937_64& random)
 {
@@ -1818,6 +1821,8 @@ void run(int count, std::mt19937_64& random)
     }
 }
 
+#endif // the x87 reference
+
 // NOT ORIGINAL - D3DX9's matrix product (d3dx9_43.dll, which the game called until stage 11) against the plain C++
 // that replaced it, maths::matrix_multiply: random matrices of the game's coordinate, unit and tiny (denormal
 // product) scales, each also multiplied in place (the result written over a, and over b).
@@ -2005,18 +2010,16 @@ void view_maths(int count, std::mt19937_64& random)
     }
 }
 
-#endif // the x87 reference
-
 } // namespace
 
 int main(int argc, char** argv)
 {
     tests::no_error_dialogs();
-#if defined(_MSC_VER) && defined(_M_IX86) // (the x87 reference: MSVC's inline assembly, 32-bit x86)
     const std::span<char*> arguments(argv, static_cast<size_t>(argc));
     const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;
     // (a second argument: another seed, for another sequence; the default's results are the ones compared)
     const int seed = argc > 2 ? text::to_int(core::at(arguments, 2)) : kRandomSeed;
+#if defined(_MSC_VER) && defined(_M_IX86) // (the x87 reference: MSVC's inline assembly, 32-bit x86)
     std::mt19937_64 random(static_cast<uint64_t>(seed));
     text::print("x87 at 53 bits (the default control word)\n");
     run(count, random);
@@ -2025,10 +2028,14 @@ int main(int argc, char** argv)
     text::print("x87 at 24 bits (as Direct3D 9 leaves it on the device's thread)\n");
     run(count, random);
     _controlfp_s(&previous, _PC_53, _MCW_PC);
+#else
+    text::print("thug2_maths_check: the x87 reference needs MSVC for 32-bit x86; only D3DX9 is compared.\n");
+#endif
     text::print("D3DX9's matrix product (d3dx9_43.dll's SSE version) against the plain C++\n");
     std::mt19937_64 matrix_random(static_cast<uint64_t>(seed)); // (its own sequence, from the start)
     matrix_product(count, matrix_random);
-    // (the vector and viewing maths; one sequence, from the start, for both precisions)
+    // (the vector and viewing maths; one sequence, from the start, for each precision)
+#if defined(_MSC_VER) && defined(_M_IX86)
     text::print("D3DX9's vector and viewing maths against the plain C++, x87 at 53 bits (the game's thread)\n");
     std::mt19937_64 view_random(static_cast<uint64_t>(seed));
     view_maths(count, view_random);
@@ -2037,11 +2044,10 @@ int main(int argc, char** argv)
     std::mt19937_64 view_random_24(static_cast<uint64_t>(seed));
     view_maths(count, view_random_24);
     _controlfp_s(&previous, _PC_53, _MCW_PC);
-    return 0;
 #else
-    (void)argc;
-    (void)argv;
-    text::print("thug2_maths_check: the x87 reference needs MSVC for 32-bit x86; nothing to compare.\n");
-    return 0;
+    text::print("D3DX9's vector and viewing maths against the plain C++ (SSE2)\n");
+    std::mt19937_64 view_random(static_cast<uint64_t>(seed));
+    view_maths(count, view_random);
 #endif
+    return 0;
 }

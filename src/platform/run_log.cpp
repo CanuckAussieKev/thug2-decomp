@@ -16,7 +16,7 @@
 #include <array>
 
 #include "platform/crash.h"
-#include "base/core/pointer_cell.h"
+#include "base/core/address.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
@@ -112,7 +112,7 @@ void log_open()
 
 void* log_file_handle()
 {
-    return run_log_state().log_ ? cell::pointer<void>(_get_osfhandle(_fileno(run_log_state().log_))) : INVALID_HANDLE_VALUE;
+    return run_log_state().log_ ? core::at_address<void>(_get_osfhandle(_fileno(run_log_state().log_))) : INVALID_HANDLE_VALUE;
 }
 
 void log_line(const char* line)

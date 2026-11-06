@@ -1,7 +1,8 @@
 # A 64-bit (x64) build
 
-Status: design. Nothing here is implemented. The design was written against the `stage11` branch (2026-11-05); its
-numbers come from scripts over `src/` and are approximate where this says so.
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64). The design was written against
+the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
+The "What the code assumes today" sections describe the code before the port.
 
 ## The goal
 
@@ -204,6 +205,11 @@ confirmed by a header survey of the player's data in task X10a. The FFmpeg backe
   x86 DLLs. Nothing else in CMake is architecture-specific.
 - The checks that run in `npm test` (`tools/layers.ts`, `cmake_layers.ts`, the header tests) don't depend on the
   architecture.
+- Since X1: `x64-debug` / `x64-release` presets (and `tools\verify_build.cmd x64`); `THUG2_ARCH` picks the
+  packages' folders; an x64 configure adds only the libraries named in `THUG2_X64_READY` (root `CMakeLists.txt`;
+  `gamespy_sdk` there builds the GameSpy SDK) and the checks whose libraries are all built. The fetched libraries the
+  build compiles (ImGui, stb_image_write, LZHAM, volk, VMA, glslang) compile on x64 as they are (LZHAM picks its
+  64-bit paths from `_WIN64` itself); they are built only when a ready library links them.
 
 ## Order of work
 

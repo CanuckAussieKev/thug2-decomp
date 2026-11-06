@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the source's layering rule (docs/architecture.md "Layers"): the named views of in-memory layouts
-// (raw::as / field_at / bytes / chars / owner_of, cell::of / pointer / address / at_address, memory::bits_as,
+// (raw::as / field_at / bytes / chars / owner_of, cell::of / pointer, core::address / at_address, memory::bits_as,
 // function_at, library_function) belong to the boundary layer only - src/formats, src/wire, src/platform, the GPU
 // buffers (render_pc/vertex_buffers, engine/gfx/vertex_view.h) and
 // the QB bytecode readers until the script runtime is replaced. Anywhere else a use is an error: a layout to be given
@@ -17,6 +17,7 @@ const BOUNDARY_FILES = new Set([
     // the helpers themselves
     "src/base/core/raw_view.h",
     "src/base/core/pointer_cell.h",
+    "src/base/core/address.h",
     "src/base/core/bits_as.h",
     // the all-ones pointer (INVALID_HANDLE_VALUE, the list heads' marker), once in platform/
     "src/base/core/all_ones.h",
@@ -45,7 +46,7 @@ const BOUNDARY_FILES = new Set([
 ]);
 
 const VIEW =
-    /\braw::(?:as|field_at|bytes|chars|owner_of)\b|\bcell::(?:of|pointer|address|at_address)\b|\bbits_as\b|\bfunction_at\b|\blibrary_function\b/g;
+    /\braw::(?:as|field_at|bytes|chars|owner_of)\b|\bcell::(?:of|pointer)\b|\bcore::(?:address|at_address)\b|\bbits_as\b|\bfunction_at\b|\blibrary_function\b/g;
 
 export function isBoundary(path: string): boolean {
     return BOUNDARY_FILES.has(path) || BOUNDARY_FOLDERS.some((folder) => path.startsWith(folder));

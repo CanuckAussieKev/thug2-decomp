@@ -31,6 +31,7 @@
 
 #include "platform/run_log.h"
 #include "base/core/compiler.h"
+#include "base/core/address.h"
 #include "base/core/pointer_cell.h"
 #include "platform/code_address.h"
 #include "platform/crt.h"
@@ -116,7 +117,7 @@ bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* o
 {
     HMODULE module = nullptr;
     if ((GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                            cell::pointer<const char>(static_cast<uint32_t>(address)), &module) == FALSE) ||
+                            core::at_address<const char>(address), &module) == FALSE) ||
         !module) {
         return false;
     }
@@ -126,21 +127,21 @@ bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* o
         const std::string_view file = full.substr(slash + 1);
         memmove(name.data(), file.data(), file.size() + 1);
     }
-    *offset = address - cell::address(module);
+    *offset = address - core::address(module);
     return true;
 }
 
 bool readable(uintptr_t address, size_t size, bool code)
 {
     MEMORY_BASIC_INFORMATION info;
-    if ((VirtualQuery(cell::pointer<void>(address), &info, sizeof(info)) == 0U) || info.State != MEM_COMMIT) {
+    if ((VirtualQuery(core::at_address<void>(address), &info, sizeof(info)) == 0U) || info.State != MEM_COMMIT) {
         return false;
     }
     const DWORD wanted = code ? (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)
                               : (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ |
                                  PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY);
     return ((info.Protect & wanted) != 0U) && ((info.Protect & PAGE_GUARD) == 0U) &&
-           address + size <= cell::address(info.BaseAddress) + info.RegionSize;
+           address + size <= core::address(info.BaseAddress) + info.RegionSize;
 }
 
 // Whether `address` follows a CALL instruction (E8 rel32, FF /2 with a 0-, 1- or 4-byte displacement or SIB).
@@ -149,7 +150,7 @@ bool after_call(uintptr_t address)
     if (!readable(address - kCallLookback, kCallLookback, true)) {
         return false;
     }
-    const std::span<const uint8_t, 7> before(cell::pointer<const uint8_t>(address - 7), 7); // (the 7 bytes before)
+    const std::span<const uint8_t, 7> before(core::at_address<const uint8_t>(address - 7), 7); // (the 7 bytes before)
     if (core::at(before, 2) == kCallRel32Opcode) {
         return true;
     }
@@ -173,7 +174,7 @@ void crash_log_stack_scan(uintptr_t esp)
         if (!readable(slot, 4, false)) {
             break;
         }
-        const uintptr_t value = *cell::pointer<const uint32_t>(slot);
+        const uintptr_t value = *core::at_address<const uint32_t>(slot);
         if (!after_call(value) || !module_of(value, name, &offset)) {
             continue;
         }
@@ -193,8 +194,8 @@ void log_backtrace()
     const USHORT count = CaptureStackBackTrace(2, 24, frames.data(), nullptr);
     for (USHORT i = 0; i < count; ++i) {
         std::array<char, MAX_PATH> name = {"?"};
-        auto offset = cell::address(core::at(frames, i));
-        module_of(cell::address(core::at(frames, i)), name, &offset);
+        auto offset = core::address(core::at(frames, i));
+        module_of(core::address(core::at(frames, i)), name, &offset);
         get_log("    at %s+0x%X (%p)", name.data(), static_cast<unsigned>(offset), core::at(frames, i));
     }
 }
@@ -228,7 +229,7 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
         if (!readable(slot, kStackDumpLineBytes, false)) {
             break;
         }
-        const std::span<const uint32_t, 8> w(cell::pointer<const uint32_t>(slot), 8);
+        const std::span<const uint32_t, 8> w(core::at_address<const uint32_t>(slot), 8);
         get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - context->Esp),
                 core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3), core::at(w, 4), core::at(w, kDumpWord5),
                 core::at(w, kDumpWord6), core::at(w, kDumpWord7));

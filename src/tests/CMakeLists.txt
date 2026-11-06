@@ -25,16 +25,16 @@ endif()
 
 # NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (base/core/
 # parse_number.h) compared with the C runtime's over many texts (src/tests/parse_check.cpp).
-if(TARGET thug2_formats)
+if(TARGET thug2_base)
     add_executable(thug2_parse_check parse_check.cpp)
-    target_link_libraries(thug2_parse_check PRIVATE thug2_formats)
+    target_link_libraries(thug2_parse_check PRIVATE thug2_base)
 endif()
 
 # NOT ORIGINAL - thug2_printf_check.exe: the printf-style formatting without C varargs (base/core/format.h) compared
 # with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).
-if(TARGET thug2_formats)
+if(TARGET thug2_base)
     add_executable(thug2_printf_check printf_check.cpp)
-    target_link_libraries(thug2_printf_check PRIVATE thug2_formats)
+    target_link_libraries(thug2_printf_check PRIVATE thug2_base)
 endif()
 
 # NOT ORIGINAL - thug2_vulkan_context_check.exe: the Vulkan backend's context tried on this machine - an SDL window with

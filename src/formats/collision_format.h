@@ -7,6 +7,7 @@
 
 #include "formats/byte_stream.h"
 #include "base/core/enum_ops.h"
+#include "base/core/address.h"
 #include "base/core/pointer_cell.h"
 #include "base/core/raw_view.h"
 
@@ -77,7 +78,7 @@ struct CollisionLayout {
 };
 
 // The large faces' buffers (the static colliders' own bytes) as laid out.
-inline uint8_t* face_buffers(const CollisionLayout& layout) { return cell::at_address<uint8_t>(layout.face_buffers); }
+inline uint8_t* face_buffers(const CollisionLayout& layout) { return core::at_address<uint8_t>(layout.face_buffers); }
 
 // The header read and the sections laid out from the file's bytes (loaded 16-byte aligned). False if the header or a
 // section isn't within the file.

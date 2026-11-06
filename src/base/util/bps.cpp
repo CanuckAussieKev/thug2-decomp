@@ -131,7 +131,7 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     auto expected_input_size = static_cast<uint32_t>(read_number(patch_bytes, &at));
     if (expected_input_size != input_size) {
         core::log_error("Patch input of unexpected size!  expected: %d actual: %d\n", expected_input_size,
-                        input_size);
+                        static_cast<uint32_t>(input_size));
         return false;
     }
     output->assign(static_cast<size_t>(read_number(patch_bytes, &at)), 0);

@@ -60,7 +60,7 @@ THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN 
 #include "qr2/qr2.h"
 #include "serverbrowsing/sb_serverbrowsing.h"
 #include "platform/code_address.h"
-#include "base/core/pointer_cell.h"
+#include "base/core/address.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 THUG2_MSVC_WARNING(pop)
@@ -262,7 +262,7 @@ void nat_completed_relay(NegotiateResult result, SOCKET socket, sockaddr_in* add
 {
     if (nat_completed()) {
         nat_completed()(static_cast<int>(result), static_cast<int>(socket), address,
-                        static_cast<int>(cell::address(user_data)));
+                        static_cast<int>(core::address(user_data)));
     }
 }
 
@@ -274,7 +274,7 @@ int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn 
     nat_completed() = completed;
     return static_cast<int>(NNBeginNegotiationWithSocket(
         static_cast<SOCKET>(socket), cookie, client_index, as<NegotiateProgressFunc>(progress),
-        completed ? &nat_completed_relay : nullptr, cell::at_address<void>(static_cast<uintptr_t>(user_data))));
+        completed ? &nat_completed_relay : nullptr, core::at_address<void>(static_cast<uintptr_t>(user_data))));
 }
 void nat_think() { NNThink(); }
 void nat_process_data(char* data, int length, void* from)

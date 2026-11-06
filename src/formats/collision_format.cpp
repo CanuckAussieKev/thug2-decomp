@@ -5,7 +5,7 @@
 #include <cstring>
 #include <span>
 #include "base/core/checked_index.h"
-#include "base/core/pointer_cell.h"
+#include "base/core/address.h"
 #include "formats/byte_stream.h"
 
 namespace collision_format {
@@ -124,7 +124,7 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
     if (!read_collision_header(reader, header)) {
         return false;
     }
-    auto start = cell::address(file.data());
+    auto start = core::address(file.data());
     // (as the game computes them - in 32 bits on its platform; counts past what a file can hold fail below)
     const uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
     const uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) +
@@ -153,7 +153,7 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
 
 bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeader& header, const CollisionLayout& layout)
 {
-    const uintptr_t start = cell::address(file.data());
+    const uintptr_t start = core::address(file.data());
     const uint64_t vertex_section = layout.vertex_bytes - layout.vertices;
     const uint64_t face_section = layout.face_buffers - layout.faces;
     const std::span<const uint8_t> nodes = file.subspan(layout.nodes - start, layout.face_lists - layout.nodes);
@@ -228,7 +228,7 @@ void relocate_tree(std::span<uint8_t> nodes, TreeBases bases)
 
 void relocate_object(std::span<uint8_t> file, int index, const CollisionLayout& layout)
 {
-    const uintptr_t start = cell::address(file.data());
+    const uintptr_t start = core::address(file.data());
     const std::span<uint8_t> record =
         file.subspan(kHeaderSize + (static_cast<size_t>(index) * kObjectSize), kObjectSize);
     const uint32_t tree = word_at(record, 0x34);

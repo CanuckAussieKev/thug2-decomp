@@ -1,6 +1,6 @@
 #include "formats/anim_format.h"
 #include "base/core/ints.h"
-#include "base/core/pointer_cell.h"
+#include "base/core/address.h"
 #include "base/core/checked_index.h"
 
 #include <cstddef>
@@ -29,7 +29,7 @@ bool partial_bits_size(uintptr_t at, uintptr_t end, uintptr_t* size)
     if (at > end || end - at < 4) {
         return false;
     }
-    const int32_t count = util::ByteReader(cell::pointer<const void>(at), 4).i32();
+    const int32_t count = util::ByteReader(core::at_address<const void>(at), 4).i32();
     if (count < 0) {
         return false;
     }
@@ -69,12 +69,12 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
         static_cast<int16_t>(header->custom_key_count) < 0) {
         return false;
     }
-    const uintptr_t end = cell::address(base) + size;
+    const uintptr_t end = core::address(base) + size;
     const uint32_t flags = header->flags;
     const uint64_t bones = header->bone_count;
     *layout = {};
     layout->end = end;
-    layout->keys_header = cell::address(base) + kHeaderSize;
+    layout->keys_header = core::address(base) + kHeaderSize;
     uintptr_t offset = 0;
     if (float_keys) {
         offset = layout->keys_header + kFloatKeysHeaderBytes;
@@ -150,7 +150,7 @@ bool check_bone_keys(const AnimHeader& header, const AnimLayout& layout)
     uint64_t translations = 0;
     if ((header.flags & kFloatKeys) != 0U) {
         const bool wide = (header.flags & kWideCounts) != 0;
-        util::ByteReader counts(cell::pointer<const void>(layout.key_counts),
+        util::ByteReader counts(core::at_address<const void>(layout.key_counts),
                                 static_cast<size_t>(header.bone_count) * (wide ? 4 : 2));
         for (uint32_t i = 0; i < header.bone_count; ++i) {
             const int rotation = wide ? counts.i16() : counts.u8();
@@ -168,7 +168,7 @@ bool check_bone_keys(const AnimHeader& header, const AnimLayout& layout)
     if (layout.rotation_keys == 0U) {
         return true;
     }
-    util::ByteReader sizes(cell::pointer<const void>(layout.rotation_sizes),
+    util::ByteReader sizes(core::at_address<const void>(layout.rotation_sizes),
                            static_cast<size_t>(header.bone_count) * 4);
     for (uint32_t i = 0; i < header.bone_count; ++i) {
         rotations += sizes.u16();

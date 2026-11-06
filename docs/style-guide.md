@@ -190,8 +190,10 @@ exceptions, all in one place:
 - **No `reinterpret_cast`, no integer-to-pointer cast** anywhere in `src/` (both checks on). Bytes from outside
   are read by the boundary layer's readers (`formats/`, `wire/`); casts between related classes are `static_cast`;
   what is left of the original's ways of reaching memory has a name, so it can be counted and removed:
-  `cell::of` / `cell::pointer<T>` / `cell::address` (`base/core/pointer_cell.h`: a pointer kept in a 32-bit
-  cell - script values, callbacks' user words, addresses used as ids), `raw::as<T>` / `raw::field_at<T>` /
+  `cell::of` / `cell::pointer<T>` (`base/core/pointer_cell.h`: a pointer kept in a 32-bit cell - script values,
+  callbacks' user words, addresses used as ids, links in files used in place; on x64 `cell::of` stops the game on a
+  pointer above 4 GB), `core::address` / `core::at_address<T>` (`base/core/address.h`: a pointer as a number at its
+  own width - address arithmetic, handles and ids that are pointer-sized), `raw::as<T>` / `raw::field_at<T>` /
   `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`base/core/raw_view.h`: one of the original's in-memory
   layouts read through another type or at a byte offset), `memory::bits_as<T>` (a field's bits as another type of
   its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).

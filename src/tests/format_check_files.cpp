@@ -39,7 +39,7 @@
 #include "formats/lzss.h"
 #include "tests/format_check_files.h"
 #include "base/core/ints.h"
-#include "base/core/pointer_cell.h"
+#include "base/core/address.h"
 #include "base/core/cursor.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -545,7 +545,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     // (the game's files are loaded 16-byte aligned: a copy so)
     std::vector<uint8_t> copy(size + kLoadAlignment);
     auto* base =
-        cell::pointer<uint8_t>((cell::address(copy.data()) + kLoadAlignmentRoundUp) & ~static_cast<uintptr_t>(kLoadAlignmentRoundUp));
+        core::at_address<uint8_t>((core::address(copy.data()) + kLoadAlignmentRoundUp) & ~static_cast<uintptr_t>(kLoadAlignmentRoundUp));
     std::memcpy(base, data, size);
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
@@ -558,7 +558,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     // the original's (WorldScene::load_collision_data) arithmetic
     auto word = [image](size_t offset) { return static_cast<int>(word_at(image, offset)); };
     auto align = [](uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); };
-    const uintptr_t objects = cell::address(base) + 0x20;
+    const uintptr_t objects = core::address(base) + 0x20;
     const uintptr_t vertices = align(objects + (static_cast<uintptr_t>(word(4)) * 0x40), 16);
     const uintptr_t vertex_bytes = vertices + (6 * static_cast<uintptr_t>(word(0x18) + (2 * word(0x14))));
     const uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
@@ -566,7 +566,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
                                            (kReferenceSmallFaceBytes * word(kReferenceSmallFaceCountOffset)));
     const uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
     const uintptr_t nodes = faces + faces_size + 4;
-    const uintptr_t face_lists = nodes + word_at(image, faces + faces_size - cell::address(base));
+    const uintptr_t face_lists = nodes + word_at(image, faces + faces_size - core::address(base));
     check(layout.objects == objects && layout.vertices == vertices && layout.vertex_bytes == vertex_bytes &&
               layout.faces == faces && layout.face_buffers == faces + nodes_at && layout.nodes == nodes &&
               layout.face_lists == face_lists,
@@ -576,7 +576,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     // a size short of the tree's: refused
     collision_format::CollisionHeader again;
     collision_format::CollisionLayout cut;
-    const size_t short_size = static_cast<size_t>(layout.nodes - cell::address(base)) - 1;
+    const size_t short_size = static_cast<size_t>(layout.nodes - core::address(base)) - 1;
     check(!collision_format::lay_out_collision(image.first(short_size), &again, &cut), name + ": cut short");
 }
 
@@ -1113,7 +1113,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     ++anim_stats().files;
     std::vector<uint8_t> copy(size + kLoadAlignment);
     auto* base =
-        cell::pointer<uint8_t>((cell::address(copy.data()) + kLoadAlignmentRoundUp) & ~static_cast<uintptr_t>(kLoadAlignmentRoundUp));
+        core::at_address<uint8_t>((core::address(copy.data()) + kLoadAlignmentRoundUp) & ~static_cast<uintptr_t>(kLoadAlignmentRoundUp));
     std::memcpy(base, data, size);
     anim_format::AnimHeader header;
     anim_format::AnimLayout layout;
@@ -1129,7 +1129,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     }
     // the original's arithmetic (JointClipFrames::set_up_float_keys / set_up_compressed)
     const std::ptrdiff_t keys = 0xC;
-    const uintptr_t address = cell::address(base);
+    const uintptr_t address = core::address(base);
     auto word = [image, keys](size_t index) { return word_at(image, static_cast<size_t>(keys) + (index * 4)); };
     const int bones = static_cast<int>(word(0));
     std::ptrdiff_t events = 0;
@@ -1175,7 +1175,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     check(layout.custom_keys == address + static_cast<uintptr_t>(events),
           name + ": custom keys as the original's arithmetic");
     check(anim_format::check_bone_keys(header, layout), name + ": the bones' keys within the totals");
-    util::ByteReader reader(cell::pointer<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys);
+    util::ByteReader reader(core::at_address<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
         anim_format::CustomKey key;
         if (!anim_format::read_custom_key(reader, &key)) {
@@ -1186,8 +1186,8 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     }
     anim_format::AnimHeader again;
     anim_format::AnimLayout cut;
-    if (layout.custom_keys > cell::address(base) + kPackedKeysEndOffset) {
-        check(!anim_format::lay_out_animation(base, layout.custom_keys - cell::address(base) - 1, &again,
+    if (layout.custom_keys > core::address(base) + kPackedKeysEndOffset) {
+        check(!anim_format::lay_out_animation(base, layout.custom_keys - core::address(base) - 1, &again,
                                               &cut) ||
                   layout.custom_keys - 3 <= layout.translation_keys,
               name + ": cut short");
