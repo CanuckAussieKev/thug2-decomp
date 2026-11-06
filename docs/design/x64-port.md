@@ -198,7 +198,7 @@ Which Bink revisions the game's files use (`BIK` + revision letter), and that FF
 confirmed by a header survey of the player's data in task X10a. The FFmpeg backend can be built and compared on the
 32-bit build first, against `binkw32.dll`, before any x64 work. That makes it the best first task.
 
-**Done in X10a** (`src/media_ffmpeg`, `[features] movie_codec=ffmpeg`; picture only, the sound is X10b):
+**Done in X10a** (`src/media_ffmpeg`, `[features] movie_codec=ffmpeg`; the picture - the sound is X10b's):
 - **The survey** (`node tools/ffmpeg/bink_survey.ts <game folder>`): every Bink file of the game is Bink 1 revision
   `BIKi` with no video flags (no alpha) and Bink audio's DCT transform - the 26 movies (640x480 but Intel_intro
   320x240, Dolby_Digital 720x486, the credits 480x480; 29.97 fps but Intel_intro 15; stereo 44.1 / 48 kHz, pccredits
@@ -225,6 +225,38 @@ confirmed by a header survey of the player's data in task X10a. The FFmpeg backe
   stream from `from_where_` (the original passes its 4-byte copy of the header as the memory to open); the
   THIRD_PARTY_NOTICES entry (FFmpeg's LGPL text, the exact source - the release URL and hash -, the build recipe,
   that the DLLs are replaceable).
+
+**Done in X10b** (the sound: `media_ffmpeg/ffmpeg_sound.*`, `audio::Device`'s streaming calls):
+- **The path:** binkw32 played its sound into the game's DirectSound object through buffers of its own; the FFmpeg
+  codec plays the first sound track of a movie or stream (binkaudio_dct, its float blocks rounded to 16-bit PCM) into a
+  looping buffer it makes through `audio::Device` and keeps filled ahead of the play position each time the movie is
+  serviced (`wait`, `do_frame`: the movie player asks in a loop, the stream thread every 5 ms) - the samples decoded,
+  then silence, so a buffer the decoding falls behind never plays old samples again. Three device calls were added
+  for it: `buffer_position`, `write_buffer`, `resume_buffer` (DirectSound's GetCurrentPosition, Lock / Unlock, Play
+  without a rewind; the muted output forwards them and keeps the buffers at silence). Any output the device is plays
+  it, not only DirectSound.
+- **What binkw32 does, measured** (`thug2_movie_codec_check --sound`: binkw32 given a stand-in DirectSound object, the
+  FFmpeg codec a stand-in `audio::Device`, both buffers played by the clock and what passes the play position kept):
+  the buffer's flags (volume, pan, frequency, GETCURRENTPOSITION2, GLOBALFOCUS) and size (0.6 s rounded up to 256 sample
+  frames: 115,712 bytes at 48 kHz stereo, 106,496 at 44.1 kHz stereo, 53,248 at 44.1 kHz mono), written about 0.59 s
+  ahead; the track volume (0 ... 32768) as 10000/3 hundredths of a decibel a decade below 32767, rounded, never below
+  -10000; the pan (0 ... 65536) a straight line to -10000 ... 10000, truncated - both equal for every level and pan
+  swept; the frames paced by the buffer's play position; a packet's samples cut to the size its first word declares
+  (the decoder gives whole blocks: a loop then lasts exactly its frames, 55,860 samples for a 19-frame stream at
+  15 fps); after running dry the samples go on 61-76 ms past the play position (65 here); a go-to starts the sound one
+  decoded block before the block holding the frame's time (binkw32 plays the frame's own time, not the sound stored
+  with it, which is about 0.7 s ahead); a go-to to the first frame, like the end of a loop, plays on (keeping about half
+  a buffer of what was written ahead); a pause stops the buffer and the resume plays on.
+- **Equal:** the samples heard from both codecs, compared window by window, are within 1 of each other (mean 0.03 -
+  the float rounding) on the start-up movies, the music streams and a sample of pcm.wad's sounds, SNR 61-97 dB; the
+  only larger differences are a handful of samples at full scale (binkw32 limits the blocks' overlap there) and the
+  last hundredths of a sound's tail, which binkw32 makes silent (both under -70 dB).
+- **The paused pcm.wad stream:** `BinkStream::tick_frame` reopens a paused stream from `from_where_`; for a stream opened
+  from memory that is the 4 bytes "BIKi" the original copies there - binkw32 refuses to open it (the check shows it),
+  so a paused pcm.wad stream stays silent after its pause. That is the original's behaviour and is kept; the FFmpeg
+  codec refuses it too (it reads the header's size word, zero, and no further). Only the names were wrong (the flag
+  0x04000000 is Bink's from-memory flag, not a file handle).
+- **Left for X10c:** the A/B listening on the 32-bit build, the THIRD_PARTY_NOTICES entry and the licence notes.
 
 ### CMake and presets
 

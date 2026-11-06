@@ -292,11 +292,14 @@ struct Heard {
     // The shift within the search that matches best over `frames` frames from `from` (and its mean square).
     [[nodiscard]] std::pair<ptrdiff_t, double> best_shift(ptrdiff_t from, Search search, ptrdiff_t frames) const
     {
+        // (outward from `around`: of equal matches - a short sound looping - the nearest wins)
         std::pair<ptrdiff_t, double> best{search.around, -1.0};
-        for (ptrdiff_t shift = search.around - search.reach; shift <= search.around + search.reach; ++shift) {
-            const double error = mean_square(from, shift, frames);
-            if (error >= 0.0 && (best.second < 0.0 || error < best.second)) {
-                best = {shift, error};
+        for (ptrdiff_t distance = 0; distance <= search.reach; ++distance) {
+            for (const ptrdiff_t shift : {search.around - distance, search.around + distance}) {
+                const double error = mean_square(from, shift, frames);
+                if (error >= 0.0 && (best.second < 0.0 || error < best.second)) {
+                    best = {shift, error};
+                }
             }
         }
         return best;
