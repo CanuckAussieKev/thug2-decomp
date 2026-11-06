@@ -1164,7 +1164,7 @@ void check_material_text(render::Gpu& gpu, Tally* tally)
     tally->check(made && program.known && program.program == render::vulkan::PixelProgram::kMaterial &&
                      program.material_passes == 4 && program.material_modes == kModes && program.material_alpha_flags == 3,
                  text::format("a pass without an alpha line read as mode 0xC: modes %u %u %u, alpha flags %u",
-                              program.material_modes[1], program.material_modes[2], program.material_modes[3],
+                              core::at(program.material_modes, 1), core::at(program.material_modes, 2), core::at(program.material_modes, 3),
                               program.material_alpha_flags));
     if (shader != nullptr) {
         gpu.release_pixel_shader(shader);
