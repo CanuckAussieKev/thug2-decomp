@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -268,6 +268,14 @@ pools take more than the original's pools at the original's sizes. Left for X5: 
 (`prepare_script_tokens` stores the function's address through `cell::of`, which stops on x64) and the precompiled
 images' records, which are the runtime's own `Struct` / `Component` / `Array` / `SymbolTableEntry` laid out in
 32 bits. The layout asserts of the records that hold a cell are X6's.
+
+Since X5: a prepared call token (0x43 a C function, 0x46 a member function table entry) holds its target's number, not
+its address, on both builds (`engine/script/names.h`: the targets numbered in the order they are installed, a
+function or entry installed again keeping its number; `prepare_script_tokens` writes the number, `native_function_at` /
+`member_entry_at` read it back by one indexed read). The QB files on disk are unchanged; only the cached, prepared
+copy of a script differs. Precompiled images (magic 0xB075EF6F) are no longer used in place: `precompiled.cpp` reads
+the image as a file (its 32-bit fields at their offsets) and unpacks it into the runtime's pooled records, which own
+their values like a .qb's symbols. No game file is a precompiled image.
 
 ## Conflicts and where PRs go
 
