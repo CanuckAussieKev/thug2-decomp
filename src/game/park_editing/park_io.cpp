@@ -311,7 +311,7 @@ void ParkLayout::write_compressed_map()
     text::copy_unbounded(map.name().data(), park_name_.data());
     for (int cell_x = 0; cell_x < kFloorSize; ++cell_x) {
         for (int cell_z = 0; cell_z < kFloorSize; ++cell_z) {
-            map.set_floor_height(static_cast<size_t>((cell_x * kFloorSize) + cell_z),
+            map.set_floor_height((static_cast<size_t>(cell_x) * kFloorSize) + static_cast<size_t>(cell_z),
                                  static_cast<int8_t>(core::at(core::at(floor_, cell_x), cell_z).level_y_));
         }
     }

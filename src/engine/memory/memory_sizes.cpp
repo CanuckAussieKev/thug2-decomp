@@ -156,15 +156,24 @@ uint32_t script_heap_extra()
     return kExtra;
 }
 
+namespace {
+// The main block with `beside_room` added to what it holds beside the script region.
+uint32_t main_block_with(uint32_t beside_room)
+{
+    const uint32_t extra = script_region_size() - kOriginalScriptRegion +
+                           get_grown(hash_item_bytes(at_hand(), kItems), hash_item_bytes(kOriginal, kOriginalItems)) + beside_room;
+    return kOriginalMainBlock + ((extra + kBlockGranuleMask) & ~kBlockGranuleMaskUnsigned);
+}
+} // namespace
+
 uint32_t main_block_size()
 {
     // (x64: what the original's block held beside the script region doubled, as every region's)
     constexpr uint32_t kBesideScriptRegion = kOriginalMainBlock - kOriginalScriptRegion;
-    const uint32_t extra = script_region_size() - kOriginalScriptRegion +
-                           get_grown(hash_item_bytes(at_hand(), kItems), hash_item_bytes(kOriginal, kOriginalItems)) +
-                           (region_bytes(kBesideScriptRegion) - kBesideScriptRegion);
-    return kOriginalMainBlock + ((extra + kBlockGranuleMask) & ~kBlockGranuleMaskUnsigned);
+    return main_block_with(region_bytes(kBesideScriptRegion) - kBesideScriptRegion);
 }
+
+uint32_t main_block_x64_room() { return main_block_size() - main_block_with(0); }
 
 uint32_t node_hash_slots()
 {

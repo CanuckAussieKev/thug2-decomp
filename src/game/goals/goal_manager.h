@@ -79,7 +79,7 @@ private:
     bool start_allowed_{true};                      // +0x45 (true; GoalManager_SetCanStartGoal)
     uint32_t backer_{0};                            // +0x48 (GoalManager_SetSponsor)
     script::Struct* team_{};                        // +0x4C: the team (a component per member: 1 if used)
-    std::array<int, kLevels * kGroupsPerLevel> group_unlocked_{}; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
+    std::array<int, size_t{kLevels} * kGroupsPerLevel> group_unlocked_{}; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
     script::Struct* args_{};                          // +0x398: the difficulty level by game mode name
 
 public:

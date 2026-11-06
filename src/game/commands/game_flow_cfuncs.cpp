@@ -238,8 +238,8 @@ bool cfunc_cleanup(script::Struct* params, script::Context context)
     constexpr size_t kTextSize = 0x400;
     std::array<char, kTextSize> text{};
     // (the original: wsprintfA, its integers as printf's)
-    const size_t length = text::format_to(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);
-    text::format_to(std::span(text).subspan(length), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> kKilobyteShift);
+    const size_t length = text::format_to(text, "%4zu total kb of physical memory.\n", memory.dwTotalPhys >> 10);
+    text::format_to(std::span(text).subspan(length), "%4zu  free kb of physical memory.\n", memory.dwAvailPhys >> kKilobyteShift);
     OutputDebugStringA(text.data());
     if (skate_module()->in_net_game_level() != 0) {
         mem_manager()->create_net_scratch_zone();

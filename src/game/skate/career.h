@@ -98,8 +98,8 @@ public:
     void write_to_structure(script::Struct* save);
 
     // The goal / flag words of every level, in one run (level * 8 + word).
-    std::span<uint32_t> goal_words() { return {core::at(goals_, 0).data(), kLevels * kGoalWordsPerLevel}; }
-    std::span<uint32_t> flag_words() { return {core::at(flag_bits_, 0).data(), kLevels * kGoalWordsPerLevel}; }
+    std::span<uint32_t> goal_words() { return {core::at(goals_, 0).data(), size_t{kLevels} * kGoalWordsPerLevel}; }
+    std::span<uint32_t> flag_words() { return {core::at(flag_bits_, 0).data(), size_t{kLevels} * kGoalWordsPerLevel}; }
 
     // The fields other code reads and sets.
     std::array<uint16_t, kLevels>& funds() { return funds_; }

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <memory>
 
 #include "base/core/layout_32bit.h"
@@ -251,7 +252,9 @@ public:
         int type{};
         int index{};
         int success{};
-        uint32_t modified{};
+        // Not original - the SDK's time_t (64 bits with the compilers this builds with; the original's SDK had a 32-bit
+        // one: read as 32 bits, the data, its length and the instance came one word late)
+        std::time_t modified{};
         char* data{};
         int length{};
         void* instance{};
