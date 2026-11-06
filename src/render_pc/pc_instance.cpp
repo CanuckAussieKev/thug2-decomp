@@ -362,8 +362,8 @@ void draw_instance_batch(BatchPass batch_pass)
             }
         }
         if (count > 0) {
-            crt::get_qsort(static_cast<void*>(get_visible().data()), static_cast<uint32_t>(count), 4,
-                           compare_instances); // (the C runtime's qsort)
+            crt::get_qsort(static_cast<void*>(get_visible().data()), static_cast<uint32_t>(count), sizeof(Singleton*),
+                           compare_instances); // (the C runtime's qsort; 4 bytes an instance on x86)
             change_phase(kStateLighting, 1);
             gpu().set_render_state(GpuRenderState::kColourVertex, 1);
             gpu().enable_light(0, true);

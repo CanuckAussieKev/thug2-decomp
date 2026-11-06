@@ -92,8 +92,8 @@ memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 
 void order_batches(BillboardSet* manager)
 {
-    crt::get_qsort(static_cast<void*>(manager->batches().data()), static_cast<uint32_t>(manager->count()), 4,
-                   compare_batches); // (the C runtime's qsort)
+    crt::get_qsort(static_cast<void*>(manager->batches().data()), static_cast<uint32_t>(manager->count()),
+                   sizeof(BillboardBatch*), compare_batches); // (the C runtime's qsort; 4 bytes a batch on x86)
 }
 
 float sort_depth_of_batch(const BillboardBatch* batch)
