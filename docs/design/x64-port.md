@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X6 (the layout asserts). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -51,6 +51,16 @@ prove that the 32-bit build lays them out as the original did. One file already 
 `game/park_editing/park.h` asserts `sizeof(void*) != 4 || (sizeof(...) == ...)`. The port applies that form everywhere
 (task X6). The asserts that guard bytes the game reads in place stay unconditional, and those are the real work (next
 section).
+
+Since X6: such an assert reads `static_assert(core::layout_32bit(sizeof(T) == ...), ...)` (`base/core/layout_32bit.h`:
+the condition on a 32-bit build, true on any other). The x64 compiler chose them, not the survey's classes: every
+translation unit of `src/` compiled syntax-only (`/Zs`) by the x64 `cl.exe` with the x86 build's flags, and each
+assert that failed there was wrapped - 259 of them (11 of the earlier `sizeof(void*) != 4 ||` form among them), all
+the original's in-memory objects. The asserts that hold on x64 too stay unconditional. Still failing on x64, for
+their tasks: the collision file's object record `TriMeshSource` (`engine/render/coll_tri.h`, used in place: X3), the
+script value `Component` / `Struct` and the expression stack (`engine/script`: X4), and `SOCKET`'s width
+(`platform/gamespy.cpp`, `net_winsock`: X8). DirectSound's buffer description is the one SDK structure whose size
+changes (0x24 / 0x28 bytes): its constants (`audio_dsound`, `engine/sound`) follow the pointer size.
 
 ### Pointers in 32-bit cells and in data used in place
 

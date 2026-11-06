@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "game/goals/objective.h"
 
 namespace script {
@@ -114,6 +115,6 @@ public:
     // 0x00552D20 (vtable +0x2C): started: no gaps found yet; Objective's Activate.
     bool activate() override;
 };
-static_assert(sizeof(HuntGapsObjective) == kHuntGapsObjectiveBytes, "the size the goal manager allocates");
+static_assert(core::layout_32bit(sizeof(HuntGapsObjective) == kHuntGapsObjectiveBytes), "the size the goal manager allocates");
 
 } // namespace goals

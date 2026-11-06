@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 namespace file {
@@ -72,6 +73,6 @@ private:
     int unknown2350_{0};
 };
 constexpr size_t kBundleBytes = 0x2350;
-static_assert(sizeof(AssetBundle) == kBundleBytes, "the original's 0x2354 bytes less its vtable");
+static_assert(core::layout_32bit(sizeof(AssetBundle) == kBundleBytes), "the original's 0x2354 bytes less its vtable");
 
 } // namespace file

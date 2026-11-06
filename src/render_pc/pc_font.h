@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
 #include "base/maths/rect.h"
@@ -50,7 +51,7 @@ private:
 };
 constexpr std::size_t kPcFontBytes = 0xC;
 
-static_assert(sizeof(PcFont) == kPcFontBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(PcFont) == kPcFontBytes), "layout must match the original");
 
 // The PC text (0x4C bytes, vtable 0x0064A34C; the engine's GlyphString, whose properties go to its screen text at
 // +0x48).
@@ -76,7 +77,7 @@ private:
 };
 constexpr std::size_t kPcTextBytes = 0x4C;
 
-static_assert(sizeof(PcText) == kPcTextBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(PcText) == kPcTextBytes), "layout must match the original");
 
 // 0x004B3FD0: `count` new texts put on the free list (0x006FA804).
 void allocate_text_pool(uint32_t count);

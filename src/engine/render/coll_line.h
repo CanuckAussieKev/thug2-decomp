@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 
@@ -49,7 +50,7 @@ CollisionHit* copy_from(CollisionHit& hit, const CollisionHit& other);
 constexpr std::size_t kCollisionHitBytes = 0x50;
 constexpr std::size_t kCollisionHitHitOffset = 0x48;
 
-static_assert(sizeof(CollisionHit) == kCollisionHitBytes && offsetof(CollisionHit, hit) == kCollisionHitHitOffset, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(CollisionHit) == kCollisionHitBytes && offsetof(CollisionHit, hit) == kCollisionHitHitOffset), "layout must match the original");
 
 // A face the line crosses, as a line test hands it on: its normal, where it's crossed, and its index.
 struct FaceHit {

@@ -4,6 +4,7 @@
 #include <span>
 
 #include "base/core/gathered_call.h"
+#include "base/core/layout_32bit.h"
 
 namespace lists {
 
@@ -104,8 +105,8 @@ private:
         constexpr size_t kItemSize = 12;
         constexpr size_t kIterItemOffset = 0x10;
         constexpr size_t kFlagOffset = 0x14;
-        static_assert(sizeof(KeyMap::Item) == kItemSize && offsetof(KeyMap, iter_item_) == kIterItemOffset &&
-                          offsetof(KeyMap, flag_) == kFlagOffset,
+        static_assert(core::layout_32bit(sizeof(KeyMap::Item) == kItemSize && offsetof(KeyMap, iter_item_) == kIterItemOffset &&
+                          offsetof(KeyMap, flag_) == kFlagOffset),
                       "layout must match the original");
     }
 };

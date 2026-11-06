@@ -2,6 +2,7 @@
 // disassembly: the x87 arithmetic is followed where it keeps values unrounded (doubles here) and where it stores
 // them (floats).
 
+#include "base/core/layout_32bit.h"
 #include "game/rider/walk_physics.h"
 
 #include <algorithm>
@@ -342,7 +343,7 @@ void FootMovement::check_layout()
         FieldAt{.now = offsetof(FootMovement, pad1959_), .original = 0x1959},
         FieldAt{.now = sizeof(FootMovement), .original = 0x1960},
     };
-    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now == field.original; }),
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now == field.original; })),
                   "layout must match the original");
 }
 

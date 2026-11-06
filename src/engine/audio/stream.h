@@ -8,6 +8,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/all_ones.h"
+#include "base/core/layout_32bit.h"
 #include "engine/file/disk.h"
 #include "base/core/checksums.h"
 
@@ -145,12 +146,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WadStream, async_ctl_) == kWadAsyncCtlOffset && offsetof(WadStream, from_wad_) == kWadFromWadOffset &&
+        static_assert(core::layout_32bit(offsetof(WadStream, async_ctl_) == kWadAsyncCtlOffset && offsetof(WadStream, from_wad_) == kWadFromWadOffset &&
                           offsetof(WadStream, shift_) == kWadShiftOffset && offsetof(WadStream, cur_standing_) == kWadStandingOffset &&
                           offsetof(WadStream, unknown50_) == kWadUnknown50Offset && offsetof(WadStream, status_index_) == kWadStatusIndexOffset &&
                           offsetof(WadStream, unknown5f_) == kWadUnknown5fOffset && offsetof(WadStream, octets_) == kWadOctetsOffset &&
                           offsetof(WadStream, cur_phase_) == kWadPhaseOffset && offsetof(WadStream, stop_requested_) == kWadStopRequestedOffset &&
-                          sizeof(WadStream) == kWadStreamBytes,
+                          sizeof(WadStream) == kWadStreamBytes),
                       "layout must match the original");
     }
 };
@@ -239,13 +240,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BinkStream, wad_entry_) == kBinkWadEntryOffset && offsetof(BinkStream, shared_file_) == kBinkSharedFileOffset &&
+        static_assert(core::layout_32bit(offsetof(BinkStream, wad_entry_) == kBinkWadEntryOffset && offsetof(BinkStream, shared_file_) == kBinkSharedFileOffset &&
                           offsetof(BinkStream, plays_) == kBinkPlaysOffset && offsetof(BinkStream, bink_) == kBinkBinkOffset &&
                           offsetof(BinkStream, pause_requested_) == kBinkPauseRequestedOffset && offsetof(BinkStream, status_index_) == kBinkStatusIndexOffset &&
                           offsetof(BinkStream, unknown6b_) == kBinkUnknown6bOffset && offsetof(BinkStream, loudness_) == kBinkLoudnessOffset &&
                           offsetof(BinkStream, from_handle_) == kBinkFromHandleOffset && offsetof(BinkStream, from_where_) == kBinkFromWhereOffset &&
                           offsetof(BinkStream, unknown1a8_) == kBinkUnknown1a8Offset && offsetof(BinkStream, stop_requested_) == kBinkStopRequestedOffset &&
-                          sizeof(BinkStream) == kBinkStreamBytes,
+                          sizeof(BinkStream) == kBinkStreamBytes),
                       "layout must match the original");
     }
 };
@@ -282,7 +283,7 @@ private:
     bool paused_;        // +0x10 (cleared as a dword at start-up)
     std::array<uint8_t, 3> pad11;
 };
-static_assert(sizeof(StreamSlot) == kStreamSlotBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(StreamSlot) == kStreamSlotBytes), "layout must match the original");
 
 constexpr int kStreamSlots = 3;
 std::array<StreamSlot, 3>& stream_slots(); // 0x006EDFB8

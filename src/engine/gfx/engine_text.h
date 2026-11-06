@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/vec2.h"
 #include <gsl/pointers>
@@ -162,9 +163,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GlyphString, rank_) == kGlyphStringRankOffset && offsetof(GlyphString, layer_) == kGlyphStringLayerOffset &&
+        static_assert(core::layout_32bit(offsetof(GlyphString, rank_) == kGlyphStringRankOffset && offsetof(GlyphString, layer_) == kGlyphStringLayerOffset &&
                           offsetof(GlyphString, invisible_) == kGlyphStringInvisibleOffset && offsetof(GlyphString, next_free_) == kGlyphStringNextFreeOffset &&
-                          sizeof(GlyphString) == kGlyphStringBytes,
+                          sizeof(GlyphString) == kGlyphStringBytes),
                       "layout must match the original");
     }
 };

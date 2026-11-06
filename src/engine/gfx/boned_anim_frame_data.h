@@ -14,6 +14,7 @@
 #include <gsl/pointers>
 #include <array>
 #include <span>
+#include "base/core/layout_32bit.h"
 #include "formats/anim_format.h"
 #include "base/core/checked_index.h"
 #include "base/core/cursor.h"
@@ -223,8 +224,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(JointClipFrames, cache_slot_) == kJointClipFramesCacheSlotOffset && offsetof(JointClipFrames, bits_) == kJointClipFramesBitsOffset &&
-                          sizeof(JointClipFrames) == kJointClipFramesBytes,
+        static_assert(core::layout_32bit(offsetof(JointClipFrames, cache_slot_) == kJointClipFramesCacheSlotOffset && offsetof(JointClipFrames, bits_) == kJointClipFramesBitsOffset &&
+                          sizeof(JointClipFrames) == kJointClipFramesBytes),
                       "layout must match the original");
     }
 };

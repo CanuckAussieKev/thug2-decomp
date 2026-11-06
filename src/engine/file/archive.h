@@ -5,6 +5,7 @@
 #include <array>
 
 #include "base/core/language.h"
+#include "base/core/layout_32bit.h"
 
 namespace file {
 class AsyncFileHandle;
@@ -94,8 +95,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ArchiveFile, open_count_) == kOpenCountOffset && offsetof(ArchiveFile, bottom_up_heap_) == kBottomUpHeapOffset &&
-                          sizeof(ArchiveFile) == kArchiveFileBytes,
+        static_assert(core::layout_32bit(offsetof(ArchiveFile, open_count_) == kOpenCountOffset && offsetof(ArchiveFile, bottom_up_heap_) == kBottomUpHeapOffset &&
+                          sizeof(ArchiveFile) == kArchiveFileBytes),
                       "layout must match the original");
     }
 };
@@ -154,9 +155,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ArchiveManager, pres_) == kPresOffset && offsetof(ArchiveManager, hold_archive_loads_) == kHoldLoadsOffset &&
+        static_assert(core::layout_32bit(offsetof(ArchiveManager, pres_) == kPresOffset && offsetof(ArchiveManager, hold_archive_loads_) == kHoldLoadsOffset &&
                           offsetof(ArchiveManager, pending_) == kPendingOffset &&
-                          offsetof(ArchiveManager, queued_archive_count_) == kQueuedCountOffset && sizeof(ArchiveManager) == kManagerBytes,
+                          offsetof(ArchiveManager, queued_archive_count_) == kQueuedCountOffset && sizeof(ArchiveManager) == kManagerBytes),
                       "layout must match the original");
     }
 };

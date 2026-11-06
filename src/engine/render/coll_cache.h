@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 
 // Collision (Nx): collision objects (HitMesh - a level sector's faces, a movable object's), the queries that test
@@ -61,7 +62,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMeshCache) == kHitMeshCacheBytes && offsetof(HitMeshCache, num_) == kHitMeshCacheNumOffset, "layout must match the original");
+        static_assert(core::layout_32bit(sizeof(HitMeshCache) == kHitMeshCacheBytes && offsetof(HitMeshCache, num_) == kHitMeshCacheNumOffset), "layout must match the original");
     }
 };
 

@@ -10,6 +10,7 @@
 #include <span>
 
 #include "base/core/dbg.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
 #include "engine/file/file_load.h"
@@ -450,7 +451,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcAsyncFileHandle, file_ref_) == kFileRefOffset && sizeof(PcAsyncFileHandle) == kPcHandleBytes,
+        static_assert(core::layout_32bit(offsetof(PcAsyncFileHandle, file_ref_) == kFileRefOffset && sizeof(PcAsyncFileHandle) == kPcHandleBytes),
                       "layout must match the original");
     }
 };

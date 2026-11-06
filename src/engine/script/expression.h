@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/qb.h"
 
@@ -83,13 +84,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ValueResolver, value_top_) == kValueResolverValueTopOffset, "layout must match the original");
-        static_assert(offsetof(ValueResolver, operators_) == kValueResolverOperatorsOffset, "layout must match the original");
-        static_assert(offsetof(ValueResolver, operator_top_) == kValueResolverOperatorTopOffset, "layout must match the original");
-        static_assert(offsetof(ValueResolver, has_operators_) == kValueResolverHasOperatorsOffset, "layout must match the original");
-        static_assert(offsetof(ValueResolver, token_) == kValueResolverTokenOffset, "layout must match the original");
-        static_assert(offsetof(ValueResolver, fault_) == kValueResolverFaultOffset, "layout must match the original");
-        static_assert(offsetof(ValueResolver, unknown1f4_) == kValueResolverUnknown1f4Offset, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(ValueResolver, value_top_) == kValueResolverValueTopOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(ValueResolver, operators_) == kValueResolverOperatorsOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(ValueResolver, operator_top_) == kValueResolverOperatorTopOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(ValueResolver, has_operators_) == kValueResolverHasOperatorsOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(ValueResolver, token_) == kValueResolverTokenOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(ValueResolver, fault_) == kValueResolverFaultOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(ValueResolver, unknown1f4_) == kValueResolverUnknown1f4Offset), "layout must match the original");
     }
 };
 static_assert(sizeof(Component) * kValueStackDepth == kValueStackBytes, "layout must match the original");

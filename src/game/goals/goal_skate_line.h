@@ -6,6 +6,7 @@
 
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "game/goals/objective.h"
 #include "base/core/checksums.h"
 
@@ -31,6 +32,6 @@ public:
     // locked, or done waiting for the combo.
     bool set_flag(checksums::Name flag_name, int value, checksums::Name sub_goal) override;
 };
-static_assert(sizeof(SkateLineGoal) == kSkateLineGoalBytes, "the size the goal manager allocated");
+static_assert(core::layout_32bit(sizeof(SkateLineGoal) == kSkateLineGoalBytes), "the size the goal manager allocated");
 
 } // namespace goals

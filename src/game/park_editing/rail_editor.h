@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "formats/rail_buffer_format.h"
@@ -108,10 +109,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EditedRailPoint, has_post_) == kEditedRailPointHasPostOffset && offsetof(EditedRailPoint, highlighted_) == kEditedRailPointHighlightedOffset &&
+        static_assert(core::layout_32bit(offsetof(EditedRailPoint, has_post_) == kEditedRailPointHasPostOffset && offsetof(EditedRailPoint, highlighted_) == kEditedRailPointHighlightedOffset &&
                           offsetof(EditedRailPoint, level_y_) == kEditedRailPointLevelYOffset && offsetof(EditedRailPoint, following_) == kEditedRailPointFollowingOffset &&
                           offsetof(EditedRailPoint, preceding_) == kEditedRailPointPrecedingOffset && offsetof(EditedRailPoint, segment_) == kEditedRailPointSegmentOffset &&
-                          offsetof(EditedRailPoint, post_) == kEditedRailPointPostOffset && sizeof(EditedRailPoint) == kEditedRailPointByteSize,
+                          offsetof(EditedRailPoint, post_) == kEditedRailPointPostOffset && sizeof(EditedRailPoint) == kEditedRailPointByteSize),
                       "layout must match the original");
     }
 };
@@ -190,8 +191,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EditedRail, point_chain_) == kEditedRailPointChainOffset && offsetof(EditedRail, ident_) == kEditedRailIdentOffset &&
-                          sizeof(EditedRail) == kEditedRailByteSize,
+        static_assert(core::layout_32bit(offsetof(EditedRail, point_chain_) == kEditedRailPointChainOffset && offsetof(EditedRail, ident_) == kEditedRailIdentOffset &&
+                          sizeof(EditedRail) == kEditedRailByteSize),
                       "layout must match the original");
     }
 };
@@ -373,10 +374,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(RailAuthoring, input_ptr_) == kRailAuthoringInputPtrOffset && offsetof(RailAuthoring, rail_groups_) == kRailAuthoringRailGroupsOffset &&
+        static_assert(core::layout_32bit(offsetof(RailAuthoring, input_ptr_) == kRailAuthoringInputPtrOffset && offsetof(RailAuthoring, rail_groups_) == kRailAuthoringRailGroupsOffset &&
                           offsetof(RailAuthoring, active_node_) == kRailAuthoringActiveNodeOffset && offsetof(RailAuthoring, mode_sel_) == kRailAuthoringModeSelOffset &&
                           offsetof(RailAuthoring, dotted_line_) == kRailAuthoringDottedLineOffset && offsetof(RailAuthoring, packed_) == kRailAuthoringPackedOffset &&
-                          sizeof(RailAuthoring) == kRailAuthoringByteSize,
+                          sizeof(RailAuthoring) == kRailAuthoringByteSize),
                       "layout must match the original (0x004F7FB0 allocates 0x1168 bytes)");
     }
 };

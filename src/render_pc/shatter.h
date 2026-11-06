@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_shatter.h"
 
 // Shattering on PC (Nx engine; the Shatter script command): a mesh broken into triangles that fly apart - each
@@ -46,8 +47,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcShatter, positions) == kPcShatterPositionsOffset && offsetof(PcShatter, vertices_) == kPcShatterVerticesOffset &&
-                          sizeof(PcShatter) == kPcShatterBytes,
+        static_assert(core::layout_32bit(offsetof(PcShatter, positions) == kPcShatterPositionsOffset && offsetof(PcShatter, vertices_) == kPcShatterVerticesOffset &&
+                          sizeof(PcShatter) == kPcShatterBytes),
                       "layout must match the original");
     }
 };

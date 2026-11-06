@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/task_list.h"
 #include "base/core/checked_index.h"
 #include "engine/memory/mem.h"
@@ -180,7 +181,7 @@ private:
     Code code_value_; // +0x24
     Owner* content_;  // +0x28
 };
-static_assert(sizeof(Responder<void>) == kResponderBytes, "the original's size");
+static_assert(core::layout_32bit(sizeof(Responder<void>) == kResponderBytes), "the original's size");
 
 // A controller's server (0x84 bytes).
 struct HostEnd {
@@ -221,8 +222,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HostEnd) == kHostEndBytes && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == kHostContentOffset &&
-                      offsetof(HostEnd, out_buf_limit_) == kHostOutBufLimitOffset);
+        static_assert(core::layout_32bit(sizeof(HostEnd) == kHostEndBytes && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == kHostContentOffset &&
+                      offsetof(HostEnd, out_buf_limit_) == kHostOutBufLimitOffset));
     }
 };
 
@@ -269,7 +270,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(Hub) == kHubBytes && offsetof(Hub, stick_replaces_pad_) == kStickReplacesPadOffset);
+        static_assert(core::layout_32bit(sizeof(Hub) == kHubBytes && offsetof(Hub, stick_replaces_pad_) == kStickReplacesPadOffset));
     }
 };
 

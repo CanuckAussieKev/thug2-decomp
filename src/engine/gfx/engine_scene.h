@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 #include "engine/memory/arena_alloc.h"
@@ -196,14 +197,14 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WorldScene, builds_collision_grid_) == kWorldSceneBuildsCollisionGridOffset && offsetof(WorldScene, collision_box_) == kWorldSceneCollisionBoxOffset &&
+        static_assert(core::layout_32bit(offsetof(WorldScene, builds_collision_grid_) == kWorldSceneBuildsCollisionGridOffset && offsetof(WorldScene, collision_box_) == kWorldSceneCollisionBoxOffset &&
                           offsetof(WorldScene, sectors_) == kWorldSceneSectorsOffset && offsetof(WorldScene, coll_grid_) == kWorldSceneCollGridOffset &&
                           offsetof(WorldScene, pip_name_) == kWorldScenePipNameOffset && offsetof(WorldScene, coll_static_count_) == kWorldSceneCollStaticCountOffset &&
                           offsetof(WorldScene, coll_statics_) == kWorldSceneCollStaticsOffset && offsetof(WorldScene, add_name_) == kWorldSceneAddNameOffset &&
                           offsetof(WorldScene, add_data_) == kWorldSceneAddDataOffset && offsetof(WorldScene, sector_kept_) == kWorldSceneSectorKeptOffset &&
                           offsetof(WorldScene, added_) == kWorldSceneAddedOffset && offsetof(WorldScene, unknown_box_) == kWorldSceneUnknownBoxOffset &&
                           offsetof(WorldScene, add_coll_statics_) == kWorldSceneAddCollStaticsOffset &&
-                          offsetof(WorldScene, add_scene_sectors_) == kWorldSceneAddSceneSectorsOffset && sizeof(WorldScene) == kWorldSceneBytes,
+                          offsetof(WorldScene, add_scene_sectors_) == kWorldSceneAddSceneSectorsOffset && sizeof(WorldScene) == kWorldSceneBytes),
                       "layout must match the original");
     }
 };

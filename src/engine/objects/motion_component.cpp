@@ -9,6 +9,7 @@
 #include <gsl/pointers>
 #include <memory>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "base/maths/random.h"
@@ -402,9 +403,9 @@ void KinematicsModule::check_layout()
         FieldAt{.now = offsetof(KinematicsModule, jump_.start), .original = 0x23C},
         FieldAt{.now = sizeof(KinematicsModule), .original = 0x24C},
     };
-    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) {
                       return field.now == field.original;
-                  }),
+                  })),
                   "layout must match the original");
 }
 

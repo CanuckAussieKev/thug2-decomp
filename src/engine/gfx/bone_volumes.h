@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 #include "base/core/checksums.h"
 
@@ -77,7 +78,7 @@ public:
 };
 constexpr std::size_t kBoneVolumesBytes = 0x0C;
 
-static_assert(sizeof(BoneVolumes) == kBoneVolumesBytes, "allocated as 0x0C bytes by the model component");
+static_assert(core::layout_32bit(sizeof(BoneVolumes) == kBoneVolumesBytes), "allocated as 0x0C bytes by the model component");
 
 // 0x0048B3C0: the bone volumes registered for skeletons of `count` bones, or null.
 BoneVolumes* find_bone_volumes(uint32_t count);

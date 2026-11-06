@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
@@ -75,9 +76,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == kObjectProximityComponentInnerRadiusSquaredOffset &&
+        static_assert(core::layout_32bit(offsetof(ObjectProximityComponent, inner_radius_squared_) == kObjectProximityComponentInnerRadiusSquaredOffset &&
                           offsetof(ObjectProximityComponent, attention_radius_squared_) == kObjectProximityComponentAttentionRadiusSquaredOffset &&
-                          sizeof(ObjectProximityComponent) == kObjectProximityComponentBytes,
+                          sizeof(ObjectProximityComponent) == kObjectProximityComponentBytes),
                       "layout must match the original");
     }
 };

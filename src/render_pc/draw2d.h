@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 // The 2D draw list (Nx engine, PC): screen texts and sprites are kept in one list sorted by priority (0x007CC248,
@@ -54,12 +55,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(OverlayDraw, z_) == kOverlayDrawZOffset, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(OverlayDraw, z_) == kOverlayDrawZOffset), "layout must match the original");
     }
 };
 constexpr std::size_t kOverlayDrawBytes = 0x14;
 
-static_assert(sizeof(OverlayDraw) == kOverlayDrawBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(OverlayDraw) == kOverlayDrawBytes), "layout must match the original");
 
 // 0x004DFB90: draw the list (each shown item's open_sketch, draw, close_sketch) with the 2D states, the z test as the last
 // frame's items wanted.

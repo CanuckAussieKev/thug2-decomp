@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -333,7 +334,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PedestrianBrainModule, kind_) == kPedestrianBrainModuleKindOffset && offsetof(PedestrianBrainModule, flag_bits_) == kPedestrianBrainModuleFlagBitsOffset &&
+        static_assert(core::layout_32bit(offsetof(PedestrianBrainModule, kind_) == kPedestrianBrainModuleKindOffset && offsetof(PedestrianBrainModule, flag_bits_) == kPedestrianBrainModuleFlagBitsOffset &&
                           offsetof(PedestrianBrainModule, aux_script_) == kPedestrianBrainModuleAuxScriptOffset &&
                           offsetof(PedestrianBrainModule, avoid_) == kPedestrianBrainModuleAvoidOffset && offsetof(PedestrianBrainModule, bias_) == kPedestrianBrainModuleBiasOffset &&
                           offsetof(PedestrianBrainModule, list_link_) == kPedestrianBrainModuleListLinkOffset &&
@@ -345,7 +346,7 @@ private:
                           offsetof(PedestrianBrainModule, jump_matrix_) == kPedestrianBrainModuleJumpMatrixOffset &&
                           offsetof(PedestrianBrainModule, vert_rotation_) == kPedestrianBrainModuleVertRotationOffset &&
                           offsetof(PedestrianBrainModule, saved_matrix_) == kPedestrianBrainModuleSavedMatrixOffset &&
-                          offsetof(PedestrianBrainModule, past_frames_) == kPedestrianBrainModulePastFramesOffset && sizeof(PedestrianBrainModule) == kPedestrianBrainModuleBytes,
+                          offsetof(PedestrianBrainModule, past_frames_) == kPedestrianBrainModulePastFramesOffset && sizeof(PedestrianBrainModule) == kPedestrianBrainModuleBytes),
                       "layout must match the original");
     }
 };

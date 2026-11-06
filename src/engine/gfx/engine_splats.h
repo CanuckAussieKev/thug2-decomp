@@ -5,6 +5,7 @@
 #include <array>
 
 #include "base/core/checked_index.h"
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/projected_vertex.h"
 
@@ -99,8 +100,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SplatParams, texture_) == kSplatParamsTextureOffset && offsetof(SplatParams, up_) == kSplatParamsUpOffset &&
-                          sizeof(SplatParams) == kSplatParamsBytes,
+        static_assert(core::layout_32bit(offsetof(SplatParams, texture_) == kSplatParamsTextureOffset && offsetof(SplatParams, up_) == kSplatParamsUpOffset &&
+                          sizeof(SplatParams) == kSplatParamsBytes),
                       "layout must match the original");
     }
 };

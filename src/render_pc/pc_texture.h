@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "render_pc/bitmap_texture.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/texture_dict.h"
@@ -134,7 +135,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcTexture, image_) == kPcTextureImageOffset && sizeof(PcTexture) == kPcTextureBytes,
+        static_assert(core::layout_32bit(offsetof(PcTexture, image_) == kPcTextureImageOffset && sizeof(PcTexture) == kPcTextureBytes),
                       "layout must match the original");
     }
 };
@@ -176,7 +177,7 @@ private:
 };
 constexpr std::size_t kPcTexDictBytes = 0x14;
 
-static_assert(sizeof(PcTexDict) == kPcTexDictBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(PcTexDict) == kPcTexDictBytes), "layout must match the original");
 
 // 0x004CAE90 / 0x004CB420: a .tex file's / image's textures (each: checksum, size, levels, depth, palette depth,
 // compression, palette size, then its levels) made and put in `table` - remade to fit first with `remake` (in the

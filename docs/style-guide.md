@@ -350,7 +350,10 @@ members, stays on the class. Private members take the `_` suffix (so the accesso
   (`SkaterPhysicsModule::onto_rail`); a one-line wrapper over a member is inlined at its calls. An owner is not
   handed out: the getter is a view (`static_cast<T*>(owner_)`) and the class deletes it itself
   (`delete_observer_task()`). The original's `offsetof` checks of private members are in the class's private
-  `static void check_layout()` (a base's members in the base's own check).
+  `static void check_layout()` (a base's members in the base's own check). A record that holds pointers has the
+  original's layout only on the 32-bit build: its checks are `static_assert(core::layout_32bit(...))`
+  (`base/core/layout_32bit.h`); a record of a file, the wire or data used in place has no pointers and its checks
+  stay unconditional.
 - **Enums**: the values of one closed thing (kinds, states, ids, flags) are an `enum class` with the underlying type
   the value always had, so layouts and code don't change; a value from a file or the wire that the enum doesn't list
   stays representable - the boundary layer converts the byte once as it reads it and writes it with

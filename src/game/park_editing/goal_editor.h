@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "base/core/checksums.h"
@@ -479,8 +480,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObjectiveAuthoring, goals_) == kObjectiveAuthoringGoalsOffset && offsetof(ObjectiveAuthoring, active_node_) == kObjectiveAuthoringActiveNodeOffset &&
-                          sizeof(ObjectiveAuthoring) == kObjectiveAuthoringByteSize,
+        static_assert(core::layout_32bit(offsetof(ObjectiveAuthoring, goals_) == kObjectiveAuthoringGoalsOffset && offsetof(ObjectiveAuthoring, active_node_) == kObjectiveAuthoringActiveNodeOffset &&
+                          sizeof(ObjectiveAuthoring) == kObjectiveAuthoringByteSize),
                       "layout must match the original");
     }
 };

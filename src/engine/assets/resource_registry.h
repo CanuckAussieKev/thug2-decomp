@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/assets/resource_entry.h"
 #include "engine/sys/game_module.h"
 #include "engine/memory/mem.h"
@@ -132,8 +133,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(ResourceRegistry) == kRegistryBytes && offsetof(ResourceRegistry, assets_) == kAssetsOffset &&
-                          offsetof(ResourceRegistry, task_) == kTaskOffset,
+        static_assert(core::layout_32bit(sizeof(ResourceRegistry) == kRegistryBytes && offsetof(ResourceRegistry, assets_) == kAssetsOffset &&
+                          offsetof(ResourceRegistry, task_) == kTaskOffset),
                       "layout must match the original");
     }
 };

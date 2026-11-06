@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/util/text_store.h"
 #include "engine/gfx/model.h"
@@ -82,7 +83,7 @@ constexpr uint32_t kPedDisableBones = 0x48CA2D26;  // ped_disable_bones (a scrip
 template <typename T, unsigned int Size>
 gsl::owner<ObjectModule*> new_component()
 {
-    static_assert(sizeof(T) == Size, "the original allocates this many bytes");
+    static_assert(core::layout_32bit(sizeof(T) == Size), "the original allocates this many bytes");
     return new T;
 }
 // A component's configure_from_data (vtable +0x08).

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
@@ -98,10 +99,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TextureProjection, list_link_) == 0x04 && offsetof(TextureProjection, projection_) == kTextureProjectionProjectionOffset &&
+        static_assert(core::layout_32bit(offsetof(TextureProjection, list_link_) == 0x04 && offsetof(TextureProjection, projection_) == kTextureProjectionProjectionOffset &&
                           offsetof(TextureProjection, fineness_) == kTextureProjectionFinenessOffset &&
                           offsetof(TextureProjection, anchor_point_) == kTextureProjectionAnchorPointOffset && offsetof(TextureProjection, shift_) == kTextureProjectionShiftOffset &&
-                          offsetof(TextureProjection, flag_bits_) == kTextureProjectionFlagBitsOffset && sizeof(TextureProjection) == kTextureProjectionBytes,
+                          offsetof(TextureProjection, flag_bits_) == kTextureProjectionFlagBitsOffset && sizeof(TextureProjection) == kTextureProjectionBytes),
                       "layout must match the original");
     }
 };

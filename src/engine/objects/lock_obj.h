@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -96,11 +97,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PinnedObjectModule, entity_label_) == kPinnedObjectModuleEntityLabelOffset && offsetof(PinnedObjectModule, shift_) == kPinnedObjectModuleShiftOffset &&
+        static_assert(core::layout_32bit(offsetof(PinnedObjectModule, entity_label_) == kPinnedObjectModuleEntityLabelOffset && offsetof(PinnedObjectModule, shift_) == kPinnedObjectModuleShiftOffset &&
                           offsetof(PinnedObjectModule, orientation_turn_) == kPinnedObjectModuleOrientationTurnOffset &&
                           offsetof(PinnedObjectModule, lag_) == kPinnedObjectModuleLagOffset && offsetof(PinnedObjectModule, wobble_) == kPinnedObjectModuleWobbleOffset &&
                           offsetof(PinnedObjectModule, wobble_seed_) == kPinnedObjectModuleWobbleSeedOffset &&
-                          offsetof(PinnedObjectModule, lock_flags_) == kPinnedObjectModuleLockFlagsOffset && sizeof(PinnedObjectModule) == kPinnedObjectModuleBytes,
+                          offsetof(PinnedObjectModule, lock_flags_) == kPinnedObjectModuleLockFlagsOffset && sizeof(PinnedObjectModule) == kPinnedObjectModuleBytes),
                       "layout must match the original (0x0041FF20 allocates 0x90 bytes)");
     }
 };

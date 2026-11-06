@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -136,9 +137,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == kVideoEntryViewerOffset &&
+        static_assert(core::layout_32bit(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == kVideoEntryViewerOffset &&
                           offsetof(VideoEntry, flag_1c_) == kVideoEntryFlag1cOffset && offsetof(VideoEntry, label_) == kVideoEntryLabelOffset &&
-                          offsetof(VideoEntry, args_) == kVideoEntryArgsOffset && sizeof(VideoEntry) == kVideoEntryBytes,
+                          offsetof(VideoEntry, args_) == kVideoEntryArgsOffset && sizeof(VideoEntry) == kVideoEntryBytes),
                       "layout must match the original");
     }
 };
@@ -182,8 +183,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ClassNodeList, placement_mat_) == kClassNodeListPlacementMatOffset && offsetof(ClassNodeList, nodes_) == kClassNodeListNodesOffset &&
-                          sizeof(ClassNodeList::TableRow) == kClassNodeListTableRowBytes,
+        static_assert(core::layout_32bit(offsetof(ClassNodeList, placement_mat_) == kClassNodeListPlacementMatOffset && offsetof(ClassNodeList, nodes_) == kClassNodeListNodesOffset &&
+                          sizeof(ClassNodeList::TableRow) == kClassNodeListTableRowBytes),
                       "layout must match the original");
     }
 };

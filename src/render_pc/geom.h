@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/mesh_records.h"
@@ -65,7 +66,7 @@ private:
     {
         constexpr std::size_t kSceneOffset = 0x58;
         constexpr std::size_t kBytes = 0x64;
-        static_assert(offsetof(Singleton, scene_) == kSceneOffset && sizeof(Singleton) == kBytes,
+        static_assert(core::layout_32bit(offsetof(Singleton, scene_) == kSceneOffset && sizeof(Singleton) == kBytes),
                       "layout must match the original");
     }
 };
@@ -244,8 +245,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcGeom, bounds_) == kPcGeomBoundsOffset && offsetof(PcGeom, scene_) == kPcGeomSceneOffset && offsetof(PcGeom, meshes_) == kPcGeomMeshesOffset &&
-                          offsetof(PcGeom, instance_) == kPcGeomInstanceOffset && offsetof(PcGeom, scale) == kPcGeomScaleOffset && sizeof(PcGeom) == kPcGeomBytes,
+        static_assert(core::layout_32bit(offsetof(PcGeom, bounds_) == kPcGeomBoundsOffset && offsetof(PcGeom, scene_) == kPcGeomSceneOffset && offsetof(PcGeom, meshes_) == kPcGeomMeshesOffset &&
+                          offsetof(PcGeom, instance_) == kPcGeomInstanceOffset && offsetof(PcGeom, scale) == kPcGeomScaleOffset && sizeof(PcGeom) == kPcGeomBytes),
                       "layout must match the original");
     }
 };

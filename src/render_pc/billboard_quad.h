@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "render_pc/draw2d.h"
 #include "render_pc/bitmap_texture.h"
 
@@ -64,10 +65,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(QuadSprite, texture) == kQuadSpriteTextureOffset, "layout must match the original");
-        static_assert(offsetof(QuadSprite, width) == kQuadSpriteWidthOffset, "layout must match the original");
-        static_assert(offsetof(QuadSprite, rotation) == kQuadSpriteRotationOffset, "layout must match the original");
-        static_assert(offsetof(QuadSprite, flip_u_) == kQuadSpriteFlipUOffset, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(QuadSprite, texture) == kQuadSpriteTextureOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(QuadSprite, width) == kQuadSpriteWidthOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(QuadSprite, rotation) == kQuadSpriteRotationOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(QuadSprite, flip_u_) == kQuadSpriteFlipUOffset), "layout must match the original");
     }
 };
 

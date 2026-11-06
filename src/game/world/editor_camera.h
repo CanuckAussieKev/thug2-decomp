@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
@@ -106,15 +107,15 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(EditorViewModule, focus_) == kEditorViewModuleFocusOffset, "m_focus");
-        static_assert(offsetof(EditorViewModule, cursor_) == kEditorViewModuleCursorOffset, "m_cursor");
-        static_assert(offsetof(EditorViewModule, zoom_) == kEditorViewModuleZoomOffset, "m_zoom");
-        static_assert(offsetof(EditorViewModule, level_y_) == kEditorViewModuleLevelYOffset, "m_height");
-        static_assert(offsetof(EditorViewModule, shadow_handle_) == kEditorViewModuleShadowHandleOffset, "the shadow's offset");
+        static_assert(core::layout_32bit(offsetof(EditorViewModule, focus_) == kEditorViewModuleFocusOffset), "m_focus");
+        static_assert(core::layout_32bit(offsetof(EditorViewModule, cursor_) == kEditorViewModuleCursorOffset), "m_cursor");
+        static_assert(core::layout_32bit(offsetof(EditorViewModule, zoom_) == kEditorViewModuleZoomOffset), "m_zoom");
+        static_assert(core::layout_32bit(offsetof(EditorViewModule, level_y_) == kEditorViewModuleLevelYOffset), "m_height");
+        static_assert(core::layout_32bit(offsetof(EditorViewModule, shadow_handle_) == kEditorViewModuleShadowHandleOffset), "the shadow's offset");
     }
 };
 constexpr std::size_t kEditorViewModuleBytes = 0x9C;
-static_assert(sizeof(EditorViewModule) == kEditorViewModuleBytes, "size");
+static_assert(core::layout_32bit(sizeof(EditorViewModule) == kEditorViewModuleBytes), "size");
 
 // 0x004E4F50: whether the script `name` (or one it calls, by name - with a guard against loops in the list at
 // 0x007CCBE8) is one of the four flagged scripts at 0x0067EFD8; 0x0067EFE8's script and those already seen give

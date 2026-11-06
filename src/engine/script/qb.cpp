@@ -1,4 +1,5 @@
 #include "engine/script/qb.h"
+#include "base/core/layout_32bit.h"
 #include "formats/byte_stream.h"
 
 #include <cstddef>
@@ -70,11 +71,11 @@ StoredScript read_stored_script(const uint8_t* record)
     return out;
 }
 
-static_assert(offsetof(StoredRandom, num_) == kStoredRandomNumOffset, "layout must match the original");
-static_assert(offsetof(StoredRandom, order_) == kStoredRandomOrderOffset, "layout must match the original");
-static_assert(offsetof(StoredRandom, last_) == kStoredRandomLastOffset && offsetof(StoredRandom, succ_) == kStoredRandomSuccOffset,
+static_assert(core::layout_32bit(offsetof(StoredRandom, num_) == kStoredRandomNumOffset), "layout must match the original");
+static_assert(core::layout_32bit(offsetof(StoredRandom, order_) == kStoredRandomOrderOffset), "layout must match the original");
+static_assert(core::layout_32bit(offsetof(StoredRandom, last_) == kStoredRandomLastOffset && offsetof(StoredRandom, succ_) == kStoredRandomSuccOffset),
               "layout must match the original");
-static_assert(sizeof(StoredRandom) == kStoredRandomBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(StoredRandom) == kStoredRandomBytes), "layout must match the original");
 
 namespace {
 

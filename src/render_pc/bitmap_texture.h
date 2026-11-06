@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/gpu_handles.h"
 #include "base/maths/rect.h"
 #include <gsl/pointers>
@@ -59,8 +60,8 @@ constexpr std::size_t kTextureRefTextureOffset = 0x10;
 constexpr std::size_t kTextureRefRenderTargetOffset = 0x1C;
 constexpr std::size_t kTextureRefBytes = 0x20;
 
-static_assert(offsetof(TextureRef, texture) == kTextureRefTextureOffset && offsetof(TextureRef, render_target_) == kTextureRefRenderTargetOffset &&
-                  sizeof(TextureRef) == kTextureRefBytes,
+static_assert(core::layout_32bit(offsetof(TextureRef, texture) == kTextureRefTextureOffset && offsetof(TextureRef, render_target_) == kTextureRefRenderTargetOffset &&
+                  sizeof(TextureRef) == kTextureRefBytes),
               "layout must match the original");
 
 // 0x004E0790: a texture from an image file (opened "rb"), or null if there's no such file (or, not original, its

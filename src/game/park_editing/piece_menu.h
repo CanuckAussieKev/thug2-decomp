@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "game/park_editing/park.h"
 
 namespace park_editing {
@@ -41,7 +42,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TopBarMenus, selected_) == kTopBarMenusSelectedOffset);
+        static_assert(core::layout_32bit(offsetof(TopBarMenus, selected_) == kTopBarMenusSelectedOffset));
     }
 };
 

@@ -17,6 +17,7 @@
 #include <memory>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/audio/audio_handles.h"
 #include "engine/memory/mem.h"
@@ -109,7 +110,7 @@ struct PcWave {
 // the buffer description with `descFlags`. False if the file can't be opened. (The sample buffer is the
 // format's bytes-per-second long: one second, whatever the data chunk's size.)
 bool read_in(PcWave& pc_wave, const char* file_name, uint32_t desc_flags);
-static_assert(sizeof(PcWave) == kPcWaveBytes && offsetof(PcWave, desc_size_) == kDescSizeOffset && offsetof(PcWave, data) == kDataOffset,
+static_assert(core::layout_32bit(sizeof(PcWave) == kPcWaveBytes && offsetof(PcWave, desc_size_) == kDescSizeOffset && offsetof(PcWave, data) == kDataOffset),
               "layout must match the original");
 
 // How a sound is asked to play (the play parameters: pitch and volume in percent, the dropoff - 0: the wave's - and
@@ -135,7 +136,7 @@ struct SoundWaveSlot {
     bool not_streamed_; // +0x19
     std::array<uint8_t, 2> unknown1a_;
 };
-static_assert(sizeof(SoundWaveSlot) == kWaveSlotBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(SoundWaveSlot) == kWaveSlotBytes), "layout must match the original");
 
 // How a sound plays (0x2C bytes): from the play parameters {pitch, volume, dropoff, falloff} and the wave's
 // defaults.
@@ -162,7 +163,7 @@ struct PlayingSound {
     PlaybackProps props;  // +0x0C
     uint32_t unknown38;   // +0x38: the next time (frame_clock::GetTime) a distant positional sound is checked
 };
-static_assert(sizeof(PlayingSound) == kPlayingSoundBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(PlayingSound) == kPlayingSoundBytes), "layout must match the original");
 
 // A positional sound following an object (0x18 bytes; 128 of them).
 struct PositionalSound {

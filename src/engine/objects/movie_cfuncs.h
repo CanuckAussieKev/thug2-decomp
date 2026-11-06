@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
+
 namespace script {
 class Context;
 class Struct;
@@ -39,7 +41,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CutsceneDestroyEntry) == kCutsceneDestroyEntryBytes && offsetof(CutsceneDestroyEntry, args_) == kCutsceneDestroyEntryArgsOffset,
+        static_assert(core::layout_32bit(sizeof(CutsceneDestroyEntry) == kCutsceneDestroyEntryBytes && offsetof(CutsceneDestroyEntry, args_) == kCutsceneDestroyEntryArgsOffset),
                       "layout must match the original");
     }
 };

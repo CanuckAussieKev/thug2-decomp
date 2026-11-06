@@ -5,6 +5,7 @@
 // where it stays on the stack, rounded to float where it is stored.
 
 #include "game/world/vehicle_component.h"
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/viewport.h"
@@ -1316,9 +1317,9 @@ void DrivableModule::check_layout()
         FieldAt{.now = offsetof(DrivableModule, trigger_ptr_), .original = 0x1330, .larger_by = kVectorExtra},
         FieldAt{.now = sizeof(DrivableModule), .original = 0x1334, .larger_by = kVectorExtra},
     };
-    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) {
                       return field.now == field.original + field.larger_by;
-                  }),
+                  })),
                   "layout must match the original");
 }
 

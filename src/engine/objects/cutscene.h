@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 namespace script {
@@ -345,13 +346,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CinematicEntry, content_) == kCinematicEntryContentOffset && offsetof(CinematicEntry, flag_5d_) == kCinematicEntryFlag5dOffset &&
-                          offsetof(CinematicEntry, unknown60_) == kCinematicEntryUnknown60Offset,
+        static_assert(core::layout_32bit(offsetof(CinematicEntry, content_) == kCinematicEntryContentOffset && offsetof(CinematicEntry, flag_5d_) == kCinematicEntryFlag5dOffset &&
+                          offsetof(CinematicEntry, unknown60_) == kCinematicEntryUnknown60Offset),
                       "layout must match the original");
     }
 };
 
 constexpr std::size_t kCinematicTableObjectEntryBytes = 0x20;
-static_assert(sizeof(CinematicTable::ObjectEntry) == kCinematicTableObjectEntryBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(CinematicTable::ObjectEntry) == kCinematicTableObjectEntryBytes), "layout must match the original");
 
 } // namespace objects

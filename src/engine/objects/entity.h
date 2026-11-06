@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
@@ -329,9 +330,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == kObjectModuleFlagBitsOffset &&
+        static_assert(core::layout_32bit(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == kObjectModuleFlagBitsOffset &&
                           offsetof(ObjectModule, entity_) == kObjectModuleEntityOffset && offsetof(ObjectModule, following_) == kObjectModuleFollowingOffset &&
-                          offsetof(ObjectModule, next_of_type_) == kObjectModuleNextOfTypeOffset && sizeof(ObjectModule) == kObjectModuleBytes,
+                          offsetof(ObjectModule, next_of_type_) == kObjectModuleNextOfTypeOffset && sizeof(ObjectModule) == kObjectModuleBytes),
                       "layout must match the original (the components' fields start at 0x18)");
     }
 };

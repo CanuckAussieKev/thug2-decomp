@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/entity.h"
@@ -144,9 +145,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PadInputModule, pad_primary_) == kPadInputModulePadPrimaryOffset && offsetof(PadInputModule, pad_secondary_) == kPadInputModulePadSecondaryOffset &&
+        static_assert(core::layout_32bit(offsetof(PadInputModule, pad_primary_) == kPadInputModulePadPrimaryOffset && offsetof(PadInputModule, pad_secondary_) == kPadInputModulePadSecondaryOffset &&
                           offsetof(PadInputModule, handler_) == kPadInputModuleHandlerOffset && offsetof(PadInputModule, disabled_) == kPadInputModuleDisabledOffset &&
-                          offsetof(PadInputModule, unknown49c_) == kPadInputModuleUnknown49cOffset && sizeof(PadInputModule) == kPadInputModuleBytes,
+                          offsetof(PadInputModule, unknown49c_) == kPadInputModuleUnknown49cOffset && sizeof(PadInputModule) == kPadInputModuleBytes),
                       "layout must match the original");
     }
 };

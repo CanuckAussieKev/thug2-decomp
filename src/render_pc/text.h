@@ -6,6 +6,7 @@
 #include <span>
 #include <utility>
 
+#include "base/core/layout_32bit.h"
 #include "render_pc/draw2d.h"
 #include "base/core/checked_index.h"
 #include "engine/gfx/engine_text.h"
@@ -107,13 +108,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TypefaceData, map_) == kTypefaceDataMapOffset, "layout must match the original");
-        static_assert(offsetof(TypefaceData, special_map_) == kTypefaceDataSpecialMapOffset, "layout must match the original");
-        static_assert(offsetof(TypefaceData, format) == kTypefaceDataFormatOffset, "layout must match the original");
-        static_assert(offsetof(TypefaceData, next) == kTypefaceDataNextOffset, "layout must match the original");
-        static_assert(offsetof(TypefaceData, glyph_gap_) == kTypefaceDataGlyphGapOffset, "layout must match the original");
-        static_assert(offsetof(TypefaceData, colors_) == kTypefaceDataColorsOffset, "layout must match the original");
-        static_assert(offsetof(TypefaceData, texture_) == kTypefaceDataTextureOffset && sizeof(TypefaceData) == kTypefaceDataBytes,
+        static_assert(core::layout_32bit(offsetof(TypefaceData, map_) == kTypefaceDataMapOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(TypefaceData, special_map_) == kTypefaceDataSpecialMapOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(TypefaceData, format) == kTypefaceDataFormatOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(TypefaceData, next) == kTypefaceDataNextOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(TypefaceData, glyph_gap_) == kTypefaceDataGlyphGapOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(TypefaceData, colors_) == kTypefaceDataColorsOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(TypefaceData, texture_) == kTypefaceDataTextureOffset && sizeof(TypefaceData) == kTypefaceDataBytes),
                       "layout must match the original");
     }
 };
@@ -196,9 +197,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GlyphRun, text) == kGlyphRunTextOffset, "layout must match the original");
-        static_assert(offsetof(GlyphRun, angle) == kGlyphRunAngleOffset, "layout must match the original");
-        static_assert(offsetof(GlyphRun, fixed_color_) == kGlyphRunFixedColorOffset, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(GlyphRun, text) == kGlyphRunTextOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(GlyphRun, angle) == kGlyphRunAngleOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(GlyphRun, fixed_color_) == kGlyphRunFixedColorOffset), "layout must match the original");
     }
 };
 
