@@ -1,4 +1,4 @@
-// NOT ORIGINAL - thug2_vulkan_gpu_check.exe: the Vulkan Gpu's resources (gpu_vulkan/gpu_vulkan.h) tried on this machine
+﻿// NOT ORIGINAL - thug2_vulkan_gpu_check.exe: the Vulkan Gpu's resources (gpu_vulkan/gpu_vulkan.h) tried on this machine
 // through render::Gpu and render::GpuContext, as the PC layer calls them. It opens a small SDL window with a Vulkan
 // surface, makes the device through the GpuContext (Direct3D 9's present parameters as settings), then for each kind of
 // resource makes it, fills it, reads it back from the device's memory and compares the bytes, and releases it:
@@ -1005,6 +1005,57 @@ void check_target_chain(render::Gpu& gpu, Tally* tally)
     }
 }
 
+// The gamma ramp: the identity changes nothing (no pass); a ramp that halves every value, put through the pass, halves
+// a render target's pixels (each entry's top 8 bits); the ramp put back.
+void check_gamma(render::Gpu& gpu, Tally* tally)
+{
+    text::print("gamma ramp:\n");
+    render::GpuGammaRamp identity{};
+    render::GpuGammaRamp halving{};
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        for (std::size_t index = 0; index < render::kGpuGammaSteps; ++index) {
+            core::at(core::at(identity, channel), index) = static_cast<uint16_t>(index << 8U);
+            core::at(core::at(halving, channel), index) = static_cast<uint16_t>((index / 2) << 8U);
+        }
+    }
+    GpuSurface* target = nullptr;
+    bool ok = gpu.create_render_target({.width = kTargetWidth,
+                                        .height = kTargetHeight,
+                                        .format = value::kFormatX8R8G8B8,
+                                        .samples = 0,
+                                        .quality = 0,
+                                        .lockable_or_discard = false},
+                                       &target) == value::kResultOk;
+    GpuSurface* back = nullptr;
+    ok = ok && gpu.back_buffer(&back) == value::kResultOk && gpu.set_render_target(0, target) == value::kResultOk;
+    gpu.set_depth_surface(nullptr);
+    constexpr uint32_t kColour = 0xFF8040C2U; // (A8R8G8B8)
+    ok = ok && gpu.clear(0, nullptr, value::kClearTarget, kColour, 1.0F, 0) == value::kResultOk;
+    gpu.set_gamma_ramp(identity);
+    std::vector<uint8_t> shown;
+    tally->check(ok && !render::vulkan::read_gamma_pass(target, &shown), "the identity ramp: no gamma pass");
+    gpu.set_gamma_ramp(halving);
+    ok = ok && render::vulkan::read_gamma_pass(target, &shown) &&
+         shown.size() == static_cast<std::size_t>(kTargetWidth) * kTargetHeight * kPixelBytes;
+    // (the middle pixel of a kTargetWidth-wide image, its bytes B G R A)
+    const std::size_t middle = ((static_cast<std::size_t>(kTargetHeight / 2) * kTargetWidth) + (kTargetWidth / 2)) * kPixelBytes;
+    uint32_t pixel = 0;
+    for (std::size_t byte = 0; ok && byte < kPixelBytes; ++byte) {
+        pixel |= static_cast<uint32_t>(core::at(shown, middle + byte)) << (byte * kBitsPerByte);
+    }
+    constexpr uint32_t kHalved = 0xFF402061U;
+    tally->check(ok && pixel == kHalved,
+                 text::format("a ramp halving the values: 0x%08X through the pass (0x%08X expected)", pixel, kHalved));
+    gpu.set_gamma_ramp(identity);
+    if (back != nullptr) {
+        gpu.set_render_target(0, back);
+        gpu.release_surface(back);
+    }
+    if (target != nullptr) {
+        gpu.release_surface(target);
+    }
+}
+
 void check_threads(render::Gpu& gpu, Tally* tally)
 {
     text::print("threads:\n");
@@ -1105,6 +1156,7 @@ int run(const Options& options, SDL_Window* window)
     check_others(gpu, &tally);
     check_draws(gpu, &tally);
     check_target_chain(gpu, &tally);
+    check_gamma(gpu, &tally);
     check_threads(gpu, &tally);
 
     const VmaTotalStatistics after = state.memory.statistics();

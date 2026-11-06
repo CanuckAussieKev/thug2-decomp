@@ -167,6 +167,8 @@ struct Backend {
     VkDeviceSize uniform_alignment = kUniformAlignmentAtMost;
     Image blank;          // a 1x1 opaque white texture for the stages with none
     Image present_source; // the multisampled back buffer resolved, for the present's copy
+    Image gamma_source;   // the frame copied for the gamma pass (sampled), and the frame through the ramp
+    Image gamma_target;
     OpenPass pass;
     BoundState bound;
     DrawStats stats;
@@ -257,6 +259,11 @@ struct ClearRequest {
 };
 long record_clear(Backend& state, const GpuStateBlock& block, std::span<const GpuRect> rects, const ClearRequest& request);
 long record_present(Backend& state);
+// The gamma ramp (Backend::gamma) as Direct3D 9 applies it: full screen only, and only when it changes something.
+bool gamma_ramp_applies(const Backend& state);
+// The frame (single-sampled) through the ramp into gamma_target, recorded in the stream outside a pass; null when the
+// ramp changes nothing or the pass can't be made.
+Image* record_gamma_pass(Backend& state, Image* frame);
 // Occlusion queries: begun in the pass the draws go into (opened for it), ended there (or when the pass ends first).
 void record_begin_query(Backend& state, const GpuStateBlock& block, Query* query);
 void record_end_query(Backend& state, Query* query);
@@ -266,6 +273,9 @@ void record_end_query(Backend& state, Query* query);
 const Texture* texture_of(GpuTexture* texture);
 bool read_texture_level(GpuTexture* texture, uint32_t level, std::vector<uint8_t>* texels);
 bool read_surface(GpuSurface* surface, std::vector<uint8_t>* texels);
+// A single-sampled render target put through the gamma pass now (whether or not the window is full screen) and the
+// pass's result read back (the pass's images released after); false when the ramp changes nothing.
+bool read_gamma_pass(GpuSurface* surface, std::vector<uint8_t>* texels);
 bool read_vertex_buffer(GpuVertexBuffer* buffer, std::vector<uint8_t>* bytes);
 bool read_index_buffer(GpuIndexBuffer* buffer, std::vector<uint8_t>* bytes);
 // The sampler a stage's states make now (from the Gpu's state block).

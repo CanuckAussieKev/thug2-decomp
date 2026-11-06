@@ -1,4 +1,4 @@
-// NOT ORIGINAL - the Vulkan Gpu's draws, rendering passes, transfers and frames (vulkan_backend.h's second half;
+﻿// NOT ORIGINAL - the Vulkan Gpu's draws, rendering passes, transfers and frames (vulkan_backend.h's second half;
 // docs/design/vulkan.md, V7). The caller holds the backend's lock.
 //
 // - Passes are inferred (V5d): a draw or clear opens one on the device's targets (render target 0, the depth surface)
@@ -57,7 +57,8 @@ constexpr uint32_t kWriteMaskBits = 0xFU;
 constexpr std::array<uint8_t, 4> kBlankTexel{0xFF, 0xFF, 0xFF, 0xFF}; // (opaque white)
 constexpr VkDeviceSize kLeastUniformAlignment = 16;
 constexpr std::size_t kMostClearRects = 8;
-constexpr uint64_t kReportBadTarget = 0x7A55U; // (the once-only report's key)
+constexpr uint64_t kReportBadTarget = 0x7A55U; // (the once-only reports' keys)
+constexpr uint64_t kReportGamma = 0x6A33U;
 constexpr double kMilliseconds = 1000.0;
 constexpr double kMegabyte = 1024.0 * 1024.0;
 
@@ -471,6 +472,166 @@ void log_stats(Backend& state)
     stats.last_log = last;
 }
 
+// --- the gamma ramp (Gpu::set_gamma_ramp) ---------------------------------------------------------------------------
+// Direct3D 9 gives a swap chain's ramp to the display hardware, full screen only (D3DCAPS2_FULLSCREENGAMMA; in a window
+// it is ignored without an error); the hardware looks each channel's 8-bit value up in its 256 entries and shows the
+// entry's top 8 bits. Vulkan has no ramp: in full screen the frame goes through a pass that does the same lookup before
+// it is copied into the swapchain's image - skipped when the ramp leaves every value as it is (the game's default).
+
+// A full-screen pass's fragment shader: each pixel of t0 (the frame) looked up in the ramp's entries (the fragment
+// uniform block's place, as 256 vec4s: red, green, blue, unused - each entry's top 8 bits as 0 - 1).
+constexpr const char* kGammaFragment = R"(#version 450
+layout(set = 0, binding = 1, std140) uniform Ramp { vec4 entry[256]; } ramp;
+layout(set = 0, binding = 2) uniform sampler2D t0;
+layout(location = 0) in vec2 v_uv;
+layout(location = 0) out vec4 o_colour;
+void main()
+{
+    vec4 texel = texelFetch(t0, ivec2(gl_FragCoord.xy), 0);
+    ivec3 at = ivec3(clamp(floor(texel.rgb * 255.0 + 0.5), 0.0, 255.0));
+    o_colour = vec4(ramp.entry[at.r].r, ramp.entry[at.g].g, ramp.entry[at.b].b, texel.a);
+}
+)";
+
+constexpr std::size_t kGammaEntries = kGpuGammaSteps;
+constexpr uint32_t kRampTopByteShift = 8;
+constexpr float kRampByteScale = 255.0F;
+
+// The ramp's entries as the pass reads them; none when the ramp changes nothing.
+std::optional<std::array<Float4, kGammaEntries>> gamma_entries(const GpuGammaRamp& ramp)
+{
+    std::array<Float4, kGammaEntries> entries{};
+    bool identity = true;
+    for (std::size_t index = 0; index < kGammaEntries; ++index) {
+        Float4& entry = core::at(entries, index);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            const uint32_t top = static_cast<uint32_t>(core::at(core::at(ramp, channel), index)) >> kRampTopByteShift;
+            identity = identity && top == index;
+            core::at(entry, channel) = static_cast<float>(top) / kRampByteScale;
+        }
+        core::at(entry, 3) = 1.0F;
+    }
+    if (identity) {
+        return std::nullopt;
+    }
+    return entries;
+}
+
+// An image of the frame's size and format made (again, when either changed) for the gamma pass.
+bool ensure_gamma_image(Backend& state, Image* image, const Image& like, VkImageUsageFlags usage)
+{
+    if (image->image != VK_NULL_HANDLE && image->extent.width == like.extent.width &&
+        image->extent.height == like.extent.height && image->format == like.format) {
+        return true;
+    }
+    retire_image(state, image);
+    const ImageRequest request{.format = like.format,
+                               .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
+                               .extent = like.extent,
+                               .levels = 1,
+                               .samples = VK_SAMPLE_COUNT_1_BIT,
+                               .usage = usage,
+                               .alpha_one = false};
+    return state.memory.create_image(request, image);
+}
+
+} // namespace
+
+bool gamma_ramp_applies(const Backend& state) { return !state.settings.windowed && gamma_entries(state.gamma).has_value(); }
+
+Image* record_gamma_pass(Backend& state, Image* frame)
+{
+    const std::optional<std::array<Float4, kGammaEntries>> entries = gamma_entries(state.gamma);
+    if (!entries) {
+        return nullptr;
+    }
+    if (!ensure_gamma_image(state, &state.gamma_source, *frame,
+                            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) ||
+        !ensure_gamma_image(state, &state.gamma_target, *frame,
+                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
+        return nullptr;
+    }
+    std::string error;
+    const VkPipeline pipeline = state.pipelines.screen_pass(frame->format, kGammaFragment, &error);
+    const std::span<const uint8_t> raw(reinterpret_cast<const uint8_t*>(entries->data()), sizeof(*entries));
+    const std::optional<RingSpan> block = state.ring.copy(raw, state.uniform_alignment);
+    if (pipeline == VK_NULL_HANDLE || !block) {
+        if (first_report(state, kReportGamma)) {
+            get_log("vulkan: no gamma pass (%s) - the frame shown without the ramp", error.c_str());
+        }
+        return nullptr;
+    }
+    VkCommandBuffer commands = outside_pass(state);
+    // the frame copied into an image the pass can sample
+    Memory::transition(commands, frame, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    Memory::transition(commands, &state.gamma_source, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true);
+    const VkImageSubresourceLayers layers{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
+    const VkImageCopy copy{.srcSubresource = layers,
+                           .srcOffset = {},
+                           .dstSubresource = layers,
+                           .dstOffset = {},
+                           .extent = {.width = frame->extent.width, .height = frame->extent.height, .depth = 1}};
+    vkCmdCopyImage(commands, frame->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, state.gamma_source.image,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+    Memory::transition(commands, frame, frame->resting);
+    Memory::transition(commands, &state.gamma_source, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // the pass: one triangle over the target
+    Memory::transition(commands, &state.gamma_target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
+    VkRenderingAttachmentInfo colour{};
+    colour.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colour.imageView = state.gamma_target.attachment_view;
+    colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colour.resolveMode = VK_RESOLVE_MODE_NONE;
+    colour.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colour.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    const VkExtent2D area{.width = frame->extent.width, .height = frame->extent.height};
+    VkRenderingInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    info.renderArea = {.offset = {.x = 0, .y = 0}, .extent = area};
+    info.layerCount = 1;
+    info.colorAttachmentCount = 1;
+    info.pColorAttachments = &colour;
+    vkCmdBeginRendering(commands, &info);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    const VkViewport viewport{.x = 0.0F,
+                              .y = 0.0F,
+                              .width = static_cast<float>(area.width),
+                              .height = static_cast<float>(area.height),
+                              .minDepth = 0.0F,
+                              .maxDepth = 1.0F};
+    vkCmdSetViewport(commands, 0, 1, &viewport);
+    const VkRect2D scissor{.offset = {.x = 0, .y = 0}, .extent = area};
+    vkCmdSetScissor(commands, 0, 1, &scissor);
+    const VkDescriptorBufferInfo ramp{.buffer = block->buffer, .offset = block->offset, .range = raw.size()};
+    const VkDescriptorImageInfo image{.sampler = state.samplers.sampler(SamplerKey{}),
+                                      .imageView = state.gamma_source.view,
+                                      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    std::array<VkWriteDescriptorSet, 2> writes{};
+    for (VkWriteDescriptorSet& write : writes) {
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.descriptorCount = 1;
+    }
+    writes.front().dstBinding = kFragmentUniformsBinding;
+    writes.front().descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes.front().pBufferInfo = &ramp;
+    writes.back().dstBinding = kFirstTextureBinding;
+    writes.back().descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes.back().pImageInfo = &image;
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0,
+                              static_cast<uint32_t>(writes.size()), writes.data());
+    vkCmdDraw(commands, 3, 1, 0, 0);
+    vkCmdEndRendering(commands);
+    state.bound = BoundState{}; // (the pipeline, descriptors and dynamic states the draws had are gone)
+    const uint64_t serial = state.frames.serial();
+    frame->used = serial;
+    state.gamma_source.used = serial;
+    state.gamma_target.used = serial;
+    return &state.gamma_target;
+}
+
+namespace {
+
 // The back buffer copied into the swapchain's image `index` (resolved first when it is multisampled).
 void record_present_copy(Backend& state, uint32_t index)
 {
@@ -494,6 +655,11 @@ void record_present_copy(Backend& state, uint32_t index)
         }
         Memory::record_resolve(commands, source, &resolved);
         source = &resolved;
+    }
+    if (!state.settings.windowed) {
+        if (Image* const corrected = record_gamma_pass(state, source)) {
+            source = corrected; // (full screen: through the gamma ramp)
+        }
     }
     const VkImage target = state.context.swapchain_image(index);
     const VkExtent2D size = state.context.extent();
@@ -584,6 +750,8 @@ void release_draw_objects(Backend& state)
     state.pipelines.shutdown();
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
+    state.memory.destroy_image(&state.gamma_source);
+    state.memory.destroy_image(&state.gamma_target);
     state.staging.shutdown();
     state.pass = OpenPass{};
     state.bound = BoundState{};

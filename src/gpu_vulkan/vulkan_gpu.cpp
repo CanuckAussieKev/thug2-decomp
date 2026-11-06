@@ -1404,7 +1404,7 @@ public:
     }
     void set_gamma_ramp(const GpuGammaRamp& ramp) override
     {
-        // (kept for V8's gamma pass)
+        // (applied by the present in full screen: record_gamma_pass)
         const std::scoped_lock lock(backend().mutex);
         backend().gamma = ramp;
     }
@@ -1588,6 +1588,27 @@ bool read_surface(GpuSurface* surface, std::vector<uint8_t>* texels)
     }
     *texels = kept->bytes;
     return true;
+}
+
+bool read_gamma_pass(GpuSurface* surface, std::vector<uint8_t>* texels)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    const ImageLevel source = image_of(object(surface));
+    if (source.image == nullptr || source.image->samples != VK_SAMPLE_COUNT_1_BIT) {
+        return false;
+    }
+    Image* const corrected = record_gamma_pass(state, source.image);
+    if (corrected == nullptr || !finish_work(state)) {
+        return false;
+    }
+    constexpr std::size_t kPixelBytes = 4; // (the render targets' formats: 32-bit)
+    texels->resize(static_cast<std::size_t>(corrected->extent.width) * corrected->extent.height * kPixelBytes);
+    const bool read = state.memory.read_image_level(corrected, 0, texels);
+    // (the pass's images let go, as at shutdown: the check counts what is left)
+    state.memory.destroy_image(&state.gamma_source);
+    state.memory.destroy_image(&state.gamma_target);
+    return read;
 }
 
 namespace {
