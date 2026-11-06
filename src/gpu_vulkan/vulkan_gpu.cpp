@@ -905,6 +905,12 @@ public:
             return kInvalid;
         }
         rebind(state, &core::at(state.targets, index), surface ? object(surface) : nullptr);
+        if (index == 0) {
+            // As Direct3D 9's SetRenderTarget: target 0 resets the viewport to the whole of it (the game relies on it -
+            // the shadow textures, the screen copies and the back buffer get no viewport of their own).
+            const Extent size = object(surface)->extent;
+            set_viewport({.x = 0, .y = 0, .width = size.width, .height = size.height, .min_z = 0.0F, .max_z = 1.0F});
+        }
         return kOk;
     }
     long set_depth_surface(GpuSurface* surface) override
