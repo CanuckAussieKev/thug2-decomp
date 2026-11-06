@@ -47,7 +47,7 @@ PathManager*& instance_pointer()
 // the word's room is still asked for, so the heap's use is the same.
 void* alloc_script_array(int count, unsigned int size)
 {
-    return memory::alloc((static_cast<unsigned int>(count) * size) + sizeof(int));
+    return memory::alloc((static_cast<unsigned int>(count) * size) + static_cast<unsigned int>(sizeof(int)));
 }
 void delete_array(void* elements) { memory::Hub::dealloc(elements); }
 

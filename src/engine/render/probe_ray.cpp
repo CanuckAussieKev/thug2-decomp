@@ -128,7 +128,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     const int result = hit_static || entity_ ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h, the observer).
     if (FeelerQueryObserver observer = feeler_query_observer()) {
-        observer(this, {.hit = result, .caller = static_cast<uint32_t>(code_address_value(THUG2_RETURN_ADDRESS()))});
+        observer(this, {.hit = result, .caller = code_address_value(THUG2_RETURN_ADDRESS())});
     }
     return result;
 }

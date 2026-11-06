@@ -740,7 +740,7 @@ HitTreeNode* HitTreeNode::replicate(int /*unused*/) const
     const std::span<HitTreeNode> copied(copy, static_cast<size_t>(nodes));
     const std::span<const HitTreeNode> original(this, static_cast<size_t>(nodes)); // (the tree's nodes are one array, this the first)
     std::ranges::copy(original, copy);
-    std::memcpy(new_faces, old_faces, faces * 2);
+    std::memcpy(new_faces, old_faces, static_cast<size_t>(faces) * sizeof(uint16_t));
     // (the split nodes' links are distances to their children, copied with them; the leaves' are moved to the copied
     // face lists)
     for (size_t i = 0; i < copied.size(); ++i) {
