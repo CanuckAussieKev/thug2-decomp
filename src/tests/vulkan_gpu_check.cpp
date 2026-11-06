@@ -12,6 +12,7 @@
 //   back, the screen shot's JPEG;
 // - occlusion queries, samplers from the stage states, pixel shaders, the ring the draws from memory copy into, the
 //   state block's reads; two threads using the Gpu at once (the loading screen's timer thread does);
+// - the UI backend: an image, the preview and the thumbnails' atlas, the UI's draws (textures, clipping, blending);
 // - everything released: the allocator's count back where it began, then the device shut down.
 //   thug2_vulkan_gpu_check [--device N] [--display N] [--no-validation]
 // --device: the physical device, counted from 0 in the loader's order (default: the context's choice, discrete first).
@@ -22,6 +23,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -29,6 +31,7 @@
 #include <fstream>
 #include <ios>
 #include <iterator>
+#include <mutex>
 #include <system_error>
 #include <span>
 #include <string>
@@ -41,11 +44,13 @@
 #include "tests/no_error_dialogs.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "base/core/packed_colour.h"
 #include "base/core/parse_number.h"
 #include "engine/file/disk.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/ui_backend.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -53,6 +58,7 @@
 #include "gpu_vulkan/vulkan_jpeg.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_pipelines.h"
 #include "fs_win32/win32_disk.h"
 
 namespace {
@@ -1057,6 +1063,147 @@ void check_gamma(render::Gpu& gpu, Tally* tally)
     }
 }
 
+// One of the UI's vertices as Dear ImGui lays it out (ImDrawVert: position, texture coordinates, colour - red in the
+// low byte).
+struct UiVertex {
+    float x = 0.0F;
+    float y = 0.0F;
+    float u = 0.0F;
+    float v = 0.0F;
+    uint32_t colour = 0;
+};
+static_assert(sizeof(UiVertex) == render::vulkan::Pipelines::kUiVertexBytes, "the UI pipeline's vertex");
+
+// A rectangle's four corners (top left, top right, bottom left, bottom right) in the batch's vertices.
+void add_ui_rect(std::vector<UiVertex>* vertices, const GpuRect& area, uint32_t colour)
+{
+    const auto left = static_cast<float>(area.left);
+    const auto top = static_cast<float>(area.top);
+    const auto right = static_cast<float>(area.right);
+    const auto bottom = static_cast<float>(area.bottom);
+    vertices->push_back({.x = left, .y = top, .u = 0.0F, .v = 0.0F, .colour = colour});
+    vertices->push_back({.x = right, .y = top, .u = 1.0F, .v = 0.0F, .colour = colour});
+    vertices->push_back({.x = left, .y = bottom, .u = 0.0F, .v = 1.0F, .colour = colour});
+    vertices->push_back({.x = right, .y = bottom, .u = 1.0F, .v = 1.0F, .colour = colour});
+}
+
+render::vulkan::Texture* ui_texture(render::UiTextureId id)
+{
+    return render::vulkan::object(std::bit_cast<GpuTexture*>(static_cast<uintptr_t>(id)));
+}
+
+// The UI backend (vulkan_ui_backend.cpp) without ImGui: an image made from texels, the preview target drawn into and
+// the device's target and viewport put back, a cell of the thumbnails' atlas; then the UI's draws into the back
+// buffer - a textured rectangle, the preview's picture clipped to its top half, a half-transparent one blended over -
+// read back; everything freed.
+void check_ui(render::Gpu& gpu, Tally* tally)
+{
+    text::print("UI backend:\n");
+    constexpr int kSide = 4;
+    constexpr int kPreview = 64;
+    constexpr int kAtlas = 128;
+    constexpr uint32_t kImageRed = 0xFFE00000U;        // (A8R8G8B8)
+    constexpr uint32_t kWhite = 0xFFFFFFFFU;           // (ImGui's colours: A B G R from the top byte)
+    constexpr uint32_t kHalfWhite = 0x80FFFFFFU;
+    render::UiBackend& ui = render::vulkan::ui_backend();
+    std::vector<uint32_t> texels(static_cast<std::size_t>(kSide) * kSide, kImageRed);
+    const render::UiTextureId image = ui.create_texture(kSide, kSide, render::UiPixelLayout::kBgra32, texels.data(),
+                                                        {.row_bytes_ = kSide * 4, .rows = kSide});
+    tally->check(image != 0 && render::vulkan::backend().textures.contains(ui_texture(image)),
+                 "an image from texels: a Gpu texture");
+    GpuSurface* back = nullptr;
+    bool ok = gpu.back_buffer(&back) == value::kResultOk && gpu.set_render_target(0, back) == value::kResultOk;
+    gpu.set_depth_surface(nullptr);
+    const bool begun = ok && ui.begin_offscreen(kPreview, colour::Packed(kDrawnGreen));
+    GpuSurface* during = nullptr;
+    render::GpuViewport viewport{};
+    ok = begun && gpu.render_target(0, &during) == value::kResultOk && gpu.get_viewport(&viewport) == value::kResultOk;
+    tally->check(ok && during != back && viewport.width == static_cast<uint32_t>(kPreview),
+                 text::format("the preview: the device's target while begun (%ux%u)", viewport.width, viewport.height));
+    if (during != nullptr) {
+        gpu.release_surface(during);
+        during = nullptr;
+    }
+    ui.end_offscreen();
+    ok = gpu.render_target(0, &during) == value::kResultOk && gpu.get_viewport(&viewport) == value::kResultOk;
+    tally->check(ok && during == back && viewport.width == static_cast<uint32_t>(kWindowWidth) &&
+                     ui.offscreen_texture() != 0,
+                 "the preview ended: the back buffer and its viewport put back");
+    if (during != nullptr) {
+        gpu.release_surface(during);
+    }
+    const uint32_t generation = ui.atlas_generation();
+    ok = ui.begin_atlas_cell(kAtlas, kAtlas / 2, 0, kAtlas / 2, colour::Packed(kDrawnRed));
+    ok = ok && gpu.get_viewport(&viewport) == value::kResultOk && viewport.x == static_cast<uint32_t>(kAtlas / 2) &&
+         viewport.width == static_cast<uint32_t>(kAtlas / 2);
+    ui.end_atlas_cell();
+    tally->check(ok && ui.atlas_texture() != 0 && ui.atlas_generation() == generation,
+                 "a cell of the thumbnails' atlas: the viewport on the cell");
+
+    // the UI's draws over a blue back buffer
+    ok = gpu.clear(0, nullptr, value::kClearTarget, kClearBlue, 1.0F, 0) == value::kResultOk;
+    constexpr int32_t kHalfWidth = kWindowWidth / 2;
+    constexpr int32_t kHalfHeight = kWindowHeight / 2;
+    std::vector<UiVertex> vertices;
+    add_ui_rect(&vertices, {.left = 0, .top = 0, .right = kHalfWidth, .bottom = kWindowHeight}, kWhite);
+    add_ui_rect(&vertices, {.left = kHalfWidth, .top = 0, .right = kWindowWidth, .bottom = kWindowHeight}, kWhite);
+    add_ui_rect(&vertices, {.left = 0, .top = kHalfHeight, .right = kHalfWidth / 2, .bottom = kWindowHeight}, kHalfWhite);
+    const std::vector<uint16_t> indices{0, 1, 2, 2, 1, 3};
+    constexpr GpuRect kWhole{.left = 0, .top = 0, .right = kWindowWidth, .bottom = kWindowHeight};
+    const std::array<render::vulkan::UiDraw, 3> draws{{
+        {.texture = ui_texture(image), .clip = kWhole, .first_index = 0, .indices = 6, .base_vertex = 0},
+        {.texture = ui_texture(ui.offscreen_texture()),
+         .clip = {.left = kHalfWidth, .top = 0, .right = kWindowWidth, .bottom = kHalfHeight},
+         .first_index = 0,
+         .indices = 6,
+         .base_vertex = 4},
+        {.texture = nullptr, .clip = kWhole, .first_index = 0, .indices = 6, .base_vertex = 8},
+    }};
+    const void* const vertex_bytes = vertices.data();
+    const render::vulkan::UiBatch batch{
+        .vertices = std::span(static_cast<const uint8_t*>(vertex_bytes), vertices.size() * sizeof(UiVertex)),
+        .indices = indices,
+        .display = {0.0F, 0.0F, static_cast<float>(kWindowWidth), static_cast<float>(kWindowHeight)},
+        .draws = draws};
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        ok = ok && render::vulkan::record_ui_draws(state, batch) == value::kResultOk;
+    }
+    std::vector<uint8_t> shown;
+    ok = ok && render::vulkan::read_surface(back, &shown) &&
+         shown.size() == static_cast<std::size_t>(kWindowWidth) * kWindowHeight * kPixelBytes;
+    constexpr uint32_t kRgb = 0x00FFFFFFU;
+    const auto at = [&shown, ok](int32_t x, int32_t y) {
+        return ok ? pixel_at(shown, static_cast<uint32_t>(x), static_cast<uint32_t>(y)) & kRgb : 0U;
+    };
+    const uint32_t textured = at(kHalfWidth - 1, 1);
+    tally->check(textured == (kImageRed & kRgb),
+                 text::format("a textured rectangle: 0x%06X (0x%06X expected)", textured, kImageRed & kRgb));
+    const uint32_t preview = at(kWindowWidth - 1, kHalfHeight - 1);
+    const uint32_t clipped = at(kWindowWidth - 1, kHalfHeight);
+    tally->check(preview == (kDrawnGreen & kRgb) && clipped == (kClearBlue & kRgb),
+                 text::format("the preview's picture clipped to the top half: 0x%06X above, 0x%06X below", preview,
+                              clipped));
+    // (half white over the image's red: each channel halfway to white)
+    const uint32_t blended = at(1, kWindowHeight - 1);
+    const auto channel = [blended](uint32_t shift) { return (blended >> shift) & kByteMask; };
+    constexpr uint32_t kHalfway = 0x80;
+    constexpr uint32_t kRedShift = 16;
+    constexpr uint32_t kBlendedRed = (kByteMask + ((kImageRed >> kRedShift) & kByteMask) + 1) / 2;
+    const auto close_to = [](uint32_t value, uint32_t expected) { return value + 2 >= expected && value <= expected + 2; };
+    tally->check(close_to(channel(kRedShift), kBlendedRed) &&
+                     close_to(channel(kBitsPerByte), kHalfway) && close_to(channel(0), kHalfway),
+                 text::format("a half-transparent rectangle blended over it: 0x%06X", blended));
+    ui.free_atlas();
+    tally->check(ui.atlas_generation() != generation && ui.atlas_texture() == 0, "the atlas freed: a new generation");
+    ui.free_offscreen();
+    ui.release_texture(image);
+    if (back != nullptr) {
+        gpu.release_surface(back);
+    }
+}
+
 void check_threads(render::Gpu& gpu, Tally* tally)
 {
     text::print("threads:\n");
@@ -1158,6 +1305,7 @@ int run(const Options& options, SDL_Window* window)
     check_draws(gpu, &tally);
     check_target_chain(gpu, &tally);
     check_gamma(gpu, &tally);
+    check_ui(gpu, &tally);
     check_threads(gpu, &tally);
 
     const VmaTotalStatistics after = state.memory.statistics();

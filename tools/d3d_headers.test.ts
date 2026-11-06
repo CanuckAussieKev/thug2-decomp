@@ -115,12 +115,18 @@ test("only app/ picks the Direct3D 9 GpuContext", () => {
     assert.ok(pickers.includes("app/renderer_choice.cpp"), "app/renderer_choice.cpp installs the GpuContext");
 });
 
-// Dear ImGui's platform and renderer backends are the graphics backend's (render::UiBackend, engine/gfx/ui_backend.h):
-// only gpu_d3d9/ includes their headers, and only app/ picks Direct3D 9's UI backend.
-test("only gpu_d3d9/ includes ImGui's backends; only app/ picks the UI backend", () => {
+// Dear ImGui's platform and renderer backends are the graphics backends' (render::UiBackend, engine/gfx/ui_backend.h):
+// only gpu_d3d9/ (SDL2 and Direct3D 9) and gpu_vulkan/ (SDL2 only: the Vulkan Gpu draws ImGui's lists itself) include
+// their headers, and only app/ picks Direct3D 9's UI backend.
+test("only gpu_d3d9/ and gpu_vulkan/ include ImGui's backends; only app/ picks the UI backend", () => {
     const backends = including(/^\s*#\s*include\s*"backends\/imgui_impl_\w+\.h"/m);
     assert.deepEqual(
-        backends.filter((name) => !name.startsWith("gpu_d3d9/")),
+        backends.filter((name) => !name.startsWith("gpu_d3d9/") && !name.startsWith("gpu_vulkan/")),
+        [],
+    );
+    const vulkan = including(/^\s*#\s*include\s*"backends\/imgui_impl_(?!sdl2\.h")\w+\.h"/m);
+    assert.deepEqual(
+        vulkan.filter((name) => name.startsWith("gpu_vulkan/")),
         [],
     );
     const pickers = including(/^\s*#\s*include\s*"gpu_d3d9\/d3d9_ui_backend\.h"/m);

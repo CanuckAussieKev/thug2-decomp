@@ -18,8 +18,8 @@ namespace render::vulkan {
 Gpu& gpu();
 GpuContext& gpu_context();
 
-// The UI backend for the editor's and the new front end's Dear ImGui parts: none yet on Vulkan (V9) - it refuses to
-// start (logged once), so those parts aren't drawn and the old HUD / the original menus stand in.
+// The UI backend for the editor's and the new front end's Dear ImGui parts (vulkan_ui_backend.cpp): ImGui's SDL2
+// platform backend, its draw lists drawn by this Gpu into the back buffer, its images the Gpu's textures and targets.
 UiBackend& ui_backend();
 
 // Whether this machine can draw with the Vulkan Gpu: the loader, and the device the context would pick (`device_index`:
