@@ -537,6 +537,79 @@ Direct3D 9 (V7).
   compared byte for byte with what was written (the expected texels written out from the formats' definitions), and
   released, on both GPUs here; no validation layer is installed on this machine, so the Khronos validation was not run.
 
+### V7: the Vulkan `Gpu`'s draws and the frame (done)
+
+`renderer=vulkan` now runs the game on Vulkan: app/ installs render_pc's device over `render::vulkan::gpu()` and
+`gpu_context()`. New in `src/gpu_vulkan`: `vulkan_pixel_program`, `vulkan_draw_state`, `vulkan_pipelines`,
+`vulkan_frames`, `vulkan_draws`, `vulkan_ui_backend`.
+
+- **What it needs**: Vulkan 1.3's dynamic rendering (no render pass or framebuffer objects), `VK_KHR_push_descriptor`,
+  and 1.3's dynamic states. app/ asks before the window is made (`render::vulkan::usable`: the loader, an instance and
+  the device the context would pick); without them Direct3D 9 runs and the log says why. `[Graphics] vulkan_device=N`
+  picks the physical device (Vulkan's numbering; -1, the default, the best - a discrete one first).
+- **The pipeline key** (`PipelineKey`): V3's `ShaderKey` (normalised), the colour and depth attachments' formats and
+  samples, the primitive's class (points, lines, triangles), the fill mode, blending (on, the two factors and the
+  operation - both used for alpha too, as Direct3D 9 does without separate alpha blending) and the colour write mask.
+  Dynamic, so not in the key: the viewport and scissor, the cull mode (Direct3D 9's clockwise front faces are Vulkan's
+  `VK_FRONT_FACE_CLOCKWISE` in the same framebuffer coordinates), the depth test, writes and comparison, the depth bias
+  (Direct3D 9's depth units as 2^24 steps; the slope-scaled bias as it is), the blend factor, the primitive within its
+  class and the vertex stride. Pipelines are made on first use and kept; the GLSL's SPIR-V is kept on disk by its hash
+  (`thug2-decomp-vulkan-shaders.bin`) and the driver's pipeline cache beside it (`thug2-decomp-vulkan-pipelines.bin`),
+  written every 10 s when something new was made. foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
+  Debug build the first time, none after).
+- **The key from the state block** (`draw_shader_key`): the render states, the four stages' operations, arguments,
+  coordinate indices and transform flags, and the bound pixel shader's program. A pixel shader is recognised from the
+  text the PC layer assembles (`classify_pixel_shader`): the six fixed shaders by their text, a material's generated
+  shader by its lines (passes, blend modes, alpha flags); text it doesn't know draws with the stages and is logged.
+- **Uniforms**: both blocks filled from the block per draw (world x view, the normal matrix - the inverse transpose of
+  its 3x3 -, the projection, the stages' texture matrices, the viewport for the pixel offset, the lights' directions
+  into camera space by the view, the material, fog, points, the pixel shader constants, the texture factor, the alpha
+  reference) and copied into the draws' ring only when they changed. Textures and samplers are push descriptors (one
+  set layout for every pipeline: the two blocks, four textures); a stage with no texture, or with one released while
+  still set, samples a 1x1 opaque white texture.
+- **Passes** (V5d's inference, with dynamic rendering): a draw or clear opens one on render target 0 and the depth
+  surface (a depth surface of another sample count is left out); it stays open while they stay and ends at a draw or
+  clear into other targets, a copy, a transfer into something the stream used, a read-back or the present. A clear of
+  the whole target with no pass open on it opens the pass clearing it (load op); other clears are
+  `vkCmdClearAttachments` within the viewport. As a pass opens its attachments move to their attachment layouts (a
+  barrier after their earlier use); as it ends, textures drawn into move back to be sampled. Nothing is recorded per draw
+  but the draw's own state: no barrier per draw.
+- **The frame** (`vulkan_frames`): two frames in flight, each an uploads and a stream command buffer, a fence and the
+  swapchain acquire's semaphore. A submission is both, uploads first; submissions are numbered and resources remember
+  the last one that used them. The present blits the back buffer (resolved first when multisampled) into the acquired
+  swapchain image, submits, presents, and waits for the frame in flight that comes round (its retired objects
+  destroyed, its rings started again). A swapchain out of date or suboptimal is made again by the next present; the back
+  buffer is the Gpu's own image, so the device is never lost (`test_cooperative_level` answers ok) and
+  `GpuContext::reset` remakes the swapchain after finishing the frame's work.
+- **Uploads**: texture levels, static buffers' locked bytes, a new image's first layout and query resets are staged in a
+  ring of their own and recorded into the uploads command buffer - before the stream - unless the stream already used
+  what they write, when they go into the stream (the pass ended, buffer barriers around them). A level loads in one
+  submission; while loading, the frame's work is submitted and waited for when the staging ring passes 32 MB. Read-backs
+  (lockable render targets, `read_render_target`, the front buffer, the checks' views) finish the frame's work first.
+- **Lifetimes**: released images and buffers go to the frame's retired list and are destroyed when that frame's slot
+  comes round; a discard of a dynamic buffer moves to a version no unfinished submission drew from.
+- **Occlusion queries**: begun in the pass the draws go into (opened for it) and ended there (or when the pass ends
+  first); a slot is reset before the stream of a submission that hasn't used it; a result is given once its submission
+  is known to have finished (a slot used before may still hold an earlier result).
+- **Not yet** (V8-V10): the UI backend refuses to start on Vulkan (logged once): the editor uses its old HUD and the new
+  front end isn't drawn, which is safe - both check that the backend started. The gamma ramp is kept, not applied.
+  Movies and the loading screens draw through the same `Gpu` and run (the loading screen's timer thread under the
+  backend's lock), as they are; V10 decides how they should.
+- **Measured** (foun, the Debug build, the screenshot spot): about 370 draws and 12 passes a frame, 30-33 ms a frame
+  with under 0.1 ms of it waiting for the device or the swapchain (the processor's work: the game, the PC layer, the
+  draws' recording); the same scripted 1,921-frame run took 42.7 s on Vulkan and 63.2 s on Direct3D 9 on this machine.
+  Loading foun uploads 8,499 times (40 MB, 0.03 s of the processor's time), recorded into the frames that the loading
+  screen presents.
+- **Compared with Direct3D 9** at the screenshot spot: the world, its textures and lighting, the skater and the HUD
+  draw the same; the Vulkan picture is brighter overall (Direct3D 9's pixels are about 0.88
+  of Vulkan's, a uniform scale - a full-screen pass Vulkan doesn't draw the same yet, to be found in V8) and the
+  skater's texture shadow is missing (texture shadows: V8). Both GPUs here (NVIDIA RTX 5070 Ti, AMD Radeon iGPU) draw it;
+  they differ from each other by 0.6 of 255 on average.
+- **The check**: `thug2_vulkan_gpu_check` draws end to end too - a clear that opens the back buffer's pass, a
+  pre-transformed strip and an indexed draw from memory read back pixel for pixel, an occlusion query's count: 109
+  checks on both GPUs. The Khronos validation layer still can't run: the SDK installed here has only a 64-bit layer, and
+  the game is a 32-bit process (the context leaves a layer that can't be loaded out).
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -569,7 +642,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V5e | 2D, text, fonts, sprites, loading screen / bar / console, movie, screenshots, device creation and reset through `Gpu` / `GpuContext` | V5a | after stage 11 - done |
 | V5f | The folder split: `render_d3d9` -> `render_pc` (API-neutral, no `<d3d9.h>`) + `gpu_d3d9`; `tools/d3d_headers.test.ts` extended | V5b-e | after stage 11 - done: `render_pc` (118 files, `thug2_render_pc`), `gpu_d3d9` (11 files, `thug2_gpu_d3d9`); `render_vulkan` kept its name until V6 put the Vulkan `Gpu` in it (renamed `gpu_vulkan` then) |
 | V6 | `gpu_vulkan` resources: textures (format conversions), buffers (static, dynamic, the `UP` ring), render targets, depth formats, samplers | V2, V5a | after stage 11 - done: the Vulkan `Gpu` and `GpuContext` (nothing drawn), `thug2_vulkan_gpu_check`; the pixel shaders' assembly and the screen shot's JPEG became `Gpu` operations |
-| V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 |
+| V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 - done: foun drawn and skated with `renderer=vulkan` on both GPUs here; passes, frames in flight, batched uploads, deferred deletion, the present; `[Graphics] vulkan_device` |
 | V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 |
 | V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 |
 | V10 | Movies, loading screens, screenshots and the editor's methods on Vulkan | V7, V5e | after stage 11 |

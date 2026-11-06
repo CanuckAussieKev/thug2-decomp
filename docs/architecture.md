@@ -15,7 +15,7 @@ editor/  frontend/  devtools/   the level editor; the new front end and mouse me
 game/                       skating, the rider, goals, parks, saves, the online session (game/online)
 render_pc/                the graphics backend's API-neutral half: the original's PC platform layer over render::Gpu; only app/ includes it
 gpu_d3d9/                 Direct3D 9's Gpu, GpuContext and UiBackend, D3DX; only app/ includes it
-gpu_vulkan/               Vulkan's Gpu and GpuContext (not drawing yet: design/vulkan.md); only app/ includes it
+gpu_vulkan/               Vulkan's Gpu and GpuContext (renderer=vulkan: design/vulkan.md); only app/ includes it
 audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
@@ -235,7 +235,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 
 | interface | declared in | implemented by | what it hides | other implementations |
 |---|---|---|---|---|
-| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_gpu_vulkan`: `render::vulkan::gpu()`, `gpu_context()` - the resources, not drawing yet: [design/vulkan.md](design/vulkan.md)) |
+| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_gpu_vulkan`: `render::vulkan::gpu()`, `gpu_context()`, `ui_backend()` - drawing, without the screen effects and the ImGui parts yet: [design/vulkan.md](design/vulkan.md)) |
 | `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
 | `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoder (planned, for a 64-bit build) |
 | `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |
@@ -293,9 +293,10 @@ everything above it uses the game's own types and may change them freely.
   `render_pc/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs,
   through `app::install_renderer` (`app/renderer_choice.cpp`): `[Graphics] renderer=d3d9|vulkan` (default d3d9) picks the
   backend for both exes, and WinMain makes the window for the same API (`sys::create_sdl_window(sys::WindowApi)` adds
-  SDL's Vulkan flag). Until the Vulkan backend has a `render::Device`, `vulkan` is logged as not available yet and
-  Direct3D 9 runs (a build without `THUG2_VULKAN` ignores the key with a log line); choosing the Vulkan device then
-  is the one `install_vulkan` in `renderer_choice.cpp`. Nothing below `app/` includes or links it
+  SDL's Vulkan flag). `vulkan` installs render_pc's device over the Vulkan `Gpu` and `GpuContext` (`install_vulkan`
+  in `renderer_choice.cpp`), after asking, before the window is made, whether the device it would use can draw
+  (`render::vulkan::usable`: the loader, Vulkan 1.3's dynamic rendering, push descriptors) - Direct3D 9 runs when it
+  can't, and in a build without `THUG2_VULKAN` (both with a log line); `[Graphics] vulkan_device` picks the GPU. Nothing below `app/` includes or links it
   (tools/layers.json: render_pc and gpu_d3d9 are strict and only the app may include them; neither includes or links the other - the pixel shaders' assembly and the screen shot's JPEG, D3DX's in Direct3D 9, are `Gpu` operations), so the engine, the game, the editor and
   the front end build without Direct3D.
   - `render::Gpu` (`engine/gfx/gpu.h`): the low interface under the platform layer, which it calls where it called the
