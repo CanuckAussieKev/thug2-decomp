@@ -449,10 +449,11 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
             std::memcpy(one.subspan(static_cast<size_t>(layout.diffuse)).data(), &colour, 4);
         }
         for (int texture_index = 0; texture_index < layout.tex_count_; ++texture_index) {
-            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + (kTexCoordBytes * texture_index))).data(), &v.u,
-                        4);
-            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + (kTexCoordBytes * texture_index) + 4)).data(),
-                        &v.v, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.tex) + (size_t{kTexCoordBytes} * texture_index)).data(),
+                        &v.u, 4);
+            std::memcpy(
+                one.subspan(static_cast<size_t>(layout.tex) + (size_t{kTexCoordBytes} * texture_index) + 4).data(),
+                &v.v, 4);
         }
         out = out.subspan(stride);
     }

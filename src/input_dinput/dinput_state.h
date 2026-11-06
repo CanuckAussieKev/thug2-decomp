@@ -4,6 +4,7 @@
 #include <dinput.h>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "engine/pad_input/port_controls.h"
@@ -19,7 +20,7 @@ public:
     std::array<IDirectInputDevice8A*, kPorts>& joysticks() { return joysticks_; }
     std::array<IDirectInputEffect*, kPorts>& effects() { return effects_; }
     std::array<uint32_t, kPorts>& force_axis_counts() { return force_axis_counts_; }
-    std::array<uint32_t, 2 * kPorts>& force_resolutions() { return force_resolutions_; }
+    std::array<uint32_t, std::size_t{2} * kPorts>& force_resolutions() { return force_resolutions_; }
     std::array<DIJOYSTATE2, 2>& joystick_states() { return joystick_states_; }
     std::array<DIJOYSTATE2, 2>& last_joystick_states() { return last_joystick_states_; }
 
@@ -28,7 +29,7 @@ private:
     std::array<IDirectInputDevice8A*, kPorts> joysticks_{};
     std::array<IDirectInputEffect*, kPorts> effects_{}; // each joystick's constant-force effect (rumble)
     std::array<uint32_t, kPorts> force_axis_counts_{};
-    std::array<uint32_t, 2 * kPorts> force_resolutions_{};
+    std::array<uint32_t, std::size_t{2} * kPorts> force_resolutions_{};
     // The joysticks' states: this frame's and the last.
     std::array<DIJOYSTATE2, 2> joystick_states_{};
     std::array<DIJOYSTATE2, 2> last_joystick_states_{};
