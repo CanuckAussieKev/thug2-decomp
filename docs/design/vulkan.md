@@ -719,6 +719,89 @@ Direct3D 9 (V7).
 - **The checks**: `thug2_vulkan_gpu_check` adds a new device's viewport, a reset at another size and back, a thread
   drawing whole frames while the main thread loads with read-backs between, and the unset texture stage.
 
+### V11: the parity check against Direct3D 9 (done)
+
+**The tool**: `tools/game/renderer_parity.ts` (tools/game/README.md) runs a plan (`renderer_parity.json`) in a
+workspace under its lock: for each run, renderer and group the game is started with `[Graphics] renderer=` written,
+the skater stood still with `teleport`, the camera held with `camera`, and the presented frame captured with the
+automation channel's `capture 1` (the screenshot key's capture). Each renderer's own noise is the set of pixels that
+differ by more than 8 between any two of its runs (grown by a pixel); run 1 of each is compared outside the union of
+both renderers' noise. The level editor, where the channel stops, is pictured with PrintWindow; movie and loading-screen
+frames, and the view modes, need a measuring build that dumps them (never committed).
+
+**The spots** (Debug build, NVIDIA RTX 5070 Ti, 1280x720, the workspace's settings: anisotropy 16, draw and LOD distance
+x3; three runs a renderer; "over": pixels outside the noise differing by more than 8 in a channel):
+
+| spot | noise D3D9 / Vulkan (% of pixels) | msaa=8: mean / largest / % over | msaa=0: mean / largest / % over |
+|---|---|---|---|
+| foun-shot (the screenshot spot, the shadow, the bloom chain) | 0.57 / 1.08 | 0.38 / 74 / 0.36 | 0.31 / 99 / 0.15 |
+| foun-sky | 0.24 / 0.51 | 0.43 / 43 / 0.27 | 0.37 / 201 / 0.20 |
+| foun-deck | 0.19 / 0.02 | 0.23 / 42 / 0.14 | 0.17 / 42 / 0.02 |
+| z_dt-street | 0.16 / 0.16 | 0.30 / 128 / 0.78 | 0.15 / 128 / 0.25 |
+| z_dt-back | 0.05 / 0.08 | 0.37 / 148 / 0.90 | 0.23 / 153 / 0.37 |
+| BO-yard | 0.02 / 0.00 | 0.42 / 96 / 0.89 (2.60 / 155 / 9.70 before the fix below) | 0.37 / 97 / 0.62 |
+| BO-up (the sky) | 0.00 / 0.01 | 0.09 / 55 / 0.31 | 0.03 / 55 / 0.05 |
+| BO-far | 0.00 / 0.04 | 0.08 / 42 / 0.27 | 0.02 / 61 / 0.01 |
+| z_ho-start (the sun's glow, peds) | 0.00 / 1.59 | 0.16 / 61 / 0.30 | 0.09 / 65 / 0.07 |
+| z_ho-turn | 0.00 / 0.41 | 0.37 / 111 / 0.82 | 0.23 / 127 / 0.36 |
+| sch-court (the skater's shadow) | 0.31 / 0.47 | 0.49 / 63 / 0.66 | 0.38 / 60 / 0.32 |
+| sch-trees (alpha-tested leaves) | 0.08 / 0.18 | 0.27 / 153 / 0.57 | 0.15 / 153 / 0.23 |
+| new front end: main / options / create / skater / mode / levels | 0 / 0-0.19 | 0.01-0.13 / 22-66 / 0.03-0.26 | - |
+| level editor in foun (window picture) | 0 / 0 | 0.23 / 52 / 0.57 | - |
+| movies (six start-up movies, frames 30 / 120 / 300) | 0 / 0 | 0.00-0.23 / 0-188 / 0-0.26 (the quad's edge columns) | - |
+| loading screens (foun -> z_dt -> sch, every 6th timer frame) | 0-1.5 / 0-1.5 | 0.04-1.2 / 55-252 / 0.2-1.4 where both caught the same picture | - |
+| loading console panel | 0 / 0 | 0.01 / 55 / 0.02 | - |
+| Unlit view mode (foun-shot) | 0.86 / 1.52 | 0.70 / 180 / 1.16 (the animated machinery) | - |
+| collision-only view mode | 0 / 0 | 0.01 / 42 / 0.00 | - |
+| wireframe view mode | 1.85 / 0 | 1.74 / 161 / 8.25 | - |
+
+Mean signed differences (Vulkan - Direct3D 9) are -0.2 to +0.25 of 255 everywhere: no uniform shift is left.
+
+**Fixed this round**: a material pass without an alpha line (mode 0xC, "blend by the pass before's alpha") was read as
+mode 5 after pass 1 - the two write the same `lrp` line there - so the pass took the vertex alpha instead of the pass
+before's; a four-pass material in BO drew its wood almost black. Found by skipping the frame's draws one at a time on
+Vulkan (draw 106 of 380) and showing each pass's value on both renderers.
+
+**What is left, and why**:
+- **Multisampled edges.** With `msaa=0` the pixels over 8 fall from 0.27-0.90% to 0.01-0.62% (BO-far 0.27 -> 0.01,
+  z_ho-start 0.30 -> 0.07): most of what is left at `msaa=8` is the edges. Direct3D 9 here covers the samples of an edge
+  on whole pixels as if it weren't moved by the half pixel that its pixel centres need (seen exactly on the movie
+  quad's edge columns); Vulkan moves the geometry. Matching it would mean rasterising unmoved and interpolating every
+  input at (-0.5, -0.5) on multisampled targets (`interpolateAtOffset`, the sampleRateShading feature): not done - the
+  difference is a fraction of an edge pixel's coverage. (What forced `msaa=8` in round 12's pair: the workspace's own
+  `[Graphics] msaa=8`; this tool writes the key in place, so `--set Graphics.msaa=0` works.)
+- **The texture shadow's edge** (sch-court): the inside of the shadow is the same colour (it multiplies by the shadow
+  colour; its shape comes from the alpha test on the shadow texture's filtered alpha), but its outline is a little
+  smoother and a pixel off on Vulkan - D3D9's is stair-stepped at the shadow texture's texels. The shadow texture's
+  sampling or the alpha test's rounding near the threshold; not settled.
+- **Wireframe** (a debug view mode): the two APIs rasterise lines differently (Direct3D 9's diamond rule against
+  Vulkan's rectangular lines, through 8x MSAA) - some lines one pixel apart or missing.
+- **Animation timing**: z_ho's pedestrians and the idle skater are timed by the clock, and Vulkan's frames take longer in
+  the Debug build, so with fog on in one pair a pedestrian stood in another pose (1.56% over); the machinery in foun.
+- **Loading screens**: the bar's fill is timed, so frames pair up only where both renderers caught the same moment.
+- **Fog**: `[Graphics] Fog=1` changed nothing at these spots on either renderer (the levels' fog isn't on there), so the
+  fog formulas are still unchecked against Direct3D 9 in the game.
+
+**V3's open questions**: the alpha test (rounded) and the ps.1.x intermediates (unclamped: this NVIDIA driver reports
+`PixelShader1xMaxValue` 65504) agree with Direct3D 9 wherever the spots show them (foliage, the materials); the four-pass
+material above was the only shader difference found. The non-local viewer, the reflection vector's normalisation,
+missing coordinate sets, fog without a specular colour, table fog and the MODULATE*_ADD* alpha forms are not used at any
+spot compared (the game never sets table fog, round 2's scan), so they stay as written.
+
+**The unset-stage rule**: no other draw in these captures samples a stage with no texture set; the rule stays as the
+loading bar showed it.
+
+**Frame times** (Debug build; the presents timed by a measuring build, ms a frame over the last 300 presents of each
+level's run, which includes its captures): Direct3D 9 foun 35.4, z_dt 58.2, BO 26.2, z_ho 51.9, sch 37.5; Vulkan 50.1,
+63.0, 33.3, 59.6, 53.0 - Vulkan 10-40% slower in Debug, processor-bound (under 0.2 ms a frame waiting for the device).
+The game's own frames run at 60 a second on both (the status file: 17.0-17.2 ms).
+
+**Validation**: the Khronos layer (32-bit, core checks) on in the five levels, the front end and the editor: 0 messages.
+
+**Memory** (32-bit, windowed 1280x720): Vulkan 477-500 MB private and 886-916 MB of address space free in the five
+levels and the editor; Direct3D 9 237 MB / 1,370 MB in foun. Full screen remains the tightest (V10: 567 MB, 804 MB free).
+
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -755,7 +838,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 - done: the bloom's blank textures (the brighter picture) and the shadow textures' viewport fixed, the gamma pass in full screen, the swapchain following the surface; five spots compared with Direct3D 9 |
 | V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 - done: ImGui's lists drawn by the Vulkan `Gpu` (ImGui's SDL2 backend kept), images as `Gpu` textures, the preview and atlas through the `Gpu`; the new front end and the level editor (in the game and the editor exe) draw on Vulkan |
 | V10 | Movies, loading screens, screenshots and the editor's methods on Vulkan | V7, V5e | after stage 11 - done: the start-up viewport (the movies were black) and the unset texture stage (the loading bar was white) fixed, a reset leaves the bindings as Direct3D 9's; the loading threads, screenshots, full screen and alt-tab checked on Vulkan |
-| V11 | Parity: a screenshot comparison between the two backends at the same spot and frame (the automation channel's teleport and capture), with each backend's run-to-run noise as the baseline; the front end, the editor, five levels; frame times | V8-V10 | after stage 11 |
+| V11 | Parity: a screenshot comparison between the two backends at the same spot and frame (the automation channel's teleport and capture), with each backend's run-to-run noise as the baseline; the front end, the editor, five levels; frame times | V8-V10 | after stage 11 - done: `tools/game/renderer_parity.ts`; a material pass misread fixed; what is left is MSAA edges, a shadow outline and line rasterisation (V11 above) |
 | R1 | The frame as data: `render_pc` fills the per-frame instance / light / camera record; stable mesh and material ids | V5f | after V11 and the x64 port |
 | R2 | Acceleration structures: a BLAS per static mesh at scene load, refit / rebuild for CPU-skinned meshes, the TLAS per frame | R1, V7, x64 | after V11 and the x64 port |
 | R3 | The material table and bindless textures | R1, V6 | after V11 and the x64 port |
