@@ -6,7 +6,8 @@
 // creates the device (the game creates it without D3DCREATE_FPU_PRESERVE), i.e. the precision the original's x87
 // code ran at in the game. Its D3DX half - D3DX9's matrix product, vector transforms and viewing matrices against
 // the plain C++ that replaced them - runs on x64 too (once: SSE2 has no precision to set), where there is no x87
-// reference.
+// reference. With --write-corpus / --compare-corpus it writes or compares the corpus instead (maths_corpus.h): the
+// 32-bit build's inputs and results of the game files' formulas, base/maths and D3DX9, compared on the 64-bit build.
 
 #include <cmath>
 #include <algorithm>
@@ -17,6 +18,8 @@
 #include <cstring>
 #include <random>
 #include <span>
+#include <utility>
+#include <vector>
 
 #include "tests/no_error_dialogs.h"
 #include "base/maths/trig.h"
@@ -27,6 +30,7 @@
 #include "base/maths/mat4.h"
 #include "tests/maths_check_d3dx.h"
 #include "base/maths/view_transforms.h"
+#include "tests/maths_corpus.h"
 
 namespace {
 
@@ -44,7 +48,6 @@ constexpr int kX87LessThanMask = 0x0500;
 constexpr int kX87LessThanBit = 0x0100;
 constexpr uint64_t kLowSixtyThreeBits = 0x7FFFFFFFFFFFFFFFULL;
 constexpr uint64_t kTopBit = 0x8000000000000000ULL;
-constexpr size_t kDoubleBytes = 8;
 constexpr double kAngleSpanFactor = 4.0;
 constexpr double kPi15 = 3.14159265358979;
 constexpr double kWideRange = 1.0e4;
@@ -65,6 +68,7 @@ constexpr float kWeightBias = 0.5F;
 constexpr float kSmallScaleA = 20.0F;
 constexpr float kSmallScaleB = 50.0F;
 constexpr int kRandomSeed = 20261101;
+constexpr float kHalfDegree = 0.008726646F; // radians (the viewport's angle factor)
 
 // --- the new C++ (as in the game's files) ----------------------------------------------------------------------
 
@@ -1465,42 +1469,7 @@ void skin_file(const fresh::Skin& v, float* out_floats)
 
 // --- the comparison ----------------------------------------------------------------------------------------------
 
-// The distance in ulps between two doubles / floats (NaNs equal to each other; a NaN against a number: a huge value).
-uint64_t ulps(double a, double b)
-{
-    if (std::isnan(a) || std::isnan(b)) {
-        return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
-    }
-    int64_t ia = 0;
-    int64_t ib = 0;
-    std::memcpy(&ia, &a, kDoubleBytes);
-    std::memcpy(&ib, &b, kDoubleBytes);
-    if (ia < 0) {
-        ia = INT64_MIN - ia;
-    }
-    if (ib < 0) {
-        ib = INT64_MIN - ib;
-    }
-    return ia > ib ? static_cast<uint64_t>(ia) - static_cast<uint64_t>(ib)
-                   : static_cast<uint64_t>(ib) - static_cast<uint64_t>(ia);
-}
-uint64_t ulps(float a, float b)
-{
-    if (std::isnan(a) || std::isnan(b)) {
-        return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
-    }
-    int32_t ia = 0;
-    int32_t ib = 0;
-    std::memcpy(&ia, &a, 4);
-    std::memcpy(&ib, &b, 4);
-    if (ia < 0) {
-        ia = INT32_MIN - ia;
-    }
-    if (ib < 0) {
-        ib = INT32_MIN - ib;
-    }
-    return static_cast<uint64_t>(ia > ib ? static_cast<int64_t>(ia) - ib : static_cast<int64_t>(ib) - ia);
-}
+using tests::ulps;
 
 // One function's comparison so far: the runs, how many differed, the largest difference and where.
 class Tally {
@@ -2010,12 +1979,278 @@ void view_maths(int count, std::mt19937_64& random)
     }
 }
 
+// NOT ORIGINAL - the corpus's cases for the functions above (the game files' formulas, fresh::): their inputs as run()
+// draws them and their results, written by the 32-bit build and compared by the 64-bit one (maths_corpus.h).
+void corpus_fresh(tests::Corpus& corpus, tests::CorpusDraws draws)
+{
+    const int count = draws.count;
+    std::mt19937_64 random(draws.seed);
+    std::uniform_real_distribution<double> angle(-kAngleSpanFactor * kPi15, kAngleSpanFactor * kPi15);
+    std::uniform_real_distribution<double> wide(-kWideRange, kWideRange);
+    std::uniform_real_distribution<double> unit(-1.0, 1.0);
+    std::uniform_real_distribution<double> positive(kPositiveMin, kPositiveMax);
+    std::uniform_real_distribution<float> coordinate(-kCoordinateRange, kCoordinateRange);
+    std::uniform_real_distribution<float> small(-kSmallRange, kSmallRange);
+    std::uniform_real_distribution<float> weight(0.0F, 1.0F);
+    std::uniform_real_distribution<float> fov(kFovMin, kFovMax);
+    std::uniform_int_distribution<int32_t> byte(0, kByteMax);
+    std::uniform_int_distribution<int32_t> key_time(0, kKeyTimeMax);
+    std::uniform_int_distribution<uint32_t> milliseconds(0, UINT32_MAX);
+    std::uniform_int_distribution<uint64_t> vblanks(0, UINT64_MAX >> kVblankHeadroomBits);
+    auto draw = [&](auto& distribution) { return corpus.in(distribution(random)); };
+
+    corpus.section("game formulas");
+    tests::CorpusGroup group(corpus,
+                             "(a) the game files' formulas (the C++ that replaced their x87 code): this build vs the "
+                             "32-bit build");
+    auto& t_sin = group.tally("sin", 'd');
+    auto& t_cos = group.tally("cos", 'd');
+    auto& t_tan = group.tally("tan", 'd');
+    auto& t_atan = group.tally("atan", 'd');
+    auto& t_atan2 = group.tally("atan2", 'd');
+    auto& t_sqrt = group.tally("sqrt", 'd');
+    auto& t_log10 = group.tally("log10", 'd');
+    auto& t_ln = group.tally("ln", 'd');
+    auto& t_asin = group.tally("asin (C runtime)", 'd');
+    auto& t_acos = group.tally("acos (C runtime)", 'd');
+    auto& t_sin_f = group.tally("sin -> float", 'f');
+    auto& t_cos_f = group.tally("cos -> float", 'f');
+    auto& t_atan2_f = group.tally("atan2 -> float", 'f');
+    auto& t_sin_wide = group.tally("sin, |angle| < 1e4", 'd');
+    auto& t_sin_times = group.tally("sin * factor", 'd');
+    auto& t_sin_product = group.tally("sin * sin", 'd');
+    auto& t_cot = group.tally("cot", 'd');
+    auto& t_atan2_diff = group.tally("atan2 - atan2", 'd');
+    auto& t_cos_above = group.tally("cos_above", 'b');
+    auto& t_sin_at_least = group.tally("sin_at_least", 'b');
+    auto& t_tan_times = group.tally("tan_times", 'f');
+    auto& t_atan2_qt = group.tally("atan2_less_quarter_turn", 'f');
+    auto& t_blend = group.tally("blend_key_colors", 'u');
+    auto& t_wibble_time = group.tally("wibble_time", 'f');
+    auto& t_wibble = group.tally("wibble_offset", 'f');
+    auto& t_vblank = group.tally("vblank_seconds", 'f');
+    auto& t_probe = group.tally("probe_tip", 'f');
+    auto& t_turn_move = group.tally("turn_move", 'f');
+    auto& t_turn_y = group.tally("turn_about_y", 'f');
+    auto& t_turn_y_z = group.tally("turn_about_y's z (double)", 'd');
+    auto& t_stick = group.tally("turn_by_stick", 'f');
+    auto& t_flat = group.tally("turn_flat", 'f');
+    auto& t_asin_deg = group.tally("asin_degrees", 'f');
+    auto& t_acos_deg = group.tally("acos_degrees", 'f');
+    auto& t_fov = group.tally("view camera fov", 'f');
+    auto& t_factor = group.tally("viewport angle factor", 'f');
+    auto& t_versine = group.tally("1 - cos (double), mat4", 'd');
+    auto& t_versine_sine = group.tally("sin -> float, mat4", 'f');
+    auto& t_skin = group.tally("skinned position", 'f');
+    for (int i = 0; i < count; ++i) {
+        const double first_angle = draw(angle);
+        const double second_angle = draw(angle);
+        const double u = draw(unit);
+        const double w = draw(wide);
+        const double positive_value = draw(positive);
+        corpus.out(t_sin, fresh::sin(first_angle), first_angle);
+        corpus.out(t_cos, fresh::cos(first_angle), first_angle);
+        corpus.out(t_tan, fresh::tan(first_angle), first_angle);
+        corpus.out(t_atan, fresh::atan(w), w);
+        corpus.out(t_atan2, fresh::atan2({.y = w, .x = first_angle}), w);
+        corpus.out(t_sqrt, fresh::sqrt(positive_value), positive_value);
+        corpus.out(t_log10, fresh::log10(positive_value), positive_value);
+        corpus.out(t_ln, fresh::ln(positive_value), positive_value);
+        corpus.out(t_asin, fresh::asin(u), u);
+        corpus.out(t_acos, fresh::acos(u), u);
+        corpus.out(t_sin_f, fresh::sin_f(first_angle), first_angle);
+        corpus.out(t_cos_f, fresh::cos_f(first_angle), first_angle);
+        corpus.out(t_atan2_f, fresh::atan2_f({.y = w, .x = first_angle}), w);
+        corpus.out(t_sin_wide, fresh::sin(w), w);
+        corpus.out(t_sin_times, fresh::sin_times(first_angle, w), first_angle);
+        corpus.out(t_sin_product, fresh::sin_product(first_angle, second_angle), first_angle);
+        corpus.out(t_cot, fresh::cot(first_angle), first_angle);
+        const AtanPair pair{.left = {.y = first_angle, .x = w}, .right = {.y = second_angle, .x = u}};
+        corpus.out(t_atan2_diff, fresh::atan2_difference(pair), first_angle);
+        const auto cosine_limit = static_cast<float>(u);
+        corpus.out(t_cos_above, fresh::cos_above({.angle = first_angle, .value = cosine_limit}), first_angle);
+        corpus.out(t_sin_at_least, fresh::sin_at_least({.angle = first_angle, .value = cosine_limit}), first_angle);
+        const auto fa = static_cast<float>(first_angle * 0.2);
+        const float fb = draw(small);
+        corpus.out(t_tan_times, fresh::tan_times({.angle = fa, .value = fb}), fa);
+        const float y = draw(coordinate);
+        const float x = draw(coordinate);
+        corpus.out(t_atan2_qt, fresh::atan2_less_quarter_turn({.y = y, .x = x}), y);
+        std::array<uint8_t, 4> from{};
+        std::array<uint8_t, 4> to{};
+        for (int k = 0; k < 4; ++k) {
+            core::at(from, k) = static_cast<uint8_t>(draw(byte));
+            core::at(to, k) = static_cast<uint8_t>(draw(byte));
+        }
+        const int32_t den = draw(key_time) + 1;
+        const int32_t num = draw(key_time) % den;
+        corpus.out(t_blend, fresh::blend_key_colors({.num = num, .den = den}, from, to), num);
+        const uint32_t ms = draw(milliseconds);
+        corpus.out(t_wibble_time, fresh::wibble_time(ms), ms);
+        const float wave_time = fresh::wibble_time(ms % 3600000U);
+        const float frequency = draw(small);
+        const float phase = draw(small);
+        const float amplitude = draw(small);
+        const float velocity = draw(small);
+        const Wibble wibble{
+            .t = wave_time, .frequency = frequency, .phase = phase, .amplitude = amplitude, .velocity = velocity};
+        corpus.out(t_wibble, fresh::wibble_offset(wibble, (i & 1) != 0), wave_time);
+        const uint64_t vb = draw(vblanks);
+        corpus.out(t_vblank, fresh::vblank_seconds({.count = vb, .rate = kFrameRate}), static_cast<double>(vb));
+        const int index = i % 64;
+        const ProbeTip tip = fresh::probe_tip({.index = index, .x = x, .z = y, .step = 0.09817477F, .reach = 12.0F});
+        corpus.out(t_probe, tip.column, index);
+        corpus.out(t_probe, tip.end, index);
+        const Xz move = fresh::turn_move({.angle = first_angle, .a = u, .b = fb});
+        corpus.out(t_turn_move, move.x, first_angle);
+        corpus.out(t_turn_move, move.z, first_angle);
+        const double ca = draw(coordinate);
+        const double cb = draw(coordinate);
+        const auto degrees = static_cast<float>(first_angle * 30.0);
+        const TurnedY turned = fresh::turn_about_y({.dx = ca, .dz = cb, .angle = degrees, .scale = 0.017453292F});
+        corpus.out(t_turn_y, turned.x, degrees);
+        corpus.out(t_turn_y_z, turned.z, degrees);
+        Xz stick{.x = x, .z = y};
+        fresh::turn_by_stick(first_angle, &stick);
+        corpus.out(t_stick, stick.x, first_angle);
+        corpus.out(t_stick, stick.z, first_angle);
+        const Xz flat = fresh::turn_flat(first_angle, {.x = x, .z = y});
+        corpus.out(t_flat, flat.x, first_angle);
+        corpus.out(t_flat, flat.z, first_angle);
+        corpus.out(t_asin_deg, fresh::asin_degrees(u, (i & 1) != 0, kRadiansToDegrees), u);
+        const auto fu = static_cast<float>(u);
+        corpus.out(t_acos_deg, fresh::acos_degrees({.value = fu, .scale = kRadiansToDegrees}), fu);
+        const float h_fov = draw(fov);
+        const float default_angle = draw(fov);
+        const float factor = draw(weight) + 0.5F;
+        const float divisor = draw(weight) + 0.5F;
+        const Fov view =
+            fresh::refresh_fov({.angle = h_fov, .factor = factor, .divisor = divisor, .base = default_angle});
+        corpus.out(t_fov, view.adjusted, h_fov);
+        corpus.out(t_fov, view.ratio, h_fov);
+        corpus.out(t_factor, fresh::angle_factor({.degrees = h_fov, .base = default_angle, .scale = kHalfDegree}),
+                   h_fov);
+        double versine = 0.0;
+        float sine = 0.0F;
+        fresh::versine_sine(fa, &versine, &sine);
+        corpus.out(t_versine, versine, fa);
+        corpus.out(t_versine_sine, sine, fa);
+        fresh::Skin skin{};
+        for (int k = 0; k < 4; ++k) {
+            core::at(skin.e0, k) = draw(weight) + kWeightBias;
+            core::at(skin.e1, k) = draw(weight) + kWeightBias;
+            core::at(skin.e2, k) = draw(weight) + kWeightBias;
+            core::at(skin.a, k) = draw(small) * kSmallScaleA;
+            core::at(skin.b, k) = draw(small) * kSmallScaleA;
+            core::at(skin.c, k) = draw(small) * kSmallScaleA;
+            core::at(skin.p, k) = draw(small) * kSmallScaleB;
+            core::at(skin.q, k) = draw(small) * kSmallScaleB;
+            core::at(skin.r, k) = draw(small) * kSmallScaleB;
+        }
+        core::at(skin.s, 0) = draw(weight);
+        core::at(skin.s, 1) = draw(weight) * (1.0F - core::at(skin.s, 0));
+        core::at(skin.s, 2) = 1.0F - core::at(skin.s, 0) - core::at(skin.s, 1);
+        std::array<float, 3> skinned{};
+        fresh::skin(skin, skinned.data());
+        corpus.outs<float>(t_skin, skinned, core::at(skin.s, 0));
+    }
+    corpus.section("game formulas end");
+}
+
+// NOT ORIGINAL - the corpus: `--write-corpus <file> [53|24] [count]` on the 32-bit build (the x87 at that precision while
+// the cases run - 24 is the game's thread under Direct3D 9), `--compare-corpus <file>` on any build. Exit code 0 when
+// the comparison read the corpus in step (differences are reported, not failed), 1 otherwise.
+constexpr int kCorpusCount = 20000;
+constexpr uint64_t kBaseMathsSeed = 10; // the cases' seeds after the corpus's own
+constexpr uint64_t kD3dxSeed = 20;
+constexpr uint32_t kFullPrecision = 53;
+constexpr uint32_t kGamePrecision = 24;
+
+void corpus_cases(tests::Corpus& corpus)
+{
+    const int count = static_cast<int>(corpus.header().count);
+    const uint64_t seed = corpus.header().seed;
+    corpus_fresh(corpus, {.count = count, .seed = seed});
+    tests::corpus_base_maths(corpus, {.count = count, .seed = seed + kBaseMathsSeed});
+    tests::corpus_d3dx(corpus, {.count = count, .seed = seed + kD3dxSeed});
+}
+
+int write_corpus(std::span<char*> arguments)
+{
+    const char* path = core::at(arguments, 2);
+    const uint32_t precision =
+        arguments.size() > 3 ? static_cast<uint32_t>(text::to_int(core::at(arguments, 3))) : kFullPrecision;
+    const int count = arguments.size() > 4 ? text::to_int(core::at(arguments, 4)) : kCorpusCount;
+    if (precision != kFullPrecision && precision != kGamePrecision) {
+        text::print_to(stderr, "thug2_maths_check: the precision is 53 or 24\n");
+        return 1;
+    }
+    tests::Corpus corpus = tests::Corpus::to_write(
+        {.count = static_cast<uint32_t>(count), .seed = kRandomSeed, .precision_bits = precision});
+#if defined(_MSC_VER) && defined(_M_IX86)
+    unsigned int previous = 0;
+    _controlfp_s(&previous, precision == kGamePrecision ? _PC_24 : _PC_53, _MCW_PC);
+#else
+    if (precision != kFullPrecision) {
+        text::print_to(stderr, "thug2_maths_check: only the 32-bit x86 build has an x87 precision to set\n");
+        return 1;
+    }
+#endif
+    corpus_cases(corpus);
+#if defined(_MSC_VER) && defined(_M_IX86)
+    _controlfp_s(&previous, _PC_53, _MCW_PC);
+#endif
+    if (!tests::save_corpus_file(path, corpus.bytes())) {
+        return 1;
+    }
+    text::print("thug2_maths_check: wrote %s (%d inputs per case, x87 at %u bits, %llu bytes)\n", path, count,
+                precision, static_cast<unsigned long long>(corpus.bytes().size()));
+    return 0;
+}
+
+int compare_corpus(std::span<char*> arguments)
+{
+    const char* path = core::at(arguments, 2);
+    std::vector<uint8_t> bytes;
+    tests::Corpus corpus = tests::Corpus::to_write({.count = 0, .seed = 0, .precision_bits = 0});
+    if (!tests::load_corpus_file(path, &bytes) || !tests::Corpus::to_compare(std::move(bytes), &corpus)) {
+        return 1;
+    }
+#if defined(_MSC_VER) && defined(_M_X64)
+    // (a third argument, --fma3-off: the x64 C runtime's maths without its FMA3 code paths)
+    const bool fma3_off = arguments.size() > 3 && std::strcmp(core::at(arguments, 3), "--fma3-off") == 0;
+    if (fma3_off) {
+        _set_FMA3_enable(0);
+    }
+#else
+    const bool fma3_off = false;
+#endif
+    text::print(
+        "thug2_maths_check: this build (%s%s) against %s (the 32-bit build, x87 at %u bits, %u inputs per case)\n",
+        sizeof(void*) == sizeof(uint64_t) ? "64-bit" : "32-bit", fma3_off ? ", the C runtime's FMA3 paths off" : "",
+        path, corpus.header().precision_bits, corpus.header().count);
+    corpus_cases(corpus);
+    text::print("inputs drawn here that differ from the corpus's: %llu\n",
+                static_cast<unsigned long long>(corpus.drifted_inputs()));
+    if (!corpus.in_step()) {
+        text::print_to(stderr, "thug2_maths_check: the corpus didn't match this build's cases (out of step)\n");
+        return 1;
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
     tests::no_error_dialogs();
     const std::span<char*> arguments(argv, static_cast<size_t>(argc));
+    if (arguments.size() > 2 && std::strcmp(core::at(arguments, 1), "--write-corpus") == 0) {
+        return write_corpus(arguments);
+    }
+    if (arguments.size() > 2 && std::strcmp(core::at(arguments, 1), "--compare-corpus") == 0) {
+        return compare_corpus(arguments);
+    }
     const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;
     // (a second argument: another seed, for another sequence; the default's results are the ones compared)
     const int seed = argc > 2 ? text::to_int(core::at(arguments, 2)) : kRandomSeed;

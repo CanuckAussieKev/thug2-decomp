@@ -5,7 +5,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
+#include <cmath> // IWYU pragma: keep - std::sqrt where the processor has no SSE estimate
 #include <limits>
 
 // (the processor's estimates where the compiler targets SSE: estimate_reciprocal_sqrt / estimate_reciprocal)
@@ -15,6 +15,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/maths/mat4.h"
+#include "base/maths/trig.h"
 
 namespace maths {
 
@@ -178,8 +179,8 @@ void matrix_scaling(Floats16 out, float x, float y, float z)
 
 void matrix_rotation_y(Floats16 out, float angle)
 {
-    const float sine = std::sin(angle);
-    const float cosine = std::cos(angle);
+    const float sine = runtime32::sin(angle);
+    const float cosine = runtime32::cos(angle);
     const Matrix result = {
         {cosine, 0.0F, -sine, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, sine, 0.0F, cosine, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F}};
     std::ranges::copy(result, out.begin());
