@@ -360,7 +360,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     // (new HitTreeNode[1]: one leaf of every face)
     leaf->make_leaf(static_cast<uint16_t>(faces), leaf_faces);
     tri->set_bsp(leaf);
-    tri->set_up_all_faces();
+    static_cast<void>(tri->set_up_all_faces());
     // (the face-rejection bytes: one a face, on the bottom-up heap as StaticCollider::Replicate keeps them)
     if (coll->octets()) {
         memory::free_malloc(coll->octets());

@@ -72,22 +72,52 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
     return {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2), .w = 0.0F};
 }
 
-// 0x0040B2D0 (the uncompressed vertex copied as raw words)
-void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
+namespace {
+
+// A stored vertex into `out` (0x0040B2D0's two forms): packed - sixteenths from the box's minimum - or floats.
+void read_packed_vertex(std::span<const uint16_t> packed, const maths::Vec4& minimum, size_t index, maths::Vec4* out)
 {
-    if (compressed_) {
-        const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-        out->x = (static_cast<float>(core::at(v, 0)) * kVertexUnit) + bounds_.min.x;
-        out->y = (static_cast<float>(core::at(v, 1)) * kVertexUnit) + bounds_.min.y;
-        out->z = (static_cast<float>(core::at(v, 2)) * kVertexUnit) + bounds_.min.z;
-        out->w = 0.0F;
-        return;
-    }
-    const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
+    const std::span<const uint16_t, 3> v = packed.subspan(3 * index).first<3>();
+    out->x = (static_cast<float>(core::at(v, 0)) * kVertexUnit) + minimum.x;
+    out->y = (static_cast<float>(core::at(v, 1)) * kVertexUnit) + minimum.y;
+    out->z = (static_cast<float>(core::at(v, 2)) * kVertexUnit) + minimum.z;
+    out->w = 0.0F;
+}
+void read_float_vertex(std::span<const float> floats, size_t index, maths::Vec4* out)
+{
+    const std::span<const float, 3> v = floats.subspan(3 * index).first<3>();
     out->x = core::at(v, 0);
     out->y = core::at(v, 1);
     out->z = core::at(v, 2);
     out->w = 0.0F;
+}
+
+} // namespace
+
+// 0x0040B2D0 (the uncompressed vertex copied as raw words)
+void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
+{
+    if (compressed_) {
+        read_packed_vertex(packed_vertices(), bounds_.min, static_cast<size_t>(index), out);
+        return;
+    }
+    read_float_vertex(float_vertices(), static_cast<size_t>(index), out);
+}
+
+void TriMeshSource::read_face_corners(int face, maths::Vec4* v0, maths::Vec4* v1, maths::Vec4* v2) const
+{
+    const collision_format::FaceTable table = face_table();
+    if (compressed_) {
+        const std::span<const uint16_t> packed = packed_vertices();
+        read_packed_vertex(packed, bounds_.min, table.vertex(face, 0), v0);
+        read_packed_vertex(packed, bounds_.min, table.vertex(face, 1), v1);
+        read_packed_vertex(packed, bounds_.min, table.vertex(face, 2), v2);
+        return;
+    }
+    const std::span<const float> floats = float_vertices();
+    read_float_vertex(floats, table.vertex(face, 0), v0);
+    read_float_vertex(floats, table.vertex(face, 1), v1);
+    read_float_vertex(floats, table.vertex(face, 2), v2);
 }
 
 // 0x00414EE0 (x's offset isn't rounded to a float before it's scaled; y's and z's are)
@@ -164,6 +194,23 @@ TriMeshSource* TriMeshSource::copy_from(const TriMeshSource* other)
     return this;
 }
 
+// (the original copied the record's words; its arrays' links are made from this record)
+void TriMeshSource::copy_fields(const TriMeshSource& other)
+{
+    checksum_ = other.checksum_;
+    unknown04_ = other.unknown04_;
+    num_vertices_ = other.num_vertices_;
+    tri_count_ = other.tri_count_;
+    small_faces_ = other.small_faces_;
+    compressed_ = other.compressed_;
+    set_faces(other.faces());
+    bounds_ = other.bounds_;
+    set_vertices(other.vertices());
+    set_bsp(other.bsp());
+    set_vertex_bytes(other.vertex_bytes());
+    unknown3c_ = other.unknown3c_;
+}
+
 // 0x00416BF0 (a failed allocation of the copy itself crashes, as in the original; so does a missing tree)
 TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) const
 {
@@ -174,33 +221,33 @@ TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) co
     TriMeshSource* copy = memory ? static_cast<TriMeshSource*>(memory)->copy_from(this) : nullptr;
     const uint32_t vertex_size = num_vertices_ * (compressed_ ? 6U : 12U);
     Expects(copy != nullptr);
-    copy->vertices_ = memory::alloc(vertex_size);
+    copy->set_vertices(memory::alloc(vertex_size));
     const uint32_t face_size = tri_count_ * (small_faces_ ? 8U : 10U);
-    copy->faces_ = static_cast<uint8_t*>(memory::alloc(face_size));
-    if (!copy->vertices_ || !copy->faces_) {
+    copy->set_faces(static_cast<uint8_t*>(memory::alloc(face_size)));
+    if (!copy->vertices() || !copy->faces()) {
         return nullptr;
     }
-    std::memcpy(copy->vertices_, vertices_, vertex_size);
-    std::memcpy(copy->faces_, faces_, face_size);
-    if (vertex_bytes_) {
-        copy->vertex_bytes_ = static_cast<uint8_t*>(memory::alloc(num_vertices_));
-        std::memcpy(copy->vertex_bytes_, vertex_bytes_, num_vertices_);
+    std::memcpy(copy->vertices(), vertices(), vertex_size);
+    std::memcpy(copy->faces(), faces(), face_size);
+    if (vertex_bytes()) {
+        copy->set_vertex_bytes(static_cast<uint8_t*>(memory::alloc(num_vertices_)));
+        std::memcpy(copy->vertex_bytes(), vertex_bytes(), num_vertices_);
     }
-    copy->bsp_ = bsp_->replicate(bsp_argument);
+    copy->set_bsp(bsp()->replicate(bsp_argument));
     return copy;
 }
 
 // 0x00416970
 void TriMeshSource::destruct()
 {
-    if (vertices_) {
-        memory::Hub::dealloc(vertices_);
+    if (void* stored = vertices()) {
+        memory::Hub::dealloc(stored);
     }
-    if (vertex_bytes_) {
-        memory::Hub::dealloc(vertex_bytes_);
+    if (uint8_t* bytes = vertex_bytes()) {
+        memory::Hub::dealloc(bytes);
     }
-    if (faces_) {
-        memory::Hub::dealloc(faces_);
+    if (uint8_t* stored = faces()) {
+        memory::Hub::dealloc(stored);
     }
     delete_bsp();
 }
@@ -208,16 +255,15 @@ void TriMeshSource::destruct()
 // 0x00416080 (the nodes' destructor - 0x005480A0, run by delete[] for each - is empty)
 bool TriMeshSource::delete_bsp()
 {
-    if (!bsp_) {
+    HitTreeNode* tree = bsp();
+    if (!tree) {
         return false;
     }
-    if (uint16_t* faces = bsp_->first_face_list()) {
+    if (uint16_t* faces = tree->first_face_list()) {
         memory::Hub::dealloc(faces);
     }
-    if (bsp_) {
-        free_tree_nodes(bsp_);
-    }
-    bsp_ = nullptr;
+    free_tree_nodes(tree);
+    set_bsp(nullptr);
     return true;
 }
 
@@ -242,8 +288,8 @@ void free_tree_nodes(HitTreeNode* first) { memory::Hub::dealloc(std::prev(first)
 // 0x00416400
 void TriMeshSource::get_slide(const maths::Vec4* delta)
 {
-    if (bsp_) {
-        bsp_->get_slide(delta);
+    if (HitTreeNode* tree = bsp()) {
+        tree->get_slide(delta);
     }
     if (!compressed_) {
         const std::span<float> v = float_vertices();
@@ -274,8 +320,8 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
 {
     const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
     get_slide(&back);
-    if (bsp_) {
-        bsp_->rotate_y(centre, quarter_turns, false);
+    if (HitTreeNode* tree = bsp()) {
+        tree->rotate_y(centre, quarter_turns, false);
     }
     maths::Vec4* positions = nullptr;
     std::span<maths::Vec4> position_run;
@@ -323,8 +369,8 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
 {
     const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
     get_slide(&back);
-    if (bsp_) {
-        bsp_->scale_tool(centre, scale, false);
+    if (HitTreeNode* tree = bsp()) {
+        tree->scale_tool(centre, scale, false);
     }
     maths::Vec4* positions = nullptr;
     std::span<maths::Vec4> position_run;
@@ -361,7 +407,7 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
 }
 
 // 0x00414D30
-bool TriMeshSource::set_up_all_faces()
+bool TriMeshSource::set_up_all_faces() const
 {
     auto& table = all_faces();
     if (core::at(table, 0) != 0) {
@@ -369,7 +415,7 @@ bool TriMeshSource::set_up_all_faces()
             core::at(table, i) = static_cast<uint16_t>(i);
         }
     }
-    return bsp_ != nullptr;
+    return bsp() != nullptr;
 }
 
 // 0x00414FE0 (the original also reads each face's flags and tests a sign they can't have, and reads the first
@@ -487,12 +533,13 @@ void TriMeshSource::add_occlusion_polys()
 // 0x00416320
 std::span<const uint16_t> TriMeshSource::get_faces_in_box(const maths::BBox* box, std::span<uint16_t> buffer)
 {
-    if (!bsp_) {
+    const HitTreeNode* tree = bsp();
+    if (!tree) {
         return std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
     }
     face_walk().face_buffer_ = buffer;
     face_walk().face_count_ = 0;
-    gather_faces(bsp_, box);
+    gather_faces(tree, box);
     std::span<const uint16_t> result;
     if (face_walk().face_count_ < 0) {
         result = std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
@@ -532,11 +579,12 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
 // 0x004163B0
 bool TriMeshSource::is_point_behind_faces(const maths::Vec4* point, int unused)
 {
-    if (!bsp_) {
+    const HitTreeNode* tree = bsp();
+    if (!tree) {
         return false;
     }
     face_walk().face_count_ = 0;
-    if (!count_faces_behind(bsp_, point, unused)) {
+    if (!count_faces_behind(tree, point, unused)) {
         return false;
     }
     return std::cmp_equal(face_walk().face_count_, tri_count_);
@@ -690,11 +738,18 @@ HitTreeNode* HitTreeNode::replicate(int /*unused*/) const
     HitTreeNode* copy = new_tree_nodes(nodes);
     auto* new_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
     const std::span<HitTreeNode> copied(copy, static_cast<size_t>(nodes));
-    std::copy_n(this, nodes, copy); // (the tree's nodes are one array, this the first)
+    const std::span<const HitTreeNode> original(this, static_cast<size_t>(nodes)); // (the tree's nodes are one array, this the first)
+    std::ranges::copy(original, copy);
     std::memcpy(new_faces, old_faces, faces * 2);
-    for (HitTreeNode& node : copied) {
-        node.chain_link_ = node.is_end_node() ? collision_format::tree_link_moved(node.chain_link_, old_faces, new_faces)
-                                              : collision_format::tree_link_moved(node.chain_link_, this, copy);
+    // (the split nodes' links are distances to their children, copied with them; the leaves' are moved to the copied
+    // face lists)
+    for (size_t i = 0; i < copied.size(); ++i) {
+        HitTreeNode& node = core::at(copied, i);
+        if (node.is_end_node()) {
+            node.chain_link_ = collision_format::tree_leaf_link_moved(
+                node.chain_link_,
+                {.node = &core::at(original, i), .copy = &node, .faces_from = old_faces, .faces_to = new_faces});
+        }
     }
     return copy;
 }

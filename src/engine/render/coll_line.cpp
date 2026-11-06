@@ -41,9 +41,7 @@ uint32_t get_threshold(double distance, const TriMeshSource* geometry)
 // A face's three corners (raw vertices).
 void get_corners(const TriMeshSource* geometry, uint32_t face, maths::Vec4* v0, maths::Vec4* v1, maths::Vec4* v2)
 {
-    geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), v0);
-    geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), v1);
-    geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), v2);
+    geometry->read_face_corners(static_cast<int>(face), v0, v1, v2);
 }
 
 } // namespace

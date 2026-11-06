@@ -33,7 +33,7 @@ bool partial_bits_size(uintptr_t at, uintptr_t end, uintptr_t* size)
     if (count < 0) {
         return false;
     }
-    *size = static_cast<uintptr_t>((((count - 1) / kFlagsPerWord) * 4) + kFlagTableHeaderBytes);
+    *size = (static_cast<uintptr_t>((count - 1) / kFlagsPerWord) * 4) + kFlagTableHeaderBytes; // ((count - 1) / 32 >= 0)
     return true;
 }
 

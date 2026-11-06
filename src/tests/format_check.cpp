@@ -878,7 +878,7 @@ void check_skate_messages()
             core::at(message->entries, i).id = static_cast<int8_t>((i * 3) + 1);
             core::at(message->entries, i).score = i == 1 ? -kNegativeScoreSample : kScoreStep * (i + 1);
         }
-        auto reference_size = static_cast<size_t>((count + 2) * kScoreEntryWireBytes);
+        auto reference_size = (static_cast<size_t>(count) + 2) * kScoreEntryWireBytes;
         std::array<uint8_t, sizeof(ReferenceScores)> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         skate_net::write_scores(writer, *message);
