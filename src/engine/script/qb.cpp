@@ -27,7 +27,6 @@
 #include "engine/script/tokens.h"
 #include "platform/run_log.h"
 #include "base/core/bits_as.h"
-#include "base/core/pointer_cell.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
@@ -332,10 +331,11 @@ void prepare_script_tokens(std::span<uint8_t> code)
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type() == QbValueKind::kNativeFunc) {
                     name[0] = token_byte(QbToken::kNativeFunction);
-                    store_word32(name + 1, cell::of(symbol->value().function())); // (a 32-bit operand: X5)
+                    // (NOT ORIGINAL: the function's number, not its address - names.h)
+                    store_word32(name + 1, native_function_number(symbol->value().function()));
                 } else if (symbol->type() == QbValueKind::kNativeMethod) {
                     if (!symbol->value().empty()) {
-                        store_word32(name + 1, cell::of(symbol->value().method()));
+                        store_word32(name + 1, member_entry_number(symbol->value().method())); // (NOT ORIGINAL: its number)
                         name[0] = token_byte(QbToken::kMemberFunction);
                     } else {
                         name[0] = token_byte(QbToken::kMemberFunctionName);

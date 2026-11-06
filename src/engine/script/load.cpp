@@ -284,7 +284,7 @@ void restart_changed_scripts()
 void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
     if (fetch_word32(Tokens(data)) == kPIP) {
-        parse_precompiled_qb(filename, data, unused); // (relocated in place)
+        parse_precompiled_qb(filename, data, unused); // (unpacked: precompiled.h)
     } else {
         read_qb_file(filename, data, unused, use_qb_names != 0, temporary != 0);
     }
@@ -351,7 +351,6 @@ void unload_qb(uint32_t file_checksum)
     // Scripts left running code that's gone are stopped.
     host().stop_scripts_left_without_code();
     // (a pre-compiled file stays loaded until now)
-    forget_precompiled_image(file_checksum);
     packs::offload(file_checksum);
 }
 

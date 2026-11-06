@@ -38,6 +38,17 @@ void publish_method_table(std::span<const char* const> names);
 // Make each record of a table (up to the one with a 0 name) a member-function symbol whose value is the record.
 void register_member_function_table(std::span<const MemberFunctionEntry> records);
 
+// NOT ORIGINAL - the C functions and member function table entries the scripts call, numbered in the order they are
+// installed (a function or entry installed again keeps its number). A call statement whose name is one of them is
+// rewritten in the cached code to token 0x43 / 0x46 followed by its number (prepare_script_tokens, qb.h); the
+// original wrote its address there. The operand is 4 bytes on every build, so a 64-bit address would not fit; the
+// interpreter turns the number back into the function by one indexed read. A function first met by
+// prepare_script_tokens (a symbol given its value some other way) is numbered then.
+uint32_t native_function_number(NativeFunction function);
+NativeFunction numbered_native_function(uint32_t number);
+uint32_t member_entry_number(const MemberFunctionEntry* entry);
+const MemberFunctionEntry* numbered_member_entry(uint32_t number);
+
 // The code half of a member-function table (0x18-byte records: name, component type, then a 16-byte member function
 // pointer), as the original's static initialisers write it: record i's function `code[i]` followed by three zero words,
 // and after the `count` records the terminator's {0, 0, 0, -1}. (NOT ORIGINAL as a function: each initialiser has

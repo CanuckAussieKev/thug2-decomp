@@ -21,7 +21,8 @@
 //   0x1E vector (3 floats)   0x1F pair (2 floats)   0x24 '$' end of script
 //   0x2B a checksum's name (4-byte checksum, then the text)
 //   0x2F / 0x37 / 0x40 / 0x41 jump tables (4-byte count, then 6 bytes each)
-//   0x43 / 0x44 / 0x46 a name already looked up: C function / member function (4-byte value)
+//   0x43 / 0x44 / 0x46 a name already looked up: C function / member function (4 bytes: the function's number,
+//                      names.h - the original's address; 0x44: the name)
 //   0x47 / 0x48 / 0x49 short jumps (2-byte offset)
 namespace memory {
 struct PoolPair;
@@ -98,10 +99,10 @@ enum class QbToken : uint8_t {
     kRandomNoRepeat = 0x40, // a choice that is never the last one's
     kRandomPermute = 0x41, // choices in a shuffled order
     kColon = 0x42, // prints `:`
-    kNativeFunction = 0x43, // a name looked up: a C function (+ 4 bytes)
+    kNativeFunction = 0x43, // a name looked up: a C function (+ its 4-byte number, names.h)
     kMemberFunctionName = 0x44, // a member function without a table entry (+ its name)
     kSectionMarker = 0x45, // + one byte, a 4-byte section name
-    kMemberFunction = 0x46, // a name looked up: a member function's table entry (+ 4 bytes)
+    kMemberFunction = 0x46, // a name looked up: a member function's table entry (+ its 4-byte number)
     kShortIf = 0x47, // an if with a 2-byte jump
     kShortElse = 0x48,
     kShortJump = 0x49,
@@ -141,13 +142,14 @@ StoredScript read_stored_script(const uint8_t* record);
 // A checksum of the script's tokens (line ends left out), up to its '$'.
 uint32_t calculate_script_checksum(Tokens token);
 // Replace the names at the starts of statements that name C functions / member functions with direct
-// references (tokens 0x43 / 0x46, or 0x44 for a member function without a table entry) - in the script's `code`.
+// references (tokens 0x43 / 0x46 and the target's number - names.h -, or 0x44 for a member function without a table
+// entry) - in the script's `code`.
 void prepare_script_tokens(std::span<uint8_t> code);
 
 // Little-endian values in the token stream; the writers return the position after the value.
 uint32_t fetch_word32(Tokens bytes);
-// What precompiled bytecode holds in place of a name once fixed up (tokens 0x46 / 0x43: the word after the token):
-// a member function's table entry, a C function (token_reader.cpp).
+// What prepared bytecode holds in place of a name (tokens 0x46 / 0x43: the word after the token, the target's number -
+// names.h): a member function's table entry, a C function (token_reader.cpp).
 const MemberFunctionEntry* member_entry_at(Tokens bytes);
 NativeFunction native_function_at(Tokens bytes);
 uint16_t fetch_word16(Tokens bytes);
