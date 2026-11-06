@@ -125,11 +125,17 @@ struct KeyBinds {
 };
 
 // SDL_GamepadButton, plus the two triggers - SDL 2's game controller numbering, which SDL 3's gamepad buttons keep up to
-// the touchpad (20); 21 and 22, SDL 3's MISC2 and MISC3, are the triggers here as they were.
+// the touchpad (20); 21 and 22, SDL 3's MISC2 and MISC3, are the triggers here as they were. NOT ORIGINAL: SDL 3's
+// buttons past SDL 2's take the numbers after the triggers, 23-27 for MISC2-MISC6 (SDL 3's 21-25; PartyMod's
+// partymod-common numbers MISC2-MISC5 the same way).
 // (an int: holds the ini's number as read, any value kept as given)
 using PadButton = int;
 constexpr int kUnbound = -1;
 constexpr int kSdl2ButtonCount = 21; // (SDL 2's SDL_CONTROLLER_BUTTON_MAX: a button past it was never down)
+constexpr int kFirstExtraButton = 23; // MISC2 (SDL 3's 21)
+constexpr int kExtraButtonShift = kFirstExtraButton - kSdl2ButtonCount;
+static_assert(SDL_GAMEPAD_BUTTON_MISC2 == kSdl2ButtonCount && SDL_GAMEPAD_BUTTON_MISC6 == SDL_GAMEPAD_BUTTON_COUNT - 1,
+              "SDL 3's buttons past SDL 2's are MISC2-MISC6");
 constexpr int kButtonA = SDL_GAMEPAD_BUTTON_SOUTH;
 constexpr int kButtonB = SDL_GAMEPAD_BUTTON_EAST;
 constexpr int kButtonX = SDL_GAMEPAD_BUTTON_WEST;
@@ -324,11 +330,24 @@ uint8_t stick_deflection(uint8_t value)
     return ~value & kStickMagnitudeMask;
 }
 
-// A button (SDL 2's numbering) down; none past SDL 2's last.
+// The SDL 3 button an ini number stands for: 0-20 the same, 23-27 MISC2-MISC6; -1 for any other (the triggers, 21 and
+// 22, are axes - is_controller_button_held).
+int sdl_button(PadButton button)
+{
+    if (button >= 0 && button < kSdl2ButtonCount) {
+        return button;
+    }
+    if (button >= kFirstExtraButton && button - kExtraButtonShift < SDL_GAMEPAD_BUTTON_COUNT) {
+        return button - kExtraButtonShift;
+    }
+    return -1;
+}
+
+// A button (the ini's numbering) down.
 bool pad_button_down(SDL_Gamepad* controller, PadButton button)
 {
-    return button >= 0 && button < kSdl2ButtonCount &&
-           SDL_GetGamepadButton(controller, static_cast<SDL_GamepadButton>(button));
+    const int sdl = sdl_button(button);
+    return sdl >= 0 && SDL_GetGamepadButton(controller, static_cast<SDL_GamepadButton>(sdl));
 }
 
 uint8_t is_controller_button_held(SDL_Gamepad* controller, PadButton button)
