@@ -3,7 +3,7 @@
 
 #include "editor/level_editor_clip.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -309,7 +309,7 @@ bool dup_from(std::string* message)
     }
     const std::string text = std::string(kHeaderComment) + " - " + std::to_string(count) + " things from " +
                              object_edit::caption(fragment.scene) + "\n" + layout::emit_out(fragment);
-    if (SDL_SetClipboardText(text.c_str()) != 0) {
+    if (!SDL_SetClipboardText(text.c_str())) {
         *message = "Couldn't put it on the clipboard";
         return false;
     }

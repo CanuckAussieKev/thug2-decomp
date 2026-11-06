@@ -9,12 +9,14 @@
 // --device: the physical device to use, counted from 0 in the order printed (default: the context's choice).
 // Exit code: 0 when frames were presented with no step failing and everything was released, 1 when a step failed,
 // 2 when this machine has no Vulkan for this process (no loader, or no device).
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_timer.h>
-#include <SDL2/SDL_video.h>
-#include <SDL2/SDL_vulkan.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
+#include <SDL3/SDL_vulkan.h>
 #include <array>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -253,11 +255,11 @@ void print_swapchain(const render::vulkan::Context& context)
 bool pump_events(render::vulkan::Context& context)
 {
     SDL_Event event{};
-    while (SDL_PollEvent(&event) != 0) {
-        if (event.type == SDL_QUIT) {
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
-        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+        if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
             context.window_resized();
         }
     }
@@ -306,17 +308,44 @@ FrameCounts clear_frames(render::vulkan::Context& context, SDL_Window* window, i
     return counts;
 }
 
+// How many displays SDL lists, and a display's number among them (1 the first; 0 when it isn't listed).
+int display_count()
+{
+    int count = 0;
+    SDL_free(SDL_GetDisplays(&count));
+    return count;
+}
+
+int display_number(SDL_DisplayID id)
+{
+    int count = 0;
+    SDL_DisplayID* ids = SDL_GetDisplays(&count);
+    int number = 0;
+    if (ids != nullptr) {
+        const std::span<const SDL_DisplayID> listed(ids, static_cast<size_t>(count));
+        const auto found = std::ranges::find(listed, id);
+        number = found == listed.end() ? 0 : static_cast<int>(found - listed.begin()) + 1;
+    }
+    SDL_free(ids);
+    return number;
+}
+
 int window_position(int display)
 {
-    const int displays = SDL_GetNumVideoDisplays();
+    int displays = 0;
+    SDL_DisplayID* ids = SDL_GetDisplays(&displays);
     int chosen = display;
     if (chosen <= 0) {
         chosen = displays > 1 ? 2 : 1;
     }
-    if (chosen > displays) {
-        return static_cast<int>(SDL_WINDOWPOS_CENTERED);
+    int position = static_cast<int>(SDL_WINDOWPOS_CENTERED);
+    if (ids != nullptr && chosen <= displays) {
+        const std::span<const SDL_DisplayID> listed(ids, static_cast<size_t>(displays));
+        const SDL_DisplayID id = core::at(listed, chosen - 1);
+        position = static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id));
     }
-    return static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(chosen - 1));
+    SDL_free(ids);
+    return position;
 }
 
 // Makes the context and clears the frames; the exit code.
@@ -359,19 +388,22 @@ int main(int argc, char** argv)
     }
     text::print("loader: Vulkan %s\n", version_text(render::vulkan::loader_version()).c_str());
     SDL_SetMainReady();
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         text::print("SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
     const int position = window_position(options.display);
-    SDL_Window* window = SDL_CreateWindow("thug2 Vulkan context check", position, position, kWindowWidth,
-                                          kWindowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    SDL_Window* window = SDL_CreateWindow("thug2 Vulkan context check", kWindowWidth, kWindowHeight,
+                                          SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     if (window == nullptr) {
         text::print("SDL_CreateWindow: %s\n", SDL_GetError());
         SDL_Quit();
         return 2;
     }
-    text::print("window: on display %d of %d\n", SDL_GetWindowDisplayIndex(window) + 1, SDL_GetNumVideoDisplays());
+    // (made hidden, put on its display, then shown)
+    SDL_SetWindowPosition(window, position, position);
+    SDL_ShowWindow(window);
+    text::print("window: on display %d of %d\n", display_number(SDL_GetDisplayForWindow(window)), display_count());
     const int result = run(options, window);
     SDL_DestroyWindow(window);
     SDL_Quit();

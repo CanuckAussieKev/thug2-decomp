@@ -8,8 +8,8 @@ union SDL_Event;
 
 // NOT ORIGINAL - our Dear ImGui UI layers' backend (ours; the level editor's UI: editor/level_editor_ui.h, the new front
 // end: frontend/new_frontend.h): their way to Dear ImGui's platform and renderer backends - the installed render::UiBackend (engine/gfx/ui_backend.h;
-// app/ installs Direct3D 9's, gpu_d3d9/d3d9_ui_backend.h: ImGui's official SDL2 platform backend - the game's
-// window and input are SDL2's: platform/sdl_window.h, engine/pad_input/sdl_input.cpp - and its Direct3D 9 renderer
+// app/ installs Direct3D 9's, gpu_d3d9/d3d9_ui_backend.h: ImGui's official SDL3 platform backend - the game's
+// window and input are SDL3's: platform/sdl_window.h, engine/pad_input/sdl_input.cpp - and its Direct3D 9 renderer
 // backend on the game's device). Renderer-independence rules (the user's requirement - Vulkan later only swaps the
 // UI backend):
 //   - no editor or front-end file includes Direct3D or an ImGui backend header (gpu_d3d9 alone does);

@@ -4,7 +4,7 @@
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
 #include "engine/pad_input/input_source.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

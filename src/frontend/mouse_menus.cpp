@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cstdint>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "game/front_end/front_end.h"
 #include "frontend/new_frontend.h"

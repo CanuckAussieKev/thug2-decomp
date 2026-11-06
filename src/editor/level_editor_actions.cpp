@@ -4,7 +4,7 @@
 #include "engine/pad_input/input_source.h"
 #include "base/core/span_copy.h"
 
-#include <SDL2/SDL_scancode.h>
+#include <SDL3/SDL_scancode.h>
 #include <windows.h>
 
 #include <algorithm>
@@ -675,7 +675,7 @@ std::vector<ActStep>& get_registry()
 // (level_editor_actions_state()).
 struct LevelEditorActionsState {
     // The keymap's frame: the keys down last frame, the actions fired this frame, those triggered for the next.
-    std::array<uint8_t, SDL_NUM_SCANCODES> was_{};
+    std::array<uint8_t, SDL_SCANCODE_COUNT> was_{};
     std::vector<bool> fired_;
     std::vector<bool> triggered_;
     int capture_ = -1;
@@ -858,7 +858,7 @@ void begin_frame(input::KeyState keys)
     const uint8_t held = held_mods(keys);
     std::vector<std::vector<Chord>> bound(registry.size());
     bool have_bound = false;
-    for (int scancode = 0; scancode < SDL_NUM_SCANCODES; ++scancode) {
+    for (int scancode = 0; scancode < SDL_SCANCODE_COUNT; ++scancode) {
         const bool pressed =
             (core::at(keys, scancode) != 0U) && (core::at(level_editor_actions_state().was_, scancode) == 0U);
         core::at(level_editor_actions_state().was_, scancode) = core::at(keys, scancode);
@@ -916,7 +916,7 @@ bool get_held(input::KeyState keys, int index)
     }
     const uint8_t held = held_mods(keys);
     return std::ranges::any_of(act_step->keys, [&](const Chord& chord) {
-        return chord.scancode > 0 && chord.scancode < SDL_NUM_SCANCODES &&
+        return chord.scancode > 0 && chord.scancode < SDL_SCANCODE_COUNT &&
                hold_matches(chord, core::at(keys, chord.scancode) != 0, held);
     });
 }

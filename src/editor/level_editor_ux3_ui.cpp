@@ -3,7 +3,7 @@
 
 #include "editor/level_editor_ux3.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <cstddef>
 #include <windows.h>
 
@@ -26,6 +26,7 @@
 #include "editor/level_editor_organize.h"
 #include "editor/level_editor_ui.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "base/core/checked_index.h"
@@ -505,9 +506,9 @@ void snapshots_window()
         ImGui::End();
         return;
     }
-    if (snapshots().snapshots_stale_ || SDL_GetTicks() - snapshots().snapshots_at_ > kSnapshotRefreshMilliseconds) {
+    if (snapshots().snapshots_stale_ || platform::ticks_ms() - snapshots().snapshots_at_ > kSnapshotRefreshMilliseconds) {
         snapshots().snapshots_ = organize::snapshots();
-        snapshots().snapshots_at_ = SDL_GetTicks();
+        snapshots().snapshots_at_ = platform::ticks_ms();
         snapshots().snapshots_stale_ = false;
     }
     const std::string active = organize::active_snapshot();

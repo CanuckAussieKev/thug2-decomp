@@ -5,7 +5,7 @@
 #include "base/maths/vec2.h"
 #include "base/core/span_copy.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <windows.h>
 
 #include <algorithm>
@@ -29,6 +29,7 @@
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ux8_pie.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 
@@ -299,7 +300,7 @@ namespace {
 constexpr float kDeadzone = 0.22F;
 uint32_t& pad_was()
 {
-    static uint32_t pad_was{}; // (the buttons down last frame: bit per SDL_GameControllerButton)
+    static uint32_t pad_was{}; // (the buttons down last frame: bit per SDL_GamepadButton)
     return pad_was;
 }
 
@@ -315,19 +316,19 @@ Pad read_pad()
         return pad;
     }
     pad.active = true;
-    auto axis = [&](SDL_GameControllerAxis a) {
+    auto axis = [&](SDL_GamepadAxis a) {
         return nav::get_stick({.raw = core::at(controller.axes, a), .deadzone = kDeadzone});
     };
-    pad.move_x_ = axis(SDL_CONTROLLER_AXIS_LEFTX);
-    pad.move_y_ = -axis(SDL_CONTROLLER_AXIS_LEFTY);
-    pad.look_x_ = axis(SDL_CONTROLLER_AXIS_RIGHTX);
-    pad.look_y_ = -axis(SDL_CONTROLLER_AXIS_RIGHTY);
-    pad.up_down_ = nav::get_stick({.raw = core::at(controller.axes, SDL_CONTROLLER_AXIS_TRIGGERRIGHT),
+    pad.move_x_ = axis(SDL_GAMEPAD_AXIS_LEFTX);
+    pad.move_y_ = -axis(SDL_GAMEPAD_AXIS_LEFTY);
+    pad.look_x_ = axis(SDL_GAMEPAD_AXIS_RIGHTX);
+    pad.look_y_ = -axis(SDL_GAMEPAD_AXIS_RIGHTY);
+    pad.up_down_ = nav::get_stick({.raw = core::at(controller.axes, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER),
                                    .deadzone = kTriggerDeadzone}) -
-                   nav::get_stick({.raw = core::at(controller.axes, SDL_CONTROLLER_AXIS_TRIGGERLEFT),
+                   nav::get_stick({.raw = core::at(controller.axes, SDL_GAMEPAD_AXIS_LEFT_TRIGGER),
                                    .deadzone = kTriggerDeadzone});
     uint32_t now = 0;
-    for (int button = 0; button < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++button) {
+    for (int button = 0; button < std::min<int>(SDL_GAMEPAD_BUTTON_COUNT, kControllerButtonBits); ++button) {
         if ((controller.buttons & (1U << button)) != 0U) {
             now |= 1U << button;
         }
@@ -335,27 +336,27 @@ Pad read_pad()
     uint32_t pressed = now & ~pad_was();
     uint32_t const released = pad_was() & ~now;
     pad_was() = now;
-    auto down = [&](SDL_GameControllerButton b) { return (now >> b & 1U) != 0; };
-    auto press = [&](SDL_GameControllerButton b) { return (pressed >> b & 1U) != 0; };
-    pad.a_down_ = down(SDL_CONTROLLER_BUTTON_A);
-    pad.a_presses_ = press(SDL_CONTROLLER_BUTTON_A) ? 1 : 0;
-    pad.a_releases_ = ((released >> SDL_CONTROLLER_BUTTON_A & 1U) != 0U) ? 1 : 0;
-    pad.b = press(SDL_CONTROLLER_BUTTON_B);
-    pad.x = press(SDL_CONTROLLER_BUTTON_X);
-    pad.y = press(SDL_CONTROLLER_BUTTON_Y);
-    pad.x_down_ = down(SDL_CONTROLLER_BUTTON_X);
-    pad.y_down_ = down(SDL_CONTROLLER_BUTTON_Y);
-    pad.back = press(SDL_CONTROLLER_BUTTON_BACK);
-    pad.r3 = press(SDL_CONTROLLER_BUTTON_RIGHTSTICK);
-    pad.lb = press(SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-    pad.rb = press(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-    pad.fast = down(SDL_CONTROLLER_BUTTON_LEFTSTICK);
-    pad.up = down(SDL_CONTROLLER_BUTTON_DPAD_UP);
-    pad.down = down(SDL_CONTROLLER_BUTTON_DPAD_DOWN);
-    pad.left = down(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
-    pad.right = down(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+    auto down = [&](SDL_GamepadButton b) { return (now >> b & 1U) != 0; };
+    auto press = [&](SDL_GamepadButton b) { return (pressed >> b & 1U) != 0; };
+    pad.a_down_ = down(SDL_GAMEPAD_BUTTON_SOUTH);
+    pad.a_presses_ = press(SDL_GAMEPAD_BUTTON_SOUTH) ? 1 : 0;
+    pad.a_releases_ = ((released >> SDL_GAMEPAD_BUTTON_SOUTH & 1U) != 0U) ? 1 : 0;
+    pad.b = press(SDL_GAMEPAD_BUTTON_EAST);
+    pad.x = press(SDL_GAMEPAD_BUTTON_WEST);
+    pad.y = press(SDL_GAMEPAD_BUTTON_NORTH);
+    pad.x_down_ = down(SDL_GAMEPAD_BUTTON_WEST);
+    pad.y_down_ = down(SDL_GAMEPAD_BUTTON_NORTH);
+    pad.back = press(SDL_GAMEPAD_BUTTON_BACK);
+    pad.r3 = press(SDL_GAMEPAD_BUTTON_RIGHT_STICK);
+    pad.lb = press(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
+    pad.rb = press(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+    pad.fast = down(SDL_GAMEPAD_BUTTON_LEFT_STICK);
+    pad.up = down(SDL_GAMEPAD_BUTTON_DPAD_UP);
+    pad.down = down(SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+    pad.left = down(SDL_GAMEPAD_BUTTON_DPAD_LEFT);
+    pad.right = down(SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
     // (Start isn't the editor's: the game's pause key leaves it - level_editor_exit)
-    const uint32_t mine = now & ~(1U << SDL_CONTROLLER_BUTTON_START) & ~(1U << SDL_CONTROLLER_BUTTON_GUIDE);
+    const uint32_t mine = now & ~(1U << SDL_GAMEPAD_BUTTON_START) & ~(1U << SDL_GAMEPAD_BUTTON_GUIDE);
     pad.used =
         mine != 0 || pad.move_x_ != 0 || pad.move_y_ != 0 || pad.look_x_ != 0 || pad.look_y_ != 0 || pad.up_down_ != 0;
     // (anything that edits stops a simulation first)
@@ -367,7 +368,7 @@ Pad read_pad()
 
 input::KeyState pad_keys(input::KeyState keys, const Pad& pad)
 {
-    static std::array<uint8_t, SDL_NUM_SCANCODES> merged;
+    static std::array<uint8_t, SDL_SCANCODE_COUNT> merged;
     if (!pad.active) {
         return keys;
     }
@@ -378,7 +379,7 @@ input::KeyState pad_keys(input::KeyState keys, const Pad& pad)
             return;
         }
         for (const actions::Chord& key : act_step->keys) {
-            if (key.scancode > 0 && key.scancode < SDL_NUM_SCANCODES && key.mods == 0) {
+            if (key.scancode > 0 && key.scancode < SDL_SCANCODE_COUNT && key.mods == 0) {
                 core::at(merged, key.scancode) = 1;
                 return;
             }
@@ -463,7 +464,7 @@ void open_pie(pie::Kind kind, bool have_selection, maths::Vec2 at, int key, bool
     pie_menu().pie_.y = y;
     pie_menu().pie_.key = key;
     pie_menu().pie_.pad_button_ = pad_button;
-    pie_menu().pie_.opened_at_ = SDL_GetTicks();
+    pie_menu().pie_.opened_at_ = platform::ticks_ms();
 }
 
 void run_slice()
@@ -555,7 +556,7 @@ void let_go_of_pie(const TickCycle& tick_cycle)
         held = pie_menu().pie_.key >= 0 && get_held(tick_cycle.keys, pie_menu().pie_.key);
     }
     if (!held && !pie_menu().pie_.sticky) {
-        if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0) {
+        if (platform::ticks_ms() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0) {
             pie_menu().pie_.sticky = true;
         } else {
             run_slice();

@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <ctime>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/glyphs.h"
@@ -25,10 +25,10 @@ namespace sys {
 
 namespace {
 
-// The event pump's first handler: SDL_QUIT asks the game to quit (0x007D6A2C).
+// The event pump's first handler: SDL_EVENT_QUIT asks the game to quit (0x007D6A2C).
 void handle_quit(SDL_Event* event)
 {
-    if (event->type == SDL_QUIT) {
+    if (event->type == SDL_EVENT_QUIT) {
         render::engine_parts().set_quit_requested(true);
     }
 }

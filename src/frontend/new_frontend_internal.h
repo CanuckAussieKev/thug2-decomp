@@ -12,7 +12,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include "game/front_end/front_end.h"
 #include "frontend/new_frontend_draw.h"
 #include "frontend/new_frontend_game.h"

@@ -33,5 +33,9 @@ int& get_window_height();
 // Not PartyMod's - the SDL window itself (null before create_sdl_window), for the level editor's UI layer
 // (editor/level_editor_ui.h).
 SDL_Window* sdl_window();
+// Typed text from the window (SDL's text input events: the on-screen keyboard's typing, the chat, the editor's
+// fields) - always on, as SDL 2 had it; SDL 3 starts with it off and Dear ImGui's backend turns it off when its own
+// text field is left. Called before each event pump.
+void keep_text_input();
 
 } // namespace sys

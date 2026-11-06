@@ -17,9 +17,11 @@ constexpr int kF12 = 69;         // SDL_SCANCODE_F12
 // The key when the ini doesn't name one: Print Screen, unless Windows' Snipping Tool takes it (Settings >
 // Accessibility > Keyboard, "Use the Print screen key to open screen capture": the game never sees the key) - F12.
 int default_key(bool snipping_takes_print_screen);
-// [Keybinds] Screenshot=: an SDL scan code number (as the other [Keybinds]) or a key's name ("F12", "PrintScreen",
-// via `by_name`, 0 when unknown); blank, unknown or out of range (1..511): `fallback`.
-int parse_key(const std::string& text, int fallback, const std::function<int(const std::string&)>& by_name);
+// [Keybinds] Screenshot=: an SDL scan code number (as the other [Keybinds]; through `by_number` when given - SDL 2's
+// numbers as SDL 3's) or a key's name ("F12", "PrintScreen", via `by_name`, 0 when unknown); blank, unknown or out of
+// range (1..511): `fallback`.
+int parse_key(const std::string& text, int fallback, const std::function<int(const std::string&)>& by_name,
+              const std::function<int(int)>& by_number = nullptr);
 
 // --- file names --------------------------------------------------------------------------------------------------
 

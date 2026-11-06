@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <array>
 
 #include "base/core/checksums.h"

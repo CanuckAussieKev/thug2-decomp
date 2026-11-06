@@ -49,9 +49,8 @@ test("every folder of src/ is in the header filter", () => {
 test("the fetched libraries and the build's headers stay out", () => {
     const build = join(ROOT, "out", "build", "verify");
     for (const path of [
-        join(build, "_deps", "sdl2-src", "src", "video", "x.h"),
+        join(build, "_deps", "sdl3-src", "include", "SDL3", "SDL.h"),
         join(build, "_deps", "gamespy_sdk-src", "src", "x.h"),
-        join(build, "sdl2-include", "SDL2", "SDL.h"),
         join(build, "generated", "build_info.h"),
         join(build, "editor_fonts", "inter.inc"),
     ]) {

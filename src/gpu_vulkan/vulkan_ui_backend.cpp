@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the UI backend on Vulkan (gpu_vulkan.h; the interface: engine/gfx/ui_backend.h; docs/design/vulkan.md,
-// V9): Dear ImGui's SDL2 platform backend, and ImGui's draw lists drawn by the Vulkan Gpu itself rather than by ImGui's
+// V9): Dear ImGui's SDL3 platform backend, and ImGui's draw lists drawn by the Vulkan Gpu itself rather than by ImGui's
 // own Vulkan renderer backend - so the UI is drawn in the frame the Gpu records: in its stream command buffer, in the
 // pass it infers on the device's target (the back buffer, before the present copies it into the swapchain), with its
 // ring for the vertices (two frames in flight), its push descriptors and its pipeline cache, and the images ImGui shows
@@ -28,7 +28,7 @@
 #include <utility>
 #include <vector>
 
-#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_sdl3.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "base/core/packed_colour.h"
@@ -226,13 +226,13 @@ public:
         if (!device_ready()) {
             return UiStart::kNoDevice;
         }
-        if (!ImGui_ImplSDL2_InitForVulkan(window)) {
+        if (!ImGui_ImplSDL3_InitForVulkan(window)) {
             return UiStart::kWindowRefused;
         }
         // (no controllers: the game has them; the UI is mouse and keyboard)
-        ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_Manual, nullptr, 0);
+        ImGui_ImplSDL3_SetGamepadMode(ImGui_ImplSDL3_GamepadMode_Manual, nullptr, 0);
         if (!pipeline_made()) {
-            ImGui_ImplSDL2_Shutdown();
+            ImGui_ImplSDL3_Shutdown();
             return UiStart::kDeviceRefused;
         }
         ContextData& data = contexts_[ImGui::GetCurrentContext()];
@@ -244,9 +244,9 @@ public:
         return UiStart::kStarted;
     }
 
-    [[nodiscard]] const char* describe() const override { return "SDL2 and Vulkan"; }
+    [[nodiscard]] const char* describe() const override { return "SDL3 and Vulkan"; }
 
-    bool process_event(const SDL_Event* event) override { return ImGui_ImplSDL2_ProcessEvent(event); }
+    bool process_event(const SDL_Event* event) override { return ImGui_ImplSDL3_ProcessEvent(event); }
 
     void new_frame() override
     {
@@ -254,7 +254,7 @@ public:
         if (data != nullptr && data->font == 0) {
             make_font(data);
         }
-        ImGui_ImplSDL2_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
     }
 
     void render_draw_data(ImDrawData* data) override

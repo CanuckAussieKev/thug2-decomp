@@ -199,7 +199,7 @@ neither the front end nor the dev tools. Only the exes (through `thug2_app`) lin
 library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
 the network backend; LZHAM by the engine; DirectInput
 by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; volk, the Vulkan headers and the memory allocator by the Vulkan backend; imgui's core by the graphics backend - the loading console's
-panel -, the editor and the front end, and imgui's SDL2 and Direct3D 9 backends, `imgui_backends`, by the graphics
+panel -, the editor and the front end, and imgui's SDL3 and Direct3D 9 backends, `imgui_backends`, by the graphics
 backend alone).
 
 **The checks that hold all this** run in `npm test`:
@@ -209,7 +209,7 @@ backend alone).
 | `tools/layers.ts` (`layers.test.ts`) | The layer map `tools/layers.json`: each folder belongs to a library, and an include outside the library's `allowed` list fails unless it is in `tools/layers_baseline.txt` (a ratchet: it can only shrink, and is empty now). Every library but the app's is `strict`: no upward include, not even in the baseline. The editor's and the front end's `api` are explicit lists of the engine and game headers each may include; a header outside the list fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). |
 | `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
 | `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by `gpu_d3d9/` (Direct3D's own headers there); `render_pc/` includes none, nor any of `gpu_d3d9/`'s headers, and only `app/` picks `gpu_d3d9/`'s Gpu, GpuContext, UiBackend and `render_pc/`'s device; every other header holds the graphics handles. |
-| `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL2/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `gpu_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`, `src/tests/vulkan_gpu_check.cpp`); only `app/` includes the backend. |
+| `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL3/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `gpu_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`, `src/tests/vulkan_gpu_check.cpp`); only `app/` includes the backend. |
 | `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/`; the Bink wrapper only in `media_bink/`; only `app/` picks `audio::Device` and `media::Movie`. |
 | `tools/input_headers.test.ts` | `<dinput.h>` only in `input_dinput/`; SDL's input and the platform's keyboard only behind the SDL input source; only `app/` picks the sources. |
 | `tools/file_calls.test.ts` | The operating system's and the C runtime's file functions are called only in `fs_win32/`, `platform/` and `src/tests`; only `app/` installs the disk and adds the file sources. |
@@ -235,7 +235,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 
 | interface | declared in | implemented by | what it hides | other implementations |
 |---|---|---|---|---|
-| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL2 backends | Vulkan (`thug2_gpu_vulkan`: `render::vulkan::gpu()`, `gpu_context()`, `ui_backend()` - drawing, with the screen effects and the ImGui parts: [design/vulkan.md](design/vulkan.md)) |
+| `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL3 backends | Vulkan (`thug2_gpu_vulkan`: `render::vulkan::gpu()`, `gpu_context()`, `ui_backend()` - drawing, with the screen effects and the ImGui parts: [design/vulkan.md](design/vulkan.md)) |
 | `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
 | `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoder (planned, for a 64-bit build) |
 | `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |
@@ -321,10 +321,10 @@ everything above it uses the game's own types and may change them freely.
     end - ask of it, a frame at a time: ImGui's platform and renderer backends started on a context, a frame begun and
     its draw data drawn, the device objects dropped before a reset, the images ImGui shows (made from texels in memory)
     and the two targets the renderer draws into for the UI (the preview, the thumbnails' atlas). Direct3D 9's
-    (`gpu_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL2 and Direct3D 9 backends) is installed by `app::install_renderer` beside the
-    device; Vulkan's (`gpu_vulkan/vulkan_ui_backend.cpp`) keeps ImGui's SDL2 backend and draws the lists through the Vulkan `Gpu`. Both layers
+    (`gpu_d3d9/d3d9_ui_backend.cpp`: ImGui's SDL3 and Direct3D 9 backends) is installed by `app::install_renderer` beside the
+    device; Vulkan's (`gpu_vulkan/vulkan_ui_backend.cpp`) keeps ImGui's SDL3 backend and draws the lists through the Vulkan `Gpu`. Both layers
     reach it through `engine/ui/ui_backend.h` (`frontend::ui_backend`), which keeps what is the UI's own (whether a
-    context is started, the log, the draw data scaled to the back buffer). Only `gpu_d3d9/` and `gpu_vulkan/` (the SDL2 one) include ImGui's backend headers (tools/d3d_headers.test.ts).
+    context is started, the log, the draw data scaled to the back buffer). Only `gpu_d3d9/` and `gpu_vulkan/` (the SDL3 one) include ImGui's backend headers (tools/d3d_headers.test.ts).
   - D3DX: only the backend calls it (`gpu_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
     Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
     same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with
@@ -400,7 +400,7 @@ everything above it uses the game's own types and may change them freely.
     platform's pump, after the quit request and the window's focus - does the game's input's own handling, then hands
     each event to the handlers added (by `ext::prepare_input`, in the extensions' order; the editor's simulation
     later): the event's kind, key, repeat and modifiers, the mouse's place, motion, button, wheel and window, a
-    controller's button or axis. Dear ImGui needs SDL's own events (its SDL2 platform backend takes text typed and
+    controller's button or axis. Dear ImGui needs SDL's own events (its SDL3 platform backend takes text typed and
     edited, the keys, the mouse and the wheel, the window's events): the event carries SDL's for as long as it is handed
     round (`Event::native`), which the editor's UI passes untouched to `render::UiBackend::process_event`; nothing else
     reads it, and a queued event keeps only ours (`Event::kept`). The scan codes are named by SDL's

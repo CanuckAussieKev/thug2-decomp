@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <array>
 
 #include "build_info.h"
@@ -43,6 +43,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/sys/stopwatch.h"
 #include "platform/screenshot_files.h"
+#include "platform/sdl_keys.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
@@ -51,6 +52,7 @@
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
 #include "platform/code_address.h"
+#include "platform/sdl_time.h"
 #include "base/core/checked_index.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
@@ -353,7 +355,7 @@ void tick_message()
     if (screenshot_job().message_.empty()) {
         return;
     }
-    if (SDL_GetTicks() - screenshot_job().message_since_ > kMessageStaleMs) {
+    if (platform::ticks_ms() - screenshot_job().message_since_ > kMessageStaleMs) {
         screenshot_job().message_.clear();
         return;
     }
@@ -461,13 +463,13 @@ void get_take()
     if (!render::device().capture_back_buffer(&frame, &error)) {
         get_log("screenshot: not taken - %s", error.c_str());
         screenshot_job().message_ = "Screenshot failed: " + error;
-        screenshot_job().message_since_ = SDL_GetTicks();
+        screenshot_job().message_since_ = platform::ticks_ms();
         return;
     }
     std::string folder = get_folder();
     if (folder.empty()) {
         screenshot_job().message_ = "Screenshot failed: no folder (see the log)";
-        screenshot_job().message_since_ = SDL_GetTicks();
+        screenshot_job().message_since_ = platform::ticks_ms();
         return;
     }
     std::time_t now = std::time(nullptr);
@@ -493,7 +495,11 @@ void get_take()
     int height = 0;
     SDL_Window* window = sys::sdl_window();
     if (window && (SDL_GetMouseFocus() == window)) {
-        SDL_GetMouseState(&mx, &my);
+        float mouse_x = 0.0F;
+        float mouse_y = 0.0F;
+        SDL_GetMouseState(&mouse_x, &mouse_y);
+        mx = static_cast<int>(mouse_x); // (whole pixels, as SDL 2 gave them)
+        my = static_cast<int>(mouse_y);
         SDL_GetWindowSize(window, &w, &height);
     }
     if (w > 0 && height > 0) {
@@ -687,9 +693,10 @@ void prepare_all()
     std::array<char, kKeySettingSize> setting = {""};
     build_info::fetch_text(build_info::kKeybinds, "Screenshot", "", setting.data(), sizeof(setting));
     const int fallback = default_key(snipping);
-    auto by_name = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
-    screenshot_state().key_ = parse_key(setting.data(), fallback, by_name);
-    if ((core::at(setting, 0) != '\0') && parse_key(setting.data(), 0, by_name) == 0) {
+    auto by_name = [](const std::string& name) { return platform::scancode_from_name(name); };
+    auto by_number = [](int code) { return platform::scancode_from_sdl2(code); };
+    screenshot_state().key_ = parse_key(setting.data(), fallback, by_name, by_number);
+    if ((core::at(setting, 0) != '\0') && parse_key(setting.data(), 0, by_name, by_number) == 0) {
         get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting.data());
     }
     const char* from = ""; // (where the key came from)
@@ -733,7 +740,7 @@ void before_present(bool rendering)
             }
         }
         if (job->note.empty()) {
-            screenshot_job().message_since_ = SDL_GetTicks();
+            screenshot_job().message_since_ = platform::ticks_ms();
         }
     }
     // (one at a time: a press while the last is still being written waits for it)
@@ -793,7 +800,7 @@ std::string start_series(int frames, const std::string& folder)
 void show_notice(const std::string& text)
 {
     screenshot_job().message_ = text;
-    screenshot_job().message_since_ = SDL_GetTicks();
+    screenshot_job().message_since_ = platform::ticks_ms();
     screenshot_job().message_y_ = 100.0F;
 }
 

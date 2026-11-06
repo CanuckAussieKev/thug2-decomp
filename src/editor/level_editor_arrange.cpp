@@ -3,7 +3,7 @@
 #include "editor/level_editor_arrange.h"
 #include "engine/pad_input/input_source.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
@@ -43,6 +43,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "engine/gfx/engine_geom.h"
 #include "base/core/ints.h"
 #include "base/core/down_cast.h"
@@ -994,7 +995,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
     if (!sectors_bounds(selection.ids, &moving)) {
         return wanted;
     }
-    const uint32_t now = SDL_GetTicks();
+    const uint32_t now = platform::ticks_ms();
     if (stored_snap().selection != selection.ids || now - stored_snap().last_used_ > kSnapRefreshMilliseconds) {
         // (the neighbours, once a drag: within 1500 of where the piece is - they don't move meanwhile)
         stored_snap().selection = selection.ids;
@@ -1669,7 +1670,7 @@ void add_readout(const Painter& painter)
 
 void add_contacts(const Painter& painter)
 {
-    if (!edit::get_dragging() || SDL_GetTicks() - stored_snap().contacts_at_ > kContactMilliseconds) {
+    if (!edit::get_dragging() || platform::ticks_ms() - stored_snap().contacts_at_ > kContactMilliseconds) {
         return;
     }
     for (const Contact& contact : stored_snap().contacts) {

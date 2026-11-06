@@ -5,8 +5,8 @@
 // its draw data drawn, the device objects dropped before a reset (made again by the next frame), and the pictures ImGui
 // shows - images uploaded from texels in memory, and two targets the renderer draws into for the UI (the Add palette's
 // preview and its thumbnails' atlas). app/ makes it and installs it at start-up (install_ui_backend), as it does
-// render::Device: Direct3D 9's (gpu_d3d9/d3d9_ui_backend.h: ImGui's SDL2 and Direct3D 9 backends) or Vulkan's
-// (gpu_vulkan/vulkan_ui_backend.cpp: ImGui's SDL2 backend, the lists drawn by the Vulkan Gpu). Texture ids are ImGui's
+// render::Device: Direct3D 9's (gpu_d3d9/d3d9_ui_backend.h: ImGui's SDL3 and Direct3D 9 backends) or Vulkan's
+// (gpu_vulkan/vulkan_ui_backend.cpp: ImGui's SDL3 backend, the lists drawn by the Vulkan Gpu). Texture ids are ImGui's
 // (ImTextureID, 64 bits - the backend's own texture names), the targets are begun and ended around the renderer's
 // draws, and a lost device is the backend's business between invalidate_device_objects and the next frame.
 //
@@ -59,7 +59,7 @@ public:
     // ImGui's platform backend started on the game's window and its renderer backend on the device, for the current
     // context (once; the platform one shut down again if the renderer one refuses).
     virtual UiStart start(SDL_Window* window) = 0;
-    // What the backends are, for the log ("SDL2 and Direct3D 9").
+    // What the backends are, for the log ("SDL3 and Direct3D 9").
     [[nodiscard]] virtual const char* describe() const = 0;
     // An SDL event for ImGui (true: ImGui used it).
     virtual bool process_event(const SDL_Event* event) = 0;

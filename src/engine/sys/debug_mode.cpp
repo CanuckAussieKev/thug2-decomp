@@ -5,7 +5,7 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <array>
 
 #include "base/core/checked_index.h"

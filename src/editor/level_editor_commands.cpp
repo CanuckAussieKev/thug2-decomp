@@ -3,7 +3,7 @@
 
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -42,6 +42,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
@@ -777,7 +778,7 @@ void ask_reset_level()
         confirmations().confirm_reset_ = true;
         return;
     }
-    const uint32_t now = SDL_GetTicks();
+    const uint32_t now = platform::ticks_ms();
     if ((confirmations().reset_asked_at_ != 0U) && now - confirmations().reset_asked_at_ < kResetConfirmMilliseconds) {
         confirmations().reset_asked_at_ = 0;
         reset_level_now();

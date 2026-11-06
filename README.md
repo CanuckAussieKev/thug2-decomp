@@ -29,7 +29,7 @@ source is a trustworthy base. On top of that base:
 - **The game's code** as readable C++, by subsystem (`src/engine/`, `src/game/` and the backends beside them): engine,
   renderer, script runtime, skater physics, goals, park editor, networking, front end.
 - **PartyMod's fixes** ([PartyMod](https://github.com/PARTYMANX/partymod-thug2) v1.0.4 by PARTYMANX, MIT) as part of the
-  source: an SDL2 window and input, controller and keyboard bindings, widescreen, the OpenSpy online service.
+  source: an SDL window and input (SDL 3), controller and keyboard bindings, widescreen, the OpenSpy online service.
 - **Additions:** a level editor, a new front end, graphics options, a loading console, a screenshot key with the
   game's state alongside, debugging aids.
 - **Level converters** (installed by the [thug2-content-pipeline](https://github.com/CanuckAussieKev/thug2-content-pipeline)
@@ -88,7 +88,7 @@ may be the install root, with the game in a `Game` subfolder, or the game folder
 | NeverScript | downloaded and built by `tools\build_neverscript.ps1` (docs/neverscript.md) | Compiling / decompiling QB scripts for the level converters |
 | Python | 3.13 or later | The crash tools in `tools/standalone` (optional) |
 
-The build downloads its libraries itself at configure time, each pinned and checked against a SHA-256: SDL2 2.30.9,
+The build downloads its libraries itself at configure time, each pinned and checked against a SHA-256: SDL3 3.2.30,
 Microsoft's D3DX9 (the Microsoft.DXSDK.D3DX package), IGN's GameSpy SDK, Dear ImGui 1.91.9b, stb, LZHAM, and the
 Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
@@ -96,7 +96,7 @@ Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
 1. In Visual Studio: **File > Open > Folder...** and pick this folder.
 2. Choose the **x86 Debug** configuration in the toolbar.
-3. **Build > Build All**. The build makes `thug2-decomp.exe` and `thug2-editor.exe` (the level editor on its own) and puts `d3dx9_43.dll`, `SDL2.dll` and
+3. **Build > Build All**. The build makes `thug2-decomp.exe` and `thug2-editor.exe` (the level editor on its own) and puts `d3dx9_43.dll`, `SDL3.dll` and
    `gamecontrollerdb.txt` next to it; when `THUG2_GAME_DIR` (in `CMakeLists.txt` or the CMake cache, default
    `C:\Games\THUG2\Game`) is a game folder, all of them and the PDB are copied there too.
 
@@ -118,7 +118,7 @@ with a call stack.
 The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe`, its `Data` folder and
 `binkw32.dll` (the movie player, from your copy of the game; nothing of it is in this repository):
 
-1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL2.dll` and `gamecontrollerdb.txt` from the build folder into the game
+1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL3.dll` and `gamecontrollerdb.txt` from the build folder into the game
    folder (the build does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
@@ -256,7 +256,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 
 | Key | Default | Effect |
 |---|---|---|
-| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings; plus `Screenshot=` and `ThawBmx=` (an SDL key name or scan code) |
+| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings (SDL 2 scan codes, as PartyMod wrote them - they still mean the same keys); plus `Screenshot=` and `ThawBmx=` (an SDL key name or scan code) |
 | `[Gamepad] MovementStick` / `CameraStick` | left / right | Which stick moves and which turns the camera |
 | `[Logging] Level` | 2 | How much goes into the log |
 

@@ -9,7 +9,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <array>
 
 #include "engine/assets/resource_registry.h"
@@ -30,6 +30,7 @@
 #include "platform/platform_config.h"
 #include "engine/sys/mlp.h"
 #include "platform/screenshot_files.h"
+#include "platform/sdl_keys.h"
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
 #include "base/core/checked_index.h"
@@ -431,8 +432,9 @@ void register_script_functions()
     render::device().set_shadow_companion(&shadow_companion);
     std::array<char, kSettingBytes> setting = {""};
     build_info::fetch_text(build_info::kKeybinds, "ThawBmx", "", setting.data(), sizeof(setting));
-    auto by_name = [](const std::string& text) { return static_cast<int>(SDL_GetScancodeFromName(text.c_str())); };
-    thaw_bmx_state().key_ = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F7, by_name);
+    auto by_name = [](const std::string& text) { return platform::scancode_from_name(text); };
+    auto by_number = [](int code) { return platform::scancode_from_sdl2(code); };
+    thaw_bmx_state().key_ = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F7, by_name, by_number);
     get_log("thaw_bmx: on - %s gets on / off THAW's BMX in a level (also the pause menu, or the script %s)",
             SDL_GetScancodeName(static_cast<SDL_Scancode>(thaw_bmx_state().key_)), kToggleScript);
 }
@@ -465,7 +467,7 @@ void tick_frame(modules::FrontEnd* front_end)
         get_log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
     }
     const input::KeyState keys = input::keys();
-    const bool down = !keys.empty() && thaw_bmx_state().key_ > 0 && thaw_bmx_state().key_ < SDL_NUM_SCANCODES &&
+    const bool down = !keys.empty() && thaw_bmx_state().key_ > 0 && thaw_bmx_state().key_ < SDL_SCANCODE_COUNT &&
                       (core::at(keys, thaw_bmx_state().key_) != 0U);
     const bool pressed = down && thaw_bmx_state().key_up_;
     thaw_bmx_state().key_up_ = !down;

@@ -11,12 +11,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <iterator>
 #include <limits>
 #include <span>
 #include <vector>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <array>
 
 #include "base/core/format.h"
@@ -30,6 +29,8 @@
 #include "engine/sys/debug_mode.h"
 #include "engine/pad_input/pad_cfuncs.h"
 #include "platform/sdl_events.h"
+#include "platform/sdl_keys.h"
+#include "platform/sdl_window.h"
 #include "engine/pad_input/port_controls.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
@@ -123,24 +124,26 @@ struct KeyBinds {
     SDL_Scancode item_down_;
 };
 
-// SDL_GameControllerButton, plus the two triggers.
+// SDL_GamepadButton, plus the two triggers - SDL 2's game controller numbering, which SDL 3's gamepad buttons keep up to
+// the touchpad (20); 21 and 22, SDL 3's MISC2 and MISC3, are the triggers here as they were.
 // (an int: holds the ini's number as read, any value kept as given)
 using PadButton = int;
 constexpr int kUnbound = -1;
-constexpr int kButtonA = SDL_CONTROLLER_BUTTON_A;
-constexpr int kButtonB = SDL_CONTROLLER_BUTTON_B;
-constexpr int kButtonX = SDL_CONTROLLER_BUTTON_X;
-constexpr int kButtonY = SDL_CONTROLLER_BUTTON_Y;
-constexpr int kButtonBack = SDL_CONTROLLER_BUTTON_BACK;
-constexpr int kButtonStart = SDL_CONTROLLER_BUTTON_START;
-constexpr int kButtonLeftStick = SDL_CONTROLLER_BUTTON_LEFTSTICK;
-constexpr int kButtonRightStick = SDL_CONTROLLER_BUTTON_RIGHTSTICK;
-constexpr int kButtonLeftShoulder = SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
-constexpr int kButtonRightShoulder = SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
-constexpr int kDpadUp = SDL_CONTROLLER_BUTTON_DPAD_UP;
-constexpr int kDpadDown = SDL_CONTROLLER_BUTTON_DPAD_DOWN;
-constexpr int kDpadLeft = SDL_CONTROLLER_BUTTON_DPAD_LEFT;
-constexpr int kDpadRight = SDL_CONTROLLER_BUTTON_DPAD_RIGHT;
+constexpr int kSdl2ButtonCount = 21; // (SDL 2's SDL_CONTROLLER_BUTTON_MAX: a button past it was never down)
+constexpr int kButtonA = SDL_GAMEPAD_BUTTON_SOUTH;
+constexpr int kButtonB = SDL_GAMEPAD_BUTTON_EAST;
+constexpr int kButtonX = SDL_GAMEPAD_BUTTON_WEST;
+constexpr int kButtonY = SDL_GAMEPAD_BUTTON_NORTH;
+constexpr int kButtonBack = SDL_GAMEPAD_BUTTON_BACK;
+constexpr int kButtonStart = SDL_GAMEPAD_BUTTON_START;
+constexpr int kButtonLeftStick = SDL_GAMEPAD_BUTTON_LEFT_STICK;
+constexpr int kButtonRightStick = SDL_GAMEPAD_BUTTON_RIGHT_STICK;
+constexpr int kButtonLeftShoulder = SDL_GAMEPAD_BUTTON_LEFT_SHOULDER;
+constexpr int kButtonRightShoulder = SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER;
+constexpr int kDpadUp = SDL_GAMEPAD_BUTTON_DPAD_UP;
+constexpr int kDpadDown = SDL_GAMEPAD_BUTTON_DPAD_DOWN;
+constexpr int kDpadLeft = SDL_GAMEPAD_BUTTON_DPAD_LEFT;
+constexpr int kDpadRight = SDL_GAMEPAD_BUTTON_DPAD_RIGHT;
 constexpr int kRightTrigger = 21;
 constexpr int kLeftTrigger = 22;
 
@@ -177,7 +180,7 @@ struct PadBinds {
 };
 
 struct PlayerSlot {
-    SDL_GameController* controller;
+    SDL_Gamepad* controller;
     uint8_t locked_out_; // after joining: locked out until all of its buttons are up (counts buttons down)
 };
 constexpr int kMaxPlayers = 2;
@@ -204,7 +207,7 @@ struct SdlInputState {
     PadBinds pad_{};
     bool using_keyboard_ = true;
     // The open controllers (removed ones shift the rest down).
-    std::vector<SDL_GameController*> controllers_;
+    std::vector<SDL_Gamepad*> controllers_;
     uint8_t seats_in_use_ = 0;
     std::array<PlayerSlot, kMaxPlayers> players_ = {{{.controller = nullptr, .locked_out_ = 0}, {.controller = nullptr, .locked_out_ = 0}}};
     uint8_t in_menu_ = 0;
@@ -228,18 +231,18 @@ uint8_t in_menu_flag() { return static_cast<uint8_t>(screen_flags().in_menu_flag
 
 // --- controllers and players ----------------------------------------------------------------------------------
 
-void attach_controller(int index)
+void attach_controller(SDL_JoystickID id)
 {
-    debug_log::printf(StageMap::kInfo, "Detected controller \"%s\"\n", SDL_GameControllerNameForIndex(index));
-    SDL_GameController* controller = SDL_GameControllerOpen(index);
-    SDL_GameControllerSetPlayerIndex(controller, -1);
+    debug_log::printf(StageMap::kInfo, "Detected controller \"%s\"\n", SDL_GetGamepadNameForID(id));
+    SDL_Gamepad* controller = SDL_OpenGamepad(id);
+    SDL_SetGamepadPlayerIndex(controller, -1);
     if (!controller) {
         return;
     }
     sdl_input_state().controllers_.push_back(controller);
 }
 
-void enroll_player(SDL_GameController* controller)
+void enroll_player(SDL_Gamepad* controller)
 {
     if (sdl_input_state().seats_in_use_ >= 2) {
         debug_log::printf(StageMap::kInfo, "Already two players, not adding\n");
@@ -252,21 +255,21 @@ void enroll_player(SDL_GameController* controller)
     if (slot == kMaxPlayers) {
         return;
     }
-    SDL_GameControllerSetPlayerIndex(controller, slot);
+    SDL_SetGamepadPlayerIndex(controller, slot);
     core::at(sdl_input_state().players_, slot).controller = controller;
     if (sdl_input_state().seats_in_use_ > 0) {
         core::at(sdl_input_state().players_, slot).locked_out_ = 1;
-        SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), kRumbleFull, kRumbleFull, kRumbleMilliseconds);
+        SDL_RumbleJoystick(SDL_GetGamepadJoystick(controller), kRumbleFull, kRumbleFull, kRumbleMilliseconds);
     }
     ++sdl_input_state().seats_in_use_;
-    debug_log::printf(StageMap::kInfo, "Added player %d: %s\n", slot + 1, SDL_GameControllerName(controller));
+    debug_log::printf(StageMap::kInfo, "Added player %d: %s\n", slot + 1, SDL_GetGamepadName(controller));
 }
 
 void prune_players()
 {
     for (int i = 0; i < kMaxPlayers; ++i) {
         if (core::at(sdl_input_state().players_, i).controller &&
-            (SDL_GameControllerGetAttached(core::at(sdl_input_state().players_, i).controller) == SDL_FALSE)) {
+            !SDL_GamepadConnected(core::at(sdl_input_state().players_, i).controller)) {
             debug_log::printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
             core::at(sdl_input_state().players_, i).controller = nullptr;
             --sdl_input_state().seats_in_use_;
@@ -275,9 +278,9 @@ void prune_players()
     }
 }
 
-void detach_anim_driver(SDL_GameController* controller)
+void detach_anim_driver(SDL_Gamepad* controller)
 {
-    debug_log::printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
+    debug_log::printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GetGamepadName(controller));
     auto found = std::ranges::find(sdl_input_state().controllers_, controller);
     // (PartyMod looked one past the last entry when it wasn't found - past the end of its array when that was full)
     if (found == sdl_input_state().controllers_.end()) {
@@ -285,8 +288,8 @@ void detach_anim_driver(SDL_GameController* controller)
         return;
     }
     // (the player index read before the close - PartyMod read it from the closed, freed controller)
-    const int player = SDL_GameControllerGetPlayerIndex(controller);
-    SDL_GameControllerClose(controller);
+    const int player = SDL_GetGamepadPlayerIndex(controller);
+    SDL_CloseGamepad(controller);
     if (player != -1) {
         debug_log::printf(StageMap::kInfo, "Removed player %d\n", player + 1);
         core::at(sdl_input_state().players_, player).controller = nullptr;
@@ -300,11 +303,14 @@ void init_controllers()
 {
     debug_log::printf(StageMap::kInfo, "Initializing Controller Input\n");
     sdl_input_state().controllers_.clear();
-    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-        if (SDL_IsGameController(i) != SDL_FALSE) {
-            attach_controller(i);
+    int count = 0;
+    SDL_JoystickID* gamepads = SDL_GetGamepads(&count);
+    if (gamepads) {
+        for (const SDL_JoystickID id : std::span<const SDL_JoystickID>(gamepads, static_cast<size_t>(count))) {
+            attach_controller(id);
         }
     }
+    SDL_free(gamepads);
 }
 
 // --- reading a controller -------------------------------------------------------------------------------------
@@ -318,19 +324,26 @@ uint8_t stick_deflection(uint8_t value)
     return ~value & kStickMagnitudeMask;
 }
 
-uint8_t is_controller_button_held(SDL_GameController* controller, PadButton button)
+// A button (SDL 2's numbering) down; none past SDL 2's last.
+bool pad_button_down(SDL_Gamepad* controller, PadButton button)
+{
+    return button >= 0 && button < kSdl2ButtonCount &&
+           SDL_GetGamepadButton(controller, static_cast<SDL_GamepadButton>(button));
+}
+
+uint8_t is_controller_button_held(SDL_Gamepad* controller, PadButton button)
 {
     if (button == kLeftTrigger) {
         auto pressure =
-            static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> kTriggerShift);
+            static_cast<uint8_t>(SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) >> kTriggerShift);
         return static_cast<uint8_t>(pressure > kTriggerHeldThreshold);
     }
     if (button == kRightTrigger) {
         auto pressure =
-            static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) >> kTriggerShift);
+            static_cast<uint8_t>(SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) >> kTriggerShift);
         return static_cast<uint8_t>(pressure > kTriggerHeldThreshold);
     }
-    return SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(button));
+    return pad_button_down(controller, button) ? 1 : 0;
 }
 
 // Where a stick's axes go.
@@ -340,7 +353,7 @@ struct StickOut {
 };
 
 // A stick into (x, y), where it's further from the centre than what's there (the keyboard's).
-void read_stick(SDL_GameController* controller, PadStick stick, StickOut stick_out)
+void read_stick(SDL_Gamepad* controller, PadStick stick, StickOut stick_out)
 {
     auto* const x = stick_out.x;
     auto* const y = stick_out.y;
@@ -348,12 +361,12 @@ void read_stick(SDL_GameController* controller, PadStick stick, StickOut stick_o
     uint8_t stick_y = 0;
     if (stick == kStickLeft) {
         pad_axis_x =
-            static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> kAxisShift) + kAxisCentre);
-        stick_y = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) >> kAxisShift) + kAxisCentre);
+            static_cast<uint8_t>((SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFTX) >> kAxisShift) + kAxisCentre);
+        stick_y = static_cast<uint8_t>((SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFTY) >> kAxisShift) + kAxisCentre);
     } else if (stick == kStickRight) {
         pad_axis_x =
-            static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> kAxisShift) + kAxisCentre);
-        stick_y = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) >> kAxisShift) + kAxisCentre);
+            static_cast<uint8_t>((SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHTX) >> kAxisShift) + kAxisCentre);
+        stick_y = static_cast<uint8_t>((SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHTY) >> kAxisShift) + kAxisCentre);
     } else {
         pad_axis_x = kStickRest;
         stick_y = kStickRest;
@@ -399,7 +412,7 @@ void press_caveman(std::span<uint8_t> data)
 }
 
 // A controller's shoulder buttons: PS2 style, the park editor's (the right trigger is L1), or the PC game's.
-void read_pad_shoulders(std::span<uint8_t> data, SDL_GameController* controller)
+void read_pad_shoulders(std::span<uint8_t> data, SDL_Gamepad* controller)
 {
     if (sdl_input_state().settings_.ps2_controls_ != 0U) {
         if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_) != 0U) {
@@ -471,9 +484,9 @@ void read_pad_shoulders(std::span<uint8_t> data, SDL_GameController* controller)
 // format has a bit set while a button is up), 4-7 the sticks, 8-19 the pressures, 20 the Xbox's black (bit 0)
 // and white (bit 1).
 // (the port's device is usable and connected while the controller is attached: input::PortPoll's `connected`)
-void poll_controller(input::PortPoll& poll, SDL_GameController* controller)
+void poll_controller(input::PortPoll& poll, SDL_Gamepad* controller)
 {
-    if (SDL_GameControllerGetAttached(controller) == SDL_FALSE) {
+    if (!SDL_GamepadConnected(controller)) {
         return;
     }
     const std::span<uint8_t> data = poll.data;
@@ -516,23 +529,19 @@ void poll_controller(input::PortPoll& poll, SDL_GameController* controller)
     }
 
     // the d-pad (plain buttons: not the triggers)
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.up)) !=
-        0U) {
+    if (pad_button_down(controller, sdl_input_state().pad_.up)) {
         core::at(data, kControlButtonsHigh) |= 1 << 4;
         core::at(data, kPressureUp) = kFullPressure;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.right)) !=
-        0U) {
+    if (pad_button_down(controller, sdl_input_state().pad_.right)) {
         core::at(data, kControlButtonsHigh) |= 1 << kRightBit;
         core::at(data, kPressureRight) = kFullPressure;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.down)) !=
-        0U) {
+    if (pad_button_down(controller, sdl_input_state().pad_.down)) {
         core::at(data, kControlButtonsHigh) |= 1 << kDownBit;
         core::at(data, kPressureDown) = kFullPressure;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.left)) !=
-        0U) {
+    if (pad_button_down(controller, sdl_input_state().pad_.left)) {
         core::at(data, kControlButtonsHigh) |= 1 << kLeftBit;
         core::at(data, kPressureLeft) = kFullPressure;
     }
@@ -915,34 +924,33 @@ void text_typed(const char* text)
 void handle_own_event(SDL_Event* event)
 {
     switch (event->type) {
-    case SDL_CONTROLLERDEVICEADDED:
-        if (SDL_IsGameController(event->cdevice.which) != SDL_FALSE) {
-            attach_controller(event->cdevice.which);
+    case SDL_EVENT_GAMEPAD_ADDED:
+        if (SDL_IsGamepad(event->gdevice.which)) {
+            attach_controller(event->gdevice.which);
         } else {
             debug_log::printf(StageMap::kInfo, "Not a game controller: %s\n",
-                              SDL_JoystickNameForIndex(event->cdevice.which));
+                              SDL_GetJoystickNameForID(event->gdevice.which));
         }
         return;
-    case SDL_CONTROLLERDEVICEREMOVED:
-        if (SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which)) {
+    case SDL_EVENT_GAMEPAD_REMOVED:
+        if (SDL_Gamepad* controller = SDL_GetGamepadFromID(event->gdevice.which)) {
             detach_anim_driver(controller);
         }
         return;
-    case SDL_JOYDEVICEADDED:
-        debug_log::printf(StageMap::kInfo, "Joystick added: %s\n", SDL_JoystickNameForIndex(event->jdevice.which));
+    case SDL_EVENT_JOYSTICK_ADDED:
+        debug_log::printf(StageMap::kInfo, "Joystick added: %s\n", SDL_GetJoystickNameForID(event->jdevice.which));
         return;
-    case SDL_KEYDOWN:
+    case SDL_EVENT_KEY_DOWN:
         sdl_input_state().using_keyboard_ = true;
         // (not original: Enter / F1-F4 aren't the game's special keys while an extension has the keyboard -
         // engine/ext/extension.h; the new front end)
         if (!ext::game_input_blocked()) {
-            key_pressed(event->key.keysym.sym);
+            key_pressed(event->key.key);
         }
         return;
-    case SDL_CONTROLLERBUTTONDOWN: {
-        // (the event's controller, read through cdevice: the same place as cbutton's)
-        SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
-        const int player = SDL_GameControllerGetPlayerIndex(controller);
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN: {
+        SDL_Gamepad* controller = SDL_GetGamepadFromID(event->gbutton.which);
+        const int player = SDL_GetGamepadPlayerIndex(controller);
         if (player == -1) {
             enroll_player(controller);
         } else if (core::at(sdl_input_state().players_, player).locked_out_ != 0U) {
@@ -951,19 +959,19 @@ void handle_own_event(SDL_Event* event)
         sdl_input_state().using_keyboard_ = false;
         return;
     }
-    case SDL_CONTROLLERBUTTONUP: {
-        SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
-        const int player = SDL_GameControllerGetPlayerIndex(controller);
+    case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+        SDL_Gamepad* controller = SDL_GetGamepadFromID(event->gbutton.which);
+        const int player = SDL_GetGamepadPlayerIndex(controller);
         if (player != -1 && (core::at(sdl_input_state().players_, player).locked_out_ != 0U)) {
             --core::at(sdl_input_state().players_, player).locked_out_;
         }
         return;
     }
-    case SDL_CONTROLLERAXISMOTION:
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         sdl_input_state().using_keyboard_ = false;
         return;
-    case SDL_TEXTINPUT:
-        text_typed(std::data(event->text.text));
+    case SDL_EVENT_TEXT_INPUT:
+        text_typed(event->text.text);
         return;
     default:
         return;
@@ -976,50 +984,51 @@ input::Event event_for_handlers(const SDL_Event& event)
     input::Event out;
     out.native = &event;
     switch (event.type) {
-    case SDL_KEYDOWN:
-    case SDL_KEYUP:
-        out.type = event.type == SDL_KEYDOWN ? input::EventType::kKeyDown : input::EventType::kKeyUp;
-        out.key = static_cast<int>(event.key.keysym.scancode);
-        out.repeat = event.key.repeat != 0U;
-        out.modifiers = event.key.keysym.mod;
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+        out.type = event.type == SDL_EVENT_KEY_DOWN ? input::EventType::kKeyDown : input::EventType::kKeyUp;
+        out.key = static_cast<int>(event.key.scancode);
+        out.repeat = event.key.repeat;
+        out.modifiers = event.key.mod;
         break;
-    case SDL_TEXTINPUT:
+    case SDL_EVENT_TEXT_INPUT:
         out.type = input::EventType::kTextInput;
         break;
-    case SDL_TEXTEDITING:
+    case SDL_EVENT_TEXT_EDITING:
         out.type = input::EventType::kTextEditing;
         break;
-    case SDL_MOUSEMOTION:
+    case SDL_EVENT_MOUSE_MOTION:
         out.type = input::EventType::kMouseMotion;
-        out.x = event.motion.x;
-        out.y = event.motion.y;
-        out.dx = event.motion.xrel;
-        out.dy = event.motion.yrel;
+        // (SDL 3's positions and movements are floats: whole pixels here, as SDL 2 gave them)
+        out.x = static_cast<int>(event.motion.x);
+        out.y = static_cast<int>(event.motion.y);
+        out.dx = static_cast<int>(event.motion.xrel);
+        out.dy = static_cast<int>(event.motion.yrel);
         out.window = event.motion.windowID;
         break;
-    case SDL_MOUSEBUTTONDOWN:
-    case SDL_MOUSEBUTTONUP:
-        out.type = event.type == SDL_MOUSEBUTTONDOWN ? input::EventType::kMouseButtonDown : input::EventType::kMouseButtonUp;
-        out.x = event.button.x;
-        out.y = event.button.y;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        out.type = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? input::EventType::kMouseButtonDown : input::EventType::kMouseButtonUp;
+        out.x = static_cast<int>(event.button.x);
+        out.y = static_cast<int>(event.button.y);
         out.button = event.button.button;
         out.window = event.button.windowID;
         break;
-    case SDL_MOUSEWHEEL:
+    case SDL_EVENT_MOUSE_WHEEL:
         out.type = input::EventType::kMouseWheel;
-        out.wheel = event.wheel.y;
+        out.wheel = event.wheel.integer_y; // (whole notches, as SDL 2's y)
         out.wheel_flipped = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED;
         out.window = event.wheel.windowID;
         break;
-    case SDL_CONTROLLERBUTTONDOWN:
-    case SDL_CONTROLLERBUTTONUP:
-        out.type = event.type == SDL_CONTROLLERBUTTONDOWN ? input::EventType::kPadButtonDown : input::EventType::kPadButtonUp;
-        out.pad_button = event.cbutton.button;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP:
+        out.type = event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? input::EventType::kPadButtonDown : input::EventType::kPadButtonUp;
+        out.pad_button = event.gbutton.button;
         break;
-    case SDL_CONTROLLERAXISMOTION:
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         out.type = input::EventType::kPadAxis;
-        out.pad_axis = event.caxis.axis;
-        out.pad_value = event.caxis.value;
+        out.pad_axis = event.gaxis.axis;
+        out.pad_value = event.gaxis.value;
         break;
     default:
         break;
@@ -1035,17 +1044,15 @@ void handle_input_event(SDL_Event* event)
     input::deliver(event_for_handlers(*event));
 }
 
-static_assert(input::ControllerState::kAxes == SDL_CONTROLLER_AXIS_MAX && SDL_CONTROLLER_BUTTON_MAX <= std::numeric_limits<uint32_t>::digits,
+static_assert(input::ControllerState::kAxes == SDL_GAMEPAD_AXIS_COUNT && SDL_GAMEPAD_BUTTON_COUNT <= std::numeric_limits<uint32_t>::digits,
               "input::ControllerState holds SDL's axes and buttons");
-static_assert(input::kCursorShow == SDL_ENABLE && input::kCursorHide == SDL_DISABLE && input::kCursorQuery == SDL_QUERY,
-              "input::show_cursor's values are SDL's");
 static_assert(input::kMouseLeftMask == SDL_BUTTON_LMASK && input::kMouseMiddleMask == SDL_BUTTON_MMASK &&
                   input::kMouseRightMask == SDL_BUTTON_RMASK,
               "input::MouseState's buttons are SDL's");
 static_assert(input::kMouseLeft == SDL_BUTTON_LEFT && input::kMouseMiddle == SDL_BUTTON_MIDDLE &&
                   input::kMouseRight == SDL_BUTTON_RIGHT,
               "input::Event's mouse buttons are SDL's");
-static_assert(input::kModifierShift == KMOD_SHIFT && input::kModifierCtrl == KMOD_CTRL && input::kModifierAlt == KMOD_ALT,
+static_assert(input::kModifierShift == SDL_KMOD_SHIFT && input::kModifierCtrl == SDL_KMOD_CTRL && input::kModifierAlt == SDL_KMOD_ALT,
               "input::Event's modifiers are SDL's");
 
 // --- the game's key bindings ------------------------------------------------------------------------------------
@@ -1135,9 +1142,11 @@ void load_input_settings()
     sdl_input_state().settings_.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));
 }
 
+// (the ini's numbers are SDL 2's scan codes: SDL 3's for the same key - platform/sdl_keys.h)
 SDL_Scancode get_key(const char* name, SDL_Scancode fallback)
 {
-    return static_cast<SDL_Scancode>(build_info::get_int(build_info::kKeybinds, name, fallback));
+    return static_cast<SDL_Scancode>(
+        platform::scancode_from_sdl2(build_info::get_int(build_info::kKeybinds, name, fallback)));
 }
 
 void load_key_binds()
@@ -1226,18 +1235,31 @@ public:
     input::KeyState keys() override { return platform::keyboard_keys(); }
     bool mouse(input::MouseState* out) override
     {
-        out->buttons = SDL_GetMouseState(&out->x, &out->y);
+        float x = 0.0F;
+        float y = 0.0F;
+        out->buttons = SDL_GetMouseState(&x, &y);
+        // (whole pixels, as SDL 2 gave them)
+        out->x = static_cast<int>(x);
+        out->y = static_cast<int>(y);
         return true;
     }
     bool controller(input::ControllerState* out) override;
     bool set_relative_mouse(bool on) override
     {
-        SDL_SetRelativeMouseMode(on ? SDL_TRUE : SDL_FALSE);
+        // (SDL 2's relative mode was the mouse's; SDL 3's is a window's - the game's)
+        SDL_SetWindowRelativeMouseMode(sys::sdl_window(), on);
         return true;
     }
+    // (SDL 2's SDL_ShowCursor(toggle): show, hide or only ask - input::kCursorShow / kCursorHide / kCursorQuery -,
+    // then whether it is shown, 1 or 0)
     bool show_cursor(int toggle, int* shown) override
     {
-        *shown = SDL_ShowCursor(toggle);
+        if (toggle == input::kCursorShow) {
+            SDL_ShowCursor();
+        } else if (toggle == input::kCursorHide) {
+            SDL_HideCursor();
+        }
+        *shown = SDL_CursorVisible() ? input::kCursorShow : input::kCursorHide;
         return true;
     }
     bool window_size(uint32_t window, int* width, int* height) override;
@@ -1249,14 +1271,15 @@ private:
 void SdlSource::start_sdl_input()
 {
     debug_log::printf(StageMap::kInfo, "Initializing Input Manager!\n");
-    SDL_Init(SDL_INIT_GAMECONTROLLER);
-    SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
+    // (SDL 2 was told to number the buttons by position, not by their labels - SDL 3 always does)
+    SDL_Init(SDL_INIT_GAMEPAD);
 
     std::array<char, kMappingsBytes> mappings{};
     const size_t length = text::format_to(mappings, "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
     if (length != 0) {
         // (sprintf_s's -1, a failure, counted as loaded too; a path too long for the buffer is cut now)
-        if (SDL_GameControllerAddMappingsFromFile(mappings.data())) {
+        // (SDL's -1, a failure, counted as loaded too, as PartyMod did)
+        if (SDL_AddGamepadMappingsFromFile(mappings.data()) != 0) {
             debug_log::printf(StageMap::kInfo, "Loaded mappings\n");
         } else {
             debug_log::printf(StageMap::kWarn, "Failed to load %s\n", mappings.data());
@@ -1303,25 +1326,28 @@ void SdlSource::poll_port(input::PortPoll& poll)
 // The first attached game controller of those SDL lists (the ones the game's input opened): its axes, then its buttons.
 bool SdlSource::controller(input::ControllerState* out)
 {
-    SDL_GameController* found = nullptr;
-    for (int i = 0; i < SDL_NumJoysticks() && !found; ++i) {
-        if (SDL_IsGameController(i) == SDL_FALSE) {
-            continue;
-        }
-        SDL_GameController* game_controller = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
-        if (game_controller && (SDL_GameControllerGetAttached(game_controller) != SDL_FALSE)) {
-            found = game_controller;
+    SDL_Gamepad* found = nullptr;
+    int count = 0;
+    SDL_JoystickID* gamepads = SDL_GetGamepads(&count);
+    if (gamepads) {
+        for (const SDL_JoystickID id : std::span<const SDL_JoystickID>(gamepads, static_cast<size_t>(count))) {
+            SDL_Gamepad* game_controller = SDL_GetGamepadFromID(id);
+            if (game_controller && SDL_GamepadConnected(game_controller)) {
+                found = game_controller;
+                break;
+            }
         }
     }
+    SDL_free(gamepads);
     if (!found) {
         return false;
     }
     for (int axis = 0; axis < input::ControllerState::kAxes; ++axis) {
-        core::at(out->axes, axis) = SDL_GameControllerGetAxis(found, static_cast<SDL_GameControllerAxis>(axis));
+        core::at(out->axes, axis) = SDL_GetGamepadAxis(found, static_cast<SDL_GamepadAxis>(axis));
     }
     out->buttons = 0;
-    for (int button = 0; button < SDL_CONTROLLER_BUTTON_MAX; ++button) {
-        if (SDL_GameControllerGetButton(found, static_cast<SDL_GameControllerButton>(button)) != 0U) {
+    for (int button = 0; button < kSdl2ButtonCount; ++button) {
+        if (pad_button_down(found, button)) {
             out->buttons |= 1U << button;
         }
     }
@@ -1342,10 +1368,10 @@ bool SdlSource::window_size(uint32_t window, int* width, int* height)
 // Rumble on the controller playing as `port`.
 bool SdlSource::rumble(int port, uint16_t high, uint16_t low)
 {
-    for (SDL_GameController* controller : sdl_input_state().controllers_) {
-        if ((SDL_GameControllerGetAttached(controller) != SDL_FALSE) &&
-            SDL_GameControllerGetPlayerIndex(controller) == port) {
-            SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), low, high, 0);
+    for (SDL_Gamepad* controller : sdl_input_state().controllers_) {
+        if (SDL_GamepadConnected(controller) &&
+            SDL_GetGamepadPlayerIndex(controller) == port) {
+            SDL_RumbleJoystick(SDL_GetGamepadJoystick(controller), low, high, 0);
         }
     }
     return true;

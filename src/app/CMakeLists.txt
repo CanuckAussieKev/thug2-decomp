@@ -48,12 +48,12 @@ target_link_libraries(thug2-editor PRIVATE thug2_app thug2_editor thug2_game thu
                                            thug2_script_qb thug2_engine
                                            thug2_wire thug2_formats thug2_platform thug2_base)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
-# THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
+# THIRD_PARTY_NOTICES.md), SDL3.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "$<TARGET_FILE_DIR:thug2>/d3dx9_43.dll"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "$<TARGET_FILE_DIR:thug2>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl3_SOURCE_DIR}/lib/x86/SDL3.dll" "$<TARGET_FILE_DIR:thug2>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "$<TARGET_FILE_DIR:thug2>"
-    COMMENT "Copying d3dx9_43.dll, SDL2.dll and gamecontrollerdb.txt next to thug2-decomp.exe")
+    COMMENT "Copying d3dx9_43.dll, SDL3.dll and gamecontrollerdb.txt next to thug2-decomp.exe")
 
 # THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
 # (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
@@ -76,7 +76,7 @@ if(EXISTS "${THUG2_DEPLOY_DIR}")
     add_custom_command(TARGET thug2 POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2> $<TARGET_PDB_FILE:thug2> "${THUG2_DEPLOY_DIR}"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll" "${THUG2_DEPLOY_DIR}/d3dx9_43.dll"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "${THUG2_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl3_SOURCE_DIR}/lib/x86/SDL3.dll" "${THUG2_DEPLOY_DIR}"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "${THUG2_DEPLOY_DIR}"
         COMMENT "Copying thug2-decomp.exe and its DLLs into ${THUG2_DEPLOY_DIR}")
     add_custom_command(TARGET thug2-editor POST_BUILD

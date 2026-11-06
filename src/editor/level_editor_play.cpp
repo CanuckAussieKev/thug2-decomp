@@ -4,7 +4,7 @@
 #include "engine/pad_input/input_source.h"
 
 #include <cstdint>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "editor/level_editor.h"
 #include "base/core/checked_index.h"

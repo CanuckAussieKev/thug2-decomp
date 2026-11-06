@@ -5,7 +5,7 @@
 
 #include "gpu_vulkan/gpu_vulkan.h"
 
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <chrono>
 #include <array>
@@ -1074,12 +1074,16 @@ public:
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         *size = {};
-        SDL_DisplayMode mode{};
-        const int display = state.window != nullptr ? SDL_GetWindowDisplayIndex(state.window) : 0;
-        if (SDL_GetDesktopDisplayMode(std::max(display, 0), &mode) != 0) {
+        // (the window's display, else - no window, or SDL doesn't know - the primary one)
+        SDL_DisplayID display = state.window != nullptr ? SDL_GetDisplayForWindow(state.window) : 0;
+        if (display == 0) {
+            display = SDL_GetPrimaryDisplay();
+        }
+        const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(display);
+        if (mode == nullptr) {
             return kInvalid;
         }
-        *size = {.width = static_cast<uint32_t>(mode.w), .height = static_cast<uint32_t>(mode.h)};
+        *size = {.width = static_cast<uint32_t>(mode->w), .height = static_cast<uint32_t>(mode->h)};
         return kOk;
     }
     long read_front_buffer(GpuSurface* system_copy) override

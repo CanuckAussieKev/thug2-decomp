@@ -2,7 +2,7 @@
 
 #include "editor/level_editor_hud.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -22,6 +22,7 @@
 #include "engine/memory/mem.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
+#include "platform/sdl_time.h"
 
 namespace frontend::level_editor::hud {
 namespace {
@@ -115,13 +116,13 @@ void change_strand(int line, const std::string& text)
 void get_message(const std::string& text, double seconds)
 {
     level_editor_hud_state().message_ = text;
-    level_editor_hud_state().message_until_ = SDL_GetTicks() + static_cast<uint32_t>(seconds * kMillisecondsPerSecond);
+    level_editor_hud_state().message_until_ = platform::ticks_ms() + static_cast<uint32_t>(seconds * kMillisecondsPerSecond);
     change_strand(kMessageStrand, text);
 }
 
 void tick()
 {
-    if (!level_editor_hud_state().message_.empty() && static_cast<int32_t>(SDL_GetTicks() - level_editor_hud_state().message_until_) >= 0) {
+    if (!level_editor_hud_state().message_.empty() && static_cast<int32_t>(platform::ticks_ms() - level_editor_hud_state().message_until_) >= 0) {
         level_editor_hud_state().message_.clear();
         change_strand(kMessageStrand, "");
     }
