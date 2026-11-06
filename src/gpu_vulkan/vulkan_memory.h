@@ -10,10 +10,11 @@
 
 #include "gpu_vulkan/vulkan_formats.h"
 
-// NOT ORIGINAL - the Vulkan Gpu's memory (vulkan_memory.cpp; docs/design/vulkan.md, V6): images and buffers allocated
-// through the Vulkan Memory Allocator, and the transfers that fill them and read them back. A transfer is recorded into
-// one command buffer kept for the purpose, submitted and waited for at once (an upload is finished when the call
-// returns, as a Direct3D 9 unlock is); the frame's own command buffers (V7) are not used for it.
+// NOT ORIGINAL - the Vulkan Gpu's memory (vulkan_memory.cpp; docs/design/vulkan.md, V6, V7): images and buffers
+// allocated through the Vulkan Memory Allocator, and the transfers that fill them and read them back. Uploads, copies
+// and blits are recorded into the frame's command buffers (vulkan_frames.h); read-backs are recorded into one command
+// buffer kept for the purpose, submitted and waited for at once. A new image starts undefined: its first use (or the
+// frame's uploads) moves it to its resting layout.
 namespace render::vulkan {
 
 class Context;
@@ -32,6 +33,7 @@ struct Image {
     VkImageUsageFlags usage = 0;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;  // every level's (they move together)
     VkImageLayout resting = VK_IMAGE_LAYOUT_UNDEFINED; // where it is left between operations
+    uint64_t used = 0; // the last submission whose stream used it (vulkan_frames.h)
 };
 
 // What an image is made from.
@@ -58,6 +60,12 @@ enum class BufferPlace : uint8_t {
     kDevice,   // device memory, filled by transfers (static vertex and index buffers)
     kUpload,   // memory the processor writes and the device reads (dynamic buffers, the ring, staging)
     kReadBack, // memory the device writes and the processor reads (read-backs)
+};
+
+// Bytes staged for a transfer: the buffer they are in and where.
+struct Staged {
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceSize offset = 0;
 };
 
 // A region of an image level for a copy or a blit: its corners (x, y; z is 0 to 1).
@@ -88,21 +96,27 @@ public:
     // The processor's writes into a mapped buffer made visible to the device (a no-op in coherent memory).
     void flush(const DeviceBuffer& buffer, VkDeviceSize offset, VkDeviceSize bytes);
 
-    // A level's texels (tightly packed, the image's format) copied in / out (read: as many bytes as `texels` holds).
-    bool upload_image_level(Image* image, uint32_t level, std::span<const uint8_t> texels);
+    // A level's texels read back (tightly packed, the image's format; as many bytes as `texels` holds) and a device
+    // buffer's bytes read back: each recorded and run at once, waited for (the caller has finished the frame's work
+    // first).
     bool read_image_level(Image* image, uint32_t level, std::vector<uint8_t>* texels);
-    // Bytes copied into a device buffer at `offset`, and read back from it.
-    bool upload_buffer(const DeviceBuffer& buffer, VkDeviceSize offset, std::span<const uint8_t> bytes);
     bool read_buffer(const DeviceBuffer& buffer, VkDeviceSize offset, VkDeviceSize bytes, std::vector<uint8_t>* out);
+
+    // Transfers recorded into a command buffer (the frame's: vulkan_frames.h), outside a rendering pass. Images are
+    // left in their resting layout.
+    // A level's texels copied from a staging buffer (tightly packed, the image's format).
+    static void record_upload_level(VkCommandBuffer commands, Image* image, uint32_t level, const Staged& from);
     // An area of one image copied, scaled, into an area of another (vkCmdBlitImage), or a multisampled image resolved
     // into a single-sampled one of its size (vkCmdResolveImage).
-    bool blit(Image* source, const ImageArea& from, Image* target, const ImageArea& to, VkFilter filter);
-    bool resolve(Image* source, Image* target);
+    static void record_blit(VkCommandBuffer commands, Image* source, const ImageArea& from, Image* target,
+                            const ImageArea& to, VkFilter filter);
+    static void record_resolve(VkCommandBuffer commands, Image* source, Image* target);
 
     // Commands recorded and run at once on the queue (waited for).
     bool submit_now(const std::function<void(VkCommandBuffer)>& record);
-    // An image moved to `layout` inside recorded commands (every level).
-    static void transition(VkCommandBuffer commands, Image* image, VkImageLayout layout);
+    // An image moved to `layout` inside recorded commands (every level), with a barrier from what the old layout is
+    // used for to what the new one is; `always`: a barrier even when the layout stays (one write after another).
+    static void transition(VkCommandBuffer commands, Image* image, VkImageLayout layout, bool always = false);
 
     [[nodiscard]] VkDevice device() const { return device_; }
     [[nodiscard]] VmaAllocator allocator() const { return allocator_; }

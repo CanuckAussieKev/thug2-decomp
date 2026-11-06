@@ -13,18 +13,12 @@
 
 namespace render::vulkan {
 
-namespace {
-
-constexpr VkBufferUsageFlags kRingUsage =
-    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-} // namespace
-
-bool UploadRing::init(Memory* memory)
+bool UploadRing::init(Memory* memory, VkBufferUsageFlags usage)
 {
     memory_ = memory;
+    usage_ = usage;
     for (FrameBuffers& frame : frames_) {
-        if (!memory_->create_buffer(kFirstBytes, kRingUsage, BufferPlace::kUpload, &frame.buffer)) {
+        if (!memory_->create_buffer(kFirstBytes, usage_, BufferPlace::kUpload, &frame.buffer)) {
             return false;
         }
     }
@@ -73,7 +67,7 @@ std::optional<RingSpan> UploadRing::copy(std::span<const uint8_t> bytes, VkDevic
             size *= 2;
         }
         DeviceBuffer bigger;
-        if (!memory_->create_buffer(size, kRingUsage, BufferPlace::kUpload, &bigger)) {
+        if (!memory_->create_buffer(size, usage_, BufferPlace::kUpload, &bigger)) {
             return std::nullopt;
         }
         buffers.retired.push_back(buffers.buffer);

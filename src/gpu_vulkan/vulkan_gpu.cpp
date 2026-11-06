@@ -1,11 +1,13 @@
 // NOT ORIGINAL - Vulkan's render::Gpu (gpu_vulkan.h): the resources, made on the device the context opened
-// (vulkan_gpu_context.cpp). Every operation takes the backend's lock (vulkan_backend.h). The state block is the
-// interface's (engine/gfx/gpu.h): the setters' send_* only answer here - V7's draws read the block.
+// (vulkan_gpu_context.cpp), and the draws, clears and presents recorded into the frame (vulkan_draws.cpp). Every
+// operation takes the backend's lock (vulkan_backend.h). The state block is the interface's (engine/gfx/gpu.h): the
+// setters' send_* only answer here - the draws read the block.
 
 #include "gpu_vulkan/gpu_vulkan.h"
 
 #include <SDL2/SDL_video.h>
 #include <algorithm>
+#include <chrono>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -31,7 +33,10 @@
 #include "gpu_vulkan/vulkan_jpeg.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_pixel_program.h"
+#include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_samplers.h"
+#include "platform/run_log.h"
 
 namespace render::vulkan {
 
@@ -50,25 +55,32 @@ constexpr uint32_t kIndex32Format = 102; // D3DFMT_INDEX32
 constexpr uint32_t kIndex16Bytes = 2;
 constexpr uint32_t kIndex32Bytes = 4;
 constexpr VkDeviceSize kRingAlignment = 16;
+constexpr VkDeviceSize kStagingAlignment = 16; // (a multiple of every format's texel or block size)
+
+double seconds_since(std::chrono::steady_clock::time_point start)
+{
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
 
 // --- objects and their references --------------------------------------------------------------------------------
 
+// (the images and buffers destroyed once the frames that may use them have finished: vulkan_frames.h)
 void destroy_texture(Backend& state, Texture* texture)
 {
-    state.memory.destroy_image(&texture->image);
+    retire_image(state, &texture->image);
     state.textures.erase(texture);
 }
 
 void destroy_surface(Backend& state, Surface* surface)
 {
-    state.memory.destroy_image(&surface->image);
+    retire_image(state, &surface->image);
     state.surfaces.erase(surface);
 }
 
 void destroy_buffer(Backend& state, Buffer* buffer)
 {
     for (BufferVersion& version : buffer->versions) {
-        state.memory.destroy_buffer(&version.memory);
+        retire_buffer(state, &version.memory);
     }
     state.buffers.erase(buffer);
 }
@@ -162,15 +174,35 @@ VkImageUsageFlags texture_usage(const GpuTextureDesc& desc, const FormatPlan& pl
     return usage;
 }
 
+// Texels in the image's format copied into a level of it: staged, and recorded before the frame's stream when the
+// stream hasn't used the image yet.
+bool upload_image(Backend& state, Image* image, uint32_t level, std::span<const uint8_t> texels)
+{
+    const std::optional<RingSpan> staged = state.staging.copy(texels, kStagingAlignment);
+    if (!staged) {
+        return false;
+    }
+    const TransferTarget target = transfer_commands(state, image->used);
+    Memory::record_upload_level(target.commands, image, level, {.buffer = staged->buffer, .offset = staged->offset});
+    if (target.in_stream) {
+        image->used = state.frames.serial();
+    }
+    transfer_done(state, target, texels.size());
+    return true;
+}
+
 // The level's bytes (Direct3D 9's layout) converted and copied into the image.
 bool upload_level(Backend& state, Texture* texture, uint32_t level)
 {
+    const auto start = std::chrono::steady_clock::now();
     const Extent extent = level_extent(texture_extent(*texture), level);
     const LevelLayout layout = d3d_level_layout(texture->desc.format, extent);
     const LevelLayout image_layout = image_level_layout(texture->plan, texture->desc.format, extent);
     std::vector<uint8_t> texels(image_layout.bytes());
     convert_level(texture->plan.conversion, extent, layout, core::at(texture->levels, level), texels);
-    return state.memory.upload_image_level(&texture->image, level, texels);
+    const bool done = upload_image(state, &texture->image, level, texels);
+    state.stats.upload_seconds += seconds_since(start);
+    return done;
 }
 
 // A lock's first byte: the area's top left (a block-compressed format's in blocks).
@@ -293,6 +325,7 @@ long make_render_target(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
         destroy_surface(state, surface);
         return kInvalid;
     }
+    prepare_image(state, &surface->image);
     *out = surface_handle(surface);
     return kOk;
 }
@@ -321,6 +354,7 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
         destroy_surface(state, surface);
         return kInvalid;
     }
+    prepare_image(state, &surface->image);
     *out = surface_handle(surface);
     return kOk;
 }
@@ -331,7 +365,7 @@ bool read_target_bytes(Backend& state, Surface* surface)
 {
     const ImageLevel source = image_of(surface);
     if (source.image == nullptr || source.image->samples != VK_SAMPLE_COUNT_1_BIT ||
-        source.plan->conversion != TexelConversion::kCopy) {
+        source.plan->conversion != TexelConversion::kCopy || !finish_work(state)) {
         return false;
     }
     const Extent extent = level_extent(source.image->extent, source.level);
@@ -391,11 +425,12 @@ long make_buffer(Backend& state, bool index, const std::array<uint32_t, 4>& args
 // else a new one.
 bool discard_version(Backend& state, Buffer* buffer)
 {
-    if (core::at(buffer->versions, buffer->current).last_use <= state.completed_frame) {
+    const uint64_t completed = state.frames.completed();
+    if (core::at(buffer->versions, buffer->current).last_use <= completed) {
         return true;
     }
     for (std::size_t i = 0; i < buffer->versions.size(); ++i) {
-        if (core::at(buffer->versions, i).last_use <= state.completed_frame) {
+        if (core::at(buffer->versions, i).last_use <= completed) {
             buffer->current = i;
             return true;
         }
@@ -447,13 +482,30 @@ long unlock_buffer(Backend& state, Buffer* buffer)
     if (read_only) {
         return kOk;
     }
-    const DeviceBuffer& memory = core::at(buffer->versions, buffer->current).memory;
+    BufferVersion& version = core::at(buffer->versions, buffer->current);
     if (buffer->dynamic) {
-        state.memory.flush(memory, buffer->lock_offset, buffer->lock_bytes);
+        state.memory.flush(version.memory, buffer->lock_offset, buffer->lock_bytes);
         return kOk;
     }
+    // the part written staged, and copied before the frame's stream when the stream hasn't drawn from the buffer yet
+    const auto start = std::chrono::steady_clock::now();
     const std::span<const uint8_t> written = std::span(buffer->shadow).subspan(buffer->lock_offset, buffer->lock_bytes);
-    return state.memory.upload_buffer(memory, buffer->lock_offset, written) ? kOk : kInvalid;
+    if (written.empty()) {
+        return kOk;
+    }
+    const std::optional<RingSpan> staged = state.staging.copy(written, kStagingAlignment);
+    if (!staged) {
+        return kInvalid;
+    }
+    const TransferTarget target = transfer_commands(state, version.last_use);
+    const VkBufferCopy region{.srcOffset = staged->offset, .dstOffset = buffer->lock_offset, .size = written.size()};
+    vkCmdCopyBuffer(target.commands, staged->buffer, version.memory.buffer, 1, &region);
+    if (target.in_stream) {
+        version.last_use = state.frames.serial();
+    }
+    transfer_done(state, target, written.size());
+    state.stats.upload_seconds += seconds_since(start);
+    return kOk;
 }
 
 // --- queries -----------------------------------------------------------------------------------------------------
@@ -464,7 +516,15 @@ long make_query(Backend& state, GpuQuery** out)
     if (!state.memory.ready()) {
         return kInvalid;
     }
-    auto free_slot = std::ranges::find(state.query_slots, nullptr);
+    // a free slot this submission hasn't used (its reset goes before the submission's stream)
+    const uint64_t serial = state.frames.serial();
+    auto free_slot = state.query_slots.begin();
+    for (; free_slot != state.query_slots.end(); ++free_slot) {
+        if (*free_slot == nullptr &&
+            core::at(state.query_slot_used, static_cast<std::size_t>(free_slot - state.query_slots.begin())) < serial) {
+            break;
+        }
+    }
     if (free_slot == state.query_slots.end()) {
         const VkQueryPoolCreateInfo info{.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
                                          .pNext = nullptr,
@@ -478,12 +538,18 @@ long make_query(Backend& state, GpuQuery** out)
         }
         state.query_pools.push_back(pool);
         state.query_slots.resize(state.query_slots.size() + kQueriesPerPool, nullptr);
+        state.query_slot_used.resize(state.query_slots.size(), 0);
         free_slot = state.query_slots.end() - kQueriesPerPool;
     }
     const auto index = static_cast<uint32_t>(free_slot - state.query_slots.begin());
     auto made = std::make_unique<Query>();
     made->pool = core::at(state.query_pools, index / kQueriesPerPool);
     made->slot = index % kQueriesPerPool;
+    made->index = index;
+    if (state.draws_made) {
+        vkCmdResetQueryPool(state.frames.uploads(), made->pool, made->slot, 1);
+        made->fresh = true;
+    }
     Query* const query = state.queries.add(std::move(made));
     *free_slot = query;
     *out = query_handle(query);
@@ -659,6 +725,7 @@ public:
         if (!state.memory.create_image(request, &made->image)) {
             return kInvalid;
         }
+        prepare_image(state, &made->image);
         made->levels.resize(levels);
         made->locks.resize(levels);
         made->surfaces.resize(levels);
@@ -888,16 +955,22 @@ public:
         }
         const Extent from_size = level_extent(from.image->extent, from.level);
         const Extent to_size = level_extent(to.image->extent, to.level);
+        // (recorded into the frame's stream, after what was drawn: the pass ends)
         if (from.image->samples != VK_SAMPLE_COUNT_1_BIT) {
             // a multisampled surface: only resolved whole into one of its size (StretchRect's rule)
             const bool whole = source_area == nullptr && target_area == nullptr && to.level == 0 &&
                                from_size.width == to_size.width && from_size.height == to_size.height;
-            return whole && state.memory.resolve(from.image, to.image) ? kOk : kInvalid;
+            if (!whole || from.image->format != to.image->format) {
+                return kInvalid;
+            }
+            Memory::record_resolve(outside_pass(state), from.image, to.image);
+        } else {
+            Memory::record_blit(outside_pass(state), from.image, area_of(source_area, from_size, from.level), to.image,
+                                area_of(target_area, to_size, to.level), filter_of(filter));
         }
-        return state.memory.blit(from.image, area_of(source_area, from_size, from.level), to.image,
-                                 area_of(target_area, to_size, to.level), filter_of(filter))
-                   ? kOk
-                   : kInvalid;
+        from.image->used = state.frames.serial();
+        to.image->used = state.frames.serial();
+        return kOk;
     }
     long read_render_target(GpuSurface* target, GpuSurface* system_copy) override
     {
@@ -967,7 +1040,7 @@ public:
         const bool read_only = kept->lock.read_only;
         kept->lock = {};
         if (kept->kind == SurfaceKind::kRenderTarget && !read_only) {
-            return state.memory.upload_image_level(&kept->image, 0, kept->bytes) ? kOk : kInvalid;
+            return upload_image(state, &kept->image, 0, kept->bytes) ? kOk : kInvalid;
         }
         return kOk;
     }
@@ -1004,11 +1077,24 @@ public:
         const std::scoped_lock lock(state.mutex);
         Surface* const into = object(system_copy);
         if (into->kind != SurfaceKind::kSystemMemory || d3d_pixel_bytes(into->d3d_format) != 4 ||
-            state.back_buffer == nullptr || !read_target_bytes(state, state.back_buffer)) {
+            state.back_buffer == nullptr) {
+            return kInvalid;
+        }
+        Surface* const back = state.back_buffer;
+        if (back->image.samples != VK_SAMPLE_COUNT_1_BIT) {
+            // (multisampled: the resolve the last present copied from)
+            if (state.present_source.image == VK_NULL_HANDLE || !finish_work(state)) {
+                return kInvalid;
+            }
+            back->bytes.resize(d3d_level_layout(back->d3d_format, back->extent).bytes());
+            if (!state.memory.read_image_level(&state.present_source, 0, &back->bytes)) {
+                return kInvalid;
+            }
+        } else if (!read_target_bytes(state, back)) {
             return kInvalid;
         }
         std::ranges::fill(into->bytes, uint8_t{0});
-        copy_rows(state.back_buffer->bytes, state.back_buffer->extent, &into->bytes, into->extent);
+        copy_rows(back->bytes, back->extent, &into->bytes, into->extent);
         return kOk;
     }
     long save_surface_jpeg(const char* file, GpuSurface* surface) override
@@ -1023,11 +1109,15 @@ public:
 
     long create_pixel_shader(const char* source, uint32_t length, GpuPixelShader** shader) override
     {
-        // The text kept: V7 makes the fragment program from it (ff_key.h's PixelProgram).
+        // The text kept, and the program it is recognised as (ff_key.h's PixelProgram).
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         auto made = std::make_unique<PixelShader>();
         made->source.assign(source, length);
+        made->program = classify_pixel_shader(made->source);
+        if (!made->program.known) {
+            get_log("vulkan: a pixel shader not recognised - its draws use the texture stages:\n%s", made->source.c_str());
+        }
         *shader = shader_handle(state.shaders.add(std::move(made)));
         return kOk;
     }
@@ -1054,30 +1144,28 @@ public:
     }
     long begin_query(GpuQuery* query) override
     {
-        const std::scoped_lock lock(backend().mutex);
+        // (begun in the frame's stream, in the pass the draws after it go into)
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
         Query* const kept = object(query);
         kept->begun = true;
         kept->ended = false;
+        record_begin_query(state, state_block(), kept);
         return kOk;
     }
     long end_query(GpuQuery* query) override
     {
-        // Until V7 records the draws between them into the frame, the query is run on its own: reset, begun and ended
-        // in one submission (no pixels drawn in between).
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         Query* const kept = object(query);
         if (!kept->begun) {
             return kInvalid;
         }
-        const bool done = state.memory.submit_now([kept](VkCommandBuffer commands) {
-            vkCmdResetQueryPool(commands, kept->pool, kept->slot, 1);
-            vkCmdBeginQuery(commands, kept->pool, kept->slot, 0);
-            vkCmdEndQuery(commands, kept->pool, kept->slot);
-        });
+        record_end_query(state, kept);
+        kept->submission = state.frames.serial();
         kept->begun = false;
-        kept->ended = done;
-        return done ? kOk : kInvalid;
+        kept->ended = true;
+        return kOk;
     }
     long query_result(GpuQuery* query, void* data, uint32_t bytes, uint32_t /*flags*/) override
     {
@@ -1086,6 +1174,17 @@ public:
         const Query* const kept = object(query);
         if (!kept->ended) {
             return kept->begun ? gpu_value::kResultNotReady : gpu_value::kResultNotFound;
+        }
+        if (!kept->recorded) {
+            // (no pass to draw into while it was open: nothing drawn)
+            if (data != nullptr && bytes >= sizeof(uint32_t)) {
+                std::memset(data, 0, sizeof(uint32_t));
+            }
+            return kOk;
+        }
+        if (kept->submission > state.frames.completed()) {
+            // (its submission not known to have finished: a slot used before may still hold the earlier result)
+            return gpu_value::kResultNotReady;
         }
         std::array<uint32_t, 2> result{}; // the count, and whether it is there
         const VkResult asked =
@@ -1144,15 +1243,60 @@ public:
         std::tie(*offset, *stride) = std::tuple(source.offset, source.stride);
         return kOk;
     }
-    // Draws: V7. The draws from memory already copy their vertices (and indices) into the frame's ring.
-    long draw(GpuPrimitive /*primitive*/, uint32_t /*first_vertex*/, uint32_t /*count*/) override { return kOk; }
-    long draw_indexed(GpuPrimitive /*primitive*/, int32_t /*base_vertex*/, uint32_t /*min_index*/,
-                      uint32_t /*vertex_count*/, uint32_t /*first_index*/, uint32_t /*count*/) override
+    // Draws: recorded into the frame's stream (vulkan_draws.cpp) with the pipeline the state block makes.
+    long draw(GpuPrimitive primitive, uint32_t first_vertex, uint32_t count) override
     {
-        return kOk;
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        const StreamSource& source = core::at(state.streams, 0);
+        if (source.buffer == nullptr || !state.buffers.contains(source.buffer)) {
+            return kOk;
+        }
+        BufferVersion& version = core::at(source.buffer->versions, source.buffer->current);
+        const DrawCall call{.primitive = primitive,
+                            .vertices = vertices_for(primitive, count),
+                            .indexed = false,
+                            .vertex_buffer = version.memory.buffer,
+                            .vertex_offset = source.offset,
+                            .stride = source.stride,
+                            .first_vertex = first_vertex};
+        const long result = record_draw(state, state_block(), call);
+        version.last_use = state.frames.serial();
+        return result;
+    }
+    long draw_indexed(GpuPrimitive primitive, int32_t base_vertex, uint32_t /*min_index*/, uint32_t /*vertex_count*/,
+                      uint32_t first_index, uint32_t count) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        const StreamSource& source = core::at(state.streams, 0);
+        Buffer* const indices = state.indices;
+        if (source.buffer == nullptr || indices == nullptr || !state.buffers.contains(source.buffer) ||
+            !state.buffers.contains(indices)) {
+            return kOk;
+        }
+        BufferVersion& version = core::at(source.buffer->versions, source.buffer->current);
+        BufferVersion& index_version = core::at(indices->versions, indices->current);
+        const DrawCall call{.primitive = primitive,
+                            .vertices = vertices_for(primitive, count),
+                            .indexed = true,
+                            .vertex_buffer = version.memory.buffer,
+                            .vertex_offset = source.offset,
+                            .stride = source.stride,
+                            .first_vertex = 0,
+                            .index_buffer = index_version.memory.buffer,
+                            .index_offset = 0,
+                            .index_type = indices->format == kIndex32Format ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16,
+                            .first_index = first_index,
+                            .base_vertex = base_vertex};
+        const long result = record_draw(state, state_block(), call);
+        version.last_use = state.frames.serial();
+        index_version.last_use = state.frames.serial();
+        return result;
     }
     long draw_from_memory(GpuPrimitive primitive, uint32_t count, const void* vertices, uint32_t stride) override
     {
+        // (the vertices copied into the frame's ring)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         const std::size_t bytes = static_cast<std::size_t>(vertices_for(primitive, count)) * stride;
@@ -1160,7 +1304,18 @@ public:
             return state.memory.ready() ? kOk : kInvalid;
         }
         const std::span<const uint8_t> data(static_cast<const uint8_t*>(vertices), bytes);
-        return state.ring.copy(data, kRingAlignment) ? kOk : kInvalid;
+        const std::optional<RingSpan> copied = state.ring.copy(data, kRingAlignment);
+        if (!copied) {
+            return kInvalid;
+        }
+        const DrawCall call{.primitive = primitive,
+                            .vertices = vertices_for(primitive, count),
+                            .indexed = false,
+                            .vertex_buffer = copied->buffer,
+                            .vertex_offset = copied->offset,
+                            .stride = stride,
+                            .first_vertex = 0};
+        return record_draw(state, state_block(), call);
     }
     long draw_indexed_from_memory(GpuPrimitive primitive, uint32_t min_index, uint32_t vertex_count, uint32_t count,
                                   const void* indices, uint32_t index_format, const void* vertices,
@@ -1182,10 +1337,26 @@ public:
         if (indices == nullptr || vertices == nullptr || indices_size == 0 || vertices_size == 0) {
             return kOk;
         }
-        const bool copied =
-            state.ring.copy(std::span(static_cast<const uint8_t*>(indices), indices_size), kRingAlignment) &&
+        const std::optional<RingSpan> index_copy =
+            state.ring.copy(std::span(static_cast<const uint8_t*>(indices), indices_size), kRingAlignment);
+        const std::optional<RingSpan> vertex_copy =
             state.ring.copy(std::span(static_cast<const uint8_t*>(vertices), vertices_size), kRingAlignment);
-        return copied ? kOk : kInvalid;
+        if (!index_copy || !vertex_copy) {
+            return kInvalid;
+        }
+        const DrawCall call{.primitive = primitive,
+                            .vertices = vertices_for(primitive, count),
+                            .indexed = true,
+                            .vertex_buffer = vertex_copy->buffer,
+                            .vertex_offset = vertex_copy->offset,
+                            .stride = stride,
+                            .first_vertex = 0,
+                            .index_buffer = index_copy->buffer,
+                            .index_offset = index_copy->offset,
+                            .index_type = index_format == kIndex32Format ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16,
+                            .first_index = 0,
+                            .base_vertex = 0};
+        return record_draw(state, state_block(), call);
     }
 
     long begin_scene() override
@@ -1208,23 +1379,22 @@ public:
         state.in_scene = false;
         return kOk;
     }
-    // Clears: V7 (a pass's load-op clear or a clear inside it).
-    long clear(uint32_t /*rect_count*/, const GpuRect* /*rects*/, uint32_t /*flags*/, uint32_t /*colour*/, float /*z*/,
+    // A clear: the targets' pass opened clearing them (all of them, no pass open on them), or cleared inside it.
+    long clear(uint32_t rect_count, const GpuRect* rects, uint32_t flags, uint32_t colour, float z,
                uint32_t /*stencil*/) override
     {
-        return kOk;
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        const std::span<const GpuRect> areas =
+            rects != nullptr ? std::span(rects, rect_count) : std::span<const GpuRect>();
+        return record_clear(state, state_block(), areas, {.flags = flags, .colour = colour, .z = z});
     }
     long present() override
     {
-        // Nothing is shown before V7: the frame ends (the ring starts the next frame's buffer).
+        // The back buffer copied into the swapchain and shown; the frame's work submitted (vulkan_frames.h).
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
-        ++state.frame;
-        state.completed_frame = state.frame;
-        if (state.memory.ready()) {
-            state.ring.begin_frame(static_cast<uint32_t>(state.frame % Context::kFramesInFlight));
-        }
-        return kOk;
+        return record_present(state);
     }
     void set_gamma_ramp(const GpuGammaRamp& ramp) override
     {
@@ -1234,7 +1404,7 @@ public:
     }
     long test_cooperative_level() override
     {
-        // (V7: the lost value after a present that found the swapchain out of date)
+        // (never lost: a swapchain out of date is made again by the present, and the back buffer is the Gpu's own)
         return kOk;
     }
 
@@ -1316,7 +1486,7 @@ long create_device_objects(Backend& state)
         return kInvalid;
     }
     state.samplers.init(state.context.device(), state.sampler_limits);
-    if (!state.ring.init(&state.memory)) {
+    if (!state.ring.init(&state.memory) || !create_draw_objects(state)) {
         return kInvalid;
     }
     // the back buffer (drawn into, presented by V7) and the depth surface the present parameters ask for
@@ -1355,6 +1525,7 @@ void release_device_objects(Backend& state)
     if (!state.memory.ready()) {
         return;
     }
+    finish_work(state);
     vkDeviceWaitIdle(state.memory.device());
     state.textures.for_each([&state](Texture* texture) { state.memory.destroy_image(&texture->image); });
     state.surfaces.for_each([&state](Surface* surface) { state.memory.destroy_image(&surface->image); });
@@ -1379,6 +1550,7 @@ void release_device_objects(Backend& state)
     state.depth = nullptr;
     state.streams.fill({});
     state.indices = nullptr;
+    release_draw_objects(state);
     state.ring.shutdown();
     state.samplers.clear();
     state.memory.shutdown();
@@ -1391,7 +1563,7 @@ bool read_texture_level(GpuTexture* texture, uint32_t level, std::vector<uint8_t
     Backend& state = backend();
     const std::scoped_lock lock(state.mutex);
     Texture* const kept = object(texture);
-    if (level >= kept->image.levels) {
+    if (level >= kept->image.levels || !finish_work(state)) {
         return false;
     }
     const Extent extent = level_extent(texture_extent(*kept), level);
@@ -1416,7 +1588,7 @@ namespace {
 bool read_buffer_memory(Backend& state, const Buffer* buffer, std::vector<uint8_t>* bytes)
 {
     const DeviceBuffer& memory = core::at(buffer->versions, buffer->current).memory;
-    return state.memory.read_buffer(memory, 0, buffer->bytes, bytes);
+    return finish_work(state) && state.memory.read_buffer(memory, 0, buffer->bytes, bytes);
 }
 } // namespace
 

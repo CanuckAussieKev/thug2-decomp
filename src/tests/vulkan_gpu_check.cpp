@@ -686,7 +686,7 @@ void check_buffers(render::Gpu& gpu, Tally* tally)
                  "a no-overwrite lock writes beside what is there");
     render::vulkan::Buffer* kept = render::vulkan::object(dynamic);
     core::at(kept->versions, kept->current).last_use =
-        state.completed_frame + 1; // (as if a frame not finished drew it)
+        state.frames.completed() + 1; // (as if a frame not finished drew it)
     const std::vector<uint8_t> second = pattern_bytes(Seed{5}, kBufferBytes);
     ok = lock_write(gpu, dynamic, {0, 0, value::kLockDiscard}, second);
     const bool renamed = kept->versions.size() == 2 && kept->current == 1;
@@ -747,11 +747,13 @@ void check_others(render::Gpu& gpu, Tally* tally)
     ok = ok && state.query_pools.size() == 2 &&
          gpu.query_result(first, &pixels, sizeof(pixels), 0) == value::kResultNotFound &&
          gpu.begin_query(first) == value::kResultOk && gpu.end_query(first) == value::kResultOk &&
-         gpu.query_result(first, &pixels, sizeof(pixels), 0) == value::kResultOk && pixels == 0;
+         gpu.query_result(first, &pixels, sizeof(pixels), 0) == value::kResultNotReady;
     for (render::GpuQuery* query : queries) {
         ok = gpu.release_query(query) == 0 && ok;
     }
-    tally->check(ok, text::format("%u occlusion queries in %u pools; one begun and ended: 0 pixels", kQueryCount,
+    tally->check(ok, text::format("%u occlusion queries in %u pools; one begun and ended: not ready before its frame "
+                                  "is submitted",
+                                  kQueryCount,
                                   static_cast<uint32_t>(state.query_pools.size())));
 
     const VkSampler point = render::vulkan::stage_sampler(0);
@@ -813,6 +815,122 @@ void check_others(render::Gpu& gpu, Tally* tally)
 
 // Two threads at once: textures made, filled and released on one, states set and draws from memory on the other (the
 // loading screen's timer thread draws while the main thread loads).
+// --- draws -------------------------------------------------------------------------------------------------------
+
+// A pre-transformed vertex with a colour (D3DFVF_XYZRHW | D3DFVF_DIFFUSE).
+struct ScreenVertex {
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
+    float rhw = 1.0F;
+    uint32_t colour = 0;
+};
+constexpr uint32_t kScreenFvf = 0x004U | 0x040U;
+constexpr uint32_t kClearBlue = 0xFF000080U;  // (A8R8G8B8)
+constexpr uint32_t kDrawnGreen = 0xFF00C000U;
+constexpr uint32_t kDrawnRed = 0xFFC00000U;
+constexpr int kPresentsForResult = 8;
+
+// The back buffer's pixel at (x, y) as A8R8G8B8 (its bytes are B, G, R, A).
+uint32_t pixel_at(const std::vector<uint8_t>& pixels, uint32_t x, uint32_t y)
+{
+    const std::size_t at = ((static_cast<std::size_t>(y) * kWindowWidth) + x) * kPixelBytes;
+    uint32_t value = 0;
+    for (std::size_t byte = 0; byte < kPixelBytes; ++byte) {
+        value |= static_cast<uint32_t>(core::at(pixels, at + byte)) << (byte * kBitsPerByte);
+    }
+    return value;
+}
+
+// A rectangle of the screen as two triangles (a strip).
+std::array<ScreenVertex, 4> screen_rect(float left, float top, float right, float bottom, uint32_t colour)
+{
+    return {{{.x = left, .y = top, .colour = colour},
+             {.x = right, .y = top, .colour = colour},
+             {.x = left, .y = bottom, .colour = colour},
+             {.x = right, .y = bottom, .colour = colour}}};
+}
+
+// The draws end to end: a clear opening the back buffer's pass, a pre-transformed strip from memory inside an occlusion
+// query (the vertex colour through stage 0), an indexed draw from memory, the frame presented; the back buffer read
+// back and the query's pixels counted.
+void check_draws(render::Gpu& gpu, Tally* tally)
+{
+    text::print("draws:\n");
+    using render::GpuRenderState;
+    using render::GpuStageState;
+    const auto width = static_cast<float>(kWindowWidth);
+    const auto height = static_cast<float>(kWindowHeight);
+    gpu.set_viewport({.x = 0, .y = 0, .width = kWindowWidth, .height = kWindowHeight, .min_z = 0.0F, .max_z = 1.0F});
+    gpu.set_render_state(GpuRenderState::kZEnable, 0);
+    gpu.set_render_state(GpuRenderState::kLighting, 0);
+    gpu.set_render_state(GpuRenderState::kCullMode, value::kCullNone);
+    gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+    gpu.set_vertex_format(kScreenFvf);
+    gpu.set_pixel_shader(nullptr);
+    gpu.set_stage_state(0, GpuStageState::kColourOp, value::kOpSelectArg1);
+    gpu.set_stage_state(0, GpuStageState::kColourArg1, value::kArgDiffuse);
+    gpu.set_stage_state(0, GpuStageState::kAlphaOp, value::kOpSelectArg1);
+    gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgDiffuse);
+    gpu.set_stage_state(1, GpuStageState::kColourOp, value::kOpDisable);
+    gpu.set_stage_state(1, GpuStageState::kAlphaOp, value::kOpDisable);
+    bool ok = gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, kClearBlue, 1.0F, 0) == value::kResultOk;
+    render::GpuQuery* query = nullptr;
+    ok = ok && gpu.create_occlusion_query(&query) == value::kResultOk && gpu.begin_query(query) == value::kResultOk;
+    // the left half green
+    const std::array<ScreenVertex, 4> left = screen_rect(0.0F, 0.0F, width / 2, height, kDrawnGreen);
+    ok = ok && gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, left.data(), sizeof(ScreenVertex)) ==
+                   value::kResultOk;
+    ok = ok && gpu.end_query(query) == value::kResultOk;
+    // the right half's top quarter red: indexed, two triangles
+    const std::array<ScreenVertex, 4> corner = screen_rect(width / 2, 0.0F, width, height / 4, kDrawnRed);
+    constexpr std::array<uint16_t, 6> kIndices{0, 1, 2, 2, 1, 3};
+    ok = ok && gpu.draw_indexed_from_memory(render::GpuPrimitive::kTriangleList, 0, 4, 2, kIndices.data(),
+                                            value::kFormatIndex16, corner.data(),
+                                            sizeof(ScreenVertex)) == value::kResultOk;
+    ok = ok && gpu.present() == value::kResultOk;
+    uint32_t pixels = 0;
+    long result = value::kResultNotReady;
+    for (int frame = 0; ok && frame < kPresentsForResult && result != value::kResultOk; ++frame) {
+        result = gpu.query_result(query, &pixels, sizeof(pixels), 0);
+        if (result != value::kResultOk) {
+            ok = gpu.present() == value::kResultOk;
+        }
+    }
+    const uint32_t half = (kWindowWidth / 2) * kWindowHeight;
+    tally->check(ok && result == value::kResultOk && pixels == half,
+                 text::format("an occlusion query around a draw: %u pixels (%u expected)", pixels, half));
+    if (query != nullptr) {
+        gpu.release_query(query);
+    }
+    render::GpuSurface* back = nullptr;
+    std::vector<uint8_t> shown;
+    ok = gpu.back_buffer(&back) == value::kResultOk && render::vulkan::read_surface(back, &shown) &&
+         shown.size() == static_cast<std::size_t>(kWindowWidth) * kWindowHeight * kPixelBytes;
+    if (back != nullptr) {
+        gpu.release_surface(back);
+    }
+    const auto at = [&shown](uint32_t x, uint32_t y) { return pixel_at(shown, x, y); };
+    constexpr uint32_t kRgb = 0x00FFFFFFU;
+    constexpr uint32_t kInside = 10; // (a pixel well inside the left half)
+    ok = ok && (at(kInside, kInside) & kRgb) == (kDrawnGreen & kRgb) &&
+         (at((kWindowWidth / 2) - 1, kWindowHeight - 1) & kRgb) == (kDrawnGreen & kRgb);
+    tally->check(ok, text::format("a pre-transformed strip from memory: the left half 0x%08X",
+                                  ok ? at(kInside, kInside) : 0U));
+    const bool corner_ok = ok && (at(kWindowWidth - 1, 0) & kRgb) == (kDrawnRed & kRgb) &&
+                           (at(kWindowWidth / 2, (kWindowHeight / 4) - 1) & kRgb) == (kDrawnRed & kRgb) &&
+                           (at(kWindowWidth / 2, kWindowHeight / 4) & kRgb) == (kClearBlue & kRgb);
+    tally->check(corner_ok, text::format("an indexed draw from memory: the top right quarter 0x%08X",
+                                         ok ? at(kWindowWidth - 1, 0) : 0U));
+    const bool clear_ok = ok && (at(kWindowWidth - 1, kWindowHeight - 1) & kRgb) == (kClearBlue & kRgb);
+    tally->check(clear_ok, text::format("the clear that opened the pass: the rest 0x%08X",
+                                        ok ? at(kWindowWidth - 1, kWindowHeight - 1) : 0U));
+    const render::vulkan::Backend& state = render::vulkan::backend();
+    tally->check(state.pipelines.stats().pipelines >= 1 && state.pipelines.stats().refused == 0,
+                 text::format("pipelines made: %u, refused: %u", static_cast<unsigned>(state.pipelines.stats().pipelines),
+                              static_cast<unsigned>(state.pipelines.stats().refused)));
+}
+
 void check_threads(render::Gpu& gpu, Tally* tally)
 {
     text::print("threads:\n");
@@ -911,6 +1029,7 @@ int run(const Options& options, SDL_Window* window)
     check_surfaces(gpu, context, &tally);
     check_buffers(gpu, &tally);
     check_others(gpu, &tally);
+    check_draws(gpu, &tally);
     check_threads(gpu, &tally);
 
     const VmaTotalStatistics after = state.memory.statistics();

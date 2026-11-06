@@ -10,6 +10,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_pixel_program.h"
 
 // NOT ORIGINAL - the Vulkan Gpu's objects behind the engine's handles (engine/gfx/gpu_handles.h): each handle is the
 // address of one of these, as a Direct3D 9 handle is its COM object's. They count references the way Direct3D 9's
@@ -65,7 +66,7 @@ struct Surface {
 // A version of a dynamic buffer's memory: a discard moves to a free one when the device may still read this one.
 struct BufferVersion {
     DeviceBuffer memory;
-    uint64_t last_use = 0; // the frame that last drew from it (V7's draws set it)
+    uint64_t last_use = 0; // the last submission that drew from it or copied into it (vulkan_frames.h)
 };
 
 // A vertex or index buffer (GpuVertexBuffer, GpuIndexBuffer). A static one is device memory with a system-memory copy
@@ -87,10 +88,11 @@ struct Buffer {
     uint32_t lock_bytes = 0;
 };
 
-// A pixel shader (GpuPixelShader): its ps.1.1 text, which V7 reads (the program it stands for: ff_key.h's PixelProgram).
+// A pixel shader (GpuPixelShader): its ps.1.1 text, and the program it stands for (vulkan_pixel_program.h).
 struct PixelShader {
     uint32_t refs = 1;
     std::string source;
+    ShaderProgram program;
 };
 
 // An occlusion query (GpuQuery): a slot of a query pool.
@@ -98,8 +100,12 @@ struct Query {
     uint32_t refs = 1;
     VkQueryPool pool = VK_NULL_HANDLE;
     uint32_t slot = 0;
+    uint32_t index = 0;  // in the backend's slots (pool x kQueriesPerPool + slot)
+    bool fresh = false;  // reset, not begun since
     bool begun = false;
     bool ended = false;
+    bool recorded = false;   // begun in a pass (else it ended without drawing: 0 pixels)
+    uint64_t submission = 0; // the submission it ended in (its result is there once that one has run)
 };
 
 namespace detail {

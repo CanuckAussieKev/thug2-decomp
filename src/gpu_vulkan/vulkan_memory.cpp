@@ -38,6 +38,47 @@ VkImageLayout resting_layout(const ImageRequest& request)
     return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 }
 
+// What a layout's image is used for: the stages, their accesses, and the writes among them (what a later use waits for).
+struct LayoutUse {
+    VkPipelineStageFlags stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkAccessFlags access = 0;
+    VkAccessFlags writes = 0;
+};
+LayoutUse use_of(VkImageLayout layout)
+{
+    switch (layout) {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+        return {};
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        return {.stages = VK_PIPELINE_STAGE_TRANSFER_BIT,
+                .access = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .writes = VK_ACCESS_TRANSFER_WRITE_BIT};
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        return {.stages = VK_PIPELINE_STAGE_TRANSFER_BIT, .access = VK_ACCESS_TRANSFER_READ_BIT, .writes = 0};
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        return {.stages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .access = VK_ACCESS_SHADER_READ_BIT, .writes = 0};
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+        return {.stages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                          VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                .access = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+                .writes = 0};
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        return {.stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .access = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                .writes = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT};
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        return {.stages = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                .access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                .writes = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT};
+    case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+        return {.stages = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, .access = 0, .writes = 0};
+    default:
+        return {.stages = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                .access = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                .writes = VK_ACCESS_MEMORY_WRITE_BIT};
+    }
+}
+
 VkImageSubresourceLayers level_layers(const Image& image, uint32_t level)
 {
     return {.aspectMask = image.aspect, .mipLevel = level, .baseArrayLayer = 0, .layerCount = 1};
@@ -181,17 +222,18 @@ bool Memory::submit_now(const std::function<void(VkCommandBuffer)>& record)
     return vkWaitForFences(device_, 1, &done_, VK_TRUE, kNoTimeout) == VK_SUCCESS;
 }
 
-void Memory::transition(VkCommandBuffer commands, Image* image, VkImageLayout layout)
+void Memory::transition(VkCommandBuffer commands, Image* image, VkImageLayout layout, bool always)
 {
-    if (image->layout == layout) {
+    if (image->layout == layout && !always) {
         return;
     }
-    // (every earlier access before every later one: these are the transfers' own barriers, not a frame's)
+    const LayoutUse before = use_of(image->layout);
+    const LayoutUse after = use_of(layout);
     const VkImageMemoryBarrier barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .pNext = nullptr,
-        .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+        .srcAccessMask = before.writes,
+        .dstAccessMask = after.access,
         .oldLayout = image->layout,
         .newLayout = layout,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -203,8 +245,7 @@ void Memory::transition(VkCommandBuffer commands, Image* image, VkImageLayout la
                              .baseArrayLayer = 0,
                              .layerCount = 1},
     };
-    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
-                         nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(commands, before.stages, after.stages, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     image->layout = layout;
 }
 
@@ -266,12 +307,11 @@ bool Memory::create_image(const ImageRequest& request, Image* image)
         ((request.usage & VK_IMAGE_USAGE_SAMPLED_BIT) == 0 || image->view != VK_NULL_HANDLE) &&
         ((request.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) == 0 ||
          image->attachment_view != VK_NULL_HANDLE);
-    if (!views_made ||
-        !submit_now([image](VkCommandBuffer commands) { transition(commands, image, image->resting); })) {
+    if (!views_made) {
         destroy_image(image);
         return false;
     }
-    return true;
+    return true; // (undefined until its first use: the caller records the move to its resting layout)
 }
 
 void Memory::destroy_image(Image* image)
@@ -338,28 +378,17 @@ void Memory::flush(const DeviceBuffer& buffer, VkDeviceSize offset, VkDeviceSize
     vmaFlushAllocation(allocator_, buffer.allocation, offset, bytes);
 }
 
-bool Memory::upload_image_level(Image* image, uint32_t level, std::span<const uint8_t> texels)
+void Memory::record_upload_level(VkCommandBuffer commands, Image* image, uint32_t level, const Staged& from)
 {
-    DeviceBuffer staging;
-    if (!create_buffer(texels.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferPlace::kUpload, &staging)) {
-        return false;
-    }
-    std::ranges::copy(texels, mapped_bytes(staging).begin());
-    flush(staging, 0, staging.bytes);
-    const bool done = submit_now([&](VkCommandBuffer commands) {
-        transition(commands, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        const VkBufferImageCopy region{.bufferOffset = 0,
-                                       .bufferRowLength = 0,
-                                       .bufferImageHeight = 0,
-                                       .imageSubresource = level_layers(*image, level),
-                                       .imageOffset = {.x = 0, .y = 0, .z = 0},
-                                       .imageExtent = level_size(*image, level)};
-        vkCmdCopyBufferToImage(commands, staging.buffer, image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                               &region);
-        transition(commands, image, image->resting);
-    });
-    destroy_buffer(&staging);
-    return done;
+    transition(commands, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    const VkBufferImageCopy region{.bufferOffset = from.offset,
+                                   .bufferRowLength = 0,
+                                   .bufferImageHeight = 0,
+                                   .imageSubresource = level_layers(*image, level),
+                                   .imageOffset = {.x = 0, .y = 0, .z = 0},
+                                   .imageExtent = level_size(*image, level)};
+    vkCmdCopyBufferToImage(commands, from.buffer, image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    transition(commands, image, image->resting);
 }
 
 bool Memory::read_image_level(Image* image, uint32_t level, std::vector<uint8_t>* texels)
@@ -389,25 +418,6 @@ bool Memory::read_image_level(Image* image, uint32_t level, std::vector<uint8_t>
     return done;
 }
 
-bool Memory::upload_buffer(const DeviceBuffer& buffer, VkDeviceSize offset, std::span<const uint8_t> bytes)
-{
-    if (bytes.empty()) {
-        return true;
-    }
-    DeviceBuffer staging;
-    if (!create_buffer(bytes.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferPlace::kUpload, &staging)) {
-        return false;
-    }
-    std::ranges::copy(bytes, mapped_bytes(staging).begin());
-    flush(staging, 0, staging.bytes);
-    const bool done = submit_now([&](VkCommandBuffer commands) {
-        const VkBufferCopy region{.srcOffset = 0, .dstOffset = offset, .size = bytes.size()};
-        vkCmdCopyBuffer(commands, staging.buffer, buffer.buffer, 1, &region);
-    });
-    destroy_buffer(&staging);
-    return done;
-}
-
 bool Memory::read_buffer(const DeviceBuffer& buffer, VkDeviceSize offset, VkDeviceSize bytes, std::vector<uint8_t>* out)
 {
     DeviceBuffer read_back;
@@ -427,37 +437,34 @@ bool Memory::read_buffer(const DeviceBuffer& buffer, VkDeviceSize offset, VkDevi
     return done;
 }
 
-bool Memory::blit(Image* source, const ImageArea& from, Image* target, const ImageArea& to, VkFilter filter)
+void Memory::record_blit(VkCommandBuffer commands, Image* source, const ImageArea& from, Image* target,
+                         const ImageArea& to, VkFilter filter)
 {
-    return submit_now([&](VkCommandBuffer commands) {
-        transition(commands, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        transition(commands, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        const VkImageBlit region{.srcSubresource = level_layers(*source, from.level),
-                                 .srcOffsets = {from.corners.front(), from.corners.back()},
-                                 .dstSubresource = level_layers(*target, to.level),
-                                 .dstOffsets = {to.corners.front(), to.corners.back()}};
-        vkCmdBlitImage(commands, source->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target->image,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, filter);
-        transition(commands, source, source->resting);
-        transition(commands, target, target->resting);
-    });
+    transition(commands, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    transition(commands, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    const VkImageBlit region{.srcSubresource = level_layers(*source, from.level),
+                             .srcOffsets = {from.corners.front(), from.corners.back()},
+                             .dstSubresource = level_layers(*target, to.level),
+                             .dstOffsets = {to.corners.front(), to.corners.back()}};
+    vkCmdBlitImage(commands, source->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target->image,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, filter);
+    transition(commands, source, source->resting);
+    transition(commands, target, target->resting);
 }
 
-bool Memory::resolve(Image* source, Image* target)
+void Memory::record_resolve(VkCommandBuffer commands, Image* source, Image* target)
 {
-    return submit_now([&](VkCommandBuffer commands) {
-        transition(commands, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        transition(commands, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        const VkImageResolve region{.srcSubresource = level_layers(*source, 0),
-                                    .srcOffset = {.x = 0, .y = 0, .z = 0},
-                                    .dstSubresource = level_layers(*target, 0),
-                                    .dstOffset = {.x = 0, .y = 0, .z = 0},
-                                    .extent = level_size(*source, 0)};
-        vkCmdResolveImage(commands, source->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target->image,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        transition(commands, source, source->resting);
-        transition(commands, target, target->resting);
-    });
+    transition(commands, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    transition(commands, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    const VkImageResolve region{.srcSubresource = level_layers(*source, 0),
+                                .srcOffset = {.x = 0, .y = 0, .z = 0},
+                                .dstSubresource = level_layers(*target, 0),
+                                .dstOffset = {.x = 0, .y = 0, .z = 0},
+                                .extent = level_size(*source, 0)};
+    vkCmdResolveImage(commands, source->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target->image,
+                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    transition(commands, source, source->resting);
+    transition(commands, target, target->resting);
 }
 
 } // namespace render::vulkan

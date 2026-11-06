@@ -11,7 +11,9 @@
 #include <cstdint>
 #include <mutex>
 #include <span>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <volk.h>
 
 #include "base/core/no_destroy.h"
@@ -19,6 +21,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "platform/run_log.h"
 #include "platform/sdl_window.h"
 
 namespace render::vulkan {
@@ -178,7 +181,7 @@ public:
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
-        return state.device_made && state.context.remake();
+        return state.device_made && finish_work(state) && state.context.remake();
     }
 
     void shutdown() override
@@ -199,6 +202,25 @@ GpuContext& gpu_context()
 {
     static core::NoDestroy<VulkanContext> context;
     return context.get();
+}
+
+namespace {
+void log_message(const std::string& text) { get_log("vulkan: %s", text.c_str()); }
+} // namespace
+
+Usable usable(int device_index)
+{
+    DeviceProbe probe = probe_device(device_index);
+    return {.usable = probe.usable, .device = std::move(probe.device), .problem = std::move(probe.problem)};
+}
+
+void configure(int device_index, const std::string& cache_folder)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    state.options.device_index = device_index;
+    state.options.on_message = log_message;
+    state.cache_folder = cache_folder;
 }
 
 void set_context_options(const ContextOptions& options, SDL_Window* window)

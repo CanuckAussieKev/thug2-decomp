@@ -27,6 +27,9 @@ struct RingSpan {
 class UploadRing {
 public:
     static constexpr VkDeviceSize kFirstBytes = 1U << 20U; // each frame's buffer to begin with
+    static constexpr VkBufferUsageFlags kDrawUsage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     UploadRing() = default;
     UploadRing(const UploadRing&) = delete;
@@ -35,7 +38,8 @@ public:
     UploadRing& operator=(UploadRing&&) = delete;
     ~UploadRing() = default;
 
-    bool init(Memory* memory);
+    // The draws' ring (vertices, indices, uniform blocks), or with `usage` another kind (the uploads' staging).
+    bool init(Memory* memory, VkBufferUsageFlags usage = kDrawUsage);
     void shutdown();
     // The next frame in flight's buffer, from its start (its earlier frame has been waited for).
     void begin_frame(uint32_t frame);
@@ -51,6 +55,7 @@ private:
         std::vector<DeviceBuffer> retired; // outgrown this frame: released when the frame comes round again
     };
     Memory* memory_ = nullptr;
+    VkBufferUsageFlags usage_ = kDrawUsage;
     std::array<FrameBuffers, Context::kFramesInFlight> frames_{};
     uint32_t frame_ = 0;
     VkDeviceSize used_ = 0;

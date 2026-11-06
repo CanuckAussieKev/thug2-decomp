@@ -22,6 +22,8 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_pixel_program.cpp
     vulkan_draw_state.cpp
     vulkan_pipelines.cpp
+    vulkan_frames.cpp
+    vulkan_draws.cpp
     vulkan_gpu.cpp
     vulkan_gpu_context.cpp
 )
