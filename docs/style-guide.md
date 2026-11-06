@@ -258,6 +258,9 @@ exceptions, all in one place:
   (the original's `count * 4`), a record made in stack bytes `alignas(T) std::array<uint8_t, sizeof(T)>`. A fixed
   region's or heap's size goes through `memory::sizes::region_bytes` (the original's on the 32-bit build, twice it
   on x64).
+- **A callback an SDK calls through a plain pointer** (`code_address`, `game_spy::HookFn`, `core::gathered`) takes the
+  SDK typedef's parameter types exactly - a 64-bit count or `time_t` as one 64-bit parameter, never two 32-bit words
+  (the same stack on x86; one register on x64) - since nothing checks it.
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
 - **Constructor bodies in the original's order**: members are initialised in the list or by a default member
