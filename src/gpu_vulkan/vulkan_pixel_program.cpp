@@ -170,20 +170,31 @@ std::optional<ShaderProgram> material_program(const std::vector<std::string>& li
             return std::nullopt;
         }
         bool texture_alpha = false;
+        bool alpha_line = true;
         if (next_is(text::format("+movr1.a,t%u", pass))) {
             texture_alpha = true;
         } else if (!next_is(text::format("+mul_x2r1.a,v0.a,t%u.a", pass)) &&
                    !next_is(text::format("+mul_x2_satr1.a,v0.a,t%u.a", pass))) {
-            // (no alpha line: a mode that blends by the previous pass's alpha, 0xC / 0xD)
+            alpha_line = false; // (no alpha line: a mode that blends by the previous pass's alpha, 0xC / 0xD)
         }
+        // Without an alpha line the modes that blend by the pass before's alpha come first: after pass 1 their
+        // lines read r1 as mode 5's and 1's do ("lrp r0.rgb,r1.a,r1,r0" is 0xC's there too), and r1.a then still
+        // holds the pass before's alpha - read as mode 5, the pass took the vertex alpha instead (seen in BO: a
+        // four-pass material's third pass, its wood drawn almost black).
         uint32_t mode = 0; // (a mode without a blend line: nothing blended)
-        for (uint32_t candidate = 1; candidate <= kLastMode; ++candidate) {
+        const auto try_mode = [&](uint32_t candidate) {
             const std::optional<std::string> line =
                 blend_line(candidate, {.pass = pass, .reg = "r1", .previous = previous});
-            if (line && next_is(squeezed_line(*line))) {
+            if (mode == 0 && line && next_is(squeezed_line(*line))) {
                 mode = candidate;
-                break;
             }
+        };
+        if (!alpha_line) {
+            try_mode(kBlendModeLerpPrevious);
+            try_mode(kBlendModeLerpFromPrevious);
+        }
+        for (uint32_t candidate = 1; candidate <= kLastMode && mode == 0; ++candidate) {
+            try_mode(candidate);
         }
         if (texture_alpha && mode != kBlendModeLerpPrevious && mode != kBlendModeLerpFromPrevious) {
             made.material_alpha_flags = static_cast<uint8_t>(made.material_alpha_flags | (1U << pass));

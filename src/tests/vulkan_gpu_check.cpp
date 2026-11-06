@@ -1135,6 +1135,42 @@ void check_unlit(render::Gpu& gpu, Tally* tally)
     gpu.reset_state_block();
 }
 
+// A material's text whose third pass blends by the pass before's alpha (mode 0xC: no alpha line, and its lerp line
+// reads as mode 5's after pass 1) - the generator's text for a four-pass material in BO.
+void check_material_text(render::Gpu& gpu, Tally* tally)
+{
+    text::print("material texts:\n");
+    constexpr std::string_view kText =
+                                         "ps.1.1\n"
+                                         "tex t0\n"
+                                         "tex t1\n"
+                                         "tex t2\n"
+                                         "tex t3\n"
+                                         "mov r0.a, t0.a\n"
+                                         "+mul_x2 r0.rgb, c0, t0\n"
+                                         "mul_x2 r1.rgb, c1, t1\n"
+                                         "+mov r1.a, t1\n"
+                                         "lrp r0.rgb,r1.a,r1,r0\n"
+                                         "mul_x2 r1.rgb, c2, t2\n"
+                                         "lrp r0.rgb, r1.a, r1, r0\n"
+                                         "mul_x2 r1.rgb, c3, t3\n"
+                                         "+mul_x2 r1.a, v0.a, t3.a\n"
+                                         "mad r0.rgb,r1,-r1.a,r0\n"
+                                         "mul_x2 r0.rgb, r0, v0\n";
+    render::GpuPixelShader* shader = nullptr;
+    const bool made = gpu.create_pixel_shader(kText.data(), static_cast<uint32_t>(kText.size()), &shader) == value::kResultOk;
+    const render::vulkan::ShaderProgram program = made ? render::vulkan::object(shader)->program : render::vulkan::ShaderProgram{};
+    constexpr std::array<uint8_t, 4> kModes{0, 5, 0xC, 3};
+    tally->check(made && program.known && program.program == render::vulkan::PixelProgram::kMaterial &&
+                     program.material_passes == 4 && program.material_modes == kModes && program.material_alpha_flags == 3,
+                 text::format("a pass without an alpha line read as mode 0xC: modes %u %u %u, alpha flags %u",
+                              program.material_modes[1], program.material_modes[2], program.material_modes[3],
+                              program.material_alpha_flags));
+    if (shader != nullptr) {
+        gpu.release_pixel_shader(shader);
+    }
+}
+
 // The gamma ramp: the identity changes nothing (no pass); a ramp that halves every value, put through the pass, halves
 // a render target's pixels (each entry's top 8 bits); the ramp put back.
 void check_gamma(render::Gpu& gpu, Tally* tally)
@@ -1555,6 +1591,7 @@ int run(const Options& options, SDL_Window* window)
     check_unbound_texture(gpu, &tally);
     check_target_chain(gpu, &tally);
     check_unlit(gpu, &tally);
+    check_material_text(gpu, &tally);
     check_gamma(gpu, &tally);
     check_ui(gpu, &tally);
     check_threads(gpu, &tally);
