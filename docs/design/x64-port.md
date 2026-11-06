@@ -366,6 +366,26 @@ changed or was checked:
   free lists and the item pools hold pointers and are sized by `sizeof`; the timers are 64-bit counters.
 - `engine/util/lzss.cpp`'s match tree takes a 32-bit byte count (its runs are small).
 
+**Done in X12c** (`engine/` script, net, audio, sound, pad_input, media; `engine` x64-ready): clang-tidy with the
+x86_64 target over the six folders' 77 translation units finds nothing after the fixes below, and `THUG2_X64_READY`
+lists `engine` and the libraries that build on it - `net_winsock`, `render_pc`, `gpu_d3d9`, `gpu_vulkan`,
+`audio_dsound`, `media_ffmpeg`, `input_dinput`, `fs_win32`, `script_qb`. The x64 configure builds them all with no
+warning and links every check whose libraries they are (the Vulkan checks included). `media_bink` stays x86-only
+(binkw32.dll is 32-bit); `game/` and the layers above it are X12d / X12e. What changed or was checked:
+- **The .qb files' checksum-name table:** 0x1000 buckets of {checksum, name, next}, allocated as 0x1000 x 12 bytes.
+  The bucket holds two pointers, 24 bytes on x64, so the table is sized by the record now (the same 0xC000 bytes on
+  x86, asserted); on x64 the fixed size gave half the table it was used as.
+- **The token reader's random choices:** the offsets into a `Random` block's tables are multiplied as `ptrdiff_t`
+  (the same arithmetic on x86). The block's jumps are forward 32-bit offsets read from the script, as on x86.
+- **Checked, nothing to change:** every `fetch_part` / `word()` in the six folders reads an array or component whose
+  kind is checked as an integer or a name first (structures, arrays, strings, pairs and vectors go through their own
+  accessors); the network's messages carry 32-bit values (timestamps, sequence numbers, latencies), its connections
+  are numbered handles, addresses are `sockaddr_in`'s 16 bytes, and its records are allocated by `sizeof` (a
+  connection's block the larger of the original's 0x3D20 bytes and the record); the sound's records (waves, slots,
+  playing sounds, streams) are allocated by `sizeof` or held in arrays of their type, a wave's buffer description
+  is DirectSound's size for the build (0x24 / 0x28) and the backends' sound objects are pointers; the controllers'
+  recordings (`PadFrameRecord`) hold no pointers; the movie codec's handles are pointers.
+
 ### CMake and presets
 
 - `CMakePresets.json` has `x86-debug` / `x86-release` only. The root `CMakeLists.txt` refuses other architectures and
