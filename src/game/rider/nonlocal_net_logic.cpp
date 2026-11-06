@@ -214,9 +214,9 @@ void RiderRemoteSync::settle_onto_floor()
         if (height > 0.0F) {
             // Above it: only within this frame's move times the slope between the two grounds (at least
             // Physics_Ground_Snap_Down).
-            const float angle = std::acos(turn);
+            const float angle = maths::runtime32::acos(turn);
             const maths::Vec4 move = skater->at_point() - last_pos_;
-            const float slope = std::tan(angle);
+            const float slope = maths::runtime32::tan(angle);
             // (its length unrounded, as Vec4::len_of's x87 code leaves it)
             const double length =
                 std::sqrt(((static_cast<double>(move.x) * move.x) + (static_cast<double>(move.y) * move.y)) +

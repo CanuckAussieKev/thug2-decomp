@@ -53,6 +53,7 @@
 #include "base/maths/vec4.h"
 #include "engine/script/qb.h"
 #include "editor/level_editor_chains_internal.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::chains {
 // What the source file's anonymous namespace held that its pieces share (level_editor_chains_internal.h): visible
@@ -265,10 +266,10 @@ float facing_into_wall(V3 normal)
     if (!(length > kTinyLength)) {
         return 0.0F;
     }
-    return std::atan2(-normal.x / length, -normal.z / length);
+    return maths::runtime32::atan2(-normal.x / length, -normal.z / length);
 }
 
-V3 facing_direction(float facing) { return {.x = std::sin(facing), .y = 0.0F, .z = std::cos(facing)}; }
+V3 facing_direction(float facing) { return {.x = maths::runtime32::sin(facing), .y = 0.0F, .z = maths::runtime32::cos(facing)}; }
 
 bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from, float* ground_y)>& ground_at, V3* foot)
 {
@@ -703,7 +704,7 @@ float heading_of_climb(const maths::Vec4& climb)
 {
     maths::Mat4 matrix;
     maths::quat_to_matrix(climb, &matrix);
-    return std::atan2(core::at(matrix.row, 2).x, core::at(matrix.row, 2).z);
+    return maths::runtime32::atan2(core::at(matrix.row, 2).x, core::at(matrix.row, 2).z);
 }
 
 } // namespace

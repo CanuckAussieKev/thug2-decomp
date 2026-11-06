@@ -498,11 +498,11 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
         if (!get_to_pixel(frame, transform_session().transform_pivot_, &px, &py)) {
             return;
         }
-        transform_session().rot_last_ = std::atan2(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py);
+        transform_session().rot_last_ = maths::runtime32::atan2(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py);
         if (get_to_pixel(frame, transform_session().transform_pivot_ + V3{.x = 0.0F, .y = 0.0F, .z = reach}, &ax, &ay) &&
             get_to_pixel(frame, transform_session().transform_pivot_ + V3{.x = reach, .y = 0.0F, .z = 0.0F}, &bx, &by)) {
             transform_session().rot_sign_ =
-                xform::get_wrap(std::atan2(bx - px, by - py) - std::atan2(ax - px, ay - py)) < 0.0F ? -1.0F : 1.0F;
+                xform::get_wrap(maths::runtime32::atan2(bx - px, by - py) - maths::runtime32::atan2(ax - px, ay - py)) < 0.0F ? -1.0F : 1.0F;
         }
         return;
     }
@@ -540,7 +540,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
             }
         } else if (get_to_pixel(frame, transform_session().transform_pivot_, &px, &py) &&
                    std::hypot(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py) > kMinRotDragPixels) {
-            angle = std::atan2(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py);
+            angle = maths::runtime32::atan2(transform_session().cursor_x_ - px, transform_session().cursor_y_ - py);
             have = true;
         }
         if (have) {

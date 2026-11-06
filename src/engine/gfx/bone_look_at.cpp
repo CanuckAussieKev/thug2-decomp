@@ -13,6 +13,7 @@
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/rig.h"
 #include "base/maths/quat_rotation.h"
+#include "base/maths/trig.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
@@ -136,8 +137,8 @@ maths::QuatRotation* angles_to_quat(maths::QuatRotation* out, const maths::Vec4*
     auto cos_z = static_cast<float>(std::cos(half_z));
     auto cos_y = static_cast<float>(std::cos(half_y));
     auto cos_x = static_cast<float>(std::cos(half_x));
-    const float sin_z = std::sin(static_cast<float>(half_z));
-    const float sin_x = std::sin(static_cast<float>(half_x));
+    const float sin_z = maths::runtime32::sin(static_cast<float>(half_z));
+    const float sin_x = maths::runtime32::sin(static_cast<float>(half_x));
     auto cycz = static_cast<float>(static_cast<double>(cos_y) * cos_z);
     auto szsy = static_cast<float>(std::sin(half_y) * sin_z);
     auto sycz = static_cast<float>(std::sin(half_y) * cos_z);

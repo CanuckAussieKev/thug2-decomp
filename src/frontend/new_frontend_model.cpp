@@ -810,7 +810,7 @@ float Menu::get_pan() const
 {
     const float phase = std::fmod(clock_, kPanSeconds * 2.0F) / kPanSeconds; // 0..2
     const float linear = phase <= 1.0F ? phase : 2.0F - phase;
-    return kHalf - (kHalf * std::cos(linear * maths::kPi)); // (eased at both ends)
+    return kHalf - (kHalf * maths::runtime32::cos(linear * maths::kPi)); // (eased at both ends)
 }
 
 uint32_t Menu::accent_colour() const
@@ -1308,7 +1308,7 @@ ActStep Menu::tick(float dt)
         core::at(rows_, i).tick(ints::as_signed(i) == selected, dt);
     }
     // The list's scroll eases toward its target (about a tenth of a second).
-    const float blend = 1.0F - std::exp(-dt * 18.0F);
+    const float blend = 1.0F - maths::runtime32::exp(-dt * 18.0F);
     scroll_ += (scroll_target_ - scroll_) * blend;
     if (std::fabs(scroll_target_ - scroll_) < kScrollSettle) {
         scroll_ = scroll_target_;

@@ -129,11 +129,11 @@ void yaw_pitch_of(V3 angles, YawPitchOut view)
 V3 get_forward(V3 angles)
 {
     // (RotationZ last: it turns that row about the world's z axis - the editor's cameras keep z 0)
-    const float cx = std::cos(angles.x);
-    const float sx = std::sin(angles.x);
-    const V3 v = {.x = std::sin(angles.y) * cx, .y = -sx, .z = std::cos(angles.y) * cx};
-    const float cz = std::cos(angles.z);
-    const float sz = std::sin(angles.z);
+    const float cx = maths::runtime32::cos(angles.x);
+    const float sx = maths::runtime32::sin(angles.x);
+    const V3 v = {.x = maths::runtime32::sin(angles.y) * cx, .y = -sx, .z = maths::runtime32::cos(angles.y) * cx};
+    const float cz = maths::runtime32::cos(angles.z);
+    const float sz = maths::runtime32::sin(angles.z);
     return {.x = (v.x * cz) - (v.y * sz), .y = (v.x * sz) + (v.y * cz), .z = v.z};
 }
 

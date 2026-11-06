@@ -35,6 +35,7 @@
 #include "base/core/no_destroy.h"
 #include "base/core/checksums.h"
 #include "engine/render/coll_obj.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -637,7 +638,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
         (void)painter.get_seg(lip.point, lip.point + lip.tangent * kTangentLength, kTangentColour, kTangentWidth);
         std::array<char, kLabelTextSize> label{};
         text::format_to(label, "lip %.0f high, %.0f deg%s", lip.height,
-                        std::asin(std::clamp(lip.tangent.y, -1.0F, 1.0F)) * kDegreesPerRadian,
+                        maths::runtime32::asin(std::clamp(lip.tangent.y, -1.0F, 1.0F)) * kDegreesPerRadian,
                         lip.vert ? " (vert)" : "");
         painter.draw_label(lip.point, kLipColour, label.data(), kLipLabelOffset, kLipLabelOffset);
         for (int i = 0; i < kSpeeds; ++i) {

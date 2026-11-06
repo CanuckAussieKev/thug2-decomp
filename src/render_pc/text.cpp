@@ -18,6 +18,7 @@
 
 #include "base/core/cursor.h"
 #include "base/core/dbg.h"
+#include "base/maths/trig.h"
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
 #include "engine/file/file_load.h"
@@ -296,8 +297,8 @@ void GlyphRun::draw()
     if (xscale == 0.0F || yscale == 0.0F) { // (0x0066D520)
         return;
     }
-    const float cos_a = std::cos(angle);
-    const float sin_a = std::sin(angle);
+    const float cos_a = maths::runtime32::cos(angle);
+    const float sin_a = maths::runtime32::sin(angle);
     uint32_t vertex_color = get_vertex_color(color);
     int effect = 0; // byte offset of this character's effect record
     core::CStringCursor cursor(text);

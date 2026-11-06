@@ -10,6 +10,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/down_cast.h"
+#include "base/maths/trig.h"
 #include "base/maths/vec2.h"
 #include "engine/gfx/renderer.h"
 #include "engine/objects/entity.h"
@@ -99,8 +100,8 @@ Rect2 box_rect(const Cuboid& box)
 // The rectangle around a turned box's corners.
 Rect2 turned_box_rect(const Cuboid& box)
 {
-    const double cosine = std::cos(box.angle);
-    const double sine = std::sin(box.angle);
+    const double cosine = maths::runtime32::cos(box.angle);
+    const double sine = maths::runtime32::sin(box.angle);
     Rect2 rect = {.left = box.x, .top = box.y, .right = box.x, .bottom = box.y};
     const std::array<std::array<float, 2>, 3> corners = {
         {{box.width, 0.0F}, {0.0F, box.height}, {box.width, box.height}}};
@@ -278,8 +279,8 @@ bool box_contains(const Cuboid& box, maths::Vec2 at)
     const float x = at.x;
     const float y = at.y;
     // Back along the angle: the point's offset from the top left in the box's own axes.
-    const double cosine = std::cos(box.angle);
-    const double sine = std::sin(box.angle);
+    const double cosine = maths::runtime32::cos(box.angle);
+    const double sine = maths::runtime32::sin(box.angle);
     const double dx = static_cast<double>(x) - box.x;
     const double dy = static_cast<double>(y) - box.y;
     const double u = (cosine * dx) + (sine * dy);

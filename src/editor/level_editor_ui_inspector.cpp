@@ -5,7 +5,6 @@
 #include "editor/level_editor_ui.h"
 #include <algorithm>
 #include <cfloat>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -34,6 +33,7 @@
 #include "editor/level_editor_gui_text.h"
 #include "base/core/checksums.h"
 #include "editor/level_editor_ui_internal.h"
+#include "base/maths/trig.h"
 
 namespace frontend::level_editor::ui {
 // What the source file's anonymous namespace held that its pieces share (level_editor_ui_internal.h): visible
@@ -327,7 +327,7 @@ void node_section(const ShapeMesh& model, int index)
             get_mono("%.3f, %.3f, %.3f", node.angles.x, node.angles.y, node.angles.z);
             if (nodes::shape_of(node.family) == nodes::Shape::kPoint) {
                 field_label("Heading");
-                get_mono("%.1f\xC2\xB0", std::atan2(node.forward.x, node.forward.z) * kDegreesPerRadian);
+                get_mono("%.1f\xC2\xB0", maths::runtime32::atan2(node.forward.x, node.forward.z) * kDegreesPerRadian);
             }
         }
         if (node.family == nodes::Family::kSpawn) {
