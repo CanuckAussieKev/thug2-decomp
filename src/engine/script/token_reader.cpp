@@ -1,5 +1,6 @@
 #include "engine/script/token_reader.h"
 
+#include <cstddef>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -202,9 +203,9 @@ Tokens resolve_random_jumps(Tokens token)
             pick -= static_cast<int16_t>(fetch_word16(weights));
             while (pick >= 0) {
                 ++choice;
-                pick -= static_cast<int16_t>(fetch_word16(weights + 2 * choice));
+                pick -= static_cast<int16_t>(fetch_word16(weights + (std::ptrdiff_t{2} * choice)));
             }
-            const Tokens offset = weights + 2 * count + 4 * choice;
+            const Tokens offset = weights + 2 * count + (std::ptrdiff_t{4} * choice);
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -253,7 +254,7 @@ Tokens resolve_random_jumps(Tokens token)
                 shuffle(*stored, true);
                 stored->ordinal_ = 0;
             }
-            const Tokens offset = table + 4 * core::at(stored->order_, stored->ordinal_);
+            const Tokens offset = table + (std::ptrdiff_t{4} * core::at(stored->order_, stored->ordinal_));
             token = offset + fetch_word32(offset) + 4;
             break;
         }

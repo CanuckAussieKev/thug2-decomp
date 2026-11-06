@@ -16,7 +16,8 @@ endif()
 # are all built; "gamespy_sdk" here builds the GameSpy SDK. The fetched libraries the others compile themselves
 # (Dear ImGui, stb_image_write, LZHAM, volk, VMA, glslang) are built on x64 only when a library here links them.
 # An x86 configure builds everything, whatever the list says.
-set(THUG2_X64_READY base formats wire platform gamespy_sdk)
+set(THUG2_X64_READY base formats wire platform gamespy_sdk engine net_winsock render_pc gpu_d3d9 gpu_vulkan audio_dsound media_ffmpeg
+                    input_dinput fs_win32 script_qb)
 
 # Whether this configure builds `name` (a library of src/, or gamespy_sdk): always on x86; on x64 when x64-ready.
 function(thug2_builds name result)

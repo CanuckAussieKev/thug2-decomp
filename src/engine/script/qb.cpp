@@ -51,10 +51,7 @@ constexpr int kShiftByte1 = 8;
 constexpr int kShiftByte2 = 16;
 constexpr int kShiftByte3 = 24;
 constexpr uint32_t kChecksumInitial = 0xFFFFFFFFU;
-// The names of checksums given in .qb files: 0x1000 buckets, three words each.
-constexpr int kLabelBucketCount = 0x1000;
-constexpr int kLabelBucketBytes = 12;
-constexpr int kLabelBucketWords = 3;
+// The names of checksums given in .qb files: 0x1000 buckets (ScriptChecksumName below: three words each on x86).
 constexpr uint32_t kLabelBucketMask = 0xFFF;
 // A shuffle swaps this many pairs for each choice.
 // The permanent string table: one entry per string (8 bytes on x86: memory_sizes.cpp).
@@ -87,6 +84,8 @@ struct ScriptChecksumName {
     char* name;
     ScriptChecksumName* next;
 };
+constexpr size_t kLabelBucketBytes = 12; // the original's bucket
+static_assert(core::layout_32bit(sizeof(ScriptChecksumName) == kLabelBucketBytes), "layout must match the original");
 ScriptChecksumName*& script_label_table()
 {
     static ScriptChecksumName* script_labels{};
@@ -94,6 +93,8 @@ ScriptChecksumName*& script_label_table()
 }
 // The table's 0x1000 buckets (the checksums' low 12 bits; the first entry of each in place).
 constexpr uint32_t kLabelBuckets = 0x1000;
+// (the buckets hold pointers: the table is sized by the record - 12 bytes a bucket on x86, 24 on x64)
+constexpr auto kLabelTableBytes = static_cast<unsigned int>(kLabelBuckets * sizeof(ScriptChecksumName));
 std::span<ScriptChecksumName, kLabelBuckets> label_buckets()
 {
     return std::span<ScriptChecksumName, kLabelBuckets>(script_label_table(), kLabelBuckets);
@@ -623,10 +624,10 @@ void allocate_script_checksum_names(bool debug_heap)
 {
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(debug_heap ? manager->debug_heap() : manager->script_heap());
-    auto* names = static_cast<uint32_t*>(memory::alloc_block(kLabelBucketCount * kLabelBucketBytes));
+    auto* names = static_cast<uint32_t*>(memory::alloc_block(kLabelTableBytes));
     memory::bits_as<uint32_t*>(script_label_table()) = names;
     memory::leave_heap_scope();
-    std::ranges::fill(std::span<uint32_t>(names, kLabelBucketCount * kLabelBucketWords), 0U);
+    std::ranges::fill(std::span<uint32_t>(names, kLabelTableBytes / sizeof(uint32_t)), 0U);
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
