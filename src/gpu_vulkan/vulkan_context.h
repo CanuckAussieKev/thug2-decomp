@@ -43,6 +43,16 @@ bool instance_layer_available(const char* name);
 // VK_FORMAT_UNDEFINED when none.
 VkFormat first_depth_format(VkPhysicalDevice device, std::span<const VkFormat> candidates);
 
+// Whether a physical device can run the Vulkan Gpu's draws (vulkan_gpu.cpp), asked before the game's window is made
+// (app/ falls back to Direct3D 9 otherwise): the loader, an instance, and the device the context would pick (`wanted`,
+// or the best) with a graphics queue, the swapchain extension, Vulkan 1.3's dynamic rendering and push descriptors.
+struct DeviceProbe {
+    bool usable = false;
+    std::string device;  // the device's name (when one was found)
+    std::string problem; // why not, when not usable
+};
+DeviceProbe probe_device(int wanted);
+
 // What clear_frame did.
 enum class FrameResult : uint8_t {
     kPresented, // the frame was cleared and presented
@@ -73,6 +83,18 @@ public:
     bool remake() { return remake_swapchain(); }
     // Releases everything, the device idle first. Harmless when nothing was made.
     void destroy();
+
+    // The swapchain for a Gpu that records its own frames (vulkan_frames.h): the next image acquired (its semaphore
+    // signalled when it may be written), and presented once `present_semaphore(image)` is signalled. The results are
+    // Vulkan's (VK_ERROR_OUT_OF_DATE_KHR / VK_SUBOPTIMAL_KHR: make it again).
+    VkResult acquire(VkSemaphore acquired, uint32_t* image);
+    VkResult queue_present(uint32_t image);
+    [[nodiscard]] VkImage swapchain_image(uint32_t image) const;
+    [[nodiscard]] VkSemaphore present_semaphore(uint32_t image) const;
+    // No swapchain now (minimised) or the window resized since it was made: make it again before the next frame.
+    [[nodiscard]] bool swapchain_stale() const { return swapchain_ == VK_NULL_HANDLE || resized_; }
+    // Whether the device runs the Gpu's draws: Vulkan 1.3's dynamic rendering and push descriptors were switched on.
+    [[nodiscard]] bool draws_supported() const { return dynamic_rendering_ && push_descriptors_; }
 
     // Clears the next swapchain image to `colour` (linear RGBA) and presents it.
     FrameResult clear_frame(const std::array<float, 4>& colour);
@@ -142,6 +164,8 @@ private:
     std::vector<VkSemaphore> presented_; // per swapchain image: its submit signals it, its present waits on it
     uint32_t swapchains_made_ = 0;
     bool resized_ = false;
+    bool dynamic_rendering_ = false;
+    bool push_descriptors_ = false;
 };
 
 } // namespace render::vulkan

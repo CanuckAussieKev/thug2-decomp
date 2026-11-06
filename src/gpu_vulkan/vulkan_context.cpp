@@ -196,6 +196,25 @@ void record_clear(VkCommandBuffer commands, VkImage image, const std::array<floa
     vkEndCommandBuffer(commands);
 }
 
+// Whether both the instance and the device speak Vulkan 1.3 (dynamic rendering is core there).
+bool draws_api(VkPhysicalDevice device, uint32_t instance_api)
+{
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(device, &properties);
+    return instance_api >= VK_API_VERSION_1_3 && properties.apiVersion >= VK_API_VERSION_1_3;
+}
+
+bool dynamic_rendering_offered(VkPhysicalDevice device)
+{
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    VkPhysicalDeviceFeatures2 features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &features13;
+    vkGetPhysicalDeviceFeatures2(device, &features);
+    return features13.dynamicRendering == VK_TRUE;
+}
+
 } // namespace
 
 std::vector<QueueFamilyInfo> queue_families(VkPhysicalDevice device, VkSurfaceKHR surface)
@@ -312,7 +331,12 @@ bool Context::create_instance(bool validation)
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data(),
     };
-    const VkResult result = vkCreateInstance(&info, nullptr, &instance_);
+    VkResult result = vkCreateInstance(&info, nullptr, &instance_);
+    if (result == VK_ERROR_LAYER_NOT_PRESENT && use_validation) {
+        // (the layer is listed but can't be loaded into this process - a 64-bit layer for a 32-bit one): without it
+        report("the validation layer is listed but can't be loaded into this process - going on without it");
+        return create_instance(false);
+    }
     if (result != VK_SUCCESS) {
         return fail("vkCreateInstance", result);
     }
@@ -390,17 +414,27 @@ bool Context::create_device()
         .queueCount = 1,
         .pQueuePriorities = &priority,
     };
-    const std::array<const char*, 1> extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    // The features the Gpu's resources and draws use, where the device has them (none is required).
+    std::vector<const char*> extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    // The features the Gpu's resources and draws use, where the device has them (none is required here: the Gpu asks
+    // draws_supported()).
     VkPhysicalDeviceFeatures offered{};
     vkGetPhysicalDeviceFeatures(physical_device_, &offered);
     enabled_features_ = VkPhysicalDeviceFeatures{};
     enabled_features_.samplerAnisotropy = offered.samplerAnisotropy;
     enabled_features_.textureCompressionBC = offered.textureCompressionBC;
     enabled_features_.fillModeNonSolid = offered.fillModeNonSolid;
+    // the draws: Vulkan 1.3's dynamic rendering (no render pass objects) and push descriptors
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    dynamic_rendering_ = draws_api(physical_device_, api_version_) && dynamic_rendering_offered(physical_device_);
+    features13.dynamicRendering = dynamic_rendering_ ? VK_TRUE : VK_FALSE;
+    push_descriptors_ = has_extension(device_extensions(physical_device_), VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+    if (push_descriptors_) {
+        extensions.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+    }
     const VkDeviceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = nullptr,
+        .pNext = dynamic_rendering_ ? &features13 : nullptr,
         .flags = 0,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queue,
@@ -613,6 +647,114 @@ FrameResult Context::clear_frame(const std::array<float, 4>& colour)
         return FrameResult::kFailed;
     }
     return FrameResult::kPresented;
+}
+
+VkResult Context::acquire(VkSemaphore acquired, uint32_t* image)
+{
+    if (swapchain_ == VK_NULL_HANDLE) {
+        return VK_ERROR_OUT_OF_DATE_KHR;
+    }
+    return vkAcquireNextImageKHR(device_, swapchain_, kNoTimeout, acquired, VK_NULL_HANDLE, image);
+}
+
+VkResult Context::queue_present(uint32_t image)
+{
+    const VkSemaphore presented = core::at(presented_, image);
+    const VkPresentInfoKHR present{
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &presented,
+        .swapchainCount = 1,
+        .pSwapchains = &swapchain_,
+        .pImageIndices = &image,
+        .pResults = nullptr,
+    };
+    const VkResult result = vkQueuePresentKHR(queue_, &present);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        resized_ = true; // (made again before the next frame)
+    }
+    return result;
+}
+
+VkImage Context::swapchain_image(uint32_t image) const { return core::at(images_, image); }
+
+VkSemaphore Context::present_semaphore(uint32_t image) const { return core::at(presented_, image); }
+
+DeviceProbe probe_device(int wanted)
+{
+    DeviceProbe probe;
+    if (!open_loader()) {
+        probe.problem = "no Vulkan loader (vulkan-1.dll)";
+        return probe;
+    }
+    const uint32_t api = std::min(loader_version(), kHighestApiVersion);
+    const VkApplicationInfo application{.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                                        .pNext = nullptr,
+                                        .pApplicationName = "thug2-decomp",
+                                        .applicationVersion = 1,
+                                        .pEngineName = "thug2-decomp",
+                                        .engineVersion = 1,
+                                        .apiVersion = api};
+    const VkInstanceCreateInfo info{.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                                    .pNext = nullptr,
+                                    .flags = 0,
+                                    .pApplicationInfo = &application,
+                                    .enabledLayerCount = 0,
+                                    .ppEnabledLayerNames = nullptr,
+                                    .enabledExtensionCount = 0,
+                                    .ppEnabledExtensionNames = nullptr};
+    VkInstance instance = nullptr;
+    if (vkCreateInstance(&info, nullptr, &instance) != VK_SUCCESS) {
+        probe.problem = "vkCreateInstance failed";
+        return probe;
+    }
+    volkLoadInstanceOnly(instance);
+    uint32_t count = 0;
+    vkEnumeratePhysicalDevices(instance, &count, nullptr);
+    std::vector<VkPhysicalDevice> devices(count);
+    vkEnumeratePhysicalDevices(instance, &count, devices.data());
+    devices.resize(count);
+    // the device the context would pick (its preference, without the window's surface)
+    VkPhysicalDevice chosen = nullptr;
+    int best = 0;
+    int index = -1;
+    for (VkPhysicalDevice device : devices) {
+        if (++index != wanted && wanted >= 0) {
+            continue;
+        }
+        const std::vector<QueueFamilyInfo> families = queue_families(device, VK_NULL_HANDLE);
+        const bool draws = std::ranges::any_of(
+            families, [](const QueueFamilyInfo& family) { return (family.flags & VK_QUEUE_GRAPHICS_BIT) != 0; });
+        if (!draws || !has_extension(device_extensions(device), VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
+            continue;
+        }
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(device, &properties);
+        const int score = preference(properties.deviceType);
+        if (score > best) {
+            best = score;
+            chosen = device;
+        }
+    }
+    if (chosen == nullptr) {
+        probe.problem = wanted >= 0 ? text::format("no device %d that draws", wanted) : std::string("no device that draws");
+    } else {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(chosen, &properties);
+        probe.device = std::data(properties.deviceName);
+        if (!draws_api(chosen, api)) {
+            probe.problem = "it has no Vulkan 1.3";
+        } else if (!dynamic_rendering_offered(chosen)) {
+            probe.problem = "it has no dynamic rendering";
+        } else if (!has_extension(device_extensions(chosen), VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME)) {
+            probe.problem = "it has no push descriptors (VK_KHR_push_descriptor)";
+        } else {
+            probe.usable = true;
+        }
+    }
+    vkDestroyInstance(instance, nullptr);
+    return probe;
 }
 
 void Context::destroy()
