@@ -105,7 +105,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   picture at full size after `seconds` - the level editor, where the channel stops), `collect` (the .png / .ppm files a
   measuring build writes into the `{dir}` its `env` names: movie and loading-screen frames; `exp` groups run
   `--exp-build`'s exe), `frametime: <frames>` (that many frames timed from the status file, polled every 100 ms, and the
-  Vulkan log's "ms a frame" line). Then `compare`:
+  Vulkan log's "ms a frame" line; the status counts the game's frames, not the presented ones - a measuring build's "exp-frames" lines time those). Then `compare`:
   `node tools/game/renderer_parity.ts compare <folder> [--threshold 8] [--grow 1] [--pictures]` - per picture name, each
   renderer's noise (the pixels that differ by more than the threshold between any two of its runs), the union grown by
   `--grow` pixels, and run 1 of each renderer compared outside it: the mean channel difference, the mean signed one

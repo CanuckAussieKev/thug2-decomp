@@ -14,6 +14,7 @@ import {
     growMask,
     iniFor,
     noiseMask,
+    presentTime,
     readPlan,
     vulkanFrameLine,
 } from "./renderer_parity.ts";
@@ -139,4 +140,11 @@ test("the Vulkan log's frame line", () => {
         "x\nvulkan: frame 197: 52 pipelines (0 refused), ...; 50.95 ms a frame (0.06 ms of it waiting for the device and the swapchain), 300 draws and 6.5 passes a frame over the last 197; uploads\n";
     assert.equal(vulkanFrameLine(log), "50.95 ms a frame (0.06 waiting), 300 draws, 6.5 passes");
     assert.equal(vulkanFrameLine("nothing"), null);
+});
+
+test("a measuring build's present times: the last line's", () => {
+    const log = "exp-frames: 300 presents, 41.20 ms a frame\nx\nexp-frames: 300 presents, 38.50 ms a frame\n";
+    assert.equal(presentTime(log), 38.5);
+    assert.equal(presentTime("exp-frames: none"), null);
+    assert.equal(vulkanFrameLine("exp-frames: 300 presents, 38.50 ms a frame (x), 1 draws and 2 passes"), null);
 });

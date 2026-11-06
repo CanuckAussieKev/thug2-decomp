@@ -19,8 +19,9 @@
 //     editor (the channel stops while it has the game);
 //   - `collect`: every .png / .ppm the game wrote into {dir} (a fresh folder per run, given to the game through the
 //     group's `env` values - a measuring build's dumps: `exp` groups run --exp-build's exe);
-//   - `frametime`: the group's `wait <frames>` timed from outside (the status file's frame count, polled), and the
-//     Vulkan log's own "ms a frame" line.
+//   - `frametime`: the group's `wait <frames>` timed from outside (the status file's frame count, polled: the game's
+//     frames, not the presented ones), the Vulkan log's own "ms a frame" line, and a measuring build's "exp-frames"
+//     lines (the presents of either renderer);
 // Then compare (below). Only a workspace (C:\Games\THUG2-<n>) - never the main install. Muted (workspace_ini.ts).
 //
 // compare: for each picture name both renderers have: per renderer the pixels that differ by more than the threshold
@@ -347,7 +348,8 @@ export interface StatusSample {
     current: string;
 }
 
-// The frames a second over the samples taken while `wait <frames>` ran (the first and the last such sample).
+// The game's frames (its main loop's count in the status file - not the frames presented: a slow renderer draws fewer
+// of them) over the samples taken while `wait <frames>` ran (the first and the last such sample).
 export function frameTime(samples: readonly StatusSample[], frames: number): { ms: number; frames: number } | null {
     const during = samples.filter((s) => s.current.trim() === `wait ${frames}`);
     if (during.length < 2) return null;
@@ -359,11 +361,19 @@ export function frameTime(samples: readonly StatusSample[], frames: number): { m
 
 // The Vulkan Gpu's own line (vulkan_draws.cpp): "<x> ms a frame (<y> ms of it waiting ...), <d> draws and <p> passes".
 export function vulkanFrameLine(log: string): string | null {
-    const lines = log.split(/\r?\n/).filter((l) => / ms a frame /.test(l));
+    const lines = log.split(/\r?\n/).filter((l) => /^vulkan: frame \d+:.* ms a frame /.test(l));
     const last = lines[lines.length - 1];
     if (!last) return null;
     const m = /([\d.]+) ms a frame \(([\d.]+) ms of it waiting[^)]*\), (\d+) draws and ([\d.]+) passes/.exec(last);
     return m ? `${m[1]} ms a frame (${m[2]} waiting), ${m[3]} draws, ${m[4]} passes` : last.trim();
+}
+
+// A measuring build's presents (both renderers: "exp-frames: 300 presents, <x> ms a frame" every 300): the last
+// line's milliseconds a presented frame.
+export function presentTime(log: string): number | null {
+    const found = [...log.matchAll(/^exp-frames: \d+ presents, ([\d.]+) ms a frame/gm)];
+    const last = found[found.length - 1];
+    return last ? Number(last[1]) : null;
 }
 
 // --- running the game -------------------------------------------------------------------------------------------------
