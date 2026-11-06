@@ -197,6 +197,34 @@ Which Bink revisions the game's files use (`BIK` + revision letter), and that FF
 confirmed by a header survey of the player's data in task X10a. The FFmpeg backend can be built and compared on the
 32-bit build first, against `binkw32.dll`, before any x64 work. That makes it the best first task.
 
+**Done in X10a** (`src/media_ffmpeg`, `[features] movie_codec=ffmpeg`; picture only, the sound is X10b):
+- **The survey** (`node tools/ffmpeg/bink_survey.ts <game folder>`): every Bink file of the game is Bink 1 revision
+  `BIKi` with no video flags (no alpha) and Bink audio's DCT transform - the 26 movies (640x480 but Intel_intro
+  320x240, Dolby_Digital 720x486, the credits 480x480; 29.97 fps but Intel_intro 15; stereo 44.1 / 48 kHz, pccredits
+  silent), the 137 music streams and the 2,771 Bink files inside pcm.wad (4x4 sound-only movies at 15 fps; music
+  stereo 44.1 / 48 kHz, pcm.wad's mono 11.025-44.1 kHz). FFmpeg's demuxer takes `BIKi` and its video decoder decodes
+  it; binkaudio_dct is the only sound decoder needed (binkaudio_rdft is built too, for other data).
+- **FFmpeg:** 7.1.5 (FFmpeg's signed release tarball, pinned by SHA-256), LGPL 2.1 or later - built with
+  `--disable-everything` and only the Bink demuxer, the Bink video / audio decoders and swscale enabled, no GPL or
+  non-free parts, no external libraries: avutil-59, avcodec-61, avformat-61 and swscale-8 (about 2 MB together). No
+  trustworthy prebuilt 32-bit LGPL DLLs exist (the common Windows builds are 64-bit, and most are GPL), so
+  `tools/ffmpeg/build_ffmpeg.ts` builds them from source with FFmpeg's own cross-compiling path: configure and make with
+  Ubuntu's mingw-w64 GCC ("win32" threads, libgcc linked statically: the DLLs import only Windows' own), on Linux or in
+  WSL. The build is repeatable (the same DLLs byte for byte from any folder, any day) and the same tool builds the x64
+  DLLs (`--arch x64`). The codec loads them by name at run time - nothing is linked, the exe starts without them
+  (movie_codec=ffmpeg then falls back to Bink, logged) and any LGPL build of the same majors can replace them. The
+  headers come from the same release's tag (cmake/ffmpeg.cmake).
+- **Frames:** swscale makes BINKSURFACE32 (blue, green, red, unused) from the decoder's YUV 4:2:0 (BT.601 video range,
+  accurate rounding): ~1.1 ms a 640x480 frame, any build type (a plain C++ loop took 45 ms a frame in Debug). Against
+  binkw32 on the start-up movies (`thug2_movie_codec_check`): every colour byte within 2-5 of 255, 50-53 dB PSNR (the
+  unused fourth byte is 255, binkw32's 0: the X8R8G8B8 texture ignores it); the frame counters (after the open, steps, go-tos, across the end) equal; 60 frames paced by
+  `wait` in 2.00 s at 29.97 fps (binkw32 1.92-2.00 s).
+- **Left for X10b / X10c:** the sound (decoded, but read past); the sound-only streams' pace follows Bink's audio clock
+  in binkw32 (60 frames of a music stream: 4.2 s with Bink's sound off, 4.0 s here); the reopen of a paused pcm.wad
+  stream from `from_where_` (the original passes its 4-byte copy of the header as the memory to open); the
+  THIRD_PARTY_NOTICES entry (FFmpeg's LGPL text, the exact source - the release URL and hash -, the build recipe,
+  that the DLLs are replaceable).
+
 ### CMake and presets
 
 - `CMakePresets.json` has `x86-debug` / `x86-release` only. The root `CMakeLists.txt` refuses other architectures and

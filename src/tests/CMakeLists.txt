@@ -64,3 +64,14 @@ if(THUG2_VULKAN)
     target_link_libraries(thug2_vulkan_gpu_check PRIVATE thug2_gpu_vulkan thug2_fs_win32 sdl2)
     target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
 endif()
+
+# NOT ORIGINAL - thug2_movie_codec_check.exe: the FFmpeg movie codec (src/media_ffmpeg) compared with Bink's
+# (src/media_bink) on the game's Bink files - the headers, the frame counters, the frames copied as the game copies
+# them (src/tests/movie_codec_check.cpp). Run from the game folder (its binkw32.dll); FFmpeg's DLLs are copied next to
+# it when they are built (cmake/ffmpeg.cmake).
+add_executable(thug2_movie_codec_check movie_codec_check.cpp)
+target_link_libraries(thug2_movie_codec_check PRIVATE thug2_media_bink thug2_media_ffmpeg thug2_fs_win32)
+if(THUG2_FFMPEG_DLLS)
+    add_custom_command(TARGET thug2_movie_codec_check POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_FFMPEG_DLLS} "$<TARGET_FILE_DIR:thug2_movie_codec_check>")
+endif()

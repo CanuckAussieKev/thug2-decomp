@@ -119,6 +119,8 @@ if(THUG2_VULKAN)
     include(cmake/vulkan_libraries.cmake)
 endif()
 
+include(cmake/ffmpeg.cmake)
+
 # --- The GameSpy SDK (IGN's BSD-3 release) ---------------------------------------------------------------------
 include(cmake/gamespy_sdk.cmake)
 file(GLOB LZHAM_DECOMP_SOURCES ${lzham_SOURCE_DIR}/lzhamdecomp/*.cpp)
@@ -221,6 +223,7 @@ if(THUG2_VULKAN)
 endif()
 add_subdirectory(src/audio_dsound)
 add_subdirectory(src/media_bink)
+add_subdirectory(src/media_ffmpeg)
 add_subdirectory(src/input_dinput)
 add_subdirectory(src/fs_win32)
 add_subdirectory(src/net_winsock)
