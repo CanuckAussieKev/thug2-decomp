@@ -192,6 +192,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `widescreen_menus` | 1 | 0 brings back PartyMod's pillarboxed 4:3 front end |
 | `new_frontend` | 0 | The new front end: the game's own menus, restyled (0 = the classic menus) |
 | `mouse_menus` | 1 | Mouse control of the menus (`debug_mouse=1` logs each click) |
+| `cursor_by_device` | 1 | A controller button hides the mouse cursor and a key, mouse movement or click shows it again (where there is one; the level editor keeps it); the controller doesn't rumble while you play with the keyboard, until a button on it is pressed |
+| `single_player_any_pad` | 1 | Outside split screen, every connected controller plays as player 1: the one a button was pressed on last (2-player games keep the controllers' seats) |
 | `hd_ui` | 0 | The menus' 4x-upscaled images and fonts (when the overlay was made with `make_menu_level.ts --hd-ui 4`) |
 | `level_editor` | 1 | The pause menu's LEVEL EDITOR (`editor_ui=0`: the old on-screen HUD instead of the Dear ImGui UI; `debug_editor=1` logs its picks and moves) |
 | `start_level` / `edit_level` | (none) | Start straight in a level / in the level editor (as `-level` / `-edit`) |

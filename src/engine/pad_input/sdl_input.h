@@ -11,7 +11,10 @@
 // gamecontrollerdb.txt next to the exe adds controller mappings.
 //
 // Players: a controller becomes player 1 or 2 when one of its buttons is pressed (the second rumbles once and is
-// locked out until all its buttons are up). Port 0 also reads the keyboard. Each frame sio::InputPort::work_on
+// locked out until all its buttons are up). Not original ([features] single_player_any_pad, on by default): outside a
+// split-screen game player 1's port reads the controller a button was pressed on last instead of its seat's, and the
+// other port none; [features] cursor_by_device: a controller button hides the cursor and stops the keyboard's rumble
+// mute, a key or the mouse shows it again and mutes player 1's rumble. Port 0 also reads the keyboard. Each frame sio::InputPort::work_on
 // fills the device's PS2-format control data from them.
 namespace input {
 class Source;

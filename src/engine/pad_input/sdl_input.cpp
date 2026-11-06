@@ -24,6 +24,7 @@
 #include "engine/ui/screen_element_manager.h"
 #include "engine/pad_input/device.h"
 #include "engine/pad_input/game_hooks.h"
+#include "engine/pad_input/input_hub.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include "engine/sys/debug_mode.h"
@@ -59,6 +60,7 @@ constexpr int kEscapeChar = 0x1B;
 constexpr int kDirectInputKeyCount = 256;
 constexpr size_t kMappingsBytes = 1024;
 constexpr int kInGameMenuElement = 0x5999551E; // (text unknown)
+constexpr const char* kFeatures = "features";   // (thug2-decomp.ini's section of our additions)
 
 } // namespace
 
@@ -221,6 +223,20 @@ struct SdlInputState {
     MenuKeys menu_keys_{};
     uint8_t was_in_menu_ = 0;
     uint8_t was_keyboard_on_screen_ = 0;
+
+    // NOT ORIGINAL - the device used last (note_pad_used / note_keyboard_mouse_used): [features] cursor_by_device and
+    // single_player_any_pad (both on by default), the controller a button was pressed on last (null: none yet, or it
+    // was unplugged), whether a controller was used after the keyboard / mouse (the cursor hidden) and whether the
+    // keyboard / mouse was used after a controller (its rumble off).
+    bool cursor_by_device_ = true;
+    bool any_pad_single_player_ = true;
+    SDL_Gamepad* active_ = nullptr;
+    bool pad_used_last_ = false;
+    bool rumble_muted_ = false;
+    // The cursor the game and our menus asked for (input::show_cursor; create_sdl_window starts it hidden), and
+    // whether it follows the device (not while the level editor is open: its cursor stays as it sets it).
+    bool cursor_wanted_ = false;
+    bool cursor_follows_device_ = true;
 };
 
 SdlInputState& sdl_input_state()
@@ -246,6 +262,113 @@ void attach_controller(SDL_JoystickID id)
         return;
     }
     sdl_input_state().controllers_.push_back(controller);
+}
+
+// --- the device used last (NOT ORIGINAL; approach from PartyMod's partymod-common and partymod-thps3) -----------
+
+// Whether the game is a local two-player game (split screen: the game's InSplitScreenGame) - there the players keep
+// their seats; outside one the controller pressed last plays as player 1.
+bool split_screen_game()
+{
+    bool (*const asked)() = game_hooks().split_screen_game;
+    return asked != nullptr && asked();
+}
+
+bool any_pad_drives_player_one()
+{
+    return sdl_input_state().any_pad_single_player_ && !split_screen_game();
+}
+
+// The port player 1 plays on: the controller the game bound its first skater to (BindControllerToSkater; port 0
+// unless the scripts chose another).
+int player_one_port()
+{
+    pad_input::Hub* hub = pad_input::get_input_manager();
+    const int port = hub ? hub->get_player_controller(0) : 0;
+    return port >= 0 && port < kMaxPlayers ? port : 0;
+}
+
+// The controller whose motors `port`'s rumble drives (null: none): its seat's (as SDL 2's player index had it);
+// outside a split-screen game, player 1's port's is the active one and the other port's none.
+SDL_Gamepad* rumble_controller(int port)
+{
+    if (port < 0 || port >= kMaxPlayers) {
+        return nullptr;
+    }
+    if (any_pad_drives_player_one()) {
+        return port == player_one_port() ? sdl_input_state().active_ : nullptr;
+    }
+    return core::at(sdl_input_state().players_, port).controller;
+}
+
+// Whether the keyboard / mouse being used last keeps `port`'s motors still: the one player's outside split screen,
+// port 0's (the keyboard's) in it.
+bool rumble_muted(int port)
+{
+    return sdl_input_state().rumble_muted_ && (port == 0 || any_pad_drives_player_one());
+}
+
+void stop_motors(SDL_Gamepad* controller)
+{
+    if (controller && SDL_GamepadConnected(controller)) {
+        SDL_RumbleGamepad(controller, 0, 0, 0);
+    }
+}
+
+// The cursor shown as asked, unless a controller was used last (and the cursor follows the device).
+void apply_cursor()
+{
+    const SdlInputState& state = sdl_input_state();
+    const bool shown =
+        state.cursor_wanted_ && !(state.cursor_by_device_ && state.cursor_follows_device_ && state.pad_used_last_);
+    if (shown != SDL_CursorVisible()) {
+        if (shown) {
+            SDL_ShowCursor();
+        } else {
+            SDL_HideCursor();
+        }
+    }
+}
+
+// A button pressed on `controller`: the cursor hidden and rumble back on (cursor_by_device); it becomes the active
+// controller - outside split screen the one playing as player 1 (single_player_any_pad), what the one before it was
+// rumbling stopped (PartyMod's GamepadManager::set_active).
+void note_pad_used(SDL_Gamepad* controller)
+{
+    if (!controller) {
+        return;
+    }
+    SdlInputState& state = sdl_input_state();
+    if (state.cursor_by_device_) {
+        state.pad_used_last_ = true;
+        state.rumble_muted_ = false;
+        apply_cursor();
+    }
+    if (controller == state.active_) {
+        return;
+    }
+    SDL_Gamepad* const before = state.active_;
+    state.active_ = controller;
+    if (any_pad_drives_player_one() && before) {
+        stop_motors(before);
+        debug_log::printf(StageMap::kInfo, "Controller \"%s\" now plays as player 1\n", SDL_GetGamepadName(controller));
+    }
+}
+
+// A key, a mouse movement, click or wheel: the cursor shown again where it's wanted, and the motors of the controller
+// the keyboard stands in for stopped until a controller button is pressed again (cursor_by_device).
+void note_keyboard_mouse_used()
+{
+    SdlInputState& state = sdl_input_state();
+    if (!state.cursor_by_device_) {
+        return;
+    }
+    state.pad_used_last_ = false;
+    apply_cursor();
+    if (!state.rumble_muted_) {
+        state.rumble_muted_ = true;
+        stop_motors(rumble_controller(any_pad_drives_player_one() ? player_one_port() : 0));
+    }
 }
 
 void enroll_player(SDL_Gamepad* controller)
@@ -295,6 +418,9 @@ void detach_anim_driver(SDL_Gamepad* controller)
     }
     // (the player index read before the close - PartyMod read it from the closed, freed controller)
     const int player = SDL_GetGamepadPlayerIndex(controller);
+    if (sdl_input_state().active_ == controller) {
+        sdl_input_state().active_ = nullptr;
+    }
     SDL_CloseGamepad(controller);
     if (player != -1) {
         debug_log::printf(StageMap::kInfo, "Removed player %d\n", player + 1);
@@ -961,6 +1087,7 @@ void handle_own_event(SDL_Event* event)
         return;
     case SDL_EVENT_KEY_DOWN:
         sdl_input_state().using_keyboard_ = true;
+        note_keyboard_mouse_used();
         // (not original: Enter / F1-F4 aren't the game's special keys while an extension has the keyboard -
         // engine/ext/extension.h; the new front end)
         if (!ext::game_input_blocked()) {
@@ -976,6 +1103,7 @@ void handle_own_event(SDL_Event* event)
             ++core::at(sdl_input_state().players_, player).locked_out_;
         }
         sdl_input_state().using_keyboard_ = false;
+        note_pad_used(controller);
         return;
     }
     case SDL_EVENT_GAMEPAD_BUTTON_UP: {
@@ -988,6 +1116,21 @@ void handle_own_event(SDL_Event* event)
     }
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         sdl_input_state().using_keyboard_ = false;
+        // (a trigger pulled past where it counts as held is a press)
+        if ((event->gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) &&
+            (event->gaxis.value >> kTriggerShift) > kTriggerHeldThreshold) {
+            note_pad_used(SDL_GetGamepadFromID(event->gaxis.which));
+        }
+        return;
+    case SDL_EVENT_MOUSE_MOTION:
+        // (a real movement: not one SDL reports with no distance)
+        if (event->motion.xrel != 0.0F || event->motion.yrel != 0.0F) {
+            note_keyboard_mouse_used();
+        }
+        return;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_WHEEL:
+        note_keyboard_mouse_used();
         return;
     case SDL_EVENT_TEXT_INPUT:
         text_typed(event->text.text);
@@ -1159,6 +1302,9 @@ void load_input_settings()
     sdl_input_state().settings_.ps2_controls_ =
         static_cast<uint8_t>(build_info::fetch_flag(build_info::kMiscellaneous, "UsePS2Controls", true));
     sdl_input_state().settings_.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));
+    // (NOT ORIGINAL - the device used last: note_pad_used)
+    sdl_input_state().cursor_by_device_ = build_info::fetch_flag(kFeatures, "cursor_by_device", true);
+    sdl_input_state().any_pad_single_player_ = build_info::fetch_flag(kFeatures, "single_player_any_pad", true);
 }
 
 // (the ini's numbers are SDL 2's scan codes: SDL 3's for the same key - platform/sdl_keys.h)
@@ -1263,6 +1409,11 @@ public:
         return true;
     }
     bool controller(input::ControllerState* out) override;
+    void set_cursor_follows_device(bool follows) override
+    {
+        sdl_input_state().cursor_follows_device_ = follows;
+        apply_cursor();
+    }
     bool set_relative_mouse(bool on) override
     {
         // (SDL 2's relative mode was the mouse's; SDL 3's is a window's - the game's)
@@ -1270,15 +1421,17 @@ public:
         return true;
     }
     // (SDL 2's SDL_ShowCursor(toggle): show, hide or only ask - input::kCursorShow / kCursorHide / kCursorQuery -,
-    // then whether it is shown, 1 or 0)
+    // then whether it is shown, 1 or 0. Not original: the cursor asked for, which is shown unless a controller was
+    // used last - apply_cursor)
     bool show_cursor(int toggle, int* shown) override
     {
         if (toggle == input::kCursorShow) {
-            SDL_ShowCursor();
+            sdl_input_state().cursor_wanted_ = true;
         } else if (toggle == input::kCursorHide) {
-            SDL_HideCursor();
+            sdl_input_state().cursor_wanted_ = false;
         }
-        *shown = SDL_CursorVisible() ? input::kCursorShow : input::kCursorHide;
+        apply_cursor();
+        *shown = sdl_input_state().cursor_wanted_ ? input::kCursorShow : input::kCursorHide;
         return true;
     }
     bool window_size(uint32_t window, int* width, int* height) override;
@@ -1336,9 +1489,25 @@ void SdlSource::poll_port(input::PortPoll& poll)
         poll_keyboard(poll.data);
     }
     auto port = static_cast<uint32_t>(poll.port);
-    if (port < kMaxPlayers && core::at(sdl_input_state().players_, port).controller &&
-        (core::at(sdl_input_state().players_, port).locked_out_ == 0U) && !poll.blocked) {
-        poll_controller(poll, core::at(sdl_input_state().players_, port).controller);
+    if (port >= kMaxPlayers || poll.blocked) {
+        return;
+    }
+    const PlayerSlot& seat = core::at(sdl_input_state().players_, port);
+    if (!any_pad_drives_player_one()) {
+        if (seat.controller && seat.locked_out_ == 0U) {
+            poll_controller(poll, seat.controller);
+        }
+        return;
+    }
+    // Not original (single_player_any_pad): outside split screen player 1's port reads the controller pressed last;
+    // the other port reads none, but its seat's controller still counts as connected (the main menu's 2 PLAYER item
+    // waits for a second one).
+    if (static_cast<int>(port) == player_one_port()) {
+        if (sdl_input_state().active_) {
+            poll_controller(poll, sdl_input_state().active_);
+        }
+    } else if (seat.controller && seat.locked_out_ == 0U && SDL_GamepadConnected(seat.controller)) {
+        poll.connected = true;
     }
 }
 
@@ -1384,14 +1553,13 @@ bool SdlSource::window_size(uint32_t window, int* width, int* height)
     return true;
 }
 
-// Rumble on the controller playing as `port`.
+// Rumble on the controller playing as `port` (rumble_controller) - not while the keyboard / mouse was used last in its
+// place (cursor_by_device: rumble_muted).
 bool SdlSource::rumble(int port, uint16_t high, uint16_t low)
 {
-    for (SDL_Gamepad* controller : sdl_input_state().controllers_) {
-        if (SDL_GamepadConnected(controller) &&
-            SDL_GetGamepadPlayerIndex(controller) == port) {
-            SDL_RumbleJoystick(SDL_GetGamepadJoystick(controller), low, high, 0);
-        }
+    SDL_Gamepad* controller = rumble_controller(port);
+    if (controller && SDL_GamepadConnected(controller) && !rumble_muted(port)) {
+        SDL_RumbleJoystick(SDL_GetGamepadJoystick(controller), low, high, 0);
     }
     return true;
 }

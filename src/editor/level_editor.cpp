@@ -421,6 +421,7 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     hud::get_reset(!ui);
     stored_mouse() = Mouse{};
     editor_session().saved_cursor_ = input::show_cursor(input::kCursorQuery);
+    input::set_cursor_follows_device(false); // (its cursor stays shown, whatever device was used last)
     input::show_cursor(input::kCursorShow);
     // (unsaved changes of an earlier level - its autosave was written when the editor was left - aren't this level's)
     if (unsaved_changes().unsaved_load_ != layout::level_loads()) {
@@ -560,6 +561,7 @@ bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
         fly_camera().camera_->set_at_point(fly_camera().saved_pos_);
         fly_camera().camera_->set_basis_frame(fly_camera().saved_matrix_);
     }
+    input::set_cursor_follows_device(true);
     if (editor_session().saved_cursor_ >= 0) {
         input::show_cursor(editor_session().saved_cursor_);
     }

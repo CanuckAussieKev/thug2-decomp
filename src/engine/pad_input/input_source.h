@@ -107,6 +107,9 @@ public:
     virtual bool set_relative_mouse(bool /*on*/) { return false; }
     // The cursor shown (1), hidden (0) or only asked (-1): `shown` its state after; true if the source has one.
     virtual bool show_cursor(int /*toggle*/, int* /*shown*/) { return false; }
+    // Whether the cursor follows the device used last (hidden while a controller is, shown as asked again at the next
+    // key or mouse movement - SDL's source, [features] cursor_by_device); the level editor turns it off while it's open.
+    virtual void set_cursor_follows_device(bool /*follows*/) {}
     // The size of the window an event names (Event::window), in pixels: false if there is no such window.
     virtual bool window_size(uint32_t /*window*/, int* /*width*/, int* /*height*/) { return false; }
 
@@ -147,6 +150,7 @@ bool controller(ControllerState* out);
 void set_relative_mouse(bool on);
 // (-1 when no source has a cursor)
 int show_cursor(int toggle);
+void set_cursor_follows_device(bool follows);
 bool window_size(uint32_t window, int* width, int* height);
 
 } // namespace input
