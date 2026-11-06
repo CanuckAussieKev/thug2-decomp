@@ -60,7 +60,7 @@ bool read_key_table(void* file, std::span<int16_t, kKeyTableEntries> table);
 // A position in a run of key bytes (the clip's rotation or translation keys).
 using KeyCursor = core::Cursor<const uint8_t>;
 // An animation's own quaternion table (flag 0x2000): 256 entries of three shorts.
-constexpr size_t kOwnKeyTableSize = 256 * 6;
+constexpr size_t kOwnKeyTableSize = size_t{256} * 6;
 // 0x004829F0 / 0x00482A30 (cdecl): the quaternion / translation table loaded from the file `name`.
 bool load_quat_table(const char* name);
 bool load_trans_table(const char* name);
