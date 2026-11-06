@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
+
 namespace lists {
 class KeyMap;
 }
@@ -61,6 +63,6 @@ public:
 };
 constexpr std::size_t kImposterManagerBytes = 8;
 
-static_assert(sizeof(ImposterManager) == kImposterManagerBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(ImposterManager) == kImposterManagerBytes), "layout must match the original");
 
 } // namespace render

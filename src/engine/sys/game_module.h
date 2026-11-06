@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/task_list.h"
 #include <gsl/pointers>
@@ -61,8 +62,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(PartUnit) == kPartUnitBytes && offsetof(PartUnit, locked_) == kPartUnitLockedOffset &&
-                      offsetof(PartUnit, list_link_) == kPartUnitListLinkOffset);
+        static_assert(core::layout_32bit(sizeof(PartUnit) == kPartUnitBytes && offsetof(PartUnit, locked_) == kPartUnitLockedOffset &&
+                      offsetof(PartUnit, list_link_) == kPartUnitListLinkOffset));
     }
 };
 

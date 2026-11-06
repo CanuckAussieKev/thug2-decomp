@@ -1,6 +1,7 @@
 // Pieces of the skater object, 0x0057FE30-0x00580BD8. See rider.h.
 
 #include "game/rider/rider.h"
+#include "base/core/layout_32bit.h"
 #include "game/rider/rider_created_tricks.h"
 #include "game/rider/rider_custom_restart.h"
 #include "game/rider/rider_projectiles.h"
@@ -1950,9 +1951,9 @@ void Rider::check_layout()
         FieldAt{.now = offsetof(Rider, is_halted_), .original = 0x320, .smaller_by = 8},
         FieldAt{.now = sizeof(Rider), .original = 0x324, .smaller_by = 8},
     };
-    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) {
                       return field.now + field.smaller_by == field.original;
-                  }),
+                  })),
                   "layout must match the original's, but for the smaller members");
 }
 
@@ -1999,8 +2000,7 @@ void CustomRestart::check_layout()
         FieldAt{.now = sizeof(CustomRestart), .original = 0x31C},
     };
     static_assert(
-        sizeof(void*) != 4 ||
-            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
         "layout must match the original");
 }
 
@@ -2017,8 +2017,7 @@ void StatOverrides::check_layout()
         FieldAt{.now = sizeof(StatOverrides), .original = 0x2B8},
     };
     static_assert(
-        sizeof(void*) != 4 ||
-            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
         "layout must match the original");
 }
 
@@ -2038,8 +2037,7 @@ void ProjectileSlots::check_layout()
         FieldAt{.now = sizeof(ProjectileSlots), .original = 0x238},
     };
     static_assert(
-        sizeof(void*) != 4 ||
-            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
         "layout must match the original");
 }
 
@@ -2055,9 +2053,9 @@ void CreatedTricks::check_layout()
         FieldAt{.now = offsetof(CreatedTricks, slots_), .original = 0x17C},
         FieldAt{.now = sizeof(CreatedTricks), .original = 0x1A8},
     };
-    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) {
                       return field.now + kAt == field.original;
-                  }),
+                  })),
                   "layout must match the original");
 }
 
@@ -2082,8 +2080,7 @@ void TrickEditorState::check_layout()
         FieldAt{.now = sizeof(TrickEditorState), .original = 0x1C0},
     };
     static_assert(
-        sizeof(void*) != 4 ||
-            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
         "layout must match the original");
 }
 
@@ -2108,8 +2105,7 @@ void RiderTraits::check_layout()
         FieldAt{.now = sizeof(RiderTraits), .original = 0x16C},
     };
     static_assert(
-        sizeof(void*) != 4 ||
-            std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
         "layout must match the original");
 }
 

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/gpu_handles.h"
 
@@ -58,9 +59,9 @@ private:
         constexpr size_t kDataOffset = 0xC;
         constexpr size_t kLockFlagsOffset = 0x18;
         constexpr size_t kBufferSize = 0x24;
-        static_assert(offsetof(VertexBufferData, data_) == kDataOffset &&
+        static_assert(core::layout_32bit(offsetof(VertexBufferData, data_) == kDataOffset &&
                           offsetof(VertexBufferData, lock_flags_) == kLockFlagsOffset &&
-                          sizeof(VertexBufferData) == kBufferSize,
+                          sizeof(VertexBufferData) == kBufferSize),
                       "layout must match the original");
     }
 };
@@ -106,7 +107,7 @@ private:
     {
         constexpr size_t kIndicesOffset = 0x10;
         constexpr size_t kStoreSize = 0x18;
-        static_assert(offsetof(IndexBufferData, indices_) == kIndicesOffset && sizeof(IndexBufferData) == kStoreSize,
+        static_assert(core::layout_32bit(offsetof(IndexBufferData, indices_) == kIndicesOffset && sizeof(IndexBufferData) == kStoreSize),
                       "layout must match the original");
     }
 };
@@ -162,8 +163,8 @@ private:
         constexpr size_t kBonesOffset = 0x44;
         constexpr size_t kColorOffset = 0x4D;
         constexpr size_t kBytes = 0x54;
-        static_assert(offsetof(InstanceData, bones_) == kBonesOffset && offsetof(InstanceData, color_) == kColorOffset &&
-                          sizeof(InstanceData) == kBytes,
+        static_assert(core::layout_32bit(offsetof(InstanceData, bones_) == kBonesOffset && offsetof(InstanceData, color_) == kColorOffset &&
+                          sizeof(InstanceData) == kBytes),
                       "layout must match the original");
     }
 };
@@ -313,7 +314,7 @@ private:
     // The original's layout (checked inside the class).
     static void check_layout()
     {
-        static_assert(offsetof(MeshData, material_) == kMeshRefMaterialOffset &&
+        static_assert(core::layout_32bit(offsetof(MeshData, material_) == kMeshRefMaterialOffset &&
                           offsetof(MeshData, vertex_buffer_count_) == kMeshRefVertexBufferCountOffset &&
                           offsetof(MeshData, index_counts_) == kMeshRefIndexCountsOffset &&
                           offsetof(MeshData, billboard_) == kMeshRefBillboardOffset &&
@@ -328,7 +329,7 @@ private:
                           offsetof(MeshData, pixel_shader_) == kMeshRefPixelShaderOffset &&
                           offsetof(MeshData, buffer_flags_) == kMeshRefBufferFlagsOffset &&
                           offsetof(MeshData, extra_buffers_) == kMeshRefExtraBuffersOffset &&
-                          sizeof(MeshData) == kMeshRefBytes,
+                          sizeof(MeshData) == kMeshRefBytes),
                       "layout must match the original");
     }
 };

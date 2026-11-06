@@ -8,6 +8,7 @@
 #include <gsl/pointers>
 
 #include "base/core/all_ones.h"
+#include "base/core/layout_32bit.h"
 
 // The lowest layer of the memory manager: regions of memory, the allocators that carve them up from either
 // end, and the header in front of every allocated block.
@@ -74,7 +75,7 @@ inline uint32_t ChunkPrefix::block_offset() const { return offset() + kBlockHead
 // Memory debugging: the heap reports each block it hands out, splits or resizes (before and after the change).
 // Compiled out of this build (the empty function at 0x005480A0), kept to show where the original reports.
 inline void debug_track_block(ChunkPrefix* /*block*/) {}
-static_assert(sizeof(ChunkPrefix) == kBlockHeaderBytes, "every block's header is 16 bytes");
+static_assert(core::layout_32bit(sizeof(ChunkPrefix) == kBlockHeaderBytes), "every block's header is 16 bytes");
 
 // Mark a block as in use (returns it).
 void* mark_block_in_use(void* block);
@@ -181,7 +182,7 @@ public:
     static void destroy(ListNode* node);
 };
 constexpr size_t kListNodeBytes = 0x10;
-static_assert(sizeof(ListNode) == kListNodeBytes, "a list node is four words");
+static_assert(core::layout_32bit(sizeof(ListNode) == kListNodeBytes), "a list node is four words");
 
 class MemSource {
 public:

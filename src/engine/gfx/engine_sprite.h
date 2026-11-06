@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/vec2.h"
 
@@ -113,9 +114,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BillboardQuad, orientation_turn_) == kBillboardQuadOrientationTurnOffset && offsetof(BillboardQuad, span_) == kBillboardQuadSpanOffset &&
+        static_assert(core::layout_32bit(offsetof(BillboardQuad, orientation_turn_) == kBillboardQuadOrientationTurnOffset && offsetof(BillboardQuad, span_) == kBillboardQuadSpanOffset &&
                           offsetof(BillboardQuad, rgba_value_) == kBillboardQuadRgbaValueOffset && offsetof(BillboardQuad, screen_region_) == kBillboardQuadScreenRegionOffset &&
-                          sizeof(BillboardQuad) == kBillboardQuadBytes,
+                          sizeof(BillboardQuad) == kBillboardQuadBytes),
                       "layout must match the original");
     }
 };
@@ -154,6 +155,6 @@ private:
 };
 constexpr std::size_t kTexturedQuadBytes = 0x1C;
 
-static_assert(sizeof(TexturedQuad) == kTexturedQuadBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(TexturedQuad) == kTexturedQuadBytes), "layout must match the original");
 
 } // namespace render

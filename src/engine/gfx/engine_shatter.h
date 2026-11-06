@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -68,8 +69,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Shatter, rotations) == kShatterRotationsOffset && offsetof(Shatter, triangle_count_) == kShatterTriangleCountOffset &&
-                          sizeof(Shatter) == kShatterBytes,
+        static_assert(core::layout_32bit(offsetof(Shatter, rotations) == kShatterRotationsOffset && offsetof(Shatter, triangle_count_) == kShatterTriangleCountOffset &&
+                          sizeof(Shatter) == kShatterBytes),
                       "layout must match the original");
     }
 };

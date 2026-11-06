@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/vec4.h"
 
@@ -84,7 +85,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ModelLights, intensities_) == kModelLightsIntensitiesOffset && sizeof(ModelLights) == kModelLightsBytes,
+        static_assert(core::layout_32bit(offsetof(ModelLights, intensities_) == kModelLightsIntensitiesOffset && sizeof(ModelLights) == kModelLightsBytes),
                       "layout must match the original");
     }
 };

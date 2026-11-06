@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 
 namespace gfx {
@@ -61,7 +62,7 @@ struct FlareElement {
 };
 constexpr std::size_t kFlareElementBytes = 0x18;
 
-static_assert(sizeof(FlareElement) == kFlareElementBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(FlareElement) == kFlareElementBytes), "layout must match the original");
 
 // 0x00442680: `value` limited to [min, max], the minimum checked first (NaN passes).
 float clamp_to_range(float value, float min, float max);

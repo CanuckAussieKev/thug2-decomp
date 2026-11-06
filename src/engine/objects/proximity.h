@@ -10,6 +10,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -101,9 +102,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ProximNode, to_sector_) == kProximNodeToSectorOffset && offsetof(ProximNode, active_) == kProximNodeActiveOffset &&
+        static_assert(core::layout_32bit(offsetof(ProximNode, to_sector_) == kProximNodeToSectorOffset && offsetof(ProximNode, active_) == kProximNodeActiveOffset &&
                           offsetof(ProximNode, kind_tag_) == kProximNodeKindTagOffset && offsetof(ProximNode, box_) == kProximNodeBoxOffset &&
-                          offsetof(ProximNode, own_script_) == kProximNodeOwnScriptOffset && sizeof(ProximNode) == kProximNodeBytes,
+                          offsetof(ProximNode, own_script_) == kProximNodeOwnScriptOffset && sizeof(ProximNode) == kProximNodeBytes),
                       "layout must match the original");
     }
 };

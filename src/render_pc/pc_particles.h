@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/particle_sets.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -97,9 +98,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcParticleSystem, capacity) == kPcParticleSystemCapacityOffset && offsetof(PcParticleSystem, matrix) == kPcParticleSystemMatrixOffset &&
+        static_assert(core::layout_32bit(offsetof(PcParticleSystem, capacity) == kPcParticleSystemCapacityOffset && offsetof(PcParticleSystem, matrix) == kPcParticleSystemMatrixOffset &&
                           offsetof(PcParticleSystem, material) == kPcParticleSystemMaterialOffset && offsetof(PcParticleSystem, spread) == kPcParticleSystemSpreadOffset &&
-                          offsetof(PcParticleSystem, path) == kPcParticleSystemPathOffset && sizeof(PcParticleSystem) == kPcParticleSystemBytes,
+                          offsetof(PcParticleSystem, path) == kPcParticleSystemPathOffset && sizeof(PcParticleSystem) == kPcParticleSystemBytes),
                       "layout must match the original");
     }
 };

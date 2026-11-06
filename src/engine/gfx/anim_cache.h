@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
+
 namespace gfx {
 
 constexpr std::size_t kBoneSlots = 60;       // the bones a cached clip can keep a search position for
@@ -32,7 +34,7 @@ void get_clear(AnimCacheSlot& slot);
 constexpr std::size_t kAnimCacheSlotClockOffset = 0x1E0;
 constexpr std::size_t kAnimCacheSlotBytes = 0x1E4;
 
-static_assert(offsetof(AnimCacheSlot, clock_) == kAnimCacheSlotClockOffset && sizeof(AnimCacheSlot) == kAnimCacheSlotBytes,
+static_assert(core::layout_32bit(offsetof(AnimCacheSlot, clock_) == kAnimCacheSlotClockOffset && sizeof(AnimCacheSlot) == kAnimCacheSlotBytes),
               "layout must match the original");
 
 constexpr std::size_t kAnimCacheEntrySlotsPtrOffset = 0x28;
@@ -160,9 +162,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(AnimCacheEntry, slots_ptr_) == kAnimCacheEntrySlotsPtrOffset && offsetof(AnimCacheEntry, rotation_key_size_) == kAnimCacheEntryRotationKeySizeOffset &&
+        static_assert(core::layout_32bit(offsetof(AnimCacheEntry, slots_ptr_) == kAnimCacheEntrySlotsPtrOffset && offsetof(AnimCacheEntry, rotation_key_size_) == kAnimCacheEntryRotationKeySizeOffset &&
                           offsetof(AnimCacheEntry, translation_offsets_) == kAnimCacheEntryTranslationOffsetsOffset &&
-                          offsetof(AnimCacheEntry, flag_bits_) == kAnimCacheEntryFlagBitsOffset && sizeof(AnimCacheEntry) == kAnimCacheEntryBytes,
+                          offsetof(AnimCacheEntry, flag_bits_) == kAnimCacheEntryFlagBitsOffset && sizeof(AnimCacheEntry) == kAnimCacheEntryBytes),
                       "layout must match the original");
     }
 };
@@ -239,8 +241,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ClipStore, num_) == kClipStoreNumOffset && offsetof(ClipStore, evict_unused_) == kClipStoreEvictUnusedOffset &&
-                          sizeof(ClipStore) == kClipStoreBytes,
+        static_assert(core::layout_32bit(offsetof(ClipStore, num_) == kClipStoreNumOffset && offsetof(ClipStore, evict_unused_) == kClipStoreEvictUnusedOffset &&
+                          sizeof(ClipStore) == kClipStoreBytes),
                       "layout must match the original");
     }
 };

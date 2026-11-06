@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include <gsl/pointers>
 #include <array>
@@ -58,7 +59,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(TopEntry) == kTopEntryBytes && offsetof(TopEntry, skill_points_) == kTopEntrySkillPointsOffset);
+        static_assert(core::layout_32bit(sizeof(TopEntry) == kTopEntryBytes && offsetof(TopEntry, skill_points_) == kTopEntrySkillPointsOffset));
     }
 };
 
@@ -89,7 +90,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(LevelScores) == kLevelScoresBytes && offsetof(LevelScores, entries_) == kLevelScoresEntriesOffset);
+        static_assert(core::layout_32bit(sizeof(LevelScores) == kLevelScoresBytes && offsetof(LevelScores, entries_) == kLevelScoresEntriesOffset));
     }
 };
 
@@ -132,7 +133,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(TopList) == kTopListBytes && offsetof(TopList, title_) == kTopListTitleOffset);
+        static_assert(core::layout_32bit(sizeof(TopList) == kTopListBytes && offsetof(TopList, title_) == kTopListTitleOffset));
     }
 };
 
@@ -165,7 +166,7 @@ public:
     // 0x0054D780 (the scalar deleting destructor; the node's 0x0054EA20 / 0x0054D740)
     SortEntry* teardown(unsigned int flags);
 };
-static_assert(sizeof(SortEntry) == kSortEntryBytes);
+static_assert(core::layout_32bit(sizeof(SortEntry) == kSortEntryBytes));
 
 // (lists::Hunt<SortEntry>'s, <TopEntry>'s and <LevelScores>'s vtables - 0x0064D580 / 0x0064D584 / 0x0064D588 - hold
 // only destructors that reset them: 0x0054CA90 / 0x0054D370, 0x0054CAA0 / 0x0054D3A0, 0x0054CAB0 / 0x0054D3D0.)

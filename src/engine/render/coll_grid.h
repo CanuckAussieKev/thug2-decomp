@@ -9,6 +9,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/shape_tests.h"
 #include "base/core/checked_index.h"
@@ -53,7 +54,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CollGridCell) == kCollGridCellBytes && offsetof(CollGridCell, objects_) == kCollGridCellObjectsOffset,
+        static_assert(core::layout_32bit(sizeof(CollGridCell) == kCollGridCellBytes && offsetof(CollGridCell, objects_) == kCollGridCellObjectsOffset),
                       "layout must match the original");
     }
 };
@@ -101,7 +102,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CollGrid, cells_) == kCollGridCellsOffset && sizeof(CollGrid) == kCollGridBytes, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(CollGrid, cells_) == kCollGridCellsOffset && sizeof(CollGrid) == kCollGridBytes), "layout must match the original");
     }
 };
 

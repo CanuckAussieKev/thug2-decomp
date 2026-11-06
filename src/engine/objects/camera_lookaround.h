@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 
@@ -99,9 +100,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FreeLookModule, locked_) == kFreeLookModuleLockedOffset && offsetof(FreeLookModule, factor_) == kFreeLookModuleFactorOffset &&
+        static_assert(core::layout_32bit(offsetof(FreeLookModule, locked_) == kFreeLookModuleLockedOffset && offsetof(FreeLookModule, factor_) == kFreeLookModuleFactorOffset &&
                           offsetof(FreeLookModule, target_tilt_) == kFreeLookModuleTargetTiltOffset && offsetof(FreeLookModule, input_ptr_) == kFreeLookModuleInputPtrOffset &&
-                          sizeof(FreeLookModule) == kFreeLookModuleBytes,
+                          sizeof(FreeLookModule) == kFreeLookModuleBytes),
                       "layout must match the original");
     }
 };

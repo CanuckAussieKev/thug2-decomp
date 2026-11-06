@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/task_list.h"
 
 // The main loop's task manager (frame_loop::Hub, the singleton 0x0044F260 creates). sys::Main hands it the engine's
@@ -65,17 +66,17 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Hub, logic_tasks_) == 0x04);
-        static_assert(offsetof(Hub, display_tasks_) == kDisplayTasksOffset);
-        static_assert(offsetof(Hub, system_tasks_) == kSystemTasksOffset);
-        static_assert(offsetof(Hub, unknownb8_) == kUnknownB8Offset);
-        static_assert(offsetof(Hub, profile_frames_) == kProfileFramesOffset);
-        static_assert(offsetof(Hub, profiling_) == kProfilingOffset);
+        static_assert(core::layout_32bit(offsetof(Hub, logic_tasks_) == 0x04));
+        static_assert(core::layout_32bit(offsetof(Hub, display_tasks_) == kDisplayTasksOffset));
+        static_assert(core::layout_32bit(offsetof(Hub, system_tasks_) == kSystemTasksOffset));
+        static_assert(core::layout_32bit(offsetof(Hub, unknownb8_) == kUnknownB8Offset));
+        static_assert(core::layout_32bit(offsetof(Hub, profile_frames_) == kProfileFramesOffset));
+        static_assert(core::layout_32bit(offsetof(Hub, profiling_) == kProfilingOffset));
     }
 };
 // (The task lists' heads are 8 bytes smaller than the original's: the offsets after the first moved. The logic tasks at
 // +0x04 are read by byte offset elsewhere.)
-static_assert(sizeof(Hub) == kHubBytes);
+static_assert(core::layout_32bit(sizeof(Hub) == kHubBytes));
 
 // NOT ORIGINAL: the main loop's passes so far (ours: features that need the game up - the front end's input logic
 // also runs in the early self-tests, on stand-in state - wait for the first).

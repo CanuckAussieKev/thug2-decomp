@@ -5,6 +5,7 @@
 #include <span>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 #include "base/maths/mat4.h"
@@ -97,7 +98,7 @@ struct Joint {
 };
 constexpr std::size_t kJointBytes = 0x1C;
 
-static_assert(sizeof(Joint) == kJointBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Joint) == kJointBytes), "layout must match the original");
 
 constexpr std::size_t kRigBoneArrayOffset = 0x18;
 constexpr std::size_t kRigBytes = 0x1C;
@@ -184,7 +185,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Rig, bone_array_) == kRigBoneArrayOffset && sizeof(Rig) == kRigBytes, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(Rig, bone_array_) == kRigBoneArrayOffset && sizeof(Rig) == kRigBytes), "layout must match the original");
     }
 };
 

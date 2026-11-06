@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/anim_controller.h"
 #include "base/maths/vec4.h"
 
@@ -39,11 +40,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FlipRotateComponent, mirrored_) == kFlipRotateComponentMirroredOffset);
+        static_assert(core::layout_32bit(offsetof(FlipRotateComponent, mirrored_) == kFlipRotateComponentMirroredOffset));
     }
 };
 constexpr std::size_t kFlipRotateComponentBytes = 0x18;
-static_assert(sizeof(FlipRotateComponent) == kFlipRotateComponentBytes);
+static_assert(core::layout_32bit(sizeof(FlipRotateComponent) == kFlipRotateComponentBytes));
 
 // 0x004354C0 (cdecl; in the original among the vehicle's code, game/world/vehicle_component.cpp): the quaternion
 // product a * b into `out` (0x00420140, a quaternion's *=, on a copy of a). Returns out.

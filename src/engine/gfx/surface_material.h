@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 #include "base/core/checksums.h"
+#include "base/core/layout_32bit.h"
 
 // A scene material (Nx engine, PC; 0x110 bytes, constructor 0x004D1A90): up to four passes, each with flags, a
 // texture, a colour, a blend mode, addressing, a mip bias and an optional UV wibble; colour and texture animations;
@@ -78,7 +79,7 @@ struct TextureAnim {
 void relaunch(TextureAnim& anim);
 constexpr std::size_t kTextureAnimBytes = 0x44;
 
-static_assert(sizeof(TextureAnim) == kTextureAnimBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(TextureAnim) == kTextureAnimBytes), "layout must match the original");
 
 // A colour animation (12 bytes): keys of a time (in frames, 0x00786D00) and an RGBA colour, blended between.
 struct ColorKey {
@@ -229,10 +230,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(MaterialRef, pass_flags_) == kMaterialRefPassFlagsOffset && offsetof(MaterialRef, pass_color_) == kMaterialRefPassColorOffset &&
+        static_assert(core::layout_32bit(offsetof(MaterialRef, pass_flags_) == kMaterialRefPassFlagsOffset && offsetof(MaterialRef, pass_color_) == kMaterialRefPassColorOffset &&
                           offsetof(MaterialRef, reflection_tiling_) == kMaterialRefReflectionTilingOffset && offsetof(MaterialRef, uv_wibble_) == kMaterialRefUvWibbleOffset &&
                           offsetof(MaterialRef, color_anim_count_) == kMaterialRefColorAnimCountOffset && offsetof(MaterialRef, texture_anim_) == kMaterialRefTextureAnimOffset &&
-                          offsetof(MaterialRef, specular_power_) == kMaterialRefSpecularPowerOffset && sizeof(MaterialRef) == kMaterialRefBytes,
+                          offsetof(MaterialRef, specular_power_) == kMaterialRefSpecularPowerOffset && sizeof(MaterialRef) == kMaterialRefBytes),
                       "layout must match the original");
     }
 };

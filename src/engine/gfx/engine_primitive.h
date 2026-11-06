@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/core/packed_colour.h"
 #include "base/maths/vec2.h"
@@ -115,9 +116,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Primitive, flag_bits_) == kPrimitiveFlagBitsOffset && offsetof(Primitive, owns_vertices_) == kPrimitiveOwnsVerticesOffset &&
+        static_assert(core::layout_32bit(offsetof(Primitive, flag_bits_) == kPrimitiveFlagBitsOffset && offsetof(Primitive, owns_vertices_) == kPrimitiveOwnsVerticesOffset &&
                           offsetof(Primitive, ready_) == kPrimitiveReadyOffset && offsetof(Primitive, unknown1c_) == kPrimitiveUnknown1cOffset &&
-                          sizeof(Primitive) == kPrimitiveBytes,
+                          sizeof(Primitive) == kPrimitiveBytes),
                       "layout must match the original");
     }
 };

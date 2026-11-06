@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/model.h"
 #include "base/maths/vec4.h"
 
@@ -29,7 +30,7 @@ private:
 };
 constexpr std::size_t kPcModelBytes = 0x50;
 
-static_assert(sizeof(PcModel) == kPcModelBytes,
+static_assert(core::layout_32bit(sizeof(PcModel) == kPcModelBytes),
               "layout must match the original");
 
 } // namespace render

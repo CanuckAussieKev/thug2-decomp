@@ -8,6 +8,7 @@
 #include <array>
 #include <gsl/assert>
 
+#include "base/core/layout_32bit.h"
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/memory/manager.h"
@@ -29,7 +30,7 @@ namespace objects {
 
 constexpr std::size_t kClassNodeListBytes = 0x4C;
 constexpr std::size_t kGrindRailHubBytes = 0x54;
-static_assert(sizeof(ClassNodeList) == kClassNodeListBytes && sizeof(GrindRailHub) == kGrindRailHubBytes, "the sizes allocated here");
+static_assert(core::layout_32bit(sizeof(ClassNodeList) == kClassNodeListBytes && sizeof(GrindRailHub) == kGrindRailHubBytes), "the sizes allocated here");
 
 namespace {
 constexpr std::size_t kPathBytes = 0x100;

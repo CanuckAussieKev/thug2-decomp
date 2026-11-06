@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 namespace objects {
@@ -70,7 +71,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) == kSharedBaseBytes, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) == kSharedBaseBytes), "layout must match the original");
     }
 };
 
@@ -165,6 +166,6 @@ public:
     explicit operator bool() const { return target_ != nullptr; }
 };
 constexpr std::size_t kSharedRefBytes = 12;
-static_assert(sizeof(SharedRef<SharedBase>) == kSharedRefBytes, "a smart pointer is 12 bytes");
+static_assert(core::layout_32bit(sizeof(SharedRef<SharedBase>) == kSharedRefBytes), "a smart pointer is 12 bytes");
 
 } // namespace objects

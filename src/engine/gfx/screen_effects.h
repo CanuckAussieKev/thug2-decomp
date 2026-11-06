@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 namespace script {
@@ -60,6 +61,6 @@ private:
 };
 constexpr std::size_t kScreenEffectsBytes = 8;
 
-static_assert(sizeof(ScreenEffects) == kScreenEffectsBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(ScreenEffects) == kScreenEffectsBytes), "layout must match the original");
 
 } // namespace render

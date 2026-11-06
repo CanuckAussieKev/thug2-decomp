@@ -3,6 +3,7 @@
 // The network library's message dispatcher (NetLink::Router, an App's +0x0C): handler lists per message id,
 // and the context a handler gets.
 
+#include "base/core/layout_32bit.h"
 #include "wire/message_ids.h"
 #include <cstddef>
 #include <cstdint>
@@ -80,8 +81,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == kInboundMsgCtxSequencesToAckOffset &&
-                      offsetof(InboundMsgCtx, num_sequences_to_ack_) == kInboundMsgCtxNumSequencesToAckOffset && sizeof(InboundMsgCtx) == kInboundMsgCtxBytes);
+        static_assert(core::layout_32bit(offsetof(InboundMsgCtx, sequences_to_ack_) == kInboundMsgCtxSequencesToAckOffset &&
+                      offsetof(InboundMsgCtx, num_sequences_to_ack_) == kInboundMsgCtxNumSequencesToAckOffset && sizeof(InboundMsgCtx) == kInboundMsgCtxBytes));
     }
 };
 

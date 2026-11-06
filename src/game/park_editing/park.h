@@ -20,6 +20,7 @@
 #include <optional>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "formats/park_map_format.h"
 #include "game/park_editing/park_rails.h"
 #include "base/maths/vec4.h"
@@ -287,9 +288,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkTile, ident_) == kParkTileIdentOffset && offsetof(ParkTile, blend_source_) == kParkTileBlendSourceOffset &&
+        static_assert(core::layout_32bit(offsetof(ParkTile, ident_) == kParkTileIdentOffset && offsetof(ParkTile, blend_source_) == kParkTileBlendSourceOffset &&
                           offsetof(ParkTile, at_point_) == kParkTileAtPointOffset && offsetof(ParkTile, quarter_turns_) == kParkTileQuarterTurnsOffset &&
-                          sizeof(ParkTile) == kParkTileByteSize,
+                          sizeof(ParkTile) == kParkTileByteSize),
                       "layout must match the original (a placed piece: 0x2C bytes)");
     }
 };
@@ -334,8 +335,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TileTemplate, extent_) == kTileTemplateExtentOffset && offsetof(TileTemplate, trigger_script_) == kTileTemplateTriggerScriptOffset &&
-                          sizeof(TileTemplate) == kTileTemplateByteSize,
+        static_assert(core::layout_32bit(offsetof(TileTemplate, extent_) == kTileTemplateExtentOffset && offsetof(TileTemplate, trigger_script_) == kTileTemplateTriggerScriptOffset &&
+                          sizeof(TileTemplate) == kTileTemplateByteSize),
                       "layout must match the original");
     }
 };
@@ -512,7 +513,7 @@ protected:
 private:
     PieceSlots<uint32_t> slots_; // +0x14
 };
-static_assert(sizeof(void*) != 4 || (sizeof(PlacedPieceGroup) == kPlacedPieceGroupByteSize && sizeof(PieceBlueprint) == kPieceBlueprintByteSize),
+static_assert(core::layout_32bit(sizeof(PlacedPieceGroup) == kPlacedPieceGroupByteSize && sizeof(PieceBlueprint) == kPieceBlueprintByteSize),
               "a metapiece is the original's size: the park heap's use is the player's memory meter");
 
 constexpr std::size_t kMapListNodeByteSize = 12;
@@ -546,7 +547,7 @@ public:
     // 0x00590470: walks the list (a debug check with its asserts compiled out; never ends on a cycle).
     static void audit_soundness(const MapListNode* list);
 };
-static_assert(sizeof(MapListNode) == kMapListNodeByteSize, "pool item");
+static_assert(core::layout_32bit(sizeof(MapListNode) == kMapListNodeByteSize), "pool item");
 
 // The holder of a list returned by the manager's lookups (0x004E1970 makes it, 0x00469490 reads it, 0x00591C60
 // frees the list).
@@ -706,8 +707,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ClipboardEntry, quarter_turns_) == kClipboardEntryQuarterTurnsOffset && offsetof(ClipboardEntry, preview_) == kClipboardEntryPreviewOffset &&
-                          sizeof(ClipboardEntry) == kClipboardEntryByteSize,
+        static_assert(core::layout_32bit(offsetof(ClipboardEntry, quarter_turns_) == kClipboardEntryQuarterTurnsOffset && offsetof(ClipboardEntry, preview_) == kClipboardEntryPreviewOffset &&
+                          sizeof(ClipboardEntry) == kClipboardEntryByteSize),
                       "pool item");
     }
 };
@@ -760,7 +761,7 @@ public:
     // 0x0058BF10: the area it covers placed at the cursor (turned with it)
     void fetch_extent(BuildPointer* cursor, CellBox* area) const;
 };
-static_assert(sizeof(Clipboard) == kClipboardByteSize, "pool item");
+static_assert(core::layout_32bit(sizeof(Clipboard) == kClipboardByteSize), "pool item");
 
 constexpr std::size_t kPieceFamilyEntryTotalOffset = 0x148;
 constexpr std::size_t kPieceFamilyIsDisplayedOffset = 0x150;
@@ -780,8 +781,8 @@ struct PieceFamily {
     bool is_clipboard_;      // +0x151: the clipboard set
     std::array<uint8_t, 2> pad152;
 };
-static_assert(offsetof(PieceFamily, entry_total_) == kPieceFamilyEntryTotalOffset && offsetof(PieceFamily, is_displayed_) == kPieceFamilyIsDisplayedOffset &&
-                  sizeof(PieceFamily) == kPieceFamilyByteSize,
+static_assert(core::layout_32bit(offsetof(PieceFamily, entry_total_) == kPieceFamilyEntryTotalOffset && offsetof(PieceFamily, is_displayed_) == kPieceFamilyIsDisplayedOffset &&
+                  sizeof(PieceFamily) == kPieceFamilyByteSize),
               "layout must match the original");
 using TileFamilyRef = PieceFamily;
 
@@ -878,9 +879,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(GapRegistry::Gap) == kGapRegistryGapByteSize && offsetof(GapRegistry::Gap, details_) == kGapRegistryGapDetailsOffset &&
+        static_assert(core::layout_32bit(sizeof(GapRegistry::Gap) == kGapRegistryGapByteSize && offsetof(GapRegistry::Gap, details_) == kGapRegistryGapDetailsOffset &&
                           offsetof(GapRegistry, gaps_ptr_) == 4 && offsetof(GapRegistry, started_first_) == kGapRegistryStartedFirstOffset &&
-                          offsetof(GapRegistry, park_owner_) == kGapRegistryParkOwnerOffset && sizeof(GapRegistry) == kGapRegistryByteSize,
+                          offsetof(GapRegistry, park_owner_) == kGapRegistryParkOwnerOffset && sizeof(GapRegistry) == kGapRegistryByteSize),
                       "layout must match the original");
     }
 };
@@ -1125,10 +1126,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkAssembler, source_rails_) == kParkAssemblerSourceRailsOffset && offsetof(ParkAssembler, rails_) == kParkAssemblerRailsOffset &&
+        static_assert(core::layout_32bit(offsetof(ParkAssembler, source_rails_) == kParkAssemblerSourceRailsOffset && offsetof(ParkAssembler, rails_) == kParkAssemblerRailsOffset &&
                           offsetof(ParkAssembler, node_info_) == kParkAssemblerNodeInfoOffset && offsetof(ParkAssembler, restarts_) == kParkAssemblerRestartsOffset &&
                           offsetof(ParkAssembler, light_total_) == kParkAssemblerLightTotalOffset && offsetof(ParkAssembler, lights_) == kParkAssemblerLightsOffset &&
-                          offsetof(ParkAssembler, field_43c_) == kParkAssemblerField43cOffset,
+                          offsetof(ParkAssembler, field_43c_) == kParkAssemblerField43cOffset),
                       "layout must match the original");
     }
 };
@@ -1453,14 +1454,14 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkLayout, shell_blocks_) == kParkLayoutShellBlocksOffset && offsetof(ParkLayout, concrete_metas_) == kParkLayoutConcreteMetasOffset &&
+        static_assert(core::layout_32bit(offsetof(ParkLayout, shell_blocks_) == kParkLayoutShellBlocksOffset && offsetof(ParkLayout, concrete_metas_) == kParkLayoutConcreteMetasOffset &&
                           offsetof(ParkLayout, cell_metas_) == kParkLayoutCellMetasOffset && offsetof(ParkLayout, shell_size_) == kParkLayoutShellSizeOffset &&
                           offsetof(ParkLayout, floor_) == kParkLayoutFloorOffset && offsetof(ParkLayout, sets_) == kParkLayoutSetsOffset &&
                           offsetof(ParkLayout, num_sets_) == kParkLayoutNumSetsOffset && offsetof(ParkLayout, map_) == kParkLayoutMapOffset &&
                           offsetof(ParkLayout, flag_bits_) == kParkLayoutFlagBitsOffset && offsetof(ParkLayout, blocked_areas_) == kParkLayoutBlockedAreasOffset &&
                           offsetof(ParkLayout, num_blocked_areas_) == kParkLayoutNumBlockedAreasOffset &&
                           offsetof(ParkLayout, restart_pieces_) == kParkLayoutRestartPiecesOffset && offsetof(ParkLayout, gap_registry_) == kParkLayoutGapRegistryOffset &&
-                          sizeof(ParkLayout) == kParkLayoutByteSize,
+                          sizeof(ParkLayout) == kParkLayoutByteSize),
                       "layout must match the original");
     }
 };
@@ -1666,10 +1667,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BuildPointer, aim_point_) == kBuildPointerAimPointOffset && offsetof(BuildPointer, piece_group_) == kBuildPointerPieceGroupOffset &&
+        static_assert(core::layout_32bit(offsetof(BuildPointer, aim_point_) == kBuildPointerAimPointOffset && offsetof(BuildPointer, piece_group_) == kBuildPointerPieceGroupOffset &&
                           offsetof(BuildPointer, area_start_) == kBuildPointerAreaStartOffset && offsetof(BuildPointer, area_highlighted_) == kBuildPointerAreaHighlightedOffset &&
                           offsetof(BuildPointer, copy_buffers_) == kBuildPointerCopyBuffersOffset && offsetof(BuildPointer, mode_sel_) == kBuildPointerModeSelOffset &&
-                          offsetof(BuildPointer, gap_) == kBuildPointerGapOffset && sizeof(BuildPointer) == kBuildPointerByteSize,
+                          offsetof(BuildPointer, gap_) == kBuildPointerGapOffset && sizeof(BuildPointer) == kBuildPointerByteSize),
                       "layout must match the original");
     }
 };

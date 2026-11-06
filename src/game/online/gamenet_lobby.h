@@ -10,6 +10,7 @@
 #include <memory>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 
 namespace script {
@@ -401,7 +402,7 @@ struct QueuedPacket {
     int length;
     std::array<uint8_t, kQueuedPacketFromSize> from; // the sender's sockaddr
 };
-static_assert(sizeof(QueuedPacket) == kQueuedPacketBytes);
+static_assert(core::layout_32bit(sizeof(QueuedPacket) == kQueuedPacketBytes));
 
 // (Two list searches the lobby's code keeps on its stack have vtables, 0x0064CB6C / 0x0064CB70, holding only
 // destructors that put them back - 0x0053F8B0 / 0x005407E0, 0x0053F8C0 / 0x00540810 - not kept.)

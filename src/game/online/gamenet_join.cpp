@@ -16,6 +16,7 @@
 #include "base/core/checksums.h"
 #include "base/core/enum_ops.h"
 #include "base/core/format.h"
+#include "base/core/layout_32bit.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
 #include "platform/gamespy.h"
 #include "engine/memory/manager.h"
@@ -134,7 +135,7 @@ constexpr int kTopRank = 0xFF;
 constexpr int kBottomRank = 0;
 
 // The player info being made (online::JoinerRecord, player_info.h; flags: 1 local player, 4 observer, 8 pending).
-static_assert(sizeof(JoinerRecord) == kPlayerInfoSize);
+static_assert(core::layout_32bit(sizeof(JoinerRecord) == kPlayerInfoSize));
 
 // GameSpy CD-key's instance data for client_authorized (12 bytes, operator new).
 // (the join request being sent: the original's is on its stack)

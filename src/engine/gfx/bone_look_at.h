@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/quat_rotation.h"
 #include "base/maths/vec4.h"
 #include "engine/gfx/anim_controller.h"
@@ -94,7 +95,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BoneLookAt, bones_) == kBoneLookAtBonesOffset && sizeof(BoneLookAt) == kBoneLookAtBytes, "the original's layout");
+        static_assert(core::layout_32bit(offsetof(BoneLookAt, bones_) == kBoneLookAtBonesOffset && sizeof(BoneLookAt) == kBoneLookAtBytes), "the original's layout");
     }
 };
 

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <new>
+#include "base/core/layout_32bit.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/sys/game_module.h"
 #include <gsl/pointers>
@@ -37,7 +38,7 @@ struct ScriptCacheEntry {
     ScriptCacheEntry* older; // the unused list
     ScriptCacheEntry* newer;
 };
-static_assert(sizeof(ScriptCacheEntry) == kScriptCacheEntryBytes, "allocated as 0x14 bytes by the original");
+static_assert(core::layout_32bit(sizeof(ScriptCacheEntry) == kScriptCacheEntryBytes), "allocated as 0x14 bytes by the original");
 
 constexpr size_t kScriptStoreEntriesOffset = 0x14;
 constexpr size_t kScriptStoreNewestUnusedOffset = 0x18;
@@ -87,12 +88,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ScriptStore, entries_) == kScriptStoreEntriesOffset && offsetof(ScriptStore, newest_unused_) == kScriptStoreNewestUnusedOffset &&
-                          offsetof(ScriptStore, oldest_unused_) == kScriptStoreOldestUnusedOffset && offsetof(ScriptStore, delete_unused_) == kScriptStoreDeleteUnusedOffset,
+        static_assert(core::layout_32bit(offsetof(ScriptStore, entries_) == kScriptStoreEntriesOffset && offsetof(ScriptStore, newest_unused_) == kScriptStoreNewestUnusedOffset &&
+                          offsetof(ScriptStore, oldest_unused_) == kScriptStoreOldestUnusedOffset && offsetof(ScriptStore, delete_unused_) == kScriptStoreDeleteUnusedOffset),
                       "layout must match the original");
     }
 };
-static_assert(sizeof(ScriptStore) == kScriptStoreBytes, "allocated as 0x24 bytes by the original");
+static_assert(core::layout_32bit(sizeof(ScriptStore) == kScriptStoreBytes), "allocated as 0x24 bytes by the original");
 
 // 0x00476040: with `create`, make the cache if there's none; either way take a reference. Returns the cache.
 ScriptStore* create_script_cache(bool create);

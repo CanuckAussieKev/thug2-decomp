@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "base/maths/shape_tests.h"
@@ -168,7 +169,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMesh) == kHitMeshBytes && offsetof(HitMesh, checksum_) == 4, "layout must match the original");
+        static_assert(core::layout_32bit(sizeof(HitMesh) == kHitMeshBytes && offsetof(HitMesh, checksum_) == 4), "layout must match the original");
     }
 };
 
@@ -241,7 +242,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMeshGroup) == kHitMeshGroupBytes && offsetof(HitMeshGroup, box_) == kHitMeshGroupBoxOffset, "layout must match the original");
+        static_assert(core::layout_32bit(sizeof(HitMeshGroup) == kHitMeshGroupBytes && offsetof(HitMeshGroup, box_) == kHitMeshGroupBoxOffset), "layout must match the original");
     }
 };
 

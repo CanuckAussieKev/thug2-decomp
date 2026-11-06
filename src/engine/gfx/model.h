@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -60,7 +61,7 @@ struct ModelGeom {
 constexpr std::size_t kModelGeomAssetNameOffset = 0x10;
 constexpr std::size_t kModelGeomBytes = 0x18;
 
-static_assert(offsetof(ModelGeom, asset_name_) == kModelGeomAssetNameOffset && sizeof(ModelGeom) == kModelGeomBytes, "layout must match the original");
+static_assert(core::layout_32bit(offsetof(ModelGeom, asset_name_) == kModelGeomAssetNameOffset && sizeof(ModelGeom) == kModelGeomBytes), "layout must match the original");
 
 // RenderModel::flag_bits_ (the flag setters take a byte and keep its low bit - the original's shifts and masks)
 constexpr uint8_t kModelSphereValid = 0x01; // enclosing_ball_ holds the platform's
@@ -268,10 +269,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(RenderModel, geom_ring_) == kRenderModelGeomRingOffset && offsetof(RenderModel, size_factor_) == kRenderModelSizeFactorOffset &&
+        static_assert(core::layout_32bit(offsetof(RenderModel, geom_ring_) == kRenderModelGeomRingOffset && offsetof(RenderModel, size_factor_) == kRenderModelSizeFactorOffset &&
                           offsetof(RenderModel, lights_ptr_) == kRenderModelLightsPtrOffset && offsetof(RenderModel, enclosing_ball_) == kRenderModelEnclosingBallOffset &&
                           offsetof(RenderModel, flag_bits_) == kRenderModelFlagBitsOffset && offsetof(RenderModel, num_asset_geoms_) == kRenderModelNumAssetGeomsOffset && offsetof(RenderModel, geom_total_) == kRenderModelGeomTotalOffset &&
-                          sizeof(RenderModel) == kRenderModelBytes,
+                          sizeof(RenderModel) == kRenderModelBytes),
                       "layout must match the original");
     }
 };

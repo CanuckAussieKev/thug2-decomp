@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/memory/mem.h"
@@ -90,7 +91,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FullShadow, reach_) == kFullShadowReachOffset && sizeof(FullShadow) == kFullShadowBytes, "the original's size");
+        static_assert(core::layout_32bit(offsetof(FullShadow, reach_) == kFullShadowReachOffset && sizeof(FullShadow) == kFullShadowBytes), "the original's size");
     }
 };
 
@@ -123,7 +124,7 @@ private:
 };
 constexpr std::size_t kBlobShadowBytes = 0x14;
 
-static_assert(sizeof(BlobShadow) == kBlobShadowBytes, "the original's size");
+static_assert(core::layout_32bit(sizeof(BlobShadow) == kBlobShadowBytes), "the original's size");
 
 // An edge of a model's silhouette: its two ends as each of the two faces sharing it sees them - [0] / [2] the first face's
 // ends, [1] / [3] the second's (set when it's found) - each with the face's normal.
@@ -178,8 +179,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ShadowVolume, model_key_) == kShadowVolumeModelKeyOffset && offsetof(ShadowVolume, edges_) == kShadowVolumeEdgesOffset &&
-                          sizeof(ShadowVolume) == kShadowVolumeBytes,
+        static_assert(core::layout_32bit(offsetof(ShadowVolume, model_key_) == kShadowVolumeModelKeyOffset && offsetof(ShadowVolume, edges_) == kShadowVolumeEdgesOffset &&
+                          sizeof(ShadowVolume) == kShadowVolumeBytes),
                       "the original's size");
     }
 };

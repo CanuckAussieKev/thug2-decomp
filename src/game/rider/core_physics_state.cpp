@@ -11,6 +11,7 @@
 #include <new>
 
 #include "base/core/dbg.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "base/maths/shape_tests.h"
@@ -273,7 +274,7 @@ void SkaterPhysicsModule::check_layout()
         FieldAt{.now = offsetof(SkaterPhysicsModule, tagging_component_), .original = 0x1538},
         FieldAt{.now = sizeof(SkaterPhysicsModule), .original = 0x153C},
     };
-    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now == field.original; }),
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now == field.original; })),
                   "layout must match the original");
 }
 

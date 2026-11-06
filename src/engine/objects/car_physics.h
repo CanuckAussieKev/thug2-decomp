@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
@@ -115,11 +116,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == kAutomobileDynamicsModuleWheelSpinOffset &&
+        static_assert(core::layout_32bit(offsetof(AutomobileDynamicsModule, wheel_spin_) == kAutomobileDynamicsModuleWheelSpinOffset &&
                           offsetof(AutomobileDynamicsModule, last_speed_) == kAutomobileDynamicsModuleLastSpeedOffset &&
                           offsetof(AutomobileDynamicsModule, tilt_divisor_) == kAutomobileDynamicsModuleTiltDivisorOffset &&
                           offsetof(AutomobileDynamicsModule, body_shown_) == kAutomobileDynamicsModuleBodyShownOffset &&
-                          offsetof(AutomobileDynamicsModule, suspend_) == kAutomobileDynamicsModuleSuspendOffset && sizeof(AutomobileDynamicsModule) == kAutomobileDynamicsModuleBytes,
+                          offsetof(AutomobileDynamicsModule, suspend_) == kAutomobileDynamicsModuleSuspendOffset && sizeof(AutomobileDynamicsModule) == kAutomobileDynamicsModuleBytes),
                       "layout must match the original");
     }
 };
