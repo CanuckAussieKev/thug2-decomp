@@ -109,6 +109,10 @@ tools\verify_build.cmd               (builds out\build\verify\thug2-decomp.exe; 
 npm run typecheck && npm run lint && npm test
 ```
 
+The game is 32-bit. A 64-bit build is being ported library by library (docs/design/x64-port.md): the **x64 Debug** /
+**x64 Release** configurations (`tools\verify_build.cmd x64`, out\build\verify-x64) build only the libraries ported
+so far and their checks - no game yet.
+
 Prefer a solution file? `cmake -S . -B out/vs -G "Visual Studio 18 2026" -A Win32`, then open `out\vs\thug2_decomp.slnx`
 and build **Debug | Win32**. Builds are Debug: debug-CRT reports and run-time check failures go to `thug2-decomp.log`
 with a call stack.

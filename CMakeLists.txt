@@ -1,10 +1,31 @@
 cmake_minimum_required(VERSION 3.25)
 project(thug2_decomp LANGUAGES C CXX)
 
-# The game is a 32-bit exe (its data, the GameSpy SDK and Bink are 32-bit).
-if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
-    message(FATAL_ERROR "Build with the x86 preset: the game is 32-bit.")
+# The architecture: x86, the game's own (32-bit), or x64, the 64-bit build being ported (docs/design/x64-port.md).
+# THUG2_ARCH also names the third-party packages' folders (SDL2's lib/<arch>, D3DX9's lib/<arch> and bin/<arch>).
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(THUG2_ARCH x86)
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(THUG2_ARCH x64)
+else()
+    message(FATAL_ERROR "Build with an x86 or x64 preset.")
 endif()
+
+# The x64 port goes library by library (docs/design/x64-port.md "Order of work"): an x64 configure builds only the
+# libraries of src/ named here (base, platform, engine... as in tools/layers.json) and the checks whose libraries
+# are all built; "gamespy_sdk" here builds the GameSpy SDK. The fetched libraries the others compile themselves
+# (Dear ImGui, stb_image_write, LZHAM, volk, VMA, glslang) are built on x64 only when a library here links them.
+# An x86 configure builds everything, whatever the list says.
+set(THUG2_X64_READY)
+
+# Whether this configure builds `name` (a library of src/, or gamespy_sdk): always on x86; on x64 when x64-ready.
+function(thug2_builds name result)
+    if(THUG2_ARCH STREQUAL "x86" OR name IN_LIST THUG2_X64_READY)
+        set(${result} TRUE PARENT_SCOPE)
+    else()
+        set(${result} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,8 +50,8 @@ FetchContent_MakeAvailable(sdl2)
 file(COPY "${sdl2_SOURCE_DIR}/include/" DESTINATION "${CMAKE_BINARY_DIR}/sdl2-include/SDL2")
 add_library(sdl2 SHARED IMPORTED)
 set_target_properties(sdl2 PROPERTIES
-    IMPORTED_IMPLIB "${sdl2_SOURCE_DIR}/lib/x86/SDL2.lib"
-    IMPORTED_LOCATION "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll"
+    IMPORTED_IMPLIB "${sdl2_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL2.lib"
+    IMPORTED_LOCATION "${sdl2_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL2.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/sdl2-include")
 # The package's SDL2.dll is byte-for-byte the one PartyMod ships (SHA-256 921e4c99...): copied into the game folder
 # with the exe (below), so a game folder needs no PartyMod files. SDL's controller mappings, the same way: the
@@ -56,8 +77,8 @@ FetchContent_MakeAvailable(d3dx9)
 set(THUG2_D3DX9_NATIVE "${d3dx9_SOURCE_DIR}/build/native")
 add_library(d3dx9 SHARED IMPORTED)
 set_target_properties(d3dx9 PROPERTIES
-    IMPORTED_IMPLIB "${THUG2_D3DX9_NATIVE}/release/lib/x86/d3dx9.lib"
-    IMPORTED_LOCATION "${THUG2_D3DX9_NATIVE}/release/bin/x86/D3DX9_43.dll"
+    IMPORTED_IMPLIB "${THUG2_D3DX9_NATIVE}/release/lib/${THUG2_ARCH}/d3dx9.lib"
+    IMPORTED_LOCATION "${THUG2_D3DX9_NATIVE}/release/bin/${THUG2_ARCH}/D3DX9_43.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${THUG2_D3DX9_NATIVE}/include")
 
 # --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
@@ -120,7 +141,11 @@ if(THUG2_VULKAN)
 endif()
 
 # --- The GameSpy SDK (IGN's BSD-3 release) ---------------------------------------------------------------------
-include(cmake/gamespy_sdk.cmake)
+# (on x64 once its 64-bit build is checked: docs/design/x64-port.md, X9)
+thug2_builds(gamespy_sdk THUG2_GAMESPY_SDK)
+if(THUG2_GAMESPY_SDK)
+    include(cmake/gamespy_sdk.cmake)
+endif()
 file(GLOB LZHAM_DECOMP_SOURCES ${lzham_SOURCE_DIR}/lzhamdecomp/*.cpp)
 add_library(lzham STATIC
     ${LZHAM_DECOMP_SOURCES}
@@ -209,25 +234,21 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 #   thug2_input_dinput (DirectInput), thug2_fs_win32 (files), thug2_net_winsock (sockets) - linked by the exe alone.
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-add_subdirectory(src/base)
-add_subdirectory(src/formats)
-add_subdirectory(src/wire)
-add_subdirectory(src/platform)
-add_subdirectory(src/engine)
-add_subdirectory(src/render_pc)
-add_subdirectory(src/gpu_d3d9)
-if(THUG2_VULKAN)
-    add_subdirectory(src/gpu_vulkan)
-endif()
-add_subdirectory(src/audio_dsound)
-add_subdirectory(src/media_bink)
-add_subdirectory(src/input_dinput)
-add_subdirectory(src/fs_win32)
-add_subdirectory(src/net_winsock)
-add_subdirectory(src/script_qb)
-add_subdirectory(src/game)
-add_subdirectory(src/frontend)
-add_subdirectory(src/editor)
-add_subdirectory(src/devtools)
-add_subdirectory(src/app)
+# (on x64 only the x64-ready ones: THUG2_X64_READY above; the checks build when the libraries they link do)
+foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gpu_vulkan audio_dsound media_bink
+                         input_dinput fs_win32 net_winsock script_qb game frontend editor devtools app)
+    thug2_builds(${library} build_library)
+    if(build_library AND NOT (library STREQUAL "gpu_vulkan" AND NOT THUG2_VULKAN))
+        add_subdirectory(src/${library})
+    endif()
+endforeach()
 add_subdirectory(src/tests)
+
+# On x64 the fetched libraries the build compiles itself are built only when an x64-ready library links them.
+if(THUG2_ARCH STREQUAL "x64")
+    set_target_properties(imgui imgui_backends stb_image_write lzham imgui_binary_to_compressed
+        PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    if(THUG2_VULKAN)
+        set_target_properties(volk vulkan_memory_allocator PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    endif()
+endif()
