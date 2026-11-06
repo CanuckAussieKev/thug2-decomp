@@ -180,6 +180,20 @@ ShaderKey draw_shader_key(const GpuStateBlock& block, const ShaderProgram* progr
             .alpha_arg2 = arg(GpuStageState::kAlphaArg2),
         };
     }
+    // A stage that reads its texture with none set is taken as disabled, and the stages after it with it, as Direct3D 9
+    // draws it (seen with the loading bar: stage 0 selects its texture, none is set, and the bar is drawn in its
+    // vertices' colours - not in the blank texture's white).
+    if (fragment.program == PixelProgram::kStages) {
+        const uint32_t sampled = sampled_stages(fragment);
+        for (std::size_t index = 0; index < kStageCount; ++index) {
+            if ((sampled & (1U << index)) != 0U && core::at(block.textures, index) == nullptr) {
+                StageKey& off = core::at(fragment.stages, index);
+                off.colour_op = StageOp::kDisable;
+                off.alpha_op = StageOp::kDisable;
+                break;
+            }
+        }
+    }
     return normalised(key);
 }
 

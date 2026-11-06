@@ -942,6 +942,42 @@ void check_draws(render::Gpu& gpu, Tally* tally)
                               static_cast<unsigned>(state.pipelines.stats().refused)));
 }
 
+// A stage that reads its texture with none set: Direct3D 9 draws as if the stage were disabled (the loading bar:
+// stage 0 selects its texture, none set, the bar drawn in its vertices' colours) - not the blank texture's white.
+void check_unbound_texture(render::Gpu& gpu, Tally* tally)
+{
+    using render::GpuStageState;
+    const auto width = static_cast<float>(kWindowWidth);
+    const auto height = static_cast<float>(kWindowHeight);
+    gpu.set_vertex_format(kScreenFvf);
+    gpu.set_pixel_shader(nullptr);
+    gpu.set_texture(0, nullptr);
+    gpu.set_stage_state(0, GpuStageState::kColourOp, value::kOpSelectArg1);
+    gpu.set_stage_state(0, GpuStageState::kColourArg1, value::kArgTexture);
+    gpu.set_stage_state(0, GpuStageState::kAlphaOp, value::kOpSelectArg1);
+    gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgTexture);
+    gpu.set_stage_state(1, GpuStageState::kColourOp, value::kOpDisable);
+    gpu.set_stage_state(1, GpuStageState::kAlphaOp, value::kOpDisable);
+    const std::array<ScreenVertex, 4> whole = screen_rect(0.0F, 0.0F, width, height, kDrawnGreen);
+    bool ok = gpu.clear(0, nullptr, value::kClearTarget, kClearBlue, 1.0F, 0) == value::kResultOk &&
+              gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, whole.data(), sizeof(ScreenVertex)) ==
+                  value::kResultOk &&
+              gpu.present() == value::kResultOk;
+    render::GpuSurface* back = nullptr;
+    std::vector<uint8_t> shown;
+    ok = ok && gpu.back_buffer(&back) == value::kResultOk && render::vulkan::read_surface(back, &shown) &&
+         shown.size() == static_cast<std::size_t>(kWindowWidth) * kWindowHeight * kPixelBytes;
+    if (back != nullptr) {
+        gpu.release_surface(back);
+    }
+    constexpr uint32_t kRgb = 0x00FFFFFFU;
+    const uint32_t middle = ok ? pixel_at(shown, kWindowWidth / 2, kWindowHeight / 2) : 0U;
+    tally->check(ok && (middle & kRgb) == (kDrawnGreen & kRgb),
+                 text::format("stage 0 selecting its texture with none set: the vertex colour 0x%08X", middle));
+    gpu.set_stage_state(0, GpuStageState::kColourArg1, value::kArgDiffuse);
+    gpu.set_stage_state(0, GpuStageState::kAlphaArg1, value::kArgDiffuse);
+}
+
 // A pre-transformed vertex with a colour and a texture coordinate (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1).
 struct TexturedScreenVertex {
     float x = 0.0F;
@@ -1383,6 +1419,10 @@ void check_loading_threads(render::Gpu& gpu, Tally* tally)
     }
     screen.join();
     const auto presented = static_cast<int>(state.frame - frames_before);
+    // (what the main thread released after the other thread's last present: destroyed once both frames in flight
+    // have come round)
+    gpu.present();
+    gpu.present();
     tally->check(failures.load() == 0 && loaded == kThreadRounds && read_backs == kThreadRounds / kReadBackEvery &&
                      presented == kThreadRounds,
                  text::format("a thread drawing %d whole frames while the main thread loads (%d of %d rounds, %d "
@@ -1512,6 +1552,7 @@ int run(const Options& options, SDL_Window* window)
     check_buffers(gpu, &tally);
     check_others(gpu, &tally);
     check_draws(gpu, &tally);
+    check_unbound_texture(gpu, &tally);
     check_target_chain(gpu, &tally);
     check_unlit(gpu, &tally);
     check_gamma(gpu, &tally);
