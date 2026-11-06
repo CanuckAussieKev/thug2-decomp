@@ -7,8 +7,11 @@
 
 #include <cctype>
 #include "base/core/checked_index.h"
+#include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <string_view>
+#include <type_traits>
 #include <span>
 #include <cstdio>
 #include <cstring>
@@ -80,6 +83,20 @@ static_assert(sizeof(PEERCallbacks) == sizeof(game_spy::PeerCallbacks), "PEERCal
 static_assert(sizeof(GPBuddyStatus) == game_spy::kGpBuddyStatusSize, "GPBuddyStatus with quietModeFlags");
 // The game keeps a socket as Winsock's SOCKET value: pointer-sized (net::SocketId - 32 bits on x86, 64 on x64).
 static_assert(sizeof(SOCKET) == sizeof(uintptr_t), "SOCKET: pointer-sized");
+// GP's callback arguments as the game reads them through its own records (game/online/buddy_man.cpp: ints, then the
+// message pointer) - the same offsets on either build.
+static_assert(offsetof(GPErrorArg, errorCode) == sizeof(int) && offsetof(GPConnectResponseArg, profile) == sizeof(int));
+static_assert(offsetof(GPRecvBuddyRequestArg, profile) == 0 &&
+              offsetof(GPRecvBuddyStatusArg, index) == 2 * sizeof(int));
+static_assert(offsetof(GPRecvBuddyMessageArg, message) == 2 * sizeof(int));
+static_assert(offsetof(GPBuddyStatus, locationString) == (2 * sizeof(int)) + GP_STATUS_STRING_LEN &&
+              offsetof(GPBuddyStatus, ip) == offsetof(GPBuddyStatus, locationString) + GP_LOCATION_STRING_LEN &&
+              offsetof(GPBuddyStatus, port) == offsetof(GPBuddyStatus, ip) + sizeof(int));
+// The callbacks whose arguments the game declares by width: persistent storage's time (a 64-bit time_t, as the SDK is
+// built - game/online/stats_man.h's PersistReply), ghttp's byte counts (64-bit) and requests (int).
+static_assert(
+    std::is_same_v<PersDataCallbackFn, void (*)(int, int, persisttype_t, int, int, std::time_t, char*, int, void*)>);
+static_assert(std::is_same_v<GHTTPByteCount, int64_t> && std::is_same_v<GHTTPRequest, int>);
 
 namespace game_spy {
 

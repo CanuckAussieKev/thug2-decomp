@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <memory>
 
 #include "base/core/layout_32bit.h"
@@ -244,14 +245,16 @@ public:
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
     static unsigned long __stdcall log_in_thread(void* param);
-    // Persistent data the SDK read (its callback's arguments, in order).
+    // Persistent data the SDK read (its callback's arguments, in order). `modified` is a time_t as the SDK is built
+    // (64 bits; the game's own SDK had a 32-bit one) - NOT ORIGINAL: a 32-bit field here took the time's high half
+    // for `data` on x86.
     struct PersistReply {
         int local_id_{};
         int profile_id_{};
         int type{};
         int index{};
         int success{};
-        uint32_t modified{};
+        std::time_t modified{};
         char* data{};
         int length{};
         void* instance{};

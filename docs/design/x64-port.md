@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X10a (FFmpeg's Bink video). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a (FFmpeg's Bink video). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -114,7 +114,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 - **`long`: 142 lines.** It is 32 bits on Win64 too (LLP64), so it doesn't matter for an MSVC x64 build, only for a
   later LP64 (Linux GCC) build.
 - **Pointer-sized SDK types fixed at 32 bits:** `platform/gamespy.cpp` asserts `sizeof(SOCKET) == sizeof(uint32_t)`.
-  `SOCKET` is pointer-sized on Win64.
+  `SOCKET` is pointer-sized on Win64. (Since X8 the glue's sockets are `uintptr_t`.)
 
 ### Inline assembly and calling conventions
 
@@ -220,12 +220,25 @@ left it unused). The GameSpy glue (`gamespy.cpp`) is built only where the SDK is
 on x64 until X9 lists `gamespy_sdk`. `net_winsock` compiles for the SOCKET width now but links the engine, so it is
 listed with it (X12c).
 
+Since X9: `gamespy_sdk` is in `THUG2_X64_READY`, so `platform` builds its GameSpy glue on x64 too. The SDK's x64
+build was surveyed at /W4: the one real 64-bit bug was the peer's callback queue, which kept every callback address in
+an `int` (`PEERCBType`) - `intptr_t` now, by `cmake/gamespy_sdk.cmake`, as is GP's index carried through a `void*`
+(a harmless round trip, changed so that C4311 / C4312 can be errors in the SDK's build). The x86 SDK's code is the
+same before and after (every object's disassembly compared). Two of the game's callbacks had the wrong argument
+widths: the news download's ghttp length (two 32-bit halves - on x64 that moved its `param`) and the persistent-data
+callback's `time_t` (32-bit in the record: wrong on x86 as well, its `data` read the time's high half); both take the
+SDK's types now and `gamespy.cpp` asserts them, with the GP callback arguments' offsets the game's records assume.
+`thug2_gamespy_check` (src/tests) runs the SDK and the glue without the network - the helpers, the peer's queued
+callbacks, qr2's heartbeat and query answer on 127.0.0.1 and a NAT negotiation against fake servers on the loopback
+- and prints the same on both builds. Untested until a real session: the protocol against a server (a local
+OpenSpy server, then online by hand) - the chat login, game listing, hosting, NAT with a real peer, GP, stats, HTTP.
+
 ### Third-party pieces
 
 | piece | today | on x64 |
 |---|---|---|
 | Bink (the player's `binkw32.dll`, 15 exports through `media::Movie`) | 32-bit DLL from the player's install | **It can't load into a 64-bit process.** Plan: an FFmpeg-based `media::Movie` (`src/media_ffmpeg`): FFmpeg's Bink demuxer, Bink video decoder and Bink audio decoders, linked as DLLs under the LGPL (tasks X10a-c) |
-| GameSpy SDK (IGN's 2011 BSD-3 release, built from source) | 32-bit, built by `cmake/gamespy_sdk.cmake` | built from source for x64. The fork is used in 64-bit builds elsewhere; the SDK's own pointer <-> int casts and the structures the game touches (`GPBuddyStatus`'s asserted size) must be checked (to confirm) |
+| GameSpy SDK (IGN's 2011 BSD-3 release, built from source) | 32-bit, built by `cmake/gamespy_sdk.cmake` | built from source for x64 since X9: the peer's callback queue kept addresses in an `int` (`PEERCBType`, now `intptr_t`), the other pointer <-> int casts read; pointer cuts are errors in its build; the shared structures and the callbacks' argument widths checked (docs/gamespy.md "64-bit builds"). The protocol on x64 is to be tested against a local OpenSpy server and online by hand |
 | SDL2 2.30.9 (official VC package) | `lib/x86` | the same package has `lib/x64` |
 | Dear ImGui 1.91.9b | source | source; nothing to change |
 | LZHAM (source) | 32-bit | builds for x64 (its own `LZHAM_64BIT` paths; to confirm the defines the CMake list needs) |
@@ -428,8 +441,8 @@ their values like a .qb's symbols. No game file is a precompiled image.
    FFmpeg may not decode. The licence obligations are to confirm.
 5. **Floating point**: last-bit differences can tip a physics threshold. They are measured (X14) and play-tested.
    Bit-exact equality with the 32-bit build isn't promised.
-6. **The GameSpy SDK on x64** (X9): an untested configuration for this game's use of it. It needs a local protocol
-   test before anyone goes online with it.
+6. **The GameSpy SDK on x64** (X9): built and checked offline (docs/gamespy.md "64-bit builds"); the protocol on x64
+   still needs a local OpenSpy test before anyone goes online with it.
 
 ## Estimate
 

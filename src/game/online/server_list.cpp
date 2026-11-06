@@ -72,7 +72,6 @@ constexpr uint8_t kQr2KeyHostPort = 4;
 constexpr uint8_t kQr2KeyGameType = 6;
 constexpr int kListingPollMilliseconds = 100;
 constexpr size_t kNewsClearBytes = 0x1900 * 4;
-constexpr int kHighWordShift = 32;
 constexpr uint8_t kNewsScramble = 0x6D;
 
 // Names.
@@ -589,7 +588,7 @@ unsigned long __stdcall motd_thread(void* argument)
 }
 
 // 0x00545490
-int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low, int32_t size_high, void* param)
+int news_callback(void* request, int result, uint8_t* buffer, int64_t size, void* param)
 {
     (void)request;
     (void)param;
@@ -598,7 +597,6 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
         manager->service().assign_service_state(ServiceState::kNewsEnded);
         return 1;
     }
-    int64_t size = (static_cast<int64_t>(size_high) << kHighWordShift) | size_low;
     // NOT ORIGINAL: no more than the buffer holds (the download is limited to it; the original trusted the size)
     if (size < 0 || std::cmp_greater(size, static_cast<int64_t>(kNewsBufferSize))) {
         size = kNewsBufferSize;
