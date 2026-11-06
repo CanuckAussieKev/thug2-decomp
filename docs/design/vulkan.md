@@ -459,7 +459,7 @@ one Gpu call per device call (`draw_indexed_from_memory` per text batch, `draw_f
 - **Loading screens**: drawn by a timer thread that runs on the Gpu while the main thread loads (as the Direct3D device is
   `D3DCREATE_MULTITHREADED`). The Gpu's state block is not locked; a Vulkan `Gpu` must serialise these calls with the main
   thread's (a mutex on the Gpu's command recording) or the loading screen must be drawn from the main thread between
-  loading steps - decided by V10. `loading_console_panel` saves the device's whole state (`Gpu::save_state`, a state
+  loading steps - decided by V10 (the mutex: "V10" below). `loading_console_panel` saves the device's whole state (`Gpu::save_state`, a state
   block in Direct3D 9, a copy of the Gpu's state block in Vulkan: `release_saved_state` frees it), sets its own states,
   draws, and restores (`restore_state`).
 - **Movies**: the Bink frame's decode (`copy_to_buffer`) writes straight into the locked X8R8G8B8 texture
@@ -595,7 +595,7 @@ Direct3D 9 (V7).
   front end isn't drawn, which is safe - both check that the backend started. The gamma ramp is kept, not applied
   (applied since V8).
   Movies and the loading screens draw through the same `Gpu` and run (the loading screen's timer thread under the
-  backend's lock), as they are; V10 decides how they should.
+  backend's lock), as they are (V10 checked them).
 - **Measured** (foun, the Debug build, the screenshot spot): about 370 draws and 12 passes a frame, 30-33 ms a frame
   with under 0.1 ms of it waiting for the device or the swapchain (the processor's work: the game, the PC layer, the
   draws' recording); the same scripted 1,921-frame run took 42.7 s on Vulkan and 63.2 s on Direct3D 9 on this machine.
@@ -679,6 +679,46 @@ Direct3D 9 (V7).
   target and viewport put back), an atlas cell, and the UI's draws read back - a textured rectangle, the preview's
   picture clipped to its top half, a half-transparent rectangle blended over another.
 
+### V10: movies, loading screens, screenshots and the device's methods on Vulkan (done)
+
+- **The viewport a device starts with**: Direct3D 9's device has one from its creation and after a reset - the whole of
+  render target 0 - and the start-up movies draw before anything sets one. The Vulkan `Gpu`'s state block holds none
+  then (zero width and height), and its draws skipped every draw with an empty viewport: the movies were black. An
+  unset viewport is now taken as the whole of target 0 at the first draw, clear or `get_viewport`.
+- **A reset** (`GpuContext::reset`, after the focus comes back; the PC layer's default-pool objects released around
+  it and the state block reset after it, as for Direct3D 9) makes the swapchain again and leaves the bindings as
+  Direct3D 9's `Reset` does: target 0 the back buffer, the others none, the device's depth surface, no vertex streams
+  or indices. When the settings' size or samples changed, the back buffer and its depth surface are made again at the
+  new ones (the game itself never changes them after start-up: its resolution is the ini's).
+- **A stage reading its texture with none set**: Direct3D 9 draws as if the stage were disabled (the loading bar:
+  stage 0 still selects the texture the loading picture left, none is set, and the bar is drawn in its vertices'
+  colours). The Vulkan `Gpu` sampled its blank white texture there; `draw_shader_key` now disables the first texture
+  stage that samples with no texture set (and so the stages after it). A pixel shader reads its textures itself.
+- **Movies**: each frame is decoded into the locked texture's own bytes and copied at `unlock_texture` through the
+  staging ring, recorded before the frame's draws (one upload a frame, no wait for the device: the frames in flight
+  and the image's barrier order it after the frame before that sampled it).
+- **The loading screens' threads**: the loading bar's timer and the loading console's draw whole frames (scene, the
+  picture, the bar, the panel, present) from winmm's timer thread while the main thread loads - textures, buffers,
+  shaders made and filled, now and then a read-back. Every `Gpu` and `GpuContext` operation takes the backend's one
+  mutex for its whole length, and everything Vulkan wants externally synchronised is touched only inside it: the
+  queue (submissions, `vkQueueWaitIdle`), the swapchain (acquire, present, its recreation), the command pools and
+  buffers, the rings, the frames' slots and the deferred deletions. Whole frames are not atomic: an operation of the
+  main thread can come between two of the timer thread's - as with Direct3D 9's multithreaded device. That is safe
+  here: a read-back or a full staging ring ends the open pass and submits what was recorded, and the timer thread's
+  next draw opens a new pass on the same targets (loading, not clearing). The game's own screen mutex keeps the timer
+  threads' frames apart from `show_loading_screen`'s. The state block is recorded outside the lock, as before.
+- **Screenshots**: `capture_back_buffer` (the screenshot key) resolves the multisampled back buffer with `copy_surface`
+  and reads it back with `read_render_target`, both after the frame's work has been submitted and waited for. The
+  script command's JPEG reads the last presented frame (the resolved copy the present made) into a surface of the
+  window's display's size, the frame at its top left and the rest black. Direct3D 9's `GetFrontBufferData` copies the
+  primary display's whole desktop instead, which Vulkan can't read (and nothing else draws there).
+- **The device's methods**: every `render::Device` method runs over the Vulkan `Gpu` as over Direct3D 9's; what the
+  Vulkan `Gpu` does differently by design: `test_cooperative_level` never reports a lost device (the present makes the
+  swapchain again), the `send_*` setters do nothing (the draws read the state block), the vertex shader is never made
+  (fixed function), the disc error's screen draws through the same calls, untested (it needs a failing read).
+- **The checks**: `thug2_vulkan_gpu_check` adds a new device's viewport, a reset at another size and back, a thread
+  drawing whole frames while the main thread loads with read-backs between, and the unset texture stage.
+
 ## Ray tracing: what it needs on top
 
 `VK_KHR_acceleration_structure`, `VK_KHR_ray_query` (hybrid: ray queries from raster fragment shaders are the simplest
@@ -714,7 +754,7 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V7 | `gpu_vulkan` draws: pipelines from V3's keys, the state block, transforms, indexed / ring draws; a level's world drawn | V3, V6, V5b | after stage 11 - done: foun drawn and skated with `renderer=vulkan` on both GPUs here; passes, frames in flight, batched uploads, deferred deletion, the present; `[Graphics] vulkan_device` |
 | V8 | `gpu_vulkan` effects: screen copies, blur, bloom, occlusion queries, texture shadows, stencil volumes, flash, MSAA resolve, gamma pass | V7, V5c, V5d | after stage 11 - done: the bloom's blank textures (the brighter picture) and the shadow textures' viewport fixed, the gamma pass in full screen, the swapchain following the surface; five spots compared with Direct3D 9 |
 | V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 - done: ImGui's lists drawn by the Vulkan `Gpu` (ImGui's SDL2 backend kept), images as `Gpu` textures, the preview and atlas through the `Gpu`; the new front end and the level editor (in the game and the editor exe) draw on Vulkan |
-| V10 | Movies, loading screens, screenshots and the editor's methods on Vulkan | V7, V5e | after stage 11 |
+| V10 | Movies, loading screens, screenshots and the editor's methods on Vulkan | V7, V5e | after stage 11 - done: the start-up viewport (the movies were black) and the unset texture stage (the loading bar was white) fixed, a reset leaves the bindings as Direct3D 9's; the loading threads, screenshots, full screen and alt-tab checked on Vulkan |
 | V11 | Parity: a screenshot comparison between the two backends at the same spot and frame (the automation channel's teleport and capture), with each backend's run-to-run noise as the baseline; the front end, the editor, five levels; frame times | V8-V10 | after stage 11 |
 | R1 | The frame as data: `render_pc` fills the per-frame instance / light / camera record; stable mesh and material ids | V5f | after V11 and the x64 port |
 | R2 | Acceleration structures: a BLAS per static mesh at scene load, refit / rebuild for CPU-skinned meshes, the TLAS per frame | R1, V7, x64 | after V11 and the x64 port |
