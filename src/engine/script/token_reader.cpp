@@ -22,10 +22,9 @@
 #include "engine/gfx/render_constants.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/raw_view.h"
-#include "platform/code_address.h"
+#include "engine/script/names.h"
 #include "base/core/checked_index.h"
 #include "engine/script/param_struct.h"
-#include "base/core/pointer_cell.h"
 #include "base/core/no_destroy.h"
 #include "engine/script/script_state.h"
 #include <gsl/pointers>
@@ -1138,13 +1137,8 @@ Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name)
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
 void construct_evaluator() { script_state().evaluator().prepare_all(); }
 
-const MemberFunctionEntry* member_entry_at(Tokens bytes)
-{
-    return cell::pointer<const MemberFunctionEntry>(fetch_word32(bytes));
-}
-NativeFunction native_function_at(Tokens bytes)
-{
-    return function_at<NativeFunction>(cell::pointer<const void>(fetch_word32(bytes)));
-}
+// (NOT ORIGINAL: the operand is the entry's / function's number - names.h - where the original wrote its address)
+const MemberFunctionEntry* member_entry_at(Tokens bytes) { return numbered_member_entry(fetch_word32(bytes)); }
+NativeFunction native_function_at(Tokens bytes) { return numbered_native_function(fetch_word32(bytes)); }
 
 } // namespace script

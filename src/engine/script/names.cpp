@@ -8,10 +8,13 @@
 #include <array>
 #include <span>
 #include <string_view>
+#include <unordered_map>
+#include <vector>
 
 #include "base/core/checksums.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
+#include "engine/script/cell.h"
 #include "engine/file/packs.h"
 #include "engine/script/cscript.h"
 #include "engine/script/member_code.h"
@@ -45,6 +48,37 @@ NamesState& names_state()
 {
     static core::NoDestroy<NamesState> state;
     return state.get();
+}
+
+// NOT ORIGINAL - the numbers of the call tokens' targets (names.h): each target in the order it was first numbered,
+// and each target's number. Static storage and the C runtime's heap: nothing from the game's heaps.
+template <typename Target>
+class CallNumbering {
+public:
+    uint32_t number_of(Target target)
+    {
+        const auto [place, added] = numbers_.try_emplace(target, static_cast<uint32_t>(targets_.size()));
+        if (added) {
+            targets_.push_back(target);
+        }
+        return place->second;
+    }
+    [[nodiscard]] Target numbered(uint32_t number) const { return core::at(targets_, number); }
+
+private:
+    std::vector<Target> targets_;
+    std::unordered_map<Target, uint32_t> numbers_;
+};
+
+CallNumbering<NativeFunction>& native_function_numbers()
+{
+    static core::NoDestroy<CallNumbering<NativeFunction>> numbers;
+    return numbers.get();
+}
+CallNumbering<const MemberFunctionEntry*>& member_entry_numbers()
+{
+    static core::NoDestroy<CallNumbering<const MemberFunctionEntry*>> numbers;
+    return numbers.get();
 }
 
 constexpr std::size_t kNamesBytes = 5000000;
@@ -210,6 +244,7 @@ void install_script_functions(std::span<const NativeCommand> functions)
         SymbolTableEntry* symbol = create_symbol(checksum);
         symbol->set_type(QbValueKind::kNativeFunc);
         symbol->value() = Cell::of(function.function);
+        native_function_number(function.function); // (NOT ORIGINAL: the call tokens' number, names.h)
     }
 }
 
@@ -233,8 +268,14 @@ void register_member_function_table(std::span<const MemberFunctionEntry> records
         SymbolTableEntry* symbol = create_symbol(record.callsign_);
         symbol->value() = Cell::of(&record);
         symbol->set_type(QbValueKind::kNativeMethod);
+        member_entry_number(&record); // (NOT ORIGINAL: the call tokens' number, names.h)
     }
 }
+
+uint32_t native_function_number(NativeFunction function) { return native_function_numbers().number_of(function); }
+NativeFunction numbered_native_function(uint32_t number) { return native_function_numbers().numbered(number); }
+uint32_t member_entry_number(const MemberFunctionEntry* entry) { return member_entry_numbers().number_of(entry); }
+const MemberFunctionEntry* numbered_member_entry(uint32_t number) { return member_entry_numbers().numbered(number); }
 
 void fill_member_function_code(std::span<MemberFunctionEntry> records, std::span<const MemberCode> code)
 {
