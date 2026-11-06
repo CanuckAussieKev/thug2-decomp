@@ -9,6 +9,7 @@
 #include <volk.h>
 
 #include "gpu_vulkan/ff_key.h"
+#include "gpu_vulkan/glsl_compiler.h"
 
 // NOT ORIGINAL - the Vulkan Gpu's pipelines (vulkan_pipelines.cpp; docs/design/vulkan.md, V7): one per key - the
 // fixed-function emulation's shaders (ff_key.h), the vertex format they read, the primitive's class, the fill mode, the
@@ -74,9 +75,16 @@ public:
     // (reported once through `error`).
     VkPipeline pipeline(const PipelineKey& key, std::string* error);
     [[nodiscard]] const PipelineStats& stats() const { return stats_; }
+    // A full-screen pass's pipeline (made the first time): a triangle covering the target from three vertices without
+    // a vertex buffer, `fragment` (GLSL using this layout's bindings; its input v_uv runs 0 - 1 over the target) for each
+    // pixel, no blending and no depth, into one single-sampled target of `colour_format`; the viewport and scissor
+    // dynamic. VK_NULL_HANDLE when it doesn't compile or the driver refuses it (reported through `error`).
+    VkPipeline screen_pass(VkFormat colour_format, const std::string& fragment, std::string* error);
 
 private:
     VkShaderModule module(bool vertex, const ShaderKey& key, std::string* error);
+    // GLSL's module: its SPIR-V from the disk cache or compiled; VK_NULL_HANDLE when it doesn't compile.
+    VkShaderModule spirv_module(ShaderStage stage, const std::string& source, std::string* error);
     void load(const std::string& folder);
 
     VkDevice device_ = nullptr;
@@ -87,6 +95,8 @@ private:
     std::unordered_map<PipelineKey, VkPipeline, PipelineKeyHash> pipelines_;
     std::unordered_map<VertexKey, VkShaderModule, VertexKeyHash> vertex_modules_;
     std::unordered_map<FragmentKey, VkShaderModule, FragmentKeyHash> fragment_modules_;
+    std::unordered_map<uint64_t, VkShaderModule> screen_modules_; // by the GLSL's hash
+    std::unordered_map<uint64_t, VkPipeline> screen_pipelines_;   // by the fragment's hash and the format
     std::unordered_map<uint64_t, std::vector<uint32_t>> spirv_; // by the GLSL's hash
     bool dirty_ = false;
     PipelineStats stats_;
