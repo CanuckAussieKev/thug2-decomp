@@ -28,7 +28,8 @@ namespace {
 constexpr uint16_t kPcm = 1; // WAVE_FORMAT_PCM
 constexpr uint16_t kSampleBits = 16;
 constexpr uint32_t kSampleBytes = 2;
-constexpr uint32_t kBufferDescBytes = 0x24; // DSBUFFERDESC's size, as the voices' descriptions give it
+// DSBUFFERDESC's size, as the voices' descriptions give it (engine/sound/sfx_voices.cpp): 0x24 bytes, 0x28 on x64
+constexpr uint32_t kBufferDescBytes = (4 * sizeof(uint32_t)) + sizeof(void*) + 16;
 // The buffer as binkw32 made its own (seen through a stand-in DirectSound object: src/tests/movie_codec_check_sound.cpp):
 // volume, pan and frequency controls, the accurate play position (DSBCAPS_GETCURRENTPOSITION2), sound while another
 // window has the focus (DSBCAPS_GLOBALFOCUS); 0.6 seconds of samples, rounded up to 256 sample frames.
