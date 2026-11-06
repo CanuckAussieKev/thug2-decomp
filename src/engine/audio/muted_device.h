@@ -11,7 +11,8 @@
 //  - open / close: the output opened, then the process's audio session muted; closed, then unmuted (the session
 //    mute that used to follow DirectSoundCreate8 / Release in the platform layer);
 //  - set_buffer_volume: every voice's volume silent, kSilentAttenuation (what output_attenuation did in the voices'
-//    two SetVolume calls);
+//    two SetVolume calls) - the FFmpeg movie codec's streaming buffers too (media_ffmpeg/ffmpeg_sound.h), whose
+//    samples are written and played as with sound;
 //  - track_volume: every movie's and stream's Bink track at 0 (what output_bink_volume did in the two
 //    video_set_loudness).
 // The game's own volume settings, and what the save stores, are left alone.

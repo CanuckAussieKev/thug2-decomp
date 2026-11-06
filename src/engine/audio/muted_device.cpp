@@ -70,6 +70,17 @@ public:
         output_->place_buffer_3d(buffer, range, position);
     }
 
+    // --- a streaming buffer: as the output does it (its volume set through set_buffer_volume: silent) ---
+    bool buffer_position(SoundBuffer* buffer, uint32_t& position) override
+    {
+        return output_->buffer_position(buffer, position);
+    }
+    void write_buffer(SoundBuffer* buffer, uint32_t at, std::span<const uint8_t> samples) override
+    {
+        output_->write_buffer(buffer, at, samples);
+    }
+    bool resume_buffer(SoundBuffer* buffer) override { return output_->resume_buffer(buffer); }
+
     // --- the movies' and streams' sound: silent ---
     int track_volume(int /*volume*/) override { return 0; }
 

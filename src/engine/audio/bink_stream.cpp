@@ -37,7 +37,7 @@ void video_set_loudness(media::MovieHeader* bink, uint32_t track, int volume)
 }
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
-constexpr uint32_t kBinkFileHandle = 0x04000000; // video_open: the name is (the address of) an open file handle
+constexpr uint32_t kBinkFromMemory = 0x04000000; // video_open: the source is a Bink file in memory
 constexpr uint32_t kIoSize = 0x40000;
 constexpr Result kInvalidArgument = static_cast<Result>(0x80070057);
 
@@ -98,7 +98,7 @@ Result BinkStream::unseal(const char* path)
     }
     media::movie().set_video_on_off(bink_, 0);
     std::memcpy(from_where_.data(), path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
-    from_handle_ = false;
+    from_memory_ = false;
     return 0;
 }
 
@@ -175,8 +175,11 @@ int BinkStream::tick_frame()
     if (pause_requested_ != is_halted_) {
         if (!pause_requested_) {
             if (!bink_) {
-                // Reopen where it was paused.
-                bink_ = media::movie().open(from_where_.data(), from_handle_ ? kBinkFileHandle : kBinkIoSize);
+                // Reopen where it was paused. (A pcm.wad stream, opened from memory, kept only the file's first four
+                // bytes in from_where_ - "BIKi" - and is reopened from those: no Bink file, and binkw32 refuses it, so
+                // a paused pcm.wad stream stays silent after the pause. The original's own behaviour, kept; FFmpeg's
+                // codec refuses it too, reading no further than the size after the signature - zero.)
+                bink_ = media::movie().open(from_where_.data(), from_memory_ ? kBinkFromMemory : kBinkIoSize);
                 if (bink_) {
                     media::movie().set_video_on_off(bink_, 0);
                     media::movie().go_to(bink_, {.frame = resume_frame_, .flags = 1});

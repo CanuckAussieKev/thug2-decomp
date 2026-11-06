@@ -7,8 +7,19 @@
 //
 //   thug2_movie_codec_check [--frames N] [--goto F] <file.bik>...
 //
-// Run it from the game folder (binkw32.dll is found there; FFmpeg's DLLs are next to the check). Both movies are kept
-// silent (Bink's sound off and at volume 0; the FFmpeg codec has none). Exit code 1 if a file won't open with both.
+// With --sound, the sound instead (movie_codec_check_audio.h): each file played through both codecs into stand-in
+// sound outputs, and what they were handed compared - as movies, or with --stream as sound streams (--memory: opened
+// from memory; --events: a go-to, a pause and a resume on the way), --seconds S each (--dump P: the samples heard into
+// P.bink.raw / P.ffmpeg.raw); --wad <file.wad> [--every N] the Bink files in a .wad; --levels <file.bik> the
+// volumes and pans each codec gives its output for the game's levels.
+//
+//   thug2_movie_codec_check --sound [--stream [--memory] [--events]] [--seconds S] [--dump P] <file.bik>...
+//   thug2_movie_codec_check --sound --wad [--every N] <file.wad>
+//   thug2_movie_codec_check --sound --levels <file.bik>
+//
+// Run it from the game folder (binkw32.dll is found there; FFmpeg's DLLs are next to the check). The pictures' check
+// keeps both movies silent (Bink's sound off and at volume 0); the sound's plays nothing aloud. Exit code 1 if a file
+// won't open with both (or, with --sound, its sound differs beyond the rounding).
 
 #include <algorithm>
 #include <chrono>
@@ -31,6 +42,7 @@
 #include "fs_win32/win32_disk.h"
 #include "media_bink/bink_movie.h"
 #include "media_ffmpeg/ffmpeg_movie.h"
+#include "tests/movie_codec_check_audio.h"
 #include "tests/no_error_dialogs.h"
 
 namespace {
@@ -49,6 +61,10 @@ constexpr uint32_t kFromMemory = 0x04000000; // BinkOpen's: the source is the fi
 struct Options {
     uint32_t frames = kDefaultFrames;
     uint32_t go_to = 0; // 0: half way
+    bool sound = false;
+    bool wad = false;
+    bool levels = false;
+    tests::audio_check::Options audio;
     std::vector<const char*> files;
 };
 
@@ -315,6 +331,26 @@ Options read_options(std::span<char*> arguments)
             options.frames = static_cast<uint32_t>(std::strtoul(core::at(arguments, ++i), nullptr, kDecimal));
         } else if (argument == "--goto" && has_value) {
             options.go_to = static_cast<uint32_t>(std::strtoul(core::at(arguments, ++i), nullptr, kDecimal));
+            options.audio.go_to = options.go_to;
+        } else if (argument == "--sound") {
+            options.sound = true;
+        } else if (argument == "--stream") {
+            options.audio.stream = true;
+        } else if (argument == "--events") {
+            options.audio.events = true;
+        } else if (argument == "--memory") {
+            options.audio.from_memory = true;
+        } else if (argument == "--wad") {
+            options.wad = true;
+        } else if (argument == "--levels") {
+            options.levels = true;
+        } else if (argument == "--seconds" && has_value) {
+            options.audio.seconds = std::strtod(core::at(arguments, ++i), nullptr);
+        } else if (argument == "--dump" && has_value) {
+            options.audio.dump = core::at(arguments, ++i);
+        } else if (argument == "--every" && has_value) {
+            options.audio.wad_every =
+                static_cast<uint32_t>(std::strtoul(core::at(arguments, ++i), nullptr, kDecimal));
         } else {
             options.files.push_back(core::at(arguments, i));
         }
@@ -329,7 +365,11 @@ int main(int argc, char** argv)
     tests::no_error_dialogs();
     const Options options = read_options(std::span<char*>(argv, static_cast<size_t>(argc)));
     if (options.files.empty()) {
-        std::fprintf(stderr, "usage: thug2_movie_codec_check [--frames N] [--goto F] <file.bik>...\n");
+        std::fprintf(stderr, "usage: thug2_movie_codec_check [--frames N] [--goto F] <file.bik>...\n"
+                             "       thug2_movie_codec_check --sound [--stream [--memory] [--events]] [--seconds S] "
+                             "[--dump P] <file.bik>...\n"
+                             "       thug2_movie_codec_check --sound --wad [--every N] <file.wad>\n"
+                             "       thug2_movie_codec_check --sound --levels <file.bik>\n");
         return 2;
     }
     fs::install_disk(fs::win32::disk());
@@ -339,8 +379,19 @@ int main(int argc, char** argv)
         return 1;
     }
     bool all = true;
+    if (options.sound) {
+        tests::audio_check::set_up();
+    }
     for (const char* file : options.files) {
-        all = check_file(file, options) && all;
+        if (!options.sound) {
+            all = check_file(file, options) && all;
+        } else if (options.levels) {
+            tests::audio_check::check_levels(file, options.audio);
+        } else if (options.wad) {
+            all = tests::audio_check::check_wad(file, options.audio) && all;
+        } else {
+            all = tests::audio_check::check_file(file, options.audio) && all;
+        }
     }
     return all ? 0 : 1;
 }

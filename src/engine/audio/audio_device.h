@@ -126,6 +126,15 @@ public:
     // A 3D buffer's range and its place relative to the listener (deferred).
     virtual void place_buffer_3d(SoundBuffer3d* buffer, BufferRange range, Point3 position) = 0;
 
+    // --- a streaming buffer: a movie's or stream's sound played by a codec that has no output of its own ---
+    // (the FFmpeg codec, media_ffmpeg: a looping buffer made with create_buffer, kept filled ahead of its play position)
+    // The buffer's play position (bytes from its start) into `position`; false when it won't say.
+    virtual bool buffer_position(SoundBuffer* buffer, uint32_t& position) = 0;
+    // `samples` written into the buffer from byte `at` on, round its end to its start (nothing when it can't be locked).
+    virtual void write_buffer(SoundBuffer* buffer, uint32_t at, std::span<const uint8_t> samples) = 0;
+    // The buffer played on, looping, from where it was stopped; false if it won't play.
+    virtual bool resume_buffer(SoundBuffer* buffer) = 0;
+
     // --- the movies' and streams' sound (Bink's output, into this one) ---
     // The level a movie's or stream's sound track plays at for the level `volume` the game set (Bink's 0 ... 32768).
     virtual int track_volume(int volume) = 0;

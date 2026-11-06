@@ -11,13 +11,16 @@
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <optional>
 #include <span>
 #include <utility>
 
 #include "base/core/checked_index.h"
 #include "engine/file/disk.h"
 #include "engine/media/movie.h"
+#include "engine/audio/audio_handles.h"
 #include "media_ffmpeg/ffmpeg_api.h"
+#include "media_ffmpeg/ffmpeg_sound.h"
 #include "platform/run_log.h"
 
 namespace media::ffmpeg {
@@ -196,7 +199,8 @@ int64_t seek_input(void* opaque, int64_t offset, int from)
 
 } // namespace
 
-std::unique_ptr<Playback> Playback::open(const Api& api, const void* source, uint32_t flags)
+std::unique_ptr<Playback> Playback::open(const Api& api, const void* source, uint32_t flags,
+                                         audio::SoundOutput* output)
 {
     if (!source) {
         return nullptr;
@@ -210,7 +214,7 @@ std::unique_ptr<Playback> Playback::open(const Api& api, const void* source, uin
         return nullptr;
     }
     auto playback = std::make_unique<Playback>(api, std::move(input));
-    if (!playback->start(source, flags)) {
+    if (!playback->start(source, flags, output)) {
         return nullptr;
     }
     return playback;
@@ -221,6 +225,7 @@ Playback::Playback(const Api& api, std::unique_ptr<Input> input) : MovieHeader{}
 
 Playback::~Playback()
 {
+    sound_.reset(); // (its buffer stopped and released first)
     api_->scale_free_context(converter_);
     api_->frame_free(&frame_);
     api_->packet_free(&packet_);
@@ -232,7 +237,7 @@ Playback::~Playback()
     }
 }
 
-bool Playback::start(const void* source, uint32_t flags)
+bool Playback::start(const void* source, uint32_t flags, audio::SoundOutput* output)
 {
     const char* name = (flags & kFromMemory) != 0U ? "a Bink file in memory" : static_cast<const char*>(source);
     std::array<uint8_t, kHeaderBytes> header{};
@@ -284,7 +289,34 @@ bool Playback::start(const void* source, uint32_t flags)
     }
     packet_ = api_->packet_alloc();
     frame_ = api_->frame_alloc();
-    return packet_ != nullptr && frame_ != nullptr;
+    if (!packet_ || !frame_) {
+        return false;
+    }
+    open_sound(output);
+    return true;
+}
+
+void Playback::open_sound(audio::SoundOutput* output)
+{
+    const std::span<AVStream*> streams(format_->streams, format_->nb_streams);
+    const auto audio = std::ranges::find_if(
+        streams, [](const AVStream* stream) { return stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO; });
+    if (audio == streams.end()) {
+        return; // (a silent movie)
+    }
+    audio_stream_ = (*audio)->index;
+    if (!output) {
+        return; // (no sound output: played silent, as binkw32 without its sound system)
+    }
+    auto sound = std::make_unique<Sound>(*api_, output);
+    if (!sound->open(*audio)) {
+        static std::atomic_flag logged;
+        if (!logged.test_and_set()) {
+            get_log("ffmpeg: no Bink audio decoder: the movies and streams play silent");
+        }
+        return;
+    }
+    sound_ = std::move(sound);
 }
 
 bool Playback::open_decoder()
@@ -308,6 +340,9 @@ void Playback::rewind()
 {
     api_->seek_frame(format_, video_stream_, 0, AVSEEK_FLAG_BACKWARD); // (the demuxer's own seek: to the first frame)
     api_->flush_buffers(video_);
+    if (sound_) {
+        sound_->start_again(); // (the sound plays on from the first frame's)
+    }
     next_packet_ = 0;
     have_frame_ = false;
 }
@@ -340,6 +375,8 @@ void Playback::read_through(uint32_t index)
                 decode(packet_);
             }
             ++next_packet_;
+        } else if (packet_->stream_index == audio_stream_ && sound_ && sound_on_) {
+            sound_->decode(packet_);
         }
         api_->packet_unref(packet_);
     }
@@ -352,14 +389,35 @@ void Playback::restart_clock(uint32_t frames_off)
     frames_since_start_ = frames_off;
 }
 
+std::optional<bool> Playback::due_by_sound() const
+{
+    if (!sound_ || !sound_on_ || frame_rate_ == 0) {
+        return std::nullopt;
+    }
+    const std::optional<double> heard = sound_->heard_seconds();
+    if (!heard) {
+        return std::nullopt;
+    }
+    return *heard >= static_cast<double>(frames_since_sound_) * frame_rate_div_ / frame_rate_;
+}
+
 int Playback::wait()
 {
+    if (sound_) {
+        sound_->feed();
+    }
     if (paused_) {
         return 1;
     }
     if (!clock_running_ || frame_rate_ == 0) {
         restart_clock(0); // (the first frame is due at once)
         return 0;
+    }
+    if (const std::optional<bool> due = due_by_sound()) {
+        if (*due) {
+            restart_clock(0); // (the wall clock carries on from here if the sound runs dry)
+        }
+        return *due ? 0 : 1;
     }
     const std::chrono::duration<double> since_start{static_cast<double>(frames_since_start_) * frame_rate_div_ /
                                                     frame_rate_};
@@ -379,6 +437,9 @@ void Playback::do_frame()
     if (frame_num_ != 0) {
         read_through(frame_num_ - 1);
     }
+    if (sound_) {
+        sound_->feed();
+    }
 }
 
 void Playback::next_frame()
@@ -386,6 +447,7 @@ void Playback::next_frame()
     last_frame_num_ = frame_num_;
     frame_num_ = frame_num_ >= frames ? 1 : frame_num_ + 1;
     ++frames_since_start_;
+    ++frames_since_sound_;
 }
 
 void Playback::go_to(uint32_t frame, int flags)
@@ -395,7 +457,12 @@ void Playback::go_to(uint32_t frame, int flags)
         rewind();
     }
     if (frame >= 2) {
+        restart_sound(frame); // (the frames read on the way decode only the sound from the frame gone to on)
         read_through(frame - 2);
+    } else if (sound_) {
+        // (to the first frame the sound plays on, as at the end of a loop - but binkw32 keeps only some of what it had
+        // ahead before the first frame's sound)
+        sound_->cut_ahead();
     }
     // (binkw32's: a quick go-to keeps the frame it was at as the last; the other decodes the frames before it)
     last_frame_num_ = (flags & kGoToQuick) != 0 ? frame_num_ : frame - 1;
@@ -403,8 +470,41 @@ void Playback::go_to(uint32_t frame, int flags)
     restart_clock(1); // (as binkw32's: the frame gone to is due a frame from now)
 }
 
+void Playback::restart_sound(uint32_t frame)
+{
+    if (sound_) {
+        sound_->restart(frame_rate_ != 0 ? static_cast<double>(frame - 1) * frame_rate_div_ / frame_rate_ : 0.0);
+    }
+    frames_since_sound_ = 0;
+}
+
+void Playback::set_sound(bool on)
+{
+    if (on != sound_on_) {
+        restart_sound(frame_num_); // (off: stopped; on: from the frame decoded next)
+    }
+    sound_on_ = on;
+}
+
+void Playback::set_volume(int volume)
+{
+    if (sound_) {
+        sound_->set_volume(volume);
+    }
+}
+
+void Playback::set_pan(int pan)
+{
+    if (sound_) {
+        sound_->set_pan(pan);
+    }
+}
+
 void Playback::pause(bool paused)
 {
+    if (sound_) {
+        sound_->pause(paused);
+    }
     if (paused_ && !paused) {
         restart_clock(1); // (as binkw32's: the next frame is due a frame after the pause ends)
     }

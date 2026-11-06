@@ -13,7 +13,6 @@
 #include "engine/media/movie.h"
 #include "media_ffmpeg/ffmpeg_api.h"
 #include "media_ffmpeg/ffmpeg_playback.h"
-#include "platform/run_log.h"
 
 namespace media::ffmpeg {
 
@@ -27,7 +26,7 @@ public:
     MovieHeader* open(const void* source, uint32_t flags) override
     {
         const Api* functions = api();
-        return functions ? Playback::open(*functions, source, flags).release() : nullptr;
+        return functions ? Playback::open(*functions, source, flags, output_.load()).release() : nullptr;
     }
     void close(MovieHeader* movie) override { const std::unique_ptr<Playback> closed(playback_of(movie)); }
     int wait(MovieHeader* movie) override { return movie ? playback_of(movie)->wait() : 1; }
@@ -55,9 +54,18 @@ public:
             playback_of(movie)->pause(pause != 0);
         }
     }
-    // (the sound isn't played yet: the tracks' pan and volume have nothing to change)
-    void set_pan(MovieHeader* /*movie*/, TrackPan /*track_pan*/) override {}
-    void set_volume(MovieHeader* /*movie*/, TrackVolume /*track_volume*/) override {}
+    void set_pan(MovieHeader* movie, TrackPan track_pan) override
+    {
+        if (movie) {
+            playback_of(movie)->set_pan(track_pan.pan);
+        }
+    }
+    void set_volume(MovieHeader* movie, TrackVolume track_volume) override
+    {
+        if (movie) {
+            playback_of(movie)->set_volume(track_volume.volume);
+        }
+    }
     // (FFmpeg reads through its own buffer)
     void set_io_size(uint32_t /*size*/) override {}
     void set_video_on_off(MovieHeader* movie, int on) override
@@ -78,14 +86,16 @@ public:
             playback_of(movie)->copy_to(bits, frame_copy);
         }
     }
-    bool use_sound_output(audio::SoundOutput* /*output*/) override
+    // The movies opened from now on play their sound into `output` through audio::Device's streaming buffers
+    // (ffmpeg_sound.h) - any output the device made, not only DirectSound's.
+    bool use_sound_output(audio::SoundOutput* output) override
     {
-        static std::atomic_flag logged;
-        if (!logged.test_and_set()) {
-            get_log("ffmpeg: the movies' and streams' sound isn't played by this codec yet");
-        }
+        output_.store(output);
         return true;
     }
+
+private:
+    std::atomic<audio::SoundOutput*> output_{nullptr};
 };
 
 } // namespace

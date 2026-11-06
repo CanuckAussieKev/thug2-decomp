@@ -30,7 +30,7 @@ media::Movie& chosen_movie_codec()
     std::ranges::transform(value, value.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     if (value == "ffmpeg") {
         if (media::ffmpeg::usable()) {
-            get_log("movies: FFmpeg's Bink decoders (movie_codec=ffmpeg; no sound yet)");
+            get_log("movies: FFmpeg's Bink decoders (movie_codec=ffmpeg)");
             return media::ffmpeg::movie();
         }
         get_log("movies: FFmpeg's DLLs can't be used (above); Bink, the default");
