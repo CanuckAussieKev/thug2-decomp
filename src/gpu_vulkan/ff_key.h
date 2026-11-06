@@ -203,7 +203,8 @@ struct FragmentKey {
     bool specular_add = false;               // kStages with D3DRS_SPECULARENABLE: the specular colour added after them
     bool point_sprite = false;               // D3DRS_POINTSPRITEENABLE: every stage's coordinates are the point's
     uint8_t projected_mask = 0;              // the stages whose coordinates are projected (TexCoordKey::projected)
-    std::array<uint8_t, 3> spare{};
+    uint8_t unlit = 0; // a ps.1.1 program's unlit twin (the editor's Unlit view mode): the vertex colour's rgb read as 0.5
+    std::array<uint8_t, 2> spare{};
     std::array<StageKey, kStageCount> stages{};
 
     bool operator==(const FragmentKey&) const = default;

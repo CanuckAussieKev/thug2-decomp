@@ -116,6 +116,7 @@ void normalise_fragment(FragmentKey& key, bool points)
         key.stages = {};
         key.specular_add = false;
     } else {
+        key.unlit = 0; // (a twin is always of a ps.1.1 program)
         normalise_stages(key);
     }
     if (key.program == PixelProgram::kMaterial) {

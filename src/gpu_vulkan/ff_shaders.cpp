@@ -494,6 +494,11 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
 void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
 {
     add(out, {"    vec4 v0 = v_diffuse;\n    vec4 v1 = v_specular;\n    vec4 r0 = vec4(0.0);\n    vec4 r1 = vec4(0.0);"});
+    if (key.unlit != 0) {
+        // The unlit twin (render_pc/view_mode.cpp): each whole v0 operand is c7 = 0.5 there. The game's shaders read v0
+        // whole only into colour (rgb) results and its alpha as v0.a, which the twin leaves.
+        add(out, {"    v0.rgb = vec3(0.5);"});
+    }
     for (uint32_t index = 0; index < kStageCount; ++index) {
         add(out, {"    vec4 c", num(index), " = clamp(u.constant[", num(index), "], -1.0, 1.0);"});
     }

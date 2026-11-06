@@ -9,7 +9,8 @@
 // NOT ORIGINAL - which of the game's ps.1.1 pixel shaders a shader's text is (Gpu::create_pixel_shader is given the
 // text the PC layer assembles: render_pc/pixel_shaders.cpp), as the fragment key's program (ff_key.h's PixelProgram):
 // one of the six fixed shaders, or a material's generated shader with its passes, their blend modes and their alpha
-// flags read back from the lines the generator writes. Text the classifier doesn't know is the texture stages
+// flags read back from the lines the generator writes - or the unlit twin of one of those (the level editor's Unlit
+// view mode: render_pc/view_mode.cpp unlit_shader_source). Text the classifier doesn't know is the texture stages
 // (kStages), and says so.
 namespace render::vulkan {
 
@@ -19,6 +20,7 @@ struct ShaderProgram {
     uint8_t material_passes = 0;
     uint8_t material_alpha_flags = 0;
     std::array<uint8_t, 4> material_modes{};
+    bool unlit = false; // the program's unlit twin: the vertex colour read as 0.5 grey
 };
 
 [[nodiscard]] ShaderProgram classify_pixel_shader(std::string_view source);

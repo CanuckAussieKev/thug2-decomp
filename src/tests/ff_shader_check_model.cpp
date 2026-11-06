@@ -595,8 +595,20 @@ private:
         }
     }
 
+    // A fragment key, and for a ps.1.1 program its unlit twin too (the level editor's Unlit view mode: render_pc/
+    // view_mode.cpp).
+    void add_with_twin(const VertexKey& vertex, const FragmentKey& key)
+    {
+        add_pair({.vertex = vertex, .fragment = key});
+        if (key.program != PixelProgram::kStages) {
+            FragmentKey twin = key;
+            twin.unlit = 1;
+            add_pair({.vertex = vertex, .fragment = twin});
+        }
+    }
+
     // The fragment half's own variants: the alpha test (off, or GREATEREQUAL: render_state.cpp), the specular add
-    // (D3DRS_SPECULARENABLE, sticky), and a material's shapes.
+    // (D3DRS_SPECULARENABLE, sticky), a material's shapes, and the ps.1.1 programs' unlit twins.
     void add_fragments(const FragmentKey& base, const Draw& draw, bool fog)
     {
         VertexKey vertex;
@@ -609,7 +621,7 @@ private:
                 key.alpha_test = test;
                 key.specular_add = specular;
                 if (key.program != PixelProgram::kMaterial) {
-                    add_pair({.vertex = vertex, .fragment = key});
+                    add_with_twin(vertex, key);
                     continue;
                 }
                 // (a material's shader doesn't read the stage states: its shapes once per pass count and fog)
@@ -621,7 +633,7 @@ private:
                 for (const MaterialShape& shape : core::at(shapes_, key.material_passes)) {
                     key.material_modes = shape.modes;
                     key.material_alpha_flags = shape.alpha_flags;
-                    add_pair({.vertex = vertex, .fragment = key});
+                    add_with_twin(vertex, key);
                 }
             }
         }

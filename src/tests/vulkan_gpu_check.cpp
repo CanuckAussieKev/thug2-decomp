@@ -51,6 +51,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/ui_backend.h"
+#include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -1011,6 +1012,90 @@ void check_target_chain(render::Gpu& gpu, Tally* tally)
     }
 }
 
+// The level editor's Unlit view mode: a shader's unlit twin (render_pc/view_mode.cpp unlit_shader_source - c7 defined as
+// 0.5, each whole v0 read as c7) recognised as its program with the vertex colour 0.5 grey, and drawn so: the vertex
+// factor shader (2 x v0 x c0, c0 = 0.5) draws the vertex colour, its twin 0.5 grey.
+void check_unlit(render::Gpu& gpu, Tally* tally)
+{
+    text::print("unlit twins:\n");
+    using render::GpuStageState;
+    constexpr std::string_view kVertexFactor = "ps.1.1\nmul_x2 r0.rgb, v0, c0\n+mov r0.a, v0.a\n";
+    constexpr std::string_view kVertexFactorTwin =
+        "ps.1.1\ndef c7, 0.5, 0.5, 0.5, 0.5\nmul_x2 r0.rgb, c7, c0\n+mov r0.a, v0.a\n";
+    constexpr std::string_view kMaterialTwin = "ps.1.1\ndef c7, 0.5, 0.5, 0.5, 0.5\ntex t0\ntex t1\n"
+                                               "mul_x2 r0.a, v0.a, t0.a\n+mul_x2 r0.rgb, c0, t0\n"
+                                               "mul_x2 r1.rgb, c1, t1\n+mul_x2 r1.a, v0.a, t1.a\n"
+                                               "lrp r0.rgb, r1.a, r1, r0\nmul_x2 r0.rgb, r0, c7\n";
+    render::GpuPixelShader* lit = nullptr;
+    render::GpuPixelShader* unlit = nullptr;
+    render::GpuPixelShader* material = nullptr;
+    bool ok = gpu.create_pixel_shader(kVertexFactor.data(), static_cast<uint32_t>(kVertexFactor.size()), &lit) ==
+                  value::kResultOk &&
+              gpu.create_pixel_shader(kVertexFactorTwin.data(), static_cast<uint32_t>(kVertexFactorTwin.size()),
+                                      &unlit) == value::kResultOk &&
+              gpu.create_pixel_shader(kMaterialTwin.data(), static_cast<uint32_t>(kMaterialTwin.size()), &material) ==
+                  value::kResultOk;
+    const auto program = [](render::GpuPixelShader* shader) { return render::vulkan::object(shader)->program; };
+    ok = ok && program(lit).known && !program(lit).unlit && program(unlit).known && program(unlit).unlit &&
+         program(unlit).program == program(lit).program && program(material).known && program(material).unlit &&
+         program(material).program == render::vulkan::PixelProgram::kMaterial && program(material).material_passes == 2;
+    tally->check(ok, "the unlit twins recognised: a fixed shader's and a two-pass material's, as their programs");
+
+    const auto width = static_cast<float>(kWindowWidth);
+    const auto height = static_cast<float>(kWindowHeight);
+    gpu.set_viewport({.x = 0, .y = 0, .width = kWindowWidth, .height = kWindowHeight, .min_z = 0.0F, .max_z = 1.0F});
+    gpu.set_render_state(render::GpuRenderState::kZEnable, 0);
+    gpu.set_render_state(render::GpuRenderState::kLighting, 0);
+    gpu.set_render_state(render::GpuRenderState::kCullMode, value::kCullNone);
+    gpu.set_render_state(render::GpuRenderState::kAlphaBlendEnable, 0);
+    gpu.set_vertex_format(kScreenFvf);
+    gpu.set_stage_state(0, GpuStageState::kColourOp, value::kOpSelectArg1);
+    gpu.set_stage_state(0, GpuStageState::kColourArg1, value::kArgDiffuse);
+    constexpr std::array<float, 4> kHalf{0.5F, 0.5F, 0.5F, 0.5F};
+    gpu.set_pixel_constants(0, kHalf.data(), 1);
+    ok = ok && gpu.clear(0, nullptr, value::kClearTarget, kClearBlue, 1.0F, 0) == value::kResultOk;
+    const std::array<ScreenVertex, 4> left = screen_rect(0.0F, 0.0F, width / 2, height, kDrawnRed);
+    const float right_edge = width;
+    const float bottom_edge = height;
+    const std::array<ScreenVertex, 4> right = screen_rect(width / 2, 0.0F, right_edge, bottom_edge, kDrawnRed);
+    ok = ok && gpu.set_pixel_shader(lit) == value::kResultOk &&
+         gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, left.data(), sizeof(ScreenVertex)) ==
+             value::kResultOk &&
+         gpu.set_pixel_shader(unlit) == value::kResultOk &&
+         gpu.draw_from_memory(render::GpuPrimitive::kTriangleStrip, 2, right.data(), sizeof(ScreenVertex)) ==
+             value::kResultOk;
+    gpu.set_pixel_shader(nullptr);
+    render::GpuSurface* back = nullptr;
+    std::vector<uint8_t> shown;
+    ok = ok && gpu.back_buffer(&back) == value::kResultOk && render::vulkan::read_surface(back, &shown) &&
+         shown.size() == static_cast<std::size_t>(kWindowWidth) * kWindowHeight * kPixelBytes;
+    if (back != nullptr) {
+        gpu.release_surface(back);
+    }
+    constexpr uint32_t kRgb = 0x00FFFFFFU;
+    constexpr uint32_t kInside = 10;
+    const uint32_t drawn_lit = ok ? pixel_at(shown, kInside, kInside) & kRgb : 0U;
+    const uint32_t drawn_unlit = ok ? pixel_at(shown, kWindowWidth - kInside, kInside) & kRgb : 0U;
+    // (0.5 grey: 127 or 128 in each channel, as the hardware rounds)
+    constexpr uint32_t kGreyBelow = 0x7F;
+    constexpr uint32_t kGreyAbove = 0x80;
+    const auto grey = [](uint32_t pixel) {
+        return std::ranges::all_of(std::array<uint32_t, 3>{0U, kBitsPerByte, 2 * kBitsPerByte}, [pixel](uint32_t shift) {
+            const uint32_t channel = (pixel >> shift) & kByteMask;
+            return channel == kGreyBelow || channel == kGreyAbove;
+        });
+    };
+    tally->check(ok && drawn_lit == (kDrawnRed & kRgb) && grey(drawn_unlit),
+                 text::format("the vertex factor shader draws the vertex colour 0x%06X, its twin grey 0x%06X", drawn_lit,
+                              drawn_unlit));
+    for (render::GpuPixelShader* shader : {lit, unlit, material}) {
+        if (shader != nullptr) {
+            gpu.release_pixel_shader(shader);
+        }
+    }
+    gpu.reset_state_block();
+}
+
 // The gamma ramp: the identity changes nothing (no pass); a ramp that halves every value, put through the pass, halves
 // a render target's pixels (each entry's top 8 bits); the ramp put back.
 void check_gamma(render::Gpu& gpu, Tally* tally)
@@ -1304,6 +1389,7 @@ int run(const Options& options, SDL_Window* window)
     check_others(gpu, &tally);
     check_draws(gpu, &tally);
     check_target_chain(gpu, &tally);
+    check_unlit(gpu, &tally);
     check_gamma(gpu, &tally);
     check_ui(gpu, &tally);
     check_threads(gpu, &tally);

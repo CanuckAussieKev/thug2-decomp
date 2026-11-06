@@ -2,6 +2,7 @@
 #include "gpu_vulkan/vulkan_pixel_program.h"
 
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -196,9 +197,7 @@ std::optional<ShaderProgram> material_program(const std::vector<std::string>& li
     return made;
 }
 
-} // namespace
-
-ShaderProgram classify_pixel_shader(std::string_view source)
+ShaderProgram classify_text(std::string_view source)
 {
     const std::string text = squeezed(source);
     for (const Fixed& fixed : kFixed) {
@@ -210,12 +209,68 @@ ShaderProgram classify_pixel_shader(std::string_view source)
     return material ? *material : ShaderProgram{};
 }
 
+// The level editor's Unlit view mode draws the world with a twin of each shader (render_pc/view_mode.cpp
+// unlit_shader_source): c7 defined as 0.5 right after the version line, and every whole v0 operand (the vertex
+// colour; v0.a, its alpha, left) read as c7 - made only from a text that had no c7 of its own.
+constexpr std::string_view kUnlitDefinition = "defc7,0.5,0.5,0.5,0.5";
+constexpr std::string_view kUnlitConstant = "c7";
+
+bool name_char(char ch) { return std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '_'; }
+
+// The text a twin was made from (each whole c7 back to v0, the definition left out), or nothing for a text that isn't one.
+std::optional<std::string> twin_original(std::string_view source)
+{
+    const std::vector<std::string> lines = lines_of(source);
+    if (lines.size() < 2 || !lines.front().starts_with("ps.") || core::at(lines, 1) != kUnlitDefinition) {
+        return std::nullopt;
+    }
+    std::string original;
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        if (index == 1) {
+            continue;
+        }
+        const std::string& line = core::at(lines, index);
+        for (std::size_t at = 0; at < line.size(); ++at) {
+            const bool constant = line.compare(at, kUnlitConstant.size(), kUnlitConstant) == 0 &&
+                                  (at == 0 || !name_char(core::at(line, at - 1))) &&
+                                  (at + kUnlitConstant.size() >= line.size() ||
+                                   !name_char(core::at(line, at + kUnlitConstant.size())));
+            if (constant) {
+                original += "v0";
+                at += kUnlitConstant.size() - 1;
+            } else {
+                original += core::at(line, at);
+            }
+        }
+        original += '\n';
+    }
+    return original;
+}
+
+} // namespace
+
+ShaderProgram classify_pixel_shader(std::string_view source)
+{
+    const ShaderProgram program = classify_text(source);
+    if (program.known) {
+        return program;
+    }
+    const std::optional<std::string> original = twin_original(source);
+    if (!original) {
+        return program;
+    }
+    ShaderProgram twin = classify_text(*original);
+    twin.unlit = twin.known;
+    return twin.known ? twin : ShaderProgram{};
+}
+
 void apply_program(const ShaderProgram& program, FragmentKey* key)
 {
     key->program = program.program;
     key->material_passes = program.material_passes;
     key->material_alpha_flags = program.material_alpha_flags;
     key->material_modes = program.material_modes;
+    key->unlit = program.unlit ? 1 : 0;
 }
 
 } // namespace render::vulkan
