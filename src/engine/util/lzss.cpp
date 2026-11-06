@@ -64,11 +64,11 @@ void free_tree()
     memory::dealloc(pane().data());
 }
 
-// `count` elements of the heap's memory.
+// `count` elements of the heap's memory (a 32-bit byte count, as the heaps take: the elements are small).
 template <typename T>
-std::span<T> allocate_run(std::size_t count)
+std::span<T> allocate_run(uint32_t count)
 {
-    return {static_cast<T*>(memory::alloc(count * sizeof(T))), count};
+    return {static_cast<T*>(memory::alloc(count * static_cast<uint32_t>(sizeof(T)))), count};
 }
 
 } // namespace

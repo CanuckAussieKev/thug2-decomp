@@ -55,11 +55,12 @@ struct ManagerState {
     // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
     Hub* memory_manager_{};
     bool manager_ready_{}; // the memory manager is set up
-    // Where the manager and its main region and heaps live (static storage in the game, as words).
-    std::array<uint32_t, (sizeof(Hub) + 3) / 4> manager_storage_{};
-    std::array<uint32_t, (sizeof(Zone) + 3) / 4> main_region_storage_{};
-    std::array<uint32_t, (sizeof(Arena) + 3) / 4> top_down_storage_{};
-    std::array<uint32_t, (sizeof(Arena) + 3) / 4> bottom_up_storage_{};
+    // Where the manager and its main region and heaps live (static storage in the game, as words; aligned for the
+    // object made there - its pointers are 8-byte on x64).
+    alignas(Hub) std::array<uint32_t, (sizeof(Hub) + 3) / 4> manager_storage_{};
+    alignas(Zone) std::array<uint32_t, (sizeof(Zone) + 3) / 4> main_region_storage_{};
+    alignas(Arena) std::array<uint32_t, (sizeof(Arena) + 3) / 4> top_down_storage_{};
+    alignas(Arena) std::array<uint32_t, (sizeof(Arena) + 3) / 4> bottom_up_storage_{};
     std::span<uint8_t> heap_block_; // the block the main region is in (the original kept its start, end and limit)
     uintptr_t data_end_{};
     uintptr_t data_start_{};
@@ -561,8 +562,8 @@ Hub::Hub() : network_extras_zone_(nullptr), online_zone_(nullptr), cinematic_zon
     auto data_end = manager_state().data_end_;
     const uint32_t data_k = static_cast<uint32_t>(data_end - data_start) >> 10;
     const uint32_t code_k = static_cast<uint32_t>(data_start - code_start) >> 10;
-    // (the bounds are addresses kept as numbers: %08X prints what the original's %p did)
-    debug::printf("code [%08X - %08X] (%dK) + data [%08X - %08X] (%dK) = %dK \n", code_start, data_start, code_k,
+    // (the bounds are addresses kept as numbers: %08zX prints what the original's %p did, at the pointer's width)
+    debug::printf("code [%08zX - %08zX] (%dK) + data [%08zX - %08zX] (%dK) = %dK \n", code_start, data_start, code_k,
                   data_start, data_end, data_k, data_k + code_k);
 
 }

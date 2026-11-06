@@ -54,8 +54,12 @@ constexpr int kNodeTableParamBytes = 0x40;
 constexpr int kNodeTableParamWords = 0x10;
 constexpr int kSceneParamWords = 0x12;
 constexpr int kSceneCollisionParamWords = 0x12;
-constexpr int kSkinParamBytes = 0x14;
-constexpr int kSkinParamWords = 5;
+// (the skin's parameters hold the .cas contents' address: 0x14 bytes, 5 words, on x86 - copied whole on x64 too)
+constexpr int kOriginalSkinParamBytes = 0x14;
+constexpr int kSkinParamBytes = static_cast<int>(sizeof(SkinParams));
+constexpr int kSkinParamWords = static_cast<int>(sizeof(SkinParams) / 4);
+static_assert(core::layout_32bit(kSkinParamBytes == kOriginalSkinParamBytes), "the original's 0x14 bytes of skin parameters");
+static_assert(sizeof(SkinParams) % 4 == 0 && kSkinParamBytes <= kParamBlockBytes, "copied as words into a pool block");
 constexpr int kSkinCollisionParamWords = 0x11;
 constexpr int kTexDictParamWords = 0x13;
 
