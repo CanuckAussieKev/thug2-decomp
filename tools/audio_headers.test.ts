@@ -1,8 +1,9 @@
 // NOT ORIGINAL - where the sound and movie SDKs may be seen (docs/architecture.md "The audio backend"): only the
-// DirectSound backend (src/audio_dsound) includes <dsound.h>, and only app/ picks its audio::Device; only the Bink
+// DirectSound backend (src/audio_dsound) includes <dsound.h> (and the codec check's stand-in DirectSound object for
+// binkw32, src/tests/movie_codec_check_sound.cpp), and only app/ picks its audio::Device; only the Bink
 // codec (src/media_bink) includes the binkw32 wrapper, and only app/ picks its media::Movie; only the FFmpeg codec
 // (src/media_ffmpeg) includes FFmpeg's headers (<libav...>) and calls FFmpeg, and only app/ (and the codec check,
-// src/tests/movie_codec_check.cpp) picks it. The engine, the game and the rest reach the sound output through
+// src/tests/movie_codec_check*.cpp) picks it. The engine, the game and the rest reach the sound output through
 // audio::Device (engine/audio/audio_device.h) and its handles, the movies through media::Movie (engine/media/movie.h).
 
 import assert from "node:assert/strict";
@@ -27,10 +28,10 @@ function including(pattern: RegExp): string[] {
     return found.sort();
 }
 
-test("only audio_dsound/ includes <dsound.h>", () => {
+test("only audio_dsound/ (and the codec check's stand-in for binkw32) includes <dsound.h>", () => {
     const users = including(/^\s*#\s*include\s*<dsound\.h>/m);
     assert.deepEqual(
-        users.filter((name) => !name.startsWith("audio_dsound/")),
+        users.filter((name) => !name.startsWith("audio_dsound/") && name !== "tests/movie_codec_check_sound.cpp"),
         [],
     );
     assert.ok(users.includes("audio_dsound/dsound_device.cpp"), "audio_dsound/dsound_device.cpp calls DirectSound");
@@ -46,7 +47,9 @@ test("only media_bink/ includes the Bink wrapper; only app/ (and the codec check
     const pickers = including(/^\s*#\s*include\s*"media_bink\/bink_movie\.h"/m);
     const outside = pickers.filter(
         (name) =>
-            !name.startsWith("app/") && name !== "media_bink/bink_movie.cpp" && name !== "tests/movie_codec_check.cpp",
+            !name.startsWith("app/") &&
+            name !== "media_bink/bink_movie.cpp" &&
+            !/^tests\/movie_codec_check(_audio)?\.cpp$/.test(name),
     );
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/movie_choice.cpp"), "app/movie_choice.cpp installs the codec");
@@ -82,7 +85,7 @@ test("only media_ffmpeg/ sees FFmpeg's headers and calls FFmpeg; only app/ and t
         (name) =>
             !name.startsWith("app/") &&
             name !== "media_ffmpeg/ffmpeg_movie.cpp" &&
-            name !== "tests/movie_codec_check.cpp",
+            !/^tests\/movie_codec_check(_audio)?\.cpp$/.test(name),
     );
     assert.deepEqual(outside, []);
     assert.ok(pickers.includes("app/movie_choice.cpp"), "app/movie_choice.cpp installs the codec");

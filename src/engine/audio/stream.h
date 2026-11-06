@@ -47,7 +47,7 @@ constexpr size_t kBinkPauseRequestedOffset = 0x60;
 constexpr size_t kBinkStatusIndexOffset = 0x64;
 constexpr size_t kBinkUnknown6bOffset = 0x6B;
 constexpr size_t kBinkLoudnessOffset = 0x80;
-constexpr size_t kBinkFromHandleOffset = 0x88;
+constexpr size_t kBinkFromMemoryOffset = 0x88;
 constexpr size_t kBinkFromWhereOffset = 0x89;
 constexpr size_t kBinkUnknown1a8Offset = 0x1A8;
 constexpr size_t kBinkStopRequestedOffset = 0x1BC;
@@ -223,8 +223,8 @@ private:
     std::array<uint8_t, kBinkUnknown6cBytes> unknown6c_{};
     float loudness_{};         // +0x80
     uint32_t resume_frame_{};  // +0x84 the frame it was paused on
-    bool from_handle_{};       // +0x88 from_where_ holds a file handle, not a path
-    std::array<char, kFromWhereSize> from_where_{}; // +0x89 the path, or the handle (video_open is given its address)
+    bool from_memory_{};       // +0x88 opened from memory (a pcm.wad entry), not a path
+    std::array<char, kFromWhereSize> from_where_{}; // +0x89 the path, or the in-memory file's first four bytes (the reopen is given its address)
     uint32_t unknown1a8_{0};   // +0x1A8
     uint32_t unknown1ac_{0};   // +0x1AC
     std::array<uint8_t, kBinkUnknown1b0Bytes> unknown1b0_{};
@@ -243,7 +243,7 @@ private:
                           offsetof(BinkStream, plays_) == kBinkPlaysOffset && offsetof(BinkStream, bink_) == kBinkBinkOffset &&
                           offsetof(BinkStream, pause_requested_) == kBinkPauseRequestedOffset && offsetof(BinkStream, status_index_) == kBinkStatusIndexOffset &&
                           offsetof(BinkStream, unknown6b_) == kBinkUnknown6bOffset && offsetof(BinkStream, loudness_) == kBinkLoudnessOffset &&
-                          offsetof(BinkStream, from_handle_) == kBinkFromHandleOffset && offsetof(BinkStream, from_where_) == kBinkFromWhereOffset &&
+                          offsetof(BinkStream, from_memory_) == kBinkFromMemoryOffset && offsetof(BinkStream, from_where_) == kBinkFromWhereOffset &&
                           offsetof(BinkStream, unknown1a8_) == kBinkUnknown1a8Offset && offsetof(BinkStream, stop_requested_) == kBinkStopRequestedOffset &&
                           sizeof(BinkStream) == kBinkStreamBytes,
                       "layout must match the original");

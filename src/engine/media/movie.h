@@ -8,7 +8,8 @@
 // (install_movie), as it does render::Device and audio::Device: Bink's (media_bink/bink_movie.h), or with [features]
 // movie_codec=ffmpeg FFmpeg's Bink decoders (media_ffmpeg/ffmpeg_movie.h: app/movie_choice.h).
 // A movie's sound plays into the sound output (use_sound_output: audio::Device's output, engine/audio/audio_device.h),
-// at the level the output gives it (audio::Device::track_volume).
+// at the level the output gives it (audio::Device::track_volume) - Bink's through its own DirectSound buffers, FFmpeg's
+// through audio::Device's streaming buffers.
 //
 // The grain is a movie (opened, closed, paused, a track's level or pan) or a frame (wait, decode, step, copy out);
 // never per sample or pixel - the codec decodes a frame and copies it into the caller's locked surface whole. The

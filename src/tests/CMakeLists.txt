@@ -79,7 +79,7 @@ endif()
 # them (src/tests/movie_codec_check.cpp). Run from the game folder (its binkw32.dll); FFmpeg's DLLs are copied next to
 # it when they are built (cmake/ffmpeg.cmake).
 if(TARGET thug2_media_bink AND TARGET thug2_media_ffmpeg AND TARGET thug2_fs_win32)
-    add_executable(thug2_movie_codec_check movie_codec_check.cpp)
+    add_executable(thug2_movie_codec_check movie_codec_check.cpp movie_codec_check_audio.cpp movie_codec_check_sound.cpp)
     target_link_libraries(thug2_movie_codec_check PRIVATE thug2_media_bink thug2_media_ffmpeg thug2_fs_win32)
     if(THUG2_FFMPEG_DLLS)
         add_custom_command(TARGET thug2_movie_codec_check POST_BUILD
