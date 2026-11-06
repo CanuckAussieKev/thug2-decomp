@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X3 (formats / wire, collision links as offsets), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a / X10b (FFmpeg's Bink video and sound), X11 (the renderers compile on x64), X12a-d (engine and game), X13 (the tools read x64), X14 (floating point measured: the corpus). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X3 (formats / wire, collision links as offsets), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a / X10b (FFmpeg's Bink video and sound), X11 (the renderers compile on x64), X12a-e (engine, game, the editor, the front end, the dev tools, the backends and the app: the first x64 `thug2-decomp.exe` and `thug2-editor.exe`, built, not run yet), X13 (the tools read x64), X14 (floating point measured: the corpus). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -505,6 +505,50 @@ What changed or was checked:
   pointer would stop at `word`'s check); the pad's buttons found by their logical offset (a table, not the layout);
   fixed allocations by `sizeof` (X7) and the other constant-sized ones are bytes; the camera state's stack bytes hold
   floats; the copies with fixed sizes copy floats, colours and names.
+
+**Done in X12e** (`editor/`, `frontend/`, `devtools/`, the backends `audio_dsound`, `input_dinput`, `fs_win32`,
+`media_ffmpeg`, and `app/`): `THUG2_X64_READY` lists `game`, `frontend`, `editor`, `devtools` and `app`, so the x64
+configure builds `thug2-decomp.exe` and `thug2-editor.exe` (x64) and copies their x64 DLLs beside them - SDL2.dll,
+d3dx9_43.dll, FFmpeg's avutil-59 / avcodec-61 / avformat-61 / swscale-8 (from `out/ffmpeg/x64`) and
+gamecontrollerdb.txt. All 149 translation units of these folders compile with the build's flags with no warning (C4267
+/ C4244 / C4311 / C4312 included) and no error, and clang-tidy with the x86_64 target finds no narrowing in them.
+What changed or was checked:
+- **The movie codec on x64:** `media_bink` is not built for x64 (binkw32.dll is 32-bit), so `app` links it, and
+  defines `THUG2_BINK`, only when it is built (`if(TARGET thug2_media_bink)`). Without it `app/movie_choice.cpp` always
+  installs FFmpeg's codec and logs why (`movie_codec=bink` or any other value is not used: binkw32.dll is 32-bit); when
+  FFmpeg's DLLs can't be used it says the movies and streams won't play (a codec whose `open` gives null: the game goes
+  on without them, as with a missing movie). The 32-bit build is unchanged: Bink by default, `movie_codec=ffmpeg` with
+  the fallback to Bink. The x64 exes import no binkw32.dll.
+- **Products widened before they become a size** (bugprone-implicit-widening-of-multiplication-result /
+  misplaced-widening-cast on x86_64): the DirectInput joysticks' force resolutions (`std::size_t{2} * kPorts`), the
+  editor's ground mesh's texture-coordinate offsets, an index buffer's clearing and a mesh's position count. The same
+  code on x86.
+- **Dear ImGui's texture ids:** the editor's and the front end's images hold the backend's 64-bit id (`uint64_t`,
+  `engine/gfx/ui_backend.h`) and pass it to ImGui as `ImTextureID`; the Direct3D 9 backend's id is the texture's
+  address widened (`gpu_d3d9/imgui_texture_id.h`), Vulkan's its own 64-bit name. Nothing narrows one.
+- **The editor's Companion collision** (`editor/level_editor_shared_coll.h`): a Companion's `TriMeshSource` is a member
+  of the Companion (made by `std::make_unique`) and its face, vertex and vertex-byte arrays are `std::vector`s - all on
+  the CRT heap, sized once in the constructor. The record links them as 32-bit distances from itself (X3), so on x64 a
+  vector more than 2 GB from its Companion stops the game in `set_faces` / `set_vertices` / `set_vertex_bytes`
+  (`collision_format::link_from`'s contract check), never a wrong link. That needs the CRT heap to span more than 2 GB
+  between two small allocations made one after the other - not expected in a process of the game's size. Allocating
+  the record and its arrays together would change the class's code on both builds (its storage, its accessors, a 16-byte
+  aligned block) for that case: left as it is, for X15 to watch (moving pieces with shared collision in the editor).
+  The editor's own ground collision (`level_editor_ground_game.cpp`) takes its arrays from the game's heaps, inside the
+  main block, as the engine's collision does.
+- **SDL:** the windows, events and the clipboard are SDL's own types and pointers; its tick counts are 32-bit
+  (`SDL_GetTicks`) and its performance counter 64-bit, as the editor and the dev tools hold them.
+- **The screenshot writer** writes its PNG and sidecar through `fs::Disk` with the sizes checked as 32-bit (`written ==
+  size`); the cursor's place is scaled in 64 bits. **The automation channel** reads names only from name values
+  (`value_denied` switches on the kind first); its quit is an `SDL_QUIT` event.
+- **Checked, nothing to change:** no `reinterpret_cast`, union, `qsort` or address hashing in these folders; every
+  `fetch_part` / `word()` reads an integer or name array or a component whose kind is checked first (the editor's
+  node fields, links, colours, restart types); the placement storage (`level_editor_hud.cpp`'s script structures) is
+  `alignas(script::Struct)` and `sizeof` it; the fixed-size copies are of floats, colours and face words; DirectSound's
+  structures are asserted at their x86 / x64 sizes (`DSBUFFERDESC` 0x24 / 0x28, `DSCAPS` 0x60), DirectInput's are
+  given by `sizeof`; the backends' callbacks (`LPDSENUMCALLBACKA`, the DirectInput enumerations, the window
+  procedure) have their typedefs' exact types; FFmpeg's functions are looked up into `decltype` pointers of its own
+  declarations, and its I/O callbacks take `int64_t` positions.
 
 ### CMake and presets
 

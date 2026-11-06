@@ -20,9 +20,15 @@ add_library(thug2_app OBJECT
 )
 # The layers the shared start-up composes (the backends it installs, the game and below).
 target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc thug2_gpu_d3d9
-                                       thug2_audio_dsound thug2_media_bink thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
+                                       thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                        thug2_script_qb thug2_engine
                                        thug2_wire thug2_formats thug2_platform thug2_base)
+# Bink's movie codec (src/media_bink): the player's binkw32.dll, which is 32-bit - an x64 build has no Bink codec and plays
+# the movies and streams with FFmpeg's (app/movie_choice.cpp).
+if(TARGET thug2_media_bink)
+    target_link_libraries(thug2_app PUBLIC thug2_media_bink)
+    target_compile_definitions(thug2_app PRIVATE THUG2_BINK)
+endif()
 # The Vulkan backend (src/gpu_vulkan): installed by app/renderer_choice.cpp with renderer=vulkan.
 if(THUG2_VULKAN)
     target_link_libraries(thug2_app PUBLIC thug2_gpu_vulkan)
@@ -35,7 +41,7 @@ add_executable(thug2 WIN32
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
 # Every layer, highest first (the libraries bring the system and third-party libraries they need).
 target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_editor thug2_devtools thug2_game thug2_render_pc thug2_gpu_d3d9
-                                    thug2_audio_dsound thug2_media_bink thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
+                                    thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                     thug2_script_qb thug2_engine
                                     thug2_wire thug2_formats thug2_platform thug2_base)
 
@@ -45,7 +51,7 @@ add_executable(thug2-editor WIN32
 set_target_properties(thug2-editor PROPERTIES OUTPUT_NAME thug2-editor)
 # The editor, the game and below - not the new front end, not the dev tools.
 target_link_libraries(thug2-editor PRIVATE thug2_app thug2_editor thug2_game thug2_render_pc thug2_gpu_d3d9
-                                           thug2_audio_dsound thug2_media_bink thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
+                                           thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                            thug2_script_qb thug2_engine
                                            thug2_wire thug2_formats thug2_platform thug2_base)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see

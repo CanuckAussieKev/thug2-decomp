@@ -216,7 +216,7 @@ void blank_other_meshes(render::Geom* geom, const scenery::GeomMeshes& meshes, V
             }
             if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices(), core::at(other->index_counts(), k)),
                                     [](uint16_t v) { return v != 0; })) {
-                std::memset(buffer->indices(), 0, core::at(other->index_counts(), k) * 2U);
+                std::memset(buffer->indices(), 0, size_t{core::at(other->index_counts(), k)} * 2U);
                 upload_indices(buffer);
             }
         }
