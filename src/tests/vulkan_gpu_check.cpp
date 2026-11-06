@@ -38,6 +38,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "tests/no_error_dialogs.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/parse_number.h"
@@ -1124,6 +1125,7 @@ int run(const Options& options, SDL_Window* window)
 
 int main(int argc, char** argv)
 {
+    tests::no_error_dialogs();
     const Options options = read_options(std::span(argv, static_cast<size_t>(argc)));
     text::print("thug2_vulkan_gpu_check: a %d-bit process\n", static_cast<int>(sizeof(void*)) * kBitsPerByte);
     if (!render::vulkan::open_loader()) {

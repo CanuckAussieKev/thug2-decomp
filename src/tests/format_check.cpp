@@ -26,6 +26,7 @@
 #include <utility>
 #include <array>
 
+#include "tests/no_error_dialogs.h"
 #include "base/core/checksums.h"
 #include "wire/message_ids.h"
 #include "base/core/enum_ops.h"
@@ -934,6 +935,7 @@ int run_checks(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+    tests::no_error_dialogs();
     // (a stream or locale failure while reading the files: reported, not left to std::terminate)
     try {
         return run_checks(argc, argv);

@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "tests/no_error_dialogs.h"
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "base/core/format.h"
@@ -277,6 +278,7 @@ int run(const Options& options)
 
 int main(int argc, char** argv)
 {
+    tests::no_error_dialogs();
     try {
         return run(read_options(std::span(argv, static_cast<std::size_t>(argc))));
     } catch (const std::exception& failure) {
