@@ -82,7 +82,7 @@ may be the install root, with the game in a `Game` subfolder, or the game folder
 
 | Tool | Version | Used for |
 |---|---|---|
-| Visual Studio | 2026 (MSVC 14.51) with "Desktop development with C++", x86 tools, CMake and Ninja | The game |
+| Visual Studio | 2026 (MSVC 14.51) with "Desktop development with C++", x86 tools (x64 tools for the 64-bit build), CMake and Ninja | The game |
 | Node.js | 24 or later | Every tool in `tools/` (TypeScript, run directly: `node tools/<x>.ts`) |
 | Git | any | Clone with `--recurse-submodules` (`tools/pipeline`, `tools/anteara`) |
 | NeverScript | downloaded and built by `tools\build_neverscript.ps1` (docs/neverscript.md) | Compiling / decompiling QB scripts for the level converters |
@@ -110,9 +110,10 @@ node tools/ffmpeg/build_ffmpeg.ts    (FFmpeg's DLLs: optional on 32-bit, needed 
 npm run typecheck && npm run lint && npm test
 ```
 
-The game is 32-bit. A 64-bit build is being ported library by library (docs/design/x64-port.md): the **x64 Debug** /
-**x64 Release** configurations (`tools\verify_build.cmd x64`, out\build\verify-x64) build only the libraries ported
-so far and their checks - no game yet.
+The game builds as a 32-bit or a 64-bit program from the same source (docs/design/x64-port.md): the **x64 Debug** /
+**x64 Release** configurations (`tools\verify_build.cmd x64`, out\build\verify-x64) make the 64-bit
+`thug2-decomp.exe` and `thug2-editor.exe`, with the 64-bit DLLs next to them (Running, below). The 32-bit build stays
+the reference the 64-bit one is compared with.
 
 Prefer a solution file? `cmake -S . -B out/vs -G "Visual Studio 18 2026" -A Win32`, then open `out\vs\thug2_decomp.slnx`
 and build **Debug | Win32**. Builds are Debug: debug-CRT reports and run-time check failures go to `thug2-decomp.log`
@@ -128,6 +129,15 @@ The game runs from the game folder of your THUG2 install - the folder with `THUG
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
 3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
+
+The 64-bit build goes in the same folder the same way, in place of the 32-bit one (the files have the same names, so a
+folder holds one build or the other): `thug2-decomp.exe` (+ `thug2-editor.exe`, the PDBs), and from its own build
+folder the 64-bit `d3dx9_43.dll` and `SDL2.dll`, `gamecontrollerdb.txt`, and FFmpeg's four 64-bit DLLs (below). It
+doesn't use `binkw32.dll` (a 32-bit DLL): its movies, music and sound streams always play through FFmpeg, whatever
+`[features] movie_codec` says. Direct3D 9 comes with Windows; for Vulkan (the default renderer) the 64-bit Vulkan
+runtime comes with the graphics driver. Its Vulkan caches are files of their own
+(`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`); the ini, the editor's layouts and the
+data overlays are the same files for both builds.
 
 ### FFmpeg's DLLs
 
