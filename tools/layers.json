@@ -83,6 +83,7 @@
             "api": {
                 "of": ["engine", "game"],
                 "headers": [
+                    "src/engine/audio/music_player.h",
                     "src/engine/ext/extension.h",
                     "src/engine/ext/plugin.h",
                     "src/engine/file/disk.h",
@@ -95,6 +96,7 @@
                     "src/engine/gfx/game_view.h",
                     "src/engine/gfx/light_manager.h",
                     "src/engine/gfx/light_sets.h",
+                    "src/engine/gfx/loading_dialog.h",
                     "src/engine/gfx/mesh_formats.h",
                     "src/engine/gfx/mesh_records.h",
                     "src/engine/gfx/model.h",

@@ -65,6 +65,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/context.h"
+#include "engine/sys/editor_mode.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
 #include "platform/sdl_time.h"
@@ -302,11 +303,7 @@ void handle_event(const input::Event& event)
 
 } // namespace
 
-bool& is_switched_on()
-{
-    static bool on = config_int("features", "level_editor", 1) != 0;
-    return on;
-}
+bool is_switched_on() { return sys::editor_mode::on(); }
 
 bool& debug_enabled()
 {
@@ -363,7 +360,7 @@ bool cfunc_available(script::Struct* /*params*/, script::Context /*context*/)
 bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
 {
     if (!is_switched_on()) {
-        get_log("level editor: off ([features] level_editor=0)");
+        get_log("level editor: only in the editor mode (thug2-editor.exe, -editor)");
         return false;
     }
     if (editor_session().active_) {
@@ -611,7 +608,9 @@ void prepare_all()
 {
     input::add_event_handler(handle_event);
     set_crash_hook(on_crash);
-    script::keep_qb_names(is_switched_on()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
+    // (node names for the HUD: Fire_Tender rather than 61EF3AD4 - kept in the game too, as when it offered the editor:
+    // the log's and the loading console's names)
+    script::keep_qb_names(true);
     ux3::prepare_all(); // (the Outliner's records in the layouts, the actions' callbacks - level_editor_ux3.h)
     ux8::
         prepare_all(); // (pies, quick sets, walk / follow / teleport, controller mode: their actions - level_editor_ux8.h)

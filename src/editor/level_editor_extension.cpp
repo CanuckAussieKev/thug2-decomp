@@ -3,7 +3,6 @@
 #include "editor/level_editor_extension.h"
 
 #include <cstdint>
-#include <cstring>
 #include <span>
 #include <string>
 #include <vector>
@@ -45,11 +44,6 @@ public:
     }
 
     bool owns_game() override { return live_now(); }
-    // ([features] level_editor: the pause menu's LEVEL EDITOR offered)
-    bool* feature_switch(const char* key) override
-    {
-        return std::strcmp(key, "level_editor") == 0 ? &is_switched_on() : nullptr;
-    }
     bool pass_pause_key(bool down) override { return level_editor::pass_pause_key(down); }
     // (playing in the Scene panel: the game's keys and controller only while the panel has the focus)
     // (the editor mode: also while its pages are up and while it edits - level_editor_shell.h)

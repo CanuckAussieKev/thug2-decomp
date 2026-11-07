@@ -3,6 +3,7 @@
 
 #include "render_pc/loading_console_panel.h"
 #include "engine/gfx/loading_console.h"
+#include "render_pc/loading_dialog_panel.h"
 #include "render_pc/loading_screen.h"
 
 #include <windows.h>
@@ -116,44 +117,14 @@ void build_font()
     static const auto kRanges = std::to_array<ImWchar>({0x0020, 0x007E, 0});
     const frontend::ui_fonts::CompressedFont mono = frontend::ui_fonts::get_mono();
     ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges.data());
-    unsigned char* rgba = nullptr;
-    int width = 0;
-    int height = 0;
     if (!font || !atlas.Build()) {
         get_log("loading console: the font couldn't be made - no panel");
         return;
     }
-    atlas.GetTexDataAsRGBA32(&rgba, &width, &height);
-    render::GpuTexture* texture = nullptr;
-    if (render::gpu().create_texture({.width = static_cast<uint32_t>(width),
-                                      .height = static_cast<uint32_t>(height),
-                                      .levels = 1,
-                                      .usage = 0,
-                                      .format = render::gpu_value::kFormatA8R8G8B8,
-                                      .pool = render::gpu_value::kPoolManaged},
-                                     &texture) < 0) {
-        get_log("loading console: no texture for the font - no panel");
+    render::GpuTexture* texture = make_coverage_texture(atlas, "loading console");
+    if (texture == nullptr) {
         return;
     }
-    render::GpuLockedRect locked;
-    if (render::gpu().lock_texture(texture, 0, &locked, nullptr, 0) < 0) {
-        render::gpu().release_texture(texture);
-        return;
-    }
-    const std::span<uint8_t> bits(static_cast<uint8_t*>(locked.bits),
-                                  static_cast<size_t>(locked.pitch) * static_cast<size_t>(height));
-    const std::span<const unsigned char> rgba_pixels(rgba, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
-    for (int pixel_y = 0; pixel_y < height; ++pixel_y) {
-        const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(locked.pitch));
-        const std::span<const unsigned char> in =
-            rgba_pixels.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(width) * 4);
-        for (int pixel_x = 0; pixel_x < width; ++pixel_x) {
-            const uint32_t texel =
-                static_cast<uint32_t>(core::at(in, (pixel_x * 4) + 3)) << 24 | 0x00FFFFFFU; // white, coverage as alpha
-            std::memcpy(row.subspan(static_cast<size_t>(pixel_x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
-        }
-    }
-    render::gpu().unlock_texture(texture, 0);
     for (int character = kFirstPrintable; character < kPrintableEnd; ++character) {
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(character));
         if (!glyph) {
@@ -180,11 +151,7 @@ void build_font()
 
 // --- the panel's geometry: laid out at most 10 times a second, drawn with every frame of the loading screen ---
 
-struct Vertex {
-    float x, y, z, rhw;
-    uint32_t color;
-    float u, v;
-};
+using Vertex = ScreenVertex;
 constexpr size_t kShownLines = 12;
 constexpr double kLayoutSeconds = 0.1;
 constexpr double kStallSeconds = 10.0;
@@ -349,8 +316,9 @@ void CALLBACK screen_tick(UINT /*unused*/, UINT /*unused*/, DWORD_PTR /*unused*/
                           DWORD_PTR /*unused*/)
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
-    // isn't a frozen frame, and no movie is shown.
-    if (!live_now() || !console_timer().timer_draws_ ||
+    // isn't a frozen frame, and no movie is shown. (The editor mode's loading dialog draws in its place:
+    // loading_dialog_panel.h.)
+    if (!live_now() || !console_timer().timer_draws_ || render::loading_dialog_panel::up() ||
         render::renderer().loading_bar_timer() != 0 || !load_screen_shown() || render::engine_parts().current_movie()) {
         return;
     }
@@ -418,14 +386,19 @@ void draw_panel()
     if (!render::device_made()) {
         return;
     }
-    render::Gpu& device = render::gpu();
     const double now = get_now();
     if (console_vertices().laid_out_ < 0.0 || now - console_vertices().laid_out_ >= kLayoutSeconds) {
         get_layout(now);
     }
-    if (console_vertices().vertices_.empty()) {
+    draw_screen_triangles(console_font().texture_, console_vertices().vertices_, false);
+}
+
+void draw_screen_triangles(render::GpuTexture* texture, std::span<const ScreenVertex> vertices, bool smooth)
+{
+    if (vertices.empty() || !render::device_made()) {
         return;
     }
+    render::Gpu& device = render::gpu();
     // The device's state saved and put back after (the renderer's cached state stays true).
     render::GpuSavedState saved;
     if (device.save_state(&saved) < 0) {
@@ -434,7 +407,7 @@ void draw_panel()
     device.set_pixel_shader(nullptr);
     device.set_vertex_shader(nullptr);
     device.set_vertex_format(render::kScreenVertexFormat);
-    device.set_texture(0, console_font().texture_);
+    device.set_texture(0, texture);
     device.set_texture(1, nullptr);
     device.set_render_state(render::GpuRenderState::kFillMode, render::gpu_value::kFillSolid);
     device.set_render_state(render::GpuRenderState::kZEnable, 0);
@@ -461,15 +434,56 @@ void draw_panel()
     device.set_stage_state(0, render::GpuStageState::kTextureTransformFlags, render::gpu_value::kTextureTransformDisable);
     device.set_stage_state(1, render::GpuStageState::kColourOp, render::gpu_value::kOpDisable);
     device.set_stage_state(1, render::GpuStageState::kAlphaOp, render::gpu_value::kOpDisable);
-    device.set_sampler_state(0, render::GpuSamplerState::kMinFilter, render::gpu_value::kFilterPoint);
-    device.set_sampler_state(0, render::GpuSamplerState::kMagFilter, render::gpu_value::kFilterPoint);
+    const uint32_t filter = smooth ? render::gpu_value::kFilterLinear : render::gpu_value::kFilterPoint;
+    device.set_sampler_state(0, render::GpuSamplerState::kMinFilter, filter);
+    device.set_sampler_state(0, render::GpuSamplerState::kMagFilter, filter);
     device.set_sampler_state(0, render::GpuSamplerState::kMipFilter, render::gpu_value::kFilterNone);
     device.set_sampler_state(0, render::GpuSamplerState::kAddressU, render::gpu_value::kAddressClamp);
     device.set_sampler_state(0, render::GpuSamplerState::kAddressV, render::gpu_value::kAddressClamp);
-    device.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(console_vertices().vertices_.size() / 3),
-                            console_vertices().vertices_.data(), sizeof(Vertex));
+    device.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(vertices.size() / 3),
+                            vertices.data(), sizeof(ScreenVertex));
     device.restore_state(saved);
     device.release_saved_state(&saved);
+}
+
+render::GpuTexture* make_coverage_texture(ImFontAtlas& atlas, const char* who)
+{
+    unsigned char* rgba = nullptr;
+    int width = 0;
+    int height = 0;
+    atlas.GetTexDataAsRGBA32(&rgba, &width, &height);
+    render::GpuTexture* texture = nullptr;
+    if (rgba == nullptr || render::gpu().create_texture({.width = static_cast<uint32_t>(width),
+                                                         .height = static_cast<uint32_t>(height),
+                                                         .levels = 1,
+                                                         .usage = 0,
+                                                         .format = render::gpu_value::kFormatA8R8G8B8,
+                                                         .pool = render::gpu_value::kPoolManaged},
+                                                        &texture) < 0) {
+        get_log("%s: no texture for the font", who);
+        return nullptr;
+    }
+    render::GpuLockedRect locked;
+    if (render::gpu().lock_texture(texture, 0, &locked, nullptr, 0) < 0) {
+        render::gpu().release_texture(texture);
+        get_log("%s: the font's texture couldn't be filled", who);
+        return nullptr;
+    }
+    const std::span<uint8_t> bits(static_cast<uint8_t*>(locked.bits),
+                                  static_cast<size_t>(locked.pitch) * static_cast<size_t>(height));
+    const std::span<const unsigned char> rgba_pixels(rgba, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
+    for (int pixel_y = 0; pixel_y < height; ++pixel_y) {
+        const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(locked.pitch));
+        const std::span<const unsigned char> in =
+            rgba_pixels.subspan(static_cast<size_t>(pixel_y) * static_cast<size_t>(width) * 4);
+        for (int pixel_x = 0; pixel_x < width; ++pixel_x) {
+            const uint32_t texel =
+                static_cast<uint32_t>(core::at(in, (pixel_x * 4) + 3)) << 24 | 0x00FFFFFFU; // white, coverage as alpha
+            std::memcpy(row.subspan(static_cast<size_t>(pixel_x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
+        }
+    }
+    render::gpu().unlock_texture(texture, 0);
+    return texture;
 }
 
 } // namespace gfx::loading_console

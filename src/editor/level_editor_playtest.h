@@ -54,7 +54,7 @@ struct ImFont;
 //   - The gap checklist (the skate module's, 0x005656C0 - gap_checklist.h): a gap got raises its pending_ (register_gap_hit
 //     0x00578C70); landing the combo moves pending into num_ (pay_out_queued_gaps 0x005796C0); a bail clears pending
 //     (clear_pending 0x00578CF0). Read each frame - nothing of the game is hooked.
-// Never in a network session or a refused mode (Layout::Refused); [features] level_editor=0 turns it all off.
+// Never in a network session or a refused mode (Layout::Refused); outside the editor mode it is all off.
 namespace frontend::level_editor::play_test {
 
 // --- the pure parts -----------------------------------------------------------------------------------------------

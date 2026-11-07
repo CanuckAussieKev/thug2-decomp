@@ -172,24 +172,27 @@ Useful start-up switches:
 | How | What it does |
 |---|---|
 | `-level <name>` or `[features] start_level=<name>` | Skips the menus and starts that level in free skate. `<name>` is the level's folder name (`TR`, `BO`, `foun`, `z_ma`...). |
-| `-edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there (without its plugin, `plugins\thug2-level-editor.dll`, the level opens in free skate). |
+| `-edit <name>` or `[features] edit_level=<name>` | Starts the level editor (as `thug2-editor.exe -edit <name>`) and opens it in that level (without its plugin, `plugins\thug2-level-editor.dll`, the level opens in free skate). |
 | `-level <name> -at x,y,z[,heading]` or `[features] start_at=` | Once the level is up, the skater stands at that spot, facing `heading` (degrees, 0 = +z, 90 = +x). |
 | `node tools/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
 
 ### The level editor
 
-Pause menu > **LEVEL EDITOR**, or start with `-edit <name>`. It's offered in free skate and single session only (never
-in career / story, classic, the park editor or network games).
+`thug2-editor.exe` (or `thug2-decomp.exe -editor`, `-edit <name>`, or `[features] editor_mode=1`). The editor is an
+application of its own; the game itself doesn't offer it (its pause menu has no LEVEL EDITOR), but levels edited in it
+play in the game (the level select's EDITED LEVELS). It edits in free skate only (never career / story, classic, the
+park editor or network games).
 
-- **The editor on its own:** `thug2-editor.exe` (or `thug2-decomp.exe -editor`, or `[features] editor_mode=1`) starts
-  the editor as an application, **THUG2 Editor**, with its own taskbar button and icon. The game's menus never show:
-  it opens on a Start page - recent levels and every installed level with its picture, edited copies included - and
-  **File > Open Level** / **File > Recent** switch levels (asking about unsaved changes first). **Play** plays from
+- **The editor on its own:** `thug2-editor.exe` starts the editor as an application, **THUG2 Editor**, with its own
+  taskbar button and icon. The game's menus never show, nor its music or loading screens: it opens on a Start page -
+  recent levels and every installed level with its picture, edited copies included - and **File > Open Level** /
+  **File > Recent** switch levels (asking about unsaved changes first); while a level loads a **Loading** box shows
+  what is being read. **Play** plays from
   the level's start, **Play from Here** (F5) from the camera, both in the Scene panel; F5 stops. In play the pause
   menu has no CHANGE LEVEL or QUIT (the data overlay from `make_menu_level.ts` leaves them out). Escape doesn't leave
   the editor; **File > Exit** or closing the window quits, asking about unsaved changes. The window is resizable, never
   full screen (the ini's resolution and full screen are for the game), and opens where it was left
-  (`Game\thug2-decomp-editor-window.ini`). `-editor -edit <name>` opens that level straight away. Without the
+  (`Game\thug2-decomp-editor-window.ini`, written as each move or resize ends). `-editor -edit <name>` opens that level straight away. Without the
   plugin, `-editor` is logged and the game starts as usual.
 
 - **Learning it:** F1 lists every key; **Ctrl+Space** (or F3) searches every action; the status bar shows what the
@@ -255,8 +258,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `cursor_by_device` | 1 | A controller button hides the mouse cursor and a key, mouse movement or click shows it again (where there is one; the level editor keeps it); the controller doesn't rumble while you play with the keyboard, until a button on it is pressed |
 | `single_player_any_pad` | 1 | Outside split screen, every connected controller plays as player 1: the one a button was pressed on last (2-player games keep the controllers' seats) |
 | `hd_ui` | 0 | The menus' 4x-upscaled images and fonts (when the overlay was made with `make_menu_level.ts --hd-ui 4`) |
-| `level_editor` | 1 | The pause menu's LEVEL EDITOR (`editor_ui=0`: the old on-screen HUD instead of the Dear ImGui UI; `debug_editor=1` logs its picks and moves) |
-| `start_level` / `edit_level` | (none) | Start straight in a level / in the level editor (as `-level` / `-edit`) |
+| `editor_ui` / `debug_editor` | 1 / 0 | The level editor: `editor_ui=0` the old on-screen HUD instead of the Dear ImGui UI; `debug_editor=1` logs its picks and moves |
+| `start_level` / `edit_level` | (none) | Start straight in a level / the level editor in a level (as `-level` / `-edit`) |
 | `start_at` | (none) | With a start level: the skater put standing at `x,y,z[,heading]` once it's up (as `-at`) |
 | `screenshots` | 1 | The screenshot key (Print Screen, or F12 if Windows' Snipping Tool takes it): a PNG and a `.txt` of the game's state; `screenshot_dir=` changes the folder |
 | `restart_tester` | 1 | F8 puts the skater at the level's next unvisited restart |

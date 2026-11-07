@@ -1395,17 +1395,10 @@ paint::Extras restyle_extras()
 
 // --- the script commands (the overlay's menu items) ---
 
-// A feature switch another extension holds ([features] level_editor: the editor's; false without it).
-bool feature_on(const char* key)
-{
-    const bool* on = ext::feature_switch(key);
-    return (on != nullptr) && *on;
-}
-
 // NewFrontend_Item item=on | restart | levels | options | editor: whether the overlay's menus make that item of ours -
 // on: the new front end's main menu (its items, our Career menu); RESTART (free skate's pause menu); CHANGE LEVEL /
 // the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
-// EDITOR (Create-a-modes: [features] level_editor and its scripts). False while the new front end is off, and in
+// EDITOR (Create-a-modes: only in the editor mode, where the new front end is off - so never now - and its scripts). False while the new front end is off, and in
 // network games: the menus as they were.
 bool cfunc_item(script::Struct* params, script::Context /*context*/)
 {
@@ -1432,7 +1425,7 @@ bool cfunc_item(script::Struct* params, script::Context /*context*/)
         return true;
     }
     if (item == name_hash("editor")) {
-        return in_front_end() && levels && feature_on("level_editor") && is_script(name_hash("level_editor_enter"));
+        return in_front_end() && levels && sys::editor_mode::on() && is_script(name_hash("level_editor_enter"));
     }
     return false;
 }

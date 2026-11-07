@@ -8,7 +8,12 @@
 // "the game inside the editor" - rather than the game with the editor inside it.
 //
 //   thug2-decomp.exe -editor [-edit <level>]       (thug2-editor.exe, the launcher beside the exe, starts it so)
+//   thug2-decomp.exe -edit <level>                 (the same as -editor -edit <level>; also [features] edit_level=)
 //   thug2-decomp.ini [features] editor_mode=1
+//
+// The level editor runs only here: the game itself no longer offers it (no LEVEL EDITOR in its pause menu - levels
+// edited here still play in the game: the plugin is loaded either way, for their layouts). While a level loads the
+// editor's loading dialog stands in for the loading screen (engine/gfx/loading_dialog.h).
 //
 // Only with the level editor installed (plugins\thug2-level-editor.dll: app/ turns the mode on once the plugins are
 // loaded; without it the request is logged and the game starts as usual). In the editor mode the window is an
@@ -18,7 +23,8 @@
 // (the level editor's own parts: editor/level_editor_shell.h). Without it everything is as it always was.
 namespace sys::editor_mode {
 
-// -editor on the command line (a word of its own) or [features] editor_mode=1 (read once).
+// -editor or -edit on the command line (a word of its own; --edit=<level> too), [features] editor_mode=1 or a
+// [features] edit_level (read once).
 bool requested();
 // The mode is on: asked for and the level editor's plugin loaded (set once by app/ at start-up, before the window).
 THUG2_API bool on();

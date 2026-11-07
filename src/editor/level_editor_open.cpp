@@ -60,7 +60,7 @@ void edit_update(modules::FrontEnd* front_end)
             return;
         }
         if (!is_switched_on()) {
-            get_log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
+            get_log("edit level: the level editor runs only in the editor mode - free skate in %s, as -level",
                     edit_start().level_.c_str());
             edit_start().edit_ = Edit::kDone;
             return;

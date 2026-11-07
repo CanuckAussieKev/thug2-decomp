@@ -86,8 +86,10 @@ start-up, before the extensions are registered, `ext::load_plugins` loads every 
 `thug2_plugin_entry`, and checks what it gives - the API version (`ext::kPluginApiVersion`, raised with every change a
 plugin sees) and the build (compiler and its version, pointer size, Debug or Release: C++ has no ABI between them) -
 before anything else of it is called; a mismatched plugin is logged and left out, and the game runs without it (no
-editor: the pause menu's LEVEL EDITOR isn't offered, `-edit` logs that the editor isn't installed and opens the level in
-free skate). A plugin names its slot (`"editor"`), and `app/extensions.cpp` puts its `ext::Extension` there and
+editor: no editor mode, edited levels play as shipped, `-edit` logs that the editor isn't installed and opens the level
+in free skate). The plugin is loaded in the game too, not only in the editor mode: the editor runs only in the editor
+mode, but the layouts of the levels edited there are put in place by its extension when such a level loads in the
+game. A plugin names its slot (`"editor"`), and `app/extensions.cpp` puts its `ext::Extension` there and
 registers its script commands where the editor's always were. The plugin calls the engine in the exe: the exe exports
 the functions marked `THUG2_API` (`base/core/api.h`: `__declspec(dllexport)` in the exe, `dllimport` in a plugin - a
 mark on the declaration, not a `.def` of one compiler's decorated names) and Dear ImGui's (`IMGUI_API`: one ImGui, one
@@ -102,8 +104,9 @@ that isn't marked, and `tools/plugin_api.ts`, run by the build after the plugin'
 imports (the exe's exports, ImGui's aside, are exactly the plugin's imports); `tools/plugin_api.test.ts` keeps the marks
 in the headers of the game and the layers below it.
 
-**The editor mode** (`engine/sys/editor_mode.h`): "the game inside the editor" - `thug2-decomp.exe -editor` (or
-`[features] editor_mode=1`), which the editor's launcher `thug2-editor.exe` (`src/editor/launcher`: plain Win32, no
+**The editor mode** (`engine/sys/editor_mode.h`): "the game inside the editor" - the only place the level editor
+runs (the game itself doesn't offer it) - `thug2-decomp.exe -editor` (or `-edit <level>`, `[features] editor_mode=1` /
+`edit_level=`), which the editor's launcher `thug2-editor.exe` (`src/editor/launcher`: plain Win32, no
 layer of the game - `tools/layers.json` `standalone`) starts. `app/extensions.cpp` turns it on once the plugins are
 loaded and only when the editor's plugin is there (without it: logged, the game as usual). Then the window is an
 application's (`platform/app_window.h`: resizable, its place kept in `thug2-decomp-editor-window.ini`, never full
@@ -114,7 +117,11 @@ scripts and main menu load hidden, the game's keys and the mouse menus rest, and
 select's own SKATE NOW (`begin_level::read_in_load`) - from another level, through the pause menu's change of level.
 The extension point `holds_quit` lets the editor ask about unsaved changes before the window closes. The data overlay's
 pause menu leaves out the items that would leave the level while `LevelEditor_EditorMode` is true; the new front end
-is off in this mode. The editor mode always runs on Vulkan (`app/renderer_choice.cpp`: `renderer=d3d9` is logged and
+is off in this mode, and so is the front end's music under the Start page (paused until a level is up). A level's
+loading screen is replaced by the editor's loading dialog (`engine/gfx/loading_dialog.h`): the editor's look and the
+level's name are handed to the engine, and `render_pc/loading_dialog_panel.cpp` draws the box from the loading
+screen's timer with a Dear ImGui draw list of its own (no context: the main thread is in the load), its fonts made
+before the load. The editor mode always runs on Vulkan (`app/renderer_choice.cpp`: `renderer=d3d9` is logged and
 ignored; Direct3D 9 only where Vulkan can't draw).
 
 **The editor's panels in windows of their own** (`engine/ui/ui_viewports.h`, `ui_backend::enable_viewports`): Dear

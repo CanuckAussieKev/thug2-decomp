@@ -74,6 +74,7 @@ add_library(thug2_engine STATIC
     audio/music_cfuncs.cpp
     audio/continue_music.cpp
     gfx/loading_console.cpp
+    gfx/loading_dialog.cpp
     gfx/view_cam.cpp
     gfx/world_scene.cpp
     gfx/engine_glue.cpp

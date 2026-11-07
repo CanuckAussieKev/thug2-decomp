@@ -14,6 +14,7 @@ add_library(thug2_render_pc STATIC
     movie.cpp
     loading_bar.cpp
     loading_console_panel.cpp
+    loading_dialog_panel.cpp
     draw_frame.cpp
     game_view_frame.cpp
     wireframe.cpp
@@ -69,5 +70,6 @@ add_library(thug2_render_pc STATIC
     vertex_buffers.cpp
     editor_support.cpp
 )
-# imgui: the loading console's panel (loading_console_panel.cpp: its font atlas)
+# imgui: the loading console's panel (loading_console_panel.cpp: its font atlas) and the editor mode's loading dialog
+# (loading_dialog_panel.cpp: its fonts and draw list)
 target_link_libraries(thug2_render_pc PUBLIC thug2_engine PRIVATE imgui)

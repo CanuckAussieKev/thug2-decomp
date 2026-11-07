@@ -153,10 +153,11 @@ class Struct;
 //   - (UX8 - level_editor_ux8.h) the status bar's context hints (level_editor_hints.h), quick selection sets
 //     (Ctrl+Alt+1..9 / Alt+Shift+1..9, the toolbar's Sets), pie menus (Q / Tab, Alt+Q / Shift+Tab), controller mode
 //     (Preferences), Alt+wheel drill-through, the follow camera (Shift+F), double-click teleport, walk mode (Shift+`).
-// thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
-// LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
-// game in the editor in that level (game/front_end/start_level.h; tools/game/edit_level.ts). editor_ui=0 (default 1) brings
-// back the old HUD in place of the Dear ImGui panels.
+// The editor runs only in the editor mode (engine/sys/editor_mode.h: thug2-editor.exe, -editor; outside it
+// LevelEditor_Available is false and LevelEditor_Start refuses - the game has no LEVEL EDITOR any more; edited levels
+// still play there). `-edit <level>` (or edit_level=) starts the editor mode in that level (game/front_end/start_level.h;
+// tools/game/edit_level.ts). thug2-decomp.ini [features] debug_editor=1 logs picks, moves and the view; editor_ui=0
+// (default 1) brings back the old HUD in place of the Dear ImGui panels.
 namespace frontend::level_editor {
 
 constexpr std::size_t kBoxCornerCount = 8; // a box's corners
@@ -193,8 +194,8 @@ constexpr int kNeutralVertexByte = 0x80;  // a vertex byte's fill: the middle of
 // The axes' letters, by index (0 X, 1 Y, 2 Z).
 inline constexpr std::string_view kAxisLetters = "XYZ";
 
-// The setting (read once).
-bool& is_switched_on();
+// The editor is offered: in the editor mode only (engine/sys/editor_mode.h - thug2-editor.exe, -editor, -edit).
+bool is_switched_on();
 bool& debug_enabled();
 // The editor is running (between LevelEditor_Start and LevelEditor_Stop).
 bool live_now();
