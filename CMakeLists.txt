@@ -91,7 +91,9 @@ set_target_properties(d3dx9 PROPERTIES
 FetchContent_Declare(imgui
     URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b-docking.tar.gz
     URL_HASH SHA256=466fdef9b18de15f0bb6e288e3d00ffa3d82200ec458ce5e4f724a161d9528a5
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    # (the files dated when they are unpacked, not as in the archive: a new version is then newer than what an existing
+    # build compiled from the old one, so everything that includes ImGui is rebuilt)
+    DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 FetchContent_MakeAvailable(imgui)
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
