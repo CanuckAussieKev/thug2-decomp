@@ -2,6 +2,9 @@
 
 #include "engine/sys/editor_mode.h"
 
+#include <windows.h>
+
+#include <array>
 #include <cstddef>
 #include <string>
 
@@ -12,6 +15,8 @@
 namespace sys::editor_mode {
 
 namespace {
+
+constexpr std::size_t kValueSize = 128;
 
 bool& mode_on()
 {
@@ -41,8 +46,20 @@ bool has_flag(const std::string& line, const char* flag)
 
 bool requested()
 {
-    static const bool kAsked =
-        has_flag(sys::startup_command_line(), "editor") || config_int("features", "editor_mode", 0) != 0;
+    static const bool kAsked = [] {
+        const std::string& line = sys::startup_command_line();
+        if (has_flag(line, "editor") || config_int("features", "editor_mode", 0) != 0) {
+            return true;
+        }
+        // (-edit <level> / --edit=<level> / [features] edit_level=<level>: the level editor is the editor mode's only)
+        if (has_flag(line, "edit") || line.find("--edit=") != std::string::npos) {
+            return true;
+        }
+        std::array<char, kValueSize> level{};
+        GetPrivateProfileStringA("features", "edit_level", "", level.data(), static_cast<DWORD>(level.size()),
+                                 game_folder_path("thug2-decomp.ini").c_str());
+        return level.front() != '\0';
+    }();
     return kAsked;
 }
 

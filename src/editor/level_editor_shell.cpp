@@ -28,7 +28,9 @@
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_theme.h"
 #include "editor/level_editor_ux3.h"
+#include "engine/audio/music_player.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/loading_dialog.h"
 #include "engine/gfx/screen.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/editor_mode.h"
@@ -61,6 +63,7 @@ constexpr float kCardGap = 12.0F;
 constexpr float kDialogPart = 0.75F;        // Open Level's window: this much of the window
 constexpr float kPromptWidth = 420.0F;
 constexpr float kButtonWidth = 110.0F;
+constexpr float kLoadingWidth = 440.0F;     // the loading dialog's box, at scale 1
 constexpr std::size_t kFilterSize = 64;
 constexpr ImU32 kCardColour = IM_COL32(38, 41, 47, 255);
 constexpr ImU32 kCardHoverColour = IM_COL32(54, 58, 66, 255);
@@ -103,6 +106,7 @@ struct ShellState {
     std::string message; // (the Start page's: why the last level didn't open)
     std::string filter;
     std::string result; // (the automation channel's last answer)
+    std::string loading_title; // (what the loading dialog was last told)
     Wanted wanted;      // (the level to open)
     std::unordered_map<std::string, Thumb> pictures;
     int settle_frames = 0;
@@ -121,6 +125,8 @@ struct ShellState {
     bool catalog_made = false;
     bool browser_open = false;
     bool browser_focus = false;
+    bool music_held = false; // (the front end's music paused by the shell)
+    bool music_logged = false;
     Waiting waiting = Waiting::kNone; // (the automation channel's command)
 };
 
@@ -506,7 +512,50 @@ void start_page(const ux3::Fonts& fonts)
     ImGui::PopStyleColor();
 }
 
-// The page over a level loading and the editor opening: its picture and name.
+// The level being opened, by its name in the level list (-edit's: as it was given when the list hasn't it).
+std::string opening_title()
+{
+    const ShellState& state = shell_state();
+    if (state.have_wanted) {
+        return state.wanted.title;
+    }
+    const std::string name = begin_level::get_requested();
+    if (name.empty()) {
+        return layout::level_title();
+    }
+    const std::string load = lowered(name.substr(0, begin_level::kLoadPrefixLength)) == "load_" ? name : "Load_" + name;
+    const layout::CatalogLevel* level = find_level(checksums::hash_from_text(load.c_str()));
+    return level != nullptr ? level->title : name;
+}
+
+// The editor's look for the loading dialog the game draws while a level loads (engine/gfx/loading_dialog.h).
+gfx::loading_dialog::Look editor_look(const ux3::Fonts& fonts)
+{
+    const ImGuiStyle& style = ImGui::GetStyle();
+    gfx::loading_dialog::Look look;
+    look.page = ImGui::ColorConvertFloat4ToU32(kPageColour);
+    look.window = ImGui::GetColorU32(ImGuiCol_WindowBg);
+    look.border = ImGui::GetColorU32(ImGuiCol_Border);
+    look.title_bar = ImGui::GetColorU32(ImGuiCol_TitleBgActive);
+    look.text = ImGui::GetColorU32(ImGuiCol_Text);
+    look.text_dim = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+    look.frame = ImGui::GetColorU32(ImGuiCol_FrameBg);
+    look.accent = ImGui::GetColorU32(ImGuiCol_CheckMark);
+    look.warning = ImGui::ColorConvertFloat4ToU32(ui_theme::kWarningColour);
+    look.ui_pixels = fonts.ui != nullptr ? fonts.ui->FontSize : ImGui::GetFontSize();
+    look.heading_pixels = fonts.heading != nullptr ? fonts.heading->FontSize : ImGui::GetFontSize();
+    look.width = kLoadingWidth * fonts.scale;
+    look.padding_x = style.WindowPadding.x;
+    look.padding_y = style.WindowPadding.y;
+    look.frame_padding_x = style.FramePadding.x;
+    look.frame_padding_y = style.FramePadding.y;
+    look.spacing_y = style.ItemSpacing.y;
+    look.rounding = style.FrameRounding;
+    return look;
+}
+
+// The page over the editor closing, a level loading and the editor opening: the loading dialog, as the game draws it
+// during the load itself (the same box in the same place).
 void opening_page(const ux3::Fonts& fonts)
 {
     const ShellState& state = shell_state();
@@ -518,17 +567,63 @@ void opening_page(const ux3::Fonts& fonts)
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |
                                    ImGuiWindowFlags_NoInputs;
     if (ImGui::Begin("##opening_page", nullptr, flags)) {
-        const std::string title =
-            state.have_wanted ? state.wanted.title : std::string(begin_level::get_requested());
-        const std::string line = "Opening " + title + "...";
-        ImGui::PushFont(fonts.heading);
-        const ImVec2 size = ImGui::CalcTextSize(line.c_str());
-        ImGui::SetCursorPos(ImVec2((viewport->Size.x - size.x) * kHalf, (viewport->Size.y - size.y) * kHalf));
-        ImGui::TextUnformatted(line.c_str());
-        ImGui::PopFont();
+        gfx::loading_dialog::BoxText text;
+        text.caption = "Open Level";
+        text.heading = "Loading " + opening_title() + "...";
+        if (state.phase == Phase::kLeaving) {
+            text.status = "Closing the editor";
+            text.fraction = -static_cast<float>(ImGui::GetTime());
+        } else if (state.open_begun) {
+            text.status = "Opening the editor";
+            text.fraction = 1.0F;
+        } else {
+            text.status = "Loading";
+            text.fraction = -static_cast<float>(ImGui::GetTime());
+        }
+        gfx::loading_dialog::draw_box(ImGui::GetWindowDrawList(), editor_look(fonts),
+                                      {.ui = fonts.ui, .heading = fonts.heading}, text,
+                                      {.origin_x = viewport->Pos.x,
+                                       .origin_y = viewport->Pos.y,
+                                       .width = viewport->Size.x,
+                                       .height = viewport->Size.y});
     }
     ImGui::End();
     ImGui::PopStyleColor();
+}
+
+// The front end's music kept quiet under the Start page (and under the boot and a load from it, until a level is up):
+// paused while so, unpaused once (the level's own music then plays as ever).
+void quiet_front_end_music()
+{
+    ShellState& state = shell_state();
+    const bool front_end = state.phase == Phase::kStarting || state.phase == Phase::kStart ||
+                           (state.phase == Phase::kOpening && render::current_level() == 0);
+    if (front_end) {
+        if (!audio::music_is_paused()) {
+            audio::pause_music(1);
+            if (audio::music_is_paused() && !state.music_logged) {
+                state.music_logged = true;
+                get_log("editor mode: the front end's music paused (again whenever its scripts unpause it)");
+            }
+        }
+        state.music_held = true;
+    } else if (state.music_held) {
+        state.music_held = false;
+        state.music_logged = false;
+        audio::pause_music(0);
+        get_log("editor mode: the music unpaused (a level is up)");
+    }
+}
+
+// The level the loading dialog names (engine/gfx/loading_dialog.h), when it changes.
+void name_loading_level()
+{
+    ShellState& state = shell_state();
+    const std::string title = state.phase == Phase::kEditing ? layout::level_title() : opening_title();
+    if (title != state.loading_title) {
+        state.loading_title = title;
+        gfx::loading_dialog::set_title(title);
+    }
 }
 
 void draw_page(const ux3::Fonts& fonts)
@@ -536,6 +631,7 @@ void draw_page(const ux3::Fonts& fonts)
     ShellState& state = shell_state();
     ++state.frame;
     state.loads_this_frame = 0;
+    gfx::loading_dialog::set_look(editor_look(fonts)); // (the box the game draws through a load looks as this one)
     if (state.phase == Phase::kStart || state.phase == Phase::kStarting) {
         start_page(fonts);
     } else {
@@ -748,6 +844,8 @@ void tick_frame(modules::FrontEnd* front_end)
         }
         break;
     }
+    quiet_front_end_music();
+    name_loading_level();
     check_waiting();
 }
 
@@ -869,7 +967,8 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
             *result = "refused: busy";
             return true;
         }
-        open_level({.load = checksums::hash_from_text(name.c_str()), .edited = edited, .title = name});
+        const uint32_t load = checksums::hash_from_text(name.c_str());
+        open_level({.load = load, .edited = edited, .title = find_level(load) != nullptr ? title_of(load, edited) : name});
         state.waiting = Waiting::kEditor;
     } else if ((verb == "play" || verb == "playhere") && level_editor::live_now()) {
         if (verb == "play") {

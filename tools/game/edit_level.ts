@@ -2,8 +2,8 @@
 //
 //   node tools/game/edit_level.ts                     the installed levels, by game (as --list)
 //   node tools/game/edit_level.ts --list              the same - prints only
-//   node tools/game/edit_level.ts <level>             THUG2 started with -edit <level>: free skate there, the level
-//                                                     editor opened once the level is up
+//   node tools/game/edit_level.ts <level>             THUG2 started with -edit <level>: the editor mode, the level
+//                                                     editor opened in that level once it is up
 //   [--game <folder>]                                 default C:\Games\THUG2 (a stock install: its Game folder)
 //
 // <level>: a level's load script without Load_ (foun, z_ma, BO, TR...) or with it, as the list shows it. The levels
@@ -13,8 +13,8 @@
 // isn't there (Default: the PC release ships only its scripts) is left out - the game would refuse it too.
 //
 // Refuses when a game is already running from that folder (the user may be playing) - it never closes or kills one.
-// The game reads nothing from this tool but its command line: the ini's [features] level_editor=0 makes it plain
-// free skate (said here), and nothing here goes online.
+// The game reads nothing from this tool but its command line (-edit starts the game's editor mode: the level editor's
+// window, as thug2-editor.exe -edit <level>), and nothing here goes online.
 
 import { execFileSync, spawn } from "node:child_process";
 import * as fs from "node:fs";
@@ -184,21 +184,6 @@ export function runningGames(): (string | null)[] {
         .map((l) => (l === "?" ? null : l));
 }
 
-// The ini's [features] level_editor (true unless it says 0).
-function editorOn(game: string): boolean {
-    const ini = path.join(game, "thug2-decomp.ini");
-    if (!fs.existsSync(ini)) return true;
-    let section = "";
-    for (const raw of fs.readFileSync(ini, "utf8").split(/\r?\n/)) {
-        const line = raw.trim();
-        const header = /^\[(.+)\]$/.exec(line);
-        if (header) section = header[1]!.trim().toLowerCase();
-        const setting = /^level_editor\s*=\s*(\S+)/i.exec(line);
-        if (section === "features" && setting) return Number.parseInt(setting[1]!, 10) !== 0;
-    }
-    return true;
-}
-
 function main(): number {
     const { values, positionals } = parseCli(USAGE, {
         options: {
@@ -241,7 +226,6 @@ function main(): number {
                 "not started (the user may be playing); close it first",
         );
     }
-    if (!editorOn(game)) print("note: the ini has [features] level_editor=0 - the game starts in free skate there");
     if (ensureWorkspaceMuted(game)) print(`a workspace: [features] mute_audio=1 (its games always run muted)`);
     clearAutomationFiles(game);
     const child = spawn(exe, ["-edit", level.load], { cwd: game, detached: true, stdio: "ignore" });

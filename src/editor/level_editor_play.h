@@ -19,7 +19,7 @@ struct FrontEnd;
 //     from here in the same level load, it comes back with the camera exactly where it was and the selection it had.
 //   - The editor's own guards hold: never in a network session or a career-type mode (LevelEditor_Available /
 //     Layout::Refused) - the key does nothing there; not while paused in a menu (the pause menu's LEVEL EDITOR is there).
-// The play key in play is the editor's only key outside it; [features] level_editor=0 turns it off with the editor.
+// The play key in play is the editor's only key outside it; outside the editor mode it is off with the editor.
 namespace frontend::level_editor::perform {
 
 constexpr float kDefaultWalkSpeed = 800.0F;

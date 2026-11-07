@@ -31,11 +31,12 @@ class Extension;
 //   thug2-decomp.ini [features] edit_level=<name>    (the command line wins; -edit before -level, edit_level before
 //                                                     start_level)
 //
-// As -level, and the intro movies are skipped for that run (render::skip_intro_movies). Once the level is up - the skater
-// there, not paused, a second and a half settled - Start is pressed for the player (the pad_start event the menus
-// get: handle_start_pressed pauses the game and makes the pause menu), and once the pause menu is up, level_editor_enter
-// runs - what the pause menu's LEVEL EDITOR item runs (editor/level_editor.h). Leaving the editor is as usual (the
-// pause menu, then free skate). With [features] level_editor=0, or without the overlay's level_editor_enter, that is
+// Either starts the editor mode (engine/sys/editor_mode.h: the level editor's own window - the game itself no longer
+// offers the editor), as -editor -edit <name> does. As -level, and the intro movies are skipped for that run
+// (render::skip_intro_movies). Once the level is up - the skater there, not paused, a second and a half settled -
+// Start is pressed for the player (the pad_start event the menus get: handle_start_pressed pauses the game and makes
+// the pause menu), and once the pause menu is up, level_editor_enter runs (the data overlay's script:
+// editor/level_editor.h). Without the level editor installed, or without the overlay's level_editor_enter, that is
 // logged and it stays -level (free skate); an unknown level stays the main menu, as with -level. Never in network
 // games (free skate only).
 //

@@ -33,6 +33,8 @@
 #include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/loading_dialog.h"
+#include "render_pc/loading_dialog_panel.h"
 #include "base/core/language.h"
 
 namespace render {
@@ -211,6 +213,7 @@ void hide_loading_screen()
         stop_timer(renderer().loading_bar_timer());
         renderer().set_loading_bar_timer(0);
     }
+    loading_dialog_panel::hide(); // (not original: the editor mode's loading dialog - loading_dialog_panel.h)
     engine_parts().set_loading_screen_up(false);
     get_unlock();
 }
@@ -260,6 +263,15 @@ void show_loading_screen(const char* name, bool keep, bool black)
     }
     gpu().set_render_state(GpuRenderState::kFogEnable, 0);
     engine_parts().set_loading_screen_up(false);
+    // Not original - the editor mode: no picture, no bar, the editor's loading dialog in their place
+    // (engine/gfx/loading_dialog.h). A kept frame (a cutscene's) stays as the original keeps it.
+    if (!keep && gfx::loading_dialog::replaces_loading_screens()) {
+        select_picture().select_picture_ = false;
+        loading_dialog_panel::show();
+        engine_parts().set_loading_screen_up(true);
+        get_unlock();
+        return;
+    }
     if (!keep) {
         if (black) {
             select_picture().select_picture_ = false;

@@ -14,6 +14,7 @@
 #include <array>
 
 #include "render_pc/loading_console_panel.h"
+#include "render_pc/loading_dialog_panel.h"
 #include "render_pc/loading_screen.h"
 #include "render_pc/render_state.h"
 #include "engine/sys/startup_init.h"
@@ -141,6 +142,13 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
                                          DWORD_PTR /*unused*/, DWORD_PTR /*unused*/)
 {
     if ((renderer().loading_bar_timer() == 0U) || !engine_parts().loading_screen_up()) {
+        return;
+    }
+    // Not original - the editor mode's loading dialog draws instead (loading_dialog_panel.h); its bar follows this
+    // one's time.
+    if (render::loading_dialog_panel::up()) {
+        screen_2d().set_elapsed_seconds(
+            static_cast<float>(static_cast<double>(screen_2d().tick_seconds()) + screen_2d().elapsed_seconds()));
         return;
     }
     WaitForSingleObject(screen_2d().screen_mutex(), INFINITE);

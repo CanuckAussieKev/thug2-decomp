@@ -14,7 +14,7 @@ namespace app {
 
 namespace {
 
-// LevelEditor_Available (the pause menu's LEVEL EDITOR offered), LevelEditor_Start, LevelEditor_EditedLevels (the
+// LevelEditor_Available (the editor offered: only in the editor mode), LevelEditor_Start, LevelEditor_EditedLevels (the
 // level select's edited copies), LevelEditor_PlayCamera (an edited level's camera shot), LevelEditor_EditorMode (the
 // editor mode - never without the editor): no.
 bool cfunc_no(script::Struct* /*params*/, script::Context /*context*/) { return false; }

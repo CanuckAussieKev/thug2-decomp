@@ -142,8 +142,6 @@ const std::vector<Spec>& get_specs()
          .apply = Apply::kRelaunch},
         {.section = "features", .key = "restart_tester", .label = text_tools::kOptRestartTester, .help = text_tools::kOptRestartTesterHelp, .choices = off_on(), .fallback = 1,
          .apply = Apply::kLive},
-        {.section = "features", .key = "level_editor", .label = text_tools::kOptLevelEditor, .help = text_tools::kOptLevelEditorHelp, .choices = off_on(), .fallback = 1,
-         .apply = Apply::kLive},
         {.section = "features", .key = "screenshots", .label = text_tools::kOptScreenshots, .help = text_tools::kOptScreenshotsHelp, .choices = off_on(), .fallback = 1,
          .apply = Apply::kRelaunch},
         {.section = "frontend",

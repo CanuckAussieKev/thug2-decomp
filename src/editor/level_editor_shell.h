@@ -17,7 +17,9 @@ struct Fonts;
 //     where the data overlay has one (images\loadscrn_sel_*), the edited copies too (the levels with a saved layout -
 //     what LevelEditor_EditedLevels lists) - and a filter. Clicking one opens it in the editor: the level select's
 //     SKATE NOW for that level runs underneath (game/front_end/start_level.h: read_in_load), then the editor opens as
-//     -edit opens it (level_editor_open.h); "Opening <level>" stands over the game meanwhile.
+//     -edit opens it (level_editor_open.h); the loading dialog ("Loading <level>...") stands over the game meanwhile -
+//     drawn here before and after the load, and by the game through it (engine/gfx/loading_dialog.h: no loading
+//     screen in the editor mode). The front end's music is paused under the Start page until a level is up.
 //   - File > Open Level (the same list), File > Recent, File > Exit. Another level from inside the editor: the
 //     unsaved-changes question first, then the editor closes, and from the pause menu that brings back the game's own
 //     change of level (the level select's) loads it - and the editor opens there.

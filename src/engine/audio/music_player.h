@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/audio/audio_handles.h"
 
@@ -113,7 +114,7 @@ int get_num_soundtracks();
 const char* get_soundtrack_name(int index);
 
 // 0x00450430: whether the music is paused.
-bool music_is_paused();
+THUG2_API bool music_is_paused();
 // 0x00450440 / 0x00450450: the music and sound effects volumes (0-100; 50 and 100 at start).
 float get_music_volume();
 float get_sfx_volume();
@@ -133,7 +134,7 @@ void set_user_soundtrack_volume(float volume);
 
 // 0x00450F70: pause (1) or unpause (0) the music; -1 unpauses only if it wasn't paused when last paused with 1
 // (pausing notes whether it was). Scripts::fetch_int_value(0xD7BB618D) is read and ignored (a compiled-out debug print).
-void pause_music(int pause);
+THUG2_API void pause_music(int pause);
 // 0x004510B0: the music volume (0-100; others ignored). Applied to the track playing if it's the music's
 // (stream type 0) - for playlists other than 0 only when the script integer 0x450BAE2D is set.
 void set_music_volume(float volume);

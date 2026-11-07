@@ -57,7 +57,8 @@ struct PixelSize {
     int height{};
 };
 bool note_event(SDL_Window* window, const SDL_Event& event, PixelSize* size);
-// The placement written (the game ending).
+// The placement written (the game ending; also as each move or resize ends, and as the window is maximised or restored,
+// so a crash keeps it).
 void save_placement();
 
 // An application window of that title (or with it as its title's start: "<title> - <level>") already open - another

@@ -8,6 +8,7 @@
 #include <propvarutil.h>
 #include <shellapi.h>
 #include <shobjidl.h>
+#include <commctrl.h>
 
 #include <array>
 #include <bit>
@@ -40,10 +41,21 @@ constexpr PROPERTYKEY kRelaunchIconResource = {.fmtid = kAppUserModel, .pid = 3}
 constexpr PROPERTYKEY kRelaunchDisplayNameResource = {.fmtid = kAppUserModel, .pid = 4};
 constexpr PROPERTYKEY kAppId = {.fmtid = kAppUserModel, .pid = 5};
 
-// What the window keeps (the request, its normal place and size as last seen, maximised or not).
+// What the window keeps (the request, its normal place and size as last seen, maximised or not; what was last
+// written, and whether a move or resize is under way - the user dragging its frame).
+struct Kept {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    bool have_normal = false;
+    bool maximised = false;
+    bool operator==(const Kept&) const = default;
+};
 struct WindowState {
     bool requested = false;
     AppWindow settings;
+    SDL_Window* window = nullptr;
     int x = 0;
     int y = 0;
     int width = 0;
@@ -52,6 +64,9 @@ struct WindowState {
     bool maximised = false;
     int pixel_width = 0;
     int pixel_height = 0;
+    bool sizing = false;
+    bool written = false;
+    Kept last_written;
 };
 
 WindowState& window_state()
@@ -94,6 +109,60 @@ void set_text(IPropertyStore* store, const PROPERTYKEY& key, const std::wstring&
 HICON launcher_icon(HMODULE module, int size)
 {
     return static_cast<HICON>(LoadImageW(module, L"EDITOR", IMAGE_ICON, size, size, 0));
+}
+
+// The window's normal place and size taken from it (only while it is neither maximised, minimised nor full screen),
+// and whether it is maximised.
+void follow(SDL_Window* window)
+{
+    WindowState& state = window_state();
+    const SDL_WindowFlags flags = SDL_GetWindowFlags(window);
+    state.maximised = (flags & SDL_WINDOW_MAXIMIZED) != 0;
+    if ((flags & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED | SDL_WINDOW_FULLSCREEN)) == 0) {
+        SDL_GetWindowPosition(window, &state.x, &state.y);
+        SDL_GetWindowSize(window, &state.width, &state.height);
+        state.have_normal = true;
+    }
+}
+
+// The placement written as it is now (not while minimised, nor when nothing changed since it was last written).
+void write_placement()
+{
+    WindowState& state = window_state();
+    if (!state.requested || state.settings.placement_file.empty() || state.window == nullptr ||
+        (SDL_GetWindowFlags(state.window) & SDL_WINDOW_MINIMIZED) != 0) {
+        return;
+    }
+    const Kept now{.x = state.x,
+                   .y = state.y,
+                   .width = state.width,
+                   .height = state.height,
+                   .have_normal = state.have_normal,
+                   .maximised = state.maximised};
+    if (state.written && now == state.last_written) {
+        return;
+    }
+    save_placement();
+    state.written = true;
+    state.last_written = now;
+}
+
+// The window's own messages, before SDL's: a move or resize by its frame is written once it ends (WM_EXITSIZEMOVE -
+// SDL has no event for it), so a crash later keeps it.
+constexpr UINT_PTR kPlacementSubclass = 1;
+LRESULT CALLBACK placement_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param, UINT_PTR /*id*/,
+                                DWORD_PTR /*data*/)
+{
+    if (message == WM_ENTERSIZEMOVE) {
+        window_state().sizing = true;
+    } else if (message == WM_EXITSIZEMOVE) {
+        window_state().sizing = false;
+        if (window_state().window != nullptr) {
+            follow(window_state().window);
+            write_placement();
+        }
+    }
+    return DefSubclassProc(window, message, w_param, l_param);
 }
 
 } // namespace
@@ -180,11 +249,13 @@ void prepare_window(HWND window)
     if (module) {
         FreeLibrary(module);
     }
+    SetWindowSubclass(window, &placement_proc, kPlacementSubclass, 0);
 }
 
 void note_made(SDL_Window* window)
 {
     WindowState& state = window_state();
+    state.window = window;
     SDL_GetWindowSizeInPixels(window, &state.pixel_width, &state.pixel_height);
     const SDL_WindowFlags flags = SDL_GetWindowFlags(window);
     state.maximised = (flags & SDL_WINDOW_MAXIMIZED) != 0;
@@ -209,17 +280,16 @@ bool note_event(SDL_Window* window, const SDL_Event& event, PixelSize* size)
     if (!state.requested || window == nullptr) {
         return false;
     }
-    const SDL_WindowFlags flags = SDL_GetWindowFlags(window);
-    state.maximised = (flags & SDL_WINDOW_MAXIMIZED) != 0;
-    const bool normal = (flags & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED | SDL_WINDOW_FULLSCREEN)) == 0;
+    state.maximised = (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0;
     switch (event.type) {
     case SDL_EVENT_WINDOW_MOVED:
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_RESTORED:
-        if (normal) {
-            SDL_GetWindowPosition(window, &state.x, &state.y);
-            SDL_GetWindowSize(window, &state.width, &state.height);
-            state.have_normal = true;
+    case SDL_EVENT_WINDOW_MAXIMIZED:
+        follow(window);
+        // (written now unless the frame is being dragged: then when the drag ends - placement_proc)
+        if (!state.sizing) {
+            write_placement();
         }
         return false;
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
