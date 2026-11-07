@@ -15,6 +15,7 @@
 #include "base/core/checksums.h"
 #include "base/core/down_cast.h"
 #include "base/core/no_destroy.h"
+#include "base/maths/fpu_precision.h"
 #include "base/maths/rect.h"
 #include "render_pc/bitmap_texture.h"
 #include "engine/memory/mem.h"
@@ -78,6 +79,9 @@ public:
     bool reset() override
     {
         const bool reset = render::gpu_context().reset();
+        // NOT ORIGINAL - Direct3D 9's Reset loaded its x87 word again: the same word whatever the renderer
+        // (base/maths/fpu_precision.h).
+        maths::use_device_fpu_precision();
         // NOT ORIGINAL - the Gpu's state block (engine/gfx/gpu.h) to the defaults the reset device has.
         render::gpu().reset_state_block();
         return reset;
