@@ -71,6 +71,17 @@ public:
     bool end_frame(VkSemaphore acquired, VkSemaphore presented);
     // The current slot's semaphore for the swapchain's acquire.
     [[nodiscard]] VkSemaphore acquire_semaphore() const;
+    // The slot being recorded (0 .. kSlots - 1).
+    [[nodiscard]] uint32_t slot_index() const { return current_; }
+    // A semaphore the next submission waits for (at `stage`) and one it signals, besides the present's - the UI's own
+    // windows' swapchain images (vulkan_ui_windows.cpp): whichever submission comes next, finish() or end_frame(),
+    // takes them.
+    struct Wait {
+        VkSemaphore semaphore = VK_NULL_HANDLE;
+        VkPipelineStageFlags stage = 0;
+    };
+    void add_wait(const Wait& wait);
+    void add_signal(VkSemaphore semaphore);
 
 private:
     struct Slot {
@@ -103,6 +114,9 @@ private:
     uint64_t serial_ = 1;
     uint64_t completed_ = 0;
     bool restarted_ = false;
+    std::vector<VkSemaphore> waits_;
+    std::vector<VkPipelineStageFlags> wait_stages_;
+    std::vector<VkSemaphore> signals_;
 };
 
 } // namespace render::vulkan

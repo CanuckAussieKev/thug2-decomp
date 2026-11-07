@@ -114,7 +114,20 @@ scripts and main menu load hidden, the game's keys and the mouse menus rest, and
 select's own SKATE NOW (`begin_level::read_in_load`) - from another level, through the pause menu's change of level.
 The extension point `holds_quit` lets the editor ask about unsaved changes before the window closes. The data overlay's
 pause menu leaves out the items that would leave the level while `LevelEditor_EditorMode` is true; the new front end
-is off in this mode.
+is off in this mode. The editor mode always runs on Vulkan (`app/renderer_choice.cpp`: `renderer=d3d9` is logged and
+ignored; Direct3D 9 only where Vulkan can't draw).
+
+**The editor's panels in windows of their own** (`engine/ui/ui_viewports.h`, `ui_backend::enable_viewports`): Dear
+ImGui's platform windows, on the editor's context only. ImGui's SDL3 backend makes the SDL windows; the Vulkan UI
+backend gives each a surface and swapchain (`gpu_vulkan/vulkan_ui_windows.cpp`) drawn in the stream of the frame being
+recorded - so a panel showing the game's picture shows this frame's - and presented after its submission (the
+submission waits for their acquires and signals their presents: `Frames::add_wait` / `add_signal`); Direct3D 9's UI
+backend offers none (its panels stay in the window). ImGui's space stays the game window's pixels: the platform
+backend's window positions, monitors and mouse positions are moved by the game window's place on the desktop, so the
+editor's projections, panel places and mouse are as without platform windows. Their events carry
+`input::Event::other_window`: their mouse is the UI's, the game's bindings read no key while one of them has the
+keyboard (`sdl_input.cpp game_keys`), and the focus moving between the game's own windows neither idles the main loop
+nor resets the device (`app/winmain.cpp handle_window_event`).
 
 **Where the UI lives** (what `frontend/` held was three things): the original's screen elements, which the game's HUD
 and menus use (`screen_element*`, `text_element`, `text_block`, `menu_element`, `sprite_element`, `scrolling_menu`,

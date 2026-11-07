@@ -1069,6 +1069,7 @@ long record_present(Backend& state)
     if (presented != VK_NULL_HANDLE) {
         context.queue_present(index);
     }
+    present_ui_windows(state); // (the UI's own windows drawn this frame - vulkan_ui_windows.cpp)
     DrawStats& stats = state.stats;
     const double now = seconds_now();
     stats.frame_seconds += now - stats.last_present;
@@ -1116,31 +1117,24 @@ void record_end_query(Backend& state, Query* query)
     }
 }
 
-long record_ui_draws(Backend& state, const UiBatch& batch)
+namespace {
+
+// What a UI batch is drawn into: the open pass's colour (and depth) formats, its samples and area.
+struct UiTarget {
+    VkFormat colour = VK_FORMAT_UNDEFINED;
+    VkFormat depth = VK_FORMAT_UNDEFINED;
+    uint32_t samples = 1;
+    VkExtent2D area{};
+};
+
+// The batch's draws recorded in the pass open in the stream (its textures' images in `images`, one per draw, made
+// ready to be sampled before the pass opened); the stream's bound state forgotten after.
+void draw_ui_batch(Backend& state, const UiBatch& batch, const std::vector<Image*>& images, const UiTarget& target)
 {
     const float width = core::at(batch.display, 2);
     const float height = core::at(batch.display, 3);
-    if (!state.draws_made || batch.draws.empty() || batch.vertices.empty() || batch.indices.empty() || width <= 0.0F ||
-        height <= 0.0F) {
-        return kOk;
-    }
-    // (as a draw: the pass on other targets ended first, so what it drew can be sampled)
-    if (state.pass.open && (state.pass.colour != core::at(state.targets, 0) || state.pass.depth != state.depth)) {
-        end_pass(state);
-    }
-    std::vector<Image*> images;
-    images.reserve(batch.draws.size());
-    for (const UiDraw& draw : batch.draws) {
-        images.push_back(image_to_sample(state, draw.texture));
-    }
-    if (!ensure_pass(state, nullptr)) {
-        return kOk;
-    }
-    const OpenPass& pass = state.pass;
     std::string error;
-    const VkPipeline pipeline = state.pipelines.ui_pass(
-        pass.colour_image->format, pass.depth_image != nullptr ? pass.depth_image->format : VK_FORMAT_UNDEFINED,
-        static_cast<uint32_t>(pass.colour_image->samples), &error);
+    const VkPipeline pipeline = state.pipelines.ui_pass(target.colour, target.depth, target.samples, &error);
     const SamplerKey linear{.address_u = gpu_value::kAddressClamp,
                             .address_v = gpu_value::kAddressClamp,
                             .address_w = gpu_value::kAddressClamp,
@@ -1164,19 +1158,24 @@ long record_ui_draws(Backend& state, const UiBatch& batch)
         if (first_report(state, kReportUi)) {
             get_log("vulkan: the UI not drawn (%s)", error.empty() ? "no room for its vertices" : error.c_str());
         }
-        return kOk;
+        return;
     }
     VkCommandBuffer commands = stream(state);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-    const VkViewport viewport{.x = 0.0F, .y = 0.0F, .width = width, .height = height, .minDepth = 0.0F, .maxDepth = 1.0F};
+    const VkViewport viewport{.x = 0.0F,
+                              .y = 0.0F,
+                              .width = static_cast<float>(target.area.width),
+                              .height = static_cast<float>(target.area.height),
+                              .minDepth = 0.0F,
+                              .maxDepth = 1.0F};
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdBindVertexBuffers(commands, 0, 1, &vertices->buffer, &vertices->offset);
     vkCmdBindIndexBuffer(commands, indices->buffer, indices->offset, VK_INDEX_TYPE_UINT16);
     const VkDescriptorBufferInfo uniforms{.buffer = block->buffer, .offset = block->offset, .range = sizeof(transform)};
     const Image* pushed = nullptr;
     bool any_pushed = false;
-    const auto area_width = static_cast<int32_t>(pass.area.width);
-    const auto area_height = static_cast<int32_t>(pass.area.height);
+    const auto area_width = static_cast<int32_t>(target.area.width);
+    const auto area_height = static_cast<int32_t>(target.area.height);
     const uint64_t serial = state.frames.serial();
     for (std::size_t at = 0; at < batch.draws.size(); ++at) {
         const UiDraw& draw = core::at(batch.draws, at);
@@ -1187,7 +1186,7 @@ long record_ui_draws(Backend& state, const UiBatch& batch)
         if (draw.indices == 0 || clip.right <= clip.left || clip.bottom <= clip.top) {
             continue;
         }
-        const Image* const image = core::at(images, at);
+        Image* const image = core::at(images, at);
         if (!any_pushed || image != pushed) {
             const Image& shown = image != nullptr ? *image : state.blank;
             const VkDescriptorImageInfo texture{.sampler = sampler, .imageView = shown.view, .imageLayout = shown.layout};
@@ -1212,12 +1211,132 @@ long record_ui_draws(Backend& state, const UiBatch& batch)
                                           .height = static_cast<uint32_t>(clip.bottom - clip.top)}};
         vkCmdSetScissor(commands, 0, 1, &scissor);
         vkCmdDrawIndexed(commands, draw.indices, 1, draw.first_index, draw.base_vertex, 0);
-        if (core::at(images, at) != nullptr) {
-            core::at(images, at)->used = serial;
+        if (image != nullptr) {
+            image->used = serial;
         }
         ++state.stats.draws;
     }
     state.bound = BoundState{}; // (the draws' pipeline, descriptors, buffers and dynamic states are gone)
+}
+
+// Whether a batch has anything to draw.
+bool batch_drawn(const Backend& state, const UiBatch& batch)
+{
+    return state.draws_made && !batch.draws.empty() && !batch.vertices.empty() && !batch.indices.empty() &&
+           core::at(batch.display, 2) > 0.0F && core::at(batch.display, 3) > 0.0F;
+}
+
+// The images a batch's draws sample, made ready to be sampled (outside the pass).
+std::vector<Image*> batch_images(Backend& state, const UiBatch& batch)
+{
+    std::vector<Image*> images;
+    images.reserve(batch.draws.size());
+    for (const UiDraw& draw : batch.draws) {
+        images.push_back(image_to_sample(state, draw.texture));
+    }
+    return images;
+}
+
+// A swapchain image's layout change, the stages and accesses either side.
+struct ImageMove {
+    VkImageLayout from = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageLayout to = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkPipelineStageFlags after = 0;
+    VkAccessFlags written = 0;
+    VkPipelineStageFlags before = 0;
+    VkAccessFlags read = 0;
+};
+
+void move_swapchain_image(VkCommandBuffer commands, VkImage image, const ImageMove& move)
+{
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcAccessMask = move.written;
+    barrier.dstAccessMask = move.read;
+    barrier.oldLayout = move.from;
+    barrier.newLayout = move.to;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange = {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+    vkCmdPipelineBarrier(commands, move.after, move.before, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+} // namespace
+
+long record_ui_draws(Backend& state, const UiBatch& batch)
+{
+    if (!batch_drawn(state, batch)) {
+        return kOk;
+    }
+    // (as a draw: the pass on other targets ended first, so what it drew can be sampled)
+    if (state.pass.open && (state.pass.colour != core::at(state.targets, 0) || state.pass.depth != state.depth)) {
+        end_pass(state);
+    }
+    const std::vector<Image*> images = batch_images(state, batch);
+    if (!ensure_pass(state, nullptr)) {
+        return kOk;
+    }
+    const OpenPass& pass = state.pass;
+    draw_ui_batch(state, batch, images,
+                  {.colour = pass.colour_image->format,
+                   .depth = pass.depth_image != nullptr ? pass.depth_image->format : VK_FORMAT_UNDEFINED,
+                   .samples = static_cast<uint32_t>(pass.colour_image->samples),
+                   .area = pass.area});
+    return kOk;
+}
+
+long record_ui_window_draws(Backend& state, UiWindow* window, const UiBatch& batch)
+{
+    if (!state.draws_made || window == nullptr || !window->pending) {
+        return kOk;
+    }
+    end_pass(state); // (the game's pass ended: what it drew - the Scene panel's picture - can be sampled)
+    const bool drawn = batch_drawn(state, batch);
+    const std::vector<Image*> images = drawn ? batch_images(state, batch) : std::vector<Image*>{};
+    VkCommandBuffer commands = stream(state);
+    const VkImage image = core::at(window->images, window->image);
+    // (the acquire's semaphore is waited for at the colour output stage)
+    move_swapchain_image(commands, image,
+                         {.from = VK_IMAGE_LAYOUT_UNDEFINED,
+                          .to = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          .after = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          .written = 0,
+                          .before = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          .read = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT});
+    VkRenderingAttachmentInfo colour{};
+    colour.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colour.imageView = core::at(window->views, window->image);
+    colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colour.resolveMode = VK_RESOLVE_MODE_NONE;
+    colour.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colour.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colour.clearValue.color = {.float32 = {0.0F, 0.0F, 0.0F, 1.0F}};
+    VkRenderingInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    info.renderArea = {.offset = {.x = 0, .y = 0}, .extent = window->extent};
+    info.layerCount = 1;
+    info.colorAttachmentCount = 1;
+    info.pColorAttachments = &colour;
+    vkCmdBeginRendering(commands, &info);
+    if (drawn) {
+        draw_ui_batch(state, batch, images, {.colour = window->format, .samples = 1, .area = window->extent});
+    }
+    commands = stream(state);
+    vkCmdEndRendering(commands);
+    move_swapchain_image(commands, image,
+                         {.from = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          .to = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                          .after = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          .written = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                          .before = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                          .read = 0});
+    state.bound = BoundState{};
+    ++state.stats.passes;
+    state.frames.add_wait({.semaphore = core::at(window->acquired, state.frames.slot_index()),
+                           .stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT});
+    state.frames.add_signal(core::at(window->presented, window->image));
     return kOk;
 }
 

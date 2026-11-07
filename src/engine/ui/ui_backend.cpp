@@ -13,6 +13,7 @@
 #include "base/core/packed_colour.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/ui_backend.h"
+#include "engine/ui/ui_viewports.h"
 #include "imgui.h"
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
@@ -63,14 +64,29 @@ bool prepare_all()
 
 bool get_ready() { return context_ready(); }
 
-bool process_event(const SDL_Event* event) { return context_ready() && render::ui_backend().process_event(event); }
-
-void new_frame() { render::ui_backend().new_frame(); }
-
-void render()
+bool process_event(const SDL_Event* event)
 {
-    ImDrawData* data = ImGui::GetDrawData();
-    if (!context_ready() || !data || !data->Valid) {
+    if (!context_ready()) {
+        return false;
+    }
+    SDL_Event copy{}; // (with platform windows: the mouse in the game window's space - ui_viewports.h)
+    return render::ui_backend().process_event(viewports::for_platform(event, &copy));
+}
+
+void new_frame()
+{
+    render::ui_backend().new_frame();
+    viewports::after_frame_start();
+}
+
+bool enable_viewports() { return context_ready() && viewports::enable(); }
+
+namespace {
+
+// The main viewport's draw data drawn, scaled from the window's pixels to the back buffer's.
+void draw_main(ImDrawData* data)
+{
+    if (!data || !data->Valid) {
         return;
     }
     // Window pixels -> back buffer pixels (the same unless the window shows a back buffer of another size).
@@ -96,6 +112,17 @@ void render()
         data->DisplaySize = ImVec2(static_cast<float>(back_width), static_cast<float>(back_height));
     }
     render::ui_backend().render_draw_data(data);
+}
+
+} // namespace
+
+void render()
+{
+    if (!context_ready()) {
+        return;
+    }
+    draw_main(ImGui::GetDrawData());
+    viewports::render_windows(); // (the panels dragged out of the window, each in its own - ui_viewports.h)
 }
 
 void invalidate_device_objects()

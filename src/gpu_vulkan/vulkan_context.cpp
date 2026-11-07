@@ -808,4 +808,19 @@ void Context::destroy()
     frame_index_ = 0;
 }
 
+VkSurfaceFormatKHR surface_format_for(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    return choose_surface_format(device, surface);
+}
+
+VkExtent2D surface_extent_for(const VkSurfaceCapabilitiesKHR& caps, SDL_Window* window)
+{
+    return choose_extent(caps, window);
+}
+
+VkCompositeAlphaFlagBitsKHR composite_alpha_for(VkCompositeAlphaFlagsKHR supported)
+{
+    return choose_composite_alpha(supported);
+}
+
 } // namespace render::vulkan

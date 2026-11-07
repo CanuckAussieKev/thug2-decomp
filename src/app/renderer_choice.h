@@ -1,7 +1,8 @@
 #pragma once
 
 // NOT ORIGINAL: which graphics backend the exe runs on - [Graphics] renderer=vulkan|d3d9 in thug2-decomp.ini (default
-// vulkan; renderer=d3d9 chooses Direct3D 9). Both exes (the game's and the level editor's) share this choice: main.cpp installs the backend's
+// vulkan; renderer=d3d9 chooses Direct3D 9 - except in the editor mode, engine/sys/editor_mode.h, which runs on Vulkan
+// whatever the key says: its panels' own windows are Vulkan's). Both exes (the game's and the level editor's) share this choice: main.cpp installs the backend's
 // render::Device and render::UiBackend through install_renderer, and WinMain makes the window for the same API
 // (renderer_window_api). The key is read once, at the first call.
 //

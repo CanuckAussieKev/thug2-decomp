@@ -55,6 +55,9 @@ struct Event {
     int wheel = 0;
     bool wheel_flipped = false;
     uint32_t window = 0;
+    // The event came from a window other than the game's: one of the UI's own (a level editor panel dragged out of the
+    // game's window - engine/ui/ui_viewports.h); its mouse positions are that window's.
+    bool other_window = false;
     // A game controller: its button (SDL's game controller numbering) or its axis and the axis's value
     // (-32768..32767; the triggers 0..32767).
     uint8_t pad_button = 0;

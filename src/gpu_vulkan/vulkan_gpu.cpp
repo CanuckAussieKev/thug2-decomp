@@ -1608,6 +1608,7 @@ void release_device_objects(Backend& state)
     if (!state.memory.ready()) {
         return;
     }
+    destroy_ui_windows(state); // (the UI's own windows' swapchains and surfaces - vulkan_ui_windows.cpp)
     finish_work(state);
     vkDeviceWaitIdle(state.memory.device());
     state.textures.for_each([&state](Texture* texture) { state.memory.destroy_image(&texture->image); });

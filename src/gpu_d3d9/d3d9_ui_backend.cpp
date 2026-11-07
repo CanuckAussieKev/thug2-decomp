@@ -202,6 +202,9 @@ public:
             ImGui_ImplSDL3_Shutdown();
             return UiStart::kDeviceRefused;
         }
+        // (no platform windows on Direct3D 9: ImGui's backend could draw them in swap chains of their own, but the
+        // editor - the one context that would turn them on - runs on Vulkan; here its panels stay in the game's window)
+        ImGui::GetIO().BackendFlags &= ~ImGuiBackendFlags_RendererHasViewports;
         return UiStart::kStarted;
     }
 

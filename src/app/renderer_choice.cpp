@@ -8,6 +8,7 @@
 
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/ui_backend.h"
+#include "engine/sys/editor_mode.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/sdl_window.h"
@@ -100,11 +101,16 @@ Renderer read_choice()
     build_info::fetch_text(build_info::kGraphics, "renderer", "vulkan", buffer.data(), buffer.size());
     std::string value(buffer.data());
     std::ranges::transform(value, value.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    if (value == "d3d9") {
+    // (the editor mode - engine/sys/editor_mode.h - runs on Vulkan whatever the key says: its panels' own windows are
+    // Vulkan's; Direct3D 9 only when Vulkan can't draw here)
+    const bool editor_mode = sys::editor_mode::on();
+    if (value == "d3d9" && !editor_mode) {
         get_log("renderer: Direct3D 9 (renderer=d3d9)");
         return Renderer::kDirect3D9;
     }
-    if (value != "vulkan" && !value.empty()) {
+    if (value == "d3d9") {
+        get_log("renderer: renderer=d3d9 is the game's - the editor mode runs on Vulkan");
+    } else if (value != "vulkan" && !value.empty()) {
         get_log("renderer=%s is not a renderer (vulkan or d3d9); Vulkan, the default", value.c_str());
     }
     if (!kVulkanBuilt) {

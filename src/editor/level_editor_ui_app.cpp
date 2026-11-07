@@ -363,6 +363,9 @@ void scene_panel(const Overlay* overlay, SceneOverlayFonts fonts)
     AppState& state = app_state();
     state.rect = {};
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0F, 0.0F));
+    // (floating, it stays in the game's window: the editor's mouse - picking, flying - is that window's; the other
+    // panels may be dragged out into windows of their own - ui_backend::enable_viewports)
+    ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
     const bool shown = ImGui::Begin(kSceneWindow, nullptr,
                                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
                                         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground);

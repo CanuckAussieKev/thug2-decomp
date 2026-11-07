@@ -202,8 +202,45 @@ const std::array<std::array<uint32_t, 24>, 3> kDefaultBindings = {{
 
 // The SDL window's focus events (sdl_window.h): the game's focus flag (0x007CCBE4) and whether the device may be
 // recreated (0x00786AB4: off while the window is in the background).
+// Not PartyMod's - whether the focus is on another window of the game's own (a level editor panel dragged out of the
+// game's window - engine/ui/ui_viewports.h) than `from`, the window whose event this is: the foreground window is one of
+// SDL's. With only the game's window there is none: the game as before.
+bool focus_on_own_window(SDL_WindowID from)
+{
+    HWND foreground = GetForegroundWindow();
+    int count = 0;
+    SDL_Window** windows = SDL_GetWindows(&count);
+    bool own = false;
+    for (int at = 0; windows != nullptr && at < count && !own; ++at) {
+        SDL_Window* window = core::at(std::span(windows, static_cast<size_t>(count)), static_cast<size_t>(at));
+        const void* const handle =
+            SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+        own = SDL_GetWindowID(window) != from && handle != nullptr && handle == foreground;
+    }
+    SDL_free(static_cast<void*>(windows));
+    return own;
+}
+
+// Whether the game has windows of its own besides the game's (a level editor panel dragged out of it).
+bool has_own_windows()
+{
+    int count = 0;
+    SDL_Window** windows = SDL_GetWindows(&count);
+    SDL_free(static_cast<void*>(windows));
+    return count > 1;
+}
+
 void handle_window_event(SDL_Event* event)
 {
+    // Not PartyMod's - the focus moving between the game's own windows (the game's and a level editor panel dragged out
+    // of it) leaves the game active: no idling (the main loop's sleep while inactive) and no device reset on coming back.
+    // Original behaviour (PartyMod v1.0.4): every focus change counts.
+    if (event->type == SDL_EVENT_WINDOW_FOCUS_LOST && focus_on_own_window(event->window.windowID)) {
+        return;
+    }
+    if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED && sys::app_active() && has_own_windows()) {
+        return;
+    }
     if (event->type == SDL_EVENT_WINDOW_FOCUS_LOST) {
         render::engine_parts().set_device_lost(false);
         // Not PartyMod's - while an extension asks for it (the test-automation channel when it's on,

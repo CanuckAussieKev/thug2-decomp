@@ -30,8 +30,13 @@ THUG2_API bool process_event(const SDL_Event* event);
 // The frame's start (before ImGui::NewFrame): the platform backend (window size, time, cursor) and the renderer
 // backend (its device objects made again if a reset dropped them).
 THUG2_API void new_frame();
-// ImGui's draw data (after ImGui::Render) drawn on the device, scaled from the window's pixels to the back buffer's.
+// ImGui's draw data (after ImGui::Render) drawn on the device, scaled from the window's pixels to the back buffer's;
+// then, with platform windows on, theirs (ImGui::UpdatePlatformWindows / RenderPlatformWindowsDefault).
 THUG2_API void render();
+// Platform windows for the current context (a panel dragged out of the game's window becomes a window of its own:
+// engine/ui/ui_viewports.h): turned on when its backends draw them (Vulkan's), its ImGui space kept the game window's
+// pixels; false - logged, the panels stay in the window - when they don't (Direct3D 9's). After get_ready.
+THUG2_API bool enable_viewports();
 // Before the device is reset (frame_loop::reset_device_if_lost: alt-tab, a lost device): ImGui's default-pool objects dropped;
 // NewFrame makes them again. Also after the fonts change (the font texture is made again).
 THUG2_API void invalidate_device_objects();

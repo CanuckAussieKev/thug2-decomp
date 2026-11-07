@@ -115,6 +115,14 @@ bool Frames::stream_begun() const { return slot().stream_begun; }
 
 VkSemaphore Frames::acquire_semaphore() const { return slot().acquired; }
 
+void Frames::add_wait(const Wait& wait)
+{
+    waits_.push_back(wait.semaphore);
+    wait_stages_.push_back(wait.stage);
+}
+
+void Frames::add_signal(VkSemaphore semaphore) { signals_.push_back(semaphore); }
+
 VkCommandBuffer Frames::uploads()
 {
     Slot& now = slot();
@@ -176,7 +184,7 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
         }
         core::at(buffers, count++) = now.uploads;
     }
-    if (now.stream_begun || presented != VK_NULL_HANDLE) {
+    if (now.stream_begun || presented != VK_NULL_HANDLE || !signals_.empty()) {
         stream(); // (a present with nothing drawn still waits and signals)
         if (vkEndCommandBuffer(now.stream) != VK_SUCCESS) {
             return false;
@@ -185,16 +193,32 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
     }
     now.uploads_begun = false;
     now.stream_begun = false;
-    const VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // the present's acquire (at the transfer stage: its copy), then the UI windows' (add_wait)
+    std::vector<VkSemaphore> waits;
+    std::vector<VkPipelineStageFlags> wait_stages;
+    if (acquired != VK_NULL_HANDLE) {
+        waits.push_back(acquired);
+        wait_stages.push_back(VK_PIPELINE_STAGE_TRANSFER_BIT);
+    }
+    waits.insert(waits.end(), waits_.begin(), waits_.end());
+    wait_stages.insert(wait_stages.end(), wait_stages_.begin(), wait_stages_.end());
+    std::vector<VkSemaphore> signals;
+    if (presented != VK_NULL_HANDLE) {
+        signals.push_back(presented);
+    }
+    signals.insert(signals.end(), signals_.begin(), signals_.end());
+    waits_.clear();
+    wait_stages_.clear();
+    signals_.clear();
     const VkSubmitInfo info{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                             .pNext = nullptr,
-                            .waitSemaphoreCount = acquired != VK_NULL_HANDLE ? 1U : 0U,
-                            .pWaitSemaphores = &acquired,
-                            .pWaitDstStageMask = &wait_stage,
+                            .waitSemaphoreCount = static_cast<uint32_t>(waits.size()),
+                            .pWaitSemaphores = waits.data(),
+                            .pWaitDstStageMask = wait_stages.data(),
                             .commandBufferCount = count,
                             .pCommandBuffers = buffers.data(),
-                            .signalSemaphoreCount = presented != VK_NULL_HANDLE ? 1U : 0U,
-                            .pSignalSemaphores = &presented};
+                            .signalSemaphoreCount = static_cast<uint32_t>(signals.size()),
+                            .pSignalSemaphores = signals.data()};
     if (vkResetFences(device_, 1, &now.done) != VK_SUCCESS || vkQueueSubmit(queue_, 1, &info, now.done) != VK_SUCCESS) {
         return false;
     }

@@ -53,6 +53,7 @@ constexpr ImVec4 kDangerButtonColour{0.29F, 0.14F, 0.13F, 1.0F};
 struct ImguiSetup {
     bool created_{}; // (the ImGui context, made once)
     bool running_{}; // (between Start and Stop)
+    bool viewports_asked_{}; // (panels in windows of their own asked for - ui_backend::enable_viewports)
     float scale_{}; // (the fonts' and the style's scale; 0: not built)
     ImFont* ui_{};
     ImFont* small_{};

@@ -197,7 +197,10 @@ in career / story, classic, the park editor or network games).
   The full list of controls and the editor's modules is at the top of `src/editor/level_editor.h`.
 - **The window:** while the editor is open the game is the **Scene** panel, drawn at the panel's size, with the
   Outliner, the Inspector and the other windows docked around it - drag a tab to move, split, tab or float a panel;
-  **Window > Reset Layout** puts them back. The layout is kept in `Game\thug2-decomp-editor.ini`. Play from here (F5)
+  drag a panel out of the window and it becomes a window of its own on the desktop (on a second monitor, say; the
+  Scene panel stays in the main window). **Window > Reset Layout** puts them back. The layout, the panels' own windows
+  with it, is kept in `Game\thug2-decomp-editor.ini`. The editor always runs on Vulkan (`[Graphics] renderer=d3d9`
+  is the game's alone). Play from here (F5)
   plays in the Scene panel (**Play > Maximise on Play** gives it the whole window); F5 goes back to editing. With the
   editor closed the game fills the window as ever.
 - **Edited copies:** edits never change a shipped level. Saving (Ctrl+S) writes the level's layout,

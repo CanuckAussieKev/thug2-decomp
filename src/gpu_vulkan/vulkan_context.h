@@ -53,6 +53,13 @@ struct DeviceProbe {
 };
 DeviceProbe probe_device(int wanted);
 
+// What the context chooses for its swapchain, for another window's (the UI's own windows: vulkan_ui_windows.cpp): the
+// surface's format (8-bit BGRA without sRGB conversion when offered), its size (the surface's, or the window's
+// drawable size within the surface's limits) and its composition (opaque when offered).
+VkSurfaceFormatKHR surface_format_for(VkPhysicalDevice device, VkSurfaceKHR surface);
+VkExtent2D surface_extent_for(const VkSurfaceCapabilitiesKHR& caps, SDL_Window* window);
+VkCompositeAlphaFlagBitsKHR composite_alpha_for(VkCompositeAlphaFlagsKHR supported);
+
 // What clear_frame did.
 enum class FrameResult : uint8_t {
     kPresented, // the frame was cleared and presented

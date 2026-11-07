@@ -937,11 +937,26 @@ void read_key_sticks(std::span<uint8_t> data, platform::KeyState keys)
     }
 }
 
+// Not original - a window other than the game's: one of the UI's own (a level editor panel dragged out of the game's
+// window - engine/ui/ui_viewports.h). Its keys and mouse are the UI's, never the game's.
+bool in_other_window(SDL_Window* window) { return window != nullptr && window != sys::sdl_window(); }
+
+// The keyboard as the game reads it: SDL's state, or - while a window of the UI's own has the keyboard - no key down.
+platform::KeyState game_keys()
+{
+    const platform::KeyState keys = platform::keyboard_keys();
+    if (!in_other_window(SDL_GetKeyboardFocus())) {
+        return keys;
+    }
+    static const std::array<uint8_t, SDL_SCANCODE_COUNT> kNone{};
+    return {kNone.data(), std::min(keys.size(), kNone.size())};
+}
+
 // (port 0's: its device was set usable and connected by the poll, sio::poll_sources)
 void poll_keyboard(std::span<uint8_t> data)
 {
 
-    const platform::KeyState keys = platform::keyboard_keys();
+    const platform::KeyState keys = game_keys();
     update_menu_keys(keys);
     if (get_keyboard_on_screen()) {
         return;
@@ -1089,8 +1104,8 @@ void handle_own_event(SDL_Event* event)
         sdl_input_state().using_keyboard_ = true;
         note_keyboard_mouse_used();
         // (not original: Enter / F1-F4 aren't the game's special keys while an extension has the keyboard -
-        // engine/ext/extension.h; the new front end)
-        if (!ext::game_input_blocked()) {
+        // engine/ext/extension.h; the new front end - or when typed in a window of the UI's own)
+        if (!ext::game_input_blocked() && !in_other_window(SDL_GetWindowFromEvent(event))) {
             key_pressed(event->key.key);
         }
         return;
@@ -1195,6 +1210,8 @@ input::Event event_for_handlers(const SDL_Event& event)
     default:
         break;
     }
+    // (not original: a window of the UI's own - a level editor panel dragged out of the game's window)
+    out.other_window = in_other_window(SDL_GetWindowFromEvent(&event));
     return out;
 }
 
@@ -1397,12 +1414,25 @@ public:
     void begin_poll(int port) override;
     void poll_port(input::PortPoll& poll) override;
     bool rumble(int port, uint16_t high, uint16_t low) override;
+    // (all of SDL's: the level editor's shortcuts work in its panels' own windows too - only the game's bindings stand
+    // aside there, poll_keyboard)
     input::KeyState keys() override { return platform::keyboard_keys(); }
     bool mouse(input::MouseState* out) override
     {
         float x = 0.0F;
         float y = 0.0F;
         out->buttons = SDL_GetMouseState(&x, &y);
+        // (not original: over a window of the UI's own - a level editor panel's - the position in the game window's
+        // pixels and no button held: that window's clicks are the UI's)
+        if (in_other_window(SDL_GetMouseFocus())) {
+            int left = 0;
+            int top = 0;
+            SDL_GetWindowPosition(sys::sdl_window(), &left, &top);
+            SDL_GetGlobalMouseState(&x, &y);
+            x -= static_cast<float>(left);
+            y -= static_cast<float>(top);
+            out->buttons = 0;
+        }
         // (whole pixels, as SDL 2 gave them)
         out->x = static_cast<int>(x);
         out->y = static_cast<int>(y);

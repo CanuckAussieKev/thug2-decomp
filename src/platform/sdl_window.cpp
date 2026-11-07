@@ -161,6 +161,7 @@ bool& get_windowed() { return sdl_window_state().windowed_; }
 int& get_window_width() { return sdl_window_state().client_width_; }
 int& get_window_height() { return sdl_window_state().client_height_; }
 SDL_Window* sdl_window() { return sdl_window_state().window_; }
+SDL_Window* sdl_window_by_id(uint32_t id) { return SDL_GetWindowFromID(id); }
 HWND& game_window() { return sdl_window_state().game_window_; }
 
 void keep_text_input()

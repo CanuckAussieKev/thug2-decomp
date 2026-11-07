@@ -544,6 +544,16 @@ void create_context()
     imgui_setup().created_ = true;
 }
 
+// Once the backends are up: panels may be dragged out of the window into windows of their own (where the renderer
+// draws them - Vulkan; engine/ui/ui_backend.h). Asked once.
+void start_viewports()
+{
+    if (!imgui_setup().viewports_asked_) {
+        imgui_setup().viewports_asked_ = true;
+        ui_backend::enable_viewports();
+    }
+}
+
 } // namespace
 
 bool kickoff()
@@ -559,6 +569,7 @@ bool kickoff()
         get_log("level editor UI: not started - the old HUD instead");
         return false;
     }
+    start_viewports();
     imgui_setup().running_ = true;
     imgui_setup().scale_ = 0.0F; // (the fonts made for the window's size on the first frame)
     input_routing().requests_.clear();
@@ -602,6 +613,28 @@ bool route_event(const input::Event& event, bool editor_capture)
         return ui_layout::decide(
             {.ui_wants_mouse_ = input_routing().want_mouse_, .ui_wants_keyboard_ = input_routing().want_keys_, .over_panel_ = !over_scene(x, y), .editor_capture_ = editor_capture || input_routing().editor_buttons_ != 0});
     };
+    // (a panel's own window - one dragged out of the game's: its mouse is the UI's, never the editor's; its positions
+    // aren't the game window's)
+    if (event.other_window) {
+        const uint32_t bit = 1U << (event.button & 31);
+        switch (event.type) {
+        case input::EventType::kMouseButtonDown:
+            input_routing().ui_buttons_ |= bit;
+            ui_backend::process_event(event.native);
+            return false;
+        case input::EventType::kMouseButtonUp:
+            input_routing().ui_buttons_ &= ~bit;
+            input_routing().editor_buttons_ &= ~bit;
+            ui_backend::process_event(event.native);
+            return false;
+        case input::EventType::kMouseMotion:
+        case input::EventType::kMouseWheel:
+            ui_backend::process_event(event.native);
+            return false;
+        default:
+            break; // (keys: as in the game's window - the shortcuts work everywhere)
+        }
+    }
     switch (event.type) {
     case input::EventType::kMouseMotion: {
         const ui_layout::Route mouse_route =
@@ -837,6 +870,7 @@ bool shell_frame(ShellDraw draw)
     if (!ui_backend::get_ready() && !ui_backend::prepare_all()) {
         return false;
     }
+    start_viewports();
     update_scale();
     ui_backend::new_frame();
     ImGui::NewFrame();

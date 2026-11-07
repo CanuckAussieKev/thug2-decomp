@@ -140,6 +140,26 @@ struct DrawStats {
     double last_log = 0.0;
 };
 
+// A window of the UI's own (Dear ImGui's platform windows: a panel of the level editor dragged out of the game's window
+// - vulkan_ui_windows.cpp): its surface and swapchain, drawn into by the stream (record_ui_window_draws) and presented
+// after the frame's submission (present_ui_windows), its acquire waited for and its present's semaphore signalled by
+// whichever submission comes next (Frames::add_wait / add_signal).
+struct UiWindow {
+    SDL_Window* window = nullptr;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    VkFormat format = VK_FORMAT_UNDEFINED;
+    VkExtent2D extent{};
+    std::vector<VkImage> images;
+    std::vector<VkImageView> views;
+    std::vector<VkSemaphore> presented;                   // per swapchain image
+    std::array<VkSemaphore, Frames::kSlots> acquired{};   // per frame slot
+    bool stale = true;        // made again before it is next drawn (resized, out of date)
+    bool pending = false;     // drawn this frame, its image presented after the submission
+    uint32_t image = 0;       // (while pending)
+    bool failed_logged = false;
+};
+
 struct Backend {
     std::mutex mutex;
 
@@ -195,6 +215,7 @@ struct Backend {
     uint64_t frame = 0; // frames presented
     VkExtent2D shown_extent{}; // the swapchain's size when last made again (logged when it changes)
     GpuGammaRamp gamma{};
+    std::vector<std::unique_ptr<UiWindow>> ui_windows; // the UI's own windows (vulkan_ui_windows.cpp)
 };
 
 // The one backend (made on first use, never destroyed).
@@ -298,6 +319,23 @@ struct UiBatch {
 // (opened, after the pass on others ended, as a draw does), its textures made ready to be sampled first; the stream's
 // bound state forgotten after (Pipelines::ui_pass's is its own).
 long record_ui_draws(Backend& state, const UiBatch& batch);
+
+// --- the UI's own windows (vulkan_ui_windows.cpp; the caller holds the lock) -------------------------------------
+
+// A window for `window` (made with SDL_WINDOW_VULKAN): its surface now, its swapchain when first drawn; null (logged)
+// when the surface can't be made or the queue can't present to it.
+UiWindow* create_ui_window(Backend& state, SDL_Window* window);
+// The window's swapchain and surface released (the device idle first); `window` forgotten.
+void destroy_ui_window(Backend& state, UiWindow* window);
+void destroy_ui_windows(Backend& state);
+// The next image of the window's swapchain acquired (the swapchain made again first when it is stale): false when the
+// window can't be drawn this frame (minimised, out of date, a failure).
+bool acquire_ui_window(Backend& state, UiWindow* window);
+// The batch drawn into the window's acquired image (cleared first), in the stream, and the image moved to be presented;
+// the submission that takes it waits for the acquire and signals the present (vulkan_draws.cpp).
+long record_ui_window_draws(Backend& state, UiWindow* window, const UiBatch& batch);
+// After the frame's submission: every window drawn this frame presented.
+void present_ui_windows(Backend& state);
 
 // The checks' views (src/tests/vulkan_gpu_check.cpp): an object's image, a level read back in the image's format, a
 // buffer's device memory read back.

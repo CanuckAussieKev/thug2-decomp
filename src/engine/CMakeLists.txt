@@ -27,6 +27,7 @@ add_library(thug2_engine STATIC
     ui/screen_element_manager.cpp
     ui/menu_reading.cpp
     ui/ui_backend.cpp
+    ui/ui_viewports.cpp
     ui/ui_picture.cpp
     ui/scrolling_menu.cpp
     ui/sprite_element.cpp

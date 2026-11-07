@@ -11,6 +11,8 @@
 // - The preview and the thumbnails' atlas: Gpu textures drawn into (X8R8G8B8: the game's blending leaves nothing in
 //   alpha that shows through) with depth surfaces of their own in the game depth's format, switched to and from as
 //   Direct3D 9's backend does on its device - through the Gpu's own calls, so the state block stays true.
+// - ImGui's platform windows (a panel dragged out of the game's window): each its own surface and swapchain, drawn in
+//   the frame being recorded and presented after it (vulkan_ui_windows.cpp; the Renderer_* calls below).
 // - A device reset (GpuContext::reset) keeps every image: the Vulkan Gpu loses nothing; the editor frees the targets
 //   and the font atlas around it anyway, as it does on Direct3D 9, and they are made again on next use.
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -22,6 +24,7 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -41,6 +44,7 @@
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "imgui.h"
 #include "platform/run_log.h"
+#include "platform/sdl_window.h"
 
 namespace render::vulkan {
 
@@ -212,6 +216,147 @@ bool device_ready()
     return state.draws_made && state.back_buffer != nullptr;
 }
 
+// ImGui's draw data as a batch for the Gpu (kept between frames: their room is reused).
+class DrawLists {
+public:
+    // The batch for `data` (none when there is nothing to draw), its clip rectangles scaled by `scale` from the display's
+    // pixels to the target's (the vertices follow the display's rectangle).
+    std::optional<UiBatch> gather(const ImDrawData* data, std::array<float, 2> scale)
+    {
+        if (data == nullptr || data->TotalVtxCount <= 0 || data->DisplaySize.x <= 0.0F || data->DisplaySize.y <= 0.0F) {
+            return std::nullopt;
+        }
+        vertices_.clear();
+        indices_.clear();
+        draws_.clear();
+        const ImVec2 origin = data->DisplayPos;
+        const float scale_x = scale.front();
+        const float scale_y = scale.back();
+        uint32_t index_base = 0;
+        int32_t vertex_base = 0;
+        for (const ImDrawList* list : data->CmdLists) {
+            const void* const vertex_bytes = list->VtxBuffer.Data;
+            const std::span<const uint8_t> vertices(static_cast<const uint8_t*>(vertex_bytes),
+                                                    static_cast<std::size_t>(list->VtxBuffer.Size) *
+                                                        sizeof(ImDrawVert));
+            vertices_.insert(vertices_.end(), vertices.begin(), vertices.end());
+            const std::span<const ImDrawIdx> indices(list->IdxBuffer.Data,
+                                                     static_cast<std::size_t>(list->IdxBuffer.Size));
+            indices_.insert(indices_.end(), indices.begin(), indices.end());
+            for (const ImDrawCmd& command : list->CmdBuffer) {
+                if (command.UserCallback != nullptr) {
+                    // (a callback: the editor and the front end add none; ImGui's own one, a reset of the render state,
+                    // needs nothing here - the draws set all of theirs)
+                    continue;
+                }
+                const UiTextureId id = command.GetTexID();
+                draws_.push_back({.texture = id != 0 ? object(texture_of(id)) : nullptr,
+                                  .clip = {.left = static_cast<int32_t>((command.ClipRect.x - origin.x) * scale_x),
+                                           .top = static_cast<int32_t>((command.ClipRect.y - origin.y) * scale_y),
+                                           .right = static_cast<int32_t>((command.ClipRect.z - origin.x) * scale_x),
+                                           .bottom = static_cast<int32_t>((command.ClipRect.w - origin.y) * scale_y)},
+                                  .first_index = command.IdxOffset + index_base,
+                                  .indices = command.ElemCount,
+                                  .base_vertex = static_cast<int32_t>(command.VtxOffset) + vertex_base});
+            }
+            index_base += static_cast<uint32_t>(list->IdxBuffer.Size);
+            vertex_base += list->VtxBuffer.Size;
+        }
+        return UiBatch{.vertices = vertices_,
+                       .indices = indices_,
+                       .display = {origin.x, origin.y, data->DisplaySize.x, data->DisplaySize.y},
+                       .draws = draws_};
+    }
+
+private:
+    std::vector<uint8_t> vertices_;
+    std::vector<uint16_t> indices_;
+    std::vector<UiDraw> draws_;
+};
+
+// --- ImGui's platform windows (a panel dragged out of the game's window: the level editor's, with
+// ImGuiConfigFlags_ViewportsEnable) - the renderer's side, ImGuiPlatformIO's Renderer_* calls ------------------------
+// Each window is a UiWindow (vulkan_ui_windows.cpp) in the viewport's RendererUserData, made with the viewport's SDL
+// window (ImGui's SDL3 platform backend made it for Vulkan); RenderWindow draws the viewport's lists into its next
+// image in the frame being recorded, and the frame's present presents it (SwapBuffers has nothing left to do).
+
+SDL_Window* sdl_window_of(const ImGuiViewport* viewport)
+{
+    // (ImGui's SDL3 backend keeps the window's id as the viewport's platform handle)
+    return sys::sdl_window_by_id(static_cast<uint32_t>(std::bit_cast<uintptr_t>(viewport->PlatformHandle)));
+}
+
+void create_window(ImGuiViewport* viewport)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    viewport->RendererUserData = create_ui_window(state, sdl_window_of(viewport));
+}
+
+void destroy_window(ImGuiViewport* viewport)
+{
+    if (viewport->RendererUserData != nullptr) {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        destroy_ui_window(state, static_cast<UiWindow*>(viewport->RendererUserData));
+    }
+    viewport->RendererUserData = nullptr;
+}
+
+void set_window_size(ImGuiViewport* viewport, ImVec2 /*size*/)
+{
+    if (viewport->RendererUserData != nullptr) {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        static_cast<UiWindow*>(viewport->RendererUserData)->stale = true; // (made again at its new size when next drawn)
+    }
+}
+
+DrawLists& window_lists()
+{
+    static core::NoDestroy<DrawLists> lists;
+    return lists.get();
+}
+
+void render_window(ImGuiViewport* viewport, void* /*argument*/)
+{
+    auto* const window = static_cast<UiWindow*>(viewport->RendererUserData);
+    if (window == nullptr) {
+        return;
+    }
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    if (!acquire_ui_window(state, window)) {
+        return;
+    }
+    // (the display's pixels to the swapchain's: the same unless the window's pixels are denser than its size)
+    const ImDrawData* const data = viewport->DrawData;
+    std::array<float, 2> scale{1.0F, 1.0F};
+    if (data != nullptr && data->DisplaySize.x > 0.0F && data->DisplaySize.y > 0.0F) {
+        scale = {static_cast<float>(window->extent.width) / data->DisplaySize.x,
+                 static_cast<float>(window->extent.height) / data->DisplaySize.y};
+    }
+    const std::optional<UiBatch> batch = window_lists().gather(data, scale);
+    record_ui_window_draws(state, window, batch.value_or(UiBatch{}));
+}
+
+void swap_window(ImGuiViewport* /*viewport*/, void* /*argument*/)
+{
+    // (presented after the frame's submission: present_ui_windows)
+}
+
+// The renderer's side of ImGui's platform windows, for the current context.
+void install_window_calls()
+{
+    ImGuiPlatformIO& platform = ImGui::GetPlatformIO();
+    platform.Renderer_CreateWindow = create_window;
+    platform.Renderer_DestroyWindow = destroy_window;
+    platform.Renderer_SetWindowSize = set_window_size;
+    platform.Renderer_RenderWindow = render_window;
+    platform.Renderer_SwapBuffers = swap_window;
+    ImGui::GetIO().BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
+}
+
 class VulkanUiBackend final : public UiBackend {
 public:
     VulkanUiBackend() = default;
@@ -241,6 +386,7 @@ public:
         io.BackendRendererUserData = &data;
         io.BackendRendererName = "thug2_vulkan_ui";
         io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset; // (ImDrawCmd::VtxOffset: each draw's base vertex)
+        install_window_calls(); // (used only by a context that turns ImGuiConfigFlags_ViewportsEnable on)
         return UiStart::kStarted;
     }
 
@@ -259,50 +405,13 @@ public:
 
     void render_draw_data(ImDrawData* data) override
     {
-        if (data == nullptr || data->TotalVtxCount <= 0 || data->DisplaySize.x <= 0.0F || data->DisplaySize.y <= 0.0F) {
+        const std::optional<UiBatch> batch = main_lists_.gather(data, {1.0F, 1.0F});
+        if (!batch) {
             return;
         }
-        vertices_.clear();
-        indices_.clear();
-        draws_.clear();
-        const ImVec2 origin = data->DisplayPos;
-        uint32_t index_base = 0;
-        int32_t vertex_base = 0;
-        for (const ImDrawList* list : data->CmdLists) {
-            const void* const vertex_bytes = list->VtxBuffer.Data;
-            const std::span<const uint8_t> vertices(static_cast<const uint8_t*>(vertex_bytes),
-                                                    static_cast<std::size_t>(list->VtxBuffer.Size) *
-                                                        sizeof(ImDrawVert));
-            vertices_.insert(vertices_.end(), vertices.begin(), vertices.end());
-            const std::span<const ImDrawIdx> indices(list->IdxBuffer.Data,
-                                                     static_cast<std::size_t>(list->IdxBuffer.Size));
-            indices_.insert(indices_.end(), indices.begin(), indices.end());
-            for (const ImDrawCmd& command : list->CmdBuffer) {
-                if (command.UserCallback != nullptr) {
-                    // (a callback: the editor and the front end add none; ImGui's own one, a reset of the render state,
-                    // needs nothing here - the draws set all of theirs)
-                    continue;
-                }
-                const UiTextureId id = command.GetTexID();
-                draws_.push_back({.texture = id != 0 ? object(texture_of(id)) : nullptr,
-                                  .clip = {.left = static_cast<int32_t>(command.ClipRect.x - origin.x),
-                                           .top = static_cast<int32_t>(command.ClipRect.y - origin.y),
-                                           .right = static_cast<int32_t>(command.ClipRect.z - origin.x),
-                                           .bottom = static_cast<int32_t>(command.ClipRect.w - origin.y)},
-                                  .first_index = command.IdxOffset + index_base,
-                                  .indices = command.ElemCount,
-                                  .base_vertex = static_cast<int32_t>(command.VtxOffset) + vertex_base});
-            }
-            index_base += static_cast<uint32_t>(list->IdxBuffer.Size);
-            vertex_base += list->VtxBuffer.Size;
-        }
-        const UiBatch batch{.vertices = vertices_,
-                            .indices = indices_,
-                            .display = {origin.x, origin.y, data->DisplaySize.x, data->DisplaySize.y},
-                            .draws = draws_};
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
-        record_ui_draws(state, batch);
+        record_ui_draws(state, *batch);
     }
 
     void invalidate_device_objects() override
@@ -480,9 +589,7 @@ private:
     Target atlas_;
     uint32_t atlas_generation_ = 1;
     // the draw data gathered (kept between frames: their room is reused)
-    std::vector<uint8_t> vertices_;
-    std::vector<uint16_t> indices_;
-    std::vector<UiDraw> draws_;
+    DrawLists main_lists_;
 };
 
 } // namespace
