@@ -263,6 +263,15 @@ void MaterialRef::update_color_anims()
         while (key >= 0 && time_now < core::at(keys, key).time) {
             --key;
         }
+        // NOT ORIGINAL - with no key after the one found (a single key, as some of Berlin's materials have, or keys
+        // all at one time: the period is 0 and the time 1) or none at or before the time (key -1), the original blends
+        // with the 8 bytes past the run's end (the allocation's unwritten padding) or before it (the heap block's
+        // header) - an undefined colour. The key found (or the first) is held instead: its own colour.
+        if (key < 0 || key + 1 >= static_cast<int>(anim.key_count_)) {
+            const ColorKey& held = core::at(keys, (key < 0) ? 0 : key);
+            core::at(anim_colour_run(), i) = blend_key_colors(0, 1, held.rgba, held.rgba);
+            continue;
+        }
         const ColorKey& from = core::at(keys, key);
         const ColorKey& to = core::at(keys, key + 1);
         core::at(anim_colour_run(), i) =
