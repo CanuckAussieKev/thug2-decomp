@@ -388,6 +388,11 @@ everything above it uses the game's own types and may change them freely.
     before `ext::draw_over_frame`; the screen's shape (`render::desired_aspect_ratio`) and the menus' mouse
     (`menu_reading::window_to_layout`) follow the picture meanwhile; `UiBackend::texture_id` gives ImGui the picture.
     No request, no change: a frame without one is drawn to the window exactly as before.
+  - Depth-tested lines (`engine/gfx/depth_lines.h`): a UI hands over world-space lines once a frame (the level editor's
+    rails and trigger volumes, each to be drawn where it shows, where it is hidden, or over everything);
+    `render_pc/depth_lines_draw.cpp` draws them in the next frame after the viewports' world passes, with that frame's
+    camera, as camera-facing strips against the depth the world left, then drops them. No lines handed over, nothing
+    drawn.
   - D3DX: only the backend calls it (`gpu_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
     Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
     same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with

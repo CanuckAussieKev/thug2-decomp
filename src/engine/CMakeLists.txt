@@ -39,6 +39,7 @@ add_library(thug2_engine STATIC
     gfx/anim_controller.cpp
     gfx/anim_track.cpp
     gfx/boned_anim_frame_data.cpp
+    gfx/depth_lines.cpp
     gfx/game_view.cpp
     gfx/screen.cpp
     gfx/screen_2d.cpp

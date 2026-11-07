@@ -167,6 +167,7 @@ inline constexpr uint32_t kBlendOpRevSubtract = 3;
 inline constexpr uint32_t kCompareNever = 1;
 inline constexpr uint32_t kCompareLess = 2;
 inline constexpr uint32_t kCompareLessEqual = 4;
+inline constexpr uint32_t kCompareGreater = 5;
 inline constexpr uint32_t kCompareGreaterEqual = 7;
 inline constexpr uint32_t kCompareAlways = 8;
 // culling (D3DCULL), fill (D3DFILLMODE)

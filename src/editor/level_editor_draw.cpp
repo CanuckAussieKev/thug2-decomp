@@ -28,6 +28,7 @@
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_faces.h"
+#include "editor/level_editor_gizmo_lines.h"
 #include "editor/level_editor_grind_preview.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_notes.h"
@@ -310,47 +311,57 @@ auto ring_drawer(const GizmoView& view)
     };
 }
 
-// A path's way: an arrowhead at the middle of its segment (pixels).
-void add_route_arrow(const GizmoView& view, const ui::Seg& segment)
+// A path's way as a chevron in the 3D view (level_editor_gizmo_lines.h): at the middle of its segment (`ends`, on the
+// screen `segment`), pointing along it, 7 pixels (times the icon scale) each way.
+void add_route_chevron(const GizmoView& view, const ui::Seg& segment, std::array<V3, 2> ends, bool emphasised)
 {
-    const float ax = segment.ax;
-    const float ay = segment.ay;
-    const float bx = segment.bx;
-    const float by = segment.by;
-    const float scale = view.scale;
-    float dx = bx - ax;
-    float dy = by - ay;
-    float const length = std::sqrt((dx * dx) + (dy * dy));
-    if (length > kRouteArrowMinLength * scale) {
-        dx /= length;
-        dy /= length;
-        const float mx = (ax + bx) * 0.5F;
-        const float my = (ay + by) * 0.5F;
-        const float half_size = 7.0F * scale;
-        view.overlay->triangles.push_back({.ax = mx + (dx * half_size),
-                                           .ay = my + (dy * half_size),
-                                           .bx = mx - (dx * half_size) - (dy * half_size * kRouteArrowWing),
-                                           .by = my - (dy * half_size) + (dx * half_size * kRouteArrowWing),
-                                           .cx = mx - (dx * half_size) + (dy * half_size * kRouteArrowWing),
-                                           .cy = my - (dy * half_size) - (dx * half_size * kRouteArrowWing),
-                                           .argb = segment.argb});
+    const float dx = segment.bx - segment.ax;
+    const float dy = segment.by - segment.ay;
+    const float pixels = std::sqrt((dx * dx) + (dy * dy));
+    if (pixels <= kRouteArrowMinLength * view.scale) {
+        return;
+    }
+    const V3 along = core::at(ends, 1) - core::at(ends, 0);
+    const V3 middle = (core::at(ends, 0) + core::at(ends, 1)) * kHalf;
+    const float half_size = 7.0F * view.scale;
+    const V3 forward = along * (half_size / pixels); // (half_size pixels along the segment)
+    const V3 to_eye = fly_camera().pos_ - middle;
+    const V3 side = make_unit(perpendicular(along, to_eye));
+    const float depth = std::max(-get_dot(middle - fly_camera().pos_, view.frame->back), kNearZ);
+    const float pixel = core::at(drawn_view().viewport_, 2) > 0
+                            ? kScreenSpanFactor * std::fabs(drawn_view().lens_.tan_x_) /
+                                  static_cast<float>(core::at(drawn_view().viewport_, 2))
+                            : 0.0F;
+    const V3 wing = side * (half_size * kRouteArrowWing * depth * pixel);
+    const V3 tip = middle + forward;
+    for (const float sign : {-1.0F, 1.0F}) {
+        gizmo_lines::add({.a = tip,
+                          .b = middle - forward + (wing * sign),
+                          .argb = segment.argb,
+                          .width = segment.thickness,
+                          .emphasised = emphasised,
+                          .dash_behind = false});
     }
 }
 
 // A chain's segment to the linked node (`linked_elem`): drawn (a ladder's dashed, a path's with its arrow) and
-// pickable - unless both ends are far, it is behind the near plane or off the view.
+// pickable - unless both ends are far (it fades out toward the Rail Distance preference), it is behind the near
+// plane or off the view. The lines are drawn in the 3D view against its depth (level_editor_gizmo_lines.h).
 void add_chain_segment(const GizmoView& view, const NodeGizmo& gizmo, const nodes::Elem& linked_elem)
 {
     const TickCycle& frame = *view.frame;
     const nodes::Elem& elem = *gizmo.elem;
-    const auto line = line_drawer(*view.overlay);
-    constexpr float kChainCutoff = 4000.0F;
     if (!linked_elem.has_pos_) {
         return;
     }
+    const bool emphasised = gizmo.selected || gizmo.hovered;
     const V3 linked_delta = linked_elem.pos - fly_camera().pos_;
-    if (!gizmo.selected && !gizmo.hovered && gizmo.distance > kChainCutoff &&
-        view_cam::apparent(std::sqrt(get_dot(linked_delta, linked_delta))) > kChainCutoff) {
+    const float nearer =
+        std::min(gizmo.distance, view_cam::apparent(std::sqrt(get_dot(linked_delta, linked_delta))));
+    const float fade =
+        emphasised ? 1.0F
+                   : gizmo_lines::distance_fade(nearer, static_cast<float>(prefs::get_pull().rail_range_));
+    if (fade <= 0.0F) {
         return;
     }
     V3 point_a = elem.pos;
@@ -369,27 +380,32 @@ void add_chain_segment(const GizmoView& view, const NodeGizmo& gizmo, const node
         (ay < view.top && by < view.top) || (ay > view.bottom && by > view.bottom)) {
         return;
     }
-    uint32_t colour = elem.colour;
+    uint32_t colour = gizmo_lines::scale_alpha(elem.colour, fade);
     if (gizmo.selected) {
         colour = kSelectedGizmo;
     } else if (gizmo.hovered) {
         colour = kHoverGizmo;
     }
     const float plain_thickness = elem.family == nodes::Family::kRail ? 2.0F : 1.5F;
-    const float thickness = gizmo.selected || gizmo.hovered ? 3.0F : plain_thickness;
+    const float thickness = emphasised ? 3.0F : plain_thickness;
     if (elem.family == nodes::Family::kLadder) {
+        const V3 along = point_b - point_a;
         for (int piece = 0; piece < kLadderPieceCount; piece += 2) { // (dashed)
-            line(ax + ((bx - ax) * static_cast<float>(piece) / kLadderPieceCountF),
-                 ay + ((by - ay) * static_cast<float>(piece) / kLadderPieceCountF),
-                 ax + ((bx - ax) * static_cast<float>(piece + 1) / kLadderPieceCountF),
-                 ay + ((by - ay) * static_cast<float>(piece + 1) / kLadderPieceCountF), colour, thickness);
+            gizmo_lines::add({.a = point_a + (along * (static_cast<float>(piece) / kLadderPieceCountF)),
+                              .b = point_a + (along * (static_cast<float>(piece + 1) / kLadderPieceCountF)),
+                              .argb = colour,
+                              .width = thickness,
+                              .emphasised = emphasised,
+                              .dash_behind = false});
         }
     } else {
-        line(ax, ay, bx, by, colour, thickness);
+        gizmo_lines::add(
+            {.a = point_a, .b = point_b, .argb = colour, .width = thickness, .emphasised = emphasised});
     }
     if (elem.family == nodes::Family::kRouteWay) {
-        // (the way it goes: an arrowhead at the middle)
-        add_route_arrow(view, {.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = colour, .thickness = thickness});
+        // (the way it goes: an arrowhead at the middle - a chevron in the 3D view, drawn as the segment is)
+        add_route_chevron(view, {.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = colour, .thickness = thickness},
+                          {point_a, point_b}, emphasised);
     }
     const V3 middle = (point_a + point_b) * 0.5F;
     drawn_view().pickables_.push_back({.node = gizmo.index,
@@ -430,19 +446,15 @@ void add_chain_gizmo(const GizmoView& view, const NodeGizmo& gizmo, const std::v
                                      .text = nodes::caption(elem.name)});
         }
     }
-    if (elem.family == nodes::Family::kRail && (gizmo.distance < kRailPointRange || gizmo.selected)) {
+    const float point_range = std::min(kRailPointRange, static_cast<float>(prefs::get_pull().rail_range_));
+    if (elem.family == nodes::Family::kRail && (gizmo.distance < point_range || gizmo.selected)) {
         float px = 0.0F;
         float py = 0.0F;
         const V3 front = elem.pos - fly_camera().pos_;
         if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, elem.pos, &px, &py) && px >= view.left &&
             px <= view.right && py >= view.top && py <= view.bottom) {
-            if (!gizmo.selected && !gizmo.hovered) {
-                overlay.circles.push_back({.x = px,
-                                           .y = py,
-                                           .radius = kRailDotRadius * scale,
-                                           .argb = elem.colour,
-                                           .filled = true,
-                                           .thickness = 1.0F});
+            if (!gizmo.selected && !gizmo.hovered) { // (in the 3D view, as its rail: level_editor_gizmo_lines.h)
+                gizmo_lines::add_dot(elem.pos, kRailDotRadius * scale, elem.colour);
             }
             drawn_view().pickables_.push_back({.node = gizmo.index,
                                                .ax = px,
@@ -967,6 +979,11 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     ui::ShapeMesh model = assemble_model();
     // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
     preview::tick_cycle(&model);
+    // (the gizmos' lines drawn in the 3D view against its depth - level_editor_gizmo_lines.h)
+    gizmo_lines::begin_frame({.camera = fly_camera().pos_,
+                              .frame = frame,
+                              .lens = drawn_view().lens_,
+                              .viewport_width = static_cast<float>(core::at(drawn_view().viewport_, 2))});
     add_node_gizmos(frame, model.nodes.selected);
     view::add_collision(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                         kNearZ, &drawn_overlay().under, &drawn_overlay().lines);
@@ -984,11 +1001,11 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
                        &drawn_overlay().texts);
     checks::note_model(model.changes, model.marks);
     triggers::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-                          kNearZ, &drawn_overlay().lines, &drawn_overlay().texts);
+                          kNearZ, &drawn_overlay().texts);
     if (overlays::get_shown(overlays::kFeatureMap)) { // (the Overlays menu - level_editor_overlays.h)
         triggers::add_extras(
             fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
-            {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected}, &drawn_overlay().lines,
+            {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected},
             &drawn_overlay().texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
     }
     triggers::add_handles(&drawn_overlay().circles); // (the selected trigger volume's resize handles)
@@ -1030,6 +1047,7 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     // level_editor_arrange.h)
     arrange::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                          kNearZ, &drawn_overlay());
+    gizmo_lines::end_frame();
     thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
     ui::tick_cycle(model, drawn_overlay());
 }

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "editor/level_editor_actions.h"
+#include "editor/level_editor_gizmo_lines.h"
 #include "editor/level_editor_hints.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_prefs.h"
@@ -125,6 +126,7 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         ImGui::EndMenu();
     }
     get_items({"collision", "faces", "occlusion"});
+    gizmo_lines::behind_menu(); // (level_editor_gizmo_lines.h)
     ImGui::Separator();
     get_items({"hide", "isolate", "show_all"});
     ImGui::Separator();

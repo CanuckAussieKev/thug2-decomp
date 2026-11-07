@@ -19,6 +19,7 @@ add_library(thug2_editor SHARED
     level_editor_undo.cpp
     level_editor_selection.cpp
     level_editor_geometry.cpp
+    level_editor_gizmo_lines.cpp
     level_editor_hud.cpp
     level_editor_layout.cpp
     level_editor_layout_text.cpp

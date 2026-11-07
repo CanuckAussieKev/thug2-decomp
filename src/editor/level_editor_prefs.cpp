@@ -33,6 +33,9 @@ constexpr int kAutosaveMin = 10;
 constexpr int kAutosaveMax = 3600;
 constexpr int kSnapMoveMax = 1000;
 constexpr int kSnapTurnMax = 90;
+constexpr int kGizmosBehindMax = 2;
+constexpr int kRailRangeMin = 500;
+constexpr int kRailRangeMax = 30000;
 constexpr int kAutoScaleDefaultPercent = 100; // the scale a fixed UI scale starts from when automatic is turned off
 constexpr float kPrefsWidth = 440.0F;         // the Preferences window, at scale 1
 constexpr float kSliderWidth = 200.0F;
@@ -65,6 +68,8 @@ Values get_clamped(Values v)
     v.snap_move_ = std::clamp(v.snap_move_, 1, kSnapMoveMax);
     v.snap_turn_ = std::clamp(v.snap_turn_, 1, kSnapTurnMax);
     v.accent = std::clamp(v.accent, 0, kAccentCount - 1);
+    v.gizmos_behind_ = std::clamp(v.gizmos_behind_, 0, kGizmosBehindMax);
+    v.rail_range_ = std::clamp(v.rail_range_, kRailRangeMin, kRailRangeMax);
     return v;
 }
 
@@ -124,6 +129,8 @@ constexpr auto kIntKeys = std::to_array<Key>({
     {.name = "snap_move", .field = &Values::snap_move_},
     {.name = "snap_turn", .field = &Values::snap_turn_},
     {.name = "accent", .field = &Values::accent},
+    {.name = "gizmos_behind", .field = &Values::gizmos_behind_},
+    {.name = "rail_range", .field = &Values::rail_range_},
 });
 struct BitMark {
     const char* name;
@@ -278,6 +285,14 @@ void pane(float scale, PaneFonts fonts)
     slider("Grid Size", &v.snap_move_, 1, kSnapMoveMax, {.format = "%d units", .tip = nullptr});
     slider("Rotation Snap", &v.snap_turn_, 1, kSnapTurnMax, {.format = "%d degrees", .tip = nullptr});
     slider("Autosave Interval", &v.autosave_seconds_, kAutosaveMin, kAutosaveMax, {.format = "%d s", .tip = nullptr});
+    section("Gizmos");
+    ImGui::SetNextItemWidth(kSliderWidth * scale);
+    if (ImGui::Combo("Behind Geometry", &v.gizmos_behind_, "X-Ray\0Faded\0Hidden\0")) {
+        changed = true;
+    }
+    get_tip("How rails and trigger volumes show where geometry hides them");
+    slider("Rail Distance", &v.rail_range_, kRailRangeMin, kRailRangeMax,
+           {.format = "%d units", .tip = "Rails, ladders and paths fade out toward this distance"});
     section("Look");
     bool auto_scale = v.ui_scale_pct_ == 0;
     if (ImGui::Checkbox("Automatic UI Scale", &auto_scale)) {

@@ -22,6 +22,7 @@
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/view_cam.h"
+#include "render_pc/depth_lines_draw.h"
 #include "render_pc/draw2d.h"
 #include "render_pc/game_view_frame.h"
 #include "engine/gfx/engine_effects.h"
@@ -765,6 +766,10 @@ void draw_world()
         }
         view_mode::end_world();
         wireframe::end_world();
+        // Not original - the lines a UI handed over (engine/gfx/depth_lines.h; the level editor's rails), drawn against
+        // the world's depth.
+        // Original behaviour: nothing.
+        depth_lines_draw::draw();
 
         // Full-screen effects and the 2D on top.
         full_screen_viewport();
@@ -792,6 +797,8 @@ void draw_world()
         // Original behaviour: nothing more is drawn.
         ext::draw_over_frame();
         change_fog(fog);
+    } else {
+        depth_lines_draw::drop(); // (not original: lines handed over before the loading screen aren't drawn after it)
     }
     full_screen_viewport();
     set_viewport();

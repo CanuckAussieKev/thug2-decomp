@@ -19,6 +19,7 @@
 #include "editor/level_editor_ui.h"
 #include "base/maths/vec2.h"
 #include "editor/level_editor_chains.h"
+#include "editor/level_editor_gizmo_lines.h"
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_nodes.h"
 #include "engine/objects/proximity.h"
@@ -70,6 +71,7 @@ constexpr float kBreakLabelLift = 12.0F;
 constexpr float kBoostArrowScale = 0.15F; // arrow length per unit of boost strength
 constexpr float kBoostDrawDistance = 3000.0F;
 constexpr float kDiameterFactor = 2.0F;
+constexpr float kScreenSpan = 2.0F; // the view is 2 * tan_x across at depth 1
 constexpr int kHandleCount = 6; // a box resize handles: one for each face
 constexpr int kLastHandle = 5;
 constexpr float kLitHandleRadius = 7.0F;
@@ -82,7 +84,7 @@ struct Painter {
     const Lens* lens{};
     std::span<const uint32_t, 4> viewport;
     float near_z_{};
-    std::vector<ui::Seg>* lines{};
+    bool emphasised = false; // (the inspected trigger: at full strength over everything)
 
     bool get_to_pixel(V3 point, float* x, float* y) const
     {
@@ -94,18 +96,17 @@ struct Painter {
         ndc_to_pixel(viewport, nx, ny, x, y);
         return true;
     }
+    // A world line: in the 3D view, against its depth (level_editor_gizmo_lines.h).
     void get_seg(V3 a, V3 b, uint32_t argb, float thickness = kDefaultSegmentThickness) const
     {
-        if (!clip_to_near(camera, *frame, near_z_ + kNearPlaneMargin, &a, &b)) {
-            return;
-        }
-        float ax = 0.0F;
-        float ay = 0.0F;
-        float bx = 0.0F;
-        float by = 0.0F;
-        if (get_to_pixel(a, &ax, &ay) && get_to_pixel(b, &bx, &by)) {
-            lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
-        }
+        gizmo_lines::add({.a = a, .b = b, .argb = argb, .width = thickness, .emphasised = emphasised});
+    }
+    // What a pixel spans at `point`'s depth.
+    [[nodiscard]] float pixel_at(V3 point) const
+    {
+        const float depth = std::max(-get_dot(point - camera, frame->back), near_z_);
+        return core::at(viewport, 2) > 0 ? kScreenSpan * std::fabs(lens->tan_x_) * depth / static_cast<float>(core::at(viewport, 2))
+                                         : 0.0F;
     }
     void cuboid(const OrientedBox& box, uint32_t argb, float thickness) const
     {
@@ -119,7 +120,7 @@ struct Painter {
             }
         }
     }
-    // An arrow from a to b, its head drawn on the screen.
+    // An arrow from a to b, its head sized on the screen (up to 14 pixels; in the 3D view with the shaft).
     void get_arrow(V3 a, V3 b, uint32_t argb) const
     {
         get_seg(a, b, argb, kOverlayLineThickness);
@@ -130,24 +131,18 @@ struct Painter {
         if (!get_to_pixel(a, &ax, &ay) || !get_to_pixel(b, &bx, &by)) {
             return;
         }
-        float dx = bx - ax;
-        float dy = by - ay;
+        const float dx = bx - ax;
+        const float dy = by - ay;
         float const length = std::sqrt((dx * dx) + (dy * dy));
         if (length < kMinArrowLength) {
             return;
         }
-        dx /= length;
-        dy /= length;
         const float head = std::min(14.0F, length * 0.4F);
+        const V3 along = b - a;
+        const V3 back = along * (-0.9F * head / length); // (0.9 head's pixels back along the arrow)
+        const V3 across = make_unit(perpendicular(along, camera - b)) * (0.45F * head * pixel_at(b));
         for (const float side : {-1.0F, 1.0F}) {
-            const float hx = (-dx * 0.9F) + (side * -dy * 0.45F);
-            const float hy = (-dy * 0.9F) + (side * dx * 0.45F);
-            lines->push_back({.ax = bx,
-                              .ay = by,
-                              .bx = bx + (hx * head),
-                              .by = by + (hy * head),
-                              .argb = argb,
-                              .thickness = kOverlayLineThickness});
+            get_seg(b, b + back + (across * side), argb, kOverlayLineThickness);
         }
     }
 };
@@ -274,17 +269,18 @@ void draw_added_trigger(Painter& paint, const Added& added, Label& label)
 }
 
 void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z);
+uint32_t& stored_selected_node();
 
 } // namespace
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
-                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
+                 std::vector<ui::Overlay::OverlayText>* texts)
 {
     remember_view(camera, frame, lens, viewport, near_z); // (the resize handles are drawn and picked with it)
     if (!get_shown()) {
         return;
     }
-    Painter paint = {.camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z, .lines = lines};
+    Painter paint = {.camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z};
     int labels = 0;
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
         if (labels >= kMaxLabels) {
@@ -312,6 +308,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     for (const auto& candidate : near) {
         const LevelTrigger& level_trigger = *candidate.second;
         const bool inspected = level_trigger.sector == trigger_focus().inspected_;
+        paint.emphasised = inspected;
         const uint32_t colour =
             level_trigger.off ? 0x70909090U : get_dim(kind_colour(level_trigger.kind), inspected ? 0xFFU : 0xC0U);
         const float thickness = inspected ? 2.5F : 1.0F;
@@ -347,11 +344,12 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                       get_label_of(level_trigger.sector));
         }
     }
-    // The editor's.
+    // The editor's (the selected one at full strength).
     for (const Added& added : editor_trigger_set().added_) {
         if (!added.alive) {
             continue;
         }
+        paint.emphasised = checksum_of(added.spec.name) == stored_selected_node();
         draw_added_trigger(paint, added, label);
     }
 }
@@ -502,12 +500,12 @@ void draw_breakable(Painter& paint, const Added& added, std::vector<ui::Overlay:
 } // namespace
 
 void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport,
-                ExtrasPick extras_pick, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
+                ExtrasPick extras_pick, std::vector<ui::Overlay::OverlayText>* texts)
 {
     const auto near_z = extras_pick.near_z_;
     const auto selected_node = extras_pick.selected_node_;
     Painter paint = {
-        .camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z, .lines = lines};
+        .camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z};
     const V3 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     draw_speed_ups(paint, camera, texts);
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
@@ -515,7 +513,9 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
     const uint32_t selected =
         selected_node >= 0 && std::cmp_less(selected_node, nodes.size()) ? core::at(nodes, selected_node).name : 0;
     auto draw_proxim = [&](uint32_t node, bool is_selected) {
+        paint.emphasised = is_selected;
         draw_proxim_node(paint, camera, texts, node, is_selected);
+        paint.emphasised = false;
     };
     for (const ProximEdit& stored_proxim : stored_proxims()) {
         if (stored_proxim.node != selected) {

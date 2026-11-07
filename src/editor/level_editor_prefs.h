@@ -24,6 +24,9 @@ struct ImFont;
 //                          UX2's; this window shows it)
 //   speed_by_selection=0   F (frame the selection) sets the flying speed from the selection's size (Unreal's)
 //   tips_seen=0            the first-run tips were dismissed (the help's "Show tips" shows them again)
+//   gizmos_behind=1        gizmos hidden by geometry: 0 X-Ray (drawn through), 1 Faded, 2 Hidden
+//                          (level_editor_gizmo_lines.h; the View menu's Gizmos Behind Geometry)
+//   rail_range=4000        rails, ladders and paths fade out toward this distance (units)
 namespace frontend::level_editor::prefs {
 
 constexpr int kDefaultFlySpeed = 800; // units a second
@@ -32,6 +35,8 @@ constexpr int kDefaultGizmoPercent = 100; // gizmo size
 constexpr int kDefaultAutosaveSeconds = 60;
 constexpr int kDefaultMoveSnap = 25; // units
 constexpr int kDefaultTurnSnap = 15; // degrees
+constexpr int kDefaultGizmosBehind = 1; // Faded
+constexpr int kDefaultRailRange = 4000; // units
 
 struct Values {
     int fly_speed_ = kDefaultFlySpeed;
@@ -47,11 +52,13 @@ struct Values {
     bool wasd_flies_ = false;
     bool speed_by_selection_ = false;
     bool tips_seen_ = false;
+    int gizmos_behind_ = kDefaultGizmosBehind;
+    int rail_range_ = kDefaultRailRange;
 };
 
 // The limits (pure): every value brought within its range (fly speed 50..20000, accel 0..3000 ms, look 10..500%,
 // gizmo 25..400%, UI scale 0 or 75..400%, autosave 10..3600 s, snap move 1..1000, snap turn 1..90, accent
-// 0..kAccentCount-1).
+// 0..kAccentCount-1, gizmos behind 0..2, rail range 500..30000).
 Values get_clamped(Values v);
 constexpr int kAccentCount = 6;
 // An accent's colour (pure): r, g, b in 0..1; its name.
