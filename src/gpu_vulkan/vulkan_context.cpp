@@ -1,9 +1,9 @@
 // NOT ORIGINAL - the Vulkan backend's context: instance, surface, device, swapchain and the frames (vulkan_context.h).
 #include "gpu_vulkan/vulkan_context.h"
 
-#include <SDL2/SDL_stdinc.h>
-#include <SDL2/SDL_video.h>
-#include <SDL2/SDL_vulkan.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
+#include <SDL3/SDL_vulkan.h>
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -125,7 +125,7 @@ VkExtent2D choose_extent(const VkSurfaceCapabilitiesKHR& caps, SDL_Window* windo
     }
     int width = 0;
     int height = 0;
-    SDL_Vulkan_GetDrawableSize(window, &width, &height);
+    SDL_GetWindowSizeInPixels(window, &width, &height);
     return VkExtent2D{
         .width = std::clamp(static_cast<uint32_t>(width), caps.minImageExtent.width, caps.maxImageExtent.width),
         .height = std::clamp(static_cast<uint32_t>(height), caps.minImageExtent.height, caps.maxImageExtent.height),
@@ -298,12 +298,13 @@ bool Context::open(SDL_Window* window, const ContextOptions& options)
 
 bool Context::create_instance(bool validation)
 {
-    unsigned int sdl_count = 0;
-    if (SDL_Vulkan_GetInstanceExtensions(window_, &sdl_count, nullptr) != SDL_TRUE) {
+    Uint32 sdl_count = 0;
+    const char* const* sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&sdl_count);
+    if (!sdl_extensions) {
         return fail("SDL_Vulkan_GetInstanceExtensions", VK_ERROR_EXTENSION_NOT_PRESENT);
     }
-    std::vector<const char*> extensions(sdl_count);
-    SDL_Vulkan_GetInstanceExtensions(window_, &sdl_count, extensions.data());
+    const std::span<const char* const> sdl_listed(sdl_extensions, sdl_count);
+    std::vector<const char*> extensions(sdl_listed.begin(), sdl_listed.end());
     const bool use_validation = validation && instance_layer_available(kValidationLayer) &&
                                 has_extension(instance_extensions(), VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     if (validation && !use_validation) {
@@ -368,7 +369,7 @@ bool Context::create_instance(bool validation)
 
 bool Context::create_surface()
 {
-    if (SDL_Vulkan_CreateSurface(window_, instance_, &surface_) != SDL_TRUE) {
+    if (!SDL_Vulkan_CreateSurface(window_, instance_, nullptr, &surface_)) {
         return fail("SDL_Vulkan_CreateSurface", VK_ERROR_INITIALIZATION_FAILED);
     }
     return true;

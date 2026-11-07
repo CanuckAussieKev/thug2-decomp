@@ -3,7 +3,7 @@
 
 #include "editor/level_editor.h"
 #include "engine/pad_input/input_source.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -40,6 +40,7 @@
 #include "engine/script/cscript.h"
 #include "base/core/checked_index.h"
 #include "editor/level_editor_internal.h"
+#include "platform/sdl_time.h"
 
 namespace frontend::level_editor {
 // What the source file's anonymous namespace held that its pieces share (level_editor_internal.h): visible
@@ -91,9 +92,9 @@ void tick_hud_and_autosave()
         layout::get_snapshot()) {
         unsaved_changes().snapshot_changes_ = unsaved_changes().changes_;
     }
-    if (unsaved_changes().unsaved_ && SDL_GetTicks() - unsaved_changes().last_autosave_ >=
+    if (unsaved_changes().unsaved_ && platform::ticks_ms() - unsaved_changes().last_autosave_ >=
                          static_cast<uint32_t>(prefs::get_pull().autosave_seconds_) * kMillisecondsPerSecond) { // ([editor] autosave_s)
-        unsaved_changes().last_autosave_ = SDL_GetTicks();
+        unsaved_changes().last_autosave_ = platform::ticks_ms();
         layout::write_autosave();
     }
     if (unsaved_changes().offer_show_) {
@@ -133,7 +134,7 @@ void read_keys_and_pad(EditorFrame& editor_frame)
     Mouse& input = editor_frame.input;
     keys = input::keys();
     // (the UI is typing: the editor's keys rest - level_editor_ui.h)
-    static const std::array<uint8_t, SDL_NUM_SCANCODES> kNoKeys = {};
+    static const std::array<uint8_t, SDL_SCANCODE_COUNT> kNoKeys = {};
     if (!ui::keys_to_editor()) {
         keys = kNoKeys;
     }

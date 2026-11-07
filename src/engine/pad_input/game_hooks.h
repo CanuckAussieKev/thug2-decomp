@@ -19,6 +19,10 @@ struct GameHooks {
     // THAW's BMX ([features] thaw_bmx; ours, game/rider/thaw_bmx.h): whether the half-stick key applies (the bike is
     // ridden).
     bool (*half_stick_key)();
+    // Ours too - whether the game is a local two-player (split-screen) game, the game's InSplitScreenGame: outside one,
+    // the SDL input lets the controller pressed last play as player 1 ([features] single_player_any_pad). Asked at
+    // each controller button press and port poll; null counts as no.
+    bool (*split_screen_game)();
 };
 
 void set_game_hooks(const GameHooks& hooks);

@@ -169,6 +169,13 @@ int show_cursor(int toggle)
     return -1;
 }
 
+void set_cursor_follows_device(bool follows)
+{
+    for (Source* source : sources()) {
+        source->set_cursor_follows_device(follows);
+    }
+}
+
 bool window_size(uint32_t window, int* width, int* height)
 {
     for (Source* source : sources()) {

@@ -18,7 +18,7 @@ namespace render::vulkan {
 Gpu& gpu();
 GpuContext& gpu_context();
 
-// The UI backend for the editor's and the new front end's Dear ImGui parts (vulkan_ui_backend.cpp): ImGui's SDL2
+// The UI backend for the editor's and the new front end's Dear ImGui parts (vulkan_ui_backend.cpp): ImGui's SDL3
 // platform backend, its draw lists drawn by this Gpu into the back buffer, its images the Gpu's textures and targets.
 UiBackend& ui_backend();
 

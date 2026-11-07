@@ -8,7 +8,7 @@ param(
 # One game per game folder: whoever holds <Game>\.game-lock may deploy a build, edit the ini, launch and close the game
 # in that folder. -Game: C:\Games\THUG2 (the user's, the default) or a workspace copy C:\Games\THUG2-1, -2, -3...
 #   acquire: waits up to -WaitMinutes for the lock (prints BUSY and exits 1 if still held - do other work, try again);
-#            on success backs up the deployed thug2-decomp.exe (with its PDB and d3dx9_43.dll; dinput8.dll if there) and
+#            on success backs up the deployed thug2-decomp.exe (with its PDB, d3dx9_43.dll and SDL3.dll; dinput8.dll if there) and
 #            thug2-decomp.ini into the lock folder; in a workspace
 #            then sets [features] mute_audio=1 (its games always run muted: Set-WorkspaceMuted, game_exe.ps1).
 #   release: in a workspace, first closes a game still running from that folder (the holder's: crashed, stuck on a

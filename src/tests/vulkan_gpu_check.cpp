@@ -18,8 +18,9 @@
 // --device: the physical device, counted from 0 in the loader's order (default: the context's choice, discrete first).
 // --display: the monitor the window opens on (1 = the first; default: the second when there are two).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -1525,15 +1526,20 @@ void check_reset(render::Gpu& gpu, render::GpuContext& context, Tally* tally)
 
 int window_position(int display)
 {
-    const int displays = SDL_GetNumVideoDisplays();
+    int displays = 0;
+    SDL_DisplayID* ids = SDL_GetDisplays(&displays);
     int chosen = display;
     if (chosen <= 0) {
         chosen = displays > 1 ? 2 : 1;
     }
-    if (chosen > displays) {
-        return static_cast<int>(SDL_WINDOWPOS_CENTERED);
+    int position = static_cast<int>(SDL_WINDOWPOS_CENTERED);
+    if (ids != nullptr && chosen <= displays) {
+        const std::span<const SDL_DisplayID> listed(ids, static_cast<size_t>(displays));
+        const SDL_DisplayID id = core::at(listed, chosen - 1);
+        position = static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id));
     }
-    return static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(chosen - 1));
+    SDL_free(ids);
+    return position;
 }
 
 int run(const Options& options, SDL_Window* window)
@@ -1624,18 +1630,21 @@ int main(int argc, char** argv)
     }
     fs::install_disk(fs::win32::disk()); // (the screen shot's JPEG is written through the game's file seam)
     SDL_SetMainReady();
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         text::print("SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
     const int position = window_position(options.display);
     SDL_Window* window =
-        SDL_CreateWindow("thug2 Vulkan Gpu check", position, position, kWindowWidth, kWindowHeight, SDL_WINDOW_VULKAN);
+        SDL_CreateWindow("thug2 Vulkan Gpu check", kWindowWidth, kWindowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN);
     if (window == nullptr) {
         text::print("SDL_CreateWindow: %s\n", SDL_GetError());
         SDL_Quit();
         return 2;
     }
+    // (made hidden, put on its display, then shown)
+    SDL_SetWindowPosition(window, position, position);
+    SDL_ShowWindow(window);
     // (a thread the check starts can throw - std::thread's system_error: reported as a failure)
     int result = 1;
     try {

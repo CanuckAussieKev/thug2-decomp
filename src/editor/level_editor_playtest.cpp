@@ -4,7 +4,7 @@
 #include "engine/pad_input/input_source.h"
 #include "editor/level_editor_playtest.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
@@ -53,6 +53,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
@@ -682,7 +683,7 @@ void link_record(modules::FrontEnd* front_end)
         open_run(load);
         level_editor_playtest_state().rec_.refused_check_ = kRefusedCheckFrames;
     }
-    const uint32_t ticks = SDL_GetTicks();
+    const uint32_t ticks = platform::ticks_ms();
     const float dt =
         (level_editor_playtest_state().rec_.last_ticks_ != 0U)
             ? std::min(0.1F, static_cast<float>(ticks - level_editor_playtest_state().rec_.last_ticks_) / 1000.0F)
@@ -744,7 +745,7 @@ void restart_step(modules::FrontEnd* front_end)
     if (level_editor_playtest_state().restart_ == 0U) {
         return;
     }
-    if (SDL_GetTicks() - level_editor_playtest_state().restart_asked_ > kRestartAskMilliseconds && level_editor_playtest_state().restart_frames_ == 0) {
+    if (platform::ticks_ms() - level_editor_playtest_state().restart_asked_ > kRestartAskMilliseconds && level_editor_playtest_state().restart_frames_ == 0) {
         get_log("level editor: play from a restart - dropped (the editor didn't close)");
         level_editor_playtest_state().restart_ = 0;
         return;
@@ -862,7 +863,7 @@ void start_simulation()
     front_end->get_pause_game(false);
     pause_skaters(); // (frozen - and still hidden, as the editor keeps the skater)
     simulation().simulating_ = true;
-    simulation().sim_started_ = SDL_GetTicks();
+    simulation().sim_started_ = platform::ticks_ms();
     get_log("level editor: simulate on (%u objects noted to put back)", static_cast<unsigned>(simulation().snapshots_.size()));
     hud::get_message("Simulating (F6: stop)", kSimulatingMessageSeconds);
 }
@@ -902,7 +903,7 @@ void stop_simulation(const char* why)
     }
     simulation().snapshots_.clear();
     get_log("level editor: simulate off (%s) after %.1f s: %s", why,
-            (SDL_GetTicks() - simulation().sim_started_) / kMillisecondsPerSecond,
+            (platform::ticks_ms() - simulation().sim_started_) / kMillisecondsPerSecond,
             simulation().keep_simulation_
                 ? "objects left where they got to"
                 : ("put back " + std::to_string(restored) + " objects" +
@@ -1157,7 +1158,7 @@ void play_from_restart(uint32_t restart)
         return;
     }
     level_editor_playtest_state().restart_ = restart;
-    level_editor_playtest_state().restart_asked_ = SDL_GetTicks();
+    level_editor_playtest_state().restart_asked_ = platform::ticks_ms();
     level_editor_playtest_state().restart_frames_ = 0;
     get_log("level editor: play from the restart %s - closing the editor", nodes::caption(restart).c_str());
     perform::get_request(); // (closes into play as F5 does - back with F5 / Ctrl+P)

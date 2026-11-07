@@ -2,7 +2,7 @@
 
 #include "editor/level_editor_ux9.h"
 
-#include <SDL2/SDL_scancode.h>
+#include <SDL3/SDL_scancode.h>
 
 #include <algorithm>
 #include <cmath>

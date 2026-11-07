@@ -27,7 +27,7 @@ const CHECKS = new Set([
 const isCheck = (name: string): boolean => CHECKS.has(name);
 
 const SDK_HEADER =
-    /^\s*#\s*include\s*<(vulkan\/[\w./]+|volk\.h|vk_mem_alloc\.h|SDL2\/SDL_vulkan\.h|glslang\/[\w./]+|SPIRV\/[\w./]+|spirv-tools\/[\w./]+)>/m;
+    /^\s*#\s*include\s*<(vulkan\/[\w./]+|volk\.h|vk_mem_alloc\.h|SDL3\/SDL_vulkan\.h|glslang\/[\w./]+|SPIRV\/[\w./]+|spirv-tools\/[\w./]+)>/m;
 const PROJECT_INCLUDE = /^\s*#\s*include\s*"([^"]+)"/gm;
 // A call of a Vulkan function (vkCreateInstance...), of volk's (volkInitialize...) or of SDL's Vulkan side.
 const VULKAN_CALL = /\b(vk[A-Z]\w*|volk[A-Z]\w*|SDL_Vulkan_\w+)\s*\(/;

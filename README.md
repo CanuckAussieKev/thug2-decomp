@@ -29,7 +29,7 @@ source is a trustworthy base. On top of that base:
 - **The game's code** as readable C++, by subsystem (`src/engine/`, `src/game/` and the backends beside them): engine,
   renderer, script runtime, skater physics, goals, park editor, networking, front end.
 - **PartyMod's fixes** ([PartyMod](https://github.com/PARTYMANX/partymod-thug2) v1.0.4 by PARTYMANX, MIT) as part of the
-  source: an SDL2 window and input, controller and keyboard bindings, widescreen, the OpenSpy online service.
+  source: an SDL window and input (SDL 3), controller and keyboard bindings, widescreen, the OpenSpy online service.
 - **Additions:** a level editor, a new front end, graphics options, a loading console, a screenshot key with the
   game's state alongside, debugging aids.
 - **Level converters** (installed by the [thug2-content-pipeline](https://github.com/CanuckAussieKev/thug2-content-pipeline)
@@ -88,7 +88,7 @@ may be the install root, with the game in a `Game` subfolder, or the game folder
 | NeverScript | downloaded and built by `tools\build_neverscript.ps1` (docs/neverscript.md) | Compiling / decompiling QB scripts for the level converters |
 | Python | 3.13 or later | The crash tools in `tools/standalone` (optional) |
 
-The build downloads its libraries itself at configure time, each pinned and checked against a SHA-256: SDL2 2.30.9,
+The build downloads its libraries itself at configure time, each pinned and checked against a SHA-256: SDL3 3.2.30,
 Microsoft's D3DX9 (the Microsoft.DXSDK.D3DX package), IGN's GameSpy SDK, Dear ImGui 1.91.9b, stb, LZHAM, and the
 Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
@@ -96,7 +96,7 @@ Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
 1. In Visual Studio: **File > Open > Folder...** and pick this folder.
 2. Choose the **x86 Debug** configuration in the toolbar.
-3. **Build > Build All**. The build makes `thug2-decomp.exe` and `thug2-editor.exe` (the level editor on its own) and puts `d3dx9_43.dll`, `SDL2.dll` and
+3. **Build > Build All**. The build makes `thug2-decomp.exe` and `thug2-editor.exe` (the level editor on its own) and puts `d3dx9_43.dll`, `SDL3.dll` and
    `gamecontrollerdb.txt` next to it; when `THUG2_GAME_DIR` (in `CMakeLists.txt` or the CMake cache, default
    `C:\Games\THUG2\Game`) is a game folder, all of them and the PDB are copied there too.
 
@@ -118,7 +118,7 @@ with a call stack.
 The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe`, its `Data` folder and
 `binkw32.dll` (the movie player, from your copy of the game; nothing of it is in this repository):
 
-1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL2.dll` and `gamecontrollerdb.txt` from the build folder into the game
+1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL3.dll` and `gamecontrollerdb.txt` from the build folder into the game
    folder (the build does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
@@ -192,6 +192,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `widescreen_menus` | 1 | 0 brings back PartyMod's pillarboxed 4:3 front end |
 | `new_frontend` | 0 | The new front end: the game's own menus, restyled (0 = the classic menus) |
 | `mouse_menus` | 1 | Mouse control of the menus (`debug_mouse=1` logs each click) |
+| `cursor_by_device` | 1 | A controller button hides the mouse cursor and a key, mouse movement or click shows it again (where there is one; the level editor keeps it); the controller doesn't rumble while you play with the keyboard, until a button on it is pressed |
+| `single_player_any_pad` | 1 | Outside split screen, every connected controller plays as player 1: the one a button was pressed on last (2-player games keep the controllers' seats) |
 | `hd_ui` | 0 | The menus' 4x-upscaled images and fonts (when the overlay was made with `make_menu_level.ts --hd-ui 4`) |
 | `level_editor` | 1 | The pause menu's LEVEL EDITOR (`editor_ui=0`: the old on-screen HUD instead of the Dear ImGui UI; `debug_editor=1` logs its picks and moves) |
 | `start_level` / `edit_level` | (none) | Start straight in a level / in the level editor (as `-level` / `-edit`) |
@@ -224,7 +226,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 
 | Key | Default | Effect |
 |---|---|---|
-| `ResolutionX` / `ResolutionY` | 0 | The game's resolution; 0 = the desktop's |
+| `ResolutionX` / `ResolutionY` | 0 | The game's resolution in pixels (in a window: its inside); 0 = the desktop's |
+| `dpi_aware` | 1 | On a display scaled above 100%, the window is the resolution's real pixels, sharp; 0 lets Windows scale it up (blurred, as before) |
 | `Windowed` / `Borderless` | 0 | Runs in a window / a borderless window |
 | `AntiAliasing` | 0 | Multisample anti-aliasing |
 | `HQShadows` | 0 | High-quality shadows |
@@ -256,7 +259,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 
 | Key | Default | Effect |
 |---|---|---|
-| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings; plus `Screenshot=` and `ThawBmx=` (an SDL key name or scan code) |
+| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings (SDL 2 scan codes, as PartyMod wrote them - they still mean the same keys); plus `Screenshot=` and `ThawBmx=` (an SDL key name or scan code) |
+| `[Gamepad]` (PartyMod's keys) | PartyMod's | Controller bindings by button number: 0 A, 1 B, 2 X, 3 Y, 4 Back, 5 Guide, 6 Start, 7 / 8 left / right stick, 9 / 10 left / right shoulder, 11-14 d-pad up / down / left / right, 15 Misc1 (Share, Capture, Mic), 16-19 paddles (right 1, left 1, right 2, left 2), 20 touchpad, 21 / 22 right / left trigger, 23-27 Misc2-Misc6 (extra buttons some controllers have); -1 none |
 | `[Gamepad] MovementStick` / `CameraStick` | left / right | Which stick moves and which turns the camera |
 | `[Logging] Level` | 2 | How much goes into the log |
 

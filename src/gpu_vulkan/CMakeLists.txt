@@ -30,8 +30,8 @@ add_library(thug2_gpu_vulkan STATIC
 )
 # volk: the Vulkan loader, opened at run time (no import library) - public, as the context's header declares Vulkan's
 # functions through it; vulkan_memory_allocator: device memory (VMA, compiled once: cmake/vulkan_libraries.cmake) - public,
-# as the memory's header declares its handles; sdl2: the window's Vulkan surface and the display's size; glslang (+ its
+# as the memory's header declares its handles; sdl3: the window's Vulkan surface and the display's size; glslang (+ its
 # default resource limits): GLSL to SPIR-V at run time; stb_image_write: the screen shot command's JPEG; imgui_backends:
-# ImGui's SDL2 platform backend (vulkan_ui_backend.cpp - the Gpu draws ImGui's lists itself, so no renderer backend)
+# ImGui's SDL3 platform backend (vulkan_ui_backend.cpp - the Gpu draws ImGui's lists itself, so no renderer backend)
 target_link_libraries(thug2_gpu_vulkan PUBLIC thug2_engine volk vulkan_memory_allocator
-    PRIVATE sdl2 glslang glslang-default-resource-limits stb_image_write imgui_backends)
+    PRIVATE sdl3 glslang glslang-default-resource-limits stb_image_write imgui_backends)

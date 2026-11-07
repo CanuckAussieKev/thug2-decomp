@@ -2,7 +2,7 @@
 
 #include "editor/level_editor_checks.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <chrono>
@@ -49,6 +49,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "imgui.h"
 #include "engine/gfx/sector.h"
 #include "base/core/checked_index.h"
@@ -415,7 +416,7 @@ std::unordered_map<uint32_t, uint8_t>& marks_state()
     return value;
 }
 
-double get_seconds() { return static_cast<double>(SDL_GetTicks()) / kMillisecondsPerSecond; }
+double get_seconds() { return static_cast<double>(platform::ticks_ms()) / kMillisecondsPerSecond; }
 
 uint32_t get_checksums(const std::string& text) { return checksums::hash_from_text(text.c_str()); }
 

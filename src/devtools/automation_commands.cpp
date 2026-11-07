@@ -3,7 +3,7 @@
 
 #include "devtools/automation.h"
 #include <windows.h>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -334,7 +334,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     case Op::kQuit: {
         get_finish(runner, "ok");
         SDL_Event event = {};
-        event.type = SDL_QUIT;
+        event.type = SDL_EVENT_QUIT;
         SDL_PushEvent(&event);
         return false;
     }

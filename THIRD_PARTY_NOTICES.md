@@ -7,9 +7,9 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 |---|---|---|
 | quickjs-ng v0.17.0 - https://github.com/quickjs-ng/quickjs | downloaded with SHA-256 verification by the optional standalone scripting/CMakeLists.txt; core statically linked into the prototype, no quickjs-libc OS modules | MIT - below |
 | PartyMod v1.0.4 (PARTYMANX) - https://github.com/PARTYMANX/partymod-thug2 | moved into the game's source (`src/game/`; each file with its code says so; code doing what PartyMod did is marked "Originally from PartyMod Fixes") - PartyMod's window, input, widescreen, settings and fixes | MIT - below |
-| SDL2 2.30.9 | downloaded at configure time (FetchContent); its SDL2.dll copied next to the exe by the build | zlib - https://github.com/libsdl-org/SDL/blob/release-2.30.9/LICENSE.txt |
+| SDL3 3.2.30 (Sam Lantinga and contributors) - https://github.com/libsdl-org/SDL, release-3.2.30 | downloaded at configure time (FetchContent, SHA-256 checked: the official Visual C++ development package); its SDL3.dll copied next to the exe by the build - the window, the keyboard, the mouse and game controllers | zlib - below |
 | SDL_GameControllerDB, commit 8b2d1a7 (2022-09-06) - https://github.com/mdqinc/SDL_GameControllerDB | gamecontrollerdb.txt, downloaded at configure time and copied into the game folder by the build | zlib - https://github.com/mdqinc/SDL_GameControllerDB/blob/8b2d1a791c8e5004c736e5137699e8e97ae558c5/LICENSE |
-| Dear ImGui 1.91.9b (Omar Cornut) - https://github.com/ocornut/imgui | downloaded at configure time (FetchContent); the core, its SDL2 platform backend and Direct3D 9 renderer backend are built into the exe (the level editor's UI) | MIT - below |
+| Dear ImGui 1.91.9b (Omar Cornut) - https://github.com/ocornut/imgui | downloaded at configure time (FetchContent); the core, its SDL3 platform backend and Direct3D 9 renderer backend are built into the exe (the level editor's UI) | MIT - below |
 | Inter 4.1 (The Inter Project Authors) - https://github.com/rsms/inter | downloaded at configure time (FetchContent); Inter-Regular and Inter-SemiBold compressed into the exe (the level editor's UI font) | SIL Open Font License 1.1 - below |
 | JetBrains Mono 2.304 (The JetBrains Mono Project Authors) - https://github.com/JetBrains/JetBrainsMono | downloaded at configure time (FetchContent); JetBrainsMono-Regular compressed into the exe (the level editor's numbers and names) | SIL Open Font License 1.1 - below |
 | Anton (The Anton Project Authors), IBM Plex Mono and IBM Plex Sans (IBM Corp.) - from https://github.com/google/fonts (ofl/anton, ofl/ibmplexmono, ofl/ibmplexsans), 2026-10-26 | tools/pipeline/fonts/*.ttf, copied into the data overlay's frontend\fonts by make_menu_level.ts (the new front end's display, mono and body faces; IBMPlexSans-Regular.ttf is the variable IBMPlexSans[wdth,wght].ttf renamed) | SIL Open Font License 1.1 - tools/pipeline/fonts/OFL-*.txt |
@@ -100,6 +100,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+## SDL3 3.2.30 (Sam Lantinga and contributors) (zlib)
+
+Source: https://github.com/libsdl-org/SDL (release-3.2.30, LICENSE.txt)
+
+```
+Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software
+   in a product, an acknowledgment in the product documentation would be
+   appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
 ```
 
 ## Dear ImGui 1.91.9b (Omar Cornut) (MIT)

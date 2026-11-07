@@ -26,9 +26,9 @@ if (Test-Path -LiteralPath $localJson) {
 $LaunchExeName = 'thug2-decomp.exe'
 # (ours, and the game's own exe started by hand)
 $GameProcessNames = @(@($LaunchExeName) + $GameExeNames | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) })
-# The files of ours a game lock backs up and puts back (those that are there): the exe, its PDB and its D3DX9; an
-# earlier development build's dinput8.dll.
-$DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'd3dx9_43.dll', 'dinput8.dll')
+# The files of ours a game lock backs up and puts back (those that are there): the exe, its PDB, its D3DX9 and SDL3;
+# an earlier development build's dinput8.dll.
+$DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'd3dx9_43.dll', 'SDL3.dll', 'dinput8.dll')
 
 # Each game's marker files / folders (the PowerShell twin of thug2-level-converter-core/lib/install.ts's INSTALLS - keep them the same): any
 # one entry identifies the game's folder; an entry is one or more paths that must all be in it (case doesn't matter on

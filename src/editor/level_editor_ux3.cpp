@@ -3,7 +3,7 @@
 
 #include "editor/level_editor_ux3.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -26,6 +26,7 @@
 #include "editor/level_editor_ui.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
+#include "platform/sdl_time.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -247,7 +248,7 @@ void tick_frame()
     // The Changes list: refreshed when the history moved (a change made, undone or redone), when asked, or a second on
     // (other changes - a save, an autosave restored - don't move the history).
     const size_t key = (undo_history().size() * 1000003U) + redo_history().size();
-    const uint32_t now = SDL_GetTicks();
+    const uint32_t now = platform::ticks_ms();
     if (key != level_editor_ux3_state().history_key_ || level_editor_ux3_state().refresh_asked_ || now - level_editor_ux3_state().changes_at_ > kHistoryRefreshDelay) {
         level_editor_ux3_state().history_key_ = key;
         level_editor_ux3_state().refresh_asked_ = false;

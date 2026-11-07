@@ -44,7 +44,8 @@ constexpr int kMaxPictureSide = 16384;
 
 int default_key(bool snipping_takes_print_screen) { return snipping_takes_print_screen ? kF12 : kPrintScreen; }
 
-int parse_key(const std::string& text, int fallback, const std::function<int(const std::string&)>& by_name)
+int parse_key(const std::string& text, int fallback, const std::function<int(const std::string&)>& by_name,
+              const std::function<int(int)>& by_number)
 {
     const size_t first = text.find_first_not_of(" 	");
     if (first == std::string::npos) {
@@ -57,6 +58,9 @@ int parse_key(const std::string& text, int fallback, const std::function<int(con
             return fallback;
         }
         code = text::to_int(key.c_str());
+        if (by_number) {
+            code = by_number(code);
+        }
     } else if (by_name) {
         code = by_name(key);
     }

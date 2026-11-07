@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <utility>
 #include "engine/ui/menu_reading.h"
 #include "game/front_end/menu_pad_event.h"
@@ -317,7 +317,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
             }
             break;
         case input::EventType::kPadButtonDown:
-            if (menu_mirror().mirror_.get_shown().main_menu_ && widget.pad_button == SDL_CONTROLLER_BUTTON_X) {
+            if (menu_mirror().mirror_.get_shown().main_menu_ && widget.pad_button == SDL_GAMEPAD_BUTTON_WEST) {
                 continue_last_level(front_end);
                 return;
             }
@@ -418,39 +418,39 @@ void handle_key_down(modules::FrontEnd* front_end, const input::Event& widget)
 void handle_button_down(modules::FrontEnd* front_end, const input::Event& widget)
 {
     switch (widget.pad_button) {
-    case SDL_CONTROLLER_BUTTON_DPAD_UP:
+    case SDL_GAMEPAD_BUTTON_DPAD_UP:
         press_direction(front_end, Intake::kUp);
         stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kUp), .wait = kRepeatDelay};
         break;
-    case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
         press_direction(front_end, Intake::kDown);
         stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kDown), .wait = kRepeatDelay};
         break;
-    case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
         press_direction(front_end, Intake::kLeft);
         stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kLeft), .wait = kRepeatDelay};
         break;
-    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
         press_direction(front_end, Intake::kRight);
         stick_repeat().repeat_ = {.direction = static_cast<int>(Intake::kRight), .wait = kRepeatDelay};
         break;
-    case SDL_CONTROLLER_BUTTON_A:
+    case SDL_GAMEPAD_BUTTON_SOUTH:
         run_action(front_end, menu_state().get_press(Intake::kConfirm));
         break;
-    case SDL_CONTROLLER_BUTTON_START:
+    case SDL_GAMEPAD_BUTTON_START:
         // (Start on the pause menu resumes, as the original's; elsewhere it chooses)
         run_action(front_end,
                    menu_state().get_press(menu_state().get_shown() == Screen::kFreeze && menu_state().deepness() <= 1
                                               ? Intake::kBack
                                               : Intake::kConfirm));
         break;
-    case SDL_CONTROLLER_BUTTON_B:
+    case SDL_GAMEPAD_BUTTON_EAST:
         run_action(front_end, menu_state().get_press(Intake::kBack));
         break;
-    case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
         run_action(front_end, menu_state().get_press(Intake::kPrevTab));
         break;
-    case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
         run_action(front_end, menu_state().get_press(Intake::kNextTab));
         break;
     default:
@@ -463,9 +463,9 @@ void handle_stick(modules::FrontEnd* front_end, const input::Event& widget)
 {
     // The left stick as a d-pad: past half way (back inside a third: let go).
     int* axis = nullptr;
-    if (widget.pad_axis == SDL_CONTROLLER_AXIS_LEFTX) {
+    if (widget.pad_axis == SDL_GAMEPAD_AXIS_LEFTX) {
         axis = &stick_repeat().stick_x_;
-    } else if (widget.pad_axis == SDL_CONTROLLER_AXIS_LEFTY) {
+    } else if (widget.pad_axis == SDL_GAMEPAD_AXIS_LEFTY) {
         axis = &stick_repeat().stick_y_;
     }
     if (!axis) {
@@ -520,8 +520,8 @@ void handle_queued(modules::FrontEnd* front_end, const input::Event& widget)
         handle_button_down(front_end, widget);
         return;
     case input::EventType::kPadButtonUp:
-        if (widget.pad_button >= SDL_CONTROLLER_BUTTON_DPAD_UP &&
-            widget.pad_button <= SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+        if (widget.pad_button >= SDL_GAMEPAD_BUTTON_DPAD_UP &&
+            widget.pad_button <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT) {
             stick_repeat().repeat_ = {};
         }
         return;

@@ -3,7 +3,7 @@
 
 #include "editor/level_editor.h"
 #include "engine/pad_input/input_source.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -51,6 +51,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "base/core/checked_index.h"
 #include "base/maths/trig.h"
 #include "editor/level_editor_internal.h"
@@ -100,7 +101,7 @@ bool get_repeated(input::KeyState keys, SDL_Scancode key, uint32_t* since)
         *since = 0;
         return false;
     }
-    const uint32_t now = SDL_GetTicks();
+    const uint32_t now = platform::ticks_ms();
     if (*since == 0U) {
         *since = now;
         return true;

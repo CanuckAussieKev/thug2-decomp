@@ -43,7 +43,7 @@ test("only app/ picks the DirectInput source", () => {
 // The SDL calls that read input devices or the window's events: only the SDL source answers them (the keyboard's
 // state, the mouse, the controllers, the cursor, an event's window) and only the platform pumps the events.
 const SDL_INPUT_READS =
-    /\b(SDL_GetKeyboardState|SDL_GetMouseState|SDL_GetRelativeMouseState|SDL_GameController\w*|SDL_Joystick\w*|SDL_NumJoysticks|SDL_IsGameController|SDL_SetRelativeMouseMode|SDL_ShowCursor|SDL_PollEvent|SDL_GetWindowFromID)\s*\(/;
+    /\b(SDL_GetKeyboardState|SDL_GetMouseState|SDL_GetRelativeMouseState|SDL_\w*Gamepad\w*|SDL_\w*Joystick\w*|SDL_SetWindowRelativeMouseMode|SDL_ShowCursor|SDL_HideCursor|SDL_CursorVisible|SDL_PollEvent|SDL_GetWindowFromID)\s*\(/;
 
 test("the editor, the front end, the game and the engine read input through the seam", () => {
     const readers = including(SDL_INPUT_READS);

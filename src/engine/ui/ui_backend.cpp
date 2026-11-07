@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "base/core/packed_colour.h"
 #include "engine/gfx/renderer.h"
@@ -49,7 +49,7 @@ bool prepare_all()
         return false;
     }
     if (started == render::UiStart::kWindowRefused) {
-        get_log("level editor UI: ImGui's SDL2 backend refused the window");
+        get_log("level editor UI: ImGui's SDL3 backend refused the window");
         return false;
     }
     if (started == render::UiStart::kDeviceRefused) {
