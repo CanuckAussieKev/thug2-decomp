@@ -26,9 +26,8 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   **A 32-bit and a 64-bit build have the same file names, so a build goes IN PLACE of the one in the folder** (the
   folder is never both); the lock backs the same file list up (game_exe.ps1 `$DeployedFiles`), so `release` brings the
   folder back as acquired, whichever machine was deployed. Every exe / DLL is checked to be `-Arch`'s machine (default
-  build folder `out\build\<Arch>-debug`). A 64-bit build can't load binkw32.dll: in a workspace the ini gets
-  `[features] movie_codec=ffmpeg` (release puts the ini back), and it warns when FFmpeg's x64 DLLs
-  (`node tools/ffmpeg/build_ffmpeg.ts --arch x64`) aren't in the build folder. `run_game.ps1 -Arch x86|x64` (and
+  build folder `out\build\<Arch>-debug`). It warns when FFmpeg's DLLs for the build's machine
+  (`node tools/ffmpeg/build_ffmpeg.ts --arch x86|x64`) aren't in the build folder. `run_game.ps1 -Arch x86|x64` (and
   load_check.ps1) starts nothing when the folder's exe is the other machine; without it either runs (a 64-bit one is
   announced). The TypeScript launchers (edit_level.ts, try_spot.ts...) start whatever thug2-decomp.exe is there.
 - **Workspace games are muted:** `game_lock.ps1` acquire, `run_game.ps1` (so load_check and the scenic captures),

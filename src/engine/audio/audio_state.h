@@ -115,7 +115,7 @@ private:
 };
 WadState& wad_state();
 
-// NOT ORIGINAL grouping - the stream files read into memory (0x0069CAD8), their use count and whether Bink's sound is
+// NOT ORIGINAL grouping - the stream files read into memory (0x0069CAD8), their use count and whether the movie sound is
 // set. Made on first use, never destroyed (stream_file_state()).
 class StreamFileState {
 public:

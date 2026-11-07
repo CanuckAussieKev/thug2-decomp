@@ -17,7 +17,7 @@ target_compile_definitions(ffmpeg_headers INTERFACE __STDC_CONSTANT_MACROS)
 
 # The DLLs, built by `node tools/ffmpeg/build_ffmpeg.ts --arch x86` (x64 for a 64-bit build) into out/ffmpeg/<arch>.
 # When they are there, every build copies them next to the exe (and into the game folder with it); without them the
-# exe still builds and runs - movie_codec=ffmpeg then logs that they are missing and plays the movies with Bink.
+# exe still builds and runs - the game then logs that they are missing and has no movies or music / sound streams.
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(THUG2_FFMPEG_ARCH x64)
 else()
@@ -35,5 +35,5 @@ list(LENGTH THUG2_FFMPEG_DLLS THUG2_FFMPEG_DLL_COUNT)
 if(NOT THUG2_FFMPEG_DLL_COUNT EQUAL 4)
     set(THUG2_FFMPEG_DLLS "")
     message(STATUS "FFmpeg's DLLs aren't in ${THUG2_FFMPEG_DIR}/bin (node tools/ffmpeg/build_ffmpeg.ts builds them): "
-                   "movie_codec=ffmpeg will fall back to Bink")
+                   "the game will have no movies or music / sound streams")
 endif()

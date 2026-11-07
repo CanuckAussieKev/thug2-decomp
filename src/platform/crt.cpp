@@ -26,9 +26,9 @@ void* library_function(Dll dll, const char* name)
 {
     HMODULE module = GetModuleHandleA(dll.file);
     if (!module) {
-        // NOT ORIGINAL - the thread's x87 word kept: the DLL's start-up code sets its C runtime's default (binkw32's,
-        // loaded at the first music stream: 53 bits over the device's 24 - base/maths/fpu_precision.h). The original
-        // imported it, loaded before anything ran.
+        // NOT ORIGINAL - the thread's x87 word kept: a DLL's start-up code can set its C runtime's default (the old Bink DLL's,
+        // loaded at the first music stream: 53 bits over the device's 24 - base/maths/fpu_precision.h; FFmpeg's DLLs load
+        // here too). The original imported its DLLs, loaded before anything ran.
         const unsigned int word = maths::fpu_word();
         module = LoadLibraryA(dll.file);
         maths::restore_fpu_word(word);

@@ -30,7 +30,7 @@ constexpr uint16_t kSampleBits = 16;
 constexpr uint32_t kSampleBytes = 2;
 // DSBUFFERDESC's size, as the voices' descriptions give it (engine/sound/sfx_voices.cpp): 0x24 bytes, 0x28 on x64
 constexpr uint32_t kBufferDescBytes = (4 * sizeof(uint32_t)) + sizeof(void*) + 16;
-// The buffer as binkw32 made its own (seen through a stand-in DirectSound object: src/tests/movie_codec_check_sound.cpp):
+// The buffer as binkw32 made its own:
 // volume, pan and frequency controls, the accurate play position (DSBCAPS_GETCURRENTPOSITION2), sound while another
 // window has the focus (DSBCAPS_GLOBALFOCUS); 0.6 seconds of samples, rounded up to 256 sample frames.
 constexpr uint32_t kBufferFlags = 0x000180E0;
@@ -52,7 +52,7 @@ constexpr int kSampleMin = -32768;
 // binkw32's track volume to the buffer's: 32767 (and above) full, then 10000/3 hundredths of a decibel down for each
 // tenfold drop (-10 dB at 3277, -30 dB at 33), rounded, never below silence; its pan: 0 left ... 32768 centre ... 65536
 // right to DirectSound's -10000 ... 10000, in a straight line, the fraction dropped toward the centre. (Both as binkw32
-// sets them for every level and pan: src/tests/movie_codec_check_audio.cpp check_levels.)
+// sets them for every level and pan.)
 constexpr double kAttenuationPerDecade = 10000.0 / 3.0;
 constexpr double kFullVolume = 32767.0;
 constexpr int kPanCentre = 32768;

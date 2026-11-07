@@ -176,7 +176,7 @@ int BinkStream::tick_frame()
         if (!pause_requested_) {
             if (!bink_) {
                 // Reopen where it was paused. (A pcm.wad stream, opened from memory, kept only the file's first four
-                // bytes in from_where_ - "BIKi" - and is reopened from those: no Bink file, and binkw32 refuses it, so
+                // bytes in from_where_ - "BIKi" - and is reopened from those: no Bink file, and the codec refuses it, so
                 // a paused pcm.wad stream stays silent after the pause. The original's own behaviour, kept; FFmpeg's
                 // codec refuses it too, reading no further than the size after the signature - zero.)
                 bink_ = media::movie().open(from_where_.data(), from_memory_ ? kBinkFromMemory : kBinkIoSize);

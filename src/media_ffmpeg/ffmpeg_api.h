@@ -4,7 +4,7 @@
 // Bink demuxer, libavcodec's Bink video (and, for the movies' sound, Bink audio) decoder, libavutil's frames and
 // memory, libswscale's colour conversion. FFmpeg is the LGPL build of FFmpeg 7.1 made by tools/ffmpeg/build_ffmpeg.ts -
 // avformat-61.dll, avcodec-61.dll, avutil-59.dll and swscale-8.dll next to the exe -, loaded by name at run time (no import library is linked: the
-// DLLs stay replaceable, and an exe without them still starts and plays its movies with Bink). Only src/media_ffmpeg
+// DLLs stay replaceable, and an exe without them still starts, with no movies and no music or sound streams). Only src/media_ffmpeg
 // includes FFmpeg's headers (tools/audio_headers.test.ts).
 
 #include <cstdint> // IWYU pragma: keep - before FFmpeg's headers, which need its constant macros in C++

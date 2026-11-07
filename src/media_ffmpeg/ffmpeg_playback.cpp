@@ -532,7 +532,7 @@ void Playback::copy_to(void* bits, FrameCopy copy)
         api_->scale_free_context(converter_);
         // (no scaling: the same size, YUV 4:2:0 to blue, green, red and an unused byte - BINKSURFACE32; binkw32 writes 0
         // there, swscale 255, which the X8R8G8B8 movie texture ignores. The accurate rounding keeps the colours within a
-        // few steps of binkw32's: src/tests/movie_codec_check.cpp)
+        // few steps of binkw32's)
         converter_ = api_->scale_context(columns, rows, static_cast<AVPixelFormat>(frame_->format), columns, rows,
                                          AV_PIX_FMT_BGR0, SWS_POINT | SWS_ACCURATE_RND, nullptr, nullptr, nullptr);
         if (!converter_) {

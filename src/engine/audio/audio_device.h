@@ -3,7 +3,7 @@
 // NOT ORIGINAL - audio::Device: what the engine asks of the sound output. The output is made and released by
 // WinMain; the sound effects' voices (engine/sound/sfx_voices.cpp, the original's PC driver) make, fill, play, stop
 // and set their buffers through it, and place them and the listener in 3D; the graphics device's start-up lists the
-// output devices through it; and the movies' and streams' sound (Bink's own output, played into this output:
+// output devices through it; and the movies' and streams' sound (played into this output:
 // media::Movie, engine/media/movie.h) gets its volume from it. app/ makes it and installs it at start-up
 // (install_device), a run-time choice: DirectSound's (audio_dsound/dsound_device.h), or - with thug2-decomp.ini
 // [features] mute_audio=1 - the muted output over it (muted_device.h: the null output, which plays everything
@@ -13,7 +13,7 @@
 // The grain is a voice (a buffer made, filled, played, stopped, set) or the listener once a voice update; never per
 // sample - the samples are the engine's, copied into a buffer whole. The units are the ones the game computes in:
 // volumes and pans in hundredths of a decibel (DirectSound's: -10000 silent ... 0 full), frequencies in samples a
-// second, Bink's track volume 0 ... 32768.
+// second, the movie tracks' volume 0 ... 32768.
 //
 // The methods keep the order and arguments of the calls they stand for: each DirectSound method is the DirectSound
 // calls the original made at that place, in the same order.
@@ -135,8 +135,8 @@ public:
     // The buffer played on, looping, from where it was stopped; false if it won't play.
     virtual bool resume_buffer(SoundBuffer* buffer) = 0;
 
-    // --- the movies' and streams' sound (Bink's output, into this one) ---
-    // The level a movie's or stream's sound track plays at for the level `volume` the game set (Bink's 0 ... 32768).
+    // --- the movies' and streams' sound (into this one) ---
+    // The level a movie's or stream's sound track plays at for the level `volume` the game set (Bink's 0 ... 32768 scale).
     virtual int track_volume(int volume) = 0;
 
 protected:
