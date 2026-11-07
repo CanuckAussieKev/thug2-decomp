@@ -26,6 +26,7 @@
 #include "editor/level_editor_gui_text.h"
 #include "base/core/no_destroy.h"
 #include "editor/level_editor.h"
+#include "editor/level_editor_ui_app.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -514,9 +515,11 @@ void pane(PaneArea area, PaneState pane_state)
         return;
     }
     update_lists();
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - (kPaneInset * scale), view_y + (kPaneTop * scale)),
-                            ImGuiCond_FirstUseEver, ImVec2(1.0F, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    if (ui::app::place_floating("Triggers###triggers", false)) {
+        ImGui::SetNextWindowPos(ImVec2(view_x + view_width - (kPaneInset * scale), view_y + (kPaneTop * scale)),
+                                ImGuiCond_FirstUseEver, ImVec2(1.0F, 0.0F));
+        ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    }
     bool open = true;
     if (!ImGui::Begin("Triggers###triggers", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();

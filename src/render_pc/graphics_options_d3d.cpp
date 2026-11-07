@@ -63,10 +63,12 @@ void get_release(GpuSurface*& pointer)
     }
 }
 
+// (not while the game view draws into its picture - engine/gfx/game_view.h: its screen copies are drawn directly, the
+// multisampled surface is the window's size)
 bool in_use()
 {
     return device_state().samples_ > 0 && (device_state().scene_colour_ != nullptr) &&
-           (device_state().scene_depth_ != nullptr);
+           (device_state().scene_depth_ != nullptr) && !view_targets_in_use();
 }
 
 } // namespace

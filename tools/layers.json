@@ -92,6 +92,7 @@
                     "src/engine/gfx/engine_parts.h",
                     "src/engine/gfx/engine_scene.h",
                     "src/engine/gfx/engine_scene_list.h",
+                    "src/engine/gfx/game_view.h",
                     "src/engine/gfx/light_manager.h",
                     "src/engine/gfx/light_sets.h",
                     "src/engine/gfx/mesh_formats.h",

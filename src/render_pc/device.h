@@ -56,6 +56,17 @@ GpuSurface* back_buffer_surface();
 GpuSurface* back_depth_surface();
 // Whether the screen copies (create_render_targets' render-target textures) were made: their first surface is set.
 bool screen_copies_made();
+
+// NOT ORIGINAL - the game view (engine/gfx/game_view.h; its frame: render_pc/game_view_frame.h): the frame's targets
+// above made again at the picture's size - the picture (a render-target texture, its level the back buffer), its depth,
+// the screen copies and their depth - in the default pool (released with the device's, before a reset). make: made at
+// `width` x `height` (kept when they already are; false when one can't be made - nothing kept). While in use (from
+// use_view_targets(true) to use_view_targets(false)) the frame's targets and presented_width / height are the picture's.
+bool make_view_targets(uint32_t width, uint32_t height);
+void release_view_targets();
+void use_view_targets(bool on);
+bool view_targets_in_use();
+GpuTexture* view_picture();
 inline constexpr bool kShowWindowFlag{false}; // (the original showed the window maximised / minimised by it)
 
 } // namespace render

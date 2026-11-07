@@ -1,6 +1,7 @@
-// NOT ORIGINAL - the level editor's menu bar (ours; see level_editor_ui_strip.h): File, Edit, View, Tools, Help. Each
-// item is an action of the registry (level_editor_actions.h) with its key as bound now, right-aligned; clicking it runs
-// the action as its key would. Only ImGui's own API and the editor's modules' menu parts here.
+// NOT ORIGINAL - the level editor's menu bar (ours; see level_editor_ui_strip.h): File, Edit, View, Tools, Window, Play,
+// Help. Each item is an action of the registry (level_editor_actions.h) with its key as bound now, right-aligned;
+// clicking it runs the action as its key would. Only ImGui's own API and the editor's modules' menu parts here (the
+// Window menu's panels and layout, and Maximise on Play: level_editor_ui_app.h).
 
 #include "editor/level_editor_ui.h"
 
@@ -14,6 +15,7 @@
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_transform.h"
+#include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_strip.h"
 #include "editor/level_editor_ux8.h"
 #include "base/core/checked_index.h"
@@ -77,8 +79,6 @@ void file_menu()
     get_items({"save", "snapshots"});
     ImGui::Separator();
     get_items({"restore_autosave", "discard_autosave"});
-    ImGui::Separator();
-    get_items({"play", "simulate"});
     ImGui::Separator();
     get_item({.id = "reset_level"});
     ImGui::EndMenu();
@@ -144,10 +144,6 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         get_items({"faster", "slower", "camera_node", "log_camera"});
         ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("Windows")) {
-        get_items({"problems", "trail_window", "arrange_window", "adjust_last", "history", "changes", "snapshots"});
-        ImGui::EndMenu();
-    }
     ImGui::EndMenu();
 }
 
@@ -196,6 +192,31 @@ void tools_menu()
     ImGui::EndMenu();
 }
 
+void window_menu()
+{
+    if (!get_menu("Window")) {
+        return;
+    }
+    app::window_menu_panels();
+    ImGui::Separator();
+    get_items({"problems", "trail_window", "arrange_window", "adjust_last", "history", "changes", "snapshots"});
+    ImGui::Separator();
+    app::window_menu_layout();
+    ImGui::EndMenu();
+}
+
+void play_menu()
+{
+    if (!get_menu("Play")) {
+        return;
+    }
+    get_items({"play", "simulate"});
+    ImGui::Separator();
+    get_item({.id = "trail_window"});
+    app::play_menu();
+    ImGui::EndMenu();
+}
+
 void help_menu()
 {
     if (!get_menu("Help")) {
@@ -217,6 +238,8 @@ void menu_bar(const ShapeMesh& model, const ux8::Fonts& fonts, std::vector<Reque
     edit_menu(fonts);
     view_menu(model, requests);
     tools_menu();
+    window_menu();
+    play_menu();
     help_menu();
 }
 

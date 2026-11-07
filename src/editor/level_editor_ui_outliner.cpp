@@ -16,12 +16,12 @@
 #include "base/core/format.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_overlays.h"
-#include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ux3.h"
 #include "imgui.h"
 #include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "base/core/no_destroy.h"
+#include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_internal.h"
 
 namespace frontend::level_editor::ui {
@@ -342,13 +342,16 @@ namespace internal {
 
 void get_outliner(const ShapeMesh& model)
 {
-    if (!input_routing().layout_.outliner_shown_) {
+    bool* open = app::panel_open(app::Panel::kOutliner);
+    if (!*open) {
+        return;
+    }
+    // (docked: level_editor_ui_app.h)
+    if (!ImGui::Begin("Outliner", open, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::End();
         return;
     }
     update_cache();
-    place_window(input_routing().layout_.outliner);
-    ImGui::Begin("Outliner", nullptr, kPanel);
-    panel_title("Outliner");
     ImGui::SetNextItemWidth(-1.0F);
     // (Select similar on a node asks for its family here - level_editor_ux3.h)
     if (const std::string asked = ux3::take_outliner_search(); !asked.empty()) {

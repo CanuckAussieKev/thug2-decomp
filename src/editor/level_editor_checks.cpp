@@ -55,6 +55,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_app.h"
 #include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::checks {
@@ -1538,9 +1539,11 @@ void pane(PaneArea area, float scale, ImFont* mono)
     if (!level_editor_checks_state().open_) {
         return;
     }
-    ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
-                            ImGuiCond_FirstUseEver, ImVec2(kWindowPivotX, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    if (ui::app::place_floating("Problems###problems", true)) {
+        ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
+                                ImGuiCond_FirstUseEver, ImVec2(kWindowPivotX, 0.0F));
+        ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    }
     bool open = true;
     if (!ImGui::Begin("Problems###problems", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();

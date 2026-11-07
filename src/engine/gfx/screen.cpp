@@ -6,6 +6,7 @@
 
 #include "engine/gfx/screen.h"
 
+#include "engine/gfx/game_view.h"
 #include "engine/gfx/settings.h"
 #include "engine/script/context.h"
 #include "platform/sdl_window.h"
@@ -57,6 +58,22 @@ void set_screen_offset_y(uint32_t y) { renderer().set_screen_offset_y(static_cas
 uint32_t get_back_buffer_width() { return static_cast<uint32_t>(renderer().back_buffer_width()); }
 uint32_t get_back_buffer_height() { return static_cast<uint32_t>(renderer().back_buffer_height()); }
 
+// The screen's shape: the window's (as unsigned numbers). NOT ORIGINAL - the game view's picture's while the frames are
+// drawn into it (engine/gfx/game_view.h: the level editor's Scene panel).
+struct ScreenShape {
+    uint32_t width;
+    uint32_t height;
+};
+ScreenShape screen_shape()
+{
+    if (game_view::on()) {
+        const game_view::Size picture = game_view::size();
+        return {.width = static_cast<uint32_t>(picture.width), .height = static_cast<uint32_t>(picture.height)};
+    }
+    return {.width = static_cast<uint32_t>(sys::get_window_width()),
+            .height = static_cast<uint32_t>(sys::get_window_height())};
+}
+
 } // namespace
 
 // (the skate module's career: engine/gfx/game_hooks.h)
@@ -64,13 +81,11 @@ uint8_t current_level() { return game_hooks().career_level(); }
 
 float desired_aspect_ratio()
 {
-    // (the window's size as unsigned numbers)
-    auto width = static_cast<uint32_t>(sys::get_window_width());
-    auto height = static_cast<uint32_t>(sys::get_window_height());
+    const ScreenShape shape = screen_shape();
     if (current_level() == 0) {
         return kAspectWidth / kAspectHeight;
     }
-    return static_cast<float>(width) / static_cast<float>(height);
+    return static_cast<float>(shape.width) / static_cast<float>(shape.height);
 }
 
 bool& widescreen_menus()
@@ -86,9 +101,8 @@ float desired_3d_aspect_ratio()
     if (!get_front_end_widescreen()) {
         return desired_aspect_ratio();
     }
-    auto width = static_cast<uint32_t>(sys::get_window_width());
-    auto height = static_cast<uint32_t>(sys::get_window_height());
-    return static_cast<float>(width) / static_cast<float>(height);
+    const ScreenShape shape = screen_shape();
+    return static_cast<float>(shape.width) / static_cast<float>(shape.height);
 }
 
 // 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). Originally from PartyMod Fixes: the aspect

@@ -18,9 +18,11 @@
 #include "base/core/no_destroy.h"
 #include "base/core/packed_colour.h"
 #include "base/util/com_ptr.h"
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/ui_backend.h"
 #include "imgui.h"
 #include "platform/run_log.h"
+#include "gpu_d3d9/d3d9_handles.h"
 #include "gpu_d3d9/d3d9_state.h"
 #include "gpu_d3d9/imgui_texture_id.h"
 
@@ -256,6 +258,11 @@ public:
         if (id != 0U) {
             os_layer::imgui_texture_of(id)->Release();
         }
+    }
+
+    [[nodiscard]] UiTextureId texture_id(GpuTexture* texture) override
+    {
+        return texture != nullptr ? get_texture_id(object(texture)) : 0;
     }
 
     bool begin_offscreen(int size, colour::Packed argb_colour) override

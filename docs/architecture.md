@@ -347,6 +347,13 @@ everything above it uses the game's own types and may change them freely.
     device; Vulkan's (`gpu_vulkan/vulkan_ui_backend.cpp`) keeps ImGui's SDL3 backend and draws the lists through the Vulkan `Gpu`. Both layers
     reach it through `engine/ui/ui_backend.h` (`frontend::ui_backend`), which keeps what is the UI's own (whether a
     context is started, the log, the draw data scaled to the back buffer). Only `gpu_d3d9/` and `gpu_vulkan/` (the SDL3 one) include ImGui's backend headers (tools/d3d_headers.test.ts).
+  - The game view (`engine/gfx/game_view.h`): a UI asks, once a frame, for the next frame to be drawn into a picture
+    of a size instead of the window (the level editor's Scene panel). `render_pc/game_view_frame.cpp` switches the
+    frame's targets (`device.cpp`'s view targets: the picture, its depth and the screen copies at its size), the
+    renderer's back buffer size and the 640x480 layout's factors to the picture at the start of `draw_world` and back
+    before `ext::draw_over_frame`; the screen's shape (`render::desired_aspect_ratio`) and the menus' mouse
+    (`menu_reading::window_to_layout`) follow the picture meanwhile; `UiBackend::texture_id` gives ImGui the picture.
+    No request, no change: a frame without one is drawn to the window exactly as before.
   - D3DX: only the backend calls it (`gpu_d3d9/d3dx.cpp`: the pixel shaders' assembly and the front buffer's JPEG).
     Its maths - the vector transforms and the viewing matrices - is plain C++ in `base/maths/view_transforms.h`, the
     same float operations in the same order as the D3DX9 the game ran with (thug2_maths_check compares each with

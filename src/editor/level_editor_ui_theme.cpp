@@ -24,7 +24,7 @@ constexpr float kIndentSpacing = 14.0F;
 constexpr float kScrollbarSize = 12.0F;
 constexpr ImVec2 kBarMinimumWindowSize{4.0F, 4.0F}; // the bars are thinner than ImGui's default minimum
 // The theme's colours: a dark neutral (the accent colour is the user's).
-constexpr ImVec4 kWindowBgColour{0.11F, 0.115F, 0.125F, 0.94F};
+constexpr ImVec4 kWindowBgColour{0.125F, 0.13F, 0.14F, 1.0F}; // (opaque: panels of a window, not over the game)
 constexpr ImVec4 kPopupBgColour{0.12F, 0.125F, 0.135F, 0.98F};
 constexpr ImVec4 kMenuBarBgColour{0.085F, 0.09F, 0.095F, 1.0F};
 constexpr ImVec4 kBorderColour{0.25F, 0.26F, 0.28F, 1.0F};
@@ -36,6 +36,10 @@ constexpr ImVec4 kButtonColour{0.2F, 0.21F, 0.225F, 1.0F};
 constexpr ImVec4 kButtonHoveredColour{0.28F, 0.29F, 0.31F, 1.0F};
 constexpr ImVec4 kTextColour{0.91F, 0.9F, 0.88F, 1.0F};
 constexpr ImVec4 kTextDisabledColour{0.6F, 0.61F, 0.63F, 1.0F};
+constexpr ImVec4 kDockEmptyColour{0.07F, 0.075F, 0.08F, 1.0F};
+constexpr float kDockPreviewAlpha = 0.4F; // the accent where a dragged panel would dock
+constexpr float kTabOverline = 2.0F;      // the selected tab's accent line
+constexpr float kDockSeparator = 3.0F;    // the splitters between docked panels
 constexpr float kHeaderAlpha = 0.35F;        // the accent colour's alpha on a header
 constexpr float kHeaderHoveredAlpha = 0.45F; // and on a hovered header
 
@@ -112,6 +116,25 @@ void apply_style(float scale, std::span<const float, 3> accent_rgb)
     core::at(colours, ImGuiCol_Text) = kTextColour;
     core::at(colours, ImGuiCol_TextDisabled) = kTextDisabledColour;
     core::at(colours, ImGuiCol_NavCursor) = accent;
+    // An application's window (level_editor_ui_app.h): opaque panels, tabs as the panels' title bars, the dock
+    // space's splitters and drop targets in the accent.
+    core::at(colours, ImGuiCol_Tab) = kTitleBgColour;
+    core::at(colours, ImGuiCol_TabHovered) = kButtonHoveredColour;
+    core::at(colours, ImGuiCol_TabSelected) = kWindowBgColour;
+    core::at(colours, ImGuiCol_TabSelectedOverline) = accent;
+    core::at(colours, ImGuiCol_TabDimmed) = kTitleBgColour;
+    core::at(colours, ImGuiCol_TabDimmedSelected) = kWindowBgColour;
+    core::at(colours, ImGuiCol_TabDimmedSelectedOverline) = kBorderColour;
+    core::at(colours, ImGuiCol_DockingPreview) = accent_at(kDockPreviewAlpha);
+    core::at(colours, ImGuiCol_DockingEmptyBg) = kDockEmptyColour;
+    core::at(colours, ImGuiCol_SeparatorHovered) = accent_soft;
+    core::at(colours, ImGuiCol_SeparatorActive) = accent;
+    core::at(colours, ImGuiCol_ResizeGrip) = ImVec4(0.0F, 0.0F, 0.0F, 0.0F);
+    style.TabBorderSize = 0.0F;
+    style.TabBarBorderSize = 1.0F;
+    style.TabBarOverlineSize = kTabOverline;
+    style.DockingSeparatorSize = kDockSeparator;
+    style.WindowMenuButtonPosition = ImGuiDir_None; // (no collapse arrow on the tabs)
     style.ScaleAllSizes(scale);
     // The bars are thinner than ImGui's default minimum window size (32 x 32, scaled): at it the menu bar's window grew
     // down over the tool strip.

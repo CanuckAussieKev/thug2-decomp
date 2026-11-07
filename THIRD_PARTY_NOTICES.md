@@ -9,7 +9,7 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 | PartyMod v1.0.4 (PARTYMANX) - https://github.com/PARTYMANX/partymod-thug2 | moved into the game's source (`src/game/`; each file with its code says so; code doing what PartyMod did is marked "Originally from PartyMod Fixes") - PartyMod's window, input, widescreen, settings and fixes | MIT - below |
 | SDL3 3.2.30 (Sam Lantinga and contributors) - https://github.com/libsdl-org/SDL, release-3.2.30 | downloaded at configure time (FetchContent, SHA-256 checked: the official Visual C++ development package); its SDL3.dll copied next to the exe by the build - the window, the keyboard, the mouse and game controllers | zlib - below |
 | SDL_GameControllerDB, commit 8b2d1a7 (2022-09-06) - https://github.com/mdqinc/SDL_GameControllerDB | gamecontrollerdb.txt, downloaded at configure time and copied into the game folder by the build | zlib - https://github.com/mdqinc/SDL_GameControllerDB/blob/8b2d1a791c8e5004c736e5137699e8e97ae558c5/LICENSE |
-| Dear ImGui 1.91.9b (Omar Cornut) - https://github.com/ocornut/imgui | downloaded at configure time (FetchContent); the core, its SDL3 platform backend and Direct3D 9 renderer backend are built into the exe (the level editor's UI) | MIT - below |
+| Dear ImGui 1.91.9b, docking branch (Omar Cornut) - https://github.com/ocornut/imgui | downloaded at configure time (FetchContent); the core, its SDL3 platform backend and Direct3D 9 renderer backend are built into the exe (the level editor's UI) | MIT - below |
 | Inter 4.1 (The Inter Project Authors) - https://github.com/rsms/inter | downloaded at configure time (FetchContent); Inter-Regular and Inter-SemiBold compressed into the exe (the level editor's UI font) | SIL Open Font License 1.1 - below |
 | JetBrains Mono 2.304 (The JetBrains Mono Project Authors) - https://github.com/JetBrains/JetBrainsMono | downloaded at configure time (FetchContent); JetBrainsMono-Regular compressed into the exe (the level editor's numbers and names) | SIL Open Font License 1.1 - below |
 | Anton (The Anton Project Authors), IBM Plex Mono and IBM Plex Sans (IBM Corp.) - from https://github.com/google/fonts (ofl/anton, ofl/ibmplexmono, ofl/ibmplexsans), 2026-10-26 | tools/pipeline/fonts/*.ttf, copied into the data overlay's frontend\fonts by make_menu_level.ts (the new front end's display, mono and body faces; IBMPlexSans-Regular.ttf is the variable IBMPlexSans[wdth,wght].ttf renamed) | SIL Open Font License 1.1 - tools/pipeline/fonts/OFL-*.txt |
@@ -128,9 +128,9 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-## Dear ImGui 1.91.9b (Omar Cornut) (MIT)
+## Dear ImGui 1.91.9b, docking branch (Omar Cornut) (MIT)
 
-Source: https://github.com/ocornut/imgui (tag v1.91.9b)
+Source: https://github.com/ocornut/imgui (tag v1.91.9b-docking)
 
 ```
 The MIT License (MIT)

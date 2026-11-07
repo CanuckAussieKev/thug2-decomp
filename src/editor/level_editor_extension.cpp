@@ -16,6 +16,7 @@
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
+#include "editor/level_editor_ui_app.h"
 #include "engine/ext/extension.h"
 
 namespace frontend::level_editor {
@@ -46,6 +47,8 @@ public:
         return std::strcmp(key, "level_editor") == 0 ? &is_switched_on() : nullptr;
     }
     bool pass_pause_key(bool down) override { return level_editor::pass_pause_key(down); }
+    // (playing in the Scene panel: the game's keys and controller only while the panel has the focus)
+    bool blocks_game_input() override { return !live_now() && ui::app::blocks_game_input(); }
 
     void before_draw_world() override { tick_frame(); }
     // (any viewport: the editor takes the first camera it is given while it runs)

@@ -47,6 +47,12 @@ bool take_resume(Resume* resume, int level_load);
 // Once a frame from the front end's input logic while the editor isn't running (its extension): the pause menu
 // closed after leaving, the play key in play.
 void tick_frame(modules::FrontEnd* front_end);
+// Whether the game plays from here now: the editor was left by play from here in this level load (and the way back
+// is kept), the editor isn't running, the level and its skater are up - the editor's window shows the game in its
+// Scene panel meanwhile (level_editor_ui_app.h).
+bool playing(int level_load);
+// The way back asked for from the window's Play menu: as the play key in play (the next tick_frame).
+void ask_return();
 
 // What the key does in play (pure): the play key pressed, and whether it's allowed (in a level, the skater there, not
 // paused, the editor offered here).

@@ -182,6 +182,11 @@ in career / story, classic, the park editor or network games).
 - **Learning it:** F1 lists every key; **Ctrl+Space** (or F3) searches every action; the status bar shows what the
   mouse and keys do at that moment. Every key is rebindable (Preferences > Keys, saved in `[editor_keys]` of the ini).
   The full list of controls and the editor's modules is at the top of `src/editor/level_editor.h`.
+- **The window:** while the editor is open the game is the **Scene** panel, drawn at the panel's size, with the
+  Outliner, the Inspector and the other windows docked around it - drag a tab to move, split, tab or float a panel;
+  **Window > Reset Layout** puts them back. The layout is kept in `Game\thug2-decomp-editor.ini`. Play from here (F5)
+  plays in the Scene panel (**Play > Maximise on Play** gives it the whole window); F5 goes back to editing. With the
+  editor closed the game fills the window as ever.
 - **Edited copies:** edits never change a shipped level. Saving (Ctrl+S) writes the level's layout,
   `Game\thug2-decomp-layouts\<scene>.txt` (plain text, one record per line), and the level select then has a separate
   entry, **EDITED LEVELS (OFFLINE)** > "<LEVEL> (EDITED)". Layouts are never applied online. Unsaved work is autosaved

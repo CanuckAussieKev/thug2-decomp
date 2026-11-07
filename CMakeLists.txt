@@ -84,13 +84,13 @@ set_target_properties(d3dx9 PROPERTIES
     IMPORTED_LOCATION "${THUG2_D3DX9_NATIVE}/release/bin/${THUG2_ARCH}/D3DX9_43.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${THUG2_D3DX9_NATIVE}/include")
 
-# --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
+# --- Dear ImGui 1.91.9b, its docking branch (MIT, see THIRD_PARTY_NOTICES.md) ----------------------------
 # Our UI layers (the level editor's src/editor/level_editor_ui*.cpp, the new front end's src/frontend/new_frontend*.cpp):
 # the core (imgui), and the official SDL3 platform backend with the Direct3D 9 renderer backend (imgui_backends: the
 # graphics backend's - only gpu_d3d9/d3d9_ui_backend.cpp includes their headers; render::UiBackend).
 FetchContent_Declare(imgui
-    URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz
-    URL_HASH SHA256=8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb
+    URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b-docking.tar.gz
+    URL_HASH SHA256=466fdef9b18de15f0bb6e288e3d00ffa3d82200ec458ce5e4f724a161d9528a5
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(imgui)
 add_library(imgui STATIC

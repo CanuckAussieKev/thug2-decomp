@@ -19,7 +19,7 @@ namespace ext {
 
 // The API's version: raised with every change a plugin sees (a THUG2_API function's signature, a class or struct a
 // plugin uses, the extension points). A plugin built for another version is not loaded.
-inline constexpr uint32_t kPluginApiVersion = 1;
+inline constexpr uint32_t kPluginApiVersion = 2;
 
 // The build a plugin must match: the same compiler (C++ has no common ABI between compilers, nor between MSVC's debug
 // and release libraries), the same pointer size.

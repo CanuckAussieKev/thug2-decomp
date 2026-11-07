@@ -51,6 +51,7 @@ constexpr int kPauseMenuFrames = 10;     // (the pause menu up this long before 
 // (level_editor_play_state()).
 struct LevelEditorPlayState {
     bool requested_{};
+    bool return_asked_{}; // (the Play menu's Stop Playing)
     bool have_resume_{};
     int resume_load_ = -1;
     Resume resume_{};
@@ -118,6 +119,15 @@ bool take_resume(Resume* resume, int level_load)
     return true;
 }
 
+bool playing(int level_load)
+{
+    const LevelEditorPlayState& state = level_editor_play_state();
+    return state.have_resume_ && state.resume_load_ == level_load && !level_editor::live_now() &&
+           render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
+}
+
+void ask_return() { level_editor_play_state().return_asked_ = true; }
+
 void tick_frame(modules::FrontEnd* front_end)
 {
     if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0) {
@@ -125,8 +135,9 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     const input::KeyState keys = input::keys();
     const bool down = get_key_down(keys);
-    const bool pressed = down && play_start().key_up_;
+    const bool pressed = (down && play_start().key_up_) || level_editor_play_state().return_asked_;
     play_start().key_up_ = !down;
+    level_editor_play_state().return_asked_ = false;
     const bool paused = (front_end != nullptr) && front_end->is_halted();
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     switch (play_start().phase_) {

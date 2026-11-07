@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include "base/core/api.h"
 #include "base/core/packed_colour.h"
 #include "engine/gfx/ui_backend.h"
@@ -23,7 +24,7 @@ namespace frontend::ui_backend {
 // The backends started on the game's window and device (once; false - logged - while either is missing or a
 // backend refuses). An ImGui context must be current.
 THUG2_API bool prepare_all();
-bool get_ready();
+THUG2_API bool get_ready();
 // An SDL event for ImGui (true: ImGui used it).
 THUG2_API bool process_event(const SDL_Event* event);
 // The frame's start (before ImGui::NewFrame): the platform backend (window size, time, cursor) and the renderer
@@ -36,6 +37,10 @@ THUG2_API void render();
 THUG2_API void invalidate_device_objects();
 // The window's size in pixels (ImGui's display size) and the back buffer's.
 THUG2_API void window_size(int* width, int* height);
+// The window's title, and a new one (the level editor names itself and its level while it is open); "" / nothing
+// before the window is made.
+THUG2_API std::string window_title();
+THUG2_API void set_window_title(const std::string& title);
 // Where a width and a height go.
 struct SizeOut {
     int* width{};

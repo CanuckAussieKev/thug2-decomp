@@ -16,24 +16,21 @@
 #include <array>
 #include <vector>
 #include "editor/level_editor.h"
-#include "editor/level_editor_entities.h"
 #include "editor/level_editor_budget.h"
-#include "editor/level_editor_cameras.h"
-#include "editor/level_editor_goals.h"
 #include "editor/level_editor_hints.h"
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_notes.h"
 #include "editor/level_editor_ux9.h"
 #include "base/core/format.h"
-#include "editor/level_editor_clusters.h"
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_overlays.h"
+#include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_triggers.h"
-#include "editor/level_editor_thumbs.h"
 #include "editor/level_editor_transform.h"
 #include "engine/ui/ui_backend.h"
+#include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ui_strip.h"
 #include "editor/level_editor_ui_theme.h"
@@ -42,6 +39,7 @@
 #include "editor/level_editor_view.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "base/core/no_destroy.h"
@@ -69,8 +67,6 @@ constexpr float kToolbarFramePaddingY = 3.0F;
 constexpr float kPreviewBasePixels = 256.0F; // the preview image's size at scale 1...
 constexpr int kPreviewMinPixels = 256; // ...and its limits
 constexpr int kPreviewMaxPixels = 512;
-constexpr float kTextBackPadding = 3.0F; // the padding behind an overlay text
-constexpr float kTextBackRounding = 3.0F;
 
 // Colours.
 constexpr ImVec4 kWallNameColour{1.0F, 0.35F, 0.9F, 1.0F};
@@ -408,24 +404,25 @@ namespace {
 
 // --- the panels ---
 
-// The menu bar over the tool strip (level_editor_ui_strip.h).
+// The window's menu bar, then the tool strip across the window under it (level_editor_ui_strip.h).
 void get_toolbar(const ShapeMesh& model)
 {
-    place_window(input_routing().layout_.menu);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0F, 0.0F));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
-    ImGui::Begin("##menubar", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar);
-    ImGui::PopStyleVar(2);
-    if (ImGui::BeginMenuBar()) {
+    if (ImGui::BeginMainMenuBar()) {
         menu_bar(model, ux8_fonts(), &input_routing().requests_);
-        ImGui::EndMenuBar();
+        ImGui::EndMainMenuBar();
     }
-    ImGui::End();
-
-    place_window(input_routing().layout_.strip);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(kBarPaddingX * imgui_setup().scale_, kBarPaddingY * imgui_setup().scale_));
-    ImGui::Begin("##toolstrip", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
+    const bool shown = ImGui::BeginViewportSideBar("##toolstrip", ImGui::GetMainViewport(), ImGuiDir_Up,
+                                                   input_routing().layout_.strip.height, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
+    if (!shown) {
+        ImGui::End();
+        return;
+    }
+    input_routing().layout_.strip = {.x = ImGui::GetWindowPos().x,
+                                     .y = ImGui::GetWindowPos().y,
+                                     .width = ImGui::GetWindowSize().x,
+                                     .height = ImGui::GetWindowSize().y};
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(kToolbarFramePaddingX * imgui_setup().scale_, kToolbarFramePaddingY * imgui_setup().scale_));
     ui_strip::State state;
     state.selection = std::strcmp(model.mode, "FLYING") != 0 && std::strcmp(model.mode, "ADD") != 0;
@@ -534,6 +531,7 @@ bool kickoff()
         io.IniFilename = nullptr; // (nothing written to the game folder)
         io.LogFilename = nullptr;
         io.ConfigWindowsMoveFromTitleBarOnly = true;
+        app::prepare_context(); // (docking on, the layout read: thug2-decomp-editor.ini - level_editor_ui_app.h)
         imgui_setup().created_ = true;
     }
     if (!ui_backend::prepare_all()) {
@@ -554,12 +552,23 @@ bool kickoff()
 
 void halt()
 {
+    if (imgui_setup().running_) {
+        app::save_layout(true);
+    }
     imgui_setup().running_ = false;
     input_routing().ui_buttons_ = input_routing().editor_buttons_ = 0;
     input_routing().want_mouse_ = input_routing().want_keys_ = false;
 }
 
 void device_lost() { ui_backend::invalidate_device_objects(); }
+
+namespace {
+
+// Whether a point of the window is on the Scene panel and the panel has the mouse (nothing over it, no popup open):
+// the editor's viewport (level_editor_ui_app.h).
+bool over_scene(float x, float y) { return app::scene_hovered() && ui_layout::get_holds(app::scene_rect(), x, y); }
+
+} // namespace
 
 bool route_event(const input::Event& event, bool editor_capture)
 {
@@ -570,7 +579,7 @@ bool route_event(const input::Event& event, bool editor_capture)
         input_routing().mouse_x_ = x;
         input_routing().mouse_y_ = y;
         return ui_layout::decide(
-            {.ui_wants_mouse_ = input_routing().want_mouse_, .ui_wants_keyboard_ = input_routing().want_keys_, .over_panel_ = ui_layout::on_panel(input_routing().layout_, x, y), .editor_capture_ = editor_capture || input_routing().editor_buttons_ != 0});
+            {.ui_wants_mouse_ = input_routing().want_mouse_, .ui_wants_keyboard_ = input_routing().want_keys_, .over_panel_ = !over_scene(x, y), .editor_capture_ = editor_capture || input_routing().editor_buttons_ != 0});
     };
     switch (event.type) {
     case input::EventType::kMouseMotion: {
@@ -633,7 +642,7 @@ bool mouse_to_editor()
         return true;
     }
     return ui_layout::decide(
-               {.ui_wants_mouse_ = input_routing().want_mouse_, .ui_wants_keyboard_ = input_routing().want_keys_, .over_panel_ = ui_layout::on_panel(input_routing().layout_, input_routing().mouse_x_, input_routing().mouse_y_), .editor_capture_ = input_routing().editor_buttons_ != 0})
+               {.ui_wants_mouse_ = input_routing().want_mouse_, .ui_wants_keyboard_ = input_routing().want_keys_, .over_panel_ = !over_scene(input_routing().mouse_x_, input_routing().mouse_y_), .editor_capture_ = input_routing().editor_buttons_ != 0})
         .mouse_to_editor_;
 }
 
@@ -657,49 +666,10 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     ui_backend::new_frame();
     ImGui::NewFrame();
     const ImGuiIO& io = ImGui::GetIO();
+    // (the bars' heights; the panels are docked - level_editor_ui_app.h)
     input_routing().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, imgui_setup().scale_, true, true);
-    // The lines and gizmos under the panels (back buffer pixels to the window's).
-    int back_width = 0;
-    int back_height = 0;
-    ui_backend::back_buffer_size({.width = &back_width, .height = &back_height});
-    const float sx = back_width > 0 ? io.DisplaySize.x / static_cast<float>(back_width) : 1.0F;
-    const float sy = back_height > 0 ? io.DisplaySize.y / static_cast<float>(back_height) : 1.0F;
-    ImDrawList* background = ImGui::GetBackgroundDrawList();
-    for (const Overlay::Triangle& triangle : overlay.under) {
-        background->AddTriangleFilled(ImVec2(triangle.ax * sx, triangle.ay * sy),
-                                      ImVec2(triangle.bx * sx, triangle.by * sy),
-                                      ImVec2(triangle.cx * sx, triangle.cy * sy), get_colour(triangle.argb));
-    }
-    for (const Seg& line : overlay.lines) {
-        background->AddLine(ImVec2(line.ax * sx, line.ay * sy), ImVec2(line.bx * sx, line.by * sy),
-                            get_colour(line.argb), line.thickness * imgui_setup().scale_);
-    }
-    for (const Overlay::Triangle& triangle : overlay.triangles) {
-        background->AddTriangleFilled(ImVec2(triangle.ax * sx, triangle.ay * sy),
-                                      ImVec2(triangle.bx * sx, triangle.by * sy),
-                                      ImVec2(triangle.cx * sx, triangle.cy * sy), get_colour(triangle.argb));
-    }
-    for (const Overlay::Circle& circle : overlay.circles) {
-        if (circle.filled) {
-            background->AddCircleFilled(ImVec2(circle.x * sx, circle.y * sy), circle.radius * sx,
-                                        get_colour(circle.argb));
-        } else {
-            background->AddCircle(ImVec2(circle.x * sx, circle.y * sy), circle.radius * sx, get_colour(circle.argb), 0,
-                                  circle.thickness * imgui_setup().scale_);
-        }
-    }
-    if (imgui_setup().mono_) {
-        for (const Overlay::OverlayText& text : overlay.texts) {
-            const ImVec2 at(text.x * sx, text.y * sy);
-            const ImVec2 size = imgui_setup().mono_->CalcTextSizeA(imgui_setup().mono_->FontSize,
-                                                                             1e9F, 0.0F, text.text.c_str());
-            background->AddRectFilled(ImVec2(at.x - kTextBackPadding, at.y - 1.0F),
-                                      ImVec2(at.x + size.x + kTextBackPadding, at.y + size.y + 1.0F),
-                                      IM_COL32(16, 17, 19, 170), kTextBackRounding);
-            background->AddText(imgui_setup().mono_, imgui_setup().mono_->FontSize, at,
-                                get_colour(text.argb), text.text.c_str());
-        }
-    }
+    app::note_playing(false);
+    app::set_window_title(model.level_title_.empty() ? model.level : model.level_title_);
     ImGui::PushFont(imgui_setup().ui_);
     {
         ux3::Fonts fonts;
@@ -719,9 +689,15 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
         ux3::note_settings(settings);
     }
     get_toolbar(model);
+    status_bar(model);
+    app::dock_space(imgui_setup().scale_);
+    // The Scene panel: the game's frame with the lines and gizmos over it (back buffer pixels to the window's); the
+    // floating tools place themselves over it.
+    app::scene_panel(&overlay, {.mono = imgui_setup().mono_, .scale = imgui_setup().scale_});
+    input_routing().layout_.viewport = app::scene_rect();
+
     get_outliner(model);
     get_inspector(model);
-    status_bar(model);
     get_browser(model);
     get_help(model);
     autosave_offer(model);
@@ -750,8 +726,85 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     ImGui::PopFont();
     ImGui::Render();
     ui_backend::render();
-    input_routing().want_mouse_ = io.WantCaptureMouse;
+    // (over the Scene panel the editor has the mouse, as it had the viewport - ImGui wants it over any window)
+    input_routing().want_mouse_ = io.WantCaptureMouse && !app::scene_hovered();
     input_routing().want_keys_ = io.WantCaptureKeyboard;
+    app::save_layout(false);
+}
+
+void play_frame(bool playing)
+{
+    const bool started = app::note_playing(playing);
+    if (!playing) {
+        if (imgui_setup().created_ && !imgui_setup().running_) {
+            app::set_window_title({}); // (the window's own title back once the editor and its play are over)
+        }
+        return;
+    }
+    if (!imgui_setup().created_ || imgui_setup().running_ || !ui_backend::get_ready()) {
+        return;
+    }
+    if (started) {
+        get_log("level editor UI: playing in the Scene panel");
+    }
+    update_scale();
+    ui_backend::new_frame();
+    ImGui::NewFrame();
+    const ImGuiIO& io = ImGui::GetIO();
+    input_routing().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, imgui_setup().scale_, true, true);
+    ImGui::PushFont(imgui_setup().ui_);
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("Play")) {
+            if (ImGui::MenuItem("Stop Playing", "F5")) {
+                perform::ask_return();
+            }
+            ImGui::Separator();
+            app::play_menu();
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Window")) {
+            app::window_menu();
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(kBarPaddingX * imgui_setup().scale_, kBarPaddingY * imgui_setup().scale_));
+    if (ImGui::BeginViewportSideBar("##status", ImGui::GetMainViewport(), ImGuiDir_Down,
+                                   input_routing().layout_.status.height, kPanel | ImGuiWindowFlags_NoScrollbar)) {
+        ImGui::PushFont(imgui_setup().small_);
+        ImGui::TextUnformatted("Playing");
+        ImGui::SameLine();
+        get_muted("F5  Back to the editor");
+        ImGui::PopFont();
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
+    app::dock_space(imgui_setup().scale_);
+    app::scene_panel(nullptr, {.mono = imgui_setup().mono_, .scale = imgui_setup().scale_});
+    // (the other panels say so - or stand aside: Window > Maximise on Play)
+    if (!app::maximised_on_play()) {
+        for (const app::Panel panel : {app::Panel::kOutliner, app::Panel::kInspector}) {
+            bool* open = app::panel_open(panel);
+            if (!*open) {
+                continue;
+            }
+            if (ImGui::Begin(panel == app::Panel::kOutliner ? "Outliner" : "Inspector", open, ImGuiWindowFlags_NoCollapse)) {
+                get_muted("Playing - F5 to edit");
+            }
+            ImGui::End();
+        }
+    }
+    ImGui::PopFont();
+    ImGui::Render();
+    ui_backend::render();
+    app::save_layout(false);
+}
+
+void play_event(const input::Event& event)
+{
+    if (imgui_setup().created_ && !imgui_setup().running_ && ui_backend::get_ready()) {
+        ui_backend::process_event(event.native);
+    }
 }
 
 } // namespace frontend::level_editor::ui

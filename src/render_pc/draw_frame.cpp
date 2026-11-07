@@ -23,6 +23,7 @@
 #include "base/maths/mat4.h"
 #include "engine/gfx/view_cam.h"
 #include "render_pc/draw2d.h"
+#include "render_pc/game_view_frame.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_imposters.h"
 #include "engine/gfx/engine_primitive.h"
@@ -745,6 +746,10 @@ void draw_world()
     ext::before_draw_world();
     renderer().count_frame(); // frames rendered
     if (!engine_parts().loading_screen_up()) { // (nothing while the device is lost)
+        // Not original - the game view (engine/gfx/game_view.h; the level editor's Scene panel): the frame drawn into
+        // the picture asked for, at its size, instead of the window.
+        // Original behaviour: the frame is drawn to the window.
+        game_view_frame::begin();
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
@@ -778,6 +783,9 @@ void draw_world()
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
         draw_2d_with_black_bars();
+        // Not original - the game view: the window drawn to again (what the extensions draw over the frame - the
+        // level editor's UI, its Scene panel showing the picture - goes to the window).
+        game_view_frame::end();
         // Not original - the extensions (engine/ext/extension.h; the level editor: the hovered and selected objects
         // outlined over everything; then the new front end - [features] new_frontend - over everything while it's up
         // in the front end).

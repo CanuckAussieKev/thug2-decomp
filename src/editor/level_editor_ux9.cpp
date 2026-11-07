@@ -29,6 +29,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_app.h"
 #include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::ux9 {
@@ -225,13 +226,15 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     if (goal_form().stage_ != Stage::kForm) {
         return;
     }
-    ImGui::SetNextWindowPos(
-        ImVec2(view_x + view_width - (kPanelRightInset * scale), view_y + (kPanelTopOffset * scale)),
-        ImGuiCond_Appearing, ImVec2(1.0F, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * scale, 0.0F), ImGuiCond_Appearing);
     bool open = true;
     const std::string title =
         (goal_form().editing_ ? "Ground piece " + goal_form().draft_.name : std::string("Raise / lower ground")) + "###groundForm";
+    if (ui::app::place_floating(title.c_str(), false)) {
+        ImGui::SetNextWindowPos(
+            ImVec2(view_x + view_width - (kPanelRightInset * scale), view_y + (kPanelTopOffset * scale)),
+            ImGuiCond_Appearing, ImVec2(1.0F, 0.0F));
+        ImGui::SetNextWindowSize(ImVec2(kPanelWidth * scale, 0.0F), ImGuiCond_Appearing);
+    }
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open) {

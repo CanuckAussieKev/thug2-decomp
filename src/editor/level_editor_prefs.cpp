@@ -221,7 +221,7 @@ void pane(float scale, PaneFonts fonts)
                             ImVec2(kHalf, kHalf));
     ImGui::SetNextWindowSize(ImVec2(kPrefsWidth * scale, 0.0F), ImGuiCond_Appearing);
     if (!ImGui::Begin("Preferences###editorprefs", &level_editor_prefs_state().open_,
-                      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
+                      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking)) {
         ImGui::End();
         return;
     }
@@ -368,7 +368,8 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     ImGui::SetNextWindowSize(ImVec2(kTipsWidth * scale, 0.0F), ImGuiCond_Appearing);
     bool open = true;
     ImGui::Begin("Level Editor###editortips", &open,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+                     ImGuiWindowFlags_NoDocking);
     if (heading) {
         ImGui::PushFont(heading);
     }

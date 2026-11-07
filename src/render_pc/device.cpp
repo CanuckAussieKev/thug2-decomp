@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 #include <array>
 
 #include "engine/audio/audio_device.h"
@@ -75,17 +76,40 @@ struct FrameTargets {
     GpuSurface* back_buffer_{};
 };
 
-FrameTargets& frame_targets()
+// NOT ORIGINAL - the game view's targets (engine/gfx/game_view.h): the frame's targets again at the picture's size -
+// the picture (a render-target texture, whose level is the back buffer), its depth, the screen copies and their depth -
+// used in place of the device's while a frame is drawn into the picture (use_view_targets).
+struct ViewTargets {
+    FrameTargets targets;
+    GpuTexture* picture_{};
+    uint32_t width_{};
+    uint32_t height_{};
+    bool in_use_{};
+};
+
+ViewTargets& view_targets()
+{
+    static core::NoDestroy<ViewTargets> state;
+    return state.get();
+}
+
+FrameTargets& device_targets()
 {
     static core::NoDestroy<FrameTargets> state;
     return state.get();
 }
 
+// The targets the frame is drawn through: the device's, or the game view's while it draws into its picture.
+FrameTargets& frame_targets() { return view_targets().in_use_ ? view_targets().targets : device_targets(); }
+
 } // namespace
 
-uint32_t presented_width() { return gpu_context().settings().width; }
+uint32_t presented_width() { return view_targets().in_use_ ? view_targets().width_ : gpu_context().settings().width; }
 
-uint32_t presented_height() { return gpu_context().settings().height; }
+uint32_t presented_height()
+{
+    return view_targets().in_use_ ? view_targets().height_ : gpu_context().settings().height;
+}
 
 bool device_made() { return gpu_context().device_made(); }
 
@@ -317,6 +341,7 @@ long create_device(maths::PixelSize size, bool hardware_vertices, bool multisamp
 // 0x004D7AF0
 void release_render_targets()
 {
+    release_view_targets(); // (NOT ORIGINAL: the game view's - engine/gfx/game_view.h)
     auto& gfx = renderer();
     frame_targets().back_buffer_ = nullptr;
     frame_targets().back_depth_ = nullptr;
@@ -405,6 +430,88 @@ void create_render_targets()
     }
     apply_render_state();
 }
+
+bool make_view_targets(uint32_t width, uint32_t height)
+{
+    ViewTargets& view = view_targets();
+    if (view.in_use_) {
+        return false;
+    }
+    if (view.picture_ && view.width_ == width && view.height_ == height) {
+        return true;
+    }
+    release_view_targets();
+    const GpuSettings made = gpu_context().settings();
+    FrameTargets& targets = view.targets;
+    bool ok = gpu().create_texture({.width = width,
+                                    .height = height,
+                                    .levels = 1,
+                                    .usage = gpu_value::kUsageRenderTarget,
+                                    .format = gpu_value::kFormatX8R8G8B8,
+                                    .pool = gpu_value::kPoolDefault},
+                                   &view.picture_) == gpu_value::kResultOk &&
+              gpu().texture_surface(view.picture_, 0, &targets.back_buffer_) == gpu_value::kResultOk;
+    const GpuSurfaceDesc depth = {.width = width,
+                                  .height = height,
+                                  .format = made.depth_format,
+                                  .samples = 0,
+                                  .quality = 0,
+                                  .lockable_or_discard = true};
+    ok = ok && gpu().create_depth_surface(depth, &targets.back_depth_) == gpu_value::kResultOk;
+    ok = ok && gpu().create_depth_surface(depth, &targets.z_buffer_) == gpu_value::kResultOk;
+    // The screen copies at the picture's size: full size twice, then a quarter, an eighth and a sixteenth, as the
+    // device's (create_render_targets).
+    static const std::array<uint32_t, kScreenCopyCount> kDivisors = {{1, 1, 4, 4, 4, 8, 8, 16, 16}};
+    for (std::size_t i = 0; ok && i < kScreenCopyCount; ++i) {
+        const uint32_t divisor = core::at(kDivisors, i);
+        ok = gpu().create_texture({.width = std::max(1U, width / divisor),
+                                   .height = std::max(1U, height / divisor),
+                                   .levels = 1,
+                                   .usage = gpu_value::kUsageRenderTarget,
+                                   .format = gpu_value::kFormatX8R8G8B8,
+                                   .pool = gpu_value::kPoolDefault},
+                                  &core::at(targets.screen_textures_, i)) == gpu_value::kResultOk &&
+             gpu().texture_surface(core::at(targets.screen_textures_, i), 0, &core::at(targets.screen_surfaces_, i)) ==
+                 gpu_value::kResultOk;
+    }
+    if (!ok) {
+        release_view_targets();
+        return false;
+    }
+    view.width_ = width;
+    view.height_ = height;
+    return true;
+}
+
+void release_view_targets()
+{
+    ViewTargets& view = view_targets();
+    view.in_use_ = false;
+    FrameTargets& targets = view.targets;
+    for (std::size_t i = 0; i < kScreenCopyCount; ++i) {
+        if (core::at(targets.screen_surfaces_, i)) {
+            gpu().release_surface(core::at(targets.screen_surfaces_, i));
+        }
+        if (core::at(targets.screen_textures_, i)) {
+            gpu().release_texture(core::at(targets.screen_textures_, i));
+        }
+    }
+    for (GpuSurface* surface : {targets.z_buffer_, targets.back_depth_, targets.back_buffer_}) {
+        if (surface) {
+            gpu().release_surface(surface);
+        }
+    }
+    if (view.picture_) {
+        gpu().release_texture(view.picture_);
+    }
+    view = ViewTargets{};
+}
+
+void use_view_targets(bool on) { view_targets().in_use_ = on && view_targets().picture_ != nullptr; }
+
+bool view_targets_in_use() { return view_targets().in_use_; }
+
+GpuTexture* view_picture() { return view_targets().picture_; }
 
 // 0x004D7B60
 void load_gamma()

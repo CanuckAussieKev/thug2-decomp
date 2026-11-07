@@ -364,6 +364,8 @@ public:
         }
     }
 
+    [[nodiscard]] UiTextureId texture_id(GpuTexture* texture) override { return texture != nullptr ? id_of(texture) : 0; }
+
     bool begin_offscreen(int size, colour::Packed argb_colour) override
     {
         if (offscreen_.active || size <= 0 || !device_ready() || !make_target(&offscreen_, size, "off-screen target") ||

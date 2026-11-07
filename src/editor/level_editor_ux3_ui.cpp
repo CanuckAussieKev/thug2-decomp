@@ -35,6 +35,7 @@
 #include "base/core/no_destroy.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_ui_layout.h"
+#include "editor/level_editor_ui_app.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -144,8 +145,10 @@ bool begin_floating(const char* title, bool* open, FloatingPlace place)
 {
     const auto pos = place.pos;
     const auto size = place.size;
-    ImGui::SetNextWindowPos(pos, ImGuiCond_Appearing);
-    ImGui::SetNextWindowSize(size, ImGuiCond_Appearing);
+    if (ui::app::place_floating(title, true)) { // (the log-type windows: the bottom strip the first time)
+        ImGui::SetNextWindowPos(pos, ImGuiCond_Appearing);
+        ImGui::SetNextWindowSize(size, ImGuiCond_Appearing);
+    }
     return ImGui::Begin(title, open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 }
 
@@ -215,7 +218,7 @@ void get_palette()
     ImGui::SetNextWindowSize(ImVec2(kPaletteWidth * ui_scale(), 0.0F));
     ImGui::Begin("Command Search###ux3palette", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_AlwaysAutoResize);
+                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking);
     if (!level_editor_ux3_ui_state().palette_was_open_) {
         core::at(level_editor_ux3_ui_state().query_, 0) = 0;
         level_editor_ux3_ui_state().highlight_ = 0;

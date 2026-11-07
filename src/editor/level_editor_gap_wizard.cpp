@@ -28,6 +28,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_app.h"
 #include "base/core/no_destroy.h"
 #include "base/maths/trig.h"
 
@@ -462,9 +463,11 @@ void pane(PaneArea area, float scale)
     if (!level_editor_gap_wizard_state().form_open_) {
         return;
     }
-    ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
-                            ImGuiCond_Appearing, ImVec2(kWindowPivotX, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_Appearing);
+    if (ui::app::place_floating("Gap Wizard###gapWizard", false)) {
+        ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
+                                ImGuiCond_Appearing, ImVec2(kWindowPivotX, 0.0F));
+        ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_Appearing);
+    }
     bool open = true;
     if (!ImGui::Begin("Gap Wizard###gapWizard", &open,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {

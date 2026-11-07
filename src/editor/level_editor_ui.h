@@ -22,16 +22,17 @@ struct Fonts;
 // the HUD made of the game's screen elements (level_editor_hud.h - hard to read, no tables or fields, 90 characters a
 // line). Inter for the UI, JetBrains Mono for numbers, names and checksums, both compressed into the exe
 // (engine/ui/ui_fonts.h) and sized for the window (1280 x 720 up to 4K: level_editor_ui_layout.h).
-//   - A menu bar across the top (File, Edit, View, Tools, Help - level_editor_ui_menus.cpp) over a tool strip of the
-//     core controls (level_editor_ui_strip.h: the mode, the transform tool, Snap, the pick filter, the level, Problems),
-//     the Outliner on the left (search, family chips, the tree), the Inspector on the right, a status bar across the
-//     bottom (the selection, the message line, the keys for what you're doing, the camera); the help (F1), the piece
-//     browser (B) and the autosave offer as windows over the view.
-//   - Gizmos and lines (rails, the move arrows, boxes, the ground marker, the nodes' gizmos) are drawn through ImGui's
-//     background draw list, projected to the screen - never with the renderer's own calls (the renderer-independence
+//   - An application window (level_editor_ui_app.h): a menu bar across the top (File, Edit, View, Tools, Window, Play,
+//     Help - level_editor_ui_menus.cpp) over a tool strip of the core controls (level_editor_ui_strip.h: the mode, the
+//     transform tool, Snap, the pick filter, the level, Problems), a status bar across the bottom (the selection, the
+//     message line, the keys for what you're doing, the camera), and between them a dock space: the Scene panel (the
+//     game's frame), the Outliner (search, family chips, the tree), the Inspector, the log-type windows; the help (F1),
+//     the piece browser (B) and the autosave offer as windows over the Scene panel.
+//   - Gizmos and lines (rails, the move arrows, boxes, the ground marker, the nodes' gizmos) are drawn through the Scene
+//     panel's draw list, projected to the screen - never with the renderer's own calls (the renderer-independence
 //     rules: engine/ui/ui_backend.h).
-//   - Input: over a panel (or while ImGui holds the mouse or wants the keyboard) ImGui gets it; in the viewport the
-//     editor's camera, picking and keys work as before (level_editor_ui_layout.h's Decide).
+//   - Input: over another panel (or while ImGui holds the mouse or wants the keyboard) ImGui gets it; over the Scene
+//     panel the editor's camera, picking and keys work as before (level_editor_ui_layout.h's Decide).
 //   - Drawn after the game's 2D pass, where the editor draws (render::draw_world -> level_editor::Blit); nothing is drawn
 //     and nothing runs while the editor is closed. Device lost / reset (alt-tab): frame_loop::reset_device_if_lost drops
 //     ImGui's device objects first (device_lost), the next frame makes them again; a new window size re-sizes the fonts.
@@ -361,7 +362,14 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
 // The preview picture's size in pixels for the window's size now (256 at 1280 x 720, up to 512).
 int preview_pixels();
 
-// The frame (level_editor::Blit): the overlay (under the panels), the panels from the model, drawn.
+// The frame (level_editor::Blit): the bars, the dock space, the Scene panel with the overlay over the game's frame
+// (level_editor_ui_app.h), the panels from the model, drawn.
 void tick_cycle(const ShapeMesh& model, const Overlay& overlay);
+// The frame while the editor isn't running (level_editor::Blit): while the game plays from it (`playing` -
+// level_editor_play.h) its window shows the game in the Scene panel - the menu bar's Play and Window menus, a status
+// line, the other panels idle; once it no longer plays, the window's own title back and nothing drawn.
+void play_frame(bool playing);
+// An input event while the game plays in the Scene panel (the editor not running): ImGui's (the game reads it too).
+void play_event(const input::Event& event);
 
 } // namespace frontend::level_editor::ui

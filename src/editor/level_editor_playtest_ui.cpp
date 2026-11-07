@@ -16,6 +16,7 @@
 #include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "editor/level_editor.h"
+#include "editor/level_editor_ui_app.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -176,8 +177,11 @@ void pane(float scale, PaneFonts fonts)
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kWindowLeft, io.DisplaySize.y * kWindowTop), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    if (ui::app::place_floating("Trails###editortrail", true)) {
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kWindowLeft, io.DisplaySize.y * kWindowTop),
+                                ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    }
     bool open = true;
     if (!ImGui::Begin("Trails###editortrail", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();

@@ -29,6 +29,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_app.h"
 #include "base/core/no_destroy.h"
 
 namespace frontend::level_editor::notes {
@@ -573,11 +574,13 @@ void pane(PaneArea area, float scale)
         text::format_to(level_editor_notes_state().edit_text_, "%s", note->text.c_str());
         level_editor_notes_state().edit_for_ = note->name;
     }
-    ImGui::SetNextWindowPos(ImVec2(view_x + (kPaneInset * scale), view_y + view_height - (kPaneInset * scale)),
-                            ImGuiCond_FirstUseEver, ImVec2(0.0F, 1.0F));
-    ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
     bool open = true;
     const std::string title = "Note " + note->name + "###noteWindow";
+    if (ui::app::place_floating(title.c_str(), false)) {
+        ImGui::SetNextWindowPos(ImVec2(view_x + (kPaneInset * scale), view_y + view_height - (kPaneInset * scale)),
+                                ImGuiCond_FirstUseEver, ImVec2(0.0F, 1.0F));
+        ImGui::SetNextWindowSize(ImVec2(kPaneWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
+    }
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         if (!open) {

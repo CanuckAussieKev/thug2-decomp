@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "base/core/packed_colour.h"
+#include "engine/gfx/gpu_handles.h"
 
 struct ImDrawData;
 struct SDL_Window;
@@ -77,6 +78,8 @@ public:
     virtual UiTextureId create_texture(int width, int height, UiPixelLayout format, const void* data,
                                        UiRowLayout row_layout) = 0;
     virtual void release_texture(UiTextureId id) = 0;
+    // A render-target texture the renderer drew (the game view's picture: engine/gfx/game_view.h) as ImGui's id for it.
+    [[nodiscard]] virtual UiTextureId texture_id(GpuTexture* texture) = 0;
 
     // --- the pictures the renderer draws for the UI ---
     // The preview: a square colour target of `size` pixels with its own depth surface, made on first use (again when

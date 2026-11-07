@@ -22,6 +22,7 @@
 #include "editor/level_editor_ui_theme.h"
 #include "editor/level_editor_ux3.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "editor/level_editor_ui_internal.h"
@@ -68,10 +69,19 @@ namespace internal {
 
 void status_bar(const ShapeMesh& model)
 {
-    place_window(input_routing().layout_.status);
+    // (a bar across the bottom of the window, under the dock space)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(kBarPaddingX * imgui_setup().scale_, kBarPaddingY * imgui_setup().scale_));
-    ImGui::Begin("##status", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
+    const bool shown = ImGui::BeginViewportSideBar("##status", ImGui::GetMainViewport(), ImGuiDir_Down,
+                                                   input_routing().layout_.status.height, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
+    if (!shown) {
+        ImGui::End();
+        return;
+    }
+    input_routing().layout_.status = {.x = ImGui::GetWindowPos().x,
+                                      .y = ImGui::GetWindowPos().y,
+                                      .width = ImGui::GetWindowSize().x,
+                                      .height = ImGui::GetWindowSize().y};
     // Right: unsaved, the changes, the camera (elided before the hints are crowded out).
     std::array<char, kStatusRightSize> right{};
     const std::string view = view_cam::get_standing(); // (an ortho view, orbiting - level_editor_camera.h)
@@ -99,7 +109,8 @@ void get_help(const ShapeMesh& model)
     ImGui::SetNextWindowSize(ImVec2(kHelpWidth * imgui_setup().scale_, io.DisplaySize.y * kHelpHeightFraction));
     bool open = true;
     ImGui::Begin("Keyboard Shortcuts", &open,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoDocking);
     // (the first-run tips again, the preferences - level_editor_prefs.h)
     if (ImGui::SmallButton("Show Tips")) {
         prefs::show_tips();
@@ -267,7 +278,7 @@ void get_browser(const ShapeMesh& model)
     text::format_to(title, "Add Piece (%d)###browser", static_cast<int>(model.browser_items_->size()));
     ImGui::Begin(title.data(), &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+                     ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoDocking);
     browser_preview(model);
     for (int tab = 0; tab < 2; ++tab) {
         if (tab != 0) {
@@ -410,7 +421,8 @@ void get_place(const ShapeMesh& model)
     ImGui::SetNextWindowSize(ImVec2(kPlaceWidth * imgui_setup().scale_, 0.0F));
     bool open = true;
     ImGui::Begin("Place Node###place", &open,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoDocking);
     ImGui::SetNextItemWidth(-1.0F);
     ImGui::InputTextWithHint("##placesearch", "Search\xE2\x80\xA6", place_search().data(), sizeof(place_search()));
     const std::vector<ShapeMesh::PlaceView::TableRow>& entries = model.place.entries;

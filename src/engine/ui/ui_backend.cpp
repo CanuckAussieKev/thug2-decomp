@@ -6,6 +6,7 @@
 #include "engine/ui/ui_backend.h"
 
 #include <cstdint>
+#include <string>
 
 #include <SDL3/SDL.h>
 
@@ -126,6 +127,20 @@ void window_size(int* width, int* height)
     *width = *height = 0;
     if (SDL_Window* window = sys::sdl_window()) {
         SDL_GetWindowSize(window, width, height);
+    }
+}
+
+std::string window_title()
+{
+    SDL_Window* window = sys::sdl_window();
+    const char* title = window ? SDL_GetWindowTitle(window) : nullptr;
+    return title ? title : "";
+}
+
+void set_window_title(const std::string& title)
+{
+    if (SDL_Window* window = sys::sdl_window()) {
+        SDL_SetWindowTitle(window, title.c_str());
     }
 }
 

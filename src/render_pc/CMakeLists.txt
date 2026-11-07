@@ -15,6 +15,7 @@ add_library(thug2_render_pc STATIC
     loading_bar.cpp
     loading_console_panel.cpp
     draw_frame.cpp
+    game_view_frame.cpp
     wireframe.cpp
     view_mode.cpp
     billboard_quad.cpp

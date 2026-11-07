@@ -12,6 +12,7 @@
 #include "base/core/down_cast.h"
 #include "base/maths/trig.h"
 #include "base/maths/vec2.h"
+#include "engine/gfx/game_view.h"
 #include "engine/gfx/renderer.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
@@ -256,6 +257,17 @@ bool window_to_layout(const ScreenMapping& mapping, float window_x, float window
     if (mapping.window_width_ <= 0 || mapping.window_height_ <= 0 || mapping.back_buffer_width_ == 0 ||
         mapping.back_buffer_height_ == 0 || mapping.scale_x_ == 0.0F || mapping.scale_y_ == 0.0F) {
         return false;
+    }
+    // NOT ORIGINAL - the game view (engine/gfx/game_view.h: the frame drawn into a picture the level editor shows in
+    // a panel): the window's point on the picture, then the picture's layout conversion.
+    if (render::game_view::PicturePoint picture; render::game_view::window_to_picture(window_x, window_y, &picture)) {
+        const render::game_view::LayoutMap map = render::game_view::layout_map();
+        if (map.scale_x == 0.0F || map.scale_y == 0.0F) {
+            return false;
+        }
+        *layout_x = static_cast<float>((picture.x - map.offset_x) / map.scale_x);
+        *layout_y = static_cast<float>((picture.y - map.offset_y) / map.scale_y);
+        return true;
     }
     // Window -> back buffer (the window may be scaled to show it), then back buffer -> layout (the inverse of
     // back buffer = layout * scale + offset).

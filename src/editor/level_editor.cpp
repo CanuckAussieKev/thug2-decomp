@@ -47,6 +47,7 @@
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
+#include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8.h"
 #include "editor/level_editor_ux9.h"
@@ -212,6 +213,7 @@ void read_window_size(uint32_t window_id)
 void handle_event(const input::Event& event)
 {
     if (!editor_session().active_) {
+        ui::play_event(event); // (playing in the Scene panel: its menus - level_editor_ui_app.h)
         return;
     }
     // (the UI first: over a panel, or while it wants the keys, the event is its own - level_editor_ui.h)
@@ -674,12 +676,19 @@ void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const 
         return;
     }
     const Lens lens = lens_for({.angle_degrees_ = angle, .aspect = aspect});
+    // (the frame drawn into the Scene panel's picture: the view where the picture is in the window's back buffer, so
+    // the editor's projections, the mouse and the overlay stay in the window's pixels - level_editor_ui_app.h)
+    std::array<uint32_t, 4> rect = {core::at(viewport, 0), core::at(viewport, 1), core::at(viewport, 2), core::at(viewport, 3)};
+    if (ui::app::PictureOrigin origin; ui::app::picture_origin(&origin)) {
+        core::at(rect, 0) += static_cast<uint32_t>(std::lround(origin.x));
+        core::at(rect, 1) += static_cast<uint32_t>(std::lround(origin.y));
+    }
     if (debug_enabled() && !drawn_view().have_view_) {
-        get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", core::at(viewport, 0), core::at(viewport, 1), core::at(viewport, 2),
-                core::at(viewport, 3), angle, aspect);
+        get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", core::at(rect, 0), core::at(rect, 1), core::at(rect, 2),
+                core::at(rect, 3), angle, aspect);
     }
     drawn_view().lens_ = lens;
-    std::ranges::copy(viewport, drawn_view().viewport_.begin());
+    std::ranges::copy(rect, drawn_view().viewport_.begin());
     drawn_view().have_view_ = true;
 }
 
@@ -724,7 +733,12 @@ void tick_frame()
 
 void blit()
 {
-    if (!editor_session().active_ || !drawn_view().have_view_ || !render::device().device_made()) {
+    if (!editor_session().active_) {
+        // (play from here: the game in the Scene panel while it plays - level_editor_ui_app.h)
+        ui::play_frame(render::device().device_made() && perform::playing(layout::level_loads()));
+        return;
+    }
+    if (!drawn_view().have_view_ || !render::device().device_made()) {
         return;
     }
     const TickCycle frame = fly_camera().frame();

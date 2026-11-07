@@ -32,6 +32,7 @@
 #include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "base/core/checksums.h"
+#include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_internal.h"
 #include "base/maths/trig.h"
 
@@ -589,12 +590,15 @@ namespace internal {
 
 void get_inspector(const ShapeMesh& model)
 {
-    if (!input_routing().layout_.inspector_shown_) {
+    bool* open = app::panel_open(app::Panel::kInspector);
+    if (!*open) {
         return;
     }
-    place_window(input_routing().layout_.inspector);
-    ImGui::Begin("Inspector", nullptr, kPanel);
-    panel_title("Inspector");
+    // (docked: level_editor_ui_app.h)
+    if (!ImGui::Begin("Inspector", open, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::End();
+        return;
+    }
     const ShapeMesh::Selection& selection = model.selection;
     if (model.nodes.node_only_) {
         inspect_node(model);

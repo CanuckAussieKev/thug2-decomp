@@ -16,6 +16,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_ui_app.h"
 #include "base/core/no_destroy.h"
 
 namespace frontend::level_editor {
@@ -81,8 +82,10 @@ void pane(float ui_scale)
     if (!settings.window) {
         return;
     }
-    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * ui_scale, 0.0F), ImGuiCond_Appearing);
-    ImGui::SetNextWindowPos(ImVec2(kPanelPosX * ui_scale, kPanelPosY * ui_scale), ImGuiCond_FirstUseEver);
+    if (ui::app::place_floating("Arrange###arrange", false)) {
+        ImGui::SetNextWindowSize(ImVec2(kPanelWidth * ui_scale, 0.0F), ImGuiCond_Appearing);
+        ImGui::SetNextWindowPos(ImVec2(kPanelPosX * ui_scale, kPanelPosY * ui_scale), ImGuiCond_FirstUseEver);
+    }
     if (!ImGui::Begin("Arrange###arrange", &settings.window,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
