@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/core/api.h"
 #include "base/maths/vec4.h"
 
 namespace maths {
@@ -15,7 +16,7 @@ public:
     QuatRotation* init_from_axis_angle(const Vec4& axis, float angle);
     // 0x0042E1F0 (a constructor: returns this): the rotation of `matrix` (its upper 3x3): from its trace when that's
     // positive, else from its largest diagonal element.
-    QuatRotation* from_matrix(const Mat4& matrix);
+    THUG2_API QuatRotation* from_matrix(const Mat4& matrix);
     // 0x00420140: this = this * q (the roundings where the original stores).
     QuatRotation& operator*=(const QuatRotation& other);
     // 0x00420B50: `v` turned by this rotation (this * (v, 1) * conjugate), into `out` (w: what the product leaves).
@@ -25,7 +26,7 @@ public:
     QuatRotation* make_unit(float length);
     // 0x0042BC40 (rigidbody_math.cpp): the rotation matrix (the upper 3x3 of `out`; the rest untouched) - scaled by
     // 2 / the squared length (0 for a zero or not-a-number quaternion). Returns out.
-    Mat4* fetch_mat(Mat4* out) const;
+    THUG2_API Mat4* fetch_mat(Mat4* out) const;
 
     // The four components as an array of floats (for the APIs that take one), as Vec4::data().
     float* data() { return &x; }

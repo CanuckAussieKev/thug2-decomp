@@ -6,6 +6,7 @@
 
 #include <gsl/pointers>
 #include <array>
+#include "base/core/api.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "base/core/enum_ops.h"
@@ -114,7 +115,7 @@ public:
     // 0x0044E4E0: whether the network mode bits (+0, bits 2-3) are set: 1 or 0.
     [[nodiscard]] int is_network_game() const;
     // 0x0044E4F0: whether a network game is on: in network mode, with a server or client app that isn't local.
-    bool in_net_game();
+    THUG2_API bool in_net_game();
 
     // NOT ORIGINAL: the level select's name for `level` (a load script), in THUG2's list or the ported levels' -
     // get_map_name's lookup for any level (null if none).

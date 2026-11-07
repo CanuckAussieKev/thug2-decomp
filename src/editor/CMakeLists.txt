@@ -1,6 +1,10 @@
-# The level editor (src/editor): the in-game level editor and its Dear ImGui UI - an extension the app registers
-# (ext::Extension); its own exe will link it too. It includes the game and below (tools/layers.ts checks it).
-add_library(thug2_editor STATIC
+# The level editor (src/editor): the in-game level editor and its Dear ImGui UI, a plugin -
+# plugins\thug2-level-editor.dll next to the exe, which loads it at start-up (engine/ext/plugin.h) and puts its
+# extension (ext::Extension) at the editor's place in the extension order. It includes the game and below
+# (tools/layers.ts checks it) and calls them in the exe: the functions marked THUG2_API (base/core/api.h) and Dear
+# ImGui's, through the exe's import library (tools/plugin_api.ts checks that the exe exports what the plugin imports).
+add_library(thug2_editor SHARED
+    level_editor_plugin.cpp
     level_editor.cpp
     level_editor_api.cpp
     level_editor_frame.cpp
@@ -105,5 +109,27 @@ add_library(thug2_editor STATIC
     level_editor_arrange_ui.cpp
     level_editor_links.cpp
 )
-# imgui: the editor's UI (level_editor_ui_theme.h includes it)
-target_link_libraries(thug2_editor PUBLIC thug2_game imgui)
+set_target_properties(thug2_editor PROPERTIES OUTPUT_NAME thug2-level-editor
+                                              RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins")
+# (its headers' THUG2_API: imported)
+target_compile_definitions(thug2_editor PRIVATE THUG2_PLUGIN)
+# The game's headers and below, compiled against but not linked (their code is the exe's: thug2, its import
+# library); imgui_import: the editor's UI (level_editor_ui_theme.h includes it), ImGui's API in the exe; SDL3: the
+# clipboard and the clock (the same SDL3.dll as the exe's).
+target_link_libraries(thug2_editor PRIVATE $<COMPILE_ONLY:thug2_game> thug2 imgui_import sdl3)
+# The build checks the exe's exports against what the plugin imports (tools/plugin_api.ts), when Node is found.
+find_program(THUG2_NODE node)
+if(THUG2_NODE)
+    add_custom_command(TARGET thug2_editor POST_BUILD
+        COMMAND "${THUG2_NODE}" "${CMAKE_SOURCE_DIR}/tools/plugin_api.ts" --exe $<TARGET_FILE:thug2>
+                --plugin $<TARGET_FILE:thug2_editor> --imgui $<TARGET_FILE:imgui>
+        COMMENT "Checking the exe's exports against the level editor plugin's imports")
+endif()
+# Into the game folder's plugins folder with the exe (THUG2_DEPLOY_DIR: the root CMakeLists.txt).
+if(EXISTS "${THUG2_DEPLOY_DIR}")
+    add_custom_command(TARGET thug2_editor POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${THUG2_DEPLOY_DIR}/plugins"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2_editor> $<TARGET_PDB_FILE:thug2_editor>
+                "${THUG2_DEPLOY_DIR}/plugins"
+        COMMENT "Copying thug2-level-editor.dll into ${THUG2_DEPLOY_DIR}/plugins")
+endif()

@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <string>
 
+#include "base/core/api.h"
+
 namespace modules {
 struct FrontEnd;
 }
@@ -54,7 +56,7 @@ namespace frontend::begin_level {
 constexpr std::size_t kLoadPrefixLength = 5;
 
 // The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there).
-const char* get_requested();
+THUG2_API const char* get_requested();
 bool edit_requested();
 // Once a frame from the front end's input logic (its extension).
 void tick_frame(modules::FrontEnd* front_end);

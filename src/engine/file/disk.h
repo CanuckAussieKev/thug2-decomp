@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/all_ones.h"
 
 // NOT ORIGINAL - fs::Disk: the operating system's files, by path - the one place the game's code reaches them. Under
@@ -179,7 +180,7 @@ protected:
 };
 
 // The disk app/ installed.
-Disk& disk();
+THUG2_API Disk& disk();
 // app/'s start-up, before any of the original's code runs.
 void install_disk(Disk& disk);
 

@@ -6,6 +6,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/param_struct.h"
@@ -351,15 +352,15 @@ struct SpawnSetup {
     bool pause_with_object_ = false;
 };
 // 0x00475420 / 0x00475670: spawn `name` (a C function is just called, with a temporary script; returns null).
-Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup = {});
+THUG2_API Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup = {});
 Script* spawn_script(const char* name, Struct* params, const SpawnSetup& setup = {});
 // 0x004756C0: delete `script` if it's spawned.
 void kill_spawned_script(Script* script);
 // 0x00475790 / 0x004758F0: run `name` to the end now (a C function / member function is just called); `name`
 // (the string) isn't used. With `replicate_flag` in a network game, the other players are told (0x00473350).
-void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag,
+THUG2_API void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag,
                    const char* name_string);
-void launch_script(const char* name, Struct* params, objects::Entity* object, bool replicate_flag);
+THUG2_API void launch_script(const char* name, Struct* params, objects::Entity* object, bool replicate_flag);
 // 0x004752F0: one Update of `name`, then its parameters are added to `results` (not checked for null).
 void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Struct* results);
 // 0x00473420: the network message for SpawnScript (0x49).
@@ -368,7 +369,7 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
 void pause_spawned_scripts(bool pause);
 void resume_child_script(Script* script);
 // 0x00472DE0: whether `name` is a script. 0x00472E00: `script`'s spawn id (0 if not spawned).
-bool script_exists(uint32_t name);
+THUG2_API bool script_exists(uint32_t name);
 uint32_t get_spawn_id(Script* script);
 // 0x00472E20: the spawned script with spawn id `id`, or null.
 Script* look_up_spawned_script(uint32_t id);

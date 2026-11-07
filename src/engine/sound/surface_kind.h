@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include "base/core/api.h"
 #include "base/maths/vec4.h"
 
 namespace maths {
@@ -46,7 +47,7 @@ static_assert(sizeof(SoundInfo) == kSoundInfoBytes && offsetof(SoundInfo, checks
 
 // 0x004442C0: the index of the terrain `checksum` (one that isn't a terrain type reads address 0: a crash, as the
 // original).
-uint8_t get_terrain_index(uint32_t checksum);
+THUG2_API uint8_t get_terrain_index(uint32_t checksum);
 // 0x00444310: the action (TA_*) of the sound table `table` (an unknown table reads address 8: a crash).
 uint32_t get_table_action(uint8_t table);
 // 0x00444360: the checksum of the terrain with index `terrain` (0 if there's none).

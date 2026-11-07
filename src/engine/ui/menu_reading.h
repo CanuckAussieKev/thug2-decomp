@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "base/core/api.h"
 #include "base/maths/vec2.h"
 
 namespace frontend {
@@ -31,7 +32,7 @@ struct WindowSize {
     int width;
     int height;
 };
-ScreenMapping current_mapping(WindowSize window);
+THUG2_API ScreenMapping current_mapping(WindowSize window);
 // False (nothing written) when a size or scale is 0.
 bool window_to_layout(const ScreenMapping& mapping, float window_x, float window_y, float* layout_x, float* layout_y);
 

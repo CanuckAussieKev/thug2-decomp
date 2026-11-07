@@ -1,12 +1,11 @@
-# The app (src/app): the composition root, which may include every layer. Two exes share it:
-# - thug2-decomp.exe (target thug2), the game built from this source, with the new front end, the level editor and the
-#   dev tools;
-# - thug2-editor.exe (target thug2-editor), the level editor on the engine and the game: no new front end, no dev tools
-#   (tools/cmake_layers.ts checks it reaches neither). -edit <level> starts it in the editor in that level.
-# Both run from the game folder of the player's own THUG2 install (its Data folder): README.md "Building and
-# running".
-# What they share - WinMain, the start-up, the main loop, the command and component tables - is the object library
-# thug2_app; each exe adds its own extensions (app/extensions.h: extensions.cpp, editor_extensions.cpp).
+# The app (src/app): the composition root, which may include every layer but the level editor's:
+# - thug2-decomp.exe (target thug2), the game built from this source, with the new front end and the dev tools. It
+#   runs from the game folder of the player's own THUG2 install (its Data folder): README.md "Building and running".
+# - The level editor is a plugin (src/editor: plugins\thug2-level-editor.dll, engine/ext/plugin.h) the exe loads at
+#   start-up when it is there; the exe exports the engine API it calls (the functions marked THUG2_API,
+#   base/core/api.h, and Dear ImGui's) - ENABLE_EXPORTS: thug2-decomp.lib, the import library the plugin links.
+# WinMain, the start-up, the main loop, the command and component tables are the object library thug2_app; the exe
+# adds its extensions (app/extensions.h: extensions.cpp, the editor's slot without the plugin: no_editor.cpp).
 add_library(thug2_app OBJECT
     main.cpp
     component_types.cpp
@@ -30,23 +29,14 @@ endif()
 
 add_executable(thug2 WIN32
     extensions.cpp
+    no_editor.cpp
 )
-set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
+set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp ENABLE_EXPORTS ON)
 # Every layer, highest first (the libraries bring the system and third-party libraries they need).
-target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_editor thug2_devtools thug2_game thug2_render_pc thug2_gpu_d3d9
+target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_devtools thug2_game thug2_render_pc thug2_gpu_d3d9
                                     thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                     thug2_script_qb thug2_engine
                                     thug2_wire thug2_formats thug2_platform thug2_base)
-
-add_executable(thug2-editor WIN32
-    editor_extensions.cpp
-)
-set_target_properties(thug2-editor PROPERTIES OUTPUT_NAME thug2-editor)
-# The editor, the game and below - not the new front end, not the dev tools.
-target_link_libraries(thug2-editor PRIVATE thug2_app thug2_editor thug2_game thug2_render_pc thug2_gpu_d3d9
-                                           thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
-                                           thug2_script_qb thug2_engine
-                                           thug2_wire thug2_formats thug2_platform thug2_base)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL3.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
@@ -61,23 +51,46 @@ if(THUG2_FFMPEG_DLLS)
         COMMENT "Copying FFmpeg's DLLs next to thug2-decomp.exe")
 endif()
 
-# THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
-# (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
-# install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as thug2-level-converter-core/lib/install.ts).
-# When it exists, every build copies the exe, its PDB and the DLLs above into it.
-set(THUG2_DEPLOY_DIR "${THUG2_GAME_DIR}")
-function(thug2_is_game_folder dir out)
-    if(EXISTS "${dir}/THUG2.exe" OR EXISTS "${dir}/Data/pre/qb_scripts.prx")
-        set(${out} TRUE PARENT_SCOPE)
-    else()
-        set(${out} FALSE PARENT_SCOPE)
+# The C runtime's DLLs (the C runtime is a DLL: the root CMakeLists.txt): a Release build copies the ones the exe and
+# the plugin import - the Visual C++ redistributable's files, from the compiler's own redist folder - next to the exe,
+# so the game needs no runtime installed. (The Universal C Runtime, ucrtbase.dll, is part of Windows. A Debug build
+# uses the debug runtime Visual Studio installs: for this machine only.)
+set(THUG2_RUNTIME_DLLS "")
+if(MSVC)
+    set(redist_root "$ENV{VCToolsRedistDir}")
+    if(NOT redist_root)
+        # (.../VC/Tools/MSVC/<version>/bin/Host<arch>/<arch>/cl.exe -> .../VC/Redist/MSVC/<version>)
+        get_filename_component(tools_version_dir "${CMAKE_CXX_COMPILER}/../../../.." ABSOLUTE)
+        get_filename_component(tools_version "${tools_version_dir}" NAME)
+        get_filename_component(redist_root "${tools_version_dir}/../../../Redist/MSVC/${tools_version}" ABSOLUTE)
     endif()
-endfunction()
-thug2_is_game_folder("${THUG2_DEPLOY_DIR}" THUG2_AT_TOP)
-thug2_is_game_folder("${THUG2_DEPLOY_DIR}/Game" THUG2_IN_GAME)
-if(NOT THUG2_AT_TOP AND THUG2_IN_GAME)
-    set(THUG2_DEPLOY_DIR "${THUG2_DEPLOY_DIR}/Game")
+    file(GLOB redist_crt LIST_DIRECTORIES TRUE "${redist_root}/${THUG2_ARCH}/Microsoft.VC*.CRT")
+    set(runtime_names vcruntime140.dll msvcp140.dll)
+    if(THUG2_ARCH STREQUAL "x64")
+        list(APPEND runtime_names vcruntime140_1.dll)
+    endif()
+    foreach(name IN LISTS runtime_names)
+        if(redist_crt AND EXISTS "${redist_crt}/${name}")
+            list(APPEND THUG2_RUNTIME_DLLS "${redist_crt}/${name}")
+        endif()
+    endforeach()
+    list(LENGTH runtime_names wanted)
+    list(LENGTH THUG2_RUNTIME_DLLS found)
+    if(NOT found EQUAL wanted)
+        set(THUG2_RUNTIME_DLLS "")
+        message(STATUS "The Visual C++ runtime's DLLs aren't in ${redist_root}/${THUG2_ARCH}: a Release build won't "
+                       "copy them next to the exe (the game then needs the Visual C++ redistributable installed)")
+    endif()
 endif()
+if(THUG2_RUNTIME_DLLS)
+    add_custom_command(TARGET thug2 POST_BUILD
+        COMMAND "$<$<NOT:$<CONFIG:Debug>>:${CMAKE_COMMAND};-E;copy_if_different;${THUG2_RUNTIME_DLLS};$<TARGET_FILE_DIR:thug2>>"
+        COMMAND_EXPAND_LISTS
+        COMMENT "Copying the C runtime's DLLs next to thug2-decomp.exe (a Release build)")
+endif()
+
+# When the game folder exists (THUG2_DEPLOY_DIR: the root CMakeLists.txt), every build copies the exe, its PDB and
+# the DLLs above into it.
 if(EXISTS "${THUG2_DEPLOY_DIR}")
     add_custom_command(TARGET thug2 POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2> $<TARGET_PDB_FILE:thug2> "${THUG2_DEPLOY_DIR}"
@@ -90,7 +103,10 @@ if(EXISTS "${THUG2_DEPLOY_DIR}")
             COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THUG2_FFMPEG_DLLS} "${THUG2_DEPLOY_DIR}"
             COMMENT "Copying FFmpeg's DLLs into ${THUG2_DEPLOY_DIR}")
     endif()
-    add_custom_command(TARGET thug2-editor POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2-editor> $<TARGET_PDB_FILE:thug2-editor> "${THUG2_DEPLOY_DIR}"
-        COMMENT "Copying thug2-editor.exe into ${THUG2_DEPLOY_DIR}")
+    if(THUG2_RUNTIME_DLLS)
+        add_custom_command(TARGET thug2 POST_BUILD
+            COMMAND "$<$<NOT:$<CONFIG:Debug>>:${CMAKE_COMMAND};-E;copy_if_different;${THUG2_RUNTIME_DLLS};${THUG2_DEPLOY_DIR}>"
+            COMMAND_EXPAND_LISTS
+            COMMENT "Copying the C runtime's DLLs into ${THUG2_DEPLOY_DIR} (a Release build)")
+    endif()
 endif()

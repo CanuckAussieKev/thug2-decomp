@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -51,18 +52,18 @@ bool is_within(EmitterNode& node, const maths::Vec4* point);
 
 // 0x004681A0: `point` itself when it's inside, else the shape's nearest point (the box's surface, the
 // sphere's). The other shape leaves `out` as it was (the original copies its uninitialised locals).
-maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::Vec4* point);
+THUG2_API maths::Vec4* nearest_point_on(EmitterNode& node, maths::Vec4* out, const maths::Vec4* point);
 
 // 0x004680E0: the emitter named `name` (null if none).
-EmitterNode* emitter_get_node(uint32_t name);
+THUG2_API EmitterNode* emitter_get_node(uint32_t name);
 // 0x004682B0: every emitter freed and taken out of the table.
 void emitter_cleanup();
 // 0x00468340: the emitter named `name` made active or not.
-void emitter_set_active(checksums::Name emitter, int active);
+THUG2_API void emitter_set_active(checksums::Name emitter, int active);
 // 0x004683B0: the table made (16 buckets), or emptied if there is one.
 void emitter_init();
 // 0x00468450: an emitter for the level node `name`, from its parameters.
-void emitter_add_node(uint32_t name, bool active);
+THUG2_API void emitter_add_node(uint32_t name, bool active);
 
 class FollowTrail {
 public:
@@ -92,5 +93,5 @@ private:
     bool free_facing_{};              // +0x420
 };
 
-lists::KeyMap* emitter_table();
+THUG2_API lists::KeyMap* emitter_table();
 } // namespace objects

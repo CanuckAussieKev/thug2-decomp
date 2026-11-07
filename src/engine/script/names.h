@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "engine/script/cell.h"
 #include "engine/script/member_code.h"
 #include "engine/script/cscript.h"
@@ -18,7 +19,7 @@ void allocate_checksum_name_lookup_tables();
 // Remember that `checksum` is the checksum of `name` (a checksum already known is left alone).
 void register_name_hash(uint32_t checksum, const char* name);
 // The name `checksum` was made from, or null.
-const char* look_up_hash_name(uint32_t checksum);
+THUG2_API const char* look_up_hash_name(uint32_t checksum);
 // The name `checksum` was made from, or "Unknown(0x<checksum>)" (in a shared buffer).
 const char* find_checksum_name_or_unknown(uint32_t checksum);
 // Read a .chk file's lines ("0x<8 hex digits> <name>\r\n") and pass each to `add`.
@@ -32,7 +33,7 @@ struct NativeCommand {
     NativeFunction function;
 };
 // Make each function a global symbol (type 8) under its name's checksum.
-void install_script_functions(std::span<const NativeCommand> functions);
+THUG2_API void install_script_functions(std::span<const NativeCommand> functions);
 // Make each name a member-function symbol (type 9).
 void publish_method_table(std::span<const char* const> names);
 // Make each record of a table (up to the one with a 0 name) a member-function symbol whose value is the record.

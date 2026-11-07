@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/gathered_call.h"
 #include "base/core/layout_32bit.h"
 
@@ -54,7 +55,7 @@ public:
     // Add an item. Keys aren't checked for duplicates. Always returns true.
     bool store_entry(const uint32_t& key, void* value);
     // Remove the first item with this key (does nothing if there is none).
-    void erase_entry(const uint32_t& key);
+    THUG2_API void erase_entry(const uint32_t& key);
     // Remove every item.
     void empty_table();
     // Call `callback(value, data)` for every item.

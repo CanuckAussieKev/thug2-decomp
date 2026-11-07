@@ -2,16 +2,16 @@
 
 ## Layers
 
-The source is built into two executables: `thug2-decomp.exe` (CMake target `thug2`: the game, with the new front end,
-the level editor and the developer tools) and `thug2-editor.exe` (target `thug2-editor`: the level editor on the engine
-and the game, with no new front end and no developer tools). Both are made from `src/`, in layers. A layer may include
-the layers below it, never the ones above. Each layer but `app/` is a static library, `thug2_<folder>`, defined in its
-folder's `CMakeLists.txt`; `app/` is the object library `thug2_app` (WinMain, the start-up, the main loop and the
-tables) that the two exes share, each adding its own extension list.
+The source is built into `thug2-decomp.exe` (CMake target `thug2`: the game, with the new front end and the developer
+tools) and the level editor's plugin, `plugins\thug2-level-editor.dll` (target `thug2_editor`), which the exe loads at
+start-up when it is there ("Plugins", below). Both are made from `src/`, in layers. A layer may include the layers
+below it, never the ones above. Each layer but `app/` and the editor is a static library, `thug2_<folder>`, defined in
+its folder's `CMakeLists.txt`; `app/` is the object library `thug2_app` (WinMain, the start-up, the main loop and the
+tables) and the exe's extension list.
 
 ```
-app/                        main, WinMain, the start-up, the game's main, the two exes' extension lists: the composition (may include anything)
-editor/  frontend/  devtools/   the level editor; the new front end and mouse menus; the developer tools
+app/                        main, WinMain, the start-up, the game's main, the exe's extension list: the composition (may include anything but the editor)
+editor/  frontend/  devtools/   the level editor (a plugin DLL); the new front end and mouse menus; the developer tools
 game/                       skating, the rider, goals, parks, saves, the online session (game/online)
 render_pc/                the graphics backend's API-neutral half: the original's PC platform layer over render::Gpu; only app/ includes it
 gpu_d3d9/                 Direct3D 9's Gpu, GpuContext and UiBackend, D3DX; only app/ includes it
@@ -74,10 +74,33 @@ near plane and field of view are passed from one extension to the next, starting
 a few calls per frame, viewport or event. `app/extensions.cpp` is the exe's composition: it registers the extensions
 in the one order that is every point's call order (the mouse menus, the restart tester, THAW's BMX, the editor, debug
 mode, the start level, automation, the test view, the new front end, the screenshot key) and registers their script
-commands where the start-up did. The editor exe's `app/editor_extensions.cpp` registers the editor and the game
-features it wants (THAW's BMX, debug mode, start level) in the same relative order. Our NOT ORIGINAL game and engine features that run at those points (THAW's BMX, debug mode) are extensions
+commands where the start-up did. The editor's place in that order is a slot its plugin fills ("Plugins", below);
+without the plugin, `app/no_editor.cpp` holds it: the editor's script commands, which the data overlay's scripts call,
+answered "no editor". Our NOT ORIGINAL game and engine features that run at those points (THAW's BMX, debug mode) are extensions
 too; what the editor drives inside the game stays in the game (`game/skate/edited_copy_career`: the edited copy
 kept out of the career save, its gaps asked of the extensions).
+
+**Plugins** (`engine/ext/plugin.h`): the level editor is a DLL, `plugins\thug2-level-editor.dll` next to the exe. At
+start-up, before the extensions are registered, `ext::load_plugins` loads every `plugins\*.dll` (through
+`crt::library_function`, which keeps the thread's x87 control word around `LoadLibrary`), calls its one export,
+`thug2_plugin_entry`, and checks what it gives - the API version (`ext::kPluginApiVersion`, raised with every change a
+plugin sees) and the build (compiler and its version, pointer size, Debug or Release: C++ has no ABI between them) -
+before anything else of it is called; a mismatched plugin is logged and left out, and the game runs without it (no
+editor: the pause menu's LEVEL EDITOR isn't offered, `-edit` logs that the editor isn't installed and opens the level in
+free skate). A plugin names its slot (`"editor"`), and `app/extensions.cpp` puts its `ext::Extension` there and
+registers its script commands where the editor's always were. The plugin calls the engine in the exe: the exe exports
+the functions marked `THUG2_API` (`base/core/api.h`: `__declspec(dllexport)` in the exe, `dllimport` in a plugin - a
+mark on the declaration, not a `.def` of one compiler's decorated names) and Dear ImGui's (`IMGUI_API`: one ImGui, one
+context and font atlas for the exe and the plugin), and `ENABLE_EXPORTS` makes its import library,
+`thug2-decomp.lib`, which the plugin links. The plugin compiles against the layers' headers without linking their code
+(`$<COMPILE_ONLY:thug2_game>`): there is one engine, the exe's. The C runtime is a DLL (`/MD`) so the exe and the
+plugin share one heap and one C++ library (`std::string` and `std::vector` cross between them). What the editor
+reaches of the engine is functions only - no data: a state an inline function keeps in a static would be a second copy
+in the plugin, so none of the headers it includes has one (the soft-bounds handler's slot is out of line,
+`base/core/checked_index.cpp`). The export list is checked both ways: the plugin's link fails on a function it calls
+that isn't marked, and `tools/plugin_api.ts`, run by the build after the plugin's link, fails on a mark no plugin
+imports (the exe's exports, ImGui's aside, are exactly the plugin's imports); `tools/plugin_api.test.ts` keeps the marks
+in the headers of the game and the layers below it.
 
 **Where the UI lives** (what `frontend/` held was three things): the original's screen elements, which the game's HUD
 and menus use (`screen_element*`, `text_element`, `text_block`, `menu_element`, `sprite_element`, `scrolling_menu`,
@@ -159,10 +182,9 @@ links:
 ```mermaid
 graph TD
     thug2["thug2-decomp.exe (thug2)<br/>+ extensions.cpp"]
-    editorexe["thug2-editor.exe (thug2-editor)<br/>+ editor_extensions.cpp"]
     app["thug2_app (OBJECT)<br/>WinMain, start-up, main loop, tables"]
     frontend[thug2_frontend]
-    editor[thug2_editor]
+    editor["thug2_editor (SHARED)<br/>plugins\thug2-level-editor.dll"]
     devtools[thug2_devtools]
     game[thug2_game]
     engine[thug2_engine]
@@ -174,14 +196,12 @@ graph TD
 
     thug2 --> app
     thug2 --> frontend
-    thug2 --> editor
     thug2 --> devtools
-    editorexe --> app
-    editorexe --> editor
     app --> game
     app --> backends
     frontend --> game
-    editor --> game
+    editor -. "headers only" .-> game
+    editor -- "import library" --> thug2
     devtools --> game
     game --> engine
     backends --> engine
@@ -192,9 +212,10 @@ graph TD
     platform --> base
 ```
 
-(Each exe also links the libraries it reaches through these, listed out in `src/app/CMakeLists.txt`.) The editor,
-the front end and the dev tools each link `thug2_game` (and Dear ImGui) alone, never one another: `thug2-editor` reaches
-neither the front end nor the dev tools. Only the exes (through `thug2_app`) link the backends. The checks in
+(The exe also links the libraries it reaches through these, listed out in `src/app/CMakeLists.txt`.) The front end
+and the dev tools each link `thug2_game` (and Dear ImGui) alone, never one another; the editor, a plugin, compiles
+against `thug2_game`'s headers (`$<COMPILE_ONLY:thug2_game>`) and links the exe's import library, and the exe doesn't
+link it ("Plugins", above). Only the exe (through `thug2_app`) links the backends. The checks in
 `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`: base;
 `thug2_parse_check` / `thug2_printf_check`: formats; `thug2_gamespy_check`: the platform's GameSpy glue and SDK; `thug2_vulkan_context_check` / `thug2_ff_shader_check` / `thug2_vulkan_gpu_check`: the Vulkan backend). Third-party and system libraries are linked by the
 library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
@@ -208,7 +229,7 @@ backend alone).
 | check | what it enforces |
 |---|---|
 | `tools/layers.ts` (`layers.test.ts`) | The layer map `tools/layers.json`: each folder belongs to a library, and an include outside the library's `allowed` list fails unless it is in `tools/layers_baseline.txt` (a ratchet: it can only shrink, and is empty now). Every library but the app's is `strict`: no upward include, not even in the baseline. The editor's and the front end's `api` are explicit lists of the engine and game headers each may include; a header outside the list fails, and so does a listed header none of their files includes (`node tools/layers.ts --api editor` prints what they use now). |
-| `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
+| `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2`: the editor), its `plugins` the libraries that are a plugin DLL of an exe (`editor`: SHARED, linking its host's import library, the layers' headers `$<COMPILE_ONLY:...>` only). |
 | `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by `gpu_d3d9/` (Direct3D's own headers there); `render_pc/` includes none, nor any of `gpu_d3d9/`'s headers, and only `app/` picks `gpu_d3d9/`'s Gpu, GpuContext, UiBackend and `render_pc/`'s device; every other header holds the graphics handles. |
 | `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL3/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `gpu_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`, `src/tests/vulkan_gpu_check.cpp`); only `app/` includes the backend. |
 | `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/` ; FFmpeg's headers and calls only in `media_ffmpeg/`; only `app/` picks `audio::Device` and `media::Movie`. |
@@ -217,6 +238,7 @@ backend alone).
 | `tools/net_calls.test.ts` | Winsock's headers and functions only in `net_winsock/`; only `app/` installs the transport. |
 | `tools/script_headers.test.ts` | The interpreter's headers only in `script_qb/` and `app/`; only `app/` installs the host; nothing outside `script_qb/` names its classes. |
 | `tools/layering.ts` (`layering.test.ts`) | The named views of in-memory layouts (`cell::`, `raw::`, `bits_as`, `function_at`) only in the boundary files. |
+| `tools/plugin_api.ts` (the build), `plugin_api.test.ts` | The engine API: the exe's exports (ImGui's aside) are exactly what the plugin imports (run after the plugin's link); `THUG2_API` only in the headers of the game and the layers below it. |
 | `tools/no_nolint.test.ts` | No `NOLINT` in `src/`. |
 | `tools/clang_tidy_filter.test.ts` | `.clang-tidy`'s header filter covers every folder of `src/` (a header outside it is never reported) and leaves out the fetched libraries and the build's generated headers. |
 
@@ -229,8 +251,7 @@ split; the exe's symbols were compared before and after.
 ## Seams
 
 A seam is an interface in the engine with an implementation in a library of its own. The engine and everything above
-it call the interface; `app/main.cpp` makes the implementation and installs it before any original code runs (the
-editor exe's start-up is the same code), so only the exes link a backend, and swapping one means installing another at that
+it call the interface; `app/main.cpp` makes the implementation and installs it before any original code runs, so only the exe links a backend, and swapping one means installing another at that
 place. The grain of every interface is coarse - a frame, a resource, a state block, a batch, a socket, a
 file, a script operation - never a vertex, a sample, a byte or a statement.
 
@@ -248,7 +269,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 `script::Context` is not a backend seam: it is the view of the running script that every command receives
 (`bool f(script::Struct* params, script::Context context)`), so the commands do not depend on the runtime's record. The
 extensions are the other way round: the engine calls out to code above it, through `ext::` ("The extension points",
-above), and `app/extensions.cpp` / `app/editor_extensions.cpp` register them.
+above), and `app/extensions.cpp` registers them.
 
 The engine's own questions of the game go through small per-subsystem hook structs, each declared beside the subsystem
 that asks and installed by a function on the game's side: the table under "The engine includes nothing of the game"
@@ -293,7 +314,7 @@ everything above it uses the game's own types and may change them freely.
   (`gfx::loading_console::install_panel`). `app/main.cpp` installs Direct3D 9's (`render::d3d9::device()`,
   `render_pc/d3d9_device.cpp`: each method is the platform layer's own function) before any original code runs,
   through `app::install_renderer` (`app/renderer_choice.cpp`): `[Graphics] renderer=vulkan|d3d9` (default vulkan; `d3d9` for Direct3D 9) picks the
-  backend for both exes, and WinMain makes the window for the same API (`sys::create_sdl_window(sys::WindowApi)` adds
+  backend for the exe, and WinMain makes the window for the same API (`sys::create_sdl_window(sys::WindowApi)` adds
   SDL's Vulkan flag). Vulkan installs render_pc's device over the Vulkan `Gpu` and `GpuContext` (`install_vulkan`
   in `renderer_choice.cpp`), after asking, before the window is made, whether the device it would use can draw
   (`render::vulkan::usable`: the loader, Vulkan 1.3's dynamic rendering, push descriptors) - Direct3D 9 runs when it
@@ -417,8 +438,7 @@ everything above it uses the game's own types and may change them freely.
   nothing calls SDL's input (the keyboard's state, the mouse, the controllers, the cursor, the event pump), only the
   SDL source includes `platform/keyboard.h`, and only it and app/ register with the platform's pump
   (tools/input_headers.test.ts; the screenshot key's sidecar, a dev tool's note of the mouse over the window, is the
-  one exception). The editor exe (`thug2-editor.exe`) adds the same sources (DirectInput's, SDL's) without the automation channel's
-(`app::add_input_sources`, per exe).
+  one exception).
 - **The file system seam** (`engine/file/file_system.h`, `disk.h`): where files come from.
   - The game's data files ("levels\foun\foun.qb", "data/...") come from `fs::Source`s, which `app/main.cpp` adds to
     `fs::file_system()` in the order the game looks in them: the data overlay's folder (ours, first:

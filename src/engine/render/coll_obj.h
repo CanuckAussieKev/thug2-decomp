@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
@@ -69,7 +70,7 @@ public:
 
     HitMesh& operator=(const HitMesh&) = delete;
     // 0x00413390 (the body inlined in every destructor): the geometry deleted if it's owned and not shared.
-    virtual ~HitMesh();
+    THUG2_API virtual ~HitMesh();
 
     // NOT ORIGINAL: what this object is.
     [[nodiscard]] virtual HitMeshKind kind() const = 0;
@@ -79,7 +80,7 @@ public:
     [[nodiscard]] virtual FaceFlag get_triangle_attrs(int face) const = 0;
     [[nodiscard]] virtual uint16_t get_face_terrain(int face) const = 0;
     // 0x0040B370 (slot 4): the geometry, and its checksum (the sector's name) as the object's.
-    virtual void assign_shape_data(TriMeshSource* geometry);
+    THUG2_API virtual void assign_shape_data(TriMeshSource* geometry);
     // (slots 5-8) Where it is and its orientation.
     virtual void place_at_absolute_point(const maths::Vec4* position) = 0;
     virtual void change_facing(const maths::Mat4* orientation) = 0;
@@ -159,12 +160,12 @@ protected:
 
     // The triangle objects' slots 2 / 3 (sectors, instances, movable triangles): the face's flags / terrain from the
     // geometry (0x00410BF0 / 0x00411750).
-    [[nodiscard]] FaceFlag read_face_attrs(int face) const;
-    [[nodiscard]] uint16_t read_face_terrain(int face) const;
+    [[nodiscard]] THUG2_API FaceFlag read_face_attrs(int face) const;
+    [[nodiscard]] THUG2_API uint16_t read_face_terrain(int face) const;
     // 0x004110B0 / 0x004114E0 (a sector's slots 16 / 17, an instance's too: the faces taken as they are, unplaced):
     // see StaticCollider::collide_with_sphere / collide_with_capsule.
-    bool collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits);
-    bool collide_faces_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits);
+    THUG2_API bool collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits);
+    THUG2_API bool collide_faces_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits);
 private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()

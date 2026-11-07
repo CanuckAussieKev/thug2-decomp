@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -113,7 +114,7 @@ public:
     maths::Mat4* get_climb_matrix(maths::Mat4* out, const GrindPoint* node);
     // 0x0057D090: the node being added (adding_) set up from its node `params`: no links, its name, its flags,
     // position, and a climbing node's orientation (from its angles) or a rail's terrain; its box its point.
-    void append_vertex(uint32_t name, script::Struct* params) const;
+    THUG2_API void append_vertex(uint32_t name, script::Struct* params) const;
     // 0x0057D260: overlapping rails removed: a later node whose segment runs along an earlier one's (within 6,
     // along it for more than 6 on two axes or matching on one) is switched off - the lower one of the two.
     // 0x0057D7A0: that, but not in the park editor (its level 0xD443A2BC).
@@ -198,7 +199,7 @@ private:
 
 // The box helpers (cdecl):
 // 0x0057C260: the box of `a` and `b` (min and max per axis; w 1).
-void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max);
+THUG2_API void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max);
 // 0x0057C170: the span of four values (the largest minus the smallest).
 double span4(const std::array<float, 4>& values);
 // 0x0057C360: how much the intervals [a, b] and [c, d] overlap: |b - a| + |d - c| (as a float) minus their span.
@@ -212,7 +213,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b);
 // passes a segment it accepts (its ends' places), as the park editor's level passes every rail. Null (the default):
 // none - the original's behaviour.
 using RailClearOverride = bool (*)(const maths::Vec4* a, const maths::Vec4* b);
-void set_rail_clear_override(RailClearOverride override);
+THUG2_API void set_rail_clear_override(RailClearOverride override);
 // 0x0057C5A0 (stdcall): whether two nodes are within 1 of each other on every axis.
 bool nodes_together(const GrindPoint* a, const GrindPoint* b);
 

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "base/core/api.h"
+
 namespace script {
 class Context;
 class Struct;
@@ -26,7 +28,7 @@ constexpr int kElementLayoutHeightPixels = 448;
 
 // The career's current level (0 = the front end); 0 without the skate module (0x007CE478, its career +0x20,
 // that's +0x630).
-uint8_t current_level();
+THUG2_API uint8_t current_level();
 // The aspect the screen is fitted to: 4:3 in the front end, the window's shape in a level. In the front end
 // this is the 2D menu layout's shape (see get_front_end_widescreen).
 float desired_aspect_ratio();

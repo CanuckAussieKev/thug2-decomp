@@ -7,6 +7,7 @@
 
 #include <gsl/pointers>
 
+#include "base/core/api.h"
 #include "base/core/all_ones.h"
 #include "base/core/layout_32bit.h"
 
@@ -109,7 +110,7 @@ public:
     void add_allocator(MemSource* allocator);
     void remove_allocator(MemSource* allocator);
     // The space between the two allocators' tops.
-    int free_byte_count();
+    THUG2_API int free_byte_count();
     // Move `allocator`'s top by `size` (in its direction). Returns the claimed space - from the old top growing up,
     // from the new top growing down - or an empty span if it would cross the other allocator.
     std::span<uint8_t> carve(MemSource* allocator, int size, int unused);
@@ -174,9 +175,9 @@ public:
 
     // 0x005BA0E0 (and the other node types' destructors, 0x005BC990 / 0x005BCD30...): out of its list, linked to
     // itself.
-    void uncouple();
+    THUG2_API void uncouple();
     // A list's head: data -1, priority 0, linked to itself.
-    void make_head();
+    THUG2_API void make_head();
     // A node for `item`, linked to itself.
     void make_node(void* item, int item_priority = 0);
     // Whether this is a list's head.

@@ -4,6 +4,8 @@
 #include <vector>
 #include <array>
 
+#include "base/core/api.h"
+
 namespace goals {
 class GapTally;
 }
@@ -65,7 +67,7 @@ bool editor_gap(const std::string& name, const std::vector<std::string>& editor_
 Checklist get_take_in(goals::GapTally* checklist);
 // The level became its edited copy (true: the baseline taken from the current level's checklist) or stopped being it
 // (false: that checklist put back as the baseline, the baseline dropped). Repeats are ignored.
-void get_edited_copy(bool on);
+THUG2_API void get_edited_copy(bool on);
 // The career's gaps were replaced (a save loaded, a career reset): a baseline kept is taken again.
 void career_replaced();
 // The save's view of `checklist` (career.cpp's write_to_structure): false - write it as it is; true - write `out`.

@@ -9,6 +9,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/shape_tests.h"
@@ -77,7 +78,7 @@ public:
     // touch the cell, those of `added` put in where they touch it, those of `moved` taken out or put in as they
     // now do or don't; each list's block resized once and, at the end, every list moved to a fresh block. (Lists
     // of lists::Foremost<HitMesh>.)
-    void tick_frame(memory::ListNode* added, memory::ListNode* removed, memory::ListNode* moved);
+    THUG2_API void tick_frame(memory::ListNode* added, memory::ListNode* removed, memory::ListNode* moved);
 
     // 0x00418710: the objects (neither flag 2 nor 4) of the cells `box` (grown by 0.5 on x and z) covers, each
     // once; null-terminated, in the shared list 0x00691998.

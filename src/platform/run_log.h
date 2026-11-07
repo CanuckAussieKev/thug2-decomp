@@ -4,13 +4,14 @@
 #include <vector>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/format.h"
 
 // Appends to thug2-decomp.log next to the game exe.
 void log_open();
 // A line, as it is: kept for get_log_tail, passed to the listener, written to the log (or the console) with its
 // line end.
-void log_line(const char* line);
+THUG2_API void log_line(const char* line);
 // A printf-style line (as log_line); the format is checked against the arguments when it's compiled (text::format).
 template <typename... Args>
 void get_log(text::FormatFor<Args...> format, Args... args)
@@ -36,14 +37,14 @@ void set_log_listener(void (*listener)(const char* line));
 // has been logged - each of the first few, first
 // chance (the code may still handle it). It must not allocate or take locks: the heap may be what broke. One hook:
 // the level editor's (its last action and its autosave - editor/level_editor_layout.h).
-void set_crash_hook(void (*hook)());
+THUG2_API void set_crash_hook(void (*hook)());
 // The log file's Windows handle (INVALID_HANDLE_VALUE without one): the Debug CRT writes its reports there.
 void* log_file_handle();
 
 // Full path of `file_name` in the game folder (the folder holding the exe).
-std::string game_folder_path(const char* file_name);
+THUG2_API std::string game_folder_path(const char* file_name);
 
 // An integer setting from thug2-decomp.ini in the game folder (`fallback` if absent).
-int config_int(const char* section, const char* key, int fallback);
+THUG2_API int config_int(const char* section, const char* key, int fallback);
 // Write an integer setting into thug2-decomp.ini (WritePrivateProfileString). Whether it was written.
-bool config_set_int(const char* section, const char* key, int value);
+THUG2_API bool config_set_int(const char* section, const char* key, int value);

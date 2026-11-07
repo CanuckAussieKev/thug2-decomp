@@ -7,6 +7,7 @@
 #include <span>
 #include <type_traits>
 
+#include "base/core/api.h"
 #include "formats/byte_stream.h"
 #include "base/core/enum_ops.h"
 #include "base/core/address.h"
@@ -220,9 +221,9 @@ public:
     [[nodiscard]] int stride() const { return stride_; }
 
 private:
-    [[nodiscard]] uint8_t& byte(int face, int offset) const;
-    [[nodiscard]] uint16_t word(int face, int offset) const;
-    void set_word(int face, int offset, uint16_t value) const;
+    [[nodiscard]] THUG2_API uint8_t& byte(int face, int offset) const;
+    [[nodiscard]] THUG2_API uint16_t word(int face, int offset) const;
+    THUG2_API void set_word(int face, int offset, uint16_t value) const;
 
     std::span<uint8_t> bytes_;
     int stride_;

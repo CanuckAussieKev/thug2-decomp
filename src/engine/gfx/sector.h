@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/shape_tests.h"
@@ -75,12 +76,12 @@ public:
     // 0x0049E980: the geometry's colour (RGBA) into `out` - 0 without geometry. Returns out.
     uint32_t* fetch_tint(uint32_t* out);
     // 0x0049E680 / 0x0049E690: the viewports it shows in (a mask; 0 without geometry).
-    void toggle_shown(uint32_t mask);
-    uint32_t fetch_shown();
+    THUG2_API void toggle_shown(uint32_t mask);
+    THUG2_API uint32_t fetch_shown();
     // 0x0049E9B0 / 0x0049E9E0: drawn and collided with (the collision's flag 4 cleared), or neither; whether it is
     // (the geometry's, else the collision's flag).
-    void change_live(bool active);
-    bool is_operative();
+    THUG2_API void change_live(bool active);
+    THUG2_API bool is_operative();
     // 0x0049EA30: collided with or not (kSectorCollidable; the collision's flag 2 cleared / set).
     void enable_collision(bool collidable);
     // 0x0049EA60: an occluder - the collision's flag 0x80 set (and its occlusion polygons added, 0x0040AEB0) the
@@ -96,7 +97,7 @@ public:
     void change_facing(const maths::Mat4* orientation);
     // 0x0049E760: turned to `turns` quarter turns about y (the collision about the geometry's position, else its
     // own) - by the difference from the last.
-    void spin_around_up(int turns);
+    THUG2_API void spin_around_up(int turns);
     // 0x0049E7C0: its scale (the collision about the geometry's position, else its own; kSectorMoved when in the
     // grid).
     void change_scale(const maths::Vec4* scale);

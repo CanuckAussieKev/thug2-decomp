@@ -10,6 +10,8 @@
 
 #include <gsl/util>
 
+#include "base/core/api.h"
+
 // NOT ORIGINAL - indexing checked against the extent: core::at(container, index) is gsl::at (an index outside the
 // array, std::array, std::vector or std::span ends the game with a report instead of reading or writing past it),
 // taking any integer or enumerator index - the game indexes with ints, unsigned counts, bytes and plain enums - and
@@ -25,11 +27,9 @@ namespace core {
 using OutOfRangeHandler = void (*)(const std::source_location& where, std::ptrdiff_t index, std::ptrdiff_t extent);
 
 namespace detail {
-inline std::atomic<OutOfRangeHandler>& out_of_range_slot()
-{
-    static std::atomic<OutOfRangeHandler> handler{nullptr};
-    return handler;
-}
+// (out of line, checked_index.cpp: one handler for the exe and its plugins - an inline function's static would be a
+// second one in each plugin)
+THUG2_API std::atomic<OutOfRangeHandler>& out_of_range_slot();
 
 // The throwaway element an out-of-range index gets under soft_bounds (zeroed again each time).
 template <typename Element>

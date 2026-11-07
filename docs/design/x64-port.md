@@ -515,7 +515,7 @@ What changed or was checked:
 
 **Done in X12e** (`editor/`, `frontend/`, `devtools/`, the backends `audio_dsound`, `input_dinput`, `fs_win32`,
 `media_ffmpeg`, and `app/`): `THUG2_X64_READY` lists `game`, `frontend`, `editor`, `devtools` and `app`, so the x64
-configure builds `thug2-decomp.exe` and `thug2-editor.exe` (x64) and copies their x64 DLLs beside them - SDL3.dll,
+configure builds `thug2-decomp.exe` and `thug2-editor.exe` (x64; that exe has since been retired - the level editor is a plugin, docs/architecture.md "Plugins") and copies their x64 DLLs beside them - SDL3.dll,
 d3dx9_43.dll, FFmpeg's avutil-59 / avcodec-61 / avformat-61 / swscale-8 (from `out/ffmpeg/x64`) and
 gamecontrollerdb.txt. All 149 translation units of these folders compile with the build's flags with no warning (C4267
 / C4244 / C4311 / C4312 included) and no error, and clang-tidy with the x86_64 target finds no narrowing in them.

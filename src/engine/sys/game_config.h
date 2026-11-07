@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/language.h"
 
 // The game's own configuration (0x005B5C90-0x005B6370): the command line's options (CD / NotCD, NoExtraMem,
@@ -35,7 +36,7 @@ int& territory();    // 0x007CEFA4 (1 Europe, 2 US, 3 Asia)
 int& hardware();     // 0x007CEFA8 (1 PS2, 2 PS2 ProView, 3 PS2 Dev System, 4 XBox, 5 GameCube, 7 Win32)
 int& display_type();      // 0x00684FB0 (0 PAL, 1 NTSC)
 int& frame_rate();        // 0x00684FB4
-bool& from_cd();          // 0x00684FA8 (the script's CD)
+THUG2_API bool& from_cd();          // 0x00684FA8 (the script's CD)
 bool& get_extra_memory(); // 0x007CEFAC
 bool& bootstrap();        // 0x007CEFAD
 bool& ntsc_flag();        // 0x007CEFAF (set through set_ntsc_flag, NTSC only)

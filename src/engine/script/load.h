@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/api.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/tokens.h"
 #include "base/core/checksums.h"
@@ -26,7 +27,7 @@ void restart_changed_scripts();
 // Whether `script` is running `name` or has it on its call stack.
 bool script_refers_to(const Script* script, uint32_t name);
 // Define a .qb file already in memory (old or pre-compiled format), then restart changed scripts.
-void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary);
+THUG2_API void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary);
 // Load and define the .qb file `filename`.
 void load_qb(const char* filename, int unused, int temporary);
 // Remove every symbol defined by the .qb file whose name's checksum is `file_checksum` (nothing for 0), stop the

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/core/api.h"
 #include "wire/message_ids.h"
 #include "base/core/enum_ops.h"
 #include <cstddef>
@@ -58,7 +59,7 @@ public:
     static constexpr int kNumDialupNumbers = 3;
 
     // The instance (0x006EFDD8; its reference count is 0x006EFDDC).
-    static Hub* sole();
+    THUG2_API static Hub* sole();
 
     // 0x004556E0: empty app lists, every message with a length field but acks (8) and timestamps (9), no IP
     // address yet ("<Unknown>"), 192.168.55.99 and a 255.255.0.0 mask, a 400000 bandwidth.

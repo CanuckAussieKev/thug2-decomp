@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/vec4.h"
@@ -107,7 +108,7 @@ void choose_camera(int view, gfx::ViewCam* camera);
 gfx::ViewCam* fetch_live_camera(int view_number);
 // 0x004A09E0: of the active viewports' cameras, the one nearest `position` (null: none) and its distance (if
 // `distance` isn't null).
-gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance);
+THUG2_API gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance);
 // 0x004A0AD0: the screen mode (0-5) set, and each active viewport's camera given the horizontal angle
 // Skater_Cam_Horiz_FOV (halved for split_vertical).
 void set_screen_mode(int mode);

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
@@ -114,7 +115,7 @@ public:
     script::Script* spawn_script(uint32_t name, script::Struct* params, uint32_t id, bool pause_with_object);
     // 0x00461480: spawn `name` on the object and Update it once at once (`replicate_flag`: the other players are
     // told first, with no object).
-    script::Script* start_script_task(uint32_t name, int node, bool replicate_flag, bool permanent,
+    THUG2_API script::Script* start_script_task(uint32_t name, int node, bool replicate_flag, bool permanent,
                                       script::Struct* params);
 
     // --- events (the tracker 0x006F0FC0's LaunchEvent 0x00462F00) ---
@@ -222,7 +223,7 @@ private:
 
 // The object with the id `id` (the tracker 0x006F0FC0's 0x00462120), or null.
 // 0x00460AD0 (cdecl).
-Entity* find_object(uint32_t id);
+THUG2_API Entity* find_object(uint32_t id);
 
 // The manager walk's callbacks (for_each, cdecl; `data` unused).
 // 0x00460AC0: unlock the object.
@@ -388,14 +389,14 @@ public:
     // FINALIZED, then every component's Teleport.
     void seal();
     // 0x0045DB90: its component of `type`, or null.
-    ObjectModule* fetch_module(uint32_t type);
+    THUG2_API ObjectModule* fetch_module(uint32_t type);
     // 0x0045E450: a member function by name: each component's (+0x30) in turn until one says 0 (false) or 1
     // (true), then Entity's.
     bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x0045D7C0: each component's +0x10, then Entity::flag_as_dead.
     void flag_as_dead() override;
     // 0x0045E4C0: TELEPORTED; with `teleport_components`, each component's Teleport too.
-    void mark_jumped_ahead(bool teleport_components);
+    THUG2_API void mark_jumped_ahead(bool teleport_components);
     // 0x0045E500: whether its PAUSE_WITH_OBJECT scripts may run (it isn't paused).
     bool should_update_scripts() override;
     // 0x0045EE20 (the original's slot 9, the same in every table): a component of the type `params` names

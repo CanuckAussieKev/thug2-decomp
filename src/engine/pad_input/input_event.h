@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "base/core/api.h"
+
 union SDL_Event;
 
 // NOT ORIGINAL - an input event as the handlers we added see it (the level editor, the new front end, the mouse menus,
@@ -75,7 +77,7 @@ struct Event {
 using EventHandler = void (*)(const Event& event);
 
 // A handler added after the others (start-up: ext::prepare_input; the level editor's simulation, later).
-void add_event_handler(EventHandler handler);
+THUG2_API void add_event_handler(EventHandler handler);
 // The source that has the window's events: an event handed to every handler, in order.
 void deliver(const Event& event);
 

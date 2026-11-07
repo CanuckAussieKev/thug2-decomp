@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
@@ -27,7 +28,7 @@ public:
     // 0x004637C0: onto the front of the list (the pointer's own `prev` isn't touched).
     void attach(SharedLink* pointer);
     // 0x004637E0: out of the list; its links are cleared.
-    void detach(SharedLink* pointer);
+    THUG2_API void detach(SharedLink* pointer);
     // 0x00463820: every smart pointer cleared (each is taken out of the list and nulled).
     void clear();
 

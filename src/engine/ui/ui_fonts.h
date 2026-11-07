@@ -1,5 +1,7 @@
 #pragma once
 
+#include "base/core/api.h"
+
 // NOT ORIGINAL - our UI fonts, compressed into the exe (ui_fonts.cpp): the level editor's UI and the loading
 // console's.
 namespace frontend::ui_fonts {
@@ -9,8 +11,8 @@ struct CompressedFont {
     const void* data;
     int size;
 };
-CompressedFont inter();           // Inter Regular: the UI
-CompressedFont inter_semi_bold(); // Inter SemiBold: headings, the selection's name
-CompressedFont get_mono();        // JetBrains Mono Regular: numbers, names, checksums
+THUG2_API CompressedFont inter();           // Inter Regular: the UI
+THUG2_API CompressedFont inter_semi_bold(); // Inter SemiBold: headings, the selection's name
+THUG2_API CompressedFont get_mono();        // JetBrains Mono Regular: numbers, names, checksums
 
 } // namespace frontend::ui_fonts

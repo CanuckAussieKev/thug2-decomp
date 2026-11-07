@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "base/core/api.h"
+
 namespace modules {
 struct FrontEnd;
 }
@@ -17,6 +19,6 @@ const char* menu_pad_event_refusal(FrontEnd* front_end);
 // The event launched (the menu event's script parameters: device_num, controller 0). Only when there is no refusal.
 void launch_menu_pad_event(FrontEnd* front_end, uint32_t event);
 // Both: sent unless refused.
-void send_menu_pad_event(FrontEnd* front_end, uint32_t event);
+THUG2_API void send_menu_pad_event(FrontEnd* front_end, uint32_t event);
 
 } // namespace modules

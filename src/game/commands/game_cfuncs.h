@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include "base/core/api.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec4.h"
 
@@ -216,7 +217,7 @@ bool cfunc_re_load_node_array(script::Struct* params, script::Context context); 
 // 0x005A2A00: the viewer's camera object placed to look at a scene's sectors (all, or those named `only`).
 void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4& angles, uint32_t only);
 // 0x005A2E50 / 0x005A32A0: the object of a node (its structure / its name) made by its class.
-bool create_from_node(script::Struct* node);
+THUG2_API bool create_from_node(script::Struct* node);
 bool create_from_node_name(uint32_t name);
 // 0x005A32C0: the object of the node `name` killed (switched off) by its class.
 bool kill_from_node_name(uint32_t name, script::Script* script);

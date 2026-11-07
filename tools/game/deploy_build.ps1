@@ -12,8 +12,9 @@ param(
 # -Arch: which build (default x86); the files are checked to be that machine (a 64-bit exe next to a 32-bit SDL3.dll
 #        never starts). -BuildDir: the CMake build folder (default <this checkout>\out\build\<Arch>-debug, the preset's).
 # The FFmpeg DLLs (the movies' and streams' codec, both machines) come from the build folder (the build copies them from
-# out\ffmpeg\<arch> once tools/ffmpeg/build_ffmpeg.ts --arch <arch> has made them). Files of the other machine left in the folder (the
-# editor's exe when the build has none) are listed.
+# out\ffmpeg\<arch> once tools/ffmpeg/build_ffmpeg.ts --arch <arch> has made them). The level editor plugin goes into
+# the folder's plugins\ (made when missing). Files of the other machine left in the folder (an x64 build's
+# vcruntime140_1.dll after an x86 one) are listed.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $folder = Resolve-GameFolder $Game
@@ -36,6 +37,9 @@ foreach ($f in $DeployedFiles) {
         $m = Get-PeArch $src
         if ($m -ne $Arch) { "$src is $(if ($m) { $m } else { 'not a PE file' }), not $Arch - not deployed"; exit 2 }
     }
+    # (plugins\...: its folder made first)
+    $into = Split-Path (Join-Path $folder $f) -Parent
+    if (-not (Test-Path $into)) { New-Item -ItemType Directory -Path $into | Out-Null }
     Copy-Item -LiteralPath $src -Destination (Join-Path $folder $f) -Force
     $copied += $f
 }

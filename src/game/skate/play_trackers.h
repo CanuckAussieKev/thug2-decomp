@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "base/core/api.h"
+
 namespace objects {
 class GameEntity;
 }
@@ -32,7 +34,7 @@ private:
     std::vector<GapRead> last;
 
 public:
-    std::vector<GapChange> tick_frame(const std::vector<GapRead>& now);
+    THUG2_API std::vector<GapChange> tick_frame(const std::vector<GapRead>& now);
     void get_forget() { known = false, last.clear(); }
 };
 
@@ -53,16 +55,16 @@ private:
     int settle = 0;                                                // ... and the frames left to see a bail
 
 public:
-    bool tick_frame(int pending_now, bool bailing, ComboEnd* end); // true when `end` is a combo decided this frame
+    THUG2_API bool tick_frame(int pending_now, bool bailing, ComboEnd* end); // true when `end` is a combo decided this frame
 };
 
 // --- what they are fed: the game's state read now ---
 // The level's gap checklist (the skate module's; empty without one): each gap's name, pending landings, times landed
 // and score.
-std::vector<GapRead> read_level_gaps();
+THUG2_API std::vector<GapRead> read_level_gaps();
 // A skater's combo as its score reads it: the points pending (the pot times its multiplier; 0 with none, or at 2e9 and
 // above - a misread).
-int combo_points_pending(objects::GameEntity* skater);
+THUG2_API int combo_points_pending(objects::GameEntity* skater);
 // Whether the skater is bailing (its SkaterState; false without one).
 bool skater_bailing(objects::GameEntity* skater);
 

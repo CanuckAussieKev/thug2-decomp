@@ -96,9 +96,12 @@ Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
 1. In Visual Studio: **File > Open > Folder...** and pick this folder.
 2. Choose the **x86 Debug** configuration in the toolbar.
-3. **Build > Build All**. The build makes `thug2-decomp.exe` and `thug2-editor.exe` (the level editor on its own) and puts `d3dx9_43.dll`, `SDL3.dll` and
-   `gamecontrollerdb.txt` next to it; when `THUG2_GAME_DIR` (in `CMakeLists.txt` or the CMake cache, default
-   `C:\Games\THUG2\Game`) is a game folder, all of them and the PDB are copied there too.
+3. **Build > Build All**. The build makes `thug2-decomp.exe` and the level editor's plugin,
+   `plugins\thug2-level-editor.dll`, and puts `d3dx9_43.dll`, `SDL3.dll` and `gamecontrollerdb.txt` next to the exe (a
+   Release build also the Visual C++ runtime's `vcruntime140.dll`, `msvcp140.dll` - and on 64-bit
+   `vcruntime140_1.dll`); when `THUG2_GAME_DIR` (in `CMakeLists.txt` or the CMake cache, default
+   `C:\Games\THUG2\Game`) is a game folder, all of them and the PDBs are copied there too (the plugin into its
+   `plugins` folder).
 
 From the command line:
 
@@ -112,25 +115,28 @@ npm run typecheck && npm run lint && npm test
 
 The game builds as a 32-bit or a 64-bit program from the same source (docs/design/x64-port.md): the **x64 Debug** /
 **x64 Release** configurations (`tools\verify_build.cmd x64`, out\build\verify-x64) make the 64-bit
-`thug2-decomp.exe` and `thug2-editor.exe`, with the 64-bit DLLs next to them (Running, below). The 32-bit build stays
+`thug2-decomp.exe` and its plugin, with the 64-bit DLLs next to it (Running, below). The 32-bit build stays
 the reference the 64-bit one is compared with.
 
 Prefer a solution file? `cmake -S . -B out/vs -G "Visual Studio 18 2026" -A Win32`, then open `out\vs\thug2_decomp.slnx`
 and build **Debug | Win32**. Builds are Debug: debug-CRT reports and run-time check failures go to `thug2-decomp.log`
-with a call stack.
+with a call stack. The C runtime is a DLL (one heap for the exe and its plugin): a Debug build runs on the debug
+runtime Visual Studio installs, so it runs on a machine with Visual Studio; a Release build carries its runtime DLLs.
 
 ## Running
 
 The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe` and its `Data` folder:
 
-1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL3.dll`, FFmpeg's four DLLs (below) and `gamecontrollerdb.txt` from the build folder into the game
-   folder (the build does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
+1. Copy `thug2-decomp.exe`, `d3dx9_43.dll`, `SDL3.dll`, FFmpeg's four DLLs (below), `gamecontrollerdb.txt` and - from a
+   Release build - the Visual C++ runtime's DLLs from the build folder into the game folder, and the `plugins` folder
+   (`thug2-level-editor.dll`: the level editor - without it the game runs with no editor) beside them (the build
+   does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
 3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
 
 The 64-bit build goes in the same folder the same way, in place of the 32-bit one (the files have the same names, so a
-folder holds one build or the other): `thug2-decomp.exe` (+ `thug2-editor.exe`, the PDBs), and from its own build
+folder holds one build or the other): `thug2-decomp.exe` (+ `plugins\thug2-level-editor.dll`, the PDBs, a Release build's runtime DLLs), and from its own build
 folder the 64-bit `d3dx9_43.dll` and `SDL3.dll`, `gamecontrollerdb.txt`, and FFmpeg's four 64-bit DLLs (below). Direct3D 9 comes with Windows; for Vulkan (the default renderer) the 64-bit Vulkan
 runtime comes with the graphics driver. Its Vulkan caches are files of their own
 (`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`); the ini, the editor's layouts and the
@@ -164,7 +170,7 @@ Useful start-up switches:
 | How | What it does |
 |---|---|
 | `-level <name>` or `[features] start_level=<name>` | Skips the menus and starts that level in free skate. `<name>` is the level's folder name (`TR`, `BO`, `foun`, `z_ma`...). |
-| `-edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there. `thug2-editor.exe -edit <name>` does it in the editor's own program (no new front end, no developer tools). |
+| `-edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there (without its plugin, `plugins\thug2-level-editor.dll`, the level opens in free skate). |
 | `-level <name> -at x,y,z[,heading]` or `[features] start_at=` | Once the level is up, the skater stands at that spot, facing `heading` (degrees, 0 = +z, 90 = +x). |
 | `node tools/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
 
@@ -387,9 +393,9 @@ each borrowed idea is credited where it's used.
 
 | Path | Contents |
 |---|---|
-| `src/` | The program, in layers (each a CMake library; `docs/architecture.md`): `base` (checksums, formatting, maths), `platform` (the window, crash reports, the GameSpy glue), `formats` and `wire` (the game's files and network messages), `engine` (memory, files, assets, scripts, objects, the renderer, audio, network transport, pad input, the original's screen elements), `game` (skating, the rider, goals, parks, saves, the online session, the game's script commands), `frontend` (the new front end), `editor` (the level editor), `devtools` (screenshot key, test-automation channel) |
+| `src/` | The program, in layers (each a CMake library; `docs/architecture.md`): `base` (checksums, formatting, maths), `platform` (the window, crash reports, the GameSpy glue), `formats` and `wire` (the game's files and network messages), `engine` (memory, files, assets, scripts, objects, the renderer, audio, network transport, pad input, the original's screen elements), `game` (skating, the rider, goals, parks, saves, the online session, the game's script commands), `frontend` (the new front end), `editor` (the level editor: a plugin DLL the exe loads, `plugins\thug2-level-editor.dll`), `devtools` (screenshot key, test-automation channel) |
 | `src/render_pc/`, `gpu_d3d9/`, `audio_dsound/`, `media_ffmpeg/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, FFmpeg's movie decoders, DirectInput, Win32 files, Winsock, the QB script interpreter |
-| `src/app/` | The two programs' shared start-up (`main.cpp`, WinMain, the main loop, the command and component tables) and each one's extension list; `thug2-decomp.exe` and `thug2-editor.exe` |
+| `src/app/` | The program's start-up (`main.cpp`, WinMain, the main loop, the command and component tables) and its extension list; `thug2-decomp.exe` |
 | `src/tests/` | The offline checks (file formats, maths against D3DX, number parsing, printf-style formatting) |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |
 | `tools/game/` | The scripts that run and drive the game for tests, the layout baker, the level editor's offline tools |

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include "base/core/api.h"
 #include "base/core/checksums.h"
 
 namespace script {
@@ -18,7 +19,7 @@ namespace park_editing {
 class EditedGoal;
 
 // 0x004E6600 (type in ECX, index in EDX): the model of the goal's object `index` (null without one).
-const char* goal_object_model(checksums::Name goal_type, int index);
+THUG2_API const char* goal_object_model(checksums::Name goal_type, int index);
 // 0x004E66A0 (type in ECX, index in EDX): the name checksum of the goal's object `index` (0 without one).
 uint32_t goal_object_name(checksums::Name goal_type, int index);
 // 0x004E6730 (which in ECX, goal in EDX): the checksum of the edited goal's node TRG_EditedGoal<goal>_Pro (0),

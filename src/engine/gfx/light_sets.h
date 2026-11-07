@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/api.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/scene_lights.h"
 
@@ -68,6 +69,6 @@ private:
 };
 
 // The lights' state (made on first use, never destroyed).
-LightSets& light_sets();
+THUG2_API LightSets& light_sets();
 
 } // namespace render

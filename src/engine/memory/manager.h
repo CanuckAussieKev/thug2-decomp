@@ -5,6 +5,7 @@
 #include <array>
 #include <memory>
 
+#include "base/core/api.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/core/checksums.h"
 #include <gsl/pointers>
@@ -30,7 +31,7 @@ public:
     static constexpr int kMaxNamedHeaps = 7;
     static constexpr int kSkaterSlots = 8;
 
-    static Hub* get_pull();
+    THUG2_API static Hub* get_pull();
     static Hub*& sole();
 
     // 0x005BBC00: the 64 MB block (ours bigger: engine/memory/memory_sizes.h), the main region and its two heaps (in static storage).
@@ -57,8 +58,8 @@ public:
     uint32_t obtainable();
 
     // The current-heap stack.
-    void enter_heap_scope(MemSource* heap);
-    void leave_heap_scope();
+    THUG2_API void enter_heap_scope(MemSource* heap);
+    THUG2_API void leave_heap_scope();
     const char* current_heap_name();
 
     // The registry of all heaps.

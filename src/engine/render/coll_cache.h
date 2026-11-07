@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 
@@ -71,7 +72,7 @@ private:
 void register_coll_cache(HitMeshCache* cache);
 void unregister_coll_cache(HitMeshCache* cache);
 void remove_movable_from_caches(HitMesh* object);
-void remove_from_caches(HitMesh* object);
+THUG2_API void remove_from_caches(HitMesh* object);
 
 // 0x0040ADD0: a node's collision shape type from its checksum - 1 for a box (0xE460ABDE) and two others
 // (0xDD42AA66, 0x2BA71070), 4 for a sector (0x6AADF154), 0 for anything else.

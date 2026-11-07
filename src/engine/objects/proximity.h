@@ -10,6 +10,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
@@ -125,12 +126,12 @@ void nearby_zone_startup();
 // 0x0046AB50: every node freed.
 void nearby_zone_shutdown();
 // 0x0046AB90: the node named `name` (null if none).
-ProximNode* proxim_get_node(uint32_t name);
+THUG2_API ProximNode* proxim_get_node(uint32_t name);
 // 0x0046ACB0: the node named `name` made active or not (nothing if there's none).
-void proximity_node_enable(checksums::Name node_name, int active);
+THUG2_API void proximity_node_enable(checksums::Name node_name, int active);
 // 0x0046B1F0: a node for the level node `name`, from its parameters. A plain node starts as holding the skaters
 // flagged at +0xBC, ends them (as change_live(false)) and is then made `active` or not.
-void nearby_zone_add_node(uint32_t name, bool active);
+THUG2_API void nearby_zone_add_node(uint32_t name, bool active);
 // 0x0046B400: `object` (a skater: its id picks the bit; or null) at `point` for the nodes of `type`: the nodes
 // it entered (in `mask`'s bits of outside_) run their script / make their object, those it left run their
 // script / kill their object.
@@ -144,5 +145,5 @@ int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start);
 // 0x0046B790: restart node `index` (wrapped round the count once it's past it) of `type` - 0 if there's none.
 uint32_t get_spawn_node(checksums::Name spawn_type, int index, uint32_t start);
 
-ProximityRegistry* proximity_hub();
+THUG2_API ProximityRegistry* proximity_hub();
 } // namespace objects

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "base/core/api.h"
+
 // The goal manager's script commands (GoalManager_..., 0x005591C0-0x0055B98F and 0x0055D3F0-0x0055E97F;
 // goal_manager_cfuncs*.cpp): each on the skate module's goal manager (goal_manager.h), most on one goal - the one
 // named by the command's Name (asserted). All are cdecl (params, script) and return whether the script's `if` should
@@ -15,7 +17,7 @@ namespace goals {
 // --- goal_manager_cfuncs.cpp: 0x005591C0-0x0055997F ---
 bool cfunc_goal_manager_edit_goal(script::Struct* params, script::Context context);              // 0x005591C0
 bool cfunc_goal_manager_activate_goal(script::Struct* params, script::Context context);          // 0x00559230
-bool cfunc_goal_manager_deactivate_goal(script::Struct* params, script::Context context);        // 0x00559290
+THUG2_API bool cfunc_goal_manager_deactivate_goal(script::Struct* params, script::Context context);        // 0x00559290
 bool cfunc_goal_manager_clear_last_goal(script::Struct* params, script::Context context);        // 0x005592F0
 bool cfunc_goal_manager_win_goal(script::Struct* params, script::Context context);               // 0x00559310
 bool cfunc_goal_manager_lose_goal(script::Struct* params, script::Context context);              // 0x00559350
@@ -28,7 +30,7 @@ bool cfunc_goal_manager_initialize_all_selected_goals(script::Struct* params,
                                                       script::Context context); // 0x005594B0
 bool cfunc_goal_manager_activate_all_selected_goals(script::Struct* params,
                                                     script::Context context);                // 0x005594D0
-bool cfunc_goal_manager_goal_is_active(script::Struct* params, script::Context context);     // 0x005594F0
+THUG2_API bool cfunc_goal_manager_goal_is_active(script::Struct* params, script::Context context);     // 0x005594F0
 bool cfunc_goal_manager_set_goal_timer(script::Struct* params, script::Context context);     // 0x00559540
 bool cfunc_goal_manager_zero_goal_timer(script::Struct* params, script::Context context);    // 0x005595D0
 bool cfunc_goal_manager_pause_all_goals(script::Struct* params, script::Context context);    // 0x00559630
@@ -95,7 +97,7 @@ bool cfunc_goal_manager_remove_temp_special_trick(script::Struct* params, script
 bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_unlock_goal(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_quick_start_goal(script::Struct* params, script::Context context);
-bool cfunc_goal_manager_initialize_goal(script::Struct* params, script::Context context);
+THUG2_API bool cfunc_goal_manager_initialize_goal(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_goal_is_expired(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_expire_goal(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_add_time(script::Struct* params, script::Context context);
@@ -105,7 +107,7 @@ bool cfunc_goal_manager_is_pro(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_reset_goal_flags(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_color_trick_objects(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_get_number_of_times_goal_started(script::Struct* params, script::Context context);
-bool cfunc_goal_manager_goal_exists(script::Struct* params, script::Context context);
+THUG2_API bool cfunc_goal_manager_goal_exists(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_set_can_start_goal(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_get_last_goal_id(script::Struct* params, script::Context context);
 bool cfunc_goal_manager_clear_tetris_tricks(script::Struct* params, script::Context context);
@@ -143,7 +145,7 @@ bool cfunc_goal_collect_active(script::Struct* params, script::Context context);
 
 // --- goal_manager_events.cpp: 0x0055D3F0-0x0055D954 ---
 bool cfunc_goal_manager_add_goal(script::Struct* params, script::Context context);                  // 0x0055D3F0
-bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Context context);               // 0x0055D450
+THUG2_API bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Context context);               // 0x0055D450
 bool cfunc_goal_manager_remove_all_goals(script::Struct* params, script::Context context);          // 0x0055D4D0
 bool cfunc_goal_manager_restart_last_goal(script::Struct* params, script::Context context);         // 0x0055D4F0
 bool cfunc_goal_manager_level_unload(script::Struct* params, script::Context context);              // 0x0055D510

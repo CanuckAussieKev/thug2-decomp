@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 
 // NOT ORIGINAL - the sizes of the script pools and of the memory they come from, ours (pool sizes as THUGPRO's: the
@@ -74,7 +75,7 @@ uint32_t main_block_x64_room();
 // thug2-thp8-level-converter/thp8_levels, has ~34,000), [memory] node_hash_slots= (a power of two is taken: rounded up; 0x4000 to
 // 0x100000); original_sizes=1 the original's. More than the original's live outside the node manager's object (its
 // layout is the original's): level_nodes::CNodeManager keeps them beside it, node indices in 32 bits.
-uint32_t node_hash_slots();
+THUG2_API uint32_t node_hash_slots();
 constexpr uint32_t kOriginalNodeHashSlots = 0x4000;
 
 // Self-tests comparing the original code with ours: the original sizes while one of these is alive.

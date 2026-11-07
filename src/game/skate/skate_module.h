@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "engine/lists/chain_start.h"
 #include "base/maths/vec4.h"
 #include "engine/sys/game_module.h"
@@ -79,7 +80,7 @@ public:
     // The singleton (0x007CE478; null before the module starts). 0x005691A0 (cdecl): made (from the default heap,
     // Calloc mode 1) if there's none and `create`; one more reference either way. 0x00564C10 (cdecl): one reference
     // less - the last deletes it.
-    static Skate* sole();
+    THUG2_API static Skate* sole();
     static Skate* spawn_occurrence(bool create);
     static void discard_occurrence();
 
@@ -105,7 +106,7 @@ public:
     // data, -1, before a node is checked for null, as the original does).
     int count_riders();
     // 0x005665C0: skater `index` of the list (null past the end).
-    objects::GameEntity* get_rider_at(int index);
+    THUG2_API objects::GameEntity* get_rider_at(int index);
     // 0x00566520: the first local skater (null: none). 0x00566600: the skater whose object id is `id` (null: none).
     objects::Rider* get_home_rider();
     objects::Rider* get_rider_by_number(uint32_t id);
@@ -198,7 +199,7 @@ public:
     static objects::RiderIdentity* fetch_account(script::Struct* params);
     static objects::RiderIdentity* fetch_account(int index);
     // 0x005656C0: the career's gap checklist of the level.
-    void* fetch_gap_list();
+    THUG2_API void* fetch_gap_list();
     // 0x005656D0: in a net game, out of the main menu. 0x00565700: in a net mode, or the main menu / CAS asked for.
     [[nodiscard]] int in_net_game_level() const;
     [[nodiscard]] bool in_front_end_or_net_mode() const;
@@ -227,7 +228,7 @@ public:
     static int is_multiplayer();
     static prefs::Preferences* get_player_options(uint32_t name);
     static prefs::Preferences* get_preferences_from_params(script::Struct* params);
-    static int should_be_absent(script::Struct* params);
+    THUG2_API static int should_be_absent(script::Struct* params);
     static void debug_rails();
 
     // --- script commands ---

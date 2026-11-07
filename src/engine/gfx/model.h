@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
@@ -132,7 +133,7 @@ public:
     // 0x00492E90: model files loaded with their shadow volumes or not.
     void activate_shadow_volume(uint8_t on);
     // 0x00492EE0: the scale (scaled unless it's exactly 1, 1, 1). Always true.
-    bool change_scale(const maths::Vec4* scale);
+    THUG2_API bool change_scale(const maths::Vec4* scale);
     // 0x00492F30: the bounding sphere (the platform's, virtual [12], cached). Returns out.
     maths::Vec4* fetch_bound_sphere(maths::Vec4* out);
     // 0x00492F90 / 0x00492FC0: the bone volumes (the first geom's): set unless it has some; read (null if none).
@@ -189,8 +190,8 @@ public:
     bool change_live(uint8_t active);
     // 0x00493CD0 / 0x00494640 / 0x00494680 / 0x004946C0: the geom named `name`, geom `index`, its name and its
     // textures (null / 0 past the end).
-    Geom* get_geom_by_name(uint32_t name);
-    Geom* fetch_geom(int index);
+    THUG2_API Geom* get_geom_by_name(uint32_t name);
+    THUG2_API Geom* fetch_geom(int index);
     uint32_t fetch_part_label(int index);
     TextureSet* get_geom_textures(int index);
     // 0x00493D10: texture `source` (".png" added when missing) replaced by `dest` (cut at ".png") in the textures of

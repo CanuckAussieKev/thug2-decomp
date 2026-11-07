@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
@@ -52,7 +53,7 @@ public:
     // 0x00461CC0: `callback(object, data)` once for each object of the list, also when the callback adds or
     // removes objects (the walk starts again from the front, skipping the objects it has done - each walk in
     // progress has a bit of its own in walking_ and in every object's visited_mask_).
-    void for_each(ObjectCallback callback, void* data);
+    THUG2_API void for_each(ObjectCallback callback, void* data);
 
     // The fields other code reads and sets.
     memory::ListNode& entities() { return entities_; }

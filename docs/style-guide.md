@@ -44,8 +44,8 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 ```
 src/
   app/        main, WinMain, the start-up and the game's main, the command table and the component registry (the
-              object library thug2_app, shared by both exes), and each exe's extension list (extensions.cpp for
-              thug2-decomp.exe, editor_extensions.cpp for thug2-editor.exe) - the composition: may include anything
+              object library thug2_app), and the exe's extension list (extensions.cpp; no_editor.cpp: the
+              editor's slot without its plugin) - the composition: may include anything but the editor
   platform/   the window and its events, crash reports, the run log, settings, the registry, code addresses (the
               Win32 / SDL / GameSpy side; library thug2_platform)
   formats/    readers and writers of the game's files: archives, textures, scenes, collision, animations, fonts,
@@ -88,7 +88,8 @@ src/
               objects, the park editor's camera), skate (the session root, career, play trackers) (library
               thug2_game)
   frontend/   the new front end and the mouse menus (library thug2_frontend)
-  editor/     the level editor (library thug2_editor; also the editor exe's whole program, with app/)
+  editor/     the level editor (thug2_editor: a plugin, plugins\thug2-level-editor.dll, that calls the engine
+              through the exe's exports - THUG2_API, base/core/api.h; docs/architecture.md "Plugins")
   devtools/   the developer tools (screenshot key, test-automation channel, restart tester; library thug2_devtools).
               Starting in a level (game/front_end/start_level) and the test views (game/rider/test_view) are the
               game's, which the editor and the dev tools both use

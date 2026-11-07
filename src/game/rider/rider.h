@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -72,7 +73,7 @@ public:
     static void check_layout();
     // 0x00580490: stat `index` (the override, the default stats if none, the skate module's forced value; online
     // limits; CHEAT_STATS_13: 15; +3 with the score's bonus flag).
-    float fetch_tally(int index);
+    THUG2_API float fetch_tally(int index);
     // 0x005805B0: a value from `params`: its unnamed pair scaled by the stat named by its unnamed integer (10 if
     // none), times its switch pair (by the switch stat, 0-1) when riding switch, times its diff pair's first or
     // second for game difficulty 0 or 2, kept within its limit (the pair's direction says which side).
@@ -138,7 +139,7 @@ public:
     // 0x005815C0: moved to the node named `node` (no node: only the orientation reset).
     void glide_to_node(uint32_t name);
     // 0x00581760 / 0x005817F0: paused (the displays off, a script, the pad's vibration, the sounds) / unpaused.
-    void get_freeze();
+    THUG2_API void get_freeze();
     void unpause();
     // 0x00581850: set up from `profile`: a local skater's camera (found or made from skatercam_composite_structure),
     // its script, its components (motion, an anim set's, skeleton, model - its geometry loaded in the skater's
@@ -254,9 +255,9 @@ private:
 };
 
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).
-script::Struct* get_physics_structure(GameEntity* skater);
+THUG2_API script::Struct* get_physics_structure(GameEntity* skater);
 // 0x00580400 / 0x00580440: a physics value from `skater`'s structure, else the global script value.
-float read_tuning_float(checksums::Name tuning_name, int assert, GameEntity* skater);
+THUG2_API float read_tuning_float(checksums::Name tuning_name, int assert, GameEntity* skater);
 int read_tuning_int(checksums::Name tuning_name, int assert, GameEntity* skater);
 
 } // namespace objects

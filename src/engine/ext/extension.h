@@ -21,8 +21,8 @@ class GapTally;
 // level editor, the new front end and the mouse menus, the dev tools, our NOT ORIGINAL game features that run at the
 // same places). The original code calls ext:: at a fixed place in its frame or at an event; ext:: calls the
 // extensions that app/ registered at start-up, in their order (the registration order is the call order at every
-// point - app/extensions.cpp). Nothing here knows which extensions there are: the game exe registers the new front
-// end, the dev tools and the editor; an editor exe would register the editor alone.
+// point - app/extensions.cpp). Nothing here knows which extensions there are: the exe registers the new front end,
+// the dev tools and our game features, and the level editor's from its plugin (plugin.h).
 //
 // The grain is coarse: a few calls per frame, per viewport or per event, never per object. Every method has a default
 // that does nothing (or passes its value through), so an extension overrides only the points it uses.

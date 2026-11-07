@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "base/core/api.h"
 #include "base/core/packed_colour.h"
 #include "engine/gfx/ui_backend.h"
 
@@ -21,26 +22,26 @@ namespace frontend::ui_backend {
 
 // The backends started on the game's window and device (once; false - logged - while either is missing or a
 // backend refuses). An ImGui context must be current.
-bool prepare_all();
+THUG2_API bool prepare_all();
 bool get_ready();
 // An SDL event for ImGui (true: ImGui used it).
-bool process_event(const SDL_Event* event);
+THUG2_API bool process_event(const SDL_Event* event);
 // The frame's start (before ImGui::NewFrame): the platform backend (window size, time, cursor) and the renderer
 // backend (its device objects made again if a reset dropped them).
-void new_frame();
+THUG2_API void new_frame();
 // ImGui's draw data (after ImGui::Render) drawn on the device, scaled from the window's pixels to the back buffer's.
-void render();
+THUG2_API void render();
 // Before the device is reset (frame_loop::reset_device_if_lost: alt-tab, a lost device): ImGui's default-pool objects dropped;
 // NewFrame makes them again. Also after the fonts change (the font texture is made again).
-void invalidate_device_objects();
+THUG2_API void invalidate_device_objects();
 // The window's size in pixels (ImGui's display size) and the back buffer's.
-void window_size(int* width, int* height);
+THUG2_API void window_size(int* width, int* height);
 // Where a width and a height go.
 struct SizeOut {
     int* width{};
     int* height{};
 };
-void back_buffer_size(SizeOut size);
+THUG2_API void back_buffer_size(SizeOut size);
 // Several ImGui contexts may use these backends (the editor's and the new front end's - frontend/new_frontend.h):
 // Init / Ready / process_event / NewFrame / Render act on the CURRENT context (each keeps its own backend data).
 // invalidate_context_objects drops only the current context's device objects (its font texture), not the editor's
@@ -63,11 +64,11 @@ void release_texture(uint64_t id);
 // depth surface, viewport and the world / view / projection transforms saved first), cleared to `argb`; the game's
 // renderer then draws into it; end_offscreen puts back what was saved. False (nothing switched): no device or the
 // target couldn't be made (logged once).
-bool begin_offscreen(int size, colour::Packed argb_colour);
-void end_offscreen();
+THUG2_API bool begin_offscreen(int size, colour::Packed argb_colour);
+THUG2_API void end_offscreen();
 // The picture's ImGui texture id (0: none made).
-uint64_t offscreen_texture();
-void free_offscreen();
+THUG2_API uint64_t offscreen_texture();
+THUG2_API void free_offscreen();
 
 // The Add palette's thumbnails (level_editor_thumbs.h): one square atlas of `atlas_size` pixels with its own depth
 // surface, made on first use and kept (freed by free_atlas and with the device objects, as the picture above).
@@ -75,10 +76,10 @@ void free_offscreen();
 // surface, viewport and transforms saved first as begin_offscreen does - and clears that cell to `argb` (colour and
 // depth); end_atlas_cell puts back what was saved. atlas_generation changes whenever the atlas is freed (its cells are
 // then empty: what they held is drawn again).
-bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed argb_colour);
-void end_atlas_cell();
-uint64_t atlas_texture();
-uint32_t atlas_generation();
-void free_atlas();
+THUG2_API bool begin_atlas_cell(int atlas_size, int x, int y, int size, colour::Packed argb_colour);
+THUG2_API void end_atlas_cell();
+THUG2_API uint64_t atlas_texture();
+THUG2_API uint32_t atlas_generation();
+THUG2_API void free_atlas();
 
 } // namespace frontend::ui_backend

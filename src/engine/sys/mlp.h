@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/task_list.h"
 
@@ -80,7 +81,7 @@ static_assert(core::layout_32bit(sizeof(Hub) == kHubBytes));
 
 // NOT ORIGINAL: the main loop's passes so far (ours: features that need the game up - the front end's input logic
 // also runs in the early self-tests, on stand-in state - wait for the first).
-uint32_t& frames_run();
+THUG2_API uint32_t& frames_run();
 
 // The singleton (0x00696D68, references 0x00696D6C). 0x0044F260: the first call with `create` makes it (0xCC
 // bytes, zeroed, on the current heap), every call takes a reference and returns it (null if there is none).

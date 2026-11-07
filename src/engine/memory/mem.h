@@ -7,6 +7,7 @@
 
 #include <gsl/pointers>
 
+#include "base/core/api.h"
 #include "base/core/owned_element.h" // IWYU pragma: export (memory::owned_element; the base layer's)
 
 namespace memory {
@@ -23,13 +24,13 @@ inline constexpr unsigned int kPointerBytes = sizeof(void*);
 
 // General allocation from the default heap (the engine's operator new). Makes sure the memory system is
 // set up first.
-void* alloc(unsigned int size);
+THUG2_API void* alloc(unsigned int size);
 // Release memory from any of the allocation functions.
-void dealloc(void* memory);
+THUG2_API void dealloc(void* memory);
 
 // Allocate and zero. `mode` is passed straight to the heap; nearly every caller uses 1 (meaning not yet
 // known). A null heap means the default heap.
-void* alloc_zeroed(unsigned int size);
+THUG2_API void* alloc_zeroed(unsigned int size);
 void* alloc_zeroed(unsigned int size, int mode);
 void* alloc_zeroed(unsigned int size, Arena* heap, int mode);
 
@@ -174,8 +175,8 @@ void* carve(unsigned int size, int mode, Arena* heap);
 
 // The current-heap allocator file loading uses, its matching free, and giving back the
 // unused end of such a block.
-void* alloc_block(unsigned int size);
-void free_malloc(void* memory);
+THUG2_API void* alloc_block(unsigned int size);
+THUG2_API void free_malloc(void* memory);
 void* trim_block_end(unsigned int size, void* memory);
 // The size of a Malloc block (0 for null).
 unsigned int malloc_size(void* memory);
@@ -185,11 +186,11 @@ unsigned int malloc_available();
 void* regrow(void* memory, unsigned int size);
 
 // The manager's two main heaps (at +0x110 and +0x114).
-Arena* top_down_heap();
-Arena* bottom_up_heap();
+THUG2_API Arena* top_down_heap();
+THUG2_API Arena* bottom_up_heap();
 
 // Until leave_heap_scope, allocations come from `heap`.
-void enter_heap_scope(Arena* heap);
-void leave_heap_scope();
+THUG2_API void enter_heap_scope(Arena* heap);
+THUG2_API void leave_heap_scope();
 
 } // namespace memory

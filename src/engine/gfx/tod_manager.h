@@ -5,6 +5,7 @@
 #include <array>
 #include <gsl/pointers>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 
 // The time-of-day manager (the TODManager_* script commands): a career level's day passing through four states -
@@ -178,7 +179,7 @@ public:
     // tod_manager_state_transition run with instant_change (and temp_state with `temp_state`).
     void refresh_all(bool temp_state);
     // 0x00574670: jump to `state` now (time is moved on through the states in between).
-    void set_tod_instant(uint32_t state);
+    THUG2_API void set_tod_instant(uint32_t state);
 
     // 0x00572130: TODManager_SetParams system=1|2 current_state=... <state structures> transition_length=...
     // [overwrite_current_state={...}] [sky].
@@ -189,13 +190,13 @@ public:
     // by the original (stack garbage): here they're a's.
     static TodParams get_lerp(TodParams a, TodParams b, float fraction);
     // 0x00571E00: system `index`'s parameters now (blended while transitioning); -1: the first non-sky system.
-    TodParams get_tod_params(int index);
+    THUG2_API TodParams get_tod_params(int index);
     // 0x00571140: the current level colour (0x00BBGGRR) of the first non-sky system (GameObjects::CreateFromStructure
     // colours new objects with it).
     void get_level_color(uint32_t* out);
     // 0x00572A10: the parameters sent to the engine: ambient light, the two directional lights, fog (if on), the
     // level colour.
-    void apply_tod_params(TodParams params) const;
+    THUG2_API void apply_tod_params(TodParams params) const;
     // 0x005724D0: the sun (theta, phi, colour, shown unless it's night), blended through system 0's day.
     void update_sun();
     // 0x005727F0 (0x00572821 is the part after its first test): colour the scenes (`start_percent`..`end_percent` of
@@ -205,7 +206,7 @@ public:
     // 0x00573500: bloom on (the parameters) or off.
     static void set_bloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color);
     // 0x00572320: fog on (with the current fog colour and distance) or off.
-    void set_fog_active(bool on);
+    THUG2_API void set_fog_active(bool on);
 
     // 0x00571EF0: TODManager_Create name=<node> | prefix=<prefix>: the nodes' objects made (Obj's
     // create_from_node), except those marked permanently dead.
@@ -293,7 +294,7 @@ void add_bloom_params(BloomParams bloom, script::Struct* out);
 // parameters through it first: it changes the ones it overrides and returns true when the fog must be on (its fog
 // shown even where the manager's fog is off). Null (the default): the original behaviour.
 using TodParamsFilter = bool (*)(TodParams* params);
-void set_tod_params_filter(TodParamsFilter filter);
+THUG2_API void set_tod_params_filter(TodParamsFilter filter);
 
 // NOT ORIGINAL - THUGPRO's time of day in network games (game/online/thugpro_peer.h): in a multiplayer game the original
 // leaves the lights as they are - reset_level_lights, set_tod_instant and enable_bloom do nothing. THUGPRO's DLL lifts
@@ -307,7 +308,7 @@ MultiplayerUnlock get_multiplayer_unlock();
 bool tod_lights_locked();
 
 // The singleton (0x007CE490).
-CtodManager*& tod_manager();
+THUG2_API CtodManager*& tod_manager();
 // 0x00574540: the singleton (made zeroed with `create` if there's none); a reference taken.
 CtodManager* create_tod_manager(bool create);
 // 0x00574910: a reference dropped; the last one deletes the manager.

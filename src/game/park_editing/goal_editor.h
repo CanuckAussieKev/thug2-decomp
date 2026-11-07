@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -88,7 +89,7 @@ class EditedGoal {
 public:
     // 0x004E93C0 (not a Ghidra function: the goal editor's array constructor's element function): its defaults
     // (init_edited_goal).
-    EditedGoal();
+    THUG2_API EditedGoal();
 
     // 0x004E6B80: `gap` taken out of the gap list (the rest moved down), if it's there.
     void drop_gap_entry(uint8_t gap);
@@ -185,7 +186,7 @@ public:
     // letters / checkpoints), its settings, texts, win message, id CreatedGoal<n>, time and control.
     void write_goal_manager_params(script::Struct* out);
     // 0x004EB6B0: the goal added to the goal manager as CreatedGoal<n> (seen; won again unless `unwin`).
-    void add_to_goal_manager(bool unwin);
+    THUG2_API void add_to_goal_manager(bool unwin);
 
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t level() const { return level_; }

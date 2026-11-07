@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include <utility>
@@ -61,7 +62,7 @@ void collect_occluders(const maths::Vec4* eye, int frame);
 // (O) and puts it back after.
 // A level's occluders are placed for the skater's view; from the editor's free camera (above the level, outside it)
 // they hide distant scenery and objects that are in plain sight.
-bool& occlusion_off();
+THUG2_API bool& occlusion_off();
 // The sphere's radius and the occluders' weight it needs to be hidden.
 struct SphereTest {
     float radius{};

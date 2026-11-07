@@ -28,6 +28,8 @@ export interface LayerMap {
     libraries: Record<string, { folders: string[]; allowed: string[]; api?: Api }>;
     strict?: string[];
     executables?: Record<string, { without: string[] }>; // (tools/cmake_layers.ts)
+    // The libraries built as plugins of an exe (a DLL linking the exe's import library; tools/cmake_layers.ts)
+    plugins?: Record<string, { host: string }>;
 }
 
 export function loadMap(): LayerMap {

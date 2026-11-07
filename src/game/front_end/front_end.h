@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/core/api.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
 #include <gsl/pointers>
@@ -135,7 +136,7 @@ public:
     // 0x0054F900
     static void set_analog_stick_active_for_menus(bool active);
     // 0x0054F960: pauses or unpauses the game (controllers' motors, scripts, skaters, the object updates...).
-    void get_pause_game(bool pause);
+    THUG2_API void get_pause_game(bool pause);
     // 0x0054FD00: each handler moved to the handler list of the controller device_server_map_ names.
     void update_input_mappings();
 
@@ -148,7 +149,7 @@ public:
 };
 
 // The singleton (0x007CE464, references 0x007CE468).
-std::unique_ptr<FrontEnd>& front_end_instance();
+THUG2_API std::unique_ptr<FrontEnd>& front_end_instance();
 // 0x0054FF80: the first call with `create` makes it; every call takes a reference and returns it.
 FrontEnd* create_front_end(bool create);
 // 0x0054EBE0: gives back a reference; the last one destroys it.

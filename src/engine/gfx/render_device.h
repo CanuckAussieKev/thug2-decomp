@@ -30,6 +30,7 @@
 
 #include <gsl/pointers>
 
+#include "base/core/api.h"
 #include "base/core/checksums.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/render_camera.h"
@@ -285,7 +286,7 @@ protected:
 };
 
 // The installed device (app/ installs it at start-up, once).
-Device& device();
+THUG2_API Device& device();
 void install_device(Device& device);
 
 } // namespace render

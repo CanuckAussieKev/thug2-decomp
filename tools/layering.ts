@@ -35,6 +35,8 @@ const BOUNDARY_FILES = new Set([
     "src/gpu_d3d9/d3dx.cpp",
     // FFmpeg's DLLs' exports looked up by name (the FFmpeg movie codec's loader)
     "src/media_ffmpeg/ffmpeg_api.cpp",
+    // a plugin's entry point looked up by name (the plugins' loader, engine/ext/plugin.h)
+    "src/engine/ext/plugin.cpp",
     // Winsock's generic addresses, hostent and char buffers over the game's (once platform/sockets.cpp)
     "src/net_winsock/winsock_transport.cpp",
     // the QB bytecode and its pre-compiled images, read in place

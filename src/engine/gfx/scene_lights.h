@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 
@@ -83,7 +84,7 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
 // 0x0048FC00: the sectors the light `name` reaches coloured again (`scene` isn't used).
 void apply_scene_light(WorldScene* scene, uint32_t name);
 // 0x0048FCA0: the dynamic light and the scene light of `name` deleted (the last ones moved into their slots).
-void delete_scene_light(uint32_t name);
+THUG2_API void delete_scene_light(uint32_t name);
 // 0x0048FDA0: every scene light's sectors forgotten; none in use.
 void delete_all_scene_lights();
 // 0x0048FDE0: the queue let go of.
@@ -111,6 +112,6 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, LampLight
 // 0x00490570: a level node's light: a dynamic light (unless 0xE1509E4F) and a scene light (unless 0x6F050E18) from
 // its brightness (0x2689291C, 100), radius (0x833950CC, 300), colour array (0x99A9B716, white) and excluded sectors
 // (0xAF3F7288).
-void create_light_from_node(script::Struct* node);
+THUG2_API void create_light_from_node(script::Struct* node);
 
 } // namespace render

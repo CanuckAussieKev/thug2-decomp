@@ -3,6 +3,7 @@
 // The world's collision as a line query sees it: the static objects in the scenes' collision grids, and the list of
 // movable collision objects (cars, level objects...).
 
+#include "base/core/api.h"
 #include "engine/memory/arena_alloc.h"
 #include "base/maths/vec4.h"
 #include "engine/render/coll_line.h"
@@ -19,8 +20,8 @@ class HitMesh;
 // The movable collision objects (lists::Foremost<HitMesh> at 0x00691978; its first node: 0x00691984).
 // 0x004177B0 (cdecl): `object` onto the end of the list (a failed allocation crashes, as in the original).
 // 0x00417800 (cdecl): every node holding `object` deleted.
-void register_movable(HitMesh* object);
-void unregister_movable(HitMesh* object);
+THUG2_API void register_movable(HitMesh* object);
+THUG2_API void unregister_movable(HitMesh* object);
 
 // 0x004106C0 (cdecl): the static collision objects against `line` (the nearest hit, or the farthest while
 // 0x00691910 is set), filling `hit`; `callback` is called for every accepted face. Through `cache` when it's given

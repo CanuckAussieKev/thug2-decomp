@@ -11,8 +11,11 @@
 //   - the one exception: sibling links between libraries the include baseline (tools/layers_baseline.txt) still has
 //     lines between. Each such pair must be linked, and a link with no baseline line left fails, so the links shrink
 //     with the baseline (none since the editor / front end API: the baseline is empty);
-//   - an exe the map's 'executables' names exists and reaches none of the libraries it lists as 'without' (the level
-//     editor's exe: not the front end, not the dev tools).
+//   - an exe the map's 'executables' names exists and reaches none of the libraries it lists as 'without' (the game's
+//     exe: not the level editor, which is a plugin);
+//   - a library the map's 'plugins' names (the level editor) is a SHARED library that links its host exe (the exe's
+//     import library: the engine API) and compiles against its layers' headers without linking their code
+//     ($<COMPILE_ONLY:thug2_game>): a real link would put a second copy of the engine in the plugin.
 //   node tools/cmake_layers.ts          check (prints the targets and their links)
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -86,10 +89,14 @@ export interface Target {
     name: string;
     kind: "library" | "executable";
     object?: boolean; // an OBJECT library (its objects go into the targets that link it)
+    shared?: boolean; // a SHARED library (a DLL)
     file: string; // its CMakeLists.txt, from the repository root
     sources: string[]; // from the repository root
-    links: string[]; // every target_link_libraries item
+    links: string[]; // every target_link_libraries item ($<COMPILE_ONLY:x> as x)
+    compileOnly?: string[]; // the links that are $<COMPILE_ONLY:x>: headers only, nothing linked
 }
+
+const COMPILE_ONLY = /^\$<COMPILE_ONLY:([^>]+)>$/;
 
 const KEYWORDS = new Set(["STATIC", "SHARED", "MODULE", "OBJECT", "INTERFACE", "WIN32", "EXCLUDE_FROM_ALL"]);
 const LINK_KEYWORDS = new Set(["PUBLIC", "PRIVATE", "INTERFACE"]);
@@ -108,6 +115,7 @@ export function targetsOf(text: string, file: string): Target[] {
                 name: args[0] as string,
                 kind: name === "add_library" ? "library" : "executable",
                 ...(name === "add_library" && args.includes("OBJECT") ? { object: true } : {}),
+                ...(name === "add_library" && args.includes("SHARED") ? { shared: true } : {}),
                 file,
                 sources,
                 links: [],
@@ -125,7 +133,16 @@ export function targetsOf(text: string, file: string): Target[] {
             }
         } else if (name === "target_link_libraries" && args.length > 0) {
             const target = targets.get(args[0] as string);
-            if (target !== undefined) target.links.push(...args.slice(1).filter((arg) => !LINK_KEYWORDS.has(arg)));
+            if (target === undefined) continue;
+            for (const arg of args.slice(1).filter((item) => !LINK_KEYWORDS.has(item))) {
+                const compileOnly = COMPILE_ONLY.exec(arg);
+                if (compileOnly === null) {
+                    target.links.push(arg);
+                } else {
+                    target.links.push(compileOnly[1] as string);
+                    target.compileOnly = [...(target.compileOnly ?? []), compileOnly[1] as string];
+                }
+            }
         }
     }
     return [...targets.values()];
@@ -220,8 +237,24 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
     }
     // the links
     const pairs = siblingPairs(map, baseline);
-    const projectLinks = (target: Target) => target.links.filter((link) => libraryOfTarget.has(link));
+    // (a plugin's link to its host exe is the engine API's import library, not a layer: left out of the layers' rules)
+    const hostOf = (target: Target) => map.plugins?.[libraryOfTarget.get(target.name) ?? ""]?.host;
+    const projectLinks = (target: Target) =>
+        target.links.filter((link) => libraryOfTarget.has(link) && link !== hostOf(target));
     const byName = new Map(targets.map((target) => [target.name, target]));
+    for (const [library, plugin] of Object.entries(map.plugins ?? {})) {
+        const target = byName.get(`thug2_${library}`);
+        if (target === undefined) continue;
+        if (target.shared !== true) found.push(`${target.name}: a plugin is a SHARED library`);
+        if (byName.get(plugin.host)?.kind !== "executable" || !target.links.includes(plugin.host))
+            found.push(`${target.name}: a plugin links its host exe ${plugin.host} (the engine API's import library)`);
+        for (const link of projectLinks(target)) {
+            if (!(target.compileOnly ?? []).includes(link))
+                found.push(
+                    `${target.name} links ${link}: a plugin compiles against the layers' headers only ($<COMPILE_ONLY:${link}>) - their code is the host's`,
+                );
+        }
+    }
     for (const target of targets) {
         const library = libraryOfTarget.get(target.name);
         if (library === undefined) continue;

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/util/text_store.h"
 #include "base/maths/vec4.h"
@@ -59,7 +60,7 @@ public:
     ~GapEntry();
     GapEntry(const GapEntry&) = delete;
     GapEntry& operator=(const GapEntry&) = delete;
-    GapEntry* teardown(unsigned int flags);
+    THUG2_API GapEntry* teardown(unsigned int flags);
 };
 
 // (lists::Elem<GapEntry>'s destructors - 0x00578680 unlinked, 0x005786A0 / 0x005794B0 scalar deleting - are
@@ -78,7 +79,7 @@ public:
     void get_clear();
     // 0x00578AC0: every EndGap the nodes' TriggerScripts reach added (add_gap_from_node, through the instance
     // 0x007CE4B0), in the script heap; PrintGaps prints a header.
-    void get_build();
+    THUG2_API void get_build();
     // 0x00578A00: an EndGap call's parameters: with a score= and a non-empty text=, the gap is added (or found
     // again); otherwise, with PrintGaps, a note that it isn't in the checklist. (`call` isn't used.)
     void add_gap_from_node(script::Struct* params, const uint8_t* call);
@@ -94,11 +95,11 @@ public:
     void register_gap_entry(const char* name, GapScore gap_score);
 
     // 0x00578B30: the index of the gap `name` (-1: none). 0x005793D0: the gap at `index` (null: none).
-    int find_gap(const char* name);
-    GapEntry* get_gap(int index);
+    THUG2_API int find_gap(const char* name);
+    THUG2_API GapEntry* get_gap(int index);
     // 0x00579420 / 0x00579440 / 0x00579450: the gap at `index`'s name, times landed, score (no check: the index
     // must be valid). 0x00579460: its skater start position and direction.
-    const char* get_gap_title(int index);
+    THUG2_API const char* get_gap_title(int index);
     int count_gaps_found(int index);
     int get_gap_points(int index);
     // Where a gap's position and direction go.
@@ -127,7 +128,7 @@ public:
     // 0x00578D90: every gap never landed and in the level.
     void get_reset();
     // 0x00578D20: how many gaps. 0x00578D50: whether every gap was landed (none: true).
-    int total_of();
+    THUG2_API int total_of();
     bool all_got();
 
     // The script commands' work (`script`'s parameters get the results; true unless there's nothing):

@@ -8,8 +8,8 @@ param(
 # One game per game folder: whoever holds <Game>\.game-lock may deploy a build, edit the ini, launch and close the game
 # in that folder. -Game: C:\Games\THUG2 (the user's, the default) or a workspace copy C:\Games\THUG2-1, -2, -3...
 #   acquire: waits up to -WaitMinutes for the lock (prints BUSY and exits 1 if still held - do other work, try again);
-#            on success backs up the deployed thug2-decomp.exe (with its PDB, the editor, d3dx9_43.dll, SDL3.dll,
-#            FFmpeg's DLLs, gamecontrollerdb.txt; dinput8.dll - those that are there: game_exe.ps1's $DeployedFiles, a
+#            on success backs up the deployed thug2-decomp.exe (with its PDB, the level editor plugin in plugins, d3dx9_43.dll, SDL3.dll,
+#            FFmpeg's DLLs, the C runtime's, gamecontrollerdb.txt; dinput8.dll - those that are there: game_exe.ps1's $DeployedFiles, a
 #            32-bit and a 64-bit build alike - deploy_build.ps1 puts one in INSTEAD of the other) and
 #            thug2-decomp.ini into the lock folder; in a workspace
 #            then sets [features] mute_audio=1 (its games always run muted: Set-WorkspaceMuted, game_exe.ps1).
@@ -44,7 +44,7 @@ switch ($Action) {
                 Set-Content -Path $ownerFile -Value "$Owner since $(Get-Date -Format s)" -Encoding ascii
                 $had = @()
                 foreach ($f in $DeployedFiles) {
-                    if (Test-Path (Join-Path $game $f)) { Copy-Item (Join-Path $game $f) (Join-Path $lock "$f.backup"); $had += $f }
+                    if (Test-Path (Join-Path $game $f)) { Copy-Item (Join-Path $game $f) (Join-Path $lock (Get-BackupName $f)); $had += $f }
                 }
                 Set-Content -Path (Join-Path $lock 'deployed.txt') -Value ($had -join "`r`n") -Encoding ascii
                 Copy-Item (Join-Path $game 'thug2-decomp.ini') (Join-Path $lock 'thug2-decomp.ini.backup')
@@ -92,7 +92,11 @@ switch ($Action) {
             $done = $false
             for ($try = 0; $try -lt 20 -and -not $done; $try++) {
                 try {
-                    if ($f -in $had) { Copy-Item (Join-Path $lock "$f.backup") (Join-Path $game $f) -Force -ErrorAction Stop }
+                    if ($f -in $had) {
+                        $into = Split-Path (Join-Path $game $f) -Parent
+                        if (-not (Test-Path $into)) { New-Item -ItemType Directory -Path $into -ErrorAction Stop | Out-Null }
+                        Copy-Item (Join-Path $lock (Get-BackupName $f)) (Join-Path $game $f) -Force -ErrorAction Stop
+                    }
                     elseif (Test-Path (Join-Path $game $f)) { Remove-Item (Join-Path $game $f) -Force -ErrorAction Stop }
                     $done = $true
                 } catch { Start-Sleep -Milliseconds 500 }
@@ -102,6 +106,11 @@ switch ($Action) {
         if ($failed.Count) {
             "NOT RELEASED - $($failed -join ', ') couldn't be put back (in use?); the lock and its backups are kept: release again"
             exit 1
+        }
+        # (a folder of deployed files - plugins\ - left empty by the release is removed: it held only ours)
+        foreach ($folder in @($DeployedFiles | Where-Object { $_ -match '[\\/]' } | ForEach-Object { Split-Path $_ -Parent } | Sort-Object -Unique)) {
+            $path = Join-Path $game $folder
+            if ((Test-Path $path) -and -not (Get-ChildItem -LiteralPath $path -Force)) { Remove-Item -LiteralPath $path -Force }
         }
         Copy-Item (Join-Path $lock 'thug2-decomp.ini.backup') (Join-Path $game 'thug2-decomp.ini') -Force
         Remove-Item $lock -Recurse -Force

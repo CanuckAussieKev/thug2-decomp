@@ -4,6 +4,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/core/api.h"
 #include "base/core/format.h"
 #include "engine/file/disk.h"
 
@@ -33,7 +34,7 @@ public:
     [[nodiscard]] bool valid() const noexcept { return file_ != no_file() && file_ != nullptr; }
     explicit operator bool() const noexcept { return valid(); }
     // Closes the current file (if any) and keeps `file`.
-    void reset(DiskFile* file = no_file()) noexcept;
+    THUG2_API void reset(DiskFile* file = no_file()) noexcept;
 
 private:
     DiskFile* file_ = no_file();
@@ -70,14 +71,14 @@ OwnedStream open_stream(const char* path, const char* mode, StreamSharing sharin
 
 // The whole file read through a stream opened "rb" (as std::ifstream(path, binary) and `text << in.rdbuf()` read it):
 // false if it can't be opened.
-bool read_text(const std::string& path, std::string* text);
+THUG2_API bool read_text(const std::string& path, std::string* text);
 // `text` written to `path` through a stream opened "wb" (as std::ofstream(path, binary | trunc) and `out << text`):
 // whether it was opened and every byte written, and whether it then closed cleanly.
 struct Written {
     bool written = false;
     bool closed = false;
 };
-Written write_text(const std::string& path, std::string_view text);
+THUG2_API Written write_text(const std::string& path, std::string_view text);
 
 // fprintf to a stream: the text written whole (a %c of 0 included), as text::print_to writes to a FILE*.
 template <typename... Args>

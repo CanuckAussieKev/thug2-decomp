@@ -6,6 +6,7 @@
 #include <gsl/pointers>
 #include <array>
 #include <span>
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/core/checksums.h"
@@ -55,16 +56,16 @@ public:
     // (false): its nodes hashed, its prefixes added (add_node_array_prefixes), every node's position= turned into pos=
     // with z negated, its links turned from indices into node names (resolve_links); with `flag`, 0x004696C0 on
     // 0x004694E0's object. True.
-    bool add_node_array(uint32_t name, bool flag);
+    THUG2_API bool add_node_array(uint32_t name, bool flag);
     // 0x0045D1C0: the node array `name` taken out (its prefixes first, then unhash_node_array): the last
     // one moves into its place (the slots that pointed at the last one now point there). Whether it was there.
-    bool remove_node_array(uint32_t name);
+    THUG2_API bool remove_node_array(uint32_t name);
     // 0x0045D670: remove_node_array of the node array named after the file `path` (node_array_checksum).
     bool remove_node_array_of_file(const char* path);
     // 0x0045D270: whether there is a node array `name`.
     bool has_node_array(uint32_t name);
     // 0x0045D170: HashNode(its index, a, b) for the node array `name`; false if there is none.
-    bool hash_node_in(checksums::Name array, uint32_t index, script::Struct* node);
+    THUG2_API bool hash_node_in(checksums::Name array, uint32_t index, script::Struct* node);
     // 0x0045D3A0: every node of node array `index` hashed (HashNode(index, node index, node)).
     void hash_nodes(uint32_t index);
     // 0x0045CE60: node `index` of node array `array` put in the hash under its name= (in the first empty slot from
@@ -80,7 +81,7 @@ public:
     static void resolve_links(script::Array* nodes);
     // 0x0045D120 / 0x0045D150: the last node array's nodes / name (none: null / 0).
     script::Array* get_last_node_array();
-    uint32_t get_last_node_array_name();
+    THUG2_API uint32_t get_last_node_array_name();
 
     // The walk over every node (one at a time, across the arrays).
     // 0x0045D050: start at the node named `name` (0: at the first node). A name that isn't hashed is searched for
@@ -131,7 +132,7 @@ void use_big_name_hash(NodeManager* manager, uint32_t slots);
 // "_nodearray" (sprintf). True.
 bool make_node_array_name(const char* path, std::span<char> out);
 // 0x0045D310 (cdecl): the checksum of make_node_array_name(path).
-uint32_t node_array_checksum(const char* path);
+THUG2_API uint32_t node_array_checksum(const char* path);
 
 // 0x0045D690: the instance, made (zeroed memory on the current heap) by the first call with `create`; every call
 // takes a reference. 0x0045D6E0: drop a reference; the last frees it (no destructor runs).
@@ -140,16 +141,16 @@ NodeManager* create_node_manager(bool create);
 // an array of their own, added after the level's. get_last_node_array / get_last_node_array_name pass over the array named
 // here (0: none - the original behaviour), so the park editor and LoadNodeArray still get the level's; the hook is told
 // after remove_node_array took an array out (null: none), so the overlay can leave with its level.
-void set_editor_node_array(uint32_t name);
+THUG2_API void set_editor_node_array(uint32_t name);
 uint32_t editor_node_array();
 using NodeArrayRemovedHook = void (*)(uint32_t name);
-void set_node_array_removed_hook(NodeArrayRemovedHook hook);
+THUG2_API void set_node_array_removed_hook(NodeArrayRemovedHook hook);
 // NOT ORIGINAL - told after AddNodeArray added an array (its nodes hashed, pos= and links made): the level editor's
 // edited copy writes its layout's field edits into the level's nodes there, before ParseNodeArray makes the level's
 // objects from them (editor/level_editor_fields.h). Null: none (the original behaviour).
 using NodeArrayAddedHook = void (*)(uint32_t name);
-void set_node_array_added_hook(NodeArrayAddedHook hook);
+THUG2_API void set_node_array_added_hook(NodeArrayAddedHook hook);
 
-inline memory::HeapUnique<NodeManager>& node_manager_instance();
+THUG2_API memory::HeapUnique<NodeManager>& node_manager_instance();
 void release_node_manager();
 } // namespace level_nodes

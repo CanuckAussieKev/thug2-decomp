@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.25)
+# (3.27: $<COMPILE_ONLY:...>, the level editor plugin's view of the layers' headers - src/editor/CMakeLists.txt)
+cmake_minimum_required(VERSION 3.27)
 project(thug2_decomp LANGUAGES C CXX)
 
 # The architecture: x86, the game's own (32-bit), or x64, the 64-bit build being ported (docs/design/x64-port.md).
@@ -32,8 +33,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # compile_commands.json in the build folder, for clang-tidy / clangd (.clang-tidy, docs/style-guide.md).
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# Static CRT so the exe doesn't need a separate runtime installed next to the game.
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+# The C runtime as a DLL: one heap and one C++ library for the exe and its plugins (engine/ext/plugin.h: the level
+# editor's std::string and std::vector cross between them). A Release build copies the runtime's DLLs next to the exe
+# (src/app/CMakeLists.txt); a Debug build uses the debug runtime Visual Studio installs.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
     "The game folder of a THUG2 install (its Data folder) the built exe is copied into, if it exists (an install root steps into its Game folder)")
@@ -97,10 +100,19 @@ add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp)
 target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT)
+# One ImGui for the exe and its plugins (one context, GImGui, and one font atlas, which the new front end shares): built
+# into the exe, which exports its API (IMGUI_API); a plugin compiles its headers through imgui_import, below.
+target_compile_definitions(imgui PUBLIC "IMGUI_API=__declspec(dllexport)")
 target_compile_options(imgui PRIVATE /W0)
+add_library(imgui_import INTERFACE)
+target_include_directories(imgui_import INTERFACE ${imgui_SOURCE_DIR})
+target_compile_definitions(imgui_import INTERFACE IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT
+                                                  "IMGUI_API=__declspec(dllimport)")
 add_library(imgui_backends STATIC
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp)
+# (the backends are the graphics backend's alone: not exported)
+target_compile_definitions(imgui_backends PUBLIC "IMGUI_IMPL_API=")
 target_link_libraries(imgui_backends PUBLIC imgui PRIVATE sdl3)
 target_compile_options(imgui_backends PRIVATE /W0)
 
@@ -169,10 +181,11 @@ add_custom_target(build_info
     BYPRODUCTS "${THUG2_BUILD_INFO}"
     COMMENT "Noting the source's commit")
 
-# --- The editor's fonts (SIL Open Font License 1.1, see THIRD_PARTY_NOTICES.md) ---------------------------
+# --- The UI fonts (SIL Open Font License 1.1, see THIRD_PARTY_NOTICES.md) ---------------------------------
 # Inter 4.1 (the UI) and JetBrains Mono 2.304 (numbers, names, checksums): the official release archives, checked
 # against their SHA-256. The TTFs are compressed into the exe at build time with ImGui's own binary_to_compressed_c
-# (stb compression; ImGui decompresses them at start-up) - nothing is added to the game folder.
+# (stb compression; ImGui decompresses them at start-up) - nothing is added to the game folder. They stay in the exe
+# (src/engine/ui/ui_fonts.cpp), not in the level editor's plugin: the loading console's panel uses them too.
 FetchContent_Declare(font_inter
     URL https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
     URL_HASH SHA256=9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e
@@ -235,6 +248,25 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 #   thug2_input_dinput (DirectInput), thug2_fs_win32 (files), thug2_net_winsock (sockets) - linked by the exe alone.
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+# THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
+# (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
+# install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as thug2-level-converter-core/lib/install.ts).
+# When it exists, every build copies the exe, its PDB and its DLLs into it (src/app/CMakeLists.txt), and the level
+# editor plugin into its plugins folder (src/editor/CMakeLists.txt).
+set(THUG2_DEPLOY_DIR "${THUG2_GAME_DIR}")
+function(thug2_is_game_folder dir out)
+    if(EXISTS "${dir}/THUG2.exe" OR EXISTS "${dir}/Data/pre/qb_scripts.prx")
+        set(${out} TRUE PARENT_SCOPE)
+    else()
+        set(${out} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+thug2_is_game_folder("${THUG2_DEPLOY_DIR}" THUG2_AT_TOP)
+thug2_is_game_folder("${THUG2_DEPLOY_DIR}/Game" THUG2_IN_GAME)
+if(NOT THUG2_AT_TOP AND THUG2_IN_GAME)
+    set(THUG2_DEPLOY_DIR "${THUG2_DEPLOY_DIR}/Game")
+endif()
 # (on x64 only the x64-ready ones: THUG2_X64_READY above; the checks build when the libraries they link do)
 foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gpu_vulkan audio_dsound media_ffmpeg
                          input_dinput fs_win32 net_winsock script_qb game frontend editor devtools app)

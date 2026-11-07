@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/maths/vec4.h"
 
 namespace maths {
@@ -24,7 +25,7 @@ private:
 class BBox {
 public:
     // An "empty" box: min at +10,000,000 and max at -10,000,000, so the first append_spot sets both.
-    BBox();
+    THUG2_API BBox();
     // A zero-size box at `point`.
     explicit BBox(const Vec4& point) noexcept;
 

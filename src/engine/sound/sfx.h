@@ -17,6 +17,7 @@
 #include <memory>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/audio/audio_handles.h"
@@ -52,13 +53,13 @@ struct VolumeRef {
     static constexpr int kType3d = 3;       // the voice's 3D buffer places it (never silent)
 
     // 0x0047B030: the manager's default type, every channel 0.
-    VolumeRef();
+    THUG2_API VolumeRef();
     // 0x0047B070 (returns this)
     VolumeRef* change_species(int type);
     // 0x0047AC50: every channel scaled by `percent` percent.
-    void percent_tweak(float percent);
+    THUG2_API void percent_tweak(float percent);
     // 0x0047ACF0: whether every channel is 0 (and it isn't 3D).
-    bool is_audio_off();
+    THUG2_API bool is_audio_off();
     // 0x0047AD60: every channel 0.
     void change_muted();
     // 0x0047B080: the channel with the greatest magnitude (its signed value; the first of equals).
@@ -204,7 +205,7 @@ public:
     // 0x0047AF40: `props` from the wave's defaults and the play parameters `params` (null: defaults).
     static void init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, const SoundParams* params);
     // 0x0047B340: whether sounds are paused (the game's two pause flags) - unless +0 is set.
-    [[nodiscard]] bool is_frozen() const;
+    [[nodiscard]] THUG2_API bool is_frozen() const;
     // How a sound is loaded: its flags, its load type and its group.
     struct SoundLoad {
         uint16_t flags{};
@@ -225,7 +226,7 @@ public:
     // 0x0047B480: the wave's volume (and the game's 50 %) applied to `volume`, its pitch to `pitch`.
     static void adjust_volume_and_pitch(VolumeRef* volume, float* pitch, SoundWaveSlot* entry);
     // 0x0047B4E0: the sound `id` stopped (false if it isn't playing).
-    static bool stop_sound(uint32_t id);
+    THUG2_API static bool stop_sound(uint32_t id);
     // 0x0047B520: the volume and pitch of the playing sound `id`.
     static bool set_sound_params(uint32_t id, VolumeRef* volume, float pitch);
     // 0x0047B5D0: the main volume (0x0067DA38; below 0.1 % silent) for the voices and the user soundtrack.
@@ -235,11 +236,11 @@ public:
     // 0x0047B6B0: (debug output, compiled out).
     static void print_sounds(int a, int b, int value);
     // 0x0047B6F0: whether the sound `uniqueId` is playing (its slot in `index`, if given).
-    static bool is_sound_playing(uint32_t unique_id, int* index);
+    THUG2_API static bool is_sound_playing(uint32_t unique_id, int* index);
     // 0x0047B760: the sound's dropoff distance (the default if it has none or isn't loaded).
     static float get_dropoff_distance(uint32_t checksum);
     // 0x0047B7C0: SetSoundParams by unique id with the sound's own volume and pitch percentages.
-    static bool set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, float pitch);
+    THUG2_API static bool set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, float pitch);
     // 0x0047B1B0: everything dropped (the positional list, the permanent waves); the default dropoff back to 1020.
     static void sweep_up();
     // 0x0047B210: the default dropoff distance.
@@ -249,7 +250,7 @@ public:
     // 0x0047B2A0: every playing voice set silent (0x0047D390).
     static void update_voice_volumes();
     // 0x0047B2C0: the wave table entry for `checksum` (level ones first).
-    static SoundWaveSlot* fetch_wave_slot(uint32_t checksum);
+    THUG2_API static SoundWaveSlot* fetch_wave_slot(uint32_t checksum);
 
     // --- 0x0047B8E0-0x0047C6BB ---
     // 0x0047B8E0: `pitch` shifted by the sound's motion relative to the camera (Doppler): `position` now,
@@ -274,7 +275,7 @@ public:
 
     // 0x0047BD20: the sound `checksum` played at `volume` / `pitch` (the unique id `uniqueId`, else the name;
     // made free); `params` its play parameters. Returns the unique id (0: not played).
-    static uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pitch_id, const SoundParams* params,
+    THUG2_API static uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, PitchId pitch_id, const SoundParams* params,
                                int unused);
     // A sound's dropoff distance and its falloff curve.
     struct Falloff {
@@ -285,7 +286,7 @@ public:
     // 0x0047BE10: `volume` for a sound at `position` heard from `camera` (the nearest if null): a level by the
     // distance over `dropoff` (falloff 0 smooth, 1 linear, 2 squared, 3 root), 3D. False when it's out of range
     // (5 % past the dropoff); true otherwise, or when paused (then silent).
-    bool fetch_loudness(VolumeRef* volume, const maths::Vec4* position, Falloff falloff_in, void* camera,
+    THUG2_API bool fetch_loudness(VolumeRef* volume, const maths::Vec4* position, Falloff falloff_in, void* camera,
                         void* extent) const;
     // 0x0047C140: the sound played on `object` (positional unless `not_positional`); a silent looping one is kept
     // by the object to start later (unless `force`, which plays it anyway). Returns the unique id.
@@ -314,7 +315,7 @@ float fetch_master_loudness();
 // 0x0047AFE0: how many of the 48 voices are playing.
 int count_playing_voices();
 // 0x0047B010: whether there's no sound (no device, or a platform without sound).
-bool no_sound();
+THUG2_API bool no_sound();
 // 0x0047BA60: the manager made when `create` and there's none; a reference taken.
 void create_manager(bool create);
 // 0x0047C6C0: a reference dropped; the last one deletes the manager (everything dropped first).
@@ -353,8 +354,8 @@ void silence_voices();
 
 // NOT ORIGINAL - the sound effects manager (null until the game makes it), the level's loaded waves (the level editor
 // lists them) and how many there are.
-AudioMixer* get_audio_mixer();
-std::span<const SoundWaveSlot, kWaveSlotCount> loaded_level_waves();
-int level_wave_count();
+THUG2_API AudioMixer* get_audio_mixer();
+THUG2_API std::span<const SoundWaveSlot, kWaveSlotCount> loaded_level_waves();
+THUG2_API int level_wave_count();
 
 } // namespace sound

@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string>
 
+#include "base/core/api.h"
+
 // NOT ORIGINAL - what happens when the game breaks: it's logged and the process ends, never a dialog
 // that waits for someone (the workspaces' games run unattended - an agent's run that hung on "Buffer overrun
 // detected!" or Windows' "stopped working" box had to be found and killed by hand).
@@ -74,7 +76,7 @@ void crash_log_stack_scan(uintptr_t esp);
 // Calls `function`, catching a hardware exception (an access violation...) it raises: false if one was caught. For
 // code that runs while the process is already in trouble (the crash hook's writes). With MSVC's structured exception
 // handling; other compilers call it unguarded.
-bool run_guarded(void (*function)());
+THUG2_API bool run_guarded(void (*function)());
 
 // The two faults that went through the original's C runtime (kGameOverrun, kGameCrtMessage): there is no such runtime
 // here, so they return false (not caused).

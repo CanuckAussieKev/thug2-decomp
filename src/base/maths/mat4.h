@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/core/api.h"
 #include "base/maths/vec4.h"
 #include <array>
 #include <span>
@@ -130,7 +131,7 @@ public:
     // 0x0041A730: the constructor Mat4(angles): the identity turned about the world's X, Y and Z axes by angles.x,
     // .y and .z in turn (spin_around_x / RotateY / spin_around_z) - all three skipped when they're exactly 0 (NaN isn't). Returns
     // this.
-    Mat4& init_from_angles(const Vec4& angles);
+    THUG2_API Mat4& init_from_angles(const Vec4& angles);
     // 0x00416DF0: invert in place assuming the 3x3 part is orthonormal (a rotation): it's transposed and the
     // translation (row 3's x, y, z) becomes -(translation . each old row). The fourth column isn't touched.
     Mat4& invert_orthonormal();

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
@@ -26,13 +27,13 @@ constexpr std::size_t kHitMovingMeshInverseOffset = 0x60;
 class HitMovingMesh : public HitMesh {
 public:
     // 0x004121A0 (0x004135B0 the deleting destructor): out of the caches' movables, the base.
-    ~HitMovingMesh() override;
+    THUG2_API ~HitMovingMesh() override;
 
     // 0x004171B0 (slot 5; folded with ProbeRay::change_finish): the position.
     void place_at_absolute_point(const maths::Vec4* position) override { anchor_point_ = *position; }
     // 0x00412070 (slot 6; 0x00412FF0 jumps to it): the rotation rows (0-2) taken, the inverse made from the
     // whole matrix.
-    void change_facing(const maths::Mat4* orientation) override;
+    THUG2_API void change_facing(const maths::Mat4* orientation) override;
     // 0x00412050 / 0x00412060 (slots 7, 8)
     maths::Vec4* get_absolute_point() override;
     maths::Mat4* fetch_facing() override;
@@ -85,7 +86,7 @@ constexpr std::size_t kHitMovingBoxPolyAttrBitsOffset = 0xC4;
 class HitMovingBox final : public HitMovingMesh {
 public:
     // 0x00412550: the default box (-50, -20, -90) .. (30, 36, 90).
-    HitMovingBox();
+    THUG2_API HitMovingBox();
     // 0x00413700: a copy.
     HitMovingBox(const HitMovingBox& other);
     HitMovingBox& operator=(const HitMovingBox&) = delete;

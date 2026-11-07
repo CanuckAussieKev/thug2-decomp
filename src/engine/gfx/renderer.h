@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/api.h"
 #include "engine/gfx/render_camera.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/gpu_handles.h"
@@ -155,6 +156,6 @@ private:
 };
 
 // The renderer's state (made on first use, never destroyed).
-Renderer& renderer();
+THUG2_API Renderer& renderer();
 
 } // namespace render

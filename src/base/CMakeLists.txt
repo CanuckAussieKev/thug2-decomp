@@ -3,6 +3,7 @@
 # stream and BPS patches (base/util). It includes nothing but the standard library and GSL (tools/layers.ts checks
 # it); the debugger output and error lines go to sinks the platform installs (base/core/dbg.h, log_sink.h).
 add_library(thug2_base STATIC
+    core/checked_index.cpp
     core/checksums.cpp
     core/dbg.cpp
     core/format.cpp

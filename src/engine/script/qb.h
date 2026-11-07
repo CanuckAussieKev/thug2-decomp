@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include "base/core/api.h"
 #include "base/core/enum_ops.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/script/cell.h"
@@ -162,9 +163,9 @@ const char* find_script_checksum_name(uint32_t checksum);
 void free_script_checksum_names();
 // NOT ORIGINAL - every .qb's checksum names kept for our tools (the level editor's HUD: node names such as
 // Fire_Tender), once keep_qb_names(true) - read_qb_file notes each (the game only keeps them with its debug names on).
-void keep_qb_names(bool keep);
-void note_qb_name(uint32_t checksum, const char* name);
-const char* kept_qb_name(uint32_t checksum);
+THUG2_API void keep_qb_names(bool keep);
+THUG2_API void note_qb_name(uint32_t checksum, const char* name);
+THUG2_API const char* kept_qb_name(uint32_t checksum);
 
 // Forget which script the stored random states belonging to `owner` (a script) were for.
 void forget_stored_randoms_of(const Script* owner);
@@ -192,14 +193,14 @@ void free_vector(void* vector);
 void free_stored_random(void* random);
 void free_symbol(SymbolTableEntry* symbol);
 // Take `symbol` out of the table and free it and its value.
-void clean_up_and_remove_symbol(SymbolTableEntry* symbol);
+THUG2_API void clean_up_and_remove_symbol(SymbolTableEntry* symbol);
 // Pending changes, done by process_pending_symbols once a file is loaded: remove `symbol`, or replace the
 // table's symbol of the same name with `symbol`.
 void remove_symbol_later(SymbolTableEntry* symbol);
 void replace_symbol_later(SymbolTableEntry* symbol);
 void process_pending_symbols();
-void clear_script_flag_6f_2564();
-void set_script_flag_6f_2564();
+THUG2_API void clear_script_flag_6f_2564();
+THUG2_API void set_script_flag_6f_2564();
 
 constexpr size_t kStoredRandomNumOffset = 8;
 constexpr size_t kStoredRandomOrderOffset = 0x12;

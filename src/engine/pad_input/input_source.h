@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <span>
 
+#include "base/core/api.h"
+
 namespace sio {
 struct PadSnapshot;
 } // namespace sio
@@ -144,13 +146,13 @@ void set_default_keys(DefaultKeys keys);
 void read_pad(int port, sio::PadSnapshot* pad);
 bool key_down(int code);
 // (each from the first source that has it: an empty KeyState, false or nothing when none has)
-KeyState keys();
-bool mouse(MouseState* out);
-bool controller(ControllerState* out);
-void set_relative_mouse(bool on);
+THUG2_API KeyState keys();
+THUG2_API bool mouse(MouseState* out);
+THUG2_API bool controller(ControllerState* out);
+THUG2_API void set_relative_mouse(bool on);
 // (-1 when no source has a cursor)
-int show_cursor(int toggle);
-void set_cursor_follows_device(bool follows);
-bool window_size(uint32_t window, int* width, int* height);
+THUG2_API int show_cursor(int toggle);
+THUG2_API void set_cursor_follows_device(bool follows);
+THUG2_API bool window_size(uint32_t window, int* width, int* height);
 
 } // namespace input

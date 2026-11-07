@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <span>
 #include <vector>
+#include "base/core/api.h"
 #include "engine/memory/slab_bank.h"
 #include <gsl/pointers>
 #include "base/core/checksums.h"
@@ -53,7 +54,7 @@ constexpr size_t kArrayBytes = 0xC;
 // A script array: `size` elements of one type. A single element is kept in place of the pointer.
 class Array {
 public:
-    Array();
+    THUG2_API Array();
     void get_clear();
     // The elements (for one element, the value stored in the array itself).
     Cell* find_array_value();
@@ -63,7 +64,7 @@ public:
         return extent_ == 1 ? std::span<Cell>(&storage_, 1) : std::span<Cell>(storage_.block(), extent_);
     }
     // Make the array `size` zeroed elements of `type` (frees the old element block, not what it refers to).
-    void configure_size_kind(uint32_t size, QbValueKind type);
+    THUG2_API void configure_size_kind(uint32_t size, QbValueKind type);
     // Only the type (the elements are left as they are).
     void change_species(QbValueKind type);
     // Grow the array to `size` elements, keeping the old ones (the new ones are zero; shrinking isn't supported).
@@ -71,23 +72,23 @@ public:
 
     // The elements. A 32-bit value (an integer, a checksum) by set_element / fetch_part; any kind's whole cell (a
     // structure, an array...) by cell_at / set_cell.
-    void set_element(uint32_t index, uint32_t value);
-    void change_float(uint32_t index, float value);
-    uint32_t fetch_part(uint32_t index);
-    const char* fetch_text(uint32_t index);
+    THUG2_API void set_element(uint32_t index, uint32_t value);
+    THUG2_API void change_float(uint32_t index, float value);
+    THUG2_API uint32_t fetch_part(uint32_t index);
+    THUG2_API const char* fetch_text(uint32_t index);
     char* find_inline_text(uint32_t index);
     // An integer array's elements are converted.
-    float fetch_float(uint32_t index);
+    THUG2_API float fetch_float(uint32_t index);
     // The element as the pointer its cell holds, by the array's type (a structure / array / pair / vector
     // array's element).
-    Struct* struct_at(uint32_t index);
+    THUG2_API Struct* struct_at(uint32_t index);
     Array* array_at(uint32_t index);
     Pair* pair_at(uint32_t index);
     Vector* vector_at(uint32_t index);
     // The element's cell, and the cell stored (its kind the array's type: a structure / array / pair / vector /
     // string array's element - the array takes it over).
     [[nodiscard]] Cell cell_at(uint32_t index);
-    void set_cell(uint32_t index, Cell value);
+    THUG2_API void set_cell(uint32_t index, Cell value);
     void set_struct(uint32_t index, Struct* value) { set_cell(index, Cell::of(value)); }
     void set_array(uint32_t index, Array* value) { set_cell(index, Cell::of(value)); }
     void set_pair(uint32_t index, Pair* value) { set_cell(index, Cell::of(value)); }
@@ -115,7 +116,7 @@ static_assert(core::layout_32bit(sizeof(Array) == kArrayBytes), "layout must mat
 // Pair and vector values are separate objects; the coordinates start at +4.
 // Their constructors clear only byte 0 of the first word.
 struct Pair {
-    Pair();
+    THUG2_API Pair();
 
     // The fields other code reads and sets.
     void set_unknown0(uint32_t value) { unknown0_ = value; }
@@ -210,33 +211,33 @@ private:
 };
 
 // 0x00478CF0: the global symbol `name` (following names that just name another symbol), or null.
-SymbolTableEntry* resolve_symbol(uint32_t name);
+THUG2_API SymbolTableEntry* resolve_symbol(uint32_t name);
 // The global symbol `name` itself, or null.
-SymbolTableEntry* find_symbol(uint32_t name);
+THUG2_API SymbolTableEntry* find_symbol(uint32_t name);
 // Make the (empty) symbol table: 0x1000 buckets, from the current heap.
 void create_symbol_table();
 // A new symbol `name` (from the symbol pool), linked in.
-SymbolTableEntry* create_symbol(uint32_t name);
+THUG2_API SymbolTableEntry* create_symbol(uint32_t name);
 // Link `entry` in / take it out of the table (the entry is kept).
 void link_symbol(SymbolTableEntry* entry);
 void unlink_symbol(SymbolTableEntry* entry);
 // Iterate over every symbol: pass null for the first, then the previous one; null at the end.
-SymbolTableEntry* get_next_symbol(SymbolTableEntry* previous);
+THUG2_API SymbolTableEntry* get_next_symbol(SymbolTableEntry* previous);
 
 // The values of global symbols (by checksum or name). Integers and floats convert to each other; missing ones
 // (or the wrong type) give 0 / 0.0 / null; get_symbol_value gives the raw value of any type; strings give "".
-int fetch_int_value(uint32_t name);
+THUG2_API int fetch_int_value(uint32_t name);
 int fetch_int_value(const char* name);
-float fetch_float(uint32_t name);
+THUG2_API float fetch_float(uint32_t name);
 float fetch_float(const char* name);
 uint32_t get_symbol_value(uint32_t name);
 uint32_t get_symbol_value(const char* name);
 const char* fetch_text(uint32_t name);
 const char* fetch_text(const char* name);
-Struct* read_sub_struct(uint32_t name);
+THUG2_API Struct* read_sub_struct(uint32_t name);
 Struct* read_sub_struct(const char* name);
 Array* fetch_list(uint32_t name);
-Array* fetch_list(const char* name);
+THUG2_API Array* fetch_list(const char* name);
 
 // Whether two components' values are equal (names standing for global symbols are looked up; integers and
 // floats compare by value; structures and arrays only when they are the same one).
@@ -278,8 +279,8 @@ std::vector<uint32_t> words_of(Array* array);
 // them, and this source had a copy in every file): from their pools, constructed (null when the pool and the heap are
 // out of memory, as the original); freed with what they own (the components / elements) and given back to the pool.
 // A null pointer is let go of as nothing.
-gsl::owner<Struct*> new_struct();
-gsl::owner<Array*> new_array();
+THUG2_API gsl::owner<Struct*> new_struct();
+THUG2_API gsl::owner<Array*> new_array();
 void free_struct(gsl::owner<Struct*> structure);
 void free_array(gsl::owner<Array*> array);
 // Their owners, for a structure or array that lives in a scope or a member (freed as above).
@@ -295,10 +296,10 @@ inline StructPtr make_struct() { return StructPtr(new_struct()); }
 inline ArrayPtr make_array() { return ArrayPtr(new_array()); }
 
 // The pooled allocations of the script's value objects.
-gsl::owner<Struct*> spawn_param_bag();
-void delete_struct(Struct* structure);
-gsl::owner<Array*> alloc_script_array();
-void delete_array(Array* array);
+THUG2_API gsl::owner<Struct*> spawn_param_bag();
+THUG2_API void delete_struct(Struct* structure);
+THUG2_API gsl::owner<Array*> alloc_script_array();
+THUG2_API void delete_array(Array* array);
 void free_component(Component* component);
 // A new, empty component (from the component pool).
 gsl::owner<Component*> new_component();
@@ -311,24 +312,24 @@ using VectorValue = maths::Vec4;
 constexpr size_t kStructBytes = 8;
 class Struct {
 public:
-    Struct();
+    THUG2_API Struct();
     // Initialise as a copy of `source` (the copy constructor).
     Struct* init_copy(Struct* source);
     bool is_vacant();
     // The next component after `component` (null: the first).
     Component* step_to_entry(Component* component);
     // The component `name` - the last one there is, also in included structures.
-    Component* find_last_component(uint32_t name);
+    THUG2_API Component* find_last_component(uint32_t name);
     // The first component named `name`, or the flag `name`, also in included structures.
     Component* find_component(uint32_t name);
     // The value of the last component `name` of type `type` (integers are converted for floats; name components
     // naming a global symbol of the type count too), into `out`.
     bool get_hunt(uint32_t name, QbValueKind type, Cell* out);
 
-    bool has_entry_named(uint32_t name);
+    THUG2_API bool has_entry_named(uint32_t name);
     bool has_entry_named(const char* name);
     // Whether the bare name `flag` is among the components.
-    bool has_bare_flag(uint32_t flag);
+    THUG2_API bool has_bare_flag(uint32_t flag);
     bool has_bare_flag(const char* flag);
     // Whether `other` is this structure or one of its structure components (recursively).
     bool ref_tally(Struct* other);
@@ -336,36 +337,36 @@ public:
     bool is_subset_of(Struct* other);
 
     // Remove (and free) every component.
-    void get_clear();
+    THUG2_API void get_clear();
     // Remove every component named `name` (of type `type`).
-    void erase_module(uint32_t name);
+    THUG2_API void erase_module(uint32_t name);
     void erase_module(const char* name);
     void remove_component_of_type(uint32_t name, QbValueKind type);
     // Remove the bare name `flag`.
-    void remove_flag(uint32_t flag);
+    THUG2_API void remove_flag(uint32_t flag);
 
     // Add `component` at the end, replacing any component of the same name and compatible type (integers and
     // floats replace each other; a bare name only replaces the same name).
     void attach_module(Component* added);
-    void append_word(uint32_t name, const char* value);
+    THUG2_API void append_word(uint32_t name, const char* value);
     void append_word(const char* name, const char* value);
-    void append_inline_text(uint32_t name, const char* value);
+    THUG2_API void append_inline_text(uint32_t name, const char* value);
     void append_word(uint32_t name, QbValueKind type, const char* value); // string or local string
     // The putters of a number, a name or a vector take the component's name as a checksums::Name: its value could
     // otherwise be passed for it (I.24).
-    void put_int(checksums::Name name, int value);
-    void put_int(const char* name, int value);
-    void push_float(checksums::Name name, float value);
+    THUG2_API void put_int(checksums::Name name, int value);
+    THUG2_API void put_int(const char* name, int value);
+    THUG2_API void push_float(checksums::Name name, float value);
     void push_float(const char* name, float value);
-    void put_name_key(checksums::Name name, uint32_t value);
+    THUG2_API void put_name_key(checksums::Name name, uint32_t value);
     void put_name_key(const char* name, uint32_t value);
     // x, y and z of `value` (its w not kept).
-    void put_vec3(checksums::Name name, VectorValue value);
+    THUG2_API void put_vec3(checksums::Name name, VectorValue value);
     void put_vec3(const char* name, VectorValue value);
-    void insert_pair(checksums::Name name, maths::Vec2 value);
+    THUG2_API void insert_pair(checksums::Name name, maths::Vec2 value);
     // Arrays and structures added by pointer (the structure takes them over).
-    void append_array_ref(uint32_t name, gsl::owner<Array*> value);
-    void append_array_ref(const char* name, gsl::owner<Array*> value);
+    THUG2_API void append_array_ref(uint32_t name, gsl::owner<Array*> value);
+    THUG2_API void append_array_ref(const char* name, gsl::owner<Array*> value);
     void append_struct_ref(uint32_t name, gsl::owner<Struct*> value);
     void append_struct_ref(const char* name, gsl::owner<Struct*> value);
     // A copy of `value`.
@@ -379,7 +380,7 @@ public:
     void add_component_of_type(uint32_t name, QbValueKind type, uint32_t value);
 
     // Copies of all `source`'s components, added.
-    Struct* merge_structure(Struct* source);
+    THUG2_API Struct* merge_structure(Struct* source);
     void append_structure_if_any(Struct* source);
     // Become a copy of `source`.
     Struct* get_assign(Struct* source);
@@ -388,9 +389,9 @@ public:
 
     // The typed getters: false if missing. With `assert` set, a miss also prints the structure (dump_to_log -
     // compiled out of this build) before a compiled-out assert.
-    bool fetch_text(uint32_t name, const char** out, int assert);
+    THUG2_API bool fetch_text(uint32_t name, const char** out, int assert);
     bool fetch_text(const char* name, const char** out, int assert);
-    bool fetch_int_value(uint32_t name, int* out, int assert);
+    THUG2_API bool fetch_int_value(uint32_t name, int* out, int assert);
     // The same into an unsigned word (the integer's bits; left as it was when not found).
     bool fetch_int_value(uint32_t name, uint32_t* out, int assert)
     {
@@ -400,21 +401,21 @@ public:
         return found;
     }
     bool fetch_int_value(const char* name, int* out, int assert);
-    bool fetch_float(uint32_t name, float* out, int assert);
+    THUG2_API bool fetch_float(uint32_t name, float* out, int assert);
     bool fetch_float(const char* name, float* out, int assert);
     bool fetch_pair(uint32_t name, maths::Vec2* out, int assert);
-    bool fetch_pair(uint32_t name, Pair* out, bool assert);
-    bool read_sub_struct(uint32_t name, Struct** out, int assert);
+    THUG2_API bool fetch_pair(uint32_t name, Pair* out, bool assert);
+    THUG2_API bool read_sub_struct(uint32_t name, Struct** out, int assert);
     bool read_sub_struct(const char* name, Struct** out, int assert);
-    bool fetch_list(uint32_t name, Array** out, int assert);
+    THUG2_API bool fetch_list(uint32_t name, Array** out, int assert);
     bool fetch_list(const char* name, Array** out, int assert);
     // A script component: its name and code into `out`.
     bool fetch_script(uint32_t name, ParamScript* out, int assert);
-    bool read_hash_value(uint32_t name, uint32_t* out, int assert);
+    THUG2_API bool read_hash_value(uint32_t name, uint32_t* out, int assert);
     bool read_hash_value(const char* name, uint32_t* out, int assert);
     // The checksum `name`, or else the checksum of the string `name`.
     bool hash_from_name_or_text(uint32_t name, uint32_t* out, int assert);
-    bool fetch_vec(uint32_t name, VectorValue* out, int assert);
+    THUG2_API bool fetch_vec(uint32_t name, VectorValue* out, int assert);
     bool fetch_vec(const char* name, VectorValue* out, int assert);
 
     // The fields other code reads and sets.
@@ -431,12 +432,12 @@ private:
 static_assert(core::layout_32bit(sizeof(Struct) == kStructBytes), "layout must match the original");
 
 // The CStruct pool pair (script/struct.cpp).
-memory::PoolPair& struct_pools();
-memory::PoolPair& array_pools();
-memory::PoolPair& component_pools();
-memory::PoolPair& symbol_pools();
-memory::PoolPair& vector_pools();
-memory::PoolPair& script_pools();
+THUG2_API memory::PoolPair& struct_pools();
+THUG2_API memory::PoolPair& array_pools();
+THUG2_API memory::PoolPair& component_pools();
+THUG2_API memory::PoolPair& symbol_pools();
+THUG2_API memory::PoolPair& vector_pools();
+THUG2_API memory::PoolPair& script_pools();
 
 // A permanent string table entry: the string's checksum and the string.
 struct PermanentString {

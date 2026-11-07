@@ -5,6 +5,7 @@
 # installs. The sources keep their order in the exe's list before the split (the link order).
 add_library(thug2_engine STATIC
     ext/extension.cpp
+    ext/plugin.cpp
     assets/resource_entry.cpp
     assets/asset_types.cpp
     assets/resource_registry.cpp

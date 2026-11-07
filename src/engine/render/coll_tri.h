@@ -6,6 +6,7 @@
 #include <cstring>
 #include <span>
 
+#include "base/core/api.h"
 #include "base/core/checked_index.h"
 
 #include "base/maths/shape_tests.h"
@@ -41,7 +42,7 @@ private:
 public:
 
     // 0x00414D70 (not a function in Ghidra: new[]'s constructor): zeroed.
-    HitTreeNode();
+    THUG2_API HitTreeNode();
 
     [[nodiscard]] bool is_end_node() const { return (axis_tag_ & 3) == 3; }
     [[nodiscard]] int get_axis() const { return axis_tag_ & 3; }
@@ -87,7 +88,7 @@ static_assert(sizeof(HitTreeNode) == kHitTreeNodeBytes, "the collision file's BS
 
 // A tree's nodes as new[] made them (0x00414D70 each), the block before the first holding their count - and the
 // block freed from there (the original's new[] kept the count in the word before them).
-HitTreeNode* new_tree_nodes(int count);
+THUG2_API HitTreeNode* new_tree_nodes(int count);
 void free_tree_nodes(HitTreeNode* first);
 
 constexpr std::size_t kTriMeshSourceNumVerticesOffset = 0x06;
@@ -174,9 +175,9 @@ public:
     }
 
     // 0x0040B230: vertex `index` (w = 0).
-    [[nodiscard]] maths::Vec4 read_stored_vertex(int index) const;
+    [[nodiscard]] THUG2_API maths::Vec4 read_stored_vertex(int index) const;
     // 0x0040B2D0: the same into `out`.
-    void read_stored_vertex(int index, maths::Vec4* out) const;
+    THUG2_API void read_stored_vertex(int index, maths::Vec4* out) const;
     // NOT ORIGINAL grouping - face `face`'s three corners, each as read_stored_vertex(index, out) reads it (the
     // collision queries' inner loops: the face and vertex arrays resolved once).
     void read_face_corners(int face, maths::Vec4* v0, maths::Vec4* v1, maths::Vec4* v2) const;
@@ -192,21 +193,21 @@ public:
     TriMeshSource* copy_from(const TriMeshSource* other);
     // 0x00416BF0: a copy with its own vertices, faces, vertex bytes and tree (`bsp_argument` passed to the tree's
     // Clone). Null when `need_vertices` and there are none, or an array couldn't be allocated.
-    [[nodiscard]] TriMeshSource* replicate(int bsp_argument, bool need_vertices) const;
+    [[nodiscard]] THUG2_API TriMeshSource* replicate(int bsp_argument, bool need_vertices) const;
     // 0x00416970: the arrays freed, the tree deleted.
     void destruct();
     // 0x00416080: the tree and its face indices freed (false if there was none).
-    bool delete_bsp();
+    THUG2_API bool delete_bsp();
     // 0x00416400: vertices (uncompressed), box and tree moved by `delta`.
-    void get_slide(const maths::Vec4* delta);
+    THUG2_API void get_slide(const maths::Vec4* delta);
     // 0x004164F0: turned by `quarter_turns` quarter turns about Y around `centre` (compressed vertices through a
     // temporary array on the top-down heap); the box made from its turned corners.
-    void rotate_y(const maths::Vec4* centre, int quarter_turns);
+    THUG2_API void rotate_y(const maths::Vec4* centre, int quarter_turns);
     // 0x00416730: scaled by `scale` around `centre`; the box's corners scaled (w kept, not re-sorted).
-    void scale_tool(const maths::Vec4* centre, const maths::Vec4* scale);
+    THUG2_API void scale_tool(const maths::Vec4* centre, const maths::Vec4* scale);
     // 0x00414D30: the shared index table 0x0067C6B8 filled with 0..2047 the first time (its first entry is
     // 0xFFFF until then); whether the geometry has a tree.
-    [[nodiscard]] bool set_up_all_faces() const;
+    [[nodiscard]] THUG2_API bool set_up_all_faces() const;
     // 0x00414FE0: occlusion polygons: each face paired with the first later face that shares an edge with it and
     // faces the same way (normals within 0.05 on each axis) - the four corners to render::add_debug_shape (a quad: an
     // occlusion polygon) with the checksum.

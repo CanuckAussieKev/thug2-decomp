@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/render/coll_line.h"
@@ -35,7 +36,7 @@ class ProbeRay {
 public:
     // 0x00417760: no callback, cache or object; faces flagged 0x10 ignored; the hit's normal and point (0, 0, 0, 1).
     // The line is left unset.
-    ProbeRay();
+    THUG2_API ProbeRay();
     // 0x00417250: the same with the line from `start` to `end`.
     ProbeRay(const maths::Vec4* start, const maths::Vec4* end);
 
@@ -61,7 +62,7 @@ public:
     // owner) and its id kept; the hit's distance, point and normal copied. 1 if anything was hit, else 0.
     int get_hit_shape(bool movables, bool farthest);
     // 0x00417710: the line set, then get_hit_shape(movables, nearest).
-    int get_collision_along(const maths::Vec4* start, const maths::Vec4* end, bool movables);
+    THUG2_API int get_collision_along(const maths::Vec4* start, const maths::Vec4* end, bool movables);
 
     // 0x00417120: whether the static object hit is triangle collision (its slot 1) - true when nothing static was
     // hit.

@@ -1,5 +1,5 @@
-// The entry point of both exes - the game's (thug2-decomp.exe) and the level editor's (thug2-editor.exe): the same start-up,
-// with the exe's own extensions (app/extensions.h: extensions.cpp for the game, editor_extensions.cpp for the editor).
+// The entry point of the game (thug2-decomp.exe), with its extensions (app/extensions.h) and the plugins they load (the
+// level editor: engine/ext/plugin.h).
 //
 // What runs before this is the C runtime's start-up, as the original's entry point (0x0062583D) did before its WinMain
 // (0x004E2680): heap, threads, stdio, command line and environment, then the C and C++ initialiser tables - the
@@ -99,8 +99,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     script::install_host(script::qb::host());
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
-    // NOT ORIGINAL: the exe's extensions (the game's: the editor, the new front end, the dev tools; the editor exe's: the
-    // editor) registered before any of the original's code runs (app/extensions.h).
+    // NOT ORIGINAL: the exe's extensions (the new front end, the dev tools, our game features; the level editor from its
+    // plugin) registered before any of the original's code runs (app/extensions.h).
     app::register_extensions();
     // NOT ORIGINAL: the online session's hooks into the network transport (game/online/transport_hooks.h).
     online::install_transport_hooks();

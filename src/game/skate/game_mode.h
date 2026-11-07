@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include <gsl/pointers>
+#include "base/core/api.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "engine/script/param_struct.h"
@@ -106,7 +107,7 @@ public:
     void set_rider_ceiling(int players);        // 0x005531B0
     int get_rider_ceiling();                    // 0x005531D0 max_players
     int get_fireball_level();                   // 0x005531F0 fireball_level (3)
-    bool is_true(uint32_t name);                // 0x00553220 the integer `name` is non-zero
+    THUG2_API bool is_true(uint32_t name);                // 0x00553220 the integer `name` is non-zero
     void set_round(int round);                  // 0x00553250
     int get_round();                            // 0x00553270
     uint32_t get_name_key();                    // 0x005532A0 Name
@@ -136,6 +137,6 @@ void unlink_condition(MatchRules::ConditionNode& node);
 // 0x00553C90: OverrideGameModeOptions - the game mode's options overridden by the command's parameters.
 bool cfunc_override_game_mode_options(script::Struct* params, script::Context context);
 
-goals::MatchRules* game_mode();
+THUG2_API goals::MatchRules* game_mode();
 
 } // namespace goals

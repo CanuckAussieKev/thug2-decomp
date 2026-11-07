@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
@@ -131,7 +132,7 @@ public:
     // 0x0049CA10: a new sector (plat_create_sector) with +0x14 / +0x18 cleared (no null check, as the original).
     gsl::owner<WorldCell*> spawn_sector();
     // 0x0049CB00: the sector named `name` (the hash table's lookup, inlined), or null.
-    WorldCell* look_up_sector(uint32_t name);
+    THUG2_API WorldCell* look_up_sector(uint32_t name);
     // 0x0049CB40: `sector` deleted (out of the table if it's the one there under its name) - true; a sector with
     // flag 0x40 is only given flag 8 and the scene marked (+0x274) - false.
     bool remove_scene_sector(void* sector);
@@ -166,7 +167,7 @@ public:
     // clone's name (0 if none was made).
     uint32_t duplicate_scene_sector(WorldCell* sector, WorldScene* scene, int instance, bool flag, uint32_t name);
     // 0x0049DF30: the same for the sector `section_id` of this scene (0 if there's none).
-    uint32_t clone_sector_named(uint32_t section_id, WorldScene* scene, int instance, bool flag, uint32_t name);
+    THUG2_API uint32_t clone_sector_named(uint32_t section_id, WorldScene* scene, int instance, bool flag, uint32_t name);
     // 0x0049D590: the collision from a scene file's collision data - the static objects (and with builds_collision_grid_
     // their grid), each given to its sector (a new one, shown, if there's none of its name) and the sector put in the
     // grid (0x40); the weather told (0x004A1090) when the script integer 0xBA1E4254 is set. True.
@@ -177,7 +178,7 @@ public:
     // 0x0049D780: the super sectors (the collision grid) brought up to date: the sectors flagged 4 put in (0x40),
     // those flagged 8 or 0x10 taken out - 8: deleted, out of the table, after -, those flagged 0x20 moved; `added`
     // (a list of sectors) taken out too unless they already are. Nothing without a grid.
-    void get_update_super_sectors(memory::ListNode* added);
+    THUG2_API void get_update_super_sectors(memory::ListNode* added);
     // 0x0049E1B0: UpdateSuperSectors(`added`) if a sector was marked (sector_kept_). Whether it was.
     bool update_super_sectors_if_marked(memory::ListNode* added);
     // 0x0049DFD0: a scene added over this one: (with collision) the base's collision file loaded again (as the

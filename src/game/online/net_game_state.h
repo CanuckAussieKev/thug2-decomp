@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include "base/core/api.h"
 #include "game/online/gamenet_commands.h"
 #include "game/online/gamenet_manager.h"
 #include "game/online/gamenet_lobby.h"
@@ -116,7 +117,7 @@ private:
 };
 
 // The state (made on first use, never destroyed).
-NetGameState& net_game_state();
+THUG2_API NetGameState& net_game_state();
 // The online manager (0x007CCE14; null: none).
 [[nodiscard]] inline Hub* online_hub() { return net_game_state().online_hub(); }
 

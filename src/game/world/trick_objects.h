@@ -7,6 +7,7 @@
 
 #include <gsl/pointers>
 #include <array>
+#include "base/core/api.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
@@ -175,7 +176,7 @@ public:
     // 0x00589030: every cluster's graffiti colour `index` cleared (in the table's order; false at the first that fails).
     bool clear_graffiti_color(int index);
     // 0x00589080: trick object `objectName` filed under the cluster named `cluster_name` (null if there's none). True.
-    bool add_object_to_cluster(uint32_t object_name, uint32_t cluster_name);
+    THUG2_API bool add_object_to_cluster(uint32_t object_name, uint32_t cluster_name);
     // 0x005890B0: the parameters' arrays Skater0 ... Skater7 (trick object names) - each object's cluster coloured for
     // that player - then the parameters emptied.
     void apply_player_graffiti();
@@ -189,16 +190,16 @@ public:
     // 0x005896D0: a cluster named `name` made (0x58 bytes; null if out of memory) and listed by name, counted and filed
     // as its own trick object; in a created park the rail editor's rail of that name cleared first (0x004F3D10).
     // False if there's one already.
-    bool add_cluster(uint32_t name);
+    THUG2_API bool add_cluster(uint32_t name);
     // 0x00589760: trick object `objectName` added to the cluster named `cluster_name` (which must exist) and, unless
     // it's the cluster's own name, filed under it. Whether it was added.
-    bool add_object(uint32_t object_name, uint32_t cluster_name);
+    THUG2_API bool add_object(uint32_t object_name, uint32_t cluster_name);
     // 0x005889F0: every cluster deleted (0x004B22A0, the generic delete through slot 0) and both tables emptied. True.
     bool remove_all_clusters();
     // 0x00588380 / 0x005883C0 (and a jump to it, 0x005889E0): a trick object's cluster / a cluster by name (null if
     // none).
     TrickObjectCluster* get_object_cluster(uint32_t object_name);
-    TrickObjectCluster* get_cluster(uint32_t name);
+    THUG2_API TrickObjectCluster* get_cluster(uint32_t name);
     // 0x00588400: how many clusters `player` (an object id) holds.
     int count_clusters_held_by(int player);
     // 0x00588480: the name of the cluster `index` in the table's order (0 past the end).
@@ -263,6 +264,6 @@ void find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search)
 void find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search);
 void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer);
 
-objects::TrickSpotHub* trick_spot_hub();
+THUG2_API objects::TrickSpotHub* trick_spot_hub();
 
 } // namespace objects

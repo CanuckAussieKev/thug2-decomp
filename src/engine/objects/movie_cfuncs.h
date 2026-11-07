@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/api.h"
 #include "base/core/layout_32bit.h"
 
 namespace script {
@@ -46,7 +47,7 @@ private:
     }
 };
 
-bool cfunc_play_skater_cam_anim(script::Struct* params, script::Context context); // 0x005AD830
+THUG2_API bool cfunc_play_skater_cam_anim(script::Struct* params, script::Context context); // 0x005AD830
 // 0x005AD960 / 0x005ADA30: also SetCutsceneSkippable / SetCutsceneShouldPause (the same functions).
 bool cfunc_set_skater_cam_anim_skippable(script::Struct* params, script::Context context);    // 0x005AD960
 bool cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Context context); // 0x005ADA30
@@ -55,7 +56,7 @@ bool cfunc_get_skater_cam_anim_params(script::Struct* params, script::Context co
 // 0x005ADC10 / 0x005ADCC0 / 0x005ADD70: also CutsceneFinished / CutsceneHeld / KillCutscene.
 bool cfunc_skater_cam_anim_finished(script::Struct* params, script::Context context);     // 0x005ADC10
 bool cfunc_skater_cam_anim_held(script::Struct* params, script::Context context);         // 0x005ADCC0
-bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Context context);         // 0x005ADD70
+THUG2_API bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Context context);         // 0x005ADD70
 bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Context context);       // 0x005ADEC0
 bool cfunc_cutscene_destroy_list_active(script::Struct* params, script::Context context); // 0x005AE000
 bool cfunc_play_cutscene(script::Struct* params, script::Context context);                // 0x005AE010

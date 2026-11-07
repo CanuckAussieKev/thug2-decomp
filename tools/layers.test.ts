@@ -32,7 +32,8 @@ test("a library may include itself and the ones below it only", () => {
     assert.ok(!mayInclude(map, "engine", "game"));
     assert.ok(!mayInclude(map, "frontend", "editor"));
     assert.ok(!mayInclude(map, "formats", "platform"));
-    assert.ok(mayInclude(map, "app", "editor"));
+    assert.ok(mayInclude(map, "app", "frontend"));
+    assert.ok(!mayInclude(map, "app", "editor")); // (the editor is a plugin the exe loads)
 });
 
 test("the ratchet reports new violations and baseline lines that are gone", () => {

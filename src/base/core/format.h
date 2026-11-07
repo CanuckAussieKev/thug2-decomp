@@ -10,6 +10,8 @@
 #include <type_traits>
 #include <variant>
 
+#include "base/core/api.h"
+
 // NOT ORIGINAL - printf-style text without C varargs: the format is checked against the arguments' types at compile time
 // (a conversion that doesn't match its argument, or a missing / extra argument, doesn't build) and the text is made by
 // our own code, byte for byte what the C runtime's snprintf makes (src/tests/printf_check.cpp compares the two over every
@@ -31,9 +33,9 @@ using FormatArg = std::variant<int64_t, uint64_t, double, const char*, const wch
 // is empty); the full length it has, whether or not it fitted. The format is not checked: a conversion without an
 // argument, or with one of another kind, prints as for 0 / an empty text (the original read whatever the stack held).
 // For formats that come from data; a literal goes through format_to.
-size_t format_runtime_to(std::span<char> out, std::string_view format, std::span<const FormatArg> args);
+THUG2_API size_t format_runtime_to(std::span<char> out, std::string_view format, std::span<const FormatArg> args);
 // The same, as a string.
-std::string format_runtime(std::string_view format, std::span<const FormatArg> args);
+THUG2_API std::string format_runtime(std::string_view format, std::span<const FormatArg> args);
 
 namespace format_detail {
 

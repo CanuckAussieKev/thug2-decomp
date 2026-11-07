@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/core/api.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
@@ -81,6 +82,6 @@ private:
 };
 
 // The engine's state (made on first use, never destroyed).
-EngineParts& engine_parts();
+THUG2_API EngineParts& engine_parts();
 
 } // namespace render

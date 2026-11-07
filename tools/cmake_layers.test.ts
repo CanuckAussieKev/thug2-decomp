@@ -160,7 +160,7 @@ test("the repository's CMake targets mirror tools/layers.json", () => {
 });
 
 test("the app's object library, and an exe that must do without some libraries", () => {
-    const map: LayerMap = { ...MAP, executables: { "thug2-editor": { without: ["frontend"] } } };
+    const map: LayerMap = { ...MAP, executables: { "thug2-tool": { without: ["frontend"] } } };
     const shared: Target = {
         name: "thug2_app",
         kind: "library",
@@ -169,20 +169,20 @@ test("the app's object library, and an exe that must do without some libraries",
         sources: ["src/app/b.cpp"],
         links: ["thug2_game"],
     };
-    const editorExe = (links: string[]): Target => ({
-        name: "thug2-editor",
+    const toolExe = (links: string[]): Target => ({
+        name: "thug2-tool",
         kind: "executable",
         file: "src/app/CMakeLists.txt",
         sources: ["src/app/c.cpp"],
         links,
     });
     const cpp = [...CPP, "src/app/b.cpp", "src/app/c.cpp"];
-    assert.deepEqual(problems(map, [...project(), shared, editorExe(["thug2_app", "thug2_editor"])], cpp, []), []);
+    assert.deepEqual(problems(map, [...project(), shared, toolExe(["thug2_app", "thug2_editor"])], cpp, []), []);
     // (the exe reaching the front end, through the editor or directly)
     const project2 = project({ thug2_editor: ["thug2_game", "thug2_frontend"] });
     assert.ok(
-        problems(map, [...project2, shared, editorExe(["thug2_app", "thug2_editor"])], cpp, []).includes(
-            "thug2-editor reaches thug2_frontend, which it must do without",
+        problems(map, [...project2, shared, toolExe(["thug2_app", "thug2_editor"])], cpp, []).includes(
+            "thug2-tool reaches thug2_frontend, which it must do without",
         ),
     );
     // (a static library in the app's folders, or no such exe)
@@ -191,6 +191,25 @@ test("the app's object library, and an exe that must do without some libraries",
         "thug2_app: the app's folders hold executables and the object library thug2_app only",
     ]);
     assert.deepEqual(problems(map, project(), CPP, []), [
-        'thug2-editor: no such executable (tools/layers.json "executables")',
+        'thug2-tool: no such executable (tools/layers.json "executables")',
     ]);
+});
+
+test("a plugin is a DLL on its host's import library, compiled against the layers' headers only", () => {
+    const map: LayerMap = { ...MAP, plugins: { editor: { host: "thug2" } } };
+    const withPlugin = (editor: Partial<Target>): Target[] =>
+        project().map((target) => {
+            if (target.name === "thug2") return { ...target, links: ["thug2_frontend"] };
+            if (target.name === "thug2_editor") return { ...target, ...editor };
+            return target;
+        });
+    const good = { shared: true, links: ["thug2_game", "thug2"], compileOnly: ["thug2_game"] };
+    assert.deepEqual(problems(map, withPlugin(good), CPP, []), []);
+    assert.deepEqual(problems(map, withPlugin({ ...good, compileOnly: [] }), CPP, []), [
+        "thug2_editor links thug2_game: a plugin compiles against the layers' headers only ($<COMPILE_ONLY:thug2_game>) - their code is the host's",
+    ]);
+    assert.deepEqual(
+        problems(map, withPlugin({ shared: true, links: ["thug2_game"], compileOnly: ["thug2_game"] }), CPP, []),
+        ["thug2_editor: a plugin links its host exe thug2 (the engine API's import library)"],
+    );
 });
