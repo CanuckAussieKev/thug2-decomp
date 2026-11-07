@@ -176,7 +176,7 @@ uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, KeyCounts key_cou
     payload_ = static_cast<uint8_t*>(memory::alloc(allocated_));
     std::memset(payload_, 0, allocated_);
     rotation_keys_ptr_ = payload_;
-    translation_keys_ptr_ = std::span<uint8_t>(payload_, allocated_).subspan(static_cast<size_t>(rotation_key_size_ * rotation_keys)).data();
+    translation_keys_ptr_ = std::span<uint8_t>(payload_, allocated_).subspan(static_cast<size_t>(rotation_key_size_) * static_cast<size_t>(rotation_keys)).data();
     pop_heap();
     flag_bits_ &= ~(kBusy | kReleasing);
     last_used_ = 0;
@@ -519,7 +519,7 @@ int ClipStore::defragment()
         }
     }
     auto* copy = static_cast<uint8_t*>(memory::alloc(total));
-    auto* old_data = static_cast<uint8_t**>(memory::alloc(with_data * 4));
+    auto* old_data = static_cast<uint8_t**>(memory::alloc(static_cast<unsigned int>(with_data) * memory::kPointerBytes));
     if (!copy || !old_data) {
         if (copy) {
             memory::dealloc(copy);

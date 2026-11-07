@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 
 #include "base/lists/object_set.h"
@@ -67,7 +68,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(LevelLamp, label_) == kLevelLampLabelOffset && sizeof(LevelLamp) == kLevelLampBytes, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(LevelLamp, label_) == kLevelLampLabelOffset && sizeof(LevelLamp) == kLevelLampBytes), "layout must match the original");
     }
 };
 

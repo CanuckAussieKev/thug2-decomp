@@ -440,7 +440,7 @@ bool disc_mode_active()
 {
     if (game_config::from_cd() && initialised()) {
         // NOT ORIGINAL - continue_music: the song plays on through the load (on the PC it streams from its own file,
-        // read by Bink's thread - nothing for the level's reads to wait for, unlike a console's disc)
+        // read by the movie codec's thread - nothing for the level's reads to wait for, unlike a console's disc)
         if (!continue_music::is_switched_on()) {
             stop_music();
         }

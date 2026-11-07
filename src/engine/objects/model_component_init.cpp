@@ -9,6 +9,7 @@
 #include <gsl/assert>
 
 #include "engine/memory/manager.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/bone_volumes.h"
 #include "engine/gfx/engine.h"
@@ -40,7 +41,7 @@
 namespace objects {
 
 namespace {
-constexpr std::size_t kModelBlockBytes = 0x0C;
+constexpr std::size_t kModelBlockBytes = 0x0C; // (the original's: sizeof on x64)
 constexpr int kDisplayModeShadow = 6;
 constexpr std::size_t kPathBytes = 0x200;
 
@@ -282,7 +283,8 @@ void MeshInstanceModule::init_bone_volumes()
         ++volumes->users(); // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
-        gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(kModelBlockBytes));
+        static_assert(core::layout_32bit(sizeof(gfx::BoneVolumes) == kModelBlockBytes), "the original allocates this many bytes");
+        gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(sizeof(gfx::BoneVolumes)));
         if (made) {
             made = new (made) gfx::BoneVolumes(0);
         }

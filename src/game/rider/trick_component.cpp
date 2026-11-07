@@ -507,7 +507,7 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
 uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, std::array<uint32_t, 3>& out)
 {
     for (int i = 0; i < count; ++i) {
-        uint32_t button = node->value.word();
+        uint32_t button = node->value.low_word();
         if (button == kButtonAlias1) {
             button = core::at(button_map_, 1);
         } else if (button == kButtonAlias2) {
@@ -521,7 +521,7 @@ uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, st
     if (script::value_kind(*node) == script::QbValueKind::kInteger) {
         return node->value.word();
     }
-    return static_cast<uint32_t>(script::fetch_int_value(node->value.word()));
+    return static_cast<uint32_t>(script::fetch_int_value(node->value.low_word()));
 }
 
 // 0x0051ECC0
@@ -1184,7 +1184,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         return scan == Scan::kStopped ? false : fail();
     };
 
-    switch (kind->value.word()) {
+    switch (kind->value.low_word()) {
     case kPress: { // Press: the button pressed (the event gets the flags itself, nothing marked)
         const uint32_t ms = stretched_window(this, read_trigger(node, 1, buttons), scaled);
         TrickEvent* event = nullptr;
@@ -1294,9 +1294,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     }
     case kHoldThree: { // HoldThree: the three (as named, not mapped) held; nothing marked
         const script::Component* second = node->next;
-        const uint32_t first_key = node->value.word();
-        const uint32_t second_key = second->value.word();
-        const uint32_t third_key = second->next->value.word();
+        const uint32_t first_key = node->value.low_word();
+        const uint32_t second_key = second->value.low_word();
+        const uint32_t third_key = second->next->value.low_word();
         return is_key_held(first_key) && is_key_held(second_key) && is_key_held(third_key);
     }
     case kReleaseAndTap: { // ReleaseAndTap: the first released, then the second pressed and released

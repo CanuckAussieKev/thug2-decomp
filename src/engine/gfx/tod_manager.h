@@ -5,6 +5,8 @@
 #include <array>
 #include <gsl/pointers>
 
+#include "base/core/layout_32bit.h"
+
 // The time-of-day manager (the TODManager_* script commands): a career level's day passing through four states -
 // morning, afternoon, evening, night - each a set of lighting parameters (the level's light colour, sky, fog,
 // ambient and the two directional lights, the sun, bloom) that the manager blends between while time passes, and
@@ -136,8 +138,8 @@ constexpr std::size_t kTodSystemParamsOffset = 0x148;
 constexpr std::size_t kTodSystemTransitionLengthOffset = 0x178;
 constexpr std::size_t kTodSystemSkyOffset = 0x186;
 
-static_assert(sizeof(TodSystem) == kTodSystemBytes && offsetof(TodSystem, params) == kTodSystemParamsOffset &&
-                  offsetof(TodSystem, transition_length_) == kTodSystemTransitionLengthOffset && offsetof(TodSystem, sky) == kTodSystemSkyOffset,
+static_assert(core::layout_32bit(sizeof(TodSystem) == kTodSystemBytes && offsetof(TodSystem, params) == kTodSystemParamsOffset &&
+                  offsetof(TodSystem, transition_length_) == kTodSystemTransitionLengthOffset && offsetof(TodSystem, sky) == kTodSystemSkyOffset),
               "layout must match the original");
 
 constexpr std::size_t kCtodManagerSystemsOffset = 8;
@@ -263,9 +265,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CtodManager, systems_) == kCtodManagerSystemsOffset && offsetof(CtodManager, temp_bloom_) == kCtodManagerTempBloomOffset &&
+        static_assert(core::layout_32bit(offsetof(CtodManager, systems_) == kCtodManagerSystemsOffset && offsetof(CtodManager, temp_bloom_) == kCtodManagerTempBloomOffset &&
                           offsetof(CtodManager, time_multiplier_) == kCtodManagerTimeMultiplierOffset && offsetof(CtodManager, params_set_) == kCtodManagerParamsSetOffset &&
-                          sizeof(CtodManager) == kCtodManagerBytes,
+                          sizeof(CtodManager) == kCtodManagerBytes),
                       "layout must match the original (0x00574540 allocates 0x340 bytes)");
     }
 };

@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/vec4.h"
 #include "engine/objects/smtptr.h"
@@ -75,8 +76,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ViewRegion, flag_bits_) == kViewRegionFlagBitsOffset && offsetof(ViewRegion, viewer_) == kViewRegionViewerOffset &&
-                          sizeof(ViewRegion) == kViewRegionBytes,
+        static_assert(core::layout_32bit(offsetof(ViewRegion, flag_bits_) == kViewRegionFlagBitsOffset && offsetof(ViewRegion, viewer_) == kViewRegionViewerOffset &&
+                          sizeof(ViewRegion) == kViewRegionBytes),
                       "layout must match the original");
     }
 };
@@ -92,7 +93,7 @@ struct OcclusionRequest {
 };
 constexpr std::size_t kOcclusionRequestBytes = 0x10;
 
-static_assert(sizeof(OcclusionRequest) == kOcclusionRequestBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(OcclusionRequest) == kOcclusionRequestBytes), "layout must match the original");
 
 // 0x004A0760: every viewport's camera marked for deletion deleted.
 void purge_doomed_cameras();

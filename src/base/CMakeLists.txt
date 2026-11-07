@@ -10,6 +10,7 @@ add_library(thug2_base STATIC
     core/single_instance.cpp
     core/str.cpp
     core/stubs.cpp
+    maths/fpu_precision.cpp
     maths/mat4.cpp
     maths/maths.cpp
     maths/quat_rotation.cpp

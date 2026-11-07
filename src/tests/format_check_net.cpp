@@ -323,7 +323,7 @@ void check_graffiti_messages()
     util::ByteReader reader(&ref, sizeof(ref));
     check(!online::read_trick_objects(reader, message.get()) && message->count == 0,
           "trick objects 0x3B: a count past the end refused");
-    std::vector<uint8_t> big(online::kTrickObjectsHeaderSize + (4 * (online::kMaxTrickObjects + 1)), 0);
+    std::vector<uint8_t> big(online::kTrickObjectsHeaderSize + (4 * (static_cast<size_t>(online::kMaxTrickObjects) + 1)), 0);
     core::at(big, 0) = 1;
     uint32_t too_many = online::kMaxTrickObjects + 1;
     std::memcpy(std::span(big).subspan(kTrickObjectsCountOffset).data(), &too_many, 4);

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include "base/core/checksums.h"
+#include "base/core/layout_32bit.h"
 
 // The nodes by name prefix (level_nodes): when a node array is added, each node name's prefixes - the part before
 // each '_' (but not "TRG") and the name without its trailing digits - get the node's index, in one table per node
@@ -38,7 +39,7 @@ public:
 private:
     uint32_t name_prefix_;
 };
-static_assert(sizeof(PrefixNodes) == kPrefixNodesBytes, "allocated as 0xC bytes");
+static_assert(core::layout_32bit(sizeof(PrefixNodes) == kPrefixNodesBytes), "allocated as 0xC bytes");
 
 constexpr size_t kPrefixTableFollowingOffset = 8;
 constexpr size_t kPrefixTableBytes = 0xC;
@@ -69,7 +70,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PrefixTable, following_) == kPrefixTableFollowingOffset && sizeof(PrefixTable) == kPrefixTableBytes, "allocated as 0xC bytes");
+        static_assert(core::layout_32bit(offsetof(PrefixTable, following_) == kPrefixTableFollowingOffset && sizeof(PrefixTable) == kPrefixTableBytes), "allocated as 0xC bytes");
     }
 };
 

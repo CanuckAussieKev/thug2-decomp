@@ -270,7 +270,8 @@ The result is a bool and is only used by `if`. Its branches, in order:
 2. **`46 <entry> args`**: a member function table entry on `entity_`, through the free InvokeMethodByName
    0x00472980. For the component types 0x57525413 / 0x0ADA4E74 the object runs it itself (vtable +0x08);
    otherwise its component of that type (0x0045DB90, then the component's vtable +0x2C) does. No object: as in 1.
-3. **`43 <fnptr> args`**: a C function, `fn(stmt_args_, this)`. Its result is the statement's result.
+3. **`43 <fn> args`**: a C function, `fn(stmt_args_, this)`. Its result is the statement's result. (The original's
+   operand is the function's address; ours is its number, `engine/script/names.h` - and 46's the entry's number.)
 4. Otherwise a **name** is read first:
    - `0E ( expression )`: evaluated into a temporary component (with `args_` supplying `<x>` values). If the
      result is not a name, the statement's value is `raw != 0` and **nothing runs**. If it is a name, that

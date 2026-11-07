@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include "engine/render/coll_line.h"
 #include "engine/objects/smtptr.h"
@@ -125,9 +126,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ProbeRay, hit_) == kProbeRayHitOffset && offsetof(ProbeRay, reach_) == kProbeRayReachOffset &&
+        static_assert(core::layout_32bit(offsetof(ProbeRay, hit_) == kProbeRayHitOffset && offsetof(ProbeRay, reach_) == kProbeRayReachOffset &&
                           offsetof(ProbeRay, entity_) == kProbeRayEntityOffset && offsetof(ProbeRay, hit_cache_) == kProbeRayHitCacheOffset &&
-                          sizeof(ProbeRay) == kProbeRayBytes,
+                          sizeof(ProbeRay) == kProbeRayBytes),
                       "layout must match the original");
     }
 };
@@ -140,7 +141,7 @@ void set_current_cache(HitMeshCache* cache);
 // from app/main.cpp before any of the original's code runs). Not set: no one.
 struct FeelerResult {
     int hit{};
-    uint32_t caller{};
+    uintptr_t caller{}; // (a code address: pointer-sized)
 };
 using FeelerQueryObserver = void (*)(const void* feeler, FeelerResult feeler_result);
 void set_feeler_query_observer(FeelerQueryObserver observer);

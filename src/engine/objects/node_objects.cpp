@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <new>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/gfx/view_cam.h"
@@ -56,13 +57,13 @@ void seal(GameEntity* object) { object->seal(); }
 constexpr std::size_t kPinnedObjectModuleBytes = 0x90;
 gsl::owner<ObjectModule*> new_game_object_component_a()
 {
-    static_assert(sizeof(PinnedObjectModule) == kPinnedObjectModuleBytes, "the original allocates 0x90 bytes");
+    static_assert(core::layout_32bit(sizeof(PinnedObjectModule) == kPinnedObjectModuleBytes), "the original allocates 0x90 bytes");
     return new PinnedObjectModule;
 }
 constexpr std::size_t kCbBoxComponentBytes = 0x4C;
 gsl::owner<ObjectModule*> new_game_object_component_b()
 {
-    static_assert(sizeof(CbBoxComponent) == kCbBoxComponentBytes, "the original allocates 0x4C bytes");
+    static_assert(core::layout_32bit(sizeof(CbBoxComponent) == kCbBoxComponentBytes), "the original allocates 0x4C bytes");
     return new CbBoxComponent;
 }
 

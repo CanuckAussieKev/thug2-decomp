@@ -5,6 +5,7 @@
 #include <span>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/vertex_run.h"
 #include "engine/gfx/render_device.h"
@@ -106,9 +107,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcPrimitive, vertices_) == kPcPrimitiveVerticesOffset && offsetof(PcPrimitive, stride_) == kPcPrimitiveStrideOffset &&
+        static_assert(core::layout_32bit(offsetof(PcPrimitive, vertices_) == kPcPrimitiveVerticesOffset && offsetof(PcPrimitive, stride_) == kPcPrimitiveStrideOffset &&
                           offsetof(PcPrimitive, material_) == kPcPrimitiveMaterialOffset && offsetof(PcPrimitive, colour_) == kPcPrimitiveColourOffset &&
-                          sizeof(PcPrimitive) == kPcPrimitiveBytes,
+                          sizeof(PcPrimitive) == kPcPrimitiveBytes),
                       "layout must match the original");
     }
 };

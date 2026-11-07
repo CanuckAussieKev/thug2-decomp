@@ -445,7 +445,7 @@ void ParkLayout::commission(uint32_t level)
     if (level == kTopDownLevel) {
         memory->enter_heap_scope(memory->top_down_heap());
     }
-    void* block = memory::alloc(kGapRegistryByteSize);
+    void* block = memory::alloc(sizeof(GapRegistry));
     gap_registry_ = block ? memory::construct_in<GapRegistry>(block, this) : nullptr;
     if (level == kTopDownLevel) {
         memory::Hub::get_pull()->leave_heap_scope();

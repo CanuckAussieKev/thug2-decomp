@@ -21,10 +21,33 @@
       "displayName": "x86 Release",
       "inherits": "x86-base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "x64-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "architecture": { "value": "x64", "strategy": "external" },
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "cl.exe" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "x64-debug",
+      "displayName": "x64 Debug (the port so far: the x64-ready libraries)",
+      "inherits": "x64-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "x64-release",
+      "displayName": "x64 Release (the port so far: the x64-ready libraries)",
+      "inherits": "x64-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
     }
   ],
   "buildPresets": [
     { "name": "x86-debug", "configurePreset": "x86-debug" },
-    { "name": "x86-release", "configurePreset": "x86-release" }
+    { "name": "x86-release", "configurePreset": "x86-release" },
+    { "name": "x64-debug", "configurePreset": "x64-debug" },
+    { "name": "x64-release", "configurePreset": "x64-release" }
   ]
 }

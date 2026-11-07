@@ -7,6 +7,7 @@
 #include <gsl/pointers>
 #include "base/core/checksums.h"
 #include "base/core/enum_ops.h"
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec2.h"
 #include "base/maths/vec4.h"
 #include "engine/script/cell.h"
@@ -68,7 +69,8 @@ public:
     // Grow the array to `size` elements, keeping the old ones (the new ones are zero; shrinking isn't supported).
     void rescale(uint32_t size);
 
-    // The elements. Any 32-bit value (integer, checksum, structure, array...) by set_element / fetch_part.
+    // The elements. A 32-bit value (an integer, a checksum) by set_element / fetch_part; any kind's whole cell (a
+    // structure, an array...) by cell_at / set_cell.
     void set_element(uint32_t index, uint32_t value);
     void change_float(uint32_t index, float value);
     uint32_t fetch_part(uint32_t index);
@@ -76,7 +78,7 @@ public:
     char* find_inline_text(uint32_t index);
     // An integer array's elements are converted.
     float fetch_float(uint32_t index);
-    // The element as the pointer its 32-bit cell holds, by the array's type (a structure / array / pair / vector
+    // The element as the pointer its cell holds, by the array's type (a structure / array / pair / vector
     // array's element).
     Struct* struct_at(uint32_t index);
     Array* array_at(uint32_t index);
@@ -105,10 +107,10 @@ private:
     uint16_t unknown2_{};
     uint32_t extent_{0};
     // One cell: the element block (Cell::block), or the one element itself - which by extent_ (the arrays are
-    // pooled 12-byte records, as the original's).
+    // pooled records: 12 bytes on x86, as the original's).
     Cell storage_;
 };
-static_assert(sizeof(Array) == kArrayBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Array) == kArrayBytes), "layout must match the original");
 
 // Pair and vector values are separate objects; the coordinates start at +4.
 // Their constructors clear only byte 0 of the first word.
@@ -177,7 +179,7 @@ inline void copy_value_kind(Component& to, const Component& from)
 {
     to.type_and_flag_ = static_cast<uint8_t>((to.type_and_flag_ & 1) | (from.type_and_flag_ & kComponentTypeBits));
 }
-static_assert(sizeof(Component) == kComponentBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Component) == kComponentBytes), "layout must match the original");
 
 struct SymbolTableEntry {
     SymbolTableEntry();
@@ -426,7 +428,7 @@ private:
     uint16_t unknown2_{};
     Component* head_{nullptr};
 };
-static_assert(sizeof(Struct) == kStructBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Struct) == kStructBytes), "layout must match the original");
 
 // The CStruct pool pair (script/struct.cpp).
 memory::PoolPair& struct_pools();
@@ -436,5 +438,9 @@ memory::PoolPair& symbol_pools();
 memory::PoolPair& vector_pools();
 memory::PoolPair& script_pools();
 
-struct PermanentString;
+// A permanent string table entry: the string's checksum and the string.
+struct PermanentString {
+    uint32_t checksum;
+    char* string;
+};
 } // namespace script

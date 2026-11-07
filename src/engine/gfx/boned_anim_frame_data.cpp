@@ -237,7 +237,7 @@ KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std
             data += 3;
         } else {
             for (int i = 0; i < 3; ++i) {
-                core::at(out->value, i) = static_cast<int16_t>(get_word(data + 2 * i));
+                core::at(out->value, i) = static_cast<int16_t>(get_word(data + (std::ptrdiff_t{2} * i)));
             }
             data += kQuatValueBytes;
         }
@@ -286,7 +286,7 @@ KeyCursor decompress_trans_key(KeyCursor data, ShortKey* out)
         }
     } else {
         for (int i = 0; i < 3; ++i) {
-            core::at(out->value, i) = static_cast<int16_t>(get_word(data + 2 * i));
+            core::at(out->value, i) = static_cast<int16_t>(get_word(data + (std::ptrdiff_t{2} * i)));
         }
         data += kQuatValueBytes;
     }
@@ -996,7 +996,7 @@ bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const a
         event_count_ = static_cast<int16_t>(header.custom_key_count);
         return true;
     }
-    events_ptr_ = memory::adopt<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
+    events_ptr_ = memory::adopt<UserClipKey**>(memory::alloc_block(header.custom_key_count * memory::kPointerBytes));
     const std::span<UserClipKey*> made(events_ptr_, header.custom_key_count);
     util::ByteReader reader = anim_format::custom_key_reader(layout);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
@@ -1071,8 +1071,8 @@ bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, flo
         int quat_count = 0;
         int trans_count = 0;
         if ((flag_bits_ & kFlagWideKeyCounts) != 0U) {
-            quat_count = anim_format::wide_key_count(key_count_run(), 2 * bone);
-            trans_count = anim_format::wide_key_count(key_count_run(), (2 * bone) + 1);
+            quat_count = anim_format::wide_key_count(key_count_run(), 2 * static_cast<size_t>(bone));
+            trans_count = anim_format::wide_key_count(key_count_run(), (2 * static_cast<size_t>(bone)) + 1);
         } else {
             quat_count = core::at(key_count_run(), 2 * bone);
             trans_count = core::at(key_count_run(), (2 * bone) + 1);

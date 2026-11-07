@@ -424,7 +424,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
     auto direction = [&](int from, int to) { return make_unit(core::at(points, to) - core::at(points, from)); };
     auto joins = [&](int prev, int mid, int next) {
         const float turn_cos = get_dot(direction(prev, mid), direction(mid, next));
-        return turn_cos >= std::cos(kJoinDegrees * maths::kPi / kDegreesPerHalfTurn);
+        return turn_cos >= maths::runtime32::cos(kJoinDegrees * maths::kPi / kDegreesPerHalfTurn);
     };
     std::vector<bool> used(lips.size(), false);
     // (the next edge from `point` along the run that came from `prev`: the point's only other lip edge, turning little)
@@ -481,7 +481,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, EdgeLimits edge_lim
             const V3 point_a = make_unit(core::at(points, core::at(chain, i)) - run.points.back());
             const V3 point_b =
                 make_unit(core::at(points, core::at(chain, i + 1)) - core::at(points, core::at(chain, i)));
-            if (get_dot(point_a, point_b) < std::cos(kFullTurnPerPi * maths::kPi / kDegreesPerHalfTurn)) {
+            if (get_dot(point_a, point_b) < maths::runtime32::cos(kFullTurnPerPi * maths::kPi / kDegreesPerHalfTurn)) {
                 run.points.push_back(core::at(points, core::at(chain, i)));
             }
         }
@@ -1506,11 +1506,11 @@ void get_marker(const Painter& painter, V3 at, MarkerLook marker_look)
     for (int i = 0; i < kSegments; ++i) {
         const float a0 = 6.2831853F * static_cast<float>(i) / kSegments;
         const float a1 = 6.2831853F * static_cast<float>(i + 1) / kSegments;
-        painter.get_seg(at + V3{.x = std::sin(a0) * kHeadingRadius, .y = 1.0F, .z = std::cos(a0) * kHeadingRadius},
-                        at + V3{.x = std::sin(a1) * kHeadingRadius, .y = 1.0F, .z = std::cos(a1) * kHeadingRadius},
+        painter.get_seg(at + V3{.x = maths::runtime32::sin(a0) * kHeadingRadius, .y = 1.0F, .z = maths::runtime32::cos(a0) * kHeadingRadius},
+                        at + V3{.x = maths::runtime32::sin(a1) * kHeadingRadius, .y = 1.0F, .z = maths::runtime32::cos(a1) * kHeadingRadius},
                         fill_colour, kBoxLineWidth);
     }
-    const V3 heading = {.x = std::sin(yaw) * 50.0F, .y = 1.0F, .z = std::cos(yaw) * 50.0F};
+    const V3 heading = {.x = maths::runtime32::sin(yaw) * 50.0F, .y = 1.0F, .z = maths::runtime32::cos(yaw) * 50.0F};
     painter.get_seg(at + V3{.x = 0.0F, .y = 1.0F, .z = 0.0F}, at + heading, fill_colour, kMarkerWidth);
 }
 

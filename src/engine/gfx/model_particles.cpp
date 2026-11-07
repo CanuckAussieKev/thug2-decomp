@@ -77,13 +77,13 @@ ModelParticles::ModelParticles(const ConstructArgs& args)
     if (particle_list().empty()) {
         return;
     }
-    position_array() = counted_words<float>(carve(model_count_ * kPositionBytes), model_count_ * 3);
+    position_array() = counted_words<float>(carve(model_count_ * kPositionBytes), static_cast<size_t>(model_count_) * 3);
     if (position_array().empty()) {
         return;
     }
     model_path_for(model, kModelExtension, file_name.data());
     text::to_lower_text(file_name.data());
-    model_list_ = static_cast<RenderModel**>(allocate_zeroed(model_count_ * 4));
+    model_list_ = static_cast<RenderModel**>(allocate_zeroed(model_count_ * memory::kPointerBytes));
     if (!model_list_) {
         return;
     }

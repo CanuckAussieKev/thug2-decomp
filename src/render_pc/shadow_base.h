@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 
 // Shadows (Nx engine, PC): a shadow caster renders its model into a texture from a light's point of view (in
@@ -26,7 +27,7 @@ struct ShadowCaster {
 };
 constexpr std::size_t kShadowCasterBytes = 0x10C;
 
-static_assert(sizeof(ShadowCaster) == kShadowCasterBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(ShadowCaster) == kShadowCasterBytes), "layout must match the original");
 
 // 0x004DA0F0: transform `count` positions by `matrix` into the projection buffer (0x0079B640: each the position,
 // the transformed one and its clip flags).

@@ -15,6 +15,7 @@
 #include <array>
 #include <gsl/assert>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
@@ -778,7 +779,7 @@ bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, scri
 // 0x0042E020
 bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, script::Script* /*script*/)
 {
-    const uint32_t id = params->step_to_entry(nullptr)->value.word();
+    const uint32_t id = params->step_to_entry(nullptr)->value.low_word();
     auto* other = core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(id));
     const bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
     vel_ = other->vel();
@@ -891,9 +892,9 @@ void BodyDynamicsModule::check_layout()
         FieldAt{.now = offsetof(BodyDynamicsModule, audio_module_), .original = 0x19C},
         FieldAt{.now = sizeof(BodyDynamicsModule), .original = 0x1A0},
     };
-    static_assert(sizeof(void*) != 4 || std::ranges::all_of(kLayout, [](const FieldAt& field) {
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) {
                       return field.now == field.original;
-                  }),
+                  })),
                   "layout must match the original");
 }
 

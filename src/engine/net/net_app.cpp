@@ -2,6 +2,7 @@
 // connection list and the app's tasks.
 
 #include "engine/net/net_app.h"
+#include "base/core/layout_32bit.h"
 #include "wire/message_ids.h"
 #include "base/core/enum_ops.h"
 #include "engine/net/net_lists.h"
@@ -46,6 +47,10 @@ constexpr unsigned kQueuedMsgBytes = 0x0C;
 constexpr int kMaxConnHandles = 0x100;
 constexpr int kDefaultMaxQueued = 5;
 constexpr unsigned kConnBytes = 0x3D20;
+// (the original's allocations: sizeof on x64 - a connection's block is the original's 0x3D20 bytes, more than the
+// record needs on the 32-bit build, or the record's size where that is bigger)
+static_assert(core::layout_32bit(sizeof(PendingMsg) == kQueuedMsgBytes && sizeof(Conn) <= kConnBytes), "the original allocates this many bytes");
+constexpr unsigned kConnBlockBytes = std::max(kConnBytes, static_cast<unsigned>(sizeof(Conn)));
 
 using memory::ListNode;
 
@@ -272,7 +277,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 
     switch (desc->queue()) {
     case NetMessageInfo::kLaneNormal: {
-        void* memory = memory::alloc(kQueuedMsgBytes);
+        void* memory = memory::alloc(sizeof(PendingMsg));
         PendingMsg* message =
             memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
@@ -300,7 +305,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         break;
     }
     case NetMessageInfo::kLanePriority: {
-        void* memory = memory::alloc(kQueuedMsgBytes);
+        void* memory = memory::alloc(sizeof(PendingMsg));
         PendingMsg* message =
             memory ? construct_queued_msg(memory, desc->ident(), desc->byte_count(), desc->content(), desc->compression())
                    : nullptr;
@@ -713,7 +718,7 @@ Conn* AppHost::opened_link(LinkTarget link_target)
     Conn* conn = nullptr;
     push_network_heap();
     if (open_links_ < peer_cap_) {
-        void* memory = memory::alloc(kConnBytes);
+        void* memory = memory::alloc(kConnBlockBytes);
         conn = memory ? construct_conn(memory, flags) : nullptr; // (not checked for null)
         Expects(conn != nullptr);
         conn->set_remote_ip(static_cast<uint32_t>(ip));

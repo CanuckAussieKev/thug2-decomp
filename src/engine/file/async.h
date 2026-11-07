@@ -3,6 +3,7 @@
 #include <memory>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/task_list.h"
 #include "engine/sys/game_module.h"
@@ -121,9 +122,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(AsyncFileHandle, callback_mask_) == kCallbackMaskOffset && offsetof(AsyncFileHandle, is_blocking_) == kIsBlockingOffset &&
+        static_assert(core::layout_32bit(offsetof(AsyncFileHandle, callback_mask_) == kCallbackMaskOffset && offsetof(AsyncFileHandle, is_blocking_) == kIsBlockingOffset &&
                           offsetof(AsyncFileHandle, payload_bytes_) == kPayloadBytesOffset &&
-                          offsetof(AsyncFileHandle, in_flight_ops_) == kInFlightOpsOffset,
+                          offsetof(AsyncFileHandle, in_flight_ops_) == kInFlightOpsOffset),
                       "layout must match the original");
     }
 };
@@ -149,7 +150,7 @@ public:
 private:
     std::unique_ptr<tasks::Task<AsyncLoaderModule>> task_; // +0x14 running async_loader_task
 };
-static_assert(sizeof(AsyncLoaderModule) == kLoaderModuleBytes, "allocated as 0x18 bytes by the original");
+static_assert(core::layout_32bit(sizeof(AsyncLoaderModule) == kLoaderModuleBytes), "allocated as 0x18 bytes by the original");
 AsyncLoaderModule* create_async_loader_module(bool create);
 void destroy_async_loader_module();
 void async_poll_handles();

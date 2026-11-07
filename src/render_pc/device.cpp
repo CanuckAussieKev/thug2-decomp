@@ -33,6 +33,7 @@
 #include "platform/registry.h"
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "base/maths/fpu_precision.h"
 #include "base/maths/rect.h"
 #include "base/core/language.h"
 #include "render_pc/graphics_options_d3d.h"
@@ -297,6 +298,9 @@ long create_device(maths::PixelSize size, bool hardware_vertices, bool multisamp
                                                .hardware_vertices = hardware_vertices,
                                                .samples = samples,
                                                .sample_quality = sample_quality});
+    // NOT ORIGINAL - Direct3D 9 loaded its x87 word into this thread here (the device made without
+    // D3DCREATE_FPU_PRESERVE): the same word whatever the renderer (base/maths/fpu_precision.h).
+    maths::use_device_fpu_precision();
     const GpuAdapterInfo& adapter = context.adapter();
     // (the exe's import of DirectSoundEnumerateA: the sound output's devices)
     audio::device().list_outputs(&sound_device_found);

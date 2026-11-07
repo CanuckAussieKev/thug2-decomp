@@ -1,4 +1,5 @@
 #include "engine/script/qb.h"
+#include "base/core/layout_32bit.h"
 #include "formats/byte_stream.h"
 
 #include <cstddef>
@@ -33,29 +34,28 @@
 
 namespace script {
 namespace {
-// The pools' item sizes (the classes' sizes).
-constexpr int kScriptCacheEntryPoolBytes = 0x14;
-constexpr int kComponentPoolBytes = 0x10;
-constexpr int kStructPoolBytes = 8;
-constexpr int kVectorPoolBytes = 0x10;
-constexpr int kPairPoolBytes = 0x0C;
-constexpr int kArrayPoolBytes = 0x0C;
-constexpr int kSymbolPoolBytes = 0x14;
-constexpr int kScriptPoolBytes = 0xF4;
-constexpr int kStoredRandomPoolBytes = 0x60;
+// The pools' item sizes: the classes' sizes (on x86 the original's - asserted in engine/memory/memory_sizes.cpp).
+template <typename T>
+constexpr int kItemBytes = static_cast<int>(sizeof(T));
+constexpr int kScriptCacheEntryPoolBytes = kItemBytes<ScriptCacheEntry>;
+constexpr int kComponentPoolBytes = kItemBytes<Component>;
+constexpr int kStructPoolBytes = kItemBytes<Struct>;
+constexpr int kVectorPoolBytes = kItemBytes<Vector>;
+constexpr int kPairPoolBytes = kItemBytes<Pair>;
+constexpr int kArrayPoolBytes = kItemBytes<Array>;
+constexpr int kSymbolPoolBytes = kItemBytes<SymbolTableEntry>;
+constexpr int kScriptPoolBytes = kItemBytes<Script>;
+constexpr int kStoredRandomPoolBytes = kItemBytes<StoredRandom>;
 // The byte-by-byte word readers and writers.
 constexpr int kShiftByte1 = 8;
 constexpr int kShiftByte2 = 16;
 constexpr int kShiftByte3 = 24;
 constexpr uint32_t kChecksumInitial = 0xFFFFFFFFU;
-// The names of checksums given in .qb files: 0x1000 buckets, three words each.
-constexpr int kLabelBucketCount = 0x1000;
-constexpr int kLabelBucketBytes = 12;
-constexpr int kLabelBucketWords = 3;
+// The names of checksums given in .qb files: 0x1000 buckets (ScriptChecksumName below: three words each on x86).
 constexpr uint32_t kLabelBucketMask = 0xFFF;
 // A shuffle swaps this many pairs for each choice.
-// The permanent string table: one 8-byte entry per string.
-constexpr uint32_t kPermanentStringEntryBytes = 8;
+// The permanent string table: one entry per string (8 bytes on x86: memory_sizes.cpp).
+constexpr uint32_t kPermanentStringEntryBytes = sizeof(PermanentString);
 constexpr std::size_t kPendingSymbolCapacity = 500;
 } // namespace
 
@@ -70,11 +70,11 @@ StoredScript read_stored_script(const uint8_t* record)
     return out;
 }
 
-static_assert(offsetof(StoredRandom, num_) == kStoredRandomNumOffset, "layout must match the original");
-static_assert(offsetof(StoredRandom, order_) == kStoredRandomOrderOffset, "layout must match the original");
-static_assert(offsetof(StoredRandom, last_) == kStoredRandomLastOffset && offsetof(StoredRandom, succ_) == kStoredRandomSuccOffset,
+static_assert(core::layout_32bit(offsetof(StoredRandom, num_) == kStoredRandomNumOffset), "layout must match the original");
+static_assert(core::layout_32bit(offsetof(StoredRandom, order_) == kStoredRandomOrderOffset), "layout must match the original");
+static_assert(core::layout_32bit(offsetof(StoredRandom, last_) == kStoredRandomLastOffset && offsetof(StoredRandom, succ_) == kStoredRandomSuccOffset),
               "layout must match the original");
-static_assert(sizeof(StoredRandom) == kStoredRandomBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(StoredRandom) == kStoredRandomBytes), "layout must match the original");
 
 namespace {
 
@@ -84,6 +84,8 @@ struct ScriptChecksumName {
     char* name;
     ScriptChecksumName* next;
 };
+constexpr size_t kLabelBucketBytes = 12; // the original's bucket
+static_assert(core::layout_32bit(sizeof(ScriptChecksumName) == kLabelBucketBytes), "layout must match the original");
 ScriptChecksumName*& script_label_table()
 {
     static ScriptChecksumName* script_labels{};
@@ -91,6 +93,8 @@ ScriptChecksumName*& script_label_table()
 }
 // The table's 0x1000 buckets (the checksums' low 12 bits; the first entry of each in place).
 constexpr uint32_t kLabelBuckets = 0x1000;
+// (the buckets hold pointers: the table is sized by the record - 12 bytes a bucket on x86, 24 on x64)
+constexpr auto kLabelTableBytes = static_cast<unsigned int>(kLabelBuckets * sizeof(ScriptChecksumName));
 std::span<ScriptChecksumName, kLabelBuckets> label_buckets()
 {
     return std::span<ScriptChecksumName, kLabelBuckets>(script_label_table(), kLabelBuckets);
@@ -328,10 +332,11 @@ void prepare_script_tokens(std::span<uint8_t> code)
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type() == QbValueKind::kNativeFunc) {
                     name[0] = token_byte(QbToken::kNativeFunction);
-                    store_word32(name + 1, symbol->value().word());
+                    // (NOT ORIGINAL: the function's number, not its address - names.h)
+                    store_word32(name + 1, native_function_number(symbol->value().function()));
                 } else if (symbol->type() == QbValueKind::kNativeMethod) {
-                    if (symbol->value().word() != 0U) {
-                        store_word32(name + 1, symbol->value().word());
+                    if (!symbol->value().empty()) {
+                        store_word32(name + 1, member_entry_number(symbol->value().method())); // (NOT ORIGINAL: its number)
                         name[0] = token_byte(QbToken::kMemberFunction);
                     } else {
                         name[0] = token_byte(QbToken::kMemberFunctionName);
@@ -619,10 +624,10 @@ void allocate_script_checksum_names(bool debug_heap)
 {
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(debug_heap ? manager->debug_heap() : manager->script_heap());
-    auto* names = static_cast<uint32_t*>(memory::alloc_block(kLabelBucketCount * kLabelBucketBytes));
+    auto* names = static_cast<uint32_t*>(memory::alloc_block(kLabelTableBytes));
     memory::bits_as<uint32_t*>(script_label_table()) = names;
     memory::leave_heap_scope();
-    std::ranges::fill(std::span<uint32_t>(names, kLabelBucketCount * kLabelBucketWords), 0U);
+    std::ranges::fill(std::span<uint32_t>(names, kLabelTableBytes / sizeof(uint32_t)), 0U);
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
@@ -668,7 +673,7 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
     default:
         break;
     }
-    symbol->value().set_word(0);
+    symbol->value().clear();
     free_symbol(symbol);
 }
 

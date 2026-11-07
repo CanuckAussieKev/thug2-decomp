@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "game/goals/objective.h"
 
 // Four goal types: Skatetris (FallingTricksGoal - tricks fall into a stack as screen elements and are cleared by doing
@@ -180,7 +181,7 @@ public:
     // 0x005710E0 (vtable +0x28): active and not paused.
     bool shows_clock() override;
 };
-static_assert(sizeof(TimedScoreRunGoal) == kTimedScoreRunGoalBytes, "the size the goal manager allocated");
+static_assert(core::layout_32bit(sizeof(TimedScoreRunGoal) == kTimedScoreRunGoalBytes), "the size the goal manager allocated");
 
 // TrickObjects (vtable 0x0064EA30, 0x70 bytes).
 class TrickObjectsGoal final : public Objective {
@@ -198,6 +199,6 @@ public:
     // 0x00576520: the objects of cluster `cluster` were hit: the goal started if need be and the object's flag set.
     void get_object_hit(uint32_t cluster);
 };
-static_assert(sizeof(TrickObjectsGoal) == kTrickObjectsGoalBytes, "the size the goal manager allocated");
+static_assert(core::layout_32bit(sizeof(TrickObjectsGoal) == kTrickObjectsGoalBytes), "the size the goal manager allocated");
 
 } // namespace goals

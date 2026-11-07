@@ -2,6 +2,7 @@
 
 #include "engine/script/script_startup.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -9,14 +10,17 @@
 #include <string_view>
 
 #include "base/core/checksums.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/anim_cache.h"
+#include "engine/gfx/anim_controller.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/spawned_polys.h"
+#include "engine/objects/tracker.h"
 #include "engine/script/cell.h"
 #include "engine/script/load.h"
 #include "engine/script/names.h"
@@ -29,9 +33,13 @@ namespace script {
 
 namespace {
 // Item sizes and counts of the pools made here.
+// (the original's item sizes: sizeof on x64)
 constexpr int kBonedAnimControllerBytes = 0x28;
 constexpr int kSpawnedPolyDetailsBytes = 0xB8;
 constexpr int kEventReceiverListBytes = 0x14;
+// (the original's 0x14-byte items hold the 16-byte list on the 32-bit build; on x64 the list's size where bigger)
+static_assert(core::layout_32bit(sizeof(objects::ScriptList) <= kEventReceiverListBytes), "the original's item size");
+constexpr int kEventReceiverListItemBytes = std::max(kEventReceiverListBytes, static_cast<int>(sizeof(objects::ScriptList)));
 constexpr int kAnimCachePredictorCount = 200;
 constexpr int kBlendChannelCount = 150;
 constexpr int kBonedAnimControllerCount = 150;
@@ -184,7 +192,8 @@ void create_blend_channel_pool(int count, const char* name)
 }
 void create_boned_anim_controller_pool(int count, const char* name)
 {
-    create_pool_of(gfx::standard_pools(), kBonedAnimControllerBytes, count, name);
+    static_assert(core::layout_32bit(sizeof(gfx::StandardAnimController) == kBonedAnimControllerBytes), "the original's item size");
+    create_pool_of(gfx::standard_pools(), static_cast<int>(sizeof(gfx::StandardAnimController)), count, name);
 }
 void create_anim_lookup_pool(int count, const char* name)
 {
@@ -192,11 +201,12 @@ void create_anim_lookup_pool(int count, const char* name)
 }
 void create_spawned_poly_details_pool(int count, const char* name)
 {
-    create_pool_of(render::spawned_poly_pools(), kSpawnedPolyDetailsBytes, count, name);
+    static_assert(core::layout_32bit(sizeof(render::SpawnedPoly) == kSpawnedPolyDetailsBytes), "the original's item size");
+    create_pool_of(render::spawned_poly_pools(), static_cast<int>(sizeof(render::SpawnedPoly)), count, name);
 }
 void create_event_receiver_list_pool(int count, const char* name)
 {
-    create_pool_of(objects::script_list_pools(), kEventReceiverListBytes, count, name);
+    create_pool_of(objects::script_list_pools(), kEventReceiverListItemBytes, count, name);
 }
 
 // 0x005A5E70

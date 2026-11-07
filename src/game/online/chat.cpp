@@ -10,6 +10,7 @@
 #include <span>
 
 #include "base/core/enum_ops.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/memory/slab_bank.h"
 #include "base/core/checksums.h"
@@ -46,7 +47,7 @@
 #include "wire/message_ids.h"
 
 namespace {
-constexpr unsigned kStructBytes = 8;
+constexpr unsigned kStructBytes = 8; // (the original's: sizeof on x64)
 constexpr uint32_t kTauntRepeatDelay = 2000; // ms
 
 // Names (the checksums of their text).
@@ -88,7 +89,8 @@ gsl::owner<ParamBag*> new_script_struct()
 {
     const int current = script::struct_pools().current();
     memory::SlabBank* pool = core::at(script::struct_pools().pools(), current);
-    void* memory = pool ? pool->carve() : memory::alloc(kStructBytes);
+    static_assert(core::layout_32bit(sizeof(script::Struct) == kStructBytes), "the original allocates this many bytes");
+    void* memory = pool ? pool->carve() : memory::alloc(sizeof(script::Struct));
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 void delete_script_struct(ParamBag* bag)

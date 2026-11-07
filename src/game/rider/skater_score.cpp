@@ -7,6 +7,7 @@
 #include <gsl/pointers>
 
 #include "base/core/checksums.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/cscript.h"
@@ -25,7 +26,7 @@
 namespace objects {
 
 namespace {
-constexpr std::size_t kSkaterScoreBytes = 0x1550;
+constexpr std::size_t kSkaterScoreBytes = 0x1550; // (the original's allocation: sizeof on x64)
 constexpr int kHalfTurnDegrees = 180;
 
 constexpr uint32_t kSkaterScore = 0xD262802F;
@@ -87,7 +88,8 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
     if (points_held_) {
         return;
     }
-    void* memory = memory::alloc_zeroed(kSkaterScoreBytes);
+    static_assert(core::layout_32bit(sizeof(modules::PointTally) == kSkaterScoreBytes), "the original allocates this many bytes");
+    void* memory = memory::alloc_zeroed(sizeof(modules::PointTally));
     points_held_ = memory ? memory::construct_in<modules::PointTally>(memory) : nullptr; // (its constructor)
     get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity()->ident()));
 }

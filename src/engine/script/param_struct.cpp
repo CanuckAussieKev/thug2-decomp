@@ -510,11 +510,6 @@ memory::PoolPair& script_pools()
     return script_pools.get();
 }
 
-// A permanent string table entry: the string's checksum and the string.
-struct PermanentString {
-    uint32_t checksum;
-    char* string;
-};
 namespace {
 
 // The pool pairs of the script's value objects.
@@ -755,7 +750,7 @@ void release_component(Component* component)
         }
         break;
     case QbValueKind::kScriptBody:
-        if (component->value.word() != 0U) {
+        if (!component->value.empty()) {
             forget_code_block(component->value.code());
             memory::free_malloc(component->value.code());
         }
@@ -777,14 +772,14 @@ void release_component(Component* component)
     default:
         break;
     }
-    component->value.set_word(0);
+    component->value.clear();
     component->type_and_flag_ &= 1;
 }
 
 // 0x004773E0
 void duplicate_component(Component* dest, const Component* source, int reference)
 {
-    if (dest->value.word() != 0U) {
+    if (!dest->value.empty()) {
         release_component(dest);
     }
     copy_value_kind(*dest, *source);
@@ -862,7 +857,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
             break;
         }
         set_value_kind(*dest, QbValueKind::kArrayRef);
-        dest->value.set_word(source->value.word());
+        dest->value = source->value;
         break;
     }
     case QbValueKind::kInteger:
@@ -870,7 +865,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
     case QbValueKind::kName:
     case QbValueKind::kStructRef:
     case QbValueKind::kArrayRef:
-        dest->value.set_word(source->value.word());
+        dest->value = source->value;
         break;
     default:
         break;
@@ -948,7 +943,7 @@ Component* construct_component(Component* component)
 {
     component->name = 0;
     component->unknown2 = 0;
-    component->value.set_word(0);
+    component->value.clear();
     component->next = nullptr;
     component->type_and_flag_ = 0;
     return component;
@@ -980,7 +975,7 @@ void Struct::remove_flag(uint32_t flag)
     Component* component = head_;
     while (component) {
         Component* next = component->next;
-        if (component->name == 0 && component->value.word() == flag) {
+        if (component->name == 0 && component->value.holds_word(flag)) {
             if (previous) {
                 previous->next = next;
             } else {
@@ -1224,10 +1219,10 @@ void Struct::add_component_of_type(uint32_t name, QbValueKind type, uint32_t val
         break;
     }
     case QbValueKind::kStructHandedOver:
-        append_struct_ref(name, memory::owned_element(Cell::of_word(value).structure())); // (handed over in the word)
+        append_struct_ref(name, memory::owned_element(Cell::of_word(value).structure())); // (handed over in the word: a 32-bit pointer)
         break;
     case QbValueKind::kArray:
-        append_array_ref(name, memory::owned_element(Cell::of_word(value).array())); // (handed over in the word)
+        append_array_ref(name, memory::owned_element(Cell::of_word(value).array())); // (handed over in the word: a 32-bit pointer)
         break;
     case QbValueKind::kName:
         put_name_key(checksums::Name{name}, value);
@@ -1577,7 +1572,7 @@ void create_symbol_table()
 SymbolTableEntry::SymbolTableEntry()
 {
     unknown0_ &= kSymbolNewBitsMask;
-    value_.set_word(0);
+    value_.clear();
 }
 
 // 0x00479110
@@ -1651,7 +1646,7 @@ float fetch_float(const char* name) { return fetch_float(checksums::hash_from_te
 uint32_t get_symbol_value(uint32_t name)
 {
     const SymbolTableEntry* entry = resolve_symbol(name);
-    return entry ? entry->value().word() : 0;
+    return entry ? entry->value().low_word() : 0;
 }
 uint32_t get_symbol_value(const char* name) { return get_symbol_value(checksums::hash_from_text(name)); }
 // 0x00478FD0 / 0x00478FF0 (any type: the raw value)
@@ -1733,7 +1728,7 @@ bool components_equal(Component* a, Component* b)
     case QbValueKind::kArray:
         // (structures and arrays by their address: different arrays are never equal - their comparison 0x0049F4B0
         // just returns false)
-        return type_b == type_a && value_a.word() == value_b.word();
+        return type_b == type_a && value_a.same_bits(value_b);
     default:
         return false;
     }

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "base/maths/vec4.h"
 #include <gsl/pointers>
@@ -65,8 +66,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcModelLights, overrides) == kPcModelLightsOverridesOffset && offsetof(PcModelLights, directions_) == kPcModelLightsDirectionsOffset &&
-                          sizeof(PcModelLights) == kPcModelLightsBytes,
+        static_assert(core::layout_32bit(offsetof(PcModelLights, overrides) == kPcModelLightsOverridesOffset && offsetof(PcModelLights, directions_) == kPcModelLightsDirectionsOffset &&
+                          sizeof(PcModelLights) == kPcModelLightsBytes),
                       "layout must match the original");
     }
 };

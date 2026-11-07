@@ -116,9 +116,7 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
         maths::Vec4 v0{};
         maths::Vec4 v1{};
         maths::Vec4 v2{};
-        geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
-        geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
-        geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
+        geometry->read_face_corners(static_cast<int>(face), &v0, &v1, &v2);
         if (!(hits->sweep == 0.0F)) { // (a moving capsule isn't tested)
             continue;
         }

@@ -13,6 +13,7 @@
 #include <gsl/assert>
 
 #include "engine/memory/mem.h"
+#include "engine/lists/key_map.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
 
@@ -23,7 +24,7 @@ constexpr int kNearlyFullPoolSlots = 32;
 constexpr int kFifths = 5;                   // a pool at four fifths is "80 % full"
 constexpr int kFourFifths = 4;
 constexpr int kMinNearlyFullItems = 50;      // smaller pools aren't reported as nearly full
-constexpr int kHashItemBytes = 12;
+constexpr int kHashItemBytes = static_cast<int>(sizeof(lists::KeyMap::Item)); // (12 bytes on x86: memory_sizes.cpp)
 } // namespace
 
 // 0x005BA420

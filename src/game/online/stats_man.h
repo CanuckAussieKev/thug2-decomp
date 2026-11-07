@@ -2,8 +2,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <memory>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include <gsl/pointers>
 #include <array>
@@ -58,7 +60,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(TopEntry) == kTopEntryBytes && offsetof(TopEntry, skill_points_) == kTopEntrySkillPointsOffset);
+        static_assert(core::layout_32bit(sizeof(TopEntry) == kTopEntryBytes && offsetof(TopEntry, skill_points_) == kTopEntrySkillPointsOffset));
     }
 };
 
@@ -89,7 +91,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(LevelScores) == kLevelScoresBytes && offsetof(LevelScores, entries_) == kLevelScoresEntriesOffset);
+        static_assert(core::layout_32bit(sizeof(LevelScores) == kLevelScoresBytes && offsetof(LevelScores, entries_) == kLevelScoresEntriesOffset));
     }
 };
 
@@ -132,7 +134,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(TopList) == kTopListBytes && offsetof(TopList, title_) == kTopListTitleOffset);
+        static_assert(core::layout_32bit(sizeof(TopList) == kTopListBytes && offsetof(TopList, title_) == kTopListTitleOffset));
     }
 };
 
@@ -165,7 +167,7 @@ public:
     // 0x0054D780 (the scalar deleting destructor; the node's 0x0054EA20 / 0x0054D740)
     SortEntry* teardown(unsigned int flags);
 };
-static_assert(sizeof(SortEntry) == kSortEntryBytes);
+static_assert(core::layout_32bit(sizeof(SortEntry) == kSortEntryBytes));
 
 // (lists::Hunt<SortEntry>'s, <TopEntry>'s and <LevelScores>'s vtables - 0x0064D580 / 0x0064D584 / 0x0064D588 - hold
 // only destructors that reset them: 0x0054CA90 / 0x0054D370, 0x0054CAA0 / 0x0054D3A0, 0x0054CAB0 / 0x0054D3D0.)
@@ -243,14 +245,18 @@ public:
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
     static unsigned long __stdcall log_in_thread(void* param);
-    // Persistent data the SDK read (its callback's arguments, in order).
+    // Persistent data the SDK read (its callback's arguments, in order). `modified` is a time_t as the SDK is built
+    // (64 bits; the game's own SDK had a 32-bit one) - NOT ORIGINAL: a 32-bit field here took the time's high half
+    // for `data` on x86.
     struct PersistReply {
         int local_id_{};
         int profile_id_{};
         int type{};
         int index{};
         int success{};
-        uint32_t modified{};
+        // Not original - the SDK's time_t (64 bits with the compilers this builds with; the original's SDK had a 32-bit
+        // one: read as 32 bits, the data, its length and the instance came one word late)
+        std::time_t modified{};
         char* data{};
         int length{};
         void* instance{};

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
 #include "engine/render/coll_obj.h"
@@ -67,7 +68,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMovingMesh) == kHitMovingMeshBytes && offsetof(HitMovingMesh, inverse_) == kHitMovingMeshInverseOffset, "layout must match");
+        static_assert(core::layout_32bit(sizeof(HitMovingMesh) == kHitMovingMeshBytes && offsetof(HitMovingMesh, inverse_) == kHitMovingMeshInverseOffset), "layout must match");
     }
 };
 
@@ -123,7 +124,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMovingBox) == kHitMovingBoxBytes && offsetof(HitMovingBox, poly_attr_bits_) == kHitMovingBoxPolyAttrBitsOffset, "layout must match");
+        static_assert(core::layout_32bit(sizeof(HitMovingBox) == kHitMovingBoxBytes && offsetof(HitMovingBox, poly_attr_bits_) == kHitMovingBoxPolyAttrBitsOffset), "layout must match");
     }
 };
 
@@ -180,7 +181,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CollScaled) == kCollScaledBytes && offsetof(CollScaled, inverse_) == kCollScaledInverseOffset, "layout must match");
+        static_assert(core::layout_32bit(sizeof(CollScaled) == kCollScaledBytes && offsetof(CollScaled, inverse_) == kCollScaledInverseOffset), "layout must match");
     }
 };
 

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/core/checksums.h"
 #include "base/maths/vec2.h"
@@ -129,8 +130,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BitmapTexture, flag_bits_) == kBitmapTextureFlagBitsOffset, "layout must match the original");
-        static_assert(offsetof(BitmapTexture, checksum_) == 4 && sizeof(BitmapTexture) == kBitmapTextureBytes,
+        static_assert(core::layout_32bit(offsetof(BitmapTexture, flag_bits_) == kBitmapTextureFlagBitsOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(BitmapTexture, checksum_) == 4 && sizeof(BitmapTexture) == kBitmapTextureBytes),
                       "layout must match the original");
     }
 };

@@ -17,7 +17,7 @@ class Context;
 //    that load and goes on from where it was when the run's PauseMusic 0 comes);
 //  - every .pre file loaded synchronously (the level's, at each load) stops the music and the streams first
 //    (disc_mode_active: the consoles' disc can't stream music while it loads; on the PC the song plays from its own
-//    file, read by Bink on the stream thread, so it plays on - the other streams still stop);
+//    file, read by the movie codec on the stream thread, so it plays on - the other streams still stop);
 //  - every run start (GameFlow_StartRun: each level start, each new run of a timed mode) runs SkipMusicTrack.
 // Left as they are: the player's own Skip (the SkipTrack script and the sound options), the music volume at 0 (the
 // level then plays its ambient playlist: SetMusicMode stops the song), movies and cutscenes (their own stops, in

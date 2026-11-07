@@ -1,5 +1,5 @@
 // NOT ORIGINAL - the source's layering rule (docs/architecture.md "Layers"): the named views of in-memory layouts
-// (raw::as / field_at / bytes / chars / owner_of, cell::of / pointer / address / at_address, memory::bits_as,
+// (raw::as / field_at / bytes / chars / owner_of, cell::of / pointer, core::address / at_address, memory::bits_as,
 // function_at, library_function) belong to the boundary layer only - src/formats, src/wire, src/platform, the GPU
 // buffers (render_pc/vertex_buffers, engine/gfx/vertex_view.h) and
 // the QB bytecode readers until the script runtime is replaced. Anywhere else a use is an error: a layout to be given
@@ -17,10 +17,11 @@ const BOUNDARY_FILES = new Set([
     // the helpers themselves
     "src/base/core/raw_view.h",
     "src/base/core/pointer_cell.h",
+    "src/base/core/address.h",
     "src/base/core/bits_as.h",
     // the all-ones pointer (INVALID_HANDLE_VALUE, the list heads' marker), once in platform/
     "src/base/core/all_ones.h",
-    // a script value's 32 bits, read as the kind its holder says (the QB value cell)
+    // a script value's cell (pointer-wide), read as the kind its holder says (the QB value cell)
     "src/engine/script/cell.h",
     // the GPU's vertex and index buffers and their views (once src/gpu/)
     "src/render_pc/vertex_buffers.cpp",
@@ -32,8 +33,8 @@ const BOUNDARY_FILES = new Set([
     "src/gpu_d3d9/imgui_texture_id.h",
     // D3DX's buffers over the callers' out-parameters (once in platform/)
     "src/gpu_d3d9/d3dx.cpp",
-    // binkw32's exports looked up by name (once in platform/)
-    "src/media_bink/bink.cpp",
+    // FFmpeg's DLLs' exports looked up by name (the FFmpeg movie codec's loader)
+    "src/media_ffmpeg/ffmpeg_api.cpp",
     // Winsock's generic addresses, hostent and char buffers over the game's (once platform/sockets.cpp)
     "src/net_winsock/winsock_transport.cpp",
     // the QB bytecode and its pre-compiled images, read in place
@@ -42,10 +43,13 @@ const BOUNDARY_FILES = new Set([
     "src/engine/script/precompiled.cpp",
     // the format check lays the readers' in-place images out itself (once in formats/check)
     "src/tests/format_check_files.cpp",
+    // the GameSpy check's fake servers: Winsock's generic addresses and the SDK's char buffers over its own bytes
+    // (a check of platform/gamespy.cpp, which is in the boundary)
+    "src/tests/gamespy_check.cpp",
 ]);
 
 const VIEW =
-    /\braw::(?:as|field_at|bytes|chars|owner_of)\b|\bcell::(?:of|pointer|address|at_address)\b|\bbits_as\b|\bfunction_at\b|\blibrary_function\b/g;
+    /\braw::(?:as|field_at|bytes|chars|owner_of)\b|\bcell::(?:of|pointer)\b|\bcore::(?:address|at_address)\b|\bbits_as\b|\bfunction_at\b|\blibrary_function\b/g;
 
 export function isBoundary(path: string): boolean {
     return BOUNDARY_FILES.has(path) || BOUNDARY_FOLDERS.some((folder) => path.startsWith(folder));

@@ -5,6 +5,11 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "engine/lists/key_map.h"
+#include "engine/script/cache.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/qb.h"
 #include "platform/run_log.h"
 #include "base/core/ints.h"
 
@@ -13,17 +18,36 @@ namespace memory::sizes {
 namespace {
 constexpr int kMinStringHeapBytes = 0x1000;
 constexpr int kMaxStringHeapBytes = 0x4000000;
-constexpr int kHashItemBytes = 12;          // the script runtime's pools: one item's size
-constexpr int kScriptCacheEntryBytes = 0x14;
-constexpr int kComponentBytes = 0x10;
-constexpr int kStructBytes = 8;
-constexpr int kVectorBytes = 0x10;
-constexpr int kPairBytes = 0xC;
-constexpr int kArrayBytes = 0xC;
-constexpr int kSymbolBytes = 0x14;
-constexpr int kScriptBytes = 0xF4;
-constexpr int kStoredRandomBytes = 0x60;
-constexpr int kStringEntryBytes = 8;
+// One item's size in each of the script runtime's pools (and the string table's entry, the HashItem pool's item).
+struct ItemBytes {
+    uint32_t script_cache_entry;
+    uint32_t component;
+    uint32_t structure;
+    uint32_t vector;
+    uint32_t pair;
+    uint32_t array;
+    uint32_t symbol;
+    uint32_t script;
+    uint32_t stored_random;
+    uint32_t string_entry;
+    uint32_t hash_item;
+};
+// The original's (x86): what its script region was sized for.
+constexpr ItemBytes kOriginalItems = {.script_cache_entry = 0x14, .component = 0x10, .structure = 8, .vector = 0x10, .pair = 0xC, .array = 0xC,
+                                      .symbol = 0x14, .script = 0xF4, .stored_random = 0x60, .string_entry = 8, .hash_item = 12};
+// This build's: the classes' sizes (the original's on x86; bigger on x64, where the cells and the pointers are 64 bits).
+constexpr ItemBytes kItems = {.script_cache_entry = sizeof(script::ScriptCacheEntry), .component = sizeof(script::Component),
+                              .structure = sizeof(script::Struct), .vector = sizeof(script::Vector), .pair = sizeof(script::Pair),
+                              .array = sizeof(script::Array), .symbol = sizeof(script::SymbolTableEntry), .script = sizeof(script::Script),
+                              .stored_random = sizeof(script::StoredRandom), .string_entry = sizeof(script::PermanentString),
+                              .hash_item = sizeof(lists::KeyMap::Item)};
+constexpr bool same_items(const ItemBytes& a, const ItemBytes& b)
+{
+    return a.script_cache_entry == b.script_cache_entry && a.component == b.component && a.structure == b.structure && a.vector == b.vector &&
+           a.pair == b.pair && a.array == b.array && a.symbol == b.symbol && a.script == b.script && a.stored_random == b.stored_random &&
+           a.string_entry == b.string_entry && a.hash_item == b.hash_item;
+}
+static_assert(sizeof(void*) != sizeof(uint32_t) || same_items(kItems, kOriginalItems), "x86: the original's item sizes");
 constexpr uint32_t kScriptHeapOverhead = 0x1000; // the heap's block headers and alignment for the eleven allocations
 constexpr int kAlign16 = 15;                      // rounding up to 16 bytes
 constexpr unsigned kAlign16MaskUnsigned = 15U;
@@ -75,7 +99,17 @@ Pools get_take_in()
 
 uint32_t get_grown(uint32_t ours, uint32_t original) { return ours > original ? ours - original : 0; }
 
-uint32_t hash_item_bytes(const Pools& pools) { return static_cast<uint32_t>(pools.hash_items_) * kHashItemBytes; }
+uint32_t hash_item_bytes(const Pools& pools, const ItemBytes& items) { return static_cast<uint32_t>(pools.hash_items_) * items.hash_item; }
+
+uint32_t pool_bytes(const Pools& pools, const ItemBytes& items)
+{
+    return (static_cast<uint32_t>(pools.script_cache_entries_) * items.script_cache_entry) +
+           (static_cast<uint32_t>(pools.components) * items.component) + (static_cast<uint32_t>(pools.structs) * items.structure) +
+           (static_cast<uint32_t>(pools.vectors) * items.vector) + (static_cast<uint32_t>(pools.pairs) * items.pair) +
+           (static_cast<uint32_t>(pools.arrays) * items.array) + (static_cast<uint32_t>(pools.symbols) * items.symbol) +
+           (static_cast<uint32_t>(pools.scripts) * items.script) + (static_cast<uint32_t>(pools.stored_randoms_) * items.stored_random) +
+           pools.string_bytes_ + (pools.strings * items.string_entry);
+}
 
 } // namespace
 
@@ -92,23 +126,18 @@ const Pools& at_hand()
     return kCurrent;
 }
 
-uint32_t script_pool_bytes(const Pools& pools)
-{
-    return (static_cast<uint32_t>(pools.script_cache_entries_) * kScriptCacheEntryBytes) +
-           (static_cast<uint32_t>(pools.components) * kComponentBytes) + (static_cast<uint32_t>(pools.structs) * kStructBytes) +
-           (static_cast<uint32_t>(pools.vectors) * kVectorBytes) + (static_cast<uint32_t>(pools.pairs) * kPairBytes) +
-           (static_cast<uint32_t>(pools.arrays) * kArrayBytes) + (static_cast<uint32_t>(pools.symbols) * kSymbolBytes) +
-           (static_cast<uint32_t>(pools.scripts) * kScriptBytes) +
-           (static_cast<uint32_t>(pools.stored_randoms_) * kStoredRandomBytes) + pools.string_bytes_ +
-           (pools.strings * kStringEntryBytes);
-}
+uint32_t script_pool_bytes(const Pools& pools) { return pool_bytes(pools, kItems); }
 
 uint32_t script_region_size()
 {
-    uint32_t extra = get_grown(script_pool_bytes(at_hand()), script_pool_bytes(kOriginal));
+    // (the original's region held the original's pools at the original's item sizes)
+    uint32_t extra = get_grown(script_pool_bytes(at_hand()), pool_bytes(kOriginal, kOriginalItems));
     if (extra != 0U) {
         extra += kScriptHeapOverhead; // (the heap's block headers and alignment for the eleven allocations)
     }
+    // (x64: the original's room beside its pools - for scripts, strings, node prefixes - doubled, as every region's)
+    const uint32_t beside_pools = kOriginalScriptRegion - pool_bytes(kOriginal, kOriginalItems);
+    extra += region_bytes(beside_pools) - beside_pools;
     return kOriginalScriptRegion + ((extra + kAlign16) & ~kAlign16MaskUnsigned) + script_heap_extra();
 }
 
@@ -127,12 +156,24 @@ uint32_t script_heap_extra()
     return kExtra;
 }
 
-uint32_t main_block_size()
+namespace {
+// The main block with `beside_room` added to what it holds beside the script region.
+uint32_t main_block_with(uint32_t beside_room)
 {
     const uint32_t extra = script_region_size() - kOriginalScriptRegion +
-                           get_grown(hash_item_bytes(at_hand()), hash_item_bytes(kOriginal));
+                           get_grown(hash_item_bytes(at_hand(), kItems), hash_item_bytes(kOriginal, kOriginalItems)) + beside_room;
     return kOriginalMainBlock + ((extra + kBlockGranuleMask) & ~kBlockGranuleMaskUnsigned);
 }
+} // namespace
+
+uint32_t main_block_size()
+{
+    // (x64: what the original's block held beside the script region doubled, as every region's)
+    constexpr uint32_t kBesideScriptRegion = kOriginalMainBlock - kOriginalScriptRegion;
+    return main_block_with(region_bytes(kBesideScriptRegion) - kBesideScriptRegion);
+}
+
+uint32_t main_block_x64_room() { return main_block_size() - main_block_with(0); }
 
 uint32_t node_hash_slots()
 {

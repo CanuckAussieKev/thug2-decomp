@@ -235,7 +235,7 @@ void ParkRailSet::prepare_all(RailCounts rail_counts, bool in)
     text::format_to(string_name, "%s RailString", label_.data());
     void* memory = memory::alloc(sizeof(memory::SlabBank));
     point_pool_ =
-        memory ? memory::construct_in<memory::SlabBank>(memory, sizeof(ParkRailPoint), points, point_name.data()) : nullptr;
+        memory ? memory::construct_in<memory::SlabBank>(memory, static_cast<int>(sizeof(ParkRailPoint)), points, point_name.data()) : nullptr;
     memory = memory::alloc(sizeof(memory::SlabBank));
     rail_pool_ = memory ? new (memory) memory::SlabBank(sizeof(ParkRailString), strings, string_name.data()) : nullptr;
 }

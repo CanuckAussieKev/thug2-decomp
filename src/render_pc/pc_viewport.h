@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/viewport.h"
 #include "base/maths/vec4.h"
 #include "base/maths/vec2.h"
@@ -36,7 +37,7 @@ public:
 };
 constexpr std::size_t kPcViewportBytes = 0x24;
 
-static_assert(sizeof(PcViewport) == kPcViewportBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(PcViewport) == kPcViewportBytes), "layout must match the original");
 
 // 0x004CB860: a new PC viewport (null without memory).
 gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera);

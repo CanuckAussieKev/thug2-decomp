@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
+
 // NOT ORIGINAL - the sizes of the script pools and of the memory they come from, ours (pool sizes as THUGPRO's: the
 // idea and the numbers from THUGPRO's shipped thugpro.dll, which writes them over THUG2's CreateScriptPools pushes at
 // start-up; Morten1337's thugpro_proxy, Code/SkPro/Miscellaneous.cpp, has an older version of the same patch).
@@ -14,6 +16,17 @@
 // every other heap keeps the room it had (they never shrink below the original's).
 namespace memory::sizes {
 
+// NOT ORIGINAL - a fixed region's size on this build (the regions and named heaps the memory manager makes with a size
+// of the original's - the skater, skater geometry, skater info, theme, texture, front end and network regions - and
+// those whose size the scripts or the code give - MemInitHeap, the animation heaps, the flexible particles', the park
+// editor's, the COIM heap): the original's on the 32-bit build, twice it on x64. No record more than doubles there -
+// its pointers and the heap's block headers go from 4 and 16 to 8 and 32 bytes, nothing else grows - so whatever fits
+// in a region on the 32-bit build fits in twice its bytes on x64. (The cutscene heaps take what is left of the top-down
+// heap instead.)
+constexpr uint32_t region_bytes(uint32_t original) { return core::kPointers32Bit ? original : 2 * original; }
+static_assert(core::layout_32bit(region_bytes(1) == 1), "x86: the original's sizes");
+
+// (the item sizes below are the original's, x86's; on x64 the classes are bigger and the pools with them)
 struct Pools {
     int script_cache_entries_; // CScriptCacheEntry (0x14 bytes)
     int components;            // CComponent (0x10)
@@ -41,15 +54,20 @@ const Pools& at_hand();
 // Bytes the script pools and the string heap take from the script region (not the HashItem pool's).
 uint32_t script_pool_bytes(const Pools& pools);
 // The script region (original 0x434770 bytes) - grown by what the current pools take more than the original's, and
-// by script_heap_extra.
+// by script_heap_extra; on x64 also by its room beside the original's pools once more (region_bytes: ~2 MB).
 uint32_t script_region_size();
 // NOT ORIGINAL - room added to the script heap for the scripts and the node name prefixes a level brings (the original
 // left ~2 MB beside the pools: THP8's whole town, ~34,000 nodes, ran it dry adding its node prefixes); [memory]
 // script_heap_extra_mb= (0 to 256), original_sizes=1: none. Part of script_region_size (so of the main block).
 constexpr int kScriptHeapExtraMb = 16;
 uint32_t script_heap_extra();
-// The main block (original 64 MB) - grown by the script region's growth and the HashItem pool's.
+// The main block (original 64 MB) - grown by the script region's growth and the HashItem pool's; on x64 also by the
+// rest of the original's 64 MB once more (region_bytes: what it holds beside the script region - the level's scenes,
+// collision, nodes and objects, the other regions - at most doubles; ~60 MB).
 uint32_t main_block_size();
+// NOT ORIGINAL - the part of main_block_size the 64-bit build adds beside the script region (its region_bytes term, in
+// whole 64 KB): 0 on the 32-bit build. The park editor's memory meter leaves it out of the main heap's free bytes.
+uint32_t main_block_x64_room();
 
 // NOT ORIGINAL - the slots of the node manager's name hash (engine/script/node_manager.h): the original's 0x4000 (16,384
 // - a level with more named nodes filled it and its lookups never ended), ours 0x10000 by default (THP8's whole town,

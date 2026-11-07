@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <vector>
 #include <array>
 
@@ -105,9 +106,9 @@ public:
     [[nodiscard]] bool live_now() const;
 
     render::StaticCollider* get_object() { return &entity_; }
-    [[nodiscard]] const render::TriMeshSource& get_geometry() const { return geometry_; }
-    [[nodiscard]] int face_count() const { return geometry_.tri_count(); }
-    [[nodiscard]] int get_vertex_count() const { return geometry_.num_vertices(); }
+    [[nodiscard]] const render::TriMeshSource& get_geometry() const { return *geometry_; }
+    [[nodiscard]] int face_count() const { return geometry_->tri_count(); }
+    [[nodiscard]] int get_vertex_count() const { return geometry_->num_vertices(); }
     [[nodiscard]] V3 base_vertex(int index) const { return core::at(base_, index); }
     [[nodiscard]] V3 get_vertex(int index) const;
 
@@ -115,11 +116,14 @@ private:
     void update_box();
 
     std::vector<V3> base_;
-    std::vector<float> vertices_;
-    std::vector<uint8_t> faces_;     // 10 bytes each: flags, terrain, three u16 indices
-    std::vector<uint8_t> bytes_;     // one per vertex
+    // The geometry's record and the arrays it links to, in one block: the record, then its faces, vertices and vertex
+    // bytes. Its links are 32-bit distances from the record (collision_format::link_from), so the arrays must be near
+    // it on any build - separate allocations can lie more than 2 GB apart on x64.
+    std::vector<uint8_t> block_;
+    render::TriMeshSource* geometry_ = nullptr; // (at the block's start)
+    std::span<float> vertices_;
+    std::span<uint8_t> faces_; // 10 bytes each: flags, terrain, three u16 indices
     std::vector<uint8_t> rejection_; // one per face (all 0: the rejection scale is 0)
-    render::TriMeshSource geometry_{};
     render::StaticCollider entity_;
 };
 

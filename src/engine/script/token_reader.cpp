@@ -1,5 +1,6 @@
 #include "engine/script/token_reader.h"
 
+#include <cstddef>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -22,10 +23,9 @@
 #include "engine/gfx/render_constants.h"
 #include "engine/sys/startup_init.h"
 #include "base/core/raw_view.h"
-#include "platform/code_address.h"
+#include "engine/script/names.h"
 #include "base/core/checked_index.h"
 #include "engine/script/param_struct.h"
-#include "base/core/pointer_cell.h"
 #include "base/core/no_destroy.h"
 #include "engine/script/script_state.h"
 #include <gsl/pointers>
@@ -203,9 +203,9 @@ Tokens resolve_random_jumps(Tokens token)
             pick -= static_cast<int16_t>(fetch_word16(weights));
             while (pick >= 0) {
                 ++choice;
-                pick -= static_cast<int16_t>(fetch_word16(weights + 2 * choice));
+                pick -= static_cast<int16_t>(fetch_word16(weights + (std::ptrdiff_t{2} * choice)));
             }
-            const Tokens offset = weights + 2 * count + 4 * choice;
+            const Tokens offset = weights + 2 * count + (std::ptrdiff_t{4} * choice);
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -254,7 +254,7 @@ Tokens resolve_random_jumps(Tokens token)
                 shuffle(*stored, true);
                 stored->ordinal_ = 0;
             }
-            const Tokens offset = table + 4 * core::at(stored->order_, stored->ordinal_);
+            const Tokens offset = table + (std::ptrdiff_t{4} * core::at(stored->order_, stored->ordinal_));
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -364,7 +364,7 @@ void evaluate_name_token(Component* component)
     case QbValueKind::kArray:
     case QbValueKind::kName:
         change_species(component, symbol->type());
-        component->value.set_word(symbol->value().word());
+        component->value = symbol->value();
         break;
     default:
         break;
@@ -925,15 +925,15 @@ Tokens push_name(Tokens cursor, Struct* args, Component& value, bool after_dot)
         case QbValueKind::kVector:
         case QbValueKind::kName:
             change_species(&value, symbol->type());
-            value.value.set_word(symbol->value().word());
+            value.value = symbol->value();
             break;
         case QbValueKind::kStruct:
             change_species(&value, QbValueKind::kStructRef);
-            value.value.set_word(symbol->value().word());
+            value.value = symbol->value();
             break;
         case QbValueKind::kArray:
             change_species(&value, QbValueKind::kArrayRef);
-            value.value.set_word(symbol->value().word());
+            value.value = symbol->value();
             break;
         case QbValueKind::kNativeFunc: {
             // Called now, with the arguments that follow.
@@ -1052,7 +1052,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             cursor = parse_value(cursor, args, &value);
             cursor = push_name(cursor, args, value, after_dot);
             value.type_and_flag_ &= 1;
-            value.value.set_word(0);
+            value.value.clear();
             pushed();
             continue;
         }
@@ -1104,12 +1104,12 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             const Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
                 copy_value_kind(value, *found);
-                value.value.set_word(found->value.word());
+                value.value = found->value;
                 evaluate_name_token(&value);
                 make_reference(&value);
                 evaluator.intake(&value);
                 value.type_and_flag_ &= 1;
-                value.value.set_word(0);
+                value.value.clear();
             }
             pushed();
             continue;
@@ -1138,13 +1138,8 @@ Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name)
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
 void construct_evaluator() { script_state().evaluator().prepare_all(); }
 
-const MemberFunctionEntry* member_entry_at(Tokens bytes)
-{
-    return cell::pointer<const MemberFunctionEntry>(fetch_word32(bytes));
-}
-NativeFunction native_function_at(Tokens bytes)
-{
-    return function_at<NativeFunction>(cell::pointer<const void>(fetch_word32(bytes)));
-}
+// (NOT ORIGINAL: the operand is the entry's / function's number - names.h - where the original wrote its address)
+const MemberFunctionEntry* member_entry_at(Tokens bytes) { return numbered_member_entry(fetch_word32(bytes)); }
+NativeFunction native_function_at(Tokens bytes) { return numbered_native_function(fetch_word32(bytes)); }
 
 } // namespace script

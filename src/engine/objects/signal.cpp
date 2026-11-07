@@ -379,7 +379,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         script::Component* type = handler->step_to_entry(nullptr);
         const script::Component* script = handler->step_to_entry(type);
         if (replace) {
-            remove_type(type->value.word());
+            remove_type(type->value.low_word());
         }
         TableRow& entry = core::at(made, used++);
         Struct* params = nullptr;
@@ -390,8 +390,8 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         entry.flags = static_cast<uint8_t>(
             (entry.flags & ~(TableRow::kFlagReplacesRunning | TableRow::kFlagMarked)) |
             (static_cast<int>(handler->has_bare_flag(kExceptionFlag)) & TableRow::kFlagReplacesRunning));
-        entry.type = type->value.word();
-        entry.script = script->value.word();
+        entry.type = type->value.low_word();
+        entry.script = script->value.low_word();
         altered_ = true;
     }
     // The old entries after the new ones.

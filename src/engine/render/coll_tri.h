@@ -21,13 +21,16 @@ constexpr int kFullFaceBytes = 10;
 
 // A node of a collision geometry's BSP tree (8 bytes; an array of them, made with new[] - a count before the
 // first). +0: the low 2 bits the split axis (0 x, 1 y, 2 z) or 3 for a leaf; the rest (>> 2, signed) the split
-// position in sixteenths. A leaf has its face count at +2 and a pointer to its face indices (u16) at +4. A
-// split node has its two children at +4 (the low 2 bits masked off): the one at +0 is the "less" side (below
-// the split) unless bit 0 is set, which swaps them.
+// position in sixteenths. A leaf has its face count at +2 and the link to its face indices (u16) at +4. A
+// split node has the link to its two children at +4 (the low 2 bits masked off): the one at +0 is the "less" side
+// (below the split) unless bit 0 is set, which swaps them. The links are distances from the node
+// (collision_format::link_from; the original kept addresses there): a whole tree's nodes are copied as one block,
+// never a node alone.
 struct HitTreeNode {
     // The fields other code reads and sets.
     [[nodiscard]] int32_t axis_tag() const { return axis_tag_; }
     void set_axis_tag(int32_t value) { axis_tag_ = value; }
+    // The link word as it is (a distance from this node: kept and put back on the same node only).
     [[nodiscard]] uint32_t chain_link() const { return chain_link_; }
     void set_chain_link(uint32_t value) { chain_link_ = value; }
 
@@ -45,17 +48,17 @@ public:
     [[nodiscard]] int get_split() const { return axis_tag_ >> 2; }
     void set_split(int value) { axis_tag_ = (value << 2) | (axis_tag_ & 3); }
     [[nodiscard]] uint16_t leaf_face_count() const { return static_cast<uint16_t>(static_cast<uint32_t>(axis_tag_) >> kLeafCountShift); }
-    [[nodiscard]] uint16_t* get_leaf_faces() const { return collision_format::tree_leaf_faces(chain_link_); }
+    [[nodiscard]] uint16_t* get_leaf_faces() const { return collision_format::tree_leaf_faces(this, chain_link_); }
     // The leaf's face indices as a run of its face count.
     [[nodiscard]] std::span<uint16_t> leaf_face_run() const { return {get_leaf_faces(), leaf_face_count()}; }
-    [[nodiscard]] HitTreeNode* get_children() const { return collision_format::tree_children<HitTreeNode>(chain_link_); }
+    [[nodiscard]] HitTreeNode* get_children() const { return collision_format::tree_children(this, chain_link_); }
     // The two children of a split node.
     [[nodiscard]] std::span<HitTreeNode, 2> child_pair() const { return std::span<HitTreeNode, 2>(get_children(), 2); }
     // A leaf of `count` faces listed at `faces`.
     void make_leaf(uint16_t count, uint16_t* faces)
     {
         axis_tag_ = 3 | static_cast<int32_t>(static_cast<uint32_t>(count) << kLeafCountShift);
-        chain_link_ = collision_format::tree_link_to(faces);
+        chain_link_ = collision_format::tree_link_to(this, faces);
     }
     [[nodiscard]] HitTreeNode* less_child() const { return &core::at(child_pair(), ((chain_link_ & 1) != 0U) ? 1 : 0); }
     [[nodiscard]] HitTreeNode* greater_child() const
@@ -100,6 +103,18 @@ constexpr std::size_t kTriMeshSourceVertexBytesOffset = 0x38;
 // A collision object's geometry (render::TriMeshSource, from a .col file): its vertices (floats, or 16-bit offsets
 // from its box's minimum in sixteenths when "compressed"), faces and BSP tree.
 struct TriMeshSource {
+    TriMeshSource() = default;
+    // A copy shares the arrays (its links made from the copy; copy_from).
+    TriMeshSource(const TriMeshSource& other) { copy_fields(other); }
+    TriMeshSource& operator=(const TriMeshSource& other)
+    {
+        if (this != &other) {
+            copy_fields(other);
+        }
+        return *this;
+    }
+    ~TriMeshSource() = default;
+
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t checksum() const { return checksum_; }
     void set_checksum(uint32_t value) { checksum_ = value; }
@@ -112,16 +127,16 @@ struct TriMeshSource {
     void set_small_faces(bool value) { small_faces_ = value; }
     [[nodiscard]] bool compressed() const { return compressed_; }
     void set_compressed(bool value) { compressed_ = value; }
-    [[nodiscard]] uint8_t* faces() const { return faces_; }
-    void set_faces(uint8_t* value) { faces_ = value; }
+    [[nodiscard]] uint8_t* faces() const { return collision_format::record_array<uint8_t>(this, faces_); }
+    void set_faces(uint8_t* value) { faces_ = collision_format::record_link(this, value); }
     maths::BBox& bounds() { return bounds_; }
     [[nodiscard]] const maths::BBox& bounds() const { return bounds_; }
-    [[nodiscard]] void* vertices() const { return vertices_; }
-    void set_vertices(void* value) { vertices_ = value; }
-    [[nodiscard]] HitTreeNode* bsp() const { return bsp_; }
-    void set_bsp(HitTreeNode* value) { bsp_ = value; }
-    [[nodiscard]] uint8_t* vertex_bytes() const { return vertex_bytes_; }
-    void set_vertex_bytes(uint8_t* value) { vertex_bytes_ = value; }
+    [[nodiscard]] void* vertices() const { return collision_format::record_array<void>(this, vertices_); }
+    void set_vertices(void* value) { vertices_ = collision_format::record_link(this, value); }
+    [[nodiscard]] HitTreeNode* bsp() const { return collision_format::record_array<HitTreeNode>(this, bsp_); }
+    void set_bsp(HitTreeNode* value) { bsp_ = collision_format::record_link(this, value); }
+    [[nodiscard]] uint8_t* vertex_bytes() const { return collision_format::record_array<uint8_t>(this, vertex_bytes_); }
+    void set_vertex_bytes(uint8_t* value) { vertex_bytes_ = collision_format::record_link(this, value); }
     [[nodiscard]] uint32_t unknown3c() const { return unknown3c_; }
     void set_unknown3c(uint32_t value) { unknown3c_ = value; }
 
@@ -132,15 +147,16 @@ private:
     uint16_t tri_count_{};      // +0x08 (also the size of a sector object's own buffer)
     bool small_faces_{};        // +0x0A faces of 8 bytes (else 10)
     bool compressed_{};         // +0x0B the vertices are 16-bit
-    uint8_t* faces_{};          // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)
+    // (the arrays are links from the record - collision_format::record_link, 0 for none; the original kept addresses)
+    uint32_t faces_{};          // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)
     maths::BBox bounds_;      // +0x10 the box (min, max)
-    void* vertices_{};        // +0x30 float[3] each, or uint16_t[3] when compressed
-    HitTreeNode* bsp_{};      // +0x34
-    uint8_t* vertex_bytes_{}; // +0x38 one byte per vertex (copied and freed with the geometry), or null
+    uint32_t vertices_{};     // +0x30 float[3] each, or uint16_t[3] when compressed
+    uint32_t bsp_{};          // +0x34 the tree's first node
+    uint32_t vertex_bytes_{}; // +0x38 one byte per vertex (copied and freed with the geometry), or none
 
 public:
     // NOT ORIGINAL - those bytes as a run of num_vertices_.
-    [[nodiscard]] std::span<const uint8_t> vertex_byte_run() const { return {vertex_bytes_, num_vertices_}; }
+    [[nodiscard]] std::span<const uint8_t> vertex_byte_run() const { return {vertex_bytes(), num_vertices_}; }
 private:
     uint32_t unknown3c_{};    // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
 
@@ -150,17 +166,20 @@ public:
     // NOT ORIGINAL - the stored vertices as runs of floats / 16-bit words (three each, num_vertices_ vertices).
     [[nodiscard]] std::span<float> float_vertices() const
     {
-        return {static_cast<float*>(vertices_), static_cast<size_t>(num_vertices_) * 3};
+        return {collision_format::record_array<float>(this, vertices_), static_cast<size_t>(num_vertices_) * 3};
     }
     [[nodiscard]] std::span<uint16_t> packed_vertices() const
     {
-        return {static_cast<uint16_t*>(vertices_), static_cast<size_t>(num_vertices_) * 3};
+        return {collision_format::record_array<uint16_t>(this, vertices_), static_cast<size_t>(num_vertices_) * 3};
     }
 
     // 0x0040B230: vertex `index` (w = 0).
     [[nodiscard]] maths::Vec4 read_stored_vertex(int index) const;
     // 0x0040B2D0: the same into `out`.
     void read_stored_vertex(int index, maths::Vec4* out) const;
+    // NOT ORIGINAL grouping - face `face`'s three corners, each as read_stored_vertex(index, out) reads it (the
+    // collision queries' inner loops: the face and vertex arrays resolved once).
+    void read_face_corners(int face, maths::Vec4* v0, maths::Vec4* v1, maths::Vec4* v2) const;
     // 0x00414EE0: vertex `index` set (compressed: in sixteenths from the box's minimum, toward zero).
     void write_stored_vertex(int index, const maths::Vec4* position) const;
     // 0x00414F90 (0x00415C00 jumps to it): every vertex into `out` (w = 0).
@@ -187,7 +206,7 @@ public:
     void scale_tool(const maths::Vec4* centre, const maths::Vec4* scale);
     // 0x00414D30: the shared index table 0x0067C6B8 filled with 0..2047 the first time (its first entry is
     // 0xFFFF until then); whether the geometry has a tree.
-    bool set_up_all_faces();
+    [[nodiscard]] bool set_up_all_faces() const;
     // 0x00414FE0: occlusion polygons: each face paired with the first later face that shares an edge with it and
     // faces the same way (normals within 0.05 on each axis) - the four corners to render::add_debug_shape (a quad: an
     // occlusion polygon) with the checksum.
@@ -213,7 +232,7 @@ public:
     // The faces (collision_format::FaceTable: flags, terrain, vertex indices).
     [[nodiscard]] collision_format::FaceTable face_table() const
     {
-        return {std::span<uint8_t>(faces_, static_cast<size_t>(tri_count_) * (small_faces_ ? kSmallFaceBytes : kFullFaceBytes)), small_faces_};
+        return {std::span<uint8_t>(collision_format::record_array<uint8_t>(this, faces_), static_cast<size_t>(tri_count_) * (small_faces_ ? kSmallFaceBytes : kFullFaceBytes)), small_faces_};
     }
     [[nodiscard]] uint32_t face_vertex(int face, int corner) const { return face_table().vertex(face, corner); }
     [[nodiscard]] FaceFlag face_flags(int face) const { return face_table().flags(face); }
@@ -221,6 +240,8 @@ public:
     void set_face_flags(int face, FaceFlag flags) const { face_table().set_flags(face, flags); }
 
 private:
+    void copy_fields(const TriMeshSource& other);
+
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
@@ -233,6 +254,7 @@ private:
                       "the collision file's object record (collision_format.h)");
     }
 };
-// The collision file's object record, used in place (formats/collision_format.h): its layout is the file's.
+// The collision file's object record, used in place (formats/collision_format.h): its layout is the file's, on any
+// build (its arrays are 32-bit links).
 
 } // namespace render

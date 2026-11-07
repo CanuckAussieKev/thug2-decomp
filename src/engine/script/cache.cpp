@@ -6,6 +6,7 @@
 #include <new>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -23,7 +24,7 @@ namespace script {
 
 constexpr size_t kScriptCacheEntryOlderOffset = 0xC;
 constexpr size_t kScriptCacheEntryNewerOffset = 0x10;
-static_assert(offsetof(ScriptCacheEntry, older) == kScriptCacheEntryOlderOffset && offsetof(ScriptCacheEntry, newer) == kScriptCacheEntryNewerOffset,
+static_assert(core::layout_32bit(offsetof(ScriptCacheEntry, older) == kScriptCacheEntryOlderOffset && offsetof(ScriptCacheEntry, newer) == kScriptCacheEntryNewerOffset),
               "layout must match the original");
 
 script::ScriptStore* script_store() { return script_state().script_store().get(); }

@@ -474,7 +474,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::Geom* g
                 buffer->size() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride()) {
                 return nullptr;
             }
-            std::vector<float> positions(3U * mesh->vertex_count());
+            std::vector<float> positions(size_t{3} * mesh->vertex_count());
             std::vector<float> normals(copy.normal_offset_ >= 0 ? 3U * mesh->vertex_count() : 0U);
             const std::span<const uint8_t> vertex_run(buffer->data(), size_t{mesh->vertex_count()} * mesh->stride());
             for (uint32_t vertex_index = 0; vertex_index < mesh->vertex_count(); ++vertex_index) {

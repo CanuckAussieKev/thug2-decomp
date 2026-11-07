@@ -1,4 +1,4 @@
-"""NOT ORIGINAL - resolve addresses in a 32-bit exe / DLL to function+offset and file:line with its PDB (DbgHelp),
+"""NOT ORIGINAL - resolve addresses in an exe / DLL (32-bit or 64-bit) to function+offset and file:line with its PDB (DbgHelp),
 offline: the module is loaded at a made-up base, so give RVAs (a run's address minus the module's base) - or
 run-time addresses with --base <the run's base>.
 

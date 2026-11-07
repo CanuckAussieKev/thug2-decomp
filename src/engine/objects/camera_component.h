@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 
@@ -55,7 +56,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ViewpointModule, view_camera_) == kViewpointModuleViewCameraOffset && sizeof(ViewpointModule) == kViewpointModuleBytes,
+        static_assert(core::layout_32bit(offsetof(ViewpointModule, view_camera_) == kViewpointModuleViewCameraOffset && sizeof(ViewpointModule) == kViewpointModuleBytes),
                       "layout must match the original");
     }
 };

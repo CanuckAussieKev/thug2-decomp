@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
 #include "engine/render/coll_movable.h"
@@ -105,7 +106,7 @@ private:
 };
 constexpr std::size_t kStaticColliderBytes = 0x18;
 
-static_assert(sizeof(StaticCollider) == kStaticColliderBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(StaticCollider) == kStaticColliderBytes), "layout must match the original");
 
 constexpr std::size_t kCollStaticInstanceBytes = 0xC8;
 constexpr std::size_t kCollStaticInstanceWorldBoxOffset = 0xA0;
@@ -171,7 +172,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CollStaticInstance) == kCollStaticInstanceBytes && offsetof(CollStaticInstance, world_box_) == kCollStaticInstanceWorldBoxOffset, "layout");
+        static_assert(core::layout_32bit(sizeof(CollStaticInstance) == kCollStaticInstanceBytes && offsetof(CollStaticInstance, world_box_) == kCollStaticInstanceWorldBoxOffset), "layout");
     }
 };
 
@@ -228,7 +229,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HitMovingTriangles) == kHitMovingTrianglesBytes && offsetof(HitMovingTriangles, box_) == kHitMovingTrianglesBoxOffset,
+        static_assert(core::layout_32bit(sizeof(HitMovingTriangles) == kHitMovingTrianglesBytes && offsetof(HitMovingTriangles, box_) == kHitMovingTrianglesBoxOffset),
                       "layout must match the original");
     }
 };

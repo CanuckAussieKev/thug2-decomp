@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "game/park_editing/park.h"
 #include "engine/objects/signal.h"
 #include "engine/pad_input/input_hub.h"
@@ -222,11 +223,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkBuilderMode, listener_) == kParkBuilderModeListenerOffset && offsetof(ParkBuilderMode, action_finished_) == kParkBuilderModeActionFinishedOffset &&
+        static_assert(core::layout_32bit(offsetof(ParkBuilderMode, listener_) == kParkBuilderModeListenerOffset && offsetof(ParkBuilderMode, action_finished_) == kParkBuilderModeActionFinishedOffset &&
                           offsetof(ParkBuilderMode, editor_pad_listener_) == kParkBuilderModeEditorPadListenerOffset &&
                           offsetof(ParkBuilderMode, cur_phase_) == kParkBuilderModeCurPhaseOffset && offsetof(ParkBuilderMode, move_speed_) == kParkBuilderModeMoveSpeedOffset &&
                           offsetof(ParkBuilderMode, camera_angle_) == kParkBuilderModeCameraAngleOffset &&
-                          offsetof(ParkBuilderMode, lighting_script_) == kParkBuilderModeLightingScriptOffset && sizeof(ParkBuilderMode) == kParkBuilderModeByteSize,
+                          offsetof(ParkBuilderMode, lighting_script_) == kParkBuilderModeLightingScriptOffset && sizeof(ParkBuilderMode) == kParkBuilderModeByteSize),
                       "layout must match the original");
     }
 };

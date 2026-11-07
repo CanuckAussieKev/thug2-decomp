@@ -16,7 +16,8 @@ game/                       skating, the rider, goals, parks, saves, the online 
 render_pc/                the graphics backend's API-neutral half: the original's PC platform layer over render::Gpu; only app/ includes it
 gpu_d3d9/                 Direct3D 9's Gpu, GpuContext and UiBackend, D3DX; only app/ includes it
 gpu_vulkan/               Vulkan's Gpu and GpuContext (renderer=vulkan: design/vulkan.md); only app/ includes it
-audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
+audio_dsound/               the sound backend (DirectSound); only app/ includes it
+media_ffmpeg/               the movie codec: FFmpeg's Bink decoders (the movies and the music / sound streams); only app/ includes it
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
 net_winsock/                the network sockets and address lookups (Winsock's), under the transport; only app/ includes it
@@ -165,7 +166,7 @@ graph TD
     devtools[thug2_devtools]
     game[thug2_game]
     engine[thug2_engine]
-    backends["the backends, one library each:<br/>render_pc, gpu_d3d9, gpu_vulkan, audio_dsound,<br/>media_bink, input_dinput, fs_win32, net_winsock, script_qb"]
+    backends["the backends, one library each:<br/>render_pc, gpu_d3d9, gpu_vulkan, audio_dsound,<br/>media_ffmpeg, input_dinput, fs_win32, net_winsock, script_qb"]
     wire[thug2_wire]
     platform[thug2_platform]
     formats[thug2_formats]
@@ -195,7 +196,7 @@ graph TD
 the front end and the dev tools each link `thug2_game` (and Dear ImGui) alone, never one another: `thug2-editor` reaches
 neither the front end nor the dev tools. Only the exes (through `thug2_app`) link the backends. The checks in
 `src/tests` link only what they check (`thug2_format_check`: wire and formats; `thug2_maths_check`: base;
-`thug2_parse_check` / `thug2_printf_check`: formats; `thug2_vulkan_context_check` / `thug2_ff_shader_check` / `thug2_vulkan_gpu_check`: the Vulkan backend). Third-party and system libraries are linked by the
+`thug2_parse_check` / `thug2_printf_check`: formats; `thug2_gamespy_check`: the platform's GameSpy glue and SDK; `thug2_vulkan_context_check` / `thug2_ff_shader_check` / `thug2_vulkan_gpu_check`: the Vulkan backend). Third-party and system libraries are linked by the
 library that calls them (SDL, D3D9 and the GameSpy SDK by the platform - the SDK links Winsock for itself -; Winsock by
 the network backend; LZHAM by the engine; DirectInput
 by the input backend; DirectSound by the sound backend; D3DX by the graphics backend; volk, the Vulkan headers and the memory allocator by the Vulkan backend; imgui's core by the graphics backend - the loading console's
@@ -210,7 +211,7 @@ backend alone).
 | `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
 | `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by `gpu_d3d9/` (Direct3D's own headers there); `render_pc/` includes none, nor any of `gpu_d3d9/`'s headers, and only `app/` picks `gpu_d3d9/`'s Gpu, GpuContext, UiBackend and `render_pc/`'s device; every other header holds the graphics handles. |
 | `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL3/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `gpu_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`, `src/tests/vulkan_gpu_check.cpp`); only `app/` includes the backend. |
-| `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/`; the Bink wrapper only in `media_bink/`; only `app/` picks `audio::Device` and `media::Movie`. |
+| `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/` ; FFmpeg's headers and calls only in `media_ffmpeg/`; only `app/` picks `audio::Device` and `media::Movie`. |
 | `tools/input_headers.test.ts` | `<dinput.h>` only in `input_dinput/`; SDL's input and the platform's keyboard only behind the SDL input source; only `app/` picks the sources. |
 | `tools/file_calls.test.ts` | The operating system's and the C runtime's file functions are called only in `fs_win32/`, `platform/` and `src/tests`; only `app/` installs the disk and adds the file sources. |
 | `tools/net_calls.test.ts` | Winsock's headers and functions only in `net_winsock/`; only `app/` installs the transport. |
@@ -237,7 +238,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 |---|---|---|---|---|
 | `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL3 backends | Vulkan (`thug2_gpu_vulkan`: `render::vulkan::gpu()`, `gpu_context()`, `ui_backend()` - drawing, with the screen effects and the ImGui parts: [design/vulkan.md](design/vulkan.md)) |
 | `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
-| `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoder (planned, for a 64-bit build) |
+| `media::Movie` | `engine/media/movie.h` | `thug2_media_ffmpeg` (`media::ffmpeg::movie()`) | FFmpeg's Bink decoders: movies and sound streams; their sound through `audio::Device`'s streaming buffers | - |
 | `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |
 | `fs::FileSystem` (its `fs::Source`s), `fs::Disk` | `engine/file/file_system.h`, `engine/file/disk.h` | `thug2_fs_win32` (`fs::win32::disk()`); the sources are the engine's (overlay, archives, Data folder) | the operating system's files | a std::filesystem / POSIX disk (for a GCC build) |
 | `net::Transport` | `engine/net/transport.h` | `thug2_net_winsock` (`net::winsock::transport()`) | Winsock's sockets and lookups | `engine/net/loopback_transport.h` (in-process, for protocol tests: `[debug] net_loopback=1`) |
@@ -361,15 +362,21 @@ everything above it uses the game's own types and may change them freely.
   be heard - the audio session muted while the output is open (`platform/mute_audio.h`), every voice's volume silent,
   every movie's and stream's track at 0 (`audio::Device::track_volume`) - so the voices still play and end as with
   sound. Only `audio_dsound/` includes `<dsound.h>` (tools/audio_headers.test.ts).
-- **The movie codec** (`src/media_bink`, static library `thug2_media_bink`, on the engine) is Bink: the player's own
-  binkw32.dll, each export looked up by name on first use (`media_bink/bink.h`). It implements `media::Movie`
+- **The movie codec** (`src/media_ffmpeg`, static library `thug2_media_ffmpeg`, on the engine) implements `media::Movie`
   (`engine/media/movie.h`): the movies (`render_pc/movie.cpp`) and the music and sound streams
   (`engine/audio/bink_stream*.cpp`, sound-only Bink files from a path, a file handle or memory) open, decode, step,
   seek and pause through it and set their tracks' volume and pan; an open movie is its header
-  (`media::MovieHeader`, the fields of Bink's BINK the game reads). Its sound plays into the sound output
-  (`use_sound_output`: the output's handle - Bink's DirectSound output on the game's DirectSound object). A call per
-  movie or per frame. `app/main.cpp` installs Bink's (`media::bink::movie()`); only `media_bink/` includes the
-  wrapper (tools/audio_headers.test.ts).
+  (`media::MovieHeader`, the fields of Bink's BINK the game reads). The files stay Bink 1 (`.bik`), decoded by FFmpeg's
+  Bink demuxer and video decoder, the frames' colours made by swscale (FFmpeg 7.1's LGPL DLLs avutil-59, avcodec-61,
+  avformat-61 and swscale-8 next to the exe on the 32-bit and the 64-bit build, built by `tools/ffmpeg/build_ffmpeg.ts`
+  and loaded by name at run time through `crt::library_function` - nothing is linked, so the exe starts without them,
+  with no movies or streams). An open movie is a `media::ffmpeg::Playback`, whose first part is the header; its frame
+  counters, its pace (`wait`) and its pause follow the original codec's (binkw32.dll, no longer used), and its frames are
+  copied as its BINKSURFACE32. `app/main.cpp` installs it. Its sound (`media::ffmpeg::Sound`, FFmpeg's Bink audio
+  decoder) plays through `audio::Device` - a looping buffer per movie, kept filled ahead of its play position through
+  the device's streaming calls (`buffer_position`, `write_buffer`, `resume_buffer`), its volume and pan the track's as
+  binkw32 converted them, its play position the frames' clock -, so it plays into whatever output the device is, and the
+  muted output silences it like the rest. Only `media_ffmpeg/` includes FFmpeg's headers (tools/audio_headers.test.ts).
 - **The input seam** (`engine/pad_input/input_source.h`, `input_event.h`): where the game's input comes from. An
   `input::Source` is one kind of device; `app/main.cpp` adds them in the order the original read them, which is the
   call order at every point: the original's DirectInput side (`src/input_dinput`, static library
@@ -518,11 +525,11 @@ everything above it uses the game's own types and may change them freely.
   (`output_sinks.h`). Files are the file system's (`fs::Disk`, "The file system seam"), sockets the transport's
   (`net::Transport`, "The network transport seam").
 
-`formats/` depends only on the standard library and `base/` (`ints.h`, `checksums.h`, `pointer_cell.h`, `raw_view.h`);
+`formats/` depends only on the standard library and `base/` (`ints.h`, `checksums.h`, `address.h`, `pointer_cell.h`, `raw_view.h`);
 `wire/` also on `formats/` (the byte stream). They build and are checked without the game.
 
 **The original's layouts stay in the boundary**: the named helpers that read memory through another type or keep a
-pointer in an integer - `cell::` (`base/core/pointer_cell.h`), `raw::` (`base/core/raw_view.h`),
+pointer in an integer - `cell::` (`base/core/pointer_cell.h`), `core::address` (`base/core/address.h`), `raw::` (`base/core/raw_view.h`),
 `memory::bits_as`, `function_at` - are used only there. Above it every field has its member and every pointer its
 type; data from outside is decoded where it arrives. `npm test` forbids the helpers above the boundary
 (`tools/layering.ts`). The QB bytecode readers (`engine/script/qb.cpp`,
@@ -534,8 +541,10 @@ points) and `tokens_at` finds a pointer's block in a table of the blocks of code
 `.clang-tidy` keeps `reinterpret_cast` and integer-to-pointer casts out of `src/` entirely.
 
 **The script values** are `script::Cell`s (`engine/script/cell.h`): a component's, a global symbol's or an array
-element's 32 bits, read and written by the accessor of the kind its holder records (an externally tagged union -
-the holders are pooled records of the original's sizes). The union access is inside `Cell` only. Structures and
+element's value, read and written by the accessor of the kind its holder records (an externally tagged union -
+the holders are pooled records, of the original's sizes on x86). A cell is a pointer wide (`uintptr_t`): names,
+integers and floats are its low 32 bits (`word`, `integer`, `real`), a pointer is the whole cell, and a copy of any
+kind is the whole `Cell`. The union access is inside `Cell` only. Structures and
 arrays are made and freed by `script::new_struct` / `new_array` / `free_struct` / `free_array` (the pools'
 factory and deleter), held in a scope or member by `script::StructPtr` / `ArrayPtr`.
 
@@ -546,7 +555,9 @@ the singletons are never destroyed under the game's live objects.
 **Layouts freed above the boundary change sizes**: the game's fixed-size pools (`memory::PoolPair` / `SlabBank`:
 blend channels, animation slots, script structures...) are sized by `sizeof` of what they hold, and a pool refuses
 an object bigger than its items - a class that grows past the original's byte size stops the game with a report
-instead of running into its neighbour. The singletons are owned by type (`std::unique_ptr`, `memory::HeapUnique`);
+instead of running into its neighbour. Allocations of single records and of pointer arrays are sized by `sizeof` too,
+and the fixed regions and heaps (`memory::sizes::region_bytes`) are the original's sizes on the 32-bit build and twice
+them on x64, where no record more than doubles. The singletons are owned by type (`std::unique_ptr`, `memory::HeapUnique`);
 a loaded `.pre` archive is an index of plain records (`packs::PackedFile`) over one block of unpacked files.
 
 ## Next steps

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/audio/audio_handles.h"
 
 namespace objects {
@@ -81,11 +82,11 @@ struct Stream {
     };
     std::array<Name, kStreamNameCount> names; // +0x34 its names (AddStream adds more) and their frame amplitudes
 };
-static_assert(sizeof(Stream) == kStreamBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Stream) == kStreamBytes), "layout must match the original");
 
 // The music's data (music_player.cpp): the playlists and their track titles (100 characters per track, those of playlist 0),
 // the three streams and the objects that started them, and the user soundtrack's shuffled order.
-static_assert(sizeof(Stream) == kStreamBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Stream) == kStreamBytes), "layout must match the original");
 
 // 0x00450220: whether no stream with this id is playing.
 bool stream_id_finished(uint32_t id);

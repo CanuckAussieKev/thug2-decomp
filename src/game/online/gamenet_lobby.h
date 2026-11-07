@@ -10,6 +10,7 @@
 #include <memory>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 
 namespace script {
@@ -101,7 +102,7 @@ public:
     // 0x00540300 (NAT negotiation's end, `result` 0 = success): a client joins the server at the address found; the
     // server counts down (the task off at 0); a client's negotiation is cleaned up (failure:
     // 0x3A9FB574).
-    static void nat_negotiation_completed(int result, int socket, const void* address, int user_data);
+    static void nat_negotiation_completed(int result, uintptr_t socket, const void* address, int user_data);
     // 0x0053F6C0 (an app's foreign packet): qr2 queries ("\" or FE FD) and NAT negotiation packets (FD FC 1E 66 6A
     // B2...) copied into the queue (at most 199) for the query task.
     static void queue_packet(const uint8_t* data, int length, const void* from);
@@ -401,7 +402,7 @@ struct QueuedPacket {
     int length;
     std::array<uint8_t, kQueuedPacketFromSize> from; // the sender's sockaddr
 };
-static_assert(sizeof(QueuedPacket) == kQueuedPacketBytes);
+static_assert(core::layout_32bit(sizeof(QueuedPacket) == kQueuedPacketBytes));
 
 // (Two list searches the lobby's code keeps on its stack have vtables, 0x0064CB6C / 0x0064CB70, holding only
 // destructors that put them back - 0x0053F8B0 / 0x005407E0, 0x0053F8C0 / 0x00540810 - not kept.)

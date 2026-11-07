@@ -90,8 +90,8 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
         const Tokens end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
         symbol->set_type(value_kind(*value));
-        symbol->value().set_word(value->value.word());
-        value->value.set_word(0);
+        symbol->value() = value->value;
+        value->value.clear();
         free_component(value);
         return end;
     }
@@ -284,7 +284,7 @@ void restart_changed_scripts()
 void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
     if (fetch_word32(Tokens(data)) == kPIP) {
-        parse_precompiled_qb(filename, data, unused); // (relocated in place)
+        parse_precompiled_qb(filename, data, unused); // (unpacked: precompiled.h)
     } else {
         read_qb_file(filename, data, unused, use_qb_names != 0, temporary != 0);
     }
@@ -334,7 +334,7 @@ void unload_qb(uint32_t file_checksum)
     }
     if (count != 0) {
         memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
-        auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * 4));
+        auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * memory::kPointerBytes));
         memory::leave_heap_scope();
         const std::span<SymbolTableEntry*> symbols(block, static_cast<size_t>(count));
         size_t next = 0;
@@ -351,7 +351,6 @@ void unload_qb(uint32_t file_checksum)
     // Scripts left running code that's gone are stopped.
     host().stop_scripts_left_without_code();
     // (a pre-compiled file stays loaded until now)
-    forget_precompiled_image(file_checksum);
     packs::offload(file_checksum);
 }
 

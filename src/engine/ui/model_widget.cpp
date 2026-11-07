@@ -536,7 +536,7 @@ float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths:
 float ModelWidget::layout_stretch(void* view, const maths::Vec4& scale, const maths::Mat4& local,
                                   const maths::Vec4& place) const
 {
-    std::array<maths::Vec4, kBoxCorners * kMaxModels> corners{};
+    std::array<maths::Vec4, size_t{kBoxCorners} * kMaxModels> corners{};
     int count = 0;
     for (int i = 0; i < model_total_; ++i) {
         if (!core::at(models_, i).object) {

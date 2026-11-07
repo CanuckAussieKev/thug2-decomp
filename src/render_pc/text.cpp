@@ -18,6 +18,7 @@
 
 #include "base/core/cursor.h"
 #include "base/core/dbg.h"
+#include "base/maths/trig.h"
 #include "engine/memory/mem.h"
 #include "base/core/str.h"
 #include "engine/file/file_load.h"
@@ -296,8 +297,8 @@ void GlyphRun::draw()
     if (xscale == 0.0F || yscale == 0.0F) { // (0x0066D520)
         return;
     }
-    const float cos_a = std::cos(angle);
-    const float sin_a = std::sin(angle);
+    const float cos_a = maths::runtime32::cos(angle);
+    const float sin_a = maths::runtime32::sin(angle);
     uint32_t vertex_color = get_vertex_color(color);
     int effect = 0; // byte offset of this character's effect record
     core::CStringCursor cursor(text);
@@ -512,7 +513,7 @@ void GlyphRun::close_sketch()
     if (!quad_indices_made()) {
         for (int quad = 0; quad < kQuads; ++quad) {
             auto first = static_cast<uint16_t>(quad * 4);
-            const core::Cursor<uint16_t> triangles(std::span<uint16_t>(quad_indices()), quad * 6);
+            const core::Cursor<uint16_t> triangles(std::span<uint16_t>(quad_indices()), std::ptrdiff_t{quad} * 6);
             triangles[0] = first;
             triangles[1] = static_cast<uint16_t>(first + 1);
             triangles[2] = static_cast<uint16_t>(first + 2);
@@ -678,7 +679,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
         // than the game's heap may have free while the front end loads)
         hd_pixels.resize(size);
         pixels = hd_pixels.data();
-        std::memcpy(pixels, texels.data(), size * 4);
+        std::memcpy(pixels, texels.data(), std::size_t{size} * 4);
     } else {
         indices = memory::heap_ptr<uint8_t>(memory::alloc(size));
         std::array<uint32_t, kPaletteSize> palette{};
@@ -699,7 +700,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     if (gpu().lock_texture(texture, 0, &locked, nullptr, 0) != gpu_value::kResultOk) {
         return nullptr;
     }
-    std::memcpy(locked.bits, pixels, size * 4);
+    std::memcpy(locked.bits, pixels, std::size_t{size} * 4);
     gpu().unlock_texture(texture, 0);
     indices.reset();
     game_pixels.reset();

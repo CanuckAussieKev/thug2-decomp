@@ -2,8 +2,8 @@
 // network backend (src/net_winsock) includes Winsock's headers, calls its functions and links ws2_32, and only app/
 // installs it. The engine's network library, the online session and WinMain reach sockets and address lookups through
 // net::Transport (engine/net/transport.h). The GameSpy SDK keeps its own sockets: its glue (platform/gamespy.cpp)
-// names Winsock's types where the SDK's functions take them, and the SDK's CMake (cmake/gamespy_sdk.cmake) links
-// ws2_32 for the SDK.
+// names Winsock's types where the SDK's functions take them (and its check, src/tests/gamespy_check.cpp, runs fake
+// servers on the loopback), and the SDK's CMake (cmake/gamespy_sdk.cmake) links ws2_32 for the SDK.
 
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -37,6 +37,8 @@ const BACKEND = "net_winsock/";
 // The GameSpy SDK's glue: Winsock's types where the SDK's functions take them (the game's socket handed to the SDK,
 // the SDK's addresses handed back).
 const SDK_GLUE = "platform/gamespy.cpp";
+// The glue's check: the fake servers it runs the SDK against, on the loopback addresses (tests/gamespy_check.cpp).
+const SDK_GLUE_CHECK = "tests/gamespy_check.cpp";
 
 const WINSOCK_HEADERS = /^\s*#\s*include\s*<(winsock2?|ws2tcpip|ws2def|mswsock|ws2ipdef)\.h>/im;
 // Winsock's functions and the types and constants of its C interface.
@@ -60,7 +62,7 @@ test("only net_winsock/ includes Winsock's headers", () => {
 test("only net_winsock/ (and the GameSpy SDK's glue, for the SDK's types) uses Winsock", () => {
     const users = using(WINSOCK_CALLS);
     assert.deepEqual(
-        users.filter((name) => !name.startsWith(BACKEND) && name !== SDK_GLUE),
+        users.filter((name) => !name.startsWith(BACKEND) && name !== SDK_GLUE && name !== SDK_GLUE_CHECK),
         [],
     );
     assert.ok(users.includes("net_winsock/winsock_transport.cpp"), "net_winsock/winsock_transport.cpp makes the calls");

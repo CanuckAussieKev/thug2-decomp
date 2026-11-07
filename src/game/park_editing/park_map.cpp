@@ -205,7 +205,7 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     for (int cell_x = 0; cell_x < kFloorSize; ++cell_x) {
         for (int cell_z = 0; cell_z < kFloorSize; ++cell_z) {
             core::at(core::at(floor_, cell_x), cell_z).level_y_ =
-                int{map_.floor_height(static_cast<size_t>((cell_x * kFloorSize) + cell_z))};
+                int{map_.floor_height((static_cast<size_t>(cell_x) * kFloorSize) + static_cast<size_t>(cell_z))};
             core::at(core::at(floor_, cell_x), cell_z).heights_used_ = 0;
         }
     }

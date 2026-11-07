@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_texture_projection.h"
 
 #include <cstddef>
@@ -58,8 +59,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ProjectionBatch, material_) == kProjectionBatchMaterialOffset && offsetof(ProjectionBatch, pixel_shader_) == kProjectionBatchPixelShaderOffset &&
-                          offsetof(ProjectionBatch, vertices_) == kProjectionBatchVerticesOffset && sizeof(ProjectionBatch) == kProjectionBatchBytes,
+        static_assert(core::layout_32bit(offsetof(ProjectionBatch, material_) == kProjectionBatchMaterialOffset && offsetof(ProjectionBatch, pixel_shader_) == kProjectionBatchPixelShaderOffset &&
+                          offsetof(ProjectionBatch, vertices_) == kProjectionBatchVerticesOffset && sizeof(ProjectionBatch) == kProjectionBatchBytes),
                       "layout must match the original");
     }
 };
@@ -89,6 +90,6 @@ public:
 };
 constexpr std::size_t kPcTextureProjectionBytes = 0xC8;
 
-static_assert(sizeof(PcTextureProjection) == kPcTextureProjectionBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(PcTextureProjection) == kPcTextureProjectionBytes), "layout must match the original");
 
 } // namespace render

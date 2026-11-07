@@ -70,8 +70,9 @@ src/
               included and linked by app/ only)
   audio_dsound/ the sound backend, DirectSound: the output and the voices; it implements audio::Device (library
               thug2_audio_dsound, included and linked by app/ only)
-  media_bink/ the movie codec, Bink (the player's binkw32.dll): the movies and the music / sound streams; it
-              implements media::Movie (library thug2_media_bink, included and linked by app/ only)
+  media_ffmpeg/ the movie codec, FFmpeg's Bink decoders (its LGPL DLLs, loaded by name): the movies and the music /
+              sound streams; it implements
+              media::Movie (library thug2_media_ffmpeg, included and linked by app/ only)
   input_dinput/ the original's DirectInput side: its keyboard, joysticks and mouse, the pad read, the device set-up;
               an input::Source (library thug2_input_dinput, included and linked by app/ only)
   fs_win32/   the operating system's files, Win32's: files by path, streams, folders; it implements fs::Disk under
@@ -125,6 +126,10 @@ what one file uses is in an unnamed namespace.
 - Standard C++ only, buildable by MSVC and GCC: no inline assembly (the original's x87 maths is plain `<cmath>` -
   results may differ from the original's in the last bits, which is accepted), no compiler-specific keywords outside
   `src/base/core/compiler.h`.
+- The C runtime's maths of a float (`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `log`, `log10`,
+  `pow`) is called through `maths::runtime32::` (`base/maths/trig.h`), not `std::`: the 64-bit runtime's float
+  routines round differently from the 32-bit one's, which are the double functions rounded once (docs/design/x64-port.md,
+  "Floating point: measured"). Doubles and `sqrt` stay `std::`.
 - Conditions say what they test (readability-implicit-bool-conversion): a pointer stands alone (`if (p)`, `if (!p)` -
   ES.87), everything else is compared: `n != 0`, `(flags & kBit) != 0U`, `*text != '\0'`, a Win32 BOOL `!= FALSE`,
   an SDL call's bool on its own (`if (!SDL_Init(...))`: SDL 3 returns true on success), a flag enum
@@ -146,7 +151,9 @@ exceptions, all in one place:
   design), `misc-predictable-rand` (the game's numbers are the C runtime's `rand()` sequence, as the original's),
   `cppcoreguidelines-pro-type-static-cast-downcast` (every downcast goes through `core::down_cast`, below),
   `clang-analyzer-optin.core.EnumCastOutOfRange` (flag enums hold combinations no enumerator names, and a value from
-  a file or the wire that an enum doesn't list stays representable - "Enums", below).
+  a file or the wire that an enum doesn't list stays representable - "Enums", below), `misc-misplaced-const` (a
+  `const VkPipeline` is a constant handle; Vulkan's handles are integers on x86 and opaque pointers on x64, where the
+  check flags it and `const auto` is flagged by `readability-qualified-auto` instead).
   `src/tests/.clang-tidy`: the reference programs call the C runtime's `atoi` / `sscanf_s` / `snprintf` to compare
   with, so the string-to-number and vararg checks are off there.
 - **Configured** (`CheckOptions`): public data is named as plain data, without the member suffix (the format
@@ -185,19 +192,25 @@ exceptions, all in one place:
   type, and the closed sets among them are scoped enums (below);
   the original's whole-object clears and copies of objects that aren't trivially copyable are `raw::zero_object` /
   `raw::copy_object` (`base/core/raw_view.h`, with the other named views).
-- **The script values' cells** (`engine/script/cell.h`): one 32-bit word, read as the kind its holder says
-  (`std::bit_cast`, `cell::pointer`) - a boundary file for the layering rule, like the QB readers.
+- **The script values' cells** (`engine/script/cell.h`): one pointer-wide value (`uintptr_t`), read as the kind its
+  holder says (`std::bit_cast`, `core::at_address`) - a boundary file for the layering rule, like the QB readers.
+  A name, an integer or a float is the low 32 bits (`word()`, `integer()`, `real()`; `low_word()` where the game
+  reads a value of a kind it didn't check as a name); a copy of a cell of any kind copies the `Cell` (never
+  `set_word(x.word())`), a test for "no value" is `empty()`, a comparison of any kind is `same_bits` /
+  `holds_word`. On x64 `word()` of a cell holding a pointer above 4 GB stops the game.
 - **No `reinterpret_cast`, no integer-to-pointer cast** anywhere in `src/` (both checks on). Bytes from outside
   are read by the boundary layer's readers (`formats/`, `wire/`); casts between related classes are `static_cast`;
   what is left of the original's ways of reaching memory has a name, so it can be counted and removed:
-  `cell::of` / `cell::pointer<T>` / `cell::address` (`base/core/pointer_cell.h`: a pointer kept in a 32-bit
-  cell - script values, callbacks' user words, addresses used as ids), `raw::as<T>` / `raw::field_at<T>` /
+  `cell::of` / `cell::pointer<T>` (`base/core/pointer_cell.h`: a pointer kept in a 32-bit cell - script values,
+  callbacks' user words, addresses used as ids, links in files used in place; on x64 `cell::of` stops the game on a
+  pointer above 4 GB), `core::address` / `core::at_address<T>` (`base/core/address.h`: a pointer as a number at its
+  own width - address arithmetic, handles and ids that are pointer-sized), `raw::as<T>` / `raw::field_at<T>` /
   `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`base/core/raw_view.h`: one of the original's in-memory
   layouts read through another type or at a byte offset), `memory::bits_as<T>` (a field's bits as another type of
   its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).
   Code outside the boundary uses none of them: a field gets its member, a pointer its type (`npm test` fails on any
   use outside the boundary - `tools/layering.ts`). A script value is a `script::Cell`, read by its
-  holder's kind (`value.structure()`, `value.word()`...); a missing script parameter's default is written out (the
+  holder's kind (`value.structure()`, `value.word()`, `value.integer()`...); a missing script parameter's default is written out (the
   original's reads of an argument's stack slot are 0 for a name, on for a flag, 0 for a number). Byte layouts that stay (file records used
   in place, vertex buffers) are read through the boundary's accessors instead: `collision_format::FaceTable`
   (`formats/`), `gpu::VertexView` / `VertexWriter` (`engine/gfx/vertex_view.h`).
@@ -242,6 +255,15 @@ exceptions, all in one place:
   object it visits.
 - **Pools** (`memory::PoolPair`, `SlabBank`) are sized by `sizeof` of what they hold; a pool's `carve` refuses an
   object bigger than its items (a class that grew past the original's byte size ends the game with a report).
+- **Allocations of a record or of pointers are sized by `sizeof`**, never by the original's byte count: a record's
+  block is `alloc(sizeof(T))` with the original's size asserted beside it on the 32-bit build
+  (`static_assert(core::layout_32bit(sizeof(T) == kTBytes))`), an array of pointers `count * memory::kPointerBytes`
+  (the original's `count * 4`), a record made in stack bytes `alignas(T) std::array<uint8_t, sizeof(T)>`. A fixed
+  region's or heap's size goes through `memory::sizes::region_bytes` (the original's on the 32-bit build, twice it
+  on x64).
+- **A callback an SDK calls through a plain pointer** (`code_address`, `game_spy::HookFn`, `core::gathered`) takes the
+  SDK typedef's parameter types exactly - a 64-bit count or `time_t` as one 64-bit parameter, never two 32-bit words
+  (the same stack on x86; one register on x64) - since nothing checks it.
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy
   but don't move; a class with a destructor of its own deletes its copies unless it really copies.
 - **Constructor bodies in the original's order**: members are initialised in the list or by a default member
@@ -348,7 +370,10 @@ members, stays on the class. Private members take the `_` suffix (so the accesso
   (`SkaterPhysicsModule::onto_rail`); a one-line wrapper over a member is inlined at its calls. An owner is not
   handed out: the getter is a view (`static_cast<T*>(owner_)`) and the class deletes it itself
   (`delete_observer_task()`). The original's `offsetof` checks of private members are in the class's private
-  `static void check_layout()` (a base's members in the base's own check).
+  `static void check_layout()` (a base's members in the base's own check). A record that holds pointers has the
+  original's layout only on the 32-bit build: its checks are `static_assert(core::layout_32bit(...))`
+  (`base/core/layout_32bit.h`); a record of a file, the wire or data used in place has no pointers and its checks
+  stay unconditional.
 - **Enums**: the values of one closed thing (kinds, states, ids, flags) are an `enum class` with the underlying type
   the value always had, so layouts and code don't change; a value from a file or the wire that the enum doesn't list
   stays representable - the boundary layer converts the byte once as it reads it and writes it with

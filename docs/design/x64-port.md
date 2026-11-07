@@ -1,13 +1,14 @@
 # A 64-bit (x64) build
 
-Status: design. Nothing here is implemented. The design was written against the `stage11` branch (2026-11-05); its
-numbers come from scripts over `src/` and are approximate where this says so.
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X3 (formats / wire, collision links as offsets), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a / X10b (FFmpeg's Bink video and sound), X11 (the renderers compile on x64), X12a-e (engine, game, the editor, the front end, the dev tools, the backends and the app: the first x64 `thug2-decomp.exe` and `thug2-editor.exe`, built, not run yet), X13 (the tools read x64), X14 (floating point measured: the corpus), X15 (the first x64 run: the smoke on both renderers, the heaps measured), the editor's Companion collision in one block (after X15). The design was written against
+the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
+The "What the code assumes today" sections describe the code before the port.
 
 ## The goal
 
 `thug2-decomp.exe` builds and runs as a 64-bit Windows program (MSVC x64; a GCC / MinGW-w64 x64 build later), from the
 same source as the 32-bit build, on the player's own data files. The 32-bit build stays: it stays the reference that
-the 64-bit build is compared with, and it stays the build for players who keep using the player's own `binkw32.dll`.
+the 64-bit build is compared with, and both builds play the movies and streams through FFmpeg (Bink's `binkw32.dll` is no longer used).
 
 Why: the address space (large ported levels, THP8's town and bigger, high-resolution textures, the level editor's
 undo history and caches), current toolchains and libraries, and ray tracing in the Vulkan renderer
@@ -51,6 +52,16 @@ prove that the 32-bit build lays them out as the original did. One file already 
 (task X6). The asserts that guard bytes the game reads in place stay unconditional, and those are the real work (next
 section).
 
+Since X6: such an assert reads `static_assert(core::layout_32bit(sizeof(T) == ...), ...)` (`base/core/layout_32bit.h`:
+the condition on a 32-bit build, true on any other). The x64 compiler chose them, not the survey's classes: every
+translation unit of `src/` compiled syntax-only (`/Zs`) by the x64 `cl.exe` with the x86 build's flags, and each
+assert that failed there was wrapped - 259 of them (11 of the earlier `sizeof(void*) != 4 ||` form among them), all
+the original's in-memory objects. The asserts that hold on x64 too stay unconditional. Still failing on x64, for
+their tasks: the collision file's object record `TriMeshSource` (`engine/render/coll_tri.h`, used in place: X3 - it holds since X3, its arrays 32-bit links), the
+script value `Component` / `Struct` and the expression stack (`engine/script`: X4), and `SOCKET`'s width
+(`platform/gamespy.cpp`, `net_winsock`: X8). DirectSound's buffer description is the one SDK structure whose size
+changes (0x24 / 0x28 bytes): its constants (`audio_dsound`, `engine/sound`) follow the pointer size.
+
 ### Pointers in 32-bit cells and in data used in place
 
 Counted over 335,402 non-blank source lines, with comments stripped:
@@ -70,11 +81,19 @@ Counted over 335,402 non-blank source lines, with comments stripped:
     `relocate_component`, `relocate_array`). The image's records are the runtime's own `Struct` / `Component` /
     `Array`, with 32-bit pointers made from offsets (task X5).
   - `formats/collision_format.h` / `.cpp` and `engine/render/coll_tri.h`: a collision file's object records (0x40
-    bytes each, `object_record<TriMeshSource>`) and its BSP tree are fixed up in place. The array offsets become
-    addresses, and a tree node's 32-bit link word becomes the address of its children (with two flag bits) or of its
-    face list (task X3). This sits on the collision hot path.
+    bytes each, `object_record<TriMeshSource>`) and its BSP tree are fixed up in place. Since X3 the fix-up writes
+    32-bit links, not addresses: a record's array fields and a tree node's link word hold the distance in bytes from
+    the record or node to what they link to (`collision_format::link_from` / `linked`; a record's arrays 0 for none:
+    `record_link` / `record_array`; a node's `tree_children(node, link)` and `tree_leaf_faces(node, link)`), on both
+    builds. Resolving one is an add (and a mask for the children), as the hot path needs. A tree copied as one block
+    keeps its split nodes' links unchanged; a copied `TriMeshSource` makes its links from the copy (its copy
+    constructor and assignment). On x64 a target more than 2 GB away stops the game (GSL's contract check): the
+    file's sections are always within the file, and the replicated copies within the game's main block.
   - `formats/anim_format.h` / `.cpp`: the animation sections' addresses, kept in `uintptr_t` (x64-safe as they are),
-    over files used in place (to confirm for every section during the port).
+    over files used in place. X3's survey: nothing is written into the file - the addresses go into the
+    animation's own in-memory object (`JointClipFrames`, engine/gfx: X6's / X12's), as do the other formats'
+    (scene, texture, skeleton, font, image, pre, save, park map, wave: read through `util::ByteReader` or viewed as
+    bytes and characters). `wire/` reads and writes every message through the byte readers: no pointers.
   - `platform/crash.cpp` (10, the crash report: below), `platform/gamespy.cpp` (2: NAT negotiation's `int` user word
     holds a pointer), `platform/run_log.cpp`, `base/core/all_ones.h`, `gpu_d3d9/imgui_texture_id.h` (64-bit
     already) and `tests/format_check_files.cpp` (9).
@@ -95,7 +114,7 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 - **`long`: 142 lines.** It is 32 bits on Win64 too (LLP64), so it doesn't matter for an MSVC x64 build, only for a
   later LP64 (Linux GCC) build.
 - **Pointer-sized SDK types fixed at 32 bits:** `platform/gamespy.cpp` asserts `sizeof(SOCKET) == sizeof(uint32_t)`.
-  `SOCKET` is pointer-sized on Win64.
+  `SOCKET` is pointer-sized on Win64. (Since X8 the glue's sockets are `uintptr_t`.)
 
 ### Inline assembly and calling conventions
 
@@ -107,13 +126,22 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 
 ### Floating point
 
-- `_controlfp`: only in `src/tests/maths_check.cpp`, which runs at 53 and at 24 bits. Direct3D 9 sets 24 bits on
-  the thread that makes the device, because the game makes it without `D3DCREATE_FPU_PRESERVE`
-  (`gpu_d3d9/d3d9_context.cpp`).
-- The game's own code never sets the precision. The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
+- `_controlfp`: in `src/tests/maths_check.cpp`, which runs at 53 and at 24 bits, and `base/maths/fpu_precision.cpp`.
+  Direct3D 9 loads the x87 word 0x007F (24 bits, round to nearest, every exception masked) into the thread that
+  makes the device, at `CreateDevice` and at every `Reset`, because the game makes it without
+  `D3DCREATE_FPU_PRESERVE` (`gpu_d3d9/d3d9_context.cpp`, as the original did). The 32-bit build loads the same word
+  itself at both points whatever the renderer (`maths::use_device_fpu_precision`, called by `render_pc`), so the
+  game's thread runs at the original's precision on Vulkan too; on x64 it does nothing. A DLL loaded after start-up
+  resets it: binkw32's start-up code (loaded on demand at the first music stream, `crt::library_function`) set the
+  C runtime's 53 bits on the game's thread a few seconds into a level, with either renderer - the original imported
+  it, loaded before the device. `crt::library_function` keeps the thread's word around the load
+  (`maths::fpu_word` / `restore_fpu_word`).
+- The original's own code never sets the precision (only its C runtime's start-up, 53 bits, and its D3DX9 library
+  around its own work). The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
   CMake files set no `/arch`), so its `float` / `double` arithmetic is already SSE2 and doesn't depend on the x87
   control word. The x87 remains in these places in the 32-bit build:
-  - the C runtime's maths functions, where the x86 CRT picks an x87 path (to confirm per function);
+  - the C runtime's `sqrt` of a double (the x86 runtime's is the x87's FSQRT, so it rounds as the control word says;
+    measured by X14: no other function of `<cmath>` the game calls depends on it - below);
   - `float` return values in `ST(0)`. This is exact at 24 bits for floats;
   - `d3dx9_43.dll`'s own code. Only the backend calls it now: shader assembly and the JPEG.
 - On x64, MSVC uses SSE2 only and the x64 CRT's `sin` / `cos` / `atan2` / `pow` / `sqrt` are different
@@ -126,13 +154,60 @@ Counted over 335,402 non-blank source lines, with comments stripped:
   - the QB numeric profile (`docs/qb-numeric-precision.md`: the gameplay profile is x87 precision 24) and RandomRange.
 - What equivalence can mean here: the same results bit for bit where the code does integer, fixed-point or IEEE
   `+ - * /` work at the same widths (SSE2 on both builds), and the same results within a last-bit tolerance for the
-  CRT's transcendentals. Task X14 turns `thug2_maths_check` into a two-build check: the 32-bit build writes a corpus
-  of inputs and results, and the 64-bit build compares with it and lists every function that differs, with its
-  largest difference in ulps. The accepted differences are recorded in docs/qb-numeric-precision.md and the style
-  guide. No replay harness is proposed; play-testing confirms the feel.
+  CRT's transcendentals. Measured by X14 (below); the accepted differences are listed there.
 - Online: messages carry positions and states quantised by the wire encoders (`wire/`). Peers simulate their own
   skaters and send states; they don't run in lockstep. A 64-bit peer should therefore play with 32-bit peers and with
   the original. To confirm by a local session test, as the GameSpy work was.
+
+### Floating point: measured (X14)
+
+`thug2_maths_check --write-corpus <file> [53|24]` on the 32-bit build writes a corpus: every checked function's inputs
+and results, bit for bit, with the x87 at 53 bits or at 24 (as Direct3D 9 leaves the game's thread). `thug2_maths_check
+--compare-corpus <file>` on another build reads the same inputs back, works the functions out again and reports, per
+function, how many results differ, the largest and mean difference in ulps of the stored type and the largest absolute
+one. The corpus (`src/tests/maths_corpus.h`, `maths_corpus_cases.cpp`) covers the C runtime's `<cmath>` as the game
+calls it (doubles and floats), every function in `base/maths` (maths.h, trig.h, random.h, vec4.h, mat4.h,
+quat_rotation.h, rotation_blend.h, shape_tests.h, view_transforms.h), the game files' formulas that replaced their x87
+code (the functions `thug2_maths_check` checks against the x87 reference) and D3DX9's maths. 20,000 inputs per case
+(114 MB; not committed - written by the 32-bit build when wanted). The 32-bit build compared with its own corpus: no
+differences (the cases are deterministic).
+
+Results, the 64-bit build against the 32-bit build's corpus at 53 bits (151 of the 193 functions have no difference):
+
+| what | differs | why | decision |
+|---|---|---|---|
+| all of `base/maths` that returns floats: vectors, matrices, quaternions, the rotation blender, shape tests, view transforms, matrix product, random | 0 | the same SSE2 operations in the same order on both builds | - |
+| `base/maths`' float trigonometry (`make_*_matrix`, `create_rotate_2d`, `set_from_euler_angles`, `get_angle_in_plane`, `matrix_rotation_y`...) | 0.03-1.9% by 1 float ulp before; 0 now | the 64-bit runtime's `sinf` / `cosf` / `acosf` are float routines of their own; the 32-bit runtime's are the double functions rounded once (corecrt_math.h) | fixed: `maths::runtime32::` (trig.h) works a float as the 32-bit runtime does; on 32-bit x86 it is the runtime's own function (the objects compare identical but for line numbers) |
+| the runtime's float functions called as `std::` (outside `base/maths`) | `asin(float)` 6.4%, `acos(float)` 2.1%, `sin` / `cos` / `tan(float)` 0.03-0.11%, `exp` / `log` / `pow(float)` < 0.1%; 1 float ulp | as above | float maths outside `base/maths` is to call `maths::runtime32::` too (a mechanical sweep: the x86 objects show the callers - their calls to `?sin@@YAMM@Z` and the other float overloads) |
+| the runtime's doubles | `sin` / `cos` / `tan` 3-4.4%, `asin` / `acos` 6.8-7.4%, `atan2` 0.09%, `exp` 0.7%, `pow` 0.1%, `hypot` 34% (2 ulps); 1 double ulp | the 32-bit and 64-bit runtimes are different implementations (the 64-bit one's FMA3 paths off: the same picture) | accepted: 1 double ulp, 1e-16 relative; rounded to float (what the game stores) the results agree - `sin -> float`, `cos -> float`, `atan2 -> float`, `turn_flat`, `turn_move`, `probe_tip`, the view camera's fov: 0 differences. Matching them would mean one maths library for both builds, which changes the 32-bit build's results |
+| doubles worked from them: `maths::spin_by`, `neg_asin_cos`' 1 / cos, `read_turn_angle`, `get_turn_around_axis` | 3.4% (up to 8192 ulps: a difference of two products), 7.2%, 6.9%, 6.3% | the runtime's doubles, carried | accepted (relative size as above; the large ulps are cancellation near zero) |
+| D3DX9's maths, its 64-bit DLL against its 32-bit one | the matrix product 11.8%, the vector transforms 14-73%, normalize 59%, the inverse 59%, look-at 38%, perspective / ortho 2-3% | D3DX's 64-bit code is another implementation (other sums, its own reciprocal estimates; its perspective and ortho builders work in float, as the 32-bit one does at 24 bits) | no consequence: the game calls none of D3DX's maths (our C++ replaced it, and that is identical on both builds); this explains the 64-bit "plain C++ against D3DX" differences X2 measured |
+
+The x87's precision on the 32-bit build (the corpus at 24 bits against the 32-bit build at 53): of the runtime's
+functions only `sqrt` of a double depends on it (the x86 runtime's is the x87's FSQRT): at 24 bits it rounds to a
+float's 24 bits, in every result. A Direct3D 9 device made without `D3DCREATE_FPU_PRESERVE` sets 24 bits on its
+thread (measured: the x87 control word goes from 53 to 24 bits, MXCSR unchanged, nothing on x64), so on the 32-bit
+build every double square root on the game's thread is rounded to 24 bits once the device is made - with either
+renderer since the 32-bit build sets the word itself (before that, with Vulkan, it wasn't). `make_unit`, `set_length` and the rotations built from lengths (`square_up_axes`, `get_rotation_axis_angle`,
+the quaternions, the rotation blender) differ by 1 float ulp in 3-27% of results between the two, `get_distance` in
+all of them (a 24-bit double). The 64-bit build has no x87 precision: it computes as the 32-bit build did at 53 bits.
+D3DX9's 32-bit look-at, perspective and ortho builders depend on the precision too (none of them is called). Decided:
+the 32-bit build runs at the original's 24 bits whatever the renderer (functional equivalence); the 64-bit build is
+measured against that, and `base/maths` documents its double intermediates as the x87's at 53 bits.
+
+Other observations:
+- The SSE reciprocal estimates (`maths::estimate_reciprocal`, `estimate_reciprocal_sqrt`: `rcpss` / `rsqrtss`) give the
+  same results on both builds on one processor, but they are the processor's own: another vendor's can differ. They
+  are used only by the renderer (`pc_mesh_render`, `pc_texture_projection`, `shadow_base`, `texture_splats`).
+- No integer / float truncation, uninitialised value or order-of-evaluation difference showed up: every difference
+  above has its cause in the C runtime or in D3DX.
+
+What X15 compares (traces of the same input on the 32-bit build with `renderer=vulkan` and on the 64-bit build, a
+fixed frame time, the same seeds), per frame: the skater's position, velocity and orientation matrix; its state (on the
+ground, rail, lip, wall, in the air; walking) and the feelers' hits; the trick, score and combo state; the camera's
+matrix; the script's numeric results (`RandomRange`, the float cells); the animation blend's matrices. The first frame
+that differs and by how much, against the noise floor of the 32-bit build with `renderer=d3d9` against itself with
+Vulkan (the square root above): a divergence from the 64-bit build no larger than that one is the accepted kind.
 
 ### Memory: pools, heaps and fixed regions
 
@@ -152,26 +227,92 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 - **Stack storage sized in bytes:** `render::Device::make_primitive_at` builds a primitive drawer in 0x200 bytes of
   the lens flare's stack. That size must be checked against the x64 object.
 
+Since X7: the sizes of the records the regions, pools and fixed allocations hold were measured with the x64 compiler
+(a syntax-only probe over their headers: `ProbeSize_<sizeof(T)>`). The block header (`memory::ChunkPrefix`) is 32
+bytes on x64 (two pointers, padded to keep blocks 16-byte aligned), a list node 32, a script component 24, a
+structure 16, an array 16, a symbol 32, a script 400 (0xF4 on x86); `PcPrimitive` is 0x1A0 bytes, inside the lens
+flare's 0x200 (now `render::kStackPrimitiveBytes`, asserted by the backend). The rules:
+- every fixed allocation of a record that grows is `sizeof` (the original's count asserted on x86): the animation
+  frames, the imposter manager, network messages and connections, bone volumes and rigs, the online player records,
+  the park editor's records and pools, the skater's score, the index stores, texture animation keys, the script
+  structures made outside their pool, the save's reserve pools, and the pools of animation controllers, spawned
+  polygons and event receiver lists; the pointer arrays (`count * 4`) are `count * memory::kPointerBytes`; script
+  structures made in stack bytes take `sizeof` and its alignment.
+- every fixed region and heap made with a size - the skater, skater geometry, skater info, theme, front end, network
+  and online regions, the named heaps (the texture heaps, the animation heaps, `MemInitHeap`'s), the flexible
+  particles', the park editor's and the COIM heap - is `memory::sizes::region_bytes(original)`: the original's on
+  x86, twice it on x64. The bound behind it: on x64 a pointer and a block header double and nothing else grows, so no
+  allocation more than doubles (a record's members can be laid out at twice their x86 offsets), and whatever fits in
+  a region on x86 fits in twice the bytes on x64. The cutscene heaps take what is left of the top-down heap, as before.
+- the main block grows on x64 by what the original's 64 MB held beside the script region (~60 MB: the level's data
+  and the other regions, each at most doubling), the script region by its room beside the pools (~2 MB); the pools
+  themselves were already counted at their x64 item sizes (X4).
+The 32-bit build's sizes are unchanged (asserted). After a level loads the log lists every heap
+(`memory heap in <level>: region=... used=... peak=... blocks=... peak_blocks=... name=...`);
+`node tools/game/heap_report.ts <x86 log> <x64 log>` compares two builds heap by heap (task X15 runs it on x64).
+The park editor's memory meter reads the main and park heaps' free bytes, which are larger on x64. Since X12d the
+64-bit build leaves out what it added: the main block's room beside the script region
+(`memory::sizes::main_block_x64_room`, also left out of the top-down figure, the same region) and the park heap's
+`region_bytes` room (below).
+
 ### Platform
 
 - `platform/crash.cpp` reads `CONTEXT::Eip / Esp / Ebp / Eax...` and dumps the stack in 4-byte slots. On x64 it
   needs the `Rip / Rsp...` registers, 8-byte slots and x64 unwinding (or `RtlCaptureStackBackTrace`).
-  `tools/standalone/first_fault.py` and the symbolizers read x86 contexts too.
+  `tools/standalone/first_fault.py` and the symbolizers read x86 contexts too (x64: Since X13, below).
 - `net::SocketId` (`engine/net/transport.h`, a `uint32_t`: Winsock's `SOCKET` value) and `net_winsock/winsock_transport.cpp`: `SOCKET` is 64-bit on Win64. The socket must stay in a `SOCKET`-wide id (widen `SocketId`, `kNoSocket` and the records that hold it), not in a 32-bit field.
 - GameSpy callbacks are registered by code address (`code_address`, 32 lines in game/online). That is fine with
   64-bit pointers, as long as nothing narrows them (the `int` user word in NAT negotiation does).
+
+Since X13: the tools read x64. `tools/symbolize.ts` names the offsets of every module the report names that has a file
+in `--pdb-dir` (the game's exe, a test program, our DLLs; the system's are skipped), from 32-bit and 64-bit reports and
+PDBs alike. `tools/standalone/first_fault.py` picks the target's debug API by the exe's PE machine: a 32-bit target
+through WOW64 as before; a 64-bit one with the AMD64 `CONTEXT` (RAX-R15, Dr0-Dr7 for `--watch`, `--watch-size 8` for a
+pointer), the calls unwound by dbghelp's `StackWalk64` from the modules' unwind data, and the stack scan over 8-byte
+slots. `tools/game` deploys a build with `deploy_build.ps1 -Game <folder> -Arch x86|x64` under the game lock: the same
+file names for either machine (thug2-decomp.exe, d3dx9_43.dll, SDL3.dll, FFmpeg's DLLs), the build going IN PLACE of the
+one in the folder, and `game_lock.ps1`'s release giving the folder back as acquired; `run_game.ps1` / `load_check.ps1`
+take `-Arch` to refuse a folder holding the other machine's exe. `tools/game/read_dump.ts` (WER dumps) still reads
+32-bit contexts only.
+
+Since X8: `platform` is x64-ready. The crash report reads the context through `instruction_pointer` /
+`stack_pointer`; on x64 it logs `RAX`-`R15`, the top of the stack in 8-byte slots (as many slots as x86's), the calls
+unwound from the context (`RtlLookupFunctionEntry` / `RtlVirtualUnwind`, guarded: `[rsp=...] <module>+0x...` lines)
+and the same return-address scan as x86 over 8-byte slots. The x86 report is unchanged, line for line;
+`thug2_crash_check [kind]` (src/tests/crash_check.cpp) causes any of the test faults a few calls deep for either
+build. `net::SocketId` is `uintptr_t` (`kNoSocket` all ones, asserted equal to `INVALID_SOCKET`), and `AppHost`
+keeps it at that width; the GameSpy glue's sockets (`nat_begin_with_socket`, `peer_start_reporting_with_socket`,
+NAT completion) are `uintptr_t` too. NAT negotiation's integer user word is no longer carried in the SDK's `void*`:
+the glue keeps the integers in a table (a `std::deque`, emptied with the SDK's negotiation list) and hands the SDK a
+pointer to one - the same value back on either build. `code_address.h`'s 32-bit `function_at(uint32_t)` is gone (X5
+left it unused). The GameSpy glue (`gamespy.cpp`) is built only where the SDK is (`THUG2_GAMESPY_SDK`): online is off
+on x64 until X9 lists `gamespy_sdk`. `net_winsock` compiles for the SOCKET width now but links the engine, so it is
+listed with it (X12c).
+
+Since X9: `gamespy_sdk` is in `THUG2_X64_READY`, so `platform` builds its GameSpy glue on x64 too. The SDK's x64
+build was surveyed at /W4: the one real 64-bit bug was the peer's callback queue, which kept every callback address in
+an `int` (`PEERCBType`) - `intptr_t` now, by `cmake/gamespy_sdk.cmake`, as is GP's index carried through a `void*`
+(a harmless round trip, changed so that C4311 / C4312 can be errors in the SDK's build). The x86 SDK's code is the
+same before and after (every object's disassembly compared). Two of the game's callbacks had the wrong argument
+widths: the news download's ghttp length (two 32-bit halves - on x64 that moved its `param`) and the persistent-data
+callback's `time_t` (32-bit in the record: wrong on x86 as well, its `data` read the time's high half); both take the
+SDK's types now and `gamespy.cpp` asserts them, with the GP callback arguments' offsets the game's records assume.
+`thug2_gamespy_check` (src/tests) runs the SDK and the glue without the network - the helpers, the peer's queued
+callbacks, qr2's heartbeat and query answer on 127.0.0.1 and a NAT negotiation against fake servers on the loopback
+- and prints the same on both builds. Untested until a real session: the protocol against a server (a local
+OpenSpy server, then online by hand) - the chat login, game listing, hosting, NAT with a real peer, GP, stats, HTTP.
 
 ### Third-party pieces
 
 | piece | today | on x64 |
 |---|---|---|
 | Bink (the player's `binkw32.dll`, 15 exports through `media::Movie`) | 32-bit DLL from the player's install | **It can't load into a 64-bit process.** Plan: an FFmpeg-based `media::Movie` (`src/media_ffmpeg`): FFmpeg's Bink demuxer, Bink video decoder and Bink audio decoders, linked as DLLs under the LGPL (tasks X10a-c) |
-| GameSpy SDK (IGN's 2011 BSD-3 release, built from source) | 32-bit, built by `cmake/gamespy_sdk.cmake` | built from source for x64. The fork is used in 64-bit builds elsewhere; the SDK's own pointer <-> int casts and the structures the game touches (`GPBuddyStatus`'s asserted size) must be checked (to confirm) |
-| SDL2 2.30.9 (official VC package) | `lib/x86` | the same package has `lib/x64` |
+| GameSpy SDK (IGN's 2011 BSD-3 release, built from source) | 32-bit, built by `cmake/gamespy_sdk.cmake` | built from source for x64 since X9: the peer's callback queue kept addresses in an `int` (`PEERCBType`, now `intptr_t`), the other pointer <-> int casts read; pointer cuts are errors in its build; the shared structures and the callbacks' argument widths checked (docs/gamespy.md "64-bit builds"). The protocol on x64 is to be tested against a local OpenSpy server and online by hand |
+| SDL 3.2.30 (official VC package; SDL2 2.30.9 until the SDL 3 merge) | `lib/x86` | the same package has `lib/x64` |
 | Dear ImGui 1.91.9b | source | source; nothing to change |
 | LZHAM (source) | 32-bit | builds for x64 (its own `LZHAM_64BIT` paths; to confirm the defines the CMake list needs) |
 | stb_image_write | source | nothing to change |
-| D3DX9 (Microsoft.DXSDK.D3DX NuGet) | `release/lib/x86`, `bin/x86/D3DX9_43.dll` | the package has x64 (`lib/x64`, `bin/x64`; to confirm the paths) |
+| D3DX9 (Microsoft.DXSDK.D3DX NuGet) | `release/lib/x86`, `bin/x86/D3DX9_43.dll` | the package has x64 (`lib/x64`, `bin/x64`; confirmed in X11) |
 | Direct3D 9, DirectInput 8, DirectSound | system | x64 versions ship with Windows |
 | GSL (headers), the C++ standard library | - | nothing to change |
 
@@ -197,6 +338,253 @@ Which Bink revisions the game's files use (`BIK` + revision letter), and that FF
 confirmed by a header survey of the player's data in task X10a. The FFmpeg backend can be built and compared on the
 32-bit build first, against `binkw32.dll`, before any x64 work. That makes it the best first task.
 
+**Done in X10a** (`src/media_ffmpeg`, `[features] movie_codec=ffmpeg`; the picture - the sound is X10b's):
+- **The survey** (`node tools/ffmpeg/bink_survey.ts <game folder>`): every Bink file of the game is Bink 1 revision
+  `BIKi` with no video flags (no alpha) and Bink audio's DCT transform - the 26 movies (640x480 but Intel_intro
+  320x240, Dolby_Digital 720x486, the credits 480x480; 29.97 fps but Intel_intro 15; stereo 44.1 / 48 kHz, pccredits
+  silent), the 137 music streams and the 2,771 Bink files inside pcm.wad (4x4 sound-only movies at 15 fps; music
+  stereo 44.1 / 48 kHz, pcm.wad's mono 11.025-44.1 kHz). FFmpeg's demuxer takes `BIKi` and its video decoder decodes
+  it; binkaudio_dct is the only sound decoder needed (binkaudio_rdft is built too, for other data).
+- **FFmpeg:** 7.1.5 (FFmpeg's signed release tarball, pinned by SHA-256), LGPL 2.1 or later - built with
+  `--disable-everything` and only the Bink demuxer, the Bink video / audio decoders and swscale enabled, no GPL or
+  non-free parts, no external libraries: avutil-59, avcodec-61, avformat-61 and swscale-8 (about 2 MB together). No
+  trustworthy prebuilt 32-bit LGPL DLLs exist (the common Windows builds are 64-bit, and most are GPL), so
+  `tools/ffmpeg/build_ffmpeg.ts` builds them from source with FFmpeg's own cross-compiling path: configure and make with
+  Ubuntu's mingw-w64 GCC ("win32" threads, libgcc linked statically: the DLLs import only Windows' own), on Linux or in
+  WSL. The build is repeatable (the same DLLs byte for byte from any folder, any day) and the same tool builds the x64
+  DLLs (`--arch x64`). The codec loads them by name at run time - nothing is linked, the exe starts without them
+  (the log says so) and any LGPL build of the same majors can replace them. The
+  headers come from the same release's tag (cmake/ffmpeg.cmake).
+- **Frames:** swscale makes BINKSURFACE32 (blue, green, red, unused) from the decoder's YUV 4:2:0 (BT.601 video range,
+  accurate rounding): ~1.1 ms a 640x480 frame, any build type (a plain C++ loop took 45 ms a frame in Debug). Against
+  binkw32 on the start-up movies (`thug2_movie_codec_check`): every colour byte within 2-5 of 255, 50-53 dB PSNR (the
+  unused fourth byte is 255, binkw32's 0: the X8R8G8B8 texture ignores it); the frame counters (after the open, steps, go-tos, across the end) equal; 60 frames paced by
+  `wait` in 2.00 s at 29.97 fps (binkw32 1.92-2.00 s).
+- **Left for X10b / X10c:** the sound (decoded, but read past); the sound-only streams' pace follows Bink's audio clock
+  in binkw32 (60 frames of a music stream: 4.2 s with Bink's sound off, 4.0 s here); the reopen of a paused pcm.wad
+  stream from `from_where_` (the original passes its 4-byte copy of the header as the memory to open); the
+  THIRD_PARTY_NOTICES entry (FFmpeg's LGPL text, the exact source - the release URL and hash -, the build recipe,
+  that the DLLs are replaceable).
+
+**Done in X10b** (the sound: `media_ffmpeg/ffmpeg_sound.*`, `audio::Device`'s streaming calls):
+- **The path:** binkw32 played its sound into the game's DirectSound object through buffers of its own; the FFmpeg
+  codec plays the first sound track of a movie or stream (binkaudio_dct, its float blocks rounded to 16-bit PCM) into a
+  looping buffer it makes through `audio::Device` and keeps filled ahead of the play position each time the movie is
+  serviced (`wait`, `do_frame`: the movie player asks in a loop, the stream thread every 5 ms) - the samples decoded,
+  then silence, so a buffer the decoding falls behind never plays old samples again. Three device calls were added
+  for it: `buffer_position`, `write_buffer`, `resume_buffer` (DirectSound's GetCurrentPosition, Lock / Unlock, Play
+  without a rewind; the muted output forwards them and keeps the buffers at silence). Any output the device is plays
+  it, not only DirectSound.
+- **What binkw32 does, measured** (`thug2_movie_codec_check --sound`: binkw32 given a stand-in DirectSound object, the
+  FFmpeg codec a stand-in `audio::Device`, both buffers played by the clock and what passes the play position kept):
+  the buffer's flags (volume, pan, frequency, GETCURRENTPOSITION2, GLOBALFOCUS) and size (0.6 s rounded up to 256 sample
+  frames: 115,712 bytes at 48 kHz stereo, 106,496 at 44.1 kHz stereo, 53,248 at 44.1 kHz mono), written about 0.59 s
+  ahead; the track volume (0 ... 32768) as 10000/3 hundredths of a decibel a decade below 32767, rounded, never below
+  -10000; the pan (0 ... 65536) a straight line to -10000 ... 10000, truncated - both equal for every level and pan
+  swept; the frames paced by the buffer's play position; a packet's samples cut to the size its first word declares
+  (the decoder gives whole blocks: a loop then lasts exactly its frames, 55,860 samples for a 19-frame stream at
+  15 fps); after running dry the samples go on 61-76 ms past the play position (65 here); a go-to starts the sound one
+  decoded block before the block holding the frame's time (binkw32 plays the frame's own time, not the sound stored
+  with it, which is about 0.7 s ahead); a go-to to the first frame, like the end of a loop, plays on (keeping about half
+  a buffer of what was written ahead); a pause stops the buffer and the resume plays on.
+- **Equal:** the samples heard from both codecs, compared window by window, are within 1 of each other (mean 0.03 -
+  the float rounding) on the start-up movies, the music streams and a sample of pcm.wad's sounds, SNR 61-97 dB; the
+  only larger differences are a handful of samples at full scale (binkw32 limits the blocks' overlap there) and the
+  last hundredths of a sound's tail, which binkw32 makes silent (both under -70 dB).
+- **The paused pcm.wad stream:** `BinkStream::tick_frame` reopens a paused stream from `from_where_`; for a stream opened
+  from memory that is the 4 bytes "BIKi" the original copies there - binkw32 refuses to open it (the check shows it),
+  so a paused pcm.wad stream stays silent after its pause. That is the original's behaviour and is kept; the FFmpeg
+  codec refuses it too (it reads the header's size word, zero, and no further). Only the names were wrong (the flag
+  0x04000000 is Bink's from-memory flag, not a file handle).
+- **X10c, notices done:** THIRD_PARTY_NOTICES has the FFmpeg entry (LGPL 2.1 text, the pinned release and hash, configure's flags, replaceable DLLs) and the README says how to build and place the DLLs. **Left:** the A/B listening on the 32-bit build (the user's).
+
+**Done in X11** (`render_pc`, `gpu_d3d9`, `gpu_vulkan`): every translation unit of the three compiles to objects with
+the x64 compiler and the build's flags with no warning (C4267 / C4244 / C4311 / C4312 included) and no error. They are
+not on `THUG2_X64_READY` yet: they link `thug2_engine`, which becomes x64-ready with X12. What changed or was checked:
+- **The loading bar's timer callback** (`draw_loading_screen_frame`) takes `LPTIMECALLBACK`'s `DWORD_PTR` words (the
+  loading console's own timer already did).
+- **Pointer arrays sorted by qsort:** the billboard batches and the visible instances were sorted as 4-byte elements;
+  they are `sizeof` their pointer now (on x64 a 4-byte element would have sorted halves of pointers).
+- **Handles:** a graphics handle is its object's address on both backends (`gpu_d3d9/d3d9_handles.h`,
+  `gpu_vulkan/vulkan_objects.h`), and the UI's texture ids are 64-bit on both. Vulkan's non-dispatchable handles are
+  `uint64_t` on x86 and pointers on x64; nothing stores one in a 32-bit field or a cell (the compiler would refuse the
+  pointer on x64).
+- **The dynamic vertex and index buffers:** offsets and sizes are Direct3D 9's `UINT` (32 bits on both builds); the
+  pointers into a lock are pointers.
+- **`make_primitive_at`:** `PcPrimitive` is asserted against `render::kStackPrimitiveBytes` (since X7).
+- **The Vulkan caches:** the 64-bit build keeps its shader and pipeline caches in files of their own
+  (`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`): a 32-bit and a 64-bit driver are
+  different binaries, so an x86 driver's pipeline cache is never given to x64's.
+- **Libraries:** D3DX9's package has `lib/x64/d3dx9.lib` (x64, exporting `D3DXAssembleShader` and
+  `D3DXSaveSurfaceToFileA`) and `bin/x64/D3DX9_43.dll`; Direct3D 9's `d3d9.lib` and winmm come from the Windows SDK for
+  each architecture; volk opens the system's 64-bit Vulkan loader.
+
+**Done in X12a** (`engine/` memory, lists, file, assets, sys): every translation unit of the five folders compiles to
+an x64 object with the build's flags with no warning and no error, and clang-tidy with the x86_64 target finds nothing
+in them. With these fixes the whole of `engine/` (304 translation units) compiles to x64 objects with no warning and no
+error; what is left for X12b / X12c is the review the compiler can't do and their folders' x86_64 clang-tidy. What
+changed or was checked:
+- **The memory manager:** the code and data bounds it prints are addresses, printed at the pointer's width
+  (`%08zX`); the static storage the manager, its main region and its two heaps are made in is aligned for them.
+  Block offsets in the heaps' memory are 32-bit and checked against it (the main block's size is 32-bit on both
+  builds); the block header is 32 bytes on x64 (since X7).
+- **The asset loaders' parameter blocks:** a caller's parameters are copied into a pool block as words. The skinned
+  model's hold the `.cas` contents' address, so they are copied by `sizeof` (5 words on x86, 6 on x64); the other
+  asset types' parameters hold no pointers and keep their fixed sizes on both builds (asserted).
+- **Checked, nothing to change:** the file system's handles are pointers (`fs::Handle`, the disk's `DiskFile*` is
+  Win32's `HANDLE`); file sizes and offsets are the game's 32-bit values (`long` stream positions are 32-bit on Win64
+  too); the asset manager and the hash tables key by 32-bit checksums, never by address; the lists' nodes, the pools'
+  free lists and the item pools hold pointers and are sized by `sizeof`; the timers are 64-bit counters.
+- `engine/util/lzss.cpp`'s match tree takes a 32-bit byte count (its runs are small).
+
+**Done in X12b** (`engine/` gfx, objects, render, ui): all 190 translation units compile to x64 objects with the
+build's flags with no warning and no error, and clang-tidy with the x86_64 target finds no narrowing in them (its
+narrowing and widening checks and clang's 64-to-32 and pointer <-> integer warnings). What changed or was checked:
+- **Products widened before they become a size or an offset** (bugprone-implicit-widening-of-multiplication-result /
+  misplaced-widening-cast on x86_64): a particle's place in the history positions, the animation keys' word offsets
+  and their count table's index, an animation cache entry's translation keys, the collision tree copy's face bytes and
+  the grid's scratch counts, the bone volume table's clearing (`sizeof` the pointer), the model particles' position
+  count, the model widget's corner array, the script array's count word. The same code on x86.
+- **The feeler observer's caller** (`render::FeelerResult::caller`, a return address for the collision log) is
+  pointer-sized; it was narrowed to 32 bits. Its reader, the collision log in `game/rider`, prints it in X12d.
+- **Checked, nothing to change:** the components are made by `new` (sizeof; their byte constants are only asserted);
+  the sets of objects known by their address (flashes, spawned polygons, splats, shadow edges) hold the pointers
+  themselves (`lists::ObjectSet`); objects, screen elements and the scripts' references to them are 32-bit checksums,
+  never addresses; placement storage for objects with pointers is aligned for them (the scene load's description,
+  the lens flare's primitive); the animation files are read through byte readers, their sections' addresses kept in
+  the animation's own object; the fixed-size copies (`memcpy` of 4 bytes, the particle configurations' copy up to a
+  field) are of floats, colours and records without pointers. The script methods that read a float into the stack slot of
+  their parameters' pointer when the float is missing (the original's leftover: a meaningless default) read the
+  pointer's low 32 bits on x64 - as meaningless.
+
+**Done in X12c** (`engine/` script, net, audio, sound, pad_input, media; `engine` x64-ready): clang-tidy with the
+x86_64 target over the six folders' 77 translation units finds nothing after the fixes below, and `THUG2_X64_READY`
+lists `engine` and the libraries that build on it - `net_winsock`, `render_pc`, `gpu_d3d9`, `gpu_vulkan`,
+`audio_dsound`, `media_ffmpeg`, `input_dinput`, `fs_win32`, `script_qb`. The x64 configure builds them all with no
+warning and links every check whose libraries they are (the Vulkan checks included). `game/` and the layers above it are X12d / X12e. What changed or was checked:
+- **The .qb files' checksum-name table:** 0x1000 buckets of {checksum, name, next}, allocated as 0x1000 x 12 bytes.
+  The bucket holds two pointers, 24 bytes on x64, so the table is sized by the record now (the same 0xC000 bytes on
+  x86, asserted); on x64 the fixed size gave half the table it was used as.
+- **The token reader's random choices:** the offsets into a `Random` block's tables are multiplied as `ptrdiff_t`
+  (the same arithmetic on x86). The block's jumps are forward 32-bit offsets read from the script, as on x86.
+- **Checked, nothing to change:** every `fetch_part` / `word()` in the six folders reads an array or component whose
+  kind is checked as an integer or a name first (structures, arrays, strings, pairs and vectors go through their own
+  accessors); the network's messages carry 32-bit values (timestamps, sequence numbers, latencies), its connections
+  are numbered handles, addresses are `sockaddr_in`'s 16 bytes, and its records are allocated by `sizeof` (a
+  connection's block the larger of the original's 0x3D20 bytes and the record); the sound's records (waves, slots,
+  playing sounds, streams) are allocated by `sizeof` or held in arrays of their type, a wave's buffer description
+  is DirectSound's size for the build (0x24 / 0x28) and the backends' sound objects are pointers; the controllers'
+  recordings (`PadFrameRecord`) hold no pointers; the movie codec's handles are pointers.
+
+**Done in X12d** (`game/`): all 243 translation units compile to x64 objects with the build's flags with no warning
+(C4267 / C4244 / C4311 / C4312 at 0) and no error, and clang-tidy with the x86_64 target finds no narrowing in them.
+What changed or was checked:
+- **Compiler and tidy:** the memory figures `GlobalMemoryStatus` gives (`SIZE_T`) printed with `%zu`; the joining
+  player's appearance size taken as `std::min<size_t>`; the park rails' pool item size an `int`; the collision log's
+  caller (`FeelerResult::caller`) taken and printed at the pointer's width (`%08zX`); products made in `size_t`
+  before they become a size (the goal groups' table, the career's goal words, the news buffer, the park floor's
+  cell index).
+- **Placement storage:** the horse game's text (`text::Chars`, which holds a pointer) was made in 4-byte aligned
+  stack bytes; it is aligned for `Chars` now.
+- **Callbacks the GameSpy SDK calls through a plain pointer** (the compiler doesn't check them): each one's
+  parameters were compared with the SDK's typedef. The news download's completion read the SDK's 64-bit byte count
+  as two 32-bit words (the same on x86's stack; on x64 it is one register, and `param` came a slot late): it takes one
+  `int64_t`. The persistent data's answer (`PersDataCallbackFn`) read the SDK's `time_t` as 32 bits; it is 64 bits
+  with the compilers this builds with (the original's SDK had a 32-bit one), so on both builds the data, its length
+  and the instance came a word late: the reply's `modified` is a `std::time_t`. The others match (pointers, `int`s,
+  `SOCKET` as `uintptr_t`, the NAT user word as an index).
+- **The park editor's memory meter:** the 64-bit build's main block has room beside the script region that the 32-bit
+  build's hasn't (`memory::sizes::main_block_x64_room`, ~60 MB), and the park heap's region is twice the size
+  (`region_bytes`). The meter takes that room off the main heap's free bytes (and off the largest free block when the
+  region's unclaimed space is the largest), off the top-down figure (the same region) and off the park heap's. Every
+  block on x64 is at least as big as on x86, so the meter reads at least as full as the 32-bit build would with the
+  same park: a park built to the meter's limit on x64 fits the 32-bit build. It is stricter than the 32-bit build by
+  what the heaps' contents grow (the regions doubled inside the main heap, the records' pointers); X15's heap report
+  shows by how much. On x86 the room is 0 and those lines are left out (`if constexpr`).
+- **Saves and the wire stay 32-bit layouts:** the save files are a header written through `formats/save_file_format`
+  and script structures written by kind through `script::emit_into_buffer` (names, integers, floats, strings,
+  vectors, nested structures and arrays - never a cell's address); the park map and the rails go through
+  `formats/park_map_format` / `rail_buffer_format`, the created goals through the same structure writer. The game's
+  network messages are byte arrays, `util::ByteWriter`s, integers or records of integers and characters; none holds a
+  pointer.
+- **Checked, nothing to change:** no `reinterpret_cast`, union or address hashing in `game/`; scripts' array elements
+  read as 32-bit values (`fetch_part`, `Cell::word`) only from name / integer arrays or kind-checked components (a
+  pointer would stop at `word`'s check); the pad's buttons found by their logical offset (a table, not the layout);
+  fixed allocations by `sizeof` (X7) and the other constant-sized ones are bytes; the camera state's stack bytes hold
+  floats; the copies with fixed sizes copy floats, colours and names.
+
+**Done in X12e** (`editor/`, `frontend/`, `devtools/`, the backends `audio_dsound`, `input_dinput`, `fs_win32`,
+`media_ffmpeg`, and `app/`): `THUG2_X64_READY` lists `game`, `frontend`, `editor`, `devtools` and `app`, so the x64
+configure builds `thug2-decomp.exe` and `thug2-editor.exe` (x64) and copies their x64 DLLs beside them - SDL3.dll,
+d3dx9_43.dll, FFmpeg's avutil-59 / avcodec-61 / avformat-61 / swscale-8 (from `out/ffmpeg/x64`) and
+gamecontrollerdb.txt. All 149 translation units of these folders compile with the build's flags with no warning (C4267
+/ C4244 / C4311 / C4312 included) and no error, and clang-tidy with the x86_64 target finds no narrowing in them.
+What changed or was checked:
+- **The movie codec:** Bink's `media_bink` (the player's 32-bit binkw32.dll) was removed afterwards; FFmpeg's codec is
+  the only one on both builds (`app/main.cpp` installs it and logs when its DLLs can't be used: the movies and streams
+  then won't play - a codec whose `open` gives null: the game goes on without them, as with a missing movie). The x86
+  and x64 builds copy FFmpeg's DLLs of their own machine from `out/ffmpeg/<arch>` (cmake/ffmpeg.cmake). Neither exe
+  imports or loads binkw32.dll. The comparison check of the two codecs (`thug2_movie_codec_check`) went with it.
+- **Products widened before they become a size** (bugprone-implicit-widening-of-multiplication-result /
+  misplaced-widening-cast on x86_64): the DirectInput joysticks' force resolutions (`std::size_t{2} * kPorts`), the
+  editor's ground mesh's texture-coordinate offsets, an index buffer's clearing and a mesh's position count. The same
+  code on x86.
+- **Dear ImGui's texture ids:** the editor's and the front end's images hold the backend's 64-bit id (`uint64_t`,
+  `engine/gfx/ui_backend.h`) and pass it to ImGui as `ImTextureID`; the Direct3D 9 backend's id is the texture's
+  address widened (`gpu_d3d9/imgui_texture_id.h`), Vulkan's its own 64-bit name. Nothing narrows one.
+- **The editor's Companion collision** (`editor/level_editor_shared_coll.h`): a Companion's `TriMeshSource` is a member
+  of the Companion (made by `std::make_unique`) and its face, vertex and vertex-byte arrays are `std::vector`s - all on
+  the CRT heap, sized once in the constructor. The record links them as 32-bit distances from itself (X3), so on x64 a
+  vector more than 2 GB from its Companion stops the game in `set_faces` / `set_vertices` / `set_vertex_bytes`
+  (`collision_format::link_from`'s contract check), never a wrong link. That needs the CRT heap to span more than 2 GB
+  between two small allocations made one after the other - not expected in a process of the game's size. Allocating
+  the record and its arrays together would change the class's code on both builds (its storage, its accessors, a 16-byte
+  aligned block) for that case: left as it is, for X15 to watch (moving pieces with shared collision in the editor).
+  The editor's own ground collision (`level_editor_ground_game.cpp`) takes its arrays from the game's heaps, inside the
+  main block, as the engine's collision does.
+- **SDL:** the windows, events and the clipboard are SDL's own types and pointers; its tick counts are 32-bit
+  (`SDL_GetTicks`) and its performance counter 64-bit, as the editor and the dev tools hold them.
+- **The screenshot writer** writes its PNG and sidecar through `fs::Disk` with the sizes checked as 32-bit (`written ==
+  size`); the cursor's place is scaled in 64 bits. **The automation channel** reads names only from name values
+  (`value_denied` switches on the kind first); its quit is an `SDL_QUIT` event.
+- **Checked, nothing to change:** no `reinterpret_cast`, union, `qsort` or address hashing in these folders; every
+  `fetch_part` / `word()` reads an integer or name array or a component whose kind is checked first (the editor's
+  node fields, links, colours, restart types); the placement storage (`level_editor_hud.cpp`'s script structures) is
+  `alignas(script::Struct)` and `sizeof` it; the fixed-size copies are of floats, colours and face words; DirectSound's
+  structures are asserted at their x86 / x64 sizes (`DSBUFFERDESC` 0x24 / 0x28, `DSCAPS` 0x60), DirectInput's are
+  given by `sizeof`; the backends' callbacks (`LPDSENUMCALLBACKA`, the DirectInput enumerations, the window
+  procedure) have their typedefs' exact types; FFmpeg's functions are looked up into `decltype` pointers of its own
+  declarations, and its I/O callbacks take `int64_t` positions.
+
+**Done in X15** (the first x64 run, Debug, from a game folder with the x64 DLLs: `tools/game/deploy_build.ps1 -Arch
+x64`): the smoke (the five smoke levels, two in a row, the front end, a quit, the park editor, a created goal, Classic
+mode's menus, the tricks / walking / objects traces, the level editor, the editor's own exe) ran on both renderers with
+no error, the same as the 32-bit build of the same commit by the same script. Measured:
+- **The same game:** the script pools after each load are the 32-bit build's to the item (foun 63,749 components /
+  15,578 structures ... sch 71,300 / 17,469, peaks too); the tricks score the same (combo 280, multiplier 2, landed
+  564). The traces of the skater (position, velocity, matrix, state, trick and score), the walk and every moving object
+  are identical frame for frame on all four builds (x86 / x64, Vulkan / Direct3D 9) over the frames they share: the
+  x87 / SSE and 24 / 53-bit differences of "Floating point: measured" don't reach the game here.
+- **The heaps** (`heap_report.ts` against X7's 32-bit logs): nothing came near its region. The peaks grew x1.00 (the
+  top-down heap, the theme, the texture heaps, AnimScratch) to x1.52 (BO's AnimHeap), the script heap x1.40, the park
+  editor's x1.44, the front end / network x1.35, the skater x1.30. The main block's use grew x1.19-x1.22 (BO: 63.7 MB
+  of 89.9 on x86, 75.6 MB of 158.1 on x64), below X7's lowest estimate; it keeps 82-93 MB free against x86's 26-35.
+  So the x2 rule holds with room everywhere; the part of the main block beside the script region (x86's 61.8 MB, which
+  grew x1.15 at most) is where a tighter rule would save the most.
+- **The movies** play through FFmpeg (the log's "this 64-bit build's only codec" line, the intro on screen); the
+  editor's Dear ImGui runs on Direct3D 9 and Vulkan.
+- **Found:** the editor's Companion collision does reach the stop described under X12e. Moving TR's `BlackBoard_Cut` (a
+  piece with 12 faces of the level's collision-only sectors) from a saved layout stops the 64-bit game in the
+  Companion's constructor at `set_vertex_bytes` (`collision_format::link_from`'s contract check): its one-byte-a-vertex
+  array, a small `std::vector` grown by `push_back`, was more than 2 GB from the Companion. The C runtime's heap on
+  x64 does put small blocks that far from larger ones. The 32-bit build moves the same piece.
+- **Fixed after X15:** a Companion keeps its geometry's record and the arrays it links to in one block (one
+  `std::vector<uint8_t>`: the record, then the faces, the vertices and the vertex bytes),
+  the record made at the block's start by `collision_format::record_in_block`; its links are now
+  at most the block's size on any build (BlackBoard_Cut's: +64, +184, +280 in a 288-byte block). The record's fields
+  and the arrays' contents are as before; the 32-bit build's collision is the same (the skater stands on the moved
+  board at the same height on both builds). Its rejection bytes are a plain pointer (no link) and stay apart.
+
 ### CMake and presets
 
 - `CMakePresets.json` has `x86-debug` / `x86-release` only. The root `CMakeLists.txt` refuses other architectures and
@@ -204,6 +592,11 @@ confirmed by a header survey of the player's data in task X10a. The FFmpeg backe
   x86 DLLs. Nothing else in CMake is architecture-specific.
 - The checks that run in `npm test` (`tools/layers.ts`, `cmake_layers.ts`, the header tests) don't depend on the
   architecture.
+- Since X1: `x64-debug` / `x64-release` presets (and `tools\verify_build.cmd x64`); `THUG2_ARCH` picks the
+  packages' folders; an x64 configure adds only the libraries named in `THUG2_X64_READY` (root `CMakeLists.txt`;
+  `gamespy_sdk` there builds the GameSpy SDK) and the checks whose libraries are all built. The fetched libraries the
+  build compiles (ImGui, stb_image_write, LZHAM, volk, VMA, glslang) compile on x64 as they are (LZHAM picks its
+  64-bit paths from `_WIN64` itself); they are built only when a ready library links them.
 
 ## Order of work
 
@@ -222,12 +615,12 @@ Each task is one PR. "Start after stage 11" means after branch `stage11` is merg
 | X9 | The GameSpy SDK for x64: built from source, its structures checked against what the game reads, a local protocol test as for the 32-bit swap | X1, X8 | |
 | X10a | `src/media_ffmpeg`: FFmpeg's Bink 1 decoding behind `media::Movie` (video: open, frames, copy to buffer, wait, go to, pause), FFmpeg fetched as pinned LGPL DLLs; a header survey of the game's Bink files; chosen at start-up beside Bink's (`[features] movie_codec=bink\|ffmpeg`) | - | pure addition, 32-bit first |
 | X10b | FFmpeg's Bink audio into the game's sound output: a streaming buffer through `audio::Device`, track volume and pan, the sound-only streams from a path, a file handle at an offset, and memory | X10a | |
-| X10c | A/B on the 32-bit build: the movies and the music / sound streams through both codecs (frames, timing, levels); THIRD_PARTY_NOTICES and the licence notes | X10b | |
+| X10c | A/B on the 32-bit build: the movies and the music / sound streams through both codecs (frames, timing, levels); THIRD_PARTY_NOTICES and the licence notes | X10b | Notices and README done; A/B listening is the user's, later |
 | X11 | `render_pc` / `gpu_d3d9` on x64 (D3D9 x64; handles, the dynamic buffers, `make_primitive_at`'s storage, the loading console's timer) | X6 | land before the Vulkan split (V5) or coordinate |
 | X12a-e | Compile and fix by library on x64, one PR each: (a) `engine/` memory, lists, file, assets, sys; (b) `engine/` gfx, objects, render, ui; (c) `engine/` script, net, audio, sound, pad_input, media; (d) `game/`; (e) `editor/`, `frontend/`, `devtools/`, the backends (`audio_dsound`, `input_dinput`, `fs_win32`, `media_ffmpeg`), `app/` | X3-X8, X10c, X11 | C4267 / C4244 / C4311 / C4312 at 0 |
-| X13 | Tools on x64: `first_fault.py` and the symbolizers read x64 contexts and PDBs; the game scripts (`tools/game`) find the x64 exe | X8 | |
+| X13 | Tools on x64: `first_fault.py` and the symbolizers read x64 contexts and PDBs; the game scripts (`tools/game`) find the x64 exe | X8 | done |
 | X14 | Floating-point equivalence: `thug2_maths_check` writes a corpus on the 32-bit build and compares with it on x64 (ulps per function); the accepted differences documented | X2 | |
-| X15 | The first x64 run: the smoke levels, the front end, the editor, a local online session with a 32-bit peer; deploy (x64 DLLs: SDL2, D3DX9, FFmpeg); README "Running" for x64 | X9, X12, X13 | |
+| X15 | The first x64 run: the smoke levels, the front end, the editor, a local online session with a 32-bit peer; deploy (x64 DLLs: SDL2, D3DX9, FFmpeg); README "Running" for x64 | X9, X12, X13 | done, apart from the online session (by hand); the Companion stop fixed after it |
 
 ```
 X1 -> X2 -> X3 ----------------------------------\
@@ -252,6 +645,24 @@ X10a -> X10b -> X10c -----------------------------------/
 
 The QuickJS replacement of the interpreter (planned later) replaces the interpreter, not the data model, so this
 choice stays either way.
+
+Since X4: `script::Cell` holds a `uintptr_t`. Names, integers and floats are its low 32 bits (`word`, `integer`,
+`real`; `low_word` where the game reads a component of a kind it doesn't check as a name), pointers the whole cell,
+and a copy of any kind copies the `Cell`; `empty`, `same_bits` and `holds_word` test it whatever its kind. On x64
+`word()` of a cell holding a pointer above 4 GB stops the game. The pools' item sizes are `sizeof` (qb.cpp,
+`memory_sizes.cpp`, the HashItem pool), with the original's sizes asserted on x86; the script region grows by what the
+pools take more than the original's pools at the original's sizes. Left for X5: the call tokens' 32-bit operands
+(`prepare_script_tokens` stores the function's address through `cell::of`, which stops on x64) and the precompiled
+images' records, which are the runtime's own `Struct` / `Component` / `Array` / `SymbolTableEntry` laid out in
+32 bits. The layout asserts of the records that hold a cell are X6's.
+
+Since X5: a prepared call token (0x43 a C function, 0x46 a member function table entry) holds its target's number, not
+its address, on both builds (`engine/script/names.h`: the targets numbered in the order they are installed, a
+function or entry installed again keeping its number; `prepare_script_tokens` writes the number, `native_function_at` /
+`member_entry_at` read it back by one indexed read). The QB files on disk are unchanged; only the cached, prepared
+copy of a script differs. Precompiled images (magic 0xB075EF6F) are no longer used in place: `precompiled.cpp` reads
+the image as a file (its 32-bit fields at their offsets) and unpacks it into the runtime's pooled records, which own
+their values like a .qb's symbols. No game file is a precompiled image.
 
 ## Conflicts and where PRs go
 
@@ -286,8 +697,8 @@ choice stays either way.
    FFmpeg may not decode. The licence obligations are to confirm.
 5. **Floating point**: last-bit differences can tip a physics threshold. They are measured (X14) and play-tested.
    Bit-exact equality with the 32-bit build isn't promised.
-6. **The GameSpy SDK on x64** (X9): an untested configuration for this game's use of it. It needs a local protocol
-   test before anyone goes online with it.
+6. **The GameSpy SDK on x64** (X9): built and checked offline (docs/gamespy.md "64-bit builds"); the protocol on x64
+   still needs a local OpenSpy test before anyone goes online with it.
 
 ## Estimate
 

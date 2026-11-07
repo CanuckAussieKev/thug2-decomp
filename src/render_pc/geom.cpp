@@ -202,7 +202,7 @@ void PcGeom::make_mesh_table(void* vertex_arena)
     }
     mesh_count_ = count;
     if (count != 0U) {
-        meshes_ = static_cast<MeshRef**>(memory::alloc(4 * count));
+        meshes_ = static_cast<MeshRef**>(memory::alloc(memory::kPointerBytes * count));
         ListNode* node = load_list_->next();
         if (!is_head(node) && node) {
             for (int i = 0; node; ++i) {
@@ -275,7 +275,7 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
     auto* new_scene = core::down_cast<PcScene>(into);
     gsl::owner<render::PcGeom*> geom{memory::make_owned<PcGeom>()};
     // (no check: a failed allocation writes through null, as the original)
-    geom->meshes_ = static_cast<MeshRef**>(memory::alloc(4 * mesh_count_));
+    geom->meshes_ = static_cast<MeshRef**>(memory::alloc(memory::kPointerBytes * mesh_count_));
     geom->mesh_count_ = mesh_count_;
     for (uint32_t i = 0; i < geom->mesh_count_; ++i) {
         core::at(geom->mesh_run(), i) = core::at(mesh_run(), i)->replicate(share);
@@ -284,7 +284,7 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
         geom->change_live(true);
         // into the scene's mesh list: its meshes kept aside, room made for these ones too, all added back
         SceneRef* list = new_scene->meshes();
-        MeshRef** kept = list->mesh_count() > 0 ? static_cast<MeshRef**>(memory::alloc(4 * list->mesh_count())) : nullptr;
+        MeshRef** kept = list->mesh_count() > 0 ? static_cast<MeshRef**>(memory::alloc(memory::kPointerBytes * list->mesh_count())) : nullptr;
         const std::span<MeshRef*> kept_run(kept, kept ? static_cast<size_t>(list->mesh_count()) : 0);
         geom->scene_ = new_scene;
         for (int i = 0; i < list->mesh_count(); ++i) {
@@ -324,7 +324,7 @@ gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
     gsl::owner<render::PcGeom*> geom{memory::make_owned<PcGeom>()};
     geom->scene_ = temp_scene;
     auto count = static_cast<uint32_t>(instance_->scene()->mesh_count());
-    geom->meshes_ = (count != 0U) ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
+    geom->meshes_ = (count != 0U) ? static_cast<MeshRef**>(memory::alloc(memory::kPointerBytes * count)) : nullptr;
     geom->mesh_count_ = count;
     for (uint32_t i = 0; i < geom->mesh_count_; ++i) {
         core::at(geom->mesh_run(), i) = core::at(scene_meshes(instance_->scene()), i)->replicate(share);

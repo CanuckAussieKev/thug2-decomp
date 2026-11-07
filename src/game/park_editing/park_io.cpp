@@ -157,7 +157,7 @@ void ParkLayout::add_multiple_pieces(PieceGroup* meta, script::Array* pieces, st
     meta->commission(static_cast<int>(pieces->extent()));
     for (uint32_t i = 0; i < pieces->extent(); ++i) {
         auto* entry = pieces->struct_at(i);
-        const uint32_t name = entry->step_to_entry(nullptr)->value.word(); // the piece's name comes first
+        const uint32_t name = entry->step_to_entry(nullptr)->value.low_word(); // the piece's name comes first
         script::Array* at = nullptr;
         entry->fetch_list(0U, &at, 1); // its unnamed [x y z (rot)]
         TileTemplate* source = piece_source(builder_, name);
@@ -225,7 +225,7 @@ void ParkLayout::set_up_abstract_metas()
             meta->commission(static_cast<int>(pieces->extent()));
             for (uint32_t i = 0; i < pieces->extent(); ++i) {
                 auto* entry = pieces->struct_at(i);
-                const uint32_t name = entry->step_to_entry(nullptr)->value.word();
+                const uint32_t name = entry->step_to_entry(nullptr)->value.low_word();
                 script::Array* at = nullptr;
                 entry->fetch_list(0U, &at, 1);
                 PieceGroup* part = nullptr;
@@ -311,7 +311,7 @@ void ParkLayout::write_compressed_map()
     text::copy_unbounded(map.name().data(), park_name_.data());
     for (int cell_x = 0; cell_x < kFloorSize; ++cell_x) {
         for (int cell_z = 0; cell_z < kFloorSize; ++cell_z) {
-            map.set_floor_height(static_cast<size_t>((cell_x * kFloorSize) + cell_z),
+            map.set_floor_height((static_cast<size_t>(cell_x) * kFloorSize) + static_cast<size_t>(cell_z),
                                  static_cast<int8_t>(core::at(core::at(floor_, cell_x), cell_z).level_y_));
         }
     }

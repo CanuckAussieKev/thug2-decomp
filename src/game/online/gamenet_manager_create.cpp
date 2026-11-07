@@ -8,6 +8,7 @@
 #include <memory>
 #include <new>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/memory/manager.h"
 #include "game/online/gamenet_handler_util.h" // IWYU pragma: keep - the detail namespace (using-directive)
@@ -225,8 +226,8 @@ void Hub::check_layout()
         FieldAt{.now = offsetof(Hub, news_), .original = 0x99F4, .smaller_by = 28},
         FieldAt{.now = sizeof(Hub), .original = 0xFE0C, .smaller_by = 28},
     };
-    static_assert(std::ranges::all_of(
-                      kLayout, [](const FieldAt& field) { return field.now + field.smaller_by == field.original; }),
+    static_assert(core::layout_32bit(std::ranges::all_of(
+                      kLayout, [](const FieldAt& field) { return field.now + field.smaller_by == field.original; })),
                   "layout must match the original's, but for the smaller members");
 }
 
@@ -256,7 +257,7 @@ void HubTasks::check_layout()
         FieldAt{.now = offsetof(HubTasks, flag_carry_job_), .original = 0xF8},
         FieldAt{.now = sizeof(HubTasks), .original = 0xFC},
     };
-    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
                   "layout must match the original");
 }
 
@@ -275,8 +276,8 @@ void SessionSettings::check_layout()
         FieldAt{.now = sizeof(SessionSettings), .original = 0x11C, .smaller_by = 8},
     };
     static_assert(
-        std::ranges::all_of(kLayout,
-                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout,
+                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; })),
         "layout must match the original's, but for the smaller members");
 }
 
@@ -295,8 +296,8 @@ void PlayerRoster::check_layout()
         FieldAt{.now = sizeof(PlayerRoster), .original = 0x144, .smaller_by = 8},
     };
     static_assert(
-        std::ranges::all_of(kLayout,
-                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout,
+                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; })),
         "layout must match the original's, but for the smaller members");
 }
 
@@ -314,8 +315,8 @@ void ScriptQueue::check_layout()
         FieldAt{.now = sizeof(ScriptQueue), .original = 0x158, .smaller_by = 4},
     };
     static_assert(
-        std::ranges::all_of(kLayout,
-                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout,
+                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; })),
         "layout must match the original's, but for the smaller members");
 }
 
@@ -334,8 +335,8 @@ void ServerListing::check_layout()
         FieldAt{.now = sizeof(ServerListing), .original = 0x180, .smaller_by = 8},
     };
     static_assert(
-        std::ranges::all_of(kLayout,
-                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; }),
+        core::layout_32bit(std::ranges::all_of(kLayout,
+                            [](const FieldAt& field) { return field.now + kAt + field.smaller_by == field.original; })),
         "layout must match the original's, but for the smaller members");
 }
 
@@ -396,7 +397,7 @@ void NewsDownload::check_layout()
         FieldAt{.now = offsetof(NewsDownload, services_available_), .original = 0xFE0A},
         FieldAt{.now = sizeof(NewsDownload), .original = 0xFE0C},
     };
-    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
                   "layout must match the original");
 }
 
@@ -433,7 +434,7 @@ void ServiceManagers::check_layout()
         FieldAt{.now = offsetof(ServiceManagers, rating_service_), .original = 0x1C},
         FieldAt{.now = sizeof(ServiceManagers), .original = 0x20},
     };
-    static_assert(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; }),
+    static_assert(core::layout_32bit(std::ranges::all_of(kLayout, [](const FieldAt& field) { return field.now + kAt == field.original; })),
                   "layout must match the original");
 }
 

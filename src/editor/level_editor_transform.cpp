@@ -154,14 +154,14 @@ Mode next_mode(Mode mode)
 
 void heading_axes(float yaw, std::span<V3, 3> out)
 {
-    const float cosine = std::cos(yaw);
-    const float sine = std::sin(yaw);
+    const float cosine = maths::runtime32::cos(yaw);
+    const float sine = maths::runtime32::sin(yaw);
     core::at(out, 0) = {.x = cosine, .y = 0.0F, .z = -sine};
     core::at(out, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     core::at(out, 2) = {.x = sine, .y = 0.0F, .z = cosine};
 }
 
-float get_heading_of(V3 at) { return std::atan2(at.x, at.z); }
+float get_heading_of(V3 at) { return maths::runtime32::atan2(at.x, at.z); }
 
 void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out)
 {
@@ -172,7 +172,7 @@ void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out)
     }
 }
 
-float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
+float turn_around_axis(V3 pivot, V3 point) { return maths::runtime32::atan2(point.x - pivot.x, point.z - pivot.z); }
 
 float get_wrap(float radians)
 {
@@ -226,7 +226,7 @@ std::vector<V3> get_ring(V3 pivot, RingShape ring)
     for (int i = 0; i < count; ++i) {
         const float angle = 2.0F * maths::kPi * static_cast<float>(i) / static_cast<float>(count);
         points.push_back(
-            {.x = pivot.x + (std::sin(angle) * radius), .y = pivot.y, .z = pivot.z + (std::cos(angle) * radius)});
+            {.x = pivot.x + (maths::runtime32::sin(angle) * radius), .y = pivot.y, .z = pivot.z + (maths::runtime32::cos(angle) * radius)});
     }
     return points;
 }

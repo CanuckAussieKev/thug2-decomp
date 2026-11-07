@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "game/online/player_info.h"
 #include "base/core/enum_ops.h"
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_texture.h"
 #include "base/core/compiler.h"
 #include <cstring>
@@ -735,7 +736,8 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     }
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
-    void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
+    static_assert(core::layout_32bit(sizeof(JoinerRecord) == kNewPlayerSize), "the original allocates this many bytes");
+    void* record_memory = memory::alloc_zeroed(sizeof(JoinerRecord));
     auto* record = record_memory ? memory::construct_in<JoinerRecord>(record_memory) : nullptr;
     Expects(record != nullptr);
     text::copy_into(record->label(), info->label().data());

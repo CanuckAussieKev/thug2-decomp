@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
+
 namespace audio {
 constexpr size_t kCachedStreamFileCount = 12; // the streams' files kept open for the next play
 constexpr size_t kCachedStreamFileBytes = 16;
@@ -17,6 +19,6 @@ struct CachedStreamFile {
     uint32_t last_use_;
     int users;
 };
-static_assert(sizeof(CachedStreamFile) == kCachedStreamFileBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(CachedStreamFile) == kCachedStreamFileBytes), "layout must match the original");
 
 } // namespace audio

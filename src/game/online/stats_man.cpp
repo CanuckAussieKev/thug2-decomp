@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <array>
 #include <memory>
 
@@ -852,7 +853,7 @@ bool retrieve_personal_stats(script::Struct* /*params*/, script::Context /*conte
 {
     const Hub* manager = net_game_state().online_hub();
     const void* callback = code_address(&core::gathered<RankingsManager::PersistReply, &RankingsManager::on_personal_stats, void, int,
-                                                       int, int, int, int, uint32_t, char*, int, void*>);
+                                                       int, int, int, int, std::time_t, char*, int, void*>);
     int profile = manager->managers().presence_service()->account();
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)

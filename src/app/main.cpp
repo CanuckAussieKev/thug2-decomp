@@ -34,12 +34,12 @@
 #include "engine/net/loopback_transport.h"
 #include "engine/net/transport.h"
 #include "engine/media/movie.h"
+#include "media_ffmpeg/ffmpeg_movie.h"
 #include "engine/script/host.h"
 #include "script_qb/qb_host.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"
-#include "media_bink/bink_movie.h"
 #include "engine/gfx/loading_console.h"
 #include "render_pc/loading_console_panel.h"
 #include "game/commands/node_hooks.h"
@@ -122,9 +122,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
     audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
                                                : audio::dsound::device());
-    // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): Bink's (the player's
-    // binkw32.dll).
-    media::install_movie(media::bink::movie());
+    // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): FFmpeg's Bink decoders
+    // (media_ffmpeg/ffmpeg_movie.h), from the DLLs next to the exe.
+    if (media::ffmpeg::usable()) {
+        get_log("movies: FFmpeg's Bink decoders");
+    } else {
+        get_log("movies: FFmpeg's DLLs can't be used (above): the movies and the music / sound streams won't play");
+    }
+    media::install_movie(media::ffmpeg::movie());
     // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the original's order: DirectInput's (the
     // keyboard read once a frame, the joysticks, the original's pad read - none made since PartyMod's input), SDL's
     // game controllers and keyboard, then the exe's extensions' (the game's: the test-automation channel's pressed

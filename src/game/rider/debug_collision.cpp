@@ -183,7 +183,7 @@ bool should_log(const void* what, int face)
     return true;
 }
 
-void log_hit(const void* feeler, uint32_t caller)
+void log_hit(const void* feeler, uintptr_t caller)
 {
     const auto* ray = static_cast<const render::ProbeRay*>(feeler);
     const auto& start = ray->line().start;
@@ -226,7 +226,7 @@ void log_hit(const void* feeler, uint32_t caller)
     }
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
-            "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",
+            "%.1f) -> (%.1f %.1f %.1f)%s caller %08zX",
             what.data(), face, flags, terrain, point[0], point[1], point[2], normal[0], normal[1], normal[2], start[0],
             start[1], start[2], end[0], end[1], end[2], skater.data(), caller);
 }

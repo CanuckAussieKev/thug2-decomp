@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/slab_bank.h"
 #include "base/maths/vec4.h"
 #include "base/core/checksums.h"
@@ -33,8 +34,8 @@ struct ParkRailPoint {
     uint32_t cluster_;         // +0x28 (set when the rail is copied into the park)
     ParkRailPoint* following_; // +0x2C
 };
-static_assert(offsetof(ParkRailPoint, at_point_) == kParkRailPointAtPointOffset && offsetof(ParkRailPoint, headings_) == kParkRailPointHeadingsOffset &&
-                  offsetof(ParkRailPoint, following_) == kParkRailPointFollowingOffset && sizeof(ParkRailPoint) == kParkRailPointByteSize,
+static_assert(core::layout_32bit(offsetof(ParkRailPoint, at_point_) == kParkRailPointAtPointOffset && offsetof(ParkRailPoint, headings_) == kParkRailPointHeadingsOffset &&
+                  offsetof(ParkRailPoint, following_) == kParkRailPointFollowingOffset && sizeof(ParkRailPoint) == kParkRailPointByteSize),
               "layout must match the original");
 
 constexpr std::size_t kParkRailStringPointChainOffset = 0x0C;
@@ -99,8 +100,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkRailString, point_chain_) == kParkRailStringPointChainOffset && offsetof(ParkRailString, vertex_total_) == kParkRailStringVertexTotalOffset &&
-                          offsetof(ParkRailString, point_group_) == kParkRailStringPointGroupOffset && sizeof(ParkRailString) == kParkRailStringByteSize,
+        static_assert(core::layout_32bit(offsetof(ParkRailString, point_chain_) == kParkRailStringPointChainOffset && offsetof(ParkRailString, vertex_total_) == kParkRailStringVertexTotalOffset &&
+                          offsetof(ParkRailString, point_group_) == kParkRailStringPointGroupOffset && sizeof(ParkRailString) == kParkRailStringByteSize),
                       "layout must match the original");
     }
 };
@@ -156,8 +157,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ParkRailSet, rail_total_) == kParkRailSetRailTotalOffset && offsetof(ParkRailSet, point_pool_) == kParkRailSetPointPoolOffset &&
-                          offsetof(ParkRailSet, label_) == kParkRailSetLabelOffset && sizeof(ParkRailSet) == kParkRailSetByteSize,
+        static_assert(core::layout_32bit(offsetof(ParkRailSet, rail_total_) == kParkRailSetRailTotalOffset && offsetof(ParkRailSet, point_pool_) == kParkRailSetPointPoolOffset &&
+                          offsetof(ParkRailSet, label_) == kParkRailSetLabelOffset && sizeof(ParkRailSet) == kParkRailSetByteSize),
                       "layout must match the original");
     }
 };

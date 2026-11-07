@@ -8,6 +8,7 @@
 #include <gsl/pointers>
 
 #include "base/core/all_ones.h"
+#include "base/core/layout_32bit.h"
 
 // The lowest layer of the memory manager: regions of memory, the allocators that carve them up from either
 // end, and the header in front of every allocated block.
@@ -21,16 +22,22 @@ class MemSource;
 
 // NOT ORIGINAL - the heaps' memory as one run of bytes: the main region, which holds every block any heap hands out
 // (the other regions are blocks of its heaps), set when the memory manager makes it. Headers and blocks are found by
-// their offset in it - a block's header is the 16 bytes before the block, the next header the bytes after it -
-// each reach checked against the run (a pointer that isn't a heap block ends the game with a report instead of
-// reading whatever lies before it).
+// their offset in it - a block's header is the kBlockHeaderSize bytes before the block, the next header the bytes
+// after it - each reach checked against the run (a pointer that isn't a heap block ends the game with a report
+// instead of reading whatever lies before it).
 std::span<uint8_t> heap_memory();
 void set_heap_memory(std::span<uint8_t> memory);
 // Where `place` is in the heaps' memory (its end included).
 uint32_t heap_offset(const void* place);
 
+// NOT ORIGINAL - the block header's alignment: its natural one on the 32-bit build (the original's 16 bytes), 16 on
+// x64 - there its two pointers make it 24 bytes, padded to 32 so that every block stays 16-byte aligned (blocks and
+// their sizes are whole multiples of 16).
+inline constexpr std::size_t kBlockAlignment = 16; // every block's start and size
+inline constexpr std::size_t kBlockHeaderAlign = core::kPointers32Bit ? alignof(void*) : kBlockAlignment;
+
 // In front of every block: the allocator that owns it, its size, and a marker.
-struct ChunkPrefix {
+struct alignas(kBlockHeaderAlign) ChunkPrefix {
     // The fields other code reads and sets.
     [[nodiscard]] MemSource* allocator() const { return allocator_; }
     void set_allocator(MemSource* value) { allocator_ = value; }
@@ -55,8 +62,8 @@ public:
     static ChunkPrefix* get_of(void* block);
     // The header made in the heaps' memory at `offset` (a block being split or given back in part).
     static gsl::owner<ChunkPrefix*> make_at(uint32_t offset);
-    // Where this header is in the heaps' memory; its block's start (16 bytes on) and end (the next header's place:
-    // block sizes are multiples of the header's 16 bytes).
+    // Where this header is in the heaps' memory; its block's start (kBlockHeaderSize bytes on) and end (the next
+    // header's place: block sizes are multiples of 16 bytes).
     [[nodiscard]] uint32_t offset() const { return heap_offset(this); }
     [[nodiscard]] uint32_t block_offset() const;
     [[nodiscard]] uint32_t end_offset() const { return block_offset() + size_; }
@@ -74,7 +81,8 @@ inline uint32_t ChunkPrefix::block_offset() const { return offset() + kBlockHead
 // Memory debugging: the heap reports each block it hands out, splits or resizes (before and after the change).
 // Compiled out of this build (the empty function at 0x005480A0), kept to show where the original reports.
 inline void debug_track_block(ChunkPrefix* /*block*/) {}
-static_assert(sizeof(ChunkPrefix) == kBlockHeaderBytes, "every block's header is 16 bytes");
+static_assert(core::layout_32bit(sizeof(ChunkPrefix) == kBlockHeaderBytes), "every block's header is 16 bytes");
+static_assert(sizeof(ChunkPrefix) % kBlockAlignment == 0, "blocks stay 16-byte aligned (32 bytes of header on x64)");
 
 // Mark a block as in use (returns it).
 void* mark_block_in_use(void* block);
@@ -181,7 +189,7 @@ public:
     static void destroy(ListNode* node);
 };
 constexpr size_t kListNodeBytes = 0x10;
-static_assert(sizeof(ListNode) == kListNodeBytes, "a list node is four words");
+static_assert(core::layout_32bit(sizeof(ListNode) == kListNodeBytes), "a list node is four words");
 
 class MemSource {
 public:

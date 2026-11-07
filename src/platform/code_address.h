@@ -26,11 +26,3 @@ F function_at(const void* address) noexcept
     static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
     return std::bit_cast<F>(std::bit_cast<uintptr_t>(address));
 }
-
-// A function kept in a 32-bit cell (a script symbol's native function, a compiled call's operand).
-template <typename F>
-F function_at(uint32_t cell) noexcept
-{
-    static_assert(sizeof(F) == sizeof(uint32_t), "a 32-bit build");
-    return std::bit_cast<F>(cell);
-}

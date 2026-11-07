@@ -303,7 +303,7 @@ auto ring_drawer(const GizmoView& view)
         V3 previous = centre + u * radius;
         for (int i = 1; i <= kSides; ++i) {
             const float angle = 2.0F * maths::kPi * static_cast<float>(i) / kSides;
-            const V3 next = centre + u * (radius * std::cos(angle)) + v * (radius * std::sin(angle));
+            const V3 next = centre + u * (radius * maths::runtime32::cos(angle)) + v * (radius * maths::runtime32::sin(angle));
             world_line(previous, next, colour, 1.0F);
             previous = next;
         }
@@ -572,8 +572,8 @@ void add_light_marker(const GizmoView& view, const NodeGizmo& gizmo, const Marke
     overlay.circles.push_back({.x = px, .y = py, .radius = radius, .argb = colour, .filled = true, .thickness = 1.0F});
     for (int ray = 0; ray < 4; ++ray) {
         const float angle = (maths::kPi * 0.25F) + (maths::kPi * 0.5F * static_cast<float>(ray));
-        const float cx = std::cos(angle);
-        const float cy = std::sin(angle);
+        const float cx = maths::runtime32::cos(angle);
+        const float cy = maths::runtime32::sin(angle);
         line(px + (cx * radius * kSparkInner), py + (cy * radius * kSparkInner), px + (cx * radius * kSparkOuter),
              py + (cy * radius * kSparkOuter), colour, kSparkWidth);
     }
@@ -680,8 +680,8 @@ void add_family_marker(const GizmoView& view, const NodeGizmo& gizmo, const Mark
         // A spark: three strokes.
         for (int stroke = 0; stroke < 3; ++stroke) {
             const float angle = maths::kPi * static_cast<float>(stroke) / 3.0F;
-            const float cx = std::cos(angle) * radius;
-            const float cy = std::sin(angle) * radius;
+            const float cx = maths::runtime32::cos(angle) * radius;
+            const float cy = maths::runtime32::sin(angle) * radius;
             line(px - cx, py - cy, px + cx, py + cy, colour, kMarkerLineWidth);
         }
         break;

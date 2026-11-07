@@ -8,7 +8,7 @@
 
 #include "formats/byte_stream.h"
 #include <cstring>
-#include "base/core/pointer_cell.h"
+#include "base/core/address.h"
 
 // NOT ORIGINAL - the animation format (.ska, PC: "x.ska.xbx"; also cutscenes' camera / object animations), its
 // headers and custom keys read through util::ByteReader and its sections laid out and checked before the frame data
@@ -72,27 +72,27 @@ struct AnimLayout {
 };
 
 // The sections as the frame data holds them (in place: the loaded animation's own bytes).
-inline uint16_t* rotation_size_list(const AnimLayout& layout) { return cell::at_address<uint16_t>(layout.rotation_sizes); }
+inline uint16_t* rotation_size_list(const AnimLayout& layout) { return core::at_address<uint16_t>(layout.rotation_sizes); }
 inline uint16_t* translation_size_list(const AnimLayout& layout)
 {
-    return cell::at_address<uint16_t>(layout.translation_sizes);
+    return core::at_address<uint16_t>(layout.translation_sizes);
 }
-inline uint8_t* key_table_bytes(const AnimLayout& layout) { return cell::at_address<uint8_t>(layout.key_table); }
-inline uint32_t* bone_name_list(const AnimLayout& layout) { return cell::at_address<uint32_t>(layout.bone_names); }
+inline uint8_t* key_table_bytes(const AnimLayout& layout) { return core::at_address<uint8_t>(layout.key_table); }
+inline uint32_t* bone_name_list(const AnimLayout& layout) { return core::at_address<uint32_t>(layout.bone_names); }
 inline uint32_t* partial_bone_bits(const AnimLayout& layout)
 {
-    return cell::at_address<uint32_t>(layout.partial_bones);
+    return core::at_address<uint32_t>(layout.partial_bones);
 }
-inline uint8_t* key_count_bytes(const AnimLayout& layout) { return cell::at_address<uint8_t>(layout.key_counts); }
-inline uint8_t* rotation_key_bytes(const AnimLayout& layout) { return cell::at_address<uint8_t>(layout.rotation_keys); }
+inline uint8_t* key_count_bytes(const AnimLayout& layout) { return core::at_address<uint8_t>(layout.key_counts); }
+inline uint8_t* rotation_key_bytes(const AnimLayout& layout) { return core::at_address<uint8_t>(layout.rotation_keys); }
 inline uint8_t* translation_key_bytes(const AnimLayout& layout)
 {
-    return cell::at_address<uint8_t>(layout.translation_keys);
+    return core::at_address<uint8_t>(layout.translation_keys);
 }
 // The custom keys up to the animation's end.
 inline util::ByteReader custom_key_reader(const AnimLayout& layout)
 {
-    return {cell::at_address<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys};
+    return {core::at_address<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys};
 }
 
 // A bone's two key counts with kWideCounts: i16 each (`index`: 2 * bone, + 1 for the translations).

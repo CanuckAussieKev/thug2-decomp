@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include <gsl/pointers>
 #include <array>
@@ -165,7 +166,7 @@ struct DownloadRequest {
     uint32_t progress_script_; // +0x110
     uint32_t error_script_;    // +0x114 (run on failure with ghttp's result 11)
 };
-static_assert(sizeof(DownloadRequest) == kDownloadRequestBytes, "built in the callers' stack frames");
+static_assert(core::layout_32bit(sizeof(DownloadRequest) == kDownloadRequestBytes), "built in the callers' stack frames");
 
 constexpr size_t kVaultManSourcePathSize = 0x80;
 constexpr size_t kVaultManSummaryTextSize = 0x200;

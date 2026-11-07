@@ -73,8 +73,8 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
         return;
     }
     // Along the ground: the heading's forward and right (as frame_from_yaw_pitch's at pitch 0).
-    const V3 forward = {.x = std::sin(yaw), .y = 0.0F, .z = std::cos(yaw)};
-    const V3 right = {.x = -std::cos(yaw), .y = 0.0F, .z = std::sin(yaw)}; // (the frame's right: up x back)
+    const V3 forward = {.x = maths::runtime32::sin(yaw), .y = 0.0F, .z = maths::runtime32::cos(yaw)};
+    const V3 right = {.x = -maths::runtime32::cos(yaw), .y = 0.0F, .z = maths::runtime32::sin(yaw)}; // (the frame's right: up x back)
     const float factor = std::clamp(input.forward, -1.0F, 1.0F);
     const float radius = std::clamp(input.right, -1.0F, 1.0F);
     V3 wish = forward * factor + right * radius;
@@ -199,7 +199,7 @@ int slice_at(float dx, float dy, int count, float deadzone)
         return -1;
     }
     // (clockwise from straight up: screen y points down)
-    float angle = std::atan2(dx, -dy);
+    float angle = maths::runtime32::atan2(dx, -dy);
     if (angle < 0.0F) {
         angle += kFullTurnFactor * maths::kPi;
     }
@@ -211,8 +211,8 @@ int slice_at(float dx, float dy, int count, float deadzone)
 void slice_direction(int index, int count, float* dx, float* dy)
 {
     const float angle = count > 0 ? 2.0F * maths::kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0F;
-    *dx = std::sin(angle);
-    *dy = -std::cos(angle);
+    *dx = maths::runtime32::sin(angle);
+    *dy = -maths::runtime32::cos(angle);
 }
 
 float get_stick(StickRead stick)

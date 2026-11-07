@@ -67,7 +67,7 @@ void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
 
 void get_wheel(Orbit* orbit, float steps)
 {
-    orbit->zoom = std::clamp(orbit->zoom * std::pow(kZoomStep, steps), kMinZoom, kMaxZoom);
+    orbit->zoom = std::clamp(orbit->zoom * maths::runtime32::pow(kZoomStep, steps), kMinZoom, kMaxZoom);
 }
 
 float fit_distance(FitAt fit_at)
@@ -75,7 +75,7 @@ float fit_distance(FitAt fit_at)
     const auto radius = fit_at.radius;
     const auto half_angle = fit_at.half_angle_;
     const auto margin = fit_at.margin;
-    const float sine = std::sin(half_angle);
+    const float sine = maths::runtime32::sin(half_angle);
     return sine > kTinySine ? radius * margin / sine : radius * margin * kTinySineReciprocal;
 }
 
@@ -225,7 +225,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     float radius = 0.0F;
     sphere_of(min, max, kBoundsPadding, &centre, &radius);
     const Lens lens = lens_for({.angle_degrees_ = kAngle, .aspect = kSquareAspect});
-    const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
+    const float half_angle = maths::runtime32::atan(std::min(lens.tan_x_, lens.tan_y_));
     const Eye eye = orbit_eye(centre, fit_distance({.radius = radius, .half_angle_ = half_angle, .margin = kMargin}) / orbit.zoom, orbit);
     // (the camera's state render::choose_camera and the instance render change, saved and put back)
     const render::ViewState saved = render::renderer().save_view();

@@ -97,6 +97,11 @@ struct ScreenLineVertex {
     float u, v;
 };
 
+// The stack bytes a caller keeps for a primitive drawer made in place (Device::make_primitive_at: the lens flare's
+// quads, as the original's 0x200). The backends' drawers must fit (theirs assert it: 0x158 bytes on the 32-bit build,
+// 0x1A0 on x64).
+inline constexpr std::size_t kStackPrimitiveBytes = 0x200;
+
 // The primitives' depth test (set_primitive_depth_test): the state's index and its value.
 struct DepthTest {
     int state{};
@@ -155,7 +160,7 @@ public:
     virtual gsl::owner<ModelLights*> spawn_model_lights() = 0;
     // A primitive drawer (pc_primitive.h; `own` as the engine's constructor takes it): on the heap (the spawned polygons',
     // the chains' lines), or made in `storage` on the caller's stack (the lens flare's quads: the original kept 0x200
-    // bytes there for one) and destroyed there by its virtual destructor.
+    // bytes there for one - kStackPrimitiveBytes) and destroyed there by its virtual destructor.
     virtual gsl::owner<VertexRun*> create_primitive(int own) = 0;
     virtual gsl::owner<VertexRun*> make_primitive_at(std::span<std::byte> storage, int own) = 0;
     // Texture dictionaries: from a file, from memory, an empty one (pc_texture.h).

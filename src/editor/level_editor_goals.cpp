@@ -1421,7 +1421,7 @@ bool add_checkpoint(const std::string& id)
     push_undo();
     Goal& goal = core::at(level_editor_goals_state().goals_, index);
     const Point& last = goal.points.back();
-    const V3 ahead = {.x = std::sin(last.heading), .y = 0.0F, .z = std::cos(last.heading)};
+    const V3 ahead = {.x = maths::runtime32::sin(last.heading), .y = 0.0F, .z = maths::runtime32::cos(last.heading)};
     goal.points.push_back(
         {.pos = get_grounded(last.pos + ahead * kPointSpacing), .heading = last.heading, .height = 0.0F});
     sync_nodes({goal});
@@ -1677,7 +1677,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
                 line(point.pos, top, colour, 1.0F); // (a letter floats its height above its node)
             }
             // (its heading: a short arrow on the ground)
-            const V3 ahead = {.x = std::sin(point.heading) * 40.0F, .y = 0.0F, .z = std::cos(point.heading) * 40.0F};
+            const V3 ahead = {.x = maths::runtime32::sin(point.heading) * 40.0F, .y = 0.0F, .z = maths::runtime32::cos(point.heading) * 40.0F};
             line(point.pos, point.pos + ahead, colour, lit ? kLitWidth : kUnlitWidth);
             float x = 0.0F;
             float y = 0.0F;

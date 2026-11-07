@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "game/goals/objective.h"
 
 namespace goals {
@@ -32,7 +33,7 @@ public:
     // score, else the goal's) its flag set and on to the next spot, else the goal lost; 0xA32FAF13 cleared.
     void land();
 };
-static_assert(sizeof(LetterGameObjective) == kLetterGameObjectiveBytes, "the size the goal manager allocated");
+static_assert(core::layout_32bit(sizeof(LetterGameObjective) == kLetterGameObjectiveBytes), "the size the goal manager allocated");
 
 // A network game mode's goal (vtable 0x0064E150, 0x74 bytes).
 class OnlineObjective final : public Objective {
@@ -68,7 +69,7 @@ public:
     // Expire.
     void expire() override;
 };
-static_assert(sizeof(OnlineObjective) == kOnlineObjectiveBytes, "the size the goal manager allocated");
+static_assert(core::layout_32bit(sizeof(OnlineObjective) == kOnlineObjectiveBytes), "the size the goal manager allocated");
 
 // A race (vtable 0x0064E1C8, 0x7C bytes): laps of race_waypoints.
 class RaceObjective final : public Objective {
@@ -100,6 +101,6 @@ public:
     // (the flags reset) or the end. False if the goal should expire.
     bool advance_race_gate(uint32_t id);
 };
-static_assert(sizeof(RaceObjective) == kRaceObjectiveBytes, "the size the goal manager allocated");
+static_assert(core::layout_32bit(sizeof(RaceObjective) == kRaceObjectiveBytes), "the size the goal manager allocated");
 
 } // namespace goals

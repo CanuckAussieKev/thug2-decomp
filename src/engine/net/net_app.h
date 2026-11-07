@@ -13,6 +13,7 @@
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
 #include "engine/net/net_address.h"
+#include "engine/net/transport.h"
 #include <gsl/pointers>
 #include <memory>
 
@@ -187,7 +188,7 @@ struct AppHost {
     tasks::SchedulerTask* process_task() { return process_task_.get(); }
     tasks::SchedulerTask* metrics_task() { return metrics_task_.get(); }
     // 0x00456B60
-    [[nodiscard]] uint32_t get_socket() const { return sock_; }
+    [[nodiscard]] SocketId get_socket() const { return sock_; }
     // 0x00456B70
     void set_outside_packet_hook(UnknownPacketCallback handler) { unknown_packet_sink_ = handler; }
     // 0x00456F90
@@ -346,7 +347,7 @@ struct AppHost {
     [[nodiscard]] int frame_count() const { return frame_count_; }
     memory::ListNode& list1414() { return list1414_; }
     [[nodiscard]] const memory::ListNode& list1414() const { return list1414_; }
-    [[nodiscard]] uint32_t sock() const { return sock_; }
+    [[nodiscard]] SocketId sock() const { return sock_; }
     [[nodiscard]] bool linked_up() const { return linked_up_; }
     void set_linked_up(bool value) { linked_up_ = value; }
     [[nodiscard]] Hub* supervisor() const { return supervisor_; } // 0x00456AF0
@@ -376,7 +377,7 @@ private:
     int repeat_arrivals_{};         // +0x140C timestamps seen twice
     int frame_count_{};             // +0x1410 frames processed (pump_incoming_traffic)
     memory::ListNode list1414_{};   // +0x1414 lists::Elem<App> (data = the app)
-    uint32_t sock_{};               // +0x1428
+    SocketId sock_{};               // +0x1428
     std::array<uint8_t, kAppHostLocalAddressSize> local_address_{}; // +0x142C sockaddr_in (Bind)
     bool linked_up_{};              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     Hub* supervisor_{};             // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)

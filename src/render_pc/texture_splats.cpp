@@ -38,6 +38,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/effects_state.h"
 #include "base/maths/vec2.h"
+#include "base/maths/trig.h"
 
 namespace render {
 
@@ -778,7 +779,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
 {
     SplatCast cast{.params = params};
     const float length = ray_direction(params, cast.direction);
-    cast.cone = std::cos(params->cone_angle());
+    cast.cone = maths::runtime32::cos(params->cone_angle());
     maths::Mat4 combined{};
     splat_projection(params, cast.direction, length, combined);
     cast.combined = &combined;

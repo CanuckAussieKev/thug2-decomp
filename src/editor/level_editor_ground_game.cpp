@@ -216,7 +216,7 @@ void blank_other_meshes(render::Geom* geom, const scenery::GeomMeshes& meshes, V
             }
             if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices(), core::at(other->index_counts(), k)),
                                     [](uint16_t v) { return v != 0; })) {
-                std::memset(buffer->indices(), 0, core::at(other->index_counts(), k) * 2U);
+                std::memset(buffer->indices(), 0, size_t{core::at(other->index_counts(), k)} * 2U);
                 upload_indices(buffer);
             }
         }
@@ -360,7 +360,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     // (new HitTreeNode[1]: one leaf of every face)
     leaf->make_leaf(static_cast<uint16_t>(faces), leaf_faces);
     tri->set_bsp(leaf);
-    tri->set_up_all_faces();
+    static_cast<void>(tri->set_up_all_faces());
     // (the face-rejection bytes: one a face, on the bottom-up heap as StaticCollider::Replicate keeps them)
     if (coll->octets()) {
         memory::free_malloc(coll->octets());

@@ -7,6 +7,7 @@
 #include <array>
 
 #include "base/core/checksums.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/park_editor.h"
@@ -20,7 +21,7 @@ namespace park_editing {
 
 namespace {
 
-constexpr int kParkAssemblerBytes = 0x4A4;
+constexpr int kParkAssemblerBytes = 0x4A4; // (the original's allocation: sizeof on x64)
 constexpr std::size_t kPieceNameSize = 128;
 constexpr double kHalf = 0.5;
 constexpr std::uint32_t kPieceKindMask =
@@ -46,7 +47,8 @@ ParkLayout::ParkLayout()
     for (CellBox& area : blocked_areas_) {
         area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     }
-    void* memory = memory::alloc(kParkAssemblerBytes);
+    static_assert(core::layout_32bit(sizeof(ParkAssembler) == kParkAssemblerBytes), "the original allocates this many bytes");
+    void* memory = memory::alloc(sizeof(ParkAssembler));
     builder_ = memory ? memory::construct_in<ParkAssembler>(memory) : nullptr;
     std::memset(cell_metas_.data(), 0, sizeof(cell_metas_));
     // The shell's blocks of each of the 8 kinds.

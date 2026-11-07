@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/lists/key_map.h"
 #include "base/maths/rect.h"
@@ -66,7 +67,7 @@ struct FontSlot {
 };
 constexpr std::size_t kFontSlotBytes = 0x1C;
 
-static_assert(sizeof(FontSlot) == kFontSlotBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(FontSlot) == kFontSlotBytes), "layout must match the original");
 
 constexpr int kFontSlots = 16;
 

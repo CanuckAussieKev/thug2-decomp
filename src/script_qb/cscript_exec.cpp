@@ -247,7 +247,7 @@ bool QbScript::execute_command(Tokens& pc)
         pc = parse_expression(pc, args_.get(), value);
         pc_ = pc.address();
         if (value_kind(*value) != QbValueKind::kName) {
-            const bool result = value->value.word() != 0;
+            const bool result = !value->value.empty();
             delete_component(value);
             return result;
         }

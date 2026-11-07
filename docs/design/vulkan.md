@@ -556,7 +556,8 @@ Direct3D 9 (V7).
   (Direct3D 9's depth units as 2^24 steps; the slope-scaled bias as it is), the blend factor, the primitive within its
   class and the vertex stride. Pipelines are made on first use and kept; the GLSL's SPIR-V is kept on disk by its hash
   (`thug2-decomp-vulkan-shaders.bin`) and the driver's pipeline cache beside it (`thug2-decomp-vulkan-pipelines.bin`),
-  written every 10 s when something new was made. foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
+  written every 10 s when something new was made (the 64-bit build's two files end in `-x64`: a 32-bit driver's cache
+  is never given to the 64-bit one). foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
   Debug build the first time, none after).
 - **The key from the state block** (`draw_shader_key`): the render states, the four stages' operations, arguments,
   coordinate indices and transform flags, and the bound pixel shader's program. A pixel shader is recognised from the

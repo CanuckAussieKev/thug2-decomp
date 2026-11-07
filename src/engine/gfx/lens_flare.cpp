@@ -158,7 +158,7 @@ uint8_t issue_query(render::ViewRegion* camera, float left, float top, float rig
 // mode (+0x0C: the folded setter 0x00428270), +0x14 set (the folded setter 0x00407A50), readied and drawn from arrays
 // - corners, colours, texture coordinates (draw_if_ready). NOT ORIGINAL: the graphics backend makes the drawer in the
 // stack bytes kept for it (render::Device::make_primitive_at); it is destroyed with the scope, as the original's.
-constexpr std::size_t kStackPrimitiveBytes = 0x200;
+using render::kStackPrimitiveBytes;
 class StackPrimitive {
 public:
     explicit StackPrimitive(int own) : run_(render::device().make_primitive_at(storage_, own)) {}

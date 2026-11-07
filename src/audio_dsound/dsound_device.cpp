@@ -25,7 +25,7 @@ namespace audio::dsound {
 namespace {
 
 constexpr size_t kDscapsBytes = 0x60;     // DirectSound's structures as this build's headers lay them out
-constexpr size_t kBufferDescBytes = 0x24;
+constexpr size_t kBufferDescBytes = (4 * sizeof(uint32_t)) + sizeof(void*) + 16; // 0x24 on 32-bit, 0x28 on 64-bit
 constexpr size_t kGuidBytes = 16;
 
 // DirectSound's GUIDs, as the exe's data has them (dsound.lib's): IID_IDirectSound3DBuffer, IID_IDirectSound3DListener.
@@ -188,7 +188,35 @@ public:
         object(buffer)->SetPosition(position.x, position.y, position.z, DS3D_DEFERRED);
     }
 
-    // Bink's own DirectSound output takes the level as the game set it.
+    // (NOT ORIGINAL: the FFmpeg codec's streaming buffers - the original's Bink library made these calls on its own buffers)
+    bool buffer_position(SoundBuffer* buffer, uint32_t& position) override
+    {
+        DWORD play = 0;
+        const bool read = object(buffer)->GetCurrentPosition(&play, nullptr) == DS_OK;
+        position = play;
+        return read;
+    }
+
+    void write_buffer(SoundBuffer* buffer, uint32_t at, std::span<const uint8_t> samples) override
+    {
+        void* first = nullptr;
+        DWORD first_bytes = 0;
+        void* second = nullptr;
+        DWORD second_bytes = 0;
+        if (samples.empty() || object(buffer)->Lock(at, static_cast<DWORD>(samples.size()), &first, &first_bytes,
+                                                     &second, &second_bytes, 0) != DS_OK) {
+            return;
+        }
+        std::memcpy(first, samples.data(), first_bytes);
+        if (second) {
+            std::memcpy(second, samples.subspan(first_bytes).data(), second_bytes);
+        }
+        object(buffer)->Unlock(first, first_bytes, second, second_bytes);
+    }
+
+    bool resume_buffer(SoundBuffer* buffer) override { return object(buffer)->Play(0, 0, DSBPLAY_LOOPING) == DS_OK; }
+
+    // The movies' and streams' tracks take the level as the game set it.
     int track_volume(int volume) override { return volume; }
 };
 

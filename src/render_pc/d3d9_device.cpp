@@ -15,6 +15,7 @@
 #include "base/core/checksums.h"
 #include "base/core/down_cast.h"
 #include "base/core/no_destroy.h"
+#include "base/maths/fpu_precision.h"
 #include "base/maths/rect.h"
 #include "render_pc/bitmap_texture.h"
 #include "engine/memory/mem.h"
@@ -78,6 +79,9 @@ public:
     bool reset() override
     {
         const bool reset = render::gpu_context().reset();
+        // NOT ORIGINAL - Direct3D 9's Reset loaded its x87 word again: the same word whatever the renderer
+        // (base/maths/fpu_precision.h).
+        maths::use_device_fpu_precision();
         // NOT ORIGINAL - the Gpu's state block (engine/gfx/gpu.h) to the defaults the reset device has.
         render::gpu().reset_state_block();
         return reset;
@@ -113,6 +117,8 @@ public:
     gsl::owner<VertexRun*> create_primitive(int own) override { return memory::make_owned<PcPrimitive>(own); }
     gsl::owner<VertexRun*> make_primitive_at(std::span<std::byte> storage, int own) override
     {
+        static_assert(sizeof(PcPrimitive) <= kStackPrimitiveBytes && alignof(PcPrimitive) <= alignof(std::max_align_t),
+                      "the drawer fits the stack bytes kept for it (0x158 bytes; 0x1A0 on x64)");
         Expects(storage.size() >= sizeof(PcPrimitive));
         return memory::construct_in<PcPrimitive>(storage.data(), own);
     }

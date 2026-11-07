@@ -14,6 +14,7 @@
 
 #include "base/core/checksums.h"
 #include "base/core/dbg.h"
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
@@ -36,7 +37,7 @@
 
 namespace pre {
 
-static_assert(sizeof(ArchiveFile::FileInfo) == kFileInfoBytes, "allocated as 0x14 bytes by the original");
+static_assert(core::layout_32bit(sizeof(ArchiveFile::FileInfo) == kFileInfoBytes), "allocated as 0x14 bytes by the original");
 
 namespace {
 

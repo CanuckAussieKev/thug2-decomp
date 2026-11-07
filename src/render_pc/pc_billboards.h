@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/arena_alloc.h"
 #include "engine/gfx/window2d.h"
 
@@ -50,7 +51,7 @@ public:
 };
 constexpr std::size_t kBillboardBatchBytes = 0x14;
 
-static_assert(sizeof(BillboardBatch) == kBillboardBatchBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(BillboardBatch) == kBillboardBatchBytes), "layout must match the original");
 
 constexpr std::size_t kBillboardSetViewOffset = 0x404;
 constexpr std::size_t kBillboardSetFlatRightOffset = 0x444;
@@ -94,7 +95,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BillboardSet, view_) == kBillboardSetViewOffset && offsetof(BillboardSet, flat_right_) == kBillboardSetFlatRightOffset,
+        static_assert(core::layout_32bit(offsetof(BillboardSet, view_) == kBillboardSetViewOffset && offsetof(BillboardSet, flat_right_) == kBillboardSetFlatRightOffset),
                       "layout must match the original");
     }
 };
@@ -133,7 +134,7 @@ public:
 };
 constexpr std::size_t kPcWindowBytes = 0x18;
 
-static_assert(sizeof(PcWindow) == kPcWindowBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(PcWindow) == kPcWindowBytes), "layout must match the original");
 // 0x004CD8A0: ten windows (640 x 480) made onto the free list (null for any without memory - written through, as
 // the original).
 void create_window_pool();

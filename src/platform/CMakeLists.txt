@@ -7,7 +7,6 @@ add_library(thug2_platform STATIC
     crash.cpp
     crt.cpp
     debug_log.cpp
-    gamespy.cpp
     mute_audio.cpp
     output_sinks.cpp
     platform_config.cpp
@@ -22,5 +21,11 @@ add_library(thug2_platform STATIC
 )
 target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
 # sdl3: the window and its events; ole32: the audio session (mute_audio); d3d9, winmm: crt.h's imports;
-# gamespy_sdk: gamespy.cpp (it links Winsock, ws2_32, itself); stb_image_write: the PNG files
-target_link_libraries(thug2_platform PUBLIC thug2_base sdl3 ole32 d3d9 winmm gamespy_sdk stb_image_write)
+# stb_image_write: the PNG files
+target_link_libraries(thug2_platform PUBLIC thug2_base sdl3 ole32 d3d9 winmm stb_image_write)
+# The GameSpy glue (gamespy.cpp: it links the SDK, which links Winsock, ws2_32, itself) - in a configure that builds
+# the SDK (THUG2_GAMESPY_SDK: x86 and, since X9, x64).
+if(THUG2_GAMESPY_SDK)
+    target_sources(thug2_platform PRIVATE gamespy.cpp)
+    target_link_libraries(thug2_platform PUBLIC gamespy_sdk)
+endif()

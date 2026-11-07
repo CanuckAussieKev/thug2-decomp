@@ -5,7 +5,7 @@
 #include <cstring>
 #include <span>
 #include "base/core/checked_index.h"
-#include "base/core/pointer_cell.h"
+#include "base/core/address.h"
 #include "formats/byte_stream.h"
 
 namespace collision_format {
@@ -124,7 +124,7 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
     if (!read_collision_header(reader, header)) {
         return false;
     }
-    auto start = cell::address(file.data());
+    auto start = core::address(file.data());
     // (as the game computes them - in 32 bits on its platform; counts past what a file can hold fail below)
     const uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
     const uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) +
@@ -139,7 +139,8 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
     layout->vertex_bytes = layout->vertices + static_cast<uintptr_t>(vertex_size);
     layout->faces = align(layout->vertex_bytes + header->vertex_byte_count, 4);
     layout->face_buffers =
-        layout->faces + (kLargeFaceBytes * header->large_face_count) + (kSmallFaceBytes * header->small_face_count);
+        layout->faces + (kLargeFaceBytes * static_cast<uintptr_t>(header->large_face_count)) +
+        (kSmallFaceBytes * static_cast<uintptr_t>(header->small_face_count));
     layout->node_size_word = layout->faces + align(static_cast<uintptr_t>(face_size), 4);
     layout->end = start + size;
     if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start) {
@@ -153,7 +154,7 @@ bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, C
 
 bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeader& header, const CollisionLayout& layout)
 {
-    const uintptr_t start = cell::address(file.data());
+    const uintptr_t start = core::address(file.data());
     const uint64_t vertex_section = layout.vertex_bytes - layout.vertices;
     const uint64_t face_section = layout.face_buffers - layout.faces;
     const std::span<const uint8_t> nodes = file.subspan(layout.nodes - start, layout.face_lists - layout.nodes);
@@ -170,6 +171,7 @@ bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeade
             !within(object.faces,
                     static_cast<uint64_t>(object.face_count) * (object.small_faces ? kSmallFaceBytes : kLargeFaceBytes),
                     face_section) ||
+            (object.tree & 3) != 0 ||
             !check_tree(nodes, lists, {.node = object.tree, .face_count_ = object.face_count}, 0, &visits)) {
             return false;
         }
@@ -190,34 +192,42 @@ void set_word_at(std::span<uint8_t> bytes, size_t offset, uint32_t value)
         core::at(bytes, offset + k) = static_cast<uint8_t>(value >> (kBitsPerByte * k));
     }
 }
-void add_base(std::span<uint8_t> bytes, size_t offset, uintptr_t base)
+// The link from `holder` to `target` (both addresses): collision_format.h's link_from.
+uint32_t link_between(uintptr_t holder, uintptr_t target)
 {
-    set_word_at(bytes, offset, word_at(bytes, offset) + static_cast<uint32_t>(base));
+    return link_from(core::at_address<const void>(holder), core::at_address<const void>(target));
 }
 
-// A collision tree's node and the bases its offsets are moved by (nodes, faces).
+// A record's array offset at `offset` made the link from the record (at `record`) to its place in its section.
+void link_array(std::span<uint8_t> bytes, size_t offset, uintptr_t record, uintptr_t section)
+{
+    set_word_at(bytes, offset, link_between(record, section + word_at(bytes, offset)));
+}
+
+// A collision tree's node and the sections its offsets are into (nodes, faces).
 struct TreeBases {
     size_t node{};
-    uint32_t node_base_{};
-    uint32_t face_base_{};
+    uintptr_t node_base_{};
+    uintptr_t face_base_{};
 };
 
-// 0x00416000 (render::HitTreeNode's, cdecl). `nodes`: the node section; `node`: a node's offset in it. The children's
-// offsets are the links' (the flag bits off) before they are made addresses.
+// 0x00416000 (render::HitTreeNode's, cdecl). `nodes`: the node section (at `node_base_`); `node`: a node's offset in
+// it. The children's offsets are the links' (the flag bits off) before they are made links from the node.
 void relocate_tree(std::span<uint8_t> nodes, TreeBases bases)
 {
     const auto node = bases.node;
     const auto node_base = bases.node_base_;
     const auto face_base = bases.face_base_;
+    const uintptr_t node_address = node_base + node;
     const uint32_t tag = word_at(nodes, node);
     const uint32_t link = word_at(nodes, node + 4);
     if ((tag & 3) == 3) {
-        set_word_at(nodes, node + 4, face_base + (link * 2));
+        set_word_at(nodes, node + 4, link_between(node_address, face_base + (static_cast<uintptr_t>(link) * 2)));
         return;
     }
-    const uint32_t moved = ((link & ~3U) + node_base) | (link & 3);
-    set_word_at(nodes, node + 4, moved);
     const size_t children = link & ~3U;
+    const uint32_t moved = link_between(node_address, node_base + children) | (link & 3);
+    set_word_at(nodes, node + 4, moved);
     const bool swapped = (moved & 1) != 0;
     relocate_tree(nodes, {.node = children + (swapped ? kTreeNodeBytes : 0), .node_base_ = node_base, .face_base_ = face_base});
     relocate_tree(nodes, {.node = children + (swapped ? 0 : kTreeNodeBytes), .node_base_ = node_base, .face_base_ = face_base});
@@ -228,15 +238,17 @@ void relocate_tree(std::span<uint8_t> nodes, TreeBases bases)
 
 void relocate_object(std::span<uint8_t> file, int index, const CollisionLayout& layout)
 {
-    const uintptr_t start = cell::address(file.data());
-    const std::span<uint8_t> record =
-        file.subspan(kHeaderSize + (static_cast<size_t>(index) * kObjectSize), kObjectSize);
-    const uint32_t tree = word_at(record, 0x34);
-    add_base(record, kObjectVerticesOffset, layout.vertices);
-    add_base(record, kObjectVertexBytesOffset, layout.vertex_bytes);
-    add_base(record, kObjectFacesOffset, layout.faces);
-    add_base(record, kObjectTreeOffset, layout.nodes);
-    relocate_tree(file.subspan(layout.nodes - start, layout.face_lists - layout.nodes), {.node = tree, .node_base_ = static_cast<uint32_t>(layout.nodes), .face_base_ = static_cast<uint32_t>(layout.face_lists)});
+    const uintptr_t start = core::address(file.data());
+    const size_t at = kHeaderSize + (static_cast<size_t>(index) * kObjectSize);
+    const std::span<uint8_t> record = file.subspan(at, kObjectSize);
+    const uintptr_t record_address = start + at;
+    const uint32_t tree = word_at(record, kObjectTreeOffset);
+    link_array(record, kObjectVerticesOffset, record_address, layout.vertices);
+    link_array(record, kObjectVertexBytesOffset, record_address, layout.vertex_bytes);
+    link_array(record, kObjectFacesOffset, record_address, layout.faces);
+    link_array(record, kObjectTreeOffset, record_address, layout.nodes);
+    relocate_tree(file.subspan(layout.nodes - start, layout.face_lists - layout.nodes),
+                  {.node = tree, .node_base_ = layout.nodes, .face_base_ = layout.face_lists});
 }
 
 uint8_t& FaceTable::byte(int face, int offset) const

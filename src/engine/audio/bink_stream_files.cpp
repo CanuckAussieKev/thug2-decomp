@@ -147,10 +147,10 @@ long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size
         return kInvalidArg;
     }
     media::movie().set_video_on_off(bink, 0);
-    // (the file's first four bytes, "BIKi")
+    // (the file's first four bytes, "BIKi" - all the original keeps of where it was opened from: tick_frame)
     std::memcpy(from_where_.data(), core::at(stream_files(), slot).data, sizeof(uint32_t));
     wad_entry_ = slot;
-    from_handle_ = true;
+    from_memory_ = true;
     return 0;
 }
 

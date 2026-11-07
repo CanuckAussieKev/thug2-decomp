@@ -4,14 +4,14 @@
 # time and checked against its SHA-256 - not stored in this repo. Only the modules the game uses are built, as the
 # static C library `gamespy_sdk` (called through src/platform/gamespy.h).
 #
-# Two changes are made to the source. The peer SDK's chat server name is a constant there ("peerchat."
-# GSI_DOMAIN_NAME, Peer/peerOperations.c); it becomes a variable, peerChatServerAddress, like the SDK's other host
-# names, so the online domain (OnlineDomain) can be set at run time (src/platform/gamespy.cpp). And the chat SDK's
-# nick checks (Chat/chatMain.h) are as the game's own copy of the SDK has them: that one checks nothing but "not
-# empty" before sending the nick (the peer cuts it at 63 characters), while the 2007 SDK refuses nicks of 21 or more
-# characters and any outside its character set - which lacks the backslash the game's nick rules allow - with a
-# nick error the game's callback ignores (the connect would stall). So the length limit is the peer's own (64) and
-# the backslash is valid.
+# Two changes are made to the source for the game (and the 64-bit ones, further down). The peer SDK's chat server name
+# is a constant there ("peerchat." GSI_DOMAIN_NAME, Peer/peerOperations.c); it becomes a variable,
+# peerChatServerAddress, like the SDK's other host names, so the online domain (OnlineDomain) can be set at run time
+# (src/platform/gamespy.cpp). And the chat SDK's nick checks (Chat/chatMain.h) are as the game's own copy of the SDK
+# has them: that one checks nothing but "not empty" before sending the nick (the peer cuts it at 63 characters), while
+# the 2007 SDK refuses nicks of 21 or more characters and any outside its character set - which lacks the backslash
+# the game's nick rules allow - with a nick error the game's callback ignores (the connect would stall). So the length
+# limit is the peer's own (64) and the backslash is valid.
 #
 # MinGW-w64: the SDK's win32 platform layer is plain Winsock / Win32 (no MSVC-only code in the modules built here,
 # as far as this build shows - not tried yet); gsPlatform.h picks the platform from _WIN32.
@@ -64,6 +64,34 @@ else()
     endif()
 endif()
 
+# The 64-bit changes (docs/gamespy.md "64-bit builds"). Each is a text replaced in the SDK's source (every
+# occurrence; idempotent: once done, the new text is there and the old one gone). On a 32-bit build each new line
+# compiles to the same code as the old one: intptr_t is int there, the same width as the unsigned long it replaces.
+function(thug2_gamespy_replace file old new)
+    file(READ "${THUG2_GAMESPY_DIR}/${file}" text)
+    string(FIND "${text}" "${old}" at)
+    if(NOT at EQUAL -1)
+        string(REPLACE "${old}" "${new}" text "${text}")
+        file(WRITE "${THUG2_GAMESPY_DIR}/${file}" "${text}")
+    else()
+        string(FIND "${text}" "${new}" at)
+        if(at EQUAL -1)
+            message(FATAL_ERROR "GameSpy SDK: ${file} is not the expected source")
+        endif()
+    endif()
+endfunction()
+# 1. The peer SDK keeps each queued callback's address in an int (PEERCBType): a 64-bit build cut it to 32 bits and
+#    then called the callback at the wrong address. Now intptr_t, pointer-sized.
+thug2_gamespy_replace(Peer/peerMain.h
+    "#define PEERCBType int         // Note: ANSI function pointers should int rather than void*"
+    "#define PEERCBType intptr_t    /* (thug2-decomp: pointer-sized - an int cut a 64-bit build's callback addresses) */")
+# 2. GP passes a buddy's or blocked player's index through a void* (gpiProfileMap's data) as unsigned long: a
+#    round trip that keeps the index on x64 too, but a cast C4311 / C4312 refuse (below). Now through intptr_t.
+foreach(gp_file IN ITEMS GP/gpiBuddy.c GP/gpiProfile.c)
+    thug2_gamespy_replace(${gp_file} "(void *)(unsigned long)index" "(void *)(intptr_t)index")
+    thug2_gamespy_replace(${gp_file} "(int)(unsigned long)data" "(int)(intptr_t)data")
+endforeach()
+
 set(_gs "${THUG2_GAMESPY_DIR}")
 add_library(gamespy_sdk STATIC EXCLUDE_FROM_ALL
     # common
@@ -107,6 +135,7 @@ target_include_directories(gamespy_sdk PUBLIC "${THUG2_GAMESPY_DIR}")
 target_compile_definitions(gamespy_sdk PRIVATE _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
 target_link_libraries(gamespy_sdk PUBLIC ws2_32)
 if(MSVC)
-    # (third-party C: its warnings aren't ours to fix)
-    target_compile_options(gamespy_sdk PRIVATE /W0 /utf-8)
+    # (third-party C: its warnings aren't ours to fix - except a pointer cut to an int or an int widened to a pointer,
+    # C4311 / C4312, which on x64 is a real bug: those are errors, so a new one can't slip in)
+    target_compile_options(gamespy_sdk PRIVATE /W0 /utf-8 /w14311 /w14312 /we4311 /we4312)
 endif()

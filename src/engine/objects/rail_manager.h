@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "base/core/checksums.h"
@@ -83,8 +84,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GrindPoint, at_point_) == kGrindPointAtPointOffset && offsetof(GrindPoint, succ_) == kGrindPointSuccOffset &&
-                          offsetof(GrindPoint, label_) == kGrindPointLabelOffset && sizeof(GrindPoint) == kGrindPointBytes,
+        static_assert(core::layout_32bit(offsetof(GrindPoint, at_point_) == kGrindPointAtPointOffset && offsetof(GrindPoint, succ_) == kGrindPointSuccOffset &&
+                          offsetof(GrindPoint, label_) == kGrindPointLabelOffset && sizeof(GrindPoint) == kGrindPointBytes),
                       "layout must match the original");
     }
 };
@@ -189,8 +190,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GrindRailHub, nodes_) == kGrindRailHubNodesOffset && offsetof(GrindRailHub, num_) == kGrindRailHubNumOffset &&
-                          offsetof(GrindRailHub, on_object_) == kGrindRailHubOnObjectOffset,
+        static_assert(core::layout_32bit(offsetof(GrindRailHub, nodes_) == kGrindRailHubNodesOffset && offsetof(GrindRailHub, num_) == kGrindRailHubNumOffset &&
+                          offsetof(GrindRailHub, on_object_) == kGrindRailHubOnObjectOffset),
                       "layout must match the original");
     }
 };

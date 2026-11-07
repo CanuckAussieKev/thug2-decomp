@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "engine/gfx/boned_anim_frame_data.h"
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/model.h"
@@ -27,7 +28,7 @@
 namespace objects {
 
 namespace {
-constexpr std::size_t kCarveBytes = 8;
+constexpr std::size_t kCarveBytes = 8; // (the original's: sizeof on x64)
 constexpr float kPercentToFraction = 0.0099999998F;
 constexpr uint32_t kSecondSkaterKind = 0x01815FB3; // text unknown (the object kind of a second skater, when the object is marked as a skater)
 constexpr uint32_t kHeadCasMale01 = 0x9954F90F; // Head_Cas_Male01
@@ -82,7 +83,8 @@ constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE, kPartC = 0x6DF453B6
 
 gsl::owner<script::Struct*> make_struct()
 {
-    void* memory = script::struct_pools().carve(kCarveBytes);
+    static_assert(core::layout_32bit(sizeof(script::Struct) == kCarveBytes), "the original allocates this many bytes");
+    void* memory = script::struct_pools().carve(sizeof(script::Struct));
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 

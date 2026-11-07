@@ -138,7 +138,7 @@ public:
     void get_finish()
     {
         const int count = cell_->count() + delta_;
-        const uint32_t size = static_cast<uint32_t>(count) * 4;
+        const uint32_t size = static_cast<uint32_t>(count) * memory::kPointerBytes;
         if (delta_ < 0) {
             if (!cell_->objects() ||
                 !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell_->objects()), nullptr)) {
@@ -269,14 +269,14 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     for (auto& column : cells_) {
         for (CollGridCell& cell : column) {
             if (cell.count() > 0) {
-                cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(static_cast<uint32_t>(cell.count()) * 4)));
+                cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(static_cast<uint32_t>(cell.count()) * memory::kPointerBytes)));
             }
         }
     }
     // how many each cell has so far (a scratch block on the top-down heap)
     memory::enter_heap_scope(memory::top_down_heap());
-    auto* filled_block = static_cast<int*>(memory::alloc(kSize * kSize * sizeof(int)));
-    std::memset(filled_block, 0, kSize * kSize * sizeof(int));
+    auto* filled_block = static_cast<int*>(memory::alloc(size_t{kSize} * kSize * sizeof(int)));
+    std::memset(filled_block, 0, size_t{kSize} * kSize * sizeof(int));
     memory::leave_heap_scope();
     const std::span<int> filled(filled_block, static_cast<size_t>(kSize) * kSize);
     for (StaticCollider& object : statics) {
@@ -345,7 +345,7 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
                 continue;
             }
             if (cell.count() != 0) {
-                const uint32_t size = static_cast<uint32_t>(cell.count()) * 4;
+                const uint32_t size = static_cast<uint32_t>(cell.count()) * memory::kPointerBytes;
                 cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(size)));
                 std::ranges::copy(std::span<HitMesh* const>(old, static_cast<size_t>(cell.count())), cell.objects());
             } else {

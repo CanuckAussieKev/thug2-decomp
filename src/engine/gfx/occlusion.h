@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/vec4.h"
 #include <utility>
 
@@ -35,7 +36,7 @@ struct Occluder {
 };
 constexpr std::size_t kOccluderBytes = 0x5C;
 
-static_assert(sizeof(Occluder) == kOccluderBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(Occluder) == kOccluderBytes), "layout must match the original");
 
 // 0x004D8BB0 (qsort's comparison): occluders that hid more first (a disabled polygon's counts cleared first).
 int compare_occluders(const void* a, const void* b);

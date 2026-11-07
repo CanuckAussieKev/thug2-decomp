@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/rect.h"
 
@@ -44,7 +45,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ScreenWindow, following_) == kScreenWindowFollowingOffset && sizeof(ScreenWindow) == kScreenWindowBytes,
+        static_assert(core::layout_32bit(offsetof(ScreenWindow, following_) == kScreenWindowFollowingOffset && sizeof(ScreenWindow) == kScreenWindowBytes),
                       "layout must match the original");
     }
 };

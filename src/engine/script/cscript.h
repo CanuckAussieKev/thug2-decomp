@@ -6,6 +6,7 @@
 #include <array>
 #include <span>
 
+#include "base/core/layout_32bit.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/member_code.h"
@@ -83,9 +84,9 @@ struct RepeatFrame {
     uint16_t unknowna_;
     int headcount_; // repeats left
 };
-static_assert(sizeof(RepeatFrame) == kRepeatFrameBytes, "layout must match the original");
-static_assert(offsetof(RepeatFrame, tokens_end_) == 0x4 && offsetof(RepeatFrame, args_seen_) == kRepeatFrameArgsSeenOffset &&
-                  offsetof(RepeatFrame, args_expected_) == kRepeatFrameArgsExpectedOffset && offsetof(RepeatFrame, headcount_) == kRepeatFrameHeadcountOffset,
+static_assert(core::layout_32bit(sizeof(RepeatFrame) == kRepeatFrameBytes), "layout must match the original");
+static_assert(core::layout_32bit(offsetof(RepeatFrame, tokens_end_) == 0x4 && offsetof(RepeatFrame, args_seen_) == kRepeatFrameArgsSeenOffset &&
+                  offsetof(RepeatFrame, args_expected_) == kRepeatFrameArgsExpectedOffset && offsetof(RepeatFrame, headcount_) == kRepeatFrameHeadcountOffset),
               "layout must match the original");
 
 constexpr size_t kCallFrameBytes = 0x30;
@@ -117,13 +118,13 @@ struct CallFrame {
     uint8_t trait_mask_;                     // +0x2C bit 0: suspend_clock_started_, bit 1: the level was an interrupt
     std::array<uint8_t, 3> unknown2d_;
 };
-static_assert(sizeof(CallFrame) == kCallFrameBytes, "layout must match the original");
-static_assert(offsetof(CallFrame, arg_struct_) == 0x04 && offsetof(CallFrame, caller_frame_) == kCallFrameCallerFrameOffset &&
+static_assert(core::layout_32bit(sizeof(CallFrame) == kCallFrameBytes), "layout must match the original");
+static_assert(core::layout_32bit(offsetof(CallFrame, arg_struct_) == 0x04 && offsetof(CallFrame, caller_frame_) == kCallFrameCallerFrameOffset &&
                   offsetof(CallFrame, owner_entity_) == kCallFrameOwnerEntityOffset && offsetof(CallFrame, loop_state_) == kCallFrameLoopStateOffset &&
                   offsetof(CallFrame, on_exit_script_ptr_) == kCallFrameOnExitScriptPtrOffset && offsetof(CallFrame, sleep_component_) == kCallFrameSleepComponentOffset &&
                   offsetof(CallFrame, sleep_timer_) == kCallFrameSleepTimerOffset && offsetof(CallFrame, suspend_arg_ref_) == kCallFrameSuspendArgRefOffset &&
                   offsetof(CallFrame, suspend_frames_ref_) == kCallFrameSuspendFramesRefOffset && offsetof(CallFrame, suspend_kind_) == kCallFrameSuspendKindOffset &&
-                  offsetof(CallFrame, trait_mask_) == kCallFrameTraitMaskOffset,
+                  offsetof(CallFrame, trait_mask_) == kCallFrameTraitMaskOffset),
               "layout must match the original");
 constexpr uint32_t kReturnWaitTypeMask = 0xF;
 constexpr uint8_t kReturnFlagTimerStarted = 0x01;
@@ -136,7 +137,7 @@ struct ParamScript {
     uint32_t own_name_hash_;
     const uint8_t* code_stream_;
 };
-static_assert(sizeof(ParamScript) == kParamScriptBytes, "allocated as 8 bytes by 0x0048B200");
+static_assert(core::layout_32bit(sizeof(ParamScript) == kParamScriptBytes), "allocated as 8 bytes by 0x0048B200");
 
 constexpr size_t kMemberFunctionEntryBytes = 0x18;
 // A member function's table entry (the value of a QbValueKind::kNativeMethod symbol, token 0x46), 0x18 bytes: the
@@ -150,7 +151,7 @@ struct MemberFunctionEntry {
     int this_adjustment_;         // +0x0C
     std::array<int, 2> virtual_base_offsets_; // +0x10 (unused by single-inheritance classes)
 };
-static_assert(sizeof(MemberFunctionEntry) == kMemberFunctionEntryBytes, "a table entry is 0x18 bytes");
+static_assert(core::layout_32bit(sizeof(MemberFunctionEntry) == kMemberFunctionEntryBytes), "a table entry is 0x18 bytes");
 
 constexpr size_t kScriptCodeCopyOffset = 0x08;
 constexpr size_t kScriptPcOffset = 0x0C;
@@ -294,28 +295,28 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Script, prior_entry_) == 0x04 && offsetof(Script, code_copy_) == kScriptCodeCopyOffset &&
+        static_assert(core::layout_32bit(offsetof(Script, prior_entry_) == 0x04 && offsetof(Script, code_copy_) == kScriptCodeCopyOffset &&
                           offsetof(Script, pc_) == kScriptPcOffset && offsetof(Script, stmt_args_) == kScriptStmtArgsOffset &&
                           offsetof(Script, args_) == kScriptArgsOffset && offsetof(Script, innermost_repeat_) == kScriptInnermostRepeatOffset &&
                           offsetof(Script, inline_loop_) == kScriptInlineLoopOffset && offsetof(Script, loops_) == kScriptLoopsOffset &&
                           offsetof(Script, call_depth_) == kScriptCallDepthOffset && offsetof(Script, inline_return_addresses_) == kScriptInlineReturnAddressesOffset &&
-                          offsetof(Script, frame_records_) == kScriptFrameRecordsOffset,
+                          offsetof(Script, frame_records_) == kScriptFrameRecordsOffset),
                       "layout must match the original");
-        static_assert(offsetof(Script, suspend_frames_left_) == kScriptSuspendFramesLeftOffset && offsetof(Script, suspend_clock_started_) == kScriptSuspendClockStartedOffset &&
+        static_assert(core::layout_32bit(offsetof(Script, suspend_frames_left_) == kScriptSuspendFramesLeftOffset && offsetof(Script, suspend_clock_started_) == kScriptSuspendClockStartedOffset &&
                           offsetof(Script, suspend_clock_) == kScriptSuspendClockOffset && offsetof(Script, suspend_reason_) == kScriptSuspendReasonOffset &&
                           offsetof(Script, suspend_arg_) == kScriptSuspendArgOffset && offsetof(Script, blocking_module_) == kScriptBlockingModuleOffset &&
                           offsetof(Script, unique_id_) == kScriptUniqueIdOffset && offsetof(Script, flag_bits_) == kScriptFlagBitsOffset &&
-                          offsetof(Script, list_link_) == kScriptListLinkOffset && offsetof(Script, entity_) == kScriptEntityOffset,
+                          offsetof(Script, list_link_) == kScriptListLinkOffset && offsetof(Script, entity_) == kScriptEntityOffset),
                       "layout must match the original");
-        static_assert(offsetof(Script, script_title_) == kScriptScriptTitleOffset && offsetof(Script, spawn_flags_) == kScriptSpawnFlagsOffset &&
+        static_assert(core::layout_32bit(offsetof(Script, script_title_) == kScriptScriptTitleOffset && offsetof(Script, spawn_flags_) == kScriptSpawnFlagsOffset &&
                           offsetof(Script, spawner_file_) == kScriptSpawnerFileOffset && offsetof(Script, spawn_id_) == kScriptSpawnIdOffset &&
                           offsetof(Script, on_finish_script_) == kScriptOnFinishScriptOffset && offsetof(Script, callback_params_) == kScriptCallbackParamsOffset &&
                           offsetof(Script, signal_routes_) == kScriptSignalRoutesOffset && offsetof(Script, on_exception_script_) == kScriptOnExceptionScriptOffset &&
-                          offsetof(Script, on_exit_script_) == kScriptOnExitScriptOffset && offsetof(Script, shared_base_) == kScriptSharedBaseOffset,
+                          offsetof(Script, on_exit_script_) == kScriptOnExitScriptOffset && offsetof(Script, shared_base_) == kScriptSharedBaseOffset),
                       "layout must match the original");
     }
 };
-static_assert(sizeof(Script) == kScriptBytes, "allocated as 0xF4 bytes by the original");
+static_assert(core::layout_32bit(sizeof(Script) == kScriptBytes), "allocated as 0xF4 bytes by the original");
 
 // flag_bits_ (+0xB4)
 constexpr uint8_t kScriptRunInterrupted = 0x01; // the top level was entered as an interrupt

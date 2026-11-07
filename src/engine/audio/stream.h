@@ -8,6 +8,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/all_ones.h"
+#include "base/core/layout_32bit.h"
 #include "engine/file/disk.h"
 #include "base/core/checksums.h"
 
@@ -16,7 +17,7 @@ struct MovieHeader;
 }
 
 // The PC's streamed audio (the platform layer under Pcm's music and streams): the music and three sound
-// streams, each played by a Bink file (media::Movie: binkw32, into the sound output), serviced by a thread every 5 ms.
+// streams, each played by a Bink file (media::Movie, into the sound output), serviced by a thread every 5 ms.
 // The pcm.wad stream class left from the console versions (WadStream) is still created in places, but its
 // playing is compiled out on PC (its update, volume and "done" calls are linker-folded stubs).
 namespace audio {
@@ -47,7 +48,7 @@ constexpr size_t kBinkPauseRequestedOffset = 0x60;
 constexpr size_t kBinkStatusIndexOffset = 0x64;
 constexpr size_t kBinkUnknown6bOffset = 0x6B;
 constexpr size_t kBinkLoudnessOffset = 0x80;
-constexpr size_t kBinkFromHandleOffset = 0x88;
+constexpr size_t kBinkFromMemoryOffset = 0x88;
 constexpr size_t kBinkFromWhereOffset = 0x89;
 constexpr size_t kBinkUnknown1a8Offset = 0x1A8;
 constexpr size_t kBinkStopRequestedOffset = 0x1BC;
@@ -145,12 +146,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WadStream, async_ctl_) == kWadAsyncCtlOffset && offsetof(WadStream, from_wad_) == kWadFromWadOffset &&
+        static_assert(core::layout_32bit(offsetof(WadStream, async_ctl_) == kWadAsyncCtlOffset && offsetof(WadStream, from_wad_) == kWadFromWadOffset &&
                           offsetof(WadStream, shift_) == kWadShiftOffset && offsetof(WadStream, cur_standing_) == kWadStandingOffset &&
                           offsetof(WadStream, unknown50_) == kWadUnknown50Offset && offsetof(WadStream, status_index_) == kWadStatusIndexOffset &&
                           offsetof(WadStream, unknown5f_) == kWadUnknown5fOffset && offsetof(WadStream, octets_) == kWadOctetsOffset &&
                           offsetof(WadStream, cur_phase_) == kWadPhaseOffset && offsetof(WadStream, stop_requested_) == kWadStopRequestedOffset &&
-                          sizeof(WadStream) == kWadStreamBytes,
+                          sizeof(WadStream) == kWadStreamBytes),
                       "layout must match the original");
     }
 };
@@ -160,7 +161,7 @@ private:
 struct BinkStream {
     // 0x00452C00 (the constructor; not rewritten here): unknown19 and the number of plays (0: once).
     // 0x00452D20: open the Bink file at `path` (the path kept for reopening): 0, or E_INVALIDARG if it won't
-    // open. Bink's sound goes to DirectSound (set up once; "Bink can't use DSound" if that fails).
+    // open. The sound goes to the sound output (set up once; "Bink can't use DSound" if that fails).
     Result unseal(const char* path);
     // 0x00452DC0: ask the thread to pause (non-zero) or resume - unless pausing is locked out (0x0069CB98,
     // never set).
@@ -184,7 +185,7 @@ struct BinkStream {
     // async_ctl_ the next free stream buffer (0x004535E0).
     BinkStream(bool unknown19, int plays);
     // 0x00452C60: open stream file `key` (load_stream_file) with Bink from memory, video off; S_OK, or E_INVALIDARG
-    // if it can't be read or opened. Bink is told to use DirectSound the first time ("Bink can't use DSound").
+    // if it can't be read or opened. The sound output is set up the first time ("Bink can't use DSound").
     long unseal(uint32_t key, const char* path, long offset, size_t size);
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
     void set_channel_volumes(float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/)
@@ -223,8 +224,8 @@ private:
     std::array<uint8_t, kBinkUnknown6cBytes> unknown6c_{};
     float loudness_{};         // +0x80
     uint32_t resume_frame_{};  // +0x84 the frame it was paused on
-    bool from_handle_{};       // +0x88 from_where_ holds a file handle, not a path
-    std::array<char, kFromWhereSize> from_where_{}; // +0x89 the path, or the handle (video_open is given its address)
+    bool from_memory_{};       // +0x88 opened from memory (a pcm.wad entry), not a path
+    std::array<char, kFromWhereSize> from_where_{}; // +0x89 the path, or the in-memory file's first four bytes (the reopen is given its address)
     uint32_t unknown1a8_{0};   // +0x1A8
     uint32_t unknown1ac_{0};   // +0x1AC
     std::array<uint8_t, kBinkUnknown1b0Bytes> unknown1b0_{};
@@ -239,13 +240,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BinkStream, wad_entry_) == kBinkWadEntryOffset && offsetof(BinkStream, shared_file_) == kBinkSharedFileOffset &&
+        static_assert(core::layout_32bit(offsetof(BinkStream, wad_entry_) == kBinkWadEntryOffset && offsetof(BinkStream, shared_file_) == kBinkSharedFileOffset &&
                           offsetof(BinkStream, plays_) == kBinkPlaysOffset && offsetof(BinkStream, bink_) == kBinkBinkOffset &&
                           offsetof(BinkStream, pause_requested_) == kBinkPauseRequestedOffset && offsetof(BinkStream, status_index_) == kBinkStatusIndexOffset &&
                           offsetof(BinkStream, unknown6b_) == kBinkUnknown6bOffset && offsetof(BinkStream, loudness_) == kBinkLoudnessOffset &&
-                          offsetof(BinkStream, from_handle_) == kBinkFromHandleOffset && offsetof(BinkStream, from_where_) == kBinkFromWhereOffset &&
+                          offsetof(BinkStream, from_memory_) == kBinkFromMemoryOffset && offsetof(BinkStream, from_where_) == kBinkFromWhereOffset &&
                           offsetof(BinkStream, unknown1a8_) == kBinkUnknown1a8Offset && offsetof(BinkStream, stop_requested_) == kBinkStopRequestedOffset &&
-                          sizeof(BinkStream) == kBinkStreamBytes,
+                          sizeof(BinkStream) == kBinkStreamBytes),
                       "layout must match the original");
     }
 };
@@ -282,7 +283,7 @@ private:
     bool paused_;        // +0x10 (cleared as a dword at start-up)
     std::array<uint8_t, 3> pad11;
 };
-static_assert(sizeof(StreamSlot) == kStreamSlotBytes, "layout must match the original");
+static_assert(core::layout_32bit(sizeof(StreamSlot) == kStreamSlotBytes), "layout must match the original");
 
 constexpr int kStreamSlots = 3;
 std::array<StreamSlot, 3>& stream_slots(); // 0x006EDFB8

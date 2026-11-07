@@ -7,6 +7,7 @@
 #include <psapi.h>
 
 #include <algorithm>
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -58,6 +59,22 @@ FreeSpace address_space()
     return space;
 }
 
+// Every heap's region, use and peak, one line each (the small ones too) - tools/game/heap_report.ts reads them,
+// and compares two builds' (the 32-bit build's with x64's).
+void log_heaps(const char* when, Hub* manager)
+{
+    int count = 0;
+    for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
+        ++count;
+    }
+    get_log("memory heaps %s (%d-bit build): %d heaps", when, static_cast<int>(sizeof(void*) * CHAR_BIT), count);
+    for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
+        get_log("memory heap %s: region=%u used=%d peak=%d blocks=%d peak_blocks=%d name=%s", when,
+                heap->region() ? heap->region()->byte_size() : 0U, heap->used_size(), heap->max_used_size(), heap->used_blocks(),
+                heap->max_used_blocks(), heap->label() ? heap->label() : "?");
+    }
+}
+
 } // namespace
 
 void log_memory_use(const char* when)
@@ -92,6 +109,7 @@ void log_memory_use(const char* when)
                     static_cast<int>(largest >> kMegabyteShift));
     line += part.data();
     get_log("memory %s: %s", when, line.c_str());
+    log_heaps(when, manager);
 }
 
 } // namespace memory

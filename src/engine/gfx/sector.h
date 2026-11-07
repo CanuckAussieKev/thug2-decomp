@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 #include "base/maths/shape_tests.h"
 #include "base/maths/mat4.h"
@@ -138,9 +139,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WorldCell, geom_handle_) == kWorldCellGeomHandleOffset, "layout must match the original");
-        static_assert(offsetof(WorldCell, rot_y_) == kWorldCellRotYOffset && offsetof(WorldCell, hit_body_) == kWorldCellHitBodyOffset &&
-                          sizeof(WorldCell) == kWorldCellBytes,
+        static_assert(core::layout_32bit(offsetof(WorldCell, geom_handle_) == kWorldCellGeomHandleOffset), "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(WorldCell, rot_y_) == kWorldCellRotYOffset && offsetof(WorldCell, hit_body_) == kWorldCellHitBodyOffset &&
+                          sizeof(WorldCell) == kWorldCellBytes),
                       "layout must match the original");
     }
 };

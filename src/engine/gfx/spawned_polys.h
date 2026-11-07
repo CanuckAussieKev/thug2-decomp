@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
 #include "engine/memory/slab_bank.h"
@@ -86,8 +87,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SpawnedPoly, dims_) == kSpawnedPolyDimsOffset && offsetof(SpawnedPoly, colours_) == kSpawnedPolyColoursOffset &&
-                          offsetof(SpawnedPoly, primitive_) == kSpawnedPolyPrimitiveOffset && sizeof(SpawnedPoly) == kSpawnedPolyBytes,
+        static_assert(core::layout_32bit(offsetof(SpawnedPoly, dims_) == kSpawnedPolyDimsOffset && offsetof(SpawnedPoly, colours_) == kSpawnedPolyColoursOffset &&
+                          offsetof(SpawnedPoly, primitive_) == kSpawnedPolyPrimitiveOffset && sizeof(SpawnedPoly) == kSpawnedPolyBytes),
                       "layout must match the original");
     }
 };

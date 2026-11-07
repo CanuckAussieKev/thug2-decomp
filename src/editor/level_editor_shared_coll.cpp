@@ -37,6 +37,7 @@
 #include "engine/gfx/vertex_view.h"
 #include "base/core/checked_index.h"
 #include "engine/render/coll_obj.h"
+#include "formats/collision_format.h"
 
 namespace frontend::level_editor::shared_collision {
 
@@ -146,10 +147,11 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
 Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
 {
     const size_t count = std::min(faces.size(), static_cast<size_t>(kMostFaces));
-    faces_.resize(count * kFaceRecordBytes);
+    std::vector<uint8_t> face_records(count * kFaceRecordBytes);
+    std::vector<uint8_t> bytes; // one per vertex
     for (size_t face_index = 0; face_index < count; ++face_index) {
         const FaceCopy& face = core::at(faces, face_index);
-        const std::span<uint8_t> out = std::span<uint8_t>(faces_).subspan(face_index * 10, 10);
+        const std::span<uint8_t> out = std::span<uint8_t>(face_records).subspan(face_index * 10, 10);
         std::memcpy(out.data(), &face.flags, 2);
         std::memcpy(out.subspan(2).data(), &face.terrain, 2);
         for (int k = 0; k < 3; ++k) {
@@ -157,40 +159,54 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
             size_t index = base_.size();
             for (size_t i = 0; i < base_.size(); ++i) {
                 if (core::at(base_, i).x == core::at(face.v, k).x && core::at(base_, i).y == core::at(face.v, k).y && core::at(base_, i).z == core::at(face.v, k).z &&
-                    core::at(bytes_, i) == core::at(face.bytes, k)) {
+                    core::at(bytes, i) == core::at(face.bytes, k)) {
                     index = i;
                     break;
                 }
             }
             if (index == base_.size()) {
                 base_.push_back(core::at(face.v, k));
-                bytes_.push_back(core::at(face.bytes, k));
+                bytes.push_back(core::at(face.bytes, k));
             }
             auto index16 = static_cast<uint16_t>(index);
             std::memcpy(out.subspan(4 + (2 * static_cast<size_t>(k))).data(), &index16, 2);
         }
     }
-    vertices_.resize(base_.size() * 3);
     rejection_.assign((count != 0U) ? count : 1, 0);
-    if (bytes_.empty()) {
-        bytes_.push_back(0);
+    if (bytes.empty()) {
+        bytes.push_back(0);
     }
 
-    geometry_.set_checksum(checksum);
-    geometry_.set_unknown04(0);
-    geometry_.set_num_vertices(static_cast<uint16_t>(base_.size()));
-    geometry_.set_tri_count(static_cast<uint16_t>(count));
-    geometry_.set_small_faces(false);
-    geometry_.set_compressed(false);
-    geometry_.set_faces(faces_.empty() ? nullptr : faces_.data());
-    geometry_.set_vertices(vertices_.empty() ? nullptr : vertices_.data());
-    geometry_.set_bsp(nullptr);
-    geometry_.set_vertex_bytes(bytes_.data());
-    geometry_.set_unknown3c(0); // (the rejection scale 0.0f: no face rejected by distance)
+    // The block (see the header): the record, the faces, the vertices (4-aligned) and the vertex bytes. The vector's
+    // storage (operator new's) is aligned for any fundamental type.
+    static_assert(alignof(render::TriMeshSource) <= alignof(std::max_align_t) && alignof(float) == 4);
+    constexpr size_t kFacesAt = sizeof(render::TriMeshSource);
+    const size_t vertices_at = (kFacesAt + face_records.size() + 3) & ~size_t{3};
+    const size_t bytes_at = vertices_at + (base_.size() * 3 * sizeof(float));
+    block_.resize(bytes_at + bytes.size());
+    const std::span<uint8_t> block(block_);
+    geometry_ = collision_format::record_in_block<render::TriMeshSource>(block);
+    faces_ = block.subspan(kFacesAt, face_records.size());
+    const std::span<uint8_t> vertex_bytes = block.subspan(bytes_at, bytes.size());
+    std::ranges::copy(face_records, faces_.begin());
+    std::ranges::copy(bytes, vertex_bytes.begin());
+
+    geometry_->set_checksum(checksum);
+    geometry_->set_unknown04(0);
+    geometry_->set_num_vertices(static_cast<uint16_t>(base_.size()));
+    geometry_->set_tri_count(static_cast<uint16_t>(count));
+    geometry_->set_small_faces(false);
+    geometry_->set_compressed(false);
+    geometry_->set_faces(faces_.empty() ? nullptr : faces_.data());
+    geometry_->set_vertices(base_.empty() ? nullptr : block.subspan(vertices_at).data());
+    geometry_->set_bsp(nullptr);
+    geometry_->set_vertex_bytes(vertex_bytes.data());
+    geometry_->set_unknown3c(0); // (the rejection scale 0.0f: no face rejected by distance)
+    vertices_ = geometry_->float_vertices();
 
     entity_.assign_checksum(checksum); // (a sector's collision object, no flags)
     entity_.set_visit_stamp(0);
-    entity_.set_geometry(&geometry_);
+    entity_.set_geometry(geometry_);
     entity_.set_octets(rejection_.data());
     entity_.set_unknown14(0);
     get_place({.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}});
@@ -223,9 +239,9 @@ V3 Companion::get_vertex(int index) const
 
 std::vector<FaceCopy> Companion::get_faces() const
 {
-    std::vector<FaceCopy> faces(geometry_.tri_count());
-    for (int face_index = 0; std::cmp_less(face_index, geometry_.tri_count()); ++face_index) {
-        core::at(faces, face_index) = read_face(&geometry_, face_index);
+    std::vector<FaceCopy> faces(geometry_->tri_count());
+    for (int face_index = 0; std::cmp_less(face_index, geometry_->tri_count()); ++face_index) {
+        core::at(faces, face_index) = read_face(geometry_, face_index);
     }
     return faces;
 }
@@ -239,7 +255,7 @@ bool Companion::live_now() const { return (entity_.flag_bits() & 4) == 0; }
 
 void Companion::change_tri_flags(int face, render::FaceFlag flags)
 {
-    if (face >= 0 && std::cmp_less(face, geometry_.tri_count())) {
+    if (face >= 0 && std::cmp_less(face, geometry_->tri_count())) {
         std::memcpy(&core::at(faces_, static_cast<size_t>(face) * kFaceRecordBytes), &flags, 2);
     }
 }
@@ -254,8 +270,8 @@ void Companion::update_box()
         lo = {.x = std::min(lo.x, v.x), .y = std::min(lo.y, v.y), .z = std::min(lo.z, v.z)};
         hi = {.x = std::max(hi.x, v.x), .y = std::max(hi.y, v.y), .z = std::max(hi.z, v.z)};
     }
-    geometry_.bounds().min = {.x = lo.x, .y = lo.y, .z = lo.z, .w = 1.0F};
-    geometry_.bounds().max = {.x = hi.x, .y = hi.y, .z = hi.z, .w = 1.0F};
+    geometry_->bounds().min = {.x = lo.x, .y = lo.y, .z = lo.z, .w = 1.0F};
+    geometry_->bounds().max = {.x = hi.x, .y = hi.y, .z = hi.z, .w = 1.0F};
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -656,7 +672,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
     entry.grid = grid_of(scene);
     if (!faces.empty()) {
         entry.companion = std::make_unique<Companion>(checksum, faces);
-        entry.companion->get_object()->geometry()->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
+        static_cast<void>(entry.companion->get_object()->geometry()->set_up_all_faces()); // (the shared no-tree face list, 0x0067C6B8)
         for (const Taken& taken_face : taken) {
             taken_face.geometry->set_face_flags(taken_face.face, taken_face.flags | render::FaceFlag::kNotCollidable);
         }

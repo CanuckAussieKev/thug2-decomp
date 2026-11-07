@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/engine_mesh.h"
 
 // The PC mesh (Nx engine): a model's geometry - its scene and hierarchy - and its skin data, the strip breaks a
@@ -70,7 +71,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcMesh, scene_) == kPcMeshSceneOffset && sizeof(PcMesh) == kPcMeshBytes,
+        static_assert(core::layout_32bit(offsetof(PcMesh, scene_) == kPcMeshSceneOffset && sizeof(PcMesh) == kPcMeshBytes),
                       "layout must match the original");
     }
 };

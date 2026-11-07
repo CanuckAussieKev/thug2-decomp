@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/shape_tests.h"
 #include "engine/gfx/gpu_handles.h"
 
@@ -120,8 +121,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SceneRef, meshes_) == kSceneRefMeshesOffset && offsetof(SceneRef, bounds_) == kSceneRefBoundsOffset &&
-                          offsetof(SceneRef, radius_) == kSceneRefRadiusOffset && offsetof(SceneRef, arena_buffer_) == kSceneRefArenaBufferOffset,
+        static_assert(core::layout_32bit(offsetof(SceneRef, meshes_) == kSceneRefMeshesOffset && offsetof(SceneRef, bounds_) == kSceneRefBoundsOffset &&
+                          offsetof(SceneRef, radius_) == kSceneRefRadiusOffset && offsetof(SceneRef, arena_buffer_) == kSceneRefArenaBufferOffset),
                       "layout must match the original");
     }
 };

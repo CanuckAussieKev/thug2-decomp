@@ -82,7 +82,7 @@ may be the install root, with the game in a `Game` subfolder, or the game folder
 
 | Tool | Version | Used for |
 |---|---|---|
-| Visual Studio | 2026 (MSVC 14.51) with "Desktop development with C++", x86 tools, CMake and Ninja | The game |
+| Visual Studio | 2026 (MSVC 14.51) with "Desktop development with C++", x86 tools (x64 tools for the 64-bit build), CMake and Ninja | The game |
 | Node.js | 24 or later | Every tool in `tools/` (TypeScript, run directly: `node tools/<x>.ts`) |
 | Git | any | Clone with `--recurse-submodules` (`tools/pipeline`, `tools/anteara`) |
 | NeverScript | downloaded and built by `tools\build_neverscript.ps1` (docs/neverscript.md) | Compiling / decompiling QB scripts for the level converters |
@@ -106,8 +106,14 @@ From the command line:
 npm install                          (once: the TypeScript tools' dependencies, the level converters among them)
 tools\build_neverscript.ps1          (once: out\neverscript\ns.exe)
 tools\verify_build.cmd               (builds out\build\verify\thug2-decomp.exe; nothing copied)
+node tools/ffmpeg/build_ffmpeg.ts    (FFmpeg's DLLs: optional on 32-bit, needed on 64-bit - see "FFmpeg's DLLs" below)
 npm run typecheck && npm run lint && npm test
 ```
+
+The game builds as a 32-bit or a 64-bit program from the same source (docs/design/x64-port.md): the **x64 Debug** /
+**x64 Release** configurations (`tools\verify_build.cmd x64`, out\build\verify-x64) make the 64-bit
+`thug2-decomp.exe` and `thug2-editor.exe`, with the 64-bit DLLs next to them (Running, below). The 32-bit build stays
+the reference the 64-bit one is compared with.
 
 Prefer a solution file? `cmake -S . -B out/vs -G "Visual Studio 18 2026" -A Win32`, then open `out\vs\thug2_decomp.slnx`
 and build **Debug | Win32**. Builds are Debug: debug-CRT reports and run-time check failures go to `thug2-decomp.log`
@@ -115,14 +121,41 @@ with a call stack.
 
 ## Running
 
-The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe`, its `Data` folder and
-`binkw32.dll` (the movie player, from your copy of the game; nothing of it is in this repository):
+The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe` and its `Data` folder:
 
-1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL3.dll` and `gamecontrollerdb.txt` from the build folder into the game
+1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL3.dll`, FFmpeg's four DLLs (below) and `gamecontrollerdb.txt` from the build folder into the game
    folder (the build does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
 3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
+
+The 64-bit build goes in the same folder the same way, in place of the 32-bit one (the files have the same names, so a
+folder holds one build or the other): `thug2-decomp.exe` (+ `thug2-editor.exe`, the PDBs), and from its own build
+folder the 64-bit `d3dx9_43.dll` and `SDL3.dll`, `gamecontrollerdb.txt`, and FFmpeg's four 64-bit DLLs (below). Direct3D 9 comes with Windows; for Vulkan (the default renderer) the 64-bit Vulkan
+runtime comes with the graphics driver. Its Vulkan caches are files of their own
+(`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`); the ini, the editor's layouts and the
+data overlays are the same files for both builds.
+
+### FFmpeg's DLLs
+
+The movies and the sound streams are decoded by FFmpeg's Bink decoders (LGPL 2.1 or later; `THIRD_PARTY_NOTICES.md`). The
+Both builds need them (the game's `binkw32.dll` is not used); without them the game starts, with no movies and no music or
+sound streams, and the log says why. Build the four DLLs
+(`avutil-59.dll`, `avcodec-61.dll`, `avformat-61.dll`, `swscale-8.dll`) from FFmpeg's release source:
+
+```
+node tools/ffmpeg/build_ffmpeg.ts --arch x64     (or --arch x86, the default; output in outfmpeg\<arch>in)
+```
+
+It needs Linux, or Windows with WSL (an Ubuntu distribution; `--distro` picks another), with the mingw-w64 cross compilers:
+
+```
+sudo apt-get install gcc-mingw-w64-i686-win32 gcc-mingw-w64-x86-64-win32 gcc make xz-utils
+```
+
+The build fetches the release tarball and checks its SHA-256. The CMake build copies the DLLs next to the exe; when you
+copy the game by hand, put them there with the other DLLs. They are loaded by name at run time, so any LGPL build of the
+same major versions can replace them.
 
 ## Playing
 
@@ -326,9 +359,11 @@ hosts or enters a lobby.
    registers and return addresses; debug-CRT reports and run-time check failures come with a call stack. `pool <name>
    full` means one of the game's fixed pools ran out (usually a converted level that's too big; see `[memory]`).
 2. **Name the functions:** `node tools/symbolize.ts --pdb-dir <build folder> <path to thug2-decomp.log>` turns the
-   last crash's addresses into function names and source lines. The PDB must come from the same build.
+   last crash's addresses into function names and source lines, for any module of the report that has its file (and PDB)
+   in that folder - a 32-bit or a 64-bit build alike. The PDB must come from the same build.
 3. **Without a log line:** `python tools/standalone/first_fault.py <exe> <game folder>` runs the game under the
-   debugger API and reports its first fault with registers, the stack and symbol names.
+   debugger API and reports its first fault with registers, the stack and symbol names (a 32-bit or a 64-bit exe: the
+   file's machine decides; `--watch <rva> [--watch-size 1|2|4|8]` reports each write to an address).
 4. **Report it with the screenshot key:** it saves a PNG and a `.txt` with the level, mode, skater and camera
    positions, the editor's state and the log's last lines.
 
@@ -353,7 +388,7 @@ each borrowed idea is credited where it's used.
 | Path | Contents |
 |---|---|
 | `src/` | The program, in layers (each a CMake library; `docs/architecture.md`): `base` (checksums, formatting, maths), `platform` (the window, crash reports, the GameSpy glue), `formats` and `wire` (the game's files and network messages), `engine` (memory, files, assets, scripts, objects, the renderer, audio, network transport, pad input, the original's screen elements), `game` (skating, the rider, goals, parks, saves, the online session, the game's script commands), `frontend` (the new front end), `editor` (the level editor), `devtools` (screenshot key, test-automation channel) |
-| `src/render_pc/`, `gpu_d3d9/`, `audio_dsound/`, `media_bink/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, Bink, DirectInput, Win32 files, Winsock, the QB script interpreter |
+| `src/render_pc/`, `gpu_d3d9/`, `audio_dsound/`, `media_ffmpeg/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, FFmpeg's movie decoders, DirectInput, Win32 files, Winsock, the QB script interpreter |
 | `src/app/` | The two programs' shared start-up (`main.cpp`, WinMain, the main loop, the command and component tables) and each one's extension list; `thug2-decomp.exe` and `thug2-editor.exe` |
 | `src/tests/` | The offline checks (file formats, maths against D3DX, number parsing, printf-style formatting) |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |

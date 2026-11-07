@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
 
 namespace script {
@@ -124,8 +125,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(WeatherSystem, active_) == kWeatherSystemActiveOffset && offsetof(WeatherSystem, snow_colour_) == kWeatherSystemSnowColourOffset &&
-                          offsetof(WeatherSystem, rain_on_) == kWeatherSystemRainOnOffset,
+        static_assert(core::layout_32bit(offsetof(WeatherSystem, active_) == kWeatherSystemActiveOffset && offsetof(WeatherSystem, snow_colour_) == kWeatherSystemSnowColourOffset &&
+                          offsetof(WeatherSystem, rain_on_) == kWeatherSystemRainOnOffset),
                       "layout must match the original");
     }
 };

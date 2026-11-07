@@ -25,18 +25,20 @@ namespace memory {
 
 namespace {
 constexpr size_t kRegionAlignment = 16;
-constexpr int kFrontEndRegionBootstrapBytes = 1000000;
-constexpr int kFrontEndRegionBytes = 1100000;
-constexpr int kSkaterInfoRegionBytes = 82000;
-constexpr int kThemeRegionBytes = 0x3C00;
-constexpr int kSkaterRegionBytes = 0x1AFA4;
-constexpr int kSkaterGeomRegionBytes = 0x73F78;
+// The fixed regions: the original's sizes (sizes::region_bytes: twice them on x64; the named texture heaps are doubled
+// by create_labeled_zone).
+constexpr uint32_t kFrontEndRegionBootstrapBytes = sizes::region_bytes(1000000);
+constexpr uint32_t kFrontEndRegionBytes = sizes::region_bytes(1100000);
+constexpr uint32_t kSkaterInfoRegionBytes = sizes::region_bytes(82000);
+constexpr uint32_t kThemeRegionBytes = sizes::region_bytes(0x3C00);
+constexpr uint32_t kSkaterRegionBytes = sizes::region_bytes(0x1AFA4);
+constexpr uint32_t kSkaterGeomRegionBytes = sizes::region_bytes(0x73F78);
 constexpr uint32_t kPermanentTextureHeapId = 0x0B1BA9DE;   // PermanentTextureHeap
-constexpr int kPermanentTextureHeapBytes = 0x16800;
+constexpr uint32_t kPermanentTextureHeapBytes = 0x16800;
 constexpr uint32_t kUnloadableTextureHeapId = 0x33B42C96;  // UnloadableTextureHeap
-constexpr int kUnloadableTextureHeapBytes = 0x49C00;
-constexpr int kNetExtrasRegionBytes = 160000;
-constexpr int kOnlineRegionBytes = 450000;
+constexpr uint32_t kUnloadableTextureHeapBytes = 0x49C00;
+constexpr uint32_t kNetExtrasRegionBytes = sizes::region_bytes(160000);
+constexpr uint32_t kOnlineRegionBytes = sizes::region_bytes(450000);
 
 void* heap_allocate(MemSource* heap, uint32_t size, int halt_if_exhausted)
 {
@@ -53,11 +55,12 @@ struct ManagerState {
     // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
     Hub* memory_manager_{};
     bool manager_ready_{}; // the memory manager is set up
-    // Where the manager and its main region and heaps live (static storage in the game, as words).
-    std::array<uint32_t, (sizeof(Hub) + 3) / 4> manager_storage_{};
-    std::array<uint32_t, (sizeof(Zone) + 3) / 4> main_region_storage_{};
-    std::array<uint32_t, (sizeof(Arena) + 3) / 4> top_down_storage_{};
-    std::array<uint32_t, (sizeof(Arena) + 3) / 4> bottom_up_storage_{};
+    // Where the manager and its main region and heaps live (static storage in the game, as words; aligned for the
+    // object made there - its pointers are 8-byte on x64).
+    alignas(Hub) std::array<uint32_t, (sizeof(Hub) + 3) / 4> manager_storage_{};
+    alignas(Zone) std::array<uint32_t, (sizeof(Zone) + 3) / 4> main_region_storage_{};
+    alignas(Arena) std::array<uint32_t, (sizeof(Arena) + 3) / 4> top_down_storage_{};
+    alignas(Arena) std::array<uint32_t, (sizeof(Arena) + 3) / 4> bottom_up_storage_{};
     std::span<uint8_t> heap_block_; // the block the main region is in (the original kept its start, end and limit)
     uintptr_t data_end_{};
     uintptr_t data_start_{};
@@ -559,8 +562,8 @@ Hub::Hub() : network_extras_zone_(nullptr), online_zone_(nullptr), cinematic_zon
     auto data_end = manager_state().data_end_;
     const uint32_t data_k = static_cast<uint32_t>(data_end - data_start) >> 10;
     const uint32_t code_k = static_cast<uint32_t>(data_start - code_start) >> 10;
-    // (the bounds are addresses kept as numbers: %08X prints what the original's %p did)
-    debug::printf("code [%08X - %08X] (%dK) + data [%08X - %08X] (%dK) = %dK \n", code_start, data_start, code_k,
+    // (the bounds are addresses kept as numbers: %08zX prints what the original's %p did, at the pointer's width)
+    debug::printf("code [%08zX - %08zX] (%dK) + data [%08zX - %08zX] (%dK) = %dK \n", code_start, data_start, code_k,
                   data_start, data_end, data_k, data_k + code_k);
 
 }
@@ -693,7 +696,8 @@ void Hub::create_labeled_zone(checksums::Name zone_name, uint32_t size, const ch
     Expects(named != nullptr);
     named->name = name;
     std::memcpy(named->text.data(), text, std::strlen(text) + 1); // (unbounded, as in the original)
-    named->region = memory::take_unique<Zone>(new_alloc_region(size));
+    // Not original - twice the size on x64 (sizes::region_bytes); the original's on the 32-bit build.
+    named->region = memory::take_unique<Zone>(new_alloc_region(sizes::region_bytes(size)));
     named->heap = add_heap(named->region.get(), MemSource::kGrowUp, named->text.data());
     named->used = true;
 }

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/mat4.h"
 #include "base/maths/rotation_blend.h"
 #include "base/maths/vec4.h"
@@ -102,11 +103,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObstacleDodgeModule, lasts_for_) == kObstacleDodgeModuleLastsForOffset && offsetof(ObstacleDodgeModule, slerp_) == kObstacleDodgeModuleSlerpOffset &&
+        static_assert(core::layout_32bit(offsetof(ObstacleDodgeModule, lasts_for_) == kObstacleDodgeModuleLastsForOffset && offsetof(ObstacleDodgeModule, slerp_) == kObstacleDodgeModuleSlerpOffset &&
                           offsetof(ObstacleDodgeModule, progress_) == kObstacleDodgeModuleProgressOffset &&
                           offsetof(ObstacleDodgeModule, herd_point_) == kObstacleDodgeModuleHerdPointOffset &&
                           offsetof(ObstacleDodgeModule, aim_point_) == kObstacleDodgeModuleAimPointOffset &&
-                          offsetof(ObstacleDodgeModule, motion_held_) == kObstacleDodgeModuleMotionHeldOffset && sizeof(ObstacleDodgeModule) == kObstacleDodgeModuleBytes,
+                          offsetof(ObstacleDodgeModule, motion_held_) == kObstacleDodgeModuleMotionHeldOffset && sizeof(ObstacleDodgeModule) == kObstacleDodgeModuleBytes),
                       "layout must match the original");
     }
 };

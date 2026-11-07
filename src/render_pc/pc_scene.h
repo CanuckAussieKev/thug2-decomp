@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/core/layout_32bit.h"
 #include "engine/gfx/render_device.h"
 
 #include <cstddef>
@@ -62,8 +63,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcSector, unknown20) == kPcSectorUnknown20Offset &&
-                          sizeof(PcSector) == kPcSectorBytes,
+        static_assert(core::layout_32bit(offsetof(PcSector, unknown20) == kPcSectorUnknown20Offset &&
+                          sizeof(PcSector) == kPcSectorBytes),
                       "layout must match the original");
     }
 };
@@ -101,7 +102,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcScene, meshes_) == kPcSceneMeshesOffset && sizeof(PcScene) == kPcSceneBytes,
+        static_assert(core::layout_32bit(offsetof(PcScene, meshes_) == kPcSceneMeshesOffset && sizeof(PcScene) == kPcSceneBytes),
                       "layout must match the original");
     }
 };

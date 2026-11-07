@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "render_pc/billboard_quad.h"
 #include "engine/gfx/engine_sprite.h"
 
@@ -38,7 +39,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PcSprite, sprite) == kPcSpriteSpriteOffset && sizeof(PcSprite) == kPcSpriteBytes, "layout must match the original");
+        static_assert(core::layout_32bit(offsetof(PcSprite, sprite) == kPcSpriteSpriteOffset && sizeof(PcSprite) == kPcSpriteBytes), "layout must match the original");
     }
 };
 

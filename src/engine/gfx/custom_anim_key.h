@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/core/layout_32bit.h"
 #include "base/maths/quat_rotation.h"
 #include "base/maths/vec4.h"
 #include "formats/byte_stream.h"
@@ -63,7 +64,7 @@ protected:
 };
 constexpr std::size_t kUserClipKeyBytes = 0xC;
 
-static_assert(sizeof(UserClipKey) == kUserClipKeyBytes, "the original's size");
+static_assert(core::layout_32bit(sizeof(UserClipKey) == kUserClipKeyBytes), "the original's size");
 
 // The camera's angle (kind 1; 0x10 bytes, vtable 0x0064880C).
 class CameraFovKey final : public UserClipKey {
@@ -147,7 +148,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CameraKey, at_point_) == kCameraKeyAtPointOffset && sizeof(CameraKey) == kCameraKeyBytes, "the original's layout");
+        static_assert(core::layout_32bit(offsetof(CameraKey, at_point_) == kCameraKeyAtPointOffset && sizeof(CameraKey) == kCameraKeyBytes), "the original's layout");
     }
 };
 
@@ -173,7 +174,7 @@ private:
 };
 constexpr std::size_t kAnimScriptKeyBytes = 0x14;
 
-static_assert(sizeof(AnimScriptKey) == kAnimScriptKeyBytes, "the original's size");
+static_assert(core::layout_32bit(sizeof(AnimScriptKey) == kAnimScriptKeyBytes), "the original's size");
 
 // 0x00486680 (cdecl): the next key from a frame data's key list {frame, kind, size} then the kind's data - read
 // through util::ByteReader (anim_format.h), within its bounds (not original: the original moved a pointer on). Unknown
