@@ -1,0 +1,30 @@
+// NOT ORIGINAL - thug2-editor.exe's resources: its icon (tools/editor_icon.ts draws it; the editor mode's window takes
+// it by this name - src/platform/app_window.h) and its version information (the name the shell shows).
+
+#include <winver.h>
+
+EDITOR ICON "thug2-editor.ico"
+
+1 VERSIONINFO
+FILEVERSION 1, 0, 0, 0
+PRODUCTVERSION 1, 0, 0, 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "THUG2 Editor"
+            VALUE "FileVersion", "1.0.0.0"
+            VALUE "InternalName", "thug2-editor"
+            VALUE "OriginalFilename", "thug2-editor.exe"
+            VALUE "ProductName", "THUG2 Editor"
+            VALUE "ProductVersion", "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END

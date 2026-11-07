@@ -30,6 +30,7 @@
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_transform.h"
 #include "engine/ui/ui_backend.h"
+#include "editor/level_editor_shell.h"
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ui_strip.h"
@@ -175,6 +176,15 @@ void key_hint(const char* key, const char* what)
 
 } // namespace
 namespace internal {
+
+ux3::Fonts ux3_fonts()
+{
+    return {.ui = imgui_setup().ui_,
+            .small = imgui_setup().small_,
+            .mono = imgui_setup().mono_,
+            .heading = imgui_setup().heading_,
+            .scale = imgui_setup().scale_};
+}
 
 // (UX8's drawing: the UI's fonts and scale)
 ux8::Fonts ux8_fonts()
@@ -516,6 +526,26 @@ int preview_pixels()
     return std::clamp(maths::round_non_negative<int>(kPreviewBasePixels * scale), kPreviewMinPixels, kPreviewMaxPixels);
 }
 
+namespace {
+
+// The editor's ImGui context, made once.
+void create_context()
+{
+    if (imgui_setup().created_) {
+        return;
+    }
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr; // (nothing written to the game folder)
+    io.LogFilename = nullptr;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
+    app::prepare_context(); // (docking on, the layout read: thug2-decomp-editor.ini - level_editor_ui_app.h)
+    imgui_setup().created_ = true;
+}
+
+} // namespace
+
 bool kickoff()
 {
     if (imgui_setup().running_) {
@@ -524,16 +554,7 @@ bool kickoff()
     if (!is_switched_on()) {
         return false;
     }
-    if (!imgui_setup().created_) {
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        io.IniFilename = nullptr; // (nothing written to the game folder)
-        io.LogFilename = nullptr;
-        io.ConfigWindowsMoveFromTitleBarOnly = true;
-        app::prepare_context(); // (docking on, the layout read: thug2-decomp-editor.ini - level_editor_ui_app.h)
-        imgui_setup().created_ = true;
-    }
+    create_context();
     if (!ui_backend::prepare_all()) {
         get_log("level editor UI: not started - the old HUD instead");
         return false;
@@ -723,6 +744,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     ux8::get_windows(input_routing().layout_.viewport.x, input_routing().layout_.viewport.y, input_routing().layout_.viewport.width, input_routing().layout_.viewport.height,
                      ux8_fonts()); // (UX8: the pie, the crosshair - level_editor_ux8.h)
     ux3::remember_sections();      // (the Inspector's sections folded as last time)
+    shell::dialogs(ux3_fonts());   // (the editor mode's Open Level and unsaved-changes question - level_editor_shell.h)
     ImGui::PopFont();
     ImGui::Render();
     ui_backend::render();
@@ -754,6 +776,11 @@ void play_frame(bool playing)
     input_routing().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, imgui_setup().scale_, true, true);
     ImGui::PushFont(imgui_setup().ui_);
     if (ImGui::BeginMainMenuBar()) {
+        // (the editor mode: File's Exit - level_editor_shell.h)
+        if (shell::on() && ImGui::BeginMenu("File")) {
+            shell::play_file_menu();
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Play")) {
             if (ImGui::MenuItem("Stop Playing", "F5")) {
                 perform::ask_return();
@@ -794,10 +821,39 @@ void play_frame(bool playing)
             ImGui::End();
         }
     }
+    shell::dialogs(ux3_fonts());
     ImGui::PopFont();
     ImGui::Render();
     ui_backend::render();
     app::save_layout(false);
+}
+
+bool shell_frame(ShellDraw draw)
+{
+    if (!is_switched_on() || imgui_setup().running_) {
+        return false;
+    }
+    create_context();
+    if (!ui_backend::get_ready() && !ui_backend::prepare_all()) {
+        return false;
+    }
+    update_scale();
+    ui_backend::new_frame();
+    ImGui::NewFrame();
+    const ImGuiIO& io = ImGui::GetIO();
+    input_routing().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, imgui_setup().scale_, true, true);
+    app::note_playing(false);
+    ImGui::PushFont(imgui_setup().ui_);
+    draw({.ui = imgui_setup().ui_,
+          .small = imgui_setup().small_,
+          .mono = imgui_setup().mono_,
+          .heading = imgui_setup().heading_,
+          .scale = imgui_setup().scale_});
+    ImGui::PopFont();
+    ImGui::Render();
+    ui_backend::render();
+    app::save_layout(false);
+    return true;
 }
 
 void play_event(const input::Event& event)

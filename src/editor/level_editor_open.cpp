@@ -15,7 +15,6 @@
 #include "engine/script/param_struct.h"
 #include "game/front_end/front_end.h"
 #include "game/front_end/menu_pad_event.h"
-#include "game/front_end/start_level.h"
 #include "platform/run_log.h"
 
 namespace frontend::level_editor::open_in_level {
@@ -42,6 +41,7 @@ struct EditStart {
     Edit edit_ = Edit::kDisengaged;
     int edit_frames_{};
     int presses_{};
+    std::string level_; // (for the log)
 };
 
 EditStart& edit_start()
@@ -61,14 +61,14 @@ void edit_update(modules::FrontEnd* front_end)
         }
         if (!is_switched_on()) {
             get_log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
-                    begin_level::get_requested());
+                    edit_start().level_.c_str());
             edit_start().edit_ = Edit::kDone;
             return;
         }
         if (!is_script(name_hash("level_editor_enter"))) {
             get_log("edit level: no level_editor_enter script (the data overlay isn't installed - "
                     "tools/pipeline/menu_level/make_menu_level.ts) - free skate in %s, as -level",
-                    begin_level::get_requested());
+                    edit_start().level_.c_str());
             edit_start().edit_ = Edit::kDone;
             return;
         }
@@ -76,13 +76,13 @@ void edit_update(modules::FrontEnd* front_end)
         // career-type mode - level_editor_layout.h)
         std::string why;
         if (layout::get_refused(&why)) {
-            get_log("edit level: the level editor isn't offered here (%s) - %s as it is", why.c_str(), begin_level::get_requested());
+            get_log("edit level: the level editor isn't offered here (%s) - %s as it is", why.c_str(), edit_start().level_.c_str());
             layout::panel_message(("The level editor isn't offered here - " + why).c_str());
             edit_start().edit_ = Edit::kDone;
             return;
         }
         // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
-        get_log("edit level: %s is up - pausing (Start) to open the level editor", begin_level::get_requested());
+        get_log("edit level: %s is up - pausing (Start) to open the level editor", edit_start().level_.c_str());
         modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
         ++edit_start().presses_;
         edit_start().edit_ = Edit::kWaitPause;
@@ -104,7 +104,7 @@ void edit_update(modules::FrontEnd* front_end)
         if (edit_start().presses_ >= kStartPresses) {
             get_log("edit level: the game didn't pause after %d presses of Start - free skate in %s (the pause menu's "
                     "LEVEL EDITOR opens the editor)",
-                    edit_start().presses_, begin_level::get_requested());
+                    edit_start().presses_, edit_start().level_.c_str());
             edit_start().edit_ = Edit::kDone;
             return;
         }
@@ -123,13 +123,16 @@ void edit_update(modules::FrontEnd* front_end)
 
 } // namespace
 
-void begin()
+void begin(const std::string& level)
 {
     edit_start().edit_ = Edit::kWaitLevel;
     edit_start().edit_frames_ = 0;
     edit_start().presses_ = 0;
-    get_log("edit level: the level editor opens once %s is up", begin_level::get_requested());
+    edit_start().level_ = level;
+    get_log("edit level: the level editor opens once %s is up", edit_start().level_.c_str());
 }
+
+bool pending() { return edit_start().edit_ == Edit::kWaitLevel || edit_start().edit_ == Edit::kWaitPause; }
 
 void tick_frame(modules::FrontEnd* front_end)
 {

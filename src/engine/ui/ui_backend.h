@@ -61,7 +61,18 @@ using PixelLayout = render::UiPixelLayout;
 using RowLayout = render::UiRowLayout;
 
 uint64_t create_texture(int width, int height, PixelLayout format, const void* data, RowLayout row_layout);
-void release_texture(uint64_t id);
+THUG2_API void release_texture(uint64_t id);
+// A game picture (images\<name>.img.xbx, through the data overlay first: a loading screen, a level select picture) as
+// such a texture, `shrink` times smaller each way (1: as it is; a DXT1 picture - an upscaled one - stays as it is):
+// its texture (0: no such picture, or one of a kind no loading screen is) and its size. Its rows are bottom first
+// (`bottom_up`: drawn with v from 1 at the top).
+struct Picture {
+    uint64_t texture{};
+    float width{};
+    float height{};
+    bool bottom_up{};
+};
+THUG2_API Picture load_picture(const std::string& name, int shrink);
 
 // An off-screen picture (the Add palette's preview, level_editor_preview.h): a square colour target of `size` pixels
 // with its own depth surface, made on first use (again when the size changes) and freed by free_offscreen and with the

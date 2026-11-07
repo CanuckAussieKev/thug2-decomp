@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <utility>
 #include <new>
 
 #include "base/core/dbg.h"
@@ -25,6 +26,9 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/gpu_context.h"
+#include "platform/run_log.h"
+#include "platform/sdl_window.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/objects/objects_shared.h"
 
@@ -52,6 +56,9 @@ struct MlpState {
     uint32_t mlp_references_{};
     int skipped_total_{};
     int skipped_in_a_row_{};
+    // NOT ORIGINAL: a back buffer size asked for (request_back_buffer_size; 0: none)
+    int wanted_width_{};
+    int wanted_height_{};
 };
 
 MlpState& mlp_state()
@@ -121,11 +128,43 @@ void Hub::reset_device_if_lost()
     // Original behaviour: only the game's own.
     ext::device_lost(); // (then the new front end's)
     render::device().release_device_objects();
+    // Not original - a new back buffer size (request_back_buffer_size): the reset makes the back buffer at it.
+    MlpState& state = mlp_state();
+    const bool resized = state.wanted_width_ > 0;
+    if (resized) {
+        render::gpu_context().set_back_buffer_size({.width = static_cast<uint32_t>(state.wanted_width_),
+                                                    .height = static_cast<uint32_t>(state.wanted_height_)});
+        sys::get_window_width() = state.wanted_width_;
+        sys::get_window_height() = state.wanted_height_;
+        state.wanted_width_ = state.wanted_height_ = 0;
+    }
     if (!render::device().reset()) {
         return;
     }
     render::device().restore_device_objects();
     render::engine_parts().set_device_lost(false);
+    if (resized) {
+        // (the 640x480 layout's factors for the new size, the letterbox as it was)
+        render::set_letterbox(render::renderer().render_camera().letterbox_active_ != 0U);
+        get_log("window: the back buffer is now %ux%u", render::gpu_context().settings().width,
+                render::gpu_context().settings().height);
+    }
+}
+
+void request_back_buffer_size(BackBufferSize size)
+{
+    constexpr int kSmallest = 16;
+    if (size.width < kSmallest || size.height < kSmallest) {
+        return;
+    }
+    const render::GpuSettings now = render::gpu_context().settings();
+    MlpState& state = mlp_state();
+    if (std::cmp_equal(now.width, size.width) && std::cmp_equal(now.height, size.height) && state.wanted_width_ == 0) {
+        return;
+    }
+    state.wanted_width_ = size.width;
+    state.wanted_height_ = size.height;
+    render::engine_parts().set_device_lost(true);
 }
 
 // 0x0044F220

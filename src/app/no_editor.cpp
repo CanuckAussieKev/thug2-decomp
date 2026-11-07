@@ -15,7 +15,8 @@ namespace app {
 namespace {
 
 // LevelEditor_Available (the pause menu's LEVEL EDITOR offered), LevelEditor_Start, LevelEditor_EditedLevels (the
-// level select's edited copies), LevelEditor_PlayCamera (an edited level's camera shot): no.
+// level select's edited copies), LevelEditor_PlayCamera (an edited level's camera shot), LevelEditor_EditorMode (the
+// editor mode - never without the editor): no.
 bool cfunc_no(script::Struct* /*params*/, script::Context /*context*/) { return false; }
 // LevelEditor_Stop, LevelEditor_PickLevel (the level select's pick, as shipped): done, nothing to do.
 bool cfunc_nothing_to_do(script::Struct* /*params*/, script::Context /*context*/) { return true; }
@@ -31,6 +32,7 @@ public:
             {.name = "LevelEditor_PickLevel", .function = &cfunc_nothing_to_do},
             {.name = "LevelEditor_EditedLevels", .function = &cfunc_no},
             {.name = "LevelEditor_PlayCamera", .function = &cfunc_no},
+            {.name = "LevelEditor_EditorMode", .function = &cfunc_no},
         });
         script::install_script_functions(kCommands);
     }

@@ -60,10 +60,12 @@ test("deploy_build.ps1: a 64-bit build in place of a 32-bit one, under the lock;
         const x64 = path.join(root, "build-x64");
         makeBuild(x86, X86, "x86-new");
         makeBuild(x64, X64, "x64-build");
-        // (the 64-bit build has the level editor plugin; the folder had none)
+        // (the 64-bit build has the level editor plugin and its launcher; the folder had neither)
         const plugin = path.join("plugins", "thug2-level-editor.dll");
+        const launcher = "thug2-editor.exe";
         fs.mkdirSync(path.join(x64, "plugins"));
         fs.writeFileSync(path.join(x64, plugin), peFile(X64, "x64-build"));
+        fs.writeFileSync(path.join(x64, launcher), peFile(X64, "x64-build"));
 
         // no lock: refused
         const noLock = powershell("deploy_build.ps1", ["-Game", game, "-Arch", "x64", "-BuildDir", x64]);
@@ -83,7 +85,8 @@ test("deploy_build.ps1: a 64-bit build in place of a 32-bit one, under the lock;
         assert.equal(done.code, 0, done.out);
         assert.match(done.out, /DEPLOYED the x64 build/);
         assert.match(done.out, /FFmpeg's DLLs missing/);
-        for (const f of ["thug2-decomp.exe", ...DLLS, plugin]) assert.match(text(path.join(game, f)), /x64-build/, f);
+        for (const f of ["thug2-decomp.exe", ...DLLS, plugin, launcher])
+            assert.match(text(path.join(game, f)), /x64-build/, f);
 
         // run_game.ps1 -Arch x86 refuses the 64-bit exe before it starts anything
         const refused = powershell("run_game.ps1", ["-Game", game, "-Arch", "x86", "-Seconds", "1"]);
@@ -96,8 +99,9 @@ test("deploy_build.ps1: a 64-bit build in place of a 32-bit one, under the lock;
         for (const f of ["thug2-decomp.exe", ...DLLS]) assert.match(text(path.join(game, f)), /x86-original/, f);
         assert.equal(fs.readFileSync(path.join(game, "thug2-decomp.ini"), "latin1"), "[features]\r\nmute_audio=1\r\n");
         assert.equal(fs.existsSync(path.join(game, ".game-lock")), false);
-        // (the plugin it didn't have removed, with the plugins folder it left empty)
+        // (the plugin and the launcher it didn't have removed, with the plugins folder it left empty)
         assert.equal(fs.existsSync(path.join(game, "plugins")), false);
+        assert.equal(fs.existsSync(path.join(game, launcher)), false);
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }

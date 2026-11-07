@@ -96,8 +96,8 @@ Inter 4.1 and JetBrains Mono 2.304 fonts (the level editor's UI).
 
 1. In Visual Studio: **File > Open > Folder...** and pick this folder.
 2. Choose the **x86 Debug** configuration in the toolbar.
-3. **Build > Build All**. The build makes `thug2-decomp.exe` and the level editor's plugin,
-   `plugins\thug2-level-editor.dll`, and puts `d3dx9_43.dll`, `SDL3.dll` and `gamecontrollerdb.txt` next to the exe (a
+3. **Build > Build All**. The build makes `thug2-decomp.exe`, the level editor's plugin,
+   `plugins\thug2-level-editor.dll`, and its launcher, `thug2-editor.exe`, and puts `d3dx9_43.dll`, `SDL3.dll` and `gamecontrollerdb.txt` next to the exe (a
    Release build also the Visual C++ runtime's `vcruntime140.dll`, `msvcp140.dll` - and on 64-bit
    `vcruntime140_1.dll`); when `THUG2_GAME_DIR` (in `CMakeLists.txt` or the CMake cache, default
    `C:\Games\THUG2\Game`) is a game folder, all of them and the PDBs are copied there too (the plugin into its
@@ -129,11 +129,13 @@ The game runs from the game folder of your THUG2 install - the folder with `THUG
 
 1. Copy `thug2-decomp.exe`, `d3dx9_43.dll`, `SDL3.dll`, FFmpeg's four DLLs (below), `gamecontrollerdb.txt` and - from a
    Release build - the Visual C++ runtime's DLLs from the build folder into the game folder, and the `plugins` folder
-   (`thug2-level-editor.dll`: the level editor - without it the game runs with no editor) beside them (the build
-   does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
+   (`thug2-level-editor.dll`: the level editor - without it the game runs with no editor) beside them, and
+   `thug2-editor.exe` (the editor's launcher, below) - the build does it when `THUG2_GAME_DIR` points there. Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
 3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
+4. Or start **`thug2-editor.exe`** for the level editor on its own (below): it starts `thug2-decomp.exe -editor`
+   and passes on what it's given (`thug2-editor.exe -edit BO` opens Boston).
 
 The 64-bit build goes in the same folder the same way, in place of the 32-bit one (the files have the same names, so a
 folder holds one build or the other): `thug2-decomp.exe` (+ `plugins\thug2-level-editor.dll`, the PDBs, a Release build's runtime DLLs), and from its own build
@@ -178,6 +180,17 @@ Useful start-up switches:
 
 Pause menu > **LEVEL EDITOR**, or start with `-edit <name>`. It's offered in free skate and single session only (never
 in career / story, classic, the park editor or network games).
+
+- **The editor on its own:** `thug2-editor.exe` (or `thug2-decomp.exe -editor`, or `[features] editor_mode=1`) starts
+  the editor as an application, **THUG2 Editor**, with its own taskbar button and icon. The game's menus never show:
+  it opens on a Start page - recent levels and every installed level with its picture, edited copies included - and
+  **File > Open Level** / **File > Recent** switch levels (asking about unsaved changes first). **Play** plays from
+  the level's start, **Play from Here** (F5) from the camera, both in the Scene panel; F5 stops. In play the pause
+  menu has no CHANGE LEVEL or QUIT (the data overlay from `make_menu_level.ts` leaves them out). Escape doesn't leave
+  the editor; **File > Exit** or closing the window quits, asking about unsaved changes. The window is resizable, never
+  full screen (the ini's resolution and full screen are for the game), and opens where it was left
+  (`Game\thug2-decomp-editor-window.ini`). `-editor -edit <name>` opens that level straight away. Without the
+  plugin, `-editor` is logged and the game starts as usual.
 
 - **Learning it:** F1 lists every key; **Ctrl+Space** (or F3) searches every action; the status bar shows what the
   mouse and keys do at that moment. Every key is rebindable (Preferences > Keys, saved in `[editor_keys]` of the ini).

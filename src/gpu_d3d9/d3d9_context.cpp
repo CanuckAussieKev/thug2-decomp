@@ -149,6 +149,12 @@ public:
 
     bool reset() override { return state().d3d_device()->Reset(&present_parameters_) >= 0; }
 
+    void set_back_buffer_size(const GpuBackBufferSize& size) override
+    {
+        present_parameters_.BackBufferWidth = size.width;
+        present_parameters_.BackBufferHeight = size.height;
+    }
+
     void shutdown() override
     {
         if (state().d3d_device()) {

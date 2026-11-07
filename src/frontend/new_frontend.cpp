@@ -24,7 +24,6 @@
 #include <utility>
 #include <array>
 #include "base/core/checksums.h"
-#include "engine/file/file_load.h"
 #include "game/front_end/front_end.h"
 #include "game/skate/play_trackers.h"
 #include "engine/ui/ui_backend.h"
@@ -40,14 +39,13 @@
 #include "engine/ext/extension.h"
 #include "engine/audio/continue_music.h"
 #include "game/front_end/start_level.h"
-#include "engine/gfx/hd_ui.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/context.h"
+#include "engine/sys/editor_mode.h"
 #include "game/skate/skate_module.h"
-#include "platform/platform_system.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
 #include "imgui.h"
@@ -70,13 +68,6 @@ using namespace internal;
 
 namespace frontend::new_frontend {
 namespace {
-
-constexpr int kMaxPictureSide = 8192;           // the loading screen pictures' limit, in texels
-constexpr int kPictureHeaderBytes = 0x20;       // the picture file's header before its texels
-constexpr int kTrueColourBits = 32;             // the bit depths the pictures may have
-constexpr int kPaletteBits = 8;
-constexpr int kBitsPerByte = 8;
-constexpr int kOpaqueAlpha = 0xFF;              // a full-bleed picture's alpha
 
 constexpr int kMaxLoggedFrames = 20;            // the frames a log line is written for
 
@@ -290,99 +281,11 @@ void free_art()
     art_state().clear();
 }
 
-// The image file (the game's .img.xbx: a 32-byte header, a palette for 8-bit images, the texels - swizzled when both
-// sides are powers of two; an upscaled loading screen may be DXT1 blocks - engine/gfx/hd_ui.h) as a texture.
+// The image file as a texture (ui_backend::load_picture).
 paint::Art load_image_file(const std::string& name)
 {
-    const std::string path = "images\\" + name + ".img.xbx";
-    file::Hdl file = file::unseal(path.c_str(), "rb");
-    if (!file) {
-        return {};
-    }
-    const uint32_t size = file::get_file_size(file);
-    std::vector<uint8_t> data(size);
-    const bool read = size > 0x20 && file::get_take_in(data.data(), static_cast<int>(size), 1, file) > 0;
-    file::shut(file);
-    if (!read) {
-        return {};
-    }
-    auto u32 = [&](size_t at) {
-        uint32_t v = 0;
-        std::memcpy(&v, std::span<const uint8_t>(data).subspan(at, 4).data(), 4);
-        return v;
-    };
-    const uint32_t width = u32(8);
-    const uint32_t height = u32(12);
-    const uint32_t format = u32(16);
-    const uint32_t marker = u32(20);
-    const uint32_t palette_size = u32(28);
-    if (width == 0 || height == 0 || width > kMaxPictureSide || height > kMaxPictureSide) {
-        return {};
-    }
-    std::span<const uint8_t> texels = std::span<const uint8_t>(data).subspan(kPictureHeaderBytes);
-    size_t left = data.size() - kPictureHeaderBytes;
-    paint::Art art;
-    art.width = static_cast<float>(width);
-    art.height = static_cast<float>(height);
-    // (a loading screen's rows are stored bottom first: render::draw_loading_screen_picture puts v 1 at the screen's top)
-    art.bottom_up_ = true;
-    if (format == render::hd_ui::kFormatDxt1 && render::hd_ui::image_scale(marker) != 1 && width % 4 == 0 &&
-        height % 4 == 0) {
-        const int row_bytes = static_cast<int>(width / 4 * 8);
-        const int rows = static_cast<int>(height / 4);
-        if (left < static_cast<size_t>(row_bytes) * rows) {
-            return {};
-        }
-        art.texture = ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height),
-                                                 ui_backend::PixelLayout::kDxt1, texels.data(), {.row_bytes_ = row_bytes, .rows = rows});
-        return art;
-    }
-    // (the bits per texel: format 0 true colour, 2 16-bit, 0x13 8-bit palettized; else the format is the count)
-    const uint32_t other_bits = format == 0x13 ? 8 : format;
-    const uint32_t not_true_colour_bits = format == 2 ? 16 : other_bits;
-    const uint32_t bits = format == 0 ? 32 : not_true_colour_bits;
-    const bool palettized = format == 0x13 || (format != 0 && format != 2 && format < 0x10);
-    if (bits != kTrueColourBits && !(palettized && bits == kPaletteBits)) {
-        return {}; // (16-bit and 4-bit images: no loading screen is one)
-    }
-    // (the palette: the colours index the rest of the file, as the original's read did - an index past a short
-    // palette reads the texels that follow)
-    std::span<const uint8_t> palette;
-    if (palettized) {
-        const size_t palette_bytes = (palette_size != 0U) ? palette_size : 0x400;
-        if (left < palette_bytes) {
-            return {};
-        }
-        palette = texels;
-        texels = texels.subspan(palette_bytes);
-        left -= palette_bytes;
-    }
-    const size_t count = static_cast<size_t>(width) * height;
-    if (left < count * (bits / kBitsPerByte)) {
-        return {};
-    }
-    const bool powers = (width & (width - 1)) == 0 && (height & (height - 1)) == 0;
-    std::vector<uint8_t> plain;
-    std::span<const uint8_t> rows_data = texels;
-    if (powers) {
-        plain.resize(count * (bits / kBitsPerByte));
-        os_layer::unswizzle(plain, texels.first(plain.size()), {.width = static_cast<int>(width), .height = static_cast<int>(height), .bytes_per_texel_ = static_cast<uint32_t>(bits / kTrueColourBits)});
-        rows_data = plain;
-    }
-    std::vector<uint8_t> bgra(count * 4);
-    for (size_t i = 0; i < count; ++i) {
-        const std::span<const uint8_t> px =
-            palettized ? palette.subspan(size_t{core::at(rows_data, i)} * 4) : rows_data.subspan(i * 4);
-        core::at(bgra, (i * 4) + 0) = core::at(px, 0);
-        core::at(bgra, (i * 4) + 1) = core::at(px, 1);
-        core::at(bgra, (i * 4) + 2) = core::at(px, 2);
-        core::at(bgra, (i * 4) + 3) =
-            kOpaqueAlpha; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
-    }
-    art.texture =
-        ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height), ui_backend::PixelLayout::kBgra32,
-                                   bgra.data(), {.row_bytes_ = static_cast<int>(width * 4), .rows = static_cast<int>(height)});
-    return art;
+    const ui_backend::Picture picture = ui_backend::load_picture(name, 1);
+    return {.texture = picture.texture, .width = picture.width, .height = picture.height, .bottom_up_ = picture.bottom_up};
 }
 
 paint::Art art_for(const std::string& image)
@@ -1139,8 +1042,16 @@ bool get_refused(Screen screen, const std::string& item)
 
 bool& is_switched_on()
 {
-    static bool enabled = config_int("features", "new_frontend", 0) != 0;
+    // (never in the editor mode: the level editor's window has the screen, the game's front end is never shown -
+    // engine/sys/editor_mode.h)
+    static bool enabled = menus_from_overlay() && !sys::editor_mode::on();
     return enabled;
+}
+
+bool menus_from_overlay()
+{
+    static const bool kSet = config_int("features", "new_frontend", 0) != 0;
+    return kSet;
 }
 
 void prepare_all()

@@ -83,6 +83,16 @@ static_assert(core::layout_32bit(sizeof(Hub) == kHubBytes));
 // also runs in the early self-tests, on stand-in state - wait for the first).
 THUG2_API uint32_t& frames_run();
 
+// NOT ORIGINAL: the window's client area changed to `width` x `height` pixels (the editor mode's resizable window -
+// platform/sdl_window.h): the back buffer made at that size by the next reset, asked for now (the device marked lost);
+// the window's noted size, the 640x480 layout's factors and the screen copies follow it. A size under 16 pixels
+// either way (minimised) is ignored.
+struct BackBufferSize {
+    int width{};
+    int height{};
+};
+void request_back_buffer_size(BackBufferSize size);
+
 // The singleton (0x00696D68, references 0x00696D6C). 0x0044F260: the first call with `create` makes it (0xCC
 // bytes, zeroed, on the current heap), every call takes a reference and returns it (null if there is none).
 Hub* create_manager(bool create);

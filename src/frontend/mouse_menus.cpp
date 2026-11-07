@@ -14,6 +14,7 @@
 #include "game/front_end/front_end.h"
 #include "frontend/new_frontend.h"
 #include "engine/ext/extension.h"
+#include "engine/sys/editor_mode.h"
 #include "engine/ui/screen_element.h"
 #include "engine/ui/screen_element_manager.h"
 #include "engine/gfx/screen.h"
@@ -528,6 +529,17 @@ void stand_aside()
 // the original menus under it get no mouse events, the cursor stays shown).
 void drive_menus(modules::FrontEnd* front_end)
 {
+    // (the editor mode: not while the editor's pages stand over the front end, nor while the game playing in its Scene
+    // panel lacks the focus - engine/sys/editor_mode.h)
+    if (sys::editor_mode::on() && ext::game_input_blocked()) {
+        mouse_menus_state().mouse_.moved = false;
+        mouse_menus_state().mouse_.left_clicks_ = 0;
+        mouse_menus_state().mouse_.right_clicks_ = 0;
+        mouse_menus_state().mouse_.wheel = 0;
+        clear_pending("the level editor's window has the mouse");
+        show_cursor(true);
+        return;
+    }
     if (frontend::new_frontend::blocks_game_input() || frontend::new_frontend::owns_mouse()) {
         mouse_menus_state().mouse_.moved = false;
         mouse_menus_state().mouse_.left_clicks_ = 0;

@@ -14,10 +14,12 @@
 #include "editor/level_editor_open.h"
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
+#include "editor/level_editor_shell.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_app.h"
 #include "engine/ext/extension.h"
+#include "game/front_end/start_level.h"
 
 namespace frontend::level_editor {
 
@@ -30,8 +32,10 @@ public:
 
     // While it runs: its own input logic (a requested exit - Escape - runs level_editor_exit); otherwise play from
     // here's way back to the editor (F5 / Ctrl+P) and play testing (the skater's trail, a restart's play from here).
+    // The editor mode's own steps either way (level_editor_shell.h).
     void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
     {
+        shell::tick_frame(front_end);
         if (game_owned) {
             input_logic();
             return;
@@ -48,7 +52,23 @@ public:
     }
     bool pass_pause_key(bool down) override { return level_editor::pass_pause_key(down); }
     // (playing in the Scene panel: the game's keys and controller only while the panel has the focus)
-    bool blocks_game_input() override { return !live_now() && ui::app::blocks_game_input(); }
+    // (the editor mode: also while its pages are up and while it edits - level_editor_shell.h)
+    bool blocks_game_input() override
+    {
+        return shell::blocks_game_input() || (!live_now() && ui::app::blocks_game_input());
+    }
+    bool holds_quit() override { return shell::holds_quit(); }
+    // (the editor mode: straight to its Start page)
+    bool skips_intro_movies() override { return shell::on(); }
+
+    // The automation channel's `fe editor ...` (level_editor_shell.h).
+    bool screen_command(const std::string& line, bool* done, std::string* result) override
+    {
+        return shell::screen_command(line, done, result);
+    }
+    bool screen_result(std::string* result) override { return shell::screen_result(result); }
+    void screen_cancel() override { shell::screen_cancel(); }
+    bool screen_status(std::string* status) override { return shell::screen_status(status); }
 
     void before_draw_world() override { tick_frame(); }
     // (any viewport: the editor takes the first camera it is given while it runs)
@@ -63,7 +83,7 @@ public:
     void device_lost() override { ui::device_lost(); }
 
     // (-edit: opened in the level start level loads)
-    void open_editor_when_up() override { open_in_level::begin(); }
+    void open_editor_when_up() override { open_in_level::begin(begin_level::get_requested()); }
     void editor_opening_frame(modules::FrontEnd* front_end) override { open_in_level::tick_frame(front_end); }
 
     void scene_loaded(const char* name, bool is_net) override { layout::on_scene_loaded(name, is_net); }

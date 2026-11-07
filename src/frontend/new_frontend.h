@@ -71,6 +71,10 @@ namespace frontend::new_frontend {
 
 // [features] new_frontend (read once).
 bool& is_switched_on();
+// [features] new_frontend as the ini has it (read once): the data overlay's front_end folder - the main menu's scripts
+// the new front end's menus are made with - is searched first. Also in the level editor's editor mode
+// (engine/sys/editor_mode.h), where the new front end itself is off: the same main menu underneath.
+bool menus_from_overlay();
 
 // os_layer::init_input: listens to SDL's events (nothing when off).
 void prepare_all();

@@ -119,6 +119,9 @@ public:
     // While true the game keeps drawing while its window is in the background (a test's picture of the window shows the
     // frame now).
     virtual bool draws_unfocused() { return false; }
+    // The window's close (or a quit the platform asked for): true when the extension takes it - it asks its own
+    // question first (unsaved changes) and ends the game itself (engine_parts' quit request); false: the game quits.
+    virtual bool holds_quit() { return false; }
 
     // --- the editor opened in a level (-edit / edit_level: game/front_end/start_level.h) ---
     // The level's load began, and the editor is to open there once it is up.
@@ -185,6 +188,8 @@ bool added_gaps(const goals::GapTally* checklist, std::vector<std::string>* name
 // The first extension's switch `key` (null: none has it).
 bool* feature_switch(const char* key);
 bool draws_unfocused();
+// The first extension that takes the quit (false: none - the game quits).
+bool holds_quit();
 void open_editor_when_up();
 void editor_opening_frame(modules::FrontEnd* front_end);
 // The first extension that takes it; with none: "error: no screens to drive" (done), "", nothing, false, "".

@@ -510,6 +510,11 @@ bool parse_fe(const CommandWords& words, OrderCode& command, std::string* error)
         !read_count(::core::at(tokens, 3), 1, kMaxWaitSeconds, &command.seconds)) {
         return fail_with(error, "fe " + get_lower(::core::at(tokens, 1)) + ": a timeout is whole seconds (1-3600)");
     }
+    // (the level editor's `fe editor ...`: a last number is the timeout too - a level takes a while to open; the editor
+    // ignores it)
+    if (count >= 3 && get_lower(::core::at(tokens, 1)) == "editor" && is_integer(tokens.back())) {
+        read_count(tokens.back(), 1, kMaxWaitSeconds, &command.seconds);
+    }
     return true;
 }
 

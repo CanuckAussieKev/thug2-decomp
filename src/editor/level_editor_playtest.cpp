@@ -763,12 +763,15 @@ void restart_step(modules::FrontEnd* front_end)
     const uint32_t restart = level_editor_playtest_state().restart_;
     level_editor_playtest_state().restart_ = 0;
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(checksums::Name{checksums::hash_from_text("node_name")}, restart);
+    // (the level's start: ResetSkaters without a node - where the level puts the skater)
+    if (restart != kLevelStart) {
+        params->put_name_key(checksums::Name{checksums::hash_from_text("node_name")}, restart);
+    }
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();
     script::delete_struct(params);
-    const std::string label = nodes::caption(restart);
-    get_log("level editor: play from the restart %s (ResetSkaters)", label.c_str());
+    const std::string label = restart == kLevelStart ? std::string("the level's start") : nodes::caption(restart);
+    get_log("level editor: play from %s%s (ResetSkaters)", restart == kLevelStart ? "" : "the restart ", label.c_str());
     layout::panel_message(("Playing from " + label + " (F5: return to editor)").c_str());
 }
 
@@ -1160,9 +1163,12 @@ void play_from_restart(uint32_t restart)
     level_editor_playtest_state().restart_ = restart;
     level_editor_playtest_state().restart_asked_ = platform::ticks_ms();
     level_editor_playtest_state().restart_frames_ = 0;
-    get_log("level editor: play from the restart %s - closing the editor", nodes::caption(restart).c_str());
+    get_log("level editor: play from %s - closing the editor",
+            restart == kLevelStart ? "the level's start" : ("the restart " + nodes::caption(restart)).c_str());
     perform::get_request(); // (closes into play as F5 does - back with F5 / Ctrl+P)
 }
+
+void play_from_start() { play_from_restart(kLevelStart); }
 
 bool& window_open() { return level_editor_playtest_state().window_open_; }
 void get_request(Ask ask) { level_editor_playtest_state().ask_ = ask; }

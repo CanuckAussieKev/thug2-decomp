@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include "base/core/api.h"
@@ -55,7 +56,8 @@ namespace frontend::begin_level {
 // The length of "load_", the prefix of a level's load script name (Load_<level>, any case).
 constexpr std::size_t kLoadPrefixLength = 5;
 
-// The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there).
+// The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there; in the editor
+// mode - engine/sys/editor_mode.h - from -level / start_level too).
 THUG2_API const char* get_requested();
 bool edit_requested();
 // Once a frame from the front end's input logic (its extension).
@@ -69,6 +71,11 @@ ext::Extension& extension();
 // why in `why` if given) for an unknown level or one whose scene isn't installed. (Also the automation channel's
 // `level` command - devtools/automation.h.)
 bool read_in(const char* name, std::string* why);
+// NOT ORIGINAL - the same for the level whose load script's checksum is `load` (the level editor's Start page and Open
+// Level: editor/level_editor_shell.h), from the main menu or from a level's pause menu (the game's own change of level:
+// the level select's). `edited_copy`: the level editor's edited copy of it, as the level select's EDITED LEVELS entry
+// picks it (the edited_layout flag). False - logged, and why in `why` - as read_in.
+THUG2_API bool read_in_load(uint32_t load, bool edited_copy, std::string* why);
 
 // The command line's option (pure): the word after `-<option> `, `--<option> ` or `--<option>=` in
 // `line` ("" if none; a quoted value keeps what is inside the quotes).

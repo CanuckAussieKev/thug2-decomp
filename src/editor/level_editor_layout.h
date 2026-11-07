@@ -347,4 +347,21 @@ bool cfunc_pick_level(script::Struct* params, script::Context context);
 // and the flag edited_layout. False (nothing returned) when there are none or a network session is on.
 bool cfunc_edited_levels(script::Struct* params, script::Context context);
 
+// The levels the level select lists (the game's and the ported levels' lists, in their order; each level once), for the
+// editor mode's Start page and Open Level (level_editor_shell.h): the DEVKIT_ONLY levels and the created park aside.
+struct CatalogLevel {
+    uint32_t load = 0;       // its load script
+    uint32_t scene = 0;      // its scene (the layouts' key)
+    std::string title;       // the level select's text
+    int section = 0;         // the list it is in (catalog_section)
+    std::string picture;     // its level select picture (images\loadscrn_sel_<load>__<original>), "" if none
+    bool edited = false;     // it has an edited copy (a saved layout)
+    std::string edited_title; // the edited copy's title (its own name, else "<TEXT> (EDITED)")
+};
+std::vector<CatalogLevel> level_catalog();
+// A list's name (THUG2, THUG, THPS4...).
+const char* catalog_section(int section);
+// The level loaded now (its load script; 0: none) and whether it is its edited copy.
+uint32_t loaded_level();
+
 } // namespace frontend::level_editor::layout

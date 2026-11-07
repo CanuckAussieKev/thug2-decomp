@@ -6,10 +6,12 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
@@ -17,6 +19,7 @@
 #include "editor/level_editor_ui_layout.h"
 #include "engine/file/disk_files.h"
 #include "engine/gfx/game_view.h"
+#include "engine/sys/editor_mode.h"
 #include "engine/ui/ui_backend.h"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -66,7 +69,11 @@ struct AppState {
     bool title_set = false;
     // Playing in the panel (play_frame).
     bool playing = false;
+    // (the layout file's: the editor mode's recent levels, the latest first)
+    std::vector<RecentLevel> recent;
 };
+
+constexpr std::size_t kMostRecent = 8;
 
 AppState& app_state()
 {
@@ -136,15 +143,31 @@ void settings_line(ImGuiContext* /*context*/, ImGuiSettingsHandler* /*handler*/,
         state->maximise_on_play = value != 0U;
     } else if (read_number(text, "Bottom", &value)) {
         state->bottom = value;
+    } else if (text.starts_with("Recent=")) {
+        // (Recent=<load script, hex>,<1: the edited copy>)
+        const std::string_view recent_text = text.substr(std::string_view("Recent=").size());
+        const std::size_t comma = recent_text.find(',');
+        uint32_t load = 0;
+        uint32_t edited = 0;
+        if (comma != std::string_view::npos &&
+            read_number(std::string("L=").append(recent_text.substr(0, comma)), "L", &load) &&
+            read_number(std::string("E=").append(recent_text.substr(comma + 1)), "E", &edited) && load != 0U &&
+            state->recent.size() < kMostRecent) {
+            state->recent.push_back({.load = load, .edited = edited != 0U});
+        }
     }
 }
 
 void settings_write(ImGuiContext* /*context*/, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buffer)
 {
     const AppState& state = app_state();
-    const std::string entry = text::format("[%s][Layout]\nOutliner=%d\nInspector=%d\nMaximiseOnPlay=%d\nBottom=0x%08X\n\n",
-                                           handler->TypeName, state.outliner_open ? 1 : 0,
-                                           state.inspector_open ? 1 : 0, state.maximise_on_play ? 1 : 0, state.bottom);
+    std::string entry = text::format("[%s][Layout]\nOutliner=%d\nInspector=%d\nMaximiseOnPlay=%d\nBottom=0x%08X\n",
+                                     handler->TypeName, state.outliner_open ? 1 : 0,
+                                     state.inspector_open ? 1 : 0, state.maximise_on_play ? 1 : 0, state.bottom);
+    for (const RecentLevel& level : state.recent) {
+        text::append_format(entry, "Recent=0x%08X,%d\n", level.load, level.edited ? 1 : 0);
+    }
+    entry += "\n";
     buffer->append(entry.c_str());
 }
 
@@ -405,6 +428,19 @@ bool picture_origin(PictureOrigin* origin)
     return true;
 }
 
+const std::vector<RecentLevel>& recent_levels() { return app_state().recent; }
+
+void note_recent(RecentLevel level)
+{
+    std::vector<RecentLevel>& recent = app_state().recent;
+    std::erase_if(recent, [level](const RecentLevel& known) { return known.load == level.load && known.edited == level.edited; });
+    recent.insert(recent.begin(), level);
+    if (recent.size() > kMostRecent) {
+        recent.resize(kMostRecent);
+    }
+    ImGui::MarkIniSettingsDirty();
+}
+
 void set_window_title(const std::string& level)
 {
     AppState& state = app_state();
@@ -423,6 +459,11 @@ void set_window_title(const std::string& level)
         return;
     }
     state.title_level = level;
+    // (the editor mode's window: "THUG2 Editor - <level>" - engine/sys/editor_mode.h)
+    if (sys::editor_mode::on()) {
+        ui_backend::set_window_title(state.own_title + " - " + level);
+        return;
+    }
     ui_backend::set_window_title(level + " - Level Editor" + (state.own_title.empty() ? "" : " - " + state.own_title));
 }
 

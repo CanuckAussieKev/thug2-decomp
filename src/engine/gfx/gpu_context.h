@@ -67,6 +67,12 @@ struct GpuSampleQuery {
     bool windowed{};
 };
 
+// NOT ORIGINAL - a back buffer's size (set_back_buffer_size).
+struct GpuBackBufferSize {
+    uint32_t width{};
+    uint32_t height{};
+};
+
 // A device to make: the back buffer's size, hardware or software vertex processing, the multisampling.
 struct GpuDeviceRequest {
     uint32_t width{};
@@ -107,6 +113,9 @@ public:
     [[nodiscard]] virtual bool ready() const = 0;
     // A lost device brought back at the stored settings; false if that failed (it is tried again next frame).
     virtual bool reset() = 0;
+    // NOT ORIGINAL - the back buffer's size for the next reset (the editor mode's resizable window - the main loop's
+    // resize: frame_loop::Hub::reset_device_if_lost); the other settings stay.
+    virtual void set_back_buffer_size(const GpuBackBufferSize& size) = 0;
     // The device and then the instance given back.
     virtual void shutdown() = 0;
 

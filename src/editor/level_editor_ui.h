@@ -17,6 +17,9 @@ struct ImFont;
 namespace frontend::level_editor::ux8 {
 struct Fonts;
 }
+namespace frontend::level_editor::ux3 {
+struct Fonts;
+}
 
 // NOT ORIGINAL - the level editor's UI (ours; see level_editor.h): Dear ImGui panels over the game's view, in place of
 // the HUD made of the game's screen elements (level_editor_hud.h - hard to read, no tables or fields, 90 characters a
@@ -371,5 +374,10 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay);
 void play_frame(bool playing);
 // An input event while the game plays in the Scene panel (the editor not running): ImGui's (the game reads it too).
 void play_event(const input::Event& event);
+// The editor mode's frames while the editor isn't running and the game doesn't play from it (its Start page, a level
+// opening - level_editor_shell.h): ImGui made and started on the window if it isn't yet, then one frame that `draw`
+// fills. False (nothing drawn) with [features] editor_ui=0 or while ImGui can't start.
+using ShellDraw = void (*)(const ux3::Fonts& fonts);
+bool shell_frame(ShellDraw draw);
 
 } // namespace frontend::level_editor::ui

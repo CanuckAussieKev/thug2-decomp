@@ -3,6 +3,9 @@
 #include "app/extensions.h"
 
 #include "app/no_editor.h"
+#include "engine/sys/editor_mode.h"
+#include "platform/app_window.h"
+#include "platform/run_log.h"
 #include "devtools/automation.h"
 #include "devtools/extensions.h"
 #include "engine/ext/extension.h"
@@ -27,6 +30,28 @@ ext::Extension& editor()
     return plugin != nullptr ? *plugin : no_editor_extension();
 }
 
+// The editor mode (engine/sys/editor_mode.h: -editor, [features] editor_mode=1), once the plugins are loaded: on with
+// the level editor's plugin - the window then an application's, "THUG2 Editor" (platform/app_window.h); without it,
+// logged, the game as usual.
+void choose_editor_mode()
+{
+    if (!sys::editor_mode::requested()) {
+        return;
+    }
+    if (ext::plugin_at("editor") == nullptr) {
+        get_log("editor mode: the level editor isn't installed (no plugins\\thug2-level-editor.dll) - the game starts as "
+                "usual");
+        return;
+    }
+    sys::editor_mode::set_on(true);
+    sys::app_window::request({.title = "THUG2 Editor",
+                              .placement_file = game_folder_path("thug2-decomp-editor-window.ini"),
+                              .app_id = L"THUG2.Editor",
+                              .display_name = L"THUG2 Editor",
+                              .launcher = L"thug2-editor.exe"});
+    get_log("editor mode: on - the level editor's window, no front end");
+}
+
 } // namespace
 
 const char* exe_name() { return "thug2-decomp"; }
@@ -41,6 +66,7 @@ const char* exe_name() { return "thug2-decomp"; }
 void register_extensions()
 {
     ext::load_plugins();
+    choose_editor_mode();
     ext::add(mouse_menus::extension());
     ext::add(frontend::restart_tester::extension());
     ext::add(skater::thaw_bmx::extension());

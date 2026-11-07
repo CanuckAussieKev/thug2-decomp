@@ -11,12 +11,14 @@
 
 #include <SDL3/SDL.h>
 
+#include "engine/ext/extension.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/glyphs.h"
 #include "engine/gfx/settings.h"
 #include "game/online/online_hosts.h"
 #include "game/online/online_identity.h"
 #include "engine/script/patched.h"
+#include "platform/app_window.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include "platform/sdl_events.h"
@@ -25,10 +27,11 @@ namespace sys {
 
 namespace {
 
-// The event pump's first handler: SDL_EVENT_QUIT asks the game to quit (0x007D6A2C).
+// The event pump's first handler: SDL_EVENT_QUIT asks the game to quit (0x007D6A2C) - not original: unless an extension
+// takes it (engine/ext/extension.h: the level editor's window asks about unsaved changes first, then quits itself).
 void handle_quit(SDL_Event* event)
 {
-    if (event->type == SDL_EVENT_QUIT) {
+    if (event->type == SDL_EVENT_QUIT && !ext::holds_quit()) {
         render::engine_parts().set_quit_requested(true);
     }
 }
@@ -64,6 +67,10 @@ void init_pc_setup()
     render::load_graphics_settings();
 }
 
-void fast_exit() { ExitProcess(0); }
+void fast_exit()
+{
+    app_window::save_placement(); // (not original: an application's window kept as it was left - platform/app_window.h)
+    ExitProcess(0);
+}
 
 } // namespace sys

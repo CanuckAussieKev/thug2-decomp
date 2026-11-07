@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_layout.h"
@@ -73,8 +75,17 @@ struct PictureOrigin {
 };
 bool picture_origin(PictureOrigin* origin);
 
-// The window's title: the editor and the level (`level` empty: the window's own title back).
+// The window's title: the editor and the level (`level` empty: the window's own title back). In the editor mode
+// "THUG2 Editor - <level>".
 void set_window_title(const std::string& level);
+
+// The editor mode's recent levels (level_editor_shell.h), kept in the layout file: the latest first, at most 8.
+struct RecentLevel {
+    uint32_t load = 0; // its load script
+    bool edited = false; // its edited copy
+};
+const std::vector<RecentLevel>& recent_levels();
+void note_recent(RecentLevel level);
 
 // --- play from here in the Scene panel (level_editor_play.h; the frame: ui::play_frame) ---
 // Whether the game plays in the panel now, noted each frame; true once as it starts (the Scene panel then takes the

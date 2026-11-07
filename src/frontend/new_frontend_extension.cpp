@@ -25,7 +25,7 @@ public:
     void before_screen_layout() override { new_frontend::before_screen_layout(); }
 
     // ([features] new_frontend: the overlay's front_end folder holds its main-menu scripts)
-    bool uses_front_end_overlay() override { return is_switched_on(); }
+    bool uses_front_end_overlay() override { return menus_from_overlay(); }
 
     // (the automation channel's `fe` commands drive its screens)
     bool screen_command(const std::string& line, bool* done, std::string* result) override

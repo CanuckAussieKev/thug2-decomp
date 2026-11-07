@@ -14,6 +14,8 @@
 #include <iterator>
 #include <span>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <unordered_map>
 #include <vector>
 #include <array>
@@ -1402,5 +1404,77 @@ bool cfunc_edited_levels(script::Struct* /*params*/, script::Context context)
     context.args()->put_int("edited_count", static_cast<int>(entries.size()));
     return true;
 }
+
+namespace {
+
+// The level select's lists (as LevelEditor_EditedLevels reads them) and their names.
+constexpr auto kCatalogLists = std::to_array<const char*>(
+    {"level_select_menu_level_info", "level_select_menu_thug1_level_info", "level_select_menu_thps4_level_info",
+     "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info", "level_select_menu_misc_level_info"});
+constexpr auto kCatalogSections = std::to_array<const char*>({"THUG2", "THUG", "THPS4", "THPS3", "THAW", "More"});
+
+} // namespace
+
+const char* catalog_section(int section)
+{
+    return section >= 0 && std::cmp_less(section, kCatalogSections.size()) ? core::at(kCatalogSections, section) : "";
+}
+
+std::vector<CatalogLevel> level_catalog()
+{
+    static const uint32_t kLevel = checksums::hash_from_text("level");
+    static const uint32_t kText = checksums::hash_from_text("text");
+    static const uint32_t kDevkitOnly = checksums::hash_from_text("DEVKIT_ONLY");
+    static const uint32_t kLoadingScreen = checksums::hash_from_text("loading_screen");
+    static const uint32_t kCreatedPark = checksums::hash_from_text("load_sk5ed_gameplay");
+    constexpr std::string_view kSelectPicture = "loadscrn_sel_";
+    const std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
+    const std::vector<uint32_t> saved = saved_scenes();
+    std::vector<CatalogLevel> catalog;
+    for (size_t list = 0; list < kCatalogLists.size(); ++list) {
+        script::Array* array = script::fetch_list(core::at(kCatalogLists, list));
+        if (!array || array->kind_tag() != script::QbValueKind::kStruct) {
+            continue;
+        }
+        for (uint32_t i = 0; i < array->extent(); ++i) {
+            auto* entry = array->struct_at(i);
+            uint32_t load = 0;
+            if (!entry || !entry->read_hash_value(kLevel, &load, 0) || load == kCreatedPark ||
+                entry->has_bare_flag(kDevkitOnly)) {
+                continue;
+            }
+            const auto level = levels.find(load);
+            if (level == levels.end() ||
+                std::ranges::any_of(catalog, [load](const CatalogLevel& known) { return known.load == load; })) {
+                continue;
+            }
+            const char* text = nullptr;
+            entry->fetch_text(kText, &text, 0);
+            CatalogLevel item;
+            item.load = load;
+            item.scene = level->second.scene;
+            item.title = text != nullptr && *text != '\0' ? text : level->second.title;
+            item.section = static_cast<int>(list);
+            const char* picture = nullptr;
+            if (level->second.structure != nullptr && level->second.structure->fetch_text(kLoadingScreen, &picture, 0) &&
+                picture != nullptr && std::string_view(picture).starts_with(kSelectPicture)) {
+                item.picture = picture;
+            }
+            item.edited = std::ranges::find(saved, item.scene) != saved.end();
+            if (item.edited) {
+                level_props::Props props;
+                std::string named;
+                if (saved_props(item.scene, &props)) {
+                    named = props.name;
+                }
+                item.edited_title = edited_title(item.title.c_str(), named);
+            }
+            catalog.push_back(std::move(item));
+        }
+    }
+    return catalog;
+}
+
+uint32_t loaded_level() { return render::current_level() != 0 ? current_load() : 0U; }
 
 } // namespace frontend::level_editor::layout

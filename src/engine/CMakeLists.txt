@@ -27,6 +27,7 @@ add_library(thug2_engine STATIC
     ui/screen_element_manager.cpp
     ui/menu_reading.cpp
     ui/ui_backend.cpp
+    ui/ui_picture.cpp
     ui/scrolling_menu.cpp
     ui/sprite_element.cpp
     ui/screen_element_cfuncs.cpp
@@ -264,6 +265,7 @@ add_library(thug2_engine STATIC
     pad_input/options_state.cpp
     pad_input/pad_cfuncs.cpp
     sys/debug_mode.cpp
+    sys/editor_mode.cpp
     sys/stopwatch.cpp
     sys/mlp.cpp
     sys/game_clock.cpp

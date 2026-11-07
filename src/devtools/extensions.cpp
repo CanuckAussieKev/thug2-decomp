@@ -11,6 +11,7 @@
 #include "devtools/screenshot.h"
 #include "game/rider/test_view.h"
 #include "engine/ext/extension.h"
+#include "engine/sys/editor_mode.h"
 
 namespace frontend::restart_tester {
 namespace {
@@ -40,9 +41,11 @@ namespace frontend::automation {
 namespace {
 class AutomationExtension final : public ext::Extension {
 public:
+    // (the editor mode: also while the level editor owns the game - its window is the application, the tests drive it
+    // with `fe editor ...` - engine/sys/editor_mode.h)
     void menu_frame(modules::FrontEnd* front_end, bool game_owned) override
     {
-        if (!game_owned) {
+        if (!game_owned || sys::editor_mode::on()) {
             tick_frame(front_end);
         }
     }

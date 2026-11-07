@@ -1,8 +1,9 @@
 {
-    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_pc, gpu_vulkan, audio_dsound, media_ffmpeg, input_dinput, fs_win32, net_winsock, script_qb) are included by app/ only: the editor and the front end reach the graphics backend through the engine's interfaces (render::Device, render::UiBackend; render_pc implements render::Device over render::Gpu, gpu_d3d9 is Direct3D 9's Gpu, GpuContext and UiBackend, gpu_vulkan Vulkan's), the engine reaches the sound output through audio::Device, the movie codec through media::Movie, DirectInput through its input::Source, the operating system's files through fs::Disk, Winsock's sockets through net::Transport and the QB script interpreter through script::Host. The editor's and the front end's 'api' lists the engine and game headers each may include (tools/layers.ts --api <library> prints what they include now); 'executables' says what an exe must do without, 'plugins' which libraries are a DLL its host exe loads, linking the exe's import library (tools/cmake_layers.ts).",
+    "note": "NOT ORIGINAL - the layer map read by tools/layers.ts (docs/architecture.md 'Layers'; the plan for the library split). A library may include itself and the libraries in 'allowed'. 'folders' are prefixes under the repository root; the longest prefix wins. 'strict' libraries have no upward include at all: not even the baseline may list one of theirs. The backends (render_pc, gpu_vulkan, audio_dsound, media_ffmpeg, input_dinput, fs_win32, net_winsock, script_qb) are included by app/ only: the editor and the front end reach the graphics backend through the engine's interfaces (render::Device, render::UiBackend; render_pc implements render::Device over render::Gpu, gpu_d3d9 is Direct3D 9's Gpu, GpuContext and UiBackend, gpu_vulkan Vulkan's), the engine reaches the sound output through audio::Device, the movie codec through media::Movie, DirectInput through its input::Source, the operating system's files through fs::Disk, Winsock's sockets through net::Transport and the QB script interpreter through script::Host. The editor's and the front end's 'api' lists the engine and game headers each may include (tools/layers.ts --api <library> prints what they include now); 'executables' says what an exe must do without, 'plugins' which libraries are a DLL its host exe loads, linking the exe's import library, 'standalone' which are an exe of their own that links none of the others (the level editor's launcher) (tools/cmake_layers.ts).",
     "executables": { "thug2": { "without": ["editor"] } },
     "plugins": { "editor": { "host": "thug2" } },
-    "strict": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_ffmpeg", "input_dinput", "fs_win32", "net_winsock", "script_qb", "game", "frontend", "editor", "devtools"],
+    "standalone": ["editor_launcher"],
+    "strict": ["base", "platform", "formats", "wire", "engine", "render_pc", "gpu_d3d9", "gpu_vulkan", "audio_dsound", "media_ffmpeg", "input_dinput", "fs_win32", "net_winsock", "script_qb", "game", "frontend", "editor", "editor_launcher", "devtools"],
     "libraries": {
         "base": {
             "folders": ["src/base/"],
@@ -36,11 +37,9 @@
                     "src/engine/file/data_overlay.h",
                     "src/engine/file/disk.h",
                     "src/engine/file/disk_files.h",
-                    "src/engine/file/file_load.h",
                     "src/engine/gfx/engine_parts.h",
                     "src/engine/gfx/font.h",
                     "src/engine/gfx/glyphs.h",
-                    "src/engine/gfx/hd_ui.h",
                     "src/engine/gfx/loading_bar_cfuncs.h",
                     "src/engine/gfx/renderer.h",
                     "src/engine/gfx/screen.h",
@@ -56,6 +55,7 @@
                     "src/engine/script/cscript.h",
                     "src/engine/script/names.h",
                     "src/engine/script/param_struct.h",
+                    "src/engine/sys/editor_mode.h",
                     "src/engine/ui/menu_element.h",
                     "src/engine/ui/menu_reading.h",
                     "src/engine/ui/screen_element.h",
@@ -150,6 +150,7 @@
                     "src/engine/script/qb.h",
                     "src/engine/sound/sfx.h",
                     "src/engine/sound/surface_kind.h",
+                    "src/engine/sys/editor_mode.h",
                     "src/engine/sys/game_config.h",
                     "src/engine/sys/mlp.h",
                     "src/engine/ui/menu_reading.h",
@@ -178,6 +179,7 @@
                 ]
             }
         },
+        "editor_launcher": { "folders": ["src/editor/launcher/"], "allowed": [] },
         "devtools": {
             "folders": ["src/devtools/"],
             "allowed": ["base", "platform", "formats", "wire", "engine", "game"]

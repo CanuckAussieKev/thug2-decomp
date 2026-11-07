@@ -185,6 +185,15 @@ public:
         return state.device_made && finish_work(state) && state.context.remake() && reset_device_bindings(state);
     }
 
+    // (the back buffer made again at it by the next reset: reset_device_bindings)
+    void set_back_buffer_size(const GpuBackBufferSize& size) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        state.settings.width = size.width;
+        state.settings.height = size.height;
+    }
+
     void shutdown() override
     {
         Backend& state = backend();

@@ -17,6 +17,7 @@
 
 #include "platform/output_sinks.h"
 #include "platform/mute_audio.h"
+#include "platform/process_flags.h"
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
 #include "app/command_table.h"
@@ -100,7 +101,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
     // NOT ORIGINAL: the exe's extensions (the new front end, the dev tools, our game features; the level editor from its
-    // plugin) registered before any of the original's code runs (app/extensions.h).
+    // plugin) registered before any of the original's code runs (app/extensions.h). The command line kept first (WinMain
+    // keeps it again before anything parses it): the editor mode is read from it as the plugins are loaded
+    // (engine/sys/editor_mode.h).
+    sys::set_startup_command_line(GetCommandLineA());
     app::register_extensions();
     // NOT ORIGINAL: the online session's hooks into the network transport (game/online/transport_hooks.h).
     online::install_transport_hooks();

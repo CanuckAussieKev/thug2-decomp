@@ -38,6 +38,7 @@
 #include "editor/level_editor_preview.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_play.h"
+#include "editor/level_editor_shell.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_ruler.h"
@@ -288,7 +289,8 @@ void handle_event(const input::Event& event)
                 ux8::wants_escape() || // (UX8: a pie, walking)
                 ux9::occupied()) {     // (UX9: a tool armed)
                 editor_session().cancel_requested_ = true;
-            } else {
+            } else if (!shell::on()) {
+                // (the editor mode never leaves to the game: File > Exit quits - level_editor_shell.h)
                 editor_session().exit_requested_ = true;
             }
         }
@@ -335,6 +337,11 @@ bool pass_key(bool* released, bool down)
 
 bool pass_pause_key(bool down)
 {
+    // (the editor mode: the game's Start never leaves the editor - level_editor_shell.h)
+    if (shell::on()) {
+        editor_session().pause_key_released_ = false;
+        return false;
+    }
     // (while dragging, browsing, reading the help or with something selected the key closes / deselects that instead - handle_event - and counts again
     // only once it has been up)
     // (drawing a chain: Enter finishes it - level_editor_chains.h)
@@ -578,6 +585,14 @@ bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
     return true;
 }
 
+namespace {
+
+// LevelEditor_EditorMode: the editor mode is on (the overlay's pause menu leaves out what would leave the level -
+// level_editor_shell.h).
+bool cfunc_editor_mode(script::Struct* /*params*/, script::Context /*context*/) { return shell::on(); }
+
+} // namespace
+
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
@@ -587,6 +602,7 @@ void register_script_functions()
         {.name = "LevelEditor_PickLevel", .function = &layout::cfunc_pick_level},
         {.name = "LevelEditor_EditedLevels", .function = &layout::cfunc_edited_levels},
         {.name = "LevelEditor_PlayCamera", .function = &cameras::cfunc_play_camera}, // (map4)
+        {.name = "LevelEditor_EditorMode", .function = &cfunc_editor_mode},
     });
     script::install_script_functions(kFunctions);
 }
@@ -613,6 +629,11 @@ void input_logic()
         perform::get_keep(resume_now(), layout::level_loads());
         editor_session().exit_requested_ = true;
         get_log("level editor: play from here");
+    }
+    // (the editor mode's File > Open Level: closed, then the other level loads - level_editor_shell.h)
+    if (shell::take_leave_request()) {
+        editor_session().exit_requested_ = true;
+        get_log("level editor: closing for another level");
     }
     if (!editor_session().exit_requested_) {
         return;
@@ -735,7 +756,12 @@ void blit()
 {
     if (!editor_session().active_) {
         // (play from here: the game in the Scene panel while it plays - level_editor_ui_app.h)
-        ui::play_frame(render::device().device_made() && perform::playing(layout::level_loads()));
+        const bool playing = render::device().device_made() && perform::playing(layout::level_loads());
+        // (the editor mode: its Start page, or a level opening - level_editor_shell.h)
+        if (!playing && render::device().device_made() && shell::draw_frame()) {
+            return;
+        }
+        ui::play_frame(playing);
         return;
     }
     if (!drawn_view().have_view_ || !render::device().device_made()) {

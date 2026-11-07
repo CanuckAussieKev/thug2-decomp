@@ -102,6 +102,20 @@ that isn't marked, and `tools/plugin_api.ts`, run by the build after the plugin'
 imports (the exe's exports, ImGui's aside, are exactly the plugin's imports); `tools/plugin_api.test.ts` keeps the marks
 in the headers of the game and the layers below it.
 
+**The editor mode** (`engine/sys/editor_mode.h`): "the game inside the editor" - `thug2-decomp.exe -editor` (or
+`[features] editor_mode=1`), which the editor's launcher `thug2-editor.exe` (`src/editor/launcher`: plain Win32, no
+layer of the game - `tools/layers.json` `standalone`) starts. `app/extensions.cpp` turns it on once the plugins are
+loaded and only when the editor's plugin is there (without it: logged, the game as usual). Then the window is an
+application's (`platform/app_window.h`: resizable, its place kept in `thug2-decomp-editor-window.ini`, never full
+screen, its own AppUserModelID and the launcher's icon; a new size resets the device with the back buffer at that size -
+`frame_loop::request_back_buffer_size`, `GpuContext::set_back_buffer_size`), the intro movies are skipped and the
+game boots as ever underneath while the editor's pages stand over it (`editor/level_editor_shell.h`): the front end's
+scripts and main menu load hidden, the game's keys and the mouse menus rest, and a level is opened through the level
+select's own SKATE NOW (`begin_level::read_in_load`) - from another level, through the pause menu's change of level.
+The extension point `holds_quit` lets the editor ask about unsaved changes before the window closes. The data overlay's
+pause menu leaves out the items that would leave the level while `LevelEditor_EditorMode` is true; the new front end
+is off in this mode.
+
 **Where the UI lives** (what `frontend/` held was three things): the original's screen elements, which the game's HUD
 and menus use (`screen_element*`, `text_element`, `text_block`, `menu_element`, `sprite_element`, `scrolling_menu`,
 `model_widget`, `theme_cfuncs`, `screen_constants.h`), are `engine/ui` (they include no game header); the original's

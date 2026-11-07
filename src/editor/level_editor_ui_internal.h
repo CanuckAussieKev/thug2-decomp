@@ -112,6 +112,8 @@ void get_mono(text::FormatFor<Args...> format, Args... args)
 void get_muted(const char* text);
 
 ux8::Fonts ux8_fonts();
+// The UI's fonts and scale, as ux3 keeps them.
+ux3::Fonts ux3_fonts();
 
 bool get_matches(const std::string& text, const char* filter);
 

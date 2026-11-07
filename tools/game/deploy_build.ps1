@@ -13,7 +13,7 @@ param(
 #        never starts). -BuildDir: the CMake build folder (default <this checkout>\out\build\<Arch>-debug, the preset's).
 # The FFmpeg DLLs (the movies' and streams' codec, both machines) come from the build folder (the build copies them from
 # out\ffmpeg\<arch> once tools/ffmpeg/build_ffmpeg.ts --arch <arch> has made them). The level editor plugin goes into
-# the folder's plugins\ (made when missing). Files of the other machine left in the folder (an x64 build's
+# the folder's plugins\ (made when missing), its launcher (thug2-editor.exe) beside the exe. Files of the other machine left in the folder (an x64 build's
 # vcruntime140_1.dll after an x86 one) are listed.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))

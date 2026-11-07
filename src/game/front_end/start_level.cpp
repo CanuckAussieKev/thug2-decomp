@@ -26,6 +26,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/names.h"
+#include "engine/sys/editor_mode.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "platform/process_flags.h"
@@ -87,9 +89,8 @@ const Request& the_request()
 // Whether Level_<name>'s scene can load: a level without a scene pre (scnpre) needs levels\<level>\<level>.scn.xbx
 // (data folder or overlay). The DEVKIT_ONLY level Default has none on PC (only its scripts and sky ship): the game's
 // scene load returns no scene for it and writes through it (0x0048C5AA). Levels with a scene pre aren't checked.
-bool scene_installed(const std::string& name)
+bool scene_installed_in(script::Struct* info)
 {
-    script::Struct* info = script::read_sub_struct(("Level_" + name).c_str());
     const char* scene = nullptr;
     if (!info || info->has_entry_named("scnpre") || !info->fetch_text("level", &scene, 0) || !scene) {
         return true;
@@ -97,6 +98,42 @@ bool scene_installed(const std::string& name)
     std::array<char, kPathSize> path{};
     text::format_to(path, "levels\\%s\\%s.scn.xbx", scene, scene);
     return file::is_present(path.data());
+}
+bool scene_installed(const std::string& name) { return scene_installed_in(script::read_sub_struct(("Level_" + name).c_str())); }
+
+// NOT ORIGINAL - the level structure whose load_script is `load` (levels.qb's Level_<x>, and the ported levels' that
+// make_menu_level adds the same way), or none.
+script::Struct* level_info_of(uint32_t load)
+{
+    static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
+    for (script::SymbolTableEntry* entry = script::get_next_symbol(nullptr); entry != nullptr;
+         entry = script::get_next_symbol(entry)) {
+        uint32_t its_load = 0;
+        if (entry->type() == script::QbValueKind::kStruct && entry->value().structure() != nullptr &&
+            entry->value().structure()->read_hash_value(kLoadScript, &its_load, 0) && its_load == load) {
+            return entry->value().structure();
+        }
+    }
+    return nullptr;
+}
+
+// What read_in and read_in_load run once the level is known: the level select's SKATE NOW with that level chosen
+// (`edited_copy`: with its edited_layout flag - the level editor's copy of the level, editor/level_editor_layout.h).
+void start_free_skate(uint32_t load, bool edited_copy)
+{
+    script::launch_script(name_hash("EnableSun"), nullptr, nullptr, false, "EnableSun");
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->put_name_key(checksums::Name{0U}, name_hash("freeskate"));
+    script::launch_script(name_hash("SetGameType"), params, nullptr, false, "SetGameType");
+    params->get_clear();
+    script::launch_script(name_hash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
+    params->put_name_key(checksums::Name{name_hash("level")}, load);
+    if (edited_copy) {
+        params->put_name_key(checksums::Name{0U}, name_hash("edited_layout"));
+    }
+    script::spawn_script(name_hash("level_select_change_level"), params);
+    params->get_clear();
+    script::delete_struct(params);
 }
 
 // NOT ORIGINAL grouping - start_level.cpp's state (the original's globals). Made on first use, never destroyed
@@ -261,7 +298,8 @@ bool parse_spot(const std::string& text, Spot* out)
 
 const char* get_requested() { return the_request().level.c_str(); }
 
-bool edit_requested() { return the_request().edit && !the_request().level.empty(); }
+// (the editor mode opens the level it starts in in the editor: -level as -edit - engine/sys/editor_mode.h)
+bool edit_requested() { return (the_request().edit || sys::editor_mode::on()) && !the_request().level.empty(); }
 
 void tick_frame(modules::FrontEnd* front_end)
 {
@@ -297,8 +335,11 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     // In the front end, with the main menu up: its scripts loaded (not the early self-tests' stand-in symbol table,
     // which run this before the game is up), then a second more for the menu to settle.
-    if (render::current_level() != 0 || (front_end && front_end->is_halted()) ||
-        !is_script(name_hash("main_menu_skate_now"))) {
+    // (not original either: the editor mode's main menu may be the game's own - the new front end's overlay unused -,
+    // whose scripts have main_menu_exit instead - engine/sys/editor_mode.h)
+    const bool menu_scripts = is_script(name_hash("main_menu_skate_now")) ||
+                              (sys::editor_mode::on() && is_script(name_hash("main_menu_exit")));
+    if (render::current_level() != 0 || (front_end && front_end->is_halted()) || !menu_scripts) {
         return;
     }
     if (++start_level_state().frames_ < kSettleFrames) {
@@ -345,16 +386,30 @@ bool read_in(const char* name, std::string* why)
         return false;
     }
     get_log("start level: %s (free skate)", level.c_str());
-    script::launch_script(name_hash("EnableSun"), nullptr, nullptr, false, "EnableSun");
-    gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(checksums::Name{0U}, name_hash("freeskate"));
-    script::launch_script(name_hash("SetGameType"), params, nullptr, false, "SetGameType");
-    params->get_clear();
-    script::launch_script(name_hash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
-    params->put_name_key(checksums::Name{name_hash("level")}, load);
-    script::spawn_script(name_hash("level_select_change_level"), params);
-    params->get_clear();
-    script::delete_struct(params);
+    start_free_skate(load, false);
+    return true;
+}
+
+bool read_in_load(uint32_t load, bool edited_copy, std::string* why)
+{
+    const char* name = script::look_up_hash_name(load);
+    const std::string level = name != nullptr ? std::string(name) : text::format("%08X", load);
+    if (!is_script(load)) {
+        get_log("start level: %s isn't a level's load script", level.c_str());
+        if (why) {
+            *why = level + " isn't a level's load script";
+        }
+        return false;
+    }
+    if (!scene_installed_in(level_info_of(load))) {
+        get_log("start level: %s - the level's scene isn't installed (the game would crash loading it)", level.c_str());
+        if (why) {
+            *why = level + ": the level's scene isn't installed";
+        }
+        return false;
+    }
+    get_log("start level: %s (free skate%s)", level.c_str(), edited_copy ? ", its edited copy" : "");
+    start_free_skate(load, edited_copy);
     return true;
 }
 

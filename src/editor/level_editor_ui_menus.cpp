@@ -14,6 +14,7 @@
 #include "editor/level_editor_hints.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_prefs.h"
+#include "editor/level_editor_shell.h"
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_strip.h"
@@ -76,11 +77,13 @@ void file_menu()
     if (!get_menu("File")) {
         return;
     }
+    shell::file_menu_top(); // (the editor mode's Open Level, Recent - level_editor_shell.h)
     get_items({"save", "snapshots"});
     ImGui::Separator();
     get_items({"restore_autosave", "discard_autosave"});
     ImGui::Separator();
     get_item({.id = "reset_level"});
+    shell::file_menu_bottom(); // (and Exit)
     ImGui::EndMenu();
 }
 
@@ -210,6 +213,7 @@ void play_menu()
     if (!get_menu("Play")) {
         return;
     }
+    shell::play_menu_top(); // (the editor mode's Play: from the level's start - level_editor_shell.h)
     get_items({"play", "simulate"});
     ImGui::Separator();
     get_item({.id = "trail_window"});

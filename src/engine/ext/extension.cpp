@@ -226,6 +226,16 @@ bool draws_unfocused()
     return false;
 }
 
+bool holds_quit()
+{
+    for (Extension* extension : registered()) {
+        if (extension->holds_quit()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void open_editor_when_up()
 {
     for (Extension* extension : registered()) {

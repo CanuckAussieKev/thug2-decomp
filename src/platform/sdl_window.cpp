@@ -12,6 +12,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "platform/app_window.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include "platform/process_flags.h"
@@ -82,8 +83,23 @@ void enforce_max_resolution()
     }
 }
 
+// NOT ORIGINAL - the application window's first size (app_window.h: none kept yet): most of the display it opens on,
+// at least 640x480.
+constexpr int kAppWindowPercent = 80;
+constexpr int kPercent = 100;
+
 void load_window_settings()
 {
+    // Not original - an application's window (app_window.h): windowed, its kept size - [Graphics]' size and full
+    // screen aren't read.
+    if (app_window::requested()) {
+        const app_window::Placement placement = app_window::read_placement();
+        sdl_window_state().windowed_ = true;
+        sdl_window_state().borderless_ = false;
+        sdl_window_state().client_width_ = placement.width;
+        sdl_window_state().client_height_ = placement.height;
+        return;
+    }
     sdl_window_state().client_width_ = build_info::get_int(build_info::kGraphics, "ResolutionX", 0);
     sdl_window_state().client_height_ = build_info::get_int(build_info::kGraphics, "ResolutionY", 0);
     if (!sdl_window_state().windowed_) {
@@ -95,20 +111,27 @@ void load_window_settings()
 // NOT ORIGINAL: [Graphics] WindowDisplay=<n> (1 = the first monitor, 2 = the second...; 0, the default, or a monitor
 // that isn't there: centred on the primary one, as before) - the monitor a window is centred on. The workspaces'
 // test games use 2 (tools/game/game_exe.ps1 Set-WorkspaceMuted).
-int window_position()
+// The display [Graphics] WindowDisplay names (0: none named, or not there).
+SDL_DisplayID chosen_display()
 {
     const int display = build_info::get_int(build_info::kGraphics, "WindowDisplay", 0);
     int count = 0;
     SDL_DisplayID* displays = SDL_GetDisplays(&count);
-    int position = static_cast<int>(SDL_WINDOWPOS_CENTERED);
+    SDL_DisplayID chosen = 0;
     if (displays && display >= 1 && display <= count) {
         // (SDL 3 names a display by its id: the n-th of SDL's list is SDL 2's display index n - 1)
         const std::span<const SDL_DisplayID> listed(displays, static_cast<std::size_t>(count));
-        const SDL_DisplayID chosen = core::at(listed, display - 1);
-        position = static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(chosen));
+        chosen = core::at(listed, display - 1);
     }
     SDL_free(displays);
-    return position;
+    return chosen;
+}
+
+int window_position()
+{
+    const SDL_DisplayID chosen = chosen_display();
+    return chosen != 0 ? static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(chosen))
+                       : static_cast<int>(SDL_WINDOWPOS_CENTERED);
 }
 
 // Full screen as SDL 2 made it: the mode of the window's display closest to the window's size (SDL 3's full screen
@@ -161,12 +184,32 @@ HWND create_sdl_window(WindowApi api)
     if (sdl_window_state().borderless_ && sdl_window_state().windowed_) {
         flags |= SDL_WINDOW_BORDERLESS;
     }
+    // Not original - an application's window (app_window.h): resizable, maximised as it was left; its taskbar group.
+    const bool app = app_window::requested();
+    const app_window::Placement placement = app ? app_window::read_placement() : app_window::Placement{};
+    if (app) {
+        flags |= SDL_WINDOW_RESIZABLE;
+        if (placement.maximised) {
+            flags |= SDL_WINDOW_MAXIMIZED;
+        }
+        app_window::prepare_process();
+        if (sdl_window_state().client_width_ == 0 || sdl_window_state().client_height_ == 0) {
+            SDL_Rect usable{};
+            const SDL_DisplayID display = chosen_display() != 0 ? chosen_display() : SDL_GetPrimaryDisplay();
+            if (SDL_GetDisplayUsableBounds(display, &usable)) {
+                sdl_window_state().client_width_ = usable.w * kAppWindowPercent / kPercent;
+                sdl_window_state().client_height_ = usable.h * kAppWindowPercent / kPercent;
+            }
+        }
+    }
 
     if (api == WindowApi::kVulkan) {
         flags |= SDL_WINDOW_VULKAN;
     }
 
-    enforce_max_resolution();
+    if (!app) {
+        enforce_max_resolution();
+    }
     if (sdl_window_state().client_width_ == 0 || sdl_window_state().client_height_ == 0) {
         if (const SDL_DisplayMode* desktop = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay())) {
             sdl_window_state().client_width_ = desktop->w;
@@ -178,9 +221,10 @@ HWND create_sdl_window(WindowApi api)
 
     const int position = window_position();
     const SDL_PropertiesID properties = SDL_CreateProperties();
-    SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "THUG2");
-    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_X_NUMBER, position);
-    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_Y_NUMBER, position);
+    SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING,
+                          app ? app_window::settings().title.c_str() : "THUG2");
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_X_NUMBER, placement.have_place ? placement.x : position);
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_Y_NUMBER, placement.have_place ? placement.y : position);
     SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, sdl_window_state().client_width_);
     SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, sdl_window_state().client_height_);
     SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, static_cast<int64_t>(flags));
@@ -197,6 +241,15 @@ HWND create_sdl_window(WindowApi api)
         }
         handle = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window_state().window_),
                                                          SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+        if (app && handle) {
+            SDL_SetWindowMinimumSize(sdl_window_state().window_, kMinClientWidth, kMinClientHeight);
+            app_window::prepare_window(handle);
+            // (a maximised window's client area: what the back buffer is made at - and what the next size change is
+            // measured against)
+            SDL_GetWindowSizeInPixels(sdl_window_state().window_, &sdl_window_state().client_width_,
+                                      &sdl_window_state().client_height_);
+            app_window::note_made(sdl_window_state().window_);
+        }
         log_window_size(sdl_window_state().window_);
     }
     keep_text_input();

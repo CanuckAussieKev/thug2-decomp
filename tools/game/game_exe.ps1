@@ -27,12 +27,14 @@ $LaunchExeName = 'thug2-decomp.exe'
 # (ours, and the game's own exe started by hand)
 $GameProcessNames = @(@($LaunchExeName) + $GameExeNames | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) })
 # The files of ours a game lock backs up and puts back (those that are there; the ones that weren't are removed at
-# release): the exe, its PDB, the level editor plugin (plugins\, with its PDB), the DLLs next to them (D3DX9, SDL3,
+# release): the exe, its PDB, the level editor's launcher (thug2-editor.exe, with its PDB) and plugin (plugins\, with
+# its PDB), the DLLs next to them (D3DX9, SDL3,
 # FFmpeg's, the C runtime's a Release build copies), the controller database; an earlier development build's
 # dinput8.dll. The same names for a 32-bit and a 64-bit build: a build is deployed INSTEAD of the one in the folder
 # (deploy_build.ps1), under the lock, and release puts the other back. (A name with a folder - plugins\... - is that
 # file in that folder of the game's.)
-$DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'plugins\thug2-level-editor.dll', 'plugins\thug2-level-editor.pdb',
+$DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'thug2-editor.exe', 'thug2-editor.pdb',
+                   'plugins\thug2-level-editor.dll', 'plugins\thug2-level-editor.pdb',
                    'd3dx9_43.dll', 'SDL3.dll', 'gamecontrollerdb.txt', 'avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll',
                    'swscale-8.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'dinput8.dll')
 # The lock folder's backup of a deployed file (flat: plugins\x.dll -> plugins__x.dll.backup).

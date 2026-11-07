@@ -42,7 +42,9 @@
 #include "platform/crt.h"
 #include "platform/registry.h"
 #include "platform/sdl_events.h"
+#include "platform/app_window.h"
 #include "platform/sdl_window.h"
+#include "engine/sys/mlp.h"
 #include "engine/gfx/loading_console.h"
 #include "game/commands/game_cfuncs.h"
 #include "base/core/parse_number.h"
@@ -216,6 +218,12 @@ void handle_window_event(SDL_Event* event)
         render::engine_parts().set_device_lost(true);
         set_app_active(true);
     }
+    // Not PartyMod's - an application's window (the editor mode: platform/app_window.h) is resizable: its place kept,
+    // the back buffer made at its new size.
+    app_window::PixelSize size;
+    if (app_window::note_event(sdl_window(), *event, &size)) {
+        frame_loop::request_back_buffer_size({.width = size.width, .height = size.height});
+    }
 }
 
 } // namespace
@@ -384,8 +392,15 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // (thug2-decomp.ini [features] allow_multiple_instances=1, not in the original: skip this check so a second copy
     // can run - e.g. to host and join a LAN game on one PC. Its socket falls back to a free port when the game's
     // port is taken (AppHost::Bind) and its log goes to thug2-decomp-2.log.)
+    // (not original: an application's window - the editor mode, platform/app_window.h - looks for its own title, "THUG2
+    // Editor" or "THUG2 Editor - <level>": the game and the editor may run side by side)
     const auto title = std::to_array("THUG2");
-    if (HWND running = allow_multiple_instances() ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, title.data())) {
+    HWND running = nullptr;
+    if (!allow_multiple_instances()) {
+        running = app_window::requested() ? app_window::find_running(app_window::settings().title)
+                                          : FindWindowExA(nullptr, nullptr, nullptr, title.data());
+    }
+    if (running) {
         ShowWindow(running, SW_RESTORE);
         BringWindowToTop(running);
         SetForegroundWindow(running);

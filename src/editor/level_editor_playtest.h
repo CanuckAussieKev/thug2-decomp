@@ -186,8 +186,12 @@ bool get_simulating();
 bool gap_landed(const std::string& name);
 // "landed" / "untested" for a gap's name (the Triggers window's rows).
 const char* gap_note(const std::string& name);
-// Play from this restart (the Inspector's button): the editor closes into play, the skater put at `restart`.
+// Play from this restart (the Inspector's button): the editor closes into play, the skater put at `restart`
+// (kLevelStart: where the level starts the skater - ResetSkaters without a node).
+constexpr uint32_t kLevelStart = 0xFFFFFFFFU;
 void play_from_restart(uint32_t restart);
+// Play (the editor mode's Play menu): from the level's start.
+void play_from_start();
 
 // The UI (level_editor_playtest_ui.cpp, ImGui): the Trail window, a restart's Inspector row.
 bool& window_open();
