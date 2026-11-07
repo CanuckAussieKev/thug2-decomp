@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <span>
+#include <type_traits>
 
 #include "formats/byte_stream.h"
 #include "base/core/enum_ops.h"
@@ -103,6 +105,17 @@ Record* object_record(std::span<uint8_t> file, int index)
 {
     static_assert(sizeof(Record) == kObjectSize, "the collision file's object record");
     return raw::as<Record>(file.subspan(kHeaderSize + (static_cast<size_t>(index) * kObjectSize), kObjectSize).data());
+}
+
+// NOT ORIGINAL - an object record made at the start of a block of our own that also holds its arrays (`block`: the
+// record, then the arrays), so that its links stay short on any build: separate allocations can lie more than 2 GB
+// apart on x64 (link_from). Value-initialised; the block keeps it (nothing to end: the record is plain data).
+template <typename Record>
+Record* record_in_block(std::span<uint8_t> block)
+{
+    static_assert(sizeof(Record) == kObjectSize && std::is_trivially_destructible_v<Record>, "an object record");
+    Expects(block.size() >= kObjectSize && core::address(block.data()) % alignof(Record) == 0);
+    return std::construct_at(raw::as<Record>(block.data()));
 }
 
 // The place the first object's record is (whether or not the file holds one: the original took it so).
