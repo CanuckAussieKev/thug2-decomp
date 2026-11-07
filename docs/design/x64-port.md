@@ -131,7 +131,11 @@ Counted over 335,402 non-blank source lines, with comments stripped:
   makes the device, at `CreateDevice` and at every `Reset`, because the game makes it without
   `D3DCREATE_FPU_PRESERVE` (`gpu_d3d9/d3d9_context.cpp`, as the original did). The 32-bit build loads the same word
   itself at both points whatever the renderer (`maths::use_device_fpu_precision`, called by `render_pc`), so the
-  game's thread runs at the original's precision on Vulkan too; on x64 it does nothing.
+  game's thread runs at the original's precision on Vulkan too; on x64 it does nothing. A DLL loaded after start-up
+  resets it: binkw32's start-up code (loaded on demand at the first music stream, `crt::library_function`) set the
+  C runtime's 53 bits on the game's thread a few seconds into a level, with either renderer - the original imported
+  it, loaded before the device. `crt::library_function` keeps the thread's word around the load
+  (`maths::fpu_word` / `restore_fpu_word`).
 - The original's own code never sets the precision (only its C runtime's start-up, 53 bits, and its D3DX9 library
   around its own work). The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
   CMake files set no `/arch`), so its `float` / `double` arithmetic is already SSE2 and doesn't depend on the x87

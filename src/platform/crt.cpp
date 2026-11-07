@@ -3,6 +3,7 @@
 #include "platform/crt.h"
 #include "platform/code_address.h"
 #include "base/core/checked_index.h"
+#include "base/maths/fpu_precision.h"
 
 #include <cstddef>
 #include <cstdlib>
@@ -25,7 +26,12 @@ void* library_function(Dll dll, const char* name)
 {
     HMODULE module = GetModuleHandleA(dll.file);
     if (!module) {
+        // NOT ORIGINAL - the thread's x87 word kept: the DLL's start-up code sets its C runtime's default (binkw32's,
+        // loaded at the first music stream: 53 bits over the device's 24 - base/maths/fpu_precision.h). The original
+        // imported it, loaded before anything ran.
+        const unsigned int word = maths::fpu_word();
         module = LoadLibraryA(dll.file);
+        maths::restore_fpu_word(word);
     }
     return module ? code_address(GetProcAddress(module, name)) : nullptr;
 }
