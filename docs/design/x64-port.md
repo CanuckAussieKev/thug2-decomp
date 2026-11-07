@@ -1,6 +1,6 @@
 # A 64-bit (x64) build
 
-Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X3 (formats / wire, collision links as offsets), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a / X10b (FFmpeg's Bink video and sound), X11 (the renderers compile on x64), X12a-e (engine, game, the editor, the front end, the dev tools, the backends and the app: the first x64 `thug2-decomp.exe` and `thug2-editor.exe`, built, not run yet), X13 (the tools read x64), X14 (floating point measured: the corpus). The design was written against
+Status: in progress. Done: X1 (the x64 presets and configure), X2 (`base/` on x64), X3 (formats / wire, collision links as offsets), X4 (the pointer-wide script cell), X5 (numbered call tokens, unpacked precompiled images), X6 (the layout asserts), X7 (the regions and heaps sized for x64; predicted, to be measured on x64 by X15), X8 (`platform/` on x64), X9 (the GameSpy SDK on x64; its protocol test is by hand), X10a / X10b (FFmpeg's Bink video and sound), X11 (the renderers compile on x64), X12a-e (engine, game, the editor, the front end, the dev tools, the backends and the app: the first x64 `thug2-decomp.exe` and `thug2-editor.exe`, built, not run yet), X13 (the tools read x64), X14 (floating point measured: the corpus), X15 (the first x64 run: the smoke on both renderers, the heaps measured; the editor's Companion collision open). The design was written against
 the `stage11` branch (2026-11-05); its numbers come from scripts over `src/` and are approximate where this says so.
 The "What the code assumes today" sections describe the code before the port.
 
@@ -558,6 +558,30 @@ What changed or was checked:
   procedure) have their typedefs' exact types; FFmpeg's functions are looked up into `decltype` pointers of its own
   declarations, and its I/O callbacks take `int64_t` positions.
 
+**Done in X15** (the first x64 run, Debug, from a game folder with the x64 DLLs: `tools/game/deploy_build.ps1 -Arch
+x64`): the smoke (the five smoke levels, two in a row, the front end, a quit, the park editor, a created goal, Classic
+mode's menus, the tricks / walking / objects traces, the level editor, the editor's own exe) ran on both renderers with
+no error, the same as the 32-bit build of the same commit by the same script. Measured:
+- **The same game:** the script pools after each load are the 32-bit build's to the item (foun 63,749 components /
+  15,578 structures ... sch 71,300 / 17,469, peaks too); the tricks score the same (combo 280, multiplier 2, landed
+  564). The traces of the skater (position, velocity, matrix, state, trick and score), the walk and every moving object
+  are identical frame for frame on all four builds (x86 / x64, Vulkan / Direct3D 9) over the frames they share: the
+  x87 / SSE and 24 / 53-bit differences of "Floating point: measured" don't reach the game here.
+- **The heaps** (`heap_report.ts` against X7's 32-bit logs): nothing came near its region. The peaks grew x1.00 (the
+  top-down heap, the theme, the texture heaps, AnimScratch) to x1.52 (BO's AnimHeap), the script heap x1.40, the park
+  editor's x1.44, the front end / network x1.35, the skater x1.30. The main block's use grew x1.19-x1.22 (BO: 63.7 MB
+  of 89.9 on x86, 75.6 MB of 158.1 on x64), below X7's lowest estimate; it keeps 82-93 MB free against x86's 26-35.
+  So the x2 rule holds with room everywhere; the part of the main block beside the script region (x86's 61.8 MB, which
+  grew x1.15 at most) is where a tighter rule would save the most.
+- **The movies** play through FFmpeg (the log's "this 64-bit build's only codec" line, the intro on screen); the
+  editor's Dear ImGui runs on Direct3D 9 and Vulkan.
+- **Found:** the editor's Companion collision does reach the stop described under X12e. Moving TR's `BlackBoard_Cut` (a
+  piece with 12 faces of the level's collision-only sectors) from a saved layout stops the 64-bit game in the
+  Companion's constructor at `set_vertex_bytes` (`collision_format::link_from`'s contract check): its one-byte-a-vertex
+  array, a small `std::vector` grown by `push_back`, was more than 2 GB from the Companion. The C runtime's heap on
+  x64 does put small blocks that far from larger ones. The 32-bit build moves the same piece. Open: the record and its
+  arrays allocated together (or the arrays reserved in one block beside the record).
+
 ### CMake and presets
 
 - `CMakePresets.json` has `x86-debug` / `x86-release` only. The root `CMakeLists.txt` refuses other architectures and
@@ -593,7 +617,7 @@ Each task is one PR. "Start after stage 11" means after branch `stage11` is merg
 | X12a-e | Compile and fix by library on x64, one PR each: (a) `engine/` memory, lists, file, assets, sys; (b) `engine/` gfx, objects, render, ui; (c) `engine/` script, net, audio, sound, pad_input, media; (d) `game/`; (e) `editor/`, `frontend/`, `devtools/`, the backends (`audio_dsound`, `input_dinput`, `fs_win32`, `media_ffmpeg`), `app/` | X3-X8, X10c, X11 | C4267 / C4244 / C4311 / C4312 at 0 |
 | X13 | Tools on x64: `first_fault.py` and the symbolizers read x64 contexts and PDBs; the game scripts (`tools/game`) find the x64 exe | X8 | done |
 | X14 | Floating-point equivalence: `thug2_maths_check` writes a corpus on the 32-bit build and compares with it on x64 (ulps per function); the accepted differences documented | X2 | |
-| X15 | The first x64 run: the smoke levels, the front end, the editor, a local online session with a 32-bit peer; deploy (x64 DLLs: SDL2, D3DX9, FFmpeg); README "Running" for x64 | X9, X12, X13 | |
+| X15 | The first x64 run: the smoke levels, the front end, the editor, a local online session with a 32-bit peer; deploy (x64 DLLs: SDL2, D3DX9, FFmpeg); README "Running" for x64 | X9, X12, X13 | done, apart from the online session (by hand) and the Companion stop (open) |
 
 ```
 X1 -> X2 -> X3 ----------------------------------\

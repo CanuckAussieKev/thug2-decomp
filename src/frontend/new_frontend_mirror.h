@@ -154,17 +154,17 @@ struct View {
     // A colour menu (HUE / SAT. / VAL. all there): the colour's values as the game holds them - hue in degrees,
     // saturation and value in percent (the markers' places turned back into the numbers).
     bool has_colour_ = false;
-    float hue = 0.0F, sat = 0.0F, val = 0.0F;
     bool editor = false; // (an editor's: drawn lighter over its view)
+    float hue = 0.0F, sat = 0.0F, val = 0.0F;
     // (Kind::Keyboard: the keys, the one selected, the text typed)
     std::vector<std::vector<std::string>> keys;
     int key_row_ = -1, key_col_ = -1;
     std::string entry;
+    std::string why; // (kind None: why the menu read stays original - for the log)
     // (Kind::Menu: the menu's own art id - the item's when it has none -, its kicker, the main menu - numbered kicker,
     // the Continue hint)
     std::string screen_art_, kicker;
     bool main_menu_ = false;
-    std::string why; // (kind None: why the menu read stays original - for the log)
     // (kind None: a menu with nothing to show yet - no items, none with words or none to choose: the original may still
     // be building it, so its elements stay hidden a few frames before it is left as it is - kFramesUnsettled)
     bool unsettled = false;
