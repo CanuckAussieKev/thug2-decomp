@@ -17,7 +17,7 @@ void use_device_fpu_precision();
 
 // The x87 control word as it is now, to be put back by restore_fpu_word (32-bit x86; elsewhere 0 and nothing). The
 // original's libraries were all loaded at its start, before the device; a DLL we load later sets the C runtime's
-// default word in its start-up code (binkw32's: 53 bits) on the thread that loads it - the loader keeps the word
+// default word in its start-up code (a MinGW-built DLL's: 53 bits) on the thread that loads it - the loader keeps the word
 // around it.
 [[nodiscard]] unsigned int fpu_word();
 void restore_fpu_word(unsigned int word);

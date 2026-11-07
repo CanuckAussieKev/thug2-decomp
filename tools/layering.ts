@@ -33,8 +33,6 @@ const BOUNDARY_FILES = new Set([
     "src/gpu_d3d9/imgui_texture_id.h",
     // D3DX's buffers over the callers' out-parameters (once in platform/)
     "src/gpu_d3d9/d3dx.cpp",
-    // binkw32's exports looked up by name (once in platform/)
-    "src/media_bink/bink.cpp",
     // FFmpeg's DLLs' exports looked up by name (the FFmpeg movie codec's loader)
     "src/media_ffmpeg/ffmpeg_api.cpp",
     // Winsock's generic addresses, hostent and char buffers over the game's (once platform/sockets.cpp)

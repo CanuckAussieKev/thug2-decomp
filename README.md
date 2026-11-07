@@ -121,10 +121,9 @@ with a call stack.
 
 ## Running
 
-The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe`, its `Data` folder and
-`binkw32.dll` (the movie player, from your copy of the game; nothing of it is in this repository):
+The game runs from the game folder of your THUG2 install - the folder with `THUG2.exe` and its `Data` folder:
 
-1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL3.dll` and `gamecontrollerdb.txt` from the build folder into the game
+1. Copy `thug2-decomp.exe` (and `thug2-editor.exe`, if you want the editor on its own), `d3dx9_43.dll`, `SDL3.dll`, FFmpeg's four DLLs (below) and `gamecontrollerdb.txt` from the build folder into the game
    folder (the build does it when `THUG2_GAME_DIR` points there). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
@@ -132,9 +131,7 @@ The game runs from the game folder of your THUG2 install - the folder with `THUG
 
 The 64-bit build goes in the same folder the same way, in place of the 32-bit one (the files have the same names, so a
 folder holds one build or the other): `thug2-decomp.exe` (+ `thug2-editor.exe`, the PDBs), and from its own build
-folder the 64-bit `d3dx9_43.dll` and `SDL3.dll`, `gamecontrollerdb.txt`, and FFmpeg's four 64-bit DLLs (below). It
-doesn't use `binkw32.dll` (a 32-bit DLL): its movies, music and sound streams always play through FFmpeg, whatever
-`[features] movie_codec` says. Direct3D 9 comes with Windows; for Vulkan (the default renderer) the 64-bit Vulkan
+folder the 64-bit `d3dx9_43.dll` and `SDL3.dll`, `gamecontrollerdb.txt`, and FFmpeg's four 64-bit DLLs (below). Direct3D 9 comes with Windows; for Vulkan (the default renderer) the 64-bit Vulkan
 runtime comes with the graphics driver. Its Vulkan caches are files of their own
 (`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`); the ini, the editor's layouts and the
 data overlays are the same files for both builds.
@@ -142,8 +139,8 @@ data overlays are the same files for both builds.
 ### FFmpeg's DLLs
 
 The movies and the sound streams are decoded by FFmpeg's Bink decoders (LGPL 2.1 or later; `THIRD_PARTY_NOTICES.md`). The
-64-bit build always uses them; the 32-bit build uses `binkw32.dll` unless `[features] movie_codec=ffmpeg` is set (the
-default is `bink`; if the DLLs are missing it falls back to Bink and the log says why). Build the four DLLs
+Both builds need them (the game's `binkw32.dll` is not used); without them the game starts, with no movies and no music or
+sound streams, and the log says why. Build the four DLLs
 (`avutil-59.dll`, `avcodec-61.dll`, `avformat-61.dll`, `swscale-8.dll`) from FFmpeg's release source:
 
 ```
@@ -223,7 +220,6 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | Key | Default | Effect |
 |---|---|---|
 | `skip_intro_movies` | 0 | Skips the logo and intro movies at start-up |
-| `movie_codec` | bink | `bink` or `ffmpeg`: `ffmpeg` decodes the movies with FFmpeg's Bink decoders instead of `binkw32.dll` (the DLLs `avutil-59.dll`, `avcodec-61.dll`, `avformat-61.dll` and `swscale-8.dll` next to the exe - `node tools/ffmpeg/build_ffmpeg.ts` builds them, and the build copies them along). The movies' and the music / sound streams' sound plays through the game's own sound output (muted with `mute_audio=1` like the rest). Without the DLLs Bink plays them, and the log says why |
 | `mute_audio` | 0 | Silences all sound from the first frame |
 | `continue_music` | 0 | The song playing carries on through level loads (the skate shop, CAS and the park editor included) and run starts instead of being stopped or skipped; the playlist goes on when it ends. Skip, music volume 0, movies and cutscenes still stop it |
 | `widescreen_menus` | 1 | 0 brings back PartyMod's pillarboxed 4:3 front end |
@@ -392,7 +388,7 @@ each borrowed idea is credited where it's used.
 | Path | Contents |
 |---|---|
 | `src/` | The program, in layers (each a CMake library; `docs/architecture.md`): `base` (checksums, formatting, maths), `platform` (the window, crash reports, the GameSpy glue), `formats` and `wire` (the game's files and network messages), `engine` (memory, files, assets, scripts, objects, the renderer, audio, network transport, pad input, the original's screen elements), `game` (skating, the rider, goals, parks, saves, the online session, the game's script commands), `frontend` (the new front end), `editor` (the level editor), `devtools` (screenshot key, test-automation channel) |
-| `src/render_pc/`, `gpu_d3d9/`, `audio_dsound/`, `media_bink/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, Bink, DirectInput, Win32 files, Winsock, the QB script interpreter |
+| `src/render_pc/`, `gpu_d3d9/`, `audio_dsound/`, `media_ffmpeg/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, FFmpeg's movie decoders, DirectInput, Win32 files, Winsock, the QB script interpreter |
 | `src/app/` | The two programs' shared start-up (`main.cpp`, WinMain, the main loop, the command and component tables) and each one's extension list; `thug2-decomp.exe` and `thug2-editor.exe` |
 | `src/tests/` | The offline checks (file formats, maths against D3DX, number parsing, printf-style formatting) |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |

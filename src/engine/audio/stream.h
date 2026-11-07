@@ -17,7 +17,7 @@ struct MovieHeader;
 }
 
 // The PC's streamed audio (the platform layer under Pcm's music and streams): the music and three sound
-// streams, each played by a Bink file (media::Movie: binkw32, into the sound output), serviced by a thread every 5 ms.
+// streams, each played by a Bink file (media::Movie, into the sound output), serviced by a thread every 5 ms.
 // The pcm.wad stream class left from the console versions (WadStream) is still created in places, but its
 // playing is compiled out on PC (its update, volume and "done" calls are linker-folded stubs).
 namespace audio {
@@ -161,7 +161,7 @@ private:
 struct BinkStream {
     // 0x00452C00 (the constructor; not rewritten here): unknown19 and the number of plays (0: once).
     // 0x00452D20: open the Bink file at `path` (the path kept for reopening): 0, or E_INVALIDARG if it won't
-    // open. Bink's sound goes to DirectSound (set up once; "Bink can't use DSound" if that fails).
+    // open. The sound goes to the sound output (set up once; "Bink can't use DSound" if that fails).
     Result unseal(const char* path);
     // 0x00452DC0: ask the thread to pause (non-zero) or resume - unless pausing is locked out (0x0069CB98,
     // never set).
@@ -185,7 +185,7 @@ struct BinkStream {
     // async_ctl_ the next free stream buffer (0x004535E0).
     BinkStream(bool unknown19, int plays);
     // 0x00452C60: open stream file `key` (load_stream_file) with Bink from memory, video off; S_OK, or E_INVALIDARG
-    // if it can't be read or opened. Bink is told to use DirectSound the first time ("Bink can't use DSound").
+    // if it can't be read or opened. The sound output is set up the first time ("Bink can't use DSound").
     long unseal(uint32_t key, const char* path, long offset, size_t size);
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
     void set_channel_volumes(float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/)

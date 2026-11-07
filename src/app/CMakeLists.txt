@@ -3,7 +3,7 @@
 #   dev tools;
 # - thug2-editor.exe (target thug2-editor), the level editor on the engine and the game: no new front end, no dev tools
 #   (tools/cmake_layers.ts checks it reaches neither). -edit <level> starts it in the editor in that level.
-# Both run from the game folder of the player's own THUG2 install (its Data folder, binkw32.dll): README.md "Building and
+# Both run from the game folder of the player's own THUG2 install (its Data folder): README.md "Building and
 # running".
 # What they share - WinMain, the start-up, the main loop, the command and component tables - is the object library
 # thug2_app; each exe adds its own extensions (app/extensions.h: extensions.cpp, editor_extensions.cpp).
@@ -16,19 +16,12 @@ add_library(thug2_app OBJECT
     startup_init.cpp
     command_table.cpp
     renderer_choice.cpp
-    movie_choice.cpp
 )
 # The layers the shared start-up composes (the backends it installs, the game and below).
 target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc thug2_gpu_d3d9
                                        thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                        thug2_script_qb thug2_engine
                                        thug2_wire thug2_formats thug2_platform thug2_base)
-# Bink's movie codec (src/media_bink): the player's binkw32.dll, which is 32-bit - an x64 build has no Bink codec and plays
-# the movies and streams with FFmpeg's (app/movie_choice.cpp).
-if(TARGET thug2_media_bink)
-    target_link_libraries(thug2_app PUBLIC thug2_media_bink)
-    target_compile_definitions(thug2_app PRIVATE THUG2_BINK)
-endif()
 # The Vulkan backend (src/gpu_vulkan): installed by app/renderer_choice.cpp with renderer=vulkan.
 if(THUG2_VULKAN)
     target_link_libraries(thug2_app PUBLIC thug2_gpu_vulkan)

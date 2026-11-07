@@ -23,7 +23,6 @@
 #include "app/extensions.h"
 #include "app/winmain.h"
 #include "app/renderer_choice.h"
-#include "app/movie_choice.h"
 #include "audio_dsound/dsound_device.h"
 #include "engine/audio/audio_device.h"
 #include "engine/audio/muted_device.h"
@@ -35,6 +34,7 @@
 #include "engine/net/loopback_transport.h"
 #include "engine/net/transport.h"
 #include "engine/media/movie.h"
+#include "media_ffmpeg/ffmpeg_movie.h"
 #include "engine/script/host.h"
 #include "script_qb/qb_host.h"
 #include "engine/pad_input/input_source.h"
@@ -122,9 +122,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
     audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
                                                : audio::dsound::device());
-    // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): Bink's (the player's
-    // binkw32.dll) - or, with [features] movie_codec=ffmpeg, FFmpeg's Bink decoders (app/movie_choice.h).
-    media::install_movie(app::chosen_movie_codec());
+    // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): FFmpeg's Bink decoders
+    // (media_ffmpeg/ffmpeg_movie.h), from the DLLs next to the exe.
+    if (media::ffmpeg::usable()) {
+        get_log("movies: FFmpeg's Bink decoders");
+    } else {
+        get_log("movies: FFmpeg's DLLs can't be used (above): the movies and the music / sound streams won't play");
+    }
+    media::install_movie(media::ffmpeg::movie());
     // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the original's order: DirectInput's (the
     // keyboard read once a frame, the joysticks, the original's pad read - none made since PartyMod's input), SDL's
     // game controllers and keyboard, then the exe's extensions' (the game's: the test-automation channel's pressed

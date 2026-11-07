@@ -16,8 +16,8 @@ game/                       skating, the rider, goals, parks, saves, the online 
 render_pc/                the graphics backend's API-neutral half: the original's PC platform layer over render::Gpu; only app/ includes it
 gpu_d3d9/                 Direct3D 9's Gpu, GpuContext and UiBackend, D3DX; only app/ includes it
 gpu_vulkan/               Vulkan's Gpu and GpuContext (renderer=vulkan: design/vulkan.md); only app/ includes it
-audio_dsound/  media_bink/  the sound backend (DirectSound) and the movie codec (Bink); only app/ includes them
-media_ffmpeg/               the other movie codec: FFmpeg's Bink decoders (movie_codec=ffmpeg); only app/ includes it
+audio_dsound/               the sound backend (DirectSound); only app/ includes it
+media_ffmpeg/               the movie codec: FFmpeg's Bink decoders (the movies and the music / sound streams); only app/ includes it
 input_dinput/               the original's DirectInput side, an input source; only app/ includes it
 fs_win32/                   the operating system's files (Win32's), under the file system; only app/ includes it
 net_winsock/                the network sockets and address lookups (Winsock's), under the transport; only app/ includes it
@@ -166,7 +166,7 @@ graph TD
     devtools[thug2_devtools]
     game[thug2_game]
     engine[thug2_engine]
-    backends["the backends, one library each:<br/>render_pc, gpu_d3d9, gpu_vulkan, audio_dsound,<br/>media_bink, media_ffmpeg, input_dinput, fs_win32, net_winsock, script_qb"]
+    backends["the backends, one library each:<br/>render_pc, gpu_d3d9, gpu_vulkan, audio_dsound,<br/>media_ffmpeg, input_dinput, fs_win32, net_winsock, script_qb"]
     wire[thug2_wire]
     platform[thug2_platform]
     formats[thug2_formats]
@@ -211,7 +211,7 @@ backend alone).
 | `tools/cmake_layers.ts` (`cmake_layers.test.ts`) | The CMake files against the same map: a library links only what its layer may include and reaches every library the map allows it; a source sits in its own library's folder; a `.cpp` is compiled by exactly one target; a sibling link needs baseline lines between the two. The map's `executables` lists what an exe must reach without (`thug2-editor`: neither the front end nor the dev tools). |
 | `tools/d3d_headers.test.ts` | `<d3d9.h>` / `<d3dx9*.h>` are included only by `gpu_d3d9/` (Direct3D's own headers there); `render_pc/` includes none, nor any of `gpu_d3d9/`'s headers, and only `app/` picks `gpu_d3d9/`'s Gpu, GpuContext, UiBackend and `render_pc/`'s device; every other header holds the graphics handles. |
 | `tools/vulkan_headers.test.ts` | The Vulkan headers (`<vulkan/...>`, volk, the memory allocator, `<SDL3/SDL_vulkan.h>`), the shader compiler's (glslang, SPIRV-Tools) and Vulkan's functions only in `gpu_vulkan/` and its checks (`src/tests/vulkan_context_check.cpp`, `src/tests/ff_shader_check*.cpp`, `src/tests/vulkan_gpu_check.cpp`); only `app/` includes the backend. |
-| `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/` (and the codec check's stand-in DirectSound object for binkw32, `src/tests/movie_codec_check_sound.cpp`); the Bink wrapper only in `media_bink/`; FFmpeg's headers and calls only in `media_ffmpeg/`; only `app/` picks `audio::Device` and `media::Movie` (and the codec check, `src/tests/movie_codec_check*.cpp`, both codecs). |
+| `tools/audio_headers.test.ts` | `<dsound.h>` only in `audio_dsound/` ; FFmpeg's headers and calls only in `media_ffmpeg/`; only `app/` picks `audio::Device` and `media::Movie`. |
 | `tools/input_headers.test.ts` | `<dinput.h>` only in `input_dinput/`; SDL's input and the platform's keyboard only behind the SDL input source; only `app/` picks the sources. |
 | `tools/file_calls.test.ts` | The operating system's and the C runtime's file functions are called only in `fs_win32/`, `platform/` and `src/tests`; only `app/` installs the disk and adds the file sources. |
 | `tools/net_calls.test.ts` | Winsock's headers and functions only in `net_winsock/`; only `app/` installs the transport. |
@@ -238,7 +238,7 @@ file, a script operation - never a vertex, a sample, a byte or a statement.
 |---|---|---|---|---|
 | `render::Device`, `render::UiBackend`, `render::Gpu` | `engine/gfx/render_device.h`, `engine/gfx/ui_backend.h`, `engine/gfx/gpu.h` | `thug2_render_pc` (`render::d3d9::device()`: `render::Device`, over `render::Gpu`) and `thug2_gpu_d3d9` (`render::d3d9::gpu()`, `gpu_context()`, `ui_backend()`) | Direct3D 9, D3DX, ImGui's Direct3D 9 / SDL3 backends | Vulkan (`thug2_gpu_vulkan`: `render::vulkan::gpu()`, `gpu_context()`, `ui_backend()` - drawing, with the screen effects and the ImGui parts: [design/vulkan.md](design/vulkan.md)) |
 | `audio::Device` | `engine/audio/audio_device.h` | `thug2_audio_dsound` (`audio::dsound::device()`) | DirectSound: the output, the voices, the listener | the muted output (`engine/audio/muted_device.h`) over it |
-| `media::Movie` | `engine/media/movie.h` | `thug2_media_bink` (`media::bink::movie()`) | Bink (the player's binkw32.dll): movies and sound streams | FFmpeg's Bink decoders (`thug2_media_ffmpeg`: `media::ffmpeg::movie()`, `[features] movie_codec=ffmpeg`; its sound through `audio::Device`'s streaming buffers - the codec of a 64-bit build) |
+| `media::Movie` | `engine/media/movie.h` | `thug2_media_ffmpeg` (`media::ffmpeg::movie()`) | FFmpeg's Bink decoders: movies and sound streams; their sound through `audio::Device`'s streaming buffers | - |
 | `input::Source` | `engine/pad_input/input_source.h` | `thug2_input_dinput` (`input::dinput::keyboard()`) | the original's DirectInput side; SDL's source (`engine/pad_input/sdl_input.cpp`) and the automation channel's are the others | - |
 | `fs::FileSystem` (its `fs::Source`s), `fs::Disk` | `engine/file/file_system.h`, `engine/file/disk.h` | `thug2_fs_win32` (`fs::win32::disk()`); the sources are the engine's (overlay, archives, Data folder) | the operating system's files | a std::filesystem / POSIX disk (for a GCC build) |
 | `net::Transport` | `engine/net/transport.h` | `thug2_net_winsock` (`net::winsock::transport()`) | Winsock's sockets and lookups | `engine/net/loopback_transport.h` (in-process, for protocol tests: `[debug] net_loopback=1`) |
@@ -362,30 +362,21 @@ everything above it uses the game's own types and may change them freely.
   be heard - the audio session muted while the output is open (`platform/mute_audio.h`), every voice's volume silent,
   every movie's and stream's track at 0 (`audio::Device::track_volume`) - so the voices still play and end as with
   sound. Only `audio_dsound/` includes `<dsound.h>` (tools/audio_headers.test.ts).
-- **The movie codec** (`src/media_bink`, static library `thug2_media_bink`, on the engine) is Bink: the player's own
-  binkw32.dll, each export looked up by name on first use (`media_bink/bink.h`). It implements `media::Movie`
+- **The movie codec** (`src/media_ffmpeg`, static library `thug2_media_ffmpeg`, on the engine) implements `media::Movie`
   (`engine/media/movie.h`): the movies (`render_pc/movie.cpp`) and the music and sound streams
   (`engine/audio/bink_stream*.cpp`, sound-only Bink files from a path, a file handle or memory) open, decode, step,
   seek and pause through it and set their tracks' volume and pan; an open movie is its header
-  (`media::MovieHeader`, the fields of Bink's BINK the game reads). Its sound plays into the sound output
-  (`use_sound_output`: the output's handle - Bink's DirectSound output on the game's DirectSound object). A call per
-  movie or per frame. `app/main.cpp` installs Bink's (`media::bink::movie()`); only `media_bink/` includes the
-  wrapper (tools/audio_headers.test.ts).
-- **The FFmpeg movie codec** (`src/media_ffmpeg`, static library `thug2_media_ffmpeg`, on the engine) is the other
-  `media::Movie`: the same Bink files decoded by FFmpeg's Bink demuxer and video decoder, the frames' colours made by
-  swscale (FFmpeg 7.1's LGPL DLLs avutil-59, avcodec-61, avformat-61 and swscale-8 next to the exe, built by
-  `tools/ffmpeg/build_ffmpeg.ts` and loaded by name at run time - nothing is linked, so the exe starts without them).
-  An open movie is a `media::ffmpeg::Playback`, whose first part is the header; its frame counters, its pace (`wait`)
-  and its pause follow binkw32's, and its frames are copied as binkw32's BINKSURFACE32 (within a few steps of 255 per
-  colour byte: `src/tests/movie_codec_check.cpp` compares the two codecs on the player's files). `app/movie_choice.cpp`
-  installs it with `[features] movie_codec=ffmpeg` when the DLLs load (Bink otherwise, and by default); a 64-bit
-  build has no Bink codec (binkw32.dll is 32-bit: `media_bink` is built for x86 only) and always installs it. Its sound
-  (`media::ffmpeg::Sound`, FFmpeg's Bink audio decoder) plays through `audio::Device` - a looping buffer per movie,
-  kept filled ahead of its play position through the device's streaming calls (`buffer_position`, `write_buffer`,
-  `resume_buffer`), its volume and pan the track's as binkw32 converts them, its play position the frames' clock -, so
-  it plays into whatever output the device is, and the muted output silences it like the rest. The check plays both
-  codecs into stand-in outputs and compares what they were handed (`--sound`). Only `media_ffmpeg/` includes FFmpeg's
-  headers (tools/audio_headers.test.ts).
+  (`media::MovieHeader`, the fields of Bink's BINK the game reads). The files stay Bink 1 (`.bik`), decoded by FFmpeg's
+  Bink demuxer and video decoder, the frames' colours made by swscale (FFmpeg 7.1's LGPL DLLs avutil-59, avcodec-61,
+  avformat-61 and swscale-8 next to the exe on the 32-bit and the 64-bit build, built by `tools/ffmpeg/build_ffmpeg.ts`
+  and loaded by name at run time through `crt::library_function` - nothing is linked, so the exe starts without them,
+  with no movies or streams). An open movie is a `media::ffmpeg::Playback`, whose first part is the header; its frame
+  counters, its pace (`wait`) and its pause follow the original codec's (binkw32.dll, no longer used), and its frames are
+  copied as its BINKSURFACE32. `app/main.cpp` installs it. Its sound (`media::ffmpeg::Sound`, FFmpeg's Bink audio
+  decoder) plays through `audio::Device` - a looping buffer per movie, kept filled ahead of its play position through
+  the device's streaming calls (`buffer_position`, `write_buffer`, `resume_buffer`), its volume and pan the track's as
+  binkw32 converted them, its play position the frames' clock -, so it plays into whatever output the device is, and the
+  muted output silences it like the rest. Only `media_ffmpeg/` includes FFmpeg's headers (tools/audio_headers.test.ts).
 - **The input seam** (`engine/pad_input/input_source.h`, `input_event.h`): where the game's input comes from. An
   `input::Source` is one kind of device; `app/main.cpp` adds them in the order the original read them, which is the
   call order at every point: the original's DirectInput side (`src/input_dinput`, static library

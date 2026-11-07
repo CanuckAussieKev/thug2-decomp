@@ -8,7 +8,7 @@ The "What the code assumes today" sections describe the code before the port.
 
 `thug2-decomp.exe` builds and runs as a 64-bit Windows program (MSVC x64; a GCC / MinGW-w64 x64 build later), from the
 same source as the 32-bit build, on the player's own data files. The 32-bit build stays: it stays the reference that
-the 64-bit build is compared with, and it stays the build for players who keep using the player's own `binkw32.dll`.
+the 64-bit build is compared with, and both builds play the movies and streams through FFmpeg (Bink's `binkw32.dll` is no longer used).
 
 Why: the address space (large ported levels, THP8's town and bigger, high-resolution textures, the level editor's
 undo history and caches), current toolchains and libraries, and ray tracing in the Vulkan renderer
@@ -353,7 +353,7 @@ confirmed by a header survey of the player's data in task X10a. The FFmpeg backe
   Ubuntu's mingw-w64 GCC ("win32" threads, libgcc linked statically: the DLLs import only Windows' own), on Linux or in
   WSL. The build is repeatable (the same DLLs byte for byte from any folder, any day) and the same tool builds the x64
   DLLs (`--arch x64`). The codec loads them by name at run time - nothing is linked, the exe starts without them
-  (movie_codec=ffmpeg then falls back to Bink, logged) and any LGPL build of the same majors can replace them. The
+  (the log says so) and any LGPL build of the same majors can replace them. The
   headers come from the same release's tag (cmake/ffmpeg.cmake).
 - **Frames:** swscale makes BINKSURFACE32 (blue, green, red, unused) from the decoder's YUV 4:2:0 (BT.601 video range,
   accurate rounding): ~1.1 ms a 640x480 frame, any build type (a plain C++ loop took 45 ms a frame in Debug). Against
@@ -461,8 +461,7 @@ narrowing and widening checks and clang's 64-to-32 and pointer <-> integer warni
 x86_64 target over the six folders' 77 translation units finds nothing after the fixes below, and `THUG2_X64_READY`
 lists `engine` and the libraries that build on it - `net_winsock`, `render_pc`, `gpu_d3d9`, `gpu_vulkan`,
 `audio_dsound`, `media_ffmpeg`, `input_dinput`, `fs_win32`, `script_qb`. The x64 configure builds them all with no
-warning and links every check whose libraries they are (the Vulkan checks included). `media_bink` stays x86-only
-(binkw32.dll is 32-bit); `game/` and the layers above it are X12d / X12e. What changed or was checked:
+warning and links every check whose libraries they are (the Vulkan checks included). `game/` and the layers above it are X12d / X12e. What changed or was checked:
 - **The .qb files' checksum-name table:** 0x1000 buckets of {checksum, name, next}, allocated as 0x1000 x 12 bytes.
   The bucket holds two pointers, 24 bytes on x64, so the table is sized by the record now (the same 0xC000 bytes on
   x86, asserted); on x64 the fixed size gave half the table it was used as.
@@ -521,12 +520,11 @@ d3dx9_43.dll, FFmpeg's avutil-59 / avcodec-61 / avformat-61 / swscale-8 (from `o
 gamecontrollerdb.txt. All 149 translation units of these folders compile with the build's flags with no warning (C4267
 / C4244 / C4311 / C4312 included) and no error, and clang-tidy with the x86_64 target finds no narrowing in them.
 What changed or was checked:
-- **The movie codec on x64:** `media_bink` is not built for x64 (binkw32.dll is 32-bit), so `app` links it, and
-  defines `THUG2_BINK`, only when it is built (`if(TARGET thug2_media_bink)`). Without it `app/movie_choice.cpp` always
-  installs FFmpeg's codec and logs why (`movie_codec=bink` or any other value is not used: binkw32.dll is 32-bit); when
-  FFmpeg's DLLs can't be used it says the movies and streams won't play (a codec whose `open` gives null: the game goes
-  on without them, as with a missing movie). The 32-bit build is unchanged: Bink by default, `movie_codec=ffmpeg` with
-  the fallback to Bink. The x64 exes import no binkw32.dll.
+- **The movie codec:** Bink's `media_bink` (the player's 32-bit binkw32.dll) was removed afterwards; FFmpeg's codec is
+  the only one on both builds (`app/main.cpp` installs it and logs when its DLLs can't be used: the movies and streams
+  then won't play - a codec whose `open` gives null: the game goes on without them, as with a missing movie). The x86
+  and x64 builds copy FFmpeg's DLLs of their own machine from `out/ffmpeg/<arch>` (cmake/ffmpeg.cmake). Neither exe
+  imports or loads binkw32.dll. The comparison check of the two codecs (`thug2_movie_codec_check`) went with it.
 - **Products widened before they become a size** (bugprone-implicit-widening-of-multiplication-result /
   misplaced-widening-cast on x86_64): the DirectInput joysticks' force resolutions (`std::size_t{2} * kPorts`), the
   editor's ground mesh's texture-coordinate offsets, an index buffer's clearing and a mesh's position count. The same

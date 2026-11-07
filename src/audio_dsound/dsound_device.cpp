@@ -188,7 +188,7 @@ public:
         object(buffer)->SetPosition(position.x, position.y, position.z, DS3D_DEFERRED);
     }
 
-    // (NOT ORIGINAL: the FFmpeg codec's streaming buffers - binkw32 made these calls on its own buffers)
+    // (NOT ORIGINAL: the FFmpeg codec's streaming buffers - the original's Bink library made these calls on its own buffers)
     bool buffer_position(SoundBuffer* buffer, uint32_t& position) override
     {
         DWORD play = 0;
@@ -216,7 +216,7 @@ public:
 
     bool resume_buffer(SoundBuffer* buffer) override { return object(buffer)->Play(0, 0, DSBPLAY_LOOPING) == DS_OK; }
 
-    // Bink's own DirectSound output takes the level as the game set it.
+    // The movies' and streams' tracks take the level as the game set it.
     int track_volume(int volume) override { return volume; }
 };
 

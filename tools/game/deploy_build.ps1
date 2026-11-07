@@ -11,9 +11,8 @@ param(
 # one in the folder, and release gives the folder back as it was acquired. The folder is never both at once.
 # -Arch: which build (default x86); the files are checked to be that machine (a 64-bit exe next to a 32-bit SDL3.dll
 #        never starts). -BuildDir: the CMake build folder (default <this checkout>\out\build\<Arch>-debug, the preset's).
-# A 64-bit build can't load binkw32.dll (32-bit): in a workspace the ini gets [features] movie_codec=ffmpeg (the lock's
-# release puts the ini back); the FFmpeg DLLs come from the build folder (the build copies them from out\ffmpeg\x64
-# once tools/ffmpeg/build_ffmpeg.ts --arch x64 has made them). Files of the other machine left in the folder (the
+# The FFmpeg DLLs (the movies' and streams' codec, both machines) come from the build folder (the build copies them from
+# out\ffmpeg\<arch> once tools/ffmpeg/build_ffmpeg.ts --arch <arch> has made them). Files of the other machine left in the folder (the
 # editor's exe when the build has none) are listed.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
@@ -46,14 +45,7 @@ if ($copied -notcontains 'd3dx9_43.dll' -or $copied -notcontains 'SDL3.dll') {
 $stale = @($DeployedFiles | Where-Object { ($copied -notcontains $_) -and (($_ -like '*.exe') -or ($_ -like '*.dll')) -and
         (Test-Path (Join-Path $folder $_)) -and ((Get-PeArch (Join-Path $folder $_)) -notin @($null, $Arch)) })
 if ($stale.Count) { "left in $folder, built for the other machine: $($stale -join ', ')" }
-if ($Arch -eq 'x64') {
-    $ffmpeg = @('avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll', 'swscale-8.dll') | Where-Object { $copied -notcontains $_ }
-    if ($ffmpeg) { "WARNING: FFmpeg's DLLs missing from the build ($($ffmpeg -join ', ')): movies need them on x64 (node tools/ffmpeg/build_ffmpeg.ts --arch x64, then build again)" }
-    if (Test-Workspace $folder) {
-        $iniPath = Join-Path $folder 'thug2-decomp.ini'
-        $text = if (Test-Path $iniPath) { [IO.File]::ReadAllText($iniPath) } else { '' }
-        [IO.File]::WriteAllText($iniPath, (Set-IniValue $text 'features' 'movie_codec' 'ffmpeg'))
-    }
-}
+$ffmpeg = @('avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll', 'swscale-8.dll') | Where-Object { $copied -notcontains $_ }
+if ($ffmpeg) { "WARNING: FFmpeg's DLLs missing from the build ($($ffmpeg -join ', ')): the movies and music need them (node tools/ffmpeg/build_ffmpeg.ts --arch $Arch, then build again)" }
 "DEPLOYED the $Arch build from $BuildDir into ${folder}: $($copied -join ', ')"
 exit 0

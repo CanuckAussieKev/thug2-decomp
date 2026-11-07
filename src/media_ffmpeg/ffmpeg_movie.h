@@ -4,8 +4,7 @@
 
 // NOT ORIGINAL - FFmpeg's media::Movie (ffmpeg_movie.cpp): the game's Bink files decoded by FFmpeg's Bink demuxer and
 // decoders (the LGPL DLLs avformat-61, avcodec-61, avutil-59 and swscale-8 next to the exe, loaded by name) instead
-// of the player's binkw32.dll - the codec a 64-bit build needs, since binkw32.dll is 32-bit. app/ installs it with
-// [features] movie_codec=ffmpeg (app/movie_choice.h). The sound plays into the game's own output through audio::Device
+// of the original's binkw32.dll - the only movie codec, on the 32-bit and the 64-bit build. app/main.cpp installs it. The sound plays into the game's own output through audio::Device
 // (ffmpeg_sound.h).
 namespace media::ffmpeg {
 

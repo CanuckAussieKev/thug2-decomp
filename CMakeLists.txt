@@ -231,12 +231,12 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # One static library per folder of src/, each in its folder's CMakeLists.txt, linking only the layers below it:
 #   thug2_base <- thug2_platform, thug2_formats <- thug2_wire;
 #   thug2_platform + thug2_wire <- thug2_engine <- thug2_game <- thug2_frontend, thug2_editor, thug2_devtools <- the exe (src/app);
-#   thug2_engine <- the backends: thug2_render_pc (graphics: the API-neutral PC platform layer) and thug2_gpu_d3d9 (its Direct3D 9 Gpu), thug2_gpu_vulkan (graphics, Vulkan: not drawing yet), thug2_audio_dsound (sound), thug2_media_bink (movies),
+#   thug2_engine <- the backends: thug2_render_pc (graphics: the API-neutral PC platform layer) and thug2_gpu_d3d9 (its Direct3D 9 Gpu), thug2_gpu_vulkan (graphics, Vulkan: not drawing yet), thug2_audio_dsound (sound), thug2_media_ffmpeg (movies),
 #   thug2_input_dinput (DirectInput), thug2_fs_win32 (files), thug2_net_winsock (sockets) - linked by the exe alone.
 # The exes are written next to each other at the top of the build folder (thug2-decomp.exe and the checks).
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 # (on x64 only the x64-ready ones: THUG2_X64_READY above; the checks build when the libraries they link do)
-foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gpu_vulkan audio_dsound media_bink media_ffmpeg
+foreach(library IN ITEMS base formats wire platform engine render_pc gpu_d3d9 gpu_vulkan audio_dsound media_ffmpeg
                          input_dinput fs_win32 net_winsock script_qb game frontend editor devtools app)
     thug2_builds(${library} build_library)
     if(build_library AND NOT (library STREQUAL "gpu_vulkan" AND NOT THUG2_VULKAN))

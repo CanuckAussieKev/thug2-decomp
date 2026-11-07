@@ -1,9 +1,7 @@
 // NOT ORIGINAL - where the sound and movie SDKs may be seen (docs/architecture.md "The audio backend"): only the
-// DirectSound backend (src/audio_dsound) includes <dsound.h> (and the codec check's stand-in DirectSound object for
-// binkw32, src/tests/movie_codec_check_sound.cpp), and only app/ picks its audio::Device; only the Bink
-// codec (src/media_bink) includes the binkw32 wrapper, and only app/ picks its media::Movie; only the FFmpeg codec
-// (src/media_ffmpeg) includes FFmpeg's headers (<libav...>) and calls FFmpeg, and only app/ (and the codec check,
-// src/tests/movie_codec_check*.cpp) picks it. The engine, the game and the rest reach the sound output through
+// DirectSound backend (src/audio_dsound) includes <dsound.h>, and only app/ picks its audio::Device; only the FFmpeg
+// codec (src/media_ffmpeg) includes FFmpeg's headers (<libav...>) and calls FFmpeg, and only app/ picks its
+// media::Movie. The engine, the game and the rest reach the sound output through
 // audio::Device (engine/audio/audio_device.h) and its handles, the movies through media::Movie (engine/media/movie.h).
 
 import assert from "node:assert/strict";
@@ -28,31 +26,13 @@ function including(pattern: RegExp): string[] {
     return found.sort();
 }
 
-test("only audio_dsound/ (and the codec check's stand-in for binkw32) includes <dsound.h>", () => {
+test("only audio_dsound/ includes <dsound.h>", () => {
     const users = including(/^\s*#\s*include\s*<dsound\.h>/m);
     assert.deepEqual(
-        users.filter((name) => !name.startsWith("audio_dsound/") && name !== "tests/movie_codec_check_sound.cpp"),
+        users.filter((name) => !name.startsWith("audio_dsound/")),
         [],
     );
     assert.ok(users.includes("audio_dsound/dsound_device.cpp"), "audio_dsound/dsound_device.cpp calls DirectSound");
-});
-
-test("only media_bink/ includes the Bink wrapper; only app/ (and the codec check) picks the Bink codec", () => {
-    const users = including(/^\s*#\s*include\s*"media_bink\/bink\.h"/m);
-    assert.deepEqual(
-        users.filter((name) => !name.startsWith("media_bink/")),
-        [],
-    );
-    assert.ok(users.includes("media_bink/bink_movie.cpp"), "media_bink/bink_movie.cpp calls binkw32");
-    const pickers = including(/^\s*#\s*include\s*"media_bink\/bink_movie\.h"/m);
-    const outside = pickers.filter(
-        (name) =>
-            !name.startsWith("app/") &&
-            name !== "media_bink/bink_movie.cpp" &&
-            !/^tests\/movie_codec_check(_audio)?\.cpp$/.test(name),
-    );
-    assert.deepEqual(outside, []);
-    assert.ok(pickers.includes("app/movie_choice.cpp"), "app/movie_choice.cpp installs the codec");
 });
 
 test("only app/ picks the DirectSound device", () => {
@@ -62,7 +42,7 @@ test("only app/ picks the DirectSound device", () => {
     assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the device");
 });
 
-test("only media_ffmpeg/ sees FFmpeg's headers and calls FFmpeg; only app/ and the codec check pick the FFmpeg codec", () => {
+test("only media_ffmpeg/ sees FFmpeg's headers and calls FFmpeg; only app/ picks the FFmpeg codec", () => {
     const users = including(/^\s*#\s*include\s*<lib(avcodec|avformat|avutil|swscale|swresample)\//m);
     assert.deepEqual(
         users.filter((name) => !name.startsWith("media_ffmpeg/")),
@@ -81,12 +61,7 @@ test("only media_ffmpeg/ sees FFmpeg's headers and calls FFmpeg; only app/ and t
         [],
     );
     const pickers = including(/^\s*#\s*include\s*"media_ffmpeg\/ffmpeg_movie\.h"/m);
-    const outside = pickers.filter(
-        (name) =>
-            !name.startsWith("app/") &&
-            name !== "media_ffmpeg/ffmpeg_movie.cpp" &&
-            !/^tests\/movie_codec_check(_audio)?\.cpp$/.test(name),
-    );
+    const outside = pickers.filter((name) => !name.startsWith("app/") && name !== "media_ffmpeg/ffmpeg_movie.cpp");
     assert.deepEqual(outside, []);
-    assert.ok(pickers.includes("app/movie_choice.cpp"), "app/movie_choice.cpp installs the codec");
+    assert.ok(pickers.includes("app/main.cpp"), "app/main.cpp installs the codec");
 });

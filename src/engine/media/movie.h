@@ -2,21 +2,19 @@
 
 // NOT ORIGINAL - media::Movie: what the engine asks of the movie codec. The game's movies (render_pc/movie.cpp:
 // the start-up logos, the intro, the cutscene movies) and its music and sound streams (engine/audio/bink_stream*.cpp:
-// sound-only movie files, from a path, an open file handle or memory) are Bink files, played by binkw32.dll - the
-// player's own copy, looked up by name on first use (media_bink/bink.h). The engine opens, decodes, steps, seeks and
-// pauses them and sets their sound through this interface; app/ makes it and installs it at start-up
-// (install_movie), as it does render::Device and audio::Device: Bink's (media_bink/bink_movie.h), or with [features]
-// movie_codec=ffmpeg FFmpeg's Bink decoders (media_ffmpeg/ffmpeg_movie.h: app/movie_choice.h).
+// sound-only movie files, from a path, an open file handle or memory) are Bink files, which the original played
+// with binkw32.dll and this build decodes with FFmpeg. The engine opens, decodes, steps, seeks and pauses them and sets
+// their sound through this interface; app/ makes the codec and installs it at start-up (install_movie), as it does
+// render::Device and audio::Device: FFmpeg's Bink decoders (media_ffmpeg/ffmpeg_movie.h).
 // A movie's sound plays into the sound output (use_sound_output: audio::Device's output, engine/audio/audio_device.h),
-// at the level the output gives it (audio::Device::track_volume) - Bink's through its own DirectSound buffers, FFmpeg's
-// through audio::Device's streaming buffers.
+// at the level the output gives it (audio::Device::track_volume) - through audio::Device's streaming buffers.
 //
 // The grain is a movie (opened, closed, paused, a track's level or pan) or a frame (wait, decode, step, copy out);
 // never per sample or pixel - the codec decodes a frame and copies it into the caller's locked surface whole. The
 // stream thread services its streams through it every 5 ms, a frame at a time.
 //
 // The methods keep the names and arguments of the binkw32 functions they stand for (the flags and values are Bink's,
-// as the game passes them), and Bink's methods are those calls, in the same order.
+// as the game passes them); the engine calls them in the order the original called binkw32's.
 //
 // Not installed, a call dereferences null: the codec is installed before any of the original's code runs.
 
