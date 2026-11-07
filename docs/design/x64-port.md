@@ -126,10 +126,18 @@ Counted over 335,402 non-blank source lines, with comments stripped:
 
 ### Floating point
 
-- `_controlfp`: only in `src/tests/maths_check.cpp`, which runs at 53 and at 24 bits. Direct3D 9 sets 24 bits on
-  the thread that makes the device, because the game makes it without `D3DCREATE_FPU_PRESERVE`
-  (`gpu_d3d9/d3d9_context.cpp`).
-- The game's own code never sets the precision. The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
+- `_controlfp`: in `src/tests/maths_check.cpp`, which runs at 53 and at 24 bits, and `base/maths/fpu_precision.cpp`.
+  Direct3D 9 loads the x87 word 0x007F (24 bits, round to nearest, every exception masked) into the thread that
+  makes the device, at `CreateDevice` and at every `Reset`, because the game makes it without
+  `D3DCREATE_FPU_PRESERVE` (`gpu_d3d9/d3d9_context.cpp`, as the original did). The 32-bit build loads the same word
+  itself at both points whatever the renderer (`maths::use_device_fpu_precision`, called by `render_pc`), so the
+  game's thread runs at the original's precision on Vulkan too; on x64 it does nothing. A DLL loaded after start-up
+  resets it: binkw32's start-up code (loaded on demand at the first music stream, `crt::library_function`) set the
+  C runtime's 53 bits on the game's thread a few seconds into a level, with either renderer - the original imported
+  it, loaded before the device. `crt::library_function` keeps the thread's word around the load
+  (`maths::fpu_word` / `restore_fpu_word`).
+- The original's own code never sets the precision (only its C runtime's start-up, 53 bits, and its D3DX9 library
+  around its own work). The 32-bit build compiles with MSVC's default `/arch:SSE2` (the
   CMake files set no `/arch`), so its `float` / `double` arithmetic is already SSE2 and doesn't depend on the x87
   control word. The x87 remains in these places in the 32-bit build:
   - the C runtime's `sqrt` of a double (the x86 runtime's is the x87's FSQRT, so it rounds as the control word says;
@@ -179,13 +187,13 @@ The x87's precision on the 32-bit build (the corpus at 24 bits against the 32-bi
 functions only `sqrt` of a double depends on it (the x86 runtime's is the x87's FSQRT): at 24 bits it rounds to a
 float's 24 bits, in every result. A Direct3D 9 device made without `D3DCREATE_FPU_PRESERVE` sets 24 bits on its
 thread (measured: the x87 control word goes from 53 to 24 bits, MXCSR unchanged, nothing on x64), so on the 32-bit
-build with `renderer=d3d9` every double square root on the game's thread is rounded to 24 bits; with Vulkan (the
-default) it isn't. `make_unit`, `set_length` and the rotations built from lengths (`square_up_axes`, `get_rotation_axis_angle`,
+build every double square root on the game's thread is rounded to 24 bits once the device is made - with either
+renderer since the 32-bit build sets the word itself (before that, with Vulkan, it wasn't). `make_unit`, `set_length` and the rotations built from lengths (`square_up_axes`, `get_rotation_axis_angle`,
 the quaternions, the rotation blender) differ by 1 float ulp in 3-27% of results between the two, `get_distance` in
-all of them (a 24-bit double). The 64-bit build has no x87 precision: it computes as the 32-bit build with Vulkan. D3DX9's
-32-bit look-at, perspective and ortho builders depend on the precision too (none of them is called). Accepted: the
-64-bit build matches the 32-bit build's default renderer; the 32-bit Direct3D 9 path is the one that differs, and
-`base/maths` documents its double intermediates as the x87's at 53 bits.
+all of them (a 24-bit double). The 64-bit build has no x87 precision: it computes as the 32-bit build did at 53 bits.
+D3DX9's 32-bit look-at, perspective and ortho builders depend on the precision too (none of them is called). Decided:
+the 32-bit build runs at the original's 24 bits whatever the renderer (functional equivalence); the 64-bit build is
+measured against that, and `base/maths` documents its double intermediates as the x87's at 53 bits.
 
 Other observations:
 - The SSE reciprocal estimates (`maths::estimate_reciprocal`, `estimate_reciprocal_sqrt`: `rcpss` / `rsqrtss`) give the
