@@ -62,8 +62,10 @@ void xform(ImDrawList* dl, int start, maths::Vec2 pivot, float radians, maths::V
     const float dy = offset.y;
     const float cosine = maths::runtime32::cos(radians);
     const float sine = maths::runtime32::sin(radians);
-    for (int i = start; i < dl->VtxBuffer.Size; ++i) {
-        ImVec2& vertex_position = core::at(dl->VtxBuffer, i).pos;
+    // (a span over the vertices rather than core::at on the ImVector: MSVC 14.51's optimiser crashes on that loop)
+    const std::span<ImDrawVert> vertices(dl->VtxBuffer.Data, static_cast<std::size_t>(dl->VtxBuffer.Size));
+    for (ImDrawVert& vertex : vertices.subspan(static_cast<std::size_t>(start))) {
+        ImVec2& vertex_position = vertex.pos;
         const float x = vertex_position.x - px;
         const float y = vertex_position.y - py;
         vertex_position.x = px + dx + (x * cosine) - (y * sine);

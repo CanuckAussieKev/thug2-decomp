@@ -18,15 +18,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
-#include <string>
-#ifdef _DEBUG
-#include <crtdbg.h>
-#include <rtcapi.h>
 #include <array>
 #include <mutex>
 #include <source_location>
 #include <span>
+#include <string>
 #include <string_view>
+#ifdef _DEBUG
+#include <crtdbg.h>
+#include <rtcapi.h>
 #endif
 
 #include "platform/run_log.h"

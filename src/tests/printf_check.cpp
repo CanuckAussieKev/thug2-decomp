@@ -164,7 +164,10 @@ void check_integers()
     grid({.modifier = "h", .letters = "diouxX"}, ints);
     grid({.modifier = "hh", .letters = "diouxX"}, ints);
     grid({.modifier = "l", .letters = "diouxX"}, ints);
-    grid({.modifier = "z", .letters = "diouxX"}, unsigneds);
+    // (z reads a size_t: the same values as size_t, which on x64 is wider than unsigned - passed as unsigned the
+    // runtime's half of the comparison read whatever the upper half of the argument's slot held)
+    const std::vector<size_t> sizes(unsigneds.begin(), unsigneds.end());
+    grid({.modifier = "z", .letters = "diouxX"}, sizes);
     const std::vector<long long> wides = {0LL, 1LL, -1LL, LLONG_MIN, LLONG_MAX, 0x123456789ALL, -9876543210LL};
     grid({.modifier = "ll", .letters = "diouxX"}, wides);
     grid({.modifier = "I64", .letters = "diouxX"}, wides);
