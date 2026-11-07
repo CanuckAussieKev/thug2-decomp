@@ -5,7 +5,7 @@
 #include "engine/gfx/render_device.h"
 #include "base/core/enum_ops.h"
 #include "engine/pad_input/input_source.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -55,6 +55,7 @@
 #include "base/maths/trig.h"
 #include "base/core/no_destroy.h"
 #include "editor/level_editor_internal.h"
+#include "platform/sdl_time.h"
 
 namespace frontend::level_editor {
 // What the source file's anonymous namespace held that its pieces share (level_editor_internal.h): visible
@@ -850,7 +851,7 @@ namespace internal {
 
 void update_highlights()
 {
-    const uint32_t pulse = get_pulse(kSelectedTintLow, kSelectedTintHigh, SDL_GetTicks() / 1000.0);
+    const uint32_t pulse = get_pulse(kSelectedTintLow, kSelectedTintHigh, platform::ticks_ms() / 1000.0);
     selected_tinted() = true;
     const std::vector<objects::GameEntity*> objects = selected_objects();
     for (objects::GameEntity* object : objects) {

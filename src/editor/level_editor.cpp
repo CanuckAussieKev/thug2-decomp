@@ -5,7 +5,7 @@
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
 #include "engine/pad_input/input_source.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -65,6 +65,7 @@
 #include "engine/script/context.h"
 #include "engine/pad_input/input_event.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
@@ -420,13 +421,14 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     hud::get_reset(!ui);
     stored_mouse() = Mouse{};
     editor_session().saved_cursor_ = input::show_cursor(input::kCursorQuery);
+    input::set_cursor_follows_device(false); // (its cursor stays shown, whatever device was used last)
     input::show_cursor(input::kCursorShow);
     // (unsaved changes of an earlier level - its autosave was written when the editor was left - aren't this level's)
     if (unsaved_changes().unsaved_load_ != layout::level_loads()) {
         unsaved_changes().unsaved_ = false;
     }
     unsaved_changes().snapshot_changes_ = unsaved_changes().changes_ - 1; // (a snapshot on the first frame, if unsaved)
-    unsaved_changes().last_autosave_ = SDL_GetTicks();
+    unsaved_changes().last_autosave_ = platform::ticks_ms();
     unsaved_changes().offer_pending_ = unsaved_changes().offer_show_ = layout::autosave_offered();
     note_action("entered the editor");
     get_log("level editor: on");
@@ -559,6 +561,7 @@ bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
         fly_camera().camera_->set_at_point(fly_camera().saved_pos_);
         fly_camera().camera_->set_basis_frame(fly_camera().saved_matrix_);
     }
+    input::set_cursor_follows_device(true);
     if (editor_session().saved_cursor_ >= 0) {
         input::show_cursor(editor_session().saved_cursor_);
     }

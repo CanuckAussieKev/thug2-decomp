@@ -13,7 +13,7 @@
 #include <span>
 
 #include "backends/imgui_impl_dx9.h"
-#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_sdl3.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "base/core/packed_colour.h"
@@ -191,26 +191,26 @@ public:
         if (!device) {
             return UiStart::kNoDevice;
         }
-        if (!ImGui_ImplSDL2_InitForD3D(window)) {
+        if (!ImGui_ImplSDL3_InitForD3D(window)) {
             return UiStart::kWindowRefused;
         }
         // (no controllers: the game has them; the UI is mouse and keyboard)
-        ImGui_ImplSDL2_SetGamepadMode(ImGui_ImplSDL2_GamepadMode_Manual, nullptr, 0);
+        ImGui_ImplSDL3_SetGamepadMode(ImGui_ImplSDL3_GamepadMode_Manual, nullptr, 0);
         if (!ImGui_ImplDX9_Init(device)) {
-            ImGui_ImplSDL2_Shutdown();
+            ImGui_ImplSDL3_Shutdown();
             return UiStart::kDeviceRefused;
         }
         return UiStart::kStarted;
     }
 
-    [[nodiscard]] const char* describe() const override { return "SDL2 and Direct3D 9"; }
+    [[nodiscard]] const char* describe() const override { return "SDL3 and Direct3D 9"; }
 
-    bool process_event(const SDL_Event* event) override { return ImGui_ImplSDL2_ProcessEvent(event); }
+    bool process_event(const SDL_Event* event) override { return ImGui_ImplSDL3_ProcessEvent(event); }
 
     void new_frame() override
     {
         ImGui_ImplDX9_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
     }
 
     // (the backend saves the device's whole state in a state block and puts it back after: the renderer's cached

@@ -15,13 +15,14 @@ add_library(thug2_platform STATIC
     registry.cpp
     run_log.cpp
     screenshot_files.cpp
+    sdl_keys.cpp
     sdl_events.cpp
     sdl_window.cpp
 )
 target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
-# sdl2: the window and its events; ole32: the audio session (mute_audio); d3d9, winmm: crt.h's imports;
+# sdl3: the window and its events; ole32: the audio session (mute_audio); d3d9, winmm: crt.h's imports;
 # stb_image_write: the PNG files
-target_link_libraries(thug2_platform PUBLIC thug2_base sdl2 ole32 d3d9 winmm stb_image_write)
+target_link_libraries(thug2_platform PUBLIC thug2_base sdl3 ole32 d3d9 winmm stb_image_write)
 # The GameSpy glue (gamespy.cpp: it links the SDK, which links Winsock, ws2_32, itself) - in a configure that builds
 # the SDK (THUG2_GAMESPY_SDK: x86 and, since X9, x64).
 if(THUG2_GAMESPY_SDK)

@@ -6,17 +6,16 @@
 #include <windows.h>
 
 #include <algorithm>
-#include <array>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_syswm.h>
+#include <SDL3/SDL.h>
 
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
 #include "platform/process_flags.h"
+#include "base/core/checked_index.h"
 #include "base/core/ints.h"
 #include "base/core/no_destroy.h"
 
@@ -27,17 +26,21 @@ constexpr int kMinClientHeight = 480;
 
 namespace {
 
-// SDL's window-manager information as it is on Windows (SDL_syswm.h): the version, the subsystem, then the platform's
-// part of its union - Windows' window first (`info.win.window`), the rest of the union after it. Read whole, so the
-// union isn't read through a member.
-struct WindowsWmInfo {
-    SDL_version version;
-    SDL_SYSWM_TYPE subsystem;
-    HWND window;
-    std::array<std::byte, sizeof(SDL_SysWMinfo) - offsetof(SDL_SysWMinfo, info) - sizeof(HWND)> rest;
-};
-static_assert(sizeof(WindowsWmInfo) == sizeof(SDL_SysWMinfo) && offsetof(WindowsWmInfo, window) == offsetof(SDL_SysWMinfo, info),
-              "SDL_SysWMinfo's layout");
+// SDL 3's name for its Windows DPI-awareness setting (read when its video starts; no SDL_HINT_ constant names it).
+constexpr const char* kDpiAwarenessHint = "SDL_WINDOWS_DPI_AWARENESS";
+
+// NOT ORIGINAL: [Graphics] dpi_aware (default 1) - the process is per-monitor DPI aware (V2; approach from PartyMod's
+// partymod-common, which declares the same awareness): on a display scaled above 100% the window is the game's size in
+// real pixels, drawn sharp, not stretched by Windows. ResolutionX / ResolutionY are then the window's client area and
+// the back buffer, both in physical pixels (on Windows SDL 3's window coordinates are pixels with or without its high
+// pixel density flag, so the mouse, the window size the menus and the editor read and both renderers' back buffers
+// agree), and 0 is the desktop's physical size. A window moved to a display of another scale keeps its client size
+// in pixels (SDL keeps it). 0: DPI-unaware, as SDL 2 left the process - Windows scales the window by the display's
+// scale (blurred, and larger than its pixels).
+const char* dpi_awareness()
+{
+    return build_info::fetch_flag(build_info::kGraphics, "dpi_aware", true) ? "permonitorv2" : "unaware";
+}
 
 // NOT ORIGINAL grouping - sdl_window.cpp's state (the original's globals). Made on first use, never destroyed
 // (sdl_window_state()).
@@ -95,10 +98,38 @@ void load_window_settings()
 int window_position()
 {
     const int display = build_info::get_int(build_info::kGraphics, "WindowDisplay", 0);
-    if (display < 1 || display > SDL_GetNumVideoDisplays()) {
-        return SDL_WINDOWPOS_CENTERED;
+    int count = 0;
+    SDL_DisplayID* displays = SDL_GetDisplays(&count);
+    int position = static_cast<int>(SDL_WINDOWPOS_CENTERED);
+    if (displays && display >= 1 && display <= count) {
+        // (SDL 3 names a display by its id: the n-th of SDL's list is SDL 2's display index n - 1)
+        const std::span<const SDL_DisplayID> listed(displays, static_cast<std::size_t>(count));
+        const SDL_DisplayID chosen = core::at(listed, display - 1);
+        position = static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(chosen));
     }
-    return static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(display - 1));
+    SDL_free(displays);
+    return position;
+}
+
+// Full screen as SDL 2 made it: the mode of the window's display closest to the window's size (SDL 3's full screen
+// keeps the desktop's mode unless one is chosen).
+void choose_fullscreen_mode(SDL_Window* window)
+{
+    SDL_DisplayMode mode{};
+    const bool found = SDL_GetClosestFullscreenDisplayMode(SDL_GetDisplayForWindow(window), sdl_window_state().client_width_,
+                                                           sdl_window_state().client_height_, 0.0F, false, &mode);
+    SDL_SetWindowFullscreenMode(window, found ? &mode : nullptr);
+    SDL_SetWindowFullscreen(window, true);
+}
+
+// NOT ORIGINAL - a log line: the window's size in pixels, the display's scale and the DPI awareness asked for.
+void log_window_size(SDL_Window* window)
+{
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSizeInPixels(window, &width, &height);
+    debug_log::printf(debug_log::StageMap::kInfo, "Window: %dx%d pixels, display scale %.2f (DPI awareness %s)\n",
+                      width, height, static_cast<double>(SDL_GetWindowDisplayScale(window)), dpi_awareness());
 }
 
 } // namespace
@@ -109,12 +140,24 @@ int& get_window_height() { return sdl_window_state().client_height_; }
 SDL_Window* sdl_window() { return sdl_window_state().window_; }
 HWND& game_window() { return sdl_window_state().game_window_; }
 
+void keep_text_input()
+{
+    SDL_Window* window = sdl_window_state().window_;
+    if (window && !SDL_TextInputActive(window)) {
+        SDL_StartTextInput(window);
+    }
+}
+
 HWND create_sdl_window(WindowApi api)
 {
     load_window_settings();
+    SDL_SetHint(kDpiAwarenessHint, dpi_awareness());
+    // (no on-screen keyboard with the text input - SDL 2 had none on Windows)
+    SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
     SDL_Init(SDL_INIT_VIDEO);
 
-    uint32_t flags = sdl_window_state().windowed_ ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
+    // (full screen: made hidden, given its mode, then shown - choose_fullscreen_mode)
+    SDL_WindowFlags flags = sdl_window_state().windowed_ ? 0 : SDL_WINDOW_HIDDEN;
     if (sdl_window_state().borderless_ && sdl_window_state().windowed_) {
         flags |= SDL_WINDOW_BORDERLESS;
     }
@@ -125,28 +168,42 @@ HWND create_sdl_window(WindowApi api)
 
     enforce_max_resolution();
     if (sdl_window_state().client_width_ == 0 || sdl_window_state().client_height_ == 0) {
-        SDL_DisplayMode desktop;
-        SDL_GetDesktopDisplayMode(0, &desktop);
-        sdl_window_state().client_width_ = desktop.w;
-        sdl_window_state().client_height_ = desktop.h;
+        if (const SDL_DisplayMode* desktop = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay())) {
+            sdl_window_state().client_width_ = desktop->w;
+            sdl_window_state().client_height_ = desktop->h;
+        }
     }
     sdl_window_state().client_width_ = std::max(sdl_window_state().client_width_, kMinClientWidth);
     sdl_window_state().client_height_ = std::max(sdl_window_state().client_height_, kMinClientHeight);
 
     const int position = window_position();
-    sdl_window_state().window_ = SDL_CreateWindow("THUG2", position, position, sdl_window_state().client_width_,
-                                sdl_window_state().client_height_, flags);
+    const SDL_PropertiesID properties = SDL_CreateProperties();
+    SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "THUG2");
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_X_NUMBER, position);
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_Y_NUMBER, position);
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, sdl_window_state().client_width_);
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, sdl_window_state().client_height_);
+    SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, static_cast<int64_t>(flags));
+    sdl_window_state().window_ = SDL_CreateWindowWithProperties(properties);
+    SDL_DestroyProperties(properties);
+
+    HWND handle = nullptr;
     if (!sdl_window_state().window_) {
         debug_log::printf(debug_log::StageMap::kError, "Failed to create window! Error: %s\n", SDL_GetError());
+    } else {
+        if (!sdl_window_state().windowed_) {
+            choose_fullscreen_mode(sdl_window_state().window_);
+            SDL_ShowWindow(sdl_window_state().window_);
+        }
+        handle = static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window_state().window_),
+                                                         SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+        log_window_size(sdl_window_state().window_);
     }
-
-    SDL_SysWMinfo info;
-    SDL_VERSION(&info.version);
-    SDL_GetWindowWMInfo(sdl_window_state().window_, &info);
+    keep_text_input();
     set_app_active(true);
 
-    SDL_ShowCursor(0);
-    return std::bit_cast<WindowsWmInfo>(info).window;
+    SDL_HideCursor();
+    return handle;
 }
 
 } // namespace sys

@@ -1,9 +1,9 @@
 // NOT ORIGINAL - the fixed-function shader check's GPU part (ff_shader_check_gpu.h).
 #include "tests/ff_shader_check_gpu.h"
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_error.h>
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_video.h>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -322,12 +322,11 @@ bool check_on_gpu(const GpuInput& input)
         text::print("GPU part skipped: no Vulkan loader for this process\n");
         return true;
     }
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         text::print("GPU part skipped: SDL_Init: %s\n", SDL_GetError());
         return true;
     }
-    SDL_Window* window = SDL_CreateWindow("thug2 fixed-function shader check", SDL_WINDOWPOS_UNDEFINED,
-                                          SDL_WINDOWPOS_UNDEFINED, kWindowSize, kWindowSize,
+    SDL_Window* window = SDL_CreateWindow("thug2 fixed-function shader check", kWindowSize, kWindowSize,
                                           SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN);
     bool ok = true;
     if (window == nullptr) {

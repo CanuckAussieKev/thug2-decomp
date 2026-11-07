@@ -6,9 +6,9 @@
 //     node tools/game/install_manifest.ts check --game D:\Other\THUG2 [--manifest notes/data/install_manifest.json]
 //
 // Left out: what this project or the player made, not the game - thug2-decomp* (the exe and its PDB, ini, logs,
-// overlays, layouts, converted levels), d3dx9_43.dll, an earlier build's dinput8.dll, the game lock, Backup, Save and
-// the Faces folder. A file's "kind" says where it comes from: exe (the game's own exe - the reference build is the one
-// the source's addresses come from), partymod (PartyMod's SDL2 files), game.
+// overlays, layouts, converted levels), d3dx9_43.dll, SDL3.dll, an earlier build's dinput8.dll, the game lock, Backup,
+// Save and the Faces folder. A file's "kind" says where it comes from: exe (the game's own exe - the reference build is
+// the one the source's addresses come from), partymod (PartyMod's SDL2 files), game.
 
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
@@ -33,7 +33,16 @@ const KNOWN_EXES = new Map<string, [boolean, string]>(
 );
 const EXE_NAMES = new Set(GAME_EXE_NAMES.map((n) => n.toLowerCase()));
 // Ours or the player's (top-level names, lower case; "thug2-decomp" also covers every thug2-decomp-* name).
-const SKIP = new Set(["dinput8.dll", "d3dx9_43.dll", "backup", "save", "faces", ".game-lock", ".anteara-backup"]);
+const SKIP = new Set([
+    "dinput8.dll",
+    "d3dx9_43.dll",
+    "sdl3.dll",
+    "backup",
+    "save",
+    "faces",
+    ".game-lock",
+    ".anteara-backup",
+]);
 const PARTYMOD = new Set(["sdl2.dll", "gamecontrollerdb.txt"]);
 
 type Kind = "exe" | "partymod" | "game";

@@ -52,7 +52,7 @@ renderer's own run-to-run noise (tools/game/README.md).`;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const RENDERERS = ["d3d9", "vulkan"] as const;
 // (the files the lock backs up and puts back - copying others in would leave them there)
-const DEPLOYED = ["thug2-decomp.exe", "thug2-decomp.pdb", "d3dx9_43.dll"];
+const DEPLOYED = ["thug2-decomp.exe", "thug2-decomp.pdb", "d3dx9_43.dll", "SDL3.dll"];
 
 export interface PlanSpot {
     name: string;

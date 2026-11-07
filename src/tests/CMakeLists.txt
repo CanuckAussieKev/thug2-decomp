@@ -72,7 +72,7 @@ endif()
 if(TARGET thug2_gpu_vulkan)
     add_executable(thug2_ff_shader_check ff_shader_check.cpp ff_shader_check_model.cpp ff_shader_check_gpu.cpp
        )
-    target_link_libraries(thug2_ff_shader_check PRIVATE thug2_gpu_vulkan sdl2)
+    target_link_libraries(thug2_ff_shader_check PRIVATE thug2_gpu_vulkan sdl3)
     target_compile_definitions(thug2_ff_shader_check PRIVATE SDL_MAIN_HANDLED)
     if(THUG2_SPIRV_VALIDATOR)
         target_link_libraries(thug2_ff_shader_check PRIVATE SPIRV-Tools-static)
@@ -87,7 +87,7 @@ endif()
 # vulkan_gpu_check.cpp; --device N picks another GPU).
 if(TARGET thug2_gpu_vulkan AND TARGET thug2_fs_win32)
     add_executable(thug2_vulkan_gpu_check vulkan_gpu_check.cpp)
-    target_link_libraries(thug2_vulkan_gpu_check PRIVATE thug2_gpu_vulkan thug2_fs_win32 sdl2)
+    target_link_libraries(thug2_vulkan_gpu_check PRIVATE thug2_gpu_vulkan thug2_fs_win32 sdl3)
     target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 

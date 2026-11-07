@@ -18,7 +18,7 @@
 #include <string>
 #include <string_view>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "base/core/dbg.h"
 #include "engine/audio/audio_device.h"
@@ -202,10 +202,7 @@ const std::array<std::array<uint32_t, 24>, 3> kDefaultBindings = {{
 // recreated (0x00786AB4: off while the window is in the background).
 void handle_window_event(SDL_Event* event)
 {
-    if (event->type != SDL_WINDOWEVENT) {
-        return;
-    }
-    if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+    if (event->type == SDL_EVENT_WINDOW_FOCUS_LOST) {
         render::engine_parts().set_device_lost(false);
         // Not PartyMod's - while an extension asks for it (the test-automation channel when it's on,
         // devtools/automation.h) the game keeps drawing in the background, so a test's picture of its window
@@ -215,7 +212,7 @@ void handle_window_event(SDL_Event* event)
         if (!ext::draws_unfocused()) {
             set_app_active(false);
         }
-    } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+    } else if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
         render::engine_parts().set_device_lost(true);
         set_app_active(true);
     }

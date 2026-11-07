@@ -2,7 +2,7 @@
 // place (ours). See level_editor.h.
 
 #include "editor/level_editor.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -32,6 +32,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
+#include "platform/sdl_time.h"
 #include "base/core/down_cast.h"
 #include "base/core/checked_index.h"
 #include "editor/level_editor_internal.h"
@@ -436,7 +437,7 @@ void handle_clicks(EditorFrame& editor_frame)
     // (UX8: a double click on nothing a click takes - a surface - with nothing selected (the first click deselects):
     // the camera glides there - level_editor_ux8.h)
     if (box_candidate && !ruler::get_armed() && !organize::box_armed() &&
-        ux8::note_empty_click(SDL_GetTicks(), input.x, input.y) && !have_selection() && !picked_set().node_selected_) {
+        ux8::note_empty_click(platform::ticks_ms(), input.x, input.y) && !have_selection() && !picked_set().node_selected_) {
         teleport_to(dir);
         box_candidate = false;
     }

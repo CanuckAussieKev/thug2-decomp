@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 project(thug2_decomp LANGUAGES C CXX)
 
 # The architecture: x86, the game's own (32-bit), or x64, the 64-bit build being ported (docs/design/x64-port.md).
-# THUG2_ARCH also names the third-party packages' folders (SDL2's lib/<arch>, D3DX9's lib/<arch> and bin/<arch>).
+# THUG2_ARCH also names the third-party packages' folders (SDL3's lib/<arch>, D3DX9's lib/<arch> and bin/<arch>).
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
     set(THUG2_ARCH x86)
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -38,25 +38,24 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
     "The game folder of a THUG2 install (its Data folder) the built exe is copied into, if it exists (an install root steps into its Game folder)")
 
-# --- SDL2 (PartyMod's window and input: src/platform/sdl_*.cpp, src/engine/pad_input/sdl_input.cpp) --------------
-# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
-# game folder's SDL2.dll). Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
+# --- SDL3 (the window and input: src/platform/sdl_*.cpp, src/engine/pad_input/sdl_input.cpp) --------------------
+# The official 3.2.30 Visual C++ development package (PartyMod's window and input were written for SDL 2; the game
+# moved to SDL 3 - its 3.2 series' last release). Downloaded and checked against its SHA-256 at configure time; not
+# stored in the repo. Its headers are in include/SDL3, as the code includes them (<SDL3/...>).
 include(FetchContent)
-FetchContent_Declare(sdl2
-    URL https://github.com/libsdl-org/SDL/releases/download/release-2.30.9/SDL2-devel-2.30.9-VC.zip
-    URL_HASH SHA256=8c91d91e5bcb997d062ec2b553c53832ebf95654d4aa35e8c02a954d4ce752ae
+FetchContent_Declare(sdl3
+    URL https://github.com/libsdl-org/SDL/releases/download/release-3.2.30/SDL3-devel-3.2.30-VC.zip
+    URL_HASH SHA256=3a93c2182ddaf64692a8907928e6a54467f0f7c1caddf3019cfa69fbf1dfe3f2
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-FetchContent_MakeAvailable(sdl2)
-# The package has its headers directly in include/; the code includes them as <SDL2/...>.
-file(COPY "${sdl2_SOURCE_DIR}/include/" DESTINATION "${CMAKE_BINARY_DIR}/sdl2-include/SDL2")
-add_library(sdl2 SHARED IMPORTED)
-set_target_properties(sdl2 PROPERTIES
-    IMPORTED_IMPLIB "${sdl2_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL2.lib"
-    IMPORTED_LOCATION "${sdl2_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL2.dll"
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/sdl2-include")
-# The package's SDL2.dll is byte-for-byte the one PartyMod ships (SHA-256 921e4c99...): copied into the game folder
-# with the exe (below), so a game folder needs no PartyMod files. SDL's controller mappings, the same way: the
-# gamecontrollerdb.txt PartyMod ships is SDL_GameControllerDB's at commit 8b2d1a7 (2022-09-06), zlib.
+FetchContent_MakeAvailable(sdl3)
+add_library(sdl3 SHARED IMPORTED)
+set_target_properties(sdl3 PROPERTIES
+    IMPORTED_IMPLIB "${sdl3_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL3.lib"
+    IMPORTED_LOCATION "${sdl3_SOURCE_DIR}/lib/${THUG2_ARCH}/SDL3.dll"
+    INTERFACE_INCLUDE_DIRECTORIES "${sdl3_SOURCE_DIR}/include")
+# The package's SDL3.dll is copied into the game folder with the exe (below). SDL's controller mappings, the same
+# way: the gamecontrollerdb.txt PartyMod ships is SDL_GameControllerDB's at commit 8b2d1a7 (2022-09-06), zlib (SDL 3
+# reads SDL 2's mapping format).
 set(THUG2_CONTROLLER_DB "${CMAKE_BINARY_DIR}/gamecontrollerdb.txt")
 if(NOT EXISTS "${THUG2_CONTROLLER_DB}")
     file(DOWNLOAD
@@ -84,7 +83,7 @@ set_target_properties(d3dx9 PROPERTIES
 
 # --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
 # Our UI layers (the level editor's src/editor/level_editor_ui*.cpp, the new front end's src/frontend/new_frontend*.cpp):
-# the core (imgui), and the official SDL2 platform backend with the Direct3D 9 renderer backend (imgui_backends: the
+# the core (imgui), and the official SDL3 platform backend with the Direct3D 9 renderer backend (imgui_backends: the
 # graphics backend's - only gpu_d3d9/d3d9_ui_backend.cpp includes their headers; render::UiBackend).
 FetchContent_Declare(imgui
     URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz
@@ -100,10 +99,9 @@ target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT)
 target_compile_options(imgui PRIVATE /W0)
 add_library(imgui_backends STATIC
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp)
-target_include_directories(imgui_backends PRIVATE "${CMAKE_BINARY_DIR}/sdl2-include/SDL2") # (the SDL2 backend includes <SDL.h>)
-target_link_libraries(imgui_backends PUBLIC imgui PRIVATE sdl2)
+target_link_libraries(imgui_backends PUBLIC imgui PRIVATE sdl3)
 target_compile_options(imgui_backends PRIVATE /W0)
 
 # --- stb_image_write 1.16 (Sean Barrett, public domain or MIT, see THIRD_PARTY_NOTICES.md) ---------

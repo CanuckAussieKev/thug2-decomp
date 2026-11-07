@@ -11,7 +11,7 @@ namespace os_layer {
 
 using EventHandler = void (*)(SDL_Event* event);
 
-// The handler list, empty (the start-up registers the first handler: SDL_QUIT asks the game to quit, 0x007D6A2C -
+// The handler list, empty (the start-up registers the first handler: SDL_EVENT_QUIT asks the game to quit, 0x007D6A2C -
 // sys::init_pc_setup).
 void init_events();
 void register_event_handler(EventHandler handler);

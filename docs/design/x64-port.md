@@ -270,7 +270,7 @@ PDBs alike. `tools/standalone/first_fault.py` picks the target's debug API by th
 through WOW64 as before; a 64-bit one with the AMD64 `CONTEXT` (RAX-R15, Dr0-Dr7 for `--watch`, `--watch-size 8` for a
 pointer), the calls unwound by dbghelp's `StackWalk64` from the modules' unwind data, and the stack scan over 8-byte
 slots. `tools/game` deploys a build with `deploy_build.ps1 -Game <folder> -Arch x86|x64` under the game lock: the same
-file names for either machine (thug2-decomp.exe, d3dx9_43.dll, SDL2.dll, FFmpeg's DLLs), the build going IN PLACE of the
+file names for either machine (thug2-decomp.exe, d3dx9_43.dll, SDL3.dll, FFmpeg's DLLs), the build going IN PLACE of the
 one in the folder, and `game_lock.ps1`'s release giving the folder back as acquired; `run_game.ps1` / `load_check.ps1`
 take `-Arch` to refuse a folder holding the other machine's exe. `tools/game/read_dump.ts` (WER dumps) still reads
 32-bit contexts only.
@@ -308,7 +308,7 @@ OpenSpy server, then online by hand) - the chat login, game listing, hosting, NA
 |---|---|---|
 | Bink (the player's `binkw32.dll`, 15 exports through `media::Movie`) | 32-bit DLL from the player's install | **It can't load into a 64-bit process.** Plan: an FFmpeg-based `media::Movie` (`src/media_ffmpeg`): FFmpeg's Bink demuxer, Bink video decoder and Bink audio decoders, linked as DLLs under the LGPL (tasks X10a-c) |
 | GameSpy SDK (IGN's 2011 BSD-3 release, built from source) | 32-bit, built by `cmake/gamespy_sdk.cmake` | built from source for x64 since X9: the peer's callback queue kept addresses in an `int` (`PEERCBType`, now `intptr_t`), the other pointer <-> int casts read; pointer cuts are errors in its build; the shared structures and the callbacks' argument widths checked (docs/gamespy.md "64-bit builds"). The protocol on x64 is to be tested against a local OpenSpy server and online by hand |
-| SDL2 2.30.9 (official VC package) | `lib/x86` | the same package has `lib/x64` |
+| SDL 3.2.30 (official VC package; SDL2 2.30.9 until the SDL 3 merge) | `lib/x86` | the same package has `lib/x64` |
 | Dear ImGui 1.91.9b | source | source; nothing to change |
 | LZHAM (source) | 32-bit | builds for x64 (its own `LZHAM_64BIT` paths; to confirm the defines the CMake list needs) |
 | stb_image_write | source | nothing to change |
@@ -516,7 +516,7 @@ What changed or was checked:
 
 **Done in X12e** (`editor/`, `frontend/`, `devtools/`, the backends `audio_dsound`, `input_dinput`, `fs_win32`,
 `media_ffmpeg`, and `app/`): `THUG2_X64_READY` lists `game`, `frontend`, `editor`, `devtools` and `app`, so the x64
-configure builds `thug2-decomp.exe` and `thug2-editor.exe` (x64) and copies their x64 DLLs beside them - SDL2.dll,
+configure builds `thug2-decomp.exe` and `thug2-editor.exe` (x64) and copies their x64 DLLs beside them - SDL3.dll,
 d3dx9_43.dll, FFmpeg's avutil-59 / avcodec-61 / avformat-61 / swscale-8 (from `out/ffmpeg/x64`) and
 gamecontrollerdb.txt. All 149 translation units of these folders compile with the build's flags with no warning (C4267
 / C4244 / C4311 / C4312 included) and no error, and clang-tidy with the x86_64 target finds no narrowing in them.

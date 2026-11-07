@@ -35,7 +35,7 @@ function powershell(script: string, args: string[]): { code: number | null; out:
 
 const X86 = 0x14c;
 const X64 = 0x8664;
-const DLLS = ["d3dx9_43.dll", "SDL2.dll"];
+const DLLS = ["d3dx9_43.dll", "SDL3.dll"];
 
 function makeBuild(dir: string, machine: number, marker: string): void {
     fs.mkdirSync(dir, { recursive: true });

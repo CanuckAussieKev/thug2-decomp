@@ -27,11 +27,11 @@ $LaunchExeName = 'thug2-decomp.exe'
 # (ours, and the game's own exe started by hand)
 $GameProcessNames = @(@($LaunchExeName) + $GameExeNames | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_) })
 # The files of ours a game lock backs up and puts back (those that are there; the ones that weren't are removed at
-# release): the exe, its PDB, the editor's program, the DLLs next to them (D3DX9, SDL2, FFmpeg's), the controller
+# release): the exe, its PDB, the editor's program, the DLLs next to them (D3DX9, SDL3, FFmpeg's), the controller
 # database; an earlier development build's dinput8.dll. The same names for a 32-bit and a 64-bit build: a build is
 # deployed INSTEAD of the one in the folder (deploy_build.ps1), under the lock, and release puts the other back.
 $DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'thug2-editor.exe', 'thug2-editor.pdb', 'd3dx9_43.dll',
-                   'SDL2.dll', 'gamecontrollerdb.txt', 'avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll',
+                   'SDL3.dll', 'gamecontrollerdb.txt', 'avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll',
                    'swscale-8.dll', 'dinput8.dll')
 
 # A PE file's machine: 'x86', 'x64', or $null when it isn't a PE file (what a 32-bit or 64-bit build of the game is).

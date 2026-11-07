@@ -6,10 +6,10 @@ param(
 # Puts a build of the game - thug2-decomp.exe, its PDB and the DLLs the build copied beside it - into a game folder, as the
 # game lock allows: the folder's lock must be held (game_lock.ps1 -Action acquire), and no game running from it.
 #   deploy_build.ps1 -Game C:\Games\THUG2-2 -Arch x64 [-BuildDir out\build\x64-debug]
-# A 32-bit and a 64-bit build have the same file names (thug2-decomp.exe, d3dx9_43.dll, SDL2.dll, FFmpeg's avutil-59.dll...
+# A 32-bit and a 64-bit build have the same file names (thug2-decomp.exe, d3dx9_43.dll, SDL3.dll, FFmpeg's avutil-59.dll...
 # - game_exe.ps1's $DeployedFiles, the files the lock backs up and puts back): the build you deploy goes IN PLACE of the
 # one in the folder, and release gives the folder back as it was acquired. The folder is never both at once.
-# -Arch: which build (default x86); the files are checked to be that machine (a 64-bit exe next to a 32-bit SDL2.dll
+# -Arch: which build (default x86); the files are checked to be that machine (a 64-bit exe next to a 32-bit SDL3.dll
 #        never starts). -BuildDir: the CMake build folder (default <this checkout>\out\build\<Arch>-debug, the preset's).
 # A 64-bit build can't load binkw32.dll (32-bit): in a workspace the ini gets [features] movie_codec=ffmpeg (the lock's
 # release puts the ini back); the FFmpeg DLLs come from the build folder (the build copies them from out\ffmpeg\x64
@@ -40,8 +40,8 @@ foreach ($f in $DeployedFiles) {
     Copy-Item -LiteralPath $src -Destination (Join-Path $folder $f) -Force
     $copied += $f
 }
-if ($copied -notcontains 'd3dx9_43.dll' -or $copied -notcontains 'SDL2.dll') {
-    "WARNING: $BuildDir has no d3dx9_43.dll / SDL2.dll (the build copies them beside the exe): the game won't start without them"
+if ($copied -notcontains 'd3dx9_43.dll' -or $copied -notcontains 'SDL3.dll') {
+    "WARNING: $BuildDir has no d3dx9_43.dll / SDL3.dll (the build copies them beside the exe): the game won't start without them"
 }
 $stale = @($DeployedFiles | Where-Object { ($copied -notcontains $_) -and (($_ -like '*.exe') -or ($_ -like '*.dll')) -and
         (Test-Path (Join-Path $folder $_)) -and ((Get-PeArch (Join-Path $folder $_)) -notin @($null, $Arch)) })

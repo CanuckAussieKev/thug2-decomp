@@ -6,9 +6,10 @@
 #include <memory>
 #include <vector>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "base/core/no_destroy.h"
+#include "platform/sdl_window.h"
 #include <gsl/pointers>
 
 namespace os_layer {
@@ -33,8 +34,9 @@ void register_event_handler(EventHandler handler) { handlers()->push_back(handle
 
 void pump_sdl_events()
 {
+    sys::keep_text_input();
     SDL_Event event;
-    while (SDL_PollEvent(&event) != 0) {
+    while (SDL_PollEvent(&event)) {
         for (EventHandler handler : *handlers()) {
             handler(&event);
         }

@@ -22,7 +22,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   install something permanently (the lead installing main), also copy it over the `.backup` file before releasing.
 - `deploy_build.ps1 -Game <folder> -Arch x86|x64 [-BuildDir <cmake build folder>]` - puts a build into a game folder
   under its lock (refused without the lock, or while a game runs from it): thug2-decomp.exe, its PDB, the editor, and the
-  DLLs the build copied beside them (d3dx9_43.dll, SDL2.dll, FFmpeg's four, gamecontrollerdb.txt) - those the build has.
+  DLLs the build copied beside them (d3dx9_43.dll, SDL3.dll, FFmpeg's four, gamecontrollerdb.txt) - those the build has.
   **A 32-bit and a 64-bit build have the same file names, so a build goes IN PLACE of the one in the folder** (the
   folder is never both); the lock backs the same file list up (game_exe.ps1 `$DeployedFiles`), so `release` brings the
   folder back as acquired, whichever machine was deployed. Every exe / DLL is checked to be `-Arch`'s machine (default
