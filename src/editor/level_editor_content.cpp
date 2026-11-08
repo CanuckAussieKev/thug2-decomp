@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <deque>
@@ -23,6 +24,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -333,6 +335,17 @@ void queue(const std::string& kind, std::vector<std::string> arguments, const st
     content.jobs.push_back({.kind = kind, .arguments = std::move(all), .level = level});
 }
 
+// The content tools run with the editor's Node runtime: `arguments` after node.exe (the tool's script first).
+sys::child_process::Command tools_command(std::vector<std::string> arguments)
+{
+    sys::child_process::Command command;
+    command.program = import::tools_folder() + "\\node.exe";
+    command.arguments = std::move(arguments);
+    command.folder = import::tools_folder();
+    command.environment = {{"NEVERSCRIPT", import::tools_folder() + "\\ns.exe"}, {"NO_COLOR", "1"}, {"NODE_NO_WARNINGS", "1"}};
+    return command;
+}
+
 void start_next()
 {
     ContentState& content = state();
@@ -341,13 +354,8 @@ void start_next()
     }
     content.running = content.jobs.front();
     content.jobs.pop_front();
-    sys::child_process::Command command;
-    command.program = import::tools_folder() + "\\node.exe";
-    command.arguments = content.running.arguments;
-    command.folder = import::tools_folder();
-    command.environment = {{"NEVERSCRIPT", import::tools_folder() + "\\ns.exe"}, {"NO_COLOR", "1"}, {"NODE_NO_WARNINGS", "1"}};
     std::string why;
-    content.child = sys::child_process::start(command, &why);
+    content.child = sys::child_process::start(tools_command(content.running.arguments), &why);
     content.partial.clear();
     if (content.child == 0) {
         content.status = "Couldn't run the content tools: " + why;
@@ -1188,6 +1196,43 @@ void run_tool(const std::string& kind, const std::vector<std::string>& arguments
 }
 
 const ui_backend::Picture* picture(const std::string& name) { return picture_named(name); }
+
+bool cut_again_now(const std::string& level, const std::string& piece, std::string* why)
+{
+    if (!tools_there()) {
+        *why = "the content tools aren't installed";
+        return false;
+    }
+    const int child = sys::child_process::start(
+        tools_command({import::tools_folder() + "\\" + kTool, "extract", "--game", game_folder_path(""), "--out",
+                       import::output_folder(), "--level", level, "--piece", piece}),
+        why);
+    if (child == 0) {
+        return false;
+    }
+    constexpr std::chrono::milliseconds kPoll{20};
+    const auto give_up = std::chrono::steady_clock::now() + std::chrono::seconds(kCutAgainSeconds);
+    std::string output;
+    int exit_code = 0;
+    while (!sys::child_process::finished(child, &exit_code)) {
+        output += sys::child_process::take_output(child);
+        if (std::chrono::steady_clock::now() > give_up) {
+            sys::child_process::stop(child);
+            sys::child_process::release(child);
+            *why = "the content tools took too long";
+            return false;
+        }
+        std::this_thread::sleep_for(kPoll);
+    }
+    output += sys::child_process::take_output(child);
+    sys::child_process::release(child);
+    if (exit_code != 0) {
+        *why = "the content tools stopped (exit " + std::to_string(exit_code) + "): " + output;
+        return false;
+    }
+    list_packs();
+    return true;
+}
 
 void forget_picture(const std::string& name)
 {

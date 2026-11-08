@@ -79,6 +79,11 @@ void panel(const ui::ShapeMesh& model, float scale);
 // For the Prefabs folder (level_editor_prefabs.h): a run of the content tools queued (`kind` prop_packs.ts's command,
 // `label` for the status line), a picture of the overlay's images by name (nullptr: not there yet - looked for again
 // after the next run), one forgotten (loaded again: drawn again).
+// A pack cut out again now, waiting for the content tools (at most `kCutAgainSeconds`) - for a layout's pack cut by an
+// older pipeline (props::kManifestVersion), as its level loads. False (with `why`) when the tools aren't there or the
+// run failed; the old pack then stays.
+inline constexpr int kCutAgainSeconds = 120;
+bool cut_again_now(const std::string& level, const std::string& piece, std::string* why);
 void run_tool(const std::string& kind, const std::vector<std::string>& arguments, const std::string& label);
 const ui_backend::Picture* picture(const std::string& name);
 void forget_picture(const std::string& name);

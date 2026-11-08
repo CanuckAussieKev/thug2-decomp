@@ -19,6 +19,7 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_checks.h"
+#include "editor/level_editor_content.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_scenery.h"
@@ -382,6 +383,19 @@ void load_from_layout(const std::vector<std::string>& extra)
         words >> word >> id;
         if (word != kRecord || id.empty()) {
             continue;
+        }
+        // (a pack cut by an older pipeline - its collision or rails short of what the pipeline cuts now - cut again
+        // first, while the level loads; kept as it is when that can't be done)
+        Manifest manifest;
+        if (!is_loaded(id) && find_manifest(id, &manifest) && manifest.version < kManifestVersion) {
+            std::string why;
+            if (content::cut_again_now(manifest.source_level, manifest.source_piece, &why)) {
+                get_log("level editor: prop pack %s cut again (version %d -> %d)", id.c_str(), manifest.version,
+                        kManifestVersion);
+            } else {
+                get_log("level editor: prop pack %s is version %d, not cut again: %s", id.c_str(), manifest.version,
+                        why.c_str());
+            }
         }
         std::string message;
         if (!load(id, &message)) {
