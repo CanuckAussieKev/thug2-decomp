@@ -12,12 +12,14 @@
 #include <utility>
 #include <vector>
 #include <array>
+#include <span>
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_scenery.h"
 #include "base/core/checksums.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scale.h"
+#include "editor/level_editor_rotate.h"
 #include "engine/gfx/model.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
@@ -404,6 +406,42 @@ void turn_about(objects::GameEntity* object, V3 pivot, float angle)
     }
     const V3 pos = pos_of(object);
     get_place(object, pivot + turn_about_up(pos - pivot, angle));
+}
+
+void turn_about_axis(objects::GameEntity* object, V3 pivot, V3 axis, float angle)
+{
+    for (int i = 0; i < 3; ++i) {
+        for (maths::Mat4* matrix : {&object->basis_frame(), &object->display_matrix()}) {
+            maths::Vec4& row = core::at(matrix->row, i);
+            const V3 turned = rotate_tool::turn_about_axis({.x = row.x, .y = row.y, .z = row.z}, axis, angle);
+            row.x = turned.x;
+            row.y = turned.y;
+            row.z = turned.z;
+        }
+    }
+    const V3 pos = pos_of(object);
+    get_place(object, pivot + rotate_tool::turn_about_axis(pos - pivot, axis, angle));
+}
+
+void set_rows(objects::GameEntity* object, std::span<const V3, 3> rows)
+{
+    for (int i = 0; i < 3; ++i) {
+        for (maths::Mat4* matrix : {&object->basis_frame(), &object->display_matrix()}) {
+            maths::Vec4& row = core::at(matrix->row, i);
+            row.x = core::at(rows, i).x;
+            row.y = core::at(rows, i).y;
+            row.z = core::at(rows, i).z;
+        }
+    }
+    get_place(object, pos_of(object)); // (its components follow, as after a turn)
+}
+
+void rows_of(const objects::GameEntity* object, std::span<V3, 3> rows)
+{
+    for (int i = 0; i < 3; ++i) {
+        const maths::Vec4& row = core::at(object->basis_frame().row, i);
+        core::at(rows, i) = {.x = row.x, .y = row.y, .z = row.z};
+    }
 }
 
 const char* class_of(uint32_t id)

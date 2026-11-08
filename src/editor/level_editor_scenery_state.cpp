@@ -38,6 +38,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "editor/level_editor_scenery_internal.h"
+#include "editor/level_editor_checks.h"
 
 namespace frontend::level_editor {
 // What the source file's anonymous namespace held that its pieces share (level_editor_scenery_internal.h): visible
@@ -65,6 +66,47 @@ namespace {
 // "off" flag 4) / is_operative (0x0049E9E0).
 void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
 bool is_operative(render::WorldCell* sector) { return sector->is_operative(); }
+
+constexpr float kProbeReach = 0.35F;  // the probes' points: this far from the middle along the box's own x / z (of its size)
+constexpr double kDegreesPerRadian = 57.29577951308232;
+constexpr float kProbeAbove = 1.0F; // the probes start this far above the box's top (under a roof over it)
+
+// [features] debug_editor: a piece turned to any angle (a twist) checked against its collision - the game's ray straight
+// down at two points of its top that only the turned box covers (along its own x / z, off the world's axes) and at the two
+// that only the unturned one would. Logged with what each met first: the piece's own collision there (and not at the
+// unturned points) means it is turned with the piece.
+void log_twist_probe(uint32_t checksum, const Placement& placement)
+{
+    OrientedBox box{};
+    if (!debug_enabled() || placement.twist == 0.0F || !cuboid(checksum, &box)) {
+        return;
+    }
+    const V3 size = box_size(box);
+    V3 low{};
+    V3 high{};
+    bounds_of(box, &low, &high);
+    const V3 centre = {.x = (low.x + high.x) * 0.5F, .y = high.y, .z = (low.z + high.z) * 0.5F};
+    const V3 own_x = make_unit(core::at(box.axes, 0)) * (size.x * kProbeReach);
+    const V3 own_z = make_unit(core::at(box.axes, 2)) * (size.z * kProbeReach);
+    const V3 world_x = {.x = size.x * kProbeReach, .y = 0.0F, .z = 0.0F};
+    const V3 world_z = {.x = 0.0F, .y = 0.0F, .z = size.z * kProbeReach};
+    const std::array<std::pair<const char*, V3>, 4> probes = {{{"turned +x+z", own_x + own_z},
+                                                               {"turned -x-z", (own_x + own_z) * -1.0F},
+                                                               {"unturned +x+z", world_x + world_z},
+                                                               {"unturned -x-z", (world_x + world_z) * -1.0F}}};
+    get_log("level editor: twist probe %s: heading %.2f degrees, box %.0f x %.0f x %.0f, top %.1f", caption(checksum).c_str(),
+            static_cast<double>(heading_of(placement)) * kDegreesPerRadian, size.x, size.y, size.z, high.y);
+    for (const auto& [what, offset] : probes) {
+        const V3 from = {.x = centre.x + offset.x, .y = high.y + kProbeAbove, .z = centre.z + offset.z};
+        const V3 to = {.x = from.x, .y = low.y - kProbeAbove, .z = from.z};
+        V3 hit{};
+        V3 normal{};
+        uint32_t sector = 0;
+        const bool met = checks::get_cast(from, to, {.point = &hit, .normal = &normal}, &sector);
+        get_log("level editor:   %-14s at (%.1f, %.1f): %s %s at height %.1f", what, from.x, from.z,
+                met ? "met" : "nothing", met ? caption(sector).c_str() : "", met ? hit.y : 0.0F);
+    }
+}
 
 } // namespace
 
@@ -96,7 +138,7 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
         if (!track) {
             continue;
         }
-        if (track->placement.quarters != saved.placement.quarters ||
+        if (track->placement.quarters != saved.placement.quarters || track->placement.twist != saved.placement.twist ||
             !same_v3(track->placement.offset, saved.placement.offset) ||
             !same_v3(track->placement.scale, saved.placement.scale)) {
             track->placement = saved.placement;
@@ -124,6 +166,9 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
     compute_pivot();
     scenery_hover().hover_group_of_ = 0;
     finalise();
+    for (const SectorState& saved : sectors) {
+        log_twist_probe(saved.checksum, saved.placement);
+    }
 }
 
 void restore_state(const State& state)
@@ -147,8 +192,8 @@ std::vector<SectorState> changed_sectors()
         }
         const bool hidden = !is_operative(track.sector);
         const Placement& placement = track.placement;
-        if (hidden || (placement.quarters != 0) || !is_unit_scale(placement.scale) || placement.offset.x != 0.0F ||
-            placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
+        if (hidden || (placement.quarters != 0) || placement.twist != 0.0F || !is_unit_scale(placement.scale) ||
+            placement.offset.x != 0.0F || placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
             changed.push_back({.checksum = entry.first, .placement = placement, .hidden = hidden});
         }
     }
@@ -165,8 +210,8 @@ std::vector<RailState> changed_rails()
         }
         const bool hidden = track.active0 && ((track.node->flag_bits() & 4) == 0U);
         const Placement& placement = track.placement;
-        if (hidden || (placement.quarters != 0) || !is_unit_scale(placement.scale) || placement.offset.x != 0.0F ||
-            placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
+        if (hidden || (placement.quarters != 0) || placement.twist != 0.0F || !is_unit_scale(placement.scale) ||
+            placement.offset.x != 0.0F || placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
             changed.push_back({.name = entry.first, .placement = placement, .hidden = hidden});
         }
     }
@@ -341,7 +386,8 @@ bool selection_moved(Placement* placement)
         return false;
     }
     *placement = placement_of(core::at(picked_scenery().selection_, 0), geom_of(sector));
-    return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0F ||
+    return placement->quarters != 0 || placement->twist != 0.0F || !is_unit_scale(placement->scale) ||
+           placement->offset.x != 0.0F ||
            placement->offset.y != 0.0F || placement->offset.z != 0.0F;
 }
 

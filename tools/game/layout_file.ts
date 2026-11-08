@@ -16,12 +16,15 @@ export interface V3 {
     y: number;
     z: number;
 }
-// A point x as loaded is at get_quarter_turn(per_axis(x, scale), quarters) + offset (level_editor.h's Placement): `scale` is
-// along the piece's own axes as loaded - uniform (`scale=s`) or stretched (`scale=x,y,z`); 1, 1, 1 unless scaled.
+// A point x as loaded is at turn(get_quarter_turn(per_axis(x, scale), quarters), twist) + offset (level_editor.h's
+// Placement): `scale` is along the piece's own axes as loaded - uniform (`scale=s`) or stretched (`scale=x,y,z`); 1, 1, 1
+// unless scaled. `twist` (radians, a record's `turn=<degrees>`): the heading beyond the quarter turns, about up (positive
+// +z towards +x, as the editor's turn_about_up); 0 / absent: whole quarter turns.
 export interface Placement {
     quarters: number;
     offset: V3;
     scale: V3;
+    twist?: number;
 }
 export const UNIT_SCALE: Readonly<V3> = { x: 1, y: 1, z: 1 };
 export function isUnitScale(s: V3): boolean {
@@ -474,6 +477,20 @@ export function readScaleToken(word: string): V3 | null {
     return parts.length === 1 ? { x: n[0]!, y: n[0]!, z: n[0]! } : { x: n[0]!, y: n[1]!, z: n[2]! };
 }
 
+// A record's `turn=<degrees>` (level_editor_layout_text.cpp's read_placed_fields): its twist in radians, 0 without one;
+// null: malformed.
+export function readTurn(words: string[], at: number): number | null {
+    let twist = 0;
+    for (const w of words.slice(at)) {
+        if (w.startsWith("turn=")) {
+            const degrees = parseNumber(w.slice(5));
+            if (degrees === null || !Number.isFinite(degrees)) return null;
+            twist += (degrees * Math.PI) / 180;
+        }
+    }
+    return twist;
+}
+
 // The key=value fields after a sector / rail / clone / object / copy record's numbers (read_scale_fields): scale=;
 // others (a later version's) skipped. Null: a bad scale.
 function readScale(words: string[], at: number): V3 | null {
@@ -619,6 +636,8 @@ export function readLayout(text: string): Layout {
                 const hidden = words[6];
                 if (hidden !== "0" && hidden !== "1") fail("bad hidden flag");
                 p.scale = readScale(words, 7) ?? fail("bad scale=");
+                const twist = readTurn(words, 7) ?? fail("bad turn=");
+                if (twist) p.twist = twist;
                 if (kind === "sector") layout.sectors.push({ checksum: name, placement: p, hidden: hidden === "1" });
                 else layout.rails.push({ name, placement: p, hidden: hidden === "1" });
                 break;
@@ -627,6 +646,8 @@ export function readLayout(text: string): Layout {
                 const source = hex(1);
                 const p = readPlacement(words, 2) ?? fail("bad placement");
                 p.scale = readScale(words, 6) ?? fail("bad scale=");
+                const twist = readTurn(words, 6) ?? fail("bad turn=");
+                if (twist) p.twist = twist;
                 layout.clones.push({ source, placement: p });
                 break;
             }

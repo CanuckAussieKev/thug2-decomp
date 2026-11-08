@@ -39,6 +39,7 @@
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_ruler.h"
+#include "editor/level_editor_rotate.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_thumbs.h"
@@ -75,6 +76,7 @@ constexpr float kRouteArrowMinLength =
 constexpr float kRouteArrowWing = 0.6F; // the arrowhead is this wide for its length
 constexpr float kPickDotRadius = 4.0F;
 constexpr float kLabelOffset = 8.0F;
+constexpr float kReadoutRise = 28.0F; // a turn's angle: this far above the pivot (pixels, scaled)
 constexpr float kLabelDrop = 2.0F;
 constexpr uint32_t kLabelColour = 0xFFFFFFFF; // ARGB
 constexpr float kRailPointRange = 1500.0F;    // a rail shows its points within this distance
@@ -1047,6 +1049,17 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     // level_editor_arrange.h)
     arrange::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                          kNearZ, &drawn_overlay());
+    // (a turn being dragged: the angle so far beside the pivot - level_editor_rotate.h)
+    if (drag_session().dragging_ && transform_session().drag_mode_ == xform::Mode::kSpinBy) {
+        float px = 0.0F;
+        float py = 0.0F;
+        if (get_to_pixel(frame, transform_session().transform_pivot_, &px, &py)) {
+            drawn_overlay().texts.push_back({.x = px + (kLabelOffset * pixel_scale()),
+                                             .y = py - (kReadoutRise * pixel_scale()),
+                                             .argb = kLabelColour,
+                                             .text = rotate_tool::readout(transform_session().rot_applied_)});
+        }
+    }
     gizmo_lines::end_frame();
     thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
     ui::tick_cycle(model, drawn_overlay());

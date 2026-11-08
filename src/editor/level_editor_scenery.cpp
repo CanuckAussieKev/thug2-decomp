@@ -73,6 +73,11 @@ constexpr float kSelectGrowth = 10.0F;   // a rail selection box is grown by thi
 constexpr int kRailNodeClimbFlag = 0x10; // a rail node flag: only used when climbing
 constexpr float kScaleTolerance = 1e-4F; // two placements are the same within these
 constexpr float kOffsetTolerance = 0.5F;
+constexpr float kTwistTolerance = 1e-4F;   // (radians)
+constexpr float kQuarterRadians = 1.57079633F; // a quarter turn
+constexpr float kEighthRadians = 0.785398163F; // half of one: a twist stays within +-this
+constexpr float kTwistNone = 1e-6F;            // a twist smaller than this is none (whole quarter turns, exactly)
+constexpr int kTwistGuard = 64;
 
 constexpr int kPassCountMask = 0xFFFFFFF; // the part of the pass count that is a count
 
@@ -94,9 +99,37 @@ V3 get_quarter_turn(V3 v, int quarters)
     }
 }
 
+V3 turn_placed(V3 v, const Placement& placement)
+{
+    const V3 turned = get_quarter_turn(v, placement.quarters);
+    return placement.twist == 0.0F ? turned : turn_about_up(turned, placement.twist);
+}
+
+float heading_of(const Placement& placement)
+{
+    return (static_cast<float>(placement.quarters & 3) * kQuarterRadians) + placement.twist;
+}
+
+void normalise_twist(Placement* placement)
+{
+    // (a few steps at most: the twists added are each within +-45 degrees, or a drag's few turns)
+    for (int guard = 0; guard < kTwistGuard && placement->twist > kEighthRadians; ++guard) {
+        placement->twist -= kQuarterRadians;
+        ++placement->quarters;
+    }
+    for (int guard = 0; guard < kTwistGuard && placement->twist <= -kEighthRadians; ++guard) {
+        placement->twist += kQuarterRadians;
+        --placement->quarters;
+    }
+    placement->quarters &= 3;
+    if (std::fabs(placement->twist) < kTwistNone || !std::isfinite(placement->twist)) {
+        placement->twist = 0.0F;
+    }
+}
+
 V3 get_apply(const Placement& placement, V3 x)
 {
-    return get_quarter_turn(per_axis(x, placement.scale), placement.quarters) + placement.offset;
+    return turn_placed(per_axis(x, placement.scale), placement) + placement.offset;
 }
 
 void move_by(Placement* placement, V3 delta) { placement->offset = placement->offset + delta; }
@@ -105,9 +138,14 @@ Placement compose(const Placement& outer, const Placement& inner)
 {
     // outer(inner(x)) = Q_o S_o (Q_i S_i x + o_i) + o_o = Q_o Q_i (S_o' S_i) x + (Q_o S_o o_i + o_o), S_o' = S_o as
     // seen through Q_i (S_o Q_i = Q_i S_o': odd turns swap its x and z).
-    return {.quarters = (inner.quarters + outer.quarters) & 3,
-            .offset = get_quarter_turn(per_axis(inner.offset, outer.scale), outer.quarters) + outer.offset,
-            .scale = per_axis(turned_scale(outer.scale, inner.quarters), inner.scale)};
+    // Headings about up add up (a twist's too); a stretch seen through a twisted inner is taken along the nearest axes
+    // (exact for a uniform scale).
+    Placement composed = {.quarters = (inner.quarters + outer.quarters) & 3,
+                          .offset = turn_placed(per_axis(inner.offset, outer.scale), outer) + outer.offset,
+                          .scale = per_axis(turned_scale(outer.scale, inner.quarters), inner.scale),
+                          .twist = inner.twist + outer.twist};
+    normalise_twist(&composed);
+    return composed;
 }
 
 void turn_about(Placement* placement, V3 pivot, int quarters)
@@ -115,6 +153,22 @@ void turn_about(Placement* placement, V3 pivot, int quarters)
     // x'' = R (x' - pivot) + pivot, x' = Q x + offset: x'' = R Q x + R (offset - pivot) + pivot.
     placement->quarters = (placement->quarters + quarters) & 3;
     placement->offset = get_quarter_turn(placement->offset - pivot, quarters) + pivot;
+}
+
+void turn_about_by(Placement* placement, V3 pivot, float radians)
+{
+    // (the whole quarter turns in it exactly, the rest by trigonometry)
+    const auto quarters = static_cast<int>(std::lround(radians / kQuarterRadians));
+    float rest = radians - (static_cast<float>(quarters) * kQuarterRadians);
+    if (std::fabs(rest) < kTwistNone) {
+        rest = 0.0F;
+    }
+    turn_about(placement, pivot, quarters & 3);
+    if (rest != 0.0F) {
+        placement->offset = turn_about_up(placement->offset - pivot, rest) + pivot;
+        placement->twist += rest;
+        normalise_twist(placement);
+    }
 }
 
 void engine_state(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position)
@@ -128,9 +182,9 @@ OrientedBox placed_box(V3 min, V3 max, const Placement& placement)
 {
     OrientedBox box{};
     box.origin = placement.offset;
-    core::at(box.axes, 0) = get_quarter_turn({.x = placement.scale.x, .y = 0.0F, .z = 0.0F}, placement.quarters);
+    core::at(box.axes, 0) = turn_placed({.x = placement.scale.x, .y = 0.0F, .z = 0.0F}, placement);
     core::at(box.axes, 1) = {.x = 0.0F, .y = placement.scale.y, .z = 0.0F};
-    core::at(box.axes, 2) = get_quarter_turn({.x = 0.0F, .y = 0.0F, .z = placement.scale.z}, placement.quarters);
+    core::at(box.axes, 2) = turn_placed({.x = 0.0F, .y = 0.0F, .z = placement.scale.z}, placement);
     box.min = min;
     box.max = max;
     return box;
@@ -413,12 +467,13 @@ void apply_track(Track* track)
     // (first, while the piece is still where the track started: the level's shared collision that is its -
     // level_editor_shared_coll.h)
     shared_collision::ensure(track->checksum, track->scene, track->sector, track->geom);
-    if (!track->original && !is_unit_scale(track->placement.scale)) {
+    if (!track->original && (!is_unit_scale(track->placement.scale) || track->placement.twist != 0.0F)) {
         track->original = scale_tool::get_capture(track->sector, track->geom, track->quarters, track->position);
         if (!track->original) {
-            get_log("level editor: sector %p can't be scaled (its meshes can't be copied)",
+            get_log("level editor: sector %p can't be scaled or turned freely (its meshes can't be copied)",
                     static_cast<void*>(track->sector));
             track->placement.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+            track->placement.twist = 0.0F;
         }
     }
     int quarters = 0;
@@ -448,8 +503,12 @@ void apply_track(Track* track)
         track->collision_moved_ = collision_moved;
         track->position = position;
     }
-    if (track->original && !scale_tool::reassemble(*track->original, track->sector, track->geom, track->quarters,
-                                                   track->position, track->placement.scale, track->quarters0)) {
+    if (track->original && !scale_tool::reassemble(*track->original, track->sector, track->geom,
+                                                   {.quarters = track->quarters,
+                                                    .position = track->position,
+                                                    .scale = track->placement.scale,
+                                                    .quarters0 = track->quarters0,
+                                                    .twist = track->placement.twist})) {
         track->original.reset(); // (not the sector copied any more: left as the engine has it)
     }
     shared_collision::get_place(track->checksum, track->placement);
@@ -718,7 +777,8 @@ Placement placement_of(uint32_t checksum, render::Geom* geom)
 
 bool same_placement(const Placement& a, const Placement& b)
 {
-    return a.quarters == b.quarters && std::fabs(a.scale.x - b.scale.x) < kScaleTolerance &&
+    return a.quarters == b.quarters && std::fabs(a.twist - b.twist) < kTwistTolerance &&
+           std::fabs(a.scale.x - b.scale.x) < kScaleTolerance &&
            std::fabs(a.scale.y - b.scale.y) < kScaleTolerance && std::fabs(a.scale.z - b.scale.z) < kScaleTolerance &&
            std::fabs(a.offset.x - b.offset.x) < kOffsetTolerance && std::fabs(a.offset.y - b.offset.y) < kOffsetTolerance &&
            std::fabs(a.offset.z - b.offset.z) < kOffsetTolerance;
@@ -842,6 +902,73 @@ void get_turn(int quarters)
     }
     apply_rails(scenery_rails().rails_);
     scenery_hover().hover_group_of_ = 0;
+}
+
+bool level_bounds(V3* min, V3* max)
+{
+    render::WorldScene* scene = main_scene();
+    if (!scene) {
+        return false;
+    }
+    bool have = false;
+    for_each_sector(scene, [&](uint32_t /*checksum*/, render::WorldCell* sector) {
+        V3 low{};
+        V3 high{};
+        render::Geom* geom = geom_of(sector);
+        if (geom != nullptr && plain_geom(geom) && geom_box(geom, &low, &high)) {
+            grow_box(min, max, have, low, high);
+            have = true;
+        }
+    });
+    return have;
+}
+
+bool can_turn_freely()
+{
+    return std::ranges::all_of(picked_scenery().selection_, [](uint32_t checksum) {
+        render::WorldCell* sector = find_sector(checksum, nullptr);
+        return sector == nullptr || scale_tool::twist_fits(sector);
+    });
+}
+
+bool turn_by(float radians)
+{
+    if (std::fabs(radians) < kTwistNone) {
+        return true;
+    }
+    const auto quarters = static_cast<int>(std::lround(radians / kQuarterRadians));
+    const bool whole = std::fabs(radians - (static_cast<float>(quarters) * kQuarterRadians)) < kTwistNone;
+    if (whole) {
+        get_turn(quarters);
+        return true;
+    }
+    if (!can_turn_freely()) {
+        get_log("level editor: a piece's packed collision is too wide to turn freely - quarter turns only");
+        return false;
+    }
+    for (const uint32_t checksum : picked_scenery().selection_) {
+        if (Track* track = track_of(checksum)) {
+            turn_about_by(&track->placement, picked_scenery().pivot_, radians);
+            apply_track(track);
+        }
+    }
+    for (const uint32_t name : scenery_rails().rails_) {
+        if (RailTrack* track = rail_track_of(name)) {
+            turn_about_by(&track->placement, picked_scenery().pivot_, radians);
+        }
+    }
+    apply_rails(scenery_rails().rails_);
+    scenery_hover().hover_group_of_ = 0;
+    return true;
+}
+
+float selection_heading()
+{
+    if (picked_scenery().selection_.empty()) {
+        return 0.0F;
+    }
+    render::WorldCell* sector = find_sector(core::at(picked_scenery().selection_, 0), nullptr);
+    return sector ? heading_of(placement_of(core::at(picked_scenery().selection_, 0), geom_of(sector))) : 0.0F;
 }
 
 // --- scaling (level_editor_scale.h) ---

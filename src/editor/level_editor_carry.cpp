@@ -49,8 +49,10 @@ Placement get_inverse(const Placement& placement)
     const V3 turned = turned_scale(reciprocal, placement.quarters);
     Placement inverse;
     inverse.quarters = quarters;
+    inverse.twist = -placement.twist; // (headings about up: the inverse turns back by the twist too)
+    normalise_twist(&inverse);
     inverse.scale = turned;
-    inverse.offset = get_quarter_turn(per_axis(placement.offset * -1.0F, turned), quarters);
+    inverse.offset = turn_placed(per_axis(placement.offset * -1.0F, turned), inverse);
     return inverse;
 }
 
@@ -62,7 +64,7 @@ bool is_none(const Placement& step)
     // 1.0000001; within a millionth and a ten-thousandth of a unit counts as none)
     auto unit = [](float scale) { return std::fabs(scale - 1.0F) < kUnitScaleEpsilon; };
     auto zero = [](float v) { return std::fabs(v) < kZeroEpsilon; };
-    return (step.quarters & 3) == 0 && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
+    return (step.quarters & 3) == 0 && std::fabs(step.twist) < kZeroEpsilon && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
            zero(step.offset.x) && zero(step.offset.y) && zero(step.offset.z);
 }
 
@@ -375,7 +377,8 @@ void get_follow(void (*on_node)(uint32_t name))
     if (is_none(step)) {
         return;
     }
-    const float angle = static_cast<float>(step.quarters & 3) * 1.57079633F;
+    const float angle = heading_of(step);
+    const bool turned = (step.quarters & 3) != 0 || step.twist != 0.0F;
     for (const uint32_t id : stored_carried().objects) {
         objects::GameEntity* object = live_object(id);
         if (!object) {
@@ -387,7 +390,7 @@ void get_follow(void (*on_node)(uint32_t name))
             stored_carried().noted.push_back(id);
         }
         const V3 to = get_apply(step, object_edit::pos_of(object));
-        if ((step.quarters & 3) != 0) {
+        if (turned) {
             object_edit::turn_about(object, object_edit::pos_of(object), angle); // (its heading; turned about itself)
         }
         object_edit::get_place(object, to);
@@ -398,8 +401,8 @@ void get_follow(void (*on_node)(uint32_t name))
             continue;
         }
         values.pos = get_apply(step, values.pos);
-        if ((step.quarters & 3) != 0) {
-            values.angles.y = turned_heading(values.angles.y, step.quarters);
+        if (turned) {
+            values.angles.y = node_edit::wrap_angle(values.angles.y + angle);
         }
         node_edit::assign_value(name, values);
         if (on_node) {

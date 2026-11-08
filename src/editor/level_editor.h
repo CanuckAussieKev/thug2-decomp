@@ -105,7 +105,10 @@ class Struct;
 //   - Tools (level_editor_transform.h, level_editor_snap.h): W / E / R (right button up) or Space pick Move / Rotate /
 //     Scale - their gizmos' arrows, ring and cubes; ` World / Local; the toolbar's pivot, grid (1 - 100) and rotation
 //     snap; while dragging X / Y / Z and digits type exact amounts, Ctrl / Ctrl+Shift / Alt+Shift / Ctrl+Alt snap to the
-//     grid / the world's grid / a surface / a vertex; Alt+G a modal transform; Ctrl+Shift+D repeats the last duplicate.
+//     grid / the world's grid / a surface / a vertex (V held: a vertex; plain Ctrl turns snapping off while the
+//     toolbar's Snap is on); Alt+G a modal transform, Alt+R a modal rotate (X / Y / Z its axis); Alt+drag a Move arrow
+//     moves a copy; the Rotate gizmo's rings turn objects about X / Y / Z, the view or freely (level_editor_rotate.h);
+//     Ctrl+Shift+D repeats the last duplicate.
 //   - Seeing (the UI): the Outliner lists the level's nodes by family (search; the chips show / hide a family, in
 //     the view too - kept in the ini as [editor] families=<bits>); a click on a row or a gizmo selects it (an
 //     object's or scenery's node selects the object / scenery; a flag's object selects the flag's node), a
@@ -119,17 +122,19 @@ class Struct;
 //     scenery (clicks don't take them); the toolbar's Pick: what clicks may take; Backspace deselects.
 //   - Rails: a rail's gizmos and the Inspector show its points where skaters grind them (the rail manager's - moved
 //     with their scenery or by themselves); a rail point moves with its whole rail, or by itself (L with a rail point
-//     selected, the Inspector's Whole rail), saved as `rail` records; Home puts it (its rail) back.
+//     selected, the Inspector's Whole rail), saved as `rail` records; Edit > Revert to Original puts it (its rail) back.
 //   - Moving (objects, scenery, rail points and point nodes - spawns, crowns, flags, lights, sounds, triggers, other
 //     nodes; not ladders, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
 //     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E
-//     nudge; Z / X turn (objects and nodes 15 degrees, scenery a quarter); [ / ] scale scenery (about the middle of its
+//     nudge; Z / X turn by the rotation snap (15 degrees unless set otherwise; Shift+Z / Shift+X one degree) - scenery
+//     to any angle too (level_editor_scenery.h's turn_by); [ / ] scale scenery (about the middle of its
 //     bottom) or objects (about their position) 10% (Shift: 1%), 0.25x to 4x, Alt+[ / ] stretch along the axis the
 //     camera faces most (the Inspector's Scale X / Y / Z too); G drops it onto the ground (a marker shows
 //     where that is). Moving a spawn, crown or flag of a level shared with THUGPRO warns once a run (the edit is made).
 //   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects), deletes a node the editor added and
 //     hides a level's own spawn / crown / flag / light / sound / proximity node (asking first: it isn't removed - the
-//     crowns after a hidden crown each move up a number); Home puts it back where the level had it (a hidden node:
+//     crowns after a hidden crown each move up a number); Edit > Revert to Original (asked first) puts it back where the
+//     level had it (Home frames the whole level) (a hidden node:
 //     shows it again); Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session). Ctrl+Shift+Delete (the toolbar's Reset
 //     level; the old HUD: twice) puts everything back as the level has it and deletes its saved layout and autosave,
 //     after asking - one undo step brings it back (the steps before it are dropped; the files only with Ctrl+S). An added crown moves up / down among the
@@ -417,21 +422,32 @@ inline bool is_unit_scale(V3 scale) { return scale.x == 1.0F && scale.y == 1.0F 
 inline bool is_uniform_scale(V3 scale) { return scale.x == scale.y && scale.y == scale.z; }
 
 // Where a moved sector is, relative to where it was when the editor first touched it: a point x of it then is now at
-// get_quarter_turn(per_axis(x, scale), quarters) + offset (a scale along each of its own axes as first touched - uniform or
-// stretched, level_editor_scale.h; 1, 1, 1 unless scaled).
+// turn_placed(per_axis(x, scale)) + offset (a scale along each of its own axes as first touched - uniform or stretched,
+// level_editor_scale.h; 1, 1, 1 unless scaled). Its heading is `quarters` quarter turns (what the engine turns a sector
+// by itself) and `twist` more (any angle: level_editor_scale.h writes the turned vertices and collision).
 struct Placement {
     int quarters{}; // 0..3
     V3 offset{};
     V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+    float twist{}; // radians, within +-45 degrees (0: whole quarter turns, exactly)
 };
 V3 get_apply(const Placement& placement, V3 x);
+// A direction turned by the placement's heading: its quarter turns (exactly), then its twist about up.
+V3 turn_placed(V3 v, const Placement& placement);
+// The placement's heading in radians (quarters * 90 degrees + twist; positive +z towards +x, as turn_about_up).
+float heading_of(const Placement& placement);
+// The quarter turns and twist kept as their parts: the twist brought within +-45 degrees (whole quarter turns moved to
+// `quarters`), a twist within a millionth of a radian of none taken as none (turned back exactly).
+void normalise_twist(Placement* placement);
 // Moved by `delta`; turned by `quarters` quarter turns about `pivot` (a world point, where it is now).
 void move_by(Placement* placement, V3 delta);
 void turn_about(Placement* placement, V3 pivot, int quarters);
+// Turned by `radians` about the vertical line through `pivot` (any angle; whole quarter turns exactly).
+void turn_about_by(Placement* placement, V3 pivot, float radians);
 // What the engine keeps for a placement: the sector's quarter turns (WorldCell +0x10, set by spin_around_up 0x0049E760)
 // and its geometry's world position (the meshes' pivot, MeshRef +0x90's translation), from those when first touched
-// (`quarters0`, `position0`). Unscaled, its vertices are at get_quarter_turn(v, quarters) + position for v as loaded (the
-// engine has no scale of its own: level_editor_scale.h writes the scaled vertices).
+// (`quarters0`, `position0`). Unscaled and untwisted, its vertices are at get_quarter_turn(v, quarters) + position for v
+// as loaded (the engine has no scale or other angles of its own: level_editor_scale.h writes those vertices).
 void engine_state(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position);
 // `outer` after `inner`: Apply(compose(outer, inner), x) == Apply(outer, Apply(inner, x)) - a copy made of a moved
 // sector and moved since is placed by its own placement after its source's (relative to the source as loaded).

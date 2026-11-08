@@ -303,6 +303,14 @@ std::string get_level_text(const State& state, float scale)
     return elide(text, kLevelTextMaxWidth * scale);
 }
 
+// The rotation snap's button ("15°", `button`: with the button's id) and a list entry.
+std::string angle_text(float degrees, bool button = true)
+{
+    std::array<char, kGridTextSize> text{};
+    text::format_to(text, "%g\xC2\xB0", degrees);
+    return std::string(text.data()) + (button ? "###stripangle" : "");
+}
+
 std::string show_all_text(const State& state)
 {
     std::array<char, kShowAllTextSize> text{};
@@ -339,8 +347,10 @@ std::vector<Item> get_items(const State& state, float scale)
     add(kMode, button_width("Fly") + inner + button_width("Select"), false, kModePriority);
     add(kTools, button_width("Move") + inner + button_width("Rotate") + inner + button_width("Scale"), false, kToolsPriority);
     add(kSpace, std::max(button_width("World"), button_width("Local")), false, kSpacePriority);
-    add(kSnapGrid, button_width("Snap") + inner + button_width(grid_text(state.grid).c_str()), false,
-        kSnapGridPriority);
+    add(kSnapGrid,
+        button_width("Snap") + inner + button_width(grid_text(state.grid).c_str()) + inner +
+            button_width(angle_text(state.angle).c_str()),
+        false, kSnapGridPriority);
     add(kPickItem, button_width((std::string(pick_text(state.pick_filter_)) + kDown.data()).c_str()), false,
         kPickPriority);
     if (state.hidden > 0) {
@@ -398,6 +408,20 @@ void draw_snap_grid(const State& state, float inner, Output* out)
             text::format_to(label, "%g", size);
             if (ImGui::Selectable(label.data(), size == state.grid)) {
                 out->events.push_back({.kind = Occurrence::Kind::kGrid, .value = size});
+            }
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine(0.0F, inner);
+    if (ImGui::Button(angle_text(state.angle).c_str())) {
+        ImGui::OpenPopup("##stripanglelist");
+    }
+    get_tip("Rotation snap");
+    get_note("Angle");
+    if (ImGui::BeginPopup("##stripanglelist")) {
+        for (const float step : state.angles) {
+            if (ImGui::Selectable(angle_text(step, false).c_str(), step == state.angle)) {
+                out->events.push_back({.kind = Occurrence::Kind::kAngle, .value = step});
             }
         }
         ImGui::EndPopup();

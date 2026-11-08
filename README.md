@@ -225,6 +225,13 @@ park editor or network games).
 - **Nodes and scripts it makes:** nodes the editor adds (spawns, crowns, flags, lights, rails, ladders, paths,
   triggers, cameras, goals...) go into an extra node array; trigger volumes, rail speed-ups, jump boosts, breakables
   and proximity nodes get small QB scripts generated at run time. Goals use THUG2's own Create-a-Goal records.
+- **Moving and turning:** W / E / R pick Move / Rotate / Scale. Scenery turns to any angle (the Rotate ring, Z / X by
+  the toolbar's rotation snap - 1 to 90 degrees -, Shift+Z / Shift+X by one degree, the Inspector's Rotation Y); objects
+  turn about any axis (the X / Y / Z rings, the outer ring about the view, inside the rings freely; the Inspector's
+  Rotation X / Y / Z). While dragging, Ctrl snaps (or stops snapping when the toolbar's Snap is on), V holds a vertex
+  snap and the angle so far shows by the pivot; Alt+R rotates without holding the mouse (X / Y / Z picks the axis, type
+  the degrees, Enter applies, Escape cancels); Alt+drag on a Move arrow moves a copy. Home frames the whole level; Edit >
+  Revert to Original puts the selection back as the level has it (asked first).
 - **Baking a layout into a level's files:** `node tools/game/apply_layout.ts --level <name> [--dry-run]` writes a
   copy of the level's files with the layout built in, to `out\baked\<name>`; `--install --game <folder>` puts it in
   that folder's overlay. It warns about every edit that would break online parity with THUGPRO.

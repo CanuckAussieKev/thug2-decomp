@@ -50,6 +50,8 @@ constexpr std::size_t kMaxHexDigits = 8; // the digits of a 32-bit hex word
 constexpr float kColourChannelMax = 255.0F; // the largest colour channel
 constexpr std::size_t kLightLineSize = 96; // a light's brightness / inner / outer line
 constexpr std::size_t kRadiusLineSize = 32; // a radius line
+constexpr std::size_t kTurnPrefixLength = 5;  // "turn="
+constexpr double kDegreesPerRadian = 57.295779513082321;
 
 constexpr auto kHeader = std::to_array("thug2-decomp layout "); // (and the version)
 
@@ -158,9 +160,37 @@ bool read_scale_fields(std::istringstream& in, V3* scale)
     }
     return true;
 }
+// A placement's twist after its numbers: " turn=<degrees>" (any angle beyond its quarter turns; nothing when none).
+std::string twist_token(const Placement& placement)
+{
+    if (placement.twist == 0.0F) {
+        return "";
+    }
+    std::array<char, kNumberLineSize> text{};
+    text::format_to(text, " turn=%.9g", static_cast<double>(placement.twist) * kDegreesPerRadian);
+    return text.data();
+}
+
 bool read_placed_fields(std::istringstream& in, Placement* placement)
 {
-    return read_scale_fields(in, &placement->scale);
+    std::string field;
+    while (in >> field) {
+        if (field.starts_with("scale=")) {
+            if (!scale_tool::read_token(field, &placement->scale)) {
+                return false;
+            }
+        } else if (field.starts_with("turn=")) {
+            char* end = nullptr;
+            const char* at = std::next(field.c_str(), kTurnPrefixLength);
+            const double degrees = std::strtod(at, &end);
+            if (end == at || *end != '\0' || !std::isfinite(degrees)) {
+                return false;
+            }
+            placement->twist += static_cast<float>(degrees / kDegreesPerRadian);
+            normalise_twist(placement);
+        }
+    }
+    return true;
 }
 
 // A light's color=r,g,b: whole numbers from 0 to 255; false if one isn't.
@@ -308,21 +338,23 @@ std::string emit_out(const FileLoad& file)
         out << "sector";
         get_hex(out, sector.checksum);
         get_placed(out, sector.placement);
-        out << ' ' << (sector.hidden ? 1 : 0) << scale_tool::get_token(sector.placement.scale);
+        out << ' ' << (sector.hidden ? 1 : 0) << scale_tool::get_token(sector.placement.scale)
+            << twist_token(sector.placement);
         get_comment(out, sector.checksum);
     }
     for (const auto& rail : file.rails) {
         out << "rail";
         get_hex(out, rail.name);
         get_placed(out, rail.placement);
-        out << ' ' << (rail.hidden ? 1 : 0) << scale_tool::get_token(rail.placement.scale);
+        out << ' ' << (rail.hidden ? 1 : 0) << scale_tool::get_token(rail.placement.scale)
+            << twist_token(rail.placement);
         get_comment(out, rail.name);
     }
     for (const auto& clone : file.clones) {
         out << "clone";
         get_hex(out, clone.source);
         get_placed(out, clone.placement);
-        out << scale_tool::get_token(clone.placement.scale);
+        out << scale_tool::get_token(clone.placement.scale) << twist_token(clone.placement);
         get_comment(out, clone.source);
     }
     for (const auto& object : file.objects) {

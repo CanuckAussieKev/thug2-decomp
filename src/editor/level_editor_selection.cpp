@@ -312,6 +312,25 @@ V3 selection_centre()
     }
     return have ? (min + max) * kHalf : selection_pos();
 }
+// Objects turned by `radians` about the unit `axis` (any - the Rotate gizmo's rings, level_editor_rotate.h) through the
+// toolbar's Pivot, as turn_objects_by.
+void turn_objects_about_axis(const std::vector<objects::GameEntity*>& objects, V3 axis, float radians, V3 centre)
+{
+    if (objects.empty() || radians == 0.0F) {
+        return;
+    }
+    const xform::Pivot pivot = xform::at_hand().pivot;
+    const V3 base = object_edit::pos_of(objects.front());
+    for (objects::GameEntity* object : objects) {
+        V3 about = base;
+        if (pivot == xform::Pivot::kOwn) {
+            about = object_edit::pos_of(object);
+        } else if (pivot == xform::Pivot::kCentre) {
+            about = centre;
+        }
+        object_edit::turn_about_axis(object, about, axis, radians);
+    }
+}
 // Objects turned by `radians` about the toolbar's Pivot (Base: the first one's position; Centre: `centre`; Own: each
 // about its own).
 void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float radians, V3 centre)
@@ -364,6 +383,36 @@ void turn_selection(int notches)
         return;
     }
     turn_objects_by(objects, static_cast<float>(notches) * notch_radians(), selection_centre());
+}
+
+bool turn_selection_by(float degrees)
+{
+    const float radians = degrees * maths::kPi / kDegreesPerHalfTurn;
+    node_edit::Values node;
+    if (node_values(&node)) {
+        node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + degrees);
+        set_selected_node(node);
+        return true;
+    }
+    const std::vector<objects::GameEntity*> objects = selected_objects();
+    if (const uint32_t wall = objects.empty() ? wall_only() : 0) {
+        // (an invisible wall's collision turns by whole quarter turns only - level_editor_walls.h)
+        const int quarters = xform::get_quarters(radians);
+        if (quarters == 0) {
+            return false;
+        }
+        walls::get_turn(wall, quarters);
+        walls::finalise();
+        return true;
+    }
+    if (objects.empty()) {
+        const bool turned = scenery::turn_by(radians);
+        follow_scenery();
+        scenery::finalise();
+        return turned;
+    }
+    turn_objects_by(objects, radians, selection_centre());
+    return true;
 }
 // After the keys or a drag: the scenery's collision lookups brought up to date.
 void get_settle()

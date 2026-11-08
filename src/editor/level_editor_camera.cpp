@@ -34,6 +34,8 @@ namespace frontend::level_editor::view_cam {
 namespace {
 
 constexpr float kSmoothstepCubic = 3.0F; // smoothstep: t * t * (3 - 2 t)
+constexpr float kLevelFrameReach = 60000.0F; // Home: the farthest the camera goes back to see the whole level
+constexpr float kLevelFramePitch = 0.6F;     // Home: how far it looks down (radians)
 constexpr float kSmoothstepQuadratic = 2.0F;
 constexpr double kFullTurnPerPi = 2.0;       // a full turn is two pi radians
 constexpr float kRadiusMarginFactor = 3.0F;  // the frame distance of a sphere: at least this many radii
@@ -638,6 +640,25 @@ void use_bookmark(const Rig& rig, int index, bool store)
 }
 
 } // namespace
+
+void frame_level(const Rig& rig, V3 centre, float radius)
+{
+    if (rig.deselect) {
+        rig.deselect();
+    }
+    Rig free = rig;
+    free.have_selection_ = false;
+    exit_ortho(free);
+    const float tan_half = std::min(rig.lens.tan_x_, rig.lens.tan_y_);
+    const float distance =
+        std::min(kLevelFrameReach, frame_distance({.radius = radius, .tan_half_ = tan_half, .minimum = 100.0F}));
+    const float pitch = -kLevelFramePitch; // (looking down on it, from the side the camera faces)
+    const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, pitch);
+    fly_to(free, {.pos = centre + frame.back * distance, .yaw = *rig.yaw, .pitch = pitch});
+    if (prefs::get_pull().speed_by_selection_) {
+        *rig.speed = speed_for_radius(radius);
+    }
+}
 
 void get_keys(const Rig& rig, input::KeyState keys, bool ctrl, bool browser_open)
 {

@@ -529,6 +529,46 @@ void inspect_node(const ShapeMesh& model)
     }
 }
 
+// The rotation in degrees (level_editor_rotate.h): X / Y / Z dragged to scrub, Ctrl+click to type any value; one undo
+// step a field. Scenery turns about up only: X and Z shown, not editable.
+void rotation_fields(const ShapeMesh::Selection& selection)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    get_muted("Rotation");
+    ImGui::TableNextColumn();
+    const std::array<float, 3> values = {{selection.rotation.x, selection.rotation.y, selection.rotation.z}};
+    static const std::array<const char*, 3> kIds = {{"##rotx", "##roty", "##rotz"}};
+    static const std::array<const char*, 3> kFormats = {{"x %.1f\xC2\xB0", "y %.1f\xC2\xB0", "z %.1f\xC2\xB0"}};
+    ImGui::PushFont(imgui_setup().mono_);
+    for (int axis = 0; axis < 3; ++axis) {
+        ImGui::SetNextItemWidth(kScaleFieldWidth * imgui_setup().scale_);
+        float value = core::at(values, axis);
+        const bool fixed = !selection.rotation_free_ && axis != 1;
+        ImGui::BeginDisabled(fixed);
+        if (ImGui::DragFloat(core::at(kIds, axis), &value, kHeadingDragSpeed, 0.0F, 0.0F, core::at(kFormats, axis))) {
+            Request request = {.kind = Request::Kind::kRotationSet};
+            for (int component = 0; component < 3; ++component) {
+                core::at(request.a, component) = core::at(values, component);
+            }
+            core::at(request.a, axis) = value;
+            input_routing().requests_.push_back(request);
+        }
+        if (ImGui::IsItemDeactivated()) {
+            get_ask(Request::Kind::kRotationDone);
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            if (fixed) {
+                gui::tooltip("Scenery turns about Y only");
+            } else {
+                gui::tooltip("%c rotation in degrees (Ctrl+click to type)", core::at(kAxisLetters, axis));
+            }
+        }
+    }
+    ImGui::PopFont();
+}
+
 // The selection's place, heading, scale and count.
 void selection_transform(const ShapeMesh::Selection& selection)
 {
@@ -539,11 +579,7 @@ void selection_transform(const ShapeMesh::Selection& selection)
         ImGui::TableNextColumn();
         get_mono("x %10.1f\ny %10.1f\nz %10.1f", selection.pos.x, selection.pos.y, selection.pos.z);
         if (selection.has_heading_) {
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            get_muted("Heading");
-            ImGui::TableNextColumn();
-            get_mono("%.1f\xC2\xB0", selection.heading_degrees_);
+            rotation_fields(selection);
         }
         if (selection.scalable) {
             scale_fields(selection);

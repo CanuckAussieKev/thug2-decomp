@@ -383,21 +383,7 @@ void place_at(V3 pos) { place_selection(pos); }
 
 void turn_by(float radians)
 {
-    node_edit::Values node;
-    if (node_values(&node)) {
-        node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) +
-                                                               (radians * kDegreesPerHalfTurn / maths::kPi));
-        set_selected_node(node);
-        return;
-    }
-    const std::vector<objects::GameEntity*> objects = selected_objects();
-    if (!objects.empty()) {
-        turn_objects_by(objects, radians, selection_centre());
-        return;
-    }
-    if (const int quarters = xform::get_quarters(radians)) {
-        turn_selection(quarters);
-    }
+    turn_selection_by(radians * kDegreesPerHalfTurn / maths::kPi);
 }
 
 bool scale_by(V3 factor, bool uniform) { return scale_selection_by(factor, uniform); }

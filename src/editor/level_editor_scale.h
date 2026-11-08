@@ -9,6 +9,7 @@
 
 #include "editor/level_editor.h"
 #include "base/maths/vec4.h"
+#include "engine/render/coll_tri.h"
 
 namespace render {
 class HitMesh;
@@ -96,27 +97,35 @@ int nearest_axis(std::span<const V3, 3> axes, int world_axis);
 // "1.50x" (uniform) or "1.50 x 1.00 x 2.00".
 std::string describe(V3 scale);
 // A point of the copy (taken with the engine's position at `from`) where it goes for the engine's position `to`, turned
-// `quarters` quarter turns more and scaled by `scale` (along the copy's axes): to + get_quarter_turn(per_axis(p - from,
-// scale), quarters).
-V3 get_rebuilt(V3 point, V3 from, V3 to, int quarters, V3 scale);
+// `quarters` quarter turns more, scaled by `scale` (along the copy's axes) and twisted by `twist` radians about up (any
+// angle - free rotation, which the engine can't do itself): to + turn_about_up(get_quarter_turn(per_axis(p - from,
+// scale), quarters), twist).
+V3 get_rebuilt(V3 point, V3 from, V3 to, int quarters, V3 scale, float twist = 0.0F);
 // How a copy taken with the engine at `copied_quarters` / `copied_position` (the sector's quarters when first touched:
 // `quarters0`) is written for the engine now at `quarters` / `position` and the placement's `scale` (along the piece's
 // axes as first touched): positions get_rebuilt(p, from, to, turns, copy_scale_); normals scaled_normal(n, scale,
-// normal_turns_) - the engine never turns normals, so the copy's are the piece's as first touched.
+// normal_turns_) - the engine never turns normals, so the copy's are the piece's as first touched. The twist (the
+// placement's: the copy is always taken untwisted) turns both after.
 struct RebuildFrame {
     V3 from, to;
     int turns;
     V3 copy_scale_;
     int normal_turns_;
+    float twist;
 };
-RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, int quarters, V3 position, V3 scale);
+RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, int quarters, V3 position, V3 scale,
+                       float twist = 0.0F);
 // A vertex buffer's positions (the first 12 bytes of each of `count` vertices `stride` apart) written from `original`
-// (x, y, z each) as Rebuilt.
-void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, V3 from, V3 to,
-                       int quarters, V3 scale);
-// A normal of the copy for a piece scaled by `scale` and turned `quarters`: get_quarter_turn(normalise(n / scale)) - the
-// inverse transpose of a per-axis scale (unscaled: just turned, not normalised again; zero stays zero).
-V3 scaled_normal(V3 normal, V3 scale, int quarters);
+// (x, y, z each) as Rebuilt for the frame.
+void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, const RebuildFrame& frame);
+// A normal of the copy for a piece scaled by `scale`, turned `quarters` and twisted `twist`:
+// turn_about_up(get_quarter_turn(normalise(n / scale)), twist) - the inverse transpose of a per-axis scale (unscaled:
+// just turned, not normalised again; zero stays zero).
+struct Heading {
+    int quarters{};
+    float twist{};
+};
+V3 scaled_normal(V3 normal, V3 scale, Heading heading);
 // Where the normals are: the vertices' stride, their count and the normal's offset.
 struct NormalRun {
     uint32_t stride{};
@@ -125,8 +134,7 @@ struct NormalRun {
 };
 
 // The normals (at `offset` in each vertex) written from `original` as scaled_normal.
-void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original, V3 scale,
-                     int quarters);
+void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original, V3 scale, Heading heading);
 // Where a mesh's vertices keep their normal (-1: none): its vertex format (MeshRef +0x38) a Direct3D FVF with XYZ
 // positions and NORMAL (0x10) - the normal's three floats after the position - in a vertex of `stride` bytes. (Meshes
 // with one of the built-in vertex shaders have a handle there, not an FVF: none.)
@@ -146,19 +154,30 @@ struct CollisionCopy {
     std::vector<uint8_t> vertices;
     maths::Vec4 min = {}, max = {};
     uint32_t rejection = 0;
-    struct Elem {
+    // The whole tree as it was (its nodes are one array from the root, its leaves' face lists one array - both
+    // rewritten in place by a free turn's new tree, coll_tree.h): its nodes' and face lists' bytes.
+    render::HitTreeNode* tree = nullptr;
+    std::vector<render::HitTreeNode> tree_nodes_;
+    uint16_t* tree_faces_ = nullptr;
+    std::vector<uint16_t> tree_face_copy_;
+    std::vector<uint16_t> listed_; // (the faces the tree lists, each once)
+    // (a tree not laid out as one block: only its split nodes kept - their splits and links - as before free turns;
+    // such a piece takes quarter turns and scales, not other angles)
+    struct SplitNode {
         render::HitTreeNode* node;
         int32_t split;
         uint32_t link;
     };
-    std::vector<Elem> nodes; // (the tree's split nodes; leaves don't change)
+    std::vector<SplitNode> split_nodes_;
 };
 CollisionCopy copy_collision(render::TriMeshSource* data);
 // Whether the geometry is still the one copied (its arrays, count and format).
 bool same_collision(const CollisionCopy& copy);
 // The geometry put back as copied, then scaled by `scale` (along its axes as copied) about `from`, turned `quarters`
-// about it and moved to `to`.
-void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale);
+// about it and moved to `to`; a twist then turns its vertices about `to` (any angle: the box made again from them, and
+// a new BSP tree in the old one's place - an axis-aligned tree can't be turned but by quarter turns; coll_tree.h).
+// False when a twist couldn't be written (the tree left as copied: compressed vertices out of range).
+bool rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale, float twist = 0.0F);
 // The largest scale on each of its axes a geometry allows (kMax unless compressed), its scale along them now being
 // `scale`.
 V3 collision_limit(const render::TriMeshSource* data, V3 scale);
@@ -170,11 +189,21 @@ struct Original;
 // Kept for a sector and its geometry with the engine at `quarters` (the sector's quarter turns) and
 // `position` (the geometry's world position); null if its meshes can't be copied.
 std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::Geom* geom, int quarters, V3 position);
-// The sector's meshes (uploaded) and collision written for the engine now at `quarters` / `position`, scaled by `scale`
-// (the placement's: along the piece's axes when first touched, the engine then at `quarters0`) about that position.
-// False (nothing written) when the sector no longer matches its copy (another level).
-bool reassemble(const Original& original, render::WorldCell* sector, render::Geom* geom, int quarters, V3 position,
-                V3 scale, int quarters0);
+// The engine's state for a sector now (its quarter turns and geometry position) and the placement's scale (along the
+// piece's axes when first touched, the engine then at `quarters0`) and twist (radians beyond the quarter turns).
+struct Pose {
+    int quarters{};
+    V3 position{};
+    V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+    int quarters0{};
+    float twist{};
+};
+// The sector's meshes (uploaded) and collision written for the pose: scaled about the engine's position, twisted about
+// it. False (nothing written) when the sector no longer matches its copy (another level).
+bool reassemble(const Original& original, render::WorldCell* sector, render::Geom* geom, const Pose& pose);
+// Whether a sector's collision can be turned to any angle: not compressed, or its box's diagonal across x / z within the
+// 16-bit range (kCompressedExtent) - every heading then fits.
+bool twist_fits(render::WorldCell* sector);
 // The largest scale along each world axis a sector's collision allows (kMax with none, or not compressed), its scale
 // along them now being `world_scale`.
 V3 get_limit(render::WorldCell* sector, V3 world_scale);
