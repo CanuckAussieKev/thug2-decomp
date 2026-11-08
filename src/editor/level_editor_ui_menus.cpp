@@ -126,6 +126,8 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         ImGui::EndMenu();
     }
     get_items({"collision", "faces", "occlusion"});
+    ImGui::Separator();
+    get_items({"content_browser", "browser"});
     gizmo_lines::behind_menu(); // (level_editor_gizmo_lines.h)
     ImGui::Separator();
     get_items({"hide", "isolate", "show_all"});

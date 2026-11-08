@@ -3,6 +3,7 @@
 // hook; the pieces (geometry / selection / undo / drag / draw / panels / place / requests / commands / keys / pointer / frame / api) are level_editor_<name>.cpp, sharing level_editor_internal.h.
 
 #include "editor/level_editor.h"
+#include "editor/level_editor_content.h"
 #include "engine/gfx/render_device.h"
 #include "engine/pad_input/input_source.h"
 #include <SDL3/SDL.h>
@@ -662,6 +663,7 @@ void prepare_all()
     ux8::
         prepare_all(); // (pies, quick sets, walk / follow / teleport, controller mode: their actions - level_editor_ux8.h)
     ux9::prepare_all(); // (UX9: its actions and the ground pieces' layout records - level_editor_ux9.h)
+    content::prepare_all(); // (the Content Browser's keys, the prop packs' layout records - level_editor_content.h)
 }
 
 void input_logic()

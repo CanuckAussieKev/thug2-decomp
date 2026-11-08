@@ -195,6 +195,9 @@ void place_browser_item(V3 at, bool keep_open);
 int place_armed(uint32_t* colour);
 // Where a click places (the browser's Enter, the Place palette): the ground below what the cursor's ray meets.
 V3 cursor_point();
+// The same for a point of the view other than the editor's cursor (back buffer pixels: the Content Browser's drag,
+// whose mouse the UI holds). False: not in the view.
+bool cursor_point_at(float back_x, float back_y, V3* point);
 
 } // namespace edit
 

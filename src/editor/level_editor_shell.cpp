@@ -19,6 +19,7 @@
 #include "base/core/no_destroy.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_content.h"
 #include "editor/level_editor_import.h"
 #include "editor/level_editor_internal.h"
 #include "editor/level_editor_layout.h"
@@ -1040,6 +1041,15 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
     } else if (verb == "importrun" && words.size() > 2) {
         import::automation_import(std::vector<std::string>(words.begin() + 2, words.end()));
         state.waiting = Waiting::kImport;
+    } else if (verb == "prop" && words.size() > 3 && level_editor::live_now()) {
+        // (the Content Browser's Place at Cursor for another level's piece: cut out first if need be - its log line
+        // "placed prop pack" says when it is in)
+        *result = content::automation_place(words.at(2), words.at(3));
+        return true;
+    } else if (verb == "save" && level_editor::live_now()) {
+        std::string message;
+        *result = layout::store_away(&message) ? "ok " + message : "error: " + message;
+        return true;
     } else if ((verb == "play" || verb == "playhere") && level_editor::live_now()) {
         if (verb == "play") {
             play_test::play_from_start();
@@ -1060,7 +1070,7 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         return true;
     } else {
         *result = "error: fe editor start | open <level> [edited] | play | playhere | stop | exit | import <folder> | "
-                  "importrun <level>...";
+                  "importrun <level>... | prop <level> <piece> | save";
         return true;
     }
     check_waiting();
