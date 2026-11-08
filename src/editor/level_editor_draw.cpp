@@ -955,6 +955,11 @@ void update_highlights()
     if (objects.empty() && scenery::has_selection()) {
         selected_tinted() = tint_sectors(scenery::get_selection(), selected_look);
     }
+    // (a selected group's piece a click would drill to: the hover's stroke after the selection's, so it shows on it)
+    if (!drag_session().dragging_ && (picked_set().hover_sector_ != 0U) &&
+        scenery::would_drill(picked_set().hover_sector_)) {
+        tint_sectors(scenery::hover_group(picked_set().hover_sector_), hover_look);
+    }
     render::outline_draws::set_outlines(marks().outlines);
     scenery::end_tints(object_edit::resolve_tint, false);
 }
