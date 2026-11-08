@@ -143,7 +143,7 @@ Picture load_picture(const std::string& name, int shrink)
         os_layer::unswizzle(plain, texels.first(plain.size()),
                             {.width = static_cast<int>(width),
                              .height = static_cast<int>(height),
-                             .bytes_per_texel_ = static_cast<uint32_t>(bits / kTrueColourBits)});
+                             .bytes_per_texel_ = bits / kBitsPerByte});
         rows_data = plain;
     }
     std::vector<uint8_t> bgra(count * kTexelBytes);
