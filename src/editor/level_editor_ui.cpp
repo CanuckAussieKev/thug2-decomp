@@ -730,7 +730,8 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     // (the bars' heights; the panels are docked - level_editor_ui_app.h)
     input_routing().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, imgui_setup().scale_, true, true);
     app::note_playing(false);
-    app::set_window_title(model.level_title_.empty() ? model.level : model.level_title_);
+    // (a `*` after the level's name while there are unsaved edits, as the toolbar's)
+    app::set_window_title((model.level_title_.empty() ? model.level : model.level_title_) + (model.unsaved ? " *" : ""));
     ImGui::PushFont(imgui_setup().ui_);
     {
         ux3::Fonts fonts;
