@@ -263,6 +263,10 @@ struct TransformSession {
     float rot_last_{};
     float rot_sign_ = 1.0F;
     bool rot_by_plane_{};
+    // (level_editor_rotate.h: objects turned about `rot_axis_` - a ring's, the view's -, or by the trackball)
+    bool rot_free_{};
+    bool rot_trackball_{};
+    V3 rot_axis_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     int quarters_applied_{};
     float scale_s0_{};
     V3 scale_start_ = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
@@ -383,6 +387,9 @@ void place_selection(V3 pos);
 V3 selection_centre();
 
 void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float radians, V3 centre);
+void turn_objects_about_axis(const std::vector<objects::GameEntity*>& objects, V3 axis, float radians, V3 centre);
+// A turn being dragged started again about the axis just typed (X / Y / Z): what it turned so far put back.
+void restart_turn(V3 origin, V3 dir, const TickCycle& frame);
 
 void turn_selection(int notches);
 // Turned by `degrees` (any angle): a node's heading, objects about the Pivot, scenery about its pivot (level_editor_scenery.h's

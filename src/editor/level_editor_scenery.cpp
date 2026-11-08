@@ -904,6 +904,25 @@ void get_turn(int quarters)
     scenery_hover().hover_group_of_ = 0;
 }
 
+bool level_bounds(V3* min, V3* max)
+{
+    render::WorldScene* scene = main_scene();
+    if (!scene) {
+        return false;
+    }
+    bool have = false;
+    for_each_sector(scene, [&](uint32_t /*checksum*/, render::WorldCell* sector) {
+        V3 low{};
+        V3 high{};
+        render::Geom* geom = geom_of(sector);
+        if (geom != nullptr && plain_geom(geom) && geom_box(geom, &low, &high)) {
+            grow_box(min, max, have, low, high);
+            have = true;
+        }
+    });
+    return have;
+}
+
 bool can_turn_freely()
 {
     return std::ranges::all_of(picked_scenery().selection_, [](uint32_t checksum) {

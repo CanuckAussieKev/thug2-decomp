@@ -1,7 +1,11 @@
 // NOT ORIGINAL - the level editor's panel requests: what the UI asks for (set a field, pick a member, place, chain
 // operations) and how each is carried out (ours). See level_editor.h.
 
+#include "editor/level_editor_transform.h"
+#include "editor/level_editor_rotate.h"
+#include "base/maths/trig.h"
 #include "editor/level_editor.h"
+#include <array>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -372,6 +376,49 @@ void scale_done_request()
     undo_steps().has_pending_ = false;
 }
 
+// The Inspector's Rotation (level_editor_rotate.h): objects' rows made from the three angles outright (nothing drifts),
+// scenery turned about its pivot to the heading asked for.
+void rotation_set_request(const ui::Request& request)
+{
+    if (!(get_primary() || scenery::has_selection()) || picked_node_index() >= 0 || drag_session().dragging_ ||
+        fly_camera().key_moving_) {
+        return;
+    }
+    if (!picked_set().field_editing_) {
+        begin_change();
+        picked_set().field_editing_ = true;
+    }
+    const V3 degrees = {.x = core::at(request.a, 0), .y = core::at(request.a, 1), .z = core::at(request.a, 2)};
+    if (get_primary()) {
+        std::array<V3, 3> rows{};
+        rotate_tool::rows_of(degrees, rows);
+        for (objects::GameEntity* object : selected_objects()) {
+            object_edit::set_rows(object, rows);
+        }
+        return;
+    }
+    const float now = scenery::selection_heading();
+    const float wanted = degrees.y * maths::kPi / kDegreesPerHalfTurn;
+    scenery::turn_by(xform::get_wrap(wanted - now));
+    follow_scenery();
+}
+
+void rotation_done_request()
+{
+    if (!picked_set().field_editing_) {
+        return;
+    }
+    picked_set().field_editing_ = false;
+    if (!get_primary()) {
+        scenery::finalise();
+    }
+    if (undo_steps().has_pending_) {
+        push_undo(undo_steps().pending_, "Rotate (Inspector)");
+        note_action("turned in the Inspector: %s", describe_selection().c_str());
+    }
+    undo_steps().has_pending_ = false;
+}
+
 void place_toggle_request()
 {
     place_palette().place_open_ = !place_palette().place_open_;
@@ -575,6 +622,12 @@ void apply_request(const ui::Request& request, const RequestFrame& request_frame
         break;
     case ui::Request::Kind::kScaleDone:
         scale_done_request();
+        break;
+    case ui::Request::Kind::kRotationSet:
+        rotation_set_request(request);
+        break;
+    case ui::Request::Kind::kRotationDone:
+        rotation_done_request();
         break;
     case ui::Request::Kind::kReset:
         if (!no_change) {

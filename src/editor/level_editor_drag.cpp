@@ -1,6 +1,8 @@
 // NOT ORIGINAL - the level editor's transform gizmo and drags: moving, turning and scaling the selection with the
 // mouse (ours). See level_editor.h.
 
+#include "editor/level_editor_modules.h"
+#include "base/maths/vec2.h"
 #include "editor/level_editor.h"
 #include "engine/gfx/render_device.h"
 #include "engine/pad_input/input_source.h"
@@ -20,6 +22,7 @@
 #include "editor/level_editor_arrange.h"
 #include "base/core/format.h"
 #include "editor/level_editor_camera.h"
+#include "editor/level_editor_rotate.h"
 #include "editor/level_editor_carry.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_node_edit.h"
@@ -53,6 +56,7 @@ constexpr float kTurnEpsilon = 1e-6F;      // a turn smaller than this (radians)
 constexpr float kRatioEpsilon = 1e-4F;     // a scale ratio this close to 1 is unchanged
 constexpr float kRotPlaneMinSlope = 0.25F; // a rotation drags on the ground plane when the ray is this far from level
 constexpr float kMinRotDragPixels = 2.0F;  // a rotation drag shorter than this has no direction
+constexpr float kTrackballRadiansPerPixel = 0.00349066F; // the trackball: a fifth of a degree a pixel
 
 constexpr float kScreenDragSlope = 0.34F;  // a ray flatter than this drags in the screen plane
 constexpr float kMinDragReach = 2000.0F;
@@ -348,6 +352,9 @@ xform::Gizmo gizmo_now()
     selection_axes(gizmo.axes);
     gizmo.length = arrow_length();
     gizmo.rotates = selection_turns();
+    // (objects turn about any axis: every ring, the view ring and the trackball - level_editor_rotate.h)
+    gizmo.free_axes = gizmo.mode == xform::Mode::kSpinBy && get_primary() != nullptr;
+    gizmo.view_back = fly_camera().frame().back;
     return gizmo;
 }
 
@@ -365,7 +372,11 @@ void apply_turn_to(float target)
         if (std::fabs(delta) < kTurnEpsilon) {
             return;
         }
-        turn_objects_by(objects, delta, transform_session().transform_pivot_);
+        if (transform_session().rot_free_) {
+            turn_objects_about_axis(objects, transform_session().rot_axis_, delta, transform_session().transform_pivot_);
+        } else {
+            turn_objects_by(objects, delta, transform_session().transform_pivot_);
+        }
     } else if (node_values(&node)) {
         const float delta = target - transform_session().rot_applied_;
         if (std::fabs(delta) < kTurnEpsilon) {
@@ -479,6 +490,94 @@ void apply_scale_to(V3 wanted, bool uniform)
     transform_session().pending_forced_ = true;
 }
 
+// Where the trackball's cursor was last frame.
+maths::Vec2& trackball_anchor()
+{
+    static maths::Vec2 anchor{};
+    return anchor;
+}
+
+// A turn about any axis starting (level_editor_rotate.h - objects only): a ring's axis (the gizmo's 0 / 1 / 2, or the one
+// typed with X / Y / Z), the view's (the view ring) or the trackball. The cursor's angle about the axis on the plane
+// square to it through the pivot when the view isn't edge-on to it, else on the screen (which way round from two points
+// of the ring). False: not one - the heading's turn as before.
+bool start_free_turn(V3 origin, V3 dir, const TickCycle& frame)
+{
+    TransformSession& session = transform_session();
+    session.rot_free_ = false;
+    session.rot_trackball_ = false;
+    session.rot_axis_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
+    if (get_primary() == nullptr) {
+        return false;
+    }
+    const int handle = session.typed_.axis >= 0 ? session.typed_.axis : drag_session().axis_;
+    if (handle == rotate_tool::kTrackball) {
+        session.rot_trackball_ = true;
+        session.rot_last_ = 0.0F;
+        session.rot_sign_ = 0.0F;
+        trackball_anchor() = {.x = session.cursor_x_, .y = session.cursor_y_};
+        return true;
+    }
+    if (handle == rotate_tool::kViewRing) {
+        session.rot_axis_ = make_unit(frame.back);
+    } else if (handle >= 0 && handle < 3) {
+        session.rot_axis_ = make_unit(axis_vector(handle));
+    } else {
+        return false;
+    }
+    session.rot_free_ = true;
+    float fraction = 0.0F;
+    session.rot_by_plane_ = std::fabs(get_dot(make_unit(dir), session.rot_axis_)) > kRotPlaneMinSlope &&
+                            ray_plane({.origin = origin, .dir = dir}, session.transform_pivot_, session.rot_axis_, &fraction) &&
+                            fraction < kMaxPickDistance;
+    if (session.rot_by_plane_) {
+        session.rot_last_ = rotate_tool::angle_about({.origin = session.transform_pivot_, .dir = session.rot_axis_},
+                                                     origin + dir * fraction);
+        return true;
+    }
+    float px = 0.0F;
+    float py = 0.0F;
+    float ax = 0.0F;
+    float ay = 0.0F;
+    float bx = 0.0F;
+    float by = 0.0F;
+    const rotate_tool::Square square = rotate_tool::square_to(session.rot_axis_);
+    const V3 u = square.u;
+    const V3 v = square.v;
+    if (get_to_pixel(frame, session.transform_pivot_, &px, &py)) {
+        session.rot_last_ = maths::runtime32::atan2(session.cursor_x_ - px, session.cursor_y_ - py);
+        const float reach = arrow_length();
+        if (get_to_pixel(frame, session.transform_pivot_ + u * reach, &ax, &ay) &&
+            get_to_pixel(frame, session.transform_pivot_ + v * reach, &bx, &by)) {
+            session.rot_sign_ =
+                xform::get_wrap(maths::runtime32::atan2(bx - px, by - py) - maths::runtime32::atan2(ax - px, ay - py)) < 0.0F
+                    ? -1.0F
+                    : 1.0F;
+        }
+    }
+    return true;
+}
+
+// The trackball: each frame the cursor's move turns the objects about the line square to it in the view (right: about
+// the view's up, down: about its right), a fifth of a degree a pixel.
+void trackball_drag(const TickCycle& frame)
+{
+    TransformSession& session = transform_session();
+    const float dx = session.cursor_x_ - trackball_anchor().x;
+    const float dy = session.cursor_y_ - trackball_anchor().y;
+    trackball_anchor() = {.x = session.cursor_x_, .y = session.cursor_y_};
+    const float pixels = std::hypot(dx, dy);
+    if (pixels < kTurnEpsilon) {
+        return;
+    }
+    const V3 axis = make_unit((frame.up * dx) + (frame.right * dy));
+    const float angle = pixels * kTrackballRadiansPerPixel;
+    turn_objects_about_axis(selected_objects(), axis, angle, session.transform_pivot_);
+    session.rot_total_ += angle;
+    session.rot_applied_ = session.rot_total_;
+    session.pending_forced_ = true;
+}
+
 // A Rotate / Scale drag starting (on a handle, or Alt+G's modal one): its pivot; the cursor's angle about it (on the
 // level plane through it when looking down on it, else on the screen - which way round from two of the ring's points),
 // or its distance from it (a handle's axis, else in pixels from the pivot's pixel).
@@ -490,6 +589,9 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
         transform_session().quarters_applied_ = 0;
         transform_session().rot_sign_ = 1.0F;
         transform_session().rot_last_ = 0.0F;
+        if (start_free_turn(origin, dir, frame)) {
+            return;
+        }
         float fraction = 0.0F;
         transform_session().rot_by_plane_ = std::fabs(make_unit(dir).y) > kRotPlaneMinSlope &&
                                      ray_plane({.origin = origin, .dir = dir}, transform_session().transform_pivot_,
@@ -530,10 +632,31 @@ void start_transform_drag(V3 origin, V3 dir, const TickCycle& frame)
     }
 }
 
+void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap);
+
+} // namespace
+namespace internal {
+
+void restart_turn(V3 origin, V3 dir, const TickCycle& frame)
+{
+    // (the turn so far put back, then started again about the axis typed - Blender's R then X / Y / Z)
+    if (!transform_session().rot_trackball_) {
+        apply_turn_to(0.0F);
+    }
+    start_transform_drag(origin, dir, frame);
+}
+
+} // namespace internal
+namespace {
+
 void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
     float typed = 0.0F;
     float target = 0.0F;
+    if (transform_session().rot_trackball_) {
+        trackball_drag(frame);
+        return;
+    }
     if (xform::typed_value(transform_session().typed_, &typed)) {
         target = typed * maths::kPi / kDegreesPerHalfTurn;
     } else {
@@ -542,7 +665,16 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
         float fraction = 0.0F;
         float px = 0.0F;
         float py = 0.0F;
-        if (transform_session().rot_by_plane_) {
+        if (transform_session().rot_free_ && transform_session().rot_by_plane_) {
+            if (ray_plane({.origin = origin, .dir = dir}, transform_session().transform_pivot_, transform_session().rot_axis_,
+                          &fraction) &&
+                fraction < kMaxPickDistance) {
+                angle = rotate_tool::angle_about(
+                    {.origin = transform_session().transform_pivot_, .dir = transform_session().rot_axis_},
+                    origin + dir * fraction);
+                have = true;
+            }
+        } else if (transform_session().rot_by_plane_) {
             if (ray_plane({.origin = origin, .dir = dir}, transform_session().transform_pivot_,
                           {.x = 0.0F, .y = 1.0F, .z = 0.0F}, &fraction) &&
                 fraction < kMaxPickDistance) {
@@ -977,6 +1109,10 @@ void end_drag()
         note_for_adjust(transform_session().drag_mode_, selection_pos() - drag_session().drag_start_, uniform);
     }
     rail_tools::drag_done(); // (a rail end snapped onto another: joined, in the move's undo step)
+    size_t copy_depth = 0;
+    if (rotate_tool::take_copy_drag(&copy_depth)) {
+        edit::fold(copy_depth); // (Alt+drag: the copy and its move one undo step)
+    }
     const V3 at = selection_pos();
     const char* done = "dragged";
     if (transform_session().drag_mode_ == xform::Mode::kSpinBy) {

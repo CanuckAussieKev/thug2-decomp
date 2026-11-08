@@ -13,6 +13,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_prefs.h"
+#include "editor/level_editor_rotate.h"
 #include "base/maths/vec2.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
@@ -32,6 +33,7 @@ constexpr float kMinSnappedFactor = 0.1F;
 constexpr float kFactorStepsPerUnit = 10.0F; // a snapped scale factor moves in tenths
 constexpr float kRingRadiusFraction = 0.8F;  // of the gizmo length
 constexpr int kRingPoints = 48;
+constexpr float kViewRingFactor = 1.2F;     // the view ring: this much wider than the axes' rings
 constexpr float kMinForwardSquared = 1e-6F;
 constexpr float kForwardArrowFraction = 0.8F;
 constexpr float kCubeFraction = 0.06F;     // the scale handle cubes, of the gizmo length
@@ -247,10 +249,27 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         if (!gizmo.rotates) {
             break;
         }
-        // (the heading ring, and a spoke towards the local z: which way it faces)
-        std::vector<V3> ring = get_ring(point, {.radius = length * kRingRadiusFraction, .count = kRingPoints});
-        for (size_t i = 0; i < ring.size(); ++i) {
-            out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = 1, .arrow = false});
+        // (the heading ring - or, free_axes, a ring about each axis and the view ring outside them -, and a spoke towards
+        // the local z: which way it faces)
+        auto add_ring = [&out](const std::vector<V3>& ring, int handle) {
+            for (size_t i = 0; i < ring.size(); ++i) {
+                out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = handle, .arrow = false});
+            }
+        };
+        const float radius = length * kRingRadiusFraction;
+        if (gizmo.free_axes) {
+            for (int axis = 0; axis < 3; ++axis) {
+                add_ring(rotate_tool::ring_about({.origin = point, .dir = make_unit(core::at(gizmo.axes, axis))},
+                                                 {.radius = radius, .count = kRingPoints}),
+                         axis);
+            }
+            if (get_dot(gizmo.view_back, gizmo.view_back) > kMinForwardSquared) {
+                add_ring(rotate_tool::ring_about({.origin = point, .dir = make_unit(gizmo.view_back)},
+                                                 {.radius = radius * kViewRingFactor, .count = kRingPoints}),
+                         rotate_tool::kViewRing);
+            }
+        } else {
+            add_ring(get_ring(point, {.radius = radius, .count = kRingPoints}), 1);
         }
         const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0F, .z = core::at(gizmo.axes, 2).z};
         if (get_dot(forward, forward) > kMinForwardSquared) {
@@ -314,6 +333,18 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
         if (distance < best_distance) {
             best_distance = distance;
             best = segment.handle;
+        }
+    }
+    // (free_axes: inside the rings - the trackball)
+    if (best < 0 && gizmo.mode == Mode::kSpinBy && gizmo.free_axes && gizmo.rotates &&
+        project(gizmo.pivot, &px, &py)) {
+        const std::vector<V3> edge = rotate_tool::ring_about({.origin = gizmo.pivot, .dir = make_unit(gizmo.view_back)},
+                                                             {.radius = gizmo.length * kRingRadiusFraction, .count = 1});
+        float ex = 0.0F;
+        float ey = 0.0F;
+        if (!edge.empty() && project(edge.front(), &ex, &ey) &&
+            std::hypot(x - px, y - py) < std::hypot(ex - px, ey - py)) {
+            return rotate_tool::kTrackball;
         }
     }
     return best;

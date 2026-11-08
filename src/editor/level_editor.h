@@ -105,7 +105,10 @@ class Struct;
 //   - Tools (level_editor_transform.h, level_editor_snap.h): W / E / R (right button up) or Space pick Move / Rotate /
 //     Scale - their gizmos' arrows, ring and cubes; ` World / Local; the toolbar's pivot, grid (1 - 100) and rotation
 //     snap; while dragging X / Y / Z and digits type exact amounts, Ctrl / Ctrl+Shift / Alt+Shift / Ctrl+Alt snap to the
-//     grid / the world's grid / a surface / a vertex; Alt+G a modal transform; Ctrl+Shift+D repeats the last duplicate.
+//     grid / the world's grid / a surface / a vertex (V held: a vertex; plain Ctrl turns snapping off while the
+//     toolbar's Snap is on); Alt+G a modal transform, Alt+R a modal rotate (X / Y / Z its axis); Alt+drag a Move arrow
+//     moves a copy; the Rotate gizmo's rings turn objects about X / Y / Z, the view or freely (level_editor_rotate.h);
+//     Ctrl+Shift+D repeats the last duplicate.
 //   - Seeing (the UI): the Outliner lists the level's nodes by family (search; the chips show / hide a family, in
 //     the view too - kept in the ini as [editor] families=<bits>); a click on a row or a gizmo selects it (an
 //     object's or scenery's node selects the object / scenery; a flag's object selects the flag's node), a
@@ -119,17 +122,19 @@ class Struct;
 //     scenery (clicks don't take them); the toolbar's Pick: what clicks may take; Backspace deselects.
 //   - Rails: a rail's gizmos and the Inspector show its points where skaters grind them (the rail manager's - moved
 //     with their scenery or by themselves); a rail point moves with its whole rail, or by itself (L with a rail point
-//     selected, the Inspector's Whole rail), saved as `rail` records; Home puts it (its rail) back.
+//     selected, the Inspector's Whole rail), saved as `rail` records; Edit > Revert to Original puts it (its rail) back.
 //   - Moving (objects, scenery, rail points and point nodes - spawns, crowns, flags, lights, sounds, triggers, other
 //     nodes; not ladders, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
 //     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E
-//     nudge; Z / X turn (objects and nodes 15 degrees, scenery a quarter); [ / ] scale scenery (about the middle of its
+//     nudge; Z / X turn by the rotation snap (15 degrees unless set otherwise; Shift+Z / Shift+X one degree) - scenery
+//     to any angle too (level_editor_scenery.h's turn_by); [ / ] scale scenery (about the middle of its
 //     bottom) or objects (about their position) 10% (Shift: 1%), 0.25x to 4x, Alt+[ / ] stretch along the axis the
 //     camera faces most (the Inspector's Scale X / Y / Z too); G drops it onto the ground (a marker shows
 //     where that is). Moving a spawn, crown or flag of a level shared with THUGPRO warns once a run (the edit is made).
 //   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects), deletes a node the editor added and
 //     hides a level's own spawn / crown / flag / light / sound / proximity node (asking first: it isn't removed - the
-//     crowns after a hidden crown each move up a number); Home puts it back where the level had it (a hidden node:
+//     crowns after a hidden crown each move up a number); Edit > Revert to Original (asked first) puts it back where the
+//     level had it (Home frames the whole level) (a hidden node:
 //     shows it again); Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session). Ctrl+Shift+Delete (the toolbar's Reset
 //     level; the old HUD: twice) puts everything back as the level has it and deletes its saved layout and autosave,
 //     after asking - one undo step brings it back (the steps before it are dropped; the files only with Ctrl+S). An added crown moves up / down among the

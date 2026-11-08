@@ -312,6 +312,25 @@ V3 selection_centre()
     }
     return have ? (min + max) * kHalf : selection_pos();
 }
+// Objects turned by `radians` about the unit `axis` (any - the Rotate gizmo's rings, level_editor_rotate.h) through the
+// toolbar's Pivot, as turn_objects_by.
+void turn_objects_about_axis(const std::vector<objects::GameEntity*>& objects, V3 axis, float radians, V3 centre)
+{
+    if (objects.empty() || radians == 0.0F) {
+        return;
+    }
+    const xform::Pivot pivot = xform::at_hand().pivot;
+    const V3 base = object_edit::pos_of(objects.front());
+    for (objects::GameEntity* object : objects) {
+        V3 about = base;
+        if (pivot == xform::Pivot::kOwn) {
+            about = object_edit::pos_of(object);
+        } else if (pivot == xform::Pivot::kCentre) {
+            about = centre;
+        }
+        object_edit::turn_about_axis(object, about, axis, radians);
+    }
+}
 // Objects turned by `radians` about the toolbar's Pivot (Base: the first one's position; Centre: `centre`; Own: each
 // about its own).
 void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float radians, V3 centre)

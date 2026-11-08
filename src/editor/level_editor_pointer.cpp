@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's pointer: what is under the cursor, the drag, and the clicks that select and
 // place (ours). See level_editor.h.
 
+#include "editor/level_editor_modules.h"
 #include "editor/level_editor.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -8,8 +9,10 @@
 #include <cstdint>
 #include <initializer_list>
 #include <string>
+#include <cstddef>
 #include <vector>
 #include "editor/level_editor_actions.h"
+#include "editor/level_editor_rotate.h"
 #include "editor/level_editor_arrange.h"
 #include "base/core/format.h"
 #include "editor/level_editor_carry.h"
@@ -120,6 +123,8 @@ void update_drag(EditorFrame& editor_frame)
                 drag_session().axis_ = transform_session().typed_.axis;
                 start_drag(fly_camera().pos_, dir, false, frame, input.x, input.y);
                 drag_session().drag_moved_ = true;
+            } else if (transform_session().drag_mode_ == xform::Mode::kSpinBy) {
+                restart_turn(fly_camera().pos_, dir, frame); // (level_editor_rotate.h: about that axis)
             }
         }
         // (Shift: up / down - not with Ctrl or Alt, which pick what it snaps to)
@@ -129,7 +134,10 @@ void update_drag(EditorFrame& editor_frame)
             start_drag(fly_camera().pos_, dir, vertical, frame, input.x, input.y);
         }
         if (drag_session().drag_moved_ || transform_session().typed_apply_ || !transform_session().typed_.text.empty()) {
-            get_drag(fly_camera().pos_, dir, frame, input.x, input.y, snapping_now(ctrl, shift, alt));
+            // (V held: vertex snap, as Ctrl+Alt - level_editor_rotate.h)
+            const bool vertex = actions::get_held(editor_frame.keys, rotate_tool::vertex_snap_action());
+            get_drag(fly_camera().pos_, dir, frame, input.x, input.y,
+                     snapping_now(ctrl || vertex, shift && !vertex, alt || vertex));
         }
     }
     // Enter (typed values) or - Alt+G's modal transform - a click: applied.
@@ -328,6 +336,17 @@ void click_to_select(const EditorFrame& editor_frame)
     } else if (drag_session().hover_axis_ >= 0 && (input.left_presses_ != 0)) {
         drag_session().axis_ = drag_session().hover_axis_;
         drag = true;
+        // Alt+drag on a Move arrow: a copy made where the selection is and dragged, the original left (Unreal / Maya);
+        // the copy and the move one undo step (folded when the drag ends - level_editor_rotate.h).
+        if (alt && gizmo_now().mode == xform::Mode::kShiftBy) {
+            const size_t depth = edit::deepness();
+            const xform::RepeatStep in_place{};
+            level_editor::get_duplicate(fly_camera().frame(), &in_place);
+            if (edit::deepness() > depth) {
+                rotate_tool::note_copy_drag(depth);
+                hud::get_message("Copy - drag to place it");
+            }
+        }
     } else if (picked_set().hover_node_ >= 0 && (input.left_presses_ != 0)) {
         select_node(picked_set().hover_node_);
         drag = have_selection() && !shift; // (an object, or a point node: dragged as objects are)

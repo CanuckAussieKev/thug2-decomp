@@ -14,6 +14,7 @@
 #include <array>
 #include "editor/level_editor_nav.h"
 #include "editor/level_editor_actions.h"
+#include "editor/level_editor_rotate.h"
 #include "editor/level_editor_adjust.h"
 #include "base/maths/vec2.h"
 #include "base/core/format.h"
@@ -275,10 +276,12 @@ void transform_keys(input::KeyState keys, bool ctrl, bool shift, bool alt, const
     if (frame_key && have_selection()) {
         fly_camera().free_camera_ = false;
     }
-    // Alt+G: the tool's transform without holding the mouse (Blender's G / R / S).
-    if (modal_key && have_selection() && have_ray) {
+    // Alt+G: the tool's transform without holding the mouse (Blender's G / R / S); Alt+R: a rotate, whatever the tool
+    // (level_editor_rotate.h).
+    const bool rotate_modal = actions::squeezed(rotate_tool::modal_rotate_action()) && gizmo_now().rotates;
+    if ((modal_key || rotate_modal) && have_selection() && have_ray) {
         drag_session().axis_ = -1;
-        transform_session().drag_mode_ = gizmo_mode();
+        transform_session().drag_mode_ = rotate_modal ? xform::Mode::kSpinBy : gizmo_mode();
         transform_session().modal_ = true;
         transform_session().typed_ = {};
         drag_session().dragging_ = true;
@@ -480,10 +483,22 @@ void command_keys(const EditorFrame& editor_frame)
         !drag_session().dragging_) {
         unpick();
     }
-    // (Home and Delete: not on what the Outliner's lock holds - level_editor_organize.h)
-    if (actions::squeezed(actions::kHome) && !no_change && !stored_browser().open &&
-        !organize::selection_locked(true)) {
+    // (Revert to Original and Delete: not on what the Outliner's lock holds - level_editor_organize.h; Revert is asked
+    // first - level_editor_rotate.h)
+    if (actions::squeezed(actions::kHome)) {
+        rotate_tool::ask_revert();
+    }
+    if (rotate_tool::take_revert() && !no_change && !stored_browser().open && !organize::selection_locked(true)) {
         get_reset();
+    }
+    // Home: the whole level framed (Blender's Home).
+    if (actions::squeezed(rotate_tool::frame_level_action()) && !stored_browser().open) {
+        V3 low{};
+        V3 high{};
+        if (scenery::level_bounds(&low, &high)) {
+            const V3 extent = high - low;
+            view_cam::frame_level(rig_now(), (low + high) * kHalf, std::sqrt(get_dot(extent, extent)) * kHalf);
+        }
     }
     if (!no_change && !stored_browser().open && (confirmations().confirm_hide_ == 0U) && !confirmations().confirm_reset_) {
         if (actions::squeezed(actions::kResetLevel)) {

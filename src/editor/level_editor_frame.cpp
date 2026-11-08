@@ -189,8 +189,10 @@ bool global_keys_and_walk(EditorFrame& editor_frame)
                             .rel_x_ = &input.rel_x_,
                             .rel_y_ = &input.rel_y_,
                             .wheel = &input.wheel},
-                           (core::at(input::keys(), SDL_SCANCODE_LALT) != 0U) ||
-                               (core::at(input::keys(), SDL_SCANCODE_RALT) != 0U),
+                           // (not over a gizmo's handle: Alt+drag there moves a copy - level_editor_rotate.h)
+                           ((core::at(input::keys(), SDL_SCANCODE_LALT) != 0U) ||
+                            (core::at(input::keys(), SDL_SCANCODE_RALT) != 0U)) &&
+                               drag_session().hover_axis_ < 0,
                            drawn_view().last_have_ray_, drawn_view().last_ray_);
     // The keys from the keymap (level_editor_actions.h: rebindable, [editor_keys] in the ini; the command search runs
     // them the same way).

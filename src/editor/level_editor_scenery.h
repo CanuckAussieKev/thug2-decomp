@@ -188,6 +188,8 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
 // What the editor has changed in this level: sectors moved or hidden (copies left out), rails moved or turned off.
 std::vector<SectorState> changed_sectors();
 std::vector<RailState> changed_rails();
+// The box round every piece of the level's main scene as loaded (false: none) - Home frames it.
+bool level_bounds(V3* min, V3* max);
 // The level's main scene (the first that isn't a sky) and a scene's name.
 render::WorldScene* main_scene();
 // Whether a scene is still one of the level's (in the scene list, not a sky).

@@ -108,9 +108,14 @@ struct Gizmo {
         {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
     float length = 100.0F;
     bool rotates = true; // (Rotate: false - nothing selected turns: a chain's point)
+    // (Rotate: objects turn about any axis - a ring about each axis, the view ring about `view_back` and the trackball
+    // inside; else the heading ring alone - level_editor_rotate.h)
+    bool free_axes = false;
+    V3 view_back = {};
 };
-// Its handles: 0 / 1 / 2 the axes (Move: arrows; Scale: a cube at each end; Rotate: 1 the heading ring - the only one),
-// 3 Scale's centre cube; -1 none.
+// Its handles: 0 / 1 / 2 the axes (Move: arrows; Scale: a cube at each end; Rotate: the rings about them - the heading
+// ring 1 alone unless free_axes), 3 Scale's centre cube, Rotate's view ring and trackball (rotate_tool::kViewRing /
+// kTrackball - free_axes only); -1 none.
 constexpr int kCentre = 3;
 // A world point to back buffer pixels (false: behind the camera).
 using Projector = std::function<bool(V3 point, float* px, float* py)>;

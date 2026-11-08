@@ -39,6 +39,7 @@
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8.h"
 #include "editor/level_editor_view.h"
+#include "editor/level_editor_rotate.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -765,6 +766,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     get_place(model);
     confirm_hide(model);
     confirm_reset(model);
+    rotate_tool::dialogs(imgui_setup().scale_); // (Revert to Original's question - level_editor_rotate.h)
     collision_legend(model);
     online_warning(model);
     prefs::pane(imgui_setup().scale_, {.heading = imgui_setup().heading_, .small_font_ = imgui_setup().small_}); // (level_editor_prefs.h)
