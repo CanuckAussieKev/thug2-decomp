@@ -54,6 +54,8 @@ add_library(thug2_editor SHARED
     level_editor_shared_coll.cpp
     level_editor_ui.cpp
     level_editor_ui_app.cpp
+    level_editor_split.cpp
+    level_editor_split_ui.cpp
     level_editor_ui_dialogs.cpp
     level_editor_ui_inspector.cpp
     level_editor_ui_outliner.cpp

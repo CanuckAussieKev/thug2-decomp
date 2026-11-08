@@ -305,6 +305,7 @@ V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 // (level_editor_view_state()).
 struct LevelEditorViewState {
     bool show_collision_{};
+    bool collision_forced_{}; // (a split view in Collision only, while its overlay is made)
     bool setting_read_{};
 };
 
@@ -563,6 +564,8 @@ void set_show_collision(bool on)
         view_stats().drawn_.clear();
     }
 }
+
+void set_collision_forced(bool forced) { level_editor_view_state().collision_forced_ = forced; }
 
 namespace {
 
@@ -847,7 +850,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
 {
     view_stats().drawn_.clear();
     view_stats().stats_ = {};
-    if (!level_editor_view_state().show_collision_) {
+    if (!level_editor_view_state().show_collision_ && !level_editor_view_state().collision_forced_) {
         return;
     }
     // The sectors near enough, nearest first (invisible walls before the rest: never left out by the cap).

@@ -32,6 +32,8 @@ struct GizmoLinesState {
     View view;
     float pixel{}; // what a pixel spans at depth 1
     std::vector<render::depth_lines::Line> lines;
+    bool all_views{}; // (the split view: no line dropped as off the view under the mouse)
+    bool muted{};     // (the split view's other views' overlays being made)
 };
 
 GizmoLinesState& gizmo_lines_state()
@@ -164,10 +166,17 @@ void begin_frame(const View& view)
 
 void end_frame() { render::depth_lines::set_lines(gizmo_lines_state().lines); }
 
+void set_all_views(bool all_views) { gizmo_lines_state().all_views = all_views; }
+
+void set_muted(bool muted) { gizmo_lines_state().muted = muted; }
+
 void add(const Stroke& stroke)
 {
     const GizmoLinesState& state = gizmo_lines_state();
-    if (!in_view(seen_from(state.view, stroke.a), seen_from(state.view, stroke.b),
+    if (state.muted) {
+        return;
+    }
+    if (!state.all_views && !in_view(seen_from(state.view, stroke.a), seen_from(state.view, stroke.b),
                  {.tan_x = state.view.lens.tan_x_, .tan_y = state.view.lens.tan_y_, .near_z = kNearZ})) {
         return;
     }
@@ -192,7 +201,7 @@ void add_dot(V3 at, float radius, uint32_t argb)
 {
     const GizmoLinesState& state = gizmo_lines_state();
     const float depth = depth_of(state.view, at);
-    if (depth < kNearZ) {
+    if (state.muted || depth < kNearZ) {
         return;
     }
     const V3 half = state.view.frame.right * (radius * depth * state.pixel);

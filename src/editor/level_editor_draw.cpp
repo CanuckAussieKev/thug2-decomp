@@ -41,6 +41,7 @@
 #include "editor/level_editor_ruler.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_scenery.h"
+#include "editor/level_editor_split.h"
 #include "editor/level_editor_thumbs.h"
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_triggers.h"
@@ -970,20 +971,17 @@ void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines)
     }
 }
 
-// With the UI: the overlays of every tool and the lines through ImGui's draw list, with the panels
-// (level_editor_ui.h).
-void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
-                  const std::vector<LineVertex>& lines)
+} // namespace internal
+namespace {
+
+// One view's overlays (the view whose camera state the editor has now - the active one, or another view of the split
+// view's for a moment: level_editor_split.h) into the editor's overlay: every tool's, and the lines. `active`: the
+// view under the mouse - what is handled there (the trigger volume's resize handles, the problem checker's run) only
+// in it.
+void gather_overlay(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                    const std::vector<LineVertex>& lines, const ui::ShapeMesh& model, bool active)
 {
-    get_clear(drawn_overlay());
-    ui::ShapeMesh model = assemble_model();
-    // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
-    preview::tick_cycle(&model);
-    // (the gizmos' lines drawn in the 3D view against its depth - level_editor_gizmo_lines.h)
-    gizmo_lines::begin_frame({.camera = fly_camera().pos_,
-                              .frame = frame,
-                              .lens = drawn_view().lens_,
-                              .viewport_width = static_cast<float>(core::at(drawn_view().viewport_, 2))});
+    split_view::add_grid(&drawn_overlay()); // (an ortho view of an axis: its grid, under the rest)
     add_node_gizmos(frame, model.nodes.selected);
     view::add_collision(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                         kNearZ, &drawn_overlay().under, &drawn_overlay().lines);
@@ -999,7 +997,9 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     notes::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                        kNearZ, &drawn_overlay().lines, &drawn_overlay().circles,
                        &drawn_overlay().texts);
-    checks::note_model(model.changes, model.marks);
+    if (active) {
+        checks::note_model(model.changes, model.marks);
+    }
     triggers::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                           kNearZ, &drawn_overlay().texts);
     if (overlays::get_shown(overlays::kFeatureMap)) { // (the Overlays menu - level_editor_overlays.h)
@@ -1008,7 +1008,9 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
             {.near_z_ = kNearZ, .selected_node_ = model.nodes.selected},
             &drawn_overlay().texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
     }
-    triggers::add_handles(&drawn_overlay().circles); // (the selected trigger volume's resize handles)
+    if (active) {
+        triggers::add_handles(&drawn_overlay().circles); // (the selected trigger volume's resize handles)
+    }
     entities::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                           kNearZ, &drawn_overlay().lines, &drawn_overlay().texts);
     play_test::add_overlay(
@@ -1047,6 +1049,35 @@ void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*
     // level_editor_arrange.h)
     arrange::add_overlay(fly_camera().pos_, frame, drawn_view().lens_, drawn_view().viewport_,
                          kNearZ, &drawn_overlay());
+}
+
+} // namespace
+namespace internal {
+
+// With the UI: the overlays of every tool and the lines through ImGui's draw list, with the panels
+// (level_editor_ui.h).
+void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                  const std::vector<LineVertex>& lines)
+{
+    get_clear(drawn_overlay());
+    ui::ShapeMesh model = assemble_model();
+    // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
+    preview::tick_cycle(&model);
+    // (the split view: the other views' overlays first, each with its own camera - level_editor_split.h)
+    split_view::gather_others(&drawn_overlay(), [&objects, &model] {
+        const TickCycle view_frame = fly_camera().frame();
+        std::vector<LineVertex> view_lines;
+        add_view_lines(view_frame, objects, &view_lines);
+        gather_overlay(view_frame, objects, view_lines, model, false);
+    });
+    // (the gizmos' lines drawn in the 3D view against its depth - level_editor_gizmo_lines.h; with several views, in
+    // each of them)
+    gizmo_lines::begin_frame({.camera = fly_camera().pos_,
+                              .frame = frame,
+                              .lens = drawn_view().lens_,
+                              .viewport_width = static_cast<float>(core::at(drawn_view().viewport_, 2))});
+    gizmo_lines::set_all_views(split_view::several());
+    gather_overlay(frame, objects, lines, model, true);
     gizmo_lines::end_frame();
     thumbs::tick_cycle(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
     ui::tick_cycle(model, drawn_overlay());

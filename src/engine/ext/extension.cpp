@@ -119,6 +119,42 @@ void view_drawn(const ViewNote& view)
     }
 }
 
+namespace {
+
+// The extension whose views the frame being drawn has (view_count).
+Extension*& views_owner()
+{
+    static Extension* owner = nullptr;
+    return owner;
+}
+
+} // namespace
+
+int view_count()
+{
+    views_owner() = nullptr;
+    for (Extension* extension : registered()) {
+        if (const int count = extension->view_count(); count > 0) {
+            views_owner() = extension;
+            return count;
+        }
+    }
+    return 0;
+}
+
+bool begin_view(int index, ViewPass* pass)
+{
+    return views_owner() != nullptr && views_owner()->begin_view(index, pass);
+}
+
+void end_views()
+{
+    if (views_owner() != nullptr) {
+        views_owner()->end_views();
+    }
+    views_owner() = nullptr;
+}
+
 void draw_over_frame()
 {
     for (Extension* extension : registered()) {

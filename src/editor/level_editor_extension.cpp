@@ -14,6 +14,7 @@
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_shell.h"
+#include "editor/level_editor_split.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_app.h"
@@ -73,6 +74,10 @@ public:
     {
         note_view(view.camera, view.angle, view.aspect, std::span<const uint32_t, 4>(view.rect));
     }
+    // (the split view's passes - level_editor_split.h)
+    int view_count() override { return live_now() ? split_view::view_count() : 0; }
+    bool begin_view(int index, ext::ViewPass* pass) override { return split_view::begin_view(index, pass); }
+    void end_views() override { split_view::end_views(); }
     void draw_over_frame() override { blit(); }
     void device_lost() override { ui::device_lost(); }
 

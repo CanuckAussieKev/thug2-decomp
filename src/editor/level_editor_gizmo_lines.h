@@ -52,6 +52,11 @@ struct Stroke {
 void add(const Stroke& stroke);
 // A rail's point: a dot `radius` pixels across the view at `at`.
 void add_dot(V3 at, float radius, uint32_t argb);
+// The split view (level_editor_split.h): the lines are gathered once, in the view under the mouse, and the renderer draws
+// them in every view - so none are dropped as off that view (`all_views`), and the other views' overlays add none
+// (`muted` while they are made).
+void set_all_views(bool all_views);
+void set_muted(bool muted);
 
 // The pieces (pure).
 // What a line keeps of its opacity at `distance` with draw distance `range`: all of it to 60% of the range, then less to

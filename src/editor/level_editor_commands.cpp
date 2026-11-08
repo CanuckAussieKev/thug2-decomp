@@ -911,6 +911,7 @@ view_cam::Rig rig_now()
     rig.cast = &get_cast;
     rig.focus = &focus_now;
     rig.deselect = &deselect_now;
+    rig.free_camera = fly_camera().free_camera_;
     return rig;
 }
 

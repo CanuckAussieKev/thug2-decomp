@@ -40,6 +40,7 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_shell.h"
+#include "editor/level_editor_split.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_ruler.h"
@@ -410,6 +411,7 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     // (the camera tools and the preferences - level_editor_camera.h, level_editor_prefs.h)
     fly_camera().speed_ = static_cast<float>(prefs::get_pull().fly_speed_);
     view_cam::kickoff(scenery::world_scene_key(scenery::main_scene()));
+    split_view::kickoff(scenery::world_scene_key(scenery::main_scene())); // (the split view - level_editor_split.h)
     play_test::on_editor_start(); // (the trail's run ends; the level's trails file read - level_editor_playtest.h)
     actions::seed_keys(input::keys()); // (the key that opened the editor doesn't act at once)
     render::occlusion_off() = occlusion_switch().occlusion_off_;
@@ -595,6 +597,7 @@ bool cfunc_stop(script::Struct* /*params*/, script::Context /*context*/)
     scenery::end_tints(object_edit::resolve_tint, true);
     hud::hide_panel();
     preview::conceal();
+    split_view::halt(); // (the views' settings kept; before the camera's and the view mode's are dropped)
     view::halt();     // (everything hidden in the editor shown again)
     overlays::halt(); // (the view mode back to Lit)
     ux8::halt();
@@ -664,6 +667,7 @@ void prepare_all()
         prepare_all(); // (pies, quick sets, walk / follow / teleport, controller mode: their actions - level_editor_ux8.h)
     ux9::prepare_all(); // (UX9: its actions and the ground pieces' layout records - level_editor_ux9.h)
     content::prepare_all(); // (the Content Browser's keys, the prop packs' layout records - level_editor_content.h)
+    split_view::prepare_all(); // (Maximise View, the layouts - level_editor_split.h)
 }
 
 void input_logic()
@@ -719,11 +723,10 @@ void place_camera(gfx::ViewCam* camera)
     if (camera != fly_camera().camera_) {
         return;
     }
-    const TickCycle frame = fly_camera().frame();
-    camera->set_at_point({.x = fly_camera().pos_.x,
-                          .y = fly_camera().pos_.y,
-                          .z = fly_camera().pos_.z,
-                          .w = 1.0F});
+    TickCycle frame = fly_camera().frame();
+    V3 pos = fly_camera().pos_;
+    split_view::pass_pose(&pos, &frame); // (another view's pass: its camera - level_editor_split.h)
+    camera->set_at_point({.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F});
     core::at(camera->basis_frame().row, 0) = {.x = frame.right.x, .y = frame.right.y, .z = frame.right.z, .w = 0.0F};
     core::at(camera->basis_frame().row, 1) = {.x = frame.up.x, .y = frame.up.y, .z = frame.up.z, .w = 0.0F};
     core::at(camera->basis_frame().row, 2) = {.x = frame.back.x, .y = frame.back.y, .z = frame.back.z, .w = 0.0F};
@@ -731,12 +734,12 @@ void place_camera(gfx::ViewCam* camera)
 
 float adjust_view_angle(gfx::ViewCam* camera, float angle)
 {
-    return editor_session().active_ && camera && camera == fly_camera().camera_ ? view_cam::adjust_view_angle(angle) : angle;
+    return editor_session().active_ && camera && camera == fly_camera().camera_ ? split_view::pass_view_angle(angle) : angle;
 }
 
 float get_near_plane(gfx::ViewCam* camera, float near_z)
 {
-    return editor_session().active_ && camera && camera == fly_camera().camera_ ? view_cam::get_near_plane() : near_z;
+    return editor_session().active_ && camera && camera == fly_camera().camera_ ? split_view::pass_near_plane() : near_z;
 }
 
 void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const uint32_t, 4> viewport)
@@ -751,6 +754,9 @@ void note_view(gfx::ViewCam* camera, float angle, float aspect, std::span<const 
     if (ui::app::PictureOrigin origin; ui::app::picture_origin(&origin)) {
         core::at(rect, 0) += static_cast<uint32_t>(std::lround(origin.x));
         core::at(rect, 1) += static_cast<uint32_t>(std::lround(origin.y));
+    }
+    if (split_view::note_pass(lens, rect)) {
+        return; // (another view's pass: noted as that view's - level_editor_split.h)
     }
     if (debug_enabled() && !drawn_view().have_view_) {
         get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", core::at(rect, 0), core::at(rect, 1), core::at(rect, 2),
@@ -774,6 +780,10 @@ void tick_frame()
     if (!fly_camera().camera_) {
         return;
     }
+    // (the split view: the view under the mouse is the one the editor works in; an ortho one's right drag pans it -
+    // level_editor_split.h)
+    split_view::tick_frame();
+    split_view::pan_ortho(&editor_frame.input.rel_x_, &editor_frame.input.rel_y_, editor_frame.input.right);
     read_keys_and_pad(editor_frame);
     if (global_keys_and_walk(editor_frame)) {
         return;
@@ -784,6 +794,7 @@ void tick_frame()
     tick_panels(editor_frame);
     edit_keys(editor_frame);
     view_keys();
+    split_view::tick_keys();
     tick_triggers_and_tools(editor_frame);
     command_keys(editor_frame);
     finish_chain_drawing(editor_frame.input);
@@ -816,11 +827,30 @@ void blit()
         return;
     }
     const TickCycle frame = fly_camera().frame();
-    // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
-    // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
     static std::vector<LineVertex> lines;
     lines.clear();
     const std::vector<objects::GameEntity*> objects = selected_objects();
+    add_view_lines(frame, objects, &lines);
+    // The UI: the lines through ImGui's draw list, with the panels (level_editor_ui.h).
+    if (ui::underway()) {
+        draw_with_ui(frame, objects, lines);
+        return;
+    }
+    // The old HUD: the lines on the device (the renderer's cached state).
+    if (lines.empty()) {
+        return;
+    }
+    render::device().draw_screen_lines(lines);
+}
+
+namespace internal {
+
+void add_view_lines(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                    std::vector<LineVertex>* out)
+{
+    std::vector<LineVertex>& lines = *out;
+    // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
+    // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
     objects::GameEntity* hover = drag_session().dragging_ ? nullptr : get_live(picked_set().hover_);
     add_hover_boxes(frame, hover, lines);
     add_selected_boxes(frame, objects, lines);
@@ -844,17 +874,9 @@ void blit()
     // The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
     // one only (a modal Rotate / Scale: the whole gizmo).
     add_gizmo_lines(frame, lines);
-    // The UI: the lines through ImGui's draw list, with the panels (level_editor_ui.h).
-    if (ui::underway()) {
-        draw_with_ui(frame, objects, lines);
-        return;
-    }
-    // The old HUD: the lines on the device (the renderer's cached state).
-    if (lines.empty()) {
-        return;
-    }
-    render::device().draw_screen_lines(lines);
 }
+
+} // namespace internal
 
 std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
 {

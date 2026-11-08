@@ -259,14 +259,16 @@ void restore_switches(const CachedSwitches& saved)
 
 } // namespace
 
-void draw()
+void draw(bool keep)
 {
     const std::span<const depth_lines::Line> lines = depth_lines::pending();
     const auto& gfx = renderer();
     const auto height = static_cast<float>(gfx.device_viewport().height);
     const float vertical_scale = std::fabs(core::at(gfx.projection_matrix().row, 1).y);
     if (lines.empty() || height <= 0.0F || vertical_scale <= 0.0F) {
-        depth_lines::clear();
+        if (!keep) {
+            depth_lines::clear();
+        }
         return;
     }
     const RenderCamera& lens = gfx.render_camera();
@@ -318,7 +320,9 @@ void draw()
 
     restore_direct_state(saved);
     restore_switches(switches);
-    depth_lines::clear();
+    if (!keep) {
+        depth_lines::clear();
+    }
 }
 
 void drop() { depth_lines::clear(); }

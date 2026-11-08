@@ -8,8 +8,9 @@ namespace render::depth_lines_draw {
 
 // Each line as a strip facing the camera, its width in pixels at each end; tested against the depth as the line asks
 // (depth_lines::Depth), alpha-blended, no depth written, no fog, solid even in wireframe; the renderer's state put back
-// as the frame had it. Then the lines are dropped.
-void draw();
+// as the frame had it. Then the lines are dropped - unless `keep` (a split view's pass: the same lines are drawn again in
+// the next view, with its camera; depth_lines::clear after the last).
+void draw(bool keep = false);
 void drop();
 
 } // namespace render::depth_lines_draw

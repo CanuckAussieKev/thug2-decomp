@@ -106,7 +106,25 @@ struct Rig {
     bool (*cast)(V3 from, V3 to, V3* hit); // the game's collision ray
     void (*focus)();                       // the camera made to look at the selection (focus_on_selection)
     void (*deselect)();
+    bool free_camera; // (flown off the selection: an ortho view pans and zooms as without one)
 };
+
+// A split view's ortho state (level_editor_split.h): the editor's camera tools work on the view under the mouse, the
+// others' kept here. save_slot: the state now; load_slot: put back; stop_motion: a flight and an orbit dropped (another
+// view taken over).
+struct Slot {
+    View view = View::kNone;
+    float yaw = 0.0F, pitch = 0.0F;
+    V3 pivot = {};
+    float equivalent = 0.0F;
+    V3 last_eye = {};
+};
+Slot save_slot();
+void load_slot(const Slot& slot);
+void stop_motion();
+// A slot's field of view and near plane, as adjust_view_angle / get_near_plane give them for the state now.
+float slot_view_angle(const Slot& slot, float base_degrees);
+float slot_near_plane(const Slot& slot);
 
 // The editor started (in the level `scene`: its bookmarks read) / stopped (a flight and an ortho view dropped).
 void kickoff(uint32_t scene);

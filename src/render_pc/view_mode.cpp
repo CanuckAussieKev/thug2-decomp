@@ -135,7 +135,10 @@ void* make_twin(void* original, Twin* twin)
 
 Mode at_hand() { return view_mode_state().mode_; }
 
-void assign_value(Mode mode)
+namespace {
+
+// The mode switched (`logged`: a line in the log - not for the split views' passes, every frame).
+void switch_mode(Mode mode, bool logged)
 {
     if (mode == view_mode_state().mode_ || mode >= Mode::kCount) {
         return;
@@ -151,8 +154,16 @@ void assign_value(Mode mode)
         view_mode_state().set_render_mode_ = false;
     }
     view_mode_state().mode_ = mode;
-    get_log("view mode: %s", get_name(mode));
+    if (logged) {
+        get_log("view mode: %s", get_name(mode));
+    }
 }
+
+} // namespace
+
+void assign_value(Mode mode) { switch_mode(mode, true); }
+
+void switch_for_view(Mode mode) { switch_mode(mode, false); }
 
 void begin_world()
 {
