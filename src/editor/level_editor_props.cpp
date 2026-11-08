@@ -32,6 +32,7 @@ namespace {
 
 constexpr const char* kRecord = "prop";
 constexpr int kHexBase = 16;
+constexpr int kQuarterTurns = 4; // (a whole turn)
 
 struct PropsState {
     std::vector<std::string> loaded;
@@ -70,6 +71,16 @@ struct PlaceStep final : ModuleStep {
         return now;
     }
 };
+
+// The placement that puts back what `placement` did (its turn and move; a scale isn't undone - the pack's own sectors
+// aren't scaled when their copies are made by place).
+Placement inverted(const Placement& placement)
+{
+    constexpr int kQuarterMask = 3;
+    const int quarters = (kQuarterTurns - placement.quarters) & kQuarterMask;
+    const V3 back = get_quarter_turn(placement.offset, quarters);
+    return {.quarters = quarters, .offset = {.x = -back.x, .y = -back.y, .z = -back.z}};
+}
 
 std::shared_ptr<PlaceStep> capture(const std::vector<uint32_t>& sectors)
 {
@@ -259,19 +270,22 @@ bool place(const std::string& id, V3 at, std::string* message)
         *message = "The prop pack " + id + " isn't in the data overlay";
         return false;
     }
+    // The pack as loaded has the middle of its bottom at the origin: placed at `at`, it is moved by `at`. The sectors are
+    // put there by their states (not moved as a selection: a move carries the level's rails lying in their boxes - here
+    // the level's own rails near the origin, where the pack loads).
+    const Placement target{.quarters = 0, .offset = at};
     // The first time its own sectors (hidden since it loaded); after that copies of them.
     const bool first = std::ranges::all_of(manifest.sectors, [](uint32_t sector) { return scenery::get_hidden(sector); });
     std::vector<uint32_t> placed;
     std::shared_ptr<PlaceStep> before;
+    std::vector<scenery::SectorState> states;
     if (first) {
         before = capture(manifest.sectors);
-        std::vector<scenery::SectorState> shown;
-        shown.reserve(manifest.sectors.size());
-        for (const uint32_t sector : manifest.sectors) {
-            shown.push_back({.checksum = sector, .placement = {}, .hidden = false});
-        }
-        scenery::apply_states(shown, {});
         placed = manifest.sectors;
+        states.reserve(placed.size());
+        for (const uint32_t sector : placed) {
+            states.push_back({.checksum = sector, .placement = target, .hidden = false});
+        }
     } else {
         for (const uint32_t sector : manifest.sectors) {
             if (const uint32_t copy = scenery::get_duplicate(sector)) {
@@ -287,23 +301,21 @@ bool place(const std::string& id, V3 at, std::string* message)
         for (scenery::SectorState& state : before->sectors) {
             state.hidden = true;
         }
-    }
-    scenery::set_selection(placed);
-    // (the pivot is the middle of the boxes: the piece's middle over the point, its bottom on it - as the Add palette)
-    const V3 pivot = scenery::get_pivot();
-    scenery::move_to({.x = at.x, .y = at.y + (pivot.y - scenery::get_bottom()), .z = at.z});
-    scenery::finalise();
-    // The rails where the piece now is: its own sector's placement from the pack as loaded (a copy's after its source's).
-    Placement placement{};
-    scenery::placement_now(placed.front(), &placement);
-    if (!first) {
-        for (const scenery::Replicate& clone : scenery::get_clones()) {
-            if (clone.checksum == placed.front()) {
-                placement = compose(placement, clone.source_at_copy_);
+        // (a copy's placement is relative to its source where it was copied: the target after undoing that)
+        states.reserve(placed.size());
+        for (const uint32_t copy : placed) {
+            Placement source_at_copy{};
+            for (const scenery::Replicate& clone : scenery::get_clones()) {
+                if (clone.checksum == copy) {
+                    source_at_copy = clone.source_at_copy_;
+                }
             }
+            states.push_back({.checksum = copy, .placement = compose(target, inverted(source_at_copy)), .hidden = false});
         }
     }
-    add_rails(manifest, placement, placed.front());
+    scenery::apply_states(states, {});
+    scenery::set_selection(placed);
+    add_rails(manifest, target, placed.front());
     push_module_undo_labelled(before, "Place prop");
     get_log("level editor: placed prop pack %s at (%.0f, %.0f, %.0f) - %s, %u rail points", id.c_str(), at.x, at.y, at.z,
             first ? "its own sectors" : "copies", static_cast<unsigned>(manifest.rails.size()));

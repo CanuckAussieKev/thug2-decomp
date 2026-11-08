@@ -1192,7 +1192,7 @@ void panel(const ui::ShapeMesh& model, float scale)
         ImGui::SameLine();
         if (ImGui::BeginChild("##items", ImVec2(0.0F, -status))) {
             if (content.folder == Folder::kThisLevel) {
-                ui::internal::browser_body(model);
+                ui::internal::browser_body(model, true);
             } else {
                 const std::vector<int> shown = shown_pieces();
                 if (shown.empty()) {

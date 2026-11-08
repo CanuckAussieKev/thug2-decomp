@@ -138,7 +138,7 @@ void get_help(const ShapeMesh& model);
 
 void get_browser(const ShapeMesh& model);
 // The Add palette's contents (the Content Browser's This Level folder shows them - level_editor_content.h).
-void browser_body(const ShapeMesh& model);
+void browser_body(const ShapeMesh& model, bool hosted = false);
 
 void autosave_offer(const ShapeMesh& model);
 

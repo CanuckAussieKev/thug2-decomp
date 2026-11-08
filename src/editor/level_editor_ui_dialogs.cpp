@@ -288,13 +288,15 @@ void get_browser(const ShapeMesh& model)
     }
 }
 
-void browser_body(const ShapeMesh& model)
+void browser_body(const ShapeMesh& model, bool hosted)
 {
     if (!model.browser || !model.browser_items_) {
         get_muted("Opening the level's pieces\xE2\x80\xA6");
         return;
     }
-    browser_preview(model);
+    if (!hosted) { // (in the Content Browser: its tiles are the pictures, the hover its tooltip)
+        browser_preview(model);
+    }
     for (int tab = 0; tab < 2; ++tab) {
         if (tab != 0) {
             ImGui::SameLine();
