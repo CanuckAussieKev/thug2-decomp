@@ -25,6 +25,7 @@
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_organize.h"
 #include "editor/level_editor_prefabs.h"
+#include "editor/level_editor_scenery.h"
 #include "editor/level_editor_ui.h"
 #include "platform/run_log.h"
 #include "platform/sdl_time.h"
@@ -53,6 +54,7 @@ constexpr std::size_t kNameFieldSize = 48; // group, label and rename fields
 constexpr std::size_t kHelpTextSize = 160;
 constexpr std::size_t kBunchHeaderSize = 48;
 constexpr std::size_t kBunchTextSize = 96;
+constexpr int kAutoBunchIdBase = 100000; // (the automatic groups' ImGui ids, after the user's)
 constexpr std::size_t kMultiHeaderSize = 64;
 constexpr std::size_t kMaxMultiSelect = 64; // objects shown in the shared-fields section
 constexpr float kScrollCentre = 0.5F;
@@ -957,17 +959,60 @@ std::string row_label(uint32_t name)
     return state.labels.empty() ? "" : organize::get_label_of(state, name);
 }
 
+// The automatic groups (level_editor_scenery.h: prop pack placements, name families) under the user's: a click selects
+// one, right-click makes it a group of the user's (then Ctrl+Shift+G / Ungroup takes it away again).
+namespace {
+
+void auto_bunches(const std::vector<scenery::AutoGroup>& autos)
+{
+    for (int i = 0; std::cmp_less(i, autos.size()); ++i) {
+        const scenery::AutoGroup& group = core::at(autos, i);
+        ImGui::PushID(kAutoBunchIdBase + i);
+        std::array<char, kBunchTextSize> text{};
+        text::format_to(text, "%s  (%d)", group.name.c_str(), static_cast<int>(group.sectors.size()));
+        const std::vector<uint32_t> sectors = group.sectors;
+        if (ImGui::Selectable(text.data())) {
+            get_queue([sectors] {
+                SelectionIds ids;
+                ids.sectors = sectors;
+                set_selection(ids);
+            });
+        }
+        ImGui::SameLine();
+        gui::text_disabled("%s", group.pack ? "prop pack" : "family");
+        if (ImGui::IsItemHovered()) {
+            gui::tooltip("Grouped automatically. Click to select; right-click to make it a group of your own");
+        }
+        if (ImGui::BeginPopupContextItem("##autogroupmenu")) {
+            if (ImGui::MenuItem("Make Group")) {
+                const std::string name = group.name;
+                get_queue([sectors, name] {
+                    SelectionIds ids;
+                    ids.sectors = sectors;
+                    set_selection(ids);
+                    organize::make_group(name);
+                });
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::PopID();
+    }
+}
+
+} // namespace
+
 void bunches()
 {
     const organize::State& state = organize::at_hand();
-    if (state.groups.empty()) {
+    const std::vector<scenery::AutoGroup>& autos = scenery::auto_groups();
+    if (state.groups.empty() && autos.empty()) {
         return;
     }
     std::array<char, kBunchHeaderSize> header{};
     text::format_to(header, "Groups###ux3groups");
     const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::SameLine();
-    gui::text_disabled("%d", static_cast<int>(state.groups.size()));
+    gui::text_disabled("%d", static_cast<int>(state.groups.size() + autos.size()));
     if (!open) {
         return;
     }
@@ -1000,13 +1045,14 @@ void bunches()
             if (ImGui::MenuItem("Create Prefab from Group...")) {
                 prefabs::ask_create(i);
             }
-            if (ImGui::MenuItem("Delete Group")) {
+            if (ImGui::MenuItem("Ungroup")) {
                 get_queue([i] { organize::delete_group(i); });
             }
             ImGui::EndPopup();
         }
         ImGui::PopID();
     }
+    auto_bunches(autos);
     ImGui::TreePop();
 }
 

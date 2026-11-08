@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <utility>
 #include <initializer_list>
 #include <string>
 #include <cstddef>
@@ -180,8 +181,15 @@ void update_hover(const EditorFrame& editor_frame)
         // (UX8: a drill-through - Alt+wheel - holds with Alt still down: its entry is the hover)
         const bool drilled = stored_drilled() && cycle_holds(input.x, input.y, false, false);
         stored_drilled() = drilled;
+        // (a selected group clicked again drills in to the piece under the cursor first - level_editor_scenery.h's
+        // units - before a click on the same spot moves on to what is behind it)
+        const bool drill_first =
+            !drilled && click_cycle().cycle_.have && click_cycle().cycle_.index >= 0 &&
+            std::cmp_less(click_cycle().cycle_.index, click_cycle().cycle_.order.size()) &&
+            core::at(click_cycle().cycle_.order, click_cycle().cycle_.index).kind == picking::Choice::kScenery &&
+            scenery::would_drill(core::at(click_cycle().cycle_.order, click_cycle().cycle_.index).id);
         click_cycle().hover_cycle_ =
-            drilled || cycle_holds(input.x, input.y, shift, alt || (input.middle_presses_ != 0))
+            drilled || (!drill_first && cycle_holds(input.x, input.y, shift, alt || (input.middle_presses_ != 0)))
                 ? (click_cycle().cycle_.index + 1) % static_cast<int>(click_cycle().cycle_.order.size())
                 : -1;
         if (have_ray && drag_session().hover_axis_ < 0 && click_cycle().hover_cycle_ >= 0) {
@@ -248,8 +256,9 @@ namespace {
 
 // A click on something: selected (Shift: added / removed; Alt or a middle click: one piece of scenery in / out)
 // and dragged; on nothing, deselected.
-// A click on scenery: one piece in / out (Alt, a middle click), Shift adding / dropping its group, else its group
-// selected; whether it's dragged.
+// A click on scenery: one piece in / out (Alt, a middle click), Shift adding what a click takes / dropping the piece,
+// else what a click takes selected (its group, or - clicked again - its piece: level_editor_scenery.h); whether it's
+// dragged.
 bool click_scenery(bool one, bool shift)
 {
     bool drag = false;
@@ -261,6 +270,10 @@ bool click_scenery(bool one, bool shift)
                                                           : scenery::add_group(picked_set().hover_sector_);
     } else if (!scenery::get_selected(picked_set().hover_sector_)) {
         scenery::select_group(picked_set().hover_sector_);
+    } else {
+        // (a selected group clicked again: kept for a drag; let go without moving, the piece under the cursor - Unity's
+        // drill-in, level_editor_scenery.h)
+        scenery::arm_drill(picked_set().hover_sector_);
     }
     drag = scenery::has_selection() && !one && !shift;
     return drag;

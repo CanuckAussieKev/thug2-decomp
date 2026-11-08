@@ -1,8 +1,11 @@
-// NOT ORIGINAL - the level editor's scenery groups: which pieces of the level belong together (touching boxes, the
-// shadows that follow their casters) (ours). See level_editor_scenery.h.
+// NOT ORIGINAL - the level editor's scenery groups: the units a click selects beyond one piece (a prop pack's
+// placement, a family of pieces named for one), the shadows that follow their casters, and the old inference by touch
+// and trick cluster as explicit commands (ours). See level_editor_scenery.h.
 
 #include "editor/level_editor_scenery.h"
 #include <algorithm>
+#include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -12,6 +15,7 @@
 #include "editor/level_editor.h"
 #include "base/core/checksums.h"
 #include "editor/level_editor_picking.h"
+#include "editor/level_editor_props.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_shadows.h"
 #include "editor/level_editor_shared_coll.h"
@@ -23,6 +27,7 @@
 #include "engine/gfx/engine_geom.h"
 #include <gsl/pointers>
 #include "base/core/format.h"
+#include "base/core/checked_index.h"
 #include "editor/level_editor_scenery_internal.h"
 
 namespace frontend::level_editor {
@@ -40,43 +45,77 @@ using namespace internal;
 namespace frontend::level_editor {
 namespace {
 
-constexpr float kTouchMargin = 2.0F;     // pieces this close count as touching
+constexpr float kTouchMargin = 2.0F; // pieces this close count as touching
+constexpr size_t kMinStem = 3;       // a family's stem is at least this long ("Fire_Tender")
+constexpr int kMaxFamilyDepth = 8;   // a name chain longer than this is taken as broken
 
 } // namespace
 namespace scenery {
 namespace {
-namespace {
 
-// A sector of the clicked one's scene: its box, whether it is in the group, see-through, its low-and-flat share.
+// A sector of a scene placed as the ones looked at: its box (as loaded), whether it is in the group being made, and -
+// worked out when first asked - whether it is see-through and its low-and-flat share.
 struct GroupPiece {
-    uint32_t checksum;
-    V3 min, max;
-    bool in;
-    bool see_through_;
-    float level_share_; // (Picking::get_level_share: structure's low-and-flat rule)
+    uint32_t checksum{};
+    render::Geom* geom{};
+    V3 min{}, max{};
+    bool in{};
+    int see_through_ = -1;      // (-1: not asked yet)
+    float level_share_ = -1.0F; // (Picking::get_level_share: structure's low-and-flat rule; -1: not asked yet)
 };
 
-// The group being made: the clicked sector and its scene, the pieces, the group, whether the clicked one is a
-// structure.
+bool see_through(GroupPiece& piece)
+{
+    if (piece.see_through_ < 0) {
+        piece.see_through_ = geom_see_through(piece.geom) ? 1 : 0;
+    }
+    return piece.see_through_ == 1;
+}
+
+// (by size only: a camera nowhere near)
+constexpr V3 kNowhere = {.x = 1.0e9F, .y = 1.0e9F, .z = 1.0e9F};
+
+bool structure(GroupPiece& piece)
+{
+    if (piece.level_share_ < 0.0F) {
+        piece.level_share_ = geom_level_share(piece.checksum, piece.geom);
+    }
+    return picking::is_structure(piece.min, piece.max, kNowhere, piece.level_share_);
+}
+
+// A scene's shown pieces that can move, placed as `placement` (moved together - a group moved into something doesn't
+// take it in, and a piece moved away from its group no longer comes with it).
+std::vector<GroupPiece> pieces_placed(render::WorldScene* scene, const Placement& placement)
+{
+    std::vector<GroupPiece> pieces;
+    for_each_sector(scene, [&](uint32_t other, render::WorldCell* sector) {
+        render::Geom* geom = geom_of(sector);
+        V3 min{};
+        V3 max{};
+        if (!plain_geom(geom) || !render::device().geom_active(geom) || !geom_box(geom, &min, &max) ||
+            !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement)) {
+            return;
+        }
+        pieces.push_back({.checksum = other, .geom = geom, .min = min, .max = max});
+    });
+    return pieces;
+}
+
+// The group being made: its scene, the pieces placed as its members, the group, whether its members are structure.
 struct GroupBuild {
-    uint32_t checksum{};
     render::WorldScene* scene{};
     std::vector<GroupPiece> pieces;
     std::vector<uint32_t> group;
     bool clicked_structure_{};
 };
 
-// (by size only: a camera nowhere near)
-constexpr V3 kNowhere = {.x = 1.0e9F, .y = 1.0e9F, .z = 1.0e9F};
-
-// A piece taken into the group (not one in it or one that can't move; a structure only when the clicked one is one).
+// A piece taken into the group (not one in it or one that can't move; a structure only when the members are).
 bool take_piece(GroupBuild& build, GroupPiece& piece)
 {
     if (piece.in || why_not_movable(piece.checksum)) {
         return false;
     }
-    if (piece.checksum != build.checksum && !build.clicked_structure_ &&
-        picking::is_structure(piece.min, piece.max, kNowhere, piece.level_share_)) {
+    if (!build.clicked_structure_ && structure(piece)) {
         return false;
     }
     piece.in = true;
@@ -84,13 +123,12 @@ bool take_piece(GroupBuild& build, GroupPiece& piece)
     return true;
 }
 
-// A group's box.
+// The group's box.
 struct GroupBox {
     V3 min{};
     V3 max{};
 };
 
-// The group's box.
 GroupBox group_box(const GroupBuild& build)
 {
     V3 group_min = {};
@@ -108,11 +146,9 @@ GroupBox group_box(const GroupBuild& build)
 // The pieces that fit in the group's box and touch one of its pieces (each round's joiners).
 std::vector<uint32_t> touching_pieces(const GroupBuild& build, const GroupBox& box)
 {
-    const V3 group_min = box.min;
-    const V3 group_max = box.max;
     std::vector<uint32_t> joined;
     for (const GroupPiece& piece : build.pieces) {
-        if (piece.in || !piece_fits(piece.min, piece.max, group_min, group_max)) {
+        if (piece.in || !piece_fits(piece.min, piece.max, box.min, box.max)) {
             continue;
         }
         for (const GroupPiece& member : build.pieces) {
@@ -125,18 +161,11 @@ std::vector<uint32_t> touching_pieces(const GroupBuild& build, const GroupBox& b
     return joined;
 }
 
-// A free-standing group grows, three rounds at most, by what touches it inside its box (and those pieces'
-// clusters).
+// The group grown, three rounds at most, by what touches it inside its box (and those pieces' clusters) - Select
+// Touching (the editor's click once did this by itself).
 void grow_group(GroupBuild& build, const GroupBox& box)
 {
-    const V3 group_min = box.min;
-    const V3 group_max = box.max;
-    // (only a free-standing thing grows: not a floor, a wall or a whole building - what stands on or against those isn't
-    // part of them)
-    const V3 group_size = group_max - group_min;
-    const bool grows = std::min({group_size.x, group_size.y, group_size.z}) >= 20.0F &&
-                       std::max({group_size.x, group_size.y, group_size.z}) <= 1500.0F;
-    for (int round = 0; grows && round < 3; ++round) {
+    for (int round = 0; round < 3; ++round) {
         const std::vector<uint32_t> joined = touching_pieces(build, box);
         if (joined.empty()) {
             break;
@@ -146,7 +175,7 @@ void grow_group(GroupBuild& build, const GroupBox& box)
             for (GroupPiece& piece : build.pieces) {
                 if (piece.checksum == joining ||
                     ((joining_cluster != 0U) && cluster_of(piece.checksum) == joining_cluster &&
-                     piece_fits(piece.min, piece.max, group_min, group_max))) {
+                     piece_fits(piece.min, piece.max, box.min, box.max))) {
                     if (take_piece(build, piece) && debug_enabled()) {
                         get_log("level editor:   joins: %s (%.0f x %.0f x %.0f)", caption(piece.checksum).c_str(),
                                 piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
@@ -190,12 +219,11 @@ ShadowCaster caster_by_name(const GroupBuild& build, const GroupPiece& piece, ui
 
 // By place: under one of the group's pieces - not a shadow taken here - and nearer to it than to anything else
 // standing there.
-ShadowCaster caster_by_place(const GroupBuild& build, const GroupPiece& piece)
+ShadowCaster caster_by_place(GroupBuild& build, const GroupPiece& piece)
 {
     std::vector<std::pair<V3, V3>> others;
-    for (const GroupPiece& other : build.pieces) {
-        if (!other.in && !other.see_through_ && shadows::stands_by(other.min, piece.max) &&
-            !picking::is_structure(other.min, other.max, kNowhere, other.level_share_)) {
+    for (GroupPiece& other : build.pieces) {
+        if (!other.in && shadows::stands_by(other.min, piece.max) && !see_through(other) && !structure(other)) {
             others.emplace_back(other.min, other.max);
         }
     }
@@ -214,7 +242,7 @@ ShadowCaster caster_by_place(const GroupBuild& build, const GroupPiece& piece)
 }
 
 // Its shadows (level_editor_shadows.h): by name, then - for shadow-named pieces nobody owns by name - by place, under
-// one of its pieces. Not by place for a floor or wall clicked by itself.
+// one of its pieces. Not by place for a floor or wall by itself.
 void add_shadows(GroupBuild& build)
 {
     for (GroupPiece& piece : build.pieces) {
@@ -237,7 +265,7 @@ void add_shadows(GroupBuild& build)
         ShadowCaster found;
         if (owner != 0U) {
             found = caster_by_name(build, piece, owner);
-        } else if (!build.clicked_structure_ && piece.see_through_) {
+        } else if (!build.clicked_structure_ && see_through(piece)) {
             found = caster_by_place(build, piece);
         }
         const uint32_t caster = found.caster;
@@ -256,61 +284,292 @@ void add_shadows(GroupBuild& build)
     }
 }
 
-} // namespace
+// Each set of `sectors` that share a scene and a placement made into a build (its pieces those placed so, the sectors
+// in it) and handed to `fn`; what each build's group became, in order, each once.
+template <typename F>
+std::vector<uint32_t> by_placement(const std::vector<uint32_t>& sectors, F fn)
+{
+    std::vector<uint32_t> out;
+    std::vector<uint8_t> done(sectors.size(), 0);
+    for (size_t i = 0; i < sectors.size(); ++i) {
+        if (core::at(done, i) != 0U) {
+            continue;
+        }
+        render::WorldScene* scene = nullptr;
+        render::WorldCell* first = find_sector(core::at(sectors, i), &scene);
+        if (!first || !plain_geom(geom_of(first))) {
+            continue;
+        }
+        const Placement placement = placement_of(core::at(sectors, i), geom_of(first));
+        GroupBuild build{.scene = scene, .pieces = pieces_placed(scene, placement)};
+        bool all_structure = true;
+        for (size_t j = i; j < sectors.size(); ++j) {
+            if (core::at(done, j) != 0U) {
+                continue;
+            }
+            for (GroupPiece& piece : build.pieces) {
+                if (piece.checksum == core::at(sectors, j) && !piece.in) {
+                    core::at(done, j) = 1;
+                    piece.in = true;
+                    build.group.push_back(piece.checksum);
+                    all_structure = all_structure && structure(piece);
+                }
+            }
+        }
+        build.clicked_structure_ = all_structure && !build.group.empty();
+        fn(build);
+        for (const uint32_t member : build.group) {
+            if (std::ranges::find(out, member) == out.end()) {
+                out.push_back(member);
+            }
+        }
+    }
+    return out;
+}
+
+// The pieces placed as `checksum` is, and copies or not as it is: what a unit beyond one piece is made of. `at` its
+// index in them (-1: it isn't one - hidden, or too big to move).
+struct Kin {
+    std::vector<GroupPiece> pieces;
+    int at = -1;
+};
+
+Kin kin_of(uint32_t checksum)
+{
+    Kin kin;
+    render::WorldScene* scene = nullptr;
+    render::WorldCell* sector = find_sector(checksum, &scene);
+    if (!sector || !plain_geom(geom_of(sector))) {
+        return kin;
+    }
+    const bool copy = is_clone(checksum);
+    for (const GroupPiece& piece : pieces_placed(scene, placement_of(checksum, geom_of(sector)))) {
+        if (is_clone(piece.checksum) == copy) {
+            if (piece.checksum == checksum) {
+                kin.at = static_cast<int>(kin.pieces.size());
+            }
+            kin.pieces.push_back(piece);
+        }
+    }
+    return kin;
+}
+
+// A prop pack's placement among `pieces` (as kin_of gathers them): the pieces cut from the same pack as piece `at`.
+std::vector<uint32_t> pack_members(const std::vector<GroupPiece>& pieces, int at, std::string* name)
+{
+    props::PackOf pack;
+    if (at < 0 || !props::pack_of(source_of(core::at(pieces, at).checksum), &pack)) {
+        return {};
+    }
+    std::vector<uint32_t> members;
+    for (const GroupPiece& piece : pieces) {
+        props::PackOf other;
+        if (props::pack_of(source_of(piece.checksum), &other) && other.id == pack.id) {
+            members.push_back(piece.checksum);
+        }
+    }
+    *name = pack.piece;
+    return members;
+}
+
+// Name families among `pieces` (as kin_of gathers them): a piece is part of another when its name is the other's, an
+// underscore and more that starts with a letter (Fire_Tender_Ladder of Fire_Tender; Bench_02 isn't of Bench - a number
+// is another of the same, not a part), the other's name is at least kMinStem long, neither is structure (a floor, a
+// wall), and their boxes touch (kTouchMargin: attached, not just named alike). The longest such name is its parent;
+// a family is a root and everything whose chain of parents leads to it. Shadow-named pieces take no part.
+class Families {
+public:
+    explicit Families(std::vector<GroupPiece>& pieces) : pieces_(&pieces), parent_(pieces.size(), -2)
+    {
+        names_.reserve(pieces.size());
+        for (size_t i = 0; i < pieces.size(); ++i) {
+            const char* name = get_name_of(source_of(core::at(pieces, i).checksum));
+            // (a shadow is never a family's: it follows its caster by the shadows' own rules - add_shadows)
+            std::string lower = (name != nullptr) && !shadows::shadow_name(name) ? name : "";
+            std::ranges::transform(lower, lower.begin(), [](char letter) { return static_cast<char>(std::tolower(static_cast<unsigned char>(letter))); });
+            if (!lower.empty()) {
+                by_name_[lower].push_back(static_cast<int>(i));
+            }
+            names_.push_back(std::move(lower));
+        }
+    }
+
+    int root_of(int index)
+    {
+        int at = index;
+        for (int depth = 0; depth < kMaxFamilyDepth; ++depth) {
+            const int up = parent_of(at);
+            if (up < 0) {
+                break;
+            }
+            at = up;
+        }
+        return at;
+    }
+
+    // The family of piece `index` (empty: it has none - alone).
+    std::vector<uint32_t> family_of(int index, std::string* name)
+    {
+        const int root = root_of(index);
+        const std::string& stem = core::at(names_, root);
+        std::vector<uint32_t> members;
+        for (size_t i = 0; i < pieces_->size(); ++i) {
+            if (std::cmp_equal(i, root) ||
+                (core::at(names_, i).size() > stem.size() && core::at(names_, i).starts_with(stem) && root_of(static_cast<int>(i)) == root)) {
+                members.push_back(core::at(*pieces_, i).checksum);
+            }
+        }
+        if (members.size() < 2) {
+            return {};
+        }
+        *name = caption(source_of(core::at(*pieces_, root).checksum));
+        return members;
+    }
+
+private:
+    int parent_of(int index)
+    {
+        int& cached = core::at(parent_, index);
+        if (cached != -2) {
+            return cached;
+        }
+        cached = -1;
+        GroupPiece& piece = core::at(*pieces_, index);
+        const std::string& name = core::at(names_, index);
+        for (size_t cut = name.rfind('_'); cut != std::string::npos && cut >= kMinStem; cut = name.rfind('_', cut - 1)) {
+            const unsigned char next = cut + 1 < name.size() ? static_cast<unsigned char>(core::at(name, cut + 1)) : 0;
+            const auto found = by_name_.find(name.substr(0, cut));
+            if (std::isalpha(next) == 0 || found == by_name_.end()) {
+                continue;
+            }
+            for (const int other : found->second) {
+                GroupPiece& candidate = core::at(*pieces_, other);
+                if (other != index &&
+                    piece_touches(piece.min, piece.max, candidate.min, candidate.max, kTouchMargin) &&
+                    !structure(piece) && !structure(candidate)) {
+                    cached = other;
+                    return cached;
+                }
+            }
+        }
+        return cached;
+    }
+
+    std::vector<GroupPiece>* pieces_; // (the caller's: it outlives this)
+    std::vector<std::string> names_;
+    std::unordered_map<std::string, std::vector<int>> by_name_;
+    std::vector<int> parent_; // (-2: not worked out yet; -1: none)
+};
+
 } // namespace
 namespace internal {
 
-// The group a click on a sector selects: the sector, the rest of its cluster, and the movable pieces built onto them
-// (piece_fits / piece_touches, three rounds - each with its cluster). Decided on the level's own layout (the boxes as
-// loaded) and only among pieces the editor has moved together (the same placement): a group moved into something
-// doesn't take it in, and a piece moved away from its group no longer brings the group along. Hidden pieces aren't
-// taken, nor structure (Picking::is_structure by size - a floor, a wall) unless the clicked piece is structure itself:
-// a level's own clusters can join a small piece to the floor it lies on (TR's SkWare_Main_12, 360 x 60 x 924, and the
-// 3000 x 99 x 2431 floor SkWare_Main_9), and a click on the small piece mustn't take the floor. Then the group's shadows
-// (level_editor_shadows.h).
-std::vector<uint32_t> group_of(uint32_t checksum)
+std::vector<uint32_t> with_shadows(const std::vector<uint32_t>& sectors)
 {
-    GroupBuild build{.checksum = checksum};
-    const std::vector<uint32_t>& group = build.group;
-    render::WorldCell* clicked = find_sector(checksum, &build.scene);
-    if (why_not_movable(checksum) || !clicked) {
-        return group;
-    }
-    Placement placement = placement_of(checksum, geom_of(clicked));
-    std::vector<GroupPiece>& pieces =
-        build.pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
-    for_each_sector(build.scene, [&](uint32_t other, render::WorldCell* sector) {
-        render::Geom* geom = geom_of(sector);
-        V3 min{};
-        V3 max{};
-        if (!plain_geom(geom) || !render::device().geom_active(geom) || !geom_box(geom, &min, &max) ||
-            !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement)) {
-            return;
-        }
-        pieces.push_back({.checksum = other,
-                          .min = min,
-                          .max = max,
-                          .in = false,
-                          .see_through_ = geom_see_through(geom),
-                          .level_share_ = geom_level_share(other, geom)});
+    return by_placement(sectors, [](GroupBuild& build) { add_shadows(build); });
+}
+
+std::vector<uint32_t> touching_of(const std::vector<uint32_t>& sectors)
+{
+    return by_placement(sectors, [](GroupBuild& build) {
+        // (structure takes structure: a wall's own trim; a small piece never takes the floor it lies on)
+        build.clicked_structure_ = std::ranges::any_of(build.pieces, [](GroupPiece& piece) { return piece.in && structure(piece); });
+        grow_group(build, group_box(build));
+        add_shadows(build);
     });
-    for (const GroupPiece& piece : pieces) {
-        if (piece.checksum == checksum) {
-            build.clicked_structure_ = picking::is_structure(piece.min, piece.max, kNowhere, piece.level_share_);
+}
+
+std::vector<uint32_t> cluster_members_of(const std::vector<uint32_t>& sectors)
+{
+    return by_placement(sectors, [](GroupBuild& build) {
+        std::vector<uint32_t> clusters;
+        for (const uint32_t member : build.group) {
+            if (const uint32_t cluster = cluster_of(member)) {
+                clusters.push_back(cluster);
+            }
         }
-    }
-    const uint32_t cluster = cluster_of(checksum);
-    for (GroupPiece& piece : pieces) {
-        if (piece.checksum == checksum || ((cluster != 0U) && cluster_of(piece.checksum) == cluster)) {
-            take_piece(build, piece);
+        for (GroupPiece& piece : build.pieces) {
+            const uint32_t cluster = cluster_of(piece.checksum);
+            if ((cluster != 0U) && std::ranges::find(clusters, cluster) != clusters.end()) {
+                take_piece(build, piece);
+            }
         }
+        add_shadows(build);
+    });
+}
+
+std::vector<uint32_t> pack_unit(uint32_t checksum, std::string* name)
+{
+    const Kin kin = kin_of(checksum);
+    return pack_members(kin.pieces, kin.at, name);
+}
+
+std::vector<uint32_t> family_unit(uint32_t checksum, std::string* name)
+{
+    Kin kin = kin_of(checksum);
+    if (kin.at < 0) {
+        return {};
     }
-    if (group.empty()) {
-        return group;
-    }
-    grow_group(build, group_box(build));
-    add_shadows(build);
-    return std::move(build.group);
+    Families families(kin.pieces);
+    return families.family_of(kin.at, name);
+}
+
+std::vector<AutoGroup> find_auto_groups()
+{
+    std::vector<AutoGroup> found;
+    for_each_scene([&](render::WorldScene* scene) {
+        // (the scene's pieces by placement and copy - the kin of each)
+        struct Bucket {
+            Placement placement;
+            bool copy{};
+            std::vector<GroupPiece> pieces;
+        };
+        std::vector<Bucket> buckets;
+        for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
+            render::Geom* geom = geom_of(sector);
+            V3 min{};
+            V3 max{};
+            if (!plain_geom(geom) || !render::device().geom_active(geom) || !geom_box(geom, &min, &max) ||
+                !sector_size_movable(min, max, kMaxSectorExtent)) {
+                return;
+            }
+            const Placement placement = placement_of(checksum, geom);
+            const bool copy = is_clone(checksum);
+            auto bucket = std::ranges::find_if(buckets, [&](const Bucket& each) {
+                return each.copy == copy && same_placement(each.placement, placement);
+            });
+            if (bucket == buckets.end()) {
+                buckets.push_back({.placement = placement, .copy = copy, .pieces = {}});
+                bucket = buckets.end() - 1;
+            }
+            bucket->pieces.push_back({.checksum = checksum, .geom = geom, .min = min, .max = max});
+        });
+        for (Bucket& bucket : buckets) {
+            std::vector<uint8_t> covered(bucket.pieces.size(), 0);
+            Families families(bucket.pieces);
+            for (size_t i = 0; i < bucket.pieces.size(); ++i) {
+                if (core::at(covered, i) != 0U) {
+                    continue;
+                }
+                AutoGroup group;
+                group.sectors = pack_members(bucket.pieces, static_cast<int>(i), &group.name);
+                group.pack = !group.sectors.empty();
+                if (group.sectors.empty() && families.root_of(static_cast<int>(i)) == static_cast<int>(i)) {
+                    group.sectors = families.family_of(static_cast<int>(i), &group.name); // (from its root, once)
+                }
+                if (group.sectors.size() < 2) {
+                    continue;
+                }
+                for (size_t j = 0; j < bucket.pieces.size(); ++j) {
+                    if (std::ranges::find(group.sectors, core::at(bucket.pieces, j).checksum) != group.sectors.end()) {
+                        core::at(covered, j) = 1;
+                    }
+                }
+                found.push_back(std::move(group));
+            }
+        }
+    });
+    return found;
 }
 
 } // namespace internal

@@ -674,6 +674,7 @@ void prepare_all()
     ux9::prepare_all(); // (UX9: its actions and the ground pieces' layout records - level_editor_ux9.h)
     content::prepare_all(); // (the Content Browser's keys, the prop packs' layout records - level_editor_content.h)
     rotate_tool::prepare_all(); // (Home, Revert, V, Alt+R and the rotation hints - level_editor_rotate.h)
+    scenery::prepare_units(); // (Select Touching / Cluster, Ungroup, Pick Groups / Pieces - level_editor_scenery.h)
     split_view::prepare_all(); // (Maximise View, the layouts - level_editor_split.h)
 }
 

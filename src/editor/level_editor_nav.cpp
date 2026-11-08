@@ -230,6 +230,16 @@ float get_stick(StickRead stick)
 
 std::string quick_set_name(int number) { return "Set " + std::to_string(number); }
 
+bool is_quick_set(const std::string& name)
+{
+    for (int number = 1; number <= kQuickSets; ++number) {
+        if (name == quick_set_name(number)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int find_group(const organize::State& state, const std::string& name)
 {
     for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {

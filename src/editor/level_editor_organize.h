@@ -15,12 +15,14 @@
 //     level_editor_view.h's Hide, a node's gizmo here; never saved, as H); the lock - locked against changes (moving,
 //     turning, scaling, dropping, deleting, Home: refused while it's selected); selectable - an object or scenery is
 //     "locked" as level_editor_picking.h's L lock (clicks pass it), a node's gizmo isn't picked.
-//   - User groups: a named group of the selection (Ctrl+G), selected by a click on it in the Outliner; labels: an
-//     editor-only name shown beside a row's name (right-click Rename label).
+//   - User groups: a named group of the selection (Ctrl+G; Ctrl+Shift+G ungroups), selected by a click on it in the
+//     Outliner or on one of its scenery pieces in the view (level_editor_scenery.h: a click takes the group, again the
+//     piece); labels: an editor-only name shown beside a row's name (right-click Rename label).
 //   - Type filters in the Outliner's search: "rail:", "spawn:", "object:"... (any family, singular or plural), "group:"
 //     <name>, "label:" (rows with a label), "locked:", "hidden:"; then words as before.
 //   - Box select (a drag from empty space, or Ctrl+B and any drag): what's inside the box (dragged to the right) or what
-//     it crosses (dragged to the left) - objects with a model, else scenery pieces; Shift adds, Ctrl removes.
+//     it crosses (dragged to the left) - objects with a model, else scenery as the pick mode takes it (Groups: the units
+//     inside / crossed, Pieces: the pieces - level_editor_scenery.h's box_units); Shift adds, Ctrl removes.
 //   - Select similar (Shift+G): same mesh (objects: model file; scenery: a copy of the same piece or the same size),
 //     same class, same node family, same type; Select all of this family; Invert; Select all.
 //   - Layout snapshots: named versions of the edited copy's layout, thug2-decomp-layouts\<scene>.<name>.txt; switching
@@ -139,6 +141,9 @@ void select_group(int index);
 void delete_group(int index);
 void rename_group(int index, const std::string& wanted);
 void add_to_group(int index); // the selection added
+// Ungroup (Ctrl+Shift+G): every group the selection is in taken away (its members stay as they are; the quick sets
+// "Set 1".."Set 9" kept) - one undo step.
+void ungroup_selection();
 bool in_group(const std::string& group, const nodes::Elem& node);
 
 // Box select (the editor's click handling): armed (Ctrl+B: the next press starts one anywhere); a press where nothing is

@@ -187,6 +187,30 @@ float geom_level_share(uint32_t checksum, render::Geom* geom)
     return share;
 }
 
+// Whether a geometry's drawn triangles (its meshes' first index buffers as strips, as ray_meshes reads them - where the
+// sector is now; billboards left out) come within `reach` of `point`.
+bool geom_near(render::Geom* geom, V3 point, float reach)
+{
+    const GeomMeshes meshes = meshes_of(geom);
+    for (uint32_t i = 0; i < meshes.count && i < kMeshScanLimit; ++i) {
+        const render::MeshData* mesh = meshes.at(i);
+        if (!mesh || mesh->billboard() || ((mesh->flags() & kMeshHiddenFlag) != 0U)) {
+            continue;
+        }
+        const render::VertexBufferData* vertices =
+            (mesh->vertex_buffer_count() != 0U) ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        const render::IndexBufferData* indices = core::at(mesh->index_buffers(), 0);
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
+            continue;
+        }
+        if (picking::strip_near(point, reach, vertices->data(), mesh->stride(), mesh->vertex_count(),
+                                indices->indices(), core::at(mesh->index_counts(), 0))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace internal
 
 bool get_see_through(uint32_t checksum)
@@ -452,15 +476,6 @@ void keep_only(uint32_t checksum)
 {
     scenery_rails().dropped_rails_.clear();
     set_selection({checksum});
-}
-
-const std::vector<uint32_t>& hover_group(uint32_t checksum)
-{
-    if (checksum != scenery_hover().hover_group_of_) {
-        scenery_hover().hover_group_of_ = checksum;
-        scenery_hover().hover_group_ = (checksum != 0U) ? group_of(checksum) : std::vector<uint32_t>{};
-    }
-    return scenery_hover().hover_group_;
 }
 
 } // namespace scenery

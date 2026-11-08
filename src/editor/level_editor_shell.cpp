@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -28,6 +29,7 @@
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefabs.h"
 #include "editor/level_editor_prefs.h"
+#include "editor/level_editor_scenery.h"
 #include "editor/level_editor_split.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
@@ -51,6 +53,8 @@ namespace frontend::level_editor::shell {
 
 namespace {
 
+constexpr std::size_t kHexChecksumDigits = 8; // (`fe editor units 99e6f8e2`: a sector as its checksum)
+constexpr int kHexBase = 16;
 constexpr int kFrontEndSettleFrames = 60;   // (the main menu up this long before a level may load - as -level waits)
 constexpr int kLeaveSettleFrames = 10;      // (the pause menu up after the editor closed, before the level changes)
 constexpr int kLeaveMostFrames = 600;       // (the editor didn't close: given up)
@@ -1043,6 +1047,16 @@ bool live_answer(const std::vector<std::string>& words, std::string* result)
     } else if (verb == "prefab") {
         // (prefabs - level_editor_prefabs.h: list, create <name> [sectors= objects= nodes=], place <name> [x,y,z])
         *result = prefabs::automation(rest);
+    } else if (verb == "units" && words.size() > 2) {
+        // (what a click on a sector selects - its units, rails, the old inference: level_editor_scenery.h; the sector by
+        // its name or as 8 hex digits)
+        const std::string& which = words.at(2);
+        const bool hex = which.size() == kHexChecksumDigits &&
+                         std::ranges::all_of(which, [](char letter) { return std::isxdigit(static_cast<unsigned char>(letter)) != 0; });
+        const uint32_t sector = hex ? static_cast<uint32_t>(std::strtoul(which.c_str(), nullptr, kHexBase))
+                                    : checksums::hash_from_text(which.c_str());
+        *result = "ok " + scenery::describe_units(sector);
+        get_log("level editor: units of %s - %s", which.c_str(), result->c_str());
     } else if (verb == "save") {
         *result = save_command();
     } else {

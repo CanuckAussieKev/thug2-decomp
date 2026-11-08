@@ -177,6 +177,11 @@ struct StripLimit {
 // `vertexCount` of them (indices past it skipped). The nearest hit below `max_t`.
 bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
                const uint16_t* indices, StripLimit strip_limit, float* hit_distance);
+// The squared distance from `point` to a triangle (its nearest point: inside, on an edge or a corner).
+float triangle_distance_sq(V3 point, V3 a, V3 b, V3 corner_c);
+// Whether any triangle of an indexed strip (read as ray_strip reads it) comes within `reach` of `point`.
+bool strip_near(V3 point, float reach, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
+                const uint16_t* indices, uint32_t index_count);
 
 // Locks: by kind (kObjects: an object's id; kScenery: a sector's checksum).
 struct Lock {

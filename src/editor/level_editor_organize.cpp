@@ -27,6 +27,7 @@
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"
+#include "editor/level_editor_nav.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"
@@ -985,6 +986,36 @@ void add_to_group(int index)
     get_change(next, "Add to group");
 }
 
+void ungroup_selection()
+{
+    const SelectionIds selection_ids = current_selection();
+    auto selected = [&](const Member& member) {
+        if (member.kind == 'o') {
+            return get_has(selection_ids.objects, member.id);
+        }
+        if (member.kind == 's') {
+            return get_has(selection_ids.sectors, member.id);
+        }
+        return member.kind == 'n' && member.id == selection_ids.node && member.id != 0U;
+    };
+    State next = level_editor_organize_state().state_;
+    std::vector<std::string> names;
+    std::erase_if(next.groups, [&](const GroupSet& group_set) {
+        if (nav::is_quick_set(group_set.name) || std::ranges::none_of(group_set.members, selected)) {
+            return false;
+        }
+        names.push_back(group_set.name);
+        return true;
+    });
+    if (names.empty()) {
+        show_message("The selection isn't in a group");
+        return;
+    }
+    get_change(next, "Ungroup");
+    show_message(names.size() == 1 ? "Ungrouped \"" + names.front() + "\""
+                                   : "Ungrouped " + std::to_string(names.size()) + " groups");
+}
+
 bool in_group(const std::string& group, const nodes::Elem& node)
 {
     for (const GroupSet& group_set : level_editor_organize_state().state_.groups) {
@@ -1054,6 +1085,9 @@ void apply_box()
                 sectors.push_back(checksum);
             }
         }
+    }
+    if (!sectors.empty()) {
+        sectors = scenery::box_units(sectors, crossing); // (as a click takes them: the units, or the pieces)
     }
     const SelectionIds now = current_selection();
     SelectionIds next;

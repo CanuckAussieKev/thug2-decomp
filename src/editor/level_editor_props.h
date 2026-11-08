@@ -76,6 +76,13 @@ bool load(const std::string& id, std::string* message);
 bool place(const std::string& id, V3 at, std::string* message);
 // The packs loaded in this level.
 const std::vector<std::string>& loaded_packs();
+// The loaded pack a sector is one of (its own sectors - a copy's source, not the copy): its id and the piece it was
+// cut from ("Fire_Tender (LA)"). False: none.
+struct PackOf {
+    std::string id;
+    std::string piece;
+};
+bool pack_of(uint32_t sector, PackOf* pack);
 // The drag's preview (level_editor_ghost.h): the pack's sectors drawn where place(id, at) would put them - its own
 // sectors or copies of them, as place decides. False: not loaded.
 bool ghost_parts(const std::string& id, V3 at, std::vector<ghost::Part>* parts);

@@ -14,7 +14,7 @@
 // A prefab is any mix of the level's parts kept together in a file of its own: scenery pieces (the level's own or
 // prop packs' - level_editor_props.h), objects, and nodes - rails (the level's or drawn), ladders, paths, triggers (the
 // presets: boosters, teleports and their exits, gaps), spawns, crowns, lights, sounds, proximity nodes.
-//   - Made from the selection (Edit > Create Prefab, Ctrl+Shift+G; the Outliner's right-click; the Content Browser's
+//   - Made from the selection (Edit > Create Prefab, Ctrl+Alt+G; the Outliner's right-click; the Content Browser's
 //     Prefabs folder) or from one of the Outliner's groups (its right-click, or the group dragged onto the Content
 //     Browser): the parts chosen and what comes with them - the rail and ladder points over the chosen pieces, the
 //     editor's own nodes and triggers within the parts' box, a teleport's exit, a gap's other end, a rail's whole chain.
