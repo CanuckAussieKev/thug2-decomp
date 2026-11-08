@@ -19,6 +19,8 @@ add_library(thug2_platform STATIC
     sdl_events.cpp
     sdl_window.cpp
     app_window.cpp
+    child_process.cpp
+    folder_dialog.cpp
 )
 target_include_directories(thug2_platform PRIVATE "${stb_SOURCE_DIR}")
 # sdl3: the window and its events; ole32: the audio session (mute_audio); d3d9, winmm: crt.h's imports;

@@ -32,11 +32,13 @@ add_executable(thug2 WIN32
     no_editor.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp ENABLE_EXPORTS ON)
-# Every layer, highest first (the libraries bring the system and third-party libraries they need).
+# Every layer, highest first (the libraries bring the system and third-party libraries they need). The platform layer
+# whole: some of what it exports is for the plugin alone (platform/child_process.h, folder_dialog.h - the level
+# editor's Import Level), which the exe itself never calls, and a static library's unreferenced objects aren't linked.
 target_link_libraries(thug2 PRIVATE thug2_app thug2_frontend thug2_devtools thug2_game thug2_render_pc thug2_gpu_d3d9
                                     thug2_audio_dsound thug2_media_ffmpeg thug2_input_dinput thug2_fs_win32 thug2_net_winsock
                                     thug2_script_qb thug2_engine
-                                    thug2_wire thug2_formats thug2_platform thug2_base)
+                                    thug2_wire thug2_formats $<LINK_LIBRARY:WHOLE_ARCHIVE,thug2_platform> thug2_base)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL3.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD

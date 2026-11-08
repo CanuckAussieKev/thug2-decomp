@@ -66,6 +66,18 @@ test("deploy_build.ps1: a 64-bit build in place of a 32-bit one, under the lock;
         fs.mkdirSync(path.join(x64, "plugins"));
         fs.writeFileSync(path.join(x64, plugin), peFile(X64, "x64-build"));
         fs.writeFileSync(path.join(x64, launcher), peFile(X64, "x64-build"));
+        // (the editor's tools folder: an older one in the game folder, a new one made already - stand-ins with their
+        // bundle.json)
+        const toolsFolder = (at: string, key: string): void => {
+            fs.mkdirSync(path.join(at, "pipeline"), { recursive: true });
+            fs.writeFileSync(path.join(at, "bundle.json"), `{"key":"${key}"}\n`);
+            fs.writeFileSync(path.join(at, "pipeline", "run.ts"), key);
+        };
+        toolsFolder(path.join(game, "editor-tools"), "old");
+        const tools = path.join(root, "editor-tools");
+        toolsFolder(tools, "new");
+        const toolsText = (): string =>
+            fs.readFileSync(path.join(game, "editor-tools", "pipeline", "run.ts"), "latin1");
 
         // no lock: refused
         const noLock = powershell("deploy_build.ps1", ["-Game", game, "-Arch", "x64", "-BuildDir", x64]);
@@ -81,12 +93,16 @@ test("deploy_build.ps1: a 64-bit build in place of a 32-bit one, under the lock;
         assert.match(text(path.join(game, "thug2-decomp.exe")), /x86-original/);
 
         // the 64-bit build goes in: its exe and DLLs, the FFmpeg ones missing from the build warned about
-        const done = powershell("deploy_build.ps1", ["-Game", game, "-Arch", "x64", "-BuildDir", x64]);
+        const deploy = ["-Game", game, "-Arch", "x64", "-BuildDir", x64, "-EditorTools", tools];
+        const done = powershell("deploy_build.ps1", deploy);
         assert.equal(done.code, 0, done.out);
         assert.match(done.out, /DEPLOYED the x64 build/);
         assert.match(done.out, /FFmpeg's DLLs missing/);
         for (const f of ["thug2-decomp.exe", ...DLLS, plugin, launcher])
             assert.match(text(path.join(game, f)), /x64-build/, f);
+        // (the tools folder replaced whole; the same again isn't copied)
+        assert.equal(toolsText(), "new");
+        assert.match(powershell("deploy_build.ps1", deploy).out, /editor-tools\\ up to date/);
 
         // run_game.ps1 -Arch x86 refuses the 64-bit exe before it starts anything
         const refused = powershell("run_game.ps1", ["-Game", game, "-Arch", "x86", "-Seconds", "1"]);
@@ -102,6 +118,8 @@ test("deploy_build.ps1: a 64-bit build in place of a 32-bit one, under the lock;
         // (the plugin and the launcher it didn't have removed, with the plugins folder it left empty)
         assert.equal(fs.existsSync(path.join(game, "plugins")), false);
         assert.equal(fs.existsSync(path.join(game, launcher)), false);
+        // (the tools folder as it was)
+        assert.equal(toolsText(), "old");
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }

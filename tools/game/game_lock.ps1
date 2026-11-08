@@ -10,7 +10,8 @@ param(
 #   acquire: waits up to -WaitMinutes for the lock (prints BUSY and exits 1 if still held - do other work, try again);
 #            on success backs up the deployed thug2-decomp.exe (with its PDB, the level editor plugin in plugins, d3dx9_43.dll, SDL3.dll,
 #            FFmpeg's DLLs, the C runtime's, gamecontrollerdb.txt; dinput8.dll - those that are there: game_exe.ps1's $DeployedFiles, a
-#            32-bit and a 64-bit build alike - deploy_build.ps1 puts one in INSTEAD of the other) and
+#            32-bit and a 64-bit build alike - deploy_build.ps1 puts one in INSTEAD of the other), the level editor's tools
+#            folder (editor-tools\, whole: $DeployedFolders) and
 #            thug2-decomp.ini into the lock folder; in a workspace
 #            then sets [features] mute_audio=1 (its games always run muted: Set-WorkspaceMuted, game_exe.ps1).
 #   release: in a workspace, first closes a game still running from that folder (the holder's: crashed, stuck on a
@@ -47,6 +48,15 @@ switch ($Action) {
                     if (Test-Path (Join-Path $game $f)) { Copy-Item (Join-Path $game $f) (Join-Path $lock (Get-BackupName $f)); $had += $f }
                 }
                 Set-Content -Path (Join-Path $lock 'deployed.txt') -Value ($had -join "`r`n") -Encoding ascii
+                # (the deployed folders - editor-tools\ - copied whole)
+                $hadFolders = @()
+                foreach ($d in $DeployedFolders) {
+                    if (Test-Path -LiteralPath (Join-Path $game $d) -PathType Container) {
+                        Copy-Item -LiteralPath (Join-Path $game $d) -Destination (Join-Path $lock "$d.backup") -Recurse
+                        $hadFolders += $d
+                    }
+                }
+                Set-Content -Path (Join-Path $lock 'deployed_folders.txt') -Value ($hadFolders -join "`r`n") -Encoding ascii
                 Copy-Item (Join-Path $game 'thug2-decomp.ini') (Join-Path $lock 'thug2-decomp.ini.backup')
                 # (a workspace's games always run muted - the user is at the machine; release puts the ini back)
                 Set-WorkspaceMuted $game
@@ -103,6 +113,18 @@ switch ($Action) {
             }
             if (-not $done) { $failed += $f }
         }
+        # The deployed folders: the one there removed, the backup (when it had one) moved back.
+        $hadFolders = @(Get-Content (Join-Path $lock 'deployed_folders.txt') -ErrorAction SilentlyContinue | Where-Object { $_ })
+        foreach ($d in $DeployedFolders) {
+            $path = Join-Path $game $d
+            $backup = Join-Path $lock "$d.backup"
+            try {
+                if ((Test-Path -LiteralPath $path) -and (($d -notin $hadFolders) -or (Test-Path -LiteralPath $backup))) {
+                    Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+                }
+                if (($d -in $hadFolders) -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $path -ErrorAction Stop }
+            } catch { $failed += "$d\" }
+        }
         if ($failed.Count) {
             "NOT RELEASED - $($failed -join ', ') couldn't be put back (in use?); the lock and its backups are kept: release again"
             exit 1
@@ -114,7 +136,7 @@ switch ($Action) {
         }
         Copy-Item (Join-Path $lock 'thug2-decomp.ini.backup') (Join-Path $game 'thug2-decomp.ini') -Force
         Remove-Item $lock -Recurse -Force
-        "RELEASED ($($DeployedFiles -join ', ') and ini as they were)"
+        "RELEASED ($(@($DeployedFiles + @($DeployedFolders | ForEach-Object { "$_\" })) -join ', ') and ini as they were)"
         exit 0
     }
 }
