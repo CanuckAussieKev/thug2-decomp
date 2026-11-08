@@ -18,7 +18,7 @@ struct Painter;
 //     one plane only when the face has no other; the edge under the cursor drawn highlighted). A click picks that edge
 //     alone, Shift+click adds one, a click on a picked edge drops it; Enter (or Create Rail) makes the rails, Esc stops.
 //     Picked edges that share ends become one rail in order (walked from one end through the edges both ways; a run
-//     whose ends meet is a loop - the last point linked back to the first), its points kRailLift above the edge, its
+//     whose ends meet is a loop - the last point linked back to the first), its points on the edge (kRailLift), its
 //     terrain the grind terrain matching the faces' (grind_terrain_for), a trick object of the scenery piece's cluster
 //     when the faces' piece is one (level_editor_clusters.h), else of its own (as a drawn rail). One undo step.
 //   - Snapping rail ends: a rail's free end (no next, or no previous) dragged within kEndSnapReach of another rail's
@@ -35,8 +35,9 @@ namespace frontend::level_editor::rail_tools {
 
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
-// How far above its edge a rail point sits (the level's own rails: about this over the edge they run along).
-constexpr float kRailLift = 1.0F;
+// How far above its edge a rail point sits: on it, as the levels' own rails sit (their points over the nearest
+// collision edge, measured in four stock levels' nodes and collision: a median of 0.0 - 0.1 units).
+constexpr float kRailLift = 0.0F;
 // Edge ends this close are one point.
 constexpr float kWeld = 0.5F;
 // A dragged rail end snaps to a free end this near; Join Rails reaches this far; Rail from Edges' rails join this near.
