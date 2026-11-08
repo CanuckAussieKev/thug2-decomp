@@ -1316,7 +1316,8 @@ void prepare_all()
     create_step.category = "Edit";
     create_step.tip = "Save the selection (pieces, objects, rails, triggers) as a prefab in the Content Browser";
     create_step.kind = actions::Kind::kPress;
-    create_step.defaults = create_step.keys = {actions::Chord{.scancode = SDL_SCANCODE_G, .mods = actions::kCtrl | actions::kShift}};
+    // (Ctrl+Alt+G: Ctrl+Shift+G is Ungroup, as most editors have it - level_editor_scenery_units.cpp)
+    create_step.defaults = create_step.keys = {actions::Chord{.scancode = SDL_SCANCODE_G, .mods = actions::kCtrl | actions::kAlt}};
     create_step.run = [] { ask_create(-1); };
     prefabs.act_create = actions::enrol(create_step);
 }

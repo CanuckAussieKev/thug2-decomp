@@ -10,7 +10,8 @@
 
 // NOT ORIGINAL - the level editor's tool strip and status bar (ours; see level_editor_ui.h). The top of the screen is a
 // menu bar (File, Edit, View, Tools, Help - level_editor_ui_menus.cpp) over one slim strip of the core controls: the
-// mode, the transform tool, World / Local, Snap and its grid, the pick filter, the edited copy's name, the budget meter
+// mode, the transform tool, World / Local, Snap and its grid, the pick filter and Groups / Pieces, the edited copy's
+// name, the budget meter
 // and Problems. The strip never draws one control over another: each has a width measured with the fonts and style in
 // use, the strip places them (Fit) and what doesn't fit goes into a "»" overflow menu, the least important first. The
 // status bar elides its hints and its right-hand text with "…" the same way.
@@ -68,6 +69,7 @@ struct State {
     float angle = kDefaultAngleStep;                    // the rotation snap (degrees)
     std::vector<float> angles;                          // the steps offered
     uint32_t pick_filter_ = kDefaultPickFilter;                          // Picking::kNodes | kObjects | kScenery
+    bool pick_pieces_ = false;                          // Pick: Pieces (else Groups - level_editor_scenery.h)
     std::string level;                                  // the edited copy's title
     bool saved = false;                                 // its layout saved
     bool unsaved = false;                               // unsaved changes
@@ -89,6 +91,7 @@ struct Occurrence {
         kGrid,     // value: the grid's size
         kAngle,    // value: the rotation snap (degrees)
         kPick,     // value: the pick filter's new bits
+        kPickUnits, // value: 1 Pick: Pieces, 0 Pick: Groups
         kProblems, // the Problems window
         kBudget,   // the Problems window's Budget tab
         kShowAll,  // everything hidden while editing shown

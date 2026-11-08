@@ -119,6 +119,7 @@ float get_stick(StickRead stick);
 
 constexpr int kQuickSets = 9;
 std::string quick_set_name(int number); // "Set 3"
+bool is_quick_set(const std::string& name); // one of those names
 // The group of that name's index (-1 none).
 int find_group(const organize::State& state, const std::string& name);
 // The group `name` made of `members` (replaced when there is one, else added at the end). False: no members.

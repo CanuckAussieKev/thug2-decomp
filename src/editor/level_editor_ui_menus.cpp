@@ -105,7 +105,9 @@ void edit_menu(const ux8::Fonts& fonts)
     if (ImGui::BeginMenu("Select")) {
         get_items({"deselect", "select_all", "invert_selection", "select_similar", "select_family", "box_select"});
         ImGui::Separator();
-        get_items({"make_group", "create_prefab"});
+        get_items({"select_touching", "select_cluster", "pick_units"});
+        ImGui::Separator();
+        get_items({"make_group", "ungroup", "create_prefab"});
         ux8::sets_menu(fonts);
         ImGui::EndMenu();
     }

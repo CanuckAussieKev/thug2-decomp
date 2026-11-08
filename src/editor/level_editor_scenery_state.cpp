@@ -321,17 +321,6 @@ bool get_hidden(uint32_t checksum)
     return (sector != nullptr) && !is_operative(sector);
 }
 
-void add_group(uint32_t checksum)
-{
-    for (const uint32_t member : group_of(checksum)) {
-        if (!get_selected(member)) {
-            picked_scenery().selection_.push_back(member);
-        }
-    }
-    compute_pivot();
-    select_rails();
-}
-
 std::vector<uint32_t> movable_pieces()
 {
     std::vector<uint32_t> pieces;

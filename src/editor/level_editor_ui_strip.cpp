@@ -330,6 +330,7 @@ constexpr int kStopItem = 6;
 constexpr int kLevel = 7;
 constexpr int kBudgetItem = 8;
 constexpr int kProblemsItem = 9;
+constexpr int kPickUnitsItem = 10;
 
 struct Item {
     ItemId id;
@@ -353,6 +354,7 @@ std::vector<Item> get_items(const State& state, float scale)
         false, kSnapGridPriority);
     add(kPickItem, button_width((std::string(pick_text(state.pick_filter_)) + kDown.data()).c_str()), false,
         kPickPriority);
+    add(kPickUnitsItem, button_width("Groups") + inner + button_width("Pieces"), false, kPickPriority);
     if (state.hidden > 0) {
         add(kShowAllItem, button_width(show_all_text(state).c_str()), false, kShowAllPriority);
     }
@@ -493,6 +495,20 @@ void draw_item(ItemId id, const State& state, float scale, Output* out)
         draw_pick(state, out);
         break;
     }
+    case kPickUnitsItem:
+        // (Hammer's selection mode: a click takes the group, or always the piece - level_editor_scenery.h)
+        if (flip_over("Groups", !state.pick_pieces_) && state.pick_pieces_) {
+            out->events.push_back({.kind = Occurrence::Kind::kPickUnits, .value = 0.0F});
+        }
+        get_tip("A click selects the whole group; click again for one piece", get_key_of(state, "pick_units"));
+        get_note("PickGroups");
+        ImGui::SameLine(0.0F, inner);
+        if (flip_over("Pieces", state.pick_pieces_) && !state.pick_pieces_) {
+            out->events.push_back({.kind = Occurrence::Kind::kPickUnits, .value = 1.0F});
+        }
+        get_tip("A click selects one piece", get_key_of(state, "pick_units"));
+        get_note("PickPieces");
+        break;
     case kShowAllItem:
         ImGui::PushStyleColor(ImGuiCol_Button, kShowAllButtonColour);
         if (ImGui::Button(show_all_text(state).c_str())) {

@@ -50,6 +50,7 @@ add_library(thug2_editor SHARED
     level_editor_scenery_state.cpp
     level_editor_scenery_pick.cpp
     level_editor_scenery_groups.cpp
+    level_editor_scenery_units.cpp
     level_editor_scale.cpp
     level_editor_coll_tree.cpp
     level_editor_rotate.cpp

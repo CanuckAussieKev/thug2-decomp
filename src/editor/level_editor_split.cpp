@@ -937,6 +937,9 @@ std::string pick_in_view(int slot, ViewPoint point)
     std::string text = text::format("view %d (%s) at pixel (%.0f, %.0f): ", slot + 1, view_cam::view_name(ortho.view), px, py);
     if (picked) {
         text::append_format(text, "%s %s at (%.0f, %.0f, %.0f)", hit.checksum != 0U ? "picks" : "passes over", nodes::caption(piece).c_str(), at.x, at.y, at.z);
+        if (hit.checksum != 0U) {
+            text += "; " + scenery::describe_units(piece); // (what a click there selects - level_editor_scenery.h)
+        }
     } else {
         text += "picks nothing";
     }

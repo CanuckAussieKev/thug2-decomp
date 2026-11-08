@@ -446,6 +446,18 @@ bool is_resting(uint32_t sector)
 
 const std::vector<std::string>& loaded_packs() { return props_state().loaded; }
 
+bool pack_of(uint32_t sector, PackOf* pack)
+{
+    for (const auto& [id, manifest] : props_state().manifests) {
+        if (std::ranges::find(manifest.sectors, sector) != manifest.sectors.end()) {
+            pack->id = id;
+            pack->piece = manifest.source_piece + " (" + manifest.source_level + ")";
+            return true;
+        }
+    }
+    return false;
+}
+
 void load_from_layout(const std::vector<std::string>& extra)
 {
     for (const std::string& line : extra) {

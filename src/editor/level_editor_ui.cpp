@@ -28,6 +28,7 @@
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
+#include "editor/level_editor_scenery.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_transform.h"
 #include "engine/ui/ui_backend.h"
@@ -447,6 +448,7 @@ void get_toolbar(const ShapeMesh& model)
     state.angle = xform::angle_step();
     state.angles = xform::angle_steps();
     state.pick_filter_ = model.pick_filter_;
+    state.pick_pieces_ = scenery::pick_pieces();
     state.level = model.level_title_;
     state.saved = model.edited_saved_;
     state.unsaved = model.unsaved;
@@ -499,6 +501,9 @@ void get_toolbar(const ShapeMesh& model)
             break;
         case ui_strip::Occurrence::Kind::kPick:
             get_ask(Request::Kind::kPickFilter, 0, static_cast<uint32_t>(event.value));
+            break;
+        case ui_strip::Occurrence::Kind::kPickUnits:
+            scenery::set_pick_pieces(event.value != 0.0F);
             break;
         case ui_strip::Occurrence::Kind::kProblems:
             checks::toggle_window();

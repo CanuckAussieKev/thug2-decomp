@@ -83,12 +83,61 @@ bool has_selection();
 const std::vector<uint32_t>& get_selection();
 bool get_selected(uint32_t checksum);
 void clear_selection();
-// The sector, the rest of its cluster (the node's TrickObject Cluster=) and the pieces built onto them (piece_fits /
-// piece_touches: the fire truck's ladder) that can be moved, their shadows (is_shadow) - and their grind rails (rail nodes of those clusters, or
-// lying within a selected sector's box), which move and turn with them.
+// What a click selects (level_editor_scenery_units.cpp) - the authored unit, as engines pick (Unreal's groups, Unity's
+// prefab roots, Hammer's selection mode); never pieces inferred from where they stand:
+//   - a piece: the sector, its own shadows (is_shadow) and its own grind rails (select_rails: tied to it by name, or
+//     lying on its triangles), which move and turn with it;
+//   - groups, outermost first: the Outliner's groups that hold it (their scenery; the quick sets "Set 1".."Set 9" left
+//     out - level_editor_organize.h), the prop pack placement it is part of (the pieces cut from one pack, placed
+//     together: LA's Fire_Tender's 9 sectors), its name family (Fire_Tender_Ladder with Fire_Tender: see
+//     level_editor_scenery_groups.cpp - named for it, attached to it, neither structure). Each nests in the one
+//     before (one that doesn't is left out), each with its shadows; a piece moved away by itself leaves the automatic
+//     ones (they are of pieces placed together).
+// Pick: Groups (the toolbar's switch, [editor] pick_pieces=0): a plain click takes the outermost unit - or, when the
+// selection lies inside one of the clicked piece's units, the next one in (Unity's drill-in: click a group, click again
+// for the piece). Pick: Pieces (pick_pieces=1, Hammer's): always the piece. Alt+click: one sector in / out (flip_over).
+bool pick_pieces();
+void set_pick_pieces(bool pieces);
+struct Unit {
+    std::vector<uint32_t> sectors;
+    std::string name;
+    const char* kind = "piece"; // "group", "prop pack", "family", "piece"
+};
+std::vector<Unit> units_of(uint32_t checksum);
+// What a plain click on that sector selects: selected (`select_group`).
 void select_group(uint32_t checksum);
-// What select_group would select for that sector (kept while it stays the same: the hover's highlight).
+// A press on a selected piece whose click would select less (the drill-in): the selection kept for a drag, and the
+// drill made when the button is let go without moving (`end_press`). False: nothing to drill to.
+// Whether a click on that sector now would drill in (it is selected and a click would select less).
+bool would_drill(uint32_t checksum);
+bool arm_drill(uint32_t checksum);
+void end_press(bool dragged);
+// What a click would select for that sector (kept while it, the selection and the groups stay the same: the hover's
+// highlight - it shows exactly that).
 const std::vector<uint32_t>& hover_group(uint32_t checksum);
+// Box select (level_editor_organize.h): the pieces a box found made into what the pick mode selects - their pieces, or
+// (Groups) their outermost units: crossing takes a unit a box crosses, inside one wholly inside.
+std::vector<uint32_t> box_units(const std::vector<uint32_t>& found, bool crossing);
+// The automatic groups of the level as it is now (the Outliner's Groups lists them): prop pack placements and name
+// families of two pieces or more. Worked out again at most once a second.
+struct AutoGroup {
+    std::string name;
+    std::vector<uint32_t> sectors;
+    bool pack = false;
+};
+const std::vector<AutoGroup>& auto_groups();
+// Edit > Select > Select Touching / Select Cluster - what a click once inferred, asked for: the selection with the
+// movable pieces touching it inside its box (three rounds), or with the rest of its trick clusters (the nodes'
+// TrickObject Cluster=); their shadows and rails with them.
+void select_touching();
+void select_cluster();
+// For the automation's `fe editor pick` (level_editor_split.h): what a click on that sector would select - its units
+// (kind, name, pieces), what the click takes with the selection as it is, the rails the piece alone carries, and what
+// the old inference (its cluster, then what touches that) would have taken.
+std::string describe_units(uint32_t checksum);
+// The units' actions (Select Touching, Select Cluster, Ungroup, the pick mode) enrolled, once; their keys each frame.
+void prepare_units();
+void tick_units();
 // Alt+click: one sector in or out (the rails chosen again). Also Ctrl+click and the Inspector's x on a selected piece.
 void flip_over(uint32_t checksum);
 // A group's shadows (level_editor_shadows.h) are selected with it: whether a sector has been taken as one (`caster`:
@@ -211,7 +260,7 @@ bool is_clone(uint32_t checksum);
 // Where the editor has put a sector (none: false), and whether it's hidden.
 bool placement_now(uint32_t checksum, Placement* placement);
 bool get_hidden(uint32_t checksum);
-// Shift+click: a sector's group added to the selection.
+// Shift+click: what a click on the sector would select added to the selection.
 void add_group(uint32_t checksum);
 // The browser's pieces: the main scene's shown sectors that can be moved (copies left out).
 std::vector<uint32_t> movable_pieces();

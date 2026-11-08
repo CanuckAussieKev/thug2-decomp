@@ -297,6 +297,85 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
     return found;
 }
 
+float triangle_distance_sq(V3 point, V3 a, V3 b, V3 corner_c)
+{
+    // (the nearest point by the triangle's regions - its corners, edges and face - with barycentric weights)
+    const V3 ab = b - a;
+    const V3 ac = corner_c - a;
+    const V3 ap = point - a;
+    auto distance_sq = [&](V3 nearest) {
+        const V3 apart = point - nearest;
+        return get_dot(apart, apart);
+    };
+    const float d1 = get_dot(ab, ap);
+    const float d2 = get_dot(ac, ap);
+    if (d1 <= 0.0F && d2 <= 0.0F) {
+        return distance_sq(a);
+    }
+    const V3 bp = point - b;
+    const float d3 = get_dot(ab, bp);
+    const float d4 = get_dot(ac, bp);
+    if (d3 >= 0.0F && d4 <= d3) {
+        return distance_sq(b);
+    }
+    const float vc = (d1 * d4) - (d3 * d2);
+    if (vc <= 0.0F && d1 >= 0.0F && d3 <= 0.0F) {
+        return distance_sq(a + (ab * (d1 / (d1 - d3))));
+    }
+    const V3 cp = point - corner_c;
+    const float d5 = get_dot(ab, cp);
+    const float d6 = get_dot(ac, cp);
+    if (d6 >= 0.0F && d5 <= d6) {
+        return distance_sq(corner_c);
+    }
+    const float vb = (d5 * d2) - (d1 * d6);
+    if (vb <= 0.0F && d2 >= 0.0F && d6 <= 0.0F) {
+        return distance_sq(a + (ac * (d2 / (d2 - d6))));
+    }
+    const float va = (d3 * d6) - (d5 * d4);
+    if (va <= 0.0F && (d4 - d3) >= 0.0F && (d5 - d6) >= 0.0F) {
+        return distance_sq(b + ((corner_c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)))));
+    }
+    const float sum = va + vb + vc;
+    if (sum <= 0.0F) {
+        return distance_sq(a); // (a degenerate triangle)
+    }
+    return distance_sq(a + (ab * (vb / sum)) + (ac * (vc / sum)));
+}
+
+bool strip_near(V3 point, float reach, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
+                const uint16_t* indices, uint32_t index_count)
+{
+    auto at = [&](uint16_t index) {
+        const auto floats = gpu::VertexView(positions, stride, vertex_count).float3(index);
+        return V3{.x = core::at(floats, 0), .y = core::at(floats, 1), .z = core::at(floats, 2)};
+    };
+    const float reach_sq = reach * reach;
+    const std::span<const uint16_t> index_run(indices, index_count);
+    for (uint32_t i = 2; i < index_count; ++i) {
+        const uint16_t index_a = core::at(index_run, i - 2);
+        const uint16_t index_b = core::at(index_run, i - 1);
+        const uint16_t index_c = core::at(index_run, i);
+        if (index_a == index_b || index_b == index_c || index_a == index_c || index_a >= vertex_count ||
+            index_b >= vertex_count || index_c >= vertex_count) {
+            continue;
+        }
+        const V3 one = at(index_a);
+        const V3 two = at(index_b);
+        const V3 three = at(index_c);
+        // (the triangle's box first: most are far away)
+        if (point.x < std::min({one.x, two.x, three.x}) - reach || point.x > std::max({one.x, two.x, three.x}) + reach ||
+            point.y < std::min({one.y, two.y, three.y}) - reach || point.y > std::max({one.y, two.y, three.y}) + reach ||
+            point.z < std::min({one.z, two.z, three.z}) - reach || point.z > std::max({one.z, two.z, three.z}) + reach) {
+            continue;
+        }
+        if (triangle_distance_sq(point, one, two, three) <= reach_sq) {
+            return true;
+        }
+    }
+    return false;
+}
+
 namespace {
 std::vector<Lock>& stored_locks()
 {

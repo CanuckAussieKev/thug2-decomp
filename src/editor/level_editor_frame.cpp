@@ -32,6 +32,7 @@
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_scale.h"
+#include "editor/level_editor_scenery.h"
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
@@ -290,6 +291,8 @@ void tick_panels(EditorFrame& editor_frame)
     const ux8::Pad& pad = editor_frame.pad;
     // (the history, changes, search, selection tools and clipboards - level_editor_ux3.h)
     ux3::tick_frame();
+    // (Select Touching / Select Cluster, Ungroup, the pick mode - level_editor_scenery.h's units)
+    scenery::tick_units();
     // (UX8: quick selection sets, the follow camera's key, the pie menus - a pie up takes the clicks)
     {
         ux8::TickCycle ux8;
@@ -479,10 +482,12 @@ void finish_frame(const EditorFrame& editor_frame)
     organize::box_track(input.left, back_x, back_y);
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
     if ((input.left_releases_ != 0) && !input.left) {
-        if (drag_session().dragging_ && drag_session().drag_moved_) {
+        const bool dragged = drag_session().dragging_ && drag_session().drag_moved_;
+        if (dragged) {
             click_cycle().cycle_.have = false; // (moved: the next click starts afresh)
         }
         end_drag();
+        scenery::end_press(dragged); // (a selected group clicked again and let go: its piece - level_editor_scenery.h)
         focus_on_selection();
         click_cycle().cycle_.changes = unsaved_changes().changes_;
     }

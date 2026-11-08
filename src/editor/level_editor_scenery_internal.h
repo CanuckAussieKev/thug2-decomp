@@ -213,16 +213,32 @@ bool geom_see_through(render::Geom* geom);
 
 float geom_level_share(uint32_t checksum, render::Geom* geom);
 
+bool geom_near(render::Geom* geom, V3 point, float reach);
+
 bool same_placement(const Placement& a, const Placement& b);
 
-std::vector<uint32_t> group_of(uint32_t checksum);
+// level_editor_scenery_groups.cpp: `sectors` and their shadows; those and what touches them inside their box (Select
+// Touching); those and the rest of their trick clusters (Select Cluster) - each with its shadows. A prop pack's
+// placement and a name family (empty: none; `name` what it is called) - see level_editor_scenery.h.
+std::vector<uint32_t> with_shadows(const std::vector<uint32_t>& sectors);
+std::vector<uint32_t> touching_of(const std::vector<uint32_t>& sectors);
+std::vector<uint32_t> cluster_members_of(const std::vector<uint32_t>& sectors);
+std::vector<uint32_t> pack_unit(uint32_t checksum, std::string* name);
+std::vector<uint32_t> family_unit(uint32_t checksum, std::string* name);
+std::vector<AutoGroup> find_auto_groups();
+// What a plain click on a sector selects now (level_editor_scenery_units.cpp); `say`: what it is said on the message
+// line (a group: "click again for one piece").
+std::vector<uint32_t> click_takes(uint32_t checksum, bool say = false);
 
 // NOT ORIGINAL grouping - the group hovered and the groups by piece (were globals). Made on first use, never destroyed
 // (scenery_hover()).
 struct SceneryHover {
-    // The hovered sector's group (what a click would select), kept while the same sector is hovered.
+    // The hovered sector's unit (what a click would select), kept while the same sector is hovered with the selection,
+    // the pick mode and the Outliner's groups as they were.
     uint32_t hover_group_of_{};
     std::vector<uint32_t> hover_group_;
+    std::vector<uint32_t> hover_selection_;
+    uint64_t hover_key_{};
 };
 
 SceneryHover& scenery_hover();

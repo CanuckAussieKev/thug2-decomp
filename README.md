@@ -356,6 +356,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 |---|---|---|
 | `families` | all | The Outliner's family chips (which node kinds show) |
 | `pick` | 7 (all) | The toolbar's Pick filter: 1 nodes, 2 objects, 4 scenery |
+| `pick_pieces` | 0 | The toolbar's Groups / Pieces: 0 a click on scenery selects its group (an Outliner group, a placed prop pack, a family of pieces named for one; click again for the piece), 1 always the single piece |
 | `overlays` | all | The Overlays menu's choices |
 | `collision` | 0 | The collision view (C) |
 | `triggers` | 1 | Trigger volumes shown (T) |

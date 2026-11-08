@@ -29,6 +29,8 @@ struct ImFont;
 //   rail_range=4000        rails, ladders and paths fade out toward this distance (units)
 //   play_sound=0           music and sound effects while playing (Play / Play from Here); the editor is otherwise
 //                          silent (level_editor_shell.cpp quiet_audio)
+//   pick_pieces=0          (kept by level_editor_scenery.h, the toolbar's Groups / Pieces) a click on scenery takes
+//                          the single piece, not its group
 //   stay_above_ground=0    flying the camera stops above floors instead of going down through them (going up
 //                          through one from below still works: a way out); framing, teleports and orbits stay free
 //                          (level_editor.cpp get_fly_to)

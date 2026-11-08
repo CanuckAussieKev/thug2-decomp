@@ -72,6 +72,7 @@ constexpr std::size_t kCaptionSize = 96;
 constexpr int kMaxManagerNodes = 100000; // a manager with more nodes is taken as broken
 constexpr float kSelectGrowth = 10.0F;   // a rail selection box is grown by this on each axis
 constexpr int kRailNodeClimbFlag = 0x10; // a rail node flag: only used when climbing
+constexpr float kRailOnSurface = 8.0F;    // a rail point this near a piece's triangles lies on it
 constexpr float kScaleTolerance = 1e-4F; // two placements are the same within these
 constexpr float kOffsetTolerance = 0.5F;
 constexpr float kTwistTolerance = 1e-4F;   // (radians)
@@ -714,68 +715,68 @@ void compute_pivot()
     picked_scenery().half_extent_y_ = have ? (max.y - min.y) * kHalf : 0.0F;
 }
 
-// The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
-// Fire_Tender), and ones lying within a selected sector's box (both ends, within 10 units). A copy has no rails of the
-// level's own (the source's stay with the source) - only rail points the editor added on it (a prop pack's or a
-// prefab's rails, placed with the copy: in its cluster or its box).
+// The selection's rails - the rail nodes that belong to a selected piece, never just any rail in its box (a building's
+// box holds the benches' and ledges' rails of the pieces standing on it):
+//   - tied to it by name: the node's TrickObject Cluster= is that very sector (the fire truck's TRG_FireTruck01..25
+//     name Fire_Tender; a prop pack's trick rails name the placed sector);
+//   - lying on it: not tied to another sector, inside its box, and the node and its neighbours on the rail (the next
+//     and the previous node) within kRailOnSurface of its drawn triangles (rails sit on their piece's edges) - a rail
+//     that runs on from it onto another piece leaves its last node there.
+// A copy has no rails of the level's own (the source's stay with the source) - only rail points the editor added (a
+// prop pack's or a prefab's rails, placed with the copy). Shadows carry none (rails lie over a shadow's box).
 void select_rails()
 {
     scenery_rails().rails_.clear();
     const std::span<RailNode> nodes = rail_nodes();
-    const int count = static_cast<int>(nodes.size());
     if (picked_scenery().selection_.empty() || nodes.empty()) {
         return;
     }
-    std::vector<uint32_t> clusters;
-    std::vector<std::pair<V3, V3>> boxes;
-    std::vector<std::pair<V3, V3>> copy_boxes;
+    struct Owner {
+        uint32_t checksum;
+        render::Geom* geom;
+        V3 min, max;
+        bool copy;
+    };
+    std::vector<Owner> owners;
     for (const uint32_t checksum : picked_scenery().selection_) {
-        if (is_clone(checksum)) {
-            clusters.push_back(checksum); // (only the editor's points name a copy as their cluster)
-            OrientedBox box{};
-            V3 min{};
-            V3 max{};
-            if (cuboid(checksum, &box)) {
-                bounds_of(box, &min, &max);
-                copy_boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth},
-                                        max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
-            }
+        render::WorldCell* sector = find_sector(checksum, nullptr);
+        OrientedBox box{};
+        if (!sector || shadow_of().contains(checksum) || !cuboid(checksum, &box)) {
             continue;
         }
-        clusters.push_back(checksum);
-        if (const uint32_t cluster = cluster_of(checksum)) {
-            clusters.push_back(cluster);
-        }
-        OrientedBox box{};
         V3 min{};
         V3 max{};
-        if (!shadow_of().contains(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
-            bounds_of(box, &min, &max);
-            boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth}, max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
-        }
+        bounds_of(box, &min, &max);
+        const V3 grow = {.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth};
+        owners.push_back(
+            {.checksum = checksum, .geom = geom_of(sector), .min = min - grow, .max = max + grow, .copy = is_clone(checksum)});
     }
-    auto inside = [](const std::vector<std::pair<V3, V3>>& list, V3 point) {
-        return std::ranges::any_of(list, [&](const auto& box) {
-            return point.x >= box.first.x && point.x <= box.second.x && point.y >= box.first.y &&
-                   point.y <= box.second.y && point.z >= box.first.z && point.z <= box.second.z;
-        });
+    auto on_owner = [](const Owner& owner, const RailNode* node) {
+        if (node == nullptr) {
+            return true;
+        }
+        const V3 point = rail_pos(node);
+        return point.x >= owner.min.x && point.x <= owner.max.x && point.y >= owner.min.y && point.y <= owner.max.y &&
+               point.z >= owner.min.z && point.z <= owner.max.z && geom_near(owner.geom, point, kRailOnSurface);
     };
-    auto within = [&](V3 point) { return inside(boxes, point); };
-    auto within_copy = [&](V3 point) { return inside(copy_boxes, point); };
-    auto listed = [&](uint32_t colour) { return colour && std::ranges::find(clusters, colour) != clusters.end(); };
-    for (int i = 0; i < count; ++i) {
-        const RailNode& node = core::at(nodes, i);
-        if ((node.flag_bits() & kRailNodeClimbFlag) != 0U) {
+    for (RailNode& node : nodes) {
+        if ((node.flag_bits() & kRailNodeClimbFlag) != 0U ||
+            std::ranges::find(scenery_rails().dropped_rails_, node.label()) != scenery_rails().dropped_rails_.end()) {
             continue;
         }
-        bool in = listed(node.label()) || listed(cluster_of(node.label())) ||
-                  (within(rail_pos(&node)) && ((node.succ() == nullptr) || within(rail_pos(node.succ()))));
-        if (!in && !copy_boxes.empty() && node_create::is_added(node.label())) {
-            in = within_copy(rail_pos(&node)) && ((node.succ() == nullptr) || within_copy(rail_pos(node.succ())));
-        }
-        if (in &&
-            std::ranges::find(scenery_rails().dropped_rails_, node.label()) != scenery_rails().dropped_rails_.end()) {
-            in = false;
+        const uint32_t tie = cluster_of(node.label());
+        const bool tied = (tie != 0U) && find_sector(tie, nullptr) != nullptr;
+        const bool added = node_create::is_added(node.label());
+        bool in = false;
+        for (const Owner& owner : owners) {
+            if (owner.copy && !added) {
+                continue;
+            }
+            if (tied ? tie == owner.checksum
+                     : on_owner(owner, &node) && on_owner(owner, node.succ()) && on_owner(owner, node.last_value())) {
+                in = true;
+                break;
+            }
         }
         if (in && std::ranges::find(scenery_rails().rails_, node.label()) == scenery_rails().rails_.end()) {
             scenery_rails().rails_.push_back(node.label());
@@ -834,7 +835,7 @@ void log_meshes()
 
 void select_group(uint32_t checksum)
 {
-    picked_scenery().selection_ = group_of(checksum);
+    picked_scenery().selection_ = click_takes(checksum, true);
     scenery_rails().dropped_rails_.clear();
     compute_pivot();
     select_rails();
