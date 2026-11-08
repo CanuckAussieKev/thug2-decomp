@@ -25,6 +25,7 @@
 #include "base/maths/mat4.h"
 #include "engine/gfx/view_cam.h"
 #include "render_pc/depth_lines_draw.h"
+#include "render_pc/ghost_draw.h"
 #include "render_pc/draw2d.h"
 #include "render_pc/game_view_frame.h"
 #include "engine/gfx/engine_effects.h"
@@ -809,6 +810,7 @@ void draw_views(int views)
         wireframe::begin_world();
         view_mode::begin_world();
         draw_viewport(0);
+        ghost_draw::draw(true);
         view_mode::end_world();
         wireframe::end_world();
         depth_lines_draw::draw(true);
@@ -818,6 +820,7 @@ void draw_views(int views)
     ext::end_views();
     view_mode::switch_for_view(frame_mode);
     depth_lines_draw::drop();
+    ghost_draw::drop();
 }
 
 } // namespace
@@ -853,6 +856,9 @@ void draw_world()
             for (int i = 0; i < count; ++i) {
                 draw_viewport(i);
             }
+            // Not original - the ghosts a UI handed over (engine/gfx/ghost_draws.h; the level editor's drag preview),
+            // drawn over the world with the last viewport's camera. Original behaviour: nothing.
+            ghost_draw::draw();
             view_mode::end_world();
             wireframe::end_world();
             // Not original - the lines a UI handed over (engine/gfx/depth_lines.h; the level editor's rails), drawn
@@ -889,6 +895,7 @@ void draw_world()
         change_fog(fog);
     } else {
         depth_lines_draw::drop(); // (not original: lines handed over before the loading screen aren't drawn after it)
+        ghost_draw::drop();       // (not original: the same for ghosts)
     }
     full_screen_viewport();
     set_viewport();

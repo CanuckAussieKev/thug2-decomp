@@ -1024,6 +1024,33 @@ std::string save_command()
     return saved ? "ok " + message : "error: " + message;
 }
 
+// The verbs answered at once while a level is open in the editor (`words` from "editor"). False: not one of them.
+bool live_answer(const std::vector<std::string>& words, std::string* result)
+{
+    const std::string verb = words.size() > 1 ? words.at(1) : std::string();
+    const std::vector<std::string> rest(words.begin() + 1, words.end()); // (words.front() is "editor")
+    if (verb == "prop" && words.size() > 3) {
+        // (the Content Browser's Place at Cursor for another level's piece: cut out first if need be - its log line
+        // "placed prop pack" says when it is in)
+        *result = content::automation_place(words.at(2), words.at(3));
+    } else if (verb == "drag") {
+        // (the Content Browser's drag into the Scene - its preview, the drop, Esc - without the mouse)
+        *result = content::automation_drag(rest);
+    } else if (verb == "split" || verb == "pick") {
+        *result = split_view::automation(words); // (the split view - level_editor_split.h)
+    } else if (verb == "preset" && words.size() > 2) {
+        *result = preset_command(words.at(2));
+    } else if (verb == "prefab") {
+        // (prefabs - level_editor_prefabs.h: list, create <name> [sectors= objects= nodes=], place <name> [x,y,z])
+        *result = prefabs::automation(rest);
+    } else if (verb == "save") {
+        *result = save_command();
+    } else {
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 bool screen_command(const std::string& line, bool* done, std::string* result)
@@ -1076,26 +1103,8 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
     } else if (verb == "importrun" && words.size() > 2) {
         import::automation_import(std::vector<std::string>(words.begin() + 2, words.end()));
         state.waiting = Waiting::kImport;
-    } else if (verb == "prop" && words.size() > 3 && level_editor::live_now()) {
-        // (the Content Browser's Place at Cursor for another level's piece: cut out first if need be - its log line
-        // "placed prop pack" says when it is in)
-        *result = content::automation_place(words.at(2), words.at(3));
+    } else if (level_editor::live_now() && live_answer(words, result)) {
         return true;
-    } else if ((verb == "split" || verb == "pick") && level_editor::live_now()) {
-        *result = split_view::automation(words); // (the split view - level_editor_split.h)
-        return true;
-    } else if (verb == "preset" && words.size() > 2 && level_editor::live_now()) {
-        *result = preset_command(words.at(2));
-        return true;
-
-    } else if (verb == "prefab" && level_editor::live_now()) {
-        // (prefabs - level_editor_prefabs.h: list, create <name> [sectors= objects= nodes=], place <name> [x,y,z])
-        *result = prefabs::automation(std::vector<std::string>(words.begin() + 1, words.end()));
-        return true;
-    } else if (verb == "save" && level_editor::live_now()) {
-        *result = save_command();
-        return true;
-
     } else if ((verb == "play" || verb == "playhere") && level_editor::live_now()) {
         if (verb == "play") {
             play_test::play_from_start();
@@ -1116,7 +1125,7 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         return true;
     } else {
         *result = "error: fe editor start | open <level> [edited] | play | playhere | stop | exit | import <folder> | "
-                  "importrun <level>... | prop <level> <piece> | save | split <layout> | pick <view> <x> <y>";
+                  "importrun <level>... | prop <level> <piece> | drag ... | save | split <layout> | pick <view> <x> <y>";
         return true;
     }
     check_waiting();

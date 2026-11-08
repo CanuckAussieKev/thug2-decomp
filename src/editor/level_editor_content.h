@@ -24,8 +24,10 @@ struct Picture;
 // a search box (Ctrl+F) with type and level filters, the tile size and Grid / List. Right: the tiles (a thumbnail -
 // drawn once by the pipeline, a placeholder until it is there -, the name, a type badge) or a table (name, level,
 // triangles, textures, rails). Hover: the details; click selects; double click previews; right click: Place at Cursor,
-// Add to Favorites, Show Source Level, Copy Name. Dragging a tile into the Scene places it where it is dropped (a box
-// of its size follows the ground under the cursor; Esc cancels).
+// Add to Favorites, Show Source Level, Copy Name. Dragging a tile into the Scene places it where it is dropped: the
+// piece itself, see-through, follows the ground under the cursor (its ghost - level_editor_ghost.h; a box of its size
+// until its pack is cut out and loaded, "Cutting out..." by the cursor), the drop puts it exactly there, Esc cancels and
+// leaves nothing (no undo step, no layout record). This Level's scenery pieces drag the same way (a copy placed).
 //
 // Another level's piece is placed as a prop pack (level_editor_props.h): cut out of its level by the content pipeline
 // (prop_packs/prop_packs.ts extract, run with the editor's Node runtime as Import Level runs the converters -
@@ -72,6 +74,14 @@ bool* open_flag();
 // The automation channel's `fe editor prop <level> <piece>`: that piece placed at the editor's cursor point (cut out
 // first if need be). "ok ..." or "error: ...".
 std::string automation_place(const std::string& level, const std::string& name);
+// The automation channel's `fe editor drag ...` - a drag from the browser into the Scene without the mouse (the
+// workspaces' games get none): `drag <level> <piece> <x> <y>` (a catalogue piece; `drag here <sector hex> <x> <y>` one
+// of this level's pieces) starts it with the cursor at that point of the Scene (0..1 across and down), `drag move <x>
+// <y>` moves the cursor, `drag drop` drops it, `drag cancel` cancels it (as Esc). "ok ..." or "error: ...".
+std::string automation_drag(const std::vector<std::string>& words);
+// This level's piece `sector` (named `label`) dragged from the browser's This Level folder: shown where it would land,
+// a copy placed where it is dropped (as a catalogue piece's drag).
+void drag_level_piece(uint32_t sector, const std::string& label);
 // The switch flipped by a menu: kept in the ini, the panel focused when it opened.
 void note_toggled();
 // The panel (and its drag's feedback, the preview window), from the UI's frame.

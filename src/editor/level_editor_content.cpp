@@ -16,6 +16,7 @@
 #include <array>
 #include <cctype>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <deque>
@@ -36,12 +37,14 @@
 #include "base/core/no_destroy.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
+#include "editor/level_editor_ghost.h"
 #include "editor/level_editor_gui_text.h"
 #include "editor/level_editor_import.h"
 #include "editor/level_editor_internal.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_prefabs.h"
 #include "editor/level_editor_props.h"
+#include "editor/level_editor_scenery.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_internal.h"
@@ -98,6 +101,7 @@ struct Job {
     std::string kind; // catalogue, thumbs, extract
     std::vector<std::string> arguments;
     std::string level;
+    std::string piece; // (extract: the piece's key - piece_key)
 };
 
 // A drop waiting for its pack to be cut out.
@@ -134,6 +138,8 @@ struct ContentState {
     std::deque<Job> jobs;
     Job running;
     Piece drag;
+    std::string preview_tried; // (the pack the drag's preview tried to load / asked to have cut out: not asked again)
+    std::string cut_asked;
     std::optional<Drop> waiting;
     std::optional<Drop> place_asked; // (Place at Cursor: the editor's cursor point, in its Update)
     int type = 0;         // 0 all, 1 scenery, 2 with rails
@@ -141,6 +147,7 @@ struct ContentState {
     float tile = kTileDefault;
     int loads_this_frame = 0;
     int child = 0;
+    uint32_t drag_sector = 0; // (a This Level piece dragged: its sector; 0 - a catalogue piece, placed as a pack)
     float drag_back_x = 0.0F, drag_back_y = 0.0F;
     // the keys
     int act_toggle = -1;
@@ -158,6 +165,10 @@ struct ContentState {
     bool dragging = false;
     bool over_scene = false;
     bool have_ghost = false;
+    bool ghost_seen = false;  // (`ghost` is where this drag's preview last showed the piece: the drop puts it there)
+    bool ghost_ready = false; // (the real piece shown, not the box)
+    bool cutting = false;     // (its pack is being cut out)
+    bool automated = false;   // (the automation channel's drag: the mouse not read)
     bool drop_asked = false;
     // whether the Add Piece palette was opened for This Level by the browser
     bool hosting = false;
@@ -321,18 +332,41 @@ bool tools_there()
            fs::disk().kind((import::tools_folder() + "\\" + kTool).c_str()) == fs::PathKind::kFile;
 }
 
-void queue(const std::string& kind, std::vector<std::string> arguments, const std::string& level = {})
+void queue(const std::string& kind, std::vector<std::string> arguments, const std::string& level = {},
+           const std::string& piece = {})
 {
     ContentState& content = state();
-    for (const Job& job : content.jobs) {
-        if (job.kind == kind && job.arguments == arguments) {
-            return;
-        }
-    }
     std::vector<std::string> all = {import::tools_folder() + "\\" + kTool, kind, "--game", game_folder_path(""), "--out",
                                     import::output_folder()};
     all.insert(all.end(), arguments.begin(), arguments.end());
-    content.jobs.push_back({.kind = kind, .arguments = std::move(all), .level = level});
+    for (const Job& job : content.jobs) {
+        if (job.kind == kind && job.arguments == all) {
+            return;
+        }
+    }
+    content.jobs.push_back({.kind = kind, .arguments = std::move(all), .level = level, .piece = piece});
+}
+
+// Whether the piece's pack is being cut out, or waits to be.
+bool cut_pending(const Piece& piece)
+{
+    const ContentState& content = state();
+    const std::string key = piece_key(piece);
+    return (content.child != 0 && content.running.kind == "extract" && content.running.piece == key) ||
+           std::ranges::any_of(content.jobs, [&](const Job& job) { return job.kind == "extract" && job.piece == key; });
+}
+
+// Whether the piece's pack has to be cut out (again) before it is placed: not loaded, and not cut out yet - or cut by an
+// older pipeline while the content tools are there to cut it again.
+bool needs_cut(const Piece& piece)
+{
+    const std::string id = pack_id(piece.level, piece.name);
+    if (props::is_loaded(id)) {
+        return false;
+    }
+    props::Manifest manifest;
+    const bool cut = props::find_manifest(id, &manifest);
+    return !cut || (manifest.version < props::kManifestVersion && tools_there());
 }
 
 // The content tools run with the editor's Node runtime: `arguments` after node.exe (the tool's script first).
@@ -459,11 +493,8 @@ void tick_child()
 void ask_place(const Piece& piece, V3 at)
 {
     ContentState& content = state();
-    const std::string id = pack_id(piece.level, piece.name);
-    props::Manifest manifest;
-    const bool cut = props::find_manifest(id, &manifest);
     // (a pack cut by an older pipeline is cut again - unless it is loaded already, or there are no tools to do it)
-    if (props::is_loaded(id) || (cut && (manifest.version >= props::kManifestVersion || !tools_there()))) {
+    if (!needs_cut(piece) && !cut_pending(piece)) {
         place_now(piece, at);
         return;
     }
@@ -472,7 +503,9 @@ void ask_place(const Piece& piece, V3 at)
         return;
     }
     content.waiting = Drop{.piece = piece, .at = at};
-    queue("extract", {"--level", piece.level, "--piece", piece.name}, piece.name);
+    if (!cut_pending(piece)) { // (a drag's preview may have asked for it already)
+        queue("extract", {"--level", piece.level, "--piece", piece.name}, piece.name, piece_key(piece));
+    }
     show_message("Cutting out " + piece.name + " from " + piece.level + "\xE2\x80\xA6");
 }
 
@@ -627,6 +660,19 @@ void context_menu(const Piece& piece)
     ImGui::EndPopup();
 }
 
+// A drag starting: a catalogue piece (`sector` 0 - placed as a pack), or one of this level's pieces (its sector).
+void start_drag(const Piece& piece, uint32_t sector)
+{
+    ContentState& content = state();
+    content.dragging = true;
+    content.drag = piece;
+    content.drag_sector = sector;
+    content.preview_tried.clear();
+    content.cut_asked.clear();
+    content.have_ghost = content.ghost_seen = content.ghost_ready = content.cutting = false;
+    content.automated = false;
+}
+
 // Clicks, the drag's start, the tooltip and the menu for the item just drawn.
 void item_behaviour(const Piece& piece)
 {
@@ -638,8 +684,7 @@ void item_behaviour(const Piece& piece)
         content.preview = piece_key(piece);
     }
     if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left) && !content.dragging) {
-        content.dragging = true;
-        content.drag = piece;
+        start_drag(piece, 0);
         content.selected = piece_key(piece);
     }
     if (ImGui::IsItemHovered() && !content.dragging) {
@@ -912,7 +957,18 @@ void preview_window(float scale)
     }
 }
 
-// The drag: a tooltip by the cursor; over the Scene, a box of the piece's size where it would land.
+// The drag ended without a drop: nothing placed, nothing left (a pack loaded for the preview stays hidden and isn't the
+// layout's - props::in_use; a cut under way finishes and is kept for next time).
+void cancel_drag()
+{
+    ContentState& content = state();
+    content.dragging = false;
+    content.automated = false;
+    content.have_ghost = content.ghost_seen = content.ghost_ready = content.cutting = false;
+}
+
+// The drag: a tooltip by the cursor; over the Scene, the piece itself where it would land (its ghost - drawn in the 3D
+// view, tick_frame) - or, until it is there (its pack being cut out or loaded), a box of its size.
 void drag_feedback(float scale)
 {
     ContentState& content = state();
@@ -920,23 +976,29 @@ void drag_feedback(float scale)
         return;
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        content.dragging = false;
-        content.have_ghost = false;
+        cancel_drag();
         show_message("Placing cancelled");
         return;
     }
-    const ImVec2 mouse = ImGui::GetIO().MousePos;
     const ui_layout::Rect2 scene = ui::app::scene_rect();
-    content.over_scene = ui_layout::get_holds(scene, mouse.x, mouse.y);
     const ImVec2 to_window = window_per_back();
-    content.drag_back_x = mouse.x / std::max(kTinyScale, to_window.x);
-    content.drag_back_y = mouse.y / std::max(kTinyScale, to_window.y);
+    ImVec2 mouse = ImGui::GetIO().MousePos;
+    if (content.automated) { // (the automation channel's drag: where it put the cursor)
+        mouse = ImVec2(content.drag_back_x * to_window.x, content.drag_back_y * to_window.y);
+    } else {
+        content.over_scene = ui_layout::get_holds(scene, mouse.x, mouse.y);
+        content.drag_back_x = mouse.x / std::max(kTinyScale, to_window.x);
+        content.drag_back_y = mouse.y / std::max(kTinyScale, to_window.y);
+    }
     ImGui::SetNextWindowPos(ImVec2(mouse.x + (kDragTipOffset * scale), mouse.y + (kDragTipOffset * scale)));
     ImGui::BeginTooltip();
     ImGui::TextUnformatted(content.drag.name.c_str());
+    if (content.cutting) {
+        ui::internal::get_muted("Cutting out\xE2\x80\xA6");
+    }
     ui::internal::get_muted(content.over_scene ? "Release to place - Esc cancels" : "Drag into the Scene to place it");
     ImGui::EndTooltip();
-    if (content.over_scene && content.have_ghost) {
+    if (content.over_scene && content.have_ghost && !content.ghost_ready) {
         const Piece& piece = content.drag;
         const V3 half{.x = (piece.max.x - piece.min.x) / 2, .y = 0.0F, .z = (piece.max.z - piece.min.z) / 2};
         const float height = piece.max.y - piece.min.y;
@@ -965,13 +1027,74 @@ void drag_feedback(float scale)
             list->PopClipRect();
         }
     }
-    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+    if (!content.automated && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         content.dragging = false;
         content.drop_asked = content.over_scene;
         if (!content.over_scene) {
-            content.have_ghost = false;
+            cancel_drag();
         }
     }
+}
+
+// The dragged piece made ready to be shown: a catalogue piece's pack cut out (the box shows meanwhile, "Cutting out..."
+// by the cursor) and loaded - hidden, as place loads it: placing it later finds it loaded. Asked once a drag (a load
+// that fails isn't tried again every frame).
+void prepare_preview()
+{
+    ContentState& content = state();
+    if (content.drag_sector != 0U) {
+        content.ghost_ready = scenery::sector_of(content.drag_sector) != nullptr;
+        return;
+    }
+    const Piece& piece = content.drag;
+    const std::string id = pack_id(piece.level, piece.name);
+    content.cutting = cut_pending(piece);
+    content.ghost_ready = props::is_loaded(id);
+    if (content.ghost_ready || content.cutting) {
+        return;
+    }
+    if (needs_cut(piece)) {
+        if (content.cut_asked != id && tools_there()) {
+            content.cut_asked = id;
+            queue("extract", {"--level", piece.level, "--piece", piece.name}, piece.name, piece_key(piece));
+            content.cutting = true;
+        }
+        return;
+    }
+    if (content.preview_tried == id) {
+        return;
+    }
+    content.preview_tried = id;
+    std::string message;
+    if (!props::load(id, &message)) {
+        get_log("level editor: content browser: no preview of %s: %s", piece_key(piece).c_str(), message.c_str());
+    }
+    content.ghost_ready = props::is_loaded(id);
+}
+
+// The dragged piece's ghost at the preview's point: the pack's sectors where place would put them, or this level's
+// piece with the middle of its bottom there (as place_piece_copy puts its copy).
+void show_ghost()
+{
+    const ContentState& content = state();
+    if (!content.ghost_ready) {
+        return;
+    }
+    std::vector<ghost::Part> parts;
+    if (content.drag_sector != 0U) {
+        OrientedBox box{};
+        if (!scenery::cuboid(content.drag_sector, &box)) {
+            return;
+        }
+        V3 low{};
+        V3 high{};
+        bounds_of(box, &low, &high);
+        const V3 bottom = {.x = (low.x + high.x) * 0.5F, .y = low.y, .z = (low.z + high.z) * 0.5F};
+        parts.push_back({.sector = content.drag_sector, .world = ghost::moved(content.ghost - bottom)});
+    } else if (!props::ghost_parts(pack_id(content.drag.level, content.drag.name), content.ghost, &parts)) {
+        return;
+    }
+    ghost::show(parts);
 }
 
 // What an empty folder says.
@@ -1138,17 +1261,34 @@ void tick_frame()
     }
     tick_child();
     prefabs::tick_frame();
-    // The drag's box: the ground under the cursor (the editor's own cursor ray is the UI's during a drag).
+    // The drag's preview: the ground under the cursor (the editor's own cursor ray is the UI's during a drag) - the
+    // ghost meets nothing there, so it never climbs onto itself.
     content.have_ghost = false;
-    if (content.dragging && content.over_scene) {
-        content.have_ghost = edit::cursor_point_at(content.drag_back_x, content.drag_back_y, &content.ghost);
+    if (content.dragging) {
+        prepare_preview();
+        if (content.over_scene) {
+            V3 point{};
+            if (edit::cursor_point_at(content.drag_back_x, content.drag_back_y, &point)) {
+                content.ghost = point;
+                content.have_ghost = content.ghost_seen = true;
+            }
+        }
+        if (content.have_ghost) {
+            show_ghost();
+        }
     }
     if (content.drop_asked) {
         content.drop_asked = false;
-        V3 at{};
-        if (edit::cursor_point_at(content.drag_back_x, content.drag_back_y, &at)) {
-            ask_place(content.drag, at);
+        // (where the preview last showed it - else the ground under the cursor now)
+        V3 at = content.ghost;
+        if (content.ghost_seen || edit::cursor_point_at(content.drag_back_x, content.drag_back_y, &at)) {
+            if (content.drag_sector != 0U) {
+                internal::place_piece_copy(content.drag_sector, at);
+            } else {
+                ask_place(content.drag, at);
+            }
         }
+        cancel_drag();
     }
     if (content.place_asked) {
         const Drop drop = *content.place_asked;
@@ -1184,6 +1324,83 @@ std::string automation_place(const std::string& level, const std::string& name)
     }
     return content.catalogue_read ? "error: no piece " + level + "/" + name + " in the catalogue"
                                   : "error: no catalogue yet (open the Content Browser)";
+}
+
+void drag_level_piece(uint32_t sector, const std::string& label)
+{
+    if (state().dragging) {
+        return;
+    }
+    Piece piece;
+    piece.name = label;
+    OrientedBox box{};
+    if (scenery::cuboid(sector, &box)) {
+        V3 low{};
+        V3 high{};
+        bounds_of(box, &low, &high);
+        piece.min = low;
+        piece.max = high;
+    }
+    start_drag(piece, sector);
+}
+
+std::string automation_drag(const std::vector<std::string>& words)
+{
+    // (words: "drag", the verb or the level, its arguments)
+    ContentState& content = state();
+    const ui_layout::Rect2 scene = ui::app::scene_rect();
+    const ImVec2 to_window = window_per_back();
+    auto cursor_at = [&](const std::string& across, const std::string& down) {
+        const float x = scene.x + (std::strtof(across.c_str(), nullptr) * scene.width);
+        const float y = scene.y + (std::strtof(down.c_str(), nullptr) * scene.height);
+        content.drag_back_x = x / std::max(kTinyScale, to_window.x);
+        content.drag_back_y = y / std::max(kTinyScale, to_window.y);
+        content.over_scene = true;
+    };
+    const std::string verb = words.size() > 1 ? words.at(1) : std::string();
+    if (verb == "cancel") {
+        cancel_drag();
+        return "ok cancelled";
+    }
+    if (verb == "drop") {
+        if (!content.dragging) {
+            return "error: no drag";
+        }
+        content.dragging = false;
+        content.drop_asked = true;
+        return text::format("ok dropping at (%.1f, %.1f, %.1f)", content.ghost.x, content.ghost.y, content.ghost.z);
+    }
+    if (verb == "move" && words.size() > 3) {
+        cursor_at(words.at(2), words.at(3));
+        return text::format("ok %s (last shown at %.1f, %.1f, %.1f)", content.ghost_ready ? "piece shown" : "box shown",
+                            content.ghost.x, content.ghost.y, content.ghost.z);
+    }
+    constexpr std::size_t kStartWords = 5; // (drag, the level or here, the piece or sector, x, y)
+    if (words.size() < kStartWords) {
+        return "error: drag <level> <piece> <x> <y> | here <sector> <x> <y> | move <x> <y> | drop | cancel";
+    }
+    if (verb == "here") {
+        const auto sector = static_cast<uint32_t>(std::strtoul(words.at(2).c_str(), nullptr, kHexBase));
+        if (scenery::sector_of(sector) == nullptr) {
+            return "error: no sector " + words.at(2);
+        }
+        content.dragging = false;
+        drag_level_piece(sector, words.at(2));
+    } else {
+        if (!content.catalogue_read) {
+            read_catalogue_file();
+        }
+        const auto found = std::ranges::find_if(content.pieces, [&](const Piece& piece) {
+            return lowered(piece.level) == lowered(verb) && lowered(piece.name) == lowered(words.at(2));
+        });
+        if (found == content.pieces.end()) {
+            return "error: no piece " + verb + "/" + words.at(2) + " in the catalogue";
+        }
+        start_drag(*found, 0);
+    }
+    content.automated = true;
+    cursor_at(words.at(3), words.at(4));
+    return "ok dragging " + content.drag.name;
 }
 
 bool has_focus() { return state().open && state().focused; }

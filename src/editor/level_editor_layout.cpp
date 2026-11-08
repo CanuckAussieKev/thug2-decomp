@@ -379,6 +379,8 @@ bool get_capture(FileLoad* file)
     *file = FileLoad{};
     file->scene = scenery::world_scene_key(scene);
     file->sectors = scenery::changed_sectors();
+    // (a prop pack's sectors as it loaded - hidden, for a drag's preview or an undone placement - aren't edits)
+    std::erase_if(file->sectors, [](const scenery::SectorState& state) { return props::is_resting(state.checksum); });
     file->rails = scenery::changed_rails();
     // (a rail point the editor added: its `point` record has where it is now - not a `rail` offset)
     std::erase_if(file->rails,

@@ -16,6 +16,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "editor/level_editor_content.h"
+#include "editor/level_editor_scene_tools.h"
 #include "editor/level_editor_split.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_layout.h"
@@ -43,6 +44,7 @@ constexpr const char* kContentWindow = "Content Browser"; // (level_editor_conte
 constexpr float kOutlinerWidth = 280.0F;
 constexpr float kInspectorWidth = 320.0F;
 constexpr float kMostSideFraction = 0.3F;
+constexpr float kSceneToolsInset = 4.0F; // (the tool strip from the Scene's left edge - as the corner menu)
 constexpr float kBottomFraction = 0.28F;
 constexpr uint32_t kDecimalBase = 10;
 constexpr uint32_t kHexBase = 16;
@@ -412,6 +414,11 @@ void scene_panel(const Overlay* overlay, SceneOverlayFonts fonts)
                                                   draw_overlay(list, view_overlay, fonts);
                                               },
                                               .scale = fonts.scale});
+        // (the tool strip under the first view's corner menu - level_editor_scene_tools.h)
+        constexpr float kStripTop = 12.0F; // (the corner menu's padding, its button's and a gap)
+        const float strip_x = state.rect.x + (kSceneToolsInset * fonts.scale);
+        const float strip_y = state.rect.y + (kStripTop * fonts.scale) + ImGui::GetTextLineHeight();
+        on_controls = scene_tools::draw(strip_x, strip_y, fonts.scale) || on_controls;
     }
     state.hovered = ImGui::IsWindowHovered() && !on_controls &&
                     !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);

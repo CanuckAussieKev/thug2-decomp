@@ -29,6 +29,7 @@
 #include "editor/level_editor_clip.h"
 #include "editor/level_editor_content.h"
 #include "editor/level_editor_fields.h"
+#include "editor/level_editor_ghost.h"
 #include "editor/level_editor_gui_text.h"
 #include "editor/level_editor_import.h"
 #include "editor/level_editor_layout.h"
@@ -444,6 +445,7 @@ struct PrefabsState {
     std::vector<Prefab> list;
     std::string selected; // an id
     std::string drag;     // the prefab dragged
+    std::string packs_loaded; // (the prefab whose packs this drag's preview loaded)
     std::optional<Ask> ask;
     std::optional<Ask> create;
     std::string create_name;
@@ -458,6 +460,8 @@ struct PrefabsState {
     bool dragging = false;
     bool over_scene = false;
     bool have_ghost = false;
+    bool ghost_seen = false;   // (`ghost` is where this drag's preview last showed it: the drop puts it there)
+    bool pieces_shown = false; // (its scenery pieces shown as ghosts - the box only for what else it holds)
     bool drop_asked = false;
     bool ask_open = false;
 };
@@ -1092,6 +1096,8 @@ void item_behaviour(const Prefab& prefab)
         prefabs.dragging = true;
         prefabs.drag = prefab.id;
         prefabs.selected = prefab.id;
+        prefabs.packs_loaded.clear();
+        prefabs.ghost_seen = prefabs.pieces_shown = false;
     }
     if (ImGui::IsItemHovered() && !prefabs.dragging) {
         tooltip(prefab);
@@ -1205,7 +1211,10 @@ void drag_feedback(float scale)
     ImGui::TextUnformatted(prefab->name.c_str());
     ui::internal::get_muted(prefabs.over_scene ? "Release to place - Esc cancels" : "Drag into the Scene to place it");
     ImGui::EndTooltip();
-    if (prefabs.over_scene && prefabs.have_ghost) {
+    // (its scenery pieces show as themselves - tick_frame's ghosts; the box while they can't, or for objects and nodes)
+    const bool box = !prefabs.pieces_shown || !prefab->parts.copies.empty() || !prefab->parts.added.empty() ||
+                     !prefab->parts.triggers.empty() || !prefab->parts.chains.points.empty();
+    if (prefabs.over_scene && prefabs.have_ghost && box) {
         std::array<ImVec2, kBoxCorners> corners{};
         bool all = true;
         for (int index = 0; index < kBoxCorners; ++index) {
@@ -1232,6 +1241,40 @@ void drag_feedback(float scale)
         prefabs.drop_asked = prefabs.over_scene;
         prefabs.have_ghost = prefabs.have_ghost && prefabs.over_scene;
     }
+}
+
+// The dragged prefab's scenery pieces as ghosts at `at` (level_editor_ghost.h): each piece's source as it is now, drawn
+// where its `clone` record puts it (relative to the source as loaded) - its packs loaded first, once a drag. Whether any
+// is shown.
+bool show_pieces(const Prefab& prefab, V3 at)
+{
+    PrefabsState& prefabs = state();
+    if (prefabs.packs_loaded != prefab.id) {
+        prefabs.packs_loaded = prefab.id;
+        for (const std::string& pack : prefab.packs) {
+            std::string why;
+            if (!props::load(pack, &why)) {
+                get_log("level editor: prefab %s's preview: %s", prefab.id.c_str(), why.c_str());
+            }
+        }
+    }
+    std::vector<ghost::Part> parts;
+    for (const layout::CloneRecord& clone : prefab.parts.clones) {
+        if (scenery::sector_of(clone.source) == nullptr) {
+            continue;
+        }
+        Placement now{};
+        scenery::placement_now(clone.source, &now);
+        ghost::Matrix undo{};
+        if (!ghost::inverse_of(ghost::matrix_of(now), &undo)) {
+            continue;
+        }
+        Placement placed = clone.placement;
+        placed.offset = placed.offset + at; // (as instantiate's translate)
+        parts.push_back({.sector = clone.source, .world = ghost::after(undo, ghost::matrix_of(placed))});
+    }
+    ghost::show(parts);
+    return !parts.empty();
 }
 
 std::vector<uint32_t> hex_list(const std::string& text)
@@ -1305,16 +1348,24 @@ void tick_frame()
     }
     prefabs.have_ghost = false;
     if (prefabs.dragging && prefabs.over_scene) {
-        prefabs.have_ghost = edit::cursor_point_at(prefabs.drag_back_x, prefabs.drag_back_y, &prefabs.ghost);
+        V3 point{};
+        if (edit::cursor_point_at(prefabs.drag_back_x, prefabs.drag_back_y, &point)) {
+            prefabs.ghost = point;
+            prefabs.have_ghost = prefabs.ghost_seen = true;
+            const Prefab* prefab = find_prefab(prefabs.drag);
+            prefabs.pieces_shown = prefab != nullptr && show_pieces(*prefab, point);
+        }
     }
     if (prefabs.drop_asked) {
         prefabs.drop_asked = false;
-        V3 at{};
+        // (where the preview last showed it - else the ground under the cursor now)
+        V3 at = prefabs.ghost;
         std::string message;
-        if (edit::cursor_point_at(prefabs.drag_back_x, prefabs.drag_back_y, &at)) {
+        if (prefabs.ghost_seen || edit::cursor_point_at(prefabs.drag_back_x, prefabs.drag_back_y, &at)) {
             place(prefabs.drag, at, &message);
             show_message(message);
         }
+        prefabs.ghost_seen = prefabs.pieces_shown = false;
     }
     if (prefabs.place_at_cursor) {
         const std::string id = *prefabs.place_at_cursor;

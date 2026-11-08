@@ -554,5 +554,32 @@ void place_from_browser(V3 at, bool keep_open)
     note_action("placed a copy of %s (the browser)", object_edit::caption(source).c_str());
 }
 
+bool place_piece_copy(uint32_t source, V3 at)
+{
+    OrientedBox box{};
+    const uint32_t copy = scenery::cuboid(source, &box) ? scenery::get_duplicate(source) : 0U;
+    if (copy == 0U) {
+        hud::get_message("Couldn't copy the piece");
+        return false;
+    }
+    V3 low{};
+    V3 high{};
+    bounds_of(box, &low, &high);
+    const V3 bottom = {.x = (low.x + high.x) * 0.5F, .y = low.y, .z = (low.z + high.z) * 0.5F};
+    picked_set().objects_.clear();
+    scenery::set_selection({copy});
+    scenery::move_to(scenery::get_pivot() + (at - bottom));
+    scenery::finalise();
+    UndoStep step;
+    step.kind = UndoStep::Kind::kMade;
+    step.exist = false;
+    step.sectors.push_back(copy);
+    push_undo(step, "Place copy");
+    thumbs::note_used(0, source);
+    hud::get_message("Placed " + object_edit::caption(source));
+    note_action("placed a copy of %s (dragged from the Content Browser)", object_edit::caption(source).c_str());
+    return true;
+}
+
 } // namespace internal
 } // namespace frontend::level_editor

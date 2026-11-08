@@ -29,6 +29,7 @@
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_carry.h"
 #include "editor/level_editor_chains.h"
+#include "editor/level_editor_ghost.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_hud.h"
@@ -1585,7 +1586,10 @@ void add_ghost(const Painter& painter)
         Aabb bounds;
         bounds_of(box, &bounds.min, &bounds.max);
         box.origin = box.origin + (at - bottom_centre(bounds));
-        painter.cuboid(box, {.argb = kLine, .fill = kFill});
+        painter.cuboid(box, {.argb = kLine, .fill = 0U});
+        // (and the piece itself, see-through - level_editor_ghost.h; drawn in the next frame's view)
+        const std::array<ghost::Part, 1> piece = {{{.sector = id, .world = ghost::moved(at - bottom_centre(bounds))}}};
+        ghost::show(piece);
         return;
     }
     objects::GameEntity* object = live_object(id);

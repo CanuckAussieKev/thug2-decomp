@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdlib>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -20,6 +21,7 @@
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_content.h"
+#include "editor/level_editor_ghost.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_scenery.h"
@@ -39,6 +41,7 @@ constexpr int kQuarterTurns = 4; // (a whole turn)
 
 struct PropsState {
     std::vector<std::string> loaded;
+    std::map<std::string, Manifest> manifests; // (the loaded packs')
 };
 
 PropsState& props_state()
@@ -50,6 +53,13 @@ PropsState& props_state()
 std::string manifest_path(const std::string& id)
 {
     return game_folder_path("thug2-decomp-data") + "\\levels\\" + id + "\\" + id + ".txt";
+}
+
+// A loaded pack's manifest (null: not loaded).
+const Manifest* loaded_manifest(const std::string& id)
+{
+    const auto found = props_state().manifests.find(id);
+    return found != props_state().manifests.end() ? &found->second : nullptr;
 }
 
 // An undo step of a placement: the pack's sectors (or the copies made) and the rails as they were.
@@ -303,6 +313,7 @@ bool load(const std::string& id, std::string* message)
     }
     scenery::apply_states(hidden, {});
     props_state().loaded.push_back(id);
+    props_state().manifests[id] = manifest;
     get_log("level editor: prop pack %s loaded (%s's %s: %u sectors, %u rail points)", id.c_str(),
             manifest.source_level.c_str(), manifest.source_piece.c_str(), static_cast<unsigned>(manifest.sectors.size()),
             static_cast<unsigned>(manifest.rails.size()));
@@ -372,6 +383,67 @@ bool place(const std::string& id, V3 at, std::string* message)
     return true;
 }
 
+bool ghost_parts(const std::string& id, V3 at, std::vector<ghost::Part>* parts)
+{
+    const Manifest* loaded = loaded_manifest(id);
+    if (loaded == nullptr) {
+        return false;
+    }
+    const Manifest& manifest = *loaded;
+    // As place puts them: the first time its own sectors at the target (their placements set outright - from where they
+    // are now, undone), after that copies of them (made where they are, then placed by the target after undoing their
+    // source's placement - inverted, as place does).
+    const Placement target{.quarters = 0, .offset = at};
+    const bool first = std::ranges::all_of(manifest.sectors, [](uint32_t sector) { return scenery::get_hidden(sector); });
+    for (const uint32_t sector : manifest.sectors) {
+        Placement now{};
+        scenery::placement_now(sector, &now);
+        ghost::Part part{.sector = sector};
+        if (first) {
+            ghost::Matrix undo{};
+            if (!ghost::inverse_of(ghost::matrix_of(now), &undo)) {
+                continue;
+            }
+            part.world = ghost::after(undo, ghost::matrix_of(target));
+        } else {
+            part.world = ghost::matrix_of(compose(target, inverted(now)));
+        }
+        parts->push_back(part);
+    }
+    return !parts->empty();
+}
+
+bool in_use(const std::string& id)
+{
+    const Manifest* loaded = loaded_manifest(id);
+    if (loaded == nullptr) {
+        return false;
+    }
+    const Manifest& manifest = *loaded;
+    const auto own = [&](uint32_t sector) { return std::ranges::find(manifest.sectors, sector) != manifest.sectors.end(); };
+    if (!std::ranges::all_of(manifest.sectors, [](uint32_t sector) { return is_resting(sector); })) {
+        return true;
+    }
+    return std::ranges::any_of(scenery::get_clones(), [&](const scenery::Replicate& clone) {
+        return own(clone.source) && !scenery::get_hidden(clone.checksum);
+    });
+}
+
+bool is_resting(uint32_t sector)
+{
+    for (const auto& [id, manifest] : props_state().manifests) {
+        if (std::ranges::find(manifest.sectors, sector) == manifest.sectors.end()) {
+            continue;
+        }
+        Placement now{};
+        scenery::placement_now(sector, &now);
+        return scenery::get_hidden(sector) && now.quarters == 0 && now.twist == 0.0F && now.offset.x == 0.0F &&
+               now.offset.y == 0.0F && now.offset.z == 0.0F && now.scale.x == 1.0F && now.scale.y == 1.0F &&
+               now.scale.z == 1.0F;
+    }
+    return false;
+}
+
 const std::vector<std::string>& loaded_packs() { return props_state().loaded; }
 
 void load_from_layout(const std::vector<std::string>& extra)
@@ -416,7 +488,9 @@ void prepare_all()
     extension.capture = [] {
         std::vector<std::string> lines;
         for (const std::string& id : props_state().loaded) {
-            lines.push_back(std::string(kRecord) + " " + id);
+            if (in_use(id)) { // (a pack loaded for a drag's preview and never placed isn't the layout's)
+                lines.push_back(std::string(kRecord) + " " + id);
+            }
         }
         return lines;
     };
@@ -440,6 +514,10 @@ void prepare_all()
     layout::add_extension(extension);
 }
 
-void forget_level() { props_state().loaded.clear(); }
+void forget_level()
+{
+    props_state().loaded.clear();
+    props_state().manifests.clear();
+}
 
 } // namespace frontend::level_editor::props

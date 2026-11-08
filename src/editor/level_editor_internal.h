@@ -633,6 +633,9 @@ void show_browser();
 V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame);
 
 void place_from_browser(V3 at, bool keep_open = false);
+// A copy of the level's piece `source` with the middle of its box's bottom on `at` (the Content Browser's drop of a
+// This Level piece - where its ghost showed it), selected; one undo step. False: it couldn't be copied.
+bool place_piece_copy(uint32_t source, V3 at);
 
 std::vector<std::pair<uint32_t, uint32_t>>& duplicate_pairs();
 

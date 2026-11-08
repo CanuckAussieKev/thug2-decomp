@@ -6,6 +6,10 @@
 
 #include "editor/level_editor.h"
 
+namespace frontend::level_editor::ghost {
+struct Part;
+}
+
 // NOT ORIGINAL - prop packs in the level editor (ours, at the user's request: pieces of any THUG2 level placed in any
 // other - LA's fire truck in Boston).
 //
@@ -72,6 +76,14 @@ bool load(const std::string& id, std::string* message);
 bool place(const std::string& id, V3 at, std::string* message);
 // The packs loaded in this level.
 const std::vector<std::string>& loaded_packs();
+// The drag's preview (level_editor_ghost.h): the pack's sectors drawn where place(id, at) would put them - its own
+// sectors or copies of them, as place decides. False: not loaded.
+bool ghost_parts(const std::string& id, V3 at, std::vector<ghost::Part>* parts);
+// Whether a loaded pack is used in the level: one of its sectors shown or put somewhere, or a shown copy of one. A pack
+// loaded only for a drag's preview (or whose placement was undone) isn't: no `prop` record is written for it.
+bool in_use(const std::string& id);
+// Whether a sector is a loaded pack's, resting as it loaded (hidden where the pack put it): not the layout's.
+bool is_resting(uint32_t sector);
 // The layout's own records (layout::FileLoad::extra): its packs loaded, before its sector records are put in place.
 void load_from_layout(const std::vector<std::string>& extra);
 // The layout extension (`prop` records); once, as the editor starts.

@@ -19,6 +19,7 @@
 #include <array>
 #include <vector>
 
+#include "editor/level_editor_content.h"
 #include "editor/level_editor_preview.h"
 #include "editor/level_editor_ui.h"
 #include "engine/ui/ui_backend.h"
@@ -585,6 +586,15 @@ void empty_notice(const std::vector<ui::BrowserItem>& items, const std::vector<i
     }
 }
 
+// The entry just drawn dragged out (a scenery piece): the Content Browser's drag into the Scene - its ghost shows where it
+// lands, the drop places a copy there (level_editor_content.h).
+void drag_source(int tab, const ui::BrowserItem& item)
+{
+    if (tab == 0 && ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        content::drag_level_piece(item.id, item.label);
+    }
+}
+
 // The list, a star at each row's end. The entry hovered (-1: none).
 int list_rows(const ItemsPanel& panel, const std::vector<int>& shown)
 {
@@ -608,6 +618,7 @@ int list_rows(const ItemsPanel& panel, const std::vector<int>& shown)
         if (ImGui::IsItemHovered()) {
             hovered = index;
         }
+        drag_source(tab, core::at(items, index));
         if (selected && panel.follow) {
             ImGui::SetScrollHereY(kScrollCentre);
         }
@@ -668,6 +679,7 @@ bool grid_cell_of(const ItemsPanel& panel, const GridCell& grid_cell, int index,
     if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
         push_request(panel.requests, ui::Request::Kind::kBrowserPlace, 0);
     }
+    drag_source(tab, core::at(items, index));
     const bool hover = ImGui::IsItemHovered();
     if (hover) {
         gui::tooltip("%s\nDouble-click to place", core::at(items, index).label.c_str());

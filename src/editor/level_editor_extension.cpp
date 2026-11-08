@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
+#include "editor/level_editor_ghost.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_open.h"
@@ -66,7 +67,12 @@ public:
     void screen_cancel() override { shell::screen_cancel(); }
     bool screen_status(std::string* status) override { return shell::screen_status(status); }
 
-    void before_draw_world() override { tick_frame(); }
+    // (then the ghosts asked for - level_editor_ghost.h: drawn in this frame's 3D view)
+    void before_draw_world() override
+    {
+        tick_frame();
+        ghost::hand_over();
+    }
     // (any viewport: the editor takes the first camera it is given while it runs)
     void place_camera(gfx::ViewCam* camera, int /*viewport*/) override { level_editor::place_camera(camera); }
     float near_plane(gfx::ViewCam* camera, float near_z) override { return get_near_plane(camera, near_z); }

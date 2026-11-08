@@ -80,6 +80,9 @@ void set_texture(int stage, GpuTexture* texture);
 // the game's modes), the high 8 bits the blend factor's alpha (x2, saturating). An override (0x00786F34) wins if
 // set.
 void choose_blend_mode(uint32_t mode);
+// The override (0x00786F34; 0: none): a blend word choose_blend_mode takes in place of the one it is given. Cleared by
+// reset_render_state.
+uint32_t& forced_blend();
 // 0x004D9DE0: the texture stages that stand in for a pixel shader (the shader handles at 0x007CA944-64) when
 // the device has no pixel shaders; `factor` is the texture factor colour some of them use.
 void set_fixed_function_stages(void* shader, uint32_t factor);

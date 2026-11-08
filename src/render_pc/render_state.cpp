@@ -117,8 +117,6 @@ std::array<uint32_t, 4>& filters() { return render_state_cache().filters_; }    
 
 uint32_t& vertex_format() { return render_state_cache().vertex_format_; }
 
-uint32_t& forced_blend() { return forced_states().forced_blend_; }
-
 uint8_t& local_viewer() { return forced_states().local_viewer_; }
 
 // Device capabilities (found at start-up).
@@ -200,6 +198,8 @@ void change_filter(RenderStateId state, uint32_t value)
 }
 
 } // namespace
+
+uint32_t& forced_blend() { return forced_states().forced_blend_; }
 
 // 0x004DAB60
 void change_phase(RenderStateId state, uint32_t value)
