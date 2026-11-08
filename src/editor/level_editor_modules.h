@@ -191,6 +191,9 @@ float get_yaw();
 // (one undo step, selected; `keep_open`: the palette stays open).
 bool browser_item(int* tab, uint32_t* id);
 void place_browser_item(V3 at, bool keep_open);
+// Whether a click in the view places the palette's item (and its ghost follows the cursor): only the palette's own
+// window - not the Content Browser docked on This Level, where a tile is placed by dragging it, Enter or Place at Cursor.
+bool browser_click_places();
 // The Place palette (N): its armed entry (-1: none), the entry's colour.
 int place_armed(uint32_t* colour);
 // Where a click places (the browser's Enter, the Place palette): the ground below what the cursor's ray meets.

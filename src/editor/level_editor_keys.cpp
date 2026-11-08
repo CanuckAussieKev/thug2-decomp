@@ -238,7 +238,7 @@ void transform_keys(input::KeyState keys, bool ctrl, bool shift, bool alt, const
     const bool grave = actions::squeezed(actions::kToolSpace);
     const bool modal_key = actions::squeezed(actions::kModalTransform);
     const bool frame_key = actions::squeezed(actions::kFrameSelection);
-    if (drag_session().dragging_ || stored_browser().open || ctrl || picked_set().field_editing_) {
+    if (drag_session().dragging_ || browser_has_keys() || ctrl || picked_set().field_editing_) {
         return;
     }
     xform::Settings& settings = xform::at_hand();
@@ -342,21 +342,21 @@ void edit_keys(const EditorFrame& editor_frame)
     }
     // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
     // (level_editor_view.h - while editing only).
-    if (actions::squeezed(actions::kOcclusion) && !stored_browser().open) {
+    if (actions::squeezed(actions::kOcclusion) && !browser_has_keys()) {
         occlusion_switch().occlusion_off_ = !occlusion_switch().occlusion_off_;
         render::occlusion_off() = occlusion_switch().occlusion_off_;
         hud::get_message(occlusion_switch().occlusion_off_ ? "Occlusion culling off" : "Occlusion culling on");
     }
-    if (actions::squeezed(actions::kCollision) && !stored_browser().open) {
+    if (actions::squeezed(actions::kCollision) && !browser_has_keys()) {
         show_collision(!view::show_collision());
     }
-    if (actions::squeezed(actions::kShowAll) && !no_change && !stored_browser().open) {
+    if (actions::squeezed(actions::kShowAll) && !no_change && !browser_has_keys()) {
         view_show_all();
     }
-    if (actions::squeezed(actions::kHide) && !no_change && !stored_browser().open) {
+    if (actions::squeezed(actions::kHide) && !no_change && !browser_has_keys()) {
         view_hide(false);
     }
-    if (actions::squeezed(actions::kIsolate) && !no_change && !stored_browser().open) {
+    if (actions::squeezed(actions::kIsolate) && !no_change && !browser_has_keys()) {
         view_hide(true);
     }
 }
@@ -375,13 +375,13 @@ void view_keys()
             hud::get_message(std::string("View: ") + overlays::view_mode_name(mode));
         }
     }
-    if (actions::squeezed(actions::kJumpArcs) && !stored_browser().open) {
+    if (actions::squeezed(actions::kJumpArcs) && !browser_has_keys()) {
         const bool on = !overlays::get_shown(overlays::kJumpArcs);
         overlays::assign_value(overlays::kJumpArcs, on);
         hud::get_message(on ? "Jump Arcs on" : "Jump Arcs off");
     }
     const bool ruler_clear = actions::squeezed(actions::kRulerClear);
-    if ((actions::squeezed(actions::kRuler) || ruler_clear) && !stored_browser().open && !drag_session().dragging_) {
+    if ((actions::squeezed(actions::kRuler) || ruler_clear) && !browser_has_keys() && !drag_session().dragging_) {
         if (ruler_clear) {
             ruler::get_clear();
             hud::get_message("Ruler cleared");
@@ -395,7 +395,7 @@ void view_keys()
     }
     // T: the trigger volumes shown (and the Triggers window) - level_editor_triggers.h; their changes, undo steps and
     // selections.
-    if (actions::squeezed(actions::kTriggers) && !stored_browser().open) {
+    if (actions::squeezed(actions::kTriggers) && !browser_has_keys()) {
         if (ui::underway()) {
             triggers::set_shown(!triggers::get_shown());
             hud::get_message(triggers::get_shown() ? "Trigger volumes shown" : "Trigger volumes hidden");
@@ -441,7 +441,7 @@ void tick_triggers_and_tools(const EditorFrame& editor_frame)
     walls::tick(); // (scenery whose collision is switched off kept off - level_editor_walls.h)
     // (map3) K: Faces mode - clicks take collision faces (level_editor_faces.h); V: a camera node made from the view
     // (level_editor_cameras.h).
-    if (actions::squeezed(actions::kFaces) && !stored_browser().open && !no_change) {
+    if (actions::squeezed(actions::kFaces) && !browser_has_keys() && !no_change) {
         if (ui::underway()) {
             faces::set_picking(!faces::get_picking());
             hud::get_message(faces::get_picking() ? "Face Select on" : "Face Select off");
@@ -449,7 +449,7 @@ void tick_triggers_and_tools(const EditorFrame& editor_frame)
             hud::get_message("Requires the editor UI (editor_ui=1)");
         }
     }
-    if (actions::squeezed(actions::kCameraNode) && !stored_browser().open && !no_change) {
+    if (actions::squeezed(actions::kCameraNode) && !browser_has_keys() && !no_change) {
         cameras::create_from_view();
     }
     faces::tick_frame();
@@ -488,11 +488,11 @@ void command_keys(const EditorFrame& editor_frame)
     if (actions::squeezed(actions::kHome)) {
         rotate_tool::ask_revert();
     }
-    if (rotate_tool::take_revert() && !no_change && !stored_browser().open && !organize::selection_locked(true)) {
+    if (rotate_tool::take_revert() && !no_change && !browser_has_keys() && !organize::selection_locked(true)) {
         get_reset();
     }
     // Home: the whole level framed (Blender's Home).
-    if (actions::squeezed(rotate_tool::frame_level_action()) && !stored_browser().open) {
+    if (actions::squeezed(rotate_tool::frame_level_action()) && !browser_has_keys()) {
         V3 low{};
         V3 high{};
         if (scenery::level_bounds(&low, &high)) {
@@ -500,7 +500,7 @@ void command_keys(const EditorFrame& editor_frame)
             view_cam::frame_level(rig_now(), (low + high) * kHalf, std::sqrt(get_dot(extent, extent)) * kHalf);
         }
     }
-    if (!no_change && !stored_browser().open && (confirmations().confirm_hide_ == 0U) && !confirmations().confirm_reset_) {
+    if (!no_change && !browser_has_keys() && (confirmations().confirm_hide_ == 0U) && !confirmations().confirm_reset_) {
         if (actions::squeezed(actions::kResetLevel)) {
             ask_reset_level(); // (Ctrl+Shift+Delete: Reset level)
         } else if (actions::squeezed(actions::kDelete) && !organize::selection_locked(true)) {
@@ -513,7 +513,7 @@ void command_keys(const EditorFrame& editor_frame)
     const bool end_now = actions::squeezed(actions::kChainExtend);
     const bool join_now = actions::squeezed(actions::kChainLink);
     const bool unlink_now = actions::squeezed(actions::kChainUnlink);
-    if (picked_set().node_selected_ && !no_change && !stored_browser().open && chains::is_chain_node(picked_set().node_name_)) {
+    if (picked_set().node_selected_ && !no_change && !browser_has_keys() && chains::is_chain_node(picked_set().node_name_)) {
         if (insert_now) {
             run_chain_op(chains::ChainOp::kInsert, 0);
         }

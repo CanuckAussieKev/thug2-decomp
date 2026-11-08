@@ -20,6 +20,7 @@
 #include "base/core/format.h"
 #include "editor/level_editor_carry.h"
 #include "editor/level_editor_chains.h"
+#include "editor/level_editor_content.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_node_edit.h"
@@ -460,6 +461,7 @@ bool browser_item(int* tab, uint32_t* id)
     return true;
 }
 void place_browser_item(V3 at, bool keep_open) { place_from_browser(at, keep_open); }
+bool browser_click_places() { return stored_browser().open && !content::hosts_this_level(); }
 
 int place_armed(uint32_t* colour)
 {

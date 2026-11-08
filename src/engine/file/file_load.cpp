@@ -3,8 +3,10 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <chrono>
 #include <span>
 #include <string_view>
+#include <thread>
 
 #include "base/core/dbg.h"
 #include "engine/file/archive.h"
@@ -13,7 +15,6 @@
 #include "engine/file/file_sources.h"
 #include "engine/file/file_system.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/gfx/render_device.h"
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 
@@ -28,6 +29,8 @@ static_assert(kOverlayPathSize == fs::kLoosePathSize, "a loose copy's path is th
 constexpr uint32_t kErrorFileNotFound = 2;  // Win32's ERROR_FILE_NOT_FOUND
 constexpr uint32_t kErrorPathNotFound = 3;  // Win32's ERROR_PATH_NOT_FOUND
 constexpr uint32_t kErrorHandleEof = 38;    // Win32's ERROR_HANDLE_EOF
+constexpr int kOpenRetries = 10;            // NOT ORIGINAL - a file that won't open: tried again this many times,
+constexpr std::chrono::milliseconds kOpenRetryWait{50}; // this far apart (half a second in all), then missing
 // A data file opened for reading: by the data folder's open (nothing shared), by the overlay's (shared reading).
 constexpr fs::OpenSpec kDataFileRead{.access = fs::Access::kRead, .sharing = fs::Sharing::kNone,
                                      .disposition = fs::Disposition::kOpenExisting, .hint = fs::Hint::kNormal};
@@ -74,13 +77,6 @@ uint32_t archive_seek(Hdl file, int offset, int origin)
     return static_cast<uint32_t>(pre::seek_to(as_archive_file(file), offset, origin));
 }
 uint32_t archive_get_file_size(Hdl file) { return static_cast<uint32_t>(pre::get_file_size(as_archive_file(file))); }
-
-// Shows the fatal file error screen; never returns.
-[[noreturn]] void fatal_file_error(uint32_t error)
-{
-    (void)error; // (pushed to it; unused)
-    render::device().show_disc_error();
-}
 
 // Never set anywhere in the exe: a leftover that would open files from another drive.
 bool use_alternate_drive() { return file_load_state().use_alternate_drive_ != 0; }
@@ -150,21 +146,26 @@ Hdl open_on_disk(const char* name)
         core::at(path, 0) = 'Z';
         file = fs::disk().open(path.data(), kDataFileRead);
     }
-    if (file == fs::no_file()) {
+    // NOT ORIGINAL: the original showed the disc error screen ("There's a problem with the disc you're using.") for
+    // any failure but a missing file and waited there for ever. Here a file in a missing folder (ERROR_PATH_NOT_FOUND)
+    // is missing too, and any other failure - a file locked for a moment (a virus scan, the content tools writing
+    // it) - is tried again for half a second, then logged and taken as missing.
+    for (int attempt = 0; file == fs::no_file(); ++attempt) {
         file = fs::disk().open(path.data(), kDataFileRead);
+        if (file != fs::no_file()) {
+            break;
+        }
+        const uint32_t error = fs::disk().last_error();
+        if (error == kErrorFileNotFound || error == kErrorPathNotFound) {
+            return nullptr;
+        }
+        if (attempt == kOpenRetries) {
+            debug::printf("file: couldn't open %s (error %u) - taken as missing\n", path.data(), error);
+            return nullptr;
+        }
+        std::this_thread::sleep_for(kOpenRetryWait);
     }
-    if (file != fs::no_file()) {
-        return file;
-    }
-
-    const uint32_t error = fs::disk().last_error();
-    // NOT ORIGINAL: a file in a folder that isn't there (ERROR_PATH_NOT_FOUND) is missing too - the original took it
-    // for a disc error, so any optional file in a missing folder (the editor's thumbnails) stopped the game.
-    if (error != kErrorFileNotFound && error != kErrorPathNotFound) {
-        debug::printf("FatalFileError: %x %s\n", error, path.data());
-        fatal_file_error(static_cast<uint32_t>(-1));
-    }
-    return nullptr;
+    return file;
 }
 
 namespace {
@@ -305,8 +306,10 @@ public:
         if (!fs::disk().read(as_disk_file(file), buffer, static_cast<uint32_t>(size) * static_cast<uint32_t>(count),
                              &bytes_read, nullptr)) {
             const uint32_t error = fs::disk().last_error();
+            // NOT ORIGINAL: the original showed the disc error screen here for ever; a failed read is logged and gives
+            // what was read (a short read, as at the end of the file).
             if (error != kErrorHandleEof) {
-                fatal_file_error(error);
+                debug::printf("file: a read failed (error %u) - %u bytes read\n", error, bytes_read);
             }
         }
         return {.handled = true, .value = static_cast<int>(bytes_read)};

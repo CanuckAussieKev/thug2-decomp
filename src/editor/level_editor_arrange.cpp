@@ -1574,7 +1574,7 @@ void add_ghost(const Painter& painter)
         get_marker(painter, at, {.yaw = edit::get_yaw(), .colour = (colour != 0U) ? colour : kMarkerColour});
         return;
     }
-    if (!edit::browser_item(&tab, &id)) {
+    if (!edit::browser_click_places() || !edit::browser_item(&tab, &id)) {
         return;
     }
     OrientedBox box{};
@@ -1752,7 +1752,7 @@ bool place_click(bool more)
 {
     int tab = 0;
     uint32_t id = 0;
-    if (!at_hand().click_places_ || !edit::browser_item(&tab, &id)) {
+    if (!at_hand().click_places_ || !edit::browser_click_places() || !edit::browser_item(&tab, &id)) {
         return false;
     }
     const V3 at = edit::cursor_point();

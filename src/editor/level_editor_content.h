@@ -18,7 +18,8 @@ struct Picture;
 //
 // A dockable panel (docked along the bottom by default; Window / View > Content Browser, Ctrl+Shift+B; B opens it on
 // This Level). Left: a folder tree - This Level (the level's own pieces and objects: the old Add Piece palette - its
-// thumbnails, Recent / Favourites and keys, Enter places a copy at the cursor), Levels > <level> > Scenery / Rails (every
+// thumbnails, Recent / Favourites and keys, Enter places a copy at the cursor; a click in the Scene
+// selects, as anywhere else - it doesn't place), Levels > <level> > Scenery / Rails (every
 // THUG2 level's pieces from the catalogue), Prop Packs (the packs already cut out), Recent, Favorites. Top: the path,
 // a search box (Ctrl+F) with type and level filters, the tile size and Grid / List. Right: the tiles (a thumbnail -
 // drawn once by the pipeline, a placeholder until it is there -, the name, a type badge) or a table (name, level,
