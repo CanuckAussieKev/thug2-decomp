@@ -55,6 +55,9 @@ constexpr std::size_t kPlace = 3;
 constexpr std::size_t kFlags = 4;
 constexpr std::size_t kLoad = 5;
 constexpr std::size_t kRetail = 6;
+// The retail row's tick: whether exports install the retail-limits DLL (editor-tools\retail_limits\dinput8.dll).
+constexpr const char* kLimitsTick = "Install the limits DLL";
+constexpr const char* kLimitsDll = "retail_limits\\dinput8.dll";
 constexpr std::size_t kLevelFields = 7;
 constexpr std::size_t kGameFields = 4;
 constexpr const char* kIniSection = "editor";
@@ -384,7 +387,9 @@ bool start_retail(Phase phase, const char* verb, const std::vector<std::string>&
         command.arguments.insert(command.arguments.end(), {"--levels", joined});
     }
     if (state.raised_limits) {
-        command.arguments.emplace_back("--raised-limits");
+        // (with the limits DLL: checked against its limits, and installed with the levels - an install without the tick
+        // takes it out again)
+        command.arguments.insert(command.arguments.end(), {"--raised-limits", "--limits-dll", in_tools(kLimitsDll)});
     }
     if (phase == Phase::kExporting && state.export_verb == "install") {
         for (const char* game : kLoadingArtGames) {
@@ -725,7 +730,7 @@ void retail_row(float scale, bool busy_now)
     buffer.resize(std::max<std::size_t>(buffer.size() + 1, kSettingSize));
     const float browse_width = kButtonWidth * scale;
     const ImGuiStyle& style = ImGui::GetStyle();
-    const float tick_width = ImGui::GetFrameHeight() + ImGui::CalcTextSize("Limits DLL installed").x + (style.ItemInnerSpacing.x * 2.0F);
+    const float tick_width = ImGui::GetFrameHeight() + ImGui::CalcTextSize(kLimitsTick).x + (style.ItemInnerSpacing.x * 2.0F);
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - browse_width - tick_width - (style.ItemSpacing.x * kRetailRowGaps));
     ImGui::BeginDisabled(busy_now);
     const bool entered = ImGui::InputTextWithHint("##retail_folder", "A THUG2 folder to install the levels into", buffer.data(),
@@ -744,13 +749,14 @@ void retail_row(float scale, bool busy_now)
         sys::folder_dialog::open(state.retail_folder);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Limits DLL installed", &state.raised_limits)) {
+    if (ImGui::Checkbox(kLimitsTick, &state.raised_limits)) {
         set_setting("retail_raised_limits", state.raised_limits ? "1" : "0");
         state.check_wanted = true;
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        gui::tooltip("%s", "The install has the raised-limits dinput8.dll beside THUG2.exe: levels are checked against its larger limits");
+        gui::tooltip("%s", "Exports install the raised-limits dinput8.dll beside THUG2.exe, for levels too big for the original game "
+                           "(they are checked against its larger limits); unticked, an export takes it out again");
     }
 }
 

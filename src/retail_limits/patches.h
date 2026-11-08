@@ -3,7 +3,8 @@
 // NOT ORIGINAL - where the retail-limits DLL changes the original game, and how: each site's address, the bytes the
 // original has there (every one checked before anything is written: the exe is known by them - any difference and
 // nothing is patched) and what is written. Most are immediates (a pool's count pushed for its constructor, a heap's
-// size, a table's mask); the node name hash's eight functions get a jump to the DLL's (node_hash.h).
+// size, a table's mask, the shadow buffers' addresses); the node name hash's eight functions get a jump to the DLL's
+// (node_hash.h).
 
 #include <cstdint>
 #include <span>
@@ -16,7 +17,7 @@
 
 namespace retail_limits {
 
-// The DLL's functions the node name hash's sites jump to (their addresses).
+// The DLL's functions the node name hash's sites jump to, and its shadow buffers (their addresses).
 struct JumpTargets {
     uint32_t construct = 0;
     uint32_t hash_node = 0;
@@ -26,8 +27,10 @@ struct JumpTargets {
     uint32_t end_walk = 0;
     uint32_t next_node = 0;
     uint32_t remove_node_array = 0;
+    uint32_t shadow_vertices = 0;
+    uint32_t shadow_triangles = 0;
 };
-// The node_hash functions' addresses in this module.
+// The node_hash functions' and the shadow buffers' addresses in this module.
 JumpTargets node_hash_targets();
 
 // One change to the image: where, the bytes there now (the original's) and the bytes written.

@@ -202,8 +202,11 @@ park editor or network games).
   window and **Cancel** stops them; afterwards the levels are on the Start page, a section per game, and open like any
   other. They go where the converters put them (the game folder's `thug2-decomp-<game>` and its data overlay; `[editor]
   import_output=` in the ini for another folder); the other game's folder is only read. It runs the tools in
-  `editor-tools\` beside the exe - Node.js, NeverScript's `ns`, the content pipeline and its converters - which
-  `node tools/editor_tools.ts` makes (`out\editor-tools`, about 104 MB) and `tools/game/deploy_build.ps1` copies in.
+  `editor-tools\` beside the exe - Node.js, NeverScript's `ns`, the content pipeline and its converters, the
+  retail-limits DLL (docs/retail-limits.md) - which `node tools/editor_tools.ts` makes (`out\editor-tools`, about
+  104 MB; it builds the DLL with `tools\build_retail_limits.cmd`) and `tools/game/deploy_build.ps1` copies in.
+  Export to Retail Install puts the imported levels into a THUG2 install of the original game; "Install the limits
+  DLL" puts the DLL beside its THUG2.exe with them, for levels too big for the original game's limits.
 - **Learning it:** F1 lists every key; **Ctrl+Space** (or F3) searches every action; the status bar shows what the
   mouse and keys do at that moment. Every key is rebindable (Preferences > Keys, saved in `[editor_keys]` of the ini).
   The full list of controls and the editor's modules is at the top of `src/editor/level_editor.h`.
