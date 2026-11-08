@@ -369,7 +369,7 @@ void look_and_fly(EditorFrame& editor_frame)
         // button's flying does; F frames it again)
         const V3 move =
             frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{.x = 0.0F, .y = pad.up_down_, .z = 0.0F};
-        fly_camera().pos_ = fly_camera().pos_ + move * static_cast<float>(fly_camera().speed_ * (pad.fast ? kFastFlyFactor : 1.0) * seconds);
+        fly_camera().pos_ = get_fly_to(fly_camera().pos_, fly_camera().pos_ + move * static_cast<float>(fly_camera().speed_ * (pad.fast ? kFastFlyFactor : 1.0) * seconds));
         if (have_selection()) {
             fly_camera().free_camera_ = true;
         }

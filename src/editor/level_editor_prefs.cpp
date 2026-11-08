@@ -142,6 +142,7 @@ constexpr auto kFlags = std::to_array<BitMark>({
     {.name = "speed_by_selection", .field = &Values::speed_by_selection_},
     {.name = "tips_seen", .field = &Values::tips_seen_},
     {.name = "play_sound", .field = &Values::play_sound_},
+    {.name = "stay_above_ground", .field = &Values::stay_above_ground_},
 });
 
 void read_in()
@@ -281,6 +282,7 @@ void pane(float scale, PaneFonts fonts)
     check("Invert Mouse Y", &v.invert_y_, nullptr);
     check("WASD Always Flies", &v.wasd_flies_, "Fly without holding the right mouse button");
     check("Fly Speed from Selection Size", &v.speed_by_selection_, "Frame Selection sets fly speed from its size");
+    check("Stay Above Ground", &v.stay_above_ground_, "Flying can't go down through floors (up through them still can)");
     section("Editing");
     slider("Gizmo Size", &v.gizmo_pct_, kGizmoMin, kGizmoMax, {.format = "%d%%", .tip = nullptr});
     slider("Grid Size", &v.snap_move_, 1, kSnapMoveMax, {.format = "%d units", .tip = nullptr});

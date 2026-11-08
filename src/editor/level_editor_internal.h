@@ -559,6 +559,10 @@ bool get_cast(V3 from, V3 to, V3* hit);
 
 bool ground_below(V3 from, V3* ground);
 
+// The camera flown from `from` to `to`: `to`, unless [editor] stay_above_ground is on and the move goes down through a
+// floor - then held just above that floor (sliding along it where the floor goes on; else stopped at `from`).
+V3 get_fly_to(V3 from, V3 to);
+
 const char* mode_name();
 
 void update_hud();

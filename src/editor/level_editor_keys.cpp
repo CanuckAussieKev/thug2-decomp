@@ -617,8 +617,9 @@ NudgeSteps read_arrow_nudge(const EditorFrame& editor_frame)
                                     (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
         if ((fly.forward != 0) || (fly.right != 0) || (fly.up != 0)) {
             fly_camera().free_camera_ = true;
-            fly_camera().pos_ = get_fly(fly_camera().pos_, frame, fly,
-                                                static_cast<float>(fly_camera().speed_ * boost * seconds));
+            fly_camera().pos_ =
+                get_fly_to(fly_camera().pos_, get_fly(fly_camera().pos_, frame, fly,
+                                                      static_cast<float>(fly_camera().speed_ * boost * seconds)));
         }
     }
     return steps;
@@ -761,8 +762,8 @@ void wheel_with_selection(const EditorFrame& editor_frame)
                      std::sqrt(get_dot(pos - fly_camera().pos_, pos - fly_camera().pos_)) *
                          kWheelStepFraction);
     } else if ((input.wheel != 0) && fly_camera().free_camera_) {
-        fly_camera().pos_ =
-            fly_camera().pos_ - frame.back * static_cast<float>(kWheelStep * boost * input.wheel);
+        fly_camera().pos_ = get_fly_to(fly_camera().pos_,
+                                       fly_camera().pos_ - frame.back * static_cast<float>(kWheelStep * boost * input.wheel));
     } else if (input.wheel != 0) {
         fly_camera().orbit_distance_ = static_cast<float>(
             std::max(static_cast<double>(kMinOrbit),
@@ -796,12 +797,13 @@ void fly_without_selection(const EditorFrame& editor_frame)
                                     (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
         // ([editor] fly_accel_ms: the speed reached over that time - level_editor_camera.h)
         const float ramp = view_cam::fly_factor((fly.forward != 0) || (fly.right != 0) || (fly.up != 0), seconds);
-        fly_camera().pos_ = get_fly(fly_camera().pos_, frame, fly,
-                                            static_cast<float>(fly_camera().speed_ * boost * seconds * ramp));
+        fly_camera().pos_ =
+            get_fly_to(fly_camera().pos_, get_fly(fly_camera().pos_, frame, fly,
+                                                  static_cast<float>(fly_camera().speed_ * boost * seconds * ramp)));
     }
     if (input.wheel != 0) {
         auto step = static_cast<float>(kWheelStep * boost * input.wheel);
-        fly_camera().pos_ = fly_camera().pos_ - frame.back * step;
+        fly_camera().pos_ = get_fly_to(fly_camera().pos_, fly_camera().pos_ - frame.back * step);
     }
     const int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
     if (speed != 0) {

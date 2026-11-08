@@ -485,6 +485,53 @@ bool get_cast(V3 from, V3 to, V3* hit)
 }
 bool ground_below(V3 from, V3* ground) { return get_cast(from, {.x = from.x, .y = from.y - kGroundProbeDepth, .z = from.z}, ground); }
 
+namespace {
+
+constexpr float kAboveFloor = 40.0F;  // the height Stay Above Ground keeps the camera above a floor (units)
+constexpr float kFloorNormalY = 0.5F; // a face turned up more than this (within 60 degrees of level) is a floor
+
+// The collision ray's first floor (a face turned up) from `from` to `to`, met from above.
+bool floor_along(V3 from, V3 to, V3* hit)
+{
+    render::ProbeRay ray_storage;
+    render::ProbeRay* ray = &ray_storage;
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
+    if (ray->get_collision_along(&start, &end, false) == 0) {
+        return false;
+    }
+    const auto& normal = ray->hit().normal;
+    const V3 face = {.x = normal[0], .y = normal[1], .z = normal[2]};
+    if (face.y <= kFloorNormalY || get_dot(to - from, face) >= 0.0F) {
+        return false; // (a wall, or the floor's underside: going up through a floor is the way out)
+    }
+    const auto& point = ray->hit().point;
+    *hit = {.x = point[0], .y = point[1], .z = point[2]};
+    return true;
+}
+
+} // namespace
+
+V3 get_fly_to(V3 from, V3 to)
+{
+    if (!prefs::get_pull().stay_above_ground_) {
+        return to;
+    }
+    // (the probe reaches kAboveFloor below where the camera goes, so it never comes nearer a floor than that)
+    const V3 low = {.x = to.x, .y = to.y - kAboveFloor, .z = to.z};
+    V3 floor{};
+    if (!floor_along(from, low, &floor)) {
+        return to;
+    }
+    // Slide: the floor under where the camera was going, looked for from above the floor met.
+    const float top = std::max(from.y, floor.y + kAboveFloor);
+    V3 under{};
+    if (floor_along({.x = to.x, .y = top, .z = to.z}, low, &under)) {
+        return {.x = to.x, .y = std::max(to.y, under.y + kAboveFloor), .z = to.z};
+    }
+    return from;
+}
+
 } // namespace internal
 namespace {
 

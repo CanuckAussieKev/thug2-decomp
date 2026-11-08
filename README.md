@@ -364,6 +364,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `gizmos_behind` | 1 | Rails and trigger volumes behind geometry (View > Gizmos Behind Geometry): 0 X-Ray, 1 Faded, 2 Hidden |
 | `rail_range` | 4000 | Distance at which rails, ladders and paths have faded out |
 | `play_sound` | 0 | Music and sound effects while playing (Play / Play from Here); the editor itself is always silent |
+| `stay_above_ground` | 0 | Flying the camera stops above floors instead of going down through them (up through a floor from below still works) |
 | `ui_scale_pct` | 0 | UI scale (%); 0 = automatic for the window size |
 | `autosave_s` | 60 | Seconds between autosaves |
 | `snap_move` | 25 | Grid size for snapped moves |

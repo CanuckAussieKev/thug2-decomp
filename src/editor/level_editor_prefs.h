@@ -29,6 +29,9 @@ struct ImFont;
 //   rail_range=4000        rails, ladders and paths fade out toward this distance (units)
 //   play_sound=0           music and sound effects while playing (Play / Play from Here); the editor is otherwise
 //                          silent (level_editor_shell.cpp quiet_audio)
+//   stay_above_ground=0    flying the camera stops above floors instead of going down through them (going up
+//                          through one from below still works: a way out); framing, teleports and orbits stay free
+//                          (level_editor.cpp get_fly_to)
 namespace frontend::level_editor::prefs {
 
 constexpr int kDefaultFlySpeed = 800; // units a second
@@ -57,6 +60,7 @@ struct Values {
     int gizmos_behind_ = kDefaultGizmosBehind;
     int rail_range_ = kDefaultRailRange;
     bool play_sound_ = false;
+    bool stay_above_ground_ = false;
 };
 
 // The limits (pure): every value brought within its range (fly speed 50..20000, accel 0..3000 ms, look 10..500%,
