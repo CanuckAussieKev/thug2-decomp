@@ -69,6 +69,7 @@ constexpr int kCrackRays = 5;
 constexpr float kCrackThickness = 1.5F;
 constexpr float kBreakLabelLift = 12.0F;
 constexpr float kBoostArrowScale = 0.15F; // arrow length per unit of boost strength
+constexpr float kExitArrowScale = 2.0F;   // an Exit's facing arrow: this many times its depth
 constexpr float kBoostDrawDistance = 3000.0F;
 constexpr float kDiameterFactor = 2.0F;
 constexpr float kScreenSpan = 2.0F; // the view is 2 * tan_x across at depth 1
@@ -257,7 +258,7 @@ void draw_added_trigger(Painter& paint, const Added& added, Label& label)
         text += " " + added.spec.script;
     } else if (added.spec.kind == Kind::kGapStart || added.spec.kind == Kind::kGapEnd) {
         text += " \"" + added.spec.text + "\"";
-    } else if (added.spec.kind == Kind::kBoost) {
+    } else if (added.spec.kind == Kind::kBoost || added.spec.kind == Kind::kSpeed) {
         text += " " + std::to_string(added.spec.strength);
     } else if (added.spec.kind == Kind::kBreak || added.spec.kind == Kind::kViewCam) {
         text += " " + added.spec.target;
@@ -541,6 +542,13 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             const V3 base = added.pos + up * (added.spec.size.y * 0.5F);
             paint.get_arrow(base, base + up * (static_cast<float>(added.spec.strength) * kBoostArrowScale),
                             kind_colour(Kind::kBoost));
+        } else if ((added.spec.kind == Kind::kSpeed && !added.spec.along) || added.spec.kind == Kind::kExit) {
+            // (presets) a booster's push and an Exit's facing: along the node's +z axis
+            const V3 ahead = turn_about_up({.x = 0.0F, .y = 0.0F, .z = 1.0F}, added.yaw);
+            const float length = added.spec.kind == Kind::kSpeed
+                                     ? static_cast<float>(added.spec.strength) * kBoostArrowScale
+                                     : added.spec.size.z * kExitArrowScale;
+            paint.get_arrow(added.pos, added.pos + ahead * length, kind_colour(added.spec.kind));
         }
     }
     for (const LevelTrigger& level_trigger : level_trigger_set().level_) {

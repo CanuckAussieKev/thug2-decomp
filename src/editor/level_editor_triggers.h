@@ -65,6 +65,8 @@ class GapTally;
 //       trigger <name> <kind> pos=x,y,z yaw=r size=x,y,z [target=<node>] [water=1] [script=<script>] [gap=<GapID>]
 //               [flags=A,B] [score=n] [replaces=<checksum>] [seconds=s] [text="..."]
 //     (map4: kind `camera` - target= an editor camera, seconds= the shot: LevelEditor_PlayCamera, level_editor_cameras.h)
+//     (presets: kind `booster` - strength= its speed, along=1 its direction kept; kind `exit` - a teleport's
+//     destination, no box; a teleport's keep=1 - the skater's heading kept)
 //     (a level trigger switched off or moved: its `wall` record - level_editor_walls.h)
 //   - The level's node array leaving takes everything with it (node_create's listener): the boxes unregistered, the
 //     editor's gaps taken out of that level's checklist.
@@ -80,9 +82,10 @@ constexpr float kNoRayLimit = 1e30F; // a pick ray with no length limit
 
 // --- the pure parts -----------------------------------------------------------------------------------------------
 
-// (the feature map added Boost and Break after Other: the record words of the older kinds keep their places)
-enum class Kind : uint8_t { kKill, kJumpTo, kScripts, kGapStart, kGapEnd, kOther, kBoost, kBreak, kViewCam };
-constexpr int kKinds = 9;
+// (the feature map added Boost and Break after Other: the record words of the older kinds keep their places; the
+// presets added Booster - a speed boost - and Exit - a teleport's destination, a node with no box)
+enum class Kind : uint8_t { kKill, kJumpTo, kScripts, kGapStart, kGapEnd, kOther, kBoost, kBreak, kViewCam, kSpeed, kExit };
+constexpr int kKinds = 11;
 const char* kind_name(Kind kind); // "Kill zone"...
 const char* kind_word(Kind kind); // the record's: kill, teleport, script, gapstart, gapend, other
 bool kind_from_word(const std::string& word, Kind* kind);
@@ -139,6 +142,18 @@ struct Spec {
     // targetOffset / positionOffset, or Pos / Angles, will do); the script plays it for `seconds` - LevelEditor_PlayCamera
     // camera=<target> time=<seconds>, the game's own virtual_cam (PlaySkaterCamAnim) - then the skater's camera is back.
     float seconds = kDefaultCameraShotSeconds;
+    // (presets) Booster: `strength` the speed (THUG2's skutils.qb trigger_speed_boost, as AP's TRG_TeleDown01 and
+    // BA's ride boosts use it). The skater is pushed along the trigger's facing (its +z axis - the arrow drawn):
+    // GetSkaterVelocity, then SetSkaterVelocity vel_x / vel_z = the facing times the speed, vel_y=<vel_y> (kept) -
+    // or, `along`, keeps going the way it goes at that speed (trigger_speed_boost speed=<n>: SetSkaterVelocity <n>,
+    // its direction kept). Both play the game's booster sound (SK6_SFX_Roll_Booster_Sound).
+    bool along = false;
+    // (presets) Teleport: `keep` keeps the skater's heading and speed (Obj_MoveToNode name=<target> NoReset - without
+    // TeleportSkaterToNode's Orient) instead of turning it to the target's facing. Its target may be an Exit: a node of
+    // the editor's (kind kExit - no box, no script of its use) placed with it, moved and turned as triggers are.
+    bool keep = false;
+    // (not saved) The node's heading while its script is made (Sync: a booster pushes along it).
+    float facing = 0.0F;
 };
 // Camera shots kept within these (seconds).
 constexpr float kCameraMinSeconds = 0.5F, kCameraMaxSeconds = 60.0F;
@@ -402,6 +417,22 @@ void add_boost();
 // (map4) A camera trigger added where the view looks, playing the nearest editor camera (level_editor_cameras.h); one
 // undo step.
 void add_camera();
+// --- presets (the Triggers window's one-click setups; each one undo step, the first trigger selected) ---
+// A booster where the view looks, facing the way the view looks: a pad on the floor (`area` false: 250 x 60 x 250)
+// or a floor area (800 x 120 x 800); speed kDefaultBoosterSpeed.
+constexpr int kDefaultBoosterSpeed = 1500;
+void add_booster(bool area);
+// A teleport where the view looks and its exit 600 units further on (an Exit node, facing the way the view looks),
+// the teleport sending the skater there.
+void add_teleport_pair();
+// An Exit for teleport `name` 600 units in front of it (facing as it faces), the teleport now sending the skater
+// there.
+void add_exit_for(const std::string& name);
+// A two-way gap: two gaps between the same two places (ends 600 units apart along the view) - one each way, named
+// "<name>" and "<name> Back", the same flags and score.
+void add_two_way_gap();
+// Whether `name` is one of the editor's Exit nodes (a teleport destination).
+bool is_exit(const std::string& name);
 // A scenery piece made breakable (a Break trigger over it, its collision off while it is) or not (the trigger removed,
 // its collision back; shown again if a test run broke it); one undo step. The Break trigger standing for it (null:
 // none).

@@ -55,9 +55,47 @@ function spec(over: Partial<TriggerSpec>): TriggerSpec {
         strength: 900,
         sound: "",
         seconds: 3,
+        along: false,
+        keep: false,
         ...over,
     };
 }
+
+// (presets) The bytes NeverScript compiles for the same statements:
+//   SK6_SFX_Roll_Booster_Sound / GetSkaterVelocity / SetSkaterVelocity vel_x=0.0 vel_y=<vel_y> vel_z=1500.0
+//   SK6_SFX_Roll_Booster_Sound / trigger_speed_boost speed=1500
+//   Obj_MoveToNode name=TRG_Restart01 NoReset
+test("triggers: presets - booster, teleport keeping the heading, exit", () => {
+    const booster = spec({ kind: "booster", strength: 1500 });
+    assert.deepEqual(
+        body(booster),
+        hex(
+            "16 f4 55 52 ec 01 16 8b 15 06 1a 01 16 39 ab 5f 7e 16 6d 90 87 61 07 1a 00 00 00 00 16 fb a0 80 16 " +
+                "07 2d 16 fb a0 80 16 16 41 f1 89 8f 07 1a 00 80 bb 44 01",
+        ),
+    );
+    assert.deepEqual(
+        body({ ...booster, along: true }),
+        hex("16 f4 55 52 ec 01 16 5e bd 11 e6 16 09 01 d9 f0 07 17 dc 05 00 00 01"),
+    );
+    // (turned a quarter: pushed along +x)
+    const turned = body({ ...booster, yaw: Math.PI / 2 });
+    assert.equal(turned.readFloatLE(24), Math.fround(1500));
+    assert.ok(Math.abs(turned.readFloatLE(47)) < 0.001);
+    assert.deepEqual(
+        body(spec({ kind: "teleport", target: "TRG_Restart01", keep: true })),
+        hex("16 8b dd 19 88 16 f9 81 dc a1 07 16 38 ee 2e c0 16 e6 e2 07 d6 01"),
+    );
+    assert.equal(body(spec({ kind: "exit" })).length, 0);
+    assert.equal(problem(spec({ kind: "exit" })), null);
+    const read = readTriggerRecord("ed_trigger05 booster pos=1,2,3 yaw=0.5 size=250,60,250 along=1");
+    assert.equal(read?.kind, "booster");
+    assert.equal(read?.strength, 1500);
+    assert.equal(read?.along, true);
+    assert.equal(readTriggerRecord("ed_trigger06 teleport pos=1,2,3 target=ed_trigger07 keep=1")?.keep, true);
+    assert.equal(readTriggerRecord("ed_trigger07 exit pos=1,2,3 yaw=1")?.kind, "exit");
+    assert.equal(readTriggerRecord("ed_trigger07 exit pos=1,2,3 keep=2"), null);
+});
 
 const START = spec({ kind: "gapstart", gap: "StateHouseSpine1", flags: ["CANCEL_GROUND"] });
 const END = spec({

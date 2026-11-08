@@ -22,6 +22,7 @@
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_layout.h"
+#include "editor/level_editor_lighting.h"
 #include "editor/level_editor_links.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_organize.h"
@@ -75,6 +76,7 @@ void tick_level_systems()
         entities::tick(editor_session().active_, primary ? primary->ident() : 0, drag_session().dragging_);
     }
     chains::tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
+    lighting::tick(); // (edited pieces' light groups and shadow flags on their sectors - level_editor_lighting.h)
 }
 
 // The HUD and the autosave.

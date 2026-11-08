@@ -281,6 +281,11 @@ bool place_entity(int entry, V3 at)
 } // namespace
 namespace internal {
 
+bool place_palette_entity(int index, V3 at)
+{
+    return place_entity(static_cast<int>(place_entries().size()) + kChainEntries + index, at);
+}
+
 chains::Blit chain_kind_of(int entry)
 {
     switch (chain_entry(entry)) {

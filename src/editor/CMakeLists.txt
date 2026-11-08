@@ -13,6 +13,8 @@ add_library(thug2_editor SHARED
     level_editor_commands.cpp
     level_editor_requests.cpp
     level_editor_place.cpp
+    level_editor_presets.cpp
+    level_editor_lighting.cpp
     level_editor_panels.cpp
     level_editor_draw.cpp
     level_editor_drag.cpp
