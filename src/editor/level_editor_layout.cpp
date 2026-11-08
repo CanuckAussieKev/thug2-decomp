@@ -1410,8 +1410,10 @@ namespace {
 // The level select's lists (as LevelEditor_EditedLevels reads them) and their names.
 constexpr auto kCatalogLists = std::to_array<const char*>(
     {"level_select_menu_level_info", "level_select_menu_thug1_level_info", "level_select_menu_thps4_level_info",
-     "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info", "level_select_menu_misc_level_info"});
-constexpr auto kCatalogSections = std::to_array<const char*>({"THUG2", "THUG", "THPS4", "THPS3", "THAW", "More"});
+     "level_select_menu_thps3_level_info", "level_select_menu_thps2_level_info", "level_select_menu_thaw_level_info",
+     "level_select_menu_thp8_level_info", "level_select_menu_thpg_level_info", "level_select_menu_misc_level_info"});
+constexpr auto kCatalogSections =
+    std::to_array<const char*>({"THUG2", "THUG", "THPS4", "THPS3", "THPS2", "THAW", "Project 8", "Proving Ground", "More"});
 
 } // namespace
 

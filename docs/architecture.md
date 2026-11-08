@@ -124,6 +124,16 @@ screen's timer with a Dear ImGui draw list of its own (no context: the main thre
 before the load. The editor mode always runs on Vulkan (`app/renderer_choice.cpp`: `renderer=d3d9` is logged and
 ignored; Direct3D 9 only where Vulkan can't draw).
 
+**Import Level** (`editor/level_editor_import.h`): the editor mode's window for other games' levels. The editor runs
+the content pipeline's `editor_import/import_levels.ts` (detect, list, convert, overlay) as child processes with the
+Node runtime in `editor-tools\` beside the exe (`tools/editor_tools.ts` makes the folder: Node, NeverScript's `ns`, the
+pipeline and the converters it pins). Starting and watching programs is the platform layer's
+(`platform/child_process.h`: no console, output read on a thread of its own, a job object per child so Cancel ends the
+whole tree), and so is the folder dialog (`platform/folder_dialog.h`, SDL 3's). After an import the overlay's
+`levels.qb` and level select script are read again (`script::load_qb`) once no level is up, so the Start page lists
+the new levels. The exe links the platform layer whole: these two are exported for the plugin and the exe itself
+never calls them.
+
 **The editor's panels in windows of their own** (`engine/ui/ui_viewports.h`, `ui_backend::enable_viewports`): Dear
 ImGui's platform windows, on the editor's context only. ImGui's SDL3 backend makes the SDL windows; the Vulkan UI
 backend gives each a surface and swapchain (`gpu_vulkan/vulkan_ui_windows.cpp`) drawn in the stream of the frame being

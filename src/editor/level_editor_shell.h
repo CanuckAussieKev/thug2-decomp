@@ -20,7 +20,8 @@ struct Fonts;
 //     -edit opens it (level_editor_open.h); the loading dialog ("Loading <level>...") stands over the game meanwhile -
 //     drawn here before and after the load, and by the game through it (engine/gfx/loading_dialog.h: no loading
 //     screen in the editor mode). The front end's music is paused under the Start page until a level is up.
-//   - File > Open Level (the same list), File > Recent, File > Exit. Another level from inside the editor: the
+//   - File > Open Level (the same list), File > Import Level (other games' levels: level_editor_import.h), File > Recent,
+//     File > Exit. Another level from inside the editor: the
 //     unsaved-changes question first, then the editor closes, and from the pause menu that brings back the game's own
 //     change of level (the level select's) loads it - and the editor opens there.
 //   - Leaving: Escape and the editor's other ways out don't leave to the game; closing the window or File > Exit quits
@@ -53,6 +54,10 @@ void file_menu_bottom();
 void play_file_menu();
 // The Play menu's Play: from the level's start.
 void play_menu_top();
+// The level list changed (an import: level_editor_import.h) - the Start page's made again.
+void levels_changed();
+// Opens a level by its load script's name (Load_<name>: an imported level), the unsaved-changes question first.
+void open_imported(const std::string& load);
 
 // Whether the game's keys and controller rest now (the editor's pages up, or the editor running).
 bool blocks_game_input();
@@ -67,6 +72,8 @@ bool take_leave_request();
 //   fe editor play | playhere     plays from the level's start / from here, waits until it plays
 //   fe editor stop                back to the editor, waits for it
 //   fe editor exit                File > Exit ("refused: unsaved changes" when it would ask)
+//   fe editor import <folder>     Import Level on that folder: waits for its level list ("ok <game> <n> levels")
+//   fe editor importrun <level>...    imports those levels (the list's ids), waits until the level list is made again
 // False: not an editor command.
 bool screen_command(const std::string& line, bool* done, std::string* result);
 bool screen_result(std::string* result);

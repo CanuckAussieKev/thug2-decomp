@@ -19,6 +19,7 @@
 #include "base/core/no_destroy.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_gui_text.h"
+#include "editor/level_editor_import.h"
 #include "editor/level_editor_internal.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_open.h"
@@ -97,7 +98,7 @@ struct Thumb {
 };
 
 // The automation channel's command waiting.
-enum class Waiting : uint8_t { kNone, kStart, kEditor, kPlaying };
+enum class Waiting : uint8_t { kNone, kStart, kEditor, kPlaying, kImport };
 
 // (the larger members first: no padding between them)
 struct ShellState {
@@ -215,6 +216,7 @@ void show_start(const std::string& message)
     state.message = message;
     state.have_wanted = false;
     state.catalog_made = false; // (an edited copy may have been saved or reset meanwhile)
+    import::reload_if_pending(); // (an import finished while a level was up)
     ui::app::set_window_title({});
     if (!message.empty()) {
         get_log("editor mode: %s", message.c_str());
@@ -226,6 +228,7 @@ void start_load()
 {
     ShellState& state = shell_state();
     std::string why;
+    import::reload_if_pending(); // (an import finished while the last level was up: its levels known before this loads)
     state.loads_before = layout::level_loads();
     if (!begin_level::read_in_load(state.wanted.load, state.wanted.edited, &why)) {
         show_start("Couldn't open " + state.wanted.title + " - " + why);
@@ -456,6 +459,9 @@ void menu_bar(bool ready)
         return;
     }
     if (ImGui::BeginMenu("File")) {
+        if (ImGui::MenuItem("Import Level...", nullptr, false, ready)) {
+            import::open_window({});
+        }
         if (ImGui::BeginMenu("Recent", ready)) {
             recent_list(ready);
             ImGui::EndMenu();
@@ -493,6 +499,12 @@ void start_page(const ux3::Fonts& fonts)
         } else {
             gui::text_disabled("%s", "Open a level to edit");
         }
+        ImGui::Spacing();
+        ImGui::BeginDisabled(!ready);
+        if (ImGui::Button("Import Level...")) {
+            import::open_window({});
+        }
+        ImGui::EndDisabled();
         ImGui::Spacing();
         const float recent_width = kRecentWidth * fonts.scale;
         if (ImGui::BeginChild("##recent", ImVec2(recent_width, 0.0F))) {
@@ -749,6 +761,13 @@ void check_waiting()
             finish("ok");
         }
         return;
+    case Waiting::kImport: {
+        std::string result;
+        if (import::automation_done(&result)) {
+            finish(result);
+        }
+        return;
+    }
     case Waiting::kNone:
         return;
     }
@@ -864,6 +883,7 @@ void dialogs(const ux3::Fonts& fonts)
         return;
     }
     open_level_window(fonts);
+    import::window(fonts);
     unsaved_prompt(fonts);
 }
 
@@ -876,6 +896,9 @@ void file_menu_top()
         shell_state().browser_open = true;
         shell_state().browser_focus = true;
         shell_state().catalog_made = false;
+    }
+    if (ImGui::MenuItem("Import Level...")) {
+        import::open_window({});
     }
     if (ImGui::BeginMenu("Recent")) {
         recent_list(true);
@@ -937,6 +960,17 @@ bool take_leave_request()
     return asked;
 }
 
+void levels_changed() { shell_state().catalog_made = false; }
+
+void open_imported(const std::string& load)
+{
+    if (!on() || shell_state().phase == Phase::kStarting || shell_state().phase == Phase::kOpening ||
+        shell_state().phase == Phase::kLeaving) {
+        return;
+    }
+    ask_open(checksums::hash_from_text(load.c_str()), false);
+}
+
 bool screen_command(const std::string& line, bool* done, std::string* result)
 {
     std::vector<std::string> words = words_of(line);
@@ -944,8 +978,10 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         return false;
     }
     // (a last number: the automation channel's timeout)
+    bool timeout_given = false;
     if (words.size() > 2 && std::ranges::all_of(words.back(), [](char character) { return std::isdigit(static_cast<unsigned char>(character)) != 0; })) {
         words.pop_back();
+        timeout_given = true;
     }
     ShellState& state = shell_state();
     *done = true;
@@ -970,6 +1006,21 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         const uint32_t load = checksums::hash_from_text(name.c_str());
         open_level({.load = load, .edited = edited, .title = find_level(load) != nullptr ? title_of(load, edited) : name});
         state.waiting = Waiting::kEditor;
+    } else if (verb == "import" && words.size() > 2) {
+        // (the folder: the rest of the line - it may hold spaces)
+        const std::size_t at = line.find("import");
+        std::string folder = line.substr(line.find_first_not_of(' ', at + std::string_view("import").size()));
+        while (!folder.empty() && folder.back() == ' ') {
+            folder.pop_back();
+        }
+        if (timeout_given) {
+            folder.erase(folder.rfind(' '));
+        }
+        import::automation_list(folder);
+        state.waiting = Waiting::kImport;
+    } else if (verb == "importrun" && words.size() > 2) {
+        import::automation_import(std::vector<std::string>(words.begin() + 2, words.end()));
+        state.waiting = Waiting::kImport;
     } else if ((verb == "play" || verb == "playhere") && level_editor::live_now()) {
         if (verb == "play") {
             play_test::play_from_start();
@@ -989,7 +1040,8 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         quit_now();
         return true;
     } else {
-        *result = "error: fe editor start | open <level> [edited] | play | playhere | stop | exit";
+        *result = "error: fe editor start | open <level> [edited] | play | playhere | stop | exit | import <folder> | "
+                  "importrun <level>...";
         return true;
     }
     check_waiting();
@@ -1021,7 +1073,8 @@ bool screen_status(std::string* status)
         return false;
     }
     static constexpr auto kPhases = std::to_array<std::string_view>({"starting", "start page", "leaving", "opening", "editing"});
-    *status = "editor mode: " + std::string(core::at(kPhases, static_cast<std::size_t>(shell_state().phase)));
+    *status = "editor mode: " + std::string(core::at(kPhases, static_cast<std::size_t>(shell_state().phase))) +
+              "; import: " + import::phase_name();
     return true;
 }
 

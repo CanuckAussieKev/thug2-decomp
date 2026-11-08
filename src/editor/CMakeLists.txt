@@ -58,6 +58,7 @@ add_library(thug2_editor SHARED
     level_editor_play.cpp
     level_editor_open.cpp
     level_editor_shell.cpp
+    level_editor_import.cpp
     level_editor_playtest.cpp
     level_editor_playtest_ui.cpp
     level_editor_prefs.cpp

@@ -130,7 +130,8 @@ The game runs from the game folder of your THUG2 install - the folder with `THUG
 1. Copy `thug2-decomp.exe`, `d3dx9_43.dll`, `SDL3.dll`, FFmpeg's four DLLs (below), `gamecontrollerdb.txt` and - from a
    Release build - the Visual C++ runtime's DLLs from the build folder into the game folder, and the `plugins` folder
    (`thug2-level-editor.dll`: the level editor - without it the game runs with no editor) beside them, and
-   `thug2-editor.exe` (the editor's launcher, below) - the build does it when `THUG2_GAME_DIR` points there. Keep `thug2-decomp.pdb` with them for readable crash
+   `thug2-editor.exe` (the editor's launcher, below) - the build does it when `THUG2_GAME_DIR` points there - and the
+   editor's `editor-tools` folder (Import Level's tools: `node tools/editor_tools.ts` makes it). Keep `thug2-decomp.pdb` with them for readable crash
    reports. `THUG2.exe` stays as it is: nothing of yours is changed.
 2. Optional: a `thug2-decomp.ini` in the same folder (Settings, below; every key has a default).
 3. Start `thug2-decomp.exe`. It writes `thug2-decomp.log` next to itself - read it when something goes wrong.
@@ -195,6 +196,14 @@ park editor or network games).
   (`Game\thug2-decomp-editor-window.ini`, written as each move or resize ends). `-editor -edit <name>` opens that level straight away. Without the
   plugin, `-editor` is logged and the game starts as usual.
 
+- **Other games' levels:** **File > Import Level...** (also on the Start page) imports levels from your own install
+  of THPS2, THPS3, THPS4, THUG, THAW, Project 8 or Proving Ground: **Browse...** to the game's folder (the game is
+  told from its files and the folder remembered), tick levels, **Import**. The converters' output scrolls by in the
+  window and **Cancel** stops them; afterwards the levels are on the Start page, a section per game, and open like any
+  other. They go where the converters put them (the game folder's `thug2-decomp-<game>` and its data overlay; `[editor]
+  import_output=` in the ini for another folder); the other game's folder is only read. It runs the tools in
+  `editor-tools\` beside the exe - Node.js, NeverScript's `ns`, the content pipeline and its converters - which
+  `node tools/editor_tools.ts` makes (`out\editor-tools`, about 104 MB) and `tools/game/deploy_build.ps1` copies in.
 - **Learning it:** F1 lists every key; **Ctrl+Space** (or F3) searches every action; the status bar shows what the
   mouse and keys do at that moment. Every key is rebindable (Preferences > Keys, saved in `[editor_keys]` of the ini).
   The full list of controls and the editor's modules is at the top of `src/editor/level_editor.h`.

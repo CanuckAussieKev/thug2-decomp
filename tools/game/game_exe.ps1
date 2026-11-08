@@ -37,6 +37,10 @@ $DeployedFiles = @($LaunchExeName, 'thug2-decomp.pdb', 'thug2-editor.exe', 'thug
                    'plugins\thug2-level-editor.dll', 'plugins\thug2-level-editor.pdb',
                    'd3dx9_43.dll', 'SDL3.dll', 'gamecontrollerdb.txt', 'avutil-59.dll', 'avcodec-61.dll', 'avformat-61.dll',
                    'swscale-8.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'dinput8.dll')
+# The folders of ours a lock backs up whole and puts back the same way (removed at release when they weren't there):
+# the level editor's tools (editor-tools\: Node, the level converters - tools/editor_tools.ts). deploy_build.ps1
+# replaces one whole; its bundle.json says what it was made from.
+$DeployedFolders = @('editor-tools')
 # The lock folder's backup of a deployed file (flat: plugins\x.dll -> plugins__x.dll.backup).
 function Get-BackupName([string]$file) { "$($file -replace '[\\/]', '__').backup" }
 
