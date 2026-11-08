@@ -1469,3 +1469,43 @@ test("level flags: fall= and sun= read, written as load_level's uber_frig_height
         assert.throws(() => readLayout(`thug2-decomp layout 2\nscene 00000001\n${line}\n`), LayoutError, line);
     }
 });
+
+test("bake: prop packs - a pack's placed sector and its copy go into the level's scene and collision", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            "prop pp_tst_piece",
+            `sector ${hex("PackSec")} 0 100 0 200 0`,
+            `clone ${hex("PackSec")} 1 -100 0 50`,
+        ].join("\n"),
+    );
+    assert.deepEqual(layout.props, ["pp_tst_piece"]);
+    const pack: Scene = {
+        versions: [1, 1, 1],
+        materials: [],
+        sectors: [sector("PackSec", [0, 0, 0])],
+        hierarchyCount: 0,
+        tail: Buffer.alloc(0),
+    };
+    const files: LevelFiles = {
+        ...level(),
+        packs: new Map([
+            [
+                "pp_tst_piece",
+                {
+                    scene: readScene(writeScene(pack), "pack"),
+                    col: readCol(writeCol({ objects: [collision("PackSec", [0, 0, 0])] }), "pack"),
+                    tex: { version: 1, textures: [] },
+                },
+            ],
+        ]),
+        tex: { version: 1, textures: [] },
+    };
+    const out = bake(layout, files, null);
+    assert.ok(out.scene.sectors.some((s) => s.checksum === checksum("PackSec")));
+    assert.equal(out.scene.sectors.length, 4, "the level's two, the pack's sector and its copy");
+    assert.equal(out.col!.objects.filter((o) => o.checksum === checksum("PackSec")).length, 1);
+    assert.equal(out.warnings.filter((w) => w.includes("PackSec") || w.includes("prop")).length, 0);
+    assert.equal(out.unsupported.length, 0);
+});
