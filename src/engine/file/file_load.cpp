@@ -26,6 +26,7 @@ constexpr size_t kDevelopmentPrefixLength = 15; // the paths written for the ori
 constexpr int kDiskPathLast = 255;         // the last index of a disk path that keeps room for the NUL
 static_assert(kOverlayPathSize == fs::kLoosePathSize, "a loose copy's path is the overlay's");
 constexpr uint32_t kErrorFileNotFound = 2;  // Win32's ERROR_FILE_NOT_FOUND
+constexpr uint32_t kErrorPathNotFound = 3;  // Win32's ERROR_PATH_NOT_FOUND
 constexpr uint32_t kErrorHandleEof = 38;    // Win32's ERROR_HANDLE_EOF
 // A data file opened for reading: by the data folder's open (nothing shared), by the overlay's (shared reading).
 constexpr fs::OpenSpec kDataFileRead{.access = fs::Access::kRead, .sharing = fs::Sharing::kNone,
@@ -157,7 +158,9 @@ Hdl open_on_disk(const char* name)
     }
 
     const uint32_t error = fs::disk().last_error();
-    if (error != kErrorFileNotFound) {
+    // NOT ORIGINAL: a file in a folder that isn't there (ERROR_PATH_NOT_FOUND) is missing too - the original took it
+    // for a disc error, so any optional file in a missing folder (the editor's thumbnails) stopped the game.
+    if (error != kErrorFileNotFound && error != kErrorPathNotFound) {
         debug::printf("FatalFileError: %x %s\n", error, path.data());
         fatal_file_error(static_cast<uint32_t>(-1));
     }
