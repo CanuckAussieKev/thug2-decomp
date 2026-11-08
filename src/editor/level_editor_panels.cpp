@@ -22,6 +22,7 @@
 #include "editor/level_editor_actions.h"
 #include "base/core/format.h"
 #include "editor/level_editor_carry.h"
+#include "editor/level_editor_rotate.h"
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_faces.h"
@@ -468,6 +469,10 @@ void fill_selection(ui::ShapeMesh& model)
         selection.has_heading_ = true;
         selection.heading_degrees_ = static_cast<float>(
             std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * kHalfTurnDegrees / maths::kPi);
+        std::array<V3, 3> rows{};
+        object_edit::rows_of(object, rows);
+        selection.rotation = rotate_tool::euler_of(rows);
+        selection.rotation_free_ = true;
     } else if (scenery::has_selection()) {
         selection.sectors = static_cast<int>(scenery::get_selection().size());
         selection.kind = selection.sectors > 1 ? "Scenery group" : "Scenery";
@@ -476,6 +481,10 @@ void fill_selection(ui::ShapeMesh& model)
         selection.pos = scenery::get_pivot();
         selection.scalable = true;
         selection.scale = scenery::selection_scale();
+        selection.has_heading_ = true; // (scenery turns about up only: its heading is the Rotation's Y)
+        selection.heading_degrees_ =
+            static_cast<float>(static_cast<double>(scenery::selection_heading()) * kHalfTurnDegrees / maths::kPi);
+        selection.rotation = {.x = 0.0F, .y = selection.heading_degrees_, .z = 0.0F};
         if (selection.sectors > 1 || scenery::selected_rail_count() > 0) {
             for (const uint32_t checksum : scenery::get_selection()) {
                 ui::ShapeMesh::Selection::Member member;

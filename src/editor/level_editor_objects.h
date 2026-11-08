@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,6 +42,12 @@ V3 current_centre(objects::GameEntity* object);
 void get_place(objects::GameEntity* object, V3 pos);
 // Turned by `angle` about the up axis through `pivot` (its position moved too, unless the pivot is it).
 void turn_about(objects::GameEntity* object, V3 pivot, float angle);
+// Turned by `angle` about the unit `axis` through `pivot` (any axis - level_editor_rotate.h's rings), and its rows set
+// outright (the Inspector's Rotation: unit rows, right / up / at).
+void turn_about_axis(objects::GameEntity* object, V3 pivot, V3 axis, float angle);
+void set_rows(objects::GameEntity* object, std::span<const V3, 3> rows);
+// Its rows (right / up / at) as they are.
+void rows_of(const objects::GameEntity* object, std::span<V3, 3> rows);
 // "<class> <name>  at (x, y, z)  heading h" for the HUD.
 std::string describe(objects::GameEntity* object);
 // The class of its node: "LevelObject", "GameObject", "Pedestrian", "Vehicle"...

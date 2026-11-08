@@ -178,6 +178,9 @@ bool duplicate_scenery(V3 right, const xform::RepeatStep* repeat, UndoStep& step
         if (repeat->quarters != 0) {
             scenery::get_turn(repeat->quarters);
         }
+        if (repeat->turn != 0.0F) {
+            scenery::turn_by(repeat->turn);
+        }
     } else {
         scenery::move_to(scenery::get_pivot() + right * (width + kPasteGap));
     }
@@ -234,7 +237,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat)
         // (the panel's numbers - level_editor_adjust.h: each copy's offset from the one before, its turn, how many)
         adjust::ActStep action;
         action.kind = adjust::Kind::kDuplicate;
-        action.quarters = !step.sectors.empty();
+        action.quarters = false; // (scenery turns to any angle too)
         if (repeat) {
             action.offset = repeat->offset;
             action.degrees =

@@ -53,6 +53,7 @@
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8.h"
 #include "editor/level_editor_ux9.h"
+#include "editor/level_editor_rotate.h"
 #include "editor/level_editor_view.h"
 #include "base/maths/mat4.h"
 #include "base/maths/vec4.h"
@@ -283,7 +284,7 @@ void handle_event(const input::Event& event)
         }
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event.key == SDL_SCANCODE_ESCAPE && !event.repeat &&
-            !actions::get_capturing()) {
+            !actions::get_capturing() && !rotate_tool::asking()) { // (a question up: its own Escape)
             if (drag_session().dragging_ || stored_browser().open || tool_options().help_ || place_palette().place_open_ ||
                 (confirmations().confirm_hide_ != 0U) || confirmations().confirm_reset_ ||
                 chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() ||
@@ -664,6 +665,7 @@ void prepare_all()
         prepare_all(); // (pies, quick sets, walk / follow / teleport, controller mode: their actions - level_editor_ux8.h)
     ux9::prepare_all(); // (UX9: its actions and the ground pieces' layout records - level_editor_ux9.h)
     content::prepare_all(); // (the Content Browser's keys, the prop packs' layout records - level_editor_content.h)
+    rotate_tool::prepare_all(); // (Home, Revert, V, Alt+R and the rotation hints - level_editor_rotate.h)
 }
 
 void input_logic()

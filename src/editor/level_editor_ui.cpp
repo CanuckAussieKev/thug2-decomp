@@ -39,6 +39,7 @@
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8.h"
 #include "editor/level_editor_view.h"
+#include "editor/level_editor_rotate.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -443,6 +444,8 @@ void get_toolbar(const ShapeMesh& model)
     state.snap = model.snap_always_;
     state.grid = xform::get_grid();
     state.grids = xform::grid_sizes();
+    state.angle = xform::angle_step();
+    state.angles = xform::angle_steps();
     state.pick_filter_ = model.pick_filter_;
     state.level = model.level_title_;
     state.saved = model.edited_saved_;
@@ -490,6 +493,9 @@ void get_toolbar(const ShapeMesh& model)
             break;
         case ui_strip::Occurrence::Kind::kGrid:
             xform::set_grid(event.value);
+            break;
+        case ui_strip::Occurrence::Kind::kAngle:
+            xform::set_angle_step(event.value);
             break;
         case ui_strip::Occurrence::Kind::kPick:
             get_ask(Request::Kind::kPickFilter, 0, static_cast<uint32_t>(event.value));
@@ -724,7 +730,8 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     // (the bars' heights; the panels are docked - level_editor_ui_app.h)
     input_routing().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, imgui_setup().scale_, true, true);
     app::note_playing(false);
-    app::set_window_title(model.level_title_.empty() ? model.level : model.level_title_);
+    // (a `*` after the level's name while there are unsaved edits, as the toolbar's)
+    app::set_window_title((model.level_title_.empty() ? model.level : model.level_title_) + (model.unsaved ? " *" : ""));
     ImGui::PushFont(imgui_setup().ui_);
     {
         ux3::Fonts fonts;
@@ -760,6 +767,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     get_place(model);
     confirm_hide(model);
     confirm_reset(model);
+    rotate_tool::dialogs(imgui_setup().scale_); // (Revert to Original's question - level_editor_rotate.h)
     collision_legend(model);
     online_warning(model);
     prefs::pane(imgui_setup().scale_, {.heading = imgui_setup().heading_, .small_font_ = imgui_setup().small_}); // (level_editor_prefs.h)

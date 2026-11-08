@@ -134,6 +134,9 @@ bool get_orbiting();
 void apply_orbit(const Rig& rig);
 // The keys: F, 1..9 / Ctrl+1..9, the numpad's 7 1 3 5 (`keys`: SDL's keyboard state; zeroed while the UI types).
 void get_keys(const Rig& rig, input::KeyState keys, bool ctrl, bool browser_open);
+// Home: the whole level framed - the selection dropped, the camera flown back from `centre` far enough to see a sphere of
+// `radius` (60000 units at most), looking down on it.
+void frame_level(const Rig& rig, V3 centre, float radius);
 // At the end of the editor's frame: a flight moved on (`interrupted`: the user flew, looked or clicked), an ortho view's
 // camera kept on its axis (the wheel's and W / S's moves along the view taken as its zoom, the rest as panning).
 void after_update(const Rig& rig, int wheel, bool interrupted);

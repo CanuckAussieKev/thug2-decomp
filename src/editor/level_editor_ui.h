@@ -143,6 +143,10 @@ struct ShapeMesh {
         V3 pos = {};
         bool has_heading_ = false;
         float heading_degrees_ = 0.0F;
+        // (the Inspector's Rotation X / Y / Z in degrees - level_editor_rotate.h: objects any of the three, scenery its
+        // heading, Y, only)
+        V3 rotation = {};
+        bool rotation_free_ = false;
         uint32_t checksum = 0;
         // Scenery or an object with a model: its scale along its own axes (level_editor_scale.h - the Inspector's
         // Scale X / Y / Z).
@@ -334,6 +338,8 @@ struct Request {
         kMemberRemove,     // value: 1 a rail point, 0 a scenery piece; id: it - removed from the selection
         kMemberKeep,       // value, id: as kMemberRemove - the selection is only that
         kCarry,            // value: 0 / 1 - the toolbar's Carry objects (level_editor_carry.h)
+        kRotationSet,      // the Inspector's Rotation: a[0..2] = the degrees asked for (x, y, z - level_editor_rotate.h)
+        kRotationDone,     // that field let go (the changes since its first kRotationSet: one undo step)
     } kind{};
     int value = 0;
     uint32_t id = 0;
