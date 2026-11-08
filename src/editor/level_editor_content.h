@@ -9,6 +9,9 @@
 namespace frontend::level_editor::ui {
 struct ShapeMesh;
 }
+namespace frontend::ui_backend {
+struct Picture;
+}
 
 // NOT ORIGINAL - the level editor's Content Browser (ours, at the user's request: one asset browser, as Unreal's
 // Content Browser / Unity's Project window / Godot's FileSystem dock).
@@ -72,5 +75,11 @@ std::string automation_place(const std::string& level, const std::string& name);
 void note_toggled();
 // The panel (and its drag's feedback, the preview window), from the UI's frame.
 void panel(const ui::ShapeMesh& model, float scale);
+// For the Prefabs folder (level_editor_prefabs.h): a run of the content tools queued (`kind` prop_packs.ts's command,
+// `label` for the status line), a picture of the overlay's images by name (nullptr: not there yet - looked for again
+// after the next run), one forgotten (loaded again: drawn again).
+void run_tool(const std::string& kind, const std::vector<std::string>& arguments, const std::string& label);
+const ui_backend::Picture* picture(const std::string& name);
+void forget_picture(const std::string& name);
 
 } // namespace frontend::level_editor::content

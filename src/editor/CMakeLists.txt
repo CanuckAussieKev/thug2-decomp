@@ -69,6 +69,7 @@ add_library(thug2_editor SHARED
     level_editor_import.cpp
     level_editor_content.cpp
     level_editor_props.cpp
+    level_editor_prefabs.cpp
     level_editor_playtest.cpp
     level_editor_playtest_ui.cpp
     level_editor_prefs.cpp

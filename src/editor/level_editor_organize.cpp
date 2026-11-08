@@ -164,7 +164,8 @@ bool read_record(const std::string& line, State* state)
             while (std::getline(list, item, ',')) {
                 Member member;
                 if (item.size() != kMemberTextLength || core::at(item, 1) != ':' ||
-                    (core::at(item, 0) != 'o' && core::at(item, 0) != 's' && core::at(item, 0) != 'n') ||
+                    (core::at(item, 0) != 'o' && core::at(item, 0) != 's' && core::at(item, 0) != 'n' &&
+                     core::at(item, 0) != 'c') ||
                     !parse_hex8(item.substr(2), &member.id)) {
                     return false;
                 }
@@ -666,6 +667,53 @@ std::string take_outliner_search()
     return text;
 }
 
+namespace {
+
+// The copies of scenery as the layout writes them (its `clone` records: the copies shown, in the order they were made)
+// - a copy's checksum is new each time the layout goes in, its record's place in that order isn't.
+std::vector<uint32_t> clone_order()
+{
+    std::vector<uint32_t> order;
+    for (const scenery::Replicate& clone : scenery::get_clones()) {
+        Placement now;
+        if (scenery::placement_now(clone.checksum, &now) && !scenery::get_hidden(clone.checksum)) {
+            order.push_back(clone.checksum);
+        }
+    }
+    return order;
+}
+
+// A group's copies of scenery written as their clone records' places (`c:<n>`, the layout's records) and read back
+// as the copies made from them.
+void to_clone_indexes(State* state)
+{
+    const std::vector<uint32_t> order = clone_order();
+    for (GroupSet& group : state->groups) {
+        for (Member& member : group.members) {
+            const auto found = std::ranges::find(order, member.id);
+            if (member.kind == 's' && found != order.end()) {
+                member = {.kind = 'c', .id = static_cast<uint32_t>(found - order.begin())};
+            }
+        }
+    }
+}
+
+void from_clone_indexes(State* state)
+{
+    const std::vector<uint32_t> order = clone_order();
+    for (GroupSet& group : state->groups) {
+        std::erase_if(group.members,
+                      [&](const Member& member) { return member.kind == 'c' && member.id >= order.size(); });
+        for (Member& member : group.members) {
+            if (member.kind == 'c') {
+                member = {.kind = 's', .id = core::at(order, static_cast<int>(member.id))};
+            }
+        }
+    }
+}
+
+} // namespace
+
 void prepare_all()
 {
     static bool done = false;
@@ -677,7 +725,9 @@ void prepare_all()
     extension.keywords = {"group", "label", "edlock", "nopick", "snapshot"};
     extension.capture = []() {
         std::vector<std::string> lines;
-        std::istringstream in(write_records(level_editor_organize_state().state_));
+        State written = level_editor_organize_state().state_;
+        to_clone_indexes(&written);
+        std::istringstream in(write_records(written));
         for (std::string line; std::getline(in, line);) {
             lines.push_back(line);
         }
@@ -690,6 +740,7 @@ void prepare_all()
                 get_log("level editor: a layout's editor record isn't readable - skipped: %s", line.c_str());
             }
         }
+        from_clone_indexes(&next);
         level_editor_organize_state().state_ = next;
     };
     extension.reset = []() {

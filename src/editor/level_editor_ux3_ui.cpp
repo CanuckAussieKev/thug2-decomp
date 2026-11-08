@@ -24,6 +24,7 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_organize.h"
+#include "editor/level_editor_prefabs.h"
 #include "editor/level_editor_ui.h"
 #include "platform/run_log.h"
 #include "platform/sdl_time.h"
@@ -978,6 +979,12 @@ void bunches()
         if (ImGui::Selectable(text.data())) {
             get_queue([i] { organize::select_group(i); });
         }
+        if (ImGui::BeginDragDropSource()) {
+            // (dropped on the Content Browser: a prefab of the group - level_editor_prefabs.h)
+            ImGui::SetDragDropPayload(prefabs::kGroupPayload, &i, sizeof(i));
+            gui::text("%s - drop on the Content Browser to make a prefab", group_set.name.c_str());
+            ImGui::EndDragDropSource();
+        }
         if (ImGui::IsItemHovered()) {
             gui::tooltip("Click to select; right-click for options");
         }
@@ -989,6 +996,9 @@ void bunches()
                 labels().rename_group_ = i;
                 text::format_to(labels().rename_text_, "%s", group_set.name.c_str());
                 labels().rename_asked_ = true;
+            }
+            if (ImGui::MenuItem("Create Prefab from Group...")) {
+                prefabs::ask_create(i);
             }
             if (ImGui::MenuItem("Delete Group")) {
                 get_queue([i] { organize::delete_group(i); });
@@ -1093,6 +1103,9 @@ void row_menu(const nodes::Elem& node)
             }
         }
         ImGui::EndMenu();
+    }
+    if (ImGui::MenuItem("Create Prefab from Selection...")) {
+        prefabs::ask_create(-1);
     }
     if (ImGui::MenuItem("Select Similar...", actions::get_keys_text(actions::kSelectSimilar).c_str())) {
         get_queue([] { actions::fire_off(actions::kSelectSimilar); });

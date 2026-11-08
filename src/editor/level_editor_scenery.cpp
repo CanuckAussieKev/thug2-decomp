@@ -21,6 +21,7 @@
 #include "engine/gfx/render_device.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_clusters.h"
+#include "editor/level_editor_node_create.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_shared_coll.h"
 #include "editor/level_editor_walls.h"
@@ -714,7 +715,9 @@ void compute_pivot()
 }
 
 // The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
-// Fire_Tender), and ones lying within a selected sector's box (both ends, within 10 units).
+// Fire_Tender), and ones lying within a selected sector's box (both ends, within 10 units). A copy has no rails of the
+// level's own (the source's stay with the source) - only rail points the editor added on it (a prop pack's or a
+// prefab's rails, placed with the copy: in its cluster or its box).
 void select_rails()
 {
     scenery_rails().rails_.clear();
@@ -725,9 +728,19 @@ void select_rails()
     }
     std::vector<uint32_t> clusters;
     std::vector<std::pair<V3, V3>> boxes;
+    std::vector<std::pair<V3, V3>> copy_boxes;
     for (const uint32_t checksum : picked_scenery().selection_) {
         if (is_clone(checksum)) {
-            continue; // (a copy has no rails of its own: the source's stay with the source)
+            clusters.push_back(checksum); // (only the editor's points name a copy as their cluster)
+            OrientedBox box{};
+            V3 min{};
+            V3 max{};
+            if (cuboid(checksum, &box)) {
+                bounds_of(box, &min, &max);
+                copy_boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth},
+                                        max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
+            }
+            continue;
         }
         clusters.push_back(checksum);
         if (const uint32_t cluster = cluster_of(checksum)) {
@@ -741,12 +754,14 @@ void select_rails()
             boxes.emplace_back(min - V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth}, max + V3{.x = kSelectGrowth, .y = kSelectGrowth, .z = kSelectGrowth});
         }
     }
-    auto within = [&](V3 point) {
-        return std::ranges::any_of(boxes, [&](const auto& box) {
+    auto inside = [](const std::vector<std::pair<V3, V3>>& list, V3 point) {
+        return std::ranges::any_of(list, [&](const auto& box) {
             return point.x >= box.first.x && point.x <= box.second.x && point.y >= box.first.y &&
                    point.y <= box.second.y && point.z >= box.first.z && point.z <= box.second.z;
         });
     };
+    auto within = [&](V3 point) { return inside(boxes, point); };
+    auto within_copy = [&](V3 point) { return inside(copy_boxes, point); };
     auto listed = [&](uint32_t colour) { return colour && std::ranges::find(clusters, colour) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
         const RailNode& node = core::at(nodes, i);
@@ -755,6 +770,9 @@ void select_rails()
         }
         bool in = listed(node.label()) || listed(cluster_of(node.label())) ||
                   (within(rail_pos(&node)) && ((node.succ() == nullptr) || within(rail_pos(node.succ()))));
+        if (!in && !copy_boxes.empty() && node_create::is_added(node.label())) {
+            in = within_copy(rail_pos(&node)) && ((node.succ() == nullptr) || within_copy(rail_pos(node.succ())));
+        }
         if (in &&
             std::ranges::find(scenery_rails().dropped_rails_, node.label()) != scenery_rails().dropped_rails_.end()) {
             in = false;
