@@ -376,7 +376,7 @@ std::vector<uint32_t> pack_members(const std::vector<GroupPiece>& pieces, int at
 // underscore and more that starts with a letter (Fire_Tender_Ladder of Fire_Tender; Bench_02 isn't of Bench - a number
 // is another of the same, not a part), the other's name is at least kMinStem long, neither is structure (a floor, a
 // wall), and their boxes touch (kTouchMargin: attached, not just named alike). The longest such name is its parent;
-// a family is a root and everything whose chain of parents leads to it.
+// a family is a root and everything whose chain of parents leads to it. Shadow-named pieces take no part.
 class Families {
 public:
     explicit Families(std::vector<GroupPiece>& pieces) : pieces_(&pieces), parent_(pieces.size(), -2)
@@ -384,7 +384,8 @@ public:
         names_.reserve(pieces.size());
         for (size_t i = 0; i < pieces.size(); ++i) {
             const char* name = get_name_of(source_of(core::at(pieces, i).checksum));
-            std::string lower = name ? name : "";
+            // (a shadow is never a family's: it follows its caster by the shadows' own rules - add_shadows)
+            std::string lower = (name != nullptr) && !shadows::shadow_name(name) ? name : "";
             std::ranges::transform(lower, lower.begin(), [](char letter) { return static_cast<char>(std::tolower(static_cast<unsigned char>(letter))); });
             if (!lower.empty()) {
                 by_name_[lower].push_back(static_cast<int>(i));

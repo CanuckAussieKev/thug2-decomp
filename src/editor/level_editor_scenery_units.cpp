@@ -367,7 +367,7 @@ std::string describe_units(uint32_t checksum)
     }
     text += " a click takes " + std::to_string(hover_group(checksum).size());
     // (the piece's own rails: it selected for a moment, the selection put back)
-    const std::vector<uint32_t> before = get_selection();
+    const std::vector<uint32_t> before(get_selection().begin(), get_selection().end()); // (a copy: put back after)
     set_selection(with_shadows({checksum}));
     text += "; the piece's rails " + std::to_string(selected_rail_names().size());
     set_selection(before);
