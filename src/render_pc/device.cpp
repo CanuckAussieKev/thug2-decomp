@@ -22,6 +22,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/graphics_options.h"
+#include "render_pc/outline_draw.h"
 #include "render_pc/pc_gamma.h"
 #include "render_pc/render_state.h"
 #include "render_pc/text.h"
@@ -342,6 +343,7 @@ long create_device(maths::PixelSize size, bool hardware_vertices, bool multisamp
 void release_render_targets()
 {
     release_view_targets(); // (NOT ORIGINAL: the game view's - engine/gfx/game_view.h)
+    outline_draw::release(); // (NOT ORIGINAL: the outlines' mask - render_pc/outline_draw.h)
     auto& gfx = renderer();
     frame_targets().back_buffer_ = nullptr;
     frame_targets().back_depth_ = nullptr;

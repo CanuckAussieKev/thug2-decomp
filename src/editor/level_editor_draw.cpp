@@ -50,6 +50,7 @@
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux9.h"
 #include "editor/level_editor_view.h"
+#include "engine/gfx/outline_draws.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "base/core/down_cast.h"
@@ -830,12 +831,38 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     add_box_outline(overlay, scale);
 }
 
-// --- highlighting (the things' own colour tinted: Scenery::get_tint) ---
+// --- highlighting: outlined round their silhouettes (render::outline_draws - Unity's, Unreal's, Blender's way), or,
+// where the renderer can't outline, the things' own colour tinted (Scenery::get_tint) ---
 
 constexpr uint32_t kHoverTint = 0x8098C8C8;       // RGBA: warmer and brighter
 constexpr uint32_t kSelectedTintLow = 0x80D0A060; // a cyan pulse
 constexpr uint32_t kSelectedTintHigh = 0x80FFD850;
-constexpr uint32_t kBrowseTint = 0x8060E0E0; // the browser's entry: yellow
+constexpr uint32_t kBrowseTint = 0x8060E0E0;             // the browser's entry: yellow
+constexpr uint32_t kSelectedOutline = 0xFFFF8C1AU;       // ARGB: orange
+constexpr uint32_t kSelectedHiddenOutline = 0x60FF8C1AU; // (where it is behind something: faint)
+constexpr uint32_t kHoverOutline = 0x90FFD9A0U;          // pale, see-through
+constexpr uint32_t kBrowseOutline = 0xFFF5E050U;         // yellow
+constexpr int kModelGeometries = 16;                     // (object_edit::get_geometry's)
+
+// How one kind of highlight looks: tinted, or outlined (its stroke where it shows and where it is hidden).
+struct Look {
+    uint32_t tint;
+    uint32_t colour;
+    uint32_t hidden_colour;
+};
+
+// This frame's highlights: outlined (when the renderer drew the last outlines; else tinted as well, and outlined
+// again in case it can now).
+struct Marks {
+    bool outlined = false;
+    std::vector<render::outline_draws::Outline> outlines;
+};
+Marks& marks()
+{
+    static core::NoDestroy<Marks> state;
+    return state.get();
+}
+
 bool& hover_tinted() // (else their boxes are drawn)
 {
     static bool hover_tinted{};
@@ -847,13 +874,16 @@ bool& selected_tinted()
     return selected_tinted;
 }
 
-bool tint_sectors(const std::vector<uint32_t>& sectors, uint32_t rgba)
+bool tint_sectors(const std::vector<uint32_t>& sectors, const Look& look)
 {
     bool all = true;
     for (const uint32_t checksum : sectors) {
-        void* geom = scenery::sector_geometry(checksum);
+        render::Geom* geom = scenery::sector_geometry(checksum);
         if (scenery::tintable(geom)) {
-            scenery::get_tint({.id = checksum, .index = -1}, geom, rgba);
+            if (!marks().outlined) {
+                scenery::get_tint({.id = checksum, .index = -1}, geom, look.tint);
+            }
+            marks().outlines.push_back({.geom = geom, .colour = look.colour, .hidden_colour = look.hidden_colour});
         } else {
             all = false;
         }
@@ -861,24 +891,40 @@ bool tint_sectors(const std::vector<uint32_t>& sectors, uint32_t rgba)
     return all;
 }
 
+bool tint_object(objects::GameEntity* object, const Look& look)
+{
+    if (!marks().outlined && !object_edit::get_tint(object, look.tint)) {
+        return false;
+    }
+    bool any = false;
+    for (int i = 0; i < kModelGeometries; ++i) {
+        void* geom = object_edit::get_geometry(object, i);
+        if (geom == nullptr) {
+            break;
+        }
+        if (scenery::tintable(geom)) {
+            marks().outlines.push_back({.geom = static_cast<render::Geom*>(geom),
+                                        .colour = look.colour,
+                                        .hidden_colour = look.hidden_colour});
+            any = true;
+        }
+    }
+    return any;
+}
+
 } // namespace
 namespace internal {
 
 void update_highlights()
 {
-    const uint32_t pulse = get_pulse(kSelectedTintLow, kSelectedTintHigh, platform::ticks_ms() / 1000.0);
-    selected_tinted() = true;
-    const std::vector<objects::GameEntity*> objects = selected_objects();
-    for (objects::GameEntity* object : objects) {
-        selected_tinted() &= object_edit::get_tint(object, pulse);
-    }
-    if (objects.empty() && scenery::has_selection()) {
-        selected_tinted() = tint_sectors(scenery::get_selection(), pulse);
-    }
+    marks().outlined = render::outline_draws::outlines_drawn();
+    marks().outlines.clear();
+    // (handed over in this order - where two meet, the later's stroke: the hover, the browser's entry, the selection)
     hover_tinted() = true;
+    const Look hover_look{.tint = kHoverTint, .colour = kHoverOutline, .hidden_colour = 0};
     objects::GameEntity* hover = drag_session().dragging_ ? nullptr : get_live(picked_set().hover_);
     if (hover && !is_picked(hover)) {
-        hover_tinted() = object_edit::get_tint(hover, kHoverTint);
+        hover_tinted() = tint_object(hover, hover_look);
     } else if (!drag_session().dragging_ && (picked_set().hover_sector_ != 0U) &&
                !scenery::get_selected(picked_set().hover_sector_) &&
                !scenery::why_not_movable(picked_set().hover_sector_)) {
@@ -886,17 +932,30 @@ void update_highlights()
                                               (core::at(input::keys(), SDL_SCANCODE_RALT) != 0U)
                                           ? std::vector<uint32_t>{picked_set().hover_sector_}
                                           : scenery::hover_group(picked_set().hover_sector_),
-                                      kHoverTint);
+                                      hover_look);
     }
     // (the browser's entry where it is in the level)
     if (stored_browser().open && std::cmp_less(stored_browser().index, stored_browser().items.size())) {
+        const Look browse_look{.tint = kBrowseTint, .colour = kBrowseOutline, .hidden_colour = 0};
         const uint32_t id = core::at(stored_browser().items, stored_browser().index).id;
         if (stored_browser().tab == 0) {
-            tint_sectors({id}, kBrowseTint);
+            tint_sectors({id}, browse_look);
         } else if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id))) {
-            object_edit::get_tint(object, kBrowseTint);
+            tint_object(object, browse_look);
         }
     }
+    const Look selected_look{.tint = get_pulse(kSelectedTintLow, kSelectedTintHigh, platform::ticks_ms() / 1000.0),
+                             .colour = kSelectedOutline,
+                             .hidden_colour = kSelectedHiddenOutline};
+    selected_tinted() = true;
+    const std::vector<objects::GameEntity*> objects = selected_objects();
+    for (objects::GameEntity* object : objects) {
+        selected_tinted() &= tint_object(object, selected_look);
+    }
+    if (objects.empty() && scenery::has_selection()) {
+        selected_tinted() = tint_sectors(scenery::get_selection(), selected_look);
+    }
+    render::outline_draws::set_outlines(marks().outlines);
     scenery::end_tints(object_edit::resolve_tint, false);
 }
 
@@ -905,9 +964,9 @@ void update_highlights()
 void add_hover_boxes(const TickCycle& frame, objects::GameEntity* hover, std::vector<LineVertex>& lines)
 {
     OrientedBox box{};
-    // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
-    // its one piece with Alt)
-    if (!hover_tinted() || ui::underway()) {
+    // (with the UI and tints the hover's box is always drawn too - what a click takes: the object, or the scenery's
+    // group - its one piece with Alt; outlined, the stroke shows that)
+    if (!hover_tinted() || (ui::underway() && !marks().outlined)) {
         if (hover && !is_picked(hover) && object_edit::model_box(hover, &box)) {
             add_box(box, frame, kGroupBoxColour, &lines);
         } else if (!drag_session().dragging_ && (picked_set().hover_sector_ != 0U) &&
