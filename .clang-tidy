@@ -136,6 +136,8 @@ CheckOptions:
   readability-identifier-naming.TypeAliasCase: CamelCase
   readability-identifier-naming.TypedefCase: CamelCase
   readability-identifier-naming.FunctionCase: lower_case
+  # A DLL's start-up function, by the name the C runtime's DLL start-up calls (src/retail_limits/entry.h)
+  readability-identifier-naming.FunctionIgnoredRegexp: '^DllMain$'
   readability-identifier-naming.MethodCase: lower_case
   readability-identifier-naming.ParameterCase: lower_case
   # WinMain's parameters, as the Windows SDK's declaration names them (readability-inconsistent-declaration-parameter-name)

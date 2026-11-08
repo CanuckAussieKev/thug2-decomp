@@ -3,7 +3,8 @@
 // engine, the game, the editor, the front end and the dev tools reach files through fs::Disk (engine/file/disk.h) and
 // the game's data files through fs::FileSystem (engine/file/file_system.h). The platform layer keeps its own: the run
 // log, the ini and the crash reports, which must work before anything is installed and while the game is failing; the
-// offline checks (src/tests) read their inputs directly.
+// offline checks (src/tests) read their inputs directly. src/retail_limits isn't part of the game (the original game's
+// limits DLL and its check: a log, an ini, the exe files it checks) and has no fs::Disk to go through.
 
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -33,7 +34,7 @@ function using(pattern: RegExp): string[] {
 }
 
 // The folders that may call the file functions themselves.
-const ALLOWED = ["fs_win32/", "platform/", "tests/"];
+const ALLOWED = ["fs_win32/", "platform/", "tests/", "retail_limits/"];
 const outside = (names: string[]): string[] =>
     names.filter((name) => !ALLOWED.some((folder) => name.startsWith(folder)));
 
@@ -46,13 +47,13 @@ const FILE_CALLS = new RegExp(
         String.raw`\bstd::(i|o)?fstream\b|\bstd::filesystem::|#\s*include\s*<(fstream|filesystem)>`,
 );
 
-test("only fs_win32/, platform/ and tests/ call the file functions", () => {
+test("only fs_win32/, platform/, tests/ and retail_limits/ call the file functions", () => {
     const callers = using(FILE_CALLS);
     assert.deepEqual(outside(callers), []);
     assert.ok(callers.includes("fs_win32/win32_disk.cpp"), "fs_win32/win32_disk.cpp makes the calls");
 });
 
-test("files are written only by fs_win32/, platform/, tests/ and the base's fprintf", () => {
+test("files are written only by fs_win32/, platform/, tests/, retail_limits/ and the base's fprintf", () => {
     // fwrite / fflush / fputs on a FILE*: base/core/format.h's print_to writes to the FILE* it is given (stdout), and
     // opens none.
     const writers = using(/\b(fwrite|fflush|fputs|fprintf)\s*\(/);

@@ -280,6 +280,10 @@ endforeach()
 add_subdirectory(src/tests)
 # The level editor's launcher, thug2-editor.exe (no layer of the game: src/editor/launcher/CMakeLists.txt).
 add_subdirectory(src/editor/launcher)
+# The retail-limits DLL for the original game (32-bit only: src/retail_limits/CMakeLists.txt).
+if(THUG2_ARCH STREQUAL "x86")
+    add_subdirectory(src/retail_limits)
+endif()
 
 # On x64 the fetched libraries the build compiles itself are built only when an x64-ready library links them.
 if(THUG2_ARCH STREQUAL "x64")

@@ -30,8 +30,8 @@ export interface LayerMap {
     executables?: Record<string, { without: string[] }>; // (tools/cmake_layers.ts)
     // The libraries built as plugins of an exe (a DLL linking the exe's import library; tools/cmake_layers.ts)
     plugins?: Record<string, { host: string }>;
-    // The libraries that are an exe of their own, linking none of the others (the level editor's launcher;
-    // tools/cmake_layers.ts)
+    // The libraries that are programs of their own, linking none of the others (the level editor's launcher, the
+    // retail-limits DLL; tools/cmake_layers.ts)
     standalone?: string[];
 }
 

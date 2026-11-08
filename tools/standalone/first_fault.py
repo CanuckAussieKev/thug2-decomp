@@ -10,6 +10,11 @@ program's OutputDebugString text and its exit code. No cdb / WinDbg needed. A 64
 --watch <rva>    a hardware breakpoint on writes to the bytes at the exe's base + rva (addr2sym.py name=<symbol>
                  finds it): every write is printed with its caller chain, and the run goes on
 --watch-size N   how many bytes --watch watches: 1, 2, 4 (the default) or 8 (a 64-bit target only)
+--stop-at <rva>  a hardware breakpoint on executing the instruction at the exe's base + rva: when it is reached, say
+                 so (with the registers) and stop the program - a run that only has to get that far (e.g. past the
+                 start-up's memory set-up)
+--stop-read <addresses>  with --stop-at: the 32-bit words at these addresses (hex, comma-separated) printed when it
+                 is reached
 --monitor N      as soon as the program's window exists, centre it on \\.\DISPLAYN without activating it (e.g. 2
                  when the primary monitor is busy)
 --second-chance  report only exceptions the program doesn't handle itself (default: the first chance of an access
@@ -275,6 +280,16 @@ def main():
         i = args.index("--watch")
         watch = int(args[i + 1], 16)
         del args[i:i + 2]
+    stop_at = None
+    if "--stop-at" in args:
+        i = args.index("--stop-at")
+        stop_at = int(args[i + 1], 16)
+        del args[i:i + 2]
+    stop_reads = []
+    if "--stop-read" in args:
+        i = args.index("--stop-read")
+        stop_reads = [int(a, 16) for a in args[i + 1].split(",") if a]
+        del args[i:i + 2]
     watch_size = 4
     if "--watch-size" in args:
         i = args.index("--watch-size")
@@ -378,6 +393,26 @@ def main():
         if k32.Wow64GetThreadContext(thread, ctypes.byref(ctx)):
             ctx.Dr0 = watched[0]
             ctx.Dr7 = (ctx.Dr7 & ~0xF0003) | 0x1 | (0x1 << 16) | (length << 18)
+            k32.Wow64SetThreadContext(thread, ctypes.byref(ctx))
+
+    stopping = []  # the address --stop-at breaks at (set once the image's base is known)
+
+    def arm_stop(thread):
+        # DR1 = the address, DR7: local enable 1, break on execution (RW1 = 00, LEN1 = 00)
+        if not stopping:
+            return
+        if x64:
+            ctx = new_context64(CONTEXT64_DEBUG_REGISTERS)
+            if k32.GetThreadContext(thread, ctypes.addressof(ctx)):
+                ctx.Dr1 = stopping[0]
+                ctx.Dr7 = (ctx.Dr7 & ~0xF0000C) | 0x4
+                k32.SetThreadContext(thread, ctypes.addressof(ctx))
+            return
+        ctx = WOW64_CONTEXT()
+        ctx.ContextFlags = 0x10010
+        if k32.Wow64GetThreadContext(thread, ctypes.byref(ctx)):
+            ctx.Dr1 = stopping[0]
+            ctx.Dr7 = (ctx.Dr7 & ~0xF0000C) | 0x4
             k32.Wow64SetThreadContext(thread, ctypes.byref(ctx))
 
     symbols_ready = []  # dbghelp knows the program (for StackWalk64) once this has an entry
@@ -496,8 +531,13 @@ def main():
                 watched.append(base + watch)
                 print(f"watching writes to 0x{base + watch:0{hex_width}X}")
                 arm(ev.u.CreateProcessInfo.hThread)
+            if stop_at is not None:
+                stopping.append(base + stop_at)
+                print(f"stopping at 0x{base + stop_at:0{hex_width}X}")
+                arm_stop(ev.u.CreateProcessInfo.hThread)
         elif code == CREATE_THREAD_DEBUG_EVENT:
             arm(ev.u.CreateThread.hThread)
+            arm_stop(ev.u.CreateThread.hThread)
         elif code == LOAD_DLL_DEBUG_EVENT:
             b = ev.u.LoadDll.lpBaseOfDll
             path = ctypes.create_unicode_buffer(1024)
@@ -517,6 +557,12 @@ def main():
                 seen_initial_break = True
                 th = k32.OpenThread(0x1FFFFF, False, ev.dwThreadId)
                 arm(th)
+                arm_stop(th)
+            elif rec.ExceptionCode in (0x80000004, 0x4000001E) and stopping and (rec.ExceptionAddress or 0) == stopping[0]:
+                report(ev, rec, "REACHED", scan=False)
+                for address in stop_reads:
+                    print(f"  0x{address:08X} holds 0x{dword(address) or 0:08X}")
+                done = True
             elif rec.ExceptionCode in (0x80000004, 0x4000001E) and watched:
                 report(ev, rec, "WRITE", scan=False)
             elif rec.ExceptionCode in QUIET:

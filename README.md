@@ -241,6 +241,10 @@ explained in `thug2-thugpro-compat/thugpro/README.md`. `make_menu_level.ts` empt
 `docs/level-port-compromises.md` lists what the ports do differently from the originals. Optional: Anteara Mod
 (`tools/anteara/README.md`).
 
+The biggest ported levels need more than the original game's limits (script pools, heaps, the node and rail name
+tables). thug2-decomp.exe has them raised; for the original THUG2.exe, `src/retail_limits` builds a DLL that raises
+them while it runs - `docs/retail-limits.md`.
+
 ## Settings (`thug2-decomp.ini`)
 
 The ini sits in the game folder. Every key is optional; the default applies when it's missing. 1 = on, 0 = off.
@@ -421,6 +425,7 @@ each borrowed idea is credited where it's used.
 |---|---|
 | `src/` | The program, in layers (each a CMake library; `docs/architecture.md`): `base` (checksums, formatting, maths), `platform` (the window, crash reports, the GameSpy glue), `formats` and `wire` (the game's files and network messages), `engine` (memory, files, assets, scripts, objects, the renderer, audio, network transport, pad input, the original's screen elements), `game` (skating, the rider, goals, parks, saves, the online session, the game's script commands), `frontend` (the new front end), `editor` (the level editor: a plugin DLL the exe loads, `plugins\thug2-level-editor.dll`), `devtools` (screenshot key, test-automation channel) |
 | `src/render_pc/`, `gpu_d3d9/`, `audio_dsound/`, `media_ffmpeg/`, `input_dinput/`, `fs_win32/`, `net_winsock/`, `script_qb/` | The backends behind the engine's interfaces: Direct3D 9, DirectSound, FFmpeg's movie decoders, DirectInput, Win32 files, Winsock, the QB script interpreter |
+| `src/retail_limits/` | Not part of the program: `dinput8.dll` for the original THUG2.exe, raising its limits for large levels at run time, and its offline check (`docs/retail-limits.md`) |
 | `src/app/` | The program's start-up (`main.cpp`, WinMain, the main loop, the command and component tables) and its extension list; `thug2-decomp.exe` |
 | `src/tests/` | The offline checks (file formats, maths against D3DX, number parsing, printf-style formatting) |
 | `tools/` | The crash tools, symbolize, NeverScript's build, the script-table extractors |

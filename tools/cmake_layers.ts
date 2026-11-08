@@ -13,8 +13,8 @@
 //     with the baseline (none since the editor / front end API: the baseline is empty);
 //   - an exe the map's 'executables' names exists and reaches none of the libraries it lists as 'without' (the game's
 //     exe: not the level editor, which is a plugin);
-//   - a library the map's 'standalone' names (the level editor's launcher) is one executable, thug2_<library>, that
-//     links no project target;
+//   - a library the map's 'standalone' names (the level editor's launcher, the retail-limits DLL) is its own programs:
+//     its targets are thug2_<library> and thug2_<library>_<part> (executables or libraries), linking only one another;
 //   - a library the map's 'plugins' names (the level editor) is a SHARED library that links its host exe (the exe's
 //     import library: the engine API) and compiles against its layers' headers without linking their code
 //     ($<COMPILE_ONLY:thug2_game>): a real link would put a second copy of the engine in the plugin.
@@ -217,8 +217,10 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
             if (target.kind !== "executable" && !(target.object === true && target.name === "thug2_app"))
                 found.push(`${target.name}: the app's folders hold executables and the object library thug2_app only`);
         } else if ((map.standalone ?? []).includes(library)) {
-            if (target.kind !== "executable" || target.name !== `thug2_${library}`)
-                found.push(`${target.name}: a target in ${library}'s folders must be the executable thug2_${library}`);
+            if (target.name !== `thug2_${library}` && !target.name.startsWith(`thug2_${library}_`))
+                found.push(
+                    `${target.name}: a target in ${library}'s folders must be thug2_${library} or thug2_${library}_<part>`,
+                );
         } else if (target.kind !== "library" || target.name !== `thug2_${library}`) {
             found.push(`${target.name}: a target in ${library}'s folders must be the library thug2_${library}`);
         }
@@ -263,10 +265,9 @@ export function problems(map: LayerMap, targets: Target[], cppFiles: string[], b
     for (const target of targets) {
         const library = libraryOfTarget.get(target.name);
         if (library === undefined) continue;
-        if ((map.standalone ?? []).includes(library) && projectLinks(target).length > 0)
-            found.push(
-                `${target.name} links ${projectLinks(target).join(", ")}: a standalone exe links no library of the game`,
-            );
+        const outside = projectLinks(target).filter((link) => libraryOfTarget.get(link) !== library);
+        if ((map.standalone ?? []).includes(library) && outside.length > 0)
+            found.push(`${target.name} links ${outside.join(", ")}: a standalone program links no library of the game`);
         const allowed = new Set(map.libraries[library]?.allowed ?? []);
         for (const link of projectLinks(target)) {
             const to = libraryOfTarget.get(link) as string;
