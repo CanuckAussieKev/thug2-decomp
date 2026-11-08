@@ -137,6 +137,10 @@ public:
     // The window's close (or a quit the platform asked for): true when the extension takes it - it asks its own
     // question first (unsaved changes) and ends the game itself (engine_parts' quit request); false: the game quits.
     virtual bool holds_quit() { return false; }
+    // Whether the keyboard's Pause key (its SDL scan code, as bound) is kept from the game this frame - the extension
+    // reads the key itself (the level editor: Esc while playing from here goes back to the editor, without the pause
+    // menu). A pad's Start still reaches the game.
+    virtual bool takes_pause_key(int /*scancode*/) { return false; }
 
     // --- the editor opened in a level (-edit / edit_level: game/front_end/start_level.h) ---
     // The level's load began, and the editor is to open there once it is up.
@@ -209,6 +213,7 @@ bool* feature_switch(const char* key);
 bool draws_unfocused();
 // The first extension that takes the quit (false: none - the game quits).
 bool holds_quit();
+bool takes_pause_key(int scancode);
 void open_editor_when_up();
 void editor_opening_frame(modules::FrontEnd* front_end);
 // The first extension that takes it; with none: "error: no screens to drive" (done), "", nothing, false, "".

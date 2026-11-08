@@ -53,6 +53,7 @@ public:
         return shell::blocks_game_input() || (!live_now() && ui::app::blocks_game_input());
     }
     bool holds_quit() override { return shell::holds_quit(); }
+    bool takes_pause_key(int scancode) override { return perform::takes_pause_key(scancode); }
     // (the editor mode: straight to its Start page)
     bool skips_intro_movies() override { return shell::on(); }
 

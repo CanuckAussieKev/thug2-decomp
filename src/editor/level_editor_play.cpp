@@ -130,6 +130,12 @@ bool playing(int level_load)
 
 void ask_return() { level_editor_play_state().return_asked_ = true; }
 
+bool takes_pause_key(int scancode)
+{
+    return scancode == SDL_SCANCODE_ESCAPE && play_start().phase_ == Phase::kIdle && enter_script_loaded() &&
+           playing(layout::level_loads());
+}
+
 void tick_frame(modules::FrontEnd* front_end)
 {
     if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0) {
@@ -143,16 +149,18 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool paused = (front_end != nullptr) && front_end->is_halted();
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     // Esc while playing from here goes back to the editor, as editors' play modes do (Unity / Unreal: Esc stops
-    // playing), rather than to the pause menu: the game's own Esc pauses it (Start), and from that pause the editor
-    // opens as the play key's does. An Esc while the game was already paused is the pause menu's own (closing it).
+    // playing), rather than to the pause menu: the game doesn't get the key (takes_pause_key), the game is paused
+    // without its menu (as Simulate's stop pauses it) and level_editor_enter runs at once. An Esc while the game was
+    // already paused is the pause menu's own (closing it).
     const bool escape_down = !keys.empty() && core::at(keys, SDL_SCANCODE_ESCAPE) != 0U;
     const bool escape_pressed = escape_down && play_start().escape_up_ && !play_start().was_paused_;
     play_start().escape_up_ = !escape_down;
     play_start().was_paused_ = paused;
-    if (escape_pressed && play_start().phase_ == Phase::kIdle && in_level && playing(layout::level_loads())) {
-        get_log("level editor: back to the editor (Esc while playing)");
-        play_start().phase_ = paused ? Phase::kWaitMenu : Phase::kWaitPause;
-        play_start().frames_ = 0;
+    if (escape_pressed && play_start().phase_ == Phase::kIdle && in_level && !paused && front_end != nullptr &&
+        playing(layout::level_loads()) && enter_script_loaded()) {
+        get_log("level editor: back to the editor (Esc while playing) - paused without the pause menu");
+        front_end->get_pause_game(true);
+        script::launch_script("level_editor_enter", nullptr, nullptr, false);
         return;
     }
     switch (play_start().phase_) {

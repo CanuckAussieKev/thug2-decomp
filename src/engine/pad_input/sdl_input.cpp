@@ -976,7 +976,8 @@ void poll_keyboard(std::span<uint8_t> data)
         return;
     }
 
-    if (down(sdl_input_state().keys_.menu)) {
+    // (not original: an extension may keep the Pause key for itself - ext::takes_pause_key)
+    if (down(sdl_input_state().keys_.menu) && !ext::takes_pause_key(sdl_input_state().keys_.menu)) {
         core::at(data, kControlButtonsHigh) |= 1 << 3;
     }
     if (down(sdl_input_state().keys_.camera_toggle_)) {

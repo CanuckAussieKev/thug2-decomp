@@ -51,6 +51,9 @@ void tick_frame(modules::FrontEnd* front_end);
 // is kept), the editor isn't running, the level and its skater are up - the editor's window shows the game in its
 // Scene panel meanwhile (level_editor_ui_app.h).
 bool playing(int level_load);
+// Whether the keyboard's Pause key (`scancode`, as bound) is kept from the game: Esc while playing from here - the
+// editor reads it (tick_frame) and goes back without the pause menu (ext::Extension::takes_pause_key).
+bool takes_pause_key(int scancode);
 // The way back asked for from the window's Play menu: as the play key in play (the next tick_frame).
 void ask_return();
 

@@ -272,6 +272,16 @@ bool holds_quit()
     return false;
 }
 
+bool takes_pause_key(int scancode)
+{
+    for (Extension* extension : registered()) {
+        if (extension->takes_pause_key(scancode)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void open_editor_when_up()
 {
     for (Extension* extension : registered()) {
