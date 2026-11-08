@@ -772,7 +772,7 @@ void restart_step(modules::FrontEnd* front_end)
     script::delete_struct(params);
     const std::string label = restart == kLevelStart ? std::string("the level's start") : nodes::caption(restart);
     get_log("level editor: play from %s%s (ResetSkaters)", restart == kLevelStart ? "" : "the restart ", label.c_str());
-    layout::panel_message(("Playing from " + label + " (F5: return to editor)").c_str());
+    layout::panel_message(("Playing from " + label + " (Esc or F5: back to the editor)").c_str());
 }
 
 // --- simulate ---

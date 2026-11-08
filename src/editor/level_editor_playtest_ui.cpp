@@ -82,7 +82,7 @@ void restart_section(int node_index)
     if (ImGui::Button("Play from Here")) {
         play_from_restart(name);
     }
-    get_tip("Play from this restart  (F5 returns)");
+    get_tip("Play from this restart  (Esc or F5 returns)");
     ImGui::SameLine();
 }
 

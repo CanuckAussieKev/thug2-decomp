@@ -72,6 +72,8 @@ struct PlayStart {
     Phase phase_ = Phase::kIdle;
     int frames_{};
     bool key_up_ = true;
+    bool escape_up_ = true;      // (Esc while playing from here: back to the editor - the key's last frame)
+    bool was_paused_ = false;    // (the game paused last frame: an Esc then is the pause menu's own)
 };
 
 PlayStart& play_start()
@@ -140,6 +142,19 @@ void tick_frame(modules::FrontEnd* front_end)
     level_editor_play_state().return_asked_ = false;
     const bool paused = (front_end != nullptr) && front_end->is_halted();
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
+    // Esc while playing from here goes back to the editor, as editors' play modes do (Unity / Unreal: Esc stops
+    // playing), rather than to the pause menu: the game's own Esc pauses it (Start), and from that pause the editor
+    // opens as the play key's does. An Esc while the game was already paused is the pause menu's own (closing it).
+    const bool escape_down = !keys.empty() && core::at(keys, SDL_SCANCODE_ESCAPE) != 0U;
+    const bool escape_pressed = escape_down && play_start().escape_up_ && !play_start().was_paused_;
+    play_start().escape_up_ = !escape_down;
+    play_start().was_paused_ = paused;
+    if (escape_pressed && play_start().phase_ == Phase::kIdle && in_level && playing(layout::level_loads())) {
+        get_log("level editor: back to the editor (Esc while playing)");
+        play_start().phase_ = paused ? Phase::kWaitMenu : Phase::kWaitPause;
+        play_start().frames_ = 0;
+        return;
+    }
     switch (play_start().phase_) {
     case Phase::kUnpause:
         // (level_editor_exit brought the pause menu back: closed as its CONTINUE closes it)
