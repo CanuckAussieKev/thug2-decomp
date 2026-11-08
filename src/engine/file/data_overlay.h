@@ -26,6 +26,9 @@ namespace frontend::data_overlay {
 // The overlay folder (<game folder>\thug2-decomp-data).
 const std::string& get_folder();
 
+// Whether that folder exists (a game folder as the original has it, without the overlay: false).
+bool is_present();
+
 // The overlay's file for a game file name ("levels\mainmenu\mainmenu.qb", "data/..." or a development machine's
 // "c:\...\data\..." path), if it exists: its full path in `path`.
 bool get_overlay_path(const char* name, std::span<char, file::kOverlayPathSize> path);

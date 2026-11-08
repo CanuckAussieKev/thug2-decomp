@@ -16,6 +16,7 @@
 
 #include "base/core/checksums.h"
 #include "engine/memory/memory_report.h"
+#include "engine/file/data_overlay.h"
 #include "engine/file/file_load.h"
 #include "game/front_end/front_end.h"
 #include "engine/ext/extension.h"
@@ -337,8 +338,11 @@ void tick_frame(modules::FrontEnd* front_end)
     // which run this before the game is up), then a second more for the menu to settle.
     // (not original either: the editor mode's main menu may be the game's own - the new front end's overlay unused -,
     // whose scripts have main_menu_exit instead - engine/sys/editor_mode.h)
-    const bool menu_scripts = is_script(name_hash("main_menu_skate_now")) ||
-                              (sys::editor_mode::on() && is_script(name_hash("main_menu_exit")));
+    // (and without the data overlay - a game folder as the original game has it, the retail export's tests - the main
+    // menu is the game's own too)
+    const bool own_menu = sys::editor_mode::on() || !frontend::data_overlay::is_present();
+    const bool menu_scripts =
+        is_script(name_hash("main_menu_skate_now")) || (own_menu && is_script(name_hash("main_menu_exit")));
     if (render::current_level() != 0 || (front_end && front_end->is_halted()) || !menu_scripts) {
         return;
     }

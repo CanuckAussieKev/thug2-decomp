@@ -97,6 +97,8 @@ bool anteara_mod()
     return kOn;
 }
 
+bool is_present() { return is_folder(get_folder()); }
+
 bool get_overlay_path(const char* name, std::span<char, file::kOverlayPathSize> path)
 {
     static const bool kOverlay = is_folder(get_folder());
