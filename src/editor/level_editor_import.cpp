@@ -901,11 +901,25 @@ void button_row(float scale, bool busy_now)
     ImGui::SameLine();
     ImGui::BeginDisabled(busy_now || !can_export || !has_folder);
     if (ImGui::Button("Uninstall", button)) {
-        start_export(false);
+        ImGui::OpenPopup("Uninstall from Retail Install");
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         gui::tooltip("%s", "Takes everything the export installed out of the retail install again");
+    }
+    // (asked first: it changes the retail install)
+    if (ImGui::BeginPopupModal("Uninstall from Retail Install", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        gui::text("Remove every exported level from %s?", state.retail_folder.c_str());
+        gui::text_disabled("%s", "Your own changes to the game's scripts are kept.");
+        if (ImGui::Button("Uninstall", button)) {
+            start_export(false);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", button) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
     }
     ImGui::SameLine();
     if (ImGui::Button("Close", button)) {
