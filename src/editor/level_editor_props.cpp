@@ -17,6 +17,7 @@
 #include "base/core/no_destroy.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_chains.h"
+#include "editor/level_editor_checks.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_scenery.h"
@@ -132,6 +133,33 @@ void add_rails(const Manifest& manifest, const Placement& placement, uint32_t cl
         state.points.push_back(point);
     }
     chains::change_phase(state);
+}
+
+// With debug_editor: the game's collision ray straight down through the middle of the placed piece's first sector -
+// whether the skater can meet it there (the piece's own collision, not the ground under it).
+void log_collision_probe(const std::vector<uint32_t>& placed)
+{
+    constexpr float kAbove = 1.0F; // (the ray starts this far above the box's top)
+    OrientedBox box{};
+    if (!debug_enabled() || placed.empty() || !scenery::cuboid(placed.front(), &box)) {
+        return;
+    }
+    V3 low{};
+    V3 high{};
+    bounds_of(box, &low, &high);
+    const V3 from = {.x = (low.x + high.x) * 0.5F, .y = high.y + kAbove, .z = (low.z + high.z) * 0.5F};
+    const V3 to = {.x = from.x, .y = low.y - kAbove, .z = from.z};
+    V3 hit{};
+    V3 normal{};
+    uint32_t sector = 0;
+    const bool met = checks::get_cast(from, to, {.point = &hit, .normal = &normal}, &sector);
+    const bool own = met && std::ranges::find(placed, sector) != placed.end();
+    const char* whose = "";
+    if (met) {
+        whose = own ? " (the piece's own)" : " (not the piece)";
+    }
+    get_log("level editor: prop collision probe at (%.1f, %.1f) from %.1f down to %.1f: %s %08X at height %.1f%s", from.x,
+            from.z, from.y, to.y, met ? "met" : "nothing", sector, met ? hit.y : 0.0F, whose);
 }
 
 } // namespace
@@ -316,6 +344,7 @@ bool place(const std::string& id, V3 at, std::string* message)
     scenery::apply_states(states, {});
     scenery::set_selection(placed);
     add_rails(manifest, target, placed.front());
+    log_collision_probe(placed);
     push_module_undo_labelled(before, "Place prop");
     get_log("level editor: placed prop pack %s at (%.0f, %.0f, %.0f) - %s, %u rail points", id.c_str(), at.x, at.y, at.z,
             first ? "its own sectors" : "copies", static_cast<unsigned>(manifest.rails.size()));

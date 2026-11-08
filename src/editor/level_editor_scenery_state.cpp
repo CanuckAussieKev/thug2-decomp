@@ -546,6 +546,12 @@ void finalise()
             manager->enter_heap_scope(manager->bottom_up_heap());
         }
         scene->get_update_super_sectors(nullptr);
+        // (collision moved beyond the box the grid was made over - a prop pack's scene is made at the origin - is in
+        // no cell and outside the box the line queries look at: the grid made again over a box that holds it)
+        if (maths::BBox box; scene->fit_collision_grid(&box)) {
+            get_log("level editor: collision grid of scene %08X grown to (%.0f, %.0f, %.0f) - (%.0f, %.0f, %.0f)",
+                    scene->checksum(), box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z);
+        }
         if (manager) {
             manager->leave_heap_scope();
         }

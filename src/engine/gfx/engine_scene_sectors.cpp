@@ -5,7 +5,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
+#include <iterator>
 #include <new>
+#include <vector>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/memory/manager.h"
@@ -460,6 +463,65 @@ bool WorldScene::unload_added_scene()
         }
     }
     added_ = false;
+    return true;
+}
+
+// NOT ORIGINAL (engine_scene.h)
+bool WorldScene::fit_collision_grid(maths::BBox* grown)
+{
+    if (!coll_grid_) {
+        return false;
+    }
+    // (a box with something in it: an object without faces has an empty one, min above max, which would stretch
+    // the grid to the empty box's corners)
+    auto has_extent = [](const maths::BBox& bounds) {
+        return bounds.min.x <= bounds.max.x && bounds.min.y <= bounds.max.y && bounds.min.z <= bounds.max.z;
+    };
+    maths::BBox box = coll_grid_->box();
+    std::vector<HitMesh*> listed;
+    for_each_sector(this, [&](const WorldCell* sector) {
+        HitMesh* object = sector->hit_body();
+        if ((sector->fetch_bits() & kSectorInGrid) == 0U || !object) {
+            return;
+        }
+        const maths::BBox* bounds = object->get_world_bounds();
+        if (bounds && has_extent(*bounds) && !coll_grid_->box().get_holds(*bounds)) {
+            listed.push_back(object);
+            box.append_spot(bounds->min);
+            box.append_spot(bounds->max);
+        }
+    });
+    if (listed.empty()) {
+        return false;
+    }
+    // what the cells list now, each once, with those outside
+    for (int cell_x = 0; cell_x < CollGrid::kSize; ++cell_x) {
+        for (int cell_z = 0; cell_z < CollGrid::kSize; ++cell_z) {
+            const CollGridCell* cell = coll_grid_->get_cell(cell_x, cell_z);
+            if (cell->objects()) {
+                std::ranges::copy(cell->object_run(), std::back_inserter(listed));
+            }
+        }
+    }
+    std::ranges::sort(listed);
+    const auto [first, last] = std::ranges::unique(listed);
+    listed.erase(first, last);
+    coll_grid_->get_clear();
+    coll_grid_->prepare_all(&box);
+    // (put in as the update puts in a sector flagged 4: its list's nodes on the top-down heap)
+    memory::ListNode added{};
+    memory::ListNode none{};
+    setup_list_sentinel(&added);
+    setup_list_sentinel(&none);
+    memory::Hub* manager = memory::Hub::get_pull();
+    manager->enter_heap_scope(manager->top_down_heap());
+    for (HitMesh* object : listed) {
+        append_last(&added, new_node(object));
+    }
+    manager->leave_heap_scope();
+    coll_grid_->tick_frame(&added, &none, &none);
+    delete_nodes(&added);
+    *grown = box;
     return true;
 }
 
