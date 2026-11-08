@@ -41,6 +41,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "base/maths/vec4.h"
+#include "editor/level_editor_coll_tree.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -53,8 +54,8 @@ constexpr uint32_t kMinVertexStride = 24; // position and normal
 constexpr int kPositionBytes = 12; // a position: three floats
 constexpr std::size_t kScaleFieldSize = 64; // " scale=..." with room
 constexpr std::size_t kScalePrefixLength = 6; // "scale="
-constexpr int kMaxTreeDepth = 256; // a guard against a broken hit tree
 constexpr uint32_t kCompressedVertexBytes = 6U; // a compressed vertex's bytes
+constexpr float kSixteenths = 16.0F;              // a packed vertex coordinate: sixteenths of a unit
 constexpr uint32_t kPlainVertexBytes = 12U;
 constexpr uint32_t kMeshCountLimit = 4096; // meshes accepted per original
 
@@ -178,22 +179,23 @@ std::string describe(V3 scale)
     return text.data();
 }
 
-RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, int quarters, V3 position, V3 scale)
+RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, int quarters, V3 position, V3 scale,
+                       float twist)
 {
     // The copy was taken after `copied` quarter turns of the piece (scale 1): copy - from = Q_c (x - x0); now
     // x' - to = Q S (x - x0) = Q_t (Q_c S Q_c^-1) (copy - from), Q_t the turns since, Q_c S Q_c^-1 S seen through Q_c.
     const int copied = (copied_quarters - quarters0) & 3;
     return {.from = copied_position, .to = position, .turns = (quarters - copied_quarters) & 3, .copy_scale_ = turned_scale(scale, copied),
-            .normal_turns_ = (quarters - quarters0) & 3};
+            .normal_turns_ = (quarters - quarters0) & 3, .twist = twist};
 }
 
-V3 get_rebuilt(V3 point, V3 from, V3 to, int quarters, V3 scale)
+V3 get_rebuilt(V3 point, V3 from, V3 to, int quarters, V3 scale, float twist)
 {
-    return to + get_quarter_turn(per_axis(point - from, scale), quarters);
+    const V3 turned = get_quarter_turn(per_axis(point - from, scale), quarters);
+    return to + (twist == 0.0F ? turned : turn_about_up(turned, twist));
 }
 
-void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, V3 from, V3 to,
-                       int quarters, V3 scale)
+void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, const RebuildFrame& frame)
 {
     const gpu::VertexWriter vertices(data, stride, count);
     const std::span<const float> positions(original, 3 * static_cast<std::size_t>(count));
@@ -201,23 +203,23 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
         const V3 point = get_rebuilt({.x = core::at(positions, 3 * vertex),
                                       .y = core::at(positions, (3 * vertex) + 1),
                                       .z = core::at(positions, (3 * vertex) + 2)},
-                                     from, to, quarters, scale);
+                                     frame.from, frame.to, frame.turns, frame.copy_scale_, frame.twist);
         vertices.set_float3(vertex, 0, point.x, point.y, point.z);
     }
 }
 
-V3 scaled_normal(V3 normal, V3 scale, int quarters)
+V3 scaled_normal(V3 normal, V3 scale, Heading heading)
 {
     if (!is_unit_scale(scale)) {
         const V3 scaled = {.x = normal.x / scale.x, .y = normal.y / scale.y, .z = normal.z / scale.z};
         const float length = std::sqrt(get_dot(scaled, scaled));
         normal = length > 0.0F ? scaled * (1.0F / length) : scaled;
     }
-    return get_quarter_turn(normal, quarters);
+    const V3 turned = get_quarter_turn(normal, heading.quarters);
+    return heading.twist == 0.0F ? turned : turn_about_up(turned, heading.twist);
 }
 
-void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original, V3 scale,
-                     int quarters)
+void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original, V3 scale, Heading heading)
 {
     const auto stride = normal_run.stride;
     const auto count = normal_run.count;
@@ -228,7 +230,7 @@ void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original,
         const V3 normal = scaled_normal({.x = core::at(normals, 3 * vertex),
                                          .y = core::at(normals, (3 * vertex) + 1),
                                          .z = core::at(normals, (3 * vertex) + 2)},
-                                        scale, quarters);
+                                        scale, heading);
         vertices.set_float3(vertex, offset, normal.x, normal.y, normal.z);
     }
 }
@@ -294,17 +296,6 @@ bool read_token(const std::string& field, V3* scale)
 
 namespace {
 
-void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* out, int depth)
-{
-    // (iterative down the greater side, as the game's own walks; a guard against a broken tree)
-    while (node && !node->is_end_node() && depth < kMaxTreeDepth) {
-        out->push_back({.node = node, .split = node->axis_tag(), .link = node->chain_link()});
-        split_nodes(node->less_child(), out, depth + 1);
-        node = node->greater_child();
-        ++depth;
-    }
-}
-
 uint32_t get_vertex_bytes(const render::TriMeshSource* data)
 {
     return data->num_vertices() * (data->compressed() ? kCompressedVertexBytes : kPlainVertexBytes);
@@ -329,7 +320,14 @@ CollisionCopy copy_collision(render::TriMeshSource* data)
     copy.min = data->bounds().min;
     copy.max = data->bounds().max;
     copy.rejection = data->unknown3c();
-    split_nodes(data->bsp(), &copy.nodes, 0);
+    copy.tree = data->bsp();
+    const coll_tree::Storage storage = coll_tree::storage_of(copy.tree);
+    if (!storage.nodes.empty()) {
+        copy.tree_nodes_.assign(storage.nodes.begin(), storage.nodes.end());
+        copy.tree_faces_ = storage.faces.data();
+        copy.tree_face_copy_.assign(storage.faces.begin(), storage.faces.end());
+        copy.listed_ = coll_tree::listed_faces(copy.tree);
+    }
     return copy;
 }
 
@@ -340,19 +338,50 @@ bool same_collision(const CollisionCopy& copy)
            data->compressed() == copy.compressed && copy.vertices.size() == get_vertex_bytes(data);
 }
 
-void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale)
+namespace {
+
+// Every vertex of a geometry written from `positions` and its box made `low` .. `high` (the engine's choose_raw_verts,
+// 0x00415C10, as written here: the editor's plug-in reaches the record's arrays, not that function) - packed vertices in
+// sixteenths from the box's minimum, towards zero.
+void write_vertices(render::TriMeshSource* data, const std::vector<maths::Vec4>& positions, const maths::Vec4& low,
+                    const maths::Vec4& high)
+{
+    data->bounds().min = {.x = low.x, .y = low.y, .z = low.z, .w = 1.0F};
+    data->bounds().max = {.x = high.x, .y = high.y, .z = high.z, .w = 1.0F};
+    if (data->compressed()) {
+        const std::span<uint16_t> packed = data->packed_vertices();
+        for (size_t i = 0; i < positions.size(); ++i) {
+            const maths::Vec4& point = core::at(positions, i);
+            core::at(packed, (3 * i) + 0) = static_cast<uint16_t>(static_cast<int>((point.x - low.x) * kSixteenths));
+            core::at(packed, (3 * i) + 1) = static_cast<uint16_t>(static_cast<int>((point.y - low.y) * kSixteenths));
+            core::at(packed, (3 * i) + 2) = static_cast<uint16_t>(static_cast<int>((point.z - low.z) * kSixteenths));
+        }
+        return;
+    }
+    const std::span<float> floats = data->float_vertices();
+    for (size_t i = 0; i < positions.size(); ++i) {
+        const maths::Vec4& point = core::at(positions, i);
+        core::at(floats, (3 * i) + 0) = point.x;
+        core::at(floats, (3 * i) + 1) = point.y;
+        core::at(floats, (3 * i) + 2) = point.z;
+    }
+}
+
+} // namespace
+
+bool rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale, float twist)
 {
     render::TriMeshSource* data = copy.data;
     if (!data || !data->vertices()) {
-        return;
+        return true;
     }
     std::memcpy(data->vertices(), copy.vertices.data(), copy.vertices.size());
     data->bounds().min = copy.min;
     data->bounds().max = copy.max;
     data->set_unknown3c(copy.rejection);
-    for (const CollisionCopy::Elem& node : copy.nodes) {
-        node.node->set_axis_tag(node.split);
-        node.node->set_chain_link(node.link);
+    if (!copy.tree_nodes_.empty()) {
+        std::ranges::copy(copy.tree_nodes_, copy.tree);
+        std::ranges::copy(copy.tree_face_copy_, copy.tree_faces_);
     }
     const maths::Vec4 centre = {.x = from.x, .y = from.y, .z = from.z, .w = 0.0F};
     if (!is_unit_scale(scale)) {
@@ -367,6 +396,41 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
         const maths::Vec4 by = {.x = delta.x, .y = delta.y, .z = delta.z, .w = 0.0F};
         data->get_slide(&by);
     }
+    if (twist == 0.0F) {
+        return true;
+    }
+    // Any other angle: the vertices turned about `to` (the box made from them), then a tree for them in the old one's
+    // place (coll_tree.h). Packed vertices must stay within 16 bits of sixteenths from the new box.
+    std::vector<maths::Vec4> positions(data->num_vertices());
+    for (size_t i = 0; i < positions.size(); ++i) {
+        data->read_stored_vertex(static_cast<int>(i), &core::at(positions, i));
+    }
+    maths::Vec4 low = {.x = INFINITY, .y = INFINITY, .z = INFINITY, .w = 0.0F};
+    maths::Vec4 high = {.x = -INFINITY, .y = -INFINITY, .z = -INFINITY, .w = 0.0F};
+    for (maths::Vec4& position : positions) {
+        const V3 turned = to + turn_about_up(V3{.x = position.x, .y = position.y, .z = position.z} - to, twist);
+        position = {.x = turned.x, .y = turned.y, .z = turned.z, .w = 0.0F};
+        low = {.x = std::min(low.x, turned.x), .y = std::min(low.y, turned.y), .z = std::min(low.z, turned.z), .w = 0.0F};
+        high = {.x = std::max(high.x, turned.x), .y = std::max(high.y, turned.y), .z = std::max(high.z, turned.z), .w = 0.0F};
+    }
+    if (data->compressed() &&
+        (high.x - low.x > kCompressedExtent || high.y - low.y > kCompressedExtent || high.z - low.z > kCompressedExtent)) {
+        return false;
+    }
+    if (data->bsp() != nullptr && copy.tree_nodes_.empty()) {
+        return false; // (a tree that can't be rewritten in place: the faces would be looked up by the old splits)
+    }
+    write_vertices(data, positions, low, high);
+    if (data->bsp() != nullptr) {
+        const coll_tree::Storage storage = {
+            .nodes = std::span<render::HitTreeNode>(copy.tree, copy.tree_nodes_.size()),
+            .faces = std::span<uint16_t>(copy.tree_faces_, copy.tree_face_copy_.size())};
+        if (!coll_tree::rebuild(*data, copy.listed_, storage)) {
+            return false;
+        }
+    }
+    data->set_unknown3c(0); // (as the engine's own turns: line tests then reject nothing by distance)
+    return true;
 }
 
 V3 collision_limit(const render::TriMeshSource* data, V3 scale)
@@ -505,8 +569,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::Geom* g
     return original;
 }
 
-bool reassemble(const Original& original, render::WorldCell* sector, render::Geom* geom, int quarters, V3 position,
-                V3 scale, int quarters0)
+bool reassemble(const Original& original, render::WorldCell* sector, render::Geom* geom, const Pose& pose)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
     if (geom != original.geom || render::device().geom_mesh_list(geom) != original.mesh_list_ ||
@@ -533,23 +596,26 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::Geo
         return false;
     }
 
-    const RebuildFrame frame = frame_for(original.quarters, original.position, quarters0, quarters, position, scale);
+    const V3 scale = pose.scale;
+    const RebuildFrame frame =
+        frame_for(original.quarters, original.position, pose.quarters0, pose.quarters, pose.position, scale, pose.twist);
     for (const MeshCopy& copy : original.meshes) {
         render::MeshData* mesh = copy.mesh;
         for (size_t buffer = 0; buffer < copy.buffers.size(); ++buffer) {
             rewrite_positions(core::at(copy.buffers, buffer)->data(), copy.stride, copy.vertex_count_,
-                              core::at(copy.positions, buffer).data(), frame.from, frame.to, frame.turns,
-                              frame.copy_scale_);
+                              core::at(copy.positions, buffer).data(), frame);
             if (copy.normal_offset_ >= 0) {
                 rewrite_normals(core::at(copy.buffers, buffer)->data(),
                                 {.stride = copy.stride,
                                  .count = copy.vertex_count_,
                                  .offset = static_cast<uint32_t>(copy.normal_offset_)},
-                                core::at(copy.normals, buffer).data(), scale, frame.normal_turns_);
+                                core::at(copy.normals, buffer).data(), scale,
+                                {.quarters = frame.normal_turns_, .twist = frame.twist});
             }
             upload(core::at(copy.buffers, buffer));
         }
-        const V3 centre = get_rebuilt(copy.centre, frame.from, frame.to, frame.turns, frame.copy_scale_);
+        const V3 centre =
+            get_rebuilt(copy.centre, frame.from, frame.to, frame.turns, frame.copy_scale_, frame.twist);
         core::at(mesh->centre(), 0) = centre.x;
         core::at(mesh->centre(), 1) = centre.y;
         core::at(mesh->centre(), 2) = centre.z;
@@ -567,10 +633,29 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::Geo
             core::at(list, (3 * k) + 2) = point.z;
         }
     }
-    if (original.have_collision_) {
-        rebuild_collision(original.collision, frame.turns, frame.from, frame.to, frame.copy_scale_);
+    if (original.have_collision_ &&
+        !rebuild_collision(original.collision, frame.turns, frame.from, frame.to, frame.copy_scale_, frame.twist)) {
+        get_log("level editor: sector %p's collision couldn't be turned to that angle (left at its quarter turn)",
+                static_cast<void*>(sector));
     }
     return true;
+}
+
+bool twist_fits(render::WorldCell* sector)
+{
+    const render::TriMeshSource* data = sector ? collision_data(sector) : nullptr;
+    if (!data || !data->vertices()) {
+        return true;
+    }
+    if (data->bsp() != nullptr && coll_tree::storage_of(data->bsp()).nodes.empty()) {
+        return false;
+    }
+    if (!data->compressed()) {
+        return true;
+    }
+    const float x = data->bounds().max.x - data->bounds().min.x;
+    const float z = data->bounds().max.z - data->bounds().min.z;
+    return std::hypot(x, z) <= kCompressedExtent;
 }
 
 V3 get_limit(render::WorldCell* sector, V3 world_scale)

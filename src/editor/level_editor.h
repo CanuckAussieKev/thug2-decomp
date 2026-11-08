@@ -417,21 +417,32 @@ inline bool is_unit_scale(V3 scale) { return scale.x == 1.0F && scale.y == 1.0F 
 inline bool is_uniform_scale(V3 scale) { return scale.x == scale.y && scale.y == scale.z; }
 
 // Where a moved sector is, relative to where it was when the editor first touched it: a point x of it then is now at
-// get_quarter_turn(per_axis(x, scale), quarters) + offset (a scale along each of its own axes as first touched - uniform or
-// stretched, level_editor_scale.h; 1, 1, 1 unless scaled).
+// turn_placed(per_axis(x, scale)) + offset (a scale along each of its own axes as first touched - uniform or stretched,
+// level_editor_scale.h; 1, 1, 1 unless scaled). Its heading is `quarters` quarter turns (what the engine turns a sector
+// by itself) and `twist` more (any angle: level_editor_scale.h writes the turned vertices and collision).
 struct Placement {
     int quarters{}; // 0..3
     V3 offset{};
     V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+    float twist{}; // radians, within +-45 degrees (0: whole quarter turns, exactly)
 };
 V3 get_apply(const Placement& placement, V3 x);
+// A direction turned by the placement's heading: its quarter turns (exactly), then its twist about up.
+V3 turn_placed(V3 v, const Placement& placement);
+// The placement's heading in radians (quarters * 90 degrees + twist; positive +z towards +x, as turn_about_up).
+float heading_of(const Placement& placement);
+// The quarter turns and twist kept as their parts: the twist brought within +-45 degrees (whole quarter turns moved to
+// `quarters`), a twist within a millionth of a radian of none taken as none (turned back exactly).
+void normalise_twist(Placement* placement);
 // Moved by `delta`; turned by `quarters` quarter turns about `pivot` (a world point, where it is now).
 void move_by(Placement* placement, V3 delta);
 void turn_about(Placement* placement, V3 pivot, int quarters);
+// Turned by `radians` about the vertical line through `pivot` (any angle; whole quarter turns exactly).
+void turn_about_by(Placement* placement, V3 pivot, float radians);
 // What the engine keeps for a placement: the sector's quarter turns (WorldCell +0x10, set by spin_around_up 0x0049E760)
 // and its geometry's world position (the meshes' pivot, MeshRef +0x90's translation), from those when first touched
-// (`quarters0`, `position0`). Unscaled, its vertices are at get_quarter_turn(v, quarters) + position for v as loaded (the
-// engine has no scale of its own: level_editor_scale.h writes the scaled vertices).
+// (`quarters0`, `position0`). Unscaled and untwisted, its vertices are at get_quarter_turn(v, quarters) + position for v
+// as loaded (the engine has no scale or other angles of its own: level_editor_scale.h writes those vertices).
 void engine_state(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position);
 // `outer` after `inner`: Apply(compose(outer, inner), x) == Apply(outer, Apply(inner, x)) - a copy made of a moved
 // sector and moved since is placed by its own placement after its source's (relative to the source as loaded).

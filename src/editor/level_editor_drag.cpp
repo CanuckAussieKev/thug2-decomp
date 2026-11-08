@@ -156,7 +156,7 @@ void scale_selection_to(V3 scale)
         }
         return;
     }
-    // (the first piece's own axes to the world's: its quarter turns)
+    // (the first piece's own axes to the world's: its quarter turns - a twist within 45 degrees keeps the nearest axes)
     scenery::scale_selection(turned_scale(local, scenery::selection_quarters()), is_uniform_scale(local));
 }
 V3& scale_at_field_start()
@@ -282,9 +282,9 @@ void selection_axes(std::span<V3, 3> out)
         return;
     }
     if ((wall_only() == 0U) && scenery::has_selection()) {
-        const int quarters = scenery::selection_quarters();
+        const float heading = scenery::selection_heading();
         for (int i = 0; i < 3; ++i) {
-            core::at(out, i) = get_quarter_turn(core::at(kAxes, i), quarters);
+            core::at(out, i) = turn_about_up(core::at(kAxes, i), heading);
         }
     }
 }
@@ -310,7 +310,7 @@ float selection_heading()
     if (node_values(&node)) {
         return node.angles.y;
     }
-    return scenery::has_selection() ? static_cast<float>(scenery::selection_quarters()) * maths::kPi * kHalf : 0.0F;
+    return scenery::has_selection() ? scenery::selection_heading() : 0.0F;
 }
 
 } // namespace internal
@@ -353,8 +353,8 @@ xform::Gizmo gizmo_now()
 } // namespace internal
 namespace {
 
-// Turned to `target` radians from where the drag started: objects about the Pivot, a node's heading, scenery and
-// invisible walls by whole quarter turns (the engine turns level geometry by quarters - level_editor_scenery.h).
+// Turned to `target` radians from where the drag started: objects about the Pivot, a node's heading, scenery about its
+// pivot to any angle (level_editor_scenery.h's turn_by), invisible walls by whole quarter turns (level_editor_walls.h).
 void apply_turn_to(float target)
 {
     const std::vector<objects::GameEntity*> objects = selected_objects();
@@ -373,13 +373,23 @@ void apply_turn_to(float target)
         node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) +
                                                                (delta * kDegreesPerHalfTurn / maths::kPi));
         set_selected_node(node);
-    } else {
+    } else if (wall_only() != 0U) {
         const int quarters = xform::get_quarters(target);
         if (quarters == transform_session().quarters_applied_) {
             return;
         }
         turn_selection(quarters - transform_session().quarters_applied_);
         transform_session().quarters_applied_ = quarters;
+    } else {
+        const float delta = target - transform_session().rot_applied_;
+        if (std::fabs(delta) < kTurnEpsilon) {
+            return;
+        }
+        if (!scenery::turn_by(delta)) {
+            return; // (a piece that can't take the angle: left where it is)
+        }
+        follow_scenery();
+        transform_session().quarters_applied_ = xform::get_quarters(target);
     }
     transform_session().rot_applied_ = target;
     transform_session().pending_forced_ = true;
@@ -642,6 +652,11 @@ Snapping snapping_now(bool ctrl, bool shift, bool alt)
 {
     Snapping snap;
     snap.on = true;
+    // (plain Ctrl turns snapping over - Unreal: on while held, or off while held when the toolbar's Snap is on)
+    if (ctrl && !alt && !shift && tool_options().snap_always_) {
+        snap.on = false;
+        return snap;
+    }
     if (ctrl && alt) {
         snap.target = xform::SnapTarget::kVertex;
     } else if (alt && shift) {
@@ -928,7 +943,7 @@ void note_for_adjust(xform::Mode mode, V3 moved, bool uniform)
     adjust::ActStep action;
     if (mode == xform::Mode::kSpinBy) {
         action.kind = adjust::Kind::kTurn;
-        action.quarters = (get_primary() == nullptr) && picked_node_index() < 0;
+        action.quarters = (get_primary() == nullptr) && picked_node_index() < 0 && (wall_only() != 0U);
         action.degrees =
             action.quarters ? static_cast<float>(transform_session().quarters_applied_) * kQuarterTurnDegrees : transform_session().rot_applied_ * kDegreesPerHalfTurn / maths::kPi;
     } else if (mode == xform::Mode::kScale) {

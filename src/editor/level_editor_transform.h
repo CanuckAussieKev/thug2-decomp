@@ -61,7 +61,7 @@ void set_angle_step(float degrees);
 
 // The choices offered (the toolbar's lists).
 const std::vector<float>& grid_sizes();  // 1, 5, 10, 25, 50, 100
-const std::vector<float>& angle_steps(); // 5, 10, 15, 30, 45, 90
+const std::vector<float>& angle_steps(); // 1, 5, 10, 15, 30, 45, 90
 const char* mode_name(Mode mode);        // "Move", "Rotate", "Scale"
 const char* pivot_name(Pivot pivot);     // "Base", "Centre", "Own"
 const char* target_name(SnapTarget target);

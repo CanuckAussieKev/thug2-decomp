@@ -365,6 +365,36 @@ void turn_selection(int notches)
     }
     turn_objects_by(objects, static_cast<float>(notches) * notch_radians(), selection_centre());
 }
+
+bool turn_selection_by(float degrees)
+{
+    const float radians = degrees * maths::kPi / kDegreesPerHalfTurn;
+    node_edit::Values node;
+    if (node_values(&node)) {
+        node.angles = node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + degrees);
+        set_selected_node(node);
+        return true;
+    }
+    const std::vector<objects::GameEntity*> objects = selected_objects();
+    if (const uint32_t wall = objects.empty() ? wall_only() : 0) {
+        // (an invisible wall's collision turns by whole quarter turns only - level_editor_walls.h)
+        const int quarters = xform::get_quarters(radians);
+        if (quarters == 0) {
+            return false;
+        }
+        walls::get_turn(wall, quarters);
+        walls::finalise();
+        return true;
+    }
+    if (objects.empty()) {
+        const bool turned = scenery::turn_by(radians);
+        follow_scenery();
+        scenery::finalise();
+        return turned;
+    }
+    turn_objects_by(objects, radians, selection_centre());
+    return true;
+}
 // After the keys or a drag: the scenery's collision lookups brought up to date.
 void get_settle()
 {

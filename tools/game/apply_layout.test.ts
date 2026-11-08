@@ -407,6 +407,27 @@ test("qb_write: a node array written back keeps every untouched node's bytes", (
 
 // --- the bake -------------------------------------------------------------------------------------------------------
 
+test("a free turn (turn=): the quarter turns, then the twist about up", () => {
+    const l = readLayout(`thug2-decomp layout 2\nscene 00000001\nsector 0000ABCD 1 10 0 0 0 turn=7.5  # piece\n`);
+    const p = l.sectors[0]!.placement;
+    assert.equal(p.quarters, 1);
+    assert.ok(Math.abs((p.twist ?? 0) - (7.5 * Math.PI) / 180) < 1e-12);
+    // 97.5 degrees in all: +z goes most of the way to +x and a little past it
+    const q = applyPlacement({ ...p, offset: { x: 0, y: 0, z: 0 } }, { x: 0, y: 0, z: 1 });
+    const a = (97.5 * Math.PI) / 180;
+    assert.ok(Math.abs(q.x - Math.sin(a)) < 1e-6 && Math.abs(q.z - Math.cos(a)) < 1e-6);
+    const n = scaledNormal({ x: 0, y: 0, z: 1 }, { x: 1, y: 1, z: 1 }, 1, (7.5 * Math.PI) / 180);
+    assert.ok(Math.abs(n.x - Math.sin(a)) < 1e-6);
+    assert.equal(
+        readLayout(`thug2-decomp layout 2\nscene 00000001\nsector 0000ABCD 0 0 0 0 0\n`).sectors[0]!.placement.twist,
+        undefined,
+    );
+    assert.throws(
+        () => readLayout(`thug2-decomp layout 2\nscene 00000001\nsector 0000ABCD 0 0 0 0 0 turn=x\n`),
+        LayoutError,
+    );
+});
+
 test("placements as the editor's: QuarterTurn(x * scale) + offset", () => {
     assert.deepEqual(quarterTurn({ x: 1, y: 2, z: 3 }, 1), { x: 3, y: 2, z: -1 });
     const two = { x: 2, y: 2, z: 2 };

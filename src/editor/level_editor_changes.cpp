@@ -12,6 +12,7 @@
 #include <string>
 #include <utility>
 #include <array>
+#include <iterator>
 #include <vector>
 
 #include "editor/level_editor_fields.h"
@@ -28,6 +29,8 @@ constexpr std::size_t kNumberTextSize = 32; // a formatted number
 constexpr std::size_t kPrefixedChecksumLength = 10; // "0x" and a checksum's digits
 constexpr std::size_t kScaleKeyLength = 6; // "scale="
 constexpr int kDegreesPerQuarter = 90;
+constexpr std::size_t kTurnKeyLength = 5; // "turn="
+constexpr std::size_t kTurnTextSize = 32;
 constexpr double kHalfTurnDegrees = 180.0;
 constexpr double kPiDouble = 3.14159265358979;
 constexpr std::size_t kSummaryTextSize = 96; // " at (x, y, z), heading h"
@@ -198,8 +201,16 @@ void summarise_placed(const RecordLine& record, TableRow& table_row)
     if (x != 0.0F || y != 0.0F || z != 0.0F) {
         what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
     }
-    if (quarters != 0) {
-        what += std::string(" turned ") + std::to_string(quarters * kDegreesPerQuarter) + "\xC2\xB0";
+    double degrees = quarters * kDegreesPerQuarter;
+    for (const std::string& w : words) {
+        if (w.starts_with("turn=")) {
+            degrees += std::strtod(std::next(w.c_str(), kTurnKeyLength), nullptr);
+        }
+    }
+    if (degrees != 0.0) {
+        std::array<char, kTurnTextSize> text{};
+        text::format_to(text, " turned %.4g", degrees);
+        what += std::string(text.data()) + "\xC2\xB0";
     }
     what += scale_of(record);
     if (keyword == "wall") {

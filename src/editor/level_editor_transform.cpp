@@ -100,7 +100,7 @@ const std::vector<float>& grid_sizes()
 }
 const std::vector<float>& angle_steps()
 {
-    static const std::vector<float> kSteps = {5.0F, 10.0F, 15.0F, 30.0F, 45.0F, 90.0F};
+    static const std::vector<float> kSteps = {1.0F, 5.0F, 10.0F, 15.0F, 30.0F, 45.0F, 90.0F};
     return kSteps;
 }
 
@@ -440,13 +440,9 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
     }
     step->offset = pos - memory.source_pos_;
     const float turn = get_wrap(heading - memory.source_heading_);
-    if (kind == Kind::kScenery) {
-        step->quarters = get_quarters(turn) & 3;
-        step->turn = 0.0F;
-    } else {
-        step->quarters = 0;
-        step->turn = std::fabs(turn) < kTurnEpsilon ? 0.0F : turn;
-    }
+    // (scenery turns to any angle too - level_editor_scenery.h's turn_by)
+    step->quarters = 0;
+    step->turn = std::fabs(turn) < kTurnEpsilon ? 0.0F : turn;
     return true;
 }
 

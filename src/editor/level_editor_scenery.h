@@ -140,6 +140,13 @@ float get_bottom();
 void set_selection(const std::vector<uint32_t>& sectors);
 void move_to(V3 pivot);
 void get_turn(int quarters);
+// Turned by `radians` about the pivot - any angle (whole quarter turns as get_turn; the rest written into the vertices
+// and collision: level_editor_scale.h). False (nothing turned) when a piece can't take it: compressed collision too
+// wide to stay within its 16-bit range at every angle (can_turn_freely).
+bool turn_by(float radians);
+bool can_turn_freely();
+// The first selected piece's heading (its placement's quarter turns and twist, radians).
+float selection_heading();
 // Scaling (level_editor_scale.h): the selection's scale (its first piece's, along its own axes as first touched; 1, 1, 1
 // when not scaled) and quarter turns, and the selection scaled by `factor` along the world's axes about the middle of
 // its bottom - limited so every piece stays within 0.25x..4x on each axis (less for compressed collision); `uniform`:

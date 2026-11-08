@@ -385,6 +385,10 @@ V3 selection_centre();
 void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float radians, V3 centre);
 
 void turn_selection(int notches);
+// Turned by `degrees` (any angle): a node's heading, objects about the Pivot, scenery about its pivot (level_editor_scenery.h's
+// turn_by), an invisible wall by the nearest whole quarter turns. False when nothing could turn (a wall's turn under
+// 45 degrees, scenery whose collision can't take the angle).
+bool turn_selection_by(float degrees);
 
 void get_settle();
 
