@@ -161,6 +161,14 @@ struct CollisionCopy {
     uint16_t* tree_faces_ = nullptr;
     std::vector<uint16_t> tree_face_copy_;
     std::vector<uint16_t> listed_; // (the faces the tree lists, each once)
+    // (a tree not laid out as one block: only its split nodes kept - their splits and links - as before free turns;
+    // such a piece takes quarter turns and scales, not other angles)
+    struct SplitNode {
+        render::HitTreeNode* node;
+        int32_t split;
+        uint32_t link;
+    };
+    std::vector<SplitNode> split_nodes_;
 };
 CollisionCopy copy_collision(render::TriMeshSource* data);
 // Whether the geometry is still the one copied (its arrays, count and format).

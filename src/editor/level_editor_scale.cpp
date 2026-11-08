@@ -55,7 +55,8 @@ constexpr int kPositionBytes = 12; // a position: three floats
 constexpr std::size_t kScaleFieldSize = 64; // " scale=..." with room
 constexpr std::size_t kScalePrefixLength = 6; // "scale="
 constexpr uint32_t kCompressedVertexBytes = 6U; // a compressed vertex's bytes
-constexpr float kSixteenths = 16.0F;              // a packed vertex coordinate: sixteenths of a unit
+constexpr float kSixteenths = 16.0F;
+constexpr int kMaxTreeDepth = 256; // a guard against a broken hit tree              // a packed vertex coordinate: sixteenths of a unit
 constexpr uint32_t kPlainVertexBytes = 12U;
 constexpr uint32_t kMeshCountLimit = 4096; // meshes accepted per original
 
@@ -296,6 +297,17 @@ bool read_token(const std::string& field, V3* scale)
 
 namespace {
 
+void keep_split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::SplitNode>* out, int depth)
+{
+    // (iterative down the greater side, as the game's own walks; a guard against a broken tree)
+    while (node != nullptr && !node->is_end_node() && depth < kMaxTreeDepth) {
+        out->push_back({.node = node, .split = node->axis_tag(), .link = node->chain_link()});
+        keep_split_nodes(node->less_child(), out, depth + 1);
+        node = node->greater_child();
+        ++depth;
+    }
+}
+
 uint32_t get_vertex_bytes(const render::TriMeshSource* data)
 {
     return data->num_vertices() * (data->compressed() ? kCompressedVertexBytes : kPlainVertexBytes);
@@ -327,6 +339,8 @@ CollisionCopy copy_collision(render::TriMeshSource* data)
         copy.tree_faces_ = storage.faces.data();
         copy.tree_face_copy_.assign(storage.faces.begin(), storage.faces.end());
         copy.listed_ = coll_tree::listed_faces(copy.tree);
+    } else {
+        keep_split_nodes(copy.tree, &copy.split_nodes_, 0);
     }
     return copy;
 }
@@ -382,6 +396,10 @@ bool rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
     if (!copy.tree_nodes_.empty()) {
         std::ranges::copy(copy.tree_nodes_, copy.tree);
         std::ranges::copy(copy.tree_face_copy_, copy.tree_faces_);
+    }
+    for (const CollisionCopy::SplitNode& node : copy.split_nodes_) {
+        node.node->set_axis_tag(node.split);
+        node.node->set_chain_link(node.link);
     }
     const maths::Vec4 centre = {.x = from.x, .y = from.y, .z = from.z, .w = 0.0F};
     if (!is_unit_scale(scale)) {

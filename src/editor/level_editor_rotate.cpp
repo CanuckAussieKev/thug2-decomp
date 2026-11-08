@@ -197,6 +197,8 @@ int modal_rotate_action() { return rotate_state().modal_rotate_; }
 
 void ask_revert() { rotate_state().asking_ = true; }
 
+bool asking() { return rotate_state().asking_; }
+
 bool take_revert() { return std::exchange(rotate_state().confirmed_, false); }
 
 void dialogs(float scale)

@@ -284,7 +284,7 @@ void handle_event(const input::Event& event)
         }
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event.key == SDL_SCANCODE_ESCAPE && !event.repeat &&
-            !actions::get_capturing()) {
+            !actions::get_capturing() && !rotate_tool::asking()) { // (a question up: its own Escape)
             if (drag_session().dragging_ || stored_browser().open || tool_options().help_ || place_palette().place_open_ ||
                 (confirmations().confirm_hide_ != 0U) || confirmations().confirm_reset_ ||
                 chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() ||

@@ -58,6 +58,7 @@ int modal_rotate_action();
 // Revert to Original asked for (the Edit menu / the command search): the question shown; true once when it was answered
 // yes (the editor's frame then reverts the selection).
 void ask_revert();
+bool asking();
 bool take_revert();
 // The question (inside the editor's ImGui frame).
 void dialogs(float scale);
