@@ -10,8 +10,10 @@
 #include "engine/gfx/gpu_handles.h"
 #include "render_pc/pc_scene.h"
 #include "render_pc/view_mode.h"
+#include "engine/gfx/view_modes.h"
 #include "render_pc/wireframe.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <bit>
 #include <cmath>
@@ -321,7 +323,10 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
     const double half_angle = static_cast<double>(angle) * 0.008726646F;
-    auto width = static_cast<float>(std::tan(half_angle) * kNearPlaneDistance);
+    // (the view's width at the near plane: kNearPlaneDistance is twice the original's near plane, 2. Not original: with
+    // the editor's ortho views' near plane further out - stored_near_z() - the width there, so the field of view stays
+    // the angle; at 2 the same value as the original's tan * 4.)
+    auto width = static_cast<float>(std::tan(half_angle) * kNearPlaneDistance * (static_cast<double>(camera.near_z_) / kDefaultNearZ));
     auto height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * kAspectScale));
     const float height = height_factor * width;
     matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
@@ -557,6 +562,33 @@ float camera_angle(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fe
 const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_mat(); }
 
+// Not original - a split view's pass (ext::begin_view, the level editor's split view): the part of the viewport's
+// area it is drawn in (none: the whole of it).
+struct PassArea {
+    bool on = false;
+    std::array<float, 4> rect = {{0.0F, 0.0F, 1.0F, 1.0F}};
+};
+PassArea& pass_area()
+{
+    static PassArea area;
+    return area;
+}
+
+// `whole`'s part that a pass's area covers (its edges rounded to pixels, so neighbouring views share them).
+DeviceViewport part_of(const DeviceViewport& whole, const std::array<float, 4>& rect)
+{
+    const auto edge = [](uint32_t from, uint32_t size, float part) {
+        return from + static_cast<uint32_t>(std::lround(static_cast<double>(size) * std::clamp(static_cast<double>(part), 0.0, 1.0)));
+    };
+    DeviceViewport part = whole;
+    const auto [left, top, width, height] = rect;
+    part.x = edge(whole.x, whole.width, left);
+    part.y = edge(whole.y, whole.height, top);
+    part.width = std::max(1U, edge(whole.x, whole.width, left + width) - part.x);
+    part.height = std::max(1U, edge(whole.y, whole.height, top + height) - part.y);
+    return part;
+}
+
 void draw_scene_group(PcScene* scene, int pass, int viewport)
 {
     draw_scene(scene->meshes(), {.flags = static_cast<uint32_t>(pass), .viewport = viewport});
@@ -597,9 +629,19 @@ void draw_viewport(int index)
         // (widescreen_menus: in the front end the 3D view keeps the whole screen; the 2D below stays fitted.)
         set_display_region();
     }
+    // Not original - a split view's pass: its part of the viewport, the aspect its own (the area's shape against the
+    // whole's). Original behaviour: the whole viewport.
+    float aspect_scale = 1.0F;
+    if (pass_area().on) {
+        const DeviceViewport whole = renderer().device_viewport();
+        const DeviceViewport part = part_of(whole, pass_area().rect);
+        renderer().set_device_viewport(part);
+        aspect_scale = static_cast<float>((static_cast<double>(part.width) * whole.height) /
+                                          (static_cast<double>(part.height) * std::max(1U, whole.width)));
+    }
     set_viewport();
     clear_world_transform();
-    const float aspect = view->fetch_width_over_height();
+    const float aspect = view->fetch_width_over_height() * aspect_scale;
 
     // Not original - the extensions (engine/ext/extension.h; the level editor's ortho views: its camera's field of
     // view narrowed and the near plane brought up for the world's passes - the sky's keeps the near plane).
@@ -736,6 +778,48 @@ void draw_viewport(int index)
     engine::draw_flashes(index, 0);
 }
 
+// Not original - the split views (ext::view_count; the level editor's): the first viewport drawn once for each view,
+// in its part of the frame and its view mode (the frame's mode put back after), the lines handed over (depth_lines.h)
+// drawn in each, then dropped. The view's area is cleared by Collision only's begin_world, so it is set first.
+void draw_views(int views)
+{
+    const view_mode::Mode frame_mode = view_mode::at_hand();
+    for (int i = 0; i < views; ++i) {
+        ext::ViewPass pass;
+        if (!ext::begin_view(i, &pass)) {
+            continue;
+        }
+        pass_area() = {.on = true, .rect = pass.rect};
+        const auto mode = static_cast<view_mode::Mode>(
+            std::clamp(pass.mode, 0, static_cast<int>(view_mode::Mode::kCount) - 1));
+        view_mode::switch_for_view(mode);
+        renderer().set_device_viewport(part_of(
+            {.x = 0,
+             .y = 0,
+             .width = static_cast<uint32_t>(renderer().back_buffer_width()),
+             .height = static_cast<uint32_t>(renderer().back_buffer_height()),
+             .min_z_ = 0.0F,
+             .max_z_ = 1.0F},
+            pass.rect));
+        set_viewport();
+        const bool fog = renderer().fog_active() != 0;
+        if (!pass.fog) {
+            change_fog(false);
+        }
+        wireframe::begin_world();
+        view_mode::begin_world();
+        draw_viewport(0);
+        view_mode::end_world();
+        wireframe::end_world();
+        depth_lines_draw::draw(true);
+        change_fog(fog);
+        pass_area() = {};
+    }
+    ext::end_views();
+    view_mode::switch_for_view(frame_mode);
+    depth_lines_draw::drop();
+}
+
 } // namespace
 
 // 0x004B2D80
@@ -757,19 +841,25 @@ void draw_world()
         render_shadow_textures();
         begin_screen_effects();
         const int count = modules::viewport_count();
-        // Not original - the wireframe render mode (render_pc/wireframe.h): the 3D passes in wireframe when asked.
-        // Original behaviour: the render mode (0x006FA734) isn't read.
-        wireframe::begin_world();
-        view_mode::begin_world(); // (not original either: the editor's view modes - render_pc/view_mode.h)
-        for (int i = 0; i < count; ++i) {
-            draw_viewport(i);
+        // Not original - an extension's split views (the level editor's: draw_views). Original behaviour: each
+        // viewport once.
+        if (const int views = count > 0 ? ext::view_count() : 0; views > 0) {
+            draw_views(views);
+        } else {
+            // Not original - the wireframe render mode (render_pc/wireframe.h): the 3D passes in wireframe when asked.
+            // Original behaviour: the render mode (0x006FA734) isn't read.
+            wireframe::begin_world();
+            view_mode::begin_world(); // (not original either: the editor's view modes - render_pc/view_mode.h)
+            for (int i = 0; i < count; ++i) {
+                draw_viewport(i);
+            }
+            view_mode::end_world();
+            wireframe::end_world();
+            // Not original - the lines a UI handed over (engine/gfx/depth_lines.h; the level editor's rails), drawn
+            // against the world's depth.
+            // Original behaviour: nothing.
+            depth_lines_draw::draw();
         }
-        view_mode::end_world();
-        wireframe::end_world();
-        // Not original - the lines a UI handed over (engine/gfx/depth_lines.h; the level editor's rails), drawn against
-        // the world's depth.
-        // Original behaviour: nothing.
-        depth_lines_draw::draw();
 
         // Full-screen effects and the 2D on top.
         full_screen_viewport();

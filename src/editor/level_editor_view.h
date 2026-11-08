@@ -131,6 +131,9 @@ void tick();
 // Show collision: the setting ([editor] collision, read at Start) and switching it (written to the ini).
 bool show_collision();
 void set_show_collision(bool on);
+// The split view (level_editor_split.h): a view in Collision only draws the collision whatever the setting says, while
+// its overlay is made (not kept in the ini).
+void set_collision_forced(bool forced);
 // The collision near the camera, as triangles over the view (back buffer pixels, painted far to near) and the
 // selected wall's edges as lines.
 void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,

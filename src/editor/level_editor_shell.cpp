@@ -27,6 +27,7 @@
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
+#include "editor/level_editor_split.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_theme.h"
@@ -1046,6 +1047,9 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         // "placed prop pack" says when it is in)
         *result = content::automation_place(words.at(2), words.at(3));
         return true;
+    } else if ((verb == "split" || verb == "pick") && level_editor::live_now()) {
+        *result = split_view::automation(words); // (the split view - level_editor_split.h)
+        return true;
     } else if (verb == "save" && level_editor::live_now()) {
         std::string message;
         *result = layout::store_away(&message) ? "ok " + message : "error: " + message;
@@ -1070,7 +1074,7 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         return true;
     } else {
         *result = "error: fe editor start | open <level> [edited] | play | playhere | stop | exit | import <folder> | "
-                  "importrun <level>... | prop <level> <piece> | save";
+                  "importrun <level>... | prop <level> <piece> | save | split <layout> | pick <view> <x> <y>";
         return true;
     }
     check_waiting();

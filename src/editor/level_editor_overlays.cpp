@@ -172,6 +172,24 @@ void change_view_mode(int mode)
     render::device().set_view_mode(static_cast<render::view_mode::Mode>(mode));
 }
 
+void swap_view_mode(int mode, bool to_renderer)
+{
+    if (mode < 0 || mode >= kViewModes) {
+        return;
+    }
+    LevelEditorOverlaysState& state = level_editor_overlays_state();
+    if (state.forced_collision_) {
+        if (view::show_collision()) {
+            view::set_show_collision(false);
+        }
+        state.forced_collision_ = false;
+    }
+    state.view_mode_ = mode;
+    if (to_renderer) {
+        render::device().set_view_mode(static_cast<render::view_mode::Mode>(mode));
+    }
+}
+
 const char* view_mode_name(int mode) { return render::view_mode::get_name(static_cast<render::view_mode::Mode>(mode)); }
 
 // --- drawing ----------------------------------------------------------------------------------------------------

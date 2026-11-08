@@ -16,6 +16,7 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "editor/level_editor_content.h"
+#include "editor/level_editor_split.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_layout.h"
 #include "engine/file/disk_files.h"
@@ -401,10 +402,18 @@ void scene_panel(const Overlay* overlay, SceneOverlayFonts fonts)
                         from.y + (static_cast<float>(drawn.height) * to_window.y));
         list->AddImage(static_cast<ImTextureID>(texture), from, to);
     }
+    // (each view's overlay in it, the views' corner menus - level_editor_split.h; none in play)
+    bool on_controls = false;
     if (overlay) {
-        draw_overlay(list, *overlay, fonts);
+        on_controls = split_view::draw_panel({.list = list,
+                                              .rect = state.rect,
+                                              .active_overlay = overlay,
+                                              .draw_overlay = [list, fonts](const Overlay& view_overlay) {
+                                                  draw_overlay(list, view_overlay, fonts);
+                                              },
+                                              .scale = fonts.scale});
     }
-    state.hovered = ImGui::IsWindowHovered() &&
+    state.hovered = ImGui::IsWindowHovered() && !on_controls &&
                     !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
     state.focused = ImGui::IsWindowFocused();
     // The next frame's picture: the panel's size in the back buffer's pixels.

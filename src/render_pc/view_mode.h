@@ -27,6 +27,8 @@ namespace render::view_mode {
 // (the modes and their names: engine/gfx/view_modes.h)
 Mode at_hand();
 void assign_value(Mode mode);
+// The same without the log's line: a split view's pass (render::draw_world switches to each view's mode and back).
+void switch_for_view(Mode mode);
 
 // The frame's 3D passes starting / ending (render::draw_world, beside Wireframe::begin_world / end_world).
 void begin_world();

@@ -16,6 +16,7 @@
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_shell.h"
+#include "editor/level_editor_split.h"
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_strip.h"
@@ -151,6 +152,7 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         get_items({"faster", "slower", "camera_node", "log_camera"});
         ImGui::EndMenu();
     }
+    split_view::layout_menu(); // (the Scene panel's views - level_editor_split.h)
     ImGui::EndMenu();
 }
 

@@ -39,6 +39,15 @@ struct ViewNote {
     std::array<float, 3> forward = {{0.0F, 0.0F, 0.0F}};     // where it looks (its matrix's -z row)
 };
 
+// One of the views a frame's 3D is drawn in when an extension splits it (the level editor's split view): where in the
+// frame (parts of its 3D area: x, y, width, height - 0..1), how it is drawn (render::view_mode::Mode as a number) and
+// whether the level's fog applies (an orthographic view's eye is far back: fogged, it would show only the fog).
+struct ViewPass {
+    std::array<float, 4> rect = {{0.0F, 0.0F, 1.0F, 1.0F}};
+    int mode = 0;
+    bool fog = true;
+};
+
 // A section of the screenshot key's sidecar that an extension adds (title, then key / value lines).
 struct Description {
     std::string title;
@@ -84,6 +93,12 @@ public:
     virtual float view_angle(gfx::ViewCam* /*camera*/, float angle) { return angle; }
     // The world's projection chosen for a viewport.
     virtual void view_drawn(const ViewNote& /*view*/) {}
+    // Split views: how many times render::draw_world draws the first viewport this frame (0: once, as the game - the
+    // other calls aren't made), each pass's place and mode (begin_view, before it is drawn: false skips it; the camera
+    // hooks above then answer for that pass), and the passes done.
+    virtual int view_count() { return 0; }
+    virtual bool begin_view(int /*index*/, ViewPass* /*pass*/) { return false; }
+    virtual void end_views() {}
     // render::draw_world, after the 2D pass and its black bars: drawn over everything.
     virtual void draw_over_frame() {}
     // The main loop, just before the scene is ended and presented (`rendering`: this frame was drawn).
@@ -174,6 +189,10 @@ void place_camera(gfx::ViewCam* camera, int viewport);
 float near_plane(gfx::ViewCam* camera, float near_z);
 float view_angle(gfx::ViewCam* camera, float angle);
 void view_drawn(const ViewNote& view);
+// The first extension that splits the view: its count (0: none does), then its passes.
+int view_count();
+bool begin_view(int index, ViewPass* pass);
+void end_views();
 void draw_over_frame();
 void before_present(bool rendering);
 bool keeps_every_frame();

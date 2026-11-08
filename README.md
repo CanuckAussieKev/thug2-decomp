@@ -370,6 +370,9 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `gizmo_pct` | 100 | Gizmo size (%) |
 | `gizmos_behind` | 1 | Rails and trigger volumes behind geometry (View > Gizmos Behind Geometry): 0 X-Ray, 1 Faded, 2 Hidden |
 | `rail_range` | 4000 | Distance at which rails, ladders and paths have faded out |
+| `split_layout` | 0 | The Scene panel's views (View > Layout, or a view's corner menu): 0 Single, 1 Two side by side, 2 Two stacked, 3 Four (Top, Front, Left, Perspective). The view under the mouse is the one you work in; F11 maximises it |
+| `split_maximised` | 0 | The active view fills the panel (F11) |
+| `split_view1`..`split_view4` | | Each view's type and view mode (type + 16 x mode; written by the editor) |
 | `play_sound` | 0 | Music and sound effects while playing (Play / Play from Here); the editor itself is always silent |
 | `stay_above_ground` | 0 | Flying the camera stops above floors instead of going down through them (up through a floor from below still works) |
 | `ui_scale_pct` | 0 | UI scale (%); 0 = automatic for the window size |

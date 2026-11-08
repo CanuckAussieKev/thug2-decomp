@@ -430,6 +430,45 @@ void get_cancel()
     level_editor_camera_state().orbit_ = OrbitState{};
 }
 
+Slot save_slot()
+{
+    const OrthoState& ortho = stored_ortho();
+    return {.view = ortho.view,
+            .yaw = ortho.yaw,
+            .pitch = ortho.pitch,
+            .pivot = ortho.pivot,
+            .equivalent = ortho.equivalent,
+            .last_eye = ortho.last_eye_};
+}
+
+void stop_motion()
+{
+    stored_flight() = Flight{};
+    level_editor_camera_state().orbit_ = OrbitState{};
+}
+
+float slot_view_angle(const Slot& slot, float base_degrees)
+{
+    return slot.view != View::kNone ? ortho_angle({.base_degrees_ = base_degrees, .equivalent = slot.equivalent})
+                                    : base_degrees;
+}
+
+float slot_near_plane(const Slot& slot)
+{
+    return slot.view != View::kNone ? ortho_near(slot.equivalent) : kPerspectiveNearPlane;
+}
+
+void load_slot(const Slot& slot)
+{
+    OrthoState& ortho = stored_ortho();
+    ortho.view = slot.view;
+    ortho.yaw = slot.yaw;
+    ortho.pitch = slot.pitch;
+    ortho.pivot = slot.pivot;
+    ortho.equivalent = slot.equivalent > 0.0F ? slot.equivalent : kDefaultOrthoEquivalent;
+    ortho.last_eye_ = slot.last_eye;
+}
+
 bool ortho() { return stored_ortho().view != View::kNone; }
 View current_view() { return stored_ortho().view; }
 
@@ -769,7 +808,8 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
     *rig.yaw = stored_ortho().yaw;
     *rig.pitch = stored_ortho().pitch;
     const V3 forward = get_forward(stored_ortho().yaw, stored_ortho().pitch);
-    if (rig.have_selection_) {
+    // (flown off the selection - a split view's pan: as without one)
+    if (rig.have_selection_ && !rig.free_camera) {
         if ((wheel != 0) && !rig.dragging) {
             stored_ortho().equivalent =
                 std::clamp(stored_ortho().equivalent * maths::runtime32::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrthoEquivalent, kMaxOrthoEquivalent);
@@ -784,7 +824,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
     }
     const float eye = eye_distance(stored_ortho().equivalent);
     *rig.pos = stored_ortho().pivot - forward * eye;
-    if (rig.have_selection_) {
+    if (rig.have_selection_ && !rig.free_camera) {
         *rig.orbit_distance_ = eye;
     }
     stored_ortho().last_eye_ = *rig.pos;

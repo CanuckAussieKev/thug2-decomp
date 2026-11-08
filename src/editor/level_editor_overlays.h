@@ -63,6 +63,10 @@ void halt();
 // only turns the collision view on for as long as it lasts.
 int view_mode();
 void change_view_mode(int mode);
+// The split view (level_editor_split.h): the mode of the view the mouse went to made the editor's, quietly - the
+// renderer draws each view in its own mode, and each view's collision is drawn by the split view (Collision only's
+// forced collision view undone). `to_renderer`: the renderer's mode too (back to one view).
+void swap_view_mode(int mode, bool to_renderer);
 const char* view_mode_name(int mode);
 constexpr int kViewModes = 4;
 

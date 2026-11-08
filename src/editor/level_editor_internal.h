@@ -73,7 +73,9 @@ constexpr float kNearZ = 2.0F; // (render::choose_camera's near plane)
 
 constexpr float kLookRadiansPerPixel = 0.0035F;
 
-constexpr float kMaxPickDistance = 30000.0F;
+// (90000: an ortho view's eye is up to 60000 back - level_editor_camera.h - and picks 30000 past that; the far plane is
+// 96000, so nothing drawn is out of reach in perspective either. Was 30000: a zoomed-out ortho view picked nothing.)
+constexpr float kMaxPickDistance = 90000.0F;
 
 constexpr float kMinOrbit = 20.0F, kMaxOrbit = 20000.0F;
 
@@ -783,6 +785,11 @@ void add_selected_boxes(const TickCycle& frame, const std::vector<objects::GameE
                         std::vector<LineVertex>& lines);
 
 void add_gizmo_lines(const TickCycle& frame, std::vector<LineVertex>& lines);
+
+// The view's lines over the frame (the editor's camera state now - the split view makes them for each view): the hover's
+// and the selection's boxes, the selected rails, the ground marker, the gizmo.
+void add_view_lines(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
+                    std::vector<LineVertex>* out);
 
 void draw_with_ui(const TickCycle& frame, const std::vector<objects::GameEntity*>& objects,
                   const std::vector<LineVertex>& lines);
