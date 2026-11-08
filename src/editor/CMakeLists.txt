@@ -41,6 +41,8 @@ add_library(thug2_editor SHARED
     level_editor_gap_wizard.cpp
     level_editor_skate_view.cpp
     level_editor_ux9.cpp
+    level_editor_rail_tools.cpp
+    level_editor_auto_rails.cpp
     level_editor_carry.cpp
     level_editor_scenery.cpp
     level_editor_scenery_state.cpp

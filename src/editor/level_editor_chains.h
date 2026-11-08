@@ -184,6 +184,12 @@ bool get_link(Graph* graph, uint32_t a, uint32_t b);
 bool uncouple(Graph* graph, uint32_t name);
 // The points of `name`'s chain (linked either way), `name` first.
 std::vector<uint32_t> get_connected(const Graph& graph, uint32_t name);
+// (the rail tools - level_editor_rail_tools.h) Two chain ends linked so that the links run one way: `a` (no next) ->
+// `b` (no previous), else `b` -> `a`; when both face the same way `a`'s chain is turned round first. False: not two
+// ends, the same node, or both ends of one chain facing the same way.
+bool join_link(Graph* graph, uint32_t a, uint32_t b);
+// The links of `name`'s chain turned round (each a -> b becomes b -> a).
+void reverse_chain(Graph* graph, uint32_t name);
 
 // Snapping a drawn point: the ray's hit on an upward surface (normal.y >= 0.7) moved to the nearest edge within
 // `reach` - the first place, going out in 8 directions in steps of 4, where the ground (ground_at: the ground's height
@@ -319,9 +325,53 @@ void stop_drawing();
 // linked to the next), a trick object of `cluster` (0: of its own first point) as a drawn rail's first click makes it.
 // False (`message`: why): fewer than two points, not in a level. `select`: its first point.
 bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* message, uint32_t* select);
+// (the rail tools - level_editor_rail_tools.h) Rails made in one state change: each a point of its own per place,
+// linked in order (`closed`: the last linked back to the first), every point of `terrain` ("": the default) and a
+// trick object of `cluster` (0: of its own first point). An open rail's end within `join_reach` of another rail's
+// free end (one that was there before) is joined onto it as join_ends' merge does. False (`message`): none to make,
+// not in a level.
+struct NewRail {
+    std::vector<V3> points;
+    bool closed = false;
+    uint32_t cluster = 0;
+    std::string terrain;
+};
+struct RailsMade {
+    int rails = 0;
+    int points = 0;
+    int joined = 0;
+    uint32_t first = 0; // (the first rail's first point)
+};
+bool add_rails(const std::vector<NewRail>& rails, float join_reach, RailsMade* made, std::string* message);
+// A rail's free ends (a point with no next or no previous: an open rail's two ends, a lone point) where they are now.
+struct FreeEnd {
+    uint32_t name;
+    V3 pos;
+};
+std::vector<FreeEnd> free_ends();
+// Every rail segment (a point and its next) where they are now.
+struct RailSegment {
+    V3 a, b;
+};
+std::vector<RailSegment> rail_segments();
+// Whether `name` is a rail point at a free end.
+bool is_free_end(uint32_t name);
+// `moved` (a rail's free end) joined onto `target` (another rail's free end, or its own rail's other end: a loop) -
+// one state change: with `merge` `moved` is taken out (an added point deleted, a level one hidden) and the point next
+// to it linked to `target` (it was dragged onto it); else `moved` itself is linked to `target`. The links run one way
+// (`moved`'s rail turned round when needed). `select`: `target`. False (`message`): not two free ends.
+bool join_ends(uint32_t moved, uint32_t target, bool merge, std::string* message, uint32_t* select);
+// A terrain's index - the byte collision faces and the rail manager's nodes keep - by its name (TERRAIN_WOOD). False:
+// not one of the game's Terrain_Types.
+bool terrain_index_of(const std::string& name, uint8_t* index);
 // The point a click in the view gives: the first collision the ray from `from` along `dir` meets (edges snapped:
 // snap_to_edge, unless `free`), a rail's end within 24 units taken as it is (`end`: its name - drawing links to it).
 bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* end);
+// While drawing: the free end of a chain of the kind drawn within 24 of `point` that a click there would link onto (0:
+// none) - magnet_point's (the rail tools' snap ring - level_editor_rail_tools.h).
+uint32_t end_near(V3 point);
+// A chain point's place now (its node edit's, else the node's).
+V3 point_of(uint32_t name);
 // An armed pick (Link / Assign): waiting, and the node clicked.
 bool wants_pick();
 bool get_picked(uint32_t name, std::string* message, uint32_t* select);

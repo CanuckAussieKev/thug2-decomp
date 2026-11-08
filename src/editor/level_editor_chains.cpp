@@ -198,6 +198,53 @@ std::vector<uint32_t> get_connected(const Graph& graph, uint32_t name)
     return found;
 }
 
+void reverse_chain(Graph* graph, uint32_t name)
+{
+    const std::vector<uint32_t> points = get_connected(*graph, name);
+    std::vector<std::pair<uint32_t, uint32_t>> links;
+    for (const uint32_t point : points) {
+        for (const uint32_t next : links_of(*graph, point)) {
+            links.emplace_back(point, next);
+        }
+        (*graph)[point] = {};
+    }
+    for (const auto& [from, to] : links) {
+        std::vector<uint32_t>& turned = (*graph)[to];
+        if (std::ranges::find(turned, from) == turned.end()) {
+            turned.push_back(from);
+        }
+    }
+}
+
+bool join_link(Graph* graph, uint32_t a, uint32_t b)
+{
+    if (a == b || !graph->contains(a) || !graph->contains(b)) {
+        return false;
+    }
+    if (is_last(*graph, a) && is_first(*graph, b)) {
+        (*graph)[a] = {b};
+        return true;
+    }
+    if (is_last(*graph, b) && is_first(*graph, a)) {
+        (*graph)[b] = {a};
+        return true;
+    }
+    // (both ends facing the same way: `a`'s chain turned round - not when they are one chain's, which can't be)
+    const bool both_last = is_last(*graph, a) && is_last(*graph, b);
+    const bool both_first = is_first(*graph, a) && is_first(*graph, b);
+    const std::vector<uint32_t> chain = get_connected(*graph, a);
+    if ((!both_last && !both_first) || std::ranges::find(chain, b) != chain.end()) {
+        return false;
+    }
+    reverse_chain(graph, a);
+    if (both_last) {
+        (*graph)[b] = {a}; // (a is first now)
+    } else {
+        (*graph)[a] = {b}; // (a is last now)
+    }
+    return true;
+}
+
 V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from, float* ground_y)>& ground_at,
                 bool* snapped)
 {

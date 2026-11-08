@@ -21,6 +21,7 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_overlays.h"
+#include "editor/level_editor_rail_tools.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_skate_view.h"
 #include "base/maths/vec4.h"
@@ -406,6 +407,7 @@ void prepare_all()
     actions::set_checked(level_editor_ux9_state().skate_action_, [] { return skate_view::get_shown() ? 1 : 0; });
     level_editor_ux9_state().ground_action_ =
         make("ground_tool", "Ground Tool", "Edit", SDL_SCANCODE_U, "Raise or lower a rectangle of ground");
+    rail_tools::prepare_all(); // (Rail from Edges, Join Rails, Auto Rails - level_editor_rail_tools.h)
     layout::Extension extension;
     extension.keywords = {"ground"};
     extension.capture = [] { return ground::capture_records(); };
@@ -416,6 +418,7 @@ void prepare_all()
 
 void kickoff()
 {
+    rail_tools::kickoff();
     ground::kickoff();
     gap_wizard::set_armed(false);
     goal_form().stage_ = Stage::kDisengaged;
@@ -427,6 +430,7 @@ void halt()
     goal_form().stage_ = Stage::kDisengaged;
     skate_view::halt();
     ground::halt();
+    rail_tools::halt();
     goal_form().queue_.clear();
 }
 
@@ -454,6 +458,7 @@ void tick_frame()
         }
     }
     gap_wizard::tick_frame();
+    rail_tools::tick_frame();
     std::vector<std::function<void()>> queue;
     queue.swap(goal_form().queue_);
     for (auto& action : queue) {
@@ -461,19 +466,25 @@ void tick_frame()
     }
 }
 
-bool occupied() { return gap_wizard::get_armed() || goal_form().stage_ != Stage::kDisengaged; }
+bool occupied()
+{
+    return gap_wizard::get_armed() || goal_form().stage_ != Stage::kDisengaged || rail_tools::occupied();
+}
 
 int picking_tool()
 {
     if (gap_wizard::get_picking()) {
         return 1;
     }
+    if (rail_tools::picking()) {
+        return 3;
+    }
     return goal_form().stage_ == Stage::kFirst || goal_form().stage_ == Stage::kSecond ? 2 : 0;
 }
 
 bool get_cancel()
 {
-    if (gap_wizard::get_cancel()) {
+    if (gap_wizard::get_cancel() || rail_tools::get_cancel()) {
         return true;
     }
     if (goal_form().stage_ == Stage::kDisengaged) {
@@ -486,6 +497,7 @@ bool get_cancel()
 
 void get_hover(V3 origin, V3 unit_dir, float x, float y, bool have_ray)
 {
+    rail_tools::get_hover(origin, unit_dir, have_ray);
     if (!have_ray) {
         goal_form().have_hover_ = false;
         return;
@@ -496,13 +508,15 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool have_ray)
 
 bool get_click(V3 origin, V3 unit_dir, float x, float y)
 {
-    return gap_wizard::get_click(origin, unit_dir, x, y) || ground_click(origin, unit_dir);
+    return rail_tools::get_click(origin, unit_dir) || gap_wizard::get_click(origin, unit_dir, x, y) ||
+           ground_click(origin, unit_dir);
 }
 
 void add_overlay(const overlays::Painter& painter)
 {
     skate_view::add_overlay(painter);
     gap_wizard::add_overlay(painter);
+    rail_tools::add_overlay(painter);
     constexpr uint32_t kRect = 0xFFFFE070;
     constexpr uint32_t kPreview = 0xE0FFE070;
     if (goal_form().stage_ == Stage::kSecond) {
@@ -531,6 +545,7 @@ void get_windows(float view_x, float view_y, float view_width, float view_height
 {
     gap_wizard::pane({.x = view_x, .y = view_y, .width = view_width, .height = view_height}, scale);
     ground_form(view_x, view_y, view_width, scale);
+    rail_tools::get_windows(view_x, view_y, view_width, scale);
     skate_view::get_legend(view_x, view_y, view_width, view_height, scale);
 }
 
@@ -545,6 +560,9 @@ std::string describe()
     }
     if (gap_wizard::get_armed()) {
         text += std::string(text.empty() ? "" : ", ") + "gap wizard armed";
+    }
+    if (const std::string rails = rail_tools::describe(); !rails.empty()) {
+        text += std::string(text.empty() ? "" : ", ") + rails;
     }
     return text;
 }

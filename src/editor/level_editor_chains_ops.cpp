@@ -839,8 +839,9 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
     }
     if ((end != 0U) && (chain_tool().draw_last_ != 0U) &&
         end != chain_tool().draw_last_) {
-        // (onto an existing end: linked, and the drawing done)
-        if (!get_link(&graph, chain_tool().draw_last_, end)) {
+        // (onto an existing end: linked, and the drawing done - the links one way, the drawn chain turned round when
+        // both ends face the same way)
+        if (!join_link(&graph, chain_tool().draw_last_, end)) {
             *message = "Can't link: no free end";
             return false;
         }
@@ -917,6 +918,235 @@ bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* mess
     *select = first;
     return true;
 }
+
+// --- the rail tools (level_editor_rail_tools.h): rails made together, free ends, joining ---
+
+namespace {
+
+// A rail point taken out (as delete_point takes one out): its neighbours linked past it, then an added point deleted,
+// a level one hidden (its links edit dropped: a dropped point takes no part).
+void take_out(State* state, Graph* graph, uint32_t name)
+{
+    drop_out(graph, name);
+    graph->erase(name);
+    const auto added =
+        std::ranges::find_if(state->points, [&](const Point& chain_point) { return name_hash(chain_point.name) == name; });
+    if (added != state->points.end()) {
+        state->points.erase(added);
+        return;
+    }
+    if (std::ranges::find(state->dropped, name) == state->dropped.end()) {
+        state->dropped.push_back(name);
+        std::ranges::sort(state->dropped);
+    }
+    std::erase_if(state->links, [&](const LinkEdit& link_edit) { return link_edit.name == name; });
+}
+
+bool is_end(const Graph& graph, uint32_t name)
+{
+    return graph.contains(name) && (is_last(graph, name) || is_first(graph, name));
+}
+
+// `moved` joined onto `target` in the graph (and, merged, taken out of the state): see join_ends.
+bool join_in(State* state, Graph* graph, uint32_t moved, uint32_t target, bool merge)
+{
+    if (moved == target || !is_end(*graph, moved) || !is_end(*graph, target)) {
+        return false;
+    }
+    uint32_t from = moved;
+    if (merge) {
+        const std::vector<uint32_t> next = graph->at(moved);
+        const std::vector<uint32_t> before = predecessors(*graph, moved);
+        uint32_t neighbour = 0;
+        if (!next.empty()) {
+            neighbour = next.front();
+        } else if (!before.empty()) {
+            neighbour = before.front();
+        }
+        // (a lone point, or the target its own neighbour: nothing to merge - linked instead)
+        if (neighbour != 0U && neighbour != target) {
+            take_out(state, graph, moved);
+            from = neighbour;
+        }
+    }
+    return join_link(graph, from, target);
+}
+
+// Every rail point's place now (by name).
+std::map<uint32_t, V3> rail_places(const Graph& graph)
+{
+    std::map<uint32_t, V3> places;
+    for (const auto& entry : graph) {
+        places[entry.first] = place_of(entry.first);
+    }
+    return places;
+}
+
+} // namespace
+
+std::vector<FreeEnd> free_ends()
+{
+    std::vector<FreeEnd> ends;
+    if (!in_level()) {
+        return ends;
+    }
+    const Graph graph = graph_of(nodes::Family::kRail);
+    std::map<uint32_t, int> incoming;
+    for (const auto& entry : graph) {
+        for (const uint32_t next : entry.second) {
+            ++incoming[next];
+        }
+    }
+    for (const auto& entry : graph) {
+        if (entry.second.empty() || !incoming.contains(entry.first)) {
+            ends.push_back({.name = entry.first, .pos = place_of(entry.first)});
+        }
+    }
+    return ends;
+}
+
+std::vector<RailSegment> rail_segments()
+{
+    std::vector<RailSegment> segments;
+    if (!in_level()) {
+        return segments;
+    }
+    const Graph graph = graph_of(nodes::Family::kRail);
+    const std::map<uint32_t, V3> places = rail_places(graph);
+    for (const auto& entry : graph) {
+        for (const uint32_t next : entry.second) {
+            const auto to = places.find(next);
+            if (to != places.end()) {
+                segments.push_back({.a = places.at(entry.first), .b = to->second});
+            }
+        }
+    }
+    return segments;
+}
+
+bool is_free_end(uint32_t name)
+{
+    return in_level() && family_of_name(name) == nodes::Family::kRail &&
+           is_end(graph_of(nodes::Family::kRail), name);
+}
+
+bool join_ends(uint32_t moved, uint32_t target, bool merge, std::string* message, uint32_t* select)
+{
+    *select = 0;
+    if (!in_level()) {
+        *message = "Not in a level";
+        return false;
+    }
+    if (family_of_name(moved) != nodes::Family::kRail || family_of_name(target) != nodes::Family::kRail) {
+        *message = "Only rails join";
+        return false;
+    }
+    State state = at_hand();
+    Graph graph = graph_of(nodes::Family::kRail);
+    if (!join_in(&state, &graph, moved, target, merge)) {
+        *message = "Can't join: not two free rail ends";
+        return false;
+    }
+    put_graph(&state, graph);
+    *select = target;
+    return get_apply(state, message, merge ? "Rails joined" : "Rails linked");
+}
+
+bool add_rails(const std::vector<NewRail>& rails, float join_reach, RailsMade* made, std::string* message)
+{
+    *made = {};
+    if (!in_level()) {
+        *message = "Not in a level";
+        return false;
+    }
+    const std::vector<FreeEnd> ends_before = free_ends();
+    std::vector<uint8_t> end_used(ends_before.size(), 0);
+    const Blit drawing = chain_tool().draw_;
+    chain_tool().draw_ = Blit::kNone; // (append_rail_vertex: a plain rail, whatever is being drawn)
+    State state = at_hand();
+    Graph graph = graph_of(nodes::Family::kRail);
+    struct MadeEnds {
+        uint32_t first;
+        uint32_t last;
+        V3 first_at;
+        V3 last_at;
+    };
+    std::vector<MadeEnds> open_ends;
+    std::vector<uint32_t> first_rail;
+    for (const NewRail& rail : rails) {
+        if (rail.points.size() < 2) {
+            continue;
+        }
+        uint32_t last = 0;
+        uint32_t first = 0;
+        for (const V3 at : rail.points) {
+            Point chain_point = append_rail_vertex(nodes::Family::kRail, last, at, state);
+            const uint32_t name = name_hash(chain_point.name);
+            if (last == 0U) {
+                chain_point.cluster = (rail.cluster != 0U) ? rail.cluster : name;
+                if (!rail.terrain.empty()) {
+                    chain_point.terrain = rail.terrain; // (the points after it copy it)
+                }
+                first = name;
+            }
+            state.points.push_back(chain_point);
+            graph[name] = {};
+            if (last != 0U) {
+                extend(&graph, last, name);
+            }
+            if (made->rails == 0) {
+                first_rail.push_back(name);
+            }
+            last = name;
+            ++made->points;
+        }
+        if (rail.closed && rail.points.size() >= 3) {
+            graph[last] = {first};
+        } else {
+            open_ends.push_back(
+                {.first = first, .last = last, .first_at = rail.points.front(), .last_at = rail.points.back()});
+        }
+        ++made->rails;
+    }
+    chain_tool().draw_ = drawing;
+    if (made->rails == 0) {
+        *message = "No rail to make";
+        return false;
+    }
+    // (an open rail's ends onto the free ends of rails that were there, within reach)
+    for (const MadeEnds& ends : open_ends) {
+        for (const auto& [end, at] : {std::pair{ends.first, ends.first_at}, std::pair{ends.last, ends.last_at}}) {
+            float best = join_reach * join_reach;
+            int found = -1;
+            for (size_t i = 0; i < ends_before.size(); ++i) {
+                const V3 delta = core::at(ends_before, i).pos - at;
+                const float distance = get_dot(delta, delta);
+                if (core::at(end_used, i) == 0U && distance <= best) {
+                    best = distance;
+                    found = static_cast<int>(i);
+                }
+            }
+            if (found >= 0 && join_in(&state, &graph, end, core::at(ends_before, found).name, true)) {
+                core::at(end_used, found) = 1;
+                ++made->joined;
+            }
+        }
+    }
+    for (const uint32_t name : first_rail) {
+        if (graph.contains(name)) {
+            made->first = name;
+            break;
+        }
+    }
+    put_graph(&state, graph);
+    if (!change_phase(state)) {
+        *message = "Not in a level";
+        return false;
+    }
+    return true;
+}
+
+bool terrain_index_of(const std::string& name, uint8_t* index) { return terrain_byte(name, index); }
 
 namespace {
 
@@ -1037,33 +1267,43 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
             },
             &snapped);
     }
-    // A free end of a chain of the kind drawn, within 24: taken as it is.
-    if (chain_tool().draw_ != Blit::kNone) {
-        const nodes::Family family = drawn_family();
-        const Graph graph = graph_of(family);
-        float best = kJoinReach * kJoinReach;
-        for (const auto& entry : graph) {
-            if (entry.first == chain_tool().draw_last_ ||
-                (!is_last(graph, entry.first) && !is_first(graph, entry.first))) {
-                continue;
-            }
-            if (chain_tool().draw_ == Blit::kLedge && !is_ledge_node(entry.first)) {
-                continue; // (a ledge links onto ledges, not ladders)
-            }
-            const V3 at = place_of(entry.first);
-            const V3 delta = at - *point;
-            const float distance = get_dot(delta, delta);
-            if (distance < best) {
-                best = distance;
-                *end = entry.first;
-            }
-        }
+    // A free end of a chain of the kind drawn, within 24: taken as it is (not with Alt: no snapping at all).
+    if (!free) {
+        *end = end_near(*point);
         if (*end != 0U) {
             *point = place_of(*end);
         }
     }
     return true;
 }
+
+uint32_t end_near(V3 point)
+{
+    uint32_t end = 0;
+    if (chain_tool().draw_ == Blit::kNone) {
+        return end;
+    }
+    const nodes::Family family = drawn_family();
+    const Graph graph = graph_of(family);
+    float best = kJoinReach * kJoinReach;
+    for (const auto& entry : graph) {
+        if (entry.first == chain_tool().draw_last_ || (!is_last(graph, entry.first) && !is_first(graph, entry.first))) {
+            continue;
+        }
+        if (chain_tool().draw_ == Blit::kLedge && !is_ledge_node(entry.first)) {
+            continue; // (a ledge links onto ledges, not ladders)
+        }
+        const V3 delta = place_of(entry.first) - point;
+        const float distance = get_dot(delta, delta);
+        if (distance < best) {
+            best = distance;
+            end = entry.first;
+        }
+    }
+    return end;
+}
+
+V3 point_of(uint32_t name) { return place_of(name); }
 
 bool wants_pick() { return chain_tool().pick_ == ChainOp::kLinkArm || chain_tool().pick_ == ChainOp::kAssignArm; }
 

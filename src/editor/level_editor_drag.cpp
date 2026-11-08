@@ -25,6 +25,7 @@
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_prefs.h"
+#include "editor/level_editor_rail_tools.h"
 #include "editor/level_editor_scale.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_snap.h"
@@ -917,6 +918,10 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     if (!snap.on && !get_primary() && picked_node_index() < 0 && (wall_only() == 0U)) {
         wanted = flush_with_neighbours(pos, wanted);
     }
+    // (a rail's free end near another's: onto it, joined when let go - Alt: not - level_editor_rail_tools.h)
+    if (!snap.on && picked_node_index() >= 0) {
+        wanted = rail_tools::end_snap(picked_set().node_name_, wanted, tool_options().move_entire_rail_);
+    }
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z) {
         place_selection(wanted);
     }
@@ -956,6 +961,7 @@ void end_drag()
     if (!undo_steps().undo_.empty() && undo_steps().undo_.back().serial != serial) {
         note_for_adjust(transform_session().drag_mode_, selection_pos() - drag_session().drag_start_, uniform);
     }
+    rail_tools::drag_done(); // (a rail end snapped onto another: joined, in the move's undo step)
     const V3 at = selection_pos();
     const char* done = "dragged";
     if (transform_session().drag_mode_ == xform::Mode::kSpinBy) {
