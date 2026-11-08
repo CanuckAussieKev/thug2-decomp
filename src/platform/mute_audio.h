@@ -1,5 +1,7 @@
 #pragma once
 
+#include "base/core/api.h"
+
 // NOT ORIGINAL: thug2-decomp.ini [features] mute_audio=1 (default 0: unchanged) silences all of the game's sound
 // from the first frame - for test games in the agents' workspaces (tools/game/game_lock.ps1 and the launchers set
 // it there), never the user's own install.
@@ -17,7 +19,7 @@ bool& audio_muted();
 
 // Mutes (or unmutes) this process's audio session on the default playback device. False if there's no device
 // or Core Audio refused.
-bool set_audio_session_muted(bool muted);
+THUG2_API bool set_audio_session_muted(bool muted);
 // The session's mute as Windows has it (false without a device).
 bool audio_session_muted();
 

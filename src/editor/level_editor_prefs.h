@@ -27,6 +27,8 @@ struct ImFont;
 //   gizmos_behind=1        gizmos hidden by geometry: 0 X-Ray (drawn through), 1 Faded, 2 Hidden
 //                          (level_editor_gizmo_lines.h; the View menu's Gizmos Behind Geometry)
 //   rail_range=4000        rails, ladders and paths fade out toward this distance (units)
+//   play_sound=0           music and sound effects while playing (Play / Play from Here); the editor is otherwise
+//                          silent (level_editor_shell.cpp quiet_audio)
 namespace frontend::level_editor::prefs {
 
 constexpr int kDefaultFlySpeed = 800; // units a second
@@ -54,6 +56,7 @@ struct Values {
     bool tips_seen_ = false;
     int gizmos_behind_ = kDefaultGizmosBehind;
     int rail_range_ = kDefaultRailRange;
+    bool play_sound_ = false;
 };
 
 // The limits (pure): every value brought within its range (fly speed 50..20000, accel 0..3000 ms, look 10..500%,

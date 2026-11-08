@@ -126,6 +126,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
     audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
                                                : audio::dsound::device());
+    // NOT ORIGINAL: the level editor mutes the audio session while it edits (editor/level_editor_shell.cpp), and
+    // Windows keeps that mute for the exe's next run: cleared here unless this run is muted itself.
+    if (!sound::audio_muted() && sound::audio_session_muted()) {
+        sound::set_audio_session_muted(false);
+        get_log("audio: the audio session's mute left by the last run cleared");
+    }
     // NOT ORIGINAL: the movie codec the movies and streams play with (engine/media/movie.h): FFmpeg's Bink decoders
     // (media_ffmpeg/ffmpeg_movie.h), from the DLLs next to the exe.
     if (media::ffmpeg::usable()) {

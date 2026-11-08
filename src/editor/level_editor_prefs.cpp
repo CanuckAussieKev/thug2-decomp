@@ -141,6 +141,7 @@ constexpr auto kFlags = std::to_array<BitMark>({
     {.name = "wasd_flies", .field = &Values::wasd_flies_},
     {.name = "speed_by_selection", .field = &Values::speed_by_selection_},
     {.name = "tips_seen", .field = &Values::tips_seen_},
+    {.name = "play_sound", .field = &Values::play_sound_},
 });
 
 void read_in()
@@ -285,6 +286,7 @@ void pane(float scale, PaneFonts fonts)
     slider("Grid Size", &v.snap_move_, 1, kSnapMoveMax, {.format = "%d units", .tip = nullptr});
     slider("Rotation Snap", &v.snap_turn_, 1, kSnapTurnMax, {.format = "%d degrees", .tip = nullptr});
     slider("Autosave Interval", &v.autosave_seconds_, kAutosaveMin, kAutosaveMax, {.format = "%d s", .tip = nullptr});
+    check("Sound in Play", &v.play_sound_, "Music and sound effects while playing (the editor itself is always silent)");
     section("Gizmos");
     ImGui::SetNextItemWidth(kSliderWidth * scale);
     if (ImGui::Combo("Behind Geometry", &v.gizmos_behind_, "X-Ray\0Faded\0Hidden\0")) {

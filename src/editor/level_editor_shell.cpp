@@ -25,6 +25,7 @@
 #include "editor/level_editor_open.h"
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
+#include "editor/level_editor_prefs.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_theme.h"
@@ -39,6 +40,7 @@
 #include "game/front_end/front_end.h"
 #include "game/front_end/start_level.h"
 #include "imgui.h"
+#include "platform/mute_audio.h"
 #include "platform/run_log.h"
 
 namespace frontend::level_editor::shell {
@@ -627,6 +629,22 @@ void quiet_front_end_music()
     }
 }
 
+// The editor is silent: no music and no sound effects except while playing with Preferences' Sound in Play on - the
+// process's audio session muted (platform/mute_audio.h; the game's own volume settings left alone). Windows keeps a
+// session's mute for the exe's next run: the exe clears it at start-up (app/main.cpp), so the game after the editor
+// has its sound.
+void quiet_audio()
+{
+    static bool applied = false;
+    const bool playing = shell_state().phase == Phase::kEditing && !level_editor::live_now() &&
+                         perform::playing(layout::level_loads());
+    const bool muted = !(playing && prefs::get_pull().play_sound_);
+    if (muted != applied && sound::set_audio_session_muted(muted)) {
+        applied = muted;
+        get_log("editor mode: sound %s", muted ? "off" : "on (playing)");
+    }
+}
+
 // The level the loading dialog names (engine/gfx/loading_dialog.h), when it changes.
 void name_loading_level()
 {
@@ -864,6 +882,7 @@ void tick_frame(modules::FrontEnd* front_end)
         break;
     }
     quiet_front_end_music();
+    quiet_audio();
     name_loading_level();
     check_waiting();
 }
