@@ -194,6 +194,13 @@ public:
     // collision objects deleted (the array), its collision file unloaded, the hidden list emptied, its own sectors
     // deleted (0x0049CB40). True.
     bool unload_added_scene();
+    // NOT ORIGINAL - the level editor's: the collision grid made again over its box grown to hold every sector's
+    // collision that now lies (partly) outside it - moved there after the grid was made (a prop pack's scene, loaded
+    // at the origin and placed elsewhere in the level; scenery moved past the level's edge). The cells cover the box
+    // only and the line queries skip a grid whose box the line misses (0x0048C980), so collision moved outside it
+    // can't be hit. What the cells list stays listed. Nothing without a grid or when every one is inside. Whether
+    // the grid was made again (its new box in `grown`).
+    THUG2_API bool fit_collision_grid(maths::BBox* grown);
 private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
