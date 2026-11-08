@@ -6,6 +6,7 @@
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
+#include "editor/level_editor_content.h"
 #include "editor/level_editor_ui.h"
 #include "engine/pad_input/input_event.h"
 #include <algorithm>
@@ -753,6 +754,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     get_outliner(model);
     get_inspector(model);
     get_browser(model);
+    content::panel(model, imgui_setup().scale_); // (the Content Browser - level_editor_content.h)
     get_help(model);
     autosave_offer(model);
     get_place(model);

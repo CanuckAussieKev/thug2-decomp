@@ -26,6 +26,7 @@
 #include "base/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "editor/level_editor_ui_internal.h"
+#include "editor/level_editor_content.h"
 
 namespace frontend::level_editor::ui {
 // What the source file's anonymous namespace held that its pieces share (level_editor_ui_internal.h): visible
@@ -261,7 +262,8 @@ namespace internal {
 
 void get_browser(const ShapeMesh& model)
 {
-    if (!model.browser || !model.browser_items_) {
+    // (the Content Browser shows it as its This Level folder - level_editor_content.h)
+    if (!model.browser || !model.browser_items_ || content::hosts_this_level()) {
         return;
     }
     ImGui::SetNextWindowPos(
@@ -279,6 +281,19 @@ void get_browser(const ShapeMesh& model)
     ImGui::Begin(title.data(), &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoDocking);
+    browser_body(model);
+    ImGui::End();
+    if (!open) {
+        get_ask(Request::Kind::kToggleBrowser);
+    }
+}
+
+void browser_body(const ShapeMesh& model)
+{
+    if (!model.browser || !model.browser_items_) {
+        get_muted("Opening the level's pieces\xE2\x80\xA6");
+        return;
+    }
     browser_preview(model);
     for (int tab = 0; tab < 2; ++tab) {
         if (tab != 0) {
@@ -332,10 +347,6 @@ void get_browser(const ShapeMesh& model)
     ImGui::PushFont(imgui_setup().small_);
     get_muted("Enter: place at the cursor");
     ImGui::PopFont();
-    ImGui::End();
-    if (!open) {
-        get_ask(Request::Kind::kToggleBrowser);
-    }
 }
 
 void autosave_offer(const ShapeMesh& model)
