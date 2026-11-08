@@ -25,15 +25,18 @@ struct Fonts;
 //   - Afterwards the level list scripts are read again (levels.qb, the level select's) so the levels are on the Start
 //     page and in Open Level at once, a section per game; while a level is up that waits until the next level opens or
 //     the Start page shows. A row of an imported level opens it (Open).
-//   - Retail: the Retail column shows what the budget checker says of a level ("ok" / "big" from the list), and
-//     Export to Retail Install runs the pipeline's kRetailExportTool when the tools folder has it (not yet: the button
-//     is off).
+//   - Retail: the Retail column shows what the pipeline's budget checker says of each imported level - "OK" or "Too big:"
+//     and the limit - for the retail THUG2 folder's original limits, or the raised ones with "Limits DLL installed"
+//     ticked (the checker runs after each listing and whenever either setting changes). Export to Retail Install
+//     installs the checked imported levels into that folder (kRetailExportTool install) and Uninstall takes
+//     everything the export installed out again; the folder is remembered ([editor] retail_folder=, the tick in
+//     retail_raised_limits=). Their output is shown like the converters'.
 // [editor] tools_folder= in thug2-decomp.ini points at another tools folder (a development build's out\editor-tools).
 namespace frontend::level_editor::import {
 
-// The content pipeline's export to a retail THUG2 install (its path under editor-tools\pipeline), run with
-// --thug2 <output folder> and the chosen levels' load scripts.
-inline constexpr const char* kRetailExportTool = "retail_export/retail_export.ts";
+// The content pipeline's export to a retail THUG2 install (its path under editor-tools\pipeline): install | uninstall |
+// check --retail <THUG2 folder> --from <output folder> [--levels a,b] [--raised-limits].
+inline constexpr const char* kRetailExportTool = "retail/retail_export.ts";
 
 // Opens the window (`folder`: a game folder to list at once; empty: the last one used).
 void open_window(const std::string& folder);
