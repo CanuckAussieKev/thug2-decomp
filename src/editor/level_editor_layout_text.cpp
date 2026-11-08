@@ -51,6 +51,7 @@ constexpr float kColourChannelMax = 255.0F; // the largest colour channel
 constexpr std::size_t kLightLineSize = 96; // a light's brightness / inner / outer line
 constexpr std::size_t kRadiusLineSize = 32; // a radius line
 constexpr std::size_t kTurnPrefixLength = 5;  // "turn="
+constexpr std::size_t kTiltPrefixLength = 5;  // "tilt="
 constexpr double kDegreesPerRadian = 57.295779513082321;
 
 constexpr auto kHeader = std::to_array("thug2-decomp layout "); // (and the version)
@@ -160,15 +161,43 @@ bool read_scale_fields(std::istringstream& in, V3* scale)
     }
     return true;
 }
-// A placement's twist after its numbers: " turn=<degrees>" (any angle beyond its quarter turns; nothing when none).
+// A placement's twist and tilt after its numbers: " turn=<degrees>" (any angle beyond its quarter turns) and
+// " tilt=<x degrees>,<z degrees>" (its pitch and roll - the Euler X / Z of R = Ry Rx Rz, level_editor.h's Placement);
+// each only when not none. An older reader skips tilt= (and places the piece untilted).
 std::string twist_token(const Placement& placement)
 {
-    if (placement.twist == 0.0F) {
-        return "";
-    }
+    std::string tokens;
     std::array<char, kNumberLineSize> text{};
-    text::format_to(text, " turn=%.9g", static_cast<double>(placement.twist) * kDegreesPerRadian);
-    return text.data();
+    if (placement.twist != 0.0F) {
+        text::format_to(text, " turn=%.9g", static_cast<double>(placement.twist) * kDegreesPerRadian);
+        tokens += text.data();
+    }
+    if (is_tilted(placement)) {
+        std::array<char, kTripleLineSize> tilt{};
+        text::format_to(tilt, " tilt=%.9g,%.9g", static_cast<double>(placement.tilt_x) * kDegreesPerRadian,
+                        static_cast<double>(placement.tilt_z) * kDegreesPerRadian);
+        tokens += tilt.data();
+    }
+    return tokens;
+}
+
+// A "tilt=<x>,<z>" field's two angles in radians; false when malformed.
+bool read_tilt(const std::string& field, float* tilt_x, float* tilt_z)
+{
+    const char* at = std::next(field.c_str(), kTiltPrefixLength);
+    char* end = nullptr;
+    const double x = std::strtod(at, &end);
+    if (end == at || *end != ',' || !std::isfinite(x)) {
+        return false;
+    }
+    const char* second = std::next(end);
+    const double z = std::strtod(second, &end);
+    if (end == second || *end != '\0' || !std::isfinite(z)) {
+        return false;
+    }
+    *tilt_x = static_cast<float>(x / kDegreesPerRadian);
+    *tilt_z = static_cast<float>(z / kDegreesPerRadian);
+    return true;
 }
 
 bool read_placed_fields(std::istringstream& in, Placement* placement)
@@ -188,6 +217,10 @@ bool read_placed_fields(std::istringstream& in, Placement* placement)
             }
             placement->twist += static_cast<float>(degrees / kDegreesPerRadian);
             normalise_twist(placement);
+        } else if (field.starts_with("tilt=")) {
+            if (!read_tilt(field, &placement->tilt_x, &placement->tilt_z)) {
+                return false;
+            }
         }
     }
     return true;

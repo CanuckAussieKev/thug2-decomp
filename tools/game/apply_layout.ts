@@ -171,10 +171,23 @@ export function turnAboutUp(v: V3, radians: number): V3 {
     return { x: f32(v.x * c + v.z * s), y: v.y, z: f32(-v.x * s + v.z * c) };
 }
 
-// turn(get_quarter_turn(per_axis(v, scale), quarters), twist) + offset: the scale along the piece's own axes as loaded,
-// then its quarter turns and its twist (any angle - a record's turn=).
+// A direction tilted (the editor's turn_placed, a record's tilt=): turned by `tilt.z` about z (x towards y), then by
+// `tilt.x` about x (y towards z); none leaves it as it is.
+export function tiltTurn(v: V3, tilt: { x: number; z: number } | undefined): V3 {
+    if (!tilt || (!tilt.x && !tilt.z)) return { x: v.x, y: v.y, z: v.z };
+    const cz = Math.cos(tilt.z);
+    const sz = Math.sin(tilt.z);
+    const r = { x: f32(v.x * cz - v.y * sz), y: f32(v.x * sz + v.y * cz), z: v.z };
+    const cx = Math.cos(tilt.x);
+    const sx = Math.sin(tilt.x);
+    return { x: r.x, y: f32(r.y * cx - r.z * sx), z: f32(r.y * sx + r.z * cx) };
+}
+
+// turn(get_quarter_turn(tilt(per_axis(v, scale)), quarters), twist) + offset: the scale along the piece's own axes as
+// loaded, then its tilt (a record's tilt=), its quarter turns and its twist (any angle - a record's turn=).
 export function applyPlacement(p: Placement, v: V3): V3 {
-    const q = quarterTurn({ x: v.x * p.scale.x, y: v.y * p.scale.y, z: v.z * p.scale.z }, p.quarters);
+    const s = tiltTurn({ x: v.x * p.scale.x, y: v.y * p.scale.y, z: v.z * p.scale.z }, p.tilt);
+    const q = quarterTurn(s, p.quarters);
     const t = turnAboutUp(q, p.twist ?? 0);
     return { x: t.x + p.offset.x, y: t.y + p.offset.y, z: t.z + p.offset.z };
 }
@@ -183,6 +196,7 @@ function isIdentity(p: Placement): boolean {
     return (
         (p.quarters & 3) === 0 &&
         !p.twist &&
+        !p.tilt &&
         isUnitScale(p.scale) &&
         p.offset.x === 0 &&
         p.offset.y === 0 &&
@@ -193,14 +207,14 @@ function isIdentity(p: Placement): boolean {
 // A normal of a placed piece (level_editor_scale.cpp's scaled_normal, as scale_tool::reassemble writes them): through the inverse
 // transpose of the per-axis scale (n / scale), made unit length again, then turned with the piece; unscaled: only
 // turned (not normalised again - the file's own numbers kept). A zero normal stays zero.
-export function scaledNormal(n: V3, scale: V3, quarters: number, twist = 0): V3 {
+export function scaledNormal(n: V3, scale: V3, quarters: number, twist = 0, tilt?: { x: number; z: number }): V3 {
     if (!isUnitScale(scale)) {
         const m = { x: f32(n.x / scale.x), y: f32(n.y / scale.y), z: f32(n.z / scale.z) };
         const length = f32(Math.sqrt(f32(f32(f32(m.x * m.x) + f32(m.y * m.y)) + f32(m.z * m.z))));
         const inverse = f32(1 / length);
         n = length > 0 ? { x: f32(m.x * inverse), y: f32(m.y * inverse), z: f32(m.z * inverse) } : m;
     }
-    return turnAboutUp(quarterTurn(n, quarters), twist);
+    return turnAboutUp(quarterTurn(tiltTurn(n, tilt), quarters), twist);
 }
 
 const FVF_XYZ = 0x002;
@@ -265,6 +279,7 @@ export function placeSector(sector: Sector, p: Placement): void {
                         p.scale,
                         p.quarters,
                         p.twist ?? 0,
+                        p.tilt,
                     );
                     copy.writeFloatLE(n.x, at + normalAt);
                     copy.writeFloatLE(n.y, at + normalAt + 4);

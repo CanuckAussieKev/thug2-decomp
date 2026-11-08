@@ -144,9 +144,17 @@ void get_turn(int quarters);
 // and collision: level_editor_scale.h). False (nothing turned) when a piece can't take it: compressed collision too
 // wide to stay within its 16-bit range at every angle (can_turn_freely).
 bool turn_by(float radians);
-bool can_turn_freely();
-// The first selected piece's heading (its placement's quarter turns and twist, radians).
+// `tilted`: whether the pieces can take any turn about any axis (their whole diagonal within the 16-bit range).
+bool can_turn_freely(bool tilted = false);
+// Turned by `turn` about the pivot - any turn about any axis (pitch / roll too: level_editor_scale.h writes the vertices,
+// normals and collision; a turn about up alone goes through turn_by). Rail nodes carried with the pieces follow it (their
+// positions turned with them: they stay on the piece's edges). False (nothing turned) when a piece can't take it.
+bool turn_about_point(const Orientation& turn);
+// Turned by `radians` about the unit `axis` through the pivot (as turn_about_point).
+bool turn_about_axis(V3 axis, float radians);
+// The first selected piece's heading (its placement's quarter turns and twist, radians) and its whole turn.
 float selection_heading();
+Orientation selection_orientation();
 // Scaling (level_editor_scale.h): the selection's scale (its first piece's, along its own axes as first touched; 1, 1, 1
 // when not scaled) and quarter turns, and the selection scaled by `factor` along the world's axes about the middle of
 // its bottom - limited so every piece stays within 0.25x..4x on each axis (less for compressed collision); `uniform`:

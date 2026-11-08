@@ -51,6 +51,9 @@ Placement get_inverse(const Placement& placement)
     inverse.quarters = quarters;
     inverse.twist = -placement.twist; // (headings about up: the inverse turns back by the twist too)
     normalise_twist(&inverse);
+    if (is_tilted(placement)) {
+        set_orientation(&inverse, get_transposed(orientation_of(placement))); // (R^-1 = R transposed)
+    }
     inverse.scale = turned;
     inverse.offset = turn_placed(per_axis(placement.offset * -1.0F, turned), inverse);
     return inverse;
@@ -64,7 +67,8 @@ bool is_none(const Placement& step)
     // 1.0000001; within a millionth and a ten-thousandth of a unit counts as none)
     auto unit = [](float scale) { return std::fabs(scale - 1.0F) < kUnitScaleEpsilon; };
     auto zero = [](float v) { return std::fabs(v) < kZeroEpsilon; };
-    return (step.quarters & 3) == 0 && std::fabs(step.twist) < kZeroEpsilon && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
+    return (step.quarters & 3) == 0 && std::fabs(step.twist) < kZeroEpsilon && std::fabs(step.tilt_x) < kZeroEpsilon &&
+           std::fabs(step.tilt_z) < kZeroEpsilon && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
            zero(step.offset.x) && zero(step.offset.y) && zero(step.offset.z);
 }
 
@@ -378,7 +382,9 @@ void get_follow(void (*on_node)(uint32_t name))
         return;
     }
     const float angle = heading_of(step);
-    const bool turned = (step.quarters & 3) != 0 || step.twist != 0.0F;
+    const bool turned = is_turned(step);
+    const bool tilted = is_tilted(step);
+    const Orientation step_turn = orientation_of(step);
     for (const uint32_t id : stored_carried().objects) {
         objects::GameEntity* object = live_object(id);
         if (!object) {
@@ -390,7 +396,15 @@ void get_follow(void (*on_node)(uint32_t name))
             stored_carried().noted.push_back(id);
         }
         const V3 to = get_apply(step, object_edit::pos_of(object));
-        if (turned) {
+        if (tilted) {
+            // (a tilt: the object's own axes turned with the piece)
+            std::array<V3, 3> rows{};
+            object_edit::rows_of(object, rows);
+            for (V3& row : rows) {
+                row = get_turned(step_turn, row);
+            }
+            object_edit::set_rows(object, rows);
+        } else if (turned) {
             object_edit::turn_about(object, object_edit::pos_of(object), angle); // (its heading; turned about itself)
         }
         object_edit::get_place(object, to);

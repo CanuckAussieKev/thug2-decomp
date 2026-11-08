@@ -493,6 +493,8 @@ uint32_t world_signature()
         mix(&sector_state.checksum, sizeof(sector_state.checksum));
         mix(&sector_state.placement.quarters, sizeof(sector_state.placement.quarters));
         mix(&sector_state.placement.twist, sizeof(sector_state.placement.twist));
+        mix(&sector_state.placement.tilt_x, sizeof(sector_state.placement.tilt_x));
+        mix(&sector_state.placement.tilt_z, sizeof(sector_state.placement.tilt_z));
         mix(&sector_state.placement.offset, sizeof(sector_state.placement.offset));
         mix(&sector_state.placement.scale, sizeof(sector_state.placement.scale));
         mix(&sector_state.hidden, sizeof(sector_state.hidden));
@@ -663,7 +665,7 @@ void check_collision(std::vector<Issue>* out)
             }
             continue;
         }
-        const bool moved = sector_state.placement.quarters != 0 || sector_state.placement.twist != 0.0F ||
+        const bool moved = is_turned(sector_state.placement) ||
                            !is_unit_scale(sector_state.placement.scale) ||
                            sector_state.placement.offset.x != 0.0F || sector_state.placement.offset.y != 0.0F ||
                            sector_state.placement.offset.z != 0.0F;

@@ -181,19 +181,18 @@ std::string describe(V3 scale)
 }
 
 RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, int quarters, V3 position, V3 scale,
-                       float twist)
+                       const Spin& spin)
 {
     // The copy was taken after `copied` quarter turns of the piece (scale 1): copy - from = Q_c (x - x0); now
     // x' - to = Q S (x - x0) = Q_t (Q_c S Q_c^-1) (copy - from), Q_t the turns since, Q_c S Q_c^-1 S seen through Q_c.
     const int copied = (copied_quarters - quarters0) & 3;
     return {.from = copied_position, .to = position, .turns = (quarters - copied_quarters) & 3, .copy_scale_ = turned_scale(scale, copied),
-            .normal_turns_ = (quarters - quarters0) & 3, .twist = twist};
+            .normal_turns_ = (quarters - quarters0) & 3, .spin = spin};
 }
 
-V3 get_rebuilt(V3 point, V3 from, V3 to, int quarters, V3 scale, float twist)
+V3 get_rebuilt(V3 point, V3 from, V3 to, int quarters, V3 scale, const Spin& spin)
 {
-    const V3 turned = get_quarter_turn(per_axis(point - from, scale), quarters);
-    return to + (twist == 0.0F ? turned : turn_about_up(turned, twist));
+    return to + get_spun(get_quarter_turn(per_axis(point - from, scale), quarters), spin);
 }
 
 void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, const RebuildFrame& frame)
@@ -204,7 +203,7 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
         const V3 point = get_rebuilt({.x = core::at(positions, 3 * vertex),
                                       .y = core::at(positions, (3 * vertex) + 1),
                                       .z = core::at(positions, (3 * vertex) + 2)},
-                                     frame.from, frame.to, frame.turns, frame.copy_scale_, frame.twist);
+                                     frame.from, frame.to, frame.turns, frame.copy_scale_, frame.spin);
         vertices.set_float3(vertex, 0, point.x, point.y, point.z);
     }
 }
@@ -216,8 +215,7 @@ V3 scaled_normal(V3 normal, V3 scale, Heading heading)
         const float length = std::sqrt(get_dot(scaled, scaled));
         normal = length > 0.0F ? scaled * (1.0F / length) : scaled;
     }
-    const V3 turned = get_quarter_turn(normal, heading.quarters);
-    return heading.twist == 0.0F ? turned : turn_about_up(turned, heading.twist);
+    return get_spun(get_quarter_turn(normal, heading.quarters), heading.spin);
 }
 
 void rewrite_normals(uint8_t* data, NormalRun normal_run, const float* original, V3 scale, Heading heading)
@@ -383,7 +381,7 @@ void write_vertices(render::TriMeshSource* data, const std::vector<maths::Vec4>&
 
 } // namespace
 
-bool rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale, float twist)
+bool rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale, const Spin& spin)
 {
     render::TriMeshSource* data = copy.data;
     if (!data || !data->vertices()) {
@@ -414,10 +412,10 @@ bool rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
         const maths::Vec4 by = {.x = delta.x, .y = delta.y, .z = delta.z, .w = 0.0F};
         data->get_slide(&by);
     }
-    if (twist == 0.0F) {
+    if (!is_spun(spin)) {
         return true;
     }
-    // Any other angle: the vertices turned about `to` (the box made from them), then a tree for them in the old one's
+    // Any other turn: the vertices turned about `to` (the box made from them), then a tree for them in the old one's
     // place (coll_tree.h). Packed vertices must stay within 16 bits of sixteenths from the new box.
     std::vector<maths::Vec4> positions(data->num_vertices());
     for (size_t i = 0; i < positions.size(); ++i) {
@@ -426,7 +424,7 @@ bool rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
     maths::Vec4 low = {.x = INFINITY, .y = INFINITY, .z = INFINITY, .w = 0.0F};
     maths::Vec4 high = {.x = -INFINITY, .y = -INFINITY, .z = -INFINITY, .w = 0.0F};
     for (maths::Vec4& position : positions) {
-        const V3 turned = to + turn_about_up(V3{.x = position.x, .y = position.y, .z = position.z} - to, twist);
+        const V3 turned = to + get_spun(V3{.x = position.x, .y = position.y, .z = position.z} - to, spin);
         position = {.x = turned.x, .y = turned.y, .z = turned.z, .w = 0.0F};
         low = {.x = std::min(low.x, turned.x), .y = std::min(low.y, turned.y), .z = std::min(low.z, turned.z), .w = 0.0F};
         high = {.x = std::max(high.x, turned.x), .y = std::max(high.y, turned.y), .z = std::max(high.z, turned.z), .w = 0.0F};
@@ -616,7 +614,7 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::Geo
 
     const V3 scale = pose.scale;
     const RebuildFrame frame =
-        frame_for(original.quarters, original.position, pose.quarters0, pose.quarters, pose.position, scale, pose.twist);
+        frame_for(original.quarters, original.position, pose.quarters0, pose.quarters, pose.position, scale, pose.spin);
     for (const MeshCopy& copy : original.meshes) {
         render::MeshData* mesh = copy.mesh;
         for (size_t buffer = 0; buffer < copy.buffers.size(); ++buffer) {
@@ -628,12 +626,12 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::Geo
                                  .count = copy.vertex_count_,
                                  .offset = static_cast<uint32_t>(copy.normal_offset_)},
                                 core::at(copy.normals, buffer).data(), scale,
-                                {.quarters = frame.normal_turns_, .twist = frame.twist});
+                                {.quarters = frame.normal_turns_, .spin = frame.spin});
             }
             upload(core::at(copy.buffers, buffer));
         }
         const V3 centre =
-            get_rebuilt(copy.centre, frame.from, frame.to, frame.turns, frame.copy_scale_, frame.twist);
+            get_rebuilt(copy.centre, frame.from, frame.to, frame.turns, frame.copy_scale_, frame.spin);
         core::at(mesh->centre(), 0) = centre.x;
         core::at(mesh->centre(), 1) = centre.y;
         core::at(mesh->centre(), 2) = centre.z;
@@ -652,14 +650,14 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::Geo
         }
     }
     if (original.have_collision_ &&
-        !rebuild_collision(original.collision, frame.turns, frame.from, frame.to, frame.copy_scale_, frame.twist)) {
+        !rebuild_collision(original.collision, frame.turns, frame.from, frame.to, frame.copy_scale_, frame.spin)) {
         get_log("level editor: sector %p's collision couldn't be turned to that angle (left at its quarter turn)",
                 static_cast<void*>(sector));
     }
     return true;
 }
 
-bool twist_fits(render::WorldCell* sector)
+bool twist_fits(render::WorldCell* sector, bool tilted)
 {
     const render::TriMeshSource* data = sector ? collision_data(sector) : nullptr;
     if (!data || !data->vertices()) {
@@ -672,8 +670,9 @@ bool twist_fits(render::WorldCell* sector)
         return true;
     }
     const float x = data->bounds().max.x - data->bounds().min.x;
+    const float y = data->bounds().max.y - data->bounds().min.y;
     const float z = data->bounds().max.z - data->bounds().min.z;
-    return std::hypot(x, z) <= kCompressedExtent;
+    return (tilted ? std::hypot(x, y, z) : std::hypot(x, z)) <= kCompressedExtent;
 }
 
 V3 get_limit(render::WorldCell* sector, V3 world_scale)

@@ -481,10 +481,12 @@ void fill_selection(ui::ShapeMesh& model)
         selection.pos = scenery::get_pivot();
         selection.scalable = true;
         selection.scale = scenery::selection_scale();
-        selection.has_heading_ = true; // (scenery turns about up only: its heading is the Rotation's Y)
+        selection.has_heading_ = true; // (its heading is the Rotation's Y, its tilt X / Z - Ry Rx Rz as objects')
         selection.heading_degrees_ =
             static_cast<float>(static_cast<double>(scenery::selection_heading()) * kHalfTurnDegrees / maths::kPi);
-        selection.rotation = {.x = 0.0F, .y = selection.heading_degrees_, .z = 0.0F};
+        selection.rotation = rotate_tool::euler_of(scenery::selection_orientation().axes);
+        selection.rotation.y = selection.heading_degrees_; // (the heading as kept: no wrap through the Euler split)
+        selection.rotation_free_ = true;
         if (selection.sectors > 1 || scenery::selected_rail_count() > 0) {
             for (const uint32_t checksum : scenery::get_selection()) {
                 ui::ShapeMesh::Selection::Member member;

@@ -12,13 +12,13 @@
 // do it) and the keys that came with them:
 //   - the Rotate gizmo's rings (level_editor_transform.h): about X / Y / Z (red / green / blue - the world's, or Local the
 //     selection's), a view ring about the line of sight (white, larger) and a free trackball inside them (the sphere's
-//     area: drag in any direction). Objects turn about any of them; scenery and nodes only about up (the Y ring - the
-//     engine's level geometry turns about up at any angle: level_editor_scenery.h's turn_by).
+//     area: drag in any direction). Objects and scenery turn about any of them (scenery tilted: level_editor_scenery.h
+//     turn_about_axis writes the turned vertices and collision); nodes only about up (the Y ring).
 //   - Alt+R: Blender's R - a rotate without holding the mouse (whatever the tool); X / Y / Z then turn it about that axis
 //     only, digits type the degrees, Enter / a click applies, Escape puts it back. (Alt+G stays the tool's own.)
 //   - While a turn is dragged: the angle so far beside the pivot.
 //   - The Inspector's Rotation: X / Y / Z in degrees (objects: R = Ry Rx Rz, set exactly - the object's rows made from
-//     the three angles each time, so nothing drifts; scenery: Y only - its heading).
+//     the three angles each time, so nothing drifts; scenery: Y its heading, X / Z its tilt - turned to them).
 //   - Home frames the whole level (Blender's Home); Revert to Original is the Edit menu's, asked first (no key).
 //   - V held while moving: vertex snap (Unity / Unreal) - as Ctrl+Alt.
 //   - Alt+drag on a Move arrow: a duplicate dragged, the source left (Unreal / Maya) - one undo step.

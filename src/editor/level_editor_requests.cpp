@@ -7,6 +7,7 @@
 #include "editor/level_editor.h"
 #include <array>
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -397,9 +398,20 @@ void rotation_set_request(const ui::Request& request)
         }
         return;
     }
-    const float now = scenery::selection_heading();
-    const float wanted = degrees.y * maths::kPi / kDegreesPerHalfTurn;
-    scenery::turn_by(xform::get_wrap(wanted - now));
+    // (scenery: the heading alone changed - turned about up, exactly as before; X / Z - tilted: turned by what takes its
+    // turn now to the one the three angles make, R_wanted R_now^-1)
+    const Orientation now_turn = scenery::selection_orientation();
+    const V3 now_degrees = rotate_tool::euler_of(now_turn.axes);
+    constexpr float kSameDegrees = 1e-3F;
+    if (std::fabs(degrees.x - now_degrees.x) < kSameDegrees && std::fabs(degrees.z - now_degrees.z) < kSameDegrees) {
+        const float now = scenery::selection_heading();
+        const float wanted = degrees.y * maths::kPi / kDegreesPerHalfTurn;
+        scenery::turn_by(xform::get_wrap(wanted - now));
+    } else {
+        Orientation wanted;
+        rotate_tool::rows_of(degrees, wanted.axes);
+        scenery::turn_about_point(get_product(wanted, get_transposed(now_turn)));
+    }
     follow_scenery();
 }
 

@@ -437,7 +437,7 @@ bool is_resting(uint32_t sector)
         }
         Placement now{};
         scenery::placement_now(sector, &now);
-        return scenery::get_hidden(sector) && now.quarters == 0 && now.twist == 0.0F && now.offset.x == 0.0F &&
+        return scenery::get_hidden(sector) && !is_turned(now) && now.offset.x == 0.0F &&
                now.offset.y == 0.0F && now.offset.z == 0.0F && now.scale.x == 1.0F && now.scale.y == 1.0F &&
                now.scale.z == 1.0F;
     }

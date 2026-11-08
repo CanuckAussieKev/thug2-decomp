@@ -78,7 +78,7 @@ constexpr float kProbeAbove = 1.0F; // the probes start this far above the box's
 void log_twist_probe(uint32_t checksum, const Placement& placement)
 {
     OrientedBox box{};
-    if (!debug_enabled() || placement.twist == 0.0F || !cuboid(checksum, &box)) {
+    if (!debug_enabled() || (placement.twist == 0.0F && !is_tilted(placement)) || !cuboid(checksum, &box)) {
         return;
     }
     const V3 size = box_size(box);
@@ -94,8 +94,10 @@ void log_twist_probe(uint32_t checksum, const Placement& placement)
                                                                {"turned -x-z", (own_x + own_z) * -1.0F},
                                                                {"unturned +x+z", world_x + world_z},
                                                                {"unturned -x-z", (world_x + world_z) * -1.0F}}};
-    get_log("level editor: twist probe %s: heading %.2f degrees, box %.0f x %.0f x %.0f, top %.1f", caption(checksum).c_str(),
-            static_cast<double>(heading_of(placement)) * kDegreesPerRadian, size.x, size.y, size.z, high.y);
+    get_log("level editor: twist probe %s: heading %.2f degrees, tilt x %.2f z %.2f, box %.0f x %.0f x %.0f, top %.1f",
+            caption(checksum).c_str(), static_cast<double>(heading_of(placement)) * kDegreesPerRadian,
+            static_cast<double>(placement.tilt_x) * kDegreesPerRadian,
+            static_cast<double>(placement.tilt_z) * kDegreesPerRadian, size.x, size.y, size.z, high.y);
     for (const auto& [what, offset] : probes) {
         const V3 from = {.x = centre.x + offset.x, .y = high.y + kProbeAbove, .z = centre.z + offset.z};
         const V3 to = {.x = from.x, .y = low.y - kProbeAbove, .z = from.z};
@@ -103,8 +105,9 @@ void log_twist_probe(uint32_t checksum, const Placement& placement)
         V3 normal{};
         uint32_t sector = 0;
         const bool met = checks::get_cast(from, to, {.point = &hit, .normal = &normal}, &sector);
-        get_log("level editor:   %-14s at (%.1f, %.1f): %s %s at height %.1f", what, from.x, from.z,
-                met ? "met" : "nothing", met ? caption(sector).c_str() : "", met ? hit.y : 0.0F);
+        get_log("level editor:   %-14s at (%.1f, %.1f): %s %s at height %.1f, normal (%.3f, %.3f, %.3f)", what, from.x,
+                from.z, met ? "met" : "nothing", met ? caption(sector).c_str() : "", met ? hit.y : 0.0F,
+                met ? normal.x : 0.0F, met ? normal.y : 0.0F, met ? normal.z : 0.0F);
     }
 }
 
@@ -139,6 +142,7 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
             continue;
         }
         if (track->placement.quarters != saved.placement.quarters || track->placement.twist != saved.placement.twist ||
+            track->placement.tilt_x != saved.placement.tilt_x || track->placement.tilt_z != saved.placement.tilt_z ||
             !same_v3(track->placement.offset, saved.placement.offset) ||
             !same_v3(track->placement.scale, saved.placement.scale)) {
             track->placement = saved.placement;
@@ -192,7 +196,7 @@ std::vector<SectorState> changed_sectors()
         }
         const bool hidden = !is_operative(track.sector);
         const Placement& placement = track.placement;
-        if (hidden || (placement.quarters != 0) || placement.twist != 0.0F || !is_unit_scale(placement.scale) ||
+        if (hidden || is_turned(placement) || !is_unit_scale(placement.scale) ||
             placement.offset.x != 0.0F || placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
             changed.push_back({.checksum = entry.first, .placement = placement, .hidden = hidden});
         }
@@ -210,7 +214,7 @@ std::vector<RailState> changed_rails()
         }
         const bool hidden = track.active0 && ((track.node->flag_bits() & 4) == 0U);
         const Placement& placement = track.placement;
-        if (hidden || (placement.quarters != 0) || placement.twist != 0.0F || !is_unit_scale(placement.scale) ||
+        if (hidden || is_turned(placement) || !is_unit_scale(placement.scale) ||
             placement.offset.x != 0.0F || placement.offset.y != 0.0F || placement.offset.z != 0.0F) {
             changed.push_back({.name = entry.first, .placement = placement, .hidden = hidden});
         }
@@ -386,7 +390,7 @@ bool selection_moved(Placement* placement)
         return false;
     }
     *placement = placement_of(core::at(picked_scenery().selection_, 0), geom_of(sector));
-    return placement->quarters != 0 || placement->twist != 0.0F || !is_unit_scale(placement->scale) ||
+    return is_turned(*placement) || !is_unit_scale(placement->scale) ||
            placement->offset.x != 0.0F ||
            placement->offset.y != 0.0F || placement->offset.z != 0.0F;
 }

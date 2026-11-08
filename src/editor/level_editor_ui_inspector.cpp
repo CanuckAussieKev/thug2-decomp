@@ -530,7 +530,7 @@ void inspect_node(const ShapeMesh& model)
 }
 
 // The rotation in degrees (level_editor_rotate.h): X / Y / Z dragged to scrub, Ctrl+click to type any value; one undo
-// step a field. Scenery turns about up only: X and Z shown, not editable.
+// step a field (scenery too: X / Z tilt it).
 void rotation_fields(const ShapeMesh::Selection& selection)
 {
     ImGui::TableNextRow();

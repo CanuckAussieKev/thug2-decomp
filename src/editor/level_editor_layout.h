@@ -106,6 +106,12 @@ class Struct;
 //                                                      the point x as loaded is at get_quarter_turn((x.x * sx, x.y * sy,
 //                                                      x.z * sz), quarters) + (x, y, z); an object's along its own
 //                                                      axes, about its position (its model and its collision)
+//   ... turn=<degrees>                                 (sector / rail / clone, when not 0) the heading beyond the
+//                                                      quarter turns, about up (level_editor.h's Placement twist)
+//   ... tilt=<x degrees>,<z degrees>                   (sector / rail / clone, when tilted) the pitch and roll: the
+//                                                      piece's turn is Ry(heading) Rx(x) Rz(z) - the Inspector's
+//                                                      Rotation X / Y / Z; an older reader skips it (the piece then
+//                                                      untilted - and, the offset assuming the tilt, misplaced)
 // An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records and
 // the phase 4 ones (an added rail's points aren't `node` records: an older reader would make them without their rail),
 // and reads past a record's scale= (the piece then placed unscaled); an older reader of version 2 skips wall records (the

@@ -429,6 +429,38 @@ test("a free turn (turn=): the quarter turns, then the twist about up", () => {
     );
 });
 
+test("a tilt (tilt=): pitch about x and roll about z before the heading - Ry Rx Rz", () => {
+    const l = readLayout(`thug2-decomp layout 2\nscene 00000001\nsector 0000ABCD 1 0 0 0 0 tilt=30,0\n`);
+    const p = l.sectors[0]!.placement;
+    assert.ok(p.tilt && Math.abs(p.tilt.x - Math.PI / 6) < 1e-6 && p.tilt.z === 0);
+    // +z pitched 30 degrees (down: Rx takes y towards z, so z towards -y), then a quarter turn: towards +x
+    const q = applyPlacement({ ...p, offset: { x: 0, y: 0, z: 0 } }, { x: 0, y: 0, z: 1 });
+    assert.ok(Math.abs(q.x - Math.cos(Math.PI / 6)) < 1e-6 && Math.abs(q.y + 0.5) < 1e-6 && Math.abs(q.z) < 1e-6);
+    // the up normal tilts with it: +y to (sin 30 sideways, cos 30 up) after the quarter turn
+    const n = scaledNormal({ x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 1 }, 1, 0, p.tilt);
+    assert.ok(Math.abs(n.y - Math.cos(Math.PI / 6)) < 1e-6 && Math.abs(n.x - 0.5) < 1e-6);
+    // roll: +x towards +y
+    const r = applyPlacement(
+        { quarters: 0, offset: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 }, tilt: { x: 0, z: Math.PI / 2 } },
+        { x: 1, y: 0, z: 0 },
+    );
+    assert.ok(Math.abs(r.y - 1) < 1e-6 && Math.abs(r.x) < 1e-6);
+    assert.equal(
+        readLayout(`thug2-decomp layout 2\nscene 00000001\nsector 0000ABCD 0 0 0 0 0 tilt=0,0\n`).sectors[0]!.placement
+            .tilt,
+        undefined,
+    );
+    assert.equal(
+        readLayout(`thug2-decomp layout 2\nscene 00000001\nclone 0000ABCD 0 0 0 0 tilt=5,-5\n`).clones[0]!.placement
+            .tilt?.z,
+        Math.fround((-5 * Math.PI) / 180),
+    );
+    assert.throws(
+        () => readLayout(`thug2-decomp layout 2\nscene 00000001\nsector 0000ABCD 0 0 0 0 0 tilt=5\n`),
+        LayoutError,
+    );
+});
+
 test("placements as the editor's: QuarterTurn(x * scale) + offset", () => {
     assert.deepEqual(quarterTurn({ x: 1, y: 2, z: 3 }, 1), { x: 3, y: 2, z: -1 });
     const two = { x: 2, y: 2, z: 2 };

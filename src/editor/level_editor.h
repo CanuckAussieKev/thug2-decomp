@@ -127,7 +127,8 @@ class Struct;
 //     nodes; not ladders, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
 //     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E
 //     nudge; Z / X turn by the rotation snap (15 degrees unless set otherwise; Shift+Z / Shift+X one degree) - scenery
-//     to any angle too (level_editor_scenery.h's turn_by); [ / ] scale scenery (about the middle of its
+//     to any angle too (level_editor_scenery.h's turn_by; the Rotate rings tilt it about any axis - turn_about_axis);
+//     [ / ] scale scenery (about the middle of its
 //     bottom) or objects (about their position) 10% (Shift: 1%), 0.25x to 4x, Alt+[ / ] stretch along the axis the
 //     camera faces most (the Inspector's Scale X / Y / Z too); G drops it onto the ground (a marker shows
 //     where that is). Moving a spawn, crown or flag of a level shared with THUGPRO warns once a run (the edit is made).
@@ -423,16 +424,52 @@ inline bool is_uniform_scale(V3 scale) { return scale.x == scale.y && scale.y ==
 
 // Where a moved sector is, relative to where it was when the editor first touched it: a point x of it then is now at
 // turn_placed(per_axis(x, scale)) + offset (a scale along each of its own axes as first touched - uniform or stretched,
-// level_editor_scale.h; 1, 1, 1 unless scaled). Its heading is `quarters` quarter turns (what the engine turns a sector
-// by itself) and `twist` more (any angle: level_editor_scale.h writes the turned vertices and collision).
+// level_editor_scale.h; 1, 1, 1 unless scaled). Its turn is R = H Rx(tilt_x) Rz(tilt_z) - the Inspector's Euler angles
+// (level_editor_rotate.h: Ry Rx Rz) -, its heading H being `quarters` quarter turns (what the engine turns a sector by
+// itself) and `twist` more about up; the tilt (pitch about x, then roll about z, both before the heading) and the twist
+// are what level_editor_scale.h writes into the vertices and collision (any angle, about any axis).
 struct Placement {
     int quarters{}; // 0..3
     V3 offset{};
     V3 scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
-    float twist{}; // radians, within +-45 degrees (0: whole quarter turns, exactly)
+    float twist{};  // radians, within +-45 degrees (0: whole quarter turns, exactly)
+    float tilt_x{}; // radians (the Euler pitch: 0 - level, as the level has it)
+    float tilt_z{}; // radians (the Euler roll)
 };
+// A turn as the directions the unit axes go to: v turned is v.x * axes[0] + v.y * axes[1] + v.z * axes[2] (the columns
+// of its matrix - as level_editor_rotate.h's rows_of gives them).
+struct Orientation {
+    std::array<V3, 3> axes = {{{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
+};
+V3 get_turned(const Orientation& turn, V3 v);
+// `outer` after `inner` (get_turned(product, v) == get_turned(outer, get_turned(inner, v))), and the turn back.
+Orientation get_product(const Orientation& outer, const Orientation& inner);
+Orientation get_transposed(const Orientation& turn);
+// A turn by `radians` about the unit `axis` (right-handed: about up, +z towards +x - as turn_about_up).
+Orientation turn_about_line(V3 axis, float radians);
+// Whether the placement is tilted (pitch or roll: its up isn't the world's).
+inline bool is_tilted(const Placement& placement) { return placement.tilt_x != 0.0F || placement.tilt_z != 0.0F; }
+// Whether it is turned at all (quarter turns, a twist or a tilt).
+inline bool is_turned(const Placement& placement)
+{
+    return (placement.quarters & 3) != 0 || placement.twist != 0.0F || is_tilted(placement);
+}
+// Its whole turn R, and that turn given to it (its heading split into quarter turns and a twist as normalise_twist, its
+// pitch and roll as level_editor_rotate.h's euler_of; a tilt within a millionth of a radian of none taken as none).
+Orientation orientation_of(const Placement& placement);
+void set_orientation(Placement* placement, const Orientation& turn);
+// What level_editor_scale.h turns the copied vertices by after the engine's own quarter turns Q: R Q^-1 (just the twist
+// about up when untilted - the old, exact path; nothing when neither).
+struct Spin {
+    float twist{};      // radians about up, when not tilted
+    bool tilted{};      // then `turn` is the whole of it (the twist in it)
+    Orientation turn{};
+};
+Spin spin_of(const Placement& placement);
+inline bool is_spun(const Spin& spin) { return spin.tilted || spin.twist != 0.0F; }
+V3 get_spun(V3 v, const Spin& spin);
 V3 get_apply(const Placement& placement, V3 x);
-// A direction turned by the placement's heading: its quarter turns (exactly), then its twist about up.
+// A direction turned by the placement's turn: its tilt, its quarter turns (exactly), then its twist about up.
 V3 turn_placed(V3 v, const Placement& placement);
 // The placement's heading in radians (quarters * 90 degrees + twist; positive +z towards +x, as turn_about_up).
 float heading_of(const Placement& placement);
@@ -444,10 +481,12 @@ void move_by(Placement* placement, V3 delta);
 void turn_about(Placement* placement, V3 pivot, int quarters);
 // Turned by `radians` about the vertical line through `pivot` (any angle; whole quarter turns exactly).
 void turn_about_by(Placement* placement, V3 pivot, float radians);
+// Turned by `turn` about `pivot` (any axis: x'' = turn (x' - pivot) + pivot - the new turn split as set_orientation).
+void turn_about_point(Placement* placement, V3 pivot, const Orientation& turn);
 // What the engine keeps for a placement: the sector's quarter turns (WorldCell +0x10, set by spin_around_up 0x0049E760)
 // and its geometry's world position (the meshes' pivot, MeshRef +0x90's translation), from those when first touched
-// (`quarters0`, `position0`). Unscaled and untwisted, its vertices are at get_quarter_turn(v, quarters) + position for v
-// as loaded (the engine has no scale or other angles of its own: level_editor_scale.h writes those vertices).
+// (`quarters0`, `position0`). Unscaled, untwisted and untilted, its vertices are at get_quarter_turn(v, quarters) +
+// position for v as loaded (the engine has no scale or other angles of its own: level_editor_scale.h writes those).
 void engine_state(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position);
 // `outer` after `inner`: Apply(compose(outer, inner), x) == Apply(outer, Apply(inner, x)) - a copy made of a moved
 // sector and moved since is placed by its own placement after its source's (relative to the source as loaded).

@@ -100,10 +100,131 @@ V3 get_quarter_turn(V3 v, int quarters)
     }
 }
 
+namespace {
+
+// `v` turned by `radians` about x (y towards z) and about z (x towards y): right-handed, as turn_about_line.
+V3 turn_about_x(V3 v, float radians)
+{
+    const double cosine = std::cos(static_cast<double>(radians));
+    const double sine = std::sin(static_cast<double>(radians));
+    return {.x = v.x, .y = static_cast<float>((v.y * cosine) - (v.z * sine)), .z = static_cast<float>((v.y * sine) + (v.z * cosine))};
+}
+V3 turn_about_z(V3 v, float radians)
+{
+    const double cosine = std::cos(static_cast<double>(radians));
+    const double sine = std::sin(static_cast<double>(radians));
+    return {.x = static_cast<float>((v.x * cosine) - (v.y * sine)), .y = static_cast<float>((v.x * sine) + (v.y * cosine)), .z = v.z};
+}
+
+constexpr std::array<V3, 3> kUnitAxes = {
+    {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
+constexpr double kGimbalLimit = 1e-6; // a forward this close to straight up / down: the heading taken from the right
+
+} // namespace
+
+V3 get_turned(const Orientation& turn, V3 v)
+{
+    return (core::at(turn.axes, 0) * v.x) + (core::at(turn.axes, 1) * v.y) + (core::at(turn.axes, 2) * v.z);
+}
+
+Orientation get_product(const Orientation& outer, const Orientation& inner)
+{
+    Orientation product;
+    for (int i = 0; i < 3; ++i) {
+        core::at(product.axes, i) = get_turned(outer, core::at(inner.axes, i));
+    }
+    return product;
+}
+
+Orientation get_transposed(const Orientation& turn)
+{
+    const std::array<V3, 3>& axes = turn.axes;
+    Orientation transposed;
+    core::at(transposed.axes, 0) = {.x = core::at(axes, 0).x, .y = core::at(axes, 1).x, .z = core::at(axes, 2).x};
+    core::at(transposed.axes, 1) = {.x = core::at(axes, 0).y, .y = core::at(axes, 1).y, .z = core::at(axes, 2).y};
+    core::at(transposed.axes, 2) = {.x = core::at(axes, 0).z, .y = core::at(axes, 1).z, .z = core::at(axes, 2).z};
+    return transposed;
+}
+
+Orientation turn_about_line(V3 axis, float radians)
+{
+    // Rodrigues, each unit axis: v cos + (k x v) sin + k (k . v) (1 - cos)
+    const double cosine = std::cos(static_cast<double>(radians));
+    const double sine = std::sin(static_cast<double>(radians));
+    Orientation turn;
+    for (int i = 0; i < 3; ++i) {
+        const V3 v = core::at(kUnitAxes, i);
+        const V3 cross = {.x = (axis.y * v.z) - (axis.z * v.y), .y = (axis.z * v.x) - (axis.x * v.z), .z = (axis.x * v.y) - (axis.y * v.x)};
+        const double along = static_cast<double>(get_dot(axis, v)) * (1.0 - cosine);
+        core::at(turn.axes, i) = {.x = static_cast<float>((v.x * cosine) + (cross.x * sine) + (axis.x * along)),
+                                  .y = static_cast<float>((v.y * cosine) + (cross.y * sine) + (axis.y * along)),
+                                  .z = static_cast<float>((v.z * cosine) + (cross.z * sine) + (axis.z * along))};
+    }
+    return turn;
+}
+
 V3 turn_placed(V3 v, const Placement& placement)
 {
+    if (is_tilted(placement)) {
+        v = turn_about_x(turn_about_z(v, placement.tilt_z), placement.tilt_x);
+    }
     const V3 turned = get_quarter_turn(v, placement.quarters);
     return placement.twist == 0.0F ? turned : turn_about_up(turned, placement.twist);
+}
+
+Orientation orientation_of(const Placement& placement)
+{
+    Orientation turn;
+    for (int i = 0; i < 3; ++i) {
+        core::at(turn.axes, i) = turn_placed(core::at(kUnitAxes, i), placement);
+    }
+    return turn;
+}
+
+void set_orientation(Placement* placement, const Orientation& turn)
+{
+    // R = Ry(h) Rx(p) Rz(r): R z = (cos p sin h, -sin p, cos p cos h); R x seen through (Ry Rx)^-1 = (cos r, sin r, 0)
+    const V3 at = core::at(turn.axes, 2);
+    const V3 right = core::at(turn.axes, 0);
+    const double pitch = std::asin(std::clamp(static_cast<double>(-at.y), -1.0, 1.0));
+    double heading = 0.0;
+    double roll = 0.0;
+    if (std::hypot(static_cast<double>(at.x), static_cast<double>(at.z)) < kGimbalLimit) {
+        heading = std::atan2(static_cast<double>(-right.z), static_cast<double>(right.x)); // (no roll: R x = Ry(h) x)
+    } else {
+        heading = std::atan2(static_cast<double>(at.x), static_cast<double>(at.z));
+        const V3 unturned = turn_about_up(right, static_cast<float>(-heading));
+        const double y = (unturned.y * std::cos(-pitch)) - (unturned.z * std::sin(-pitch));
+        roll = std::atan2(y, static_cast<double>(unturned.x));
+    }
+    const auto quarters = static_cast<int>(std::lround(heading / kQuarterRadians));
+    placement->quarters = quarters & 3;
+    placement->twist = static_cast<float>(heading - (quarters * static_cast<double>(kQuarterRadians)));
+    normalise_twist(placement);
+    placement->tilt_x = std::fabs(pitch) < kTwistNone ? 0.0F : static_cast<float>(pitch);
+    placement->tilt_z = std::fabs(roll) < kTwistNone ? 0.0F : static_cast<float>(roll);
+}
+
+Spin spin_of(const Placement& placement)
+{
+    if (!is_tilted(placement)) {
+        return {.twist = placement.twist, .tilted = false, .turn = {}};
+    }
+    // R Q^-1: the whole turn after undoing the quarter turns the engine makes itself
+    Spin spin = {.twist = placement.twist, .tilted = true, .turn = {}};
+    const Orientation whole = orientation_of(placement);
+    for (int i = 0; i < 3; ++i) {
+        core::at(spin.turn.axes, i) = get_turned(whole, get_quarter_turn(core::at(kUnitAxes, i), 4 - (placement.quarters & 3)));
+    }
+    return spin;
+}
+
+V3 get_spun(V3 v, const Spin& spin)
+{
+    if (spin.tilted) {
+        return get_turned(spin.turn, v);
+    }
+    return spin.twist == 0.0F ? v : turn_about_up(v, spin.twist);
 }
 
 float heading_of(const Placement& placement)
@@ -146,6 +267,10 @@ Placement compose(const Placement& outer, const Placement& inner)
                           .scale = per_axis(turned_scale(outer.scale, inner.quarters), inner.scale),
                           .twist = inner.twist + outer.twist};
     normalise_twist(&composed);
+    if (is_tilted(outer) || is_tilted(inner)) {
+        // (a tilt in either: the turns multiplied, the product split again - the scale as above)
+        set_orientation(&composed, get_product(orientation_of(outer), orientation_of(inner)));
+    }
     return composed;
 }
 
@@ -172,6 +297,13 @@ void turn_about_by(Placement* placement, V3 pivot, float radians)
     }
 }
 
+void turn_about_point(Placement* placement, V3 pivot, const Orientation& turn)
+{
+    // x'' = T (x' - pivot) + pivot, x' = R S x + offset: x'' = (T R) S x + T (offset - pivot) + pivot.
+    placement->offset = get_turned(turn, placement->offset - pivot) + pivot;
+    set_orientation(placement, get_product(turn, orientation_of(*placement)));
+}
+
 void engine_state(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position)
 {
     // Loaded vertex v was at Q0 v + p0; now at Q s (Q0 v + p0) + offset = s Q Q0 v + (s Q p0 + offset).
@@ -184,7 +316,7 @@ OrientedBox placed_box(V3 min, V3 max, const Placement& placement)
     OrientedBox box{};
     box.origin = placement.offset;
     core::at(box.axes, 0) = turn_placed({.x = placement.scale.x, .y = 0.0F, .z = 0.0F}, placement);
-    core::at(box.axes, 1) = {.x = 0.0F, .y = placement.scale.y, .z = 0.0F};
+    core::at(box.axes, 1) = turn_placed({.x = 0.0F, .y = placement.scale.y, .z = 0.0F}, placement);
     core::at(box.axes, 2) = turn_placed({.x = 0.0F, .y = 0.0F, .z = placement.scale.z}, placement);
     box.min = min;
     box.max = max;
@@ -468,13 +600,15 @@ void apply_track(Track* track)
     // (first, while the piece is still where the track started: the level's shared collision that is its -
     // level_editor_shared_coll.h)
     shared_collision::ensure(track->checksum, track->scene, track->sector, track->geom);
-    if (!track->original && (!is_unit_scale(track->placement.scale) || track->placement.twist != 0.0F)) {
+    if (!track->original && (!is_unit_scale(track->placement.scale) || is_spun(spin_of(track->placement)))) {
         track->original = scale_tool::get_capture(track->sector, track->geom, track->quarters, track->position);
         if (!track->original) {
             get_log("level editor: sector %p can't be scaled or turned freely (its meshes can't be copied)",
                     static_cast<void*>(track->sector));
             track->placement.scale = {.x = 1.0F, .y = 1.0F, .z = 1.0F};
             track->placement.twist = 0.0F;
+            track->placement.tilt_x = 0.0F;
+            track->placement.tilt_z = 0.0F;
         }
     }
     int quarters = 0;
@@ -509,7 +643,7 @@ void apply_track(Track* track)
                                                     .position = track->position,
                                                     .scale = track->placement.scale,
                                                     .quarters0 = track->quarters0,
-                                                    .twist = track->placement.twist})) {
+                                                    .spin = spin_of(track->placement)})) {
         track->original.reset(); // (not the sector copied any more: left as the engine has it)
     }
     shared_collision::get_place(track->checksum, track->placement);
@@ -796,6 +930,7 @@ Placement placement_of(uint32_t checksum, render::Geom* geom)
 bool same_placement(const Placement& a, const Placement& b)
 {
     return a.quarters == b.quarters && std::fabs(a.twist - b.twist) < kTwistTolerance &&
+           std::fabs(a.tilt_x - b.tilt_x) < kTwistTolerance && std::fabs(a.tilt_z - b.tilt_z) < kTwistTolerance &&
            std::fabs(a.scale.x - b.scale.x) < kScaleTolerance &&
            std::fabs(a.scale.y - b.scale.y) < kScaleTolerance && std::fabs(a.scale.z - b.scale.z) < kScaleTolerance &&
            std::fabs(a.offset.x - b.offset.x) < kOffsetTolerance && std::fabs(a.offset.y - b.offset.y) < kOffsetTolerance &&
@@ -941,12 +1076,65 @@ bool level_bounds(V3* min, V3* max)
     return have;
 }
 
-bool can_turn_freely()
+bool can_turn_freely(bool tilted)
 {
-    return std::ranges::all_of(picked_scenery().selection_, [](uint32_t checksum) {
+    return std::ranges::all_of(picked_scenery().selection_, [tilted](uint32_t checksum) {
         render::WorldCell* sector = find_sector(checksum, nullptr);
-        return sector == nullptr || scale_tool::twist_fits(sector);
+        return sector == nullptr || scale_tool::twist_fits(sector, tilted);
     });
+}
+
+bool turn_about_point(const Orientation& turn)
+{
+    // (a turn that keeps up where it is: about up alone - the exact heading path)
+    const V3 up = core::at(turn.axes, 1);
+    if (std::fabs(up.x) < kTwistNone && std::fabs(up.z) < kTwistNone && up.y > 0.0F) {
+        const V3 right = core::at(turn.axes, 0);
+        return turn_by(std::atan2(-right.z, right.x));
+    }
+    if (!can_turn_freely(true)) {
+        get_log("level editor: a piece's packed collision is too big to tilt - turns about up only");
+        return false;
+    }
+    for (const uint32_t checksum : picked_scenery().selection_) {
+        if (Track* track = track_of(checksum)) {
+            frontend::level_editor::turn_about_point(&track->placement, picked_scenery().pivot_, turn);
+            apply_track(track);
+        }
+    }
+    for (const uint32_t name : scenery_rails().rails_) {
+        if (RailTrack* track = rail_track_of(name)) {
+            frontend::level_editor::turn_about_point(&track->placement, picked_scenery().pivot_, turn);
+        }
+    }
+    apply_rails(scenery_rails().rails_);
+    scenery_hover().hover_group_of_ = 0;
+    return true;
+}
+
+bool turn_about_axis(V3 axis, float radians)
+{
+    if (std::fabs(radians) < kTwistNone) {
+        return true;
+    }
+    const float length = std::sqrt(get_dot(axis, axis));
+    if (!(length > 0.0F)) {
+        return false;
+    }
+    const V3 unit = axis * (1.0F / length);
+    if (std::fabs(unit.x) < kTwistNone && std::fabs(unit.z) < kTwistNone) {
+        return turn_by(unit.y > 0.0F ? radians : -radians); // (about up: the heading's own path, exact quarter turns)
+    }
+    return turn_about_point(turn_about_line(unit, radians));
+}
+
+Orientation selection_orientation()
+{
+    if (picked_scenery().selection_.empty()) {
+        return {};
+    }
+    render::WorldCell* sector = find_sector(core::at(picked_scenery().selection_, 0), nullptr);
+    return sector ? orientation_of(placement_of(core::at(picked_scenery().selection_, 0), geom_of(sector))) : Orientation{};
 }
 
 bool turn_by(float radians)

@@ -202,15 +202,20 @@ void summarise_placed(const RecordLine& record, TableRow& table_row)
         what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
     }
     double degrees = quarters * kDegreesPerQuarter;
+    bool tilted = false;
     for (const std::string& w : words) {
         if (w.starts_with("turn=")) {
             degrees += std::strtod(std::next(w.c_str(), kTurnKeyLength), nullptr);
         }
+        tilted = tilted || w.starts_with("tilt=");
     }
     if (degrees != 0.0) {
         std::array<char, kTurnTextSize> text{};
         text::format_to(text, " turned %.4g", degrees);
         what += std::string(text.data()) + "\xC2\xB0";
+    }
+    if (tilted) {
+        what += " tilted";
     }
     what += scale_of(record);
     if (keyword == "wall") {

@@ -19,12 +19,15 @@ export interface V3 {
 // A point x as loaded is at turn(get_quarter_turn(per_axis(x, scale), quarters), twist) + offset (level_editor.h's
 // Placement): `scale` is along the piece's own axes as loaded - uniform (`scale=s`) or stretched (`scale=x,y,z`); 1, 1, 1
 // unless scaled. `twist` (radians, a record's `turn=<degrees>`): the heading beyond the quarter turns, about up (positive
-// +z towards +x, as the editor's turn_about_up); 0 / absent: whole quarter turns.
+// +z towards +x, as the editor's turn_about_up); 0 / absent: whole quarter turns. `tilt` (radians, a record's
+// `tilt=<x degrees>,<z degrees>`): the pitch about x and the roll about z, turned before the quarter turns - the
+// piece's turn is Ry(heading) Rx(tilt.x) Rz(tilt.z) (the editor's Inspector X / Y / Z); absent: level.
 export interface Placement {
     quarters: number;
     offset: V3;
     scale: V3;
     twist?: number;
+    tilt?: { x: number; z: number };
 }
 export const UNIT_SCALE: Readonly<V3> = { x: 1, y: 1, z: 1 };
 export function isUnitScale(s: V3): boolean {
@@ -494,6 +497,23 @@ export function readTurn(words: string[], at: number): number | null {
     return twist;
 }
 
+// A record's `tilt=<x degrees>,<z degrees>` (read_placed_fields): its pitch and roll in radians, undefined without one
+// (or when both are 0); null: malformed.
+export function readTilt(words: string[], at: number): { x: number; z: number } | undefined | null {
+    let tilt: { x: number; z: number } | undefined;
+    for (const w of words.slice(at)) {
+        if (w.startsWith("tilt=")) {
+            const parts = w.slice(5).split(",");
+            if (parts.length !== 2) return null;
+            const [x, z] = parts.map(parseNumber);
+            if (x === null || z === null || x === undefined || z === undefined) return null;
+            if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
+            tilt = x || z ? { x: Math.fround((x * Math.PI) / 180), z: Math.fround((z * Math.PI) / 180) } : undefined;
+        }
+    }
+    return tilt;
+}
+
 // The key=value fields after a sector / rail / clone / object / copy record's numbers (read_scale_fields): scale=;
 // others (a later version's) skipped. Null: a bad scale.
 function readScale(words: string[], at: number): V3 | null {
@@ -642,6 +662,9 @@ export function readLayout(text: string): Layout {
                 p.scale = readScale(words, 7) ?? fail("bad scale=");
                 const twist = readTurn(words, 7) ?? fail("bad turn=");
                 if (twist) p.twist = twist;
+                const tilt = readTilt(words, 7);
+                if (tilt === null) fail("bad tilt=");
+                if (tilt) p.tilt = tilt;
                 if (kind === "sector") layout.sectors.push({ checksum: name, placement: p, hidden: hidden === "1" });
                 else layout.rails.push({ name, placement: p, hidden: hidden === "1" });
                 break;
@@ -652,6 +675,9 @@ export function readLayout(text: string): Layout {
                 p.scale = readScale(words, 6) ?? fail("bad scale=");
                 const twist = readTurn(words, 6) ?? fail("bad turn=");
                 if (twist) p.twist = twist;
+                const tilt = readTilt(words, 6);
+                if (tilt === null) fail("bad tilt=");
+                if (tilt) p.tilt = tilt;
                 layout.clones.push({ source, placement: p });
                 break;
             }

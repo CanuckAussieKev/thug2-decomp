@@ -287,11 +287,21 @@ void selection_axes(std::span<V3, 3> out)
         return;
     }
     if ((wall_only() == 0U) && scenery::has_selection()) {
-        const float heading = scenery::selection_heading();
+        // (its whole turn: tilted scenery's own axes)
+        const Orientation turn = scenery::selection_orientation();
         for (int i = 0; i < 3; ++i) {
-            core::at(out, i) = turn_about_up(core::at(kAxes, i), heading);
+            core::at(out, i) = make_unit(core::at(turn.axes, i));
         }
     }
+}
+// Whether the selection turns about any axis (the X / Y / Z rings, the view ring and the trackball): objects, and
+// scenery (its pieces tilted too - level_editor_scenery.h's turn_about_axis); nodes and invisible walls about up only.
+bool turns_freely()
+{
+    if (get_primary() != nullptr) {
+        return true;
+    }
+    return picked_node_index() < 0 && wall_only() == 0U && scenery::has_selection();
 }
 V3 axis_vector(int axis)
 {
@@ -352,8 +362,8 @@ xform::Gizmo gizmo_now()
     selection_axes(gizmo.axes);
     gizmo.length = arrow_length();
     gizmo.rotates = selection_turns();
-    // (objects turn about any axis: every ring, the view ring and the trackball - level_editor_rotate.h)
-    gizmo.free_axes = gizmo.mode == xform::Mode::kSpinBy && get_primary() != nullptr;
+    // (objects and scenery turn about any axis: every ring, the view ring and the trackball - level_editor_rotate.h)
+    gizmo.free_axes = gizmo.mode == xform::Mode::kSpinBy && turns_freely();
     gizmo.view_back = fly_camera().frame().back;
     return gizmo;
 }
@@ -397,7 +407,10 @@ void apply_turn_to(float target)
         if (std::fabs(delta) < kTurnEpsilon) {
             return;
         }
-        if (!scenery::turn_by(delta)) {
+        const bool turned = transform_session().rot_free_
+                                ? scenery::turn_about_axis(transform_session().rot_axis_, delta)
+                                : scenery::turn_by(delta);
+        if (!turned) {
             return; // (a piece that can't take the angle: left where it is)
         }
         follow_scenery();
@@ -507,7 +520,7 @@ bool start_free_turn(V3 origin, V3 dir, const TickCycle& frame)
     session.rot_free_ = false;
     session.rot_trackball_ = false;
     session.rot_axis_ = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
-    if (get_primary() == nullptr) {
+    if (!turns_freely()) {
         return false;
     }
     const int handle = session.typed_.axis >= 0 ? session.typed_.axis : drag_session().axis_;
@@ -572,7 +585,14 @@ void trackball_drag(const TickCycle& frame)
     }
     const V3 axis = make_unit((frame.up * dx) + (frame.right * dy));
     const float angle = pixels * kTrackballRadiansPerPixel;
-    turn_objects_about_axis(selected_objects(), axis, angle, session.transform_pivot_);
+    const std::vector<objects::GameEntity*> objects = selected_objects();
+    if (!objects.empty()) {
+        turn_objects_about_axis(objects, axis, angle, session.transform_pivot_);
+    } else if (scenery::turn_about_axis(axis, angle)) {
+        follow_scenery();
+    } else {
+        return;
+    }
     session.rot_total_ += angle;
     session.rot_applied_ = session.rot_total_;
     session.pending_forced_ = true;
