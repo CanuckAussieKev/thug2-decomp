@@ -265,7 +265,7 @@ void handle_escape()
             place_palette().place_armed_ = -1;
         } else if (place_palette().place_open_) {
             place_palette().place_open_ = false;
-        } else if (stored_browser().open) {
+        } else if (browser_has_keys()) {
             stored_browser().open = false;
             hud::hide_panel();
         } else if (tool_options().help_) {
@@ -347,7 +347,7 @@ void finish_chain_drawing(const Mouse& input)
     const bool right_click = g_right_was && !input.right && g_right_travel < 6.0F;
     g_right_was = input.right;
     const bool enter_now = actions::squeezed(actions::kChainFinish);
-    if (chains::get_drawing() != chains::Blit::kNone && (enter_now || right_click) && !stored_browser().open) {
+    if (chains::get_drawing() != chains::Blit::kNone && (enter_now || right_click) && !browser_has_keys()) {
         stop_chain_drawing("Drawing finished");
     }
 }
@@ -453,14 +453,14 @@ void apply_ray_tools(EditorFrame& editor_frame)
     adjust::tick();
     links::tick();
     if (!drag_session().dragging_) { // (digits typed while dragging aren't bookmarks - level_editor_transform.h)
-        view_cam::get_keys(rig_now(), keys, ctrl, stored_browser().open); // (F, 1..9, the numpad - level_editor_camera.h)
+        view_cam::get_keys(rig_now(), keys, ctrl, browser_has_keys()); // (F, 1..9, the numpad - level_editor_camera.h)
     }
     drawn_view().last_have_ray_ = have_ray;
     drawn_view().last_ray_ = dir;
     // (UX8: Alt+wheel steps what a click would take through everything under the cursor; the command search's
     // Teleport to the cursor)
     if (alt && (input.wheel != 0) && !drag_session().dragging_ && !input.right && have_ray && !view_cam::get_orbiting() &&
-        !stored_browser().open) {
+        !browser_has_keys()) {
         drill_through(-input.wheel, {.x = input.x, .y = input.y}, dir);
         input.wheel = 0;
     }

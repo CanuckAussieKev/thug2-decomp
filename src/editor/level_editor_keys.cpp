@@ -548,7 +548,7 @@ void browser_keys(const EditorFrame& editor_frame)
     static uint32_t g_down_since;
     static uint32_t g_page_up_since;
     static uint32_t g_page_down_since;
-    if (stored_browser().open) {
+    if (browser_has_keys()) {
         // The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
         const int count = static_cast<int>(stored_browser().items.size());
         const int move = (get_repeated(keys, SDL_SCANCODE_DOWN, &g_down_since) ? 1 : 0) -
@@ -814,7 +814,7 @@ void fly_without_selection(const EditorFrame& editor_frame)
     // Flying: W/A/S/D along the view, Q/E down/up, the wheel forward / back, - / = the speed (not while the
     // browser has the keys: its F, arrows and Enter).
     fly_camera().key_moving_ = false;
-    if (!stored_browser().open && !ctrl && (xform::fly_always() || input.right)) {
+    if (!browser_has_keys() && !ctrl && (xform::fly_always() || input.right)) {
         const FlyInput fly = {.forward = (actions::get_held(keys, actions::kForward) ? 1 : 0) -
                                          (actions::get_held(keys, actions::kBack) ? 1 : 0),
                               .right = (actions::get_held(keys, actions::kRight) ? 1 : 0) -
@@ -870,7 +870,7 @@ void move_with_keys(const EditorFrame& editor_frame)
     const bool selection_held = have_selection();
     // (the Outliner's lock - level_editor_organize.h: what it holds isn't moved, turned, scaled or dropped)
     const bool change_locked = selection_held && organize::selection_locked(false);
-    if (selection_held && !stored_browser().open) {
+    if (selection_held && !browser_has_keys()) {
         nudge_selection(editor_frame, change_locked);
         turn_selection_keys(editor_frame.shift);
         scale_selection_keys(editor_frame);
@@ -883,7 +883,7 @@ void move_with_keys(const EditorFrame& editor_frame)
         fly_without_selection(editor_frame);
     }
     follow_selection();
-    if (stored_browser().open && selection_held && !drag_session().dragging_ && !fly_camera().free_camera_) {
+    if (browser_has_keys() && selection_held && !drag_session().dragging_ && !fly_camera().free_camera_) {
         fly_camera().pos_ = target_of() + frame.back * fly_camera().orbit_distance_;
     }
 }

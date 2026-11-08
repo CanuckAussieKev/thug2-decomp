@@ -61,6 +61,8 @@ void tick_frame();
 void show_this_level();
 // Whether the browser shows This Level now (the Add Piece palette is inside it, not a window of its own).
 bool hosts_this_level();
+// Whether the browser's window (or one of its children) has the keyboard focus - drawn last frame.
+bool has_focus();
 // Whether the panel is open (Window / View > Content Browser).
 bool* open_flag();
 // The automation channel's `fe editor prop <level> <piece>`: that piece placed at the editor's cursor point (cut out

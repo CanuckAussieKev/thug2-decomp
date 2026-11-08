@@ -158,6 +158,7 @@ struct ContentState {
     bool drop_asked = false;
     // whether the Add Piece palette was opened for This Level by the browser
     bool hosting = false;
+    bool focused = false; // (the window had the keyboard focus when last drawn)
     std::array<char, kSearchSize> search{};
 };
 
@@ -1159,6 +1160,8 @@ std::string automation_place(const std::string& level, const std::string& name)
                                   : "error: no catalogue yet (open the Content Browser)";
 }
 
+bool has_focus() { return state().open && state().focused; }
+
 void note_toggled()
 {
     state().focus_next = state().open;
@@ -1181,7 +1184,9 @@ void panel(const ui::ShapeMesh& model, float scale)
         content.focus_next = false;
     }
     bool open = true;
-    if (ImGui::Begin(kWindow, &open, ImGuiWindowFlags_NoCollapse)) {
+    const bool window_shown = ImGui::Begin(kWindow, &open, ImGuiWindowFlags_NoCollapse);
+    content.focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    if (window_shown) {
         top_bar(scale);
         ImGui::Separator();
         const float status = ImGui::GetTextLineHeightWithSpacing();

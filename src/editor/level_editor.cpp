@@ -286,7 +286,7 @@ void handle_event(const input::Event& event)
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event.key == SDL_SCANCODE_ESCAPE && !event.repeat &&
             !actions::get_capturing() && !rotate_tool::asking()) { // (a question up: its own Escape)
-            if (drag_session().dragging_ || stored_browser().open || tool_options().help_ || place_palette().place_open_ ||
+            if (drag_session().dragging_ || browser_has_keys() || tool_options().help_ || place_palette().place_open_ ||
                 (confirmations().confirm_hide_ != 0U) || confirmations().confirm_reset_ ||
                 chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() ||
                 !picked_set().objects_.empty() || scenery::has_selection() || picked_set().node_selected_ ||
@@ -345,7 +345,7 @@ bool pass_pause_key(bool down)
     // (while dragging, browsing, reading the help or with something selected the key closes / deselects that instead - handle_event - and counts again
     // only once it has been up)
     // (drawing a chain: Enter finishes it - level_editor_chains.h)
-    if (drag_session().dragging_ || editor_session().cancel_requested_ || stored_browser().open || tool_options().help_ || have_selection() || picked_set().node_selected_ ||
+    if (drag_session().dragging_ || editor_session().cancel_requested_ || browser_has_keys() || tool_options().help_ || have_selection() || picked_set().node_selected_ ||
         chains::get_drawing() != chains::Blit::kNone || chains::wants_pick() || !ui::keys_to_editor()) {
         editor_session().pause_key_released_ = false;
         return false;
@@ -488,6 +488,11 @@ bool get_cast(V3 from, V3 to, V3* hit)
     return true;
 }
 bool ground_below(V3 from, V3* ground) { return get_cast(from, {.x = from.x, .y = from.y - kGroundProbeDepth, .z = from.z}, ground); }
+
+bool browser_has_keys()
+{
+    return stored_browser().open && (!content::hosts_this_level() || content::has_focus());
+}
 
 namespace {
 

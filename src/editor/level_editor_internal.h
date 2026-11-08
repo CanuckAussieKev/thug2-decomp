@@ -347,6 +347,10 @@ struct Browser {
 };
 
 Browser& stored_browser();
+// The Add Piece palette open and taking the keys (its F, arrows, Enter, Escape - not flying or deselecting): its own
+// window, or the Content Browser hosting it on This Level while that window has the focus (docked open, it doesn't
+// take the keys from the Scene).
+bool browser_has_keys();
 
 constexpr int kBrowserRows = 22;
 
