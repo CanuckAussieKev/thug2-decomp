@@ -442,6 +442,8 @@ void get_toolbar(const ShapeMesh& model)
     state.snap = model.snap_always_;
     state.grid = xform::get_grid();
     state.grids = xform::grid_sizes();
+    state.angle = xform::angle_step();
+    state.angles = xform::angle_steps();
     state.pick_filter_ = model.pick_filter_;
     state.level = model.level_title_;
     state.saved = model.edited_saved_;
@@ -489,6 +491,9 @@ void get_toolbar(const ShapeMesh& model)
             break;
         case ui_strip::Occurrence::Kind::kGrid:
             xform::set_grid(event.value);
+            break;
+        case ui_strip::Occurrence::Kind::kAngle:
+            xform::set_angle_step(event.value);
             break;
         case ui_strip::Occurrence::Kind::kPick:
             get_ask(Request::Kind::kPickFilter, 0, static_cast<uint32_t>(event.value));

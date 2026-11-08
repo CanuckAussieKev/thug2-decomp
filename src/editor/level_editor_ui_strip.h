@@ -20,6 +20,7 @@
 namespace frontend::level_editor::ui_strip {
 
 constexpr float kDefaultGridSize = 25.0F;
+constexpr float kDefaultAngleStep = 15.0F;
 constexpr uint32_t kDefaultPickFilter = 7; // nodes, objects and scenery
 
 // --- the pure placement ----------------------------------------------------------------------------------------------
@@ -64,6 +65,8 @@ struct State {
     bool snap = false;                                  // Snap on
     float grid = kDefaultGridSize;                                 // the grid's size
     std::vector<float> grids;                           // the sizes offered
+    float angle = kDefaultAngleStep;                    // the rotation snap (degrees)
+    std::vector<float> angles;                          // the steps offered
     uint32_t pick_filter_ = kDefaultPickFilter;                          // Picking::kNodes | kObjects | kScenery
     std::string level;                                  // the edited copy's title
     bool saved = false;                                 // its layout saved
@@ -84,6 +87,7 @@ struct Occurrence {
         kSpace,    // World / Local switched
         kSnap,     // value: 0 / 1
         kGrid,     // value: the grid's size
+        kAngle,    // value: the rotation snap (degrees)
         kPick,     // value: the pick filter's new bits
         kProblems, // the Problems window
         kBudget,   // the Problems window's Budget tab
