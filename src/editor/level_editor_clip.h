@@ -6,6 +6,7 @@
 
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"
+#include "editor/level_editor_nodes.h"
 
 // NOT ORIGINAL - the level editor's clipboards (ours; see level_editor.h).
 //   - Between levels (Ctrl+C / Ctrl+V): the selection copied to the system clipboard as text - a layout fragment
@@ -43,6 +44,9 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
+// A level's own spawn / crown / light / sound / proximity node as a new node of its kind at its place (false: not a
+// kind the editor makes) - as Ctrl+C copies one (level_editor_prefabs.h too).
+bool level_node_spec(const nodes::Elem& elem, node_create::Spec* spec);
 // Ctrl+C / Ctrl+V.
 bool dup_from(std::string* message);
 bool graft(std::string* message);

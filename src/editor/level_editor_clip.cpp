@@ -222,6 +222,8 @@ std::vector<uint32_t> selected_nodes()
 
 } // namespace
 
+bool level_node_spec(const nodes::Elem& elem, node_create::Spec* spec) { return spec_of_level_node(elem, spec); }
+
 bool dup_from(std::string* message)
 {
     const SelectionIds selection_ids = current_selection();

@@ -264,6 +264,9 @@ export interface Layout {
     // (UX9) raised / lowered ground pieces (level_editor_ground.h - tools/game/ground_pieces.ts); a record the game
     // wouldn't read is skipped there (logged) - here listed as unknown
     grounds: GroundSpec[];
+    // (prop packs - src/editor/level_editor_props.h) the packs the level loads: `prop <pack>` (their sectors' `sector` /
+    // `clone` records name the packs' own sectors)
+    props: string[];
 }
 
 // (UX7 - level_editor_links.h) a group of linked copies: `link sector|object <source> <member>[@q],...`. A sector is
@@ -587,6 +590,7 @@ export function readLayout(text: string): Layout {
         notes: [],
         linkGroups: [],
         grounds: [],
+        props: [],
     };
     const lines = text.split("\n");
     let header = false;
@@ -933,6 +937,13 @@ export function readLayout(text: string): Layout {
                 const ground = readGroundRecord(line.trim().replace(/^ground\s+/, ""));
                 if (ground) layout.grounds.push(ground);
                 else layout.unknown.push({ line: number, kind, text: line.trim() });
+                break;
+            }
+            case "prop": {
+                // (prop packs: props::prepare_all) prop <pack> - its scene loaded beside the level's
+                const id = words[1] ?? "";
+                if (!validWord(id)) fail("bad prop");
+                if (!layout.props.includes(id)) layout.props.push(id);
                 break;
             }
             case "note": {

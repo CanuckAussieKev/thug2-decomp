@@ -24,6 +24,10 @@
 //   - --dry-run reads and bakes in memory, writes nothing, and prints the report.
 //
 // What each record becomes (the game's meaning, src/editor/level_editor_*.h):
+//   prop (prop packs, src/editor/level_editor_props.h): the pack's files (<game>\thug2-decomp-props\levels\<pack>, else
+//     the overlay's) read; the `sector` / `clone` records of its sectors put copies of them into the level's own scene
+//     and collision (a pack sector not placed - hidden - leaves nothing), its materials into the scene and its textures
+//     into the level's .tex.xbx (written too); its rails are `point` records like any rail the editor added;
 //   sector / clone / rail / wall: the sector's render vertices (and normals) and its collision object moved -
 //     get_quarter_turn(per_axis(x, scale), quarters) + offset of the place as loaded (scale= one number or x,y,z along the
 //     piece's own axes); normals as the editor's reassemble: n / scale made unit length, then turned (unscaled: turned);
@@ -102,6 +106,7 @@ import {
     replaceGlobalArray,
     setStructEntries,
 } from "thug2-level-converter-core/level_port/qb_write.ts";
+import { readTex, type TexFile, writeTex } from "thug2-level-converter-core/level_port/tex.ts";
 import {
     buildTree,
     type ColFile,
@@ -1137,6 +1142,14 @@ export interface LevelFiles {
     scripts?: Buffer | null;
     // Levels.qb (the overlay's copy) - the `level` record's structure (null / absent: not baked, reported)
     levels?: Buffer | null;
+    // (prop packs) the level's textures and the packs its layout names (`prop` records), by name
+    tex?: TexFile | null;
+    packs?: ReadonlyMap<string, PackFiles>;
+}
+export interface PackFiles {
+    scene: Scene;
+    col: ColFile | null;
+    tex: TexFile;
 }
 export interface Baked {
     scene: Scene;
@@ -1144,6 +1157,7 @@ export interface Baked {
     qb: Buffer;
     scripts: Buffer | null; // (the scripts .qb, when the triggers' scripts went into it)
     levels: Buffer | null; // (Levels.qb, when a `level` record set something in it)
+    tex: TexFile | null; // (the level's textures, when prop packs' pieces added some)
     report: string[];
     warnings: string[];
     parity: string[];
@@ -1190,12 +1204,38 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
     const dropCollision = new Set<number>();
     const loaded = new Map<number, Sector>(); // (the sources of clones as loaded)
     const loadedCol = new Map<number, ColObject>();
+    // (prop packs - level_editor_props.h: the packs' sectors, as loaded at the origin; baked into the level's own scene
+    // and collision where their `sector` / `clone` records put them, their materials and textures added)
+    const packSectors = new Map<number, { pack: string; sector: Sector; col: ColObject | null }>();
+    for (const id of layout.props) {
+        const pack = files.packs?.get(id);
+        if (!pack) {
+            warnings.push(
+                `prop pack ${id}: not found (thug2-decomp-props / the overlay's levels\\${id}) - its pieces skipped`,
+            );
+            continue;
+        }
+        for (const s of pack.scene.sectors) {
+            packSectors.set(s.checksum, {
+                pack: id,
+                sector: s,
+                col: pack.col?.objects.find((o) => o.checksum === s.checksum) ?? null,
+            });
+        }
+    }
+    const packsUsed = new Set<string>();
     for (const c of layout.clones) {
         const s = sectorAt.get(c.source);
         if (s !== undefined && !loaded.has(c.source)) loaded.set(c.source, cloneSector(scene.sectors[s]!, c.source));
         const o = colAt.get(c.source);
         if (o !== undefined && col && !loadedCol.has(c.source))
             loadedCol.set(c.source, cloneCollision(col.objects[o]!, c.source));
+        const fromPack = s === undefined && o === undefined ? packSectors.get(c.source) : undefined;
+        if (fromPack && !loaded.has(c.source)) {
+            loaded.set(c.source, cloneSector(fromPack.sector, c.source));
+            if (fromPack.col) loadedCol.set(c.source, cloneCollision(fromPack.col, c.source));
+            packsUsed.add(fromPack.pack);
+        }
     }
     // Shared collision (level_editor_shared_coll.h): a moved / hidden piece takes the faces of collision-only objects
     // that belong to it - gathered on the level as loaded, in the records' order (a face taken is off for the next).
@@ -1264,6 +1304,25 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         const s = sectorAt.get(r.checksum);
         const o = colAt.get(r.checksum);
         if (s === undefined && o === undefined) {
+            const fromPack = packSectors.get(r.checksum);
+            if (fromPack) {
+                // (a pack's own sector: hidden - not placed - leaves nothing; placed, it joins the level's scene)
+                if (r.hidden) continue;
+                const copy = cloneSector(fromPack.sector, r.checksum);
+                placeSector(copy, r.placement);
+                scene.sectors.push(copy);
+                sectorAt.set(r.checksum, scene.sectors.length - 1);
+                if (fromPack.col && col) {
+                    const c = cloneCollision(fromPack.col, r.checksum);
+                    placeCollision(c, r.placement);
+                    col.objects.push(c);
+                    colAt.set(r.checksum, col.objects.length - 1);
+                }
+                packsUsed.add(fromPack.pack);
+                moved++;
+                breaks(`a prop pack's piece ${label(r.checksum)} added`);
+                continue;
+            }
             warnings.push(`sector ${label(r.checksum)}: not in the level's scene or collision - skipped`);
             continue;
         }
@@ -1812,7 +1871,31 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
             `${array.changed.size} level nodes changed (${fields} fields), ${array.nodes.length - array.original} nodes added ` +
             `(${triggerCount} triggers: node, box, script${scripts.length ? ` in ${files.scripts ? "the level's scripts .qb" : `${files.level}.qb`}` : ""})`,
     );
-    return { scene, col, qb, scripts: scriptsQb, levels, report, warnings, parity, unsupported };
+    // The prop packs' materials and textures the placed pieces need (those the level hasn't of the same checksum).
+    let tex: TexFile | null = null;
+    if (packsUsed.size) {
+        const haveMaterials = new Set(scene.materials.map((m) => m.checksum));
+        tex = files.tex ? { ...files.tex, textures: [...files.tex.textures] } : null;
+        const haveTextures = new Set((tex?.textures ?? []).map((t) => t.checksum));
+        for (const id of packsUsed) {
+            const pack = files.packs!.get(id)!;
+            for (const m of pack.scene.materials) {
+                if (!haveMaterials.has(m.checksum)) {
+                    scene.materials.push(m);
+                    haveMaterials.add(m.checksum);
+                }
+            }
+            for (const t of pack.tex.textures) {
+                if (tex && !haveTextures.has(t.checksum)) {
+                    tex.textures.push(t);
+                    haveTextures.add(t.checksum);
+                }
+            }
+        }
+        if (!tex) warnings.push("prop packs: the level has no .tex.xbx read - the pieces' textures not added");
+        report.push(`prop packs: ${[...packsUsed].join(", ")} - their placed pieces baked into the level's scene`);
+    }
+    return { scene, col, qb, scripts: scriptsQb, levels, tex, report, warnings, parity, unsupported };
 }
 
 function describeTrigger(s: Triggers.TriggerSpec): string {
@@ -1944,6 +2027,26 @@ export function findScriptsQb(game: string, dir: string, level: string): string 
 
 // Levels.qb: the data overlay's (scripts\game\Levels.qb - what the game reads while the overlay is there), else the
 // game's loose Data\scripts\game\Levels.qb; null when neither is there.
+// (prop packs) The packs a layout names: <game>\thug2-decomp-props\levels\<pack>, else the overlay's levels\<pack>.
+export function readPacks(game: string, ids: readonly string[]): Map<string, PackFiles> {
+    const out = new Map<string, PackFiles>();
+    for (const id of ids) {
+        for (const root of [path.join(game, "thug2-decomp-props"), path.join(game, OVERLAY)]) {
+            const file = (suffix: string): string => path.join(root, "levels", id, `${id}${suffix}`);
+            if (!fs.existsSync(file(".scn.xbx")) || !fs.existsSync(file(".tex.xbx"))) continue;
+            out.set(id, {
+                scene: readScene(fs.readFileSync(file(".scn.xbx")), file(".scn.xbx")),
+                col: fs.existsSync(file(".col.xbx"))
+                    ? readCol(fs.readFileSync(file(".col.xbx")), file(".col.xbx"))
+                    : null,
+                tex: readTex(fs.readFileSync(file(".tex.xbx")), file(".tex.xbx")),
+            });
+            break;
+        }
+    }
+    return out;
+}
+
 export function findLevelsQb(game: string): string | null {
     for (const file of [
         path.join(game, OVERLAY, "scripts", "game", "Levels.qb"),
@@ -2050,6 +2153,7 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     // (--install changes the overlay's own Levels.qb in place - only when make_menu_level.ts has made one)
     const overlayLevels = path.join(game, OVERLAY, "scripts", "game", "Levels.qb");
     const levelsPath = values.install ? (fs.existsSync(overlayLevels) ? overlayLevels : null) : findLevelsQb(game);
+    const texPath = path.join(dir, `${name}.tex.xbx`);
     const files: LevelFiles = {
         level: name,
         scene: readScene(fs.readFileSync(scnPath), scnPath),
@@ -2057,6 +2161,8 @@ export function main(argv: string[] = process.argv.slice(2)): number {
         qb: fs.readFileSync(path.join(dir, `${name}.qb`)),
         scripts: scriptsPath ? fs.readFileSync(scriptsPath) : null,
         levels: levelsPath ? fs.readFileSync(levelsPath) : null,
+        tex: layout.props.length && fs.existsSync(texPath) ? readTex(fs.readFileSync(texPath), texPath) : null,
+        packs: readPacks(game, layout.props),
     };
     const ported = registerLevels();
     const portedGame = ported.get(name.toLowerCase());
@@ -2115,6 +2221,7 @@ export function main(argv: string[] = process.argv.slice(2)): number {
             path.join(outDir, `${name}.scn.xbx`),
             ...(baked.col ? [path.join(outDir, `${name}.col.xbx`)] : []),
             path.join(outDir, `${name}.qb`),
+            ...(baked.tex ? [path.join(outDir, `${name}.tex.xbx`)] : []),
             ...(baked.scripts && scriptsPath ? [path.join(outDir, path.basename(scriptsPath))] : []),
             ...levelsTargets,
             reportPath,
@@ -2136,6 +2243,11 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     }
     new QbFile(baked.qb, name, true);
     fs.writeFileSync(path.join(outDir, `${name}.qb`), baked.qb);
+    if (baked.tex) {
+        const texData = writeTex(baked.tex);
+        readTex(texData, name);
+        fs.writeFileSync(path.join(outDir, `${name}.tex.xbx`), texData);
+    }
     if (baked.scripts && scriptsPath) {
         new QbFile(baked.scripts, path.basename(scriptsPath), true);
         fs.writeFileSync(path.join(outDir, path.basename(scriptsPath)), baked.scripts);

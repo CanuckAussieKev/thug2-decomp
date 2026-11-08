@@ -27,7 +27,9 @@
 //     to one keeps the current layout in its own snapshot first, puts the chosen one in place (one undo step) and saves
 //     it as the edited copy's layout (<scene>.txt) - the one the level select's (EDITED) entry loads: the active one.
 // Records (editor-only - an older reader skips them; the Changes panel doesn't list them):
-//   group <name> o:<id>,s:<checksum>,n:<node>...   a user group (its name %-escaped)
+//   group <name> o:<id>,s:<checksum>,n:<node>...   a user group (its name %-escaped); a copy of scenery as c:<n> - the
+//                                                   n-th of the layout's `clone` records (a copy's checksum is new
+//                                                   each time the layout goes in; an older reader refuses the record)
 //   label <checksum> <text>                         a row's label (%-escaped)
 //   edlock <checksum>                               locked against changes
 //   nopick <node>                                   a node's gizmo not selectable

@@ -38,6 +38,7 @@
 #include "editor/level_editor_import.h"
 #include "editor/level_editor_internal.h"
 #include "editor/level_editor_modules.h"
+#include "editor/level_editor_prefabs.h"
 #include "editor/level_editor_props.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_app.h"
@@ -89,7 +90,7 @@ constexpr float kPanelHeight = 320.0F;
 constexpr float kTinyScale = 0.0001F;
 constexpr int kBoxCorners = 8;
 
-enum class Folder : uint8_t { kThisLevel, kScenery, kRails, kPacks, kRecent, kFavourites };
+enum class Folder : uint8_t { kThisLevel, kScenery, kRails, kPacks, kRecent, kFavourites, kPrefabs };
 
 struct Job {
     std::string kind; // catalogue, thumbs, extract
@@ -356,6 +357,8 @@ void start_next()
         content.status = "Cataloguing the levels\xE2\x80\xA6";
     } else if (content.running.kind == "thumbs") {
         content.status = "Drawing " + content.running.level + "'s pictures\xE2\x80\xA6";
+    } else if (content.running.kind == "prefab-thumb") {
+        content.status = "Drawing the prefab " + content.running.level + "\xE2\x80\xA6";
     } else {
         content.status = "Cutting out " + content.running.level + "\xE2\x80\xA6";
     }
@@ -407,7 +410,7 @@ void run_finished(int exit_code)
     content.status.clear();
     if (job.kind == "catalogue") {
         read_catalogue_file();
-    } else if (job.kind == "thumbs") {
+    } else if (job.kind == "thumbs" || job.kind == "prefab-thumb") {
         content.missing.clear(); // (asked again)
     } else if (job.kind == "extract") {
         list_packs();
@@ -473,10 +476,9 @@ ImVec2 window_per_back()
     return {width > 0 ? display.x / static_cast<float>(width) : 1.0F, height > 0 ? display.y / static_cast<float>(height) : 1.0F};
 }
 
-const ui_backend::Picture* picture_of(const Piece& piece)
+const ui_backend::Picture* picture_named(const std::string& name)
 {
     ContentState& content = state();
-    const std::string name = text::format("props\\%s\\%08x", lowered(piece.level).c_str(), piece.checksum);
     auto it = content.pictures.find(name);
     if (it == content.pictures.end()) {
         if (content.missing.contains(name) || content.loads_this_frame >= kPicturesPerFrame) {
@@ -497,6 +499,11 @@ const ui_backend::Picture* picture_of(const Piece& piece)
     }
     it->second.used = content.frame;
     return &it->second.picture;
+}
+
+const ui_backend::Picture* picture_of(const Piece& piece)
+{
+    return picture_named(text::format("props\\%s\\%08x", lowered(piece.level).c_str(), piece.checksum));
 }
 
 void ask_thumbs(const std::string& level)
@@ -561,6 +568,7 @@ std::vector<int> shown_pieces()
         }
         break;
     case Folder::kThisLevel:
+    case Folder::kPrefabs:
         break;
     }
     return out;
@@ -779,6 +787,10 @@ void folder_tree()
         content.folder = Folder::kPacks;
         list_packs();
     }
+    if (tree_leaf("Prefabs", content.folder == Folder::kPrefabs)) {
+        content.folder = Folder::kPrefabs;
+    }
+    prefabs::accept_group_drop(); // (an Outliner group dropped here: a prefab of it)
     if (tree_leaf("Recent", content.folder == Folder::kRecent)) {
         content.folder = Folder::kRecent;
     }
@@ -803,6 +815,8 @@ std::string breadcrumb()
         return "Recent";
     case Folder::kFavourites:
         return "Favorites";
+    case Folder::kPrefabs:
+        return "Prefabs";
     }
     return {};
 }
@@ -812,8 +826,8 @@ void top_bar(float scale)
     ContentState& content = state();
     ImGui::TextUnformatted(breadcrumb().c_str());
     ImGui::SameLine();
-    if (content.folder == Folder::kThisLevel) {
-        return; // (This Level: the palette's own filter and Grid / List below)
+    if (content.folder == Folder::kThisLevel || content.folder == Folder::kPrefabs) {
+        return; // (This Level: the palette's own filter and Grid / List below; Prefabs: its own)
     }
     const float search_width = kSearchWidth * scale;
     ImGui::SameLine(std::max(ImGui::GetCursorPosX(), (ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x) - (search_width + (kFiltersWidth * scale))));
@@ -1071,6 +1085,7 @@ void prepare_all()
     search.defaults = search.keys = {actions::Chord{.scancode = SDL_SCANCODE_F, .mods = actions::kCtrl}};
     content.act_search = actions::enrol(search);
     props::prepare_all();
+    prefabs::prepare_all();
 }
 
 void tick_frame()
@@ -1111,6 +1126,7 @@ void tick_frame()
         ask_thumbs(content.level);
     }
     tick_child();
+    prefabs::tick_frame();
     // The drag's box: the ground under the cursor (the editor's own cursor ray is the UI's during a drag).
     content.have_ghost = false;
     if (content.dragging && content.over_scene) {
@@ -1159,6 +1175,25 @@ std::string automation_place(const std::string& level, const std::string& name)
                                   : "error: no catalogue yet (open the Content Browser)";
 }
 
+void run_tool(const std::string& kind, const std::vector<std::string>& arguments, const std::string& label)
+{
+    if (tools_there()) {
+        queue(kind, arguments, label);
+    }
+}
+
+const ui_backend::Picture* picture(const std::string& name) { return picture_named(name); }
+
+void forget_picture(const std::string& name)
+{
+    ContentState& content = state();
+    content.missing.erase(name);
+    if (auto it = content.pictures.find(name); it != content.pictures.end()) {
+        ui_backend::release_texture(it->second.picture.texture);
+        content.pictures.erase(it);
+    }
+}
+
 void note_toggled()
 {
     state().focus_next = state().open;
@@ -1170,6 +1205,7 @@ void panel(const ui::ShapeMesh& model, float scale)
     ContentState& content = state();
     preview_window(scale);
     drag_feedback(scale);
+    prefabs::overlay(scale); // (Create Prefab's name, a prefab's drag)
     if (!content.open) {
         return;
     }
@@ -1193,6 +1229,8 @@ void panel(const ui::ShapeMesh& model, float scale)
         if (ImGui::BeginChild("##items", ImVec2(0.0F, -status))) {
             if (content.folder == Folder::kThisLevel) {
                 ui::internal::browser_body(model, true);
+            } else if (content.folder == Folder::kPrefabs) {
+                prefabs::folder_body(scale);
             } else {
                 const std::vector<int> shown = shown_pieces();
                 if (shown.empty()) {
@@ -1205,6 +1243,7 @@ void panel(const ui::ShapeMesh& model, float scale)
             }
         }
         ImGui::EndChild();
+        prefabs::accept_group_drop();
         ImGui::PushFont(ui::internal::imgui_setup().small_);
         if (!content.status.empty()) {
             ui::internal::get_muted(content.status.c_str());

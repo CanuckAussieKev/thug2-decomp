@@ -26,7 +26,9 @@
 #include "editor/level_editor_open.h"
 #include "editor/level_editor_play.h"
 #include "editor/level_editor_playtest.h"
+#include "editor/level_editor_prefabs.h"
 #include "editor/level_editor_prefs.h"
+#include "editor/level_editor_triggers.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_app.h"
 #include "editor/level_editor_ui_theme.h"
@@ -1046,9 +1048,34 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         // "placed prop pack" says when it is in)
         *result = content::automation_place(words.at(2), words.at(3));
         return true;
+    } else if (verb == "preset" && words.size() > 2 && level_editor::live_now()) {
+        // (the Triggers window's presets where the view looks: booster, teleport, twowaygap - level_editor_triggers.h)
+        const std::string& which = words.at(2);
+        if (which == "booster") {
+            triggers::get_queue([] { triggers::add_booster(false); });
+        } else if (which == "teleport") {
+            triggers::get_queue([] { triggers::add_teleport_pair(); });
+        } else if (which == "twowaygap") {
+            triggers::get_queue([] { triggers::add_two_way_gap(); });
+        } else {
+            *result = "error: preset booster|teleport|twowaygap";
+            return true;
+        }
+        *result = "ok " + which;
+        return true;
+    } else if (verb == "prefab" && level_editor::live_now()) {
+        // (prefabs - level_editor_prefabs.h: list, create <name> [sectors= objects= nodes=], place <name> [x,y,z])
+        *result = prefabs::automation(std::vector<std::string>(words.begin() + 1, words.end()));
+        return true;
     } else if (verb == "save" && level_editor::live_now()) {
+        // (as Ctrl+S: saved, the editor has no unsaved changes - no autosave written on leaving)
         std::string message;
-        *result = layout::store_away(&message) ? "ok " + message : "error: " + message;
+        const bool saved = layout::store_away(&message);
+        if (saved) {
+            internal::unsaved_changes().unsaved_ = false;
+            internal::unsaved_changes().offer_pending_ = false;
+        }
+        *result = saved ? "ok " + message : "error: " + message;
         return true;
     } else if ((verb == "play" || verb == "playhere") && level_editor::live_now()) {
         if (verb == "play") {
