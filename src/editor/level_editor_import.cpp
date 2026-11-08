@@ -428,7 +428,9 @@ void start_export(bool install)
             }
         }
         if (keys.empty()) {
-            return;
+            // (none checked: the prop packs placed in THUG2's levels alone - level_editor_props.h; the levels already
+            // in the install kept)
+            keys.emplace_back("none");
         }
     }
     if (!export_installed() || state.retail_folder.empty()) {
@@ -437,8 +439,14 @@ void start_export(bool install)
     state.message.clear();
     state.failed = false;
     state.export_verb = install ? "install" : "uninstall";
-    add_line(install ? "> Installing " + std::to_string(keys.size()) + " level(s) into " + state.retail_folder
-                     : "> Taking the exported levels out of " + state.retail_folder);
+    const bool props_only = keys.size() == 1 && keys.front() == "none";
+    if (!install) {
+        add_line("> Taking the exported levels out of " + state.retail_folder);
+    } else if (props_only) {
+        add_line("> Exporting the placed prop packs into " + state.retail_folder);
+    } else {
+        add_line("> Installing " + std::to_string(keys.size()) + " level(s) into " + state.retail_folder);
+    }
     get_log("level import: retail %s into %s", state.export_verb.c_str(), state.retail_folder.c_str());
     start_retail(Phase::kExporting, state.export_verb.c_str(), keys);
 }
@@ -892,7 +900,8 @@ void button_row(float scale, bool busy_now)
     }
     const bool can_export = export_installed();
     const bool has_folder = !state.retail_folder.empty();
-    ImGui::BeginDisabled(busy_now || !can_export || !has_folder || !any_imported_checked);
+    // (with no level checked it exports the prop packs placed in THUG2's own levels - the Content Browser's)
+    ImGui::BeginDisabled(busy_now || !can_export || !has_folder || (checked > 0 && !any_imported_checked));
     if (ImGui::Button("Export to Retail Install...", ImVec2(kWideButtonWidth * scale, 0.0F))) {
         start_export(true);
     }

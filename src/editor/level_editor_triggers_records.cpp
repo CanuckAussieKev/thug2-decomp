@@ -61,6 +61,8 @@ constexpr uint32_t kOtherColour = 0xFF8C9AAA;
 constexpr uint32_t kBoostColour = 0xFF3F9BFF;
 constexpr uint32_t kBreakColour = 0xFFD8EEFF;
 constexpr uint32_t kViewCamColour = 0xFFFFA040;
+constexpr uint32_t kSpeedColour = 0xFF40E0FF;
+constexpr uint32_t kExitColour = 0xFFE07CFF;
 
 // A breakable Shatter call.
 constexpr int kShatterArea = 5000;
@@ -253,6 +255,10 @@ const char* kind_name(Kind kind)
         return "Breakable";
     case Kind::kViewCam:
         return "Camera";
+    case Kind::kSpeed:
+        return "Booster";
+    case Kind::kExit:
+        return "Teleport exit";
     }
     return "?";
 }
@@ -278,6 +284,10 @@ const char* kind_word(Kind kind)
         return "break";
     case Kind::kViewCam:
         return "camera";
+    case Kind::kSpeed:
+        return "booster";
+    case Kind::kExit:
+        return "exit";
     }
     return "other";
 }
@@ -314,6 +324,10 @@ uint32_t kind_colour(Kind kind)
         return kBreakColour;
     case Kind::kViewCam:
         return kViewCamColour;
+    case Kind::kSpeed:
+        return kSpeedColour;
+    case Kind::kExit:
+        return kExitColour;
     }
     return kOtherColour;
 }
@@ -365,7 +379,8 @@ bool same_spec(const Spec& a, const Spec& b)
     return a.name == b.name && a.kind == b.kind && a.size.x == b.size.x && a.size.y == b.size.y &&
            a.size.z == b.size.z && a.water == b.water && a.target == b.target && a.script == b.script &&
            a.gap == b.gap && a.flags == b.flags && a.text == b.text && a.score == b.score && a.replaces == b.replaces &&
-           a.exit == b.exit && a.strength == b.strength && a.sound == b.sound && a.seconds == b.seconds;
+           a.exit == b.exit && a.strength == b.strength && a.sound == b.sound && a.seconds == b.seconds &&
+           a.along == b.along && a.keep == b.keep;
 }
 
 uint32_t checksum_of(const std::string& name)
@@ -424,6 +439,9 @@ const char* get_problem(const Spec& spec)
         return spec.target.empty() ? "Choose the piece it breaks" : nullptr;
     case Kind::kViewCam:
         return spec.target.empty() ? "Choose the camera it plays" : nullptr;
+    case Kind::kSpeed:
+    case Kind::kExit:
+        return nullptr;
     }
     return "?";
 }
@@ -531,8 +549,16 @@ std::vector<uint8_t> get_body(const Spec& spec)
         out.push_back(0x01);
         break;
     case Kind::kJumpTo:
-        put_name(&out, get_teleport());
-        put_name_value(&out, current_node_name(), checksum_of(spec.target));
+        if (spec.keep) {
+            // Obj_MoveToNode name=<target> NoReset (TeleportSkaterToNode's move without its Orient: heading and speed
+            // kept)
+            put_name(&out, get_checksums("Obj_MoveToNode"));
+            put_name_value(&out, get_checksums("name"), checksum_of(spec.target));
+            put_name(&out, get_checksums("NoReset"));
+        } else {
+            put_name(&out, get_teleport());
+            put_name_value(&out, current_node_name(), checksum_of(spec.target));
+        }
         out.push_back(0x01);
         break;
     case Kind::kScripts:
@@ -637,6 +663,45 @@ std::vector<uint8_t> get_body(const Spec& spec)
         out.push_back(0x01);
         break;
     }
+    case Kind::kSpeed: {
+        // SK6_SFX_Roll_Booster_Sound (the booster sound trigger_speed_boost plays), then
+        //   along: trigger_speed_boost speed=<n>
+        //   else:  GetSkaterVelocity / SetSkaterVelocity vel_x=<x> vel_y=<vel_y> vel_z=<z> - the facing times the speed
+        const int speed = std::max(kBoostMin, std::min(kBoostMax, spec.strength));
+        put_name(&out, get_checksums("SK6_SFX_Roll_Booster_Sound"));
+        out.push_back(0x01);
+        if (spec.along) {
+            put_name(&out, get_checksums("trigger_speed_boost"));
+            put_name(&out, get_checksums("speed"));
+            out.push_back(script::token_byte(script::QbToken::kEquals));
+            out.push_back(script::token_byte(script::QbToken::kInteger));
+            get_put4(&out, static_cast<uint32_t>(speed));
+            out.push_back(0x01);
+            break;
+        }
+        const double yaw = std::isfinite(spec.facing) ? static_cast<double>(spec.facing) : 0.0;
+        const auto vel_x = static_cast<float>(std::sin(yaw) * speed);
+        const auto vel_z = static_cast<float>(std::cos(yaw) * speed);
+        put_name(&out, get_checksums("GetSkaterVelocity"));
+        out.push_back(0x01);
+        put_name(&out, get_checksums("SetSkaterVelocity"));
+        auto real = [&](const char* key, float value) {
+            put_name(&out, get_checksums(key));
+            out.push_back(script::token_byte(script::QbToken::kEquals));
+            out.push_back(script::token_byte(script::QbToken::kFloat));
+            get_put4(&out, std::bit_cast<uint32_t>(value));
+        };
+        real("vel_x", vel_x);
+        put_name(&out, get_checksums("vel_y"));
+        out.push_back(script::token_byte(script::QbToken::kEquals));
+        out.push_back(script::token_byte(script::QbToken::kLocalArgument));
+        put_name(&out, get_checksums("vel_y"));
+        real("vel_z", vel_z);
+        out.push_back(0x01);
+        break;
+    }
+    case Kind::kExit:
+        break; // (a destination: no script of its own)
     }
     return out;
 }
@@ -734,8 +799,14 @@ std::string link_record(const Placed& placed)
     if (spec.exit) {
         out << " exit=1";
     }
-    if (spec.kind == Kind::kBoost) {
+    if (spec.kind == Kind::kBoost || spec.kind == Kind::kSpeed) {
         out << " strength=" << spec.strength;
+    }
+    if (spec.kind == Kind::kSpeed && spec.along) {
+        out << " along=1";
+    }
+    if (spec.kind == Kind::kJumpTo && spec.keep) {
+        out << " keep=1";
     }
     if (!spec.sound.empty()) {
         out << " sound=" << spec.sound;
@@ -769,6 +840,13 @@ bool read_flags(const std::string& value, std::vector<std::string>* flags)
         at = comma + 1;
     }
     return ok;
+}
+
+// A record's 0 / 1 (false: anything else).
+bool read_bit(const std::string& value, bool* out)
+{
+    *out = value == "1";
+    return value == "0" || value == "1";
 }
 
 } // namespace
@@ -809,7 +887,12 @@ bool read_record(const std::string& line, Placed* placed)
     bool have_strength = false;
     bool have_sound = false;
     bool have_seconds = false;
+    bool have_along = false;
+    bool have_keep = false;
     spec.score = kDefaultGapScore;
+    if (spec.kind == Kind::kSpeed) {
+        spec.strength = kDefaultBoosterSpeed; // (strength= missing: the booster's default)
+    }
     auto once = [](bool* seen) {
         if (*seen) {
             return false;
@@ -837,8 +920,7 @@ bool read_record(const std::string& line, Placed* placed)
             ok = once(&have_target) && valid_name(value);
             spec.target = value;
         } else if (key == "water") {
-            ok = once(&have_water) && (value == "0" || value == "1");
-            spec.water = value == "1";
+            ok = once(&have_water) && read_bit(value, &spec.water);
         } else if (key == "script") {
             ok = once(&have_script) && valid_name(value);
             spec.script = value;
@@ -860,14 +942,17 @@ bool read_record(const std::string& line, Placed* placed)
                  *end == '\0';
             spec.replaces = static_cast<uint32_t>(checksum);
         } else if (key == "exit") {
-            ok = once(&have_exit) && (value == "0" || value == "1");
-            spec.exit = value == "1";
+            ok = once(&have_exit) && read_bit(value, &spec.exit);
         } else if (key == "strength") {
             char* end = nullptr;
             const long strength = std::strtol(value.c_str(), &end, 10);
             ok = once(&have_strength) && !value.empty() && (end != nullptr) && *end == '\0' && strength >= kBoostMin &&
                  strength <= kBoostMax;
             spec.strength = static_cast<int>(strength);
+        } else if (key == "along") {
+            ok = once(&have_along) && read_bit(value, &spec.along);
+        } else if (key == "keep") {
+            ok = once(&have_keep) && read_bit(value, &spec.keep);
         } else if (key == "sound") {
             ok = once(&have_sound) && valid_name(value);
             spec.sound = value;

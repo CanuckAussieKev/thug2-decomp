@@ -38,7 +38,8 @@ struct CtxInfo {
     bool chain_drawing_ = false, ladder_drawing_ = false, chain_pick_ = false;
     std::string chain_waiting_; // (Chains::Waiting)
     bool ruler_armed_ = false, faces_mode_ = false, box_armed_ = false;
-    int ux9_tool_ = 0; // (UX9 - level_editor_ux9.h) 1 the gap wizard picking, 2 the ground tool marking a rectangle
+    int ux9_tool_ = 0; // (UX9 - level_editor_ux9.h) 1 the gap wizard picking, 2 the ground tool marking a rectangle,
+                       // 3 Rail from Edges picking (level_editor_rail_tools.h)
     bool chain_point_ = false; // a rail / ladder / path point selected
     bool following = false;    // the camera follows the selection (Shift+F)
     bool walking = false;      // walk mode

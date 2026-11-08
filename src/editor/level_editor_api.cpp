@@ -478,5 +478,18 @@ V3 cursor_point()
     return level_editor::cursor_point(drawn_view().last_ray_, drawn_view().last_have_ray_, fly_camera().frame());
 }
 
+bool cursor_point_at(float back_x, float back_y, V3* point)
+{
+    float nx = 0.0F;
+    float ny = 0.0F;
+    if (!editor_session().active_ || !drawn_view().have_view_ ||
+        !pixel_to_ndc(drawn_view().viewport_, back_x, back_y, &nx, &ny)) {
+        return false;
+    }
+    const TickCycle frame = fly_camera().frame();
+    *point = level_editor::cursor_point(ray_direction(frame, drawn_view().lens_, nx, ny), true, frame);
+    return true;
+}
+
 } // namespace edit
 } // namespace frontend::level_editor

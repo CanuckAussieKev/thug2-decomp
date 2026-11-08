@@ -3,6 +3,7 @@
 // and the editor's pure / read-only calls (the node layer, Fields::rows_of); what's changed goes to the editor as
 // requests.
 
+#include <algorithm>
 #include <array>
 #include <cfloat>
 #include <cstdint>
@@ -42,6 +43,7 @@ constexpr float kApplyReserve = 60.0F;     // room left at the right for the App
 constexpr float kNoteReserve = 90.0F;      // room left at the right for a field's "(original: ...)" note
 constexpr std::size_t kOwnStateTextSize = 48;
 constexpr float kFogDistanceDragSpeed = 10.0F;
+constexpr float kFallDragSpeed = 5.0F; // (level flags: feet per pixel dragged)
 constexpr int kMaxFogDistance = 100000;
 
 constexpr ImVec4 kError = ImVec4(1.0F, 0.45F, 0.4F, 1.0F);
@@ -748,6 +750,67 @@ void level_fog_row(const LevelPanel& panel)
     get_when(panel.small_font, {.when = "live", .tip = "Fog colour, alpha and distance (alpha 0: no fog)"});
 }
 
+// Level flags: how far the skater may fall before being put back (uber_frig_height).
+void level_fall_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Fall reset");
+    const int own = std::clamp(level.have_defaults_ ? level.defaults.fall_depth : level_props::kDefaultFallDepth,
+                               level_props::kFallDepthMin, level_props::kFallDepthMax);
+    bool set = props.fall_depth >= 0;
+    if (ImGui::Checkbox("##fall", &set)) {
+        props.fall_depth = set ? own : -1;
+        send_props(panel.requests, props, true);
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!set);
+    int depth = set ? props.fall_depth : own;
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::DragInt("##falldepth", &depth, kFallDragSpeed, level_props::kFallDepthMin, level_props::kFallDepthMax, "%d ft",
+                       ImGuiSliderFlags_AlwaysClamp) &&
+        set) {
+        props.fall_depth = depth;
+        send_props(panel.requests, props, false);
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        panel.requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
+    ImGui::EndDisabled();
+    get_when(panel.small_font, {.when = "on reload", .tip = "Drop with no ground below before the skater is put back"});
+}
+
+// Level flags: the sun's angle in each time of day (sun_theta).
+void level_sun_row(const LevelPanel& panel)
+{
+    const ShapeMesh::LevelView& level = *panel.level;
+    level_props::Props& props = *panel.props;
+    level_row("Sun angle");
+    bool set = props.has_sun_;
+    if (ImGui::Checkbox("##sun", &set)) {
+        props.has_sun_ = set;
+        if (set && level.have_defaults_ && level.defaults.has_sun_) {
+            props.sun = level.defaults.sun;
+        }
+        send_props(panel.requests, props, true);
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!props.has_sun_);
+    std::array<int, level_props::kStates> angles = props.has_sun_ ? props.sun : level.defaults.sun;
+    ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
+    if (ImGui::DragInt4("##sunangles", angles.data(), 1.0F, 0, level_props::kSunMax, "%d",
+                        ImGuiSliderFlags_AlwaysClamp) &&
+        props.has_sun_) {
+        props.sun = angles;
+        send_props(panel.requests, props, false);
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        panel.requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
+    ImGui::EndDisabled();
+    get_when(panel.small_font, {.when = "on reload", .tip = "Sun angle: morning, afternoon, evening, night (degrees)"});
+}
+
 } // namespace
 
 void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
@@ -777,6 +840,16 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         level_sky_row(panel);
         level_ambient_row(panel);
         level_fog_row(panel);
+        ImGui::EndTable();
+    }
+    ImGui::SeparatorText("Level Flags");
+    if (ImGui::BeginTable("##levelflags", 2, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("##label", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch);
+        const LevelPanel panel{
+            .level = &level, .props = &props, .mono = mono, .small_font = small_font, .requests = requests};
+        level_fall_row(panel);
+        level_sun_row(panel);
         ImGui::EndTable();
     }
     if (!level_props::vacant(level.props)) {

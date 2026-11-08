@@ -126,6 +126,8 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         ImGui::EndMenu();
     }
     get_items({"collision", "faces", "occlusion"});
+    ImGui::Separator();
+    get_items({"content_browser", "browser"});
     gizmo_lines::behind_menu(); // (level_editor_gizmo_lines.h)
     ImGui::Separator();
     get_items({"hide", "isolate", "show_all"});
@@ -190,6 +192,8 @@ void tools_menu()
     }
     if (ImGui::BeginMenu("Rails and Paths")) {
         get_items({"chain_insert", "chain_extend", "chain_link", "chain_unlink", "chain_finish"});
+        ImGui::Separator();
+        get_items({"rail_edges", "join_rails"});
         ImGui::EndMenu();
     }
     ImGui::Separator();
@@ -223,6 +227,16 @@ void play_menu()
     ImGui::EndMenu();
 }
 
+// Tools still being tried out (level_editor_rail_tools.h's Auto Rails).
+void experimental_menu()
+{
+    if (!get_menu("Experimental")) {
+        return;
+    }
+    get_item({.id = "auto_rails"});
+    ImGui::EndMenu();
+}
+
 void help_menu()
 {
     if (!get_menu("Help")) {
@@ -246,6 +260,7 @@ void menu_bar(const ShapeMesh& model, const ux8::Fonts& fonts, std::vector<Reque
     tools_menu();
     window_menu();
     play_menu();
+    experimental_menu();
     help_menu();
 }
 

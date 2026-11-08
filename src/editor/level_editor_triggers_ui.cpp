@@ -3,10 +3,12 @@
 // (Triggers::Queue).
 
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <span>
 #include <string>
 #include <vector>
@@ -16,6 +18,7 @@
 #include "editor/level_editor_cameras.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_nodes.h"
+#include "editor/level_editor_presets.h"
 #include "editor/level_editor_triggers.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
@@ -254,6 +257,14 @@ void proxim_section(uint32_t node)
     }
 }
 
+// Two node names the same (case doesn't matter, as checksums).
+bool same_name(const std::string& a, const std::string& b)
+{
+    return std::ranges::equal(a, b, [](char x, char y) {
+        return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+    });
+}
+
 const Added* added_named(uint32_t name)
 {
     for (const Added& added_trigger : added_triggers()) {
@@ -316,9 +327,38 @@ void level_trigger_details(const LevelTrigger& level_trigger)
     }
 }
 
+// A preset button: `action` queued when clicked, `tip` on hover; on the same line as the last unless `first`.
+void preset_button(const char* label, std::function<void()> action, const char* tip, bool first = false)
+{
+    if (!first) {
+        ImGui::SameLine();
+    }
+    if (ImGui::Button(label)) {
+        get_queue(std::move(action));
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("%s", tip);
+    }
+}
+
+// The presets: one-click setups where the view looks (level_editor_triggers.h, level_editor_presets.h).
+void preset_buttons()
+{
+    gui::text_disabled("Presets:");
+    preset_button("Booster Pad", [] { add_booster(false); }, "Speed pad: pushes the skater the way the arrow points",
+                  true);
+    preset_button("Booster Area", [] { add_booster(true); }, "Speed zone: a wide floor area");
+    preset_button("Teleport + Exit", [] { add_teleport_pair(); }, "Teleport and the spot it sends the skater to");
+    preset_button("Two-way Gap", [] { add_two_way_gap(); }, "A gap each way between two spots", true);
+    preset_button("Car on Path", [] { presets::add_on_path(true); }, "A copy of one of the level's cars on a new loop path");
+    preset_button("Ped on Path", [] { presets::add_on_path(false); }, "A copy of one of the level's peds on a new loop path");
+    ImGui::Spacing();
+}
+
 // The add buttons: a trigger of each kind at the view's centre.
 void add_buttons()
 {
+    preset_buttons();
     gui::text_disabled("Add at view center:");
     if (ImGui::Button("Kill zone")) {
         get_queue([] { add_kill(false); });
@@ -499,10 +539,61 @@ bool camera_fields(Spec& spec, const std::string& key, std::array<char, kTextBuf
     return changed;
 }
 
+// (presets) A teleport exit's section: what leads there.
+void exit_section(const Spec& spec)
+{
+    // (a teleport's destination: no box, no script - the skater arrives here, facing the arrow)
+    gui::text_colored(get_colour(kind_colour(spec.kind)), "Teleport exit");
+    int users = 0;
+    for (const Added& other : added_triggers()) {
+        users += other.spec.kind == Kind::kJumpTo && same_name(other.spec.target, spec.name) ? 1 : 0;
+    }
+    gui::text_disabled("%d teleport%s lead here", users, users == 1 ? "" : "s");
+    gui::text_disabled("Turn it to set the exit heading");
+}
+
+// (presets) A teleport's Keep Heading and Add Exit; whether they changed it.
+bool teleport_fields(Spec& spec)
+{
+    const bool changed = ImGui::Checkbox("Keep Heading", &spec.keep);
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Keep the skater's heading and speed (off: face the way the exit faces)");
+    }
+    if (!is_exit(spec.target) && ImGui::Button("Add Exit")) {
+        get_queue([key = spec.name] { add_exit_for(key); });
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Place an exit in front of it and send the skater there");
+    }
+    return changed;
+}
+
+// (presets) A booster's speed (one undo step a drag) and Keep Direction; whether the latter changed.
+bool booster_fields(Spec& spec)
+{
+    int speed = spec.strength;
+    if (ImGui::SliderInt("Speed", &speed, kBoostMin, kBoostMax, "%d", ImGuiSliderFlags_AlwaysClamp) &&
+        speed != spec.strength) {
+        Spec boosted = spec;
+        boosted.strength = speed;
+        get_queue([key = spec.name, boosted] { set_spec(key, boosted, false); });
+    }
+    if (ImGui::IsItemActivated()) {
+        get_queue([] { begin_edit(); });
+    }
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Skater speed after the boost (1000 fast, 2500 launch)");
+    }
+    const bool changed = ImGui::Checkbox("Keep Direction", &spec.along);
+    if (ImGui::IsItemHovered()) {
+        gui::tooltip("Boost the way the skater is going (off: push the way the arrow points)");
+    }
+    return changed;
+}
+
 } // namespace
 
-void pane(PaneArea area, PaneState pane_state)
-{
+void pane(PaneArea area, PaneState pane_state){
     const auto scale = pane_state.scale;
     const auto selected_node = pane_state.selected_node_;
     const auto view_x = area.x;
@@ -590,9 +681,13 @@ void inspector_section(int index)
         gui::text_disabled("Shatters when hit");
         return;
     }
+    if (spec.kind == Kind::kExit) {
+        exit_section(spec);
+        return;
+    }
     // The kind.
-    const auto kinds = std::to_array<Kind>({Kind::kKill,   Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
-                          Kind::kGapEnd, Kind::kBoost,  Kind::kViewCam});
+    const auto kinds = std::to_array<Kind>({Kind::kKill, Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
+                                            Kind::kGapEnd, Kind::kBoost, Kind::kSpeed, Kind::kViewCam});
     changed |= kind_combo(spec, kinds);
     // The size (one undo step a drag).
     std::array<float, 3> size = {{spec.size.x, spec.size.y, spec.size.z}};
@@ -621,6 +716,7 @@ void inspector_section(int index)
     case Kind::kJumpTo:
         changed |= name_combo("To", &spec.target, level_editor_triggers_ui_state().restarts_);
         changed |= name_field("Or a node", &spec.target, target.data(), sizeof(target), &g_target_editing);
+        changed |= teleport_fields(spec);
         break;
     case Kind::kScripts:
         changed |= name_combo("Script", &spec.script, level_editor_triggers_ui_state().scripts_);
@@ -656,8 +752,12 @@ void inspector_section(int index)
         changed |= camera_fields(spec, key, target, &g_target_editing);
         break;
     }
+    case Kind::kSpeed:
+        changed |= booster_fields(spec);
+        break;
     case Kind::kOther:
     case Kind::kBreak:
+    case Kind::kExit:
         break;
     }
     changed |= ImGui::Checkbox("Also on Exit", &spec.exit);

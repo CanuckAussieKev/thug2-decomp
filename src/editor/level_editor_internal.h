@@ -585,6 +585,10 @@ const std::vector<PlaceEntry>& place_entries();
 
 void place_node(int entry, V3 at);
 
+// (presets) The entities' Place palette entry `index` (level_editor_entities.h: get_palette) placed at `at` as the
+// Place palette places it (one undo step). False: not one of its entries.
+bool place_palette_entity(int index, V3 at);
+
 void after_chain_change(const chains::State& before, uint32_t select, const std::string& message);
 
 uint32_t chain_target();

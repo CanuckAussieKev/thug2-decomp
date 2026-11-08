@@ -55,7 +55,7 @@ struct TodParams;
 //
 // Layout record (version 2 still; an older reader skips the kind):
 //   level [name=<text>] [start=<node>] [tod=<state>] [time=0|1] [ambient=r,g,b] [fog=r,g,b,alpha,distance]
-//         [sky=<scene>]
+//         [sky=<scene>] [fall=<feet>] [sun=m,a,e,n]
 // <text> and <scene> %-escaped (level_editor_fields.h); <node> 8 hex digits.
 namespace frontend::level_editor::level_props {
 
@@ -79,7 +79,22 @@ struct Props {
     bool has_fog_ = false;
     std::array<int, kFogValues> fog = {}; // r, g, b, alpha, distance
     std::string sky; // the sky scene ("": the level's own) - another level's, e.g. "BO_Sky"
+    // Level flags (the presets' "Level Flags" - the level structure's own switches load_level reads, Levels.qb):
+    //   fall_depth: uber_frig_height (feet; -1 the level's own) - load_level's `change uber_frig_current_height=`, else
+    //     uber_frig_default_height (physics.qb: 400): how far below the skater there must be ground before the
+    //     skater is put back where the frame began (adjust_physics.cpp, walk_collision.cpp - Level_SE has 800);
+    //   sun: sun_theta=[morning afternoon evening night] (degrees; has_sun_) - load_level then sets the time-of-day
+    //     manager's four states again with that sun angle (tod_manager.cpp: the sun's direction; Level_AU has
+    //     [50 65 90 90]).
+    // Not offered: THUG2's level structures have no indoor / no-sun / no-shadow / big-level switch (load_level reads
+    // none; indoor lighting is a scenery piece's LightGroup - the Inspector's Lighting).
+    int fall_depth = -1;
+    bool has_sun_ = false;
+    std::array<int, kStates> sun = {};
 };
+// Fall depths kept within these (feet), sun angles within 0..360; load_level's fall depth when the level has none
+// (physics.qb's uber_frig_default_height).
+constexpr int kFallDepthMin = 50, kFallDepthMax = 10000, kSunMax = 360, kDefaultFallDepth = 400;
 bool get_same(const Props& a, const Props& b);
 bool vacant(const Props& props);
 // The record's line ("" when there's nothing to keep), and one read (after the word "level"; false: malformed).

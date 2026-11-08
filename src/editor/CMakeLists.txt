@@ -13,6 +13,8 @@ add_library(thug2_editor SHARED
     level_editor_commands.cpp
     level_editor_requests.cpp
     level_editor_place.cpp
+    level_editor_presets.cpp
+    level_editor_lighting.cpp
     level_editor_panels.cpp
     level_editor_draw.cpp
     level_editor_drag.cpp
@@ -41,6 +43,8 @@ add_library(thug2_editor SHARED
     level_editor_gap_wizard.cpp
     level_editor_skate_view.cpp
     level_editor_ux9.cpp
+    level_editor_rail_tools.cpp
+    level_editor_auto_rails.cpp
     level_editor_carry.cpp
     level_editor_scenery.cpp
     level_editor_scenery_state.cpp
@@ -60,6 +64,8 @@ add_library(thug2_editor SHARED
     level_editor_open.cpp
     level_editor_shell.cpp
     level_editor_import.cpp
+    level_editor_content.cpp
+    level_editor_props.cpp
     level_editor_playtest.cpp
     level_editor_playtest_ui.cpp
     level_editor_prefs.cpp

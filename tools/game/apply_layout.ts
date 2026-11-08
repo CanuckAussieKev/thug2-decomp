@@ -1785,8 +1785,11 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         array.remember(spec.name);
         for (const n of Triggers.NODE_NAMES) array.remember(n);
         array.remember(Triggers.scriptName(spec));
-        if (col) col.objects.push(Triggers.triggerCollision(spec));
-        else warnings.push(`trigger ${spec.name}: the level has no collision file - its box isn't made`);
+        // (a teleport's exit: a node only - no box)
+        if (Triggers.hasCollision(spec)) {
+            if (col) col.objects.push(Triggers.triggerCollision(spec));
+            else warnings.push(`trigger ${spec.name}: the level has no collision file - its box isn't made`);
+        }
         scripts.push([checksum(Triggers.scriptName(spec)), Triggers.body(spec)]);
         for (const [c, n] of Triggers.scriptNames(spec, true)) scriptNames.set(c, n);
         triggerCount++;
@@ -1836,7 +1839,11 @@ function describeTrigger(s: Triggers.TriggerSpec): string {
         case "kill":
             return `kill zone${s.water ? " (water)" : ""} -> ${s.target || "?"} ${at}`;
         case "teleport":
-            return `teleport -> ${s.target || "?"} ${at}`;
+            return `teleport -> ${s.target || "?"}${s.keep ? " (heading kept)" : ""} ${at}`;
+        case "booster":
+            return `booster speed ${s.strength}${s.along ? " (its direction kept)" : ` along yaw ${s.yaw}`} ${at}`;
+        case "exit":
+            return `teleport exit (a node, no box) ${at}`;
         case "script":
             return `runs ${s.script || "?"} ${at}`;
         case "gapstart":
@@ -1869,6 +1876,9 @@ export function levelStructureValues(level: LevelProps): [string, QbValue][] {
     if (level.ambient) out.push(["ed_ambient", level.ambient.map(channel)]);
     if (level.fog) out.push(["ed_fog", [...level.fog.slice(0, 4).map(channel), distance(level.fog[4])]]);
     if (level.sky && validSky(level.sky)) out.push(["sky", level.sky]); // (map3: the sky scene load_level loads)
+    // (presets: level flags - load_level's own keys, floats as the stock levels write them)
+    if (level.fall !== undefined) out.push(["uber_frig_height", new Float(Math.max(50, Math.min(10000, level.fall)))]);
+    if (level.sun) out.push(["sun_theta", level.sun.map((a) => new Float(Math.max(0, Math.min(360, a))))]);
     return out;
 }
 

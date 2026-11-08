@@ -3,6 +3,7 @@
 // a layout is written and read back) is level_editor_layout_text.cpp.
 
 #include "editor/level_editor_layout.h"
+#include "editor/level_editor_props.h"
 #include <windows.h>
 #include <algorithm>
 #include <cstddef>
@@ -495,6 +496,9 @@ bool read_for(const std::string& path, uint32_t scene, FileLoad* file, std::stri
 // name is already there).
 std::string get_apply(const FileLoad& file)
 {
+    // (the prop packs it uses loaded first: their sectors are what its sector / clone records may name -
+    // level_editor_props.h)
+    props::load_from_layout(file.extra);
     std::vector<scenery::SectorState> clones;
     std::vector<uint32_t> clone_made;
     for (const CloneRecord& record : file.clones) {
@@ -964,7 +968,11 @@ std::vector<uint32_t> saved_scenes()
 
 void on_scene_loaded(const char* name, bool is_net)
 {
-    (void)name;
+    // (a prop pack loaded into the level being edited isn't a new level - level_editor_props.h)
+    if (props::is_pack_scene(name)) {
+        return;
+    }
+    props::forget_level();
     // (a new level: the copies and moved objects of the last are gone with it - and its autosave was written when the
     // editor was left)
     scenery::get_clones().clear();

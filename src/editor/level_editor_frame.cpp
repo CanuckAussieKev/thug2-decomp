@@ -2,6 +2,7 @@
 // finish) (ours). See level_editor.h.
 
 #include "editor/level_editor.h"
+#include "editor/level_editor_content.h"
 #include "engine/pad_input/input_source.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -21,6 +22,7 @@
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_layout.h"
+#include "editor/level_editor_lighting.h"
 #include "editor/level_editor_links.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_organize.h"
@@ -74,6 +76,7 @@ void tick_level_systems()
         entities::tick(editor_session().active_, primary ? primary->ident() : 0, drag_session().dragging_);
     }
     chains::tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
+    lighting::tick(); // (edited pieces' light groups and shadow flags on their sectors - level_editor_lighting.h)
 }
 
 // The HUD and the autosave.
@@ -301,9 +304,15 @@ void tick_panels(EditorFrame& editor_frame)
     if (actions::squeezed(actions::kHelp)) {
         toggle_help();
     }
+    // (B: the Content Browser on This Level with the UI - level_editor_content.h; the old palette without it)
     if (actions::squeezed(actions::kBrowser) && !drag_session().dragging_) {
-        toggle_browser();
+        if (ui::underway()) {
+            content::show_this_level();
+        } else {
+            toggle_browser();
+        }
     }
+    content::tick_frame();
     if (actions::squeezed(actions::kPlace) && !drag_session().dragging_) {
         if (ui::underway()) {
             place_palette().place_open_ = !place_palette().place_open_;

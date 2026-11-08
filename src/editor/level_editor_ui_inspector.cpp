@@ -2,6 +2,7 @@
 // transform fields, the lock and member lists (ours). See level_editor_ui.h.
 
 #include "base/core/enum_ops.h"
+#include "editor/level_editor_lighting.h"
 #include "editor/level_editor_ui.h"
 #include <algorithm>
 #include <cfloat>
@@ -627,6 +628,7 @@ void get_inspector(const ShapeMesh& model)
         if (selection.objects == 0 && selection.sectors == 1) {
             triggers::scenery_section(
                 selection.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
+            lighting::inspector_section(selection.checksum, &input_routing().requests_); // (level_editor_lighting.h)
         }
         // (one object: its model, physics, path speed and preview - level_editor_entities.h)
         if (selection.objects == 1) {

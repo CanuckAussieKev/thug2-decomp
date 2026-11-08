@@ -4,6 +4,7 @@
 
 #include "editor/level_editor_triggers.h"
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -598,6 +599,141 @@ void add_gap_pair(Placed start, Placed end)
     end.spec.text = start.spec.text;
     end.spec.score = start.spec.score;
     fabricate({start, end}, "a gap");
+}
+
+// --- presets ---
+
+namespace {
+
+constexpr float kBoosterPadWidth = 250.0F, kBoosterPadHeight = 60.0F;
+constexpr float kBoosterAreaWidth = 800.0F, kBoosterAreaHeight = 120.0F;
+constexpr float kExitWidth = 60.0F, kExitHeight = 120.0F; // an Exit's marker box (no collision)
+constexpr float kExitSpacing = 600.0F;                    // a new Exit this far beyond its teleport
+
+// `count` fresh trigger names (none taken, none the same).
+std::vector<std::string> fresh_names(int count)
+{
+    std::vector<std::string> names;
+    names.reserve(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        names.push_back(node_create::fresh_name("ed_trigger", [&](const std::string& name) {
+            return name_taken(name) ||
+                   std::ranges::any_of(names, [&](const std::string& made) { return same_text(made, name); });
+        }));
+    }
+    return names;
+}
+
+// The heading the view looks along, flat (a node's yaw: its +z axis (sin, 0, cos) that way).
+float view_heading()
+{
+    const V3 forward = trigger_edit().forward_;
+    if ((forward.x * forward.x) + (forward.z * forward.z) <= 0.0F) {
+        return trigger_edit().yaw_;
+    }
+    return std::atan2(forward.x, forward.z);
+}
+
+Placed exit_spec(const std::string& name, V3 pos, float yaw)
+{
+    Placed exit;
+    exit.spec.name = name;
+    exit.spec.kind = Kind::kExit;
+    exit.spec.size = {.x = kExitWidth, .y = kExitHeight, .z = kExitWidth};
+    exit.pos = pos;
+    exit.yaw = yaw;
+    return exit;
+}
+
+} // namespace
+
+void add_booster(bool area)
+{
+    Placed placed;
+    placed.spec.name = node_create::fresh_name("ed_trigger", name_taken);
+    placed.spec.kind = Kind::kSpeed;
+    placed.spec.size = area ? V3{.x = kBoosterAreaWidth, .y = kBoosterAreaHeight, .z = kBoosterAreaWidth}
+                            : V3{.x = kBoosterPadWidth, .y = kBoosterPadHeight, .z = kBoosterPadWidth};
+    placed.spec.strength = kDefaultBoosterSpeed;
+    placed.pos = place_ahead(placed.spec.size, 0.0F);
+    placed.yaw = view_heading();
+    fabricate({placed}, area ? "a booster area" : "a booster pad");
+}
+
+void add_teleport_pair()
+{
+    const std::vector<std::string> names = fresh_names(2);
+    Placed teleport;
+    teleport.spec.name = names.front();
+    teleport.spec.kind = Kind::kJumpTo;
+    teleport.spec.size = {.x = kTeleportSize, .y = kTeleportSize, .z = kTeleportSize};
+    teleport.pos = place_ahead(teleport.spec.size, 0.0F);
+    teleport.yaw = view_heading();
+    const V3 exit_size = {.x = kExitWidth, .y = kExitHeight, .z = kExitWidth};
+    const Placed exit = exit_spec(names.back(), place_ahead(exit_size, kExitSpacing), teleport.yaw);
+    teleport.spec.target = exit.spec.name;
+    fabricate({teleport, exit}, "a teleport and its exit");
+}
+
+void add_exit_for(const std::string& name)
+{
+    const int index = spec_index(name);
+    V3 pos{};
+    float yaw = 0.0F;
+    if (index < 0 || core::at(editor_trigger_set().specs_, index).kind != Kind::kJumpTo ||
+        !node_place(name, &pos, &yaw)) {
+        return;
+    }
+    const std::vector<std::string> names = fresh_names(1);
+    const V3 ahead = turn_about_up({.x = 0.0F, .y = 0.0F, .z = 1.0F}, yaw) * kExitSpacing;
+    Placed exit = exit_spec(names.front(), pos + ahead, yaw);
+    V3 ground{};
+    if (ground_below(exit.pos + V3{.x = 0.0F, .y = kPlaceAboveGround, .z = 0.0F}, &ground)) {
+        exit.pos.y = ground.y + (kExitHeight * kHalf);
+    }
+    note_undo();
+    Spec teleport = core::at(editor_trigger_set().specs_, index);
+    teleport.target = exit.spec.name;
+    core::at(editor_trigger_set().specs_, index) = teleport;
+    fabricate({exit}, "a teleport exit");
+}
+
+void add_two_way_gap()
+{
+    const std::string there = fresh_gap();
+    const std::string back = node_create::fresh_name("ed_gap", [&](const std::string& id) {
+        return same_text(id, there) || std::ranges::any_of(editor_trigger_set().specs_,
+                                                           [&](const Spec& spec) { return same_text(spec.gap, id); });
+    });
+    const std::vector<std::string> names = fresh_names(4);
+    Placed first;
+    first.spec.size = {.x = kGapGateWidth, .y = kGapGateHeight, .z = kGapGateDepth};
+    first.spec.flags = {"CANCEL_GROUND"};
+    first.spec.score = kDefaultGapScore;
+    const int number = text::to_int(std::next(there.c_str(), 6));
+    std::array<char, kGapNameSize> text{};
+    text::format_to(text, "Editor Gap %d", number > 0 ? number : 1);
+    first.pos = place_ahead(first.spec.size, 0.0F);
+    first.yaw = trigger_edit().yaw_;
+    Placed second = first;
+    second.pos = place_ahead(second.spec.size, kGapGateSpacing);
+    // (A -> B: gap `there`; B -> A: gap `back` - each place a start of one and the end of the other)
+    std::array<Placed, 4> made = {first, second, second, first};
+    const std::array<Kind, 4> kinds = {Kind::kGapStart, Kind::kGapEnd, Kind::kGapStart, Kind::kGapEnd};
+    for (size_t i = 0; i < made.size(); ++i) {
+        Spec& spec = core::at(made, i).spec;
+        spec.name = core::at(names, i);
+        spec.kind = core::at(kinds, i);
+        spec.gap = i < 2 ? there : back;
+        spec.text = i < 2 ? std::string(text.data()) : std::string(text.data()) + " Back";
+    }
+    fabricate(std::vector<Placed>(made.begin(), made.end()), "a two-way gap");
+}
+
+bool is_exit(const std::string& name)
+{
+    const int index = spec_index(name);
+    return index >= 0 && core::at(editor_trigger_set().specs_, index).kind == Kind::kExit;
 }
 
 void set_spec(const std::string& name, const Spec& spec, bool undo)

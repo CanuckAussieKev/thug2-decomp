@@ -24,6 +24,7 @@ import {
     bake,
     installRefusal,
     type LevelFiles,
+    levelStructureValues,
     normalOffset,
     objectScaleValue,
     placeSector,
@@ -1475,5 +1476,17 @@ test("layout_file: (UX7) link records - read as Links::ReadRecord, malformed ref
             (e: unknown) => e instanceof LayoutError && e.line === 3,
             line,
         );
+    }
+});
+
+test("level flags: fall= and sun= read, written as load_level's uber_frig_height / sun_theta floats", () => {
+    const l = readLayout("thug2-decomp layout 2\nscene 00000001\nlevel fall=800 sun=50,65,90,90\n");
+    assert.equal(l.level?.fall, 800);
+    assert.deepEqual(l.level?.sun, [50, 65, 90, 90]);
+    const values = new Map(levelStructureValues(l.level ?? {}));
+    assert.deepEqual(values.get("uber_frig_height"), new Float(800));
+    assert.deepEqual(values.get("sun_theta"), [new Float(50), new Float(65), new Float(90), new Float(90)]);
+    for (const line of ["level fall=10", "level fall=x", "level sun=1,2,3", "level sun=1,2,3,400"]) {
+        assert.throws(() => readLayout(`thug2-decomp layout 2\nscene 00000001\n${line}\n`), LayoutError, line);
     }
 });

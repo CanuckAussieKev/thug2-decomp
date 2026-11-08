@@ -304,6 +304,7 @@ void selection_hints(const CtxInfo& context, Builder& builder)
     builder.acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
     if (context.chain_point_) {
         builder.act("lock", "whole chain");
+        builder.act("join_rails", "join rails");
         builder.act("chain_insert", "insert a point");
         builder.act("chain_extend", "draw on");
     } else {
@@ -362,7 +363,7 @@ std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
     }
     if (context.chain_drawing_) {
         builder.get_raw("LMB", "add a point");
-        builder.get_raw("Alt+LMB", "no edge snapping");
+        builder.get_raw("Alt+LMB", "no snapping");
         builder.act("chain_finish", "finish");
         builder.get_raw("RMB", "finish");
         builder.act("undo", "undo last point");
@@ -423,6 +424,13 @@ std::vector<Hint> get_build(const CtxInfo& context, const KeyText& key_of)
         builder.get_raw("LMB", "place corner");
         builder.act("ground_tool", "tool off");
         builder.get_raw("Esc", "cancel");
+        return builder.hints();
+    }
+    if (context.ux9_tool_ == 3) {
+        builder.get_raw("LMB", "pick edge");
+        builder.get_raw("Shift+LMB", "add edge");
+        builder.act("chain_finish", "make rail");
+        builder.get_raw("Esc", "done");
         return builder.hints();
     }
     if (context.faces_mode_) {

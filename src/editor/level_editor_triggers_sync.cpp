@@ -566,6 +566,7 @@ void sync_boxes()
         for (size_t k = 0; k < editor_trigger_set().added_.size(); ++k) {
             if (core::at(editor_trigger_set().added_, k).alive &&
                 !core::at(editor_trigger_set().added_, k).broken &&
+                core::at(editor_trigger_set().added_, k).spec.kind != Kind::kExit &&
                 hash_of_name(core::at(editor_trigger_set().added_, k).spec.name) ==
                     core::at(trigger_edit().boxes_, i).name) {
                 at = static_cast<int>(k);
@@ -579,8 +580,8 @@ void sync_boxes()
         }
     }
     for (const Added& added : editor_trigger_set().added_) {
-        if (!added.alive || added.broken || network) {
-            continue;
+        if (!added.alive || added.broken || network || added.spec.kind == Kind::kExit) {
+            continue; // (an Exit is a destination: no box)
         }
         uint32_t name = hash_of_name(added.spec.name);
         auto it = std::ranges::find_if(trigger_edit().boxes_, [&](const Cuboid& b) { return b.name == name; });
@@ -675,6 +676,7 @@ void get_sync()
         if (added.problem) {
             spec.kind = Kind::kOther; // (an empty script: it does nothing yet)
         }
+        spec.facing = added.yaw; // (a booster pushes along its node's heading: made again when it turns)
         scripted.push_back(spec);
     }
     std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);

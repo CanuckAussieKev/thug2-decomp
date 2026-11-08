@@ -15,6 +15,7 @@
 
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
+#include "editor/level_editor_content.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_layout.h"
 #include "engine/file/disk_files.h"
@@ -35,6 +36,7 @@ constexpr const char* kDockName = "LevelEditorDock";
 constexpr const char* kSceneWindow = "Scene";
 constexpr const char* kOutlinerWindow = "Outliner";
 constexpr const char* kInspectorWindow = "Inspector";
+constexpr const char* kContentWindow = "Content Browser"; // (level_editor_content.h)
 // The default layout's side panels (at scale 1: level_editor_ui_layout.h's widths) and the bottom strip, as parts of
 // the dock space; never more than these parts of it.
 constexpr float kOutlinerWidth = 280.0F;
@@ -193,6 +195,7 @@ void build_default_layout(ImGuiID dock, ImVec2 size, float scale)
     ImGui::DockBuilderDockWindow(kSceneWindow, centre);
     ImGui::DockBuilderDockWindow(kOutlinerWindow, left);
     ImGui::DockBuilderDockWindow(kInspectorWindow, right);
+    ImGui::DockBuilderDockWindow(kContentWindow, bottom); // (as Unreal / Unity: the assets along the bottom)
     ImGui::DockBuilderFinish(dock);
     app_state().bottom = bottom;
     ImGui::MarkIniSettingsDirty();
@@ -305,6 +308,10 @@ void window_menu_panels()
     AppState& state = app_state();
     const bool outliner = ImGui::MenuItem("Outliner", nullptr, &state.outliner_open);
     const bool inspector = ImGui::MenuItem("Inspector", nullptr, &state.inspector_open);
+    // (the Content Browser keeps its own switch: level_editor_content.h)
+    if (ImGui::MenuItem("Content Browser", "Ctrl+Shift+B", content::open_flag())) {
+        content::note_toggled();
+    }
     if (outliner || inspector) {
         ImGui::MarkIniSettingsDirty();
     }
