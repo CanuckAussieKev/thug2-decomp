@@ -90,6 +90,7 @@
                     "src/engine/file/disk_files.h",
                     "src/engine/gfx/depth_lines.h",
                     "src/engine/gfx/ghost_draws.h",
+                    "src/engine/gfx/outline_draws.h",
                     "src/engine/gfx/engine.h",
                     "src/engine/gfx/engine_geom.h",
                     "src/engine/gfx/engine_parts.h",

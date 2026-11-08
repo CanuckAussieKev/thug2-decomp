@@ -13,6 +13,7 @@
 #include "render_pc/sub_mesh.h"
 #include "engine/gfx/occlusion.h"
 #include "render_pc/pc_billboards.h"
+#include "render_pc/outline_draw.h"
 #include "render_pc/render_state.h"
 #include "render_pc/shadow_base.h"
 #include "render_pc/view_mode.h"
@@ -57,7 +58,13 @@ std::array<DepthOrderedMesh, kSortedMeshSlots>& get_sorted()
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t mesh_traits(const MeshRef* mesh) { return mesh->flags(); }
 MaterialRef* get_mesh_material(const MeshRef* mesh) { return mesh->material(); }
-void set_material(MaterialRef* material) { material->hand_in(); }
+// (not original: not while the outlines' mask is drawn - render_pc/outline_draw.h - the meshes' flat colour is theirs)
+void set_material(MaterialRef* material)
+{
+    if (!outline_draw::flat_on()) {
+        material->hand_in();
+    }
+}
 void draw_mesh(MeshRef* mesh) { mesh->render(); }
 // The render statistics (0x00775B80; thiscall).
 void count_pass(int which) { billboard_pool().render(which); }
@@ -253,7 +260,8 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
                 }
             }
         }
-        if ((scene->flags() & kSceneFlagShadows) != 0U) { // shadows on the meshes drawn
+        // (not original: none in the outlines' mask - render_pc/outline_draw.h)
+        if ((scene->flags() & kSceneFlagShadows) != 0U && !outline_draw::flat_on()) { // shadows on the meshes drawn
             draw_pass_shadows(scene, pass);
         }
         pass.forget_drawn();
@@ -278,7 +286,7 @@ void draw_scene(SceneRef* scene, ScenePass scene_pass)
     if (scene->flagged_count() > 0) {
         draw_flagged_and_rest(scene, pass, index);
     }
-    if ((scene->flags() & kSceneFlagShadows) != 0U) {
+    if ((scene->flags() & kSceneFlagShadows) != 0U && !outline_draw::flat_on()) {
         draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
     }
     if ((flags & kRenderStats) != 0U) {

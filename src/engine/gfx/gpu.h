@@ -75,6 +75,7 @@ enum class GpuRenderState : uint8_t {
     kColourWriteEnable = 168,
     kBlendOp = 171,
     kScissorTestEnable = 174,
+    kSlopeScaleDepthBias = 175,
     kBlendFactor = 193,
     kDepthBias = 195,
     kSeparateAlphaBlendEnable = 206,

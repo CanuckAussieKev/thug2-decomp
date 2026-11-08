@@ -26,6 +26,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 #include "render_pc/mesh_pass.h"
+#include "render_pc/outline_draw.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
 #include <bit>
@@ -178,7 +179,10 @@ void MeshRef::render()
     if (engine_parts().suppress_draw() || beyond_clip_distance(this)) {
         return;
     }
-    if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (distance fog)
+    // Not original - the outlines' mask (render_pc/outline_draw.h): the mesh in a flat colour, without fog or its
+    // material. Original behaviour: always drawn with them.
+    const bool flat = outline_draw::flat_on();
+    if (!flat && view_setup().distance_clipping() && view_setup().fog_setting()) { // (distance fog)
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0F);
         renderer().set_fog_end(0.0F);
@@ -202,7 +206,9 @@ void MeshRef::render()
     apply_vertex_colors();
     set_vertex_format(fvf_);
     auto* mat = material_;
-    if (renderer().shaders_available()) {
+    if (flat) {
+        outline_draw::flat_states();
+    } else if (renderer().shaders_available()) {
         mat->hand_in();
         if ((renderer().instance_colour_on() == 0U) && ((flags_ & 4) == 0U)) {
             set_pixel_shader_with_constants(pixel_shader_, mat->pass_count());
@@ -220,13 +226,19 @@ void MeshRef::render()
             gpu().set_sampler_state(0, GpuSamplerState::kMinFilter, gpu_value::kFilterLinear);
         }
     }
-    if ((flags_ & kFlagKeepZWrite) != 0U) {
+    if (!flat && (flags_ & kFlagKeepZWrite) != 0U) { // (the mask writes no depth anyway)
         gpu().get_render_state(GpuRenderState::kZWriteEnable, &z_write);
         if (z_write == 1) {
             render::set_render_state(GpuRenderState::kZWriteEnable, 0);
         }
     }
-    VertexBuffer* vb = vertex_store(current_vertex_buffer_);
+    // (the outlines' mask: a skinned mesh already skinned this frame for this instance - the buffer drawn last again)
+    const bool skinned_now = (per_vertex_data_ != nullptr) && unknown9c_ == renderer().frames_rendered() &&
+                             unknowna0_ == mesh_pass().current_instance();
+    const bool again = flat && skinned_now && vertex_buffer_count_ > 1;
+    VertexBuffer* vb = vertex_store(
+        again ? static_cast<size_t>((current_vertex_buffer_ + vertex_buffer_count_ - 1) % vertex_buffer_count_)
+              : current_vertex_buffer_);
     if (per_vertex_data_ &&
         (unknown9c_ != renderer().frames_rendered() ||
          unknowna0_ != mesh_pass().current_instance())) { // (once a frame per instance)
@@ -254,14 +266,14 @@ void MeshRef::render()
         }
         vb->get_unlock();
     }
-    if (vertex_buffer_count_ > 1) {
+    if (vertex_buffer_count_ > 1 && !again) {
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
     }
     gpu().set_stream_source(0, vb->buffer(), vb->arena_offset(), stride_);
     const int level = lod_level();
     gpu().set_indices(index_buffer_at(this, level)->buffer());
     const uint32_t primitives = index_count_at(this, level) - 2U;
-    if (renderer().shaders_available()) {
+    if (flat || renderer().shaders_available()) {
         count_draw(primitives);
         gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0, primitives);
     } else {

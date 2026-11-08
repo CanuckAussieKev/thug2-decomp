@@ -26,6 +26,7 @@
 #include "engine/gfx/view_cam.h"
 #include "render_pc/depth_lines_draw.h"
 #include "render_pc/ghost_draw.h"
+#include "render_pc/outline_draw.h"
 #include "render_pc/draw2d.h"
 #include "render_pc/game_view_frame.h"
 #include "engine/gfx/engine_effects.h"
@@ -813,6 +814,7 @@ void draw_views(int views)
         ghost_draw::draw(true);
         view_mode::end_world();
         wireframe::end_world();
+        outline_draw::draw(true);
         depth_lines_draw::draw(true);
         change_fog(fog);
         pass_area() = {};
@@ -821,6 +823,7 @@ void draw_views(int views)
     view_mode::switch_for_view(frame_mode);
     depth_lines_draw::drop();
     ghost_draw::drop();
+    outline_draw::drop();
 }
 
 } // namespace
@@ -861,6 +864,9 @@ void draw_world()
             ghost_draw::draw();
             view_mode::end_world();
             wireframe::end_world();
+            // Not original - the outlines a UI handed over (engine/gfx/outline_draws.h; the level editor's selection and
+            // hover), round what they mark, over the world. Original behaviour: nothing.
+            outline_draw::draw();
             // Not original - the lines a UI handed over (engine/gfx/depth_lines.h; the level editor's rails), drawn
             // against the world's depth.
             // Original behaviour: nothing.
@@ -896,6 +902,7 @@ void draw_world()
     } else {
         depth_lines_draw::drop(); // (not original: lines handed over before the loading screen aren't drawn after it)
         ghost_draw::drop();       // (not original: the same for ghosts)
+        outline_draw::drop();     // (not original: and outlines)
     }
     full_screen_viewport();
     set_viewport();

@@ -856,8 +856,8 @@ void add_view_lines(const TickCycle& frame, const std::vector<objects::GameEntit
                     std::vector<LineVertex>* out)
 {
     std::vector<LineVertex>& lines = *out;
-    // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
-    // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
+    // What's hovered and selected shows outlined, or tinted (update_highlights); boxes only for what couldn't be
+    // (yellow hovered, cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
     objects::GameEntity* hover = drag_session().dragging_ ? nullptr : get_live(picked_set().hover_);
     add_hover_boxes(frame, hover, lines);
     add_selected_boxes(frame, objects, lines);
