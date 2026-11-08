@@ -27,6 +27,11 @@
 namespace frontend::level_editor::props {
 
 inline constexpr const char* kPackPrefix = "pp_";
+// The way packs are cut now (the manifest's `prop-pack <version>` - prop_packs/pack.ts MANIFEST_VERSION): a pack cut by
+// an older pipeline is cut again before it is placed (when the content tools are there). 2: the collision-only objects
+// sunk below a piece's bottom taken along (LA's Fire_Tender: its collision shell - without it the skater rolls through
+// the truck's sides, which start above the skater's feelers).
+inline constexpr int kManifestVersion = 2;
 
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
@@ -38,6 +43,7 @@ struct RailInfo {
     bool trick = false;
 };
 struct Manifest {
+    int version = 0; // (the header's)
     std::string id;
     std::string source_level;
     std::string source_piece;

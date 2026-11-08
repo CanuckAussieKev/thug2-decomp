@@ -453,7 +453,9 @@ void ask_place(const Piece& piece, V3 at)
     ContentState& content = state();
     const std::string id = pack_id(piece.level, piece.name);
     props::Manifest manifest;
-    if (props::is_loaded(id) || props::find_manifest(id, &manifest)) {
+    const bool cut = props::find_manifest(id, &manifest);
+    // (a pack cut by an older pipeline is cut again - unless it is loaded already, or there are no tools to do it)
+    if (props::is_loaded(id) || (cut && (manifest.version >= props::kManifestVersion || !tools_there()))) {
         place_now(piece, at);
         return;
     }

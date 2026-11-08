@@ -3,6 +3,7 @@
 #include "editor/level_editor_props.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
@@ -136,8 +137,9 @@ void add_rails(const Manifest& manifest, const Placement& placement, uint32_t cl
 }
 
 // With debug_editor: the game's collision ray straight down through the middle of the placed piece's first sector -
-// whether the skater can meet it there (the piece's own collision, not the ground under it).
-void log_collision_probe(const std::vector<uint32_t>& placed)
+// whether the skater can meet it there (the piece's own collision, not the ground under it) - and four sideways at the
+// skater's feeler height.
+void log_collision_probe(const std::vector<uint32_t>& placed, float ground)
 {
     constexpr float kAbove = 1.0F; // (the ray starts this far above the box's top)
     OrientedBox box{};
@@ -160,6 +162,23 @@ void log_collision_probe(const std::vector<uint32_t>& placed)
     }
     get_log("level editor: prop collision probe at (%.1f, %.1f) from %.1f down to %.1f: %s %08X at height %.1f%s", from.x,
             from.z, from.y, to.y, met ? "met" : "nothing", sector, met ? hit.y : 0.0F, whose);
+    // Sideways from beyond each side of the box to its middle, as high above the ground the piece stands on (`ground`)
+    // as the skater's forward feeler when skating (physics.qb Skater_First_Forward_Collision_Height 8.1): what stops a
+    // skater rolling into it.
+    constexpr float kFeelerHeight = 8.1F;
+    constexpr float kBeyond = 50.0F;
+    const V3 middle = {.x = from.x, .y = ground + kFeelerHeight, .z = from.z};
+    const std::array<V3, 4> starts = {{{.x = low.x - kBeyond, .y = middle.y, .z = middle.z},
+                                       {.x = high.x + kBeyond, .y = middle.y, .z = middle.z},
+                                       {.x = middle.x, .y = middle.y, .z = low.z - kBeyond},
+                                       {.x = middle.x, .y = middle.y, .z = high.z + kBeyond}}};
+    for (const V3& start : starts) {
+        uint32_t side_sector = 0;
+        const bool side_met = checks::get_cast(start, middle, {.point = &hit, .normal = &normal}, &side_sector);
+        const bool side_own = side_met && std::ranges::find(placed, side_sector) != placed.end();
+        get_log("level editor: prop side probe from (%.1f, %.1f, %.1f): %s %08X%s", start.x, start.y, start.z,
+                side_met ? "met" : "nothing", side_sector, side_own ? " (the piece's own)" : "");
+    }
 }
 
 } // namespace
@@ -178,6 +197,7 @@ bool read_manifest(const std::string& text, Manifest* manifest)
         words >> word;
         if (word == "prop-pack") {
             header = true;
+            words >> manifest->version;
         } else if (word == "id") {
             words >> manifest->id;
         } else if (word == "source") {
@@ -344,7 +364,7 @@ bool place(const std::string& id, V3 at, std::string* message)
     scenery::apply_states(states, {});
     scenery::set_selection(placed);
     add_rails(manifest, target, placed.front());
-    log_collision_probe(placed);
+    log_collision_probe(placed, at.y);
     push_module_undo_labelled(before, "Place prop");
     get_log("level editor: placed prop pack %s at (%.0f, %.0f, %.0f) - %s, %u rail points", id.c_str(), at.x, at.y, at.z,
             first ? "its own sectors" : "copies", static_cast<unsigned>(manifest.rails.size()));
