@@ -6,6 +6,7 @@
 
 #include <array>
 #include <bit>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -28,6 +29,7 @@ enum class Group : uint8_t {
     kMainBlock,    // Mem::Manager's main block (0x005BBC00): bigger by what the others take out of it
     kNodeHash,     // the node manager's functions (0x0045CE60-0x0045D3F0) and those the DLL's call
     kRailTable,    // CRailManager::AddFromNodeArray's name table (0x0057E960)
+    kShadowBuffers, // the shadow's projection (0x004DA0F0), clipping (0x004DA190) and draw (0x004DBF50)
 };
 
 // What is written at a site.
@@ -57,6 +59,8 @@ enum class Value : uint8_t {
     kJumpEndWalk,
     kJumpNextNode,
     kJumpRemoveNodeArray,
+    kProjectedBuffer, // an address in the shadow's vertex buffer: the same place in the DLL's
+    kTrianglesBuffer, // an address in the shadow's triangle buffer: the same place in the DLL's
 };
 
 struct Site {
@@ -106,6 +110,29 @@ constexpr std::array kSites = {
     Site{.what = "EndWalk", .group = Group::kNodeHash, .address = 0x0045D110, .original = "66 C7 81 02 00 01 00 FF FF C3", .offset = 0, .value = Value::kJumpEndWalk},
     Site{.what = "NextNode", .group = Group::kNodeHash, .address = 0x0045D3F0, .original = "56 8B F1 66 8B 8E 02 00 01 00 66 83 F9 FF 75 04", .offset = 0, .value = Value::kJumpNextNode},
     Site{.what = "RemoveNodeArray", .group = Group::kNodeHash, .address = 0x0045D1C0, .original = "53 8B 5C 24 08 56 57 53 8B F1 E8 71 FC FF FF 8B", .offset = 0, .value = Value::kJumpRemoveNodeArray},
+    // The shadow's buffers (limits.h): every address of them in the code - the immediates of the projection's start, of
+    // the clipping's vertex lookups (index * 0x1C + the buffer) and its three output corners and count, and of the draw.
+    Site{.what = "shadow projection: the first vertex's projected corner", .group = Group::kShadowBuffers, .address = 0x004DA108, .original = "BE 4C B6 79 00 89 44 24 18", .offset = 1, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow triangles: the first corner", .group = Group::kShadowBuffers, .address = 0x004DA1A4, .original = "B9 40 66 79 00 0F 8C C5 03", .offset = 1, .value = Value::kTrianglesBuffer},
+    Site{.what = "shadow triangles: the second corner", .group = Group::kShadowBuffers, .address = 0x004DA1BA, .original = "BD 54 66 79 00 C1 E0 02 C7", .offset = 1, .value = Value::kTrianglesBuffer},
+    Site{.what = "shadow triangles: the third corner", .group = Group::kShadowBuffers, .address = 0x004DA1C2, .original = "C7 44 24 10 68 66 79 00 89 6C 24 18", .offset = 4, .value = Value::kTrianglesBuffer},
+    Site{.what = "shadow clip 1: the third vertex", .group = Group::kShadowBuffers, .address = 0x004DA1E6, .original = "05 40 B6 79 00 8B 78 18 81", .offset = 1, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the second vertex", .group = Group::kShadowBuffers, .address = 0x004DA1EE, .original = "81 C2 40 B6 79 00 23 7A 18 81", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the first vertex", .group = Group::kShadowBuffers, .address = 0x004DA1F7, .original = "81 C6 40 B6 79 00 85 7E 18 89", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip 2: the third vertex", .group = Group::kShadowBuffers, .address = 0x004DA2C9, .original = "05 40 B6 79 00 8B 78 18 81", .offset = 1, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the second vertex", .group = Group::kShadowBuffers, .address = 0x004DA2D1, .original = "81 C2 40 B6 79 00 23 7A 18 81", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the first vertex", .group = Group::kShadowBuffers, .address = 0x004DA2DA, .original = "81 C6 40 B6 79 00 85 7E 18 89", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip 3: the third vertex", .group = Group::kShadowBuffers, .address = 0x004DA3AC, .original = "05 40 B6 79 00 8B 78 18 81", .offset = 1, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the second vertex", .group = Group::kShadowBuffers, .address = 0x004DA3B4, .original = "81 C2 40 B6 79 00 23 7A 18 81", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the first vertex", .group = Group::kShadowBuffers, .address = 0x004DA3BD, .original = "81 C6 40 B6 79 00 85 7E 18 89", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip 5: the third vertex", .group = Group::kShadowBuffers, .address = 0x004DA48D, .original = "81 C7 40 B6 79 00 8B 47 18 81", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the second vertex", .group = Group::kShadowBuffers, .address = 0x004DA496, .original = "81 C2 40 B6 79 00 23 42 18 81", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the first vertex", .group = Group::kShadowBuffers, .address = 0x004DA49F, .original = "81 C6 40 B6 79 00 85 46 18 0F", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip 4: the third vertex", .group = Group::kShadowBuffers, .address = 0x004DA596, .original = "05 40 B6 79 00 8B 78 18 81", .offset = 1, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the second vertex", .group = Group::kShadowBuffers, .address = 0x004DA59E, .original = "81 C2 40 B6 79 00 8B 6A 18 81", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow clip: the first vertex", .group = Group::kShadowBuffers, .address = 0x004DA5A7, .original = "81 C6 40 B6 79 00 23 FD 85 7E", .offset = 2, .value = Value::kProjectedBuffer},
+    Site{.what = "shadow triangles: the count", .group = Group::kShadowBuffers, .address = 0x004DA662, .original = "81 E9 40 66 79 00 B8 67 66 66", .offset = 2, .value = Value::kTrianglesBuffer},
+    Site{.what = "shadow draw: the triangles", .group = Group::kShadowBuffers, .address = 0x004DC4F7, .original = "68 40 66 79 00 56 6A 04 50", .offset = 1, .value = Value::kTrianglesBuffer},
     // The game's functions the DLL's call (patches.h).
     Site{.what = "CArray::GetElement", .group = Group::kNodeHash, .address = kGetElementAddress, .original = "83 79 04 01 8B 41 08 74 07 8B 4C 24 04 8B 04 88", .offset = 0, .value = Value::kVerifyOnly},
     Site{.what = "CStruct::GetChecksum", .group = Group::kNodeHash, .address = kGetChecksumAddress, .original = "51 53 56 8B 71 04 32 DB 85 F6 89 4C 24 08 74 7F", .offset = 0, .value = Value::kVerifyOnly},
@@ -133,6 +160,8 @@ bool group_on(Group group, const Raises& raises)
         return raises.node_hash;
     case Group::kRailTable:
         return raises.rail_table;
+    case Group::kShadowBuffers:
+        return raises.shadow_buffers;
     }
     return false;
 }
@@ -176,6 +205,9 @@ uint32_t value_of(Value value, const Raises& raises, const JumpTargets& targets,
         return kRailSlots * kRailSlotBytes / sizeof(uint32_t);
     case Value::kRailMask:
         return kRailSlots - 1;
+    case Value::kProjectedBuffer:
+    case Value::kTrianglesBuffer:
+        return 0; // (plan_changes: the operand's own offset into the DLL's buffer)
     default:
         break;
     }
@@ -217,6 +249,21 @@ uint32_t address_of(F function)
 
 } // namespace
 
+namespace {
+// The DLL's shadow buffers (limits.h; zero pages until the game's shadow touches them), aligned as the game's.
+constexpr size_t kBufferAlignment = 16;
+std::array<uint8_t, static_cast<size_t>(kShadowVertices) * kShadowVertexBytes>& shadow_vertex_buffer()
+{
+    alignas(kBufferAlignment) static std::array<uint8_t, static_cast<size_t>(kShadowVertices) * kShadowVertexBytes> buffer{};
+    return buffer;
+}
+std::array<uint8_t, static_cast<size_t>(kShadowTriangleCorners) * kShadowCornerBytes>& shadow_triangle_buffer()
+{
+    alignas(kBufferAlignment) static std::array<uint8_t, static_cast<size_t>(kShadowTriangleCorners) * kShadowCornerBytes> buffer{};
+    return buffer;
+}
+} // namespace
+
 JumpTargets node_hash_targets()
 {
     return {.construct = address_of(&node_hash::construct),
@@ -226,7 +273,9 @@ JumpTargets node_hash_targets()
             .start_walk = address_of(&node_hash::start_walk),
             .end_walk = address_of(&node_hash::end_walk),
             .next_node = address_of(&node_hash::next_node),
-            .remove_node_array = address_of(&node_hash::remove_node_array)};
+            .remove_node_array = address_of(&node_hash::remove_node_array),
+            .shadow_vertices = std::bit_cast<uint32_t>(shadow_vertex_buffer().data()),
+            .shadow_triangles = std::bit_cast<uint32_t>(shadow_triangle_buffer().data())};
 }
 
 bool plan_changes(const ExeImage& image, const Raises& raises, const JumpTargets& targets, std::vector<Change>* changes,
@@ -253,7 +302,16 @@ bool plan_changes(const ExeImage& image, const Raises& raises, const JumpTargets
             continue;
         }
         bool jump = false;
-        const uint32_t value = value_of(site.value, raises, targets, &jump);
+        uint32_t value = value_of(site.value, raises, targets, &jump);
+        if (site.value == Value::kProjectedBuffer || site.value == Value::kTrianglesBuffer) {
+            // (the same offset into the DLL's buffer as the original's operand into the game's)
+            uint32_t operand = 0;
+            for (uint32_t i = 0; i < kImmediateBytes; ++i) {
+                operand |= static_cast<uint32_t>(original.at(site.offset + i)) << (i * kByteBits);
+            }
+            value = site.value == Value::kProjectedBuffer ? targets.shadow_vertices + (operand - kOriginalShadowVertexBuffer)
+                                                          : targets.shadow_triangles + (operand - kOriginalShadowTriangleBuffer);
+        }
         // (only the bytes that change: two immediates of one instruction pair are two changes)
         std::vector<uint8_t> after(jump ? kJumpBytes : kImmediateBytes, 0);
         uint32_t at = site.offset;

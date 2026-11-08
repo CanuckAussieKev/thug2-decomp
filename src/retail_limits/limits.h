@@ -116,6 +116,21 @@ constexpr uint32_t kOriginalMostRailNodes = 0x4000;
 constexpr uint32_t kMostRailNodes = 0x7FFF;
 constexpr uint32_t kRailSlotBytes = 2;
 
+// --- The skater's shadow on the scene ----------------------------------------------------------------------------
+
+// The shadow is drawn on every scene mesh in its view: each mesh's vertices projected into one fixed buffer, the
+// triangles they make inside the shadow clipped into another, neither checked against its size - THUG2's own meshes
+// fit, but a mesh of more vertices (a ported level's, up to 65,535) runs past it and over the globals after it. The DLL
+// moves both buffers to bigger ones of its own: one entry for every vertex a mesh's 16-bit indexes can name.
+constexpr uint32_t kOriginalShadowVertices = 0x1000;          // at 0x0079B640
+constexpr uint32_t kShadowVertices = 0x10000;
+constexpr uint32_t kShadowVertexBytes = 0x1C;                 // position, projected position, clip flags
+constexpr uint32_t kOriginalShadowTriangleCorners = 0x400;    // at 0x00796640
+constexpr uint32_t kShadowTriangleCorners = 0x18000;          // (32,768 triangles inside one shadow)
+constexpr uint32_t kShadowCornerBytes = 0x14;                 // position, texture coordinates
+constexpr uint32_t kOriginalShadowVertexBuffer = 0x0079B640;
+constexpr uint32_t kOriginalShadowTriangleBuffer = 0x00796640;
+
 // --- What the DLL raises (each can be switched off in its ini) ---------------------------------------------------
 
 struct Raises {
@@ -124,6 +139,7 @@ struct Raises {
     bool script_heap = true;  // kScriptHeapExtraBytes more script heap
     bool node_hash = true;    // the node name hash
     bool rail_table = true;   // the rail name table
+    bool shadow_buffers = true; // the shadow's vertex and triangle buffers
 };
 
 constexpr uint32_t grown(uint32_t ours, uint32_t original) { return ours > original ? ours - original : 0; }
@@ -161,7 +177,7 @@ constexpr uint32_t kRaisedScriptRegionBytes = 28695888;
 constexpr uint32_t kRaisedMainBlockBytes = 92078080;
 static_assert(script_region_bytes(Raises{}) == kRaisedScriptRegionBytes);
 static_assert(main_block_bytes(Raises{}) == kRaisedMainBlockBytes);
-static_assert(main_block_bytes(Raises{.script_pools = false, .hash_items = false, .script_heap = false, .node_hash = false, .rail_table = false}) ==
-              kOriginalMainBlockBytes);
+static_assert(main_block_bytes(Raises{.script_pools = false, .hash_items = false, .script_heap = false, .node_hash = false, .rail_table = false,
+                                      .shadow_buffers = false}) == kOriginalMainBlockBytes);
 
 } // namespace retail_limits

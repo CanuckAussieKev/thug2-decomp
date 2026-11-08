@@ -10,7 +10,12 @@ original THUG2.exe while it runs. Nothing on disk is changed; take the DLL out a
 ## Installing
 
 Build the x86 configuration (the original game is 32-bit; the DLL is built only there - a Release build for players):
-the build writes `retail_limits\dinput8.dll` in the build folder. Copy `dinput8.dll` next to THUG2.exe. The next start
+the build writes `retail_limits\dinput8.dll` in the build folder; `tools\build_retail_limits.cmd` builds just that
+(x86 MinSizeRel, `out\build\retail-limits-x86`), whatever machine the main build is. The content pipeline's retail
+export installs it with the levels that need it (`retail_export.ts install --raised-limits --limits-dll <dinput8.dll>`,
+or the level editor's Import window with "Install the limits DLL" ticked: the editor's tools folder carries the DLL) and
+takes it out again with them - renaming and chaining a dinput8.dll already there as below. By hand: copy `dinput8.dll`
+next to THUG2.exe. The next start
 writes `thug2-limits.ini` (the settings) and `thug2-limits.log` (what was found and changed) beside it. The DLL needs no
 other DLL (its C runtime is linked in).
 
@@ -61,6 +66,7 @@ that loads in thug2-decomp.exe fits in the original game with the DLL.
 | main block | 64 MB | 92,078,080 bytes (87.8 MB) | (follows all of them) |
 | node name hash | 16,384 slots, 16-bit node indexes; a full table hangs the load | 65,536 slots, 32-bit indexes; a node past a full table is left out and logged | `node_hash` |
 | rail name table | 16,384 slots; more rail nodes hang the load | 65,536 slots, up to 32,767 rail nodes | `rail_table` |
+| shadow buffers | 4,096 vertices of one mesh, 1,024 triangle corners; unchecked - a bigger mesh under the skater's shadow writes over memory past them | 65,536 vertices (every vertex a mesh can index), 98,304 corners | `shadow_buffers` |
 
 `[limits] enabled=0` changes nothing. The script region grows by exactly what the bigger pools and the extra heap take,
 and the main block by exactly what the region, the HashItem pool and the bigger rail table take (rounded up to 64 KB),
@@ -73,6 +79,12 @@ How each is done:
   THUGPRO's, whose DLL writes bigger pool counts over the same instructions.
 - **Rail name table** (CRailManager::AddFromNodeArray): made and freed during the rails' set-up; its size, its fill
   count and its four masks are immediates. Its slots stay 16 bits, so a level may have up to 32,767 rail nodes.
+- **Shadow buffers:** the skater's shadow is drawn on each scene mesh in its view: the mesh's vertices are projected
+  into one fixed buffer and the triangles inside the shadow clipped into another, with no check of either's size.
+  THUG2's own meshes fit; a ported level's mesh of more than 4,096 vertices (Proving Ground's world, some of Project
+  8's) runs past them. The DLL has two bigger buffers of its own and writes their addresses over the 21 places in the
+  code that name the game's (the projection, the clipping and the shadow's draw) - each at the same offset into the
+  new buffer as into the old.
 - **Node name hash:** the original keeps it inside the node manager (its first 64 KB, the walk's place right after), so
   it can't grow there. The DLL keeps a bigger one and the eight functions that touch the slots or the walk (the
   constructor, HashNode, UnhashNodeArray, GetNode, StartWalk, EndWalk, NextNode, RemoveNodeArray) jump to the DLL's

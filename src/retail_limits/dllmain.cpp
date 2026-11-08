@@ -118,6 +118,11 @@ void log_sizes(const retail_limits::Raises& raises)
         log_line("rail name table: " + std::to_string(kRailSlots) + " slots, up to " + std::to_string(kMostRailNodes) +
                  " rail nodes (the original's " + std::to_string(kOriginalRailSlots) + ")");
     }
+    if (raises.shadow_buffers) {
+        log_line("shadow buffers: " + std::to_string(kShadowVertices) + " vertices, " + std::to_string(kShadowTriangleCorners) +
+                 " triangle corners (the original's " + std::to_string(kOriginalShadowVertices) + ", " +
+                 std::to_string(kOriginalShadowTriangleCorners) + ")");
+    }
 }
 
 void raise_limits(const retail_limits::Settings& settings)

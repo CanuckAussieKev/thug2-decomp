@@ -23,7 +23,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `deploy_build.ps1 -Game <folder> -Arch x86|x64 [-BuildDir <cmake build folder>] [-EditorTools <folder> | -NoEditorTools]` - puts a build into a game folder
   under its lock (refused without the lock, or while a game runs from it): thug2-decomp.exe, its PDB, the editor, and the
   DLLs the build copied beside them (d3dx9_43.dll, SDL3.dll, FFmpeg's four, gamecontrollerdb.txt) - those the build has -
-  and the editor's tools folder `editor-tools\` (Import Level's Node and converters: `node tools/editor_tools.ts` makes
+  and the editor's tools folder `editor-tools\` (Import Level's Node, converters and the retail-limits DLL: `node tools/editor_tools.ts` makes
   it in `out\editor-tools`, run first unless `-EditorTools` names one; copied when its bundle.json differs; the lock
   backs the folder up whole - `$DeployedFolders`).
   **A 32-bit and a 64-bit build have the same file names, so a build goes IN PLACE of the one in the folder** (the

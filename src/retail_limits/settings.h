@@ -11,7 +11,7 @@ namespace retail_limits {
 
 struct Settings {
     bool enabled = true; // [limits] enabled=0: nothing is patched
-    Raises raises;       // [limits] script_pools= hash_items= script_heap= node_hash= rail_table=
+    Raises raises;       // [limits] script_pools= hash_items= script_heap= node_hash= rail_table= shadow_buffers=
     std::string chain;   // [loader] chain=: another DLL of the game folder to load and pass DirectInput to
 };
 

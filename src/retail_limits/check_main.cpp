@@ -113,7 +113,8 @@ void check_exe(const char* path)
     expect(!apply_raises(other_image, Raises{}, targets, &again, &problems) && other == before, "a different exe is left untouched");
 
     // Every raise off: no change.
-    const Raises none = {.script_pools = false, .hash_items = false, .script_heap = false, .node_hash = false, .rail_table = false};
+    const Raises none = {
+        .script_pools = false, .hash_items = false, .script_heap = false, .node_hash = false, .rail_table = false, .shadow_buffers = false};
     std::vector<uint8_t> unchanged = pristine;
     const ExeImage unchanged_image = {.base = base, .bytes = unchanged, .write = &write_copy};
     problems.clear();

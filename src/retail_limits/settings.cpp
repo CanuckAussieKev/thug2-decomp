@@ -30,6 +30,8 @@ constexpr std::string_view kDefaultIni =
     "node_hash=1\r\n"
     "; the rail name table (levels of more than 16,384 rail nodes)\r\n"
     "rail_table=1\r\n"
+    "; the shadow's buffers (scene meshes of more than 4,096 vertices)\r\n"
+    "shadow_buffers=1\r\n"
     "\r\n"
     "[loader]\r\n"
     "; another DLL in the game folder to load as well and pass DirectInput to - e.g. a mod's own dinput8.dll,\r\n"
@@ -66,6 +68,7 @@ Settings read_settings(const std::string& ini_path)
     settings.raises.script_heap = flag(ini_path, "script_heap", true);
     settings.raises.node_hash = flag(ini_path, "node_hash", true);
     settings.raises.rail_table = flag(ini_path, "rail_table", true);
+    settings.raises.shadow_buffers = flag(ini_path, "shadow_buffers", true);
     std::array<char, kChainChars> chain = {};
     GetPrivateProfileStringA("loader", "chain", "", chain.data(), kChainChars, ini_path.c_str());
     settings.chain = chain.data();

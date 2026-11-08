@@ -2,7 +2,7 @@
 // runs (src/editor/level_editor_import.h) - the level converters and the content pipeline, with a Node runtime of
 // their own, so the player needs no Node, npm or checkout:
 //
-//   node tools/editor_tools.ts [--out <folder>] [--force]
+//   node tools/editor_tools.ts [--out <folder>] [--force] [--limits-dll <dinput8.dll>]
 //
 //   editor-tools\node.exe         Node.js (NODE_VERSION, the official Windows x64 build: its zip from nodejs.org,
 //                                 checked against NODE_ZIP_SHA256 and nodejs.org's SHASUMS256.txt), LICENSE.node.txt
@@ -14,6 +14,11 @@
 //                                 node_modules, the converters it pins - `npm ci --omit=dev` from its package-lock.json
 //   editor-tools\anteara\         Anteara Mod (tools/anteara), which make_menu_level installs into the overlay when it is
 //                                 beside the pipeline
+//   editor-tools\retail_limits\dinput8.dll  the retail-limits DLL (src/retail_limits: 32-bit, as the original game),
+//                                 which the retail export installs beside a retail THUG2.exe with big levels (Import
+//                                 Level's "Install the limits DLL") - an x86 MinSizeRel build made by
+//                                 tools/build_retail_limits.cmd (run each time: an up-to-date build does nothing);
+//                                 --limits-dll: a DLL built already
 //   editor-tools\bundle.json      what it was made from (versions, the pipeline's commit) and a key over all of it
 //
 // Made in out\editor-tools (--out: elsewhere); downloads cached in out\node and out\editor-tools-cache. Nothing is made
@@ -27,6 +32,7 @@ import * as path from "node:path";
 import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 
 export const ROOT = path.resolve(import.meta.dirname, "..");
+export const LIMITS_DLL = path.join(ROOT, "out", "build", "retail-limits-x86", "retail_limits", "dinput8.dll");
 export const NODE_VERSION = "24.11.1";
 export const NODE_ZIP = `node-v${NODE_VERSION}-win-x64.zip`;
 export const NODE_ZIP_SHA256 = "5355ae6d7c49eddcfde7d34ac3486820600a831bf81dc3bdca5c8db6a9bb0e76";
@@ -102,6 +108,20 @@ async function neverscript(cache: string): Promise<{ file: string; sha256: strin
     return { file: await ns.fetchNs(), sha256: release[1] };
 }
 
+// The retail-limits DLL: `given`, else tools/build_retail_limits.cmd's build (made or brought up to date first).
+function limitsDll(given: string | undefined): string {
+    if (given) {
+        if (!fs.existsSync(given)) exitWith(`--limits-dll: ${given} not found`);
+        return path.resolve(given);
+    }
+    const script = path.join(ROOT, "tools", "build_retail_limits.cmd");
+    const r = spawnSync("cmd.exe", ["/d", "/c", script], { cwd: ROOT, encoding: "utf-8" });
+    if (r.status !== 0 || !fs.existsSync(LIMITS_DLL)) {
+        exitWith(`${script} failed (the retail-limits DLL, an x86 build):\n${r.stdout}${r.stderr}`);
+    }
+    return LIMITS_DLL;
+}
+
 function copyFiles(from: string, files: readonly string[], to: string): void {
     for (const f of files) {
         const target = path.join(to, ...f.split("/"));
@@ -148,7 +168,11 @@ async function main(): Promise<number> {
     if (process.platform !== "win32")
         exitWith("the editor's tools folder is made for Windows x64 (the editor's build)");
     const { values } = parseCli(USAGE, {
-        options: { out: { type: "string" }, force: { type: "boolean", default: false } },
+        options: {
+            out: { type: "string" },
+            force: { type: "boolean", default: false },
+            "limits-dll": { type: "string" },
+        },
     });
     const out = path.resolve(values.out ?? path.join(ROOT, "out", "editor-tools"));
     const pipeline = path.join(ROOT, "tools", "pipeline");
@@ -159,10 +183,13 @@ async function main(): Promise<number> {
     const pipelineFiles = gitFiles(pipeline);
     const antearaFiles = fs.existsSync(path.join(anteara, "anteara.ts")) ? gitFiles(anteara) : [];
     const ns = await neverscript(path.join(ROOT, "out", "editor-tools-cache"));
+    const dll = limitsDll(values["limits-dll"]);
+    const dllSha256 = sha256(fs.readFileSync(dll));
     const key = bundleKey(
         [
             ["node", NODE_ZIP_SHA256],
             ["ns", ns.sha256],
+            ["limits", dllSha256],
         ],
         [
             [pipeline, pipelineFiles],
@@ -179,6 +206,8 @@ async function main(): Promise<number> {
     fs.mkdirSync(work, { recursive: true });
     unzipNode(await nodeZip(path.join(ROOT, "out", "node")), work);
     fs.copyFileSync(ns.file, path.join(work, "ns.exe"));
+    fs.mkdirSync(path.join(work, "retail_limits"), { recursive: true });
+    fs.copyFileSync(dll, path.join(work, "retail_limits", "dinput8.dll"));
     copyFiles(pipeline, pipelineFiles, path.join(work, "pipeline"));
     if (antearaFiles.length) copyFiles(anteara, antearaFiles, path.join(work, "anteara"));
     // (the converters the pipeline pins, production only: built on install - their prepare - from the lock file)
@@ -189,10 +218,11 @@ async function main(): Promise<number> {
     });
     if (npm.status !== 0) exitWith(`npm ci in ${path.join(work, "pipeline")} failed`);
     const bundle = {
-        note: "The level editor's tools (tools/editor_tools.ts in the THUG2 decompilation): Node.js, NeverScript's ns, the content pipeline and its level converters.",
+        note: "The level editor's tools (tools/editor_tools.ts in the THUG2 decompilation): Node.js, NeverScript's ns, the content pipeline and its level converters, the retail-limits DLL.",
         node: NODE_VERSION,
         nodeZipSha256: NODE_ZIP_SHA256,
         neverscriptSha256: ns.sha256,
+        limitsDllSha256: dllSha256,
         pipeline: gitHead(pipeline),
         anteara: antearaFiles.length ? gitHead(anteara) : null,
         key,
