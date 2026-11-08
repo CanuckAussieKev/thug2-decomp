@@ -116,6 +116,9 @@ export interface LevelProps {
     ambient?: [number, number, number];
     fog?: [number, number, number, number, number];
     sky?: string; // (map3) another level's sky scene - level_props::valid_sky
+    // (presets: level flags) uber_frig_height in feet (50..10000) and sun_theta per time of day (degrees 0..360)
+    fall?: number;
+    sun?: [number, number, number, number];
 }
 // (map3 - level_editor_faces.h) a sector's collision faces' flags as edited: [face index, flags], ascending.
 export interface FaceRecord {
@@ -864,6 +867,13 @@ export function readLayout(text: string): Layout {
                         if (n.length !== (key === "ambient" ? 3 : 5)) fail(`bad ${key}`);
                         if (key === "ambient") level.ambient = n as [number, number, number];
                         else level.fog = n as [number, number, number, number, number];
+                    } else if (key === "fall") {
+                        const n = isInt(value) ? Number(value) : -1;
+                        level.fall = n >= 50 && n <= 10000 ? n : fail("bad fall");
+                    } else if (key === "sun") {
+                        const n = value.split(",").map((v) => (isInt(v) ? Number(v) : fail("bad sun")));
+                        if (n.length !== 4 || n.some((a) => a < 0 || a > 360)) fail("bad sun");
+                        level.sun = n as [number, number, number, number];
                     }
                 }
                 layout.level = level;

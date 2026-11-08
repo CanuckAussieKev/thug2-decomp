@@ -88,7 +88,8 @@ bool get_same(const Props& a, const Props& b)
            a.has_ambient_ == b.has_ambient_ &&
            (!a.has_ambient_ || std::memcmp(a.ambient.data(), b.ambient.data(), sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
            (!a.has_fog_ || std::memcmp(a.fog.data(), b.fog.data(), sizeof(a.fog)) == 0) &&
-           _stricmp(a.sky.c_str(), b.sky.c_str()) == 0;
+           _stricmp(a.sky.c_str(), b.sky.c_str()) == 0 && a.fall_depth == b.fall_depth && a.has_sun_ == b.has_sun_ &&
+           (!a.has_sun_ || a.sun == b.sun);
 }
 
 bool vacant(const Props& props) { return get_same(props, Props{}); }
@@ -144,6 +145,15 @@ std::string write_record(const Props& props)
     if (!props.sky.empty()) {
         line += " sky=" + fields::escape(props.sky);
     }
+    if (props.fall_depth >= 0) {
+        text::format_to(text, " fall=%d", props.fall_depth);
+        line += text.data();
+    }
+    if (props.has_sun_) {
+        text::format_to(text, " sun=%d,%d,%d,%d", core::at(props.sun, 0), core::at(props.sun, 1), core::at(props.sun, 2),
+                        core::at(props.sun, 3));
+        line += text.data();
+    }
     return line + "\n";
 }
 
@@ -191,6 +201,18 @@ bool read_record(std::istringstream& in, Props* props)
             if (!fields::unescape(value, &parsed.sky) || !valid_sky(parsed.sky)) {
                 return false;
             }
+        } else if (key == "fall") {
+            std::array<int, 1> depth{};
+            if (!read_ints(value, depth, 1) || core::at(depth, 0) < kFallDepthMin || core::at(depth, 0) > kFallDepthMax) {
+                return false;
+            }
+            parsed.fall_depth = core::at(depth, 0);
+        } else if (key == "sun") {
+            if (!read_ints(value, parsed.sun, kStates) ||
+                std::ranges::any_of(parsed.sun, [](int angle) { return angle < 0 || angle > kSunMax; })) {
+                return false;
+            }
+            parsed.has_sun_ = true;
         } // (another key: a later version's - skipped)
     }
     *props = parsed;
@@ -232,6 +254,21 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
         v.kind = fields::Kind::kChars;
         v.text = props.sky;
         out.emplace_back("sky", v);
+    }
+    // (level flags: load_level's own keys - the stock levels write them as floats)
+    if (props.fall_depth >= 0) {
+        fields::Value v;
+        v.kind = fields::Kind::kFloat;
+        core::at(v.numbers, 0) = static_cast<float>(std::clamp(props.fall_depth, kFallDepthMin, kFallDepthMax));
+        out.emplace_back("uber_frig_height", v);
+    }
+    if (props.has_sun_) {
+        fields::Value v;
+        v.kind = fields::Kind::kFloats;
+        for (const int angle : props.sun) {
+            v.floats.push_back(static_cast<float>(std::clamp(angle, 0, kSunMax)));
+        }
+        out.emplace_back("sun_theta", v);
     }
     return out;
 }
@@ -456,6 +493,21 @@ bool level_defaults(Props* props)
     int value = 1;
     level_props.time =
         level->fetch_int_value(checksums::hash_from_text("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
+    // (level flags: the level's own, else load_level's defaults - uber_frig_default_height, no sun_theta)
+    const fields::Own fall = fields::own_in(level, checksums::hash_from_text("uber_frig_height"), false);
+    level_props.fall_depth = kDefaultFallDepth;
+    if (fall.present && fall.value.kind == fields::Kind::kFloat) {
+        level_props.fall_depth = static_cast<int>(core::at(fall.value.numbers, 0));
+    } else if (fall.present && fall.value.kind == fields::Kind::kInteger) {
+        level_props.fall_depth = fall.value.integer;
+    }
+    const fields::Own sun = fields::own_in(level, checksums::hash_from_text("sun_theta"), false);
+    if (sun.present && sun.value.kind == fields::Kind::kFloats && sun.value.floats.size() == kStates) {
+        level_props.has_sun_ = true;
+        for (int i = 0; i < kStates; ++i) {
+            core::at(level_props.sun, i) = static_cast<int>(core::at(sun.value.floats, i));
+        }
+    }
     // (map4) The ambient light and fog the level shows: the time-of-day manager's current state's - where the engine's
     // come from - with the level structure's ed_ keys (a bake's) over them.
     gfx::CtodManager* manager = gfx::tod_manager();

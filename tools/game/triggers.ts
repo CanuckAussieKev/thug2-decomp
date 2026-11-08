@@ -28,9 +28,32 @@ import { f32, pack } from "thug2-level-converter-core/lib/struct.ts";
 
 // (the feature map added boost - a jump boost: trigger_jump_boost speed=<strength> - and break - a breakable: its piece
 // shattered and killed, its collision off while it's breakable through `replaces`)
-export type Kind = "kill" | "teleport" | "script" | "gapstart" | "gapend" | "boost" | "break" | "camera";
+// (presets: booster - a speed boost: pushed along the trigger's facing, or along=1 the skater's own way - and exit - a
+// teleport's destination: a node, no box, no script of its use)
+export type Kind =
+    | "kill"
+    | "teleport"
+    | "script"
+    | "gapstart"
+    | "gapend"
+    | "boost"
+    | "break"
+    | "camera"
+    | "booster"
+    | "exit";
 // (the game's kind_word order; "other" - a level trigger without a script - is never a record)
-export const KINDS: readonly Kind[] = ["kill", "teleport", "script", "gapstart", "gapend", "boost", "break", "camera"];
+export const KINDS: readonly Kind[] = [
+    "kill",
+    "teleport",
+    "script",
+    "gapstart",
+    "gapend",
+    "boost",
+    "break",
+    "camera",
+    "booster",
+    "exit",
+];
 export const KIND_NAMES: Readonly<Record<Kind, string>> = {
     kill: "Kill zone",
     teleport: "Teleport",
@@ -40,9 +63,12 @@ export const KIND_NAMES: Readonly<Record<Kind, string>> = {
     boost: "Jump boost",
     break: "Breakable",
     camera: "Camera",
+    booster: "Booster",
+    exit: "Teleport exit",
 };
 export const BOOST_MIN = 100;
 export const BOOST_MAX = 5000;
+export const DEFAULT_BOOSTER_SPEED = 1500; // (triggers::kDefaultBoosterSpeed)
 // (map4) a camera trigger's seconds (triggers::kCameraMinSeconds / kCameraMaxSeconds)
 export const CAMERA_MIN_SECONDS = 0.5;
 export const CAMERA_MAX_SECONDS = 60;
@@ -75,6 +101,9 @@ export interface TriggerSpec {
     sound: string;
     // (map4) a camera trigger's shot length: LevelEditor_PlayCamera camera=<target> time=<seconds>
     seconds: number;
+    // (presets) a booster's along=1 (its direction kept), a teleport's keep=1 (the skater's heading kept)
+    along: boolean;
+    keep: boolean;
 }
 
 // triggers::clamp_seconds: within CAMERA_MIN_SECONDS .. CAMERA_MAX_SECONDS (a float; not a number: 3).
@@ -147,6 +176,9 @@ export function problem(spec: TriggerSpec): string | null {
             return spec.target ? null : "Choose the piece it breaks";
         case "camera":
             return spec.target ? null : "Choose the camera it plays";
+        case "booster":
+        case "exit":
+            return null;
     }
 }
 
@@ -187,6 +219,8 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
         strength: 900,
         seconds: 3,
         sound: "",
+        along: false,
+        keep: false,
     };
     // text="..." (last: it may hold spaces)
     const quote = text.indexOf(' text="');
@@ -203,6 +237,7 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
     if (!(KINDS as readonly string[]).includes(word)) return null;
     spec.name = name;
     spec.kind = word as Kind;
+    if (spec.kind === "booster") spec.strength = DEFAULT_BOOSTER_SPEED; // (strength= missing: the booster's default)
     const seen = new Set<string>();
     for (const field of words.slice(2)) {
         const equals = field.indexOf("=");
@@ -257,6 +292,9 @@ export function readTriggerRecord(line: string): TriggerSpec | null {
             const strength = /^[+-]?\d+$/.test(value) ? Number(value) : -1;
             ok = once() && strength >= BOOST_MIN && strength <= BOOST_MAX;
             spec.strength = strength;
+        } else if (key === "along" || key === "keep") {
+            ok = once() && (value === "0" || value === "1");
+            spec[key] = value === "1";
         } else if (key === "sound") {
             ok = once() && validName(value);
             spec.sound = value;
@@ -293,8 +331,14 @@ export function body(spec: TriggerSpec): Buffer {
             parts.push(nameValue("nodename", checksumOf(spec.target)), Buffer.from([LINE]));
             break;
         case "teleport":
-            parts.push(nameToken(checksum("TeleportSkaterToNode")));
-            parts.push(nameValue("nodename", checksumOf(spec.target)), Buffer.from([LINE]));
+            if (spec.keep) {
+                // Obj_MoveToNode name=<target> NoReset (heading and speed kept)
+                parts.push(nameToken(checksum("Obj_MoveToNode")), nameValue("name", checksumOf(spec.target)));
+                parts.push(nameToken(checksum("NoReset")), Buffer.from([LINE]));
+            } else {
+                parts.push(nameToken(checksum("TeleportSkaterToNode")));
+                parts.push(nameValue("nodename", checksumOf(spec.target)), Buffer.from([LINE]));
+            }
             break;
         case "script":
             parts.push(nameToken(checksumOf(spec.script)), Buffer.from([LINE]));
@@ -356,6 +400,27 @@ export function body(spec: TriggerSpec): Buffer {
             );
             parts.push(Buffer.from([LINE]));
             break;
+        case "booster": {
+            // SK6_SFX_Roll_Booster_Sound, then along: trigger_speed_boost speed=<n>; else GetSkaterVelocity /
+            // SetSkaterVelocity vel_x=<x> vel_y=<vel_y> vel_z=<z> - the facing (sin yaw, 0, cos yaw) times the speed
+            const speed = Math.max(BOOST_MIN, Math.min(BOOST_MAX, spec.strength));
+            parts.push(nameToken(checksum("SK6_SFX_Roll_Booster_Sound")), Buffer.from([LINE]));
+            if (spec.along) {
+                parts.push(nameToken(checksum("trigger_speed_boost")), nameToken(checksum("speed")));
+                parts.push(Buffer.from([EQUALS, 0x17]), pack("<i", speed), Buffer.from([LINE]));
+                break;
+            }
+            const yaw = Number.isFinite(spec.yaw) ? spec.yaw : 0;
+            const real = (key: string, v: number): Buffer =>
+                Buffer.concat([nameToken(checksum(key)), Buffer.from([EQUALS, 0x1a]), pack("<f", f32(v))]);
+            parts.push(nameToken(checksum("GetSkaterVelocity")), Buffer.from([LINE]));
+            parts.push(nameToken(checksum("SetSkaterVelocity")), real("vel_x", Math.sin(yaw) * speed));
+            parts.push(nameToken(checksum("vel_y")), Buffer.from([EQUALS, 0x2d]), nameToken(checksum("vel_y")));
+            parts.push(real("vel_z", Math.cos(yaw) * speed), Buffer.from([LINE]));
+            break;
+        }
+        case "exit":
+            break; // (a teleport's destination: no script of its own)
     }
     return Buffer.concat(parts);
 }
@@ -460,7 +525,11 @@ export const BOX_FACES: readonly [number, number, number][] = [
 
 // The trigger's collision object: the box's 12 faces, flags FACE_FLAGS, terrain 0, intensities 128 (as THUG2's own),
 // fixed-point corners while the box fits 16-bit sixteenths (as the shipped boxes), its tree and reaches built. An exit
-// trigger's has the 12 faces again wound the other way (facing in: met on the way out - see the top).
+// trigger's has the 12 faces again wound the other way (facing in: met on the way out - see the top). An exit has none
+// (hasCollision).
+export function hasCollision(spec: Pick<TriggerSpec, "kind">): boolean {
+    return spec.kind !== "exit";
+}
 export function triggerCollision(spec: TriggerSpec): ColObject {
     const corners = boxCorners(spec);
     const min = {
