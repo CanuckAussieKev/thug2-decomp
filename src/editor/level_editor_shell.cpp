@@ -993,6 +993,38 @@ void open_imported(const std::string& load)
     ask_open(checksums::hash_from_text(load.c_str()), false);
 }
 
+namespace {
+
+// `fe editor preset <which>`: the Triggers window's presets where the view looks (booster, teleport, twowaygap -
+// level_editor_triggers.h).
+std::string preset_command(const std::string& which)
+{
+    if (which == "booster") {
+        triggers::get_queue([] { triggers::add_booster(false); });
+    } else if (which == "teleport") {
+        triggers::get_queue([] { triggers::add_teleport_pair(); });
+    } else if (which == "twowaygap") {
+        triggers::get_queue([] { triggers::add_two_way_gap(); });
+    } else {
+        return "error: preset booster|teleport|twowaygap";
+    }
+    return "ok " + which;
+}
+
+// `fe editor save`: as Ctrl+S - saved, the editor has no unsaved changes (no autosave written on leaving).
+std::string save_command()
+{
+    std::string message;
+    const bool saved = layout::store_away(&message);
+    if (saved) {
+        internal::unsaved_changes().unsaved_ = false;
+        internal::unsaved_changes().offer_pending_ = false;
+    }
+    return saved ? "ok " + message : "error: " + message;
+}
+
+} // namespace
+
 bool screen_command(const std::string& line, bool* done, std::string* result)
 {
     std::vector<std::string> words = words_of(line);
@@ -1049,34 +1081,17 @@ bool screen_command(const std::string& line, bool* done, std::string* result)
         *result = content::automation_place(words.at(2), words.at(3));
         return true;
     } else if (verb == "preset" && words.size() > 2 && level_editor::live_now()) {
-        // (the Triggers window's presets where the view looks: booster, teleport, twowaygap - level_editor_triggers.h)
-        const std::string& which = words.at(2);
-        if (which == "booster") {
-            triggers::get_queue([] { triggers::add_booster(false); });
-        } else if (which == "teleport") {
-            triggers::get_queue([] { triggers::add_teleport_pair(); });
-        } else if (which == "twowaygap") {
-            triggers::get_queue([] { triggers::add_two_way_gap(); });
-        } else {
-            *result = "error: preset booster|teleport|twowaygap";
-            return true;
-        }
-        *result = "ok " + which;
+        *result = preset_command(words.at(2));
         return true;
+
     } else if (verb == "prefab" && level_editor::live_now()) {
         // (prefabs - level_editor_prefabs.h: list, create <name> [sectors= objects= nodes=], place <name> [x,y,z])
         *result = prefabs::automation(std::vector<std::string>(words.begin() + 1, words.end()));
         return true;
     } else if (verb == "save" && level_editor::live_now()) {
-        // (as Ctrl+S: saved, the editor has no unsaved changes - no autosave written on leaving)
-        std::string message;
-        const bool saved = layout::store_away(&message);
-        if (saved) {
-            internal::unsaved_changes().unsaved_ = false;
-            internal::unsaved_changes().offer_pending_ = false;
-        }
-        *result = saved ? "ok " + message : "error: " + message;
+        *result = save_command();
         return true;
+
     } else if ((verb == "play" || verb == "playhere") && level_editor::live_now()) {
         if (verb == "play") {
             play_test::play_from_start();
