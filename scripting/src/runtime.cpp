@@ -224,7 +224,10 @@ struct Runtime::Impl {
         RichHostResult rich_result;
         bool rich=false;
         try{
-            if(argc!=3)throw std::runtime_error("Invalid QB host call");
+            // (name, args, parameters[, object, qualified]): the object a command runs on and whether it was named
+            // (object:Command) - not passed on to these hosts yet: a qualified call is answered as missing.
+            if(argc!=3&&argc!=5)throw std::runtime_error("Invalid QB host call");
+            if(argc==5&&JS_ToBool(ctx,argv[4]))return JS_UNDEFINED;
             auto name=self.uint(argv[0]);auto found=self.hosts.find(name);
             if(found==self.hosts.end())return JS_UNDEFINED;
             rich=std::holds_alternative<RichHost>(found->second);
