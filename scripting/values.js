@@ -10,7 +10,8 @@ globalThis.qbValues = (() => {
     const isStructure = (v) => v.type === 10 || v.type === 20;
     const isArray = (v) => v.type === 12 || v.type === 21;
     const callable = (v) => v && v.kind === "callable";
-    const dataTypes = [1, 2, 3, 4, 5, 6, 10, 12, 13, 20, 21];
+    // (7: a script as a value - {type: 7, bytes}: its compiled body; runtime.js inline)
+    const dataTypes = [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 20, 21];
     function fail(code, message, w) {
         const site = w?.ctx.site;
         const suffix = site
@@ -57,18 +58,38 @@ globalThis.qbValues = (() => {
                     : number(a) / number(b);
         return floating(store32(rounded, Object.is(zeroSign, -0)));
     }
+    // A string's bytes up to its first zero, each checked. The array made is frozen and remembered: strings never
+    // change in place, so a copy of a string shares it (a long list of names copied by every statement that touches
+    // it costs one step a byte still, but no longer a byte-by-byte copy).
+    const checkedBytes = new WeakSet();
     function bytes(input, w) {
         if (!Array.isArray(input)) fail("type", "Expected string bytes", w);
         if (input.length > 250000) fail("limit", "String byte limit", w);
+        w?.step(input.length);
+        if (checkedBytes.has(input)) return input;
         const out = [];
-        let ended = false;
         for (const c of input) {
-            w?.step();
             if (!Number.isInteger(c) || c < 0 || c > 255) fail("type", "Invalid string byte", w);
-            if (c === 0) ended = true;
-            if (!ended) out.push(c);
+            if (c === 0) break;
+            out.push(c);
         }
+        // (bytes after a zero were checked too, as before)
+        for (let i = out.length; i < input.length; ++i) {
+            const c = input[i];
+            if (!Number.isInteger(c) || c < 0 || c > 255) fail("type", "Invalid string byte", w);
+        }
+        Object.freeze(out);
+        checkedBytes.add(out);
         return out;
+    }
+    // A script body's bytes, all of them (zeros included).
+    function code(input, w) {
+        if (!Array.isArray(input) || input.length > 0xffff) fail("type", "Invalid script body", w);
+        return input.map((c) => {
+            w?.step();
+            if (!Number.isInteger(c) || c < 0 || c > 255) fail("type", "Invalid script body byte", w);
+            return c;
+        });
     }
     function coordinates(input, length, w) {
         if (!Array.isArray(input) || input.length !== length) fail("type", "Invalid coordinate count", w);
@@ -103,7 +124,9 @@ globalThis.qbValues = (() => {
             this.nodes = 0;
             this.path = new Set();
             this.depth = Math.min(uint(ctx.limits?.depth ?? 128), 128);
-            this.limit = Math.min(uint(ctx.limits?.nodes ?? 250000), 250000);
+            // (in the game no bound of its own: QB has none - a ported level's node array is copied whole - and the
+            // bridge's interrupt budget stops a runaway script)
+            this.limit = globalThis.__qbGame ? Number.MAX_SAFE_INTEGER : Math.min(uint(ctx.limits?.nodes ?? 250000), 250000);
         }
         step(n = 1) {
             if (n > this.limit - this.nodes) fail("limit", "Value work limit", this);
@@ -134,7 +157,7 @@ globalThis.qbValues = (() => {
             if (v.elements.length > 250000) fail("limit", "Array element limit", w);
         } else if (v.type === 20 || v.type === 21) {
             if (!v.target || v.target.type !== (v.type === 20 ? 10 : 12)) fail("type", "Invalid reference target", w);
-        } else if (v.type === 3 || v.type === 4) {
+        } else if (v.type === 3 || v.type === 4 || v.type === 7) {
             if (!Array.isArray(v.bytes)) fail("type", "Invalid string shape", w);
         } else if (!Array.isArray(v.coordinates) || v.coordinates.length !== (v.type === 5 ? 2 : 3))
             fail("type", "Invalid coordinate shape", w);
@@ -163,6 +186,7 @@ globalThis.qbValues = (() => {
             return { type: v.type === 10 ? 20 : 21, target: v };
         if ([1, 2, 13].includes(v.type)) return { type: v.type, bits: v.bits };
         if (v.type === 3 || v.type === 4) return { type: v.type, bytes: bytes(v.bytes, w) };
+        if (v.type === 7) return { type: 7, bytes: code(v.bytes, w) };
         if (v.type === 5 || v.type === 6)
             return { type: v.type, coordinates: coordinates(v.coordinates, v.type === 5 ? 2 : 3, w) };
         return w.inside(v, () => {
@@ -498,7 +522,8 @@ globalThis.qbValues = (() => {
         if (a.type !== b.type) return false;
         if (callable(a) || callable(b)) return callable(a) && callable(b) && a.type === b.type && a.name === b.name;
         if (a.type === 13) return a.bits === b.bits;
-        if (a.type === 10 || a.type === 12) return a === b;
+        // (scripts as values, like structures and arrays, by their address: a copy is another)
+        if (a.type === 10 || a.type === 12 || a.type === 7) return a === b;
         if (a.type === 3 || a.type === 4) {
             const x = bytes(a.bytes, w),
                 y = bytes(b.bytes, w);

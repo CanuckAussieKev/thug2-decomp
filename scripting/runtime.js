@@ -7,7 +7,7 @@
 globalThis.qb = (() => {
     const game = globalThis.__qbGame;
     const scripts = new Map(), symbols = new Map(), tasks = new Map();
-    let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000;
+    let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000, inlineCount = 0;
     let rng = null;
     const random = () => {
         if (globalThis.qbRandom?.apiVersion !== 1) throw Error('QB random API 1 required');
@@ -25,6 +25,9 @@ globalThis.qb = (() => {
         return globalThis.qbValues;
     };
     const consume = (task, cost) => {
+        // (in the game nothing is counted: QB has no such bound - a level's whole node array may be copied - and the
+        // bridge's interrupt budget stops a runaway script)
+        if (game) return;
         uint(cost);
         if (cost > task.fuel) throw Error('QB value/statement fuel exhausted');
         task.fuel -= cost;
@@ -33,7 +36,7 @@ globalThis.qb = (() => {
         const task = active;
         if (task) task.site = site;
         return {site, owner:task?.owner ?? task?.id ?? 0, symbol:n => game ? game.symbol(n) : symbols.get(n), charge:cost => {
-            if (task) consume(task, cost);
+            if (task || game) consume(task, cost);
             else { uint(cost); if (cost > loadFuel) throw Error('QB module value fuel exhausted'); loadFuel -= cost; }
         }};
     };
@@ -93,7 +96,15 @@ globalThis.qb = (() => {
         try {
             step(site);
             // In the game: the interpreter runs it (execute_command's dispatch, on the script's record).
-            if (game) return yield {call: name, args, on};
+            if (game && !recording) return yield {call: name, args, on};
+            if (game) {
+                let unnamed = 0;
+                for (const [n, value] of args) noteType(`arg ${hex(name)} ${n ? hex(n) : '#' + unnamed++}`, typeOf(value));
+                const before = game.frame();
+                const result = yield {call: name, args, on};
+                noteType(`wait ${hex(name)}`, game.frame() === before ? 'same frame' : 'waited');
+                return result;
+            }
             if (on !== undefined) {
                 uint(on);
                 const exists = typeof globalThis.__qbFindObject === 'function' ? globalThis.__qbFindObject(on) : true;
@@ -119,12 +130,53 @@ globalThis.qb = (() => {
             return r.condition;
         } finally { --t.depth; t.object = caller; }
     }
+    // --- [debug] ts_types=1 in the game: the types each site of the TypeScript sees, counted (tools/qbjs/types.ts
+    // turns them, with what the .qb files say, into typings - the facts the natural-TypeScript steps rest on) ---
+    const recording = !!(game && game.recording);
+    const seen = new Map(); // site -> Map(type -> count)
+    const TYPE_NAMES = {0:'empty', 1:'int', 2:'float', 3:'string', 4:'localstring', 5:'pair', 6:'vector', 7:'script', 10:'struct', 12:'array', 13:'name', 20:'struct', 21:'array'};
+    function typeOf(v) {
+        if (v === undefined || v === null) return 'none';
+        if (v.kind === 'callable') return 'callable';
+        if (v.type === 12 || v.type === 21) {
+            const a = v.type === 21 ? v.target : v;
+            return a.elements?.length ? `array<${TYPE_NAMES[a.elementType] ?? a.elementType}>` : 'array<empty>';
+        }
+        return TYPE_NAMES[v.type] ?? `type${v.type}`;
+    }
+    function noteType(site, type) {
+        let counts = seen.get(site);
+        if (!counts) seen.set(site, counts = new Map());
+        counts.set(type, (counts.get(type) ?? 0) + 1);
+    }
+    const hex = n => (n >>> 0).toString(16).padStart(8, '0');
     function copyParameters(t, p) {
         return t.format === 2 ? values().merge([], p, boundary(t.site)) : merge([], p);
     }
     function snapshot(t) { return {status:t.status, parameters:copyParameters(t, t.parameters), message:t.message}; }
     return Object.freeze({
         runtimeVersion: 2,
+        recording,
+        // note(site, value): a value seen there (only while recording); noteType: a type already named.
+        note(site, value) { if (recording) noteType(site, typeOf(value)); },
+        noteType(site, type) { if (recording) noteType(site, type); },
+        typeOf,
+        // The counts as JSON ({version, sites: {site: {type: count}}}), what loadTypes was given added in.
+        recordedTypes() {
+            const sites = {};
+            for (const [site, counts] of seen) sites[site] = Object.fromEntries(counts);
+            return JSON.stringify({version: 1, sites});
+        },
+        // A previous session's counts (the file recordedTypes was saved to), added to this one's.
+        loadTypes(json) {
+            const sites = JSON.parse(json)?.sites ?? {};
+            for (const site of Object.keys(sites))
+                for (const [type, count] of Object.entries(sites[site])) {
+                    let counts = seen.get(site);
+                    if (!counts) seen.set(site, counts = new Map());
+                    counts.set(type, (counts.get(type) ?? 0) + Number(count));
+                }
+        },
         // `(expression) args` as a statement or an if's condition (execute_command): a name is called (0: nothing,
         // false), anything else is only its truth - arguments after it are outside what this runtime does.
         // (expression):Command - the object's name: the expression must give a name.
@@ -195,6 +247,17 @@ globalThis.qb = (() => {
             scripts.set(n, {fn,format:loadingFormat});
             symbols.set(n, {kind:'callable',type:7,name:n});
             if (game) game.defineScript(n);
+        },
+        // inline(fn): a script as a value (a structure's `script name ... endscript`; the C++ runs it - the CAS
+        // tables' part scripts, ModelAssembler::launch_script). Its function is kept under a made-up name no symbol
+        // has; the value is the body defineScript gives a script, naming it: 01, 4A <name>, 01, 24.
+        inline(fn) {
+            if (typeof fn !== 'function') throw Error('Invalid QB script function');
+            let n;
+            do n = (0xc0de0000 + inlineCount++) >>> 0;
+            while (scripts.has(n) || symbols.has(n) || (game && game.symbol(n) !== undefined));
+            scripts.set(n, {fn, format: loadingFormat});
+            return {type: 7, bytes: [1, 0x4a, n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, n >>> 24, 1, 0x24]};
         },
         start(n, args, fuel, object = 0) {
             if (tasks.size >= 256 || nextId > 0xffffffff) throw Error('QB task capacity limit');

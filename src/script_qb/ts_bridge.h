@@ -1,13 +1,16 @@
 #pragma once
 
 // NOT ORIGINAL - TypeScript scripts in the game (docs/qb-ts.md "In the game"). A translated module (tools/qbjs:
-// emit_ts.ts, compile_ts.ts) is loaded after the .qb file it translates and replaces that file's scripts and globals:
-// each of its scripts gets a symbol whose body is one kTsBody token, and when the interpreter reaches it on a call-stack
+// emit_ts.ts, compile_ts.ts) is loaded after the .qb file it translates and replaces that file's scripts (its globals
+// stay the ones the loader made from the same bytes): each of its scripts gets a symbol whose body is one kTsBody
+// token, and when the interpreter reaches it on a call-stack
 // level it runs that level in QuickJS (cscript_ts.cpp). Everything else - the record, its Update, waits, events,
 // spawning, objects, the call stack - stays the interpreter's: a level's command calls are carried out by it.
 //
-// [features] ts_scripts=1 (default 0) turns it on; the modules are the game folder's thug2-decomp-ts\<the .qb file's
-// path>.js (scripts\game\misc\level_flags.qb -> thug2-decomp-ts\scripts\game\misc\level_flags.js).
+// [features] ts_scripts=1 (default 0) turns it on; the modules are the game folder's thug2-decomp-ts\by-hash\<the .qb
+// file's FNV-1a>.js (tools/qbjs/install_ts.ts), their compiled bytecode cached in thug2-decomp-ts\cache. [debug]
+// ts_types=1 records the types each site sees into thug2-decomp-ts\types-recorded.json (added to over sessions; read
+// by tools/qbjs/types.ts); ts_profile=1 logs where the time goes.
 
 #include <cstdint>
 #include <optional>
@@ -40,5 +43,13 @@ uint32_t begin(uint32_t name, Struct* args, uint32_t owner, std::string& error);
 Answer resume(uint32_t level, Struct* args, bool result, Struct* stmt);
 // A level gone (its record reset or torn down).
 void drop(uint32_t level);
+
+// The game's frames, counted where the spawned scripts are updated (cscript_manager.cpp tick_child_scripts): a level
+// recording types tells a call that waited from one that didn't.
+inline uint32_t& frame_clock()
+{
+    static uint32_t frames = 0;
+    return frames;
+}
 
 } // namespace script::qb::ts

@@ -67,7 +67,7 @@ globalThis.qbTs = (() => {
     // A value as QB stores it: written literals become literal values, operator results their expression result.
     function value(x) {
         if (x === undefined) return undefined;
-        if (x instanceof ParamRead) return v.param(x.list, x.n, "value", ctx());
+        if (x instanceof ParamRead) return noted(x, v.param(x.list, x.n, "value", ctx()));
         if (typeof x === "number") return scalarNumber(x);
         if (typeof x === "string") return { type: 3, bytes: bytes(x) };
         if (typeof x === "function") return value(x());
@@ -85,9 +85,36 @@ globalThis.qbTs = (() => {
     }
     // An operand inside an expression: parameters are read as expressions (names standing for globals resolved).
     function operand(x) {
-        if (x instanceof ParamRead) return v.param(x.list, x.n, "expression", ctx());
+        if (x instanceof ParamRead) return noted(x, v.param(x.list, x.n, "expression", ctx()));
         if (typeof x === "object" && x !== null && known.has(x)) return x;
         return value(x);
+    }
+
+    // [debug] ts_types=1 (runtime.js note): parameter reads by script and name, operators and comparisons by script and
+    // what their operands are written as.
+    const recording = globalThis.qb.recording;
+    const hex = (n) => (n >>> 0).toString(16).padStart(8, "0");
+    const here = () => `${frame?.source ?? "<qb>"} ${hex(frame?.script ?? 0)}`;
+    function noted(read, result) {
+        if (recording) globalThis.qb.note(`param ${here()} ${hex(read.n)}`, result);
+        return result;
+    }
+    // How an operand is written: p.<name>, a number, a string, N.x, an expression...
+    function written(x) {
+        if (x instanceof ParamRead) return `p.${hex(x.n)}`;
+        if (typeof x === "number") return Number.isInteger(x) ? "int" : "number";
+        if (typeof x === "string") return "string";
+        if (typeof x === "function") return "function";
+        if (pending.has(x)) return "expression";
+        if (known.has(x)) return x.type === 13 ? "N" : "value";
+        return typeof x;
+    }
+    function noteOperands(what, a, b, x, y) {
+        if (recording)
+            globalThis.qb.noteType(
+                `${what} ${here()} ${written(a)} ${written(b)}`,
+                `${globalThis.qb.typeOf(x)},${globalThis.qb.typeOf(y)}`,
+            );
     }
     // Call arguments, a structure's members or a return: object literals are runs of named fields, anything else
     // an unnamed value (a structure among them merged in), all(p) every parameter.
@@ -119,13 +146,19 @@ globalThis.qbTs = (() => {
     const fields = (items, p = frame?.p ?? []) => v.fields(p, entries(items), ctx());
 
     function binary(op) {
-        return (a, b) => mark(v.binary(op, operand(a), operand(b), ctx()), pending);
+        return (a, b) => {
+            const x = operand(a),
+                y = operand(b);
+            noteOperands(`op${op}`, a, b, x, y);
+            return mark(v.binary(op, x, y, ctx()), pending);
+        };
     }
     // A switch's selector or case label: the first value of its argument list.
     const first = (items) => fields(items)[0]?.[1];
     function is(selector, ...label) {
         const a = selector instanceof Selected ? selector.value : first([selector]);
         const b = first(label);
+        noteOperands("is", selector instanceof Selected ? "select" : selector, label[0], a, b);
         return a !== undefined && b !== undefined && v.binary(7, a, b, ctx()).bits !== 0;
     }
     class Selected {
@@ -158,9 +191,18 @@ globalThis.qbTs = (() => {
     let source = "<qb>";
     function script(name, defaults, fn) {
         if (fn === undefined) [defaults, fn] = [undefined, defaults];
-        const hash = checksum(name),
-            module = source;
-        globalThis.qb.define(hash, function* (args, root) {
+        const hash = checksum(name);
+        globalThis.qb.define(hash, scriptFunction(hash, defaults, fn));
+    }
+    // code([defaults,] function* (p) {...}): a script as a value (a structure's `script name ... endscript`).
+    function code(defaults, fn) {
+        if (fn === undefined) [defaults, fn] = [undefined, defaults];
+        return mark(globalThis.qb.inline(scriptFunction(0, defaults, fn)));
+    }
+    // The task runner's function for a script: its defaults merged under the arguments, its body resumed in its frame.
+    function scriptFunction(hash, defaults, fn) {
+        const module = source;
+        return function* (args, root) {
             const mine = { p: [], script: hash, source: module };
             let saved = frame;
             frame = mine;
@@ -196,7 +238,7 @@ globalThis.qbTs = (() => {
                 }
                 sent = yield r.value;
             }
-        });
+        };
     }
     function returned(x) {
         if (x !== null && typeof x === "object" && known.has(x) && x.type === 10) return x.members;
@@ -225,7 +267,11 @@ globalThis.qbTs = (() => {
         }
         if (named === null || typeof named !== "object") return 0;
         if (named[SPREAD]) return v.readChecksum(named[SPREAD], 0, ctx())?.bits ?? 0;
-        if (named instanceof ParamRead) return v.readChecksum(named.list, named.n, ctx())?.bits ?? 0;
+        if (named instanceof ParamRead) {
+            const read = v.readChecksum(named.list, named.n, ctx());
+            if (recording) globalThis.qb.note(`name ${here()} ${hex(named.n)}`, read);
+            return read?.bits ?? 0;
+        }
         // N.x, or an expression's result (on(val(...))): it must be a name
         return known.has(named) ? globalThis.qb.objectName(named) : 0;
     }
@@ -267,7 +313,18 @@ globalThis.qbTs = (() => {
     const N = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark({ type: 13, bits: checksum(key) }) : undefined) });
     // G.x: global x's value - or, when x is a C function, its result called with no arguments, there and then;
     // fn.x(...args) calls it with arguments. (A C function in an expression: its outputs are dropped, its result 0 / 1.)
-    const G = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark(globalThis.qb.name(checksum(key), [], site())) : undefined) });
+    const G = new Proxy(
+        {},
+        {
+            get(_, key) {
+                if (typeof key !== "string") return undefined;
+                const n = checksum(key);
+                const x = globalThis.qb.name(n, [], site());
+                if (recording) globalThis.qb.note(`global ${hex(n)}`, x);
+                return mark(x);
+            },
+        },
+    );
     const fn = new Proxy(
         {},
         {
@@ -295,6 +352,7 @@ globalThis.qbTs = (() => {
     return Object.freeze({
         checksum,
         script,
+        code,
         global(name, x) {
             frame = { p: [], script: 0, source };
             try {
@@ -323,7 +381,11 @@ globalThis.qbTs = (() => {
         all: (p) => ({ [SPREAD]: listOf(p) }),
         params: (p) => mark({ type: 20, target: { type: 10, members: listOf(p) } }),
         val: (x) => mark(v.expressionResult(operand(x), ctx())),
-        test: (x) => v.statementTruth(value(x), ctx()),
+        test(x) {
+            const truth = value(x);
+            if (recording) globalThis.qb.note(`test ${here()} ${written(x)}`, truth);
+            return v.statementTruth(truth, ctx());
+        },
         select: (...args) => new Selected(first(args)),
         is,
         s: (...items) => mark(v.structure(fields(items), ctx())),

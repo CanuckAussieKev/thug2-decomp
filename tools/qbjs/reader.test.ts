@@ -198,11 +198,12 @@ test("validates switch headers, destinations, nesting and every truncation", () 
     for (const body of [
         [0x3e, 1],
         [0x3f, 1],
-        [0x3d, 1],
         [0x49, 0, 0],
         [0x3c, ...integer(1), 1],
     ])
         assert.throws(() => scriptBody(body), /QB offset/);
+    // (a stray endswitch before the endscript is stepped over by the statement loop: the script's tail)
+    assert.deepEqual(scriptBody([0x3d, 1]), []);
     // Statements before the first case never run (run_multi_branch steps over them): dropped.
     const before = scriptBody([0x3c, ...integer(1), 1, ...command("BeforeCase"), 0x3d, 1])[0]!;
     if (before.kind !== "switch") throw Error("expected switch");
@@ -448,7 +449,8 @@ test("all truncations of a compound module fail with source offsets", () => {
     readIR(bytes);
     for (let end = 0; end < bytes.length; ++end)
         assert.throws(() => readIR(bytes.subarray(0, end), "cut.qb"), /cut.qb: QB offset 0x/);
-    assert.throws(() => readIR(Uint8Array.from([...bytes, 0])), /trailing bytes/);
+    // (bytes after the end-of-file token are never read by the game's loader)
+    assert.equal(readIR(Uint8Array.from([...bytes, 0])).definitions.length, 2);
     assert.throws(() => readIR(module(global("s", string([65, 66])))), /unterminated QB string/);
     assert.throws(() => readIR(module(global("s", string([])))), /unterminated QB string/);
 });
@@ -463,13 +465,18 @@ test("enforces nodes, nesting, field counts and string/input limits", () => {
         () => readIR(module(global("s", string([...new Array<number>(250001).fill(65), 0])))),
         /string byte limit/,
     );
-    assert.throws(() => readIR(new Uint8Array(4 * 1024 * 1024 + 1)), /module exceeds/);
+    assert.throws(() => readIR(new Uint8Array(64 * 1024 * 1024 + 1)), /module exceeds/);
 });
 test("rejects unsafe arrays, caller-dependent defaults/globals and unimplemented control flow", () => {
     for (const value of [array(integer(1), string([65, 0])), array(param("x")), array([0x2f, 0, 0, 0, 0])])
         assert.throws(() => readIR(module(global("a", value))), /mixed literal-array|unsupported literal-array/);
+    assert.throws(() => readIR(module(global("a", param("x")))), /caller parameters/);
+    for (const value of [structure(field("x", param("p"))), structure([0x2c])]) {
+        // (in a global's structure they add nothing - parse_symbol_definition parses with no parameters)
+        const g = readIR(module(global("a", value))).definitions[0]!;
+        assert.ok(g.kind === "global" && g.value.kind === "structure" && g.value.fields.length === 0);
+    }
     for (const value of [param("x"), structure(field("x", param("p"))), structure([0x2c])]) {
-        assert.throws(() => readIR(module(global("a", value))), /caller parameters/);
         // (a script's defaults may: they are parsed with no parameters and read nothing - run_sub_script)
         assert.doesNotThrow(() => readIR(module(script("a", [], field("p", value)))));
     }

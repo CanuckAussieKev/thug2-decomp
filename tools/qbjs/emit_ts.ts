@@ -62,6 +62,7 @@ const HELPERS = [
     "randomPermute",
     "randomRange",
     "randomRange2",
+    "code",
 ] as const;
 const OPERATORS: Record<number, string> = {
     5: "at",
@@ -115,13 +116,16 @@ const stringText = (bytes: number[]) =>
 // sep joins the items (", " unless set); last ends the last item of a broken list ("," unless set). A head-less
 // list with its own sep (a || chain) breaks into one item per line at the same indent.
 type Doc = string | { head: string; items: Doc[]; tail: string; sep?: string; last?: string };
+// (a string may hold lines - a script written as a value, code(function* ...): its lines after the first are indented
+// where it lands, and what holds it is always broken over lines)
 function flat(d: Doc): string {
     return typeof d === "string" ? d : d.head + d.items.map(flat).join(d.sep ?? ", ") + d.tail;
 }
 const bracketed = (d: Doc) => typeof d !== "string" && (d.head === "{ " || d.head === "[") && d.items.length > 0;
 function layout(d: Doc, indent: string, used: number): string {
     const text = flat(d);
-    if (typeof d === "string" || used + text.length <= WIDTH || !d.items.length) return text;
+    if (typeof d === "string") return text.replace(/\n/g, `\n${indent}`);
+    if ((used + text.length <= WIDTH && !text.includes("\n")) || !d.items.length) return text;
     if (d.items.length === 1 && d.head.endsWith("(") && bracketed(d.items[0]!))
         return d.head + layout(d.items[0]!, indent, used + d.head.length) + d.tail;
     if (d.items.length === 1 && !d.head.endsWith("(") && !d.head.endsWith("[") && d.head !== "{ ")
@@ -264,6 +268,16 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 return fieldsDoc(x.fields, true);
             case "array":
                 return { head: "[", items: x.items.map(expr), tail: "]" };
+            case "inlineScript": {
+                // code(defaults, function* (p) { ... }): its statements written as a script's, at their own indent.
+                const [saved, savedSerial] = [lines, serial];
+                lines = [];
+                serial = 0;
+                block(x.body, INDENT, new Map());
+                const body = lines;
+                [lines, serial] = [saved, savedSerial];
+                return [`${use("code")}(${defaultsText(x.defaults)}function* (p) {`, ...body, "})"].join("\n");
+            }
         }
     };
     // A field list as call arguments (args) or a structure: runs of named fields become object literals, unnamed
@@ -494,6 +508,13 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
             }
         }
     };
+    // A script's defaults, made at each call: written as a function when making them draws a random number or reads
+    // parameters (none: defaults are parsed without the caller's - run_sub_script).
+    function defaultsText(defaults: Field[]): string {
+        if (!defaults.length) return "";
+        const made = flat(fieldsDoc(defaults, true));
+        return /\brandom\w*\(|\bp\b/.test(made) ? `(p) => (${made}), ` : `${made}, `;
+    }
     const definition = (d: Definition) => {
         if (d.kind === "global")
             return emit(
@@ -507,12 +528,7 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
             );
         serial = 0;
         const head = `${use("script")}(${JSON.stringify(nameOf(d.name) ?? hex(d.name))}, `;
-        // Defaults are made at each call: written as a function when making them draws a random number.
-        const made = flat(fieldsDoc(d.defaults, true));
-        // ... or reads parameters (none: defaults are parsed without the caller's - run_sub_script).
-        const lazy = /\brandom\w*\(|\bp\b/.test(made);
-        const defaults = !d.defaults.length ? "" : lazy ? `(p) => (${made}), ` : `${made}, `;
-        lines.push(`${head}${defaults}function* (p) {`);
+        lines.push(`${head}${defaultsText(d.defaults)}function* (p) {`);
         block(d.body, INDENT, new Map());
         lines.push("});");
     };

@@ -16,7 +16,10 @@ export type Expr =
     | { kind: "randomRange"; offset: number; a: number; b: number; second: boolean }
     | { kind: "randomChoice"; offset: number; opcode: number; weights: number[]; choices: Expr[] }
     | { kind: "structure"; offset: number; fields: Field[] }
-    | { kind: "array"; offset: number; items: Expr[] };
+    | { kind: "array"; offset: number; items: Expr[] }
+    // A script as a value (a structure's `script name ... endscript`: the CAS tables' part scripts) - the field is
+    // named by `name`; the C++ runs it (ModelAssembler::launch_script).
+    | { kind: "inlineScript"; offset: number; name: number; defaults: Field[]; body: Statement[] };
 // A Random among argument runs (resolve_random_jumps between parse_arguments' fields): one branch's fields used.
 export type RandomFields = {
     kind: "randomFields";

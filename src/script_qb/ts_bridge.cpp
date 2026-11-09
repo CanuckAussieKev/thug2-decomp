@@ -15,12 +15,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <new>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -29,6 +27,8 @@
 
 #include "base/core/checksums.h"
 #include "base/maths/random.h"
+#include "engine/file/disk.h"
+#include "engine/file/disk_files.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/cell.h"
@@ -38,6 +38,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/qb.h"
 #include "engine/script/token_reader.h"
+#include "engine/script/tokens.h"
 #include "platform/run_log.h"
 #include "ts_sources.h"
 
@@ -64,6 +65,9 @@ struct Engine {
     // Each level's parameter list as the level last saw it (fingerprint): a resume sends the list only when it has
     // changed since (a command's results, a callee's return values...).
     std::unordered_map<uint32_t, uint64_t> synced;
+    // [debug] ts_types=1: the types each site sees, saved every few seconds (save_types).
+    bool recording = false;
+    std::chrono::steady_clock::time_point types_saved = std::chrono::steady_clock::now();
 };
 
 // [debug] ts_profile=1: where the time goes, logged every few seconds of activity (resumes, the parameter lists'
@@ -71,6 +75,8 @@ struct Engine {
 struct Profile {
     bool on = false;
     uint64_t resumes = 0, symbols = 0, symbol_ns = 0, to_js_ns = 0, js_ns = 0, from_js_ns = 0, total_ns = 0;
+    uint64_t loads = 0, load_ns = 0; // modules run (on_qb_loaded)
+    uint64_t begins = 0, begin_ns = 0, start_ns = 0; // levels begun; QuickJS and the runtime started
     std::unordered_map<uint32_t, uint32_t> level_names;       // level -> its script
     std::unordered_map<uint32_t, std::pair<uint64_t, uint64_t>> by_script; // script -> (resumes, ns)
     std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
@@ -100,24 +106,23 @@ void report_profile()
 {
     Profile& p = profile();
     const auto now = std::chrono::steady_clock::now();
-    if (!p.on || now - p.last < std::chrono::seconds(5)) {
+    if (!p.on || now - p.last < std::chrono::seconds(2)) {
         return;
     }
     p.last = now;
     const auto ms = [](uint64_t ns) { return static_cast<unsigned>(ns / 1000000U); };
     get_log("ts profile: %u resumes, %u ms in all - params to JS %u ms, QuickJS %u ms, params back %u ms; %u symbol "
-            "lookups %u ms",
+            "lookups %u ms; %u modules loaded %u ms; %u levels begun %u ms; started in %u ms (all since start-up)",
             static_cast<unsigned>(p.resumes), ms(p.total_ns), ms(p.to_js_ns), ms(p.js_ns), ms(p.from_js_ns),
-            static_cast<unsigned>(p.symbols), ms(p.symbol_ns));
+            static_cast<unsigned>(p.symbols), ms(p.symbol_ns), static_cast<unsigned>(p.loads), ms(p.load_ns),
+            static_cast<unsigned>(p.begins), ms(p.begin_ns), ms(p.start_ns));
     std::vector<std::pair<uint32_t, std::pair<uint64_t, uint64_t>>> top(p.by_script.begin(), p.by_script.end());
     std::ranges::sort(top, [](const auto& a, const auto& b) { return a.second.second > b.second.second; });
     for (size_t i = 0; i < std::min<size_t>(top.size(), 5); ++i) {
         get_log("ts profile:   %s - %u resumes, %u ms", find_checksum_name_or_unknown(top[i].first),
                 static_cast<unsigned>(top[i].second.first), ms(top[i].second.second));
     }
-    std::unordered_map<uint32_t, uint32_t> names = std::move(p.level_names);
-    p = Profile{.on = true, .last = now};
-    p.level_names = std::move(names);
+
 }
 
 Engine& engine()
@@ -199,13 +204,27 @@ JSValue coordinates_value(JSContext* c, uint32_t type, std::span<const float> xy
 
 JSValue list_to_js(JSContext* c, Struct* structure, size_t depth);
 
-// A deep fingerprint of a parameter list (FNV-1a 64 over every name, kind and value, nested ones included): equal
-// fingerprints - the level's view of it is up to date.
+// A deep fingerprint of a parameter list (every name, kind and value, nested ones included, mixed a 64-bit word at a
+// time - it is taken at every resume, over lists holding hundreds of names): equal fingerprints - the level's view of
+// it is up to date.
 void mix(uint64_t& hash, uint64_t word)
 {
-    for (int i = 0; i < 8; ++i) {
-        hash = (hash ^ ((word >> (8 * i)) & 0xFFU)) * 0x100000001B3ULL;
+    hash = (hash ^ word) * 0x9E3779B97F4A7C15ULL;
+    hash ^= hash >> 29U;
+}
+void mix_text(uint64_t& hash, const char* text)
+{
+    const size_t length = std::strlen(text);
+    size_t i = 0;
+    for (; i + 8 <= length; i += 8) {
+        uint64_t word = 0;
+        std::memcpy(&word, text + i, 8);
+        mix(hash, word);
     }
+    uint64_t rest = 0;
+    std::memcpy(&rest, text + i, length - i);
+    mix(hash, rest);
+    mix(hash, length);
 }
 void fingerprint_cell(uint64_t& hash, QbValueKind kind, const Cell& cell, size_t depth);
 void fingerprint_list(uint64_t& hash, Struct* structure, size_t depth)
@@ -226,9 +245,7 @@ void fingerprint_cell(uint64_t& hash, QbValueKind kind, const Cell& cell, size_t
     switch (kind) {
     case QbValueKind::kString:
     case QbValueKind::kInlineText:
-        for (const char* at = cell.text() ? cell.text() : ""; *at != '\0'; ++at) {
-            mix(hash, static_cast<uint8_t>(*at));
-        }
+        mix_text(hash, cell.text() ? cell.text() : "");
         break;
     case QbValueKind::kPair:
         if (const Pair* pair = cell.pair()) {
@@ -335,13 +352,57 @@ JSValue array_to_js(JSContext* c, Array* array, size_t depth)
     return object;
 }
 
+// A structure's script (`script name ... endscript` in it - append_script; a TypeScript one's body names its function,
+// runtime.js inline) as {type: 7, bytes}: its code, `unknown2` bytes.
+JSValue script_body_to_js(JSContext* c, const Component& component)
+{
+    const JSValue object = JS_NewObject(c);
+    set(c, object, "type", JS_NewUint32(c, static_cast<uint32_t>(QbValueKind::kScriptBody)));
+    const JSValue bytes = JS_NewArray(c);
+    const uint8_t* code = component.value.empty() ? nullptr : component.value.code();
+    for (uint32_t i = 0; code && i < component.unknown2; ++i) {
+        JS_SetPropertyUint32(c, bytes, i, JS_NewUint32(c, code[i]));
+    }
+    set(c, object, "bytes", bytes);
+    return object;
+}
+
+// A script value's code made a structure's script component (as append_script makes one).
+bool js_to_script_body(JSContext* c, JSValueConst value, Component& component, std::string& error)
+{
+    const JSValue bytes = get(c, value, "bytes");
+    const uint32_t size = length_of(c, bytes);
+    if (size == 0 || size > 0xFFFFU) {
+        JS_FreeValue(c, bytes);
+        error = "a script value's body is empty or too long";
+        return false;
+    }
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
+    auto* block = static_cast<uint8_t*>(memory::alloc_block(size));
+    memory::leave_heap_scope();
+    const std::span<uint8_t> code(block, size);
+    for (uint32_t i = 0; i < size; ++i) {
+        const JSValue byte = JS_GetPropertyUint32(c, bytes, i);
+        code[i] = static_cast<uint8_t>(to_u32(c, byte));
+        JS_FreeValue(c, byte);
+    }
+    JS_FreeValue(c, bytes);
+    note_code_block(code);
+    set_value_kind(component, QbValueKind::kScriptBody);
+    component.unknown2 = static_cast<uint16_t>(size);
+    component.value.set_code(block);
+    return true;
+}
+
 JSValue list_to_js(JSContext* c, Struct* structure, size_t depth)
 {
     const JSValue list = JS_NewArray(c);
     uint32_t i = 0;
     for (Component* component = structure ? structure->step_to_entry(nullptr) : nullptr; component;
          component = structure->step_to_entry(component)) {
-        const JSValue value = cell_to_js(c, value_kind(*component), component->value, depth);
+        const JSValue value = value_kind(*component) == QbValueKind::kScriptBody
+                                  ? script_body_to_js(c, *component)
+                                  : cell_to_js(c, value_kind(*component), component->value, depth);
         if (JS_IsException(value)) {
             JS_FreeValue(c, list);
             return value;
@@ -503,9 +564,14 @@ bool list_to_struct(JSContext* c, JSValueConst list, Struct* dest, size_t depth,
         const JSValue value = JS_GetPropertyUint32(c, field, 1);
         gsl::owner<Component*> component = new_component();
         component->name = to_u32(c, name);
-        QbValueKind kind = QbValueKind::kNone;
-        const bool ok = js_to_cell(c, value, kind, component->value, depth, error);
-        set_value_kind(*component, kind);
+        bool ok = false;
+        if (u32_at(c, value, "type") == static_cast<uint32_t>(QbValueKind::kScriptBody)) {
+            ok = js_to_script_body(c, value, *component, error);
+        } else {
+            QbValueKind kind = QbValueKind::kNone;
+            ok = js_to_cell(c, value, kind, component->value, depth, error);
+            set_value_kind(*component, kind);
+        }
         JS_FreeValue(c, value);
         JS_FreeValue(c, name);
         JS_FreeValue(c, field);
@@ -663,6 +729,12 @@ JSValue native_draw(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueCo
     return JS_NewUint32(c, static_cast<uint32_t>(pick));
 }
 
+// frame(): the game's frame count (ts_bridge.h frame_clock).
+JSValue native_frame(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* /*argv*/)
+{
+    return JS_NewUint32(c, frame_clock());
+}
+
 void add_native(JSContext* c, JSValueConst object, const char* name, JSCFunction* function, int arity)
 {
     set(c, object, name, JS_NewCFunction(c, function, name, arity));
@@ -715,6 +787,8 @@ bool start_engine()
     add_native(c, game, "defineScript", native_define_script, 1);
     add_native(c, game, "defineGlobal", native_define_global, 2);
     add_native(c, game, "draw", native_draw, 2);
+    add_native(c, game, "frame", native_frame, 0);
+    set(c, game, "recording", JS_NewBool(c, e.recording));
     set(c, global, "__qbGame", game);
     JS_FreeValue(c, global);
     struct Source {
@@ -751,6 +825,74 @@ uint32_t file_hash(std::span<const uint8_t> bytes)
     return hash;
 }
 
+// A cached module's first bytes: what made it - this QuickJS, this word size, from this very source.
+std::string cache_header(const std::string& source)
+{
+    std::array<char, 96> header{};
+    const auto bytes = std::span(reinterpret_cast<const uint8_t*>(source.data()), source.size());
+    const int length = std::snprintf(header.data(), header.size(), "QBTS bytecode %s %zu-bit %08x %zu\n",
+                                     JS_GetVersion(), sizeof(void*) * 8, file_hash(bytes), source.size());
+    return {header.data(), static_cast<size_t>(std::max(length, 0))};
+}
+
+// A module run: from its bytecode cached in `cache_path` when that was compiled from this source (QuickJS reads
+// bytecode far faster than it parses - a few modules are megabytes); else compiled, cached, run.
+// `text` made `path`'s whole content: written beside (.part) and moved over it, so a reader never sees half of it.
+void replace_file(const std::string& path, std::string_view text)
+{
+    const std::string partial = path + ".part";
+    const fs::Written written = fs::write_text(partial, text);
+    if (!written.written || !written.closed || !fs::disk().replace(partial.c_str(), path.c_str(), false)) {
+        fs::disk().remove(partial.c_str());
+    }
+}
+
+bool evaluate_module(const std::string& source, const std::string& name, const std::string& cache_path,
+                     bool& cached, std::string& error)
+{
+    Engine& e = engine();
+    JSContext* c = e.context;
+    JS_UpdateStackTop(e.runtime);
+    e.budget = kInterruptBudget;
+    const std::string header = cache_header(source);
+    JSValue function = JS_UNDEFINED;
+    cached = false;
+    if (std::string bytes; fs::read_text(cache_path, &bytes)) {
+        if (bytes.size() > header.size() && bytes.starts_with(header)) {
+            // (our own file, made below from a module we installed - read as trusted bytecode)
+            function = JS_ReadObject(c, reinterpret_cast<const uint8_t*>(bytes.data()) + header.size(),
+                                     bytes.size() - header.size(), JS_READ_OBJ_BYTECODE);
+            if (JS_IsException(function)) {
+                JS_FreeValue(c, JS_GetException(c));
+                function = JS_UNDEFINED;
+            } else {
+                cached = true;
+            }
+        }
+    }
+    if (!cached) {
+        function = JS_Eval(c, source.c_str(), source.size(), name.c_str(),
+                           JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
+        if (JS_IsException(function)) {
+            error = exception_text(c);
+            return false;
+        }
+        size_t size = 0;
+        if (uint8_t* bytes = JS_WriteObject(c, &size, function, JS_WRITE_OBJ_BYTECODE)) {
+            fs::disk().make_folders(cache_path.substr(0, cache_path.find_last_of('\\')).c_str());
+            replace_file(cache_path, header + std::string(reinterpret_cast<const char*>(bytes), size));
+            js_free(c, bytes);
+        }
+    }
+    const JSValue result = JS_EvalFunction(c, function); // (takes the function)
+    if (JS_IsException(result)) {
+        error = exception_text(c);
+        return false;
+    }
+    JS_FreeValue(c, result);
+    return true;
+}
+
 // After each .qb file: its TypeScript module, when there is one.
 void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temporary)
 {
@@ -761,17 +903,24 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
     std::snprintf(name.data(), name.size(), "%08x.js", file_hash(file));
     const std::string relative = std::string("by-hash\\") + name.data();
     const std::string path = game_folder_path("thug2-decomp-ts") + "\\" + relative;
-    std::ifstream stream(path, std::ios::binary);
-    if (!stream) {
+    std::string source;
+    if (fs::disk().kind(path.c_str()) != fs::PathKind::kFile || !fs::read_text(path, &source)) {
         return;
     }
-    const std::string source((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
     Engine& e = engine();
     e.loading_file = filename;
     e.loading_temporary = temporary;
     std::string error;
-    if (evaluate(source.c_str(), source.size(), relative.c_str(), error)) {
-        get_log("ts: %s - its TypeScript module loaded", filename);
+    const auto start = std::chrono::steady_clock::now();
+    std::snprintf(name.data(), name.size(), "%08x.qbc", file_hash(file));
+    const std::string cache = game_folder_path("thug2-decomp-ts") + "\\cache\\" + name.data();
+    bool cached = false;
+    if (evaluate_module(source, relative, cache, cached, error)) {
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+        ++profile().loads;
+        profile().load_ns += static_cast<uint64_t>(ms.count()) * 1000000U;
+        get_log("ts: %s - its TypeScript module loaded (%u ms%s)", filename, static_cast<unsigned>(ms.count()),
+                cached ? ", compiled before" : "");
     } else {
         get_log("ts: %s - its TypeScript module failed: %s", filename, error.c_str());
     }
@@ -795,20 +944,70 @@ JSValue call_qb(const char* method, std::span<JSValue> args)
 
 } // namespace
 
+namespace {
+
+std::string types_path() { return game_folder_path("thug2-decomp-ts") + "\\types-recorded.json"; }
+
+// The recorded types written out (runtime.js recordedTypes - the earlier sessions' counts were added in at start-up).
+void save_types()
+{
+    Engine& e = engine();
+    std::array<JSValue, 0> none{};
+    const JSValue text = call_qb("recordedTypes", none);
+    if (const char* json = JS_IsException(text) ? nullptr : JS_ToCString(e.context, text)) {
+        replace_file(types_path(), json);
+        JS_FreeCString(e.context, json);
+    }
+    JS_FreeValue(e.context, text);
+}
+
+void save_types_now_and_then()
+{
+    Engine& e = engine();
+    const auto now = std::chrono::steady_clock::now();
+    if (!e.recording || now - e.types_saved < std::chrono::seconds(5)) {
+        return;
+    }
+    e.types_saved = now;
+    save_types();
+}
+
+} // namespace
+
 void install()
 {
     is_on() = config_int("features", "ts_scripts", 0) != 0;
     profile().on = config_int("debug", "ts_profile", 0) != 0;
+    engine().recording = config_int("debug", "ts_types", 0) != 0;
     if (!is_on()) {
         return;
     }
-    if (!start_engine()) {
+    bool started = false;
+    {
+        const Timer timer(profile().start_ns);
+        started = start_engine();
+    }
+    if (!started) {
         get_log("ts: QuickJS failed to start - TypeScript scripts are off");
         is_on() = false;
         return;
     }
     set_qb_loaded_hook(on_qb_loaded);
     get_log("ts: TypeScript scripts on (modules in %s)", game_folder_path("thug2-decomp-ts").c_str());
+    if (engine().recording) {
+        // (the earlier sessions' counts, added to from here)
+        if (std::string json; fs::disk().kind(types_path().c_str()) == fs::PathKind::kFile &&
+                                  fs::read_text(types_path(), &json)) {
+            std::array<JSValue, 1> args{JS_NewStringLen(engine().context, json.data(), json.size())};
+            const JSValue loaded = call_qb("loadTypes", args);
+            if (JS_IsException(loaded)) {
+                get_log("ts: %s unreadable - recording types afresh: %s", types_path().c_str(),
+                        exception_text(engine().context).c_str());
+            }
+            JS_FreeValue(engine().context, loaded);
+        }
+        get_log("ts: recording the types scripts see into %s", types_path().c_str());
+    }
 }
 
 bool enabled() { return is_on(); }
@@ -817,6 +1016,8 @@ uint32_t begin(uint32_t name, Struct* args, uint32_t owner, std::string& error)
 {
     Engine& e = engine();
     JSContext* c = e.context;
+    ++profile().begins;
+    const Timer timer(profile().begin_ns);
     const uint32_t level = ++e.next_level == 0 ? ++e.next_level : e.next_level;
     const JSValue list = list_to_js(c, args, 0);
     if (JS_IsException(list)) {
@@ -844,6 +1045,7 @@ Answer resume(uint32_t level, Struct* args, bool result, Struct* stmt)
     Answer answer;
     ++profile().resumes;
     report_profile();
+    save_types_now_and_then();
     const Timer total(profile().total_ns);
     JSValue list = JS_NULL;
     const uint64_t seen = fingerprint(args);

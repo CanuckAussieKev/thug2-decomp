@@ -26,8 +26,9 @@ script("Main", { start: 1 }, function* (p) {
 });
 `;
 
-function load() {
+function load(recording = false) {
     const calls: string[] = [];
+    let frame = 0;
     const scriptsDefined: number[] = [];
     const globals = new Map<number, unknown>();
     const game = {
@@ -41,6 +42,8 @@ function load() {
         defineScript: (n: number) => scriptsDefined.push(n),
         defineGlobal: (n: number, v: unknown) => globals.set(n, v),
         draw: () => 0,
+        recording,
+        frame: () => frame,
     };
     const context = runInNewContext(
         `globalThis.__qbGame = game;\n${helperSource("random")}${helperSource("values")}` +
@@ -50,7 +53,15 @@ function load() {
             "\nglobalThis",
         { game },
     ) as { qb: Record<string, (...a: unknown[]) => unknown> };
-    return { qb: context.qb, calls, scriptsDefined, globals };
+    return {
+        qb: context.qb,
+        calls,
+        scriptsDefined,
+        globals,
+        nextFrame: () => {
+            ++frame;
+        },
+    };
 }
 
 // (values made in the vm context have its prototypes: compared as data)
@@ -93,4 +104,27 @@ test("game mode: requests out, results and the record's parameters in, the level
     assert.equal(r.done, true);
     same(r.returned, [[n("result"), { type: 1, bits: 5 }]]);
     assert.throws(() => qb.resume!(7, params, true), /Unknown QB level/);
+});
+
+test("game mode, [debug] ts_types=1: the types each site sees, and which calls waited", () => {
+    const { qb, nextFrame } = load(true);
+    const n = checksum;
+    const hex = (x: number) => x.toString(16).padStart(8, "0");
+    qb.begin!(7, n("Main"), [[n("start"), { type: 1, bits: 2 }]], 99);
+    let r = qb.resume!(7, null, undefined) as Record<string, unknown>; // -> Probe
+    r = qb.resume!(7, r.params, true) as Record<string, unknown>; // Probe answered in the same frame -> Wait
+    const record = [...(r.params === null ? [] : (r.params as unknown[]))];
+    nextFrame();
+    qb.resume!(7, record, true); // Wait answered a frame later -> Helper
+    const sites = JSON.parse(qb.recordedTypes!() as string).sites as Record<string, Record<string, number>>;
+    same(sites[`wait ${hex(n("Probe"))}`], { "same frame": 1 });
+    same(sites[`wait ${hex(n("Wait"))}`], { waited: 1 });
+    same(sites[`arg ${hex(n("Probe"))} ${hex(n("a"))}`], { int: 1 });
+    same(sites[`arg ${hex(n("Wait"))} #0`], { int: 1 });
+    same(sites[`arg ${hex(n("Wait"))} #1`], { name: 1 });
+    same(sites[`global ${hex(n("Limit"))}`], { int: 1 });
+    same(sites[`op11 game.ts ${hex(n("Main"))} p.${hex(n("start"))} value`], { "int,int": 1 });
+    // a later session's counts add to an earlier one's
+    qb.loadTypes!(JSON.stringify({ version: 1, sites: { [`wait ${hex(n("Wait"))}`]: { waited: 2 } } }));
+    same(JSON.parse(qb.recordedTypes!() as string).sites[`wait ${hex(n("Wait"))}`], { waited: 3 });
 });

@@ -1,8 +1,9 @@
 // NOT ORIGINAL - translates a game folder's .qb scripts to TypeScript and installs them where the game looks for them
 // (docs/qb-ts.md "In the game"). A module is named by its .qb file's bytes (FNV-1a, as src/script_qb/ts_bridge.cpp
 // hashes what it loaded): <game>\thug2-decomp-ts\by-hash\<hash>.js - so it is only ever used for the very file it was
-// translated from (the stock file, an overlay's or a mod's version: each its own). The readable TypeScript it was
-// compiled from is kept beside, in source\<folder>\<path>.ts. The game uses them with [features] ts_scripts=1.
+// translated from (the stock file, an overlay's or a mod's version: each its own). The readable TypeScript is kept
+// beside, in source\<folder>\<path>.ts; the module is its scripts compiled (its globals are the game's own, read from
+// the same file). The game uses them with [features] ts_scripts=1.
 //
 //   node tools/qbjs/install_ts.ts --game <folder> [--only <path>[,...]] [--clear]
 //
@@ -66,7 +67,13 @@ export function installTS(game: string, only: string[] = [], clear = false): Ins
             seen.add(hash);
             const ir = readIR(bytes, name);
             const ts = emitTS(ir);
-            const js = compileTS(ts, name);
+            // The game's module has only the scripts: the globals stay the ones the game made from these very bytes
+            // (read_qb_file, just before) - making them again would only cost (a ported level's node arrays run to
+            // megabytes), and a global drawing a random number would draw twice.
+            const js = compileTS(
+                emitTS({ ...ir, definitions: ir.definitions.filter((d) => d.kind === "script") }),
+                name,
+            );
             const source = join(out, "source", name.replace(/\.qb$/i, ".ts"));
             mkdirSync(dirname(source), { recursive: true });
             writeFileSync(source, ts);

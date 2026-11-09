@@ -29,6 +29,8 @@ const STATEMENT_STARTS = (t: number) =>
         0x48, 0x49,
     ].includes(t);
 
+const MODULE_CAP = 64 * 1024 * 1024;
+
 export type ReaderLimits = { nodes?: number; depth?: number };
 export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLimits = {}): ModuleIR {
     let p = 0,
@@ -40,9 +42,10 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         if (n !== undefined && (!Number.isInteger(n) || n < 0)) fail("invalid reader limit");
         return Math.min(n ?? cap, cap);
     };
-    const nodeLimit = limit(limits.nodes, 100000),
+    // (generous: a ported level's node array runs to millions of nodes in a 5 MB file)
+    const nodeLimit = limit(limits.nodes, 20_000_000),
         depthLimit = limit(limits.depth, 128);
-    if (bytes.length > 4 * 1024 * 1024) fail("module exceeds 4 MiB");
+    if (bytes.length > MODULE_CAP) fail("module exceeds 64 MiB");
     const b = Buffer.from(bytes);
     if (b.length >= 4 && b.readUInt32LE(0) === 0xb075ef6f)
         fail("precompiled QB images are not supported by raw-token reader");
@@ -114,7 +117,53 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
     };
     // Branches of a Random among statements or fields: each starts at its target and (all but the last) ends with
     // a 2E jump to the join; the last ends at the join. parse(until) reads one branch, stopping at a 2E or `until`.
-    const randomBranches = <T>(targets: number[], parse: (until: number) => T[], allowLines: boolean): T[][] => {
+    const randomBranches = <T>(
+        targets: number[],
+        parse: (until: number) => T[],
+        allowLines: boolean,
+        exit?: (offset: number) => T,
+    ): T[][] => {
+        if (!exit) return joinedBranches(targets, parse, allowLines);
+        const start = p,
+            count = nodes,
+            ended = lineEnded;
+        try {
+            return joinedBranches(targets, parse, allowLines);
+        } catch (e) {
+            p = start;
+            nodes = count;
+            lineEnded = ended;
+            const branches = tailBranches(targets, parse, exit);
+            if (!branches) throw e;
+            return branches;
+        }
+    };
+    // Statement branches whose jumps go to the script's tail (SK6Ped_UniqueStateLogic: two branches leave the loop
+    // for the endscript, the last runs on into the repeat): those end with a return; the others join where the last
+    // one ends. null: not that shape.
+    const tailBranches = <T>(targets: number[], parse: (until: number) => T[], exit: (offset: number) => T) => {
+        const branches: T[][] = [],
+            ends: number[] = [];
+        for (let i = 0; i < targets.length - 1; i++) {
+            while (p !== targets[i] && (b[p] === 1 || b[p] === 2)) eol();
+            if (p !== targets[i]) return null;
+            const branch = parse(-1);
+            if (b[p] !== 0x2e) return null;
+            const jump = p++;
+            const end = p + 4 + word();
+            if (isTail(end)) branch.push(exit(jump));
+            branches.push(branch);
+            ends.push(end);
+        }
+        const joins = ends.filter((end) => !isTail(end));
+        if (joins.length === ends.length) return null;
+        while (p !== targets.at(-1) && (b[p] === 1 || b[p] === 2)) eol();
+        if (p !== targets.at(-1)) return null;
+        branches.push(parse(joins.length ? Math.min(...joins) : -1));
+        if (joins.some((end) => end !== p && !onlyLines(Math.min(end, p), Math.max(end, p)))) return null;
+        return branches;
+    };
+    const joinedBranches = <T>(targets: number[], parse: (until: number) => T[], allowLines: boolean): T[][] => {
         const branches: T[][] = [];
         let join = -1;
         // One branch: nothing to jump over (the draw still happens).
@@ -152,6 +201,29 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         while (at < to && (b[at] === 1 || b[at] === 2)) at += b[at] === 2 ? 5 : 1;
         return at === to;
     };
+    // A script's tail: nothing but endifs, endswitches and line ends up to its endscript - the statement loop steps
+    // over those, so from anywhere in it the script just ends. Returns where the script's code ends (past the '$'),
+    // or -1. A few scripts were compiled with their closers out of order (CA_Scripts: a switch inside two ifs, its
+    // endswitch after their endifs) or jump into the tail from inside a loop (a Random's branches past the repeat):
+    // such a jump is a return, and closers in the tail close whatever is still open.
+    const tailEnd = (at: number): number => {
+        while (at < b.length && (b[at] === 1 || b[at] === 2 || b[at] === 0x28 || b[at] === 0x3d))
+            at += b[at] === 2 ? 5 : 1;
+        return b[at] === 0x24 ? at + 1 : -1;
+    };
+    // (a jump may land just past the '$' - outside the stored code: the original read whatever followed; here it
+    // ends the script as the tail does)
+    const pastEnd = (at: number) =>
+        at >= 2 &&
+        b[at - 1] === 0x24 &&
+        (b[at - 2] === 1 || b[at - 6] === 2) &&
+        [0, 1, 2, 0x23, 0x16, 0x2b].includes(b[at]!);
+    const isTail = (at: number) => tailEnd(at) >= 0 || pastEnd(at);
+    const tailHasEndswitch = (at: number) => {
+        for (; b[at] !== 0x24; at += b[at] === 2 ? 5 : 1) if (b[at] === 0x3d) return true;
+        return false;
+    };
+    const returning = (offset: number): Statement => ({ kind: "return", offset, fields: [] });
     let lineEnded = false;
     const heights = new WeakMap<Expr, number>();
     const bounded = (v: Expr): Expr => {
@@ -379,6 +451,11 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             ++p;
             return bounded({ kind: "array", offset, items });
         }
+        if (op === 0x23) {
+            if (inExpression) fail("unsupported expression operand token 0x23");
+            const { name: n, defaults, body } = scriptParts();
+            return { kind: "inlineScript", offset, name: n, defaults, body };
+        }
         if (op === 0x0e) {
             const result = expression(depth + 1, rawName);
             // Only parse_value -> parse_expression calls GetResult. A '(' reached
@@ -452,7 +529,9 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 // parse_arguments/parse_structure recursively append anonymous
                 // brace blocks into the same destination, rather than store
                 // an unnamed nested Structure component.
-                if (!assigned && item.kind === "structure") {
+                // (a script value is named by its own name, whatever it is assigned to - add_parameter)
+                if (item.kind === "inlineScript") fields.push({ name: item.name, value: item, offset });
+                else if (!assigned && item.kind === "structure") {
                     if (fields.length + item.fields.length > 4096) fail("field count limit");
                     fields.push(...item.fields);
                 } else
@@ -495,6 +574,23 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             } else check(f.value);
         }
     };
+    // A global is parsed with no parameters (parse_symbol_definition: nullptr): in its structures <x> and <...> add
+    // nothing (add_parameter / parse_arguments) - those fields are left out. Elsewhere (the value itself, an
+    // expression) they still fail below.
+    const withoutCallerParameters = (v: Expr): Expr => {
+        if (v.kind === "array") return { ...v, items: v.items.map(withoutCallerParameters) };
+        if (v.kind !== "structure") return v;
+        const fields: Field[] = [];
+        for (const f of v.fields) {
+            if ("spread" in f) continue;
+            if ("kind" in f) fields.push({ ...f, branches: f.branches.map((branch) => strip(branch)) });
+            else if (f.value.kind === "parameter" || f.value.kind === "allParameters") continue;
+            else fields.push({ ...f, value: withoutCallerParameters(f.value) });
+        }
+        return { ...v, fields };
+    };
+    const strip = (fields: Field[]): Field[] =>
+        (withoutCallerParameters({ kind: "structure", offset: 0, fields }) as { fields: Field[] }).fields;
     // A command's name as read_name reads it: written, or from a parameter (<x>; <...> its unnamed name).
     const nameRef = (): NameRef => {
         if (b[p] === 0x2c) {
@@ -555,7 +651,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             // A Random among statements (a Random value starts with a name or a value, never a statement).
             if ([0x2f, 0x37, 0x40, 0x41].includes(b[p]!)) {
                 const table = randomTable();
-                const branches = randomBranches(table.targets, (end) => block(depth + 1, loops, end), true);
+                const branches = randomBranches(table.targets, (end) => block(depth + 1, loops, end), true, returning);
                 body.push({ kind: "randomBlock", offset, opcode: table.opcode, weights: table.weights, branches });
                 lines();
                 continue;
@@ -584,12 +680,12 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     if (b[p] === 0x49) {
                         ++p;
                         exits.push(p + short());
-                    } else if (b[p] !== 0x3d) fail("expected case exit jump");
+                    } else if (b[p] !== 0x3d && tailEnd(p) < 0) fail("expected case exit jump");
                     // Only an immediate next case after an empty body is a
                     // grouped label. Its arguments still parse after a match.
                     const grouped = branch.length === 0 && b[p] === 0x3e;
                     lines();
-                    if (next !== p || ![0x3e, 0x3f, 0x3d].includes(b[p]!))
+                    if ((next !== p || ![0x3e, 0x3f, 0x3d].includes(b[p]!)) && !(tailEnd(p) >= 0 && isTail(next)))
                         fail("case jump does not target next label/endswitch boundary");
                     if (!grouped) {
                         cases.push({ labels, body: branch });
@@ -606,11 +702,17 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     fallback = block(depth + 1, loops);
                 }
                 const end = p;
-                if (byte() !== 0x3d) fail("expected endswitch (pre-case statements are unsupported)");
+                // (in the script's tail its endswitch may come after other closers: left to the tail - when there is
+                // one: without it run_multi_branch never gets past the endscript. One difference stays: CA_Scripts'
+                // last case's jump goes straight to its endscript, so there a selector no case matches holds the
+                // original in its switch for ever; here the script ends.)
+                const tail = b[p] !== 0x3d && tailEnd(p) >= 0 && tailHasEndswitch(p);
+                if (!tail && byte() !== 0x3d) fail("expected endswitch (pre-case statements are unsupported)");
                 // An exit may land on the endswitch or past it, on the lines that follow.
-                const after = lines();
+                const after = tail ? new Set<number>() : lines();
                 after.add(end);
-                if (exits.some((destination) => !after.has(destination))) fail("case exit does not target endswitch");
+                const exitsTo = (at: number) => after.has(at) || (tailEnd(end) >= 0 && isTail(at));
+                if (!exits.every(exitsTo)) fail("case exit does not target endswitch");
                 body.push({ kind: "switch", offset, fields, cases, ...(fallback === undefined ? {} : { fallback }) });
                 continue;
             }
@@ -659,12 +761,21 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     endDestination = end;
                 }
                 const endOffset = p;
-                if (byte() !== 0x28) fail("expected endif");
-                const ends = lines();
+                // An if whose false jump goes to the script's tail while its statements run on into the code around
+                // it (z_el: `if c ... repeat endif`): if not, the script ends - its endif is one of the tail's.
+                if (b[p] !== 0x28 && endDestination === undefined && isTail(destination) && tailEnd(p) < 0) {
+                    no = [returning(offset)];
+                    body.push({ kind: "if", offset, condition, ...(negate ? { negate: true as const } : {}), yes, no });
+                    continue;
+                }
+                const tail = b[p] !== 0x28 && tailEnd(p) >= 0;
+                if (!tail && byte() !== 0x28) fail("expected endif");
+                const ends = tail ? new Set<number>() : lines();
                 ends.add(endOffset);
+                const lands = (at: number) => ends.has(at) || (tailEnd(endOffset) >= 0 && isTail(at));
                 if (endDestination !== undefined) {
-                    if (!ends.has(endDestination)) fail("else jump does not target endif boundary");
-                } else if (!ends.has(destination)) fail("if jump does not target endif boundary");
+                    if (!lands(endDestination)) fail("else jump does not target endif boundary");
+                } else if (!lands(destination)) fail("if jump does not target endif boundary");
                 body.push({ kind: "if", offset, condition, ...(negate ? { negate: true as const } : {}), yes, no });
                 continue;
             }
@@ -689,6 +800,21 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
         return body;
     };
+    // A script after its 23: its name, its defaults' line, its statements up to the endscript.
+    function scriptParts() {
+        const n = name(),
+            defaults = parameters(0);
+        staticDefaults(defaults, true);
+        eol();
+        const ended = lineEnded;
+        lineEnded = false;
+        const body = block(0);
+        // (closers left over in the tail: see tailEnd)
+        if (b[p] !== 0x24 && tailEnd(p) >= 0) p = tailEnd(p) - 1;
+        if (byte() !== 0x24) fail("expected endscript");
+        lineEnded = ended;
+        return { name: n, defaults, body };
+    }
     const definitions: Definition[] = [];
     const names = new Map<number, string>();
     lines();
@@ -708,26 +834,21 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
         if (b[p] === 0x23) {
             ++p;
-            const n = name(),
-                defaults = parameters(0);
-            staticDefaults(defaults, true);
-            eol();
-            const body = block(0);
-            if (byte() !== 0x24) fail("expected endscript");
+            const { name: n, defaults, body } = scriptParts();
             definitions.push({ kind: "script", offset, name: n, defaults, body });
         } else if (b[p] === 0x16) {
             const n = name();
             lines();
             if (byte() !== 7) fail("expected global assignment");
             lines();
-            const rhs = value(0);
+            const rhs = withoutCallerParameters(value(0));
             staticDefaults([{ name: n, value: rhs, offset }]);
             definitions.push({ kind: "global", offset, name: n, value: rhs });
         } else fail(`unsupported definition token 0x${b[p]!.toString(16)}`);
         lines();
     }
+    // (bytes after the end-of-file token are never read: read_qb_file and its names pass stop there)
     ++p;
-    if (p !== b.length) fail("trailing bytes after EOF");
     return { format: 2, source, definitions, ...(names.size ? { names: Object.fromEntries(names) } : {}) };
 }
 
@@ -743,15 +864,15 @@ export function readQBFile(input: string, output?: string): Uint8Array {
             if (metadata.dev === target.dev && metadata.ino === target.ino)
                 throw new Error("QB input and output must differ");
         }
-        const cap = 4 * 1024 * 1024;
-        if (metadata.size > cap) throw new Error(`${input}: QB offset 0x0: module exceeds 4 MiB`);
+        const cap = MODULE_CAP;
+        if (metadata.size > cap) throw new Error(`${input}: QB offset 0x0: module exceeds 64 MiB`);
         const bytes = Buffer.allocUnsafe(cap + 1);
         let count = 0;
         for (;;) {
             const n = readSync(fd, bytes, count, bytes.length - count, null);
             if (n === 0) break;
             count += n;
-            if (count > cap) throw new Error(`${input}: QB offset 0x0: module exceeds 4 MiB`);
+            if (count > cap) throw new Error(`${input}: QB offset 0x0: module exceeds 64 MiB`);
         }
         result = bytes.subarray(0, count);
     } finally {

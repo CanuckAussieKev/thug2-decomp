@@ -29,6 +29,7 @@
 #include "engine/net/net_client.h"
 #include "engine/objects/entity.h"
 #include "script_qb/qb_script.h"
+#include "script_qb/ts_bridge.h"
 #include "engine/script/context.h"
 #include "engine/script/cscript.h"
 #include "engine/script/load.h"
@@ -114,6 +115,7 @@ void tick_child_scripts()
 {
     updating_spawned_scripts() = true;
     one_per_frame_released() = false;
+    ++ts::frame_clock(); // NOT ORIGINAL - the frames, for TypeScript levels recording types (ts_bridge.h)
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following();
         while (next && !((next->spawn_flags() & kScriptFlagSpawned) != 0)) {

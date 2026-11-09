@@ -14,10 +14,23 @@ JavaScript, bit for bit, not a lookalike.
 (answers from each command's checksum and call count, three seeds so branches differ, now and then a one-frame wait)
 and compares each command call with its arguments, each ending and the final parameters. `differential.test.ts` runs
 it on the synthetic fixture modules; `node tools/qbjs/differential.ts <folder>` on a game's scripts.
-2026-11-09: THUG2's loose scripts 218 of 222 modules and level scripts 153 of 154 translate, and all agree. Not
-translated: 3 CAS part tables holding inline script bodies as values (cas_skater_f / _m / _shared - a script-body
-value type the game's host can run is still to come), a Random whose branch jumps past its loop's repeat
-(SK6Ped_UniqueStateLogic) and an if / switch nested out of order (CA_Scripts) - neither has a structured form.
+2026-11-10: every module translates - THUG2's 222 loose script modules and 154 level script modules, and with the
+overlays (the new front end, Anteara Mod, the ported levels) 531 of 531 - and all agree. What the last ones needed:
+
+- **Scripts as values** - the CAS part tables hold `script name ... endscript` in their structures (a part's
+  `disqualify_script`, run by the model builder): `name: code(function* (p) { ... })`. In the game such a value is the
+  8 bytes `defineScript` gives a script, naming a function kept under a made-up name (`runtime.js` `inline`), so the
+  interpreter runs it like any TypeScript script; a QB file's own crosses to TypeScript as its bytes (`{type: 7, bytes}`).
+- **A script's tail** - jumps into the closers just before a script's endscript (endifs, endswitches, line ends: the
+  statement loop steps over them, so the script just ends there) are a `return`, and closers there close whatever is
+  still open. Three scripts were compiled so: an if inside a loop whose false jump leaves for the end (z_el), a switch
+  inside two ifs with its endswitch after their endifs (CA_Scripts), a Random's branches jumping past their loop's
+  repeat (SK6Ped_UniqueStateLogic). One difference stays: CA_Scripts' last case jumps straight to the endscript, so a
+  `group` no case matches holds the original in its switch for ever (run_multi_branch never gets past an endscript);
+  the TypeScript ends the script.
+- What the game's loader does anyway: bytes after the end-of-file token are ignored, and `<x>` / `<...>` in a global's
+  structure add nothing (a global is parsed without parameters). The reader's size limits now fit a ported level's
+  node arrays (a module up to 64 MB).
 
 ## Conventions
 
@@ -50,6 +63,7 @@ value type the game's host can run is still to come), a Random whose branch jump
 | a Random among statements | `const pickN = random(k, [0, 1, 2]);` then `if (pickN === 0) {...} else if ...` |
 | a Random among a call's fields: `Foo Random(@a = 1 @a = 2 Flag)` | `yield* Foo(...random(k, [[{ a: 1 }], [{ a: 2 }, N.Flag]]))` |
 | `RandomRange(a, b)` / `RandomRange2` | `randomRange(a, b)` / `randomRange2(a, b)` |
+| `script name ... endscript` inside a structure | `name: code(function* (p) { ... })` (defaults first, as `script`'s) |
 
 Commands and objects: the host gets `(name, args, parameters, object, qualified)` - the object the command runs on
 (a task's current object; `object:Command` names one, and a script run so keeps it for its own commands) and whether
@@ -69,7 +83,11 @@ where the time goes). `node tools/qbjs/install_ts.ts --game <folder> [--clear]` 
 the FNV-1a hash of the `.qb` file's bytes, and the readable `source\<folder>\<path>.ts` beside. After the loader reads a
 `.qb` file it hashes the bytes it read and loads the module of that name, if there is one - so a module only ever
 replaces the very file it was translated from (an overlay's or a mod's version of a file has its own), and a file
-without one stays QB. The module's scripts and globals replace that file's.
+without one stays QB. The module's scripts replace that file's; its globals are left out of the module the game loads
+(the source keeps them): they would only be the ones the loader has just made from the same bytes - making them again
+cost the most (a ported level's node arrays are megabytes), and a global drawing a random number would draw twice.
+A module is compiled to QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the
+QuickJS version, the word size and the module's own bytes); later starts read the bytecode.
 
 The C++ interpreter stays the host: the record, its Update, waits, events, spawning, objects and the call stack are all
 its own, so the scheduling is the original's by construction. A translated script's symbol has a body of one token
@@ -90,6 +108,31 @@ QuickJS (`src/script_qb/cscript_ts.cpp`, `ts_bridge.cpp`):
 A JavaScript fault is logged (`ts: <script>: ...`) and ends the level. Where the original hangs - an object-qualified
 call on a missing object - a TypeScript level is logged and told false instead.
 
+In the game the value helpers count no work (QB has no such bound - a level's whole node array may be copied): a
+runaway script is stopped by the bridge's interrupt budget.
+
 2026-11-09: with all of THUG2's translatable modules installed (502, overlays and ported levels included) the game boots
 to the main menu and loads Boston in free skate with no fault; a release build boots in 10.4 s against 6.7 s with QB
-only (module loading, and texture-list scripts that loop over big arrays - next to optimise).
+only. 2026-11-10 (x64 release, workspace, 525 modules): 7.3-7.8 s against 6.5-6.7 s - modules load in 48 ms (344 ms
+compiling the first time), strings are shared by the copies of a value rather than copied byte by byte (the
+texture-list script that concatenates fourteen global arrays: 295 ms -> 58 ms), and the parameter list's fingerprint
+hashes a word at a time. What remains (~0.75 s at boot) is QuickJS running the exact value layer, ~0.1 ms a resume -
+for the natural-TypeScript steps to shrink.
+
+## Types
+
+`[debug] ts_types=1` (with ts_scripts=1) records what each site of the TypeScript sees: each parameter read's type (by
+module, script and name), each operator's and switch comparison's operand types (by how the operands are written:
+`p.x`, a number, `N.x`, an expression), each global read, each command's argument types (by command and argument) and
+whether each call came back in a later frame (it waited). The counts accumulate over sessions in
+`thug2-decomp-ts\types-recorded.json`. `node tools/qbjs/types.ts --game <folder>` adds what the `.qb` files say (every
+call's literal arguments, the globals, the scripts' defaults) and writes `thug2-decomp-ts\types\commands.d.ts` - each
+command the scripts call, its arguments with every type seen, whether it is a script / C function and whether it was
+seen waiting - and `report.md`: per kind of site how many were seen with one type, for operators how many only with
+numbers / only integers, and every site seen with more than one type.
+
+These are the facts the natural-TypeScript steps rest on: a parameter only ever an integer can be a plain number, an
+operator only ever given numbers can be `+`, a command never seen waiting needs no `yield*`, a name that is only ever a
+name can be a string. A first recording (boot, main menu, Boston free skate; 1,055 sites) found 20 sites with more than
+one type - e.g. `load_array_of_textures`'s `textures`, a name standing for a global or the array itself, and `Wait`'s
+count, an integer or a float - the cases a natural form must keep exact.

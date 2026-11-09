@@ -2,7 +2,9 @@
 // JavaScript does, on every synthetic fixture module: same command calls, arguments, waits, endings and parameters.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { checksum } from "../qb_checksum.ts";
 import { differential } from "./differential.ts";
+import { emitTS } from "./emit_ts.ts";
 import { emitterQB } from "./emitter-fixtures.ts";
 import { expressionResultFixture } from "./expression-result-fixtures.ts";
 import { command, conditional, field, fixture, integer, name, param, script } from "./fixtures.ts";
@@ -219,7 +221,103 @@ const negated = () =>
         ]),
         "negated.qb",
     );
+// Jumps into a script's tail (only closers before its endscript - reader.ts tailEnd): an if inside a loop whose false
+// jump leaves the loop for the end (z_el), a switch inside an if with its endswitch after the endif (CA_Scripts), a
+// Random's branch jumping past the repeat (SK6Ped_UniqueStateLogic).
+const le16 = (n: number) => [n & 255, n >>> 8];
+const le32 = (n: number) => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, n >>> 24];
+const tails = () =>
+    readIR(
+        Uint8Array.from([
+            // begin / X / if Cond / Y / repeat / endif / $ - the if's false jump goes to the line after the endif
+            ...script("ifIntoTail", [
+                0x20,
+                1,
+                ...command("X"),
+                0x47,
+                ...le16(26 - 11),
+                ...name("Cond"),
+                1,
+                ...command("Y"),
+                0x21,
+                1,
+                0x28,
+                1,
+            ]),
+            // if A / switch 1 / case 1: One (exit to the tail) / case 2: Two / endif / endswitch / $
+            ...script("switchIntoTail", [
+                0x47,
+                ...le16(53),
+                ...name("A"),
+                1,
+                0x3c,
+                ...integer(1),
+                1,
+                0x3e,
+                0x49,
+                ...le16(17),
+                ...integer(1),
+                1,
+                ...command("One"),
+                0x49,
+                ...le16(21),
+                0x3e,
+                0x49,
+                ...le16(18),
+                ...integer(2),
+                1,
+                ...command("Two"),
+                0x28,
+                1,
+                0x3d,
+                1,
+            ]),
+            // begin / Random(@ A [jump past the repeat] @ B) / repeat / $
+            ...script("randomIntoTail", [
+                0x20,
+                1,
+                0x2f,
+                ...le32(2),
+                ...le16(1),
+                ...le16(1),
+                ...le32(4),
+                ...le32(11),
+                ...command("A"),
+                0x2e,
+                ...le32(7),
+                ...command("B"),
+                0x21,
+                1,
+            ]),
+            0,
+        ]),
+        "tails.qb",
+    );
+// A structure holding a script (the CAS tables' `script name ... endscript` values), passed to a command.
+const scriptValues = () =>
+    readIR(
+        Uint8Array.from([
+            ...name("parts"),
+            7,
+            3,
+            ...field("desc", name("a")),
+            1,
+            0x23,
+            ...name("part_script"),
+            1,
+            ...command("SetPart", field("x", integer(1))),
+            0x24,
+            1,
+            4,
+            1,
+            ...script("useParts", command("Use", field("t", [0x0e, ...name("parts"), 0x0f]))),
+            0,
+        ]),
+        "script-values.qb",
+    );
 const modules: [string, () => ModuleIR][] = [
+    ["jumps into a script's tail", tails],
+    ["scripts as values", scriptValues],
     ["if NOT", negated],
     ["<...> values and commands named by parameters", dynamic],
     ["object:Command", objects],
@@ -232,6 +330,34 @@ const modules: [string, () => ModuleIR][] = [
     ["expression results", () => expressionResultFixture().ir],
     ["random values", () => randomFixture().ir],
 ];
+test("a jump into the script's tail is a return; a script value is named by its own name", () => {
+    const [ifInto, switchInto, randomInto] = tails().definitions;
+    assert.ok(ifInto?.kind === "script" && switchInto?.kind === "script" && randomInto?.kind === "script");
+    const loop = ifInto.body[0];
+    assert.ok(loop?.kind === "loop" && loop.body[1]?.kind === "if");
+    assert.deepEqual(
+        loop.body[1].no.map((x) => x.kind),
+        ["return"],
+    );
+    const branch = switchInto.body[0];
+    assert.ok(branch?.kind === "if" && branch.yes[0]?.kind === "switch" && branch.yes[0].cases.length === 2);
+    const random = randomInto.body[0];
+    assert.ok(random?.kind === "loop" && random.body[0]?.kind === "randomBlock");
+    assert.deepEqual(
+        random.body[0].branches.map((b) => b.map((x) => x.kind)),
+        [["call", "return"], ["call"]],
+    );
+    const parts = scriptValues().definitions[0];
+    assert.ok(parts?.kind === "global" && parts.value.kind === "structure");
+    const member = parts.value.fields[1];
+    assert.ok(member && "value" in member && member.value.kind === "inlineScript");
+    assert.equal(member.name, checksum("part_script"));
+    const names = Object.fromEntries(["part_script", "SetPart", "x"].map((n) => [checksum(n), n]));
+    assert.match(
+        emitTS(scriptValues(), names),
+        /part_script: code\(function\* \(p\) \{\n {8}yield\* SetPart\(\{ x: 1 \}\);\n {4}\}\)/,
+    );
+});
 for (const [label, make] of modules)
     test(`TypeScript and JavaScript agree: ${label}`, () => {
         const outcome = differential(make());

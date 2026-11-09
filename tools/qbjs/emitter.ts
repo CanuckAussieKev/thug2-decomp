@@ -75,6 +75,8 @@ export function emitIR(module: ModuleIR): string {
                 const type = types.includes(2) && types.every((t) => t === 1 || t === 2) ? 2 : (types[0] ?? 0);
                 return `v.array(${type}, [${x.items.map((item) => value(item, script, params)).join(", ")}], ${context})`;
             }
+            case "inlineScript":
+                return `qb.inline(${scriptFunction(x.name, x.offset, x.defaults, x.body)})`;
         }
     };
     const read = (via: number, script: number, offset: number) =>
@@ -161,6 +163,10 @@ export function emitIR(module: ModuleIR): string {
                 throw Error(`${module.source}: unsupported IR statement`);
             })
             .join("");
+    // A script's function: its defaults merged under the arguments, then its statements.
+    function scriptFunction(name: number, offset: number, defaults: Field[], body: Statement[]): string {
+        return `function* (args, root) {\nlet p = v.merge(${fields(defaults, name, offset, "[]")}, args, ${ctx(name, offset)});\nqb.frame(p, root);\n${statements(body, name)}return root ? p : [];\n}`;
+    }
     const manifest = {
         format: 2,
         source: module.source,
@@ -186,12 +192,11 @@ export function emitIR(module: ModuleIR): string {
     for (const def of module.definitions) {
         if (def.kind === "global")
             output += `qb.defineGlobal(${def.name}, ${value(def.value, 0, "[]")}, ${site(0, def.offset)});\n`;
-        else
-            output += `qb.define(${def.name}, function* (args, root) {\nlet p = v.merge(${fields(def.defaults, def.name, def.offset, "[]")}, args, ${ctx(def.name, def.offset)});\nqb.frame(p, root);\n${statements(def.body, def.name)}return root ? p : [];\n});\n`;
-        if (output.length > 16 * 1024 * 1024) throw Error(`${module.source}: generated JS exceeds 16 MiB`);
+        else output += `qb.define(${def.name}, ${scriptFunction(def.name, def.offset, def.defaults, def.body)});\n`;
+        if (output.length > 256 * 1024 * 1024) throw Error(`${module.source}: generated JS exceeds 256 MiB`);
     }
     output += "})();\n";
-    if (output.length > 16 * 1024 * 1024) throw Error(`${module.source}: generated JS exceeds 16 MiB`);
+    if (output.length > 256 * 1024 * 1024) throw Error(`${module.source}: generated JS exceeds 256 MiB`);
     return output;
 }
 
