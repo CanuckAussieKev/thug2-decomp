@@ -5,7 +5,10 @@ export type Expr =
     | { kind: "literal"; offset: number; value: Literal }
     | { kind: "expressionResult"; offset: number; value: Expr }
     | { kind: "parameter"; offset: number; name: number; mode: "value" | "expression" }
+    // A name in an expression: a global's value - or, when it names a C function, the function called there
+    // (push_name), with the arguments that follow it (functionCall) or none (global); its result 0 / 1.
     | { kind: "global"; offset: number; name: number }
+    | { kind: "functionCall"; offset: number; name: number; fields: Field[] }
     // <...>: in an expression a live reference to the parameters; as a value (copy) a structure copied from them
     // (parse_value / add_parameter's kAllArguments).
     | { kind: "allParameters"; offset: number; copy?: true }

@@ -241,7 +241,18 @@ globalThis.qbTs = (() => {
             },
         );
     const N = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark({ type: 13, bits: checksum(key) }) : undefined) });
-    const G = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark(v.global(checksum(key), ctx())) : undefined) });
+    // G.x: global x's value - or, when x is a C function, its result called with no arguments, there and then;
+    // fn.x(...args) calls it with arguments. (A C function in an expression: its outputs are dropped, its result 0 / 1.)
+    const G = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark(globalThis.qb.name(checksum(key), [], site())) : undefined) });
+    const fn = new Proxy(
+        {},
+        {
+            get: (_, key) =>
+                typeof key === "string"
+                    ? (...args) => mark(globalThis.qb.name(checksum(key), fields(args), site()))
+                    : undefined,
+        },
+    );
 
     const coordinate = (c) => (typeof c === "object" ? c.bits : floatBits(Math.fround(c)));
     function choose(opcode) {
@@ -278,6 +289,7 @@ globalThis.qbTs = (() => {
         callOn,
         N,
         G,
+        fn,
         f: (n) => mark({ type: 2, bits: floatBits(Math.fround(n)) }),
         fbits: (bits) => mark({ type: 2, bits: bits >>> 0 }),
         vec: (x, y, z) => mark({ type: 6, coordinates: [x, y, z].map(coordinate) }, literalVector),

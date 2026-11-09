@@ -75,6 +75,34 @@ const objects = () =>
         ]),
         "objects.qb",
     );
+// C functions in expressions: (F args) and bare names, which the harness's host makes functions or not by seed;
+// a global's and a script's names in the same places.
+const functions = () => {
+    const call = (fn: string, ...args: number[][]) => [0x0e, ...name(fn), ...args.flat(), 0x0f];
+    return readIR(
+        Uint8Array.from([
+            ...[...name("Limit"), 7, ...integer(4), 1],
+            ...script("inExpressions", [
+                ...conditional(
+                    [0x0e, ...call("ModeIs", name("career")), 0x32, ...call("ModeIs", name("net")), 0x0f],
+                    command("Yes"),
+                    command("No"),
+                ),
+                ...field("a", [0x0e, ...call("CountOf", field("kind", name("gaps"))), 0x0b, ...integer(1), 0x0f]),
+                1,
+                ...field("b", [0x0e, ...name("Alpha"), 0x0b, ...name("Beta"), 0x0b, ...name("Gamma"), 0x0f]),
+                1,
+                ...field("c", [0x0e, ...name("Limit"), 0x0b, ...name("Delta"), 0x0f]),
+                1,
+                ...field("d", [0x0e, ...name("inExpressions"), 0x0f]),
+                1,
+                ...command("Show", [0x2c]),
+            ]),
+            0,
+        ]),
+        "functions.qb",
+    );
+};
 // if NOT: a command's result and an expression's truth inverted, with and without else.
 const negated = () =>
     readIR(
@@ -98,6 +126,7 @@ const modules: [string, () => ModuleIR][] = [
     ["if NOT", negated],
     ["<...> values and commands named by parameters", dynamic],
     ["object:Command", objects],
+    ["C functions in expressions", functions],
     ["format-1 fixture", () => readIR(fixture(), "fixture.qb")],
     ["emitter fixture", () => readIR(emitterQB(), "emitter.qb")],
     ["expression results", () => expressionResultFixture().ir],

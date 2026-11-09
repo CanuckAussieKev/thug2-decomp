@@ -159,6 +159,7 @@ globalThis.qb = {
  step(site) { latest = site; charge(1); },
  define(n, fn) { scripts.set(n, fn); symbols.set(n, {kind:'callable', type:7, name:n}); },
  defineGlobal(n, value) { symbols.set(n, value); }, frame() {},
+ name(n, args, site) { return v.global(n, this.context(site)); },
  *call(n, args, p, site) {
    if (n === ${key("Pause2")}) { yield {frames:1}; return true; }
    const fn = scripts.get(n); if (!fn) throw Error('unsupported host');

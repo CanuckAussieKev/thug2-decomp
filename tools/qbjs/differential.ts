@@ -33,6 +33,8 @@ const text = (x, depth = 0) => {
 };
 // Objects: every name but 0 and one in eleven (moved by the seed) exists.
 globalThis.__qbFindObject = (id) => id !== 0 && (id + SEED) % 11 !== 0;
+// C functions: one name in five (moved by the seed) - in an expression such a name is called.
+globalThis.__qbSymbolKind = (id) => ((id >>> 1) + SEED) % 5 === 0 ? 'function' : undefined;
 globalThis.__qbHost = (name, args, p, object, qualified) => {
     const n = (counts.get(name) ?? 0) + 1;
     counts.set(name, n);

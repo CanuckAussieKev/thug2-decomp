@@ -118,6 +118,23 @@ globalThis.qb = (() => {
     function snapshot(t) { return {status:t.status, parameters:copyParameters(t, t.parameters), message:t.message}; }
     return Object.freeze({
         runtimeVersion: 2,
+        // A name in an expression (push_name): a global's value - a script's name stays a name -, or, when the host
+        // says it is a C function, that function called with args (parse_arguments to the ')'): its result as an
+        // Integer 0 / 1, its outputs dropped. Arguments after anything else, or a member function there, are
+        // outside what this runtime does (the original reads the arguments on as more of the expression).
+        name(n, args, site) {
+            uint(n);
+            const ctx = context(site);
+            const kind = !symbols.has(n) && active && typeof globalThis.__qbSymbolKind === 'function'
+                ? globalThis.__qbSymbolKind(n) : undefined;
+            if (kind === 'function') {
+                const r = __qbHost(n, args, [], active.object, false);
+                return {type:1, bits:r?.condition ? 1 : 0};
+            }
+            if (kind === 'method') throw Error('QB member function in an expression is not implemented');
+            if (args.length) throw Error('QB arguments after a name that is not a C function in an expression');
+            return values().global(n, ctx);
+        },
         merge, assign, fields, step, call, context, random,
         get(p, name) { for (let i = p.length - 1; i >= 0; --i) if (p[i][0] === name) return p[i][1]; },
         truth(v) {

@@ -36,7 +36,9 @@ export function emitIR(module: ModuleIR): string {
             case "literal":
                 return `v.copy(${JSON.stringify(x.value)}, "value", ${context})`;
             case "global":
-                return `v.global(${x.name}, ${context})`;
+                return `qb.name(${x.name}, [], ${site(script, x.offset)})`;
+            case "functionCall":
+                return `qb.name(${x.name}, ${fields(x.fields, script, x.offset, params)}, ${site(script, x.offset)})`;
             case "parameter":
                 return `v.param(${params}, ${x.name}, ${JSON.stringify(x.mode)}, ${context})`;
             case "allParameters":

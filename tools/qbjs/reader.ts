@@ -7,6 +7,10 @@ import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFi
 import { pathToFileURL } from "node:url";
 import type { Call, Definition, Expr, Field, ModuleIR, NameRef, Statement, SwitchLabel } from "./ir.ts";
 
+// Tokens that can start a C function's arguments after a name in an expression (a negative number there is a
+// subtraction; '[' an index).
+const ARGUMENT_STARTS = [0x03, 0x0e, 0x16, 0x17, 0x18, 0x1a, 0x1b, 0x1c, 0x1e, 0x1f, 0x2c, 0x2d];
+
 export type ReaderLimits = { nodes?: number; depth?: number };
 export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLimits = {}): ModuleIR {
     let p = 0,
@@ -142,7 +146,21 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 } else if (b[p] === 0x2c) {
                     node();
                     values.push({ kind: "allParameters", offset: p++ });
-                } else values.push(value(depth + 1, true, afterDot));
+                } else {
+                    const operand = value(depth + 1, true, afterDot);
+                    // A name followed by a value (not an operator): a C function's arguments, up to the ')'.
+                    if (operand.kind === "global" && ARGUMENT_STARTS.includes(b[p]!)) {
+                        node();
+                        values.push(
+                            bounded({
+                                kind: "functionCall",
+                                offset: operand.offset,
+                                name: operand.name,
+                                fields: parameters(depth + 1),
+                            }),
+                        );
+                    } else values.push(operand);
+                }
                 expecting = false;
                 continue;
             }
@@ -282,7 +300,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         if (depth > depthLimit) fail("value depth limit");
         const fields: Field[] = [];
         if (structure) separators();
-        while (structure ? b[p] !== 4 : b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24) {
+        while (structure ? b[p] !== 4 : b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24 && b[p] !== 0x0f) {
             need(1);
             if (b[p] === 9) {
                 ++p;

@@ -29,6 +29,7 @@ const HELPERS = [
     "global",
     "cmd",
     "N",
+    "fn",
     "G",
     "f",
     "fbits",
@@ -189,7 +190,7 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
     // () => body; an object literal body in parentheses.
     const arrow = (body: Doc): Doc =>
         flat(body).startsWith("{")
-            ? { head: "() => (", items: [body], tail: ")" }
+            ? { head: "() => (", items: [body], tail: ")", last: "" }
             : { head: "() => ", items: [body], tail: "" };
 
     const literal = (v: Literal): string => {
@@ -218,6 +219,8 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 return member("p", x.name);
             case "global":
                 return member(use("G"), x.name);
+            case "functionCall":
+                return { head: `${member(use("fn"), x.name)}(`, items: fieldGroups(x.fields), tail: ")" };
             case "allParameters":
                 if (x.copy) return `${use("all")}(p)`;
                 return `${use("params")}(p)`;
@@ -315,7 +318,7 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 : { head: `${use("test")}(`, items: [expr(x.condition)], tail: ")" };
         if (!x.negate) return c;
         return x.condition.kind === "call"
-            ? { head: "!(", items: [c], tail: ")" }
+            ? { head: "!(", items: [c], tail: ")", last: "" }
             : { head: "!", items: [c], tail: "" };
     };
     let lines: string[] = [];
