@@ -67,8 +67,17 @@ export function emitIR(module: ModuleIR): string {
             }
         }
     };
-    const call = (x: Call, script: number) =>
-        `(yield* qb.call(${x.via === undefined ? x.name : `(v.readChecksum(p, ${x.via}, ${ctx(script, x.offset)})?.bits ?? 0)`}, ${fields(x.fields, script, x.offset)}, p, ${site(script, x.offset)}))`;
+    const read = (via: number, script: number, offset: number) =>
+        `(v.readChecksum(p, ${via}, ${ctx(script, offset)})?.bits ?? 0)`;
+    const call = (x: Call, script: number) => {
+        // object:Command reads the object's name first (execute_command), then the command's.
+        const on = x.on === undefined ? "" : "name" in x.on ? `${x.on.name}` : read(x.on.via, script, x.offset);
+        const name = x.via === undefined ? `${x.name}` : read(x.via, script, x.offset);
+        const args = `${fields(x.fields, script, x.offset)}, p, ${site(script, x.offset)}`;
+        return x.on === undefined
+            ? `(yield* qb.call(${name}, ${args}))`
+            : `(yield* ((on, name) => qb.call(name, ${args}, on))(${on}, ${name}))`;
+    };
     const statements = (
         xs: Statement[],
         script: number,

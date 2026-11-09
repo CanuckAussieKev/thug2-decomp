@@ -31,11 +31,13 @@ const text = (x, depth = 0) => {
     if (x && typeof x === 'object') return '{' + Object.keys(x).map(k => k + ':' + text(x[k], depth + 1)).join(',') + '}';
     return String(x);
 };
-globalThis.__qbHost = (name, args) => {
+// Objects: every name but 0 and one in eleven (moved by the seed) exists.
+globalThis.__qbFindObject = (id) => id !== 0 && (id + SEED) % 11 !== 0;
+globalThis.__qbHost = (name, args, p, object, qualified) => {
     const n = (counts.get(name) ?? 0) + 1;
     counts.set(name, n);
     if (events.length >= LIMIT) throw Error('host call limit');
-    events.push('call ' + name.toString(16) + ' ' + text(args));
+    events.push('call ' + name.toString(16) + (qualified ? ' on ' : ' in ') + object.toString(16) + ' ' + text(args));
     return { condition: ((name >>> 3) + n + SEED) % 3 !== 0, outputs: [], frames: n % 4 === 0 ? 1 : undefined };
 };
 return (scripts) => {
@@ -49,7 +51,10 @@ return (scripts) => {
                 r = qb.update(id, globalThis.__frame = (globalThis.__frame ?? 0) + 1);
                 if (r.status !== 'waiting' && r.status !== 'ready') break;
             }
-            events.push('end ' + r.status + ' ' + String(r.message).replace(/ at .*$/, '') + ' ' + text(r.parameters));
+            // A loop that never waits runs out of the step budget on both paths, at different passes (they count
+            // steps differently: docs/qb-ts.md): one outcome; the calls it made before are still compared.
+            const message = String(r.message).replace(/ at .*$/, '');
+            events.push(/fuel exhausted/.test(message) ? 'end runaway' : 'end ' + r.status + ' ' + message + ' ' + text(r.parameters));
         } catch (e) {
             events.push('throw ' + String(e).replace(/ at .*$/, ''));
         } finally {

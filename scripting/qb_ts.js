@@ -204,14 +204,42 @@ globalThis.qbTs = (() => {
             },
         },
     );
+    // A name as read_name reads it: N.x itself; p.x / all(p) the name the parameter holds (0: none).
+    function nameOf(named) {
+        if (named === null || typeof named !== "object") return 0;
+        if (named[SPREAD]) return v.readChecksum(named[SPREAD], 0, ctx())?.bits ?? 0;
+        const read = origin.get(named);
+        if (read) return v.readChecksum(read[0], read[1], ctx())?.bits ?? 0;
+        return known.has(named) && named.type === 13 ? named.bits : 0;
+    }
     // call(p.x, ...args): the command named by parameter x (call(all(p), ...): the parameters' unnamed name),
-    // read as a name when the statement runs; no name: nothing runs, false.
+    // read when the statement runs; no name: nothing runs, false.
     function* call(named, ...args) {
         const p = frame.p;
-        const read = named !== null && typeof named === "object" ? (named[SPREAD] ? [named[SPREAD], 0] : origin.get(named)) : undefined;
-        const hash = read ? (v.readChecksum(read[0], read[1], ctx())?.bits ?? 0) : 0;
+        const hash = nameOf(named);
         return yield* globalThis.qb.call(hash, fields(args), p, site());
     }
+    // object:Command - on(N.object).Command(...args); callOn(object, p.x, ...args) when a parameter names the command.
+    function* callOn(object, named, ...args) {
+        const p = frame.p;
+        const target = nameOf(object);
+        const hash = nameOf(named);
+        return yield* globalThis.qb.call(hash, fields(args), p, site(), target);
+    }
+    const on = (object) =>
+        new Proxy(
+            {},
+            {
+                get(_, key) {
+                    if (typeof key !== "string") return undefined;
+                    return function* (...args) {
+                        const p = frame.p;
+                        const target = nameOf(object);
+                        return yield* globalThis.qb.call(checksum(key), fields(args), p, site(), target);
+                    };
+                },
+            },
+        );
     const N = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark({ type: 13, bits: checksum(key) }) : undefined) });
     const G = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark(v.global(checksum(key), ctx())) : undefined) });
 
@@ -246,6 +274,8 @@ globalThis.qbTs = (() => {
         },
         cmd,
         call,
+        on,
+        callOn,
         N,
         G,
         f: (n) => mark({ type: 2, bits: floatBits(Math.fround(n)) }),

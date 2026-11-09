@@ -5,7 +5,7 @@
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import type { Call, Definition, Expr, Field, ModuleIR, Statement, SwitchLabel } from "./ir.ts";
+import type { Call, Definition, Expr, Field, ModuleIR, NameRef, Statement, SwitchLabel } from "./ir.ts";
 
 export type ReaderLimits = { nodes?: number; depth?: number };
 export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLimits = {}): ModuleIR {
@@ -350,19 +350,35 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             else check(f.value);
         }
     };
-    const call = (): Call => {
-        const offset = p;
+    // A command's name as read_name reads it: written, or from a parameter (<x>; <...> its unnamed name).
+    const nameRef = (): NameRef => {
         if (b[p] === 0x2c) {
             ++p;
-            return { kind: "call", offset, name: 0, via: 0, fields: parameters(0) };
+            return { via: 0 };
         }
         if (b[p] === 0x2d) {
             ++p;
-            const via = name();
-            return { kind: "call", offset, name: 0, via, fields: parameters(0) };
+            return { via: name() };
         }
-        const n = name();
-        return { kind: "call", offset, name: n, fields: parameters(0) };
+        return { name: name() };
+    };
+    const call = (): Call => {
+        const offset = p;
+        let command = nameRef(),
+            on: NameRef | undefined;
+        if (b[p] === 0x42) {
+            ++p;
+            on = command;
+            command = nameRef();
+        }
+        return {
+            kind: "call",
+            offset,
+            name: "name" in command ? command.name : 0,
+            ...("via" in command ? { via: command.via } : {}),
+            fields: parameters(0),
+            ...(on ? { on } : {}),
+        };
     };
     const block = (depth: number, loops: number[] = []): Statement[] => {
         if (depth > 64) fail("statement nesting limit");

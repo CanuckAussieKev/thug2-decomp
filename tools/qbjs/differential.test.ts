@@ -50,6 +50,31 @@ const dynamic = () =>
         ]),
         "dynamic.qb",
     );
+// object:Command - written and parameter-named objects and commands, a script of the module run on an object (its
+// own commands then run on it), in a condition, and an object that doesn't exist.
+const objects = () =>
+    readIR(
+        Uint8Array.from([
+            ...script(
+                "onObjects",
+                [
+                    ...[...name("Board"), 0x42, ...name("Flip"), ...field("speed", integer(2)), 1],
+                    ...[0x2d, ...name("who"), 0x42, ...name("Flip"), 1],
+                    ...[...name("Board"), 0x42, ...name("onInner"), ...field("x", integer(1)), 1],
+                    ...[...name("Board"), 0x42, 0x2d, ...name("what"), 1],
+                    ...conditional([...name("Board"), 0x42, ...name("Ready")], command("Yes"), command("No")),
+                    ...command("Plain"),
+                    ...[0x2d, ...name("nobody"), 0x42, ...name("Flip"), 1],
+                    ...command("Unreached"),
+                ],
+                [...field("who", name("Skater")), ...field("what", name("Spin")), ...field("nobody", integer(3))],
+            ),
+            ...script("onInner", [...command("Inner", [0x2c]), ...command("onDeeper")]),
+            ...script("onDeeper", command("Deeper")),
+            0,
+        ]),
+        "objects.qb",
+    );
 // if NOT: a command's result and an expression's truth inverted, with and without else.
 const negated = () =>
     readIR(
@@ -72,6 +97,7 @@ const negated = () =>
 const modules: [string, () => ModuleIR][] = [
     ["if NOT", negated],
     ["<...> values and commands named by parameters", dynamic],
+    ["object:Command", objects],
     ["format-1 fixture", () => readIR(fixture(), "fixture.qb")],
     ["emitter fixture", () => readIR(emitterQB(), "emitter.qb")],
     ["expression results", () => expressionResultFixture().ir],

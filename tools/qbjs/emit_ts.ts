@@ -24,6 +24,8 @@ const RESERVED = new Set(
 const HELPERS = [
     "script",
     "call",
+    "on",
+    "callOn",
     "global",
     "cmd",
     "N",
@@ -289,15 +291,21 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
         if (structure && !groups.length) return "{}";
         return structure ? { head: `${use("s")}(`, items: groups, tail: ")" } : { head: "", items: groups, tail: "" };
     };
-    // A command named by a parameter: call(p.x, ...) (call(all(p), ...) for <...>).
-    const callDoc = (c: Call): Doc =>
-        c.via === undefined
-            ? { head: `yield* ${commandRef(c.name)}(`, items: fieldGroups(c.fields), tail: ")" }
-            : {
-                  head: `yield* ${use("call")}(`,
-                  items: [c.via ? member("p", c.via) : `${use("all")}(p)`, ...fieldGroups(c.fields)],
-                  tail: ")",
-              };
+    // A command named by a parameter: call(p.x, ...) (call(all(p), ...) for <...>). On an object (object:Command):
+    // on(N.object).Command(...), callOn(N.object, p.x, ...) when the command is named by a parameter.
+    const viaDoc = (via: number) => (via ? member("p", via) : `${use("all")}(p)`);
+    const callDoc = (c: Call): Doc => {
+        const args = fieldGroups(c.fields);
+        if (c.on !== undefined) {
+            const object = "name" in c.on ? member(use("N"), c.on.name) : viaDoc(c.on.via);
+            if (c.via !== undefined)
+                return { head: `yield* ${use("callOn")}(`, items: [object, viaDoc(c.via), ...args], tail: ")" };
+            return { head: `yield* ${member(`${use("on")}(${object})`, c.name)}(`, items: args, tail: ")" };
+        }
+        return c.via === undefined
+            ? { head: `yield* ${commandRef(c.name)}(`, items: args, tail: ")" }
+            : { head: `yield* ${use("call")}(`, items: [viaDoc(c.via), ...args], tail: ")" };
+    };
 
     // An if's condition: a call's result or an expression's truth, `!` in front for NOT.
     const conditionDoc = (x: Extract<Statement, { kind: "if" }>): Doc => {

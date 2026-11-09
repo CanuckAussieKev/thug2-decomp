@@ -77,29 +77,40 @@ globalThis.qb = (() => {
         active.site = site;
         if (--active.fuel < 0) throw Error('QB statement fuel exhausted');
     }
-    function* call(name, args, p, site) {
+    // on: `object:Command` - the object's name (execute_command's colon form). The object must exist (where it
+    // doesn't the original hangs: it re-runs the ':' for ever); a script then runs with it as its object, any
+    // other command goes to the host as qualified (only member functions run on an object; C functions are false).
+    // Without on, a command runs on the task's current object (a script's callees inherit it).
+    function* call(name, args, p, site, on) {
         const t = active;
         if (++t.depth > 32) throw Error('QB call depth limit');
+        const caller = t.object;
         try {
             step(site);
+            if (on !== undefined) {
+                uint(on);
+                const exists = typeof globalThis.__qbFindObject === 'function' ? globalThis.__qbFindObject(on) : true;
+                if (!exists) throw Error('QB object-qualified call on a missing object (the original hangs here)');
+            }
             if (name === 0) return false; // a command named by a parameter that holds no name: nothing runs
             const callee = script(name, t.format === 2 ? context(site) : undefined);
             if (callee) {
                 if (callee.format !== t.format) throw Error('Mixed QB module formats in one call stack are unsupported');
+                if (on !== undefined) t.object = on;
                 const returned = yield* callee.fn(args, false);
                 if (t.format === 2) values().append(p, returned, context(site));
                 else { const out = merge(p, returned); p.splice(0, p.length, ...out); }
                 return true; // A QB-call condition counts as true, irrespective of returned values.
             }
             if (symbols.has(name)) return false; // A data symbol is not a command.
-            const r = __qbHost(name, args, p);
+            const r = on === undefined ? __qbHost(name, args, p, t.object, false) : __qbHost(name, args, p, on, true);
             if (r === undefined) return false; // Missing command: game's false condition.
             if (!r || typeof r.condition !== 'boolean') throw Error('Invalid QB host response');
             if (t.format === 2) values().append(p, r.outputs, context(site));
             else { const out = merge(p, r.outputs); p.splice(0, p.length, ...out); }
             if (r.frames !== undefined) yield {frames:uint(r.frames)};
             return r.condition;
-        } finally { --t.depth; }
+        } finally { --t.depth; t.object = caller; }
     }
     function copyParameters(t, p) {
         return t.format === 2 ? values().merge([], p, boundary(t.site)) : merge([], p);
@@ -145,12 +156,12 @@ globalThis.qb = (() => {
             scripts.set(n, {fn,format:loadingFormat});
             symbols.set(n, {kind:'callable',type:7,name:n});
         },
-        start(n, args, fuel) {
+        start(n, args, fuel, object = 0) {
             if (tasks.size >= 256 || nextId > 0xffffffff) throw Error('QB task capacity limit');
             const entry = script(n);
             if (!entry) throw Error('Unknown root QB script');
             if (!Number.isInteger(fuel) || fuel < 0 || fuel > 1000000) throw Error('Invalid QB fuel');
-            const t = {id:nextId, format:entry.format, generator:null, parameters:[], fuel, fuelLimit:fuel, depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:''};
+            const t = {id:nextId, format:entry.format, object:uint(object), generator:null, parameters:[], fuel, fuelLimit:fuel, depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:''};
             t.generator = entry.fn(copyParameters(t, args), true);
             const id = nextId++; tasks.set(id, t); return id;
         },

@@ -19,7 +19,9 @@ export type Field =
     | { spread: true; offset: number };
 // via: the command's name is read from a parameter (`<script> args`; 0 for `<...> args`: the parameters' unnamed
 // name) when the statement runs (read_name -> read_hash_value); name is then 0.
-export type Call = { kind: "call"; offset: number; name: number; fields: Field[]; via?: number };
+// on: `object:Command` - the object's name, written (name) or read from a parameter like via (via).
+export type NameRef = { name: number } | { via: number };
+export type Call = { kind: "call"; offset: number; name: number; fields: Field[]; via?: number; on?: NameRef };
 export type SwitchLabel = { offset: number; fields: Field[] };
 export type Statement =
     | Call
