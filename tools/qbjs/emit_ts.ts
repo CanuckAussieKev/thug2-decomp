@@ -23,6 +23,7 @@ const RESERVED = new Set(
 // The "qb" module's exports, imported by name.
 const HELPERS = [
     "script",
+    "call",
     "global",
     "cmd",
     "N",
@@ -216,6 +217,7 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
             case "global":
                 return member(use("G"), x.name);
             case "allParameters":
+                if (x.copy) return `${use("all")}(p)`;
                 return `${use("params")}(p)`;
             case "expressionResult":
                 return x.value.kind === "binary"
@@ -287,11 +289,15 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
         if (structure && !groups.length) return "{}";
         return structure ? { head: `${use("s")}(`, items: groups, tail: ")" } : { head: "", items: groups, tail: "" };
     };
-    const callDoc = (c: Call): Doc => ({
-        head: `yield* ${commandRef(c.name)}(`,
-        items: fieldGroups(c.fields),
-        tail: ")",
-    });
+    // A command named by a parameter: call(p.x, ...) (call(all(p), ...) for <...>).
+    const callDoc = (c: Call): Doc =>
+        c.via === undefined
+            ? { head: `yield* ${commandRef(c.name)}(`, items: fieldGroups(c.fields), tail: ")" }
+            : {
+                  head: `yield* ${use("call")}(`,
+                  items: [c.via ? member("p", c.via) : `${use("all")}(p)`, ...fieldGroups(c.fields)],
+                  tail: ")",
+              };
 
     // An if's condition: a call's result or an expression's truth, `!` in front for NOT.
     const conditionDoc = (x: Extract<Statement, { kind: "if" }>): Doc => {

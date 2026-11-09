@@ -6,7 +6,9 @@ export type Expr =
     | { kind: "expressionResult"; offset: number; value: Expr }
     | { kind: "parameter"; offset: number; name: number; mode: "value" | "expression" }
     | { kind: "global"; offset: number; name: number }
-    | { kind: "allParameters"; offset: number }
+    // <...>: in an expression a live reference to the parameters; as a value (copy) a structure copied from them
+    // (parse_value / add_parameter's kAllArguments).
+    | { kind: "allParameters"; offset: number; copy?: true }
     | { kind: "binary"; offset: number; op: number; left: Expr; right: Expr }
     | { kind: "randomRange"; offset: number; a: number; b: number; second: boolean }
     | { kind: "randomChoice"; offset: number; opcode: number; weights: number[]; choices: Expr[] }
@@ -15,7 +17,9 @@ export type Expr =
 export type Field =
     | { name: number; value: Expr; offset: number; flattenStructure?: true }
     | { spread: true; offset: number };
-export type Call = { kind: "call"; offset: number; name: number; fields: Field[] };
+// via: the command's name is read from a parameter (`<script> args`; 0 for `<...> args`: the parameters' unnamed
+// name) when the statement runs (read_name -> read_hash_value); name is then 0.
+export type Call = { kind: "call"; offset: number; name: number; fields: Field[]; via?: number };
 export type SwitchLabel = { offset: number; fields: Field[] };
 export type Statement =
     | Call

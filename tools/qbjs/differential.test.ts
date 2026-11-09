@@ -10,6 +10,46 @@ import type { ModuleIR } from "./ir.ts";
 import { randomFixture } from "./random-fixtures.ts";
 import { readIR } from "./reader.ts";
 
+// <...> as a value (a copy of the parameters) and commands named by a parameter: <x> args, <...> args, in a
+// condition, a parameter holding no name, one holding a structure, and one naming a script of the module.
+const dynamic = () =>
+    readIR(
+        Uint8Array.from([
+            ...script(
+                "allCopy",
+                [
+                    ...command("Show", [...field("params", [0x2c]), ...field("b", integer(2))]),
+                    ...field("copied", [0x2c]),
+                    1,
+                    ...field("late", integer(3)),
+                    1,
+                    ...command("Show", field("copy", param("copied"))),
+                ],
+                field("a", integer(1)),
+            ),
+            ...script(
+                "named",
+                [
+                    ...command("Probe", [0x2d, ...name("target")]),
+                    ...[0x2d, ...name("target"), ...field("x", integer(5)), 1],
+                    ...[0x2d, ...name("missing"), ...field("x", integer(6)), 1],
+                    ...[0x2d, ...name("structured"), 1],
+                    ...[0x2d, ...name("local"), ...field("x", integer(7)), 1],
+                    ...[0x2c, ...field("y", integer(8)), 1],
+                    ...conditional([0x2d, ...name("target")], command("Yes"), command("No")),
+                    ...conditional([0x39, 0x2d, ...name("missing")], command("Yes"), command("No")),
+                ],
+                [
+                    ...field("target", name("SomeCommand")),
+                    ...field("structured", [3, ...field("m", integer(1)), 4]),
+                    ...field("local", name("allCopy")),
+                    ...name("Unnamed"),
+                ],
+            ),
+            0,
+        ]),
+        "dynamic.qb",
+    );
 // if NOT: a command's result and an expression's truth inverted, with and without else.
 const negated = () =>
     readIR(
@@ -31,6 +71,7 @@ const negated = () =>
     );
 const modules: [string, () => ModuleIR][] = [
     ["if NOT", negated],
+    ["<...> values and commands named by parameters", dynamic],
     ["format-1 fixture", () => readIR(fixture(), "fixture.qb")],
     ["emitter fixture", () => readIR(emitterQB(), "emitter.qb")],
     ["expression results", () => expressionResultFixture().ir],

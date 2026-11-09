@@ -220,6 +220,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
         if (op === 0x17 || op === 0x18 || op === 0x1a)
             return { kind: "literal", offset, value: { type: op === 0x1a ? 2 : 1, bits: word() } };
+        if (op === 0x2c) return { kind: "allParameters", offset, ...(inExpression ? {} : { copy: true as const }) };
         if (op === 0x2d)
             return { kind: "parameter", offset, name: name(), mode: inExpression ? "expression" : "value" };
         if (op === 0x1b || op === 0x1c) {
@@ -350,8 +351,17 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
     };
     const call = (): Call => {
-        const offset = p,
-            n = name();
+        const offset = p;
+        if (b[p] === 0x2c) {
+            ++p;
+            return { kind: "call", offset, name: 0, via: 0, fields: parameters(0) };
+        }
+        if (b[p] === 0x2d) {
+            ++p;
+            const via = name();
+            return { kind: "call", offset, name: 0, via, fields: parameters(0) };
+        }
+        const n = name();
         return { kind: "call", offset, name: n, fields: parameters(0) };
     };
     const block = (depth: number, loops: number[] = []): Statement[] => {
@@ -430,8 +440,11 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 const destination = p + short();
                 const negate = b[p] === 0x39;
                 if (negate) ++p;
-                const condition =
-                    b[p] === 0x16 ? call() : b[p] === 0x0e ? value(0) : fail("unsupported condition command token");
+                const condition = [0x16, 0x2c, 0x2d].includes(b[p]!)
+                    ? call()
+                    : b[p] === 0x0e
+                      ? value(0)
+                      : fail("unsupported condition command token");
                 eol();
                 const yes = block(depth + 1, loops);
                 let no: Statement[] = [],

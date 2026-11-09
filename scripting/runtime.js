@@ -82,6 +82,7 @@ globalThis.qb = (() => {
         if (++t.depth > 32) throw Error('QB call depth limit');
         try {
             step(site);
+            if (name === 0) return false; // a command named by a parameter that holds no name: nothing runs
             const callee = script(name, t.format === 2 ? context(site) : undefined);
             if (callee) {
                 if (callee.format !== t.format) throw Error('Mixed QB module formats in one call stack are unsupported');

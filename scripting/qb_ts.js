@@ -64,6 +64,8 @@ globalThis.qbTs = (() => {
         if (typeof x === "string") return { type: 3, bytes: bytes(x) };
         if (typeof x === "function") return value(x());
         if (known.has(x)) return pending.has(x) ? v.expressionResult(x, ctx()) : x;
+        // all(p) as a value: a structure copied from the parameters (as a call argument it is spread instead).
+        if (typeof x === "object" && x !== null && x[SPREAD]) return v.structure(x[SPREAD], ctx());
         if (Array.isArray(x)) {
             const items = x.map(value);
             const types = items.map((i) => i.type);
@@ -202,6 +204,14 @@ globalThis.qbTs = (() => {
             },
         },
     );
+    // call(p.x, ...args): the command named by parameter x (call(all(p), ...): the parameters' unnamed name),
+    // read as a name when the statement runs; no name: nothing runs, false.
+    function* call(named, ...args) {
+        const p = frame.p;
+        const read = named !== null && typeof named === "object" ? (named[SPREAD] ? [named[SPREAD], 0] : origin.get(named)) : undefined;
+        const hash = read ? (v.readChecksum(read[0], read[1], ctx())?.bits ?? 0) : 0;
+        return yield* globalThis.qb.call(hash, fields(args), p, site());
+    }
     const N = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark({ type: 13, bits: checksum(key) }) : undefined) });
     const G = new Proxy({}, { get: (_, key) => (typeof key === "string" ? mark(v.global(checksum(key), ctx())) : undefined) });
 
@@ -235,6 +245,7 @@ globalThis.qbTs = (() => {
             source = name;
         },
         cmd,
+        call,
         N,
         G,
         f: (n) => mark({ type: 2, bits: floatBits(Math.fround(n)) }),

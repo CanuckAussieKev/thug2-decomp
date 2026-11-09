@@ -40,6 +40,7 @@ export function emitIR(module: ModuleIR): string {
             case "parameter":
                 return `v.param(${params}, ${x.name}, ${JSON.stringify(x.mode)}, ${context})`;
             case "allParameters":
+                if (x.copy) return `v.structure(${params}, ${context})`;
                 return `({type:20, target:{type:10, members:${params}}})`;
             case "binary":
                 return `v.binary(${x.op}, ${value(x.left, script, params)}, ${value(x.right, script, params)}, ${context})`;
@@ -67,7 +68,7 @@ export function emitIR(module: ModuleIR): string {
         }
     };
     const call = (x: Call, script: number) =>
-        `(yield* qb.call(${x.name}, ${fields(x.fields, script, x.offset)}, p, ${site(script, x.offset)}))`;
+        `(yield* qb.call(${x.via === undefined ? x.name : `(v.readChecksum(p, ${x.via}, ${ctx(script, x.offset)})?.bits ?? 0)`}, ${fields(x.fields, script, x.offset)}, p, ${site(script, x.offset)}))`;
     const statements = (
         xs: Statement[],
         script: number,
