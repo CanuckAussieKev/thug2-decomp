@@ -201,9 +201,12 @@ test("validates switch headers, destinations, nesting and every truncation", () 
         [0x3d, 1],
         [0x49, 0, 0],
         [0x3c, ...integer(1), 1],
-        [0x3c, ...integer(1), 1, ...command("BeforeCase"), 0x3d, 1],
     ])
         assert.throws(() => scriptBody(body), /QB offset/);
+    // Statements before the first case never run (run_multi_branch steps over them): dropped.
+    const before = scriptBody([0x3c, ...integer(1), 1, ...command("BeforeCase"), 0x3d, 1])[0]!;
+    if (before.kind !== "switch") throw Error("expected switch");
+    assert.deepEqual([before.cases, before.fallback], [[], undefined]);
     const full = module(script("switch", valid));
     for (let end = 0; end < full.length; end++)
         assert.throws(() => readIR(full.subarray(0, end), "switch.qb"), /switch.qb: QB offset/);

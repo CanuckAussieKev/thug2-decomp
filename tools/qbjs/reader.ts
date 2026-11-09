@@ -5,7 +5,18 @@
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import type { Call, Definition, Expr, Field, ModuleIR, NameRef, RandomFields, Statement, SwitchLabel } from "./ir.ts";
+import type {
+    Assign,
+    Call,
+    Definition,
+    Expr,
+    Field,
+    ModuleIR,
+    NameRef,
+    RandomFields,
+    Statement,
+    SwitchLabel,
+} from "./ir.ts";
 
 // Tokens that can start a C function's arguments after a name in an expression (a negative number there is a
 // subtraction; '[' an index).
@@ -119,13 +130,16 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             if (last && join < 0) fail("random branches without a join jump");
             branches.push(parse(last ? join : -1));
             // (the last branch may end with a jump to the join too)
-            if (last && b[p] !== 0x2e) break;
+            // (a 2E at or past the join belongs to the code around the Random)
+            if (last && (b[p] !== 0x2e || p >= join)) break;
             if (b[p] !== 0x2e) fail("random branch requires join jump");
             ++p;
             const field = p;
             const end = field + 4 + word();
-            if (join >= 0 && end !== join) fail("random branches join at different places");
-            join = end;
+            // (branches may join at different points of one run of line ends - the same place)
+            if (join >= 0 && end !== join && !onlyLines(Math.min(end, join), Math.max(end, join)))
+                fail("random branches join at different places");
+            join = join < 0 ? end : Math.min(join, end);
         }
         // The join may fall among the line ends the last branch's statement has already passed.
         if (targets.length > 1 && p !== join && !(allowLines && join < p && onlyLines(join, p)))
@@ -499,6 +513,18 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         const offset = p;
         if (b[p] === 0x0e) {
             const byExpr = value(0);
+            if (b[p] === 0x42) {
+                ++p;
+                const command = nameRef();
+                return {
+                    kind: "call",
+                    offset,
+                    name: "name" in command ? command.name : 0,
+                    ...("via" in command ? { via: command.via } : {}),
+                    fields: parameters(0),
+                    onExpr: byExpr,
+                };
+            }
             return { kind: "call", offset, name: 0, byExpr, fields: parameters(0) };
         }
         let command = nameRef(),
@@ -539,6 +565,8 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 const fields = parameters(0);
                 eol();
                 lines();
+                // Statements before the first case never run (run_multi_branch steps over every token to a case).
+                if (![0x3d, 0x3e, 0x3f].includes(b[p]!)) block(depth + 1, loops);
                 const cases: { labels: SwitchLabel[]; body: Statement[] }[] = [];
                 const exits: number[] = [];
                 let labels: SwitchLabel[] = [];
@@ -602,11 +630,22 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 const destination = p + short();
                 const negate = b[p] === 0x39;
                 if (negate) ++p;
-                const condition = [0x16, 0x2c, 0x2d].includes(b[p]!)
-                    ? call()
-                    : b[p] === 0x0e
-                      ? value(0)
-                      : fail("unsupported condition command token");
+                // `if name = value`: an assignment - it runs, and a statement that isn't a command counts as true.
+                const assigning =
+                    (b[p] === 0x16 && b[p + 5] === 7) || (b[p] === 0x2d && b[p + 1] === 0x16 && b[p + 6] === 7);
+                const condition: Call | Expr | Assign = assigning
+                    ? (() => {
+                          const at = p;
+                          if (b[p] === 0x2d) ++p;
+                          const n = name();
+                          ++p;
+                          return { kind: "assign" as const, offset: at, name: n, value: value(0) };
+                      })()
+                    : [0x16, 0x2c, 0x2d].includes(b[p]!)
+                      ? call()
+                      : b[p] === 0x0e
+                        ? value(0)
+                        : fail("unsupported condition command token");
                 eol();
                 const yes = block(depth + 1, loops);
                 let no: Statement[] = [],

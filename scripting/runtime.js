@@ -120,6 +120,11 @@ globalThis.qb = (() => {
         runtimeVersion: 2,
         // `(expression) args` as a statement or an if's condition (execute_command): a name is called (0: nothing,
         // false), anything else is only its truth - arguments after it are outside what this runtime does.
+        // (expression):Command - the object's name: the expression must give a name.
+        objectName(value) {
+            if (value?.type !== 13) throw Error('QB object-qualified call on an expression that is not a name');
+            return value.bits;
+        },
         *dispatch(value, args, p, site) {
             if (value?.type === 13) return value.bits === 0 ? false : yield* call(value.bits, args, p, site);
             if (args.length) throw Error('QB arguments after an expression that is not a name');

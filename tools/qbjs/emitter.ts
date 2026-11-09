@@ -81,11 +81,18 @@ export function emitIR(module: ModuleIR): string {
         `(v.readChecksum(p, ${via}, ${ctx(script, offset)})?.bits ?? 0)`;
     const call = (x: Call, script: number) => {
         // object:Command reads the object's name first (execute_command), then the command's.
-        const on = x.on === undefined ? "" : "name" in x.on ? `${x.on.name}` : read(x.on.via, script, x.offset);
+        const on =
+            x.onExpr !== undefined
+                ? `qb.objectName(${value(x.onExpr, script)})`
+                : x.on === undefined
+                  ? ""
+                  : "name" in x.on
+                    ? `${x.on.name}`
+                    : read(x.on.via, script, x.offset);
         const name = x.via === undefined ? `${x.name}` : read(x.via, script, x.offset);
         const args = `${fields(x.fields, script, x.offset)}, p, ${site(script, x.offset)}`;
         if (x.byExpr !== undefined) return `(yield* qb.dispatch(${value(x.byExpr, script)}, ${args}))`;
-        return x.on === undefined
+        return x.on === undefined && x.onExpr === undefined
             ? `(yield* qb.call(${name}, ${args}))`
             : `(yield* ((on, name) => qb.call(name, ${args}, on))(${on}, ${name}))`;
     };
@@ -109,7 +116,9 @@ export function emitIR(module: ModuleIR): string {
                         const condition =
                             x.condition.kind === "call"
                                 ? call(x.condition, script)
-                                : `(yield* qb.dispatch(${value(x.condition, script)}, [], p, ${site(script, x.offset)}))`;
+                                : x.condition.kind === "assign"
+                                  ? `(() => { const assigned = ${value(x.condition.value, script)}; if (assigned !== undefined) v.append(p, [[${x.condition.name}, assigned]], ${context}); return true; })()`
+                                  : `(yield* qb.dispatch(${value(x.condition, script)}, [], p, ${site(script, x.offset)}))`;
                         return `${mark}if (${x.negate ? `!(${condition})` : condition}) {\n${statements(x.yes, script, loops)}} else {\n${statements(x.no, script, loops)}}\n`;
                     }
                     case "loop": {

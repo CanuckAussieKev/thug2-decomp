@@ -207,11 +207,17 @@ globalThis.qbTs = (() => {
     );
     // A name as read_name reads it: N.x itself; p.x / all(p) the name the parameter holds (0: none).
     function nameOf(named) {
+        // (expression):Command, written on(() => expression): its result must be a name
+        if (typeof named === "function") {
+            const x = named();
+            return globalThis.qb.objectName(pending.has(x) ? value(x) : v.expressionResult(operand(x), ctx()));
+        }
         if (named === null || typeof named !== "object") return 0;
         if (named[SPREAD]) return v.readChecksum(named[SPREAD], 0, ctx())?.bits ?? 0;
         const read = origin.get(named);
         if (read) return v.readChecksum(read[0], read[1], ctx())?.bits ?? 0;
-        return known.has(named) && named.type === 13 ? named.bits : 0;
+        // N.x, or an expression's result (on(val(...))): it must be a name
+        return known.has(named) ? globalThis.qb.objectName(named) : 0;
     }
     // call(p.x, ...args): the command named by parameter x (call(all(p), ...): the parameters' unnamed name),
     // read when the statement runs; no name: nothing runs, false.

@@ -333,11 +333,16 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
             return { head: `yield* ${use("run")}(`, items: [runOperand(c.byExpr), ...args], tail: ")" };
         if (c.via === undefined && c.on === undefined && c.name === 0)
             return { head: `yield* ${use("call")}(`, items: ["0", ...args], tail: ")" };
-        if (c.on !== undefined) {
-            const object = "name" in c.on ? member(use("N"), c.on.name) : viaDoc(c.on.via);
+        if (c.on !== undefined || c.onExpr !== undefined) {
+            const object: Doc =
+                c.onExpr !== undefined
+                    ? arrow(runOperand(c.onExpr))
+                    : c.on !== undefined && "name" in c.on
+                      ? member(use("N"), c.on.name)
+                      : viaDoc((c.on as { via: number }).via);
             if (c.via !== undefined)
                 return { head: `yield* ${use("callOn")}(`, items: [object, viaDoc(c.via), ...args], tail: ")" };
-            return { head: `yield* ${member(`${use("on")}(${object})`, c.name)}(`, items: args, tail: ")" };
+            return { head: `yield* ${member(`${use("on")}(${flat(object)})`, c.name)}(`, items: args, tail: ")" };
         }
         return c.via === undefined
             ? { head: `yield* ${commandRef(c.name)}(`, items: args, tail: ")" }
@@ -356,7 +361,13 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
     // run takes (x) as an expression result itself: run(p.x), not run(val(p.x)).
     const runOperand = (e: Expr): Doc => expr(e.kind === "expressionResult" ? e.value : e);
     const conditionDoc = (x: Extract<Statement, { kind: "if" }>): Doc => {
-        const c: Doc = x.condition.kind === "call" ? callDoc(x.condition) : truth(x.condition);
+        // (an assignment condition is written as a statement before the if: here it is just true)
+        const c: Doc =
+            x.condition.kind === "call"
+                ? callDoc(x.condition)
+                : x.condition.kind === "assign"
+                  ? "true"
+                  : truth(x.condition);
         if (!x.negate) return c;
         return typeof c !== "string" && c.head.startsWith("yield*")
             ? { head: "!(", items: [c], tail: ")", last: "" }
@@ -392,11 +403,13 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 return emit(indent, { head: "return ", items: [fieldsDoc(x.fields, true)], tail: "" }, ";");
             }
             case "if": {
+                // `if x = 1`: the assignment runs, then the if (always true).
+                if (x.condition.kind === "assign") statement(x.condition, indent, loops);
                 emit(indent, { head: "if (", items: [conditionDoc(x)], tail: ") {", last: "" });
                 block(x.yes, inner, loops);
                 // else { if ... } reads as else if.
                 let no = x.no;
-                while (no.length === 1 && no[0]!.kind === "if") {
+                while (no.length === 1 && no[0]!.kind === "if" && no[0]!.condition.kind !== "assign") {
                     const y = no[0]! as Extract<Statement, { kind: "if" }>;
                     emit(indent, { head: "} else if (", items: [conditionDoc(y)], tail: ") {", last: "" });
                     block(y.yes, inner, loops);

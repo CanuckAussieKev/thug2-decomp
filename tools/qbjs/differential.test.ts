@@ -178,6 +178,28 @@ const dispatched = () =>
         ]),
         "dispatch.qb",
     );
+// Statements before a switch's first case (never run), `if x = 1` (assigns, true), (expression):Command.
+const oddForms = () =>
+    readIR(
+        Uint8Array.from([
+            ...[...name("Who"), 7, 5, ...name("Ann"), ...name("Bob"), 6, 1],
+            ...script(
+                "odd",
+                [
+                    ...[0x3c, 0x2d, ...name("k"), 1, ...command("NeverRuns"), 0x3e, 0x49, 0x11, 0x00, ...integer(1), 1],
+                    ...command("One"),
+                    ...[0x49, 0x02, 0x00, 0x3d, 1],
+                    ...conditional([...name("set"), 7, ...integer(3)], command("Yes"), command("No")),
+                    ...conditional([0x39, ...name("set2"), 7, ...integer(4)], command("Yes"), command("No")),
+                    ...[0x0e, ...name("Who"), 0x05, ...integer(1), 0x06, 0x0f, 0x42, ...name("Wave"), 1],
+                    ...command("Show", [0x2c]),
+                ],
+                field("k", integer(1)),
+            ),
+            0,
+        ]),
+        "odd.qb",
+    );
 // if NOT: a command's result and an expression's truth inverted, with and without else.
 const negated = () =>
     readIR(
@@ -204,6 +226,7 @@ const modules: [string, () => ModuleIR][] = [
     ["C functions in expressions", functions],
     ["Random among statements and fields", randomBlocks],
     ["(expression) statements, nameless statements, defaults reading parameters", dispatched],
+    ["statements before a first case, if x = 1, (expression):Command", oddForms],
     ["format-1 fixture", () => readIR(fixture(), "fixture.qb")],
     ["emitter fixture", () => readIR(emitterQB(), "emitter.qb")],
     ["expression results", () => expressionResultFixture().ir],

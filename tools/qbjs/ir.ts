@@ -42,11 +42,14 @@ export type Call = {
     via?: number;
     on?: NameRef;
     byExpr?: Expr;
+    // (expression):Command - the object's name computed (onExpr)
+    onExpr?: Expr;
 };
 export type SwitchLabel = { offset: number; fields: Field[] };
+export type Assign = { kind: "assign"; offset: number; name: number; value: Expr };
 export type Statement =
     | Call
-    | { kind: "assign"; offset: number; name: number; value: Expr }
+    | Assign
     | { kind: "return"; offset: number; fields: Field[] }
     // Preserve the complete repeat argument list: GetInteger(0) is applied
     // after typed argument merging, not to the first syntactic argument.
@@ -62,7 +65,8 @@ export type Statement =
           fallback?: Statement[];
       }
     // negate: `if NOT ...` (0x39) - the statement's result inverted (run_conditional).
-    | { kind: "if"; offset: number; condition: Call | Expr; negate?: true; yes: Statement[]; no: Statement[] };
+    // condition: an assignment there (`if x = 1`) runs and counts as true.
+    | { kind: "if"; offset: number; condition: Call | Expr | Assign; negate?: true; yes: Statement[]; no: Statement[] };
 export type Definition =
     | { kind: "script"; offset: number; name: number; defaults: Field[]; body: Statement[] }
     | { kind: "global"; offset: number; name: number; value: Expr };
