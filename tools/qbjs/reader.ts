@@ -294,13 +294,17 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     ends.push(field + 4 + word());
                 } else if (i < count - 1) fail("random value branch requires join jump");
             }
-            if (lined) {
-                // The join lands past the last choice's line end; the statement must end there.
-                const at = lines();
-                if (ends.some((end) => !at.has(end))) fail("random value jump does not target join boundary");
-                if (b[p] !== 0x24 && !STATEMENT_STARTS(b[p]!)) fail("random value on lines inside a statement");
-                lineEnded = true;
-            } else if (ends.some((end) => end !== p)) fail("random value jump does not target join boundary");
+            // The join lands among the line ends after the last choice (some a nested Random already passed).
+            const before = p;
+            const at = lined || ends.some((end) => end !== p) ? lines() : new Set([p]);
+            if (ends.some((end) => !at.has(end) && !(end <= before && onlyLines(end, before))))
+                fail("random value jump does not target join boundary");
+            if (p !== before || lined) {
+                // On lines: the statement ends with it - or, in a structure, its line ends only separate members.
+                if (b[p] === 0x04) lined = false;
+                else if (b[p] !== 0x24 && !STATEMENT_STARTS(b[p]!)) fail("random value on lines inside a statement");
+                else lineEnded = true;
+            }
             return bounded({ kind: "randomChoice", offset, opcode, weights, choices });
         }
         if (op === 0x16) {
@@ -450,9 +454,11 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
         return fields;
     };
-    const staticDefaults = (fields: Field[]): void => {
+    // A script's defaults are parsed with no parameters (run_sub_script: parse_arguments(..., nullptr)): <x> and
+    // <...> there add nothing (allowParams). A global's value may not read them at all.
+    const staticDefaults = (fields: Field[], allowParams = false): void => {
         const check = (v: Expr): void => {
-            if (v.kind === "parameter" || v.kind === "allParameters")
+            if (!allowParams && (v.kind === "parameter" || v.kind === "allParameters"))
                 fail("defaults/globals cannot read caller parameters");
             if (v.kind === "expressionResult") check(v.value);
             if (v.kind === "binary") {
@@ -463,12 +469,13 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 if (v.opcode === 0x40 || v.opcode === 0x41) fail("stored random defaults/globals are unsupported");
                 v.choices.forEach(check);
             }
-            if (v.kind === "structure") staticDefaults(v.fields);
+            if (v.kind === "structure") staticDefaults(v.fields, allowParams);
             if (v.kind === "array") v.items.forEach(check);
         };
         for (const f of fields) {
-            if ("spread" in f) fail("defaults/globals cannot spread caller parameters");
-            else if ("kind" in f) f.branches.forEach(staticDefaults);
+            if ("spread" in f) {
+                if (!allowParams) fail("defaults/globals cannot spread caller parameters");
+            } else if ("kind" in f) f.branches.forEach((branch) => staticDefaults(branch, allowParams));
             else check(f.value);
         }
     };
@@ -482,10 +489,16 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             ++p;
             return { via: name() };
         }
+        // Anything else names nothing (read_name: 0, not moved past) - the statement still reads its arguments.
+        if (b[p] !== 0x16) return { name: 0 };
         return { name: name() };
     };
     const call = (): Call => {
         const offset = p;
+        if (b[p] === 0x0e) {
+            const byExpr = value(0);
+            return { kind: "call", offset, name: 0, byExpr, fields: parameters(0) };
+        }
         let command = nameRef(),
             on: NameRef | undefined;
         if (b[p] === 0x42) {
@@ -629,6 +642,8 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 // An assignment takes one value: another statement may follow on the same line (a = 1 b = 2).
                 if (!lineEnded && b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24 && STATEMENT_STARTS(b[p]!)) continue;
             } else body.push(call());
+            // A statement in a Random's branch may end at the branch's jump (the argument loop follows it).
+            if (b[p] === 0x2e && !lineEnded) continue;
             endLine();
         }
         return body;
@@ -654,7 +669,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             ++p;
             const n = name(),
                 defaults = parameters(0);
-            staticDefaults(defaults);
+            staticDefaults(defaults, true);
             eol();
             const body = block(0);
             if (byte() !== 0x24) fail("expected endscript");

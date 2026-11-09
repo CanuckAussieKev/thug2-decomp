@@ -33,7 +33,16 @@ export type Field =
 // name) when the statement runs (read_name -> read_hash_value); name is then 0.
 // on: `object:Command` - the object's name, written (name) or read from a parameter like via (via).
 export type NameRef = { name: number } | { via: number };
-export type Call = { kind: "call"; offset: number; name: number; fields: Field[]; via?: number; on?: NameRef };
+// byExpr: `(expression) args` - the expression's result is called when it is a name, else only its truth taken.
+export type Call = {
+    kind: "call";
+    offset: number;
+    name: number;
+    fields: Field[];
+    via?: number;
+    on?: NameRef;
+    byExpr?: Expr;
+};
 export type SwitchLabel = { offset: number; fields: Field[] };
 export type Statement =
     | Call

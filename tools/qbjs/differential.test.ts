@@ -147,6 +147,37 @@ const randomBlocks = () =>
         ]),
         "random-blocks.qb",
     );
+// (expression) as a statement or condition (a name is called, else its truth), a statement naming nothing (its
+// arguments still read), defaults reading parameters (none: they add nothing), Random branches ending at the jump.
+const dispatched = () =>
+    readIR(
+        Uint8Array.from([
+            ...[...name("Handler"), 7, ...name("Target"), 1],
+            ...[...name("Flag"), 7, ...integer(1), 1],
+            ...script(
+                "dispatch",
+                [
+                    ...[0x0e, ...param("cmd"), 0x0f, ...field("x", integer(1)), 1],
+                    ...[0x0e, ...name("Handler"), 0x0f, 1],
+                    ...[0x0e, ...param("number"), 0x0f, 1],
+                    ...conditional([0x0e, ...name("Handler"), 0x0f], command("Yes"), command("No")),
+                    ...conditional([0x0e, ...name("Flag"), 0x0f], command("Yes"), command("No")),
+                    ...[0x1b, 5, 0, 0, 0, 0x68, 0x65, 0x79, 0x21, 0, ...field("y", integer(2)), 1],
+                    ...randomChoice(0x2f, [command("Left").slice(0, -1), command("Right").slice(0, -1)]),
+                    1,
+                    ...command("Show", [0x2c]),
+                ],
+                [
+                    ...field("cmd", name("Called")),
+                    ...field("number", integer(0)),
+                    ...field("fromCaller", param("anything")),
+                    0x2c,
+                ],
+            ),
+            0,
+        ]),
+        "dispatch.qb",
+    );
 // if NOT: a command's result and an expression's truth inverted, with and without else.
 const negated = () =>
     readIR(
@@ -172,6 +203,7 @@ const modules: [string, () => ModuleIR][] = [
     ["object:Command", objects],
     ["C functions in expressions", functions],
     ["Random among statements and fields", randomBlocks],
+    ["(expression) statements, nameless statements, defaults reading parameters", dispatched],
     ["format-1 fixture", () => readIR(fixture(), "fixture.qb")],
     ["emitter fixture", () => readIR(emitterQB(), "emitter.qb")],
     ["expression results", () => expressionResultFixture().ir],

@@ -467,7 +467,8 @@ test("rejects unsafe arrays, caller-dependent defaults/globals and unimplemented
         assert.throws(() => readIR(module(global("a", value))), /mixed literal-array|unsupported literal-array/);
     for (const value of [param("x"), structure(field("x", param("p"))), structure([0x2c])]) {
         assert.throws(() => readIR(module(global("a", value))), /caller parameters/);
-        assert.throws(() => readIR(module(script("a", [], field("p", value)))), /caller parameters/);
+        // (a script's defaults may: they are parsed with no parameters and read nothing - run_sub_script)
+        assert.doesNotThrow(() => readIR(module(script("a", [], field("p", value)))));
     }
     for (const body of [
         [0x20, 1],

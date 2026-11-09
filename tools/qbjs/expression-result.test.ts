@@ -75,13 +75,14 @@ test("new completion helper is required before registration while old format-2 h
     assert.equal(registrations, 1);
 });
 
-test("completion nodes retain bounds/truncation and cannot hide caller-dependent defaults or globals", () => {
+test("completion nodes retain bounds/truncation; script defaults read no caller parameters", () => {
     const fixture = expressionResultFixture();
     for (let end = 0; end < fixture.input.length; ++end)
         assert.throws(() => readIR(fixture.input.subarray(0, end), "completion.qb"), /completion\.qb: QB offset/);
     for (const operand of [param("caller"), [0x2c]]) {
+        // Defaults are parsed with no parameters (run_sub_script): <x> / <...> there read nothing - accepted.
         const defaults = Uint8Array.from([...script("bad", [], field("value", [14, ...operand, 15])), 0]);
-        assert.throws(() => readIR(defaults), /defaults\/globals cannot read caller parameters/);
+        assert.doesNotThrow(() => readIR(defaults));
     }
     assert.throws(() => readIR(fixture.input, "limited.qb", { nodes: 2 }), /IR node limit/);
 });

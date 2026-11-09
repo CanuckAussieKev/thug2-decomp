@@ -84,6 +84,7 @@ export function emitIR(module: ModuleIR): string {
         const on = x.on === undefined ? "" : "name" in x.on ? `${x.on.name}` : read(x.on.via, script, x.offset);
         const name = x.via === undefined ? `${x.name}` : read(x.via, script, x.offset);
         const args = `${fields(x.fields, script, x.offset)}, p, ${site(script, x.offset)}`;
+        if (x.byExpr !== undefined) return `(yield* qb.dispatch(${value(x.byExpr, script)}, ${args}))`;
         return x.on === undefined
             ? `(yield* qb.call(${name}, ${args}))`
             : `(yield* ((on, name) => qb.call(name, ${args}, on))(${on}, ${name}))`;
@@ -108,7 +109,7 @@ export function emitIR(module: ModuleIR): string {
                         const condition =
                             x.condition.kind === "call"
                                 ? call(x.condition, script)
-                                : `v.statementTruth(${value(x.condition, script)}, ${context})`;
+                                : `(yield* qb.dispatch(${value(x.condition, script)}, [], p, ${site(script, x.offset)}))`;
                         return `${mark}if (${x.negate ? `!(${condition})` : condition}) {\n${statements(x.yes, script, loops)}} else {\n${statements(x.no, script, loops)}}\n`;
                     }
                     case "loop": {

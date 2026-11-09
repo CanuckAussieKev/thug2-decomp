@@ -24,6 +24,7 @@ const RESERVED = new Set(
 const HELPERS = [
     "script",
     "call",
+    "run",
     "on",
     "callOn",
     "global",
@@ -327,6 +328,11 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
     const viaDoc = (via: number) => (via ? member("p", via) : `${use("all")}(p)`);
     const callDoc = (c: Call): Doc => {
         const args = fieldGroups(c.fields);
+        // (expression) args: run(expression, ...args); a statement naming nothing: call(0, ...args).
+        if (c.byExpr !== undefined)
+            return { head: `yield* ${use("run")}(`, items: [runOperand(c.byExpr), ...args], tail: ")" };
+        if (c.via === undefined && c.on === undefined && c.name === 0)
+            return { head: `yield* ${use("call")}(`, items: ["0", ...args], tail: ")" };
         if (c.on !== undefined) {
             const object = "name" in c.on ? member(use("N"), c.on.name) : viaDoc(c.on.via);
             if (c.via !== undefined)
@@ -339,13 +345,20 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
     };
 
     // An if's condition: a call's result or an expression's truth, `!` in front for NOT.
+    // test(x): an expression's truth - when it can't be a name; else (yield* run(x)), which calls a name.
+    const truth = (e: Expr): Doc => {
+        const top = e.kind === "expressionResult" ? e.value : e;
+        const numeric = top.kind === "binary" && top.op !== 0x05 && top.op !== 0x08;
+        return numeric || top.kind === "literal"
+            ? { head: `${use("test")}(`, items: [expr(e)], tail: ")" }
+            : { head: `yield* ${use("run")}(`, items: [runOperand(e)], tail: ")" };
+    };
+    // run takes (x) as an expression result itself: run(p.x), not run(val(p.x)).
+    const runOperand = (e: Expr): Doc => expr(e.kind === "expressionResult" ? e.value : e);
     const conditionDoc = (x: Extract<Statement, { kind: "if" }>): Doc => {
-        const c: Doc =
-            x.condition.kind === "call"
-                ? callDoc(x.condition)
-                : { head: `${use("test")}(`, items: [expr(x.condition)], tail: ")" };
+        const c: Doc = x.condition.kind === "call" ? callDoc(x.condition) : truth(x.condition);
         if (!x.negate) return c;
-        return x.condition.kind === "call"
+        return typeof c !== "string" && c.head.startsWith("yield*")
             ? { head: "!(", items: [c], tail: ")", last: "" }
             : { head: "!", items: [c], tail: "" };
     };
@@ -483,7 +496,9 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
         const head = `${use("script")}(${JSON.stringify(nameOf(d.name) ?? hex(d.name))}, `;
         // Defaults are made at each call: written as a function when making them draws a random number.
         const made = flat(fieldsDoc(d.defaults, true));
-        const defaults = !d.defaults.length ? "" : /\brandom\w*\(/.test(made) ? `() => (${made}), ` : `${made}, `;
+        // ... or reads parameters (none: defaults are parsed without the caller's - run_sub_script).
+        const lazy = /\brandom\w*\(|\bp\b/.test(made);
+        const defaults = !d.defaults.length ? "" : lazy ? `(p) => (${made}), ` : `${made}, `;
         lines.push(`${head}${defaults}function* (p) {`);
         block(d.body, INDENT, new Map());
         lines.push("});");

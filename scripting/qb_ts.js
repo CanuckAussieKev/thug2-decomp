@@ -155,7 +155,8 @@ globalThis.qbTs = (() => {
             frame = mine;
             let body;
             try {
-                const d = typeof defaults === "function" ? defaults() : defaults;
+                // (defaults written as a function get empty parameters: they are parsed without the caller's)
+                const d = typeof defaults === "function" ? defaults(parameters([])) : defaults;
                 mine.p = v.merge(d === undefined ? [] : fields([d], []), args, ctx());
                 globalThis.qb.frame(mine.p, root);
                 body = fn(parameters(mine.p));
@@ -218,6 +219,13 @@ globalThis.qbTs = (() => {
         const p = frame.p;
         const hash = nameOf(named);
         return yield* globalThis.qb.call(hash, fields(args), p, site());
+    }
+    // run(x, ...args): (expression) args as a statement or an if's condition - a name is called, else its truth.
+    // (x is the expression itself: its result is taken here - parameters read as in an expression.)
+    function* run(x, ...args) {
+        const p = frame.p;
+        const result = pending.has(x) ? value(x) : v.expressionResult(operand(x), ctx());
+        return yield* globalThis.qb.dispatch(result, fields(args), p, site());
     }
     // object:Command - on(N.object).Command(...args); callOn(object, p.x, ...args) when a parameter names the command.
     function* callOn(object, named, ...args) {
@@ -285,6 +293,7 @@ globalThis.qbTs = (() => {
         },
         cmd,
         call,
+        run,
         on,
         callOn,
         N,

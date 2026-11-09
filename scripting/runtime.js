@@ -118,6 +118,13 @@ globalThis.qb = (() => {
     function snapshot(t) { return {status:t.status, parameters:copyParameters(t, t.parameters), message:t.message}; }
     return Object.freeze({
         runtimeVersion: 2,
+        // `(expression) args` as a statement or an if's condition (execute_command): a name is called (0: nothing,
+        // false), anything else is only its truth - arguments after it are outside what this runtime does.
+        *dispatch(value, args, p, site) {
+            if (value?.type === 13) return value.bits === 0 ? false : yield* call(value.bits, args, p, site);
+            if (args.length) throw Error('QB arguments after an expression that is not a name');
+            return values().statementTruth(value, context(site));
+        },
         // A name in an expression (push_name): a global's value - a script's name stays a name -, or, when the host
         // says it is a C function, that function called with args (parse_arguments to the ')'): its result as an
         // Integer 0 / 1, its outputs dropped. Arguments after anything else, or a member function there, are

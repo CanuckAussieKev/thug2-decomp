@@ -160,6 +160,10 @@ globalThis.qb = {
  define(n, fn) { scripts.set(n, fn); symbols.set(n, {kind:'callable', type:7, name:n}); },
  defineGlobal(n, value) { symbols.set(n, value); }, frame() {},
  name(n, args, site) { return v.global(n, this.context(site)); },
+ *dispatch(value, args, p, site) {
+   if (value?.type === 13) return yield* this.call(value.bits, args, p, site);
+   return v.statementTruth(value, this.context(site));
+ },
  *call(n, args, p, site) {
    if (n === ${key("Pause2")}) { yield {frames:1}; return true; }
    const fn = scripts.get(n); if (!fn) throw Error('unsupported host');
