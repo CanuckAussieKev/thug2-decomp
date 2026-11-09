@@ -463,6 +463,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         return body;
     };
     const definitions: Definition[] = [];
+    const names = new Map<number, string>();
     lines();
     while (b[p] !== 0) {
         need(1);
@@ -470,9 +471,10 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         const offset = p;
         if (b[p] === 0x2b) {
             ++p;
-            word();
+            const checksum = word();
             const zero = b.indexOf(0, p);
             if (zero < 0) fail("unterminated checksum-name record");
+            names.set(checksum, b.toString("latin1", p, zero));
             p = zero + 1;
             lines();
             continue;
@@ -499,7 +501,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
     }
     ++p;
     if (p !== b.length) fail("trailing bytes after EOF");
-    return { format: 2, source, definitions };
+    return { format: 2, source, definitions, ...(names.size ? { names: Object.fromEntries(names) } : {}) };
 }
 
 // Shared by the IR and JS CLIs: bound reads and protect the original QB file.

@@ -1,0 +1,418 @@
+// NOT ORIGINAL - format-2 IR -> readable TypeScript. The output is meant to be read and edited as the scripts'
+// source: names from the module's checksum-name records, QB's control flow as TypeScript's, values as literals.
+// Its run-time API (the imports from "qb") is described in docs/qb-ts.md.
+
+import { writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import type { Call, Definition, Expr, Field, Literal, ModuleIR, Statement } from "./ir.ts";
+import { readIRFile } from "./reader.ts";
+
+const WIDTH = 120;
+const INDENT = "    ";
+
+// Words a command can't be bound to as a plain identifier (called as cmd.X instead).
+const RESERVED = new Set(
+    (
+        "break case catch class const continue debugger default delete do else enum export extends false finally for " +
+        "function if import in instanceof new null return super switch this throw true try typeof var void while with " +
+        "yield let static implements interface package private protected public await arguments eval undefined NaN " +
+        "Infinity"
+    ).split(" "),
+);
+// The "qb" module's exports, imported by name.
+const HELPERS = [
+    "script",
+    "global",
+    "cmd",
+    "N",
+    "G",
+    "f",
+    "fbits",
+    "vec",
+    "pair",
+    "L",
+    "all",
+    "params",
+    "val",
+    "test",
+    "is",
+    "add",
+    "sub",
+    "mul",
+    "div",
+    "eq",
+    "lt",
+    "gt",
+    "and",
+    "or",
+    "at",
+    "dot",
+    "s",
+    "repeat",
+    "random",
+    "random2",
+    "randomNoRepeat",
+    "randomPermute",
+    "randomRange",
+    "randomRange2",
+] as const;
+const OPERATORS: Record<number, string> = {
+    5: "at",
+    7: "eq",
+    8: "dot",
+    10: "sub",
+    11: "add",
+    12: "div",
+    13: "mul",
+    18: "lt",
+    20: "gt",
+    50: "or",
+    51: "and",
+};
+const RANDOM: Record<number, string> = { 47: "random", 55: "random2", 64: "randomNoRepeat", 65: "randomPermute" };
+
+const isIdentifier = (s: string) => /^[A-Za-z_$][\w$]*$/.test(s);
+const hex = (n: number) => `_0x${n.toString(16).padStart(8, "0")}`;
+
+// A float32's shortest decimal spelling that reads back to the same bits, or undefined when it can't be written as
+// a plain number (an integral value would read as an Integer; -0, infinities and NaNs keep their bits).
+function floatText(bits: number): string {
+    const f32 = new Float32Array(new Uint32Array([bits]).buffer)[0]!;
+    if (!Number.isFinite(f32)) return `fbits(0x${bits.toString(16)})`;
+    if (Object.is(f32, -0)) return "f(-0)";
+    for (let digits = 1; digits <= 9; ++digits) {
+        const text = String(Number(f32.toPrecision(digits)));
+        if (Math.fround(Number(text)) === f32) return Number.isInteger(Number(text)) ? `f(${text})` : text;
+    }
+    return `fbits(0x${bits.toString(16)})`;
+}
+const stringText = (bytes: number[]) =>
+    `"${bytes
+        .map((c) =>
+            c === 0x22
+                ? '\\"'
+                : c === 0x5c
+                  ? "\\\\"
+                  : c === 0x0a
+                    ? "\\n"
+                    : c === 0x09
+                      ? "\\t"
+                      : c >= 0x20 && c < 0x7f
+                        ? String.fromCharCode(c)
+                        : `\\x${c.toString(16).padStart(2, "0")}`,
+        )
+        .join("")}"`;
+
+// A rendered piece of code: flat text, or a head / items / tail that can break over lines (broken, an object's
+// "{ " / " }" lose their spaces). A call whose only argument is an object or array hugs it: Foo({ ... }).
+type Doc = string | { head: string; items: Doc[]; tail: string };
+function flat(d: Doc): string {
+    return typeof d === "string" ? d : d.head + d.items.map(flat).join(", ") + d.tail;
+}
+const bracketed = (d: Doc) => typeof d !== "string" && (d.head === "{ " || d.head === "[") && d.items.length > 0;
+function layout(d: Doc, indent: string, used: number): string {
+    const text = flat(d);
+    if (typeof d === "string" || used + text.length <= WIDTH || !d.items.length) return text;
+    if (d.items.length === 1 && d.head.endsWith("(") && bracketed(d.items[0]!))
+        return d.head + layout(d.items[0]!, indent, used + d.head.length) + d.tail;
+    if (d.items.length === 1 && !d.head.endsWith("(") && !d.head.endsWith("[") && d.head !== "{ ")
+        return d.head + layout(d.items[0]!, indent, used + d.head.length) + d.tail;
+    const inner = indent + INDENT;
+    const head = d.head === "{ " ? "{" : d.head.trimEnd();
+    const tail = d.tail === " }" ? "}" : d.tail.trimStart();
+    return `${head}\n${d.items.map((item) => inner + layout(item, inner, inner.length) + ",").join("\n")}\n${indent}${tail}`;
+}
+
+export function emitTS(module: ModuleIR, names: Record<number, string> = {}): string {
+    const nameOf = (n: number) => module.names?.[n] ?? names[n];
+    const key = (n: number) => {
+        const s = nameOf(n);
+        return s === undefined ? hex(n) : isIdentifier(s) ? s : JSON.stringify(s);
+    };
+    const member = (object: string, n: number) => {
+        const s = nameOf(n);
+        return s === undefined
+            ? `${object}.${hex(n)}`
+            : isIdentifier(s)
+              ? `${object}.${s}`
+              : `${object}[${JSON.stringify(s)}]`;
+    };
+    const used = new Set<string>();
+    const use = (h: (typeof HELPERS)[number]) => {
+        used.add(h);
+        return h;
+    };
+    // Commands bound by destructuring cmd; any other (unnamed, reserved, clashing) is called as cmd.X.
+    const commands = new Map<number, string>();
+    const commandRef = (n: number) => {
+        const s = nameOf(n);
+        if (
+            s !== undefined &&
+            isIdentifier(s) &&
+            !RESERVED.has(s) &&
+            !(HELPERS as readonly string[]).includes(s) &&
+            s !== "p" &&
+            !/^(on|loop)\d*$/.test(s)
+        ) {
+            commands.set(n, s);
+            return s;
+        }
+        return member(use("cmd"), n);
+    };
+    let randomSite = 0;
+
+    const literal = (v: Literal): string => {
+        switch (v.type) {
+            case 1:
+                return String(v.bits | 0);
+            case 2:
+                return floatText(v.bits).replace(/^(f|fbits)\(/, (_m, h: (typeof HELPERS)[number]) => `${use(h)}(`);
+            case 13:
+                return member(use("N"), v.bits);
+            case 3:
+                return stringText(v.bytes);
+            case 4:
+                return `${use("L")}(${stringText(v.bytes)})`;
+            case 5:
+            case 6:
+                return `${use(v.type === 6 ? "vec" : "pair")}(${v.coordinates
+                    .map((c) =>
+                        floatText(c)
+                            .replace(/^f\((-?\d+)\)$/, "$1")
+                            .replace(/^fbits/, () => use("fbits")),
+                    )
+                    .join(", ")})`;
+        }
+    };
+    // Expressions; `top` is false inside an operator's operands (where QB's grouping already shows).
+    const expr = (x: Expr): Doc => {
+        switch (x.kind) {
+            case "literal":
+                return literal(x.value);
+            case "parameter":
+                return member("p", x.name);
+            case "global":
+                return member(use("G"), x.name);
+            case "allParameters":
+                return `${use("params")}(p)`;
+            case "expressionResult":
+                return x.value.kind === "binary"
+                    ? expr(x.value)
+                    : { head: `${use("val")}(`, items: [expr(x.value)], tail: ")" };
+            case "binary": {
+                const op = OPERATORS[x.op];
+                if (!op)
+                    throw Error(
+                        `${module.source}: QB offset 0x${x.offset.toString(16)}: operator 0x${x.op.toString(16)}`,
+                    );
+                return {
+                    head: `${use(op as (typeof HELPERS)[number])}(`,
+                    items: [expr(x.left), expr(x.right)],
+                    tail: ")",
+                };
+            }
+            case "randomRange":
+                return `${use(x.second ? "randomRange2" : "randomRange")}(${x.a | 0}, ${x.b | 0})`;
+            case "randomChoice": {
+                const fn = use(RANDOM[x.opcode] as (typeof HELPERS)[number]);
+                const pure = x.choices.every((c) => c.kind === "literal");
+                const choices = x.choices.map((c) => (pure ? expr(c) : { head: "() => ", items: [expr(c)], tail: "" }));
+                const weights = x.weights.every((w) => w === 1) ? [] : [`[${x.weights.join(", ")}]`];
+                return {
+                    head: `${fn}(${++randomSite}, `,
+                    items: [...weights, { head: "[", items: choices, tail: "]" }],
+                    tail: ")",
+                };
+            }
+            case "structure":
+                return fieldsDoc(x.fields, true);
+            case "array":
+                return { head: "[", items: x.items.map(expr), tail: "]" };
+        }
+    };
+    // A field list as call arguments (args) or a structure: runs of named fields become object literals, unnamed
+    // values stay in their place. A structure that is one object literal is written as just that.
+    const fieldGroups = (xs: Field[]): Doc[] => {
+        const out: Doc[] = [];
+        let group: Doc[] | undefined,
+            keys = new Set<string>();
+        for (const x of xs) {
+            if ("spread" in x) {
+                out.push(`${use("all")}(p)`);
+                group = undefined;
+                continue;
+            }
+            if (x.name === 0) {
+                out.push(expr(x.value));
+                group = undefined;
+                continue;
+            }
+            const k = key(x.name);
+            if (!group || keys.has(k)) {
+                group = [];
+                keys = new Set();
+                out.push({ head: "{ ", items: group, tail: " }" });
+            }
+            keys.add(k);
+            group.push({ head: `${k}: `, items: [expr(x.value)], tail: "" });
+        }
+        return out;
+    };
+    const fieldsDoc = (xs: Field[], structure: boolean): Doc => {
+        const groups = fieldGroups(xs);
+        if (structure && groups.length === 1 && typeof groups[0] !== "string" && groups[0]!.head === "{ ")
+            return groups[0]!;
+        if (structure && !groups.length) return "{}";
+        return structure ? { head: `${use("s")}(`, items: groups, tail: ")" } : { head: "", items: groups, tail: "" };
+    };
+    const callDoc = (c: Call): Doc => ({
+        head: `yield* ${commandRef(c.name)}(`,
+        items: fieldGroups(c.fields),
+        tail: ")",
+    });
+
+    let lines: string[] = [];
+    let serial = 0;
+    const emit = (indent: string, d: Doc, suffix = "") =>
+        lines.push(indent + layout(d, indent, indent.length) + suffix);
+    const pure = (fs: Field[]) =>
+        fs.length === 1 &&
+        !("spread" in fs[0]!) &&
+        fs[0]!.name === 0 &&
+        ["parameter", "literal", "global"].includes(fs[0]!.value.kind);
+
+    const block = (xs: Statement[], indent: string, loops: Map<number, string>) => {
+        for (const x of xs) statement(x, indent, loops);
+    };
+    const statement = (x: Statement, indent: string, loops: Map<number, string>) => {
+        const inner = indent + INDENT;
+        switch (x.kind) {
+            case "call":
+                return emit(indent, callDoc(x), ";");
+            case "assign":
+                return emit(indent, { head: `${member("p", x.name)} = `, items: [expr(x.value)], tail: "" }, ";");
+            case "return": {
+                if (!x.fields.length) return lines.push(`${indent}return;`);
+                return emit(indent, { head: "return ", items: [fieldsDoc(x.fields, true)], tail: "" }, ";");
+            }
+            case "if": {
+                const condition: Doc =
+                    x.condition.kind === "call"
+                        ? callDoc(x.condition)
+                        : { head: `${use("test")}(`, items: [expr(x.condition)], tail: ")" };
+                emit(indent, { head: "if (", items: [condition], tail: ") {" });
+                block(x.yes, inner, loops);
+                // else { if ... } reads as else if.
+                let no = x.no;
+                while (no.length === 1 && no[0]!.kind === "if") {
+                    const y = no[0]! as Extract<Statement, { kind: "if" }>;
+                    const c: Doc =
+                        y.condition.kind === "call"
+                            ? callDoc(y.condition)
+                            : { head: `${use("test")}(`, items: [expr(y.condition)], tail: ")" };
+                    emit(indent, { head: "} else if (", items: [c], tail: ") {" });
+                    block(y.yes, inner, loops);
+                    no = y.no;
+                }
+                if (no.length) {
+                    lines.push(`${indent}} else {`);
+                    block(no, inner, loops);
+                }
+                return lines.push(`${indent}}`);
+            }
+            case "loop": {
+                const nested = new Map(loops);
+                if (!x.repeatFields.length) {
+                    nested.set(x.offset, "");
+                    lines.push(`${indent}while (true) {`);
+                    block(x.body, inner, nested);
+                    return lines.push(`${indent}}`);
+                }
+                const name = `loop${++serial === 1 ? "" : serial}`;
+                nested.set(x.offset, name);
+                lines.push(`${indent}const ${name} = ${use("repeat")}();`);
+                lines.push(`${indent}do {`);
+                block(x.body, inner, nested);
+                // The count is read once, at the end of the first pass: a non-literal one is passed as a function.
+                const groups = fieldGroups(x.repeatFields);
+                const count: Doc = groups.length === 1 ? groups[0]! : { head: "[", items: groups, tail: "]" };
+                const lazy = x.repeatFields.some((f) => "spread" in f || f.value.kind !== "literal");
+                return emit(indent, {
+                    head: `} while (${name}.again(`,
+                    items: [lazy ? { head: "() => ", items: [count], tail: "" } : count],
+                    tail: "));",
+                });
+            }
+            case "break":
+                return lines.push(`${indent}break;`);
+            case "switch": {
+                let selector: Doc;
+                if (pure(x.fields)) selector = expr((x.fields[0] as Extract<Field, { name: number }>).value);
+                else {
+                    const name = `on${++serial}`;
+                    emit(indent, { head: `const ${name} = `, items: [fieldsDoc(x.fields, false)], tail: "" }, ";");
+                    selector = name;
+                }
+                x.cases.forEach((group, i) => {
+                    const labels: Doc[] = group.labels.map((l) => ({
+                        head: `${use("is")}(`,
+                        items: [selector, ...fieldGroups(l.fields)],
+                        tail: ")",
+                    }));
+                    const condition: Doc = labels.length === 1 ? labels[0]! : { head: "", items: labels, tail: "" };
+                    const joined: Doc =
+                        typeof condition === "string" || labels.length === 1
+                            ? condition
+                            : flat(condition).replace(/\), is\(/g, ") || is(");
+                    emit(indent, { head: i ? "} else if (" : "if (", items: [joined], tail: ") {" });
+                    block(group.body, inner, loops);
+                });
+                if (x.fallback?.length) {
+                    lines.push(x.cases.length ? `${indent}} else {` : `${indent}{`);
+                    block(x.fallback, inner, loops);
+                }
+                if (x.cases.length || x.fallback?.length) lines.push(`${indent}}`);
+                return;
+            }
+        }
+    };
+    const definition = (d: Definition) => {
+        if (d.kind === "global")
+            return emit(
+                "",
+                {
+                    head: `${use("global")}(${JSON.stringify(nameOf(d.name) ?? hex(d.name))}, `,
+                    items: [expr(d.value)],
+                    tail: ")",
+                },
+                ";",
+            );
+        serial = 0;
+        const head = `${use("script")}(${JSON.stringify(nameOf(d.name) ?? hex(d.name))}, `;
+        const defaults = d.defaults.length ? `${flat(fieldsDoc(d.defaults, true))}, ` : "";
+        lines.push(`${head}${defaults}function* (p) {`);
+        block(d.body, INDENT, new Map());
+        lines.push("});");
+    };
+    const body: string[] = [];
+    module.definitions.forEach((d, i) => {
+        lines = [];
+        const previous = module.definitions[i - 1];
+        if (i && (d.kind === "script" || previous?.kind === "script")) body.push("");
+        definition(d);
+        body.push(...lines);
+    });
+    const sorted = [...new Set(commands.values())].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+    if (sorted.length) used.add("cmd");
+    const header = [`// ${module.source.replace(/\\/g, "/")} - translated from QB.`];
+    header.push(`import { ${HELPERS.filter((h) => used.has(h)).join(", ")} } from "qb";`);
+    if (sorted.length) header.push(layout({ head: "const { ", items: sorted, tail: " } = cmd;" }, "", 0));
+    return `${header.join("\n")}\n\n${body.join("\n")}\n`;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    const [, , input, output] = process.argv;
+    if (!input || !output || process.argv.length !== 4)
+        throw Error("Usage: node tools/qbjs/emit_ts.ts INPUT.qb OUTPUT.ts");
+    writeFileSync(output, emitTS(readIRFile(input, output)));
+}

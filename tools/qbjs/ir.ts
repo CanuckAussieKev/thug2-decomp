@@ -36,4 +36,6 @@ export type Statement =
 export type Definition =
     | { kind: "script"; offset: number; name: number; defaults: Field[]; body: Statement[] }
     | { kind: "global"; offset: number; name: number; value: Expr };
-export type ModuleIR = { format: 2; source: string; definitions: Definition[] };
+// names: the module's checksum-name records (0x2B), checksum -> spelling; the game
+// ignores them, the readable emitter uses them.
+export type ModuleIR = { format: 2; source: string; definitions: Definition[]; names?: Record<number, string> };
