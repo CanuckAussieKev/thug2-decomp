@@ -301,9 +301,10 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 fail("random value jump does not target join boundary");
             if (p !== before || lined) {
                 // On lines: the statement ends with it - or, in a structure, its line ends only separate members.
-                if (b[p] === 0x04) lined = false;
-                else if (b[p] !== 0x24 && !STATEMENT_STARTS(b[p]!)) fail("random value on lines inside a statement");
-                else lineEnded = true;
+                if (b[p] !== 0x04) {
+                    if (b[p] !== 0x24 && !STATEMENT_STARTS(b[p]!)) fail("random value on lines inside a statement");
+                    lineEnded = true;
+                }
             }
             return bounded({ kind: "randomChoice", offset, opcode, weights, choices });
         }
@@ -475,8 +476,9 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         for (const f of fields) {
             if ("spread" in f) {
                 if (!allowParams) fail("defaults/globals cannot spread caller parameters");
-            } else if ("kind" in f) f.branches.forEach((branch) => staticDefaults(branch, allowParams));
-            else check(f.value);
+            } else if ("kind" in f) {
+                for (const branch of f.branches) staticDefaults(branch, allowParams);
+            } else check(f.value);
         }
     };
     // A command's name as read_name reads it: written, or from a parameter (<x>; <...> its unnamed name).
