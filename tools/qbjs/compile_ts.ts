@@ -12,7 +12,9 @@ export function compileTS(code: string, source: string): string {
     const imports = match ? match[1]!.split(",").map((s) => s.trim()) : [];
     const random = imports.some((name) => name.startsWith("random"));
     const manifest = { format: 2, source, scripts: [], requires: { values: 2, ...(random ? { random: 1 } : {}) } };
-    const body = match ? js.replace(IMPORT, `const {${match[1]}} = globalThis.qbTs;`) : js;
+    // (an import renamed with `as` is a destructuring rename)
+    const names = match ? match[1]!.replace(/(\w+)\s+as\s+(\w+)/g, "$1: $2") : "";
+    const body = match ? js.replace(IMPORT, `const {${names}} = globalThis.qbTs;`) : js;
     return `(() => {\nqb.module(${JSON.stringify(manifest)});\nglobalThis.qbTs.beginModule(${JSON.stringify(source)});\n${body}\n})();\n`;
 }
 

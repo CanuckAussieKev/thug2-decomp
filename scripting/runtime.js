@@ -1,6 +1,11 @@
 // NOT ORIGINAL - JS compatibility operations and bounded generator task runner.
 // CStruct::AddComponent and docs/script-runtime.md sections 3, 5 and 6.
+//
+// In the game (src/script_ts, docs/qb-ts.md "In the game") the C++ interpreter drives: globalThis.__qbGame is its
+// natives, a script level is begun / resumed by it (begin, resume), every command call yields a request
+// {call, args, on} it carries out on the script's record (its result is the resume's value), symbols are the game's.
 globalThis.qb = (() => {
+    const game = globalThis.__qbGame;
     const scripts = new Map(), symbols = new Map(), tasks = new Map();
     let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000;
     let rng = null;
@@ -27,7 +32,7 @@ globalThis.qb = (() => {
     const context = site => {
         const task = active;
         if (task) task.site = site;
-        return {site, owner:task?.id ?? 0, symbol:n => symbols.get(n), charge:cost => {
+        return {site, owner:task?.owner ?? task?.id ?? 0, symbol:n => game ? game.symbol(n) : symbols.get(n), charge:cost => {
             if (task) consume(task, cost);
             else { uint(cost); if (cost > loadFuel) throw Error('QB module value fuel exhausted'); loadFuel -= cost; }
         }};
@@ -36,7 +41,7 @@ globalThis.qb = (() => {
     // does not consume its execution fuel or depend on module-loading state.
     const boundary = site => {
         const budget = {fuel:250000};
-        return {site:site ?? {source:'<boundary>',script:0,offset:0}, owner:0, symbol:n => symbols.get(n), charge:n => consume(budget, n)};
+        return {site:site ?? {source:'<boundary>',script:0,offset:0}, owner:0, symbol:n => game ? game.symbol(n) : symbols.get(n), charge:n => consume(budget, n)};
     };
     const script = (n, ctx) => {
         const direct = scripts.get(n);
@@ -87,6 +92,8 @@ globalThis.qb = (() => {
         const caller = t.object;
         try {
             step(site);
+            // In the game: the interpreter runs it (execute_command's dispatch, on the script's record).
+            if (game) return yield {call: name, args, on};
             if (on !== undefined) {
                 uint(on);
                 const exists = typeof globalThis.__qbFindObject === 'function' ? globalThis.__qbFindObject(on) : true;
@@ -137,9 +144,11 @@ globalThis.qb = (() => {
         name(n, args, site) {
             uint(n);
             const ctx = context(site);
-            const kind = !symbols.has(n) && active && typeof globalThis.__qbSymbolKind === 'function'
+            const kind = game ? (active ? game.symbolKind(n) : undefined)
+                : !symbols.has(n) && active && typeof globalThis.__qbSymbolKind === 'function'
                 ? globalThis.__qbSymbolKind(n) : undefined;
             if (kind === 'function') {
+                if (game) return {type:1, bits:game.callFunction(n, args) ? 1 : 0};
                 const r = __qbHost(n, args, [], active.object, false);
                 return {type:1, bits:r?.condition ? 1 : 0};
             }
@@ -157,7 +166,7 @@ globalThis.qb = (() => {
             if (v.type === 13) throw Error('QB checksum expression dispatch is not implemented');
             return v.bits !== 0;
         },
-        frame(p, root) { if (root) active.parameters = p; },
+        frame(p, root) { if (root || game) active.parameters = p; },
         module(m) {
             if (tasks.size) throw Error('Cannot load QB modules with retained tasks');
             if (m?.format !== 1 && m?.format !== 2) throw Error('Unsupported QB module format');
@@ -176,6 +185,7 @@ globalThis.qb = (() => {
             if (loadingFormat !== 2) throw Error('QB globals require module format 2');
             const copy = values().copy(value, 'value', context(site));
             scripts.delete(n); symbols.set(n, copy);
+            if (game) game.defineGlobal(n, copy);
         },
         define(n, fn) {
             uint(n);
@@ -184,6 +194,7 @@ globalThis.qb = (() => {
             if (loadingFormat === 1 && scripts.has(n)) throw Error('Duplicate QB script');
             scripts.set(n, {fn,format:loadingFormat});
             symbols.set(n, {kind:'callable',type:7,name:n});
+            if (game) game.defineScript(n);
         },
         start(n, args, fuel, object = 0) {
             if (tasks.size >= 256 || nextId > 0xffffffff) throw Error('QB task capacity limit');
@@ -232,5 +243,42 @@ globalThis.qb = (() => {
             return snapshot(t);
         },
         cancel(id) { const removed=tasks.delete(id); if (removed && rng) rng.forget(id); return removed; },
+        // --- the game's levels (a level: one call-stack level of a script record running a JavaScript script) ---
+        // begin: a level of script `n` with the record's parameters `args`; owner: the record's id (stored randoms).
+        begin(id, n, args, owner) {
+            const entry = script(n);
+            if (!entry) throw Error('Unknown QB script');
+            if (tasks.has(id)) throw Error('QB level already begun');
+            const t = {id, owner:uint(owner), format:entry.format, object:0, generator:null, parameters:[], fuel:0, fuelLimit:1000000,
+                depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:'', dirty:true};
+            active = t;
+            // (not as a root: its return values go to the interpreter, which adds them where the original does)
+            try { t.generator = entry.fn(args, false); } finally { active = null; }
+            tasks.set(id, t);
+        },
+        // resume: the level runs on - `params` is the record's parameter list now (the level's view is refreshed
+        // from it), `result` the last request's result - until its next request ({call, args, on}) or its end
+        // ({done, returned}); `params` in the answer when the level changed its parameters (else null).
+        resume(id, params, result) {
+            const t = tasks.get(id);
+            if (!t) throw Error('Unknown QB level');
+            if (active) throw Error('Reentrant QB execution');
+            if (Array.isArray(params) && !t.dirty) t.parameters.splice(0, t.parameters.length, ...params);
+            t.fuel = t.fuelLimit; active = t;
+            try {
+                const r = t.generator.next(result);
+                const changed = t.dirty ? t.parameters : null;
+                t.dirty = false;
+                if (r.done) { tasks.delete(id); return {done:true, returned:r.value ?? [], params:changed}; }
+                return {...r.value, params:changed};
+            } catch (e) {
+                tasks.delete(id);
+                throw e;
+            } finally { active = null; }
+        },
+        // A level gone (its record reset, its level popped): forgotten.
+        drop(id) { tasks.delete(id); },
+        // The level's parameters were changed by the script itself (an assignment): sent back with its next answer.
+        touched() { if (active) active.dirty = true; },
     });
 })();

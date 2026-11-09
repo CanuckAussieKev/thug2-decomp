@@ -137,7 +137,10 @@ globalThis.qbTs = (() => {
             },
             set(target, key, x) {
                 const assigned = value(x);
-                if (assigned !== undefined) v.append(target, [[checksum(key), assigned]], ctx());
+                if (assigned !== undefined) {
+                    v.append(target, [[checksum(key), assigned]], ctx());
+                    globalThis.qb.touched?.();
+                }
                 return true;
             },
         });

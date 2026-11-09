@@ -81,6 +81,8 @@ globalThis.qbRandom = (() => {
         function draw(rangeBits, stream = 0) {
             uint(rangeBits, "range uint32");
             streamIndex(stream);
+            // In the game: the game's own generator (maths::rnd / roll_side_stream), shared with its C++ code.
+            if (globalThis.__qbGame) return globalThis.__qbGame.draw(rangeBits, stream);
             return scale(raw(stream), rangeBits);
         }
 
