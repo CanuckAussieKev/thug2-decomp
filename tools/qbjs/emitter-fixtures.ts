@@ -40,7 +40,8 @@ const choose = (selector: number[], cases: [number[], number[]][], fallback?: nu
     for (const at of exits) jump(at, end);
     return b;
 };
-export const emittedFixture = () => {
+// The fixture's QB (also run by differential.test.ts).
+export const emitterQB = () => {
     const data = [
         ...assign("global", integer(5)),
         ...assign("alias", name("global")),
@@ -141,8 +142,9 @@ export const emittedFixture = () => {
         ]),
         0,
     ];
-    return emitIR(readIR(Uint8Array.from(data), "emitter.qb"));
+    return Uint8Array.from(data);
 };
+export const emittedFixture = () => emitIR(readIR(emitterQB(), "emitter.qb"));
 
 export function executionBundle(valuesSource: string): string {
     const key = (s: string) => checksum(s);

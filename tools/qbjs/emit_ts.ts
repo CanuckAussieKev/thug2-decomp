@@ -4,6 +4,7 @@
 
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { checksum } from "../qb_checksum.ts";
 import type { Call, Definition, Expr, Field, Literal, ModuleIR, Statement } from "./ir.ts";
 import { readIRFile } from "./reader.ts";
 
@@ -36,6 +37,7 @@ const HELPERS = [
     "val",
     "test",
     "is",
+    "select",
     "add",
     "sub",
     "mul",
@@ -124,7 +126,11 @@ function layout(d: Doc, indent: string, used: number): string {
 }
 
 export function emitTS(module: ModuleIR, names: Record<number, string> = {}): string {
-    const nameOf = (n: number) => module.names?.[n] ?? names[n];
+    // A spelling is used only when it checksums back to the name (else the name is written as _0x<checksum>).
+    const nameOf = (n: number) => {
+        const s = module.names?.[n] ?? names[n];
+        return s !== undefined && checksum(s) === n ? s : undefined;
+    };
     const key = (n: number) => {
         const s = nameOf(n);
         return s === undefined ? hex(n) : isIdentifier(s) ? s : JSON.stringify(s);
@@ -160,6 +166,16 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
         return member(use("cmd"), n);
     };
     let randomSite = 0;
+    // A float where only a float can be (vector / pair coordinates, random ranges): whole numbers need no f().
+    const coordinate = (c: number) =>
+        floatText(c)
+            .replace(/^f\((-?\d+)\)$/, "$1")
+            .replace(/^fbits/, () => use("fbits"));
+    // () => body; an object literal body in parentheses.
+    const arrow = (body: Doc): Doc =>
+        flat(body).startsWith("{")
+            ? { head: "() => (", items: [body], tail: ")" }
+            : { head: "() => ", items: [body], tail: "" };
 
     const literal = (v: Literal): string => {
         switch (v.type) {
@@ -175,13 +191,7 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 return `${use("L")}(${stringText(v.bytes)})`;
             case 5:
             case 6:
-                return `${use(v.type === 6 ? "vec" : "pair")}(${v.coordinates
-                    .map((c) =>
-                        floatText(c)
-                            .replace(/^f\((-?\d+)\)$/, "$1")
-                            .replace(/^fbits/, () => use("fbits")),
-                    )
-                    .join(", ")})`;
+                return `${use(v.type === 6 ? "vec" : "pair")}(${v.coordinates.map(coordinate).join(", ")})`;
         }
     };
     // Expressions; `top` is false inside an operator's operands (where QB's grouping already shows).
@@ -212,11 +222,11 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 };
             }
             case "randomRange":
-                return `${use(x.second ? "randomRange2" : "randomRange")}(${x.a | 0}, ${x.b | 0})`;
+                return `${use(x.second ? "randomRange2" : "randomRange")}(${coordinate(x.a)}, ${coordinate(x.b)})`;
             case "randomChoice": {
                 const fn = use(RANDOM[x.opcode] as (typeof HELPERS)[number]);
                 const pure = x.choices.every((c) => c.kind === "literal");
-                const choices = x.choices.map((c) => (pure ? expr(c) : { head: "() => ", items: [expr(c)], tail: "" }));
+                const choices = x.choices.map((c) => (pure ? expr(c) : arrow(expr(c))));
                 const weights = x.weights.every((w) => w === 1) ? [] : [`[${x.weights.join(", ")}]`];
                 return {
                     head: `${fn}(${++randomSite}, `,
@@ -335,11 +345,10 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 block(x.body, inner, nested);
                 // The count is read once, at the end of the first pass: a non-literal one is passed as a function.
                 const groups = fieldGroups(x.repeatFields);
-                const count: Doc = groups.length === 1 ? groups[0]! : { head: "[", items: groups, tail: "]" };
                 const lazy = x.repeatFields.some((f) => "spread" in f || f.value.kind !== "literal");
                 return emit(indent, {
                     head: `} while (${name}.again(`,
-                    items: [lazy ? { head: "() => ", items: [count], tail: "" } : count],
+                    items: lazy ? groups.map(arrow) : groups,
                     tail: "));",
                 });
             }
@@ -350,7 +359,11 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 if (pure(x.fields)) selector = expr((x.fields[0] as Extract<Field, { name: number }>).value);
                 else {
                     const name = `on${++serial}`;
-                    emit(indent, { head: `const ${name} = `, items: [fieldsDoc(x.fields, false)], tail: "" }, ";");
+                    emit(
+                        indent,
+                        { head: `const ${name} = ${use("select")}(`, items: fieldGroups(x.fields), tail: ")" },
+                        ";",
+                    );
                     selector = name;
                 }
                 x.cases.forEach((group, i) => {
@@ -389,7 +402,9 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
             );
         serial = 0;
         const head = `${use("script")}(${JSON.stringify(nameOf(d.name) ?? hex(d.name))}, `;
-        const defaults = d.defaults.length ? `${flat(fieldsDoc(d.defaults, true))}, ` : "";
+        // Defaults are made at each call: written as a function when making them draws a random number.
+        const made = flat(fieldsDoc(d.defaults, true));
+        const defaults = !d.defaults.length ? "" : /\brandom\w*\(/.test(made) ? `() => (${made}), ` : `${made}, `;
         lines.push(`${head}${defaults}function* (p) {`);
         block(d.body, INDENT, new Map());
         lines.push("});");
