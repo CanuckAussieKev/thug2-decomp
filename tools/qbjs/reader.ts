@@ -108,6 +108,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         let join = -1;
         // One branch: nothing to jump over (the draw still happens).
         if (targets.length === 1) {
+            while (allowLines && p !== targets[0] && (b[p] === 1 || b[p] === 2)) eol();
             if (p !== targets[0]) fail("random target does not match branch boundary");
             return [[]];
         }
@@ -126,8 +127,16 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             if (join >= 0 && end !== join) fail("random branches join at different places");
             join = end;
         }
-        if (targets.length > 1 && p !== join) fail("random branch does not end at the join");
+        // The join may fall among the line ends the last branch's statement has already passed.
+        if (targets.length > 1 && p !== join && !(allowLines && join < p && onlyLines(join, p)))
+            fail("random branch does not end at the join");
         return branches;
+    };
+    // Whether [from, to) holds nothing but line ends.
+    const onlyLines = (from: number, to: number) => {
+        let at = from;
+        while (at < to && (b[at] === 1 || b[at] === 2)) at += b[at] === 2 ? 5 : 1;
+        return at === to;
     };
     let lineEnded = false;
     const heights = new WeakMap<Expr, number>();
@@ -365,7 +374,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         const fields: Field[] = [];
         if (structure) separators();
         while (
-            p !== until &&
+            (until < 0 || p < until) &&
             b[p] !== 0x2e &&
             (structure ? b[p] !== 4 : b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24 && b[p] !== 0x0f)
         ) {
@@ -497,7 +506,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         if (depth > 64) fail("statement nesting limit");
         const body: Statement[] = [];
         lines();
-        while (p !== until && ![0x21, 0x24, 0x28, 0x2e, 0x3d, 0x3e, 0x3f, 0x48, 0x49].includes(b[p]!)) {
+        while ((until < 0 || p < until) && ![0x21, 0x24, 0x28, 0x2e, 0x3d, 0x3e, 0x3f, 0x48, 0x49].includes(b[p]!)) {
             need(1);
             node();
             const offset = p;
@@ -617,6 +626,8 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 const n = name();
                 ++p;
                 body.push({ kind: "assign", offset, name: n, value: value(0) });
+                // An assignment takes one value: another statement may follow on the same line (a = 1 b = 2).
+                if (!lineEnded && b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24 && STATEMENT_STARTS(b[p]!)) continue;
             } else body.push(call());
             endLine();
         }
