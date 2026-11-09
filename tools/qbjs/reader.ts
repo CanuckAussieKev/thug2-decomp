@@ -203,6 +203,8 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         if (op === 0x30 || op === 0x38) {
             // parse_expression's operand switch contains 30, not 38.
             if (inExpression && op === 0x38) fail("RandomRange2 inside expressions is unsupported by original parser");
+            // The bounds are a pair token (parse_random_range reads the floats after its 1F).
+            if (byte() !== 0x1f) fail("expected RandomRange bounds pair");
             return { kind: "randomRange", offset, a: word(), b: word(), second: op === 0x38 };
         }
         if ([0x2f, 0x37, 0x40, 0x41].includes(op)) {

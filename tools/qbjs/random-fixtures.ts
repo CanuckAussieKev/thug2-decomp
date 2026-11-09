@@ -4,7 +4,12 @@ import { helperSource } from "./helper-sources.ts";
 import { readIR } from "./reader.ts";
 import { checksum } from "./translate.ts";
 
-export const randomRange = (a: number, b: number, second = false) => [second ? 0x38 : 0x30, ...word(a), ...word(b)];
+export const randomRange = (a: number, b: number, second = false) => [
+    second ? 0x38 : 0x30,
+    0x1f,
+    ...word(a),
+    ...word(b),
+];
 export function randomChoice(op: number, choices: number[][], weights = choices.map(() => 1)): number[] {
     const bytes = [op, ...word(choices.length), ...weights.flatMap((w) => [w & 255, w >>> 8])];
     const table = bytes.length,
