@@ -5,11 +5,18 @@
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import type { Call, Definition, Expr, Field, ModuleIR, NameRef, Statement, SwitchLabel } from "./ir.ts";
+import type { Call, Definition, Expr, Field, ModuleIR, NameRef, RandomFields, Statement, SwitchLabel } from "./ir.ts";
 
 // Tokens that can start a C function's arguments after a name in an expression (a negative number there is a
 // subtraction; '[' an index).
 const ARGUMENT_STARTS = [0x03, 0x0e, 0x16, 0x17, 0x18, 0x1a, 0x1b, 0x1c, 0x1e, 0x1f, 0x2c, 0x2d];
+
+// Tokens that can start a statement (after a statement-ending Random value its line has ended).
+const STATEMENT_STARTS = (t: number) =>
+    [
+        0x16, 0x2c, 0x2d, 0x0e, 0x20, 0x21, 0x22, 0x28, 0x29, 0x2f, 0x37, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x41, 0x47,
+        0x48, 0x49,
+    ].includes(t);
 
 export type ReaderLimits = { nodes?: number; depth?: number };
 export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLimits = {}): ModuleIR {
@@ -74,9 +81,55 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
     };
     const endLine = () => {
-        if (b[p] !== 0x24) eol();
+        if (lineEnded) lineEnded = false;
+        else if (b[p] !== 0x24) eol();
         lines();
     };
+    // A Random's table: 2F/37/40/41, count, 16-bit weights, then each branch's 32-bit offset.
+    const randomTable = () => {
+        const offset = p,
+            opcode = byte();
+        const count = word();
+        if (count < 1 || count > 4096) fail("random value choice count must be 1..4096");
+        if (opcode === 0x41 && (count < 2 || count > 66)) fail("RandomPermute requires 2..66 choices");
+        const weights = Array.from({ length: count }, () => short());
+        if ((opcode === 0x2f || opcode === 0x37) && (weights.some((w) => w >= 0x8000) || weights.every((w) => w === 0)))
+            fail("unsafe weighted random value table");
+        const targets = Array.from({ length: count }, () => {
+            const field = p;
+            return field + 4 + word();
+        });
+        return { offset, opcode, weights, targets };
+    };
+    // Branches of a Random among statements or fields: each starts at its target and (all but the last) ends with
+    // a 2E jump to the join; the last ends at the join. parse(until) reads one branch, stopping at a 2E or `until`.
+    const randomBranches = <T>(targets: number[], parse: (until: number) => T[], allowLines: boolean): T[][] => {
+        const branches: T[][] = [];
+        let join = -1;
+        // One branch: nothing to jump over (the draw still happens).
+        if (targets.length === 1) {
+            if (p !== targets[0]) fail("random target does not match branch boundary");
+            return [[]];
+        }
+        for (let i = 0; i < targets.length; i++) {
+            while (allowLines && p !== targets[i] && (b[p] === 1 || b[p] === 2)) eol();
+            if (p !== targets[i]) fail("random target does not match branch boundary");
+            const last = i === targets.length - 1;
+            if (last && join < 0) fail("random branches without a join jump");
+            branches.push(parse(last ? join : -1));
+            // (the last branch may end with a jump to the join too)
+            if (last && b[p] !== 0x2e) break;
+            if (b[p] !== 0x2e) fail("random branch requires join jump");
+            ++p;
+            const field = p;
+            const end = field + 4 + word();
+            if (join >= 0 && end !== join) fail("random branches join at different places");
+            join = end;
+        }
+        if (targets.length > 1 && p !== join) fail("random branch does not end at the join");
+        return branches;
+    };
+    let lineEnded = false;
     const heights = new WeakMap<Expr, number>();
     const bounded = (v: Expr): Expr => {
         const children =
@@ -89,7 +142,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     : v.kind === "array"
                       ? v.items
                       : v.kind === "structure"
-                        ? v.fields.flatMap((f) => ("spread" in f ? [] : [f.value]))
+                        ? v.fields.flatMap((f) => ("spread" in f || "kind" in f ? [] : [f.value]))
                         : [];
         const height = children.reduce((h, child) => Math.max(h, 1 + (heights.get(child) ?? 0)), 0);
         if (height > depthLimit) fail("value depth limit");
@@ -208,29 +261,38 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             return { kind: "randomRange", offset, a: word(), b: word(), second: op === 0x38 };
         }
         if ([0x2f, 0x37, 0x40, 0x41].includes(op)) {
-            const count = word();
-            if (count < 1 || count > 4096) fail("random value choice count must be 1..4096");
-            if (op === 0x41 && (count < 2 || count > 66)) fail("RandomPermute requires 2..66 choices");
-            const weights = Array.from({ length: count }, () => short());
-            if ((op === 0x2f || op === 0x37) && (weights.some((w) => w >= 0x8000) || weights.every((w) => w === 0)))
-                fail("unsafe weighted random value table");
-            const targets = Array.from({ length: count }, () => {
-                const field = p;
-                return field + 4 + word();
-            });
+            --p;
+            const { opcode, weights, targets } = randomTable();
+            const count = weights.length;
+            // A choice may sit on lines of its own (Random(@<a> <newline> @<b>)): the statement then ends with it.
+            let lined = false;
             const choices: Expr[] = [],
                 ends: number[] = [];
             for (let i = 0; i < count; i++) {
+                while (p !== targets[i] && (b[p] === 1 || b[p] === 2) && !inExpression) {
+                    eol();
+                    lined = true;
+                }
                 if (p !== targets[i]) fail("random target does not match contiguous value boundary");
                 choices.push(value(depth + 1, inExpression, rawName));
+                while ((b[p] === 1 || b[p] === 2) && !inExpression && i < count - 1) {
+                    eol();
+                    lined = true;
+                }
                 if (b[p] === 0x2e) {
                     ++p;
                     const field = p;
                     ends.push(field + 4 + word());
                 } else if (i < count - 1) fail("random value branch requires join jump");
             }
-            if (ends.some((end) => end !== p)) fail("random value jump does not target join boundary");
-            return bounded({ kind: "randomChoice", offset, opcode: op, weights, choices });
+            if (lined) {
+                // The join lands past the last choice's line end; the statement must end there.
+                const at = lines();
+                if (ends.some((end) => !at.has(end))) fail("random value jump does not target join boundary");
+                if (b[p] !== 0x24 && !STATEMENT_STARTS(b[p]!)) fail("random value on lines inside a statement");
+                lineEnded = true;
+            } else if (ends.some((end) => end !== p)) fail("random value jump does not target join boundary");
+            return bounded({ kind: "randomChoice", offset, opcode, weights, choices });
         }
         if (op === 0x16) {
             const n = word();
@@ -298,12 +360,42 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         }
         return fail(`unsupported value token 0x${op.toString(16)}`);
     };
-    const parameters = (depth: number, structure = false): Field[] => {
+    const parameters = (depth: number, structure = false, until = -1): Field[] => {
         if (depth > depthLimit) fail("value depth limit");
         const fields: Field[] = [];
         if (structure) separators();
-        while (structure ? b[p] !== 4 : b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24 && b[p] !== 0x0f) {
+        while (
+            p !== until &&
+            b[p] !== 0x2e &&
+            (structure ? b[p] !== 4 : b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24 && b[p] !== 0x0f)
+        ) {
             need(1);
+            if (lineEnded) break;
+            // A Random among the fields: a value choice where it is one (below), else one branch's fields.
+            if (!structure && [0x2f, 0x37, 0x40, 0x41].includes(b[p]!)) {
+                const start = p,
+                    count = nodes;
+                try {
+                    const item = value(depth);
+                    fields.push({ name: 0, value: item, offset: start, flattenStructure: true });
+                    continue;
+                } catch {
+                    p = start;
+                    nodes = count;
+                    lineEnded = false;
+                }
+                const table = randomTable();
+                const branches = randomBranches(table.targets, (end) => parameters(depth + 1, false, end), false);
+                node();
+                fields.push({
+                    kind: "randomFields",
+                    offset: table.offset,
+                    opcode: table.opcode,
+                    weights: table.weights,
+                    branches,
+                } satisfies RandomFields);
+                continue;
+            }
             if (b[p] === 9) {
                 ++p;
                 continue;
@@ -367,6 +459,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         };
         for (const f of fields) {
             if ("spread" in f) fail("defaults/globals cannot spread caller parameters");
+            else if ("kind" in f) f.branches.forEach(staticDefaults);
             else check(f.value);
         }
     };
@@ -400,14 +493,23 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             ...(on ? { on } : {}),
         };
     };
-    const block = (depth: number, loops: number[] = []): Statement[] => {
+    const block = (depth: number, loops: number[] = [], until = -1): Statement[] => {
         if (depth > 64) fail("statement nesting limit");
         const body: Statement[] = [];
         lines();
-        while (![0x21, 0x24, 0x28, 0x3d, 0x3e, 0x3f, 0x48, 0x49].includes(b[p]!)) {
+        while (p !== until && ![0x21, 0x24, 0x28, 0x2e, 0x3d, 0x3e, 0x3f, 0x48, 0x49].includes(b[p]!)) {
             need(1);
             node();
             const offset = p;
+            lineEnded = false;
+            // A Random among statements (a Random value starts with a name or a value, never a statement).
+            if ([0x2f, 0x37, 0x40, 0x41].includes(b[p]!)) {
+                const table = randomTable();
+                const branches = randomBranches(table.targets, (end) => block(depth + 1, loops, end), true);
+                body.push({ kind: "randomBlock", offset, opcode: table.opcode, weights: table.weights, branches });
+                lines();
+                continue;
+            }
             if (b[p] === 0x3c) {
                 ++p;
                 const fields = parameters(0);

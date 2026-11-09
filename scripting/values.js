@@ -306,24 +306,32 @@ globalThis.qbValues = (() => {
                 put(out, f[0], clone(f[1], "value", w), w);
             }
         };
-        for (const entry of entries) {
-            w.step();
-            if (entry === null) {
-                add(p);
-                continue;
+        const each = (list) => {
+            for (const entry of list) {
+                w.step();
+                if (entry === null) {
+                    add(p);
+                    continue;
+                }
+                // A Random among the fields: the drawn branch's entries, in this place.
+                if (typeof entry === "object" && typeof entry.group === "function") {
+                    each(entry.group());
+                    continue;
+                }
+                const f = entry();
+                if (f[1] === undefined) continue;
+                if (
+                    f[3] &&
+                    f[0] === 0x9d2d0915 &&
+                    f[1].type === 6 &&
+                    f[1].coordinates.every((bits) => Math.abs(floatNumber(bits)) < floatNumber(0x3c23d70a))
+                )
+                    continue;
+                if (f[2] && f[1].type === 10) add(f[1].members);
+                else add([[f[0], f[1]]]);
             }
-            const f = entry();
-            if (f[1] === undefined) continue;
-            if (
-                f[3] &&
-                f[0] === 0x9d2d0915 &&
-                f[1].type === 6 &&
-                f[1].coordinates.every((bits) => Math.abs(floatNumber(bits)) < floatNumber(0x3c23d70a))
-            )
-                continue;
-            if (f[2] && f[1].type === 10) add(f[1].members);
-            else add([[f[0], f[1]]]);
-        }
+        };
+        each(entries);
         return materialized(out, w);
     }
     function structure(fields, ctx) {

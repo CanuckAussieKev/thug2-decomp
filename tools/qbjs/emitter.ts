@@ -11,7 +11,10 @@ export function requiresRandom(module: ModuleIR): boolean {
         if (!x || typeof x !== "object") return false;
         if (Array.isArray(x)) return x.some(visit);
         const record = x as Record<string, unknown>;
-        return record.kind === "randomRange" || record.kind === "randomChoice" || Object.values(record).some(visit);
+        return (
+            ["randomRange", "randomChoice", "randomFields", "randomBlock"].includes(record.kind as string) ||
+            Object.values(record).some(visit)
+        );
     };
     return visit(module.definitions);
 }
@@ -20,14 +23,19 @@ export function emitIR(module: ModuleIR): string {
     let serial = 0;
     const site = (script: number, offset: number) => JSON.stringify({ source: module.source, script, offset });
     const ctx = (script: number, offset: number) => `qb.context(${site(script, offset)})`;
-    const fields = (xs: Field[], script: number, offset: number, params = "p"): string =>
-        `fields(${params}, [${xs
+    // Field entries; a Random among fields is a group the value helpers expand where it stands, its branch drawn then.
+    const entries = (xs: Field[], script: number, params: string): string =>
+        xs
             .map((f) =>
                 "spread" in f
                     ? "null"
-                    : `() => [${f.name}, ${value(f.value, script, params)}${f.flattenStructure ? ", true" : f.value.kind === "literal" && f.value.value.type === 6 ? ", false, true" : ""}]`,
+                    : "kind" in f
+                      ? `{group: () => randomChoice(${f.opcode}, ${site(script, f.offset)}, ${JSON.stringify(f.weights)}, [${f.branches.map((branch) => `() => [${entries(branch, script, params)}]`).join(", ")}])}`
+                      : `() => [${f.name}, ${value(f.value, script, params)}${f.flattenStructure ? ", true" : f.value.kind === "literal" && f.value.value.type === 6 ? ", false, true" : ""}]`,
             )
-            .join(", ")}], ${ctx(script, offset)})`;
+            .join(", ");
+    const fields = (xs: Field[], script: number, offset: number, params = "p"): string =>
+        `fields(${params}, [${entries(xs, script, params)}], ${ctx(script, offset)})`;
     const value = (x: Expr, script: number, params = "p"): string => {
         const context = ctx(script, x.offset);
         switch (x.kind) {
@@ -109,6 +117,15 @@ export function emitIR(module: ModuleIR): string {
                             nested = new Map(loops);
                         nested.set(x.offset, { label, args });
                         return `${mark}{ let read = false, count;\nconst ${args} = scope => ${fields(x.repeatFields, script, x.repeatOffset, "scope")};\n${label}: for (;;) {\nqb.step(${site(script, x.offset)});\n${statements(x.body, script, nested)}qb.step(${site(script, x.repeatOffset)});\nif (!read) { count = v.lookupTyped(${args}(p), 0, 1, ${ctx(script, x.repeatOffset)})?.bits; read = true; }\nif (count !== undefined) { count = (count - 1) >>> 0; if (count === 0) break; }\n}\n}\n`;
+                    }
+                    case "randomBlock": {
+                        // A Random among statements: one branch runs.
+                        const pick = `pick${serial++}`;
+                        let code = `${mark}{ const ${pick} = randomChoice(${x.opcode}, ${site(script, x.offset)}, ${JSON.stringify(x.weights)}, [${x.branches.map((_, i) => `() => ${i}`).join(", ")}]);\n`;
+                        x.branches.forEach((branch, i) => {
+                            code += `${i ? "else " : ""}if (${pick} === ${i}) {\n${statements(branch, script, loops)}}\n`;
+                        });
+                        return `${code}}\n`;
                     }
                     case "break": {
                         const target = loops.get(x.target);

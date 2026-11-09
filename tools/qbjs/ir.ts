@@ -17,9 +17,18 @@ export type Expr =
     | { kind: "randomChoice"; offset: number; opcode: number; weights: number[]; choices: Expr[] }
     | { kind: "structure"; offset: number; fields: Field[] }
     | { kind: "array"; offset: number; items: Expr[] };
+// A Random among argument runs (resolve_random_jumps between parse_arguments' fields): one branch's fields used.
+export type RandomFields = {
+    kind: "randomFields";
+    offset: number;
+    opcode: number;
+    weights: number[];
+    branches: Field[][];
+};
 export type Field =
     | { name: number; value: Expr; offset: number; flattenStructure?: true }
-    | { spread: true; offset: number };
+    | { spread: true; offset: number }
+    | RandomFields;
 // via: the command's name is read from a parameter (`<script> args`; 0 for `<...> args`: the parameters' unnamed
 // name) when the statement runs (read_name -> read_hash_value); name is then 0.
 // on: `object:Command` - the object's name, written (name) or read from a parameter like via (via).
@@ -34,6 +43,8 @@ export type Statement =
     // after typed argument merging, not to the first syntactic argument.
     | { kind: "loop"; offset: number; body: Statement[]; repeatOffset: number; repeatFields: Field[] }
     | { kind: "break"; offset: number; target: number }
+    // A Random among statements (resolve_random_jumps before a statement): one branch's statements run.
+    | { kind: "randomBlock"; offset: number; opcode: number; weights: number[]; branches: Statement[][] }
     | {
           kind: "switch";
           offset: number;

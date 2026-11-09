@@ -7,7 +7,7 @@ import { emitterQB } from "./emitter-fixtures.ts";
 import { expressionResultFixture } from "./expression-result-fixtures.ts";
 import { command, conditional, field, fixture, integer, name, param, script } from "./fixtures.ts";
 import type { ModuleIR } from "./ir.ts";
-import { randomFixture } from "./random-fixtures.ts";
+import { randomChoice, randomFixture } from "./random-fixtures.ts";
 import { readIR } from "./reader.ts";
 
 // <...> as a value (a copy of the parameters) and commands named by a parameter: <x> args, <...> args, in a
@@ -103,6 +103,50 @@ const functions = () => {
         "functions.qb",
     );
 };
+// Random among statements (one branch runs, a break inside one leaves the loop) and among a call's fields (one
+// branch's fields used, the draws in their places among the other random values).
+const randomBlocks = () =>
+    readIR(
+        Uint8Array.from([
+            ...script("pickStatements", [
+                0x20,
+                1,
+                ...randomChoice(
+                    0x2f,
+                    [
+                        [...command("First"), ...command("Again")],
+                        [...command("Second"), 0x22, 1],
+                        [1, ...command("Third", field("n", integer(3)))],
+                    ],
+                    [2, 1, 1],
+                ),
+                1,
+                ...command("AfterPick"),
+                0x21,
+                ...integer(4),
+                1,
+                ...randomChoice(0x40, [command("NoRepeatA"), command("NoRepeatB"), command("NoRepeatC")]),
+                1,
+            ]),
+            ...script(
+                "pickFields",
+                [
+                    ...command("Anim", [
+                        ...field("before", randomChoice(0x2f, [integer(1), integer(2)])),
+                        ...randomChoice(0x2f, [
+                            field("anim", [0x2d, ...name("a")]),
+                            [...field("anim", [0x2d, ...name("b")]), ...name("Cycle")],
+                            field("anim", randomChoice(0x37, [name("x"), name("y")])),
+                        ]),
+                        ...field("blend", integer(3)),
+                    ]),
+                ],
+                [...field("a", name("idle")), ...field("b", name("run"))],
+            ),
+            0,
+        ]),
+        "random-blocks.qb",
+    );
 // if NOT: a command's result and an expression's truth inverted, with and without else.
 const negated = () =>
     readIR(
@@ -127,6 +171,7 @@ const modules: [string, () => ModuleIR][] = [
     ["<...> values and commands named by parameters", dynamic],
     ["object:Command", objects],
     ["C functions in expressions", functions],
+    ["Random among statements and fields", randomBlocks],
     ["format-1 fixture", () => readIR(fixture(), "fixture.qb")],
     ["emitter fixture", () => readIR(emitterQB(), "emitter.qb")],
     ["expression results", () => expressionResultFixture().ir],

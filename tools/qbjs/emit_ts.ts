@@ -187,6 +187,15 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
         floatText(c)
             .replace(/^f\((-?\d+)\)$/, "$1")
             .replace(/^fbits/, () => use("fbits"));
+    // random(k, [weights,] [choices]) - k numbers the site in the module (no-repeat / permute state is per site).
+    const randomDoc = (opcode: number, weights: number[], choices: Doc[]): Doc => ({
+        head: `${use(RANDOM[opcode] as (typeof HELPERS)[number])}(${++randomSite}, `,
+        items: [
+            ...(weights.every((w) => w === 1) ? [] : [`[${weights.join(", ")}]`]),
+            { head: "[", items: choices, tail: "]" },
+        ],
+        tail: ")",
+    });
     // () => body; an object literal body in parentheses.
     const arrow = (body: Doc): Doc =>
         flat(body).startsWith("{")
@@ -243,15 +252,12 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
             case "randomRange":
                 return `${use(x.second ? "randomRange2" : "randomRange")}(${coordinate(x.a)}, ${coordinate(x.b)})`;
             case "randomChoice": {
-                const fn = use(RANDOM[x.opcode] as (typeof HELPERS)[number]);
                 const pure = x.choices.every((c) => c.kind === "literal");
-                const choices = x.choices.map((c) => (pure ? expr(c) : arrow(expr(c))));
-                const weights = x.weights.every((w) => w === 1) ? [] : [`[${x.weights.join(", ")}]`];
-                return {
-                    head: `${fn}(${++randomSite}, `,
-                    items: [...weights, { head: "[", items: choices, tail: "]" }],
-                    tail: ")",
-                };
+                return randomDoc(
+                    x.opcode,
+                    x.weights,
+                    x.choices.map((c) => (pure ? expr(c) : arrow(expr(c)))),
+                );
             }
             case "structure":
                 return fieldsDoc(x.fields, true);
@@ -268,6 +274,28 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
         for (const x of xs) {
             if ("spread" in x) {
                 out.push(`${use("all")}(p)`);
+                group = undefined;
+                continue;
+            }
+            // A Random among the fields: ...random(k, [[branch 1's arguments], [branch 2's], ...]) spread in place
+            // (a branch that draws or calls anything itself is written as a function).
+            if ("kind" in x) {
+                out.push({
+                    head: "...",
+                    items: [
+                        randomDoc(
+                            x.opcode,
+                            x.weights,
+                            x.branches.map((branch) => {
+                                const doc: Doc = { head: "[", items: fieldGroups(branch), tail: "]" };
+                                return /"kind":"(random\w*|functionCall)"/.test(JSON.stringify(branch))
+                                    ? arrow(doc)
+                                    : doc;
+                            }),
+                        ),
+                    ],
+                    tail: "",
+                });
                 group = undefined;
                 continue;
             }
@@ -325,11 +353,16 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
     let serial = 0;
     const emit = (indent: string, d: Doc, suffix = "") =>
         lines.push(indent + layout(d, indent, indent.length) + suffix);
-    const pure = (fs: Field[]) =>
-        fs.length === 1 &&
-        !("spread" in fs[0]!) &&
-        fs[0]!.name === 0 &&
-        ["parameter", "literal", "global"].includes(fs[0]!.value.kind);
+    const pure = (fs: Field[]) => {
+        const f = fs[0];
+        return (
+            fs.length === 1 &&
+            f !== undefined &&
+            "name" in f &&
+            f.name === 0 &&
+            ["parameter", "literal", "global"].includes(f.value.kind)
+        );
+    };
 
     const block = (xs: Statement[], indent: string, loops: Map<number, string>) => {
         for (const x of xs) statement(x, indent, loops);
@@ -377,12 +410,29 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 block(x.body, inner, nested);
                 // The count is read once, at the end of the first pass: a non-literal one is passed as a function.
                 const groups = fieldGroups(x.repeatFields);
-                const lazy = x.repeatFields.some((f) => "spread" in f || f.value.kind !== "literal");
+                const lazy = x.repeatFields.some((f) => !("name" in f) || f.value.kind !== "literal");
                 return emit(indent, {
                     head: `} while (${name}.again(`,
                     items: lazy ? groups.map(arrow) : groups,
                     tail: "));",
                 });
+            }
+            case "randomBlock": {
+                // A Random among statements: const pickN = random(k, [0, 1, ...]); then one branch per value.
+                const choices = x.branches.map((_, i) => String(i));
+                if (x.branches.length === 1) return emit(indent, randomDoc(x.opcode, x.weights, choices), ";");
+                const name = `pick${++serial}`;
+                emit(
+                    indent,
+                    { head: `const ${name} = `, items: [randomDoc(x.opcode, x.weights, choices)], tail: "" },
+                    ";",
+                );
+                x.branches.forEach((branch, i) => {
+                    const last = i === x.branches.length - 1;
+                    lines.push(`${indent}${i ? "} else " : ""}${last ? "{" : `if (${name} === ${i}) {`}`);
+                    block(branch, inner, loops);
+                });
+                return lines.push(`${indent}}`);
             }
             case "break":
                 return lines.push(`${indent}break;`);

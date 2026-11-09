@@ -231,7 +231,7 @@ test("preserves loop bodies, repeat arguments and exact begin/repeat offsets", (
         assert.equal(ir.repeatFields.length, count.length ? (count.at(-1) === 0x2c ? 4 : 1) : 0);
         if (count[0] === 0x2d) {
             const f = ir.repeatFields[0]!;
-            if ("spread" in f || f.value.kind !== "parameter") throw Error("expected parameter");
+            if (!("name" in f) || f.value.kind !== "parameter") throw Error("expected parameter");
             assert.equal(f.value.mode, "value");
         }
     }
@@ -337,13 +337,13 @@ test("reads structures, nested arrays, numeric promotion candidates and raw Name
     if (d.kind !== "global" || d.value.kind !== "structure") throw Error("expected structure");
     assert.equal(d.value.fields.length, 5);
     const a = d.value.fields[0]!;
-    if ("spread" in a || a.value.kind !== "array") throw Error("expected array");
+    if (!("name" in a) || a.value.kind !== "array") throw Error("expected array");
     assert.deepEqual(a.value.items.map(literal), [
         { type: 1, bits: 0xffffffff },
         { type: 2, bits: 0x3f800000 },
     ]);
     const nested = d.value.fields[2]!;
-    if ("spread" in nested || nested.value.kind !== "array") throw Error("expected nested array");
+    if (!("name" in nested) || nested.value.kind !== "array") throw Error("expected nested array");
     const inner = nested.value.items[0]!;
     if (inner.kind !== "array") throw Error("expected inner array");
     assert.deepEqual(literal(inner.items[0]!), { type: 13, bits: checksum("x") });
@@ -362,7 +362,7 @@ test("flattens anonymous brace inclusions while preserving named nested structur
     const first = readIR(module(global("g", structure(fields)))).definitions[0]!;
     if (first.kind !== "global" || first.value.kind !== "structure") throw Error("expected structure");
     assert.deepEqual(
-        first.value.fields.map((f) => ("spread" in f ? null : f.name)),
+        first.value.fields.map((f) => ("name" in f ? f.name : null)),
         [checksum("x"), checksum("y"), checksum("z")],
     );
     const d = readIR(
@@ -379,11 +379,11 @@ test("flattens anonymous brace inclusions while preserving named nested structur
     ).definitions[0]!;
     if (d.kind !== "script" || d.body[0]?.kind !== "call") throw Error("expected call");
     assert.deepEqual(
-        d.body[0].fields.map((f) => ("spread" in f ? null : f.name)),
+        d.body[0].fields.map((f) => ("name" in f ? f.name : null)),
         [checksum("a"), checksum("nested")],
     );
     const nested = d.body[0].fields[1]!;
-    if ("spread" in nested) throw Error("expected nested value");
+    if (!("name" in nested)) throw Error("expected nested value");
     assert.equal(nested.value.kind, "structure");
 });
 test("keeps copy/reference contexts explicit and accepts containers in script parameters", () => {
@@ -400,7 +400,7 @@ test("keeps copy/reference contexts explicit and accepts containers in script pa
     const assignment = d.body[0]!;
     if (assignment.kind !== "assign" || assignment.value.kind !== "structure") throw Error("expected assignment");
     const x = assignment.value.fields[0]!;
-    if ("spread" in x) throw Error("not parameter");
+    if (!("name" in x)) throw Error("not parameter");
     assert.equal(x.value.kind, "parameter");
     if (x.value.kind === "parameter") assert.equal(x.value.mode, "value");
     const call = d.body[1]!;
