@@ -32,7 +32,8 @@ export type Statement =
           cases: { labels: SwitchLabel[]; body: Statement[] }[];
           fallback?: Statement[];
       }
-    | { kind: "if"; offset: number; condition: Call | Expr; yes: Statement[]; no: Statement[] };
+    // negate: `if NOT ...` (0x39) - the statement's result inverted (run_conditional).
+    | { kind: "if"; offset: number; condition: Call | Expr; negate?: true; yes: Statement[]; no: Statement[] };
 export type Definition =
     | { kind: "script"; offset: number; name: number; defaults: Field[]; body: Statement[] }
     | { kind: "global"; offset: number; name: number; value: Expr };

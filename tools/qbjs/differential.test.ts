@@ -5,12 +5,32 @@ import { test } from "node:test";
 import { differential } from "./differential.ts";
 import { emitterQB } from "./emitter-fixtures.ts";
 import { expressionResultFixture } from "./expression-result-fixtures.ts";
-import { fixture } from "./fixtures.ts";
+import { command, conditional, field, fixture, integer, name, param, script } from "./fixtures.ts";
 import type { ModuleIR } from "./ir.ts";
 import { randomFixture } from "./random-fixtures.ts";
 import { readIR } from "./reader.ts";
 
+// if NOT: a command's result and an expression's truth inverted, with and without else.
+const negated = () =>
+    readIR(
+        Uint8Array.from([
+            ...script(
+                "notCommand",
+                conditional([0x39, ...name("Probe"), ...field("a", integer(1))], command("Yes"), command("No")),
+            ),
+            ...script("notExpression", [
+                ...field("x", integer(0)),
+                1,
+                ...conditional([0x39, 0x0e, ...param("x"), 0x0f], command("Yes"), command("No")),
+                ...conditional([0x39, 0x0e, ...param("missing"), 0x0f], command("Yes"), command("No")),
+            ]),
+            ...script("notScript", conditional([0x39, ...name("notCommand")], command("Yes"), [])),
+            0,
+        ]),
+        "negated.qb",
+    );
 const modules: [string, () => ModuleIR][] = [
+    ["if NOT", negated],
     ["format-1 fixture", () => readIR(fixture(), "fixture.qb")],
     ["emitter fixture", () => readIR(emitterQB(), "emitter.qb")],
     ["expression results", () => expressionResultFixture().ir],

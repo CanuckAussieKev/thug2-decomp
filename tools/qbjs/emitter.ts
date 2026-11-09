@@ -89,7 +89,7 @@ export function emitIR(module: ModuleIR): string {
                             x.condition.kind === "call"
                                 ? call(x.condition, script)
                                 : `v.statementTruth(${value(x.condition, script)}, ${context})`;
-                        return `${mark}if (${condition}) {\n${statements(x.yes, script, loops)}} else {\n${statements(x.no, script, loops)}}\n`;
+                        return `${mark}if (${x.negate ? `!(${condition})` : condition}) {\n${statements(x.yes, script, loops)}} else {\n${statements(x.no, script, loops)}}\n`;
                     }
                     case "loop": {
                         const label = `loop${serial++}`,

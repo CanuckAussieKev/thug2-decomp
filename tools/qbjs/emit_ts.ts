@@ -107,9 +107,11 @@ const stringText = (bytes: number[]) =>
 
 // A rendered piece of code: flat text, or a head / items / tail that can break over lines (broken, an object's
 // "{ " / " }" lose their spaces). A call whose only argument is an object or array hugs it: Foo({ ... }).
-type Doc = string | { head: string; items: Doc[]; tail: string };
+// sep joins the items (", " unless set); last ends the last item of a broken list ("," unless set). A head-less
+// list with its own sep (a || chain) breaks into one item per line at the same indent.
+type Doc = string | { head: string; items: Doc[]; tail: string; sep?: string; last?: string };
 function flat(d: Doc): string {
-    return typeof d === "string" ? d : d.head + d.items.map(flat).join(", ") + d.tail;
+    return typeof d === "string" ? d : d.head + d.items.map(flat).join(d.sep ?? ", ") + d.tail;
 }
 const bracketed = (d: Doc) => typeof d !== "string" && (d.head === "{ " || d.head === "[") && d.items.length > 0;
 function layout(d: Doc, indent: string, used: number): string {
@@ -119,10 +121,20 @@ function layout(d: Doc, indent: string, used: number): string {
         return d.head + layout(d.items[0]!, indent, used + d.head.length) + d.tail;
     if (d.items.length === 1 && !d.head.endsWith("(") && !d.head.endsWith("[") && d.head !== "{ ")
         return d.head + layout(d.items[0]!, indent, used + d.head.length) + d.tail;
+    if (d.head === "" && d.sep !== undefined)
+        return (
+            d.items
+                .map((item, i) => (i ? indent : "") + layout(item, indent, i ? indent.length : used))
+                .join(`${d.sep.trimEnd()}\n`) + d.tail
+        );
     const inner = indent + INDENT;
     const head = d.head === "{ " ? "{" : d.head.trimEnd();
     const tail = d.tail === " }" ? "}" : d.tail.trimStart();
-    return `${head}\n${d.items.map((item) => inner + layout(item, inner, inner.length) + ",").join("\n")}\n${indent}${tail}`;
+    const sep = (d.sep ?? ", ").trimEnd();
+    const lines = d.items.map(
+        (item, i) => inner + layout(item, inner, inner.length) + (i < d.items.length - 1 ? sep : (d.last ?? ",")),
+    );
+    return `${head}\n${lines.join("\n")}\n${indent}${tail}`;
 }
 
 export function emitTS(module: ModuleIR, names: Record<number, string> = {}): string {
@@ -281,6 +293,17 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
         tail: ")",
     });
 
+    // An if's condition: a call's result or an expression's truth, `!` in front for NOT.
+    const conditionDoc = (x: Extract<Statement, { kind: "if" }>): Doc => {
+        const c: Doc =
+            x.condition.kind === "call"
+                ? callDoc(x.condition)
+                : { head: `${use("test")}(`, items: [expr(x.condition)], tail: ")" };
+        if (!x.negate) return c;
+        return x.condition.kind === "call"
+            ? { head: "!(", items: [c], tail: ")" }
+            : { head: "!", items: [c], tail: "" };
+    };
     let lines: string[] = [];
     let serial = 0;
     const emit = (indent: string, d: Doc, suffix = "") =>
@@ -306,21 +329,13 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 return emit(indent, { head: "return ", items: [fieldsDoc(x.fields, true)], tail: "" }, ";");
             }
             case "if": {
-                const condition: Doc =
-                    x.condition.kind === "call"
-                        ? callDoc(x.condition)
-                        : { head: `${use("test")}(`, items: [expr(x.condition)], tail: ")" };
-                emit(indent, { head: "if (", items: [condition], tail: ") {" });
+                emit(indent, { head: "if (", items: [conditionDoc(x)], tail: ") {", last: "" });
                 block(x.yes, inner, loops);
                 // else { if ... } reads as else if.
                 let no = x.no;
                 while (no.length === 1 && no[0]!.kind === "if") {
                     const y = no[0]! as Extract<Statement, { kind: "if" }>;
-                    const c: Doc =
-                        y.condition.kind === "call"
-                            ? callDoc(y.condition)
-                            : { head: `${use("test")}(`, items: [expr(y.condition)], tail: ")" };
-                    emit(indent, { head: "} else if (", items: [c], tail: ") {" });
+                    emit(indent, { head: "} else if (", items: [conditionDoc(y)], tail: ") {", last: "" });
                     block(y.yes, inner, loops);
                     no = y.no;
                 }
@@ -372,12 +387,9 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                         items: [selector, ...fieldGroups(l.fields)],
                         tail: ")",
                     }));
-                    const condition: Doc = labels.length === 1 ? labels[0]! : { head: "", items: labels, tail: "" };
-                    const joined: Doc =
-                        typeof condition === "string" || labels.length === 1
-                            ? condition
-                            : flat(condition).replace(/\), is\(/g, ") || is(");
-                    emit(indent, { head: i ? "} else if (" : "if (", items: [joined], tail: ") {" });
+                    const condition: Doc =
+                        labels.length === 1 ? labels[0]! : { head: "", items: labels, tail: "", sep: " || " };
+                    emit(indent, { head: i ? "} else if (" : "if (", items: [condition], tail: ") {", last: "" });
                     block(group.body, inner, loops);
                 });
                 if (x.fallback?.length) {

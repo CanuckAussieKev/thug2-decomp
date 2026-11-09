@@ -83,7 +83,10 @@ export function differential(module: ModuleIR, seeds = [0, 1, 2]): Outcome {
         try {
             return run(code, scripts, withTs, seed);
         } catch (e) {
-            return [`load ${String(e).split("\n")[0]}`];
+            // A module too big for the runtime's load budgets fails on both paths, at whichever bound trips
+            // first (the paths build values in differently sized steps): one outcome.
+            const message = String(e).split("\n")[0]!;
+            return [/fuel exhausted|work limit/.test(message) ? "load over budget" : `load ${message}`];
         }
     };
     const js = seeds.flatMap((seed) => load(javascript, false, seed));

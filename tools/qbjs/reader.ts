@@ -379,8 +379,12 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     eol();
                     lines();
                     const branch = block(depth + 1, loops);
-                    if (byte() !== 0x49) fail("expected case exit jump");
-                    exits.push(p + short());
+                    // A case's statements end with a jump past the switch - or, the last case, run into the
+                    // endswitch (run_multi_branch / the statement loop step over it).
+                    if (b[p] === 0x49) {
+                        ++p;
+                        exits.push(p + short());
+                    } else if (b[p] !== 0x3d) fail("expected case exit jump");
                     // Only an immediate next case after an empty body is a
                     // grouped label. Its arguments still parse after a match.
                     const grouped = branch.length === 0 && b[p] === 0x3e;
@@ -396,15 +400,18 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 let fallback: Statement[] | undefined;
                 if (b[p] === 0x3f) {
                     ++p;
+                    // (the default's own jump is never taken: run_multi_branch steps over 3F 49 xx xx)
                     if (byte() !== 0x49) fail("expected compiled default jump");
-                    exits.push(p + short());
+                    short();
                     fallback = block(depth + 1, loops);
                 }
                 const end = p;
                 if (byte() !== 0x3d) fail("expected endswitch (pre-case statements are unsupported)");
-                if (exits.some((destination) => destination !== end)) fail("case exit does not target endswitch");
+                // An exit may land on the endswitch or past it, on the lines that follow.
+                const after = lines();
+                after.add(end);
+                if (exits.some((destination) => !after.has(destination))) fail("case exit does not target endswitch");
                 body.push({ kind: "switch", offset, fields, cases, ...(fallback === undefined ? {} : { fallback }) });
-                lines();
                 continue;
             }
             if (b[p] === 0x20) {
@@ -421,6 +428,8 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             if (b[p] === 0x47) {
                 ++p;
                 const destination = p + short();
+                const negate = b[p] === 0x39;
+                if (negate) ++p;
                 const condition =
                     b[p] === 0x16 ? call() : b[p] === 0x0e ? value(0) : fail("unsupported condition command token");
                 eol();
@@ -442,7 +451,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 if (endDestination !== undefined) {
                     if (!ends.has(endDestination)) fail("else jump does not target endif boundary");
                 } else if (!ends.has(destination)) fail("if jump does not target endif boundary");
-                body.push({ kind: "if", offset, condition, yes, no });
+                body.push({ kind: "if", offset, condition, ...(negate ? { negate: true as const } : {}), yes, no });
                 continue;
             }
             if (b[p] === 0x22) {
