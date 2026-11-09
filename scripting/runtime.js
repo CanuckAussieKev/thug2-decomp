@@ -168,7 +168,7 @@ globalThis.qb = (() => {
         },
         frame(p, root) { if (root || game) active.parameters = p; },
         module(m) {
-            if (tasks.size) throw Error('Cannot load QB modules with retained tasks');
+            if (tasks.size && !game) throw Error('Cannot load QB modules with retained tasks');
             if (m?.format !== 1 && m?.format !== 2) throw Error('Unsupported QB module format');
             if (m.format === 2) {
                 values();
@@ -181,7 +181,7 @@ globalThis.qb = (() => {
         },
         defineGlobal(n, value, site) {
             uint(n);
-            if (tasks.size) throw Error('Cannot load QB globals with retained tasks');
+            if (tasks.size && !game) throw Error('Cannot load QB globals with retained tasks');
             if (loadingFormat !== 2) throw Error('QB globals require module format 2');
             const copy = values().copy(value, 'value', context(site));
             scripts.delete(n); symbols.set(n, copy);
@@ -190,7 +190,7 @@ globalThis.qb = (() => {
         define(n, fn) {
             uint(n);
             if (typeof fn !== 'function') throw Error('Invalid QB script function');
-            if (tasks.size) throw Error('Cannot load QB scripts with retained tasks');
+            if (tasks.size && !game) throw Error('Cannot load QB scripts with retained tasks');
             if (loadingFormat === 1 && scripts.has(n)) throw Error('Duplicate QB script');
             scripts.set(n, {fn,format:loadingFormat});
             symbols.set(n, {kind:'callable',type:7,name:n});
@@ -250,7 +250,7 @@ globalThis.qb = (() => {
             if (!entry) throw Error('Unknown QB script');
             if (tasks.has(id)) throw Error('QB level already begun');
             const t = {id, owner:uint(owner), format:entry.format, object:0, generator:null, parameters:[], fuel:0, fuelLimit:1000000,
-                depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:'', dirty:true};
+                depth:0, site:null, remaining:0, waiting:false, frame:-1, status:'ready', message:'', dirty:true, assigned:[]};
             active = t;
             // (not as a root: its return values go to the interpreter, which adds them where the original does)
             try { t.generator = entry.fn(args, false); } finally { active = null; }
@@ -263,14 +263,16 @@ globalThis.qb = (() => {
             const t = tasks.get(id);
             if (!t) throw Error('Unknown QB level');
             if (active) throw Error('Reentrant QB execution');
-            if (Array.isArray(params) && !t.dirty) t.parameters.splice(0, t.parameters.length, ...params);
+            if (Array.isArray(params) && !t.dirty && !t.assigned.length) t.parameters.splice(0, t.parameters.length, ...params);
             t.fuel = t.fuelLimit; active = t;
             try {
                 const r = t.generator.next(result);
-                const changed = t.dirty ? t.parameters : null;
+                // Its changes: the whole list once (the defaults merged at its start), after that the assignments.
+                const changed = t.dirty ? {params:t.parameters} : t.assigned.length ? {assigned:t.assigned} : {params:null};
                 t.dirty = false;
-                if (r.done) { tasks.delete(id); return {done:true, returned:r.value ?? [], params:changed}; }
-                return {...r.value, params:changed};
+                t.assigned = [];
+                if (r.done) { tasks.delete(id); return {done:true, returned:r.value ?? [], ...changed}; }
+                return {...r.value, ...changed};
             } catch (e) {
                 tasks.delete(id);
                 throw e;
@@ -278,7 +280,7 @@ globalThis.qb = (() => {
         },
         // A level gone (its record reset, its level popped): forgotten.
         drop(id) { tasks.delete(id); },
-        // The level's parameters were changed by the script itself (an assignment): sent back with its next answer.
-        touched() { if (active) active.dirty = true; },
+        // An assignment by the level itself (name, the value as stored): sent back with its next answer.
+        touched(n, value) { if (game && active && !active.dirty) active.assigned.push([n, value]); },
     });
 })();

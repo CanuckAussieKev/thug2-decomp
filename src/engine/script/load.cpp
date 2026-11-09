@@ -70,7 +70,19 @@ void get_replace(SymbolTableEntry* existing, int temporary)
     }
 }
 
+QbLoadedHook& qb_loaded_hook()
+{
+    static QbLoadedHook hook = nullptr;
+    return hook;
+}
+
 } // namespace
+
+void set_qb_loaded_hook(QbLoadedHook hook) { qb_loaded_hook() = hook; }
+void replace_symbol_for_definition(SymbolTableEntry* existing, bool temporary)
+{
+    get_replace(existing, temporary ? 1 : 0);
+}
 
 // 0x00472240
 Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename)
@@ -185,6 +197,9 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
         case QbToken::kEndOfFile:
             memory::leave_heap_scope();
             loading_file() = 0;
+            if (qb_loaded_hook()) { // NOT ORIGINAL - the file's TypeScript module, if any (ts_bridge.h)
+                qb_loaded_hook()(filename, file, temporary);
+            }
             return;
         case QbToken::kName: { // name = value
             const uint32_t name = fetch_word32(cursor + 1);

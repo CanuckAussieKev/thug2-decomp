@@ -277,25 +277,7 @@ bool QbScript::execute_command(Tokens& pc)
         }
         const uint32_t function = read_name(pc);
         parse_function_params(pc);
-        const SymbolTableEntry* symbol = resolve_symbol(function);
-        if (!symbol && script_title_ == kQuietScriptName) {
-            return false;
-        }
-        // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
-        switch (symbol->type()) {
-        case QbValueKind::kScriptBody: {
-            const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
-            run_sub_script(function, code, stmt_args_.get(), object, false);
-            return true;
-        }
-        case QbValueKind::kNativeMethod:
-            if (const auto* entry = symbol->value().method()) {
-                return invoke_method_by_name(entry, object);
-            }
-            return invoke_method_by_name(function, object);
-        default: // (C functions included: not run on an object)
-            return false;
-        }
+        return run_command_on(function, object);
     }
 
     if (as_token(*pc) == QbToken::kEquals) { // name = value
@@ -321,6 +303,38 @@ bool QbScript::execute_command(Tokens& pc)
     }
 
     parse_function_params(pc);
+    return run_command(name);
+}
+
+// (NOT ORIGINAL - execute_command's end, also run for a TypeScript level's object:Command, cscript_ts.cpp)
+// `function` on `object`, its arguments in stmt_args_.
+bool QbScript::run_command_on(uint32_t function, objects::Entity* object)
+{
+    const SymbolTableEntry* symbol = resolve_symbol(function);
+    if (!symbol && script_title_ == kQuietScriptName) {
+        return false;
+    }
+    // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
+    switch (symbol->type()) {
+    case QbValueKind::kScriptBody: {
+        const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
+        run_sub_script(function, code, stmt_args_.get(), object, false);
+        return true;
+    }
+    case QbValueKind::kNativeMethod:
+        if (const auto* entry = symbol->value().method()) {
+            return invoke_method_by_name(entry, object);
+        }
+        return invoke_method_by_name(function, object);
+    default: // (C functions included: not run on an object)
+        return false;
+    }
+}
+
+// (NOT ORIGINAL - execute_command's end, also run for a TypeScript level's command calls, cscript_ts.cpp) `name`, its
+// arguments in stmt_args_.
+bool QbScript::run_command(uint32_t name)
+{
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol) {
         if (script_title_ != kQuietScriptName) {
@@ -654,6 +668,11 @@ ScriptOutcome QbScript::tick_frame()
         case QbToken::kSwitch:
             run_multi_branch(pc);
             break;
+        case QbToken::kTsBody: // NOT ORIGINAL - a TypeScript script's level (cscript_ts.cpp)
+            if (run_ts_level(pc)) {
+                return ScriptOutcome::kEndedByInterrupt;
+            }
+            continue; // (pc_ set by what it ran)
         case QbToken::kShortIf:
             run_conditional(pc);
             continue; // (pc_ set by the statement it ran)

@@ -230,6 +230,21 @@ set(GSL_TEST OFF CACHE BOOL "" FORCE)
 set(GSL_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(gsl)
 
+# --- quickjs-ng 0.17.0 (MIT; THIRD_PARTY_NOTICES.md) ---------------------------------------------------------------
+# The JavaScript engine the TypeScript scripts run in (src/script_qb/ts_bridge.cpp, docs/qb-ts.md "In the game"): its
+# core only, no libc / OS modules. The same pinned release as scripting/ (the standalone runtime and its tests).
+FetchContent_Declare(quickjs
+    URL https://github.com/quickjs-ng/quickjs/archive/refs/tags/v0.17.0.tar.gz
+    URL_HASH SHA256=559bc4c420475e55c7ab4510adbc562f55d7524d75e8e89d79ce4bb02f5687d9
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+set(QJS_BUILD_LIBC OFF CACHE BOOL "" FORCE)
+set(QJS_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_GetProperties(quickjs)
+if(NOT quickjs_POPULATED)
+    FetchContent_Populate(quickjs)
+    add_subdirectory(${quickjs_SOURCE_DIR} ${quickjs_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
 add_library(thug2_options INTERFACE)
 target_compile_features(thug2_options INTERFACE cxx_std_20)
 target_link_libraries(thug2_options INTERFACE Microsoft.GSL::GSL)

@@ -82,9 +82,13 @@ test("game mode: requests out, results and the record's parameters in, the level
     // seen = <fromHost> (refreshed from the record), ready = 1 (IsReady called in the expression)
     assert.equal(r.call, n("Helper"));
     same(calls, [`function ${n("IsReady").toString(16)}`]);
-    const params = r.params as [number, unknown][];
-    same(params.find(([k]) => k === n("seen"))?.[1], { type: 13, bits: n("hello") });
-    same(params.find(([k]) => k === n("ready"))?.[1], { type: 1, bits: 1 });
+    // after the first answer only the assignments come back
+    assert.equal(r.params, undefined);
+    same(r.assigned, [
+        [n("seen"), { type: 13, bits: n("hello") }],
+        [n("ready"), { type: 1, bits: 1 }],
+    ]);
+    const params = [...record, ...(r.assigned as unknown[])];
     r = qb.resume!(7, params, true) as Record<string, unknown>;
     assert.equal(r.done, true);
     same(r.returned, [[n("result"), { type: 1, bits: 5 }]]);

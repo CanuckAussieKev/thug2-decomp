@@ -646,6 +646,38 @@ globalThis.qbValues = (() => {
                 return { type: 10, members: out };
             }
         }
+        // Coordinates scaled (* or / by an integer or float), the cross product (vector * vector) and the dot product
+        // (. of two vectors or two pairs): as expression.cpp's multiply / divide / dot - each coordinate computed in
+        // double from the float32 operands, in the evaluator's order, and rounded once to float32 (get_rounded).
+        const isCoordinates = (v) => v.type === 5 || v.type === 6;
+        const coords = (v) => coordinates(v.coordinates, v.type === 5 ? 2 : 3, w).map(floatNumber);
+        const made = (type, xs) => ({ type, coordinates: xs.map((x) => floatBits(Math.fround(x))) });
+        if ((op === 12 || op === 13) && isCoordinates(a) && numeric(b)) {
+            if (
+                op === 12 &&
+                ((b.type === 1 && b.bits === 0) || (b.type === 2 && Math.abs(number(b)) < floatNumber(0x358637bd)))
+            )
+                fail("arithmetic", "Division by zero or near-zero float", w);
+            const s = number(b);
+            return made(a.type, coords(a).map((x) => (op === 12 ? x / s : x * s)));
+        }
+        if (op === 13 && numeric(a) && isCoordinates(b)) {
+            const s = number(a);
+            return made(b.type, coords(b).map((x) => s * x));
+        }
+        if (op === 13 && a.type === 6 && b.type === 6) {
+            const [ux, uy, uz] = coords(a),
+                [vx, vy, vz] = coords(b);
+            return made(6, [vz * uy - vy * uz, vx * uz - vz * ux, vy * ux - vx * uy]);
+        }
+        if (op === 8 && isCoordinates(a) && a.type !== b.type)
+            fail("type", `${a.type === 5 ? "Pair" : "Vector"} can only be dot producted with another of its kind`, w);
+        if (op === 8 && isCoordinates(a) && a.type === b.type) {
+            const u = coords(a),
+                v = coords(b);
+            const sum = a.type === 6 ? v[2] * u[2] + v[1] * u[1] + v[0] * u[0] : v[1] * u[1] + v[0] * u[0];
+            return floating(floatBits(Math.fround(sum)));
+        }
         if ((op === 10 || op === 11) && (a.type === 5 || a.type === 6) && a.type === b.type) {
             const n = a.type === 5 ? 2 : 3,
                 x = coordinates(a.coordinates, n, w),

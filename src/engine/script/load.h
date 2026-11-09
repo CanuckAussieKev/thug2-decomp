@@ -34,4 +34,11 @@ THUG2_API void load_qb(const char* filename, int unused, int temporary);
 // scripts running code that's gone, and unload the file if it's still loaded (pre-compiled ones are).
 void unload_qb(uint32_t file_checksum);
 
+// NOT ORIGINAL - for the TypeScript modules (src/script_qb/ts_bridge.h; the engine doesn't link the interpreter):
+// called after each .qb file's definitions are read (before the changed scripts restart) with the file's bytes, and
+// the loader's way of replacing a symbol that is being defined again (set aside for a temporary load, else removed).
+using QbLoadedHook = void (*)(const char* filename, std::span<const uint8_t> file, bool temporary);
+void set_qb_loaded_hook(QbLoadedHook hook);
+void replace_symbol_for_definition(SymbolTableEntry* existing, bool temporary);
+
 } // namespace script

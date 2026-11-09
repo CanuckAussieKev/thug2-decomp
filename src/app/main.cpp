@@ -38,6 +38,7 @@
 #include "media_ffmpeg/ffmpeg_movie.h"
 #include "engine/script/host.h"
 #include "script_qb/qb_host.h"
+#include "script_qb/ts_bridge.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"
@@ -98,6 +99,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     }
     // NOT ORIGINAL: the script runtime the game runs its scripts with (engine/script/host.h): the QB interpreter.
     script::install_host(script::qb::host());
+    // NOT ORIGINAL: TypeScript scripts - [features] ts_scripts (src/script_qb/ts_bridge.h), before any .qb file loads.
+    script::qb::ts::install();
     // NOT ORIGINAL: the script command table, composed in app/command_table.cpp, given to the script engine.
     app::install_command_tables();
     // NOT ORIGINAL: the exe's extensions (the new front end, the dev tools, our game features; the level editor from its

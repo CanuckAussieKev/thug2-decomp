@@ -105,6 +105,16 @@ public:
     void parse_function_params(Tokens& pc);
     // 0x004729E0: the name at pc (a name token, or <name> / <...> from the parameters), or 0.
     uint32_t read_name(Tokens& pc);
+    // NOT ORIGINAL - execute_command's end, from its arguments in stmt_args_ on: `name` run (a script called, a C
+    // function or member function run) / `function` run on `object` (object:Command). Also run for a TypeScript
+    // level's command calls.
+    bool run_command(uint32_t name);
+    bool run_command_on(uint32_t function, objects::Entity* object);
+    // NOT ORIGINAL - TypeScript levels (cscript_ts.cpp, ts_bridge.h): the level at pc (a kTsBody token) run on until it
+    // calls a command (carried out here) or ends (as a return: true when that level was an interrupt - Update returns
+    // FINISHED_INTERRUPT); every level's QuickJS state dropped (reset_script_state).
+    bool run_ts_level(Tokens& pc);
+    void forget_ts_levels();
     // 0x004731A0 / 0x004731E0: a member function on `object` (null: entity_; none: false) - by table entry
     // or by name.
     bool invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object);

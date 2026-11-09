@@ -31,7 +31,14 @@ globalThis.qbTs = (() => {
     const known = new WeakSet(); // a QB value
     const pending = new WeakSet(); // an operator's result: still an expression (materialised where it's used)
     const literalVector = new WeakSet(); // vec(...) written in the script (AddParameter's near-zero angles rule)
-    const origin = new WeakMap(); // a parameter read: [parameters, name] (operators read it again as an expression)
+    // p.x: a parameter read, done by what uses it - a value copy as an argument or a value, an expression read in an
+    // operator, the name it holds for a command or an object - when the statement uses it (so no read is done twice).
+    class ParamRead {
+        constructor(list, n) {
+            this.list = list;
+            this.n = n;
+        }
+    }
     const SPREAD = Symbol("all parameters");
     const PARAMS = Symbol("parameter list");
     const mark = (x, ...sets) => {
@@ -60,6 +67,7 @@ globalThis.qbTs = (() => {
     // A value as QB stores it: written literals become literal values, operator results their expression result.
     function value(x) {
         if (x === undefined) return undefined;
+        if (x instanceof ParamRead) return v.param(x.list, x.n, "value", ctx());
         if (typeof x === "number") return scalarNumber(x);
         if (typeof x === "string") return { type: 3, bytes: bytes(x) };
         if (typeof x === "function") return value(x());
@@ -77,8 +85,7 @@ globalThis.qbTs = (() => {
     }
     // An operand inside an expression: parameters are read as expressions (names standing for globals resolved).
     function operand(x) {
-        const read = typeof x === "object" && x !== null ? origin.get(x) : undefined;
-        if (read) return v.param(read[0], read[1], "expression", ctx());
+        if (x instanceof ParamRead) return v.param(x.list, x.n, "expression", ctx());
         if (typeof x === "object" && x !== null && known.has(x)) return x;
         return value(x);
     }
@@ -92,7 +99,13 @@ globalThis.qbTs = (() => {
                 out.push(null);
                 continue;
             }
-            if (item !== null && typeof item === "object" && !known.has(item) && !Array.isArray(item)) {
+            if (
+                item !== null &&
+                typeof item === "object" &&
+                !known.has(item) &&
+                !Array.isArray(item) &&
+                !(item instanceof ParamRead)
+            ) {
                 for (const key of Object.keys(item)) {
                     const x = item[key];
                     out.push(() => [checksum(key), value(x), false, literalVector.has(x)]);
@@ -127,19 +140,14 @@ globalThis.qbTs = (() => {
             get(target, key) {
                 if (key === PARAMS) return target;
                 if (typeof key !== "string") return undefined;
-                const n = checksum(key);
-                const x = v.param(target, n, "value", ctx());
-                if (x !== undefined) {
-                    mark(x);
-                    origin.set(x, [target, n]);
-                }
-                return x;
+                return new ParamRead(target, checksum(key));
             },
             set(target, key, x) {
                 const assigned = value(x);
                 if (assigned !== undefined) {
-                    v.append(target, [[checksum(key), assigned]], ctx());
-                    globalThis.qb.touched?.();
+                    const n = checksum(key);
+                    v.append(target, [[n, assigned]], ctx());
+                    globalThis.qb.touched?.(n, target.findLast((f) => f[0] === n)?.[1] ?? assigned);
                 }
                 return true;
             },
@@ -217,8 +225,7 @@ globalThis.qbTs = (() => {
         }
         if (named === null || typeof named !== "object") return 0;
         if (named[SPREAD]) return v.readChecksum(named[SPREAD], 0, ctx())?.bits ?? 0;
-        const read = origin.get(named);
-        if (read) return v.readChecksum(read[0], read[1], ctx())?.bits ?? 0;
+        if (named instanceof ParamRead) return v.readChecksum(named.list, named.n, ctx())?.bits ?? 0;
         // N.x, or an expression's result (on(val(...))): it must be a name
         return known.has(named) ? globalThis.qb.objectName(named) : 0;
     }

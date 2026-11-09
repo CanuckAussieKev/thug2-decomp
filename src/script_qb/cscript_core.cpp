@@ -197,6 +197,7 @@ void QbScript::reset_script_state()
     entity_.get_release();
     script_title_ = 0;
     flag_bits_ &= ~(kScriptRunInterrupted | kScriptRunWaitUpdated);
+    forget_ts_levels(); // NOT ORIGINAL - its TypeScript levels' state (cscript_ts.cpp)
 }
 
 // 0x00473880

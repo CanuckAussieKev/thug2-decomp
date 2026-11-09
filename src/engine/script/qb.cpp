@@ -183,6 +183,7 @@ Tokens step_over_token(Tokens token)
     case QbToken::kNativeFunction:
     case QbToken::kMemberFunctionName:
     case QbToken::kMemberFunction:
+    case QbToken::kTsBody: // (NOT ORIGINAL)
         return token + kTokenWithWordBytes;
     case QbToken::kString:
     case QbToken::kLocalString: // strings: the length, then the text

@@ -5,7 +5,7 @@ from this repo include them, so keep these notices with any distributed `thug2-d
 
 | Component | Where | Licence |
 |---|---|---|
-| quickjs-ng v0.17.0 - https://github.com/quickjs-ng/quickjs | downloaded with SHA-256 verification by the optional standalone scripting/CMakeLists.txt; core statically linked into the prototype, no quickjs-libc OS modules | MIT - below |
+| quickjs-ng v0.17.0 - https://github.com/quickjs-ng/quickjs | downloaded with SHA-256 verification by CMakeLists.txt (the game: the TypeScript scripts, src/script_qb/ts_bridge.cpp) and by the standalone scripting/CMakeLists.txt; core statically linked, no quickjs-libc OS modules | MIT - below |
 | PartyMod v1.0.4 (PARTYMANX) - https://github.com/PARTYMANX/partymod-thug2 | moved into the game's source (`src/game/`; each file with its code says so; code doing what PartyMod did is marked "Originally from PartyMod Fixes") - PartyMod's window, input, widescreen, settings and fixes | MIT - below |
 | SDL3 3.2.30 (Sam Lantinga and contributors) - https://github.com/libsdl-org/SDL, release-3.2.30 | downloaded at configure time (FetchContent, SHA-256 checked: the official Visual C++ development package); its SDL3.dll copied next to the exe by the build - the window, the keyboard, the mouse and game controllers | zlib - below |
 | SDL_GameControllerDB, commit 8b2d1a7 (2022-09-06) - https://github.com/mdqinc/SDL_GameControllerDB | gamecontrollerdb.txt, downloaded at configure time and copied into the game folder by the build | zlib - https://github.com/mdqinc/SDL_GameControllerDB/blob/8b2d1a791c8e5004c736e5137699e8e97ae558c5/LICENSE |

@@ -333,7 +333,16 @@
     assert(bin(11, a, b).coordinates.join(",") === [bits(4), bits(6)].join(","), "coordinate addition");
     assert(bin(10, b, a).coordinates.join(",") === [bits(2), bits(2)].join(","), "coordinate subtraction");
     eqBits(bin(7, a, v.copy(a, "value", ctx)), 1, 1);
-    fails("unsupported", () => bin(8, a, b)); // Compound coordinate dot/cross/scaling await precision tests.
+    // Coordinates scaled, crossed and dotted as expression.cpp's evaluator (double, then rounded once to float32).
+    eqBits(bin(8, a, b), 2, bits(11));
+    assert(bin(13, a, i(2)).coordinates.join(",") === [bits(2), bits(4)].join(","), "pair times integer");
+    assert(bin(13, i(2), vec).coordinates.join(",") === [bits(2), bits(4), bits(6)].join(","), "integer times vector");
+    assert(bin(12, vec, i(2)).coordinates.join(",") === [bits(0.5), bits(1), bits(1.5)].join(","), "vector over integer");
+    const ex = v.vector([bits(1), bits(0), bits(0)]),
+        ey = v.vector([bits(0), bits(1), bits(0)]);
+    assert(bin(13, ex, ey).coordinates.join(",") === [bits(0), bits(0), bits(1)].join(","), "cross product");
+    fails("arithmetic", () => bin(12, vec, i(0)));
+    fails("type", () => bin(8, a, vec));
     fails("unsupported", () => bin(0xffff, i(1), i(1)));
     assert(bin(11,undefined,i(1))===undefined,"empty operand propagates");
     for(const op of [7,18,20,50,51]) {

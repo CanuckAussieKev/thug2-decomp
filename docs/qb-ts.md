@@ -60,3 +60,36 @@ Differences from the JavaScript emitter's output: a TypeScript script charges th
 command call and loop pass, not per statement (QuickJS's interrupt handler is the backstop for a runaway one), and a
 fault names the TypeScript line rather than a QB offset. A random choice's no-repeat state is kept per call site as in
 the original (the site is the script and the call's number `k` instead of its QB offset).
+
+## In the game
+
+The game runs translated scripts in QuickJS with `[features] ts_scripts=1` (default 0; `[debug] ts_profile=1` logs
+where the time goes). `node tools/qbjs/install_ts.ts --game <folder> [--clear]` translates the folder's `.qb` files -
+`Data\scripts`, `Data\levels` and the `thug2-decomp-*` overlays - into `thug2-decomp-ts`: `by-hash\<hash>.js`, named by
+the FNV-1a hash of the `.qb` file's bytes, and the readable `source\<folder>\<path>.ts` beside. After the loader reads a
+`.qb` file it hashes the bytes it read and loads the module of that name, if there is one - so a module only ever
+replaces the very file it was translated from (an overlay's or a mod's version of a file has its own), and a file
+without one stays QB. The module's scripts and globals replace that file's.
+
+The C++ interpreter stays the host: the record, its Update, waits, events, spawning, objects and the call stack are all
+its own, so the scheduling is the original's by construction. A translated script's symbol has a body of one token
+(`kTsBody`, 0x4A + its name); when Update reaches it on a call-stack level, the interpreter resumes that level in
+QuickJS (`src/script_qb/cscript_ts.cpp`, `ts_bridge.cpp`):
+
+- each command call comes back as a request `{call, args, on}`, carried out exactly as `execute_command` carries out a
+  statement's (`run_command` / `run_command_on`, the arguments as the statement's); a script it calls returns to the
+  token, and the level is resumed with the command's result - after the callee's return, or after the wait the command
+  set;
+- the level's end is a return: its OnExitRun script, then `return_from_script` with its return values;
+- the record's parameter list is the level's: sent to it when it changed since the level last saw it (a 64-bit
+  fingerprint), and the level's own assignments (or, once, its defaults merged with the arguments) sent back;
+- symbols are the game's (`__qbGame.symbol`), C functions in expressions are called natively, random numbers come from
+  the game's generator; a module's globals and scripts are defined as the loader defines a file's (tagged with the file,
+  set aside for a temporary load).
+
+A JavaScript fault is logged (`ts: <script>: ...`) and ends the level. Where the original hangs - an object-qualified
+call on a missing object - a TypeScript level is logged and told false instead.
+
+2026-11-09: with all of THUG2's translatable modules installed (502, overlays and ported levels included) the game boots
+to the main menu and loads Boston in free skate with no fault; a release build boots in 10.4 s against 6.7 s with QB
+only (module loading, and texture-list scripts that loop over big arrays - next to optimise).

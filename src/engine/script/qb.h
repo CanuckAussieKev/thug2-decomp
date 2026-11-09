@@ -107,6 +107,9 @@ enum class QbToken : uint8_t {
     kShortIf = 0x47, // an if with a 2-byte jump
     kShortElse = 0x48,
     kShortJump = 0x49,
+    // NOT ORIGINAL - the body of a script defined by a TypeScript module (src/script_qb/ts_bridge.h): + the script's
+    // 4-byte name; the interpreter runs the level in QuickJS when it reaches it.
+    kTsBody = 0x4A,
 };
 // A byte of code read as the token it is (bytes no token has stay representable), and a token written as its byte.
 [[nodiscard]] constexpr QbToken as_token(uint8_t byte) { return static_cast<QbToken>(byte); }
