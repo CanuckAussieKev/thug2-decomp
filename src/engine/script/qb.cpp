@@ -56,7 +56,10 @@ constexpr uint32_t kLabelBucketMask = 0xFFF;
 // A shuffle swaps this many pairs for each choice.
 // The permanent string table: one entry per string (8 bytes on x86: memory_sizes.cpp).
 constexpr uint32_t kPermanentStringEntryBytes = sizeof(PermanentString);
-constexpr std::size_t kPendingSymbolCapacity = 500;
+// (NOT ORIGINAL: 500 in the original, whose 501st pending change runs off the table - a crash. More room changes
+// nothing that worked: a temporary load of a big level file - or one with its TypeScript module, which replaces each
+// script again - fits)
+constexpr std::size_t kPendingSymbolCapacity = 16384;
 } // namespace
 
 StoredScript read_stored_script(const uint8_t* record)

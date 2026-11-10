@@ -468,16 +468,16 @@ void run_plan(const std::string& folder)
         Struct* module = modules->struct_at(m);
         const std::string file = text_of(module, "file");
         get_log("script check: %s (%u of %u)", file.c_str(), m + 1, modules->extent());
-        // A file the game hasn't loaded (a level's) is loaded for its module and unloaded after (a temporary load
-        // would overflow the loader's pending changes - its TypeScript module replaces each script again); a boot
-        // file is run as it is.
+        // A file the game hasn't loaded (a level's) is loaded for its module as a temporary load, undone after - what it
+        // replaced (a boot script a level redefines) put back, so every module runs against the same boot scripts; a
+        // boot file is run as it is.
         const uint32_t file_name = checksums::hash_from_text(file.c_str());
         bool loaded = false;
         for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol && !loaded; symbol = get_next_symbol(symbol)) {
             loaded = symbol->unknown8() == file_name;
         }
         if (!loaded) {
-            load_qb(file.c_str(), 0, 0);
+            load_qb(file.c_str(), 0, 1);
         }
         // The module's scripts and their arguments: its own part of the plan (check_scripts), loaded for it alone -
         // the whole plan at once would fill the script pools.
@@ -485,8 +485,9 @@ void run_plan(const std::string& folder)
         const std::string part_name = text_of(module, "part");
         if (!fs::read_text(folder + "\\" + part_name, &part)) {
             get_log("script check: no %s", part_name.c_str());
+            process_pending_symbols(); // (the module's temporary load undone)
             if (!loaded) {
-                unload_qb(file_name);
+                ts::forget_file(file_name); // (its TypeScript functions: the undo doesn't unload the file)
             }
             continue;
         }
@@ -553,7 +554,7 @@ void run_plan(const std::string& folder)
         fs::disk().stream_flush(output.get());
         process_pending_symbols(); // (its part of the plan undone)
         if (!loaded) {
-            unload_qb(file_name);
+            ts::forget_file(file_name); // (its TypeScript functions: the undo doesn't unload the file)
         }
     }
     s.on = false;

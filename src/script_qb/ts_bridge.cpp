@@ -1068,6 +1068,8 @@ void install()
 
 bool enabled() { return is_on(); }
 
+void forget_file(uint32_t file_checksum) { on_qb_unloaded(file_checksum); }
+
 void set_interrupt_budget(uint32_t budget) { interrupt_budget() = budget == 0 ? kInterruptBudget : budget; }
 
 uint32_t begin(uint32_t name, uint32_t title, Struct* args, uint32_t owner, std::string& error)

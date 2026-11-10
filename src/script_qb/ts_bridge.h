@@ -27,6 +27,8 @@ void install();
 [[nodiscard]] bool enabled();
 // QuickJS's interrupt budget for each run of it (0: the game's own) - the script check lowers it.
 void set_interrupt_budget(uint32_t budget);
+// The functions the TypeScript module of .qb file `file_checksum` defined let go of (as when the file is unloaded).
+void forget_file(uint32_t file_checksum);
 
 // What a level asks for when it stops running.
 struct Answer {
