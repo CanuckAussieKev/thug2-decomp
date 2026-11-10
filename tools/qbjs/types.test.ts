@@ -54,3 +54,31 @@ test("typings and the report: the recording's types added, waits counted", () =>
     assert.match(result.report, /\| parameter reads \(p\.x as a value\) \| 1 \| 0 \| - \|/);
     assert.match(result.report, /- `param types\.qb _0x[0-9a-f]{8} _0x[0-9a-f]{8}`: int 4, float 1/);
 });
+
+test("RandomRange's kind: an integer for whole endpoints, else a float (random.js range)", async () => {
+    const { rangeKind } = await import("./typecheck.ts");
+    const bits = (f: number) => new Uint32Array(new Float32Array([f]).buffer)[0]!;
+    assert.equal(rangeKind({ a: bits(0), b: bits(4) }), "int");
+    assert.equal(rangeKind({ a: bits(-3), b: bits(2.000001) }), "int");
+    assert.equal(rangeKind({ a: bits(0), b: bits(0.5) }), "float");
+});
+
+test("the script check's run ends read back for the type proof's test", async () => {
+    const { traceKind, traceMembers } = await import("./check_types_against_runs.ts");
+    const members = traceMembers(
+        '{0c39eca4=0 ab377503=[#4faa6460] 3f6bcdba={00000000=128} 7f261953=(41a00000,41200000) a="x y" b=L"z" c=f3f800000 d=(1,2,3)}',
+    );
+    assert.deepEqual(
+        members.map(([k, v]) => [k, traceKind(v)]),
+        [
+            ["0c39eca4", "int"],
+            ["ab377503", "array"],
+            ["3f6bcdba", "struct"],
+            ["7f261953", "pair"],
+            ["a", "string"],
+            ["b", "localstring"],
+            ["c", "float"],
+            ["d", "vector"],
+        ],
+    );
+});

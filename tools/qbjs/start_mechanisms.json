@@ -6888,11 +6888,7 @@
     ]
    },
    "plus": {
-    "goal_objects_index": "int",
-    "first_spot_params?": {
-     "kinds": "struct",
-     "members": {}
-    }
+    "goal_objects_index": "int"
    },
    "sites": [
     "src/game/goals/goal_skate_line.cpp:68"
@@ -7067,6 +7063,40 @@
     "src/game/skate/competition_cfuncs.cpp:259"
    ],
    "how": "ApplyToHorsePanelString's arguments with the text and id"
+  },
+  {
+   "entry": {
+    "member": "TriggerScript"
+   },
+   "path": [],
+   "params": {
+    "argumentPath": [
+     "params"
+    ]
+   },
+   "flowOnly": true,
+   "how": "an object made from a structure a script passes (CreateFromStructure, special items, created objects): its TriggerScript runs with the structure's params, as a node's",
+   "sites": [
+    "src/engine/objects/trigger_component.cpp (as the node TriggerScript entries)"
+   ]
+  },
+  {
+   "entry": {
+    "pool": "goal"
+   },
+   "path": [],
+   "script": "goal_skate_the_line_next_cluster",
+   "params": {
+    "argumentPath": [
+     "goal_objects",
+     "[]"
+    ],
+    "as": "first_spot_params"
+   },
+   "sites": [
+    "src/game/goals/goal_skate_line.cpp:68"
+   ],
+   "how": "first_spot_params (on the first cluster): the first element of goal_objects"
   }
  ],
  "events": {

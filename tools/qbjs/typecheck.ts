@@ -114,10 +114,47 @@ const NO_NAMES: Set<number> = new Set();
 // Shared structures a value may stand for without a copy (the dynamic calls' inbox, the pools): a structure value's
 // `lazy` names them, and its members are read through them (typecheck sets these up).
 const LAZY = new Map<string, Ty>();
-const expanding = new Set<string>(); // (pools being read through: a pool holding itself is read once)
 // The names `deep` keeps (typecheck sets them: scripts and globals - what a name held deep is used for: a call or a start
 // of a script, a global it names). Others aren't kept (an event type held deep: handlers take every event's payload).
 let deepKeeps: Set<number> | undefined;
+// The checker's state version (typecheck bumps it whenever a script's parameters / returns, a pool or the inbox change):
+// reads of shared values are cached while it stands.
+const STATE = { version: 0 };
+// Each shared value's version (bumped when it, or a shared value it reads through, grows): its cached member reads
+// stand while it does.
+const SHARED_VERSIONS = new Map<string, number>();
+const sharedMembers = new Map<string, { version: number; byName: Map<number, Ty> }>();
+// The shared values `t` reads through, transitively (each once).
+function lazyClosure(t: Ty): Set<string> {
+    const out = new Set<string>();
+    if (!t.lazy) return out;
+    const todo = [...t.lazy];
+    while (todo.length) {
+        const l = todo.pop()!;
+        if (out.has(l)) continue;
+        const shared = LAZY.get(l);
+        if (!shared) continue;
+        out.add(l);
+        for (const m of shared.lazy ?? []) if (!out.has(m)) todo.push(m);
+    }
+    return out;
+}
+// A shared value's own member (cached while it stands; never changed by its users).
+function sharedMember(l: string, shared: Ty, n: number): Ty {
+    const version = SHARED_VERSIONS.get(l) ?? 0;
+    let entry = sharedMembers.get(l);
+    if (!entry || entry.version !== version) {
+        entry = { version, byName: new Map() };
+        sharedMembers.set(l, entry);
+    }
+    const byName = entry.byName;
+    let t = byName.get(n);
+    if (!t) {
+        t = shared.ownMember(n);
+        byName.set(n, t);
+    }
+    return t;
+}
 
 export class Ty {
     kinds = new KindSet();
@@ -128,6 +165,7 @@ export class Ty {
     // The names held below DEPTH, where shapes aren't kept (null: any name) - so a script named deep in a structure is
     // still seen to reach what that structure reaches (namesAt).
     deep?: Set<number> | null;
+    deepShared?: boolean; // (`deep` is another value's set: copied before it is added to)
     lazy?: Set<string>; // shared structures this structure includes (LAZY), read through, never copied
     // The kinds of the values held below DEPTH (shapes not kept): a member or element read there is one of them.
     below?: KindSet;
@@ -198,7 +236,7 @@ export class Ty {
                 if (this.names.size > NAME_LIMIT) this.names = null;
             }
         }
-        if (b.deep !== undefined) changed = this.addDeep(b.deep) || changed;
+        if (b.deep !== undefined) changed = this.addDeep(b.deep, true) || changed;
         if (b.lazy)
             for (const l of b.lazy) {
                 if (this.lazy?.has(l)) continue;
@@ -254,44 +292,54 @@ export class Ty {
         return true;
     }
     // Names joined into `deep`; true when it grew.
-    addDeep(names: Set<number> | null): boolean {
+    // `shared`: `names` is another value's `deep` (already kept names only): taken by reference while this has none,
+    // copied before this first adds to it.
+    addDeep(names: Set<number> | null, shared = false): boolean {
         if (this.deep === null) return false;
         if (names === null) {
             this.deep = null;
             return true;
         }
-        if (!names.size) return false;
+        if (!names.size || this.deep === names) return false;
+        if (shared && this.deep === undefined) {
+            this.deep = names;
+            this.deepShared = true;
+            return true;
+        }
         let changed = false;
         for (const n of names) {
             if (deepKeeps && !deepKeeps.has(n)) continue;
+            if (this.deep?.has(n)) continue;
             if (!this.deep) this.deep = new Set();
-            if (!this.deep.has(n)) {
-                this.deep.add(n);
-                changed = true;
+            else if (this.deepShared) {
+                this.deep = new Set(this.deep);
+                this.deepShared = false;
             }
+            this.deep.add(n);
+            changed = true;
         }
         if (this.deep && this.deep.size > 1 << 16) this.deep = null;
         return changed;
     }
     member(n: number): Ty {
+        const t = this.ownMember(n);
+        // (the shared values it reads through, and those they read through: each once)
+        for (const l of lazyClosure(this)) {
+            const shared = LAZY.get(l)!;
+            if (!shared.fields?.has(n) && !shared.rest && !(shared.below && !shared.fields)) continue;
+            t.join(sharedMember(l, shared, n));
+        }
+        return t;
+    }
+    // Its own member n (not through the shared values it reads).
+    ownMember(n: number): Ty {
         const t = new Ty();
         const f = this.fields?.get(n);
         if (f) t.join(f);
         if (this.rest) t.join(this.rest);
         if (!f) t.kinds.add("none");
         if (!f && !this.fields && !this.rest && this.below) t.join(belowTy(this));
-        if (this.deep !== undefined) t.addDeep(this.deep);
-        for (const l of this.lazy ?? []) {
-            if (expanding.has(l)) continue;
-            const shared = LAZY.get(l);
-            if (!shared || (!shared.fields?.has(n) && !shared.rest && !shared.lazy)) continue;
-            expanding.add(l);
-            try {
-                t.join(shared.member(n));
-            } finally {
-                expanding.delete(l);
-            }
-        }
+        if (this.deep !== undefined) t.addDeep(this.deep, true);
         return t;
     }
     text(): string {
@@ -342,7 +390,7 @@ export function belowTy(t: Ty): Ty {
     out.kinds.add("none");
     out.below = new KindSet();
     out.below.bits = t.below!.bits;
-    if (t.deep !== undefined) out.addDeep(t.deep);
+    if (t.deep !== undefined) out.addDeep(t.deep, true);
     out.names = t.deep === null ? null : new Set(t.deep ?? []);
     out.why = t.why;
     return out;
@@ -360,19 +408,16 @@ export function allNames(t: Ty): Set<number> | null {
 // element, "*member" any member, "@global" the global(s) the value names. Names kept below the depth limit come along
 // (in `deep`); a step into something not tracked gives an unknown.
 // The elements of the shared values `t` reads through (LAZY): an element read joins them.
-export function lazyElems(t: Ty, into: Ty) {
+export function lazyElems(t: Ty, into: Ty, seen = new Set<string>()) {
+    // (each shared value once per read: they reference each other densely)
     for (const l of t.lazy ?? []) {
-        if (expanding.has(l)) continue;
+        if (seen.has(l)) continue;
+        seen.add(l);
         const shared = LAZY.get(l);
         if (!shared) continue;
-        expanding.add(l);
-        try {
-            if (shared.elem) into.join(shared.elem);
-            if (shared.below && shared.kinds.has("array")) into.join(belowTy(shared));
-            if (shared.lazy) lazyElems(shared, into);
-        } finally {
-            expanding.delete(l);
-        }
+        if (shared.elem) into.join(shared.elem);
+        if (shared.below && shared.kinds.has("array")) into.join(belowTy(shared));
+        if (shared.lazy) lazyElems(shared, into, seen);
     }
 }
 // (set by typecheck: the value of any global, for a global named by a value whose names can't be told)
@@ -388,7 +433,7 @@ export function tyAt(
     let at = t;
     for (const step of path) {
         const next = new Ty();
-        if (at.deep !== undefined) next.addDeep(at.deep);
+        if (at.deep !== undefined) next.addDeep(at.deep, true);
         if (step === "[]") {
             if (at.elem) next.join(at.elem);
             else if (at.kinds.has("array") && at.below) next.join(belowTy(at));
@@ -398,10 +443,11 @@ export function tyAt(
         } else if (step === "*member") {
             for (const f of at.fields?.values() ?? []) next.join(f);
             if (at.rest) next.join(at.rest);
-            for (const l of at.lazy ?? []) {
-                const shared = LAZY.get(l);
-                for (const f of shared?.fields?.values() ?? []) next.join(f);
-                if (shared?.rest) next.join(shared.rest);
+            for (const l of lazyClosure(at)) {
+                const shared = LAZY.get(l)!;
+                for (const f of shared.fields?.values() ?? []) next.join(f);
+                if (shared.rest) next.join(shared.rest);
+                if (shared.below && !shared.fields && !shared.rest) next.join(belowTy(shared));
             }
             if (at.kinds.has("struct") && !at.fields && !at.rest && !at.lazy)
                 next.join(at.below ? belowTy(at) : Ty.unknown("a member of a structure whose members weren't tracked"));
@@ -487,7 +533,7 @@ export function operatorTable(): Map<string, Set<Kind>> {
         none: [undefined],
     };
     const table = new Map<string, Set<Kind>>();
-    for (const op of [7, 10, 11, 12, 13, 18, 20, 50, 51])
+    for (const op of [7, 8, 10, 11, 12, 13, 18, 20, 50, 51])
         for (const a of KINDS)
             for (const b of KINDS) {
                 const out = new Set<Kind>();
@@ -547,7 +593,7 @@ type Start = { script: string; params?: string | { members: Record<string, strin
 export type ValueSource =
     | TypeSpec
     | { argumentPath: string[] }
-    | { pool: string }
+    | { pool: string; path?: string[] }
     | { global: string; path: string[] }
     | { globalsMatching: string; path: string[] }
     | { array: ValueSource }
@@ -556,8 +602,8 @@ export type ValueSource =
 // structure), or {"kinds": "...", "array"?: ..., "members"?: ...} for a union with a shaped array / structure.
 export type TypeSpec = string | { kinds?: string; array?: TypeSpec; members?: Record<string, TypeSpec> };
 function specTy(spec: TypeSpec): Ty {
-    if (typeof spec === "string") return Ty.of(...kindsOf(spec));
-    const t = Ty.of(...kindsOf(spec.kinds ?? ""));
+    if (typeof spec === "string") return kindsTy(kindsOf(spec));
+    const t = kindsTy(kindsOf(spec.kinds ?? ""));
     if (spec.array !== undefined) {
         t.kinds.add("array");
         t.elem = specTy(spec.array);
@@ -585,6 +631,13 @@ function membersTy(members: Record<string, TypeSpec>): Ty {
     return t;
 }
 const memberKey = (k: string) => (/^0x[0-9a-f]{8}$/i.test(k) ? Number.parseInt(k, 16) >>> 0 : checksum(k));
+// A value of these kinds made outside the scripts (a command's output, a catalogue's member): a name or script it holds
+// may be any (the C++ makes it) - unless a catalogue says which (FormatText's made names, pools of the scripts' own).
+const kindsTy = (kinds: Kind[]): Ty => {
+    const t = Ty.of(...kinds);
+    if (t.kinds.has("name") || t.kinds.has("script")) t.names = null;
+    return t;
+};
 const kindsOf = (text: string): Kind[] =>
     text === "any" ? [...KINDS] : (text.split("|").filter((k) => (KINDS as readonly string[]).includes(k)) as Kind[]);
 
@@ -612,6 +665,7 @@ export type StartMechanism = {
         | { excluded: string };
     path: string[];
     script?: string; // a script the C++ names itself (entry_models.json's, when its parameters come from the entry)
+    flowOnly?: boolean; // (a member mechanism for structures the scripts pass, not the data's - node data has its own)
     params: StartParams;
     plus?: Record<string, string> | { argumentPath: string[] } | { pool: string } | { eventType: string[] };
     sites?: string[];
@@ -680,6 +734,7 @@ export function digest(
         // (a member way is always kept: node mechanisms take their exact names from it)
         if (set.size < 16 || how.startsWith("member ")) set.add(how);
     };
+    let inData = true;
     const collect = (x: unknown, field: number, call: number): void => {
         if (!x || typeof x !== "object") return;
         if (Array.isArray(x)) {
@@ -694,7 +749,7 @@ export function digest(
             note(r.name, "in an expression");
         // A node's TriggerScript is started with the node's params (the engine's and the game's catalogues):
         // `triggers` gets that structure's type for the script it names.
-        if (r.kind === "structure" && triggers && Array.isArray(r.fields)) {
+        if (r.kind === "structure" && triggers && inData && Array.isArray(r.fields)) {
             const fs = r.fields as { name?: number; value?: Expr }[];
             const trigger = fs.find((f) => f.name === TRIGGER_SCRIPT && f.value?.kind === "literal");
             const v = trigger?.value as Extract<Expr, { kind: "literal" }> | undefined;
@@ -721,7 +776,12 @@ export function digest(
         }
         for (const item of Object.values(x)) collect(item, field, call);
     };
-    collect(ir.definitions, 0, 0);
+    // (a node's TriggerScript params from the data only: a structure a script builds is followed in the flow -
+    // start_mechanisms.json's TriggerScript member mechanism)
+    for (const d of ir.definitions) {
+        inData = d.kind === "global";
+        collect(d, 0, 0);
+    }
     for (const d of ir.definitions) {
         if (d.kind !== "global") continue;
         const t = globals.get(d.name) ?? new Ty();
@@ -731,8 +791,24 @@ export function digest(
     return { ...ir, definitions: ir.definitions.filter((d) => d.kind === "script") };
 }
 const TRIGGER_SCRIPT = 0x2ca8a299; // TriggerScript
+const FORMAT_TEXT = checksum("FormatText");
+const CHECKSUM_NAME = checksum("ChecksumName");
 const PARAMS = checksum("params");
 const hex8 = (n: number) => `0x${(n >>> 0).toString(16).padStart(8, "0")}`;
+
+// RandomRange's kind (random.js range, ParseRandomRange 0x0046FBD0): an integer when both endpoints are within 1e-5 of
+// a whole number (truncated after a +/-0.1 nudge), else a float.
+const RANGE_NUDGE = new Float32Array(new Uint32Array([0x3dcccccd]).buffer)[0]!;
+const RANGE_TOLERANCE = new Float32Array(new Uint32Array([0x3727c5ac]).buffer)[0]!;
+export function rangeKind(x: { a: number; b: number }): Kind {
+    const whole = (bits: number) => {
+        const f = new Float32Array(new Uint32Array([bits >>> 0]).buffer)[0]!;
+        if (!Number.isFinite(f)) return false;
+        const n = Math.trunc(f + (f >= 0 ? RANGE_NUDGE : -RANGE_NUDGE));
+        return n >= -0x80000000 && n <= 0x7fffffff && Math.abs(f - n) <= RANGE_TOLERANCE;
+    };
+    return whole(x.a) && whole(x.b) ? "int" : "float";
+}
 
 // A global's value's type (a global is parsed without parameters: literals, structures, arrays, scripts).
 function valueTy(x: Expr): Ty {
@@ -770,7 +846,7 @@ function valueTy(x: Expr): Ty {
             return t;
         }
         case "randomRange":
-            return Ty.of("float");
+            return Ty.of(rangeKind(x));
         case "inlineScript":
             return Ty.of("script");
         default:
@@ -878,7 +954,7 @@ export function typecheck(
                     x,
                 );
             case "randomRange":
-                return Ty.of("float");
+                return Ty.of(rangeKind(x));
             case "randomChoice": {
                 const t = new Ty();
                 for (const c of x.choices) t.join(exprTy(c, s, mode));
@@ -941,18 +1017,22 @@ export function typecheck(
         }
         if (op === 8) {
             // a.b: a member, or none
-            if (a.kinds.has("struct")) {
+            // (a structure's member is looked up by a name; any other pair of kinds - a pair's dot product - is the
+            // operator's, from values.js)
+            if (a.kinds.has("struct") && b.kinds.has("name")) {
                 const untracked = () =>
                     a.below ? belowTy(a) : Ty.unknown("a member of a structure whose members weren't tracked");
                 // (a member named by a value whose names can't be told: any of its members)
-                if (b.names === null || !b.kinds.has("name"))
+                if (b.names === null)
                     out.join(a.fields || a.rest || a.lazy ? tyAt(a, ["*member"], globalOf) : untracked());
                 else for (const n of b.names) out.join(a.member(n));
                 if (!a.fields && !a.rest && !a.lazy) out.join(untracked());
             }
-            for (const k of a.kinds)
-                if (k !== "struct")
-                    for (const r of ops.get(`8 ${k} ${[...b.kinds][0] ?? "none"}`) ?? []) out.kinds.add(r);
+            for (const ka of a.kinds)
+                for (const kb of b.kinds) {
+                    if (ka === "struct" && kb === "name") continue;
+                    for (const r of ops.get(`8 ${ka} ${kb}`) ?? []) out.kinds.add(r);
+                }
             out.kinds.add("none");
             return out;
         }
@@ -995,6 +1075,7 @@ export function typecheck(
                     const whole = paramsValue(s);
                     for (const [n, v] of whole.fields ?? []) put(n, v);
                     if (whole.rest) restOf(t).join(whole.rest);
+                    if (whole.lazy) t.lazy = new Set([...(t.lazy ?? []), ...whole.lazy]);
                 }
                 continue;
             }
@@ -1017,6 +1098,10 @@ export function typecheck(
                 for (const [n, m] of v.fields ?? []) put(n, m);
                 if (v.rest) restOf(t).join(v.rest);
                 if (v.why) restOf(t).join(v);
+                // (a structure whose members weren't kept - below the depth limit: members of any name, of the kinds
+                // held there; the shared structures it reads through, by reference)
+                if (!v.fields && !v.rest && v.below) restOf(t).join(belowTy(v));
+                if (v.lazy) t.lazy = new Set([...(t.lazy ?? []), ...v.lazy]);
             }
             if (f.value.kind === "inlineScript") put(f.name, Ty.of("script"));
             else if (f.name === 0 && f.value.kind !== "structure") put(0, v);
@@ -1045,13 +1130,12 @@ export function typecheck(
         named.has(s.def.name) && (inbox.fields !== undefined || inboxPools.size > 0);
     // (member reads are cached until the state - scripts' parameters, returns, presence, pools, the inbox - changes:
     // a read's result is never changed by its users)
-    let stateVersion = 0;
     const memberCache = new Map<ScriptInfo, Map<number, Ty>>();
     let cacheVersion = -1;
     const memberOf = (s: ScriptInfo, n: number): Ty => {
-        if (cacheVersion !== stateVersion) {
+        if (cacheVersion !== STATE.version) {
             memberCache.clear();
-            cacheVersion = stateVersion;
+            cacheVersion = STATE.version;
         }
         let byScript = memberCache.get(s);
         const hit = byScript?.get(n);
@@ -1079,7 +1163,7 @@ export function typecheck(
         const keys = new Set<number>();
         if (t) for (const [n, f] of t.fields ?? []) if (!f.kinds.has("none")) keys.add(n);
         const before = target.present;
-        ++stateVersion;
+        ++STATE.version;
         if (before === null) target.present = keys;
         else {
             const kept = new Set([...before].filter((n) => keys.has(n)));
@@ -1124,7 +1208,7 @@ export function typecheck(
     const callers = new Map<number, Set<number>>();
     const grow = (target: ScriptInfo, into: "params" | "returns", t: Ty) => {
         if (!target[into].join(t, 0, into === "params")) return;
-        ++stateVersion;
+        ++STATE.version;
         if (into === "returns" && named.has(target.def.name)) poolGrow("anyReturns", t);
         for (const l of target[into].lazy ?? [])
             if (!target.pools.has(l)) {
@@ -1165,22 +1249,48 @@ export function typecheck(
     };
     const poolTy = (name: string) => pool(name).ty;
     const poolReaders = new Map<string, Set<string>>(); // pool -> the pools that read it through
+    // (a shared value that took references to others in a join reads them through: it is one of their readers)
+    const noteReaders = (name: string, ty: Ty) => {
+        for (const l of ty.lazy ?? []) {
+            if (l === name) continue;
+            let readers = poolReaders.get(l);
+            if (!readers) {
+                readers = new Set();
+                poolReaders.set(l, readers);
+            }
+            readers.add(name);
+        }
+    };
     const poolStarts = new Map<string, StartMechanism[]>(); // pool -> the starts whose parameters are inside it
+    const pendingPoolStarts = new Set<string>();
+    const runPendingPoolStarts = () => {
+        for (const key of pendingPoolStarts) {
+            pendingPoolStarts.delete(key);
+            const [name, index] = key.split("|");
+            runPoolStart(name!, catalogue.mechanisms[Number(index)]!);
+        }
+    };
     let runPoolStart: (name: string, m: StartMechanism) => void = () => {};
     const poolGrow = (name: string, t: Ty) => {
         const p = pool(name);
-        if (!p.ty.join(t)) return;
-        ++stateVersion;
-        // (its readers, and the readers of the pools that read it through)
+        if (!p.ty.join(t, SHALLOW)) return;
+        noteReaders(name, p.ty);
+        sharedGrew(name);
+        if (name.startsWith("event:") && name !== "event:*") poolGrow("event:*", t);
+    };
+    // A shared value grew: its readers, and the readers of the shared values that read it through, walk again.
+    const sharedGrew = (name: string) => {
+        ++STATE.version;
         const touched = new Set<string>([name]);
         for (const q of touched) for (const r of poolReaders.get(q) ?? []) touched.add(r);
         for (const q of touched) {
+            SHARED_VERSIONS.set(q, (SHARED_VERSIONS.get(q) ?? 0) + 1);
             for (const n of pools.get(q)?.subs ?? [])
                 if (n === -1) for (const d of dynamicTargets()) enqueue(d);
                 else enqueue(n);
-            for (const m of poolStarts.get(q) ?? []) runPoolStart(q, m);
+            // (run before the next walk, once however often the pool grows meanwhile)
+            for (const m of poolStarts.get(q) ?? []) pendingPoolStarts.add(`${q}|${catalogue.mechanisms.indexOf(m)}`);
         }
-        if (name.startsWith("event:") && name !== "event:*") poolGrow("event:*", t);
     };
     // The payload pools of the event types `names` names (null: any type).
     const eventPools = (names: Set<number> | null): string[] =>
@@ -1194,7 +1304,7 @@ export function typecheck(
         target.pools.add(name);
         if (!target.params.lazy) target.params.lazy = new Set();
         target.params.lazy.add(name);
-        ++stateVersion;
+        ++STATE.version;
         started(target, null);
         enqueue(target.def.name);
     };
@@ -1207,7 +1317,7 @@ export function typecheck(
                 continue;
             }
             const optional = k.endsWith("?");
-            const m = Ty.of(...kindsOf(/^[a-z|]+/.exec(v)?.[0] ?? "any"));
+            const m = kindsTy(kindsOf(/^[a-z|]+/.exec(v)?.[0] ?? "any"));
             if (optional) m.kinds.add("none");
             t.fields.set(pathKey(optional ? k.slice(0, -1) : k), m);
         }
@@ -1236,9 +1346,17 @@ export function typecheck(
                     parts.push(t);
                 } else parts.push(Ty.of("struct")); // "none"
             } else if ("members" in p && typeof p.members === "object") parts.push(membersTy(p.members));
-            else if ("argumentPath" in p && Array.isArray(p.argumentPath))
-                parts.push(tyAt(root, p.argumentPath, globalOf));
-            else if ("callerParams" in p)
+            else if ("argumentPath" in p && Array.isArray(p.argumentPath)) {
+                const at = tyAt(root, p.argumentPath, globalOf);
+                // ("as": under that member)
+                const as = (p as { as?: string }).as;
+                if (as === undefined) parts.push(at);
+                else {
+                    const t = Ty.of("struct");
+                    t.fields = new Map([[pathKey(as), at]]);
+                    parts.push(t);
+                }
+            } else if ("callerParams" in p)
                 parts.push(caller ? paramsValue(caller) : Ty.unknown("the caller's parameters"));
             else if ("pool" in p) parts.push(`pool:${p.pool}`);
             else if ("eventType" in p && Array.isArray(p.eventType)) {
@@ -1263,7 +1381,12 @@ export function typecheck(
                     }
                 } else grew = inbox.join(part, SHALLOW, true) || grew;
             if (grew) {
-                ++stateVersion;
+                pool("inbox");
+                noteReaders("inbox", inbox);
+                sharedGrew("inbox");
+            }
+            if (grew) {
+                ++STATE.version;
                 for (const n of dynamicTargets()) enqueue(n);
                 for (const n of pools.get("inbox")?.subs ?? []) enqueue(n);
             }
@@ -1313,7 +1436,8 @@ export function typecheck(
         if (!byMember.size || seen.has(t) || (caller && globalValues?.has(t))) return;
         seen.add(t);
         for (const [k, f] of t.fields ?? []) {
-            for (const m of byMember.get(k) ?? []) startWith(allNames(tyAt(f, m.path, globalOf)), m, t, caller);
+            for (const m of byMember.get(k) ?? [])
+                if (caller || !m.flowOnly) startWith(allNames(tyAt(f, m.path, globalOf)), m, t, caller);
             scanMembers(f, caller, seen);
         }
         if (t.elem) scanMembers(t.elem, caller, seen);
@@ -1381,7 +1505,7 @@ export function typecheck(
             t.lazy = new Set([src.pool]);
             pool(src.pool).subs.add(s.def.name);
             s.pools.add(src.pool);
-            return t;
+            return src.path ? tyAt(t, src.path, globalOf) : t;
         }
         if ("global" in src) {
             const g = globalTy(pathKey(src.global));
@@ -1393,7 +1517,7 @@ export function typecheck(
             for (const [g, gt] of globals) if (re.test(names.get(g) ?? "")) t.join(tyAt(gt, src.path, globalOf));
             return t;
         }
-        const t = Ty.of(...kindsOf("kinds" in src && typeof src.kinds === "string" ? src.kinds : ""));
+        const t = kindsTy(kindsOf("kinds" in src && typeof src.kinds === "string" ? src.kinds : ""));
         if ("array" in src && src.array !== undefined) {
             t.kinds.add("array");
             t.elem = sourceValue(src.array as ValueSource, args, s);
@@ -1426,9 +1550,9 @@ export function typecheck(
                 const t = Ty.of("struct");
                 t.fields = new Map();
                 for (const [k, kinds] of Object.entries(model.outputs ?? {}))
-                    t.fields.set(memberKey(k), Ty.of(...kindsOf(kinds)));
-                for (const kinds of Object.values(model.byArgument ?? {})) restOf(t).join(Ty.of(...kindsOf(kinds)));
-                if (model.anyMembers && model.anyMembers !== "any") restOf(t).join(Ty.of(...kindsOf(model.anyMembers)));
+                    t.fields.set(memberKey(k), kindsTy(kindsOf(kinds)));
+                for (const kinds of Object.values(model.byArgument ?? {})) restOf(t).join(kindsTy(kindsOf(kinds)));
+                if (model.anyMembers && model.anyMembers !== "any") restOf(t).join(kindsTy(kindsOf(model.anyMembers)));
                 for (const o of model.outputsFrom ?? []) {
                     if ("pool" in o && o.under === undefined) lazy.add(o.pool);
                     else if ("pool" in o) {
@@ -1446,6 +1570,8 @@ export function typecheck(
             // (every member may be missing: no one command writes them all)
             for (const f of staticOutputs.fields.values()) f.kinds.add("none");
             LAZY.set("anyOutputs", staticOutputs);
+            pool("anyOutputs");
+            noteReaders("anyOutputs", staticOutputs);
         }
         // (by reference: the union of every command's outputs is large and never changes)
         const out = Ty.of("struct");
@@ -1473,6 +1599,40 @@ export function typecheck(
             }
         }
         return out;
+    };
+
+    // FormatText ChecksumName=<x> "<format>": the name it makes is one whose text matches the format, each %-parameter
+    // any text - among the names the game's name tables spell (a made name nothing spells is no script, global or
+    // member the scripts name). The format as written in the call; one that isn't a literal: any name.
+    const nameTexts = [...names].map(([n, t]) => [n, t.toLowerCase()] as const);
+    const formatMatches = new Map<string, Set<number> | null>();
+    const formatTextNames = (c: Call, args: Ty, s: ScriptInfo) => {
+        const target = allNames(args.member(CHECKSUM_NAME));
+        if (target === null || !target.size) return;
+        let format: string | undefined;
+        for (const f of c.fields)
+            if ("value" in f && f.name === 0 && f.value.kind === "literal" && f.value.value.type === 3)
+                format = String.fromCharCode(...(f.value.value as { bytes: number[] }).bytes);
+        let made: Set<number> | null = null;
+        if (format !== undefined) {
+            if (!formatMatches.has(format)) {
+                const quote = (part: string) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                const pattern = format
+                    .toLowerCase()
+                    .split(/%[a-z0-9]/)
+                    .map(quote)
+                    .join(".*");
+                const re = new RegExp(`^${pattern}$`);
+                const hits = new Set(nameTexts.filter(([, t]) => re.test(t)).map(([n]) => n));
+                formatMatches.set(format, hits.size > NAME_LIMIT ? null : hits);
+            }
+            made = formatMatches.get(format)!;
+        }
+        const value = Ty.of("name");
+        value.names = made;
+        const t = Ty.of("struct");
+        t.fields = new Map([...target].map((m) => [m, value] as const));
+        grow(s, "params", t);
     };
 
     let rounds = 0;
@@ -1507,7 +1667,10 @@ export function typecheck(
                 }
             }
             if (inbox.join(args, SHALLOW)) {
-                ++stateVersion;
+                pool("inbox");
+                noteReaders("inbox", inbox);
+                sharedGrew("inbox");
+                ++STATE.version;
                 for (const n of dynamicTargets()) enqueue(n);
                 for (const n of pools.get("inbox")?.subs ?? []) enqueue(n);
             }
@@ -1516,17 +1679,12 @@ export function typecheck(
             scanMembers(args, s);
             // ... and so write what any command writes (every command has a model): their outputs joined
             grow(s, "params", dynamicOutputs(args, s));
-            for (const n of dynamicTargets()) {
-                let set = callers.get(n);
-                if (!set) {
-                    set = new Set();
-                    callers.set(n, set);
-                }
-                if (!set.has(s.def.name)) {
-                    set.add(s.def.name);
-                    grow(s, "params", scripts.get(n)!.returns);
-                }
-            }
+            // ... and what any script that can be named returns: the returns they all feed, by reference
+            const returns = Ty.of("struct");
+            returns.lazy = new Set(["anyReturns"]);
+            pool("anyReturns").subs.add(s.def.name);
+            s.pools.add("anyReturns");
+            grow(s, "params", returns);
         }
         for (const n of targets) {
             const callee = scripts.get(n);
@@ -1544,6 +1702,7 @@ export function typecheck(
             }
             // a command: the scripts it starts (start_mechanisms.json), then what it writes into the caller's parameters
             commandStarts(n, args, s);
+            if (n === FORMAT_TEXT) formatTextNames(c, args, s);
             const model = modelOf.get(n);
             // A name that is no script, no C function and no member function anywhere: the interpreter finds nothing
             // (run_command: false), so it writes nothing - listed in the report (a misspelling, a removed command).
@@ -1566,16 +1725,14 @@ export function typecheck(
             t.fields = new Map();
             for (const [k, kinds] of Object.entries(model.outputs ?? {})) {
                 const old = t.fields.get(memberKey(k));
-                if (old) old.join(Ty.of(...kindsOf(kinds)));
-                else t.fields.set(memberKey(k), Ty.of(...kindsOf(kinds)));
+                if (old) old.join(kindsTy(kindsOf(kinds)));
+                else t.fields.set(memberKey(k), kindsTy(kindsOf(kinds)));
             }
             for (const [arg, kinds] of Object.entries(model.byArgument ?? {})) {
-                const named = args.member(memberKey(arg));
-                if (named.names === null)
-                    t.rest = Ty.unknown(
-                        `outputs of ${nameOf(n)}: members named by its argument ${arg}, whose value can't be told`,
-                    );
-                else for (const m of named.names) t.fields.set(m, Ty.of(...kindsOf(kinds)));
+                // (named by a value whose names can't be told: a member of any name, of those kinds)
+                const names = allNames(args.member(memberKey(arg)));
+                if (names === null) restOf(t).join(kindsTy(kindsOf(kinds)));
+                else for (const m of names) t.fields.set(m, kindsTy(kindsOf(kinds)));
             }
             for (const o of model.outputsFrom ?? []) {
                 const parts: Ty[] = [];
@@ -1636,7 +1793,7 @@ export function typecheck(
                 const rest =
                     model.anyMembers === "any"
                         ? Ty.unknown(`outputs of ${nameOf(n)}: a structure of members that can't be listed merged in`)
-                        : Ty.of(...kindsOf(model.anyMembers));
+                        : kindsTy(kindsOf(model.anyMembers));
                 restOf(t).join(rest);
             }
             grow(s, "params", t);
@@ -1935,6 +2092,7 @@ export function typecheck(
             );
             process.exit(0);
         }
+        runPendingPoolStarts();
         const s = scripts.get(n)!;
         const began = process.env.TYPECHECK_SLOW ? performance.now() : 0;
         // (diagnostic: TYPECHECK_PROFILE_WALK=<script> writes a CPU profile of that script's first walk)
@@ -2152,6 +2310,25 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         dynamic: result.dynamicSites,
         globals: result.changedGlobals,
         reasons: [...why].sort((x, y) => y[1] - x[1]),
+        // (each script's parameters as its reads see them: "<script>|<member>" -> kinds - what the checks test against)
+        readKinds: Object.fromEntries(
+            [
+                ...result.sites.reduce((m, x) => {
+                    const k = `${x.script}|${x.name}`;
+                    m.set(k, new Set([...(m.get(k) ?? []), ...x.ty.kinds]));
+                    return m;
+                }, new Map<string, Set<string>>()),
+            ].map(([k, v]) => [k, [...v].join("|")]),
+        ),
+        // (each read not proven, with its reasons: what is left to resolve)
+        unproven: result.sites
+            .filter((x) => x.ty.why !== 0)
+            .map((x) => ({
+                module: x.module,
+                script: x.script,
+                name: x.name,
+                why: WHY_SETS[x.ty.why]!.map((r) => REASONS[r]),
+            })),
     };
     const out = value("--json");
     if (out) {

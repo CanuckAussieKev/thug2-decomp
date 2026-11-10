@@ -1483,5 +1483,32 @@
     }
    }
   ]
+ },
+ "GetSingleTag": {
+  "outputs": {},
+  "byArgument": {},
+  "source": "src/engine/objects/entity.cpp:452",
+  "notes": "a copy of the tag the unnamed name names (its own name and kind) when the object has it [outputsFrom: a tag of the object's tag table (pool tags), under its own name]",
+  "outputsFrom": [
+   {
+    "under": [
+     "0x00000000"
+    ],
+    "value": {
+     "pool": "tags",
+     "path": [
+      "*member"
+     ]
+    }
+   }
+  ]
+ },
+ "FormatText": {
+  "outputs": {},
+  "byArgument": {
+   "TextName": "string"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:304 cfunc_format_text (+ script_cfuncs.cpp:176 format_text)",
+  "notes": "TextName (0xFF0DB407) gets the formatted text (append_word: string); ChecksumName (0x76FA7A8F, the C++ calls it kHashFieldName) gets its checksum (put_name_key: name). Each only when that argument is given and non-zero; nothing is written if the format string or a %-parameter is missing. Returns 0/false only in those error cases. [ChecksumName: the made name, typecheck.ts formatTextNames - one whose text matches the format]"
  }
 }

@@ -618,23 +618,25 @@
   {
    "params": {
     "members": {
-     "cookie": "name",
-     "0x00000000": "any"
+     "0x00000000": "int|string",
+     "cookie?": "name"
     }
    },
-   "site": "game/online/buddy_man.cpp:824"
+   "site": "game/online/buddy_man.cpp:824",
+   "note": "unnamed: the port (int) and the IP address (string); cookie only sometimes"
   },
   {
    "params": {
     "members": {
      "reason": "name",
      "just_dialog": "name",
-     "cookie": "name",
      "MaxPlayers": "int",
-     "0x00000000": "any"
+     "0x00000000": "int|string",
+     "cookie?": "name"
     }
    },
-   "site": "game/online/server_browser.cpp:286"
+   "site": "game/online/server_browser.cpp:286",
+   "note": "unnamed: the port (int) and the IP address (string); cookie only sometimes"
   }
  ],
  "profile_logged_in": [

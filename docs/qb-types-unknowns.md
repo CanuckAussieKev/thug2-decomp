@@ -6,16 +6,16 @@ can hold on every path - except where something outside the scripts decides it. 
 listed here with the reads it reaches. A read with no unknown is proven; one with any is not (it keeps the exact
 form in the natural TypeScript).
 
-485 modules, 51299 scripts, 28664 parameter reads: **27927 proven** (97.4%; 11175 of a single kind), 737 reached by an unknown. 2048 command models.
+485 modules, 51299 scripts, 28664 parameter reads: **28664 proven** (100.0%; 8965 of a single kind), 0 reached by an unknown. 2048 command models.
 
 | Kind of unknown | How many | Parameter reads it reaches (a read may be reached by several kinds) |
 | --- | --- | --- |
 | Commands without a model of what they write into the caller's parameters | 0 | 0 |
 | Scripts the C++ starts (named in its code) with parameters it makes | 474 | 0 |
 | Scripts named in data (node arrays, goal tables, menus...) - the C++ may start them | 39205 | 0 |
-| Dynamic calls (a command named by a parameter whose names can't be told) | 145 | 0 |
+| Dynamic calls (a command named by a parameter whose names can't be told) | 162 | 0 |
 | Globals a command changes at run time | 5 | 0 |
-| Precision (more names than tracked, members of untracked structures, names standing for any global) | - | 737 |
+| Precision (more names than tracked, members of untracked structures, names standing for any global) | - | 0 |
 
 How each is resolved: a command gets a model from its C++ (tools/qbjs/command_models.ts mechanically, the rest reviewed
 into tools/qbjs/command_models_reviewed.json, each with its source); a script the C++ or the data starts gets a model of
@@ -1032,68 +1032,50 @@ By module (the full list is in the artifact):
 
 ## Dynamic calls
 
-- Data\scripts\fx\particle_update_scripts.qb align_scale_to_vel_update
-- Data\scripts\fx\particle_update_scripts.qb align_scale_size_to_vel_update
-- Data\scripts\fx\particle_update_scripts.qb align_to_vel_update
-- Data\scripts\game\cutscene.qb camera_hud_count
-- Data\scripts\game\goal_utilities.qb goal_fail_messages
 - Data\scripts\game\goal_utilities.qb goal_cam_anim_play_single_element
-- Data\scripts\game\menu\chapter_info.qb GoToNextChapterPostCutscene
-- Data\scripts\game\menu\chapter_info.qb StartCurrentChapterWelcome
-- Data\scripts\game\menu\chapter_info.qb StartCurrentChapterStartRun
 - Data\scripts\game\menu\catmenu.qb cat_play_choose_sound
 - Data\scripts\game\menu\catmenu.qb cat_play_hide_sound
 - Data\scripts\game\menu\catmenu.qb cat_play_delete_sound
+- Data\scripts\game\menu\chapter_info.qb GoToNextChapterPostCutscene
+- Data\scripts\game\menu\chapter_info.qb StartCurrentChapterWelcome
+- Data\scripts\game\menu\chapter_info.qb IntroCameraDescription
+- Data\scripts\game\menu\chapter_info.qb StartCurrentChapterStartRun
 - Data\scripts\game\menu\edit_tricks_menu.qb edit_tricks_menu_bind_trick
 - Data\scripts\game\menu\gamemenu.qb menu_confirm_quit_park_editor
+- Data\scripts\game\menu\gamemenu_debug.qb toggle_show_polys
+- Data\scripts\game\menu\gamemenu_helpers.qb menu_select
 - Data\scripts\game\menu\gamemenu_helpers.qb generic_menu_pad_back
+- Data\scripts\game\menu\gamemenu_helpers.qb generic_menu_pad_choose
+- Data\scripts\game\menu\gamemenu_helpers.qb fadetoblack
 - Data\scripts\game\menu\gamemenu_levelselect.qb level_select_change_level
 - Data\scripts\game\menu\gamemenu_levelselect.qb level_select_valid_choice
-- Data\scripts\allanims.qb animload_Ped_Female
-- Data\scripts\allanims.qb animload_Head_Cas_Male01
-- Data\scripts\allanims.qb animload_Head_CAS_Female01
-- Data\scripts\allanims.qb animload_AnchorMan_HEAD
-- Data\scripts\allanims.qb animload_BostonGuy_HEAD
-- Data\scripts\allanims.qb animload_Burnquist_Head
-- Data\scripts\allanims.qb animload_Hawk_Head
-- Data\scripts\allanims.qb animload_Koston_Head
-- Data\scripts\allanims.qb animload_Muska_Head
-- Data\scripts\allanims.qb animload_Margera_Head
-- Data\scripts\allanims.qb animload_Mullen_Head
-- Data\scripts\allanims.qb animload_Nigel_Head
-- Data\scripts\allanims.qb animload_NODrunk1_HEAD
-- Data\scripts\allanims.qb animload_NODrunk2_HEAD
-- Data\scripts\allanims.qb animload_Phil_Head
-- Data\scripts\allanims.qb animload_Rampkid_Head
-- Data\scripts\allanims.qb animload_Vallely_Head
-- Data\scripts\allanims.qb animload_Sparrow_Head
-- Data\scripts\allanims.qb animload_anl_bat
-- Data\scripts\allanims.qb animload_anl_bull
-- Data\scripts\allanims.qb animload_Anl_cat
-- Data\scripts\allanims.qb animload_anl_dog
-- Data\scripts\allanims.qb animload_Anl_Shark
-- Data\scripts\allanims.qb animload_Anl_Pigeon
-- Data\scripts\allanims.qb animload_anl_w_gorilla
+- Data\scripts\game\menu\gamemenu_options.qb progressive_done
+- Data\scripts\game\menu\gamemenu_options.qb unset_progressive_mode_onload
+- Data\scripts\game\menu\gamemenu_options.qb change_screen_mode
 - Data\scripts\game\menu\models.qb view_model
 - Data\scripts\game\menu\pager_menu.qb pager_window_context_reply
-- Data\scripts\game\menu\gamemenu_helpers.qb generic_menu_pad_choose
-- Data\scripts\game\menu\gamemenu_helpers.qb menu_select
+- Data\scripts\game\menu\roundbarmenu.qb add_roundbar_menu_item
 - Data\scripts\game\menu\roundbarmenu.qb roundbar_menu_item_focus
 - Data\scripts\game\menu\roundbarmenu.qb roundbar_menu_item_unfocus
+- Data\scripts\game\menu\skateshop.qb skateshop_transition2
 - Data\scripts\game\menu\skateshop.qb main_menu_exit
-- Data\scripts\game\menu\gamemenu_helpers.qb fadetoblack
 - Data\scripts\game\menu\skateshop.qb create_select_goals_menu
-- Data\scripts\game\menu\skateshop.qb create_ss_menu
-- Data\scripts\game\menu\gamemenu_options.qb change_screen_mode
 - Data\scripts\game\menu\skateshop.qb select_goals_menu_exit
+- Data\scripts\game\menu\skateshop.qb create_ss_menu
+- Data\scripts\game\menu\skateshop.qb ss_menu_exit
+- Data\scripts\game\menu\skateshop.qb create_select_skater_menu
+- Data\scripts\game\menu\skateshop.qb select_skater_menu_back
 - Data\scripts\game\menu\thememenu.qb theme_menu_toggle_number_item
+- Data\scripts\game\menu\view_goals_menu.qb ProcessGoalList
 - Data\scripts\game\menu\view_goals_menu.qb view_created_goals_menu_exit
 - Data\scripts\game\misc\cheats.qb toggle_cheat
 - Data\scripts\game\net\net.qb test_network_setup
-- Data\scripts\game\menu\skateshop.qb ss_menu_exit
+- Data\scripts\game\net\net.qb launch_network_host_options_sub_menu
+- Data\scripts\game\net\net.qb host_options_goals_sub_menu_exit
+- Data\scripts\game\ped\Sk5_PedScripts.qb ped_run_script
+- Data\scripts\game\pro_anims.qb GenericPro_RunScript
 - Data\scripts\game\skater\airtricks.qb FlipTrick
 - Data\scripts\game\skater\airtricks.qb GrabTrick
-- Data\scripts\allanims.qb animload_THPS6_Veh_Gurney
 - Data\scripts\game\skater\grindscripts.qb grind
 - Data\scripts\game\skater\iniskater_exceptions.qb check_if_part_editable
 - Data\scripts\game\skater\iniskater_exceptions.qb check_if_part_logoable
@@ -1103,80 +1085,115 @@ By module (the full list is in the artifact):
 - Data\scripts\game\skater\skater_vehicle.qb Vehicle_Start2
 - Data\scripts\game\skater\skater_vehicle.qb vehicle_onground_loop
 - Data\scripts\game\skater\skater_vehicle.qb vehicle_bail
-- Data\scripts\game\menu\gamemenu_debug.qb toggle_show_polys
-- Data\scripts\allanims.qb animload_si_prop_1
-- Data\scripts\allanims.qb animload_SI_Prop2
-- Data\scripts\allanims.qb animload_si_prop_3
-- Data\scripts\allanims.qb animload_SI_BustedBoard
-- Data\scripts\allanims.qb animload_SI_ExtraBoard
-- Data\scripts\allanims.qb animload_si_FranklinKite
-- Data\scripts\allanims.qb animload_SI_shark
-- Data\scripts\allanims.qb animload_SI_Flag
-- Data\scripts\allanims.qb animload_Ped_Rollerblade
-- Data\scripts\allanims.qb animload_Ped_GermanCop
-- Data\scripts\allanims.qb animload_Ped_RampKid
-- Data\scripts\allanims.qb animload_Ped_MetalDetect
-- Data\scripts\allanims.qb animload_Ped_Graffiti
-- Data\scripts\allanims.qb animload_Ped_Bikini
-- Data\scripts\allanims.qb animload_Ped_M_Pissed
-- Data\scripts\allanims.qb animload_anl_seagull
-- Data\scripts\allanims.qb animload_THPS6_Veh_minikart
-- Data\scripts\allanims.qb animload_Ped_Griller
-- Data\scripts\allanims.qb animload_Ped_Suit
-- Data\scripts\allanims.qb animload_Ped_CraneOperator
-- Data\scripts\allanims.qb animload_PED_Mime
-- Data\scripts\allanims.qb animload_THPS6_Veh_Bull
-- Data\scripts\allanims.qb animload_Ped_fluteguy
-- Data\scripts\allanims.qb animload_ped_GermanDrunk
-- Data\scripts\allanims.qb animload_THPS6_Veh_WheelChair
-- Data\scripts\allanims.qb animload_PED_DJQBert
-- Data\scripts\allanims.qb animload_Ped_Blocker
-- Data\scripts\allanims.qb animload_Ped_Soldier
-- Data\scripts\allanims.qb animload_Ped_guitarist
-- Data\scripts\allanims.qb animload_THPS6_Veh_Segway
-- Data\scripts\allanims.qb animload_PED_Starwarskid
-- Data\scripts\allanims.qb animload_THPS6_FrontEnd
-- Data\scripts\allanims.qb animload_Ped_Jester
-- Data\scripts\allanims.qb animload_Ped_Jazzman
-- Data\scripts\allanims.qb animload_Ped_F_Zombie
-- Data\scripts\allanims.qb animload_THPS6_Veh_Tricycle
-- Data\scripts\allanims.qb animload_Ped_F_MardisGras
-- Data\scripts\allanims.qb animload_THPS6_NO_7
-- Data\scripts\allanims.qb animload_Ped_Imp
-- Data\scripts\allanims.qb animload_Ped_LostSoul
-- Data\scripts\allanims.qb animload_Ped_Alien
-- Data\scripts\allanims.qb animload_Ped_LoungeSinger
-- Data\scripts\allanims.qb animload_Ped_Baha
-- Data\scripts\allanims.qb animload_THPS6_Veh_MotoSkateboard
-- Data\scripts\allanims.qb animload_Ped_Photo
-- Data\scripts\allanims.qb animload_ped_driver
+- Data\scripts\game\skutils.qb ped_speech_reset
+- Data\scripts\game\skutils.qb SafeCallback
 - Data\levels\mainmenu\edit_graphics_menu.qb edit_graphic_exit_premade_menu
 - Data\levels\mainmenu\instructions_caf.qb InstructionBlockForward
 - Data\levels\mainmenu\instructions_caf.qb InstructionBlockBack
-- Data\levels\mainmenu\mainmenu_cas.qb exit_cas
-- Data\levels\mainmenu\mainmenu_Scripts.qb create_gamemode_options_menu
-- Data\levels\mainmenu\mainmenu_Scripts.qb gamemode_options_menu_exit
-- Data\levels\mainmenu\mainmenu_options.qb options_menu_exit
-- Data\levels\ST\ST_Scripts.qb critter_count_down
-- Data\scripts\game\menu\skateshop.qb select_skater_menu_back
-- Data\scripts\game\menu\gamemenu_options.qb progressive_done
-- Data\scripts\game\menu\gamemenu_options.qb unset_progressive_mode_onload
-- Data\scripts\game\menu\skateshop.qb skateshop_transition2
-- Data\scripts\game\net\net.qb launch_network_host_options_sub_menu
-- Data\scripts\game\net\net.qb host_options_goals_sub_menu_exit
 - Data\levels\mainmenu\mainmenu_cas.qb pre_cas_menu_exit
+- Data\levels\mainmenu\mainmenu_cas.qb exit_cas
+- Data\levels\mainmenu\mainmenu_cas.qb update_options_menu
+- Data\levels\mainmenu\mainmenu_cas.qb check_option_is_enabled
+- Data\levels\mainmenu\mainmenu_cas.qb check_option_is_visible
 - Data\levels\mainmenu\mainmenu_facemapping.qb face_map_exit
 - Data\levels\mainmenu\mainmenu_net.qb network_select_menu_exit
 - Data\levels\mainmenu\mainmenu_net.qb select_network_play_multi
+- Data\levels\mainmenu\mainmenu_options.qb options_menu_exit
 - Data\levels\mainmenu\mainmenu_Scripts.qb createamodes_menu_exit
-- Data\scripts\game\goal_utilities.qb goal_success
+- Data\levels\mainmenu\mainmenu_Scripts.qb create_gamemode_options_menu
+- Data\levels\mainmenu\mainmenu_Scripts.qb gamemode_options_menu_exit
+- Data\levels\ST\ST_Scripts.qb critter_count_down
+- thug2-decomp-data\scripts\game\misc\car_scripts.qb car_end_driving_run
+- Data\scripts\allanims.qb animload_AnchorMan_HEAD
+- Data\scripts\allanims.qb animload_anl_bat
+- Data\scripts\allanims.qb animload_anl_bull
+- Data\scripts\allanims.qb animload_Anl_cat
+- Data\scripts\allanims.qb animload_anl_dog
+- Data\scripts\allanims.qb animload_Anl_Pigeon
+- Data\scripts\allanims.qb animload_anl_seagull
+- Data\scripts\allanims.qb animload_Anl_Shark
+- Data\scripts\allanims.qb animload_anl_w_gorilla
+- Data\scripts\allanims.qb animload_BostonGuy_HEAD
+- Data\scripts\allanims.qb animload_Burnquist_Head
+- Data\scripts\allanims.qb animload_Hawk_Head
+- Data\scripts\allanims.qb animload_Head_CAS_Female01
+- Data\scripts\allanims.qb animload_Head_Cas_Male01
+- Data\scripts\allanims.qb animload_Koston_Head
+- Data\scripts\allanims.qb animload_Margera_Head
+- Data\scripts\allanims.qb animload_Mullen_Head
+- Data\scripts\allanims.qb animload_Muska_Head
+- Data\scripts\allanims.qb animload_Nigel_Head
+- Data\scripts\allanims.qb animload_NODrunk1_HEAD
+- Data\scripts\allanims.qb animload_NODrunk2_HEAD
+- Data\scripts\allanims.qb animload_Ped_Alien
+- Data\scripts\allanims.qb animload_Ped_Baha
+- Data\scripts\allanims.qb animload_Ped_Bikini
+- Data\scripts\allanims.qb animload_Ped_Female
+- Data\scripts\allanims.qb animload_Ped_Blocker
+- Data\scripts\allanims.qb animload_Ped_M_Pissed
+- Data\scripts\allanims.qb animload_Ped_CraneOperator
+- Data\scripts\allanims.qb animload_PED_DJQBert
+- Data\scripts\allanims.qb animload_ped_driver
+- Data\scripts\allanims.qb animload_Ped_fluteguy
+- Data\scripts\allanims.qb animload_Ped_F_MardisGras
+- Data\scripts\allanims.qb animload_Ped_F_Zombie
+- Data\scripts\allanims.qb animload_Ped_GermanCop
+- Data\scripts\allanims.qb animload_ped_GermanDrunk
+- Data\scripts\allanims.qb animload_Ped_Graffiti
+- Data\scripts\allanims.qb animload_Ped_Griller
+- Data\scripts\allanims.qb animload_Ped_guitarist
+- Data\scripts\allanims.qb animload_Ped_Imp
+- Data\scripts\allanims.qb animload_Ped_Jazzman
+- Data\scripts\allanims.qb animload_Ped_Jester
+- Data\scripts\allanims.qb animload_Ped_LostSoul
+- Data\scripts\allanims.qb animload_Ped_LoungeSinger
+- Data\scripts\allanims.qb animload_Ped_MetalDetect
+- Data\scripts\allanims.qb animload_PED_Mime
+- Data\scripts\allanims.qb animload_THPS6_FrontEnd
+- Data\scripts\allanims.qb animload_THPS6_NO_7
+- Data\scripts\allanims.qb animload_Ped_Photo
+- Data\scripts\allanims.qb animload_Ped_RampKid
+- Data\scripts\allanims.qb animload_Ped_Rollerblade
+- Data\scripts\allanims.qb animload_Ped_Soldier
+- Data\scripts\allanims.qb animload_PED_Starwarskid
+- Data\scripts\allanims.qb animload_Ped_Suit
+- Data\scripts\allanims.qb animload_Phil_Head
+- Data\scripts\allanims.qb animload_Rampkid_Head
+- Data\scripts\allanims.qb animload_SI_BustedBoard
+- Data\scripts\allanims.qb animload_SI_ExtraBoard
+- Data\scripts\allanims.qb animload_si_FranklinKite
+- Data\scripts\allanims.qb animload_si_prop_1
+- Data\scripts\allanims.qb animload_SI_Prop2
+- Data\scripts\allanims.qb animload_si_prop_3
+- Data\scripts\allanims.qb animload_SI_shark
+- Data\scripts\allanims.qb animload_SI_Flag
+- Data\scripts\allanims.qb animload_Sparrow_Head
+- Data\scripts\allanims.qb animload_THPS6_Veh_Bull
+- Data\scripts\allanims.qb animload_THPS6_Veh_Gurney
+- Data\scripts\allanims.qb animload_THPS6_Veh_minikart
+- Data\scripts\allanims.qb animload_THPS6_Veh_MotoSkateboard
+- Data\scripts\allanims.qb animload_THPS6_Veh_Segway
+- Data\scripts\allanims.qb animload_THPS6_Veh_Tricycle
+- Data\scripts\allanims.qb animload_THPS6_Veh_WheelChair
+- Data\scripts\allanims.qb animload_Vallely_Head
+- Data\scripts\fx\particle_update_scripts.qb align_scale_to_vel_update
+- Data\scripts\fx\particle_update_scripts.qb align_scale_size_to_vel_update
+- Data\scripts\fx\particle_update_scripts.qb align_to_vel_update
+- Data\scripts\game\cutscene.qb camera_hud_count
 - Data\scripts\game\goal_utilities.qb goal_init
 - Data\scripts\game\goal_utilities.qb goal_passive_start
 - Data\scripts\game\goal_utilities.qb goal_start
+- Data\scripts\game\goal_utilities.qb goal_success
+- Data\scripts\game\goal_utilities.qb goal_fail_messages
 - Data\scripts\game\goal_utilities.qb goal_deactivate
-- Data\scripts\game\menu\chapter_info.qb IntroCameraDescription
-- Data\scripts\game\skutils.qb SafeCallback
-- Data\levels\mainmenu\mainmenu_cas.qb update_options_menu
+- Data\scripts\game\goal_utilities.qb goal_cam_anim_post_success
+- Data\scripts\game\goal_utilities.qb goal_cam_anim_post_start
+- Data\scripts\game\Levels.qb load_level
+- Data\levels\mainmenu\instructions_caf.qb create_instruction_box
+- thug2-decomp-data\scripts\game\misc\car_scripts.qb car_begin_driving_run
+- Data\scripts\allanims.qb animload_THPS6_human_0
+- Data\scripts\allanims.qb animload_THPS6_human_1
+- Data\scripts\game\goals\goal_collect.qb goal_collect_run_init_script
 
 ## Globals changed at run time
 
@@ -1191,12 +1208,9 @@ By module (the full list is in the artifact):
 No script, C function or member function has these names: the interpreter finds nothing (the call is false) and
 nothing is written - not an unknown, listed so they can be looked at (misspellings, commands removed before release).
 
-ALC_Televator02, AP_Heli_Move_End, AP_Heli_Move_Start, AP_Heli_Move_Start21, AU_Elimination_Intro_Cameras, AU_Goal_Intro_Cameras, Add, Anl_Dog_black, Anl_Dog_brown, Anl_Dog_grey, Anl_Sk8_Goat, Anl_cat_new, AuthenticateClient, BA_Goal_Intro_Cameras, BE_BulbShatter, BE_Classic_AcidDrop05Start, BE_Goal_Intro_Cameras, BE_PudHipOut02, BE_Zoo_Roof_Kill, BO_Goal_Intro_Cameras, BO_Ped_Music_Off, BO_Trickin, BO_Trickin_Wait, BurnquistTricks, CATSFX_Burp, CATSFX_Cops, CATSFX_Crack, CATSFX_Dog, CATSFX_Drum, CATSFX_Fart, CATSFX_Fire, CATSFX_Flush, CATSFX_Funk, CATSFX_Gator, CATSFX_Geek, CATSFX_Seal, CATSFX_StripClub, CATTrick_AntiCasper, CATTrick_Boomerang, CATTrick_Butt_Manual, CATTrick_Casper, CATTrick_Handstand, CATTrick_HotRod, CATTrick_JesterJuggle, CATTrick_PrimoSpin, CATTrick_RunningMan, CATTrick_SwitchFootPogo, CATTrick_TonySurfer, CATTrick_Truckstand, CATTrick_other03, CATTrick_other04, CATTrick_other05, CATTrick_other06, CATTrick_other07, CATTrick_other08, CATTrick_other09, CATTrick_other10, CATTrick_other11, CATTrick_other12, CATTrick_other13, CATTrick_other14, CATTrick_other15, CATTrick_other16, CATTrick_other17, CATTrick_other18, CHEAT_ALWAYS_SPECIAL, CHEAT_COOL_SPECIAL_TRICKS, CHEAT_FLAME, CHEAT_HOVERBOARD, CHEAT_KID, CHEAT_MOON, CHEAT_PERFECT_MANUAL, CHEAT_PERFECT_RAIL, CHEAT_PERFECT_SKITCH, ChooseNetConfig, CustomTricks, Cut_Nigel_AU6, Cut_Nigel_Full, DT_Wallplant_Slomo, DoubleHeelFlip, DoubleImpossible, DoubleKickFlip, DownloadFace, Extra360ShoveIt, Extra540ShoveIt, ExtraFS360ShoveIt, ExtraFS540ShoveIt, Extra_360Hardflip, Extra_360InwardHeelflip, Extra_BSShifty, Extra_CannonballFingerflip, Extra_DBackfootHeelflip, Extra_DBackfootKickflip, Extra_DoubleFingerflip, Extra_TuckKnee, Extra_VarialHeelflip, Extra_VarialKickflip, FLAG_G_EXPERT_MODE_NO_MANUALS, FLAG_G_EXPERT_MODE_NO_REVERTS, FLAG_G_EXPERT_MODE_NO_WALKING, FillNetConfigList, FillRemovePlayersMenu, GAME_CLASSIC_UNLOCKED_SE2, GUEST_FOUND_ABORIGINE, GUEST_FOUND_BENFRANKLIN, GUEST_FOUND_BIGFOOT, GUEST_FOUND_BULLFIGHTER, GUEST_FOUND_GRAFFITITAGGER, GUEST_FOUND_JESSEJAMES, GUEST_FOUND_JESTER, GUEST_FOUND_PAULIE, GUEST_FOUND_SHECKLER, GUEST_FOUND_SHRIMPVENDOR, GUEST_FOUND_STEVEO, GUEST_FOUND_VOODOO, HawkTricks, IsFrench, KenTest1, KostonTricks, LA_Wheel_Spin, LEVEL_BRACKET_UNLOCKED_1, LEVEL_BRACKET_UNLOCKED_2, LEVEL_BRACKET_UNLOCKED_3, LEVEL_BRACKET_UNLOCKED_4, LEVEL_BRACKET_UNLOCKED_5, LEVEL_BRACKET_UNLOCKED_6, LEVEL_BRACKET_UNLOCKED_7, LEVEL_BRACKET_UNLOCKED_8, LEVEL_BRACKET_UNLOCKED_9, LEVEL_SEEN_AP, LEVEL_SEEN_AU, LEVEL_SEEN_BA, LEVEL_SEEN_BE, LEVEL_SEEN_BO, LEVEL_SEEN_CA, LEVEL_SEEN_DJ, LEVEL_SEEN_LA, LEVEL_SEEN_NO, LEVEL_SEEN_PH, LEVEL_SEEN_SC, LEVEL_SEEN_SE, LEVEL_SEEN_SE2, LEVEL_SEEN_ST, LEVEL_SEEN_TR, LEVEL_UNLOCKED_AP, LEVEL_UNLOCKED_AU, LEVEL_UNLOCKED_BA, LEVEL_UNLOCKED_BE, LEVEL_UNLOCKED_BO, LEVEL_UNLOCKED_CA, LEVEL_UNLOCKED_DJ, LEVEL_UNLOCKED_LA, LEVEL_UNLOCKED_NO, LEVEL_UNLOCKED_PH, LEVEL_UNLOCKED_SC, LEVEL_UNLOCKED_SE, LEVEL_UNLOCKED_SE2, LEVEL_UNLOCKED_ST, LEVEL_UNLOCKED_TR, LV_TRG_BreakTheBank, LevelNum_AP, LevelNum_AU, LevelNum_BA, LevelNum_BE, LevelNum_BO, LevelNum_CA, LevelNum_DJ, LevelNum_LA, LevelNum_NO, LevelNum_PH, LevelNum_SC, LevelNum_SE, LevelNum_SE2, LevelNum_ST, LevelNum_Sk5ed, LevelNum_TR, LoadNetConfigs, MargeraTricks, MiniKartGuy, MullenTricks, MuskaTricks, NO_Equalizer_Intro_Cameras, NO_G_DISPLAY_BALANCE, NO_Gap_V_Transfer1, NO_Goal_Intro_Cameras, Nick_SecretGuy, Nigel_Costume, NoNetConfigFiles, PH_BonkBush, Paulie_Full, PedPro_Burnquist, PedPro_Hawk, PedPro_Hawk_skateboard, PedPro_Koston, PedPro_Margera, PedPro_Mullen, PedPro_Muska, PedPro_Sheckler, PedPro_Vallely, PedPro_Weeman, PedTricks, Ped_Alien, Ped_Alien02, Ped_Alien03, Ped_AlienDoctor, Ped_AlienLeader, Ped_Bigfoot, Ped_Bigfoot_graf, Ped_BostonGuy, Ped_Boxer, Ped_Bratwurst, Ped_CameraMan, Ped_Construction_Worker_01, Ped_CopAussie, Ped_Corn_Vendor_01, Ped_FluteGuy, Ped_Grafiti_Punker_01, Ped_Hawk_THPS, Ped_Imp, Ped_Jester, Ped_JohnnyTurbo, Ped_Lifeguard, Ped_LostSoul01, Ped_LostSoul02, Ped_LostSoul03, Ped_Mayan, Ped_Natas, Ped_Paramedic_01, Ped_Pirate, Ped_Ramp_Kid_01, Ped_Security_Guard_01, Ped_ShrimpVendor, Ped_Skaboto, Ped_Skaterboard_Character, Ped_Skatopiaguy, Ped_Soldier_01, Ped_Steveo, Ped_TikiMan, Ped_Wienerman, Ped_aborigine, Ped_attendant, Ped_benfranklin, Ped_boatcaptain, Ped_bullfighter, Ped_dalek, Ped_dalekBlue, Ped_dalekPink, Ped_femalefull01, Ped_germancop, Ped_germandrunk, Ped_germandrunk01, Ped_germandrunk02, Ped_germandrunkfull, Ped_graffiti02, Ped_graffiti03, Ped_graffitiSkater, Ped_guitarist, Ped_guitaristBanjo, Ped_hand_Sk8, Ped_head_Sk8, Ped_jazzman1, Ped_jessejames, Ped_loungesinger, Ped_malefull01, Ped_malefull02, Ped_mechbull, Ped_metaldetector, Ped_mime, Ped_rollerblader, Ped_segwayrider, Ped_witchdoctor, Ped_zombiefem01, Ped_zombiemale01, Ped_zombiemale02, Phil_FULL, Phil_Gagged, Price_SecretGuy, SC_School_Books1, SC_School_Books2, SC_School_Books3, SC_School_Books4, SC_School_Books5, SKATER_UNLOCKED_BENFRANKLIN, SKATER_UNLOCKED_BULLFIGHTER, SKATER_UNLOCKED_GRAFFITITAGGER, SKATER_UNLOCKED_JESTER, SKATER_UNLOCKED_SHECKLER, SKATER_UNLOCKED_SHREK, SKATER_UNLOCKED_SHRIMPVENDOR, SKATER_UNLOCKED_SOLDIER, ST_EndGoal_Bam_Cameras, ST_EndGoal_End_Cameras, ST_EndGoal_Hawk_Cameras, ST_Goal_Intro_Cameras, SZ_EnterSand, SZ_Natas_Meters_Check, Secret_Tape, SetCaptureAttribute, SetCaptureDestTexture, SetupCaptureBitmapBuffer, Shrek, ShutdownCaptureDevice, SkaterAnimEventTable, StartVideoCapture, StartupCaptureDevice, StopVideoCapture, THUGPRO_Televator, TeleportSkaterToNodeAndScatter, Tr_Goal_Intro_Cameras, Trick_1234, Trick_180Varial, Trick_2KickMadonnaFlip, Trick_360Varial, Trick_360VarialMcTwist, Trick_50Fingerflip, Trick_540Flip, Trick_540TailWhip, Trick_540varielheelfliplien, Trick_AirCasperFlip, Trick_Airwalk, Trick_Around, Trick_BSBigSpin, Trick_BSFlip, Trick_BackFootKickflip, Trick_BackfootHeelflip, Trick_BackfootShoveIt, Trick_BamBendAir, Trick_BamLip, Trick_Bam_Chainsaw, Trick_BeaverBlast, Trick_Benihana, Trick_BetweenTheLegs, Trick_BigSpinFlip, Trick_BigSpinShifty, Trick_BiteBoard, Trick_BoardSnap, Trick_Boomerang, Trick_BreakIn, Trick_BullF_Sword, Trick_Butt_Manual, Trick_Cannonball, Trick_ChristAir, Trick_Crail, Trick_CrookedCop, Trick_Crossbone, Trick_DarksideJapan, Trick_DelMarIndy, Trick_DoubleFistin, Trick_DoubleKFindy, Trick_ElbowSmash, Trick_EndlessHandflip, Trick_EndlessKickflip, Trick_FFImpossible, Trick_FSBigSpin, Trick_FSFlip, Trick_FSFlipOneFootTailGrab, Trick_FSShifty, Trick_FSShoveIt, Trick_Fandangle, Trick_FingerFlipAirWalk, Trick_Fingerflip, Trick_Flamingo, Trick_Franklin_Grind, Trick_Gazelle, Trick_GhettoBird, Trick_GrindNBarf, Trick_HFVarialLien, Trick_HalfCabUnderFlip, Trick_HardFlipBackFootFlip, Trick_Hardflip, Trick_HeadKickBackFlip, Trick_Heelflip, Trick_Hero, Trick_HotRod, Trick_Impossible, Trick_Indy, Trick_Indy900, Trick_IndyNosebone, Trick_InwardHeelflip, Trick_Japan, Trick_JesterJuggle, Trick_Judo, Trick_KickFlipUnderFlip, Trick_Kickflip, Trick_KickflipSwitch, Trick_Koston900, Trick_Madonna, Trick_McTwist, Trick_Melon, Trick_Method, Trick_MoonwalkGrind, Trick_Muska_Burn, Trick_Mute, Trick_Nosegrab, Trick_OldSkoolKickflip, Trick_OllieAirwalk, Trick_OllieNorth, Trick_OneFootJapan, Trick_OneFootOneWheel, Trick_OneFootTailgrab, Trick_PopShoveIt, Trick_PrimoSlide, Trick_PrimoSpin, Trick_QuadrupleHeelFlip, Trick_RockNRollSwitch, Trick_Rocket, Trick_RodneyGrind, Trick_Rotisserie, Trick_RunningMan, Trick_RustySlide, Trick_SackTap, Trick_SalFlip, Trick_SambaFlip, Trick_SaranWrap, Trick_Seatbelt, Trick_SemiFlip, Trick_ShecklerGrab, Trick_ShecklerPrimo, Trick_Shifty360ShovitBSShifty, Trick_SitDownAir, Trick_SlamSpinner, Trick_Solute, Trick_Stalefish, Trick_Stalefish_Layback, Trick_Stiffy, Trick_Tailgrab, Trick_The900, Trick_TheBird, Trick_TonySurfer, Trick_VarialHeelflip, Trick_VarialKickflip, Trick_WaxSlide, Trick_Worm, Trick_YeahRight, Trick_tailblockslide, TripleHeelFlip, TripleImpossible, TripleKickFlip, UnloadCaptureDeviceLibraries, VIEWED_CUTSCENE_01, VIEWED_CUTSCENE_02, VIEWED_CUTSCENE_03, VIEWED_CUTSCENE_04, VIEWED_CUTSCENE_05, VIEWED_CUTSCENE_06, VIEWED_CUTSCENE_07, VIEWED_CUTSCENE_08, VIEWED_CUTSCENE_09, VIEWED_CUTSCENE_10, VIEWED_CUTSCENE_11, VIEWED_CUTSCENE_12, VIEWED_CUTSCENE_13, VIEWED_CUTSCENE_14, VallelyTricks, WriteDNASBinary, Z_DT_Bike_ContinueGap10, Z_HO_BowlingPin, Z_HO_CavemanCombo_Gap_Start, Z_HO_CavemanSeriesEasy_Check, Z_HO_CranePlant, Z_HO_CranePlant2, Z_Inschool_Ditch_block, Z_SV2_Hydrant, Z_SV2_Hydrant2, Z_SV2_Hydrant3, appearance_COD, appearance_Sheckler, appearance_burnquist, appearance_custom_skater_male, appearance_hand, appearance_hawk, appearance_koston, appearance_margera, appearance_mullen, appearance_muska, appearance_shrek, appearance_sparrow, appearance_thps_hawk, appearance_vallely, appearance_weeman, bouncy, cleanup_play_movie, create_in_game_end_replay_menu, create_secrets_menu, edit_tricks_menu_1_index, edit_tricks_menu_flip_key_combos, edit_tricks_menu_grab_key_combos, edit_tricks_menu_lip_key_combos, generic_helper_text, generic_helper_text_no_back, goal_get_last_name, goal_highcombo_exit_area, jumpboost, m_zdtgaps23_gameplay_tag_EndGap2, m_zdtgaps23_gameplay_tag_EndGap3, mechbull_params, minikart_params, ngc_bgcolor, ngc_menu, ngc_message, ngc_set480i, ngc_set480p, ngc_set50Hz, ngc_set60Hz, ngc_setstandard, ped_cutchemist, ped_profile_list, sch_Goal_gaps2_got_1, sch_Goal_gaps2_got_2, sch_Goal_gaps2_got_3, sch_Goal_gaps2_got_4, sch_Goal_gaps2_got_5, sch_Goal_gaps2_got_6, sch_Goal_gaps2_got_7, score_players, segway_params, startup, tricycle_params, wheelchair_params, z_el_LEVEL_CHANGE_03, z_el_LEVEL_CHANGE_05, z_oi_LEVEL_CHANGE_01
+ALC_Televator02, AP_Heli_Move_End, AP_Heli_Move_Start, AP_Heli_Move_Start21, Add, AuthenticateClient, BE_BulbShatter, BE_Classic_AcidDrop05Start, BE_PudHipOut02, BE_Zoo_Roof_Kill, BO_Ped_Music_Off, BO_Trickin, BO_Trickin_Wait, ChooseNetConfig, DT_Wallplant_Slomo, DownloadFace, FillNetConfigList, FillRemovePlayersMenu, Gap_Slookout_end, HI_Wallows_left_end, High_End, IsFrench, JNK_GAPS3_END, KenTest1, LA_Wheel_Spin, LV_TRG_BreakTheBank, LoadNetConfigs, NO_Gap_V_Transfer1, NoNetConfigFiles, PH_BonkBush, PORTAPOTTY_End, SC_School_Books1, SC_School_Books2, SC_School_Books3, SC_School_Books4, SC_School_Books5, SI_FSMaster_End, SZ_EnterSand, SZ_Natas_Meters_Check, Secret_Tape, SetCaptureAttribute, SetCaptureDestTexture, SetupCaptureBitmapBuffer, ShutdownCaptureDevice, StartVideoCapture, StartupCaptureDevice, StopVideoCapture, THUGPRO_Televator, TRGP_Classic_Mctwist_End, TRGP_Gap2_Easy_End, TRGP_Gap2_Hard_End, TRGP_Gap2_Medium_End, TRGP_Gap_Culdesac_End, TRGP_Gap_Mechanic01_End, TRGP_Gap_Mechanic02_End, TRGP_Gap_Mechanic03_End, TRGP_Gap_Mechanic04_End, TRGP_SkateTheLine4_End, TRGP_Wallows_End, TRG_G_Collect2_End, TRG_Restart_End, TRG_Round_The_Horn_End, TRG_drive_veh_leaf_end, TRG_drive_veh_limo_end, TeleportSkaterToNodeAndScatter, UnloadCaptureDeviceLibraries, WriteDNASBinary, Z_BH_TRGP_Fountian_Manual_end, Z_BH_TRGP_Stairset_end, Z_BH_TRG_G_Gaps17_End, Z_BH_TRG_G_Gaps18_End, Z_BH_TRG_G_Gaps19_End, Z_BH_TRG_G_Spine_End, Z_BH_TRG_G_StickerPlant_End, Z_BH_TRG_Hurricane_Tip_End, Z_Bell_col_g_city_hall_roundy_qp_end, Z_Bell_vo_indy_hall_fence_end, Z_CretePark_TRG_GAP_BlockManual_End, Z_DT_Bike_ContinueGap10, Z_DT_DT_Bike_Gap_End, Z_Factory_TRGP_Gap_Chaplin_end, Z_Factory_TRGP_Gap_Platform_Pop_end, Z_HO_BowlingPin, Z_HO_CavemanCombo_Gap_Start, Z_HO_CavemanSeriesEasy_Check, Z_HO_CranePlant, Z_HO_CranePlant2, Z_HO_CraneSupport_End, Z_HO_HO_Banner_End, Z_Inschool_Ditch_block, Z_JA_TRG_Classic_Gap1_End, Z_JA_TRG_Kickflip_Directories_end, Z_MA_TRG_Force_Gap_end, Z_MA_TRG_Nokia_gap_End, Z_Museums_G_JG_Mall_End, Z_OI_TRG_Grandassention_end, Z_Parking_TRG_Ascension_Gap_End, Z_Parking_TRG_Carnal_E_Gap_End, Z_Parking_TRG_Carnal_W_Gap_End, Z_Parking_TRG_Entry_Hump_Gap_End, Z_Parking_TRG_Exit_Lump_Gap_End, Z_Parking_TRG_Hawking_Gap_End, Z_Parking_TRG_Hop_Gap_End, Z_Parking_TRG_Impulse_Gap_End, Z_Parking_TRG_Reach_Gap_End, Z_Parking_TRG_Rock_Grind_Gap_End, Z_Parking_TRG_Rock_Zip_Gap_End, Z_Parking_TRG_Scotch_Long_Gap_End, Z_Parking_TRG_Scotch_Short_Gap_End, Z_Parking_TRG_Shop_Zip_Gap_End, Z_Parking_TRG_Skip_Gap_End, Z_Parking_TRG_Stormin_Gap_End, Z_Parking_TRG_Tippy_Gap_End, Z_Parking_TRG_Who_Needs_Gap_End, Z_SV2_Hydrant, Z_SV2_Hydrant2, Z_SV2_Hydrant3, Z_SV_TRG_Electric_End, Z_Shops_TGRP_Bargin_booze_Gap_end, Z_Shops_TGRP_Gap_Manual_PlanterGD_End, Z_Shops_TGRP_Gap_Manual_PlanterGU_end, Z_Shops_TGRP_HairoftheDog_Gap_end, Z_Shops_TGRP_Special_Gap_CactusSpin_End, Z_Shops_TRGP_Gap_Cork_N_Coffee_end, Z_Shops_TRGP_Gap_Discount_Deterioration_end, Z_Shops_TRGP_Gap_Griptape_end, Z_Shops_TRGP_Gap_PizzaCoffe_end, Z_Shops_TRGP_Gap_Rennet_end, Z_Shops_TRGP_Gap_abomasum_end, Z_Shops_TRGP_Gap_jotobow_end, Z_Slums_TRG_train_waypoint1_end, Z_Slums_TRG_train_waypoint2_end, Z_WP_Bridge_waypoint_Alligator_End, bouncy, cleanup_play_movie, create_in_game_end_replay_menu, create_secrets_menu, gap_bigvent_end, goal_cam_begin, goal_cam_end, goal_get_last_name, goal_highcombo_exit_area, jumpboost, m_zdtgaps23_gameplay_tag_EndGap2, m_zdtgaps23_gameplay_tag_EndGap3, net_error_unplugged_front_end, ngc_bgcolor, ngc_menu, ngc_message, ngc_set480i, ngc_set480p, ngc_set50Hz, ngc_set60Hz, ngc_setstandard, nightoff_04_g_perf_fq_bldg02_end, nighton_04_g_perf_fq_bldg02_end, ped_walker_min_square_distance_to_dead_end, sch_Goal_gaps2_got_1, sch_Goal_gaps2_got_2, sch_Goal_gaps2_got_3, sch_Goal_gaps2_got_4, sch_Goal_gaps2_got_5, sch_Goal_gaps2_got_6, sch_Goal_gaps2_got_7, startup, trgp_f_manualDown_gap_end, z_el_LEVEL_CHANGE_03, z_el_LEVEL_CHANGE_05, z_oi_LEVEL_CHANGE_01, z_pb_bridge_trgp_Bside_Rail_End, z_pb_bridge_trgp_gap_dirt_END
 
 ## Every reason, with the reads it reaches
 
 | Reason | Reads |
 | --- | --- |
-| a member of a structure whose members weren't tracked | 679 |
-| a global made by an expression (its value not worked out) | 56 |
-| an array whose elements weren't tracked | 2 |

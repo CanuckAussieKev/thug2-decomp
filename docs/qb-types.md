@@ -10,6 +10,22 @@ What it can't see it never assumes: an **unknown**, carried with the type as its
 names what keeps it from being proven. Every unknown is listed in [qb-types-unknowns.md](qb-types-unknowns.md)
 (generated) and its artifact.
 
+**Result (2026-11-11): all 28,664 parameter reads of the game's 51,299 scripts are proven - no unknowns** (8,965 of a
+single kind, the rest unions; ~15 minutes, under 4 GB). Tested against the script check's runs:
+`node tools/qbjs/check_types_against_runs.ts out/scripts/types.json <game>/thug2-decomp-check/qb.txt` reads each
+run's final parameters (384,325 runs, 83,586 members) and every kind seen is in the proven set - a kind outside it is
+a bug in the checker or a model. (That test found two: RandomRange of whole endpoints is an integer; an unnamed
+structure whose members are below the depth limit still gives the callee members.)
+
+What the proof assumes, stated once:
+- the catalogues are complete: start_mechanisms.json (every way the C++ starts a script from a name it was given),
+  entry_models.json (by a fixed name), the command models (what each command writes back) - each record names the C++
+  it was taken from;
+- a name FormatText makes from a literal format is one whose text matches the format (each %-parameter any text)
+  among the names the game's name tables spell;
+- a value made outside the scripts (a command's output, a catalogue's member) that is a name may be any name, unless a
+  catalogue says which.
+
 ## What flows
 
 - A script's parameters: its defaults, every call's arguments (a spread `<...>` passes the caller's whole list), what a
@@ -28,6 +44,8 @@ names what keeps it from being proven. Every unknown is listed in [qb-types-unkn
   (start_mechanisms.json), the union of all globals, of all commands' outputs, of the returns of every script that can be
   named. A value includes them by reference and a read goes through them; a script is walked again when one it reads
   grows. The inbox and the union of globals keep one level less of shape.
+- `a.b` looks a member up only when `b` is a name; any other pair of kinds is the operator's (a pair's or vector's dot
+  product, a float). RandomRange is an integer when both endpoints are whole (random.js `range`), else a float.
 - Operators: each operator's result kinds for each pair of operand kinds are taken from `scripting/values.js` itself (run
   on samples), the runtime the script check proves against the game's interpreter - the checker and the runtime can't
   disagree. A fault is no value (none), as in the game.
