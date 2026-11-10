@@ -14,7 +14,9 @@ export type Expr =
     | { kind: "allParameters"; offset: number; copy?: true }
     | { kind: "binary"; offset: number; op: number; left: Expr; right: Expr }
     | { kind: "randomRange"; offset: number; a: number; b: number; second: boolean }
-    | { kind: "randomChoice"; offset: number; opcode: number; weights: number[]; choices: Expr[] }
+    // twice: drawn twice, the first pick dropped - it follows a bare name in a field list, whose look-ahead for '='
+    // (parse_arguments / parse_structure) resolves it once before it is read
+    | { kind: "randomChoice"; offset: number; opcode: number; weights: number[]; choices: Expr[]; twice?: true }
     | { kind: "structure"; offset: number; fields: Field[] }
     | { kind: "array"; offset: number; items: Expr[] }
     // A script as a value (a structure's `script name ... endscript`: the CAS tables' part scripts) - the field is
@@ -27,6 +29,7 @@ export type RandomFields = {
     opcode: number;
     weights: number[];
     branches: Field[][];
+    twice?: true; // (as randomChoice's)
 };
 export type Field =
     | { name: number; value: Expr; offset: number; flattenStructure?: true }

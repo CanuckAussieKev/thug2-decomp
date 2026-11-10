@@ -30,7 +30,7 @@ export function emitIR(module: ModuleIR): string {
                 "spread" in f
                     ? "null"
                     : "kind" in f
-                      ? `{group: () => randomChoice(${f.opcode}, ${site(script, f.offset)}, ${JSON.stringify(f.weights)}, [${f.branches.map((branch) => `() => [${entries(branch, script, params)}]`).join(", ")}])}`
+                      ? `{group: () => randomChoice(${f.opcode}, ${site(script, f.offset)}, ${JSON.stringify(f.weights)}, [${f.branches.map((branch) => `() => [${entries(branch, script, params)}]`).join(", ")}]${f.twice ? ", true" : ""})}`
                       : `() => [${f.name}, ${value(f.value, script, params)}${f.flattenStructure ? ", true" : f.value.kind === "literal" && f.value.value.type === 6 ? ", false, true" : ""}]`,
             )
             .join(", ");
@@ -57,7 +57,7 @@ export function emitIR(module: ModuleIR): string {
             case "randomRange":
                 return `randomRange(${x.a}, ${x.b}, ${x.second}, ${site(script, x.offset)})`;
             case "randomChoice":
-                return `randomChoice(${x.opcode}, ${site(script, x.offset)}, ${JSON.stringify(x.weights)}, [${x.choices.map((choice) => `() => ${value(choice, script, params)}`).join(", ")}])`;
+                return `randomChoice(${x.opcode}, ${site(script, x.offset)}, ${JSON.stringify(x.weights)}, [${x.choices.map((choice) => `() => ${value(choice, script, params)}`).join(", ")}]${x.twice ? ", true" : ""})`;
             case "structure":
                 return `v.structure(${fields(x.fields, script, x.offset, params)}, ${context})`;
             case "array": {
@@ -188,7 +188,7 @@ export function emitIR(module: ModuleIR): string {
     let output = `// Generated from QB; do not edit.\n(() => {\nconst v = globalThis.qbValues;\nif (v?.apiVersion !== 2) throw Error("QB values API 2 required");\n${resultGuard}qb.module(${JSON.stringify(manifest)});\nfunction fields(p, entries, ctx) { return v.fields(p, entries, ctx); }\n`;
     if (requiresRandom(module))
         output +=
-            "function randomRange(a,b,second,site) { const ctx=qb.context(site); return qb.random().range(a,b,second,ctx.charge); }\nfunction randomChoice(op,site,weights,choices) { const ctx=qb.context(site); const selected=qb.random().choose(op,site,weights,ctx.owner,ctx.charge); return choices[selected](); }\n";
+            "function randomRange(a,b,second,site) { const ctx=qb.context(site); return qb.random().range(a,b,second,ctx.charge); }\nfunction randomChoice(op,site,weights,choices,twice) { const ctx=qb.context(site); if (twice) qb.random().choose(op,site,weights,ctx.owner,ctx.charge); const selected=qb.random().choose(op,site,weights,ctx.owner,ctx.charge); return choices[selected](); }\n";
     for (const def of module.definitions) {
         if (def.kind === "global")
             output += `qb.defineGlobal(${def.name}, ${value(def.value, 0, "[]")}, ${site(0, def.offset)});\n`;

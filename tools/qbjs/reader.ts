@@ -470,6 +470,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
     const parameters = (depth: number, structure = false, until = -1): Field[] => {
         if (depth > depthLimit) fail("value depth limit");
         const fields: Field[] = [];
+        let flagEnd = -1; // (where the last field, a bare name, ended)
         if (structure) separators();
         while (
             (until < 0 || p < until) &&
@@ -478,12 +479,17 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
         ) {
             need(1);
             if (lineEnded) break;
+            // Right after a bare name (only line ends between, in a structure): the name's look-ahead for '=' has
+            // resolved a Random here once already (resolve_random_jumps draws) - it is drawn twice.
+            const afterFlag = flagEnd >= 0 && (p === flagEnd || (structure && onlyLines(flagEnd, p)));
+            flagEnd = -1;
             // A Random among the fields: a value choice where it is one (below), else one branch's fields.
             if (!structure && [0x2f, 0x37, 0x40, 0x41].includes(b[p]!)) {
                 const start = p,
                     count = nodes;
                 try {
                     const item = value(depth);
+                    if (afterFlag && item.kind === "randomChoice") item.twice = true;
                     fields.push({ name: 0, value: item, offset: start, flattenStructure: true });
                     continue;
                 } catch {
@@ -500,6 +506,7 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     opcode: table.opcode,
                     weights: table.weights,
                     branches,
+                    ...(afterFlag ? { twice: true as const } : {}),
                 } satisfies RandomFields);
                 continue;
             }
@@ -528,6 +535,9 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                     } else p = start;
                 }
                 const item = value(depth);
+                if (afterFlag && !assigned && item.kind === "randomChoice") item.twice = true;
+                // (a bare name: its look-ahead may draw a Random just after it)
+                if (!assigned && item.kind === "literal" && item.value.type === 13) flagEnd = p;
                 // parse_arguments/parse_structure recursively append anonymous
                 // brace blocks into the same destination, rather than store
                 // an unnamed nested Structure component.

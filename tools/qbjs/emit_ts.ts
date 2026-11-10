@@ -193,8 +193,9 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
             .replace(/^f\((-?\d+)\)$/, "$1")
             .replace(/^fbits/, () => use("fbits"));
     // random(k, [weights,] [choices]) - k numbers the site in the module (no-repeat / permute state is per site).
-    const randomDoc = (opcode: number, weights: number[], choices: Doc[]): Doc => ({
-        head: `${use(RANDOM[opcode] as (typeof HELPERS)[number])}(${++randomSite}, `,
+    // (twice: random.twice(...) - drawn twice, the first pick dropped: after a bare name, whose look-ahead drew it)
+    const randomDoc = (opcode: number, weights: number[], choices: Doc[], twice = false): Doc => ({
+        head: `${use(RANDOM[opcode] as (typeof HELPERS)[number])}${twice ? ".twice" : ""}(${++randomSite}, `,
         items: [
             ...(weights.every((w) => w === 1) ? [] : [`[${weights.join(", ")}]`]),
             { head: "[", items: choices, tail: "]" },
@@ -262,6 +263,7 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                     x.opcode,
                     x.weights,
                     x.choices.map((c) => (pure ? expr(c) : arrow(expr(c)))),
+                    x.twice === true,
                 );
             }
             case "structure":
@@ -307,6 +309,7 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                                     ? arrow(doc)
                                     : doc;
                             }),
+                            x.twice === true,
                         ),
                     ],
                     tail: "",

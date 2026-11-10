@@ -336,15 +336,19 @@ globalThis.qbTs = (() => {
     );
 
     const coordinate = (c) => (typeof c === "object" ? c.bits : floatBits(Math.fround(c)));
+    // random(k, [weights,] choices); random.twice(...): drawn twice, the first pick dropped - a Random right after a
+    // bare name, whose look-ahead for '=' (parse_arguments / parse_structure) has drawn it once already.
     function choose(opcode) {
-        return (key, ...rest) => {
+        const pick = (twice) => (key, ...rest) => {
             const choices = rest.at(-1);
             const weights = rest.length > 1 ? rest[0] : choices.map(() => 1);
             const random = globalThis.qb.random();
             const c = globalThis.qb.context(site(key));
+            if (twice) random.choose(opcode, site(key), weights, c.owner, c.charge);
             const picked = choices[random.choose(opcode, site(key), weights, c.owner, c.charge)];
             return typeof picked === "function" ? picked() : picked;
         };
+        return Object.assign(pick(false), { twice: pick(true) });
     }
     const range = (second) => (a, b) =>
         mark(globalThis.qb.random().range(coordinate(a), coordinate(b), second, ctx().charge));
