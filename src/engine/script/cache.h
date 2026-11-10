@@ -69,6 +69,9 @@ public:
     // (restart_changed_scripts). An entry that was unused gets a count of 0 but stays off the unused list, so it's
     // never dropped (an original quirk, kept).
     void mark_stale(uint32_t name);
+    // NOT ORIGINAL (token_reader.h park_stored_randoms): script `name`'s definition is gone - its stored randoms
+    // dropped, both those parked and those in its cached code (which may live on while a script still runs it).
+    void drop_randoms(uint32_t name);
 
     // 0x00475A40: put an entry at the new end of the unused list.
     void add_to_unused(ScriptCacheEntry* entry);

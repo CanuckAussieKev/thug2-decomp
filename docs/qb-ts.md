@@ -60,6 +60,7 @@ overlays (the new front end, Anteara Mod, the ported levels) 531 of 531 - and al
 | `begin ... repeat` | `while (true) { ... }` |
 | `switch <x> case 1 case 2 ... default` | `if (is(p.x, 1)) ... else if (is(p.x, 2) \|\| is(p.x, 3)) ... else ...` (a selector that isn't a plain value is read into `const onN` first) |
 | `Random(@a @b)`, `Random2`, `RandomNoRepeat`, `RandomPermute` | `random(k, [a, b])`, ... - `k` numbers the call site in its module (the no-repeat / permute state is kept per site); weights first when not all 1 |
+| a Random right after a bare name (`Foo Random(...)`) | `random.twice(k, ...)` - the bare name's look-ahead for `=` draws the Random once and drops it; the statement draws again |
 | a Random among statements | `const pickN = random(k, [0, 1, 2]);` then `if (pickN === 0) {...} else if ...` |
 | a Random among a call's fields: `Foo Random(@a = 1 @a = 2 Flag)` | `yield* Foo(...random(k, [[{ a: 1 }], [{ a: 2 }, N.Flag]]))` |
 | `RandomRange(a, b)` / `RandomRange2` | `randomRange(a, b)` / `randomRange2(a, b)` |

@@ -96,6 +96,13 @@ void forget_code_block(const void* block)
     ++generation();
 }
 
+void forget_code_randoms(const void* block)
+{
+    if (const auto found = code_blocks().find(static_cast<const uint8_t*>(block)); found != code_blocks().end()) {
+        forget_stored_randoms(found->first, found->second);
+    }
+}
+
 void forget_script_code(const void* block)
 {
     if (const auto found = code_blocks().find(static_cast<const uint8_t*>(block)); found != code_blocks().end()) {

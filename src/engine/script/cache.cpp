@@ -158,6 +158,12 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
             return nullptr;
         }
         name = symbol->name_value();
+    } else {
+        // NOT ORIGINAL: a script whose definition is gone isn't run from the cache. Removing a temporary load's new
+        // script refreshes the cache by a name read from the freed symbol (process_pending_symbols, as the original
+        // does), which misses, so its code stayed cached and calls by its name ran it - for a TypeScript script, a
+        // definition already let go of. Entries still in use are left for release_script.
+        return nullptr;
     }
     if (auto* entry = static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name, true))) {
         ++entry->usage;
@@ -221,6 +227,14 @@ void ScriptStore::mark_stale(uint32_t name)
     drop_parked_randoms(name); // NOT ORIGINAL (token_reader.h): a new definition starts afresh
     fetch_script(name);
     static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name, true))->usage = usage;
+}
+
+void ScriptStore::drop_randoms(uint32_t name)
+{
+    if (const auto* entry = static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name)); entry && entry->code) {
+        forget_code_randoms(entry->code);
+    }
+    drop_parked_randoms(name);
 }
 
 // 0x00476040

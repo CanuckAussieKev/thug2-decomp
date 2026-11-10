@@ -665,7 +665,9 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
         free_vector(symbol->value().vector());
         break;
     case QbValueKind::kScriptBody:
-        drop_parked_randoms(symbol->name_value()); // NOT ORIGINAL (token_reader.h): its definition is gone
+        if (ScriptStore* store = script_store_instance()) {
+            store->drop_randoms(symbol->name_value()); // NOT ORIGINAL (cache.h): its definition is gone
+        }
         memory::free_malloc(symbol->value().code());
         break;
     case QbValueKind::kStruct:
