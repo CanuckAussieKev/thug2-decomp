@@ -283,6 +283,7 @@ void forget_stored_randoms(const uint8_t* begin, std::size_t size)
 // an owner), made when missing; the choice made.
 uint32_t pick_stored_random(const uint8_t* table, QbToken kind, uint32_t count)
 {
+    table = code_original(table); // NOT ORIGINAL (tokens.h note_code_copy)
     StoredRandom* stored = look_up_saved_random(table, kind, count);
     if (kind == QbToken::kRandomNoRepeat) {
         if (!stored) {

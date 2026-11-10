@@ -291,6 +291,7 @@ void QbScript::set_script_copy(ParamScript* script, Struct* params, objects::Ent
     memory::Hub::get_pull()->leave_heap_scope();
     const std::span<uint8_t> copy(block, size);
     note_code_block(copy);
+    note_code_copy(block, source.data()); // NOT ORIGINAL (tokens.h)
     std::ranges::copy(source, copy.begin());
     bind_script(script->own_name_hash_, block, params, object);
     code_copy_ = block; // (after bind_script: its reset_script_state would free it)

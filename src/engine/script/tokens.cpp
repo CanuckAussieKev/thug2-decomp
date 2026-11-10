@@ -26,6 +26,14 @@ CodeBlocks& code_blocks()
     return blocks;
 }
 
+// NOT ORIGINAL: private copies of code (a running script's copy of a script value): their first byte -> the code
+// they were copied from (note_code_copy).
+std::map<const uint8_t*, const uint8_t*>& code_copies()
+{
+    static std::map<const uint8_t*, const uint8_t*> copies;
+    return copies;
+}
+
 // The block found last (the interpreter takes up the same script's code over and over).
 struct LastBlock {
     const uint8_t* begin = nullptr;
@@ -83,6 +91,7 @@ void forget_code_block(const void* block)
         return;
     }
     code_blocks().erase(static_cast<const uint8_t*>(block));
+    code_copies().erase(static_cast<const uint8_t*>(block));
     last_block() = {};
     ++generation();
 }
@@ -93,6 +102,23 @@ void forget_script_code(const void* block)
         forget_stored_randoms(found->first, found->second);
     }
     forget_code_block(block);
+}
+
+void note_code_copy(const uint8_t* copy, const uint8_t* source) { code_copies()[copy] = source; }
+
+const uint8_t* code_original(const uint8_t* place)
+{
+    const auto& copies = code_copies();
+    auto it = copies.upper_bound(place);
+    if (it == copies.begin()) {
+        return place;
+    }
+    --it;
+    const auto block = code_blocks().find(it->first);
+    if (block == code_blocks().end() || !holds(it->first, block->second, place) || place == it->first + block->second) {
+        return place;
+    }
+    return it->second + (place - it->first);
 }
 
 void park_script_code(const void* block, uint32_t name)

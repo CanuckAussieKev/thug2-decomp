@@ -33,6 +33,12 @@ void forget_script_code(const void* block);
 // NOT ORIGINAL: forget_code_block for script `name`'s cached code - its stored randoms parked till it is fetched again
 // (token_reader.h park_stored_randoms).
 void park_script_code(const void* block, uint32_t name);
+// NOT ORIGINAL: `copy` (a noted block) is a private copy of the code at `source` - its Randoms keep their stored
+// state by the source's places (code_original), so every run of a script value shares one state, as a TypeScript
+// site does, not one per copy (the original's, found again only when the allocator gives a copy the same block).
+void note_code_copy(const uint8_t* copy, const uint8_t* source);
+// `place` in a private copy: the same place in the code it was copied from; otherwise `place`.
+const uint8_t* code_original(const uint8_t* place);
 // The cursor at `place` over the block that holds it (null: an empty cursor). A pointer into no block noted ends the
 // game with a report.
 Tokens tokens_at(const uint8_t* place);
