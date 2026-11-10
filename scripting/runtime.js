@@ -8,6 +8,9 @@ globalThis.qb = (() => {
     const game = globalThis.__qbGame;
     const scripts = new Map(), symbols = new Map(), tasks = new Map();
     let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000, inlineCount = 0, loadingOwner = null;
+    // A name read with arguments that turned out not to be a C function: its arguments, for the dispatch of that name
+    // (name / dispatch below).
+    let leftover = null;
     let rng = null;
     const random = () => {
         if (globalThis.qbRandom?.apiVersion !== 1) throw Error('QB random API 1 required');
@@ -81,6 +84,7 @@ globalThis.qb = (() => {
         return out;
     }
     function step(site) {
+        leftover = null; // (a name's leftover arguments are its statement's only)
         if (!active) throw Error('No active QB task');
         active.site = site;
         if (--active.fuel < 0) throw Error('QB statement fuel exhausted');
@@ -192,6 +196,15 @@ globalThis.qb = (() => {
             return value.bits;
         },
         *dispatch(value, args, p, site) {
+            const extra = leftover?.name === value?.bits && value?.type === 13 ? leftover.args : [];
+            leftover = null;
+            if (extra.length) {
+                // The statement has read on to the expression's ')', which then stays the next token: the statement
+                // loop runs it as a statement naming nothing, never moving past it - the original loops there for ever
+                // once the command (and whatever it called) is done. Here the level ends as a runaway does.
+                if (value.bits !== 0) yield* call(value.bits, [...extra, ...args], p, site);
+                throw Error('QB statement fuel exhausted: a name with arguments in an expression - the original loops for ever at its closing parenthesis');
+            }
             if (value?.type === 13) return value.bits === 0 ? false : yield* call(value.bits, args, p, site);
             if (args.length) throw Error('QB arguments after an expression that is not a name');
             return values().statementTruth(value, context(site));
@@ -212,8 +225,15 @@ globalThis.qb = (() => {
                 return {type:1, bits:r?.condition ? 1 : 0};
             }
             if (kind === 'method') throw Error('QB member function in an expression is not implemented');
-            if (args.length) throw Error('QB arguments after a name that is not a C function in an expression');
-            return values().global(n, ctx);
+            const value = values().global(n, ctx);
+            if (args.length) {
+                // Not a C function: the evaluator stops the expression at the first argument (a value where an
+                // operator was due) and the statement reads the rest as its own arguments - so when the expression's
+                // name is run as a command (execute_command), they are its arguments (dispatch takes them, below).
+                if (value?.type !== 13) throw Error('QB arguments after a name that is not a C function in an expression');
+                leftover = {name: value.bits, args};
+            }
+            return value;
         },
         merge, assign, fields, step, call, context, random,
         get(p, name) { for (let i = p.length - 1; i >= 0; --i) if (p[i][0] === name) return p[i][1]; },
