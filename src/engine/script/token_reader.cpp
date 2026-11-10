@@ -1,6 +1,8 @@
 #include "engine/script/token_reader.h"
 
 #include <cstddef>
+#include <vector>
+#include <unordered_map>
 #include <utility>
 #include <functional>
 #include <bit>
@@ -186,27 +188,89 @@ StoredRandom* new_stored_random()
     return stored;
 }
 
+// NOT ORIGINAL: `stored` taken out of the pool's list and freed.
+void unlink_and_free(StoredRandom* stored)
+{
+    StoredRandom* const older = stored->succ_;
+    if (stored->previous_) {
+        stored->previous_->succ_ = older;
+    } else {
+        script_state().set_stored_randoms_newest(older);
+    }
+    if (older) {
+        older->previous_ = stored->previous_;
+    } else {
+        stored_randoms_oldest() = stored->previous_;
+    }
+    --stored_random_count();
+    free_stored_random(stored);
+}
+
+namespace {
+// NOT ORIGINAL: stored randoms whose script's cached code is gone for now (evicted, or released): the script's name
+// and the Random's place in its code, until the script is fetched again (park_stored_randoms).
+struct Parked {
+    uint32_t name;
+    std::size_t offset;
+};
+std::unordered_map<const StoredRandom*, Parked>& parked_randoms()
+{
+    static std::unordered_map<const StoredRandom*, Parked> parked;
+    return parked;
+}
+bool in_block(const uint8_t* place, const uint8_t* begin, std::size_t size)
+{
+    return place && !std::less<>()(place, begin) && std::cmp_less(place - begin, size);
+}
+} // namespace
+
+void park_stored_randoms(const uint8_t* begin, std::size_t size, uint32_t name)
+{
+    for (StoredRandom* stored = script_state().stored_randoms_newest(); stored; stored = stored->succ_) {
+        if (in_block(stored->lookup_table_, begin, size)) {
+            parked_randoms()[stored] = {.name = name, .offset = static_cast<std::size_t>(stored->lookup_table_ - begin)};
+            stored->lookup_table_ = nullptr;
+        }
+    }
+}
+
+void unpark_stored_randoms(const uint8_t* code, uint32_t name)
+{
+    auto& parked = parked_randoms();
+    for (auto it = parked.begin(); it != parked.end();) {
+        if (it->second.name == name) {
+            const_cast<StoredRandom*>(it->first)->lookup_table_ = code + it->second.offset;
+            it = parked.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void drop_parked_randoms(uint32_t name)
+{
+    std::vector<const StoredRandom*> gone;
+    for (const auto& [stored, place] : parked_randoms()) {
+        if (place.name == name) {
+            gone.push_back(stored);
+        }
+    }
+    for (const StoredRandom* stored : gone) {
+        unlink_and_free(const_cast<StoredRandom*>(stored)); // (free_stored_random unparks it)
+    }
+}
+
+void forget_parked(const void* stored) { parked_randoms().erase(static_cast<const StoredRandom*>(stored)); }
+
 // NOT ORIGINAL: the stored randoms whose Random lies in the `size` bytes at `begin` dropped (tokens.cpp
-// forget_code_block; ts_bridge.cpp's sites).
+// forget_script_code; ts_bridge.cpp's sites).
 void forget_stored_randoms(const uint8_t* begin, std::size_t size)
 {
     StoredRandom* stored = script_state().stored_randoms_newest();
     while (stored) {
         StoredRandom* const older = stored->succ_;
-        const uint8_t* table = stored->lookup_table_;
-        if (table && !std::less<>()(table, begin) && std::cmp_less(table - begin, size)) {
-            if (stored->previous_) {
-                stored->previous_->succ_ = older;
-            } else {
-                script_state().set_stored_randoms_newest(older);
-            }
-            if (older) {
-                older->previous_ = stored->previous_;
-            } else {
-                stored_randoms_oldest() = stored->previous_;
-            }
-            --stored_random_count();
-            free_stored_random(stored);
+        if (in_block(stored->lookup_table_, begin, size)) {
+            unlink_and_free(stored);
         }
         stored = older;
     }
@@ -387,8 +451,12 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
     }
     const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
     change_species(out, QbValueKind::kFloat);
-    const double scale = kParseRandomScale;
-    out->value.set_real(static_cast<float>(((static_cast<double>(to) - from) * pick * scale) + from));
+    // Each step rounded to a float: the original's x87 runs at single precision (Direct3D sets it so) - the same
+    // value as scripting/random.js range's. (One operation per statement: nothing fused into a multiply-add.)
+    const float span = to - from;
+    const float scaled_pick = span * static_cast<float>(pick);
+    const float scaled = scaled_pick * kParseRandomScale;
+    out->value.set_real(scaled + from);
     return token + kTokenWithPairBytes;
 }
 

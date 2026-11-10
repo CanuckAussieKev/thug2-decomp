@@ -30,6 +30,9 @@ void forget_code_block(const void* block);
 // as its code, as a TypeScript site's lasts as long as its module. (A running script's private copy keeps the
 // original's behaviour: forget_code_block.)
 void forget_script_code(const void* block);
+// NOT ORIGINAL: forget_code_block for script `name`'s cached code - its stored randoms parked till it is fetched again
+// (token_reader.h park_stored_randoms).
+void park_script_code(const void* block, uint32_t name);
 // The cursor at `place` over the block that holds it (null: an empty cursor). A pointer into no block noted ends the
 // game with a report.
 Tokens tokens_at(const uint8_t* place);

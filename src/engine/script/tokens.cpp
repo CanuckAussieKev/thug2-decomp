@@ -95,6 +95,14 @@ void forget_script_code(const void* block)
     forget_code_block(block);
 }
 
+void park_script_code(const void* block, uint32_t name)
+{
+    if (const auto found = code_blocks().find(static_cast<const uint8_t*>(block)); found != code_blocks().end()) {
+        park_stored_randoms(found->first, found->second, name);
+    }
+    forget_code_block(block);
+}
+
 Tokens tokens_at(const uint8_t* place)
 {
     if (!place) {

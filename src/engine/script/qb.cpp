@@ -639,7 +639,11 @@ void allocate_script_checksum_names(bool debug_heap)
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
 void free_pair(void* pair) { script_state().pair_pools().dealloc(pair); }
 void free_vector(void* vector) { vector_pools().dealloc(vector); }
-void free_stored_random(void* random) { script_state().stored_random_pools().dealloc(random); }
+void free_stored_random(void* random)
+{
+    forget_parked(random); // NOT ORIGINAL (token_reader.h)
+    script_state().stored_random_pools().dealloc(random);
+}
 void free_symbol(SymbolTableEntry* symbol) { symbol_pools().dealloc(symbol); }
 
 // 0x004711D0
@@ -661,6 +665,7 @@ void clean_up_and_remove_symbol(SymbolTableEntry* symbol)
         free_vector(symbol->value().vector());
         break;
     case QbValueKind::kScriptBody:
+        drop_parked_randoms(symbol->name_value()); // NOT ORIGINAL (token_reader.h): its definition is gone
         memory::free_malloc(symbol->value().code());
         break;
     case QbValueKind::kStruct:

@@ -1,4 +1,5 @@
 #include "engine/script/cache.h"
+#include "engine/script/token_reader.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -78,7 +79,7 @@ ScriptStore::~ScriptStore()
         entry->older = nullptr;
         entry->newer = nullptr;
         if (entry->code) {
-            forget_script_code(entry->code); // NOT ORIGINAL (tokens.h)
+            park_script_code(entry->code, entry->name); // NOT ORIGINAL (tokens.h)
             memory::free_malloc(entry->code);
         }
         delete entry;
@@ -128,7 +129,7 @@ void ScriptStore::delete_entry(ScriptCacheEntry* entry)
     entries_->erase_entry(entry->name);
     remove_from_unused(entry);
     if (entry->code) {
-        forget_script_code(entry->code); // NOT ORIGINAL (tokens.h)
+        park_script_code(entry->code, entry->name); // NOT ORIGINAL (tokens.h)
         memory::free_malloc(entry->code);
     }
     gsl::owner<ScriptCacheEntry*> owned = memory::owned_element(entry); // (the store's: its table's value)
@@ -178,6 +179,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     memory::Hub::get_pull()->leave_heap_scope();
     const std::span<uint8_t> script(code, code_length);
     note_code_block(script);
+    unpark_stored_randoms(code, name); // NOT ORIGINAL (token_reader.h)
     if (stored_size < code_length) {
         // (not original: bounded by the script's length - lzss::unpack, decode's bytes for valid code)
         lzss::unpack(stored.code_.data(), stored_size, code, code_length, nullptr);
@@ -216,6 +218,7 @@ void ScriptStore::mark_stale(uint32_t name)
     }
     const int usage = entry->usage;
     delete_entry(entry);
+    drop_parked_randoms(name); // NOT ORIGINAL (token_reader.h): a new definition starts afresh
     fetch_script(name);
     static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name, true))->usage = usage;
 }
