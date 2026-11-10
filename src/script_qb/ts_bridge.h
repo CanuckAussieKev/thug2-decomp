@@ -25,6 +25,8 @@ namespace script::qb::ts {
 // Read the setting and, when on, start QuickJS and hook the .qb loader (app/ calls it at start-up, before any .qb).
 void install();
 [[nodiscard]] bool enabled();
+// QuickJS's interrupt budget for each run of it (0: the game's own) - the script check lowers it.
+void set_interrupt_budget(uint32_t budget);
 
 // What a level asks for when it stops running.
 struct Answer {

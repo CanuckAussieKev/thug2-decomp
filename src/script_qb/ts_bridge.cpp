@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <span>
 #include <string>
@@ -52,6 +53,13 @@ constexpr size_t kStackLimit = 1024U * 1024U;
 // Interrupt checks one resume may take (QuickJS asks every few thousand operations): a level that never stops is a
 // fault, not a hang.
 constexpr uint32_t kInterruptBudget = 200000;
+// The budget each run of QuickJS gets (the script check lowers it: a loop with no calls - `while (true)` of a begin /
+// repeat with no count - runs out there as QB's runs out of steps, not after minutes).
+uint32_t& interrupt_budget()
+{
+    static uint32_t budget = kInterruptBudget;
+    return budget;
+}
 constexpr size_t kMaxDepth = 64;
 
 struct Engine {
@@ -736,6 +744,28 @@ JSValue native_draw(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueCo
     return JS_NewUint32(c, static_cast<uint32_t>(pick));
 }
 
+// storedChoice(opcode, site, count): a RandomNoRepeat (0x40) / RandomPermute (0x41) choice by the game's own stored
+// random state (token_reader.cpp pick_stored_random) - the pool QB's Randoms use: an entry is the running record's or
+// left without an owner (a record gone), at most so many kept, the oldest dropped. QB finds an entry by its Random's
+// table of jumps; a TypeScript site by a byte of its own, one per site text (module, script, site), kept for good.
+JSValue native_stored_choice(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+{
+    static std::unordered_map<std::string, std::unique_ptr<uint8_t>> keys;
+    const uint32_t opcode = to_u32(c, argv[0]);
+    std::string site;
+    if (const char* text = JS_ToCString(c, argv[1])) {
+        site = text;
+        JS_FreeCString(c, text);
+    }
+    const uint32_t count = to_u32(c, argv[2]);
+    std::unique_ptr<uint8_t>& key = keys[site];
+    if (!key) {
+        key = std::make_unique<uint8_t>(0);
+    }
+    const QbToken kind = opcode == 0x41U ? QbToken::kRandomPermute : QbToken::kRandomNoRepeat;
+    return JS_NewUint32(c, pick_stored_random(key.get(), kind, count));
+}
+
 // frame(): the game's frame count (ts_bridge.h frame_clock).
 JSValue native_frame(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* /*argv*/)
 {
@@ -751,7 +781,7 @@ bool evaluate(const char* source, size_t size, const char* filename, std::string
 {
     Engine& e = engine();
     JS_UpdateStackTop(e.runtime);
-    e.budget = kInterruptBudget;
+    e.budget = interrupt_budget();
     const JSValue result = JS_Eval(e.context, source, size, filename, JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(result)) {
         error = exception_text(e.context);
@@ -795,6 +825,7 @@ bool start_engine()
     add_native(c, game, "defineGlobal", native_define_global, 2);
     add_native(c, game, "draw", native_draw, 2);
     add_native(c, game, "frame", native_frame, 0);
+    add_native(c, game, "storedChoice", native_stored_choice, 3);
     set(c, game, "recording", JS_NewBool(c, e.recording));
     set(c, global, "__qbGame", game);
     JS_FreeValue(c, global);
@@ -860,7 +891,7 @@ bool evaluate_module(const std::string& source, const std::string& name, const s
     Engine& e = engine();
     JSContext* c = e.context;
     JS_UpdateStackTop(e.runtime);
-    e.budget = kInterruptBudget;
+    e.budget = interrupt_budget();
     const std::string header = cache_header(source);
     JSValue function = JS_UNDEFINED;
     cached = false;
@@ -957,7 +988,7 @@ JSValue call_qb(const char* method, std::span<JSValue> args)
     Engine& e = engine();
     const JSValue function = get(e.context, e.qb, method);
     JS_UpdateStackTop(e.runtime);
-    e.budget = kInterruptBudget;
+    e.budget = interrupt_budget();
     const JSValue result = JS_Call(e.context, function, e.qb, static_cast<int>(args.size()), args.data());
     JS_FreeValue(e.context, function);
     for (JSValue& arg : args) {
@@ -1036,6 +1067,8 @@ void install()
 }
 
 bool enabled() { return is_on(); }
+
+void set_interrupt_budget(uint32_t budget) { interrupt_budget() = budget == 0 ? kInterruptBudget : budget; }
 
 uint32_t begin(uint32_t name, uint32_t title, Struct* args, uint32_t owner, std::string& error)
 {

@@ -185,6 +185,52 @@ StoredRandom* new_stored_random()
 }
 
 // 0x00470C60
+// RandomNoRepeat / RandomPermute's choice (resolve_random_jumps' cases, as one function - NOT ORIGINAL: also a
+// TypeScript script's, ts_bridge.cpp, so both share the stored-random pool): its state found by `table` (the Random's
+// table of jumps - for TypeScript a key of its own per site) among the stored randoms (an owner's, or one left without
+// an owner), made when missing; the choice made.
+uint32_t pick_stored_random(const uint8_t* table, QbToken kind, uint32_t count)
+{
+    StoredRandom* stored = look_up_saved_random(table, kind, count);
+    if (kind == QbToken::kRandomNoRepeat) {
+        if (!stored) {
+            stored = new_stored_random();
+            stored->lookup_table_ = table;
+            stored->kind_tag_ = token_byte(QbToken::kRandomNoRepeat);
+            stored->num_ = static_cast<uint16_t>(count);
+            stored->last_ = static_cast<uint32_t>(maths::rnd(static_cast<int>(count)));
+        }
+        stored->owner_ = get_running_script();
+        int pick = maths::rnd(static_cast<int>(count));
+        for (int tries = 0; static_cast<uint16_t>(pick) == stored->last_;) {
+            if (++tries > kNoRepeatMaxTries) {
+                break;
+            }
+            pick = maths::rnd(static_cast<int>(count));
+        }
+        const uint32_t choice = static_cast<uint16_t>(pick);
+        stored->last_ = choice;
+        return choice;
+    }
+    if (!stored) {
+        stored = new_stored_random();
+        stored->lookup_table_ = table;
+        stored->kind_tag_ = token_byte(QbToken::kRandomPermute);
+        stored->num_ = static_cast<uint16_t>(count);
+        stored->ordinal_ = 0;
+        for (uint16_t i = 0; i < stored->num_; ++i) {
+            core::at(stored->order_, i) = static_cast<uint8_t>(i);
+        }
+        shuffle(*stored, false);
+    }
+    stored->owner_ = get_running_script();
+    if (++stored->ordinal_ >= stored->num_) {
+        shuffle(*stored, true);
+        stored->ordinal_ = 0;
+    }
+    return core::at(stored->order_, stored->ordinal_);
+}
+
 namespace {
 // NOT ORIGINAL - the script check's coverage: a Random's branch taken (check_hooks.h; never set in the game).
 void note_random_choice(Tokens random, uint32_t choice)
@@ -222,54 +268,14 @@ Tokens resolve_random_jumps(Tokens token)
             token = offset + fetch_word32(offset) + 4;
             break;
         }
-        case QbToken::kRandomNoRepeat: { // RandomNoRepeat
-            const uint32_t count = fetch_word32(token + 1);
-            const Tokens table = token + 5 + 2 * count;
-            StoredRandom* stored = look_up_saved_random(table.address(), QbToken::kRandomNoRepeat, count);
-            if (!stored) {
-                stored = new_stored_random();
-                stored->lookup_table_ = table.address();
-                stored->kind_tag_ = token_byte(QbToken::kRandomNoRepeat);
-                stored->num_ = static_cast<uint16_t>(count);
-                stored->last_ = static_cast<uint32_t>(maths::rnd(static_cast<int>(count)));
-            }
-            stored->owner_ = get_running_script();
-            int pick = maths::rnd(static_cast<int>(count));
-            for (int tries = 0; static_cast<uint16_t>(pick) == stored->last_;) {
-                if (++tries > kNoRepeatMaxTries) {
-                    break;
-                }
-                pick = maths::rnd(static_cast<int>(count));
-            }
-            const uint32_t choice = static_cast<uint16_t>(pick);
-            stored->last_ = choice;
-            const Tokens offset = table + 4 * choice;
-            note_random_choice(token, choice);
-            token = offset + fetch_word32(offset) + 4;
-            break;
-        }
+        case QbToken::kRandomNoRepeat: // RandomNoRepeat
         case QbToken::kRandomPermute: { // RandomPermute
+            const QbToken kind = as_token(*token);
             const uint32_t count = fetch_word32(token + 1);
             const Tokens table = token + 5 + 2 * count;
-            StoredRandom* stored = look_up_saved_random(table.address(), QbToken::kRandomPermute, count);
-            if (!stored) {
-                stored = new_stored_random();
-                stored->lookup_table_ = table.address();
-                stored->kind_tag_ = token_byte(QbToken::kRandomPermute);
-                stored->num_ = static_cast<uint16_t>(count);
-                stored->ordinal_ = 0;
-                for (uint16_t i = 0; i < stored->num_; ++i) {
-                    core::at(stored->order_, i) = static_cast<uint8_t>(i);
-                }
-                shuffle(*stored, false);
-            }
-            stored->owner_ = get_running_script();
-            if (++stored->ordinal_ >= stored->num_) {
-                shuffle(*stored, true);
-                stored->ordinal_ = 0;
-            }
-            const Tokens offset = table + (std::ptrdiff_t{4} * core::at(stored->order_, stored->ordinal_));
-            note_random_choice(token, core::at(stored->order_, stored->ordinal_));
+            const uint32_t choice = pick_stored_random(table.address(), kind, count);
+            const Tokens offset = table + (std::ptrdiff_t{4} * choice);
+            note_random_choice(token, choice);
             token = offset + fetch_word32(offset) + 4;
             break;
         }

@@ -59,6 +59,8 @@ struct Run {
     uint32_t steps = 0;
 };
 
+constexpr uint32_t kCheckInterruptBudget = 2000;
+
 struct Settings {
     int runs = 64;          // runs per script and argument set (QB, exploring)
     int frames = 300;       // frames a run may last
@@ -460,6 +462,8 @@ void run_plan(const std::string& folder)
     }
     fs::OwnedStream output = fs::open_stream((folder + (typescript ? "\\ts.txt" : "\\qb.txt")).c_str(), "wb");
     s.on = true;
+    // (a loop with no calls - no statement budget in TypeScript - is interrupted soon, as QB runs out of steps)
+    ts::set_interrupt_budget(kCheckInterruptBudget);
     for (uint32_t m = 0; m < modules->extent(); ++m) {
         Struct* module = modules->struct_at(m);
         const std::string file = text_of(module, "file");
@@ -553,6 +557,7 @@ void run_plan(const std::string& folder)
         }
     }
     s.on = false;
+    ts::set_interrupt_budget(0);
     output.reset();
     get_log("script check: done (%s)", typescript ? "TypeScript" : "QB");
 }
@@ -676,7 +681,9 @@ void ts_fault(const std::string& message)
 {
     if (active() && state().run->ended.empty()) {
         // (a runaway loop: the statement fuel - one outcome with QB's step budget)
-        state().run->ended = message.find("fuel exhausted") != std::string::npos ? "runaway" : "fault " + message;
+        const bool runaway =
+            message.find("fuel exhausted") != std::string::npos || message.find("interrupted") != std::string::npos;
+        state().run->ended = runaway ? "runaway" : "fault " + message;
     }
 }
 

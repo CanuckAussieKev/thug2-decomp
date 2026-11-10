@@ -182,6 +182,11 @@ globalThis.qbRandom = (() => {
                     fail("type", "Expected uint16 random weight", site);
             }
 
+            // In the game: the game's own stored-random pool (ts_bridge.cpp storedChoice) - shared with QB's Randoms, an
+            // entry taken over when its record is gone, the oldest dropped past the limit, as the original does.
+            if (globalThis.__qbGame?.storedChoice)
+                return globalThis.__qbGame.storedChoice(opcode, `${site.source}|${site.script}|${site.offset}`, count);
+
             const shuffle = (record, avoidRepeat) => {
                 const last = record.order[count - 1];
                 for (let swaps = count * 10; swaps > 0; --swaps) {
