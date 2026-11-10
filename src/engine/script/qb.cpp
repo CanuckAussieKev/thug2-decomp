@@ -594,6 +594,7 @@ namespace {
 struct PendingSymbol {
     SymbolTableEntry* symbol;
     bool owned;
+    uint32_t by_name = 0; // NOT ORIGINAL - nonzero: remove whatever symbol has this name (settle_pending_replacement)
 };
 std::array<PendingSymbol, kPendingSymbolCapacity>& pending_symbols()
 {
@@ -611,6 +612,7 @@ void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
     PendingSymbol& pending = core::at(pending_symbols(), pending_symbol_count());
     pending.symbol = symbol;
     pending.owned = owned;
+    pending.by_name = 0;
     ++pending_symbol_count();
     if (symbol->type() == QbValueKind::kScriptBody && script_store_instance()) {
         remove_from_script_cache(symbol->name_value());
@@ -686,11 +688,48 @@ void remove_symbol_later(SymbolTableEntry* symbol) { add_pending_symbol(symbol, 
 // 0x004727F0: `symbol` (not in the table) replaces the symbol of its name once loading is done.
 void replace_symbol_later(SymbolTableEntry* symbol) { add_pending_symbol(symbol, false); }
 
+// NOT ORIGINAL: a temporary load replacing a symbol it made itself (a name it defines twice, or a script its TypeScript
+// module defines again). The original sets it aside too, so its undo frees it twice (its "remove later" entry, then
+// relinked by the "put back" one) - its own temporary loads never redefine a name. Here it is freed now: a "remove
+// later" entry for it removes whatever has its name instead, and a "put back" entry for its name already puts the
+// first symbol back. True when `existing` was this load's own (and is gone).
+bool settle_pending_replacement(SymbolTableEntry* existing)
+{
+    const uint32_t name = existing->name_value();
+    for (int i = 0; i < pending_symbol_count(); ++i) {
+        PendingSymbol& pending = core::at(pending_symbols(), i);
+        const bool mine = pending.by_name == name || (pending.by_name == 0 && pending.owned && pending.symbol == existing);
+        const bool replacing = pending.by_name == 0 && !pending.owned && pending.symbol->name_value() == name;
+        if (!mine && !replacing) {
+            continue;
+        }
+        if (mine) {
+            pending.symbol = nullptr;
+            pending.by_name = name;
+        }
+        if (existing->type() == QbValueKind::kScriptBody && script_store_instance()) {
+            remove_from_script_cache(name);
+        }
+        clean_up_and_remove_symbol(existing);
+        return true;
+    }
+    return false;
+}
+
 // 0x00472830
 void process_pending_symbols()
 {
     for (int i = 0; i < pending_symbol_count(); ++i) {
         const PendingSymbol& pending = core::at(pending_symbols(), i);
+        if (pending.by_name != 0) { // NOT ORIGINAL (settle_pending_replacement)
+            if (SymbolTableEntry* symbol = find_symbol(pending.by_name)) {
+                if (symbol->type() == QbValueKind::kScriptBody && script_store_instance()) {
+                    remove_from_script_cache(pending.by_name);
+                }
+                clean_up_and_remove_symbol(symbol);
+            }
+            continue;
+        }
         if (pending.owned) {
             clean_up_and_remove_symbol(pending.symbol);
         } else {

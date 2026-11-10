@@ -201,6 +201,8 @@ THUG2_API void clean_up_and_remove_symbol(SymbolTableEntry* symbol);
 // table's symbol of the same name with `symbol`.
 void remove_symbol_later(SymbolTableEntry* symbol);
 void replace_symbol_later(SymbolTableEntry* symbol);
+// NOT ORIGINAL: a temporary load replacing its own symbol - freed now, its pending entries kept right (qb.cpp).
+bool settle_pending_replacement(SymbolTableEntry* existing);
 void process_pending_symbols();
 THUG2_API void clear_script_flag_6f_2564();
 THUG2_API void set_script_flag_6f_2564();

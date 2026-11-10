@@ -63,6 +63,9 @@ const char* precompiled_extension() { return game_config::fetch_platform_suffix(
 void get_replace(SymbolTableEntry* existing, int temporary)
 {
     if (temporary != 0) {
+        if (settle_pending_replacement(existing)) { // NOT ORIGINAL (qb.cpp)
+            return;
+        }
         replace_symbol_later(existing);
         unlink_symbol(existing);
     } else {
