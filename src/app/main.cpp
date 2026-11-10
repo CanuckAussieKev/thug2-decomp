@@ -22,6 +22,7 @@
 #include "engine/sys/startup_init.h"
 #include "app/command_table.h"
 #include "app/extensions.h"
+#include "engine/ext/extension.h"
 #include "app/winmain.h"
 #include "app/renderer_choice.h"
 #include "audio_dsound/dsound_device.h"
@@ -39,6 +40,7 @@
 #include "engine/script/host.h"
 #include "script_qb/qb_host.h"
 #include "script_qb/ts_bridge.h"
+#include "script_qb/script_check.h"
 #include "engine/pad_input/input_source.h"
 #include "engine/pad_input/sdl_input.h"
 #include "input_dinput/dinput_source.h"
@@ -109,6 +111,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // (engine/sys/editor_mode.h).
     sys::set_startup_command_line(GetCommandLineA());
     app::register_extensions();
+    // NOT ORIGINAL: the script check (-script-check: src/script_qb/script_check.h), after the others.
+    ext::add(script::qb::check::extension());
     // NOT ORIGINAL: the online session's hooks into the network transport (game/online/transport_hooks.h).
     online::install_transport_hooks();
     // NOT ORIGINAL: the node commands the engine's time of day and colour cycles call (game/commands/node_hooks.h).

@@ -1,7 +1,7 @@
 param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$Game = 'C:\Games\THUG2',
       [string]$ShotDir = '', [string]$Level = '', [string[]]$Commands = @(),
       [switch]$WaitReady, [string]$Run = '', [int]$HangSeconds = 45, [string]$Renderer = '',
-      [ValidateSet('', 'x86', 'x64')][string]$Arch = '')
+      [ValidateSet('', 'x86', 'x64')][string]$Arch = '', [string[]]$Extra = @())
 # A game in trouble (game_health.ps1: it crashed - exit code not 0 -, Windows Error Reporting runs for it, it shows a
 # dialog, or its window hasn't responded for -HangSeconds) is noticed while waiting, closed (WM_CLOSE, then killed),
 # and reported with the end of its log - also appended to <folder>\thug2-decomp-crashes.txt. Exit code 5 then.
@@ -16,6 +16,7 @@ param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$G
 #                       the most it waits - and the picture is taken right after. No fixed waits, no posted keys.
 #   -WaitReady: wait until the main menu is up (the status file's "ready") instead of -Seconds (then the most).
 #   -Run <script>: the game started with -run <script> (run once the main menu is up).
+#   -Extra <args>: more command-line arguments for the game (e.g. -script-check <folder>: src/script_qb/script_check.h).
 #   game_cmd.ps1 sends more commands to a game that runs. -Keys still works (after the commands).
 # Starts the game (thug2-decomp.exe, the game built from the decomp's source) in the -Game folder (C:\Games\THUG2, or a workspace copy C:\Games\THUG2-1, -2...), waits, takes a
 # picture of its window (half size), optionally sends keys, then closes that game (only the one it started).
@@ -60,6 +61,7 @@ $lines = if ($Commands.Count) { Add-GameCommands $Game $Commands } else { 0 }
 $gameArgs = @()
 if ($Level) { $gameArgs += @('-level', $Level) }
 if ($Run) { $gameArgs += @('-run', $Run) }
+$gameArgs += $Extra
 Set-WorkspaceMuted $Game  # (a workspace's games always run muted: [features] mute_audio=1)
 if ($Renderer) {
     if (-not (Test-Workspace $Game)) { "-Renderer is for the workspaces only - $Game's ini left alone"; exit 2 }

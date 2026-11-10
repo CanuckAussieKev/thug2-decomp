@@ -1,0 +1,30 @@
+param([string]$Game = 'C:\Games\THUG2-1', [ValidateSet('', 'x86', 'x64')][string]$Arch = 'x64',
+      [ValidateSet('both', 'qb', 'ts')][string]$Pass = 'both', [int]$Seconds = 21600)
+# NOT ORIGINAL - the script check's two passes in a workspace (src/script_qb/script_check.h, docs/script-check.md):
+# the game started with -script-check <Game>\thug2-decomp-check, once with [features] ts_scripts=0 (QB: qb.txt) and
+# once with ts_scripts=1 (TypeScript, replaying QB's runs: ts.txt). Each run quits by itself when the plan is done.
+# The caller holds the workspace's lock (game_lock.ps1) and has written the plan (tools/qbjs/script_check.ts plan) and
+# installed the TypeScript modules (tools/qbjs/install_ts.ts); the ini is put back by the lock's release.
+. (Join-Path $PSScriptRoot 'game_exe.ps1')
+$root = Resolve-GameFolder $Game
+$check = Join-Path $root 'thug2-decomp-check'
+if (-not (Test-Path (Join-Path $check 'plan.qb'))) { "no plan in $check (node tools/qbjs/script_check.ts plan --game $Game)"; exit 2 }
+$ini = Join-Path $root 'thug2-decomp.ini'
+
+# [features] ts_scripts=<on> in the ini (no byte-order mark: the game's ini reader wants none).
+function Set-TsScripts([int]$on) {
+    $text = [IO.File]::ReadAllText($ini)
+    if ($text -match '(?m)^ts_scripts=\d') { $text = $text -replace '(?m)^ts_scripts=\d', "ts_scripts=$on" }
+    else { $text = $text -replace '(?m)^\[features\]\r?$', "[features]`r`nts_scripts=$on" }
+    [IO.File]::WriteAllText($ini, $text, (New-Object Text.UTF8Encoding($false)))
+}
+
+$passes = if ($Pass -eq 'both') { @('qb', 'ts') } else { @($Pass) }
+foreach ($p in $passes) {
+    Set-TsScripts ([int]($p -eq 'ts'))
+    $started = Get-Date
+    & (Join-Path $PSScriptRoot 'run_game.ps1') -Game $Game -Arch $Arch -Seconds $Seconds -HangSeconds $Seconds `
+        -Shot "script_check_$p" -Extra @('-script-check', $check) | Select-Object -Last 1
+    $out = Join-Path $check "$p.txt"
+    "$p pass: $([int]((Get-Date) - $started).TotalSeconds) s, $(if (Test-Path $out) { (Get-Item $out).Length } else { 0 }) bytes"
+}

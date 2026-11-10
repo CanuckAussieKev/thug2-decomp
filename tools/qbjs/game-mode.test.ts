@@ -30,6 +30,7 @@ function load(recording = false) {
     const calls: string[] = [];
     let frame = 0;
     const scriptsDefined: number[] = [];
+    const definitions = new Map<number, number>(); // a script's name -> its definition (what its body names)
     const globals = new Map<number, unknown>();
     const game = {
         symbol: (n: number) =>
@@ -39,7 +40,10 @@ function load(recording = false) {
             calls.push(`function ${n.toString(16)}`);
             return true;
         },
-        defineScript: (n: number) => scriptsDefined.push(n),
+        defineScript: (n: number, id: number) => {
+            scriptsDefined.push(n);
+            definitions.set(n, id);
+        },
         defineGlobal: (n: number, v: unknown) => globals.set(n, v),
         draw: () => 0,
         recording,
@@ -57,6 +61,7 @@ function load(recording = false) {
         qb: context.qb,
         calls,
         scriptsDefined,
+        definitions,
         globals,
         nextFrame: () => {
             ++frame;
@@ -69,12 +74,12 @@ const same = (actual: unknown, expected: unknown, message?: string) =>
     assert.deepEqual(actual === undefined ? undefined : JSON.parse(JSON.stringify(actual)), expected, message);
 
 test("game mode: requests out, results and the record's parameters in, the level's changes back", () => {
-    const { qb, calls, scriptsDefined, globals } = load();
+    const { qb, calls, scriptsDefined, definitions, globals } = load();
     const n = checksum;
     same(scriptsDefined, [n("Main")]);
     same(globals.get(n("Limit")), { type: 1, bits: 3 });
 
-    qb.begin!(7, n("Main"), [[n("start"), { type: 1, bits: 2 }]], 99);
+    qb.begin!(7, definitions.get(n("Main")), [[n("start"), { type: 1, bits: 2 }]], 99);
     // first resume: defaults merged with the arguments, x assigned - the level's parameters come back changed
     let r = qb.resume!(7, null, undefined) as Record<string, unknown>;
     assert.equal(r.call, n("Probe"));
@@ -107,10 +112,10 @@ test("game mode: requests out, results and the record's parameters in, the level
 });
 
 test("game mode, [debug] ts_types=1: the types each site sees, and which calls waited", () => {
-    const { qb, nextFrame } = load(true);
+    const { qb, nextFrame, definitions } = load(true);
     const n = checksum;
     const hex = (x: number) => x.toString(16).padStart(8, "0");
-    qb.begin!(7, n("Main"), [[n("start"), { type: 1, bits: 2 }]], 99);
+    qb.begin!(7, definitions.get(n("Main")), [[n("start"), { type: 1, bits: 2 }]], 99);
     let r = qb.resume!(7, null, undefined) as Record<string, unknown>; // -> Probe
     r = qb.resume!(7, r.params, true) as Record<string, unknown>; // Probe answered in the same frame -> Wait
     const record = [...(r.params === null ? [] : (r.params as unknown[]))];

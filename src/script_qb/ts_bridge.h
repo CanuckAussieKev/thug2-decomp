@@ -34,9 +34,10 @@ struct Answer {
     std::string error;          // a JavaScript fault (the level is to end)
 };
 
-// A level of script `name` begun with the record's parameters `args` (owner: the record's unique id - Random's no-repeat
-// state is kept per script, as the original's). 0 on failure (`error` says why).
-uint32_t begin(uint32_t name, Struct* args, uint32_t owner, std::string& error);
+// A level of the script defined as `definition` (the number its kTsBody names; `title`: its name, for the profile)
+// begun with the record's parameters `args` (owner: the record's unique id - Random's no-repeat state is kept per
+// script, as the original's). 0 on failure (`error` says why).
+uint32_t begin(uint32_t definition, uint32_t title, Struct* args, uint32_t owner, std::string& error);
 // The level runs on: `args` is the record's parameter list (the level's view is refreshed from it, and its own changes
 // written back into it), `result` the last command's result; `stmt` gets the next command's arguments or the return
 // values.

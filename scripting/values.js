@@ -754,8 +754,22 @@ globalThis.qbValues = (() => {
         contains(p, n, ctx) {
             return containsInternal(p, n, new Work(ctx));
         },
-        binary(op, a, b, ctx) {
+        // An operator the evaluator can't apply (a type it doesn't take, an index out of range...) is a fault there
+        // (ValueResolver::change_fault): its stacks cleared, the expression has no value - the script goes on. So an
+        // operation's fault is no value here, and no value in an operand makes none (as a missing <x>, which pushes
+        // nothing, does there): whatever the expression's shape, a fault anywhere leaves it none (expression.cpp
+        // fetch_verdict), while every operand is still read, in order (the arguments are evaluated first).
+        // (the operation itself, its fault thrown: the tests' view of why an operation has no value)
+        operate(op, a, b, ctx) {
             return operation(op, a, b, new Work(ctx));
+        },
+        binary(op, a, b, ctx) {
+            try {
+                return operation(op, a, b, new Work(ctx));
+            } catch (e) {
+                if (e?.code === "type" || e?.code === "arithmetic" || e?.code === "unsupported") return undefined;
+                throw e;
+            }
         },
         statementTruth(v, ctx) {
             const w = new Work(ctx);

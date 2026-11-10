@@ -11,6 +11,7 @@
 // depth is a new level. A JavaScript fault is logged and ends the level.
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 #include "script_qb/qb_script.h"
+#include "script_qb/script_check.h"
 #include "script_qb/ts_bridge.h"
 
 namespace script::qb {
@@ -53,7 +55,7 @@ TsLevel& ts_level(const QbScript* script, int depth)
 
 bool QbScript::run_ts_level(Tokens& pc)
 {
-    const uint32_t name = fetch_word32(pc + 1);
+    const uint32_t name = fetch_word32(pc + 1); // (the definition: runtime.js define)
     const int depth = call_depth_;
     pc_ = pc.address(); // (a script called from this level returns here)
     {
@@ -61,9 +63,10 @@ bool QbScript::run_ts_level(Tokens& pc)
         if (level.id == 0 || level.args != args_.get()) {
             ts::drop(level.id);
             std::string error;
-            level = {ts::begin(name, args_.get(), unique_id_, error), args_.get(), false};
+            level = {ts::begin(name, script_title_, args_.get(), unique_id_, error), args_.get(), false};
             if (level.id == 0) {
-                get_log("ts: %s failed to start: %s", find_checksum_name_or_unknown(name), error.c_str());
+                get_log("ts: %s failed to start: %s", find_checksum_name_or_unknown(script_title_), error.c_str());
+                check::ts_fault(error);
             }
         }
     }
@@ -75,20 +78,24 @@ bool QbScript::run_ts_level(Tokens& pc)
         stmt_args_->get_clear();
     }
     if (!answer.error.empty()) {
-        get_log("ts: %s: %s", find_checksum_name_or_unknown(name), answer.error.c_str());
+        get_log("ts: %s: %s", find_checksum_name_or_unknown(script_title_), answer.error.c_str());
+        check::ts_fault(answer.error);
         answer.done = true;
         stmt_args_->get_clear();
     }
 
     if (!answer.done) {
         bool result = false;
-        if (answer.on) {
+        if (const auto stubbed = answer.on ? check::command(this, answer.call, *answer.on, stmt_args_.get())
+                                           : std::nullopt) {
+            result = *stubbed; // (the script check: object:Command is a stub - script_check.h)
+        } else if (answer.on) {
             objects::Entity* object = objects::find_object(*answer.on);
             if (object) {
                 result = run_command_on(answer.call, object);
             } else {
                 // (the original loops on the ':' for ever here - a TypeScript level is told false instead)
-                get_log("ts: %s: object %s not found for %s", find_checksum_name_or_unknown(name),
+                get_log("ts: %s: object %s not found for %s", find_checksum_name_or_unknown(script_title_),
                         find_checksum_name_or_unknown(*answer.on), find_checksum_name_or_unknown(answer.call));
             }
         } else {

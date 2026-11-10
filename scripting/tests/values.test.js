@@ -49,9 +49,14 @@
     const eqBits = (actual, type, expected) =>
         assert(actual.type === type && actual.bits === expected >>> 0, "typed bits");
     const get = (p, key) => v.param(p, key, "value", ctx);
-    const bin = (op, a, b) => v.binary(op, a, b, ctx);
+    // (the operation with its faults thrown; binary - what scripts use - gives no value for a fault, as the game's
+    // evaluator does)
+    const bin = (op, a, b) => v.operate(op, a, b, ctx);
 
     assert(v.apiVersion === 2, "version");
+    assert(v.binary(12, i(1), i(0), ctx) === undefined, "a fault is no value");
+    assert(v.binary(13, v.name(1), i(2), ctx) === undefined, "a name times an integer: no value");
+    assert(v.binary(11, undefined, i(2), ctx) === undefined, "a missing operand: no value");
     eqBits(i(-1), 1, 0xffffffff);
     eqBits(v.float(0x80000000), 2, 0x80000000);
     eqBits(n(1), 13, 1);

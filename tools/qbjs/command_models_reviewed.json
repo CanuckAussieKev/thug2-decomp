@@ -1,0 +1,4743 @@
+{
+ "0x027b2b1c": {
+  "outputs": {},
+  "source": "src/engine/gfx/bone_look_at.cpp:392; src/engine/gfx/bone_look_at.cpp:414",
+  "notes": "(constant kIsOn) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0x1a0f4c50": {
+  "outputs": {},
+  "source": "src/engine/objects/dynamic_light.cpp:194",
+  "notes": "(constant kSetColor (dynamic light))"
+ },
+ "0x1df59a54": {
+  "outputs": {
+   "anim": "name",
+   "speed": "float",
+   "0x6b888e80": "name",
+   "StartTime": "float",
+   "CurrentTime": "float",
+   "endtime": "float"
+  },
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1101",
+  "notes": "(constant kTimelineInfo) the playing timeline's (or timeline Index's) info; 0x6b888e80 is the repeat mode"
+ },
+ "0x20d24e9a": {
+  "outputs": {},
+  "source": "src/engine/gfx/bone_look_at.cpp:392; src/engine/gfx/bone_look_at.cpp:398",
+  "notes": "(constant kOn) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0x286ba49c": {
+  "outputs": {},
+  "source": "src/engine/objects/chain_component.cpp:310",
+  "notes": "(constant kSetCollision (chain))"
+ },
+ "0x2A547E37": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:687"
+ },
+ "0x4599fb80": {
+  "outputs": {},
+  "source": "src/engine/gfx/bone_look_at.cpp:392; src/engine/gfx/bone_look_at.cpp:406",
+  "notes": "(constant kOff) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0x4a752aae": {
+  "outputs": {},
+  "source": "src/engine/objects/color_cycle.cpp:154",
+  "notes": "(constant kSetBlinkPeriod)"
+ },
+ "0x4faf61a9": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_channel.cpp:1129",
+  "notes": "(constant kSetRangeDurationMethod) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0x5446af14": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:362",
+  "notes": "(constant kSetCullOutside)"
+ },
+ "0x5e3f0f17": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_channel.cpp:1184; src/engine/gfx/anim_controller.cpp:325",
+  "notes": "(constant kTimelineForwardMethodA / kSetWeightedAnim) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0x6aaeb76f": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1185; src/engine/gfx/anim_controller.cpp:569",
+  "notes": "(constant kStepFrames / kStep)"
+ },
+ "0x86e1fa56": {
+  "outputs": {},
+  "source": "src/engine/objects/dynamic_light.cpp:188",
+  "notes": "(constant kSetIntensity (dynamic light))"
+ },
+ "0x92267217": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_controller.cpp:245",
+  "notes": "(constant kGlobalFrame) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0x982c70e5": {
+  "outputs": {},
+  "source": "src/engine/objects/chain_component.cpp:351",
+  "notes": "(constant kSetHidden (chain))"
+ },
+ "0xA038260D": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:1006"
+ },
+ "0xaf2fae19": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_controller.cpp:222; src/engine/gfx/anim_controller.cpp:316; src/engine/gfx/anim_controller.cpp:392",
+  "notes": "(constant kPlayAnim (the controllers' own)) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0xb040e943": {
+  "outputs": {},
+  "source": "src/engine/gfx/bone_look_at.cpp:392",
+  "notes": "(constant kSettings) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0xb2a022de": {
+  "outputs": {
+   "LeftStickAngle": "float",
+   "LeftStickMagnitude": "float",
+   "RightStickAngle": "float",
+   "RightStickMagnitude": "float"
+  },
+  "source": "src/engine/objects/input_component.cpp:437",
+  "notes": "(constant kGetSticks)"
+ },
+ "0xc9f0db4b": {
+  "outputs": {},
+  "source": "src/engine/objects/car_physics.cpp:313",
+  "notes": "(constant kNoOpMember)"
+ },
+ "0xd0209498": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_controller.cpp:401",
+  "notes": "(constant kSetTarget) internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "0xD5F6EA3B": {
+  "outputs": {
+   "goals": "array"
+  },
+  "source": "src/game/park_editing/goal_editor_members.cpp:430",
+  "notes": "goals (only when there is a used goal outside the park editor): structures as GetCurrentEditedGoalInfo writes"
+ },
+ "0xdb8621f7": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:451",
+  "notes": "(constant kRandomSpread)"
+ },
+ "0xe357e3cb": {
+  "outputs": {},
+  "source": "src/engine/objects/floating_text.cpp:170",
+  "notes": "(constant kReinit (floating text))"
+ },
+ "0xeeeb7220": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/engine/objects/entity.cpp:456",
+  "notes": "(constant kGetNamedTags) copies of the tags named in the unnamed array: members named by the array's elements, any kind"
+ },
+ "0xfaad1c11": {
+  "outputs": {},
+  "source": "src/engine/objects/dynamic_light.cpp:182",
+  "notes": "(constant kSetRadius (dynamic light))"
+ },
+ "AbsolutePitchGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/matrix_queries.cpp:90"
+ },
+ "AddAnimController": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1186; src/engine/gfx/anim_track.cpp:300"
+ },
+ "AddEditedGoalToGoalManager": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:421"
+ },
+ "AddFlag": {
+  "outputs": {
+   "0x00000000": "name"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:356 cfunc_add_flag",
+  "notes": "Adds an UNNAMED name (a bare flag) to the caller's parameters: put_name_key(name 0, <the command's unnamed checksum argument>, 0 when missing). The caller then has that flag set."
+ },
+ "AddGeom": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:304"
+ },
+ "AddKeyComboSet": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:95"
+ },
+ "AddNewPosition": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:277"
+ },
+ "AddParams": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/engine/script/script_cfuncs.cpp:692 cfunc_add_params",
+  "notes": "All of the command's own arguments are merged into the caller's parameters (append_structure_if_any): the outputs are exactly the command's arguments (names and kinds as written at the call site, unnamed flags included). A checker that knows the call's argument types can use them instead of 'any' (equivalent to starts params '*' into the caller)."
+ },
+ "AddSkaterToWorld": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1713"
+ },
+ "AddTricksToQueue": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:292"
+ },
+ "AdjustBalance": {
+  "outputs": {},
+  "source": "src/game/rider/balance_trick.cpp:280"
+ },
+ "AirTimeGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:751"
+ },
+ "AirTimeLessThan": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:745"
+ },
+ "AllowLipNoGrind": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:442"
+ },
+ "AllowRailTricks": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:460"
+ },
+ "AnimEquals": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1177"
+ },
+ "AnimExists": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1159"
+ },
+ "AnimFinished": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1108"
+ },
+ "AppearanceAllowScalingCheat": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:272"
+ },
+ "AppendSuffix": {
+  "outputs": {
+   "0x00000000": "string"
+  },
+  "byArgument": {
+   "0x50060694": "string"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:369 cfunc_append_suffix",
+  "uncertain": "The result-name argument's text is unknown (checksum 0x50060694); without it the result is an unnamed string (hence outputs 0x00000000)."
+ },
+ "ApplyCustomTagTexture": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:245"
+ },
+ "applyEnvBrightness": {
+  "outputs": {},
+  "source": "src/engine/gfx/particle_system_update.cpp:406; src/engine/objects/flexible_particle.cpp:418; src/engine/objects/particle_component.cpp:596"
+ },
+ "AtomicIsHidden": {
+  "outputs": {
+   "hidden": "int"
+  },
+  "source": "src/engine/objects/model_component_members.cpp:170"
+ },
+ "AutoKickIsOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:370"
+ },
+ "Backwards": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:567"
+ },
+ "BadLedge": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:415"
+ },
+ "BailIsOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:410"
+ },
+ "BailOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:404"
+ },
+ "BailOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:398"
+ },
+ "BashOff": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:191"
+ },
+ "BashOn": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:280"
+ },
+ "BikeCanSkid": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:341",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeEnterSkid": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:340",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeEnterXup": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:339",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeExitSkid": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:340",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeExitTireTap": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:341",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeExitXup": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:339",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeInManual": {
+  "outputs": {
+   "nose": "int"
+  },
+  "source": "src/game/rider/thaw_bmx.cpp:339",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "bikeinskid": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:340",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeInTireTap": {
+  "outputs": {
+   "nose": "int"
+  },
+  "source": "src/game/rider/thaw_bmx.cpp:340",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeInXup": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:339",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BikeIsInOverGrind": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:338",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "BlendPeriodOut": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1149"
+ },
+ "Block": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:500 cfunc_block (+ context.h gate_off -> host)",
+  "notes": "Blocks: the calling script waits until an event of type=/UntilEvent= arrives (none: until unblocked, e.g. by UnBlockInterruptedScript or an exception handler replacing it)."
+ },
+ "BlockTaggingOff": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:320"
+ },
+ "BlockTaggingOn": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:332"
+ },
+ "BoardIsRotated": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:171"
+ },
+ "BoardRotate": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:202"
+ },
+ "BoardRotateAfter": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:173"
+ },
+ "Braking": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:609"
+ },
+ "CanBrakeOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:334"
+ },
+ "CanBrakeOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:340"
+ },
+ "CancelRotateDisplay": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:265"
+ },
+ "CancelRotateDisplayandUpdateMatrix": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics_state.cpp:347"
+ },
+ "CancelWallpush": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:646"
+ },
+ "CanKick": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics_state.cpp:508"
+ },
+ "CanKickOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:352"
+ },
+ "CanKickOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:346"
+ },
+ "CanSpin": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:392"
+ },
+ "CastToInteger": {
+  "outputs": {},
+  "byArgument": {
+   "0x00000000": "int"
+  },
+  "source": "src/engine/script/script_cfuncs.cpp:654 cfunc_cast_to_integer",
+  "notes": "The caller's parameter named by the unnamed name argument: if it reads as a float (a float, an integer, or a name of a global float/integer - Struct::get_hunt), every component of that name is erased and an int put in its place. Otherwise nothing changes (returns false)."
+ },
+ "CAT_GetAnimsDone": {
+  "outputs": {
+   "cat_animations_done": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:297 cfunc_cat_get_anims_done (+ helpers: create_a_trick.cpp:269 fetch_marker)",
+  "notes": "0/1; only with a local skater."
+ },
+ "CAT_GetBailDone": {
+  "outputs": {
+   "bailtimescriptdone": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:317 cfunc_cat_get_bail_done (+ helpers: create_a_trick.cpp:269 fetch_marker)",
+  "notes": "0/1; only with a local skater."
+ },
+ "CAT_GetFlipSkater": {
+  "outputs": {
+   "cat_flip_skater_180": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:327 cfunc_cat_get_flip_skater",
+  "notes": "cat_flip_skater_180 (0xAFB9A15E) 0/1; only with a local skater."
+ },
+ "CAT_GetHoldTime": {
+  "outputs": {
+   "cat_hold_time": "float"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:349 cfunc_cat_get_hold_time",
+  "notes": "Only with a local skater."
+ },
+ "CAT_GetNumAnims": {
+  "outputs": {
+   "num_animations_on": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:287 cfunc_cat_get_num_anims (+ helpers: create_a_trick.cpp:249 fetch_int_value)",
+  "notes": "Only with a local skater."
+ },
+ "CAT_GetRotsDone": {
+  "outputs": {
+   "cat_rotations_done": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:307 cfunc_cat_get_rots_done (+ helpers: create_a_trick.cpp:269 fetch_marker)",
+  "notes": "0/1; only with a local skater."
+ },
+ "CAT_GetTotalX": {
+  "outputs": {
+   "total_X_angle": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:374 cfunc_cat_get_total_x (+ helpers: create_a_trick.cpp:249 fetch_int_value)",
+  "notes": "Only with a local skater."
+ },
+ "CAT_GetTotalY": {
+  "outputs": {
+   "total_Y_angle": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:364 cfunc_cat_get_total_y (+ helpers: create_a_trick.cpp:249 fetch_int_value)",
+  "notes": "Only with a local skater."
+ },
+ "CAT_GetTotalZ": {
+  "outputs": {
+   "total_Z_angle": "int"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:384 cfunc_cat_get_total_z (+ helpers: create_a_trick.cpp:249 fetch_int_value)",
+  "notes": "Only with a local skater."
+ },
+ "Chain_LockPos": {
+  "outputs": {},
+  "source": "src/engine/objects/chain_component.cpp:329"
+ },
+ "ChangeCameraFOV": {
+  "outputs": {},
+  "source": "src/engine/gfx/view_cam.cpp:89"
+ },
+ "ChangeProTricks": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:250"
+ },
+ "CheckGapTricks": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "?",
+    "params": "none",
+    "how": "start_script_task: the Trickscript each finished gap trick stored (StartGap / StartGapTrick arguments)"
+   }
+  ],
+  "source": "src/game/rider/gap_entry.cpp:598"
+ },
+ "CheckNatasExitDirection": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics_feelers.cpp:326"
+ },
+ "ChooseServer": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:CreateJoinRefusedDialog",
+    "params": "unknown",
+    "how": "run"
+   },
+   {
+    "script": "fixed:net_chosen_join_server",
+    "params": "unknown",
+    "how": "run"
+   }
+  ],
+  "source": "src/game/online/server_browser.cpp:251 cfunc_choose_server",
+  "notes": "Context unused. Runs ONE of two fixed-name scripts at once (script::launch_script, no object) with a structure built here: server full -> CreateJoinRefusedDialog (0x92528E98) {reason (0xC44777F3): name, just_dialog (0xF6694E96): name 0}; else net_chosen_join_server (0xBFF7C13B) {cookie (0x751F4599): name only when NAT negotiation is needed, unnamed int = port, unnamed string = ip, MaxPlayers (0xB7E39B53): int}. id= is the server id, not a script."
+ },
+ "ClearAllowLipNoGrind": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:448"
+ },
+ "ClearEndofRunStarted": {
+  "outputs": {},
+  "source": "src/game/rider/end_run.cpp:92"
+ },
+ "ClearEventBuffer": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:242"
+ },
+ "ClearEventHandler": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:578 cfunc_clear_event_handler"
+ },
+ "ClearEventHandlerGroup": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:587 cfunc_clear_event_handler_group"
+ },
+ "ClearExtraGrindTrick": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:247"
+ },
+ "ClearGapTricks": {
+  "outputs": {},
+  "source": "src/game/rider/gap_entry.cpp:601"
+ },
+ "ClearGeom": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:291"
+ },
+ "ClearManualTrick": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:244"
+ },
+ "ClearPagerMessages": {
+  "outputs": {},
+  "source": "src/engine/objects/pager_message.cpp:178",
+  "notes": "spawns the C++-named script pager_message_list_changed on the object with {deleted: name}"
+ },
+ "ClearPanel_Bailed": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:261"
+ },
+ "ClearPanel_Landed": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:178"
+ },
+ "ClearPart": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_appearance.cpp:252"
+ },
+ "ClearQuickGetup": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:180"
+ },
+ "ClearRailEditor": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:371"
+ },
+ "ClearStallScriptFlag": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:653",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "ClearTargetObject": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_movies.cpp:288"
+ },
+ "ClearTrickQueue": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:222"
+ },
+ "ClearTricksFrom": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:263"
+ },
+ "ContainsComponent": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:478"
+ },
+ "CreateComponentFromStructure": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:457",
+  "uncertain": "adds a component configured from the arguments; a component's configuration might start scripts (not traced)"
+ },
+ "CreateSpecialItem": {
+  "outputs": {},
+  "source": "src/game/rider/special_item.cpp:167",
+  "uncertain": "create_item / the item's lock component configured with the member's arguments: not traced for scripts it may start (no write to the caller's parameters)"
+ },
+ "Crouched": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:631"
+ },
+ "CurrentScorePotGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:146"
+ },
+ "CurrentScorePotLessThan": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:142"
+ },
+ "Cutscene_SpawnScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "params",
+    "how": "spawn"
+   },
+   {
+    "script": "callback",
+    "params": "CallbackParams",
+    "how": "callback"
+   }
+  ],
+  "source": "src/engine/objects/cutscene_list_cfuncs.cpp:139 cfunc_cutscene_spawn_script (+ script_qb/cscript_manager.cpp:164 spawn_script)",
+  "notes": "As SpawnScript (CallbackParams has the same checksum 0x0DD85BDA as callbackparams); the callback runs when the spawned script finishes. A C function named as the script is called at once with a temporary script (its outputs discarded)."
+ },
+ "DebugPrintAppearance": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:237"
+ },
+ "DeleteDottedLine": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:374"
+ },
+ "DeleteRail": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:269"
+ },
+ "DeleteRailPoint": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:310"
+ },
+ "DescribeServer": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:destroy_server_desc_children",
+    "params": "none",
+    "how": "run"
+   },
+   {
+    "script": "fixed:net_game_info_add_item",
+    "params": "unknown",
+    "how": "run"
+   },
+   {
+    "script": "fixed:net_game_info_update_player_title",
+    "params": "unknown",
+    "how": "run"
+   },
+   {
+    "script": "fixed:net_game_info_add_player",
+    "params": "unknown",
+    "how": "run"
+   }
+  ],
+  "source": "src/game/online/server_browser.cpp:181 cfunc_describe_server (+ helpers: server_browser.cpp:111 info_line)",
+  "notes": "Context unused. Runs fixed-name scripts at once (launch_script, no object): destroy_server_desc_children (0xDD6DDFD6), net_game_info_add_item (0x676C4DB8) once per description line (value missing on some), net_game_info_update_player_title (0xC755D58E), net_game_info_add_player (0x62F4E2E8) once per player. Member checksums: name 0xA1DC81F9, value 0xE288A7CB, text 0xC4745838, rank 0x7786171A."
+ },
+ "destroy": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:504"
+ },
+ "DestroyAllSpecialItems": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "?",
+    "params": "none",
+    "how": "launch_script on each item: its OnDestroyScript tag"
+   }
+  ],
+  "source": "src/game/rider/special_item.cpp:200"
+ },
+ "DestroyEditedRailSectors": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:386"
+ },
+ "DestroyParticles": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:518"
+ },
+ "DestroySpecialItem": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "?",
+    "params": "none",
+    "how": "launch_script on the item: its OnDestroyScript tag"
+   }
+  ],
+  "source": "src/game/rider/special_item.cpp:190"
+ },
+ "Die": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:125; src/engine/ui/screen_element.cpp:914; src/game/rider/rider.cpp:1815",
+  "notes": "Entity: marks the object dead. UiWidget: destroys the element (the calling script lets go of it) and sends focus events to the parent - event handlers may run"
+ },
+ "DisableDisplayFlip": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:274"
+ },
+ "DisableInputEvents": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:400"
+ },
+ "DisablePlayerInput": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:365"
+ },
+ "DisassociateFromObject": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:389",
+  "notes": "the calling script lets go of the object (host().object_destroyed) and stops waiting on it"
+ },
+ "Display": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:300"
+ },
+ "DisplayPitchGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:647",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "DoBalanceTrick": {
+  "outputs": {},
+  "source": "src/game/rider/balance_trick.cpp:325"
+ },
+ "DoCarPlantBoost": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:774"
+ },
+ "DoingBalanceTrick": {
+  "outputs": {},
+  "source": "src/game/rider/balance_trick.cpp:104"
+ },
+ "DoingFlip": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:734"
+ },
+ "DoingTrick": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:207"
+ },
+ "DoMorph": {
+  "outputs": {},
+  "source": "src/engine/ui/screen_element.cpp:906",
+  "notes": "with time=: the calling script sleeps (host().lull) for that many seconds"
+ },
+ "DoNextManualTrick": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "ScriptToRunFirst",
+    "params": "Params",
+    "how": "preempts the skater's own script (host().preempt) before the trick, when a manual trick is pending"
+   },
+   {
+    "script": "?",
+    "params": "unknown",
+    "how": "replace_script on the skater: the pending manual trick's Scr, with the member's arguments merged with the trick's Params (or the trick's Params alone)"
+   }
+  ],
+  "source": "src/game/rider/trick_member_functions.cpp:239",
+  "uncertain": "the trick script and its parameters come from the trick lists (data), not the call",
+  "notes": "replaces the skater's own script (replace_script) and ticks it at once: when the caller is the skater's script it is replaced"
+ },
+ "DownPressed": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:431"
+ },
+ "DrawDottedLine": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:365"
+ },
+ "Driving": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:190"
+ },
+ "Dump": {
+  "outputs": {},
+  "source": "src/engine/script/script_util_cfuncs.cpp:584 cfunc_dump",
+  "notes": "Only reads the caller's parameter (find_component) into a private structure that is freed."
+ },
+ "DumpEventBuffer": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:233"
+ },
+ "DuplicateTrigger": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "?",
+    "params": "none",
+    "how": "start_script_task on the skater: the TriggerScript of the first node linked from the caller's node that has one"
+   }
+  ],
+  "source": "src/game/rider/gap_entry.cpp:582"
+ },
+ "EditedGoalAddGap": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:56"
+ },
+ "EditedGoalGotGap": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:78"
+ },
+ "EditedGoalRemoveGap": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:67"
+ },
+ "EditGoal": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:400"
+ },
+ "EditorCam_Initialise": {
+  "outputs": {},
+  "source": "src/game/world/editor_camera.cpp:461"
+ },
+ "EditorCam_SetCursorPos": {
+  "outputs": {},
+  "source": "src/game/world/editor_camera.cpp:452"
+ },
+ "emit": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:394"
+ },
+ "EmitOff": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:495"
+ },
+ "EmitOn": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:486"
+ },
+ "EmitRate": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:372"
+ },
+ "EmptySystem": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:449; src/engine/gfx/particle_system_update.cpp:382"
+ },
+ "EnableCarShadow": {
+  "outputs": {},
+  "source": "src/engine/objects/car_physics.cpp:304"
+ },
+ "EnableDisplayFlip": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:271"
+ },
+ "EnableInputEvents": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:393"
+ },
+ "EnablePlayerInput": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:372"
+ },
+ "EndGap": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "GapScript",
+    "params": "none",
+    "how": "start_script_task on the skater (node: the caller's node)"
+   },
+   {
+    "script": "fixed:DefaultGapScript",
+    "params": "none",
+    "how": "start_script_task on the skater, when Score is given and the skater is local"
+   },
+   {
+    "script": "fixed:DoPerfectCheck2",
+    "params": "none",
+    "how": "run_script_once with a fresh results structure (not the caller's) when NeedsCleanLanding is given"
+   }
+  ],
+  "source": "src/game/rider/gap_entry.cpp:610",
+  "notes": "also launches the event <GapID>_Success (tracker launch_event) with the member's own arguments; a Continue structure argument starts another gap"
+ },
+ "EndManualTurnaround": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:569"
+ },
+ "EndOfRunDone": {
+  "outputs": {},
+  "source": "src/game/rider/end_run.cpp:77"
+ },
+ "EndOfRunStarted": {
+  "outputs": {},
+  "source": "src/game/rider/end_run.cpp:85"
+ },
+ "EnterPowerslide": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:512"
+ },
+ "EnterTagging": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:592"
+ },
+ "EnterTantrum": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:575"
+ },
+ "EnterWheelieFromAir": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:328",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "exitbikeendo": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:341",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "ExitPowerslide": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:518"
+ },
+ "ExitStallBoost": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:654",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "ExitTagging": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:598"
+ },
+ "ExitTantrum": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:581"
+ },
+ "FindUnfinishedGoal": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:176"
+ },
+ "FireEvent": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "?",
+    "params": "unknown",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/objects/tracker.cpp:754 cfunc_launch_event (the same function as LaunchEvent; + helpers as LaunchEvent)",
+  "uncertain": "Which handler scripts run and with which own params is decided at run time by earlier handler registration, not by this command's arguments; only data= is known statically.",
+  "notes": "No writes into the caller's parameters. Dispatches the event synchronously (tracker.cpp:605 launch_event -> send_to_target / broadcast_event -> engine/objects/signal.cpp:410 SignalRouteTable::forward_trigger). target and source default to the CALLING script's own object, so the caller itself can receive it: an exception handler first preempts the script's OnExceptionRun script (params {<unnamed>: name 1}), then REPLACES what the script runs (bind_script = goto: code and parameters become the handler's, params = handler params + data) - the caller's control flow can end here; a non-exception handler is preempted in (an interrupt: runs now as a sub-call, the caller's params restored on return) or, on objects flagged to spawn handlers, spawned as a new script. Also wakes the first WaitForEvent waiter for the type and Block type= scripts. type= may be one name, an array or a structure of names (one event each)."
+ },
+ "FirstTimeOnThisRail": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:636"
+ },
+ "FlagGoalAsWon": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:167"
+ },
+ "Flip": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:182"
+ },
+ "FlipAfter": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:199"
+ },
+ "FlipAndRotate": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:190"
+ },
+ "Flipped": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:617"
+ },
+ "FocusOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:1034"
+ },
+ "FocusOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:495"
+ },
+ "ForceAutoKickOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:364"
+ },
+ "ForceAutoKickOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:358"
+ },
+ "ForceBreakVert": {
+  "outputs": {},
+  "source": "src/game/rider/core_jump.cpp:375"
+ },
+ "ForceSpecial": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:162"
+ },
+ "ForEachIn": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "do",
+    "params": "params",
+    "how": "run"
+   }
+  ],
+  "source": "src/engine/script/script_util_cfuncs.cpp:402 cfunc_for_each_in (+ script_qb/cscript_manager.cpp:231 launch_script)",
+  "uncertain": "Each run's parameters are the array element (a structure of the unnamed array argument) merged with params= - the element's members can't be named through the argument model; over-approximate the started script's parameters with the array's element structure's members too. Without params= the element structure alone is the parameter list.",
+  "notes": "The script runs to completion immediately, once per element, as a NEW script on the caller's object (launch_script); a C function as `do` is called with no script. Caller's parameters untouched."
+ },
+ "FormatText": {
+  "outputs": {},
+  "byArgument": {
+   "TextName": "string",
+   "ChecksumName": "name"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:304 cfunc_format_text (+ script_cfuncs.cpp:176 format_text)",
+  "notes": "TextName (0xFF0DB407) gets the formatted text (append_word: string); ChecksumName (0x76FA7A8F, the C++ calls it kHashFieldName) gets its checksum (put_name_key: name). Each only when that argument is given and non-zero; nothing is written if the format string or a %-parameter is missing. Returns 0/false only in those error cases."
+ },
+ "FrameIs": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1164"
+ },
+ "GeomAllocateUVMatrixParams": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:240"
+ },
+ "GeomModulateColor": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:307"
+ },
+ "GeomReplaceTexture": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:313"
+ },
+ "GeomSetCreatedTexture": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:348"
+ },
+ "GeomSetUVOffset": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:209"
+ },
+ "Get2DArrayData": {
+  "outputs": {
+   "val": "int|float|string|pair|vector|struct|array|name"
+  },
+  "source": "src/engine/script/array_cfuncs.cpp:151 cfunc_get_2d_array_data (+ array_cfuncs.cpp:31 find_array, :41 add_element)"
+ },
+ "Get3DArrayData": {
+  "outputs": {
+   "val": "int|float|string|pair|vector|struct|array|name"
+  },
+  "source": "src/engine/script/array_cfuncs.cpp:166 cfunc_get_3d_array_data (+ array_cfuncs.cpp:31 find_array, :41 add_element)",
+  "notes": "val is the element's kind (strings and local strings both written as string via append_word); arrays of other types (script etc.) write nothing. The array is the caller's parameter named by arrayName, else the global of that name."
+ },
+ "GetActualCASOptionStruct": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/game/skate/appearance_cfuncs.cpp:287 cfunc_get_actual_cas_option_struct",
+  "notes": "The CAS option's structure (part=, desc_id=) merged into the caller (nothing if not found); the command always returns FALSE even after writing."
+ },
+ "GetActualPlayerAppearancePart": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/game/skate/appearance_cfuncs.cpp:301 cfunc_get_actual_player_appearance_part",
+  "notes": "The part as built (its CAS option structure) merged into the caller; false / nothing without part or option."
+ },
+ "GetActualSpin": {
+  "outputs": {
+   "Spin": "float"
+  },
+  "source": "src/game/rider/trick_member_functions.cpp:183"
+ },
+ "GetAirtime": {
+  "outputs": {
+   "Airtime": "float"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:757"
+ },
+ "GetAirTimeLeft": {
+  "outputs": {
+   "AirTimeLeft": "float"
+  },
+  "source": "src/game/rider/core_physics_state.cpp:487"
+ },
+ "GetAmmo": {
+  "outputs": {
+   "ammo": "int"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:975"
+ },
+ "GetAmmoType": {
+  "outputs": {
+   "ammo_type": "name"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:981"
+ },
+ "GetAnimLength": {
+  "outputs": {
+   "length": "float"
+  },
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1121",
+  "notes": "only when the anim is in the anim set"
+ },
+ "GetBikeManualAngle": {
+  "outputs": {
+   "manual_angle": "float"
+  },
+  "source": "src/game/rider/thaw_bmx.cpp:338",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "GetCameraId": {
+  "outputs": {
+   "CameraId": "name"
+  },
+  "source": "src/game/rider/rider.cpp:1767"
+ },
+ "GetCareerSaveInfo": {
+  "outputs": {
+   "career": "struct"
+  },
+  "source": "src/game/skate/career.cpp:623 cfunc_get_career_save_info (+ career.cpp:516 RiderStoryProgress::write_to_structure)",
+  "notes": "career = 0x4DA4937B, a structure (append_struct_ref) of the career's arrays and values; nothing else goes into the caller's parameters."
+ },
+ "GetCollidingPlayerAndTeam": {
+  "outputs": {
+   "team": "int",
+   "player": "int"
+  },
+  "source": "src/game/rider/skater_score_cfuncs.cpp:126 cfunc_get_colliding_player_and_team"
+ },
+ "GetCreateATrickAnimations": {
+  "outputs": {
+   "animation_info": "array"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:139 cfunc_get_create_a_trick_animations",
+  "notes": "Only with a local skater; an array of 6 structures."
+ },
+ "GetCreateATrickOtherParams": {
+  "outputs": {
+   "other_params": "struct"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:111 cfunc_get_create_a_trick_other_params",
+  "notes": "Only with a local skater."
+ },
+ "GetCreateATrickParams": {
+  "outputs": {
+   "other_params": "struct",
+   "rotation_info": "array",
+   "animation_info": "array"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:95 cfunc_get_create_a_trick_params",
+  "notes": "Only with a local skater (else false, nothing written). rotation_info / animation_info: arrays of 6 structures (copies of Default_CAT_rotation_info / Default_CAT_animation_info as edited); other_params: a copy of Default_CAT_other_info as edited."
+ },
+ "GetCreateATrickRotations": {
+  "outputs": {
+   "rotation_info": "array"
+  },
+  "source": "src/game/goals/create_a_trick.cpp:125 cfunc_get_create_a_trick_rotations",
+  "notes": "Only with a local skater; an array of 6 structures."
+ },
+ "GetCurrentBailEndpose": {
+  "outputs": {
+   "Current_Bail_Endpose": "name"
+  },
+  "source": "src/game/rider/trick_queue.cpp:283"
+ },
+ "GetCurrentEditedGoalId": {
+  "outputs": {
+   "goal_id": "name|none"
+  },
+  "source": "src/game/park_editing/goal_editor_members.cpp:268"
+ },
+ "GetCurrentEditedGoalInfo": {
+  "outputs": {
+   "0x00000000": "name",
+   "Level": "name",
+   "level_goal_index": "int",
+   "Goal_Id": "name",
+   "time_limit": "int",
+   "won_goal": "int",
+   "control_type": "name",
+   "view_goals_text": "string",
+   "goal_deScription": "string",
+   "win_message": "string",
+   "ped_name": "string",
+   "Goal_Type": "name",
+   "pro_name": "name",
+   "node_positions": "array",
+   "race_per_checkpoint_time": "int",
+   "race_total_laps": "int",
+   "combo_size": "int",
+   "acceleration_interval": "int",
+   "acceleration_percent": "float",
+   "trick_time": "int",
+   "time_to_stop_adding_tricks": "int",
+   "max_tricks": "int",
+   "Spin": "int",
+   "combo_sets": "array",
+   "required_trick_name": "string",
+   "Gaps": "array",
+   "Score": "int",
+   "tricktris_block_size": "int",
+   "tricktris_total_to_win": "int"
+  },
+  "source": "src/game/park_editing/goal_editor_members.cpp:412",
+  "notes": "only with a goal being edited: EditedGoal::export_to_struct (game/park_editing/edited_goal_io.cpp:503) - the goal type's members (race / combo / gap / score / trick attack / key combo / tricktris) are written only for that type"
+ },
+ "GetCurrentSkaterID": {
+  "outputs": {
+   "objID": "name",
+   "intId": "int"
+  },
+  "source": "src/game/rider/skater_query_cfuncs.cpp:605 cfunc_get_current_skater_id",
+  "notes": "objID (0x0830ECAF) name and intId (0xDB1E28CD) int, both only when the script's object is a local skater (else false)."
+ },
+ "GetCursorPosition": {
+  "outputs": {
+   "Pos": "vector",
+   "Angle": "float"
+  },
+  "source": "src/game/park_editing/rail_editor_script.cpp:356"
+ },
+ "GetEditedGoalsInfo": {
+  "outputs": {
+   "EditedGoalsInfo": "array"
+  },
+  "source": "src/game/park_editing/goal_editor.cpp:696",
+  "notes": "only when the level has complete goals; each element a structure as GetCurrentEditedGoalInfo writes"
+ },
+ "GetEditedRailInfo": {
+  "outputs": {
+   "Rail_Id": "name",
+   "Num_Points": "int"
+  },
+  "source": "src/game/park_editing/rail_editor_script.cpp:395"
+ },
+ "GetEditingMode": {
+  "outputs": {
+   "Mode": "name"
+  },
+  "source": "src/game/park_editing/rail_editor_script.cpp:307"
+ },
+ "GetElement": {
+  "outputs": {
+   "element": "int|struct|array|none"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:442 cfunc_get_element",
+  "notes": "element erased first; then int / a copied struct / an array for those array types; other array types write nothing."
+ },
+ "GetFirstUnreadMessageNum": {
+  "outputs": {
+   "FirstUnreadMessageNum": "int"
+  },
+  "source": "src/engine/objects/pager_message.cpp:157"
+ },
+ "GetFocusTimeLeft": {
+  "outputs": {
+   "focus_time": "float"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:1043"
+ },
+ "GetFocusTimesAllowed": {
+  "outputs": {
+   "focus_allowed": "int"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:1053"
+ },
+ "GetGoalsCompleted": {
+  "outputs": {
+   "GoalsCompleted": "string",
+   "0xA43DC969": "string"
+  },
+  "source": "src/game/skate/profile_cfuncs.cpp:155 cfunc_get_goals_completed",
+  "notes": "GoalsCompleted = 0xC661FE79 (text \"n/9\"); 0xA43DC969 an empty string. Both append_word with QbValueKind::kString."
+ },
+ "GetHeading": {
+  "outputs": {
+   "Heading": "float",
+   "Cosine": "float",
+   "Sine": "float"
+  },
+  "source": "src/game/rider/matrix_queries.cpp:79"
+ },
+ "GetKeyComboBoundToTrick": {
+  "outputs": {
+   "current_key_combo": "name",
+   "current_index": "int"
+  },
+  "source": "src/game/commands/trick_cfuncs.cpp:206 cfunc_get_key_combo_bound_to_trick",
+  "notes": "Nothing written when no combo is found (false). current_index only with the special flag when the trick is one of the specials."
+ },
+ "GetKeyComboSet": {
+  "outputs": {
+   "Spin": "int",
+   "num_taps": "int",
+   "0x00000000": "name"
+  },
+  "source": "src/game/park_editing/goal_editor_members.cpp:124",
+  "notes": "the unnamed name Require_Perfect when the set must be flawless"
+ },
+ "GetLastGroundHeading": {
+  "outputs": {
+   "last_heading": "float"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:969"
+ },
+ "GetLastGroundPos": {
+  "outputs": {
+   "Pos": "vector"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:962"
+ },
+ "GetLevelRecords": {
+  "outputs": {
+   "highscores": "struct",
+   "bestcombos": "struct",
+   "arcadescores": "struct",
+   "longestcombo": "struct",
+   "longestgrind": "struct",
+   "longestliptrick": "struct",
+   "longestmanual": "struct"
+  },
+  "source": "src/game/commands/trick_cfuncs.cpp:496 cfunc_get_level_records (+ helpers: src/game/skate/highscores.cpp:324 StageBests::write_to_structure, highscores.cpp:249 BestEntryList::write_to_structure)",
+  "notes": "Always written (arcadescores only when the level has an arcade table). highscores / bestcombos / arcadescores are structures holding recordtable (0xB1449176): an array of record structures; the longest* members are single record structures."
+ },
+ "GetMatrixNormal": {
+  "outputs": {
+   "x": "float",
+   "y": "float",
+   "z": "float"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:954"
+ },
+ "GetMaxGoalsPerLevel": {
+  "outputs": {
+   "max_goals": "int"
+  },
+  "source": "src/game/park_editing/goal_editor_members.cpp:336"
+ },
+ "GetMaxTHPS4FilesAllowed": {
+  "outputs": {
+   "MaxTHPS4FilesAllowed": "int"
+  },
+  "source": "src/game/save_cards/memcard_cfuncs.cpp:430 get_max_thps4_files_allowed"
+ },
+ "GetMemCardDataForUpload": {
+  "outputs": {
+   "type": "name"
+  },
+  "source": "src/game/save_cards/memcard_cfuncs.cpp:423 get_mem_card_data_for_upload"
+ },
+ "GetMemCardDirectoryListing": {
+  "outputs": {
+   "DirectoryListing": "array|none",
+   "FilesLimitReached": "none",
+   "0x56B7A7F6": "int|none",
+   "0x00000000": "name"
+  },
+  "source": "src/game/save_cards/save_files_cfuncs.cpp:518 get_mem_card_directory_listing (+ save_files_cfuncs.cpp describe_listed_file / mark_corrupt write only into the per-file entries)",
+  "notes": "DirectoryListing (0xD8580FB5), FilesLimitReached (0x4EEC27B5) and 0x56B7A7F6 (the total game files - not the checksum of 'TotalFiles') are erased first; without a card that is all. With a card: 0x56B7A7F6 int; the flag FilesLimitReached (an unnamed name whose value is 0x4EEC27B5) when there are 75+ files; DirectoryListing an array of structures (file_type name, index/year/month/day/hour/minutes/seconds/total_file_size int, actual_file_name string, either the corrupt flag + FileName string or the file's saved summary merged in) when any file is listed."
+ },
+ "GetMemCardSpaceAvailable": {
+  "outputs": {
+   "SpaceAvailable": "int",
+   "FilesLeft": "int"
+  },
+  "source": "src/game/save_cards/memcard_cfuncs.cpp:86 get_mem_card_space_available"
+ },
+ "GetMemCardSpaceRequired": {
+  "outputs": {
+   "SpaceRequired": "int"
+  },
+  "source": "src/game/save_cards/save_files_cfuncs.cpp:258 get_mem_card_space_required"
+ },
+ "GetMostRecentSave": {
+  "outputs": {
+   "MostRecentSave": "struct|none"
+  },
+  "source": "src/game/save_cards/memcard_cfuncs.cpp:342 get_most_recent_save",
+  "notes": "Always erased first; the newest matching entry of the unnamed array argument put back as a struct when one is found."
+ },
+ "GetNDArrayData": {
+  "outputs": {
+   "val": "int|float|string|pair|vector|struct|array|name"
+  },
+  "source": "src/engine/script/array_cfuncs.cpp:186 cfunc_get_nd_array_data (+ array_cfuncs.cpp:31 find_array, :41 add_element)",
+  "notes": "Reads the caller's own `indices` array parameter (not the command's)."
+ },
+ "GetNextArrayElement": {
+  "outputs": {
+   "index": "int|none",
+   "element": "int|float|string|localstring|struct|array|name|none"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:175 cfunc_get_next_array_element",
+  "notes": "Reads the caller's own index, erases index and element, then (unless at the end - returns false) writes index int and element of the array's kind."
+ },
+ "GetNextLevelRequirements": {
+  "outputs": {
+   "NextLevelRequirements": "string"
+  },
+  "source": "src/game/skate/profile_cfuncs.cpp:168 cfunc_get_next_level_requirements",
+  "notes": "NextLevelRequirements = 0xAF2305A6 (checksum matches)."
+ },
+ "GetNodeName": {
+  "outputs": {
+   "nodename": "name"
+  },
+  "source": "src/engine/objects/object_cfuncs.cpp:274 cfunc_get_node_name"
+ },
+ "GetNumberOfNonGapTricks": {
+  "outputs": {
+   "NumberOfNonGapTricks": "int"
+  },
+  "source": "src/game/rider/skater_score.cpp:168"
+ },
+ "GetNumEditedGoals": {
+  "outputs": {
+   "NumGoals": "int"
+  },
+  "source": "src/game/park_editing/goal_editor_members.cpp:252"
+ },
+ "GetNumPlayersOnTeam": {
+  "outputs": {
+   "num_members": "int"
+  },
+  "source": "src/game/online/gamenet_game_cfuncs.cpp:217 cfunc_get_num_players_on_team"
+ },
+ "GetNumStatPointsAvailable": {
+  "outputs": {
+   "points_available": "int"
+  },
+  "source": "src/game/skate/skater_profile_cfuncs.cpp:590 cfunc_get_num_stat_points_available",
+  "notes": "Always written."
+ },
+ "GetPagerMessage": {
+  "outputs": {
+   "PagerMessage": "struct"
+  },
+  "source": "src/engine/objects/pager_message.cpp:134",
+  "notes": "the message's structure (whatever SendPagerMessage was given)"
+ },
+ "GetPagerMessageCount": {
+  "outputs": {
+   "PagerMessageCount": "int"
+  },
+  "source": "src/engine/objects/pager_message.cpp:150"
+ },
+ "GetPart": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/engine/gfx/model_appearance.cpp:242",
+  "notes": "the part's structure (the appearance's) merged into the caller's parameters"
+ },
+ "GetPartialAnimParams": {
+  "outputs": {
+   "partialAnimTime": "float",
+   "partialAnim": "name",
+   "partialAnimComplete": "int"
+  },
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1188; src/engine/gfx/anim_controller.cpp:589",
+  "notes": "written by the partial-animation controller of the playing timeline, when it has one"
+ },
+ "GetParticleParams": {
+  "outputs": {
+   "ParticleParams": "struct"
+  },
+  "source": "src/engine/objects/particle_component.cpp:616",
+  "notes": "ParticleParams = {name: name, EmitRate / LifeTime / Start-Mid-EndRadius: float, Start/Mid/EndRGBA: array of int, Start/Mid/EndPos and BoxDims*: vector}"
+ },
+ "GetPitchBailDir": {
+  "outputs": {
+   "pitch_bail_dir": "name"
+  },
+  "source": "src/game/rider/core_member_functions.cpp:987"
+ },
+ "GetPlayerAppearance": {
+  "outputs": {
+   "profile": "struct"
+  },
+  "source": "src/game/skate/appearance_cfuncs.cpp:332 cfunc_get_player_appearance",
+  "notes": "profile = a copy of the player's whole appearance structure. Always written."
+ },
+ "GetPlayerAppearancePart": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/game/skate/appearance_cfuncs.cpp:316 cfunc_get_player_appearance_part",
+  "notes": "The appearance's slot structure for part= merged into the caller; false / nothing without part or slot."
+ },
+ "GetPlayerFacePoints": {
+  "outputs": {
+   "current_face_points": "struct"
+  },
+  "source": "src/game/skate/appearance_cfuncs.cpp:130 cfunc_get_player_face_points (+ helpers: src/engine/gfx/face_texture.cpp:198 write_face_points)",
+  "notes": "current_face_points (0x12E87395): if the caller already has a current_face_points structure, write_face_points writes INTO that nested structure in place; otherwise a new structure is put_sub_struct'ed. Either way its members: left_eye/right_eye/nose/lips: array (2 ints); h/s/v: float (only when the face has HSV); width/height: int."
+ },
+ "GetPlayersTeam": {
+  "outputs": {
+   "team": "int"
+  },
+  "source": "src/game/online/gamenet_game_cfuncs.cpp:227 cfunc_get_players_team",
+  "notes": "Only when the player is found."
+ },
+ "GetPreferenceChecksum": {
+  "outputs": {
+   "checksum": "name"
+  },
+  "source": "src/game/commands/game_cfuncs.cpp:516 cfunc_get_preference_checksum",
+  "notes": "checksum (0x21902065) by put_name_key: the preference's checksum (0 if it has none). Always written."
+ },
+ "GetPreferencePassword": {
+  "outputs": {
+   "password_string": "string"
+  },
+  "source": "src/game/commands/game_cfuncs.cpp:495 cfunc_get_preference_password",
+  "notes": "password_string = one '*' per character of the preference's ui_string. Always written."
+ },
+ "GetPreferenceString": {
+  "outputs": {
+   "ui_string": "string"
+  },
+  "source": "src/game/commands/game_cfuncs.cpp:479 cfunc_get_preference_string",
+  "notes": "Always writes ui_string (append_word of the preference's ui_string; the text may be null when the preference has none - the write still happens). A missing preference crashes."
+ },
+ "GetPreviousPhysicsStateDuration": {
+  "outputs": {
+   "PreviousPhysicsStateDuration": "float"
+  },
+  "source": "src/game/rider/physics_control.cpp:278"
+ },
+ "GetProps": {
+  "outputs": {
+   "alpha": "float",
+   "rgba": "array",
+   "scale": "float|pair",
+   "pos": "pair",
+   "rot_angle": "float",
+   "events_blocked": "int",
+   "texture": "name"
+  },
+  "source": "src/engine/ui/screen_element.cpp:930",
+  "notes": "UiWidget::get_properties (virtual): every element alpha / rgba / scale / pos / rot_angle / events_blocked; ImageWidget adds rot_angle, texture; TextureElement writes only rgba"
+ },
+ "GetRandomArrayElement": {
+  "outputs": {
+   "index": "int|none",
+   "element": "int|float|struct|array|name|none"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:233 cfunc_get_random_array_element"
+ },
+ "GetRandomValue": {
+  "outputs": {
+   "0x00000000": "int|float"
+  },
+  "byArgument": {
+   "name": "int|float"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:129 cfunc_get_random_value",
+  "notes": "int with the `integer` flag, else float. Without name= the name is 0 (an unnamed int/float)."
+ },
+ "GetSaveInfo": {
+  "outputs": {
+   "MainStructureSize": "int",
+   "SummaryInfoSize": "int",
+   "MaxSummaryInfoSize": "int",
+   "TotalSize": "int",
+   "MaxTotalSize": "int",
+   "SummaryInfo": "struct",
+   "MainStructure": "struct"
+  },
+  "source": "src/game/save_cards/save_files_cfuncs.cpp:369 get_save_info (+ save_types.cpp:378 write_summary into a new structure, not the caller's)"
+ },
+ "GetScreenElementProps": {
+  "outputs": {
+   "alpha": "float",
+   "rgba": "array",
+   "scale": "float|pair",
+   "pos": "pair",
+   "rot_angle": "float",
+   "0x73CB6D65": "int",
+   "texture": "name",
+   "anglex": "float",
+   "angley": "float",
+   "anglez": "float"
+  },
+  "source": "src/engine/ui/screen_element_cfuncs.cpp:334 cfunc_get_screen_element_props (+ helpers: src/engine/ui/screen_element.cpp:938 UiWidget::get_properties, src/engine/ui/sprite_element.cpp:131 TextureElement::get_properties, sprite_element.cpp:227 ImageWidget::get_properties)",
+  "notes": "Nothing written without an element (false). get_properties is virtual: the UiWidget base writes alpha float, rgba array (4 ints), scale (float when x==y, else pair), pos pair, rot_angle float, 0x73CB6D65 (the input-locked flag) int; ImageWidget adds rot_angle again (float) and texture name; TextureElement writes only rgba. An Element3d also gets anglex/angley/anglez floats (0x0AFFD09D / 0x7DF8E00B / 0xE4F1B1B1). Names checked by checksum."
+ },
+ "GetScriptedStat": {
+  "outputs": {
+   "stat_value": "float"
+  },
+  "source": "src/game/rider/rider.cpp:1777"
+ },
+ "GetSingleTag": {
+  "outputs": {},
+  "byArgument": {
+   "0x00000000": "any"
+  },
+  "source": "src/engine/objects/entity.cpp:452",
+  "notes": "a copy of the tag the unnamed name names (its own name and kind) when the object has it"
+ },
+ "GetSkaterCamAnimParams": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/engine/objects/movie_cfuncs.cpp:152 cfunc_get_skater_cam_anim_params (+ engine/objects/movie_manager.cpp:462 VideoHub::movie_value -> the movie's settings)",
+  "uncertain": "The merged structure is the playing camera animation's settings (the parameters the animation was started with, e.g. by PlaySkaterCamAnim) - not listable from this command.",
+  "notes": "Only when a local skater and the animation exist (else false, nothing written)."
+ },
+ "GetSkaterNumber": {
+  "outputs": {
+   "skaternumber": "int"
+  },
+  "source": "src/game/rider/rider.cpp:1817"
+ },
+ "GetSkaterPosition": {
+  "outputs": {
+   "x": "int",
+   "y": "int",
+   "z": "int"
+  },
+  "source": "src/game/rider/skater_query_cfuncs.cpp:619 cfunc_get_skater_position",
+  "notes": "Only with an object (else false)."
+ },
+ "GetSkaterProfileInfo": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/game/skate/skater_profile_cfuncs.cpp:360 cfunc_get_skater_profile_info",
+  "notes": "append_structure_if_any(profile player=n's details params): all of the profile's info members copied into the caller."
+ },
+ "GetSkaterProfileInfoByName": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/game/skate/skater_profile_cfuncs.cpp:283 cfunc_get_skater_profile_info_by_name",
+  "notes": "As GetSkaterProfileInfo, for the template named name=; nothing written (false) without such a template."
+ },
+ "GetSkaterVelocity": {
+  "outputs": {
+   "vel_x": "int",
+   "vel_y": "int",
+   "vel_z": "int",
+   "scaled_x": "int",
+   "scaled_y": "int",
+   "scaled_z": "int"
+  },
+  "source": "src/game/rider/skater_misc_cfuncs.cpp:100 cfunc_get_skater_velocity",
+  "notes": "All ints (truncated); only with an object (else false)."
+ },
+ "GetSlope": {
+  "outputs": {
+   "Slope": "float",
+   "ChangeInSlope": "float"
+  },
+  "source": "src/game/rider/matrix_queries.cpp:94"
+ },
+ "GetSparksPos": {
+  "outputs": {
+   "SparksPos": "name"
+  },
+  "source": "src/game/rider/skater_state.cpp:237"
+ },
+ "GetSpazzFactor": {
+  "outputs": {
+   "SpazzFactor": "int"
+  },
+  "source": "src/game/rider/trick_member_functions.cpp:166"
+ },
+ "GetSpecialValue": {
+  "outputs": {
+   "Value": "int"
+  },
+  "source": "src/game/rider/skater_score.cpp:150"
+ },
+ "GetSpeed": {
+  "outputs": {
+   "speed": "float"
+  },
+  "source": "src/engine/objects/composite.cpp:500"
+ },
+ "GetSpin": {
+  "outputs": {
+   "Spin": "float"
+  },
+  "source": "src/game/rider/trick_member_functions.cpp:215"
+ },
+ "GetStat": {
+  "outputs": {
+   "stat_value": "float"
+  },
+  "source": "src/game/rider/rider.cpp:1770"
+ },
+ "GetSummaryInfo": {
+  "outputs": {
+   "name": "string",
+   "num_edited_goals": "int",
+   "MaxPlayers": "int",
+   "num_gaps": "int",
+   "num_pieces": "int",
+   "theme": "int",
+   "tod_script": "name",
+   "width": "int",
+   "length": "int",
+   "total_goals_complete": "int",
+   "total_goals_possible": "int",
+   "total_score": "int",
+   "total_score_potential": "int",
+   "is_male": "int",
+   "network_id": "string"
+  },
+  "source": "src/game/save_cards/memcard_cfuncs.cpp:403 get_summary_info (+ game/save_cards/save_types.cpp:378 write_summary, writing straight into the caller's parameters)",
+  "notes": "Which members depend on the save type (unnamed argument, or the kept type with VaultData=1): CAT -> name; park -> num_edited_goals, MaxPlayers, num_gaps, num_pieces, theme, tod_script, width, length; created goals -> num_edited_goals (+ MaxPlayers and map info only for a park); options & pros -> total_goals_complete / possible, total_score / total_score_potential (ints), and from a saved file also is_male and name; network settings -> network_id. All names checked against their checksums."
+ },
+ "GetTags": {
+  "outputs": {},
+  "byArgument": {
+   "Structure": "struct"
+  },
+  "anyMembers": "any",
+  "source": "src/engine/objects/entity.cpp:434",
+  "notes": "with Structure=<name>: a copy of the tag table as a structure under that name; without it the tag table (any members, any kinds - whatever SetTags / Tags= stored) is merged into the caller's parameters"
+ },
+ "GetTerrain": {
+  "outputs": {
+   "Terrain": "int"
+  },
+  "source": "src/game/rider/skater_state.cpp:230"
+ },
+ "GetTimeSincePhysicsSwitch": {
+  "outputs": {
+   "TimeSincePhysicsSwitch": "float"
+  },
+  "source": "src/game/rider/physics_control.cpp:272"
+ },
+ "GetTotalScore": {
+  "outputs": {
+   "TotalScore": "int"
+  },
+  "source": "src/game/rider/skater_score.cpp:165"
+ },
+ "GetTriggerNodeName": {
+  "outputs": {
+   "nodename": "name"
+  },
+  "source": "src/engine/objects/object_cfuncs.cpp:285 cfunc_get_trigger_node_name",
+  "notes": "The value is the spawn node (list_link) stored as a name."
+ },
+ "GetValueFromVolume": {
+  "outputs": {
+   "value": "int"
+  },
+  "source": "src/engine/sound/sound_cfuncs.cpp:264 cfunc_get_value_from_volume",
+  "notes": "value = 0xE288A7CB (add_component_of_type kInteger); nothing for an unknown volume name."
+ },
+ "Goal_EndOfRunDone": {
+  "outputs": {},
+  "source": "src/game/rider/end_run.cpp:81"
+ },
+ "Goal_EndOfRunStarted": {
+  "outputs": {},
+  "source": "src/game/rider/end_run.cpp:74"
+ },
+ "GoalExists": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:190"
+ },
+ "GoalHasAllPositionsSet": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:205"
+ },
+ "GoalManager_GetGoalParams": {
+  "outputs": {},
+  "anyMembers": "any",
+  "source": "src/game/goals/goal_manager_cfuncs.cpp:254 cfunc_goal_manager_get_goal_params",
+  "notes": "append_structure_if_any(the goal's params): every member of the goal's parameter structure is copied into the caller's parameters. Crashes if the goal doesn't exist."
+ },
+ "Goto": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "params",
+    "how": "goto"
+   }
+  ],
+  "source": "src/engine/script/script_util_cfuncs.cpp:279 cfunc_goto (+ context.h bind_script -> script_qb/cscript_core.cpp:247 QbScript::bind_script)",
+  "notes": "Control flow: the calling script is replaced - its parameters are freed and the named script starts on the same object with its defaults + params= (no statement after Goto runs; nothing returns to the caller's caller either: the whole call stack is reset)."
+ },
+ "GotoPreserveParams": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "callerParams",
+    "how": "goto"
+   },
+   {
+    "script": "0x00000000",
+    "params": "params",
+    "how": "goto"
+   }
+  ],
+  "source": "src/engine/script/script_util_cfuncs.cpp:529 cfunc_goto_preserve_params (+ cscript_core.cpp:247 QbScript::bind_script)",
+  "notes": "As Goto, the new script's parameters = its defaults + a copy of the caller's parameters + params= (appended in that order). Control does not continue after it."
+ },
+ "GotoRandomScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "none",
+    "how": "goto"
+   }
+  ],
+  "source": "src/engine/script/script_util_cfuncs.cpp:291 cfunc_goto_random_script",
+  "notes": "The unnamed argument is an ARRAY of script names; one picked at random replaces the calling script (Goto, no parameters). Nothing happens without a non-empty name array (then control continues)."
+ },
+ "GotParam": {
+  "outputs": {},
+  "source": "src/engine/script/script_util_cfuncs.cpp:270 cfunc_got_param"
+ },
+ "GotPart": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_appearance.cpp:258"
+ },
+ "GotSpecial": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:160"
+ },
+ "HandleLipOllieDirection": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics.cpp:128"
+ },
+ "HasCustomTagTexture": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:243"
+ },
+ "HasPowerup": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:213"
+ },
+ "Held": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:298"
+ },
+ "HeldLongerThan": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:449"
+ },
+ "Hide": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:507"
+ },
+ "HighlightRailPoint": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:341"
+ },
+ "IfDebugOff": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:451 cfunc_if_debug_on (same function as IfDebugOn)",
+  "notes": "Always true (same function as IfDebugOn)."
+ },
+ "IfDebugOn": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:451 cfunc_if_debug_on (+ script_cfuncs.cpp:116 set_script_debug - empty)",
+  "notes": "Always true."
+ },
+ "InAir": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:156"
+ },
+ "InBail": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:659"
+ },
+ "InBailState": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:175"
+ },
+ "IncrementScore": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:177"
+ },
+ "InFirstPlace": {
+  "outputs": {
+   "points": "int"
+  },
+  "source": "src/game/rider/skater_query_cfuncs.cpp:409 cfunc_in_first_place"
+ },
+ "InLastPlace": {
+  "outputs": {
+   "points": "int"
+  },
+  "source": "src/game/rider/skater_query_cfuncs.cpp:445 cfunc_in_last_place"
+ },
+ "InNollie": {
+  "outputs": {},
+  "source": "src/game/rider/stance_panel.cpp:112"
+ },
+ "InPressure": {
+  "outputs": {},
+  "source": "src/game/rider/stance_panel.cpp:126"
+ },
+ "Input_Debounce": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:349"
+ },
+ "InRevert": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:466"
+ },
+ "InSecondToLastPlace": {
+  "outputs": {
+   "points": "int"
+  },
+  "source": "src/game/rider/skater_query_cfuncs.cpp:487 cfunc_in_second_to_last_place"
+ },
+ "InTantrum": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:587"
+ },
+ "InTireTap": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:649",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "InvalidateCache": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_controller.cpp:250; src/engine/gfx/anim_controller.cpp:348; src/engine/gfx/anim_controller.cpp:398; src/engine/gfx/anim_controller.cpp:586",
+  "notes": "internal: handled only by an animation controller / bone look-at driver, reached through a channel's or timeline's forwarding of other names, never by a script call of this name"
+ },
+ "InVertAir": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:676"
+ },
+ "InWallplant": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:170"
+ },
+ "IsAlive": {
+  "outputs": {},
+  "source": "src/game/commands/world_cfuncs.cpp:67 cfunc_is_alive (+ node_object_cfuncs.cpp:917 node_command_by_name, :879 node_command -> node_is_alive)"
+ },
+ "IsBoardMissing": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:296"
+ },
+ "IsEmitting": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:414; src/engine/objects/particle_component.cpp:593"
+ },
+ "IsFacingVert": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:1022"
+ },
+ "IsFacingWall": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:996"
+ },
+ "IsFlipAfterSet": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:194"
+ },
+ "IsForceWalkOn": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:315"
+ },
+ "IsHidden": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:517"
+ },
+ "IsInBail": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:671"
+ },
+ "IsInEndOfRun": {
+  "outputs": {},
+  "source": "src/game/rider/end_run.cpp:72"
+ },
+ "IsInRevert": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:478"
+ },
+ "IsLatestTrick": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:180"
+ },
+ "IsLocalSkater": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1762"
+ },
+ "IsObjectScript": {
+  "outputs": {},
+  "source": "src/engine/script/script_util_cfuncs.cpp:397 cfunc_is_object_script",
+  "notes": "Pure test."
+ },
+ "IsOnMotoSkateboard": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:536"
+ },
+ "IsSkaterFocused": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:501"
+ },
+ "IsSkaterOnBike": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:322",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "IsSkaterOnVehicle": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:387"
+ },
+ "IsTagging": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:604"
+ },
+ "IsThrowingProjectile": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:564"
+ },
+ "Jump": {
+  "outputs": {},
+  "source": "src/game/rider/core_jump.cpp:315"
+ },
+ "KillExtraTricks": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:277"
+ },
+ "KillSkater": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1678",
+  "notes": "moves the skater to a restart (Prefix / node / the caller's node's linked restart / the skate module's)"
+ },
+ "LandedFromSpine": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:420"
+ },
+ "LandedFromTireTap": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:648",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "LandedFromVert": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:425"
+ },
+ "LastScoreLandedGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:130"
+ },
+ "LastScoreLandedLessThan": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:126"
+ },
+ "LastSpinWas": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:838"
+ },
+ "LaunchDirtyProjectile": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1732"
+ },
+ "LaunchEvent": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "?",
+    "params": "unknown",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/objects/tracker.cpp:754 cfunc_launch_event (+ helpers: tracker.cpp:582 send_to_target, tracker.cpp:605 EventWaitBoard::launch_event, src/engine/objects/signal.cpp:410 SignalRouteTable::forward_trigger, src/script_qb/cscript_wait.cpp:211 QbScript::receive_event)",
+  "uncertain": "Which handler scripts run and with which own params is decided at run time by earlier handler registration, not by this command's arguments; only data= is known statically.",
+  "notes": "No writes into the caller's parameters. Dispatches the event synchronously (tracker.cpp:605 launch_event -> send_to_target / broadcast_event -> engine/objects/signal.cpp:410 SignalRouteTable::forward_trigger). target and source default to the CALLING script's own object, so the caller itself can receive it: an exception handler first preempts the script's OnExceptionRun script (params {<unnamed>: name 1}), then REPLACES what the script runs (bind_script = goto: code and parameters become the handler's, params = handler params + data) - the caller's control flow can end here; a non-exception handler is preempted in (an interrupt: runs now as a sub-call, the caller's params restored on return) or, on objects flagged to spawn handlers, spawned as a new script. Also wakes the first WaitForEvent waiter for the type and Block type= scripts. type= may be one name, an array or a structure of names (one event each)."
+ },
+ "Ledge": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics_feelers.cpp:365 ; src/game/world/ped_logic.cpp:175",
+  "notes": "a condition (the skater's ledge flag); the ped logic component's answers for peds"
+ },
+ "LeftPressed": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:413"
+ },
+ "LinearMap": {
+  "outputs": {},
+  "byArgument": {
+   "result": "float"
+  },
+  "source": "src/engine/script/math_cfuncs.cpp:146 cfunc_linear_map",
+  "notes": "The member named by result= (asserted) gets the mapped float. Always written."
+ },
+ "LockVelocityDirection": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:702"
+ },
+ "LookaroundOnDPad_Off": {
+  "outputs": {},
+  "source": "src/engine/objects/camera_lookaround.cpp:178"
+ },
+ "LookaroundOnDPad_On": {
+  "outputs": {},
+  "source": "src/engine/objects/camera_lookaround.cpp:178; src/engine/objects/camera_lookaround.cpp:179"
+ },
+ "LoopingAnim": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1157"
+ },
+ "MaxEditedGoalsReached": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:311"
+ },
+ "MaxRailsReached": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:259"
+ },
+ "MemCardFileExists": {
+  "outputs": {
+   "total_file_size": "int"
+  },
+  "source": "src/game/save_cards/save_files_cfuncs.cpp:269 mem_card_file_exists",
+  "notes": "Written only when the file opens (returns true)."
+ },
+ "ModelAddGeom": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:266"
+ },
+ "ModelApplyBodyShape": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:330"
+ },
+ "ModelApplyBoneScale": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:222"
+ },
+ "ModelApplyFaceTexture": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:290"
+ },
+ "ModelApplyObjectScale": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:248"
+ },
+ "ModelClearAllGeoms": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:219"
+ },
+ "ModelClearGeom": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:301"
+ },
+ "ModelFinalize": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:327"
+ },
+ "ModelHideGeom": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:279"
+ },
+ "ModelPropagateHeadColor": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:287"
+ },
+ "ModelRemovePolys": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:310"
+ },
+ "ModelResetScale": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:345"
+ },
+ "ModelRunScript": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_builder.cpp:319",
+  "notes": "runs synchronously, to completion, a script stored in the appearance part's option (part=, target=) with the appearance structure as its parameters - named in data, not by an argument"
+ },
+ "modulatecolor": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:373"
+ },
+ "MotoSkateboardOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:530"
+ },
+ "MotoSkateboardOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:524"
+ },
+ "Move": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:523"
+ },
+ "MoveToRandomRestart": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1784"
+ },
+ "NearGround": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics_feelers.cpp:206"
+ },
+ "NetDisablePlayerInput": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:379"
+ },
+ "NetEnablePlayerInput": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:386"
+ },
+ "NewEditorGoal": {
+  "outputs": {
+   "goal_id": "name"
+  },
+  "source": "src/game/park_editing/goal_editor.cpp:600"
+ },
+ "NewRail": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:377"
+ },
+ "NextVaultCategory": {
+  "outputs": {
+   "category": "string"
+  },
+  "source": "src/game/online/vault_man.cpp:928 next_vault_category (+ helpers: vault_man.cpp:910 move_category)",
+  "notes": "Always writes category (the new current category's label)."
+ },
+ "NollieOff": {
+  "outputs": {},
+  "source": "src/game/rider/stance_panel.cpp:106"
+ },
+ "NollieOn": {
+  "outputs": {},
+  "source": "src/game/rider/stance_panel.cpp:100"
+ },
+ "NoQuickGetup": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:202"
+ },
+ "NoRailTricks": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:454"
+ },
+ "NoSkaterVehicleSounds": {
+  "outputs": {},
+  "source": "src/game/rider/vehicle_sound.cpp:344"
+ },
+ "NoSpin": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:652"
+ },
+ "NotInBail": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:665"
+ },
+ "NukeAllGoals": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:325"
+ },
+ "Obj_AddAnimSubset": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:280",
+  "notes": "writes ReferenceChecksum into its own arguments (not the caller's)"
+ },
+ "Obj_AddStream": {
+  "outputs": {},
+  "source": "src/engine/objects/stream_component.cpp:197"
+ },
+ "Obj_AdjustSound": {
+  "outputs": {},
+  "source": "src/engine/objects/sound_component.cpp:129"
+ },
+ "Obj_AllowSkitching": {
+  "outputs": {},
+  "source": "src/game/rider/skitch.cpp:66"
+ },
+ "Obj_AngleToNearestSkaterGreaterThan": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:841"
+ },
+ "Obj_AnimationFlipped": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1153"
+ },
+ "Obj_AnimComplete": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1107"
+ },
+ "Obj_AnimEquals": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1178"
+ },
+ "Obj_AnimSubsetExists": {
+  "outputs": {
+   "0x00000000": "name"
+  },
+  "source": "src/engine/objects/anim_blender.cpp:356",
+  "notes": "writes the bare name subsetexists (an unnamed flag) when the subset exists"
+ },
+ "Obj_ApplyScaling": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:206"
+ },
+ "Obj_ClearColor": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:329"
+ },
+ "Obj_ClearFlag": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:485"
+ },
+ "Obj_ClearGeoms": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:299"
+ },
+ "Obj_ClearVisibility": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:187"
+ },
+ "Obj_DisableAmbientLight": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:237"
+ },
+ "Obj_DisableDiffuseLight": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:256"
+ },
+ "Obj_DisableScaling": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:201"
+ },
+ "Obj_EnableAmbientLight": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:234"
+ },
+ "Obj_EnableAnimBlending": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1171"
+ },
+ "Obj_EnableDiffuseLight": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:255; src/engine/objects/model_component_members.cpp:259"
+ },
+ "Obj_EnableScaling": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:196"
+ },
+ "Obj_FlagNotSet": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:475"
+ },
+ "Obj_FlagSet": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:511"
+ },
+ "Obj_Flip": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1104"
+ },
+ "Obj_FollowLeader": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_update.cpp:438"
+ },
+ "Obj_followPath": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_update.cpp:410"
+ },
+ "Obj_FollowPathLinked": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_update.cpp:422"
+ },
+ "Obj_FollowPathStored": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_update.cpp:430"
+ },
+ "Obj_ForceUpdate": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:486"
+ },
+ "Obj_GetAnimSpeed": {
+  "outputs": {
+   "speed": "float"
+  },
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1146"
+ },
+ "Obj_GetBonePosition": {
+  "outputs": {
+   "x": "float",
+   "y": "float",
+   "z": "float"
+  },
+  "source": "src/engine/objects/skeleton_component.cpp:351"
+ },
+ "Obj_GetBoneVolume": {
+  "outputs": {
+   "bone_volume": "float"
+  },
+  "source": "src/engine/objects/model_component_members.cpp:382"
+ },
+ "Obj_GetCollision": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:614"
+ },
+ "Obj_GetDistanceToObject": {
+  "outputs": {
+   "objectDistance": "float"
+  },
+  "source": "src/engine/objects/composite.cpp:550"
+ },
+ "Obj_GetDistToNode": {
+  "outputs": {
+   "dist": "float"
+  },
+  "source": "src/engine/objects/composite.cpp:707"
+ },
+ "Obj_GetId": {
+  "outputs": {
+   "objID": "name"
+  },
+  "source": "src/engine/objects/entity.cpp:426"
+ },
+ "Obj_GetModelName": {
+  "outputs": {
+   "FileName": "name"
+  },
+  "source": "src/engine/objects/model_component_members.cpp:180"
+ },
+ "Obj_GetNextObjOnPath": {
+  "outputs": {
+   "ob": "name|none"
+  },
+  "source": "src/engine/objects/motion_update.cpp:383",
+  "notes": "ob is removed first, then set when an object is found"
+ },
+ "Obj_GetOrientation": {
+  "outputs": {
+   "x": "float",
+   "y": "float",
+   "z": "float"
+  },
+  "source": "src/engine/objects/composite.cpp:687"
+ },
+ "Obj_GetOrientationToObject": {
+  "outputs": {
+   "dotProd": "float",
+   "Orientation": "float"
+  },
+  "source": "src/engine/objects/composite.cpp:723"
+ },
+ "Obj_GetPosition": {
+  "outputs": {
+   "pos": "vector"
+  },
+  "source": "src/engine/objects/composite.cpp:471"
+ },
+ "Obj_GetQuat": {
+  "outputs": {
+   "Quat": "vector"
+  },
+  "source": "src/engine/objects/composite.cpp:799"
+ },
+ "Obj_GetRandomLink": {
+  "outputs": {
+   "link": "int"
+  },
+  "source": "src/engine/objects/motion_component.cpp:231",
+  "notes": "only when the node has links"
+ },
+ "Obj_GetScaling": {
+  "outputs": {
+   "scaling": "vector"
+  },
+  "source": "src/engine/objects/model_component_members.cpp:215"
+ },
+ "Obj_GetSpeed": {
+  "outputs": {
+   "speed": "float"
+  },
+  "source": "src/engine/objects/motion_component.cpp:269"
+ },
+ "Obj_GetType": {
+  "outputs": {
+   "ObjType": "name"
+  },
+  "source": "src/engine/objects/composite.cpp:598"
+ },
+ "Obj_GetVelocity": {
+  "outputs": {
+   "Vel": "vector"
+  },
+  "source": "src/engine/objects/composite.cpp:493"
+ },
+ "Obj_HasComponent": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:606"
+ },
+ "Obj_HasModelLights": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:359"
+ },
+ "Obj_Hover": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_component.cpp:241"
+ },
+ "Obj_InitModel": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:361"
+ },
+ "Obj_InitModelFromProfile": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:364"
+ },
+ "Obj_Invisible": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:419"
+ },
+ "Obj_IsMoving": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:191"
+ },
+ "Obj_IsRotating": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:197"
+ },
+ "Obj_Jump": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_component.cpp:302"
+ },
+ "Obj_KillSpawnedScript": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:397",
+  "notes": "kills the object's spawned scripts by name= or id= (not the caller)"
+ },
+ "Obj_LockToObject": {
+  "outputs": {},
+  "source": "src/engine/objects/lock_obj.cpp:141"
+ },
+ "Obj_LookAtNode": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:505"
+ },
+ "Obj_LookAtNodeLinked": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:512"
+ },
+ "Obj_LookAtNodeStored": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:519"
+ },
+ "Obj_LookAtObject": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:554"
+ },
+ "Obj_LookAtPos": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:528"
+ },
+ "Obj_LookAtPosStored": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:540"
+ },
+ "Obj_LookAtRelPos": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:547"
+ },
+ "Obj_MoveForward": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:423"
+ },
+ "Obj_MoveLeft": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:430"
+ },
+ "Obj_MoveToLink": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:451"
+ },
+ "Obj_MoveToNode": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_component.cpp:175; src/game/rider/core_physics_feelers.cpp:368",
+  "notes": "the skater's override: the motion component's Obj_MoveToNode (engine KinematicsModule::glide_to_node, no outputs), then the skater's physics state reset"
+ },
+ "Obj_MoveToPos": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:437"
+ },
+ "Obj_MoveToPosStored": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:416"
+ },
+ "obj_movetorelpos": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:444"
+ },
+ "Obj_ObjectInAttentionRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/object_proximity.cpp:252"
+ },
+ "Obj_ObjectInRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/bbox_component.cpp:306"
+ },
+ "Obj_ObjectInRadiusOfNode": {
+  "outputs": {},
+  "source": "src/engine/objects/bbox_component.cpp:308"
+ },
+ "Obj_ObjectInRect": {
+  "outputs": {},
+  "source": "src/engine/objects/bbox_component.cpp:303"
+ },
+ "Obj_PathHeading": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:245"
+ },
+ "Obj_PlayAnim": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1111",
+  "notes": "as PlayAnim"
+ },
+ "Obj_PlayFam": {
+  "outputs": {},
+  "source": "src/engine/objects/fam.cpp:162"
+ },
+ "Obj_PlaySound": {
+  "outputs": {},
+  "source": "src/engine/objects/sound_component.cpp:361"
+ },
+ "Obj_PlayStream": {
+  "outputs": {},
+  "source": "src/engine/objects/stream_component.cpp:190"
+ },
+ "Obj_PrintDetails": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:448"
+ },
+ "Obj_RandomPathMode": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:256"
+ },
+ "Obj_RemoveAnimSubset": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:310"
+ },
+ "Obj_RemoveStream": {
+  "outputs": {},
+  "source": "src/engine/objects/stream_component.cpp:204"
+ },
+ "Obj_ReplaceSpriteTexture": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:370"
+ },
+ "Obj_ReplaceTexture": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:367"
+ },
+ "Obj_ResetNoSuspendCount": {
+  "outputs": {},
+  "source": "src/engine/objects/suspend_component.cpp:256"
+ },
+ "Obj_RestoreBoundingSphere": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:286"
+ },
+ "Obj_Rotate": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:498"
+ },
+ "Obj_Rotx": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:142"
+ },
+ "Obj_RotY": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:156"
+ },
+ "Obj_RotZ": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_rotate.cpp:170"
+ },
+ "Obj_SetAnimCycleMode": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1143"
+ },
+ "Obj_SetAnimSubsetWeight": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:330"
+ },
+ "Obj_SetAttentionRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/object_proximity.cpp:242"
+ },
+ "Obj_SetBoneActive": {
+  "outputs": {},
+  "source": "src/engine/objects/skeleton_component.cpp:309"
+ },
+ "Obj_SetBoneScale": {
+  "outputs": {},
+  "source": "src/engine/objects/skeleton_component.cpp:322"
+ },
+ "Obj_SetBoundingSphere": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:277"
+ },
+ "Obj_SetColor": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:334"
+ },
+ "Obj_SetColorRGB": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:347"
+ },
+ "Obj_SetConstantHeight": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_component.cpp:219"
+ },
+ "Obj_SetFlag": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:500"
+ },
+ "Obj_SetInnerAvoidRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/object_proximity.cpp:230"
+ },
+ "Obj_SetInnerRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/object_proximity.cpp:218"
+ },
+ "Obj_SetLightAmbientColor": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:221"
+ },
+ "Obj_SetLightDiffuseColor": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:240"
+ },
+ "Obj_SetLightDirection": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:262"
+ },
+ "Obj_SetOrientation": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:753"
+ },
+ "Obj_SetOuterAvoidRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/object_proximity.cpp:236"
+ },
+ "Obj_SetOuterRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/object_proximity.cpp:224"
+ },
+ "Obj_SetPathAcceleration": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:231"
+ },
+ "Obj_SetPathDeceleration": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:238"
+ },
+ "Obj_SetPathMinStopVel": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:224"
+ },
+ "Obj_SetPathTurnDist": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_update.cpp:396"
+ },
+ "Obj_SetPathVelocity": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:217"
+ },
+ "Obj_SetPosition": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:464"
+ },
+ "Obj_SetSound": {
+  "outputs": {},
+  "source": "src/engine/objects/sound_component.cpp:145"
+ },
+ "Obj_SetUVOffset": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:314"
+ },
+ "Obj_SetUVParams": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:326"
+ },
+ "Obj_SetVisibility": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:186; src/engine/objects/model_component_members.cpp:193"
+ },
+ "Obj_ShadowOff": {
+  "outputs": {},
+  "source": "src/engine/objects/shadow_component.cpp:291"
+ },
+ "Obj_ShadowOn": {
+  "outputs": {},
+  "source": "src/engine/objects/shadow_component.cpp:295"
+ },
+ "Obj_SkipToRestart": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:400"
+ },
+ "Obj_SpawnScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "params",
+    "how": "Entity::spawn_script on the object (id=, PauseWithObject); the script is the first parameter when it is a name (normally the unnamed one)"
+   }
+  ],
+  "source": "src/engine/objects/entity.cpp:535",
+  "uncertain": "the script is the FIRST component of the arguments if it is a name - normally unnamed, but a named first name would be taken too"
+ },
+ "Obj_StartAlongPath": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:288"
+ },
+ "Obj_StickToGround": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_ground.cpp:383"
+ },
+ "Obj_StopAlongPath": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:267"
+ },
+ "Obj_StopLastFam": {
+  "outputs": {},
+  "source": "src/engine/objects/fam.cpp:174"
+ },
+ "Obj_StopMoving": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:203"
+ },
+ "Obj_StopRotating": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:210"
+ },
+ "Obj_StopSound": {
+  "outputs": {},
+  "source": "src/engine/objects/sound_component.cpp:133"
+ },
+ "Obj_StopStream": {
+  "outputs": {},
+  "source": "src/engine/objects/stream_component.cpp:211"
+ },
+ "Obj_StoreNode": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_component.cpp:212"
+ },
+ "Obj_StorePos": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_component.cpp:205"
+ },
+ "Obj_SwitchScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "params",
+    "how": "replaces the object's own script (Entity::replace_script / bind_script)"
+   }
+  ],
+  "source": "src/engine/objects/entity.cpp:555"
+ },
+ "Obj_TestModelCollision": {
+  "outputs": {
+   "0xed615af5": "name",
+   "bone_volume": "float"
+  },
+  "source": "src/engine/objects/model_component_members.cpp:381",
+  "notes": "0xed615af5 (the hit, an int stored as a name) only on a hit; then goes on to Obj_GetBoneVolume's bone_volume"
+ },
+ "Obj_UpdateBrightness": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:177"
+ },
+ "Obj_UpdateModel": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:183"
+ },
+ "Obj_Visible": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:412"
+ },
+ "Obj_WaitAnimFinished": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:295",
+  "notes": "blocks: the calling script waits on the animation blender (BlockReason kAnimDone) for subset SubsetId="
+ },
+ "Obj_WaitJumpFinished": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:295",
+  "notes": "blocks the calling script (BlockReason kJump)"
+ },
+ "Obj_WaitMove": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:307",
+  "notes": "blocks the calling script (BlockReason kMove)"
+ },
+ "Obj_WaitRotate": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:301",
+  "notes": "blocks the calling script (BlockReason kRotate)"
+ },
+ "Obj_WaitStop": {
+  "outputs": {},
+  "source": "src/engine/objects/motion_path.cpp:313",
+  "notes": "blocks the calling script (BlockReason kPathStop)"
+ },
+ "OnExceptionRun": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "none",
+    "how": "interrupt"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp:596 cfunc_on_exception_run (+ engine/objects/signal.cpp:410 forward_trigger)",
+  "notes": "Registers a script run later as an interrupt of the calling script when an exception handler fires, given one unnamed name component (value 1) as its parameters; its return values merge into the interrupted level's parameters (which the exception handler then replaces)."
+ },
+ "OnExitRun": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "none",
+    "how": "interrupt"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp:605 cfunc_on_exit_run (+ script_qb/cscript_exec.cpp:667 / :676 at end / return; cscript_core.cpp:204 run_on_exit_scripts)",
+  "notes": "Registers a script run (as an interrupt, no parameters) when the current level ends or returns or the script is stopped. Its own return values would merge into the level about to end (then a `return` copies the statement's arguments)."
+ },
+ "OnGround": {
+  "outputs": {},
+  "source": "src/game/rider/walk_physics.cpp:367"
+ },
+ "OnLip": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:163"
+ },
+ "OnlyOnePlayerLeft": {
+  "outputs": {
+   "num_players": "int"
+  },
+  "source": "src/game/rider/skater_query_cfuncs.cpp:242 cfunc_only_one_player_left",
+  "notes": "num_players written only in a non-team game when it returns true."
+ },
+ "OnRail": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:165"
+ },
+ "OnStall": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:655",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "OnWall": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:158"
+ },
+ "OrientToNormal": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics_state.cpp:514"
+ },
+ "OutRevert": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:472"
+ },
+ "OverrideCancelGround": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:681"
+ },
+ "OverrideLimits": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:895"
+ },
+ "PartGotFlag": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_appearance.cpp:263"
+ },
+ "pause": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:675"
+ },
+ "PauseMusic": {
+  "outputs": {},
+  "source": "src/engine/audio/music_cfuncs.cpp:217 cfunc_pause_music (+ continue_music.cpp:41 skips_script_pause: reads script_title only)"
+ },
+ "PausePhysics": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:256"
+ },
+ "Ped_ActivateAuxScript": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:656"
+ },
+ "Ped_ApplySpeedBoost": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:578"
+ },
+ "Ped_AvoidPointReached": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:371"
+ },
+ "Ped_BackOnOriginalPath": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:349"
+ },
+ "ped_bail": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:686"
+ },
+ "Ped_DeactivateAuxScript": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:668"
+ },
+ "Ped_GetCurrentNodeNames": {
+  "outputs": {
+   "node_to": "name",
+   "node_from": "name",
+   "0x3C746255": "name"
+  },
+  "source": "src/game/world/ped_logic.cpp:640"
+ },
+ "Ped_GetCurrentVelocity": {
+  "outputs": {
+   "Velocity": "float"
+  },
+  "source": "src/game/world/ped_logic.cpp:557"
+ },
+ "Ped_GetGender": {
+  "outputs": {
+   "Gender": "name"
+  },
+  "source": "src/game/world/ped_logic.cpp:649"
+ },
+ "Ped_GetLogicState": {
+  "outputs": {
+   "LogicState": "name"
+  },
+  "source": "src/game/world/ped_logic.cpp:477"
+ },
+ "Ped_GetOriginalMaxVelocity": {
+  "outputs": {
+   "original_max_velocity": "float"
+  },
+  "source": "src/game/world/ped_logic.cpp:571"
+ },
+ "Ped_GetVoicePrefix": {
+  "outputs": {
+   "VoicePrefix": "string"
+  },
+  "source": "src/game/world/ped_logic.cpp:693",
+  "notes": "written only when the profile / master skater list has one"
+ },
+ "Ped_HideBoard": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:678"
+ },
+ "Ped_HitWaypoint": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic_path.cpp:762"
+ },
+ "Ped_InitPath": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic_path.cpp:729"
+ },
+ "Ped_InitVertTrick": {
+  "outputs": {
+   "heading": "vector",
+   "jumpSpeed": "float",
+   "0x66CED87B": "float"
+  },
+  "source": "src/game/world/ped_logic_path.cpp:769"
+ },
+ "Ped_IsMoving": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:502"
+ },
+ "Ped_MoveTowardsAvoidPoint": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:358"
+ },
+ "Ped_NearVertNode": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:551"
+ },
+ "Ped_PlayJumpSound": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:622"
+ },
+ "Ped_PlayLandSound": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:631"
+ },
+ "Ped_RememberCurrentPosition": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:380"
+ },
+ "Ped_RememberNextWaypoint": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:387"
+ },
+ "Ped_RememberStickToGround": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:399"
+ },
+ "Ped_RemoveSpeedBoost": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:595"
+ },
+ "Ped_RestoreStickToGround": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:408"
+ },
+ "Ped_SelectAvoidPoint": {
+  "outputs": {},
+  "source": "src/game/world/avoid.cpp:307"
+ },
+ "Ped_SetIsBailing": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:531"
+ },
+ "Ped_SetIsGrinding": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:518"
+ },
+ "Ped_SetIsSkater": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:604"
+ },
+ "Ped_SetLogicState": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:460"
+ },
+ "Ped_SetStickToGroundDist": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:508"
+ },
+ "Ped_StartMoving": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:484"
+ },
+ "Ped_StopMoving": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:495"
+ },
+ "Ped_StoreMaxVelocity": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic.cpp:564"
+ },
+ "Ped_TurnToCurrentWaypointOrientation": {
+  "outputs": {},
+  "source": "src/game/world/ped_logic_move.cpp:1319"
+ },
+ "PermuteArray": {
+  "outputs": {},
+  "byArgument": {
+   "NewArrayName": "array"
+  },
+  "changesGlobals": "With PermuteSource the Array= array is shuffled in place - a global array when Array= is a name standing for one (element order only, no kind change).",
+  "source": "src/engine/script/script_util_cfuncs.cpp:485 cfunc_permute_array",
+  "notes": "Without PermuteSource, a shuffled copy goes into the caller's parameters under the value of NewArrayName."
+ },
+ "pickeduppowerup": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:220"
+ },
+ "PitchGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/matrix_queries.cpp:108"
+ },
+ "PitchingBackward": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:651",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "PitchingForward": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:650",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "PlaceBeforeCamera": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1787"
+ },
+ "PlacedLessThan": {
+  "outputs": {},
+  "source": "src/game/online/hunt_cfuncs.cpp:156 cfunc_placed_less_than (+ helpers: hunt_cfuncs.cpp:60 script_player)",
+  "notes": "Pure test; context used only for the script's object."
+ },
+ "PlaceObject": {
+  "outputs": {
+   "index": "int"
+  },
+  "source": "src/game/online/hunt_cfuncs.cpp:92 cfunc_place_object (+ helpers: hunt_cfuncs.cpp:60 script_player)",
+  "notes": "index (0x7F8C98FE) = objects placed before; written only when the script's object belongs to a player (false otherwise, nothing written)."
+ },
+ "PlayAnim": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_channel.cpp:1110; src/engine/objects/anim_blender.cpp:273; src/game/rider/flip_and_rotate.cpp:176 ; src/game/rider/looping_sound.cpp:168",
+  "notes": "also calls the object's SetWobbleDetails member by name with the same arguments when the timeline holds; these game components only look at it and pass it on (return 2: not handled); the animation components under src/engine answer it - not modelled here"
+ },
+ "PlayBonkSound": {
+  "outputs": {},
+  "source": "src/game/rider/skater_sound.cpp:186"
+ },
+ "PlayCessSound": {
+  "outputs": {},
+  "source": "src/game/rider/skater_sound.cpp:196"
+ },
+ "PlayerInputIsDisabled": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:407"
+ },
+ "PlayJumpSound": {
+  "outputs": {},
+  "source": "src/game/rider/skater_sound.cpp:181"
+ },
+ "PlayLandSound": {
+  "outputs": {},
+  "source": "src/game/rider/skater_sound.cpp:189"
+ },
+ "PlaySkaterStream": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:skater_play_bail_stream",
+    "params": "unknown",
+    "how": "run"
+   }
+  ],
+  "source": "src/game/rider/skater_misc_cfuncs.cpp:162 cfunc_play_skater_stream",
+  "notes": "No caller writes. Runs skater_play_bail_stream (0x38A0F1EC) at once (launch_script) on the calling script's object with {stream_checksum (0x0572EA28): name} for the first stream that exists; not run if none does."
+ },
+ "PostGame": {
+  "outputs": {},
+  "source": "src/game/online/server_list.cpp:638 cfunc_post_game (+ helpers: server_list.cpp:325 Hub::update_hosting_status)",
+  "notes": "Context unused; GameSpy hosting status only, no scripts run."
+ },
+ "Pressed": {
+  "outputs": {},
+  "source": "src/game/rider/trick_queue.cpp:270"
+ },
+ "PressureOff": {
+  "outputs": {},
+  "source": "src/game/rider/stance_panel.cpp:120"
+ },
+ "PressureOn": {
+  "outputs": {},
+  "source": "src/game/rider/stance_panel.cpp:114"
+ },
+ "PrevVaultCategory": {
+  "outputs": {
+   "category": "string"
+  },
+  "source": "src/game/online/vault_man.cpp:935 prev_vault_category (+ helpers: vault_man.cpp:910 move_category)",
+  "notes": "Always writes category (the new current category's label)."
+ },
+ "PrintEventHandlerTable": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:614 cfunc_print_event_handler_table (+ script_qb/cscript_wait.cpp QbScript::print_event_handler_table)"
+ },
+ "ProfileEquals": {
+  "outputs": {},
+  "source": "src/game/skate/career_cfuncs.cpp:253 cfunc_profile_equals",
+  "notes": "Pure test (matches_params reads the command's own params); context used only for the script's object."
+ },
+ "ProfileLoggedIn": {
+  "outputs": {},
+  "source": "src/game/online/buddy_status.cpp:137 profile_logged_in",
+  "notes": "Pure test (presence authenticated); context unused."
+ },
+ "ProjectilesOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:489"
+ },
+ "ProjectilesOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:483"
+ },
+ "RefreshGoalCursorPosition": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:goal_editor_update_cursor_position",
+    "params": {
+     "members": {
+      "Pos": "vector",
+      "Angle": "float"
+     }
+    },
+    "how": "launch_script (only with a goal being edited)"
+   }
+  ],
+  "source": "src/game/park_editing/goal_editor_members.cpp:382"
+ },
+ "Released": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:158"
+ },
+ "releasehang": {
+  "outputs": {},
+  "source": "src/game/rider/walk_physics.cpp:396"
+ },
+ "RemoveAnimController": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1166; src/engine/gfx/anim_track.cpp:304"
+ },
+ "RemoveComponent": {
+  "outputs": {},
+  "byArgument": {
+   "name": "none",
+   "0x00000000": "none"
+  },
+  "source": "src/engine/script/script_cfuncs.cpp:699 cfunc_remove_component",
+  "notes": "Erases the caller's member named by name= (or, without it, by the unnamed name argument)."
+ },
+ "RemovedCreatedGoal": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:196"
+ },
+ "RemoveFlag": {
+  "outputs": {
+   "0x00000000": "none"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:118 cfunc_remove_flag",
+  "notes": "Removes the flag (an unnamed name component whose value is the unnamed argument) from the caller's parameters; named members are untouched."
+ },
+ "RemoveGoalSpecificFlag": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:145"
+ },
+ "RemoveKeyComboSet": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:113"
+ },
+ "RemoveParameter": {
+  "outputs": {
+   "0x00000000": "none"
+  },
+  "byArgument": {
+   "0x00000000": "none"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:107 cfunc_remove_parameter",
+  "notes": "Erases every caller member named by the unnamed name argument and also the flag of that name (an unnamed name component whose value is it - hence the unnamed 'none')."
+ },
+ "RemoveSkaterFromWorld": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1716"
+ },
+ "RemoveTags": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:464"
+ },
+ "RemoveXEvents": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:169"
+ },
+ "ReplaceAnim": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1180; src/engine/gfx/anim_controller.cpp:229; src/engine/gfx/anim_controller.cpp:336; src/engine/gfx/anim_track.cpp:310",
+  "notes": "writes anim / Duration into its own arguments (not the caller's)"
+ },
+ "ResetBikeManualAngle": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:338",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "ResetEventHandlersFromTable": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:566 cfunc_reset_event_handlers_from_table (+ script_qb/cscript_wait.cpp:395 QbScript::reset_event_handlers_from_table; signal.cpp:410 forward_trigger)",
+  "uncertain": "The handlers come from the GLOBAL array named by the unnamed argument: each element is a structure {<flag: exception or not>, <event type>, <script name>, [<params structure>]} read positionally (components 1-4). The started scripts and their parameters are in that global's data, not in an argument: the checker must read the global table's entries (script = 3rd component, params = 4th, plus the event's payload).",
+  "notes": "Event handlers fire later as interrupts (return values merged into the interrupted level) or, for exception entries, replace the calling script - see SetEventHandler."
+ },
+ "ResetIsFlipping": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:546"
+ },
+ "ResetLandedFromVert": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:436"
+ },
+ "ResetProjectileInput": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:506"
+ },
+ "ResetRigidBodyCollisionRadiusBoost": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1764"
+ },
+ "ResetSpin": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:295"
+ },
+ "ResetSwitched": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:185"
+ },
+ "RestoreAllSwappedObjectModels": {
+  "outputs": {},
+  "source": "src/game/commands/model_swap_cfuncs.cpp:189 cfunc_restore_all_swapped_object_models (+ helpers: model_swap_cfuncs.cpp:104 cfunc_swap_object_models)",
+  "notes": "Calls SwapObjectModels with params it builds ({obj1, obj2}); the context is passed on but unused there. No writes, no scripts."
+ },
+ "RestoreAutoKick": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:766"
+ },
+ "RestoreEvents": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:226"
+ },
+ "RetrieveServerInfo": {
+  "outputs": {},
+  "source": "src/game/online/server_browser.cpp:294 cfunc_retrieve_server_info",
+  "notes": "Context unused; asks GameSpy for the server's details (asynchronous), no scripts run directly."
+ },
+ "ReversePartialAnimDirection": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1189; src/engine/gfx/anim_controller.cpp:596"
+ },
+ "RightPressed": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:419"
+ },
+ "rigidbody_disable": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_support.cpp:127"
+ },
+ "Rigidbody_DisablePlayerCollision": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:759"
+ },
+ "RigidBody_Enable": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:745"
+ },
+ "RigidBody_EnablePlayerCollision": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:766"
+ },
+ "Rigidbody_GetCenterOfMassPos": {
+  "outputs": {
+   "CenterOfMassPos": "vector"
+  },
+  "source": "src/engine/objects/rigidbody_component.cpp:773"
+ },
+ "RigidBody_IgnoreSkater": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_support.cpp:117"
+ },
+ "RigidBody_Kick": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:711"
+ },
+ "Rigidbody_MatchVelocityTo": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:780"
+ },
+ "RigidBody_Reset": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_support.cpp:134"
+ },
+ "RigidBody_SetVelocities": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:730"
+ },
+ "RigidBody_Sleep": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:704"
+ },
+ "RigidBody_Wake": {
+  "outputs": {},
+  "source": "src/engine/objects/rigidbody_component.cpp:697"
+ },
+ "RollGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/matrix_queries.cpp:125"
+ },
+ "Rotate": {
+  "outputs": {},
+  "source": "src/game/rider/rotate_component.cpp:111"
+ },
+ "RotateAfter": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:196"
+ },
+ "RotateDisplay": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:268"
+ },
+ "RotateNoFlip": {
+  "outputs": {},
+  "source": "src/game/rider/flip_and_rotate.cpp:179"
+ },
+ "RunStarted": {
+  "outputs": {},
+  "source": "src/game/rider/end_run.cpp:88"
+ },
+ "RunTimer_ComboStarted": {
+  "outputs": {},
+  "source": "src/game/rider/run_timer.cpp:193"
+ },
+ "RunTimer_GetFactorComplete": {
+  "outputs": {
+   "FactorComplete": "float"
+  },
+  "source": "src/game/rider/run_timer.cpp:174"
+ },
+ "RunTimer_GetRunTimerControllerId": {
+  "outputs": {
+   "RunTimerControllerId": "name"
+  },
+  "source": "src/game/rider/run_timer.cpp:181"
+ },
+ "RunTimer_GetRunTimerId": {
+  "outputs": {
+   "RunTimerId": "name"
+  },
+  "source": "src/game/rider/run_timer.cpp:187"
+ },
+ "RunTimer_Pause": {
+  "outputs": {},
+  "source": "src/game/rider/run_timer.cpp:159"
+ },
+ "RunTimer_Unpause": {
+  "outputs": {},
+  "source": "src/game/rider/run_timer.cpp:168"
+ },
+ "SC_ClearSkaterCamOverride": {
+  "outputs": {},
+  "source": "src/engine/objects/camera_lookaround.cpp:172"
+ },
+ "SC_SetMode": {
+  "outputs": {},
+  "source": "src/game/rider/skater_camera_component.cpp:315"
+ },
+ "SC_SetSkaterCamOverride": {
+  "outputs": {},
+  "source": "src/engine/objects/camera_lookaround.cpp:160"
+ },
+ "SC_ShakeCamera": {
+  "outputs": {},
+  "source": "src/game/rider/skater_camera_component.cpp:296"
+ },
+ "ScriptAssert": {
+  "outputs": {},
+  "source": "src/engine/script/script_util_cfuncs.cpp:616 cfunc_script_assert (+ script_util_cfuncs.cpp:551 format_printf_text: formats into its own temporary structure)"
+ },
+ "ScriptGetScreenMode": {
+  "outputs": {
+   "screen_mode": "name"
+  },
+  "source": "src/engine/gfx/viewport.cpp:366 render::cfunc_script_get_screen_mode"
+ },
+ "SendBuddyMessage": {
+  "outputs": {},
+  "source": "src/game/online/buddy_status.cpp:145 send_buddy_message",
+  "notes": "Sends a GameSpy buddy message; context unused."
+ },
+ "SendPagerMessage": {
+  "outputs": {},
+  "source": "src/engine/objects/pager_message.cpp:110",
+  "notes": "spawns the C++-named script pager_message_list_changed on the object with {added: name, [unnamed name priority_message]} (after killing the running one)"
+ },
+ "SetAmmo": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:ammo_meter_change",
+    "params": {
+     "members": {
+      "Count": "int"
+     }
+    },
+    "how": "the running ones ended, then spawn_script on the skater"
+   }
+  ],
+  "source": "src/game/rider/core_physics_feelers.cpp:307"
+ },
+ "SetAmmoType": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:714"
+ },
+ "setanglespread": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:400"
+ },
+ "SetArrayElement": {
+  "outputs": {},
+  "changesGlobals": "Element `index` of the array the caller's parameter ArrayName names is overwritten in place; when that parameter is a name standing for a global array (Struct::get_hunt resolves names), the GLOBAL array's element changes (name = the value of the caller's parameter named by the ArrayName argument).",
+  "source": "src/engine/script/script_util_cfuncs.cpp:698 cfunc_set_array_element (+ engine/script/param_struct.cpp:180 Struct::get_hunt)",
+  "uncertain": "The new value's kind is not checked against the array's element type: for string / localstring / pair / vector / struct / array arrays the cell takes NewValue's raw value whatever its kind (a name NewValue is first resolved through globals), so the array's elements may hold a value of another kind than the array says. Integer / name arrays store the raw word; float arrays convert integers. The checker should treat the array (the caller's member named by ArrayName, or the global) as possibly holding any element kind after this call.",
+  "notes": "No new members in the caller's parameters; an existing array member is mutated in place."
+ },
+ "SetBlinkColors": {
+  "outputs": {},
+  "source": "src/engine/objects/color_cycle.cpp:165"
+ },
+ "SetBoardMissing": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:284"
+ },
+ "SetChecksum": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_appearance.cpp:274"
+ },
+ "setCircularEmit": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:458"
+ },
+ "setcolor": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:378"
+ },
+ "SetCurrentBailEndpose": {
+  "outputs": {},
+  "source": "src/game/rider/trick_component.cpp:1391"
+ },
+ "SetCurrentEditorGoal": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:212"
+ },
+ "SetCustomRestart": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1745",
+  "notes": "with Set: also skips to the restart"
+ },
+ "SetDriving": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:195"
+ },
+ "SetEditingMode": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:parked_set_helper_text_mode",
+    "params": {
+     "members": {
+      "Mode": "name"
+     }
+    },
+    "how": "script::launch_script, no object"
+   }
+  ],
+  "source": "src/game/park_editing/rail_editor_script.cpp:261"
+ },
+ "SetEditorGoalDescription": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:230"
+ },
+ "SetEditorGoalName": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:289"
+ },
+ "SetEditorGoalType": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:219"
+ },
+ "SetEditorGoalWinMessage": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:241"
+ },
+ "SetEditorPedName": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:300"
+ },
+ "setEmitAngle": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:337"
+ },
+ "setEmitRange": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:414"
+ },
+ "setemitrate": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:219"
+ },
+ "SetEmitScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "emitscript",
+    "params": "params",
+    "how": "the particle system's emit script, bound now and run by the system (FlexibleParticleComponent::set_scripts)"
+   },
+   {
+    "script": "updatescript",
+    "params": "params",
+    "how": "the particle system's update script, bound now and run by the system"
+   }
+  ],
+  "source": "src/engine/objects/flexible_particle.cpp:458",
+  "uncertain": "params= is merged into the system's own script-argument structure, which keeps what earlier SetScripts / SetEmitScript calls gave"
+ },
+ "SetEmitTarget": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:428"
+ },
+ "setEmitterIndependent": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:445"
+ },
+ "SetEndBoxDimensions": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:334"
+ },
+ "SetEndColor": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:346"
+ },
+ "SetEndPos": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:322"
+ },
+ "SetEndRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:310"
+ },
+ "SetEventHandler": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "scr",
+    "params": "params",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp:535 cfunc_set_event_handler (+ script_qb/cscript_wait.cpp QbScript::set_event_handler; engine/objects/signal.cpp:410 SignalRouteTable::forward_trigger)",
+  "uncertain": "When the event arrives the handler's parameters are params= merged with the EVENT's own data (payload, whatever the sender attached - not listable here): over-approximate the handler's parameters with unknown members.",
+  "notes": "Later, asynchronously: a normal handler runs as an INTERRUPT on the calling script (preempt; or as a new spawned script when its object has the spawn-handlers flag); its `return` values are merged into the parameters of the level it interrupted. With Exception, the script's OnExceptionRun script runs first (interrupt, given an unnamed name), then the handler REPLACES the calling script (bind_script: its parameters reset - like Goto)."
+ },
+ "SetException": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "scr",
+    "params": "params",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp:551 cfunc_set_exception_handler (same function as SetExceptionHandler)",
+  "uncertain": "Handler parameters = params= merged with the event's payload (unknown members).",
+  "notes": "See SetExceptionHandler."
+ },
+ "SetExceptionHandler": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "scr",
+    "params": "params",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp:551 cfunc_set_exception_handler (+ engine/objects/signal.cpp:410 forward_trigger)",
+  "uncertain": "Handler parameters = params= merged with the event's payload (unknown members).",
+  "notes": "Always an exception handler: when the event arrives, OnExceptionRun's script runs as an interrupt, then the handler replaces the calling script (its parameters reset to the handler's defaults + params + event data)."
+ },
+ "SetExtraGrindTricks": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:228"
+ },
+ "SetExtraPush": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:720"
+ },
+ "SetExtraTricks": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:236"
+ },
+ "SetFocusTimesAllowed": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:1063"
+ },
+ "setforce": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:424"
+ },
+ "SetForceWalk": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:301"
+ },
+ "SetGoalControlType": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:369"
+ },
+ "SetGoalScore": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:343"
+ },
+ "SetGoalSpecificParams": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:158"
+ },
+ "SetGoalTimeLimit": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:356"
+ },
+ "SetGraffitiTexture": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:229"
+ },
+ "SetGrindTweak": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:708"
+ },
+ "SetLandedFromVert": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:430"
+ },
+ "setlife": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:435"
+ },
+ "SetLifetime": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:229"
+ },
+ "SetLightGroup": {
+  "outputs": {},
+  "source": "src/game/commands/world_cfuncs.cpp:61 cfunc_set_light_group (+ game/commands/node_object_cfuncs.cpp:917 node_command_by_name, :879 node_command, set_node_terrain)"
+ },
+ "SetLobbyStatus": {
+  "outputs": {},
+  "source": "src/game/online/buddy_status.cpp:161 set_lobby_status",
+  "notes": "Sets the GameSpy presence status; context unused."
+ },
+ "setLODParams": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:465"
+ },
+ "SetManualTricks": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:186"
+ },
+ "SetMidBoxDimensions": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:330"
+ },
+ "setMidColor": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:342"
+ },
+ "SetMidpointColorPct": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:240"
+ },
+ "SetMidPointPct": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:251"
+ },
+ "SetMidPos": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:318"
+ },
+ "SetMidRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:306"
+ },
+ "SetPart": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_appearance.cpp:234"
+ },
+ "SetPartialAnimSpeed": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1187; src/engine/gfx/anim_controller.cpp:580"
+ },
+ "setparticlesize": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:352"
+ },
+ "SetParticleSizeScale": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:366"
+ },
+ "setpos": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:345"
+ },
+ "SetProps": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:123; src/engine/ui/screen_element.cpp:902",
+  "notes": "Entity: tags (Tags=, RemoveTags=). UiWidget: its own change_traits (properties); not traced for event handlers"
+ },
+ "SetQueueTricks": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:284"
+ },
+ "SetRailSound": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:815"
+ },
+ "SetRollingFriction": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:826"
+ },
+ "SetScripts": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "emitscript",
+    "params": "params",
+    "how": "the particle system's emit script, bound now and run by the system (FlexibleParticleComponent::set_scripts)"
+   },
+   {
+    "script": "updatescript",
+    "params": "params",
+    "how": "the particle system's update script, bound now and run by the system"
+   }
+  ],
+  "source": "src/engine/objects/flexible_particle.cpp:458",
+  "uncertain": "params= is merged into the system's own script-argument structure, which keeps what earlier SetScripts / SetEmitScript calls gave"
+ },
+ "SetSkaterVehicle": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:696"
+ },
+ "SetSkaterVehicleSounds": {
+  "outputs": {},
+  "source": "src/game/rider/vehicle_sound.cpp:327"
+ },
+ "SetSkaterVelocity": {
+  "outputs": {},
+  "source": "src/game/rider/skater_query_cfuncs.cpp:637 cfunc_set_skater_velocity",
+  "notes": "Sets the object's velocity; writes no script parameters."
+ },
+ "SetSlotTrick": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:252"
+ },
+ "SetSparksPos": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:244"
+ },
+ "SetSpecialFriction": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:933"
+ },
+ "SetSpecialValue": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:153"
+ },
+ "SetSpeed": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics.cpp:250"
+ },
+ "setspeedrange": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:385"
+ },
+ "SetStartBoxDimensions": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:326"
+ },
+ "SetStartColor": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:338"
+ },
+ "SetStartPos": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:314"
+ },
+ "SetStartRadius": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:302"
+ },
+ "SetState": {
+  "outputs": {},
+  "source": "src/game/rider/core_jump.cpp:336"
+ },
+ "SetStickerTexture": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:236"
+ },
+ "SetTags": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:525"
+ },
+ "SetTargetObject": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_movies.cpp:284"
+ },
+ "SetThrowingProjectile": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:552"
+ },
+ "SetTrickName": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:205"
+ },
+ "SetTrickScore": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:271"
+ },
+ "SetUpdateScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "none",
+    "how": "Sparkle::set_emit_script: spawn_script(the unnamed name, a structure the C++ makes: {id: <the object's id, a name>})"
+   }
+  ],
+  "source": "src/engine/objects/particle_component.cpp:352",
+  "uncertain": "the started script's parameters are C++-made {id: name}, not an argument - params none under-states them"
+ },
+ "SetWobbleDetails": {
+  "outputs": {},
+  "source": "src/engine/gfx/anim_channel.cpp:1182; src/engine/gfx/anim_controller.cpp:415; src/engine/objects/anim_blender.cpp:273; src/game/rider/balance_trick.cpp:310"
+ },
+ "ShouldEmit": {
+  "outputs": {},
+  "source": "src/engine/objects/flexible_particle.cpp:476"
+ },
+ "ShouldMongo": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1724"
+ },
+ "ShouldRunStallScript": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx_tricks.cpp:652",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "SizeOf": {
+  "outputs": {
+   "ArraySize": "int"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:162 cfunc_size_of",
+  "notes": "ArraySize = 0x26828C6E (add_component_of_type kInteger)."
+ },
+ "SkateInAble": {
+  "outputs": {},
+  "source": "src/game/rider/core_physics_feelers.cpp:241"
+ },
+ "SkaterIsFlipping": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:541"
+ },
+ "SkaterIsNamed": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1719"
+ },
+ "SkaterLoopingSound_TurnOff": {
+  "outputs": {},
+  "source": "src/game/rider/looping_sound.cpp:162"
+ },
+ "SkaterLoopingSound_TurnOn": {
+  "outputs": {},
+  "source": "src/game/rider/looping_sound.cpp:156"
+ },
+ "SkaterOffBike": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:338",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "SkaterOnBike": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:338",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "SkaterPhysicsControl_SwitchSkatingToWalking": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:247"
+ },
+ "SkaterPhysicsControl_SwitchWalkingToSkating": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:244"
+ },
+ "SkaterVehicleOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:381"
+ },
+ "SkaterVehicleOn": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:375"
+ },
+ "Skating": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:185"
+ },
+ "Skeleton_SpawnCompositeObject": {
+  "outputs": {},
+  "source": "src/engine/objects/skeleton_component.cpp:428",
+  "uncertain": "creates a composite object from a component array and params=; its components might start scripts (not traced)"
+ },
+ "SkipMusicTrack": {
+  "outputs": {},
+  "source": "src/engine/audio/music_cfuncs.cpp:288 cfunc_skip_music_track (+ engine/audio/continue_music.cpp:32 skips_script_stop: reads script_title only)"
+ },
+ "SkipToCustomRestart": {
+  "outputs": {},
+  "source": "src/game/rider/rider.cpp:1759"
+ },
+ "Skitching": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:641"
+ },
+ "SparksOff": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:SkaterParticles_SparksOff",
+    "params": "*",
+    "how": "script::launch_script on the skater with the member's own arguments"
+   }
+  ],
+  "source": "src/game/rider/rider.cpp:1736"
+ },
+ "SparksOn": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:SkaterParticles_SparksOn",
+    "params": "*",
+    "how": "script::launch_script on the skater with the member's own arguments"
+   }
+  ],
+  "source": "src/game/rider/rider.cpp:1740"
+ },
+ "SpawnScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "params",
+    "how": "spawn"
+   },
+   {
+    "script": "callback",
+    "params": "callbackparams",
+    "how": "callback"
+   }
+  ],
+  "source": "src/engine/script/skate_cfuncs.cpp:293 cfunc_spawn_script (+ script_qb/cscript_manager.cpp:164 spawn_script)",
+  "notes": "A new spawned script (its defaults + params=) at the caller's node; callback (with a copy of callbackparams) runs when it finishes. A C function named as the script is called at once with a temporary script (outputs discarded). Caller's parameters untouched."
+ },
+ "SpecialItemExists": {
+  "outputs": {},
+  "source": "src/game/rider/special_item.cpp:203"
+ },
+ "SpeedEquals": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:576"
+ },
+ "SpeedGreaterThan": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:584"
+ },
+ "SpeedLessThan": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:590"
+ },
+ "StartBalanceTrick": {
+  "outputs": {},
+  "source": "src/game/rider/balance_trick.cpp:277"
+ },
+ "startblinking": {
+  "outputs": {},
+  "source": "src/engine/objects/color_cycle.cpp:140"
+ },
+ "StartGap": {
+  "outputs": {},
+  "source": "src/game/rider/gap_entry.cpp:604",
+  "notes": "with a Trickscript it also does StartGapTrick (stores the trick script for CheckGapTricks)"
+ },
+ "StartGapTrick": {
+  "outputs": {},
+  "source": "src/game/rider/gap_entry.cpp:607"
+ },
+ "StartSkitch": {
+  "outputs": {},
+  "source": "src/game/rider/core_jump.cpp:322"
+ },
+ "StatsManager_ActivateGoals": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:console_unhide",
+    "params": "none",
+    "how": "launch_script"
+   }
+  ],
+  "source": "src/game/rider/stats_manager.cpp:692"
+ },
+ "StatsManager_ClearLastAirComboScore": {
+  "outputs": {},
+  "source": "src/game/rider/stats_manager.cpp:746"
+ },
+ "StatsManager_DeactivateGoals": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:console_hide",
+    "params": "none",
+    "how": "launch_script"
+   }
+  ],
+  "source": "src/game/rider/stats_manager.cpp:700"
+ },
+ "StatsManager_GetGoalStatus": {
+  "outputs": {
+   "Status": "int"
+  },
+  "source": "src/game/rider/stats_manager.cpp:708"
+ },
+ "StatsManager_GetLastAirComboScore": {
+  "outputs": {
+   "last_air_combo_score": "int"
+  },
+  "source": "src/game/rider/stats_manager.cpp:739"
+ },
+ "StatsManager_ReInit": {
+  "outputs": {},
+  "source": "src/game/rider/stats_manager.cpp:678"
+ },
+ "StatsManager_Reset": {
+  "outputs": {},
+  "source": "src/game/rider/stats_manager.cpp:685"
+ },
+ "StatsManager_UnlockAmGoals": {
+  "outputs": {},
+  "source": "src/game/rider/stats_manager.cpp:717"
+ },
+ "StatsManager_UnlockProGoals": {
+  "outputs": {},
+  "source": "src/game/rider/stats_manager.cpp:728"
+ },
+ "StopBalanceTrick": {
+  "outputs": {},
+  "source": "src/game/rider/balance_trick.cpp:322"
+ },
+ "stopblinking": {
+  "outputs": {},
+  "source": "src/engine/objects/color_cycle.cpp:147"
+ },
+ "StopMusic": {
+  "outputs": {},
+  "source": "src/engine/audio/music_cfuncs.cpp:207 cfunc_stop_music (+ continue_music.cpp:32 skips_script_stop)"
+ },
+ "StopSkaterVehicleSounds": {
+  "outputs": {},
+  "source": "src/game/rider/vehicle_sound.cpp:359"
+ },
+ "StopSkitch": {
+  "outputs": {},
+  "source": "src/game/rider/core_jump.cpp:329"
+ },
+ "StringToInteger": {
+  "outputs": {},
+  "byArgument": {
+   "0x00000000": "int"
+  },
+  "source": "src/engine/script/script_cfuncs.cpp:672 cfunc_string_to_integer",
+  "notes": "The caller's text parameter named by the unnamed name argument erased and replaced by an int (no change, returns false, when there is no such text)."
+ },
+ "suspend": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:538"
+ },
+ "Switched": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:622"
+ },
+ "SwitchOffAtomic": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:164"
+ },
+ "SwitchOffBalanceMeter": {
+  "outputs": {},
+  "source": "src/game/rider/balance_trick.cpp:260"
+ },
+ "SwitchOnAtomic": {
+  "outputs": {},
+  "source": "src/engine/objects/model_component_members.cpp:158"
+ },
+ "SwitchOnBalanceMeter": {
+  "outputs": {},
+  "source": "src/game/rider/balance_trick.cpp:271"
+ },
+ "TagClearFlags": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:326"
+ },
+ "TagNow": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:323"
+ },
+ "TextureSplat": {
+  "outputs": {},
+  "source": "src/engine/objects/skeleton_component.cpp:365"
+ },
+ "ThawBmxLoadAssets": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:325",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "ThawBmxSteerAnim": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:333",
+  "notes": "NOT ORIGINAL: answered only while [features] thaw_bmx is on (core physics component falls through to thaw_bmx::invoke_method_by_name)"
+ },
+ "Theme_GetAltColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:98 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_ALT_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetBalanceArrowColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:123 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_BALANCE_ARROW_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetBalanceMeterColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:118 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_BALANCE_METER_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetBGPartsColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:128 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_BG_PARTS_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetFontColors": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:88 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_FONT_COLORS (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetHighlightBarColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:68 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_HIGHLIGHT_BAR_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetHighlightedTextColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:48 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_HIGHLIGHTED_TEXT_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetHighlightedTextColorNew": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:58 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_HIGHLIGHTED_TEXT_COLOR_NEW (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetHUDColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:108 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_HUD_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetHUDSpecialColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:113 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_HUD_SPECIAL_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetIconOnColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:83 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_ICON_ON_VALUE (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetKeyColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:133 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_KEY_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetMenuTitleColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:103 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_MENU_TITLE_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetPauseBarColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:78 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_PAUSEBAR_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetSpeechBoxColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:73 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_SPEECH_BOX_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetSupportPieceColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:93 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_SUPPORTPIECE_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetTextTwitchColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:138 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_TEXT_TWITCH_VALUE (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetUnhighlightedTextColor": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:53 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_UNHIGHLIGHTED_TEXT_COLOR (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "Theme_GetUnhighlightedTextColorNew": {
+  "outputs": {},
+  "byArgument": {
+   "return_value": "name"
+  },
+  "source": "src/engine/ui/theme_cfuncs.cpp:63 (+ helpers: theme_cfuncs.cpp:37 return_theme_colour)",
+  "notes": "The member named by return_value= gets the NAME DE_UNHIGHLIGHTED_TEXT_COLOR_NEW (the global's checksum, not its value) by put_name_key. return_value is asserted; missing -> member 0 (unnamed)."
+ },
+ "TotalScoreGreaterThan": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:138"
+ },
+ "TotalScoreLessThan": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:134"
+ },
+ "TrickOffObject": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:194"
+ },
+ "TriggerGrindOff": {
+  "outputs": {},
+  "source": "src/game/rider/core_jump.cpp:368"
+ },
+ "Triggertype": {
+  "outputs": {},
+  "source": "src/engine/objects/trigger_component.cpp:128"
+ },
+ "TurnToFaceVelocity": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:856"
+ },
+ "TweakTrick": {
+  "outputs": {},
+  "source": "src/game/rider/skater_score.cpp:171"
+ },
+ "UnBlockInterruptedScript": {
+  "outputs": {},
+  "source": "src/engine/script/skate_cfuncs.cpp:325 cfunc_un_block_interrupted_script (+ script_qb/cscript_wait.cpp:232 QbScript::unblock_interrupted_script)",
+  "notes": "Control flow: the level interrupted by the current interrupt stops waiting (its Block / Wait is cleared). No parameter writes."
+ },
+ "Unhide": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:512"
+ },
+ "UnHighlightAllRails": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:383"
+ },
+ "unpause": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:680"
+ },
+ "UnPausePhysics": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:264"
+ },
+ "UnsetBoardMissing": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:290"
+ },
+ "UnsetDriving": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:201"
+ },
+ "UnSetForceWalk": {
+  "outputs": {},
+  "source": "src/game/rider/physics_control.cpp:308"
+ },
+ "UnsetThrowingProjectile": {
+  "outputs": {},
+  "source": "src/game/rider/core_member_functions.cpp:558"
+ },
+ "Unsuspend": {
+  "outputs": {},
+  "source": "src/engine/objects/composite.cpp:543"
+ },
+ "UpdateLensFlare": {
+  "outputs": {},
+  "source": "src/engine/script/cfuncs_scene.cpp:410 cfunc_update_lens_flare (+ engine/gfx/lens_flare.cpp:348 sun::update_flare - context unused)"
+ },
+ "UpdateRailPointPosition": {
+  "outputs": {},
+  "source": "src/game/park_editing/rail_editor_script.cpp:327"
+ },
+ "UpPressed": {
+  "outputs": {},
+  "source": "src/engine/objects/input_component.cpp:425"
+ },
+ "UseGrindEvents": {
+  "outputs": {},
+  "source": "src/game/rider/trick_member_functions.cpp:274"
+ },
+ "Vehicle_AdjustGravity": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:417"
+ },
+ "Vehicle_AllWheelsAreInContact": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:434"
+ },
+ "Vehicle_HandbrakeActive": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:428"
+ },
+ "Vehicle_IsSkaterVisible": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:449"
+ },
+ "Vehicle_Kick": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:376"
+ },
+ "Vehicle_LostCollision": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:440"
+ },
+ "Vehicle_MoveToRestart": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:1148"
+ },
+ "Vehicle_PlaceBeforeCamera": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:1174"
+ },
+ "Vehicle_Wake": {
+  "outputs": {},
+  "source": "src/game/world/vehicle_component.cpp:409"
+ },
+ "VehicleCamera_Reset": {
+  "outputs": {},
+  "source": "src/game/rider/vehicle_camera.cpp:117"
+ },
+ "VertStickerSlap": {
+  "outputs": {},
+  "source": "src/game/rider/tagging.cpp:316"
+ },
+ "Vibrate": {
+  "outputs": {},
+  "source": "src/engine/objects/vibration_component.cpp:156"
+ },
+ "Wait": {
+  "outputs": {},
+  "source": "src/engine/script/script_cfuncs.cpp:364 cfunc_wait (+ helpers: script_cfuncs.cpp:133 wait_ms; engine/script/context.h lull / wait_real_time / get_stall / suspend_until_next_frame -> the host's wait)",
+  "notes": "Blocks: the calling script waits (ms of frame time or game clock, game frames, or one-per-frame). No parameter writes."
+ },
+ "WaitAnim": {
+  "outputs": {},
+  "source": "src/engine/objects/anim_blender.cpp:370; src/engine/gfx/anim_channel.cpp:1155",
+  "notes": "blocks the OBJECT's own script (gate_off on its own script) until the animation reaches the time - the caller when it is that script"
+ },
+ "Walk_Air": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:156"
+ },
+ "Walk_AnimWait": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:165"
+ },
+ "Walk_AnimWaitComplete": {
+  "outputs": {},
+  "source": "src/game/rider/walk_moves.cpp:548"
+ },
+ "Walk_ForceToAirFromHang": {
+  "outputs": {},
+  "source": "src/game/rider/walk_moves.cpp:562"
+ },
+ "Walk_GetHangAngle": {
+  "outputs": {
+   "HangAngle": "float"
+  },
+  "source": "src/game/rider/walk_physics.cpp:457"
+ },
+ "Walk_GetHangInitAnimType": {
+  "outputs": {
+   "HangInitAnimType": "name"
+  },
+  "source": "src/game/rider/walk_physics.cpp:428"
+ },
+ "Walk_GetPreviousState": {
+  "outputs": {
+   "PreviousState": "name"
+  },
+  "source": "src/game/rider/walk_physics.cpp:443"
+ },
+ "Walk_GetSpeedScale": {
+  "outputs": {
+   "SpeedScale": "name"
+  },
+  "source": "src/game/rider/walk_physics.cpp:410"
+ },
+ "Walk_GetState": {
+  "outputs": {
+   "State": "name"
+  },
+  "source": "src/game/rider/walk_physics.cpp:450"
+ },
+ "Walk_GetStateDuration": {
+  "outputs": {
+   "StateDuration": "float"
+  },
+  "source": "src/game/rider/walk_physics.cpp:435"
+ },
+ "Walk_GetStateTime": {
+  "outputs": {
+   "StateTime": "int"
+  },
+  "source": "src/game/rider/walk_physics.cpp:403"
+ },
+ "Walk_Ground": {
+  "outputs": {},
+  "source": "src/game/rider/walk_physics.cpp:367"
+ },
+ "Walk_Hang": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:158"
+ },
+ "Walk_Jump": {
+  "outputs": {},
+  "source": "src/game/rider/walk_moves.cpp:555"
+ },
+ "Walk_Ladder": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:163"
+ },
+ "Walk_ScaleAnimSpeed": {
+  "outputs": {},
+  "source": "src/game/rider/walk_physics.cpp:373"
+ },
+ "Walk_SetForwardControlLock": {
+  "outputs": {},
+  "source": "src/game/rider/walk_physics.cpp:485"
+ },
+ "WalkCamera_FlushRequest": {
+  "outputs": {},
+  "source": "src/game/rider/walk_camera.cpp:165"
+ },
+ "WalkCamera_Reset": {
+  "outputs": {},
+  "source": "src/game/rider/walk_camera.cpp:169"
+ },
+ "Walking": {
+  "outputs": {},
+  "source": "src/game/rider/skater_state.cpp:180"
+ },
+ "WalkingWallplant": {
+  "outputs": {},
+  "source": "src/game/rider/core_jump.cpp:383"
+ },
+ "WriteEditedGoalNodePositions": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:280"
+ },
+ "YawBetween": {
+  "outputs": {},
+  "source": "src/game/rider/matrix_queries.cpp:131"
+ },
+ "YawingLeft": {
+  "outputs": {},
+  "source": "src/game/rider/matrix_queries.cpp:115"
+ },
+ "YawingRight": {
+  "outputs": {},
+  "source": "src/game/rider/matrix_queries.cpp:120"
+ }
+}

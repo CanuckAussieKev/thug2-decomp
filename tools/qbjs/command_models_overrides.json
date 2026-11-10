@@ -1,0 +1,171 @@
+{
+ "AddParams": {
+  "outputs": {},
+  "mergesArguments": true,
+  "source": "src/engine/script/script_cfuncs.cpp cfunc_add_params",
+  "notes": "every argument merged into the caller's parameters (append_structure_if_any): the outputs are the call's own arguments"
+ },
+ "SetEventHandler": {
+  "outputs": {},
+  "anyMembers": "any",
+  "starts": [
+   {
+    "script": "scr",
+    "params": "unknown",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp cfunc_set_event_handler (+ engine/objects/signal.cpp forward_trigger)",
+  "notes": "the handler gets params= merged with the event's own data (unknown members); it runs as an interrupt of the script that set it, whose parameters its return values are merged into"
+ },
+ "SetExceptionHandler": {
+  "outputs": {},
+  "anyMembers": "any",
+  "starts": [
+   {
+    "script": "scr",
+    "params": "unknown",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp cfunc_set_exception_handler (+ engine/objects/signal.cpp forward_trigger)",
+  "notes": "as SetEventHandler; an exception handler replaces the calling script (bind_script)"
+ },
+ "SetException": {
+  "outputs": {},
+  "anyMembers": "any",
+  "starts": [
+   {
+    "script": "scr",
+    "params": "unknown",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp cfunc_set_exception_handler",
+  "notes": "the same function as SetExceptionHandler"
+ },
+ "OnExitRun": {
+  "outputs": {},
+  "anyMembers": "any",
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "none",
+    "how": "interrupt"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp cfunc_on_exit_run (+ script_qb/cscript_core.cpp run_on_exit_scripts)",
+  "notes": "the script runs as an interrupt of the caller; its return values are merged into the caller's parameters"
+ },
+ "OnExceptionRun": {
+  "outputs": {},
+  "anyMembers": "any",
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": "none",
+    "how": "interrupt"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp cfunc_on_exception_run",
+  "notes": "as OnExitRun"
+ },
+ "ResetEventHandlersFromTable": {
+  "outputs": {},
+  "anyMembers": "any",
+  "starts": [
+   {
+    "script": "?",
+    "params": "unknown",
+    "how": "event"
+   }
+  ],
+  "source": "src/engine/script/script_cfuncs.cpp cfunc_reset_event_handlers_from_table (+ script_qb/cscript_wait.cpp reset_event_handlers_from_table)",
+  "notes": "the handlers and their parameters come from the global array its argument names (read by position); they run as interrupts of the caller"
+ },
+ "ForEachIn": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "do",
+    "params": "unknown",
+    "how": "run"
+   }
+  ],
+  "source": "src/engine/script/script_util_cfuncs.cpp cfunc_for_each_in",
+  "notes": "each run gets an element of the array (a structure) merged with params="
+ },
+ "SetUpdateScript": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "0x00000000",
+    "params": {
+     "members": {
+      "id": "name"
+     }
+    },
+    "how": "spawn"
+   }
+  ],
+  "source": "src/engine/objects/particle_component.cpp:352 EffectsEmitterModule::set_emit_target",
+  "notes": "the script gets a structure the C++ makes: {id: the object's id}"
+ },
+ "SendPagerMessage": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:pager_message_list_changed",
+    "params": {
+     "members": {
+      "added": "name",
+      "0x00000000?": "name"
+     }
+    },
+    "how": "spawn"
+   }
+  ],
+  "source": "src/engine/objects/pager_message.cpp:110 PagerMessageComponent::send_pager_message",
+  "notes": "spawns pager_message_list_changed on the object (the unnamed flag priority_message when it is one)"
+ },
+ "ClearPagerMessages": {
+  "outputs": {},
+  "starts": [
+   {
+    "script": "fixed:pager_message_list_changed",
+    "params": {
+     "members": {
+      "deleted": "name"
+     }
+    },
+    "how": "spawn"
+   }
+  ],
+  "source": "src/engine/objects/pager_message.cpp:178 PagerMessageComponent::clear_pager_messages",
+  "notes": "spawns pager_message_list_changed on the object"
+ },
+ "LevelEditor_EditedLevels": {
+  "outputs": {
+   "edited_list": "array",
+   "edited_count": "int"
+  },
+  "source": "src/editor/level_editor_layout.cpp:1348 cfunc_edited_levels"
+ },
+ "LevelEditor_PlayCamera": {
+  "outputs": {},
+  "source": "src/editor/level_editor_cameras.cpp:464 cfunc_play_camera",
+  "notes": "its context goes only to KillSkaterCamAnim (no outputs)"
+ },
+ "ThawBmx_LoadTexture": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp:166 cfunc_load_texture",
+  "notes": "its context goes only to LoadTexture (no outputs)"
+ },
+ "ThawBmx_HomeSpot": {
+  "outputs": {
+   "pos": "vector",
+   "heading": "float"
+  },
+  "source": "src/game/rider/thaw_bmx_parked.cpp:187 cfunc_home_spot"
+ }
+}

@@ -48,6 +48,7 @@
 #include "engine/script/cache.h"
 #include "engine/script/cell.h"
 #include "script_qb/qb_script.h"
+#include "script_qb/script_check.h"
 #include "engine/script/context.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -212,6 +213,9 @@ bool QbScript::execute_command(Tokens& pc)
         const uint32_t name = fetch_word32(pc);
         pc += 4;
         parse_function_params(pc);
+        if (const auto stubbed = check::command(this, name, 0, stmt_args_.get())) { // NOT ORIGINAL (script_check.h)
+            return *stubbed;
+        }
         if (!entity_.get_pull()) {
             no_object_check();
             return false;
@@ -223,6 +227,9 @@ bool QbScript::execute_command(Tokens& pc)
         const MemberFunctionEntry* entry = member_entry_at(pc);
         pc += 4;
         parse_function_params(pc);
+        if (const auto stubbed = check::command(this, entry->callsign_, 0, stmt_args_.get())) { // NOT ORIGINAL
+            return *stubbed;
+        }
         if (!entity_.get_pull()) {
             no_object_check();
             return false;
@@ -234,6 +241,9 @@ bool QbScript::execute_command(Tokens& pc)
         const NativeFunction function = native_function_at(pc);
         pc += 4;
         parse_function_params(pc);
+        if (const auto stubbed = check::native_function(this, function, stmt_args_.get())) { // NOT ORIGINAL
+            return *stubbed;
+        }
         return function(stmt_args_.get(), Context(this));
     }
     default:
@@ -262,8 +272,9 @@ bool QbScript::execute_command(Tokens& pc)
     pc_ = pc.address();
 
     if (as_token(*pc) == QbToken::kColon) { // name:
-        objects::Entity* object = find_object(name);
-        if (!object) {
+        // (NOT ORIGINAL: the script check has no objects - object:Command is a stub there, script_check.h)
+        objects::Entity* object = check::active() ? nullptr : find_object(name);
+        if (!object && !check::active()) {
             return true; // (pc_ left at the ':')
         }
         ++pc;
@@ -273,10 +284,16 @@ bool QbScript::execute_command(Tokens& pc)
             const uint32_t member = fetch_word32(pc);
             pc += 4;
             parse_function_params(pc);
+            if (const auto stubbed = check::command(this, member, name, stmt_args_.get())) {
+                return *stubbed;
+            }
             return invoke_method_by_name(member, object);
         }
         const uint32_t function = read_name(pc);
         parse_function_params(pc);
+        if (const auto stubbed = check::command(this, function, name, stmt_args_.get())) {
+            return *stubbed;
+        }
         return run_command_on(function, object);
     }
 
@@ -356,8 +373,14 @@ bool QbScript::run_command(uint32_t name)
         return true;
     }
     case QbValueKind::kNativeFunc:
+        if (const auto stubbed = check::command(this, name, 0, stmt_args_.get())) { // NOT ORIGINAL (script_check.h)
+            return *stubbed;
+        }
         return symbol->value().function()(stmt_args_.get(), Context(this));
     case QbValueKind::kNativeMethod: {
+        if (const auto stubbed = check::command(this, name, 0, stmt_args_.get())) { // NOT ORIGINAL
+            return *stubbed;
+        }
         const auto* entry = symbol->value().method();
         objects::Entity* object = entity_.get_pull();
         if (entry) {
@@ -380,6 +403,7 @@ bool QbScript::run_command(uint32_t name)
 // jumps; else it goes on into the true part. (pc_ is left where the statement put it.)
 void QbScript::run_conditional(Tokens& pc)
 {
+    const std::ptrdiff_t place = pc.position(); // (NOT ORIGINAL: the script check's coverage)
     ++pc;
     const Tokens target = pc + fetch_word16(pc);
     pc += 2;
@@ -395,6 +419,7 @@ void QbScript::run_conditional(Tokens& pc)
     if (negate) {
         condition = !condition;
     }
+    check::note_if(this, place, condition); // NOT ORIGINAL (script_check.h)
     if (!condition) {
         pc = target;
         pc_ = target.address();
@@ -422,6 +447,7 @@ void QbScript::skip_to_end_of_switch(Tokens& pc)
 // goes to the endswitch. No match: on to the next case, finally into the default or past the endswitch.
 void QbScript::run_multi_branch(Tokens& pc)
 {
+    const std::ptrdiff_t place = pc.position(); // (NOT ORIGINAL: the script check's coverage)
     ++pc;
     parse_function_params(pc);
     gsl::owner<Component*> value = new_component();
@@ -439,10 +465,12 @@ void QbScript::run_multi_branch(Tokens& pc)
             continue;
         }
         if (token == QbToken::kEndSwitch) {
+            check::note_case(this, place, -1);
             ++pc;
             break;
         }
         if (token == QbToken::kDefault) { // default: past 3F 49 xx xx
+            check::note_case(this, place, pc.position());
             pc += 4;
             break;
         }
@@ -450,6 +478,7 @@ void QbScript::run_multi_branch(Tokens& pc)
             pc = step_over_token(pc);
             continue;
         }
+        const std::ptrdiff_t label = pc.position();
         pc += 2; // the jump's offset
         const Tokens next = pc + fetch_word16(pc);
         pc += 2;
@@ -459,6 +488,7 @@ void QbScript::run_multi_branch(Tokens& pc)
             pc = next;
             continue;
         }
+        check::note_case(this, place, label);
         pc = skip_newline_tokens(pc);
         while (as_token(*pc) == QbToken::kShortJump && as_token(pc[3]) == QbToken::kCase) {
             pc += kShortJumpCaseBytes;
@@ -578,6 +608,9 @@ ScriptOutcome QbScript::tick_frame()
     // original does. Logged once per script, with its name and its object's id, before the hang.)
     uint32_t steps = 0;
     while (pc_) {
+        if (check::over()) { // NOT ORIGINAL - the script check's run is over (script_check.h)
+            return ScriptOutcome::kFinished;
+        }
         if (++steps == kRunawayStepCount) {
             constexpr size_t kSLoggedSize = kLoggedScriptCount;
             static std::array<uint32_t, kSLoggedSize> s_logged;

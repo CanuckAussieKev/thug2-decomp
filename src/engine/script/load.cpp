@@ -79,6 +79,14 @@ QbLoadedHook& qb_loaded_hook()
 } // namespace
 
 void set_qb_loaded_hook(QbLoadedHook hook) { qb_loaded_hook() = hook; }
+namespace {
+QbUnloadedHook& qb_unloaded_hook()
+{
+    static QbUnloadedHook hook = nullptr;
+    return hook;
+}
+} // namespace
+void set_qb_unloaded_hook(QbUnloadedHook hook) { qb_unloaded_hook() = hook; }
 void replace_symbol_for_definition(SymbolTableEntry* existing, bool temporary)
 {
     get_replace(existing, temporary ? 1 : 0);
@@ -362,6 +370,9 @@ void unload_qb(uint32_t file_checksum)
             clean_up_and_remove_symbol(symbol);
         }
         memory::free_malloc(static_cast<void*>(block));
+    }
+    if (qb_unloaded_hook()) { // NOT ORIGINAL - the file's TypeScript functions let go of (ts_bridge.h)
+        qb_unloaded_hook()(file_checksum);
     }
     // Scripts left running code that's gone are stopped.
     host().stop_scripts_left_without_code();

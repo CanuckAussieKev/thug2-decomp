@@ -1,0 +1,22 @@
+{
+ "LevelEditor_EditedLevels": {
+  "function": "layout::cfunc_edited_levels",
+  "source": "src/editor/level_editor_layout.cpp cfunc_edited_levels",
+  "why": "uses its context: context || !context.args() || get_refused()) {\r\n        return false"
+ },
+ "LevelEditor_PlayCamera": {
+  "function": "cameras::cfunc_play_camera",
+  "source": "src/editor/level_editor_cameras.cpp cfunc_play_camera",
+  "why": "uses its context: context)"
+ },
+ "ThawBmx_LoadTexture": {
+  "function": "cfunc_load_texture",
+  "source": "src/game/rider/thaw_bmx.cpp cfunc_load_texture",
+  "why": "uses its context: context)"
+ },
+ "ThawBmx_HomeSpot": {
+  "function": "cfunc_home_spot",
+  "source": "src/game/rider/thaw_bmx_parked.cpp cfunc_home_spot",
+  "why": "uses its context: context.args()->put_vec3(\"pos\", {.x = pos.x, .y = pos.y, .z = pos.z})"
+ }
+}

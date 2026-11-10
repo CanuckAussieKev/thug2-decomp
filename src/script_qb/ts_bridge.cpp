@@ -7,6 +7,7 @@
 // in a script (script bodies, functions) are a fault, never dropped.
 
 #include "script_qb/ts_bridge.h"
+#include "script_qb/script_check.h"
 
 #include <algorithm>
 #include <array>
@@ -46,7 +47,7 @@ namespace script::qb::ts {
 
 namespace {
 
-constexpr size_t kMemoryLimit = 64U * 1024U * 1024U;
+constexpr size_t kMemoryLimit = 512U * 1024U * 1024U;
 constexpr size_t kStackLimit = 1024U * 1024U;
 // Interrupt checks one resume may take (QuickJS asks every few thousand operations): a level that never stops is a
 // fault, not a hang.
@@ -286,6 +287,7 @@ uint64_t fingerprint(Struct* structure)
     return hash;
 }
 JSValue array_to_js(JSContext* c, Array* array, size_t depth);
+JSValue call_qb(const char* method, std::span<JSValue> args);
 
 // A value kind and its cell as a value object (JS_EXCEPTION for a kind no script value has).
 JSValue cell_to_js(JSContext* c, QbValueKind kind, const Cell& cell, size_t depth)
@@ -659,24 +661,29 @@ JSValue native_call_function(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
         return throw_error(c, error);
     }
     const auto routine = symbol->value().function();
-    const bool result = routine(params, Context(get_running_script()));
+    // (the script check answers for it: script_check.h)
+    const std::optional<bool> stubbed = check::command(get_running_script(), symbol->name_value(), 0, params);
+    const bool result = stubbed ? *stubbed : routine(params, Context(get_running_script()));
     params->get_clear();
     delete_struct(params);
     return JS_NewBool(c, result);
 }
 
-// defineScript(n): its symbol, a body of one kTsBody token (as the loader defines a .qb file's scripts).
+// defineScript(n, id): script n's symbol, a body of one kTsBody token naming its definition `id` (runtime.js: each
+// definition has its own, so the symbol table alone says which runs - a temporary load undone puts the older back),
+// as the loader defines a .qb file's scripts.
 JSValue native_define_script(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
 {
     Engine& e = engine();
     const uint32_t name = to_u32(c, argv[0]);
-    // 01 (the defaults' empty line), 4A <name>, 01, 24 (the end)
+    const uint32_t id = to_u32(c, argv[1]);
+    // 01 (the defaults' empty line), 4A <id>, 01, 24 (the end)
     const std::array<uint8_t, 8> body{0x01,
                                       token_byte(QbToken::kTsBody),
-                                      static_cast<uint8_t>(name),
-                                      static_cast<uint8_t>(name >> 8U),
-                                      static_cast<uint8_t>(name >> 16U),
-                                      static_cast<uint8_t>(name >> 24U),
+                                      static_cast<uint8_t>(id),
+                                      static_cast<uint8_t>(id >> 8U),
+                                      static_cast<uint8_t>(id >> 16U),
+                                      static_cast<uint8_t>(id >> 24U),
                                       0x01,
                                       token_byte(QbToken::kScriptEnd)};
     SymbolTableEntry* existing = find_symbol(name);
@@ -784,7 +791,7 @@ bool start_engine()
     add_native(c, game, "symbol", native_symbol, 1);
     add_native(c, game, "symbolKind", native_symbol_kind, 1);
     add_native(c, game, "callFunction", native_call_function, 2);
-    add_native(c, game, "defineScript", native_define_script, 1);
+    add_native(c, game, "defineScript", native_define_script, 2);
     add_native(c, game, "defineGlobal", native_define_global, 2);
     add_native(c, game, "draw", native_draw, 2);
     add_native(c, game, "frame", native_frame, 0);
@@ -915,7 +922,13 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
     std::snprintf(name.data(), name.size(), "%08x.qbc", file_hash(file));
     const std::string cache = game_folder_path("thug2-decomp-ts") + "\\cache\\" + name.data();
     bool cached = false;
-    if (evaluate_module(source, relative, cache, cached, error)) {
+    // (what it defines belongs to its file: let go of when the file is unloaded - on_qb_unloaded)
+    std::array<JSValue, 1> owner{JS_NewUint32(e.context, checksums::hash_from_text(filename))};
+    JS_FreeValue(e.context, call_qb("loadingAs", owner));
+    const bool loaded = evaluate_module(source, relative, cache, cached, error);
+    std::array<JSValue, 1> nobody{JS_NULL};
+    JS_FreeValue(e.context, call_qb("loadingAs", nobody));
+    if (loaded) {
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
         ++profile().loads;
         profile().load_ns += static_cast<uint64_t>(ms.count()) * 1000000U;
@@ -926,6 +939,17 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
     }
     e.loading_file.clear();
     e.loading_temporary = false;
+}
+
+// A .qb file unloaded: the functions its module defined let go of (its symbols are gone - a later file's definition
+// of the same name has a number of its own).
+void on_qb_unloaded(uint32_t file_checksum)
+{
+    if (!is_on()) {
+        return;
+    }
+    std::array<JSValue, 1> owner{JS_NewUint32(engine().context, file_checksum)};
+    JS_FreeValue(engine().context, call_qb("forget", owner));
 }
 
 JSValue call_qb(const char* method, std::span<JSValue> args)
@@ -993,6 +1017,7 @@ void install()
         return;
     }
     set_qb_loaded_hook(on_qb_loaded);
+    set_qb_unloaded_hook(on_qb_unloaded);
     get_log("ts: TypeScript scripts on (modules in %s)", game_folder_path("thug2-decomp-ts").c_str());
     if (engine().recording) {
         // (the earlier sessions' counts, added to from here)
@@ -1012,7 +1037,7 @@ void install()
 
 bool enabled() { return is_on(); }
 
-uint32_t begin(uint32_t name, Struct* args, uint32_t owner, std::string& error)
+uint32_t begin(uint32_t name, uint32_t title, Struct* args, uint32_t owner, std::string& error)
 {
     Engine& e = engine();
     JSContext* c = e.context;
@@ -1033,7 +1058,7 @@ uint32_t begin(uint32_t name, Struct* args, uint32_t owner, std::string& error)
     JS_FreeValue(c, result);
     e.synced[level] = fingerprint(args);
     if (profile().on) {
-        profile().level_names[level] = name;
+        profile().level_names[level] = title;
     }
     return level;
 }

@@ -39,6 +39,9 @@ void unload_qb(uint32_t file_checksum);
 // the loader's way of replacing a symbol that is being defined again (set aside for a temporary load, else removed).
 using QbLoadedHook = void (*)(const char* filename, std::span<const uint8_t> file, bool temporary);
 void set_qb_loaded_hook(QbLoadedHook hook);
+// ... and after a file's symbols are removed (unload_qb: its checksum).
+using QbUnloadedHook = void (*)(uint32_t file_checksum);
+void set_qb_unloaded_hook(QbUnloadedHook hook);
 void replace_symbol_for_definition(SymbolTableEntry* existing, bool temporary);
 
 } // namespace script

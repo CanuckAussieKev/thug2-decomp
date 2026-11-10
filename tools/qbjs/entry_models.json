@@ -1,0 +1,3981 @@
+{
+ "0x07c28b45": [
+  {
+   "params": "none",
+   "site": "game/commands/game_cfuncs.cpp:361"
+  }
+ ],
+ "0x9c9dfcf8": [
+  {
+   "params": "none",
+   "site": "game/commands/game_cfuncs.cpp:363"
+  }
+ ],
+ "refresh_skater_model": [
+  {
+   "params": "none",
+   "site": "game/commands/game_cfuncs.cpp:932"
+  }
+ ],
+ "theme_menu_add_item": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name",
+     "pad_choose_params": "struct",
+     "scale": "float",
+     "no_bg": "name",
+     "centered": "name",
+     "pad_choose_script": "name"
+    }
+   },
+   "site": "game/commands/game_cfuncs.cpp:994"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name",
+     "pad_choose_params": "struct",
+     "scale": "float",
+     "no_bg": "name",
+     "centered": "name",
+     "pad_choose_script": "name"
+    }
+   },
+   "site": "game/commands/game_cfuncs.cpp:1004"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "centered": "name",
+     "id": "name",
+     "pad_choose_script": "name",
+     "rgba": "array",
+     "unfocus_params": "struct",
+     "pad_choose_params": "struct"
+    }
+   },
+   "site": "game/online/gamenet_game_commands.cpp:551"
+  }
+ ],
+ "make_text_sub_menu_item": [
+  {
+   "params": {
+    "members": {
+     "0xC4745838": "string",
+     "0x2B0CFCA1": "name",
+     "0xB8437568": "struct"
+    }
+   },
+   "site": "game/commands/game_cfuncs.cpp:1028"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name",
+     "pad_choose_script": "name",
+     "parent_menu_id": "name",
+     "pad_choose_params": "struct",
+     "scale": "float"
+    }
+   },
+   "site": "game/online/buddy_man.cpp:490"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "pad_choose_script": "name",
+     "parent_menu_id": "name",
+     "pad_choose_params": "struct"
+    }
+   },
+   "site": "game/online/gamenet_lobby_menus.cpp:122"
+  }
+ ],
+ "add_item_to_face_menu": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "file": "string"
+    }
+   },
+   "site": "game/commands/game_cfuncs.cpp:1052"
+  }
+ ],
+ "0xff958f9d": [
+  {
+   "params": "none",
+   "site": "game/commands/game_flow_cfuncs.cpp:185"
+  }
+ ],
+ "0xdca9a9a0": [
+  {
+   "params": "none",
+   "site": "game/commands/game_flow_cfuncs.cpp:186"
+  }
+ ],
+ "0x323d63ff": [
+  {
+   "params": "none",
+   "site": "game/commands/game_flow_cfuncs.cpp:754"
+  },
+  {
+   "params": "none",
+   "site": "game/commands/game_flow_cfuncs.cpp:793"
+  }
+ ],
+ "0xb95b735c": [
+  {
+   "params": "none",
+   "site": "game/commands/game_flow_cfuncs.cpp:787"
+  }
+ ],
+ "0xff5c39b6": [
+  {
+   "params": "none",
+   "site": "game/commands/net_state_cfuncs.cpp:154"
+  }
+ ],
+ "entered_network_game": [
+  {
+   "params": "none",
+   "site": "game/commands/net_state_cfuncs.cpp:163"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:355"
+  }
+ ],
+ "0x6d51f203": [
+  {
+   "params": "unknown: the command's whole params structure plus 0xC4745838 (text):string",
+   "site": "game/commands/net_state_cfuncs.cpp:240"
+  }
+ ],
+ "0x271d435c": [
+  {
+   "params": "none",
+   "site": "game/commands/net_state_cfuncs.cpp:360"
+  }
+ ],
+ "handle_keyboard_input": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "0x69E3A1C4": "int",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/front_end/front_end.cpp:467"
+  }
+ ],
+ "0xfb11e6cd": [
+  {
+   "params": "none",
+   "site": "game/front_end/front_end.cpp:519"
+  }
+ ],
+ "0xdce60a74": [
+  {
+   "params": "none",
+   "site": "game/front_end/front_end.cpp:662"
+  }
+ ],
+ "EnableSun": [
+  {
+   "params": "none",
+   "site": "game/front_end/start_level.cpp:125"
+  }
+ ],
+ "SetGameType": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/front_end/start_level.cpp:128"
+  }
+ ],
+ "SetCurrentGameType": [
+  {
+   "params": "none",
+   "site": "game/front_end/start_level.cpp:130"
+  }
+ ],
+ "level_select_change_level": [
+  {
+   "params": {
+    "members": {
+     "level": "name",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/front_end/start_level.cpp:135"
+  }
+ ],
+ "ready_skater_for_early_end_current_goal": [
+  {
+   "params": "unknown: the goal structure (Objective::args_, a copy of GoalManager_AddGoal's params:{...} sub-structure, with goal_id:name added by enrol_objective - or, for created goals, the structure the park editor builds in edited_goal_io.cpp before enrol_objective (line ~545); merged over time with difficulty_level_params[skill tier] (prepare_all / merge_skill_tier_args), GoalManager_EditGoal's params:{...} (rewrite_args), and the members the C++ writes: goal_id:name, win_record:int, reward_params:struct, num_flags_set:int, num_flags:int, number_collected:int, num_gaps_found:int, time:int, winning_score:int, arcade_current_score_total:int, trick_flag(0x60B827D5):int, should_remove_trick:int, just_added_trickslot:int, start_height(0xC07D8D60):int, current_height_feet:int, current_height_inches:int, current_distance_feet:int, current_distance_inches:int, 0x78FFB85C(record):int, record_feet:int, record_inches:int, current_time:int, current_time_seconds:int, current_time_fraction:int, 0x648D8D2A:int, time_on_camera:int, last_time_on_camera:int, tricks_completed:int, 0xD02AC196:int, 0xA32FAF13:int, reward_stat:int, pro:string, full_name:string, trick_string:string, goal_deScription(0x0C5D7E6B):string|array, original_goal_description:string|array, key_combos(0x79704516):array, 0x735AF2DD(gaps found):struct; unnamed flags just_won_goal, 0xE7B8254F(new record), combo_started(0x7100155D), already_added_trickslot, quick_start, trial run (removed)...)",
+   "site": "game/goals/goal_life.cpp:326"
+  }
+ ],
+ "CheckChapterAdvancementStatus": [
+  {
+   "params": {
+    "members": {
+     "RewardPoints": "int"
+    }
+   },
+   "site": "game/goals/goal_life.cpp:422"
+  }
+ ],
+ "goal_got_flag_sound": [
+  {
+   "params": "none",
+   "site": "game/goals/goal_life.cpp:576"
+  }
+ ],
+ "goal_update_counter": [
+  {
+   "params": "unknown: the goal structure (Objective::args_, a copy of GoalManager_AddGoal's params:{...} sub-structure, with goal_id:name added by enrol_objective - or, for created goals, the structure the park editor builds in edited_goal_io.cpp before enrol_objective (line ~545); merged over time with difficulty_level_params[skill tier] (prepare_all / merge_skill_tier_args), GoalManager_EditGoal's params:{...} (rewrite_args), and the members the C++ writes: goal_id:name, win_record:int, reward_params:struct, num_flags_set:int, num_flags:int, number_collected:int, num_gaps_found:int, time:int, winning_score:int, arcade_current_score_total:int, trick_flag(0x60B827D5):int, should_remove_trick:int, just_added_trickslot:int, start_height(0xC07D8D60):int, current_height_feet:int, current_height_inches:int, current_distance_feet:int, current_distance_inches:int, 0x78FFB85C(record):int, record_feet:int, record_inches:int, current_time:int, current_time_seconds:int, current_time_fraction:int, 0x648D8D2A:int, time_on_camera:int, last_time_on_camera:int, tricks_completed:int, 0xD02AC196:int, 0xA32FAF13:int, reward_stat:int, pro:string, full_name:string, trick_string:string, goal_deScription(0x0C5D7E6B):string|array, original_goal_description:string|array, key_combos(0x79704516):array, 0x735AF2DD(gaps found):struct; unnamed flags just_won_goal, 0xE7B8254F(new record), combo_started(0x7100155D), already_added_trickslot, quick_start, trial run (removed)...)",
+   "site": "game/goals/goal_life.cpp:579"
+  },
+  {
+   "params": "unknown: the goal structure (Objective::args_, a copy of GoalManager_AddGoal's params:{...} sub-structure, with goal_id:name added by enrol_objective - or, for created goals, the structure the park editor builds in edited_goal_io.cpp before enrol_objective (line ~545); merged over time with difficulty_level_params[skill tier] (prepare_all / merge_skill_tier_args), GoalManager_EditGoal's params:{...} (rewrite_args), and the members the C++ writes: goal_id:name, win_record:int, reward_params:struct, num_flags_set:int, num_flags:int, number_collected:int, num_gaps_found:int, time:int, winning_score:int, arcade_current_score_total:int, trick_flag(0x60B827D5):int, should_remove_trick:int, just_added_trickslot:int, start_height(0xC07D8D60):int, current_height_feet:int, current_height_inches:int, current_distance_feet:int, current_distance_inches:int, 0x78FFB85C(record):int, record_feet:int, record_inches:int, current_time:int, current_time_seconds:int, current_time_fraction:int, 0x648D8D2A:int, time_on_camera:int, last_time_on_camera:int, tricks_completed:int, 0xD02AC196:int, 0xA32FAF13:int, reward_stat:int, pro:string, full_name:string, trick_string:string, goal_deScription(0x0C5D7E6B):string|array, original_goal_description:string|array, key_combos(0x79704516):array, 0x735AF2DD(gaps found):struct; unnamed flags just_won_goal, 0xE7B8254F(new record), combo_started(0x7100155D), already_added_trickslot, quick_start, trial run (removed)...)",
+   "site": "game/goals/objective.cpp:287"
+  }
+ ],
+ "goal_gaps_got_gap": [
+  {
+   "params": "unknown: a copy of the goal structure (Objective::args_, a copy of GoalManager_AddGoal's params:{...} sub-structure, with goal_id:name added by enrol_objective - or, for created goals, the structure the park editor builds in edited_goal_io.cpp before enrol_objective (line ~545); merged over time with difficulty_level_params[skill tier] (prepare_all / merge_skill_tier_args), GoalManager_EditGoal's params:{...} (rewrite_args), and the members the C++ writes: goal_id:name, win_record:int, reward_params:struct, num_flags_set:int, num_flags:int, number_collected:int, num_gaps_found:int, time:int, winning_score:int, arcade_current_score_total:int, trick_flag(0x60B827D5):int, should_remove_trick:int, just_added_trickslot:int, start_height(0xC07D8D60):int, current_height_feet:int, current_height_inches:int, current_distance_feet:int, current_distance_inches:int, 0x78FFB85C(record):int, record_feet:int, record_inches:int, current_time:int, current_time_seconds:int, current_time_fraction:int, 0x648D8D2A:int, time_on_camera:int, last_time_on_camera:int, tricks_completed:int, 0xD02AC196:int, 0xA32FAF13:int, reward_stat:int, pro:string, full_name:string, trick_string:string, goal_deScription(0x0C5D7E6B):string|array, original_goal_description:string|array, key_combos(0x79704516):array, 0x735AF2DD(gaps found):struct; unnamed flags just_won_goal, 0xE7B8254F(new record), combo_started(0x7100155D), already_added_trickslot, quick_start, trial run (removed)...)",
+   "site": "game/goals/goal_life.cpp:598"
+  }
+ ],
+ "GoalManager_ShowGoalPoints": [
+  {
+   "params": "none",
+   "site": "game/goals/goal_manager.cpp:128"
+  },
+  {
+   "params": "none",
+   "site": "game/goals/goal_manager_cfuncs2.cpp:178"
+  },
+  {
+   "params": "none",
+   "site": "game/goals/goal_manager_update.cpp:138"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:318"
+  }
+ ],
+ "goal_create_proset_geom": [
+  {
+   "params": "unknown: the goal structure (Objective::args_, a copy of GoalManager_AddGoal's params:{...} sub-structure, with goal_id:name added by enrol_objective - or, for created goals, the structure the park editor builds in edited_goal_io.cpp before enrol_objective (line ~545); merged over time with difficulty_level_params[skill tier] (prepare_all / merge_skill_tier_args), GoalManager_EditGoal's params:{...} (rewrite_args), and the members the C++ writes: goal_id:name, win_record:int, reward_params:struct, num_flags_set:int, num_flags:int, number_collected:int, num_gaps_found:int, time:int, winning_score:int, arcade_current_score_total:int, trick_flag(0x60B827D5):int, should_remove_trick:int, just_added_trickslot:int, start_height(0xC07D8D60):int, current_height_feet:int, current_height_inches:int, current_distance_feet:int, current_distance_inches:int, 0x78FFB85C(record):int, record_feet:int, record_inches:int, current_time:int, current_time_seconds:int, current_time_fraction:int, 0x648D8D2A:int, time_on_camera:int, last_time_on_camera:int, tricks_completed:int, 0xD02AC196:int, 0xA32FAF13:int, reward_stat:int, pro:string, full_name:string, trick_string:string, goal_deScription(0x0C5D7E6B):string|array, original_goal_description:string|array, key_combos(0x79704516):array, 0x735AF2DD(gaps found):struct; unnamed flags just_won_goal, 0xE7B8254F(new record), combo_started(0x7100155D), already_added_trickslot, quick_start, trial run (removed)...)",
+   "site": "game/goals/goal_manager.cpp:317"
+  }
+ ],
+ "goal_lose_next_frame": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name"
+    }
+   },
+   "site": "game/goals/goal_manager_events.cpp:85"
+  }
+ ],
+ "goal_highcombo_check_score": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name",
+     "last_score_landed": "int"
+    }
+   },
+   "site": "game/goals/goal_manager_events.cpp:117"
+  }
+ ],
+ "kill_blur": [
+  {
+   "params": "none",
+   "site": "game/goals/goal_manager_goals.cpp:171"
+  }
+ ],
+ "GoalManager_ResetGoalTrigger": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name"
+    }
+   },
+   "site": "game/goals/goal_manager_goals.cpp:175"
+  }
+ ],
+ "view_selected_goals_menu_set_events": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name",
+     "parent": "name",
+     "text": "string",
+     "font": "name",
+     "scale": "int"
+    }
+   },
+   "site": "game/goals/goal_manager_goals.cpp:250"
+  }
+ ],
+ "choose_goals_menu_set_events": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name",
+     "parent": "name",
+     "text": "string",
+     "font": "name",
+     "scale": "int"
+    }
+   },
+   "site": "game/goals/goal_manager_goals.cpp:250"
+  }
+ ],
+ "view_goals_menu_add_item": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name",
+     "text": "string",
+     "0xBB48AF8B": "string",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/goals/goal_manager_update.cpp:243"
+  }
+ ],
+ "goal_race_next_waypoint": [
+  {
+   "params": "unknown: structures merged in (members that can't be listed)",
+   "site": "game/goals/goal_net_types.cpp:335"
+  }
+ ],
+ "goal_pro_stop_anim_scripts": [
+  {
+   "params": "unknown: the goal structure (Objective::args_, a copy of GoalManager_AddGoal's params:{...} sub-structure, with goal_id:name added by enrol_objective - or, for created goals, the structure the park editor builds in edited_goal_io.cpp before enrol_objective (line ~545); merged over time with difficulty_level_params[skill tier] (prepare_all / merge_skill_tier_args), GoalManager_EditGoal's params:{...} (rewrite_args), and the members the C++ writes: goal_id:name, win_record:int, reward_params:struct, num_flags_set:int, num_flags:int, number_collected:int, num_gaps_found:int, time:int, winning_score:int, arcade_current_score_total:int, trick_flag(0x60B827D5):int, should_remove_trick:int, just_added_trickslot:int, start_height(0xC07D8D60):int, current_height_feet:int, current_height_inches:int, current_distance_feet:int, current_distance_inches:int, 0x78FFB85C(record):int, record_feet:int, record_inches:int, current_time:int, current_time_seconds:int, current_time_fraction:int, 0x648D8D2A:int, time_on_camera:int, last_time_on_camera:int, tricks_completed:int, 0xD02AC196:int, 0xA32FAF13:int, reward_stat:int, pro:string, full_name:string, trick_string:string, goal_deScription(0x0C5D7E6B):string|array, original_goal_description:string|array, key_combos(0x79704516):array, 0x735AF2DD(gaps found):struct; unnamed flags just_won_goal, 0xE7B8254F(new record), combo_started(0x7100155D), already_added_trickslot, quick_start, trial run (removed)...) (get_goal_params: the goal's args)",
+   "site": "game/goals/goal_ped.cpp:366"
+  }
+ ],
+ "goal_ped_kill_arrow": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name"
+    }
+   },
+   "site": "game/goals/goal_ped.cpp:413"
+  }
+ ],
+ "goal_add_ped_arrow": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name"
+    }
+   },
+   "site": "game/goals/goal_ped.cpp:417"
+  }
+ ],
+ "goal_play_stream": [
+  {
+   "params": {
+    "members": {
+     "stream_checksum": "name",
+     "use_pos_info": "int",
+     "streamId": "name",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/goals/goal_ped.cpp:469"
+  }
+ ],
+ "timer_runout_beep": [
+  {
+   "params": "none",
+   "site": "game/goals/goal_run.cpp:240"
+  },
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:187"
+  }
+ ],
+ "0x681bc776": [
+  {
+   "params": "unknown: an element of the goal structure's waypoints array (0x160B3220 or 0x92C6E839: a structure from the AddGoal params) with goal_id:name added, unnamed flags first_spot / quick_start (quick_start removed afterwards)",
+   "site": "game/goals/goal_run.cpp:344"
+  }
+ ],
+ "0x4c938553": [
+  {
+   "params": "unknown: an element of the goal structure's waypoints array (0x160B3220 or 0x92C6E839: a structure from the AddGoal params) with goal_id:name added, unnamed flags first_spot / quick_start (quick_start removed afterwards)",
+   "site": "game/goals/goal_run.cpp:344"
+  }
+ ],
+ "goal_skate_the_line_next_cluster": [
+  {
+   "params": "unknown: structures merged in (members that can't be listed)",
+   "site": "game/goals/goal_skate_line.cpp:68"
+  }
+ ],
+ "goal_no_valid_key_combos": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name"
+    }
+   },
+   "site": "game/goals/goal_tricks.cpp:86"
+  }
+ ],
+ "load_premade_cat": [
+  {
+   "params": {
+    "members": {
+     "trickslot": "name",
+     "index": "int",
+     "special_trick_index": "int"
+    }
+   },
+   "site": "game/goals/goal_tricks.cpp:396"
+  }
+ ],
+ "goal_find_gaps_found_gap": [
+  {
+   "params": {
+    "members": {
+     "goal_id": "name"
+    }
+   },
+   "site": "game/goals/goal_types.cpp:373"
+  }
+ ],
+ "log_in_profile": [
+  {
+   "params": "none",
+   "site": "game/online/buddy_man.cpp:348"
+  }
+ ],
+ "removed_buddy": [
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/online/buddy_man.cpp:423"
+  }
+ ],
+ "destroy_lobby_buddy_list_children": [
+  {
+   "params": "none",
+   "site": "game/online/buddy_man.cpp:457"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:353"
+  }
+ ],
+ "homie_list_add_item": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "status": "string",
+     "location": "string",
+     "id": "name",
+     "pad_choose_params": "struct",
+     "pad_choose_script": "name",
+     "parent_menu_id": "name",
+     "scale": "float"
+    }
+   },
+   "site": "game/online/buddy_man.cpp:542"
+  }
+ ],
+ "CreateBuddyLoginFailedDialog": [
+  {
+   "params": "none",
+   "site": "game/online/buddy_man.cpp:556"
+  },
+  {
+   "params": "none",
+   "site": "game/online/buddy_man.cpp:729"
+  }
+ ],
+ "create_wrong_profile_password_dialog": [
+  {
+   "params": "none",
+   "site": "game/online/buddy_man.cpp:559"
+  }
+ ],
+ "failed_add_buddy_already_buddy": [
+  {
+   "params": "none",
+   "site": "game/online/buddy_man.cpp:563"
+  }
+ ],
+ "added_buddy": [
+  {
+   "params": {
+    "members": {
+     "net_name": "string"
+    }
+   },
+   "site": "game/online/buddy_man.cpp:597"
+  }
+ ],
+ "update_buddy_status": [
+  {
+   "params": {
+    "members": {
+     "net_name": "string",
+     "name": "string",
+     "status": "string",
+     "location": "string",
+     "id": "name"
+    }
+   },
+   "site": "game/online/buddy_man.cpp:624"
+  }
+ ],
+ "flash_buddy_message_icon": [
+  {
+   "params": "none",
+   "site": "game/online/buddy_man.cpp:702"
+  }
+ ],
+ "net_chosen_join_server": [
+  {
+   "params": {
+    "members": {
+     "cookie": "name",
+     "0x00000000": "any"
+    }
+   },
+   "site": "game/online/buddy_man.cpp:824"
+  },
+  {
+   "params": {
+    "members": {
+     "reason": "name",
+     "just_dialog": "name",
+     "cookie": "name",
+     "MaxPlayers": "int",
+     "0x00000000": "any"
+    }
+   },
+   "site": "game/online/server_browser.cpp:286"
+  }
+ ],
+ "profile_logged_in": [
+  {
+   "params": "none",
+   "site": "game/online/buddy_status.cpp:120"
+  }
+ ],
+ "create_console_message": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/chat.cpp:128"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/chat.cpp:224"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_lobby_menus.cpp:138"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_lobby_menus.cpp:157"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "join": "name",
+     "left": "name"
+    }
+   },
+   "site": "game/online/rooms.cpp:193"
+  }
+ ],
+ "0x3b4548b8": [
+  {
+   "params": "none",
+   "site": "game/online/chat.cpp:339"
+  }
+ ],
+ "0x2c43b5ba": [
+  {
+   "params": {
+    "members": {
+     "0xB53D0E0F": "name"
+    }
+   },
+   "site": "game/online/chat.cpp:370"
+  }
+ ],
+ "display_flag_base_warning": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_commands.cpp:131"
+  }
+ ],
+ "SetFlag": [
+  {
+   "params": {
+    "members": {
+     "flag": "int"
+    }
+   },
+   "site": "game/online/gamenet_commands.cpp:337"
+  },
+  {
+   "params": {
+    "members": {
+     "flag": "int"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:743"
+  }
+ ],
+ "UnSetFlag": [
+  {
+   "params": {
+    "members": {
+     "flag": "int"
+    }
+   },
+   "site": "game/online/gamenet_commands.cpp:337"
+  }
+ ],
+ "LoadPendingPlayers": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:322"
+  }
+ ],
+ "StartNetworkGame": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:323"
+  }
+ ],
+ "CreateConnectingDialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:333"
+  }
+ ],
+ "CreateJoiningDialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:338"
+  }
+ ],
+ "CreateTryingPasswordDialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:343"
+  }
+ ],
+ "dialog_box_exit": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:360"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:297"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:537"
+  }
+ ],
+ "CreateJoinRefusedDialog": [
+  {
+   "params": {
+    "members": {
+     "reason": "name"
+    }
+   },
+   "site": "game/online/gamenet_flow.cpp:368"
+  },
+  {
+   "params": {
+    "members": {
+     "reason": "name",
+     "just_dialog": "name"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:577"
+  },
+  {
+   "params": {
+    "members": {
+     "reason": "name",
+     "just_dialog": "name"
+    }
+   },
+   "site": "game/online/server_browser.cpp:274"
+  }
+ ],
+ "CreateWaitForPlayersDialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:391"
+  }
+ ],
+ "create_link_unplugged_dialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:425"
+  }
+ ],
+ "create_link_unplugged_front_end_dialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:425"
+  }
+ ],
+ "ShowJoinTimeoutNotice": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:474"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_tasks.cpp:214"
+  }
+ ],
+ "CreateLostConnectionDialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_flow.cpp:478"
+  }
+ ],
+ "do_backend_retry": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_game_commands.cpp:305"
+  }
+ ],
+ "PrepareSkaterForMove": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_game_commands.cpp:354"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_handlers.cpp:334"
+  }
+ ],
+ "create_player_options_dialog": [
+  {
+   "params": {
+    "members": {
+     "profile": "int",
+     "nick": "string",
+     "name": "string",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/online/gamenet_game_commands.cpp:493"
+  }
+ ],
+ "cancel_join_server": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:119"
+  }
+ ],
+ "launch_fcfs_notification": [
+  {
+   "params": {
+    "members": {
+     "checksum": "name"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:233"
+  }
+ ],
+ "flag_returned": [
+  {
+   "params": {
+    "members": {
+     "Team": "int",
+     "String0": "string"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:258"
+  },
+  {
+   "params": {
+    "members": {
+     "Team": "int",
+     "String0": "string"
+    }
+   },
+   "site": "game/online/gamenet_players.cpp:531"
+  },
+  {
+   "params": {
+    "members": {
+     "Team": "int",
+     "String0": "string"
+    }
+   },
+   "site": "game/online/gamenet_players.cpp:566"
+  },
+  {
+   "params": {
+    "members": {
+     "Team": "int",
+     "String0": "string"
+    }
+   },
+   "site": "game/online/gamenet_server_handlers.cpp:404"
+  }
+ ],
+ "destroy_ctf_panel_message": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_game_handlers.cpp:261"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_server_handlers.cpp:408"
+  }
+ ],
+ "hide_ctf_arrow": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_game_handlers.cpp:265"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_players.cpp:535"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_players.cpp:568"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_server_handlers.cpp:412"
+  },
+  {
+   "params": "none",
+   "site": "game/online/player_flags.cpp:173"
+  },
+  {
+   "params": "none",
+   "site": "game/online/player_flags.cpp:246"
+  },
+  {
+   "params": "none",
+   "site": "game/online/player_flags.cpp:251"
+  }
+ ],
+ "InitialiseCreatedGoals": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:316"
+  }
+ ],
+ "wait_and_create_view_selected_goals_menu": [
+  {
+   "params": {
+    "members": {
+     "goal_summary": "name"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:385"
+  }
+ ],
+ "joined_team_you": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:413"
+  }
+ ],
+ "joined_team_other": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "String1": "string"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:418"
+  }
+ ],
+ "warn_all_same_team": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_game_handlers.cpp:435"
+  }
+ ],
+ "goal_attack_completed_goal": [
+  {
+   "params": {
+    "members": {
+     "NumGoalsLeft": "int"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:470"
+  }
+ ],
+ "goal_attack_completed_goal_other_same_team": [
+  {
+   "params": {
+    "members": {
+     "NumGoalsLeft": "int",
+     "PlayerName": "string",
+     "GoalText": "string"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:510"
+  }
+ ],
+ "goal_attack_started_goal_other_same_team": [
+  {
+   "params": {
+    "members": {
+     "PlayerName": "string",
+     "GoalText": "string"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:538"
+  }
+ ],
+ "EliminatedNone": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_game_handlers.cpp:551"
+  }
+ ],
+ "EliminatedYou": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_game_handlers.cpp:561"
+  }
+ ],
+ "EliminatedOther": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/online/gamenet_game_handlers.cpp:566"
+  }
+ ],
+ "launch_auto_server_notification": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_handlers.cpp:169"
+  }
+ ],
+ "Kill_Team_Flags": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_handlers.cpp:174"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_members.cpp:185"
+  }
+ ],
+ "create_rankings": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_handlers.cpp:307"
+  }
+ ],
+ "create_game_ended_dialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_handlers.cpp:317"
+  }
+ ],
+ "ChooseTeamMessage": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_handlers.cpp:332"
+  }
+ ],
+ "0x7721b33a": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_join.cpp:899"
+  }
+ ],
+ "0x89e9b82d": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_join.cpp:904"
+  }
+ ],
+ "regions_menu_add_item": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "pad_choose_script": "name",
+     "focus_script": "name",
+     "pad_choose_params": "struct",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/online/gamenet_lobby_menus.cpp:195"
+  }
+ ],
+ "0x459148c5": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "pad_choose_params": "struct",
+     "pad_choose_script": "name",
+     "rank": "int",
+     "id": "name",
+     "parent_menu_id": "name",
+     "scale": "float",
+     "rgba": "array",
+     "unfocus_params": "struct"
+    }
+   },
+   "site": "game/online/gamenet_lobby_menus.cpp:245"
+  }
+ ],
+ "create_gamespy_connection_failure_dialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_lobby_peer.cpp:168"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_lobby_peer.cpp:312"
+  }
+ ],
+ "lost_connection_to_gamespy": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_lobby_peer.cpp:172"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_lobby_peer.cpp:333"
+  }
+ ],
+ "CreateNotPostedDialog": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_lobby_peer.cpp:367"
+  }
+ ],
+ "show_nat_timeout": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_lobby_peer.cpp:427"
+  }
+ ],
+ "create_team_flags": [
+  {
+   "params": {
+    "members": {
+     "num_teams": "int"
+    }
+   },
+   "site": "game/online/gamenet_members.cpp:191"
+  }
+ ],
+ "0x1d02ce3b": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_newplayers.cpp:143"
+  }
+ ],
+ "hide_panel_stuff": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_players.cpp:283"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_players.cpp:579"
+  }
+ ],
+ "network_end_game_selected": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_players.cpp:398"
+  }
+ ],
+ "create_net_panel_message": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name",
+     "msg_time": "int"
+    }
+   },
+   "site": "game/online/gamenet_player_lists.cpp:410"
+  }
+ ],
+ "PreRunQueuedScripts": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_player_lists.cpp:465"
+  }
+ ],
+ "PostRunQueuedScripts": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_player_lists.cpp:479"
+  }
+ ],
+ "notify_client_cheating": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/online/gamenet_server_handlers.cpp:462"
+  }
+ ],
+ "chosen_start_game": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_session_handlers.cpp:329"
+  }
+ ],
+ "change_level": [
+  {
+   "params": {
+    "members": {
+     "ui_string": "string",
+     "checksum": "name",
+     "time": "int",
+     "score": "int",
+     "level": "name",
+     "0x055ACC01": "name",
+     "show_warning": "name"
+    }
+   },
+   "site": "game/online/gamenet_session_handlers.cpp:369"
+  },
+  {
+   "params": {
+    "members": {
+     "level": "name"
+    }
+   },
+   "site": "game/park_editing/park_editor.cpp:126"
+  }
+ ],
+ "fcfc_end_game_selected": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_session_handlers.cpp:386"
+  }
+ ],
+ "hide_console_window": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_session_handlers.cpp:468"
+  }
+ ],
+ "StartingNewNetGame": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_session_handlers.cpp:528"
+  }
+ ],
+ "InitSelectedGoals": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_session_handlers.cpp:540"
+  }
+ ],
+ "spoof_pcmcia_adaptor_setup": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_settings.cpp:231"
+  },
+  {
+   "params": "none",
+   "site": "game/online/gamenet_settings.cpp:236"
+  }
+ ],
+ "spoof_usb_adaptor_setup": [
+  {
+   "params": "none",
+   "site": "game/online/gamenet_settings.cpp:241"
+  }
+ ],
+ "update_net_metrics": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_tasks.cpp:76"
+  }
+ ],
+ "create_modem_state_dialog": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_tasks.cpp:146"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_tasks.cpp:150"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_tasks.cpp:173"
+  }
+ ],
+ "create_modem_final_state_dialog": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_tasks.cpp:159"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_tasks.cpp:168"
+  }
+ ],
+ "create_modem_status_dialog": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/gamenet_tasks.cpp:164"
+  }
+ ],
+ "lobby_enter_kb_chat": [
+  {
+   "params": "none",
+   "site": "game/online/hunt_cfuncs.cpp:206"
+  }
+ ],
+ "captured_flag_you": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "team": "int"
+    }
+   },
+   "site": "game/online/player_flags.cpp:169"
+  }
+ ],
+ "captured_your_flag": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "team": "int"
+    }
+   },
+   "site": "game/online/player_flags.cpp:174"
+  }
+ ],
+ "captured_flag_other": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "team": "int",
+     "String1": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:179"
+  }
+ ],
+ "stole_flag_you": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:195"
+  }
+ ],
+ "stole_flag_from_you": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "String1": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:200"
+  }
+ ],
+ "stole_flag_other": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "String1": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:200"
+  }
+ ],
+ "took_flag_you": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:218"
+  }
+ ],
+ "show_ctf_arrow": [
+  {
+   "params": {
+    "members": {
+     "team": "int"
+    }
+   },
+   "site": "game/online/player_flags.cpp:222"
+  }
+ ],
+ "took_flag_yours": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:225"
+  }
+ ],
+ "took_flag_other": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "String1": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:229"
+  }
+ ],
+ "retrieved_flag_you": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "team": "int"
+    }
+   },
+   "site": "game/online/player_flags.cpp:247"
+  }
+ ],
+ "retrieved_flag_other": [
+  {
+   "params": {
+    "members": {
+     "String0": "string",
+     "team": "int",
+     "String1": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:256"
+  }
+ ],
+ "show_crown_arrow": [
+  {
+   "params": {
+    "members": {
+     "player_1": "name",
+     "player_2": "name"
+    }
+   },
+   "site": "game/online/player_flags.cpp:274"
+  },
+  {
+   "params": {
+    "members": {
+     "player_1": "name",
+     "player_2": "name",
+     "VAR:player": "name"
+    }
+   },
+   "site": "game/online/player_flags.cpp:294"
+  }
+ ],
+ "hide_crown_arrow": [
+  {
+   "params": {
+    "members": {
+     "player_1": "name",
+     "player_2": "name",
+     "VAR:player": "name"
+    }
+   },
+   "site": "game/online/player_flags.cpp:288"
+  }
+ ],
+ "NewKingYou": [
+  {
+   "params": "none",
+   "site": "game/online/player_flags.cpp:290"
+  }
+ ],
+ "NewKingOther": [
+  {
+   "params": {
+    "members": {
+     "player_1": "name",
+     "player_2": "name",
+     "VAR:player": "name",
+     "String0": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:296"
+  },
+  {
+   "params": {
+    "members": {
+     "player_1": "name",
+     "player_2": "name",
+     "VAR:player": "name",
+     "String0": "string"
+    }
+   },
+   "site": "game/online/player_flags.cpp:302"
+  }
+ ],
+ "player_list_update_rank": [
+  {
+   "params": {
+    "members": {
+     "id": "name",
+     "rank": "int"
+    }
+   },
+   "site": "game/online/rooms.cpp:176"
+  }
+ ],
+ "create_lobby_list_menu": [
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:298"
+  }
+ ],
+ "update_lobby_player_list": [
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:330"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:346"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:393"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:422"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:442"
+  }
+ ],
+ "destroy_lobby_user_list_children": [
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:336"
+  },
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:373"
+  }
+ ],
+ "prepare_lobby_user_list_for_new_children": [
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:391"
+  }
+ ],
+ "destroy_lobby_user": [
+  {
+   "params": {
+    "members": {
+     "user_id": "name"
+    }
+   },
+   "site": "game/online/rooms.cpp:439"
+  }
+ ],
+ "CreateJoinLobbyFailedDialog": [
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:534"
+  }
+ ],
+ "create_network_select_games_menu": [
+  {
+   "params": "none",
+   "site": "game/online/rooms.cpp:538"
+  }
+ ],
+ "update_score": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name"
+    }
+   },
+   "site": "game/online/score_list.cpp:326"
+  }
+ ],
+ "clear_scores": [
+  {
+   "params": "none",
+   "site": "game/online/score_list.cpp:356"
+  }
+ ],
+ "net_game_info_add_item": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "value": "string"
+    }
+   },
+   "site": "game/online/server_browser.cpp:121"
+  }
+ ],
+ "destroy_server_desc_children": [
+  {
+   "params": "none",
+   "site": "game/online/server_browser.cpp:188"
+  }
+ ],
+ "net_game_info_update_player_title": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/server_browser.cpp:232"
+  }
+ ],
+ "net_game_info_add_player": [
+  {
+   "params": {
+    "members": {
+     "rank": "int",
+     "name": "string",
+     "value": "string"
+    }
+   },
+   "site": "game/online/server_browser.cpp:242"
+  }
+ ],
+ "update_lobby_server_list": [
+  {
+   "params": "none",
+   "site": "game/online/server_browser.cpp:428"
+  },
+  {
+   "params": "none",
+   "site": "game/online/server_browser.cpp:443"
+  },
+  {
+   "params": "none",
+   "site": "game/online/server_browser.cpp:449"
+  },
+  {
+   "params": "none",
+   "site": "game/online/server_browser.cpp:467"
+  },
+  {
+   "params": "none",
+   "site": "game/online/server_list.cpp:502"
+  },
+  {
+   "params": "none",
+   "site": "game/online/server_list.cpp:546"
+  }
+ ],
+ "destroy_lobby_server": [
+  {
+   "params": {
+    "members": {
+     "server_id": "name"
+    }
+   },
+   "site": "game/online/server_browser.cpp:438"
+  }
+ ],
+ "describe_selected_server": [
+  {
+   "params": {
+    "members": {
+     "server_id": "name",
+     "id": "name"
+    }
+   },
+   "site": "game/online/server_browser.cpp:475"
+  }
+ ],
+ "destroy_server_menu_children": [
+  {
+   "params": {
+    "members": {
+     "refocus": "name"
+    }
+   },
+   "site": "game/online/server_list.cpp:393"
+  },
+  {
+   "params": "none",
+   "site": "game/online/server_list.cpp:432"
+  }
+ ],
+ "add_no_servers_found_message": [
+  {
+   "params": {
+    "members": {
+     "refocus": "name"
+    }
+   },
+   "site": "game/online/server_list.cpp:394"
+  }
+ ],
+ "prepare_server_menu_for_new_children": [
+  {
+   "params": "none",
+   "site": "game/online/server_list.cpp:434"
+  }
+ ],
+ "server_list_menu_add_item": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "Mode": "string",
+     "id": "name",
+     "parent": "name",
+     "pad_choose_script": "name",
+     "focus_script": "name",
+     "pad_choose_params": "struct",
+     "focus_params": "struct"
+    }
+   },
+   "site": "game/online/server_list.cpp:448"
+  }
+ ],
+ "CreateFailedLobbyListDialog": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/service.cpp:105"
+  }
+ ],
+ "availability_check_wait": [
+  {
+   "params": "none",
+   "site": "game/online/service.cpp:130"
+  }
+ ],
+ "retrieve_motd": [
+  {
+   "params": "none",
+   "site": "game/online/service.cpp:145"
+  }
+ ],
+ "service_never_available": [
+  {
+   "params": "none",
+   "site": "game/online/service.cpp:148"
+  }
+ ],
+ "service_not_available": [
+  {
+   "params": "none",
+   "site": "game/online/service.cpp:153"
+  }
+ ],
+ "launch_motd_wait_dialog": [
+  {
+   "params": "none",
+   "site": "game/online/service.cpp:167"
+  }
+ ],
+ "CreateMotdRetryDialog": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/service.cpp:174"
+  }
+ ],
+ "create_motd_menu": [
+  {
+   "params": {
+    "members": {
+     "text": "string"
+    }
+   },
+   "site": "game/online/service.cpp:213"
+  }
+ ],
+ "0x588ed87c": [
+  {
+   "params": "none",
+   "site": "game/online/service.cpp:223"
+  }
+ ],
+ "CreateGettingLobbyListDialog": [
+  {
+   "params": "none",
+   "site": "game/online/service.cpp:228"
+  }
+ ],
+ "add_stat_header_menu_item": [
+  {
+   "params": {
+    "members": {
+     "TEXT": "string"
+    }
+   },
+   "site": "game/online/stats_man.cpp:315"
+  },
+  {
+   "params": {
+    "members": {
+     "TEXT": "string",
+     "Rating": "int",
+     "SCORE": "int",
+     "RANK": "int",
+     "NAME": "string",
+     "LEVEL": "string"
+    }
+   },
+   "site": "game/online/stats_man.cpp:338"
+  }
+ ],
+ "add_stat_score_menu_item": [
+  {
+   "params": {
+    "members": {
+     "TEXT": "string",
+     "Rating": "int",
+     "SCORE": "int",
+     "RANK": "int",
+     "NAME": "string",
+     "LEVEL": "string"
+    }
+   },
+   "site": "game/online/stats_man.cpp:331"
+  },
+  {
+   "params": {
+    "members": {
+     "Rating": "int",
+     "SCORE": "int",
+     "RANK": "int",
+     "NAME": "string",
+     "LEVEL": "string"
+    }
+   },
+   "site": "game/online/stats_man.cpp:394"
+  }
+ ],
+ "add_stat_player_menu_item": [
+  {
+   "params": {
+    "members": {
+     "Rating": "int",
+     "SCORE": "int",
+     "RANK": "int",
+     "NAME": "string"
+    }
+   },
+   "site": "game/online/stats_man.cpp:391"
+  }
+ ],
+ "add_stat_personal_menu_item": [
+  {
+   "params": {
+    "members": {
+     "SCORE": "int",
+     "LEVEL": "string"
+    }
+   },
+   "site": "game/online/stats_man.cpp:432"
+  }
+ ],
+ "0x23343580": [
+  {
+   "params": "none",
+   "site": "game/online/stats_man.cpp:463"
+  }
+ ],
+ "stats_logged_in": [
+  {
+   "params": "none",
+   "site": "game/online/stats_man.cpp:495"
+  }
+ ],
+ "StatsLoginFailedDialog": [
+  {
+   "params": "none",
+   "site": "game/online/stats_man.cpp:683"
+  }
+ ],
+ "StatsRetrievalFailedDialog": [
+  {
+   "params": "none",
+   "site": "game/online/stats_man.cpp:702"
+  }
+ ],
+ "0x955801c6": [
+  {
+   "params": "none",
+   "site": "game/online/stats_man.cpp:767"
+  }
+ ],
+ "NullScript": [
+  {
+   "params": "none",
+   "site": "game/online/thugpro_peer.cpp:425"
+  }
+ ],
+ "net_vault_menu_create": [
+  {
+   "params": {
+    "members": {
+     "category": "string",
+     "type": "name"
+    }
+   },
+   "site": "game/online/vault_man.cpp:462"
+  }
+ ],
+ "LaunchUploadCompleteDialog": [
+  {
+   "params": {
+    "members": {
+     "type": "name"
+    }
+   },
+   "site": "game/online/vault_man.cpp:537"
+  }
+ ],
+ "net_vault_menu_add_park": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "creator": "string",
+     "size": "string",
+     "score": "int",
+     "num_pieces": "int",
+     "num_gaps": "int",
+     "width": "int",
+     "height": "int",
+     "num_goals": "int",
+     "theme": "int",
+     "tod_script": "name",
+     "is_male": "int",
+     "description": "string",
+     "pad_choose_params": "struct"
+    }
+   },
+   "site": "game/online/vault_man.cpp:899"
+  }
+ ],
+ "net_vault_menu_add_goal": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "creator": "string",
+     "size": "string",
+     "score": "int",
+     "num_pieces": "int",
+     "num_gaps": "int",
+     "width": "int",
+     "height": "int",
+     "num_goals": "int",
+     "theme": "int",
+     "tod_script": "name",
+     "is_male": "int",
+     "description": "string",
+     "pad_choose_params": "struct"
+    }
+   },
+   "site": "game/online/vault_man.cpp:899"
+  }
+ ],
+ "net_vault_menu_add_skater": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "creator": "string",
+     "size": "string",
+     "score": "int",
+     "num_pieces": "int",
+     "num_gaps": "int",
+     "width": "int",
+     "height": "int",
+     "num_goals": "int",
+     "theme": "int",
+     "tod_script": "name",
+     "is_male": "int",
+     "description": "string",
+     "pad_choose_params": "struct"
+    }
+   },
+   "site": "game/online/vault_man.cpp:899"
+  }
+ ],
+ "net_vault_menu_add_trick": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "creator": "string",
+     "size": "string",
+     "score": "int",
+     "num_pieces": "int",
+     "num_gaps": "int",
+     "width": "int",
+     "height": "int",
+     "num_goals": "int",
+     "theme": "int",
+     "tod_script": "name",
+     "is_male": "int",
+     "description": "string",
+     "pad_choose_params": "struct"
+    }
+   },
+   "site": "game/online/vault_man.cpp:899"
+  }
+ ],
+ "0x3cb03619": [
+  {
+   "params": {
+    "members": {
+     "0x756F5456": "name",
+     "0x7F8C98FE": "int"
+    }
+   },
+   "site": "game/park/park_memory.cpp:306"
+  }
+ ],
+ "parked_set_helper_text_mode": [
+  {
+   "params": {
+    "members": {
+     "Mode": "name"
+    }
+   },
+   "site": "game/park_editing/cursor_tools.cpp:123"
+  },
+  {
+   "params": {
+    "members": {
+     "0x6835B854": "name"
+    }
+   },
+   "site": "game/park_editing/rail_editor_script.cpp:265"
+  }
+ ],
+ "goal_editor_create_marker_object": [
+  {
+   "params": {
+    "members": {
+     "Type": "name",
+     "Model": "string",
+     "Name": "name",
+     "Pos": "vector",
+     "Angle": "float",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/park_editing/edited_goal.cpp:287"
+  }
+ ],
+ "create_cag_helper_text": [
+  {
+   "params": "none",
+   "site": "game/park_editing/edited_goal.cpp:359"
+  },
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/park_editing/edited_goal_io.cpp:200"
+  }
+ ],
+ "goal_editor_refresh_goal_object_position": [
+  {
+   "params": {
+    "members": {
+     "Name": "name",
+     "Pos": "vector"
+    }
+   },
+   "site": "game/park_editing/edited_goal_io.cpp:175"
+  }
+ ],
+ "goal_editor_destroy_cursor": [
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor.cpp:177"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor.cpp:682"
+  }
+ ],
+ "goal_editor_update_cursor_position": [
+  {
+   "params": {
+    "members": {
+     "Pos": "vector",
+     "Angle": "float"
+    }
+   },
+   "site": "game/park_editing/goal_editor.cpp:399"
+  },
+  {
+   "params": {
+    "members": {
+     "Pos": "vector",
+     "Angle": "float"
+    }
+   },
+   "site": "game/park_editing/goal_editor_members.cpp:394"
+  }
+ ],
+ "goal_editor_create_cursor": [
+  {
+   "params": {
+    "members": {
+     "Type": "name",
+     "Model": "string"
+    }
+   },
+   "site": "game/park_editing/goal_editor.cpp:429"
+  }
+ ],
+ "goal_editor_play_placement_success_sound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor.cpp:650"
+  }
+ ],
+ "goal_editor_play_placement_fail_sound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor.cpp:654"
+  }
+ ],
+ "goal_editor_finished_placing_objects": [
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor.cpp:657"
+  }
+ ],
+ "goal_editor_play_backup_success_sound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor.cpp:668"
+  }
+ ],
+ "goal_editor_play_backup_fail_sound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor.cpp:672"
+  }
+ ],
+ "goal_editor_get_beat_pattern": [
+  {
+   "params": "none",
+   "site": "game/park_editing/goal_editor_util.cpp:221"
+  }
+ ],
+ "goal_editor_delete_marker_object": [
+  {
+   "params": {
+    "members": {
+     "Name": "name"
+    }
+   },
+   "site": "game/park_editing/goal_editor_util.cpp:282"
+  }
+ ],
+ "pause_trick_text": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:311"
+  }
+ ],
+ "0x6cbdf252": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:312"
+  }
+ ],
+ "GoalManager_HideGoalPoints": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:313"
+  }
+ ],
+ "0x4effb0ac": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:314"
+  }
+ ],
+ "unpause_trick_text": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:316"
+  }
+ ],
+ "GoalManager_ShowPoints": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:317"
+  }
+ ],
+ "PlayRotatePieceSound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:484"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:492"
+  }
+ ],
+ "PlayEdPlaceSound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:508"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:517"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:520"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:531"
+  }
+ ],
+ "0x169f244f": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:509"
+  }
+ ],
+ "PlayEdBuzzSound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:511"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:524"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:531"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:540"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:545"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:638"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:644"
+  }
+ ],
+ "0xc3e9871d": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:521"
+  }
+ ],
+ "PlayEdEraseSound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:540"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:545"
+  }
+ ],
+ "PlayRaiseGroundSound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:638"
+  }
+ ],
+ "PlayLowerGroundSound": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:644"
+  }
+ ],
+ "SwitchOnRailEditor": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:744"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:758"
+  }
+ ],
+ "SwitchOffRailEditor": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:750"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor.cpp:754"
+  }
+ ],
+ "0x6b5a5bb6": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor_cfuncs.cpp:263"
+  }
+ ],
+ "0xa9967819": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor_cfuncs.cpp:433"
+  }
+ ],
+ "0x30251d65": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_editor_state.cpp:166"
+  }
+ ],
+ "parked_update_percent_bar": [
+  {
+   "params": {
+    "members": {
+     "park_percent": "float",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/park_editing/park_io.cpp:468"
+  }
+ ],
+ "LoadTerrain": [
+  {
+   "params": "none",
+   "site": "game/park_editing/park_nodes.cpp:301"
+  }
+ ],
+ "parked_destroy_piece_menu": [
+  {
+   "params": "none",
+   "site": "game/park_editing/piece_menu.cpp:98"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/upper_menu.cpp:69"
+  }
+ ],
+ "parked_destroy_set_menu": [
+  {
+   "params": "none",
+   "site": "game/park_editing/piece_menu.cpp:99"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/upper_menu.cpp:70"
+  }
+ ],
+ "parked_make_piece_menu": [
+  {
+   "params": "none",
+   "site": "game/park_editing/piece_menu.cpp:128"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/upper_menu.cpp:52"
+  }
+ ],
+ "parked_make_piece_menu_item": [
+  {
+   "params": {
+    "members": {
+     "metapiece_id": "name",
+     "ClipBoardIndex": "int",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/park_editing/piece_menu.cpp:139"
+  },
+  {
+   "params": {
+    "members": {
+     "metapiece_id": "name",
+     "ClipBoardIndex": "int",
+     "Sector": "name",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/park_editing/piece_menu.cpp:145"
+  },
+  {
+   "params": {
+    "members": {
+     "metapiece_id": "name",
+     "ClipBoardIndex": "int",
+     "Sector": "name",
+     "Sectors": "array",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/park_editing/piece_menu.cpp:150"
+  }
+ ],
+ "parked_make_set_menu": [
+  {
+   "params": "none",
+   "site": "game/park_editing/piece_menu.cpp:157"
+  },
+  {
+   "params": "none",
+   "site": "game/park_editing/upper_menu.cpp:53"
+  }
+ ],
+ "parked_lock_piece_and_set_menus": [
+  {
+   "params": {
+    "members": {
+     "metapiece_id": "name",
+     "ClipBoardIndex": "int",
+     "Sector": "name",
+     "Sectors": "array",
+     "set_number": "int",
+     "last_set_number": "int",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/park_editing/piece_menu.cpp:161"
+  }
+ ],
+ "0x415f2afa": [
+  {
+   "params": "none",
+   "site": "game/park_editing/rail_editor_script.cpp:104"
+  }
+ ],
+ "0x3ad21c4e": [
+  {
+   "params": "none",
+   "site": "game/park_editing/rail_editor_script.cpp:104"
+  }
+ ],
+ "0xd8d956c9": [
+  {
+   "params": "none",
+   "site": "game/park_editing/rail_editor_script.cpp:104"
+  }
+ ],
+ "0xc18d5b19": [
+  {
+   "params": "none",
+   "site": "game/park_editing/rail_editor_script.cpp:104"
+  }
+ ],
+ "0x97153f0e": [
+  {
+   "params": "none",
+   "site": "game/park_editing/rail_editor_script.cpp:107"
+  }
+ ],
+ "rail_editor_destroy_cursor": [
+  {
+   "params": "none",
+   "site": "game/park_editing/rail_editor_script.cpp:115"
+  }
+ ],
+ "rail_editor_create_cursor": [
+  {
+   "params": "none",
+   "site": "game/park_editing/rail_editor_script.cpp:121"
+  }
+ ],
+ "parked_make_set_menu_item": [
+  {
+   "params": {
+    "members": {
+     "set_name": "string"
+    }
+   },
+   "site": "game/park_editing/upper_menu.cpp:61"
+  }
+ ],
+ "vehicle_play_land_sound": [
+  {
+   "params": "none",
+   "site": "game/rider/core_collision.cpp:226"
+  },
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_walls.cpp:453"
+  }
+ ],
+ "LipTrick": [
+  {
+   "params": "none",
+   "site": "game/rider/core_grind.cpp:341"
+  }
+ ],
+ "SkaterAcidDropTriggered": [
+  {
+   "params": {
+    "members": {
+     "DropHeight": "float"
+    }
+   },
+   "site": "game/rider/core_physics_acid_drop.cpp:431"
+  }
+ ],
+ "SkaterAwardHipTransfer": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_acid_drop.cpp:654"
+  }
+ ],
+ "SkaterAwardTransfer": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_acid_drop.cpp:654"
+  }
+ ],
+ "ammo_meter_change": [
+  {
+   "params": {
+    "members": {
+     "count": "int"
+    }
+   },
+   "site": "game/rider/core_physics_feelers.cpp:316"
+  }
+ ],
+ "0xa496aebd": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_moves.cpp:384"
+  }
+ ],
+ "0x3a8d6ab2": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_moves.cpp:398"
+  }
+ ],
+ "0xd8fa65d7": [
+  {
+   "params": "unknown: the matching element of global array FlipSpins (0xB75D73E5): a structure (with spin button names, SpinX/Y/Z ints and whatever else the element has)",
+   "site": "game/rider/core_physics_moves.cpp:473"
+  }
+ ],
+ "toggle_bullettime": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_state.cpp:399"
+  }
+ ],
+ "walk_maybe_throw_projectile": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_state.cpp:427"
+  }
+ ],
+ "skate_maybe_throw_projectile": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_state.cpp:427"
+  }
+ ],
+ "KillSpecial": [
+  {
+   "params": {
+    "members": {
+     "TimeLimit": "name"
+    }
+   },
+   "site": "game/rider/core_physics_state.cpp:479"
+  }
+ ],
+ "Trick_Motoskateboard_Grind": [
+  {
+   "params": "none",
+   "site": "game/rider/core_physics_state.cpp:531"
+  }
+ ],
+ "0xf4ce3e97": [
+  {
+   "params": "none",
+   "site": "game/rider/end_run.cpp:118"
+  }
+ ],
+ "0x2575b406": [
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/rider/floating_name.cpp:92"
+  },
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/rider/floating_name.cpp:120"
+  }
+ ],
+ "0x6a060cf0": [
+  {
+   "params": {
+    "members": {
+     "id": "name",
+     "text": "string",
+     "0x4B491900": "vector"
+    }
+   },
+   "site": "game/rider/floating_name.cpp:141"
+  }
+ ],
+ "0x35b75889": [
+  {
+   "params": "none",
+   "site": "game/rider/gap_entry.cpp:494"
+  }
+ ],
+ "0x541a2485": [
+  {
+   "params": "none",
+   "site": "game/rider/gap_entry.cpp:524"
+  }
+ ],
+ "0x927daa70": [
+  {
+   "params": "none",
+   "site": "game/rider/gap_entry.cpp:626"
+  }
+ ],
+ "0x0b3ff911": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/rider/local_net_logic.cpp:306"
+  }
+ ],
+ "0x4d7f6ffa": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/rider/local_net_logic.cpp:306"
+  }
+ ],
+ "reset_balance_indicator": [
+  {
+   "params": "none",
+   "site": "game/rider/manual_balance.cpp:132"
+  },
+  {
+   "params": "none",
+   "site": "game/rider/manual_balance.cpp:158"
+  }
+ ],
+ "0x7853f8c4": [
+  {
+   "params": {
+    "members": {
+     "SkaterId": "name",
+     "ControlType": "name"
+    }
+   },
+   "site": "game/rider/nonlocal_net_logic.cpp:450"
+  }
+ ],
+ "0x0f02e44f": [
+  {
+   "params": {
+    "members": {
+     "SkaterId": "name",
+     "ControlType": "name"
+    }
+   },
+   "site": "game/rider/nonlocal_net_logic.cpp:450"
+  }
+ ],
+ "0x1011a5d6": [
+  {
+   "params": "none",
+   "site": "game/rider/nonlocal_playback.cpp:140"
+  }
+ ],
+ "SkaterParticles_SparksOn": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:411"
+  },
+  {
+   "params": "unknown: the SparksOn member function call's arguments (whatever the calling script passed; RailNotRequired flag read)",
+   "site": "game/rider/rider.cpp:1741"
+  }
+ ],
+ "SkaterParticles_SparksOff": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:419"
+  },
+  {
+   "params": "unknown: the SparksOff member function call's arguments (whatever the calling script passed)",
+   "site": "game/rider/rider.cpp:1737"
+  }
+ ],
+ "kill_load_premade_cats": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:449"
+  }
+ ],
+ "InitSkaterParticles": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:880"
+  },
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:1248"
+  },
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:294"
+  }
+ ],
+ "pause_run_timer": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:1074"
+  }
+ ],
+ "SkaterInit": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:1220"
+  },
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/rider/rider.cpp:1328"
+  }
+ ],
+ "spawn_add_premade_cats_to_skater": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:1252"
+  }
+ ],
+ "choose_projectile_target_bone": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:1467"
+  }
+ ],
+ "LaunchProjectile": [
+  {
+   "params": {
+    "members": {
+     "pos": "vector",
+     "ped_dist": "float",
+     "heading_x": "float",
+     "heading_z": "float",
+     "ped_pos": "vector"
+    }
+   },
+   "site": "game/rider/rider.cpp:1493"
+  }
+ ],
+ "Switch_OnGroundAI": [
+  {
+   "params": {
+    "members": {
+     "NewScript": "name"
+    }
+   },
+   "site": "game/rider/rider.cpp:1636"
+  }
+ ],
+ "DestroySkaterParticles": [
+  {
+   "params": "none",
+   "site": "game/rider/rider.cpp:1894"
+  },
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:292"
+  }
+ ],
+ "skater_play_bail_stream": [
+  {
+   "params": {
+    "members": {
+     "stream_checksum": "name"
+    }
+   },
+   "site": "game/rider/skater_misc_cfuncs.cpp:224"
+  }
+ ],
+ "unbind_fireball_tricks": [
+  {
+   "params": "none",
+   "site": "game/rider/state_history.cpp:584"
+  }
+ ],
+ "stats_message_bail": [
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:328"
+  }
+ ],
+ "stats_message_land": [
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:377"
+  }
+ ],
+ "show_stats_message": [
+  {
+   "params": {
+    "members": {
+     "Text": "string",
+     "got_it": "int"
+    }
+   },
+   "site": "game/rider/stats_manager.cpp:423"
+  },
+  {
+   "params": {
+    "members": {
+     "String": "string",
+     "Value": "int",
+     "vstring": "string",
+     "Index": "int"
+    }
+   },
+   "site": "game/rider/stats_manager.cpp:456"
+  }
+ ],
+ "beat_first_stat_goal": [
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:432"
+  }
+ ],
+ "stat_play_win_sound": [
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:435"
+  },
+  {
+   "params": "none",
+   "site": "game/skate/skater_profile_cfuncs.cpp:497"
+  }
+ ],
+ "showed_stat_message_sound": [
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:553"
+  },
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:671"
+  }
+ ],
+ "show_vert_combo_message": [
+  {
+   "params": {
+    "members": {
+     "Score": "int"
+    }
+   },
+   "site": "game/rider/stats_manager.cpp:579"
+  }
+ ],
+ "console_unhide": [
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:695"
+  }
+ ],
+ "console_hide": [
+  {
+   "params": "none",
+   "site": "game/rider/stats_manager.cpp:703"
+  }
+ ],
+ "tag_wall_hanging": [
+  {
+   "params": "none",
+   "site": "game/rider/tagging.cpp:543"
+  }
+ ],
+ "tag_wall_standing": [
+  {
+   "params": "none",
+   "site": "game/rider/tagging.cpp:543"
+  }
+ ],
+ "GraffitiTagTrick": [
+  {
+   "params": {
+    "members": {
+     "tag_size": "float"
+    }
+   },
+   "site": "game/rider/tagging.cpp:557"
+  }
+ ],
+ "thaw_bmx_load_skeleton": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx.cpp:142"
+  }
+ ],
+ "animload_thaw_bmx_rider": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx.cpp:145"
+  }
+ ],
+ "animload_thaw_bmx_bike": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx.cpp:148"
+  }
+ ],
+ "thaw_bmx_after_reset": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx.cpp:453"
+  }
+ ],
+ "thaw_bmx_toggle": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx.cpp:478"
+  }
+ ],
+ "thaw_bmx_level_start": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_parked.cpp:348"
+  }
+ ],
+ "thaw_bmx_home_bike": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_parked.cpp:354"
+  }
+ ],
+ "bike_release_partial_xup": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_physics.cpp:715"
+  }
+ ],
+ "bike_enter_nosemanual": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_physics.cpp:999"
+  },
+  {
+   "params": {
+    "members": {
+     "endo": "int"
+    }
+   },
+   "site": "game/rider/thaw_bmx_physics.cpp:1008"
+  }
+ ],
+ "bike_enter_manual": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_physics.cpp:1002"
+  }
+ ],
+ "bail_bike_nosemanual": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_physics.cpp:1013"
+  }
+ ],
+ "bail_bike_manual": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_physics.cpp:1013"
+  }
+ ],
+ "bike_exit_endo": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_physics.cpp:1025"
+  }
+ ],
+ "force_bike_bail": [
+  {
+   "params": "none",
+   "site": "game/rider/thaw_bmx_physics.cpp:1197"
+  }
+ ],
+ "0x2d90485d": [
+  {
+   "params": "unknown: structures merged in (members that can't be listed)",
+   "site": "game/rider/trick_queue.cpp:434"
+  }
+ ],
+ "0x1fe009c7": [
+  {
+   "params": "none",
+   "site": "game/rider/trick_queue.cpp:785"
+  }
+ ],
+ "0x2d1335ee": [
+  {
+   "params": "none",
+   "site": "game/rider/trick_queue.cpp:790"
+  }
+ ],
+ "walking_wallplant_switch": [
+  {
+   "params": "none",
+   "site": "game/rider/walk_collision.cpp:252"
+  }
+ ],
+ "post_load_from_memory_card": [
+  {
+   "params": "unknown: LoadFromMemoryCard's whole params structure (Name:string, Type:name, the no-apply int, anything else the caller passed)",
+   "site": "game/save_cards/memcard_cfuncs.cpp:225"
+  }
+ ],
+ "Change": [
+  {
+   "params": {
+    "members": {
+     "MusicVolOutsideBox": "float"
+    }
+   },
+   "site": "game/save_cards/save_contents.cpp:194"
+  }
+ ],
+ "set_loaded_soundtrack": [
+  {
+   "params": {
+    "members": {
+     "MusicVolOutsideBox": "float",
+     "trackchecksum": "name"
+    }
+   },
+   "site": "game/save_cards/save_contents.cpp:216"
+  }
+ ],
+ "create_horse_panel_message": [
+  {
+   "params": "unknown: structures merged in (members that can't be listed)",
+   "site": "game/skate/competition_cfuncs.cpp:259"
+  }
+ ],
+ "goal_comp_add_leader_board": [
+  {
+   "params": {
+    "members": {
+     "leader_board": "array"
+    }
+   },
+   "site": "game/skate/contest.cpp:371"
+  }
+ ],
+ "goal_comp_show_run_scores": [
+  {
+   "params": {
+    "members": {
+     "scores": "array",
+     "total_score": "int"
+    }
+   },
+   "site": "game/skate/contest.cpp:528"
+  }
+ ],
+ "gap_menu_add_item": [
+  {
+   "params": {
+    "members": {
+     "gap_score": "int",
+     "gap_name": "string",
+     "times": "int",
+     "gap_number": "int",
+     "skater_start_pos": "vector",
+     "skater_start_dir": "vector",
+     "choose_script": "name",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/gap_checklist.cpp:296"
+  }
+ ],
+ "got_gap_for_first_time": [
+  {
+   "params": {
+    "members": {
+     "multiple_new_gaps": "int",
+     "gap_text": "string"
+    }
+   },
+   "site": "game/skate/gap_checklist.cpp:387"
+  }
+ ],
+ "UpdateTrickText": [
+  {
+   "params": "none",
+   "site": "game/skate/point_tally.cpp:311"
+  }
+ ],
+ "UpdateScorepot": [
+  {
+   "params": "none",
+   "site": "game/skate/point_tally.cpp:361"
+  }
+ ],
+ "trick_text_countdown": [
+  {
+   "params": {
+    "members": {
+     "trick_text_container_id": "name",
+     "the_trick_text_id": "name",
+     "the_score_pot_text_id": "name"
+    }
+   },
+   "site": "game/skate/point_tally.cpp:730"
+  }
+ ],
+ "trick_text_landed": [
+  {
+   "params": {
+    "members": {
+     "trick_text_container_id": "name",
+     "the_trick_text_id": "name",
+     "the_score_pot_text_id": "name"
+    }
+   },
+   "site": "game/skate/point_tally.cpp:733"
+  }
+ ],
+ "trick_text_bail": [
+  {
+   "params": {
+    "members": {
+     "trick_text_container_id": "name",
+     "the_trick_text_id": "name",
+     "the_score_pot_text_id": "name"
+    }
+   },
+   "site": "game/skate/point_tally.cpp:736"
+  }
+ ],
+ "trick_text_pulse": [
+  {
+   "params": {
+    "members": {
+     "trick_text_container_id": "name",
+     "the_trick_text_id": "name",
+     "the_score_pot_text_id": "name"
+    }
+   },
+   "site": "game/skate/point_tally.cpp:739"
+  }
+ ],
+ "init_pro_skaters": [
+  {
+   "params": "none",
+   "site": "game/skate/profile_manager.cpp:153"
+  }
+ ],
+ "show_balance_meter": [
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/skate/score_combo.cpp:263"
+  }
+ ],
+ "hide_balance_meter": [
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/skate/score_combo.cpp:263"
+  }
+ ],
+ "0x5b3fdccb": [
+  {
+   "params": {
+    "members": {
+     "SkaterId": "name"
+    }
+   },
+   "site": "game/skate/skate_module_skaters.cpp:248"
+  }
+ ],
+ "show_panel_stuff": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:275"
+  }
+ ],
+ "model_apply_custom_logos": [
+  {
+   "params": {
+    "members": {
+     "player": "int"
+    }
+   },
+   "site": "game/skate/skate_module_skaters.cpp:322"
+  }
+ ],
+ "ClientSkaterInit": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:325"
+  }
+ ],
+ "request_level": [
+  {
+   "params": {
+    "members": {
+     "level": "name"
+    }
+   },
+   "site": "game/skate/skate_module_skaters.cpp:575"
+  },
+  {
+   "params": {
+    "members": {
+     "level": "name"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:722"
+  }
+ ],
+ "reset_level": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:617"
+  }
+ ],
+ "hide_loading_screen": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:943"
+  }
+ ],
+ "restore_skater_camera": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:948"
+  }
+ ],
+ "Game_Update": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:956"
+  }
+ ],
+ "controller_unplugged": [
+  {
+   "params": {
+    "members": {
+     "device_num": "int",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/skate_module_skaters.cpp:1045"
+  }
+ ],
+ "uninit_light_manager": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_skaters.cpp:1128"
+  }
+ ],
+ "init_light_manager": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:218"
+  }
+ ],
+ "load_permanent_prefiles": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:219"
+  }
+ ],
+ "network_driver_startup": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:227"
+  }
+ ],
+ "init_loading_bar": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:228"
+  }
+ ],
+ "startup_loading_screen": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:229"
+  }
+ ],
+ "LoadPermSounds": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:234"
+  }
+ ],
+ "load_permanent_assets": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:237"
+  }
+ ],
+ "init_environment": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:242"
+  }
+ ],
+ "default_system_startup": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_module_state.cpp:243"
+  }
+ ],
+ "CreateServerRemovedYouDialog": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:361"
+  }
+ ],
+ "CreateServerMovedOnDialog": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:363"
+  }
+ ],
+ "goal_scavenger_add_time": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:381"
+  }
+ ],
+ "ForceStartScavengerCollect": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:396"
+  }
+ ],
+ "ScavengerHuntOneObjectLeftYou": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:434"
+  },
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:452"
+  }
+ ],
+ "ScavengerHuntFiveObjectsLeftYou": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:434"
+  },
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:452"
+  }
+ ],
+ "ScavengerHuntOneObjectLeftOtherTeam": [
+  {
+   "params": {
+    "members": {
+     "name": "string"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:438"
+  }
+ ],
+ "ScavengerHuntFiveObjectsLeftOtherTeam": [
+  {
+   "params": {
+    "members": {
+     "name": "string"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:438"
+  }
+ ],
+ "ScavengerHuntOneObjectLeftOther": [
+  {
+   "params": {
+    "members": {
+     "name": "string"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:454"
+  }
+ ],
+ "ScavengerHuntFiveObjectsLeftOther": [
+  {
+   "params": {
+    "members": {
+     "name": "string"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:454"
+  }
+ ],
+ "ScavengerHunt_KillObject": [
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:472"
+  }
+ ],
+ "DropSHObject": [
+  {
+   "params": {
+    "members": {
+     "index": "int",
+     "ObjId": "int",
+     "pos": "vector",
+     "show_now": "name"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:502"
+  }
+ ],
+ "NewScoreLeaderYourTeam": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:581"
+  }
+ ],
+ "NewScoreLeaderOtherTeam": [
+  {
+   "params": {
+    "members": {
+     "String0": "string"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:587"
+  }
+ ],
+ "announce_elimination": [
+  {
+   "params": {
+    "members": {
+     "name": "string"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:636"
+  },
+  {
+   "params": {
+    "members": {
+     "Name": "string"
+    }
+   },
+   "site": "game/world/projectile_components.cpp:211"
+  }
+ ],
+ "notify_cheating": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:647"
+  }
+ ],
+ "NewScoreLeaderYou": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:689"
+  }
+ ],
+ "NewScoreLeaderOther": [
+  {
+   "params": {
+    "members": {
+     "name": "string",
+     "String0": "string"
+    }
+   },
+   "site": "game/skate/skate_net.cpp:694"
+  }
+ ],
+ "leave_front_end": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:724"
+  }
+ ],
+ "cleanup_before_loading_level": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net.cpp:725"
+  }
+ ],
+ "CreateServerQuitDialog": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net_relay.cpp:1163"
+  }
+ ],
+ "ClientLaunchFireball": [
+  {
+   "params": {
+    "members": {
+     "owner_id": "name",
+     "ammo_type": "name",
+     "x": "int",
+     "y": "int",
+     "z": "int",
+     "scaled_x": "int",
+     "scaled_y": "int",
+     "scaled_z": "int",
+     "radius": "int",
+     "scale": "float",
+     "Pos": "vector",
+     "vel": "vector"
+    }
+   },
+   "site": "game/skate/skate_net_relay.cpp:1338"
+  }
+ ],
+ "ClientLaunchProjectile": [
+  {
+   "params": {
+    "members": {
+     "owner_id": "name",
+     "ammo_type": "name",
+     "x": "int",
+     "y": "int",
+     "z": "int",
+     "scaled_x": "int",
+     "scaled_y": "int",
+     "scaled_z": "int",
+     "radius": "int",
+     "scale": "float",
+     "Pos": "vector",
+     "vel": "vector"
+    }
+   },
+   "site": "game/skate/skate_net_relay.cpp:1338"
+  }
+ ],
+ "client_toggle_cheat": [
+  {
+   "params": {
+    "members": {
+     "on": "name",
+     "cheat_flag": "name"
+    }
+   },
+   "site": "game/skate/skate_net_relay.cpp:1356"
+  },
+  {
+   "params": {
+    "members": {
+     "on": "name",
+     "cheat_flag": "name"
+    }
+   },
+   "site": "game/skate/skate_net_relay.cpp:1374"
+  }
+ ],
+ "PatchCleanup": [
+  {
+   "params": "none",
+   "site": "game/skate/skate_net_relay.cpp:1410"
+  }
+ ],
+ "player_menu_add_item": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "parent": "name",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/skate_rankings.cpp:111"
+  }
+ ],
+ "score_menu_add_item": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "font": "name",
+     "id": "name",
+     "parent": "name",
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/skate_rankings.cpp:134"
+  }
+ ],
+ "goal_tetris_reset_trick_container": [
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:518"
+  }
+ ],
+ "0xa39b24e0": [
+  {
+   "params": "none",
+   "site": "game/skate/trick_goals.cpp:531"
+  }
+ ],
+ "goal_tetris_remove_trick": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:539"
+  }
+ ],
+ "goal_tetris_add_trick": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:764"
+  }
+ ],
+ "goal_tetris_add_red_trick": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:764"
+  }
+ ],
+ "goal_tetris_turn_trick_red": [
+  {
+   "params": "none",
+   "site": "game/skate/trick_goals.cpp:773"
+  }
+ ],
+ "goal_tetris_play_trick_removed_sound": [
+  {
+   "params": "none",
+   "site": "game/skate/trick_goals.cpp:863"
+  },
+  {
+   "params": "none",
+   "site": "game/skate/trick_goals.cpp:1000"
+  }
+ ],
+ "goal_trick_beat_pulse_trick": [
+  {
+   "params": {
+    "members": {
+     "wait_time": "int"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:1159"
+  }
+ ],
+ "goal_trick_beat_reset_trick_container": [
+  {
+   "params": {
+    "members": {
+     "id": "name"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:1173"
+  }
+ ],
+ "goal_trick_beat_remove_trick": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:1179"
+  }
+ ],
+ "goal_trick_beat_add_trick": [
+  {
+   "params": {
+    "members": {
+     "0x00000000": "name"
+    }
+   },
+   "site": "game/skate/trick_goals.cpp:1381"
+  }
+ ],
+ "ped_initialize_movement": [
+  {
+   "params": "none",
+   "site": "game/world/ped_logic.cpp:241"
+  },
+  {
+   "params": "none",
+   "site": "game/world/ped_logic_move.cpp:1039"
+  }
+ ],
+ "Ped_Utils_EndReturnHome": [
+  {
+   "params": "none",
+   "site": "game/world/ped_logic_move.cpp:1082"
+  }
+ ],
+ "Ped_Utils_EndPlayerChase": [
+  {
+   "params": "none",
+   "site": "game/world/ped_logic_move.cpp:1125"
+  },
+  {
+   "params": "none",
+   "site": "game/world/ped_logic_move.cpp:1135"
+  }
+ ],
+ "projectile_hit_ped": [
+  {
+   "params": {
+    "members": {
+     "Ped_ID": "name",
+     "projectile_id": "name"
+    }
+   },
+   "site": "game/world/projectile_components.cpp:274"
+  }
+ ],
+ "hit_ped_script": [
+  {
+   "params": {
+    "members": {
+     "Ped_ID": "name",
+     "projectile_id": "name",
+     "ammo_type": "name"
+    }
+   },
+   "site": "game/world/projectile_components.cpp:277"
+  }
+ ],
+ "level_editor_exit": [
+  {
+   "params": "none",
+   "site": "editor/level_editor.cpp:705"
+  }
+ ],
+ "LevelEditor_PathSpeed": [
+  {
+   "params": {
+    "members": {
+     "speed": "float"
+    }
+   },
+   "site": "editor/level_editor_entities.cpp:898"
+  }
+ ],
+ "level_editor_hud_destroy": [
+  {
+   "params": "none",
+   "site": "editor/level_editor_frame.cpp:92"
+  }
+ ],
+ "level_editor_hud_set": [
+  {
+   "params": {
+    "members": {
+     "id": "name",
+     "text": "string"
+    }
+   },
+   "site": "editor/level_editor_hud.cpp:92"
+  }
+ ],
+ "level_editor_panel_show": [
+  {
+   "params": {
+    "members": {
+     "pos": "pair",
+     "scale": "pair",
+     "lines": "int"
+    }
+   },
+   "site": "editor/level_editor_hud.cpp:143"
+  }
+ ],
+ "level_editor_panel_hide": [
+  {
+   "params": "none",
+   "site": "editor/level_editor_hud.cpp:166"
+  }
+ ],
+ "create_panel_message": [
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name",
+     "pos": "pair",
+     "time": "int"
+    }
+   },
+   "site": "editor/level_editor_layout.cpp:1178"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name",
+     "pos": "pair",
+     "time": "int"
+    }
+   },
+   "site": "devtools/restart_tester.cpp:145"
+  },
+  {
+   "params": {
+    "members": {
+     "text": "string",
+     "id": "name",
+     "pos": "pair",
+     "time": "int"
+    }
+   },
+   "site": "devtools/screenshot.cpp:348"
+  }
+ ],
+ "ResetSkaters": [
+  {
+   "params": {
+    "members": {
+     "node_name": "name"
+    }
+   },
+   "site": "editor/level_editor_level_props.cpp:618"
+  },
+  {
+   "params": {
+    "members": {
+     "node_name": "name"
+    }
+   },
+   "site": "editor/level_editor_playtest.cpp:770"
+  },
+  {
+   "params": {
+    "members": {
+     "node_name": "name"
+    }
+   },
+   "site": "devtools/restart_tester.cpp:197"
+  }
+ ],
+ "level_editor_enter": [
+  {
+   "params": "none",
+   "site": "editor/level_editor_open.cpp:121"
+  },
+  {
+   "params": "none",
+   "site": "editor/level_editor_play.cpp:163"
+  },
+  {
+   "params": "none",
+   "site": "editor/level_editor_play.cpp:204"
+  }
+ ],
+ "exit_pause_menu": [
+  {
+   "params": "none",
+   "site": "editor/level_editor_play.cpp:175"
+  }
+ ],
+ "LoadScene": [
+  {
+   "params": {
+    "members": {
+     "scene": "string"
+    }
+   },
+   "site": "editor/level_editor_props.cpp:295"
+  }
+ ],
+ "LoadCollision": [
+  {
+   "params": {
+    "members": {
+     "scene": "string"
+    }
+   },
+   "site": "editor/level_editor_props.cpp:296"
+  }
+ ]
+}

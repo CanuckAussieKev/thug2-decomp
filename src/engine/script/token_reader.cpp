@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <cstring>
+#include <optional>
 #include <span>
 
 #include "engine/memory/manager.h"
@@ -13,6 +14,7 @@
 #include "engine/memory/slab_bank.h"
 #include "base/maths/random.h"
 #include "engine/script/cell.h"
+#include "engine/script/check_hooks.h"
 #include "engine/script/expression.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
@@ -183,6 +185,16 @@ StoredRandom* new_stored_random()
 }
 
 // 0x00470C60
+namespace {
+// NOT ORIGINAL - the script check's coverage: a Random's branch taken (check_hooks.h; never set in the game).
+void note_random_choice(Tokens random, uint32_t choice)
+{
+    if (const auto hook = check_hooks::hooks().random_choice) {
+        hook(get_running_script(), random.position(), choice);
+    }
+}
+} // namespace
+
 Tokens resolve_random_jumps(Tokens token)
 {
     for (;;) {
@@ -206,6 +218,7 @@ Tokens resolve_random_jumps(Tokens token)
                 pick -= static_cast<int16_t>(fetch_word16(weights + (std::ptrdiff_t{2} * choice)));
             }
             const Tokens offset = weights + 2 * count + (std::ptrdiff_t{4} * choice);
+            note_random_choice(token, static_cast<uint32_t>(choice));
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -231,6 +244,7 @@ Tokens resolve_random_jumps(Tokens token)
             const uint32_t choice = static_cast<uint16_t>(pick);
             stored->last_ = choice;
             const Tokens offset = table + 4 * choice;
+            note_random_choice(token, choice);
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -255,6 +269,7 @@ Tokens resolve_random_jumps(Tokens token)
                 stored->ordinal_ = 0;
             }
             const Tokens offset = table + (std::ptrdiff_t{4} * core::at(stored->order_, stored->ordinal_));
+            note_random_choice(token, core::at(stored->order_, stored->ordinal_));
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -943,7 +958,11 @@ Tokens push_name(Tokens cursor, Struct* args, Component& value, bool after_dot)
             cursor = parse_arguments(params, cursor, args);
             // (the byte the function returns, as it is)
             const auto routine = symbol->value().function();
-            value.value.set_word(static_cast<uint32_t>(routine(params, Context(script))));
+            // NOT ORIGINAL - the script check answers for it (check_hooks.h; never set in the game)
+            const auto hook = check_hooks::hooks().expression_call;
+            const std::optional<bool> stubbed = hook ? hook(symbol->name_value(), params, script) : std::nullopt;
+            value.value.set_word(stubbed ? static_cast<uint32_t>(*stubbed)
+                                         : static_cast<uint32_t>(routine(params, Context(script))));
             if (params) {
                 params->get_clear();
                 delete_struct(params);

@@ -7,7 +7,7 @@
 globalThis.qb = (() => {
     const game = globalThis.__qbGame;
     const scripts = new Map(), symbols = new Map(), tasks = new Map();
-    let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000, inlineCount = 0;
+    let nextId = 1, active = null, lastFrame = -1, loadingFormat = 1, loadFuel = 1000000, inlineCount = 0, loadingOwner = null;
     let rng = null;
     const random = () => {
         if (globalThis.qbRandom?.apiVersion !== 1) throw Error('QB random API 1 required');
@@ -150,6 +150,13 @@ globalThis.qb = (() => {
         counts.set(type, (counts.get(type) ?? 0) + 1);
     }
     const hex = n => (n >>> 0).toString(16).padStart(8, '0');
+    // A number for a definition that no symbol has (the game's TypeScript bodies and script values name it).
+    function freshId() {
+        let n;
+        do n = (0xc0de0000 + inlineCount++) >>> 0;
+        while (scripts.has(n) || symbols.has(n) || (game && game.symbol(n) !== undefined));
+        return n;
+    }
     function copyParameters(t, p) {
         return t.format === 2 ? values().merge([], p, boundary(t.site)) : merge([], p);
     }
@@ -244,19 +251,30 @@ globalThis.qb = (() => {
             if (typeof fn !== 'function') throw Error('Invalid QB script function');
             if (tasks.size && !game) throw Error('Cannot load QB scripts with retained tasks');
             if (loadingFormat === 1 && scripts.has(n)) throw Error('Duplicate QB script');
-            scripts.set(n, {fn,format:loadingFormat});
             symbols.set(n, {kind:'callable',type:7,name:n});
-            if (game) game.defineScript(n);
+            if (!game) {
+                scripts.set(n, {fn,format:loadingFormat});
+                return;
+            }
+            // In the game each definition has a number of its own, which its symbol's body names (defineScript): the
+            // symbol table says which definition runs - a temporary load undone, a level unloaded - as for QB.
+            const id = freshId();
+            scripts.set(id, {fn, format: loadingFormat, owner: loadingOwner});
+            game.defineScript(n, id);
+        },
+        // The module being loaded (the game: its file's) - what it defines belongs to it; forget(owner): all of that
+        // let go of (its file unloaded).
+        loadingAs(owner) { loadingOwner = owner; },
+        forget(owner) {
+            for (const [n, entry] of scripts) if (entry.owner === owner) scripts.delete(n);
         },
         // inline(fn): a script as a value (a structure's `script name ... endscript`; the C++ runs it - the CAS
         // tables' part scripts, ModelAssembler::launch_script). Its function is kept under a made-up name no symbol
         // has; the value is the body defineScript gives a script, naming it: 01, 4A <name>, 01, 24.
         inline(fn) {
             if (typeof fn !== 'function') throw Error('Invalid QB script function');
-            let n;
-            do n = (0xc0de0000 + inlineCount++) >>> 0;
-            while (scripts.has(n) || symbols.has(n) || (game && game.symbol(n) !== undefined));
-            scripts.set(n, {fn, format: loadingFormat});
+            const n = freshId();
+            scripts.set(n, {fn, format: loadingFormat, owner: loadingOwner});
             return {type: 7, bytes: [1, 0x4a, n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, n >>> 24, 1, 0x24]};
         },
         start(n, args, fuel, object = 0) {
