@@ -1,6 +1,8 @@
 #include "engine/script/token_reader.h"
 
 #include <cstddef>
+#include <utility>
+#include <functional>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -182,6 +184,32 @@ StoredRandom* new_stored_random()
         stored_randoms_oldest() = stored;
     }
     return stored;
+}
+
+// NOT ORIGINAL: the stored randoms whose Random lies in the `size` bytes at `begin` dropped (tokens.cpp
+// forget_code_block; ts_bridge.cpp's sites).
+void forget_stored_randoms(const uint8_t* begin, std::size_t size)
+{
+    StoredRandom* stored = script_state().stored_randoms_newest();
+    while (stored) {
+        StoredRandom* const older = stored->succ_;
+        const uint8_t* table = stored->lookup_table_;
+        if (table && !std::less<>()(table, begin) && std::cmp_less(table - begin, size)) {
+            if (stored->previous_) {
+                stored->previous_->succ_ = older;
+            } else {
+                script_state().set_stored_randoms_newest(older);
+            }
+            if (older) {
+                older->previous_ = stored->previous_;
+            } else {
+                stored_randoms_oldest() = stored->previous_;
+            }
+            --stored_random_count();
+            free_stored_random(stored);
+        }
+        stored = older;
+    }
 }
 
 // 0x00470C60

@@ -78,7 +78,7 @@ ScriptStore::~ScriptStore()
         entry->older = nullptr;
         entry->newer = nullptr;
         if (entry->code) {
-            forget_code_block(entry->code);
+            forget_script_code(entry->code); // NOT ORIGINAL (tokens.h)
             memory::free_malloc(entry->code);
         }
         delete entry;
@@ -128,7 +128,7 @@ void ScriptStore::delete_entry(ScriptCacheEntry* entry)
     entries_->erase_entry(entry->name);
     remove_from_unused(entry);
     if (entry->code) {
-        forget_code_block(entry->code);
+        forget_script_code(entry->code); // NOT ORIGINAL (tokens.h)
         memory::free_malloc(entry->code);
     }
     gsl::owner<ScriptCacheEntry*> owned = memory::owned_element(entry); // (the store's: its table's value)

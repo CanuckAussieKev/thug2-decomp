@@ -368,6 +368,7 @@ globalThis.qbTs = (() => {
         // The loader names the module being defined (faults and random sites carry it).
         beginModule(name) {
             source = name;
+            globalThis.qb.loadingSource?.(name);
         },
         cmd,
         call,

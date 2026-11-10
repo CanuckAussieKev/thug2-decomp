@@ -751,7 +751,7 @@ void release_component(Component* component)
         break;
     case QbValueKind::kScriptBody:
         if (!component->value.empty()) {
-            forget_code_block(component->value.code());
+            forget_script_code(component->value.code()); // NOT ORIGINAL (tokens.h)
             memory::free_malloc(component->value.code());
         }
         component->unknown2 = 0; // the script's size

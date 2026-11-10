@@ -24,6 +24,12 @@ using MutableTokens = core::Cursor<uint8_t>;
 // replaces them (they were freed without being forgotten).
 void note_code_block(std::span<const uint8_t> block);
 void forget_code_block(const void* block);
+// NOT ORIGINAL: forget_code_block for a script's own code (cached, or a script value) - the stored randoms of its
+// Randoms go with it. The original leaves them, keyed by the freed address, for whatever code is allocated there next
+// to take over (which depends on the allocator); here a script's RandomNoRepeat / RandomPermute state lasts as long
+// as its code, as a TypeScript site's lasts as long as its module. (A running script's private copy keeps the
+// original's behaviour: forget_code_block.)
+void forget_script_code(const void* block);
 // The cursor at `place` over the block that holds it (null: an empty cursor). A pointer into no block noted ends the
 // game with a report.
 Tokens tokens_at(const uint8_t* place);

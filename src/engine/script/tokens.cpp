@@ -10,6 +10,7 @@
 
 #include <gsl/assert>
 
+#include "engine/script/token_reader.h"
 #include "platform/run_log.h"
 #include "base/core/no_destroy.h"
 
@@ -84,6 +85,14 @@ void forget_code_block(const void* block)
     code_blocks().erase(static_cast<const uint8_t*>(block));
     last_block() = {};
     ++generation();
+}
+
+void forget_script_code(const void* block)
+{
+    if (const auto found = code_blocks().find(static_cast<const uint8_t*>(block)); found != code_blocks().end()) {
+        forget_stored_randoms(found->first, found->second);
+    }
+    forget_code_block(block);
 }
 
 Tokens tokens_at(const uint8_t* place)

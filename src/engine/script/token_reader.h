@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "engine/script/expression.h"
@@ -25,6 +26,8 @@ Tokens skip_value(Tokens token);
 StoredRandom* look_up_saved_random(const uint8_t* table, QbToken type, uint32_t count);
 // RandomNoRepeat / RandomPermute's choice by its stored state (found by `table`): QB's and TypeScript's (ts_bridge.cpp).
 uint32_t pick_stored_random(const uint8_t* table, QbToken kind, uint32_t count);
+// NOT ORIGINAL: drops the stored randoms whose Random lies in the `size` bytes at `begin` (their code freed).
+void forget_stored_randoms(const uint8_t* begin, std::size_t size);
 // A new stored random state (at most 100 are kept: the oldest goes).
 StoredRandom* new_stored_random();
 // RandomRange(a, b) (`token` at the pair after the RandomRange token): an integer if both ends are whole

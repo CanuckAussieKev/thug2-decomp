@@ -11,6 +11,8 @@ globalThis.qb = (() => {
     // A name read with arguments that turned out not to be a C function: its arguments, for the dispatch of that name
     // (name / dispatch below).
     let leftover = null;
+    // A file's module sources (loadingSource), for forget.
+    const ownerSources = new Map();
     let rng = null;
     const random = () => {
         if (globalThis.qbRandom?.apiVersion !== 1) throw Error('QB random API 1 required');
@@ -285,8 +287,16 @@ globalThis.qb = (() => {
         // The module being loaded (the game: its file's) - what it defines belongs to it; forget(owner): all of that
         // let go of (its file unloaded).
         loadingAs(owner) { loadingOwner = owner; },
+        // (the module's source name, which its Randoms' sites carry: their stored randoms go with the module)
+        loadingSource(name) {
+            if (loadingOwner === null) return;
+            if (!ownerSources.has(loadingOwner)) ownerSources.set(loadingOwner, new Set());
+            ownerSources.get(loadingOwner).add(name);
+        },
         forget(owner) {
             for (const [n, entry] of scripts) if (entry.owner === owner) scripts.delete(n);
+            for (const name of ownerSources.get(owner) ?? []) game?.forgetStored?.(name);
+            ownerSources.delete(owner);
         },
         // inline(fn): a script as a value (a structure's `script name ... endscript`; the C++ runs it - the CAS
         // tables' part scripts, ModelAssembler::launch_script). Its function is kept under a made-up name no symbol

@@ -748,9 +748,14 @@ JSValue native_draw(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueCo
 // random state (token_reader.cpp pick_stored_random) - the pool QB's Randoms use: an entry is the running record's or
 // left without an owner (a record gone), at most so many kept, the oldest dropped. QB finds an entry by its Random's
 // table of jumps; a TypeScript site by a byte of its own, one per site text (module, script, site), kept for good.
-JSValue native_stored_choice(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+std::unordered_map<std::string, std::unique_ptr<uint8_t>>& stored_keys()
 {
     static std::unordered_map<std::string, std::unique_ptr<uint8_t>> keys;
+    return keys;
+}
+JSValue native_stored_choice(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+{
+    auto& keys = stored_keys();
     const uint32_t opcode = to_u32(c, argv[0]);
     std::string site;
     if (const char* text = JS_ToCString(c, argv[1])) {
@@ -764,6 +769,27 @@ JSValue native_stored_choice(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
     }
     const QbToken kind = opcode == 0x41U ? QbToken::kRandomPermute : QbToken::kRandomNoRepeat;
     return JS_NewUint32(c, pick_stored_random(key.get(), kind, count));
+}
+
+// forgetStored(source): module `source` is gone - its sites' stored randoms with it (as QB's go with their code:
+// tokens.cpp forget_code_block), so a module loaded again starts afresh, as its QB would.
+JSValue native_forget_stored(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+{
+    std::string source;
+    if (const char* text = JS_ToCString(c, argv[0])) {
+        source = std::string(text) + "|";
+        JS_FreeCString(c, text);
+    }
+    auto& keys = stored_keys();
+    for (auto it = keys.begin(); it != keys.end();) {
+        if (it->first.starts_with(source)) {
+            forget_stored_randoms(it->second.get(), 1);
+            it = keys.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    return JS_UNDEFINED;
 }
 
 // frame(): the game's frame count (ts_bridge.h frame_clock).
@@ -826,6 +852,7 @@ bool start_engine()
     add_native(c, game, "draw", native_draw, 2);
     add_native(c, game, "frame", native_frame, 0);
     add_native(c, game, "storedChoice", native_stored_choice, 3);
+    add_native(c, game, "forgetStored", native_forget_stored, 1);
     set(c, game, "recording", JS_NewBool(c, e.recording));
     set(c, global, "__qbGame", game);
     JS_FreeValue(c, global);
