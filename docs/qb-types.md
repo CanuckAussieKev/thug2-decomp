@@ -14,9 +14,20 @@ names what keeps it from being proven. Every unknown is listed in [qb-types-unkn
 
 - A script's parameters: its defaults, every call's arguments (a spread `<...>` passes the caller's whole list), what a
   called script returns, its own assignments, and what commands write back.
+- A member is always there only when every start gives it or the script's defaults have it; otherwise its type includes
+  none (read when it was left out). Structures joined from values with different members likewise: a member one of them
+  lacks may be none.
 - A name read inside an expression stands for the global of that name when there is one (`values.js` `resolved`), so the
-  checker tracks which names a value can hold; past 64 names it treats the value as any name (a precision loss,
-  reported as such).
+  checker tracks which names a value can hold. Past 2,048 names a value may be any name: sound, not an unknown - a call
+  through it reaches every script that can be named. A name that may be any name read in an expression is the value of
+  any global: all the globals joined.
+- Shapes (members of structures, elements of arrays) are kept two levels deep. Below that a value keeps the kinds held
+  there and the script and global names (a member or element read there is one of those kinds), so nothing below the
+  limit is lost - only told apart less finely.
+- Structures several things feed are shared, not copied: the inbox of dynamic calls' arguments, the pools
+  (start_mechanisms.json), the union of all globals, of all commands' outputs, of the returns of every script that can be
+  named. A value includes them by reference and a read goes through them; a script is walked again when one it reads
+  grows. The inbox and the union of globals keep one level less of shape.
 - Operators: each operator's result kinds for each pair of operand kinds are taken from `scripting/values.js` itself (run
   on samples), the runtime the script check proves against the game's interpreter - the checker and the runtime can't
   disagree. A fault is no value (none), as in the game.
@@ -31,11 +42,29 @@ names what keeps it from being proven. Every unknown is listed in [qb-types-unkn
   handed the context, names taken from arguments, structures merged in, and the member functions - are reviewed into
   `tools/qbjs/command_models_reviewed.json`, each model with its source. A model also says which scripts a command starts
   and with what (SpawnScript), and which globals it changes.
-- **The C++ starting scripts.** A script the C++ names, or one named in data (a node's TriggerScript, a goal's script, a
-  menu item's handler...), may be started by the engine with parameters it makes. Each mechanism that starts scripts is
-  catalogued from the C++ with the parameters it passes.
-- **Dynamic calls.** A command named by a parameter whose names can't be told reaches every script that can be named: its
-  arguments go to all of them (one shared inbox), and what it writes back is an unknown.
+- **The C++ starting scripts.** Scripts the C++ starts by a fixed name are catalogued with the parameters it passes
+  (`tools/qbjs/entry_models.json`). Scripts whose name the C++ gets from the scripts or the data are catalogued by
+  mechanism in `tools/qbjs/start_mechanisms.json`: every call of the script host's start functions (spawn, launch,
+  run once, bind / goto, preempt, event handlers, on-exit) in src/, traced back to where the name comes in - a command's
+  argument path (SpawnScript's unnamed argument; `GoalManager_AddGoal params.init`; `SetQueueTricks` naming a global
+  trick array whose elements' `Scr` run with their `Params`), a global the C++ reads, a node member, a member of any
+  structure (a component's `UpdateScript`), a name pattern - with the parameters the started script gets. The checker
+  follows script names through the scripts (arguments, structures, globals - kept below the depth limit too) to those
+  paths. A structure several things feed (a goal's structure: AddGoal's params, a difficulty tier, EditGoal, the park
+  editor's goal globals, the members the C++ writes over the goal's life) is a pool: every script started with it gets
+  all of it. A script named in a way no mechanism starts isn't started by the C++: the catalogue is the claim, and each
+  record lists the C++ sites it was taken from (debug links, test automation and dead code are listed as excluded).
+- **Dynamic calls.** A call through a value whose names can't be told reaches every script that can be named - its
+  arguments go to all of them, through one shared inbox - and every command: its arguments go through every command's
+  start mechanisms, and what it writes back is what any command writes (the union of every model's outputs) or any
+  script returns.
+- **Events.** An event handler gets its row's params with the payload of the event that fires it: by event type, from
+  the C++'s raisers (start_mechanisms.json `events`, 144 types), LaunchEvent / FireEvent's data under their type= names,
+  animation event tables' rows, and EndGap's arguments under `<GapID>_Success` (the GapID's checksum folded on).
+- **Command outputs from elsewhere.** A command that hands back a structure from elsewhere - the goal's (GetGoalParams),
+  an object's tags (GetTags), a profile's info, an appearance part, an element of an argument's array, a global the C++
+  names - says so in its model (`outputsFrom`); event handlers and on-exit scripts run as interrupts, so the returns of
+  the scripts a command starts are merged into the caller.
 
 ## How it's used
 

@@ -165,6 +165,7 @@ export function normalModel(raw: Record<string, unknown>): CommandModel {
     if (raw.anyMembers !== undefined) out.anyMembers = normalKinds(raw.anyMembers);
     if (raw.changesGlobals) out.changesGlobals = String(raw.changesGlobals);
     if (raw.mergesArguments) out.mergesArguments = true;
+    if (Array.isArray(raw.outputsFrom)) out.outputsFrom = raw.outputsFrom as NonNullable<CommandModel["outputsFrom"]>;
     const starts = raw.starts === undefined ? [] : Array.isArray(raw.starts) ? raw.starts : [raw.starts];
     if (starts.length)
         out.starts = (starts as Record<string, unknown>[]).map((st) => {

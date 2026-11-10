@@ -7,81 +7,63 @@
  },
  "SetEventHandler": {
   "outputs": {},
-  "anyMembers": "any",
-  "starts": [
-   {
-    "script": "scr",
-    "params": "unknown",
-    "how": "event"
-   }
-  ],
   "source": "src/engine/script/script_cfuncs.cpp cfunc_set_event_handler (+ engine/objects/signal.cpp forward_trigger)",
-  "notes": "the handler gets params= merged with the event's own data (unknown members); it runs as an interrupt of the script that set it, whose parameters its return values are merged into"
+  "notes": "the handler gets params= merged with the event's own data (unknown members); it runs as an interrupt of the script that set it, whose parameters its return values are merged into [outputsFrom: its handlers / scripts run as interrupts of the caller: their return values are merged into its parameters (the scripts start_mechanisms.json lists for it)]",
+  "outputsFrom": [
+   {
+    "startedReturns": true
+   }
+  ]
  },
  "SetExceptionHandler": {
   "outputs": {},
-  "anyMembers": "any",
-  "starts": [
-   {
-    "script": "scr",
-    "params": "unknown",
-    "how": "event"
-   }
-  ],
   "source": "src/engine/script/script_cfuncs.cpp cfunc_set_exception_handler (+ engine/objects/signal.cpp forward_trigger)",
-  "notes": "as SetEventHandler; an exception handler replaces the calling script (bind_script)"
+  "notes": "as SetEventHandler; an exception handler replaces the calling script (bind_script) [outputsFrom: its handlers / scripts run as interrupts of the caller: their return values are merged into its parameters (the scripts start_mechanisms.json lists for it)]",
+  "outputsFrom": [
+   {
+    "startedReturns": true
+   }
+  ]
  },
  "SetException": {
   "outputs": {},
-  "anyMembers": "any",
-  "starts": [
-   {
-    "script": "scr",
-    "params": "unknown",
-    "how": "event"
-   }
-  ],
   "source": "src/engine/script/script_cfuncs.cpp cfunc_set_exception_handler",
-  "notes": "the same function as SetExceptionHandler"
+  "notes": "the same function as SetExceptionHandler [outputsFrom: its handlers / scripts run as interrupts of the caller: their return values are merged into its parameters (the scripts start_mechanisms.json lists for it)]",
+  "outputsFrom": [
+   {
+    "startedReturns": true
+   }
+  ]
  },
  "OnExitRun": {
   "outputs": {},
-  "anyMembers": "any",
-  "starts": [
-   {
-    "script": "0x00000000",
-    "params": "none",
-    "how": "interrupt"
-   }
-  ],
   "source": "src/engine/script/script_cfuncs.cpp cfunc_on_exit_run (+ script_qb/cscript_core.cpp run_on_exit_scripts)",
-  "notes": "the script runs as an interrupt of the caller; its return values are merged into the caller's parameters"
+  "notes": "the script runs as an interrupt of the caller; its return values are merged into the caller's parameters [outputsFrom: its handlers / scripts run as interrupts of the caller: their return values are merged into its parameters (the scripts start_mechanisms.json lists for it)]",
+  "outputsFrom": [
+   {
+    "startedReturns": true
+   }
+  ]
  },
  "OnExceptionRun": {
   "outputs": {},
-  "anyMembers": "any",
-  "starts": [
-   {
-    "script": "0x00000000",
-    "params": "none",
-    "how": "interrupt"
-   }
-  ],
   "source": "src/engine/script/script_cfuncs.cpp cfunc_on_exception_run",
-  "notes": "as OnExitRun"
+  "notes": "as OnExitRun [outputsFrom: its handlers / scripts run as interrupts of the caller: their return values are merged into its parameters (the scripts start_mechanisms.json lists for it)]",
+  "outputsFrom": [
+   {
+    "startedReturns": true
+   }
+  ]
  },
  "ResetEventHandlersFromTable": {
   "outputs": {},
-  "anyMembers": "any",
-  "starts": [
-   {
-    "script": "?",
-    "params": "unknown",
-    "how": "event"
-   }
-  ],
   "source": "src/engine/script/script_cfuncs.cpp cfunc_reset_event_handlers_from_table (+ script_qb/cscript_wait.cpp reset_event_handlers_from_table)",
-  "notes": "the handlers and their parameters come from the global array its argument names (read by position); they run as interrupts of the caller"
+  "notes": "the handlers and their parameters come from the global array its argument names (read by position); they run as interrupts of the caller [outputsFrom: its handlers / scripts run as interrupts of the caller: their return values are merged into its parameters (the scripts start_mechanisms.json lists for it)]",
+  "outputsFrom": [
+   {
+    "startedReturns": true
+   }
+  ]
  },
  "ForEachIn": {
   "outputs": {},
@@ -146,10 +128,23 @@
  },
  "LevelEditor_EditedLevels": {
   "outputs": {
-   "edited_list": "array",
    "edited_count": "int"
   },
-  "source": "src/editor/level_editor_layout.cpp:1348 cfunc_edited_levels"
+  "source": "src/editor/level_editor_layout.cpp:1348 cfunc_edited_levels",
+  "outputsFrom": [
+   {
+    "member": "edited_list",
+    "value": {
+     "array": {
+      "globalsMatching": "^level_select_menu_(thug1_|thps4_|thps3_|thaw_|misc_)?level_info$",
+      "path": [
+       "[]"
+      ]
+     }
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
  },
  "LevelEditor_PlayCamera": {
   "outputs": {},
@@ -167,5 +162,1326 @@
    "heading": "float"
   },
   "source": "src/game/rider/thaw_bmx_parked.cpp:187 cfunc_home_spot"
+ },
+ "GetTags": {
+  "outputs": {},
+  "byArgument": {},
+  "source": "src/engine/objects/entity.cpp:434",
+  "notes": "with Structure=<name>: a copy of the tag table as a structure under that name; without it the tag table (any members, any kinds - whatever SetTags / Tags= stored) is merged into the caller's parameters [outputsFrom: the object's tag table (pool tags): merged in, or under the name Structure= gives]",
+  "outputsFrom": [
+   {
+    "pool": "tags"
+   },
+   {
+    "pool": "tags",
+    "under": [
+     "Structure"
+    ]
+   }
+  ]
+ },
+ "GoalManager_GetGoalParams": {
+  "outputs": {},
+  "source": "src/game/goals/goal_manager_cfuncs.cpp:254 cfunc_goal_manager_get_goal_params",
+  "notes": "append_structure_if_any(the goal's params): every member of the goal's parameter structure is copied into the caller's parameters. Crashes if the goal doesn't exist. [outputsFrom: the goal's structure (pool goal)]",
+  "outputsFrom": [
+   {
+    "pool": "goal"
+   }
+  ]
+ },
+ "GetSkaterProfileInfo": {
+  "outputs": {},
+  "source": "src/game/skate/skater_profile_cfuncs.cpp:360 cfunc_get_skater_profile_info",
+  "notes": "append_structure_if_any(profile player=n's details params): all of the profile's info members copied into the caller. [outputsFrom: the profile's info (pool profileInfo)]",
+  "outputsFrom": [
+   {
+    "pool": "profileInfo"
+   }
+  ]
+ },
+ "GetSkaterProfileInfoByName": {
+  "outputs": {},
+  "source": "src/game/skate/skater_profile_cfuncs.cpp:283 cfunc_get_skater_profile_info_by_name",
+  "notes": "As GetSkaterProfileInfo, for the template named name=; nothing written (false) without such a template. [outputsFrom: the template's info (pool profileInfo)]",
+  "outputsFrom": [
+   {
+    "pool": "profileInfo"
+   }
+  ]
+ },
+ "GetPlayerAppearancePart": {
+  "outputs": {},
+  "source": "src/game/skate/appearance_cfuncs.cpp:316 cfunc_get_player_appearance_part",
+  "notes": "The appearance's slot structure for part= merged into the caller; false / nothing without part or slot. [outputsFrom: the appearance's slot for part= (pool appearancePart)]",
+  "outputsFrom": [
+   {
+    "pool": "appearancePart"
+   }
+  ]
+ },
+ "GetActualPlayerAppearancePart": {
+  "outputs": {},
+  "source": "src/game/skate/appearance_cfuncs.cpp:301 cfunc_get_actual_player_appearance_part",
+  "notes": "The part as built (its CAS option structure) merged into the caller; false / nothing without part or option. [outputsFrom: the appearance's slot for part= (pool appearancePart)]",
+  "outputsFrom": [
+   {
+    "pool": "appearancePart"
+   }
+  ]
+ },
+ "GetActualCASOptionStruct": {
+  "outputs": {},
+  "source": "src/game/skate/appearance_cfuncs.cpp:287 cfunc_get_actual_cas_option_struct",
+  "notes": "The CAS option's structure (part=, desc_id=) merged into the caller (nothing if not found); the command always returns FALSE even after writing. [outputsFrom: the element of the global array part= names (the CAS option)]",
+  "outputsFrom": [
+   {
+    "argumentPath": [
+     "part",
+     "@global",
+     "[]"
+    ]
+   }
+  ]
+ },
+ "0xeeeb7220": {
+  "outputs": {},
+  "source": "src/engine/objects/entity.cpp:456",
+  "notes": "(constant kGetNamedTags) copies of the tags named in the unnamed array: members named by the array's elements, any kind [outputsFrom: the named tags: members of the tag table (pool tags)]",
+  "outputsFrom": [
+   {
+    "pool": "tags"
+   }
+  ]
+ },
+ "GetPart": {
+  "outputs": {},
+  "source": "src/engine/gfx/model_appearance.cpp:242",
+  "notes": "the part's structure (the appearance's) merged into the caller's parameters [outputsFrom: the appearance part structure (pool appearancePart)]",
+  "outputsFrom": [
+   {
+    "pool": "appearancePart"
+   }
+  ]
+ },
+ "GetSkaterCamAnimParams": {
+  "outputs": {},
+  "source": "src/engine/objects/movie_cfuncs.cpp:152 cfunc_get_skater_cam_anim_params (+ engine/objects/movie_manager.cpp:462 VideoHub::movie_value -> the movie's settings)",
+  "uncertain": "The merged structure is the playing camera animation's settings (the parameters the animation was started with, e.g. by PlaySkaterCamAnim) - not listable from this command.",
+  "notes": "Only when a local skater and the animation exist (else false, nothing written). [outputsFrom: the playing camera animation's settings: PlaySkaterCamAnim's arguments, or the level editor's (pool skaterCamAnim)]",
+  "outputsFrom": [
+   {
+    "pool": "skaterCamAnim"
+   }
+  ]
+ },
+ "StringToCharArray": {
+  "outputs": {},
+  "source": "src/engine/script/script_util_cfuncs.cpp cfunc_string_to_char_array",
+  "outputsFrom": [
+   {
+    "member": "0x3c5ec9e9",
+    "value": {
+     "array": "string"
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "GetNode": {
+  "outputs": {},
+  "source": "src/engine/objects/object_cfuncs.cpp cfunc_get_node",
+  "outputsFrom": [
+   {
+    "member": "0x7a8017ba",
+    "value": {
+     "globalsMatching": "_nodearray$",
+     "path": [
+      "[]"
+     ]
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "CreateIndexArray": {
+  "outputs": {},
+  "source": "src/engine/script/script_util_cfuncs.cpp cfunc_create_index_array",
+  "outputsFrom": [
+   {
+    "member": "0xac3a91de",
+    "value": {
+     "array": "int"
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "HSVtoRGB": {
+  "outputs": {},
+  "source": "src/game/commands/face_texture_cfuncs.cpp cfunc_hs_vto_rgb",
+  "outputsFrom": [
+   {
+    "member": "0xdecb67c7",
+    "value": {
+     "array": "int"
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "RGBtoHSV": {
+  "outputs": {},
+  "source": "src/game/commands/face_texture_cfuncs.cpp cfunc_rg_bto_hsv",
+  "outputsFrom": [
+   {
+    "member": "0xfb0e4249",
+    "value": {
+     "array": "int"
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "GetScreenElementChildren": {
+  "outputs": {},
+  "source": "src/engine/ui/screen_element_cfuncs.cpp cfunc_get_screen_element_children",
+  "outputsFrom": [
+   {
+    "member": "0x5e684e45",
+    "value": {
+     "array": "name"
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "GetConfigurableTricksFromType": {
+  "outputs": {},
+  "source": "src/game/commands/trick_cfuncs.cpp cfunc_get_configurable_tricks_from_type",
+  "outputsFrom": [
+   {
+    "member": "0x5004a967",
+    "value": {
+     "array": "name"
+    }
+   },
+   {
+    "member": "0x325f0b5d",
+    "value": {
+     "array": "int"
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "GetKeyComboArrayFromTrickArray": {
+  "outputs": {},
+  "source": "src/game/commands/trick_cfuncs.cpp cfunc_get_key_combo_array_from_trick_array",
+  "outputsFrom": [
+   {
+    "member": "0x1a4f3519",
+    "value": {
+     "array": "name"
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "InterpolateParameters": {
+  "outputs": {},
+  "source": "src/game/commands/game_util_cfuncs.cpp cfunc_interpolate_parameters",
+  "outputsFrom": [
+   {
+    "member": "0xff6f3872",
+    "value": {
+     "argumentPath": [
+      "A"
+     ]
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "TODManager_GetCurrentTODParams": {
+  "outputs": {},
+  "source": "src/engine/gfx/tod_manager.cpp cfunc_tod_manager_get_current_tod_params",
+  "outputsFrom": [
+   {
+    "member": "0xdf3d6451",
+    "value": {
+     "members": {
+      "active": "int",
+      "current_state_name": "name",
+      "lev_red": "int",
+      "lev_green": "int",
+      "lev_blue": "int",
+      "sky_red": "int",
+      "sky_green": "int",
+      "sky_blue": "int",
+      "fog_on": "int",
+      "fog_red": "int",
+      "fog_green": "int",
+      "fog_blue": "int",
+      "fog_alpha": "int",
+      "fog_dist": "int",
+      "ambient_red": "int",
+      "ambient_green": "int",
+      "ambient_blue": "int",
+      "ambient_mod_factor_lo": "float",
+      "ambient_mod_factor_hi": "float",
+      "heading_0": "float",
+      "pitch_0": "float",
+      "red_0": "int",
+      "green_0": "int",
+      "blue_0": "int",
+      "mod_factor_0_lo": "float",
+      "mod_factor_0_hi": "float",
+      "heading_1": "float",
+      "pitch_1": "float",
+      "red_1": "int",
+      "green_1": "int",
+      "blue_1": "int",
+      "mod_factor_1_lo": "float",
+      "mod_factor_1_hi": "float",
+      "bloom_on": "int",
+      "bloom1": "int",
+      "bloom2": "int",
+      "bloom_strength": {
+       "array": "int"
+      },
+      "bloom_color": {
+       "array": "int"
+      }
+     }
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "0xD5F6EA3B": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor_members.cpp:430",
+  "notes": "goals (only when there is a used goal outside the park editor): structures as GetCurrentEditedGoalInfo writes [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "goals",
+    "value": {
+     "array": {
+      "members": {
+       "0x00000000": "name",
+       "Level": "name",
+       "level_goal_index": "int",
+       "Goal_Id": "name",
+       "time_limit": "int",
+       "won_goal": "int",
+       "control_type": "name",
+       "view_goals_text": "string",
+       "goal_deScription": "string",
+       "win_message": "string",
+       "ped_name": "string",
+       "Goal_Type": "name",
+       "pro_name": "name",
+       "race_per_checkpoint_time?": "int",
+       "race_total_laps?": "int",
+       "combo_size?": "int",
+       "acceleration_interval?": "int",
+       "acceleration_percent?": "float",
+       "trick_time?": "int",
+       "time_to_stop_adding_tricks?": "int",
+       "max_tricks?": "int",
+       "Spin?": "int",
+       "combo_sets?": {
+        "array": {
+         "members": {
+          "set_index": "int",
+          "0x00000000?": "name",
+          "Spin": "int",
+          "num_taps": "int"
+         }
+        }
+       },
+       "required_trick_name?": "string",
+       "Gaps?": {
+        "array": "int"
+       },
+       "Score?": "int",
+       "tricktris_block_size?": "int",
+       "tricktris_total_to_win?": "int",
+       "node_positions?": {
+        "array": {
+         "members": {
+          "Pos": "vector",
+          "Height": "float",
+          "Angle": "float"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  ]
+ },
+ "Get2DArrayData": {
+  "outputs": {},
+  "source": "src/engine/script/array_cfuncs.cpp:151 cfunc_get_2d_array_data (+ array_cfuncs.cpp:31 find_array, :41 add_element)",
+  "outputsFrom": [
+   {
+    "member": "val",
+    "value": {
+     "argumentPath": [
+      "arrayName",
+      "@paramOrGlobal",
+      "[]",
+      "[]"
+     ]
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "Get3DArrayData": {
+  "outputs": {},
+  "source": "src/engine/script/array_cfuncs.cpp:166 cfunc_get_3d_array_data (+ array_cfuncs.cpp:31 find_array, :41 add_element)",
+  "notes": "val is the element's kind (strings and local strings both written as string via append_word); arrays of other types (script etc.) write nothing. The array is the caller's parameter named by arrayName, else the global of that name. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "val",
+    "value": {
+     "argumentPath": [
+      "arrayName",
+      "@paramOrGlobal",
+      "[]",
+      "[]",
+      "[]"
+     ]
+    }
+   }
+  ]
+ },
+ "GetNDArrayData": {
+  "outputs": {},
+  "source": "src/engine/script/array_cfuncs.cpp:186 cfunc_get_nd_array_data (+ array_cfuncs.cpp:31 find_array, :41 add_element)",
+  "notes": "Reads the caller's own `indices` array parameter (not the command's). [shapes: tools/qbjs output review; uncertain parts noted in the review]",
+  "outputsFrom": [
+   {
+    "member": "val",
+    "value": {
+     "argumentPath": [
+      "arrayName",
+      "@paramOrGlobal",
+      "[]*"
+     ]
+    }
+   }
+  ]
+ },
+ "GetCareerSaveInfo": {
+  "outputs": {},
+  "source": "src/game/skate/career.cpp:623 cfunc_get_career_save_info (+ career.cpp:516 RiderStoryProgress::write_to_structure)",
+  "notes": "career = 0x4DA4937B, a structure (append_struct_ref) of the career's arrays and values; nothing else goes into the caller's parameters. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "career",
+    "value": {
+     "members": {
+      "GoalFlags": {
+       "array": "int"
+      },
+      "LevelFlags": {
+       "array": "int"
+      },
+      "globalflags": {
+       "array": "int"
+      },
+      "GapChecklists": {
+       "array": {
+        "members": {
+         "level": "int",
+         "valid": "int",
+         "Gaps?": {
+          "array": {
+           "members": {
+            "GapName": "string",
+            "gapcount": "int",
+            "gapscore": "int",
+            "SkaterStartPos": "vector",
+            "SkaterStartDir": "vector"
+           }
+          }
+         }
+        }
+       }
+      },
+      "VisitedLevels": {
+       "array": "int"
+      },
+      "LastLevelLoadScript": "name",
+      "LastGameMode": "name",
+      "0x414fd20f": {
+       "array": "int"
+      },
+      "0x9cc5bbf6": {
+       "array": "int"
+      },
+      "0x0444419a": "int",
+      "0x95947b61": "int",
+      "0xe888dd02": {
+       "array": "int"
+      },
+      "0x6c1a5e39": "int",
+      "0x7a6bf912": "int",
+      "currentChapter": "int",
+      "0x1c6cf075": "int",
+      "0x55d761cf": "struct"
+     }
+    }
+   }
+  ]
+ },
+ "GetCreateATrickAnimations": {
+  "outputs": {},
+  "source": "src/game/goals/create_a_trick.cpp:139 cfunc_get_create_a_trick_animations",
+  "notes": "Only with a local skater; an array of 6 structures. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "animation_info",
+    "value": {
+     "global": "Default_CAT_animation_info",
+     "path": []
+    }
+   }
+  ]
+ },
+ "GetCreateATrickOtherParams": {
+  "outputs": {},
+  "source": "src/game/goals/create_a_trick.cpp:111 cfunc_get_create_a_trick_other_params",
+  "notes": "Only with a local skater. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "other_params",
+    "value": {
+     "global": "Default_CAT_other_info",
+     "path": []
+    }
+   }
+  ]
+ },
+ "GetCreateATrickParams": {
+  "outputs": {},
+  "source": "src/game/goals/create_a_trick.cpp:95 cfunc_get_create_a_trick_params",
+  "notes": "Only with a local skater (else false, nothing written). rotation_info / animation_info: arrays of 6 structures (copies of Default_CAT_rotation_info / Default_CAT_animation_info as edited); other_params: a copy of Default_CAT_other_info as edited. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "other_params",
+    "value": {
+     "global": "Default_CAT_other_info",
+     "path": []
+    }
+   },
+   {
+    "member": "rotation_info",
+    "value": {
+     "global": "Default_CAT_rotation_info",
+     "path": []
+    }
+   },
+   {
+    "member": "animation_info",
+    "value": {
+     "global": "Default_CAT_animation_info",
+     "path": []
+    }
+   }
+  ]
+ },
+ "GetCreateATrickRotations": {
+  "outputs": {},
+  "source": "src/game/goals/create_a_trick.cpp:125 cfunc_get_create_a_trick_rotations",
+  "notes": "Only with a local skater; an array of 6 structures. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "rotation_info",
+    "value": {
+     "global": "Default_CAT_rotation_info",
+     "path": []
+    }
+   }
+  ]
+ },
+ "GetCurrentEditedGoalInfo": {
+  "outputs": {
+   "0x00000000": "name",
+   "Level": "name",
+   "level_goal_index": "int",
+   "Goal_Id": "name",
+   "time_limit": "int",
+   "won_goal": "int",
+   "control_type": "name",
+   "view_goals_text": "string",
+   "goal_deScription": "string",
+   "win_message": "string",
+   "ped_name": "string",
+   "Goal_Type": "name",
+   "pro_name": "name",
+   "race_per_checkpoint_time": "int",
+   "race_total_laps": "int",
+   "combo_size": "int",
+   "acceleration_interval": "int",
+   "acceleration_percent": "float",
+   "trick_time": "int",
+   "time_to_stop_adding_tricks": "int",
+   "max_tricks": "int",
+   "Spin": "int",
+   "required_trick_name": "string",
+   "Score": "int",
+   "tricktris_block_size": "int",
+   "tricktris_total_to_win": "int"
+  },
+  "source": "src/game/park_editing/goal_editor_members.cpp:412",
+  "notes": "only with a goal being edited: EditedGoal::export_to_struct (game/park_editing/edited_goal_io.cpp:503) - the goal type's members (race / combo / gap / score / trick attack / key combo / tricktris) are written only for that type [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "node_positions",
+    "value": {
+     "array": {
+      "members": {
+       "Pos": "vector",
+       "Height": "float",
+       "Angle": "float"
+      }
+     }
+    }
+   },
+   {
+    "member": "combo_sets",
+    "value": {
+     "array": {
+      "members": {
+       "set_index": "int",
+       "0x00000000?": "name",
+       "Spin": "int",
+       "num_taps": "int"
+      }
+     }
+    }
+   },
+   {
+    "member": "Gaps",
+    "value": {
+     "array": "int"
+    }
+   }
+  ]
+ },
+ "GetEditedGoalsInfo": {
+  "outputs": {},
+  "source": "src/game/park_editing/goal_editor.cpp:696",
+  "notes": "only when the level has complete goals; each element a structure as GetCurrentEditedGoalInfo writes [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "EditedGoalsInfo",
+    "value": {
+     "array": {
+      "members": {
+       "0x00000000": "name",
+       "Level": "name",
+       "level_goal_index": "int",
+       "Goal_Id": "name",
+       "time_limit": "int",
+       "won_goal": "int",
+       "control_type": "name",
+       "view_goals_text": "string",
+       "goal_deScription": "string",
+       "win_message": "string",
+       "ped_name": "string",
+       "Goal_Type": "name",
+       "pro_name": "name",
+       "race_per_checkpoint_time?": "int",
+       "race_total_laps?": "int",
+       "combo_size?": "int",
+       "acceleration_interval?": "int",
+       "acceleration_percent?": "float",
+       "trick_time?": "int",
+       "time_to_stop_adding_tricks?": "int",
+       "max_tricks?": "int",
+       "Spin?": "int",
+       "combo_sets?": {
+        "array": {
+         "members": {
+          "set_index": "int",
+          "0x00000000?": "name",
+          "Spin": "int",
+          "num_taps": "int"
+         }
+        }
+       },
+       "required_trick_name?": "string",
+       "Gaps?": {
+        "array": "int"
+       },
+       "Score?": "int",
+       "tricktris_block_size?": "int",
+       "tricktris_total_to_win?": "int",
+       "node_positions?": {
+        "array": {
+         "members": {
+          "Pos": "vector",
+          "Height": "float",
+          "Angle": "float"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  ]
+ },
+ "GetElement": {
+  "outputs": {},
+  "source": "src/engine/script/script_util_cfuncs.cpp:442 cfunc_get_element",
+  "notes": "element erased first; then int / a copied struct / an array for those array types; other array types write nothing. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "element",
+    "value": {
+     "argumentPath": [
+      "0x00000000",
+      "[]"
+     ]
+    }
+   }
+  ]
+ },
+ "GetLevelRecords": {
+  "outputs": {},
+  "source": "src/game/commands/trick_cfuncs.cpp:496 cfunc_get_level_records (+ helpers: src/game/skate/highscores.cpp:324 StageBests::write_to_structure, highscores.cpp:249 BestEntryList::write_to_structure)",
+  "notes": "Always written (arcadescores only when the level has an arcade table). highscores / bestcombos / arcadescores are structures holding recordtable (0xB1449176): an array of record structures; the longest* members are single record structures. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "highscores",
+    "value": {
+     "members": {
+      "recordtable": {
+       "array": {
+        "members": {
+         "value": "int",
+         "number": "int",
+         "initials": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   {
+    "member": "bestcombos",
+    "value": {
+     "members": {
+      "recordtable": {
+       "array": {
+        "members": {
+         "value": "int",
+         "number": "int",
+         "initials": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   {
+    "member": "arcadescores",
+    "value": {
+     "members": {
+      "recordtable": {
+       "array": {
+        "members": {
+         "value": "int",
+         "number": "int",
+         "initials": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   {
+    "member": "longestcombo",
+    "value": {
+     "members": {
+      "value": "int",
+      "number": "int",
+      "initials": "string"
+     }
+    }
+   },
+   {
+    "member": "longestgrind",
+    "value": {
+     "members": {
+      "value": "int",
+      "number": "int",
+      "initials": "string"
+     }
+    }
+   },
+   {
+    "member": "longestliptrick",
+    "value": {
+     "members": {
+      "value": "int",
+      "number": "int",
+      "initials": "string"
+     }
+    }
+   },
+   {
+    "member": "longestmanual",
+    "value": {
+     "members": {
+      "value": "int",
+      "number": "int",
+      "initials": "string"
+     }
+    }
+   }
+  ]
+ },
+ "GetMemCardDirectoryListing": {
+  "outputs": {
+   "FilesLimitReached": "none",
+   "0x56B7A7F6": "int|none",
+   "0x00000000": "name"
+  },
+  "source": "src/game/save_cards/save_files_cfuncs.cpp:518 get_mem_card_directory_listing (+ save_files_cfuncs.cpp describe_listed_file / mark_corrupt write only into the per-file entries)",
+  "notes": "DirectoryListing (0xD8580FB5), FilesLimitReached (0x4EEC27B5) and 0x56B7A7F6 (the total game files - not the checksum of 'TotalFiles') are erased first; without a card that is all. With a card: 0x56B7A7F6 int; the flag FilesLimitReached (an unnamed name whose value is 0x4EEC27B5) when there are 75+ files; DirectoryListing an array of structures (file_type name, index/year/month/day/hour/minutes/seconds/total_file_size int, actual_file_name string, either the corrupt flag + FileName string or the file's saved summary merged in) when any file is listed. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "DirectoryListing",
+    "value": {
+     "array": {
+      "members": {
+       "file_type": "name",
+       "index": "int",
+       "year": "int",
+       "month": "int",
+       "day": "int",
+       "hour": "int",
+       "minutes": "int",
+       "seconds": "int",
+       "actual_file_name": "string",
+       "total_file_size?": "int",
+       "0x00000000?": "name",
+       "FileName?": "string",
+       "filename?": "string",
+       "name?": "string",
+       "num_edited_goals?": "int",
+       "MaxPlayers?": "int",
+       "num_gaps?": "int",
+       "num_pieces?": "int",
+       "theme?": "int",
+       "tod_script?": "name",
+       "width?": "int",
+       "length?": "int",
+       "total_goals_complete?": "int",
+       "total_goals_possible?": "int",
+       "total_score?": "int",
+       "total_score_potential?": "int",
+       "is_male?": "int",
+       "network_id?": "string"
+      }
+     }
+    }
+   }
+  ]
+ },
+ "GetMostRecentSave": {
+  "outputs": {},
+  "source": "src/game/save_cards/memcard_cfuncs.cpp:342 get_most_recent_save",
+  "notes": "Always erased first; the newest matching entry of the unnamed array argument put back as a struct when one is found. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "MostRecentSave",
+    "value": {
+     "argumentPath": [
+      "0x00000000",
+      "[]"
+     ]
+    }
+   }
+  ]
+ },
+ "GetNextArrayElement": {
+  "outputs": {
+   "index": "int|none"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:175 cfunc_get_next_array_element",
+  "notes": "Reads the caller's own index, erases index and element, then (unless at the end - returns false) writes index int and element of the array's kind. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "element",
+    "value": {
+     "argumentPath": [
+      "0x00000000",
+      "[]"
+     ]
+    }
+   }
+  ]
+ },
+ "GetPagerMessage": {
+  "outputs": {},
+  "source": "src/engine/objects/pager_message.cpp:134",
+  "notes": "the message's structure (whatever SendPagerMessage was given) [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "PagerMessage",
+    "value": {
+     "pool": "pagerMessage"
+    }
+   }
+  ]
+ },
+ "GetParticleParams": {
+  "outputs": {},
+  "source": "src/engine/objects/particle_component.cpp:616",
+  "notes": "ParticleParams = {name: name, EmitRate / LifeTime / Start-Mid-EndRadius: float, Start/Mid/EndRGBA: array of int, Start/Mid/EndPos and BoxDims*: vector} [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "ParticleParams",
+    "value": {
+     "members": {
+      "Name": "name",
+      "EmitRate": "float",
+      "LifeTime": "float",
+      "StartRGBA": {
+       "array": "int"
+      },
+      "MidRGBA": {
+       "array": "int"
+      },
+      "EndRGBA": {
+       "array": "int"
+      },
+      "StartPos": "vector",
+      "MidPos": "vector",
+      "EndPos": "vector",
+      "StartRadius": "float",
+      "MidRadius": "float",
+      "EndRadius": "float",
+      "BoxDimsStart": "vector",
+      "BoxDimsMid": "vector",
+      "BoxDimsEnd": "vector"
+     }
+    }
+   }
+  ]
+ },
+ "GetPlayerAppearance": {
+  "outputs": {},
+  "source": "src/game/skate/appearance_cfuncs.cpp:332 cfunc_get_player_appearance",
+  "notes": "profile = a copy of the player's whole appearance structure. Always written. [shapes: tools/qbjs output review; uncertain parts noted in the review]",
+  "outputsFrom": [
+   {
+    "member": "profile",
+    "value": {
+     "members": {
+      "*member": {
+       "pool": "appearancePart"
+      }
+     }
+    }
+   }
+  ]
+ },
+ "GetPlayerFacePoints": {
+  "outputs": {},
+  "source": "src/game/skate/appearance_cfuncs.cpp:130 cfunc_get_player_face_points (+ helpers: src/engine/gfx/face_texture.cpp:198 write_face_points)",
+  "notes": "current_face_points (0x12E87395): if the caller already has a current_face_points structure, write_face_points writes INTO that nested structure in place; otherwise a new structure is put_sub_struct'ed. Either way its members: left_eye/right_eye/nose/lips: array (2 ints); h/s/v: float (only when the face has HSV); width/height: int. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "current_face_points",
+    "value": {
+     "members": {
+      "left_eye": {
+       "array": "int"
+      },
+      "right_eye": {
+       "array": "int"
+      },
+      "nose": {
+       "array": "int"
+      },
+      "lips": {
+       "array": "int"
+      },
+      "h?": "float",
+      "s?": "float",
+      "v?": "float",
+      "width": "int",
+      "height": "int"
+     }
+    }
+   }
+  ]
+ },
+ "GetProps": {
+  "outputs": {
+   "alpha": "float",
+   "scale": "float|pair",
+   "pos": "pair",
+   "rot_angle": "float",
+   "events_blocked": "int",
+   "texture": "name"
+  },
+  "source": "src/engine/ui/screen_element.cpp:930",
+  "notes": "UiWidget::get_properties (virtual): every element alpha / rgba / scale / pos / rot_angle / events_blocked; ImageWidget adds rot_angle, texture; TextureElement writes only rgba [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "rgba",
+    "value": {
+     "array": "int"
+    }
+   }
+  ]
+ },
+ "GetRandomArrayElement": {
+  "outputs": {
+   "index": "int|none"
+  },
+  "source": "src/engine/script/script_util_cfuncs.cpp:233 cfunc_get_random_array_element",
+  "outputsFrom": [
+   {
+    "member": "element",
+    "value": {
+     "argumentPath": [
+      "0x00000000",
+      "[]"
+     ]
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review]"
+ },
+ "GetSaveInfo": {
+  "outputs": {
+   "MainStructureSize": "int",
+   "SummaryInfoSize": "int",
+   "MaxSummaryInfoSize": "int",
+   "TotalSize": "int",
+   "MaxTotalSize": "int"
+  },
+  "source": "src/game/save_cards/save_files_cfuncs.cpp:369 get_save_info (+ save_types.cpp:378 write_summary into a new structure, not the caller's)",
+  "outputsFrom": [
+   {
+    "member": "SummaryInfo",
+    "value": {
+     "members": {
+      "name?": "string",
+      "num_edited_goals?": "int",
+      "MaxPlayers?": "int",
+      "num_gaps?": "int",
+      "num_pieces?": "int",
+      "theme?": "int",
+      "tod_script?": "name",
+      "width?": "int",
+      "length?": "int",
+      "total_goals_complete?": "int",
+      "total_goals_possible?": "int",
+      "total_score?": "int",
+      "total_score_potential?": "int",
+      "is_male?": "int",
+      "network_id?": "string"
+     }
+    }
+   },
+   {
+    "member": "MainStructure",
+    "value": {
+     "members": {
+      "goals?": {
+       "array": {
+        "members": {
+         "0x00000000": "name",
+         "Level": "name",
+         "level_goal_index": "int",
+         "Goal_Id": "name",
+         "time_limit": "int",
+         "won_goal": "int",
+         "control_type": "name",
+         "view_goals_text": "string",
+         "goal_deScription": "string",
+         "win_message": "string",
+         "ped_name": "string",
+         "Goal_Type": "name",
+         "pro_name": "name",
+         "race_per_checkpoint_time?": "int",
+         "race_total_laps?": "int",
+         "combo_size?": "int",
+         "acceleration_interval?": "int",
+         "acceleration_percent?": "float",
+         "trick_time?": "int",
+         "time_to_stop_adding_tricks?": "int",
+         "max_tricks?": "int",
+         "Spin?": "int",
+         "combo_sets?": {
+          "array": {
+           "members": {
+            "set_index": "int",
+            "0x00000000?": "name",
+            "Spin": "int",
+            "num_taps": "int"
+           }
+          }
+         },
+         "required_trick_name?": "string",
+         "Gaps?": {
+          "array": "int"
+         },
+         "Score?": "int",
+         "tricktris_block_size?": "int",
+         "tricktris_total_to_win?": "int",
+         "node_positions?": {
+          "array": {
+           "members": {
+            "Pos": "vector",
+            "Height": "float",
+            "Angle": "float"
+           }
+          }
+         }
+        }
+       }
+      },
+      "other_params?": {
+       "global": "Default_CAT_other_info",
+       "path": []
+      },
+      "rotation_info?": {
+       "global": "Default_CAT_rotation_info",
+       "path": []
+      },
+      "animation_info?": {
+       "global": "Default_CAT_animation_info",
+       "path": []
+      },
+      "GlobalInfo?": {
+       "members": {
+        "Options": {
+         "members": {
+          "SplitScreenPreferences": "struct",
+          "SoundOptions": {
+           "members": {
+            "master_loudness": "float",
+            "MusicVolume": "float",
+            "PlayListForbiddenTrackFlags1": "int",
+            "PlayListForbiddenTrackFlags2": "int",
+            "0xb7534db9": "int",
+            "0x2937d81a": "int",
+            "current_soundtrack?": "name",
+            "0x00000000?": "name"
+           }
+          },
+          "ControllerPreferences": {
+           "array": {
+            "members": {
+             "0x00000000?": "name"
+            }
+           }
+          },
+          "Taunts": "struct"
+         }
+        },
+        "career": {
+         "members": {
+          "GoalFlags": {
+           "array": "int"
+          },
+          "LevelFlags": {
+           "array": "int"
+          },
+          "globalflags": {
+           "array": "int"
+          },
+          "GapChecklists": {
+           "array": {
+            "members": {
+             "level": "int",
+             "valid": "int",
+             "Gaps?": {
+              "array": {
+               "members": {
+                "GapName": "string",
+                "gapcount": "int",
+                "gapscore": "int",
+                "SkaterStartPos": "vector",
+                "SkaterStartDir": "vector"
+               }
+              }
+             }
+            }
+           }
+          },
+          "VisitedLevels": {
+           "array": "int"
+          },
+          "LastLevelLoadScript": "name",
+          "LastGameMode": "name",
+          "0x414fd20f": {
+           "array": "int"
+          },
+          "0x9cc5bbf6": {
+           "array": "int"
+          },
+          "0x0444419a": "int",
+          "0x95947b61": "int",
+          "0xe888dd02": {
+           "array": "int"
+          },
+          "0x6c1a5e39": "int",
+          "0x7a6bf912": "int",
+          "currentChapter": "int",
+          "0x1c6cf075": "int",
+          "0x55d761cf": "struct"
+         }
+        },
+        "GameRecords": {
+         "array": {
+          "members": {
+           "highscores": {
+            "members": {
+             "recordtable": {
+              "array": {
+               "members": {
+                "value": "int",
+                "number": "int",
+                "initials": "string"
+               }
+              }
+             }
+            }
+           },
+           "bestcombos": {
+            "members": {
+             "recordtable": {
+              "array": {
+               "members": {
+                "value": "int",
+                "number": "int",
+                "initials": "string"
+               }
+              }
+             }
+            }
+           },
+           "arcadescores?": {
+            "members": {
+             "recordtable": {
+              "array": {
+               "members": {
+                "value": "int",
+                "number": "int",
+                "initials": "string"
+               }
+              }
+             }
+            }
+           },
+           "longestcombo": {
+            "members": {
+             "value": "int",
+             "number": "int",
+             "initials": "string"
+            }
+           },
+           "longestgrind": {
+            "members": {
+             "value": "int",
+             "number": "int",
+             "initials": "string"
+            }
+           },
+           "longestliptrick": {
+            "members": {
+             "value": "int",
+             "number": "int",
+             "initials": "string"
+            }
+           },
+           "longestmanual": {
+            "members": {
+             "value": "int",
+             "number": "int",
+             "initials": "string"
+            }
+           }
+          }
+         }
+        },
+        "DefaultInitials": "string",
+        "Pros": "struct"
+       }
+      },
+      "Story?": {
+       "members": {
+        "GoalManagerParams": "struct"
+       }
+      },
+      "StorySkater?": "struct",
+      "CustomSkater?": "struct",
+      "layer_infos?": {
+       "global": "edit_graphic_layer_infos",
+       "path": []
+      }
+     }
+    }
+   }
+  ],
+  "notes": "[shapes: tools/qbjs output review; uncertain parts noted in the review]"
+ },
+ "GetScreenElementProps": {
+  "outputs": {
+   "alpha": "float",
+   "scale": "float|pair",
+   "pos": "pair",
+   "rot_angle": "float",
+   "0x73CB6D65": "int",
+   "texture": "name",
+   "anglex": "float",
+   "angley": "float",
+   "anglez": "float"
+  },
+  "source": "src/engine/ui/screen_element_cfuncs.cpp:334 cfunc_get_screen_element_props (+ helpers: src/engine/ui/screen_element.cpp:938 UiWidget::get_properties, src/engine/ui/sprite_element.cpp:131 TextureElement::get_properties, sprite_element.cpp:227 ImageWidget::get_properties)",
+  "notes": "Nothing written without an element (false). get_properties is virtual: the UiWidget base writes alpha float, rgba array (4 ints), scale (float when x==y, else pair), pos pair, rot_angle float, 0x73CB6D65 (the input-locked flag) int; ImageWidget adds rot_angle again (float) and texture name; TextureElement writes only rgba. An Element3d also gets anglex/angley/anglez floats (0x0AFFD09D / 0x7DF8E00B / 0xE4F1B1B1). Names checked by checksum. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "member": "rgba",
+    "value": {
+     "array": "int"
+    }
+   }
+  ]
+ },
+ "PermuteArray": {
+  "outputs": {},
+  "byArgument": {},
+  "changesGlobals": "With PermuteSource the Array= array is shuffled in place - a global array when Array= is a name standing for one (element order only, no kind change).",
+  "source": "src/engine/script/script_util_cfuncs.cpp:485 cfunc_permute_array",
+  "notes": "Without PermuteSource, a shuffled copy goes into the caller's parameters under the value of NewArrayName. [shapes: tools/qbjs output review]",
+  "outputsFrom": [
+   {
+    "under": [
+     "NewArrayName"
+    ],
+    "value": {
+     "argumentPath": [
+      "Array"
+     ]
+    }
+   }
+  ]
  }
 }

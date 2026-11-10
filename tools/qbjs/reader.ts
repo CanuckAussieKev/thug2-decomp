@@ -687,13 +687,16 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 const join = joins.find((j) => j !== undefined);
                 const consumed = joins.map((j) => j !== undefined && ![1, 2, 0x24].includes(b[j]!));
                 if (join !== undefined && consumed.some(Boolean)) {
-                    if (joins.some((j) => j !== undefined && j !== join)) fail("commands reading on past different joins");
+                    if (joins.some((j) => j !== undefined && j !== join))
+                        fail("commands reading on past different joins");
                     const after = p;
                     p = join;
                     const extra = parameters(0);
                     const lineEnd = p;
                     if (![1, 2].includes(b[lineEnd]!))
-                        fail("a command reading on past a Random's join into a token it can't read (the original hangs)");
+                        fail(
+                            "a command reading on past a Random's join into a token it can't read (the original hangs)",
+                        );
                     p = join;
                     const line = block(depth + 1, loops, lineEnd);
                     // (the statement took its line end too: back to it)

@@ -23,28 +23,32 @@
     "members": {
      "text": "string",
      "id": "name",
-     "pad_choose_params": "struct",
+     "pad_choose_params": {
+      "members": {
+       "node_name": "name"
+      }
+     },
      "scale": "float",
      "no_bg": "name",
      "centered": "name",
      "pad_choose_script": "name"
     }
    },
-   "site": "game/commands/game_cfuncs.cpp:994"
+   "site": "game/commands/game_cfuncs.cpp:994",
+   "note": "[shapes: entry review]"
   },
   {
    "params": {
     "members": {
      "text": "string",
      "id": "name",
-     "pad_choose_params": "struct",
-     "scale": "float",
      "no_bg": "name",
      "centered": "name",
      "pad_choose_script": "name"
     }
    },
-   "site": "game/commands/game_cfuncs.cpp:1004"
+   "site": "game/commands/game_cfuncs.cpp:1004",
+   "note": "[shapes: entry review]"
   },
   {
    "params": {
@@ -53,12 +57,26 @@
      "centered": "name",
      "id": "name",
      "pad_choose_script": "name",
-     "rgba": "array",
-     "unfocus_params": "struct",
-     "pad_choose_params": "struct"
+     "rgba": {
+      "array": "int"
+     },
+     "unfocus_params": {
+      "members": {
+       "rgba": {
+        "array": "int"
+       }
+      }
+     },
+     "pad_choose_params": {
+      "members": {
+       "index": "int",
+       "name": "string"
+      }
+     }
     }
    },
-   "site": "game/online/gamenet_game_commands.cpp:551"
+   "site": "game/online/gamenet_game_commands.cpp:551",
+   "note": "[shapes: entry review]"
   }
  ],
  "make_text_sub_menu_item": [
@@ -67,10 +85,15 @@
     "members": {
      "0xC4745838": "string",
      "0x2B0CFCA1": "name",
-     "0xB8437568": "struct"
+     "0xB8437568": {
+      "members": {
+       "NodeName": "name"
+      }
+     }
     }
    },
-   "site": "game/commands/game_cfuncs.cpp:1028"
+   "site": "game/commands/game_cfuncs.cpp:1028",
+   "note": "[shapes: entry review]"
   },
   {
    "params": {
@@ -79,11 +102,17 @@
      "id": "name",
      "pad_choose_script": "name",
      "parent_menu_id": "name",
-     "pad_choose_params": "struct",
+     "pad_choose_params": {
+      "members": {
+       "profile": "int",
+       "nick": "string"
+      }
+     },
      "scale": "float"
     }
    },
-   "site": "game/online/buddy_man.cpp:490"
+   "site": "game/online/buddy_man.cpp:490",
+   "note": "[shapes: entry review]"
   },
   {
    "params": {
@@ -91,10 +120,17 @@
      "text": "string",
      "pad_choose_script": "name",
      "parent_menu_id": "name",
-     "pad_choose_params": "struct"
+     "pad_choose_params": {
+      "members": {
+       "profile": "int",
+       "nick": "string",
+       "net_name": "string"
+      }
+     }
     }
    },
-   "site": "game/online/gamenet_lobby_menus.cpp:122"
+   "site": "game/online/gamenet_lobby_menus.cpp:122",
+   "note": "[shapes: entry review]"
   }
  ],
  "add_item_to_face_menu": [
@@ -154,8 +190,9 @@
  ],
  "0x6d51f203": [
   {
-   "params": "unknown: the command's whole params structure plus 0xC4745838 (text):string",
-   "site": "game/commands/net_state_cfuncs.cpp:240"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/commands/net_state_cfuncs.cpp:240",
+   "note": "unknown: the command's whole params structure plus 0xC4745838 (text):string"
   }
  ],
  "0x271d435c": [
@@ -363,8 +400,9 @@
  ],
  "goal_race_next_waypoint": [
   {
-   "params": "unknown: structures merged in (members that can't be listed)",
-   "site": "game/goals/goal_net_types.cpp:335"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/goals/goal_net_types.cpp:335",
+   "note": "unknown: structures merged in (members that can't be listed)"
   }
  ],
  "goal_pro_stop_anim_scripts": [
@@ -430,8 +468,9 @@
  ],
  "goal_skate_the_line_next_cluster": [
   {
-   "params": "unknown: structures merged in (members that can't be listed)",
-   "site": "game/goals/goal_skate_line.cpp:68"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/goals/goal_skate_line.cpp:68",
+   "note": "unknown: structures merged in (members that can't be listed)"
   }
  ],
  "goal_no_valid_key_combos": [
@@ -500,13 +539,27 @@
      "status": "string",
      "location": "string",
      "id": "name",
-     "pad_choose_params": "struct",
+     "pad_choose_params": {
+      "members": {
+       "profile": "int",
+       "nick": "string",
+       "status": "string",
+       "location": "string",
+       "join_ip": "int",
+       "join_private_ip": "int",
+       "join_port": "int",
+       "0x00000000?": "name",
+       "back_script?": "name",
+       "remove_script?": "name"
+      }
+     },
      "pad_choose_script": "name",
      "parent_menu_id": "name",
      "scale": "float"
     }
    },
-   "site": "game/online/buddy_man.cpp:542"
+   "site": "game/online/buddy_man.cpp:542",
+   "note": "[shapes: entry review]"
   }
  ],
  "CreateBuddyLoginFailedDialog": [
@@ -1072,11 +1125,16 @@
      "text": "string",
      "pad_choose_script": "name",
      "focus_script": "name",
-     "pad_choose_params": "struct",
+     "pad_choose_params": {
+      "members": {
+       "index": "int"
+      }
+     },
      "0x00000000": "name"
     }
    },
-   "site": "game/online/gamenet_lobby_menus.cpp:195"
+   "site": "game/online/gamenet_lobby_menus.cpp:195",
+   "note": "[shapes: entry review]"
   }
  ],
  "0x459148c5": [
@@ -1084,17 +1142,32 @@
    "params": {
     "members": {
      "text": "string",
-     "pad_choose_params": "struct",
+     "pad_choose_params": {
+      "members": {
+       "profile": "int",
+       "nick": "string",
+       "net_name": "string"
+      }
+     },
      "pad_choose_script": "name",
      "rank": "int",
      "id": "name",
      "parent_menu_id": "name",
      "scale": "float",
-     "rgba": "array",
-     "unfocus_params": "struct"
+     "rgba": {
+      "array": "int"
+     },
+     "unfocus_params": {
+      "members": {
+       "rgba": {
+        "array": "int"
+       }
+      }
+     }
     }
    },
-   "site": "game/online/gamenet_lobby_menus.cpp:245"
+   "site": "game/online/gamenet_lobby_menus.cpp:245",
+   "note": "[shapes: entry review]"
   }
  ],
  "create_gamespy_connection_failure_dialog": [
@@ -1748,11 +1821,20 @@
      "parent": "name",
      "pad_choose_script": "name",
      "focus_script": "name",
-     "pad_choose_params": "struct",
-     "focus_params": "struct"
+     "pad_choose_params": {
+      "members": {
+       "id": "name"
+      }
+     },
+     "focus_params": {
+      "members": {
+       "id": "name"
+      }
+     }
     }
    },
-   "site": "game/online/server_list.cpp:448"
+   "site": "game/online/server_list.cpp:448",
+   "note": "[shapes: entry review]"
   }
  ],
  "CreateFailedLobbyListDialog": [
@@ -1975,10 +2057,15 @@
      "tod_script": "name",
      "is_male": "int",
      "description": "string",
-     "pad_choose_params": "struct"
+     "pad_choose_params": {
+      "members": {
+       "file": "string"
+      }
+     }
     }
    },
-   "site": "game/online/vault_man.cpp:899"
+   "site": "game/online/vault_man.cpp:899",
+   "note": "[shapes: entry review]"
   }
  ],
  "net_vault_menu_add_goal": [
@@ -1998,10 +2085,15 @@
      "tod_script": "name",
      "is_male": "int",
      "description": "string",
-     "pad_choose_params": "struct"
+     "pad_choose_params": {
+      "members": {
+       "file": "string"
+      }
+     }
     }
    },
-   "site": "game/online/vault_man.cpp:899"
+   "site": "game/online/vault_man.cpp:899",
+   "note": "[shapes: entry review]"
   }
  ],
  "net_vault_menu_add_skater": [
@@ -2021,10 +2113,15 @@
      "tod_script": "name",
      "is_male": "int",
      "description": "string",
-     "pad_choose_params": "struct"
+     "pad_choose_params": {
+      "members": {
+       "file": "string"
+      }
+     }
     }
    },
-   "site": "game/online/vault_man.cpp:899"
+   "site": "game/online/vault_man.cpp:899",
+   "note": "[shapes: entry review]"
   }
  ],
  "net_vault_menu_add_trick": [
@@ -2044,10 +2141,15 @@
      "tod_script": "name",
      "is_male": "int",
      "description": "string",
-     "pad_choose_params": "struct"
+     "pad_choose_params": {
+      "members": {
+       "file": "string"
+      }
+     }
     }
    },
-   "site": "game/online/vault_man.cpp:899"
+   "site": "game/online/vault_man.cpp:899",
+   "note": "[shapes: entry review]"
   }
  ],
  "0x3cb03619": [
@@ -2445,13 +2547,17 @@
    "params": {
     "members": {
      "metapiece_id": "name",
-     "ClipBoardIndex": "int",
-     "Sector": "name",
-     "Sectors": "array",
-     "0x00000000": "name"
+     "Sectors": {
+      "array": {
+       "members": {
+        "0x00000000": "name|vector"
+       }
+      }
+     }
     }
    },
-   "site": "game/park_editing/piece_menu.cpp:150"
+   "site": "game/park_editing/piece_menu.cpp:150",
+   "note": "[shapes: entry review]"
   }
  ],
  "parked_make_set_menu": [
@@ -2468,16 +2574,12 @@
   {
    "params": {
     "members": {
-     "metapiece_id": "name",
-     "ClipBoardIndex": "int",
-     "Sector": "name",
-     "Sectors": "array",
      "set_number": "int",
-     "last_set_number": "int",
-     "0x00000000": "name"
+     "last_set_number": "int"
     }
    },
-   "site": "game/park_editing/piece_menu.cpp:161"
+   "site": "game/park_editing/piece_menu.cpp:161",
+   "note": "[shapes: entry review]"
   }
  ],
  "0x415f2afa": [
@@ -2594,8 +2696,9 @@
  ],
  "0xd8fa65d7": [
   {
-   "params": "unknown: the matching element of global array FlipSpins (0xB75D73E5): a structure (with spin button names, SpinX/Y/Z ints and whatever else the element has)",
-   "site": "game/rider/core_physics_moves.cpp:473"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/rider/core_physics_moves.cpp:473",
+   "note": "unknown: the matching element of global array FlipSpins (0xB75D73E5): a structure (with spin button names, SpinX/Y/Z ints and whatever else the element has)"
   }
  ],
  "toggle_bullettime": [
@@ -2750,8 +2853,9 @@
    "site": "game/rider/rider.cpp:411"
   },
   {
-   "params": "unknown: the SparksOn member function call's arguments (whatever the calling script passed; RailNotRequired flag read)",
-   "site": "game/rider/rider.cpp:1741"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/rider/rider.cpp:1741",
+   "note": "unknown: the SparksOn member function call's arguments (whatever the calling script passed; RailNotRequired flag read)"
   }
  ],
  "SkaterParticles_SparksOff": [
@@ -2760,8 +2864,9 @@
    "site": "game/rider/rider.cpp:419"
   },
   {
-   "params": "unknown: the SparksOff member function call's arguments (whatever the calling script passed)",
-   "site": "game/rider/rider.cpp:1737"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/rider/rider.cpp:1737",
+   "note": "unknown: the SparksOff member function call's arguments (whatever the calling script passed)"
   }
  ],
  "kill_load_premade_cats": [
@@ -3064,8 +3169,9 @@
  ],
  "0x2d90485d": [
   {
-   "params": "unknown: structures merged in (members that can't be listed)",
-   "site": "game/rider/trick_queue.cpp:434"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/rider/trick_queue.cpp:434",
+   "note": "unknown: structures merged in (members that can't be listed)"
   }
  ],
  "0x1fe009c7": [
@@ -3088,8 +3194,9 @@
  ],
  "post_load_from_memory_card": [
   {
-   "params": "unknown: LoadFromMemoryCard's whole params structure (Name:string, Type:name, the no-apply int, anything else the caller passed)",
-   "site": "game/save_cards/memcard_cfuncs.cpp:225"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/save_cards/memcard_cfuncs.cpp:225",
+   "note": "unknown: LoadFromMemoryCard's whole params structure (Name:string, Type:name, the no-apply int, anything else the caller passed)"
   }
  ],
  "Change": [
@@ -3115,29 +3222,47 @@
  ],
  "create_horse_panel_message": [
   {
-   "params": "unknown: structures merged in (members that can't be listed)",
-   "site": "game/skate/competition_cfuncs.cpp:259"
+   "params": "covered: start_mechanisms.json",
+   "site": "game/skate/competition_cfuncs.cpp:259",
+   "note": "unknown: structures merged in (members that can't be listed)"
   }
  ],
  "goal_comp_add_leader_board": [
   {
    "params": {
     "members": {
-     "leader_board": "array"
+     "leader_board": {
+      "array": {
+       "members": {
+        "Name": "string",
+        "score": "int",
+        "0x00000000?": "name"
+       }
+      }
+     }
     }
    },
-   "site": "game/skate/contest.cpp:371"
+   "site": "game/skate/contest.cpp:371",
+   "note": "[shapes: entry review]"
   }
  ],
  "goal_comp_show_run_scores": [
   {
    "params": {
     "members": {
-     "scores": "array",
+     "scores": {
+      "array": {
+       "members": {
+        "score": "int",
+        "0x00000000?": "name"
+       }
+      }
+     },
      "total_score": "int"
     }
    },
-   "site": "game/skate/contest.cpp:528"
+   "site": "game/skate/contest.cpp:528",
+   "note": "[shapes: entry review]"
   }
  ],
  "gap_menu_add_item": [

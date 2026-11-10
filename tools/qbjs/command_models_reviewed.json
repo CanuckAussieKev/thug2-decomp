@@ -1803,6 +1803,17 @@
   "source": "src/game/goals/goal_manager_cfuncs.cpp:254 cfunc_goal_manager_get_goal_params",
   "notes": "append_structure_if_any(the goal's params): every member of the goal's parameter structure is copied into the caller's parameters. Crashes if the goal doesn't exist."
  },
+ "GoalManager_GetNumberOfTimesGoalStarted": {
+  "outputs": {
+   "times_started": "int"
+  },
+  "source": "src/game/goals/goal_manager_cfuncs3.cpp cfunc_goal_manager_get_number_of_times_goal_started"
+ },
+ "GoalManager_SetShouldDeactivateOnExpire": {
+  "outputs": {},
+  "source": "src/game/goals/goal_manager_cfuncs3.cpp cfunc_goal_manager_set_should_deactivate_on_expire",
+  "notes": "sets the goal's ends-on-timeout flag"
+ },
  "Goto": {
   "outputs": {},
   "starts": [
@@ -2111,6 +2122,18 @@
  "LeftPressed": {
   "outputs": {},
   "source": "src/engine/objects/input_component.cpp:413"
+ },
+ "LevelEditor_EditedLevels": {
+  "outputs": {
+   "edited_list": "array",
+   "edited_count": "int"
+  },
+  "source": "src/editor/level_editor_layout.cpp cfunc_edited_levels"
+ },
+ "LevelEditor_PlayCamera": {
+  "outputs": {},
+  "source": "src/editor/level_editor_cameras.cpp cfunc_play_camera",
+  "notes": "plays the camera through PlaySkaterCamAnim / KillSkaterCamAnim on structures of its own (no exitScript)"
  },
  "LinearMap": {
   "outputs": {},
@@ -3004,6 +3027,14 @@
  "OverrideLimits": {
   "outputs": {},
   "source": "src/game/rider/core_member_functions.cpp:895"
+ },
+ "ParkEditorAreaSelectionDeletePieces": {
+  "outputs": {},
+  "source": "src/game/park_editing/park_editor_cfuncs.cpp cfunc_park_editor_area_selection_delete_pieces"
+ },
+ "ParkEditorSelectionAreaTooBigToCopy": {
+  "outputs": {},
+  "source": "src/game/park_editing/park_editor_cfuncs.cpp cfunc_park_editor_selection_area_too_big_to_copy"
  },
  "PartGotFlag": {
   "outputs": {},
@@ -3909,6 +3940,10 @@
   "outputs": {},
   "source": "src/engine/objects/flexible_particle.cpp:439; src/engine/gfx/particle_system_update.cpp:345"
  },
+ "SetPositionalSoundSilenceOverrideMode": {
+  "outputs": {},
+  "source": "src/engine/sound/sound_cfuncs.cpp cfunc_set_positional_sound_silence_override_mode"
+ },
  "SetProps": {
   "outputs": {},
   "source": "src/engine/objects/entity.cpp:123; src/engine/ui/screen_element.cpp:902",
@@ -4309,6 +4344,11 @@
   "outputs": {},
   "source": "src/game/rider/balance_trick.cpp:271"
  },
+ "SwitchParkEditorMenuPieceToMostRecentClipboard": {
+  "outputs": {},
+  "source": "src/game/park_editing/park_editor_cfuncs.cpp cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard",
+  "notes": "launches the menu event kSetMenuContainer (no payload)"
+ },
  "TagClearFlags": {
   "outputs": {},
   "source": "src/game/rider/tagging.cpp:326"
@@ -4320,6 +4360,18 @@
  "TextureSplat": {
   "outputs": {},
   "source": "src/engine/objects/skeleton_component.cpp:365"
+ },
+ "ThawBmx_HomeSpot": {
+  "outputs": {
+   "pos": "vector",
+   "heading": "float"
+  },
+  "source": "src/game/rider/thaw_bmx_parked.cpp cfunc_home_spot"
+ },
+ "ThawBmx_LoadTexture": {
+  "outputs": {},
+  "source": "src/game/rider/thaw_bmx.cpp cfunc_load_texture",
+  "notes": "LoadTexture's (no outputs)"
  },
  "ThawBmxLoadAssets": {
   "outputs": {},
