@@ -225,6 +225,8 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
     };
     const returning = (offset: number): Statement => ({ kind: "return", offset, fields: [] });
     let lineEnded = false;
+    // (the last statement read was a command that ended at a Random's jump, no line end before it)
+    let commandAtJump = false;
     const heights = new WeakMap<Expr, number>();
     const bounded = (v: Expr): Expr => {
         const children =
@@ -648,10 +650,52 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
             node();
             const offset = p;
             lineEnded = false;
+            commandAtJump = false;
             // A Random among statements (a Random value starts with a name or a value, never a statement).
             if ([0x2f, 0x37, 0x40, 0x41].includes(b[p]!)) {
                 const table = randomTable();
-                const branches = randomBranches(table.targets, (end) => block(depth + 1, loops, end), true, returning);
+                // (which branches end with a command right at their jump - no line end: see below)
+                // (by where each branch starts: a branch may be parsed twice - randomBranches' retry)
+                const atJump = new Map<number, number>(); // branch start -> its jump's target
+
+                const branches = randomBranches(
+                    table.targets,
+                    (end) => {
+                        const start = p;
+                        commandAtJump = false;
+                        const statements = block(depth + 1, loops, end);
+                        if (b[p] === 0x2e && commandAtJump) atJump.set(start, p + 5 + b.readUInt32LE(p + 1));
+                        return statements;
+                    },
+                    true,
+                    returning,
+                );
+                // A branch's command that ends at the jump, not at a line end, goes on reading its arguments after the
+                // join (parse_arguments follows the jump) up to the line end: those tokens are its arguments, and that
+                // line runs as statements only in the other branches (pc_ is past it after the command).
+                const joins = table.targets.map((target) => atJump.get(target));
+                const join = joins.find((j) => j !== undefined);
+                const consumed = joins.map((j) => j !== undefined && ![1, 2, 0x24].includes(b[j]!));
+                if (join !== undefined && consumed.some(Boolean)) {
+                    if (joins.some((j) => j !== undefined && j !== join)) fail("commands reading on past different joins");
+                    const after = p;
+                    p = join;
+                    const extra = parameters(0);
+                    const lineEnd = p;
+                    if (![1, 2].includes(b[lineEnd]!))
+                        fail("a command reading on past a Random's join into a token it can't read (the original hangs)");
+                    p = join;
+                    const line = block(depth + 1, loops, lineEnd);
+                    // (the statement took its line end too: back to it)
+                    if (p < lineEnd) fail("a command reading on past a Random's join: its line isn't whole statements");
+                    p = Math.max(lineEnd, after);
+                    branches.forEach((branch, i) => {
+                        if (consumed[i]) {
+                            const call = branch.at(-1) as Call;
+                            branch[branch.length - 1] = { ...call, fields: [...call.fields, ...extra] };
+                        } else branch.push(...line);
+                    });
+                }
                 body.push({ kind: "randomBlock", offset, opcode: table.opcode, weights: table.weights, branches });
                 lines();
                 continue;
@@ -795,7 +839,10 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 if (!lineEnded && b[p] !== 1 && b[p] !== 2 && b[p] !== 0x24 && STATEMENT_STARTS(b[p]!)) continue;
             } else body.push(call());
             // A statement in a Random's branch may end at the branch's jump (the argument loop follows it).
-            if (b[p] === 0x2e && !lineEnded) continue;
+            if (b[p] === 0x2e && !lineEnded) {
+                commandAtJump = body.at(-1)?.kind === "call";
+                continue;
+            }
             endLine();
         }
         return body;

@@ -293,6 +293,30 @@ const tails = () =>
         ]),
         "tails.qb",
     );
+// A Random's branch whose command ends at its jump (no line end) reads on past the join up to the line end
+// (parse_arguments follows the jump): `Random(@ PlaySound carhorn @) Wait 2 seconds` - in the first branch Wait 2
+// seconds are PlaySound's arguments, only the second runs Wait (thps3_la's police car, as converted).
+const readsOnPastJoin = () =>
+    readIR(
+        Uint8Array.from([
+            ...script("carHorn", [
+                0x2f,
+                ...le32(2),
+                ...le16(1),
+                ...le16(1),
+                ...le32(4),
+                ...le32(15),
+                ...name("PlaySound"),
+                ...name("carhorn"),
+                0x2e,
+                ...le32(0),
+                ...command("Wait", [...integer(2), ...name("seconds")]),
+                ...command("After"),
+            ]),
+            0,
+        ]),
+        "reads-on.qb",
+    );
 // A structure holding a script (the CAS tables' `script name ... endscript` values), passed to a command.
 const scriptValues = () =>
     readIR(
@@ -315,7 +339,19 @@ const scriptValues = () =>
         ]),
         "script-values.qb",
     );
+test("a command ending at a Random's jump reads on past the join; that line runs only in the other branches", () => {
+    const s = readsOnPastJoin().definitions[0];
+    assert.ok(s?.kind === "script");
+    const random = s.body[0];
+    assert.ok(random?.kind === "randomBlock");
+    const [first, second] = random.branches;
+    assert.ok(first?.length === 1 && first[0]?.kind === "call" && first[0].name === checksum("PlaySound"));
+    assert.equal(first[0].fields.length, 4); // carhorn, Wait, 2, seconds
+    assert.ok(second?.length === 1 && second[0]?.kind === "call" && second[0].name === checksum("Wait"));
+    assert.ok(s.body[1]?.kind === "call" && s.body[1].name === checksum("After"));
+});
 const modules: [string, () => ModuleIR][] = [
+    ["a command reading on past a Random's join", readsOnPastJoin],
     ["jumps into a script's tail", tails],
     ["scripts as values", scriptValues],
     ["if NOT", negated],
