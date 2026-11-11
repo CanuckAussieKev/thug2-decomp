@@ -36,9 +36,9 @@ using namespace internal;
 namespace frontend::new_frontend {
 namespace {
 
-constexpr int kChoicesPerRow = 16;              // a choice's index is its row * 16 + choice
-constexpr int kKeysPerRow = 64;                 // a keyboard key's index is its row * 64 + column
-constexpr float kEdgeFraction = 0.3F;           // the part of an adjustable row at each end that steps left or right
+constexpr int kChoicesPerRow = 16;    // a choice's index is its row * 16 + choice
+constexpr int kKeysPerRow = 64;       // a keyboard key's index is its row * 64 + column
+constexpr float kEdgeFraction = 0.3F; // the part of an adjustable row at each end that steps left or right
 constexpr std::size_t kMaxMirrorEvents = 64;
 constexpr std::size_t kMaxQueuedEvents = 256;
 
@@ -73,8 +73,8 @@ bool step_to(modules::FrontEnd* front_end, int row)
         return false; // (a row of a menu not taking the pad: the story's other stats column)
     }
     StepContext context{.front_end_ = front_end, .horizontal = v.horizontal};
-    menu_reading::step_selection(target, menu_reading::child_count(menu), menu_reading::menu_wraps(menu), read_selection,
-                                send_step, &context);
+    menu_reading::step_selection(target, menu_reading::child_count(menu), menu_reading::menu_wraps(menu),
+                                 read_selection, send_step, &context);
     return read_selection(nullptr) == target;
 }
 
@@ -97,13 +97,13 @@ void choose_key(modules::FrontEnd* front_end, KeyPlace key)
         }
         const mirror::MenuRead now = read_keyboard(active);
         if (now.key_row_ != row) {
-            modules::send_menu_pad_event(front_end, now.key_row_ < row ? modules::FrontEnd::kPadDown
-                                                                           : modules::FrontEnd::kPadUp);
+            modules::send_menu_pad_event(front_end,
+                                         now.key_row_ < row ? modules::FrontEnd::kPadDown : modules::FrontEnd::kPadUp);
             continue;
         }
         if (now.key_col_ != col) {
             modules::send_menu_pad_event(front_end, now.key_col_ < col ? modules::FrontEnd::kPadRight
-                                                                           : modules::FrontEnd::kPadLeft);
+                                                                       : modules::FrontEnd::kPadLeft);
             continue;
         }
         modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
@@ -132,8 +132,8 @@ bool step_to_stat(modules::FrontEnd* front_end, int row)
     }
     if (v.selected >= 0) {
         modules::send_menu_pad_event(front_end, row_ref.stat_column_ < core::at(v.rows, v.selected).stat_column_
-                                                        ? modules::FrontEnd::kPadLeft
-                                                        : modules::FrontEnd::kPadRight);
+                                                    ? modules::FrontEnd::kPadLeft
+                                                    : modules::FrontEnd::kPadRight);
     }
     return false;
 }
@@ -159,7 +159,7 @@ void stats_click(modules::FrontEnd* front_end, const paint::Hit& hit)
         modules::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
     }
     modules::send_menu_pad_event(front_end, hit.index % kChoicesPerRow == 0 ? modules::FrontEnd::kPadLeft
-                                                                    : modules::FrontEnd::kPadRight);
+                                                                            : modules::FrontEnd::kPadRight);
 }
 
 // The restyled screen's mouse: the front end, the frame the screen was fitted in, whether it is the skater select or
@@ -190,8 +190,7 @@ void mirror_motion(const MouseMirror& mouse, const input::Event& widget)
 {
     modules::FrontEnd* front_end = mouse.front_end;
     if (mouse.stats) {
-        if (const paint::Hit* hit =
-                hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y))) {
+        if (const paint::Hit* hit = hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y))) {
             const int choice_row = hit->kind == paint::Hit::Kind::kChoice ? hit->index / 16 : -1;
             const int row = hit->kind == paint::Hit::Kind::kItem ? hit->index : choice_row;
             if (row >= 0 && row != menu_mirror().mirror_.get_shown().selected) {
@@ -202,8 +201,7 @@ void mirror_motion(const MouseMirror& mouse, const input::Event& widget)
     }
     // (the skater select: each step loads a skater - only a click selects there)
     if (!mouse.skaters) {
-        if (const paint::Hit* hit =
-                hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y))) {
+        if (const paint::Hit* hit = hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y))) {
             if (hit->kind == paint::Hit::Kind::kItem && hit->index != menu_mirror().mirror_.get_shown().selected) {
                 step_to(front_end, hit->index);
             }
@@ -253,8 +251,7 @@ bool mirror_click(const MouseMirror& mouse, const input::Event& widget)
     if (widget.button != input::kMouseLeft) {
         return false;
     }
-    const paint::Hit* hit =
-        hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y));
+    const paint::Hit* hit = hit_at(*mouse.frame, static_cast<float>(widget.x), static_cast<float>(widget.y));
     if (!hit) {
         return false;
     }
@@ -304,14 +301,16 @@ void mirror_mouse(modules::FrontEnd* front_end)
             break;
         case input::EventType::kMouseWheel:
             if (widget.wheel != 0) {
-                StepContext context{.front_end_ = front_end, .horizontal = menu_mirror().mirror_.get_shown().horizontal};
+                StepContext context{.front_end_ = front_end,
+                                    .horizontal = menu_mirror().mirror_.get_shown().horizontal};
                 send_step(&context, widget.wheel > 0 ? -1 : 1);
             }
             break;
-        // (the main menu's Continue - ours: the game's menu has no such item; every other key the game's menu takes)
+        // (the main menu's Continue - ours: the game's menu has no such item; every other key the game's menu takes. On
+        // the keyboard Ctrl+Shift+X - a plain key is too easy to hit; the pad's X and the hint's click below)
         case input::EventType::kKeyDown:
-            if (menu_mirror().mirror_.get_shown().main_menu_ && !widget.repeat &&
-                (widget.key == SDL_SCANCODE_X || widget.key == SDL_SCANCODE_R)) {
+            if (menu_mirror().mirror_.get_shown().main_menu_ && !widget.repeat && widget.key == SDL_SCANCODE_X &&
+                (widget.modifiers & input::kModifierCtrl) != 0 && (widget.modifiers & input::kModifierShift) != 0) {
                 continue_last_level(front_end);
                 return;
             }
@@ -520,8 +519,7 @@ void handle_queued(modules::FrontEnd* front_end, const input::Event& widget)
         handle_button_down(front_end, widget);
         return;
     case input::EventType::kPadButtonUp:
-        if (widget.pad_button >= SDL_GAMEPAD_BUTTON_DPAD_UP &&
-            widget.pad_button <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT) {
+        if (widget.pad_button >= SDL_GAMEPAD_BUTTON_DPAD_UP && widget.pad_button <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT) {
             stick_repeat().repeat_ = {};
         }
         return;
@@ -569,7 +567,8 @@ void handle_queued(modules::FrontEnd* front_end, const input::Event& widget)
             case paint::Hit::Kind::kContinue:
                 break; // (the restyled main menu's - mirror_mouse)
             case paint::Hit::Kind::kChoice:
-                run_action(front_end, menu_state().click_choice({.row = clicked.index / kChoicesPerRow, .choice = clicked.index % kChoicesPerRow}));
+                run_action(front_end, menu_state().click_choice({.row = clicked.index / kChoicesPerRow,
+                                                                 .choice = clicked.index % kChoicesPerRow}));
                 break;
             }
         }
@@ -602,8 +601,9 @@ void handle_event(const input::Event& event)
     if (new_frontend_state().state_ != State::kShown) {
         // (a restyled original screen: the mouse is ours - its keys and buttons go on to the original menu)
         if (menu_mirror().mirror_.get_up() && menu_mirror().mirror_events_.size() < kMaxMirrorEvents &&
-            (event.type == input::EventType::kMouseMotion || event.type == input::EventType::kMouseButtonDown || event.type == input::EventType::kMouseWheel ||
-             event.type == input::EventType::kKeyDown || event.type == input::EventType::kPadButtonDown)) {
+            (event.type == input::EventType::kMouseMotion || event.type == input::EventType::kMouseButtonDown ||
+             event.type == input::EventType::kMouseWheel || event.type == input::EventType::kKeyDown ||
+             event.type == input::EventType::kPadButtonDown)) {
             menu_mirror().mirror_events_.push_back(event.kept());
         }
         return;

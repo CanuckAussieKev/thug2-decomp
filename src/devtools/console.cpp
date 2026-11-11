@@ -210,11 +210,16 @@ bool begin_context(ImGuiContext** previous)
     return true;
 }
 
+void handle_event(const input::Event& event);
+
 void set_open(bool open)
 {
     State& s = state();
     s.open = open;
     s.focus_input = open;
+    // (while open, every event is the console's alone - the other handlers (the menus' shortcuts, the editor's keys)
+    // see none of what is typed; the game's own reading of the keys and pads stands aside: blocks_game_input)
+    input::capture_events(open ? handle_event : nullptr);
     if (SDL_Window* window = sys::sdl_window()) {
         if (open) {
             SDL_StartTextInput(window);

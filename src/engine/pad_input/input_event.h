@@ -81,6 +81,9 @@ using EventHandler = void (*)(const Event& event);
 
 // A handler added after the others (start-up: ext::prepare_input; the level editor's simulation, later).
 THUG2_API void add_event_handler(EventHandler handler);
+// While set, every event goes to `handler` alone - none of the others (the developer console while it is open: what is
+// typed there reaches no menu or tool's keys); null: to all of them again.
+void capture_events(EventHandler handler);
 // The source that has the window's events: an event handed to every handler, in order.
 void deliver(const Event& event);
 

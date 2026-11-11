@@ -17,12 +17,24 @@ std::vector<EventHandler>& handlers()
     return handlers.get();
 }
 
+EventHandler& captured_by()
+{
+    static EventHandler handler = nullptr;
+    return handler;
+}
+
 } // namespace
 
 void add_event_handler(EventHandler handler) { handlers().push_back(handler); }
 
+void capture_events(EventHandler handler) { captured_by() = handler; }
+
 void deliver(const Event& event)
 {
+    if (EventHandler only = captured_by()) {
+        only(event);
+        return;
+    }
     for (EventHandler handler : handlers()) {
         handler(event);
     }
