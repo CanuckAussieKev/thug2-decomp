@@ -28,6 +28,8 @@ StoredRandom* look_up_saved_random(const uint8_t* table, QbToken type, uint32_t 
 uint32_t pick_stored_random(const uint8_t* table, QbToken kind, uint32_t count);
 // NOT ORIGINAL: drops the stored randoms whose Random lies in the `size` bytes at `begin` (their code freed).
 void forget_stored_randoms(const uint8_t* begin, std::size_t size);
+// NOT ORIGINAL: every stored random dropped (the script check, before each run).
+void forget_all_stored_randoms();
 // NOT ORIGINAL: a script's RandomNoRepeat / RandomPermute state lasts as long as its definition, not its cached code.
 // The cache frees a script's code when it is released or evicted and decompresses it again elsewhere when it is next
 // fetched; the original's state stays keyed by the old address (found again only when the allocator happens to give

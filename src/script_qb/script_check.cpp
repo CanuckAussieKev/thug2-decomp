@@ -32,6 +32,7 @@
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/qb.h"
+#include "engine/script/token_reader.h"
 #include "engine/script/tokens.h"
 #include "engine/sys/stopwatch.h"
 #include "platform/process_flags.h"
@@ -91,7 +92,14 @@ struct Job {
     // (TypeScript replaying a QB run that ended runaway: the calls QB made - the run ends right after the last, as
     // what follows it isn't compared; 0: no such end)
     uint32_t stop_at_call = 0;
+    // (the call budget: 0 - settings.calls. A long run - a straight run of calls longer than the budget, still reaching
+    // new statements at its end - has kLongRunCalls and ends once settings.calls calls go by with nothing new; its
+    // replay has the calls QB's made)
+    uint32_t calls = 0;
+    bool long_run = false;
 };
+
+constexpr uint32_t kLongRunCalls = 100000;
 
 std::string forced_text(const std::map<uint32_t, uint32_t>& forced)
 {
@@ -133,6 +141,10 @@ struct Run {
     uint32_t decisions_at_call = 0;
     uint32_t frame_at_call = 0; // (the frame of the last stub call: a runaway run's end frame)
     size_t trace_at_call = 0;   // (the trace's length after it: what a runaway run's trace keeps)
+    uint32_t calls_budget = 0;  // (Job::calls)
+    bool long_run = false;      // (Job::long_run)
+    uint32_t new_at_call = 0;   // (the calls made when the run last reached a statement it hadn't before - QB)
+    std::unordered_set<uint64_t> places; // (the statements it has reached - QB)
     uint32_t stop_at_call = 0;  // (Job::stop_at_call)
     // the calls after the first kTracedCalls: counted and hashed, not written (a long run's trace stays short)
     uint32_t tail_calls = 0;
@@ -317,7 +329,9 @@ bool stub(const Script* script, uint32_t name, uint32_t object, Struct* args)
         }
     }
     run.trace_at_call = run.trace.size();
-    if (run.calls >= s.settings.calls && run.ended.empty()) {
+    if ((run.calls >= run.calls_budget ||
+         (run.long_run && run.calls - run.new_at_call >= static_cast<uint32_t>(s.settings.calls))) &&
+        run.ended.empty()) {
         run.ended = "overlong";
     }
     if (run.stop_at_call != 0 && run.calls == run.stop_at_call && run.ended.empty()) {
@@ -409,6 +423,8 @@ Run run_once(uint32_t name, Struct* args, const Job& job)
     run.forced = job.stubs;
     run.forced_decisions = job.forced;
     run.stop_at_call = job.stop_at_call;
+    run.calls_budget = job.calls != 0 ? job.calls : static_cast<uint32_t>(s.settings.calls);
+    run.long_run = job.long_run;
     for (size_t i = 0; i < run.pools_at_start.size(); ++i) {
         const memory::SlabBank* pool = core::at(script_pools().at(i)->pools(), script_pools().at(i)->current());
         run.pools_at_start.at(i) = pool ? pool->taken_count() : 0;
@@ -417,6 +433,7 @@ Run run_once(uint32_t name, Struct* args, const Job& job)
     s.frame = 0;
     const auto started = std::chrono::steady_clock::now();
     maths::seed_random(job.seed);
+    forget_all_stored_randoms(); // (RandomNoRepeat / RandomPermute from scratch: a job made again runs the same)
     QbScript* script = QbScript::create();
     script->bind_script(name, args, nullptr);
     std::string outcome;
@@ -506,7 +523,7 @@ void explore(std::string& out, uint32_t name, size_t args_index, Struct* args)
         const bool arm_job = !arm_jobs.empty();
         Job job = arm_job ? std::move(arm_jobs.front()) : std::move(stub_jobs.front());
         (arm_job ? arm_jobs : stub_jobs).pop_front();
-        if (!tried.insert(job.stubs + "|" + forced_text(job.forced)).second) {
+        if (!tried.insert(job.stubs + "|" + forced_text(job.forced) + (job.long_run ? "|long" : "")).second) {
             continue;
         }
         stub_runs += arm_job ? 0 : 1;
@@ -524,6 +541,15 @@ void explore(std::string& out, uint32_t name, size_t args_index, Struct* args)
                 stub_jobs.push_back(Job{job.seed, prefix + other, before(job.forced, c.decisions)});
             }
             prefix += c.value;
+        }
+        // (a run that made the call budget's calls while still reaching new statements - a long straight run, e.g. a
+        // level's 650 animation loads: once more as a long run, on as long as it reaches new ones)
+        if (run.ended == "overlong" && !job.long_run && run.calls - run.new_at_call < 100 &&
+            ++s.targeted["long " + hex(name) + " " + std::to_string(args_index)] == 1) {
+            Job next = job;
+            next.calls = kLongRunCalls;
+            next.long_run = true;
+            arm_jobs.push_back(std::move(next));
         }
         // (a script call that never returned: the run again with it skipped - the code after it reached)
         for (const OpenCall& call : run.unreturned) {
@@ -723,6 +749,19 @@ void run_plan(const std::string& folder)
         }
         std::vector<uint8_t> part_bytes(part.begin(), part.end());
         load_qb_data(part_name.c_str(), part_bytes, 0, 0, 1);
+        // (a boot file whose scripts the game has since redefined or removed - the front end's level file loses its
+        // level-loading scripts - is loaded again as a temporary load: its own definitions run)
+        if (Array* listed = global_array("check_scripts"); loaded && listed) {
+            for (uint32_t i = 0; i < listed->extent() && loaded; ++i) {
+                uint32_t name = 0;
+                listed->struct_at(i)->read_hash_value(checksums::hash_from_text("name"), &name, 0);
+                const SymbolTableEntry* symbol = find_symbol(name);
+                loaded = symbol && symbol->unknown8() == file_name;
+            }
+            if (!loaded) {
+                load_qb(file.c_str(), 0, 1);
+            }
+        }
         std::string out = "module " + file + "\n";
         // (the version of the file the game ran - its bytes' hash - and, TypeScript, whether its module ran: a pass
         // that ran a file as QB compared nothing)
@@ -778,17 +817,24 @@ void run_plan(const std::string& folder)
                 // (QB's run ended runaway after N calls: the replay stops right after its N-th - a loop that runs on
                 // without calls until a budget stops it costs TypeScript far more than QB, and nothing after the last
                 // call is compared; with no calls it runs to its interrupt budget as before)
-                if (qb.find(" runaway decisions ") != std::string::npos) {
-                    uint32_t calls = 0;
-                    for (size_t at = qb.find("\ncall "); at != std::string::npos; at = qb.find("\ncall ", at + 1)) {
-                        ++calls;
-                    }
-                    const size_t tail = qb.find(" calls after ");
-                    if (tail != std::string::npos) {
-                        const size_t colon = qb.find(": ", tail);
-                        calls += static_cast<uint32_t>(std::strtoul(qb.c_str() + colon + 2, nullptr, 10));
-                    }
-                    job.stop_at_call = calls;
+                // (QB's run made its call budget's calls - a long run's too: the same budget)
+                // (the calls QB's run made: a run ended at a budget is replayed to that call - runaway: right after
+                // it; overlong: the same budget -, and a long run that finished gets a budget past its calls)
+                const bool runaway = qb.find(" runaway decisions ") != std::string::npos;
+                const bool overlong = qb.find(" overlong decisions ") != std::string::npos;
+                const size_t tail = qb.find(" calls after ");
+                uint32_t calls = 0;
+                for (size_t at = qb.find("\ncall "); at != std::string::npos; at = qb.find("\ncall ", at + 1)) {
+                    ++calls;
+                }
+                if (tail != std::string::npos) {
+                    calls += static_cast<uint32_t>(std::strtoul(qb.c_str() + qb.find(": ", tail) + 2, nullptr, 10));
+                }
+                job.stop_at_call = runaway ? calls : 0;
+                if (overlong) {
+                    job.calls = calls;
+                } else if (runaway || calls >= static_cast<uint32_t>(s.settings.calls)) {
+                    job.calls = std::max(calls + 1, static_cast<uint32_t>(s.settings.calls));
                 }
                 if (qb.find(" exhausted decisions ") != std::string::npos) {
                     ++exhausted; // (QB's run filled a script pool: not replayed)
@@ -958,8 +1004,11 @@ uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms)
 void note_statement(const Script* script, std::ptrdiff_t place)
 {
     if (active() && script && !ts::enabled()) {
-        state().statements.insert((static_cast<uint64_t>(script->script_title()) << 32) |
-                                  static_cast<uint32_t>(place));
+        const uint64_t at = (static_cast<uint64_t>(script->script_title()) << 32) | static_cast<uint32_t>(place);
+        state().statements.insert(at);
+        if (Run* run = state().run; run && run->places.insert(at).second) {
+            run->new_at_call = run->calls;
+        }
     }
 }
 

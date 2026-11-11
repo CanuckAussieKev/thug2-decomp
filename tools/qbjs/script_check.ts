@@ -84,12 +84,27 @@ export function planModules(root: string, only: string[] = []): PlanModule[] {
     const sources = join(root, "thug2-decomp-check-sources");
     rmSync(sources, { recursive: true, force: true });
     const rank = (origin: string) =>
-        origin === "thug2-decomp-data" ? 0 : origin.toLowerCase().endsWith(".prx") ? 1 : 2;
+        origin.startsWith("thug2-decomp-data\\")
+            ? -1
+            : origin === "thug2-decomp-data"
+              ? 0
+              : origin.toLowerCase().endsWith(".prx")
+                ? 1
+                : 2;
+    // (the overlay's own sets - the new front end's, Anteara Mod's - are read before the rest when the ini turns them
+    // on: a version of the file they stand in for)
+    const ini = existsSync(join(root, "thug2-decomp.ini")) ? readFileSync(join(root, "thug2-decomp.ini"), "utf8") : "";
+    const on = (key: string) => new RegExp(`^${key}=[1-9]`, "m").test(ini);
+    const sets = { "front_end\\": on("new_frontend"), "anteara\\": on("anteara_mod") };
     const byName = new Map<string, QbVersion[]>();
-    for (const v of qbVersions(root)) {
+    for (let v of qbVersions(root)) {
         if (v.origin !== "Data" && v.origin !== "thug2-decomp-data" && !v.origin.toLowerCase().endsWith(".prx"))
             continue;
-        if (v.name.startsWith("anteara\\") || v.name.startsWith("front_end\\")) continue; // (overlays' own sets)
+        const set = Object.keys(sets).find((s) => v.name.startsWith(s)) as keyof typeof sets | undefined;
+        if (set) {
+            if (!sets[set] || v.origin !== "thug2-decomp-data") continue;
+            v = { ...v, name: v.name.slice(set.length), origin: `thug2-decomp-data\\${set.slice(0, -1)}` };
+        }
         byName.set(v.name, [...(byName.get(v.name) ?? []), v]);
     }
     const modules: PlanModule[] = [];
@@ -465,6 +480,29 @@ export function unreachable(d: Extract<Definition, { kind: "script" }>): Stateme
     return dead;
 }
 
+// The statements in the arms of ifs whose code no run can reach ("if <place> <1: true / 0: false>").
+export function fixedArmCode(d: Extract<Definition, { kind: "script" }>, arms: string[]): Statement[] {
+    const base = d.offset + 6;
+    const out: Statement[] = [];
+    const statements = (xs: Statement[]): void => {
+        for (const x of xs) {
+            if (x.kind === "if") {
+                const place = x.offset - base;
+                if (arms.includes(`if ${place} 1`)) out.push(...x.yes);
+                else statements(x.yes);
+                if (arms.includes(`if ${place} 0`)) out.push(...x.no);
+                else statements(x.no);
+            } else if (x.kind === "switch") {
+                for (const c of x.cases) statements(c.body);
+                if (x.fallback) statements(x.fallback);
+            } else if (x.kind === "randomBlock") x.branches.forEach(statements);
+            else if (x.kind === "loop") statements(x.body);
+        }
+    };
+    statements(d.body);
+    return out;
+}
+
 export function coverageOf(cover: Map<string, Set<string>>, modules: PlanModule[]) {
     // Coverage: every branch of every script against those the QB runs took.
     const coverage: {
@@ -483,18 +521,27 @@ export function coverageOf(cover: Map<string, Set<string>>, modules: PlanModule[
         const taken = cover.get(m.file) ?? new Set<string>();
         for (const d of m.ir.definitions) {
             if (d.kind !== "script") continue;
-            const dead = unreachable(d);
-            const deadBranches = new Set(branches({ ...d, body: dead }));
-            const deadPlaces = new Set(statementPlaces({ ...d, body: dead }));
             const name = hex(d.name);
             // (an if whose condition stops before its line's end - an expression the evaluator gave up on - isn't
-            // forced: its true part would start mid-line; the arm its condition can't give is reported, not counted)
+            // forced: its true part would start mid-line; the arm its condition can't give is reported, not counted.
+            // Its true part's code is as unreachable as after a return - the original never takes it, or goes on from
+            // the middle of the line and stays at the expression's ')' for ever -, and so is a false part never taken)
+            const fixedPlaces = new Set(
+                branches(d)
+                    .map((b) => b.split(" "))
+                    .filter(([kind, place]) => kind === "if" && taken.has(`fixed ${name} ${place}`))
+                    .map(([, place]) => Number(place)),
+            );
             const fixedArms = branches(d).filter((b) => {
                 const [kind, place] = b.split(" ");
-                return (
-                    kind === "if" && taken.has(`fixed ${name} ${place}`) && !taken.has(`${b.replace(" ", ` ${name} `)}`)
-                );
+                return kind === "if" && fixedPlaces.has(Number(place)) && !taken.has(`${b.replace(" ", ` ${name} `)}`);
             });
+            const dead = [
+                ...unreachable(d),
+                ...fixedArmCode(d, [...fixedArms, ...[...fixedPlaces].map((place) => `if ${place} 1`)]),
+            ];
+            const deadBranches = new Set(branches({ ...d, body: dead }));
+            const deadPlaces = new Set(statementPlaces({ ...d, body: dead }));
             const all = branches(d).filter((b) => !deadBranches.has(b) && !fixedArms.includes(b));
             const missing = all.filter((b) => {
                 const [kind, place, value] = b.split(" ");
@@ -568,10 +615,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 versions: { origin: string; hash: string; source: string }[];
             }[];
             const cover = await readCoverage(join(at, "qb.txt"));
+            const tsText = existsSync(join(at, "ts.txt")) ? readFileSync(join(at, "ts.txt"), "utf8") : "";
+            // (the TypeScript pass's loaded hashes: the same files - a QB pass from before the QB side noted them
+            // says "loaded none")
+            const tsLoaded = new Map<string, string>();
+            for (const [, file, hash] of tsText.matchAll(/^module (.+)\r?\nloaded (\w+)/gm)) tsLoaded.set(file!, hash!);
             // (each module read in the version the game ran - its loaded hash; one we have no copy of is reported)
             const unknown: string[] = [];
             const modules = files.map((f) => {
-                const loaded = [...(cover.get(f.file) ?? [])].find((x) => x.startsWith("loaded "))?.split(" ")[1];
+                const qbLoaded = [...(cover.get(f.file) ?? [])].find((x) => x.startsWith("loaded "))?.split(" ")[1];
+                const loaded = qbLoaded && qbLoaded !== "none" ? qbLoaded : (tsLoaded.get(f.file) ?? qbLoaded);
                 const version = f.versions.find((v) => v.hash === loaded);
                 if (loaded && loaded !== "none" && !version) unknown.push(`${f.file} (${loaded})`);
                 const source = version?.source ?? f.source;
@@ -581,7 +634,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                     ir: readIR(readFileSync(source), relative(one, source)),
                 };
             });
-            const verdict = readVerdict(existsSync(join(at, "ts.txt")) ? readFileSync(join(at, "ts.txt"), "utf8") : "");
+            const verdict = readVerdict(tsText);
             results.push({
                 ...verdict,
                 unknownVersions: unknown,
@@ -614,7 +667,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             `Modules the TypeScript pass ran as QB (no module for the version loaded - untested): ${result.withoutTypeScript.length}${result.withoutTypeScript.length ? ` - ${result.withoutTypeScript.join(", ")}` : ""}.`,
             `Modules whose loaded version isn't among the planned ones: ${unknownVersions.length}${unknownVersions.length ? ` - ${unknownVersions.join(", ")}` : ""}.`,
             `Branches: ${taken} of ${total} taken by the QB runs (${percent(taken, total)}%; forced where no input took them).`,
-            `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends) not counted.`,
+            `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends, or in an arm its if can't take) not counted.`,
             "",
             "## Differences (first line that differs)",
             "",

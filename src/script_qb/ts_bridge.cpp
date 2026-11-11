@@ -1078,6 +1078,8 @@ void install()
     is_on() = config_int("features", "ts_scripts", 0) != 0;
     profile().on = config_int("debug", "ts_profile", 0) != 0;
     engine().recording = config_int("debug", "ts_types", 0) != 0;
+    // (each .qb file's hash is noted with TypeScript off too: the script check's QB pass says which version it ran)
+    set_qb_loaded_hook(on_qb_loaded);
     if (!is_on()) {
         return;
     }
@@ -1091,7 +1093,6 @@ void install()
         is_on() = false;
         return;
     }
-    set_qb_loaded_hook(on_qb_loaded);
     set_qb_unloaded_hook(on_qb_unloaded);
     get_log("ts: TypeScript scripts on (modules in %s)", game_folder_path("thug2-decomp-ts").c_str());
     if (engine().recording) {

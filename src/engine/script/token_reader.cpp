@@ -276,6 +276,18 @@ void forget_stored_randoms(const uint8_t* begin, std::size_t size)
     }
 }
 
+// NOT ORIGINAL: every stored random dropped, parked ones too (the script check: each run starts from none, so a run
+// made again from its job takes the same path).
+void forget_all_stored_randoms()
+{
+    StoredRandom* stored = script_state().stored_randoms_newest();
+    while (stored) {
+        StoredRandom* const older = stored->succ_;
+        unlink_and_free(stored);
+        stored = older;
+    }
+}
+
 // 0x00470C60
 // RandomNoRepeat / RandomPermute's choice (resolve_random_jumps' cases, as one function - NOT ORIGINAL: also a
 // TypeScript script's, ts_bridge.cpp, so both share the stored-random pool): its state found by `table` (the Random's

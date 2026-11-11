@@ -85,7 +85,17 @@ where the arm is forced.
   that loops for ever): once per call site. Skips aren't coverage.
 - An if whose condition stops before its line's end (an expression the evaluator gave up on, e.g. a member function
   in an expression) isn't forced: its condition comes out the same every time, and its true part would start in the
-  middle of the line. The arm it can't take is listed in the report, not counted.
+  middle of the line. The arm it can't take is listed in the report, not counted, and the code of its true part counts
+  as unreachable (the original never takes it, or goes on mid-line and stays at the expression's `)` for ever - THP8's
+  converted `if NOT (GMan_GoalIsActive goal=...)`), as does a false part never taken.
+- A run that makes its call budget's calls while still reaching statements it hadn't (a long straight run: a level's
+  650 animation loads) is made once more as a *long run*: on until 600 calls go by with nothing new (at most 100,000).
+  Its replay gets QB's number of calls as its budget.
+- Each run starts with no stored `RandomNoRepeat` / `RandomPermute` state (both languages share the game's pool), so a
+  job made again takes the same path - forcing a decision by its number needs that.
+- A boot file whose scripts the game has since redefined or removed (the front end's level file) is loaded again for
+  its module, as a level's is. With `new_frontend=1` / `anteara_mod=1` the overlay's `front_end` / `anteara` copy is
+  the version the game reads, and is planned as one.
 - A run's first 300 calls are written to its trace; the rest (up to the `calls` budget, 600) are counted and hashed on
   its end line.
 - A run that ends at a budget (`runaway`: QB's statement budget, 50,000, and TypeScript's interrupt budget - one check
