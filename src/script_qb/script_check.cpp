@@ -783,6 +783,28 @@ void run_plan(const std::string& folder)
         } else {
             out += "loaded none\n";
         }
+        // The file's globals - every symbol it defined but its scripts - as their values' text, hashed: QB's read from
+        // the .qb, TypeScript's (ts_scripts=2) made by the file's standalone module - compared (`global` lines).
+        {
+            std::map<uint32_t, std::string> globals;
+            for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
+                if (symbol->unknown8() != file_name || symbol->type() == QbValueKind::kScriptBody) {
+                    continue;
+                }
+                std::string text;
+                write_cell(text, symbol->type(), symbol->value(), 0);
+                uint64_t hash = 0xCBF29CE484222325ULL;
+                for (const char c : text) {
+                    hash = (hash ^ static_cast<uint8_t>(c)) * 0x100000001B3ULL;
+                }
+                std::array<char, 24> digest{};
+                std::snprintf(digest.data(), digest.size(), "%016llx", static_cast<unsigned long long>(hash));
+                globals[symbol->name_value()] = std::to_string(text.size()) + " " + digest.data();
+            }
+            for (const auto& [name, value] : globals) {
+                out += "global " + hex(name) + " " + value + "\n";
+            }
+        }
         s.coverage.clear();
         s.statements.clear();
         s.ts_coverage.clear();

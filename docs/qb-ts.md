@@ -90,6 +90,18 @@ cost the most (a ported level's node arrays are megabytes), and a global drawing
 A module is compiled to QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the
 QuickJS version, the word size and the module's own bytes); later starts read the bytecode.
 
+**Standalone** (`[features] ts_scripts=2`): the game reads no `.qb` for a file that has a standalone module - its
+scripts, its globals and its checksum names all come from the module, so the script archives (`qb_scripts.prx`, the
+levels' `*_scripts.prx`) aren't needed for it. `node tools/qbjs/install_ts.ts --game <folder> --standalone` writes one
+module for each file the game would load, laid out as the game finds it: `thug2-decomp-ts\Data\<path>.ts` / `.js` (the
+version the game reads there - an archive's, else the loose file's, with PartyMod's keyboard patch where the game
+applies it) and `thug2-decomp-ts\thug2-decomp-data\<path>` (the data overlay's, with its `front_end`, `anteara` and
+`anteara\front_end` sets). `load_qb` asks first (`load.h` QbStandaloneHook, `ts_bridge.cpp load_standalone`): the
+module for the path where the overlay would give the file, else the game's; none - the `.qb` is read as before. The
+`.ts` is the readable source beside; the game loads the `.js` (compiled by `compile_ts.ts`, whose manifest carries the
+file's names and the hash of the `.qb` it was made from). The script check proves it: `script_check_parallel.ps1
+-Standalone` runs its TypeScript pass so, and compares every global each file defines, as well as the runs.
+
 The C++ interpreter stays the host: the record, its Update, waits, events, spawning, objects and the call stack are all
 its own, so the scheduling is the original's by construction. A translated script's symbol has a body of one token
 (`kTsBody`, 0x4A + its name); when Update reaches it on a call-stack level, the interpreter resumes that level in

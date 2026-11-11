@@ -30,6 +30,7 @@
 #include "base/core/checksums.h"
 #include "base/maths/random.h"
 #include "engine/file/disk.h"
+#include "engine/file/data_overlay.h"
 #include "engine/file/disk_files.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -144,6 +145,16 @@ bool& is_on()
     static bool on = false;
     return on;
 }
+
+// [features] ts_scripts=2: the standalone modules first - a file that has one isn't read as .qb (load_standalone).
+bool& standalone()
+{
+    static bool on = false;
+    return on;
+}
+
+// (how far into a standalone module its manifest's "from" may be: the first line)
+constexpr size_t kManifestReach = 4096;
 
 // --- values ---------------------------------------------------------------------------------------------------------
 
@@ -755,6 +766,26 @@ std::unordered_map<std::string, std::unique_ptr<uint8_t>>& stored_keys()
     static std::unordered_map<std::string, std::unique_ptr<uint8_t>> keys;
     return keys;
 }
+// registerNames([checksum, name, ...]): a standalone module's file's checksum names, as the .qb loader registers them
+// (the game's table - when its debug names are on - and ours, kept for the level editor and the console).
+JSValue native_register_names(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+{
+    const uint32_t count = length_of(c, argv[0]);
+    for (uint32_t i = 0; i + 1 < count; i += 2) {
+        const JSValue number = JS_GetPropertyUint32(c, argv[0], i);
+        const JSValue text = JS_GetPropertyUint32(c, argv[0], i + 1);
+        const uint32_t checksum = to_u32(c, number);
+        if (const char* name = JS_ToCString(c, text)) {
+            register_name_hash(checksum, name);
+            note_qb_name(checksum, name);
+            JS_FreeCString(c, name);
+        }
+        JS_FreeValue(c, number);
+        JS_FreeValue(c, text);
+    }
+    return JS_UNDEFINED;
+}
+
 JSValue native_stored_choice(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
 {
     auto& keys = stored_keys();
@@ -878,6 +909,7 @@ bool start_engine()
     add_native(c, game, "frame", native_frame, 0);
     add_native(c, game, "decide", native_decide, 5);
     add_native(c, game, "reach", native_reach, 2);
+    add_native(c, game, "registerNames", native_register_names, 1);
     add_native(c, game, "storedChoice", native_stored_choice, 3);
     add_native(c, game, "forgetStored", native_forget_stored, 1);
     set(c, game, "recording", JS_NewBool(c, e.recording));
@@ -1000,29 +1032,17 @@ JSValue owner_value(JSContext* c, uint32_t file_checksum, bool temporary)
     return temporary ? JS_NewInt64(c, kTemporaryOwners + file_checksum) : JS_NewUint32(c, file_checksum);
 }
 
-void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temporary)
+// A module run for file `filename` (`relative`: its name in faults and the log; `cache_name`: its bytecode's file in
+// thug2-decomp-ts\cache): what it defines belongs to the file - its temporary loads' apart. True when it ran.
+bool run_module(const char* filename, bool temporary, const std::string& source, const std::string& relative,
+                const char* cache_name)
 {
-    if (filename) {
-        loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{file_hash(file), false};
-    }
-    if (!is_on() || !filename) {
-        return;
-    }
-    std::array<char, 16> name{};
-    std::snprintf(name.data(), name.size(), "%08x.js", file_hash(file));
-    const std::string relative = std::string("by-hash\\") + name.data();
-    const std::string path = game_folder_path("thug2-decomp-ts") + "\\" + relative;
-    std::string source;
-    if (fs::disk().kind(path.c_str()) != fs::PathKind::kFile || !fs::read_text(path, &source)) {
-        return;
-    }
     Engine& e = engine();
     e.loading_file = filename;
     e.loading_temporary = temporary;
     std::string error;
     const auto start = std::chrono::steady_clock::now();
-    std::snprintf(name.data(), name.size(), "%08x.qbc", file_hash(file));
-    const std::string cache = game_folder_path("thug2-decomp-ts") + "\\cache\\" + name.data();
+    const std::string cache = game_folder_path("thug2-decomp-ts") + "\\cache\\" + cache_name;
     bool cached = false;
     // (what it defines belongs to its file: let go of when the file is unloaded - on_qb_unloaded)
     std::array<JSValue, 1> owner{owner_value(e.context, checksums::hash_from_text(filename), temporary)};
@@ -1042,6 +1062,84 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
     }
     e.loading_file.clear();
     e.loading_temporary = false;
+    return loaded;
+}
+
+void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temporary)
+{
+    if (filename) {
+        loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{file_hash(file), false};
+    }
+    if (!is_on() || !filename) {
+        return;
+    }
+    std::array<char, 16> name{};
+    std::snprintf(name.data(), name.size(), "%08x.js", file_hash(file));
+    const std::string relative = std::string("by-hash\\") + name.data();
+    const std::string path = game_folder_path("thug2-decomp-ts") + "\\" + relative;
+    std::string source;
+    if (fs::disk().kind(path.c_str()) != fs::PathKind::kFile || !fs::read_text(path, &source)) {
+        return;
+    }
+    std::snprintf(name.data(), name.size(), "%08x.qbc", file_hash(file));
+    run_module(filename, temporary, source, relative, name.data());
+}
+
+// The standalone module for game file `filename` ([features] ts_scripts=2, install_ts.ts --standalone), where the game
+// would read the file: the data overlay's (thug2-decomp-ts\thug2-decomp-data\<its path in the overlay>), else the
+// game's (thug2-decomp-ts\Data\<path>) - <path>.js; "" when there is none.
+std::string standalone_path(const char* filename)
+{
+    std::string path;
+    std::array<char, file::kOverlayPathSize> overlay{};
+    const std::string& folder = frontend::data_overlay::get_folder();
+    if (frontend::data_overlay::get_overlay_path(filename, overlay)) {
+        const std::string found = overlay.data();
+        if (found.size() <= folder.size() || _strnicmp(found.c_str(), folder.c_str(), folder.size()) != 0) {
+            return "";
+        }
+        path = game_folder_path("thug2-decomp-ts") + "\\thug2-decomp-data" + found.substr(folder.size());
+    } else {
+        std::array<char, file::kOverlayPathSize> name{};
+        frontend::data_overlay::overlay_name(filename, name);
+        path = game_folder_path("thug2-decomp-ts") + "\\Data\\" + name.data();
+    }
+    if (path.size() < 3 || _stricmp(path.c_str() + path.size() - 3, ".qb") != 0) {
+        return "";
+    }
+    path.replace(path.size() - 3, 3, ".js");
+    return fs::disk().kind(path.c_str()) == fs::PathKind::kFile ? path : "";
+}
+
+// load_qb's hook ([features] ts_scripts=2): the file defined by its standalone module - its globals, its scripts and
+// its checksum names (its manifest's) - in place of reading the .qb; false (the .qb read) when it has none or it fails.
+bool load_standalone(const char* filename, bool temporary)
+{
+    if (!is_on() || !standalone() || !filename) {
+        return false;
+    }
+    const std::string path = standalone_path(filename);
+    std::string source;
+    if (path.empty() || !fs::read_text(path, &source)) {
+        return false;
+    }
+    // (the .qb the module was made from: its manifest's "from" - which version the game ran, as for a read file)
+    uint32_t from = 0;
+    if (const size_t at = source.find("\"from\":\""); at != std::string::npos && at < kManifestReach) {
+        from = static_cast<uint32_t>(std::strtoul(source.c_str() + at + 8, nullptr, 16));
+    }
+    register_name_hash(checksums::hash_from_text(filename), filename); // (as read_qb_file does)
+    std::array<char, 24> cache{};
+    std::snprintf(cache.data(), cache.size(), "file-%08x.qbc", checksums::hash_from_text(path.c_str()));
+    // (its globals' structures and arrays where the .qb loader puts a file's: the script heap)
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
+    const bool loaded = run_module(filename, temporary, source, path, cache.data());
+    memory::leave_heap_scope();
+    if (!loaded) {
+        return false;
+    }
+    loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{from, true};
+    return true;
 }
 
 // A .qb file unloaded: the functions its module defined let go of (its symbols are gone - a later file's definition
@@ -1096,7 +1194,9 @@ void save_types_now_and_then()
 
 void install()
 {
-    is_on() = config_int("features", "ts_scripts", 0) != 0;
+    const int mode = config_int("features", "ts_scripts", 0);
+    is_on() = mode != 0;
+    standalone() = mode == 2;
     profile().on = config_int("debug", "ts_profile", 0) != 0;
     engine().recording = config_int("debug", "ts_types", 0) != 0;
     // (each .qb file's hash is noted with TypeScript off too: the script check's QB pass says which version it ran)
@@ -1115,7 +1215,11 @@ void install()
         return;
     }
     set_qb_unloaded_hook(on_qb_unloaded);
-    get_log("ts: TypeScript scripts on (modules in %s)", game_folder_path("thug2-decomp-ts").c_str());
+    if (standalone()) {
+        set_qb_standalone_hook(load_standalone);
+    }
+    get_log("ts: TypeScript scripts on (modules in %s%s)", game_folder_path("thug2-decomp-ts").c_str(),
+            standalone() ? "; standalone: a file's module in place of its .qb" : "");
     if (engine().recording) {
         // (the earlier sessions' counts, added to from here)
         if (std::string json;

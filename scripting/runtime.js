@@ -261,6 +261,8 @@ globalThis.qb = (() => {
                 if (m.requires.random === 1) random();
             }
             loadingFormat = m.format; loadFuel = 1000000;
+            // (a standalone module - the game reads no .qb for it: the file's checksum names, as its loader registers them)
+            if (game && Array.isArray(m.names)) game.registerNames?.(m.names);
         },
         defineGlobal(n, value, site) {
             uint(n);

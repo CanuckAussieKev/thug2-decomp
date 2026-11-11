@@ -42,6 +42,10 @@ void set_qb_loaded_hook(QbLoadedHook hook);
 // ... and after a file's symbols are removed (unload_qb: its checksum).
 using QbUnloadedHook = void (*)(uint32_t file_checksum);
 void set_qb_unloaded_hook(QbUnloadedHook hook);
+// ... and before load_qb reads a file: true when the file's standalone module defined everything instead
+// ([features] ts_scripts=2) - no .qb read; the changed scripts restart as after a read.
+using QbStandaloneHook = bool (*)(const char* filename, bool temporary);
+void set_qb_standalone_hook(QbStandaloneHook hook);
 void replace_symbol_for_definition(SymbolTableEntry* existing, bool temporary);
 
 } // namespace script

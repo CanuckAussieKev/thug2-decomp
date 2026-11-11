@@ -90,6 +90,14 @@ QbUnloadedHook& qb_unloaded_hook()
 }
 } // namespace
 void set_qb_unloaded_hook(QbUnloadedHook hook) { qb_unloaded_hook() = hook; }
+namespace {
+QbStandaloneHook& qb_standalone_hook()
+{
+    static QbStandaloneHook hook = nullptr;
+    return hook;
+}
+} // namespace
+void set_qb_standalone_hook(QbStandaloneHook hook) { qb_standalone_hook() = hook; }
 void replace_symbol_for_definition(SymbolTableEntry* existing, bool temporary)
 {
     get_replace(existing, temporary ? 1 : 0);
@@ -171,7 +179,8 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums:
 }
 
 // 0x00472420
-void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unused*/, bool use_qb_names, bool temporary)
+void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unused*/, bool use_qb_names,
+                  bool temporary)
 {
     // (the third argument: line numbers are skipped either way)
     free_script_checksum_names();
@@ -333,6 +342,9 @@ void load_qb(const char* filename, int unused, int temporary)
         const int size = packs::get_file_size(checksums::hash_from_text(filename));
         parse_precompiled_qb(filename, std::span<uint8_t>(data, size > 0 ? static_cast<size_t>(size) : 0), unused);
         load_checksum_names(filename);
+    } else if (qb_standalone_hook() && qb_standalone_hook()(filename, temporary != 0)) {
+        // NOT ORIGINAL - its standalone TypeScript module defined the file (load.h): no .qb read
+        free_script_checksum_names(); // (as read_qb_file does first)
     } else {
         memory::enter_heap_scope(manager->top_down_heap());
         // Originally from PartyMod Fixes (its call at 0x0046EE80): packs::ReadIn, then the binary patch for the file if there is one
@@ -360,7 +372,8 @@ void unload_qb(uint32_t file_checksum)
     }
     if (count != 0) {
         memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
-        auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * memory::kPointerBytes));
+        auto** block = static_cast<SymbolTableEntry**>(
+            memory::alloc_block(static_cast<unsigned int>(count) * memory::kPointerBytes));
         memory::leave_heap_scope();
         const std::span<SymbolTableEntry*> symbols(block, static_cast<size_t>(count));
         size_t next = 0;

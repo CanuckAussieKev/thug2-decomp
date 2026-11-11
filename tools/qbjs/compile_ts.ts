@@ -6,12 +6,20 @@ import { pathToFileURL } from "node:url";
 
 const IMPORT = /^import \{([^}]*)\} from "qb";$/m;
 
-export function compileTS(code: string, source: string): string {
+// extra: more of the manifest - a standalone module's (install_ts.ts --standalone): the .qb it was made from (`from`,
+// its bytes' hash) and the file's checksum names (`names`: [checksum, name, ...], registered as the .qb loader does).
+export function compileTS(code: string, source: string, extra: Record<string, unknown> = {}): string {
     const js = stripTypeScriptTypes(code, { mode: "strip" });
     const match = IMPORT.exec(js);
     const imports = match ? match[1]!.split(",").map((s) => s.trim()) : [];
     const random = imports.some((name) => name.startsWith("random"));
-    const manifest = { format: 2, source, scripts: [], requires: { values: 2, ...(random ? { random: 1 } : {}) } };
+    const manifest = {
+        format: 2,
+        source,
+        scripts: [],
+        requires: { values: 2, ...(random ? { random: 1 } : {}) },
+        ...extra,
+    };
     // (an import renamed with `as` is a destructuring rename)
     const names = match ? match[1]!.replace(/(\w+)\s+as\s+(\w+)/g, "$1: $2") : "";
     const body = match ? js.replace(IMPORT, `const {${names}} = globalThis.qbTs;`) : js;

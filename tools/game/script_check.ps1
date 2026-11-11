@@ -1,8 +1,9 @@
 param([string]$Game = 'C:\Games\THUG2-1', [ValidateSet('', 'x86', 'x64')][string]$Arch = 'x64',
-      [ValidateSet('both', 'qb', 'ts')][string]$Pass = 'both', [int]$Seconds = 21600)
+      [ValidateSet('both', 'qb', 'ts')][string]$Pass = 'both', [int]$Seconds = 21600, [switch]$Standalone)
 # NOT ORIGINAL - the script check's two passes in a workspace (src/script_qb/script_check.h, docs/script-check.md):
 # the game started with -script-check <Game>\thug2-decomp-check, once with [features] ts_scripts=0 (QB: qb.txt) and
-# once with ts_scripts=1 (TypeScript, replaying QB's runs: ts.txt). Each run quits by itself when the plan is done.
+# once with ts_scripts=1 (TypeScript, replaying QB's runs: ts.txt; -Standalone: ts_scripts=2 - every file defined by its
+# standalone module, no .qb read: install_ts.ts --standalone --check). Each run quits by itself when the plan is done.
 # The caller holds the workspace's lock (game_lock.ps1) and has written the plan (tools/qbjs/script_check.ts plan) and
 # installed the TypeScript modules (tools/qbjs/install_ts.ts); the ini is put back by the lock's release.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
@@ -29,7 +30,7 @@ $lines = if ($at -ge 0) { @($lines[0..$at]) + $pools + @($lines | Select-Object 
 
 $passes = if ($Pass -eq 'both') { @('qb', 'ts') } else { @($Pass) }
 foreach ($p in $passes) {
-    Set-TsScripts ([int]($p -eq 'ts'))
+    Set-TsScripts $(if ($p -ne 'ts') { 0 } elseif ($Standalone) { 2 } else { 1 })
     $started = Get-Date
     & (Join-Path $PSScriptRoot 'run_game.ps1') -Game $Game -Arch $Arch -Seconds $Seconds -HangSeconds $Seconds `
         -Shot "script_check_$p" -Extra @('-script-check', $check) | Select-Object -Last 1

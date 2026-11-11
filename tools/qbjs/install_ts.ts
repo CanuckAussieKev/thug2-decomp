@@ -5,7 +5,7 @@
 // beside, in source\<folder>\<path>.ts; the module is its scripts compiled (its globals are the game's own, read from
 // the same file). The game uses them with [features] ts_scripts=1.
 //
-//   node tools/qbjs/install_ts.ts --game <folder> [--only <path>[,...]] [--clear]
+//   node tools/qbjs/install_ts.ts --game <folder> [--only <path>[,...]] [--clear] [--check] [--standalone]
 //
 // Sources: every .qb under Data\scripts, Data\levels and the overlay folders thug2-decomp-* (but -ts); --only: just
 // these (paths under the game folder, e.g. Data\scripts\game\misc\level_flags.qb). --clear: the folder emptied first.
@@ -160,6 +160,59 @@ export function installTS(game: string, only: string[] = [], clear = false, chec
     return result;
 }
 
+// --standalone: the game without the .qb files ([features] ts_scripts=2): one module for each file the game would load,
+// laid out as the game finds it - thug2-decomp-ts\Data\<path> (the version it reads there: an archive's, else the loose
+// file - each with PartyMod's patch when the game applies it) and thug2-decomp-ts\thug2-decomp-data\<path> (the data
+// overlay's, its front_end \ anteara \ anteara\front_end sets as they are) - <path>.ts readable, <path>.js what it loads.
+// A module defines everything its file does - the globals too - and carries the file's checksum names and the hash of
+// the .qb it was made from (its manifest: `names`, `from`).
+export function installStandalone(game: string, only: string[] = [], clear = false, check = false): InstallResult {
+    const root = gameRoot(game);
+    const out = join(root, "thug2-decomp-ts");
+    if (clear) rmSync(out, { recursive: true, force: true });
+    const wanted = only.map((path) =>
+        path
+            .replace(/[\\/]+/g, "\\")
+            .toLowerCase()
+            .replace(/^data\\/, ""),
+    );
+    // (the order the game reads them in: an archive's - patched first - before the loose file's - patched first)
+    const rank = (origin: string) =>
+        (unpatchedOrigin(origin).toLowerCase().endsWith(".prx") ? 0 : 2) + (origin === unpatchedOrigin(origin) ? 1 : 0);
+    const chosen = new Map<string, QbVersion>(); // (key: folder\name)
+    for (const v of qbVersions(root)) {
+        if (wanted.length && !wanted.some((w) => v.name === w || v.name.endsWith(`\\${w}`))) continue;
+        const origin = unpatchedOrigin(v.origin);
+        const folder =
+            origin === "thug2-decomp-data"
+                ? "thug2-decomp-data"
+                : origin === "Data" || origin.toLowerCase().endsWith(".prx")
+                  ? "Data"
+                  : "";
+        if (!folder) continue; // (other overlays - thug2-decomp-thaw-bmx... - are read by their own paths, as files)
+        const key = `${folder}\\${v.name}`;
+        const before = chosen.get(key);
+        if (!before || rank(v.origin) < rank(before.origin)) chosen.set(key, v);
+    }
+    const result: InstallResult = { installed: [], failed: [] };
+    for (const [key, version] of [...chosen].sort((a, b) => a[0].localeCompare(b[0]))) {
+        try {
+            const ir = readIR(version.bytes, key);
+            const ts = emitTS(ir, {}, { check });
+            const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
+            const js = compileTS(ts, key, { from: fileHash(version.bytes), names });
+            const base = join(out, key.replace(/\.qb$/i, ""));
+            mkdirSync(dirname(base), { recursive: true });
+            writeFileSync(`${base}.ts`, ts);
+            writeFileSync(`${base}.js`, js);
+            result.installed.push(key);
+        } catch (e) {
+            result.failed.push([key, String(e).split("\n")[0]!]);
+        }
+    }
+    return result;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const args = process.argv.slice(2);
     const value = (flag: string) => {
@@ -168,9 +221,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     };
     const game = value("--game");
     if (!game)
-        throw Error("Usage: node tools/qbjs/install_ts.ts --game <folder> [--only a.qb,b.qb] [--clear] [--check]");
+        throw Error(
+            "Usage: node tools/qbjs/install_ts.ts --game <folder> [--only a.qb,b.qb] [--clear] [--check] [--standalone]",
+        );
     const only = (value("--only") ?? "").split(",").filter(Boolean);
-    const result = installTS(game, only, args.includes("--clear"), args.includes("--check"));
+    const result = (args.includes("--standalone") ? installStandalone : installTS)(
+        game,
+        only,
+        args.includes("--clear"),
+        args.includes("--check"),
+    );
     for (const [name, why] of result.failed) console.log(`not translated: ${name}: ${why}`);
     console.log(`${result.installed.length} installed, ${result.failed.length} left to QB`);
 }

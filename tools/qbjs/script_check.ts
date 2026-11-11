@@ -348,7 +348,9 @@ export async function readCoverage(path: string): Promise<Map<string, Set<string
             current = new Set();
             out.set(line.slice(7), current);
         } else if (line.startsWith("cover ")) current.add(line.slice(6));
-        else if (line.startsWith("loaded ")) current.add(line); // (the version the game ran: "loaded <hash>")
+        else if (line.startsWith("loaded "))
+            current.add(line); // (the version the game ran: "loaded <hash>")
+        else if (line.startsWith("global ")) current.add(line); // (a global the file defined: "global <name> <len> <hash>")
     }
     return out;
 }
@@ -648,8 +650,34 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 for (const line of lines)
                     if (line.startsWith("fixed "))
                         tsCover.set(file, (tsCover.get(file) ?? new Set<string>()).add(line));
+            // The files' globals, QB's (read from the .qb) against the TypeScript pass's (a standalone module's with
+            // ts_scripts=2): each by its value's text, hashed
+            const globalsOf = (lines: Set<string> | undefined) =>
+                new Map(
+                    [...(lines ?? [])]
+                        .filter((l) => l.startsWith("global "))
+                        .map((l) => {
+                            const [, name, ...value] = l.split(" ");
+                            return [name!, value.join(" ")] as const;
+                        }),
+                );
+            let globals = 0;
+            const globalDifferences: string[] = [];
+            for (const [file, lines] of cover) {
+                if (!tsCover.has(file)) continue;
+                const qbGlobals = globalsOf(lines);
+                const tsGlobals = globalsOf(tsCover.get(file));
+                globals += qbGlobals.size;
+                for (const name of new Set([...qbGlobals.keys(), ...tsGlobals.keys()]))
+                    if (qbGlobals.get(name) !== tsGlobals.get(name))
+                        globalDifferences.push(
+                            `${file} ${name}: QB ${qbGlobals.get(name) ?? "none"}, TS ${tsGlobals.get(name) ?? "none"}`,
+                        );
+            }
             results.push({
                 ...verdict,
+                globals,
+                globalDifferences,
                 unknownVersions: unknown,
                 coverage: coverageOf(cover, modules),
                 tsCoverage: coverageOf(tsCover, modules),
@@ -664,6 +692,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             unknownVersions: results.flatMap((r) => r.unknownVersions),
             coverage: results.flatMap((r) => r.coverage),
             tsCoverage: results.flatMap((r) => r.tsCoverage),
+            globals: results.reduce((n, r) => n + r.globals, 0),
+            globalDifferences: results.flatMap((r) => r.globalDifferences),
         };
         const unknownVersions = result.unknownVersions;
         const total = result.coverage.reduce((n, c) => n + c.branches, 0);
@@ -688,6 +718,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             `Branches: ${taken} of ${total} taken by the QB runs (${percent(taken, total)}%; forced where no input took them).`,
             `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends, or in an arm its if can't take) not counted.`,
             `TypeScript (measured in its own runs, the same counts): branches ${tsTaken} of ${total} (${percent(tsTaken, total)}%); statements ${tsRan} of ${statements} (${percent(tsRan, statements)}%); scripts run: ${tsStarted} of ${scripts}.`,
+            `Globals: ${result.globals} compared (QB's from the .qb files, the TypeScript pass's - from the standalone modules with ts_scripts=2); different: ${result.globalDifferences.length}.`,
             "",
             "## Differences (first line that differs)",
             "",
@@ -695,6 +726,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 ? result.differences
                       .slice(0, 500)
                       .map((d) => `- ${d.module} \`${d.run}\`:\n  - QB: \`${d.qb}\`\n  - TS: \`${d.ts}\``)
+                : ["(none)"]),
+            "",
+            "## Globals that differ",
+            "",
+            ...(result.globalDifferences.length
+                ? result.globalDifferences.slice(0, 500).map((d) => `- ${d}`)
                 : ["(none)"]),
             "",
             "## Branches not taken",
@@ -728,7 +765,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         ].join("\n");
         writeFileSync(join(folder, "report.md"), report);
         writeFileSync(join(folder, "report.json"), JSON.stringify(result, null, 1));
-        console.log(report.split("\n").slice(0, 9).join("\n"));
+        console.log(report.split("\n").slice(0, 10).join("\n"));
         console.log(`written: ${join(folder, "report.md")}`);
     }
 }
