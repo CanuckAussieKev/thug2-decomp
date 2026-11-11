@@ -19,6 +19,14 @@ function Set-TsScripts([int]$on) {
     [IO.File]::WriteAllText($ini, $text, (New-Object Text.UTF8Encoding($false)))
 }
 
+# [memory] pools four times the default: a check loads each level's file on top of the boot scripts, and a converted
+# level's can be large (THPG's whole world, 5.4 MB, ran the arrays dry there).
+$pools = 'component_pool=1440000', 'struct_pool=256000', 'vector_pool=192000', 'array_pool=104000'
+$lines = @([IO.File]::ReadAllLines($ini) | Where-Object { $_ -notmatch '^(component|struct|vector|array)_pool=' })
+$at = [array]::IndexOf($lines, '[memory]')
+$lines = if ($at -ge 0) { @($lines[0..$at]) + $pools + @($lines | Select-Object -Skip ($at + 1)) } else { $lines + '[memory]' + $pools }
+[IO.File]::WriteAllText($ini, ($lines -join "`r`n") + "`r`n", (New-Object Text.UTF8Encoding($false)))
+
 $passes = if ($Pass -eq 'both') { @('qb', 'ts') } else { @($Pass) }
 foreach ($p in $passes) {
     Set-TsScripts ([int]($p -eq 'ts'))

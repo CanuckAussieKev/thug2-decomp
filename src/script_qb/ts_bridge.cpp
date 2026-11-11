@@ -836,7 +836,7 @@ bool start_engine()
         e.runtime,
         [](JSRuntime* /*runtime*/, void* opaque) -> int {
             auto& self = *static_cast<Engine*>(opaque);
-            if (self.budget == 0) {
+            if (self.budget == 0 || check::ended()) {
                 return 1;
             }
             --self.budget;
@@ -965,9 +965,18 @@ bool evaluate_module(const std::string& source, const std::string& name, const s
     return true;
 }
 
+std::unordered_map<uint32_t, LoadedFile>& loaded_files()
+{
+    static std::unordered_map<uint32_t, LoadedFile> files;
+    return files;
+}
+
 // After each .qb file: its TypeScript module, when there is one.
 void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temporary)
 {
+    if (filename) {
+        loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{file_hash(file), false};
+    }
     if (!is_on() || !filename) {
         return;
     }
@@ -999,6 +1008,7 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
         profile().load_ns += static_cast<uint64_t>(ms.count()) * 1000000U;
         get_log("ts: %s - its TypeScript module loaded (%u ms%s)", filename, static_cast<unsigned>(ms.count()),
                 cached ? ", compiled before" : "");
+        loaded_files()[checksums::hash_from_text(filename)].module = true;
     } else {
         get_log("ts: %s - its TypeScript module failed: %s", filename, error.c_str());
     }
@@ -1222,6 +1232,12 @@ void drop(uint32_t level)
     engine().synced.erase(level);
     std::array<JSValue, 1> call_args{JS_NewUint32(engine().context, level)};
     JS_FreeValue(engine().context, call_qb("drop", call_args));
+}
+
+std::optional<LoadedFile> loaded_file(uint32_t file_checksum)
+{
+    const auto found = loaded_files().find(file_checksum);
+    return found == loaded_files().end() ? std::nullopt : std::optional<LoadedFile>(found->second);
 }
 
 } // namespace script::qb::ts

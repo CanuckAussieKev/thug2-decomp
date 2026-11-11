@@ -29,6 +29,14 @@ void install();
 void set_interrupt_budget(uint32_t budget);
 // The functions the TypeScript module of .qb file `file_checksum` defined let go of (as when the file is unloaded).
 void forget_file(uint32_t file_checksum);
+// The .qb file `file_checksum` (its name's checksum) as last loaded: its bytes' hash (FNV-1a, as tools/qbjs/install_ts.ts
+// names modules) and whether its TypeScript module ran - none if it hasn't been loaded. (The script check reports which
+// version of a file the game ran, and fails a TypeScript pass whose file had no module.)
+struct LoadedFile {
+    uint32_t hash = 0;
+    bool module = false;
+};
+[[nodiscard]] std::optional<LoadedFile> loaded_file(uint32_t file_checksum);
 
 // What a level asks for when it stops running.
 struct Answer {

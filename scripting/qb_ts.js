@@ -13,16 +13,23 @@ globalThis.qbTs = (() => {
         for (let i = 0; i < 8; ++i) n = n & 1 ? (n >>> 1) ^ 0xedb88320 : n >>> 1;
         return n >>> 0;
     });
+    // (remembered per name: every p.x / N.x / G.x reads one)
+    const checksums = new Map();
     function checksum(name) {
+        const known = checksums.get(name);
+        if (known !== undefined) return known;
         const hex = /^_0x([0-9a-f]{8})$/.exec(name);
-        if (hex) return Number.parseInt(hex[1], 16);
         let crc = 0xffffffff;
-        for (const ch of unescape(encodeURIComponent(name))) {
-            let byte = ch.charCodeAt(0);
-            if (byte >= 65 && byte <= 90) byte += 32;
-            if (byte === 47) byte = 92;
-            crc = (crc >>> 8) ^ table[(crc ^ byte) & 0xff];
+        if (hex) crc = Number.parseInt(hex[1], 16);
+        else {
+            for (const ch of unescape(encodeURIComponent(name))) {
+                let byte = ch.charCodeAt(0);
+                if (byte >= 65 && byte <= 90) byte += 32;
+                if (byte === 47) byte = 92;
+                crc = (crc >>> 8) ^ table[(crc ^ byte) & 0xff];
+            }
         }
+        checksums.set(name, crc >>> 0);
         return crc >>> 0;
     }
 
@@ -434,7 +441,10 @@ globalThis.qbTs = (() => {
                         count = (count - 1) >>> 0;
                         again = count !== 0;
                     }
-                    return decide(3, again ? 0 : 1, 2) === 0;
+                    const taken = decide(3, again ? 0 : 1, 2) === 0;
+                    // (forced round again: one more pass - not a count wrapped round to 4 billion)
+                    if (taken && !again && count !== undefined) count = 1;
+                    return taken;
                 },
             };
         },

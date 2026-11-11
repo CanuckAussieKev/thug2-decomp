@@ -15,13 +15,25 @@ node tools/qbjs/script_check.ts compare --game C:\Games\THUG2-1
 tools/game/game_lock.ps1 -Action release -Owner <you> -Game C:\Games\THUG2-1
 ```
 
+The whole plan split across workspaces (each holding its lock) - each gets the build, the TypeScript and a share of the
+modules (`shares --game a,b,...` then `plan --share`: each module to one folder that has it - their data overlays differ -, about as many scripts each; the argument sets still come from every module's calls), the
+shares run side by side, and `compare --game a,b,...` writes one report in the first folder:
+
+```
+tools/game/script_check_parallel.ps1 -Games C:\Games\THUG2-1,C:\Games\THUG2-2,C:\Games\THUG2-3,C:\Games\THUG2-4
+```
+
+`plan --log-runs` logs each run's header before it runs and its end and time after (finding a run that crashes or
+hangs the game).
+
 ## How it runs
 
 `thug2-decomp.exe -script-check <folder>` starts the game as always - the engine, its pools, the command table, the boot
 scripts - and at the first front-end frame runs the plan instead of the game, then quits (`src/script_qb/script_check.cpp`).
 
 - **The plan** (`thug2-decomp-check\plan.qb` and one part per module, written as QB globals so the game reads them with
-  its own loader): every module of Data\scripts, Data\levels and the data overlay; each script with the argument sets to
+  its own loader): every .qb the game may load - Data's loose files, the copies in the Data\pre archives and the data
+  overlay's; each script with the argument sets to
   call it with - none, then up to three of the literal ones its callers pass. A level's file is loaded for its module as a
   temporary load and undone after (the boot definitions it replaced come back); a boot file is run as loaded.
 - **A run**: the script on a record of its own (no object), the random generator seeded per run, frames stepped - the
@@ -35,6 +47,16 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   the other way in a later run, until every choice has been made both ways or the budget (`runs` per script and argument
   set) is spent. Then every branch no run has taken is forced (below). Coverage is recorded by the interpreter itself:
   each if's arm, each switch's arm, each Random's branch, and each statement run (`qb.txt`'s `cover` lines).
+- **Versions**: the game looks for a file in the data overlay, then in the archives it has loaded, then in Data, and 130
+  of the archives' .qb differ from the loose file of the same name (a level's scripts with the Printfs taken out). Every
+  version is installed as TypeScript (each module is named by its bytes' hash) and written to
+  `thug2-decomp-check-sources`; each module's section of the traces says which version ran (`loaded <hash>`, and
+  `no-typescript` when the TypeScript pass found no module for it - the report lists those: they ran as QB, untested),
+  and coverage is counted against that version.
+- **Pools**: the check runs with four times the default pools (`script_check.ps1` writes `[memory]`): a level's file is
+  loaded on top of the boot scripts, and a converted one can be large (THPG's whole world ran the arrays dry). A run that fills a quarter of what a script pool (structures, components, arrays, vectors) had free at its
+  start ends `exhausted` - an array doubled pass after pass; the game would run out there and crash. TypeScript's values
+  aren't in the pools, so these runs aren't replayed; the report counts them.
 - **Waits** run for real but end at the next frame: nothing else in a run sees time pass (the commands are stubs), so a
   `Wait 45 seconds` costs one frame and the code after it is reached within the frame budget.
 - **Replaying** (TypeScript, `ts_scripts=1`): every QB run again with the same seed and choices, its trace compared with
@@ -47,7 +69,7 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
 
 A *decision* is an if (two arms: true, false), a switch (one arm per case label in order, and one more: the default, or
 none matched), a Random (one arm per branch), the end of a pass through a `repeat <count>` loop (again, or out - the
-count may be a parameter no argument set gives), or a script call (run it, or skip it: it returns at once). Every decision in a run is counted in order; a run's job can force a
+count may be a parameter no argument set gives; forced "again" makes one more pass), or a script call (run it, or skip it: it returns at once). Every decision in a run is counted in order; a run's job can force a
 decision, by its number in the run, to an arm whatever its condition or draw gave. The condition is still evaluated (its
 calls traced) and what it gave goes into the run's decision hash, so QB's and TypeScript's conditions are compared even
 where the arm is forced.
@@ -64,10 +86,15 @@ where the arm is forced.
 - An if whose condition stops before its line's end (an expression the evaluator gave up on, e.g. a member function
   in an expression) isn't forced: its condition comes out the same every time, and its true part would start in the
   middle of the line. The arm it can't take is listed in the report, not counted.
-- A run's first 300 calls are written to its trace; the rest (up to the `calls` budget, 2000) are counted and hashed on
+- A run's first 300 calls are written to its trace; the rest (up to the `calls` budget, 600) are counted and hashed on
   its end line.
-- A run that ends at a budget (`runaway`: QB's statement budget and TypeScript's interrupt budget stop a loop without
-  calls at different statements; `overlong`: the call budget) has its decisions compared up to its last stub call.
+- A run that ends at a budget (`runaway`: QB's statement budget, 50,000, and TypeScript's interrupt budget - one check
+  per 100 of QB's statements - stop a loop without calls at different statements; `overlong`: the call budget) is
+  compared up to its last stub call: its frame, its decisions then, its trace to there (the forced decisions after it
+  aren't written). Replaying a run QB ended runaway, TypeScript stops
+  right after QB's last call: nothing after it is compared, and running on until a budget stops it costs TypeScript's
+  values layer (~100 us a statement) far more than QB. So a TypeScript run that would have gone on to make a further
+  call, or finished, after QB's last one isn't caught there; any difference up to that call is.
 - The report counts branches and statements against every one the scripts have, less those no run can reach: the
   statements after a `return`, or after a loop that never ends (no count, no `break` out of it), in the same block - the
   original can't run them either (`script_check.ts unreachable`).
@@ -117,6 +144,9 @@ Forcing every branch found two more translation differences, both on paths no ea
 
 - **A negative number after a name that isn't a C function is a subtraction** (`globe_vel -0.1`, parse_expression);
   the reader had taken it as the name's arguments. Only a C function reads it as its argument (push_name).
+- **`(expression):Command` where the expression gives no name** is the statement's truth alone; the next statement
+  starts at the `:` and runs `Command` naming no object (the game then stays there for ever - it finds no object 0; the
+  check, with no objects, runs it). The translation names no object (0) there instead of failing.
 - **A script's defaults are parsed with no parameter list**, not an empty one: `params = <...>` there adds nothing
   (add_parameter with no args), where an empty list would add an empty structure.
 

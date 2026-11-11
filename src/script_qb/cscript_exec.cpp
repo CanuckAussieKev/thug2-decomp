@@ -648,7 +648,11 @@ void QbScript::run_counted_loop(Tokens& pc)
         again = innermost_repeat_->headcount_ != 0;
     }
     if (counted && check::active()) { // NOT ORIGINAL (script_check.h)
+        const bool natural = again;
         again = check::decide_repeat(this, place, again);
+        if (again && !natural && loop->args_seen_) {
+            loop->headcount_ = 1; // (forced round again: one more pass - not a count wrapped round to 4 billion)
+        }
     }
     if (again) {
         pc = tokens_at(pc, innermost_repeat_->tokens_begin_);

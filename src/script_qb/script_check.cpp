@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <deque>
@@ -20,12 +21,14 @@
 
 #include <windows.h>
 
+#include "base/core/checked_index.h"
 #include "base/core/checksums.h"
 #include "base/maths/random.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
 #include "engine/script/check_hooks.h"
+#include "engine/memory/slab_bank.h"
 #include "engine/script/load.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/qb.h"
@@ -85,6 +88,9 @@ struct Job {
     uint32_t seed = 0;
     std::string stubs;
     std::map<uint32_t, uint32_t> forced;
+    // (TypeScript replaying a QB run that ended runaway: the calls QB made - the run ends right after the last, as
+    // what follows it isn't compared; 0: no such end)
+    uint32_t stop_at_call = 0;
 };
 
 std::string forced_text(const std::map<uint32_t, uint32_t>& forced)
@@ -125,6 +131,9 @@ struct Run {
     // (the same at the last stub call: a runaway run's end - QB's statement budget and TypeScript's interrupt budget
     // stop a loop without calls at different points - is compared up to there)
     uint32_t decisions_at_call = 0;
+    uint32_t frame_at_call = 0; // (the frame of the last stub call: a runaway run's end frame)
+    size_t trace_at_call = 0;   // (the trace's length after it: what a runaway run's trace keeps)
+    uint32_t stop_at_call = 0;  // (Job::stop_at_call)
     // the calls after the first kTracedCalls: counted and hashed, not written (a long run's trace stays short)
     uint32_t tail_calls = 0;
     uint64_t tail_hash = 0xCBF29CE484222325ULL;
@@ -132,16 +141,17 @@ struct Run {
     std::map<std::tuple<Decision, uint32_t, std::ptrdiff_t>, Reached> reached; // (QB)
     std::vector<OpenCall> calls_by_depth; // the script calls made, by the caller's call depth (QB)
     std::vector<OpenCall> unreturned;     // those still running when the run ended at a budget (QB)
+    std::array<int, 4> pools_at_start{};  // the script pools' items in use when it began (script_pools)
 };
 
-constexpr uint32_t kCheckInterruptBudget = 2000;
 constexpr uint32_t kTracedCalls = 300; // a run's calls written to its trace; the rest are hashed
 
 struct Settings {
     int runs = 64;          // runs per script and argument set (QB, exploring)
     int frames = 300;       // frames a run may last
     uint32_t calls = 400;   // stubbed calls a run may make
-    uint32_t steps = 200000; // statements a run may run
+    uint32_t steps = 50000; // statements a run may run
+    int log_runs = 0;        // 1: each run's header logged before it runs (to find a run that crashes the game)
 };
 
 struct State {
@@ -271,6 +281,12 @@ std::string compact(Struct* structure)
     return out.data();
 }
 
+// The script pools a run's values come from.
+std::array<memory::PoolPair*, 4> script_pools()
+{
+    return {&struct_pools(), &component_pools(), &array_pools(), &vector_pools()};
+}
+
 // The place of `script`'s next statement in its code (its pc_ in the block it is in).
 std::ptrdiff_t place_of(const Script* script)
 {
@@ -287,6 +303,7 @@ bool stub(const Script* script, uint32_t name, uint32_t object, Struct* args)
     run.made.push_back({script ? script->script_title() : 0, place_of(script), value, run.decisions});
     run.decisions_at_call = run.decisions;
     run.hash_at_call = run.decision_hash;
+    run.frame_at_call = s.frame;
     ++run.calls;
     std::string line = "call " + std::to_string(s.frame) + " " + hex(name) + (object ? " on " + hex(object) : "") + " ";
     line += compact(args);
@@ -299,8 +316,12 @@ bool stub(const Script* script, uint32_t name, uint32_t object, Struct* args)
             run.tail_hash = (run.tail_hash ^ static_cast<uint8_t>(c)) * 0x100000001B3ULL;
         }
     }
+    run.trace_at_call = run.trace.size();
     if (run.calls >= s.settings.calls && run.ended.empty()) {
         run.ended = "overlong";
+    }
+    if (run.stop_at_call != 0 && run.calls == run.stop_at_call && run.ended.empty()) {
+        run.ended = "runaway";
     }
     return value == '0';
 }
@@ -371,6 +392,7 @@ void read_settings()
     settings->fetch_int_value(checksums::hash_from_text("frames"), &out.frames, 0);
     settings->fetch_int_value(checksums::hash_from_text("calls"), &out.calls, 0);
     settings->fetch_int_value(checksums::hash_from_text("steps"), &out.steps, 0);
+    settings->fetch_int_value(checksums::hash_from_text("log_runs"), &out.log_runs, 0);
 }
 
 // --- running -------------------------------------------------------------------------------------------------------
@@ -379,11 +401,21 @@ void read_settings()
 Run run_once(uint32_t name, Struct* args, const Job& job)
 {
     State& s = state();
+    if (s.settings.log_runs != 0) {
+        get_log("script check run %s %08x stubs %s forced %s", ts::enabled() ? "ts" : "qb", name, job.stubs.c_str(),
+                forced_text(job.forced).c_str());
+    }
     Run run;
     run.forced = job.stubs;
     run.forced_decisions = job.forced;
+    run.stop_at_call = job.stop_at_call;
+    for (size_t i = 0; i < run.pools_at_start.size(); ++i) {
+        const memory::SlabBank* pool = core::at(script_pools().at(i)->pools(), script_pools().at(i)->current());
+        run.pools_at_start.at(i) = pool ? pool->taken_count() : 0;
+    }
     s.run = &run;
     s.frame = 0;
+    const auto started = std::chrono::steady_clock::now();
     maths::seed_random(job.seed);
     QbScript* script = QbScript::create();
     script->bind_script(name, args, nullptr);
@@ -416,7 +448,12 @@ Run run_once(uint32_t name, Struct* args, const Job& job)
     const bool runaway = run.ended == "runaway" || run.ended == "overlong"; // (both stop at a budget)
     std::snprintf(hash.data(), hash.size(), "%016llx",
                   static_cast<unsigned long long>(runaway ? run.hash_at_call : run.decision_hash));
-    std::string end = "end " + std::to_string(s.frame) + " " + run.ended + " decisions " +
+    // (a run ended at a budget: compared up to its last call - its frame, its decisions then, its trace to there: the
+    // forced decisions after it aren't written)
+    if (runaway) {
+        run.trace.resize(run.trace_at_call);
+    }
+    std::string end = "end " + std::to_string(runaway ? run.frame_at_call : s.frame) + " " + run.ended + " decisions " +
                       std::to_string(runaway ? run.decisions_at_call : run.decisions) + " #" + hash.data();
     if (run.tail_calls != 0) {
         std::snprintf(hash.data(), hash.size(), "%016llx", static_cast<unsigned long long>(run.tail_hash));
@@ -427,6 +464,12 @@ Run run_once(uint32_t name, Struct* args, const Job& job)
         end += compact(script->args().get());
     }
     run.trace += end + "\n";
+    if (s.settings.log_runs != 0) {
+        get_log("script check run ended: %s, %lld ms", end.substr(0, 80).c_str(),
+                static_cast<long long>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started)
+                        .count()));
+    }
     QbScript::destroy(script);
     s.run = nullptr;
     return run;
@@ -647,8 +690,10 @@ void run_plan(const std::string& folder)
     }
     fs::OwnedStream output = fs::open_stream((folder + (typescript ? "\\ts.txt" : "\\qb.txt")).c_str(), "wb");
     s.on = true;
-    // (a loop with no calls - no statement budget in TypeScript - is interrupted soon, as QB runs out of steps)
-    ts::set_interrupt_budget(kCheckInterruptBudget);
+    // (a loop with no calls - no statement budget in TypeScript - is interrupted soon, as QB runs out of steps: an
+    // interrupt check per ~10,000 QuickJS operations, one check per 100 of QB's statements - the TypeScript's values
+    // layer does far more operations a statement, so a run QB finishes within its steps isn't cut short)
+    ts::set_interrupt_budget(std::max<uint32_t>(s.settings.steps / 100, 1));
     for (uint32_t m = 0; m < modules->extent(); ++m) {
         Struct* module = modules->struct_at(m);
         const std::string file = text_of(module, "file");
@@ -679,6 +724,15 @@ void run_plan(const std::string& folder)
         std::vector<uint8_t> part_bytes(part.begin(), part.end());
         load_qb_data(part_name.c_str(), part_bytes, 0, 0, 1);
         std::string out = "module " + file + "\n";
+        // (the version of the file the game ran - its bytes' hash - and, TypeScript, whether its module ran: a pass
+        // that ran a file as QB compared nothing)
+        if (const auto ran = ts::loaded_file(file_name)) {
+            std::array<char, 16> hash{};
+            std::snprintf(hash.data(), hash.size(), "%08x", ran->hash);
+            out += std::string("loaded ") + hash.data() + (typescript && !ran->module ? " no-typescript" : "") + "\n";
+        } else {
+            out += "loaded none\n";
+        }
         s.coverage.clear();
         s.statements.clear();
         s.targeted.clear();
@@ -703,6 +757,7 @@ void run_plan(const std::string& folder)
             // QB's runs of this module replayed, each compared with QB's text there and then (only what differs and
             // the counts are written)
             int same = 0;
+            int exhausted = 0;
             const std::vector<std::string> runs = recorded.section(file);
             for (const std::string& qb : runs) {
                 // run <script> <argument set> <seed> <choices> <forced decisions>
@@ -719,7 +774,26 @@ void run_plan(const std::string& folder)
                 const auto script = static_cast<uint32_t>(std::strtoul(words[1].c_str(), nullptr, 16));
                 const auto index = static_cast<uint32_t>(std::strtoul(words[2].c_str(), nullptr, 10));
                 const auto run_seed = static_cast<uint32_t>(std::strtoul(words[3].c_str(), nullptr, 16));
-                const Job job{run_seed, words[4] == "-" ? "" : words[4], forced_from(words[5])};
+                Job job{run_seed, words[4] == "-" ? "" : words[4], forced_from(words[5])};
+                // (QB's run ended runaway after N calls: the replay stops right after its N-th - a loop that runs on
+                // without calls until a budget stops it costs TypeScript far more than QB, and nothing after the last
+                // call is compared; with no calls it runs to its interrupt budget as before)
+                if (qb.find(" runaway decisions ") != std::string::npos) {
+                    uint32_t calls = 0;
+                    for (size_t at = qb.find("\ncall "); at != std::string::npos; at = qb.find("\ncall ", at + 1)) {
+                        ++calls;
+                    }
+                    const size_t tail = qb.find(" calls after ");
+                    if (tail != std::string::npos) {
+                        const size_t colon = qb.find(": ", tail);
+                        calls += static_cast<uint32_t>(std::strtoul(qb.c_str() + colon + 2, nullptr, 10));
+                    }
+                    job.stop_at_call = calls;
+                }
+                if (qb.find(" exhausted decisions ") != std::string::npos) {
+                    ++exhausted; // (QB's run filled a script pool: not replayed)
+                    continue;
+                }
                 const auto found = arguments.find(script);
                 Array* arg_sets = found == arguments.end() ? nullptr : found->second;
                 Struct* args = arg_sets && index < arg_sets->extent() ? arg_sets->struct_at(index) : nullptr;
@@ -732,7 +806,8 @@ void run_plan(const std::string& folder)
                     out += first_difference(qb, ts);
                 }
             }
-            out += "runs " + std::to_string(runs.size()) + " same " + std::to_string(same) + "\n";
+            out += "runs " + std::to_string(runs.size() - static_cast<size_t>(exhausted)) + " same " +
+                   std::to_string(same) + " exhausted " + std::to_string(exhausted) + "\n";
         }
         for (const std::string& line : s.coverage) {
             out += line + "\n";
@@ -897,8 +972,24 @@ bool over()
     if (++run.steps > state().settings.steps && run.ended.empty()) {
         run.ended = "runaway";
     }
+    // (QB: a script pool past half full - the run has built values without end, e.g. an array doubled pass after
+    // pass; the game runs out there and crashes. The run ends; TypeScript doesn't replay it: its values aren't in the
+    // pools.)
+    if (run.ended.empty() && !ts::enabled()) {
+        const auto& pools = script_pools();
+        for (size_t i = 0; i < pools.size(); ++i) {
+            const memory::SlabBank* pool = core::at(pools.at(i)->pools(), pools.at(i)->current());
+            // (a quarter of what was free at the run's start: one statement copying two arrays - a + b - at most
+            // doubles what is in use, and stays inside the pool)
+            if (pool && (pool->taken_count() - run.pools_at_start.at(i)) * 4 > pool->num() - run.pools_at_start.at(i)) {
+                run.ended = "exhausted";
+            }
+        }
+    }
     return !run.ended.empty();
 }
+
+bool ended() { return active() && !state().run->ended.empty(); }
 
 void ts_fault(const std::string& message)
 {

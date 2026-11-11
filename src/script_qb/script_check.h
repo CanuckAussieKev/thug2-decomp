@@ -61,6 +61,9 @@ void note_statement(const Script* script, std::ptrdiff_t place);
 
 // A statement about to run: true when the run is over (its statement or call budget spent) - the interpreter stops.
 bool over();
+// True when a run is going and has ended (a budget spent): TypeScript stops at its next interrupt check - a level's
+// loop that only calls stubs and C functions would otherwise go on until its interrupt budget runs out.
+[[nodiscard]] bool ended();
 // A TypeScript level's fault (its message): the run ends there (a runaway loop's fuel, or a real fault).
 void ts_fault(const std::string& message);
 

@@ -78,7 +78,9 @@ bool QbScript::run_ts_level(Tokens& pc)
         stmt_args_->get_clear();
     }
     if (!answer.error.empty()) {
-        get_log("ts: %s: %s", find_checksum_name_or_unknown(script_title_), answer.error.c_str());
+        if (!check::ended()) { // (a check run already over stops its TypeScript by an interrupt: no fault)
+            get_log("ts: %s: %s", find_checksum_name_or_unknown(script_title_), answer.error.c_str());
+        }
         check::ts_fault(answer.error);
         answer.done = true;
         stmt_args_->get_clear();

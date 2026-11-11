@@ -192,10 +192,12 @@ globalThis.qb = (() => {
         },
         // `(expression) args` as a statement or an if's condition (execute_command): a name is called (0: nothing,
         // false), anything else is only its truth - arguments after it are outside what this runtime does.
-        // (expression):Command - the object's name: the expression must give a name.
+        // (expression):Command - the object's name. An expression that gives no name (no value, a number...) is the
+        // statement's truth alone, leaving the next statement at the ':' - which runs `Command args` naming no object
+        // (as a name 0 does): 0. (The game then finds no object 0 and stays at the ':' for ever; the script check, with
+        // no objects, runs the command - execute_command, cscript_exec.cpp.)
         objectName(value) {
-            if (value?.type !== 13) throw Error('QB object-qualified call on an expression that is not a name');
-            return value.bits;
+            return value?.type === 13 ? value.bits : 0;
         },
         *dispatch(value, args, p, site) {
             const extra = leftover?.name === value?.bits && value?.type === 13 ? leftover.args : [];

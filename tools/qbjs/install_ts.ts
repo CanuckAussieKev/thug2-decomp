@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { compileTS } from "./compile_ts.ts";
 import { emitTS } from "./emit_ts.ts";
 import { readIR } from "./reader.ts";
@@ -42,30 +43,71 @@ export function gameRoot(folder: string): string {
     throw Error(`${folder}: no Data\\scripts - not a game folder`);
 }
 
+// One version of a .qb file the game may load: its game path (lower case, "levels\\x\\x.qb"), where it comes from
+// (a data overlay's folder, a Data\\pre archive's file name, or "Data") and its bytes. The game looks in the data
+// overlay first, then in the archives it has loaded, then in Data's loose files - which version runs depends on the
+// archives loaded at the time, so every version gets its module (each named by its bytes).
+export type QbVersion = { name: string; origin: string; bytes: Buffer; path?: string };
+
+export function overlayFolders(root: string): string[] {
+    return readdirSync(root).filter(
+        (name) =>
+            name.toLowerCase().startsWith("thug2-decomp-") &&
+            name.toLowerCase() !== "thug2-decomp-ts" &&
+            !name.toLowerCase().startsWith("thug2-decomp-check"), // (the script check's plan and sources)
+    );
+}
+
+export function qbVersions(root: string): QbVersion[] {
+    const out: QbVersion[] = [];
+    const data = join(root, "Data");
+    for (const file of walk(data)) {
+        const name = relative(data, file).replace(/\//g, "\\").toLowerCase();
+        if (!name.startsWith("pre\\")) out.push({ name, origin: "Data", bytes: readFileSync(file), path: file });
+    }
+    const pre = join(data, "pre");
+    if (existsSync(pre))
+        for (const archive of readdirSync(pre).sort()) {
+            if (!archive.toLowerCase().endsWith(".prx")) continue;
+            for (const [entry, bytes] of prx.entries(join(pre, archive), (n) => n.toLowerCase().endsWith(".qb")))
+                out.push({ name: entry.replace(/\//g, "\\").toLowerCase(), origin: archive, bytes });
+        }
+    for (const overlay of overlayFolders(root))
+        for (const file of walk(join(root, overlay)))
+            out.push({
+                name: relative(join(root, overlay), file).replace(/\//g, "\\").toLowerCase(),
+                origin: overlay,
+                bytes: readFileSync(file),
+                path: file,
+            });
+    return out;
+}
+
 // check: the script check's translation (emit_ts.ts) - for its runs only, never the game's.
 export function installTS(game: string, only: string[] = [], clear = false, check = false): InstallResult {
     const root = gameRoot(game);
     const out = join(root, "thug2-decomp-ts");
     if (clear) rmSync(out, { recursive: true, force: true });
-    const overlays = readdirSync(root).filter(
-        (name) =>
-            name.toLowerCase().startsWith("thug2-decomp-") &&
-            name.toLowerCase() !== "thug2-decomp-ts" &&
-            !name.toLowerCase().startsWith("thug2-decomp-check"), // (the script check's plan, not an overlay)
+    const wanted = only.map((path) =>
+        path
+            .replace(/[\\/]+/g, "\\")
+            .toLowerCase()
+            .replace(/^data\\/, ""),
     );
-    const files = only.length
-        ? only.map((path) => join(root, path.replace(/[\\/]+/g, "/")))
-        : [
-              ...walk(join(root, "Data", "scripts")),
-              ...walk(join(root, "Data", "levels")),
-              ...overlays.flatMap((name) => walk(join(root, name))),
-          ];
+    const versions = qbVersions(root).filter((v) => !wanted.length || wanted.includes(v.name));
     const result: InstallResult = { installed: [], failed: [] };
     const seen = new Set<string>();
-    for (const file of files) {
-        const name = relative(root, file).replace(/\//g, "\\");
+    for (const version of versions) {
+        // (its readable source beside: under the folder it came from - Data, an overlay, or pre\\<archive>)
+        const origin =
+            version.origin === "Data"
+                ? "Data"
+                : version.origin.toLowerCase().endsWith(".prx")
+                  ? `pre\\${version.origin}`
+                  : version.origin;
+        const name = `${origin}\\${version.name}`;
         try {
-            const bytes = readFileSync(file);
+            const bytes = version.bytes;
             const hash = fileHash(bytes);
             if (seen.has(hash)) continue;
             seen.add(hash);

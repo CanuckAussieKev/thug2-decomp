@@ -10,21 +10,12 @@
 //       compares the runs (every call, its arguments and result, the frame it came in, how each run ended and the
 //       script's final parameters) and reports the branches the QB runs took against every branch the scripts have:
 //       report.md and report.json beside.
-import {
-    createReadStream,
-    existsSync,
-    mkdirSync,
-    readdirSync,
-    readFileSync,
-    rmSync,
-    statSync,
-    writeFileSync,
-} from "node:fs";
-import { join, relative } from "node:path";
+import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { checksum } from "../qb_checksum.ts";
-import { gameRoot } from "./install_ts.ts";
+import { fileHash, gameRoot, type QbVersion, qbVersions } from "./install_ts.ts";
 import type { Definition, Expr, Field, ModuleIR, Statement } from "./ir.ts";
 import { readIR } from "./reader.ts";
 
@@ -76,31 +67,56 @@ export function fieldsBytes(fields: Field[]): number[] | undefined {
 
 // --- the plan -------------------------------------------------------------------------------------------------------
 
-const walk = (path: string): string[] =>
-    !existsSync(path)
-        ? []
-        : statSync(path).isDirectory()
-          ? readdirSync(path).flatMap((n) => walk(join(path, n)))
-          : path.toLowerCase().endsWith(".qb")
-            ? [path]
-            : [];
+// A module: its game path, the version planned from (source: a file - an archive's copy is written out first) and
+// every version of it the game may load (the run reports which: its bytes' hash).
+export type PlanModule = {
+    file: string;
+    source: string;
+    ir: ModuleIR;
+    versions: { origin: string; hash: string; source: string }[];
+};
 
-export type PlanModule = { file: string; source: string; ir: ModuleIR };
-
-// The modules the game would load by these names: Data\scripts and Data\levels, the data overlay's own version where
-// it has one (the game's file system looks there first), and the overlay's levels the Data folder doesn't have.
+// The modules the game would load by these names: every .qb of Data (its loose files and its archives' copies) and of
+// the data overlay. A module is planned from the version the game prefers - the overlay's, else an archive's, else the
+// loose file -; every version is written out (<game>\thug2-decomp-check-sources) for the verdict, which reads the one
+// the game ran.
 export function planModules(root: string, only: string[] = []): PlanModule[] {
-    const overlay = join(root, "thug2-decomp-data");
-    const names = new Map<string, string>(); // game path (lower case) -> source file
-    for (const base of [join(root, "Data"), overlay])
-        for (const sub of ["scripts", "levels"])
-            for (const file of walk(join(base, sub))) names.set(relative(base, file).toLowerCase(), file);
+    const sources = join(root, "thug2-decomp-check-sources");
+    rmSync(sources, { recursive: true, force: true });
+    const rank = (origin: string) =>
+        origin === "thug2-decomp-data" ? 0 : origin.toLowerCase().endsWith(".prx") ? 1 : 2;
+    const byName = new Map<string, QbVersion[]>();
+    for (const v of qbVersions(root)) {
+        if (v.origin !== "Data" && v.origin !== "thug2-decomp-data" && !v.origin.toLowerCase().endsWith(".prx"))
+            continue;
+        if (v.name.startsWith("anteara\\") || v.name.startsWith("front_end\\")) continue; // (overlays' own sets)
+        byName.set(v.name, [...(byName.get(v.name) ?? []), v]);
+    }
     const modules: PlanModule[] = [];
-    for (const [key, source] of [...names].sort((a, b) => a[0].localeCompare(b[0]))) {
-        const file = key.replace(/\//g, "\\");
+    for (const [file, all] of [...byName].sort((a, b) => a[0].localeCompare(b[0]))) {
         if (only.length && !only.some((o) => o.toLowerCase().replace(/\//g, "\\") === file)) continue;
+        const versions: PlanModule["versions"] = [];
+        const seen = new Set<string>();
+        for (const v of [...all].sort((a, b) => rank(a.origin) - rank(b.origin))) {
+            const hash = fileHash(v.bytes);
+            if (seen.has(hash)) continue;
+            seen.add(hash);
+            let source = v.path;
+            if (!source) {
+                source = join(sources, v.origin, file);
+                mkdirSync(dirname(source), { recursive: true });
+                writeFileSync(source, v.bytes);
+            }
+            versions.push({ origin: v.origin, hash, source });
+        }
+        const primary = versions[0]!;
         try {
-            modules.push({ file, source, ir: readIR(readFileSync(source), relative(root, source)) });
+            modules.push({
+                file,
+                source: primary.source,
+                ir: readIR(readFileSync(primary.source), file),
+                versions,
+            });
         } catch {
             // (not translated: stays QB, nothing to compare)
         }
@@ -142,10 +158,40 @@ export function callerArguments(modules: PlanModule[]): Map<number, number[][]> 
     return out;
 }
 
-export function writePlan(folder: string, modules: PlanModule[], settings: Record<string, number>) {
+// The shares of several workspaces running one plan at once: every module any of them has goes to one of them that has
+// it (their data overlays differ), each share about as many scripts. Written to each workspace's
+// thug2-decomp-check-share.txt (a module's game path a line), which plan --share reads.
+export function writeShares(roots: string[]) {
+    const lists = roots.map((r) => planModules(r));
+    const weight = new Map<string, number>();
+    for (const list of lists)
+        for (const m of list) weight.set(m.file, m.ir.definitions.filter((d) => d.kind === "script").length + 1);
+    const load = roots.map(() => 0);
+    const shares = roots.map(() => [] as string[]);
+    for (const [file, w] of [...weight].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+        let best = -1;
+        lists.forEach((list, i) => {
+            if (list.some((m) => m.file === file) && (best < 0 || (load[i] ?? 0) < (load[best] ?? 0))) best = i;
+        });
+        load[best] = (load[best] ?? 0) + w;
+        shares[best]?.push(file);
+    }
+    roots.forEach((r, i) => {
+        writeFileSync(join(r, "thug2-decomp-check-share.txt"), `${(shares[i] ?? []).sort().join("\n")}\n`);
+    });
+    return shares.map((s, i) => ({
+        root: roots[i],
+        modules: s.length,
+        scripts: load[i],
+    }));
+}
+
+export function writePlan(folder: string, all: PlanModule[], settings: Record<string, number>, share?: Set<string>) {
     rmSync(folder, { recursive: true, force: true });
     mkdirSync(folder, { recursive: true });
-    const args = callerArguments(modules);
+    // (a share's modules only - their argument sets still from every module's calls)
+    const args = callerArguments(all);
+    const modules = share ? all.filter((m) => share.has(m.file)) : all;
     const entries: number[] = [];
     modules.forEach((m, i) => {
         const part = `m${i}.qb`;
@@ -217,7 +263,13 @@ export function writePlan(folder: string, modules: PlanModule[], settings: Recor
     );
     writeFileSync(
         join(folder, "modules.json"),
-        JSON.stringify(modules.map((m) => ({ file: m.file, source: m.source }))),
+        JSON.stringify(
+            modules.map((m) => ({
+                file: m.file,
+                source: m.source,
+                versions: m.versions,
+            })),
+        ),
     );
 }
 
@@ -228,19 +280,29 @@ export function writePlan(folder: string, modules: PlanModule[], settings: Recor
 export type Verdict = {
     runs: number;
     same: number;
+    exhausted: number; // QB's runs that filled a script pool (not replayed)
+    withoutTypeScript: string[]; // modules the TypeScript pass ran as QB (no module for the version loaded): untested
     differences: { module: string; run: string; qb: string; ts: string }[];
 };
 export function readVerdict(text: string): Verdict {
-    const out: Verdict = { runs: 0, same: 0, differences: [] };
+    const out: Verdict = {
+        runs: 0,
+        same: 0,
+        exhausted: 0,
+        withoutTypeScript: [],
+        differences: [],
+    };
     let module = "";
     const lines = text.split("\n");
     for (let i = 0; i < lines.length; ++i) {
         const line = lines[i]!;
         if (line.startsWith("module ")) module = line.slice(7);
+        else if (line.startsWith("loaded ") && line.endsWith(" no-typescript")) out.withoutTypeScript.push(module);
         else if (line.startsWith("runs ")) {
-            const [, runs, , same] = line.split(" ");
+            const [, runs, , same, , exhausted] = line.split(" ");
             out.runs += Number(runs);
             out.same += Number(same);
+            out.exhausted += Number(exhausted ?? 0);
         } else if (line.startsWith("differ ")) {
             out.differences.push({
                 module,
@@ -258,12 +320,16 @@ export function readVerdict(text: string): Verdict {
 export async function readCoverage(path: string): Promise<Map<string, Set<string>>> {
     const out = new Map<string, Set<string>>();
     let current = new Set<string>();
-    const lines = createInterface({ input: createReadStream(path), crlfDelay: Number.POSITIVE_INFINITY });
+    const lines = createInterface({
+        input: createReadStream(path),
+        crlfDelay: Number.POSITIVE_INFINITY,
+    });
     for await (const line of lines) {
         if (line.startsWith("module ")) {
             current = new Set();
             out.set(line.slice(7), current);
         } else if (line.startsWith("cover ")) current.add(line.slice(6));
+        else if (line.startsWith("loaded ")) current.add(line); // (the version the game ran: "loaded <hash>")
     }
     return out;
 }
@@ -342,22 +408,24 @@ export function statementPlaces(d: Extract<Definition, { kind: "script" }>): num
 }
 
 // The statements no run can reach, the original's or ours: those after a return, or after a loop that never ends (no
-// count, no break out of it) - in the same block.
+// count, no break out of it that can run - one after a return isn't) - in the same block.
 export function unreachable(d: Extract<Definition, { kind: "script" }>): Statement[] {
     const dead: Statement[] = [];
     const breaksOut = (xs: Statement[], loop: number): boolean =>
         xs.some((x) =>
-            x.kind === "break"
-                ? x.target === loop
-                : x.kind === "if"
-                  ? breaksOut(x.yes, loop) || breaksOut(x.no, loop)
-                  : x.kind === "switch"
-                    ? x.cases.some((c) => breaksOut(c.body, loop)) || breaksOut(x.fallback ?? [], loop)
-                    : x.kind === "randomBlock"
-                      ? x.branches.some((b) => breaksOut(b, loop))
-                      : x.kind === "loop"
-                        ? breaksOut(x.body, loop)
-                        : false,
+            dead.includes(x)
+                ? false
+                : x.kind === "break"
+                  ? x.target === loop
+                  : x.kind === "if"
+                    ? breaksOut(x.yes, loop) || breaksOut(x.no, loop)
+                    : x.kind === "switch"
+                      ? x.cases.some((c) => breaksOut(c.body, loop)) || breaksOut(x.fallback ?? [], loop)
+                      : x.kind === "randomBlock"
+                        ? x.branches.some((b) => breaksOut(b, loop))
+                        : x.kind === "loop"
+                          ? breaksOut(x.body, loop)
+                          : false,
         );
     // A block's statements: whether it can run on past its end.
     const block = (xs: Statement[]): boolean => {
@@ -458,32 +526,78 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         return i >= 0 ? args[i + 1] : undefined;
     };
     const game = value("--game");
-    if (!game || (command !== "plan" && command !== "compare"))
-        throw Error("Usage: node tools/qbjs/script_check.ts plan|compare --game <folder> [--only a.qb,b.qb]");
-    const root = gameRoot(game);
+    if (!game || !["plan", "compare", "shares"].includes(command ?? ""))
+        throw Error(
+            "Usage: node tools/qbjs/script_check.ts plan|compare|shares --game <folder>[,<folder>...] [--only a.qb,b.qb] [--share]",
+        );
+    // (compare: several game folders - the shares of one plan run at once - give one report, in the first's folder)
+    const roots = game.split(",").map((g) => gameRoot(g));
+    const root = roots[0]!;
     const folder = join(root, "thug2-decomp-check");
     const only = (value("--only") ?? "").split(",").filter(Boolean);
-    if (command === "plan") {
-        const modules = planModules(root, only);
-        writePlan(folder, modules, {
-            runs: Number(value("--runs") ?? 64),
-            frames: Number(value("--frames") ?? 300),
-            calls: Number(value("--calls") ?? 2000),
-            steps: Number(value("--steps") ?? 200000),
-        });
+    if (command === "shares") {
+        for (const s of writeShares(roots)) console.log(`share: ${s.root}: ${s.modules} modules, ${s.scripts} scripts`);
+    } else if (command === "plan") {
+        const all = planModules(root, only);
+        const share = args.includes("--share")
+            ? new Set(readFileSync(join(root, "thug2-decomp-check-share.txt"), "utf8").split("\n").filter(Boolean))
+            : undefined;
+        const modules = share ? all.filter((m) => share.has(m.file)) : all;
+        writePlan(
+            folder,
+            all,
+            {
+                runs: Number(value("--runs") ?? 64),
+                frames: Number(value("--frames") ?? 300),
+                calls: Number(value("--calls") ?? 600),
+                steps: Number(value("--steps") ?? 50000),
+                log_runs: args.includes("--log-runs") ? 1 : 0,
+            },
+            share,
+        );
         console.log(
             `plan: ${modules.length} modules, ${modules.reduce((n, m) => n + m.ir.definitions.filter((d) => d.kind === "script").length, 0)} scripts -> ${folder}`,
         );
     } else {
-        const files = JSON.parse(readFileSync(join(folder, "modules.json"), "utf8")) as {
-            file: string;
-            source: string;
-        }[];
-        const modules = files.map((f) => ({ ...f, ir: readIR(readFileSync(f.source), relative(root, f.source)) }));
-        const verdict = readVerdict(
-            existsSync(join(folder, "ts.txt")) ? readFileSync(join(folder, "ts.txt"), "utf8") : "",
-        );
-        const result = { ...verdict, coverage: coverageOf(await readCoverage(join(folder, "qb.txt")), modules) };
+        const results = [];
+        for (const one of roots) {
+            const at = join(one, "thug2-decomp-check");
+            const files = JSON.parse(readFileSync(join(at, "modules.json"), "utf8")) as {
+                file: string;
+                source: string;
+                versions: { origin: string; hash: string; source: string }[];
+            }[];
+            const cover = await readCoverage(join(at, "qb.txt"));
+            // (each module read in the version the game ran - its loaded hash; one we have no copy of is reported)
+            const unknown: string[] = [];
+            const modules = files.map((f) => {
+                const loaded = [...(cover.get(f.file) ?? [])].find((x) => x.startsWith("loaded "))?.split(" ")[1];
+                const version = f.versions.find((v) => v.hash === loaded);
+                if (loaded && loaded !== "none" && !version) unknown.push(`${f.file} (${loaded})`);
+                const source = version?.source ?? f.source;
+                return {
+                    ...f,
+                    source,
+                    ir: readIR(readFileSync(source), relative(one, source)),
+                };
+            });
+            const verdict = readVerdict(existsSync(join(at, "ts.txt")) ? readFileSync(join(at, "ts.txt"), "utf8") : "");
+            results.push({
+                ...verdict,
+                unknownVersions: unknown,
+                coverage: coverageOf(cover, modules),
+            });
+        }
+        const result = {
+            runs: results.reduce((n, r) => n + r.runs, 0),
+            same: results.reduce((n, r) => n + r.same, 0),
+            exhausted: results.reduce((n, r) => n + r.exhausted, 0),
+            withoutTypeScript: results.flatMap((r) => r.withoutTypeScript),
+            differences: results.flatMap((r) => r.differences),
+            unknownVersions: results.flatMap((r) => r.unknownVersions),
+            coverage: results.flatMap((r) => r.coverage),
+        };
+        const unknownVersions = result.unknownVersions;
         const total = result.coverage.reduce((n, c) => n + c.branches, 0);
         const taken = result.coverage.reduce((n, c) => n + c.taken, 0);
         const statements = result.coverage.reduce((n, c) => n + c.statements, 0);
@@ -496,7 +610,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const report = [
             "# Script check",
             "",
-            `Runs: ${result.runs}; the same as QB and TypeScript: ${result.same}; different: ${result.differences.length}.`,
+            `Runs: ${result.runs}; the same as QB and TypeScript: ${result.same}; different: ${result.differences.length}; not replayed: ${result.exhausted} (QB's run filled a script pool - the game runs out there).`,
+            `Modules the TypeScript pass ran as QB (no module for the version loaded - untested): ${result.withoutTypeScript.length}${result.withoutTypeScript.length ? ` - ${result.withoutTypeScript.join(", ")}` : ""}.`,
+            `Modules whose loaded version isn't among the planned ones: ${unknownVersions.length}${unknownVersions.length ? ` - ${unknownVersions.join(", ")}` : ""}.`,
             `Branches: ${taken} of ${total} taken by the QB runs (${percent(taken, total)}%; forced where no input took them).`,
             `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends) not counted.`,
             "",
@@ -529,7 +645,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         ].join("\n");
         writeFileSync(join(folder, "report.md"), report);
         writeFileSync(join(folder, "report.json"), JSON.stringify(result, null, 1));
-        console.log(report.split("\n").slice(0, 6).join("\n"));
+        console.log(report.split("\n").slice(0, 8).join("\n"));
         console.log(`written: ${join(folder, "report.md")}`);
     }
 }
