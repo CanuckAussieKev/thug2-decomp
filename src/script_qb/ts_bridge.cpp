@@ -811,7 +811,9 @@ JSValue native_reach(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueC
 {
     int64_t place = -1;
     JS_ToInt64(c, &place, argv[1]);
-    check::reach_ts(to_u32(c, argv[0]), place);
+    if (!check::reach_ts(to_u32(c, argv[0]), place)) {
+        return JS_ThrowInternalError(c, "script check: the run is over");
+    }
     return JS_UNDEFINED;
 }
 
@@ -990,6 +992,14 @@ std::unordered_map<uint32_t, LoadedFile>& loaded_files()
 }
 
 // After each .qb file: its TypeScript module, when there is one.
+// Who a module's definitions belong to (runtime.js loadingAs / forget): its file's checksum - a temporary load's apart,
+// past the 32-bit checksums, so undoing it lets go of only what it defined.
+JSValue owner_value(JSContext* c, uint32_t file_checksum, bool temporary)
+{
+    constexpr int64_t kTemporaryOwners = int64_t{1} << 32;
+    return temporary ? JS_NewInt64(c, kTemporaryOwners + file_checksum) : JS_NewUint32(c, file_checksum);
+}
+
 void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temporary)
 {
     if (filename) {
@@ -1015,7 +1025,7 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
     const std::string cache = game_folder_path("thug2-decomp-ts") + "\\cache\\" + name.data();
     bool cached = false;
     // (what it defines belongs to its file: let go of when the file is unloaded - on_qb_unloaded)
-    std::array<JSValue, 1> owner{JS_NewUint32(e.context, checksums::hash_from_text(filename))};
+    std::array<JSValue, 1> owner{owner_value(e.context, checksums::hash_from_text(filename), temporary)};
     JS_FreeValue(e.context, call_qb("loadingAs", owner));
     const bool loaded = evaluate_module(source, relative, cache, cached, error);
     std::array<JSValue, 1> nobody{JS_NULL};
@@ -1036,14 +1046,7 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
 
 // A .qb file unloaded: the functions its module defined let go of (its symbols are gone - a later file's definition
 // of the same name has a number of its own).
-void on_qb_unloaded(uint32_t file_checksum)
-{
-    if (!is_on()) {
-        return;
-    }
-    std::array<JSValue, 1> owner{JS_NewUint32(engine().context, file_checksum)};
-    JS_FreeValue(engine().context, call_qb("forget", owner));
-}
+void on_qb_unloaded(uint32_t file_checksum) { forget_file(file_checksum, false); }
 
 JSValue call_qb(const char* method, std::span<JSValue> args)
 {
@@ -1131,7 +1134,18 @@ void install()
 
 bool enabled() { return is_on(); }
 
-void forget_file(uint32_t file_checksum) { on_qb_unloaded(file_checksum); }
+void forget_file(uint32_t file_checksum, bool temporary_only)
+{
+    if (!is_on()) {
+        return;
+    }
+    for (const bool temporary : {true, false}) {
+        if (temporary || !temporary_only) {
+            std::array<JSValue, 1> owner{owner_value(engine().context, file_checksum, temporary)};
+            JS_FreeValue(engine().context, call_qb("forget", owner));
+        }
+    }
+}
 
 void set_interrupt_budget(uint32_t budget) { interrupt_budget() = budget == 0 ? kInterruptBudget : budget; }
 

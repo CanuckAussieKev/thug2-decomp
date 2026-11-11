@@ -89,8 +89,9 @@ struct Job {
     uint32_t seed = 0;
     std::string stubs;
     std::map<uint32_t, uint32_t> forced;
-    // (TypeScript replaying a QB run that ended runaway: the calls QB made - the run ends right after the last, as
-    // what follows it isn't compared; 0: no such end)
+    // (TypeScript replaying a QB run that ended runaway: the calls QB made - compared up to the last; after it the run
+    // goes on as QB's did, for coverage, until a call QB didn't make or QB's statement budget in its own statements
+    // (reach_ts); 0: no such end)
     uint32_t stop_at_call = 0;
     // (the call budget: 0 - settings.calls. A long run - a straight run of calls longer than the budget, still reaching
     // new statements at its end - has kLongRunCalls and ends once settings.calls calls go by with nothing new; its
@@ -146,6 +147,7 @@ struct Run {
     uint32_t new_at_call = 0;            // (the calls made when the run last reached a statement it hadn't before - QB)
     std::unordered_set<uint64_t> places; // (the statements it has reached - QB)
     uint32_t stop_at_call = 0;           // (Job::stop_at_call)
+    uint32_t ts_steps_after = 0;         // (TypeScript's statements past stop_at_call - reach_ts)
     // the calls after the first kTracedCalls: counted and hashed, not written (a long run's trace stays short)
     uint32_t tail_calls = 0;
     uint64_t tail_hash = 0xCBF29CE484222325ULL;
@@ -313,6 +315,13 @@ bool stub(const Script* script, uint32_t name, uint32_t object, Struct* args)
 {
     State& s = state();
     Run& run = *s.run;
+    if (run.stop_at_call != 0 && run.calls >= run.stop_at_call) {
+        // (a call QB's run didn't make - it ran out of statements first: the replay ends, compared up to QB's last)
+        if (run.ended.empty()) {
+            run.ended = "runaway";
+        }
+        return true;
+    }
     const size_t index = run.made.size();
     const char value = index < run.forced.size() ? run.forced[index] : '0';
     run.made.push_back({script ? script->script_title() : 0, place_of(script), value, run.decisions});
@@ -336,9 +345,6 @@ bool stub(const Script* script, uint32_t name, uint32_t object, Struct* args)
          (run.long_run && run.calls - run.new_at_call >= static_cast<uint32_t>(s.settings.calls))) &&
         run.ended.empty()) {
         run.ended = "overlong";
-    }
-    if (run.stop_at_call != 0 && run.calls == run.stop_at_call && run.ended.empty()) {
-        run.ended = "runaway";
     }
     return value == '0';
 }
@@ -747,7 +753,8 @@ void run_plan(const std::string& folder)
             get_log("script check: no %s", part_name.c_str());
             process_pending_symbols(); // (the module's temporary load undone)
             if (!loaded) {
-                ts::forget_file(file_name); // (its TypeScript functions: the undo doesn't unload the file)
+                ts::forget_file(file_name, true); // (its temporary load's TypeScript functions: the undo doesn't unload
+                // the file; a boot file's own load's stay - the symbols put back name them)
             }
             continue;
         }
@@ -876,7 +883,8 @@ void run_plan(const std::string& folder)
         fs::disk().stream_flush(output.get());
         process_pending_symbols(); // (its part of the plan undone)
         if (!loaded) {
-            ts::forget_file(file_name); // (its TypeScript functions: the undo doesn't unload the file)
+            ts::forget_file(file_name, true); // (its temporary load's TypeScript functions: the undo doesn't unload
+            // the file; a boot file's own load's stay - the symbols put back name them)
         }
     }
     s.on = false;
@@ -1020,11 +1028,25 @@ uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms, uint32_t scri
     return arm;
 }
 
-void reach_ts(uint32_t script, int64_t place)
+bool reach_ts(uint32_t script, int64_t place)
 {
-    if (active() && script != 0 && place >= 0 && state().run->ended.empty()) {
+    if (!active()) {
+        return true;
+    }
+    Run& run = *state().run;
+    if (!run.ended.empty()) {
+        return false;
+    }
+    if (script != 0 && place >= 0) {
         state().ts_statements.insert((static_cast<uint64_t>(script) << 32) | static_cast<uint32_t>(place));
     }
+    // (past QB's last call - its run went on without calls until its statement budget: as many statements here)
+    if (run.stop_at_call != 0 && run.calls >= run.stop_at_call &&
+        ++run.ts_steps_after > static_cast<uint32_t>(state().settings.steps)) {
+        run.ended = "runaway";
+        return false;
+    }
+    return true;
 }
 
 void note_statement(const Script* script, std::ptrdiff_t place)

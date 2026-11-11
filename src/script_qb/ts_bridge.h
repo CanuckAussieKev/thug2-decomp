@@ -27,8 +27,10 @@ void install();
 [[nodiscard]] bool enabled();
 // QuickJS's interrupt budget for each run of it (0: the game's own) - the script check lowers it.
 void set_interrupt_budget(uint32_t budget);
-// The functions the TypeScript module of .qb file `file_checksum` defined let go of (as when the file is unloaded).
-void forget_file(uint32_t file_checksum);
+// The functions the TypeScript module of .qb file `file_checksum` defined let go of (as when the file is unloaded);
+// `temporary_only`: only those its temporary loads defined - a temporary load undone (the script check), the file's
+// own load's kept: the symbols it put back still name them.
+void forget_file(uint32_t file_checksum, bool temporary_only = false);
 // The .qb file `file_checksum` (its name's checksum) as last loaded: its bytes' hash (FNV-1a, as tools/qbjs/install_ts.ts
 // names modules) and whether its TypeScript module ran - none if it hasn't been loaded. (The script check reports which
 // version of a file the game ran, and fails a TypeScript pass whose file had no module.)

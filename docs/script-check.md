@@ -108,10 +108,14 @@ where the arm is forced.
 - A run that ends at a budget (`runaway`: QB's statement budget, 50,000, and TypeScript's interrupt budget - one check
   per 100 of QB's statements - stop a loop without calls at different statements; `overlong`: the call budget) is
   compared up to its last stub call: its frame, its decisions then, its trace to there (the forced decisions after it
-  aren't written). Replaying a run QB ended runaway, TypeScript stops
-  right after QB's last call: nothing after it is compared, and running on until a budget stops it costs TypeScript's
-  values layer (~100 us a statement) far more than QB. So a TypeScript run that would have gone on to make a further
-  call, or finished, after QB's last one isn't caught there; any difference up to that call is.
+  aren't written). Replaying a run QB ended runaway, TypeScript is compared up to QB's last call and then runs on as
+  QB's did - for its coverage: the loops QB went round after its last call - until a call QB didn't make or QB's
+  statement budget counted in its own statements (`reach`; past it `reach` throws, which ends a loop without calls).
+  So a TypeScript run that would have gone on to make a further call, or finished, after QB's last one isn't caught
+  there; any difference up to that call is.
+- A temporary load (a level's file, or a boot file loaded again for its module) defines its TypeScript under an owner
+  of its own; undoing it lets go of only those definitions - the file's own load's stay, as the symbols put back name
+  them (Anteara Mod's files redefine each other's scripts: letting go of all of them faulted every later caller).
 - The report counts branches and statements against every one the scripts have, less those no run can reach: the
   statements after a `return`, or after a loop that never ends (no count, no `break` out of it), in the same block - the
   original can't run them either (`script_check.ts unreachable`).
