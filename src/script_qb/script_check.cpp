@@ -148,6 +148,7 @@ struct Run {
     std::unordered_set<uint64_t> places; // (the statements it has reached - QB)
     uint32_t stop_at_call = 0;           // (Job::stop_at_call)
     uint32_t ts_steps_after = 0;         // (TypeScript's statements past stop_at_call - reach_ts)
+    uint32_t ts_quiet = 0;               // (of those, the statements since one reached something new - reach_ts)
     // the calls after the first kTracedCalls: counted and hashed, not written (a long run's trace stays short)
     uint32_t tail_calls = 0;
     uint64_t tail_hash = 0xCBF29CE484222325ULL;
@@ -1043,9 +1044,12 @@ uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms, uint32_t scri
     const bool counted =
         script != 0 && place >= 0 && state().run->ended.empty(); // (as QB's: none once the run is over)
     const uint32_t arm = decide(static_cast<Decision>(kind), natural, arms, nullptr, 0);
-    if (counted) {
-        state().ts_coverage.insert(
-            coverage_key(static_cast<Decision>(kind), script, static_cast<std::ptrdiff_t>(place), arm));
+    if (counted &&
+        state()
+            .ts_coverage.insert(
+                coverage_key(static_cast<Decision>(kind), script, static_cast<std::ptrdiff_t>(place), arm))
+            .second) {
+        state().run->ts_quiet = 0;
     }
     return arm;
 }
@@ -1059,12 +1063,16 @@ bool reach_ts(uint32_t script, int64_t place)
     if (!run.ended.empty()) {
         return false;
     }
-    if (script != 0 && place >= 0) {
-        state().ts_statements.insert((static_cast<uint64_t>(script) << 32) | static_cast<uint32_t>(place));
+    if (script != 0 && place >= 0 &&
+        state().ts_statements.insert((static_cast<uint64_t>(script) << 32) | static_cast<uint32_t>(place)).second) {
+        run.ts_quiet = 0;
     }
-    // (past QB's last call - its run went on without calls until its statement budget: as many statements here)
+    // (past QB's last call - its run went on without calls until its statement budget: as many statements here, but
+    // only for its coverage: once kQuietSteps of them reach nothing new - a loop going round again - it ends; running
+    // every one cost TypeScript hours over a full check)
+    constexpr uint32_t kQuietSteps = 2000;
     if (run.stop_at_call != 0 && run.calls >= run.stop_at_call &&
-        ++run.ts_steps_after > static_cast<uint32_t>(state().settings.steps)) {
+        (++run.ts_steps_after > static_cast<uint32_t>(state().settings.steps) || ++run.ts_quiet > kQuietSteps)) {
         run.ended = "runaway";
         return false;
     }
