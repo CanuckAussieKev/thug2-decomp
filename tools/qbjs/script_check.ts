@@ -646,10 +646,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             const tsCover = existsSync(join(at, "ts.txt"))
                 ? await readCoverage(join(at, "ts.txt"))
                 : new Map<string, Set<string>>();
+            // (an if QB found fixed: the original stays on its line - the run ends there, TypeScript's at the call its
+            // condition makes past QB's last: reaching the line is taking what QB took)
             for (const [file, lines] of cover)
                 for (const line of lines)
-                    if (line.startsWith("fixed "))
-                        tsCover.set(file, (tsCover.get(file) ?? new Set<string>()).add(line));
+                    if (line.startsWith("fixed ")) {
+                        const set = tsCover.get(file) ?? new Set<string>();
+                        tsCover.set(file, set.add(line));
+                        const [, name, place] = line.split(" ");
+                        if (set.has(`stmt ${name} ${place}`))
+                            for (const arm of ["0", "1"])
+                                if (lines.has(`if ${name} ${place} ${arm}`)) set.add(`if ${name} ${place} ${arm}`);
+                    }
             // The files' globals, QB's (read from the .qb) against the TypeScript pass's (a standalone module's with
             // ts_scripts=2): each by its value's text, hashed
             const globalsOf = (lines: Set<string> | undefined) =>
