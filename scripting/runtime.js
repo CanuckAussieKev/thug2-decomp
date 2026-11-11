@@ -269,8 +269,11 @@ globalThis.qb = (() => {
             if (tasks.size && !game) throw Error('Cannot load QB globals with retained tasks');
             if (loadingFormat !== 2) throw Error('QB globals require module format 2');
             const copy = values().copy(value, 'value', context(site));
-            scripts.delete(n); symbols.set(n, copy);
+            scripts.delete(n);
+            // (the game keeps its globals - read back through game.symbol, as a .qb file's: a copy kept here too would
+            // outlive the file - a level's node arrays, megabytes, level after level)
             if (game) game.defineGlobal(n, copy);
+            else symbols.set(n, copy);
         },
         define(n, fn) {
             uint(n);

@@ -1304,6 +1304,12 @@ void forget_file(uint32_t file_checksum, bool temporary_only)
             JS_FreeValue(engine().context, call_qb("forget", owner));
         }
     }
+    // (a module's functions and its scope refer to each other: only the cycle collector frees them - a level's module
+    // holds megabytes, and the script check loads level after level)
+    JS_RunGC(engine().runtime);
+    JSMemoryUsage usage{};
+    JS_ComputeMemoryUsage(engine().runtime, &usage);
+    get_log("ts: %08x let go of - %lld MB in use", file_checksum, static_cast<long long>(usage.memory_used_size >> 20));
 }
 
 void set_interrupt_budget(uint32_t budget) { interrupt_budget() = budget == 0 ? kInterruptBudget : budget; }
