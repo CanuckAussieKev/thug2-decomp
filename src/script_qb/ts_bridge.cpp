@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <bit>
 #include <cstdint>
@@ -29,9 +30,11 @@
 
 #include "base/core/checksums.h"
 #include "base/maths/random.h"
+#include "engine/file/archive.h"
 #include "engine/file/disk.h"
 #include "engine/file/data_overlay.h"
 #include "engine/file/disk_files.h"
+#include "engine/file/packs.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/script/cell.h"
@@ -977,7 +980,8 @@ bool evaluate_module(const std::string& source, const std::string& name, const s
     Engine& e = engine();
     JSContext* c = e.context;
     JS_UpdateStackTop(e.runtime);
-    e.budget = interrupt_budget();
+    // (the game's budget, never the script check's lower one: a standalone level module builds megabytes of node arrays)
+    e.budget = kInterruptBudget;
     const std::string header = cache_header(source);
     JSValue function = JS_UNDEFINED;
     cached = false;
@@ -1111,6 +1115,39 @@ std::string standalone_path(const char* filename)
     return fs::disk().kind(path.c_str()) == fs::PathKind::kFile ? path : "";
 }
 
+// Which of `archives` (names without .pre / .prx, lower case) the game would read `filename` from now, as packs::read_in
+// looks: the preloaded archives first (packs - the boot's qb_scripts), then the pre manager's (a level's); "" when no
+// loaded archive has the file - it reads the loose file.
+namespace {
+std::string archive_holding(const char* filename, const std::vector<std::string>& archives)
+{
+    const auto stem = [](std::string name) {
+        if (const size_t dot = name.rfind('.'); dot != std::string::npos) {
+            name.resize(dot);
+        }
+        std::ranges::transform(name, name.begin(), [](char c) { return static_cast<char>(std::tolower(c)); });
+        return name;
+    };
+    if (packs::find_pre_entry(checksums::hash_from_text(filename))) {
+        for (const char* loaded = packs::take_next_finished_archive(nullptr); loaded;
+             loaded = packs::take_next_finished_archive(loaded)) {
+            if (std::ranges::find(archives, stem(loaded)) != archives.end()) {
+                return stem(loaded);
+            }
+        }
+        return "";
+    }
+    if (pre::hub() && pre::hub()->is_file_present(filename)) {
+        for (const std::string& archive : archives) {
+            if (pre::hub()->is_loaded((archive + ".pre").c_str())) {
+                return archive;
+            }
+        }
+    }
+    return "";
+}
+} // namespace
+
 // load_qb's hook ([features] ts_scripts=2): the file defined by its standalone module - its globals, its scripts and
 // its checksum names (its manifest's) - in place of reading the .qb; false (the .qb read) when it has none or it fails.
 bool load_standalone(const char* filename, bool temporary)
@@ -1118,10 +1155,28 @@ bool load_standalone(const char* filename, bool temporary)
     if (!is_on() || !standalone() || !filename) {
         return false;
     }
-    const std::string path = standalone_path(filename);
+    std::string path = standalone_path(filename);
     std::string source;
     if (path.empty() || !fs::read_text(path, &source)) {
         return false;
+    }
+    // (an archive's version that differs - its manifest's `archives`: the game reads the file from an archive while one
+    // that has it is loaded, a level's scripts once the level's is in - <path>@<archive>.js)
+    if (const size_t at = source.find("\"archives\":["); at != std::string::npos && at < kManifestReach) {
+        std::vector<std::string> archives;
+        const size_t end = source.find(']', at);
+        for (size_t name = source.find('"', at + 12); name != std::string::npos && name < end;
+             name = source.find('"', source.find('"', name + 1) + 1)) {
+            archives.push_back(source.substr(name + 1, source.find('"', name + 1) - name - 1));
+        }
+        if (const std::string archive = archive_holding(filename, archives); !archive.empty()) {
+            const std::string variant = path.substr(0, path.size() - 3) + "@" + archive + ".js";
+            std::string text;
+            if (fs::disk().kind(variant.c_str()) == fs::PathKind::kFile && fs::read_text(variant, &text)) {
+                path = variant;
+                source = std::move(text);
+            }
+        }
     }
     // (the .qb the module was made from: its manifest's "from" - which version the game ran, as for a read file)
     uint32_t from = 0;

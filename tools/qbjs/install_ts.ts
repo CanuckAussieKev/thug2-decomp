@@ -161,9 +161,10 @@ export function installTS(game: string, only: string[] = [], clear = false, chec
 }
 
 // --standalone: the game without the .qb files ([features] ts_scripts=2): one module for each file the game would load,
-// laid out as the game finds it - thug2-decomp-ts\Data\<path> (the version it reads there: an archive's, else the loose
-// file - each with PartyMod's patch when the game applies it) and thug2-decomp-ts\thug2-decomp-data\<path> (the data
-// overlay's, its front_end \ anteara \ anteara\front_end sets as they are) - <path>.ts readable, <path>.js what it loads.
+// laid out as the game finds it - thug2-decomp-ts\Data\<path> (the version it reads there: the loose file, else an
+// archive's - each with PartyMod's patch when the game applies it) and thug2-decomp-ts\thug2-decomp-data\<path> (the data
+// overlay's, its front_end \ anteara \ anteara\front_end sets as they are) - <path>.ts readable, <path>.js what it loads;
+// a level's scripts read from its archive while it is loaded and the loose file before have both: <path>@<archive>.js.
 // A module defines everything its file does - the globals too - and carries the file's checksum names and the hash of
 // the .qb it was made from (its manifest: `names`, `from`).
 export function installStandalone(game: string, only: string[] = [], clear = false, check = false): InstallResult {
@@ -176,10 +177,13 @@ export function installStandalone(game: string, only: string[] = [], clear = fal
             .toLowerCase()
             .replace(/^data\\/, ""),
     );
-    // (the order the game reads them in: an archive's - patched first - before the loose file's - patched first)
+    // (each file's loose version - patched first - is <path>.js, else an archive's; an archive's version that differs
+    // is <path>@<archive>.js too, listed in the base module's manifest (`archives`): the game reads it while that
+    // archive is loaded - a level's scripts once the level's archive is in -, the loose file before)
     const rank = (origin: string) =>
-        (unpatchedOrigin(origin).toLowerCase().endsWith(".prx") ? 0 : 2) + (origin === unpatchedOrigin(origin) ? 1 : 0);
+        (unpatchedOrigin(origin).toLowerCase().endsWith(".prx") ? 2 : 0) + (origin === unpatchedOrigin(origin) ? 1 : 0);
     const chosen = new Map<string, QbVersion>(); // (key: folder\name)
+    const inArchives = new Map<string, Map<string, QbVersion>>(); // (key: folder\name; by archive, lower case, no .prx)
     for (const v of qbVersions(root)) {
         if (wanted.length && !wanted.some((w) => v.name === w || v.name.endsWith(`\\${w}`))) continue;
         const origin = unpatchedOrigin(v.origin);
@@ -193,18 +197,32 @@ export function installStandalone(game: string, only: string[] = [], clear = fal
         const key = `${folder}\\${v.name}`;
         const before = chosen.get(key);
         if (!before || rank(v.origin) < rank(before.origin)) chosen.set(key, v);
+        if (origin.toLowerCase().endsWith(".prx")) {
+            const archive = origin.toLowerCase().slice(0, -4);
+            const archives = inArchives.get(key) ?? new Map<string, QbVersion>();
+            const had = archives.get(archive);
+            if (!had || rank(v.origin) < rank(had.origin)) archives.set(archive, v);
+            inArchives.set(key, archives);
+        }
     }
     const result: InstallResult = { installed: [], failed: [] };
+    const write = (key: string, version: QbVersion, path: string, extra: Record<string, unknown> = {}) => {
+        const ir = readIR(version.bytes, key);
+        const ts = emitTS(ir, {}, { check });
+        const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
+        // (names last: the game reads `from` and `archives` from the manifest's first bytes)
+        const js = compileTS(ts, key, { from: fileHash(version.bytes), ...extra, names });
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(`${path}.ts`, ts);
+        writeFileSync(`${path}.js`, js);
+    };
     for (const [key, version] of [...chosen].sort((a, b) => a[0].localeCompare(b[0]))) {
         try {
-            const ir = readIR(version.bytes, key);
-            const ts = emitTS(ir, {}, { check });
-            const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
-            const js = compileTS(ts, key, { from: fileHash(version.bytes), names });
             const base = join(out, key.replace(/\.qb$/i, ""));
-            mkdirSync(dirname(base), { recursive: true });
-            writeFileSync(`${base}.ts`, ts);
-            writeFileSync(`${base}.js`, js);
+            const baseHash = fileHash(version.bytes);
+            const variants = [...(inArchives.get(key) ?? [])].filter(([, v]) => fileHash(v.bytes) !== baseHash);
+            for (const [archive, v] of variants) write(key, v, `${base}@${archive}`);
+            write(key, version, base, variants.length ? { archives: variants.map(([archive]) => archive) } : {});
             result.installed.push(key);
         } catch (e) {
             result.failed.push([key, String(e).split("\n")[0]!]);
