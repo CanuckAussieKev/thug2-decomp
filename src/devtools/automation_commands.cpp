@@ -2,6 +2,7 @@
 // and camera commands and the start of each order. NOT ORIGINAL.
 
 #include "devtools/automation.h"
+#include "devtools/console.h"
 #include <windows.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -137,8 +138,7 @@ std::string log_tricks(int count, std::string* failed)
     const size_t asked = objects.size();
     objects.push_back(kGuardWord); // (past the list: must be left alone)
     std::array<uint8_t, kStolenSize> stolen = {};
-    const uint32_t changed =
-        manager->log_trick_objects(std::span<uint32_t>(objects).first(asked), stolen, 0, 1000000);
+    const uint32_t changed = manager->log_trick_objects(std::span<uint32_t>(objects).first(asked), stolen, 0, 1000000);
     if (::core::at(objects, asked) != kGuardWord) {
         *failed = "the word past the list was changed";
         return "";
@@ -247,7 +247,9 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     runner.text = describe(command);
     remember(command.target);
     if (command.op == Op::kStageMap || command.condition == Condition::kStageMap) {
-        remember(_strnicmp(command.target.c_str(), "load_", begin_level::kLoadPrefixLength) == 0 ? command.target : "Load_" + command.target);
+        remember(_strnicmp(command.target.c_str(), "load_", begin_level::kLoadPrefixLength) == 0
+                     ? command.target
+                     : "Load_" + command.target);
     }
     get_log("automation: %s", runner.text.c_str());
     std::string why = refusal_by_name(command);
@@ -281,6 +283,12 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     case Op::kEcho:
         get_finish(runner, command.target);
         return true;
+    case Op::kConsole: {
+        const std::string output = devtools::console::submit(command.target);
+        get_log("automation: console %s:\n%s", command.target.c_str(), output.c_str());
+        get_finish(runner, output);
+        return true;
+    }
     case Op::kFrontend: {
         return run_frontend_command(runner, command);
     }
@@ -424,8 +432,7 @@ void continue_command(Runner& runner, modules::FrontEnd* front_end)
                 ext::screen_cancel();
                 get_fail(runner,
                          "fe " + runner.command.target + ": its screen wasn't up in " +
-                             std::to_string(runner.command.seconds) + " s (" +
-                             ext::screen_status() + ")",
+                             std::to_string(runner.command.seconds) + " s (" + ext::screen_status() + ")",
                          false);
             }
             return;

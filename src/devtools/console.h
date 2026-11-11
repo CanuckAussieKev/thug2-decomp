@@ -21,6 +21,8 @@ namespace devtools::console {
 [[nodiscard]] bool is_switched_on();
 // A command's output (also what the console prints for it) - for the tests and the automation channel.
 [[nodiscard]] std::string run_command(const std::string& line);
+// A line as if typed: shown in the console with its output (the automation channel's `console`); the output.
+std::string submit(const std::string& line);
 
 ext::Extension& extension();
 

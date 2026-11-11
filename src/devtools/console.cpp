@@ -11,8 +11,10 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <span>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "engine/ext/extension.h"
@@ -21,7 +23,9 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "engine/ui/ui_backend.h"
+#include "engine/ui/ui_fonts.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
@@ -33,6 +37,8 @@ namespace {
 
 constexpr int kGraveScancode = 53; // SDL_SCANCODE_GRAVE: the key left of 1
 constexpr size_t kMaxLines = 4000;
+constexpr float kFontPixels = 15.0F; // (at 720 lines)
+constexpr float kBaseHeight = 720.0F;
 
 struct State {
     bool open = false;
@@ -80,7 +86,9 @@ const char* interpreter_at(const uint8_t* pc)
     if (!pc) {
         return "--";
     }
-    return script::as_token(*pc) == script::QbToken::kTsBody ? "TS" : "QB";
+    // (a level not yet begun is at its code's start - a TypeScript script's is a line's end, then its kTsBody)
+    return script::as_token(*script::skip_newline_tokens(script::tokens_at(pc))) == script::QbToken::kTsBody ? "TS"
+                                                                                                             : "QB";
 }
 
 const char* waiting_for(script::BlockReason reason)
@@ -100,7 +108,13 @@ const char* waiting_for(script::BlockReason reason)
     }
 }
 
-std::string name_of(uint32_t checksum) { return script::find_checksum_name_or_unknown(checksum); }
+// (the names the .qb files carry, kept while they load - script::keep_qb_names, turned on at start-up -, else the
+// game's own table's)
+std::string name_of(uint32_t checksum)
+{
+    const char* kept = script::kept_qb_name(checksum);
+    return kept ? kept : script::find_checksum_name_or_unknown(checksum);
+}
 
 std::string list_scripts(const std::string& filter)
 {
@@ -118,7 +132,10 @@ std::string list_scripts(const std::string& filter)
             const char* interpreter;
         };
         std::vector<Level> levels;
-        for (const script::CallFrame& frame : s->call_stack()) {
+        // (call_stack is the frames' room - 2 in the record, 16 on the heap -: the first call_depth are in use)
+        const std::span<const script::CallFrame> frames = std::as_const(*s).call_stack();
+        const size_t depth = std::min(frames.size(), static_cast<size_t>(std::max(0, s->call_depth())));
+        for (const script::CallFrame& frame : frames.first(depth)) {
             levels.push_back({frame.script_id_, interpreter_at(frame.caller_frame_)});
         }
         levels.push_back({s->script_title(), interpreter_at(s->pc())});
@@ -133,7 +150,7 @@ std::string list_scripts(const std::string& filter)
                 std::strcmp(level.interpreter, "--") != 0 ? 1 : 0;
         }
         out << "#" << s->unique_id();
-        if (const objects::Entity* object = s->entity().get_pull()) {
+        if (const objects::Entity* object = s->entity().get_pull(); object && object->ident() != 0) {
             out << " on " << name_of(object->ident());
         }
         out << ": ";
@@ -170,6 +187,16 @@ bool begin_context(ImGuiContext** previous)
         io.IniFilename = nullptr;
         io.LogFilename = nullptr;
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+        // (a context has no font of its own - NewFrame needs a built one: JetBrains Mono, compressed into the exe (the
+        // build has no ImGui default font), scaled to the window as 720 lines, built before the backends start)
+        int height = 0;
+        if (SDL_Window* window = sys::sdl_window()) {
+            SDL_GetWindowSize(window, nullptr, &height);
+        }
+        const frontend::ui_fonts::CompressedFont mono = frontend::ui_fonts::get_mono();
+        io.Fonts->AddFontFromMemoryCompressedTTF(
+            mono.data, mono.size, kFontPixels * std::max(1.0F, static_cast<float>(height) / kBaseHeight));
+        io.Fonts->Build();
         if (!frontend::ui_backend::prepare_all()) {
             ImGui::DestroyContext(state().context);
             state().context = nullptr;
@@ -259,10 +286,7 @@ void draw()
             s.history.push_back(line);
         }
         s.history_at = -1;
-        print("> " + line);
-        if (const std::string output = run_command(line); !output.empty()) {
-            print(output);
-        }
+        (void)submit(line);
         s.focus_input = true;
     }
     ImGui::End();
@@ -310,6 +334,7 @@ void prepare_input()
     get_log("console: %s opens it (scan code %d)", SDL_GetScancodeName(static_cast<SDL_Scancode>(state().key)),
             state().key);
     input::add_event_handler(handle_event);
+    script::keep_qb_names(true); // (names for `scripts` - as the level editor keeps them)
 }
 
 void device_lost()
@@ -371,6 +396,16 @@ std::string run_command(const std::string& line)
         return "";
     }
     return "unknown command: " + command + " (help lists them)";
+}
+
+std::string submit(const std::string& line)
+{
+    print("> " + line);
+    std::string output = run_command(line);
+    if (!output.empty()) {
+        print(output);
+    }
+    return output;
 }
 
 ext::Extension& extension() { return the_extension(); }

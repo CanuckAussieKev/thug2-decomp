@@ -30,18 +30,18 @@ using namespace internal;
 namespace frontend::automation {
 namespace {
 
-constexpr std::size_t kMaxHexTextLength = 10;       // "0x" and eight digits
+constexpr std::size_t kMaxHexTextLength = 10; // "0x" and eight digits
 constexpr std::size_t kMaxIntegerDigits = 9;
 constexpr std::size_t kMaxNumberTextLength = 10;
 
-constexpr int kMaxWaitSeconds = 3600;               // the longest timeout a command takes, in seconds
+constexpr int kMaxWaitSeconds = 3600; // the longest timeout a command takes, in seconds
 constexpr int kMaxHoldFrames = 3600;
 constexpr int kMaxPressFrames = 600;
 constexpr int kMaxStallFrames = 36000;
 constexpr std::size_t kMinTeleportWordsWithBoard = 5; // teleport's words when the last is `board`
 constexpr std::size_t kTeleportWordsWithHeading = 5;
-constexpr std::size_t kCameraWordsFixed = 7;        // camera: x y z and the direction
-constexpr std::size_t kCameraWordsDrift = 10;       // ... and the drift
+constexpr std::size_t kCameraWordsFixed = 7;  // camera: x y z and the direction
+constexpr std::size_t kCameraWordsDrift = 10; // ... and the drift
 
 constexpr int kMaxLoggedTrickCount = 100000;
 constexpr int kDefaultFrontendSeconds = 10;
@@ -248,7 +248,11 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
                 .integer = text::to_int(value.c_str()),
                 .real = 0.0F};
     } else if (is_float(value)) {
-        *out = {.kind = Param::Kind::kFloat, .name = name, .text = value, .integer = 0, .real = static_cast<float>(text::to_double(value.c_str()))};
+        *out = {.kind = Param::Kind::kFloat,
+                .name = name,
+                .text = value,
+                .integer = 0,
+                .real = static_cast<float>(text::to_double(value.c_str()))};
     } else if (is_id(value)) {
         *out = {.kind = Param::Kind::kName, .name = name, .text = value, .integer = 0, .real = 0.0F};
     } else {
@@ -526,6 +530,13 @@ bool parse_echo(const CommandWords& words, OrderCode& command, std::string* /*er
     return true;
 }
 
+bool parse_console(const CommandWords& words, OrderCode& command, std::string* /*error*/)
+{
+    command.op = Op::kConsole;
+    command.target = get_rest(*words.line);
+    return true;
+}
+
 bool parse_crash(const CommandWords& words, OrderCode& command, std::string* error)
 {
     const std::vector<std::string>& tokens = *words.tokens;
@@ -571,6 +582,7 @@ constexpr auto kCommandParsers = std::to_array<CommandParser>({
     {.keyword = "logtricks", .parse = parse_logtricks},
     {.keyword = "fe", .parse = parse_fe},
     {.keyword = "echo", .parse = parse_echo},
+    {.keyword = "console", .parse = parse_console},
     {.keyword = "crash", .parse = parse_crash},
     {.keyword = "quit", .parse = parse_quit},
 });
@@ -586,7 +598,8 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
     if (tokens.empty()) {
         return CommandLineOutcome::kVacant;
     }
-    OrderCode command = {.op = Op::kEcho, .target = "", .params = {}, .condition = Condition::kNone, .frames = 0, .seconds = 0};
+    OrderCode command = {
+        .op = Op::kEcho, .target = "", .params = {}, .condition = Condition::kNone, .frames = 0, .seconds = 0};
     const std::string keyword = get_lower(::core::at(tokens, 0));
     auto fail = [error](const std::string& why) {
         *error = why;

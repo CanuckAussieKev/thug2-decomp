@@ -86,6 +86,7 @@ class Struct;
 //                                         online is refused. `waitfor fe <screen> [seconds]`: until that screen is
 //                                         shown and still.
 //   echo <text>                           logged and shown as the result (a marker for tools)
+//   console <line>                        the developer console's command (console.h), its output logged and the result
 //   quit                                  the game closes (as its window's close button)
 //   crash <kind>                          a deliberate fault, to check the crash handling (platform/crash.h): access, rtc,
 //                                         crterror, invalidparam, purecall, abort, overrun (the game's /GS box),
@@ -146,6 +147,7 @@ enum class Op : uint8_t {
     kWaitFor,
     kStageMap,
     kEcho,
+    kConsole,
     kQuit,
     kJumpTo,
     kViewCam,
