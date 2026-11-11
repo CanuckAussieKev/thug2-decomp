@@ -349,18 +349,23 @@ globalThis.qbTs = (() => {
     // The script check's decisions (src/script_qb/script_check.h): the arm to take of `arms` - in the game the one the
     // condition / draw gave. branch(truth) for an if, arm(natural, arms) for a switch (written only by the check's
     // translation, install_ts.ts --check); every Random goes through it.
-    const decide = (kind, natural, arms) => globalThis.__qbGame?.decide?.(kind, natural, arms) ?? natural;
+    // (`place`: the decision's place in the script's QB code - the check's translation passes it, for TypeScript coverage)
+    const decide = (kind, natural, arms, place) =>
+        globalThis.__qbGame?.decide?.(kind, natural, arms, frame?.script ?? 0, place) ?? natural;
     const coordinate = (c) => (typeof c === "object" ? c.bits : floatBits(Math.fround(c)));
     // random(k, [weights,] choices); random.twice(...): drawn twice, the first pick dropped - a Random right after a
     // bare name, whose look-ahead for '=' (parse_arguments / parse_structure) has drawn it once already.
     function choose(opcode) {
-        const pick = (twice) => (key, ...rest) => {
+        // (the check's translation writes the key as [k, place])
+        const pick = (twice) => (keyed, ...rest) => {
+            const [key, place] = Array.isArray(keyed) ? keyed : [keyed, undefined];
             const choices = rest.at(-1);
             const weights = rest.length > 1 ? rest[0] : choices.map(() => 1);
             const random = globalThis.qb.random();
             const c = globalThis.qb.context(site(key));
-            if (twice) decide(2, random.choose(opcode, site(key), weights, c.owner, c.charge), choices.length);
-            const picked = choices[decide(2, random.choose(opcode, site(key), weights, c.owner, c.charge), choices.length)];
+            if (twice) decide(2, random.choose(opcode, site(key), weights, c.owner, c.charge), choices.length, place);
+            const picked =
+                choices[decide(2, random.choose(opcode, site(key), weights, c.owner, c.charge), choices.length, place)];
             return typeof picked === "function" ? picked() : picked;
         };
         return Object.assign(pick(false), { twice: pick(true) });
@@ -407,8 +412,10 @@ globalThis.qbTs = (() => {
             return v.statementTruth(truth, ctx());
         },
         select: (...args) => new Selected(first(args)),
-        branch: (truth) => decide(0, truth ? 0 : 1, 2) === 0,
-        arm: (natural, arms) => decide(1, natural, arms),
+        branch: (truth, place) => decide(0, truth ? 0 : 1, 2, place) === 0,
+        arm: (natural, arms, place) => decide(1, natural, arms, place),
+        // A statement of the check's translation about to run (TypeScript coverage).
+        reach: (place) => globalThis.__qbGame?.reach?.(frame?.script ?? 0, place),
         is,
         s: (...items) => mark(v.structure(fields(items), ctx())),
         at: binary(0x05),
@@ -424,7 +431,7 @@ globalThis.qbTs = (() => {
         and: binary(0x33),
         // begin ... repeat <n>: the count is read once, at the end of the first pass, then counts down (0 never
         // ends: it wraps like the original's unsigned count).
-        repeat() {
+        repeat(place) {
             let read = false,
                 count;
             return {
@@ -441,7 +448,7 @@ globalThis.qbTs = (() => {
                         count = (count - 1) >>> 0;
                         again = count !== 0;
                     }
-                    const taken = decide(3, again ? 0 : 1, 2) === 0;
+                    const taken = decide(3, again ? 0 : 1, 2, place) === 0;
                     // (forced round again: one more pass - not a count wrapped round to 4 billion)
                     if (taken && !again && count !== undefined) count = 1;
                     return taken;

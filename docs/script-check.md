@@ -47,6 +47,11 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   the other way in a later run, until every choice has been made both ways or the budget (`runs` per script and argument
   set) is spent. Then every branch no run has taken is forced (below). Coverage is recorded by the interpreter itself:
   each if's arm, each switch's arm, each Random's branch, and each statement run (`qb.txt`'s `cover` lines).
+- **TypeScript's coverage** is measured in its own runs, not taken from QB's: the check's translation (`install_ts.ts
+  --check`) starts each statement with `reach(place)` and passes each decision's place to `branch` / `arm` / `repeat` /
+  a Random (`[k, place]`) - the place in the script's QB code, so the counts are QB's. The game records them only for
+  code that ran as TypeScript (`ts.txt`'s `cover` lines; a module that ran as QB counts nothing) and the report gives
+  TypeScript's branches, statements and scripts beside QB's, and what it didn't reach.
 - **Versions**: the game looks for a file in the data overlay, then in the archives it has loaded, then in Data, and 130
   of the archives' .qb differ from the loose file of the same name (a level's scripts with the Printfs taken out). Every
   version is installed as TypeScript (each module is named by its bytes' hash) and written to

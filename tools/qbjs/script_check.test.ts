@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
-import type { Definition, Expr, Statement } from "./ir.ts";
+import { emitTS } from "./emit_ts.ts";
+import type { Definition, Expr, ModuleIR, Statement } from "./ir.ts";
 import { nativeRuntimeBundle } from "./runtime-fixtures.ts";
 import { fixedArmCode, statementPlaces, unreachable } from "./script_check.ts";
 
@@ -67,6 +68,45 @@ test("fixedArmCode: the statements of the arms named, nested ones included", () 
     assert.deepEqual(places(d, fixedArmCode(d, ["if 0 1"])).sort(), [10, 20, 30, 40]);
     assert.deepEqual(places(d, fixedArmCode(d, ["if 20 0"])), [40]);
     assert.deepEqual(places(d, fixedArmCode(d, ["if 0 0"])), [50]);
+});
+
+test("the check's translation: each statement reaches its place, each decision carries it (TypeScript coverage)", () => {
+    // (a script at offset 94: places count from 100 - its offset + 6, as branches() / statementPlaces())
+    const d: Script = {
+        kind: "script",
+        offset: 94,
+        name: 1,
+        defaults: [],
+        body: [
+            {
+                kind: "if",
+                offset: 110,
+                condition: zero,
+                yes: [set(120)],
+                no: [{ kind: "if", offset: 130, condition: zero, yes: [set(140)], no: [] }],
+            },
+            {
+                kind: "loop",
+                offset: 150,
+                repeatOffset: 170,
+                repeatFields: [{ name: 0, value: zero, offset: 171 }],
+                body: [set(160)],
+            },
+            { kind: "randomBlock", offset: 180, opcode: 0x2f, weights: [1, 1], branches: [[set(185)], [set(190)]] },
+        ],
+    };
+    const module: ModuleIR = { format: 2, source: "t.qb", definitions: [d] };
+    const text = emitTS(module, {}, { check: true });
+    assert.deepEqual(
+        [...text.matchAll(/reach\((\d+)\)/g)].map((m) => Number(m[1])),
+        [10, 20, 30, 40, 50, 60, 80, 85, 90],
+    );
+    assert.match(text, /branch\(test\(0\), 10\)/);
+    assert.match(text, /branch\(test\(0\), 30\)/); // (an else-if written as its own if: its reach first)
+    assert.match(text, /repeat\(70\)/);
+    assert.match(text, /random\(\[1, 80\], \[0, 1\]\)/);
+    // the game's translation has none of it
+    assert.doesNotMatch(emitTS(module), /reach|branch|repeat\(\d|\[1, 80\]/);
 });
 
 test("(expression):Command - an expression that gives no name names no object (0)", () => {

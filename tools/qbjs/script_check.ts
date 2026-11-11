@@ -639,10 +639,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 };
             });
             const verdict = readVerdict(tsText);
+            // TypeScript's own coverage: what its runs reached, from the check's translation's reach() and decisions
+            // (ts.txt), against the same branches and statements - the ifs QB found fixed are fixed in both
+            const tsCover = existsSync(join(at, "ts.txt"))
+                ? await readCoverage(join(at, "ts.txt"))
+                : new Map<string, Set<string>>();
+            for (const [file, lines] of cover)
+                for (const line of lines)
+                    if (line.startsWith("fixed "))
+                        tsCover.set(file, (tsCover.get(file) ?? new Set<string>()).add(line));
             results.push({
                 ...verdict,
                 unknownVersions: unknown,
                 coverage: coverageOf(cover, modules),
+                tsCoverage: coverageOf(tsCover, modules),
             });
         }
         const result = {
@@ -653,6 +663,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             differences: results.flatMap((r) => r.differences),
             unknownVersions: results.flatMap((r) => r.unknownVersions),
             coverage: results.flatMap((r) => r.coverage),
+            tsCoverage: results.flatMap((r) => r.tsCoverage),
         };
         const unknownVersions = result.unknownVersions;
         const total = result.coverage.reduce((n, c) => n + c.branches, 0);
@@ -664,6 +675,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const fixedCount = result.coverage.reduce((n, c) => n + c.fixed.length, 0);
         const started = result.coverage.filter((c) => c.run > 0 || c.statements === 0).length;
         const percent = (a: number, b: number) => (b ? ((100 * a) / b).toFixed(2) : "0");
+        const ts = result.tsCoverage;
+        const tsTaken = ts.reduce((n, c) => n + c.taken, 0);
+        const tsRan = ts.reduce((n, c) => n + c.run, 0);
+        const tsStarted = ts.filter((c) => c.run > 0 || c.statements === 0).length;
         const report = [
             "# Script check",
             "",
@@ -672,6 +687,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             `Modules whose loaded version isn't among the planned ones: ${unknownVersions.length}${unknownVersions.length ? ` - ${unknownVersions.join(", ")}` : ""}.`,
             `Branches: ${taken} of ${total} taken by the QB runs (${percent(taken, total)}%; forced where no input took them).`,
             `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends, or in an arm its if can't take) not counted.`,
+            `TypeScript (measured in its own runs, the same counts): branches ${tsTaken} of ${total} (${percent(tsTaken, total)}%); statements ${tsRan} of ${statements} (${percent(tsRan, statements)}%); scripts run: ${tsStarted} of ${scripts}.`,
             "",
             "## Differences (first line that differs)",
             "",
@@ -699,10 +715,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 .filter((c) => c.notRun.length)
                 .map((c) => `- ${c.module} ${c.script}: ${c.run} / ${c.statements} - at ${c.notRun.join(", ")}`),
             "",
+            "## Not reached by TypeScript (branches; statements)",
+            "",
+            ...ts
+                .filter((c) => c.missing.length || c.notRun.length)
+                .slice(0, 2000)
+                .map(
+                    (c) =>
+                        `- ${c.module} ${c.script}: ${c.taken} / ${c.branches} - ${c.missing.join("; ")}; ${c.run} / ${c.statements} - at ${c.notRun.join(", ")}`,
+                ),
+            "",
         ].join("\n");
         writeFileSync(join(folder, "report.md"), report);
         writeFileSync(join(folder, "report.json"), JSON.stringify(result, null, 1));
-        console.log(report.split("\n").slice(0, 8).join("\n"));
+        console.log(report.split("\n").slice(0, 9).join("\n"));
         console.log(`written: ${join(folder, "report.md")}`);
     }
 }

@@ -65,6 +65,7 @@ const HELPERS = [
     "code",
     "branch",
     "arm",
+    "reach",
 ] as const;
 const OPERATORS: Record<number, string> = {
     5: "at",
@@ -149,7 +150,9 @@ function layout(d: Doc, indent: string, used: number): string {
 }
 
 // check: the script check's translation (docs/script-check.md "Branches") - each if's condition through branch() and
-// each switch's case through arm(), so the check can take every arm; otherwise the same code.
+// each switch's case through arm(), so the check can take every arm; and for TypeScript coverage each statement
+// starts with reach(place) and every decision (branch, arm, a repeat's end, a Random) carries its place - the place
+// in the script's QB code, as QB's coverage counts it; otherwise the same code.
 export function emitTS(
     module: ModuleIR,
     names: Record<number, string> = {},
@@ -195,6 +198,9 @@ export function emitTS(
         return member(use("cmd"), n);
     };
     let randomSite = 0;
+    // (the check's translation: the script being written's base - its places are offsets from it; none outside scripts)
+    let base: number | undefined;
+    const placed = (offset: number) => (options.check && base !== undefined ? `, ${offset - base}` : "");
     // A float where only a float can be (vector / pair coordinates, random ranges): whole numbers need no f().
     const coordinate = (c: number) =>
         floatText(c)
@@ -202,8 +208,11 @@ export function emitTS(
             .replace(/^fbits/, () => use("fbits"));
     // random(k, [weights,] [choices]) - k numbers the site in the module (no-repeat / permute state is per site).
     // (twice: random.twice(...) - drawn twice, the first pick dropped: after a bare name, whose look-ahead drew it)
-    const randomDoc = (opcode: number, weights: number[], choices: Doc[], twice = false): Doc => ({
-        head: `${use(RANDOM[opcode] as (typeof HELPERS)[number])}${twice ? ".twice" : ""}(${++randomSite}, `,
+    // (the check's translation: k as [k, place])
+    const randomDoc = (opcode: number, weights: number[], choices: Doc[], twice: boolean, offset: number): Doc => ({
+        head: `${use(RANDOM[opcode] as (typeof HELPERS)[number])}${twice ? ".twice" : ""}(${
+            placed(offset) ? `[${++randomSite}${placed(offset)}]` : ++randomSite
+        }, `,
         items: [
             ...(weights.every((w) => w === 1) ? [] : [`[${weights.join(", ")}]`]),
             { head: "[", items: choices, tail: "]" },
@@ -272,6 +281,7 @@ export function emitTS(
                     x.weights,
                     x.choices.map((c) => (pure ? expr(c) : arrow(expr(c)))),
                     x.twice === true,
+                    x.offset,
                 );
             }
             case "structure":
@@ -280,12 +290,13 @@ export function emitTS(
                 return { head: "[", items: x.items.map(expr), tail: "]" };
             case "inlineScript": {
                 // code(defaults, function* (p) { ... }): its statements written as a script's, at their own indent.
-                const [saved, savedSerial] = [lines, serial];
+                const [saved, savedSerial, savedBase] = [lines, serial, base];
                 lines = [];
                 serial = 0;
+                base = undefined; // (no places: an inline script's code isn't a script's)
                 block(x.body, INDENT, new Map());
                 const body = lines;
-                [lines, serial] = [saved, savedSerial];
+                [lines, serial, base] = [saved, savedSerial, savedBase];
                 return [`${use("code")}(${defaultsText(x.defaults)}function* (p) {`, ...body, "})"].join("\n");
             }
         }
@@ -318,6 +329,7 @@ export function emitTS(
                                     : doc;
                             }),
                             x.twice === true,
+                            x.offset,
                         ),
                     ],
                     tail: "",
@@ -398,7 +410,13 @@ export function emitTS(
             : typeof c !== "string" && c.head.startsWith("yield*")
               ? { head: "!(", items: [c], tail: ")", last: "" }
               : { head: "!", items: [c], tail: "" };
-        return options.check ? { head: `${use("branch")}(`, items: [result], tail: ")" } : result;
+        return options.check
+            ? {
+                  head: `${use("branch")}(`,
+                  items: [result, ...(placed(x.offset) ? [placed(x.offset).slice(2)] : [])],
+                  tail: ")",
+              }
+            : result;
     };
     let lines: string[] = [];
     let serial = 0;
@@ -416,7 +434,10 @@ export function emitTS(
     };
 
     const block = (xs: Statement[], indent: string, loops: Map<number, string>) => {
-        for (const x of xs) statement(x, indent, loops);
+        for (const x of xs) {
+            if (options.check && base !== undefined) lines.push(`${indent}${use("reach")}(${x.offset - base});`);
+            statement(x, indent, loops);
+        }
     };
     const statement = (x: Statement, indent: string, loops: Map<number, string>) => {
         const inner = indent + INDENT;
@@ -436,7 +457,13 @@ export function emitTS(
                 block(x.yes, inner, loops);
                 // else { if ... } reads as else if.
                 let no = x.no;
-                while (no.length === 1 && no[0]!.kind === "if" && no[0]!.condition.kind !== "assign") {
+                // (not in the check's translation: each if there starts with its own reach())
+                while (
+                    !options.check &&
+                    no.length === 1 &&
+                    no[0]!.kind === "if" &&
+                    no[0]!.condition.kind !== "assign"
+                ) {
                     const y = no[0]! as Extract<Statement, { kind: "if" }>;
                     emit(indent, { head: "} else if (", items: [conditionDoc(y)], tail: ") {", last: "" });
                     block(y.yes, inner, loops);
@@ -458,7 +485,7 @@ export function emitTS(
                 }
                 const name = `loop${++serial === 1 ? "" : serial}`;
                 nested.set(x.offset, name);
-                lines.push(`${indent}const ${name} = ${use("repeat")}();`);
+                lines.push(`${indent}const ${name} = ${use("repeat")}(${placed(x.repeatOffset).slice(2)});`);
                 lines.push(`${indent}do {`);
                 block(x.body, inner, nested);
                 // The count is read once, at the end of the first pass: a non-literal one is passed as a function.
@@ -473,11 +500,16 @@ export function emitTS(
             case "randomBlock": {
                 // A Random among statements: const pickN = random(k, [0, 1, ...]); then one branch per value.
                 const choices = x.branches.map((_, i) => String(i));
-                if (x.branches.length === 1) return emit(indent, randomDoc(x.opcode, x.weights, choices), ";");
+                if (x.branches.length === 1)
+                    return emit(indent, randomDoc(x.opcode, x.weights, choices, false, x.offset), ";");
                 const name = `pick${++serial}`;
                 emit(
                     indent,
-                    { head: `const ${name} = `, items: [randomDoc(x.opcode, x.weights, choices)], tail: "" },
+                    {
+                        head: `const ${name} = `,
+                        items: [randomDoc(x.opcode, x.weights, choices, false, x.offset)],
+                        tail: "",
+                    },
                     ";",
                 );
                 x.branches.forEach((branch, i) => {
@@ -519,7 +551,7 @@ export function emitTS(
                             "",
                         );
                     });
-                    lines.push(`${indent}${name} = ${use("arm")}(${name}, ${all.length + 1});`);
+                    lines.push(`${indent}${name} = ${use("arm")}(${name}, ${all.length + 1}${placed(x.offset)});`);
                     let first = 0;
                     x.cases.forEach((group, i) => {
                         const arms = group.labels.map((_, j) => `${name} === ${first + j}`).join(" || ");
@@ -573,10 +605,12 @@ export function emitTS(
                 ";",
             );
         serial = 0;
+        base = d.offset + 6; // (as script_check.ts branches(): the interpreter's cursor counts from here)
         const head = `${use("script")}(${JSON.stringify(nameOf(d.name) ?? hex(d.name))}, `;
         lines.push(`${head}${defaultsText(d.defaults)}function* (p) {`);
         block(d.body, INDENT, new Map());
         lines.push("});");
+        base = undefined;
     };
     const body: string[] = [];
     module.definitions.forEach((d, i) => {

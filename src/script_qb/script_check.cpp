@@ -176,6 +176,9 @@ struct State {
     // Coverage of the module being run (QB): "if <script> <place> <0|1>" and the like; the statements run (script, place).
     std::set<std::string> coverage;
     std::unordered_set<uint64_t> statements;
+    // The same for TypeScript's runs, from the check's translation (decide_ts / reach_ts): written to ts.txt.
+    std::set<std::string> ts_coverage;
+    std::unordered_set<uint64_t> ts_statements;
     // Arms of the module's decisions a forced run was queued for (QB), and how many times.
     std::map<std::string, int> targeted;
 };
@@ -774,6 +777,8 @@ void run_plan(const std::string& folder)
         }
         s.coverage.clear();
         s.statements.clear();
+        s.ts_coverage.clear();
+        s.ts_statements.clear();
         s.targeted.clear();
         Array* scripts = global_array("check_scripts");
         std::unordered_map<uint32_t, Array*> arguments; // (TypeScript: each script's argument sets)
@@ -855,11 +860,12 @@ void run_plan(const std::string& folder)
             out += "runs " + std::to_string(runs.size() - static_cast<size_t>(exhausted)) + " same " +
                    std::to_string(same) + " exhausted " + std::to_string(exhausted) + "\n";
         }
-        for (const std::string& line : s.coverage) {
+        // (the pass's own coverage: QB's from the interpreter, TypeScript's from its translation)
+        for (const std::string& line : typescript ? s.ts_coverage : s.coverage) {
             out += line + "\n";
         }
         std::set<std::pair<uint32_t, std::ptrdiff_t>> statements;
-        for (const uint64_t at : s.statements) {
+        for (const uint64_t at : typescript ? s.ts_statements : s.statements) {
             statements.insert({static_cast<uint32_t>(at >> 32), static_cast<std::ptrdiff_t>(at & 0xFFFFFFFFU)});
         }
         for (const auto& [script, place] : statements) {
@@ -995,10 +1001,24 @@ bool decide_call(const Script* script, int depth)
     return call;
 }
 
-uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms)
+uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms, uint32_t script, int64_t place)
 {
-    return active() && kind <= static_cast<uint32_t>(Decision::kRepeat) ? decide(static_cast<Decision>(kind), natural, arms, nullptr, 0)
-                                                     : natural;
+    if (!active() || kind > static_cast<uint32_t>(Decision::kRepeat)) {
+        return natural;
+    }
+    const bool counted = script != 0 && place >= 0 && state().run->ended.empty(); // (as QB's: none once the run is over)
+    const uint32_t arm = decide(static_cast<Decision>(kind), natural, arms, nullptr, 0);
+    if (counted) {
+        state().ts_coverage.insert(coverage_key(static_cast<Decision>(kind), script, static_cast<std::ptrdiff_t>(place), arm));
+    }
+    return arm;
+}
+
+void reach_ts(uint32_t script, int64_t place)
+{
+    if (active() && script != 0 && place >= 0 && state().run->ended.empty()) {
+        state().ts_statements.insert((static_cast<uint64_t>(script) << 32) | static_cast<uint32_t>(place));
+    }
 }
 
 void note_statement(const Script* script, std::ptrdiff_t place)

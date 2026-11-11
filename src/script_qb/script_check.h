@@ -50,7 +50,12 @@ std::optional<bool> native_function(const Script* script, NativeFunction functio
 // (`forceable` false: the if's condition stopped before its line's end - taken as it came, and reported.)
 bool decide_if(const Script* script, std::ptrdiff_t place, bool condition, bool forceable);
 int decide_case(const Script* script, std::ptrdiff_t place, int natural, int arms);
-uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms);
+// (TypeScript's: `script` / `place` - the running script and the decision's place in its QB code, as QB's places - make
+// it TypeScript coverage; the check's translation passes them, script 0 none)
+uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms, uint32_t script = 0, int64_t place = -1);
+// A TypeScript statement at `place` in script `script`'s QB code about to run (TypeScript coverage - the check's
+// translation's reach()).
+void reach_ts(uint32_t script, int64_t place);
 // The end of a pass through a `repeat <count>` loop at `place`: whether to go round again (the count's answer: `again`).
 bool decide_repeat(const Script* script, std::ptrdiff_t place, bool again);
 // A script about to be called from a script at call depth `depth` (QB's or TypeScript's - both call through the
