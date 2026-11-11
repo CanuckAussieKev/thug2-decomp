@@ -1046,8 +1046,8 @@ uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms, uint32_t scri
     const uint32_t arm = decide(static_cast<Decision>(kind), natural, arms, nullptr, 0);
     if (counted &&
         state()
-            .ts_coverage.insert(
-                coverage_key(static_cast<Decision>(kind), script, static_cast<std::ptrdiff_t>(place), arm))
+            .ts_coverage
+            .insert(coverage_key(static_cast<Decision>(kind), script, static_cast<std::ptrdiff_t>(place), arm))
             .second) {
         state().run->ts_quiet = 0;
     }
