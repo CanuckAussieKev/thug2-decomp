@@ -5,6 +5,8 @@
 // This reads raw token streams, not the separate PC precompiled-image format.
 import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { CFUNC_NAMES } from "thug2-level-converter-core/level_port/thug2_cfuncs.ts";
+import { checksum } from "../qb_checksum.ts";
 import type {
     Assign,
     Call,
@@ -21,6 +23,9 @@ import type {
 // Tokens that can start a C function's arguments after a name in an expression (a negative number there is a
 // subtraction; '[' an index).
 const ARGUMENT_STARTS = [0x03, 0x0e, 0x16, 0x17, 0x18, 0x1a, 0x1b, 0x1c, 0x1e, 0x1f, 0x2c, 0x2d];
+// The game's C functions (its fixed command table): after any other name a negative number is a subtraction, as
+// parse_expression takes it (`globe_vel -0.1`); only a C function reads it as its argument (push_name).
+const C_FUNCTIONS = new Set(CFUNC_NAMES.map((name) => checksum(name)));
 
 // Tokens that can start a statement (after a statement-ending Random value its line has ended).
 const STATEMENT_STARTS = (t: number) =>
@@ -299,7 +304,14 @@ export function readIR(bytes: Uint8Array, source = "input.qb", limits: ReaderLim
                 } else {
                     const operand = value(depth + 1, true, afterDot);
                     // A name followed by a value (not an operator): a C function's arguments, up to the ')'.
-                    if (operand.kind === "global" && ARGUMENT_STARTS.includes(b[p]!)) {
+                    const negative =
+                        (b[p] === 0x17 && (b.readUInt32LE(p + 1) | 0) < 0) ||
+                        (b[p] === 0x1a && b.readFloatLE(p + 1) < 0);
+                    if (
+                        operand.kind === "global" &&
+                        ARGUMENT_STARTS.includes(b[p]!) &&
+                        !(negative && !C_FUNCTIONS.has(operand.name))
+                    ) {
                         node();
                         values.push(
                             bounded({

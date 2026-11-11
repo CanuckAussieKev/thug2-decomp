@@ -325,12 +325,14 @@ uint32_t pick_stored_random(const uint8_t* table, QbToken kind, uint32_t count)
 }
 
 namespace {
-// NOT ORIGINAL - the script check's coverage: a Random's branch taken (check_hooks.h; never set in the game).
-void note_random_choice(Tokens random, uint32_t choice)
+// NOT ORIGINAL - the script check: a Random's branch drawn, the branch to take (check_hooks.h; never set in the game,
+// where it is the one drawn).
+uint32_t note_random_choice(Tokens random, uint32_t choice, uint32_t count)
 {
     if (const auto hook = check_hooks::hooks().random_choice) {
-        hook(get_running_script(), random.position(), choice);
+        return hook(get_running_script(), random.position(), choice, count);
     }
+    return choice;
 }
 } // namespace
 
@@ -356,8 +358,8 @@ Tokens resolve_random_jumps(Tokens token)
                 ++choice;
                 pick -= static_cast<int16_t>(fetch_word16(weights + (std::ptrdiff_t{2} * choice)));
             }
+            choice = static_cast<int>(note_random_choice(token, static_cast<uint32_t>(choice), count));
             const Tokens offset = weights + 2 * count + (std::ptrdiff_t{4} * choice);
-            note_random_choice(token, static_cast<uint32_t>(choice));
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -366,9 +368,8 @@ Tokens resolve_random_jumps(Tokens token)
             const QbToken kind = as_token(*token);
             const uint32_t count = fetch_word32(token + 1);
             const Tokens table = token + 5 + 2 * count;
-            const uint32_t choice = pick_stored_random(table.address(), kind, count);
+            const uint32_t choice = note_random_choice(token, pick_stored_random(table.address(), kind, count), count);
             const Tokens offset = table + (std::ptrdiff_t{4} * choice);
-            note_random_choice(token, choice);
             token = offset + fetch_word32(offset) + 4;
             break;
         }

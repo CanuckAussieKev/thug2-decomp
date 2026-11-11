@@ -9,7 +9,7 @@ which branches the runs reached.
 node tools/qbjs/script_check.ts plan --game C:\Games\THUG2-1 [--only scripts\game\x.qb,...] [--runs 64]
 tools/game/game_lock.ps1 -Action acquire -Owner <you> -Game C:\Games\THUG2-1
 tools/game/deploy_build.ps1 -Game C:\Games\THUG2-1 -Arch x64 -BuildDir out\build\<build> -NoEditorTools
-node tools/qbjs/install_ts.ts --game C:\Games\THUG2-1 --clear
+node tools/qbjs/install_ts.ts --game C:\Games\THUG2-1 --clear --check
 tools/game/script_check.ps1 -Game C:\Games\THUG2-1          # both passes; each quits by itself
 node tools/qbjs/script_check.ts compare --game C:\Games\THUG2-1
 tools/game/game_lock.ps1 -Action release -Owner <you> -Game C:\Games\THUG2-1
@@ -33,12 +33,44 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   traced by one name (a statement the interpreter prepared to call the function directly no longer says which).
 - **Exploring** (QB, `[features] ts_scripts=0`): the first run makes every choice "true"; each choice seen is then forced
   the other way in a later run, until every choice has been made both ways or the budget (`runs` per script and argument
-  set) is spent. Each Random takes the branches its seed gives; varying seeds reach the others. Coverage is recorded by
-  the interpreter itself: each if taken or not, each switch's case, each Random's branch (`qb.txt`'s `cover` lines).
+  set) is spent. Then every branch no run has taken is forced (below). Coverage is recorded by the interpreter itself:
+  each if's arm, each switch's arm, each Random's branch, and each statement run (`qb.txt`'s `cover` lines).
+- **Waits** run for real but end at the next frame: nothing else in a run sees time pass (the commands are stubs), so a
+  `Wait 45 seconds` costs one frame and the code after it is reached within the frame budget.
 - **Replaying** (TypeScript, `ts_scripts=1`): every QB run again with the same seed and choices, its trace compared with
   QB's there and then; `ts.txt` has each module's count and every run that differed, with its first differing line.
 - **Trace**: each stub call (the frame, the name, the object, the arguments - floats by their bits, a long argument list as
-  its length and 64-bit hash), and how the run ended with the script's final parameters.
+  its length and 64-bit hash), each forced decision, and how the run ended: the number of decisions and a hash of what
+  each would have been and took, then the script's final parameters.
+
+## Branches
+
+A *decision* is an if (two arms: true, false), a switch (one arm per case label in order, and one more: the default, or
+none matched), a Random (one arm per branch), the end of a pass through a `repeat <count>` loop (again, or out - the
+count may be a parameter no argument set gives), or a script call (run it, or skip it: it returns at once). Every decision in a run is counted in order; a run's job can force a
+decision, by its number in the run, to an arm whatever its condition or draw gave. The condition is still evaluated (its
+calls traced) and what it gave goes into the run's decision hash, so QB's and TypeScript's conditions are compared even
+where the arm is forced.
+
+- QB forces in the interpreter (`run_conditional`, `run_multi_branch`, `resolve_random_jumps` - each NOT ORIGINAL there and
+  doing nothing outside the check). TypeScript forces through `branch(truth)` and `arm(natural, arms)`, which the check's
+  translation (`install_ts.ts --check`, `emitTS(..., { check: true })`) writes around each if's condition and each
+  switch; every Random goes through the same native (`__qbGame.decide`). The game's translation has neither.
+- Exploring forces each arm no run of the module has taken from the first run that reached its decision: that run's seed,
+  its stub choices and forced decisions up to there - the same path - then the arm. Each arm is tried at most three times.
+  The run header is `run <script> <argument set> <seed> <stub choices> <forced decisions: number:arm,...>`.
+- A script call is skipped only to reach the code after a call that never returned within a run's budget (a callee
+  that loops for ever): once per call site. Skips aren't coverage.
+- An if whose condition stops before its line's end (an expression the evaluator gave up on, e.g. a member function
+  in an expression) isn't forced: its condition comes out the same every time, and its true part would start in the
+  middle of the line. The arm it can't take is listed in the report, not counted.
+- A run's first 300 calls are written to its trace; the rest (up to the `calls` budget, 2000) are counted and hashed on
+  its end line.
+- A run that ends at a budget (`runaway`: QB's statement budget and TypeScript's interrupt budget stop a loop without
+  calls at different statements; `overlong`: the call budget) has its decisions compared up to its last stub call.
+- The report counts branches and statements against every one the scripts have, less those no run can reach: the
+  statements after a `return`, or after a loop that never ends (no count, no `break` out of it), in the same block - the
+  original can't run them either (`script_check.ts unreachable`).
 
 ## What it found
 
@@ -81,8 +113,16 @@ depended on the memory allocator - marked NOT ORIGINAL in the source):
   code stayed cached and a later call by that name ran it (a front-end script after a level had defined and dropped
   one of the same name). `fetch_script` now gives nothing for a name with no definition.
 
+Forcing every branch found two more translation differences, both on paths no earlier run reached:
+
+- **A negative number after a name that isn't a C function is a subtraction** (`globe_vel -0.1`, parse_expression);
+  the reader had taken it as the name's arguments. Only a C function reads it as its argument (push_name).
+- **A script's defaults are parsed with no parameter list**, not an empty one: `params = <...>` there adds nothing
+  (add_parameter with no args), where an empty list would add an empty structure.
+
 ## Limits
 
-The stubs are the world: what a command would really return, and the state it would change, isn't modelled - a branch
-that only opens after a real sequence of events is reached only as far as forcing the stubs' results reaches it. Scripts
+The stubs are the world: what a command would really return, and the state it would change, isn't modelled. A branch
+that no input reaches is forced, so its code runs on whatever state the run has there - the same for QB and TypeScript,
+but not necessarily a state the game could be in. Scripts
 run on no object. Script values (`code(...)`, the CAS tables) aren't run as roots: the model builder runs them.

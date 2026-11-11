@@ -42,12 +42,16 @@ export function gameRoot(folder: string): string {
     throw Error(`${folder}: no Data\\scripts - not a game folder`);
 }
 
-export function installTS(game: string, only: string[] = [], clear = false): InstallResult {
+// check: the script check's translation (emit_ts.ts) - for its runs only, never the game's.
+export function installTS(game: string, only: string[] = [], clear = false, check = false): InstallResult {
     const root = gameRoot(game);
     const out = join(root, "thug2-decomp-ts");
     if (clear) rmSync(out, { recursive: true, force: true });
     const overlays = readdirSync(root).filter(
-        (name) => name.toLowerCase().startsWith("thug2-decomp-") && name.toLowerCase() !== "thug2-decomp-ts",
+        (name) =>
+            name.toLowerCase().startsWith("thug2-decomp-") &&
+            name.toLowerCase() !== "thug2-decomp-ts" &&
+            !name.toLowerCase().startsWith("thug2-decomp-check"), // (the script check's plan, not an overlay)
     );
     const files = only.length
         ? only.map((path) => join(root, path.replace(/[\\/]+/g, "/")))
@@ -66,12 +70,12 @@ export function installTS(game: string, only: string[] = [], clear = false): Ins
             if (seen.has(hash)) continue;
             seen.add(hash);
             const ir = readIR(bytes, name);
-            const ts = emitTS(ir);
+            const ts = emitTS(ir, {}, { check });
             // The game's module has only the scripts: the globals stay the ones the game made from these very bytes
             // (read_qb_file, just before) - making them again would only cost (a ported level's node arrays run to
             // megabytes), and a global drawing a random number would draw twice.
             const js = compileTS(
-                emitTS({ ...ir, definitions: ir.definitions.filter((d) => d.kind === "script") }),
+                emitTS({ ...ir, definitions: ir.definitions.filter((d) => d.kind === "script") }, {}, { check }),
                 name,
             );
             const source = join(out, "source", name.replace(/\.qb$/i, ".ts"));
@@ -94,9 +98,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         return i >= 0 ? args[i + 1] : undefined;
     };
     const game = value("--game");
-    if (!game) throw Error("Usage: node tools/qbjs/install_ts.ts --game <folder> [--only a.qb,b.qb] [--clear]");
+    if (!game)
+        throw Error("Usage: node tools/qbjs/install_ts.ts --game <folder> [--only a.qb,b.qb] [--clear] [--check]");
     const only = (value("--only") ?? "").split(",").filter(Boolean);
-    const result = installTS(game, only, args.includes("--clear"));
+    const result = installTS(game, only, args.includes("--clear"), args.includes("--check"));
     for (const [name, why] of result.failed) console.log(`not translated: ${name}: ${why}`);
     console.log(`${result.installed.length} installed, ${result.failed.length} left to QB`);
 }

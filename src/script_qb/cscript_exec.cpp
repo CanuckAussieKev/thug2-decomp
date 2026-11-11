@@ -334,6 +334,9 @@ bool QbScript::run_command_on(uint32_t function, objects::Entity* object)
     // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
     switch (symbol->type()) {
     case QbValueKind::kScriptBody: {
+        if (!check::decide_call(this, call_depth())) { // NOT ORIGINAL (script_check.h)
+            return true;
+        }
         const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
         run_sub_script(function, code, stmt_args_.get(), object, false);
         return true;
@@ -368,6 +371,9 @@ bool QbScript::run_command(uint32_t name)
     }
     switch (symbol->type()) {
     case QbValueKind::kScriptBody: {
+        if (!check::decide_call(this, call_depth())) { // NOT ORIGINAL (script_check.h)
+            return true;
+        }
         const uint8_t* code = script_store_instance()->fetch_script(symbol->name_value());
         run_sub_script(name, code, stmt_args_.get(), entity_.get_pull(), false);
         return true;
@@ -419,7 +425,10 @@ void QbScript::run_conditional(Tokens& pc)
     if (negate) {
         condition = !condition;
     }
-    check::note_if(this, place, condition); // NOT ORIGINAL (script_check.h)
+    // NOT ORIGINAL (script_check.h): the check may force the other way - not when the condition stopped before its
+    // line's end (an expression the evaluator gave up on): its true part would start in the middle of the line
+    const bool line_ended = as_token(*pc) == QbToken::kEndOfLine || as_token(*pc) == QbToken::kEndOfLineNumbered;
+    condition = check::decide_if(this, place, condition, line_ended);
     if (!condition) {
         pc = target;
         pc_ = target.address();
@@ -447,13 +456,17 @@ void QbScript::skip_to_end_of_switch(Tokens& pc)
 // goes to the endswitch. No match: on to the next case, finally into the default or past the endswitch.
 void QbScript::run_multi_branch(Tokens& pc)
 {
-    const std::ptrdiff_t place = pc.position(); // (NOT ORIGINAL: the script check's coverage)
+    const std::ptrdiff_t place = pc.position(); // (NOT ORIGINAL: the script check)
     ++pc;
     parse_function_params(pc);
     gsl::owner<Component*> value = new_component();
     if (const Component* first = stmt_args_->step_to_entry(nullptr)) {
         duplicate_component(value, first, 0);
     }
+    // NOT ORIGINAL - the script check's branches: the case labels counted in order (one more: the default / none).
+    const Tokens cases = pc;
+    int label_index = 0;
+    int chosen = -1;
     for (;;) {
         const QbToken token = as_token(*pc);
         if (token == QbToken::kScriptEnd) { // '$': not moved past - the original loops for ever here (kept)
@@ -465,12 +478,10 @@ void QbScript::run_multi_branch(Tokens& pc)
             continue;
         }
         if (token == QbToken::kEndSwitch) {
-            check::note_case(this, place, -1);
             ++pc;
             break;
         }
         if (token == QbToken::kDefault) { // default: past 3F 49 xx xx
-            check::note_case(this, place, pc.position());
             pc += 4;
             break;
         }
@@ -478,7 +489,6 @@ void QbScript::run_multi_branch(Tokens& pc)
             pc = step_over_token(pc);
             continue;
         }
-        const std::ptrdiff_t label = pc.position();
         pc += 2; // the jump's offset
         const Tokens next = pc + fetch_word16(pc);
         pc += 2;
@@ -486,18 +496,91 @@ void QbScript::run_multi_branch(Tokens& pc)
         Component* match = stmt_args_->step_to_entry(nullptr);
         if (!match || !components_equal(value, match)) {
             pc = next;
+            ++label_index;
             continue;
         }
-        check::note_case(this, place, label);
-        pc = skip_newline_tokens(pc);
-        while (as_token(*pc) == QbToken::kShortJump && as_token(pc[3]) == QbToken::kCase) {
-            pc += kShortJumpCaseBytes;
-            parse_function_params(pc);
-            pc = skip_newline_tokens(pc);
-        }
+        chosen = label_index;
+        skip_case_labels(pc);
         break;
     }
+    if (check::active()) { // NOT ORIGINAL (script_check.h): the arm the check takes - perhaps not the one matched
+        const int labels = count_case_labels(cases);
+        const int natural = chosen < 0 ? labels : chosen;
+        const int arm = check::decide_case(this, place, natural, labels + 1);
+        if (arm != natural) {
+            pc = cases;
+            go_to_case(pc, arm);
+        }
+    }
     delete_component(value);
+}
+
+// After a matched case's label: past the case labels that follow it (`49 xx xx 3E 49 xx xx value`), to its statements.
+void QbScript::skip_case_labels(Tokens& pc)
+{
+    pc = skip_newline_tokens(pc);
+    while (as_token(*pc) == QbToken::kShortJump && as_token(pc[3]) == QbToken::kCase) {
+        pc += kShortJumpCaseBytes;
+        parse_function_params(pc);
+        pc = skip_newline_tokens(pc);
+    }
+}
+
+// NOT ORIGINAL - the script check: the case labels of the switch whose cases start at `pc` (as run_multi_branch walks
+// them, none matching).
+int QbScript::count_case_labels(Tokens pc)
+{
+    int labels = 0;
+    for (;;) {
+        const QbToken token = as_token(*pc);
+        if (token == QbToken::kScriptEnd || token == QbToken::kEndSwitch || token == QbToken::kDefault) {
+            return labels;
+        }
+        if (token == QbToken::kSwitch) {
+            ++pc;
+            skip_to_end_of_switch(pc);
+        } else if (token == QbToken::kCase) {
+            pc += 2;
+            pc = pc + fetch_word16(pc);
+            ++labels;
+        } else {
+            pc = step_over_token(pc);
+        }
+    }
+}
+
+// NOT ORIGINAL - the script check: from the switch's cases at `pc` into its arm `arm` (a case label's statements, as if
+// it matched; past the last label: the default, or past the endswitch).
+void QbScript::go_to_case(Tokens& pc, int arm)
+{
+    for (int label = 0;;) {
+        const QbToken token = as_token(*pc);
+        if (token == QbToken::kScriptEnd) {
+            return;
+        }
+        if (token == QbToken::kSwitch) {
+            ++pc;
+            skip_to_end_of_switch(pc);
+        } else if (token == QbToken::kEndSwitch) {
+            ++pc;
+            return;
+        } else if (token == QbToken::kDefault) {
+            pc += 4;
+            return;
+        } else if (token == QbToken::kCase) {
+            pc += 2;
+            const Tokens next = pc + fetch_word16(pc);
+            pc += 2;
+            if (label++ == arm) {
+                parse_function_params(pc);
+                skip_case_labels(pc);
+                return;
+            }
+            pc = next;
+        } else {
+            pc = step_over_token(pc);
+        }
+    }
 }
 
 // 0x00473220: 20 begin. The next loop of the loop stack starts after the token; the first nested loop (the
@@ -545,6 +628,10 @@ RepeatFrame* outer_loop(Script& script, const RepeatFrame* loop)
 // goes round 2^32 times, as in the original.
 void QbScript::run_counted_loop(Tokens& pc)
 {
+    // NOT ORIGINAL (script_check.h): the repeat's place, and whether it has a count written (a loop with none never
+    // ends; one with a count is the check's decision - again or out)
+    const std::ptrdiff_t place = pc.position();
+    const bool counted = as_token(pc[1]) != QbToken::kEndOfLine && as_token(pc[1]) != QbToken::kEndOfLineNumbered;
     RepeatFrame* loop = innermost_repeat_;
     if (loop->args_expected_) {
         ++pc;
@@ -555,12 +642,15 @@ void QbScript::run_counted_loop(Tokens& pc)
         innermost_repeat_->args_expected_ = false;
     }
     loop = innermost_repeat_;
-    if (!loop->args_seen_) {
-        pc = tokens_at(pc, loop->tokens_begin_);
-        return;
+    bool again = true;
+    if (loop->args_seen_) {
+        --loop->headcount_;
+        again = innermost_repeat_->headcount_ != 0;
     }
-    --loop->headcount_;
-    if (innermost_repeat_->headcount_ != 0) {
+    if (counted && check::active()) { // NOT ORIGINAL (script_check.h)
+        again = check::decide_repeat(this, place, again);
+    }
+    if (again) {
         pc = tokens_at(pc, innermost_repeat_->tokens_begin_);
         return;
     }
@@ -645,6 +735,7 @@ ScriptOutcome QbScript::tick_frame()
             pc = tokens_at(pc_);
             blocks_seen = code_blocks_generation();
         }
+        check::note_statement(this, pc.position()); // NOT ORIGINAL (script_check.h: coverage)
         switch (as_token(*pc)) {
         case QbToken::kEndOfLine: // end of line
         case QbToken::kEndIf:

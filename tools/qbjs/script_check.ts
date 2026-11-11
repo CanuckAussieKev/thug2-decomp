@@ -268,8 +268,9 @@ export async function readCoverage(path: string): Promise<Map<string, Set<string
     return out;
 }
 
-// Every branch a script has: "if <place> 0|1", "switch <place> <case place|-1>", "random <place> <choice>" - places
-// in the script's code (its offset in the file + 6, as the interpreter's cursor counts).
+// Every branch a script has: "if <place> 0|1", "switch <place> <arm>" (its case labels in order, then one more: the
+// default or none), "random <place> <choice>" - places in the script's code (its offset in the file + 6, as the
+// interpreter's cursor counts).
 export function branches(d: Extract<Definition, { kind: "script" }>): string[] {
     const base = d.offset + 6;
     const out: string[] = [];
@@ -299,16 +300,19 @@ export function branches(d: Extract<Definition, { kind: "script" }>): string[] {
                 statements(x.yes);
                 statements(x.no);
             } else if (x.kind === "switch") {
-                for (const c of x.cases)
-                    for (const l of c.labels) out.push(`switch ${x.offset - base} ${l.offset - base}`);
-                if (x.fallback === undefined) out.push(`switch ${x.offset - base} -1`);
+                const labels = x.cases.reduce((n, c) => n + c.labels.length, 0);
+                for (let arm = 0; arm <= labels; ++arm) out.push(`switch ${x.offset - base} ${arm}`);
                 for (const c of x.cases) statements(c.body);
                 if (x.fallback) statements(x.fallback);
             } else if (x.kind === "randomBlock") {
                 for (let i = 0; i < x.branches.length; ++i) out.push(`random ${x.offset - base} ${i}`);
                 x.branches.forEach(statements);
-            } else if (x.kind === "loop") statements(x.body);
-            else if (x.kind === "call" || x.kind === "return") fields(x.fields);
+            } else if (x.kind === "loop") {
+                // (a loop with a count: each pass's end goes round again or out)
+                if (x.repeatFields.length)
+                    out.push(`repeat ${x.repeatOffset - base} 1`, `repeat ${x.repeatOffset - base} 0`);
+                statements(x.body);
+            } else if (x.kind === "call" || x.kind === "return") fields(x.fields);
             else if (x.kind === "assign") randomValues(x.value);
         }
     };
@@ -316,25 +320,131 @@ export function branches(d: Extract<Definition, { kind: "script" }>): string[] {
     return out;
 }
 
+// Every statement a script has, by its place (as branches()).
+export function statementPlaces(d: Extract<Definition, { kind: "script" }>): number[] {
+    const base = d.offset + 6;
+    const out: number[] = [];
+    const statements = (xs: Statement[]): void => {
+        for (const x of xs) {
+            out.push(x.offset - base);
+            if (x.kind === "if") {
+                statements(x.yes);
+                statements(x.no);
+            } else if (x.kind === "switch") {
+                for (const c of x.cases) statements(c.body);
+                if (x.fallback) statements(x.fallback);
+            } else if (x.kind === "randomBlock") x.branches.forEach(statements);
+            else if (x.kind === "loop") statements(x.body);
+        }
+    };
+    statements(d.body);
+    return out;
+}
+
+// The statements no run can reach, the original's or ours: those after a return, or after a loop that never ends (no
+// count, no break out of it) - in the same block.
+export function unreachable(d: Extract<Definition, { kind: "script" }>): Statement[] {
+    const dead: Statement[] = [];
+    const breaksOut = (xs: Statement[], loop: number): boolean =>
+        xs.some((x) =>
+            x.kind === "break"
+                ? x.target === loop
+                : x.kind === "if"
+                  ? breaksOut(x.yes, loop) || breaksOut(x.no, loop)
+                  : x.kind === "switch"
+                    ? x.cases.some((c) => breaksOut(c.body, loop)) || breaksOut(x.fallback ?? [], loop)
+                    : x.kind === "randomBlock"
+                      ? x.branches.some((b) => breaksOut(b, loop))
+                      : x.kind === "loop"
+                        ? breaksOut(x.body, loop)
+                        : false,
+        );
+    // A block's statements: whether it can run on past its end.
+    const block = (xs: Statement[]): boolean => {
+        for (let i = 0; i < xs.length; ++i) {
+            if (!statement(xs[i]!)) {
+                dead.push(...xs.slice(i + 1));
+                return false;
+            }
+        }
+        return true;
+    };
+    const statement = (x: Statement): boolean => {
+        switch (x.kind) {
+            case "return":
+            case "break":
+                return false;
+            case "if": {
+                const yes = block(x.yes);
+                const no = block(x.no);
+                return yes || no;
+            }
+            case "switch": {
+                const arms = x.cases.map((c) => block(c.body));
+                const fallback = x.fallback ? block(x.fallback) : true;
+                return arms.some(Boolean) || fallback;
+            }
+            case "randomBlock":
+                return x.branches.map(block).some(Boolean);
+            case "loop":
+                block(x.body);
+                return x.repeatFields.length > 0 || breaksOut(x.body, x.offset);
+            default:
+                return true;
+        }
+    };
+    block(d.body);
+    return dead;
+}
+
 export function coverageOf(cover: Map<string, Set<string>>, modules: PlanModule[]) {
     // Coverage: every branch of every script against those the QB runs took.
-    const coverage: { module: string; script: string; branches: number; taken: number; missing: string[] }[] = [];
+    const coverage: {
+        module: string;
+        script: string;
+        branches: number;
+        taken: number;
+        missing: string[];
+        statements: number;
+        run: number;
+        notRun: number[];
+        unreachable: number;
+        fixed: string[];
+    }[] = [];
     for (const m of modules) {
         const taken = cover.get(m.file) ?? new Set<string>();
         for (const d of m.ir.definitions) {
             if (d.kind !== "script") continue;
-            const all = branches(d);
+            const dead = unreachable(d);
+            const deadBranches = new Set(branches({ ...d, body: dead }));
+            const deadPlaces = new Set(statementPlaces({ ...d, body: dead }));
             const name = hex(d.name);
+            // (an if whose condition stops before its line's end - an expression the evaluator gave up on - isn't
+            // forced: its true part would start mid-line; the arm its condition can't give is reported, not counted)
+            const fixedArms = branches(d).filter((b) => {
+                const [kind, place] = b.split(" ");
+                return (
+                    kind === "if" && taken.has(`fixed ${name} ${place}`) && !taken.has(`${b.replace(" ", ` ${name} `)}`)
+                );
+            });
+            const all = branches(d).filter((b) => !deadBranches.has(b) && !fixedArms.includes(b));
             const missing = all.filter((b) => {
                 const [kind, place, value] = b.split(" ");
                 return !taken.has(`${kind} ${name} ${place} ${value}`);
             });
+            const places = statementPlaces(d).filter((place) => !deadPlaces.has(place));
+            const notRun = places.filter((place) => !taken.has(`stmt ${name} ${place}`));
             coverage.push({
                 module: m.file,
                 script: m.ir.names?.[d.name] ?? `_0x${name}`,
                 branches: all.length,
                 taken: all.length - missing.length,
                 missing,
+                statements: places.length,
+                run: places.length - notRun.length,
+                notRun,
+                unreachable: deadPlaces.size,
+                fixed: fixedArms,
             });
         }
     }
@@ -357,8 +467,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const modules = planModules(root, only);
         writePlan(folder, modules, {
             runs: Number(value("--runs") ?? 64),
-            frames: Number(value("--frames") ?? 120),
-            calls: Number(value("--calls") ?? 300),
+            frames: Number(value("--frames") ?? 300),
+            calls: Number(value("--calls") ?? 2000),
             steps: Number(value("--steps") ?? 200000),
         });
         console.log(
@@ -376,11 +486,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const result = { ...verdict, coverage: coverageOf(await readCoverage(join(folder, "qb.txt")), modules) };
         const total = result.coverage.reduce((n, c) => n + c.branches, 0);
         const taken = result.coverage.reduce((n, c) => n + c.taken, 0);
+        const statements = result.coverage.reduce((n, c) => n + c.statements, 0);
+        const ran = result.coverage.reduce((n, c) => n + c.run, 0);
+        const scripts = result.coverage.length;
+        const unreachableCount = result.coverage.reduce((n, c) => n + c.unreachable, 0);
+        const fixedCount = result.coverage.reduce((n, c) => n + c.fixed.length, 0);
+        const started = result.coverage.filter((c) => c.run > 0 || c.statements === 0).length;
+        const percent = (a: number, b: number) => (b ? ((100 * a) / b).toFixed(2) : "0");
         const report = [
             "# Script check",
             "",
             `Runs: ${result.runs}; the same as QB and TypeScript: ${result.same}; different: ${result.differences.length}.`,
-            `Branches: ${taken} of ${total} taken by the QB runs (${total ? ((100 * taken) / total).toFixed(1) : "0"}%).`,
+            `Branches: ${taken} of ${total} taken by the QB runs (${percent(taken, total)}%; forced where no input took them).`,
+            `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends) not counted.`,
             "",
             "## Differences (first line that differs)",
             "",
@@ -396,10 +514,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 .filter((c) => c.missing.length)
                 .map((c) => `- ${c.module} ${c.script}: ${c.taken} / ${c.branches} - ${c.missing.join("; ")}`),
             "",
+            `## If arms not forced (${fixedCount}: the condition stops before its line's end - an expression the evaluator gave up on - so it comes out the same every time)`,
+            "",
+            ...result.coverage
+                .filter((c) => c.fixed.length)
+                .map((c) => `- ${c.module} ${c.script}: ${c.fixed.join("; ")}`),
+            "",
+            "## Statements not run",
+            "",
+            ...result.coverage
+                .filter((c) => c.notRun.length)
+                .map((c) => `- ${c.module} ${c.script}: ${c.run} / ${c.statements} - at ${c.notRun.join(", ")}`),
+            "",
         ].join("\n");
         writeFileSync(join(folder, "report.md"), report);
         writeFileSync(join(folder, "report.json"), JSON.stringify(result, null, 1));
-        console.log(report.split("\n").slice(0, 5).join("\n"));
+        console.log(report.split("\n").slice(0, 6).join("\n"));
         console.log(`written: ${join(folder, "report.md")}`);
     }
 }

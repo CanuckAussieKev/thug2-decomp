@@ -792,6 +792,12 @@ JSValue native_forget_stored(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
     return JS_UNDEFINED;
 }
 
+// decide(kind, natural, arms): the script check's arm for a decision (script_check.h decide_ts) - outside it, natural.
+JSValue native_decide(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+{
+    return JS_NewUint32(c, check::decide_ts(to_u32(c, argv[0]), to_u32(c, argv[1]), to_u32(c, argv[2])));
+}
+
 // frame(): the game's frame count (ts_bridge.h frame_clock).
 JSValue native_frame(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* /*argv*/)
 {
@@ -851,6 +857,7 @@ bool start_engine()
     add_native(c, game, "defineGlobal", native_define_global, 2);
     add_native(c, game, "draw", native_draw, 2);
     add_native(c, game, "frame", native_frame, 0);
+    add_native(c, game, "decide", native_decide, 3);
     add_native(c, game, "storedChoice", native_stored_choice, 3);
     add_native(c, game, "forgetStored", native_forget_stored, 1);
     set(c, game, "recording", JS_NewBool(c, e.recording));

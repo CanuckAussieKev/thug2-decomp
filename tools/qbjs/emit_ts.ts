@@ -63,6 +63,8 @@ const HELPERS = [
     "randomRange",
     "randomRange2",
     "code",
+    "branch",
+    "arm",
 ] as const;
 const OPERATORS: Record<number, string> = {
     5: "at",
@@ -146,7 +148,13 @@ function layout(d: Doc, indent: string, used: number): string {
     return `${head}\n${lines.join("\n")}\n${indent}${tail}`;
 }
 
-export function emitTS(module: ModuleIR, names: Record<number, string> = {}): string {
+// check: the script check's translation (docs/script-check.md "Branches") - each if's condition through branch() and
+// each switch's case through arm(), so the check can take every arm; otherwise the same code.
+export function emitTS(
+    module: ModuleIR,
+    names: Record<number, string> = {},
+    options: { check?: boolean } = {},
+): string {
     // A spelling is used only when it checksums back to the name (else the name is written as _0x<checksum>).
     const nameOf = (n: number) => {
         const s = module.names?.[n] ?? names[n];
@@ -385,10 +393,12 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                 : x.condition.kind === "assign"
                   ? "true"
                   : truth(x.condition);
-        if (!x.negate) return c;
-        return typeof c !== "string" && c.head.startsWith("yield*")
-            ? { head: "!(", items: [c], tail: ")", last: "" }
-            : { head: "!", items: [c], tail: "" };
+        const result: Doc = !x.negate
+            ? c
+            : typeof c !== "string" && c.head.startsWith("yield*")
+              ? { head: "!(", items: [c], tail: ")", last: "" }
+              : { head: "!", items: [c], tail: "" };
+        return options.check ? { head: `${use("branch")}(`, items: [result], tail: ")" } : result;
     };
     let lines: string[] = [];
     let serial = 0;
@@ -490,6 +500,39 @@ export function emitTS(module: ModuleIR, names: Record<number, string> = {}): st
                         ";",
                     );
                     selector = name;
+                }
+                if (options.check) {
+                    // The check's form: which case label matched (in order; one past the last: none), the arm the
+                    // check takes of them, then the arms.
+                    const name = `arm${++serial}`;
+                    const all = x.cases.flatMap((group) => group.labels);
+                    lines.push(`${indent}let ${name} = ${all.length};`);
+                    all.forEach((l, i) => {
+                        emit(
+                            indent,
+                            {
+                                head: `${i ? "else " : ""}if (${use("is")}(`,
+                                items: [selector, ...fieldGroups(l.fields)],
+                                tail: `)) ${name} = ${i};`,
+                                last: "",
+                            },
+                            "",
+                        );
+                    });
+                    lines.push(`${indent}${name} = ${use("arm")}(${name}, ${all.length + 1});`);
+                    let first = 0;
+                    x.cases.forEach((group, i) => {
+                        const arms = group.labels.map((_, j) => `${name} === ${first + j}`).join(" || ");
+                        first += group.labels.length;
+                        lines.push(`${indent}${i ? "} else " : ""}if (${arms}) {`);
+                        block(group.body, inner, loops);
+                    });
+                    if (x.fallback?.length) {
+                        lines.push(x.cases.length ? `${indent}} else {` : `${indent}{`);
+                        block(x.fallback, inner, loops);
+                    }
+                    if (x.cases.length || x.fallback?.length) lines.push(`${indent}}`);
+                    return;
                 }
                 x.cases.forEach((group, i) => {
                     const labels: Doc[] = group.labels.map((l) => ({

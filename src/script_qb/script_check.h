@@ -43,10 +43,21 @@ std::optional<bool> command(const Script* script, uint32_t name, uint32_t object
 // The same for a statement prepared to call a C function directly (its pointer).
 std::optional<bool> native_function(const Script* script, NativeFunction function, Struct* args);
 
-// Coverage (QB): an if's condition at `place` in the running script's code taken (true) or not; a switch at `place`
-// went to the case at `chosen` (-1: none matched).
-void note_if(const Script* script, std::ptrdiff_t place, bool taken);
-void note_case(const Script* script, std::ptrdiff_t place, std::ptrdiff_t chosen);
+// Decisions (docs/script-check.md "Branches"): an if at `place` in the running script's code whose condition came out
+// `condition` - the truth to go on (the check may force the other way); a switch whose case label `natural` of
+// `arms` - 1 matched (arms - 1: none, the default or past the endswitch) - the arm to take; a TypeScript script's
+// decision (kind 0 if, 1 switch, 2 Random: its arm `natural` of `arms`). Outside the check: as they came.
+// (`forceable` false: the if's condition stopped before its line's end - taken as it came, and reported.)
+bool decide_if(const Script* script, std::ptrdiff_t place, bool condition, bool forceable);
+int decide_case(const Script* script, std::ptrdiff_t place, int natural, int arms);
+uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms);
+// The end of a pass through a `repeat <count>` loop at `place`: whether to go round again (the count's answer: `again`).
+bool decide_repeat(const Script* script, std::ptrdiff_t place, bool again);
+// A script about to be called from a script at call depth `depth` (QB's or TypeScript's - both call through the
+// interpreter): whether to run it (the check may skip it: the call returns at once, true).
+bool decide_call(const Script* script, int depth);
+// A statement at `place` in the running script's code about to run (QB coverage).
+void note_statement(const Script* script, std::ptrdiff_t place);
 
 // A statement about to run: true when the run is over (its statement or call budget spent) - the interpreter stops.
 bool over();

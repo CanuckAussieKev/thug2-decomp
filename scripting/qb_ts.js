@@ -40,6 +40,9 @@ globalThis.qbTs = (() => {
         }
     }
     const SPREAD = Symbol("all parameters");
+    // A script's defaults are parsed with no parameter list at all (run_sub_script): <...> there gives nothing - not an
+    // empty structure, as an empty list would.
+    const NO_PARAMETERS = Object.freeze([]);
     const PARAMS = Symbol("parameter list");
     const mark = (x, ...sets) => {
         if (x !== undefined && x !== null && typeof x === "object") for (const s of [known, ...sets]) s.add(x);
@@ -73,7 +76,8 @@ globalThis.qbTs = (() => {
         if (typeof x === "function") return value(x());
         if (known.has(x)) return pending.has(x) ? v.expressionResult(x, ctx()) : x;
         // all(p) as a value: a structure copied from the parameters (as a call argument it is spread instead).
-        if (typeof x === "object" && x !== null && x[SPREAD]) return v.structure(x[SPREAD], ctx());
+        if (typeof x === "object" && x !== null && x[SPREAD])
+            return x[SPREAD] === NO_PARAMETERS ? undefined : v.structure(x[SPREAD], ctx());
         if (Array.isArray(x)) {
             const items = x.map(value);
             const types = items.map((i) => i.type);
@@ -209,7 +213,7 @@ globalThis.qbTs = (() => {
             let body;
             try {
                 // (defaults written as a function get empty parameters: they are parsed without the caller's)
-                const d = typeof defaults === "function" ? defaults(parameters([])) : defaults;
+                const d = typeof defaults === "function" ? defaults(parameters(NO_PARAMETERS)) : defaults;
                 mine.p = v.merge(d === undefined ? [] : fields([d], []), args, ctx());
                 globalThis.qb.frame(mine.p, root);
                 body = fn(parameters(mine.p));
@@ -335,6 +339,10 @@ globalThis.qbTs = (() => {
         },
     );
 
+    // The script check's decisions (src/script_qb/script_check.h): the arm to take of `arms` - in the game the one the
+    // condition / draw gave. branch(truth) for an if, arm(natural, arms) for a switch (written only by the check's
+    // translation, install_ts.ts --check); every Random goes through it.
+    const decide = (kind, natural, arms) => globalThis.__qbGame?.decide?.(kind, natural, arms) ?? natural;
     const coordinate = (c) => (typeof c === "object" ? c.bits : floatBits(Math.fround(c)));
     // random(k, [weights,] choices); random.twice(...): drawn twice, the first pick dropped - a Random right after a
     // bare name, whose look-ahead for '=' (parse_arguments / parse_structure) has drawn it once already.
@@ -344,8 +352,8 @@ globalThis.qbTs = (() => {
             const weights = rest.length > 1 ? rest[0] : choices.map(() => 1);
             const random = globalThis.qb.random();
             const c = globalThis.qb.context(site(key));
-            if (twice) random.choose(opcode, site(key), weights, c.owner, c.charge);
-            const picked = choices[random.choose(opcode, site(key), weights, c.owner, c.charge)];
+            if (twice) decide(2, random.choose(opcode, site(key), weights, c.owner, c.charge), choices.length);
+            const picked = choices[decide(2, random.choose(opcode, site(key), weights, c.owner, c.charge), choices.length)];
             return typeof picked === "function" ? picked() : picked;
         };
         return Object.assign(pick(false), { twice: pick(true) });
@@ -384,7 +392,7 @@ globalThis.qbTs = (() => {
         pair: (x, y) => mark({ type: 5, coordinates: [x, y].map(coordinate) }),
         L: (s) => mark({ type: 4, bytes: bytes(s) }),
         all: (p) => ({ [SPREAD]: listOf(p) }),
-        params: (p) => mark({ type: 20, target: { type: 10, members: listOf(p) } }),
+        params: (p) => (listOf(p) === NO_PARAMETERS ? undefined : mark({ type: 20, target: { type: 10, members: listOf(p) } })),
         val: (x) => mark(v.expressionResult(operand(x), ctx())),
         test(x) {
             const truth = value(x);
@@ -392,6 +400,8 @@ globalThis.qbTs = (() => {
             return v.statementTruth(truth, ctx());
         },
         select: (...args) => new Selected(first(args)),
+        branch: (truth) => decide(0, truth ? 0 : 1, 2) === 0,
+        arm: (natural, arms) => decide(1, natural, arms),
         is,
         s: (...items) => mark(v.structure(fields(items), ctx())),
         at: binary(0x05),
@@ -419,9 +429,12 @@ globalThis.qbTs = (() => {
                         read = true;
                         count = v.lookupTyped(fields(args), 0, 1, ctx())?.bits;
                     }
-                    if (count === undefined) return true;
-                    count = (count - 1) >>> 0;
-                    return count !== 0;
+                    let again = true;
+                    if (count !== undefined) {
+                        count = (count - 1) >>> 0;
+                        again = count !== 0;
+                    }
+                    return decide(3, again ? 0 : 1, 2) === 0;
                 },
             };
         },

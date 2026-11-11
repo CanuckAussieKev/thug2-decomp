@@ -97,6 +97,11 @@ public:
     void run_multi_branch(Tokens& pc);
     // 0x00472A70: past the endswitch matching the switch just entered (nested switches skipped).
     void skip_to_end_of_switch(Tokens& pc);
+    // A matched case: past the labels after it, to its statements. NOT ORIGINAL (the script check): a switch's case
+    // labels counted; into the arm'th one's statements (past the last: the default or past the endswitch).
+    void skip_case_labels(Tokens& pc);
+    int count_case_labels(Tokens pc);
+    void go_to_case(Tokens& pc, int arm);
     // 0x00473220 / 0x00472AB0 / 0x00472B50: begin, repeat [n], break.
     void run_loop_open(Tokens& pc);
     void run_counted_loop(Tokens& pc);
@@ -123,6 +128,9 @@ public:
     // --- waiting, call stack, events (group C: cscript_wait.cpp) ---
     // 0x00473050: count down / check this Update's wait (see BlockReason).
     void update_wait();
+    // NOT ORIGINAL - the script check (script_check.h): a wait for time or frames ends at the next Update - nothing in
+    // a check's run sees time pass but its waits.
+    void skip_wait();
     // 0x004728F0: stop waiting. 0x00472900: whether blocked (`print`: prints "m_wait_type == %i").
     void stop_waiting();
     bool is_blocked(bool print);

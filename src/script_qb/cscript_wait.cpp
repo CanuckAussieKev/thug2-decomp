@@ -121,6 +121,22 @@ void QbScript::update_wait()
     }
 }
 
+void QbScript::skip_wait()
+{
+    switch (suspend_reason_) {
+    case BlockReason::kCount:
+    case BlockReason::kFrame:
+        suspend_frames_left_ = 0;
+        break;
+    case BlockReason::kTimer:
+    case BlockReason::kRealTimer:
+        suspend_clock_ = 0.0F;
+        break;
+    default:
+        break;
+    }
+}
+
 // 0x004728F0
 void QbScript::stop_waiting() { suspend_reason_ = BlockReason::kNothing; }
 

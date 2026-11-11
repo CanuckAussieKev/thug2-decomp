@@ -14,8 +14,9 @@ namespace script::check_hooks {
 
 // A C function called inside an expression (push_name): the check's answer (its stub), or none - call it.
 using ExpressionCall = std::optional<bool> (*)(uint32_t name, Struct* params, Script* script);
-// A Random's branch chosen: the Random token's place in its code block, the branch.
-using RandomChoice = void (*)(const Script* script, std::ptrdiff_t place, uint32_t choice);
+// A Random's branch chosen: the Random token's place in its code block, the branch drawn (of `count`) - the branch to
+// take (the check may force another).
+using RandomChoice = uint32_t (*)(const Script* script, std::ptrdiff_t place, uint32_t choice, uint32_t count);
 
 struct Hooks {
     ExpressionCall expression_call = nullptr;
