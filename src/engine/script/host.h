@@ -73,14 +73,14 @@ public:
     virtual void send_spawn_script_message(uint32_t name, objects::Entity* object, int node, bool permanent) = 0;
 
     // --- the stop walks (section 10) ---
-    virtual void stop_scripts_targeting(uint32_t name) = 0;                                              // 0x00473FA0
-    virtual void stop_scripts_by_tag(uint32_t id) = 0;                                                   // 0x00474040
+    virtual void stop_scripts_targeting(uint32_t name) = 0;                                                // 0x00473FA0
+    virtual void stop_scripts_by_tag(uint32_t id) = 0;                                                     // 0x00474040
     virtual void stop_scripts_of_object_and_tag(objects::Entity* object, uint32_t id, Script* except) = 0; // 0x004740D0
     virtual void end_child_scripts_of_entity_by_name(objects::Entity* object, uint32_t name,
-                                                     Script* except) = 0;                               // 0x00474190
-    virtual void stop_all_scripts() = 0;                                                                 // 0x00474250
-    virtual void end_scripts_bound_to_entity(objects::Entity* object) = 0;                               // 0x004756F0
-    virtual void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name) = 0;    // 0x00474350
+                                                     Script* except) = 0;                             // 0x00474190
+    virtual void stop_all_scripts() = 0;                                                              // 0x00474250
+    virtual void end_scripts_bound_to_entity(objects::Entity* object) = 0;                            // 0x004756F0
+    virtual void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name) = 0; // 0x00474350
     // 0x00475700: the scripts that aren't spawned, have no code and no event handler table deleted (Cleanup).
     virtual void delete_finished_scripts() = 0;
 
@@ -89,6 +89,9 @@ public:
     virtual Script* get_running_script() = 0;
     // 0x004734B0: the script with this unique id, or null.
     virtual Script* find_script_with_unique_id(uint32_t id) = 0;
+    // NOT ORIGINAL - the newest script of the list every script is on (Script::following goes to older ones), or null:
+    // the dev tools' list of the scripts running (devtools/console.h).
+    virtual Script* newest_script() = 0;
     // 0x00472E70: `component` is going - no script waits on it any more.
     virtual void component_destroyed_all_scripts(objects::ObjectModule* component) = 0;
     // The loader's walks (load.cpp): every script with `name` at any level started again (restart_changed_scripts,
@@ -116,13 +119,13 @@ public:
     virtual void set_spawner_file(Script* spawned, Script* spawner) = 0;
 
     // --- one script's wait (section 5) ---
-    virtual void stop_waiting(Script* script) = 0;                 // 0x004728F0
-    virtual bool is_blocked(Script* script, bool print) = 0;       // 0x00472900
-    virtual void get_stall(Script* script, int frames) = 0;        // 0x00472BD0: `frames` Updates
+    virtual void stop_waiting(Script* script) = 0;                         // 0x004728F0
+    virtual bool is_blocked(Script* script, bool print) = 0;               // 0x00472900
+    virtual void get_stall(Script* script, int frames) = 0;                // 0x00472BD0: `frames` Updates
     virtual void suspend_until_next_frame(Script* script, int frames) = 0; // 0x00472BF0: one per frame
-    virtual void lull(Script* script, int ms) = 0;                 // 0x00472C10: frame time
-    virtual void wait_real_time(Script* script, int ms) = 0;       // 0x00473310: the game clock
-    virtual void gate_off(Script* script, uint32_t event_type) = 0; // 0x00472FD0: blocked until the event
+    virtual void lull(Script* script, int ms) = 0;                         // 0x00472C10: frame time
+    virtual void wait_real_time(Script* script, int ms) = 0;               // 0x00473310: the game clock
+    virtual void gate_off(Script* script, uint32_t event_type) = 0;        // 0x00472FD0: blocked until the event
     // 0x004739A0: until `component` says so.
     virtual void set_wait_on_component(Script* script, BlockReason type, objects::ObjectModule* component,
                                        uint32_t arg) = 0;

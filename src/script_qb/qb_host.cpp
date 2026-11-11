@@ -78,6 +78,7 @@ public:
     // --- every script ---
     Script* get_running_script() override { return current_script_var(); }
     Script* find_script_with_unique_id(uint32_t id) override { return qb::find_script_with_unique_id(id); }
+    Script* newest_script() override { return script_list_head(); }
     void component_destroyed_all_scripts(objects::ObjectModule* component) override
     {
         qb::component_destroyed_all_scripts(component);

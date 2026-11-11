@@ -84,9 +84,9 @@ struct Engine {
 struct Profile {
     bool on = false;
     uint64_t resumes = 0, symbols = 0, symbol_ns = 0, to_js_ns = 0, js_ns = 0, from_js_ns = 0, total_ns = 0;
-    uint64_t loads = 0, load_ns = 0; // modules run (on_qb_loaded)
-    uint64_t begins = 0, begin_ns = 0, start_ns = 0; // levels begun; QuickJS and the runtime started
-    std::unordered_map<uint32_t, uint32_t> level_names;       // level -> its script
+    uint64_t loads = 0, load_ns = 0;                    // modules run (on_qb_loaded)
+    uint64_t begins = 0, begin_ns = 0, start_ns = 0;    // levels begun; QuickJS and the runtime started
+    std::unordered_map<uint32_t, uint32_t> level_names; // level -> its script
     std::unordered_map<uint32_t, std::pair<uint64_t, uint64_t>> by_script; // script -> (resumes, ns)
     std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
 };
@@ -131,7 +131,6 @@ void report_profile()
         get_log("ts profile:   %s - %u resumes, %u ms", find_checksum_name_or_unknown(top[i].first),
                 static_cast<unsigned>(top[i].second.first), ms(top[i].second.second));
     }
-
 }
 
 Engine& engine()
@@ -167,7 +166,10 @@ uint32_t u32_at(JSContext* c, JSValueConst object, const char* key)
 
 uint32_t length_of(JSContext* c, JSValueConst array) { return u32_at(c, array, "length"); }
 
-void set(JSContext* c, JSValueConst object, const char* key, JSValue value) { JS_SetPropertyStr(c, object, key, value); }
+void set(JSContext* c, JSValueConst object, const char* key, JSValue value)
+{
+    JS_SetPropertyStr(c, object, key, value);
+}
 
 JSValue number_array(JSContext* c, std::span<const uint32_t> words)
 {
@@ -698,8 +700,8 @@ JSValue native_define_script(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
     if (existing) {
         replace_symbol_for_definition(existing, e.loading_temporary);
     }
-    SymbolTableEntry* symbol = define_script_symbol(body, checksums::Name{name}, calculate_script_checksum(Tokens(body)),
-                                                    e.loading_file.c_str());
+    SymbolTableEntry* symbol = define_script_symbol(body, checksums::Name{name},
+                                                    calculate_script_checksum(Tokens(body)), e.loading_file.c_str());
     if (!existing && e.loading_temporary) {
         remove_symbol_later(symbol);
     }
@@ -935,8 +937,8 @@ void replace_file(const std::string& path, std::string_view text)
     }
 }
 
-bool evaluate_module(const std::string& source, const std::string& name, const std::string& cache_path,
-                     bool& cached, std::string& error)
+bool evaluate_module(const std::string& source, const std::string& name, const std::string& cache_path, bool& cached,
+                     std::string& error)
 {
     Engine& e = engine();
     JSContext* c = e.context;
@@ -959,8 +961,8 @@ bool evaluate_module(const std::string& source, const std::string& name, const s
         }
     }
     if (!cached) {
-        function = JS_Eval(c, source.c_str(), source.size(), name.c_str(),
-                           JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
+        function =
+            JS_Eval(c, source.c_str(), source.size(), name.c_str(), JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
         if (JS_IsException(function)) {
             error = exception_text(c);
             return false;
@@ -1113,8 +1115,8 @@ void install()
     get_log("ts: TypeScript scripts on (modules in %s)", game_folder_path("thug2-decomp-ts").c_str());
     if (engine().recording) {
         // (the earlier sessions' counts, added to from here)
-        if (std::string json; fs::disk().kind(types_path().c_str()) == fs::PathKind::kFile &&
-                                  fs::read_text(types_path(), &json)) {
+        if (std::string json;
+            fs::disk().kind(types_path().c_str()) == fs::PathKind::kFile && fs::read_text(types_path(), &json)) {
             std::array<JSValue, 1> args{JS_NewStringLen(engine().context, json.data(), json.size())};
             const JSValue loaded = call_qb("loadTypes", args);
             if (JS_IsException(loaded)) {

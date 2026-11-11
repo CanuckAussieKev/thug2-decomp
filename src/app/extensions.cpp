@@ -7,6 +7,7 @@
 #include "platform/app_window.h"
 #include "platform/run_log.h"
 #include "devtools/automation.h"
+#include "devtools/console.h"
 #include "devtools/extensions.h"
 #include "engine/ext/extension.h"
 #include "engine/ext/plugin.h"
@@ -77,6 +78,7 @@ void register_extensions()
     ext::add(frontend::test_view::extension());
     ext::add(frontend::new_frontend::extension());
     ext::add(sys::screenshot::extension());
+    ext::add(devtools::console::extension()); // (last: drawn over everything, the others' frames)
 }
 
 // The order the start-up has always registered them in (each makes its symbols in the script's tables in turn).

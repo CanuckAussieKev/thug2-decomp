@@ -332,6 +332,8 @@ constexpr uint8_t kScriptFlagTrackerBlocked = 0x10;  // Block registered it with
 // --- the script functions the game calls by name (host.cpp: each the installed runtime's - host.h) ---
 // 0x004734B0: the script with this unique id, or null.
 Script* find_script_with_unique_id(uint32_t id);
+// NOT ORIGINAL - the newest script (Script::following: the older ones), or null - host.h newest_script.
+Script* newest_script();
 
 // 0x00475920: one Update of every spawned script (newest first); finished ones run their callback and go.
 void tick_child_scripts();

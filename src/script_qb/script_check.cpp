@@ -127,11 +127,11 @@ std::map<uint32_t, uint32_t> forced_from(const std::string& text)
 }
 
 struct Run {
-    std::string forced;           // the stub choices to make, in order (beyond them: '0')
+    std::string forced; // the stub choices to make, in order (beyond them: '0')
     std::map<uint32_t, uint32_t> forced_decisions;
-    std::vector<Choice> made;     // the choices made
-    std::string trace;            // the calls, then the end
-    std::string ended;            // finished / running / runaway / overlong / fault ...
+    std::vector<Choice> made; // the choices made
+    std::string trace;        // the calls, then the end
+    std::string ended;        // finished / running / runaway / overlong / fault ...
     uint32_t calls = 0;
     uint32_t steps = 0;
     uint32_t decisions = 0;                         // decisions made
@@ -139,13 +139,13 @@ struct Run {
     // (the same at the last stub call: a runaway run's end - QB's statement budget and TypeScript's interrupt budget
     // stop a loop without calls at different points - is compared up to there)
     uint32_t decisions_at_call = 0;
-    uint32_t frame_at_call = 0; // (the frame of the last stub call: a runaway run's end frame)
-    size_t trace_at_call = 0;   // (the trace's length after it: what a runaway run's trace keeps)
-    uint32_t calls_budget = 0;  // (Job::calls)
-    bool long_run = false;      // (Job::long_run)
-    uint32_t new_at_call = 0;   // (the calls made when the run last reached a statement it hadn't before - QB)
+    uint32_t frame_at_call = 0;          // (the frame of the last stub call: a runaway run's end frame)
+    size_t trace_at_call = 0;            // (the trace's length after it: what a runaway run's trace keeps)
+    uint32_t calls_budget = 0;           // (Job::calls)
+    bool long_run = false;               // (Job::long_run)
+    uint32_t new_at_call = 0;            // (the calls made when the run last reached a statement it hadn't before - QB)
     std::unordered_set<uint64_t> places; // (the statements it has reached - QB)
-    uint32_t stop_at_call = 0;  // (Job::stop_at_call)
+    uint32_t stop_at_call = 0;           // (Job::stop_at_call)
     // the calls after the first kTracedCalls: counted and hashed, not written (a long run's trace stays short)
     uint32_t tail_calls = 0;
     uint64_t tail_hash = 0xCBF29CE484222325ULL;
@@ -163,7 +163,7 @@ struct Settings {
     int frames = 300;       // frames a run may last
     uint32_t calls = 400;   // stubbed calls a run may make
     uint32_t steps = 50000; // statements a run may run
-    int log_runs = 0;        // 1: each run's header logged before it runs (to find a run that crashes the game)
+    int log_runs = 0;       // 1: each run's header logged before it runs (to find a run that crashes the game)
 };
 
 struct State {
@@ -477,7 +477,8 @@ Run run_once(uint32_t name, Struct* args, const Job& job)
                       std::to_string(runaway ? run.decisions_at_call : run.decisions) + " #" + hash.data();
     if (run.tail_calls != 0) {
         std::snprintf(hash.data(), hash.size(), "%016llx", static_cast<unsigned long long>(run.tail_hash));
-        end += " calls after " + std::to_string(kTracedCalls) + ": " + std::to_string(run.tail_calls) + " #" + hash.data();
+        end +=
+            " calls after " + std::to_string(kTracedCalls) + ": " + std::to_string(run.tail_calls) + " #" + hash.data();
     }
     if (run.ended == "finished") {
         end += " ";
@@ -914,7 +915,9 @@ public:
             return;
         }
         auto& hooks = check_hooks::hooks();
-        hooks.expression_call = [](uint32_t name, Struct* params, Script* script) { return command(script, name, 0, params); };
+        hooks.expression_call = [](uint32_t name, Struct* params, Script* script) {
+            return command(script, name, 0, params);
+        };
         hooks.random_choice = [](const Script* script, std::ptrdiff_t place, uint32_t choice, uint32_t count) {
             return active() ? decide(Decision::kRandom, choice, count, script, place) : choice;
         };
@@ -996,7 +999,8 @@ bool decide_call(const Script* script, int depth)
     const bool call = decide(Decision::kCall, 0, 2, nullptr, 0) == 0;
     if (call && !ts::enabled() && script && depth >= 0) {
         run.calls_by_depth.resize(static_cast<size_t>(depth));
-        run.calls_by_depth.push_back({ordinal, stubs, hex(script->script_title()) + " " + std::to_string(place_of(script))});
+        run.calls_by_depth.push_back(
+            {ordinal, stubs, hex(script->script_title()) + " " + std::to_string(place_of(script))});
     }
     return call;
 }
@@ -1006,10 +1010,12 @@ uint32_t decide_ts(uint32_t kind, uint32_t natural, uint32_t arms, uint32_t scri
     if (!active() || kind > static_cast<uint32_t>(Decision::kRepeat)) {
         return natural;
     }
-    const bool counted = script != 0 && place >= 0 && state().run->ended.empty(); // (as QB's: none once the run is over)
+    const bool counted =
+        script != 0 && place >= 0 && state().run->ended.empty(); // (as QB's: none once the run is over)
     const uint32_t arm = decide(static_cast<Decision>(kind), natural, arms, nullptr, 0);
     if (counted) {
-        state().ts_coverage.insert(coverage_key(static_cast<Decision>(kind), script, static_cast<std::ptrdiff_t>(place), arm));
+        state().ts_coverage.insert(
+            coverage_key(static_cast<Decision>(kind), script, static_cast<std::ptrdiff_t>(place), arm));
     }
     return arm;
 }

@@ -10,8 +10,9 @@ add_library(thug2_devtools STATIC
     automation_trace.cpp
     automation_report.cpp
     automation_parse.cpp
+    console.cpp
 )
 # (the generated build_info.h: the screenshot sidecar names the exe's source)
 target_include_directories(thug2_devtools PRIVATE "${CMAKE_BINARY_DIR}/generated")
 add_dependencies(thug2_devtools build_info)
-target_link_libraries(thug2_devtools PUBLIC thug2_game)
+target_link_libraries(thug2_devtools PUBLIC thug2_game PRIVATE imgui)

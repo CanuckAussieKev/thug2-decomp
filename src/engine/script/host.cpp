@@ -60,6 +60,7 @@ bool script_exists(uint32_t name) { return host().script_exists(name); }
 uint32_t get_spawn_id(Script* script) { return host().get_spawn_id(script); }
 Script* look_up_spawned_script(uint32_t id) { return host().look_up_spawned_script(id); }
 Script* find_script_with_unique_id(uint32_t id) { return host().find_script_with_unique_id(id); }
+Script* newest_script() { return host().newest_script(); }
 void component_destroyed_all_scripts(objects::ObjectModule* component)
 {
     host().component_destroyed_all_scripts(component);
