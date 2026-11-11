@@ -95,7 +95,9 @@ where the arm is forced.
   job made again takes the same path - forcing a decision by its number needs that.
 - A boot file whose scripts the game has since redefined or removed (the front end's level file) is loaded again for
   its module, as a level's is. With `new_frontend=1` / `anteara_mod=1` the overlay's `front_end` / `anteara` copy is
-  the version the game reads, and is planned as one.
+  the version the game reads, and is planned as one. keyboard.qb is loaded with PartyMod's binary patch applied when
+  it is the file the patch was made for (src/engine/script/patched.cpp): the patched bytes are a version of their own
+  (`<origin>+partymod`, install_ts.ts `qbVersions`), so the game has a TypeScript module for them and the check plans them.
 - A run's first 300 calls are written to its trace; the rest (up to the `calls` budget, 600) are counted and hashed on
   its end line.
 - A run that ends at a budget (`runaway`: QB's statement budget, 50,000, and TypeScript's interrupt budget - one check

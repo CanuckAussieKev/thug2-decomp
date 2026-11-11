@@ -12,8 +12,9 @@
 // Files that don't translate are listed and stay QB.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
+import { applyBps, bpsMadeFor } from "thug2-level-converter-core/lib/bps.ts";
 import { compileTS } from "./compile_ts.ts";
 import { emitTS } from "./emit_ts.ts";
 import { readIR } from "./reader.ts";
@@ -80,8 +81,34 @@ export function qbVersions(root: string): QbVersion[] {
                 bytes: readFileSync(file),
                 path: file,
             });
+    // (the files the game loads with a binary patch applied - src/engine/script/patched.cpp: the patched bytes are what
+    // it runs, a version of their own, "<origin>+partymod"; a copy the patch wasn't made for is loaded as it is)
+    for (const v of [...out]) {
+        const patch = SCRIPT_PATCHES[v.name];
+        if (!patch || !existsSync(patch)) continue;
+        const bytes = readFileSync(patch);
+        if (bpsMadeFor(bytes, v.bytes))
+            out.push({ name: v.name, origin: `${v.origin}${PATCHED}`, bytes: applyBps(bytes, v.bytes) });
+    }
     return out;
 }
+
+// The patched scripts (patched.cpp's register_patch) and their patches: PartyMod's patches/keyboard.bps, kept by the
+// pipeline (tools/pipeline/menu_level/partymod_keyboard.bps).
+const PATCHED = "+partymod";
+const SCRIPT_PATCHES: Record<string, string> = {
+    "scripts\\engine\\menu\\keyboard.qb": join(
+        dirname(fileURLToPath(import.meta.url)),
+        "..",
+        "pipeline",
+        "menu_level",
+        "partymod_keyboard.bps",
+    ),
+};
+
+// A version's origin without its patch mark (the folder or archive it was read from).
+export const unpatchedOrigin = (origin: string): string =>
+    origin.endsWith(PATCHED) ? origin.slice(0, -PATCHED.length) : origin;
 
 // check: the script check's translation (emit_ts.ts) - for its runs only, never the game's.
 export function installTS(game: string, only: string[] = [], clear = false, check = false): InstallResult {
@@ -102,7 +129,7 @@ export function installTS(game: string, only: string[] = [], clear = false, chec
         const origin =
             version.origin === "Data"
                 ? "Data"
-                : version.origin.toLowerCase().endsWith(".prx")
+                : unpatchedOrigin(version.origin).toLowerCase().endsWith(".prx")
                   ? `pre\\${version.origin}`
                   : version.origin;
         const name = `${origin}\\${version.name}`;

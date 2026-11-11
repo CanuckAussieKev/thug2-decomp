@@ -15,7 +15,7 @@ import { dirname, join, relative } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { checksum } from "../qb_checksum.ts";
-import { fileHash, gameRoot, type QbVersion, qbVersions } from "./install_ts.ts";
+import { fileHash, gameRoot, type QbVersion, qbVersions, unpatchedOrigin } from "./install_ts.ts";
 import type { Definition, Expr, Field, ModuleIR, Statement } from "./ir.ts";
 import { readIR } from "./reader.ts";
 
@@ -83,14 +83,18 @@ export type PlanModule = {
 export function planModules(root: string, only: string[] = []): PlanModule[] {
     const sources = join(root, "thug2-decomp-check-sources");
     rmSync(sources, { recursive: true, force: true });
-    const rank = (origin: string) =>
-        origin.startsWith("thug2-decomp-data\\")
+    // (a patched version - install_ts.ts qbVersions - before the file it was made from: the game loads it patched)
+    const rank = (patched: string) => {
+        const origin = unpatchedOrigin(patched);
+        const base = origin.startsWith("thug2-decomp-data\\")
             ? -1
             : origin === "thug2-decomp-data"
               ? 0
               : origin.toLowerCase().endsWith(".prx")
                 ? 1
                 : 2;
+        return base * 2 - (origin === patched ? 0 : 1);
+    };
     // (the overlay's own sets - the new front end's, Anteara Mod's - are read before the rest when the ini turns them
     // on: a version of the file they stand in for)
     const ini = existsSync(join(root, "thug2-decomp.ini")) ? readFileSync(join(root, "thug2-decomp.ini"), "utf8") : "";
@@ -98,8 +102,8 @@ export function planModules(root: string, only: string[] = []): PlanModule[] {
     const sets = { "front_end\\": on("new_frontend"), "anteara\\": on("anteara_mod") };
     const byName = new Map<string, QbVersion[]>();
     for (let v of qbVersions(root)) {
-        if (v.origin !== "Data" && v.origin !== "thug2-decomp-data" && !v.origin.toLowerCase().endsWith(".prx"))
-            continue;
+        const origin = unpatchedOrigin(v.origin);
+        if (origin !== "Data" && origin !== "thug2-decomp-data" && !origin.toLowerCase().endsWith(".prx")) continue;
         const set = Object.keys(sets).find((s) => v.name.startsWith(s)) as keyof typeof sets | undefined;
         if (set) {
             if (!sets[set] || v.origin !== "thug2-decomp-data") continue;
