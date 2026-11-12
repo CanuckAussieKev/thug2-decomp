@@ -46,7 +46,15 @@ foreach ($f in $DeployedFiles) {
     # (plugins\...: its folder made first)
     $into = Split-Path (Join-Path $folder $f) -Parent
     if (-not (Test-Path $into)) { New-Item -ItemType Directory -Path $into | Out-Null }
-    Copy-Item -LiteralPath $src -Destination (Join-Path $folder $f) -Force
+    # (a game that has just closed may still hold its exe for a moment: retried, and checked - the copy must match)
+    $dest = Join-Path $folder $f
+    $same = $false
+    for ($try = 0; $try -lt 20 -and -not $same; $try++) {
+        try { Copy-Item -LiteralPath $src -Destination $dest -Force -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500; continue }
+        $same = (Get-FileHash -LiteralPath $src).Hash -eq (Get-FileHash -LiteralPath $dest).Hash
+        if (-not $same) { Start-Sleep -Milliseconds 500 }
+    }
+    if (-not $same) { "$f couldn't be copied into $folder (in use?) - NOT DEPLOYED"; exit 4 }
     $copied += $f
 }
 if ($copied -notcontains 'd3dx9_43.dll' -or $copied -notcontains 'SDL3.dll') {
