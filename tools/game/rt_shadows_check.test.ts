@@ -8,6 +8,7 @@ import { readPlan } from "./renderer_parity.ts";
 import {
     anyShadow,
     configValues,
+    darkestRatio,
     judgeSpot,
     LIMITS,
     type Limits,
@@ -99,4 +100,44 @@ test("the configurations' ini values, and the plan's level groups", () => {
     const plan = readPlan(fs.readFileSync(path.join(here, "rt_shadows.json"), "utf8"));
     assert.ok(plan.groups.length >= 5);
     for (const g of plan.groups) assert.ok(g.level && g.spots?.length, g.name);
+});
+
+const AO: Limits = { ...LIMITS, expect: "shadows", strength: 0.6, effect: "ao" };
+
+test("ambient occlusion: partial darkening passes; brighter or darker than full occlusion fails", () => {
+    const off = flat(40, 40, 200);
+    const corners = shaded(off, 30, 0.7); // (1 - 0.6 x 0.5)
+    const d = shadowDifference(off, corners, null, 8, darkestRatio(AO));
+    assert.equal(d.tooDark, 0);
+    assert.deepEqual(judgeSpot("a", d, null, AO).problems, []);
+    assert.equal(anyShadow([judgeSpot("a", d, null, AO)], AO), true);
+    const black = shaded(off, 30, 0); // (a NaN or a runaway value)
+    const dark = shadowDifference(off, black, null, 8, darkestRatio(AO));
+    assert.equal(dark.tooDark, 400);
+    assert.match(judgeSpot("b", dark, null, AO).problems.join(), /darker than full occlusion/);
+    const brighter = shaded(off, 30, 1.2);
+    assert.match(
+        judgeSpot("c", shadowDifference(off, brighter, null, 8, darkestRatio(AO)), null, AO).problems.join(),
+        /brighter/,
+    );
+});
+
+test("ambient occlusion: its ini values and log lines", () => {
+    assert.deepEqual(configValues("on", "ao"), {
+        "Graphics.ray_tracing": "1",
+        "Graphics.rt_shadows": "0",
+        "Graphics.rt_ao": "1",
+    });
+    assert.deepEqual(configValues("off", "ao"), {
+        "Graphics.ray_tracing": "1",
+        "Graphics.rt_shadows": "0",
+        "Graphics.rt_ao": "0",
+    });
+    const drawn =
+        "vulkan: rt_ao: the first ambient occlusion pass (1280x720, 4 rays, radius 48.0, strength 0.60, denoised)";
+    const skipped = "vulkan: rt_ao: no acceleration structure for the scene yet - the ambient occlusion pass skipped";
+    assert.deepEqual(logProblems("on", drawn, "shadows", "ao"), []);
+    assert.match(logProblems("on", skipped, "shadows", "ao").join(), /no ambient occlusion pass/);
+    assert.deepEqual(logProblems("on", skipped, "none", "ao"), []);
+    assert.equal(darkestRatio(SHADOWS), 0);
 });
