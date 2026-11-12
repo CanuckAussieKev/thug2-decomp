@@ -336,6 +336,10 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
 | `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
 | `rt_shadow_objects` | 0 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too (the skater's own shadow is drawn anyway) |
+| `rt_shadow_sun` | bake | The sun the shadows fall from: `bake` - the one the level's own lighting was made with, found from it when the level starts (a level lit only by its lamps, indoors, gets no ray-traced shadows); `light` - the game's light for the skater (the same in every level); or `x,y,z` toward the sun |
+| `rt_shadow_match_bake` | 1 | With the baked sun: no ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out); 0 shadows wherever the sun is blocked |
+| `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |
+| `rt_shadow_sky_rays` | 5 | Rays a pixel that look for the sky (1-16) |
 
 **`[Miscellaneous]`** - from PartyMod
 

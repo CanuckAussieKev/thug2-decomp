@@ -863,6 +863,38 @@ nothing but test one pointer while no `RayTracing` is installed.
   plays BO (riding), LA, SE, foun and Anteara Mod's BO with each renderer and fails on any violation; the console's
   `rt dump` writes the frame record as JSON (the tool keeps one per renderer).
 
+
+### The sun and where the shadows fall (R4)
+
+The ray-traced shadows (`gpu_vulkan/vulkan_rt_shadows`) darken a pixel where the sun is blocked. Which sun, and where
+the original's own lighting already says otherwise, is decided so:
+
+- **The baked sun** (`engine/gfx/rt_sun`, `[Graphics] rt_shadow_sun=bake`, the default). The frame record's
+  directional lights are the light manager's two (toward (0.75, 0.5, 0.43) and (-0.79, 0.5, -0.37)) in every level -
+  they light the skater and the objects, not the level - so tracing toward the first one put the shadows where the
+  level's bake has none (BO, sch: 65-95% of each picture darkened, the sunlit paving with it). The level's own sun is in
+  its world meshes' vertex colours: once the world has stood still for 60 frames `render_pc/rt_record` samples its
+  upward-facing triangles (the colour's luma at each) and `fit_baked_sun` traces every sample toward 240 directions
+  over the sky (then 60 within 10 degrees of the best, 40 within 3): the direction whose "not blocked" correlates best
+  with the brightness is the sun (BO heading -75 / elevation 52, z_dt 44 / 53, z_ho 45 / 58, sch -45 / 36; about 1.5-2.7
+  million rays, 150-370 ms once a level). Its score is the confidence: under 0.3 the bake shows no sun (the Foundry:
+  0.07 - indoors, lit by its lamps) and the level gets no shadow pass. `rt_shadow_sun=light` keeps the frame record's
+  first light, `x,y,z` a fixed direction; the console's `rt sun <x y z> | off` overrides both (a check aid).
+- **Where the bake agrees** (`rt_shadow_match_bake=1`). With the sun found, about 100,000 points of the upward faces are
+  traced toward it once more; over a grid of the level seen from above (as many cells as give each about 8 blocked
+  points, at most 64 a side: 150-170 units in the levels tried) each cell gets the share of its blocked points whose
+  baked colour is dark - 1: the bake has that shadow, a traced one is welcome; 0: the bake lit it anyway (lamps, a
+  roof or a caster it left out) and the traced shadow is dropped there. The pass reads the grid (a storage buffer,
+  bilinear) at each pixel's x and z. `rt agree <x> <z>` prints its value.
+- **The sky test** (`rt_shadow_covered=0`). A pixel whose sun ray is blocked traces `rt_shadow_sky_rays` (5) more rays
+  up - straight up and 31 degrees out round it; if none reaches the sky it is under a roof and keeps the level's own
+  light; each one that does lets in a share of the shadow, all of it from half of them on.
+- **What it still does:** the traced shadow multiplies the colour where the bake already darkened it (the pass's design
+  since R4: the bake's shadows get sharper edges and darker), and the skater and objects receive the world's shadows.
+- **Measured** (`tools/game/rt_shadows_check.ts`, its five levels): "the sun against the bake" - the pixels the
+  original lit darker (under the `off` picture's Otsu threshold) darkened 0.93 times as often as the brighter ones with
+  the frame record's light (no better than chance), 1.5-1.6 times with the baked sun; the Foundry's spots unchanged.
+
 ## Order of work
 
 | # | task | depends on | start |
@@ -886,7 +918,7 @@ nothing but test one pointer while no `RayTracing` is installed.
 | R1 | The frame as data: `render_pc` fills the per-frame instance / light / camera record; stable mesh and material ids | V5f | after V11 and the x64 port - done: `render_pc/rt_record` (below, "The frame record"), the contract check `devtools/rt_check` ([debug] rt_contract_check=1) and `tools/game/rt_contract.ts`: 0 violations in BO, LA, SE, foun and Anteara Mod's BO with both renderers |
 | R2 | Acceleration structures: a BLAS per static mesh at scene load, refit / rebuild for CPU-skinned meshes, the TLAS per frame | R1, V7, x64 | done (the receiving side; the meshes arrive with R1): `gpu_vulkan/vulkan_rt_scene` - a BLAS per registered mesh from the Gpu's own buffers (16 / 32-bit indices, offsets, strips listed), static ones compacted, dynamic ones refitted (rebuilt every 32 refits); the TLAS per frame in flight from the record (custom index = material; mask 0x01 world / 0x02 objects / 0x04 alpha-tested / 0x80 no shadow, an alpha test against 1/255 counting as opaque), handed to R4's shadow pass; materials forwarded to R3's table; `current_scene()` for the effects; in the game (with R1) foun's 1,239 meshes take 3.7 MB of BLAS (11.5 MB before compaction) and `rtprobe` meets `colprobe` (90.002 / 90.000); `thug2_vulkan_rt_check` traces thousands of rays against a CPU reference on both GPUs here, 0 validation messages (core + sync); automation `rtprobe` / `colprobe` |
 | R3 | The material table and bindless textures | R1, V6 | after V11 and the x64 port - done: `gpu_vulkan/vulkan_rt_materials` (`MaterialTable`, made with `ray_tracing=1`): a record per material id in a storage buffer (scalar layout, grown with a new set), textures as one partially bound, update-after-bind array of sampled images (a slot per texture, white once released, reused after the frames in flight), 32 samplers (address u x v x nearest / linear) picked per material, and the GLSL hit shaders include (`material_glsl()`: `material()`, `material_sample()`, the alpha test); `thug2_vulkan_rt_materials_check` reads it back through a compute shader on both GPUs here |
-| R4 | Ray-traced directional shadows (ray queries in the lighting pass), an ini option, off by default | R2 | after R2 - done (waits for R1's light and R2's TLAS): `gpu_vulkan/vulkan_rt_shadows` (`[Graphics] rt_shadows`, `rt_shadow_strength` / `_softness` / `_rays` / `_objects`): `draw_viewport` tells `rt_scene`'s view listeners when a viewport's opaque world, objects and sky are drawn (`rt::opaque_view_drawn`, before the transparent passes); one full-screen pass then reads the depth (each sample of a multisampled target when the device has sample-rate shading, else sample 0), rebuilds the world position with the view's inverse view x projection and the normal from the nearer neighbours' depths, traces a ray query toward the frame record's directional light (instance mask 0x01 world, + 0x02 objects; opaque, first hit) and multiplies the colour by 1 - strength where it is blocked; soft shadows trace several rays over the sun's disc (no denoiser). The TLAS is handed over with `rt_shadows_set_scene()`; without it or a directional light the pass is skipped (logged once). `thug2_vulkan_rt_shadow_check` compares the pass with a processor ray-cast pixel by pixel (one sample, four, objects, soft, a split view) on both GPUs here; `tools/game/rt_shadows_check.ts` checks it in the game |
+| R4 | Ray-traced directional shadows (ray queries in the lighting pass), an ini option, off by default | R2 | after R2 - done (waits for R1's light and R2's TLAS): `gpu_vulkan/vulkan_rt_shadows` (`[Graphics] rt_shadows`, `rt_shadow_strength` / `_softness` / `_rays` / `_objects`): `draw_viewport` tells `rt_scene`'s view listeners when a viewport's opaque world, objects and sky are drawn (`rt::opaque_view_drawn`, before the transparent passes); one full-screen pass then reads the depth (each sample of a multisampled target when the device has sample-rate shading, else sample 0), rebuilds the world position with the view's inverse view x projection and the normal from the nearer neighbours' depths, traces a ray query toward the frame record's directional light (instance mask 0x01 world, + 0x02 objects; opaque, first hit) and multiplies the colour by 1 - strength where it is blocked; soft shadows trace several rays over the sun's disc (no denoiser). The TLAS is handed over with `rt_shadows_set_scene()`; without it or a directional light the pass is skipped (logged once). `thug2_vulkan_rt_shadow_check` compares the pass with a processor ray-cast pixel by pixel (one sample, four, objects, soft, a split view, the sky test) on both GPUs here; `tools/game/rt_shadows_check.ts` checks it in the game. The sun is the level's baked one (`engine/gfx/rt_sun`: fitted to the world's vertex colours; none indoors), shadows are dropped where the bake disagrees and under roofs - above, "The sun and where the shadows fall" |
 | R5 | Reflections / ambient occlusion and a denoiser | R2, R3 | after R4 |
 
 ```

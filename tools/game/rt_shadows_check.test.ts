@@ -8,11 +8,13 @@ import { readPlan } from "./renderer_parity.ts";
 import {
     anyShadow,
     configValues,
+    darkOverBright,
     judgeSpot,
     LIMITS,
     type Limits,
     logProblems,
     noiseOf,
+    otsuThreshold,
     shadowDifference,
 } from "./rt_shadows_check.ts";
 
@@ -50,11 +52,52 @@ test("brighter pixels, too much darkened or the wrong ratio fail; none darkened 
     assert.match(judgeSpot("b", shadowDifference(off, brighter, null, 8), null, SHADOWS).problems.join(), /brighter/);
     const all = shaded(off, 0, 0.5);
     assert.match(judgeSpot("c", shadowDifference(off, all, null, 8), null, SHADOWS).problems.join(), /darkened/);
-    const faint = shaded(off, 9, 0.85);
-    assert.match(judgeSpot("d", shadowDifference(off, faint, null, 8), null, SHADOWS).problems.join(), /ratio/);
+    // (a median ratio over 0.9: too faint; under 1 - strength - 0.2: too dark; a share of a shadow between is fine)
+    const light = flat(10, 10, 200);
+    const faint = shaded(light, 8, 0.95);
+    assert.match(judgeSpot("d", shadowDifference(light, faint, null, 8), null, SHADOWS).problems.join(), /ratio/);
+    const black = shaded(light, 8, 0.2);
+    assert.match(judgeSpot("d2", shadowDifference(light, black, null, 8), null, SHADOWS).problems.join(), /ratio/);
+    const part = shaded(light, 8, 0.75);
+    assert.deepEqual(judgeSpot("d3", shadowDifference(light, part, null, 8), null, SHADOWS).problems, []);
+    // a level with no baked sun: any change fails
+    assert.match(
+        judgeSpot("d4", shadowDifference(light, part, null, 8), null, SHADOWS, true).problems.join(),
+        /no baked sun/,
+    );
+    assert.deepEqual(judgeSpot("d5", shadowDifference(light, light, null, 8), null, SHADOWS, true).problems, []);
     const same = judgeSpot("e", shadowDifference(off, off, null, 8), null, SHADOWS);
     assert.deepEqual(same.problems, []);
     assert.equal(anyShadow([same], SHADOWS), false);
+});
+
+test("the baked split: Otsu's threshold between two levels; darkened counted per side", () => {
+    const histogram = new Array<number>(256).fill(0);
+    histogram[40] = 100;
+    histogram[200] = 300;
+    const split = otsuThreshold(histogram);
+    assert.ok(split >= 40 && split < 200);
+    // the upper half bright (200), the lower dark (40); the shadow over the lower quarter: dark pixels only
+    const off = flat(20, 20, 200);
+    for (let p = 10 * 20 * 3; p < off.rgb.length; p++) off.rgb[p] = 40;
+    const d = shadowDifference(off, shaded(off, 15, 0.5), null, 8);
+    assert.equal(d.bright, 200);
+    assert.equal(d.dark, 200);
+    assert.equal(d.brightDarkened, 0);
+    assert.equal(d.darkDarkened, 100);
+});
+
+test("the sun against the bake: baked-dark darkened as often as baked-bright gives 1", () => {
+    const off = flat(20, 20, 200);
+    for (let p = 10 * 20 * 3; p < off.rgb.length; p++) off.rgb[p] = 40;
+    // the lower quarter (dark) and the second quarter (bright) both darkened: alike
+    const both = shaded(off, 15, 0.5);
+    for (let p = 5 * 20 * 3; p < 10 * 20 * 3; p++) both.rgb[p] = 100;
+    const alike = judgeSpot("a", shadowDifference(off, both, null, 8), null, SHADOWS);
+    assert.ok(Math.abs(darkOverBright([alike])! - 1) < 1e-9);
+    const lined = judgeSpot("b", shadowDifference(off, shaded(off, 15, 0.5), null, 8), null, SHADOWS);
+    assert.ok(darkOverBright([lined])! > 1e6);
+    assert.equal(darkOverBright([judgeSpot("c", shadowDifference(off, off, null, 8), null, SHADOWS)]), null);
 });
 
 test("expect none: any change fails; the baseline must match off", () => {

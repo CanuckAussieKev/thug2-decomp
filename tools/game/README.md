@@ -141,9 +141,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   the x64 build deployed (deploy_build.ps1 -Arch x64), the spots of `rt_shadows.json` (renderer_parity's five levels)
   captured with `ray_tracing=1` and `rt_shadows=0` / `1` (and `--baseline-build`'s exe as the workspace's ini has it)
   into `<out>/<off|on|baseline>/run<k>/`, then compared outside each configuration's run-to-run noise. `--expect shadows`:
-  the shadows only darken (at most 0.1% of the pixels lighter), at most 60% of a picture darkened and at least 0.5% in
-  some spot, the darkened pixels' median brightness ratio within 0.2 of 1 - strength, the `on` logs showing the pass
-  and no skip; the share of the darkened pixels in the picture's lower half is reported. `--expect none` (no
+  the shadows only darken (at most 0.1% of the pixels lighter), at most 80% of a picture darkened and at least 0.5% in
+  some spot, the darkened pixels' median brightness ratio from 1 - strength - 0.2 to 0.9 (where 1% or more is
+  darkened), the sun lined up with the level's bake (over every spot, the pixels `off` shows darker - under its Otsu
+  threshold - darkened at least 1.5 times as often as the brighter ones), a level whose bake shows no sun (the log's
+  "rt: the baked sun: none") unchanged, the `on` logs showing the pass (or that "none") and no skip; the share of the
+  darkened pixels in the picture's lower half is reported. `--expect none` (no
   acceleration structures yet): on and off the same, the pass logged as skipped. The baseline: off and baseline the
   same. `compare <folder>` does the comparison again; report.txt / report.json, exit 1 on a failure.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]

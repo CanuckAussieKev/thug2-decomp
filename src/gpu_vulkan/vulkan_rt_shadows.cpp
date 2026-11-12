@@ -7,13 +7,17 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <mutex>
+#include <span>
 #include <string>
 #include <vector>
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sun.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/gpu_vulkan.h"
@@ -38,7 +42,7 @@ constexpr float kMaxStrength = 1.0F;
 constexpr float kMaxSoftnessDegrees = 5.0F;
 constexpr unsigned kMaxRays = 16;
 constexpr float kRayLength = 1.0e6F;   // (world units: further than any level's far plane)
-constexpr float kOffsetScale = 1.0F;   // the ray's start pushed off the surface by this much, growing with distance
+constexpr unsigned kMaxSkyRays = 16;
 constexpr double kDegreesToRadians = 3.14159265358979323846 / 180.0;
 constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
@@ -65,11 +69,17 @@ layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 #else
 layout(set = 0, binding = 1) uniform sampler2D u_depth;
 #endif
+// Where the level's bake agrees with the traced shadows (engine/gfx/rt_sun.h make_agreement): a grid over x and z.
+layout(std430, set = 0, binding = 2) readonly buffer Agreement {
+    vec4 area;  // x, z: the grid's corner; z: 1 / a cell's side; w: 1 when there is a grid
+    uvec4 size; // columns, rows
+    float cells[];
+} u_agreement;
 layout(push_constant) uniform Pass {
     mat4 to_world;  // (pixel x, pixel y, depth, 1) -> world, homogeneous
     ivec4 rect;     // the viewport: x, y, width, height
     vec4 to_light;  // xyz: toward the light (normalised); w: the strength
-    vec4 shape;     // x: tan of the light's angular radius; y: rays; z: the ray's length; w: the offset's scale
+    vec4 shape;     // x: tan of the light's angular radius; y: rays; z: the ray's length; w: the sky test's rays (0: off)
     vec4 camera;    // xyz: the camera's position; w: the instance mask's bits
 } pc;
 layout(location = 0) out vec4 o_factor;
@@ -110,6 +120,26 @@ vec3 surface_step(ivec2 p, float d, vec3 here, ivec2 step)
     return here - world_at(behind, d_behind);
 }
 
+// The agreement at a point (rt_sun.cpp agreement_at: bilinear between the cells' centres, clamped at the edges).
+float agreement_at(vec3 p)
+{
+    if (u_agreement.area.w == 0.0) {
+        return 1.0;
+    }
+    vec2 g = (p.xz - u_agreement.area.xy) * u_agreement.area.z - 0.5;
+    vec2 f = g - floor(g);
+    ivec2 last = ivec2(u_agreement.size.xy) - 1;
+    ivec2 a = clamp(ivec2(floor(g)), ivec2(0), last);
+    ivec2 b = clamp(ivec2(floor(g)) + 1, ivec2(0), last);
+    int columns = int(u_agreement.size.x);
+    float near = mix(u_agreement.cells[a.y * columns + a.x], u_agreement.cells[a.y * columns + b.x], f.x);
+    float far = mix(u_agreement.cells[b.y * columns + a.x], u_agreement.cells[b.y * columns + b.x], f.x);
+    return mix(near, far, f.y);
+}
+
+const float OFFSET_SCALE = 1.0; // the ray's start pushed off the surface by this much, growing with distance
+const float SKY_TILT = 0.6;     // the sky test's slanted rays: this far out from straight up per unit up (about 31 deg)
+
 float blocked(vec3 origin, vec3 direction)
 {
     rayQueryEXT query;
@@ -141,7 +171,7 @@ void main()
     float occlusion = 1.0; // (facing away from the light: in its own shadow)
     if (dot(normal, light) > 0.0) {
         // pushed off the surface by more as the depth's precision falls with distance
-        float offset = pc.shape.w * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
+        float offset = OFFSET_SCALE * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
         vec3 origin = here + normal * offset;
         uint rays = uint(pc.shape.y);
         if (rays <= 1u || pc.shape.x <= 0.0) {
@@ -161,6 +191,24 @@ void main()
             occlusion = sum / float(rays);
         }
     }
+    // The sky test: a point under a roof (none of the rays up - straight up, and slanted round it - reaches the sky)
+    // is lit by the level's own lamps, which the original baked in: no sun shadow there. Each ray seeing the sky lets
+    // in a share of the shadow, all of it from half the rays on.
+    uint sky_rays = uint(pc.shape.w);
+    if (occlusion > 0.0 && sky_rays > 0u) {
+        float offset = OFFSET_SCALE * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
+        vec3 origin = here + normal * offset;
+        float open = 1.0 - blocked(origin, vec3(0.0, 1.0, 0.0));
+        float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.00583715, 0.06711056))));
+        for (uint i = 1u; i < sky_rays; ++i) {
+            float angle = turn + 6.2831853 * float(i) / float(sky_rays - 1u);
+            open += 1.0 - blocked(origin, normalize(vec3(cos(angle) * SKY_TILT, 1.0, sin(angle) * SKY_TILT)));
+        }
+        occlusion *= clamp(2.0 * open / float(sky_rays), 0.0, 1.0);
+    }
+    if (occlusion > 0.0) {
+        occlusion *= agreement_at(here);
+    }
     o_factor = vec4(vec3(1.0 - pc.to_light.w * occlusion), 1.0);
 }
 )";
@@ -174,6 +222,15 @@ struct PassConstants {
     std::array<float, 4> camera{};
 };
 static_assert(sizeof(PassConstants) == kPushConstantBytes,"Vulkan's guaranteed push-constant space");
+
+// The agreement buffer's header, as the shader's block lays it out; the cells follow.
+struct AgreementHeader {
+    std::array<float, 4> area{};
+    std::array<uint32_t, 4> size{};
+};
+constexpr VkDeviceSize kAgreementBytes =
+    sizeof(AgreementHeader) + (sizeof(float) * std::size_t{rt::kAgreementSide} * rt::kAgreementSide);
+constexpr uint64_t kNoAgreement = ~uint64_t{0};
 
 // A pipeline for a colour format and sample count.
 struct PassPipeline {
@@ -191,6 +248,8 @@ struct ShadowState {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
+    DeviceBuffer agreement;                  // the bake's agreement (update_agreement)
+    uint64_t agreement_scene = ~uint64_t{0}; // the baked sun's fit it holds (0: none - the header says no grid)
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::vector<PassPipeline> pipelines;
     bool failed = false; // the shaders or layouts couldn't be made (not tried again)
@@ -252,7 +311,7 @@ bool ensure_layouts(Backend& state, std::string* error)
         return true;
     }
     const VkDevice device = state.context.device();
-    const std::array<VkDescriptorSetLayoutBinding, 2> bindings{{
+    const std::array<VkDescriptorSetLayoutBinding, 3> bindings{{
         {.binding = 0,
          .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
          .descriptorCount = 1,
@@ -260,6 +319,11 @@ bool ensure_layouts(Backend& state, std::string* error)
          .pImmutableSamplers = nullptr},
         {.binding = 1,
          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+         .descriptorCount = 1,
+         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+         .pImmutableSamplers = nullptr},
+        {.binding = 2,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
          .descriptorCount = 1,
          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
          .pImmutableSamplers = nullptr},
@@ -297,8 +361,44 @@ bool ensure_layouts(Backend& state, std::string* error)
         *error = "the pipeline layout";
         return false;
     }
+    if (!state.memory.create_buffer(kAgreementBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload,
+                                    &own.agreement) ||
+        own.agreement.mapped == nullptr) {
+        *error = "the agreement's buffer";
+        return false;
+    }
+    own.agreement_scene = kNoAgreement;
     own.vertex = make_module(device, RtShaderStage::kVertex, kVertexSource, error);
     return own.vertex != VK_NULL_HANDLE;
+}
+
+// The agreement's buffer written when the baked sun's fit (or match_bake) changed: its header, then its cells (a grid
+// of at most kAgreementSide x kAgreementSide). (Written while frames in flight may read it: once a level, at its start
+// - the frame or two that mix both see the level's own anyway.)
+void update_agreement(Backend& state)
+{
+    ShadowState& own = shadows();
+    const rt::BakedSun& baked = rt::baked_sun();
+    const bool used = own.settings.match_bake && own.settings.sun == RtShadowSettings::SunSource::kBake &&
+                      !baked.agreement.empty() &&
+                      baked.agreement.size() == static_cast<std::size_t>(baked.columns) * baked.rows &&
+                      baked.columns <= rt::kAgreementSide && baked.rows <= rt::kAgreementSide;
+    const uint64_t key = used ? baked.scene : 0U;
+    if (key == own.agreement_scene) {
+        return;
+    }
+    own.agreement_scene = key;
+    AgreementHeader header{};
+    if (used) {
+        header.area = {std::get<0>(baked.origin), std::get<1>(baked.origin), 1.0F / baked.cell, 1.0F};
+        header.size = {baked.columns, baked.rows, 0U, 0U};
+    }
+    const std::span<uint8_t> mapped(static_cast<uint8_t*>(own.agreement.mapped), kAgreementBytes);
+    if (used) {
+        std::memcpy(mapped.subspan(sizeof(header)).data(), baked.agreement.data(), baked.agreement.size() * sizeof(float));
+    }
+    std::memcpy(mapped.data(), &header, sizeof(header));
+    state.memory.flush(own.agreement, 0, kAgreementBytes);
 }
 
 // The pipeline for a colour target (made on first use).
@@ -534,28 +634,79 @@ bool pixel_to_world(const rt::ViewDrawn& view, Matrix* out)
     return true;
 }
 
-// The frame's directional light (toward it), or the last one seen.
+// The frame record's directional lights logged when they change (toward each, its colour).
+void log_lights()
+{
+    std::string text;
+    for (const rt::Light& light : rt::frame_record().lights) {
+        if (light.kind == rt::Light::Kind::kDirectional) {
+            const auto [x, y, z] = light.direction;
+            const auto [red, green, blue] = light.colour;
+            text += text::format(" [toward %.3f %.3f %.3f colour %.2f %.2f %.2f]", -static_cast<double>(x),
+                                 -static_cast<double>(y), -static_cast<double>(z), static_cast<double>(red),
+                                 static_cast<double>(green), static_cast<double>(blue));
+        }
+    }
+    static std::string last;
+    if (!text.empty() && text != last) {
+        last = text;
+        get_log("vulkan: rt_shadows: the frame's directional lights:%s", text.c_str());
+    }
+}
+
+// A direction (toward the sun) normalised into `out`, or false: too short, not finite.
+bool unit_toward(const std::array<float, 3>& toward, std::array<float, 3>* out)
+{
+    const auto [x, y, z] = toward;
+    const double length = std::hypot(static_cast<double>(x), static_cast<double>(y), static_cast<double>(z));
+    if (!(length > kShortest) || !std::isfinite(length)) {
+        return false;
+    }
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(*out, i) = static_cast<float>(static_cast<double>(core::at(toward, i)) / length);
+    }
+    return true;
+}
+
+// The frame's first directional light (toward it), or the last one seen.
 bool light_direction(std::array<float, 3>* to_light)
 {
     ShadowState& own = shadows();
+    log_lights();
     for (const rt::Light& light : rt::frame_record().lights) {
-        if (light.kind != rt::Light::Kind::kDirectional) {
-            continue;
+        if (light.kind == rt::Light::Kind::kDirectional &&
+            unit_toward({-std::get<0>(light.direction), -std::get<1>(light.direction), -std::get<2>(light.direction)},
+                        &own.to_light)) {
+            own.have_light = true;
+            break;
         }
-        const double length = std::hypot(static_cast<double>(core::at(light.direction, 0)),
-                                         static_cast<double>(core::at(light.direction, 1)),
-                                         static_cast<double>(core::at(light.direction, 2)));
-        if (!(length > kShortest) || !std::isfinite(length)) {
-            continue;
-        }
-        for (std::size_t i = 0; i < 3; ++i) {
-            core::at(own.to_light, i) = static_cast<float>(-static_cast<double>(core::at(light.direction, i)) / length);
-        }
-        own.have_light = true;
-        break;
     }
     *to_light = own.to_light;
     return own.have_light;
+}
+
+// The sun the pass traces toward: the console's (rt sun), else the settings' - the baked sun (rt_sun.h), the frame's
+// light or a fixed direction.
+enum class Sun : uint8_t { kFound, kNoLight, kWaiting, kNoneBaked };
+Sun sun_direction(const RtShadowSettings& settings, std::array<float, 3>* to_light)
+{
+    std::array<float, 3> set{};
+    if (rt::sun_override(&set) && unit_toward(set, to_light)) {
+        return Sun::kFound;
+    }
+    switch (settings.sun) {
+    case RtShadowSettings::SunSource::kFixed:
+        return unit_toward(settings.fixed_sun, to_light) ? Sun::kFound : Sun::kNoLight;
+    case RtShadowSettings::SunSource::kLight:
+        return light_direction(to_light) ? Sun::kFound : Sun::kNoLight;
+    case RtShadowSettings::SunSource::kBake:
+        break;
+    }
+    const rt::BakedSun& baked = rt::baked_sun();
+    if (baked.scene == 0) {
+        return Sun::kWaiting;
+    }
+    return baked.found && unit_toward(baked.toward, to_light) ? Sun::kFound : Sun::kNoneBaked;
 }
 
 } // namespace
@@ -566,10 +717,12 @@ void set_rt_shadow_settings(const RtShadowSettings& settings)
     kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
     kept.softness = std::isfinite(kept.softness) ? std::clamp(kept.softness, 0.0F, kMaxSoftnessDegrees) : 0.0F;
     kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
+    kept.sky_rays = std::clamp(kept.sky_rays, 1U, kMaxSkyRays);
     {
         const std::scoped_lock lock(backend().mutex);
         shadows().settings = kept;
     }
+    rt::set_baked_sun_wanted(kept.on && kept.sun == RtShadowSettings::SunSource::kBake);
     if (kept.on) {
         rt::add_view_listener(&listener());
     } else {
@@ -622,10 +775,16 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     std::array<float, 3> to_light{};
-    if (!light_direction(&to_light)) {
+    const Sun sun = sun_direction(own.settings, &to_light);
+    if (sun == Sun::kNoLight) {
         if (first_report(state, kReportNoLight)) {
             get_log("vulkan: rt_shadows: no directional light in the frame record - the shadow pass skipped");
         }
+        return false;
+    }
+    if (sun != Sun::kFound) {
+        // (waiting for the level's baked sun - its world stands still a second first -, or a level whose bake shows
+        // none: indoors, lit by its lamps - nothing to add; rt_record logs the fit)
         return false;
     }
     Image* const colour = image_of_surface(core::at(state.targets, 0));
@@ -676,7 +835,8 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
     const bool soft = own.settings.softness > 0.0F && own.settings.rays > 1;
     constants.shape = {
         static_cast<float>(std::tan(static_cast<double>(own.settings.softness) * kDegreesToRadians)),
-        static_cast<float>(soft ? own.settings.rays : 1U), kRayLength, kOffsetScale};
+        static_cast<float>(soft ? own.settings.rays : 1U), kRayLength,
+        static_cast<float>(own.settings.covered ? 0U : own.settings.sky_rays)};
     const uint32_t mask = kMaskWorld | (own.settings.objects ? kMaskObjects : 0U);
     constants.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                         core::at(view.camera.position, 2),
@@ -725,7 +885,9 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
     const VkDescriptorImageInfo depth_image{.sampler = own.sampler,
                                             .imageView = depth->view,
                                             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
-    std::array<VkWriteDescriptorSet, 2> writes{};
+    update_agreement(state);
+    const VkDescriptorBufferInfo agreement{.buffer = own.agreement.buffer, .offset = 0, .range = kAgreementBytes};
+    std::array<VkWriteDescriptorSet, 3> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -734,10 +896,14 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
     scene_write.pNext = &scene;
     scene_write.dstBinding = 0;
     scene_write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    VkWriteDescriptorSet& depth_write = writes.back();
+    VkWriteDescriptorSet& depth_write = writes.at(1);
     depth_write.dstBinding = 1;
     depth_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     depth_write.pImageInfo = &depth_image;
+    VkWriteDescriptorSet& agreement_write = writes.back();
+    agreement_write.dstBinding = 2;
+    agreement_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    agreement_write.pBufferInfo = &agreement;
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, own.layout, 0,
                               static_cast<uint32_t>(writes.size()), writes.data());
     vkCmdPushConstants(commands, own.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PassConstants), &constants);
@@ -790,6 +956,7 @@ void release_rt_shadows(Backend& state)
             vkDestroySampler(device, own.sampler, nullptr);
         }
     }
+    state.memory.destroy_buffer(&own.agreement);
     own.pipelines.clear();
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;

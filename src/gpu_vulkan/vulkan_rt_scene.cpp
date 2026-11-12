@@ -194,6 +194,7 @@ public:
     void update_mesh(rt::MeshId mesh, const rt::Geometry& geometry) override;
     void begin_frame(const rt::FrameRecord& record) override;
     rt::ProbeResult probe(const rt::ProbeRequest& ray) override;
+    void probe_many(std::span<const rt::ProbeRequest> rays, std::vector<rt::ProbeResult>* results) override;
 };
 
 struct Scene {
@@ -1319,35 +1320,55 @@ void VulkanRayTracing::begin_frame(const rt::FrameRecord& record)
 
 rt::ProbeResult VulkanRayTracing::probe(const rt::ProbeRequest& ray)
 {
-    rt::ProbeResult result;
-    const std::array<float, 3>& way = ray.direction;
-    const float length = std::sqrt((std::get<0>(way) * std::get<0>(way)) + (std::get<1>(way) * std::get<1>(way)) +
-                                   (std::get<2>(way) * std::get<2>(way)));
-    if (length <= 0.0F) {
-        return result;
-    }
-    const std::array<float, 3> unit{std::get<0>(way) / length, std::get<1>(way) / length, std::get<2>(way) / length};
-    const std::array<TracedRay, 1> rays{
-        {{.origin = ray.origin, .direction = unit, .t_min = 0.0F, .t_max = ray.max_distance}}};
+    std::vector<rt::ProbeResult> results;
+    probe_many(std::span<const rt::ProbeRequest>(&ray, 1), &results);
+    return results.empty() ? rt::ProbeResult{} : results.front();
+}
+
+void VulkanRayTracing::probe_many(std::span<const rt::ProbeRequest> rays, std::vector<rt::ProbeResult>* results)
+{
+    constexpr std::size_t kBatch = std::size_t{1} << 20; // rays a dispatch (its buffers: about 80 MB)
+    results->assign(rays.size(), rt::ProbeResult{});
+    std::vector<TracedRay> traced;
     std::vector<TracedHit> hits;
-    if (trace_rays_now(rays, &hits) != TraceResult::kTraced || hits.empty()) {
-        return result;
-    }
-    const TracedHit& hit = hits.front();
-    result.traced = true;
-    result.hit = hit.hit;
-    if (hit.hit) {
-        result.distance = hit.t;
-        result.instance = hit.instance;
-        result.material = hit.custom_index;
-        result.primitive = hit.primitive;
+    for (std::size_t first = 0; first < rays.size(); first += kBatch) {
+        const std::size_t count = std::min(kBatch, rays.size() - first);
+        traced.assign(count, TracedRay{});
+        for (std::size_t i = 0; i < count; ++i) {
+            const rt::ProbeRequest& ray = core::at(rays, first + i);
+            const std::array<float, 3>& way = ray.direction;
+            const float length = std::sqrt((std::get<0>(way) * std::get<0>(way)) +
+                                            (std::get<1>(way) * std::get<1>(way)) + (std::get<2>(way) * std::get<2>(way)));
+            // (a ray of no length: traced to nothing - t_max 0)
+            const float scale = length > 0.0F ? 1.0F / length : 0.0F;
+            core::at(traced, i) = {.origin = ray.origin,
+                                   .direction = {std::get<0>(way) * scale, std::get<1>(way) * scale,
+                                                 length > 0.0F ? std::get<2>(way) * scale : 1.0F},
+                                   .t_min = 0.0F,
+                                   .t_max = length > 0.0F ? ray.max_distance : 0.0F,
+                                   .cull_mask = ray.cull_mask & rt::kAllMasks};
+        }
+        if (trace_rays_now(traced, &hits) != TraceResult::kTraced || hits.size() != count) {
+            return;
+        }
         const std::scoped_lock lock(backend().mutex);
         const FrameScene& frame = core::at(scene().frames, scene().current);
-        if (hit.instance < frame.meshes.size()) {
-            result.mesh = core::at(frame.meshes, hit.instance);
+        for (std::size_t i = 0; i < count; ++i) {
+            const TracedHit& hit = core::at(hits, i);
+            rt::ProbeResult& result = core::at(*results, first + i);
+            result.traced = true;
+            result.hit = hit.hit;
+            if (hit.hit) {
+                result.distance = hit.t;
+                result.instance = hit.instance;
+                result.material = hit.custom_index;
+                result.primitive = hit.primitive;
+                if (hit.instance < frame.meshes.size()) {
+                    result.mesh = core::at(frame.meshes, hit.instance);
+                }
+            }
         }
     }
-    return result;
 }
 
 } // namespace
