@@ -86,7 +86,12 @@ translate; only the script check's own plan files are read as `.qb`). A module i
 QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the QuickJS version, the word
 size and the module's own bytes); later starts read the bytecode. (Until 2026-11-13 there was also a mode with the
 modules beside the `.qb` files - `install_ts.ts`, `thug2-decomp-ts\by-hash` - and the unpacked game was
-`ts_scripts=2`; any value but 0 now means the unpacked game.)
+`ts_scripts=2`; any value but 0 now means the unpacked game.) The mode has to match the folder, and the game checks it
+at start-up before any script loads (`ts_bridge.cpp check_folder_matches`): unpacked means
+`thug2-decomp-backup\unpacked.json` is there and `Data\pre\qb_scripts.prx` isn't. `ts_scripts=1` in a folder that
+isn't unpacked, or `ts_scripts=0` in one that is, stops the game with what to do (unpack it / set `ts_scripts`, or
+`--restore`) - a log line, a message box (none with `[features] automation=1`) and exit code 1 - where it would
+otherwise load no scripts at all and crash.
 
 **Unpacked** (`node tools/qbjs/unpack_game.ts --game <folder>`): the game with no archive and no `.qb`. The tool moves every archive in `Data\pre` (`.prx`, the French and German `.prf` / `.prd` and their
 patches `.ppf` / `.ppd`) and every `.qb` (Data's, the data overlay's, the ported levels' overlays) to

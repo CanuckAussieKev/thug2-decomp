@@ -27,6 +27,8 @@
 #include <utility>
 #include <vector>
 
+#include <windows.h>
+
 #include <quickjs.h>
 
 #include "base/core/checksums.h"
@@ -49,6 +51,7 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/tokens.h"
 #include "engine/sys/game_config.h"
+#include "platform/crt.h"
 #include "platform/run_log.h"
 #include "ts_sources.h"
 
@@ -1329,12 +1332,63 @@ void save_types_now_and_then()
     save_types();
 }
 
+// Whether the game folder is unpacked (tools/qbjs/unpack_game.ts): its record, thug2-decomp-backup\unpacked.json,
+// written by every unpack (--check's too) and removed by --restore. The boot scripts' archive, Data\pre\qb_scripts.prx,
+// is moved out by every unpack: one that is there again means the archives are back (put back by hand) - not unpacked.
+bool folder_unpacked()
+{
+    const auto is_file = [](const char* name) {
+        return fs::disk().kind(game_folder_path(name).c_str()) == fs::PathKind::kFile;
+    };
+    return is_file("thug2-decomp-backup\\unpacked.json") && !is_file("Data\\pre\\qb_scripts.prx");
+}
+
+// The scripts' mode and the game folder disagree - TypeScript mode with the archives and .qb files there (no file
+// would load: the game can't start), or QB mode with the game unpacked (no .qb to read). Logged, shown in a message
+// box (not with the test-automation channel on: nothing may wait for a click there) and the game ended with exit code 1.
+[[noreturn]] void stop_for_mismatch(const std::string& text)
+{
+    std::string line; // (one log line)
+    for (const char ch : text) {
+        if (ch != '\n') {
+            line += ch;
+        } else if (!line.empty() && line.back() != ' ') {
+            line += ' ';
+        }
+    }
+    get_log("ERROR - %s - the game ends (exit code 1)", line.c_str());
+    if (config_int("features", "automation", 0) == 0) {
+        MessageBoxA(nullptr, text.c_str(), "THUG2 - scripts", MB_OK | MB_ICONERROR);
+    }
+    crt::exit_fatal(1);
+}
+
+void check_folder_matches(bool ts_scripts)
+{
+    const bool unpacked = folder_unpacked();
+    if (ts_scripts == unpacked) {
+        return;
+    }
+    const std::string game = game_folder_path("");
+    const std::string folder = game.size() > 1 && game.back() == '\\' ? game.substr(0, game.size() - 1) : game;
+    if (ts_scripts) {
+        stop_for_mismatch("[features] ts_scripts=1 needs the game unpacked (TypeScript scripts), and this game folder "
+                          "still has its archives and .qb files.\n\nUnpack it: node tools/qbjs/unpack_game.ts --game \"" +
+                          folder + "\"\nor set [features] ts_scripts=0 in thug2-decomp.ini.");
+    }
+    stop_for_mismatch("The game folder is unpacked (TypeScript scripts, no .qb files) - set [features] ts_scripts=1 in "
+                      "thug2-decomp.ini,\nor put the archives back: node tools/qbjs/unpack_game.ts --game \"" + folder +
+                      "\" --restore");
+}
+
 } // namespace
 
 void install()
 {
     // (any value but 0: 2 was this before the modules beside the .qb files went)
     is_on() = config_int("features", "ts_scripts", 0) != 0;
+    // (before any script loads: a mode the folder can't run stops here, with what to do, not later in a crash)
+    check_folder_matches(is_on());
     profile().on = config_int("debug", "ts_profile", 0) != 0;
     engine().recording = config_int("debug", "ts_types", 0) != 0;
     // (each .qb file's hash is noted with TypeScript off too: the script check's QB pass says which version it ran)
