@@ -133,6 +133,9 @@ export function planModules(root: string, only: string[] = []): PlanModule[] {
         );
         for (const v of [...all].sort((a, b) => rank(a.origin) - rank(b.origin))) {
             if (patched.has(v.origin)) continue;
+            // (an empty version - qb_scripts.prx's car_scripts.qb: its end alone, 2 bytes - defines nothing: the game
+            // reads none of it; skipped where the file has another)
+            if (v.bytes.length < 4 && all.some((o) => o.bytes.length >= 4)) continue;
             const hash = fileHash(v.bytes);
             if (seen.has(hash)) continue;
             seen.add(hash);
