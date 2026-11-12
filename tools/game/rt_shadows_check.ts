@@ -5,7 +5,7 @@
 //   node tools/game/rt_shadows_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <folder>
 //        [--baseline-build <folder>] [--plan <plan.json>] [--groups a,b] [--runs 2] [--owner <name>]
 //        [--set Section.key=value]...
-//   node tools/game/rt_shadows_check.ts compare <folder> [--expect shadows|none] [--strength 0.5] [--threshold 8]
+//   node tools/game/rt_shadows_check.ts compare <folder> [--expect shadows|drawn|none|brighter] [--strength 0.5] [--threshold 8]
 //        [--grow 1]
 //   --effect ao (both commands): ray-traced ambient occlusion ([Graphics] rt_ao, vulkan_rt_effects.h) instead - the
 //   configurations' rt_ao 0 / 1 (rt_shadows 0 in both), its own log lines and its own checks (below). `--expect drawn`
@@ -16,6 +16,10 @@
 //   rest of the ini as the workspace has it (ray tracing too, so the ray-traced effects can be checked on float
 //   targets with --set); --set Graphics.rt_exposure=... reaches both configurations but only `on` uses it.
 //   `--expect drawn` (the default): with the defaults the picture matches; `--expect brighter`: rt_exposure raised.
+//   --effect fog (both commands): volumetric fog and light shafts ([Graphics] rt_fog, vulkan_rt_fog.h) - rt_fog 0 / 1
+//   (rt_shadows, rt_ao and rt_reflections 0 in both; rt_fog_mode etc. from --set), with its own checks (below).
+//   --effect gi (both commands): one-bounce indirect light ([Graphics] rt_gi, vulkan_rt_effects.h) - rt_gi 0 / 1
+//   (rt_shadows, rt_ao and rt_reflections 0 in both), with its own checks (below).
 //
 // run: under the workspace's lock (game_lock.ps1, released at the end - which puts the folder's own build and ini back),
 // the x64 build deployed (deploy_build.ps1 -Arch x64: the exe and every DLL beside it), then for each run and each
@@ -71,6 +75,23 @@
 //       checked: on's share no more than off's + 10 points;
 //   both: the `on` logs show "rt_hdr: the first tone-mapping pass" and no "couldn't" line, `off` logs no pass; the
 //     frame times ("ms a frame" in the Vulkan lines of each configuration's logs) averaged and reported.
+//   --effect fog --expect drawn: on against off
+//     - bounded changes: the picture's mean luma change at most 40 (of 255) - the share of pixels changed is reported,
+//       not limited (the haze looking toward the sun touches nearly all of a picture, a little);
+//     - turned black (a NaN, garbage): at most 0.1%; turned white (every channel 250 or more where off isn't: the sky or
+//       the fog blown out) at most 0.5%;
+//     - the logs: "rt_fog: the first fog pass" (or "the level has no fog") in every `on` group's, at least one group
+//       with a pass, no "couldn't" / "can't" line, no crash; the device time of the passes ("rt_fog: the passes take")
+//       reported.
+//   --effect gi --expect drawn: on against off
+//     - darkened: at most 0.1% (the pass only adds light); turned black at most 0.1% (a NaN, garbage);
+//     - brighter: at most 80% of the picture, and at least 0.5% in one spot or more (bounce is drawn somewhere);
+//     - bounded: pixels lighter by more than 112 in luma at most 0.1% (a runaway value);
+//     - a level whose bake shows no sun ("rt_gi: the level's bake shows no sun" in its `on` log): changed at most 0.1%
+//       (the bounce adds only light beyond the sky's - with no sun there is none);
+//     - more in the shade: over every spot, the pixels the level lit darker in `off` (baked-dark, as for the shadows)
+//       brightened more often than the ones it lit brighter;
+//     - the logs: "rt_gi: the first indirect light pass" in every `on` group's, no skipped line, no crash line.
 // report.txt / report.json in the folder; exit 1 when a check fails.
 
 import { spawn } from "node:child_process";
@@ -94,7 +115,7 @@ import {
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: rt_shadows_check.ts run --game <workspace> --out <folder> --build <folder> [--baseline-build <folder>]
-                           [--effect shadows|ao|reflections|hdr] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
+                           [--effect shadows|ao|reflections|hdr|fog|gi] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
        rt_shadows_check.ts compare <folder> [--expect shadows|drawn|none|brighter] [--strength 0.5] [--threshold 8] [--grow 1]
 
 Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, compared (tools/game/README.md).`;
@@ -102,13 +123,34 @@ Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, c
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
-export type Effect = "shadows" | "ao" | "reflections" | "hdr"; // R4's sun shadows, R5's AO and reflections; HDR
+// R4's sun shadows, R5's ambient occlusion and reflections, HDR, the fog, the one-bounce indirect light
+export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi";
 
 // The ini values a configuration adds.
 export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
     if (effect === "hdr") {
         if (config === "baseline") return {};
         return { "Graphics.rt_hdr": config === "on" ? "1" : "0" };
+    }
+    if (effect === "gi") {
+        if (config === "baseline") return {};
+        return {
+            "Graphics.ray_tracing": "1",
+            "Graphics.rt_shadows": "0",
+            "Graphics.rt_ao": "0",
+            "Graphics.rt_reflections": "0",
+            "Graphics.rt_gi": config === "on" ? "1" : "0",
+        };
+    }
+    if (effect === "fog") {
+        if (config === "baseline") return {};
+        return {
+            "Graphics.ray_tracing": "1",
+            "Graphics.rt_shadows": "0",
+            "Graphics.rt_ao": "0",
+            "Graphics.rt_reflections": "0",
+            "Graphics.rt_fog": config === "on" ? "1" : "0",
+        };
     }
     if (effect === "reflections") {
         if (config === "baseline") return {};
@@ -145,6 +187,8 @@ export interface ShadowDifference {
     medianRatio: number | null; // the darkened pixels' median luma ratio on / off
     tooDark: number; // of the darkened, those whose ratio is below `floor`
     blackened: number; // pixels black in `on` (every channel BLACK or less) and not in `off`
+    whitened: number; // pixels white in `on` (every channel WHITE or more) and not in `off`
+    meanLumaChange: number; // the mean |luma on - luma off| over the compared pixels (0..255)
     // The `off` picture's pixels split into baked-bright and baked-dark at its luma's Otsu threshold (the level's own
     // lighting: sunlit against shaded); how many of each the pass darkened. A sun that matches the bake darkens mostly
     // what is already dark - its shadows fall on the baked ones.
@@ -159,7 +203,15 @@ export interface ShadowDifference {
     meanSigned: number; // the mean of the channels' differences, on - off
     whiteOff: number; // pixels pure white (every channel 255) in `off`
     whiteOn: number; // and in `on`
+    // (the indirect light, which only adds) how many of each the pass brightened, and those brightened by more than
+    // RUNAWAY_GAIN in luma
+    brightBrightened: number;
+    darkBrightened: number;
+    runaway: number;
 }
+
+// A pixel lighter than this in luma with the indirect light on: more than the bounce can add (a runaway value).
+export const RUNAWAY_GAIN = 112;
 
 // The luma threshold that best splits a histogram in two (Otsu's: the largest between-class variance).
 export function otsuThreshold(histogram: readonly number[]): number {
@@ -191,6 +243,7 @@ export function otsuThreshold(histogram: readonly number[]): number {
 }
 
 const BLACK = 4;
+const WHITE = 250;
 
 // `on` against `off` outside the mask (`floor`: the lowest ratio the pass can give; 0 counts none too dark).
 export function shadowDifference(
@@ -215,6 +268,8 @@ export function shadowDifference(
     let sumSigned = 0;
     let whiteOff = 0;
     let whiteOn = 0;
+    let whitened = 0;
+    let lumaChange = 0;
     const ratios: number[] = [];
     const histogram = new Array<number>(256).fill(0);
     for (let p = 0; p < width * height; p++) if (!mask?.[p]) histogram[Math.min(255, Math.round(luma(off.rgb, p)))]!++;
@@ -223,6 +278,9 @@ export function shadowDifference(
     let brightDarkened = 0;
     let dark = 0;
     let darkDarkened = 0;
+    let brightBrightened = 0;
+    let darkBrightened = 0;
+    let runaway = 0;
     for (let y = 0; y < height; y++)
         for (let x = 0; x < width; x++) {
             const p = y * width + x;
@@ -235,6 +293,10 @@ export function shadowDifference(
                 rgb[p * 3] === 255 && rgb[p * 3 + 1] === 255 && rgb[p * 3 + 2] === 255;
             if (white(off.rgb)) whiteOff++;
             if (white(on.rgb)) whiteOn++;
+            const nearWhite = (rgb: Uint8Array): boolean =>
+                rgb[p * 3]! >= WHITE && rgb[p * 3 + 1]! >= WHITE && rgb[p * 3 + 2]! >= WHITE;
+            if (nearWhite(on.rgb) && !nearWhite(off.rgb)) whitened++;
+            lumaChange += Math.abs(luma(on.rgb, p) - luma(off.rgb, p));
             let up = 0;
             let down = 0;
             for (let c = 0; c < 3; c++) {
@@ -251,6 +313,9 @@ export function shadowDifference(
             else dark++;
             if (up > threshold) {
                 brighter++;
+                if (isBright) brightBrightened++;
+                else darkBrightened++;
+                if (luma(on.rgb, p) - luma(off.rgb, p) > RUNAWAY_GAIN) runaway++;
             } else if (down > threshold) {
                 darkened++;
                 if (isBright) brightDarkened++;
@@ -273,6 +338,8 @@ export function shadowDifference(
         medianRatio: ratios.length ? ratios[Math.floor(ratios.length / 2)]! : null,
         tooDark,
         blackened,
+        whitened,
+        meanLumaChange: pixels ? lumaChange / pixels : 0,
         split,
         bright,
         brightDarkened,
@@ -284,6 +351,9 @@ export function shadowDifference(
         meanSigned: sumSigned / Math.max(1, pixels * 3),
         whiteOff,
         whiteOn,
+        brightBrightened,
+        darkBrightened,
+        runaway,
     };
 }
 
@@ -376,6 +446,14 @@ export function judgeSpot(
             if (difference.meanDelta > HDR_MAX_MEAN)
                 problems.push(`the mean change ${difference.meanDelta.toFixed(2)} (at most ${HDR_MAX_MEAN})`);
         }
+    } else if (limits.expect === "shadows" && limits.effect === "fog") {
+        // (the fog may touch the whole picture - the haze looking toward the sun -, but not by much on average)
+        if (difference.meanLumaChange > MAX_FOG_LUMA_CHANGE)
+            problems.push(`the fog changed the picture's luma by ${difference.meanLumaChange.toFixed(1)} on average`);
+        if (share(difference.blackened, difference) > limits.maxBrighter)
+            problems.push(`turned black with the fog on: ${pct(share(difference.blackened, difference))}`);
+        if (share(difference.whitened, difference) > MAX_WHITENED)
+            problems.push(`turned white with the fog on: ${pct(share(difference.whitened, difference))}`);
     } else if (limits.expect === "shadows" && limits.effect === "reflections") {
         const changed = share(difference.brighter + difference.darkened, difference);
         if (changed > limits.maxDarkened)
@@ -393,6 +471,17 @@ export function judgeSpot(
         if (difference.medianRatio !== null && difference.medianRatio < lowest)
             problems.push(
                 `the occlusion's median ratio ${difference.medianRatio.toFixed(3)}, at least ${lowest.toFixed(3)} wanted`,
+            );
+    } else if (limits.expect === "shadows" && limits.effect === "gi" && !sunless) {
+        if (share(difference.darkened, difference) > limits.maxBrighter)
+            problems.push(`darker with the indirect light on: ${pct(share(difference.darkened, difference))}`);
+        if (share(difference.blackened, difference) > limits.maxBrighter)
+            problems.push(`turned black with the indirect light on: ${pct(share(difference.blackened, difference))}`);
+        if (share(difference.brighter, difference) > limits.maxDarkened)
+            problems.push(`brightened: ${pct(share(difference.brighter, difference))} of the picture`);
+        if (share(difference.runaway, difference) > limits.maxBrighter)
+            problems.push(
+                `lighter by more than ${RUNAWAY_GAIN} in luma: ${pct(share(difference.runaway, difference))}`,
             );
     } else if (limits.expect === "shadows" && sunless) {
         const changed = share(difference.brighter + difference.darkened, difference);
@@ -440,9 +529,29 @@ export function darkOverBright(verdicts: readonly SpotVerdict[]): number | null 
     return darkDarkened / Math.max(1, dark) / Math.max(1e-9, brightDarkened / Math.max(1, bright));
 }
 
+// The indirect light: over every spot, how many times as often the baked-dark pixels were brightened as the
+// baked-bright ones (null: none brightened). More than 1: the bounce lands mostly in the shade.
+export function darkOverBrightBrightened(verdicts: readonly SpotVerdict[]): number | null {
+    let bright = 0;
+    let brightBrightened = 0;
+    let dark = 0;
+    let darkBrightened = 0;
+    for (const { difference: d } of verdicts) {
+        bright += d.bright;
+        brightBrightened += d.brightBrightened;
+        dark += d.dark;
+        darkBrightened += d.darkBrightened;
+    }
+    if (!brightBrightened && !darkBrightened) return null;
+    return darkBrightened / Math.max(1, dark) / Math.max(1e-9, brightBrightened / Math.max(1, bright));
+}
+export const GI_MIN_DARK_OVER_BRIGHT = 1.0;
+
 export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boolean {
     if (limits.effect === "hdr")
         return limits.expect !== "brighter" || verdicts.some((v) => v.difference.meanSigned >= HDR_LEAST_BRIGHTER);
+    if (limits.effect === "gi")
+        return verdicts.some((v) => share(v.difference.brighter, v.difference) >= limits.minDarkenedSomewhere);
     if (limits.effect === "reflections")
         return verdicts.some(
             (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= MIN_REFLECTED_SOMEWHERE,
@@ -451,6 +560,10 @@ export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boo
 }
 // (reflective surfaces are a small part of most pictures)
 export const MIN_REFLECTED_SOMEWHERE = 0.001;
+// (the fog: the share of a picture that may turn white - the sun's glow against a white sky)
+export const MAX_WHITENED = 0.005;
+// (the fog: the mean luma change a picture may get, 0..255)
+export const MAX_FOG_LUMA_CHANGE = 40;
 
 // What a configuration's logs must (not) say.
 const FIRST_PASS = "rt_shadows: the first shadow pass";
@@ -459,11 +572,17 @@ const NO_BAKED_SUN = "rt: the baked sun: none";
 const PASS_SKIPPED = /rt_shadows: .*(skipped|couldn't)/;
 const FIRST_AO_PASS = "rt_ao: the first ambient occlusion pass";
 const AO_SKIPPED = /rt_ao: .*(skipped|couldn't)/;
+export const FIRST_GI_PASS = "rt_gi: the first indirect light pass";
+const GI_SKIPPED = /rt_gi: .*(skipped|couldn't|isn't enabled)/;
 export const FIRST_REFLECTION_PASS = "rt_reflections: the first reflection pass";
 export const NOTHING_REFLECTIVE = "rt_reflections: nothing reflective in the scene";
 const REFLECTIONS_FAILED = /rt_reflections: .*(couldn't|can't|isn't enabled)/;
 export const FIRST_TONE_MAP_PASS = "rt_hdr: the first tone-mapping pass";
 const HDR_FAILED = /rt_hdr: .*(couldn't|can't)/;
+export const FIRST_FOG_PASS = "rt_fog: the first fog pass";
+export const NO_LEVEL_FOG = "rt_fog: the level has no fog";
+const FOG_FAILED = /rt_fog: .*(couldn't|can't|isn't enabled)/;
+export const FOG_TIMING = /rt_fog: the passes take ([0-9.]+) ms on the device \(([0-9]+)x([0-9]+), ([0-9]+) steps/g;
 const BAD = /^(EXCEPTION|RUN-TIME CHECK|DEBUG CRT|PURE VIRTUAL|INVALID PARAMETER|ABORT|BUFFER OVERRUN)/m;
 
 export function logProblems(
@@ -486,6 +605,14 @@ export function logProblems(
         return problems;
     }
     if (config !== "on") return problems;
+    if (effect === "fog") {
+        const failed = FOG_FAILED.exec(log);
+        if (failed) problems.push(`log: ${failed[0]}`);
+        if (expect === "shadows" && !log.includes(FIRST_FOG_PASS) && !log.includes(NO_LEVEL_FOG))
+            problems.push("no fog pass in the log, nor no fog in the level");
+        if (expect === "none" && log.includes(FIRST_FOG_PASS)) problems.push("the log shows a fog pass");
+        return problems;
+    }
     if (effect === "reflections") {
         // (a level with nothing reflective draws none: its spots are judged unchanged - compareFolder)
         const failed = REFLECTIONS_FAILED.exec(log);
@@ -493,6 +620,16 @@ export function logProblems(
         if (expect === "shadows" && !log.includes(FIRST_REFLECTION_PASS) && !log.includes(NOTHING_REFLECTIVE))
             problems.push("no reflection pass in the log, nor nothing reflective");
         if (expect === "none" && log.includes(FIRST_REFLECTION_PASS)) problems.push("the log shows a reflection pass");
+        return problems;
+    }
+    if (effect === "gi") {
+        const skipped = GI_SKIPPED.exec(log);
+        if (expect === "shadows") {
+            if (!log.includes(FIRST_GI_PASS)) problems.push("no indirect light pass in the log");
+            if (skipped) problems.push(`log: ${skipped[0]}`);
+        } else if (log.includes(FIRST_GI_PASS)) {
+            problems.push("the log shows an indirect light pass");
+        }
         return problems;
     }
     const ao = effect === "ao";
@@ -550,6 +687,16 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             .filter((f) => f.endsWith(".log") && spot.startsWith(`${f.slice(0, -4)}-`))
             .some((f) => fs.readFileSync(path.join(runs.on[0]!, f), "utf8").includes(FIRST_REFLECTION_PASS));
     let anyReflections = false;
+    // (the fog: the groups whose `on` log shows a pass, and the device time the logs give)
+    let anyFog = false;
+    const fogTimes: string[] = [];
+    if (limits.effect === "fog")
+        for (const f of fs.readdirSync(runs.on[0]!).filter((n) => n.endsWith(".log"))) {
+            const text = fs.readFileSync(path.join(runs.on[0]!, f), "utf8");
+            anyFog ||= text.includes(FIRST_FOG_PASS);
+            for (const m of text.matchAll(FOG_TIMING))
+                fogTimes.push(`${f.slice(0, -4)}: ${m[1]} ms (${m[2]}x${m[3]}, ${m[4]} steps)`);
+        }
     // (a spot's group: its name up to the first "-"; the group's `on` log says whether the bake showed a sun)
     const sunless = (spot: string): boolean => {
         const log = path.join(runs.on[0]!, `${spot.split("-")[0]}.log`);
@@ -575,7 +722,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             shadowDifference(off[0]!, on[0]!, mask, threshold, darkestRatio(limits)),
             baseline.length ? shadowDifference(baseline[0]!, off[0]!, mask, threshold) : null,
             spotLimits,
-            (limits.effect ?? "shadows") === "shadows" && sunless(name),
+            ((limits.effect ?? "shadows") === "shadows" || limits.effect === "gi") && sunless(name),
         );
         verdicts.push(verdict);
         const d = verdict.difference;
@@ -584,6 +731,12 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
                 (limits.effect === "ao" ? `, too dark ${pct(share(d.tooDark, d))}` : "") +
                 (limits.effect === "hdr"
                     ? `, max channel difference ${d.maxDelta} (${pct(share(d.overDelta, d))} over ${HDR_MAX_DELTA}), mean ${d.meanDelta.toFixed(3)} (signed ${d.meanSigned.toFixed(3)}), pure white ${pct(share(d.whiteOff, d))} -> ${pct(share(d.whiteOn, d))}`
+                    : "") +
+                (limits.effect === "fog"
+                    ? `, turned black ${pct(share(d.blackened, d))}, turned white ${pct(share(d.whitened, d))}, mean luma change ${d.meanLumaChange.toFixed(1)}`
+                    : "") +
+                (limits.effect === "gi"
+                    ? `; baked-bright brightened ${pct(d.brightBrightened / Math.max(1, d.bright))}, baked-dark ${pct(d.darkBrightened / Math.max(1, d.dark))}, runaway ${pct(share(d.runaway, d))}, turned black ${pct(share(d.blackened, d))}${sunless(spot) ? " (no baked sun)" : ""}`
                     : "") +
                 (limits.effect === "reflections"
                     ? `, turned black ${pct(share(d.blackened, d))}${reflected ? "" : " (nothing reflective drawn)"}`
@@ -596,15 +749,37 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
     }
     let failed = verdicts.some((v) => v.problems.length > 0) || names.length === 0;
     if (names.length === 0) lines.push("FAIL no spot pictured in both configurations");
-    if (limits.effect === "reflections" && limits.expect === "shadows" && !anyReflections) {
+    if (limits.effect === "fog") {
+        lines.push(
+            `the fog's passes on the device: ${fogTimes.length ? fogTimes.join("; ") : "no timing in the logs"}`,
+        );
+        if (limits.expect === "shadows" && !anyFog) {
+            failed = true;
+            lines.push("FAIL no group drew the fog (no level with fog chosen?)");
+        }
+    } else if (limits.effect === "reflections" && limits.expect === "shadows" && !anyReflections) {
         failed = true;
         lines.push("FAIL no group drew reflections (nothing reflective in any level chosen?)");
     } else if (limits.effect !== "hdr" && limits.expect === "shadows" && !anyShadow(verdicts, limits)) {
         failed = true;
-        const drawn = { shadows: "shadows", ao: "occlusion", reflections: "reflections", hdr: "tone mapping" }[
-            limits.effect ?? "shadows"
-        ];
-        lines.push(`FAIL no spot darkened by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
+        const drawn = {
+            shadows: "shadows",
+            ao: "occlusion",
+            reflections: "reflections",
+            hdr: "tone mapping",
+            fog: "fog",
+            gi: "indirect light",
+        }[limits.effect ?? "shadows"];
+        const how = limits.effect === "gi" ? "brightened" : "darkened";
+        lines.push(`FAIL no spot ${how} by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
+    }
+    if (limits.expect === "shadows" && limits.effect === "gi") {
+        const shade = darkOverBrightBrightened(verdicts);
+        const ok = shade === null || shade > GI_MIN_DARK_OVER_BRIGHT;
+        lines.push(
+            `${ok ? "" : "FAIL "}more in the shade: baked-dark pixels brightened ${shade === null ? "-" : shade.toFixed(2)} times as often as baked-bright ones (more than ${GI_MIN_DARK_OVER_BRIGHT} wanted)`,
+        );
+        failed ||= !ok;
     }
     if (limits.expect === "shadows" && (limits.effect ?? "shadows") === "shadows") {
         const lined = darkOverBright(verdicts);
@@ -648,6 +823,8 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         ao: "rt_ao check",
         reflections: "rt_reflections check",
         hdr: "rt_hdr check",
+        fog: "rt_fog check",
+        gi: "rt_gi check",
     }[limits.effect ?? "shadows"];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
@@ -697,7 +874,10 @@ async function runGroup(game: string, group: PlanGroup, config: Config, run: num
     };
     const commands = groupCommands(spots, config, run);
     for (const s of groupSpots(spots))
-        fs.rmSync(path.join(game, "Screenshots", seriesName(config, run, s)), { recursive: true, force: true });
+        fs.rmSync(path.join(game, "Screenshots", seriesName(config, run, s)), {
+            recursive: true,
+            force: true,
+        });
     clearAutomationFiles(game);
     const log = path.join(game, "thug2-decomp.log");
     fs.rmSync(log, { force: true });
@@ -835,14 +1015,9 @@ async function main(): Promise<number> {
     const expect = values.expect === "drawn" ? "shadows" : values.expect;
     if (expect !== "shadows" && expect !== "none" && expect !== "brighter")
         exitWith("--expect shadows | drawn | none | brighter");
-    if (
-        values.effect !== "shadows" &&
-        values.effect !== "ao" &&
-        values.effect !== "reflections" &&
-        values.effect !== "hdr"
-    )
-        exitWith("--effect shadows | ao | reflections | hdr");
-    const effect: Effect = values.effect;
+    if (!["shadows", "ao", "reflections", "hdr", "fog", "gi"].includes(values.effect))
+        exitWith("--effect shadows | ao | reflections | hdr | fog | gi");
+    const effect = values.effect as Effect;
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
         const eq = s.indexOf("=");
@@ -856,8 +1031,14 @@ async function main(): Promise<number> {
         ao: "Graphics.rt_ao_strength",
         reflections: "Graphics.rt_reflection_strength",
         hdr: "Graphics.rt_exposure",
+        fog: "Graphics.rt_fog_density",
+        gi: "Graphics.rt_gi_strength",
     }[effect];
-    const strength = Number(set[strengthKey] ?? values.strength ?? (effect === "ao" ? "0.6" : "0.5"));
+    const strength = Number(
+        set[strengthKey] ??
+            values.strength ??
+            { shadows: "0.5", ao: "0.6", reflections: "0.5", hdr: "0.5", fog: "0.5", gi: "1" }[effect],
+    );
     const limits: Limits = { ...LIMITS, expect, strength, effect };
     const threshold = Number(values.threshold);
     const grow = Number(values.grow);
