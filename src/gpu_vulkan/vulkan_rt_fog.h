@@ -85,7 +85,7 @@ bool record_rt_fog_pass(Backend& state, const rt::ViewDrawn& view);
 [[nodiscard]] uint64_t rt_fog_passes();
 
 // The passes' time on the device, from timestamps written before and after each (read back a few passes later, when
-// the device has written them): how many were timed and their total. Every 600 timed passes the log gets their average
+// the device has written them): how many were timed and their total. Every 240 timed passes the log gets their average
 // ("rt_fog: the passes take ... ms on the device"). The caller holds the lock.
 struct RtFogTiming {
     uint64_t samples = 0;

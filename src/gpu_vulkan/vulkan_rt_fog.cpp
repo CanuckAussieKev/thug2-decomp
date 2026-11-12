@@ -412,7 +412,7 @@ struct FogState {
     double window_milliseconds = 0.0;
 };
 
-constexpr uint64_t kTimingLogEvery = 600; // passes timed
+constexpr uint64_t kTimingLogEvery = 240; // passes timed
 
 FogState& fog_state()
 {
@@ -1446,8 +1446,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_fog: the first fog pass (%ux%u at 1/%u, %u steps, %s, fog %.0f - %.0f, density %.2f, "
                 "height %.0f, anisotropy %.2f, %s)",
-                width, height, kFogScale, own.settings.steps, what_is_drawn(), static_cast<double>(view.fog.start),
-                static_cast<double>(view.fog.end), static_cast<double>(own.settings.density),
+                width, height, kFogScale, own.settings.steps, what_is_drawn(), static_cast<double>(clipped.fog.start),
+                static_cast<double>(clipped.fog.end), static_cast<double>(own.settings.density),
                 static_cast<double>(own.settings.height), static_cast<double>(own.settings.anisotropy),
                 own.have_sun ? "a sun" : "no sun");
     }

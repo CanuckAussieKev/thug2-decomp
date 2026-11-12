@@ -926,7 +926,7 @@ the distance from the eye, its end 7200 past its start with distance clipping (p
   (x 0.5): shafts over the original, nothing taken away.
 - **The sky** (the depth's far value: the sky dome, or the fog-coloured clear with distance clipping) is never dimmed;
   it gets the sunlit light only, x 0.25 - the shafts against the sky.
-- **Cost** (device timestamps around the passes, logged every 600 as "rt_fog: the passes take"): the check's scene at
+- **Cost** (device timestamps around the passes, logged every 240 as "rt_fog: the passes take"): the check's scene at
   1920 x 1080 - RTX 5070 Ti 0.48 / 0.99 / 2.03 ms at 16 / 32 / 64 steps, the AMD Radeon integrated GPU 14 / 28 / 52 ms
   (the ray queries dominate: linear in the steps). In the game: see below.
 - **Checks.** `thug2_vulkan_rt_fog_check` (65 checks, both GPUs, validation with synchronization 0): a wall with a
