@@ -293,6 +293,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `thaw_bmx_wheels` | 1 | The bike finds the ground under both wheels, as THAW does (0 = the skater's own ground check) |
 | `thaw_bmx_shadow` | 1 | The bike drawn into the rider's shadow |
 | `anteara_mod` | 0 | Plays Anteara Mod from the overlay (`tools/anteara/README.md`) |
+| `ts_scripts` | 0 | The game's scripts: 0 = the `.qb` files (in the `.pre` / `.prx` archives), 1 = their TypeScript beside the `.qb` files (`tools/qbjs/install_ts.ts`), 2 = the unpacked game - no archives, no `.qb`, each script from its `.ts` (`node tools/qbjs/unpack_game.ts --game <folder>`; `--restore` puts the archives and `.qb` files back, which 0 and 1 need) - [docs/qb-ts.md](docs/qb-ts.md) |
+| `language` | (the game's) | With `ts_scripts=2`: the scripts' text from `Data\lang\<code>.json` - `en`, `fr`, `de` (English where a table has no text) |
 | `create_100_cas` | 1 | GAME OPTIONS > CREATE 100% CAS |
 | `thugpro_parts` | 1 | THUGPRO's extra CAS parts and boards, read from your THUGPRO install by reference (2 also shows them in CAS, 0 off; `thugpro_folder=` another install) |
 | `allow_multiple_instances` | 0 | Lets a second copy run (its log is `thug2-decomp-2.log`) |
