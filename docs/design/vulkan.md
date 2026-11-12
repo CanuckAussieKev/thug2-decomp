@@ -925,7 +925,7 @@ the distance from the eye, its end 7200 past its start with distance clipping (p
   of the surface behind them. `rt_fog_mode=1` keeps the game's fog as drawn and adds only the sunlit part
   (x 0.5): shafts over the original, nothing taken away.
 - **The sky** (the depth's far value: the sky dome, or the fog-coloured clear with distance clipping) is never dimmed;
-  it gets the sunlit light only, x 0.25 - the shafts against the sky.
+  it gets the sunlit light only, x 0.1 - the shafts against the sky.
 - **Which fog.** THUG2's levels draw fog only where a script turns it on, or with `[Graphics] DistanceClipping=1` and
   `Fog=1` - then every mesh fogs over the last quarter before the far plane (pc_mesh_render.cpp), which `ViewDrawn::fog`
   reports. None of the check's five levels has fog by default. So a level without fog gets, with `rt_fog_haze=1` (the

@@ -38,7 +38,7 @@
 //   1 shafts: the level's own fog kept as the game draws it; only the sunlit part of the light, L = fog colour x (1 - a)
 //     x lit x phase x tint x 0.5, is added (T = 1: nothing taken away).
 // The sky (the depth's far value - the sky dome, or the fog-coloured clear with distance clipping) is never dimmed: it
-//   gets the sunlit light only, x 0.25 (the shafts against the sky, darker gaps where the world blocks the sun).
+//   gets the sunlit light only, x 0.1 (the shafts against the sky, darker gaps where the world blocks the sun).
 // No fog in the level (ViewFog::on false, or end <= start - THUG2's levels draw fog only where a script asks for it, or
 //   with [Graphics] DistanceClipping=1 and Fog=1): with rt_fog_haze=1 (the default) and a sun, a thin haze is drawn in
 //   shafts mode - colour kFogHazeColour, from the camera to kFogHazeEnd - only its sunlit light added (the shafts, the
@@ -56,7 +56,7 @@ inline constexpr uint32_t kFogMaxHistory = 12; // frames
 inline constexpr uint32_t kFogViewSlots = 4;
 inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shadows the fog)
 inline constexpr float kFogAmbientShare = 0.5F;   // a above
-inline constexpr float kFogSkyShare = 0.25F;
+inline constexpr float kFogSkyShare = 0.1F;
 inline constexpr float kFogShaftShare = 0.5F;       // mode 1's
 inline constexpr float kFogSunDistance = 100000.0F; // how far a ray toward the sun looks (world units)
 inline constexpr float kFogHazeEnd = 4000.0F;       // the haze's end (world units: its linear "fog" from the camera)
