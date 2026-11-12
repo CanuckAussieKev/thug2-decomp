@@ -65,8 +65,9 @@ export function playerText(text: string, call: number): boolean {
     if (DEBUG.has(call >>> 0)) return false;
     if (!/[A-Za-z\xC0-\xFF]/.test(text)) return false;
     if (/[\\/]/.test(text) || /\.[A-Za-z0-9]{2,4}$/.test(text)) return false;
-    // (a name - loadscrn_boston, TRG_Ped_01 -: one word with an underscore; the languages translate none)
-    if (/^\w+$/.test(text) && text.includes("_")) return false;
+    // (a name - loadscrn_boston, TRG_Ped_01, level_editor_hud_%i -: one word with an underscore; the languages
+    // translate none)
+    if (/^[\w%]+$/.test(text) && text.includes("_")) return false;
     return true;
 }
 
@@ -74,12 +75,15 @@ export function playerText(text: string, call: number): boolean {
 // text; no game code reads them) - data, not text to show: left as they are.
 export const notLocalised = (file: string): boolean => /(^|[\\/])localtext(_\w+)?\.qb$/i.test(file);
 
-// A token's name: the file's and the English text's words ("bo_scripts.smash_5_tea_barrels").
-function tokenName(file: string, english: string): string {
-    const stem = file
+const fileStem = (file: string): string =>
+    file
         .replace(/^.*[\\/]/, "")
         .replace(/\.[^.]*$/, "")
         .toLowerCase();
+
+// A token's name: the file's and the English text's words ("bo_scripts.smash_5_tea_barrels").
+function tokenName(file: string, english: string): string {
+    const stem = fileStem(file);
     const words = english
         .toLowerCase()
         .replace(/\\n/g, " ")
@@ -95,6 +99,8 @@ export class Localizer {
     readonly leftOut: string[] = []; // "<file> <language>": a version not the same code
     private readonly owner = new Map<string, string>(); // token -> its text and translations
     private readonly bySignature = new Map<string, string>(); // text and translations -> token (shared by files)
+    // English text -> its translated token: "<file stem>|<text>" the file's first, "<text>" the only one (null: several)
+    private readonly translated = new Map<string, string | null>();
 
     // `english`'s literals given tokens (the IR changed in place); `languages`: each language's version of the file
     // (none: a file only English has - ours, a ported level's). `unpatched`: the English file before the binary
@@ -115,8 +121,11 @@ export class Localizer {
                 theirs.map(([language, list]) => [language, latin1(list[i]!.literal.bytes)]),
             );
             const translated = Object.values(texts).some((t) => t !== text);
-            if (!translated && !playerText(text, call)) return;
-            literal.token = this.token(file, text, texts);
+            // (a file no language has - our overlay's copy of a game menu - takes the translated token of its text:
+            // the same file's, else the one every file translates it with)
+            const known = theirs.length ? undefined : this.translatedToken(file, text);
+            if (!known && !translated && !playerText(text, call)) return;
+            literal.token = known ?? this.token(file, text, texts);
             tokens++;
         });
         if (unpatched) {
@@ -138,6 +147,15 @@ export class Localizer {
         return tokens;
     }
 
+    // The token a language translates English `text` with - the file's own (by its name), else the only translation
+    // any file has for it (none where files translate it differently).
+    private translatedToken(file: string, text: string): string | undefined {
+        const own = this.translated.get(`${fileStem(file)}|${text}`);
+        if (own) return own;
+        const all = this.translated.get(text);
+        return all === null ? undefined : all;
+    }
+
     // The token for a text and its translations - one for them in this file or another.
     private token(file: string, text: string, texts: Record<string, string>): string {
         const signature = JSON.stringify([text, texts]);
@@ -148,6 +166,12 @@ export class Localizer {
         for (let n = 2; this.owner.has(token); n++) token = `${base}_${n}`;
         this.owner.set(token, signature);
         this.bySignature.set(signature, token);
+        if (Object.values(texts).some((t) => t !== text)) {
+            const stem = `${fileStem(file)}|${text}`;
+            if (!this.translated.has(stem)) this.translated.set(stem, token);
+            // (one translation of the text across files - by its signature: the same texts share one token)
+            this.translated.set(text, this.translated.has(text) ? null : token);
+        }
         this.tables.en![token] = text;
         for (const [language, t] of Object.entries(texts)) {
             const table = this.tables[language] ?? {};
