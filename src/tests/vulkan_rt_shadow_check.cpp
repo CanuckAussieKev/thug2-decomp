@@ -15,8 +15,9 @@
 //   - the sky (nothing drawn) is untouched.
 // Cases: one sample; four samples (resolved for the read-back); the objects casting (rt_shadow_objects); soft shadows
 // (an angular radius and several rays: only the clear-cut pixels further than the penumbra are compared); a split
-// view (the pass on the right viewport only - the left one, drawn the same, must be left alone); and no scene (the pass
-// skipped, nothing changed).
+// view (the pass on the right viewport only - the left one, drawn the same, must be left alone); no scene (the pass
+// skipped, nothing changed) - all of these with rt_shadow_covered (shadows under roofs too) - and the sky test (the
+// default: a shadowed point that sees no sky - under the floating box - left lit; one that sees some of it, either).
 //   thug2_vulkan_rt_shadow_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -76,6 +77,7 @@ constexpr double kNoHit = std::numeric_limits<double>::infinity();
 constexpr std::size_t kNoSurface = 0;
 constexpr int kMinShadowed = 400; // (the comparison isn't empty)
 constexpr int kMinLit = 400;
+constexpr int kMinCovered = 30;
 constexpr uint32_t kByteMask = 0xFF;
 constexpr uint32_t kRedShift = 16;
 constexpr uint32_t kGreenShift = 8;
@@ -302,8 +304,40 @@ struct Answer {
     std::size_t surface = kNoSurface;
     Vec3 normal{};
     bool shadowed = false;
+    bool covered = false;   // (the sky test) the sun blocked, but no sky seen: left lit
+    bool uncertain = false; // (the sky test) some of the sky seen: the pass's few rays decide
 };
-Answer reference(const View& view, Pixel pixel, uint32_t casters)
+
+// Whether a ray from `origin` along `direction` meets a caster.
+bool caster_hit(const Vec3& origin, const Vec3& direction, uint32_t casters)
+{
+    return std::ranges::any_of(kSolids, [&](const Solid& solid) {
+        return (solid.mask & casters) != 0 && intersect(solid, {.origin = origin, .direction = direction}).distance < kNoHit;
+    });
+}
+
+// The sky test's answer for a shadowed point (vulkan_rt_shadows.cpp: rays straight up and slanted round it by the
+// pass's SKY_TILT): none of them reaching the sky - covered, no shadow; all of them - the shadow; some - either.
+constexpr double kSkyTilt = 0.6;
+constexpr int kSkyAzimuths = 64;
+void sky_test(const Vec3& origin, uint32_t casters, Answer* answer)
+{
+    int blocked = caster_hit(origin, {0.0, 1.0, 0.0}, casters) ? 1 : 0;
+    for (int i = 0; i < kSkyAzimuths; ++i) {
+        const double angle = 6.283185307179586 * i / kSkyAzimuths;
+        blocked += caster_hit(origin, normalised({std::cos(angle) * kSkyTilt, 1.0, std::sin(angle) * kSkyTilt}), casters)
+                       ? 1
+                       : 0;
+    }
+    if (blocked == kSkyAzimuths + 1) {
+        answer->shadowed = false;
+        answer->covered = true;
+    } else if (blocked > 0) {
+        answer->uncertain = true;
+    }
+}
+
+Answer reference(const View& view, Pixel pixel, uint32_t casters, bool sky)
 {
     // (Direct3D 9's pixel centres: whole coordinates)
     const double ndc_x = (2.0 * (pixel.x - static_cast<double>(left_of(view.rect))) / width_of(view.rect)) - 1.0;
@@ -324,17 +358,11 @@ Answer reference(const View& view, Pixel pixel, uint32_t casters)
     }
     answer.normal = nearest.normal;
     const Vec3 light = toward_light();
-    if (dot(nearest.normal, light) <= 0.0) {
-        answer.shadowed = true;
-        return answer;
-    }
     constexpr double kOffSurface = 1e-6;
-    const Ray to_light{.origin = step(step(kEye, direction, nearest.distance), nearest.normal, kOffSurface),
-                       .direction = light};
-    for (const Solid& solid : kSolids) {
-        if ((solid.mask & casters) != 0 && intersect(solid, to_light).distance < kNoHit) {
-            answer.shadowed = true;
-        }
+    const Vec3 origin = step(step(kEye, direction, nearest.distance), nearest.normal, kOffSurface);
+    answer.shadowed = dot(nearest.normal, light) <= 0.0 || caster_hit(origin, light, casters);
+    if (answer.shadowed && sky) {
+        sky_test(origin, casters, &answer);
     }
     return answer;
 }
@@ -731,7 +759,9 @@ Expected expected_at(const Case& test, const Comparison& comparison, Pixel pixel
     Expected out;
     // (the left viewport of a split isn't passed over: its pixels stay as drawn)
     out.strength = in_left || test.no_scene ? 0.0F : test.settings.strength;
-    out.answer = reference(view, pixel, casters);
+    const bool sky = !test.settings.covered;
+    out.answer = reference(view, pixel, casters, sky);
+    out.clear_cut = !out.answer.uncertain;
     out.darkest = colour_of(out.answer.surface, out.answer.shadowed, out.strength);
     out.lightest = out.darkest;
     for (int down = -radius; down <= radius; ++down) {
@@ -742,10 +772,11 @@ Expected expected_at(const Case& test, const Comparison& comparison, Pixel pixel
                 out.clear_cut = false;
                 continue;
             }
-            const Answer there = reference(view, neighbour, casters);
+            const Answer there = reference(view, neighbour, casters, sky);
             // (one face of one solid: the normal the pass rebuilds from the depth is the face's away from its creases)
             out.clear_cut = out.clear_cut && there.surface == out.answer.surface &&
-                            there.normal == out.answer.normal && there.shadowed == out.answer.shadowed;
+                            there.normal == out.answer.normal && there.shadowed == out.answer.shadowed &&
+                            !there.uncertain;
             for (const bool dark : {false, true}) {
                 const Rgb colour = colour_of(there.surface, dark, out.strength);
                 for (std::size_t channel = 0; channel < 3; ++channel) {
@@ -767,6 +798,7 @@ struct Counts {
     int edges = 0;
     int edge_wrong = 0;
     int sky_wrong = 0;
+    int covered = 0; // clear-cut pixels the sky test leaves lit
     std::string first_wrong;
 };
 
@@ -793,6 +825,7 @@ void count_pixel(const Expected& expected, const Rgb& got, Pixel pixel, Counts* 
         } else {
             ++counts->lit;
         }
+        counts->covered += expected.answer.covered ? 1 : 0;
         return;
     }
     ++counts->edges;
@@ -826,6 +859,10 @@ void compare(const Case& test, const std::vector<uint8_t>& texels, Tally* tally)
                  text::format("edge pixels between their darkest and lightest answers: %d of %d outside",
                               counts.edge_wrong, counts.edges));
     tally->check(counts.sky_wrong == 0, text::format("the sky left alone: %d pixels changed", counts.sky_wrong));
+    if (!test.settings.covered && !test.no_scene) {
+        tally->check(counts.covered >= kMinCovered,
+                     text::format("the sky test: %d clear-cut pixels under the floating box left lit", counts.covered));
+    }
 }
 
 // The case's targets: the colour and depth drawn into (multisampled or not), and a single-sampled copy for the
@@ -949,7 +986,12 @@ std::vector<Case> cases()
     constexpr float kSoftDegrees = 2.0F;
     constexpr unsigned kSoftRays = 8;
     constexpr uint32_t kFourSamples = 4;
-    const render::vulkan::RtShadowSettings hard{.on = true, .strength = kStrength};
+    // (shadows under roofs too: the reference's plain rule - the sky test has a case of its own)
+    // (the frame record's light: there's no level bake here to find a sun in)
+    render::vulkan::RtShadowSettings hard{.on = true, .strength = kStrength, .covered = true};
+    hard.sun = render::vulkan::RtShadowSettings::SunSource::kLight;
+    render::vulkan::RtShadowSettings roofed = hard;
+    roofed.covered = false;
     render::vulkan::RtShadowSettings objects = hard;
     objects.objects = true;
     render::vulkan::RtShadowSettings soft = hard;
@@ -962,6 +1004,7 @@ std::vector<Case> cases()
         {.name = "soft (2 degrees, 8 rays)", .samples = 0, .settings = soft},
         {.name = "a split view: the pass on the right one", .samples = 0, .settings = hard, .split = true},
         {.name = "no scene: the pass skipped", .samples = 0, .settings = hard, .no_scene = true},
+        {.name = "the sky test: no shadow where no sky is seen", .samples = 0, .settings = roofed},
     };
 }
 

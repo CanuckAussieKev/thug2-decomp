@@ -4,7 +4,9 @@
 #include "engine/gfx/gpu.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace render::rt {
@@ -98,6 +100,46 @@ uint32_t world_target_format(uint32_t format)
         return gpu_value::kFormatX16B16G16R16F;
     }
     return format;
+
+struct SunOverride {
+    bool set = false;
+    std::array<float, 3> toward{};
+};
+SunOverride& sun_slot()
+{
+    static SunOverride sun;
+    return sun;
+}
+} // namespace
+
+void set_sun_override(const std::array<float, 3>* toward_sun)
+{
+    sun_slot() = toward_sun == nullptr ? SunOverride{} : SunOverride{.set = true, .toward = *toward_sun};
+}
+
+namespace {
+struct BakedSunSlot {
+    BakedSun sun;
+    bool wanted = false;
+};
+BakedSunSlot& baked_slot()
+{
+    static BakedSunSlot slot;
+    return slot;
+}
+} // namespace
+
+void set_baked_sun(BakedSun sun) { baked_slot().sun = std::move(sun); }
+const BakedSun& baked_sun() { return baked_slot().sun; }
+void set_baked_sun_wanted(bool wanted) { baked_slot().wanted = wanted; }
+bool baked_sun_wanted() { return baked_slot().wanted; }
+
+bool sun_override(std::array<float, 3>* toward_sun)
+{
+    if (sun_slot().set && toward_sun != nullptr) {
+        *toward_sun = sun_slot().toward;
+    }
+    return sun_slot().set;
 }
 
 } // namespace render::rt

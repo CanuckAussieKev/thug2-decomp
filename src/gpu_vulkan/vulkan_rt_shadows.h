@@ -14,6 +14,17 @@
 // It modulates what the original drew (its baked vertex lighting, its own shadow textures): it adds the shadows the
 // world casts in the sun and takes nothing else away.
 //
+// - The sun (rt_shadow_sun): by default the one the level's lighting was baked with (engine/gfx/rt_sun.h - found from
+//   the world's vertex colours once the level stands still; the game's own directional lights are the same two in
+//   every level and light the skater, not the level). A level whose bake shows no sun (indoors) gets no pass at all;
+//   until the fit is made (about a second into a level) neither. `light` traces toward the frame record's first
+//   directional light, `x,y,z` toward a fixed direction; the console's `rt sun` overrides either (rt_scene.h).
+// - Where the bake disagrees (rt_shadow_match_bake, with the baked sun): occlusion times the level's agreement grid at
+//   the pixel's x, z (binding 2; rt_sun.h make_agreement) - none where the bake is bright although the sun is blocked.
+// - The sky test (rt_shadow_covered=0, the default): a blocked pixel also traces rt_shadow_sky_rays rays up (straight up,
+//   the rest slanted 31 degrees round it); none reaching the sky - a roof over it - leaves it as the level lit it, each
+//   one that does lets in a share of the shadow (all of it from half the rays on).
+//
 // - Multisampled targets: each sample traced on its own (the pass runs per sample, reading that sample's depth) when the
 //   device has sample-rate shading, else per pixel from sample 0's depth (written to every sample).
 // - The normal for the ray's offset comes from the depth: the neighbour on the nearer side along x and along y (not the
