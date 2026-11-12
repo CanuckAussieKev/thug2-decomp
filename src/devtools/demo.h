@@ -23,15 +23,17 @@ class Source;
 //                                               profile differs), the run played from the recorded input; at its end
 //                                               the controls are the player's again.
 //   -demo-capture <folder>                      also every frame from the level's first as <folder>\frame_0001.png...
-//                                               (relative: to the game folder), then the game quits.
+//                                               (relative: to the game folder), then the game quits;
+//   -demo-every <n>                             with it: one frame in n.
 //   -demo-quit                                  quits at the end (without -demo-capture).
 // What makes the run the same each time: the load starts from the same random numbers (both streams and the C
 // runtime's rand seeded from the demo), the main loop's logic is a fixed 1/60 s a frame, every frame is drawn
 // (no frame skipped to catch up, also in the background) and port 0's control data each frame is the recorded one -
-// the input after the keyboard, the controller and the automation channel are added up. A check track (the skater
-// and the camera every frame from the level's first) is recorded with the input; a playback compares its own with
-// it and logs the first frame that differs and the largest drift ("demo: ... drift"), and writes its track to
-// <capture folder>\track.txt (or thug2-decomp-demos\<demo>.play.txt) and a summary .json beside it.
+// the input after the keyboard, the controller and the automation channel are added up; once the level is up the
+// random numbers and the clocks are put back as the recording had them. A check track (the skater and the camera
+// every frame from the level's first) is recorded with the input; a playback compares its own with it and logs the
+// first frame that differs and the largest drift ("demo: ... drift"), and writes its track to <capture
+// folder>\track.txt and run.json (or thug2-decomp-demos\<demo>.play.track.txt / .play.run.json).
 //
 // Refused in network games and online. Keys our tools read directly (F7, F8, F9, the console) aren't recorded: using
 // them while recording makes the playback differ.
