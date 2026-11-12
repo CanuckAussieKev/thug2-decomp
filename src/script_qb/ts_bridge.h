@@ -31,6 +31,9 @@ void set_interrupt_budget(uint32_t budget);
 // `temporary_only`: only those its temporary loads defined - a temporary load undone (the script check), the file's
 // own load's kept: the symbols it put back still name them.
 void forget_file(uint32_t file_checksum, bool temporary_only = false);
+// The script check: the next load of `filename` defined by the .ts at `ts_path` (a disk path) - with ts_scripts=2 - in
+// place of the one the game would read: each version of a file checked (an archive's, the loose one).
+void read_version_next(const std::string& filename, const std::string& ts_path);
 // The .qb file `file_checksum` (its name's checksum) as last loaded: its bytes' hash (FNV-1a, as tools/qbjs/install_ts.ts
 // names modules) and whether its TypeScript module ran - none if it hasn't been loaded. (The script check reports which
 // version of a file the game ran, and fails a TypeScript pass whose file had no module.)

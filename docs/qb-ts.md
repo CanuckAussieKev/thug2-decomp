@@ -90,25 +90,35 @@ cost the most (a ported level's node arrays are megabytes), and a global drawing
 A module is compiled to QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the
 QuickJS version, the word size and the module's own bytes); later starts read the bytecode.
 
-**Standalone** (`[features] ts_scripts=2`): the game reads no `.qb` for a file that has a standalone module - its
-scripts, its globals and its checksum names all come from the module, so the script archives (`qb_scripts.prx`, the
-levels' `*_scripts.prx`) aren't needed for it. `node tools/qbjs/install_ts.ts --game <folder> --standalone` writes one
-module for each file the game would load, laid out as the game finds it: `thug2-decomp-ts\Data\<path>.ts` / `.js` (the
-loose file's version, else an archive's, with PartyMod's keyboard patch where the game applies it) and
-`thug2-decomp-ts\thug2-decomp-data\<path>` (the data overlay's, with its `front_end`, `anteara` and
-`anteara\front_end` sets). A file whose archive copy differs from the loose one (the boot scripts in `qb_scripts.prx`
-lack debug prints the loose files have; a level's `*_scripts` / `*_sfx`) also gets `<path>@<archive>.js`, named in the
-base module's manifest (`archives`): the game reads the archive's copy while that archive is loaded - the preloaded
-ones (packs: `qb_scripts` at boot) first, then the pre manager's (a level's) - and the loose file otherwise, so the
-loader picks the same way (`archive_holding`). `load_qb` asks first (`load.h` QbStandaloneHook, `ts_bridge.cpp
-load_standalone`): the module for the path where the overlay would give the file, else the game's; none - the `.qb` is
-read as before. The `.ts` is the readable source beside; the game loads the `.js` (compiled by `compile_ts.ts`, whose
-manifest carries the hash of the `.qb` it was made from, the archives and the file's names - last, the loader reads
-the first 4 KB). A module's globals go to the game's own table only (read back through it as a `.qb` file's): the
-runtime keeps no copy, which would outlive the file. A module runs with the game's interrupt budget, never the script
-check's lower one (a level's node arrays take far more than a script run). The script check proves it:
-`script_check_parallel.ps1 -Standalone` runs its TypeScript pass so, and compares every global each file defines, as
-well as the runs.
+**Unpacked** (`[features] ts_scripts=2`, `node tools/qbjs/unpack_game.ts --game <folder>`): the game with no archive
+and no `.qb`. The tool moves every archive in `Data\pre` (`.prx`, the French and German `.prf` / `.prd` and their
+patches `.ppf` / `.ppd`) and every `.qb` (Data's, the data overlay's, the ported levels' overlays) to
+`<game>\thug2-decomp-backup` at the same paths, unpacks each archive into a folder where it was
+(`Data\pre\BO_scripts\levels\bo\...`; French / German: `BO_scripts.fr` / `.de`, the patch applied) and writes each
+`.qb`, loose or in an archive, as a `.ts` where it was. `--restore` puts everything back (its record:
+`thug2-decomp-backup\unpacked.json`); `--refresh` puts back and unpacks again - after `make_menu_level.ts` or a
+converter rewrote an overlay (until then the game reads such a file's new `.qb`, not its old `.ts`: the `.ts` names the
+hash of the `.qb` it was made from).
+
+- **Archives as folders** (`src/engine/file/archive_folder.h`): when an archive file isn't there and its folder is,
+  both loaders (the pre manager's, the packs') build the same archive in memory from the folder - every file in it,
+  stored unpacked - so an archive is in and out of memory exactly when it was, and everything after reads it as before.
+- **A file's TypeScript** (`ts_bridge.cpp load_standalone`, asked first by `load_qb` and `load_qb_data` - a level's
+  node array is read as an asset, `NodeTableResource::read_in`, and with no `.qb` parsed from nothing): `<name>.ts`
+  read the way the game reads any file (`packs::read_in`: the data overlay, then the loaded archives, then Data), so it
+  is the version the `.qb` would have been - the boot scripts' copies in `qb_scripts` (without the loose files' debug
+  prints), a level's `*_scripts` copy once its archive is in, the loose file before. The `.ts`'s last line,
+  `// qb-file {...}`, is its manifest (its source name, the hash of the `.qb` it was made from, the file's checksum
+  names); the game turns the `import ... from "qb"` into a read of the runtime, wraps the file as `compile_ts.ts` does
+  - each line where it was - and caches its bytecode (`thug2-decomp-ts\cache\ts-<hash>.qbc`). The emitted files have
+  no type syntax; a type annotation added by hand isn't stripped in the game yet (a syntax error: the file isn't
+  defined).
+- A module's globals go to the game's own table only (read back through it as a `.qb` file's): the runtime keeps no
+  copy, which would outlive the file. A module runs with the game's interrupt budget, never the script check's lower
+  one (a level's node arrays take far more than a script run).
+- The script check proves it: `script_check_parallel.ps1 -Standalone` runs its TypeScript pass in the game unpacked
+  (`unpack_game.ts --check`), every version of every file (docs/script-check.md), and compares every global each file
+  defines as well as the runs.
 
 The C++ interpreter stays the host: the record, its Update, waits, events, spawning, objects and the call stack are all
 its own, so the scheduling is the original's by construction. A translated script's symbol has a body of one token
@@ -141,7 +151,8 @@ hashes a word at a time. What remains (~0.75 s at boot) is QuickJS running the e
 for the natural-TypeScript steps to shrink.
 
 2026-11-12 (x64 release, workspace, `tools/game/load_time.ps1`: start to free skate in Boston, 3 runs each): QB 4.4 s,
-TypeScript beside the `.qb` 6.6 s, standalone 8.6 s. Standalone's extra 2 s are its 234 modules building the globals
+TypeScript beside the `.qb` 6.6 s, standalone 8.6 s (unpacked, the same day: 9.9 s - the archives built from loose
+files; 13.4 s the first start, nothing in the disk cache). Standalone's extra 2 s are its 234 modules building the globals
 in JavaScript (the CAS tables, animevents, terrain - 189 ms the largest) where the hybrid game reads them from the
 binary `.qb`; the runtime copies each global once more before the game converts it (`defineGlobal`), a copy the game
 mode no longer needs - the first thing to drop, with the check run again.

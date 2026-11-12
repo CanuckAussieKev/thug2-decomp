@@ -57,7 +57,11 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   version is installed as TypeScript (each module is named by its bytes' hash) and written to
   `thug2-decomp-check-sources`; each module's section of the traces says which version ran (`loaded <hash>`, and
   `no-typescript` when the TypeScript pass found no module for it - the report lists those: they ran as QB, untested),
-  and coverage is counted against that version.
+  and coverage is counted against that version. That is the version the game reads at the front end; so that every
+  version is run, a file with more than one is also planned once per version (`<file>@<hash>`, its own part and
+  coverage): the check loads that version's bytes as a temporary load (`load_qb_data`), and with ts_scripts=2 that
+  version's `.ts` where unpack_game.ts put it (`ts::read_version_next`). Versions the game never runs aren't planned:
+  the unpatched keyboard.qb beside its patched one. The French and German archives' copies aren't either.
 - **Pools**: the check runs with four times the default pools (`script_check.ps1` writes `[memory]`): a level's file is
   loaded on top of the boot scripts, and a converted one can be large (THPG's whole world ran the arrays dry). A run that fills a quarter of what a script pool (structures, components, arrays, vectors) had free at its
   start ends `exhausted` - an array doubled pass after pass; the game would run out there and crash. TypeScript's values

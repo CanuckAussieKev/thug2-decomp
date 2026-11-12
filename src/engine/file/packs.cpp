@@ -18,6 +18,7 @@
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
+#include "engine/file/archive_folder.h"
 #include "engine/script/names.h"
 #include "formats/pre_format.h"
 #include "engine/file/file_system.h"
@@ -34,12 +35,12 @@
 namespace packs {
 
 namespace {
-constexpr size_t kAlignMask = 0xF;               // 16-byte alignment
-constexpr size_t kPrefixPadding = 0x10;          // a block's name is padded to 16 bytes with room for its NUL
-constexpr int kSectorMask = 0x7FF;               // buffers are whole 2 KB sectors
+constexpr size_t kAlignMask = 0xF;      // 16-byte alignment
+constexpr size_t kPrefixPadding = 0x10; // a block's name is padded to 16 bytes with room for its NUL
+constexpr int kSectorMask = 0x7FF;      // buffers are whole 2 KB sectors
 constexpr unsigned int kSectorMaskUnsigned = 0x7FFU;
 constexpr size_t kPackPathSize = 500;
-constexpr int kUsagePauseSpins = 100000;         // the original's pause after each usage line
+constexpr int kUsagePauseSpins = 100000; // the original's pause after each usage line
 
 constexpr int kMaxLoadedFiles = 200;
 constexpr int kPreloadCapacity = 100;
@@ -137,8 +138,7 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
         data = allocate_file_memory(sector_aligned(static_cast<unsigned int>(size)));
         if (callback) {
             file::async_set_callback_mask(file, 1U << file::kOpReadFile); // call back when the read completes
-            file::async_set_callback(file, callback, hook_user_a,
-                                     hook_user_b);
+            file::async_set_callback(file, callback, hook_user_a, hook_user_b);
         }
         file::start_background_read(file, data, size);
         file::async_close(file);
@@ -274,6 +274,17 @@ void load_pre(const char* name)
     } else if (game_config::get_language() == core::kLanguageGerman) {
         letter = 'd';
     }
+    // NOT ORIGINAL - an archive unpacked into a folder (archive_folder.h): built from it, read here as the archive
+    if (std::vector<uint8_t> image; archive_folder::build(path.data(), game_config::get_language(), &image)) {
+        archive_size = image.size();
+        file_size = static_cast<unsigned int>(image.size());
+        allocated = ((file_size + kSectorMask) & ~kSectorMaskUnsigned) + prefix;
+        block = static_cast<uint8_t*>(allocate_file_memory(allocated));
+        std::memcpy(block, name, std::strlen(name) + 1);
+        std::memcpy(std::span<uint8_t>(block, allocated).subspan(prefix).data(), image.data(), image.size());
+        loaded = true;
+        letter = '\0';
+    }
     if (letter != '\0') {
         core::at(path, length - 1) = letter;
         if (!file::is_present(path.data())) {
@@ -295,7 +306,8 @@ void load_pre(const char* name)
                     allocated = ((file_size + kSectorMask) & ~kSectorMaskUnsigned) + prefix;
                     block = static_cast<uint8_t*>(allocate_file_memory(allocated));
                     std::memcpy(block, name, std::strlen(name) + 1);
-                    if (!file::load_cached_file(path.data(), std::span<uint8_t>(block, allocated).subspan(prefix).data())) {
+                    if (!file::load_cached_file(path.data(),
+                                                std::span<uint8_t>(block, allocated).subspan(prefix).data())) {
                         free_file_memory(block);
                         block = nullptr;
                     }
@@ -321,7 +333,8 @@ void load_pre(const char* name)
         allocated = ((needed + kSectorMask) & ~kSectorMaskUnsigned) + prefix;
         block = static_cast<uint8_t*>(allocate_file_memory(allocated));
         std::memcpy(block, name, std::strlen(name) + 1);
-        file::get_take_in(std::span<uint8_t>(block, allocated).subspan(prefix).data(), 1, static_cast<int>(file_size), file);
+        file::get_take_in(std::span<uint8_t>(block, allocated).subspan(prefix).data(), 1, static_cast<int>(file_size),
+                          file);
         file::shut(file);
     }
 
@@ -583,4 +596,3 @@ bool archive_is_busy(const char* name)
 }
 
 } // namespace packs
-

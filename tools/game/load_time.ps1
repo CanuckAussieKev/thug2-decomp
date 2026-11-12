@@ -1,9 +1,9 @@
 param([Parameter(Mandatory = $true)][string]$Game, [string]$Level = 'bo', [string[]]$Modes = @('0', '1', '2'),
       [int]$Runs = 3, [int]$Seconds = 120)
 # NOT ORIGINAL - how long the game takes from its start to free skate in a level, with each [features] ts_scripts mode:
-# 0 the .qb interpreter only, 1 TypeScript modules beside the .qb files (install_ts.ts), 2 standalone (install_ts.ts
-# --standalone: no .qb read). Workspaces only, under the folder's lock (game_lock.ps1); the folder needs the modules
-# the modes use. Each run: the game started with -level <name>, timed until its automation status is in the level and
+# 0 the .qb interpreter only, 1 TypeScript modules beside the .qb files (install_ts.ts), 2 the game unpacked
+# (tools/qbjs/unpack_game.ts: no archive, no .qb - each file from its .ts). Workspaces only, under the folder's lock
+# (game_lock.ps1); the folder needs the modules the modes use. Each run: the game started with -level <name>, timed until its automation status is in the level and
 # not loading, then closed; the ini's ts_scripts is put back after.
 #   tools/game/load_time.ps1 -Game C:\Games\THUG2-1 [-Level bo] [-Modes 0,2] [-Runs 3]
 . (Join-Path $PSScriptRoot 'game_exe.ps1')

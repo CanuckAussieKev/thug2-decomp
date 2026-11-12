@@ -734,7 +734,11 @@ void run_plan(const std::string& folder)
     for (uint32_t m = 0; m < modules->extent(); ++m) {
         Struct* module = modules->struct_at(m);
         const std::string file = text_of(module, "file");
-        get_log("script check: %s (%u of %u)", file.c_str(), m + 1, modules->extent());
+        // (a version of the file - each one the game may load, an archive's or the loose one -: loaded as it is, its
+        // own section - <file>@<its bytes' hash>; none: the version the game reads now)
+        const std::string version = text_of(module, "version");
+        const std::string key = version.empty() ? file : file + "@" + version;
+        get_log("script check: %s (%u of %u)", key.c_str(), m + 1, modules->extent());
         // A file the game hasn't loaded (a level's) is loaded for its module as a temporary load, undone after - what it
         // replaced (a boot script a level redefines) put back, so every module runs against the same boot scripts; a
         // boot file is run as it is.
@@ -743,7 +747,15 @@ void run_plan(const std::string& folder)
         for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol && !loaded; symbol = get_next_symbol(symbol)) {
             loaded = symbol->unknown8() == file_name;
         }
-        if (!loaded) {
+        if (!version.empty()) {
+            loaded = false;
+            std::string version_bytes;
+            fs::read_text(text_of(module, "qb"), &version_bytes);
+            std::vector<uint8_t> data(version_bytes.begin(), version_bytes.end());
+            ts::read_version_next(file, text_of(module, "ts")); // (ts_scripts=2: its .ts)
+            load_qb_data(file.c_str(), data, 0, 0, 1);
+            ts::read_version_next("", "");
+        } else if (!loaded) {
             load_qb(file.c_str(), 0, 1);
         }
         // The module's scripts and their arguments: its own part of the plan (check_scripts), loaded for it alone -
@@ -774,7 +786,7 @@ void run_plan(const std::string& folder)
                 load_qb(file.c_str(), 0, 1);
             }
         }
-        std::string out = "module " + file + "\n";
+        std::string out = "module " + key + "\n";
         // (the version of the file the game ran - its bytes' hash - and, TypeScript, whether its module ran: a pass
         // that ran a file as QB compared nothing)
         if (const auto ran = ts::loaded_file(file_name)) {
@@ -833,7 +845,7 @@ void run_plan(const std::string& folder)
             // the counts are written)
             int same = 0;
             int exhausted = 0;
-            const std::vector<std::string> runs = recorded.section(file);
+            const std::vector<std::string> runs = recorded.section(key);
             for (const std::string& qb : runs) {
                 // run <script> <argument set> <seed> <choices> <forced decisions>
                 const std::string header = qb.substr(0, qb.find('\n'));

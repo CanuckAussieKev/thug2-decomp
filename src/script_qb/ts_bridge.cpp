@@ -16,6 +16,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -34,6 +35,7 @@
 #include "engine/file/disk.h"
 #include "engine/file/data_overlay.h"
 #include "engine/file/disk_files.h"
+#include "engine/file/file_load.h"
 #include "engine/file/packs.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -42,6 +44,7 @@
 #include "engine/script/load.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/patched.h"
 #include "engine/script/qb.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/tokens.h"
@@ -155,9 +158,6 @@ bool& standalone()
     static bool on = false;
     return on;
 }
-
-// (how far into a standalone module its manifest's "from" may be: the first line)
-constexpr size_t kManifestReach = 4096;
 
 // --- values ---------------------------------------------------------------------------------------------------------
 
@@ -1089,106 +1089,161 @@ void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temp
     run_module(filename, temporary, source, relative, name.data());
 }
 
-// The standalone module for game file `filename` ([features] ts_scripts=2, install_ts.ts --standalone), where the game
-// would read the file: the data overlay's (thug2-decomp-ts\thug2-decomp-data\<its path in the overlay>), else the
-// game's (thug2-decomp-ts\Data\<path>) - <path>.js; "" when there is none.
-std::string standalone_path(const char* filename)
+// The TypeScript of game file `filename` ([features] ts_scripts=2, tools/qbjs/unpack_game.ts): <name>.ts where its .qb
+// was, read as the game reads a file (packs::read_in) - the data overlay's, else a loaded archive's (Data\pre\<archive>\
+// as a folder: archive_folder.h), else Data's - so it is the version the .qb would have been. False when there's none.
+// (the script check: the next read of a file from a .ts of its choosing - a version the game would read from elsewhere)
+std::pair<std::string, std::string>& next_version()
 {
-    std::string path;
+    static std::pair<std::string, std::string> next;
+    return next;
+}
+
+bool read_game_ts(const char* filename, std::string* name, std::string* text)
+{
+    const size_t length = std::strlen(filename);
+    if (length < 3 || _stricmp(filename + length - 3, ".qb") != 0) {
+        return false;
+    }
+    *name = std::string(filename, length - 3) + ".ts";
+    if (auto [file, path] = std::exchange(next_version(), {}); !path.empty() && _stricmp(file.c_str(), filename) == 0) {
+        *name = path;
+        return fs::read_text(path, text) && !text->empty();
+    }
     std::array<char, file::kOverlayPathSize> overlay{};
-    const std::string& folder = frontend::data_overlay::get_folder();
-    if (frontend::data_overlay::get_overlay_path(filename, overlay)) {
-        const std::string found = overlay.data();
-        if (found.size() <= folder.size() || _strnicmp(found.c_str(), folder.c_str(), folder.size()) != 0) {
-            return "";
-        }
-        path = game_folder_path("thug2-decomp-ts") + "\\thug2-decomp-data" + found.substr(folder.size());
-    } else {
-        std::array<char, file::kOverlayPathSize> name{};
-        frontend::data_overlay::overlay_name(filename, name);
-        path = game_folder_path("thug2-decomp-ts") + "\\Data\\" + name.data();
+    if (!packs::find_pre_entry(checksums::hash_from_text(name->c_str())) && !file::is_present(name->c_str()) &&
+        !frontend::data_overlay::get_overlay_path(name->c_str(), overlay)) {
+        return false;
     }
-    if (path.size() < 3 || _stricmp(path.c_str() + path.size() - 3, ".qb") != 0) {
-        return "";
+    memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
+    const auto* data = static_cast<const char*>(packs::read_in(name->c_str(), false, nullptr, nullptr, nullptr));
+    memory::leave_heap_scope();
+    const int size = packs::get_file_size(name->c_str());
+    if (data && size > 0) {
+        text->assign(data, static_cast<size_t>(size));
     }
-    path.replace(path.size() - 3, 3, ".js");
-    return fs::disk().kind(path.c_str()) == fs::PathKind::kFile ? path : "";
+    packs::offload(name->c_str());
+    return data && size > 0;
 }
 
-// Which of `archives` (names without .pre / .prx, lower case) the game would read `filename` from now, as packs::read_in
-// looks: the preloaded archives first (packs - the boot's qb_scripts), then the pre manager's (a level's); "" when no
-// loaded archive has the file - it reads the loose file.
-namespace {
-std::string archive_holding(const char* filename, const std::vector<std::string>& archives)
+// A JSON string's end: the index past its closing quote (`at`: its opening quote), npos if it has none.
+size_t json_string_end(const std::string& text, size_t at)
 {
-    const auto stem = [](std::string name) {
-        if (const size_t dot = name.rfind('.'); dot != std::string::npos) {
-            name.resize(dot);
-        }
-        std::ranges::transform(name, name.begin(), [](char c) { return static_cast<char>(std::tolower(c)); });
-        return name;
-    };
-    if (packs::find_pre_entry(checksums::hash_from_text(filename))) {
-        for (const char* loaded = packs::take_next_finished_archive(nullptr); loaded;
-             loaded = packs::take_next_finished_archive(loaded)) {
-            if (std::ranges::find(archives, stem(loaded)) != archives.end()) {
-                return stem(loaded);
-            }
-        }
-        return "";
-    }
-    if (pre::hub() && pre::hub()->is_file_present(filename)) {
-        for (const std::string& archive : archives) {
-            if (pre::hub()->is_loaded((archive + ".pre").c_str())) {
-                return archive;
-            }
+    for (size_t i = at + 1; i < text.size(); ++i) {
+        if (text[i] == '\\') {
+            ++i;
+        } else if (text[i] == '"') {
+            return i + 1;
         }
     }
-    return "";
+    return std::string::npos;
 }
-} // namespace
 
-// load_qb's hook ([features] ts_scripts=2): the file defined by its standalone module - its globals, its scripts and
-// its checksum names (its manifest's) - in place of reading the .qb; false (the .qb read) when it has none or it fails.
+// The JavaScript the runtime runs for a script file's TypeScript (as tools/qbjs/compile_ts.ts makes it): the "qb"
+// import read from globalThis.qbTs, the module's manifest from the file's last line - `// qb-file {"source": ...,
+// "from": <the .qb's hash>, "names": [checksum, name, ...]}` - before it; each line where it was (faults' lines are the
+// file's). False when the file has no qb-file line.
+bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, std::string* error)
+{
+    static constexpr std::string_view kFileLine = "// qb-file {";
+    const size_t file_line = ts.rfind(kFileLine);
+    if (file_line == std::string::npos || (file_line != 0 && ts[file_line - 1] != '\n')) {
+        *error = "no qb-file line (the file's source, the .qb it was made from and its names)";
+        return false;
+    }
+    const size_t info = file_line + kFileLine.size() - 1;
+    size_t info_end = ts.find('\n', info);
+    info_end = info_end == std::string::npos ? ts.size() : info_end;
+    while (info_end > info && (ts[info_end - 1] == '\r' || ts[info_end - 1] == ' ')) {
+        --info_end;
+    }
+    const std::string manifest = ts.substr(info, info_end - info);
+    std::string source = "\"\"";
+    if (const size_t at = manifest.find("\"source\":\""); at != std::string::npos) {
+        const size_t end = json_string_end(manifest, at + 9);
+        if (end != std::string::npos) {
+            source = manifest.substr(at + 9, end - at - 9);
+        }
+    }
+    *from = 0;
+    if (const size_t at = manifest.find("\"from\":\""); at != std::string::npos) {
+        *from = static_cast<uint32_t>(std::strtoul(manifest.c_str() + at + 8, nullptr, 16));
+    }
+    std::string body = ts.substr(0, file_line);
+    bool random = false;
+    static constexpr std::string_view kImport = "import {";
+    static constexpr std::string_view kFrom = "} from \"qb\";";
+    for (size_t at = body.find(kImport); at != std::string::npos; at = body.find(kImport, at + 1)) {
+        if (at != 0 && body[at - 1] != '\n') {
+            continue;
+        }
+        const size_t end = body.find(kFrom, at);
+        if (end == std::string::npos) {
+            break;
+        }
+        std::string names = body.substr(at + kImport.size(), end - at - kImport.size());
+        // (an import renamed with `as` is a destructuring rename)
+        for (size_t as = names.find(" as "); as != std::string::npos; as = names.find(" as ", as)) {
+            names.replace(as, 4, ": ");
+        }
+        for (size_t name = 0; name < names.size();) {
+            while (name < names.size() && (names[name] == ' ' || names[name] == ',' || names[name] == '\n' ||
+                                           names[name] == '\r' || names[name] == '\t')) {
+                ++name;
+            }
+            random = random || names.compare(name, 6, "random") == 0;
+            name = names.find(',', name);
+        }
+        body.replace(at, end + kFrom.size() - at, "const {" + names + "} = globalThis.qbTs;");
+        break;
+    }
+    const std::string requires_ = random ? R"({"values":2,"random":1})" : R"({"values":2})";
+    *js = "(() => { qb.module({\"format\":2,\"scripts\":[],\"requires\":" + requires_ + "," + manifest.substr(1) +
+          "); globalThis.qbTs.beginModule(" + source + "); " + body + "\n})();\n";
+    return true;
+}
+
+// load_qb's hook ([features] ts_scripts=2): the file defined by its TypeScript - its globals, its scripts and its
+// checksum names - in place of reading the .qb; false (the .qb read) when it has none or it fails.
 bool load_standalone(const char* filename, bool temporary)
 {
     if (!is_on() || !standalone() || !filename) {
         return false;
     }
-    std::string path = standalone_path(filename);
-    std::string source;
-    if (path.empty() || !fs::read_text(path, &source)) {
+    std::string name;
+    std::string ts;
+    if (!read_game_ts(filename, &name, &ts)) {
         return false;
     }
-    // (an archive's version that differs - its manifest's `archives`: the game reads the file from an archive while one
-    // that has it is loaded, a level's scripts once the level's is in - <path>@<archive>.js)
-    if (const size_t at = source.find("\"archives\":["); at != std::string::npos && at < kManifestReach) {
-        std::vector<std::string> archives;
-        const size_t end = source.find(']', at);
-        for (size_t name = source.find('"', at + 12); name != std::string::npos && name < end;
-             name = source.find('"', source.find('"', name + 1) + 1)) {
-            archives.push_back(source.substr(name + 1, source.find('"', name + 1) - name - 1));
-        }
-        if (const std::string archive = archive_holding(filename, archives); !archive.empty()) {
-            const std::string variant = path.substr(0, path.size() - 3) + "@" + archive + ".js";
-            std::string text;
-            if (fs::disk().kind(variant.c_str()) == fs::PathKind::kFile && fs::read_text(variant, &text)) {
-                path = variant;
-                source = std::move(text);
-            }
-        }
-    }
-    // (the .qb the module was made from: its manifest's "from" - which version the game ran, as for a read file)
+    std::string source;
     uint32_t from = 0;
-    if (const size_t at = source.find("\"from\":\""); at != std::string::npos && at < kManifestReach) {
-        from = static_cast<uint32_t>(std::strtoul(source.c_str() + at + 8, nullptr, 16));
+    if (std::string error; !module_from_ts(ts, &source, &from, &error)) {
+        get_log("ts: %s: %s - read as .qb", name.c_str(), error.c_str());
+        return false;
+    }
+    // (a .qb the game would read instead that isn't the one the .ts was made from - an overlay made again since,
+    // make_menu_level.ts: the .qb read, until tools/qbjs/unpack_game.ts --refresh)
+    std::array<char, file::kOverlayPathSize> overlay{};
+    const bool chosen = name.find(':') != std::string::npos; // (the script check's version: a path on disk)
+    if (!chosen && (packs::find_pre_entry(checksums::hash_from_text(filename)) || file::is_present(filename)) ||
+        (!chosen && frontend::data_overlay::get_overlay_path(filename, overlay))) {
+        memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
+        const std::span<const uint8_t> qb = script::load_patched_script(filename);
+        memory::leave_heap_scope();
+        const uint32_t made_from = file_hash(qb);
+        packs::offload(filename);
+        if (!qb.empty() && made_from != from) {
+            get_log("ts: %s was made from another %s - read as .qb", name.c_str(), filename);
+            return false;
+        }
     }
     register_name_hash(checksums::hash_from_text(filename), filename); // (as read_qb_file does)
     std::array<char, 24> cache{};
-    std::snprintf(cache.data(), cache.size(), "file-%08x.qbc", checksums::hash_from_text(path.c_str()));
+    const auto bytes = std::span(reinterpret_cast<const uint8_t*>(source.data()), source.size());
+    std::snprintf(cache.data(), cache.size(), "ts-%08x.qbc", file_hash(bytes));
     // (its globals' structures and arrays where the .qb loader puts a file's: the script heap)
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
-    const bool loaded = run_module(filename, temporary, source, path, cache.data());
+    const bool loaded = run_module(filename, temporary, source, name, cache.data());
     memory::leave_heap_scope();
     if (!loaded) {
         return false;
@@ -1196,6 +1251,15 @@ bool load_standalone(const char* filename, bool temporary)
     loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{from, true};
     return true;
 }
+
+} // namespace
+
+void read_version_next(const std::string& filename, const std::string& ts_path)
+{
+    next_version() = {filename, ts_path};
+}
+
+namespace {
 
 // A .qb file unloaded: the functions its module defined let go of (its symbols are gone - a later file's definition
 // of the same name has a number of its own).

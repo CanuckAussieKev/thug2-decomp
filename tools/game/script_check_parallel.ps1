@@ -7,7 +7,7 @@ param([Parameter(Mandatory = $true)][string[]]$Games, [string]$BuildDir = 'out\b
 # the first folder's thug2-decomp-check. The caller holds every folder's lock (game_lock.ps1) and releases them after.
 #   tools/game/script_check_parallel.ps1 -Games C:\Games\THUG2-1,C:\Games\THUG2-2 [-PlanArgs --runs,64] [-Pass qb|ts]
 #   [-NoPrepare: the folders already have the build, the TypeScript and their shares - e.g. the ts pass after a qb one]
-#   [-Standalone: the TypeScript pass with every file defined by its standalone module - no .qb read (ts_scripts=2)]
+#   [-Standalone: the TypeScript pass in the game unpacked - no archive, no .qb: unpack_game.ts --check (ts_scripts=2)]
 $ErrorActionPreference = 'Continue' # (node's warnings go to stderr: exit codes are checked)
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $repo
@@ -20,8 +20,11 @@ if (-not $NoPrepare) {
 for ($i = 0; $i -lt $n -and -not $NoPrepare; ++$i) {
     $game = $Games[$i]
     & (Join-Path $PSScriptRoot 'deploy_build.ps1') -Game $game -Arch $Arch -BuildDir $BuildDir -NoEditorTools | Select-Object -Last 1
-    $install = @('--game', $game, '--clear', '--check'); if ($Standalone) { $install += '--standalone' }
-    node tools/qbjs/install_ts.ts @install 2>$null | Select-Object -Last 1
+    # (the plan is made from the game as installed: an unpacked one put back first - unpack_game.ts)
+    if (Test-Path (Join-Path $game 'thug2-decomp-backup\unpacked.json')) {
+        node tools/qbjs/unpack_game.ts --game $game --restore 2>$null | Select-Object -Last 1
+    }
+    node tools/qbjs/install_ts.ts --game $game --clear --check 2>$null | Select-Object -Last 1
     if ($LASTEXITCODE -ne 0) { "install_ts failed in $game"; exit 1 }
     node tools/qbjs/script_check.ts plan --game $game --share @PlanArgs 2>$null
     if ($LASTEXITCODE -ne 0) { "plan failed in $game"; exit 1 }

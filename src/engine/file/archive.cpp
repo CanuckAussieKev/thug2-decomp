@@ -10,12 +10,14 @@
 #include <array>
 #include <span>
 #include <string_view>
+#include <vector>
 #include <gsl/assert>
 
 #include "base/core/checksums.h"
 #include "base/core/dbg.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/mem.h"
+#include "engine/file/archive_folder.h"
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
 #include "formats/pre_format.h"
@@ -37,7 +39,8 @@
 
 namespace pre {
 
-static_assert(core::layout_32bit(sizeof(ArchiveFile::FileInfo) == kFileInfoBytes), "allocated as 0x14 bytes by the original");
+static_assert(core::layout_32bit(sizeof(ArchiveFile::FileInfo) == kFileInfoBytes),
+              "allocated as 0x14 bytes by the original");
 
 namespace {
 
@@ -100,7 +103,9 @@ ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up) : block_(b
             memory::dealloc(info); // the same name twice: the first one wins
         } else {
             files_->store_entry(checksum, info);
-            info->data = std::span<uint8_t>(block, size).subspan(static_cast<size_t>(record.data - block)).data(); // (our own block, through the reader's const view)
+            info->data = std::span<uint8_t>(block, size)
+                             .subspan(static_cast<size_t>(record.data - block))
+                             .data(); // (our own block, through the reader's const view)
             info->unpacked = nullptr;
             info->position = 0;
             info->compressed_size_ = record.compressed_size;
@@ -187,7 +192,11 @@ int ArchiveFile::get_take_in(void* out, unsigned int count)
     auto left = static_cast<unsigned int>(file->size - file->position);
     const unsigned int chunk = count <= left ? count : left;
     const uint8_t* source = (file->compressed_size_ != 0) ? file->unpacked : file->data;
-    move_memory_block(out, std::span<const uint8_t>(source, static_cast<size_t>(file->size)).subspan(static_cast<size_t>(file->position)).data(), chunk);
+    move_memory_block(out,
+                      std::span<const uint8_t>(source, static_cast<size_t>(file->size))
+                          .subspan(static_cast<size_t>(file->position))
+                          .data(),
+                      chunk);
     file->position += static_cast<int>(chunk);
     return static_cast<int>(chunk);
 }
@@ -216,7 +225,6 @@ int ArchiveFile::seek_to(SeekTo seek)
 }
 
 // --- ArchiveManager ---------------------------------------------------------------------------------------------
-
 
 namespace {
 
@@ -324,8 +332,7 @@ void on_async_pre_loaded(const PreLoadDone& done)
     void* const manager = done.manager;
     void* const data = done.data;
     if (event == 3) { // finished
-        static_cast<ArchiveManager*>(manager)->finish_load(file, static_cast<uint8_t*>(data),
-                                                           size);
+        static_cast<ArchiveManager*>(manager)->finish_load(file, static_cast<uint8_t*>(data), size);
     }
 }
 } // namespace
@@ -350,8 +357,11 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         core::at(path, std::strlen(path.data()) - 1) = 'x'; // .pre -> .prx
     }
     const int start = time_milliseconds();
+    // NOT ORIGINAL - an archive unpacked into a folder (archive_folder.h): built from it, read here as the archive
+    std::vector<uint8_t> image;
+    const bool unpacked = archive_folder::build(path.data(), get_language(), &image);
 
-    if (async) {
+    if (async && !unpacked) {
         if (file::AsyncFileRef* file = file::async_open(path.data())) {
             PendingLoad& pending = core::at(pending_, queued_archive_count_);
             // The original copies with no limit; the field holds 63 characters.
@@ -371,9 +381,15 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
     }
 
     uint8_t* data = nullptr;
-    int size = file::cached_file_size(path.data());
+    int size = unpacked ? static_cast<int>(image.size()) : file::cached_file_size(path.data());
     auto block_size = static_cast<size_t>(size); // (not original: the archive's bound for its reader)
-    if (size != 0) {
+    if (unpacked) {
+        gfx::loading_console::note_file("read (folder)", path.data(), size);
+        memory::push_mem_profile(path.data());
+        data = static_cast<uint8_t*>(memory::carve(static_cast<unsigned int>(size), 1, load_heap(bottom_up)));
+        memory::pop_mem_profile();
+        std::memcpy(data, image.data(), image.size());
+    } else if (size != 0) {
         memory::push_mem_profile(path.data());
         data = static_cast<uint8_t*>(memory::carve(static_cast<unsigned int>(size), 1, load_heap(bottom_up)));
         memory::pop_mem_profile();
@@ -467,8 +483,9 @@ bool ArchiveManager::is_file_present(const char* name)
 {
     std::array<char, 128> path{};
     normalise_name(path, name);
-    return for_each_pre(
-        pres_, [&](ArchiveFile* pre) { return pre->files()->fetch_entry(checksums::hash_from_text(path.data())) != nullptr; });
+    return for_each_pre(pres_, [&](ArchiveFile* pre) {
+        return pre->files()->fetch_entry(checksums::hash_from_text(path.data())) != nullptr;
+    });
 }
 
 // 0x005B8AD0
@@ -481,7 +498,9 @@ ArchiveFile::FileInfo* ArchiveManager::open_file(const char* name)
     if (length > kScriptsArchiveNameLength && std::string_view(path.data(), length).ends_with("scripts.pre")) {
         static const auto kLetters = std::to_array<char>({'f', 's', 'd', 'i'}); // languages 3 to 6
         const int language = get_language();
-        core::at(path, length - 1) = language >= kFirstLetterLanguage && language <= kLastLetterLanguage ? core::at(kLetters, language - kFirstLetterLanguage) : 'e';
+        core::at(path, length - 1) = language >= kFirstLetterLanguage && language <= kLastLetterLanguage
+                                         ? core::at(kLetters, language - kFirstLetterLanguage)
+                                         : 'e';
     }
     return for_each_pre(pres_, [&](ArchiveFile* pre) -> ArchiveFile::FileInfo* {
         ArchiveFile::FileInfo* handle = pre->find_entry_in_archive(path.data());
@@ -553,7 +572,8 @@ void ArchiveManager::finish_load(const file::AsyncFileHandle* handle, uint8_t* d
                : nullptr;
     pres_->store_entry(checksums::hash_from_text(core::at(pending_, slot).name.data()), pre);
     --queued_archive_count_;
-    core::at(pending_, slot) = core::at(pending_, queued_archive_count_); // the last pending load takes this one's place
+    core::at(pending_, slot) =
+        core::at(pending_, queued_archive_count_); // the last pending load takes this one's place
 }
 
 // 0x005B9570

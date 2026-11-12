@@ -11,6 +11,7 @@
 #include "engine/assets/resource_entry.h"
 #include "base/core/checked_index.h"
 #include "base/core/checksums.h"
+#include "engine/script/load.h"
 #include "base/core/layout_32bit.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -49,7 +50,8 @@ constexpr size_t kPathSize = 256;
 constexpr size_t kSkinNameSize = 512;
 constexpr size_t kArrayNameSize = 128;
 constexpr int kAnimFramesBytes = 0x3C; // (the original's allocation: sizeof on x64)
-static_assert(core::layout_32bit(sizeof(gfx::JointClipFrames) == kAnimFramesBytes), "the original allocates this many bytes");
+static_assert(core::layout_32bit(sizeof(gfx::JointClipFrames) == kAnimFramesBytes),
+              "the original allocates this many bytes");
 constexpr int kNodeTableParamBytes = 0x40;
 constexpr int kNodeTableParamWords = 0x10;
 constexpr int kSceneParamWords = 0x12;
@@ -58,7 +60,8 @@ constexpr int kSceneCollisionParamWords = 0x12;
 constexpr int kOriginalSkinParamBytes = 0x14;
 constexpr int kSkinParamBytes = static_cast<int>(sizeof(SkinParams));
 constexpr int kSkinParamWords = static_cast<int>(sizeof(SkinParams) / 4);
-static_assert(core::layout_32bit(kSkinParamBytes == kOriginalSkinParamBytes), "the original's 0x14 bytes of skin parameters");
+static_assert(core::layout_32bit(kSkinParamBytes == kOriginalSkinParamBytes),
+              "the original's 0x14 bytes of skin parameters");
 static_assert(sizeof(SkinParams) % 4 == 0 && kSkinParamBytes <= kParamBlockBytes, "copied as words into a pool block");
 constexpr int kSkinCollisionParamWords = 0x11;
 constexpr int kTexDictParamWords = 0x13;
@@ -124,7 +127,8 @@ void* make_scene(const char* name, void* buffer, uint32_t size, void* textures, 
                  uint8_t flag_d)
 {
     return render::load_named_scene_from_memory(name, static_cast<const uint8_t*>(buffer), size,
-                                                static_cast<render::TextureSet*>(textures), a != 0, b != 0, flag_c != 0, flag_d);
+                                                static_cast<render::TextureSet*>(textures), a != 0, b != 0, flag_c != 0,
+                                                flag_d);
 }
 void unload_scene(void* scene, int flag)
 {
@@ -145,7 +149,7 @@ void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unl
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
 bool split_skin_name(const char* name, std::span<char> base) { return render::engine::split_skin_name(name, base); }
 gsl::owner<void*> make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, uint32_t cas_size,
-                         render::TextureSet* textures, int value, uint8_t has_cas, uint8_t flag)
+                                     render::TextureSet* textures, int value, uint8_t has_cas, uint8_t flag)
 {
     return render::engine::load_model_from_memory(checksum, static_cast<const uint8_t*>(buffer), static_cast<int>(size),
                                                   cas, cas_size, textures, value, has_cas, flag);
@@ -412,7 +416,10 @@ bool CutsceneResource::is_loaded() const { return static_cast<objects::Cinematic
 // --- node array -----------------------------------------------------------------------------------------------
 
 // 0x00408BE0
-ResourceKind NodeTableResource::fetch_kind() const { return owned_ ? ResourceKind::kOwnedNodeArray : ResourceKind::kNodeArray; }
+ResourceKind NodeTableResource::fetch_kind() const
+{
+    return owned_ ? ResourceKind::kOwnedNodeArray : ResourceKind::kNodeArray;
+}
 // 0x00408BD0
 const char* NodeTableResource::fetch_title() const { return "Node Array"; }
 
@@ -443,6 +450,13 @@ int NodeTableResource::read_in(const char* name, bool async, bool use_archive, v
         read_archive(this, &archive_, name, &size, true);
     } else {
         if (!read_file(this, name, async, &size)) {
+            // NOT ORIGINAL - no .qb (an unpacked game, tools/qbjs/unpack_game.ts): its TypeScript defines the file
+            // (script::load_qb_data's standalone hook), nothing read
+            if (script::has_qb_standalone_hook()) {
+                finish_now(this, 0);
+                memory::leave_heap_scope();
+                return 0;
+            }
             return -1; // (with the heap context still pushed, as in the original)
         }
         start_reading(this, file_ref(), octets(), size, async);
@@ -545,8 +559,10 @@ void SceneAsset::set_up_params(LoadParams load_params)
     }
     if (auto* fields = static_cast<Struct*>(structure)) {
         fields->read_hash_value(kTexDict, &args_->textures, 0);
-        args_->flags = {{static_cast<uint8_t>(fields->has_bare_flag(kAddSuperSectors)), static_cast<uint8_t>(fields->has_bare_flag(kIsSky)),
-                         static_cast<uint8_t>(fields->has_bare_flag(kIsDictionary)), static_cast<uint8_t>(fields->has_bare_flag(kIsNet))}};
+        args_->flags = {{static_cast<uint8_t>(fields->has_bare_flag(kAddSuperSectors)),
+                         static_cast<uint8_t>(fields->has_bare_flag(kIsSky)),
+                         static_cast<uint8_t>(fields->has_bare_flag(kIsDictionary)),
+                         static_cast<uint8_t>(fields->has_bare_flag(kIsNet))}};
     }
 }
 
@@ -587,8 +603,8 @@ int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void
 bool SceneAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
-    change_contents(
-        make_scene(args_->name.data(), buffer, size, textures, core::at(args_->flags, 0), core::at(args_->flags, 1), core::at(args_->flags, 2), core::at(args_->flags, 3)));
+    change_contents(make_scene(args_->name.data(), buffer, size, textures, core::at(args_->flags, 0),
+                               core::at(args_->flags, 1), core::at(args_->flags, 2), core::at(args_->flags, 3)));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref());
@@ -988,7 +1004,7 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive
 bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* model = group_data(this);
-    add_skin_collision(model, buffer, size); // (not original: the size)
+    add_skin_collision(model, buffer, size);                            // (not original: the size)
     change_contents(static_cast<render::SubMesh*>(model)->hit_shape()); // (its collision objects)
     free_load_params(args_);
     args_ = nullptr;
@@ -1071,8 +1087,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
 // 0x0040A5A0
 bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 {
-    change_contents(
-        make_tex_dict(checksum(), buffer, size, args_->flag, args_->value, args_->flag8, args_->flag9));
+    change_contents(make_tex_dict(checksum(), buffer, size, args_->flag, args_->value, args_->flag8, args_->flag9));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref());

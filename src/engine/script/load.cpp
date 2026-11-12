@@ -11,6 +11,7 @@
 #include <string_view>
 
 #include "base/core/checksums.h"
+#include "base/core/dbg.h"
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
 #include "engine/file/packs.h"
@@ -98,6 +99,7 @@ QbStandaloneHook& qb_standalone_hook()
 }
 } // namespace
 void set_qb_standalone_hook(QbStandaloneHook hook) { qb_standalone_hook() = hook; }
+bool has_qb_standalone_hook() { return qb_standalone_hook() != nullptr; }
 void replace_symbol_for_definition(SymbolTableEntry* existing, bool temporary)
 {
     get_replace(existing, temporary ? 1 : 0);
@@ -318,6 +320,17 @@ void restart_changed_scripts()
 // 0x0046ED90
 void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
+    // NOT ORIGINAL - its standalone TypeScript module defines the file (load.h; a level's node array, read as an asset:
+    // in an unpacked game - tools/qbjs/unpack_game.ts - with nothing read)
+    if (qb_standalone_hook() && qb_standalone_hook()(filename, temporary != 0)) {
+        free_script_checksum_names(); // (as read_qb_file does first)
+        restart_changed_scripts();
+        return;
+    }
+    if (data.size() < sizeof(uint32_t)) {
+        debug::printf("%s: no .qb to read\n", filename);
+        return;
+    }
     if (fetch_word32(Tokens(data)) == kPIP) {
         parse_precompiled_qb(filename, data, unused); // (unpacked: precompiled.h)
     } else {

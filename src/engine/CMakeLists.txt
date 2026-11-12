@@ -144,6 +144,7 @@ add_library(thug2_engine STATIC
     file/file_load.cpp
     file/packs.cpp
     file/archive.cpp
+    file/archive_folder.cpp
     file/disk.cpp
     file/file_system.cpp
     lists/key_map.cpp

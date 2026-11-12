@@ -73,8 +73,19 @@ export type PlanModule = {
     file: string;
     source: string;
     ir: ModuleIR;
-    versions: { origin: string; hash: string; source: string }[];
+    versions: PlanVersion[];
 };
+// A version: where it comes from, its bytes' hash, its bytes (written out) and where tools/qbjs/unpack_game.ts puts its
+// TypeScript - the .ts the game reads for it with ts_scripts=2.
+export type PlanVersion = { origin: string; hash: string; source: string; ts: string };
+
+// The .ts unpack_game.ts makes for game file `file` read from `origin` (Data, a Data\pre archive, an overlay's folder).
+export function versionTS(root: string, origin: string, file: string): string {
+    const from = unpatchedOrigin(origin);
+    const ts = file.replace(/\.qb$/i, ".ts").split("\\");
+    if (/\.(prx|pre)$/i.test(from)) return join(root, "Data", "pre", from.slice(0, -4), ...ts);
+    return join(root, ...from.split("\\"), ...ts);
+}
 
 // The modules the game would load by these names: every .qb of Data (its loose files and its archives' copies) and of
 // the data overlay. A module is planned from the version the game prefers - the overlay's, else an archive's, else the
@@ -114,19 +125,22 @@ export function planModules(root: string, only: string[] = []): PlanModule[] {
     const modules: PlanModule[] = [];
     for (const [file, all] of [...byName].sort((a, b) => a[0].localeCompare(b[0]))) {
         if (only.length && !only.some((o) => o.toLowerCase().replace(/\//g, "\\") === file)) continue;
-        const versions: PlanModule["versions"] = [];
+        const versions: PlanVersion[] = [];
         const seen = new Set<string>();
+        // (a file the game always patches - keyboard.qb - is never run unpatched where its patched version is)
+        const patched = new Set(
+            all.filter((v) => v.origin !== unpatchedOrigin(v.origin)).map((v) => unpatchedOrigin(v.origin)),
+        );
         for (const v of [...all].sort((a, b) => rank(a.origin) - rank(b.origin))) {
+            if (patched.has(v.origin)) continue;
             const hash = fileHash(v.bytes);
             if (seen.has(hash)) continue;
             seen.add(hash);
-            let source = v.path;
-            if (!source) {
-                source = join(sources, v.origin, file);
-                mkdirSync(dirname(source), { recursive: true });
-                writeFileSync(source, v.bytes);
-            }
-            versions.push({ origin: v.origin, hash, source });
+            // (every version's bytes written out: an unpacked game - the TypeScript pass's - has no .qb left)
+            const source = join(sources, v.origin, file);
+            mkdirSync(dirname(source), { recursive: true });
+            writeFileSync(source, v.bytes);
+            versions.push({ origin: v.origin, hash, source, ts: versionTS(root, v.origin, file) });
         }
         const primary = versions[0]!;
         try {
@@ -210,7 +224,21 @@ export function writePlan(folder: string, all: PlanModule[], settings: Record<st
     mkdirSync(folder, { recursive: true });
     // (a share's modules only - their argument sets still from every module's calls)
     const args = callerArguments(all);
-    const modules = share ? all.filter((m) => share.has(m.file)) : all;
+    const shared = share ? all.filter((m) => share.has(m.file)) : all;
+    // (a file with more than one version: each version run too, as it is - <file>@<hash>, its own part)
+    type Entry = PlanModule & { version?: PlanVersion };
+    const modules: Entry[] = shared.flatMap((m) => [
+        m,
+        ...(m.versions.length < 2
+            ? []
+            : m.versions.flatMap((v) => {
+                  try {
+                      return [{ ...m, ir: readIR(readFileSync(v.source), m.file), source: v.source, version: v }];
+                  } catch {
+                      return []; // (not translated: stays QB, nothing to compare)
+                  }
+              })),
+    ]);
     const entries: number[] = [];
     modules.forEach((m, i) => {
         const part = `m${i}.qb`;
@@ -252,6 +280,22 @@ export function writePlan(folder: string, all: PlanModule[], settings: Record<st
             7,
             ...stringBytes(part),
             1,
+            ...(m.version
+                ? [
+                      ...nameBytes(checksum("version")),
+                      7,
+                      ...stringBytes(m.version.hash),
+                      1,
+                      ...nameBytes(checksum("qb")),
+                      7,
+                      ...stringBytes(m.version.source),
+                      1,
+                      ...nameBytes(checksum("ts")),
+                      7,
+                      ...stringBytes(m.version.ts),
+                      1,
+                  ]
+                : []),
             4,
             1,
         );
@@ -283,11 +327,11 @@ export function writePlan(folder: string, all: PlanModule[], settings: Record<st
     writeFileSync(
         join(folder, "modules.json"),
         JSON.stringify(
-            modules.map((m) => ({
-                file: m.file,
-                source: m.source,
-                versions: m.versions,
-            })),
+            modules.map((m) =>
+                m.version
+                    ? { file: `${m.file}@${m.version.hash}`, source: m.version.source, versions: [m.version] }
+                    : { file: m.file, source: m.source, versions: m.versions },
+            ),
         ),
     );
 }
@@ -618,7 +662,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             const files = JSON.parse(readFileSync(join(at, "modules.json"), "utf8")) as {
                 file: string;
                 source: string;
-                versions: { origin: string; hash: string; source: string }[];
+                versions: PlanVersion[];
             }[];
             const cover = await readCoverage(join(at, "qb.txt"));
             const tsText = existsSync(join(at, "ts.txt")) ? readFileSync(join(at, "ts.txt"), "utf8") : "";
