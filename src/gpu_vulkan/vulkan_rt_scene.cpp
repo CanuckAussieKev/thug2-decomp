@@ -52,6 +52,7 @@ constexpr uint32_t kProbeGroup = 64;                               // the probe 
 constexpr uint32_t kIndex32Bytes = 4;
 constexpr uint32_t kIndex16Bytes = 2;
 constexpr uint64_t kNoQuery = ~0ULL;
+constexpr float kLeastAlphaRef = (1.0F / 255.0F) + 1.0e-6F; // an alpha test against at most this rejects nothing drawn
 
 // The device's address of a buffer.
 VkDeviceAddress address_of(VkDevice device, VkBuffer buffer)
@@ -124,6 +125,7 @@ struct ProbePass {
 struct PackedRay {
     std::array<float, 4> origin_t_min{};
     std::array<float, 4> direction_t_max{};
+    std::array<uint32_t, 4> cull_mask{}; // (x)
 };
 struct PackedHit {
     float t = 0.0F;
@@ -141,7 +143,7 @@ constexpr const char* kProbeShader = R"(#version 460
 #extension GL_EXT_ray_query : require
 layout(local_size_x = 64) in;
 layout(set = 0, binding = 0) uniform accelerationStructureEXT scene;
-struct Ray { vec4 origin_t_min; vec4 direction_t_max; };
+struct Ray { vec4 origin_t_min; vec4 direction_t_max; uvec4 cull_mask; };
 struct Hit { float t; uint instance; uint custom_index; uint primitive; vec2 barycentrics; uint flags; uint pad; };
 layout(std430, set = 0, binding = 1) readonly buffer Rays { Ray rays[]; };
 layout(std430, set = 0, binding = 2) writeonly buffer Hits { Hit hits[]; };
@@ -154,7 +156,7 @@ void main()
     }
     Ray ray = rays[i];
     rayQueryEXT query;
-    rayQueryInitializeEXT(query, scene, gl_RayFlagsOpaqueEXT, 0xFF, ray.origin_t_min.xyz, ray.origin_t_min.w,
+    rayQueryInitializeEXT(query, scene, gl_RayFlagsOpaqueEXT, ray.cull_mask.x & 0xFFu, ray.origin_t_min.xyz, ray.origin_t_min.w,
                           ray.direction_t_max.xyz, ray.direction_t_max.w);
     while (rayQueryProceedEXT(query)) {
     }
@@ -186,11 +188,9 @@ public:
     void remove_mesh(rt::MeshId mesh) override;
     void mesh_changed(rt::MeshId mesh) override;
     // (the material table: vulkan_rt_materials.h - any thread)
-    void set_material(rt::MaterialId material, const rt::Material& surface) override
-    {
-        backend().materials.set(material, surface);
-    }
-    void remove_material(rt::MaterialId material) override { backend().materials.remove(material); }
+    void set_material(rt::MaterialId material, const rt::Material& surface) override;
+    void remove_material(rt::MaterialId material) override;
+    void update_mesh(rt::MeshId mesh, const rt::Geometry& geometry) override;
     void begin_frame(const rt::FrameRecord& record) override;
     rt::ProbeResult probe(const rt::ProbeRequest& ray) override;
 };
@@ -201,6 +201,7 @@ struct Scene {
     VkDeviceSize scratch_alignment = 1;
     std::string device_name;
     std::unordered_map<rt::MeshId, Mesh> meshes;
+    std::unordered_map<rt::MaterialId, float> alpha_refs; // each material's alpha reference (0..1), from set_material
     std::array<FrameScene, Frames::kSlots> frames{};
     uint32_t current = 0; // the slot of the last TLAS built
     bool any_built = false;
@@ -384,6 +385,22 @@ bool read_indices(Buffer* buffer, uint32_t first, uint32_t count, bool wide, std
     return true;
 }
 
+// Index `at` of the renderer's copy of a mesh's indices (Geometry::cpu_indices: from index_offset).
+uint32_t index_at(const rt::Geometry& geometry, uint32_t at)
+{
+    const std::size_t size = geometry.indices_32bit ? kIndex32Bytes : kIndex16Bytes;
+    const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(geometry.cpu_indices),
+                                         static_cast<std::size_t>(geometry.index_count) * size);
+    if (geometry.indices_32bit) {
+        uint32_t value = 0;
+        std::memcpy(&value, bytes.subspan(at * size, size).data(), sizeof(value));
+        return value;
+    }
+    uint16_t value = 0;
+    std::memcpy(&value, bytes.subspan(at * size, size).data(), sizeof(value));
+    return value;
+}
+
 // Why a mesh can't be built ("" when it can), its triangles counted and its largest vertex index found, a strip's
 // triangles listed (32-bit, into `list`: strip triangle i is list triangle i, its odd ones turned back round).
 std::string plan_mesh(Backend& state, Mesh* mesh, std::vector<uint32_t>* list)
@@ -404,7 +421,13 @@ std::string plan_mesh(Backend& state, Mesh* mesh, std::vector<uint32_t>* list)
         if (indices == nullptr || !indices->index) {
             return "no index buffer";
         }
-        if (!read_indices(indices, geometry.index_offset, geometry.index_count, geometry.indices_32bit, &source)) {
+        if (geometry.cpu_indices != nullptr) { // (the renderer's own copy, from index_offset)
+            source.resize(geometry.index_count);
+            for (uint32_t i = 0; i < geometry.index_count; ++i) {
+                core::at(source, i) = index_at(geometry, i);
+            }
+        } else if (!read_indices(indices, geometry.index_offset, geometry.index_count, geometry.indices_32bit,
+                                 &source)) {
             return "indices past the buffer's end";
         }
     }
@@ -822,7 +845,8 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
 }
 
 // An instance as the TLAS takes it.
-VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const Mesh* mesh)
+// An instance as the TLAS takes it; `alpha_tested`: its material's alpha test can reject a texel (alpha_tested_for).
+VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const Mesh* mesh, bool alpha_tested)
 {
     VkAccelerationStructureInstanceKHR made{};
     for (std::size_t row = 0; row < given.object_to_world.size(); ++row) {
@@ -833,7 +857,7 @@ VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const 
     uint32_t mask = kMaskWorld;
     if ((given.flags & rt::kTransparent) != 0 || (given.flags & rt::kCastsShadow) == 0) {
         mask = kMaskNoShadow;
-    } else if ((given.flags & rt::kAlphaTested) != 0) {
+    } else if (alpha_tested) {
         mask = kMaskAlphaTested;
     } else if ((given.flags & rt::kObject) != 0) {
         mask = kMaskObjects;
@@ -843,8 +867,9 @@ VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const 
     made.mask = live ? mask : 0;
     made.instanceShaderBindingTableRecordOffset = 0;
     VkGeometryInstanceFlagsKHR flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-    flags |= (given.flags & rt::kOpaque) != 0 ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR
-                                             : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
+    const bool opaque = (given.flags & rt::kOpaque) != 0 ||
+                        ((given.flags & rt::kTransparent) == 0 && (given.flags & rt::kAlphaTested) != 0 && !alpha_tested);
+    flags |= opaque ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
     made.flags = flags;
     // (0: an inactive instance - a mesh not built, removed or never added - so the instance index stays the record's)
     made.accelerationStructureReference = live ? mesh->blas.address : 0;
@@ -961,6 +986,18 @@ bool plan_job(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh, MeshWork w
     return true;
 }
 
+// Whether an instance's alpha test can reject anything: flagged kAlphaTested, and its material's reference above the
+// lowest - the game's materials nearly all test against 1 of 255, which passes every texel drawn, so they are opaque
+// casters (a material not given yet: as flagged; material 0, untextured: never).
+bool alpha_tested_for(const Scene& made, const rt::Instance& given)
+{
+    if ((given.flags & rt::kAlphaTested) == 0 || given.material == 0) {
+        return false;
+    }
+    const auto found = made.alpha_refs.find(given.material);
+    return found == made.alpha_refs.end() || found->second > kLeastAlphaRef;
+}
+
 // The record's instances written for the frame's TLAS (and their meshes kept for the probe).
 void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::FrameRecord& record)
 {
@@ -970,7 +1007,8 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     instances.reserve(record.instances.size());
     for (const rt::Instance& given : record.instances) {
         const auto found = made.meshes.find(given.mesh);
-        instances.push_back(instance_of(given, found == made.meshes.end() ? nullptr : &found->second));
+        instances.push_back(instance_of(given, found == made.meshes.end() ? nullptr : &found->second,
+                                        alpha_tested_for(made, given)));
         frame.meshes.push_back(given.mesh);
     }
     if (instances.empty()) {
@@ -1153,6 +1191,51 @@ void VulkanRayTracing::add_mesh(rt::MeshId mesh, const rt::Geometry& geometry)
     entry.geometry = geometry;
 }
 
+// The same triangles from other buffers (a skinned mesh's vertex buffers take turns; buffers made again): a built
+// dynamic mesh keeps its BLAS - the next refit reads the new buffers, as mesh_changed says -, anything else is built
+// again.
+bool same_triangles(const rt::Geometry& before, const rt::Geometry& now)
+{
+    return before.dynamic && now.dynamic && before.strip == now.strip && before.indices_32bit == now.indices_32bit &&
+           before.vertex_count == now.vertex_count && before.index_count == now.index_count &&
+           before.vertex_stride == now.vertex_stride && before.position_offset == now.position_offset &&
+           before.indices == now.indices && before.index_offset == now.index_offset;
+}
+
+void VulkanRayTracing::update_mesh(rt::MeshId mesh, const rt::Geometry& geometry)
+{
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        Scene& made = scene();
+        const auto found = made.meshes.find(mesh);
+        if (made.installed && found != made.meshes.end() && found->second.built && !found->second.refused &&
+            same_triangles(found->second.geometry, geometry)) {
+            found->second.geometry = geometry;
+            return;
+        }
+    }
+    add_mesh(mesh, geometry); // (an id already registered is let go of first)
+}
+
+void VulkanRayTracing::set_material(rt::MaterialId material, const rt::Material& surface)
+{
+    {
+        const std::scoped_lock lock(backend().mutex);
+        scene().alpha_refs[material] = surface.alpha_ref;
+    }
+    backend().materials.set(material, surface); // (the table's own lock)
+}
+
+void VulkanRayTracing::remove_material(rt::MaterialId material)
+{
+    {
+        const std::scoped_lock lock(backend().mutex);
+        scene().alpha_refs.erase(material);
+    }
+    backend().materials.remove(material);
+}
+
 void VulkanRayTracing::remove_mesh(rt::MeshId mesh)
 {
     Backend& state = backend();
@@ -1312,6 +1395,7 @@ void release_ray_tracing(Backend& state)
         forget_mesh(state, made, &mesh);
     }
     made.meshes.clear();
+    made.alpha_refs.clear();
     for (FrameScene& frame : made.frames) {
         retire_structure(state, made, &frame.tlas);
         retire(made, VK_NULL_HANDLE, &frame.instances, 0);
@@ -1379,7 +1463,8 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
             core::at(packed, i) = {.origin_t_min = {std::get<0>(ray.origin), std::get<1>(ray.origin),
                                                     std::get<2>(ray.origin), ray.t_min},
                                    .direction_t_max = {std::get<0>(ray.direction), std::get<1>(ray.direction),
-                                                       std::get<2>(ray.direction), ray.t_max}};
+                                                       std::get<2>(ray.direction), ray.t_max},
+                                   .cull_mask = {ray.cull_mask, 0, 0, 0}};
         }
         std::memcpy(ray_buffer.mapped, packed.data(), ray_bytes);
         state.memory.flush(ray_buffer, 0, ray_bytes);

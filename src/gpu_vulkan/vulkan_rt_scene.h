@@ -66,13 +66,15 @@ void release_ray_tracing(Backend& state);
 // when ray tracing is on, else none.
 VkBufferUsageFlags ray_tracing_buffer_usage(const Backend& state);
 
-// Rays traced now through the current TLAS (a compute shader with ray queries, every instance taken as opaque; the
+// Rays traced now through the current TLAS (a compute shader with ray queries, every instance taken as opaque, each
+// ray's cull mask its own; the
 // frame's work finished first, then the dispatch run and waited for): the checks' and rtprobe's. Takes the lock.
 struct TracedRay {
     std::array<float, 3> origin{};
     std::array<float, 3> direction{}; // (any length: distances are in its units, t)
     float t_min = 0.0F;
     float t_max = 0.0F;
+    uint32_t cull_mask = 0xFF; // the instances it can hit (their masks: above)
 };
 struct TracedHit {
     bool hit = false;

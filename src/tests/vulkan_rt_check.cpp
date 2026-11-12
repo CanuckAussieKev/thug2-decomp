@@ -84,6 +84,16 @@ constexpr double kOriginHalf = 70.0;    // ray origins inside [-70, 70]^3
 constexpr double kInteriorLeast = 0.05; // a targeted ray's point: barycentrics at least this
 constexpr double kInteriorSpan = 1.0 - (3.0 * kInteriorLeast); // what is left of a barycentric after the margins
 constexpr uint32_t kMaterialBase = 1000;
+constexpr double kMovedPhase = 1.9; // the dynamic mesh's heights in its other buffer
+constexpr uint32_t kMaskWorld = 0x01; // the instance masks (vulkan_rt_scene.h)
+constexpr uint32_t kMaskObjects = 0x02;
+constexpr uint32_t kMaskTested = 0x04;
+constexpr uint32_t kMaskNever = 0x80;
+constexpr std::array<uint32_t, 6> kCullMasks{0xFF, 0x01, 0x02, 0x04, 0x80, 0x03}; // the rays' (one each, in turn)
+constexpr float kByteRange = 255.0F;
+constexpr float kAlphaSlack = 1.0e-3F;
+constexpr float kNoRejectAlphaRef = 1.0F / 255.0F; // the game's usual reference: rejects nothing drawn
+constexpr float kRejectingAlphaRef = 0.5F;
 
 struct Options {
     int display = 0;
@@ -394,7 +404,25 @@ MeshData tetrahedron(std::mt19937& random)
 struct SceneInstance {
     std::size_t mesh = 0; // in the meshes; past the end: a mesh id never registered
     rt::Instance instance;
+    float alpha_ref = -1.0F; // its material's (set_material); below 0: never given
 };
+
+// The mask an instance should have (written here from the masks' definitions - vulkan_rt_scene.h - not with the
+// backend's code): 0x80 transparent or no shadow, 0x04 an alpha test that can reject (a reference above 1/255, or a
+// material never given), 0x02 an object, else 0x01.
+uint32_t expected_mask(const SceneInstance& each)
+{
+    const uint32_t flags = each.instance.flags;
+    if ((flags & rt::kTransparent) != 0 || (flags & rt::kCastsShadow) == 0) {
+        return kMaskNever;
+    }
+    const bool tests = (flags & rt::kAlphaTested) != 0 && each.instance.material != 0 &&
+                       (each.alpha_ref < 0.0F || each.alpha_ref * kByteRange > 1.0F + kAlphaSlack);
+    if (tests) {
+        return kMaskTested;
+    }
+    return (flags & rt::kObject) != 0 ? kMaskObjects : kMaskWorld;
+}
 
 Transform random_transform(std::mt19937& random)
 {
@@ -428,6 +456,7 @@ struct WorldTriangle {
     uint32_t instance = 0;
     uint32_t primitive = 0;
     uint32_t material = 0;
+    uint32_t mask = 0;
 };
 
 std::vector<WorldTriangle> world_triangles(const std::vector<TestMesh>& meshes,
@@ -449,7 +478,8 @@ std::vector<WorldTriangle> world_triangles(const std::vector<TestMesh>& meshes,
                                  .c = transformed(matrix, core::at(mesh.data.positions, std::get<2>(corners))),
                                  .instance = static_cast<uint32_t>(i),
                                  .primitive = static_cast<uint32_t>(primitive),
-                                 .material = each.instance.material});
+                                 .material = each.instance.material,
+                                 .mask = expected_mask(each)});
         }
     }
     return triangles;
@@ -479,6 +509,9 @@ Reference trace_reference(const std::vector<WorldTriangle>& triangles, const Tra
     };
     std::vector<Near> candidates;
     for (const WorldTriangle& triangle : triangles) {
+        if ((triangle.mask & ray.cull_mask) == 0) {
+            continue;
+        }
         const V3 e1 = triangle.b - triangle.a;
         const V3 e2 = triangle.c - triangle.a;
         const V3 across = cross(direction, e2);
@@ -589,6 +622,7 @@ Comparison compare_rays(const std::vector<TestMesh>& meshes, const std::vector<S
     rays.reserve(static_cast<std::size_t>(count));
     for (int i = 0; i < count; ++i) {
         rays.push_back(random_ray(random, triangles, (i % 4) != 3));
+        rays.back().cull_mask = core::at(kCullMasks, static_cast<std::size_t>(i) % kCullMasks.size());
     }
     std::vector<TracedHit> hits;
     *traced = render::vulkan::trace_rays_now(rays, &hits) == render::vulkan::TraceResult::kTraced &&
@@ -772,20 +806,30 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     // instances: two of each big mesh, one of each small one, two of a mesh never registered
     std::vector<SceneInstance> instances;
     uint32_t material = kMaterialBase;
-    const auto place = [&](std::size_t mesh, uint32_t flags) {
+    // (the flags and materials make every mask: world, objects, alpha-tested - the game's 1/255 reference counting as
+    // opaque -, never; a material given with alpha_ref >= 0)
+    const auto place = [&](std::size_t mesh, uint32_t flags, float alpha_ref) {
+        const uint32_t id = material++;
+        if (alpha_ref >= 0.0F) {
+            backend->set_material(id, {.alpha_ref = alpha_ref, .flags = rt::kAlphaTested});
+        }
         instances.push_back(
             {.mesh = mesh,
-             .instance = {.mesh = 0, .material = material++, .flags = flags, .object_to_world = random_transform(random)}});
+             .instance = {.mesh = 0, .material = id, .flags = flags, .object_to_world = random_transform(random)},
+             .alpha_ref = alpha_ref});
     };
+    constexpr std::size_t kTransparentEvery = 5;
     for (std::size_t i = 0; i < small_first; ++i) {
-        place(i, rt::kOpaque | rt::kWorld | rt::kCastsShadow);
-        place(i, rt::kAlphaTested | rt::kObject);
+        place(i, rt::kOpaque | rt::kWorld | rt::kCastsShadow, -1.0F);
+        place(i, rt::kAlphaTested | rt::kObject | rt::kCastsShadow, (i % 2) == 0 ? kNoRejectAlphaRef : kRejectingAlphaRef);
     }
     for (std::size_t i = small_first; i < meshes.size(); ++i) {
-        place(i, rt::kOpaque | rt::kObject);
+        const bool transparent = i % kTransparentEvery == 0;
+        place(i, transparent ? rt::kTransparent | rt::kObject : rt::kOpaque | rt::kObject | rt::kCastsShadow,
+              (i % 3) == 0 ? kNoRejectAlphaRef : -1.0F);
     }
-    place(meshes.size(), rt::kOpaque);
-    place(meshes.size() + 1, rt::kTransparent);
+    place(meshes.size(), rt::kOpaque | rt::kCastsShadow, -1.0F);
+    place(meshes.size() + 1, rt::kTransparent, -1.0F);
 
     uint64_t frame = 1;
     draw_frame(gpu, meshes, instances, frame++, false);
@@ -833,6 +877,35 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
         check_rays(tally, "after the refits", meshes, instances, options.rays, random);
     }
 
+    // update_mesh: the dynamic mesh's vertices in another buffer (as a skinned mesh's take turns) - its BLAS kept and
+    // refitted -, and a static mesh given again (built again)
+    {
+        TestMesh& waves = core::at(meshes, dynamic_mesh);
+        const uint64_t builds_before = render::vulkan::scene_stats().builds;
+        waves.data.positions = grid(kSide, kGridSize, kMovedPhase).positions;
+        const std::vector<uint8_t> moved = vertex_bytes(waves.data, waves.layout);
+        render::GpuVertexBuffer* other = nullptr;
+        const bool made_other = gpu.create_vertex_buffer(static_cast<uint32_t>(moved.size()), kDynamic, kFvf,
+                                                         value::kPoolDefault, &other) == value::kResultOk &&
+                                fill_vertices(gpu, other, moved, true);
+        rt::Geometry geometry = waves.geometry;
+        geometry.vertices = other;
+        backend->update_mesh(waves.id, geometry);
+        backend->mesh_changed(waves.id);
+        gpu.release_vertex_buffer(waves.vertices);
+        waves.vertices = other;
+        waves.geometry = geometry;
+        const TestMesh& first = meshes.front();
+        backend->update_mesh(first.id, first.geometry);
+        draw_frame(gpu, meshes, instances, frame++, true);
+        const render::vulkan::SceneStats after = render::vulkan::scene_stats();
+        tally->check(made_other && after.builds == builds_before + 1 && after.built == meshes.size(),
+                     text::format("update_mesh: the dynamic mesh refitted from another buffer, the static one built "
+                                  "again (%llu builds)",
+                                  static_cast<unsigned long long>(after.builds - builds_before)));
+        check_rays(tally, "after update_mesh", meshes, instances, options.rays / 2, random);
+    }
+
     // a mesh removed (its instances then hit nothing), and added again under a new id
     {
         TestMesh& strip = core::at(meshes, 2);
@@ -853,7 +926,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     {
         for (int copy = 0; copy < 3; ++copy) {
             for (std::size_t i = 0; i < small_first; ++i) {
-                place(i, rt::kOpaque);
+                place(i, rt::kAlphaTested | rt::kWorld | rt::kCastsShadow, kRejectingAlphaRef);
             }
         }
         for (SceneInstance& each : instances) {

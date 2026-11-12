@@ -15,6 +15,7 @@
 #include "platform/crt.h"
 #include "base/core/owned_element.h"
 #include "base/core/no_destroy.h"
+#include "render_pc/rt_record.h"
 
 namespace render {
 
@@ -135,6 +136,7 @@ long VertexBuffer::get_unlock()
     if ((lock_flags_ & gpu_value::kLockReadOnly) == 0U) {
         if ((lock_flags_ & gpu_value::kLockDiscard) != 0U) {
             lock_flags_ = kNotLocked;
+            rt_record::vertex_buffer_written(this); // (not original: ray tracing's record - its mesh changed)
             return gpu().unlock_vertex_buffer(buffer_);
         }
         if ((flags & kShared) != 0U) {
@@ -145,6 +147,7 @@ long VertexBuffer::get_unlock()
             std::memcpy(card, data_, lock_size_); // (from the copy's start, whatever the offset)
             gpu().unlock_vertex_buffer(buffer_);
         }
+        rt_record::vertex_buffer_written(this); // (not original: ray tracing's record - its mesh changed)
     }
     lock_flags_ = kNotLocked;
     return 0;
