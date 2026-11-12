@@ -140,6 +140,12 @@ texture-list script that concatenates fourteen global arrays: 295 ms -> 58 ms), 
 hashes a word at a time. What remains (~0.75 s at boot) is QuickJS running the exact value layer, ~0.1 ms a resume -
 for the natural-TypeScript steps to shrink.
 
+2026-11-12 (x64 release, workspace, `tools/game/load_time.ps1`: start to free skate in Boston, 3 runs each): QB 4.4 s,
+TypeScript beside the `.qb` 6.6 s, standalone 8.6 s. Standalone's extra 2 s are its 234 modules building the globals
+in JavaScript (the CAS tables, animevents, terrain - 189 ms the largest) where the hybrid game reads them from the
+binary `.qb`; the runtime copies each global once more before the game converts it (`defineGlobal`), a copy the game
+mode no longer needs - the first thing to drop, with the check run again.
+
 ## Types
 
 `[debug] ts_types=1` (with ts_scripts=1) records what each site of the TypeScript sees: each parameter read's type (by
