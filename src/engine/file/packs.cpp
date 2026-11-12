@@ -42,7 +42,9 @@ constexpr unsigned int kSectorMaskUnsigned = 0x7FFU;
 constexpr size_t kPackPathSize = 500;
 constexpr int kUsagePauseSpins = 100000; // the original's pause after each usage line
 
-constexpr int kMaxLoadedFiles = 200;
+// NOT ORIGINAL - room for 4096 (the original's 200): an unpacked game (tools/qbjs/unpack_game.ts) reads a resident
+// archive's files - unloadableanims' 1,006 - loose, each held here.
+constexpr int kMaxLoadedFiles = 4096;
 constexpr int kPreloadCapacity = 100;
 
 std::array<LoadedFile, kMaxLoadedFiles>& loaded_files()
@@ -322,6 +324,13 @@ void load_pre(const char* name)
 
     if (!loaded) {
         file::Hdl file = file::unseal(path.data(), "rb");
+        // NOT ORIGINAL - no archive, no folder: nothing loaded (an unpacked game reads its files loose)
+        if (!file) {
+            if (patch) {
+                memory::dealloc(patch);
+            }
+            return;
+        }
         file_size = file::get_file_size(file);
         util::ByteReader patch_reader(patch, patch_size);
         if (patched && !pre_format::read_patch_header(patch_reader, &patch_header)) {

@@ -1058,8 +1058,14 @@ bool run_module(const char* filename, bool temporary, const std::string& source,
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
         ++profile().loads;
         profile().load_ns += static_cast<uint64_t>(ms.count()) * 1000000U;
-        get_log("ts: %s - its TypeScript module loaded (%u ms%s)", filename, static_cast<unsigned>(ms.count()),
-                cached ? ", compiled before" : "");
+        // (ts_scripts=2: the .ts read - the game still asks for its files by their .qb names)
+        if (relative.ends_with(".ts")) {
+            get_log("ts: %s loaded (%u ms%s)", relative.c_str(), static_cast<unsigned>(ms.count()),
+                    cached ? ", compiled before" : "");
+        } else {
+            get_log("ts: %s - its TypeScript module loaded (%u ms%s)", filename, static_cast<unsigned>(ms.count()),
+                    cached ? ", compiled before" : "");
+        }
         loaded_files()[checksums::hash_from_text(filename)].module = true;
     } else {
         get_log("ts: %s - its TypeScript module failed: %s", filename, error.c_str());

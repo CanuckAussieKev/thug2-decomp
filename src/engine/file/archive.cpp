@@ -427,10 +427,17 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         }
 
         file::Hdl file = file::unseal(path.data(), "rb");
-        if (!file && (report_missing || debug_checks())) {
-            debug::printf("couldn't open %s.  Make sure the, if this is a level PRE file, that the name in "
-                          "levels.q matches the file on disk\n",
-                          path.data());
+        // NOT ORIGINAL - no archive, no folder: nothing loaded (an unpacked game - tools/qbjs/unpack_game.ts - reads
+        // its files loose). The original went on reading through the missing file when it wasn't to report it.
+        if (!file) {
+            if (report_missing || debug_checks()) {
+                debug::printf("couldn't open %s.  Make sure the, if this is a level PRE file, that the name in "
+                              "levels.q matches the file on disk\n",
+                              path.data());
+            }
+            if (patch) {
+                memory::dealloc(patch);
+            }
             return;
         }
         const uint32_t file_size = file::get_file_size(file);

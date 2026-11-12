@@ -93,14 +93,21 @@ QuickJS version, the word size and the module's own bytes); later starts read th
 **Unpacked** (`[features] ts_scripts=2`, `node tools/qbjs/unpack_game.ts --game <folder>`): the game with no archive
 and no `.qb`. The tool moves every archive in `Data\pre` (`.prx`, the French and German `.prf` / `.prd` and their
 patches `.ppf` / `.ppd`) and every `.qb` (Data's, the data overlay's, the ported levels' overlays) to
-`<game>\thug2-decomp-backup` at the same paths, unpacks each archive into a folder where it was
-(`Data\pre\BO_scripts\levels\bo\...`; French / German: `BO_scripts.fr` / `.de`, the patch applied) and writes each
-`.qb`, loose or in an archive, as a `.ts` where it was. `--restore` puts everything back (its record:
+`<game>\thug2-decomp-backup` at the same paths, writes each `.qb` as a `.ts` and puts every file of the archives loose
+where its name says in Data (`Data\levels\bo\BO.scn.xbx`, `Data\levels\bo\BO_scripts.ts`, `Data\sounds\pcm\...`). The
+PC game already ships loose copies of nearly all of them (6,453 of 6,806 names; 351 sounds and two `.bin` files were
+only in archives); the archive's copy goes over a loose one that differs - the game read a loaded archive's copy
+first, and loads each archive before its files - which is only the scripts (the archives' copies without the loose
+ones' debug prints) and two of Training's textures. With no archive file and no folder, both archive loaders load
+nothing (`archive.cpp`, `packs.cpp`) and the game reads every file loose; the loose-file table holds 4,096 files, not
+200 (a resident archive's files - `unloadableanims`' 1,006 - are held one by one). The French and German archives are
+unpacked into folders, `Data\pre\BO_scripts.fr` / `.de` (the patch applied), and `unpack_game.ts --check` keeps every
+archive in its folder (the script check runs each version of a file). `--restore` puts everything back (its record:
 `thug2-decomp-backup\unpacked.json`); `--refresh` puts back and unpacks again - after `make_menu_level.ts` or a
 converter rewrote an overlay (until then the game reads such a file's new `.qb`, not its old `.ts`: the `.ts` names the
 hash of the `.qb` it was made from).
 
-- **Archives as folders** (`src/engine/file/archive_folder.h`): when an archive file isn't there and its folder is,
+- **Archives as folders** (`src/engine/file/archive_folder.h`; the French and German ones, the check's): when an archive file isn't there and its folder is,
   both loaders (the pre manager's, the packs') build the same archive in memory from the folder - every file in it,
   stored unpacked - so an archive is in and out of memory exactly when it was, and everything after reads it as before.
 - **A file's TypeScript** (`ts_bridge.cpp load_standalone`, asked first by `load_qb` and `load_qb_data` - a level's

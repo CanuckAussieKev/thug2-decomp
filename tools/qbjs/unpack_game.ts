@@ -1,11 +1,13 @@
 // NOT ORIGINAL - a game folder without archives or .qb files: the game run from loose files and TypeScript
 // ([features] ts_scripts=2, docs/qb-ts.md "Unpacked"). Every archive in Data\pre (.prx, the French and German .prf /
 // .prd and their patches .ppf / .ppd) and every .qb (Data's, the data overlay's, the ported levels' overlays) is moved
-// to <game>\thug2-decomp-backup at the same path; each archive is unpacked into a folder where it was -
-// Data\pre\BO_scripts\levels\bo\... (French / German: Data\pre\BO_scripts.fr \ .de, their patch applied) - which the
-// game loads in its place (src/engine/file/archive_folder.h); and each .qb, loose or in an archive, becomes a .ts where
-// it was: its TypeScript (emit_ts.ts), which the game runs as it loads the file (src/script_qb/ts_bridge.cpp
-// load_standalone). The .ts's last line - `// qb-file {...}` - is its manifest: the file's source name, the hash of the
+// to <game>\thug2-decomp-backup at the same path; each .qb becomes a .ts: its TypeScript (emit_ts.ts), which the game
+// runs as it loads the file (src/script_qb/ts_bridge.cpp load_standalone); and every file of the archives goes loose
+// where its name says in Data (Data\levels\bo\BO.scn.xbx, Data\levels\bo\BO_scripts.ts...), the archive's copy over a
+// loose one that differs (that one backed up too) - the game loads no archive and reads it all loose. The French and
+// German archives are unpacked into folders, Data\pre\BO_scripts.fr \ .de (their patch applied), which the game loads
+// in their place (src/engine/file/archive_folder.h). --check keeps every archive in its folder - the script check runs
+// each version of a file. The .ts's last line - `// qb-file {...}` - is its manifest: the file's source name, the hash of the
 // .qb it was made from and the file's checksum names.
 //
 //   node tools/qbjs/unpack_game.ts --game <folder>            unpack (the game folder as installed)
@@ -195,50 +197,52 @@ export function unpack(game: string, check = false): { record: Record; failed: s
         save();
     }
 
-    // One copy of each script (not --check: the check runs every version). The game reads a loaded archive's copy
-    // before the loose file, and loads each archive before its scripts - qb_scripts at boot, a level's *_scripts just
-    // before the level's files -, so the archives' copies are the ones it runs; the loose copies differ from them only
-    // by debug prints. Each archive's .ts goes where the loose file is (Data\levels\bo\BO_scripts.ts), the loose copy
-    // replaced; a name two archives hold differently stays in both. The French and German folders keep their own.
+    // No archive at all (not --check: the check runs every version, each archive's in its folder). The game reads a
+    // loaded archive's copy of a file before the loose one and loads each archive before its files - qb_scripts at boot,
+    // a level's archives as the level loads -, so every file goes where its name says in Data (levelsoBO.scn.xbx,
+    // soundspcm..., scripts...), the archive's copy over a loose one that differs (the loose scripts' debug prints,
+    // two of Training's textures); the archive folders go. A name two archives hold differently stays in its folder;
+    // the French and German folders stay as they are. With no archive file and no folder, both loaders load nothing
+    // (archive.cpp, packs.cpp) and the game reads the files loose.
     if (!check) {
-        // (by name in Data, lower case: each archive's copy and its name as the archive spells it)
-        const copies = new Map<string, { path: string; inData: string }[]>();
+        const made = new Set(record.made.map((m) => m.toLowerCase()));
+        const placed = new Map<string, Buffer>(); // (by name in Data, lower case)
         for (const folder of record.folders) {
-            if (/\.(fr|de)$/i.test(folder)) continue;
+            if (/.(fr|de)$/i.test(folder)) continue;
             for (const path of walk(join(root, folder))) {
-                if (!path.toLowerCase().endsWith(".ts")) continue;
                 const inData = relative(join(root, folder), path);
                 const key = inData.toLowerCase();
-                copies.set(key, [...(copies.get(key) ?? []), { path, inData }]);
+                const data = readFileSync(path);
+                const before = placed.get(key);
+                if (before) {
+                    if (before.equals(data)) rmSync(path);
+                    continue;
+                }
+                placed.set(key, data);
+                const target = join(root, "Data", inData);
+                if (!existsSync(target)) make(target, data);
+                else if (made.has(rel(target).toLowerCase())) writeFileSync(target, data);
+                else if (!readFileSync(target).equals(data)) {
+                    move(target);
+                    make(target, data);
+                }
+                rmSync(path);
             }
+            save();
         }
-        const made = new Map(record.made.map((m) => [m.toLowerCase(), m]));
-        for (const [key, list] of copies) {
-            const text = readFileSync(list[0]!.path, "utf8");
-            if (list.some((c) => readFileSync(c.path, "utf8") !== text)) continue;
-            // (the loose file's own spelling when there is one)
-            const loose = made.get(join("Data", key).toLowerCase());
-            if (loose) writeFileSync(join(root, loose), text);
-            else make(join(root, "Data", list[0]!.inData), text);
-            for (const c of list) rmSync(c.path);
-        }
-        // (the folders the scripts left empty)
+        // (the folders left empty)
         const prune = (path: string): boolean => {
             const empty = readdirSync(path).every((n) => statSync(join(path, n)).isDirectory() && prune(join(path, n)));
             if (empty) rmSync(path, { recursive: true });
             return empty;
         };
-        for (const folder of record.folders)
-            for (const n of readdirSync(join(root, folder))) {
-                const sub = join(root, folder, n);
-                if (statSync(sub).isDirectory()) prune(sub);
-            }
+        for (const folder of record.folders) if (existsSync(join(root, folder))) prune(join(root, folder));
         save();
     }
     writeFileSync(
         join(root, BACKUP, "README.txt"),
-        "The game's archives and .qb scripts, moved here by tools/qbjs/unpack_game.ts: the game runs from the\r\n" +
-            "unpacked folders in Data\\pre and the .ts files (thug2-decomp.ini [features] ts_scripts=2).\r\n" +
+        "The game's archives and .qb scripts (and the loose files the archives' copies replaced), moved here by\r\n" +
+            "tools/qbjs/unpack_game.ts: the game runs from loose files and .ts scripts (ts_scripts=2).\r\n" +
             "To put everything back: node tools/qbjs/unpack_game.ts --game <this game folder> --restore\r\n",
     );
     return { record, failed };
@@ -257,8 +261,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const { record, failed } = unpack(game, args.includes("--check"));
         for (const name of failed) console.log(`stays QB (doesn't translate): ${name}`);
         console.log(
-            `unpacked: ${record.moved.length} files moved to ${BACKUP}, ${record.folders.length} archive folders, ` +
-                `${record.made.length} .ts beside them (and the archives' own)`,
+            `unpacked: ${record.moved.length} files moved to ${BACKUP}, ${record.made.length} files made (the .ts and the ` +
+                `archives' files, loose)`,
         );
     }
 }
