@@ -23,6 +23,7 @@
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 
 struct SDL_Window;
@@ -216,6 +217,7 @@ struct Backend {
     VkExtent2D shown_extent{}; // the swapchain's size when last made again (logged when it changes)
     GpuGammaRamp gamma{};
     std::vector<std::unique_ptr<UiWindow>> ui_windows; // the UI's own windows (vulkan_ui_windows.cpp)
+    MaterialTable materials; // NOT ORIGINAL - ray tracing's material table (vulkan_rt_materials.h), when it is enabled
 };
 
 // The one backend (made on first use, never destroyed).
