@@ -185,11 +185,12 @@ const std::vector<GroupSet>& bunches()
     static const std::vector<GroupSet> kGroups = {
         {.id = "graphics", .name = text_tools::kGroupGraphics, .rows = {0, 1, 2, 3}},
         {.id = "interface", .name = text_tools::kGroupInterface, .rows = {4, 5, 6, 7}},
-        {.id = "gameplay", .name = text_tools::kGroupGameplay, .rows = {8, 9, 10, 11, 12}},
-        {.id = "online", .name = text_tools::kGroupOnline, .rows = {13, 14, 15}},
-        {.id = "mods", .name = text_tools::kGroupMods, .rows = {16, 17, 18}},
-        {.id = "sound", .name = text_tools::kGroupSound, .rows = {19}},
+        {.id = "gameplay", .name = text_tools::kGroupGameplay, .rows = {8, 9, 10, 11}},
+        {.id = "online", .name = text_tools::kGroupOnline, .rows = {12, 13, 14}},
+        {.id = "mods", .name = text_tools::kGroupMods, .rows = {15, 16, 17}},
+        {.id = "sound", .name = text_tools::kGroupSound, .rows = {18}},
     };
+    // (the rows are get_specs()'s indices: a setting added or removed there moves the groups after it)
     return kGroups;
 }
 int get_find(const std::string& section, const std::string& key)
