@@ -236,6 +236,21 @@ void world_view_drawn(const ViewDrawn& view);
 // Whether any listens (render_pc skips filling a ViewDrawn when none does).
 bool view_listened();
 
+// --- HDR: the world's colour in floating point (added by the HDR round; the Vulkan Gpu's [Graphics] rt_hdr) ---------
+// While hdr_colour() is true the targets the world is drawn into hold 16-bit floats (RGBA16F): the back buffer (its
+// format still reported as the settings' 8-bit one - copies and read-backs out of it converted), the full-size screen
+// copies the world goes into while a blur or the bloom is on, [Graphics] msaa's scene surface and the game view's
+// picture (render_pc asks for them through world_target_format). Values above 1 are kept there - light the effects add
+// at opaque_drawn (R4 / R5, one-bounce light) and world_drawn (fog) - until the tone mapping (ViewOrder::kToneMapping,
+// last at world_drawn) brings the view back to 0 - 1 in place; the 2D is drawn over that as before. False (the
+// default, Direct3D 9, rt_hdr=0): 8-bit targets, every value clipped to 0 - 1 by each draw as the original's.
+// The values are the game's own display-referred colours (not linear): 1 is the original's white.
+bool hdr_colour();
+void set_hdr_colour(bool on); // (the backend, when it makes its device; before render_pc makes its targets)
+// `format` (a Direct3D 9 colour format) for a target the world is drawn into: A8R8G8B8 / X8R8G8B8 as
+// gpu_value::kFormatA16B16G16R16F / kFormatX16B16G16R16F while hdr_colour(), else unchanged.
+uint32_t world_target_format(uint32_t format);
+
 // (added for R4's sun) A sun set by hand - the console's `rt sun <x> <y> <z>` (toward the sun, any length), `rt sun
 // off` - used by the shadow pass instead of the one it finds itself. Null / false: none set.
 void set_sun_override(const std::array<float, 3>* toward_sun);

@@ -98,4 +98,22 @@ struct RtReflectionSettings {
 void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();
 
+// NOT ORIGINAL - HDR rendering, tone mapping and colour grading (vulkan_hdr.h, docs/design/vulkan.md "HDR"): [Graphics]
+// rt_hdr, rt_exposure, rt_tonemap, rt_saturation, rt_contrast, rt_white_point, rt_grade_lut. Independent of ray
+// tracing. While `on` is false nothing changes; on, the world is drawn into 16-bit float targets and brought back to the
+// display's 0 - 1 by a tone-mapping pass before the 2D. Read when the device is made (`on`; the rest any time).
+inline constexpr float kHdrWhitePoint = 1.25F; // (rt_white_point's default)
+struct HdrSettings {
+    bool on = false;
+    float exposure = 0.0F;   // stops (0: 1x; +1: twice the light)
+    unsigned tonemap = 0;    // 0: the colours as drawn, a soft shoulder from just below 1 to the white point;
+                             // 1: ACES (Narkowicz's fit), applied to the colours made linear (gamma 2.2)
+    float saturation = 1.0F; // 1: unchanged; 0: grey; above 1: more
+    float contrast = 1.0F;   // 1: unchanged; a power around mid-grey (0.5)
+    float white_point = kHdrWhitePoint; // the value (1 - 8) shown as white; 1: everything above 1 clipped
+    std::string grade_lut;   // a 3D LUT (.cube) applied last; empty: none (a path, as given)
+};
+void set_hdr_settings(const HdrSettings& settings);
+[[nodiscard]] HdrSettings hdr_settings();
+
 } // namespace render::vulkan

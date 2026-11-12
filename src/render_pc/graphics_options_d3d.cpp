@@ -6,6 +6,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/graphics_options.h"
+#include "engine/gfx/rt_scene.h"
 
 #include <cstdint>
 
@@ -112,7 +113,8 @@ void create_scene_target()
     }
     const long colour = gpu().create_render_target({.width = pp.width,
                                                     .height = pp.height,
-                                                    .format = pp.colour_format,
+                                                    // (HDR: floats, as the screen copies it is resolved into)
+                                                    .format = rt::world_target_format(pp.colour_format),
                                                     .samples = pp.samples,
                                                     .quality = pp.sample_quality,
                                                     .lockable_or_discard = false},

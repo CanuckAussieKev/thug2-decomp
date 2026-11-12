@@ -127,6 +127,27 @@ void install_vulkan()
     render::vulkan::set_rt_reflection_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),
          .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength)});
+    // NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h): off unless asked for; no ray tracing
+    // needed. The grading table's path is the game folder's unless it is a full one.
+    {
+        constexpr std::size_t kLongestPath = 260;
+        std::array<char, kLongestPath> lut{};
+        build_info::fetch_text(build_info::kGraphics, "rt_grade_lut", "", lut.data(), lut.size());
+        std::string lut_path(lut.data());
+        const bool full = lut_path.find(':') == 1 || lut_path.starts_with('\\') || lut_path.starts_with('/');
+        if (!lut_path.empty() && !full) {
+            lut_path = build_info::executable_directory() + lut_path;
+        }
+        const render::vulkan::HdrSettings defaults;
+        render::vulkan::set_hdr_settings(
+            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false),
+             .exposure = ini_float("rt_exposure", defaults.exposure),
+             .tonemap = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_tonemap", 0))),
+             .saturation = ini_float("rt_saturation", defaults.saturation),
+             .contrast = ini_float("rt_contrast", defaults.contrast),
+             .white_point = ini_float("rt_white_point", defaults.white_point),
+             .grade_lut = lut_path});
+    }
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

@@ -27,12 +27,14 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_jpeg.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_hdr.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
@@ -380,6 +382,10 @@ bool read_target_bytes(Backend& state, Surface* surface)
         return false;
     }
     const Extent extent = level_extent(source.image->extent, source.level);
+    // NOT ORIGINAL - HDR (vulkan_hdr.h): a float back buffer whose surface says 8 bits read back as 8 bits
+    if (source.image->format == kHdrFormat && d3d_pixel_bytes(surface->d3d_format) == 4 && source.level == 0) {
+        return read_hdr_as_bgra8(state, source.image, extent, &surface->bytes);
+    }
     const LevelLayout layout = image_level_layout(*source.plan, surface->d3d_format, extent);
     surface->bytes.resize(layout.bytes());
     return state.memory.read_image_level(source.image, source.level, &surface->bytes);
@@ -985,10 +991,25 @@ public:
             // a multisampled surface: only resolved whole into one of its size (StretchRect's rule)
             const bool whole = source_area == nullptr && target_area == nullptr && to.level == 0 &&
                                from_size.width == to_size.width && from_size.height == to_size.height;
-            if (!whole || from.image->format != to.image->format) {
+            if (!whole) {
                 return kInvalid;
             }
-            Memory::record_resolve(outside_pass(state), from.image, to.image);
+            if (from.image->format != to.image->format) {
+                // NOT ORIGINAL - HDR (vulkan_hdr.h): a float target into an 8-bit one (the screenshot's resolve of
+                // the back buffer) resolved in its own format first, then converted by a blit
+                if (from.image->format != kHdrFormat && to.image->format != kHdrFormat) {
+                    return kInvalid;
+                }
+                VkCommandBuffer commands = outside_pass(state);
+                Image* const resolved = resolve_for_copy(state, commands, from.image);
+                if (resolved == nullptr) {
+                    return kInvalid;
+                }
+                Memory::record_blit(commands, resolved, area_of(nullptr, from_size, 0), to.image,
+                                    area_of(nullptr, to_size, to.level), VK_FILTER_NEAREST);
+            } else {
+                Memory::record_resolve(outside_pass(state), from.image, to.image);
+            }
         } else {
             Memory::record_blit(outside_pass(state), from.image, area_of(source_area, from_size, from.level), to.image,
                                 area_of(target_area, to_size, to.level), filter_of(filter));
@@ -1116,7 +1137,11 @@ public:
                 return kInvalid;
             }
             back->bytes.resize(d3d_level_layout(back->d3d_format, back->extent).bytes());
-            if (!state.memory.read_image_level(&state.present_source, 0, &back->bytes)) {
+            if (state.present_source.format == kHdrFormat) { // (NOT ORIGINAL - HDR: converted, vulkan_hdr.h)
+                if (!read_hdr_as_bgra8(state, &state.present_source, back->extent, &back->bytes)) {
+                    return kInvalid;
+                }
+            } else if (!state.memory.read_image_level(&state.present_source, 0, &back->bytes)) {
                 return kInvalid;
             }
         } else if (!read_target_bytes(state, back)) {
@@ -1524,10 +1549,11 @@ bool make_device_surfaces(Backend& state)
     GpuSurface* back = nullptr;
     GpuSurface* depth = nullptr;
     const GpuSettings& settings = state.settings;
+    // (NOT ORIGINAL - HDR, vulkan_hdr.h: 16-bit floats, its format still reported as the settings' below)
     if (make_render_target(state,
                            {.width = settings.width,
                             .height = settings.height,
-                            .format = gpu_value::kFormatA8R8G8B8,
+                            .format = rt::hdr_colour() ? gpu_value::kFormatA16B16G16R16F : gpu_value::kFormatA8R8G8B8,
                             .samples = settings.samples,
                             .quality = settings.sample_quality,
                             .lockable_or_discard = false},
@@ -1575,6 +1601,7 @@ long create_device_objects(Backend& state)
     if (!state.ring.init(&state.memory) || !create_draw_objects(state)) {
         return kInvalid;
     }
+    rt::set_hdr_colour(hdr_wanted(state)); // NOT ORIGINAL - [Graphics] rt_hdr (vulkan_hdr.h): before the targets
     if (!make_device_surfaces(state)) {
         return kInvalid;
     }
