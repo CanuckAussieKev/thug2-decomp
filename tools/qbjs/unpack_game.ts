@@ -2,7 +2,8 @@
 // ([features] ts_scripts=1, docs/qb-ts.md "Unpacked"). Every archive in Data\pre (.prx, the French and German .prf /
 // .prd and their patches .ppf / .ppd) and every .qb (Data's, the data overlay's, the ported levels' overlays) is moved
 // to <game>\thug2-decomp-backup at the same path; each .qb becomes a .ts: its TypeScript (emit_ts.ts), which the game
-// runs as it loads the file (src/script_qb/ts_bridge.cpp load_standalone); and every file of the archives goes loose
+// runs as it loads the file (src/script_qb/ts_bridge.cpp load_standalone), and a .json beside it: its globals
+// (emit_data.ts, qb_data.ts - read by the game straight into its cells); and every file of the archives goes loose
 // where its name says in Data (Data\levels\bo\BO.scn.xbx, Data\levels\bo\BO_scripts.ts...), the archive's copy over a
 // loose one that differs (that one backed up too) - the game loads no archive and reads it all loose. The French and
 // German archives aren't unpacked: their scripts are the English ones with other text, so the scripts' text becomes
