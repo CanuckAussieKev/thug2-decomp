@@ -83,6 +83,15 @@ void install_vulkan()
              std::max(1, build_info::get_int(build_info::kGraphics, "rt_ao_rays",
                                              static_cast<int>(render::vulkan::RtAoSettings{}.rays)))),
          .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_ao_denoise", true)});
+    // NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h): likewise
+    render::vulkan::set_rt_gi_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_gi", false),
+         .strength = ini_float("rt_gi_strength", render::vulkan::RtGiSettings{}.strength),
+         .distance = ini_float("rt_gi_distance", render::vulkan::RtGiSettings{}.distance),
+         .rays = static_cast<unsigned>(
+             std::max(1, build_info::get_int(build_info::kGraphics, "rt_gi_rays",
+                                             static_cast<int>(render::vulkan::RtGiSettings{}.rays)))),
+         .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_gi_denoise", true)});
     // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
     render::vulkan::set_rt_reflection_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),

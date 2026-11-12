@@ -10,6 +10,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,6 +25,9 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_materials.h"
+#include "gpu_vulkan/vulkan_rt_scene.h"
+#include "gpu_vulkan/vulkan_ring.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -37,10 +41,21 @@ constexpr uint64_t kReportTargets = 0x52350003U;
 constexpr uint64_t kReportPipeline = 0x52350004U;
 constexpr uint64_t kReportFirstPass = 0x52350005U;
 constexpr uint64_t kReportImages = 0x52350006U;
+constexpr uint64_t kReportNoMaterials = 0x52350007U;
+constexpr uint64_t kReportIndirect = 0x00000100U; // (added to a key: the indirect light's report)
 
 constexpr float kMaxStrength = 1.0F;
 constexpr float kMinRadius = 1.0F;
 constexpr float kMaxRadius = 1000.0F;
+// The indirect light's.
+constexpr float kMaxGiStrength = 4.0F;
+constexpr float kMaxGiDistance = 5000.0F;
+constexpr uint32_t kGiMask = 0x01 | 0x02 | 0x04; // the bounce rays (and the surface's own): world, objects, alpha-tested
+constexpr uint32_t kGiSunMask = 0x01 | 0x02;      // the rays toward the sun: the opaque world and objects
+constexpr float kSunDistance = 20000.0F;         // how far a ray toward the sun looks (world units)
+constexpr float kBounceSpread = 0.05F; // a bounce ray's footprint grows this much per unit (it stands for a wide cone)
+constexpr float kSmallestUnit = 1e-3F; // (the rays' noise unit, however dark the level's lights)
+constexpr double kShortestDirection = 1e-6; // a light direction shorter than this: none
 constexpr unsigned kMaxRays = 16;
 constexpr float kOffsetScale = 1.0F; // the rays' start pushed off the surface by this much, growing with distance
 constexpr uint32_t kGroupSide = 8;   // the compute passes' work groups: 8 x 8 pixels
@@ -97,12 +112,30 @@ bool inside(ivec2 local) { return all(greaterThanEqual(local, ivec2(0))) && all(
 // How far apart two points on one surface may be from its plane (world units) at `distance` from the camera: the
 // depth's precision falls with distance.
 float plane_tolerance(float distance) { return 0.5 + 0.005 * distance + 1.2e-7 * distance * distance; }
+
+// What the denoiser filters (VALUE_RGB: the indirect light's colour, its history's length in a; else the occlusion in r,
+// the length in g), how far apart two values are, and the range a value is kept in.
+#ifdef VALUE_RGB
+#define Value vec3
+Value value_of(vec4 t) { return t.rgb; }
+float length_of(vec4 t) { return t.a; }
+vec4 packed(Value v, float history_length) { return vec4(v, history_length); }
+float difference(Value a, Value b) { vec3 d = abs(a - b); return max(d.x, max(d.y, d.z)); }
+Value kept_in_range(Value v) { return max(v, vec3(0.0)); }
+#else
+#define Value float
+Value value_of(vec4 t) { return t.r; }
+float length_of(vec4 t) { return t.g; }
+vec4 packed(Value v, float history_length) { return vec4(v, history_length, 0.0, 0.0); }
+float difference(Value a, Value b) { return abs(a - b); }
+Value kept_in_range(Value v) { return clamp(v, 0.0, 1.0); }
+#endif
 )";
 
 // Step 1: the rays. matrix: (pixel x, pixel y, depth, 1) -> world (the target's pixels); rect: the viewport; camera: the
 // camera's position (w: the depth sample's offset from the pixel's centre, y); params: x the rays' length, y rays, z the
-// offset's scale, w the depth sample's offset (x); extra: x the frame's index, y the mask.
-constexpr const char* kTraceBody = R"(
+// offset's scale, w the depth sample's offset (x); extra: x the frame's index, y the mask. What both effects' rays share:
+constexpr const char* kTraceShared = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;
 #ifdef MULTISAMPLED
@@ -153,6 +186,55 @@ uint hash(uint x)
     return x;
 }
 
+// The pixel's surface normal from the nearer neighbours' depths, facing the camera (toward it where there is none).
+vec3 surface_normal(ivec2 p, float d, vec3 here, vec3 to_camera, float distance)
+{
+    vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
+    float normal_length = length(normal);
+    normal = normal_length > 1e-20 ? normal / normal_length : to_camera / max(distance, 1e-6);
+    if (dot(normal, to_camera) < 0.0) {
+        normal = -normal;
+    }
+    return normal;
+}
+
+// How far a ray's start is pushed off a surface `distance` from the camera.
+float start_offset(float distance) { return pc.params.z * (1.0 + distance * 0.0005 + distance * distance * 6e-8); }
+
+// The rays' directions: the hemisphere around `normal` (an orthonormal basis without a branch on the normal's
+// direction), cosine-weighted, ray i of `rays` this frame - a 2D R2 sequence advanced by the frame's index, turned per
+// pixel by a hash of its place in the viewport.
+struct Hemisphere {
+    vec3 normal;
+    vec3 across;
+    vec3 up;
+    vec2 turn;
+};
+Hemisphere hemisphere_of(vec3 normal, ivec2 local)
+{
+    Hemisphere h;
+    float s = normal.z >= 0.0 ? 1.0 : -1.0;
+    float a = -1.0 / (s + normal.z);
+    float b = normal.x * normal.y * a;
+    h.normal = normal;
+    h.across = vec3(1.0 + s * normal.x * normal.x * a, s * b, -s * normal.x);
+    h.up = vec3(b, s + normal.y * normal.y * a, -normal.y);
+    uint seed = hash(uint(local.x) + hash(uint(local.y)));
+    h.turn = vec2(float(hash(seed) >> 8u), float(hash(seed + 1u) >> 8u)) * (1.0 / 16777216.0);
+    return h;
+}
+vec3 hemisphere_ray(Hemisphere h, uint i, uint rays)
+{
+    uint n = (uint(pc.extra.x) * rays + i) & 4095u;
+    vec2 u = fract(h.turn + float(n) * vec2(0.7548776662, 0.5698402910));
+    float r = sqrt(u.x);
+    float phi = 6.2831853 * u.y;
+    return h.across * (r * cos(phi)) + h.up * (r * sin(phi)) + h.normal * sqrt(max(0.0, 1.0 - u.x));
+}
+)";
+
+// The ambient occlusion's rays.
+constexpr const char* kAoTraceBody = R"(
 float occluded(vec3 origin, vec3 direction)
 {
     rayQueryEXT query;
@@ -179,39 +261,194 @@ void main()
     vec3 here = world_at(p, d);
     vec3 to_camera = pc.camera.xyz - here;
     float distance = length(to_camera);
-    vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
-    float normal_length = length(normal);
-    normal = normal_length > 1e-20 ? normal / normal_length : to_camera / max(distance, 1e-6);
-    if (dot(normal, to_camera) < 0.0) {
-        normal = -normal;
-    }
-    float offset = pc.params.z * (1.0 + distance * 0.0005 + distance * distance * 6e-8);
-    vec3 origin = here + normal * offset;
-    // the hemisphere's frame (an orthonormal basis without a branch on the normal's direction)
-    float s = normal.z >= 0.0 ? 1.0 : -1.0;
-    float a = -1.0 / (s + normal.z);
-    float b = normal.x * normal.y * a;
-    vec3 across = vec3(1.0 + s * normal.x * normal.x * a, s * b, -s * normal.x);
-    vec3 up = vec3(b, s + normal.y * normal.y * a, -normal.y);
-    uint seed = hash(uint(local.x) + hash(uint(local.y)));
-    vec2 turn = vec2(float(hash(seed) >> 8u), float(hash(seed + 1u) >> 8u)) * (1.0 / 16777216.0);
+    vec3 normal = surface_normal(p, d, here, to_camera, distance);
+    vec3 origin = here + normal * start_offset(distance);
+    Hemisphere h = hemisphere_of(normal, local);
     uint rays = uint(pc.params.y);
     float hits = 0.0;
     for (uint i = 0u; i < rays; ++i) {
-        uint n = (uint(pc.extra.x) * rays + i) & 4095u;
-        vec2 u = fract(turn + float(n) * vec2(0.7548776662, 0.5698402910));
-        float r = sqrt(u.x);
-        float phi = 6.2831853 * u.y;
-        vec3 direction = across * (r * cos(phi)) + up * (r * sin(phi)) + normal * sqrt(max(0.0, 1.0 - u.x));
-        hits += occluded(origin, direction);
+        hits += occluded(origin, hemisphere_ray(h, i, rays));
     }
     imageStore(o_out, local, vec4(hits / float(rays), 0.0, 0.0, 0.0));
     imageStore(o_guide, local, uvec4(floatBitsToUint(here), pack_normal(normal)));
 }
 )";
 
+// The indirect light's rays (rt_gi). The same frame and directions as the occlusion's; set 1 is the material table (R3),
+// binding 7 the frame's geometry table (R2), 8 the surface's own colour written, 9 the lights. params: x the rays' length.
+// Per pixel: the surface's albedo (a ray from the camera finds its triangle - kept only where it ends at the depth's
+// point - and its material is read at the hit's texture coordinates, at the level the pixel's footprint asks for: a 0
+// when it can't be found), and the light arriving over the hemisphere (rgb: the mean of the rays' radiance). A ray's
+// radiance: what it hits, its albedo x (the ambient light + the sun x N.L where a ray toward the sun is clear), or the
+// sky's light when it hits nothing. Alpha-tested surfaces are tested along the bounce rays; the sun's rays see the
+// opaque world and objects only.
+constexpr const char* kGiTraceBody = R"(
+layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D o_albedo;
+layout(set = 0, binding = 9, std140) uniform Lights {
+    vec4 to_sun;  // xyz toward the sun; w 1 when there is one
+    vec4 sun;     // its colour
+    vec4 sky;     // what a ray that hits nothing brings
+    vec4 ambient; // the light every hit surface gets
+    vec4 shape;   // x how wide a bounce ray's footprint grows per unit (radians), y the sun rays' length, z their mask
+} lights;
+
+// The texture's level for a footprint `width` world units across on the triangle (its texels per world unit from its
+// texture coordinates' area against its own).
+float level_for(uint id, HitVertices v, vec3 a, vec3 b, vec3 c, float width)
+{
+    float world_area = length(cross(b - a, c - a));
+    vec2 du = v.uv[1] - v.uv[0];
+    vec2 dv = v.uv[2] - v.uv[0];
+    float uv_area = abs(du.x * dv.y - du.y * dv.x);
+    if (world_area <= 1e-12 || uv_area <= 1e-12 || width <= 0.0) {
+        return 0.0;
+    }
+    ivec2 size = textureSize(sampler2D(material_textures[nonuniformEXT(material(id).texture_slot)], material_samplers[0]), 0);
+    float texels = sqrt(uv_area * float(size.x) * float(size.y) / world_area);
+    return max(0.0, log2(max(width * texels, 1e-6)));
+}
+
+// A hit's albedo: its material's texture at the hit's texture coordinates (the level for `width`) x the material's
+// colour - the vertex colours (the level's baked light) left out; its triangle's normal facing `facing`.
+vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3 to_world, float width, vec3 facing,
+                out vec3 n)
+{
+    HitVertices v;
+    n = facing;
+    if (!hit_vertices(instance, primitive, v)) {
+        return material(id).colour.rgb;
+    }
+    vec3 a = to_world * vec4(v.position[0], 1.0);
+    vec3 b = to_world * vec4(v.position[1], 1.0);
+    vec3 c = to_world * vec4(v.position[2], 1.0);
+    vec3 cn = cross(b - a, c - a);
+    if (length(cn) > 0.0) {
+        n = normalize(cn);
+        if (dot(n, facing) < 0.0) {
+            n = -n;
+        }
+    }
+    vec2 uv = hit_uv(v, barycentrics);
+    return (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
+}
+
+bool sun_blocked(vec3 origin)
+{
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
+                          uint(lights.shape.z) & 0xFFu, origin, 0.0, lights.to_sun.xyz, lights.shape.y);
+    while (rayQueryProceedEXT(query)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+
+// The light a bounce ray brings back to `origin` (travelled: the camera's distance to it, for the start offsets).
+vec3 incoming(vec3 origin, vec3 direction, float travelled)
+{
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, uint(pc.extra.y) & 0xFFu, origin, 0.0, direction,
+                          pc.params.x);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            HitVertices candidate;
+            bool keep = true;
+            if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, false), candidate)) {
+                keep = material_alpha_passes_at(id, hit_uv(candidate, rayQueryGetIntersectionBarycentricsEXT(query, false)));
+            }
+            if (keep) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        return lights.sky.rgb;
+    }
+    float t = rayQueryGetIntersectionTEXT(query, true);
+    vec3 n;
+    vec3 albedo = hit_albedo(rayQueryGetIntersectionInstanceCustomIndexEXT(query, true),
+                             rayQueryGetIntersectionInstanceIdEXT(query, true),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                             rayQueryGetIntersectionBarycentricsEXT(query, true),
+                             rayQueryGetIntersectionObjectToWorldEXT(query, true), lights.shape.x * t, -direction, n);
+    vec3 light = lights.ambient.rgb;
+    float facing = dot(n, lights.to_sun.xyz);
+    if (lights.to_sun.w > 0.0 && facing > 0.0) {
+        vec3 point = origin + direction * t;
+        if (!sun_blocked(point + n * start_offset(travelled + t))) {
+            light += lights.sun.rgb * facing;
+        }
+    }
+    return albedo * light;
+}
+
+// The pixel's own albedo (a 1 when found, else 0).
+vec4 surface_albedo(vec3 here, float distance, float footprint)
+{
+    vec3 eye = pc.camera.xyz;
+    vec3 view = (here - eye) / max(distance, 1e-6);
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, uint(pc.extra.y) & 0xFFu, eye, 0.0, view,
+                          distance * 1.05 + 1.0);
+    while (rayQueryProceedEXT(query)) {
+    }
+    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        return vec4(0.0);
+    }
+    float t = rayQueryGetIntersectionTEXT(query, true);
+    if (abs(t - distance) > 1.0 + 0.02 * distance) {
+        return vec4(0.0);
+    }
+    vec3 n;
+    vec3 albedo = hit_albedo(rayQueryGetIntersectionInstanceCustomIndexEXT(query, true),
+                             rayQueryGetIntersectionInstanceIdEXT(query, true),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                             rayQueryGetIntersectionBarycentricsEXT(query, true),
+                             rayQueryGetIntersectionObjectToWorldEXT(query, true), footprint, -view, n);
+    return vec4(albedo, 1.0);
+}
+
+void main()
+{
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    if (!inside(local)) {
+        return;
+    }
+    ivec2 p = pc.rect.xy + local;
+    float d = depth_at(p);
+    if (d >= 1.0) {
+        imageStore(o_out, local, vec4(0.0));
+        imageStore(o_guide, local, uvec4(0u));
+        imageStore(o_albedo, local, vec4(0.0));
+        return;
+    }
+    vec3 here = world_at(p, d);
+    vec3 to_camera = pc.camera.xyz - here;
+    float distance = length(to_camera);
+    vec3 normal = surface_normal(p, d, here, to_camera, distance);
+    vec3 origin = here + normal * start_offset(distance);
+    float footprint = length(world_at(p + ivec2(1, 0), d) - here);
+    vec4 albedo = surface_albedo(here, distance, footprint);
+    Hemisphere h = hemisphere_of(normal, local);
+    uint rays = uint(pc.params.y);
+    vec3 sum = vec3(0.0);
+    for (uint i = 0u; i < rays; ++i) {
+        sum += incoming(origin, hemisphere_ray(h, i, rays), distance);
+    }
+    vec3 light = sum / float(rays);
+    if (any(isnan(light)) || any(isinf(light))) {
+        light = vec3(0.0);
+    }
+    imageStore(o_out, local, vec4(light, 0.0));
+    imageStore(o_guide, local, uvec4(floatBitsToUint(here), pack_normal(normal)));
+    imageStore(o_albedo, local, albedo);
+}
+)";
+
 // Step 2: the history. matrix: world -> the previous frame's pixel (the target's, homogeneous); camera: the camera's
-// position; params: x the longest history, y whether there is one (1), z rays.
+// position; params: x the longest history, y whether there is one (1), z rays, w the most one ray can bring (the
+// occlusion's 1; the indirect light's brightest).
 constexpr const char* kTemporalBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_out;
@@ -227,7 +464,7 @@ void main()
         return;
     }
     uvec4 guide = imageLoad(u_guide, local);
-    float now = imageLoad(u_in, local).r;
+    Value now = value_of(imageLoad(u_in, local));
     if (guide.w == 0u) {
         imageStore(o_out, local, vec4(0.0));
         return;
@@ -236,8 +473,8 @@ void main()
     vec3 normal = unpack_normal(guide.w);
     float tolerance = plane_tolerance(length(pc.camera.xyz - here));
     // this frame's spread around the pixel (its surface's neighbours): what the history may be
-    float sum = 0.0;
-    float squares = 0.0;
+    Value sum = Value(0.0);
+    Value squares = Value(0.0);
     float count = 0.0;
     for (int dy = -1; dy <= 1; ++dy) {
         for (int dx = -1; dx <= 1; ++dx) {
@@ -245,18 +482,18 @@ void main()
             if (!inside(q) || imageLoad(u_guide, q).w == 0u) {
                 continue;
             }
-            float v = imageLoad(u_in, q).r;
+            Value v = value_of(imageLoad(u_in, q));
             sum += v;
             squares += v * v;
             count += 1.0;
         }
     }
-    float mean = sum / count;
-    float spread = sqrt(max(0.0, squares / count - mean * mean));
-    float noise = 0.5 / sqrt(max(1.0, pc.params.z * count));
-    float low = mean - 1.5 * spread - noise;
-    float high = mean + 1.5 * spread + noise;
-    float history = 0.0;
+    Value mean = sum / count;
+    Value spread = sqrt(max(Value(0.0), squares / count - mean * mean));
+    float noise = pc.params.w * 0.5 / sqrt(max(1.0, pc.params.z * count));
+    Value low = mean - 1.5 * spread - noise;
+    Value high = mean + 1.5 * spread + noise;
+    Value history = Value(0.0);
     float history_length = 0.0;
     if (pc.params.y > 0.5) {
         vec4 before = pc.matrix * vec4(here, 1.0);
@@ -265,7 +502,7 @@ void main()
             ivec2 base = ivec2(floor(at));
             vec2 f = at - vec2(base);
             float weights = 0.0;
-            float values = 0.0;
+            Value values = Value(0.0);
             float lengths = 0.0;
             for (int corner = 0; corner < 4; ++corner) {
                 ivec2 q = base + ivec2(corner & 1, corner >> 1);
@@ -283,8 +520,8 @@ void main()
                 }
                 vec4 kept = imageLoad(u_history, q);
                 weights += w;
-                values += w * kept.r;
-                lengths += w * kept.g;
+                values += w * value_of(kept);
+                lengths += w * length_of(kept);
             }
             if (weights > 1e-3) {
                 history = values / weights;
@@ -294,12 +531,13 @@ void main()
     }
     history = clamp(history, low, high);
     history_length = min(floor(history_length + 0.5) + 1.0, pc.params.x);
-    float ao = clamp(mix(history, now, 1.0 / history_length), 0.0, 1.0);
-    imageStore(o_out, local, vec4(ao, history_length, 0.0, 0.0));
+    Value result = kept_in_range(mix(history, now, 1.0 / history_length));
+    imageStore(o_out, local, packed(result, history_length));
 }
 )";
 
-// Step 3: one a-trous pass. camera: the camera's position; params: z rays; extra: x the step (pixels).
+// Step 3: one a-trous pass. camera: the camera's position; params: z rays, w the most one ray can bring; extra: x the
+// step (pixels).
 constexpr const char* kFilterBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_out;
@@ -324,9 +562,9 @@ void main()
     vec3 normal = unpack_normal(guide.w);
     float tolerance = plane_tolerance(length(pc.camera.xyz - here));
     // the noise a history this long leaves (a share of rays: at most 0.5 / sqrt(rays) a frame), with a margin
-    float noise = 2.0 * 0.5 / sqrt(max(1.0, max(centre.g, 1.0) * pc.params.z)) + 1e-3;
+    float noise = pc.params.w * (2.0 * 0.5 / sqrt(max(1.0, max(length_of(centre), 1.0) * pc.params.z)) + 1e-3);
     float weights = 0.0;
-    float sum = 0.0;
+    Value sum = Value(0.0);
     for (int dy = -2; dy <= 2; ++dy) {
         for (int dx = -2; dx <= 2; ++dx) {
             ivec2 q = local + ivec2(dx, dy) * pc.extra.x;
@@ -337,17 +575,17 @@ void main()
             if (there_guide.w == 0u) {
                 continue;
             }
-            float value = imageLoad(u_in, q).r;
+            Value value = value_of(imageLoad(u_in, q));
             vec3 there = uintBitsToFloat(there_guide.xyz);
             float w = kKernel[abs(dx)] * kKernel[abs(dy)];
             w *= pow(max(0.0, dot(normal, unpack_normal(there_guide.w))), 32.0);
             w *= exp(-abs(dot(normal, there - here)) / tolerance);
-            w *= exp(-abs(value - centre.r) / noise);
+            w *= exp(-difference(value, value_of(centre)) / noise);
             weights += w;
             sum += w * value;
         }
     }
-    imageStore(o_out, local, vec4(weights > 0.0 ? sum / weights : centre.r, centre.g, 0.0, 0.0));
+    imageStore(o_out, local, packed(weights > 0.0 ? sum / weights : value_of(centre), length_of(centre)));
 }
 )";
 
@@ -361,6 +599,34 @@ void main()
     ivec2 local = ivec2(gl_FragCoord.xy) - pc.rect.xy;
     float ao = inside(local) ? clamp(imageLoad(u_in, local).r, 0.0, 1.0) : 0.0;
     o_factor = vec4(vec3(1.0 - pc.params.x * ao), 1.0);
+}
+)";
+
+// The indirect light's step 4: what is added to the colour - the strength x the surface's albedo x the light arriving
+// beyond the sky's (what an open sky would give, which the level's baked lighting already has); the blend then scales
+// it by what the colour leaves below white (1 - colour; a float target: added as it is). rect: the viewport; params: x
+// the strength, yzw the sky's light. Pixels whose albedo wasn't found are left alone.
+constexpr const char* kGiApplyBody = R"(
+layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
+layout(set = 0, binding = 8, rgba16f) uniform readonly image2D u_albedo;
+layout(location = 0) out vec4 o_added;
+
+void main()
+{
+    ivec2 local = ivec2(gl_FragCoord.xy) - pc.rect.xy;
+    if (!inside(local)) {
+        discard;
+    }
+    vec4 albedo = imageLoad(u_albedo, local);
+    if (!(albedo.a > 0.0)) {
+        discard;
+    }
+    vec3 beyond = max(imageLoad(u_in, local).rgb - pc.params.yzw, vec3(0.0));
+    vec3 added = pc.params.x * clamp(albedo.rgb, 0.0, 1.0) * beyond;
+    if (any(isnan(added)) || any(isinf(added))) {
+        discard;
+    }
+    o_added = vec4(added, 0.0);
 }
 )";
 
@@ -386,6 +652,27 @@ constexpr uint32_t kBindingIn = 4;
 constexpr uint32_t kBindingGuideBefore = 5;
 constexpr uint32_t kBindingHistory = 6;
 constexpr uint32_t kBindingCount = 7;
+// (the indirect light's own: 7 the frame's geometry table, 8 the surfaces' albedo, 9 the lights; set 1 the materials)
+constexpr uint32_t kBindingGeometry = 7;
+constexpr uint32_t kBindingAlbedo = 8;
+constexpr uint32_t kBindingLights = 9;
+constexpr uint32_t kGiBindingCount = 10;
+constexpr uint32_t kMaterialSet = 1;
+constexpr VkDeviceSize kUniformAlignment = 256; // (at least any device's minUniformBufferOffsetAlignment)
+
+// The indirect light's lights block (std140), as the shader lays it out.
+struct LightsBlock {
+    std::array<float, 4> to_sun{};
+    std::array<float, 4> sun{};
+    std::array<float, 4> sky{};
+    std::array<float, 4> ambient{};
+    std::array<float, 4> shape{};
+};
+constexpr std::size_t kLightsBlockBytes = 80;
+static_assert(sizeof(LightsBlock) == kLightsBlockBytes, "the shader's Lights block (std140)");
+
+// Which effect a state is.
+enum class Effect : uint8_t { kOcclusion, kIndirect };
 
 // A pipeline for a colour format and sample count (the apply pass).
 struct ApplyPipeline {
@@ -396,7 +683,7 @@ struct ApplyPipeline {
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
 
-constexpr std::size_t kSlotImages = 7; // (a viewport's: two guides, the rays', two histories, two filtered)
+constexpr std::size_t kSlotImages = 8; // (a viewport's: two guides, the rays', two histories, two filtered, the albedo)
 
 // A viewport's images and history.
 struct ViewSlot {
@@ -406,6 +693,7 @@ struct ViewSlot {
     Image raw;                      // step 1
     std::array<Image, 2> histories; // step 2's, this frame's and the one before
     std::array<Image, 2> filtered;  // step 3's ping-pong
+    Image albedo;                   // the indirect light's step 1: the surfaces' own colour (else not made)
     uint32_t current = 0;           // which of guides / histories this frame writes
     bool fresh = true;              // made, not cleared yet
     bool have_before = false;       // a frame before whose history and camera can be used
@@ -417,11 +705,19 @@ struct ViewSlot {
     uint64_t last_use = 0;
 };
 
+// An effect's passes and histories: the ambient occlusion's (effects()) and the indirect light's (indirect()) - the
+// same denoiser, over one value or a colour.
 struct EffectsState {
-    RtAoSettings settings;
-    VkAccelerationStructureKHR scene = VK_NULL_HANDLE;
+    explicit EffectsState(Effect which) : effect(which) {}
+    Effect effect;
+    RtAoSettings settings;   // (the occlusion's)
+    RtGiSettings gi;         // (the indirect light's)
+    VkAccelerationStructureKHR scene = VK_NULL_HANDLE; // (the occlusion's: the indirect light reads current_scene)
+    VkBuffer geometry = VK_NULL_HANDLE;                // (the indirect light's: the frame's geometry table)
+    VkDeviceSize geometry_bytes = 0;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
-    VkPipelineLayout layout = VK_NULL_HANDLE;
+    VkPipelineLayout layout = VK_NULL_HANDLE; // (the indirect light's: + the material table's set 1)
+    VkDescriptorSetLayout material_layout = VK_NULL_HANDLE; // the table's when `layout` was made
     VkSampler sampler = VK_NULL_HANDLE;
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::array<VkPipeline, 2> trace{}; // single-sampled depth, multisampled
@@ -437,9 +733,21 @@ struct EffectsState {
 
 EffectsState& effects()
 {
-    static EffectsState state;
+    static EffectsState state(Effect::kOcclusion);
     return state;
 }
+
+EffectsState& indirect()
+{
+    static EffectsState state(Effect::kIndirect);
+    return state;
+}
+
+bool is_indirect(const EffectsState& own) { return own.effect == Effect::kIndirect; }
+bool effect_on(const EffectsState& own) { return is_indirect(own) ? own.gi.on : own.settings.on; }
+bool effect_denoised(const EffectsState& own) { return is_indirect(own) ? own.gi.denoise : own.settings.denoise; }
+unsigned effect_rays(const EffectsState& own) { return is_indirect(own) ? own.gi.rays : own.settings.rays; }
+const char* effect_name(const EffectsState& own) { return is_indirect(own) ? "rt_gi" : "rt_ao"; }
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
 
@@ -463,6 +771,26 @@ EffectsListener& listener()
     return instance;
 }
 
+// The indirect light's listener: after the shadows and the occlusion (they darken what the bounce then brightens).
+class IndirectListener final : public rt::ViewListener {
+public:
+    [[nodiscard]] int order() const override { return rt::ViewOrder::kIndirect; }
+    void opaque_drawn(const rt::ViewDrawn& view) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        if (state.device_made && state.draws_made) {
+            record_rt_gi_pass(state, view);
+        }
+    }
+};
+
+IndirectListener& indirect_listener()
+{
+    static IndirectListener instance;
+    return instance;
+}
+
 VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::string& source, std::string* error)
 {
     const CompiledShader compiled = compile_rt_glsl(stage, source);
@@ -483,17 +811,30 @@ VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::stri
     return module;
 }
 
-// A pass's GLSL: the version, the defines, the ray-query extension where it traces, what all share, its body.
-std::string source_of(const char* body, bool traces, bool multisampled)
+// A pass's GLSL: the version, the defines, the ray-query extension where it traces (the indirect light's: the material
+// and geometry tables too), what all share, what the rays share, its body. `rgb`: the indirect light's (VALUE_RGB).
+std::string source_of(const char* body, bool traces, bool multisampled, bool rgb = false)
 {
     std::string source = "#version 460\n";
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
     }
+    if (rgb) {
+        source += "#define VALUE_RGB\n";
+    }
     if (traces) {
         source += "#extension GL_EXT_ray_query : require\n";
+        if (rgb) {
+            source += "#define THUG2_MATERIAL_SET 1\n";
+            source += material_glsl();
+            source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 7\n";
+            source += scene_geometry_glsl();
+        }
     }
     source += kCommon;
+    if (traces) {
+        source += kTraceShared;
+    }
     source += body;
     return source;
 }
@@ -528,9 +869,8 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
 }
 
 // The layouts, the sampler, the vertex shader and the compute pipelines (once).
-bool ensure_objects(Backend& state, std::string* error)
+bool ensure_objects(Backend& state, EffectsState& own, std::string* error)
 {
-    EffectsState& own = effects();
     if (own.filter != VK_NULL_HANDLE) {
         return true;
     }
@@ -538,14 +878,20 @@ bool ensure_objects(Backend& state, std::string* error)
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(state.context.physical_device(), &properties);
     own.standard_samples = properties.limits.standardSampleLocations == VK_TRUE;
+    const bool rgb = is_indirect(own);
     if (own.layout == VK_NULL_HANDLE) {
-        std::array<VkDescriptorSetLayoutBinding, kBindingCount> bindings{};
-        for (uint32_t binding = 0; binding < kBindingCount; ++binding) {
+        const uint32_t count = rgb ? kGiBindingCount : kBindingCount;
+        std::array<VkDescriptorSetLayoutBinding, kGiBindingCount> bindings{};
+        for (uint32_t binding = 0; binding < count; ++binding) {
             VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             if (binding == kBindingScene) {
                 type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
             } else if (binding == kBindingDepth) {
                 type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            } else if (binding == kBindingGeometry) {
+                type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            } else if (binding == kBindingLights) {
+                type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             }
             core::at(bindings, binding) = {.binding = binding,
                                            .descriptorType = type,
@@ -556,7 +902,7 @@ bool ensure_objects(Backend& state, std::string* error)
         const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                        .pNext = nullptr,
                                                        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
-                                                       .bindingCount = static_cast<uint32_t>(bindings.size()),
+                                                       .bindingCount = count,
                                                        .pBindings = bindings.data()};
         const VkPushConstantRange constants{.stageFlags = kStages, .offset = 0, .size = sizeof(PassConstants)};
         VkSamplerCreateInfo sampler_info{};
@@ -573,11 +919,13 @@ bool ensure_objects(Backend& state, std::string* error)
             *error = "the descriptor layout or the sampler";
             return false;
         }
+        own.material_layout = rgb ? state.materials.layout() : VK_NULL_HANDLE;
+        const std::array<VkDescriptorSetLayout, 2> sets{own.set_layout, own.material_layout};
         const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
-                                                     .setLayoutCount = 1,
-                                                     .pSetLayouts = &own.set_layout,
+                                                     .setLayoutCount = rgb ? 2U : 1U,
+                                                     .pSetLayouts = sets.data(),
                                                      .pushConstantRangeCount = 1,
                                                      .pPushConstantRanges = &constants};
         if (vkCreatePipelineLayout(device, &layout_info, nullptr, &own.layout) != VK_SUCCESS) {
@@ -594,35 +942,52 @@ bool ensure_objects(Backend& state, std::string* error)
     }
     for (std::size_t multisampled = 0; multisampled < own.trace.size(); ++multisampled) {
         if (core::at(own.trace, multisampled) == VK_NULL_HANDLE) {
-            core::at(own.trace, multisampled) =
-                make_compute(device, own.layout, source_of(kTraceBody, true, multisampled != 0), error);
+            core::at(own.trace, multisampled) = make_compute(
+                device, own.layout, source_of(rgb ? kGiTraceBody : kAoTraceBody, true, multisampled != 0, rgb), error);
             if (core::at(own.trace, multisampled) == VK_NULL_HANDLE) {
                 return false;
             }
         }
     }
     if (own.temporal == VK_NULL_HANDLE) {
-        own.temporal = make_compute(device, own.layout, source_of(kTemporalBody, false, false), error);
+        own.temporal = make_compute(device, own.layout, source_of(kTemporalBody, false, false, rgb), error);
         if (own.temporal == VK_NULL_HANDLE) {
             return false;
         }
     }
-    own.filter = make_compute(device, own.layout, source_of(kFilterBody, false, false), error);
+    own.filter = make_compute(device, own.layout, source_of(kFilterBody, false, false, rgb), error);
     return own.filter != VK_NULL_HANDLE;
 }
 
-// The apply pass's pipeline for a colour target (made on first use).
-VkPipeline apply_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, std::string* error)
+// Whether a colour format holds values above 1 (a float target: the indirect light is added, not screened).
+bool float_format(VkFormat format)
 {
-    EffectsState& own = effects();
+    switch (format) {
+    case VK_FORMAT_R16G16B16A16_SFLOAT:
+    case VK_FORMAT_R32G32B32A32_SFLOAT:
+    case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+    case VK_FORMAT_R16G16B16_SFLOAT:
+    case VK_FORMAT_R32G32B32_SFLOAT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// The apply pass's pipeline for a colour target (made on first use).
+VkPipeline apply_pipeline(Backend& state, EffectsState& own, VkFormat format, VkSampleCountFlagBits samples,
+                          std::string* error)
+{
     for (const ApplyPipeline& made : own.applies) {
         if (made.format == format && made.samples == samples) {
             return made.pipeline;
         }
     }
+    const bool rgb = is_indirect(own);
     const VkDevice device = state.context.device();
     const VkShaderModule fragment =
-        make_module(device, RtShaderStage::kFragment, source_of(kApplyBody, false, false), error);
+        make_module(device, RtShaderStage::kFragment, source_of(rgb ? kGiApplyBody : kApplyBody, false, false, rgb),
+                    error);
     if (fragment == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
     }
@@ -669,11 +1034,16 @@ VkPipeline apply_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits
         .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    // colour x the factor: (dst x src) + (dst x 0); alpha kept
+    // the occlusion: colour x the factor - (dst x src) + (dst x 0); the indirect light: colour + what is added x (1 -
+    // colour) - a screen, which never takes the colour past white - or, on a float target, + what is added; alpha kept
     VkPipelineColorBlendAttachmentState blend{};
     blend.blendEnable = VK_TRUE;
     blend.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
     blend.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    if (rgb) {
+        blend.srcColorBlendFactor = float_format(format) ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+        blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    }
     blend.colorBlendOp = VK_BLEND_OP_ADD;
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -837,10 +1207,16 @@ std::array<float, kMatrixFloats> column_major(const Matrix& matrix)
 
 // --- the viewports' images ---------------------------------------------------------------------------------------
 
-std::array<Image*, kSlotImages> images_of(ViewSlot& slot)
+// The slot's images (the albedo where it was made).
+std::vector<Image*> images_of(ViewSlot& slot)
 {
-    return {&slot.guides.front(),    &slot.guides.back(),     &slot.raw,           &slot.histories.front(),
-            &slot.histories.back(), &slot.filtered.front(), &slot.filtered.back()};
+    std::vector<Image*> images{&slot.guides.front(),    &slot.guides.back(),     &slot.raw,
+                               &slot.histories.front(), &slot.histories.back(), &slot.filtered.front(),
+                               &slot.filtered.back()};
+    if (slot.albedo.image != VK_NULL_HANDLE) {
+        images.push_back(&slot.albedo);
+    }
+    return images;
 }
 
 void release_slot(Backend& state, ViewSlot* slot, bool now)
@@ -873,9 +1249,8 @@ bool make_storage_image(Backend& state, VkFormat format, const Extent& extent, I
 
 // The slot for a viewport (made, or made again when the size changed; the least recently used one dropped when all are
 // taken); null when its images can't be made.
-ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Extent& target)
+ViewSlot* slot_for(Backend& state, EffectsState& own, const std::array<uint32_t, 4>& rect, const Extent& target)
 {
-    EffectsState& own = effects();
     ++own.uses;
     for (const std::unique_ptr<ViewSlot>& slot : own.slots) {
         if (slot->rect == rect && slot->target.width == target.width && slot->target.height == target.height) {
@@ -903,11 +1278,14 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
                          &slot.filtered.back()}) {
         made = made && make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, image);
     }
+    if (is_indirect(own)) {
+        made = made && make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &slot.albedo);
+    }
     if (!made) {
         release_slot(state, &slot, true);
-        if (first_report(state, kReportImages)) {
-            get_log("vulkan: rt_ao: the viewport's images (%ux%u) couldn't be made - the pass skipped there",
-                    extent.width, extent.height);
+        if (first_report(state, kReportImages + (is_indirect(own) ? kReportIndirect : 0U))) {
+            get_log("vulkan: %s: the viewport's images (%ux%u) couldn't be made - the pass skipped there",
+                    effect_name(own), extent.width, extent.height);
         }
         return nullptr;
     }
@@ -918,7 +1296,7 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
 // The new images moved to GENERAL and cleared (no NaN read from an unwritten history), before the passes.
 void clear_slot(VkCommandBuffer commands, ViewSlot* slot)
 {
-    const std::array<Image*, kSlotImages> images = images_of(*slot);
+    const std::vector<Image*> images = images_of(*slot);
     std::array<VkImageMemoryBarrier, kSlotImages> barriers{};
     for (std::size_t i = 0; i < images.size(); ++i) {
         core::at(barriers, i) = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -937,7 +1315,7 @@ void clear_slot(VkCommandBuffer commands, ViewSlot* slot)
                                                       .layerCount = 1}};
     }
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                         nullptr, static_cast<uint32_t>(barriers.size()), barriers.data());
+                         nullptr, static_cast<uint32_t>(images.size()), barriers.data());
     const VkImageSubresourceRange all{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                                       .baseMipLevel = 0,
                                       .levelCount = 1,
@@ -967,18 +1345,24 @@ struct PassImages {
     const Image* in = nullptr;
     const Image* guide_before = nullptr;
     const Image* history = nullptr;
+    // (the indirect light's)
+    const Image* albedo = nullptr;
+    VkBuffer geometry = VK_NULL_HANDLE;
+    VkDeviceSize geometry_bytes = 0;
+    VkBuffer lights = VK_NULL_HANDLE;
+    VkDeviceSize lights_offset = 0;
 };
 
-void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const PassImages& images)
+void push_descriptors(VkCommandBuffer commands, const EffectsState& own, VkPipelineBindPoint point,
+                      const PassImages& images)
 {
-    const EffectsState& own = effects();
     const VkWriteDescriptorSetAccelerationStructureKHR scene{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
         .pNext = nullptr,
         .accelerationStructureCount = 1,
         .pAccelerationStructures = &own.scene};
-    std::array<VkDescriptorImageInfo, kBindingCount> infos{};
-    std::array<VkWriteDescriptorSet, kBindingCount> writes{};
+    std::array<VkDescriptorImageInfo, kGiBindingCount> infos{};
+    std::array<VkWriteDescriptorSet, kGiBindingCount> writes{};
     uint32_t count = 0;
     const auto add = [&](uint32_t binding, VkDescriptorType type) -> VkWriteDescriptorSet& {
         VkWriteDescriptorSet& write = core::at(writes, count++);
@@ -998,11 +1382,12 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
                 .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
         add(kBindingDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
     }
-    const std::array<std::pair<uint32_t, const Image*>, 5> storage{{{kBindingOut, images.out},
+    const std::array<std::pair<uint32_t, const Image*>, 6> storage{{{kBindingOut, images.out},
                                                                     {kBindingGuide, images.guide},
                                                                     {kBindingIn, images.in},
                                                                     {kBindingGuideBefore, images.guide_before},
-                                                                    {kBindingHistory, images.history}}};
+                                                                    {kBindingHistory, images.history},
+                                                                    {kBindingAlbedo, images.albedo}}};
     for (const auto& [binding, image] : storage) {
         if (image == nullptr) {
             continue;
@@ -1010,6 +1395,15 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         VkDescriptorImageInfo& info = core::at(infos, binding);
         info = {.sampler = VK_NULL_HANDLE, .imageView = image->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
         add(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE).pImageInfo = &info;
+    }
+    const VkDescriptorBufferInfo geometry{.buffer = images.geometry, .offset = 0, .range = images.geometry_bytes};
+    if (images.geometry != VK_NULL_HANDLE) {
+        add(kBindingGeometry, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).pBufferInfo = &geometry;
+    }
+    const VkDescriptorBufferInfo lights{
+        .buffer = images.lights, .offset = images.lights_offset, .range = sizeof(LightsBlock)};
+    if (images.lights != VK_NULL_HANDLE) {
+        add(kBindingLights, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER).pBufferInfo = &lights;
     }
     vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, count, writes.data());
 }
@@ -1026,11 +1420,11 @@ void compute_done(VkCommandBuffer commands)
                          nullptr, 0, nullptr);
 }
 
-void dispatch(VkCommandBuffer commands, VkPipeline pipeline, const PassImages& images, const PassConstants& constants)
+void dispatch(VkCommandBuffer commands, const EffectsState& own, VkPipeline pipeline, const PassImages& images,
+              const PassConstants& constants)
 {
-    const EffectsState& own = effects();
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE, images);
+    push_descriptors(commands, own, VK_PIPELINE_BIND_POINT_COMPUTE, images);
     vkCmdPushConstants(commands, own.layout, kStages, 0, sizeof(PassConstants), &constants);
     const auto groups = [](int32_t pixels) {
         return (static_cast<uint32_t>(pixels) + kGroupSide - 1) / kGroupSide;
@@ -1065,11 +1459,11 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, VkImageLayout layout,
     depth->layout = layout;
 }
 
-// The colour multiplied by the occlusion in `ao` over the viewport.
-void record_apply(VkCommandBuffer commands, VkPipeline pipeline, Image* colour, const Image* ao,
-                  const PassConstants& constants)
+// The colour multiplied by the occlusion in `ao` over the viewport (the indirect light: `ao` the light, `albedo` the
+// surfaces' colour, added).
+void record_apply(VkCommandBuffer commands, const EffectsState& own, VkPipeline pipeline, Image* colour,
+                  const Image* ao, const Image* albedo, const PassConstants& constants)
 {
-    const EffectsState& own = effects();
     Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
     VkRenderingAttachmentInfo colour_info{};
     colour_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -1098,7 +1492,7 @@ void record_apply(VkCommandBuffer commands, VkPipeline pipeline, Image* colour, 
                               .maxDepth = 1.0F};
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdSetScissor(commands, 0, 1, &area);
-    push_descriptors(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, {.in = ao});
+    push_descriptors(commands, own, VK_PIPELINE_BIND_POINT_GRAPHICS, {.in = ao, .albedo = albedo});
     vkCmdPushConstants(commands, own.layout, kStages, 0, sizeof(PassConstants), &constants);
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
@@ -1156,80 +1550,89 @@ float from_half(uint16_t half)
     return sign != 0 ? -value : value;
 }
 
-} // namespace
-
-void set_rt_ao_settings(const RtAoSettings& settings)
+// The indirect light's lights from the frame record: the first directional light as the sun (the way it travels, as
+// rt_scene.h records it: toward it is the opposite - as R4's shadows take it), the ambient light as both what every hit
+// surface gets and the sky's light (a ray that hits nothing). The rays' noise unit: the most one ray can bring.
+LightsBlock lights_block(const EffectsState& own, float* unit)
 {
-    RtAoSettings kept = settings;
-    kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
-    kept.radius = std::isfinite(kept.radius) ? std::clamp(kept.radius, kMinRadius, kMaxRadius) : kRtAoRadius;
-    kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
-    {
-        Backend& state = backend();
-        const std::scoped_lock lock(state.mutex);
-        effects().settings = kept;
-        rt_effects_reset_history(state);
+    LightsBlock block;
+    bool have_sun = false;
+    for (const rt::Light& light : rt::frame_record().lights) {
+        if (light.kind == rt::Light::Kind::kAmbient) {
+            block.ambient = {core::at(light.colour, 0), core::at(light.colour, 1), core::at(light.colour, 2), 0.0F};
+        } else if (light.kind == rt::Light::Kind::kDirectional && !have_sun) {
+            const double length = std::hypot(static_cast<double>(core::at(light.direction, 0)),
+                                             static_cast<double>(core::at(light.direction, 1)),
+                                             static_cast<double>(core::at(light.direction, 2)));
+            if (!(length > kShortestDirection) || !std::isfinite(length)) {
+                continue;
+            }
+            for (std::size_t i = 0; i < 3; ++i) {
+                core::at(block.to_sun, i) =
+                    static_cast<float>(-static_cast<double>(core::at(light.direction, i)) / length);
+                core::at(block.sun, i) = std::max(0.0F, core::at(light.colour, i));
+            }
+            block.to_sun.back() = 1.0F;
+            have_sun = true;
+        }
     }
-    if (kept.on) {
-        rt::add_view_listener(&listener());
-    } else {
-        rt::remove_view_listener(&listener());
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(block.ambient, i) = std::max(0.0F, core::at(block.ambient, i));
     }
+    block.sky = block.ambient;
+    block.shape = {kBounceSpread, kSunDistance, static_cast<float>(kGiSunMask), 0.0F};
+    float most = kSmallestUnit;
+    for (std::size_t i = 0; i < 3; ++i) {
+        most = std::max(most, core::at(block.sun, i) + core::at(block.ambient, i));
+    }
+    *unit = most;
+    (void)own;
+    return block;
 }
 
-RtAoSettings rt_ao_settings()
+// What the effect needs before it can trace (logged once when it can't): ray tracing, the scene - and for the indirect
+// light the frame's geometry table and the material table.
+bool effect_ready(Backend& state, EffectsState& own)
 {
-    const std::scoped_lock lock(backend().mutex);
-    return effects().settings;
-}
-
-void rt_effects_set_scene(VkAccelerationStructureKHR tlas)
-{
-    const std::scoped_lock lock(backend().mutex);
-    rt_effects_set_scene_locked(tlas);
-}
-
-void rt_effects_set_scene_locked(VkAccelerationStructureKHR tlas) { effects().scene = tlas; }
-
-VkImageUsageFlags rt_effects_depth_usage(const Backend& state, VkFormat format)
-{
-    if (!effects().settings.on || !state.context.ray_tracing_enabled()) {
-        return 0;
-    }
-    VkFormatProperties properties{};
-    vkGetPhysicalDeviceFormatProperties(state.context.physical_device(), format, &properties);
-    return (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0 ? VK_IMAGE_USAGE_SAMPLED_BIT
-                                                                                         : 0;
-}
-
-void rt_effects_reset_history(Backend& state)
-{
-    (void)state;
-    for (const std::unique_ptr<ViewSlot>& slot : effects().slots) {
-        slot->have_before = false;
-        slot->passes = 0;
-    }
-}
-
-bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
-{
-    EffectsState& own = effects();
-    if (!own.settings.on || own.failed) {
-        return false;
-    }
+    const bool rgb = is_indirect(own);
+    const uint64_t key = rgb ? kReportIndirect : 0U;
     if (!state.context.ray_tracing_enabled()) {
-        if (first_report(state, kReportNoRayTracing)) {
-            get_log("vulkan: rt_ao=1 but ray tracing isn't enabled ([Graphics] ray_tracing=1, and a device with "
-                    "VK_KHR_ray_query) - no ray-traced ambient occlusion");
+        if (first_report(state, kReportNoRayTracing + key)) {
+            get_log("vulkan: %s=1 but ray tracing isn't enabled ([Graphics] ray_tracing=1, and a device with "
+                    "VK_KHR_ray_query) - no ray-traced %s",
+                    effect_name(own), rgb ? "indirect light" : "ambient occlusion");
         }
         return false;
     }
-    if (own.scene == VK_NULL_HANDLE) {
-        if (first_report(state, kReportNoScene)) {
-            get_log("vulkan: rt_ao: no acceleration structure for the scene yet - the ambient occlusion pass skipped");
+    if (rgb) {
+        const SceneView scene = current_scene(state);
+        own.scene = scene.tlas;
+        own.geometry = scene.geometry;
+        own.geometry_bytes = scene.geometry_bytes;
+    }
+    if (own.scene == VK_NULL_HANDLE || (rgb && own.geometry == VK_NULL_HANDLE)) {
+        if (first_report(state, kReportNoScene + key)) {
+            get_log("vulkan: %s: no acceleration structure for the scene yet - the pass skipped", effect_name(own));
         }
         return false;
     }
+    if (rgb && (!state.materials.ready() || state.materials.descriptor_set() == VK_NULL_HANDLE)) {
+        if (first_report(state, kReportNoMaterials + key)) {
+            get_log("vulkan: rt_gi: no material table - the indirect light pass skipped");
+        }
+        return false;
+    }
+    return true;
+}
+
+// The passes of either effect over the bound targets for a viewport (record_rt_ao_pass, record_rt_gi_pass).
+bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
+{
+    if (!effect_on(own) || own.failed || !effect_ready(state, own)) {
+        return false;
+    }
+    const bool rgb = is_indirect(own);
+    const uint64_t key = rgb ? kReportIndirect : 0U;
     Image* const colour = image_of_surface(core::at(state.targets, 0));
     Image* const depth = image_of_surface(state.depth);
     if (colour == nullptr || depth == nullptr || colour->attachment_view == VK_NULL_HANDLE ||
@@ -1237,21 +1640,27 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
         (depth->usage & VK_IMAGE_USAGE_SAMPLED_BIT) == 0 || depth->view == VK_NULL_HANDLE ||
         depth->samples != colour->samples || depth->extent.width < colour->extent.width ||
         depth->extent.height < colour->extent.height) {
-        if (first_report(state, kReportTargets)) {
-            get_log("vulkan: rt_ao: the bound targets can't be read (no samplable depth of the colour's size and "
-                    "samples) - the ambient occlusion pass skipped there");
+        if (first_report(state, kReportTargets + key)) {
+            get_log("vulkan: %s: the bound targets can't be read (no samplable depth of the colour's size and "
+                    "samples) - the pass skipped there",
+                    effect_name(own));
         }
         return false;
     }
     std::string error;
-    const VkPipeline apply =
-        ensure_objects(state, &error) ? apply_pipeline(state, colour->format, colour->samples, &error) : VK_NULL_HANDLE;
+    const VkPipeline apply = ensure_objects(state, own, &error)
+                                 ? apply_pipeline(state, own, colour->format, colour->samples, &error)
+                                 : VK_NULL_HANDLE;
     if (apply == VK_NULL_HANDLE) {
         own.failed = true;
-        if (first_report(state, kReportPipeline)) {
-            get_log("vulkan: rt_ao: the passes couldn't be made (%s) - no ray-traced ambient occlusion", error.c_str());
+        if (first_report(state, kReportPipeline + key)) {
+            get_log("vulkan: %s: the passes couldn't be made (%s) - the effect is off", effect_name(own),
+                    error.c_str());
         }
         return false;
+    }
+    if (rgb && own.material_layout != state.materials.layout()) {
+        return false; // (the table was made again with another layout: not while the device lives)
     }
     // the viewport, inside the target
     const uint32_t left = std::min(core::at(view.rect, 0), colour->extent.width);
@@ -1268,11 +1677,23 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
     if (!invert(to_pixel, &to_world)) {
         return false;
     }
-    ViewSlot* const slot = slot_for(state, clipped.rect, colour->extent);
+    float unit = 1.0F; // (the occlusion: one ray brings 0 or 1)
+    LightsBlock lights;
+    std::optional<RingSpan> lights_span;
+    if (rgb) {
+        lights = lights_block(own, &unit);
+        std::array<uint8_t, sizeof(LightsBlock)> bytes{};
+        std::memcpy(bytes.data(), &lights, sizeof(lights));
+        lights_span = state.ring.copy(bytes, kUniformAlignment);
+        if (!lights_span) {
+            return false;
+        }
+    }
+    ViewSlot* const slot = slot_for(state, own, clipped.rect, colour->extent);
     if (slot == nullptr) {
         return false;
     }
-    const bool denoise = own.settings.denoise;
+    const bool denoise = effect_denoised(own);
     const bool have_before = denoise && slot->have_before && slot->frame_drawn + 1 >= state.frame;
     const uint32_t now = slot->current;
     const uint32_t before = now ^ 1U;
@@ -1281,16 +1702,20 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
     if (slot->fresh) {
         clear_slot(commands, slot);
     }
-    // the scene's build (recorded earlier on this queue) and the last frame's uses of the images before this one's
+    // the scene's build (recorded earlier on this queue), the lights' write and the last frame's uses of the images
+    // before this one's
     const VkMemoryBarrier ready{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                 .pNext = nullptr,
-                                .srcAccessMask =
-                                    VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_SHADER_WRITE_BIT,
+                                .srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR |
+                                                 VK_ACCESS_SHADER_WRITE_BIT |
+                                                 (rgb ? VkAccessFlags{VK_ACCESS_HOST_WRITE_BIT} : VkAccessFlags{0}),
                                 .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR |
-                                                 VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
+                                                 VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
+                                                 (rgb ? VkAccessFlags{VK_ACCESS_UNIFORM_READ_BIT} : VkAccessFlags{0})};
     vkCmdPipelineBarrier(commands,
                          VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
-                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                             (rgb ? VkPipelineStageFlags{VK_PIPELINE_STAGE_HOST_BIT} : VkPipelineStageFlags{0}),
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &ready, 0, nullptr, 0, nullptr);
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
 
@@ -1299,26 +1724,38 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
                       static_cast<int32_t>(height)};
     constants.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                         core::at(view.camera.position, 2), 0.0F};
-    const auto rays = static_cast<float>(own.settings.rays);
+    const auto rays = static_cast<float>(effect_rays(own));
 
     // 1. the rays
     PassConstants trace = constants;
     trace.matrix = column_major(to_world);
     const std::array<float, 2> sample = sample_zero_offset(colour->samples, own.standard_samples);
-    trace.params = {own.settings.radius, rays, kOffsetScale, sample.front()};
+    trace.params = {rgb ? own.gi.distance : own.settings.radius, rays, kOffsetScale, sample.front()};
     core::at(trace.camera, 3) = sample.back();
-    trace.extra = {static_cast<int32_t>(slot->passes % kSequenceWrap), static_cast<int32_t>(kAoMask), 0, 0};
+    trace.extra = {static_cast<int32_t>(slot->passes % kSequenceWrap), static_cast<int32_t>(rgb ? kGiMask : kAoMask),
+                   0, 0};
     const Image* const guide = &core::at(slot->guides, now);
-    dispatch(commands, core::at(own.trace, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U),
-             {.scene = true, .depth = depth, .out = &slot->raw, .guide = guide}, trace);
+    PassImages trace_images{.scene = true, .depth = depth, .out = &slot->raw, .guide = guide};
+    if (rgb) {
+        trace_images.albedo = &slot->albedo;
+        trace_images.geometry = own.geometry;
+        trace_images.geometry_bytes = own.geometry_bytes;
+        trace_images.lights = lights_span->buffer;
+        trace_images.lights_offset = lights_span->offset;
+        const VkDescriptorSet material_set = state.materials.descriptor_set();
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set,
+                                0, nullptr);
+    }
+    dispatch(commands, own, core::at(own.trace, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U), trace_images,
+             trace);
     Image* result = &slot->raw;
     if (denoise) {
         // 2. the history
         PassConstants temporal = constants;
         temporal.matrix = column_major(slot->world_to_pixel);
-        temporal.params = {static_cast<float>(kAoMaxHistory), have_before ? 1.0F : 0.0F, rays, 0.0F};
+        temporal.params = {static_cast<float>(kAoMaxHistory), have_before ? 1.0F : 0.0F, rays, unit};
         Image* const history = &core::at(slot->histories, now);
-        dispatch(commands, own.temporal,
+        dispatch(commands, own, own.temporal,
                  {.out = history,
                   .guide = guide,
                   .in = &slot->raw,
@@ -1329,11 +1766,11 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
         // 3. the spatial filter
         result = history;
         PassConstants filter = constants;
-        filter.params = {0.0F, 0.0F, rays, 0.0F};
+        filter.params = {0.0F, 0.0F, rays, unit};
         for (uint32_t pass = 0; pass < kAoFilterPasses; ++pass) {
             Image* const target = &core::at(slot->filtered, pass % 2);
             filter.extra = {static_cast<int32_t>(1U << pass), 0, 0, 0};
-            dispatch(commands, own.filter, {.out = target, .guide = guide, .in = result}, filter);
+            dispatch(commands, own, own.filter, {.out = target, .guide = guide, .in = result}, filter);
             result = target;
         }
     } else {
@@ -1341,10 +1778,15 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
     }
     depth_barrier(commands, depth, depth->resting, false);
 
-    // 4. the colour multiplied
+    // 4. the colour multiplied (the occlusion) or added to (the indirect light)
     PassConstants apply_constants = constants;
-    apply_constants.params = {own.settings.strength, 0.0F, 0.0F, 0.0F};
-    record_apply(commands, apply, colour, result, apply_constants);
+    if (rgb) {
+        apply_constants.params = {own.gi.strength, core::at(lights.sky, 0), core::at(lights.sky, 1),
+                                  core::at(lights.sky, 2)};
+    } else {
+        apply_constants.params = {own.settings.strength, 0.0F, 0.0F, 0.0F};
+    }
+    record_apply(commands, own, apply, colour, result, rgb ? &slot->albedo : nullptr, apply_constants);
     if (colour->layout != colour->resting) {
         Memory::transition(commands, colour, colour->resting);
     }
@@ -1362,30 +1804,33 @@ bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view)
     slot->current = before;
     ++slot->passes;
     ++own.passes;
-    if (first_report(state, kReportFirstPass)) {
-        get_log("vulkan: rt_ao: the first ambient occlusion pass (%ux%u, %u rays, radius %.1f, strength %.2f, %s)",
-                width, height, own.settings.rays, static_cast<double>(own.settings.radius),
-                static_cast<double>(own.settings.strength), denoise ? "denoised" : "not denoised");
+    if (first_report(state, kReportFirstPass + key)) {
+        if (rgb) {
+            get_log("vulkan: rt_gi: the first indirect light pass (%ux%u, %u rays, distance %.1f, strength %.2f, %s, "
+                    "%s; sun %s)",
+                    width, height, own.gi.rays, static_cast<double>(own.gi.distance),
+                    static_cast<double>(own.gi.strength), denoise ? "denoised" : "not denoised",
+                    float_format(colour->format) ? "added" : "screened", lights.to_sun.back() > 0.0F ? "yes" : "none");
+        } else {
+            get_log("vulkan: rt_ao: the first ambient occlusion pass (%ux%u, %u rays, radius %.1f, strength %.2f, %s)",
+                    width, height, own.settings.rays, static_cast<double>(own.settings.radius),
+                    static_cast<double>(own.settings.strength), denoise ? "denoised" : "not denoised");
+        }
     }
     return true;
 }
 
-uint64_t rt_ao_passes() { return effects().passes; }
-
-bool read_rt_ao_image(Backend& state, const std::array<uint32_t, 4>& rect, RtAoImage which, RtAoTexels* out)
+// One of an effect's images of the viewport last drawn with `rect` read back.
+bool read_image(Backend& state, EffectsState& own, const std::array<uint32_t, 4>& rect, Image* (*pick)(ViewSlot&),
+                RtAoTexels* out)
 {
     *out = RtAoTexels{};
-    for (const std::unique_ptr<ViewSlot>& slot : effects().slots) {
+    for (const std::unique_ptr<ViewSlot>& slot : own.slots) {
         if (slot->rect != rect) {
             continue;
         }
-        Image* image = &slot->raw;
-        if (which == RtAoImage::kHistory) {
-            image = slot->history_written;
-        } else if (which == RtAoImage::kFinal) {
-            image = slot->applied;
-        }
-        if (image == nullptr || !finish_work(state)) {
+        Image* const image = pick(*slot);
+        if (image == nullptr || image->image == VK_NULL_HANDLE || !finish_work(state)) {
             return false;
         }
         constexpr std::size_t kChannels = 4;
@@ -1409,9 +1854,14 @@ bool read_rt_ao_image(Backend& state, const std::array<uint32_t, 4>& rect, RtAoI
     return false;
 }
 
-void release_rt_effects(Backend& state)
+Image* pick_raw(ViewSlot& slot) { return &slot.raw; }
+Image* pick_history(ViewSlot& slot) { return slot.history_written; }
+Image* pick_final(ViewSlot& slot) { return slot.applied; }
+Image* pick_albedo(ViewSlot& slot) { return &slot.albedo; }
+
+// An effect's passes' objects and histories released.
+void release_effect(Backend& state, EffectsState& own)
 {
-    EffectsState& own = effects();
     const VkDevice device = state.context.device();
     for (const std::unique_ptr<ViewSlot>& slot : own.slots) {
         release_slot(state, slot.get(), true);
@@ -1446,9 +1896,142 @@ void release_rt_effects(Backend& state)
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;
     own.set_layout = VK_NULL_HANDLE;
+    own.material_layout = VK_NULL_HANDLE;
     own.sampler = VK_NULL_HANDLE;
     own.scene = VK_NULL_HANDLE;
+    own.geometry = VK_NULL_HANDLE;
+    own.geometry_bytes = 0;
     own.failed = false;
+}
+
+void reset_effect_history(EffectsState& own)
+{
+    for (const std::unique_ptr<ViewSlot>& slot : own.slots) {
+        slot->have_before = false;
+        slot->passes = 0;
+    }
+}
+
+} // namespace
+
+void set_rt_ao_settings(const RtAoSettings& settings)
+{
+    RtAoSettings kept = settings;
+    kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
+    kept.radius = std::isfinite(kept.radius) ? std::clamp(kept.radius, kMinRadius, kMaxRadius) : kRtAoRadius;
+    kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        effects().settings = kept;
+        rt_effects_reset_history(state);
+    }
+    if (kept.on) {
+        rt::add_view_listener(&listener());
+    } else {
+        rt::remove_view_listener(&listener());
+    }
+}
+
+RtAoSettings rt_ao_settings()
+{
+    const std::scoped_lock lock(backend().mutex);
+    return effects().settings;
+}
+
+void set_rt_gi_settings(const RtGiSettings& settings)
+{
+    RtGiSettings kept = settings;
+    kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxGiStrength) : 0.0F;
+    kept.distance =
+        std::isfinite(kept.distance) ? std::clamp(kept.distance, kMinRadius, kMaxGiDistance) : kRtGiDistance;
+    kept.rays = std::clamp(kept.rays, 1U, kMaxRays);
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        indirect().gi = kept;
+        reset_effect_history(indirect());
+    }
+    if (kept.on) {
+        rt::add_view_listener(&indirect_listener());
+    } else {
+        rt::remove_view_listener(&indirect_listener());
+    }
+}
+
+RtGiSettings rt_gi_settings()
+{
+    const std::scoped_lock lock(backend().mutex);
+    return indirect().gi;
+}
+
+void rt_effects_set_scene(VkAccelerationStructureKHR tlas)
+{
+    const std::scoped_lock lock(backend().mutex);
+    rt_effects_set_scene_locked(tlas);
+}
+
+void rt_effects_set_scene_locked(VkAccelerationStructureKHR tlas) { effects().scene = tlas; }
+
+VkImageUsageFlags rt_effects_depth_usage(const Backend& state, VkFormat format)
+{
+    if (!(effects().settings.on || indirect().gi.on) || !state.context.ray_tracing_enabled()) {
+        return 0;
+    }
+    VkFormatProperties properties{};
+    vkGetPhysicalDeviceFormatProperties(state.context.physical_device(), format, &properties);
+    return (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0 ? VK_IMAGE_USAGE_SAMPLED_BIT
+                                                                                         : 0;
+}
+
+void rt_effects_reset_history(Backend& state)
+{
+    (void)state;
+    reset_effect_history(effects());
+}
+
+void rt_gi_reset_history(Backend& state)
+{
+    (void)state;
+    reset_effect_history(indirect());
+}
+
+bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view) { return record_effect(state, effects(), view); }
+
+bool record_rt_gi_pass(Backend& state, const rt::ViewDrawn& view) { return record_effect(state, indirect(), view); }
+
+uint64_t rt_ao_passes() { return effects().passes; }
+
+uint64_t rt_gi_passes() { return indirect().passes; }
+
+bool read_rt_ao_image(Backend& state, const std::array<uint32_t, 4>& rect, RtAoImage which, RtAoTexels* out)
+{
+    Image* (*pick)(ViewSlot&) = pick_raw;
+    if (which == RtAoImage::kHistory) {
+        pick = pick_history;
+    } else if (which == RtAoImage::kFinal) {
+        pick = pick_final;
+    }
+    return read_image(state, effects(), rect, pick, out);
+}
+
+bool read_rt_gi_image(Backend& state, const std::array<uint32_t, 4>& rect, RtGiImage which, RtAoTexels* out)
+{
+    Image* (*pick)(ViewSlot&) = pick_raw;
+    if (which == RtGiImage::kHistory) {
+        pick = pick_history;
+    } else if (which == RtGiImage::kFinal) {
+        pick = pick_final;
+    } else if (which == RtGiImage::kAlbedo) {
+        pick = pick_albedo;
+    }
+    return read_image(state, indirect(), rect, pick, out);
+}
+
+void release_rt_effects(Backend& state)
+{
+    release_effect(state, effects());
+    release_effect(state, indirect());
 }
 
 } // namespace render::vulkan

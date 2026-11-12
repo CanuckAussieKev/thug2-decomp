@@ -131,6 +131,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_effects_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_gi_check.exe: the Vulkan Gpu's one-bounce ray-traced indirect light
+# (gpu_vulkan/vulkan_rt_effects.h, rt_gi) on this machine - a red wall beside a white floor in the sun: each frame's
+# light compared with the same rays traced on the processor, the albedo found, the colour it adds, the reddish bounce,
+# an open floor left alone and the denoised light against a many-ray reference (src/tests/vulkan_rt_gi_check.cpp). Exit
+# 2 on a device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_gi_check vulkan_rt_gi_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_gi_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_gi_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_reflections_check.exe: the Vulkan Gpu's ray-traced reflections
 # (gpu_vulkan/vulkan_rt_reflections.h) and the scene's geometry table on this machine - texture coordinates and colours
 # fetched at rays' hits in every mesh layout compared with the meshes' own, and a mirror floor reflecting a textured box
