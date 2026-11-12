@@ -110,8 +110,11 @@ where the arm is forced.
   compared up to its last stub call: its frame, its decisions then, its trace to there (the forced decisions after it
   aren't written). Replaying a run QB ended runaway, TypeScript is compared up to QB's last call and then runs on as
   QB's did - for its coverage: the loops QB went round after its last call - until a call QB didn't make or QB's
-  statement budget counted in its own statements (`reach`; past it `reach` throws, which ends a loop without calls).
-  So a TypeScript run that would have gone on to make a further call, or finished, after QB's last one isn't caught
+  statement budget counted in its own statements (`reach`; past it `reach` throws, which ends a loop without calls) -
+  or, sooner, once 2,000 of them in a row reach no statement or branch arm not reached before (a loop going round
+  again: running all 50,000 of every runaway replay made the TypeScript pass hours long). An if QB found fixed (its
+  condition stops before its line's end: the original stays on that line) counts for TypeScript once it reaches the
+  line - its run ends there, at the call the condition makes past QB's last. So a TypeScript run that would have gone on to make a further call, or finished, after QB's last one isn't caught
   there; any difference up to that call is.
 - A temporary load (a level's file, or a boot file loaded again for its module) defines its TypeScript under an owner
   of its own; undoing it lets go of only those definitions - the file's own load's stay, as the symbols put back name
