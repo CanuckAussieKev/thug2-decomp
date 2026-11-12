@@ -603,11 +603,9 @@ void clear_world_transform() { set_world_transform(nullptr); }
 
 // Not original - the listeners of rt_scene.h told that viewport `index`'s opaque world is drawn: its camera (the world's
 // view and projection, as set on the Gpu) and its rectangle.
-void note_opaque_drawn(int index)
+// (the viewport as it is drawn now - its world camera, its rectangle - for the screen-space effects)
+rt::ViewDrawn view_drawn(int index)
 {
-    if (!rt::view_listened()) {
-        return;
-    }
     const auto& gfx = renderer();
     rt::ViewDrawn view;
     view.camera.viewport = static_cast<uint32_t>(index);
@@ -624,7 +622,23 @@ void note_opaque_drawn(int index)
     const DeviceViewport& drawn = gfx.device_viewport();
     view.rect = {drawn.x, drawn.y, drawn.width, drawn.height};
     view.depth_range = {drawn.min_z_, drawn.max_z_};
-    rt::opaque_view_drawn(view);
+    return view;
+}
+
+void note_opaque_drawn(int index)
+{
+    if (rt::view_listened()) {
+        rt::opaque_view_drawn(view_drawn(index));
+    }
+}
+
+// Not original - the viewport's whole world drawn, before the 2D: volumetric fog, tone mapping (rt_scene.h
+// ViewListener::world_drawn). Original behaviour: nothing.
+void note_world_drawn(int index)
+{
+    if (rt::view_listened()) {
+        rt::world_view_drawn(view_drawn(index));
+    }
 }
 
 void draw_viewport(int index)
@@ -816,6 +830,7 @@ void draw_viewport(int index)
     set_render_state(RenderStateId::kZTest, 1);
     update_glows(false);
     engine::draw_flashes(index, 0);
+    note_world_drawn(index);
 }
 
 // Not original - the split views (ext::view_count; the level editor's): the first viewport drawn once for each view,

@@ -208,6 +208,7 @@ bool first_report(Backend& state, uint64_t what) { return state.reported.insert(
 // The listener rt_scene tells when a view's opaque world is drawn.
 class ShadowListener final : public rt::ViewListener {
 public:
+    [[nodiscard]] int order() const override { return rt::ViewOrder::kShadows; }
     void opaque_drawn(const rt::ViewDrawn& view) override
     {
         Backend& state = backend();

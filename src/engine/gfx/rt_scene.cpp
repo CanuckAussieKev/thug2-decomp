@@ -47,7 +47,10 @@ void add_view_listener(ViewListener* listener)
 {
     std::vector<ViewListener*>& listeners = view_listeners();
     if (listener != nullptr && std::ranges::find(listeners, listener) == listeners.end()) {
-        listeners.push_back(listener);
+        // (by order(); after those of the same order - as added)
+        const auto at = std::ranges::find_if(
+            listeners, [&](const ViewListener* other) { return other->order() > listener->order(); });
+        listeners.insert(at, listener);
     }
 }
 
@@ -57,6 +60,13 @@ void opaque_view_drawn(const ViewDrawn& view)
 {
     for (ViewListener* listener : view_listeners()) {
         listener->opaque_drawn(view);
+    }
+}
+
+void world_view_drawn(const ViewDrawn& view)
+{
+    for (ViewListener* listener : view_listeners()) {
+        listener->world_drawn(view);
     }
 }
 

@@ -183,11 +183,26 @@ class ViewListener {
 public:
     virtual ~ViewListener() = default;
     virtual void opaque_drawn(const ViewDrawn& view) = 0;
+    // The viewport's whole world drawn - its transparent passes, particles, weather, the sun's glare, the glows and
+    // flashes too - before the 2D (the HUD, the menus, text): volumetric fog, then tone mapping, go here.
+    virtual void world_drawn(const ViewDrawn& view) { (void)view; }
+    // When this listener runs among the others, at both points: lower first (ViewOrder; equal: as added).
+    [[nodiscard]] virtual int order() const { return 0; }
 };
+// The listeners' order (the effects build on each other: tone mapping needs every light added first).
+namespace ViewOrder {
+inline constexpr int kShadows = 100;    // R4: ray-traced sun shadows
+inline constexpr int kOcclusion = 200;  // R5: ambient occlusion
+inline constexpr int kIndirect = 300;   // global illumination (one bounce)
+inline constexpr int kReflections = 400;
+inline constexpr int kFog = 500;        // volumetric fog / light shafts (world_drawn)
+inline constexpr int kToneMapping = 900; // HDR -> the display (world_drawn, last)
+} // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);
 // Each listener told (render_pc; nothing happens when none listens).
 void opaque_view_drawn(const ViewDrawn& view);
+void world_view_drawn(const ViewDrawn& view);
 // Whether any listens (render_pc skips filling a ViewDrawn when none does).
 bool view_listened();
 
