@@ -593,7 +593,7 @@ void count_bytes(Scene& made)
 std::string missing_for_ray_tracing(const Backend& state)
 {
     if (!state.options.ray_tracing) {
-        return "off ([Graphics] ray_tracing=1 turns it on)";
+        return "not asked for ([Graphics] ray_tracing=1 turns it on)";
     }
     if (!state.context.draws_supported()) {
         return "the device can't draw (no dynamic rendering or push descriptors)";
