@@ -20,9 +20,10 @@
 // A .qb that doesn't translate is an error (listed; the exit code 1): the game reads no .qb - that file isn't loaded. <game>\thug2-decomp-backup\
 // unpacked.json lists what was moved and made, for --restore.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
+import { emitData } from "./emit_data.ts";
 import { emitTS } from "./emit_ts.ts";
 import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
 import type { ModuleIR } from "./ir.ts";
@@ -64,21 +65,27 @@ function scriptFolders(root: string): string[] {
 // A .qb's TypeScript with its manifest line; null when it doesn't translate. `source`: its name in the runtime
 // ("Data\\levels\\bo\\bo_scripts.qb", lower case - as game_scripts.ts qbVersions names them), `name` its game path.
 // localize: the IR's text given tokens before it's written (localize.ts).
+// The globals are the module's data (`json`, null when it has none: emit_data.ts, docs/qb-ts.md "Data") - the file's
+// <name>.json beside its <name>.ts; the manifest's `globals` counts them (the game wants the .json when it isn't 0).
 export function scriptTS(
     source: string,
     name: string,
     read: Buffer,
     check = false,
     localize?: (ir: ModuleIR) => void,
-): string | null {
+): { ts: string; json: string | null } | null {
     const bytes = scriptBytes(name, read);
     try {
         const ir = readIR(bytes, source);
         localize?.(ir);
-        const ts = emitTS(ir, {}, { check });
+        const from = fileHash(bytes);
+        const data = basename(name).replace(/\.qb$/i, ".json");
+        const json = emitData(ir, from);
+        const ts = emitTS(ir, {}, { check, data });
         const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
-        const manifest = JSON.stringify({ source, from: fileHash(bytes), names });
-        return `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`;
+        const globals = ir.definitions.filter((d) => d.kind === "global").length;
+        const manifest = JSON.stringify({ source, from, globals, names });
+        return { ts: `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`, json };
     } catch {
         return null;
     }
@@ -202,10 +209,11 @@ export function unpack(game: string, check = false): { record: Record; failed: s
                     localizer.localize(source, ir, Object.fromEntries(versions), unpatched);
                 };
                 archiveScripts.add(entry.name.replace(/\//g, "\\").toLowerCase());
-                const ts = scriptTS(source, entry.name, data, check, check ? undefined : localize);
-                if (ts !== null) {
+                const made = scriptTS(source, entry.name, data, check, check ? undefined : localize);
+                if (made !== null) {
                     mkdirSync(dirname(path), { recursive: true });
-                    writeFileSync(path.replace(/\.qb$/i, ".ts"), ts);
+                    writeFileSync(path.replace(/\.qb$/i, ".ts"), made.ts);
+                    if (made.json !== null) writeFileSync(path.replace(/\.qb$/i, ".json"), made.json);
                     continue;
                 }
                 failed.push(`${rel(folder)}\\${entry.name}`);
@@ -235,13 +243,14 @@ export function unpack(game: string, check = false): { record: Record; failed: s
             const localize = (ir: ModuleIR) => {
                 localizer.localize(source, ir, {});
             };
-            const ts = scriptTS(source, name, readFileSync(path), check, check || plain ? undefined : localize);
+            const made = scriptTS(source, name, readFileSync(path), check, check || plain ? undefined : localize);
             move(path); // (one that doesn't translate too: the game reads no .qb)
-            if (ts === null) {
+            if (made === null) {
                 failed.push(rel(path));
                 continue;
             }
-            make(path.replace(/\.qb$/i, ".ts"), ts);
+            make(path.replace(/\.qb$/i, ".ts"), made.ts);
+            if (made.json !== null) make(path.replace(/\.qb$/i, ".json"), made.json);
         }
         save();
     }
