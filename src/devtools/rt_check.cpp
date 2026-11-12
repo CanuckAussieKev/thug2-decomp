@@ -43,6 +43,9 @@ constexpr float kPerByteLight = 1.0F / 128.0F;
 constexpr float kDirectionTolerance = 1.0e-4F;
 constexpr float kColourTolerance = 1.0e-4F;
 constexpr std::size_t kFloatTextBytes = 32; // the longest float to_chars writes, and more
+constexpr uint32_t kFirstAddress = 1;       // a sampler's address modes: wrap ...
+constexpr uint32_t kLastAddress = 5;        // ... mirror once
+constexpr uint32_t kLastFilter = 3;         // its filters: none, point, linear, anisotropic
 
 // A float as JSON (finite: the shortest text that reads back; else null).
 void put_float(std::string& out, float value)
@@ -205,6 +208,13 @@ public:
         if ((surface.flags & ~(rt::kAlphaTested | rt::kTransparent)) != 0U) {
             violation("set_material " + std::to_string(material) + ": flags other than alpha-tested / transparent");
         }
+        const auto address_ok = [](uint32_t mode) { return mode >= kFirstAddress && mode <= kLastAddress; };
+        if (!address_ok(surface.address_u) || !address_ok(surface.address_v) || surface.filter > kLastFilter) {
+            violation("set_material " + std::to_string(material) + ": a sampler state out of range");
+        }
+        if (!(surface.alpha_ref >= 0.0F && surface.alpha_ref <= 1.0F)) {
+            violation("set_material " + std::to_string(material) + ": an alpha reference outside 0..1");
+        }
         materials_[material] = surface;
         if (inner_ != nullptr) {
             inner_->set_material(material, surface);
@@ -366,6 +376,9 @@ public:
             out += R"(,"colour":)";
             put_floats(out, surface.colour);
             put_number(out, "flags", surface.flags);
+            put_number(out, "address_u", surface.address_u);
+            put_number(out, "address_v", surface.address_v);
+            put_number(out, "filter", surface.filter);
             out += '}';
         }
         out += "]}\n";

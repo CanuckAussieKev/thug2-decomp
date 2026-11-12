@@ -36,7 +36,7 @@ const USAGE = `usage:
 
 export interface Scenario {
     name: string;
-    level: string;
+    level: string; // started in it (-level); "": from the main menu
     ini: Record<string, string>; // "Section.key": value
     commands: (renderer: string) => string[];
     seconds: number;
@@ -72,11 +72,19 @@ export const SCENARIOS: readonly Scenario[] = [
         ],
     },
     {
+        // (from the main menu: started with -level, Anteara Mod's game never got past its start-up here)
         name: "anteara",
-        level: "BO",
+        level: "",
         ini: { "features.anteara_mod": "1" },
-        seconds: 300,
-        commands: () => ["waitfor level BO 180", ...ride("1029.6 286.2 -2171.4 53.2"), "console rt summary", "quit"],
+        seconds: 420,
+        commands: () => [
+            "waitfor ready 240",
+            "level BO",
+            "waitfor level BO 240",
+            ...ride("1029.6 286.2 -2171.4 53.2"),
+            "console rt summary",
+            "quit",
+        ],
     },
 ];
 
@@ -209,8 +217,7 @@ async function run(options: {
                     String(scenario.seconds),
                     "-HangSeconds",
                     "120",
-                    "-Level",
-                    scenario.level,
+                    ...(scenario.level ? ["-Level", scenario.level] : []),
                     "-Commands",
                     scenario.commands(renderer).join(";"),
                     "-ShotDir",

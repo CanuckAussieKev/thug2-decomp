@@ -50,6 +50,8 @@ constexpr int kNoBone = -1;                     // a mesh's one bone: none
 constexpr int kMaxDrawnBones = 0x3A;            // Singleton::render draws this many bones at most
 constexpr uint8_t kNoBoneByte = 0xFF;           // a mesh's bone byte: none
 constexpr float kDoubled = 2.0F;                // the passes' colours: 0.5 leaves the texture as it is
+constexpr uint32_t kLowHalf = 0xFFFF;           // a pass's address modes: u, then v in the high half
+constexpr int kHalfBits = 16;
 constexpr float kPerByteLight = 1.0F / 128.0F;  // a scene light's byte (times its intensity): 128 is 1
 constexpr float kPerByte = 1.0F / 255.0F;       // a dynamic light's
 constexpr int kBitsPerByte = 8;
@@ -100,7 +102,8 @@ bool same_geometry(const rt::Geometry& a, const rt::Geometry& b)
 bool same_material(const rt::Material& a, const rt::Material& b)
 {
     return a.texture == b.texture && a.uv_set == b.uv_set && a.blend == b.blend && a.alpha_ref == b.alpha_ref &&
-           a.colour == b.colour && a.flags == b.flags;
+           a.colour == b.colour && a.flags == b.flags && a.address_u == b.address_u && a.address_v == b.address_v &&
+           a.filter == b.filter;
 }
 
 // The vertex buffer a mesh was last drawn from (MeshRef::render: the current one, then the next is current).
@@ -184,6 +187,20 @@ rt::MeshId mesh_id(const MeshRef* mesh, rt::RayTracing& rt)
     return entry.id;
 }
 
+// A material pass's address mode (the game's numbering) as the sampler's (gpu_value::kAddress*); an unknown one
+// leaves the sampler as it was: wrap, the default.
+uint32_t sampler_address(uint32_t mode)
+{
+    switch (mode) {
+    case 1:
+        return gpu_value::kAddressClamp;
+    case 2:
+        return renderer().border_addressing_supported() ? gpu_value::kAddressBorder : gpu_value::kAddressClamp;
+    default:
+        return gpu_value::kAddressWrap;
+    }
+}
+
 // A material as a hit shader reads it: its first pass.
 rt::Material material_of(const MaterialRef* material)
 {
@@ -197,6 +214,12 @@ rt::Material material_of(const MaterialRef* material)
     // (doubled: the passes' 0.5 leaves the texture as it is; the fourth value is the pass's fixed alpha, as stored)
     out.colour = {core::at(colour, 0) * kDoubled, core::at(colour, 1) * kDoubled, core::at(colour, 2) * kDoubled,
                   core::at(colour, 3)};
+    // (the pass's address modes, u in the low half and v in the high, as render_state.cpp sends them: 0 wrap, 1 clamp,
+    // 2 border where the device has it - else clamp; the filter linear, as the game's minification filter is)
+    const uint32_t address = core::at(material->address_modes(), 0);
+    out.address_u = sampler_address(address & kLowHalf);
+    out.address_v = sampler_address(address >> kHalfBits);
+    out.filter = gpu_value::kFilterLinear;
     if ((core::at(material->pass_flags(), 0) & kPassTransparent) != 0U) {
         out.flags |= rt::kTransparent;
     } else if (material->alpha_ref() != 0U) {
