@@ -233,3 +233,44 @@ test("reflections: its ini values and log lines", () => {
     assert.match(logProblems("on", drawn, "none", "reflections").join(), /reflection pass/);
     assert.deepEqual(logProblems("off", "", "shadows", "reflections"), []);
 });
+
+const FOG: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "fog" };
+
+test("fog: a picture lighter everywhere a little passes; a big change, black or white pixels fail", () => {
+    const off = flat(40, 40, 120);
+    const d = shadowDifference(off, flat(40, 40, 140), null, 8);
+    assert.equal(d.brighter, 1600);
+    assert.ok(Math.abs(d.meanLumaChange - 20) < 1e-6);
+    assert.deepEqual(judgeSpot("a", d, null, FOG).problems, []);
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 200), null, 8), null, FOG).problems.join(),
+        /luma by 80/,
+    );
+    assert.match(
+        judgeSpot("c", shadowDifference(off, shaded(off, 30, 0), null, 8), null, FOG).problems.join(),
+        /turned black/,
+    );
+    const white = { ...off, rgb: new Uint8Array(off.rgb) };
+    white.rgb.fill(255, 0, 40 * 3);
+    assert.match(judgeSpot("d", shadowDifference(off, white, null, 8), null, FOG).problems.join(), /turned white/);
+});
+
+test("fog: its ini values and log lines", () => {
+    assert.deepEqual(configValues("on", "fog"), {
+        "Graphics.ray_tracing": "1",
+        "Graphics.rt_shadows": "0",
+        "Graphics.rt_ao": "0",
+        "Graphics.rt_reflections": "0",
+        "Graphics.rt_fog": "1",
+    });
+    assert.equal(configValues("off", "fog")["Graphics.rt_fog"], "0");
+    assert.deepEqual(configValues("baseline", "fog"), {});
+    const drawn = "vulkan: rt_fog: the first fog pass (1280x720 at 1/2, 32 steps, the level's fog replaced, fog 0 - 1)";
+    const none = "vulkan: rt_fog: the level has no fog (and rt_fog_haze=0) - the fog pass skipped";
+    const failed = "vulkan: rt_fog: the passes couldn't be made (a compile error) - no volumetric fog";
+    assert.deepEqual(logProblems("on", drawn, "shadows", "fog"), []);
+    assert.deepEqual(logProblems("on", none, "shadows", "fog"), []);
+    assert.match(logProblems("on", failed, "shadows", "fog").join(), /couldn't/);
+    assert.match(logProblems("on", "", "shadows", "fog").join(), /no fog pass/);
+    assert.match(logProblems("on", drawn, "none", "fog").join(), /fog pass/);
+});

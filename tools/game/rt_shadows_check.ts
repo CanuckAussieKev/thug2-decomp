@@ -59,8 +59,8 @@
 //     - the group had nothing reflective ("nothing reflective in the scene"): changed at most 0.1%, as when skipped;
 //     - at least one group drew them, and some spot changed by 0.1% or more; no "couldn't" / "can't" line, no crash.
 //   --effect fog --expect drawn: on against off
-//     - changed (lighter or darker): at most 80% of the picture (the level's fog replaced by one of the same colour and
-//       distances: bounded changes);
+//     - bounded changes: the picture's mean luma change at most 40 (of 255) - the share of pixels changed is reported,
+//       not limited (the haze looking toward the sun touches nearly all of a picture, a little);
 //     - turned black (a NaN, garbage): at most 0.1%; turned white (every channel 250 or more where off isn't: the sky or
 //       the fog blown out) at most 0.5%;
 //     - the logs: "rt_fog: the first fog pass" (or "the level has no fog") in every `on` group's, at least one group
@@ -147,6 +147,7 @@ export interface ShadowDifference {
     tooDark: number; // of the darkened, those whose ratio is below `floor`
     blackened: number; // pixels black in `on` (every channel BLACK or less) and not in `off`
     whitened: number; // pixels white in `on` (every channel WHITE or more) and not in `off`
+    meanLumaChange: number; // the mean |luma on - luma off| over the compared pixels (0..255)
     // The `off` picture's pixels split into baked-bright and baked-dark at its luma's Otsu threshold (the level's own
     // lighting: sunlit against shaded); how many of each the pass darkened. A sun that matches the bake darkens mostly
     // what is already dark - its shadows fall on the baked ones.
@@ -207,6 +208,7 @@ export function shadowDifference(
     let tooDark = 0;
     let blackened = 0;
     let whitened = 0;
+    let lumaChange = 0;
     const ratios: number[] = [];
     const histogram = new Array<number>(256).fill(0);
     for (let p = 0; p < width * height; p++) if (!mask?.[p]) histogram[Math.min(255, Math.round(luma(off.rgb, p)))]!++;
@@ -226,6 +228,7 @@ export function shadowDifference(
             const white = (rgb: Uint8Array): boolean =>
                 rgb[p * 3]! >= WHITE && rgb[p * 3 + 1]! >= WHITE && rgb[p * 3 + 2]! >= WHITE;
             if (white(on.rgb) && !white(off.rgb)) whitened++;
+            lumaChange += Math.abs(luma(on.rgb, p) - luma(off.rgb, p));
             let up = 0;
             let down = 0;
             for (let c = 0; c < 3; c++) {
@@ -261,6 +264,7 @@ export function shadowDifference(
         tooDark,
         blackened,
         whitened,
+        meanLumaChange: pixels ? lumaChange / pixels : 0,
         split,
         bright,
         brightDarkened,
@@ -333,8 +337,9 @@ export function judgeSpot(
 ): SpotVerdict {
     const problems: string[] = [];
     if (limits.expect === "shadows" && limits.effect === "fog") {
-        const changed = share(difference.brighter + difference.darkened, difference);
-        if (changed > limits.maxDarkened) problems.push(`changed with the fog on: ${pct(changed)} of the picture`);
+        // (the fog may touch the whole picture - the haze looking toward the sun -, but not by much on average)
+        if (difference.meanLumaChange > MAX_FOG_LUMA_CHANGE)
+            problems.push(`the fog changed the picture's luma by ${difference.meanLumaChange.toFixed(1)} on average`);
         if (share(difference.blackened, difference) > limits.maxBrighter)
             problems.push(`turned black with the fog on: ${pct(share(difference.blackened, difference))}`);
         if (share(difference.whitened, difference) > MAX_WHITENED)
@@ -414,6 +419,8 @@ export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boo
 export const MIN_REFLECTED_SOMEWHERE = 0.001;
 // (the fog: the share of a picture that may turn white - the sun's glow against a white sky)
 export const MAX_WHITENED = 0.005;
+// (the fog: the mean luma change a picture may get, 0..255)
+export const MAX_FOG_LUMA_CHANGE = 40;
 
 // What a configuration's logs must (not) say.
 const FIRST_PASS = "rt_shadows: the first shadow pass";
@@ -541,7 +548,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             `${verdict.name}: compared ${d.pixels} pixels; darkened ${pct(share(d.darkened, d))} (lower half ${pct(d.darkened ? d.lowerHalf / d.darkened : 0)}), brighter ${pct(share(d.brighter, d))}, median ratio ${d.medianRatio?.toFixed(3) ?? "-"}; baked-bright darkened ${pct(d.brightDarkened / Math.max(1, d.bright))}, baked-dark ${pct(d.darkDarkened / Math.max(1, d.dark))} (split at luma ${d.split})` +
                 (limits.effect === "ao" ? `, too dark ${pct(share(d.tooDark, d))}` : "") +
                 (limits.effect === "fog"
-                    ? `, turned black ${pct(share(d.blackened, d))}, turned white ${pct(share(d.whitened, d))}`
+                    ? `, turned black ${pct(share(d.blackened, d))}, turned white ${pct(share(d.whitened, d))}, mean luma change ${d.meanLumaChange.toFixed(1)}`
                     : "") +
                 (limits.effect === "reflections"
                     ? `, turned black ${pct(share(d.blackened, d))}${reflected ? "" : " (nothing reflective drawn)"}`
