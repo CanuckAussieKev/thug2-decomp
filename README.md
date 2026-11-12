@@ -343,6 +343,12 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
 | `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
 | `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it) |
+| `rt_hdr` | 0 | On Vulkan (no ray tracing needed): 1 draws the world in high dynamic range - brighter than white kept - and maps it back to the screen before the HUD; with the settings below left alone it looks like 0 (the brightest whites a touch softer) |
+| `rt_exposure` | 0 | With `rt_hdr=1`: stops of light (+1 twice as bright, -1 half) |
+| `rt_tonemap` | 0 | With `rt_hdr=1`: 0 keeps the game's colours and rolls off only the brightest toward `rt_white_point`; 1 a filmic curve (ACES) - deeper shadows, brighter mid-tones |
+| `rt_white_point` | 1.25 | With `rt_hdr=1`: the brightness shown as pure white (1-8); 1 clips at white as the game does |
+| `rt_saturation` / `rt_contrast` | 1 | With `rt_hdr=1`: colour (0 grey, above 1 stronger) and contrast (a power about mid-grey; above 1 more) |
+| `rt_grade_lut` | (none) | With `rt_hdr=1`: a colour-grading table (a `.cube` 3D LUT) in the game folder, or a full path, applied last |
 | `rt_shadow_sun` | bake | The sun the shadows fall from: `bake` - the one the level's own lighting was made with, found from it when the level starts (a level lit only by its lamps, indoors, gets no ray-traced shadows); `light` - the game's light for the skater (the same in every level); or `x,y,z` toward the sun |
 | `rt_shadow_match_bake` | 1 | With the baked sun: no ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out); 0 shadows wherever the sun is blocked |
 | `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |

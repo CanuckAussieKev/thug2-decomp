@@ -10,6 +10,7 @@ import {
     configValues,
     darkestRatio,
     darkOverBright,
+    frameTimes,
     judgeSpot,
     LIMITS,
     type Limits,
@@ -232,4 +233,57 @@ test("reflections: its ini values and log lines", () => {
     assert.match(logProblems("on", "", "shadows", "reflections").join(), /no reflection pass/);
     assert.match(logProblems("on", drawn, "none", "reflections").join(), /reflection pass/);
     assert.deepEqual(logProblems("off", "", "shadows", "reflections"), []);
+});
+
+const HDR: Limits = { ...LIMITS, expect: "shadows", strength: 0, effect: "hdr" };
+const HDR_BRIGHTER: Limits = { ...HDR, expect: "brighter" };
+
+test("HDR: the defaults' shoulder passes; a large change fails; its ini values and log lines", () => {
+    const off = flat(40, 40, 120);
+    off.rgb.fill(255, 0, 40 * 3); // a white row: the shoulder takes it to ~247
+    const on = { ...off, rgb: new Uint8Array(off.rgb) };
+    on.rgb.fill(247, 0, 40 * 3);
+    const d = shadowDifference(off, on, null, 8);
+    assert.equal(d.maxDelta, 8);
+    assert.equal(d.whiteOff, 40);
+    assert.equal(d.whiteOn, 0);
+    assert.deepEqual(judgeSpot("a", d, null, HDR).problems, []);
+    assert.equal(anyShadow([judgeSpot("a", d, null, HDR)], HDR), true);
+    const wrong = shaded(off, 20, 0.5);
+    assert.match(judgeSpot("b", shadowDifference(off, wrong, null, 8), null, HDR).problems.join(), /changed by/);
+    assert.deepEqual(configValues("on", "hdr"), { "Graphics.rt_hdr": "1" });
+    assert.deepEqual(configValues("off", "hdr"), { "Graphics.rt_hdr": "0" });
+    const pass = "vulkan: rt_hdr: the first tone-mapping pass (1280x720, 1 sample; exposure +0.00, curve 0)";
+    assert.deepEqual(logProblems("on", pass, "shadows", "hdr"), []);
+    assert.match(logProblems("on", "nothing", "shadows", "hdr").join(), /no tone-mapping pass/);
+    assert.match(logProblems("off", pass, "shadows", "hdr").join(), /in the off log/);
+});
+
+test("HDR: the exposure raised brightens; darkening or a white-out fails", () => {
+    const off = flat(40, 40, 100);
+    const on = flat(40, 40, 140);
+    const d = shadowDifference(off, on, null, 8);
+    assert.deepEqual(judgeSpot("a", d, null, HDR_BRIGHTER).problems, []);
+    assert.equal(anyShadow([judgeSpot("a", d, null, HDR_BRIGHTER)], HDR_BRIGHTER), true);
+    const white = flat(40, 40, 255);
+    assert.match(
+        judgeSpot("b", shadowDifference(off, white, null, 8), null, HDR_BRIGHTER).problems.join(),
+        /pure white/,
+    );
+    const darker = flat(40, 40, 60);
+    assert.match(judgeSpot("c", shadowDifference(off, darker, null, 8), null, HDR_BRIGHTER).problems.join(), /darker/);
+    assert.equal(
+        anyShadow([judgeSpot("d", shadowDifference(off, off, null, 8), null, HDR_BRIGHTER)], HDR_BRIGHTER),
+        false,
+    );
+});
+
+test("frame times: the Vulkan lines averaged", () => {
+    const log =
+        "vulkan: frame 600: 3 pipelines; 16.70 ms a frame (12.70 ms of it waiting for the device and the swapchain)\n" +
+        "vulkan: frame 1200: 3 pipelines; 16.50 ms a frame (12.10 ms of it waiting for the device and the swapchain)\n";
+    const times = frameTimes(log);
+    assert.equal(times.lines, 2);
+    assert.ok(Math.abs(times.frame - 16.6) < 1e-9);
+    assert.ok(Math.abs(times.working - 4.2) < 1e-9);
 });
