@@ -141,3 +141,52 @@ test("ambient occlusion: its ini values and log lines", () => {
     assert.deepEqual(logProblems("on", skipped, "none", "ao"), []);
     assert.equal(darkestRatio(SHADOWS), 0);
 });
+
+const REFLECTIONS: Limits = { ...LIMITS, expect: "shadows", strength: 0.5, effect: "reflections" };
+
+test("reflections: lighter and darker changes pass; most of the picture changed or turned black fails", () => {
+    const off = flat(40, 40, 120);
+    const floor = { ...off, rgb: new Uint8Array(off.rgb) };
+    floor.rgb.fill(200, 30 * 40 * 3, 35 * 40 * 3); // a band lighter
+    floor.rgb.fill(60, 35 * 40 * 3); // and one darker
+    const d = shadowDifference(off, floor, null, 8);
+    assert.equal(d.brighter, 200);
+    assert.equal(d.darkened, 200);
+    assert.equal(d.blackened, 0);
+    assert.deepEqual(judgeSpot("a", d, null, REFLECTIONS).problems, []);
+    assert.equal(anyShadow([judgeSpot("a", d, null, REFLECTIONS)], REFLECTIONS), true);
+    const black = shaded(off, 30, 0); // (a NaN or a missing texture)
+    assert.match(
+        judgeSpot("b", shadowDifference(off, black, null, 8), null, REFLECTIONS).problems.join(),
+        /turned black/,
+    );
+    const everything = shaded(off, 0, 1.5);
+    assert.match(
+        judgeSpot("c", shadowDifference(off, everything, null, 8), null, REFLECTIONS).problems.join(),
+        /changed with the reflections on/,
+    );
+    const same = judgeSpot("d", shadowDifference(off, off, null, 8), null, REFLECTIONS);
+    assert.equal(anyShadow([same], REFLECTIONS), false);
+});
+
+test("reflections: its ini values and log lines", () => {
+    assert.deepEqual(configValues("on", "reflections"), {
+        "Graphics.ray_tracing": "1",
+        "Graphics.rt_shadows": "0",
+        "Graphics.rt_ao": "0",
+        "Graphics.rt_reflections": "1",
+    });
+    assert.equal(configValues("off", "reflections")["Graphics.rt_reflections"], "0");
+    assert.deepEqual(configValues("baseline", "reflections"), {});
+    const drawn =
+        "vulkan: rt_reflections: the first reflection pass (1280x720, 12 reflective instances of 900, strength 0.50)";
+    const nothing =
+        "vulkan: rt_reflections: nothing reflective in the scene (no environment-mapped material) - skipped";
+    const failed = "vulkan: rt_reflections: the passes couldn't be made (a compile error) - no ray-traced reflections";
+    assert.deepEqual(logProblems("on", drawn, "shadows", "reflections"), []);
+    assert.deepEqual(logProblems("on", nothing, "shadows", "reflections"), []);
+    assert.match(logProblems("on", failed, "shadows", "reflections").join(), /couldn't/);
+    assert.match(logProblems("on", "", "shadows", "reflections").join(), /no reflection pass/);
+    assert.match(logProblems("on", drawn, "none", "reflections").join(), /reflection pass/);
+    assert.deepEqual(logProblems("off", "", "shadows", "reflections"), []);
+});

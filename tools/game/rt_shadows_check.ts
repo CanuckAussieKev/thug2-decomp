@@ -10,6 +10,8 @@
 //   --effect ao (both commands): ray-traced ambient occlusion ([Graphics] rt_ao, vulkan_rt_effects.h) instead - the
 //   configurations' rt_ao 0 / 1 (rt_shadows 0 in both), its own log lines and its own checks (below). `--expect drawn`
 //   is the same as `--expect shadows`: the effect is drawn.
+//   --effect reflections (both commands): ray-traced reflections ([Graphics] rt_reflections, vulkan_rt_reflections.h) -
+//   rt_reflections 0 / 1 (rt_shadows and rt_ao 0 in both), with its own checks (below).
 //
 // run: under the workspace's lock (game_lock.ps1, released at the end - which puts the folder's own build and ini back),
 // the x64 build deployed (deploy_build.ps1 -Arch x64: the exe and every DLL beside it), then for each run and each
@@ -44,6 +46,12 @@
 //     - the darkened pixels' median ratio no lower than 1 - strength - 0.2 (occlusion is mostly partial);
 //     - reported: the darkened share in the lower half (corners, the ground under ledges - look at the pictures);
 //     - the logs: "rt_ao: the first ambient occlusion pass" in every `on` group's, no skipped line, no crash line.
+//   --effect reflections --expect drawn: on against off, per spot by what its group's `on` log says
+//     - the group drew reflections ("rt_reflections: the first reflection pass"): changed (lighter or darker) at most
+//       60% of the picture; turned black (every channel 4 or less where off isn't: a NaN, a missing texture) at most
+//       0.1%;
+//     - the group had nothing reflective ("nothing reflective in the scene"): changed at most 0.1%, as when skipped;
+//     - at least one group drew them, and some spot changed by 0.1% or more; no "couldn't" / "can't" line, no crash.
 // report.txt / report.json in the folder; exit 1 when a check fails.
 
 import { spawn } from "node:child_process";
@@ -67,7 +75,7 @@ import {
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: rt_shadows_check.ts run --game <workspace> --out <folder> --build <folder> [--baseline-build <folder>]
-                           [--effect shadows|ao] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
+                           [--effect shadows|ao|reflections] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
        rt_shadows_check.ts compare <folder> [--expect shadows|none] [--strength 0.5] [--threshold 8] [--grow 1]
 
 Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, compared (tools/game/README.md).`;
@@ -75,10 +83,19 @@ Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, c
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
-export type Effect = "shadows" | "ao"; // R4's sun shadows, R5's ambient occlusion
+export type Effect = "shadows" | "ao" | "reflections"; // R4's sun shadows, R5's ambient occlusion and reflections
 
 // The ini values a configuration adds.
 export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
+    if (effect === "reflections") {
+        if (config === "baseline") return {};
+        return {
+            "Graphics.ray_tracing": "1",
+            "Graphics.rt_shadows": "0",
+            "Graphics.rt_ao": "0",
+            "Graphics.rt_reflections": config === "on" ? "1" : "0",
+        };
+    }
     if (effect === "ao") {
         if (config === "baseline") return {};
         return {
@@ -104,7 +121,10 @@ export interface ShadowDifference {
     lowerHalf: number; // of the darkened, those in the picture's lower half
     medianRatio: number | null; // the darkened pixels' median luma ratio on / off
     tooDark: number; // of the darkened, those whose ratio is below `floor`
+    blackened: number; // pixels black in `on` (every channel BLACK or less) and not in `off`
 }
+
+const BLACK = 4;
 
 // `on` against `off` outside the mask (`floor`: the lowest ratio the pass can give; 0 counts none too dark).
 export function shadowDifference(
@@ -122,12 +142,16 @@ export function shadowDifference(
     let darkened = 0;
     let lowerHalf = 0;
     let tooDark = 0;
+    let blackened = 0;
     const ratios: number[] = [];
     for (let y = 0; y < height; y++)
         for (let x = 0; x < width; x++) {
             const p = y * width + x;
             if (mask?.[p]) continue;
             pixels++;
+            const black = (rgb: Uint8Array): boolean =>
+                rgb[p * 3]! <= BLACK && rgb[p * 3 + 1]! <= BLACK && rgb[p * 3 + 2]! <= BLACK;
+            if (black(on.rgb) && !black(off.rgb)) blackened++;
             let up = 0;
             let down = 0;
             for (let c = 0; c < 3; c++) {
@@ -156,6 +180,7 @@ export function shadowDifference(
         lowerHalf,
         medianRatio: ratios.length ? ratios[Math.floor(ratios.length / 2)]! : null,
         tooDark,
+        blackened,
     };
 }
 
@@ -215,7 +240,13 @@ export function judgeSpot(
     limits: Limits,
 ): SpotVerdict {
     const problems: string[] = [];
-    if (limits.expect === "shadows" && limits.effect === "ao") {
+    if (limits.expect === "shadows" && limits.effect === "reflections") {
+        const changed = share(difference.brighter + difference.darkened, difference);
+        if (changed > limits.maxDarkened)
+            problems.push(`changed with the reflections on: ${pct(changed)} of the picture`);
+        if (share(difference.blackened, difference) > limits.maxBrighter)
+            problems.push(`turned black with the reflections on: ${pct(share(difference.blackened, difference))}`);
+    } else if (limits.expect === "shadows" && limits.effect === "ao") {
         if (share(difference.brighter, difference) > limits.maxBrighter)
             problems.push(`brighter with the occlusion on: ${pct(share(difference.brighter, difference))}`);
         if (share(difference.darkened, difference) > limits.maxDarkened)
@@ -247,14 +278,23 @@ export function judgeSpot(
 }
 
 export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boolean {
+    if (limits.effect === "reflections")
+        return verdicts.some(
+            (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= MIN_REFLECTED_SOMEWHERE,
+        );
     return verdicts.some((v) => share(v.difference.darkened, v.difference) >= limits.minDarkenedSomewhere);
 }
+// (reflective surfaces are a small part of most pictures)
+export const MIN_REFLECTED_SOMEWHERE = 0.001;
 
 // What a configuration's logs must (not) say.
 const FIRST_PASS = "rt_shadows: the first shadow pass";
 const PASS_SKIPPED = /rt_shadows: .*(skipped|couldn't)/;
 const FIRST_AO_PASS = "rt_ao: the first ambient occlusion pass";
 const AO_SKIPPED = /rt_ao: .*(skipped|couldn't)/;
+export const FIRST_REFLECTION_PASS = "rt_reflections: the first reflection pass";
+export const NOTHING_REFLECTIVE = "rt_reflections: nothing reflective in the scene";
+const REFLECTIONS_FAILED = /rt_reflections: .*(couldn't|can't|isn't enabled)/;
 const BAD = /^(EXCEPTION|RUN-TIME CHECK|DEBUG CRT|PURE VIRTUAL|INVALID PARAMETER|ABORT|BUFFER OVERRUN)/m;
 
 export function logProblems(
@@ -267,6 +307,15 @@ export function logProblems(
     const bad = BAD.exec(log);
     if (bad) problems.push(`log: ${bad[0]}`);
     if (config !== "on") return problems;
+    if (effect === "reflections") {
+        // (a level with nothing reflective draws none: its spots are judged unchanged - compareFolder)
+        const failed = REFLECTIONS_FAILED.exec(log);
+        if (failed) problems.push(`log: ${failed[0]}`);
+        if (expect === "shadows" && !log.includes(FIRST_REFLECTION_PASS) && !log.includes(NOTHING_REFLECTIVE))
+            problems.push("no reflection pass in the log, nor nothing reflective");
+        if (expect === "none" && log.includes(FIRST_REFLECTION_PASS)) problems.push("the log shows a reflection pass");
+        return problems;
+    }
     const ao = effect === "ao";
     const skipped = (ao ? AO_SKIPPED : PASS_SKIPPED).exec(log);
     if (expect === "shadows") {
@@ -300,6 +349,13 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         `expect ${limits.expect}, strength ${limits.strength}, threshold ${threshold}, mask grown by ${grow}`,
     ];
     const verdicts: SpotVerdict[] = [];
+    // (reflections: a spot's group drew them when its `on` log says so; its spots are judged unchanged otherwise)
+    const drewReflections = (spot: string): boolean =>
+        fs
+            .readdirSync(runs.on[0]!)
+            .filter((f) => f.endsWith(".log") && spot.startsWith(`${f.slice(0, -4)}-`))
+            .some((f) => fs.readFileSync(path.join(runs.on[0]!, f), "utf8").includes(FIRST_REFLECTION_PASS));
+    let anyReflections = false;
     for (const name of names) {
         const load = (config: Config): Image[] =>
             runs[config]
@@ -310,17 +366,25 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         const on = load("on");
         const baseline = load("baseline");
         const mask = noiseOf(baseline.length ? [off, on, baseline] : [off, on], threshold, grow);
+        const spot = name.replace(/\.png$/i, "");
+        const reflected = limits.effect === "reflections" && limits.expect === "shadows" && drewReflections(spot);
+        anyReflections = anyReflections || reflected;
+        const spotLimits: Limits =
+            limits.effect === "reflections" && !reflected ? { ...limits, expect: "none" } : limits;
         const verdict = judgeSpot(
-            name.replace(/\.png$/i, ""),
+            spot,
             shadowDifference(off[0]!, on[0]!, mask, threshold, darkestRatio(limits)),
             baseline.length ? shadowDifference(baseline[0]!, off[0]!, mask, threshold) : null,
-            limits,
+            spotLimits,
         );
         verdicts.push(verdict);
         const d = verdict.difference;
         lines.push(
             `${verdict.name}: compared ${d.pixels} pixels; darkened ${pct(share(d.darkened, d))} (lower half ${pct(d.darkened ? d.lowerHalf / d.darkened : 0)}), brighter ${pct(share(d.brighter, d))}, median ratio ${d.medianRatio?.toFixed(3) ?? "-"}` +
                 (limits.effect === "ao" ? `, too dark ${pct(share(d.tooDark, d))}` : "") +
+                (limits.effect === "reflections"
+                    ? `, turned black ${pct(share(d.blackened, d))}${reflected ? "" : " (nothing reflective drawn)"}`
+                    : "") +
                 (verdict.baseline
                     ? `; off vs baseline changed ${pct(share(verdict.baseline.brighter + verdict.baseline.darkened, verdict.baseline))}`
                     : "") +
@@ -329,9 +393,12 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
     }
     let failed = verdicts.some((v) => v.problems.length > 0) || names.length === 0;
     if (names.length === 0) lines.push("FAIL no spot pictured in both configurations");
-    if (limits.expect === "shadows" && !anyShadow(verdicts, limits)) {
+    if (limits.effect === "reflections" && limits.expect === "shadows" && !anyReflections) {
         failed = true;
-        const drawn = limits.effect === "ao" ? "occlusion" : "shadows";
+        lines.push("FAIL no group drew reflections (nothing reflective in any level chosen?)");
+    } else if (limits.expect === "shadows" && !anyShadow(verdicts, limits)) {
+        failed = true;
+        const drawn = { shadows: "shadows", ao: "occlusion", reflections: "reflections" }[limits.effect ?? "shadows"];
         lines.push(`FAIL no spot darkened by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
     }
     for (const config of CONFIGS)
@@ -344,7 +411,9 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
                     lines.push(`FAIL ${config}/${path.basename(folder)}/${log}: ${problems.join("; ")}`);
                 }
             }
-    const title = limits.effect === "ao" ? "rt_ao check" : "rt_shadows check";
+    const title = { shadows: "rt_shadows check", ao: "rt_ao check", reflections: "rt_reflections check" }[
+        limits.effect ?? "shadows"
+    ];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
     fs.writeFileSync(path.join(out, "report.json"), `${JSON.stringify({ limits, verdicts }, null, 1)}\n`);
@@ -530,7 +599,8 @@ async function main(): Promise<number> {
     const [command, target] = positionals;
     const expect = values.expect === "drawn" ? "shadows" : values.expect;
     if (expect !== "shadows" && expect !== "none") exitWith("--expect shadows | drawn | none");
-    if (values.effect !== "shadows" && values.effect !== "ao") exitWith("--effect shadows | ao");
+    if (values.effect !== "shadows" && values.effect !== "ao" && values.effect !== "reflections")
+        exitWith("--effect shadows | ao | reflections");
     const effect: Effect = values.effect;
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
@@ -538,12 +608,14 @@ async function main(): Promise<number> {
         if (eq <= 0) exitWith(`--set Section.key=value (${s})`);
         set[s.slice(0, eq)] = s.slice(eq + 1);
     }
-    // (the ini's defaults when not given: rt_shadow_strength 0.5, rt_ao_strength 0.6 - gpu_vulkan.h)
-    const strength = Number(
-        effect === "ao"
-            ? (set["Graphics.rt_ao_strength"] ?? values.strength ?? "0.6")
-            : (set["Graphics.rt_shadow_strength"] ?? values.strength ?? "0.5"),
-    );
+    // (the ini's defaults when not given: rt_shadow_strength 0.5, rt_ao_strength 0.6, rt_reflection_strength 0.5 -
+    // gpu_vulkan.h)
+    const strengthKey = {
+        shadows: "Graphics.rt_shadow_strength",
+        ao: "Graphics.rt_ao_strength",
+        reflections: "Graphics.rt_reflection_strength",
+    }[effect];
+    const strength = Number(set[strengthKey] ?? values.strength ?? (effect === "ao" ? "0.6" : "0.5"));
     const limits: Limits = { ...LIMITS, expect, strength, effect };
     const threshold = Number(values.threshold);
     const grow = Number(values.grow);

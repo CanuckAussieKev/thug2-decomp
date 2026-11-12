@@ -20,7 +20,7 @@
 //
 // The descriptor set (layout(): bind it at any set number - the GLSL below reads THUG2_MATERIAL_SET, 1 by default):
 //   binding 0  readonly buffer, scalar layout: MaterialRecord records[] - row n is MaterialId n (ids are never reused,
-//              so the rows grow with the session: 40 bytes each); row 0 and rows never set are untextured white
+//              so the rows grow with the session: 48 bytes each); row 0 and rows never set are untextured white
 //   binding 1  sampler samplers[kMaterialSamplerCount] - address u x address v (wrap, mirror, clamp, border transparent
 //              black) x filter (nearest, linear), written once per set; sampled at an explicit level (a ray has no
 //              derivatives), so no anisotropy. (Not immutable samplers: the AMD driver here read every index of an
@@ -54,7 +54,7 @@ inline constexpr uint32_t kMaterialRecordsBinding = 0;
 inline constexpr uint32_t kMaterialSamplersBinding = 1;
 inline constexpr uint32_t kMaterialTexturesBinding = 2;
 
-// A row of binding 0 (scalar layout: 40 bytes). The GLSL's `Material` has the same members in the same order.
+// A row of binding 0 (scalar layout: 48 bytes). The GLSL's `Material` has the same members in the same order.
 struct MaterialRecord {
     uint32_t texture = 0; // slot in textures[] (0: white)
     uint32_t sampler = 0; // index in samplers[]
@@ -63,8 +63,11 @@ struct MaterialRecord {
     float alpha_ref = 0.0F; // 0..1
     uint32_t flags = 0;     // rt::InstanceFlag's kAlphaTested / kTransparent
     std::array<float, 4> colour{1.0F, 1.0F, 1.0F, 1.0F};
+    // (added by R5's reflections) rt::Material's reflectivity (0 - 1) and environment_pass (rt::kNoEnvironmentPass: none)
+    float reflectivity = 0.0F;
+    uint32_t environment_pass = rt::kNoEnvironmentPass;
 };
-inline constexpr std::size_t kMaterialRecordBytes = 40;
+inline constexpr std::size_t kMaterialRecordBytes = 48;
 static_assert(sizeof(MaterialRecord) == kMaterialRecordBytes);
 
 // The sampler index for a material's address modes (gpu_value::kAddress*) and filter (gpu_value::kFilter*).
@@ -76,7 +79,7 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot);
 // first to bind the table at set n, 1 by default). It enables GL_EXT_nonuniform_qualifier and
 // GL_EXT_scalar_block_layout, declares the three bindings and:
 //   struct Material { uint texture_slot; uint sampler_index; uint uv_set; uint blend; float alpha_ref; uint flags;
-//                     vec4 colour; };
+//                     vec4 colour; float reflectivity; uint environment_pass; };
 //   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
 //   vec4 material_texel(uint id, vec2 uv)            - its texture at level 0 through its sampler (non-uniform indexing)

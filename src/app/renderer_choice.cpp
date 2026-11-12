@@ -83,6 +83,10 @@ void install_vulkan()
              std::max(1, build_info::get_int(build_info::kGraphics, "rt_ao_rays",
                                              static_cast<int>(render::vulkan::RtAoSettings{}.rays)))),
          .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_ao_denoise", true)});
+    // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
+    render::vulkan::set_rt_reflection_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),
+         .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength)});
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

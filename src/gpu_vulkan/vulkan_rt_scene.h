@@ -1,8 +1,10 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 #include <volk.h>
 
@@ -54,7 +56,48 @@ struct SceneView {
     VkDeviceAddress address = 0;
     uint32_t instances = 0; // in it (0: an empty scene - every ray misses)
     uint64_t frame = 0;     // the frame record's
+    // (added by R5's reflections) the frame's geometry table (below: a GeometryRecord per instance, in the order of
+    // the frame record's instances - bind it as a storage buffer beside the TLAS, for the frame it was handed out in)
+    // and how many of its instances have a reflective material (rt::Material::reflectivity above 0)
+    VkBuffer geometry = VK_NULL_HANDLE;
+    VkDeviceSize geometry_bytes = 0;
+    uint32_t reflective_instances = 0;
 };
+
+// (added by R5's reflections) Where a hit's triangle is, for a shader that shades what a ray hit: per instance of the
+// frame (its rayQueryGetIntersectionInstanceIdEXT), the buffers it was built from as device addresses (read by
+// GL_EXT_buffer_reference) and the vertex's layout - a strip's corners are the scene's own 32-bit list (triangle i of
+// the strip is primitive i, its odd ones turned back round, as the BLAS has them). Written by the processor at
+// begin_frame (the buffers' current memory, which the frame's submission then keeps); 48 bytes, scalar layout.
+struct GeometryRecord {
+    std::array<uint32_t, 2> vertex_address{}; // the vertex buffer's start (low, high word)
+    std::array<uint32_t, 2> index_address{};  // the index buffer's start (0: not indexed - corner = primitive x 3 + k)
+    uint32_t vertex_offset = 0;               // bytes from vertex_address to the first vertex
+    uint32_t stride = 0;
+    uint32_t position_offset = 0; // bytes into a vertex: three floats
+    uint32_t uv_offset = 0;       // two floats (with kGeometryUv)
+    uint32_t colour_offset = 0;   // A8R8G8B8 (with kGeometryColour)
+    uint32_t index_offset = 0;    // bytes from index_address to the first index
+    uint32_t flags = 0;           // kGeometry*
+    uint32_t instance_flags = 0;  // the instance's rt::InstanceFlag
+};
+inline constexpr std::size_t kGeometryRecordBytes = 48;
+static_assert(sizeof(GeometryRecord) == kGeometryRecordBytes);
+inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else every other field is 0)
+inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)
+inline constexpr uint32_t kGeometryUv = 1U << 2;
+inline constexpr uint32_t kGeometryColour = 1U << 3;
+
+// The GLSL for the table (after `#version 460`; `#define THUG2_GEOMETRY_SET n` / `THUG2_GEOMETRY_BINDING n` first to
+// bind it somewhere other than set 0, binding 7). It enables GL_EXT_buffer_reference(_uvec2) and GL_EXT_scalar_block_layout and
+// declares:
+//   struct GeometryRecord { ... };   GeometryRecord geometry_record(uint instance)  (past the end: not live)
+//   struct HitVertices { vec3 position[3]; vec2 uv[3]; vec4 colour[3]; uint flags; };
+//   bool hit_vertices(uint instance, uint primitive, out HitVertices v)  - false when the instance isn't live; a mesh
+//        without texture coordinates / colours gives (0, 0) / (1, 1, 1, 1) - the colour's 128 is 1.0 x 128 / 255
+//   vec2 hit_uv(HitVertices v, vec2 barycentrics), vec4 hit_colour(HitVertices v, vec2 barycentrics)
+// The positions are the object's (rayQueryGetIntersectionObjectToWorldEXT takes them to the world).
+std::string_view scene_geometry_glsl();
 // The caller holds the backend's lock.
 SceneView current_scene(const Backend& state);
 
@@ -69,12 +112,13 @@ VkBufferUsageFlags ray_tracing_buffer_usage(const Backend& state);
 // Rays traced now through the current TLAS (a compute shader with ray queries, every instance taken as opaque, each
 // ray's cull mask its own; the
 // frame's work finished first, then the dispatch run and waited for): the checks' and rtprobe's. Takes the lock.
+inline constexpr uint32_t kMaskEverything = 0xFF; // (a cull mask that sees every instance)
 struct TracedRay {
     std::array<float, 3> origin{};
     std::array<float, 3> direction{}; // (any length: distances are in its units, t)
     float t_min = 0.0F;
     float t_max = 0.0F;
-    uint32_t cull_mask = 0xFF; // the instances it can hit (their masks: above)
+    uint32_t cull_mask = kMaskEverything; // the instances it can hit (their masks: above)
 };
 struct TracedHit {
     bool hit = false;

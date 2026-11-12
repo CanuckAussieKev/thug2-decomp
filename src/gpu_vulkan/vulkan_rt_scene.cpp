@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -54,6 +55,108 @@ constexpr uint32_t kIndex32Bytes = 4;
 constexpr uint32_t kIndex16Bytes = 2;
 constexpr uint64_t kNoQuery = ~0ULL;
 constexpr float kLeastAlphaRef = (1.0F / 255.0F) + 1.0e-6F; // an alpha test against at most this rejects nothing drawn
+
+// (R5's reflections) The geometry table's GLSL (vulkan_rt_scene.h, scene_geometry_glsl). Every read is a word at a
+// 4-byte boundary (a 16-bit index: its word's half); the buffers' starts are aligned at least that much.
+constexpr std::string_view kGeometryGlsl = R"(#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_scalar_block_layout : require
+#ifndef THUG2_GEOMETRY_SET
+#define THUG2_GEOMETRY_SET 0
+#endif
+#ifndef THUG2_GEOMETRY_BINDING
+#define THUG2_GEOMETRY_BINDING 7
+#endif
+struct GeometryRecord {
+    uvec2 vertex_address;
+    uvec2 index_address;
+    uint vertex_offset;
+    uint stride;
+    uint position_offset;
+    uint uv_offset;
+    uint colour_offset;
+    uint index_offset;
+    uint flags;
+    uint instance_flags;
+};
+layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
+    GeometryRecord geometry_records[];
+};
+layout(buffer_reference, buffer_reference_align = 4, scalar) readonly buffer GeometryWords { uint words[]; };
+const uint GEOMETRY_LIVE = 1u;
+const uint GEOMETRY_INDEX32 = 2u;
+const uint GEOMETRY_UV = 4u;
+const uint GEOMETRY_COLOUR = 8u;
+GeometryRecord geometry_record(uint instance)
+{
+    if (instance >= uint(geometry_records.length())) {
+        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+    }
+    return geometry_records[instance];
+}
+uint geometry_word(uvec2 address, uint byte_offset)
+{
+    return GeometryWords(address).words[byte_offset >> 2];
+}
+uint geometry_corner(GeometryRecord g, uint primitive, uint k)
+{
+    uint at = primitive * 3u + k;
+    if (g.index_address == uvec2(0u)) {
+        return at;
+    }
+    if ((g.flags & GEOMETRY_INDEX32) != 0u) {
+        return geometry_word(g.index_address, g.index_offset + at * 4u);
+    }
+    uint byte_offset = g.index_offset + at * 2u;
+    uint word = geometry_word(g.index_address, byte_offset & ~3u);
+    return (byte_offset & 2u) != 0u ? (word >> 16) : (word & 0xFFFFu);
+}
+float geometry_float(GeometryRecord g, uint vertex, uint offset)
+{
+    return uintBitsToFloat(geometry_word(g.vertex_address, g.vertex_offset + vertex * g.stride + offset));
+}
+struct HitVertices {
+    vec3 position[3];
+    vec2 uv[3];
+    vec4 colour[3];
+    uint flags;
+};
+bool hit_vertices(uint instance, uint primitive, out HitVertices v)
+{
+    GeometryRecord g = geometry_record(instance);
+    v.flags = g.flags;
+    for (uint k = 0u; k < 3u; ++k) {
+        v.position[k] = vec3(0.0);
+        v.uv[k] = vec2(0.0);
+        v.colour[k] = vec4(1.0);
+    }
+    if ((g.flags & GEOMETRY_LIVE) == 0u) {
+        return false;
+    }
+    for (uint k = 0u; k < 3u; ++k) {
+        uint corner = geometry_corner(g, primitive, k);
+        v.position[k] = vec3(geometry_float(g, corner, g.position_offset), geometry_float(g, corner, g.position_offset + 4u),
+                             geometry_float(g, corner, g.position_offset + 8u));
+        if ((g.flags & GEOMETRY_UV) != 0u) {
+            v.uv[k] = vec2(geometry_float(g, corner, g.uv_offset), geometry_float(g, corner, g.uv_offset + 4u));
+        }
+        if ((g.flags & GEOMETRY_COLOUR) != 0u) {
+            uint c = geometry_word(g.vertex_address, g.vertex_offset + corner * g.stride + g.colour_offset);
+            v.colour[k] = vec4(float((c >> 16) & 255u), float((c >> 8) & 255u), float(c & 255u), float(c >> 24)) / 255.0;
+        }
+    }
+    return true;
+}
+vec2 hit_uv(HitVertices v, vec2 barycentrics)
+{
+    return v.uv[0] * (1.0 - barycentrics.x - barycentrics.y) + v.uv[1] * barycentrics.x + v.uv[2] * barycentrics.y;
+}
+vec4 hit_colour(HitVertices v, vec2 barycentrics)
+{
+    return v.colour[0] * (1.0 - barycentrics.x - barycentrics.y) + v.colour[1] * barycentrics.x +
+           v.colour[2] * barycentrics.y;
+}
+)";
 
 // The device's address of a buffer.
 VkDeviceAddress address_of(VkDevice device, VkBuffer buffer)
@@ -111,6 +214,10 @@ struct FrameScene {
     uint32_t count = 0;
     std::vector<rt::MeshId> meshes; // per instance (the probe's)
     bool built = false;
+    // (R5's reflections) a GeometryRecord per instance (processor-written, made with the instances' buffer) and how
+    // many instances have a reflective material
+    DeviceBuffer geometry;
+    uint32_t reflective = 0;
 };
 
 // The probe's compute pass (made on first use).
@@ -204,6 +311,7 @@ struct Scene {
     std::string device_name;
     std::unordered_map<rt::MeshId, Mesh> meshes;
     std::unordered_map<rt::MaterialId, float> alpha_refs; // each material's alpha reference (0..1), from set_material
+    std::unordered_set<rt::MaterialId> reflective;        // (R5's reflections) the materials with a reflectivity
     std::array<FrameScene, Frames::kSlots> frames{};
     uint32_t current = 0; // the slot of the last TLAS built
     bool any_built = false;
@@ -814,6 +922,7 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
     const uint32_t capacity = std::max({count, kLeastInstances, frame->capacity * 2});
     retire_structure(state, made, &frame->tlas);
     retire(made, VK_NULL_HANDLE, &frame->instances, state.frames.serial());
+    retire(made, VK_NULL_HANDLE, &frame->geometry, state.frames.serial());
     frame->capacity = 0;
     const VkDeviceSize instance_bytes = static_cast<VkDeviceSize>(capacity) * sizeof(VkAccelerationStructureInstanceKHR);
     if (!state.memory.create_buffer(instance_bytes + kInstanceAlignment,
@@ -821,6 +930,12 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
                                         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                     BufferPlace::kUpload, &frame->instances) ||
         frame->instances.mapped == nullptr) {
+        return false;
+    }
+    // (R5's reflections: the geometry table, a record per instance)
+    if (!state.memory.create_buffer(static_cast<VkDeviceSize>(capacity) * sizeof(GeometryRecord),
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload, &frame->geometry) ||
+        frame->geometry.mapped == nullptr) {
         return false;
     }
     frame->instances_address = align_up(address_of(made.device, frame->instances.buffer), kInstanceAlignment);
@@ -1005,22 +1120,89 @@ bool alpha_tested_for(const Scene& made, const rt::Instance& given)
     return found == made.alpha_refs.end() || found->second > kLeastAlphaRef;
 }
 
-// The record's instances written for the frame's TLAS (and their meshes kept for the probe).
+// (R5's reflections) A device address as the GLSL's uvec2.
+std::array<uint32_t, 2> address_words(VkDeviceAddress address)
+{
+    constexpr uint32_t kWordBits = 32;
+    return {static_cast<uint32_t>(address), static_cast<uint32_t>(address >> kWordBits)};
+}
+
+// (R5's reflections) An instance's row of the geometry table: its mesh's buffers as they are now (their current
+// memory, kept by this frame's submission) - nothing (not live) when the mesh isn't built.
+GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::Instance& given, const Mesh* mesh)
+{
+    GeometryRecord row;
+    if (mesh == nullptr || !mesh->built) {
+        return row;
+    }
+    const rt::Geometry& geometry = mesh->geometry;
+    Buffer* const vertices = live_buffer(state, object(geometry.vertices));
+    if (vertices == nullptr) {
+        return row;
+    }
+    const uint64_t serial = state.frames.serial();
+    BufferVersion& vertex_version = current_version(vertices);
+    vertex_version.last_use = std::max(vertex_version.last_use, serial);
+    row.vertex_address = address_words(address_of(made.device, vertex_version.memory.buffer));
+    row.vertex_offset = geometry.vertex_offset;
+    row.stride = geometry.vertex_stride;
+    row.position_offset = geometry.position_offset;
+    row.flags = kGeometryLive;
+    // (the attributes are read a word at a time: one not on a 4-byte boundary is left out)
+    if (geometry.uv_format == rt::kUvFloat2 && geometry.uv_offset % kFloatBytes == 0 &&
+        geometry.uv_offset + (2 * kFloatBytes) <= geometry.vertex_stride) {
+        row.uv_offset = geometry.uv_offset;
+        row.flags |= kGeometryUv;
+    }
+    if (geometry.colour_format == rt::kColourA8R8G8B8 && geometry.colour_offset % kFloatBytes == 0 &&
+        geometry.colour_offset + kFloatBytes <= geometry.vertex_stride) {
+        row.colour_offset = geometry.colour_offset;
+        row.flags |= kGeometryColour;
+    }
+    if (mesh->list_indices.buffer != VK_NULL_HANDLE) {
+        row.index_address = address_words(address_of(made.device, mesh->list_indices.buffer));
+        row.flags |= kGeometryIndex32;
+    } else if (geometry.indices != nullptr) {
+        Buffer* const indices = live_buffer(state, object(geometry.indices));
+        if (indices == nullptr) {
+            return GeometryRecord{};
+        }
+        BufferVersion& index_version = current_version(indices);
+        index_version.last_use = std::max(index_version.last_use, serial);
+        row.index_address = address_words(address_of(made.device, index_version.memory.buffer));
+        row.index_offset = geometry.index_offset * (geometry.indices_32bit ? kIndex32Bytes : kIndex16Bytes);
+        row.flags |= geometry.indices_32bit ? kGeometryIndex32 : 0U;
+    }
+    row.instance_flags = given.flags;
+    return row;
+}
+
+// The record's instances written for the frame's TLAS (and their meshes kept for the probe), and the geometry table.
 void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::FrameRecord& record)
 {
     frame.meshes.clear();
     frame.meshes.reserve(record.instances.size());
+    frame.reflective = 0;
     std::vector<VkAccelerationStructureInstanceKHR> instances;
     instances.reserve(record.instances.size());
+    std::vector<GeometryRecord> rows;
+    rows.reserve(record.instances.size());
     for (const rt::Instance& given : record.instances) {
         const auto found = made.meshes.find(given.mesh);
-        instances.push_back(instance_of(given, found == made.meshes.end() ? nullptr : &found->second,
-                                        alpha_tested_for(made, given)));
+        const Mesh* const mesh = found == made.meshes.end() ? nullptr : &found->second;
+        instances.push_back(instance_of(given, mesh, alpha_tested_for(made, given)));
         frame.meshes.push_back(given.mesh);
+        rows.push_back(geometry_record_of(state, made, given, mesh));
+        if ((rows.back().flags & kGeometryLive) != 0 && made.reflective.contains(given.material)) {
+            ++frame.reflective;
+        }
     }
     if (instances.empty()) {
         return;
     }
+    const std::size_t row_bytes = rows.size() * sizeof(GeometryRecord);
+    std::memcpy(frame.geometry.mapped, rows.data(), row_bytes);
+    state.memory.flush(frame.geometry, 0, row_bytes);
     const std::size_t bytes = instances.size() * sizeof(VkAccelerationStructureInstanceKHR);
     const auto skip = static_cast<std::size_t>(frame.instances_address - address_of(made.device, frame.instances.buffer));
     const std::span<uint8_t> into(static_cast<uint8_t*>(frame.instances.mapped),
@@ -1263,6 +1445,11 @@ void VulkanRayTracing::set_material(rt::MaterialId material, const rt::Material&
     {
         const std::scoped_lock lock(backend().mutex);
         scene().alpha_refs[material] = surface.alpha_ref;
+        if (surface.reflectivity > 0.0F) {
+            scene().reflective.insert(material);
+        } else {
+            scene().reflective.erase(material);
+        }
     }
     backend().materials.set(material, surface); // (the table's own lock)
 }
@@ -1272,6 +1459,7 @@ void VulkanRayTracing::remove_material(rt::MaterialId material)
     {
         const std::scoped_lock lock(backend().mutex);
         scene().alpha_refs.erase(material);
+        scene().reflective.erase(material);
     }
     backend().materials.remove(material);
 }
@@ -1364,8 +1552,17 @@ SceneView current_scene(const Backend& state)
         return {};
     }
     const FrameScene& frame = core::at(made.frames, made.current);
-    return {.tlas = frame.tlas.handle, .address = frame.tlas.address, .instances = frame.count, .frame = frame.frame};
+    return {.tlas = frame.tlas.handle,
+            .address = frame.tlas.address,
+            .instances = frame.count,
+            .frame = frame.frame,
+            .geometry = frame.geometry.buffer,
+            .geometry_bytes = std::max<VkDeviceSize>(static_cast<VkDeviceSize>(frame.count) * sizeof(GeometryRecord),
+                                                     sizeof(GeometryRecord)),
+            .reflective_instances = frame.reflective};
 }
+
+std::string_view scene_geometry_glsl() { return kGeometryGlsl; }
 
 VkBufferUsageFlags ray_tracing_buffer_usage(const Backend& state)
 {
@@ -1437,9 +1634,11 @@ void release_ray_tracing(Backend& state)
     }
     made.meshes.clear();
     made.alpha_refs.clear();
+    made.reflective.clear();
     for (FrameScene& frame : made.frames) {
         retire_structure(state, made, &frame.tlas);
         retire(made, VK_NULL_HANDLE, &frame.instances, 0);
+        retire(made, VK_NULL_HANDLE, &frame.geometry, 0);
         frame = FrameScene{};
     }
     retire(made, VK_NULL_HANDLE, &made.scratch, 0);

@@ -40,7 +40,17 @@ struct Geometry {
     uint32_t vertex_buffer_bytes = 0;
     uint32_t index_buffer_bytes = 0;
     const void* cpu_indices = nullptr;
+    // (added by R5's reflections) Where a hit shader finds a vertex's other attributes, in bytes from the vertex's start:
+    // its first texture coordinates (two floats) and its diffuse colour (Direct3D's A8R8G8B8 - 128 is 1 for the
+    // game's passes); a format of kAttributeNone: the mesh has none.
+    uint32_t uv_offset = 0;
+    uint32_t uv_format = 0; // kAttributeNone or kUvFloat2
+    uint32_t colour_offset = 0;
+    uint32_t colour_format = 0; // kAttributeNone or kColourA8R8G8B8
 };
+inline constexpr uint32_t kAttributeNone = 0;
+inline constexpr uint32_t kUvFloat2 = 1;
+inline constexpr uint32_t kColourA8R8G8B8 = 1;
 
 enum InstanceFlag : uint32_t {
     kOpaque = 1U << 0,      // no alpha test or blend: any hit ends a shadow ray
@@ -76,6 +86,8 @@ struct Camera {
     std::array<float, 3> position{};
 };
 
+inline constexpr uint32_t kNoEnvironmentPass = 0xFFFFFFFFU; // (Material::environment_pass: none)
+
 // A surface as a hit shader reads it (R3): its first pass's texture and how it is used.
 struct Material {
     GpuTexture* texture = nullptr; // null: untextured
@@ -91,6 +103,11 @@ struct Material {
     uint32_t address_u = 1;
     uint32_t address_v = 1;
     uint32_t filter = 2;
+    // (added by R5's reflections) How much the surface mirrors its surroundings (0 - 1; 0: not at all): the game marks
+    // a shiny surface with an environment-mapped pass, whose strength (the pass's colour and fixed alpha) is this; and
+    // which pass that is (its index; kNoEnvironmentPass: none).
+    float reflectivity = 0.0F;
+    uint32_t environment_pass = kNoEnvironmentPass;
 };
 
 // What was drawn this frame (R1): filled by render_pc between begin_frame_record and end_frame_record.
