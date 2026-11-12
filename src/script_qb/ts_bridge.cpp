@@ -1332,15 +1332,17 @@ void save_types_now_and_then()
     save_types();
 }
 
-// Whether the game folder is unpacked (tools/qbjs/unpack_game.ts): its record, thug2-decomp-backup\unpacked.json,
-// written by every unpack (--check's too) and removed by --restore. The boot scripts' archive, Data\pre\qb_scripts.prx,
-// is moved out by every unpack: one that is there again means the archives are back (put back by hand) - not unpacked.
+// Whether the game folder is unpacked (tools/qbjs/unpack_game.ts): the boot scripts' archive, Data\pre\qb_scripts.prx,
+// moved out (every unpack moves it; one there again means the archives are back - not unpacked), and either the
+// unpack's record, thug2-decomp-backup\unpacked.json (removed by --restore), or the boot scripts' .ts there
+// (Data\scripts\game\levels.ts - the backup folder may have been moved away by hand).
 bool folder_unpacked()
 {
     const auto is_file = [](const char* name) {
         return fs::disk().kind(game_folder_path(name).c_str()) == fs::PathKind::kFile;
     };
-    return is_file("thug2-decomp-backup\\unpacked.json") && !is_file("Data\\pre\\qb_scripts.prx");
+    return !is_file("Data\\pre\\qb_scripts.prx") &&
+           (is_file("thug2-decomp-backup\\unpacked.json") || is_file("Data\\scripts\\game\\levels.ts"));
 }
 
 // The scripts' mode and the game folder disagree - TypeScript mode with the archives and .qb files there (no file

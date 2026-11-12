@@ -20,8 +20,14 @@ $status = Join-Path $Game 'thug2-decomp-status.json'
 if (-not (Test-AutomationOn $Game)) { "the automation channel is off in $Game ([features] automation=1)"; exit 4 }
 try {
     foreach ($mode in $Modes) {
-        $unpacked = Test-Path (Join-Path $Game 'thug2-decomp-backup\unpacked.json')
-        if ($mode -eq '0' -and $unpacked) { node $unpack --game $Game --restore | Select-Object -Last 1 }
+        # (unpacked: the boot scripts' archive gone - as the game decides, ts_bridge.cpp folder_unpacked; put back only
+        # with the unpack's record there)
+        $unpacked = -not (Test-Path (Join-Path $Game 'Data\pre\qb_scripts.prx'))
+        $record = Test-Path (Join-Path $Game 'thug2-decomp-backup\unpacked.json')
+        if ($mode -eq '0' -and $unpacked) {
+            if (-not $record) { "the folder is unpacked but has no thug2-decomp-backup\unpacked.json - can't put it back for mode 0"; exit 5 }
+            node $unpack --game $Game --restore | Select-Object -Last 1
+        }
         if ($mode -ne '0' -and -not $unpacked) { node $unpack --game $Game | Select-Object -Last 1 }
         $text = if ($original -match '(?m)^ts_scripts=') { $original -replace '(?m)^ts_scripts=.*$', "ts_scripts=$mode" }
                 else { $original -replace '(?m)^\[features\]\r?$', "[features]`r`nts_scripts=$mode" }

@@ -131,6 +131,15 @@ export function restore(game: string): { moved: number; removed: number } {
 export function unpack(game: string, check = false): { record: Record; failed: string[] } {
     const root = gameRoot(game);
     if (readRecord(root)) throw Error(`${root}: already unpacked (--refresh to do it again, --restore to put it back)`);
+    // (unpacked with its record gone - the backup folder moved away: the boot scripts' archive missing, its .ts there -
+    // unpacking again would take the made files for originals)
+    if (
+        !existsSync(join(root, "Data", "pre", "qb_scripts.prx")) &&
+        existsSync(join(root, "Data", "scripts", "game", "levels.ts"))
+    )
+        throw Error(
+            `${root}: already unpacked, without ${BACKUP}\\unpacked.json (moved away?) - put that folder back first`,
+        );
     const record: Record = { moved: [], made: [], folders: [] };
     const failed: string[] = [];
     const rel = (path: string) => relative(root, path);
