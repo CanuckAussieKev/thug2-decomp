@@ -85,6 +85,16 @@ class Struct;
 //                                         <up|down|left|right|confirm|back|resume|prevtab|nexttab>. Online's Play
 //                                         online is refused. `waitfor fe <screen> [seconds]`: until that screen is
 //                                         shown and still.
+//   rtprobe <x> <y> <z> <dx> <dy> <dz> [max]
+//                                         one ray traced through the ray-traced scene's last TLAS (renderer=vulkan,
+//                                         [Graphics] ray_tracing=1; gpu_vulkan/vulkan_rt_scene.h): from (x, y, z) along
+//                                         (dx, dy, dz) up to `max` (default 100000) - the result "hit <distance>
+//                                         instance <i> mesh <id> material <id> primitive <p> point <x y z>", "miss", or
+//                                         "no scene" (no ray tracing, or no frame built yet)
+//   colprobe <x> <y> <z> <dx> <dy> <dz> [max]
+//                                         the same ray through the game's own collision (a collision feeler, movable
+//                                         objects included): "hit <distance> point <x y z> normal <x y z> face <f>
+//                                         object <checksum>" or "miss". In a level only.
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   console <line>                        the developer console's command (console.h), its output logged and the result
 //   quit                                  the game closes (as its window's close button)
@@ -155,7 +165,9 @@ enum class Op : uint8_t {
     kLogTricks,
     kCrash,
     kTrace,
-    kFrontend
+    kFrontend,
+    kRayProbe,      // NOT ORIGINAL (ray tracing, R2): rtprobe
+    kCollisionProbe // colprobe
 };
 enum class Condition : uint8_t { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
 
@@ -176,7 +188,7 @@ struct OrderCode {
     Condition condition{};      // waitfor
     int frames{};               // press / wait / capture
     int seconds{};              // choose / focus / waitfor: the timeout
-    std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
+    std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz; rtprobe / colprobe: x y z dx dy dz [max]
 };
 
 enum class CommandLineOutcome : uint8_t { kOrderCode, kVacant, kError };

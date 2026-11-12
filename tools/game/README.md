@@ -66,7 +66,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `teleport`, `camera`, `capture` (below),
     `logtricks [count]` (a test: one trick by skater 0 over the level's trick objects - all, or the first `count` - through
     the trick object manager's log_trick_objects; the result says how many objects / clusters and changed hands: THUG2's
-    own change mask crashed past 128), `echo <text>`, `quit`. A failure or refusal
+    own change mask crashed past 128), `rtprobe` / `colprobe` (below), `echo <text>`, `quit`. A failure or refusal
     skips the rest of the batch. After a `quit` the scripts wait for the process to exit and report its exit code
     ("the game exited (code 0) after its quit"; ok only with 0), whichever came first - the game's last status or
     its exit.
@@ -80,6 +80,13 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     the game's frames 1/60 s of game time apart. Script command too: `TeleportSkaterStanding pos=(x, y, z) heading=f`.
     E.g. the user's screenshot spot, still and drifting sideways:
     `-Level foun -Commands "waitfor level foun 150;teleport -4087.3 -390 2386.6 -177.3;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949;wait 60;capture 120 still;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.05 0 0;capture 120 side"`.
+  - **One ray, two ways** (ray tracing's check against the game's collision): `rtprobe <x> <y> <z> <dx> <dy> <dz> [max]`
+    traces the ray from (x, y, z) along (dx, dy, dz) up to `max` (default 100000) through the ray-traced scene's last
+    TLAS (renderer=vulkan with `[Graphics] ray_tracing=1`; src/gpu_vulkan/vulkan_rt_scene.h) - the result is
+    `hit <distance> instance <i> mesh <id> material <id> primitive <p> point <x y z>`, `miss`, or `no scene` (no ray
+    tracing, or no frame built yet). `colprobe` takes the same arguments and casts the game's own collision feeler
+    (static collision and movable objects, src/engine/render/probe_ray.h): `hit <distance> point <x y z> normal <x y z>
+    face <f> object <checksum>` or `miss`; in a level only. Both are read from the status file's `result`.
   - **Following the skater:** `trace <frames>` writes `<folder>\thug2-decomp-trace.txt` - a line every game frame
     for the next 1-36000 frames: frame, position, velocity, the up row's y, the SkaterState state (0 ground, 1 air,
     2 wall, 3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing, doing a trick, the combo so far

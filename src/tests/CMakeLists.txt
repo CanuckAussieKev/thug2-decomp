@@ -98,6 +98,17 @@ if(TARGET thug2_gpu_vulkan AND TARGET thug2_fs_win32)
     target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_check.exe: ray tracing's scene on Vulkan (gpu_vulkan/vulkan_rt_scene.h) tried on this
+# machine - meshes made through render::Gpu (lists, strips, 16 / 32-bit indices, offsets, a dynamic mesh, many small
+# ones), their BLASes, frames of instances, then thousands of rays traced through each frame's TLAS from a compute
+# shader and compared with a reference traced on the processor; compaction, refits, removal, an empty scene and the
+# validation layer's messages (src/tests/vulkan_rt_check.cpp; --device N picks another GPU; exit 2: no ray tracing).
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_check vulkan_rt_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_shadow_check.exe: the Vulkan Gpu's ray-traced sun shadows (gpu_vulkan/
 # vulkan_rt_shadows.h) on this machine - a small scene drawn through render::Gpu, its acceleration structures built by
 # the check, the pass run through rt_scene's listener, the target compared pixel by pixel with a reference worked out on
