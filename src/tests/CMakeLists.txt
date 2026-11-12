@@ -109,6 +109,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_shadow_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_effects_check.exe: the Vulkan Gpu's ray-traced ambient occlusion and its denoiser
+# (gpu_vulkan/vulkan_rt_effects.h) on this machine - a small scene drawn through render::Gpu, its acceleration structures
+# built by the check; each frame's rays compared with the same directions traced on the processor, the denoised result
+# with a many-ray reference after a still camera's frames, and a moved camera's history kept where the surface was seen
+# and started again where it wasn't (src/tests/vulkan_rt_effects_check.cpp). Exit 2 on a device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_effects_check vulkan_rt_effects_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_effects_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_effects_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
 # (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
 # materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,

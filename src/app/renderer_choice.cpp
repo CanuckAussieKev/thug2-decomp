@@ -74,6 +74,15 @@ void install_vulkan()
          .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
          .rays = static_cast<unsigned>(std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_rays", 4))),
          .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", false)});
+    // NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h): likewise
+    render::vulkan::set_rt_ao_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_ao", false),
+         .strength = ini_float("rt_ao_strength", render::vulkan::RtAoSettings{}.strength),
+         .radius = ini_float("rt_ao_radius", render::vulkan::RtAoSettings{}.radius),
+         .rays = static_cast<unsigned>(
+             std::max(1, build_info::get_int(build_info::kGraphics, "rt_ao_rays",
+                                             static_cast<int>(render::vulkan::RtAoSettings{}.rays)))),
+         .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_ao_denoise", true)});
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());
