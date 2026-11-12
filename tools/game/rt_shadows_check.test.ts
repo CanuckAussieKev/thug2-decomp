@@ -10,6 +10,8 @@ import {
     configValues,
     darkestRatio,
     darkOverBright,
+    darkOverBrightBrightened,
+    FIRST_GI_PASS,
     frameTimes,
     judgeSpot,
     LIMITS,
@@ -286,4 +288,99 @@ test("frame times: the Vulkan lines averaged", () => {
     assert.equal(times.lines, 2);
     assert.ok(Math.abs(times.frame - 16.6) < 1e-9);
     assert.ok(Math.abs(times.working - 4.2) < 1e-9);
+});
+
+const FOG: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "fog" };
+
+test("fog: a picture lighter everywhere a little passes; a big change, black or white pixels fail", () => {
+    const off = flat(40, 40, 120);
+    const d = shadowDifference(off, flat(40, 40, 140), null, 8);
+    assert.equal(d.brighter, 1600);
+    assert.ok(Math.abs(d.meanLumaChange - 20) < 1e-6);
+    assert.deepEqual(judgeSpot("a", d, null, FOG).problems, []);
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 200), null, 8), null, FOG).problems.join(),
+        /luma by 80/,
+    );
+    assert.match(
+        judgeSpot("c", shadowDifference(off, shaded(off, 30, 0), null, 8), null, FOG).problems.join(),
+        /turned black/,
+    );
+    const white = { ...off, rgb: new Uint8Array(off.rgb) };
+    white.rgb.fill(255, 0, 40 * 3);
+    assert.match(judgeSpot("d", shadowDifference(off, white, null, 8), null, FOG).problems.join(), /turned white/);
+});
+
+test("fog: its ini values and log lines", () => {
+    assert.deepEqual(configValues("on", "fog"), {
+        "Graphics.ray_tracing": "1",
+        "Graphics.rt_shadows": "0",
+        "Graphics.rt_ao": "0",
+        "Graphics.rt_reflections": "0",
+        "Graphics.rt_fog": "1",
+    });
+    assert.equal(configValues("off", "fog")["Graphics.rt_fog"], "0");
+    assert.deepEqual(configValues("baseline", "fog"), {});
+    const drawn = "vulkan: rt_fog: the first fog pass (1280x720 at 1/2, 32 steps, the level's fog replaced, fog 0 - 1)";
+    const none = "vulkan: rt_fog: the level has no fog (and rt_fog_haze=0) - the fog pass skipped";
+    const failed = "vulkan: rt_fog: the passes couldn't be made (a compile error) - no volumetric fog";
+    assert.deepEqual(logProblems("on", drawn, "shadows", "fog"), []);
+    assert.deepEqual(logProblems("on", none, "shadows", "fog"), []);
+    assert.match(logProblems("on", failed, "shadows", "fog").join(), /couldn't/);
+    assert.match(logProblems("on", "", "shadows", "fog").join(), /no fog pass/);
+    assert.match(logProblems("on", drawn, "none", "fog").join(), /fog pass/);
+});
+
+const GI: Limits = { ...LIMITS, expect: "shadows", strength: 1, effect: "gi" };
+
+test("gi: the bounce only adds light, bounded; darker, black or runaway pixels fail; no sun: unchanged", () => {
+    const off = flat(20, 20, 200);
+    for (let p = 10 * 20 * 3; p < off.rgb.length; p++) off.rgb[p] = 40; // the lower half baked dark
+    // the lower quarter (dark) lit up by 30: brightened there only
+    const on = { ...off, rgb: new Uint8Array(off.rgb) };
+    for (let p = 15 * 20 * 3; p < on.rgb.length; p++) on.rgb[p] = 70;
+    const d = shadowDifference(off, on, null, 8);
+    assert.equal(d.brighter, 100);
+    assert.equal(d.darkBrightened, 100);
+    assert.equal(d.brightBrightened, 0);
+    assert.equal(d.runaway, 0);
+    const verdict = judgeSpot("a", d, null, GI);
+    assert.deepEqual(verdict.problems, []);
+    assert.equal(anyShadow([verdict], GI), true);
+    assert.ok(darkOverBrightBrightened([verdict])! > 1);
+    // darkened, runaway and black pixels
+    assert.match(
+        judgeSpot("b", shadowDifference(off, shaded(off, 15, 0.5), null, 8), null, GI).problems.join(),
+        /darker/,
+    );
+    const runaway = { ...off, rgb: new Uint8Array(off.rgb) };
+    for (let p = 15 * 20 * 3; p < runaway.rgb.length; p++) runaway.rgb[p] = 250;
+    assert.match(judgeSpot("c", shadowDifference(off, runaway, null, 8), null, GI).problems.join(), /lighter by more/);
+    const black = { ...off, rgb: new Uint8Array(off.rgb) };
+    black.rgb.fill(0, 0, 60);
+    assert.match(judgeSpot("d", shadowDifference(off, black, null, 8), null, GI).problems.join(), /black/);
+    // a level with no baked sun: any change fails
+    assert.match(judgeSpot("e", d, null, GI, true).problems.join(), /no baked sun/);
+    // only the baked-bright pixels brightened: not more in the shade
+    const lit = { ...off, rgb: new Uint8Array(off.rgb) };
+    for (let p = 0; p < 5 * 20 * 3; p++) lit.rgb[p] = 230;
+    assert.ok(darkOverBrightBrightened([judgeSpot("f", shadowDifference(off, lit, null, 8), null, GI)])! < 1);
+});
+
+test("gi: the configurations and the logs", () => {
+    assert.equal(configValues("on", "gi")["Graphics.rt_gi"], "1");
+    assert.equal(configValues("off", "gi")["Graphics.rt_gi"], "0");
+    assert.equal(configValues("on", "gi")["Graphics.rt_ao"], "0");
+    assert.deepEqual(logProblems("on", `x\nvulkan: ${FIRST_GI_PASS} (1280x720)\n`, "shadows", "gi"), []);
+    assert.match(logProblems("on", "x\n", "shadows", "gi").join(), /no indirect light pass/);
+    assert.match(
+        logProblems(
+            "on",
+            `vulkan: ${FIRST_GI_PASS}\nvulkan: rt_gi: no material table - the indirect light pass skipped\n`,
+            "shadows",
+            "gi",
+        ).join(),
+        /skipped/,
+    );
+    assert.deepEqual(logProblems("off", "x\n", "shadows", "gi"), []);
 });
