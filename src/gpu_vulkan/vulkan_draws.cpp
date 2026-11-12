@@ -746,6 +746,9 @@ bool create_draw_objects(Backend& state)
     state.stats.last_log = state.stats.last_present;
     get_log("vulkan: drawing on %s (dynamic rendering, push descriptors; shader and pipeline caches %s)",
             std::data(properties.deviceName), state.cache_folder.empty() ? "not kept" : "kept beside the exe");
+    if (state.context.ray_tracing_enabled()) {
+        state.materials.init(state); // NOT ORIGINAL - ray tracing's material table (logged when it can't be made)
+    }
     return true;
 }
 
@@ -755,6 +758,7 @@ void release_draw_objects(Backend& state)
         return;
     }
     state.frames.shutdown(); // (everything waited for, the retired objects destroyed)
+    state.materials.shutdown(state);
     state.pipelines.shutdown();
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
