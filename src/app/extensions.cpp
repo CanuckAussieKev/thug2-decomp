@@ -9,6 +9,7 @@
 #include "devtools/automation.h"
 #include "devtools/console.h"
 #include "devtools/extensions.h"
+#include "devtools/rt_check.h"
 #include "engine/ext/extension.h"
 #include "engine/ext/plugin.h"
 #include "engine/pad_input/input_source.h"
@@ -78,6 +79,7 @@ void register_extensions()
     ext::add(frontend::test_view::extension());
     ext::add(frontend::new_frontend::extension());
     ext::add(sys::screenshot::extension());
+    ext::add(devtools::rt_check::extension());
     ext::add(devtools::console::extension()); // (last: drawn over everything, the others' frames)
 }
 

@@ -38,6 +38,13 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_printf_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_rt_scene_check.exe: ray tracing's pure helpers (engine/gfx/rt_checks.h: a Direct3D matrix as an
+# instance's rows, strips as lists, the contract check's geometry and flag tests) checked (src/tests/rt_scene_check.cpp).
+if(TARGET thug2_base)
+    add_executable(thug2_rt_scene_check rt_scene_check.cpp)
+    target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
 # deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
 if(TARGET thug2_platform)

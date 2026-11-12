@@ -44,6 +44,7 @@
 #include "render_pc/pc_texture_projection.h"
 #include "render_pc/render_state.h"
 #include "render_pc/scene_render.h"
+#include "render_pc/rt_record.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
 #include "render_pc/shadow_base.h"
@@ -699,7 +700,11 @@ void draw_viewport(int index)
             .forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}},
         };
         ext::view_drawn(note);
+        // Not original - ray tracing's record (rt_record.h): the viewport's camera; the frame's first begins the
+        // frame (the TLAS) before the world is drawn. Original behaviour: nothing.
+        rt_record::camera_chosen(index);
     }
+    rt_record::set_world_passes(true); // (not original: the world's and the objects' passes, for a check's count)
     for_each_scene([&](PcScene* scene) {
         if (scene->is_sky()) {
             return;
@@ -723,6 +728,7 @@ void draw_viewport(int index)
     imposter_manager()->render();
     set_pass(1);
     clear_world_transform();
+    rt_record::set_world_passes(false); // (not original: not the sky's)
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
@@ -781,6 +787,7 @@ void draw_viewport(int index)
     // Not original - ray tracing's screen-space effects (engine/gfx/rt_scene.h, R4: the Vulkan Gpu's sun shadows): the
     // opaque world, objects and sky drawn, the world's camera set again. Original behaviour: nothing.
     note_opaque_drawn(index);
+    rt_record::set_world_passes(true); // (not original: the world's and the objects' passes again)
     set_pass(kOpaquePass);
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);
@@ -790,6 +797,7 @@ void draw_viewport(int index)
         }
     });
     set_pass(kOcclusionPass);
+    rt_record::set_world_passes(false);
     issue_occlusion_queries();
     set_render_state(RenderStateId::kZWrite, 0);
     flexible_particle_manager()->render_systems(index > 0);
@@ -872,6 +880,9 @@ void draw_world()
         // Original behaviour: the frame is drawn to the window.
         game_view_frame::begin();
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
+        // Not original - ray tracing's record (rt_record.h): the frame's instances and lights. Original behaviour:
+        // nothing.
+        rt_record::record_frame();
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
         render_shadow_textures();
