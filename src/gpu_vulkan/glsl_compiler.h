@@ -15,12 +15,20 @@
 // compiled at run time, the first time a key is drawn, and kept: the keys a game session draws come from its scenes'
 // materials and from the Direct3D 9-style state left by the draws before (docs/design/vulkan.md), so they can't all be
 // listed when the game is built - src/tests/ff_shader_check.cpp compiles the combinations the renderer's code can make.
-// The SPIR-V targets Vulkan 1.0 (SPIR-V 1.0): every Vulkan device takes it.
+// The SPIR-V targets Vulkan 1.0 (SPIR-V 1.0): every Vulkan device takes it (ray tracing's shaders: SpirvTarget).
 namespace render::vulkan {
 
 enum class ShaderStage : uint8_t {
     kVertex,
     kFragment,
+    kCompute, // NOT ORIGINAL - ray tracing's compute passes (vulkan_rt_scene.cpp)
+};
+
+// What the SPIR-V is for: Vulkan 1.0 (SPIR-V 1.0, every device), or Vulkan 1.2 (SPIR-V 1.4: what ray queries,
+// GL_EXT_ray_query, need - only on a device with ray tracing on).
+enum class SpirvTarget : uint8_t {
+    kVulkan10,
+    kVulkan12,
 };
 
 struct CompiledShader {
@@ -30,7 +38,8 @@ struct CompiledShader {
 };
 
 // Compiles GLSL 4.50 source for Vulkan. Thread-safe; glslang is set up on the first call and stays for the process.
-[[nodiscard]] CompiledShader compile_glsl(ShaderStage stage, std::string_view source);
+[[nodiscard]] CompiledShader compile_glsl(ShaderStage stage, std::string_view source,
+                                          SpirvTarget target = SpirvTarget::kVulkan10);
 
 // The fixed-function emulation's shaders by key, generated (ff_shaders.h) and compiled the first time each is asked
 // for, then kept. Not thread-safe: one per renderer thread.

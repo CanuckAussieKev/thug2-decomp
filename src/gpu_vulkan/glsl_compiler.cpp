@@ -31,7 +31,15 @@ void initialise_glslang()
 
 EShLanguage language_of(ShaderStage stage)
 {
-    return stage == ShaderStage::kVertex ? EShLangVertex : EShLangFragment;
+    switch (stage) {
+    case ShaderStage::kVertex:
+        return EShLangVertex;
+    case ShaderStage::kFragment:
+        return EShLangFragment;
+    case ShaderStage::kCompute:
+        return EShLangCompute;
+    }
+    return EShLangVertex;
 }
 
 const std::vector<uint32_t>* found_or_compiled(std::unique_ptr<CompiledShader>& entry, ShaderStage stage,
@@ -54,7 +62,7 @@ const std::vector<uint32_t>* found_or_compiled(std::unique_ptr<CompiledShader>& 
 
 } // namespace
 
-CompiledShader compile_glsl(ShaderStage stage, std::string_view source)
+CompiledShader compile_glsl(ShaderStage stage, std::string_view source, SpirvTarget target)
 {
     initialise_glslang();
     CompiledShader result;
@@ -64,8 +72,9 @@ CompiledShader compile_glsl(ShaderStage stage, std::string_view source)
     const char* strings = text.c_str();
     shader.setStrings(&strings, 1);
     shader.setEnvInput(glslang::EShSourceGlsl, language, glslang::EShClientVulkan, kGlslInputVersion);
-    shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
-    shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+    const bool vulkan12 = target == SpirvTarget::kVulkan12;
+    shader.setEnvClient(glslang::EShClientVulkan, vulkan12 ? glslang::EShTargetVulkan_1_2 : glslang::EShTargetVulkan_1_0);
+    shader.setEnvTarget(glslang::EShTargetSpv, vulkan12 ? glslang::EShTargetSpv_1_4 : glslang::EShTargetSpv_1_0);
     const auto messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
     if (!shader.parse(GetDefaultResources(), kGlslVersion, false, messages)) {
         result.log = std::string(shader.getInfoLog()) + shader.getInfoDebugLog();
