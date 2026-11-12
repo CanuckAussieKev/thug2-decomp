@@ -80,7 +80,9 @@ the original (the site is the script and the call's number `k` instead of its QB
 
 The game runs translated scripts in QuickJS with `[features] ts_scripts=1` (default 0: the `.qb` files; `[debug]
 ts_profile=1` logs where the time goes), in the game unpacked: each file the game loads is defined by its `.ts` - its
-globals and its scripts - in place of its `.qb`; a file with no `.ts` is read as `.qb`. A module is compiled to
+globals and its scripts - in place of its `.qb`, and no `.qb` is ever read: a file with no `.ts`, or whose `.ts` fails,
+is an error in the log (`ts: ERROR - ...`) and isn't loaded (`unpack_game.ts` fails on a `.qb` that doesn't
+translate; only the script check's own plan files are read as `.qb`). A module is compiled to
 QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the QuickJS version, the word
 size and the module's own bytes); later starts read the bytecode. (Until 2026-11-13 there was also a mode with the
 modules beside the `.qb` files - `install_ts.ts`, `thug2-decomp-ts\by-hash` - and the unpacked game was

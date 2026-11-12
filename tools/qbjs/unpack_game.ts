@@ -17,7 +17,7 @@
 //   node tools/qbjs/unpack_game.ts --game <folder> --restore  everything put back as it was, the made files removed
 //   [--check]  the script check's translation (emit_ts.ts check) - for its runs only, never the game's
 //
-// A .qb that doesn't translate stays a .qb where it was (the game reads it as QB). <game>\thug2-decomp-backup\
+// A .qb that doesn't translate is an error (listed; the exit code 1): the game reads no .qb - that file isn't loaded. <game>\thug2-decomp-backup\
 // unpacked.json lists what was moved and made, for --restore.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -209,6 +209,7 @@ export function unpack(game: string, check = false): { record: Record; failed: s
                     continue;
                 }
                 failed.push(`${rel(folder)}\\${entry.name}`);
+                continue; // (no .qb: the game reads none - the file isn't loaded, an error in its log)
             }
             mkdirSync(dirname(path), { recursive: true });
             writeFileSync(path, data);
@@ -235,11 +236,11 @@ export function unpack(game: string, check = false): { record: Record; failed: s
                 localizer.localize(source, ir, {});
             };
             const ts = scriptTS(source, name, readFileSync(path), check, check || plain ? undefined : localize);
+            move(path); // (one that doesn't translate too: the game reads no .qb)
             if (ts === null) {
                 failed.push(rel(path));
                 continue;
             }
-            move(path);
             make(path.replace(/\.qb$/i, ".ts"), ts);
         }
         save();
@@ -312,10 +313,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
     if (!args.includes("--restore")) {
         const { record, failed } = unpack(game, args.includes("--check"));
-        for (const name of failed) console.log(`stays QB (doesn't translate): ${name}`);
+        for (const name of failed) console.log(`ERROR - doesn't translate (the game won't load it): ${name}`);
         console.log(
             `unpacked: ${record.moved.length} files moved to ${BACKUP}, ${record.made.length} files made (the .ts and the ` +
                 `archives' files, loose)`,
         );
+        if (failed.length) process.exitCode = 1;
     }
 }

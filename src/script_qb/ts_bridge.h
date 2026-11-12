@@ -5,7 +5,7 @@
 // in place of the .qb - its globals and its scripts: each script gets a symbol whose body is one kTsBody token, and
 // when the interpreter reaches it on a call-stack level it runs that level in QuickJS (cscript_ts.cpp). Everything
 // else - the record, its Update, waits, events, spawning, objects, the call stack - stays the interpreter's: a level's
-// command calls are carried out by it. A file with no .ts is read as .qb.
+// command calls are carried out by it. No .qb is read: a file with no .ts, or one that fails, is an error.
 //
 // [features] ts_scripts=1 (default 0) turns it on; the modules' compiled bytecode is cached in thug2-decomp-ts\cache. [debug]
 // ts_types=1 records the types each site sees into thug2-decomp-ts\types-recorded.json (added to over sessions; read
@@ -33,6 +33,9 @@ void forget_file(uint32_t file_checksum, bool temporary_only = false);
 // The script check: the next load of `filename` defined by the .ts at `ts_path` (a disk path) - in
 // place of the one the game would read: each version of a file checked (an archive's, the loose one).
 void read_version_next(const std::string& filename, const std::string& ts_path);
+// The script check: the next load of `filename` is its own data in .qb form (the plan, a module's part - no game
+// file), read as .qb. Every other file has only its .ts: none, or one that fails, is an error and the file isn't loaded.
+void read_check_data_next(const std::string& filename);
 // The .qb file `file_checksum` (its name's checksum) as last loaded: its bytes' hash (FNV-1a, as tools/qbjs/game_scripts.ts
 // fileHash) and whether its TypeScript module ran - none if it hasn't been loaded. (The script check reports which
 // version of a file the game ran, and fails a TypeScript pass whose file had no module.)

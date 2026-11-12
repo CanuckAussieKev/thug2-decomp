@@ -698,6 +698,7 @@ void run_plan(const std::string& folder)
         return;
     }
     std::vector<uint8_t> bytes(plan.begin(), plan.end());
+    ts::read_check_data_next("script_check_plan.qb"); // (the check's own data: read as .qb in TypeScript mode too)
     load_qb_data("script_check_plan.qb", bytes, 0, 0, 0);
     read_settings();
     for (const std::string_view command : kRealCommands) {
@@ -772,6 +773,7 @@ void run_plan(const std::string& folder)
             continue;
         }
         std::vector<uint8_t> part_bytes(part.begin(), part.end());
+        ts::read_check_data_next(part_name);
         load_qb_data(part_name.c_str(), part_bytes, 0, 0, 1);
         // (a boot file whose scripts the game has since redefined or removed - the front end's level file loses its
         // level-loading scripts - is loaded again as a temporary load: its own definitions run)

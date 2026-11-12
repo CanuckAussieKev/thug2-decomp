@@ -1185,8 +1185,16 @@ bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, std:
     return true;
 }
 
+// The script check's own data loaded next (read_check_data_next): read as .qb.
+std::string& check_data_next()
+{
+    static std::string next;
+    return next;
+}
+
 // load_qb's hook ([features] ts_scripts=1): the file defined by its TypeScript - its globals, its scripts and its
-// checksum names - in place of reading the .qb; false (the .qb read) when it has none or it fails.
+// checksum names - in place of reading the .qb. Never the .qb: a file with no .ts, or one that fails, is logged as an
+// error and not loaded (true either way - the loader reads nothing); false only for the script check's own data.
 // The scripts' text (tools/qbjs/localize.ts): Data\lang\<the language's code>.json as globalThis.qbText and
 // Data\lang\en.json as qbTextEnglish - a token missing from the language is read in English (qb_ts.js tr). Read once,
 // before the first module.
@@ -1223,33 +1231,30 @@ bool load_standalone(const char* filename, bool temporary)
     if (!is_on() || !filename) {
         return false;
     }
+    if (std::string check = std::exchange(check_data_next(), {}); !check.empty() && _stricmp(check.c_str(), filename) == 0) {
+        return false;
+    }
     load_text_tables();
     std::string name;
     std::string ts;
     if (!read_game_ts(filename, &name, &ts)) {
-        return false;
+        get_log("ts: ERROR - %s has no .ts (%s): not loaded - TypeScript mode reads no .qb (tools/qbjs/unpack_game.ts)",
+                filename, name.c_str());
+        return true;
     }
     std::string source;
     uint32_t from = 0;
     if (std::string error; !module_from_ts(ts, &source, &from, &error)) {
-        get_log("ts: %s: %s - read as .qb", name.c_str(), error.c_str());
-        return false;
+        get_log("ts: ERROR - %s: %s - not loaded", name.c_str(), error.c_str());
+        return true;
     }
-    // (a .qb the game would read instead that isn't the one the .ts was made from - an overlay made again since,
-    // make_menu_level.ts: the .qb read, until tools/qbjs/unpack_game.ts --refresh)
+    // (a .qb where the game would look - an overlay made again since by make_menu_level.ts or a converter -: never
+    // read; the .ts may be older than it - tools/qbjs/unpack_game.ts --refresh)
     std::array<char, file::kOverlayPathSize> overlay{};
     const bool chosen = name.find(':') != std::string::npos; // (the script check's version: a path on disk)
-    if (!chosen && (packs::find_pre_entry(checksums::hash_from_text(filename)) || file::is_present(filename)) ||
-        (!chosen && frontend::data_overlay::get_overlay_path(filename, overlay))) {
-        memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
-        const std::span<const uint8_t> qb = script::load_patched_script(filename);
-        memory::leave_heap_scope();
-        const uint32_t made_from = file_hash(qb);
-        packs::offload(filename);
-        if (!qb.empty() && made_from != from) {
-            get_log("ts: %s was made from another %s - read as .qb", name.c_str(), filename);
-            return false;
-        }
+    if (!chosen && (file::is_present(filename) || frontend::data_overlay::get_overlay_path(filename, overlay))) {
+        get_log("ts: WARNING - a %s is there beside its .ts (not read; unpack_game.ts --refresh makes the .ts again)",
+                filename);
     }
     register_name_hash(checksums::hash_from_text(filename), filename); // (as read_qb_file does)
     std::array<char, 24> cache{};
@@ -1257,12 +1262,11 @@ bool load_standalone(const char* filename, bool temporary)
     std::snprintf(cache.data(), cache.size(), "ts-%08x.qbc", file_hash(bytes));
     // (its globals' structures and arrays where the .qb loader puts a file's: the script heap)
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
-    const bool loaded = run_module(filename, temporary, source, name, cache.data());
+    const bool loaded = run_module(filename, temporary, source, name, cache.data()); // (a failure logged there)
     memory::leave_heap_scope();
-    if (!loaded) {
-        return false;
+    if (loaded) {
+        loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{from, true};
     }
-    loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{from, true};
     return true;
 }
 
@@ -1272,6 +1276,8 @@ void read_version_next(const std::string& filename, const std::string& ts_path)
 {
     next_version() = {filename, ts_path};
 }
+
+void read_check_data_next(const std::string& filename) { check_data_next() = filename; }
 
 namespace {
 
