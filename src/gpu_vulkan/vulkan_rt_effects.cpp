@@ -56,6 +56,7 @@ constexpr float kSunDistance = 20000.0F;         // how far a ray toward the sun
 constexpr float kBounceSpread = 0.05F; // a bounce ray's footprint grows this much per unit (it stands for a wide cone)
 constexpr float kSmallestUnit = 1e-3F; // (the rays' noise unit, however dark the level's lights)
 constexpr double kShortestDirection = 1e-6; // a light direction shorter than this: none
+constexpr float kGiSunLight = 1.0F;          // the sun's light on a surface facing it (each channel)
 constexpr unsigned kMaxRays = 16;
 constexpr float kOffsetScale = 1.0F; // the rays' start pushed off the surface by this much, growing with distance
 constexpr uint32_t kGroupSide = 8;   // the compute passes' work groups: 8 x 8 pixels
@@ -711,7 +712,7 @@ inline constexpr uint32_t kTimingSlots = 16;
 inline constexpr uint32_t kTimingReport = 600;
 struct PassTiming {
     VkQueryPool pool = VK_NULL_HANDLE;
-    std::array<bool, kTimingSlots> pending{};
+    std::array<uint64_t, kTimingSlots> pending{}; // the submission that wrote a slot's pair (0: none)
     double period_ns = 0.0; // a tick
     double sum_ms = 0.0;
     uint32_t measured = 0;
@@ -729,6 +730,7 @@ struct EffectsState {
     VkBuffer geometry = VK_NULL_HANDLE;                // (the indirect light's: the frame's geometry table)
     VkDeviceSize geometry_bytes = 0;
     PassTiming timing;
+    uint64_t sun_logged = 0; // (the indirect light's: the baked sun's fit last logged)
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE; // (the indirect light's: + the material table's set 1)
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE; // the table's when `layout` was made
@@ -1564,31 +1566,45 @@ float from_half(uint16_t half)
     return sign != 0 ? -value : value;
 }
 
-// The indirect light's lights from the frame record: the first directional light as the sun (the way it travels, as
-// rt_scene.h records it: toward it is the opposite - as R4's shadows take it), the ambient light as both what every hit
-// surface gets and the sky's light (a ray that hits nothing). The rays' noise unit: the most one ray can bring.
-LightsBlock lights_block(const EffectsState& own, float* unit)
+// The sun the bounce is lit by (toward it, normalised): the console's (`rt sun`), else the level's baked sun (rt_sun.h -
+// the frame record's directional lights are the skater's, the same in every level); none while the level's fit isn't
+// made or when its bake shows no sun (indoors): then the hits get the ambient light only.
+bool bounce_sun(std::array<float, 3>* toward)
+{
+    std::array<float, 3> found{};
+    if (!rt::sun_override(&found)) {
+        const rt::BakedSun& baked = rt::baked_sun();
+        if (baked.scene == 0 || !baked.found) {
+            return false;
+        }
+        found = baked.toward;
+    }
+    const double length = std::hypot(static_cast<double>(core::at(found, 0)), static_cast<double>(core::at(found, 1)),
+                                     static_cast<double>(core::at(found, 2)));
+    if (!(length > kShortestDirection) || !std::isfinite(length)) {
+        return false;
+    }
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(*toward, i) = static_cast<float>(static_cast<double>(core::at(found, i)) / length);
+    }
+    return true;
+}
+
+// The indirect light's lights: the sun (bounce_sun; white, kGiSunLight - the bake has no sun colour), the frame
+// record's ambient light as both what every hit surface gets and the sky's light (a ray that hits nothing). The rays'
+// noise unit: the most one ray can bring.
+LightsBlock lights_block(EffectsState& own, float* unit)
 {
     LightsBlock block;
-    bool have_sun = false;
     for (const rt::Light& light : rt::frame_record().lights) {
         if (light.kind == rt::Light::Kind::kAmbient) {
             block.ambient = {core::at(light.colour, 0), core::at(light.colour, 1), core::at(light.colour, 2), 0.0F};
-        } else if (light.kind == rt::Light::Kind::kDirectional && !have_sun) {
-            const double length = std::hypot(static_cast<double>(core::at(light.direction, 0)),
-                                             static_cast<double>(core::at(light.direction, 1)),
-                                             static_cast<double>(core::at(light.direction, 2)));
-            if (!(length > kShortestDirection) || !std::isfinite(length)) {
-                continue;
-            }
-            for (std::size_t i = 0; i < 3; ++i) {
-                core::at(block.to_sun, i) =
-                    static_cast<float>(-static_cast<double>(core::at(light.direction, i)) / length);
-                core::at(block.sun, i) = std::max(0.0F, core::at(light.colour, i));
-            }
-            block.to_sun.back() = 1.0F;
-            have_sun = true;
         }
+    }
+    std::array<float, 3> toward{};
+    if (bounce_sun(&toward)) {
+        block.to_sun = {toward.front(), core::at(toward, 1), toward.back(), 1.0F};
+        block.sun = {kGiSunLight, kGiSunLight, kGiSunLight, 0.0F};
     }
     for (std::size_t i = 0; i < 3; ++i) {
         core::at(block.ambient, i) = std::max(0.0F, core::at(block.ambient, i));
@@ -1600,7 +1616,17 @@ LightsBlock lights_block(const EffectsState& own, float* unit)
         most = std::max(most, core::at(block.sun, i) + core::at(block.ambient, i));
     }
     *unit = most;
-    (void)own;
+    // (logged when the level's fit is new: a level's sun, or none)
+    const uint64_t fit = rt::baked_sun().scene;
+    if (fit != own.sun_logged) {
+        own.sun_logged = fit;
+        if (block.to_sun.back() > 0.0F) {
+            get_log("vulkan: rt_gi: the bounce's sun toward (%.3f, %.3f, %.3f)", static_cast<double>(block.to_sun.front()),
+                    static_cast<double>(core::at(block.to_sun, 1)), static_cast<double>(core::at(block.to_sun, 2)));
+        } else if (fit != 0) {
+            get_log("vulkan: rt_gi: the level's bake shows no sun - the bounce lit by the ambient light only");
+        }
+    }
     return block;
 }
 
@@ -1634,10 +1660,11 @@ bool ensure_timing(Backend& state, EffectsState& own)
 void collect_timing(Backend& state, EffectsState& own, uint32_t slot, uint32_t width, uint32_t height)
 {
     PassTiming& timing = own.timing;
-    if (!core::at(timing.pending, slot)) {
-        return;
+    const uint64_t written = core::at(timing.pending, slot);
+    core::at(timing.pending, slot) = 0;
+    if (written == 0 || state.frames.completed() < written) {
+        return; // (none, or its submission not known to have finished: lost)
     }
-    core::at(timing.pending, slot) = false;
     std::array<uint64_t, 2> ticks{};
     if (vkGetQueryPoolResults(state.context.device(), timing.pool, slot * 2, 2, sizeof(ticks), ticks.data(),
                               sizeof(uint64_t), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS ||
@@ -1864,7 +1891,7 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     }
     if (timed) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (timing_slot * 2) + 1);
-        core::at(own.timing.pending, timing_slot) = true;
+        core::at(own.timing.pending, timing_slot) = state.frames.serial();
     }
     state.bound = BoundState{};
     const uint64_t serial = state.frames.serial();
@@ -2031,6 +2058,11 @@ void set_rt_gi_settings(const RtGiSettings& settings)
         const std::scoped_lock lock(state.mutex);
         indirect().gi = kept;
         reset_effect_history(indirect());
+    }
+    // (the bounce's sun is the level's baked one: render_pc fits it once a world stands still. Set after the shadows'
+    // settings - renderer_choice's order -, whose own `off` would clear it)
+    if (kept.on) {
+        rt::set_baked_sun_wanted(true);
     }
     if (kept.on) {
         rt::add_view_listener(&indirect_listener());

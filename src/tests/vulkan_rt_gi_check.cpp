@@ -5,7 +5,8 @@
 //
 // The scene: a white floor, a red wall standing on it and a grey pillar between the wall and the sun (so the floor
 // beside the wall is partly in the pillar's shadow), untextured materials of those colours (their albedo), a sun from
-// the pillar's side and a bluish ambient light; drawn through render::Gpu with darker flat colours (the "baked" frame).
+// the pillar's side (set as the console's `rt sun` sets it - in the game, the level's baked sun) and a bluish ambient
+// light; drawn through render::Gpu with darker flat colours (the "baked" frame).
 // The processor answers each pixel from the camera's own position and lens: the surface it sees, the pass's own ray
 // directions from there (the same sequence, the same per-pixel turn, the same frame index), what each hits, whether
 // that point sees the sun.
@@ -198,7 +199,7 @@ const std::array<Solid, 3> kRoom{{
 
 // The lights: toward the sun (from the pillar's side, high), its colour, the ambient light (also the sky's).
 const Vec3 kToSun = normalised({1.0, 0.75, 0.2});
-constexpr Rgb kSun{1.0, 0.95, 0.85};
+constexpr Rgb kSun{1.0, 1.0, 1.0}; // (the pass's sun: white, the bake has no colour)
 constexpr Rgb kAmbient{0.25, 0.28, 0.34};
 
 constexpr Vec3 kEye{70.0, 75.0, 95.0};
@@ -721,11 +722,12 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const Sc
                              .colour = {static_cast<float>(core::at(kAmbient, 0)),
                                         static_cast<float>(core::at(kAmbient, 1)),
                                         static_cast<float>(core::at(kAmbient, 2))}});
-    // (the way the light travels: away from the sun)
+    // (the skater's light, which the bounce doesn't use: its sun is the level's - here the console's `rt sun`)
     record.lights.push_back({.kind = rt::Light::Kind::kDirectional,
-                             .colour = {static_cast<float>(core::at(kSun, 0)), static_cast<float>(core::at(kSun, 1)),
-                                        static_cast<float>(core::at(kSun, 2))},
-                             .direction = floats(step(Vec3{}, kToSun, -1.0))});
+                             .colour = {0.5F, 0.5F, 0.5F},
+                             .direction = {0.0F, -1.0F, 0.0F}});
+    const std::array<float, 3> toward_sun = floats(kToSun);
+    rt::set_sun_override(&toward_sun);
     gpu.begin_scene();
     rt::ray_tracing()->begin_frame(record);
     gpu.set_render_target(0, targets.colour);
@@ -1172,6 +1174,7 @@ int run(const Options& options, SDL_Window* window)
         release_solid(gpu, &mesh);
     }
     render::vulkan::set_rt_gi_settings({});
+    rt::set_sun_override(nullptr);
     {
         render::vulkan::Backend& state = render::vulkan::backend();
         const std::scoped_lock lock(state.mutex);
