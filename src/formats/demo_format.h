@@ -28,6 +28,9 @@
 //   INPT  u32 ports, u32 frames, then for each port runs {u32 count, kPortBytes bytes}: the port's control data (its
 //         PS2 format, buttons down as set bits, before the poll inverts them) for `count` frames in a row.
 //   CHEK  u32 count, then check points (kCheckPointBytes each): every `stride` frames from the frame the level was up.
+//   CLCK  the clocks when the level was up: u32 x 2 the vblanks since the stopwatch's reset (low, high), u32 the game clock's
+//         last change of speed, f32 its speed, i32 its offset. (Optional: a demo without it plays from the clocks as
+//         they are.)
 namespace demo_format {
 
 constexpr std::array<char, 8> kMagic = {'T', 'H', 'U', 'G', '2', 'D', 'E', 'M'};
@@ -63,6 +66,15 @@ struct RandomState {
 
 using PortData = std::array<uint8_t, kPortBytes>;
 
+// The clocks when the level was up (frame_clock: the stopwatch's vblanks, the game clock's state).
+struct Clocks {
+    bool present = false;
+    uint64_t vblanks = 0;
+    uint32_t last_change = 0;
+    float pace = 1.0F;
+    int32_t offset = 0;
+};
+
 struct Demo {
     uint32_t version = kVersion;
     std::string level;
@@ -77,6 +89,7 @@ struct Demo {
     uint32_t ports = 1;
     uint32_t check_stride = 1;
     RandomState random_at_up;
+    Clocks clocks;
     std::vector<std::pair<std::string, std::string>> settings;
     std::vector<uint8_t> profile;
     std::vector<uint8_t> details;

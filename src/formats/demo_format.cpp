@@ -34,6 +34,7 @@ constexpr uint32_t kProfile = tag("PROF");
 constexpr uint32_t kDetails = tag("DETL");
 constexpr uint32_t kInput = tag("INPT");
 constexpr uint32_t kChecks = tag("CHEK");
+constexpr uint32_t kClocks = tag("CLCK");
 
 // A growing little-endian writer.
 class Out {
@@ -273,6 +274,16 @@ std::vector<uint8_t> write_demo(const Demo& demo)
         write_point(checks, point);
     }
     file.chunk(kChecks, checks);
+
+    if (demo.clocks.present) {
+        Out clocks;
+        clocks.u32(static_cast<uint32_t>(demo.clocks.vblanks));
+        clocks.u32(static_cast<uint32_t>(demo.clocks.vblanks >> 32U));
+        clocks.u32(demo.clocks.last_change);
+        clocks.f32(demo.clocks.pace);
+        clocks.i32(demo.clocks.offset);
+        file.chunk(kClocks, clocks);
+    }
     return std::move(file.bytes());
 }
 
@@ -338,6 +349,18 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
                 return false;
             }
             has_input = true;
+        } else if (id == kClocks) {
+            const uint32_t low = body.u32();
+            const uint32_t high = body.u32();
+            demo.clocks.vblanks = static_cast<uint64_t>(high) << 32U | low;
+            demo.clocks.last_change = body.u32();
+            demo.clocks.pace = body.f32();
+            demo.clocks.offset = body.i32();
+            if (!body.ok()) {
+                why = "bad clock chunk";
+                return false;
+            }
+            demo.clocks.present = true;
         } else if (id == kChecks) {
             const uint32_t count = body.u32();
             if (!body.ok() || count > body.remaining() / kCheckPointBytes) {

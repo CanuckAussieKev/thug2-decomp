@@ -35,7 +35,9 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
+#include "engine/sys/game_clock.h"
 #include "engine/sys/mlp.h"
+#include "engine/sys/stopwatch.h"
 #include "formats/demo_format.h"
 #include "game/front_end/front_end.h"
 #include "game/front_end/start_level.h"
@@ -222,6 +224,16 @@ void restore_profile(const Demo& demo)
         profile->details_params()->append_structure_if_any(read.get());
         get_log("demo: the skater's info (stats...) put back as recorded");
     }
+}
+
+demo_format::Clocks clocks_now()
+{
+    const frame_clock::GameClockSnapshot clock = frame_clock::game_clock_snapshot();
+    return {.present = true,
+            .vblanks = frame_clock::vblanks_since_reset(),
+            .last_change = clock.last_change,
+            .pace = clock.pace,
+            .offset = clock.offset};
 }
 
 modules::Skate* skate() { return modules::Skate::sole(); }
@@ -570,6 +582,7 @@ void frame_ending(bool rendering)
             s.up = true;
             s.demo.up_frame = now;
             s.demo.random_at_up = random_now();
+            s.demo.clocks = clocks_now();
             get_log("demo: %s up at frame %u - the check track starts", s.demo.level.c_str(), now);
         }
         if (s.up && (now - s.demo.up_frame) % s.demo.check_stride == 0) {
@@ -587,6 +600,13 @@ void frame_ending(bool rendering)
                 maths::set_random_streams(s.demo.random_at_up.streams);
                 crt::game_srand(s.demo.random_at_up.crt);
                 get_log("demo: the random numbers differ from the recording's at frame %u - put back", now);
+            }
+            // (the clocks as the recording had them here: what reads the time - moving objects, timers, Randomize -
+            // sees the same times from the next frame on)
+            if (s.demo.clocks.present) {
+                frame_clock::set_vblanks_since_reset(s.demo.clocks.vblanks);
+                frame_clock::set_game_clock_snapshot(
+                    {.last_change = s.demo.clocks.last_change, .pace = s.demo.clocks.pace, .offset = s.demo.clocks.offset});
             }
             if (!s.capture.empty()) {
                 start_capture();

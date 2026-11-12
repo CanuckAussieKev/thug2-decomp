@@ -66,6 +66,7 @@ demo_format::Demo sample()
     demo.ports = 1;
     demo.check_stride = 1;
     demo.random_at_up = {.streams = {{1, 2, 3, 4, 5, 6}}, .crt = 7};
+    demo.clocks = {.present = true, .vblanks = 0x123456789ULL, .last_change = 4000, .pace = 0.5F, .offset = -12};
     demo.settings = {{"Graphics.rt_shadows", "1"}, {"features.mute_audio", "1"}, {"Graphics.empty", ""}};
     demo.profile = {1, 2, 3, 0, 255};
     demo.details = {9, 8, 7};
@@ -102,7 +103,10 @@ bool same_demos(const demo_format::Demo& a, const demo_format::Demo& b)
            a.level_load == b.level_load && a.skater_name == b.skater_name && a.seed == b.seed &&
            a.crt_seed == b.crt_seed && a.up_frame == b.up_frame && a.ports == b.ports &&
            a.check_stride == b.check_stride && a.random_at_up == b.random_at_up && a.settings == b.settings &&
-           a.profile == b.profile && a.details == b.details && a.inputs == b.inputs;
+           a.profile == b.profile && a.details == b.details && a.inputs == b.inputs &&
+           a.clocks.present == b.clocks.present && a.clocks.vblanks == b.clocks.vblanks &&
+           a.clocks.last_change == b.clocks.last_change && a.clocks.pace == b.clocks.pace &&
+           a.clocks.offset == b.clocks.offset;
 }
 
 void put_u32(std::vector<uint8_t>* bytes, std::size_t at, uint32_t value)
@@ -128,6 +132,12 @@ void check_round_trip()
     no_checks.checks.clear();
     check(demo_format::write_demo(no_checks).size() < static_cast<std::size_t>(kFrames) * demo_format::kPortBytes / 4,
           "demo: the input compressed");
+    demo_format::Demo no_clocks = demo;
+    no_clocks.clocks = {};
+    demo_format::Demo back_no_clocks;
+    check(demo_format::read_demo(demo_format::write_demo(no_clocks), &back_no_clocks, &error) &&
+              !back_no_clocks.clocks.present,
+          "demo: the clocks are optional");
     check(back.check_at(200) != nullptr && back.check_at(200)->frame == 200, "demo: a check point by frame");
     check(back.check_at(5) == nullptr, "demo: no check point before the level was up");
     check(back.setting("Graphics.rt_shadows") == "1" && back.setting("nothing").empty(), "demo: a setting by name");
