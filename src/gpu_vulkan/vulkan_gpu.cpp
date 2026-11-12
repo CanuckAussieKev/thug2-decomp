@@ -68,6 +68,7 @@ double seconds_since(std::chrono::steady_clock::time_point start)
 // (the images and buffers destroyed once the frames that may use them have finished: vulkan_frames.h)
 void destroy_texture(Backend& state, Texture* texture)
 {
+    state.materials.texture_released(state, texture); // NOT ORIGINAL - its ray-tracing texture slot, if it has one
     retire_image(state, &texture->image);
     state.textures.erase(texture);
 }

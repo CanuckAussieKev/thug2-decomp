@@ -15,6 +15,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -223,9 +224,9 @@ ShadowListener& listener()
     return instance;
 }
 
-VkShaderModule make_module(VkDevice device, ShaderStage stage, const std::string& source, std::string* error)
+VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::string& source, std::string* error)
 {
-    const CompiledShader compiled = compile_glsl(stage, source, ShaderTarget::kVulkan12);
+    const CompiledShader compiled = compile_rt_glsl(stage, source);
     if (!compiled.ok) {
         *error = compiled.log;
         return VK_NULL_HANDLE;
@@ -296,7 +297,7 @@ bool ensure_layouts(Backend& state, std::string* error)
         *error = "the pipeline layout";
         return false;
     }
-    own.vertex = make_module(device, ShaderStage::kVertex, kVertexSource, error);
+    own.vertex = make_module(device, RtShaderStage::kVertex, kVertexSource, error);
     return own.vertex != VK_NULL_HANDLE;
 }
 
@@ -323,7 +324,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
         source += "#define PER_SAMPLE\n";
     }
     source += kFragmentBody;
-    const VkShaderModule fragment = make_module(device, ShaderStage::kFragment, source, error);
+    const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
     }

@@ -6,7 +6,8 @@
 # (vulkan_formats, vulkan_memory, vulkan_ring, vulkan_samplers, vulkan_jpeg), and the draws - the pixel shaders recognised
 # (vulkan_pixel_program), the key and uniforms from the state block (vulkan_draw_state), the pipelines and their caches
 # (vulkan_pipelines), the frames in flight (vulkan_frames), the passes, draws, clears and present (vulkan_draws) - which
-# src/tests/vulkan_gpu_check.cpp checks. It includes the engine and the layers below it (tools/layers.ts checks it);
+# src/tests/vulkan_gpu_check.cpp checks; with ray tracing, the material table and bindless textures (vulkan_rt_materials,
+# its shaders compiled by vulkan_rt_glsl) that src/tests/vulkan_rt_materials_check.cpp checks. It includes the engine and the layers below it (tools/layers.ts checks it);
 # nothing below app/ includes or links it, and only it sees the Vulkan and glslang headers (tools/vulkan_headers.test.ts).
 add_library(thug2_gpu_vulkan STATIC
     vulkan_loader.cpp
@@ -29,6 +30,8 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_ui_backend.cpp
     vulkan_ui_windows.cpp
     vulkan_rt_shadows.cpp
+    vulkan_rt_glsl.cpp
+    vulkan_rt_materials.cpp
 )
 # volk: the Vulkan loader, opened at run time (no import library) - public, as the context's header declares Vulkan's
 # functions through it; vulkan_memory_allocator: device memory (VMA, compiled once: cmake/vulkan_libraries.cmake) - public,
