@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 namespace maths {
@@ -21,7 +22,8 @@ double plus_or_minus_exact(float range);
 
 // NOT ORIGINAL - both streams' state (add, mul, value each), read and put back as a whole: a demo starts its run from
 // the state it was recorded with (devtools/demo.h).
-using RandomStreams = std::array<uint32_t, 6>;
+constexpr std::size_t kRandomStreamWords = 6;
+using RandomStreams = std::array<uint32_t, kRandomStreamWords>;
 RandomStreams random_streams();
 void set_random_streams(const RandomStreams& streams);
 

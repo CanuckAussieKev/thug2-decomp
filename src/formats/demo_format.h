@@ -58,8 +58,9 @@ constexpr uint32_t kPaused = 1U << 2;
 constexpr std::size_t kCheckPointBytes = 4 + 4 + (4 * 3 * 4) + 4 + (4 * 3 * 2);
 
 // The random streams (maths::seed_random's two: add, mul, value each) and the C runtime rand's state.
+constexpr std::size_t kRandomStreamWords = 6;
 struct RandomState {
-    std::array<uint32_t, 6> streams{};
+    std::array<uint32_t, kRandomStreamWords> streams{};
     uint32_t crt = 0;
     bool operator==(const RandomState&) const = default;
 };

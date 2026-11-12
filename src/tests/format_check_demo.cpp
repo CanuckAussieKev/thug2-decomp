@@ -2,10 +2,12 @@
 
 #include "tests/format_check_demo.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
@@ -17,9 +19,42 @@ namespace format_check_demo {
 namespace {
 
 constexpr uint32_t kFrames = 300;
-constexpr uint32_t kChangeEvery = 7;     // the sample's input changes this often (runs to compress)
+constexpr std::size_t kBitsPerByte = 8;
+constexpr uint32_t kChangeEvery = 7;      // the sample's input changes this often (runs to compress)
 constexpr std::size_t kVersionOffset = 8; // the u32 after the magic
 constexpr std::size_t kInfoTagOffset = 12;
+// the sample demo's values
+constexpr uint32_t kLevelLoad = 0x12345678;
+constexpr uint32_t kSkaterName = 0x9ABCDEF0;
+constexpr uint32_t kSeed = 0xC0FFEE;
+constexpr uint32_t kCrtSeed = 0xBEEF;
+constexpr uint32_t kUpFrame = 120;
+constexpr std::array<uint32_t, demo_format::kRandomStreamWords> kStreams = {{11, 22, 33, 44, 55, 66}};
+constexpr uint32_t kCrtState = 77;
+constexpr demo_format::Clocks kClocks = {
+    .present = true, .vblanks = 0x123456789ULL, .last_change = 4000, .pace = 0.5F, .offset = -12};
+constexpr std::array<uint8_t, 5> kProfile = {{1, 2, 3, 0, 255}};
+constexpr std::array<uint8_t, 3> kDetails = {{9, 8, 7}};
+constexpr uint8_t kStickCentred = 0x80;
+constexpr std::size_t kChangingByte = 2;
+constexpr uint32_t kStates = 6;
+constexpr std::array<float, 3> kVelocity = {{1.0F, 0.5F, -0.25F}};
+constexpr std::array<float, 3> kAt = {{0.0F, 0.0F, 1.0F}};
+constexpr std::array<float, 3> kUp = {{0.0F, 1.0F, 0.0F}};
+constexpr std::array<float, 3> kCameraOffset = {{0.0F, 100.0F, -300.0F}};
+constexpr std::array<float, 3> kCameraForward = {{0.0F, -0.2F, 0.98F}};
+constexpr float kHeightScale = 2.0F;
+constexpr uint32_t kSomeCheckedFrame = 200;
+constexpr uint32_t kFrameBeforeUp = 5;
+constexpr std::size_t kRatio = 4; // the compressed input at most a quarter of the raw frames
+// the drift check
+constexpr uint32_t kDriftFrames = 10;
+constexpr uint32_t kDriftFrom = 4;
+constexpr float kTolerance = 0.01F;
+constexpr float kDriftStep = 0.5F;
+constexpr float kDriftLargest = kDriftStep * static_cast<float>(kDriftFrames - kDriftFrom);
+constexpr int32_t kOtherState = 5;
+constexpr uint32_t kLineFrame = 2;
 
 int& failures()
 {
@@ -40,14 +75,15 @@ demo_format::CheckPoint point_at(uint32_t frame)
     demo_format::CheckPoint point;
     point.frame = frame;
     point.flags = demo_format::kHasSkater | demo_format::kHasCamera;
-    const auto f = static_cast<float>(frame);
-    point.position = {f, f * 2.0F, -f};
-    point.velocity = {1.0F, 0.5F, -0.25F};
-    point.at = {0.0F, 0.0F, 1.0F};
-    point.up = {0.0F, 1.0F, 0.0F};
-    point.state = static_cast<int32_t>(frame % 6);
-    point.camera = {f, f + 100.0F, f - 300.0F};
-    point.camera_forward = {0.0F, -0.2F, 0.98F};
+    const auto along = static_cast<float>(frame);
+    point.position = {along, along * kHeightScale, -along};
+    point.velocity = kVelocity;
+    point.at = kAt;
+    point.up = kUp;
+    point.state = static_cast<int32_t>(frame % kStates);
+    point.camera = {along + core::at(kCameraOffset, 0), along + core::at(kCameraOffset, 1),
+                    along + core::at(kCameraOffset, 2)};
+    point.camera_forward = kCameraForward;
     return point;
 }
 
@@ -58,22 +94,22 @@ demo_format::Demo sample()
     demo.skater = "Tony Hawk";
     demo.created = "2026-11-13 12:00:00";
     demo.build = "abc1234";
-    demo.level_load = 0x12345678;
-    demo.skater_name = 0x9ABCDEF0;
-    demo.seed = 0xC0FFEE;
-    demo.crt_seed = 0xBEEF;
-    demo.up_frame = 120;
+    demo.level_load = kLevelLoad;
+    demo.skater_name = kSkaterName;
+    demo.seed = kSeed;
+    demo.crt_seed = kCrtSeed;
+    demo.up_frame = kUpFrame;
     demo.ports = 1;
     demo.check_stride = 1;
-    demo.random_at_up = {.streams = {{1, 2, 3, 4, 5, 6}}, .crt = 7};
-    demo.clocks = {.present = true, .vblanks = 0x123456789ULL, .last_change = 4000, .pace = 0.5F, .offset = -12};
+    demo.random_at_up = {.streams = kStreams, .crt = kCrtState};
+    demo.clocks = kClocks;
     demo.settings = {{"Graphics.rt_shadows", "1"}, {"features.mute_audio", "1"}, {"Graphics.empty", ""}};
-    demo.profile = {1, 2, 3, 0, 255};
-    demo.details = {9, 8, 7};
+    demo.profile.assign(kProfile.begin(), kProfile.end());
+    demo.details.assign(kDetails.begin(), kDetails.end());
     for (uint32_t frame = 0; frame < kFrames; ++frame) {
         demo_format::PortData data{};
-        data.fill(0x80);
-        core::at(data, 2) = static_cast<uint8_t>(frame / kChangeEvery);
+        data.fill(kStickCentred);
+        core::at(data, kChangingByte) = static_cast<uint8_t>(frame / kChangeEvery);
         demo.inputs.push_back(data);
     }
     for (uint32_t frame = demo.up_frame; frame < kFrames; ++frame) {
@@ -112,7 +148,7 @@ bool same_demos(const demo_format::Demo& a, const demo_format::Demo& b)
 void put_u32(std::vector<uint8_t>* bytes, std::size_t at, uint32_t value)
 {
     for (std::size_t i = 0; i < 4; ++i) {
-        core::at(*bytes, at + i) = static_cast<uint8_t>(value >> (8U * i));
+        core::at(*bytes, at + i) = static_cast<uint8_t>(value >> (kBitsPerByte * i));
     }
 }
 
@@ -130,7 +166,8 @@ void check_round_trip()
     // (the input runs: 300 frames changing every 7 - 43 runs of 36 bytes, far less than 300 x 32)
     demo_format::Demo no_checks = demo;
     no_checks.checks.clear();
-    check(demo_format::write_demo(no_checks).size() < static_cast<std::size_t>(kFrames) * demo_format::kPortBytes / 4,
+    check(demo_format::write_demo(no_checks).size() <
+              static_cast<std::size_t>(kFrames) * demo_format::kPortBytes / kRatio,
           "demo: the input compressed");
     demo_format::Demo no_clocks = demo;
     no_clocks.clocks = {};
@@ -138,8 +175,9 @@ void check_round_trip()
     check(demo_format::read_demo(demo_format::write_demo(no_clocks), &back_no_clocks, &error) &&
               !back_no_clocks.clocks.present,
           "demo: the clocks are optional");
-    check(back.check_at(200) != nullptr && back.check_at(200)->frame == 200, "demo: a check point by frame");
-    check(back.check_at(5) == nullptr, "demo: no check point before the level was up");
+    check(back.check_at(kSomeCheckedFrame) != nullptr && back.check_at(kSomeCheckedFrame)->frame == kSomeCheckedFrame,
+          "demo: a check point by frame");
+    check(back.check_at(kFrameBeforeUp) == nullptr, "demo: no check point before the level was up");
     check(back.setting("Graphics.rt_shadows") == "1" && back.setting("nothing").empty(), "demo: a setting by name");
     check(back.input(kFrames, 0) == nullptr && back.input(0, 1) == nullptr, "demo: no input past the end / port");
 }
@@ -183,22 +221,24 @@ void check_drift()
 {
     demo_format::Drift same;
     demo_format::Drift moved;
-    for (uint32_t frame = 0; frame < 10; ++frame) {
+    for (uint32_t frame = 0; frame < kDriftFrames; ++frame) {
         const demo_format::CheckPoint recorded = point_at(frame);
-        demo_format::add_to_drift(&same, recorded, recorded, 0.01F);
+        demo_format::add_to_drift(&same, recorded, recorded, kTolerance);
         demo_format::CheckPoint played = recorded;
-        if (frame >= 4) {
-            played.position[0] += 0.5F * static_cast<float>(frame - 3);
+        if (frame >= kDriftFrom) {
+            core::at(played.position, 0) += kDriftStep * static_cast<float>(frame - kDriftFrom + 1);
         }
-        demo_format::add_to_drift(&moved, recorded, played, 0.01F);
+        demo_format::add_to_drift(&moved, recorded, played, kTolerance);
     }
-    check(same.compared == 10 && same.first_frame == -1 && same.max_skater == 0.0F, "drift: identical tracks");
-    check(moved.first_frame == 4 && moved.first.skater == 0.5F && moved.max_skater == 3.0F && moved.max_camera == 0.0F,
+    check(same.compared == kDriftFrames && same.first_frame == -1 && same.max_skater == 0.0F,
+          "drift: identical tracks");
+    check(std::cmp_equal(moved.first_frame, kDriftFrom) && moved.first.skater == kDriftStep &&
+              moved.max_skater == kDriftLargest && moved.max_camera == 0.0F,
           "drift: the first frame that differs and the largest drift");
     demo_format::CheckPoint other_state = point_at(1);
-    other_state.state = 5;
-    check(demo_format::compare_points(point_at(1), other_state, 0.01F).other, "drift: a different state counts");
-    check(demo_format::check_line(point_at(2)).starts_with("2 3 2.000 4.000 -2.000"), "drift: a track line");
+    other_state.state = kOtherState;
+    check(demo_format::compare_points(point_at(1), other_state, kTolerance).other, "drift: a different state counts");
+    check(demo_format::check_line(point_at(kLineFrame)).starts_with("2 3 2.000 4.000 -2.000"), "drift: a track line");
 }
 
 } // namespace

@@ -79,8 +79,9 @@ RandomStreams random_streams()
 
 void set_random_streams(const RandomStreams& streams)
 {
-    stream1() = {.add = streams[0], .mul = streams[1], .value = streams[2]};
-    stream2() = {.add = streams[3], .mul = streams[4], .value = streams[5]};
+    const auto& [add1, mul1, value1, add2, mul2, value2] = streams;
+    stream1() = {.add = add1, .mul = mul1, .value = value1};
+    stream2() = {.add = add2, .mul = mul2, .value = value2};
 }
 
 } // namespace maths

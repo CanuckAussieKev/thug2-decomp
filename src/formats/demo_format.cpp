@@ -3,9 +3,17 @@
 #include "formats/demo_format.h"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -17,16 +25,20 @@ namespace demo_format {
 namespace {
 
 constexpr std::size_t kTagBytes = 4;
+constexpr unsigned kBitsPerByte = 8;
+constexpr unsigned kWordBits = 32;
 constexpr std::size_t kChunkHeaderBytes = 8;
 constexpr uint32_t kMaxFrames = 60U * 60U * 60U; // an hour at 60 frames a second
 constexpr uint32_t kMaxStrings = 4096;
 
 // A chunk's tag as the u32 it is read as.
-constexpr uint32_t tag(const char (&text)[kTagBytes + 1])
+constexpr uint32_t tag(std::string_view text)
 {
-    return static_cast<uint32_t>(static_cast<uint8_t>(text[0])) | static_cast<uint32_t>(static_cast<uint8_t>(text[1])) << 8U |
-           static_cast<uint32_t>(static_cast<uint8_t>(text[2])) << 16U |
-           static_cast<uint32_t>(static_cast<uint8_t>(text[3])) << 24U;
+    uint32_t value = 0;
+    for (std::size_t i = 0; i < kTagBytes; ++i) {
+        value |= static_cast<uint32_t>(static_cast<uint8_t>(text.at(i))) << (kBitsPerByte * i);
+    }
+    return value;
 }
 constexpr uint32_t kInfo = tag("INFO");
 constexpr uint32_t kSettings = tag("SETS");
@@ -41,8 +53,8 @@ class Out {
 public:
     void u32(uint32_t value)
     {
-        for (int shift = 0; shift < 32; shift += 8) {
-            bytes_.push_back(static_cast<uint8_t>(value >> static_cast<unsigned>(shift)));
+        for (unsigned shift = 0; shift < kWordBits; shift += kBitsPerByte) {
+            bytes_.push_back(static_cast<uint8_t>(value >> shift));
         }
     }
     void i32(int32_t value) { u32(static_cast<uint32_t>(value)); }
@@ -172,10 +184,12 @@ bool read_input(util::ByteReader& in, Demo* demo, std::string* error)
 
 float distance(const std::array<float, 3>& a, const std::array<float, 3>& b)
 {
-    const float dx = a[0] - b[0];
-    const float dy = a[1] - b[1];
-    const float dz = a[2] - b[2];
-    return std::sqrt((dx * dx) + (dy * dy) + (dz * dz));
+    float sum = 0.0F;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        const float difference = core::at(a, i) - core::at(b, i);
+        sum += difference * difference;
+    }
+    return std::sqrt(sum);
 }
 
 } // namespace
@@ -278,7 +292,7 @@ std::vector<uint8_t> write_demo(const Demo& demo)
     if (demo.clocks.present) {
         Out clocks;
         clocks.u32(static_cast<uint32_t>(demo.clocks.vblanks));
-        clocks.u32(static_cast<uint32_t>(demo.clocks.vblanks >> 32U));
+        clocks.u32(static_cast<uint32_t>(demo.clocks.vblanks >> kWordBits));
         clocks.u32(demo.clocks.last_change);
         clocks.f32(demo.clocks.pace);
         clocks.i32(demo.clocks.offset);
@@ -352,7 +366,7 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
         } else if (id == kClocks) {
             const uint32_t low = body.u32();
             const uint32_t high = body.u32();
-            demo.clocks.vblanks = static_cast<uint64_t>(high) << 32U | low;
+            demo.clocks.vblanks = static_cast<uint64_t>(high) << kWordBits | low;
             demo.clocks.last_change = body.u32();
             demo.clocks.pace = body.f32();
             demo.clocks.offset = body.i32();
@@ -386,14 +400,22 @@ bool read_demo(std::span<const uint8_t> bytes, Demo* out, std::string* error)
 
 std::string check_line(const CheckPoint& point)
 {
-    const auto d = [](float value) { return static_cast<double>(value); };
-    return text::format("%u %u %.3f %.3f %.3f %.3f %.3f %.3f %.4f %.4f %.4f %.4f %.4f %.4f %d %.3f %.3f %.3f %.4f %.4f "
-                        "%.4f",
-                        point.frame, point.flags, d(point.position[0]), d(point.position[1]), d(point.position[2]),
-                        d(point.velocity[0]), d(point.velocity[1]), d(point.velocity[2]), d(point.at[0]), d(point.at[1]),
-                        d(point.at[2]), d(point.up[0]), d(point.up[1]), d(point.up[2]), point.state, d(point.camera[0]),
-                        d(point.camera[1]), d(point.camera[2]), d(point.camera_forward[0]), d(point.camera_forward[1]),
-                        d(point.camera_forward[2]));
+    // (positions and velocities to 3 places, unit vectors to 4)
+    const auto add = [](std::string* line, const std::array<float, 3>& value, bool unit) {
+        for (const float v : value) {
+            *line +=
+                unit ? text::format(" %.4f", static_cast<double>(v)) : text::format(" %.3f", static_cast<double>(v));
+        }
+    };
+    std::string line = text::format("%u %u", point.frame, point.flags);
+    add(&line, point.position, false);
+    add(&line, point.velocity, false);
+    add(&line, point.at, true);
+    add(&line, point.up, true);
+    line += text::format(" %d", point.state);
+    add(&line, point.camera, false);
+    add(&line, point.camera_forward, true);
+    return line;
 }
 
 Difference compare_points(const CheckPoint& a, const CheckPoint& b, float tolerance)
@@ -413,7 +435,8 @@ void add_to_drift(Drift* drift, const CheckPoint& recorded, const CheckPoint& pl
     ++drift->compared;
     drift->max_skater = std::max(drift->max_skater, difference.skater);
     drift->max_camera = std::max(drift->max_camera, difference.camera);
-    if (drift->first_frame < 0 && (difference.skater > tolerance || difference.camera > tolerance || difference.other)) {
+    if (drift->first_frame < 0 &&
+        (difference.skater > tolerance || difference.camera > tolerance || difference.other)) {
         drift->first_frame = played.frame;
         drift->first = difference;
     }

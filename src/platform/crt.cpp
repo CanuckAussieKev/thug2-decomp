@@ -6,6 +6,7 @@
 #include "base/maths/fpu_precision.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <process.h>

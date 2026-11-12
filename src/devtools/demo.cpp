@@ -12,19 +12,22 @@
 #include <ctime>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include <SDL3/SDL.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/checksums.h"
 #include "base/core/down_cast.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "base/core/parse_number.h"
 #include "base/maths/random.h"
+#include "base/maths/vec4.h"
 #include "build_info.h"
-#include "devtools/automation_internal.h"
+#include "devtools/automation.h"
 #include "devtools/screenshot.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
@@ -32,7 +35,6 @@
 #include "engine/gfx/screen.h"
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_source.h"
-#include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/sys/game_clock.h"
@@ -66,8 +68,11 @@ constexpr float kTolerance = 0.01F;              // a check point differs beyond
 constexpr std::size_t kProfileBytes = 16384;     // room for the skater profile's copies
 constexpr std::size_t kSettingsBytes = 32768;    // room for an ini section
 constexpr std::size_t kKeyTextBytes = 64;
-constexpr std::size_t kLoadPrefix = 5;           // "Load_"
-constexpr int kMaxEvery = 600;                   // -demo-every: at most a picture every 10 s
+constexpr std::size_t kLoadPrefix = 5; // "Load_"
+constexpr std::string_view kExtension = ".demo";
+constexpr double kFramesPerSecond = 60.0;
+constexpr unsigned char kFirstPrintable = 0x20; // (JSON escapes the control characters below it)
+constexpr int kMaxEvery = 600;                  // -demo-every: at most a picture every 10 s
 
 enum class Phase : uint8_t { kOff, kRecordArmed, kRecording, kPlayArmed, kPlaying, kFinishing };
 
@@ -116,8 +121,9 @@ std::string clean_name(std::string name)
     if (slash != std::string::npos) {
         name.erase(0, slash + 1);
     }
-    if (name.size() > 5 && _stricmp(name.c_str() + name.size() - 5, ".demo") == 0) {
-        name.resize(name.size() - 5);
+    if (name.size() > kExtension.size() &&
+        _stricmp(name.substr(name.size() - kExtension.size()).c_str(), std::string(kExtension).c_str()) == 0) {
+        name.resize(name.size() - kExtension.size());
     }
     return name;
 }
@@ -169,10 +175,7 @@ std::vector<std::pair<std::string, std::string>> settings_now()
     return settings;
 }
 
-demo_format::RandomState random_now()
-{
-    return {.streams = maths::random_streams(), .crt = crt::game_rand_state()};
-}
+demo_format::RandomState random_now() { return {.streams = maths::random_streams(), .crt = crt::game_rand_state()}; }
 
 // The skater profile's copies: the network copy (appearance, trick style, specials, info names) and its whole info.
 std::vector<uint8_t> profile_bytes(objects::RiderIdentity* profile)
@@ -185,8 +188,8 @@ std::vector<uint8_t> profile_bytes(objects::RiderIdentity* profile)
 std::vector<uint8_t> details_bytes(objects::RiderIdentity* profile)
 {
     std::vector<uint8_t> bytes(kProfileBytes);
-    const uint32_t size =
-        script::emit_into_buffer(profile->details_params(), bytes.data(), static_cast<uint32_t>(bytes.size()), false, nullptr);
+    const uint32_t size = script::emit_into_buffer(profile->details_params(), bytes.data(),
+                                                   static_cast<uint32_t>(bytes.size()), false, nullptr);
     bytes.resize(size);
     return bytes;
 }
@@ -242,7 +245,7 @@ modules::Skate* skate() { return modules::Skate::sole(); }
 bool level_up(uint32_t load)
 {
     return render::current_level() != 0 && skate() != nullptr && skate()->level() == load &&
-           objects::find_object(kSkater) != nullptr && !frontend::automation::internal::loading_screen_up();
+           objects::find_object(kSkater) != nullptr && !frontend::automation::loading_now();
 }
 
 bool in_level()
@@ -279,14 +282,14 @@ CheckPoint point_now(uint32_t frame)
 std::string json_text(const std::string& value)
 {
     std::string out = "\"";
-    for (const char c : value) {
-        if (c == '"' || c == '\\') {
+    for (const char character : value) {
+        if (character == '"' || character == '\\') {
             out += '\\';
-            out += c;
-        } else if (static_cast<unsigned char>(c) < 0x20) {
-            out += text::format("\\u%04x", static_cast<unsigned>(static_cast<unsigned char>(c)));
+            out += character;
+        } else if (static_cast<unsigned char>(character) < kFirstPrintable) {
+            out += text::format("\\u%04x", static_cast<unsigned>(static_cast<unsigned char>(character)));
         } else {
-            out += c;
+            out += character;
         }
     }
     return out + "\"";
@@ -309,18 +312,15 @@ bool write_bytes(const std::string& path, std::span<const uint8_t> bytes)
     return written.written && written.closed;
 }
 
-void notice(const std::string& text)
-{
-    sys::screenshot::show_notice(text);
-}
+void notice(const std::string& text) { sys::screenshot::show_notice(text); }
 
 // --- recording ---
 
 void begin_recording(uint32_t load)
 {
-    State& s = state();
-    s.demo = Demo{};
-    Demo& demo = s.demo;
+    State& run = state();
+    run.demo = Demo{};
+    Demo& demo = run.demo;
     demo.level_load = load;
     demo.level = level_name(load);
     demo.created = local_time_text("%Y-%m-%d %H:%M:%S");
@@ -337,31 +337,31 @@ void begin_recording(uint32_t load)
         demo.profile = profile_bytes(profile);
         demo.details = details_bytes(profile);
     }
-    if (s.name.empty()) {
-        s.name = "demo_" + demo.level + "_" + local_time_text("%Y-%m-%d_%H-%M-%S");
+    if (run.name.empty()) {
+        run.name = "demo_" + demo.level + "_" + local_time_text("%Y-%m-%d_%H-%M-%S");
     }
     maths::seed_random(demo.seed);
     crt::game_srand(demo.crt_seed);
-    s.counting = true;
-    s.frame = 0;
-    s.up = false;
-    s.phase = Phase::kRecording;
-    get_log("demo: recording %s in %s (seed %08X)", s.name.c_str(), demo.level.c_str(), demo.seed);
+    run.counting = true;
+    run.frame = 0;
+    run.up = false;
+    run.phase = Phase::kRecording;
+    get_log("demo: recording %s in %s (seed %08X)", run.name.c_str(), demo.level.c_str(), demo.seed);
     notice("Recording");
 }
 
 std::string save_recording()
 {
-    State& s = state();
-    s.phase = Phase::kOff;
-    s.counting = false;
-    const Demo& demo = s.demo;
+    State& run = state();
+    run.phase = Phase::kOff;
+    run.counting = false;
+    const Demo& demo = run.demo;
     if (demo.frames() == 0) {
         return "nothing recorded";
     }
     const std::string folder = demos_folder();
     fs::disk().make_folders(folder.c_str());
-    const std::string path = folder + s.name + ".demo";
+    const std::string path = folder + run.name + ".demo";
     if (!write_bytes(path, write_demo(demo))) {
         get_log("demo: couldn't write %s", path.c_str());
         notice("Demo not saved");
@@ -370,15 +370,15 @@ std::string save_recording()
     const std::string json = text::format(
         "{\n  \"name\": %s,\n  \"level\": %s,\n  \"skater\": %s,\n  \"created\": %s,\n  \"build\": %s,\n"
         "  \"frames\": %u,\n  \"seconds\": %.2f,\n  \"up_frame\": %u,\n  \"checks\": %u,\n  \"settings\": %s\n}\n",
-        json_text(s.name).c_str(), json_text(demo.level).c_str(), json_text(demo.skater).c_str(),
+        json_text(run.name).c_str(), json_text(demo.level).c_str(), json_text(demo.skater).c_str(),
         json_text(demo.created).c_str(), json_text(demo.build).c_str(), demo.frames(),
-        static_cast<double>(demo.frames()) / 60.0, demo.up_frame, static_cast<unsigned>(demo.checks.size()),
+        static_cast<double>(demo.frames()) / kFramesPerSecond, demo.up_frame, static_cast<unsigned>(demo.checks.size()),
         settings_json(demo.settings).c_str());
-    fs::write_text(folder + s.name + ".json", json);
+    fs::write_text(folder + run.name + ".json", json);
     get_log("demo: saved %s - %u frames (%.1f s), the level up at frame %u, %u check points", path.c_str(),
-            demo.frames(), static_cast<double>(demo.frames()) / 60.0, demo.up_frame,
+            demo.frames(), static_cast<double>(demo.frames()) / kFramesPerSecond, demo.up_frame,
             static_cast<unsigned>(demo.checks.size()));
-    notice("Demo saved: " + s.name);
+    notice("Demo saved: " + run.name);
     return "saved " + path;
 }
 
@@ -386,7 +386,7 @@ std::string save_recording()
 
 bool load_demo(const std::string& name, std::string* why)
 {
-    State& s = state();
+    State& run = state();
     const std::string path = demos_folder() + clean_name(name) + ".demo";
     std::string bytes;
     if (!fs::read_text(path, &bytes)) {
@@ -399,35 +399,35 @@ bool load_demo(const std::string& name, std::string* why)
         *why = path + ": " + *why;
         return false;
     }
-    s.demo = std::move(demo);
-    s.name = clean_name(name);
+    run.demo = std::move(demo);
+    run.name = clean_name(name);
     return true;
 }
 
 // Where the playback's track and summary go: the capture's folder, or the demos' folder.
 std::string output_base()
 {
-    const State& s = state();
-    if (!s.capture.empty()) {
-        return s.capture + "\\";
+    const State& run = state();
+    if (!run.capture.empty()) {
+        return run.capture + "\\";
     }
-    return demos_folder() + s.name + ".play.";
+    return demos_folder() + run.name + ".play.";
 }
 
 std::string start_playback()
 {
-    State& s = state();
-    const std::string online = frontend::automation::internal::net_refusal();
+    State& run = state();
+    const std::string online = frontend::automation::online_refusal();
     if (!online.empty()) {
-        s.phase = Phase::kOff;
+        run.phase = Phase::kOff;
         return "refused: " + online;
     }
-    restore_profile(s.demo);
-    s.phase = Phase::kPlayArmed;
+    restore_profile(run.demo);
+    run.phase = Phase::kPlayArmed;
     std::string why;
-    if (!frontend::begin_level::read_in_load(s.demo.level_load, false, &why)) {
-        s.phase = Phase::kOff;
-        get_log("demo: %s can't be played - %s", s.name.c_str(), why.c_str());
+    if (!frontend::begin_level::read_in_load(run.demo.level_load, false, &why)) {
+        run.phase = Phase::kOff;
+        get_log("demo: %s can't be played - %s", run.name.c_str(), why.c_str());
         return why;
     }
     return {};
@@ -435,108 +435,109 @@ std::string start_playback()
 
 void begin_playback(uint32_t load)
 {
-    State& s = state();
-    if (load != s.demo.level_load) {
+    State& run = state();
+    if (load != run.demo.level_load) {
         get_log("demo: another level loaded (%s, not %s) - the playback stops", level_name(load).c_str(),
-                s.demo.level.c_str());
-        s.phase = Phase::kOff;
+                run.demo.level.c_str());
+        run.phase = Phase::kOff;
         return;
     }
-    maths::seed_random(s.demo.seed);
-    crt::game_srand(s.demo.crt_seed);
-    s.counting = true;
-    s.frame = 0;
-    s.up = false;
-    s.drift = {};
-    s.track = std::string(demo_format::kCheckHeader) + "\n";
-    s.random_matched = true;
-    s.up_matched = true;
-    s.phase = Phase::kPlaying;
-    get_log("demo: playing %s in %s - %u frames (%.1f s), skater %s, recorded %s", s.name.c_str(), s.demo.level.c_str(),
-            s.demo.frames(), static_cast<double>(s.demo.frames()) / 60.0, s.demo.skater.c_str(),
-            s.demo.created.c_str());
+    maths::seed_random(run.demo.seed);
+    crt::game_srand(run.demo.crt_seed);
+    run.counting = true;
+    run.frame = 0;
+    run.up = false;
+    run.drift = {};
+    run.track = std::string(demo_format::kCheckHeader) + "\n";
+    run.random_matched = true;
+    run.up_matched = true;
+    run.phase = Phase::kPlaying;
+    get_log("demo: playing %s in %s - %u frames (%.1f s), skater %s, recorded %s", run.name.c_str(),
+            run.demo.level.c_str(), run.demo.frames(), static_cast<double>(run.demo.frames()) / kFramesPerSecond,
+            run.demo.skater.c_str(), run.demo.created.c_str());
 }
 
 void finish_playback(bool ended)
 {
-    State& s = state();
-    s.counting = false;
-    const demo_format::Drift& drift = s.drift;
+    State& run = state();
+    run.counting = false;
+    const demo_format::Drift& drift = run.drift;
     std::string verdict;
     if (drift.compared == 0) {
         verdict = "no check points compared";
     } else if (drift.first_frame < 0) {
         verdict = text::format("identical to the recording (%u check points)", drift.compared);
     } else {
-        verdict = text::format("first differs at frame %lld (skater %.3f, camera %.3f apart%s); largest drift skater "
-                               "%.3f, camera %.3f",
-                               static_cast<long long>(drift.first_frame), static_cast<double>(drift.first.skater),
-                               static_cast<double>(drift.first.camera), drift.first.other ? ", state / rows differ" : "",
-                               static_cast<double>(drift.max_skater), static_cast<double>(drift.max_camera));
+        verdict =
+            text::format("first differs at frame %lld (skater %.3f, camera %.3f apart%s); largest drift skater "
+                         "%.3f, camera %.3f",
+                         static_cast<long long>(drift.first_frame), static_cast<double>(drift.first.skater),
+                         static_cast<double>(drift.first.camera), drift.first.other ? ", state / rows differ" : "",
+                         static_cast<double>(drift.max_skater), static_cast<double>(drift.max_camera));
     }
-    get_log("demo: %s %s - drift: %s%s", s.name.c_str(), ended ? "played to its end" : "stopped", verdict.c_str(),
-            s.random_matched ? "" : " (the random numbers differed when the level was up: put back)");
+    get_log("demo: %s %s - drift: %s%s", run.name.c_str(), ended ? "played to its end" : "stopped", verdict.c_str(),
+            run.random_matched ? "" : " (the random numbers differed when the level was up: put back)");
     const std::string base = output_base();
-    fs::write_text(base + "track.txt", s.track);
+    fs::write_text(base + "track.txt", run.track);
     const std::string json = text::format(
         "{\n  \"demo\": %s,\n  \"level\": %s,\n  \"frames\": %u,\n  \"up_frame\": %u,\n  \"ended\": %s,\n"
         "  \"compared\": %u,\n  \"first_divergence_frame\": %lld,\n  \"first_skater_distance\": %.4f,\n"
         "  \"first_camera_distance\": %.4f,\n  \"max_skater_distance\": %.4f,\n  \"max_camera_distance\": %.4f,\n"
         "  \"random_matched_at_up\": %s,\n  \"up_matched\": %s,\n  \"capture\": %s,\n  \"settings\": %s,\n"
         "  \"recorded_settings\": %s\n}\n",
-        json_text(s.name).c_str(), json_text(s.demo.level).c_str(), s.demo.frames(), s.demo.up_frame,
+        json_text(run.name).c_str(), json_text(run.demo.level).c_str(), run.demo.frames(), run.demo.up_frame,
         ended ? "true" : "false", drift.compared, static_cast<long long>(drift.first_frame),
         static_cast<double>(drift.first.skater), static_cast<double>(drift.first.camera),
         static_cast<double>(drift.max_skater), static_cast<double>(drift.max_camera),
-        s.random_matched ? "true" : "false", s.up_matched ? "true" : "false", json_text(s.capture).c_str(),
-        settings_json(settings_now()).c_str(), settings_json(s.demo.settings).c_str());
+        run.random_matched ? "true" : "false", run.up_matched ? "true" : "false", json_text(run.capture).c_str(),
+        settings_json(settings_now()).c_str(), settings_json(run.demo.settings).c_str());
     fs::write_text(base + "run.json", json);
     get_log("demo: the run's track and summary in %strack.txt / run.json", base.c_str());
     notice(ended ? "Demo over" : "Demo stopped");
-    s.phase = (s.quit_at_end || !s.capture.empty()) ? Phase::kFinishing : Phase::kOff;
+    run.phase = (run.quit_at_end || !run.capture.empty()) ? Phase::kFinishing : Phase::kOff;
 }
 
 // --- the frame ---
 
 void on_level_load(uint32_t load)
 {
-    State& s = state();
-    if (s.phase == Phase::kRecordArmed) {
+    const State& run = state();
+    if (run.phase == Phase::kRecordArmed) {
         begin_recording(load);
-    } else if (s.phase == Phase::kPlayArmed) {
+    } else if (run.phase == Phase::kPlayArmed) {
         begin_playback(load);
     } else if (running()) {
         get_log("demo: another level started (%s) during the %s", level_name(load).c_str(),
-                s.phase == Phase::kRecording ? "recording - it goes on" : "playback");
+                run.phase == Phase::kRecording ? "recording - it goes on" : "playback");
     }
 }
 
 void frame_begun()
 {
-    State& s = state();
-    if (!s.counting || !running()) {
+    State& run = state();
+    if (!run.counting || !running()) {
         return;
     }
-    ++s.frame;
-    if (s.phase == Phase::kRecording) {
+    ++run.frame;
+    if (run.phase == Phase::kRecording) {
         // (the port's data as the last frame had it, until the poll writes this frame's)
-        const demo_format::PortData last = s.demo.inputs.empty() ? demo_format::PortData{} : s.demo.inputs.back();
-        s.demo.inputs.push_back(last);
+        const demo_format::PortData last = run.demo.inputs.empty() ? demo_format::PortData{} : run.demo.inputs.back();
+        run.demo.inputs.push_back(last);
     }
 }
 
 void port_polled(input::PortPoll& poll)
 {
-    State& s = state();
-    if (poll.port != 0 || !s.counting || s.frame == 0) {
+    State& run = state();
+    if (poll.port != 0 || !run.counting || run.frame == 0) {
         return;
     }
-    const uint32_t now = s.frame - 1;
+    const uint32_t now = run.frame - 1;
     const size_t bytes = std::min(poll.data.size(), demo_format::kPortBytes);
-    if (s.phase == Phase::kRecording && now < s.demo.inputs.size()) {
-        std::memcpy(core::at(s.demo.inputs, now).data(), poll.data.data(), bytes);
-    } else if (s.phase == Phase::kPlaying) {
-        if (const demo_format::PortData* data = s.demo.input(now, 0)) {
+    if (run.phase == Phase::kRecording && now < run.demo.inputs.size()) {
+        std::memcpy(core::at(run.demo.inputs, now).data(), poll.data.data(), bytes);
+    } else if (run.phase == Phase::kPlaying) {
+        if (const demo_format::PortData* data = run.demo.input(now, 0)) {
             std::memcpy(poll.data.data(), data->data(), bytes);
             poll.connected = true;
         }
@@ -545,26 +546,26 @@ void port_polled(input::PortPoll& poll)
 
 void start_capture()
 {
-    State& s = state();
-    const auto every = static_cast<uint32_t>(s.every);
-    const uint32_t frames = s.demo.frames() - s.demo.up_frame;
+    const State& run = state();
+    const auto every = static_cast<uint32_t>(run.every);
+    const uint32_t frames = run.demo.frames() - run.demo.up_frame;
     const uint32_t pictures = (frames + every - 1) / every;
-    const std::string result = sys::screenshot::start_series(static_cast<int>(pictures), s.capture,
-                                                             {.long_series = true, .every = s.every});
+    const std::string result = sys::screenshot::start_series(static_cast<int>(pictures), run.capture,
+                                                             {.long_series = true, .every = run.every});
     if (!result.empty()) {
         get_log("demo: the capture didn't start - %s", result.c_str());
     } else {
-        get_log("demo: capturing %u frames (one in %u from frame %u) into %s", pictures, every, s.demo.up_frame,
-                s.capture.c_str());
+        get_log("demo: capturing %u frames (one in %u from frame %u) into %s", pictures, every, run.demo.up_frame,
+                run.capture.c_str());
     }
 }
 
 void frame_ending(bool rendering)
 {
-    State& s = state();
-    if (s.phase == Phase::kFinishing) {
-        if (!s.quit_sent && !sys::screenshot::series_running()) {
-            s.quit_sent = true;
+    State& run = state();
+    if (run.phase == Phase::kFinishing) {
+        if (!run.quit_sent && !sys::screenshot::series_running()) {
+            run.quit_sent = true;
             get_log("demo: done - quitting (%s)", sys::screenshot::series_result().c_str());
             SDL_Event event = {};
             event.type = SDL_EVENT_QUIT;
@@ -572,85 +573,84 @@ void frame_ending(bool rendering)
         }
         return;
     }
-    if (!s.counting || s.frame == 0 || !running()) {
-        s.camera_seen = false;
+    if (!run.counting || run.frame == 0 || !running()) {
+        run.camera_seen = false;
         return;
     }
-    const uint32_t now = s.frame - 1;
-    if (s.phase == Phase::kRecording) {
-        if (!s.up && level_up(s.demo.level_load)) {
-            s.up = true;
-            s.demo.up_frame = now;
-            s.demo.random_at_up = random_now();
-            s.demo.clocks = clocks_now();
-            get_log("demo: %s up at frame %u - the check track starts", s.demo.level.c_str(), now);
+    const uint32_t now = run.frame - 1;
+    if (run.phase == Phase::kRecording) {
+        if (!run.up && level_up(run.demo.level_load)) {
+            run.up = true;
+            run.demo.up_frame = now;
+            run.demo.random_at_up = random_now();
+            run.demo.clocks = clocks_now();
+            get_log("demo: %s up at frame %u - the check track starts", run.demo.level.c_str(), now);
         }
-        if (s.up && (now - s.demo.up_frame) % s.demo.check_stride == 0) {
-            s.demo.checks.push_back(point_now(now));
+        if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
+            run.demo.checks.push_back(point_now(now));
         }
     } else {
-        if (!s.up && now == s.demo.up_frame) {
-            s.up = true;
-            s.up_matched = level_up(s.demo.level_load);
-            if (!s.up_matched) {
+        if (!run.up && now == run.demo.up_frame) {
+            run.up = true;
+            run.up_matched = level_up(run.demo.level_load);
+            if (!run.up_matched) {
                 get_log("demo: the level isn't up yet at frame %u, where the recording's was", now);
             }
-            if (random_now() != s.demo.random_at_up) {
-                s.random_matched = false;
-                maths::set_random_streams(s.demo.random_at_up.streams);
-                crt::game_srand(s.demo.random_at_up.crt);
+            if (random_now() != run.demo.random_at_up) {
+                run.random_matched = false;
+                maths::set_random_streams(run.demo.random_at_up.streams);
+                crt::game_srand(run.demo.random_at_up.crt);
                 get_log("demo: the random numbers differ from the recording's at frame %u - put back", now);
             }
             // (the clocks as the recording had them here: what reads the time - moving objects, timers, Randomize -
             // sees the same times from the next frame on)
-            if (s.demo.clocks.present) {
-                frame_clock::set_vblanks_since_reset(s.demo.clocks.vblanks);
-                frame_clock::set_game_clock_snapshot(
-                    {.last_change = s.demo.clocks.last_change, .pace = s.demo.clocks.pace, .offset = s.demo.clocks.offset});
+            if (run.demo.clocks.present) {
+                frame_clock::set_vblanks_since_reset(run.demo.clocks.vblanks);
+                frame_clock::set_game_clock_snapshot({.last_change = run.demo.clocks.last_change,
+                                                      .pace = run.demo.clocks.pace,
+                                                      .offset = run.demo.clocks.offset});
             }
-            if (!s.capture.empty()) {
+            if (!run.capture.empty()) {
                 start_capture();
             }
         }
-        if (s.up && (now - s.demo.up_frame) % s.demo.check_stride == 0) {
+        if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
             const CheckPoint point = point_now(now);
-            s.track += demo_format::check_line(point) + "\n";
-            if (const CheckPoint* recorded = s.demo.check_at(now)) {
-                const bool was_same = s.drift.first_frame < 0;
-                demo_format::add_to_drift(&s.drift, *recorded, point, kTolerance);
-                if (was_same && s.drift.first_frame >= 0) {
+            run.track += demo_format::check_line(point) + "\n";
+            if (const CheckPoint* recorded = run.demo.check_at(now)) {
+                const bool was_same = run.drift.first_frame < 0;
+                demo_format::add_to_drift(&run.drift, *recorded, point, kTolerance);
+                if (was_same && run.drift.first_frame >= 0) {
                     get_log("demo: frame %u differs from the recording - skater %.3f, camera %.3f apart%s", now,
-                            static_cast<double>(s.drift.first.skater), static_cast<double>(s.drift.first.camera),
-                            s.drift.first.other ? ", state / rows differ" : "");
+                            static_cast<double>(run.drift.first.skater), static_cast<double>(run.drift.first.camera),
+                            run.drift.first.other ? ", state / rows differ" : "");
                 }
             }
         }
-        if (s.up && !rendering && !s.capture.empty()) {
+        if (run.up && !rendering && !run.capture.empty()) {
             get_log("demo: frame %u wasn't drawn - the capture is a frame behind from here", now);
         }
-        if (now + 1 >= s.demo.frames()) {
+        if (now + 1 >= run.demo.frames()) {
             finish_playback(true);
         }
     }
-    s.camera_seen = false;
+    run.camera_seen = false;
 }
 
 void check_key(modules::FrontEnd* front_end)
 {
-    State& s = state();
+    State& run = state();
     const input::KeyState keys = input::keys();
-    const bool down = s.key != 0 && !keys.empty() && static_cast<size_t>(s.key) < keys.size() &&
-                      core::at(keys, static_cast<size_t>(s.key)) != 0U;
-    const bool pressed = down && s.key_up;
-    s.key_up = !down;
+    const bool down = run.key != 0 && !keys.empty() && static_cast<size_t>(run.key) < keys.size() &&
+                      core::at(keys, static_cast<size_t>(run.key)) != 0U;
+    const bool pressed = down && run.key_up;
+    run.key_up = !down;
     if (!pressed || frame_loop::frames_run() == 0) {
         return;
     }
-    if (s.phase == Phase::kRecording) {
+    if (run.phase == Phase::kRecording || run.phase == Phase::kPlaying) {
         stop_now();
-    } else if (s.phase == Phase::kPlaying) {
-        stop_now();
-    } else if (s.phase == Phase::kOff && !(front_end != nullptr && front_end->is_halted())) {
+    } else if (run.phase == Phase::kOff && !(front_end != nullptr && front_end->is_halted())) {
         const std::string result = record_now("");
         if (!result.empty()) {
             get_log("demo: F6 - %s", result.c_str());
@@ -660,18 +660,18 @@ void check_key(modules::FrontEnd* front_end)
 
 void menu_tick(modules::FrontEnd* front_end, bool game_owned)
 {
-    State& s = state();
-    s.front_end = front_end;
+    State& run = state();
+    run.front_end = front_end;
     if (!game_owned) {
         check_key(front_end);
     }
     // -demo: once the main menu has been up a moment (its scripts loaded), as -level starts its level
-    if (s.phase == Phase::kPlayArmed && s.from_command_line) {
+    if (run.phase == Phase::kPlayArmed && run.from_command_line) {
         const bool menu = render::current_level() == 0 && !(front_end != nullptr && front_end->is_halted()) &&
                           script::resolve_symbol(checksums::hash_from_text("main_menu_skate_now")) != nullptr;
-        s.menu_frames = menu ? s.menu_frames + 1 : 0;
-        if (s.menu_frames >= kMenuSettleFrames) {
-            s.from_command_line = false;
+        run.menu_frames = menu ? run.menu_frames + 1 : 0;
+        if (run.menu_frames >= kMenuSettleFrames) {
+            run.from_command_line = false;
             const std::string failed = start_playback();
             if (!failed.empty()) {
                 get_log("demo: %s", failed.c_str());
@@ -683,13 +683,13 @@ void menu_tick(modules::FrontEnd* front_end, bool game_owned)
 // The command line and the key, once.
 void prepare_all()
 {
-    State& s = state();
+    State& run = state();
     frontend::begin_level::set_load_listener(on_level_load);
     std::array<char, kKeyTextBytes> setting = {""};
     build_info::fetch_text(build_info::kKeybinds, "DemoRecord", "", setting.data(), setting.size());
     auto by_name = [](const std::string& text) { return platform::scancode_from_name(text); };
     auto by_number = [](int code) { return platform::scancode_from_sdl2(code); };
-    s.key = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F6, by_name, by_number);
+    run.key = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F6, by_name, by_number);
 
     const std::string& line = sys::startup_command_line();
     const std::string play = frontend::begin_level::option_value(line, "demo");
@@ -701,31 +701,33 @@ void prepare_all()
             return;
         }
         std::string capture = frontend::begin_level::option_value(line, "demo-capture");
-        const bool absolute = capture.size() >= 2 && (capture[1] == ':' || (capture[0] == '\\' && capture[1] == '\\'));
+        const bool absolute = (capture.size() >= 2 && core::at(capture, 1) == ':') || capture.starts_with("\\\\");
         if (!capture.empty() && !absolute) {
             capture = game_folder_path(capture.c_str());
         }
         while (!capture.empty() && (capture.back() == '\\' || capture.back() == '/')) {
             capture.pop_back();
         }
-        s.capture = capture;
-        s.quit_at_end = line.find("-demo-quit") != std::string::npos;
+        run.capture = capture;
+        run.quit_at_end = line.find("-demo-quit") != std::string::npos;
         const std::string every = frontend::begin_level::option_value(line, "demo-every");
-        s.every = every.empty() ? 1 : std::clamp(text::to_int(every.c_str()), 1, kMaxEvery);
-        s.from_command_line = true;
-        s.phase = Phase::kPlayArmed;
-        if (!s.capture.empty()) {
-            fs::disk().make_folders((s.capture + "\\").c_str());
+        run.every = every.empty() ? 1 : std::clamp(text::to_int(every.c_str()), 1, kMaxEvery);
+        run.from_command_line = true;
+        run.phase = Phase::kPlayArmed;
+        if (!run.capture.empty()) {
+            fs::disk().make_folders((run.capture + "\\").c_str());
         }
-        get_log("demo: -demo %s - played once the main menu is up%s%s (one frame in %d)", s.name.c_str(),
-                s.capture.empty() ? "" : ", captured into ", s.capture.c_str(), s.every);
+        get_log("demo: -demo %s - played once the main menu is up%s%s (one frame in %d)", run.name.c_str(),
+                run.capture.empty() ? "" : ", captured into ", run.capture.c_str(), run.every);
     } else if (!record.empty()) {
-        s.name = clean_name(record);
-        s.phase = Phase::kRecordArmed;
-        get_log("demo: -record %s - recording from the next level load%s", s.name.c_str(),
-                *frontend::begin_level::get_requested() == '\0' ? " (no -level given: load one, or press F6 in one)" : "");
+        run.name = clean_name(record);
+        run.phase = Phase::kRecordArmed;
+        get_log("demo: -record %s - recording from the next level load%s", run.name.c_str(),
+                *frontend::begin_level::get_requested() == '\0' ? " (no -level given: load one, or press F6 in one)"
+                                                                : "");
     }
-    get_log("demo: %s records a demo in a level (again to stop)", SDL_GetScancodeName(static_cast<SDL_Scancode>(s.key)));
+    get_log("demo: %s records a demo in a level (again to stop)",
+            SDL_GetScancodeName(static_cast<SDL_Scancode>(run.key)));
 }
 
 class DemoExtension final : public ext::Extension {
@@ -774,42 +776,42 @@ input::Source& input_source()
 
 std::string record_now(const std::string& name)
 {
-    State& s = state();
-    if (s.phase != Phase::kOff) {
+    State& run = state();
+    if (run.phase != Phase::kOff) {
         return "a demo is running";
     }
-    const std::string online = frontend::automation::internal::net_refusal();
+    const std::string online = frontend::automation::online_refusal();
     if (!online.empty()) {
         return "refused: " + online;
     }
     if (!in_level()) {
         return "not in a level";
     }
-    s.name = clean_name(name);
-    s.phase = Phase::kRecordArmed;
+    run.name = clean_name(name);
+    run.phase = Phase::kRecordArmed;
     std::string why;
     if (!frontend::begin_level::read_in_load(skate()->level(), false, &why)) {
-        s.phase = Phase::kOff;
+        run.phase = Phase::kOff;
         return why;
     }
-    return "recording " + s.name;
+    return "recording " + run.name;
 }
 
 std::string stop_now()
 {
-    State& s = state();
-    switch (s.phase) {
+    State& run = state();
+    switch (run.phase) {
     case Phase::kRecording:
         return save_recording();
     case Phase::kPlaying:
         finish_playback(false);
-        if (s.phase == Phase::kFinishing) {
-            s.phase = Phase::kOff;
+        if (run.phase == Phase::kFinishing) {
+            run.phase = Phase::kOff;
         }
         return "stopped";
     case Phase::kRecordArmed:
     case Phase::kPlayArmed:
-        s.phase = Phase::kOff;
+        run.phase = Phase::kOff;
         return "stopped";
     default:
         return "no demo running";
@@ -818,34 +820,34 @@ std::string stop_now()
 
 std::string play_now(const std::string& name)
 {
-    State& s = state();
-    if (s.phase != Phase::kOff) {
+    State& run = state();
+    if (run.phase != Phase::kOff) {
         return "a demo is running";
     }
     std::string why;
     if (!load_demo(name, &why)) {
         return why;
     }
-    s.capture.clear();
-    s.quit_at_end = false;
+    run.capture.clear();
+    run.quit_at_end = false;
     const std::string failed = start_playback();
-    return failed.empty() ? "playing " + s.name : failed;
+    return failed.empty() ? "playing " + run.name : failed;
 }
 
 std::string status_text()
 {
-    const State& s = state();
-    switch (s.phase) {
+    const State& run = state();
+    switch (run.phase) {
     case Phase::kRecording:
-        return text::format("recording %s: frame %u", s.name.c_str(), s.frame);
+        return text::format("recording %s: frame %u", run.name.c_str(), run.frame);
     case Phase::kPlaying:
-        return text::format("playing %s: frame %u of %u", s.name.c_str(), s.frame, s.demo.frames());
+        return text::format("playing %s: frame %u of %u", run.name.c_str(), run.frame, run.demo.frames());
     case Phase::kRecordArmed:
-        return "recording " + s.name + " from the next level load";
+        return "recording " + run.name + " from the next level load";
     case Phase::kPlayArmed:
-        return "playing " + s.name + " once its level loads";
+        return "playing " + run.name + " once its level loads";
     case Phase::kFinishing:
-        return "finishing " + s.name;
+        return "finishing " + run.name;
     default:
         return "no demo running";
     }
