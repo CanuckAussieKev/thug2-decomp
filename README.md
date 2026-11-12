@@ -336,6 +336,11 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
 | `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
 | `rt_shadow_objects` | 0 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too (the skater's own shadow is drawn anyway) |
+| `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion - corners, the ground under ledges and around objects darkened by how much of the sky they see |
+| `rt_ao_strength` | 0.6 | How dark full occlusion is: the share of the colour it takes away (0-1) |
+| `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
+| `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
+| `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
 
 **`[Miscellaneous]`** - from PartyMod
 

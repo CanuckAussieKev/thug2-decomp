@@ -56,4 +56,19 @@ struct RtShadowSettings {
 void set_rt_shadow_settings(const RtShadowSettings& settings);
 [[nodiscard]] RtShadowSettings rt_shadow_settings();
 
+// NOT ORIGINAL - ray-traced ambient occlusion (vulkan_rt_effects.h, docs/design/vulkan.md R5): [Graphics] rt_ao,
+// rt_ao_strength, rt_ao_radius, rt_ao_rays, rt_ao_denoise. Nothing is drawn differently while `on` is false, or when
+// ray tracing isn't enabled on the device.
+inline constexpr float kRtAoStrength = 0.6F; // (rt_ao_strength's default)
+inline constexpr float kRtAoRadius = 48.0F;  // (rt_ao_radius's default: world units)
+struct RtAoSettings {
+    bool on = false;
+    float strength = kRtAoStrength; // how much of the colour full occlusion takes away (0 - 1)
+    float radius = kRtAoRadius;     // how far a ray looks for an occluder (1 - 1000 world units)
+    unsigned rays = 4;              // rays per pixel each frame (1 - 16)
+    bool denoise = true;            // the temporal and spatial filters (off: each frame's rays as they are)
+};
+void set_rt_ao_settings(const RtAoSettings& settings);
+[[nodiscard]] RtAoSettings rt_ao_settings();
+
 } // namespace render::vulkan

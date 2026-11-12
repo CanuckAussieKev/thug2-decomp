@@ -7,6 +7,9 @@
 //        [--set Section.key=value]...
 //   node tools/game/rt_shadows_check.ts compare <folder> [--expect shadows|none] [--strength 0.5] [--threshold 8]
 //        [--grow 1]
+//   --effect ao (both commands): ray-traced ambient occlusion ([Graphics] rt_ao, vulkan_rt_effects.h) instead - the
+//   configurations' rt_ao 0 / 1 (rt_shadows 0 in both), its own log lines and its own checks (below). `--expect drawn`
+//   is the same as `--expect shadows`: the effect is drawn.
 //
 // run: under the workspace's lock (game_lock.ps1, released at the end - which puts the folder's own build and ini back),
 // the x64 build deployed (deploy_build.ps1 -Arch x64: the exe and every DLL beside it), then for each run and each
@@ -33,6 +36,14 @@
 //   --expect none (before them: no scene to trace - the pass is skipped): on against off differ in at most 0.1% of the
 //     pixels, and the `on` logs say the pass was skipped.
 //   baseline (when run): off against baseline differ in at most 0.1% of the pixels.
+//   --effect ao --expect drawn (with the TLAS's builder): on against off
+//     - brighter: at most 0.1% (the pass only darkens);
+//     - darkened: at most 60% of the picture, and at least 0.5% in one spot or more (occlusion is drawn somewhere);
+//     - too dark: pixels whose ratio (on / off) is below 1 - strength - 0.05 (what full occlusion leaves; a NaN or a
+//       runaway value shows as black) - at most 0.1%;
+//     - the darkened pixels' median ratio no lower than 1 - strength - 0.2 (occlusion is mostly partial);
+//     - reported: the darkened share in the lower half (corners, the ground under ledges - look at the pictures);
+//     - the logs: "rt_ao: the first ambient occlusion pass" in every `on` group's, no skipped line, no crash line.
 // report.txt / report.json in the folder; exit 1 when a check fails.
 
 import { spawn } from "node:child_process";
@@ -56,7 +67,7 @@ import {
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: rt_shadows_check.ts run --game <workspace> --out <folder> --build <folder> [--baseline-build <folder>]
-                           [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
+                           [--effect shadows|ao] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
        rt_shadows_check.ts compare <folder> [--expect shadows|none] [--strength 0.5] [--threshold 8] [--grow 1]
 
 Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, compared (tools/game/README.md).`;
@@ -64,9 +75,18 @@ Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, c
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
+export type Effect = "shadows" | "ao"; // R4's sun shadows, R5's ambient occlusion
 
 // The ini values a configuration adds.
-export function configValues(config: Config): Record<string, string> {
+export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
+    if (effect === "ao") {
+        if (config === "baseline") return {};
+        return {
+            "Graphics.ray_tracing": "1",
+            "Graphics.rt_shadows": "0",
+            "Graphics.rt_ao": config === "on" ? "1" : "0",
+        };
+    }
     if (config === "off") return { "Graphics.ray_tracing": "1", "Graphics.rt_shadows": "0" };
     if (config === "on") return { "Graphics.ray_tracing": "1", "Graphics.rt_shadows": "1" };
     return {};
@@ -83,10 +103,17 @@ export interface ShadowDifference {
     darkened: number; // darker by more than the threshold in a channel (and no channel lighter)
     lowerHalf: number; // of the darkened, those in the picture's lower half
     medianRatio: number | null; // the darkened pixels' median luma ratio on / off
+    tooDark: number; // of the darkened, those whose ratio is below `floor`
 }
 
-// `on` against `off` outside the mask.
-export function shadowDifference(off: Image, on: Image, mask: Uint8Array | null, threshold: number): ShadowDifference {
+// `on` against `off` outside the mask (`floor`: the lowest ratio the pass can give; 0 counts none too dark).
+export function shadowDifference(
+    off: Image,
+    on: Image,
+    mask: Uint8Array | null,
+    threshold: number,
+    floor = 0,
+): ShadowDifference {
     if (off.width !== on.width || off.height !== on.height)
         throw new Error(`sizes differ: ${off.width}x${off.height} / ${on.width}x${on.height}`);
     const { width, height } = off;
@@ -94,6 +121,7 @@ export function shadowDifference(off: Image, on: Image, mask: Uint8Array | null,
     let brighter = 0;
     let darkened = 0;
     let lowerHalf = 0;
+    let tooDark = 0;
     const ratios: number[] = [];
     for (let y = 0; y < height; y++)
         for (let x = 0; x < width; x++) {
@@ -113,7 +141,11 @@ export function shadowDifference(off: Image, on: Image, mask: Uint8Array | null,
                 darkened++;
                 if (y >= height / 2) lowerHalf++;
                 const before = luma(off.rgb, p);
-                if (before > 0) ratios.push(luma(on.rgb, p) / before);
+                if (before > 0) {
+                    const ratio = luma(on.rgb, p) / before;
+                    ratios.push(ratio);
+                    if (ratio < floor) tooDark++;
+                }
             }
         }
     ratios.sort((a, b) => a - b);
@@ -123,6 +155,7 @@ export function shadowDifference(off: Image, on: Image, mask: Uint8Array | null,
         darkened,
         lowerHalf,
         medianRatio: ratios.length ? ratios[Math.floor(ratios.length / 2)]! : null,
+        tooDark,
     };
 }
 
@@ -146,6 +179,14 @@ export interface Limits {
     minDarkenedSomewhere: number;
     ratioSlack: number;
     maxChanged: number; // --expect none and the baseline
+    effect?: Effect; // (shadows when not given)
+}
+
+// Below this ratio a pixel is darker than the effect can make it - ambient occlusion: full occlusion's 1 - strength,
+// give or take 0.05; 0 (not checked) for the shadows.
+export const TOO_DARK_SLACK = 0.05;
+export function darkestRatio(limits: Limits): number {
+    return limits.effect === "ao" ? Math.max(0, 1 - limits.strength - TOO_DARK_SLACK) : 0;
 }
 
 export const LIMITS: Omit<Limits, "expect" | "strength"> = {
@@ -174,7 +215,19 @@ export function judgeSpot(
     limits: Limits,
 ): SpotVerdict {
     const problems: string[] = [];
-    if (limits.expect === "shadows") {
+    if (limits.expect === "shadows" && limits.effect === "ao") {
+        if (share(difference.brighter, difference) > limits.maxBrighter)
+            problems.push(`brighter with the occlusion on: ${pct(share(difference.brighter, difference))}`);
+        if (share(difference.darkened, difference) > limits.maxDarkened)
+            problems.push(`darkened: ${pct(share(difference.darkened, difference))} of the picture`);
+        if (share(difference.tooDark, difference) > limits.maxBrighter)
+            problems.push(`darker than full occlusion leaves: ${pct(share(difference.tooDark, difference))}`);
+        const lowest = 1 - limits.strength - limits.ratioSlack;
+        if (difference.medianRatio !== null && difference.medianRatio < lowest)
+            problems.push(
+                `the occlusion's median ratio ${difference.medianRatio.toFixed(3)}, at least ${lowest.toFixed(3)} wanted`,
+            );
+    } else if (limits.expect === "shadows") {
         if (share(difference.brighter, difference) > limits.maxBrighter)
             problems.push(`brighter with the shadows on: ${pct(share(difference.brighter, difference))}`);
         if (share(difference.darkened, difference) > limits.maxDarkened)
@@ -200,16 +253,25 @@ export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boo
 // What a configuration's logs must (not) say.
 const FIRST_PASS = "rt_shadows: the first shadow pass";
 const PASS_SKIPPED = /rt_shadows: .*(skipped|couldn't)/;
+const FIRST_AO_PASS = "rt_ao: the first ambient occlusion pass";
+const AO_SKIPPED = /rt_ao: .*(skipped|couldn't)/;
 const BAD = /^(EXCEPTION|RUN-TIME CHECK|DEBUG CRT|PURE VIRTUAL|INVALID PARAMETER|ABORT|BUFFER OVERRUN)/m;
 
-export function logProblems(config: Config, log: string, expect: Limits["expect"]): string[] {
+export function logProblems(
+    config: Config,
+    log: string,
+    expect: Limits["expect"],
+    effect: Effect = "shadows",
+): string[] {
     const problems: string[] = [];
     const bad = BAD.exec(log);
     if (bad) problems.push(`log: ${bad[0]}`);
     if (config !== "on") return problems;
-    const skipped = PASS_SKIPPED.exec(log);
+    const ao = effect === "ao";
+    const skipped = (ao ? AO_SKIPPED : PASS_SKIPPED).exec(log);
     if (expect === "shadows") {
-        if (!log.includes(FIRST_PASS)) problems.push("no shadow pass in the log");
+        if (!log.includes(ao ? FIRST_AO_PASS : FIRST_PASS))
+            problems.push(ao ? "no ambient occlusion pass in the log" : "no shadow pass in the log");
         if (skipped) problems.push(`log: ${skipped[0]}`);
     } else if (!skipped) {
         problems.push("the log doesn't say the pass was skipped");
@@ -250,7 +312,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         const mask = noiseOf(baseline.length ? [off, on, baseline] : [off, on], threshold, grow);
         const verdict = judgeSpot(
             name.replace(/\.png$/i, ""),
-            shadowDifference(off[0]!, on[0]!, mask, threshold),
+            shadowDifference(off[0]!, on[0]!, mask, threshold, darkestRatio(limits)),
             baseline.length ? shadowDifference(baseline[0]!, off[0]!, mask, threshold) : null,
             limits,
         );
@@ -258,6 +320,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         const d = verdict.difference;
         lines.push(
             `${verdict.name}: compared ${d.pixels} pixels; darkened ${pct(share(d.darkened, d))} (lower half ${pct(d.darkened ? d.lowerHalf / d.darkened : 0)}), brighter ${pct(share(d.brighter, d))}, median ratio ${d.medianRatio?.toFixed(3) ?? "-"}` +
+                (limits.effect === "ao" ? `, too dark ${pct(share(d.tooDark, d))}` : "") +
                 (verdict.baseline
                     ? `; off vs baseline changed ${pct(share(verdict.baseline.brighter + verdict.baseline.darkened, verdict.baseline))}`
                     : "") +
@@ -268,18 +331,21 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
     if (names.length === 0) lines.push("FAIL no spot pictured in both configurations");
     if (limits.expect === "shadows" && !anyShadow(verdicts, limits)) {
         failed = true;
-        lines.push(`FAIL no spot darkened by ${pct(limits.minDarkenedSomewhere)} or more: no shadows drawn`);
+        const drawn = limits.effect === "ao" ? "occlusion" : "shadows";
+        lines.push(`FAIL no spot darkened by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
     }
     for (const config of CONFIGS)
         for (const folder of runs[config])
             for (const log of fs.readdirSync(folder).filter((f) => f.endsWith(".log"))) {
-                const problems = logProblems(config, fs.readFileSync(path.join(folder, log), "utf8"), limits.expect);
+                const text = fs.readFileSync(path.join(folder, log), "utf8");
+                const problems = logProblems(config, text, limits.expect, limits.effect ?? "shadows");
                 if (problems.length) {
                     failed = true;
                     lines.push(`FAIL ${config}/${path.basename(folder)}/${log}: ${problems.join("; ")}`);
                 }
             }
-    lines.push(failed ? "rt_shadows check: FAILED" : "rt_shadows check: passed");
+    const title = limits.effect === "ao" ? "rt_ao check" : "rt_shadows check";
+    lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
     fs.writeFileSync(path.join(out, "report.json"), `${JSON.stringify({ limits, verdicts }, null, 1)}\n`);
     for (const l of lines) print(l);
@@ -306,6 +372,16 @@ function powershell(script: string, args: string[]): Promise<{ code: number; out
         });
         child.on("close", (code) => resolve({ code: code ?? -1, out }));
     });
+}
+
+const GAME_EXE = "thug2-decomp.exe";
+const DEPLOY_ATTEMPTS = 5;
+const DEPLOY_WAIT_MS = 3000;
+
+// Whether two files have the same bytes.
+export function sameFile(one: string, other: string): boolean {
+    if (!fs.existsSync(one) || !fs.existsSync(other)) return false;
+    return fs.readFileSync(one).equals(fs.readFileSync(other));
 }
 
 async function runGroup(game: string, group: PlanGroup, config: Config, run: number, folder: string): Promise<string> {
@@ -349,6 +425,7 @@ interface RunOptions {
     runs: number;
     owner: string;
     set: Record<string, string>;
+    effect: Effect;
 }
 
 async function runAll(options: RunOptions): Promise<number> {
@@ -378,20 +455,35 @@ async function runAll(options: RunOptions): Promise<number> {
             for (const config of configs) {
                 const build = config === "baseline" ? options.baselineBuild! : options.build;
                 if (build !== deployed) {
-                    const deploy = await powershell("deploy_build.ps1", [
-                        "-Game",
-                        game,
-                        "-Arch",
-                        "x64",
-                        "-BuildDir",
-                        build,
-                        "-NoEditorTools",
-                    ]);
-                    note(deploy.out.trim());
-                    if (deploy.code !== 0) return 1;
+                    // (the game just closed may hold its exe a moment: deploy_build's copy then fails without an exit
+                    // code - tried again until the folder's exe is the build's)
+                    let placed = false;
+                    for (let attempt = 1; attempt <= DEPLOY_ATTEMPTS && !placed; attempt++) {
+                        const deploy = await powershell("deploy_build.ps1", [
+                            "-Game",
+                            game,
+                            "-Arch",
+                            "x64",
+                            "-BuildDir",
+                            build,
+                            "-NoEditorTools",
+                        ]);
+                        note(deploy.out.trim());
+                        if (deploy.code !== 0) return 1;
+                        placed = sameFile(path.join(build, GAME_EXE), path.join(game, GAME_EXE));
+                        if (!placed) await new Promise((resolve) => setTimeout(resolve, DEPLOY_WAIT_MS));
+                    }
+                    if (!placed) {
+                        note(`the build's ${GAME_EXE} couldn't be put into ${game}`);
+                        return 1;
+                    }
                     deployed = build;
                 }
-                const values = [plan.ini ?? {}, configValues(config), config === "baseline" ? {} : options.set];
+                const values = [
+                    plan.ini ?? {},
+                    configValues(config, options.effect),
+                    config === "baseline" ? {} : options.set,
+                ];
                 fs.writeFileSync(ini, iniFor(base, values, "vulkan"), "utf8");
                 ensureWorkspaceMuted(game);
                 const folder = path.join(out, config, `run${run}`);
@@ -428,22 +520,31 @@ async function main(): Promise<number> {
             owner: { type: "string", default: "rt-shadows-check" },
             set: { type: "string", multiple: true },
             expect: { type: "string", default: "shadows" },
-            strength: { type: "string", default: "0.5" },
+            effect: { type: "string", default: "shadows" },
+            strength: { type: "string" },
             threshold: { type: "string", default: "8" },
             grow: { type: "string", default: "1" },
         },
         allowPositionals: true,
     });
     const [command, target] = positionals;
-    if (values.expect !== "shadows" && values.expect !== "none") exitWith("--expect shadows | none");
+    const expect = values.expect === "drawn" ? "shadows" : values.expect;
+    if (expect !== "shadows" && expect !== "none") exitWith("--expect shadows | drawn | none");
+    if (values.effect !== "shadows" && values.effect !== "ao") exitWith("--effect shadows | ao");
+    const effect: Effect = values.effect;
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
         const eq = s.indexOf("=");
         if (eq <= 0) exitWith(`--set Section.key=value (${s})`);
         set[s.slice(0, eq)] = s.slice(eq + 1);
     }
-    const strength = Number(set["Graphics.rt_shadow_strength"] ?? values.strength);
-    const limits: Limits = { ...LIMITS, expect: values.expect, strength };
+    // (the ini's defaults when not given: rt_shadow_strength 0.5, rt_ao_strength 0.6 - gpu_vulkan.h)
+    const strength = Number(
+        effect === "ao"
+            ? (set["Graphics.rt_ao_strength"] ?? values.strength ?? "0.6")
+            : (set["Graphics.rt_shadow_strength"] ?? values.strength ?? "0.5"),
+    );
+    const limits: Limits = { ...LIMITS, expect, strength, effect };
     const threshold = Number(values.threshold);
     const grow = Number(values.grow);
     if (command === "compare" && target && positionals.length === 2)
@@ -461,6 +562,7 @@ async function main(): Promise<number> {
             runs: Number(values.runs),
             owner: values.owner,
             set,
+            effect,
         });
         return code !== 0 ? code : compareFolder(out, limits, threshold, grow);
     }

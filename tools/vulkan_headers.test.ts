@@ -20,6 +20,7 @@ const CHECKS = new Set([
     "tests/vulkan_gpu_check.cpp",
     "tests/vulkan_rt_check.cpp",
     "tests/vulkan_rt_shadow_check.cpp",
+    "tests/vulkan_rt_effects_check.cpp",
     "tests/vulkan_rt_materials_check.cpp",
     "tests/ff_shader_check.cpp",
     "tests/ff_shader_check_gpu.cpp",

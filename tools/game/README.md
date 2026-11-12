@@ -146,6 +146,13 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   and no skip; the share of the darkened pixels in the picture's lower half is reported. `--expect none` (no
   acceleration structures yet): on and off the same, the pass logged as skipped. The baseline: off and baseline the
   same. `compare <folder>` does the comparison again; report.txt / report.json, exit 1 on a failure.
+  `--effect ao` (both commands): ray-traced ambient occlusion (`[Graphics] rt_ao`) instead - `rt_ao=0` / `1` with
+  `rt_shadows=0`; `--expect drawn` (= `shadows`): the occlusion only darkens (at most 0.1% lighter), at most 60% of a
+  picture darkened and at least 0.5% somewhere, at most 0.1% darker than full occlusion leaves (1 - `rt_ao_strength` -
+  0.05: a NaN or runaway value shows as black), the darkened pixels' median ratio no lower than 1 - strength - 0.2, the
+  `on` logs showing "rt_ao: the first ambient occlusion pass" and no skip. After R2: `node tools/game/rt_shadows_check.ts
+  run --effect ao --expect drawn --game C:\Games\THUG2-<n> --out <folder> --build <x64 build> --baseline-build <main's
+  x64 build> --groups foun,BO`.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed
