@@ -296,7 +296,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `thaw_bmx_wheels` | 1 | The bike finds the ground under both wheels, as THAW does (0 = the skater's own ground check) |
 | `thaw_bmx_shadow` | 1 | The bike drawn into the rider's shadow |
 | `anteara_mod` | 0 | Plays Anteara Mod from the overlay (`tools/anteara/README.md`) |
-| `ts_scripts` | 0 | The game's scripts: 0 = the `.qb` files (in the `.pre` / `.prx` archives), 1 = the unpacked game - no archives, no `.qb`, each script from its `.ts` (`node tools/qbjs/unpack_game.ts --game <folder>`; `--restore` puts the archives and `.qb` files back, which 0 needs) - [docs/qb-ts.md](docs/qb-ts.md) |
+| `ts_scripts` | 0 | The game's scripts: 0 = the `.qb` files (in the `.pre` / `.prx` archives), 1 = the unpacked game - no archives, no `.qb`, each script file from its `.ts` (its scripts) and `.json` (its globals) (`node tools/qbjs/unpack_game.ts --game <folder>`; `--restore` puts the archives and `.qb` files back, which 0 needs) - [docs/qb-ts.md](docs/qb-ts.md) |
 | `language` | (the game's) | With `ts_scripts=1`: the scripts' text from `Data\lang\<code>.json` - `en`, `fr`, `de` (English where a table has no text) |
 | `create_100_cas` | 1 | GAME OPTIONS > CREATE 100% CAS |
 | `thugpro_parts` | 1 | THUGPRO's extra CAS parts and boards, read from your THUGPRO install by reference (2 also shows them in CAS, 0 off; `thugpro_folder=` another install) |
@@ -310,6 +310,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 |---|---|---|
 | `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
+| `rt_contract_check` | 0 | Checks every call the renderer makes to ray tracing (meshes, materials, each frame's instances, lights and cameras, every world draw against the frame's record) and logs `rt-check:` lines - violations and a summary every 600 frames; the console's `rt summary` / `rt dump [file]` (the frame record as JSON). `node tools/game/rt_contract.ts` runs it across levels and renderers in a workspace |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
@@ -332,6 +333,41 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `vulkan_device` | -1 | On Vulkan: the GPU, by Vulkan's numbering (-1: the best, a discrete one first) |
 | `vulkan_validation` | 0 | On Vulkan: 1 uses the Khronos validation layer when a 32-bit one can be loaded (its messages in the log) |
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
+| `ray_tracing` | 0 | On Vulkan: 1 turns on the GPU's ray-tracing extensions where it has them all (the effects below need it) |
+| `rt_shadows` | 0 | On Vulkan with `ray_tracing=1` (a GPU with ray queries, the 64-bit build): 1 adds ray-traced sun shadows - each pixel of the world darkened where the level blocks the sun |
+| `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1) |
+| `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
+| `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
+| `rt_shadow_objects` | 0 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too (the skater's own shadow is drawn anyway) |
+| `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion - corners, the ground under ledges and around objects darkened by how much of the sky they see |
+| `rt_ao_strength` | 0.6 | How dark full occlusion is: the share of the colour it takes away (0-1) |
+| `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
+| `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
+| `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
+| `rt_gi` | 0 | On Vulkan with `ray_tracing=1`: 1 adds one bounce of ray-traced light - shaded ground and corners beside sunlit walls pick up their colour and brightness (lit by the level's own sun; nothing changes in a level with none, indoors) |
+| `rt_gi_strength` | 1 | How much of the bounced light is added (0-4) |
+| `rt_gi_rays` | 2 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
+| `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
+| `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
+| `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
+| `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it) |
+| `rt_hdr` | 0 | On Vulkan (no ray tracing needed): 1 draws the world in high dynamic range - brighter than white kept - and maps it back to the screen before the HUD; with the settings below left alone it looks like 0 (the brightest whites a touch softer) |
+| `rt_exposure` | 0 | With `rt_hdr=1`: stops of light (+1 twice as bright, -1 half) |
+| `rt_tonemap` | 0 | With `rt_hdr=1`: 0 keeps the game's colours and rolls off only the brightest toward `rt_white_point`; 1 a filmic curve (ACES) - deeper shadows, brighter mid-tones |
+| `rt_white_point` | 1.25 | With `rt_hdr=1`: the brightness shown as pure white (1-8); 1 clips at white as the game does |
+| `rt_saturation` / `rt_contrast` | 1 | With `rt_hdr=1`: colour (0 grey, above 1 stronger) and contrast (a power about mid-grey; above 1 more) |
+| `rt_grade_lut` | (none) | With `rt_hdr=1`: a colour-grading table (a `.cube` 3D LUT) in the game folder, or a full path, applied last |
+| `rt_shadow_sun` | bake | The sun the shadows fall from: `bake` - the one the level's own lighting was made with, found from it when the level starts (a level lit only by its lamps, indoors, gets no ray-traced shadows); `light` - the game's light for the skater (the same in every level); or `x,y,z` toward the sun |
+| `rt_shadow_match_bake` | 1 | With the baked sun: no ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out); 0 shadows wherever the sun is blocked |
+| `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |
+| `rt_shadow_sky_rays` | 5 | Rays a pixel that look for the sky (1-16) |
+| `rt_fog` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's fog volumetric - the same colour and distances, but the sun shines through it in shafts where the level lets it and the fog stays darker in the shade. The sun only where the level's own lighting shows one (not indoors); levels without fog: `rt_fog_haze` |
+| `rt_fog_mode` | 0 | 0: the volumetric fog replaces the level's own; 1: the level's fog kept as it was, only the sunlit shafts added over it |
+| `rt_fog_density` | 1 | How thick the fog is against the level's own (0-8; 1 the same) |
+| `rt_fog_height` | 0 | World units over which the fog thins going up from the camera's height (0: even everywhere; e.g. 800 for ground fog) |
+| `rt_fog_anisotropy` | 0.3 | How much brighter the fog is looking toward the sun (-0.9-0.9; 0 the same every way) |
+| `rt_fog_steps` | 32 | Samples along each ray (4-128): fewer is faster, more is smoother shafts |
+| `rt_fog_haze` | 1 | In a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone |
 
 **`[Miscellaneous]`** - from PartyMod
 

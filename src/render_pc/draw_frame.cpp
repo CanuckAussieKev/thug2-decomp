@@ -44,6 +44,7 @@
 #include "render_pc/pc_texture_projection.h"
 #include "render_pc/render_state.h"
 #include "render_pc/scene_render.h"
+#include "render_pc/rt_record.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
 #include "render_pc/shadow_base.h"
@@ -59,6 +60,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/rt_scene.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
@@ -599,6 +601,69 @@ void set_pass(int pass) { draw_instance_batch({.flags = static_cast<uint32_t>(pa
 // No world transform (set_world_transform's null: the original passes 0).
 void clear_world_transform() { set_world_transform(nullptr); }
 
+// Not original - the listeners of rt_scene.h told that viewport `index`'s opaque world is drawn: its camera (the world's
+// view and projection, as set on the Gpu) and its rectangle.
+// (the viewport as it is drawn now - its world camera, its rectangle - for the screen-space effects)
+rt::ViewDrawn view_drawn(int index)
+{
+    const auto& gfx = renderer();
+    rt::ViewDrawn view;
+    view.camera.viewport = static_cast<uint32_t>(index);
+    const auto copy_matrix = [](const maths::Mat4& from, std::array<std::array<float, 4>, 4>* to) {
+        for (std::size_t row = 0; row < 4; ++row) {
+            for (std::size_t column = 0; column < 4; ++column) {
+                core::at(core::at(*to, row), column) = core::at(from.floats(), (row * 4) + column);
+            }
+        }
+    };
+    copy_matrix(gfx.view_matrix(), &view.camera.view);
+    copy_matrix(gfx.projection_matrix(), &view.camera.projection);
+    view.camera.position = gfx.render_camera().position;
+    const DeviceViewport& drawn = gfx.device_viewport();
+    view.rect = {drawn.x, drawn.y, drawn.width, drawn.height};
+    view.depth_range = {drawn.min_z_, drawn.max_z_};
+    // (the level's fog: with distance clipping and [Graphics] Fog, the fog each mesh draws with - over the last quarter
+    // before the far plane, pc_mesh_render.cpp; else what a script's SetFogDistance / SetFogColor / EnableFog told the
+    // device - pc_fog.h)
+    constexpr uint32_t kByte = 0xFF;
+    constexpr uint32_t kRedShift = 16;
+    constexpr uint32_t kGreenShift = 8;
+    constexpr float kPerByte = 1.0F / 255.0F;
+    constexpr double kNearFadeShare = 0.25; // (pc_mesh_render.cpp's)
+    const uint32_t fog_colour = engine_parts().fog_colour(); // (0xRRGGBB)
+    if (view_setup().distance_clipping() && view_setup().fog_setting()) {
+        const float far_z = gfx.render_camera().far_z_;
+        view.fog.on = true;
+        view.fog.end = far_z;
+        view.fog.start = static_cast<float>(
+            far_z - ((static_cast<double>(far_z) - gfx.render_camera().near_z_) * kNearFadeShare));
+    } else {
+        view.fog.on = gfx.fog_active() != 0;
+        view.fog.start = gfx.fog_begin_distance();
+        view.fog.end = gfx.fog_end();
+    }
+    view.fog.colour = {static_cast<float>((fog_colour >> kRedShift) & kByte) * kPerByte,
+                       static_cast<float>((fog_colour >> kGreenShift) & kByte) * kPerByte,
+                       static_cast<float>(fog_colour & kByte) * kPerByte};
+    return view;
+}
+
+void note_opaque_drawn(int index)
+{
+    if (rt::view_listened()) {
+        rt::opaque_view_drawn(view_drawn(index));
+    }
+}
+
+// Not original - the viewport's whole world drawn, before the 2D: volumetric fog, tone mapping (rt_scene.h
+// ViewListener::world_drawn). Original behaviour: nothing.
+void note_world_drawn(int index)
+{
+    if (rt::view_listened()) {
+        rt::world_view_drawn(view_drawn(index));
+    }
+}
+
 void draw_viewport(int index)
 {
     const ViewRegion* view = fetch_current_view(index);
@@ -672,7 +737,11 @@ void draw_viewport(int index)
             .forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}},
         };
         ext::view_drawn(note);
+        // Not original - ray tracing's record (rt_record.h): the viewport's camera; the frame's first begins the
+        // frame (the TLAS) before the world is drawn. Original behaviour: nothing.
+        rt_record::camera_chosen(index);
     }
+    rt_record::set_world_passes(true); // (not original: the world's and the objects' passes, for a check's count)
     for_each_scene([&](PcScene* scene) {
         if (scene->is_sky()) {
             return;
@@ -696,6 +765,7 @@ void draw_viewport(int index)
     imposter_manager()->render();
     set_pass(1);
     clear_world_transform();
+    rt_record::set_world_passes(false); // (not original: not the sky's)
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
@@ -751,6 +821,10 @@ void draw_viewport(int index)
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
         stored_near_z() = kDefaultNearZ;
     }
+    // Not original - ray tracing's screen-space effects (engine/gfx/rt_scene.h, R4: the Vulkan Gpu's sun shadows): the
+    // opaque world, objects and sky drawn, the world's camera set again. Original behaviour: nothing.
+    note_opaque_drawn(index);
+    rt_record::set_world_passes(true); // (not original: the world's and the objects' passes again)
     set_pass(kOpaquePass);
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);
@@ -760,6 +834,7 @@ void draw_viewport(int index)
         }
     });
     set_pass(kOcclusionPass);
+    rt_record::set_world_passes(false);
     issue_occlusion_queries();
     set_render_state(RenderStateId::kZWrite, 0);
     flexible_particle_manager()->render_systems(index > 0);
@@ -778,6 +853,7 @@ void draw_viewport(int index)
     set_render_state(RenderStateId::kZTest, 1);
     update_glows(false);
     engine::draw_flashes(index, 0);
+    note_world_drawn(index);
 }
 
 // Not original - the split views (ext::view_count; the level editor's): the first viewport drawn once for each view,
@@ -842,6 +918,9 @@ void draw_world()
         // Original behaviour: the frame is drawn to the window.
         game_view_frame::begin();
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
+        // Not original - ray tracing's record (rt_record.h): the frame's instances and lights. Original behaviour:
+        // nothing.
+        rt_record::record_frame();
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
         render_shadow_textures();

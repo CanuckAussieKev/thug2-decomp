@@ -13,6 +13,7 @@
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
+#include "gpu_vulkan/vulkan_rt_fog.h"
 
 namespace render::vulkan {
 
@@ -138,7 +139,8 @@ ShaderKey draw_shader_key(const GpuStateBlock& block, const ShaderProgram* progr
     vertex.ambient_source = colour_source(state(block, GpuRenderState::kAmbientMaterialSource));
     vertex.specular_source = colour_source(state(block, GpuRenderState::kSpecularMaterialSource));
     vertex.emissive_source = colour_source(state(block, GpuRenderState::kEmissiveMaterialSource));
-    const bool fog = state(block, GpuRenderState::kFogEnable) != 0;
+    // (NOT ORIGINAL - the level's fog left to the volumetric fog in its replacing mode: vulkan_rt_fog.h)
+    const bool fog = state(block, GpuRenderState::kFogEnable) != 0 && !rt_fog_replaces_level_fog();
     const FogMode table_fog = fog_mode(state(block, GpuRenderState::kFogTableMode));
     vertex.fog = fog && table_fog == FogMode::kNone ? fog_mode(state(block, GpuRenderState::kFogVertexMode)) : FogMode::kNone;
     vertex.range_fog = state(block, GpuRenderState::kRangeFogEnable) != 0;

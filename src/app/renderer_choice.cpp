@@ -3,7 +3,10 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
+#include <cstdlib>
 #include <cstddef>
+#include <sstream>
 #include <string>
 
 #include "engine/gfx/render_device.h"
@@ -42,6 +45,51 @@ void install_direct3d9()
     render::install_ui_backend(render::d3d9::ui_backend());
 }
 
+#ifdef THUG2_VULKAN
+// A [Graphics] number with a fraction (`fallback` when it's missing or not a number).
+float ini_float(const char* key, float fallback)
+{
+    constexpr std::size_t kLongest = 32; // (characters of a number)
+    std::array<char, kLongest> text{};
+    build_info::fetch_text(build_info::kGraphics, key, "", text.data(), text.size());
+    char* end = nullptr;
+    const double value = std::strtod(text.data(), &end);
+    return end == text.data() || !std::isfinite(value) ? fallback : static_cast<float>(value);
+}
+
+// [Graphics] rt_shadow_sun: bake (the default: the level's baked sun), light (the frame's first directional light) or
+// x,y,z (a direction toward the sun); anything else is the default, logged.
+void read_rt_shadow_sun(render::vulkan::RtShadowSettings* settings)
+{
+    constexpr std::size_t kLongest = 64;
+    std::array<char, kLongest> text{};
+    build_info::fetch_text(build_info::kGraphics, "rt_shadow_sun", "bake", text.data(), text.size());
+    const std::string value(text.data());
+    if (value == "light") {
+        settings->sun = render::vulkan::RtShadowSettings::SunSource::kLight;
+        return;
+    }
+    std::array<float, 3> toward{};
+    std::size_t read = 0;
+    std::istringstream numbers(value);
+    std::string number;
+    while (read < toward.size() && std::getline(numbers, number, ',')) {
+        char* end = nullptr;
+        const double parsed = std::strtod(number.c_str(), &end);
+        if (end == number.c_str() || !std::isfinite(parsed)) {
+            break;
+        }
+        toward.at(read++) = static_cast<float>(parsed);
+    }
+    if (read == toward.size()) {
+        settings->sun = render::vulkan::RtShadowSettings::SunSource::kFixed;
+        settings->fixed_sun = toward;
+    } else if (!value.empty() && value != "bake") {
+        get_log("[Graphics] rt_shadow_sun=%s isn't bake, light or x,y,z - the baked sun used", value.c_str());
+    }
+}
+#endif
+
 // The Vulkan backend: render_pc's device over Vulkan's Gpu and GpuContext, and its UI backend (src/gpu_vulkan; the
 // ImGui parts have none on Vulkan yet). The shader and pipeline caches are kept beside the exe.
 void install_vulkan()
@@ -51,6 +99,76 @@ void install_vulkan()
                                .cache_folder = build_info::executable_directory(),
                                .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false),
                                .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
+    // NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h): off unless asked for, and only with
+    // ray_tracing=1 on a device that has it
+    render::vulkan::RtShadowSettings shadows{
+         .on = build_info::fetch_flag(build_info::kGraphics, "rt_shadows", false),
+         .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
+         .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
+         .rays = static_cast<unsigned>(std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_rays", 4))),
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", false),
+         .covered = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_covered", false),
+         .sky_rays = static_cast<unsigned>(
+             std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_sky_rays",
+                                             static_cast<int>(render::vulkan::kRtShadowSkyRays)))),
+         .match_bake = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_match_bake", true)};
+    read_rt_shadow_sun(&shadows);
+    render::vulkan::set_rt_shadow_settings(shadows);
+    // NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h): likewise
+    render::vulkan::set_rt_ao_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_ao", false),
+         .strength = ini_float("rt_ao_strength", render::vulkan::RtAoSettings{}.strength),
+         .radius = ini_float("rt_ao_radius", render::vulkan::RtAoSettings{}.radius),
+         .rays = static_cast<unsigned>(
+             std::max(1, build_info::get_int(build_info::kGraphics, "rt_ao_rays",
+                                             static_cast<int>(render::vulkan::RtAoSettings{}.rays)))),
+         .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_ao_denoise", true)});
+    // NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h): likewise
+    render::vulkan::set_rt_gi_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_gi", false),
+         .strength = ini_float("rt_gi_strength", render::vulkan::RtGiSettings{}.strength),
+         .distance = ini_float("rt_gi_distance", render::vulkan::RtGiSettings{}.distance),
+         .rays = static_cast<unsigned>(
+             std::max(1, build_info::get_int(build_info::kGraphics, "rt_gi_rays",
+                                             static_cast<int>(render::vulkan::RtGiSettings{}.rays)))),
+         .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_gi_denoise", true)});
+    // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
+    render::vulkan::set_rt_reflection_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),
+         .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength)});
+    // NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h): off unless asked for; no ray tracing
+    // needed. The grading table's path is the game folder's unless it is a full one.
+    {
+        constexpr std::size_t kLongestPath = 260;
+        std::array<char, kLongestPath> lut{};
+        build_info::fetch_text(build_info::kGraphics, "rt_grade_lut", "", lut.data(), lut.size());
+        std::string lut_path(lut.data());
+        const bool full = lut_path.find(':') == 1 || lut_path.starts_with('\\') || lut_path.starts_with('/');
+        if (!lut_path.empty() && !full) {
+            lut_path = build_info::executable_directory() + lut_path;
+        }
+        const render::vulkan::HdrSettings defaults;
+        render::vulkan::set_hdr_settings(
+            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false),
+             .exposure = ini_float("rt_exposure", defaults.exposure),
+             .tonemap = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_tonemap", 0))),
+             .saturation = ini_float("rt_saturation", defaults.saturation),
+             .contrast = ini_float("rt_contrast", defaults.contrast),
+             .white_point = ini_float("rt_white_point", defaults.white_point),
+             .grade_lut = lut_path});
+    }
+    // NOT ORIGINAL - volumetric fog and light shafts (gpu_vulkan/vulkan_rt_fog.h): likewise
+    render::vulkan::set_rt_fog_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_fog", false),
+         .density = ini_float("rt_fog_density", render::vulkan::RtFogSettings{}.density),
+         .height = ini_float("rt_fog_height", render::vulkan::RtFogSettings{}.height),
+         .anisotropy = ini_float("rt_fog_anisotropy", render::vulkan::RtFogSettings{}.anisotropy),
+         .steps = static_cast<unsigned>(std::max(
+             1, build_info::get_int(build_info::kGraphics, "rt_fog_steps", static_cast<int>(render::vulkan::kRtFogSteps)))),
+         .mode = build_info::get_int(build_info::kGraphics, "rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts
+                                                                                   : render::vulkan::RtFogMode::kReplace,
+         .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false),
+         .haze = build_info::fetch_flag(build_info::kGraphics, "rt_fog_haze", true)});
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

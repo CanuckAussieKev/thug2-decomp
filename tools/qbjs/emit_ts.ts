@@ -2,9 +2,12 @@
 // source: names from the module's checksum-name records, QB's control flow as TypeScript's, values as literals.
 // Its run-time API (the imports from "qb") is described in docs/qb-ts.md.
 
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checksum } from "../qb_checksum.ts";
+import { emitData, globalKey, inlineScripts } from "./emit_data.ts";
+import { fileHash } from "./game_scripts.ts";
 import type { Call, Definition, Expr, Field, Literal, ModuleIR, Statement } from "./ir.ts";
 import { readIRFile } from "./reader.ts";
 
@@ -68,6 +71,8 @@ const HELPERS = [
     "reach",
     // a localised string: its token's text in the game's language (Data\lang\<language>.json - tools/qbjs/localize.ts)
     "tr",
+    // a script value of the module's data (its .json - emit_data.ts): scriptValue(key, code(...))
+    "scriptValue",
 ] as const;
 const OPERATORS: Record<number, string> = {
     5: "at",
@@ -155,10 +160,12 @@ function layout(d: Doc, indent: string, used: number): string {
 // each switch's case through arm(), so the check can take every arm; and for TypeScript coverage each statement
 // starts with reach(place) and every decision (branch, arm, a repeat's end, a Random) carries its place - the place
 // in the script's QB code, as QB's coverage counts it; otherwise the same code.
+// data: the module's globals are in its data file of that name (emit_data.ts, docs/qb-ts.md "Data") - the .ts has only
+// its scripts, and the scripts its globals hold as values (scriptValue("<global>#<n>", code(...)), named by the data).
 export function emitTS(
     module: ModuleIR,
     names: Record<number, string> = {},
-    options: { check?: boolean } = {},
+    options: { check?: boolean; data?: string } = {},
 ): string {
     // A spelling is used only when it checksums back to the name (else the name is written as _0x<checksum>).
     const nameOf = (n: number) => {
@@ -596,6 +603,14 @@ export function emitTS(
         return /\brandom\w*\(|\bp\b/.test(made) ? `(p) => (${made}), ` : `${made}, `;
     }
     const definition = (d: Definition) => {
+        if (d.kind === "global" && options.data !== undefined) {
+            const key = globalKey(module, d.name);
+            inlineScripts(d.value).forEach((x, i) => {
+                const head = `${use("scriptValue")}(${JSON.stringify(`${key}#${i + 1}`)}, `;
+                emit("", { head, items: [expr(x)], tail: ")" }, ";");
+            });
+            return;
+        }
         if (d.kind === "global")
             return emit(
                 "",
@@ -615,24 +630,38 @@ export function emitTS(
         base = undefined;
     };
     const body: string[] = [];
-    module.definitions.forEach((d, i) => {
+    let previous: Definition | undefined;
+    for (const d of module.definitions) {
         lines = [];
-        const previous = module.definitions[i - 1];
-        if (i && (d.kind === "script" || previous?.kind === "script")) body.push("");
         definition(d);
+        if (!lines.length) continue; // (a global in the data file)
+        if (previous && (d.kind === "script" || previous.kind === "script" || options.data !== undefined))
+            body.push("");
         body.push(...lines);
-    });
+        previous = d;
+    }
     const sorted = [...new Set(commands.values())].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
     if (sorted.length) used.add("cmd");
     const header = [`// ${module.source.replace(/\\/g, "/")} - translated from QB.`];
+    if (options.data !== undefined && module.definitions.some((d) => d.kind === "global"))
+        header.push(`// Its globals (data): ${options.data}`);
     header.push(`import { ${HELPERS.filter((h) => used.has(h)).join(", ")} } from "qb";`);
     if (sorted.length) header.push(layout({ head: "const { ", items: sorted, tail: " } = cmd;" }, "", 0));
     return `${header.join("\n")}\n\n${body.join("\n")}\n`;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    const [, , input, output] = process.argv;
-    if (!input || !output || process.argv.length !== 4)
-        throw Error("Usage: node tools/qbjs/emit_ts.ts INPUT.qb OUTPUT.ts");
-    writeFileSync(output, emitTS(readIRFile(input, output)));
+    // OUTPUT.ts and its globals in OUTPUT.json beside (docs/qb-ts.md "Data"); --inline: the globals in the .ts too
+    const args = process.argv.slice(2).filter((a) => a !== "--inline");
+    const [input, output] = args;
+    if (!input || !output || args.length !== 2)
+        throw Error("Usage: node tools/qbjs/emit_ts.ts INPUT.qb OUTPUT.ts [--inline]");
+    const module = readIRFile(input, output);
+    if (process.argv.includes("--inline")) writeFileSync(output, emitTS(module));
+    else {
+        const json = output.replace(/\.ts$/i, "") + ".json";
+        const data = emitData(module, fileHash(readFileSync(input)));
+        writeFileSync(output, emitTS(module, {}, { data: basename(json) }));
+        if (data !== null) writeFileSync(json, data);
+    }
 }

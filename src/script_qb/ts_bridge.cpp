@@ -8,6 +8,7 @@
 
 #include "script_qb/ts_bridge.h"
 #include "script_qb/script_check.h"
+#include "script_qb/ts_data.h"
 
 #include <algorithm>
 #include <array>
@@ -26,6 +27,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include <windows.h>
 
 #include <quickjs.h>
 
@@ -49,6 +52,7 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/tokens.h"
 #include "engine/sys/game_config.h"
+#include "platform/crt.h"
 #include "platform/run_log.h"
 #include "ts_sources.h"
 
@@ -716,10 +720,29 @@ JSValue native_define_script(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
     return JS_UNDEFINED;
 }
 
-// defineGlobal(n, value): its symbol (as parse_symbol_definition makes a .qb file's).
-JSValue native_define_global(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+// Global `name`'s symbol, its value `cell` (taken over), as parse_symbol_definition makes a .qb file's - of the file
+// being loaded.
+void define_global(uint32_t name, QbValueKind kind, Cell& cell)
 {
     Engine& e = engine();
+    SymbolTableEntry* existing = find_symbol(name);
+    if (existing) {
+        replace_symbol_for_definition(existing, e.loading_temporary);
+    }
+    SymbolTableEntry* symbol = create_symbol(name);
+    symbol->set_unknown8(checksums::hash_from_text(e.loading_file.c_str()));
+    symbol->set_type(kind);
+    symbol->value() = cell;
+    cell.clear();
+    if (!existing && e.loading_temporary) {
+        remove_symbol_later(symbol);
+    }
+}
+
+// defineGlobal(n, value): its symbol (a module with its globals in it - the game's modules have theirs in their data
+// file: load_data).
+JSValue native_define_global(JSContext* c, JSValueConst /*self*/, int /*argc*/, JSValueConst* argv)
+{
     const uint32_t name = to_u32(c, argv[0]);
     gsl::owner<Component*> value = new_component();
     QbValueKind kind = QbValueKind::kNone;
@@ -730,19 +753,8 @@ JSValue native_define_global(JSContext* c, JSValueConst /*self*/, int /*argc*/, 
         free_component(value);
         return throw_error(c, error);
     }
-    SymbolTableEntry* existing = find_symbol(name);
-    if (existing) {
-        replace_symbol_for_definition(existing, e.loading_temporary);
-    }
-    SymbolTableEntry* symbol = create_symbol(name);
-    symbol->set_unknown8(checksums::hash_from_text(e.loading_file.c_str()));
-    symbol->set_type(kind);
-    symbol->value() = value->value;
-    value->value.clear();
+    define_global(name, kind, value->value);
     free_component(value);
-    if (!existing && e.loading_temporary) {
-        remove_symbol_later(symbol);
-    }
     return JS_UNDEFINED;
 }
 
@@ -1029,10 +1041,84 @@ JSValue owner_value(JSContext* c, uint32_t file_checksum, bool temporary)
     return temporary ? JS_NewInt64(c, kTemporaryOwners + file_checksum) : JS_NewUint32(c, file_checksum);
 }
 
+// A translated text ({"$tr": token} in a data file): the language's table's, else English's (as qb_ts.js tr) - its
+// characters as bytes.
+std::optional<std::string> translated_text(std::string_view token)
+{
+    JSContext* context = engine().context;
+    const JSValue global = JS_GetGlobalObject(context);
+    const std::string key(token);
+    std::optional<std::string> found;
+    for (const char* table_name : {"qbText", "qbTextEnglish"}) {
+        const JSValue table = get(context, global, table_name);
+        if (JS_IsObject(table)) {
+            const JSValue text = JS_GetPropertyStr(context, table, key.c_str());
+            size_t size = 0;
+            if (const char* utf8 = JS_IsString(text) ? JS_ToCStringLen(context, &size, text) : nullptr) {
+                found = bytes_from_utf8(std::string_view(utf8, size));
+                JS_FreeCString(context, utf8);
+            }
+            JS_FreeValue(context, text);
+        }
+        JS_FreeValue(context, table);
+        if (found) {
+            break;
+        }
+    }
+    JS_FreeValue(context, global);
+    return found;
+}
+
+// A data file's script value ({"$script": key}): the code its module gave that key (qb_ts.js scriptValue) as a
+// structure's script component.
+bool script_value_of(std::string_view key, Component& component, std::string& error)
+{
+    JSContext* context = engine().context;
+    const JSValue global = JS_GetGlobalObject(context);
+    const JSValue helpers = get(context, global, "qbTs");
+    const JSValue of = get(context, helpers, "scriptValueOf");
+    std::array<JSValue, 1> args{JS_NewStringLen(context, key.data(), key.size())};
+    const JSValue value = JS_Call(context, of, helpers, static_cast<int>(args.size()), args.data());
+    bool made = false;
+    if (JS_IsException(value)) {
+        error = exception_text(context);
+    } else if (!JS_IsObject(value)) {
+        error = "its .ts has no scriptValue " + std::string(key);
+    } else {
+        made = js_to_script_body(context, value, component, error);
+    }
+    JS_FreeValue(context, value);
+    for (const JSValue arg : args) {
+        JS_FreeValue(context, arg);
+    }
+    JS_FreeValue(context, of);
+    JS_FreeValue(context, helpers);
+    JS_FreeValue(context, global);
+    return made;
+}
+
+// A data file's globals defined (ts_data.h) - of the file being loaded. `from`: the hash of the .qb its .ts was made
+// from, which the data must have been made from too.
+bool load_data(const std::string& json, uint32_t from, std::string& error)
+{
+    constexpr int kHex = 16;
+    const DataHooks hooks{.text = translated_text, .script_value = script_value_of, .define = define_global};
+    std::string made_from;
+    if (!define_data(json, hooks, &made_from, error)) {
+        return false;
+    }
+    if (static_cast<uint32_t>(std::strtoul(made_from.c_str(), nullptr, kHex)) != from) {
+        error = "made from another .qb (" + made_from + ") than its .ts - unpack_game.ts --refresh";
+        return false;
+    }
+    return true;
+}
+
 // A module run for file `filename` (`relative`: its name in faults and the log; `cache_name`: its bytecode's file in
-// thug2-decomp-ts\cache): what it defines belongs to the file - its temporary loads' apart. True when it ran.
+// thug2-decomp-ts\cache): what it defines belongs to the file - its temporary loads' apart - then its data file's
+// globals (`data`, `data_name`; none: it has no globals). True when it ran.
 bool run_module(const char* filename, bool temporary, const std::string& source, const std::string& relative,
-                const char* cache_name)
+                const char* cache_name, const std::string* data, const std::string& data_name, uint32_t from)
 {
     Engine& e = engine();
     e.loading_file = filename;
@@ -1044,19 +1130,27 @@ bool run_module(const char* filename, bool temporary, const std::string& source,
     // (what it defines belongs to its file: let go of when the file is unloaded - on_qb_unloaded)
     std::array<JSValue, 1> owner{owner_value(e.context, checksums::hash_from_text(filename), temporary)};
     JS_FreeValue(e.context, call_qb("loadingAs", owner));
-    const bool loaded = evaluate_module(source, relative, cache, cached, error);
+    bool loaded = evaluate_module(source, relative, cache, cached, error);
     std::array<JSValue, 1> nobody{JS_NULL};
     JS_FreeValue(e.context, call_qb("loadingAs", nobody));
+    const auto evaluated = std::chrono::steady_clock::now();
+    if (!loaded) {
+        get_log("ts: %s - its TypeScript module failed: %s", filename, error.c_str());
+    } else if (data && !load_data(*data, from, error)) {
+        loaded = false;
+        get_log("ts: ERROR - %s: %s - its globals not all defined", data_name.c_str(), error.c_str());
+    }
     if (loaded) {
-        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+        const auto now = std::chrono::steady_clock::now();
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+        const auto data_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - evaluated);
         ++profile().loads;
         profile().load_ns += static_cast<uint64_t>(ms.count()) * 1000000U;
         // (the .ts read - the game still asks for its files by their .qb names)
-        get_log("ts: %s loaded (%u ms%s)", relative.c_str(), static_cast<unsigned>(ms.count()),
+        const std::string data_time = data ? ", its data " + std::to_string(data_ms.count()) + " ms" : "";
+        get_log("ts: %s loaded (%u ms%s%s)", relative.c_str(), static_cast<unsigned>(ms.count()), data_time.c_str(),
                 cached ? ", compiled before" : "");
         loaded_files()[checksums::hash_from_text(filename)].module = true;
-    } else {
-        get_log("ts: %s - its TypeScript module failed: %s", filename, error.c_str());
     }
     e.loading_file.clear();
     e.loading_temporary = false;
@@ -1081,6 +1175,8 @@ std::pair<std::string, std::string>& next_version()
     return next;
 }
 
+bool read_game_file(const std::string& name_text, std::string* text);
+
 bool read_game_ts(const char* filename, std::string* name, std::string* text)
 {
     const size_t length = std::strlen(filename);
@@ -1092,6 +1188,14 @@ bool read_game_ts(const char* filename, std::string* name, std::string* text)
         *name = path;
         return fs::read_text(path, text) && !text->empty();
     }
+    return read_game_file(*name, text);
+}
+
+// Game file `name` (a .ts, a .json) read as the game reads a file: the data overlay's, else a loaded archive's, else
+// Data's. False when there's none.
+bool read_game_file(const std::string& name_text, std::string* text)
+{
+    const std::string* name = &name_text;
     std::array<char, file::kOverlayPathSize> overlay{};
     if (!packs::find_pre_entry(checksums::hash_from_text(name->c_str())) && !file::is_present(name->c_str()) &&
         !frontend::data_overlay::get_overlay_path(name->c_str(), overlay)) {
@@ -1123,9 +1227,9 @@ size_t json_string_end(const std::string& text, size_t at)
 
 // The JavaScript the runtime runs for a script file's TypeScript (as tools/qbjs/compile_ts.ts makes it): the "qb"
 // import read from globalThis.qbTs, the module's manifest from the file's last line - `// qb-file {"source": ...,
-// "from": <the .qb's hash>, "names": [checksum, name, ...]}` - before it; each line where it was (faults' lines are the
-// file's). False when the file has no qb-file line.
-bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, std::string* error)
+// "from": <the .qb's hash>, "globals": <how many - in its data file>, "names": [checksum, name, ...]}` - before it;
+// each line where it was (faults' lines are the file's). False when the file has no qb-file line.
+bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, uint32_t* globals, std::string* error)
 {
     static constexpr std::string_view kFileLine = "// qb-file {";
     const size_t file_line = ts.rfind(kFileLine);
@@ -1150,6 +1254,14 @@ bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, std:
     *from = 0;
     if (const size_t at = manifest.find("\"from\":\""); at != std::string::npos) {
         *from = static_cast<uint32_t>(std::strtoul(manifest.c_str() + at + 8, nullptr, 16));
+    }
+    *globals = 0;
+    static constexpr std::string_view kGlobals = "\"globals\":";
+    if (const size_t at = manifest.find(kGlobals); at != std::string::npos) {
+        constexpr int kDecimal = 10;
+        constexpr size_t kDigits = 10; // (a 32-bit count)
+        const std::string count = manifest.substr(at + kGlobals.size(), kDigits);
+        *globals = static_cast<uint32_t>(std::strtoul(count.c_str(), nullptr, kDecimal));
     }
     std::string body = ts.substr(0, file_line);
     bool random = false;
@@ -1244,14 +1356,23 @@ bool load_standalone(const char* filename, bool temporary)
     }
     std::string source;
     uint32_t from = 0;
-    if (std::string error; !module_from_ts(ts, &source, &from, &error)) {
+    uint32_t globals = 0;
+    if (std::string error; !module_from_ts(ts, &source, &from, &globals, &error)) {
         get_log("ts: ERROR - %s: %s - not loaded", name.c_str(), error.c_str());
+        return true;
+    }
+    const bool chosen = name.find(':') != std::string::npos; // (the script check's version: a path on disk)
+    // Its globals: <name>.json beside the .ts, read the same way (docs/qb-ts.md "Data").
+    const std::string data_name = name.substr(0, name.size() - 3) + ".json";
+    std::string data;
+    if (globals != 0 && !(chosen ? fs::read_text(data_name, &data) : read_game_file(data_name, &data))) {
+        get_log("ts: ERROR - %s has no %s (its %u globals): not loaded - tools/qbjs/unpack_game.ts", name.c_str(),
+                data_name.c_str(), static_cast<unsigned>(globals));
         return true;
     }
     // (a .qb where the game would look - an overlay made again since by make_menu_level.ts or a converter -: never
     // read; the .ts may be older than it - tools/qbjs/unpack_game.ts --refresh)
     std::array<char, file::kOverlayPathSize> overlay{};
-    const bool chosen = name.find(':') != std::string::npos; // (the script check's version: a path on disk)
     if (!chosen && (file::is_present(filename) || frontend::data_overlay::get_overlay_path(filename, overlay))) {
         get_log("ts: WARNING - a %s is there beside its .ts (not read; unpack_game.ts --refresh makes the .ts again)",
                 filename);
@@ -1262,7 +1383,8 @@ bool load_standalone(const char* filename, bool temporary)
     std::snprintf(cache.data(), cache.size(), "ts-%08x.qbc", file_hash(bytes));
     // (its globals' structures and arrays where the .qb loader puts a file's: the script heap)
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
-    const bool loaded = run_module(filename, temporary, source, name, cache.data()); // (a failure logged there)
+    const bool loaded = run_module(filename, temporary, source, name, cache.data(), globals != 0 ? &data : nullptr,
+                                   data_name, from); // (a failure logged there)
     memory::leave_heap_scope();
     if (loaded) {
         loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{from, true};
@@ -1329,12 +1451,65 @@ void save_types_now_and_then()
     save_types();
 }
 
+// Whether the game folder is unpacked (tools/qbjs/unpack_game.ts): the boot scripts' archive, Data\pre\qb_scripts.prx,
+// moved out (every unpack moves it; one there again means the archives are back - not unpacked), and either the
+// unpack's record, thug2-decomp-backup\unpacked.json (removed by --restore), or the boot scripts' .ts there
+// (Data\scripts\game\levels.ts - the backup folder may have been moved away by hand).
+bool folder_unpacked()
+{
+    const auto is_file = [](const char* name) {
+        return fs::disk().kind(game_folder_path(name).c_str()) == fs::PathKind::kFile;
+    };
+    return !is_file("Data\\pre\\qb_scripts.prx") &&
+           (is_file("thug2-decomp-backup\\unpacked.json") || is_file("Data\\scripts\\game\\levels.ts"));
+}
+
+// The scripts' mode and the game folder disagree - TypeScript mode with the archives and .qb files there (no file
+// would load: the game can't start), or QB mode with the game unpacked (no .qb to read). Logged, shown in a message
+// box (not with the test-automation channel on: nothing may wait for a click there) and the game ended with exit code 1.
+[[noreturn]] void stop_for_mismatch(const std::string& text)
+{
+    std::string line; // (one log line)
+    for (const char ch : text) {
+        if (ch != '\n') {
+            line += ch;
+        } else if (!line.empty() && line.back() != ' ') {
+            line += ' ';
+        }
+    }
+    get_log("ERROR - %s - the game ends (exit code 1)", line.c_str());
+    if (config_int("features", "automation", 0) == 0) {
+        MessageBoxA(nullptr, text.c_str(), "THUG2 - scripts", MB_OK | MB_ICONERROR);
+    }
+    crt::exit_fatal(1);
+}
+
+void check_folder_matches(bool ts_scripts)
+{
+    const bool unpacked = folder_unpacked();
+    if (ts_scripts == unpacked) {
+        return;
+    }
+    const std::string game = game_folder_path("");
+    const std::string folder = game.size() > 1 && game.back() == '\\' ? game.substr(0, game.size() - 1) : game;
+    if (ts_scripts) {
+        stop_for_mismatch("[features] ts_scripts=1 needs the game unpacked (TypeScript scripts), and this game folder "
+                          "still has its archives and .qb files.\n\nUnpack it: node tools/qbjs/unpack_game.ts --game \"" +
+                          folder + "\"\nor set [features] ts_scripts=0 in thug2-decomp.ini.");
+    }
+    stop_for_mismatch("The game folder is unpacked (TypeScript scripts, no .qb files) - set [features] ts_scripts=1 in "
+                      "thug2-decomp.ini,\nor put the archives back: node tools/qbjs/unpack_game.ts --game \"" + folder +
+                      "\" --restore");
+}
+
 } // namespace
 
 void install()
 {
     // (any value but 0: 2 was this before the modules beside the .qb files went)
     is_on() = config_int("features", "ts_scripts", 0) != 0;
+    // (before any script loads: a mode the folder can't run stops here, with what to do, not later in a crash)
+    check_folder_matches(is_on());
     profile().on = config_int("debug", "ts_profile", 0) != 0;
     engine().recording = config_int("debug", "ts_types", 0) != 0;
     // (each .qb file's hash is noted with TypeScript off too: the script check's QB pass says which version it ran)

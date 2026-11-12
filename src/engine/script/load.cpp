@@ -364,7 +364,13 @@ void load_qb(const char* filename, int unused, int temporary)
         // (scripts\engine\menu\keyboard.qb), in place of the original's plain packs::ReadIn.
         const std::span<const uint8_t> data = load_patched_script(filename);
         memory::leave_heap_scope();
-        read_qb_file(filename, data, unused, false, temporary != 0);
+        // NOT ORIGINAL - a file that isn't there (an unpacked game read with [features] ts_scripts=0 has no .qb):
+        // nothing read, as load_qb_data does, not a read past its end
+        if (data.size() < sizeof(uint32_t)) {
+            debug::printf("%s: no .qb to read\n", filename);
+        } else {
+            read_qb_file(filename, data, unused, false, temporary != 0);
+        }
         packs::offload(filename);
     }
     restart_changed_scripts();

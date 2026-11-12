@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the developer console (console.h).
 
 #include "devtools/console.h"
+#include "devtools/rt_check.h"
 
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -173,6 +174,9 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "demo record [name]  the level again, recorded (F6); demo stop: saved\n"
                               "demo play <name>    a demo played back; demo status\n"
                               "clear           clear the console\n"
+                              "rt summary      ray tracing's contract check: its counts and violations\n"
+                              "rt dump [file]  the last frame's ray-tracing record as JSON (game folder)\n"
+                              "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
                               "help            this list";
 
 // --- the window ------------------------------------------------------------------------------------------------------
@@ -419,6 +423,9 @@ std::string run_command(const std::string& line)
     if (command == "clear") {
         state().lines.clear();
         return "";
+    }
+    if (command == "rt") {
+        return rt_check::console_command(rest);
     }
     return "unknown command: " + command + " (help lists them)";
 }

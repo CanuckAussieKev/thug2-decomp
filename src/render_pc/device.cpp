@@ -22,6 +22,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/graphics_options.h"
+#include "engine/gfx/rt_scene.h"
 #include "render_pc/outline_draw.h"
 #include "render_pc/pc_gamma.h"
 #include "render_pc/render_state.h"
@@ -375,11 +376,14 @@ void create_render_targets()
     static const std::array<uint32_t, 9> kDivisors = {{1, 1, 4, 4, 4, 8, 8, 16, 16}};
     const GpuSettings made = context.settings();
     for (int i = 0; i < kScreenSurfaceCount; ++i) {
+        // (NOT ORIGINAL: the full-size two - the world drawn into them for a blur or the bloom - in floating point
+        // with HDR, rt_scene.h world_target_format. Original: X8R8G8B8 for all.)
         gpu().create_texture({.width = made.width / core::at(kDivisors, i),
                               .height = made.height / core::at(kDivisors, i),
                               .levels = 1,
                               .usage = gpu_value::kUsageRenderTarget,
-                              .format = gpu_value::kFormatX8R8G8B8,
+                              .format = core::at(kDivisors, i) == 1 ? rt::world_target_format(gpu_value::kFormatX8R8G8B8)
+                                                                     : gpu_value::kFormatX8R8G8B8,
                               .pool = gpu_value::kPoolDefault},
                              &core::at(frame_targets().screen_textures_, i));
         gpu().texture_surface(core::at(frame_targets().screen_textures_, i), 0, &core::at(frame_targets().screen_surfaces_, i));
@@ -449,7 +453,7 @@ bool make_view_targets(uint32_t width, uint32_t height)
                                     .height = height,
                                     .levels = 1,
                                     .usage = gpu_value::kUsageRenderTarget,
-                                    .format = gpu_value::kFormatX8R8G8B8,
+                                    .format = rt::world_target_format(gpu_value::kFormatX8R8G8B8), // (HDR: floats)
                                     .pool = gpu_value::kPoolDefault},
                                    &view.picture_) == gpu_value::kResultOk &&
               gpu().texture_surface(view.picture_, 0, &targets.back_buffer_) == gpu_value::kResultOk;
@@ -470,7 +474,8 @@ bool make_view_targets(uint32_t width, uint32_t height)
                                    .height = std::max(1U, height / divisor),
                                    .levels = 1,
                                    .usage = gpu_value::kUsageRenderTarget,
-                                   .format = gpu_value::kFormatX8R8G8B8,
+                                   .format = divisor == 1 ? rt::world_target_format(gpu_value::kFormatX8R8G8B8)
+                                                          : gpu_value::kFormatX8R8G8B8,
                                    .pool = gpu_value::kPoolDefault},
                                   &core::at(targets.screen_textures_, i)) == gpu_value::kResultOk &&
              gpu().texture_surface(core::at(targets.screen_textures_, i), 0, &core::at(targets.screen_surfaces_, i)) ==
