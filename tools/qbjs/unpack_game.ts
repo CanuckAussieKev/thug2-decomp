@@ -228,11 +228,13 @@ export function unpack(game: string, check = false): { record: Record; failed: s
             if (!/\.qb$/i.test(path) || path.toLowerCase().startsWith(pre.toLowerCase())) continue;
             const name = relative(join(root, folder), path).replace(/\//g, "\\").toLowerCase();
             const source = `${folder}\\${name}`;
-            const replaced = (folder === "Data" && archiveScripts.has(name)) || notLocalised(name);
+            // (Anteara Mod - the overlay's anteara folder - is English only: its text stays in its scripts)
+            const english = folder.toLowerCase() === "thug2-decomp-data" && name.startsWith("anteara\\");
+            const plain = (folder === "Data" && archiveScripts.has(name)) || notLocalised(name) || english;
             const localize = (ir: ModuleIR) => {
                 localizer.localize(source, ir, {});
             };
-            const ts = scriptTS(source, name, readFileSync(path), check, check || replaced ? undefined : localize);
+            const ts = scriptTS(source, name, readFileSync(path), check, check || plain ? undefined : localize);
             if (ts === null) {
                 failed.push(rel(path));
                 continue;

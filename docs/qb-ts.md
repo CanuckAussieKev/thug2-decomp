@@ -110,8 +110,8 @@ hash of the `.qb` it was made from).
   `tr("bo_scripts.smash_5_tea_barrels")` - with each language's text in its table, English's too: `Data\lang\en.json`,
   `fr.json`, `de.json`. Every string a player may read is a token, the same in every language today or not ("Boston"):
   each literal with letters in it but file names and paths, names (one word with an underscore: `loadscrn_boston`) and
-  the debug commands' arguments (printf, PrintStruct, ScriptAssert) - 17,203 tokens in 568 files, ours (the front end,
-  Anteara Mod, the ported levels) included; one text and its translations share a token across files. The French and
+  the debug commands' arguments (printf, PrintStruct, ScriptAssert) - 12,178 tokens, ours (the front end, the ported
+  levels) included but Anteara Mod (English only: its text stays in its scripts); one text and its translations share a token across files. The French and
   German archives differ from the English ones only in their scripts' text (172 and 167 files; every other file the
   same), so a script's versions are the same code with other strings: their literals pair up in order and give
   `fr.json` / `de.json` their text (7,394 tokens each; keyboard.qb, which the game patches, paired through its unpatched
