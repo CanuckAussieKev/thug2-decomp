@@ -194,6 +194,47 @@ export function unpack(game: string, check = false): { record: Record; failed: s
         }
         save();
     }
+
+    // One copy of each script (not --check: the check runs every version). The game reads a loaded archive's copy
+    // before the loose file, and loads each archive before its scripts - qb_scripts at boot, a level's *_scripts just
+    // before the level's files -, so the archives' copies are the ones it runs; the loose copies differ from them only
+    // by debug prints. Each archive's .ts goes where the loose file is (Data\levels\bo\BO_scripts.ts), the loose copy
+    // replaced; a name two archives hold differently stays in both. The French and German folders keep their own.
+    if (!check) {
+        // (by name in Data, lower case: each archive's copy and its name as the archive spells it)
+        const copies = new Map<string, { path: string; inData: string }[]>();
+        for (const folder of record.folders) {
+            if (/\.(fr|de)$/i.test(folder)) continue;
+            for (const path of walk(join(root, folder))) {
+                if (!path.toLowerCase().endsWith(".ts")) continue;
+                const inData = relative(join(root, folder), path);
+                const key = inData.toLowerCase();
+                copies.set(key, [...(copies.get(key) ?? []), { path, inData }]);
+            }
+        }
+        const made = new Map(record.made.map((m) => [m.toLowerCase(), m]));
+        for (const [key, list] of copies) {
+            const text = readFileSync(list[0]!.path, "utf8");
+            if (list.some((c) => readFileSync(c.path, "utf8") !== text)) continue;
+            // (the loose file's own spelling when there is one)
+            const loose = made.get(join("Data", key).toLowerCase());
+            if (loose) writeFileSync(join(root, loose), text);
+            else make(join(root, "Data", list[0]!.inData), text);
+            for (const c of list) rmSync(c.path);
+        }
+        // (the folders the scripts left empty)
+        const prune = (path: string): boolean => {
+            const empty = readdirSync(path).every((n) => statSync(join(path, n)).isDirectory() && prune(join(path, n)));
+            if (empty) rmSync(path, { recursive: true });
+            return empty;
+        };
+        for (const folder of record.folders)
+            for (const n of readdirSync(join(root, folder))) {
+                const sub = join(root, folder, n);
+                if (statSync(sub).isDirectory()) prune(sub);
+            }
+        save();
+    }
     writeFileSync(
         join(root, BACKUP, "README.txt"),
         "The game's archives and .qb scripts, moved here by tools/qbjs/unpack_game.ts: the game runs from the\r\n" +
