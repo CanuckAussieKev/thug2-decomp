@@ -100,7 +100,9 @@ uint32_t world_target_format(uint32_t format)
         return gpu_value::kFormatX16B16G16R16F;
     }
     return format;
+}
 
+namespace {
 struct SunOverride {
     bool set = false;
     std::array<float, 3> toward{};
