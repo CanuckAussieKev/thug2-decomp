@@ -1,32 +1,39 @@
 // NOT ORIGINAL - the scripts' text in tables, one per language (Data\lang\en.json, fr.json, de.json): a script holds a
 // token where its text was - tr("bo_scripts.smash_5_tea_barrels") (emit_ts.ts) - and the game reads the token's text
 // in its language (scripting/qb_ts.js tr; ts_bridge.cpp loads the tables - [features] language=, else the game's).
-// Made by tools/qbjs/unpack_game.ts from the game's own French and German scripts (the localised archives): a file's
-// versions are the same code with other text, so their string literals pair up in order; every literal whose text
-// differs in a language becomes a token, English's text in en.json like any other language's. A language whose
-// version of a file isn't the same code (its literals don't pair up) is left out of that file - read in English.
-import type { Expr, Literal, ModuleIR } from "./ir.ts";
+// Made by tools/qbjs/unpack_game.ts. Every string a player may read is a token - English's text in en.json like any
+// other language's: each literal with letters in it (a name the same in every language today, "Boston", too), but
+// file names and paths and the arguments of the debug commands (printf, PrintStruct, ScriptAssert), and any literal a
+// language translates whatever it looks like. The languages' texts come from the game's own French and German scripts
+// (the localised archives): a file's versions are the same code with other text, so their literals pair up in order.
+// A language whose version of a file isn't the same code is left out of that file - read in English; a token a
+// language has no text for is read in English too.
+import { checksum } from "../qb_checksum.ts";
+import type { Literal, ModuleIR } from "./ir.ts";
 
 export type TextTables = Record<string, Record<string, string>>; // language -> token -> text
 
 type Text = Extract<Literal, { type: 3 | 4 }>;
+// A literal and the command whose arguments hold it (0: none).
+type Found = { literal: Text; call: number };
 
 // The string literals of a module, in order (its definitions' - the names table aside).
-export function stringLiterals(ir: ModuleIR): Text[] {
-    const out: Text[] = [];
-    const walk = (node: unknown): void => {
-        if (Array.isArray(node)) for (const item of node) walk(item);
+export function stringLiterals(ir: ModuleIR): Found[] {
+    const out: Found[] = [];
+    const walk = (node: unknown, call: number): void => {
+        if (Array.isArray(node)) for (const item of node) walk(item, call);
         else if (node && typeof node === "object") {
-            const expr = node as Partial<Expr> & { value?: unknown };
+            const expr = node as { kind?: string; value?: unknown; name?: number };
             if (expr.kind === "literal") {
                 const value = expr.value as Literal;
-                if (value.type === 3 || value.type === 4) out.push(value);
+                if (value.type === 3 || value.type === 4) out.push({ literal: value, call });
                 return;
             }
-            for (const child of Object.values(node)) walk(child);
+            const inner = expr.kind === "call" || expr.kind === "functionCall" ? (expr.name ?? 0) : call;
+            for (const child of Object.values(node)) walk(child, inner);
         }
     };
-    walk(ir.definitions);
+    walk(ir.definitions, 0);
     return out;
 }
 
@@ -50,6 +57,23 @@ export function sameCode(a: unknown, b: unknown): boolean {
 
 const latin1 = (bytes: number[]) => String.fromCharCode(...bytes);
 
+// The debug commands: their text is the log's, no player's.
+const DEBUG = new Set(["printf", "PrintStruct", "ScriptAssert", "script_assert"].map((n) => checksum(n)));
+
+// Whether a literal is text a player may read: letters in it, not a file's name or path, not a debug command's.
+export function playerText(text: string, call: number): boolean {
+    if (DEBUG.has(call >>> 0)) return false;
+    if (!/[A-Za-z\xC0-\xFF]/.test(text)) return false;
+    if (/[\\/]/.test(text) || /\.[A-Za-z0-9]{2,4}$/.test(text)) return false;
+    // (a name - loadscrn_boston, TRG_Ped_01 -: one word with an underscore; the languages translate none)
+    if (/^\w+$/.test(text) && text.includes("_")) return false;
+    return true;
+}
+
+// The game's translators' tables (Data\scripts\localtext.qb, localtext_french.qb...: English with each language's
+// text; no game code reads them) - data, not text to show: left as they are.
+export const notLocalised = (file: string): boolean => /(^|[\\/])localtext(_\w+)?\.qb$/i.test(file);
+
 // A token's name: the file's and the English text's words ("bo_scripts.smash_5_tea_barrels").
 function tokenName(file: string, english: string): string {
     const stem = file
@@ -69,43 +93,35 @@ function tokenName(file: string, english: string): string {
 export class Localizer {
     readonly tables: TextTables = { en: {} };
     readonly leftOut: string[] = []; // "<file> <language>": a version not the same code
-    private readonly owner = new Map<string, string>(); // token -> its file and texts (a token is one text everywhere)
+    private readonly owner = new Map<string, string>(); // token -> its text and translations
+    private readonly bySignature = new Map<string, string>(); // text and translations -> token (shared by files)
 
-    // `english`'s literals given tokens where a language's text differs (the IR changed in place); `languages`: each
-    // language's version of the file. `unpatched`: the English file before the binary patch the game applies to it
-    // (keyboard.qb, PartyMod's): the languages are paired with it, and the patched file's literals take its tokens by
-    // their text. The number of tokens.
+    // `english`'s literals given tokens (the IR changed in place); `languages`: each language's version of the file
+    // (none: a file only English has - ours, a ported level's). `unpatched`: the English file before the binary
+    // patch the game applies to it (keyboard.qb, PartyMod's): the languages are paired with it, and the patched
+    // file's literals take its tokens by their text. The number of tokens.
     localize(file: string, english: ModuleIR, languages: Record<string, ModuleIR>, unpatched?: ModuleIR): number {
         const paired = unpatched ?? english;
         const own = stringLiterals(paired);
-        const theirs: [string, Text[]][] = [];
+        const theirs: [string, Found[]][] = [];
         for (const [language, ir] of Object.entries(languages)) {
             if (sameCode(paired.definitions, ir.definitions)) theirs.push([language, stringLiterals(ir)]);
             else this.leftOut.push(`${file} ${language}`);
         }
         let tokens = 0;
-        own.forEach((literal, i) => {
+        own.forEach(({ literal, call }, i) => {
             const text = latin1(literal.bytes);
-            const texts = Object.fromEntries(theirs.map(([language, list]) => [language, latin1(list[i]!.bytes)]));
-            if (Object.values(texts).every((t) => t === text)) return;
-            // (one token for one text and its translations - the same again in the file reuses it)
-            const signature = JSON.stringify([file, text, texts]);
-            const base = tokenName(file, text);
-            let token = base;
-            for (let n = 2; this.owner.has(token) && this.owner.get(token) !== signature; n++) token = `${base}_${n}`;
-            this.owner.set(token, signature);
-            this.tables.en![token] = text;
-            for (const [language, t] of Object.entries(texts)) {
-                const table = this.tables[language] ?? {};
-                table[token] = t;
-                this.tables[language] = table;
-            }
-            literal.token = token;
+            const texts = Object.fromEntries(
+                theirs.map(([language, list]) => [language, latin1(list[i]!.literal.bytes)]),
+            );
+            const translated = Object.values(texts).some((t) => t !== text);
+            if (!translated && !playerText(text, call)) return;
+            literal.token = this.token(file, text, texts);
             tokens++;
         });
         if (unpatched) {
             const byText = new Map<string, string | undefined>(); // (a text with two tokens: neither)
-            for (const literal of own)
+            for (const { literal } of own)
                 if (literal.token) {
                     const text = latin1(literal.bytes);
                     byText.set(
@@ -113,12 +129,32 @@ export class Localizer {
                         byText.has(text) && byText.get(text) !== literal.token ? undefined : literal.token,
                     );
                 }
-            for (const literal of stringLiterals(english)) {
-                const token = byText.get(latin1(literal.bytes));
+            for (const { literal, call } of stringLiterals(english)) {
+                const text = latin1(literal.bytes);
+                const token = byText.get(text) ?? (playerText(text, call) ? this.token(file, text, {}) : undefined);
                 if (token) literal.token = token;
             }
         }
         return tokens;
+    }
+
+    // The token for a text and its translations - one for them in this file or another.
+    private token(file: string, text: string, texts: Record<string, string>): string {
+        const signature = JSON.stringify([text, texts]);
+        const known = this.bySignature.get(signature);
+        if (known) return known;
+        const base = tokenName(file, text);
+        let token = base;
+        for (let n = 2; this.owner.has(token); n++) token = `${base}_${n}`;
+        this.owner.set(token, signature);
+        this.bySignature.set(signature, token);
+        this.tables.en![token] = text;
+        for (const [language, t] of Object.entries(texts)) {
+            const table = this.tables[language] ?? {};
+            table[token] = t;
+            this.tables[language] = table;
+        }
+        return token;
     }
 
     // Each table as its file's text (the tokens sorted).

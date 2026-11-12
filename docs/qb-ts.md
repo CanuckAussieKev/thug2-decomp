@@ -106,15 +106,20 @@ archive in its folder (the script check runs each version of a file). `--restore
 converter rewrote an overlay (until then the game reads such a file's new `.qb`, not its old `.ts`: the `.ts` names the
 hash of the `.qb` it was made from).
 
-- **Languages** (`tools/qbjs/localize.ts`): one set of scripts for every language. The French and German archives
-  differ from the English ones only in their scripts' text (172 and 167 files; every other file the same), so a
-  script's versions are the same code with other strings: their literals pair up in order, and each whose text differs
-  in a language becomes a token - `tr("bo_scripts.smash_5_tea_barrels")` - with every language's text in its table,
-  English's too: `Data\lang\en.json`, `fr.json`, `de.json` (5,783 tokens in 175 files; keyboard.qb, which the game
-  patches, paired through its unpatched English). The game reads `Data\lang\<code>.json` and `en.json` before the
-  first module (`ts_bridge.cpp load_text_tables`; the code: `[features] language=` - en, fr, de or any other table's -,
-  else the registry's language) and `tr` gives the token's text in the language, else English's. Text that's the same
-  in every language stays in the script. The language archives aren't unpacked; a new language is a table.
+- **Languages** (`tools/qbjs/localize.ts`): one set of scripts for every language, its text as tokens -
+  `tr("bo_scripts.smash_5_tea_barrels")` - with each language's text in its table, English's too: `Data\lang\en.json`,
+  `fr.json`, `de.json`. Every string a player may read is a token, the same in every language today or not ("Boston"):
+  each literal with letters in it but file names and paths, names (one word with an underscore: `loadscrn_boston`) and
+  the debug commands' arguments (printf, PrintStruct, ScriptAssert) - 17,203 tokens in 568 files, ours (the front end,
+  Anteara Mod, the ported levels) included; one text and its translations share a token across files. The French and
+  German archives differ from the English ones only in their scripts' text (172 and 167 files; every other file the
+  same), so a script's versions are the same code with other strings: their literals pair up in order and give
+  `fr.json` / `de.json` their text (7,394 tokens each; keyboard.qb, which the game patches, paired through its unpatched
+  English). The game reads `Data\lang\<code>.json` and `en.json` before the first module (`ts_bridge.cpp
+  load_text_tables`; the code: `[features] language=` - en, fr, de or any other table's -, else the registry's
+  language) and `tr` gives the token's text in the language, else English's. The language archives aren't unpacked; a
+  new language is a table. `Data\scripts\localtext*.qb` - the translators' tables, English with French, German,
+  Spanish and Italian, which no game code reads - are left as they are.
 - **Archives as folders** (`src/engine/file/archive_folder.h`; the check's): when an archive file isn't there and its
   folder is, both loaders (the pre manager's, the packs') build the same archive in memory from the folder - every file in it,
   stored unpacked - so an archive is in and out of memory exactly when it was, and everything after reads it as before.

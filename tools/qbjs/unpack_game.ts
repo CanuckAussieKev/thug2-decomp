@@ -25,7 +25,7 @@ import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { emitTS } from "./emit_ts.ts";
 import type { ModuleIR } from "./ir.ts";
-import { Localizer } from "./localize.ts";
+import { Localizer, notLocalised } from "./localize.ts";
 import { fileHash, gameRoot, scriptBytes } from "./install_ts.ts";
 import { readIR } from "./reader.ts";
 
@@ -182,6 +182,7 @@ export function unpack(game: string, check = false): { record: Record; failed: s
         }
     }
     const localizer = new Localizer();
+    const archiveScripts = new Set<string>(); // (the archives' scripts' names, lower case)
     const unpackInto = (bytes: Buffer, folder: string, stem: string) => {
         record.folders.push(rel(folder));
         for (const entry of prx.readArchive(bytes).entries) {
@@ -200,7 +201,8 @@ export function unpack(game: string, check = false): { record: Record; failed: s
                     const unpatched = patched ? readIR(data, source) : undefined;
                     localizer.localize(source, ir, Object.fromEntries(versions), unpatched);
                 };
-                const ts = scriptTS(source, entry.name, data, check, languages ? localize : undefined);
+                archiveScripts.add(entry.name.replace(/\//g, "\\").toLowerCase());
+                const ts = scriptTS(source, entry.name, data, check, check ? undefined : localize);
                 if (ts !== null) {
                     mkdirSync(dirname(path), { recursive: true });
                     writeFileSync(path.replace(/\.qb$/i, ".ts"), ts);
@@ -218,18 +220,19 @@ export function unpack(game: string, check = false): { record: Record; failed: s
         unpackInto(readFileSync(backedUp(name)), join(pre, stem), stem);
         save();
     }
-    // (the text tables: en.json and each language's)
-    if (Object.keys(localizer.tables.en ?? {}).length)
-        for (const language of Object.keys(localizer.tables))
-            make(join(root, "Data", "lang", `${language}.json`), localizer.json(language));
-    for (const left of localizer.leftOut) console.log(`text not localised (not the same code as English's): ${left}`);
 
-    // The loose .qb files: Data's and the overlays', each a .ts where it was.
+    // The loose .qb files: Data's and the overlays', each a .ts where it was - its text as tokens too (but a loose
+    // file an archive's copy replaces below, and the check's).
     for (const folder of scriptFolders(root)) {
         for (const path of walk(join(root, folder))) {
             if (!/\.qb$/i.test(path) || path.toLowerCase().startsWith(pre.toLowerCase())) continue;
             const name = relative(join(root, folder), path).replace(/\//g, "\\").toLowerCase();
-            const ts = scriptTS(`${folder}\\${name}`, name, readFileSync(path), check);
+            const source = `${folder}\\${name}`;
+            const replaced = (folder === "Data" && archiveScripts.has(name)) || notLocalised(name);
+            const localize = (ir: ModuleIR) => {
+                localizer.localize(source, ir, {});
+            };
+            const ts = scriptTS(source, name, readFileSync(path), check, check || replaced ? undefined : localize);
             if (ts === null) {
                 failed.push(rel(path));
                 continue;
@@ -239,6 +242,11 @@ export function unpack(game: string, check = false): { record: Record; failed: s
         }
         save();
     }
+    // (the text tables: en.json and each language's)
+    if (Object.keys(localizer.tables.en ?? {}).length)
+        for (const language of Object.keys(localizer.tables))
+            make(join(root, "Data", "lang", `${language}.json`), localizer.json(language));
+    for (const left of localizer.leftOut) console.log(`text not localised (not the same code as English's): ${left}`);
 
     // No archive at all (not --check: the check runs every version, each archive's in its folder). The game reads a
     // loaded archive's copy of a file before the loose one and loads each archive before its files - qb_scripts at boot,
