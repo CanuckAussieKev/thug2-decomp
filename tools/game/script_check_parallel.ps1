@@ -13,6 +13,12 @@ $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $repo
 $n = $Games.Count
 if (-not $NoPrepare) {
+    # (the shares and the plan are made from the games as installed: an unpacked one put back first - unpack_game.ts)
+    foreach ($game in $Games) {
+        if (Test-Path (Join-Path $game 'thug2-decomp-backup\unpacked.json')) {
+            node tools/qbjs/unpack_game.ts --game $game --restore 2>$null | Select-Object -Last 1
+        }
+    }
     # (each module to one folder that has it - their overlays differ - about as many scripts each)
     node tools/qbjs/script_check.ts shares --game ($Games -join ',') 2>$null
     if ($LASTEXITCODE -ne 0) { 'shares failed'; exit 1 }
@@ -20,10 +26,6 @@ if (-not $NoPrepare) {
 for ($i = 0; $i -lt $n -and -not $NoPrepare; ++$i) {
     $game = $Games[$i]
     & (Join-Path $PSScriptRoot 'deploy_build.ps1') -Game $game -Arch $Arch -BuildDir $BuildDir -NoEditorTools | Select-Object -Last 1
-    # (the plan is made from the game as installed: an unpacked one put back first - unpack_game.ts)
-    if (Test-Path (Join-Path $game 'thug2-decomp-backup\unpacked.json')) {
-        node tools/qbjs/unpack_game.ts --game $game --restore 2>$null | Select-Object -Last 1
-    }
     node tools/qbjs/install_ts.ts --game $game --clear --check 2>$null | Select-Object -Last 1
     if ($LASTEXITCODE -ne 0) { "install_ts failed in $game"; exit 1 }
     node tools/qbjs/script_check.ts plan --game $game --share @PlanArgs 2>$null
