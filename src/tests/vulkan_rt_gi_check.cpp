@@ -36,6 +36,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -198,9 +199,14 @@ const std::array<Solid, 3> kRoom{{
 }};
 
 // The lights: toward the sun (from the pillar's side, high), its colour, the ambient light (also the sky's).
-const Vec3 kToSun = normalised({1.0, 0.75, 0.2});
+constexpr Vec3 kToSunUnnormalised{1.0, 0.75, 0.2};
+Vec3 to_sun() { return normalised(kToSunUnnormalised); }
+constexpr float kSkaterLight = 0.5F; // (the frame record's directional light: the skater's, unused by the pass)
 constexpr Rgb kSun{1.0, 1.0, 1.0}; // (the pass's sun: white, the bake has no colour)
-constexpr Rgb kAmbient{0.25, 0.28, 0.34};
+constexpr Rgb kAmbient{0.25, 0.28, 0.34}; // (the frame record's: the pass doesn't use it)
+// What the pass gives a hit besides the sun, and a ray that hits nothing: none (the bake holds the sky and the ambient)
+constexpr Rgb kHitAmbient{0.0, 0.0, 0.0};
+constexpr Rgb kSky{0.0, 0.0, 0.0};
 
 constexpr Vec3 kEye{70.0, 75.0, 95.0};
 constexpr Vec3 kAt{-12.0, 4.0, 0.0};
@@ -371,7 +377,7 @@ RayAnswer bounce(std::span<const Solid> solids, const Vec3& origin, const Vec3& 
     RayAnswer answer;
     const Found found = first_hit(solids, origin, direction, kDistance);
     if (found.solid == kNoSurface) {
-        answer.light = kAmbient;
+        answer.light = kSky;
         return answer;
     }
     const Solid& solid = core::at(solids, found.solid - 1);
@@ -379,12 +385,12 @@ RayAnswer bounce(std::span<const Solid> solids, const Vec3& origin, const Vec3& 
     constexpr double kReachMargin = 0.98;
     answer.near_reach = found.hit.distance > kReachMargin * kDistance;
     answer.face = (found.hit.axis * 2) + (core::at(found.hit.normal, found.hit.axis) > 0.0 ? 1 : 0);
-    Rgb light = kAmbient;
-    const double facing = dot(found.hit.normal, kToSun);
+    Rgb light = kHitAmbient;
+    const double facing = dot(found.hit.normal, to_sun());
     if (facing > 0.0) {
         const Vec3 point = step(origin, direction, found.hit.distance);
         const Vec3 lifted = step(point, found.hit.normal, start_offset(travelled + found.hit.distance));
-        if (first_hit(solids, lifted, kToSun, kSunReach).solid == kNoSurface) {
+        if (first_hit(solids, lifted, to_sun(), kSunReach).solid == kNoSurface) {
             answer.sunlit = true;
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 core::at(light, channel) += core::at(kSun, channel) * facing;
@@ -438,9 +444,10 @@ Traced traced(std::span<const Solid> solids, const Seen& seen, Pixel local, uint
 bool same_answers(const Traced& one, const Traced& other)
 {
     for (std::size_t i = 0; i < one.rays.size(); ++i) {
-        const RayAnswer& a = core::at(one.rays, i);
-        const RayAnswer& b = core::at(other.rays, i);
-        if (a.solid != b.solid || a.face != b.face || a.sunlit != b.sunlit || a.near_reach || b.near_reach) {
+        const RayAnswer& mine = core::at(one.rays, i);
+        const RayAnswer& theirs = core::at(other.rays, i);
+        if (mine.solid != theirs.solid || mine.face != theirs.face || mine.sunlit != theirs.sunlit || mine.near_reach ||
+            theirs.near_reach) {
             return false;
         }
     }
@@ -724,9 +731,9 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const Sc
                                         static_cast<float>(core::at(kAmbient, 2))}});
     // (the skater's light, which the bounce doesn't use: its sun is the level's - here the console's `rt sun`)
     record.lights.push_back({.kind = rt::Light::Kind::kDirectional,
-                             .colour = {0.5F, 0.5F, 0.5F},
+                             .colour = {kSkaterLight, kSkaterLight, kSkaterLight},
                              .direction = {0.0F, -1.0F, 0.0F}});
-    const std::array<float, 3> toward_sun = floats(kToSun);
+    const std::array<float, 3> toward_sun = floats(to_sun());
     rt::set_sun_override(&toward_sun);
     gpu.begin_scene();
     rt::ray_tracing()->begin_frame(record);
@@ -793,17 +800,17 @@ void compare_colour(const std::vector<uint8_t>& with, const std::vector<uint8_t>
         for (int column = 0; column < kColumns; ++column) {
             const Rgb before = pixel_at(without, column, row);
             const Rgb got = pixel_at(with, column, row);
-            const std::array<float, 4>& a = texel_at(albedo, column, row);
-            if (!(a.back() > 0.0F)) {
+            const std::array<float, 4>& surface = texel_at(albedo, column, row);
+            if (!(surface.back() > 0.0F)) {
                 untouched_wrong += got == before ? 0 : 1;
                 continue;
             }
-            const std::array<float, 4>& e = texel_at(light, column, row);
+            const std::array<float, 4>& arriving = texel_at(light, column, row);
             Rgb want{};
             bool off = false;
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                const double beyond = std::max(0.0, static_cast<double>(core::at(e, channel)) - core::at(kAmbient, channel));
-                const double add = std::clamp(kStrength * static_cast<double>(core::at(a, channel)) * beyond, 0.0, 1.0);
+                const double beyond = std::max(0.0, static_cast<double>(core::at(arriving, channel)) - core::at(kSky, channel));
+                const double add = std::clamp(kStrength * static_cast<double>(core::at(surface, channel)) * beyond, 0.0, 1.0);
                 core::at(want, channel) =
                     std::min(1.0, core::at(before, channel) + (add * (1.0 - core::at(before, channel))));
                 off = off || std::abs(core::at(want, channel) - core::at(got, channel)) > kColourTolerance;
@@ -843,7 +850,7 @@ void compare_raw(std::span<const Solid> solids, const render::vulkan::RtAoTexels
             const double px = column + sample.front();
             const double py = row + sample.back();
             const Seen seen = seen_at(solids, view, px, py);
-            const std::array<float, 4>& e = texel_at(light, column, row);
+            const std::array<float, 4>& arriving = texel_at(light, column, row);
             if (seen.solid == kNoSurface) {
                 sky_wrong += texel_at(albedo, column, row).back() == 0.0F ? 0 : 1;
                 continue;
@@ -884,7 +891,7 @@ void compare_raw(std::span<const Solid> solids, const render::vulkan::RtAoTexels
                 constexpr double kRelative = 0.004;
                 constexpr double kAbsolute = 0.002;
                 const double want = core::at(here.light, channel);
-                off = off || std::abs(static_cast<double>(core::at(e, channel)) - want) > kAbsolute + (kRelative * want);
+                off = off || std::abs(static_cast<double>(core::at(arriving, channel)) - want) > kAbsolute + (kRelative * want);
                 albedo_off = albedo_off || std::abs(static_cast<double>(core::at(got_albedo, channel)) -
                                                     core::at(want_albedo, channel)) > kAbsolute;
             }
@@ -893,15 +900,16 @@ void compare_raw(std::span<const Solid> solids, const render::vulkan::RtAoTexels
                 ++wrong;
                 if (first.empty()) {
                     first = text::format(" (first at %d,%d: %s, %s wanted)", column, row,
-                                         rgb_text({core::at(e, 0), core::at(e, 1), core::at(e, 2)}).c_str(),
+                                         rgb_text({core::at(arriving, 0), core::at(arriving, 1), core::at(arriving, 2)}).c_str(),
                                          rgb_text(here.light).c_str());
                 }
             }
             // the floor beside the red wall: what the bounce adds there
             constexpr double kNearWall = -8.0;
-            if (seen.solid == 1 && x_of(seen.point) < kNearWall && std::abs(z_of(seen.point)) < 40.0) {
-                near_red += std::max(0.0, static_cast<double>(core::at(e, 0)) - core::at(kAmbient, 0));
-                near_green += std::max(0.0, static_cast<double>(core::at(e, 1)) - core::at(kAmbient, 1));
+            constexpr double kNearWallSpan = 40.0;
+            if (seen.solid == 1 && x_of(seen.point) < kNearWall && std::abs(z_of(seen.point)) < kNearWallSpan) {
+                near_red += std::max(0.0, static_cast<double>(core::at(arriving, 0)) - core::at(kSky, 0));
+                near_green += std::max(0.0, static_cast<double>(core::at(arriving, 1)) - core::at(kSky, 1));
                 ++near_count;
             }
         }
@@ -920,7 +928,8 @@ void compare_raw(std::span<const Solid> solids, const render::vulkan::RtAoTexels
     }
     constexpr int kEnoughNear = 500;
     constexpr double kReddish = 2.0;
-    tally->check(near_count >= kEnoughNear && near_red > kReddish * near_green && near_red > 0.02,
+    constexpr double kSomeRed = 0.02;
+    tally->check(near_count >= kEnoughNear && near_red > kReddish * near_green && near_red > kSomeRed,
                  text::format("the floor beside the red wall gets a reddish bounce: red %.4f, green %.4f beyond the sky "
                               "(%d pixels)",
                               near_red, near_green, near_count));
@@ -996,7 +1005,7 @@ void run_open(render::Gpu& gpu, std::span<const SceneMesh> floor, Tally* tally)
                 for (std::size_t channel = 0; channel < 3; ++channel) {
                     constexpr double kHalfPrecision = 0.001;
                     not_sky += std::abs(static_cast<double>(core::at(core::at(light.texels, i), channel)) -
-                                        core::at(kAmbient, channel)) > kHalfPrecision
+                                        core::at(kSky, channel)) > kHalfPrecision
                                    ? 1
                                    : 0;
                 }

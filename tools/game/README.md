@@ -161,6 +161,13 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   the first reflection pass"), at most 60% of the picture changed (lighter or darker) and at most 0.1% turned black (a
   NaN, a missing texture); where the level has nothing reflective ("nothing reflective in the scene"), on and off the
   same; at least one group drew reflections and some spot changed by 0.1% or more; no "couldn't" line.
+  `--effect gi` (both commands): one-bounce indirect light (`[Graphics] rt_gi`) - `rt_gi=0` / `1` with `rt_shadows`,
+  `rt_ao`, `rt_reflections` 0; `--expect drawn`: the bounce only adds light (at most 0.1% darker, 0.1% turned black, 0.1%
+  lighter by more than 112 in luma - a NaN or runaway value), at most 80% of a picture brightened and at least 0.5%
+  somewhere; a level whose bake shows no sun ("rt: the baked sun: none") unchanged; over every spot the baked-dark pixels
+  brightened more often than the baked-bright ones (more in the shade); the `on` logs showing "rt_gi: the first indirect
+  light pass" and no skip. `--set Graphics.rt_gi_rays=4` etc. try the other settings; the passes' device time is in the
+  logs ("rt_gi: <x> ms a pass on the device").
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed

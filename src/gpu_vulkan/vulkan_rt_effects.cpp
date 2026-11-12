@@ -310,14 +310,15 @@ float level_for(uint id, HitVertices v, vec3 a, vec3 b, vec3 c, float width)
 }
 
 // A hit's albedo: its material's texture at the hit's texture coordinates (the level for `width`) x the material's
-// colour - the vertex colours (the level's baked light) left out; its triangle's normal facing `facing`.
+// colour, at most 1 (a material's colour is doubled: 2 is an overbright pass, not a surface giving back more light than
+// it gets) - the vertex colours (the level's baked light) left out; its triangle's normal facing `facing`.
 vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3 to_world, float width, vec3 facing,
                 out vec3 n)
 {
     HitVertices v;
     n = facing;
     if (!hit_vertices(instance, primitive, v)) {
-        return material(id).colour.rgb;
+        return min(material(id).colour.rgb, vec3(1.0));
     }
     vec3 a = to_world * vec4(v.position[0], 1.0);
     vec3 b = to_world * vec4(v.position[1], 1.0);
@@ -330,7 +331,7 @@ vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x
         }
     }
     vec2 uv = hit_uv(v, barycentrics);
-    return (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
+    return min((material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb, vec3(1.0));
 }
 
 bool sun_blocked(vec3 origin)
@@ -1590,17 +1591,14 @@ bool bounce_sun(std::array<float, 3>* toward)
     return true;
 }
 
-// The indirect light's lights: the sun (bounce_sun; white, kGiSunLight - the bake has no sun colour), the frame
-// record's ambient light as both what every hit surface gets and the sky's light (a ray that hits nothing). The rays'
-// noise unit: the most one ray can bring.
+// The indirect light's lights: the sun (bounce_sun; white, kGiSunLight - the bake has no sun colour). What THUG2's
+// baked vertex colours lack is the sun's light bounced off what is around a surface - its sky and ambient light they
+// already hold (and the frame record's ambient light is the skater's, the same everywhere) - so the hits get no ambient
+// light and a ray that hits nothing brings none: E is the sun's light bounced once. (The block keeps both, and the
+// apply's sky, for a level that one day gives a sky colour.) The rays' noise unit: the most one ray can bring.
 LightsBlock lights_block(EffectsState& own, float* unit)
 {
     LightsBlock block;
-    for (const rt::Light& light : rt::frame_record().lights) {
-        if (light.kind == rt::Light::Kind::kAmbient) {
-            block.ambient = {core::at(light.colour, 0), core::at(light.colour, 1), core::at(light.colour, 2), 0.0F};
-        }
-    }
     std::array<float, 3> toward{};
     if (bounce_sun(&toward)) {
         block.to_sun = {toward.front(), core::at(toward, 1), toward.back(), 1.0F};
@@ -1624,7 +1622,7 @@ LightsBlock lights_block(EffectsState& own, float* unit)
             get_log("vulkan: rt_gi: the bounce's sun toward (%.3f, %.3f, %.3f)", static_cast<double>(block.to_sun.front()),
                     static_cast<double>(core::at(block.to_sun, 1)), static_cast<double>(core::at(block.to_sun, 2)));
         } else if (fit != 0) {
-            get_log("vulkan: rt_gi: the level's bake shows no sun - the bounce lit by the ambient light only");
+            get_log("vulkan: rt_gi: the level's bake shows no sun - no bounce here");
         }
     }
     return block;
@@ -1657,7 +1655,7 @@ bool ensure_timing(Backend& state, EffectsState& own)
 }
 
 // A slot's last pair read back if it is ready (else lost), and every kTimingReport the mean logged.
-void collect_timing(Backend& state, EffectsState& own, uint32_t slot, uint32_t width, uint32_t height)
+void collect_timing(Backend& state, EffectsState& own, uint32_t slot, const std::array<uint32_t, 4>& rect)
 {
     PassTiming& timing = own.timing;
     const uint64_t written = core::at(timing.pending, slot);
@@ -1675,7 +1673,7 @@ void collect_timing(Backend& state, EffectsState& own, uint32_t slot, uint32_t w
     timing.sum_ms += static_cast<double>(ticks.back() - ticks.front()) * timing.period_ns / kNsPerMs;
     if (++timing.measured >= kTimingReport) {
         get_log("vulkan: %s: %.3f ms a pass on the device over the last %u (%ux%u, %u rays, %s)", effect_name(own),
-                timing.sum_ms / timing.measured, timing.measured, width, height, effect_rays(own),
+                timing.sum_ms / timing.measured, timing.measured, core::at(rect, 2), core::at(rect, 3), effect_rays(own),
                 effect_denoised(own) ? "denoised" : "not denoised");
         timing.sum_ms = 0.0;
         timing.measured = 0;
@@ -1715,6 +1713,80 @@ bool effect_ready(Backend& state, EffectsState& own)
         return false;
     }
     return true;
+}
+
+// The scene's build (recorded earlier on this queue), the lights' write (the indirect light's) and the last frame's
+// uses of the images before this one's.
+void ready_barrier(VkCommandBuffer commands, bool rgb)
+{
+    const VkMemoryBarrier ready{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                .pNext = nullptr,
+                                .srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR |
+                                                 VK_ACCESS_SHADER_WRITE_BIT |
+                                                 (rgb ? VkAccessFlags{VK_ACCESS_HOST_WRITE_BIT} : VkAccessFlags{0}),
+                                .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR |
+                                                 VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
+                                                 (rgb ? VkAccessFlags{VK_ACCESS_UNIFORM_READ_BIT} : VkAccessFlags{0})};
+    vkCmdPipelineBarrier(commands,
+                         VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                             (rgb ? VkPipelineStageFlags{VK_PIPELINE_STAGE_HOST_BIT} : VkPipelineStageFlags{0}),
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &ready, 0, nullptr, 0, nullptr);
+}
+
+// The first pass's line in the log.
+void log_first_pass(const EffectsState& own, const std::array<uint32_t, 4>& rect, bool added, bool sun)
+{
+    const char* const filtered = effect_denoised(own) ? "denoised" : "not denoised";
+    if (is_indirect(own)) {
+        get_log("vulkan: rt_gi: the first indirect light pass (%ux%u, %u rays, distance %.1f, strength %.2f, %s, %s; "
+                "sun %s)",
+                core::at(rect, 2), core::at(rect, 3), own.gi.rays, static_cast<double>(own.gi.distance),
+                static_cast<double>(own.gi.strength), filtered, added ? "added" : "screened", sun ? "yes" : "none");
+        return;
+    }
+    get_log("vulkan: rt_ao: the first ambient occlusion pass (%ux%u, %u rays, radius %.1f, strength %.2f, %s)",
+            core::at(rect, 2), core::at(rect, 3), own.settings.rays, static_cast<double>(own.settings.radius),
+            static_cast<double>(own.settings.strength), filtered);
+}
+
+// Steps 2 and 3, the history and the spatial filter, after the rays of the slot's current frame; returns the image the
+// apply reads.
+struct DenoiseInputs {
+    bool have_before = false;
+    float rays = 1.0F;
+    float unit = 1.0F; // the most one ray can bring
+};
+Image* record_denoise(VkCommandBuffer commands, const EffectsState& own, ViewSlot* slot, const PassConstants& constants,
+                      const DenoiseInputs& inputs)
+{
+    const uint32_t now = slot->current;
+    const uint32_t before = now ^ 1U;
+    const Image* const guide = &core::at(slot->guides, now);
+    // 2. the history
+    PassConstants temporal = constants;
+    temporal.matrix = column_major(slot->world_to_pixel);
+    temporal.params = {static_cast<float>(kAoMaxHistory), inputs.have_before ? 1.0F : 0.0F, inputs.rays, inputs.unit};
+    Image* const history = &core::at(slot->histories, now);
+    dispatch(commands, own, own.temporal,
+             {.out = history,
+              .guide = guide,
+              .in = &slot->raw,
+              .guide_before = &core::at(slot->guides, before),
+              .history = &core::at(slot->histories, before)},
+             temporal);
+    slot->history_written = history;
+    // 3. the spatial filter
+    Image* result = history;
+    PassConstants filter = constants;
+    filter.params = {0.0F, 0.0F, inputs.rays, inputs.unit};
+    for (uint32_t pass = 0; pass < kAoFilterPasses; ++pass) {
+        Image* const target = &core::at(slot->filtered, pass % 2);
+        filter.extra = {static_cast<int32_t>(1U << pass), 0, 0, 0};
+        dispatch(commands, own, own.filter, {.out = target, .guide = guide, .in = result}, filter);
+        result = target;
+    }
+    return result;
 }
 
 // The passes of either effect over the bound targets for a viewport (record_rt_ao_pass, record_rt_gi_pass).
@@ -1792,30 +1864,16 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
 
     VkCommandBuffer commands = outside_pass(state);
     const bool timed = ensure_timing(state, own);
-    const uint32_t timing_slot = static_cast<uint32_t>(own.passes % kTimingSlots);
+    const auto timing_slot = static_cast<uint32_t>(own.passes % kTimingSlots);
     if (timed) {
-        collect_timing(state, own, timing_slot, width, height);
+        collect_timing(state, own, timing_slot, clipped.rect);
         vkCmdResetQueryPool(commands, own.timing.pool, timing_slot * 2, 2);
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, own.timing.pool, timing_slot * 2);
     }
     if (slot->fresh) {
         clear_slot(commands, slot);
     }
-    // the scene's build (recorded earlier on this queue), the lights' write and the last frame's uses of the images
-    // before this one's
-    const VkMemoryBarrier ready{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-                                .pNext = nullptr,
-                                .srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR |
-                                                 VK_ACCESS_SHADER_WRITE_BIT |
-                                                 (rgb ? VkAccessFlags{VK_ACCESS_HOST_WRITE_BIT} : VkAccessFlags{0}),
-                                .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR |
-                                                 VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
-                                                 (rgb ? VkAccessFlags{VK_ACCESS_UNIFORM_READ_BIT} : VkAccessFlags{0})};
-    vkCmdPipelineBarrier(commands,
-                         VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
-                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-                             (rgb ? VkPipelineStageFlags{VK_PIPELINE_STAGE_HOST_BIT} : VkPipelineStageFlags{0}),
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &ready, 0, nullptr, 0, nullptr);
+    ready_barrier(commands, rgb);
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
 
     PassConstants constants{};
@@ -1848,32 +1906,9 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     dispatch(commands, own, core::at(own.trace, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U), trace_images,
              trace);
     Image* result = &slot->raw;
+    slot->history_written = nullptr;
     if (denoise) {
-        // 2. the history
-        PassConstants temporal = constants;
-        temporal.matrix = column_major(slot->world_to_pixel);
-        temporal.params = {static_cast<float>(kAoMaxHistory), have_before ? 1.0F : 0.0F, rays, unit};
-        Image* const history = &core::at(slot->histories, now);
-        dispatch(commands, own, own.temporal,
-                 {.out = history,
-                  .guide = guide,
-                  .in = &slot->raw,
-                  .guide_before = &core::at(slot->guides, before),
-                  .history = &core::at(slot->histories, before)},
-                 temporal);
-        slot->history_written = history;
-        // 3. the spatial filter
-        result = history;
-        PassConstants filter = constants;
-        filter.params = {0.0F, 0.0F, rays, unit};
-        for (uint32_t pass = 0; pass < kAoFilterPasses; ++pass) {
-            Image* const target = &core::at(slot->filtered, pass % 2);
-            filter.extra = {static_cast<int32_t>(1U << pass), 0, 0, 0};
-            dispatch(commands, own, own.filter, {.out = target, .guide = guide, .in = result}, filter);
-            result = target;
-        }
-    } else {
-        slot->history_written = nullptr;
+        result = record_denoise(commands, own, slot, constants, {.have_before = have_before, .rays = rays, .unit = unit});
     }
     depth_barrier(commands, depth, depth->resting, false);
 
@@ -1908,17 +1943,7 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     ++slot->passes;
     ++own.passes;
     if (first_report(state, kReportFirstPass + key)) {
-        if (rgb) {
-            get_log("vulkan: rt_gi: the first indirect light pass (%ux%u, %u rays, distance %.1f, strength %.2f, %s, "
-                    "%s; sun %s)",
-                    width, height, own.gi.rays, static_cast<double>(own.gi.distance),
-                    static_cast<double>(own.gi.strength), denoise ? "denoised" : "not denoised",
-                    float_format(colour->format) ? "added" : "screened", lights.to_sun.back() > 0.0F ? "yes" : "none");
-        } else {
-            get_log("vulkan: rt_ao: the first ambient occlusion pass (%ux%u, %u rays, radius %.1f, strength %.2f, %s)",
-                    width, height, own.settings.rays, static_cast<double>(own.settings.radius),
-                    static_cast<double>(own.settings.strength), denoise ? "denoised" : "not denoised");
-        }
+        log_first_pass(own, clipped.rect, float_format(colour->format), lights.to_sun.back() > 0.0F);
     }
     return true;
 }

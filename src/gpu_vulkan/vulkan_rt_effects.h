@@ -84,18 +84,19 @@ bool read_rt_ao_image(Backend& state, const std::array<uint32_t, 4>& rect, RtAoI
 //   1. trace: the pixel's position and normal as above; its albedo - a ray from the camera finds the surface the pixel
 //      shows (kept where it ends at the depth's point, as the reflections do) and its material (R3) is read at the hit's
 //      texture coordinates (R2's geometry table) at the level its footprint asks for, x the material's colour (the vertex
-//      colours, the level's baked light, left out) - and `rays` cosine-weighted rays (masks 0x01 + 0x02 + 0x04, alpha
-//      tested along the way) no longer than `distance`: a hit brings its own albedo (the same way, at a level for the
-//      ray's spread) x (the frame record's ambient light + its first directional light x N.L where a ray toward that
-//      light - masks 0x01 + 0x02 - is clear), a miss the sky's light (the ambient light again: the frame record has no
-//      sky colour). Their mean is the light arriving (E);
-//   2. / 3. the temporal and spatial filters on E's colour (the noise floors scaled by the most one ray can bring: the
-//      sun's colour + the ambient's);
-//   4. apply: added = strength x albedo x max(E - sky, 0) - only the light beyond what an open sky gives, which THUG2's
-//      baked vertex colours already hold (an open floor gets nothing; a floor beside a sunlit wall gets the wall's
-//      colour) - and the blend adds it scaled by (1 - colour): a screen, so a lit pixel near white gains little and none
-//      goes past white, a dark one gains most. On a float colour target (an HDR target) it is added as it is. Pixels
-//      whose surface wasn't found (albedo 0) are left alone.
+//      colours, the level's baked light, left out; at most 1) - and `rays` cosine-weighted rays (masks 0x01 + 0x02 +
+//      0x04, alpha tested along the way) no longer than `distance`: a hit brings its own albedo (the same way, at a level
+//      for the ray's spread) x the sun's light x N.L where a ray toward the sun - masks 0x01 + 0x02 - is clear; a miss
+//      brings nothing. Their mean is the sun's light bounced once (E). The sun: the console's `rt sun`, else the level's
+//      baked sun (engine/gfx/rt_sun.h; the frame record's directional lights are the skater's), white; a level whose
+//      bake shows none (indoors) gets no bounce. THUG2's baked vertex colours already hold the sky's and the ambient
+//      light - the bounce is what they lack - so the hits get no ambient light and the sky brings none (the shader
+//      keeps both terms, and step 4 a sky to subtract, all 0 for now);
+//   2. / 3. the temporal and spatial filters on E's colour (the noise floors scaled by the most one ray can bring);
+//   4. apply: added = strength x albedo x max(E - sky, 0) (sky 0: E) - an open floor gets nothing, a floor beside a
+//      sunlit wall gets the wall's colour - and the blend adds it scaled by (1 - colour): a screen, so a lit pixel near
+//      white gains little and none goes past white, a dark one gains most. On a float colour target (an HDR target) it
+//      is added as it is. Pixels whose surface wasn't found (albedo 0) are left alone.
 // rt_gi_denoise=0 applies step 1's light as it is.
 
 // The usage the indirect light needs of a depth surface is rt_effects_depth_usage's (it counts both effects).

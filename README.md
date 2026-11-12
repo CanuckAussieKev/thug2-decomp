@@ -341,6 +341,11 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
 | `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
 | `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
+| `rt_gi` | 0 | On Vulkan with `ray_tracing=1`: 1 adds one bounce of ray-traced light - shaded ground and corners beside sunlit walls pick up their colour and brightness (lit by the level's own sun; nothing changes in a level with none, indoors) |
+| `rt_gi_strength` | 1 | How much of the bounced light is added (0-4) |
+| `rt_gi_rays` | 2 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
+| `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
+| `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
 | `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
 | `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it) |
 | `rt_shadow_sun` | bake | The sun the shadows fall from: `bake` - the one the level's own lighting was made with, found from it when the level starts (a level lit only by its lamps, indoors, gets no ray-traced shadows); `light` - the game's light for the skater (the same in every level); or `x,y,z` toward the sun |
