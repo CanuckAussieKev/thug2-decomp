@@ -4,6 +4,7 @@
 //
 //   node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <cmake build folder>] [--arch x64]
 //        [--renderers vulkan,d3d9] [--scenarios levels,anteara] [--owner <name>] [--out <folder>]
+//        [--set Section.key=value,...]
 //   node tools/game/rt_contract.ts read <thug2-decomp.log>
 //
 // run: under the workspace's lock (game_lock.ps1; released at the end - the exe and the ini put back), --build deployed
@@ -14,6 +15,7 @@
 //   - anteara: [features] anteara_mod=1, BO, riding.
 // Each run's log (and the frame dump) is kept in --out (default out\rt-contract), and read: the check must have been on,
 // counted frames and draws, and found no violation; a crash or hang fails the run. Exit code 0 when every run passed.
+// --set: more ini values for every run (e.g. Graphics.ray_tracing=1: the Vulkan backend's ray tracing installed, R2).
 // Only a workspace (C:\Games\THUG2-<n>) - never the main install. Muted (workspace_ini.ts).
 //
 // read: one log read as above (its summary lines, its violations) - for a run made by hand.
@@ -31,7 +33,7 @@ const RENDERERS = ["vulkan", "d3d9"] as const;
 
 const USAGE = `usage:
   node tools/game/rt_contract.ts run --game C:\\Games\\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
-       [--scenarios levels,anteara] [--owner <name>] [--out <folder>]
+       [--scenarios levels,anteara] [--owner <name>] [--out <folder>] [--set Section.key=value,...]
   node tools/game/rt_contract.ts read <thug2-decomp.log>`;
 
 export interface Scenario {
@@ -133,10 +135,10 @@ export function verdict(result: LogResult): string {
     return "";
 }
 
-export function iniFor(base: string, renderer: string, scenario: Scenario): string {
+export function iniFor(base: string, renderer: string, scenario: Scenario, extra: Record<string, string> = {}): string {
     let text = setIniValue(base, "Graphics", "renderer", renderer);
     text = setIniValue(text, "debug", "rt_contract_check", "1");
-    for (const [where, value] of Object.entries(scenario.ini)) {
+    for (const [where, value] of Object.entries({ ...extra, ...scenario.ini })) {
         const dot = where.indexOf(".");
         text = setIniValue(text, where.slice(0, dot), where.slice(dot + 1), value);
     }
@@ -177,6 +179,7 @@ async function run(options: {
     scenarios: Scenario[];
     owner: string;
     out: string;
+    extra: Record<string, string>;
 }): Promise<number> {
     const { game, out } = options;
     if (!isWorkspace(game)) exitWith(`${game} isn't a workspace (C:\\Games\\THUG2-<n>): this tool runs only there`);
@@ -204,7 +207,7 @@ async function run(options: {
         const base = fs.readFileSync(ini, "utf8");
         for (const renderer of options.renderers) {
             for (const scenario of options.scenarios) {
-                fs.writeFileSync(ini, iniFor(base, renderer, scenario), "utf8");
+                fs.writeFileSync(ini, iniFor(base, renderer, scenario, options.extra), "utf8");
                 ensureWorkspaceMuted(game);
                 clearAutomationFiles(game);
                 const log = path.join(game, "thug2-decomp.log");
@@ -250,6 +253,18 @@ async function run(options: {
     return failed ? 1 : 0;
 }
 
+// --set's "Section.key=value,..." as the ini values a scenario lists.
+export function parseSettings(text: string): Record<string, string> {
+    const settings: Record<string, string> = {};
+    for (const item of text.split(",").filter((part) => part)) {
+        const equals = item.indexOf("=");
+        const dot = item.indexOf(".");
+        if (dot <= 0 || equals <= dot + 1) exitWith(`--set: ${item} isn't Section.key=value`);
+        settings[item.slice(0, equals)] = item.slice(equals + 1);
+    }
+    return settings;
+}
+
 async function main(): Promise<number> {
     const { values, positionals } = parseCli(USAGE, {
         options: {
@@ -260,6 +275,7 @@ async function main(): Promise<number> {
             scenarios: { type: "string", default: SCENARIOS.map((s) => s.name).join(",") },
             owner: { type: "string", default: "rt-contract" },
             out: { type: "string", default: path.join("out", "rt-contract") },
+            set: { type: "string", default: "" },
         },
         allowPositionals: true,
     });
@@ -284,6 +300,7 @@ async function main(): Promise<number> {
             scenarios,
             owner: values.owner,
             out: path.resolve(values.out),
+            extra: parseSettings(values.set),
         });
     }
     print(USAGE);

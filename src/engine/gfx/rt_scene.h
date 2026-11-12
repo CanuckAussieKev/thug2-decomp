@@ -101,6 +101,24 @@ struct FrameRecord {
     std::vector<Camera> cameras;
 };
 
+// One ray traced through the scene the backend last built (R2: the automation channel's rtprobe - a check against the
+// game's own collision): from `origin` along `direction` (any length) to `max_distance`. `traced` false: nothing to
+// trace against (no backend, or no frame built yet).
+struct ProbeRequest {
+    std::array<float, 3> origin{};
+    std::array<float, 3> direction{};
+    float max_distance = 0.0F;
+};
+struct ProbeResult {
+    bool traced = false;
+    bool hit = false;
+    float distance = 0.0F;   // along the direction normalised
+    uint32_t instance = 0;   // its index in the frame record's instances
+    MaterialId material = 0; // the instance's
+    MeshId mesh = 0;         // the instance's
+    uint32_t primitive = 0;  // the triangle in the mesh (a strip's: counted along it)
+};
+
 // A backend that traces rays (R2 on): meshes registered as they are made and released, materials likewise, then each
 // frame's record - from which it builds the scene it traces (the TLAS) before the frame is drawn.
 class RayTracing {
@@ -113,6 +131,13 @@ public:
     virtual void set_material(MaterialId material, const Material& surface) { (void)material, (void)surface; }
     virtual void remove_material(MaterialId material) { (void)material; }
     virtual void begin_frame(const FrameRecord& record) = 0;
+    // (R2) The ray through the last frame's scene, traced now (slow: the frame's work is finished first) - for tools,
+    // not for frames.
+    virtual ProbeResult probe(const ProbeRequest& ray)
+    {
+        (void)ray;
+        return {};
+    }
     // (added by R1) A registered mesh's triangles now somewhere else (another of its buffers - a skinned mesh's
     // vertex buffers take turns -, buffers made again after a device reset, an edit): the same id, new geometry, and
     // its contents changed as mesh_changed says.
