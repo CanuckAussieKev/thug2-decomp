@@ -61,8 +61,9 @@
 //     - the group had nothing reflective ("nothing reflective in the scene"): changed at most 0.1%, as when skipped;
 //     - at least one group drew them, and some spot changed by 0.1% or more; no "couldn't" / "can't" line, no crash.
 //   --effect hdr --expect drawn (the defaults: the curve is the identity below its knee, ~0.91): on against off
-//     - the largest channel difference at most 12 (the shoulder takes the original's white to ~247; float blending's
-//       rounding a step or two), the mean at most 1.0 - both reported per spot;
+//     - at most 0.1% of the pixels with a channel changed by more than 12 (the shoulder takes the original's white to
+//       ~247; float blending's rounding a step or two; a material pass above 1 no longer clipped before the next
+//       multiplies it can do more, in a few pixels), the mean at most 1.0 - the largest and the mean reported per spot;
 //   --effect hdr --expect brighter (rt_exposure above 0): on against off
 //     - darkened: at most 0.1% (more light never darkens: the curve rises everywhere); turned black at most 0.1%;
 //     - the mean change upward somewhere (at least one spot +2 or more);
@@ -153,6 +154,7 @@ export interface ShadowDifference {
     dark: number;
     darkDarkened: number;
     maxDelta: number; // the largest channel difference (either way)
+    overDelta: number; // pixels with a channel changed by more than HDR_MAX_DELTA
     meanDelta: number; // the mean of the channels' absolute differences
     meanSigned: number; // the mean of the channels' differences, on - off
     whiteOff: number; // pixels pure white (every channel 255) in `off`
@@ -208,6 +210,7 @@ export function shadowDifference(
     let tooDark = 0;
     let blackened = 0;
     let maxDelta = 0;
+    let overDelta = 0;
     let sumDelta = 0;
     let sumSigned = 0;
     let whiteOff = 0;
@@ -242,6 +245,7 @@ export function shadowDifference(
                 sumSigned += delta;
             }
             maxDelta = Math.max(maxDelta, up, down);
+            if (Math.max(up, down) > HDR_MAX_DELTA) overDelta++;
             const isBright = Math.round(luma(off.rgb, p)) > split;
             if (isBright) bright++;
             else dark++;
@@ -275,6 +279,7 @@ export function shadowDifference(
         dark,
         darkDarkened,
         maxDelta,
+        overDelta,
         meanDelta: sumDelta / Math.max(1, pixels * 3),
         meanSigned: sumSigned / Math.max(1, pixels * 3),
         whiteOff,
@@ -362,8 +367,12 @@ export function judgeSpot(
             const moreWhite = share(difference.whiteOn - difference.whiteOff, difference);
             if (moreWhite > HDR_MORE_WHITE) problems.push(`pure white grew by ${pct(moreWhite)} of the picture`);
         } else {
-            if (difference.maxDelta > HDR_MAX_DELTA)
-                problems.push(`a channel changed by ${difference.maxDelta} (at most ${HDR_MAX_DELTA})`);
+            // (a few pixels may differ more: a pass of a material that went above 1 is no longer clipped before the
+            // next pass multiplies it - the float target's own behaviour, not the curve's)
+            if (share(difference.overDelta, difference) > limits.maxChanged)
+                problems.push(
+                    `${pct(share(difference.overDelta, difference))} of the pixels changed by more than ${HDR_MAX_DELTA} (largest ${difference.maxDelta})`,
+                );
             if (difference.meanDelta > HDR_MAX_MEAN)
                 problems.push(`the mean change ${difference.meanDelta.toFixed(2)} (at most ${HDR_MAX_MEAN})`);
         }
@@ -574,7 +583,7 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             `${verdict.name}: compared ${d.pixels} pixels; darkened ${pct(share(d.darkened, d))} (lower half ${pct(d.darkened ? d.lowerHalf / d.darkened : 0)}), brighter ${pct(share(d.brighter, d))}, median ratio ${d.medianRatio?.toFixed(3) ?? "-"}; baked-bright darkened ${pct(d.brightDarkened / Math.max(1, d.bright))}, baked-dark ${pct(d.darkDarkened / Math.max(1, d.dark))} (split at luma ${d.split})` +
                 (limits.effect === "ao" ? `, too dark ${pct(share(d.tooDark, d))}` : "") +
                 (limits.effect === "hdr"
-                    ? `, max channel difference ${d.maxDelta}, mean ${d.meanDelta.toFixed(3)} (signed ${d.meanSigned.toFixed(3)}), pure white ${pct(share(d.whiteOff, d))} -> ${pct(share(d.whiteOn, d))}`
+                    ? `, max channel difference ${d.maxDelta} (${pct(share(d.overDelta, d))} over ${HDR_MAX_DELTA}), mean ${d.meanDelta.toFixed(3)} (signed ${d.meanSigned.toFixed(3)}), pure white ${pct(share(d.whiteOff, d))} -> ${pct(share(d.whiteOn, d))}`
                     : "") +
                 (limits.effect === "reflections"
                     ? `, turned black ${pct(share(d.blackened, d))}${reflected ? "" : " (nothing reflective drawn)"}`

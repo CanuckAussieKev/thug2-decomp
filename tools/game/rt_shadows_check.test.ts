@@ -250,7 +250,7 @@ test("HDR: the defaults' shoulder passes; a large change fails; its ini values a
     assert.deepEqual(judgeSpot("a", d, null, HDR).problems, []);
     assert.equal(anyShadow([judgeSpot("a", d, null, HDR)], HDR), true);
     const wrong = shaded(off, 20, 0.5);
-    assert.match(judgeSpot("b", shadowDifference(off, wrong, null, 8), null, HDR).problems.join(), /changed by/);
+    assert.match(judgeSpot("b", shadowDifference(off, wrong, null, 8), null, HDR).problems.join(), /changed by more/);
     assert.deepEqual(configValues("on", "hdr"), { "Graphics.rt_hdr": "1" });
     assert.deepEqual(configValues("off", "hdr"), { "Graphics.rt_hdr": "0" });
     const pass = "vulkan: rt_hdr: the first tone-mapping pass (1280x720, 1 sample; exposure +0.00, curve 0)";

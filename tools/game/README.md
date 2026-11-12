@@ -164,8 +164,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `--effect hdr` (both commands): HDR rendering and tone mapping (`[Graphics] rt_hdr`) - `rt_hdr=0` / `1`, the rest of
   the ini as the workspace has it (`--set` reaches both: `--set Graphics.rt_exposure=1` changes only `on`,
   `--set Graphics.ray_tracing=1 --set Graphics.rt_shadows=1 ...` puts the ray-traced effects on float targets in both);
-  `--expect drawn` (the defaults): per spot the largest channel difference at most 12 and the mean at most 1.0 (the
-  shoulder takes white to ~247), both reported; `--expect brighter` (exposure raised): at most 0.1% darker or turned
+  `--expect drawn` (the defaults): per spot at most 0.1% of the pixels changed by more than 12 in a channel and the
+  mean at most 1.0 (the shoulder takes white to ~247; a material pass above 1 no longer clipped before the next
+  multiplies it changes a few pixels more), the largest and the mean reported; `--expect brighter` (exposure raised): at most 0.1% darker or turned
   black, pure-white pixels growing by at most 10 points of the picture, some spot +2 or more on average. Both: the `on`
   logs show "rt_hdr: the first tone-mapping pass", the `off` ones none; each configuration's frame times (the Vulkan
   "ms a frame" lines) reported. With `--baseline-build <main's x64 build>`, off against main's build: at most 0.1%
