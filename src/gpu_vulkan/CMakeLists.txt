@@ -35,6 +35,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_rt_reflections.cpp
     vulkan_rt_glsl.cpp
     vulkan_rt_materials.cpp
+    vulkan_hdr.cpp
 )
 # volk: the Vulkan loader, opened at run time (no import library) - public, as the context's header declares Vulkan's
 # functions through it; vulkan_memory_allocator: device memory (VMA, compiled once: cmake/vulkan_libraries.cmake) - public,

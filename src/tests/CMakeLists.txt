@@ -131,6 +131,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_effects_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_hdr_check.exe: the Vulkan Gpu's HDR targets and tone mapping (gpu_vulkan/vulkan_hdr.h) on
+# this machine - float targets filled with synthetic colours (the 16-bit floats 0 - 16, random ones, not-a-number and
+# the infinities), the pass run through rt_scene's listener and compared with the processor's curve; identity below the
+# knee; a viewport; 8-bit targets left alone; four samples resolved in floats and mapped per sample; the back buffer's
+# read-backs and present; .cube files (src/tests/vulkan_hdr_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_hdr_check vulkan_hdr_check.cpp)
+    target_link_libraries(thug2_vulkan_hdr_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_hdr_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_reflections_check.exe: the Vulkan Gpu's ray-traced reflections
 # (gpu_vulkan/vulkan_rt_reflections.h) and the scene's geometry table on this machine - texture coordinates and colours
 # fetched at rays' hits in every mesh layout compared with the meshes' own, and a mirror floor reflecting a textured box

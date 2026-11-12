@@ -37,6 +37,7 @@
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "gpu_vulkan/vulkan_hdr.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
@@ -766,6 +767,7 @@ void release_draw_objects(Backend& state)
     release_rt_shadows(state); // (NOT ORIGINAL - ray-traced shadows' pipelines: vulkan_rt_shadows.h)
     release_rt_effects(state); // (NOT ORIGINAL - ray-traced ambient occlusion's: vulkan_rt_effects.h)
     release_rt_reflections(state); // (NOT ORIGINAL - ray-traced reflections': vulkan_rt_reflections.h)
+    release_hdr(state); // (NOT ORIGINAL - HDR's tone mapping: vulkan_hdr.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);

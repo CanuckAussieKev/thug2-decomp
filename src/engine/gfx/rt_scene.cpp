@@ -1,7 +1,10 @@
 // NOT ORIGINAL - ray tracing's contract (rt_scene.h): the installed backend, the frame record and the ids.
 #include "engine/gfx/rt_scene.h"
 
+#include "engine/gfx/gpu.h"
+
 #include <algorithm>
+#include <cstdint>
 #include <vector>
 
 namespace render::rt {
@@ -71,5 +74,30 @@ void world_view_drawn(const ViewDrawn& view)
 }
 
 bool view_listened() { return !view_listeners().empty(); }
+
+namespace {
+bool& hdr_slot()
+{
+    static bool on = false;
+    return on;
+}
+} // namespace
+
+bool hdr_colour() { return hdr_slot(); }
+void set_hdr_colour(bool on) { hdr_slot() = on; }
+
+uint32_t world_target_format(uint32_t format)
+{
+    if (!hdr_colour()) {
+        return format;
+    }
+    if (format == gpu_value::kFormatA8R8G8B8) {
+        return gpu_value::kFormatA16B16G16R16F;
+    }
+    if (format == gpu_value::kFormatX8R8G8B8) {
+        return gpu_value::kFormatX16B16G16R16F;
+    }
+    return format;
+}
 
 } // namespace render::rt
