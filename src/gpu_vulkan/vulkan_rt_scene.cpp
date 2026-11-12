@@ -21,6 +21,8 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -635,7 +637,7 @@ bool make_probe_pass(Scene& made)
         return pass.pipeline != VK_NULL_HANDLE;
     }
     pass.tried = true;
-    const CompiledShader compiled = compile_glsl(ShaderStage::kCompute, kProbeShader, SpirvTarget::kVulkan12);
+    const CompiledShader compiled = compile_rt_glsl(RtShaderStage::kCompute, kProbeShader);
     if (!compiled.ok) {
         get_log("vulkan: the ray probe's shader doesn't compile: %s", compiled.log.c_str());
         return false;
@@ -827,13 +829,15 @@ VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const 
         const std::span<float, 4> into(core::at(made.transform.matrix, row));
         std::ranges::copy(core::at(given.object_to_world, row), into.begin());
     }
-    uint32_t mask = kMaskAny;
-    mask |= (given.flags & rt::kCastsShadow) != 0 ? kMaskShadowCaster : 0;
-    mask |= (given.flags & rt::kWorld) != 0 ? kMaskWorld : 0;
-    mask |= (given.flags & rt::kObject) != 0 ? kMaskObject : 0;
-    mask |= (given.flags & rt::kTransparent) != 0 ? kMaskTransparent : 0;
-    mask |= (given.flags & rt::kAlphaTested) != 0 ? kMaskAlphaTested : 0;
-    mask |= (given.flags & rt::kSkinned) != 0 ? kMaskSkinned : 0;
+    // (what R4's shadow rays pick by: vulkan_rt_scene.h)
+    uint32_t mask = kMaskWorld;
+    if ((given.flags & rt::kTransparent) != 0 || (given.flags & rt::kCastsShadow) == 0) {
+        mask = kMaskNoShadow;
+    } else if ((given.flags & rt::kAlphaTested) != 0) {
+        mask = kMaskAlphaTested;
+    } else if ((given.flags & rt::kObject) != 0) {
+        mask = kMaskObjects;
+    }
     const bool live = mesh != nullptr && mesh->built;
     made.instanceCustomIndex = given.material & kCustomIndexMask;
     made.mask = live ? mask : 0;
@@ -1051,6 +1055,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
         get_log("vulkan: ray tracing: no memory for a TLAS of %u instances", count);
         frame.built = false;
         made.any_built = false;
+        rt_shadows_set_scene_locked(VK_NULL_HANDLE);
         return;
     }
     write_instances(state, made, frame, record);
@@ -1085,6 +1090,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
         }
         frame.built = false;
         made.any_built = false;
+        rt_shadows_set_scene_locked(VK_NULL_HANDLE);
         return;
     }
 
@@ -1107,6 +1113,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
     vkCmdBuildAccelerationStructuresKHR(commands, 1, &tlas_info, &tlas_ranges);
     barrier(commands, kBuildStage, VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, kAfterBuild,
             VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
+    rt_shadows_set_scene_locked(frame.tlas.handle); // (R4's pass traces this frame's TLAS)
     frame.frame = record.frame;
     frame.count = count;
     frame.built = true;
@@ -1297,6 +1304,7 @@ void release_ray_tracing(Backend& state)
     if (rt::ray_tracing() == &made.backend) {
         rt::set_ray_tracing(nullptr);
     }
+    rt_shadows_set_scene_locked(VK_NULL_HANDLE);
     count_bytes(made);
     log_scene(made, true);
     // (the device is idle: release_device_objects waited for it)

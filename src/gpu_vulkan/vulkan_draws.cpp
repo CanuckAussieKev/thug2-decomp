@@ -37,6 +37,7 @@
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "platform/run_log.h"
 
@@ -760,6 +761,7 @@ void release_draw_objects(Backend& state)
     state.frames.shutdown(); // (everything waited for, the retired objects destroyed)
     state.materials.shutdown(state);
     state.pipelines.shutdown();
+    release_rt_shadows(state); // (NOT ORIGINAL - ray-traced shadows' pipelines: vulkan_rt_shadows.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);

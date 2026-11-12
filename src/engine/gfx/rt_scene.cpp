@@ -1,6 +1,9 @@
 // NOT ORIGINAL - ray tracing's contract (rt_scene.h): the installed backend, the frame record and the ids.
 #include "engine/gfx/rt_scene.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace render::rt {
 
 namespace {
@@ -31,5 +34,32 @@ MaterialId next_material_id()
     static MaterialId last = 0;
     return ++last;
 }
+
+namespace {
+std::vector<ViewListener*>& view_listeners()
+{
+    static std::vector<ViewListener*> listeners;
+    return listeners;
+}
+} // namespace
+
+void add_view_listener(ViewListener* listener)
+{
+    std::vector<ViewListener*>& listeners = view_listeners();
+    if (listener != nullptr && std::ranges::find(listeners, listener) == listeners.end()) {
+        listeners.push_back(listener);
+    }
+}
+
+void remove_view_listener(ViewListener* listener) { std::erase(view_listeners(), listener); }
+
+void opaque_view_drawn(const ViewDrawn& view)
+{
+    for (ViewListener* listener : view_listeners()) {
+        listener->opaque_drawn(view);
+    }
+}
+
+bool view_listened() { return !view_listeners().empty(); }
 
 } // namespace render::rt

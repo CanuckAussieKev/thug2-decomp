@@ -19,6 +19,8 @@
 //   - The top-level structure (TLAS) of each frame, built in begin_frame from the frame record's instances: one per
 //     frame in flight (a frame's is left alone until that frame has run), rebuilt each frame - an empty scene is a
 //     TLAS of no instances, so a valid handle exists from the first begin_frame on.
+//     Each built TLAS is handed to the shadow pass (rt_shadows_set_scene_locked, vulkan_rt_shadows.h); none when the
+//     build fails or the scene is released.
 // Builds are recorded into the frame's stream (vulkan_frames.h) outside a rendering pass, in batches sharing one
 // scratch buffer per frame in flight, after a barrier that makes the buffers' uploads and the processor's writes
 // visible to them. Released structures are destroyed once the submissions that may use them have finished.
@@ -29,15 +31,11 @@ namespace render::vulkan {
 
 struct Backend;
 
-// An instance's mask bits (VkAccelerationStructureInstanceKHR::mask), from InstanceFlag: a ray query's cull mask picks
-// what it can hit (0xFF: everything - kMaskAny is always set).
-inline constexpr uint32_t kMaskShadowCaster = 0x01; // kCastsShadow
-inline constexpr uint32_t kMaskWorld = 0x02;        // kWorld
-inline constexpr uint32_t kMaskObject = 0x04;       // kObject
-inline constexpr uint32_t kMaskTransparent = 0x08;  // kTransparent
-inline constexpr uint32_t kMaskAlphaTested = 0x10;  // kAlphaTested
-inline constexpr uint32_t kMaskSkinned = 0x20;      // kSkinned
-inline constexpr uint32_t kMaskAny = 0x80;
+// An instance's mask (VkAccelerationStructureInstanceKHR::mask), one bit from its InstanceFlags - what R4's shadow rays
+// pick by (a ray query's cull mask; 0xFF: everything): kMaskWorld (0x01, vulkan_rt_shadows.h) casts a shadow, opaque,
+// not an object; kMaskObjects (0x02) the same for kObject (the skater, peds, vehicles); and:
+inline constexpr uint32_t kMaskAlphaTested = 0x04; // casts a shadow, kAlphaTested
+inline constexpr uint32_t kMaskNoShadow = 0x80;    // kTransparent, or no kCastsShadow: never casts
 // An instance's custom index is its material id (rayQueryGetIntersectionInstanceCustomIndexEXT), 24 bits; its
 // instance index (rayQueryGetIntersectionInstanceIdEXT) its place in the frame record's instances. Instances flagged
 // kOpaque are forced opaque, the others forced non-opaque (a query sees them as candidates: alpha, R3); back faces are
