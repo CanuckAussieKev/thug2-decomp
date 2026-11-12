@@ -58,7 +58,7 @@ constexpr int kDefaultRays = 4096;
 constexpr uint32_t kDefaultSeed = 0x52325;
 constexpr int kRefitRounds = 40; // past the refits before a rebuild (vulkan_rt_scene.cpp)
 constexpr int kRefitRays = 512;
-constexpr uint32_t kSmallMeshes = 150;
+constexpr uint32_t kSmallMeshes = 1200; // (more than the backend's 1024 compaction queries: some wait for a later frame)
 constexpr uint32_t kSide = 8;       // the grids' quads a side
 constexpr double kGridSize = 12.0;
 constexpr float kFar = 1000.0F;
@@ -840,8 +840,9 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     check_rays(tally, "first frame (built, not yet compacted)", meshes, instances, options.rays, random);
 
     // the compactions: asked for with the builds, made at the next frame once those have run
-    draw_frame(gpu, meshes, instances, frame++, true);
-    draw_frame(gpu, meshes, instances, frame++, true);
+    for (int i = 0; i < 3; ++i) { // (the sizes of the builds past the queries asked for a frame later)
+        draw_frame(gpu, meshes, instances, frame++, true);
+    }
     stats = render::vulkan::scene_stats();
     const uint32_t statics = static_cast<uint32_t>(meshes.size()) - 1;
     tally->check(stats.compacted == statics && stats.blas_bytes < stats.built_bytes,

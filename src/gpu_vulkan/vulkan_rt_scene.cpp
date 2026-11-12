@@ -89,6 +89,7 @@ struct Mesh {
     uint32_t query = 0;  // its compacted-size query (when query_serial != kNoQuery)
     uint64_t query_serial = kNoQuery; // the submission that wrote it
     bool compacted = false;
+    bool compaction_wanted = false; // built to be compacted, its size not asked for yet (every query was in use)
     VkDeviceSize built_bytes = 0; // the BLAS's size as built (before compaction)
 };
 
@@ -216,6 +217,7 @@ struct Scene {
     double last_log = 0.0;
     bool budget_logged = false;
     bool changed = false; // built or compacted since the scene's last line
+    uint32_t compactions_wanted = 0; // meshes with compaction_wanted
     VulkanRayTracing backend;
 };
 
@@ -525,6 +527,10 @@ void release_query(Scene& made, Mesh* mesh)
 
 void forget_mesh(Backend& state, Scene& made, Mesh* mesh)
 {
+    if (mesh->compaction_wanted) {
+        mesh->compaction_wanted = false;
+        --made.compactions_wanted;
+    }
     release_query(made, mesh);
     retire_structure(state, made, &mesh->blas);
     retire(made, VK_NULL_HANDLE, &mesh->list_indices, state.frames.serial());
@@ -1052,20 +1058,50 @@ void record_compactions(Backend& state, Scene& made, VkCommandBuffer commands,
 
 // The static builds' compacted sizes asked for (after the builds' barrier), each query reset first; read at a later
 // frame once this submission has run (collect_compactions).
+void ask_compacted_size(Backend& state, Scene& made, VkCommandBuffer commands, Mesh* mesh)
+{
+    mesh->query = made.free_queries.back();
+    made.free_queries.pop_back();
+    mesh->query_serial = state.frames.serial();
+    vkCmdResetQueryPool(commands, made.queries, mesh->query, 1);
+    vkCmdWriteAccelerationStructuresPropertiesKHR(commands, 1, &mesh->blas.handle,
+                                                  VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, made.queries,
+                                                  mesh->query);
+}
+
 void ask_compacted_sizes(Backend& state, Scene& made, VkCommandBuffer commands, const std::vector<BuildJob>& jobs)
 {
     for (const BuildJob& job : jobs) {
-        if (!job.compact || made.free_queries.empty()) {
+        if (!job.compact) {
             continue;
         }
-        Mesh* const mesh = job.mesh;
-        mesh->query = made.free_queries.back();
-        made.free_queries.pop_back();
-        mesh->query_serial = state.frames.serial();
-        vkCmdResetQueryPool(commands, made.queries, mesh->query, 1);
-        vkCmdWriteAccelerationStructuresPropertiesKHR(commands, 1, &mesh->blas.handle,
-                                                      VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
-                                                      made.queries, mesh->query);
+        if (made.free_queries.empty()) {
+            if (!job.mesh->compaction_wanted) {
+                job.mesh->compaction_wanted = true; // (asked for at a later frame, once queries are free)
+                ++made.compactions_wanted;
+            }
+            continue;
+        }
+        if (job.mesh->compaction_wanted) {
+            job.mesh->compaction_wanted = false;
+            --made.compactions_wanted;
+        }
+        ask_compacted_size(state, made, commands, job.mesh);
+    }
+    // the ones built at earlier frames while every query was in use (their builds have been waited for: the barrier
+    // before the first build of this frame)
+    for (auto& [id, mesh] : made.meshes) {
+        if (made.compactions_wanted == 0 || made.free_queries.empty()) {
+            break;
+        }
+        if (!mesh.compaction_wanted || mesh.query_serial != kNoQuery) {
+            continue;
+        }
+        mesh.compaction_wanted = false;
+        --made.compactions_wanted;
+        if (mesh.built && !mesh.compacted && !mesh.geometry.dynamic && !mesh.refused) {
+            ask_compacted_size(state, made, commands, &mesh);
+        }
     }
 }
 
