@@ -1,25 +1,12 @@
-// NOT ORIGINAL - translates a game folder's .qb scripts to TypeScript and installs them where the game looks for them
-// (docs/qb-ts.md "In the game"). A module is named by its .qb file's bytes (FNV-1a, as src/script_qb/ts_bridge.cpp
-// hashes what it loaded): <game>\thug2-decomp-ts\by-hash\<hash>.js - so it is only ever used for the very file it was
-// translated from (the stock file, an overlay's or a mod's version: each its own). The readable TypeScript is kept
-// beside, in source\<folder>\<path>.ts; the module is its scripts compiled (its globals are the game's own, read from
-// the same file). The game uses them with [features] ts_scripts=1 (ts_scripts=2, the game without .qb files: unpack_game.ts).
-//
-//   node tools/qbjs/install_ts.ts --game <folder> [--only <path>[,...]] [--clear] [--check]
-//
-// Sources: every .qb under Data\scripts, Data\levels and the overlay folders thug2-decomp-* (but -ts); --only: just
-// these (paths under the game folder, e.g. Data\scripts\game\misc\level_flags.qb). --clear: the folder emptied first.
-// Files that don't translate are listed and stay QB.
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+// NOT ORIGINAL - a game folder's .qb scripts as the tools see them: every version of each file the game may load (Data's,
+// an archive's, an overlay's - each named by its bytes' FNV-1a, as src/script_qb/ts_bridge.cpp hashes what it loaded),
+// PartyMod's patched keyboard.qb, and where the game's Data is. Used by unpack_game.ts (the game's .ts), script_check.ts
+// and the type tools.
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { applyBps, bpsMadeFor } from "thug2-level-converter-core/lib/bps.ts";
-import { compileTS } from "./compile_ts.ts";
-import { emitTS } from "./emit_ts.ts";
-import { readIR } from "./reader.ts";
-
-export type InstallResult = { installed: string[]; failed: [string, string][] };
 
 // FNV-1a 32 over the bytes (ts_bridge.cpp file_hash).
 export function fileHash(bytes: Uint8Array): string {
@@ -118,68 +105,3 @@ export function scriptBytes(name: string, bytes: Buffer): Buffer {
 // A version's origin without its patch mark (the folder or archive it was read from).
 export const unpatchedOrigin = (origin: string): string =>
     origin.endsWith(PATCHED) ? origin.slice(0, -PATCHED.length) : origin;
-
-// check: the script check's translation (emit_ts.ts) - for its runs only, never the game's.
-export function installTS(game: string, only: string[] = [], clear = false, check = false): InstallResult {
-    const root = gameRoot(game);
-    const out = join(root, "thug2-decomp-ts");
-    if (clear) rmSync(out, { recursive: true, force: true });
-    const wanted = only.map((path) =>
-        path
-            .replace(/[\\/]+/g, "\\")
-            .toLowerCase()
-            .replace(/^data\\/, ""),
-    );
-    const versions = qbVersions(root).filter((v) => !wanted.length || wanted.includes(v.name));
-    const result: InstallResult = { installed: [], failed: [] };
-    const seen = new Set<string>();
-    for (const version of versions) {
-        // (its readable source beside: under the folder it came from - Data, an overlay, or pre\\<archive>)
-        const origin =
-            version.origin === "Data"
-                ? "Data"
-                : unpatchedOrigin(version.origin).toLowerCase().endsWith(".prx")
-                  ? `pre\\${version.origin}`
-                  : version.origin;
-        const name = `${origin}\\${version.name}`;
-        try {
-            const bytes = version.bytes;
-            const hash = fileHash(bytes);
-            if (seen.has(hash)) continue;
-            seen.add(hash);
-            const ir = readIR(bytes, name);
-            const ts = emitTS(ir, {}, { check });
-            // The game's module has only the scripts: the globals stay the ones the game made from these very bytes
-            // (read_qb_file, just before) - making them again would only cost (a ported level's node arrays run to
-            // megabytes), and a global drawing a random number would draw twice.
-            const js = compileTS(
-                emitTS({ ...ir, definitions: ir.definitions.filter((d) => d.kind === "script") }, {}, { check }),
-                name,
-            );
-            const source = join(out, "source", name.replace(/\.qb$/i, ".ts"));
-            mkdirSync(dirname(source), { recursive: true });
-            writeFileSync(source, ts);
-            mkdirSync(join(out, "by-hash"), { recursive: true });
-            writeFileSync(join(out, "by-hash", `${hash}.js`), js);
-            result.installed.push(name);
-        } catch (e) {
-            result.failed.push([name, String(e).split("\n")[0]!]);
-        }
-    }
-    return result;
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    const args = process.argv.slice(2);
-    const value = (flag: string) => {
-        const i = args.indexOf(flag);
-        return i >= 0 ? args[i + 1] : undefined;
-    };
-    const game = value("--game");
-    if (!game)
-        throw Error("Usage: node tools/qbjs/install_ts.ts --game <folder> [--only a.qb,b.qb] [--clear] [--check]");
-    const only = (value("--only") ?? "").split(",").filter(Boolean);
-    const result = installTS(game, only, args.includes("--clear"), args.includes("--check"));
-    for (const [name, why] of result.failed) console.log(`not translated: ${name}: ${why}`);
-    console.log(`${result.installed.length} installed, ${result.failed.length} left to QB`);
-}

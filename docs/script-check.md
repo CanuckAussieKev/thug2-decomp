@@ -9,8 +9,7 @@ which branches the runs reached.
 node tools/qbjs/script_check.ts plan --game C:\Games\THUG2-1 [--only scripts\game\x.qb,...] [--runs 64]
 tools/game/game_lock.ps1 -Action acquire -Owner <you> -Game C:\Games\THUG2-1
 tools/game/deploy_build.ps1 -Game C:\Games\THUG2-1 -Arch x64 -BuildDir out\build\<build> -NoEditorTools
-node tools/qbjs/install_ts.ts --game C:\Games\THUG2-1 --clear --check
-tools/game/script_check.ps1 -Game C:\Games\THUG2-1          # both passes; each quits by itself
+tools/game/script_check.ps1 -Game C:\Games\THUG2-1          # both passes (the ts one unpacked: unpack_game.ts --check); each quits by itself
 node tools/qbjs/script_check.ts compare --game C:\Games\THUG2-1
 tools/game/game_lock.ps1 -Action release -Owner <you> -Game C:\Games\THUG2-1
 ```
@@ -47,7 +46,7 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   the other way in a later run, until every choice has been made both ways or the budget (`runs` per script and argument
   set) is spent. Then every branch no run has taken is forced (below). Coverage is recorded by the interpreter itself:
   each if's arm, each switch's arm, each Random's branch, and each statement run (`qb.txt`'s `cover` lines).
-- **TypeScript's coverage** is measured in its own runs, not taken from QB's: the check's translation (`install_ts.ts
+- **TypeScript's coverage** is measured in its own runs, not taken from QB's: the check's translation (`unpack_game.ts
   --check`) starts each statement with `reach(place)` and passes each decision's place to `branch` / `arm` / `repeat` /
   a Random (`[k, place]`) - the place in the script's QB code, so the counts are QB's. The game records them only for
   code that ran as TypeScript (`ts.txt`'s `cover` lines; a module that ran as QB counts nothing) and the report gives
@@ -59,7 +58,7 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   `no-typescript` when the TypeScript pass found no module for it - the report lists those: they ran as QB, untested),
   and coverage is counted against that version. That is the version the game reads at the front end; so that every
   version is run, a file with more than one is also planned once per version (`<file>@<hash>`, its own part and
-  coverage): the check loads that version's bytes as a temporary load (`load_qb_data`), and with ts_scripts=2 that
+  coverage): the check loads that version's bytes as a temporary load (`load_qb_data`), and with ts_scripts=1 that
   version's `.ts` where unpack_game.ts put it (`ts::read_version_next`). Versions the game never runs aren't planned:
   the unpatched keyboard.qb beside its patched one. The French and German archives' copies aren't either.
 - **Pools**: the check runs with four times the default pools (`script_check.ps1` writes `[memory]`): a level's file is
@@ -85,7 +84,7 @@ where the arm is forced.
 
 - QB forces in the interpreter (`run_conditional`, `run_multi_branch`, `resolve_random_jumps` - each NOT ORIGINAL there and
   doing nothing outside the check). TypeScript forces through `branch(truth)` and `arm(natural, arms)`, which the check's
-  translation (`install_ts.ts --check`, `emitTS(..., { check: true })`) writes around each if's condition and each
+  translation (`unpack_game.ts --check`, `emitTS(..., { check: true })`) writes around each if's condition and each
   switch; every Random goes through the same native (`__qbGame.decide`). The game's translation has neither.
 - Exploring forces each arm no run of the module has taken from the first run that reached its decision: that run's seed,
   its stub choices and forced decisions up to there - the same path - then the arm. Each arm is tried at most three times.
@@ -106,7 +105,7 @@ where the arm is forced.
   its module, as a level's is. With `new_frontend=1` / `anteara_mod=1` the overlay's `front_end` / `anteara` copy is
   the version the game reads, and is planned as one. keyboard.qb is loaded with PartyMod's binary patch applied when
   it is the file the patch was made for (src/engine/script/patched.cpp): the patched bytes are a version of their own
-  (`<origin>+partymod`, install_ts.ts `qbVersions`), so the game has a TypeScript module for them and the check plans them.
+  (`<origin>+partymod`, game_scripts.ts `qbVersions`), so the game has a TypeScript module for them and the check plans them.
 - A run's first 300 calls are written to its trace; the rest (up to the `calls` budget, 600) are counted and hashed on
   its end line.
 - A run that ends at a budget (`runaway`: QB's statement budget, 50,000, and TypeScript's interrupt budget - one check

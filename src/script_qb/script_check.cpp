@@ -752,7 +752,7 @@ void run_plan(const std::string& folder)
             std::string version_bytes;
             fs::read_text(text_of(module, "qb"), &version_bytes);
             std::vector<uint8_t> data(version_bytes.begin(), version_bytes.end());
-            ts::read_version_next(file, text_of(module, "ts")); // (ts_scripts=2: its .ts)
+            ts::read_version_next(file, text_of(module, "ts")); // (its .ts)
             load_qb_data(file.c_str(), data, 0, 0, 1);
             ts::read_version_next("", "");
         } else if (!loaded) {
@@ -797,7 +797,7 @@ void run_plan(const std::string& folder)
             out += "loaded none\n";
         }
         // The file's globals - every symbol it defined but its scripts - as their values' text, hashed: QB's read from
-        // the .qb, TypeScript's (ts_scripts=2) made by the file's standalone module - compared (`global` lines).
+        // the .qb, TypeScript's (ts_scripts=1) made by the file's standalone module - compared (`global` lines).
         {
             std::map<uint32_t, std::string> globals;
             for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {

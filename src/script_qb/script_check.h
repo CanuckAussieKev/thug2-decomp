@@ -7,8 +7,8 @@
 // `thug2-decomp.exe -script-check <folder>` (a workspace, under its lock): at the first front-end frame - the engine
 // started and the boot scripts loaded as in the game - it reads <folder>\plan.qb (written by script_check.ts: the
 // modules, their scripts, the arguments to call each with, the budgets), runs the plan and quits. With [features]
-// ts_scripts=0 it explores (qb.txt: every run's choices, its trace, the branches it took); with ts_scripts=1 it replays
-// qb.txt's runs (ts.txt).
+// ts_scripts=0 it explores (qb.txt: every run's choices, its trace, the branches it took); with ts_scripts=1 - the game unpacked,
+// tools/qbjs/unpack_game.ts --check - it replays qb.txt's runs (ts.txt).
 //
 // What a run is: the script started on a record of its own (no object), its arguments one of the plan's sets, the
 // random generator seeded per run, frames stepped (the game's clock with them) until it ends or runs out of frames.

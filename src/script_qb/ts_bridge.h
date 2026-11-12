@@ -1,14 +1,13 @@
 #pragma once
 
-// NOT ORIGINAL - TypeScript scripts in the game (docs/qb-ts.md "In the game"). A translated module (tools/qbjs:
-// emit_ts.ts, compile_ts.ts) is loaded after the .qb file it translates and replaces that file's scripts (its globals
-// stay the ones the loader made from the same bytes): each of its scripts gets a symbol whose body is one kTsBody
-// token, and when the interpreter reaches it on a call-stack
-// level it runs that level in QuickJS (cscript_ts.cpp). Everything else - the record, its Update, waits, events,
-// spawning, objects, the call stack - stays the interpreter's: a level's command calls are carried out by it.
+// NOT ORIGINAL - TypeScript scripts in the game (docs/qb-ts.md "In the game"). The game unpacked
+// (tools/qbjs/unpack_game.ts): each .qb file is a .ts where it was, and a file the game loads is defined by its module
+// in place of the .qb - its globals and its scripts: each script gets a symbol whose body is one kTsBody token, and
+// when the interpreter reaches it on a call-stack level it runs that level in QuickJS (cscript_ts.cpp). Everything
+// else - the record, its Update, waits, events, spawning, objects, the call stack - stays the interpreter's: a level's
+// command calls are carried out by it. A file with no .ts is read as .qb.
 //
-// [features] ts_scripts=1 (default 0) turns it on; the modules are the game folder's thug2-decomp-ts\by-hash\<the .qb
-// file's FNV-1a>.js (tools/qbjs/install_ts.ts), their compiled bytecode cached in thug2-decomp-ts\cache. [debug]
+// [features] ts_scripts=1 (default 0) turns it on; the modules' compiled bytecode is cached in thug2-decomp-ts\cache. [debug]
 // ts_types=1 records the types each site sees into thug2-decomp-ts\types-recorded.json (added to over sessions; read
 // by tools/qbjs/types.ts); ts_profile=1 logs where the time goes.
 
@@ -31,11 +30,11 @@ void set_interrupt_budget(uint32_t budget);
 // `temporary_only`: only those its temporary loads defined - a temporary load undone (the script check), the file's
 // own load's kept: the symbols it put back still name them.
 void forget_file(uint32_t file_checksum, bool temporary_only = false);
-// The script check: the next load of `filename` defined by the .ts at `ts_path` (a disk path) - with ts_scripts=2 - in
+// The script check: the next load of `filename` defined by the .ts at `ts_path` (a disk path) - in
 // place of the one the game would read: each version of a file checked (an archive's, the loose one).
 void read_version_next(const std::string& filename, const std::string& ts_path);
-// The .qb file `file_checksum` (its name's checksum) as last loaded: its bytes' hash (FNV-1a, as tools/qbjs/install_ts.ts
-// names modules) and whether its TypeScript module ran - none if it hasn't been loaded. (The script check reports which
+// The .qb file `file_checksum` (its name's checksum) as last loaded: its bytes' hash (FNV-1a, as tools/qbjs/game_scripts.ts
+// fileHash) and whether its TypeScript module ran - none if it hasn't been loaded. (The script check reports which
 // version of a file the game ran, and fails a TypeScript pass whose file had no module.)
 struct LoadedFile {
     uint32_t hash = 0;

@@ -153,13 +153,6 @@ bool& is_on()
     return on;
 }
 
-// [features] ts_scripts=2: the standalone modules first - a file that has one isn't read as .qb (load_standalone).
-bool& standalone()
-{
-    static bool on = false;
-    return on;
-}
-
 // --- values ---------------------------------------------------------------------------------------------------------
 
 JSValue get(JSContext* c, JSValueConst object, const char* key) { return JS_GetPropertyStr(c, object, key); }
@@ -942,8 +935,8 @@ bool start_engine()
     return true;
 }
 
-// FNV-1a over a .qb file's bytes: its module's name (tools/qbjs/install_ts.ts names them the same way), so a module is
-// only ever used for the very file it was translated from - an overlay's or a mod's version of a file has its own.
+// FNV-1a over a .qb file's bytes: which version of a file it is (tools/qbjs/game_scripts.ts fileHash) - an overlay's
+// or a mod's version of a file has its own.
 uint32_t file_hash(std::span<const uint8_t> bytes)
 {
     uint32_t hash = 0x811C9DC5U;
@@ -1028,7 +1021,6 @@ std::unordered_map<uint32_t, LoadedFile>& loaded_files()
     return files;
 }
 
-// After each .qb file: its TypeScript module, when there is one.
 // Who a module's definitions belong to (runtime.js loadingAs / forget): its file's checksum - a temporary load's apart,
 // past the 32-bit checksums, so undoing it lets go of only what it defined.
 JSValue owner_value(JSContext* c, uint32_t file_checksum, bool temporary)
@@ -1059,14 +1051,9 @@ bool run_module(const char* filename, bool temporary, const std::string& source,
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
         ++profile().loads;
         profile().load_ns += static_cast<uint64_t>(ms.count()) * 1000000U;
-        // (ts_scripts=2: the .ts read - the game still asks for its files by their .qb names)
-        if (relative.ends_with(".ts")) {
-            get_log("ts: %s loaded (%u ms%s)", relative.c_str(), static_cast<unsigned>(ms.count()),
-                    cached ? ", compiled before" : "");
-        } else {
-            get_log("ts: %s - its TypeScript module loaded (%u ms%s)", filename, static_cast<unsigned>(ms.count()),
-                    cached ? ", compiled before" : "");
-        }
+        // (the .ts read - the game still asks for its files by their .qb names)
+        get_log("ts: %s loaded (%u ms%s)", relative.c_str(), static_cast<unsigned>(ms.count()),
+                cached ? ", compiled before" : "");
         loaded_files()[checksums::hash_from_text(filename)].module = true;
     } else {
         get_log("ts: %s - its TypeScript module failed: %s", filename, error.c_str());
@@ -1076,27 +1063,15 @@ bool run_module(const char* filename, bool temporary, const std::string& source,
     return loaded;
 }
 
-void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool temporary)
+// After each .qb file read: its bytes' hash (the script check says which version of a file the game ran).
+void on_qb_loaded(const char* filename, std::span<const uint8_t> file, bool /*temporary*/)
 {
     if (filename) {
         loaded_files()[checksums::hash_from_text(filename)] = LoadedFile{file_hash(file), false};
     }
-    if (!is_on() || !filename) {
-        return;
-    }
-    std::array<char, 16> name{};
-    std::snprintf(name.data(), name.size(), "%08x.js", file_hash(file));
-    const std::string relative = std::string("by-hash\\") + name.data();
-    const std::string path = game_folder_path("thug2-decomp-ts") + "\\" + relative;
-    std::string source;
-    if (fs::disk().kind(path.c_str()) != fs::PathKind::kFile || !fs::read_text(path, &source)) {
-        return;
-    }
-    std::snprintf(name.data(), name.size(), "%08x.qbc", file_hash(file));
-    run_module(filename, temporary, source, relative, name.data());
 }
 
-// The TypeScript of game file `filename` ([features] ts_scripts=2, tools/qbjs/unpack_game.ts): <name>.ts where its .qb
+// The TypeScript of game file `filename` ([features] ts_scripts=1, tools/qbjs/unpack_game.ts): <name>.ts where its .qb
 // was, read as the game reads a file (packs::read_in) - the data overlay's, else a loaded archive's (Data\pre\<archive>\
 // as a folder: archive_folder.h), else Data's - so it is the version the .qb would have been. False when there's none.
 // (the script check: the next read of a file from a .ts of its choosing - a version the game would read from elsewhere)
@@ -1210,7 +1185,7 @@ bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, std:
     return true;
 }
 
-// load_qb's hook ([features] ts_scripts=2): the file defined by its TypeScript - its globals, its scripts and its
+// load_qb's hook ([features] ts_scripts=1): the file defined by its TypeScript - its globals, its scripts and its
 // checksum names - in place of reading the .qb; false (the .qb read) when it has none or it fails.
 // The scripts' text (tools/qbjs/localize.ts): Data\lang\<the language's code>.json as globalThis.qbText and
 // Data\lang\en.json as qbTextEnglish - a token missing from the language is read in English (qb_ts.js tr). Read once,
@@ -1245,7 +1220,7 @@ void load_text_tables()
 
 bool load_standalone(const char* filename, bool temporary)
 {
-    if (!is_on() || !standalone() || !filename) {
+    if (!is_on() || !filename) {
         return false;
     }
     load_text_tables();
@@ -1352,9 +1327,8 @@ void save_types_now_and_then()
 
 void install()
 {
-    const int mode = config_int("features", "ts_scripts", 0);
-    is_on() = mode != 0;
-    standalone() = mode == 2;
+    // (any value but 0: 2 was this before the modules beside the .qb files went)
+    is_on() = config_int("features", "ts_scripts", 0) != 0;
     profile().on = config_int("debug", "ts_profile", 0) != 0;
     engine().recording = config_int("debug", "ts_types", 0) != 0;
     // (each .qb file's hash is noted with TypeScript off too: the script check's QB pass says which version it ran)
@@ -1373,11 +1347,9 @@ void install()
         return;
     }
     set_qb_unloaded_hook(on_qb_unloaded);
-    if (standalone()) {
-        set_qb_standalone_hook(load_standalone);
-    }
-    get_log("ts: TypeScript scripts on (modules in %s%s)", game_folder_path("thug2-decomp-ts").c_str(),
-            standalone() ? "; standalone: a file's module in place of its .qb" : "");
+    set_qb_standalone_hook(load_standalone);
+    get_log("ts: TypeScript scripts on (each file's .ts in place of its .qb; compiled in %s\\cache)",
+            game_folder_path("thug2-decomp-ts").c_str());
     if (engine().recording) {
         // (the earlier sessions' counts, added to from here)
         if (std::string json;

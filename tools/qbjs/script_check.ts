@@ -5,7 +5,7 @@
 //       writes <game>\thug2-decomp-check: plan.qb (the modules, the budgets) and one part per module (its scripts and
 //       the argument sets to call each with: none, then up to three of the literal ones its callers pass)
 //   then, in that game folder (a workspace, under its lock): thug2-decomp.exe -script-check <that folder>, once with
-//       [features] ts_scripts=0 (qb.txt) and once with ts_scripts=1 (ts.txt) - tools/game/script_check.ps1
+//       [features] ts_scripts=0 (qb.txt) and once with ts_scripts=1 in the game unpacked (ts.txt) - tools/game/script_check.ps1
 //   node tools/qbjs/script_check.ts compare --game <folder>
 //       compares the runs (every call, its arguments and result, the frame it came in, how each run ended and the
 //       script's final parameters) and reports the branches the QB runs took against every branch the scripts have:
@@ -15,7 +15,7 @@ import { dirname, join, relative } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { checksum } from "../qb_checksum.ts";
-import { fileHash, gameRoot, type QbVersion, qbVersions, unpatchedOrigin } from "./install_ts.ts";
+import { fileHash, gameRoot, type QbVersion, qbVersions, unpatchedOrigin } from "./game_scripts.ts";
 import type { Definition, Expr, Field, ModuleIR, Statement } from "./ir.ts";
 import { readIR } from "./reader.ts";
 
@@ -76,7 +76,7 @@ export type PlanModule = {
     versions: PlanVersion[];
 };
 // A version: where it comes from, its bytes' hash, its bytes (written out) and where tools/qbjs/unpack_game.ts puts its
-// TypeScript - the .ts the game reads for it with ts_scripts=2.
+// TypeScript - the .ts the game reads for it with ts_scripts=1.
 export type PlanVersion = { origin: string; hash: string; source: string; ts: string };
 
 // The .ts unpack_game.ts makes for game file `file` read from `origin` (Data, a Data\pre archive, an overlay's folder).
@@ -94,7 +94,7 @@ export function versionTS(root: string, origin: string, file: string): string {
 export function planModules(root: string, only: string[] = []): PlanModule[] {
     const sources = join(root, "thug2-decomp-check-sources");
     rmSync(sources, { recursive: true, force: true });
-    // (a patched version - install_ts.ts qbVersions - before the file it was made from: the game loads it patched)
+    // (a patched version - game_scripts.ts qbVersions - before the file it was made from: the game loads it patched)
     const rank = (patched: string) => {
         const origin = unpatchedOrigin(patched);
         const base = origin.startsWith("thug2-decomp-data\\")
@@ -706,7 +706,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                                 if (lines.has(`if ${name} ${place} ${arm}`)) set.add(`if ${name} ${place} ${arm}`);
                     }
             // The files' globals, QB's (read from the .qb) against the TypeScript pass's (a standalone module's with
-            // ts_scripts=2): each by its value's text, hashed
+            // ts_scripts=1): each by its value's text, hashed
             const globalsOf = (lines: Set<string> | undefined) =>
                 new Map(
                     [...(lines ?? [])]
@@ -773,7 +773,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             `Branches: ${taken} of ${total} taken by the QB runs (${percent(taken, total)}%; forced where no input took them).`,
             `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends, or in an arm its if can't take) not counted.`,
             `TypeScript (measured in its own runs, the same counts): branches ${tsTaken} of ${total} (${percent(tsTaken, total)}%); statements ${tsRan} of ${statements} (${percent(tsRan, statements)}%); scripts run: ${tsStarted} of ${scripts}.`,
-            `Globals: ${result.globals} compared (QB's from the .qb files, the TypeScript pass's - from the standalone modules with ts_scripts=2); different: ${result.globalDifferences.length}.`,
+            `Globals: ${result.globals} compared (QB's from the .qb files, the TypeScript pass's - from the .ts modules with ts_scripts=1); different: ${result.globalDifferences.length}.`,
             "",
             "## Differences (first line that differs)",
             "",

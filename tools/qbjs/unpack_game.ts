@@ -1,5 +1,5 @@
 // NOT ORIGINAL - a game folder without archives or .qb files: the game run from loose files and TypeScript
-// ([features] ts_scripts=2, docs/qb-ts.md "Unpacked"). Every archive in Data\pre (.prx, the French and German .prf /
+// ([features] ts_scripts=1, docs/qb-ts.md "Unpacked"). Every archive in Data\pre (.prx, the French and German .prf /
 // .prd and their patches .ppf / .ppd) and every .qb (Data's, the data overlay's, the ported levels' overlays) is moved
 // to <game>\thug2-decomp-backup at the same path; each .qb becomes a .ts: its TypeScript (emit_ts.ts), which the game
 // runs as it loads the file (src/script_qb/ts_bridge.cpp load_standalone); and every file of the archives goes loose
@@ -15,7 +15,7 @@
 //   node tools/qbjs/unpack_game.ts --game <folder> --refresh  put back, then unpack again (after make_menu_level.ts or
 //                                                             a converter rewrote an overlay, or a new emitter)
 //   node tools/qbjs/unpack_game.ts --game <folder> --restore  everything put back as it was, the made files removed
-//   [--check]  the script check's translation (install_ts.ts --check) - for its runs only, never the game's
+//   [--check]  the script check's translation (emit_ts.ts check) - for its runs only, never the game's
 //
 // A .qb that doesn't translate stays a .qb where it was (the game reads it as QB). <game>\thug2-decomp-backup\
 // unpacked.json lists what was moved and made, for --restore.
@@ -24,9 +24,9 @@ import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { emitTS } from "./emit_ts.ts";
+import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
 import type { ModuleIR } from "./ir.ts";
 import { Localizer, notLocalised } from "./localize.ts";
-import { fileHash, gameRoot, scriptBytes } from "./install_ts.ts";
 import { readIR } from "./reader.ts";
 
 const BACKUP = "thug2-decomp-backup";
@@ -62,7 +62,7 @@ function scriptFolders(root: string): string[] {
 }
 
 // A .qb's TypeScript with its manifest line; null when it doesn't translate. `source`: its name in the runtime
-// ("Data\\levels\\bo\\bo_scripts.qb", lower case - as install_ts.ts names modules), `name` its game path.
+// ("Data\\levels\\bo\\bo_scripts.qb", lower case - as game_scripts.ts qbVersions names them), `name` its game path.
 // localize: the IR's text given tokens before it's written (localize.ts).
 export function scriptTS(
     source: string,
@@ -295,7 +295,7 @@ export function unpack(game: string, check = false): { record: Record; failed: s
     writeFileSync(
         join(root, BACKUP, "README.txt"),
         "The game's archives and .qb scripts (and the loose files the archives' copies replaced), moved here by\r\n" +
-            "tools/qbjs/unpack_game.ts: the game runs from loose files and .ts scripts (ts_scripts=2).\r\n" +
+            "tools/qbjs/unpack_game.ts: the game runs from loose files and .ts scripts (ts_scripts=1).\r\n" +
             "To put everything back: node tools/qbjs/unpack_game.ts --game <this game folder> --restore\r\n",
     );
     return { record, failed };

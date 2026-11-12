@@ -391,9 +391,14 @@ test("qb_write: a level structure's entries set (the last of a repeated key), ot
 // --- with the game's files (read only; skipped without them) -----------------------------------------------------------
 
 const BO = "C:\\Games\\THUG2\\Game\\Data\\levels\\BO";
+// (the game unpacked - tools/qbjs/unpack_game.ts -: its .qb in the backup folder)
+const BO_SCRIPTS = [
+    `${BO}\\BO_Scripts.qb`,
+    "C:\\Games\\THUG2\\Game\\thug2-decomp-backup\\Data\\levels\\BO\\BO_Scripts.qb",
+].find((path) => fs.existsSync(path));
 
-test("triggers: as Boston's own compiled gap script and trigger box", { skip: !fs.existsSync(BO) }, () => {
-    const scripts = fs.readFileSync(`${BO}\\BO_Scripts.qb`);
+test("triggers: as Boston's own compiled gap script and trigger box", { skip: !BO_SCRIPTS }, () => {
+    const scripts = fs.readFileSync(BO_SCRIPTS!);
     const q = new QbFile(scripts, "BO_Scripts.qb", true);
     // BO_Gap_StateHouseSpine1: StartGap (StateHouseSpine1, CANCEL_GROUND), then EndGap (StateHouseSpine2, 250, ...)
     const span = scriptSpans(scripts).get(checksum("BO_Gap_StateHouseSpine1"));

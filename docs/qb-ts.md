@@ -78,20 +78,15 @@ the original (the site is the script and the call's number `k` instead of its QB
 
 ## In the game
 
-The game runs translated scripts in QuickJS with `[features] ts_scripts=1` (default 0; `[debug] ts_profile=1` logs
-where the time goes). `node tools/qbjs/install_ts.ts --game <folder> [--clear]` translates the folder's `.qb` files -
-`Data\scripts`, `Data\levels` and the `thug2-decomp-*` overlays - into `thug2-decomp-ts`: `by-hash\<hash>.js`, named by
-the FNV-1a hash of the `.qb` file's bytes, and the readable `source\<folder>\<path>.ts` beside. After the loader reads a
-`.qb` file it hashes the bytes it read and loads the module of that name, if there is one - so a module only ever
-replaces the very file it was translated from (an overlay's or a mod's version of a file has its own), and a file
-without one stays QB. The module's scripts replace that file's; its globals are left out of the module the game loads
-(the source keeps them): they would only be the ones the loader has just made from the same bytes - making them again
-cost the most (a ported level's node arrays are megabytes), and a global drawing a random number would draw twice.
-A module is compiled to QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the
-QuickJS version, the word size and the module's own bytes); later starts read the bytecode.
+The game runs translated scripts in QuickJS with `[features] ts_scripts=1` (default 0: the `.qb` files; `[debug]
+ts_profile=1` logs where the time goes), in the game unpacked: each file the game loads is defined by its `.ts` - its
+globals and its scripts - in place of its `.qb`; a file with no `.ts` is read as `.qb`. A module is compiled to
+QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the QuickJS version, the word
+size and the module's own bytes); later starts read the bytecode. (Until 2026-11-13 there was also a mode with the
+modules beside the `.qb` files - `install_ts.ts`, `thug2-decomp-ts\by-hash` - and the unpacked game was
+`ts_scripts=2`; any value but 0 now means the unpacked game.)
 
-**Unpacked** (`[features] ts_scripts=2`, `node tools/qbjs/unpack_game.ts --game <folder>`): the game with no archive
-and no `.qb`. The tool moves every archive in `Data\pre` (`.prx`, the French and German `.prf` / `.prd` and their
+**Unpacked** (`node tools/qbjs/unpack_game.ts --game <folder>`): the game with no archive and no `.qb`. The tool moves every archive in `Data\pre` (`.prx`, the French and German `.prf` / `.prd` and their
 patches `.ppf` / `.ppd`) and every `.qb` (Data's, the data overlay's, the ported levels' overlays) to
 `<game>\thug2-decomp-backup` at the same paths, writes each `.qb` as a `.ts` and puts every file of the archives loose
 where its name says in Data (`Data\levels\bo\BO.scn.xbx`, `Data\levels\bo\BO_scripts.ts`, `Data\sounds\pcm\...`). The
@@ -137,7 +132,7 @@ hash of the `.qb` it was made from).
 - A module's globals go to the game's own table only (read back through it as a `.qb` file's): the runtime keeps no
   copy, which would outlive the file. A module runs with the game's interrupt budget, never the script check's lower
   one (a level's node arrays take far more than a script run).
-- The script check proves it: `script_check_parallel.ps1 -Standalone` runs its TypeScript pass in the game unpacked
+- The script check proves it: `script_check_parallel.ps1` runs its TypeScript pass in the game unpacked
   (`unpack_game.ts --check`), every version of every file (docs/script-check.md), and compares every global each file
   defines as well as the runs.
 

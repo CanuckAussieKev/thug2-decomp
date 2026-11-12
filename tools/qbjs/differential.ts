@@ -99,7 +99,7 @@ export function differential(module: ModuleIR, seeds = [0, 1, 2]): Outcome {
     const js = seeds.flatMap((seed) => load(javascript, false, seed));
     const tsEvents = seeds.flatMap((seed) => load(ts, true, seed));
     // Globals too big for the load budget on either path (a ported level's node arrays): the scripts compared as the
-    // game runs them - its module has only the scripts (install_ts.ts), the globals stay the game's own.
+    // game runs them - its module here has only the scripts, the globals stay the game's own.
     if ([...js, ...tsEvents].includes("load over budget") && module.definitions.some((d) => d.kind === "global"))
         return differential({ ...module, definitions: module.definitions.filter((d) => d.kind === "script") }, seeds);
     return {

@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CFUNC_NAMES } from "thug2-level-converter-core/level_port/thug2_cfuncs.ts";
 import { checksum } from "../qb_checksum.ts";
-import { gameRoot } from "./install_ts.ts";
+import { gameRoot } from "./game_scripts.ts";
 import type { Expr, Field, ModuleIR, Statement } from "./ir.ts";
 import { readIR } from "./reader.ts";
 
@@ -362,7 +362,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         try {
             modules.push(readIR(readFileSync(file), relative(root, file)));
         } catch {
-            // (not translated: stays QB - install_ts.ts lists them)
+            // (not translated: stays QB - unpack_game.ts lists them)
         }
     }
     const recorded = readRecorded(join(root, "thug2-decomp-ts", "types-recorded.json"));

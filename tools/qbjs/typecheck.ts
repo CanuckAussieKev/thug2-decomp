@@ -21,8 +21,8 @@ import { pathToFileURL } from "node:url";
 import { runInNewContext } from "node:vm";
 import { CFUNC_NAMES } from "thug2-level-converter-core/level_port/thug2_cfuncs.ts";
 import { checksum, foldChecksum } from "../qb_checksum.ts";
+import { gameRoot } from "./game_scripts.ts";
 import { helperSource } from "./helper-sources.ts";
-import { gameRoot } from "./install_ts.ts";
 import type { Call, Definition, Expr, Field, ModuleIR, Statement } from "./ir.ts";
 import { readIR } from "./reader.ts";
 

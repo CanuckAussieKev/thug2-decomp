@@ -348,7 +348,7 @@ globalThis.qbTs = (() => {
 
     // The script check's decisions (src/script_qb/script_check.h): the arm to take of `arms` - in the game the one the
     // condition / draw gave. branch(truth) for an if, arm(natural, arms) for a switch (written only by the check's
-    // translation, install_ts.ts --check); every Random goes through it.
+    // translation, unpack_game.ts --check); every Random goes through it.
     // (`place`: the decision's place in the script's QB code - the check's translation passes it, for TypeScript coverage)
     const decide = (kind, natural, arms, place) =>
         globalThis.__qbGame?.decide?.(kind, natural, arms, frame?.script ?? 0, place) ?? natural;

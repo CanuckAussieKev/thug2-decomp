@@ -1,12 +1,12 @@
 param([string]$Game = 'C:\Games\THUG2-1', [ValidateSet('', 'x86', 'x64')][string]$Arch = 'x64',
-      [ValidateSet('both', 'qb', 'ts')][string]$Pass = 'both', [int]$Seconds = 21600, [switch]$Standalone)
+      [ValidateSet('both', 'qb', 'ts')][string]$Pass = 'both', [int]$Seconds = 21600)
 # NOT ORIGINAL - the script check's two passes in a workspace (src/script_qb/script_check.h, docs/script-check.md):
 # the game started with -script-check <Game>\thug2-decomp-check, once with [features] ts_scripts=0 (QB: qb.txt) and
-# once with ts_scripts=1 (TypeScript, replaying QB's runs: ts.txt; -Standalone: ts_scripts=2 in the game unpacked -
-# tools/qbjs/unpack_game.ts --check: no archive, no .qb, every file read from its .ts -, put back after). The QB pass
+# once with ts_scripts=1 (TypeScript, replaying QB's runs: ts.txt) in the game unpacked - tools/qbjs/unpack_game.ts
+# --check: no archive, no .qb, every file read from its .ts -, put back after. The QB pass
 # runs in the game as installed (an unpacked one put back first). Each run quits by itself when the plan is done.
-# The caller holds the workspace's lock (game_lock.ps1) and has written the plan (tools/qbjs/script_check.ts plan) and
-# installed the TypeScript modules (tools/qbjs/install_ts.ts); the ini is put back by the lock's release.
+# The caller holds the workspace's lock (game_lock.ps1) and has written the plan (tools/qbjs/script_check.ts plan); the
+# ini is put back by the lock's release.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
 $root = Resolve-GameFolder $Game
 $check = Join-Path $root 'thug2-decomp-check'
@@ -39,12 +39,12 @@ function Invoke-Unpack([string[]]$arguments) {
 }
 foreach ($p in $passes) {
     if ($p -eq 'qb' -and (& $unpacked)) { Invoke-Unpack @('--restore') }
-    if ($p -eq 'ts' -and $Standalone) { Invoke-Unpack $(if (& $unpacked) { @('--refresh', '--check') } else { @('--check') }) }
-    Set-TsScripts $(if ($p -ne 'ts') { 0 } elseif ($Standalone) { 2 } else { 1 })
+    if ($p -eq 'ts') { Invoke-Unpack $(if (& $unpacked) { @('--refresh', '--check') } else { @('--check') }) }
+    Set-TsScripts $(if ($p -ne 'ts') { 0 } else { 1 })
     $started = Get-Date
     & (Join-Path $PSScriptRoot 'run_game.ps1') -Game $Game -Arch $Arch -Seconds $Seconds -HangSeconds $Seconds `
         -Shot "script_check_$p" -Extra @('-script-check', $check) | Select-Object -Last 1
     $out = Join-Path $check "$p.txt"
     "$p pass: $([int]((Get-Date) - $started).TotalSeconds) s, $(if (Test-Path $out) { (Get-Item $out).Length } else { 0 }) bytes"
 }
-if ($Standalone -and (& $unpacked)) { Invoke-Unpack @('--restore') }
+if (& $unpacked) { Invoke-Unpack @('--restore') }
