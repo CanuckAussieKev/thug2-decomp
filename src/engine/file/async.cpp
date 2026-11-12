@@ -522,7 +522,19 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     const bool overlapped = use_overlapped_io();
     file_ref_ = fs::disk().open(path.data(), overlapped ? kOverlappedRead : kPlainRead);
     if (file_ref_ == fs::no_file()) {
-        return false; // (the busy counts stay raised, as in the original)
+        // NOT ORIGINAL - the busy counts raised above given back: the open is over (nothing completes it later).
+        // Original behaviour: they stayed raised - the handle busy for good and async_busy() true from then on, so
+        // the 16 handles ran out after 16 opens of missing files (async_get_handle waited for one forever) and
+        // WaitForAsyncLoadToFinish / async_wait_for_io(true) never returned. The game's own data seldom asks for a
+        // missing file; ours does: an unpacked game's .qb files (TypeScript mode: the level's and each vehicle's node
+        // array - their .ts define them) and Anteara Mod's LoadAnim probe of the luge animations PC hasn't got - 17 in
+        // Los Angeles, a hang there.
+        pending_io_counter() = pending_io_counter() - 1;
+        in_flight_ops() = in_flight_ops() - 1;
+        if (in_flight_ops() == 0) {
+            set_operation(kAsyncIdle);
+        }
+        return false;
     }
     set_payload_bytes(static_cast<int>(fs::disk().size(file_ref_)));
     set_payload_bytes((payload_bytes() + kSectorMask) & ~kSectorMask); // whole 2 KB sectors (unbuffered reads)
