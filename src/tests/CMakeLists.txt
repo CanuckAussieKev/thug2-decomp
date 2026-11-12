@@ -90,3 +90,14 @@ if(TARGET thug2_gpu_vulkan AND TARGET thug2_fs_win32)
     target_link_libraries(thug2_vulkan_gpu_check PRIVATE thug2_gpu_vulkan thug2_fs_win32 sdl3)
     target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
 endif()
+
+# NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
+# (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
+# materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,
+# filtering, the alpha test, textures released while used and their slots reused, thousands of materials, textures[]
+# at the device's limit (src/tests/vulkan_rt_materials_check.cpp; --device N picks another GPU).
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_materials_check vulkan_rt_materials_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_materials_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_materials_check PRIVATE SDL_MAIN_HANDLED)
+endif()
