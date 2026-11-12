@@ -705,6 +705,19 @@ struct ViewSlot {
     uint64_t last_use = 0;
 };
 
+// How long an effect's passes take on the device (timestamps before the barrier and after the apply, read back a few
+// passes later without waiting; logged every kTimingReport passes measured).
+inline constexpr uint32_t kTimingSlots = 16;
+inline constexpr uint32_t kTimingReport = 600;
+struct PassTiming {
+    VkQueryPool pool = VK_NULL_HANDLE;
+    std::array<bool, kTimingSlots> pending{};
+    double period_ns = 0.0; // a tick
+    double sum_ms = 0.0;
+    uint32_t measured = 0;
+    bool unavailable = false; // no timestamps on this device (not tried again)
+};
+
 // An effect's passes and histories: the ambient occlusion's (effects()) and the indirect light's (indirect()) - the
 // same denoiser, over one value or a colour.
 struct EffectsState {
@@ -715,6 +728,7 @@ struct EffectsState {
     VkAccelerationStructureKHR scene = VK_NULL_HANDLE; // (the occlusion's: the indirect light reads current_scene)
     VkBuffer geometry = VK_NULL_HANDLE;                // (the indirect light's: the frame's geometry table)
     VkDeviceSize geometry_bytes = 0;
+    PassTiming timing;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE; // (the indirect light's: + the material table's set 1)
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE; // the table's when `layout` was made
@@ -1590,6 +1604,57 @@ LightsBlock lights_block(const EffectsState& own, float* unit)
     return block;
 }
 
+// The timestamps' pool (once; none on a device without timestamps on its graphics queue).
+bool ensure_timing(Backend& state, EffectsState& own)
+{
+    PassTiming& timing = own.timing;
+    if (timing.pool != VK_NULL_HANDLE || timing.unavailable) {
+        return timing.pool != VK_NULL_HANDLE;
+    }
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(state.context.physical_device(), &properties);
+    const VkQueryPoolCreateInfo info{.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+                                     .pNext = nullptr,
+                                     .flags = 0,
+                                     .queryType = VK_QUERY_TYPE_TIMESTAMP,
+                                     .queryCount = kTimingSlots * 2,
+                                     .pipelineStatistics = 0};
+    if (properties.limits.timestampComputeAndGraphics != VK_TRUE ||
+        vkCreateQueryPool(state.context.device(), &info, nullptr, &timing.pool) != VK_SUCCESS) {
+        timing.pool = VK_NULL_HANDLE;
+        timing.unavailable = true;
+        return false;
+    }
+    timing.period_ns = static_cast<double>(properties.limits.timestampPeriod);
+    timing.pending = {};
+    return true;
+}
+
+// A slot's last pair read back if it is ready (else lost), and every kTimingReport the mean logged.
+void collect_timing(Backend& state, EffectsState& own, uint32_t slot, uint32_t width, uint32_t height)
+{
+    PassTiming& timing = own.timing;
+    if (!core::at(timing.pending, slot)) {
+        return;
+    }
+    core::at(timing.pending, slot) = false;
+    std::array<uint64_t, 2> ticks{};
+    if (vkGetQueryPoolResults(state.context.device(), timing.pool, slot * 2, 2, sizeof(ticks), ticks.data(),
+                              sizeof(uint64_t), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS ||
+        ticks.back() < ticks.front()) {
+        return;
+    }
+    constexpr double kNsPerMs = 1e6;
+    timing.sum_ms += static_cast<double>(ticks.back() - ticks.front()) * timing.period_ns / kNsPerMs;
+    if (++timing.measured >= kTimingReport) {
+        get_log("vulkan: %s: %.3f ms a pass on the device over the last %u (%ux%u, %u rays, %s)", effect_name(own),
+                timing.sum_ms / timing.measured, timing.measured, width, height, effect_rays(own),
+                effect_denoised(own) ? "denoised" : "not denoised");
+        timing.sum_ms = 0.0;
+        timing.measured = 0;
+    }
+}
+
 // What the effect needs before it can trace (logged once when it can't): ray tracing, the scene - and for the indirect
 // light the frame's geometry table and the material table.
 bool effect_ready(Backend& state, EffectsState& own)
@@ -1699,6 +1764,13 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     const uint32_t before = now ^ 1U;
 
     VkCommandBuffer commands = outside_pass(state);
+    const bool timed = ensure_timing(state, own);
+    const uint32_t timing_slot = static_cast<uint32_t>(own.passes % kTimingSlots);
+    if (timed) {
+        collect_timing(state, own, timing_slot, width, height);
+        vkCmdResetQueryPool(commands, own.timing.pool, timing_slot * 2, 2);
+        vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, own.timing.pool, timing_slot * 2);
+    }
     if (slot->fresh) {
         clear_slot(commands, slot);
     }
@@ -1789,6 +1861,10 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     record_apply(commands, own, apply, colour, result, rgb ? &slot->albedo : nullptr, apply_constants);
     if (colour->layout != colour->resting) {
         Memory::transition(commands, colour, colour->resting);
+    }
+    if (timed) {
+        vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (timing_slot * 2) + 1);
+        core::at(own.timing.pending, timing_slot) = true;
     }
     state.bound = BoundState{};
     const uint64_t serial = state.frames.serial();
@@ -1888,7 +1964,11 @@ void release_effect(Backend& state, EffectsState& own)
         if (own.sampler != VK_NULL_HANDLE) {
             vkDestroySampler(device, own.sampler, nullptr);
         }
+        if (own.timing.pool != VK_NULL_HANDLE) {
+            vkDestroyQueryPool(device, own.timing.pool, nullptr);
+        }
     }
+    own.timing = PassTiming{};
     own.applies.clear();
     own.trace = {};
     own.temporal = VK_NULL_HANDLE;
