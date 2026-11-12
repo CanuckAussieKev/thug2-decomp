@@ -23,14 +23,14 @@
 //      colour, limb-darkened, its edge a pixel soft) and the glow round it (the aureole: its colour x
 //      (kSunAureoleNear e^(-angle / kSunAureoleNearWidth) + kSunAureoleWide e^(-angle / kSunAureoleWideWidth))), and the
 //      rays upsampled;
-//   3. bloom (rt_bloom, or rt_sun for the sun's own light): what is spread, X, is the added light (+ the frame's colour
-//      with rt_bloom, unless the game's own bloom is on - rt::ViewDrawn::game_bloom); a chain of half-size images down
-//      (Jimenez's 13-tap filter, the weights summing to 1: each level holds the same light), then back up (a 3 x 3 tent,
+//   3. bloom (rt_bloom, or rt_sun for the sun's own light): what is spread, X, is kSunGlareBloom x the added light (+
+//      rt_bloom_strength x the frame's colour with rt_bloom, unless the game's own bloom is on -
+//      rt::ViewDrawn::game_bloom); a chain of half-size images down (Jimenez's 13-tap filter, the weights summing to
+//      1: each level holds the same light), then back up (a 3 x 3 tent,
 //      each level's weight added: kSunBloomLevels levels at most, equal weights summing to 1) - B, a blur of X keeping
 //      its light;
-//   4. composite (a full-screen pass over the colour target, alpha kept): colour = frame + light + s x (B - X), s
-//      rt_bloom_strength (kSunGlareBloom when only the sun's light is spread) - the light moved, never made: the
-//      picture's sum is unchanged by the bloom. Every sample of a multisampled target gets the pixel's value. With an
+//   4. composite (a full-screen pass over the colour target, alpha kept): colour = frame + light + B - X - the light
+//      moved, never made: the picture's sum is unchanged by the bloom. Every sample of a multisampled target gets the pixel's value. With an
 //      8-bit target (rt_hdr=0) the target clips the result at 1 as the original's draws do; with rt_hdr=1 the tone
 //      mapping that follows maps it.
 // rt_sun=1 also tells render_pc to leave out the original's sun sprite, corona and lens flare (rt::set_sun_glare_replaced)
@@ -42,18 +42,18 @@ struct Backend;
 
 inline constexpr double kSunDiscRadius = 0.0093;      // radians (twice the real sun's: it reads as the sun on a screen)
 inline constexpr float kSunDiscIntensity = 24.0F;     // x the sun's colour (the game's white is 1)
-inline constexpr float kSunAureoleNear = 0.45F;
-inline constexpr float kSunAureoleNearWidth = 0.035F; // radians
-inline constexpr float kSunAureoleWide = 0.12F;
-inline constexpr float kSunAureoleWideWidth = 0.25F;
+inline constexpr float kSunAureoleNear = 0.8F;
+inline constexpr float kSunAureoleNearWidth = 0.05F; // radians
+inline constexpr float kSunAureoleWide = 0.2F;
+inline constexpr float kSunAureoleWideWidth = 0.3F;
 inline constexpr uint32_t kSunShaftSamples = 48;
-inline constexpr float kSunShaftDecay = 0.985F;
+inline constexpr float kSunShaftDecay = 0.975F;
 inline constexpr float kSunShaftReach = 1.0F;   // the share of the way to the sun the rays' points cover
-inline constexpr float kSunShaftWidth = 0.15F;  // radians: the rays' source round the sun
+inline constexpr float kSunShaftWidth = 0.2F;   // radians: the rays' source round the sun
 inline constexpr float kSunShaftFadeOut = 0.5F; // of the screen's size beyond its edge
 inline constexpr uint32_t kSunBloomLevels = 7;
 inline constexpr uint32_t kSunBloomSmallest = 8; // a level's shorter side at least this
-inline constexpr float kSunGlareBloom = 0.12F;   // s with only the sun's own light spread (rt_bloom=0)
+inline constexpr float kSunGlareBloom = 0.25F;   // the share of the sun's own light spread (its glare)
 inline constexpr uint32_t kSunViewSlots = 4;
 
 // The usage a depth surface of `format` gets besides being an attachment: VK_IMAGE_USAGE_SAMPLED_BIT while rt_sun or

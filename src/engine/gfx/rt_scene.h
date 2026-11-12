@@ -321,4 +321,11 @@ SunLight sun_light();
 void set_sun_glare_replaced(bool replaced);
 bool sun_glare_replaced();
 
+// (added by the sun's glare) Where the game shows its sun (render_pc: the sun sprite's direction from the camera - a
+// level's SetSun / InitSun, the time of day -, toward it, normalised; told each viewport whether it is drawn or
+// replaced): the sun the player sees, which needn't be the baked one the level's lighting was made with. Null / false:
+// the game shows none.
+void set_game_sun(const std::array<float, 3>* toward_sun);
+bool game_sun(std::array<float, 3>* toward_sun);
+
 } // namespace render::rt

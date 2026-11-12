@@ -51,6 +51,7 @@ constexpr float kMaxSize = 4.0F;
 constexpr float kMaxBloom = 0.5F;
 constexpr float kMaxShaft = 4.0F;
 constexpr double kInFront = 1e-9;
+constexpr double kDegreesPerRadian = 57.29577951308232;
 
 // The full-screen triangle (three vertices, no buffers).
 constexpr const char* kVertexSource = R"(#version 460
@@ -72,7 +73,7 @@ layout(set = 0, binding = 6) uniform SunBlock {
     vec4 disc;          // x its angular radius, y a pixel's angle, z the near glow's width, w the wide glow's
     vec4 aureole;       // x the near glow's share, y the wide glow's
     vec4 shafts;        // x strength, y decay, z the reach, w the source's width (radians)
-    vec4 bloom;         // x strength, y 1: the frame's own light spread, z lens dirt, w 1: kept above 1 (rt_hdr)
+    vec4 bloom;         // x the share of the frame's colour spread, y of the light added, z lens dirt, w 1: kept above 1 (rt_hdr)
     ivec4 rect;         // the viewport in the target's pixels
     ivec4 low;          // xy the half-resolution images' size, z the rays' points, w the bloom's levels
     ivec4 flags;        // x the colour's samples, y the disc, z the rays, w the bloom
@@ -204,7 +205,7 @@ void main()
 )";
 
 // Step 3a: a level down (Jimenez's 13 taps, bilinear: weights summing to 1). FIRST: from the source's two images (what
-// is spread: the light, + the frame's own with bloom.y).
+// is spread: the frame's colour x bloom.x + the light x bloom.y).
 constexpr const char* kDownBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_a;
@@ -214,7 +215,7 @@ layout(set = 0, binding = 5) uniform sampler2D u_b;
 vec3 fetch(vec2 uv)
 {
     vec3 light = textureLod(u_b, uv, 0.0).rgb;
-    return sun.bloom.y > 0.5 ? textureLod(u_a, uv, 0.0).rgb + light : light;
+    return sun.bloom.x * textureLod(u_a, uv, 0.0).rgb + sun.bloom.y * light;
 }
 #else
 vec3 fetch(vec2 uv) { return textureLod(u_a, uv, 0.0).rgb; }
@@ -327,10 +328,10 @@ void main()
     vec3 light = imageLoad(i_b, p).rgb;
     vec3 colour = base + light;
     if (sun.flags.w != 0) {
-        vec3 spread = sun.bloom.y > 0.5 ? base + light : light;
+        vec3 spread = sun.bloom.x * base + sun.bloom.y * light;
         vec2 uv = (vec2(p) + 0.5) / (2.0 * vec2(level.size.xy));
         vec3 bloomed = tent(uv, 1.0 / vec2(level.size.xy));
-        colour += sun.bloom.x * (bloomed - spread);
+        colour += bloomed - spread;
         if (sun.bloom.z > 0.0) {
             colour += sun.bloom.z * dirt((vec2(p) + 0.5) / vec2(sun.rect.zw)) * bloomed;
         }
@@ -423,6 +424,7 @@ struct SunState {
     std::vector<CompositePipeline> composites;
     std::vector<std::unique_ptr<SunSlot>> slots;
     RtSunFrame frame;
+    std::array<float, 3> logged_toward{}; // (the sun last logged)
     bool failed = false;
     uint64_t passes = 0;
     uint64_t uses = 0;
@@ -1276,7 +1278,7 @@ RtSunFrame frame_for(const RtSunSettings& settings, const rt::ViewDrawn& view, c
     if (!have_sun) {
         return frame;
     }
-    frame.colour = sky_colours(toward).sun;
+    frame.colour = sun_colour_for(toward);
     const std::array<double, 4> at = transform(
         to_pixel, {static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
                    static_cast<double>(core::at(toward, 2)), 0.0});
@@ -1308,7 +1310,7 @@ SunBlock block_for(const RtSunSettings& settings, const rt::ViewDrawn& view, con
     block.disc = {frame.disc_radius, frame.pixel_angle, kSunAureoleNearWidth, kSunAureoleWideWidth};
     block.aureole = {kSunAureoleNear, kSunAureoleWide, 0.0F, 0.0F};
     block.shafts = {settings.shaft_strength, kSunShaftDecay, kSunShaftReach, kSunShaftWidth};
-    block.bloom = {settings.bloom ? settings.bloom_strength : kSunGlareBloom, plan.frame_bloomed ? 1.0F : 0.0F,
+    block.bloom = {plan.frame_bloomed ? settings.bloom_strength : 0.0F, kSunGlareBloom,
                    settings.lens_dirt ? 1.0F : 0.0F, settings.hdr ? 1.0F : 0.0F};
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
@@ -1376,8 +1378,19 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     }
     std::array<float, 3> toward{};
     const bool want_sun = settings.sun || settings.shafts;
-    const bool have_sun = want_sun && frame_sun(&toward);
+    const bool have_sun = want_sun && visible_sun(&toward);
     rt::set_sun_glare_replaced(settings.sun && have_sun);
+    if (have_sun && toward != own.logged_toward) {
+        // (logged when the sun moves: a new level, the time of day)
+        own.logged_toward = toward;
+        std::array<float, 3> game{};
+        const bool from_game = !rt::sun_override(&game) && rt::game_sun(&game) && game == toward;
+        get_log("vulkan: rt_sun: the sun toward (%.3f, %.3f, %.3f), %.1f degrees up - %s",
+                static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
+                static_cast<double>(core::at(toward, 2)),
+                std::asin(std::clamp(static_cast<double>(core::at(toward, 1)), -1.0, 1.0)) * kDegreesPerRadian,
+                from_game ? "where the game shows its sun" : "the level's baked sun (or the override)");
+    }
     if (want_sun && !have_sun) {
         sky_without_sun();
         if (!settings.bloom && first_report(state, kReportNoSun)) {
@@ -1451,8 +1464,9 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (slot->fresh) {
         clear_slot(commands, slot);
     }
-    if (have_sun) {
-        update_sky(state, commands, toward); // (the sun's colour for the other effects; the fog's table)
+    std::array<float, 3> baked{};
+    if (frame_sun(&baked)) {
+        update_sky(state, commands, baked); // (the lighting sun's colour for the other effects; the fog's table)
     }
     ensure_timer(state);
     const auto set = static_cast<uint32_t>(own.timed % kTimerSets);

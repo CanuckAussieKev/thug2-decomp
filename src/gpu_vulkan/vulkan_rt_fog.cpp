@@ -182,7 +182,7 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
         vec3 level = normalize(vec3(direction.x, max(direction.y, AERIAL_LOWEST), direction.z));
         vec3 ambient = sky_display(level, fog.sun.xyz);
         float brightness = dot(ambient, vec3(0.2126, 0.7152, 0.0722));
-        vec3 sun_term = fog.sun_light.rgb * (brightness * (1.0 - fog.aerial.w) * dual_phase(dot(direction, fog.sun.xyz)));
+        vec3 sun_term = fog.sun_light.rgb * (brightness * (1.0 - fog.aerial.w) * AERIAL_SUN_GAIN * dual_phase(dot(direction, fog.sun.xyz)));
         vec3 sky_term = ambient * fog.aerial.w;
         int steps = fog.low.w;
         float u = fract(jitter_at(local) + fog.fog_range.w);
@@ -549,6 +549,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, bool aer
         source += "#define AERIAL_FORWARD_G " + std::to_string(kFogAerialForwardG) + "\n";
         source += "#define AERIAL_BROAD_G " + std::to_string(kFogAerialBroadG) + "\n";
         source += "#define AERIAL_LOWEST " + std::to_string(kFogAerialLowest) + "\n";
+        source += "#define AERIAL_SUN_GAIN " + std::to_string(kFogAerialSunGain) + "\n";
     }
     if (traces) {
         source += "#extension GL_EXT_ray_query : require\n";

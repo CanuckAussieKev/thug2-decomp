@@ -1171,15 +1171,18 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
         release_targets(gpu, targets);
         return;
     }
-    // what is spread, X (the frame + the light), and the chain's top: the same light
+    // what is spread, X (rt_bloom_strength x the frame + kSunGlareBloom x the light), and the chain's top: the same light
     double spread = 0.0;
     double brightest = 0.0;
+    const double frame_share = vk::kRtBloomStrength;
+    const double light_share = vk::kSunGlareBloom;
     for (std::size_t i = 0; i < base.texels.size(); ++i) {
-        const double x = luma({core::at(base.texels, i)[0] + core::at(light.texels, i)[0],
-                               core::at(base.texels, i)[1] + core::at(light.texels, i)[1],
-                               core::at(base.texels, i)[2] + core::at(light.texels, i)[2]});
-        spread += x;
-        brightest = std::max(brightest, x);
+        const std::array<float, 4>& b = core::at(base.texels, i);
+        const std::array<float, 4>& l = core::at(light.texels, i);
+        spread += luma({(frame_share * b[0]) + (light_share * l[0]), (frame_share * b[1]) + (light_share * l[1]),
+                        (frame_share * b[2]) + (light_share * l[2])});
+        brightest = std::max(brightest, luma({static_cast<double>(b[0]) + l[0], static_cast<double>(b[1]) + l[1],
+                                              static_cast<double>(b[2]) + l[2]}));
     }
     spread /= static_cast<double>(base.texels.size());
     const auto mean_luma = [](const vk::RtSunTexels& image) {
@@ -1241,7 +1244,7 @@ void run_bloom(render::Gpu& gpu, bool floats, Tally* tally)
             for (const Rgb& p : plain) {
                 plain_sum += luma(p);
             }
-            tally->check(not_finite == 0 && most <= 1.0 && after_sum >= plain_sum && after_sum <= before_sum + (spread * n * 0.2),
+            tally->check(not_finite == 0 && most <= 1.0 && after_sum >= plain_sum && after_sum <= before_sum + (spread * n),
                          text::format("8 bits: no NaN, at most 1, brighter than the frame (%.4f -> %.4f mean), within "
                                       "what was added (%.4f)",
                                       plain_sum / n, after_sum / n, before_sum / n));

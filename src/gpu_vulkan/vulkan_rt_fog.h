@@ -66,7 +66,7 @@ inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
 // kFogAerialExtinction x rt_fog_haze_density per world unit at the level's ground (rt::BakedSun::ground; the camera's
 // height when unknown), thinning by e every rt_fog_haze_height above it, followed to kFogAerialFar (closed form along
 // each segment); x rt_fog_density as the level's fog. Its light at a point:
-//     sky x a  +  sun x luma(sky) x (1 - a) x lit x phase
+//     sky x a  +  sun x luma(sky) x (1 - a) x kFogAerialSunGain x lit x phase
 // sky the model's sky toward the ray's direction (no lower than kFogAerialLowest above the horizon: the colour the far
 // world fades to), sun the model's sun colour, a = kFogAerialSkyShare (the shade's share: lit haze is several times the
 // shaded's - beams between buildings), phase two Henyey-Greenstein lobes (kFogAerialForwardShare of g =
@@ -74,7 +74,8 @@ inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
 // is never dimmed (only its sunlit light x kFogSkyShare added).
 inline constexpr float kFogAerialExtinction = 1.0F / 12000.0F;
 inline constexpr float kFogAerialFar = 40000.0F;
-inline constexpr float kFogAerialSkyShare = 0.3F;
+inline constexpr float kFogAerialSkyShare = 0.45F;
+inline constexpr float kFogAerialSunGain = 1.5F; // (sun x luma(sky) x (1 - a) x this: lit haze from the side ~0.8 of the sky)
 inline constexpr float kFogAerialForwardShare = 0.6F;
 inline constexpr float kFogAerialForwardG = 0.8F;
 inline constexpr float kFogAerialBroadG = 0.2F;

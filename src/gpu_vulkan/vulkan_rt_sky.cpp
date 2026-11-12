@@ -183,6 +183,10 @@ struct SkyState {
     bool colours_valid = false;
     std::array<float, 3> colours_toward{};
     SkyColours colours;
+    // sun_colour_for's (the visible sun's colour)
+    bool visible_valid = false;
+    std::array<float, 3> visible_toward{};
+    std::array<float, 3> visible_colour{1.0F, 1.0F, 1.0F};
 };
 
 SkyState& sky_state()
@@ -375,6 +379,36 @@ bool frame_sun(std::array<float, 3>* toward)
     return true;
 }
 
+bool visible_sun(std::array<float, 3>* toward)
+{
+    std::array<float, 3> found{};
+    if (!rt::sun_override(&found) && sky_state().settings.place_game && rt::game_sun(&found)) {
+        const double length = std::hypot(static_cast<double>(core::at(found, 0)),
+                                         static_cast<double>(core::at(found, 1)), static_cast<double>(core::at(found, 2)));
+        if (length > kShortest && std::isfinite(length)) {
+            for (std::size_t i = 0; i < 3; ++i) {
+                core::at(*toward, i) = static_cast<float>(static_cast<double>(core::at(found, i)) / length);
+            }
+            return true;
+        }
+    }
+    return frame_sun(toward);
+}
+
+std::array<float, 3> sun_colour_for(const std::array<float, 3>& toward)
+{
+    SkyState& own = sky_state();
+    if (own.settings.colour_set) {
+        return own.settings.colour;
+    }
+    if (!own.visible_valid || own.visible_toward != toward) {
+        own.visible_colour = rt::sun_colour_at(elevation_of(toward));
+        own.visible_toward = toward;
+        own.visible_valid = true;
+    }
+    return own.visible_colour;
+}
+
 SkyColours sky_colours(const std::array<float, 3>& toward)
 {
     SkyState& own = sky_state();
@@ -462,6 +496,7 @@ void invalidate_sky()
 {
     sky_state().valid = false;
     sky_state().colours_valid = false;
+    sky_state().visible_valid = false;
 }
 
 void sky_without_sun()

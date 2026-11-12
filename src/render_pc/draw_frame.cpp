@@ -657,6 +657,9 @@ rt::ViewDrawn view_drawn(int index)
 void draw_sun(gfx::ViewCam* camera)
 {
     static bool replaced_before = false; // (logged when it starts)
+    // (where the game shows its sun: a backend that draws the sun draws it there)
+    std::array<float, 3> toward{};
+    rt::set_game_sun(sun::visible_direction(&toward) ? &toward : nullptr);
     if (rt::sun_glare_replaced()) {
         if (!replaced_before) {
             get_log("sun: the original's sun and lens flare left out (the renderer draws the sun)");

@@ -32,6 +32,13 @@ RtSunSettings& sun_settings_held();
 // sun's effects is on. False: none.
 bool frame_sun(std::array<float, 3>* toward);
 
+// The sun the player sees (the disc, the glare and the rays are drawn there): the override, else - with rt_sun_place=game
+// (the default) - where the game shows its sun (rt::game_sun: the level's SetSun, often not the baked one), else the
+// baked sun (frame_sun). False: none.
+bool visible_sun(std::array<float, 3>* toward);
+// The sun's colour for `toward` alone (rt_sun_colour or the model's; cheap, kept for the last direction).
+[[nodiscard]] std::array<float, 3> sun_colour_for(const std::array<float, 3>& toward);
+
 // The sun's colour (display-referred, its brightest channel 1) and the sky's overhead for `toward` (set or the model's).
 struct SkyColours {
     std::array<float, 3> sun{1.0F, 1.0F, 1.0F};

@@ -163,10 +163,11 @@ void set_rt_fog_settings(const RtFogSettings& settings);
 // rt_shafts, rt_shaft_strength, rt_sky_model, rt_sun_colour, rt_lens_dirt (and rt_hdr). Nothing is drawn differently
 // while all are off. The sun's parts need a sun (the level's baked one: ray tracing enabled); the bloom doesn't.
 inline constexpr float kRtBloomStrength = 0.05F; // (rt_bloom_strength's default)
-inline constexpr float kRtShaftStrength = 0.6F;  // (rt_shaft_strength's default)
+inline constexpr float kRtShaftStrength = 1.0F;  // (rt_shaft_strength's default)
 struct RtSunSettings {
     bool sun = false;          // the sun's disc and glare drawn, the original's sun sprite and lens flare hidden
     float sun_size = 1.0F;     // x the disc's default size (0.25 - 4)
+    bool place_game = true;    // rt_sun_place: the disc and rays where the game shows its sun (else the baked sun's)
     bool bloom = false;        // the frame's bright light spread (energy-conserving, a mip chain)
     float bloom_strength = kRtBloomStrength; // the share of each pixel's light spread (0 - 0.5)
     bool shafts = false;       // screen-space rays from the sun over what blocks it

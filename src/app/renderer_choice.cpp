@@ -213,6 +213,11 @@ void install_vulkan()
             .lens_dirt = build_info::fetch_flag(build_info::kGraphics, "rt_lens_dirt", false),
             .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)};
         read_rt_sun_colour(&sun);
+        // [Graphics] rt_sun_place: game (the default: where the game shows its sun) or bake (the lighting's sun)
+        constexpr std::size_t kLongest = 16;
+        std::array<char, kLongest> place{};
+        build_info::fetch_text(build_info::kGraphics, "rt_sun_place", "game", place.data(), place.size());
+        sun.place_game = std::string(place.data()) != "bake";
         render::vulkan::set_rt_sun_settings(sun);
     }
     render::install_device(render::d3d9::device());
