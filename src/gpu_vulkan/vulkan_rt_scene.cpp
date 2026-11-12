@@ -24,6 +24,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
+#include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_frames.h"
@@ -1315,6 +1316,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
         made.any_built = false;
         rt_shadows_set_scene_locked(VK_NULL_HANDLE);
         rt_effects_set_scene_locked(VK_NULL_HANDLE);
+        rt_fog_set_scene_locked(VK_NULL_HANDLE);
         return;
     }
     write_instances(state, made, frame, record);
@@ -1351,6 +1353,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
         made.any_built = false;
         rt_shadows_set_scene_locked(VK_NULL_HANDLE);
         rt_effects_set_scene_locked(VK_NULL_HANDLE);
+        rt_fog_set_scene_locked(VK_NULL_HANDLE);
         return;
     }
 
@@ -1375,6 +1378,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
             VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
     rt_shadows_set_scene_locked(frame.tlas.handle); // (R4's pass traces this frame's TLAS)
     rt_effects_set_scene_locked(frame.tlas.handle); // (R5's ambient occlusion too)
+    rt_fog_set_scene_locked(frame.tlas.handle);     // (and the volumetric fog)
     frame.frame = record.frame;
     frame.count = count;
     frame.built = true;
@@ -1647,6 +1651,7 @@ void release_ray_tracing(Backend& state)
     }
     rt_shadows_set_scene_locked(VK_NULL_HANDLE);
     rt_effects_set_scene_locked(VK_NULL_HANDLE);
+    rt_fog_set_scene_locked(VK_NULL_HANDLE);
     count_bytes(made);
     log_scene(made, true);
     // (the device is idle: release_device_objects waited for it)

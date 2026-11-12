@@ -154,6 +154,18 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_reflections_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_fog_check.exe: the Vulkan Gpu's volumetric fog and light shafts
+# (gpu_vulkan/vulkan_rt_fog.h) on this machine - a wall with a window, the sun through it into an even fog; the march
+# compared texel by texel with the processor's (the same jitter and steps), the transmittance with the game's linear
+# fog, the converged history and the composite with the exact integral, shafts mode, the sky, and the pass skipped
+# without fog, a scene or the setting (src/tests/vulkan_rt_fog_check.cpp; --perf: its cost at 1920 x 1080). Exit 2 on a
+# device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_fog_check vulkan_rt_fog_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_fog_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_fog_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
 # (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
 # materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,

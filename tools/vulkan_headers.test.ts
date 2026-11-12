@@ -23,6 +23,7 @@ const CHECKS = new Set([
     "tests/vulkan_rt_effects_check.cpp",
     "tests/vulkan_rt_reflections_check.cpp",
     "tests/vulkan_hdr_check.cpp",
+    "tests/vulkan_rt_fog_check.cpp",
     "tests/vulkan_rt_materials_check.cpp",
     "tests/ff_shader_check.cpp",
     "tests/ff_shader_check_gpu.cpp",

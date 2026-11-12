@@ -622,6 +622,29 @@ rt::ViewDrawn view_drawn(int index)
     const DeviceViewport& drawn = gfx.device_viewport();
     view.rect = {drawn.x, drawn.y, drawn.width, drawn.height};
     view.depth_range = {drawn.min_z_, drawn.max_z_};
+    // (the level's fog: with distance clipping and [Graphics] Fog, the fog each mesh draws with - over the last quarter
+    // before the far plane, pc_mesh_render.cpp; else what a script's SetFogDistance / SetFogColor / EnableFog told the
+    // device - pc_fog.h)
+    constexpr uint32_t kByte = 0xFF;
+    constexpr uint32_t kRedShift = 16;
+    constexpr uint32_t kGreenShift = 8;
+    constexpr float kPerByte = 1.0F / 255.0F;
+    constexpr double kNearFadeShare = 0.25; // (pc_mesh_render.cpp's)
+    const uint32_t fog_colour = engine_parts().fog_colour(); // (0xRRGGBB)
+    if (view_setup().distance_clipping() && view_setup().fog_setting()) {
+        const float far_z = gfx.render_camera().far_z_;
+        view.fog.on = true;
+        view.fog.end = far_z;
+        view.fog.start = static_cast<float>(
+            far_z - ((static_cast<double>(far_z) - gfx.render_camera().near_z_) * kNearFadeShare));
+    } else {
+        view.fog.on = gfx.fog_active() != 0;
+        view.fog.start = gfx.fog_begin_distance();
+        view.fog.end = gfx.fog_end();
+    }
+    view.fog.colour = {static_cast<float>((fog_colour >> kRedShift) & kByte) * kPerByte,
+                       static_cast<float>((fog_colour >> kGreenShift) & kByte) * kPerByte,
+                       static_cast<float>(fog_colour & kByte) * kPerByte};
     return view;
 }
 

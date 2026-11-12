@@ -1,7 +1,7 @@
 #pragma once
 
 #include <array>
-
+#include <cstdint>
 #include <string>
 
 #include "engine/gfx/gpu.h"
@@ -115,5 +115,26 @@ struct HdrSettings {
 };
 void set_hdr_settings(const HdrSettings& settings);
 [[nodiscard]] HdrSettings hdr_settings();
+// NOT ORIGINAL - volumetric fog and light shafts (vulkan_rt_fog.h, docs/design/vulkan.md "Volumetric fog"): [Graphics]
+// rt_fog, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps, rt_fog_mode, rt_fog_haze (and rt_hdr: the
+// fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
+inline constexpr float kRtFogAnisotropy = 0.3F; // (rt_fog_anisotropy's default)
+inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_steps' default)
+enum class RtFogMode : uint8_t {
+    kReplace = 0, // the level's own fog replaced by the volumetric one (its colour and distances; shadowed by the world)
+    kShafts = 1,  // the level's own fog kept, only the sunlit shafts' light added over it
+};
+struct RtFogSettings {
+    bool on = false;
+    float density = 1.0F;                 // x the level's fog thickness (1: as thick as the game's; 0 - 8)
+    float height = 0.0F;                  // world units over which the fog thins by e above the camera (0: even)
+    float anisotropy = kRtFogAnisotropy;  // Henyey-Greenstein g: 0 even, toward 0.9 bright toward the sun (-0.9 - 0.9)
+    unsigned steps = kRtFogSteps;         // samples along each ray (4 - 128)
+    RtFogMode mode = RtFogMode::kReplace;
+    bool hdr = false;                     // the light added above 1 kept (rt_hdr=1: a floating-point target)
+    bool haze = true; // a level without fog gets a thin haze's sunlit shafts (rt_fog_haze; 0: nothing there)
+};
+void set_rt_fog_settings(const RtFogSettings& settings);
+[[nodiscard]] RtFogSettings rt_fog_settings();
 
 } // namespace render::vulkan
