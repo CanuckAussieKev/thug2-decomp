@@ -49,7 +49,10 @@ real time only decides whether a frame is drawn or skipped to catch up. A demo p
    noted; a playback puts them back at the same frame, so anything that reads the time or draws a random number sees
    the same values.
 4. **Every frame drawn.** While a demo records or plays, no frame is skipped and the game keeps drawing in the
-   background (`keeps_every_frame`, `draws_unfocused`): the same frames run the same draw-side code.
+   background (`keeps_every_frame`, `draws_unfocused`; the main loop then draws a late frame too -
+   `engine/sys/mlp.cpp`): the same frames run the same draw-side code, and a capture has a picture for every frame.
+   (Before that last change a ray-traced run left ~10 frames of 1192 undrawn - the skater's track was still identical,
+   only the camera went unnoted on those frames.)
 5. **The skater.** The profile (appearance, trick style, specials, its info and stats) is saved with the demo and put
    back before a playback if the current one differs.
 
@@ -64,6 +67,7 @@ runs' tracks with each other the same way.
 |---|---|---|---|
 | BO, 19.9 s, pushes, ollies, flips, grinds | `-level BO -record` | 3 times: Vulkan, Direct3D 9, Vulkan | identical to the recording and to each other (1186 check points, drift 0.000) |
 | foun (THPS3 port), 19.1 s | `-level foun -record` | MSAA 0 / MSAA 8 | identical to the recording and to each other |
+| the same BO demo | | `ray_tracing=1`, `rt_shadows` 0 / 1 (Vulkan) | identical to the recording and to each other; the pictures differ in the shadows (23% of the pixels, mean 6.2 / 255) |
 | foun, 19.6 s | F6-style restart in the level (`demo record`) | MSAA 0 / MSAA 8 (+ `ray_tracing=1`) | the playbacks identical to each other; they differ from the recording after a bail (frame 858 of 1173 - the skater gets up 40 frames sooner) |
 
 Graphics settings didn't change a run: Vulkan against Direct3D 9, MSAA 0 against 8 and `ray_tracing` 0 against 1 gave
