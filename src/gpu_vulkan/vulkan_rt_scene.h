@@ -22,8 +22,9 @@
 // Builds are recorded into the frame's stream (vulkan_frames.h) outside a rendering pass, in batches sharing one
 // scratch buffer per frame in flight, after a barrier that makes the buffers' uploads and the processor's writes
 // visible to them. Released structures are destroyed once the submissions that may use them have finished.
-// Installed (render::rt::set_ray_tracing) when the device was made with ray tracing (Context::ray_tracing_enabled), by
-// create_device_objects; released with the device's objects.
+// Materials (set_material / remove_material) go to the material table (Backend::materials, vulkan_rt_materials.h), whose
+// changes begin_frame makes visible first. Installed (render::rt::set_ray_tracing) when the device was made with ray
+// tracing (Context::ray_tracing_enabled), by create_device_objects; released with the device's objects.
 namespace render::vulkan {
 
 struct Backend;

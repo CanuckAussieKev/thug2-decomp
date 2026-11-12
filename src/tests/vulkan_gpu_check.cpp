@@ -14,7 +14,9 @@
 //   state block's reads; two threads using the Gpu at once (the loading screen's timer thread does);
 // - the UI backend: an image, the preview and the thumbnails' atlas, the UI's draws (textures, clipping, blending);
 // - everything released: the allocator's count back where it began, then the device shut down.
-//   thug2_vulkan_gpu_check [--device N] [--display N] [--no-validation]
+//   thug2_vulkan_gpu_check [--device N] [--display N] [--no-validation] [--ray-tracing]
+// --ray-tracing: the device opened with ray tracing where it has it (ray tracing's material table made and kept in step
+// with the textures released).
 // --device: the physical device, counted from 0 in the loader's order (default: the context's choice, discrete first).
 // --display: the monitor the window opens on (1 = the first; default: the second when there are two).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -113,6 +115,7 @@ struct Options {
     int display = 0;
     int device = -1;
     bool validation = true;
+    bool ray_tracing = false;
 };
 
 Options read_options(std::span<char*> arguments)
@@ -123,6 +126,8 @@ Options read_options(std::span<char*> arguments)
         const bool has_value = i + 1 < arguments.size();
         if (argument == "--no-validation") {
             options.validation = false;
+        } else if (argument == "--ray-tracing") {
+            options.ray_tracing = true;
         } else if (argument == "--device" && has_value) {
             options.device = text::to_int(core::at(arguments, ++i));
         } else if (argument == "--display" && has_value) {
@@ -1545,7 +1550,11 @@ int window_position(int display)
 int run(const Options& options, SDL_Window* window)
 {
     render::vulkan::set_context_options(
-        {.validation = options.validation, .device_index = options.device, .on_message = print_line}, window);
+        {.validation = options.validation,
+         .device_index = options.device,
+         .on_message = print_line,
+         .ray_tracing = options.ray_tracing},
+        window);
     render::GpuContext& context = render::vulkan::gpu_context();
     render::Gpu& gpu = render::vulkan::gpu();
     if (!context.create_instance()) {

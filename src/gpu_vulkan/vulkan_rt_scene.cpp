@@ -183,7 +183,12 @@ public:
     void add_mesh(rt::MeshId mesh, const rt::Geometry& geometry) override;
     void remove_mesh(rt::MeshId mesh) override;
     void mesh_changed(rt::MeshId mesh) override;
-    // (the material table is R3's: vulkan_rt_materials - set_material / remove_material keep the defaults here)
+    // (the material table: vulkan_rt_materials.h - any thread)
+    void set_material(rt::MaterialId material, const rt::Material& surface) override
+    {
+        backend().materials.set(material, surface);
+    }
+    void remove_material(rt::MaterialId material) override { backend().materials.remove(material); }
     void begin_frame(const rt::FrameRecord& record) override;
     rt::ProbeResult probe(const rt::ProbeRequest& ray) override;
 };
@@ -1179,6 +1184,9 @@ void VulkanRayTracing::begin_frame(const rt::FrameRecord& record)
     Scene& made = scene();
     if (!made.installed || !state.draws_made) {
         return;
+    }
+    if (state.materials.ready() && !state.materials.make_visible(state)) {
+        get_log("vulkan: ray tracing: the material table's changes couldn't be made visible (out of memory)");
     }
     begin_scene_frame(state, made, record);
 }
