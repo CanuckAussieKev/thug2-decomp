@@ -987,6 +987,43 @@ the distance from the eye, its end 7200 past its start with distance clipping (p
   unchanged; the sky never dimmed; no pass without fog, a scene or the setting. `--perf` times the passes.
   `tools/game/rt_shadows_check.ts --effect fog` checks it in the game.
 
+### One-bounce indirect light (`rt_gi`)
+
+`gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by
+default) - the occlusion's passes and denoiser run a second time over a colour (`rt::ViewOrder::kIndirect`, after the
+shadows and the occlusion):
+
+- **The rays:** per pixel `rt_gi_rays` cosine-weighted ray queries (masks 0x01 + 0x02 + 0x04, alpha tested) up to
+  `rt_gi_distance`, the occlusion's directions; a hit brings its albedo x the sun's light x N.L where a ray toward the
+  sun (0x01 + 0x02) is clear; a miss nothing. The hit's albedo: R3's material at the texture coordinates R2's geometry
+  table gives, at a level for the ray's spread, x the material's colour, at most 1 - the vertex colours (the bake) left
+  out. The sun: the console's `rt sun`, else the level's baked sun (above), white; none where the bake shows none.
+- **Why the sun only:** THUG2's vertex colours already hold the artists' sky and ambient light; what they lack is light
+  bounced off sunlit surfaces. A first version also lit the hits by the frame record's ambient and let misses bring it
+  as the sky, subtracting the sky afterwards: the ambient is the skater's (the same in every level), and BO's shaded
+  courtyard got no bounce at all while doubled material colours brightened the Foundry. The shader keeps both terms
+  (and the apply a sky to subtract), all 0.
+- **The pixel's own albedo** (what the bounce lights): a ray from the camera finds the pixel's triangle (kept where it
+  ends at the depth's point, as the reflections do) and reads its material the same way at the pixel's footprint. The
+  filters run on the light alone (E, demodulated): the texture's detail isn't blurred.
+- **Adding it to a baked frame:** the frame colour is albedo x baked light, and neither is known apart. The pass adds
+  strength x albedo x E with the blend's `ONE_MINUS_DST_COLOR, ONE` - a screen: what is added is scaled by what the
+  colour leaves below white, so a lit pixel gains little and none passes white, a dark one gains most; nothing is ever
+  darkened. A float target (HDR) gets `ONE, ONE`: values above 1 kept.
+- **Denoiser:** R5's temporal and a-trous shaders compiled with `VALUE_RGB` (the value a colour, the history's length in
+  alpha; the noise floors scaled by the most one ray brings) - the occlusion's are the same shaders as before, its check
+  unchanged (38/38).
+- **Checked:** `thug2_vulkan_rt_gi_check` - a white floor, a red wall, a grey pillar, the sun from the pillar's side:
+  the raw light at ~39.7k clear-cut pixels exactly the processor's trace of the same rays (one sample and four), the
+  albedo found, the colour formula at every pixel, a reddish bounce beside the wall, an open floor untouched, the
+  denoised light against a 256-ray reference (mean 0.007, 99th percentile 0.023), NVIDIA and AMD, validation and
+  synchronization validation 0. In the game `rt_shadows_check.ts --effect gi` (five levels): off identical to main's
+  build (at most 0.06%, the noise); on: nothing darker or black, no runaway, the Foundry (no baked sun) unchanged,
+  1.7-30% of a picture brightened, the baked-dark pixels brightened 1.7 times as often as the baked-bright ones.
+- **Cost** (`rt_gi: <x> ms a pass on the device`, timestamps around all its passes; 1920x1080, z_dt's street, RTX 5070 Ti,
+  denoised): 1 ray 1.45-1.49 ms, 2 rays (the default) 1.89-2.07 ms, 4 rays 2.44 ms - the camera ray, the albedo and the
+  denoiser are about 1 ms of it. Not measured on the AMD (integrated) device in the game.
+
 ## Order of work
 
 | # | task | depends on | start |
@@ -1014,6 +1051,7 @@ the distance from the eye, its end 7200 past its start with distance clipping (p
 | R5 | Reflections / ambient occlusion and a denoiser | R2, R3 | done - ambient occlusion and the denoiser: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_ao`, `rt_ao_strength` / `_radius` / `_rays` / `_denoise`, off by default) listens at `rt::opaque_view_drawn` after R4 and runs compute passes over images of the viewport's size - the rays (world position and normal rebuilt from the depth as R4 does - sample 0's own position in a multisampled target -, `rt_ao_rays` cosine-weighted ray queries up to `rt_ao_radius` world units, masks 0x01 + 0x02, directions from a 2D R2 sequence advanced each frame and turned per pixel by a hash), the temporal accumulation (the world position reprojected through the previous frame's camera of that viewport, bilinear over the texels whose guide agrees - on the pixel's plane, normal within ~25 degrees -, the history clamped to the 3x3 spread of this frame's rays plus a noise floor, up to 32 frames; nothing agrees: it starts again), three a-trous passes (5x5 B3 kernel at steps 1, 2, 4, weighted by normal, plane distance and the noise the history's length leaves) - then one full-screen multiplying pass, colour x (1 - strength x occlusion). Histories per viewport (rectangle + target size, up to 4). The TLAS comes from R2 through `rt_effects_set_scene_locked()`. `thug2_vulkan_rt_effects_check` (38 checks, both GPUs here, validation with synchronization 0): the raw rays against the same directions traced on the processor (50k clear-cut pixels exact, one sample and four), the denoised still camera against a 256-ray reference (mean error 0.003, 99th percentile 0.035), a moved camera's histories kept where the surface was seen (47k pixels) and restarted where it was disoccluded (1.5k), no NaN; `tools/game/rt_shadows_check.ts --effect ao` checks it in the game. Reflections: `gpu_vulkan/vulkan_rt_reflections` (`[Graphics] rt_reflections`, `rt_reflection_strength`, off by default), a listener after R4's and the AO's. Which surfaces: the game marks shiny ones with an environment-mapped material pass (pass flag 0x8, a sky picture sphere-mapped on); R1's registration gives `rt::Material::reflectivity` (that pass's brightest colour channel, doubled as drawn, times its fixed alpha where its blend mode takes one) and `environment_pass`, carried into R3's record (48 bytes a row). Hit shading: `rt::Geometry` has the texture coordinates' and colour's offsets and formats (R1 from the mesh's offsets and vertex format), R2 writes a geometry table per frame (`GeometryRecord`: the vertex / index buffers' device addresses as the frame uses them, the layout, strips as its own 32-bit lists) bound beside the TLAS, and `scene_geometry_glsl()` fetches a hit triangle's vertices through `GL_EXT_buffer_reference`. The pass: a primary ray per pixel (toward the depth's world point; kept when it ends there) identifies the surface and its material - no per-pixel material target, and nothing at all while the frame has no reflective instance; a reflective one gets the triangle's flat normal and one mirror ray (masks 0x01 + 0x02 + 0x04, alpha tested along the way), its hit shaded with the material's texture at the interpolated texture coordinates (the level from the ray's footprint: the pixel's spread over both legs), times the vertex colour doubled as the game's pixel shaders do (objects: the frame's ambient and directional lights); a miss leaves the pixel to the game's own environment map. A perfect mirror is one deterministic ray: no noise, so no denoiser. A full-screen pass mixes the colour toward it by reflectivity x strength (alpha kept; the pixels without a reflection discarded). `thug2_vulkan_rt_reflections_check` (39 checks, both GPUs, validation and synchronization validation 0): texture coordinates, colours and positions at 2100 hits through the table in every mesh layout (16- / 32-bit indices, a 16-bit strip from an odd index, unindexed lists and strips, offsets, an instance scaled, one with neither attribute) against the meshes' own; a mirror floor (a 32-bit strip) reflecting a box with an 8 x 8 texture, ~9000 clear-cut pixels each the processor's texel x vertex colour, one sample and four, strength 1 and 0.4; the box, the sky and the floor that mirrors nothing exactly as without the pass; nothing reflective or the setting off: no pass. `tools/game/rt_shadows_check.ts --effect reflections` checks it in the game. Not done: fog on the reflection, back faces treated as surfaces, rough (glossy) reflections - the denoiser would be needed then |
 | H1 | HDR targets, tone mapping and colour grading (`rt_hdr`): the base the added light (GI, fog) needs | V7, V8 | done - `gpu_vulkan/vulkan_hdr` (above, "HDR and tone mapping"): float back buffer and world targets, the tone-mapping pass last at `world_drawn`, `thug2_vulkan_hdr_check`, `rt_shadows_check.ts --effect hdr` |
 | R5 fog | Volumetric fog and light shafts | R2, R4's baked sun | done - `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default): the level's own linear fog as a medium of the same transmittance, lit by the baked sun through ray queries at half resolution with temporal accumulation and a depth-aware upsample; replaces the game's fog (`rt_fog_mode=0`) or adds the shafts over it (1); a level without fog gets a haze's shafts (`rt_fog_haze`) - "Volumetric fog and light shafts" above |
+| GI | One-bounce diffuse indirect light ("secondary lighting") with ray queries | R2, R3, R5, the baked sun | done: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by default), a view listener at `kIndirect`: the sun's light bounced once off what is around a pixel (hits shaded with R3's material at R2's texture coordinates, a shadow ray toward the level's baked sun), R5's denoiser over the colour, added to the frame as strength x the pixel's albedo x the light through a screen blend (see "One-bounce indirect light"). `thug2_vulkan_rt_gi_check` (29 checks, both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect gi`; 1080p on the RTX 5070 Ti: 1.5 / 2.0 / 2.4 ms for 1 / 2 / 4 rays |
 
 ```
 V1 -> V2 -> V6 ----------> V7 -> V8 -> V11 -> R1 -> R2 -> R4 -> R5

@@ -87,6 +87,21 @@ struct RtAoSettings {
 void set_rt_ao_settings(const RtAoSettings& settings);
 [[nodiscard]] RtAoSettings rt_ao_settings();
 
+// NOT ORIGINAL - one-bounce ray-traced indirect light (vulkan_rt_effects.h, docs/design/vulkan.md "Global illumination"):
+// [Graphics] rt_gi, rt_gi_strength, rt_gi_rays, rt_gi_distance, rt_gi_denoise. Nothing is drawn differently while `on`
+// is false, or when ray tracing isn't enabled on the device.
+inline constexpr float kRtGiStrength = 1.0F;   // (rt_gi_strength's default)
+inline constexpr float kRtGiDistance = 600.0F; // (rt_gi_distance's default: world units)
+struct RtGiSettings {
+    bool on = false;
+    float strength = kRtGiStrength; // how much of the bounced light is added (0 - 4)
+    float distance = kRtGiDistance; // how far a ray looks for a surface to bounce from (1 - 5000 world units)
+    unsigned rays = 2;              // rays per pixel each frame (1 - 16)
+    bool denoise = true;            // the temporal and spatial filters (off: each frame's rays as they are)
+};
+void set_rt_gi_settings(const RtGiSettings& settings);
+[[nodiscard]] RtGiSettings rt_gi_settings();
+
 // NOT ORIGINAL - ray-traced reflections (vulkan_rt_reflections.h, docs/design/vulkan.md R5): [Graphics] rt_reflections,
 // rt_reflection_strength. Nothing is drawn differently while `on` is false, when ray tracing isn't enabled on the device,
 // or where no surface is reflective.

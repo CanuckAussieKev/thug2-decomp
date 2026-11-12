@@ -78,7 +78,50 @@ struct RtAoTexels {
 };
 bool read_rt_ao_image(Backend& state, const std::array<uint32_t, 4>& rect, RtAoImage which, RtAoTexels* out);
 
-// The passes' objects and the histories released (the device's shutdown; the caller holds the lock).
+// --- one-bounce indirect light (global illumination; [Graphics] rt_gi - gpu_vulkan.h's RtGiSettings) ----------------
+// A listener after the shadows and the occlusion (rt::ViewOrder::kIndirect), the same passes over the same images with
+// the denoiser above over a colour instead of a share:
+//   1. trace: the pixel's position and normal as above; its albedo - a ray from the camera finds the surface the pixel
+//      shows (kept where it ends at the depth's point, as the reflections do) and its material (R3) is read at the hit's
+//      texture coordinates (R2's geometry table) at the level its footprint asks for, x the material's colour (the vertex
+//      colours, the level's baked light, left out; at most 1) - and `rays` cosine-weighted rays (masks 0x01 + 0x02 +
+//      0x04, alpha tested along the way) no longer than `distance`: a hit brings its own albedo (the same way, at a level
+//      for the ray's spread) x the sun's light x N.L where a ray toward the sun - masks 0x01 + 0x02 - is clear; a miss
+//      brings nothing. Their mean is the sun's light bounced once (E). The sun: the console's `rt sun`, else the level's
+//      baked sun (engine/gfx/rt_sun.h; the frame record's directional lights are the skater's), white; a level whose
+//      bake shows none (indoors) gets no bounce. THUG2's baked vertex colours already hold the sky's and the ambient
+//      light - the bounce is what they lack - so the hits get no ambient light and the sky brings none (the shader
+//      keeps both terms, and step 4 a sky to subtract, all 0 for now);
+//   2. / 3. the temporal and spatial filters on E's colour (the noise floors scaled by the most one ray can bring);
+//   4. apply: added = strength x albedo x max(E - sky, 0) (sky 0: E) - an open floor gets nothing, a floor beside a
+//      sunlit wall gets the wall's colour - and the blend adds it scaled by (1 - colour): a screen, so a lit pixel near
+//      white gains little and none goes past white, a dark one gains most. On a float colour target (an HDR target) it
+//      is added as it is. Pixels whose surface wasn't found (albedo 0) are left alone.
+// rt_gi_denoise=0 applies step 1's light as it is.
+
+// The usage the indirect light needs of a depth surface is rt_effects_depth_usage's (it counts both effects).
+
+// The passes over the device's bound targets for a viewport (the listener's work, also called by the check program).
+// The caller holds the lock. Returns whether they were recorded (false: skipped - off, no scene, no material table, the
+// targets can't be read; the reason logged once).
+bool record_rt_gi_pass(Backend& state, const rt::ViewDrawn& view);
+
+// The indirect light passes recorded (for the check and the log).
+[[nodiscard]] uint64_t rt_gi_passes();
+
+// Every viewport's indirect light history forgotten (the caller holds the lock).
+void rt_gi_reset_history(Backend& state);
+
+// For the check: one of the indirect light's images of the viewport last drawn with `rect` read back.
+enum class RtGiImage : uint8_t {
+    kRaw,     // step 1: rgb E (the light arriving)
+    kHistory, // step 2: rgb E, a the history's length
+    kFinal,   // what step 4 applied: rgb E, a the history's length
+    kAlbedo,  // step 1: rgb the surface's albedo, a 1 where it was found
+};
+bool read_rt_gi_image(Backend& state, const std::array<uint32_t, 4>& rect, RtGiImage which, RtAoTexels* out);
+
+// The passes' objects and the histories released - both effects' (the device's shutdown; the caller holds the lock).
 void release_rt_effects(Backend& state);
 
 } // namespace render::vulkan
