@@ -622,6 +622,16 @@ rt::ViewDrawn view_drawn(int index)
     const DeviceViewport& drawn = gfx.device_viewport();
     view.rect = {drawn.x, drawn.y, drawn.width, drawn.height};
     view.depth_range = {drawn.min_z_, drawn.max_z_};
+    // (the level's fog, as set_fog_distance / set_fog_color told the device - pc_fog.h)
+    constexpr uint32_t kByte = 0xFF;
+    constexpr float kPerByte = 1.0F / 255.0F;
+    const uint32_t fog_colour = engine_parts().fog_colour(); // (0xRRGGBB)
+    view.fog.on = gfx.fog_active() != 0;
+    view.fog.start = gfx.fog_begin_distance();
+    view.fog.end = gfx.fog_end();
+    view.fog.colour = {static_cast<float>((fog_colour >> 16U) & kByte) * kPerByte,
+                       static_cast<float>((fog_colour >> 8U) & kByte) * kPerByte,
+                       static_cast<float>(fog_colour & kByte) * kPerByte};
     return view;
 }
 

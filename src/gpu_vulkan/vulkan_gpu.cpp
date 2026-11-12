@@ -34,6 +34,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
+#include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
@@ -356,7 +357,8 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
                                .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                         rt_shadow_depth_usage(state, plan->format) | // (NOT ORIGINAL - R4, R5)
                                             rt_effects_depth_usage(state, plan->format) |
-                                            rt_reflections_depth_usage(state, plan->format),
+                                            rt_reflections_depth_usage(state, plan->format) |
+                                            rt_fog_depth_usage(state, plan->format),
                                .alpha_one = false};
     if (!state.memory.create_image(request, &surface->image)) {
         destroy_surface(state, surface);

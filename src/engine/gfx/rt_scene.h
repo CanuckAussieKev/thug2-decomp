@@ -188,10 +188,21 @@ MaterialId next_material_id();
 // A viewport's opaque world drawn: render_pc's draw_viewport calls opaque_view_drawn after the world's opaque meshes,
 // the objects' opaque passes, the texture splats and projections, the imposters and the sky - before the transparent
 // passes, the particles, the weather, the 2D. The colour and depth targets bound then hold what is drawn so far.
+// (added by the volumetric fog) The level's distance fog as the device was told when the view was drawn: the game's
+// linear range fog - over the distance from the eye d, f = (end - d) / (end - start) clamped to 0 - 1, and the colour
+// becomes mix(fog colour, colour, f). `on` false: the level draws no fog.
+struct ViewFog {
+    bool on = false;
+    float start = 0.0F;
+    float end = 0.0F;
+    std::array<float, 3> colour{}; // 0 - 1
+};
+
 struct ViewDrawn {
     Camera camera;                      // the world's camera (not the sky's, which sits at the origin)
     std::array<uint32_t, 4> rect{};     // the viewport in the target's pixels: x, y, width, height
     std::array<float, 2> depth_range{}; // the viewport's min / max z (0, 1)
+    ViewFog fog;                        // (added by the volumetric fog)
 };
 
 // What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that

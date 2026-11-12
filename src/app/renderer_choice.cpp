@@ -87,6 +87,17 @@ void install_vulkan()
     render::vulkan::set_rt_reflection_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),
          .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength)});
+    // NOT ORIGINAL - volumetric fog and light shafts (gpu_vulkan/vulkan_rt_fog.h): likewise
+    render::vulkan::set_rt_fog_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_fog", false),
+         .density = ini_float("rt_fog_density", render::vulkan::RtFogSettings{}.density),
+         .height = ini_float("rt_fog_height", render::vulkan::RtFogSettings{}.height),
+         .anisotropy = ini_float("rt_fog_anisotropy", render::vulkan::RtFogSettings{}.anisotropy),
+         .steps = static_cast<unsigned>(std::max(
+             1, build_info::get_int(build_info::kGraphics, "rt_fog_steps", static_cast<int>(render::vulkan::kRtFogSteps)))),
+         .mode = build_info::get_int(build_info::kGraphics, "rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts
+                                                                                   : render::vulkan::RtFogMode::kReplace,
+         .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)});
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());
