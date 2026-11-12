@@ -1,6 +1,8 @@
 // NOT ORIGINAL - format-2 translation IR. No runtime references or PC pointers.
 export type ScalarLiteral = { type: 1 | 2 | 13; bits: number };
-export type Literal = ScalarLiteral | { type: 3 | 4; bytes: number[] } | { type: 5 | 6; coordinates: number[] };
+// token: a localised string's (tools/qbjs/localize.ts) - written tr("<token>"), its text from the language's table.
+export type Literal =
+    ScalarLiteral | { type: 3 | 4; bytes: number[]; token?: string } | { type: 5 | 6; coordinates: number[] };
 export type Expr =
     | { kind: "literal"; offset: number; value: Literal }
     | { kind: "expressionResult"; offset: number; value: Expr }

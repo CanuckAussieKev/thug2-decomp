@@ -87,6 +87,14 @@ int config_int(const char* section, const char* key, int fallback)
         GetPrivateProfileIntA(section, key, fallback, game_folder_path("thug2-decomp.ini").c_str()));
 }
 
+std::string config_text(const char* section, const char* key, const char* fallback)
+{
+    std::array<char, 256> text{};
+    GetPrivateProfileStringA(section, key, fallback, text.data(), static_cast<DWORD>(text.size()),
+                             game_folder_path("thug2-decomp.ini").c_str());
+    return text.data();
+}
+
 bool config_set_int(const char* section, const char* key, int value)
 {
     std::array<char, kNumberTextSize> text{};
@@ -112,7 +120,8 @@ void log_open()
 
 void* log_file_handle()
 {
-    return run_log_state().log_ ? core::at_address<void>(_get_osfhandle(_fileno(run_log_state().log_))) : INVALID_HANDLE_VALUE;
+    return run_log_state().log_ ? core::at_address<void>(_get_osfhandle(_fileno(run_log_state().log_)))
+                                : INVALID_HANDLE_VALUE;
 }
 
 void log_line(const char* line)

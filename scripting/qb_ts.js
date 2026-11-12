@@ -403,6 +403,9 @@ globalThis.qbTs = (() => {
         vec: (x, y, z) => mark({ type: 6, coordinates: [x, y, z].map(coordinate) }, literalVector),
         pair: (x, y) => mark({ type: 5, coordinates: [x, y].map(coordinate) }),
         L: (s) => mark({ type: 4, bytes: bytes(s) }),
+        // A localised string: its token's text in the game's language, else English's (globalThis.qbText /
+        // qbTextEnglish: Data\lang\<language>.json and en.json, set by the game - ts_bridge.cpp), else the token.
+        tr: (token) => globalThis.qbText?.[token] ?? globalThis.qbTextEnglish?.[token] ?? token,
         all: (p) => ({ [SPREAD]: listOf(p) }),
         params: (p) => (listOf(p) === NO_PARAMETERS ? undefined : mark({ type: 20, target: { type: 10, members: listOf(p) } })),
         val: (x) => mark(v.expressionResult(operand(x), ctx())),

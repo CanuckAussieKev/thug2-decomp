@@ -46,5 +46,7 @@ THUG2_API std::string game_folder_path(const char* file_name);
 
 // An integer setting from thug2-decomp.ini in the game folder (`fallback` if absent).
 THUG2_API int config_int(const char* section, const char* key, int fallback);
+// A text setting from thug2-decomp.ini (`fallback` if absent; up to 255 characters).
+std::string config_text(const char* section, const char* key, const char* fallback);
 // Write an integer setting into thug2-decomp.ini (WritePrivateProfileString). Whether it was written.
 THUG2_API bool config_set_int(const char* section, const char* key, int value);

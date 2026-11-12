@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string>
 
 #include "base/core/api.h"
 #include "base/core/language.h"
@@ -32,14 +33,17 @@ constexpr int kDisplayNtsc = 1;
 
 // The settings it keeps.
 int& get_language(); // 0x007CEFA0 (1 Japanese, 2 English, 3 French, 4 Spanish, 5 German, 6 Italian, 7 Dutch, 8 Portuguese)
-int& territory();    // 0x007CEFA4 (1 Europe, 2 US, 3 Asia)
-int& hardware();     // 0x007CEFA8 (1 PS2, 2 PS2 ProView, 3 PS2 Dev System, 4 XBox, 5 GameCube, 7 Win32)
-int& display_type();      // 0x00684FB0 (0 PAL, 1 NTSC)
-int& frame_rate();        // 0x00684FB4
-THUG2_API bool& from_cd();          // 0x00684FA8 (the script's CD)
-bool& get_extra_memory(); // 0x007CEFAC
-bool& bootstrap();        // 0x007CEFAD
-bool& ntsc_flag();        // 0x007CEFAF (set through set_ntsc_flag, NTSC only)
+// NOT ORIGINAL - the language's code for the scripts' text tables (Data\lang\<code>.json): [features] language=, else
+// the game's language's (fr, de; en otherwise).
+std::string language_code();
+int& territory();          // 0x007CEFA4 (1 Europe, 2 US, 3 Asia)
+int& hardware();           // 0x007CEFA8 (1 PS2, 2 PS2 ProView, 3 PS2 Dev System, 4 XBox, 5 GameCube, 7 Win32)
+int& display_type();       // 0x00684FB0 (0 PAL, 1 NTSC)
+int& frame_rate();         // 0x00684FB4
+THUG2_API bool& from_cd(); // 0x00684FA8 (the script's CD)
+bool& get_extra_memory();  // 0x007CEFAC
+bool& bootstrap();         // 0x007CEFAD
+bool& ntsc_flag();         // 0x007CEFAF (set through set_ntsc_flag, NTSC only)
 
 // 0x005B5C90: whether `argument` starts with `option` (both
 // non-null; the argument copied into a 100-byte buffer - unbounded, as the original - and cut to the option's

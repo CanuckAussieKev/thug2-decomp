@@ -66,6 +66,8 @@ const HELPERS = [
     "branch",
     "arm",
     "reach",
+    // a localised string: its token's text in the game's language (Data\lang\<language>.json - tools/qbjs/localize.ts)
+    "tr",
 ] as const;
 const OPERATORS: Record<number, string> = {
     5: "at",
@@ -234,9 +236,9 @@ export function emitTS(
             case 13:
                 return member(use("N"), v.bits);
             case 3:
-                return stringText(v.bytes);
+                return v.token ? `${use("tr")}(${JSON.stringify(v.token)})` : stringText(v.bytes);
             case 4:
-                return `${use("L")}(${stringText(v.bytes)})`;
+                return `${use("L")}(${v.token ? `${use("tr")}(${JSON.stringify(v.token)})` : stringText(v.bytes)})`;
             case 5:
             case 6:
                 return `${use(v.type === 6 ? "vec" : "pair")}(${v.coordinates.map(coordinate).join(", ")})`;

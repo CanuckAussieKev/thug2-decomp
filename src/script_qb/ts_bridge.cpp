@@ -48,6 +48,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/tokens.h"
+#include "engine/sys/game_config.h"
 #include "platform/run_log.h"
 #include "ts_sources.h"
 
@@ -1211,11 +1212,43 @@ bool module_from_ts(const std::string& ts, std::string* js, uint32_t* from, std:
 
 // load_qb's hook ([features] ts_scripts=2): the file defined by its TypeScript - its globals, its scripts and its
 // checksum names - in place of reading the .qb; false (the .qb read) when it has none or it fails.
+// The scripts' text (tools/qbjs/localize.ts): Data\lang\<the language's code>.json as globalThis.qbText and
+// Data\lang\en.json as qbTextEnglish - a token missing from the language is read in English (qb_ts.js tr). Read once,
+// before the first module.
+void load_text_tables()
+{
+    static bool loaded = false;
+    if (std::exchange(loaded, true)) {
+        return;
+    }
+    const std::string code = game_config::language_code();
+    JSContext* c = engine().context;
+    const JSValue global = JS_GetGlobalObject(c);
+    const auto load = [&](const std::string& language, const char* property) {
+        const std::string path = game_folder_path(("Data\\lang\\" + language + ".json").c_str());
+        std::string json;
+        if (!fs::read_text(path, &json)) {
+            return;
+        }
+        const JSValue table = JS_ParseJSON(c, json.c_str(), json.size(), path.c_str());
+        if (JS_IsException(table)) {
+            get_log("ts: %s: %s", path.c_str(), exception_text(c).c_str());
+            return;
+        }
+        JS_SetPropertyStr(c, global, property, table);
+        get_log("ts: the scripts' text from %s", path.c_str());
+    };
+    load("en", "qbTextEnglish");
+    load(code, "qbText");
+    JS_FreeValue(c, global);
+}
+
 bool load_standalone(const char* filename, bool temporary)
 {
     if (!is_on() || !standalone() || !filename) {
         return false;
     }
+    load_text_tables();
     std::string name;
     std::string ts;
     if (!read_game_ts(filename, &name, &ts)) {

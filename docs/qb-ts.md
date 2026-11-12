@@ -100,15 +100,23 @@ only in archives); the archive's copy goes over a loose one that differs - the g
 first, and loads each archive before its files - which is only the scripts (the archives' copies without the loose
 ones' debug prints) and two of Training's textures. With no archive file and no folder, both archive loaders load
 nothing (`archive.cpp`, `packs.cpp`) and the game reads every file loose; the loose-file table holds 4,096 files, not
-200 (a resident archive's files - `unloadableanims`' 1,006 - are held one by one). The French and German archives are
-unpacked into folders, `Data\pre\BO_scripts.fr` / `.de` (the patch applied), and `unpack_game.ts --check` keeps every
+200 (a resident archive's files - `unloadableanims`' 1,006 - are held one by one). `unpack_game.ts --check` keeps every
 archive in its folder (the script check runs each version of a file). `--restore` puts everything back (its record:
 `thug2-decomp-backup\unpacked.json`); `--refresh` puts back and unpacks again - after `make_menu_level.ts` or a
 converter rewrote an overlay (until then the game reads such a file's new `.qb`, not its old `.ts`: the `.ts` names the
 hash of the `.qb` it was made from).
 
-- **Archives as folders** (`src/engine/file/archive_folder.h`; the French and German ones, the check's): when an archive file isn't there and its folder is,
-  both loaders (the pre manager's, the packs') build the same archive in memory from the folder - every file in it,
+- **Languages** (`tools/qbjs/localize.ts`): one set of scripts for every language. The French and German archives
+  differ from the English ones only in their scripts' text (172 and 167 files; every other file the same), so a
+  script's versions are the same code with other strings: their literals pair up in order, and each whose text differs
+  in a language becomes a token - `tr("bo_scripts.smash_5_tea_barrels")` - with every language's text in its table,
+  English's too: `Data\lang\en.json`, `fr.json`, `de.json` (5,783 tokens in 175 files; keyboard.qb, which the game
+  patches, paired through its unpatched English). The game reads `Data\lang\<code>.json` and `en.json` before the
+  first module (`ts_bridge.cpp load_text_tables`; the code: `[features] language=` - en, fr, de or any other table's -,
+  else the registry's language) and `tr` gives the token's text in the language, else English's. Text that's the same
+  in every language stays in the script. The language archives aren't unpacked; a new language is a table.
+- **Archives as folders** (`src/engine/file/archive_folder.h`; the check's): when an archive file isn't there and its
+  folder is, both loaders (the pre manager's, the packs') build the same archive in memory from the folder - every file in it,
   stored unpacked - so an archive is in and out of memory exactly when it was, and everything after reads it as before.
 - **A file's TypeScript** (`ts_bridge.cpp load_standalone`, asked first by `load_qb` and `load_qb_data` - a level's
   node array is read as an asset, `NodeTableResource::read_in`, and with no `.qb` parsed from nothing): `<name>.ts`

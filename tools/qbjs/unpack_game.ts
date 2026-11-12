@@ -5,10 +5,11 @@
 // runs as it loads the file (src/script_qb/ts_bridge.cpp load_standalone); and every file of the archives goes loose
 // where its name says in Data (Data\levels\bo\BO.scn.xbx, Data\levels\bo\BO_scripts.ts...), the archive's copy over a
 // loose one that differs (that one backed up too) - the game loads no archive and reads it all loose. The French and
-// German archives are unpacked into folders, Data\pre\BO_scripts.fr \ .de (their patch applied), which the game loads
-// in their place (src/engine/file/archive_folder.h). --check keeps every archive in its folder - the script check runs
-// each version of a file. The .ts's last line - `// qb-file {...}` - is its manifest: the file's source name, the hash of the
-// .qb it was made from and the file's checksum names.
+// German archives aren't unpacked: their scripts are the English ones with other text, so the scripts' text becomes
+// tokens with a table per language - Data\lang\en.json, fr.json, de.json (localize.ts). --check keeps every archive in
+// its folder, its text in the scripts - the script check runs each version of a file. The .ts's last line -
+// `// qb-file {...}` - is its manifest: the file's source name, the hash of the .qb it was made from and the file's
+// checksum names.
 //
 //   node tools/qbjs/unpack_game.ts --game <folder>            unpack (the game folder as installed)
 //   node tools/qbjs/unpack_game.ts --game <folder> --refresh  put back, then unpack again (after make_menu_level.ts or
@@ -23,6 +24,8 @@ import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { emitTS } from "./emit_ts.ts";
+import type { ModuleIR } from "./ir.ts";
+import { Localizer } from "./localize.ts";
 import { fileHash, gameRoot, scriptBytes } from "./install_ts.ts";
 import { readIR } from "./reader.ts";
 
@@ -60,10 +63,18 @@ function scriptFolders(root: string): string[] {
 
 // A .qb's TypeScript with its manifest line; null when it doesn't translate. `source`: its name in the runtime
 // ("Data\\levels\\bo\\bo_scripts.qb", lower case - as install_ts.ts names modules), `name` its game path.
-export function scriptTS(source: string, name: string, read: Buffer, check = false): string | null {
+// localize: the IR's text given tokens before it's written (localize.ts).
+export function scriptTS(
+    source: string,
+    name: string,
+    read: Buffer,
+    check = false,
+    localize?: (ir: ModuleIR) => void,
+): string | null {
     const bytes = scriptBytes(name, read);
     try {
         const ir = readIR(bytes, source);
+        localize?.(ir);
         const ts = emitTS(ir, {}, { check });
         const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
         const manifest = JSON.stringify({ source, from: fileHash(bytes), names });
@@ -146,13 +157,50 @@ export function unpack(game: string, check = false): { record: Record; failed: s
     for (const name of archives) move(join(pre, name));
     const backedUp = (name: string) => join(root, BACKUP, "Data", "pre", name);
     const lower = new Map(archives.map((name) => [name.toLowerCase(), name]));
-    const unpackInto = (bytes: Buffer, folder: string) => {
+    // The French and German archives (complete, or a patch for the English one): their scripts by archive and name -
+    // the text tables are made from them (localize.ts). They aren't unpacked: the rest of their files are English's,
+    // and the English scripts with a language's table are that language's.
+    const LANGUAGES: { [kind: string]: string } = { ".prf": "fr", ".ppf": "fr", ".prd": "de", ".ppd": "de" };
+    const localized = new Map<string, { [language: string]: Buffer }>(); // ("<archive stem>|<name>", lower case)
+    for (const name of archives) {
+        const kind = name.slice(-4).toLowerCase();
+        const language = LANGUAGES[kind];
+        if (!language) continue;
+        const stem = name.replace(/\.[^.]+$/, "");
+        let bytes: Buffer;
+        if (kind === ".prf" || kind === ".prd") bytes = readFileSync(backedUp(name));
+        else {
+            // (a patch: used only when there's no complete localised archive)
+            const english = lower.get(`${stem}.prx`.toLowerCase());
+            if (lower.has(`${stem}${kind === ".ppf" ? ".prf" : ".prd"}`.toLowerCase()) || !english) continue;
+            bytes = applyPatch(readFileSync(backedUp(english)), readFileSync(backedUp(name)));
+        }
+        for (const entry of prx.readArchive(bytes).entries) {
+            if (!/\.qb$/i.test(entry.name)) continue;
+            const key = `${stem}|${entry.name}`.toLowerCase();
+            localized.set(key, { ...localized.get(key), [language]: prx.entryData(entry) });
+        }
+    }
+    const localizer = new Localizer();
+    const unpackInto = (bytes: Buffer, folder: string, stem: string) => {
         record.folders.push(rel(folder));
         for (const entry of prx.readArchive(bytes).entries) {
             const data = prx.entryData(entry);
             const path = join(folder, ...entry.name.split(/[\\/]/));
             if (/\.qb$/i.test(entry.name)) {
-                const ts = scriptTS(`Data\\${entry.name.replace(/\//g, "\\").toLowerCase()}`, entry.name, data, check);
+                const source = `Data\\${entry.name.replace(/\//g, "\\").toLowerCase()}`;
+                const languages = check ? undefined : localized.get(`${stem}|${entry.name}`.toLowerCase());
+                const localize = (ir: ModuleIR) => {
+                    const versions = Object.entries(languages ?? {}).map(([language, version]) => [
+                        language,
+                        readIR(scriptBytes(entry.name, version), source),
+                    ]);
+                    // (a file the game patches - keyboard.qb -: the languages paired with the unpatched one)
+                    const patched = scriptBytes(entry.name, data) !== data;
+                    const unpatched = patched ? readIR(data, source) : undefined;
+                    localizer.localize(source, ir, Object.fromEntries(versions), unpatched);
+                };
+                const ts = scriptTS(source, entry.name, data, check, languages ? localize : undefined);
                 if (ts !== null) {
                     mkdirSync(dirname(path), { recursive: true });
                     writeFileSync(path.replace(/\.qb$/i, ".ts"), ts);
@@ -165,21 +213,16 @@ export function unpack(game: string, check = false): { record: Record; failed: s
         }
     };
     for (const name of archives) {
+        if (!/\.(prx|pre)$/i.test(name)) continue;
         const stem = name.replace(/\.[^.]+$/, "");
-        const kind = name.slice(-4).toLowerCase();
-        if (kind === ".prx" || kind === ".pre") unpackInto(readFileSync(backedUp(name)), join(pre, stem));
-        else if (kind === ".prf" || kind === ".prd") {
-            unpackInto(readFileSync(backedUp(name)), join(pre, `${stem}${kind === ".prf" ? ".fr" : ".de"}`));
-        } else {
-            // (a patch: used only when there's no complete localised archive)
-            const full = `${stem}${kind === ".ppf" ? ".prf" : ".prd"}`.toLowerCase();
-            const english = lower.get(`${stem}.prx`.toLowerCase());
-            if (lower.has(full) || !english) continue;
-            const patched = applyPatch(readFileSync(backedUp(english)), readFileSync(backedUp(name)));
-            unpackInto(patched, join(pre, `${stem}${kind === ".ppf" ? ".fr" : ".de"}`));
-        }
+        unpackInto(readFileSync(backedUp(name)), join(pre, stem), stem);
         save();
     }
+    // (the text tables: en.json and each language's)
+    if (Object.keys(localizer.tables.en ?? {}).length)
+        for (const language of Object.keys(localizer.tables))
+            make(join(root, "Data", "lang", `${language}.json`), localizer.json(language));
+    for (const left of localizer.leftOut) console.log(`text not localised (not the same code as English's): ${left}`);
 
     // The loose .qb files: Data's and the overlays', each a .ts where it was.
     for (const folder of scriptFolders(root)) {
@@ -199,10 +242,10 @@ export function unpack(game: string, check = false): { record: Record; failed: s
 
     // No archive at all (not --check: the check runs every version, each archive's in its folder). The game reads a
     // loaded archive's copy of a file before the loose one and loads each archive before its files - qb_scripts at boot,
-    // a level's archives as the level loads -, so every file goes where its name says in Data (levelsoBO.scn.xbx,
-    // soundspcm..., scripts...), the archive's copy over a loose one that differs (the loose scripts' debug prints,
-    // two of Training's textures); the archive folders go. A name two archives hold differently stays in its folder;
-    // the French and German folders stay as they are. With no archive file and no folder, both loaders load nothing
+    // a level's archives as the level loads -, so every file goes where its name says in Data (levels\bo\BO.scn.xbx,
+    // sounds\pcm\..., scripts\...), the archive's copy over a loose one that differs (the loose scripts' debug prints,
+    // two of Training's textures); the archive folders go. A name two archives hold differently stays in its folder.
+    // With no archive file and no folder, both loaders load nothing
     // (archive.cpp, packs.cpp) and the game reads the files loose.
     if (!check) {
         const made = new Set(record.made.map((m) => m.toLowerCase()));

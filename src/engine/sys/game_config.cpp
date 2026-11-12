@@ -8,10 +8,12 @@
 #include <cstddef>
 #include <cstring>
 #include <iterator>
+#include <string>
 #include <string_view>
 #include <array>
 
 #include "base/core/dbg.h"
+#include "platform/run_log.h"
 #include "base/core/checked_index.h"
 #include "platform/registry.h"
 #include "base/core/no_destroy.h"
@@ -23,11 +25,11 @@ namespace {
 
 constexpr int kFrameRatePal = 50;
 constexpr int kFrameRateNtsc = 60;
-constexpr size_t kPathBytes = 128;          // (0x80 bytes)
-constexpr size_t kOptionCopyBytes = 100;    // argument_starts_with's copy of the argument
-constexpr size_t kArgumentBytes = 256;      // got_argument's copies of an option and a command line word
-constexpr DWORD kRegistryDwordBytes = 4;    // the size of the language value
-constexpr DWORD kRegistryFrench = 2;        // the installer's language numbers for the two translations
+constexpr size_t kPathBytes = 128;       // (0x80 bytes)
+constexpr size_t kOptionCopyBytes = 100; // argument_starts_with's copy of the argument
+constexpr size_t kArgumentBytes = 256;   // got_argument's copies of an option and a command line word
+constexpr DWORD kRegistryDwordBytes = 4; // the size of the language value
+constexpr DWORD kRegistryFrench = 2;     // the installer's language numbers for the two translations
 constexpr DWORD kRegistryGerman = 3;
 
 // NOT ORIGINAL grouping - the game's configuration (0x00684FA8 the CD flag, 0x00684FB4 the frame rate, 0x007CEFA0 -
@@ -44,8 +46,8 @@ struct ConfigState {
     std::array<char, kPathBytes> path_prefix_{};
     std::array<char, kPathBytes> bootstrap_argument_{};
     std::array<char, kPathBytes> bootstrap_return_{};
-    int display_type_{kDisplayNtsc};      // (the script commands' NTSC setting: 1)
-    bool got_extra_memory_{}; // (the script commands' GotExtraMemory)
+    int display_type_{kDisplayNtsc}; // (the script commands' NTSC setting: 1)
+    bool got_extra_memory_{};        // (the script commands' GotExtraMemory)
 };
 
 ConfigState& config_state()
@@ -67,10 +69,13 @@ bool& ntsc_flag() { return config_state().ntsc_flag_; }
 
 namespace {
 
-std::array<char, kPathBytes>& path_prefix() { return config_state().path_prefix_; }               // (0x80 bytes)
-std::array<char, kPathBytes>& bootstrap_return() { return config_state().bootstrap_return_; }     // where a bootstrap demo returns to
+std::array<char, kPathBytes>& path_prefix() { return config_state().path_prefix_; } // (0x80 bytes)
+std::array<char, kPathBytes>& bootstrap_return()
+{
+    return config_state().bootstrap_return_;
+} // where a bootstrap demo returns to
 std::array<char, kPathBytes>& bootstrap_argument() { return config_state().bootstrap_argument_; } // what it passes back
-const char* const kEmpty = "";                              // ""
+const char* const kEmpty = "";                                                                    // ""
 
 // strcpy (unbounded, as the original's).
 void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
@@ -342,6 +347,33 @@ void read_registry(Arguments /*unused*/)
     default:
         get_language() = core::kLanguageEnglish;
         break;
+    }
+    // NOT ORIGINAL - thug2-decomp.ini [features] language= (a language code: en, fr, de...) over the registry's. The
+    // scripts' text comes from Data\lang\<code>.json (an unpacked game - tools/qbjs/localize.ts); the codes the game
+    // has its own language for set it too, any other leaves English.
+    const std::string code = config_text("features", "language", "");
+    if (code == "fr") {
+        get_language() = core::kLanguageFrench;
+    } else if (code == "de") {
+        get_language() = core::kLanguageGerman;
+    } else if (!code.empty()) {
+        get_language() = core::kLanguageEnglish;
+    }
+}
+
+// NOT ORIGINAL - the language's code: [features] language=, else the game's language's (fr, de; en otherwise).
+std::string language_code()
+{
+    if (std::string code = config_text("features", "language", ""); !code.empty()) {
+        return code;
+    }
+    switch (get_language()) {
+    case core::kLanguageFrench:
+        return "fr";
+    case core::kLanguageGerman:
+        return "de";
+    default:
+        return "en";
     }
 }
 
