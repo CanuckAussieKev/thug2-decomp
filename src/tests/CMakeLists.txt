@@ -177,6 +177,18 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_fog_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_sun_check.exe: the Vulkan Gpu's sun, its glare, the screen-space rays, the bloom and
+# the sky model (gpu_vulkan/vulkan_rt_sun.h, vulkan_rt_sky.h; engine/gfx/rt_sky.h) on this machine - the sky's table
+# against the model's integrals, the disc and glare against their formula, the rays against the processor's march,
+# the bloom keeping the light it spreads (8-bit and 16-bit float targets), the aerial haze's transmittance against its
+# closed form (src/tests/vulkan_rt_sun_check.cpp; --perf: the cost at 1920 x 1080). Exit 2 on a device without ray
+# queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_sun_check vulkan_rt_sun_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_sun_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_sun_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
 # (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
 # materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,

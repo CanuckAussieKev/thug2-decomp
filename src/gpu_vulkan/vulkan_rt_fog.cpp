@@ -28,6 +28,7 @@
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_rt_sky.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -81,7 +82,10 @@ layout(set = 0, binding = 7) uniform FogBlock {
     vec4 shares;        // x ambient, y sky, z shafts (mode 1), w 1: the light unclamped (rt_hdr)
     ivec4 rect;         // the viewport in the target's pixels
     ivec4 low;          // the low-resolution images' width and height, the scale, the steps
-    ivec4 flags;        // x the mode, y the mask, z the longest history
+    ivec4 flags;        // x the mode (2: aerial), y the mask, z the longest history
+    vec4 aerial;        // the sky model's haze: x its extinction per unit at the ground, y 1 / its height, z the
+                        // ground's y, w the share of its light the sky gives (the rest the sun's)
+    vec4 sun_light;     // rgb the sun's colour (the sky model's); w how far the haze is followed
 } fog;
 
 #ifdef MULTISAMPLED
@@ -143,6 +147,62 @@ float phase(float c)
     return (1.0 - g * g) / (k * sqrt(k));
 }
 
+#ifdef AERIAL
+// (the sky model's haze) two Henyey-Greenstein lobes x 4 pi: a strong one forward (the glow round the sun, the beams
+// seen toward it) and a broad one (the haze lit from the side)
+float lobe(float c, float g)
+{
+    float k = max(1.0 + g * g - 2.0 * g * c, 1e-4);
+    return (1.0 - g * g) / (k * sqrt(k));
+}
+float dual_phase(float c) { return AERIAL_FORWARD_SHARE * lobe(c, AERIAL_FORWARD_G) + (1.0 - AERIAL_FORWARD_SHARE) * lobe(c, AERIAL_BROAD_G); }
+
+// The haze's optical depth between s0 and s1 along the view ray: extinction aerial.x x exp(-(y - ground) / H) - in
+// closed form (y is linear along the ray)
+float haze_depth(vec3 direction, float s0, float s1)
+{
+    float inv_h = fog.aerial.y;
+    float base = fog.aerial.x * exp(clamp(-(fog.camera.y - fog.aerial.z) * inv_h, -60.0, 60.0));
+    float k = direction.y * inv_h;
+    if (abs(k) * (s1 - s0) < 1e-4) {
+        return base * exp(clamp(-k * 0.5 * (s0 + s1), -60.0, 60.0)) * (s1 - s0);
+    }
+    return base * (exp(clamp(-k * s0, -60.0, 60.0)) - exp(clamp(-k * s1, -60.0, 60.0))) / k;
+}
+
+// The march through the sky model's haze (aerial perspective): it dims what is far toward the sky's colour; its light is
+// the sky's (the table, toward the horizon in the ray's direction) x aerial.w and the sun's where a point sees it.
+void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
+{
+    bool sky = distance < 0.0;
+    float b = sky ? fog.sun_light.w : min(distance, fog.sun_light.w);
+    vec3 light_in = vec3(0.0);
+    float transmittance = 1.0;
+    if (b > 0.0) {
+        vec3 level = normalize(vec3(direction.x, max(direction.y, AERIAL_LOWEST), direction.z));
+        vec3 ambient = sky_display(level, fog.sun.xyz);
+        float brightness = dot(ambient, vec3(0.2126, 0.7152, 0.0722));
+        vec3 sun_term = fog.sun_light.rgb * (brightness * (1.0 - fog.aerial.w) * dual_phase(dot(direction, fog.sun.xyz)));
+        vec3 sky_term = ambient * fog.aerial.w;
+        int steps = fog.low.w;
+        float u = fract(jitter_at(local) + fog.fog_range.w);
+        for (int i = 0; i < steps; ++i) {
+            float s0 = b * (float(i) / float(steps));
+            float s1 = b * (float(i + 1) / float(steps));
+            float s = b * ((float(i) + u) / float(steps));
+            float tau = fog.fog_colour.w * haze_depth(direction, s0, s1);
+            float e = exp(-min(max(tau, 0.0), 40.0));
+            float sunlit = lit(fog.camera.xyz + direction * s);
+            vec3 here = sky ? sun_term * (sunlit * fog.shares.y) : sky_term + sun_term * sunlit;
+            light_in += transmittance * (1.0 - e) * here;
+            transmittance *= e;
+        }
+    }
+    imageStore(o_out, q, vec4(light_in, sky ? 1.0 : transmittance));
+    imageStore(o_info, q, vec4(distance, float(local.x), float(local.y), 0.0));
+}
+#endif
+
 void main()
 {
     ivec2 q = ivec2(gl_GlobalInvocationID.xy);
@@ -153,6 +213,10 @@ void main()
     ivec2 p = fog.rect.xy + local;
     vec3 direction = direction_of(p);
     float distance = distance_of(p);
+#ifdef AERIAL
+    march_aerial(q, local, direction, distance);
+    return;
+#endif
     bool sky = distance < 0.0;
     bool replace = fog.flags.x == 0 && !sky;
     float start = fog.fog_range.x;
@@ -332,8 +396,10 @@ struct FogBlock {
     std::array<int32_t, 4> rect{};
     std::array<int32_t, 4> low{};
     std::array<int32_t, 4> flags{};
+    std::array<float, 4> aerial{};
+    std::array<float, 4> sun_light{};
 };
-constexpr std::size_t kFogBlockBytes = 304;
+constexpr std::size_t kFogBlockBytes = 336;
 static_assert(sizeof(FogBlock) == kFogBlockBytes, "the shaders' std140 block");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -349,7 +415,8 @@ constexpr uint32_t kBindingInInfo = 5;
 constexpr uint32_t kBindingHistory = 6;
 constexpr uint32_t kBindingBlock = 7;
 constexpr uint32_t kBindingHistoryInfo = 8;
-constexpr uint32_t kBindingCount = 9;
+constexpr uint32_t kBindingSky = 9; // (the sky model's table: the aerial march's)
+constexpr uint32_t kBindingCount = 10;
 
 struct CompositePipeline {
     VkFormat format = VK_FORMAT_UNDEFINED;
@@ -389,7 +456,7 @@ struct FogState {
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
     VkShaderModule vertex = VK_NULL_HANDLE;
-    std::array<VkPipeline, 2> march{}; // single-sampled depth, multisampled
+    std::array<VkPipeline, 4> march{}; // single-sampled depth, multisampled; then both through the aerial haze
     VkPipeline temporal = VK_NULL_HANDLE;
     std::vector<CompositePipeline> composites;
     std::vector<std::unique_ptr<ViewSlot>> slots;
@@ -397,6 +464,8 @@ struct FogState {
     std::array<float, 3> sun_tint{};
     bool have_sun = false;
     bool haze = false; // this view's level has no fog: the haze drawn instead (rt_fog_haze)
+    bool aerial = false; // ... as the sky model's aerial perspective (rt_sky_model=1, a sun and its table)
+    std::array<float, 3> sun_colour{1.0F, 1.0F, 1.0F}; // the sky model's (display-referred, brightest channel 1)
     bool standard_samples = false;
     bool failed = false;
     uint64_t passes = 0;
@@ -468,17 +537,27 @@ VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::stri
     return module;
 }
 
-std::string source_of(const char* body, bool traces, bool multisampled)
+std::string source_of(const char* body, bool traces, bool multisampled, bool aerial = false)
 {
     std::string source = "#version 460\n";
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
+    }
+    if (aerial) {
+        source += "#define AERIAL\n";
+        source += "#define AERIAL_FORWARD_SHARE " + std::to_string(kFogAerialForwardShare) + "\n";
+        source += "#define AERIAL_FORWARD_G " + std::to_string(kFogAerialForwardG) + "\n";
+        source += "#define AERIAL_BROAD_G " + std::to_string(kFogAerialBroadG) + "\n";
+        source += "#define AERIAL_LOWEST " + std::to_string(kFogAerialLowest) + "\n";
     }
     if (traces) {
         source += "#extension GL_EXT_ray_query : require\n";
         source += "#define SUN_DISTANCE " + std::to_string(kFogSunDistance) + "\n";
     }
     source += kCommon;
+    if (aerial) {
+        source += sky_table_glsl(kBindingSky);
+    }
     source += body;
     return source;
 }
@@ -521,7 +600,7 @@ bool make_layouts(Backend& state, std::string* error)
         VkDescriptorType type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         if (binding == kBindingScene) {
             type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        } else if (binding == kBindingDepth) {
+        } else if (binding == kBindingDepth || binding == kBindingSky) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         } else if (binding == kBindingBlock) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -586,11 +665,11 @@ bool ensure_objects(Backend& state, std::string* error)
             return false;
         }
     }
-    for (std::size_t multisampled = 0; multisampled < own.march.size(); ++multisampled) {
-        if (core::at(own.march, multisampled) == VK_NULL_HANDLE) {
-            core::at(own.march, multisampled) =
-                make_compute(device, own.layout, source_of(kMarchBody, true, multisampled != 0), error);
-            if (core::at(own.march, multisampled) == VK_NULL_HANDLE) {
+    for (std::size_t variant = 0; variant < own.march.size(); ++variant) {
+        if (core::at(own.march, variant) == VK_NULL_HANDLE) {
+            core::at(own.march, variant) = make_compute(
+                device, own.layout, source_of(kMarchBody, true, (variant & 1U) != 0, (variant & 2U) != 0), error);
+            if (core::at(own.march, variant) == VK_NULL_HANDLE) {
                 return false;
             }
         }
@@ -950,6 +1029,7 @@ void clear_slot(VkCommandBuffer commands, ViewSlot* slot)
 // One pass's descriptors (null: not bound).
 struct PassBindings {
     bool scene = false;
+    bool sky = false; // the sky model's table (vulkan_rt_sky.h)
     const Image* depth = nullptr;
     const Image* out = nullptr;
     const Image* out_info = nullptr;
@@ -981,6 +1061,11 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     };
     if (bound.scene) {
         add(kBindingScene, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR).pNext = &scene;
+    }
+    if (bound.sky) {
+        VkDescriptorImageInfo& info = core::at(infos, kBindingSky);
+        info = sky_table_descriptor();
+        add(kBindingSky, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
     }
     if (bound.depth != nullptr) {
         VkDescriptorImageInfo& info = core::at(infos, kBindingDepth);
@@ -1164,6 +1249,19 @@ void read_sun()
         core::at(own.to_sun, i) = static_cast<float>(static_cast<double>(core::at(toward, i)) / length);
     }
     own.have_sun = true;
+    // (added by the sun's glare) with the sky model (or rt_sun_colour) the sun has a colour: the fog's sunlit light is
+    // tinted by it, its brightness kept (Rec. 709 luma 1)
+    const RtSunSettings& sun = sun_settings_held();
+    if (sun.sky_model || sun.colour_set) {
+        own.sun_colour = sky_colours(own.to_sun).sun;
+        const float luma = (0.2126F * core::at(own.sun_colour, 0)) + (0.7152F * core::at(own.sun_colour, 1)) +
+                           (0.0722F * core::at(own.sun_colour, 2));
+        if (luma > 0.0F) {
+            for (std::size_t i = 0; i < 3; ++i) {
+                core::at(own.sun_tint, i) = core::at(own.sun_colour, i) / luma;
+            }
+        }
+    }
 }
 
 // The timestamps' pool (once; none when the device can't time).
@@ -1256,6 +1354,18 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
                  static_cast<int32_t>(own.settings.steps)};
     block.flags = {own.settings.mode == RtFogMode::kShafts || own.haze ? 1 : 0, static_cast<int32_t>(kFogMask),
                    static_cast<int32_t>(kFogMaxHistory), 0};
+    if (own.aerial) {
+        // (the sky model's haze: thicker toward the level's ground)
+        const rt::BakedSun& baked = rt::baked_sun();
+        const float ground = baked.scene != 0 && baked.ground_known ? baked.ground : core::at(view.camera.position, 1);
+        constexpr int32_t kAerialMode = 2;
+        core::at(block.flags, 0) = kAerialMode;
+        block.aerial = {kFogAerialExtinction * own.settings.haze_density,
+                        own.settings.haze_height > 0.0F ? 1.0F / own.settings.haze_height : 0.0F, ground,
+                        kFogAerialSkyShare};
+        block.sun_light = {core::at(own.sun_colour, 0), core::at(own.sun_colour, 1), core::at(own.sun_colour, 2),
+                           kFogAerialFar};
+    }
     return block;
 }
 
@@ -1263,6 +1373,9 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
 const char* what_is_drawn()
 {
     const FogState& own = fog_state();
+    if (own.aerial) {
+        return "no fog in the level: the sky model's haze (aerial perspective)";
+    }
     if (own.haze) {
         return "no fog in the level: the haze's shafts";
     }
@@ -1351,7 +1464,12 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (slot == nullptr) {
         return false;
     }
-    if (own.haze) {
+    VkCommandBuffer commands = outside_pass(state);
+    // (added by the sun's glare) the sky model's haze: aerial perspective, coloured by the model's table
+    own.aerial = own.haze && own.have_sun && sun_settings_held().sky_model && update_sky(state, commands, own.to_sun);
+    if (own.aerial) {
+        clipped.fog = {.on = true, .start = 0.0F, .end = kFogAerialFar, .colour = kFogHazeColour};
+    } else if (own.haze) {
         // (no fog in the level: a thin haze whose sunlit light alone is added - shafts mode - rt_fog_haze)
         clipped.fog = {.on = true, .start = 0.0F, .end = kFogHazeEnd, .colour = kFogHazeColour};
     }
@@ -1371,7 +1489,6 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const uint32_t before = now ^ 1U;
     const Extent low = low_extent(clipped.rect);
 
-    VkCommandBuffer commands = outside_pass(state);
     if (slot->fresh) {
         clear_slot(commands, slot);
     }
@@ -1403,8 +1520,15 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
 
     // 1. the march
-    dispatch(commands, core::at(own.march, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U),
-             {.scene = true, .depth = depth, .out = &slot->raw, .out_info = &slot->raw_info, .block = block_info}, low);
+    const std::size_t variant = (colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U) | (own.aerial ? 2U : 0U);
+    dispatch(commands, core::at(own.march, variant),
+             {.scene = true,
+              .sky = own.aerial,
+              .depth = depth,
+              .out = &slot->raw,
+              .out_info = &slot->raw_info,
+              .block = block_info},
+             low);
     // 2. the history
     const Image* const history = &core::at(slot->histories, now);
     const Image* const history_info = &core::at(slot->history_info, now);
@@ -1584,7 +1708,8 @@ void release_rt_fog(Backend& state)
         for (const CompositePipeline& made : own.composites) {
             vkDestroyPipeline(device, made.pipeline, nullptr);
         }
-        for (const VkPipeline pipeline : {own.march.front(), own.march.back(), own.temporal}) {
+        for (const VkPipeline pipeline : {core::at(own.march, 0), core::at(own.march, 1), core::at(own.march, 2),
+                                          core::at(own.march, 3), own.temporal}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }

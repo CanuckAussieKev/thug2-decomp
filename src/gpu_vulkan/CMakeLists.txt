@@ -34,6 +34,8 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_rt_effects.cpp
     vulkan_rt_reflections.cpp
     vulkan_rt_fog.cpp
+    vulkan_rt_sky.cpp
+    vulkan_rt_sun.cpp
     vulkan_rt_glsl.cpp
     vulkan_rt_materials.cpp
     vulkan_hdr.cpp

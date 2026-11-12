@@ -1603,6 +1603,15 @@ LightsBlock lights_block(EffectsState& own, float* unit)
     if (bounce_sun(&toward)) {
         block.to_sun = {toward.front(), core::at(toward, 1), toward.back(), 1.0F};
         block.sun = {kGiSunLight, kGiSunLight, kGiSunLight, 0.0F};
+        // (added by the sun's glare) a sky model's sun colour (rt_sky_model / rt_sun_colour: rt::sun_light), its
+        // brightness kept - Rec. 709 luma 1 x kGiSunLight; white without one
+        const rt::SunLight light = rt::sun_light();
+        const float luma = (0.2126F * core::at(light.colour, 0)) + (0.7152F * core::at(light.colour, 1)) +
+                           (0.0722F * core::at(light.colour, 2));
+        if (light.on && luma > 0.0F) {
+            block.sun = {kGiSunLight * core::at(light.colour, 0) / luma, kGiSunLight * core::at(light.colour, 1) / luma,
+                         kGiSunLight * core::at(light.colour, 2) / luma, 0.0F};
+        }
     }
     for (std::size_t i = 0; i < 3; ++i) {
         core::at(block.ambient, i) = std::max(0.0F, core::at(block.ambient, i));

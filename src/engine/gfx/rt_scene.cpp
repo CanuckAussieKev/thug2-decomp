@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -143,5 +145,39 @@ bool sun_override(std::array<float, 3>* toward_sun)
     }
     return sun_slot().set;
 }
+
+namespace {
+struct SunLightSlot {
+    std::mutex mutex;
+    SunLight light;
+};
+SunLightSlot& sun_light_slot()
+{
+    static SunLightSlot slot;
+    return slot;
+}
+std::atomic<bool>& glare_slot()
+{
+    static std::atomic<bool> replaced{false};
+    return replaced;
+}
+} // namespace
+
+void set_sun_light(const SunLight& light)
+{
+    SunLightSlot& slot = sun_light_slot();
+    const std::scoped_lock lock(slot.mutex);
+    slot.light = light;
+}
+
+SunLight sun_light()
+{
+    SunLightSlot& slot = sun_light_slot();
+    const std::scoped_lock lock(slot.mutex);
+    return slot.light;
+}
+
+void set_sun_glare_replaced(bool replaced) { glare_slot().store(replaced, std::memory_order_relaxed); }
+bool sun_glare_replaced() { return glare_slot().load(std::memory_order_relaxed); }
 
 } // namespace render::rt

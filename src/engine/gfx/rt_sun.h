@@ -54,6 +54,8 @@ struct BakeSample {
 // Foundry - indoors - 0.07 - 0.24).
 inline constexpr float kMinConfidence = 0.3F;
 inline constexpr float kMinElevationDegrees = 8.0F;
+// (added by the sun's glare) BakedSun::ground: this quantile of the samples' heights (the floor, not a rooftop).
+inline constexpr double kGroundShare = 0.1;
 
 // The correlation between "lit" (the direction not blocked) and the samples' brightness: -1 - 1, 0 when either group is
 // under 3% of the samples (no shadow to tell by).

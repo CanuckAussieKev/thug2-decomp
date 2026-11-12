@@ -88,6 +88,34 @@ void read_rt_shadow_sun(render::vulkan::RtShadowSettings* settings)
         get_log("[Graphics] rt_shadow_sun=%s isn't bake, light or x,y,z - the baked sun used", value.c_str());
     }
 }
+
+// [Graphics] rt_sun_colour: auto (the default: the sky model's colour for the sun's elevation) or r,g,b (0 - 1 each);
+// anything else is the default, logged.
+void read_rt_sun_colour(render::vulkan::RtSunSettings* settings)
+{
+    constexpr std::size_t kLongest = 64;
+    std::array<char, kLongest> text{};
+    build_info::fetch_text(build_info::kGraphics, "rt_sun_colour", "auto", text.data(), text.size());
+    const std::string value(text.data());
+    std::array<float, 3> colour{};
+    std::size_t read = 0;
+    std::istringstream numbers(value);
+    std::string number;
+    while (read < colour.size() && std::getline(numbers, number, ',')) {
+        char* end = nullptr;
+        const double parsed = std::strtod(number.c_str(), &end);
+        if (end == number.c_str() || !std::isfinite(parsed)) {
+            break;
+        }
+        colour.at(read++) = static_cast<float>(parsed);
+    }
+    if (read == colour.size()) {
+        settings->colour_set = true;
+        settings->colour = colour;
+    } else if (!value.empty() && value != "auto") {
+        get_log("[Graphics] rt_sun_colour=%s isn't auto or r,g,b - the sky model's colour used", value.c_str());
+    }
+}
 #endif
 
 // The Vulkan backend: render_pc's device over Vulkan's Gpu and GpuContext, and its UI backend (src/gpu_vulkan; the
@@ -168,7 +196,25 @@ void install_vulkan()
          .mode = build_info::get_int(build_info::kGraphics, "rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts
                                                                                    : render::vulkan::RtFogMode::kReplace,
          .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false),
-         .haze = build_info::fetch_flag(build_info::kGraphics, "rt_fog_haze", true)});
+         .haze = build_info::fetch_flag(build_info::kGraphics, "rt_fog_haze", true),
+         .haze_density = ini_float("rt_fog_haze_density", render::vulkan::RtFogSettings{}.haze_density),
+         .haze_height = ini_float("rt_fog_haze_height", render::vulkan::RtFogSettings{}.haze_height)});
+    // NOT ORIGINAL - the sun's disc and glare, screen-space rays, the bloom and the sky model
+    // (gpu_vulkan/vulkan_rt_sun.h, vulkan_rt_sky.h): off unless asked for; the bloom needs no ray tracing
+    {
+        render::vulkan::RtSunSettings sun{
+            .sun = build_info::fetch_flag(build_info::kGraphics, "rt_sun", false),
+            .sun_size = ini_float("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
+            .bloom = build_info::fetch_flag(build_info::kGraphics, "rt_bloom", false),
+            .bloom_strength = ini_float("rt_bloom_strength", render::vulkan::kRtBloomStrength),
+            .shafts = build_info::fetch_flag(build_info::kGraphics, "rt_shafts", false),
+            .shaft_strength = ini_float("rt_shaft_strength", render::vulkan::kRtShaftStrength),
+            .sky_model = build_info::fetch_flag(build_info::kGraphics, "rt_sky_model", false),
+            .lens_dirt = build_info::fetch_flag(build_info::kGraphics, "rt_lens_dirt", false),
+            .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)};
+        read_rt_sun_colour(&sun);
+        render::vulkan::set_rt_sun_settings(sun);
+    }
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

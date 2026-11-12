@@ -583,4 +583,12 @@ void render(gfx::ViewCam* camera)
     }
 }
 
+// NOT ORIGINAL (lens_flare.h)
+void hide_for_replacement()
+{
+    if (!flare_hidden()) {
+        hide_flare(nullptr, script::Context());
+    }
+}
+
 } // namespace sun
