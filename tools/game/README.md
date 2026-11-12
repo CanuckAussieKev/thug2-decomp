@@ -200,6 +200,14 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
   the errors (the pools: the log's `script pools in use in <level>` line, written once the level is up -
   src/game/front_end/start_level.cpp; and any `pool ... full` / `80% full` line).
+- `start_level_check.ps1 -Game <folder> [-Levels BO,bo,LA] [-Anteara 0,1] [-Runs 1] [-Seconds 90]` - the game started
+  with `-level <name>` for each level name (as typed: BO and bo both) and each `[features] anteara_mod` value: each run
+  passes when the automation status is in that level, not loading, within -Seconds; else the log's tail is printed and
+  the game closed. The scripts as the folder has them (unpacked by tools/qbjs/unpack_game.ts: set `ts_scripts=1`
+  yourself). Exit code: the runs that failed.
+- A game that hangs (its window stops responding, the loading screen drawn on and on):
+  `python -I tools/standalone/first_fault.py <exe> <folder> --seconds 60 --stacks-at-end -- -level <name>` runs it
+  under the debugger and, when the time is up, prints every thread's calls (the main thread first) - a 64-bit build.
 - `node tools/game/heap_report.ts <log> [<second log>]` - the memory manager's heaps once each level was up (the log's
   `memory heap in <level>:` lines: region, use, peak and blocks of every heap, src/engine/memory/memory_report.h) as a
   table; with two logs (a 32-bit and an x64 build's) side by side - each heap's region and peak in both, the growth

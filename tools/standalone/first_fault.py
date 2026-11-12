@@ -17,6 +17,7 @@ program's OutputDebugString text and its exit code. No cdb / WinDbg needed. A 64
                  is reached
 --monitor N      as soon as the program's window exists, centre it on \\.\DISPLAYN without activating it (e.g. 2
                  when the primary monitor is busy)
+--stacks-at-end  when the time runs out (no fault: a hang), print every thread's calls first (a 64-bit target only)
 --second-chance  report only exceptions the program doesn't handle itself (default: the first chance of an access
                  violation, illegal instruction, divide by zero, stack overflow, stack-cookie / fast-fail)
 The program is always ended when this returns.
@@ -85,7 +86,8 @@ def move_to_monitor(hwnd, rect):
     return x, y
 
 DEBUG_ONLY_THIS_PROCESS = 2
-EXCEPTION_DEBUG_EVENT, CREATE_THREAD_DEBUG_EVENT, CREATE_PROCESS_DEBUG_EVENT, EXIT_PROCESS_DEBUG_EVENT = 1, 2, 3, 5
+EXCEPTION_DEBUG_EVENT, CREATE_THREAD_DEBUG_EVENT, CREATE_PROCESS_DEBUG_EVENT, EXIT_THREAD_DEBUG_EVENT, EXIT_PROCESS_DEBUG_EVENT = (
+    1, 2, 3, 4, 5)
 LOAD_DLL_DEBUG_EVENT, OUTPUT_DEBUG_STRING_EVENT = 6, 8
 DBG_CONTINUE, DBG_EXCEPTION_NOT_HANDLED = 0x10002, 0x80010001
 FATAL = {0xC0000005: "access violation", 0xC000001D: "illegal instruction", 0xC0000094: "integer divide by zero",
@@ -305,7 +307,8 @@ def main():
             raise SystemExit(f"no monitor DISPLAY{args[i + 1]}")
         del args[i:i + 2]
     second_chance_only = "--second-chance" in args
-    args = [a for a in args if a != "--second-chance"]
+    stacks_at_end = "--stacks-at-end" in args
+    args = [a for a in args if a not in ("--second-chance", "--stacks-at-end")]
     if len(args) != 2:
         raise SystemExit(__doc__)
     exe, cwd = os.path.abspath(args[0]), os.path.abspath(args[1])
@@ -315,6 +318,8 @@ def main():
     x64 = machine == 0x8664
     if x64 and ctypes.sizeof(ctypes.c_void_p) != 8:
         raise SystemExit("a 64-bit target needs a 64-bit Python")
+    if stacks_at_end and not x64:
+        raise SystemExit("--stacks-at-end is for a 64-bit target")
     if watch_size == 8 and not x64:
         raise SystemExit("--watch-size 8 is for a 64-bit target")
     hex_width = 16 if x64 else 8
@@ -416,6 +421,27 @@ def main():
             k32.Wow64SetThreadContext(thread, ctypes.byref(ctx))
 
     symbols_ready = []  # dbghelp knows the program (for StackWalk64) once this has an entry
+    threads = {}  # thread id -> handle (the debug events'), for --stacks-at-end
+
+    def ready_symbols():
+        if not symbols_ready:
+            # (our own search path: no symbol server; deferred loads: only the modules a frame is in)
+            _dbghelp.SymSetOptions(0x2 | 0x4 | 0x80000)
+            _dbghelp.SymInitialize(pi.hProcess, os.path.dirname(exe).encode(), True)
+            symbols_ready.append(True)
+
+    def all_stacks():
+        # every thread suspended in turn, its calls unwound (a hang: what each thread is doing)
+        ready_symbols()
+        for tid, th in threads.items():
+            if k32.SuspendThread(th) == 0xFFFFFFFF:
+                continue
+            ctx = new_context64(CONTEXT64_CONTROL_INTEGER)
+            if k32.GetThreadContext(th, ctypes.addressof(ctx)):
+                print(f"thread {tid}: RIP 0x{ctx.Rip:016X} {name(ctx.Rip)}")
+                for rip, rsp in unwind64(pi.hProcess, th, ctx, 32):
+                    print(f"    [rsp={rsp:016X}] {rip:016X} {name(rip)}")
+            k32.ResumeThread(th)
 
     def report64(ev, rec, what, scan=True):
         th = k32.OpenThread(0x1FFFFF, False, ev.dwThreadId)
@@ -435,11 +461,7 @@ def main():
                     "R15")
             for i in range(0, len(regs), 4):
                 print("  " + " ".join(f"{n.upper():<3} {getattr(ctx, n):016X}" for n in regs[i:i + 4]))
-        if not symbols_ready:
-            # (our own search path: no symbol server; deferred loads: only the modules a frame is in)
-            _dbghelp.SymSetOptions(0x2 | 0x4 | 0x80000)
-            _dbghelp.SymInitialize(pi.hProcess, os.path.dirname(exe).encode(), True)
-            symbols_ready.append(True)
+        ready_symbols()
         print("  calls (unwound from the context, newest first):")
         for rip, rsp in unwind64(pi.hProcess, th, ctx, 48 if scan else 12):
             print(f"    [rsp={rsp:016X}] {rip:016X} {name(rip)}")
@@ -513,6 +535,8 @@ def main():
         left = seconds - (time.time() - started)
         if left <= 0:
             print(f"no fault within {seconds:g} s: stopping the program")
+            if stacks_at_end:
+                all_stacks()
             break
         if not moved:
             hwnd = process_window(pi.dwProcessId)
@@ -526,6 +550,7 @@ def main():
         if code == CREATE_PROCESS_DEBUG_EVENT:
             base = ev.u.CreateProcessInfo.lpBaseOfImage
             modules.append(Module(base, exe, image_size(base)))
+            threads[ev.dwThreadId] = ev.u.CreateProcessInfo.hThread
             print(f"{os.path.basename(exe)} loaded at 0x{base:0{hex_width}X}")
             if watch is not None:
                 watched.append(base + watch)
@@ -536,6 +561,7 @@ def main():
                 print(f"stopping at 0x{base + stop_at:0{hex_width}X}")
                 arm_stop(ev.u.CreateProcessInfo.hThread)
         elif code == CREATE_THREAD_DEBUG_EVENT:
+            threads[ev.dwThreadId] = ev.u.CreateThread.hThread
             arm(ev.u.CreateThread.hThread)
             arm_stop(ev.u.CreateThread.hThread)
         elif code == LOAD_DLL_DEBUG_EVENT:
@@ -574,6 +600,8 @@ def main():
                 print(f"  (first-chance exception 0x{rec.ExceptionCode:08X} at {name(rec.ExceptionAddress or 0)}: "
                       "passed to the program)")
                 cont = DBG_EXCEPTION_NOT_HANDLED
+        elif code == EXIT_THREAD_DEBUG_EVENT:
+            threads.pop(ev.dwThreadId, None)
         elif code == EXIT_PROCESS_DEBUG_EVENT:
             print(f"process exited with code 0x{ev.u.ExitProcess.dwExitCode:08X}")
             done = True

@@ -200,6 +200,9 @@ globalThis.qbTs = (() => {
     const listOf = (p) => p[PARAMS] ?? p;
 
     let source = "<qb>";
+    // The module's script values its data file names ({"$script": key} - tools/qbjs/qb_data.ts): the game reads them
+    // as it defines the data's globals, after the module has run (ts_bridge.cpp load_data).
+    const scriptValues = new Map();
     function script(name, defaults, fn) {
         if (fn === undefined) [defaults, fn] = [undefined, defaults];
         const hash = checksum(name);
@@ -388,8 +391,14 @@ globalThis.qbTs = (() => {
         // The loader names the module being defined (faults and random sites carry it).
         beginModule(name) {
             source = name;
+            scriptValues.clear();
             globalThis.qb.loadingSource?.(name);
         },
+        // scriptValue(key, code(...)): a script of the module's data, by its key; scriptValueOf(key): the game's read.
+        scriptValue(key, value) {
+            scriptValues.set(key, value);
+        },
+        scriptValueOf: (key) => scriptValues.get(key),
         cmd,
         call,
         run,
