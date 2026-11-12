@@ -49,7 +49,6 @@ constexpr float kMaxHeight = 1.0e6F;
 constexpr float kMaxAnisotropy = 0.9F;
 constexpr unsigned kMinSteps = 4;
 constexpr unsigned kMaxSteps = 128;
-constexpr float kLeastTint = 0.5F;     // a sun dimmer than this (its brightest channel) dims the shafts
 constexpr double kGoldenRatio = 0.6180339887498949; // the march's jitter advances by this a frame
 constexpr uint32_t kGroupSide = 8;
 constexpr std::size_t kMatrixSide = 4;
@@ -1134,33 +1133,34 @@ float from_half(uint16_t half)
     return sign != 0 ? -value : value;
 }
 
-// The frame's sun (the first directional light, toward it; its tint), or the last one seen.
+// The level's sun: the console's override (rt sun), else the one fitted from the level's bake (engine/gfx/rt_sun.h -
+// the frame record's directional lights are the skater's and the objects', the same two in every level). None while the
+// fit hasn't run yet, or when the bake shows no sun (an indoor level): the fog is then lit by its ambient share alone -
+// no shafts. The fit is asked for while the fog is on (render_pc fits once a world has stood still a moment).
 void read_sun()
 {
     FogState& own = fog_state();
-    for (const rt::Light& light : rt::frame_record().lights) {
-        if (light.kind != rt::Light::Kind::kDirectional) {
-            continue;
-        }
-        const double length = std::hypot(static_cast<double>(core::at(light.direction, 0)),
-                                         static_cast<double>(core::at(light.direction, 1)),
-                                         static_cast<double>(core::at(light.direction, 2)));
-        if (!(length > kShortest) || !std::isfinite(length)) {
-            continue;
-        }
-        // (rt::Light::direction is the way the light travels: toward the sun is its opposite)
-        for (std::size_t i = 0; i < 3; ++i) {
-            core::at(own.to_sun, i) = static_cast<float>(-static_cast<double>(core::at(light.direction, i)) / length);
-        }
-        const float brightest = std::max({core::at(light.colour, 0), core::at(light.colour, 1), core::at(light.colour, 2)});
-        const float scale = 1.0F / std::max(brightest, kLeastTint);
-        for (std::size_t i = 0; i < 3; ++i) {
-            const float channel = core::at(light.colour, i);
-            core::at(own.sun_tint, i) = std::isfinite(channel) ? std::max(0.0F, channel) * scale : 0.0F;
-        }
-        own.have_sun = true;
-        break;
+    if (!rt::baked_sun_wanted()) {
+        rt::set_baked_sun_wanted(true);
     }
+    own.have_sun = false;
+    own.sun_tint = {1.0F, 1.0F, 1.0F}; // (the bake has no colour for its sun: the fog's own colour carries the hue)
+    std::array<float, 3> toward{};
+    bool found = rt::sun_override(&toward);
+    if (!found) {
+        const rt::BakedSun& baked = rt::baked_sun();
+        found = baked.scene != 0 && baked.found;
+        toward = baked.toward;
+    }
+    const double length = std::hypot(static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
+                                     static_cast<double>(core::at(toward, 2)));
+    if (!found || !(length > kShortest) || !std::isfinite(length)) {
+        return;
+    }
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(own.to_sun, i) = static_cast<float>(static_cast<double>(core::at(toward, i)) / length);
+    }
+    own.have_sun = true;
 }
 
 // The timestamps' pool (once; none when the device can't time).

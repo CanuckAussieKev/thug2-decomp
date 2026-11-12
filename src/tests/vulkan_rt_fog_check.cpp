@@ -83,7 +83,6 @@ constexpr std::size_t kPixelBytes = 4;
 constexpr float kFogStart = 10.0F;
 constexpr float kFogEnd = 500.0F;
 constexpr std::array<float, 3> kFogColour{0.6F, 0.65F, 0.7F};
-constexpr std::array<float, 3> kSunColour{1.0F, 0.9F, 0.7F};
 constexpr float kAnisotropy = 0.3F;
 constexpr unsigned kSteps = 32;
 constexpr int kStillFrames = 40;
@@ -337,12 +336,8 @@ double phase(double cosine)
     return (1.0 - (g * g)) / (k * std::sqrt(k));
 }
 
-std::array<double, 3> tint()
-{
-    const double brightest = std::max({kSunColour[0], kSunColour[1], kSunColour[2]});
-    const double scale = 1.0 / std::max(brightest, 0.5);
-    return {kSunColour[0] * scale, kSunColour[1] * scale, kSunColour[2] * scale};
-}
+// (the pass's tint: the baked sun has no colour)
+std::array<double, 3> tint() { return {1.0, 1.0, 1.0}; }
 
 struct Fogged {
     std::array<double, 3> light{};
@@ -741,13 +736,9 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Vec3& eye, b
     gpu.set_viewport({.x = 0, .y = 0, .width = targets.width, .height = targets.height, .min_z = 0.0F, .max_z = 1.0F});
     gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth | value::kClearStencil, kClearColour, 1.0F, 0);
     draw_scene(gpu, eye, targets.width, targets.height);
-    render::rt::FrameRecord& record = render::rt::frame_record();
-    record.lights.clear();
-    record.lights.push_back({.kind = render::rt::Light::Kind::kDirectional,
-                             .colour = kSunColour,
-                             .direction = floats(normalised(kLightTravels)),
-                             .position = {},
-                             .radius = 0.0F});
+    // (the sun as the console's `rt sun` sets it: the level's baked one otherwise - none in this scene)
+    const std::array<float, 3> toward = floats(to_sun());
+    render::rt::set_sun_override(&toward);
     const uint64_t before = render::vulkan::rt_fog_passes();
     render::rt::world_view_drawn(view_drawn(eye, targets.width, targets.height, fog_on));
     const uint64_t passes = render::vulkan::rt_fog_passes() - before;
@@ -1366,6 +1357,7 @@ int run(const Options& options, SDL_Window* window)
     }
     render::vulkan::rt_fog_set_scene(VK_NULL_HANDLE);
     render::vulkan::set_rt_fog_settings({});
+    render::rt::set_sun_override(nullptr);
     {
         const std::scoped_lock lock(state.mutex);
         render::vulkan::finish_work(state);

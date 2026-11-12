@@ -173,6 +173,7 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "clear           clear the console\n"
                               "rt summary      ray tracing's contract check: its counts and violations\n"
                               "rt dump [file]  the last frame's ray-tracing record as JSON (game folder)\n"
+                              "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
                               "help            this list";
 
 // --- the window ------------------------------------------------------------------------------------------------------

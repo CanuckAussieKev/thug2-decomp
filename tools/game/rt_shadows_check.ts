@@ -28,13 +28,17 @@
 // differing by more than --threshold in a channel, grown by --grow), run 1 of each compared:
 //   --expect shadows (after the TLAS's builder and the frame record are merged): on against off
 //     - brighter: pixels where on is lighter than off by more than the threshold - at most 0.1% (the pass only darkens);
-//     - darkened: pixels darker by more than the threshold - at most 60% of the picture, and at least 0.5% in one spot or
-//       more (shadows are drawn somewhere);
-//     - the darkened pixels' median brightness ratio (on / off) within 0.2 of 1 - strength (what the pass multiplies by,
-//       before the transparent passes, particles and 2D are drawn over it);
+//     - darkened: pixels darker by more than the threshold - at most 80% of the picture (a spot can stand in the bake's
+//       own shadow: z_ho's start), and at least 0.5% in one spot or more (shadows are drawn somewhere);
+//     - the darkened pixels' median brightness ratio (on / off) from 1 - strength - 0.2 to 0.9, where 1% of the picture
+//       or more is darkened (1 - strength is a full shadow; the sky test and the bake's agreement let in shares of one);
+//     - the sun lines up with the bake: over every spot, the pixels the level lit darker in `off` (its luma under the
+//       picture's Otsu threshold: baked-dark) darkened at least 1.5 times as often as the ones it lit brighter
+//       (baked-bright) - a sun the bake wasn't made with darkens both alike;
+//     - a level whose bake shows no sun (its `on` log: "rt: the baked sun: none" - indoors) changed in at most 0.1%;
 //     - reported, not checked: the share of the darkened pixels in the picture's lower half (the ground, mostly);
-//     - the logs: "rt_shadows: the first shadow pass" in every `on` group's, no "skipped" / "couldn't" line of the
-//       pass, no crash line.
+//     - the logs: "rt_shadows: the first shadow pass" in every `on` group's (or the baked sun's "none"), no "skipped" /
+//       "couldn't" line of the pass, no crash line.
 //   --expect none (before them: no scene to trace - the pass is skipped): on against off differ in at most 0.1% of the
 //     pixels, and the `on` logs say the pass was skipped.
 //   baseline (when run): off against baseline differ in at most 0.1% of the pixels.
@@ -122,6 +126,43 @@ export interface ShadowDifference {
     medianRatio: number | null; // the darkened pixels' median luma ratio on / off
     tooDark: number; // of the darkened, those whose ratio is below `floor`
     blackened: number; // pixels black in `on` (every channel BLACK or less) and not in `off`
+    // The `off` picture's pixels split into baked-bright and baked-dark at its luma's Otsu threshold (the level's own
+    // lighting: sunlit against shaded); how many of each the pass darkened. A sun that matches the bake darkens mostly
+    // what is already dark - its shadows fall on the baked ones.
+    split: number; // the threshold (luma, 0..255)
+    bright: number;
+    brightDarkened: number;
+    dark: number;
+    darkDarkened: number;
+}
+
+// The luma threshold that best splits a histogram in two (Otsu's: the largest between-class variance).
+export function otsuThreshold(histogram: readonly number[]): number {
+    let total = 0;
+    let sum = 0;
+    for (let i = 0; i < histogram.length; i++) {
+        total += histogram[i]!;
+        sum += i * histogram[i]!;
+    }
+    let below = 0;
+    let belowSum = 0;
+    let best = 0;
+    let bestVariance = -1;
+    for (let t = 0; t < histogram.length; t++) {
+        below += histogram[t]!;
+        if (below === 0) continue;
+        const above = total - below;
+        if (above === 0) break;
+        belowSum += t * histogram[t]!;
+        const meanBelow = belowSum / below;
+        const meanAbove = (sum - belowSum) / above;
+        const variance = below * above * (meanBelow - meanAbove) ** 2;
+        if (variance > bestVariance) {
+            bestVariance = variance;
+            best = t;
+        }
+    }
+    return best;
 }
 
 const BLACK = 4;
@@ -144,6 +185,13 @@ export function shadowDifference(
     let tooDark = 0;
     let blackened = 0;
     const ratios: number[] = [];
+    const histogram = new Array<number>(256).fill(0);
+    for (let p = 0; p < width * height; p++) if (!mask?.[p]) histogram[Math.min(255, Math.round(luma(off.rgb, p)))]!++;
+    const split = otsuThreshold(histogram);
+    let bright = 0;
+    let brightDarkened = 0;
+    let dark = 0;
+    let darkDarkened = 0;
     for (let y = 0; y < height; y++)
         for (let x = 0; x < width; x++) {
             const p = y * width + x;
@@ -159,10 +207,15 @@ export function shadowDifference(
                 up = Math.max(up, delta);
                 down = Math.max(down, -delta);
             }
+            const isBright = Math.round(luma(off.rgb, p)) > split;
+            if (isBright) bright++;
+            else dark++;
             if (up > threshold) {
                 brighter++;
             } else if (down > threshold) {
                 darkened++;
+                if (isBright) brightDarkened++;
+                else darkDarkened++;
                 if (y >= height / 2) lowerHalf++;
                 const before = luma(off.rgb, p);
                 if (before > 0) {
@@ -181,6 +234,11 @@ export function shadowDifference(
         medianRatio: ratios.length ? ratios[Math.floor(ratios.length / 2)]! : null,
         tooDark,
         blackened,
+        split,
+        bright,
+        brightDarkened,
+        dark,
+        darkDarkened,
     };
 }
 
@@ -203,6 +261,9 @@ export interface Limits {
     maxDarkened: number;
     minDarkenedSomewhere: number;
     ratioSlack: number;
+    maxRatio: number; // the median ratio at most this ...
+    minRatioShare: number; // ... both checked where at least this share is darkened
+    minDarkOverBright: number; // over every spot: baked-dark darkened / baked-bright darkened, at least
     maxChanged: number; // --expect none and the baseline
     effect?: Effect; // (shadows when not given)
 }
@@ -216,9 +277,12 @@ export function darkestRatio(limits: Limits): number {
 
 export const LIMITS: Omit<Limits, "expect" | "strength"> = {
     maxBrighter: 0.001,
-    maxDarkened: 0.6,
+    maxDarkened: 0.8,
     minDarkenedSomewhere: 0.005,
     ratioSlack: 0.2,
+    maxRatio: 0.9,
+    minRatioShare: 0.01,
+    minDarkOverBright: 1.5,
     maxChanged: 0.001,
 };
 
@@ -238,6 +302,7 @@ export function judgeSpot(
     difference: ShadowDifference,
     baseline: ShadowDifference | null,
     limits: Limits,
+    sunless = false, // the level's bake shows no sun: no pass there
 ): SpotVerdict {
     const problems: string[] = [];
     if (limits.expect === "shadows" && limits.effect === "reflections") {
@@ -258,14 +323,24 @@ export function judgeSpot(
             problems.push(
                 `the occlusion's median ratio ${difference.medianRatio.toFixed(3)}, at least ${lowest.toFixed(3)} wanted`,
             );
+    } else if (limits.expect === "shadows" && sunless) {
+        const changed = share(difference.brighter + difference.darkened, difference);
+        if (changed > limits.maxChanged) problems.push(`changed in a level with no baked sun: ${pct(changed)}`);
     } else if (limits.expect === "shadows") {
         if (share(difference.brighter, difference) > limits.maxBrighter)
             problems.push(`brighter with the shadows on: ${pct(share(difference.brighter, difference))}`);
         if (share(difference.darkened, difference) > limits.maxDarkened)
             problems.push(`darkened: ${pct(share(difference.darkened, difference))} of the picture`);
-        const want = 1 - limits.strength;
-        if (difference.medianRatio !== null && Math.abs(difference.medianRatio - want) > limits.ratioSlack)
-            problems.push(`the shadows' median ratio ${difference.medianRatio.toFixed(3)}, ${want.toFixed(3)} wanted`);
+        const full = 1 - limits.strength;
+        const ratio = difference.medianRatio;
+        if (
+            ratio !== null &&
+            share(difference.darkened, difference) >= limits.minRatioShare &&
+            (ratio < full - limits.ratioSlack || ratio > limits.maxRatio)
+        )
+            problems.push(
+                `the shadows' median ratio ${ratio.toFixed(3)}, ${(full - limits.ratioSlack).toFixed(3)} - ${limits.maxRatio} wanted`,
+            );
     } else {
         const changed = share(difference.brighter + difference.darkened, difference);
         if (changed > limits.maxChanged) problems.push(`changed with the pass skipped: ${pct(changed)}`);
@@ -275,6 +350,23 @@ export function judgeSpot(
         if (changed > limits.maxChanged) problems.push(`off differs from the baseline: ${pct(changed)}`);
     }
     return { name, difference, baseline, problems };
+}
+
+// Over every spot: how many times as often the baked-dark pixels were darkened as the baked-bright ones (null: none
+// darkened).
+export function darkOverBright(verdicts: readonly SpotVerdict[]): number | null {
+    let bright = 0;
+    let brightDarkened = 0;
+    let dark = 0;
+    let darkDarkened = 0;
+    for (const { difference: d } of verdicts) {
+        bright += d.bright;
+        brightDarkened += d.brightDarkened;
+        dark += d.dark;
+        darkDarkened += d.darkDarkened;
+    }
+    if (!brightDarkened && !darkDarkened) return null;
+    return darkDarkened / Math.max(1, dark) / Math.max(1e-9, brightDarkened / Math.max(1, bright));
 }
 
 export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boolean {
@@ -289,6 +381,8 @@ export const MIN_REFLECTED_SOMEWHERE = 0.001;
 
 // What a configuration's logs must (not) say.
 const FIRST_PASS = "rt_shadows: the first shadow pass";
+// a level whose bake shows no sun (indoors: src/engine/gfx/rt_sun.h) has no shadow pass - by design
+const NO_BAKED_SUN = "rt: the baked sun: none";
 const PASS_SKIPPED = /rt_shadows: .*(skipped|couldn't)/;
 const FIRST_AO_PASS = "rt_ao: the first ambient occlusion pass";
 const AO_SKIPPED = /rt_ao: .*(skipped|couldn't)/;
@@ -319,7 +413,7 @@ export function logProblems(
     const ao = effect === "ao";
     const skipped = (ao ? AO_SKIPPED : PASS_SKIPPED).exec(log);
     if (expect === "shadows") {
-        if (!log.includes(ao ? FIRST_AO_PASS : FIRST_PASS))
+        if (!log.includes(ao ? FIRST_AO_PASS : FIRST_PASS) && (ao || !log.includes(NO_BAKED_SUN)))
             problems.push(ao ? "no ambient occlusion pass in the log" : "no shadow pass in the log");
         if (skipped) problems.push(`log: ${skipped[0]}`);
     } else if (!skipped) {
@@ -356,6 +450,11 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             .filter((f) => f.endsWith(".log") && spot.startsWith(`${f.slice(0, -4)}-`))
             .some((f) => fs.readFileSync(path.join(runs.on[0]!, f), "utf8").includes(FIRST_REFLECTION_PASS));
     let anyReflections = false;
+    // (a spot's group: its name up to the first "-"; the group's `on` log says whether the bake showed a sun)
+    const sunless = (spot: string): boolean => {
+        const log = path.join(runs.on[0]!, `${spot.split("-")[0]}.log`);
+        return fs.existsSync(log) && fs.readFileSync(log, "utf8").includes(NO_BAKED_SUN);
+    };
     for (const name of names) {
         const load = (config: Config): Image[] =>
             runs[config]
@@ -376,11 +475,12 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
             shadowDifference(off[0]!, on[0]!, mask, threshold, darkestRatio(limits)),
             baseline.length ? shadowDifference(baseline[0]!, off[0]!, mask, threshold) : null,
             spotLimits,
+            (limits.effect ?? "shadows") === "shadows" && sunless(name),
         );
         verdicts.push(verdict);
         const d = verdict.difference;
         lines.push(
-            `${verdict.name}: compared ${d.pixels} pixels; darkened ${pct(share(d.darkened, d))} (lower half ${pct(d.darkened ? d.lowerHalf / d.darkened : 0)}), brighter ${pct(share(d.brighter, d))}, median ratio ${d.medianRatio?.toFixed(3) ?? "-"}` +
+            `${verdict.name}: compared ${d.pixels} pixels; darkened ${pct(share(d.darkened, d))} (lower half ${pct(d.darkened ? d.lowerHalf / d.darkened : 0)}), brighter ${pct(share(d.brighter, d))}, median ratio ${d.medianRatio?.toFixed(3) ?? "-"}; baked-bright darkened ${pct(d.brightDarkened / Math.max(1, d.bright))}, baked-dark ${pct(d.darkDarkened / Math.max(1, d.dark))} (split at luma ${d.split})` +
                 (limits.effect === "ao" ? `, too dark ${pct(share(d.tooDark, d))}` : "") +
                 (limits.effect === "reflections"
                     ? `, turned black ${pct(share(d.blackened, d))}${reflected ? "" : " (nothing reflective drawn)"}`
@@ -400,6 +500,14 @@ function compareFolder(out: string, limits: Limits, threshold: number, grow: num
         failed = true;
         const drawn = { shadows: "shadows", ao: "occlusion", reflections: "reflections" }[limits.effect ?? "shadows"];
         lines.push(`FAIL no spot darkened by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
+    }
+    if (limits.expect === "shadows" && (limits.effect ?? "shadows") === "shadows") {
+        const lined = darkOverBright(verdicts);
+        const ok = lined === null || lined >= limits.minDarkOverBright;
+        lines.push(
+            `${ok ? "" : "FAIL "}the sun against the bake: baked-dark pixels darkened ${lined === null ? "-" : lined.toFixed(2)} times as often as baked-bright ones (${limits.minDarkOverBright} wanted)`,
+        );
+        failed ||= !ok;
     }
     for (const config of CONFIGS)
         for (const folder of runs[config])

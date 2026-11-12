@@ -39,9 +39,10 @@ if(TARGET thug2_base)
 endif()
 
 # NOT ORIGINAL - thug2_rt_scene_check.exe: ray tracing's pure helpers (engine/gfx/rt_checks.h: a Direct3D matrix as an
-# instance's rows, strips as lists, the contract check's geometry and flag tests) checked (src/tests/rt_scene_check.cpp).
+# instance's rows, strips as lists, the contract check's geometry and flag tests; the baked sun's fit, engine/gfx/rt_sun)
+# checked (src/tests/rt_scene_check.cpp).
 if(TARGET thug2_base)
-    add_executable(thug2_rt_scene_check rt_scene_check.cpp)
+    add_executable(thug2_rt_scene_check rt_scene_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/rt_sun.cpp")
     target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
 endif()
 

@@ -17,13 +17,13 @@
 //      1 / (end - d) between start and end - integrated exactly over each segment, so its transmittance T is the game's
 //      f (to the power rt_fog_density), whatever the step count - times the height falloff exp(-(y - camera y) / H)
 //      (rt_fog_height = H; 0: even). At one point in each segment (jittered: interleaved gradient noise + the frame's
-//      golden-ratio offset) a ray query toward the sun (the frame record's first directional light, rt::Light::direction
-//      the way the light travels - as vulkan_rt_shadows.cpp takes it; masks 0x01 world + 0x02 objects, the first hit
-//      ends it) says whether that point is lit. The light scattered there toward the eye:
+//      golden-ratio offset) a ray query toward the sun (the level's baked sun - engine/gfx/rt_sun.h, as R4's shadows
+//      use it, or the console's `rt sun` override; masks 0x01 world + 0x02 objects, the first hit ends it) says whether
+//      that point is lit. The light scattered there toward the eye:
 //          L = fog colour x (a + (1 - a) x lit x phase x tint)   (a = 0.5: the share the sky and the surroundings give)
 //      phase = Henyey-Greenstein with g = rt_fog_anisotropy, x 4 pi (1 on average over the sphere: an unshadowed fog
-//      looks as the game's does), tint = the sun's colour over its brightest channel (at least 0.5). No sun in the
-//      record: L = the fog colour. Accumulated front to back: in += T (1 - e^-tau) L, T *= e^-tau;
+//      looks as the game's does), tint = 1 (the bake gives the sun no colour; the fog's carries the hue). No sun (the
+//      fit not run yet, or a level whose bake shows none - indoors, the Foundry): L = the fog colour - no shafts. Accumulated front to back: in += T (1 - e^-tau) L, T *= e^-tau;
 //   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the history read there
 //      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood, blended with this
 //      frame's by 1 / its length (up to kFogMaxHistory);

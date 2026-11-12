@@ -4,12 +4,16 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <ratio>
 #include <span>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
@@ -24,8 +28,10 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sun.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/memory/arena_alloc.h"
+#include "platform/run_log.h"
 #include "render_pc/bitmap_texture.h"
 #include "render_pc/geom.h"
 #include "render_pc/mesh_list.h"
@@ -57,6 +63,25 @@ constexpr float kPerByteLight = 1.0F / 128.0F;  // a scene light's byte (times i
 constexpr float kPerByte = 1.0F / 255.0F;       // a dynamic light's
 constexpr int kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
+// The baked sun's fit (engine/gfx/rt_sun.h)
+constexpr uint32_t kFvfNormal = 0x10;           // a vertex format's normal (three floats after the position)
+constexpr uint32_t kFvfPointSize = 0x20;        // ... its point size (a float)
+constexpr uint32_t kFvfDiffuse = 0x40;          // ... its diffuse colour (B, G, R, A bytes) - the baked lighting
+constexpr uint32_t kPositionBytes = 12;
+constexpr uint32_t kBlendWeightBytes = 4;
+constexpr uint32_t kNormalBytes = 12;
+constexpr uint32_t kColourBytes = 4;
+constexpr uint32_t kStableFrames = 60;          // the world unchanged this many frames: fitted
+constexpr float kLumaRed = 0.299F;              // a colour's brightness (Rec. 601 luma)
+constexpr float kLumaGreen = 0.587F;
+constexpr float kLumaBlue = 0.114F;
+constexpr float kHalfAgreed = 0.5F;             // (the log's count of cells where the bake disagrees)
+constexpr std::size_t kFitTriangles = 40000;       // triangles looked at for the fit (the upward ones sampled)
+constexpr std::size_t kAgreementTriangles = 400000; // ... and for where the bake agrees (one ray a point) ...
+constexpr uint32_t kAgreementPoints = 6;            // ... points in each
+constexpr float kMinUp = 0.7F;                  // the samples' triangles face up (or down) at least this much
+constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
+constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr std::size_t kMaxSceneLights = 31;     // update_all_lights' limit
 constexpr uint32_t kFvfTexCountMask = 0xF00;    // a vertex format's count of texture coordinate sets
 constexpr uint32_t kPassEnvironment = 0x8;      // a material pass's flags: environment mapped (pc_material.cpp)
@@ -79,6 +104,12 @@ struct MaterialEntry {
 
 struct State {
     std::unordered_map<const MeshRef*, MeshEntry> meshes;
+    // the baked sun's fit: the last frame's world meshes, their signature (their ids), how long it has stood
+    std::vector<const MeshRef*> world;
+    uint64_t world_signature = 0;
+    uint32_t stable_frames = 0;
+    uint64_t fitted_signature = 0;
+    uint64_t fits = 0;
     std::unordered_map<const MaterialRef*, MaterialEntry> materials;
     std::unordered_set<const VertexBufferData*> written; // since the last record
     uint64_t frame = 0;
@@ -337,6 +368,7 @@ void record_world(rt::RayTracing& rt)
         for (const MeshRef* mesh : meshes->mesh_run()) {
             if (mesh != nullptr && mesh_shown(mesh)) {
                 add_instance(mesh, rt::kWorld, identity, rt);
+                state().world.push_back(mesh);
             }
         }
     }
@@ -382,6 +414,271 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
             add_instance(mesh, rt::kObject, transform, rt);
         }
     }
+}
+
+// --- the baked sun (engine/gfx/rt_sun.h) ------------------------------------------------------------------------------
+
+// Where a vertex's diffuse colour is in a vertex of this format, or false: none (or a position not of three floats).
+bool colour_offset(uint32_t fvf, uint32_t* offset)
+{
+    const uint32_t position = fvf & kPositionMask;
+    if (position < kPositionXyz || position > kPositionXyzB5 || (position % 2) != 0 || (fvf & kFvfDiffuse) == 0U) {
+        return false;
+    }
+    uint32_t at = kPositionBytes + (kBlendWeightBytes * ((position - kPositionXyz) / 2));
+    at += (fvf & kFvfNormal) != 0U ? kNormalBytes : 0U;
+    at += (fvf & kFvfPointSize) != 0U ? static_cast<uint32_t>(sizeof(float)) : 0U;
+    *offset = at;
+    return true;
+}
+
+// A mesh's triangles as the sampler walks them, read from the copies in memory: their count, a triangle's corners, a
+// vertex's position and its baked colour's brightness.
+class MeshTriangles {
+public:
+    MeshTriangles(const rt::Geometry& geometry, const VertexBufferData& source, uint32_t colour)
+        : geometry_(&geometry),
+          vertices_(source.data(), source.size()),
+          colour_(colour),
+          index_bytes_(geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t))
+    {
+    }
+
+    [[nodiscard]] uint32_t count() const
+    {
+        if (geometry_->strip) {
+            return geometry_->index_count >= 3 ? geometry_->index_count - 2 : 0U;
+        }
+        return geometry_->index_count / 3;
+    }
+    // The triangle's three vertex indices, or false (degenerate, or outside the vertices).
+    bool corners(uint32_t triangle, std::array<uint32_t, 3>* out) const
+    {
+        const uint32_t first = geometry_->strip ? triangle : triangle * 3;
+        *out = {index(first), index(first + 1), index(first + 2)};
+        const uint32_t limit =
+            std::min(geometry_->vertex_count, static_cast<uint32_t>(vertices_.size() / geometry_->vertex_stride));
+        const auto [one, two, three] = *out;
+        return one != two && two != three && one != three && one < limit && two < limit && three < limit;
+    }
+    [[nodiscard]] rt::Vec3 position(uint32_t vertex) const
+    {
+        rt::Vec3 out{};
+        std::memcpy(out.data(), vertices_.subspan(std::size_t{vertex} * geometry_->vertex_stride, sizeof(out)).data(),
+                    sizeof(out));
+        return out;
+    }
+    // (the colour's B, G, R bytes as luma)
+    [[nodiscard]] float brightness(uint32_t vertex) const
+    {
+        std::array<uint8_t, kColourBytes> bgra{};
+        std::memcpy(bgra.data(),
+                    vertices_.subspan((std::size_t{vertex} * geometry_->vertex_stride) + colour_, bgra.size()).data(),
+                    bgra.size());
+        return (kLumaBlue * static_cast<float>(std::get<0>(bgra))) + (kLumaGreen * static_cast<float>(std::get<1>(bgra))) +
+               (kLumaRed * static_cast<float>(std::get<2>(bgra)));
+    }
+
+private:
+    [[nodiscard]] uint32_t index(uint32_t at) const
+    {
+        const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry_->cpu_indices),
+                                               (std::size_t{geometry_->index_offset} + geometry_->index_count) *
+                                                   index_bytes_);
+        const std::size_t byte = (std::size_t{geometry_->index_offset} + at) * index_bytes_;
+        if (index_bytes_ == sizeof(uint32_t)) {
+            uint32_t value = 0;
+            std::memcpy(&value, indices.subspan(byte, sizeof(value)).data(), sizeof(value));
+            return value;
+        }
+        uint16_t value = 0;
+        std::memcpy(&value, indices.subspan(byte, sizeof(value)).data(), sizeof(value));
+        return value;
+    }
+
+    const rt::Geometry* geometry_;
+    std::span<const uint8_t> vertices_;
+    uint32_t colour_; // the colour's offset in a vertex
+    std::size_t index_bytes_;
+};
+
+// A triangle's corners and its normal turned up; false: no area, or not facing up (or down - turned up) enough.
+struct UpTriangle {
+    std::array<rt::Vec3, 3> corners{};
+    rt::Vec3 normal{};
+};
+bool up_triangle(const MeshTriangles& mesh, const std::array<uint32_t, 3>& corner, UpTriangle* out)
+{
+    const auto [first, second, third] = corner;
+    const std::array<rt::Vec3, 3> at{mesh.position(first), mesh.position(second), mesh.position(third)};
+    const rt::Vec3 normal = rt::cross(rt::minus(std::get<1>(at), std::get<0>(at)), rt::minus(std::get<2>(at), std::get<0>(at)));
+    const float length = std::sqrt(rt::dot(normal, normal));
+    if (!(length > 0.0F) || !std::isfinite(length)) {
+        return false;
+    }
+    const rt::Vec3 up = rt::scaled(normal, rt::y_of(normal) < 0.0F ? -1.0F / length : 1.0F / length);
+    if (rt::y_of(up) < kMinUp) {
+        return false;
+    }
+    *out = {.corners = at, .normal = up};
+    return true;
+}
+
+// The meshes the samples come from: the world's with a copy of their vertices and indices in memory and a diffuse
+// colour.
+std::vector<MeshTriangles> sampled_meshes()
+{
+    State& st = state();
+    std::vector<MeshTriangles> meshes;
+    for (const MeshRef* mesh : st.world) {
+        const auto found = st.meshes.find(mesh);
+        if (found == st.meshes.end() || found->second.source == nullptr) {
+            continue;
+        }
+        const rt::Geometry& geometry = found->second.geometry;
+        const VertexBufferData& source = *found->second.source;
+        uint32_t colour = 0;
+        if (source.data() == nullptr || geometry.cpu_indices == nullptr || geometry.dynamic ||
+            geometry.vertex_stride == 0 || !colour_offset(mesh->fvf(), &colour) ||
+            colour + kColourBytes > geometry.vertex_stride) {
+            continue;
+        }
+        meshes.emplace_back(geometry, source, colour);
+    }
+    return meshes;
+}
+
+// A point of a triangle by its weights for the second and third corners (the first's the rest), and the brightness
+// there blended from the corners'.
+rt::BakeSample point_of(const MeshTriangles& mesh, const std::array<uint32_t, 3>& corner, const UpTriangle& up,
+                        std::array<float, 2> weights)
+{
+    const auto [second, third] = weights;
+    const float first = 1.0F - second - third;
+    const auto& [one, two, three] = up.corners;
+    return {.position = rt::plus(rt::plus(rt::scaled(one, first), rt::scaled(two, second)), rt::scaled(three, third)),
+            .normal = up.normal,
+            .brightness = (mesh.brightness(std::get<0>(corner)) * first) + (mesh.brightness(std::get<1>(corner)) * second) +
+                          (mesh.brightness(std::get<2>(corner)) * third)};
+}
+
+// Where the k-th point in a triangle lies (the second and third corners' weights): its centre, then a low-discrepancy
+// sequence (R2) folded into the triangle.
+std::array<float, 2> weights_of(uint32_t point)
+{
+    constexpr double kThird = 1.0 / 3.0;
+    constexpr double kR2First = 0.7548776662466927; // (the R2 sequence's steps)
+    constexpr double kR2Second = 0.5698402909980532;
+    constexpr double kStart = 0.5;
+    if (point == 0) {
+        return {static_cast<float>(kThird), static_cast<float>(kThird)};
+    }
+    double second = std::fmod(kStart + (kR2First * point), 1.0);
+    double third = std::fmod(kStart + (kR2Second * point), 1.0);
+    if (second + third > 1.0) {
+        second = 1.0 - second;
+        third = 1.0 - third;
+    }
+    return {static_cast<float>(second), static_cast<float>(third)};
+}
+
+// Samples of the world's upward-facing triangles with their baked colours: each triangle counted the same (the play
+// areas' detailed ground weighs more than the scenery's few large faces - the bake's shadows are where the detail is),
+// every n-th of them for about `count.triangles` triangles, `count.points` points in each (weights_of). The same world
+// gives the same samples.
+struct SampleCount {
+    std::size_t triangles = 0;
+    uint32_t points = 1;
+};
+std::vector<rt::BakeSample> bake_samples(SampleCount count)
+{
+    const std::vector<MeshTriangles> meshes = sampled_meshes();
+    std::size_t total = 0;
+    for (const MeshTriangles& mesh : meshes) {
+        total += mesh.count();
+    }
+    std::vector<rt::BakeSample> samples;
+    const std::size_t step = std::max<std::size_t>(1, total / std::max<std::size_t>(1, count.triangles));
+    std::size_t next = 0;
+    std::size_t walked = 0;
+    for (const MeshTriangles& mesh : meshes) {
+        const uint32_t triangles = mesh.count();
+        for (; next < walked + triangles; next += step) {
+            std::array<uint32_t, 3> corner{};
+            UpTriangle up;
+            if (!mesh.corners(static_cast<uint32_t>(next - walked), &corner) || !up_triangle(mesh, corner, &up)) {
+                continue;
+            }
+            for (uint32_t k = 0; k < count.points; ++k) {
+                samples.push_back(point_of(mesh, corner, up, weights_of(k)));
+            }
+        }
+        walked += triangles;
+    }
+    return samples;
+}
+
+// A direction's heading and elevation in degrees (for the log).
+std::array<double, 2> heading_elevation(const rt::Vec3& toward)
+{
+    constexpr double kDegrees = 180.0 / 3.14159265358979323846;
+    return {std::atan2(static_cast<double>(rt::x_of(toward)), static_cast<double>(rt::z_of(toward))) * kDegrees,
+            std::asin(std::clamp(static_cast<double>(rt::y_of(toward)), -1.0, 1.0)) * kDegrees};
+}
+
+// The fit made and logged: the sun, and with one found where the bake agrees.
+void make_fit(rt::RayTracing& rt)
+{
+    const auto start = std::chrono::steady_clock::now();
+    rt::SunFit fit = rt::fit_baked_sun(bake_samples({.triangles = kFitTriangles, .points = 1}), rt);
+    fit.sun.scene = ++state().fits;
+    if (fit.sun.found) {
+        const std::vector<rt::BakeSample> dense =
+            bake_samples({.triangles = kAgreementTriangles, .points = kAgreementPoints});
+        rt::trace_agreement(dense, rt, &fit.sun);
+        const auto disagree = std::ranges::count_if(fit.sun.agreement, [](float value) { return value < kHalfAgreed; });
+        get_log("rt: the baked sun's agreement: %zu samples, %ux%u cells of %.0f, %td of them where the bake lights "
+                "what the sun can't reach (no traced shadow there)",
+                dense.size(), fit.sun.columns, fit.sun.rows, static_cast<double>(fit.sun.cell), disagree);
+    }
+    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    const auto [heading, elevation] = heading_elevation(fit.sun.toward);
+    get_log("rt: the baked sun: %s toward %.3f %.3f %.3f (heading %.0f, elevation %.0f), confidence %.2f - %zu samples, "
+            "%zu rays, %.0f ms",
+            fit.sun.found ? "found" : "none (the bake shows no sun: no sun shadows here)",
+            static_cast<double>(rt::x_of(fit.sun.toward)), static_cast<double>(rt::y_of(fit.sun.toward)),
+            static_cast<double>(rt::z_of(fit.sun.toward)), heading, elevation,
+            static_cast<double>(fit.sun.confidence), fit.samples, fit.rays, ms);
+    for (const std::array<float, 4>& other : fit.runners_up) {
+        const auto [other_heading, other_elevation] =
+            heading_elevation({std::get<0>(other), std::get<1>(other), std::get<2>(other)});
+        get_log("rt: the baked sun's runners-up: heading %.0f, elevation %.0f, score %.2f", other_heading,
+                other_elevation, static_cast<double>(std::get<3>(other)));
+    }
+    rt::set_baked_sun(std::move(fit.sun));
+}
+
+// The last frame's world (its TLAS built): once it has stood still kStableFrames frames and isn't the one fitted, the
+// baked sun fitted to it; a world that changed loses its fit. Only when the fit is wanted (the shadow pass on).
+void fit_sun(rt::RayTracing& rt)
+{
+    State& st = state();
+    uint64_t signature = kFnvBasis;
+    for (const MeshRef* mesh : st.world) {
+        const auto found = st.meshes.find(mesh);
+        signature = (signature ^ (found != st.meshes.end() ? found->second.id : 0U)) * kFnvPrime;
+    }
+    const bool empty = st.world.empty();
+    st.stable_frames = signature == st.world_signature ? st.stable_frames + 1 : 0U;
+    st.world_signature = signature;
+    if (signature != st.fitted_signature && rt::baked_sun().scene != 0) {
+        rt::set_baked_sun({}); // (another world: the old fit no longer holds)
+    }
+    if (rt::baked_sun_wanted() && !empty && st.stable_frames >= kStableFrames && signature != st.fitted_signature) {
+        st.fitted_signature = signature;
+        make_fit(rt); // (the samples read the world's meshes as the last frame recorded them: st.world)
+    }
+    st.world.clear();
 }
 
 // A colour's r, g, b bytes times a factor.
@@ -447,6 +744,7 @@ void record_frame()
         return;
     }
     State& st = state();
+    fit_sun(*rt);
     ++st.frame;
     st.recorded = true;
     st.begun = false;

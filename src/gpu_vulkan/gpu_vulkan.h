@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string>
 
@@ -47,12 +48,26 @@ void configure(const Choices& choices);
 // rt_shadow_strength, rt_shadow_softness, rt_shadow_rays, rt_shadow_objects. Nothing is drawn differently while `on` is
 // false, or when ray tracing isn't enabled on the device (Choices::ray_tracing and the device's extensions).
 inline constexpr float kRtShadowStrength = 0.5F; // (rt_shadow_strength's default)
+inline constexpr unsigned kRtShadowSkyRays = 5;  // (rt_shadow_sky_rays')
 struct RtShadowSettings {
     bool on = false;
     float strength = kRtShadowStrength; // how much of the colour a full shadow takes away (0 - 1)
     float softness = 0.0F; // the light's angular radius in degrees (0: hard edges, one ray; up to 5)
     unsigned rays = 4;     // rays per pixel (per sample) when soft (1 - 16)
     bool objects = false;  // the objects (the skater, peds, vehicles) cast shadows too
+    // Shadows under roofs too (indoors, under bridges and awnings): false (the default) leaves a point that sees no sky
+    // as the original lit it - its lamps are baked in - true darkens wherever the sun is blocked.
+    bool covered = false;
+    unsigned sky_rays = kRtShadowSkyRays; // the sky test's rays a pixel (1 - 16: straight up, the rest slanted round it)
+    // Shadows only where the level's bake agrees (engine/gfx/rt_sun.h make_agreement): where its colours are bright
+    // although the sun is blocked - lamps, a roof or a caster the bake left out - none. Only with the baked sun.
+    bool match_bake = true;
+    // The sun traced toward (rt_shadow_sun): the one the level's lighting was baked with, found from its vertex colours
+    // (engine/gfx/rt_sun.h - none in a level whose bake shows no sun: no shadows there); the frame's first directional
+    // light (the game's, which lights the skater - the same in every level); or a fixed direction toward the sun.
+    enum class SunSource : uint8_t { kBake, kLight, kFixed };
+    SunSource sun = SunSource::kBake;
+    std::array<float, 3> fixed_sun{0.0F, 1.0F, 0.0F};
 };
 void set_rt_shadow_settings(const RtShadowSettings& settings);
 [[nodiscard]] RtShadowSettings rt_shadow_settings();
