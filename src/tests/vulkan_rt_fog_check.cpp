@@ -1231,6 +1231,7 @@ void run_untouched(render::Gpu& gpu, const char* name, const render::vulkan::RtF
 void run_perf(render::Gpu& gpu, const Scene& scene)
 {
     text::print("cost at %ux%u (the passes' timestamps on the device, 60 frames each):\n", kPerfWidth, kPerfHeight);
+    use_settings(settings_of(false), scene.top.handle); // (on before the targets: their depth made samplable)
     Targets targets;
     if (!make_targets(gpu, kPerfWidth, kPerfHeight, &targets)) {
         text::print("  the targets couldn't be made\n");

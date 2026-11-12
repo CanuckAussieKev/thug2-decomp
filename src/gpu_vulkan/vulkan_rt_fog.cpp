@@ -403,6 +403,7 @@ struct FogState {
     VkQueryPool timer = VK_NULL_HANDLE;
     double tick_milliseconds = 0.0; // (0: the device can't time - none taken)
     uint64_t timed = 0;             // pairs written
+    std::array<uint64_t, 8> timer_serials{}; // the submission that last wrote each pair (0: none; kTimerPairs)
     RtFogTiming timing;
     uint64_t window_samples = 0; // since the last log line
     double window_milliseconds = 0.0;
@@ -1354,11 +1355,16 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         clear_slot(commands, slot);
     }
     ensure_timer(state);
+    // (a pair is used again once the submission that last wrote it has finished - its result read first; until then
+    // this pass isn't timed)
     const uint32_t pair = static_cast<uint32_t>(own.timed % kTimerPairs);
-    if (own.timer != VK_NULL_HANDLE) {
-        if (own.timed >= kTimerPairs) {
+    uint64_t& written = core::at(own.timer_serials, pair);
+    const bool timing = own.timer != VK_NULL_HANDLE && (written == 0 || state.frames.completed() >= written);
+    if (timing) {
+        if (written != 0) {
             read_timer(state, pair, width, height);
         }
+        written = state.frames.serial();
         vkCmdResetQueryPool(commands, own.timer, pair * 2, 2);
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, own.timer, pair * 2);
     }
@@ -1394,7 +1400,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     // 3. the composite
     record_composite(commands, composite, colour,
                      {.depth = depth, .in = history, .in_info = history_info, .block = block_info}, clipped.rect);
-    if (own.timer != VK_NULL_HANDLE) {
+    if (timing) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timer, (pair * 2) + 1);
         ++own.timed;
     }
@@ -1583,6 +1589,7 @@ void release_rt_fog(Backend& state)
     own.timer = VK_NULL_HANDLE;
     own.tick_milliseconds = 0.0;
     own.timed = 0;
+    own.timer_serials = {};
     own.composites.clear();
     own.march = {};
     own.temporal = VK_NULL_HANDLE;
