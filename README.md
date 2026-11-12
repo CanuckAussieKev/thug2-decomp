@@ -343,6 +343,10 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
 | `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
 | `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it) |
+| `rt_shadow_sun` | bake | The sun the shadows fall from: `bake` - the one the level's own lighting was made with, found from it when the level starts (a level lit only by its lamps, indoors, gets no ray-traced shadows); `light` - the game's light for the skater (the same in every level); or `x,y,z` toward the sun |
+| `rt_shadow_match_bake` | 1 | With the baked sun: no ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out); 0 shadows wherever the sun is blocked |
+| `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |
+| `rt_shadow_sky_rays` | 5 | Rays a pixel that look for the sky (1-16) |
 
 **`[Miscellaneous]`** - from PartyMod
 

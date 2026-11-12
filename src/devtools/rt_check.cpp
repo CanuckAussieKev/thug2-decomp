@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -26,6 +27,7 @@
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/rt_checks.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sun.h"
 #include "platform/run_log.h"
 
 namespace devtools::rt_check {
@@ -673,6 +675,39 @@ std::string console_command(const std::string& arguments)
     if (verb == "dump") {
         return write_dump(file);
     }
+    if (verb == "agree") {
+        // (the baked sun's agreement at x z: rt_sun.h)
+        const float x = std::strtof(file.c_str(), nullptr);
+        float z = 0.0F;
+        in >> z;
+        const rt::BakedSun& sun = rt::baked_sun();
+        const std::string text = "agreement at " + std::to_string(x) + " " + std::to_string(z) + ": " +
+                                 std::to_string(rt::agreement_at(sun, {x, 0.0F, z})) + " (fit " + std::to_string(sun.scene) +
+                                 ", " + std::to_string(sun.columns) + "x" + std::to_string(sun.rows) + ")";
+        get_log("rt: %s", text.c_str());
+        return text;
+    }
+    if (verb == "sun") {
+        // (the shadow pass's sun set by hand: toward it; `rt sun off` gives it back to the pass)
+        if (file == "off") {
+            rt::set_sun_override(nullptr);
+            get_log("rt: sun override off");
+            return "sun: the pass's own";
+        }
+        std::array<float, 3> toward{};
+        std::get<0>(toward) = std::strtof(file.c_str(), nullptr);
+        in >> std::get<1>(toward) >> std::get<2>(toward);
+        if (file.empty() || in.fail()) {
+            std::array<float, 3> now{};
+            return rt::sun_override(&now) ? "sun: " + std::to_string(std::get<0>(now)) + " " +
+                                                std::to_string(std::get<1>(now)) + " " + std::to_string(std::get<2>(now))
+                                          : "sun: the pass's own (rt sun <x> <y> <z> | rt sun off)";
+        }
+        rt::set_sun_override(&toward);
+        get_log("rt: sun override %.4f %.4f %.4f", static_cast<double>(std::get<0>(toward)),
+                static_cast<double>(std::get<1>(toward)), static_cast<double>(std::get<2>(toward)));
+        return "sun set";
+    }
     if (verb == "summary" || verb.empty()) {
         if (rt::ray_tracing() != &checker()) {
             return "the contract check isn't on ([debug] rt_contract_check=1)";
@@ -681,7 +716,7 @@ std::string console_command(const std::string& arguments)
         get_log("%s", text.c_str());
         return text;
     }
-    return "rt summary | rt dump [file]";
+    return "rt summary | rt dump [file] | rt sun [<x> <y> <z> | off] | rt agree <x> <z>";
 }
 
 std::string record_json(const rt::FrameRecord& record)
