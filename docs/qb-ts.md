@@ -1,7 +1,8 @@
 # QB as readable TypeScript
 
 `node tools/qbjs/emit_ts.ts INPUT.qb OUTPUT.ts` translates a QB module into TypeScript meant to be read and edited
-as the scripts' source. It reads the same IR as the JavaScript emitter ([qb-js-plan.md](qb-js-plan.md)); names come
+as the scripts' source, and its globals into `OUTPUT.json` beside it ("Data" below; `--inline`: the globals in the
+`.ts` too, as `global(...)`). It reads the same IR as the JavaScript emitter ([qb-js-plan.md](qb-js-plan.md)); names come
 from the module's own checksum-name records (a spelling is used only when it checksums back to the name, else the
 name is written `_0x<checksum>`).
 
@@ -37,7 +38,7 @@ overlays (the new front end, Anteara Mod, the ported levels) 531 of 531 - and al
 | QB | TypeScript |
 | --- | --- |
 | `script Foo a = 1 ... endscript` | `script("Foo", { a: 1 }, function* (p) { ... });` - defaults that read parameters or draw a random value are a function, `(p) => ({ ... })`, given empty parameters (defaults are parsed without the caller's) |
-| `Name = value` (top level) | `global("Name", value);` |
+| `Name = value` (top level) | `global("Name", value);` - in the game's files the `.json` beside the `.ts` ("Data") |
 | `Foo a = 1 Flag` | `yield* Foo({ a: 1 }, N.Flag);` - commands are bound by `const { Foo } = cmd;` |
 | a name as a value: `Flag` | `N.Flag` (unknown checksums: `N._0x1234abcd`) |
 | a global in an expression | `G.Name` |
@@ -80,8 +81,9 @@ the original (the site is the script and the call's number `k` instead of its QB
 
 The game runs translated scripts in QuickJS with `[features] ts_scripts=1` (default 0: the `.qb` files; `[debug]
 ts_profile=1` logs where the time goes), in the game unpacked: each file the game loads is defined by its `.ts` - its
-globals and its scripts - in place of its `.qb`, and no `.qb` is ever read: a file with no `.ts`, or whose `.ts` fails,
-is an error in the log (`ts: ERROR - ...`) and isn't loaded (`unpack_game.ts` fails on a `.qb` that doesn't
+scripts - and its `.json` - its globals ("Data" below) - in place of its `.qb`, and no `.qb` is ever read: a file with
+no `.ts`, whose `.ts` fails, or whose globals have no `.json`, is an error in the log (`ts: ERROR - ...`) and isn't
+loaded (`unpack_game.ts` fails on a `.qb` that doesn't
 translate; only the script check's own plan files are read as `.qb`). A module is compiled to
 QuickJS bytecode the first time it loads and cached in `thug2-decomp-ts\cache` (keyed by the QuickJS version, the word
 size and the module's own bytes); later starts read the bytecode. (Until 2026-11-13 there was also a mode with the
@@ -95,7 +97,8 @@ otherwise load no scripts at all and crash.
 
 **Unpacked** (`node tools/qbjs/unpack_game.ts --game <folder>`): the game with no archive and no `.qb`. The tool moves every archive in `Data\pre` (`.prx`, the French and German `.prf` / `.prd` and their
 patches `.ppf` / `.ppd`) and every `.qb` (Data's, the data overlay's, the ported levels' overlays) to
-`<game>\thug2-decomp-backup` at the same paths, writes each `.qb` as a `.ts` and puts every file of the archives loose
+`<game>\thug2-decomp-backup` at the same paths, writes each `.qb` as a `.ts` (and its globals as a `.json` beside it)
+and puts every file of the archives loose
 where its name says in Data (`Data\levels\bo\BO.scn.xbx`, `Data\levels\bo\BO_scripts.ts`, `Data\sounds\pcm\...`). The
 PC game already ships loose copies of nearly all of them (6,453 of 6,806 names; 351 sounds and two `.bin` files were
 only in archives); the archive's copy goes over a loose one that differs - the game read a loaded archive's copy
@@ -104,7 +107,7 @@ ones' debug prints) and two of Training's textures. With no archive file and no 
 nothing (`archive.cpp`, `packs.cpp`) and the game reads every file loose; the loose-file table holds 4,096 files, not
 200 (a resident archive's files - `unloadableanims`' 1,006 - are held one by one). `unpack_game.ts --check` keeps every
 archive in its folder (the script check runs each version of a file). `--restore` puts everything back (its record:
-`thug2-decomp-backup\unpacked.json`); `--refresh` puts back and unpacks again - after `make_menu_level.ts` or a
+`thug2-decomp-backup\unpacked.json`, the `.ts` and `.json` it made among them); `--refresh` puts back and unpacks again - after `make_menu_level.ts` or a
 converter rewrote an overlay (until then the game reads such a file's new `.qb`, not its old `.ts`: the `.ts` names the
 hash of the `.qb` it was made from).
 
@@ -131,14 +134,15 @@ hash of the `.qb` it was made from).
   read the way the game reads any file (`packs::read_in`: the data overlay, then the loaded archives, then Data), so it
   is the version the `.qb` would have been - the boot scripts' copies in `qb_scripts` (without the loose files' debug
   prints), a level's `*_scripts` copy once its archive is in, the loose file before. The `.ts`'s last line,
-  `// qb-file {...}`, is its manifest (its source name, the hash of the `.qb` it was made from, the file's checksum
-  names); the game turns the `import ... from "qb"` into a read of the runtime, wraps the file as `compile_ts.ts` does
-  - each line where it was - and caches its bytecode (`thug2-decomp-ts\cache\ts-<hash>.qbc`). The emitted files have
-  no type syntax; a type annotation added by hand isn't stripped in the game yet (a syntax error: the file isn't
-  defined).
-- A module's globals go to the game's own table only (read back through it as a `.qb` file's): the runtime keeps no
+  `// qb-file {...}`, is its manifest (its source name, the hash of the `.qb` it was made from, how many globals it
+  has - in its `.json` -, the file's checksum names); the game turns the `import ... from "qb"` into a read of the
+  runtime, wraps the file as `compile_ts.ts` does - each line where it was - and caches its bytecode
+  (`thug2-decomp-ts\cache\ts-<hash>.qbc`). The emitted files have no type syntax; a type annotation added by hand isn't
+  stripped in the game yet (a syntax error: the file isn't defined). Its globals: `<name>.json` read the same way, after
+  the module has run ("Data").
+- A file's globals go to the game's own table only (read back through it as a `.qb` file's): the runtime keeps no
   copy, which would outlive the file. A module runs with the game's interrupt budget, never the script check's lower
-  one (a level's node arrays take far more than a script run).
+  one.
 - The script check proves it: `script_check_parallel.ps1` runs its TypeScript pass in the game unpacked
   (`unpack_game.ts --check`), every version of every file (docs/script-check.md), and compares every global each file
   defines as well as the runs.
@@ -179,6 +183,68 @@ files; 13.4 s the first start, nothing in the disk cache). Standalone's extra 2 
 in JavaScript (the CAS tables, animevents, terrain - 189 ms the largest) where the hybrid game reads them from the
 binary `.qb`; the runtime copies each global once more before the game converts it (`defineGlobal`), a copy the game
 mode no longer needs - the first thing to drop, with the check run again.
+
+2026-11-13 (the same measure, a workspace, warm): the globals moved to `.json`, read by C++ - Boston 11.5 / 12.0 s
+before (13.9 s the first start), 8.4 / 8.6 s after (10.8 s the first); the 234 modules' load time 3,549 ms -> 312 ms
+(Boston's own file 1,001 ms -> 30, of which its 1 MB of data 3 ms).
+
+## Data
+
+A script file's globals are data, not code: in the game unpacked each `<name>.ts` has its scripts and a `<name>.json`
+beside it its globals (`tools/qbjs/emit_data.ts` writes it, `unpack_game.ts` and `emit_ts.ts` put it beside the
+`.ts`; a file with no globals has none). Tools read a file's data without running anything (the level converters'
+z-fighting gates read a level's node array from it), the game reads it straight into its cells, and BO.ts is its
+scripts (75 KB; the node array in BO.json).
+
+**The values** are the ones the game builds for each global - what the TypeScript defined before, `qb_ts.js` value()
+over `values.js`: a structure's members merged as they're added (a later member of the same name and kind replaces
+the earlier and moves to the end), an unnamed structure's members spread in, an `angles` vector of near-zero literal
+coordinates left out, integers among floats made floats. So the file holds the values themselves, and reading it is
+building nothing. A name defined twice in a file: its last definition (none of the game's files has one).
+
+**The format** (`tools/qbjs/qb_data.ts`: the reference - its comment is the spec -, with the reader `readQbData` and
+the writer; dependency-free, for other repositories to import or copy - thug2-level-converter-core has a copy):
+
+```json
+{
+    "format": "qb-data 1",
+    "source": "Data\\levels\\bo\\bo.qb",
+    "from": "d699a832",
+    "globals": {
+        "BO_NodeArray": [
+            {"Pos": {"$vec": [-143.25702, 35.131844, 948.5483]}, "Name": "TRG_Rail02", "ncomp_RailNode_1": true},
+            ...
+```
+
+| value | JSON |
+| --- | --- |
+| integer | a number with no fraction or exponent: `5`, `-3` |
+| float | a number that isn't whole (`1.25`, `1e-7`: its shortest spelling that reads back to the same 32 bits), else `{"$float": 2}`, `{"$float": -0}`, `{"$float": "0x7fc00000"}` (infinities, NaN: the bits) |
+| name | a string: `"Class"` (its text where the file's checksum names spell it), `"_0x1a2b3c4d"` |
+| string / localised string | `{"$string": "text"}` / `{"$local": "text"}` - bytes, `\u00XX` past ASCII |
+| translated text | `{"$tr": "bo_scripts.boston"}`, `{"$local": {"$tr": ...}}` - the token's text from `Data\lang` (Languages above) |
+| pair / vector | `{"$pair": [x, y]}`, `{"$vec": [x, y, z]}` - floats, `"0x..."` bits for infinities and NaN |
+| structure | an object, members in order, `"Flag": true` an unnamed name; `{"$struct": [["a", 1], [null, 2]]}` when the members don't fit one (an unnamed member that isn't a name, a key twice - two kinds of one name -, a key that starts with `$` or reads as an index) |
+| array | a list (one kind of element) |
+| a structure's script | `{"$script": "Masks#1"}` - the code stays in the `.ts`: `scriptValue("Masks#1", code(function* (p) {...}))` (the global's name and its scripts' count) |
+
+Floats are exact: a JSON number is read through a double and rounded to 32 bits (JavaScript's `Math.fround(Number(x))`,
+the game's `(float)strtod`), and the writer picks the shortest spelling that comes back to the same bits.
+
+**In the game** (`src/script_qb/ts_data.cpp`): `<name>.json` read as the `.ts` is (the data overlay, the archives,
+Data; the script check's chosen version: its `.ts` path with `.json`), after the module has run, parsed straight into
+the script heap's cells - the allocations `js_to_cell` makes for a runtime value - and each global defined as the
+loader defines a `.qb` file's. A `$tr` string is the token's text in the language (the tables are read before the first
+module), a `$script` the code value its `.ts` gave that key (`qb_ts.js` scriptValue / scriptValueOf). Its `from` must be
+the `.ts`'s.
+
+**Proof**: `node tools/qbjs/qb_data_check.ts --game <folder>` builds every global of every version of every `.qb` (Data,
+the archives, the overlays, the ported levels), writes and reads it back, and runs the module's TypeScript with its
+globals in it in the game's mode (`compile_ts.ts`, `qb_ts.js`, `values.js`) - all three the same (2026-11-13, a
+workspace: 48,001 globals in 1,119 file versions, 0 different; 148 files' localised text read back through English's
+table the same as the file's own); `qb_data.test.ts` covers every kind of value. The script check compares every
+global the game defines from the `.json` with the one it defines from the `.qb` (its `global` lines,
+docs/script-check.md).
 
 ## Types
 

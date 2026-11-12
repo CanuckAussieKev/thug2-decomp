@@ -69,6 +69,8 @@ scripts - and at the first front-end frame runs the plan instead of the game, th
   `Wait 45 seconds` costs one frame and the code after it is reached within the frame budget.
 - **Replaying** (TypeScript, `ts_scripts=1`): every QB run again with the same seed and choices, its trace compared with
   QB's there and then; `ts.txt` has each module's count and every run that differed, with its first differing line.
+- **Globals**: every symbol a file defines but its scripts, as its value's text hashed (`global` lines) - QB's from the
+  `.qb`, TypeScript's from the file's `.json` (docs/qb-ts.md "Data") - compared by `compare`.
 - **Trace**: each stub call (the frame, the name, the object, the arguments - floats by their bits, a long argument list as
   its length and 64-bit hash), each forced decision, and how the run ended: the number of decisions and a hash of what
   each would have been and took, then the script's final parameters.

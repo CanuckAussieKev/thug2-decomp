@@ -773,7 +773,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             `Branches: ${taken} of ${total} taken by the QB runs (${percent(taken, total)}%; forced where no input took them).`,
             `Statements: ${ran} of ${statements} run (${percent(ran, statements)}%); scripts run: ${started} of ${scripts}; ${unreachableCount} statements no run can reach (after a return or a loop that never ends, or in an arm its if can't take) not counted.`,
             `TypeScript (measured in its own runs, the same counts): branches ${tsTaken} of ${total} (${percent(tsTaken, total)}%); statements ${tsRan} of ${statements} (${percent(tsRan, statements)}%); scripts run: ${tsStarted} of ${scripts}.`,
-            `Globals: ${result.globals} compared (QB's from the .qb files, the TypeScript pass's - from the .ts modules with ts_scripts=1); different: ${result.globalDifferences.length}.`,
+            `Globals: ${result.globals} compared (QB's from the .qb files, the TypeScript pass's - from the files' .json data with ts_scripts=1); different: ${result.globalDifferences.length}.`,
             "",
             "## Differences (first line that differs)",
             "",
