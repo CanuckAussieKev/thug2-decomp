@@ -39,7 +39,11 @@
 //     x lit x phase x tint x 0.5, is added (T = 1: nothing taken away).
 // The sky (the depth's far value - the sky dome, or the fog-coloured clear with distance clipping) is never dimmed: it
 //   gets the sunlit light only, x 0.25 (the shafts against the sky, darker gaps where the world blocks the sun).
-// No fog in the level (ViewFog::on false, or end <= start): the pass is skipped and nothing changes.
+// No fog in the level (ViewFog::on false, or end <= start - THUG2's levels draw fog only where a script asks for it, or
+//   with [Graphics] DistanceClipping=1 and Fog=1): with rt_fog_haze=1 (the default) and a sun, a thin haze is drawn in
+//   shafts mode - colour kFogHazeColour, from the camera to kFogHazeEnd - only its sunlit light added (the shafts, the
+//   glow toward the sun; nothing dimmed, the shade left as the level lit it); else the pass is skipped and nothing
+//   changes.
 // Without rt_hdr the light added is clamped to 1.
 // The histories are kept per viewport (its rectangle and target size): up to kFogViewSlots (split screen's two), the
 // least recently drawn dropped; a viewport not drawn in the frame before starts again.
@@ -47,14 +51,16 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr uint32_t kFogScale = 2;        // the march's resolution: 1 / this of the viewport's on each axis
-inline constexpr uint32_t kFogMaxHistory = 12;  // frames
+inline constexpr uint32_t kFogScale = 2;       // the march's resolution: 1 / this of the viewport's on each axis
+inline constexpr uint32_t kFogMaxHistory = 12; // frames
 inline constexpr uint32_t kFogViewSlots = 4;
 inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shadows the fog)
 inline constexpr float kFogAmbientShare = 0.5F;   // a above
 inline constexpr float kFogSkyShare = 0.25F;
-inline constexpr float kFogShaftShare = 0.5F;     // mode 1's
+inline constexpr float kFogShaftShare = 0.5F;       // mode 1's
 inline constexpr float kFogSunDistance = 100000.0F; // how far a ray toward the sun looks (world units)
+inline constexpr float kFogHazeEnd = 12000.0F;      // the haze's end (world units: its linear "fog" from the camera)
+inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
 
 // The scene the rays are traced through (R2's TLAS; VK_NULL_HANDLE: none - the pass is then skipped, logged once). The
 // same contract as rt_shadows_set_scene (vulkan_rt_shadows.h). Thread: any (it takes the backend's lock) -
@@ -93,9 +99,9 @@ void rt_fog_reset_history(Backend& state);
 // For the check: one of the low-resolution images of the viewport last drawn with `rect` read back (the frame's work
 // finished first): width x height texels of 4 floats.
 enum class RtFogImage : uint8_t {
-    kRaw,      // step 1: rgb the light scattered toward the eye, a the transmittance
-    kRawInfo,  // step 1: r the distance marched to (-1: the sky), g the full-resolution pixel's x, b its y (viewport's)
-    kHistory,  // step 2: as kRaw
+    kRaw,     // step 1: rgb the light scattered toward the eye, a the transmittance
+    kRawInfo, // step 1: r the distance marched to (-1: the sky), g the full-resolution pixel's x, b its y (viewport's)
+    kHistory, // step 2: as kRaw
     kHistoryInfo, // step 2: r the distance, g the history's length
 };
 struct RtFogTexels {

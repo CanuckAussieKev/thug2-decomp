@@ -99,8 +99,8 @@ void set_rt_reflection_settings(const RtReflectionSettings& settings);
 [[nodiscard]] RtReflectionSettings rt_reflection_settings();
 
 // NOT ORIGINAL - volumetric fog and light shafts (vulkan_rt_fog.h, docs/design/vulkan.md "Volumetric fog"): [Graphics]
-// rt_fog, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps, rt_fog_mode (and rt_hdr: the fog's light
-// unclamped). Nothing is drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
+// rt_fog, rt_fog_density, rt_fog_height, rt_fog_anisotropy, rt_fog_steps, rt_fog_mode, rt_fog_haze (and rt_hdr: the
+// fog's light unclamped). Nothing is drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
 inline constexpr float kRtFogAnisotropy = 0.3F; // (rt_fog_anisotropy's default)
 inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_steps' default)
 enum class RtFogMode : uint8_t {
@@ -115,6 +115,7 @@ struct RtFogSettings {
     unsigned steps = kRtFogSteps;         // samples along each ray (4 - 128)
     RtFogMode mode = RtFogMode::kReplace;
     bool hdr = false;                     // the light added above 1 kept (rt_hdr=1: a floating-point target)
+    bool haze = true; // a level without fog gets a thin haze's sunlit shafts (rt_fog_haze; 0: nothing there)
 };
 void set_rt_fog_settings(const RtFogSettings& settings);
 [[nodiscard]] RtFogSettings rt_fog_settings();

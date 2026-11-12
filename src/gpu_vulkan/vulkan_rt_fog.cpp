@@ -54,7 +54,7 @@ constexpr uint32_t kGroupSide = 8;
 constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
 constexpr double kSingular = 1e-300;
-constexpr double kShortest = 1e-6; // a light direction shorter than this: none
+constexpr double kShortest = 1e-6;   // a light direction shorter than this: none
 constexpr uint32_t kSampleCycle = 4; // the pixel of each 2 x 2 block marched cycles through 4 frames
 
 // The full-screen triangle (three vertices, no buffers).
@@ -380,6 +380,8 @@ struct ViewSlot {
     uint64_t last_use = 0;
 };
 
+constexpr uint32_t kTimerPairs = 8; // (the pairs of timestamps the passes are timed with, used in turn)
+
 struct FogState {
     RtFogSettings settings;
     VkAccelerationStructureKHR scene = VK_NULL_HANDLE;
@@ -394,6 +396,7 @@ struct FogState {
     std::array<float, 3> to_sun{};
     std::array<float, 3> sun_tint{};
     bool have_sun = false;
+    bool haze = false; // this view's level has no fog: the haze drawn instead (rt_fog_haze)
     bool standard_samples = false;
     bool failed = false;
     uint64_t passes = 0;
@@ -401,15 +404,14 @@ struct FogState {
     // the passes timed on the device: timestamps before and after each, kTimerPairs pairs used in turn (a pair's last
     // result read, when the device has written it, before it is used again)
     VkQueryPool timer = VK_NULL_HANDLE;
-    double tick_milliseconds = 0.0; // (0: the device can't time - none taken)
-    uint64_t timed = 0;             // pairs written
-    std::array<uint64_t, 8> timer_serials{}; // the submission that last wrote each pair (0: none; kTimerPairs)
+    double tick_milliseconds = 0.0;                    // (0: the device can't time - none taken)
+    uint64_t timed = 0;                                // pairs written
+    std::array<uint64_t, kTimerPairs> timer_serials{}; // the submission that last wrote each pair (0: none)
     RtFogTiming timing;
     uint64_t window_samples = 0; // since the last log line
     double window_milliseconds = 0.0;
 };
 
-constexpr uint32_t kTimerPairs = 8;
 constexpr uint64_t kTimingLogEvery = 600; // passes timed
 
 FogState& fog_state()
@@ -644,16 +646,16 @@ VkPipeline composite_pipeline(Backend& state, VkFormat format, VkSampleCountFlag
     raster.cullMode = VK_CULL_MODE_NONE;
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster.lineWidth = 1.0F;
-    const VkPipelineMultisampleStateCreateInfo multisample{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .rasterizationSamples = samples,
-        .sampleShadingEnable = VK_FALSE,
-        .minSampleShading = 0.0F,
-        .pSampleMask = nullptr,
-        .alphaToCoverageEnable = VK_FALSE,
-        .alphaToOneEnable = VK_FALSE};
+    const VkPipelineMultisampleStateCreateInfo multisample{.sType =
+                                                               VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                           .pNext = nullptr,
+                                                           .flags = 0,
+                                                           .rasterizationSamples = samples,
+                                                           .sampleShadingEnable = VK_FALSE,
+                                                           .minSampleShading = 0.0F,
+                                                           .pSampleMask = nullptr,
+                                                           .alphaToCoverageEnable = VK_FALSE,
+                                                           .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     // colour x T + the light: (src x 1) + (dst x src alpha); alpha kept
@@ -731,7 +733,8 @@ bool invert(Matrix matrix, Matrix* inverse)
     for (std::size_t column = 0; column < kMatrixSide; ++column) {
         std::size_t pivot = column;
         for (std::size_t row = column + 1; row < kMatrixSide; ++row) {
-            if (std::abs(core::at(core::at(matrix, row), column)) > std::abs(core::at(core::at(matrix, pivot), column))) {
+            if (std::abs(core::at(core::at(matrix, row), column)) >
+                std::abs(core::at(core::at(matrix, pivot), column))) {
                 pivot = row;
             }
         }
@@ -886,8 +889,7 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
     bool made = make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &slot.raw) &&
                 make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &slot.raw_info);
     for (std::size_t i = 0; i < 2; ++i) {
-        made = made &&
-               make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &core::at(slot.histories, i)) &&
+        made = made && make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &core::at(slot.histories, i)) &&
                make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &core::at(slot.history_info, i));
     }
     if (!made) {
@@ -940,8 +942,8 @@ void clear_slot(VkCommandBuffer commands, ViewSlot* slot)
                                   .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
                                   .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &cleared, 0,
-                         nullptr, 0, nullptr);
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &cleared,
+                         0, nullptr, 0, nullptr);
     slot->fresh = false;
 }
 
@@ -967,10 +969,10 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         .accelerationStructureCount = 1,
         .pAccelerationStructures = &own.scene};
     std::array<VkDescriptorImageInfo, kBindingCount> infos{};
-    std::array<VkWriteDescriptorSet, kBindingCount> writes{};
-    uint32_t count = 0;
-    const auto add = [&](uint32_t binding, VkDescriptorType type) -> VkWriteDescriptorSet& {
-        VkWriteDescriptorSet& write = core::at(writes, count++);
+    std::vector<VkWriteDescriptorSet> writes;
+    writes.reserve(kBindingCount);
+    const auto add = [&writes](uint32_t binding, VkDescriptorType type) -> VkWriteDescriptorSet& {
+        VkWriteDescriptorSet& write = writes.emplace_back();
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.dstBinding = binding;
         write.descriptorCount = 1;
@@ -1002,7 +1004,7 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         add(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE).pImageInfo = &info;
     }
     add(kBindingBlock, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER).pBufferInfo = &bound.block;
-    vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, count, writes.data());
+    vkCmdPushDescriptorSetKHR(commands, point, own.layout, 0, static_cast<uint32_t>(writes.size()), writes.data());
 }
 
 void compute_done(VkCommandBuffer commands)
@@ -1012,8 +1014,8 @@ void compute_done(VkCommandBuffer commands)
                                   .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
                                   .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &written, 0,
-                         nullptr, 0, nullptr);
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &written,
+                         0, nullptr, 0, nullptr);
 }
 
 void dispatch(VkCommandBuffer commands, VkPipeline pipeline, const PassBindings& bound, const Extent& extent)
@@ -1046,8 +1048,8 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, VkImageLayout layout,
         .subresourceRange =
             {.aspectMask = depth->aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
     };
-    vkCmdPipelineBarrier(commands, to_passes ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : passes, to_passes ? passes : tests, 0,
-                         0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(commands, to_passes ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : passes, to_passes ? passes : tests,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
     depth->layout = layout;
 }
 
@@ -1062,9 +1064,9 @@ void record_composite(VkCommandBuffer commands, VkPipeline pipeline, Image* colo
     colour_info.resolveMode = VK_RESOLVE_MODE_NONE;
     colour_info.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     colour_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    const VkRect2D area{.offset = {.x = static_cast<int32_t>(core::at(rect, 0)),
-                                   .y = static_cast<int32_t>(core::at(rect, 1))},
-                        .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3)}};
+    const VkRect2D area{
+        .offset = {.x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1))},
+        .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3)}};
     VkRenderingInfo info{};
     info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     info.renderArea = area;
@@ -1190,7 +1192,7 @@ void ensure_timer(Backend& state)
 }
 
 // A pair's last result (when the device has written both), added to the timing; logged every kTimingLogEvery.
-void read_timer(Backend& state, uint32_t pair, uint32_t width, uint32_t height)
+void read_timer(Backend& state, uint32_t pair, const Extent& size)
 {
     FogState& own = fog_state();
     struct Stamp {
@@ -1211,9 +1213,10 @@ void read_timer(Backend& state, uint32_t pair, uint32_t width, uint32_t height)
     ++own.window_samples;
     own.window_milliseconds += milliseconds;
     if (own.window_samples >= kTimingLogEvery) {
-        get_log("vulkan: rt_fog: the passes take %.3f ms on the device (%ux%u, %u steps; the last %llu passes' average)",
-                own.window_milliseconds / static_cast<double>(own.window_samples), width, height, own.settings.steps,
-                static_cast<unsigned long long>(own.window_samples));
+        get_log(
+            "vulkan: rt_fog: the passes take %.3f ms on the device (%ux%u, %u steps; the last %llu passes' average)",
+            own.window_milliseconds / static_cast<double>(own.window_samples), size.width, size.height,
+            own.settings.steps, static_cast<unsigned long long>(own.window_samples));
         own.window_samples = 0;
         own.window_milliseconds = 0.0;
     }
@@ -1241,7 +1244,8 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
                        static_cast<float>(jitter)};
     const std::array<float, 2> sample = sample_zero_offset(samples, own.standard_samples);
     // the pixel of its 2 x 2 block each texel marches this frame: (0, 0), (1, 1), (1, 0), (0, 1)
-    constexpr std::array<std::array<float, 2>, kSampleCycle> kCycle{{{0.0F, 0.0F}, {1.0F, 1.0F}, {1.0F, 0.0F}, {0.0F, 1.0F}}};
+    constexpr std::array<std::array<float, 2>, kSampleCycle> kCycle{
+        {{0.0F, 0.0F}, {1.0F, 1.0F}, {1.0F, 0.0F}, {0.0F, 1.0F}}};
     const std::array<float, 2>& pick = core::at(kCycle, slot.passes % kSampleCycle);
     block.offsets = {sample.front(), sample.back(), pick.front(), pick.back()};
     block.shares = {kFogAmbientShare, kFogSkyShare, kFogShaftShare, own.settings.hdr ? 1.0F : 0.0F};
@@ -1250,9 +1254,19 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     const Extent low = low_extent(view.rect);
     block.low = {static_cast<int32_t>(low.width), static_cast<int32_t>(low.height), static_cast<int32_t>(kFogScale),
                  static_cast<int32_t>(own.settings.steps)};
-    block.flags = {own.settings.mode == RtFogMode::kShafts ? 1 : 0, static_cast<int32_t>(kFogMask),
+    block.flags = {own.settings.mode == RtFogMode::kShafts || own.haze ? 1 : 0, static_cast<int32_t>(kFogMask),
                    static_cast<int32_t>(kFogMaxHistory), 0};
     return block;
+}
+
+// What the pass draws (for the log).
+const char* what_is_drawn()
+{
+    const FogState& own = fog_state();
+    if (own.haze) {
+        return "no fog in the level: the haze's shafts";
+    }
+    return own.settings.mode == RtFogMode::kShafts ? "shafts over the level's fog" : "the level's fog replaced";
 }
 
 // Why a view gets no pass (null: it can have one).
@@ -1269,10 +1283,13 @@ bool skip(Backend& state, const rt::ViewDrawn& view)
         }
         return true;
     }
-    if (!view.fog.on || !(view.fog.end > view.fog.start) || !std::isfinite(view.fog.start) ||
-        !std::isfinite(view.fog.end)) {
+    FogState& state_of_fog = fog_state();
+    state_of_fog.haze = !view.fog.on || !(view.fog.end > view.fog.start) || !std::isfinite(view.fog.start) ||
+                        !std::isfinite(view.fog.end);
+    if (state_of_fog.haze && (!own.settings.haze || !own.have_sun)) {
         if (first_report(state, kReportNoFog)) {
-            get_log("vulkan: rt_fog: the level has no fog (or its end isn't past its start) - the fog pass skipped");
+            get_log("vulkan: rt_fog: the level has no fog (and %s) - the fog pass skipped",
+                    own.settings.haze ? "no sun for the haze's shafts" : "rt_fog_haze=0");
         }
         return true;
     }
@@ -1288,6 +1305,7 @@ bool skip(Backend& state, const rt::ViewDrawn& view)
 bool record_pass(Backend& state, const rt::ViewDrawn& view)
 {
     FogState& own = fog_state();
+    read_sun();
     if (skip(state, view)) {
         return false;
     }
@@ -1333,7 +1351,10 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (slot == nullptr) {
         return false;
     }
-    read_sun();
+    if (own.haze) {
+        // (no fog in the level: a thin haze whose sunlit light alone is added - shafts mode - rt_fog_haze)
+        clipped.fog = {.on = true, .start = 0.0F, .end = kFogHazeEnd, .colour = kFogHazeColour};
+    }
     const bool have_before = slot->have_before && slot->frame_drawn + 1 >= state.frame;
     const FogBlock block = block_for(clipped, to_world, *slot, have_before, colour->samples);
     const void* const block_bytes = &block;
@@ -1357,12 +1378,12 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     ensure_timer(state);
     // (a pair is used again once the submission that last wrote it has finished - its result read first; until then
     // this pass isn't timed)
-    const uint32_t pair = static_cast<uint32_t>(own.timed % kTimerPairs);
+    const auto pair = static_cast<uint32_t>(own.timed % kTimerPairs);
     uint64_t& written = core::at(own.timer_serials, pair);
     const bool timing = own.timer != VK_NULL_HANDLE && (written == 0 || state.frames.completed() >= written);
     if (timing) {
         if (written != 0) {
-            read_timer(state, pair, width, height);
+            read_timer(state, pair, {.width = width, .height = height});
         }
         written = state.frames.serial();
         vkCmdResetQueryPool(commands, own.timer, pair * 2, 2);
@@ -1383,11 +1404,10 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
 
     // 1. the march
     dispatch(commands, core::at(own.march, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U),
-             {.scene = true, .depth = depth, .out = &slot->raw, .out_info = &slot->raw_info, .block = block_info},
-             low);
+             {.scene = true, .depth = depth, .out = &slot->raw, .out_info = &slot->raw_info, .block = block_info}, low);
     // 2. the history
-    Image* const history = &core::at(slot->histories, now);
-    Image* const history_info = &core::at(slot->history_info, now);
+    const Image* const history = &core::at(slot->histories, now);
+    const Image* const history_info = &core::at(slot->history_info, now);
     dispatch(commands, own.temporal,
              {.out = history,
               .out_info = history_info,
@@ -1426,11 +1446,10 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_fog: the first fog pass (%ux%u at 1/%u, %u steps, %s, fog %.0f - %.0f, density %.2f, "
                 "height %.0f, anisotropy %.2f, %s)",
-                width, height, kFogScale, own.settings.steps,
-                own.settings.mode == RtFogMode::kShafts ? "shafts over the level's fog" : "the level's fog replaced",
-                static_cast<double>(view.fog.start), static_cast<double>(view.fog.end),
-                static_cast<double>(own.settings.density), static_cast<double>(own.settings.height),
-                static_cast<double>(own.settings.anisotropy), own.have_sun ? "a sun" : "no sun");
+                width, height, kFogScale, own.settings.steps, what_is_drawn(), static_cast<double>(view.fog.start),
+                static_cast<double>(view.fog.end), static_cast<double>(own.settings.density),
+                static_cast<double>(own.settings.height), static_cast<double>(own.settings.anisotropy),
+                own.have_sun ? "a sun" : "no sun");
     }
     return true;
 }
@@ -1442,8 +1461,8 @@ void set_rt_fog_settings(const RtFogSettings& settings)
     RtFogSettings kept = settings;
     kept.density = std::isfinite(kept.density) ? std::clamp(kept.density, 0.0F, kMaxDensity) : 1.0F;
     kept.height = std::isfinite(kept.height) ? std::clamp(kept.height, 0.0F, kMaxHeight) : 0.0F;
-    kept.anisotropy =
-        std::isfinite(kept.anisotropy) ? std::clamp(kept.anisotropy, -kMaxAnisotropy, kMaxAnisotropy) : kRtFogAnisotropy;
+    kept.anisotropy = std::isfinite(kept.anisotropy) ? std::clamp(kept.anisotropy, -kMaxAnisotropy, kMaxAnisotropy)
+                                                     : kRtFogAnisotropy;
     kept.steps = std::clamp(kept.steps, kMinSteps, kMaxSteps);
     {
         Backend& state = backend();
@@ -1489,7 +1508,7 @@ bool rt_fog_replaces_level_fog() { return replacing().load(std::memory_order_rel
 bool record_rt_fog_pass(Backend& state, const rt::ViewDrawn& view)
 {
     const bool recorded = record_pass(state, view);
-    replacing() = recorded && fog_state().settings.mode == RtFogMode::kReplace;
+    replacing() = recorded && fog_state().settings.mode == RtFogMode::kReplace && !fog_state().haze;
     return recorded;
 }
 

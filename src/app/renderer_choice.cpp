@@ -137,7 +137,8 @@ void install_vulkan()
              1, build_info::get_int(build_info::kGraphics, "rt_fog_steps", static_cast<int>(render::vulkan::kRtFogSteps)))),
          .mode = build_info::get_int(build_info::kGraphics, "rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts
                                                                                    : render::vulkan::RtFogMode::kReplace,
-         .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)});
+         .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false),
+         .haze = build_info::fetch_flag(build_info::kGraphics, "rt_fog_haze", true)});
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

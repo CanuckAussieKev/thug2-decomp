@@ -19,7 +19,8 @@
 //   - A moved camera: no NaN, the error after it bounded (no ghost).
 //   - Shafts mode (rt_fog_mode=1): T = 1 everywhere, pixels whose rays never cross sunlit fog unchanged.
 //   - The sky: never dimmed; lighter only by the shafts' share.
-//   - No fog in the level, no scene, rt_fog off: no pass, nothing changed.
+//   - No fog in the level: with rt_fog_haze=0 no pass, nothing changed; with the haze nothing darker, the shaft
+//     lighter. No scene, rt_fog off: no pass, nothing changed.
 //   - --perf: the pass's cost at 1920 x 1080 with 16, 32 and 64 steps (frames timed with and without it).
 //   thug2_vulkan_rt_fog_check [--device N] [--display N] [--no-validation] [--perf]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -183,7 +184,8 @@ double dot(const Vec3& one, const Vec3& other)
 }
 Vec3 cross(const Vec3& one, const Vec3& other)
 {
-    return {(y_of(one) * z_of(other)) - (z_of(one) * y_of(other)), (z_of(one) * x_of(other)) - (x_of(one) * z_of(other)),
+    return {(y_of(one) * z_of(other)) - (z_of(one) * y_of(other)),
+            (z_of(one) * x_of(other)) - (x_of(one) * z_of(other)),
             (x_of(one) * y_of(other)) - (y_of(one) * x_of(other))};
 }
 Vec3 step(const Vec3& from, const Vec3& along, double scale)
@@ -282,13 +284,19 @@ View view_from(const Vec3& eye, uint32_t width, uint32_t height)
     return view;
 }
 
+// A pixel of the target (or the viewport: the whole target here).
+struct Pixel {
+    int x = 0;
+    int y = 0;
+};
+
 // The direction through a pixel (Direct3D 9's pixel centres: whole coordinates).
-Vec3 direction_at(const View& view, int x, int y)
+Vec3 direction_at(const View& view, Pixel pixel)
 {
-    const double ndc_x = (2.0 * x / view.width) - 1.0;
-    const double ndc_y = 1.0 - (2.0 * y / view.height);
-    return normalised(
-        step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
+    const double ndc_x = (2.0 * pixel.x / view.width) - 1.0;
+    const double ndc_y = 1.0 - (2.0 * pixel.y / view.height);
+    return normalised(step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height),
+                           view.back, -1.0));
 }
 
 // The first surface along a ray: its solid (index + 1; 0: the sky) and distance.
@@ -317,8 +325,8 @@ Seen seen_along(const Ray& ray)
 
 const Vec3& to_sun()
 {
-    static const Vec3 toward = normalised(step(Vec3{}, kLightTravels, -1.0));
-    return toward;
+    static const Vec3 kToward = normalised(step(Vec3{}, kLightTravels, -1.0));
+    return kToward;
 }
 
 bool sunlit(const Vec3& at)
@@ -329,11 +337,16 @@ bool sunlit(const Vec3& at)
     });
 }
 
+constexpr double kLeastPhaseDenominator = 1e-4; // (the shader's)
+constexpr double kLeastLeft = 1e-4;             // the shortest way to the fog's end a segment counts (x its length)
+constexpr double kMostDepth = 40.0;             // a segment's optical depth at most
+
 double phase(double cosine)
 {
-    const double g = kAnisotropy;
-    const double k = std::max(1.0 + (g * g) - (2.0 * g * cosine), 1e-4);
-    return (1.0 - (g * g)) / (k * std::sqrt(k));
+    const double anisotropy = kAnisotropy;
+    const double denominator =
+        std::max(1.0 + (anisotropy * anisotropy) - (2.0 * anisotropy * cosine), kLeastPhaseDenominator);
+    return (1.0 - (anisotropy * anisotropy)) / (denominator * std::sqrt(denominator));
 }
 
 // (the pass's tint: the baked sun has no colour)
@@ -344,41 +357,63 @@ struct Fogged {
     double transmittance = 1.0;
 };
 
-// The fog along a view ray of `distance` (-1: the sky) marched in `steps` segments with the light sampled at `jitter`
-// in each (0 - 1), or with many steps and the middle (the exact integral's stand-in).
-Fogged march(const Vec3& eye, const Vec3& direction, double distance, uint32_t steps, double jitter, bool shafts)
+// A view ray: from the eye along the direction to the surface `distance` away (-1: the sky).
+struct ViewRay {
+    Vec3 eye{};
+    Vec3 direction{};
+    double distance = -1.0;
+};
+// How it is marched: `steps` segments, the light sampled at `jitter` in each (0 - 1); shafts mode or not.
+struct Marching {
+    uint32_t steps = 0;
+    double jitter = 0.0;
+    bool shafts = false;
+};
+
+// The share of the fog's light the sun gives where the replacing mode isn't drawing (the sky, shafts mode).
+double sunlit_share(bool sky, bool replace)
+{
+    if (sky) {
+        return render::vulkan::kFogSkyShare;
+    }
+    return replace ? 1.0 : render::vulkan::kFogShaftShare;
+}
+
+// The fog along a view ray as the pass marches it (or, with many steps and the middle, the exact integral's stand-in).
+Fogged march(const ViewRay& ray, const Marching& how)
 {
     Fogged out;
-    const bool sky = distance < 0.0;
-    const bool replace = !shafts && !sky;
+    const bool sky = ray.distance < 0.0;
+    const bool replace = !how.shafts && !sky;
     const double start = kFogStart;
     const double end = kFogEnd;
-    const double a = std::max(start, 0.0);
-    const double b = sky ? end : std::min(distance, end);
-    if (!(b > a)) {
+    const double first = std::max(start, 0.0);
+    const double last = sky ? end : std::min(ray.distance, end);
+    if (!(last > first)) {
         return out;
     }
-    const double span = b - a;
+    const double span = last - first;
     const double fade = end - start;
-    const double shaped = phase(dot(direction, to_sun()));
-    const double share = sky ? render::vulkan::kFogSkyShare : (replace ? 1.0 : render::vulkan::kFogShaftShare);
+    const double shaped = phase(dot(ray.direction, to_sun()));
+    const double share = sunlit_share(sky, replace);
     const double ambient = render::vulkan::kFogAmbientShare;
     const std::array<double, 3> sun_tint = tint();
-    for (uint32_t i = 0; i < steps; ++i) {
-        const double s0 = a + (span * (static_cast<double>(i) / steps));
-        const double s1 = a + (span * (static_cast<double>(i + 1) / steps));
-        const double s = a + (span * ((static_cast<double>(i) + jitter) / steps));
-        const Vec3 at = step(eye, direction, s);
-        const double tau = std::log(std::max(end - s0, 1e-4 * fade) / std::max(end - s1, 1e-4 * fade));
-        const double e = std::exp(-std::min(std::max(tau, 0.0), 40.0));
+    for (uint32_t i = 0; i < how.steps; ++i) {
+        const double near_end = first + (span * (static_cast<double>(i) / how.steps));
+        const double far_end = first + (span * (static_cast<double>(i + 1) / how.steps));
+        const double sampled = first + (span * ((static_cast<double>(i) + how.jitter) / how.steps));
+        const Vec3 at = step(ray.eye, ray.direction, sampled);
+        const double depth =
+            std::log(std::max(end - near_end, kLeastLeft * fade) / std::max(end - far_end, kLeastLeft * fade));
+        const double kept = std::exp(-std::min(std::max(depth, 0.0), kMostDepth));
         const double lit = sunlit(at) ? shaped : 0.0;
-        for (std::size_t c = 0; c < 3; ++c) {
-            const double fog = core::at(kFogColour, c);
-            const double here = replace ? fog * (ambient + ((1.0 - ambient) * lit * core::at(sun_tint, c)))
-                                        : fog * (1.0 - ambient) * lit * share * core::at(sun_tint, c);
-            core::at(out.light, c) += out.transmittance * (1.0 - e) * here;
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            const double fog = core::at(kFogColour, channel);
+            const double here = replace ? fog * (ambient + ((1.0 - ambient) * lit * core::at(sun_tint, channel)))
+                                        : fog * (1.0 - ambient) * lit * share * core::at(sun_tint, channel);
+            core::at(out.light, channel) += out.transmittance * (1.0 - kept) * here;
         }
-        out.transmittance *= e;
+        out.transmittance *= kept;
     }
     if (!replace) {
         out.transmittance = 1.0;
@@ -387,31 +422,39 @@ Fogged march(const Vec3& eye, const Vec3& direction, double distance, uint32_t s
 }
 
 // The pass's jitter for a pixel (the viewport's) in frame `frame` (interleaved gradient noise + the golden ratio).
-double jitter_of(int x, int y, uint64_t frame)
+double jitter_of(Pixel pixel, uint64_t frame)
 {
-    const float noise = 52.9829189F * std::fmod(0.06711056F * static_cast<float>(x) + 0.00583715F * static_cast<float>(y), 1.0F);
-    const double frame_offset = std::fmod(static_cast<double>(frame) * 0.6180339887498949, 1.0);
+    constexpr float kNoiseScale = 52.9829189F;
+    constexpr float kNoiseX = 0.06711056F;
+    constexpr float kNoiseY = 0.00583715F;
+    constexpr double kGoldenRatio = 0.6180339887498949;
+    const float noise =
+        kNoiseScale *
+        std::fmod((kNoiseX * static_cast<float>(pixel.x)) + (kNoiseY * static_cast<float>(pixel.y)), 1.0F);
+    const double frame_offset = std::fmod(static_cast<double>(frame) * kGoldenRatio, 1.0);
     const double sum = static_cast<double>(noise - std::floor(noise)) + static_cast<float>(frame_offset);
     return sum - std::floor(sum);
 }
 
-// The exact integral (2048 steps) of the fog through a pixel.
+// The exact integral (2048 steps, each sampled at its middle) of the fog through a pixel.
 constexpr uint32_t kFineSteps = 2048;
-Fogged exact_at(const View& view, int x, int y, bool shafts)
+constexpr double kMiddle = 0.5;
+Fogged exact_at(const View& view, Pixel pixel, bool shafts)
 {
-    const Vec3 direction = direction_at(view, x, y);
+    const Vec3 direction = direction_at(view, pixel);
     const Seen seen = seen_along({.origin = view.eye, .direction = direction});
-    return march(view.eye, direction, seen.distance, kFineSteps, 0.5, shafts);
+    return march({.eye = view.eye, .direction = direction, .distance = seen.distance},
+                 {.steps = kFineSteps, .jitter = kMiddle, .shafts = shafts});
 }
 
-// The exact transmittance: the game's linear fog, ((end - d) / (end - start)) clamped.
+// The exact transmittance: the game's linear fog, ((end - distance) / (end - start)) clamped.
 double exact_transmittance(double distance)
 {
     if (distance < 0.0) {
         return 1.0;
     }
-    const double d = std::clamp(distance, static_cast<double>(kFogStart), static_cast<double>(kFogEnd));
-    return (kFogEnd - d) / (kFogEnd - kFogStart);
+    const double clamped = std::clamp(distance, static_cast<double>(kFogStart), static_cast<double>(kFogEnd));
+    return (kFogEnd - clamped) / (kFogEnd - kFogStart);
 }
 
 // --- the acceleration structures (the check's own) -----------------------------------------------------------------
@@ -444,10 +487,9 @@ VkDeviceAddress aligned(VkDeviceAddress address, VkDeviceSize alignment)
 bool make_structure(render::vulkan::Backend& state, VkAccelerationStructureTypeKHR type, VkDeviceSize bytes,
                     Structure* out)
 {
-    if (!state.memory.create_buffer(bytes,
-                                    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
-                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                    render::vulkan::BufferPlace::kDevice, &out->storage)) {
+    if (!state.memory.create_buffer(
+            bytes, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+            render::vulkan::BufferPlace::kDevice, &out->storage)) {
         return false;
     }
     const VkAccelerationStructureCreateInfoKHR info{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
@@ -591,7 +633,8 @@ bool make_scene(render::vulkan::Backend& state, Scene* scene)
     top.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
     top.geometry.instances.arrayOfPointers = VK_FALSE;
     top.geometry.instances.data.deviceAddress = list_address;
-    return build(state, scene, {.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR, .geometry = &top, .primitives = 1},
+    return build(state, scene,
+                 {.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR, .geometry = &top, .primitives = 1},
                  &scene->top);
 }
 
@@ -637,8 +680,8 @@ Matrices matrices_for(const Vec3& eye, uint32_t width, uint32_t height)
     maths::matrix_look_at_rh(out.view, floats(eye), floats(kAt), floats(kUp));
     const double lens_width = 2.0 * kNearZ * kHalfFovTan;
     const double lens_height = lens_width * static_cast<double>(height) / static_cast<double>(width);
-    maths::matrix_perspective_rh(out.projection, static_cast<float>(lens_width), static_cast<float>(lens_height), kNearZ,
-                                 kFarZ);
+    maths::matrix_perspective_rh(out.projection, static_cast<float>(lens_width), static_cast<float>(lens_height),
+                                 kNearZ, kFarZ);
     return out;
 }
 
@@ -763,6 +806,43 @@ bool read_fog(render::vulkan::RtFogImage which, render::vulkan::RtFogTexels* out
 
 // --- comparing ---------------------------------------------------------------------------------------------------
 
+// The limits the comparisons hold the pass to.
+constexpr int kMostSkyDifferences = 4; // texels whose sky / surface verdict differs from the processor's
+constexpr int kLeastSurfaceTexels = 10000;
+constexpr double kNinetyEighth = 0.98; // percentiles
+constexpr double kNinetyFifth = 0.95;
+constexpr double kNinetyNinth = 0.99;
+constexpr double kAll = 1.0;
+constexpr double kMostDistanceError = 2e-3;      // relative
+constexpr double kMostTransmittanceError = 4e-3; // (16-bit floats)
+constexpr double kMostLightError = 4e-3;         // 98% of the texels
+constexpr double kStepSlack = 0.01;              // all of them: one step's light and this
+constexpr double kInsideShaft = 0.05;            // the exact integral's light above the ambient: crosses the shaft
+constexpr double kOutsideShaft = 0.002;          // ... crosses no sunlit fog
+constexpr std::size_t kLeastShaftTexels = 200;
+constexpr double kShaftContrast = 0.05; // inside above outside by at least this
+constexpr double kShaftError = 0.02;    // inside's mean against the exact integral's
+constexpr double kMostConvergedMean = 0.006;
+constexpr double kMostConverged95 = 0.025;
+constexpr std::size_t kLeastInteriorPixels = 2000;
+constexpr double kMostCompositeMean = 2.5; // levels
+constexpr double kMostComposite95 = 7.0;
+constexpr int kLeastSkyPixels = 100;
+constexpr double kLevelSlack = 1.5; // levels: a channel changed when it moved by more
+constexpr double kLevels = 255.0;
+constexpr double kNoLight = 1e-6;
+constexpr int kLeastDarkPixels = 300;
+constexpr int kPerMille = 1000;
+constexpr int kChannelsPerMillePixel = 3; // (a ray query grazing the wall's edge may decide otherwise)
+constexpr float kRestarted = 1.5F;        // a history shorter than this started again
+constexpr int kLeastKept = 5000;
+constexpr double kMostGhost95 = 0.05;
+constexpr int kInteriorRadius = 2;         // the pixels around one that must see its surface
+constexpr int kDarkRadius = 3;             // ... whose rays must cross no sunlit fog
+constexpr uint32_t kDarkSteps = 256;       // the march that tells which rays cross sunlit fog
+constexpr double kBlockPixels = 4.0;       // in a texel's 2 x 2 block
+constexpr int kLeastLighterChannels = 300; // the haze's shaft
+
 using Rgb = std::array<double, 3>;
 Rgb rgb_of(uint32_t colour)
 {
@@ -770,17 +850,25 @@ Rgb rgb_of(uint32_t colour)
             static_cast<double>((colour >> kGreenShift) & kByteMask) * kPerByte,
             static_cast<double>(colour & kByteMask) * kPerByte};
 }
-Rgb pixel_at(const std::vector<uint8_t>& texels, int x, int y)
+Rgb pixel_at(const std::vector<uint8_t>& texels, Pixel pixel)
 {
-    const std::size_t at = ((static_cast<std::size_t>(y) * kTargetWidth) + static_cast<std::size_t>(x)) * kPixelBytes;
+    const std::size_t at =
+        ((static_cast<std::size_t>(pixel.y) * kTargetWidth) + static_cast<std::size_t>(pixel.x)) * kPixelBytes;
     return {core::at(texels, at + 2) * kPerByte, core::at(texels, at + 1) * kPerByte, core::at(texels, at) * kPerByte};
+}
+
+// The pixel a texel's info names (its x and y at `first`, `first` + 1).
+Pixel pixel_of(const std::array<float, 4>& info, std::size_t first)
+{
+    return {.x = static_cast<int>(std::lround(core::at(info, first))),
+            .y = static_cast<int>(std::lround(core::at(info, first + 1)))};
 }
 
 int count_not_finite(const render::vulkan::RtFogTexels& image)
 {
     int count = 0;
     for (const std::array<float, 4>& texel : image.texels) {
-        count += std::ranges::any_of(texel, [](float v) { return !std::isfinite(v); }) ? 1 : 0;
+        count += std::ranges::any_of(texel, [](float value) { return !std::isfinite(value); }) ? 1 : 0;
     }
     return count;
 }
@@ -798,8 +886,8 @@ double percentile(std::vector<double> values, double share)
 double mean(const std::vector<double>& values)
 {
     double sum = 0.0;
-    for (const double v : values) {
-        sum += v;
+    for (const double value : values) {
+        sum += value;
     }
     return values.empty() ? 0.0 : sum / static_cast<double>(values.size());
 }
@@ -807,10 +895,15 @@ double mean(const std::vector<double>& values)
 double light_error(const std::array<float, 4>& got, const Fogged& want)
 {
     double error = 0.0;
-    for (std::size_t c = 0; c < 3; ++c) {
-        error = std::max(error, std::abs(static_cast<double>(core::at(got, c)) - core::at(want.light, c)));
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        error = std::max(error, std::abs(static_cast<double>(core::at(got, channel)) - core::at(want.light, channel)));
     }
     return error;
+}
+
+Seen seen_at(const View& view, Pixel pixel)
+{
+    return seen_along({.origin = view.eye, .direction = direction_at(view, pixel)});
 }
 
 // One frame's march, texel by texel, against the processor's.
@@ -818,15 +911,15 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
 {
     render::vulkan::RtFogTexels raw;
     render::vulkan::RtFogTexels info;
-    const bool read = read_fog(render::vulkan::RtFogImage::kRaw, &raw) &&
-                      read_fog(render::vulkan::RtFogImage::kRawInfo, &info);
+    const bool read =
+        read_fog(render::vulkan::RtFogImage::kRaw, &raw) && read_fog(render::vulkan::RtFogImage::kRawInfo, &info);
     tally->check(read, "the march's images read back");
     if (!read) {
         return;
     }
-    tally->check(count_not_finite(raw) == 0 && count_not_finite(info) == 0,
-                 text::format("no NaN or infinity in the march (%d, %d texels)", count_not_finite(raw),
-                              count_not_finite(info)));
+    tally->check(
+        count_not_finite(raw) == 0 && count_not_finite(info) == 0,
+        text::format("no NaN or infinity in the march (%d, %d texels)", count_not_finite(raw), count_not_finite(info)));
     std::vector<double> distance_errors;
     std::vector<double> transmittance_errors;
     std::vector<double> light_errors;
@@ -837,9 +930,8 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
     for (std::size_t i = 0; i < raw.texels.size(); ++i) {
         const std::array<float, 4>& got = core::at(raw.texels, i);
         const std::array<float, 4>& where = core::at(info.texels, i);
-        const int x = static_cast<int>(std::lround(core::at(where, 1)));
-        const int y = static_cast<int>(std::lround(core::at(where, 2)));
-        const Vec3 direction = direction_at(view, x, y);
+        const Pixel pixel = pixel_of(where, 1);
+        const Vec3 direction = direction_at(view, pixel);
         const Seen seen = seen_along({.origin = view.eye, .direction = direction});
         const double gpu_distance = core::at(where, 0);
         if (seen.solid == kNoSurface || gpu_distance < 0.0) {
@@ -849,31 +941,29 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
         }
         ++surface_pixels;
         distance_errors.push_back(std::abs(gpu_distance - seen.distance) / seen.distance);
-        if (!shafts) {
-            const double want = exact_transmittance(seen.distance);
-            transmittance_errors.push_back(std::abs(static_cast<double>(core::at(got, 3)) - want));
-        } else {
-            transmittance_errors.push_back(std::abs(static_cast<double>(core::at(got, 3)) - 1.0));
-        }
-        const Fogged want = march(view.eye, direction, gpu_distance, kSteps, jitter_of(x, y, frame), shafts);
+        const double transmittance = shafts ? 1.0 : exact_transmittance(seen.distance);
+        transmittance_errors.push_back(std::abs(static_cast<double>(core::at(got, 3)) - transmittance));
+        const Fogged want = march({.eye = view.eye, .direction = direction, .distance = gpu_distance},
+                                  {.steps = kSteps, .jitter = jitter_of(pixel, frame), .shafts = shafts});
         light_errors.push_back(light_error(got, want));
-        const double step_light = (1.0 - exact_transmittance(seen.distance)) / kSteps;
-        one_step = std::max(one_step, step_light);
+        one_step = std::max(one_step, (1.0 - exact_transmittance(seen.distance)) / kSteps);
     }
-    tally->check(sky_wrong <= 4, text::format("the sky where the processor sees it (%d of %d texels differ)", sky_wrong,
-                                              sky_pixels));
-    tally->check(surface_pixels > 10000, text::format("%d texels on a surface", surface_pixels));
-    tally->check(percentile(distance_errors, 0.99) < 2e-3,
+    tally->check(sky_wrong <= kMostSkyDifferences,
+                 text::format("the sky where the processor sees it (%d of %d texels differ)", sky_wrong, sky_pixels));
+    tally->check(surface_pixels > kLeastSurfaceTexels, text::format("%d texels on a surface", surface_pixels));
+    tally->check(percentile(distance_errors, kNinetyNinth) < kMostDistanceError,
                  text::format("the distance marched to: 99th percentile relative error %.2g",
-                              percentile(distance_errors, 0.99)));
-    tally->check(percentile(transmittance_errors, 1.0) < 4e-3,
+                              percentile(distance_errors, kNinetyNinth)));
+    tally->check(percentile(transmittance_errors, kAll) < kMostTransmittanceError,
                  text::format("the transmittance = exp(-integral) = %s: largest error %.2g (16-bit floats)",
                               shafts ? "1 (shafts mode)" : "(end - d) / (end - start)",
-                              percentile(transmittance_errors, 1.0)));
-    tally->check(percentile(light_errors, 0.98) < 4e-3 && percentile(light_errors, 1.0) < one_step + 0.01,
+                              percentile(transmittance_errors, kAll)));
+    tally->check(percentile(light_errors, kNinetyEighth) < kMostLightError &&
+                     percentile(light_errors, kAll) < one_step + kStepSlack,
                  text::format("the light against the processor's march (same jitter, %u steps): 98%% within %.2g, all "
                               "within %.3f (one step's %.3f)",
-                              kSteps, percentile(light_errors, 0.98), percentile(light_errors, 1.0), one_step));
+                              kSteps, percentile(light_errors, kNinetyEighth), percentile(light_errors, kAll),
+                              one_step));
 }
 
 // The shaft: texels whose ray crosses sunlit fog against those that don't (the exact integral says which).
@@ -892,33 +982,59 @@ void compare_shaft(const View& view, Tally* tally)
     std::vector<double> inside_want;
     const uint32_t width = history.width;
     for (std::size_t i = 0; i < history.texels.size(); ++i) {
-        const int qx = static_cast<int>(i % width);
-        const int qy = static_cast<int>(i / width);
-        const int x = std::min(qx * static_cast<int>(kScale), static_cast<int>(kTargetWidth) - 1);
-        const int y = std::min(qy * static_cast<int>(kScale), static_cast<int>(kTargetHeight) - 1);
-        const Fogged exact = exact_at(view, x, y, false);
-        const Vec3 direction = direction_at(view, x, y);
-        const Seen seen = seen_along({.origin = view.eye, .direction = direction});
+        const Pixel pixel{
+            .x = std::min(static_cast<int>(i % width) * static_cast<int>(kScale), static_cast<int>(kTargetWidth) - 1),
+            .y = std::min(static_cast<int>(i / width) * static_cast<int>(kScale), static_cast<int>(kTargetHeight) - 1)};
+        const Seen seen = seen_at(view, pixel);
         if (seen.solid == kNoSurface) {
             continue;
         }
-        const double ambient_only = core::at(kFogColour, 0) * render::vulkan::kFogAmbientShare *
-                                    (1.0 - exact_transmittance(seen.distance));
+        const Fogged exact = exact_at(view, pixel, false);
+        const double ambient_only =
+            core::at(kFogColour, 0) * render::vulkan::kFogAmbientShare * (1.0 - exact_transmittance(seen.distance));
         const double extra_want = core::at(exact.light, 0) - ambient_only;
         const double extra_got = static_cast<double>(core::at(core::at(history.texels, i), 0)) - ambient_only;
-        if (extra_want > 0.05) {
+        if (extra_want > kInsideShaft) {
             inside.push_back(extra_got);
             inside_want.push_back(extra_want);
-        } else if (extra_want < 0.002) {
+        } else if (extra_want < kOutsideShaft) {
             outside.push_back(extra_got);
         }
     }
-    tally->check(inside.size() > 200 && outside.size() > 200,
-                 text::format("%zu texels' rays cross the shaft, %zu cross no sunlit fog", inside.size(), outside.size()));
-    tally->check(mean(inside) > mean(outside) + 0.05 && std::abs(mean(inside) - mean(inside_want)) < 0.02,
+    tally->check(
+        inside.size() > kLeastShaftTexels && outside.size() > kLeastShaftTexels,
+        text::format("%zu texels' rays cross the shaft, %zu cross no sunlit fog", inside.size(), outside.size()));
+    tally->check(mean(inside) > mean(outside) + kShaftContrast &&
+                     std::abs(mean(inside) - mean(inside_want)) < kShaftError,
                  text::format("the shaft: its rays' light above the ambient %.3f (the exact integral's %.3f), the "
                               "others' %.3f",
                               mean(inside), mean(inside_want), mean(outside)));
+}
+
+// The exact light for a texel's 2 x 2 block (the four pixels its frames march, averaged); false when they don't all see
+// one surface.
+bool block_light(const View& view, Pixel pixel, Fogged* out)
+{
+    const int scale = static_cast<int>(kScale);
+    const Pixel corner{.x = (pixel.x / scale) * scale, .y = (pixel.y / scale) * scale};
+    *out = Fogged{};
+    std::size_t first = kNoSurface;
+    for (int which = 0; which < 4; ++which) {
+        const Pixel each{.x = std::min(corner.x + (which & 1), static_cast<int>(kTargetWidth) - 1),
+                         .y = std::min(corner.y + (which >> 1), static_cast<int>(kTargetHeight) - 1)};
+        const Seen seen = seen_at(view, each);
+        if (which == 0) {
+            first = seen.solid;
+        }
+        if (seen.solid != first || seen.solid == kNoSurface) {
+            return false;
+        }
+        const Fogged one = exact_at(view, each, false);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(out->light, channel) += core::at(one.light, channel) / kBlockPixels;
+        }
+    }
+    return true;
 }
 
 // The history after a still camera's frames against the exact integral, and one frame's march against it.
@@ -941,43 +1057,36 @@ void compare_converged(const View& view, Tally* tally)
     int counted = 0;
     for (std::size_t i = 0; i < history.texels.size(); ++i) {
         const std::array<float, 4>& was = core::at(info.texels, i);
-        const int x = static_cast<int>(std::lround(core::at(was, 2)));
-        const int y = static_cast<int>(std::lround(core::at(was, 3)));
-        // (the exact answer for the texel's block: the four pixels its frames march, averaged)
-        const int bx = (x / static_cast<int>(kScale)) * static_cast<int>(kScale);
-        const int by = (y / static_cast<int>(kScale)) * static_cast<int>(kScale);
-        Fogged sum;
-        sum.transmittance = 0.0;
-        bool same_surface = true;
-        std::size_t first = kNoSurface;
-        for (int k = 0; k < 4; ++k) {
-            const int px = std::min(bx + (k & 1), static_cast<int>(kTargetWidth) - 1);
-            const int py = std::min(by + (k >> 1), static_cast<int>(kTargetHeight) - 1);
-            const Seen seen = seen_along({.origin = view.eye, .direction = direction_at(view, px, py)});
-            if (k == 0) {
-                first = seen.solid;
-            }
-            same_surface = same_surface && seen.solid == first;
-            const Fogged one = exact_at(view, px, py, false);
-            for (std::size_t c = 0; c < 3; ++c) {
-                core::at(sum.light, c) += core::at(one.light, c) / 4.0;
-            }
-        }
-        if (!same_surface || first == kNoSurface) {
+        Fogged want;
+        if (!block_light(view, pixel_of(was, 2), &want)) {
             continue;
         }
         ++counted;
         full += core::at(was, 1) >= static_cast<float>(render::vulkan::kFogMaxHistory) ? 1 : 0;
-        history_errors.push_back(light_error(core::at(history.texels, i), sum));
-        raw_errors.push_back(light_error(core::at(raw.texels, i), sum));
+        history_errors.push_back(light_error(core::at(history.texels, i), want));
+        raw_errors.push_back(light_error(core::at(raw.texels, i), want));
     }
     tally->check(full == counted, text::format("every history full (%d of %d at %u frames)", full, counted,
                                                render::vulkan::kFogMaxHistory));
-    tally->check(mean(history_errors) < 0.006 && percentile(history_errors, 0.95) < 0.025,
+    tally->check(mean(history_errors) < kMostConvergedMean &&
+                     percentile(history_errors, kNinetyFifth) < kMostConverged95,
                  text::format("converged against the exact integral: mean error %.4f, 95th percentile %.4f",
-                              mean(history_errors), percentile(history_errors, 0.95)));
+                              mean(history_errors), percentile(history_errors, kNinetyFifth)));
     tally->check(mean(history_errors) < mean(raw_errors),
                  text::format("nearer than one frame's march (its mean error %.4f)", mean(raw_errors)));
+}
+
+// Whether the pixels around one (within `radius`) see its surface.
+bool interior(const View& view, Pixel pixel, std::size_t solid)
+{
+    for (int dy = -kInteriorRadius; dy <= kInteriorRadius; ++dy) {
+        for (int dx = -kInteriorRadius; dx <= kInteriorRadius; ++dx) {
+            if (seen_at(view, {.x = pixel.x + dx, .y = pixel.y + dy}).solid != solid) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 // The colour target: surface x T + light (from the processor's exact answers), where the pixel's neighbours share its
@@ -987,98 +1096,95 @@ void compare_composite(const View& view, const std::vector<uint8_t>& texels, boo
     std::vector<double> errors;
     int sky_dimmed = 0;
     int sky = 0;
-    for (int y = 2; y < static_cast<int>(kTargetHeight) - 2; y += 2) {
-        for (int x = 2; x < static_cast<int>(kTargetWidth) - 2; x += 2) {
-            const Seen seen = seen_along({.origin = view.eye, .direction = direction_at(view, x, y)});
-            const Rgb got = pixel_at(texels, x, y);
+    const Rgb clear = rgb_of(kClearColour);
+    for (int row = kInteriorRadius; row < static_cast<int>(kTargetHeight) - kInteriorRadius; row += 2) {
+        for (int column = kInteriorRadius; column < static_cast<int>(kTargetWidth) - kInteriorRadius; column += 2) {
+            const Pixel pixel{.x = column, .y = row};
+            const Seen seen = seen_at(view, pixel);
+            const Rgb got = pixel_at(texels, pixel);
             if (seen.solid == kNoSurface) {
                 ++sky;
-                const Rgb clear = rgb_of(kClearColour);
-                for (std::size_t c = 0; c < 3; ++c) {
-                    sky_dimmed += core::at(got, c) + 1.5 * kPerByte < core::at(clear, c) ? 1 : 0;
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    sky_dimmed += core::at(got, channel) + (kLevelSlack * kPerByte) < core::at(clear, channel) ? 1 : 0;
                 }
                 continue;
             }
-            bool interior = true;
-            for (int dy = -2; dy <= 2 && interior; ++dy) {
-                for (int dx = -2; dx <= 2 && interior; ++dx) {
-                    interior = seen_along({.origin = view.eye, .direction = direction_at(view, x + dx, y + dy)}).solid ==
-                               seen.solid;
-                }
-            }
-            if (!interior) {
+            if (!interior(view, pixel, seen.solid)) {
                 continue;
             }
-            const Fogged exact = exact_at(view, x, y, shafts);
+            const Fogged exact = exact_at(view, pixel, shafts);
             const Rgb surface = rgb_of(core::at(kSolids, seen.solid - 1).colour);
             double error = 0.0;
-            for (std::size_t c = 0; c < 3; ++c) {
+            for (std::size_t channel = 0; channel < 3; ++channel) {
                 const double want =
-                    std::min(1.0, (core::at(surface, c) * exact.transmittance) + core::at(exact.light, c));
-                error = std::max(error, std::abs(core::at(got, c) - want));
+                    std::min(1.0, (core::at(surface, channel) * exact.transmittance) + core::at(exact.light, channel));
+                error = std::max(error, std::abs(core::at(got, channel) - want));
             }
-            errors.push_back(error * 255.0);
+            errors.push_back(error * kLevels);
         }
     }
-    tally->check(errors.size() > 2000, text::format("%zu interior pixels compared", errors.size()));
-    tally->check(mean(errors) < 2.5 && percentile(errors, 0.95) < 7.0,
+    tally->check(errors.size() > kLeastInteriorPixels, text::format("%zu interior pixels compared", errors.size()));
+    tally->check(mean(errors) < kMostCompositeMean && percentile(errors, kNinetyFifth) < kMostComposite95,
                  text::format("the colour = surface x T + light: mean %.2f levels, 95th percentile %.2f", mean(errors),
-                              percentile(errors, 0.95)));
-    tally->check(sky > 100 && sky_dimmed == 0,
+                              percentile(errors, kNinetyFifth)));
+    tally->check(sky > kLeastSkyPixels && sky_dimmed == 0,
                  text::format("the sky never dimmed (%d of %d pixels' channels darker)", sky_dimmed, sky));
 }
 
 // Shafts mode: where no ray crosses sunlit fog the colour is the surface's own.
 void compare_shafts_untouched(const View& view, const std::vector<uint8_t>& texels, Tally* tally)
 {
-    // (which pixels' rays cross sunlit fog: a 256-step march of each, at the middle of its segments)
-    constexpr uint32_t kDarkSteps = 256;
+    // (which pixels' rays cross sunlit fog: a march of each at the middle of its segments)
     const int columns = static_cast<int>(kTargetWidth);
     const int rows = static_cast<int>(kTargetHeight);
+    const auto index = [columns](Pixel pixel) {
+        return (static_cast<std::size_t>(pixel.y) * static_cast<std::size_t>(columns)) +
+               static_cast<std::size_t>(pixel.x);
+    };
     std::vector<bool> lit(static_cast<std::size_t>(columns) * static_cast<std::size_t>(rows));
-    for (int y = 0; y < rows; ++y) {
-        for (int x = 0; x < columns; ++x) {
-            const Vec3 direction = direction_at(view, x, y);
+    for (int row = 0; row < rows; ++row) {
+        for (int column = 0; column < columns; ++column) {
+            const Pixel pixel{.x = column, .y = row};
+            const Vec3 direction = direction_at(view, pixel);
             const Seen seen = seen_along({.origin = view.eye, .direction = direction});
-            const Fogged fogged = march(view.eye, direction, seen.distance, kDarkSteps, 0.5, true);
-            lit.at((static_cast<std::size_t>(y) * static_cast<std::size_t>(columns)) + static_cast<std::size_t>(x)) =
-                core::at(fogged.light, 0) > 1e-6;
+            const Fogged fogged = march({.eye = view.eye, .direction = direction, .distance = seen.distance},
+                                        {.steps = kDarkSteps, .jitter = kMiddle, .shafts = true});
+            lit.at(index(pixel)) = core::at(fogged.light, 0) > kNoLight;
         }
     }
+    const auto dark_round = [&](Pixel pixel) {
+        for (int dy = -kDarkRadius; dy <= kDarkRadius; ++dy) {
+            for (int dx = -kDarkRadius; dx <= kDarkRadius; ++dx) {
+                const Pixel around{.x = std::clamp(pixel.x + dx, 0, columns - 1),
+                                   .y = std::clamp(pixel.y + dy, 0, rows - 1)};
+                if (lit.at(index(around))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
     int compared = 0;
     int changed = 0;
     double largest = 0.0;
-    for (int y = 1; y < rows - 1; y += 2) {
-        for (int x = 1; x < columns - 1; x += 2) {
-            const Seen seen = seen_along({.origin = view.eye, .direction = direction_at(view, x, y)});
-            if (seen.solid == kNoSurface) {
-                continue;
-            }
-            bool dark = true;
-            for (int dy = -3; dy <= 3 && dark; ++dy) {
-                for (int dx = -3; dx <= 3 && dark; ++dx) {
-                    const int px = std::clamp(x + dx, 0, columns - 1);
-                    const int py = std::clamp(y + dy, 0, rows - 1);
-                    dark = !lit.at((static_cast<std::size_t>(py) * static_cast<std::size_t>(columns)) +
-                                   static_cast<std::size_t>(px));
-                }
-            }
-            if (!dark) {
+    for (int row = 1; row < rows - 1; row += 2) {
+        for (int column = 1; column < columns - 1; column += 2) {
+            const Pixel pixel{.x = column, .y = row};
+            const Seen seen = seen_at(view, pixel);
+            if (seen.solid == kNoSurface || !dark_round(pixel)) {
                 continue;
             }
             ++compared;
-            const Rgb got = pixel_at(texels, x, y);
+            const Rgb got = pixel_at(texels, pixel);
             const Rgb surface = rgb_of(core::at(kSolids, seen.solid - 1).colour);
-            for (std::size_t c = 0; c < 3; ++c) {
-                const double difference = std::abs(core::at(got, c) - core::at(surface, c));
-                changed += difference > 1.5 * kPerByte ? 1 : 0;
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                const double difference = std::abs(core::at(got, channel) - core::at(surface, channel));
+                changed += difference > kLevelSlack * kPerByte ? 1 : 0;
                 largest = std::max(largest, difference / kPerByte);
             }
         }
     }
-    // (a ray query grazing the wall's edge may decide otherwise than the processor's slabs: 0.1% of channels allowed)
-    constexpr int kChannelsPerMillePixel = 3;
-    tally->check(compared > 300 && changed * 1000 <= compared * kChannelsPerMillePixel,
+    tally->check(compared > kLeastDarkPixels && changed * kPerMille <= compared * kChannelsPerMillePixel,
                  text::format("shafts mode: %d pixels in no sunlit fog unchanged (%d channels changed, at most %.1f "
                               "levels)",
                               compared, changed, largest));
@@ -1099,27 +1205,26 @@ void compare_moved(const View& view, Tally* tally)
     int restarted = 0;
     for (std::size_t i = 0; i < history.texels.size(); ++i) {
         const std::array<float, 4>& was = core::at(info.texels, i);
-        const int x = static_cast<int>(std::lround(core::at(was, 2)));
-        const int y = static_cast<int>(std::lround(core::at(was, 3)));
-        const Seen seen = seen_along({.origin = view.eye, .direction = direction_at(view, x, y)});
-        if (seen.solid == kNoSurface) {
+        const Pixel pixel = pixel_of(was, 2);
+        if (seen_at(view, pixel).solid == kNoSurface) {
             continue;
         }
-        kept += core::at(was, 1) > 1.5F ? 1 : 0;
-        restarted += core::at(was, 1) < 1.5F ? 1 : 0;
-        errors.push_back(light_error(core::at(history.texels, i), exact_at(view, x, y, false)));
+        kept += core::at(was, 1) > kRestarted ? 1 : 0;
+        restarted += core::at(was, 1) < kRestarted ? 1 : 0;
+        errors.push_back(light_error(core::at(history.texels, i), exact_at(view, pixel, false)));
     }
     tally->check(count_not_finite(history) == 0, "no NaN after the move");
-    tally->check(kept > 5000, text::format("histories kept across the move: %d (restarted %d)", kept, restarted));
-    tally->check(percentile(errors, 0.95) < 0.05,
-                 text::format("no ghost: 95th percentile error after the move %.4f", percentile(errors, 0.95)));
+    tally->check(kept > kLeastKept, text::format("histories kept across the move: %d (restarted %d)", kept, restarted));
+    tally->check(percentile(errors, kNinetyFifth) < kMostGhost95,
+                 text::format("no ghost: 95th percentile error after the move %.4f", percentile(errors, kNinetyFifth)));
 }
 
 void compare_untouched(const std::vector<uint8_t>& texels, const std::vector<uint8_t>& plain, Tally* tally)
 {
+    constexpr std::size_t kAlphaByte = 3;
     int differ = 0;
     for (std::size_t i = 0; i < texels.size(); ++i) {
-        differ += (i % kPixelBytes) != 3 && core::at(texels, i) != core::at(plain, i) ? 1 : 0;
+        differ += (i % kPixelBytes) != kAlphaByte && core::at(texels, i) != core::at(plain, i) ? 1 : 0;
     }
     tally->check(differ == 0, text::format("the picture as without the pass (%d bytes differ)", differ));
 }
@@ -1134,7 +1239,8 @@ render::vulkan::RtFogSettings settings_of(bool shafts)
             .anisotropy = kAnisotropy,
             .steps = kSteps,
             .mode = shafts ? render::vulkan::RtFogMode::kShafts : render::vulkan::RtFogMode::kReplace,
-            .hdr = false};
+            .hdr = false,
+            .haze = false};
 }
 
 void use_settings(const render::vulkan::RtFogSettings& settings, VkAccelerationStructureKHR scene)
@@ -1223,6 +1329,48 @@ void run_untouched(render::Gpu& gpu, const char* name, const render::vulkan::RtF
         if (read) {
             compare_untouched(texels, plain, tally);
         }
+    }
+    release_targets(gpu, targets);
+}
+
+// No fog in the level, rt_fog_haze=1: the haze's sunlit light added - nothing darker, the shaft lighter, the draws'
+// own fog kept.
+void run_haze(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    text::print("no fog in the level, the haze (rt_fog_haze=1):\n");
+    Targets targets;
+    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, &targets);
+    tally->check(made, "the targets made");
+    if (!made) {
+        return;
+    }
+    use_settings({}, VK_NULL_HANDLE);
+    draw_frame(gpu, targets, kEye, false);
+    std::vector<uint8_t> plain;
+    const bool read_plain = read_colour(targets, &plain);
+    render::vulkan::RtFogSettings settings = settings_of(false);
+    settings.haze = true;
+    use_settings(settings, scene.top.handle);
+    tally->check(draw_frame(gpu, targets, kEye, false) == 1, "the pass recorded");
+    tally->check(!render::vulkan::rt_fog_replaces_level_fog(), "the draws keep the level's fog");
+    render::vulkan::RtFogTexels raw;
+    tally->check(
+        read_fog(render::vulkan::RtFogImage::kRaw, &raw) && count_not_finite(raw) == 0 &&
+            std::ranges::all_of(raw.texels, [](const std::array<float, 4>& texel) { return texel.back() == 1.0F; }),
+        "the march: no NaN, nothing dimmed (T = 1)");
+    std::vector<uint8_t> texels;
+    const bool read = read_plain && read_colour(targets, &texels);
+    tally->check(read, "the target read back");
+    if (read) {
+        int darker = 0;
+        int lighter = 0;
+        for (std::size_t i = 0; i < texels.size(); ++i) {
+            const int difference = static_cast<int>(core::at(texels, i)) - static_cast<int>(core::at(plain, i));
+            darker += difference < -1 ? 1 : 0;
+            lighter += difference > 1 ? 1 : 0;
+        }
+        tally->check(darker == 0 && lighter > kLeastLighterChannels,
+                     text::format("nothing darker (%d channels), the shaft lighter (%d channels)", darker, lighter));
     }
     release_targets(gpu, targets);
 }
@@ -1347,7 +1495,9 @@ int run(const Options& options, SDL_Window* window)
         render::Gpu& gpu = render::vulkan::gpu();
         run_replace(gpu, scene, &tally);
         run_shafts(gpu, scene, &tally);
-        run_untouched(gpu, "no fog in the level: the pass skipped", settings_of(false), scene.top.handle, false, &tally);
+        run_untouched(gpu, "no fog in the level, rt_fog_haze=0: the pass skipped", settings_of(false), scene.top.handle,
+                      false, &tally);
+        run_haze(gpu, scene, &tally);
         run_untouched(gpu, "no scene: the pass skipped", settings_of(false), VK_NULL_HANDLE, true, &tally);
         render::vulkan::RtFogSettings off = settings_of(false);
         off.on = false;

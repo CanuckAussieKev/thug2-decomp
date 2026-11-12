@@ -161,6 +161,12 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   the first reflection pass"), at most 60% of the picture changed (lighter or darker) and at most 0.1% turned black (a
   NaN, a missing texture); where the level has nothing reflective ("nothing reflective in the scene"), on and off the
   same; at least one group drew reflections and some spot changed by 0.1% or more; no "couldn't" line.
+  `--effect fog` (both commands): volumetric fog and light shafts (`[Graphics] rt_fog`) - `rt_fog=0` / `1` with
+  `rt_shadows=0`, `rt_ao=0`, `rt_reflections=0` (`--set Graphics.rt_fog_mode=1` etc. for the other settings);
+  `--expect drawn`: at most 80% of the picture changed, at most 0.1% turned black (a NaN, garbage) and 0.5% turned white
+  (the fog or the sky blown out); every `on` log shows "rt_fog: the first fog pass" (or "the level has no fog"), at
+  least one group drew the fog, no "couldn't" line; the passes' device time from the logs ("rt_fog: the passes take")
+  in the report.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed
