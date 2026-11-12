@@ -33,6 +33,7 @@
 #include "gpu_vulkan/vulkan_jpeg.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_samplers.h"
@@ -349,12 +350,16 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
                                .extent = surface->extent,
                                .levels = 1,
                                .samples = samples_of(desc.samples),
-                               .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                               .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                                        rt_shadow_depth_usage(state, plan->format), // (NOT ORIGINAL - R4)
                                .alpha_one = false};
     if (!state.memory.create_image(request, &surface->image)) {
         destroy_surface(state, surface);
         return kInvalid;
     }
+    // NOT ORIGINAL - ray-traced shadows (vulkan_rt_shadows.h) sample the depth: kept between passes as an attachment
+    // all the same (a samplable image would otherwise rest read-only)
+    surface->image.resting = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     prepare_image(state, &surface->image);
     *out = surface_handle(surface);
     return kOk;

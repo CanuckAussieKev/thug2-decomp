@@ -91,6 +91,17 @@ if(TARGET thug2_gpu_vulkan AND TARGET thug2_fs_win32)
     target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_shadow_check.exe: the Vulkan Gpu's ray-traced sun shadows (gpu_vulkan/
+# vulkan_rt_shadows.h) on this machine - a small scene drawn through render::Gpu, its acceleration structures built by
+# the check, the pass run through rt_scene's listener, the target compared pixel by pixel with a reference worked out on
+# the processor (one sample, four, objects casting, soft, a split view, no scene) - src/tests/vulkan_rt_shadow_check.cpp.
+# Exit 2 (nothing checked) on a device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_shadow_check vulkan_rt_shadow_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_shadow_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_shadow_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
 # (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
 # materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,

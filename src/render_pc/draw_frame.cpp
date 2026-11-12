@@ -59,6 +59,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/rt_scene.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
@@ -599,6 +600,32 @@ void set_pass(int pass) { draw_instance_batch({.flags = static_cast<uint32_t>(pa
 // No world transform (set_world_transform's null: the original passes 0).
 void clear_world_transform() { set_world_transform(nullptr); }
 
+// Not original - the listeners of rt_scene.h told that viewport `index`'s opaque world is drawn: its camera (the world's
+// view and projection, as set on the Gpu) and its rectangle.
+void note_opaque_drawn(int index)
+{
+    if (!rt::view_listened()) {
+        return;
+    }
+    const auto& gfx = renderer();
+    rt::ViewDrawn view;
+    view.camera.viewport = static_cast<uint32_t>(index);
+    const auto copy_matrix = [](const maths::Mat4& from, std::array<std::array<float, 4>, 4>* to) {
+        for (std::size_t row = 0; row < 4; ++row) {
+            for (std::size_t column = 0; column < 4; ++column) {
+                core::at(core::at(*to, row), column) = core::at(from.floats(), (row * 4) + column);
+            }
+        }
+    };
+    copy_matrix(gfx.view_matrix(), &view.camera.view);
+    copy_matrix(gfx.projection_matrix(), &view.camera.projection);
+    view.camera.position = gfx.render_camera().position;
+    const DeviceViewport& drawn = gfx.device_viewport();
+    view.rect = {drawn.x, drawn.y, drawn.width, drawn.height};
+    view.depth_range = {drawn.min_z_, drawn.max_z_};
+    rt::opaque_view_drawn(view);
+}
+
 void draw_viewport(int index)
 {
     const ViewRegion* view = fetch_current_view(index);
@@ -751,6 +778,9 @@ void draw_viewport(int index)
         choose_camera(cam_orientation(camera), position, {.angle = angle, .aspect = aspect, .zoom = 1.0F}, false);
         stored_near_z() = kDefaultNearZ;
     }
+    // Not original - ray tracing's screen-space effects (engine/gfx/rt_scene.h, R4: the Vulkan Gpu's sun shadows): the
+    // opaque world, objects and sky drawn, the world's camera set again. Original behaviour: nothing.
+    note_opaque_drawn(index);
     set_pass(kOpaquePass);
     set_render_state(RenderStateId::kZWrite, 1);
     set_render_state(RenderStateId::kZTest, 1);
