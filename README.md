@@ -347,12 +347,13 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_shadow_match_bake` | 1 | With the baked sun: no ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out); 0 shadows wherever the sun is blocked |
 | `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |
 | `rt_shadow_sky_rays` | 5 | Rays a pixel that look for the sky (1-16) |
-| `rt_fog` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's fog volumetric - the same colour and distances, but the sun shines through it in shafts where the level lets it and the fog stays darker in the shade. Levels without fog, and the sun only where the level's own lighting shows one (not indoors) |
+| `rt_fog` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's fog volumetric - the same colour and distances, but the sun shines through it in shafts where the level lets it and the fog stays darker in the shade. The sun only where the level's own lighting shows one (not indoors); levels without fog: `rt_fog_haze` |
 | `rt_fog_mode` | 0 | 0: the volumetric fog replaces the level's own; 1: the level's fog kept as it was, only the sunlit shafts added over it |
 | `rt_fog_density` | 1 | How thick the fog is against the level's own (0-8; 1 the same) |
 | `rt_fog_height` | 0 | World units over which the fog thins going up from the camera's height (0: even everywhere; e.g. 800 for ground fog) |
 | `rt_fog_anisotropy` | 0.3 | How much brighter the fog is looking toward the sun (-0.9-0.9; 0 the same every way) |
 | `rt_fog_steps` | 32 | Samples along each ray (4-128): fewer is faster, more is smoother shafts |
+| `rt_fog_haze` | 1 | In a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone |
 
 **`[Miscellaneous]`** - from PartyMod
 

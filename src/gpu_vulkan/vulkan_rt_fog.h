@@ -59,7 +59,7 @@ inline constexpr float kFogAmbientShare = 0.5F;   // a above
 inline constexpr float kFogSkyShare = 0.25F;
 inline constexpr float kFogShaftShare = 0.5F;       // mode 1's
 inline constexpr float kFogSunDistance = 100000.0F; // how far a ray toward the sun looks (world units)
-inline constexpr float kFogHazeEnd = 12000.0F;      // the haze's end (world units: its linear "fog" from the camera)
+inline constexpr float kFogHazeEnd = 4000.0F;       // the haze's end (world units: its linear "fog" from the camera)
 inline constexpr std::array<float, 3> kFogHazeColour{0.8F, 0.8F, 0.8F};
 
 // The scene the rays are traced through (R2's TLAS; VK_NULL_HANDLE: none - the pass is then skipped, logged once). The
