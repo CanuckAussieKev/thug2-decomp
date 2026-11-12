@@ -129,6 +129,9 @@ bool Memory::init(const Context& context)
     info.instance = context.instance();
     info.vulkanApiVersion = context.api_version();
     info.pVulkanFunctions = &functions;
+    if (context.ray_tracing_enabled()) { // NOT ORIGINAL - acceleration structures and their scratch need addresses
+        info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    }
     if (vmaCreateAllocator(&info, &allocator_) != VK_SUCCESS) {
         allocator_ = nullptr;
         return false;

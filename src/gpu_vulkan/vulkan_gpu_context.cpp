@@ -230,6 +230,7 @@ void configure(const Choices& choices)
     const std::scoped_lock lock(state.mutex);
     state.options.device_index = choices.device_index;
     state.options.validation = choices.validation;
+    state.options.ray_tracing = choices.ray_tracing;
     state.options.on_message = log_message;
     state.cache_folder = choices.cache_folder;
 }

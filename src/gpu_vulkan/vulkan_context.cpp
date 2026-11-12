@@ -287,6 +287,7 @@ bool Context::create(SDL_Window* window, const ContextOptions& options)
 bool Context::open(SDL_Window* window, const ContextOptions& options)
 {
     on_message_ = options.on_message;
+    ray_tracing_wanted_ = options.ray_tracing;
     window_ = window;
     if (!open_loader()) {
         return fail("opening vulkan-1.dll", VK_ERROR_INITIALIZATION_FAILED);
@@ -436,6 +437,63 @@ bool Context::create_device()
     push_descriptors_ = has_extension(device_extensions(physical_device_), VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
     if (push_descriptors_) {
         extensions.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+    }
+    // NOT ORIGINAL - ray tracing (ContextOptions::ray_tracing): the extensions and the features they need, chained after
+    // Vulkan 1.3's - all of them or none
+    VkPhysicalDeviceVulkan12Features features12{};
+    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR structures{};
+    structures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    VkPhysicalDeviceRayQueryFeaturesKHR queries{};
+    queries.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+    ray_tracing_ = false;
+    if (ray_tracing_wanted_ && dynamic_rendering_) {
+        const std::vector<VkExtensionProperties> offered_extensions = device_extensions(physical_device_);
+        const std::array<const char*, 3> wanted{VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+                                                VK_KHR_RAY_QUERY_EXTENSION_NAME,
+                                                VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
+        bool all = true;
+        for (const char* name : wanted) {
+            all = all && has_extension(offered_extensions, name);
+        }
+        if (all) {
+            VkPhysicalDeviceVulkan12Features offered12{};
+            offered12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+            VkPhysicalDeviceAccelerationStructureFeaturesKHR offered_structures{};
+            offered_structures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+            VkPhysicalDeviceRayQueryFeaturesKHR offered_queries{};
+            offered_queries.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+            offered12.pNext = &offered_structures;
+            offered_structures.pNext = &offered_queries;
+            VkPhysicalDeviceFeatures2 asked{};
+            asked.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+            asked.pNext = &offered12;
+            vkGetPhysicalDeviceFeatures2(physical_device_, &asked);
+            all = offered12.bufferDeviceAddress && offered12.descriptorIndexing && offered12.runtimeDescriptorArray &&
+                  offered12.descriptorBindingPartiallyBound && offered12.descriptorBindingVariableDescriptorCount &&
+                  offered12.shaderSampledImageArrayNonUniformIndexing &&
+                  offered12.descriptorBindingSampledImageUpdateAfterBind && offered12.scalarBlockLayout &&
+                  offered_structures.accelerationStructure && offered_queries.rayQuery;
+        }
+        if (all) {
+            for (const char* name : wanted) {
+                extensions.push_back(name);
+            }
+            features12.bufferDeviceAddress = VK_TRUE;
+            features12.descriptorIndexing = VK_TRUE;
+            features12.runtimeDescriptorArray = VK_TRUE;
+            features12.descriptorBindingPartiallyBound = VK_TRUE;
+            features12.descriptorBindingVariableDescriptorCount = VK_TRUE;
+            features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+            features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+            features12.scalarBlockLayout = VK_TRUE;
+            structures.accelerationStructure = VK_TRUE;
+            queries.rayQuery = VK_TRUE;
+            features13.pNext = &features12;
+            features12.pNext = &structures;
+            structures.pNext = &queries;
+            ray_tracing_ = true;
+        }
     }
     const VkDeviceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

@@ -49,7 +49,8 @@ void install_vulkan()
 #ifdef THUG2_VULKAN
     render::vulkan::configure({.device_index = build_info::get_int(build_info::kGraphics, "vulkan_device", -1),
                                .cache_folder = build_info::executable_directory(),
-                               .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false)});
+                               .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false),
+                               .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

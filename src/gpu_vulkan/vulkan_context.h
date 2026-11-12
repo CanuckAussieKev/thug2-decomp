@@ -23,6 +23,9 @@ struct ContextOptions {
     bool validation = false; // use the Khronos validation layer if it is installed
     int device_index = -1;   // the physical device to use, in the instance's order; -1: the best (discrete first)
     MessageSink on_message = nullptr;
+    // NOT ORIGINAL - ray tracing (engine/gfx/rt_scene.h): VK_KHR_acceleration_structure, VK_KHR_ray_query and what they
+    // need (buffer device addresses, descriptor indexing) enabled when the device has them all
+    bool ray_tracing = false;
 };
 
 // A queue family of a physical device, as the device lists it.
@@ -102,6 +105,8 @@ public:
     [[nodiscard]] bool swapchain_stale() const { return swapchain_ == VK_NULL_HANDLE || resized_; }
     // Whether the device runs the Gpu's draws: Vulkan 1.3's dynamic rendering and push descriptors were switched on.
     [[nodiscard]] bool draws_supported() const { return dynamic_rendering_ && push_descriptors_; }
+    // The ray-tracing extensions and features are enabled (asked for in ContextOptions, and the device has them).
+    [[nodiscard]] bool ray_tracing_enabled() const { return ray_tracing_; }
 
     // Clears the next swapchain image to `colour` (linear RGBA) and presents it.
     FrameResult clear_frame(const std::array<float, 4>& colour);
@@ -176,6 +181,8 @@ private:
     bool resized_ = false;
     bool dynamic_rendering_ = false;
     bool push_descriptors_ = false;
+    bool ray_tracing_wanted_ = false;
+    bool ray_tracing_ = false;
 };
 
 } // namespace render::vulkan

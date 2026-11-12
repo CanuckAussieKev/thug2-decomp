@@ -38,6 +38,7 @@ struct Choices {
     int device_index = -1;
     std::string cache_folder;
     bool validation = false;
+    bool ray_tracing = false; // [Graphics] ray_tracing: the ray-tracing extensions enabled where the device has them
 };
 void configure(const Choices& choices);
 
