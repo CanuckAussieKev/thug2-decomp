@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "engine/gfx/gpu_handles.h"
@@ -118,6 +119,8 @@ struct FrameRecord {
     std::vector<Camera> cameras;
 };
 
+inline constexpr uint32_t kAllMasks = 0xFF; // a ray that can hit every instance
+
 // One ray traced through the scene the backend last built (R2: the automation channel's rtprobe - a check against the
 // game's own collision): from `origin` along `direction` (any length) to `max_distance`. `traced` false: nothing to
 // trace against (no backend, or no frame built yet).
@@ -125,6 +128,7 @@ struct ProbeRequest {
     std::array<float, 3> origin{};
     std::array<float, 3> direction{};
     float max_distance = 0.0F;
+    uint32_t cull_mask = kAllMasks; // (added for R4's sun) the instance masks the ray can hit (the backend's)
 };
 struct ProbeResult {
     bool traced = false;
@@ -154,6 +158,15 @@ public:
     {
         (void)ray;
         return {};
+    }
+    // (added for R4's sun) Many rays at once, as probe (slow the same way, but one wait for all of them): `results`
+    // gets one answer per ray, in order.
+    virtual void probe_many(std::span<const ProbeRequest> rays, std::vector<ProbeResult>* results)
+    {
+        results->clear();
+        for (const ProbeRequest& ray : rays) {
+            results->push_back(probe(ray));
+        }
     }
     // (added by R1) A registered mesh's triangles now somewhere else (another of its buffers - a skinned mesh's
     // vertex buffers take turns -, buffers made again after a device reset, an edit): the same id, new geometry, and
@@ -222,5 +235,35 @@ void opaque_view_drawn(const ViewDrawn& view);
 void world_view_drawn(const ViewDrawn& view);
 // Whether any listens (render_pc skips filling a ViewDrawn when none does).
 bool view_listened();
+
+// (added for R4's sun) A sun set by hand - the console's `rt sun <x> <y> <z>` (toward the sun, any length), `rt sun
+// off` - used by the shadow pass instead of the one it finds itself. Null / false: none set.
+void set_sun_override(const std::array<float, 3>* toward_sun);
+bool sun_override(std::array<float, 3>* toward_sun);
+
+// (added for R4's sun) The sun the level's lighting was baked with, found from the bake itself (rt_sun.h: the
+// direction whose ray-traced shadows best match the world's baked vertex colours) - the game's own directional lights
+// light the skater and the objects and are the same in every level, not the level's sun. `scene` counts the fits (a new
+// value: a new level's answer); `found` false with a fit made: the bake shows no sun (an indoor level) - no sun
+// shadows there.
+struct BakedSun {
+    uint64_t scene = 0;     // 0: no fit yet for the world now loaded
+    bool found = false;
+    std::array<float, 3> toward{}; // toward the sun, normalised
+    float confidence = 0.0F;       // the fit's correlation (0 - 1)
+    // Where the bake agrees, over the level seen from above (a grid of cells along x and z): 1 - where the sun is
+    // blocked, the baked colours are dark (the bake has that shadow: a traced one is welcome); 0 - they are bright
+    // anyway (lamps, a roof or a caster the bake left out: no traced shadow there). Empty: 1 everywhere.
+    std::vector<float> agreement; // row by row (z), each row along x
+    uint32_t columns = 0;
+    uint32_t rows = 0;
+    std::array<float, 2> origin{}; // the grid's lowest x and z
+    float cell = 0.0F;             // a cell's side (world units)
+};
+void set_baked_sun(BakedSun sun);
+const BakedSun& baked_sun();
+// Whether a fit is wanted (the shadow pass asks for one; render_pc fits once a world has stood still a moment).
+void set_baked_sun_wanted(bool wanted);
+bool baked_sun_wanted();
 
 } // namespace render::rt

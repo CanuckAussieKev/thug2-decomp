@@ -127,6 +127,7 @@ add_library(thug2_engine STATIC
     gfx/gpu.cpp
     gfx/gpu_context.cpp
     gfx/rt_scene.cpp
+    gfx/rt_sun.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp
     gfx/occlusion.cpp

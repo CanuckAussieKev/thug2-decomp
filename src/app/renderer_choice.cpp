@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstddef>
+#include <sstream>
 #include <string>
 
 #include "engine/gfx/render_device.h"
@@ -55,6 +56,38 @@ float ini_float(const char* key, float fallback)
     const double value = std::strtod(text.data(), &end);
     return end == text.data() || !std::isfinite(value) ? fallback : static_cast<float>(value);
 }
+
+// [Graphics] rt_shadow_sun: bake (the default: the level's baked sun), light (the frame's first directional light) or
+// x,y,z (a direction toward the sun); anything else is the default, logged.
+void read_rt_shadow_sun(render::vulkan::RtShadowSettings* settings)
+{
+    constexpr std::size_t kLongest = 64;
+    std::array<char, kLongest> text{};
+    build_info::fetch_text(build_info::kGraphics, "rt_shadow_sun", "bake", text.data(), text.size());
+    const std::string value(text.data());
+    if (value == "light") {
+        settings->sun = render::vulkan::RtShadowSettings::SunSource::kLight;
+        return;
+    }
+    std::array<float, 3> toward{};
+    std::size_t read = 0;
+    std::istringstream numbers(value);
+    std::string number;
+    while (read < toward.size() && std::getline(numbers, number, ',')) {
+        char* end = nullptr;
+        const double parsed = std::strtod(number.c_str(), &end);
+        if (end == number.c_str() || !std::isfinite(parsed)) {
+            break;
+        }
+        toward.at(read++) = static_cast<float>(parsed);
+    }
+    if (read == toward.size()) {
+        settings->sun = render::vulkan::RtShadowSettings::SunSource::kFixed;
+        settings->fixed_sun = toward;
+    } else if (!value.empty() && value != "bake") {
+        get_log("[Graphics] rt_shadow_sun=%s isn't bake, light or x,y,z - the baked sun used", value.c_str());
+    }
+}
 #endif
 
 // The Vulkan backend: render_pc's device over Vulkan's Gpu and GpuContext, and its UI backend (src/gpu_vulkan; the
@@ -68,12 +101,19 @@ void install_vulkan()
                                .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
     // NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h): off unless asked for, and only with
     // ray_tracing=1 on a device that has it
-    render::vulkan::set_rt_shadow_settings(
-        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_shadows", false),
+    render::vulkan::RtShadowSettings shadows{
+         .on = build_info::fetch_flag(build_info::kGraphics, "rt_shadows", false),
          .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
          .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
          .rays = static_cast<unsigned>(std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_rays", 4))),
-         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", false)});
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", false),
+         .covered = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_covered", false),
+         .sky_rays = static_cast<unsigned>(
+             std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_sky_rays",
+                                             static_cast<int>(render::vulkan::kRtShadowSkyRays)))),
+         .match_bake = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_match_bake", true)};
+    read_rt_shadow_sun(&shadows);
+    render::vulkan::set_rt_shadow_settings(shadows);
     // NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h): likewise
     render::vulkan::set_rt_ao_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_ao", false),
