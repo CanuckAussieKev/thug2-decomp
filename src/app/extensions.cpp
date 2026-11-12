@@ -8,6 +8,7 @@
 #include "platform/run_log.h"
 #include "devtools/automation.h"
 #include "devtools/console.h"
+#include "devtools/demo.h"
 #include "devtools/extensions.h"
 #include "engine/ext/extension.h"
 #include "engine/ext/plugin.h"
@@ -74,6 +75,8 @@ void register_extensions()
     ext::add(editor());
     ext::add(sys::debug_mode::extension());
     ext::add(frontend::begin_level::extension());
+    ext::add(devtools::demo::extension()); // (right after the start level: a demo starts its level at the same point of
+                                           // the frame as -level does)
     ext::add(frontend::automation::extension());
     ext::add(frontend::test_view::extension());
     ext::add(frontend::new_frontend::extension());
@@ -91,6 +94,11 @@ void register_added_script_commands()
     frontend::new_frontend::extension().register_script_commands(); // (the overlay's pause items: NewFrontend_...)
 }
 
-void add_input_sources() { input::add_source(frontend::automation::input_source()); }
+// (the demos last: a recording takes port 0 as every other source left it; a playback replaces it)
+void add_input_sources()
+{
+    input::add_source(frontend::automation::input_source());
+    input::add_source(devtools::demo::input_source());
+}
 
 } // namespace app

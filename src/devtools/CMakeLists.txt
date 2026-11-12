@@ -11,6 +11,7 @@ add_library(thug2_devtools STATIC
     automation_report.cpp
     automation_parse.cpp
     console.cpp
+    demo.cpp
 )
 # (the generated build_info.h: the screenshot sidecar names the exe's source)
 target_include_directories(thug2_devtools PRIVATE "${CMAKE_BINARY_DIR}/generated")

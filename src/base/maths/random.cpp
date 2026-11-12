@@ -72,4 +72,15 @@ double plus_or_minus_exact(float range)
     return centred * range * kSpreadScale;
 }
 
+RandomStreams random_streams()
+{
+    return {stream1().add, stream1().mul, stream1().value, stream2().add, stream2().mul, stream2().value};
+}
+
+void set_random_streams(const RandomStreams& streams)
+{
+    stream1() = {.add = streams[0], .mul = streams[1], .value = streams[2]};
+    stream2() = {.add = streams[3], .mul = streams[4], .value = streams[5]};
+}
+
 } // namespace maths

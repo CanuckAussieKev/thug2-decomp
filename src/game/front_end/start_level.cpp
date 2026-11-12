@@ -120,8 +120,18 @@ script::Struct* level_info_of(uint32_t load)
 
 // What read_in and read_in_load run once the level is known: the level select's SKATE NOW with that level chosen
 // (`edited_copy`: with its edited_layout flag - the level editor's copy of the level, editor/level_editor_layout.h).
+using LoadListener = void (*)(uint32_t);
+LoadListener& load_listener()
+{
+    static LoadListener listener = nullptr;
+    return listener;
+}
+
 void start_free_skate(uint32_t load, bool edited_copy)
 {
+    if (load_listener() != nullptr) {
+        load_listener()(load);
+    }
     script::launch_script(name_hash("EnableSun"), nullptr, nullptr, false, "EnableSun");
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::Name{0U}, name_hash("freeskate"));
@@ -296,6 +306,8 @@ bool parse_spot(const std::string& text, Spot* out)
     }
     return true;
 }
+
+void set_load_listener(void (*listener)(uint32_t load)) { load_listener() = listener; }
 
 const char* get_requested() { return the_request().level.c_str(); }
 

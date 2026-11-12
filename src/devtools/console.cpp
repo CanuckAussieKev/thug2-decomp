@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "devtools/demo.h"
 #include "engine/ext/extension.h"
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_event.h"
@@ -169,6 +170,8 @@ std::string list_scripts(const std::string& filter)
 }
 
 constexpr const char* kHelp = "scripts [text]  the scripts running (names holding text): each level QB or TS\n"
+                              "demo record [name]  the level again, recorded (F6); demo stop: saved\n"
+                              "demo play <name>    a demo played back; demo status\n"
                               "clear           clear the console\n"
                               "help            this list";
 
@@ -395,6 +398,23 @@ std::string run_command(const std::string& line)
     }
     if (command == "scripts") {
         return list_scripts(rest);
+    }
+    if (command == "demo") {
+        std::istringstream words(rest);
+        std::string action;
+        std::string name;
+        words >> action >> name;
+        action = lower(action);
+        if (action == "record") {
+            return demo::record_now(name);
+        }
+        if (action == "stop") {
+            return demo::stop_now();
+        }
+        if (action == "play") {
+            return name.empty() ? "demo play <name>" : demo::play_now(name);
+        }
+        return demo::status_text();
     }
     if (command == "clear") {
         state().lines.clear();
