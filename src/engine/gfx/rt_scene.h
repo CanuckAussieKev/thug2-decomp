@@ -78,6 +78,13 @@ struct Material {
     float alpha_ref = 0.0F;
     std::array<float, 4> colour{1.0F, 1.0F, 1.0F, 1.0F};
     uint32_t flags = 0; // InstanceFlag's kAlphaTested / kTransparent where they come from the material
+    // (R3) how the texture is sampled, as the pass's sampler states: address modes as gpu_value::kAddress* (1 wrap,
+    // 2 mirror, 3 clamp, 4 border - transparent black, 5 mirror once: read as mirror), the filter as gpu_value::kFilter*
+    // (none / point: nearest, linear / anisotropic: linear). alpha_ref above is 0..1 (Direct3D's ALPHAREF / 255), passed
+    // when the texel's alpha (times colour's) is at least it, as the alpha test's GREATEREQUAL.
+    uint32_t address_u = 1;
+    uint32_t address_v = 1;
+    uint32_t filter = 2;
 };
 
 // What was drawn this frame (R1): filled by render_pc between begin_frame_record and end_frame_record.
