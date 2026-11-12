@@ -11,6 +11,7 @@ add_library(thug2_devtools STATIC
     automation_report.cpp
     automation_parse.cpp
     console.cpp
+    demo.cpp
     rt_check.cpp
 )
 # (the generated build_info.h: the screenshot sidecar names the exe's source)

@@ -7,7 +7,8 @@ if(TARGET thug2_wire)
     add_executable(thug2_format_check
         format_check.cpp
         format_check_net.cpp
-        format_check_files.cpp)
+        format_check_files.cpp
+        format_check_demo.cpp)
     target_link_libraries(thug2_format_check PRIVATE thug2_wire)
 endif()
 

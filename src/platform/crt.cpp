@@ -6,6 +6,7 @@
 #include "base/maths/fpu_precision.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <process.h>
@@ -304,5 +305,6 @@ GameRandom& thread_random()
 
 void game_srand(unsigned seed) { thread_random().set_state(seed); }
 int game_rand() { return thread_random().get_next(); }
+uint32_t game_rand_state() { return thread_random().get_state(); }
 
 } // namespace crt

@@ -77,6 +77,10 @@ bool read_in(const char* name, std::string* why);
 // the level select's). `edited_copy`: the level editor's edited copy of it, as the level select's EDITED LEVELS entry
 // picks it (the edited_layout flag). False - logged, and why in `why` - as read_in.
 THUG2_API bool read_in_load(uint32_t load, bool edited_copy, std::string* why);
+// NOT ORIGINAL - told each time read_in / read_in_load start a level, before its scripts are launched (`load`: its
+// load script's checksum): the demos seed the random numbers there and count their frames from it (devtools/demo.h).
+// One listener (null: none).
+void set_load_listener(void (*listener)(uint32_t load));
 
 // The command line's option (pure): the word after `-<option> `, `--<option> ` or `--<option>=` in
 // `line` ("" if none; a quoted value keeps what is inside the quotes).

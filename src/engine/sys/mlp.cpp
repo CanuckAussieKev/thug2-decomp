@@ -270,8 +270,13 @@ void Hub::get_main_loop()
         }
         // A frame more than half a frame late isn't drawn - but never more than four in a row, and never while
         // the window is inactive.
+        // Not original: while an extension keeps every frame (a frame series, a demo - engine/ext/extension.h) a late
+        // frame is drawn too: the time before the wait (window events, the network) can make one late even though
+        // the last frame's capture time isn't counted.
+        // Original behaviour: a late frame isn't drawn.
         const bool active = sys::app_active();
-        if ((skipped_in_a_row() >= 4 || elapsed < frame_ticks + (frame_ticks >> 1)) && active) {
+        if ((skipped_in_a_row() >= 4 || elapsed < frame_ticks + (frame_ticks >> 1) || ext::keeps_every_frame()) &&
+            active) {
             skipped_in_a_row() = 0;
         } else {
             ++skipped_total();

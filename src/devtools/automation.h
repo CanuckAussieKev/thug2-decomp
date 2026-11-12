@@ -225,6 +225,10 @@ std::string element_refusal(const frontend::UiWidget* element);
 std::string refusal_by_name(const OrderCode& command);
 // The name of a checksum if known (the tables and the names commands used), else 0x<hex>.
 std::string get_name_of(uint32_t checksum);
+// Why a command that plays is refused now - online, a network game ("" if it isn't) - and whether a loading screen is
+// up: as the channel sees them (also the demos' - devtools/demo.h).
+std::string online_refusal();
+bool loading_now();
 // A command as text (for the log and the status).
 std::string describe(const OrderCode& command);
 

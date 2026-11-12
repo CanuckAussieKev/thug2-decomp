@@ -256,6 +256,9 @@ std::string refusal_by_name(const OrderCode& command)
     }
 }
 
+std::string online_refusal() { return net_refusal(); }
+bool loading_now() { return loading_screen_up(); }
+
 std::string get_name_of(uint32_t checksum)
 {
     auto found = get_names().find(checksum);
