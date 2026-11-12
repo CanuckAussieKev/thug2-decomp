@@ -189,6 +189,8 @@ void send_lights()
 
 } // namespace
 
+Singleton* first_instance() { return instances(); }
+
 // 0x004D1030
 Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths::Mat4* bone_matrices)
     : InstanceData({.transform = matrix, .bones = bone_matrices, .bone_count = count}), scene_(list), next_(instances())

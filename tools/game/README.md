@@ -128,6 +128,13 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (Vulkan minus Direct3D 9), the largest, the pixels over the threshold, their bounding rectangle and the three 80x80
   cells holding most of them; also the same over every pixel. `report.txt` / `report.json`; `--pictures` writes
   `sbs/<name>.png` (Direct3D 9 | Vulkan | the difference x4, the noise mask blue).
+- `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
+  [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
+  (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed
+  (deploy_build.ps1), then per renderer `levels` (BO with the skater pushed off and riding, then LA, SE and foun loaded in
+  turn, riding in foun; the frame record dumped as JSON) and `anteara` (Anteara Mod's BO, riding). Each run's log and
+  `rt-frame-<renderer>.json` go to --out (default `out\rt-contract`); a run fails on any `rt-check: VIOLATION`, no
+  frame or draw checked, or a crash. `node tools/game/rt_contract.ts read <log>` reads one log the same way.
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
   doesn't reach SDL). Keys: down, up, left, right, enter, esc, `pause` (4 s), `shot`, `hold:<key>:<ms>`,
   `now:<key>`, `ctrl:<key>` (the mouse commands only work with the game in front - not in workspaces).
