@@ -852,7 +852,8 @@ nothing but test one pointer while no `RayTracing` is installed.
   frame before, and one mesh shared by several skinned instances holds the last one's pose.
 - **Materials:** `set_material` when first used and when their first pass changes (texture animations): its texture,
   UV set 0, blend mode, alpha reference (0-1), colour (the pass's doubled: 1 is the texture unchanged; the fourth value
-  the pass's fixed alpha), flags.
+  the pass's fixed alpha), flags, and R3's sampler states: the pass's address modes (wrap, clamp, border where the
+  device has it) and linear filtering.
 - **Lights:** the level's ambient colour, its directional lights (the way the light travels; colour times intensity /
   128) and the dynamic point lights that are on.
 - **Checking it:** `[debug] rt_contract_check=1` puts a checking `RayTracing` in front of whatever is installed
