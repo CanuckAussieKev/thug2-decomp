@@ -113,4 +113,29 @@ FrameRecord& frame_record();
 MeshId next_mesh_id();
 MaterialId next_material_id();
 
+// --- R4: screen-space effects over a viewport's opaque world -------------------------------------------------------
+
+// A viewport's opaque world drawn: render_pc's draw_viewport calls opaque_view_drawn after the world's opaque meshes,
+// the objects' opaque passes, the texture splats and projections, the imposters and the sky - before the transparent
+// passes, the particles, the weather, the 2D. The colour and depth targets bound then hold what is drawn so far.
+struct ViewDrawn {
+    Camera camera;                      // the world's camera (not the sky's, which sits at the origin)
+    std::array<uint32_t, 4> rect{};     // the viewport in the target's pixels: x, y, width, height
+    std::array<float, 2> depth_range{}; // the viewport's min / max z (0, 1)
+};
+
+// What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that
+// draws the frame, between the Gpu's draws.
+class ViewListener {
+public:
+    virtual ~ViewListener() = default;
+    virtual void opaque_drawn(const ViewDrawn& view) = 0;
+};
+void add_view_listener(ViewListener* listener);
+void remove_view_listener(ViewListener* listener);
+// Each listener told (render_pc; nothing happens when none listens).
+void opaque_view_drawn(const ViewDrawn& view);
+// Whether any listens (render_pc skips filling a ViewDrawn when none does).
+bool view_listened();
+
 } // namespace render::rt

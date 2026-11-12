@@ -492,6 +492,8 @@ bool Context::create_device()
             features13.pNext = &features12;
             features12.pNext = &structures;
             structures.pNext = &queries;
+            // (ray-traced shadows trace each sample of a multisampled target: vulkan_rt_shadows.h)
+            enabled_features_.sampleRateShading = offered.sampleRateShading;
             ray_tracing_ = true;
         }
     }

@@ -29,8 +29,16 @@ struct CompiledShader {
     std::string log;             // glslang's messages (the errors when !ok)
 };
 
+// The SPIR-V a shader is compiled for: Vulkan 1.0's (SPIR-V 1.0, every device), or - NOT ORIGINAL, ray tracing
+// (engine/gfx/rt_scene.h) - Vulkan 1.2's (SPIR-V 1.4: GL_EXT_ray_query, used only where Context::ray_tracing_enabled()).
+enum class ShaderTarget : uint8_t {
+    kVulkan10,
+    kVulkan12,
+};
+
 // Compiles GLSL 4.50 source for Vulkan. Thread-safe; glslang is set up on the first call and stays for the process.
-[[nodiscard]] CompiledShader compile_glsl(ShaderStage stage, std::string_view source);
+[[nodiscard]] CompiledShader compile_glsl(ShaderStage stage, std::string_view source,
+                                          ShaderTarget target = ShaderTarget::kVulkan10);
 
 // The fixed-function emulation's shaders by key, generated (ff_shaders.h) and compiled the first time each is asked
 // for, then kept. Not thread-safe: one per renderer thread.

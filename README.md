@@ -329,6 +329,12 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `vulkan_device` | -1 | On Vulkan: the GPU, by Vulkan's numbering (-1: the best, a discrete one first) |
 | `vulkan_validation` | 0 | On Vulkan: 1 uses the Khronos validation layer when a 32-bit one can be loaded (its messages in the log) |
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
+| `ray_tracing` | 0 | On Vulkan: 1 turns on the GPU's ray-tracing extensions where it has them all (the effects below need it) |
+| `rt_shadows` | 0 | On Vulkan with `ray_tracing=1` (a GPU with ray queries, the 64-bit build): 1 adds ray-traced sun shadows - each pixel of the world darkened where the level blocks the sun |
+| `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1) |
+| `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
+| `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
+| `rt_shadow_objects` | 0 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too (the skater's own shadow is drawn anyway) |
 
 **`[Miscellaneous]`** - from PartyMod
 
