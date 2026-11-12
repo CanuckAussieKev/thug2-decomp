@@ -34,6 +34,12 @@ struct Geometry {
     bool indices_32bit = false;
     bool strip = false;   // a triangle strip (the backend makes a list of it), else a list
     bool dynamic = false; // rewritten by the CPU (skinned, deformed): mesh_changed() when it is
+    // (added by R1) The buffers' sizes in bytes as far as the renderer knows them (0: not known) - at least this many:
+    // a share of a larger buffer gives the end of its own part - and the indices' copy in memory where the renderer
+    // keeps one (16- or 32-bit as indices_32bit, from index_offset; null: none), valid while the mesh is registered.
+    uint32_t vertex_buffer_bytes = 0;
+    uint32_t index_buffer_bytes = 0;
+    const void* cpu_indices = nullptr;
 };
 
 enum InstanceFlag : uint32_t {
@@ -100,6 +106,21 @@ public:
     virtual void set_material(MaterialId material, const Material& surface) { (void)material, (void)surface; }
     virtual void remove_material(MaterialId material) { (void)material; }
     virtual void begin_frame(const FrameRecord& record) = 0;
+    // (added by R1) A registered mesh's triangles now somewhere else (another of its buffers - a skinned mesh's
+    // vertex buffers take turns -, buffers made again after a device reset, an edit): the same id, new geometry, and
+    // its contents changed as mesh_changed says.
+    virtual void update_mesh(MeshId mesh, const Geometry& geometry)
+    {
+        remove_mesh(mesh);
+        add_mesh(mesh, geometry);
+    }
+    // (added by R1, for checks) Whether mesh_drawn is wanted: render_pc then reports every draw of a registered mesh in
+    // the world's and the objects' passes (a world transform read back per draw: a backend leaves it false).
+    [[nodiscard]] virtual bool wants_draws() const { return false; }
+    virtual void mesh_drawn(MeshId mesh, const std::array<std::array<float, 4>, 3>& object_to_world)
+    {
+        (void)mesh, (void)object_to_world;
+    }
 };
 
 // The installed backend (null: none - Direct3D 9, or no ray tracing on this device / off in the ini).
