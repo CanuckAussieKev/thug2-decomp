@@ -38,6 +38,13 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_printf_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_rt_scene_check.exe: ray tracing's pure helpers (engine/gfx/rt_checks.h: a Direct3D matrix as an
+# instance's rows, strips as lists, the contract check's geometry and flag tests) checked (src/tests/rt_scene_check.cpp).
+if(TARGET thug2_base)
+    add_executable(thug2_rt_scene_check rt_scene_check.cpp)
+    target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
 # deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
 if(TARGET thug2_platform)
@@ -89,4 +96,37 @@ if(TARGET thug2_gpu_vulkan AND TARGET thug2_fs_win32)
     add_executable(thug2_vulkan_gpu_check vulkan_gpu_check.cpp)
     target_link_libraries(thug2_vulkan_gpu_check PRIVATE thug2_gpu_vulkan thug2_fs_win32 sdl3)
     target_compile_definitions(thug2_vulkan_gpu_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_rt_check.exe: ray tracing's scene on Vulkan (gpu_vulkan/vulkan_rt_scene.h) tried on this
+# machine - meshes made through render::Gpu (lists, strips, 16 / 32-bit indices, offsets, a dynamic mesh, many small
+# ones), their BLASes, frames of instances, then thousands of rays traced through each frame's TLAS from a compute
+# shader and compared with a reference traced on the processor; compaction, refits, removal, an empty scene and the
+# validation layer's messages (src/tests/vulkan_rt_check.cpp; --device N picks another GPU; exit 2: no ray tracing).
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_check vulkan_rt_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_rt_shadow_check.exe: the Vulkan Gpu's ray-traced sun shadows (gpu_vulkan/
+# vulkan_rt_shadows.h) on this machine - a small scene drawn through render::Gpu, its acceleration structures built by
+# the check, the pass run through rt_scene's listener, the target compared pixel by pixel with a reference worked out on
+# the processor (one sample, four, objects casting, soft, a split view, no scene) - src/tests/vulkan_rt_shadow_check.cpp.
+# Exit 2 (nothing checked) on a device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_shadow_check vulkan_rt_shadow_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_shadow_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_shadow_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
+# (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
+# materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,
+# filtering, the alpha test, textures released while used and their slots reused, thousands of materials, textures[]
+# at the device's limit (src/tests/vulkan_rt_materials_check.cpp; --device N picks another GPU).
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_materials_check vulkan_rt_materials_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_materials_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_materials_check PRIVATE SDL_MAIN_HANDLED)
 endif()

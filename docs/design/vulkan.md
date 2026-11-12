@@ -829,6 +829,40 @@ The first feature proposed is **ray-traced sun / directional-light shadows** as 
 the original's lighting, behind an ini option. It needs the instance list, static BLAS and the camera, but not the
 material table (alpha-tested foliage aside). Reflections and ambient occlusion come after the material table.
 
+### The frame record (R1)
+
+The contract is `engine/gfx/rt_scene.h`; `render_pc/rt_record.h` fills it, the same for Direct3D 9 and Vulkan, and does
+nothing but test one pointer while no `RayTracing` is installed.
+
+- **When:** `draw_world` gathers the frame's instances and lights before anything is drawn (`record_frame`);
+  `draw_viewport` adds each viewport's camera once the world's camera is chosen, and the frame's first calls
+  `begin_frame` there - before the world's passes, so a backend builds its TLAS before any draw can trace a ray.
+- **Instances** are the scene, not only what passes the view's tests: every mesh of the loaded scenes but the sky's
+  (`kWorld`, the identity transform) and every active instance's meshes (`kObject`; per bone where the scene's bones are
+  drawn one draw each, the bone times the instance's transform; a one-bone mesh with its bone of the palette before it),
+  shown and not hidden. Off-screen geometry is there, so it can cast shadows into the view. Flags come from the
+  material's first pass: `kTransparent` (the pass's transparent flag), else `kAlphaTested` (an alpha reference - the
+  game's materials nearly all have one of 1), else `kOpaque`; `kCastsShadow` unless transparent; `kSkinned` for meshes
+  skinned on the CPU.
+- **Meshes** are registered the first frame they appear (their first level of detail: the vertex buffer they were last
+  drawn from, its share's offset in an arena, the strip or list, the indices' copy in memory), removed when destroyed;
+  `update_mesh` (an addition to the contract) when the buffers they are in change - a device reset forgets them all
+  instead, and they come back under new ids; `mesh_changed` the frame after the CPU rewrote their vertices (skinning,
+  the editor), colour-only writes not counted. A skinned mesh's geometry is therefore the pose it was drawn with the
+  frame before, and one mesh shared by several skinned instances holds the last one's pose.
+- **Materials:** `set_material` when first used and when their first pass changes (texture animations): its texture,
+  UV set 0, blend mode, alpha reference (0-1), colour (the pass's doubled: 1 is the texture unchanged; the fourth value
+  the pass's fixed alpha), flags, and R3's sampler states: the pass's address modes (wrap, clamp, border where the
+  device has it) and linear filtering.
+- **Lights:** the level's ambient colour, its directional lights (the way the light travels; colour times intensity /
+  128) and the dynamic point lights that are on.
+- **Checking it:** `[debug] rt_contract_check=1` puts a checking `RayTracing` in front of whatever is installed
+  (`devtools/rt_check.h`): every call validated, every mesh drawn in the world's and objects' passes looked up in the
+  frame's record with the transform it was drawn with (`wants_draws` / `mesh_drawn`, contract additions), the lights
+  compared with the light manager's. `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> --build <folder>`
+  plays BO (riding), LA, SE, foun and Anteara Mod's BO with each renderer and fails on any violation; the console's
+  `rt dump` writes the frame record as JSON (the tool keeps one per renderer).
+
 ## Order of work
 
 | # | task | depends on | start |
@@ -849,10 +883,10 @@ material table (alpha-tested foliage aside). Reflections and ambient occlusion c
 | V9 | `UiBackend` for Vulkan: ImGui's Vulkan backend, the preview and atlas targets, images | V6 | after stage 11 - done: ImGui's lists drawn by the Vulkan `Gpu` (ImGui's SDL2 backend kept), images as `Gpu` textures, the preview and atlas through the `Gpu`; the new front end and the level editor (in the game and the editor exe) draw on Vulkan |
 | V10 | Movies, loading screens, screenshots and the editor's methods on Vulkan | V7, V5e | after stage 11 - done: the start-up viewport (the movies were black) and the unset texture stage (the loading bar was white) fixed, a reset leaves the bindings as Direct3D 9's; the loading threads, screenshots, full screen and alt-tab checked on Vulkan |
 | V11 | Parity: a screenshot comparison between the two backends at the same spot and frame (the automation channel's teleport and capture), with each backend's run-to-run noise as the baseline; the front end, the editor, five levels; frame times | V8-V10 | after stage 11 - done: `tools/game/renderer_parity.ts`; a material pass misread fixed; what is left is MSAA edges, a shadow outline and line rasterisation (V11 above) |
-| R1 | The frame as data: `render_pc` fills the per-frame instance / light / camera record; stable mesh and material ids | V5f | after V11 and the x64 port |
-| R2 | Acceleration structures: a BLAS per static mesh at scene load, refit / rebuild for CPU-skinned meshes, the TLAS per frame | R1, V7, x64 | after V11 and the x64 port |
-| R3 | The material table and bindless textures | R1, V6 | after V11 and the x64 port |
-| R4 | Ray-traced directional shadows (ray queries in the lighting pass), an ini option, off by default | R2 | after R2 |
+| R1 | The frame as data: `render_pc` fills the per-frame instance / light / camera record; stable mesh and material ids | V5f | after V11 and the x64 port - done: `render_pc/rt_record` (below, "The frame record"), the contract check `devtools/rt_check` ([debug] rt_contract_check=1) and `tools/game/rt_contract.ts`: 0 violations in BO, LA, SE, foun and Anteara Mod's BO with both renderers |
+| R2 | Acceleration structures: a BLAS per static mesh at scene load, refit / rebuild for CPU-skinned meshes, the TLAS per frame | R1, V7, x64 | done (the receiving side; the meshes arrive with R1): `gpu_vulkan/vulkan_rt_scene` - a BLAS per registered mesh from the Gpu's own buffers (16 / 32-bit indices, offsets, strips listed), static ones compacted, dynamic ones refitted (rebuilt every 32 refits); the TLAS per frame in flight from the record (custom index = material; mask 0x01 world / 0x02 objects / 0x04 alpha-tested / 0x80 no shadow, an alpha test against 1/255 counting as opaque), handed to R4's shadow pass; materials forwarded to R3's table; `current_scene()` for the effects; in the game (with R1) foun's 1,239 meshes take 3.7 MB of BLAS (11.5 MB before compaction) and `rtprobe` meets `colprobe` (90.002 / 90.000); `thug2_vulkan_rt_check` traces thousands of rays against a CPU reference on both GPUs here, 0 validation messages (core + sync); automation `rtprobe` / `colprobe` |
+| R3 | The material table and bindless textures | R1, V6 | after V11 and the x64 port - done: `gpu_vulkan/vulkan_rt_materials` (`MaterialTable`, made with `ray_tracing=1`): a record per material id in a storage buffer (scalar layout, grown with a new set), textures as one partially bound, update-after-bind array of sampled images (a slot per texture, white once released, reused after the frames in flight), 32 samplers (address u x v x nearest / linear) picked per material, and the GLSL hit shaders include (`material_glsl()`: `material()`, `material_sample()`, the alpha test); `thug2_vulkan_rt_materials_check` reads it back through a compute shader on both GPUs here |
+| R4 | Ray-traced directional shadows (ray queries in the lighting pass), an ini option, off by default | R2 | after R2 - done (waits for R1's light and R2's TLAS): `gpu_vulkan/vulkan_rt_shadows` (`[Graphics] rt_shadows`, `rt_shadow_strength` / `_softness` / `_rays` / `_objects`): `draw_viewport` tells `rt_scene`'s view listeners when a viewport's opaque world, objects and sky are drawn (`rt::opaque_view_drawn`, before the transparent passes); one full-screen pass then reads the depth (each sample of a multisampled target when the device has sample-rate shading, else sample 0), rebuilds the world position with the view's inverse view x projection and the normal from the nearer neighbours' depths, traces a ray query toward the frame record's directional light (instance mask 0x01 world, + 0x02 objects; opaque, first hit) and multiplies the colour by 1 - strength where it is blocked; soft shadows trace several rays over the sun's disc (no denoiser). The TLAS is handed over with `rt_shadows_set_scene()`; without it or a directional light the pass is skipped (logged once). `thug2_vulkan_rt_shadow_check` compares the pass with a processor ray-cast pixel by pixel (one sample, four, objects, soft, a split view) on both GPUs here; `tools/game/rt_shadows_check.ts` checks it in the game |
 | R5 | Reflections / ambient occlusion and a denoiser | R2, R3 | after R4 |
 
 ```

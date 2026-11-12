@@ -66,7 +66,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `teleport`, `camera`, `capture` (below),
     `logtricks [count]` (a test: one trick by skater 0 over the level's trick objects - all, or the first `count` - through
     the trick object manager's log_trick_objects; the result says how many objects / clusters and changed hands: THUG2's
-    own change mask crashed past 128), `echo <text>`, `quit`. A failure or refusal
+    own change mask crashed past 128), `rtprobe` / `colprobe` (below), `echo <text>`, `quit`. A failure or refusal
     skips the rest of the batch. After a `quit` the scripts wait for the process to exit and report its exit code
     ("the game exited (code 0) after its quit"; ok only with 0), whichever came first - the game's last status or
     its exit.
@@ -80,6 +80,13 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     the game's frames 1/60 s of game time apart. Script command too: `TeleportSkaterStanding pos=(x, y, z) heading=f`.
     E.g. the user's screenshot spot, still and drifting sideways:
     `-Level foun -Commands "waitfor level foun 150;teleport -4087.3 -390 2386.6 -177.3;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949;wait 60;capture 120 still;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.05 0 0;capture 120 side"`.
+  - **One ray, two ways** (ray tracing's check against the game's collision): `rtprobe <x> <y> <z> <dx> <dy> <dz> [max]`
+    traces the ray from (x, y, z) along (dx, dy, dz) up to `max` (default 100000) through the ray-traced scene's last
+    TLAS (renderer=vulkan with `[Graphics] ray_tracing=1`; src/gpu_vulkan/vulkan_rt_scene.h) - the result is
+    `hit <distance> instance <i> mesh <id> material <id> primitive <p> point <x y z>`, `miss`, or `no scene` (no ray
+    tracing, or no frame built yet). `colprobe` takes the same arguments and casts the game's own collision feeler
+    (static collision and movable objects, src/engine/render/probe_ray.h): `hit <distance> point <x y z> normal <x y z>
+    face <f> object <checksum>` or `miss`; in a level only. Both are read from the status file's `result`.
   - **Following the skater:** `trace <frames>` writes `<folder>\thug2-decomp-trace.txt` - a line every game frame
     for the next 1-36000 frames: frame, position, velocity, the up row's y, the SkaterState state (0 ground, 1 air,
     2 wall, 3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing, doing a trick, the combo so far
@@ -128,6 +135,24 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (Vulkan minus Direct3D 9), the largest, the pixels over the threshold, their bounding rectangle and the three 80x80
   cells holding most of them; also the same over every pixel. `report.txt` / `report.json`; `--pictures` writes
   `sbs/<name>.png` (Direct3D 9 | Vulkan | the difference x4, the noise mask blue).
+- `node tools/game/rt_shadows_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
+  [--baseline-build <folder>] [--groups foun,BO] [--runs 2] [--owner <name>] [--set Graphics.rt_shadow_strength=0.5]...
+  [--expect shadows|none]` - ray-traced sun shadows (`[Graphics] rt_shadows`) in the game: under the workspace's lock,
+  the x64 build deployed (deploy_build.ps1 -Arch x64), the spots of `rt_shadows.json` (renderer_parity's five levels)
+  captured with `ray_tracing=1` and `rt_shadows=0` / `1` (and `--baseline-build`'s exe as the workspace's ini has it)
+  into `<out>/<off|on|baseline>/run<k>/`, then compared outside each configuration's run-to-run noise. `--expect shadows`:
+  the shadows only darken (at most 0.1% of the pixels lighter), at most 60% of a picture darkened and at least 0.5% in
+  some spot, the darkened pixels' median brightness ratio within 0.2 of 1 - strength, the `on` logs showing the pass
+  and no skip; the share of the darkened pixels in the picture's lower half is reported. `--expect none` (no
+  acceleration structures yet): on and off the same, the pass logged as skipped. The baseline: off and baseline the
+  same. `compare <folder>` does the comparison again; report.txt / report.json, exit 1 on a failure.
+- `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
+  [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
+  (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed
+  (deploy_build.ps1), then per renderer `levels` (BO with the skater pushed off and riding, then LA, SE and foun loaded in
+  turn, riding in foun; the frame record dumped as JSON) and `anteara` (Anteara Mod's BO, loaded from the main menu - with `-level` its start-up never finished - riding). Each run's log and
+  `rt-frame-<renderer>.json` go to --out (default `out\rt-contract`); a run fails on any `rt-check: VIOLATION`, no
+  frame or draw checked, or a crash. `node tools/game/rt_contract.ts read <log>` reads one log the same way.
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
   doesn't reach SDL). Keys: down, up, left, right, enter, esc, `pause` (4 s), `shot`, `hold:<key>:<ms>`,
   `now:<key>`, `ctrl:<key>` (the mouse commands only work with the game in front - not in workspaces).

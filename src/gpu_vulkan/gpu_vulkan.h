@@ -42,4 +42,18 @@ struct Choices {
 };
 void configure(const Choices& choices);
 
+// NOT ORIGINAL - ray-traced sun shadows (vulkan_rt_shadows.h, docs/design/vulkan.md R4): [Graphics] rt_shadows,
+// rt_shadow_strength, rt_shadow_softness, rt_shadow_rays, rt_shadow_objects. Nothing is drawn differently while `on` is
+// false, or when ray tracing isn't enabled on the device (Choices::ray_tracing and the device's extensions).
+inline constexpr float kRtShadowStrength = 0.5F; // (rt_shadow_strength's default)
+struct RtShadowSettings {
+    bool on = false;
+    float strength = kRtShadowStrength; // how much of the colour a full shadow takes away (0 - 1)
+    float softness = 0.0F; // the light's angular radius in degrees (0: hard edges, one ray; up to 5)
+    unsigned rays = 4;     // rays per pixel (per sample) when soft (1 - 16)
+    bool objects = false;  // the objects (the skater, peds, vehicles) cast shadows too
+};
+void set_rt_shadow_settings(const RtShadowSettings& settings);
+[[nodiscard]] RtShadowSettings rt_shadow_settings();
+
 } // namespace render::vulkan

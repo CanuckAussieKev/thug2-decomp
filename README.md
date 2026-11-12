@@ -307,6 +307,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 |---|---|---|
 | `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
+| `rt_contract_check` | 0 | Checks every call the renderer makes to ray tracing (meshes, materials, each frame's instances, lights and cameras, every world draw against the frame's record) and logs `rt-check:` lines - violations and a summary every 600 frames; the console's `rt summary` / `rt dump [file]` (the frame record as JSON). `node tools/game/rt_contract.ts` runs it across levels and renderers in a workspace |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
@@ -329,6 +330,12 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `vulkan_device` | -1 | On Vulkan: the GPU, by Vulkan's numbering (-1: the best, a discrete one first) |
 | `vulkan_validation` | 0 | On Vulkan: 1 uses the Khronos validation layer when a 32-bit one can be loaded (its messages in the log) |
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
+| `ray_tracing` | 0 | On Vulkan: 1 turns on the GPU's ray-tracing extensions where it has them all (the effects below need it) |
+| `rt_shadows` | 0 | On Vulkan with `ray_tracing=1` (a GPU with ray queries, the 64-bit build): 1 adds ray-traced sun shadows - each pixel of the world darkened where the level blocks the sun |
+| `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1) |
+| `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
+| `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
+| `rt_shadow_objects` | 0 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too (the skater's own shadow is drawn anyway) |
 
 **`[Miscellaneous]`** - from PartyMod
 

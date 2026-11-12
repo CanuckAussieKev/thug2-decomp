@@ -34,6 +34,12 @@ struct Geometry {
     bool indices_32bit = false;
     bool strip = false;   // a triangle strip (the backend makes a list of it), else a list
     bool dynamic = false; // rewritten by the CPU (skinned, deformed): mesh_changed() when it is
+    // (added by R1) The buffers' sizes in bytes as far as the renderer knows them (0: not known) - at least this many:
+    // a share of a larger buffer gives the end of its own part - and the indices' copy in memory where the renderer
+    // keeps one (16- or 32-bit as indices_32bit, from index_offset; null: none), valid while the mesh is registered.
+    uint32_t vertex_buffer_bytes = 0;
+    uint32_t index_buffer_bytes = 0;
+    const void* cpu_indices = nullptr;
 };
 
 enum InstanceFlag : uint32_t {
@@ -78,6 +84,13 @@ struct Material {
     float alpha_ref = 0.0F;
     std::array<float, 4> colour{1.0F, 1.0F, 1.0F, 1.0F};
     uint32_t flags = 0; // InstanceFlag's kAlphaTested / kTransparent where they come from the material
+    // (R3) how the texture is sampled, as the pass's sampler states: address modes as gpu_value::kAddress* (1 wrap,
+    // 2 mirror, 3 clamp, 4 border - transparent black, 5 mirror once: read as mirror), the filter as gpu_value::kFilter*
+    // (none / point: nearest, linear / anisotropic: linear). alpha_ref above is 0..1 (Direct3D's ALPHAREF / 255), passed
+    // when the texel's alpha (times colour's) is at least it, as the alpha test's GREATEREQUAL.
+    uint32_t address_u = 1;
+    uint32_t address_v = 1;
+    uint32_t filter = 2;
 };
 
 // What was drawn this frame (R1): filled by render_pc between begin_frame_record and end_frame_record.
@@ -86,6 +99,24 @@ struct FrameRecord {
     std::vector<Instance> instances;
     std::vector<Light> lights;
     std::vector<Camera> cameras;
+};
+
+// One ray traced through the scene the backend last built (R2: the automation channel's rtprobe - a check against the
+// game's own collision): from `origin` along `direction` (any length) to `max_distance`. `traced` false: nothing to
+// trace against (no backend, or no frame built yet).
+struct ProbeRequest {
+    std::array<float, 3> origin{};
+    std::array<float, 3> direction{};
+    float max_distance = 0.0F;
+};
+struct ProbeResult {
+    bool traced = false;
+    bool hit = false;
+    float distance = 0.0F;   // along the direction normalised
+    uint32_t instance = 0;   // its index in the frame record's instances
+    MaterialId material = 0; // the instance's
+    MeshId mesh = 0;         // the instance's
+    uint32_t primitive = 0;  // the triangle in the mesh (a strip's: counted along it)
 };
 
 // A backend that traces rays (R2 on): meshes registered as they are made and released, materials likewise, then each
@@ -100,6 +131,28 @@ public:
     virtual void set_material(MaterialId material, const Material& surface) { (void)material, (void)surface; }
     virtual void remove_material(MaterialId material) { (void)material; }
     virtual void begin_frame(const FrameRecord& record) = 0;
+    // (R2) The ray through the last frame's scene, traced now (slow: the frame's work is finished first) - for tools,
+    // not for frames.
+    virtual ProbeResult probe(const ProbeRequest& ray)
+    {
+        (void)ray;
+        return {};
+    }
+    // (added by R1) A registered mesh's triangles now somewhere else (another of its buffers - a skinned mesh's
+    // vertex buffers take turns -, buffers made again after a device reset, an edit): the same id, new geometry, and
+    // its contents changed as mesh_changed says.
+    virtual void update_mesh(MeshId mesh, const Geometry& geometry)
+    {
+        remove_mesh(mesh);
+        add_mesh(mesh, geometry);
+    }
+    // (added by R1, for checks) Whether mesh_drawn is wanted: render_pc then reports every draw of a registered mesh in
+    // the world's and the objects' passes (a world transform read back per draw: a backend leaves it false).
+    [[nodiscard]] virtual bool wants_draws() const { return false; }
+    virtual void mesh_drawn(MeshId mesh, const std::array<std::array<float, 4>, 3>& object_to_world)
+    {
+        (void)mesh, (void)object_to_world;
+    }
 };
 
 // The installed backend (null: none - Direct3D 9, or no ray tracing on this device / off in the ini).
@@ -112,5 +165,30 @@ FrameRecord& frame_record();
 // Ids: a new mesh / material id each call (never 0, never reused while the game runs).
 MeshId next_mesh_id();
 MaterialId next_material_id();
+
+// --- R4: screen-space effects over a viewport's opaque world -------------------------------------------------------
+
+// A viewport's opaque world drawn: render_pc's draw_viewport calls opaque_view_drawn after the world's opaque meshes,
+// the objects' opaque passes, the texture splats and projections, the imposters and the sky - before the transparent
+// passes, the particles, the weather, the 2D. The colour and depth targets bound then hold what is drawn so far.
+struct ViewDrawn {
+    Camera camera;                      // the world's camera (not the sky's, which sits at the origin)
+    std::array<uint32_t, 4> rect{};     // the viewport in the target's pixels: x, y, width, height
+    std::array<float, 2> depth_range{}; // the viewport's min / max z (0, 1)
+};
+
+// What listens (a backend's screen-space effect: the Vulkan Gpu's ray-traced sun shadows). Called on the thread that
+// draws the frame, between the Gpu's draws.
+class ViewListener {
+public:
+    virtual ~ViewListener() = default;
+    virtual void opaque_drawn(const ViewDrawn& view) = 0;
+};
+void add_view_listener(ViewListener* listener);
+void remove_view_listener(ViewListener* listener);
+// Each listener told (render_pc; nothing happens when none listens).
+void opaque_view_drawn(const ViewDrawn& view);
+// Whether any listens (render_pc skips filling a ViewDrawn when none does).
+bool view_listened();
 
 } // namespace render::rt

@@ -33,7 +33,9 @@
 #include "gpu_vulkan/vulkan_jpeg.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
+#include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "platform/run_log.h"
@@ -67,6 +69,7 @@ double seconds_since(std::chrono::steady_clock::time_point start)
 // (the images and buffers destroyed once the frames that may use them have finished: vulkan_frames.h)
 void destroy_texture(Backend& state, Texture* texture)
 {
+    state.materials.texture_released(state, texture); // NOT ORIGINAL - its ray-tracing texture slot, if it has one
     retire_image(state, &texture->image);
     state.textures.erase(texture);
 }
@@ -348,12 +351,16 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
                                .extent = surface->extent,
                                .levels = 1,
                                .samples = samples_of(desc.samples),
-                               .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                               .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                                        rt_shadow_depth_usage(state, plan->format), // (NOT ORIGINAL - R4)
                                .alpha_one = false};
     if (!state.memory.create_image(request, &surface->image)) {
         destroy_surface(state, surface);
         return kInvalid;
     }
+    // NOT ORIGINAL - ray-traced shadows (vulkan_rt_shadows.h) sample the depth: kept between passes as an attachment
+    // all the same (a samplable image would otherwise rest read-only)
+    surface->image.resting = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     prepare_image(state, &surface->image);
     *out = surface_handle(surface);
     return kOk;
@@ -407,7 +414,8 @@ long make_buffer(Backend& state, bool index, const std::array<uint32_t, 4>& args
     made->pool = std::get<3>(args);
     made->dynamic = (made->usage & gpu_value::kUsageDynamic) != 0;
     const VkBufferUsageFlags usage = (index ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) |
-                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                                     ray_tracing_buffer_usage(state); // (NOT ORIGINAL - build inputs: vulkan_rt_scene.h)
     BufferVersion version;
     if (!state.memory.create_buffer(made->bytes, usage, made->dynamic ? BufferPlace::kUpload : BufferPlace::kDevice,
                                     &version.memory)) {
@@ -438,7 +446,7 @@ bool discard_version(Backend& state, Buffer* buffer)
     BufferVersion version;
     const VkBufferUsageFlags usage =
         (buffer->index ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | ray_tracing_buffer_usage(state);
     if (!state.memory.create_buffer(buffer->bytes, usage, BufferPlace::kUpload, &version.memory)) {
         return false;
     }
@@ -1569,6 +1577,7 @@ long create_device_objects(Backend& state)
     rebind(state, &core::at(state.targets, 0), state.back_buffer);
     rebind(state, &state.depth, state.auto_depth);
     vulkan_gpu().reset_state_block();
+    create_ray_tracing(state); // NOT ORIGINAL - installed when the device has it (vulkan_rt_scene.h)
     return kOk;
 }
 
@@ -1611,6 +1620,7 @@ void release_device_objects(Backend& state)
     destroy_ui_windows(state); // (the UI's own windows' swapchains and surfaces - vulkan_ui_windows.cpp)
     finish_work(state);
     vkDeviceWaitIdle(state.memory.device());
+    release_ray_tracing(state); // NOT ORIGINAL - its structures (vulkan_rt_scene.h)
     state.textures.for_each([&state](Texture* texture) { state.memory.destroy_image(&texture->image); });
     state.surfaces.for_each([&state](Surface* surface) { state.memory.destroy_image(&surface->image); });
     state.buffers.for_each([&state](Buffer* buffer) {

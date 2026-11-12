@@ -27,6 +27,7 @@
 #include "engine/gfx/view_setup.h"
 #include "base/maths/mat4.h"
 #include "base/core/same_bits.h"
+#include "render_pc/rt_record.h"
 
 namespace render {
 
@@ -213,6 +214,7 @@ MaterialRef::MaterialRef()
 // 0x004D2BD0
 MaterialRef::~MaterialRef()
 {
+    rt_record::material_released(this); // (not original: ray tracing's record)
     if (color_anims_) {
         for (const ColorAnim& anim : color_anim_run()) {
             memory::Hub::dealloc(anim.keys);

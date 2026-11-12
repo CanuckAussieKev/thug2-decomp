@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
+#include <cstdlib>
 #include <cstddef>
 #include <string>
 
@@ -42,6 +44,19 @@ void install_direct3d9()
     render::install_ui_backend(render::d3d9::ui_backend());
 }
 
+#ifdef THUG2_VULKAN
+// A [Graphics] number with a fraction (`fallback` when it's missing or not a number).
+float ini_float(const char* key, float fallback)
+{
+    constexpr std::size_t kLongest = 32; // (characters of a number)
+    std::array<char, kLongest> text{};
+    build_info::fetch_text(build_info::kGraphics, key, "", text.data(), text.size());
+    char* end = nullptr;
+    const double value = std::strtod(text.data(), &end);
+    return end == text.data() || !std::isfinite(value) ? fallback : static_cast<float>(value);
+}
+#endif
+
 // The Vulkan backend: render_pc's device over Vulkan's Gpu and GpuContext, and its UI backend (src/gpu_vulkan; the
 // ImGui parts have none on Vulkan yet). The shader and pipeline caches are kept beside the exe.
 void install_vulkan()
@@ -51,6 +66,14 @@ void install_vulkan()
                                .cache_folder = build_info::executable_directory(),
                                .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false),
                                .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
+    // NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h): off unless asked for, and only with
+    // ray_tracing=1 on a device that has it
+    render::vulkan::set_rt_shadow_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_shadows", false),
+         .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
+         .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
+         .rays = static_cast<unsigned>(std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_rays", 4))),
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", false)});
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

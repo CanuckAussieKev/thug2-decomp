@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -21,6 +22,10 @@
 #include "engine/ext/extension.h"
 #include "game/front_end/start_level.h"
 #include "game/rider/test_view.h"
+#include "engine/gfx/rt_scene.h"
+#include "engine/render/coll_line.h"
+#include "engine/render/probe_ray.h"
+#include "base/maths/vec4.h"
 #include "engine/lists/key_map.h"
 #include "game/world/trick_objects.h"
 #include "devtools/screenshot.h"
@@ -193,6 +198,88 @@ bool run_jump_to(Runner& runner, const OrderCode& command)
     return true;
 }
 
+// NOT ORIGINAL - rtprobe / colprobe (ray tracing, R2): one ray through the ray-traced scene, or through the game's
+// collision - the same arguments, so the two can be compared. (x, y, z) along (dx, dy, dz) up to `max`.
+struct ProbeLine {
+    std::array<float, 3> origin{};
+    std::array<float, 3> unit{}; // (normalised)
+    float reach = 0.0F;
+};
+constexpr float kDefaultProbeReach = 100000.0F;
+constexpr std::size_t kProbeReachIndex = 6;
+constexpr std::size_t kProbeResultSize = 192;
+
+ProbeLine probe_line(const OrderCode& command)
+{
+    const std::vector<float>& numbers = command.numbers;
+    const std::array<float, 3> way{::core::at(numbers, 3), ::core::at(numbers, 4), ::core::at(numbers, kDirectionZIndex)};
+    const float length = std::sqrt((std::get<0>(way) * std::get<0>(way)) + (std::get<1>(way) * std::get<1>(way)) +
+                                   (std::get<2>(way) * std::get<2>(way)));
+    return {.origin = {::core::at(numbers, 0), ::core::at(numbers, 1), ::core::at(numbers, 2)},
+            .unit = {std::get<0>(way) / length, std::get<1>(way) / length, std::get<2>(way) / length},
+            .reach = numbers.size() > kProbeReachIndex ? ::core::at(numbers, kProbeReachIndex) : kDefaultProbeReach};
+}
+
+// A point along the line.
+std::array<float, 3> along(const ProbeLine& line, float distance)
+{
+    return {std::get<0>(line.origin) + (std::get<0>(line.unit) * distance),
+            std::get<1>(line.origin) + (std::get<1>(line.unit) * distance),
+            std::get<2>(line.origin) + (std::get<2>(line.unit) * distance)};
+}
+
+bool run_ray_probe(Runner& runner, const OrderCode& command)
+{
+    render::rt::RayTracing* const backend = render::rt::ray_tracing();
+    const ProbeLine line = probe_line(command);
+    const render::rt::ProbeResult found =
+        backend == nullptr ? render::rt::ProbeResult{}
+                           : backend->probe({.origin = line.origin, .direction = line.unit, .max_distance = line.reach});
+    if (!found.traced) {
+        get_finish(runner, "no scene");
+        return true;
+    }
+    if (!found.hit) {
+        get_finish(runner, "miss");
+        return true;
+    }
+    const std::array<float, 3> point = along(line, found.distance);
+    std::array<char, kProbeResultSize> result{};
+    text::format_to(result, "hit %.3f instance %u mesh %u material %u primitive %u point %.3f %.3f %.3f",
+                    static_cast<double>(found.distance), found.instance, found.mesh, found.material, found.primitive,
+                    static_cast<double>(std::get<0>(point)), static_cast<double>(std::get<1>(point)),
+                    static_cast<double>(std::get<2>(point)));
+    get_finish(runner, result.data());
+    return true;
+}
+
+bool run_collision_probe(Runner& runner, const OrderCode& command)
+{
+    if ((current_load_state() == 0U) || in_front_end()) {
+        get_fail(runner, "not in a level", false);
+        return true;
+    }
+    const ProbeLine line = probe_line(command);
+    const std::array<float, 3> to = along(line, line.reach);
+    const maths::Vec4 start = {
+        .x = std::get<0>(line.origin), .y = std::get<1>(line.origin), .z = std::get<2>(line.origin), .w = 1.0F};
+    const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0F};
+    render::ProbeRay feeler;
+    if (feeler.get_collision_along(&start, &end, true) == 0) {
+        get_finish(runner, "miss");
+        return true;
+    }
+    const render::CollisionHit& hit = feeler.hit();
+    std::array<char, kProbeResultSize> result{};
+    text::format_to(result, "hit %.3f point %.3f %.3f %.3f normal %.3f %.3f %.3f face %u object 0x%08X",
+                    static_cast<double>(hit.distance * line.reach), static_cast<double>(hit.point.x),
+                    static_cast<double>(hit.point.y), static_cast<double>(hit.point.z),
+                    static_cast<double>(hit.normal.x), static_cast<double>(hit.normal.y),
+                    static_cast<double>(hit.normal.z), hit.face, hit.object_checksum_);
+    get_finish(runner, result.data());
+    return true;
+}
+
 // viewcam: the camera locked (its position, direction and drift) or let go.
 bool run_view_cam(Runner& runner, const OrderCode& command)
 {
@@ -297,6 +384,10 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     }
     case Op::kViewCam:
         return run_view_cam(runner, command);
+    case Op::kRayProbe:
+        return run_ray_probe(runner, command);
+    case Op::kCollisionProbe:
+        return run_collision_probe(runner, command);
     case Op::kCapture: {
         const std::string failed = sys::screenshot::start_series(command.frames, command.target);
         if (!failed.empty()) {
