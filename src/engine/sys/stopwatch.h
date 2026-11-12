@@ -34,6 +34,12 @@ double get_slomo_frame_seconds();
 float get_time_scale();
 void set_slomo(float slomo);
 
+// NOT ORIGINAL - the vblanks since Reset (what get_time counts), read and set: a demo starts its run at the time it
+// was recorded at (devtools/demo.h). Setting moves the last frames' vblanks along with it, so the frame history (and
+// the frame length) stays as it was.
+uint64_t vblanks_since_reset();
+void set_vblanks_since_reset(uint64_t vblanks);
+
 // 0x005BE6F0: the CPU's time stamp counter.
 uint64_t read_cpu_time_stamp();
 // 0x005BE7C0: sets the two flags at 0x007D1EE8 / 0x007D1EE9 (meaning not known yet).

@@ -176,6 +176,9 @@ Useful start-up switches:
 | `-edit <name>` or `[features] edit_level=<name>` | Starts the level editor (as `thug2-editor.exe -edit <name>`) and opens it in that level (without its plugin, `plugins\thug2-level-editor.dll`, the level opens in free skate). |
 | `-level <name> -at x,y,z[,heading]` or `[features] start_at=` | Once the level is up, the skater stands at that spot, facing `heading` (degrees, 0 = +z, 90 = +x). |
 | `node tools/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
+| `-level <name> -record <demo>` | Records a demo from the level's start; F6 (or quitting) saves `thug2-decomp-demos\<demo>.demo`. In a level, F6 alone restarts it and records; F6 again saves. |
+| `-demo <demo>` | Plays the demo back in its level (`-demo-capture <folder>` saves its frames as PNGs, `-demo-every N` one in N, then quits; `-demo-quit` quits at the end). |
+| `node tools/game/demo_compare.ts --demo <demo> --game <folder> --set A:Graphics.msaa=0 --set B:Graphics.msaa=8` | Renders a demo once per set of settings and puts the frames side by side (`--layout split / wipe / diff`), with a report of any difference in the run. See [docs/demos.md](docs/demos.md). |
 
 ### The level editor
 

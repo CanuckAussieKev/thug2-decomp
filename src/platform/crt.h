@@ -98,6 +98,8 @@ int game_stricmp(const char* a, const char* b);
 struct GameRandom {
     // The fields other code reads and sets.
     void set_state(uint32_t value) { state = value; }
+    // NOT ORIGINAL - the state now (a demo notes it - devtools/demo.h).
+    [[nodiscard]] uint32_t get_state() const { return state; }
 
 private:
     // The C runtime's linear congruential generator: state * 214013 + 2531011, the result bits 16-30.
@@ -116,6 +118,8 @@ public:
 };
 void game_srand(unsigned seed);
 int game_rand();
+// NOT ORIGINAL - this thread's rand() state (game_srand puts one back).
+uint32_t game_rand_state();
 
 inline void get_qsort(void* base, size_t count, size_t width, Weigh compare)
 {
