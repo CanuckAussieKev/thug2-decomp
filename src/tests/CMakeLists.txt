@@ -131,6 +131,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_effects_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_rt_reflections_check.exe: the Vulkan Gpu's ray-traced reflections
+# (gpu_vulkan/vulkan_rt_reflections.h) and the scene's geometry table on this machine - texture coordinates and colours
+# fetched at rays' hits in every mesh layout compared with the meshes' own, and a mirror floor reflecting a textured box
+# compared pixel by pixel with the texel the processor finds (src/tests/vulkan_rt_reflections_check.cpp). Exit 2 on a
+# device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_reflections_check vulkan_rt_reflections_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_reflections_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_reflections_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures
 # (gpu_vulkan/vulkan_rt_materials.h) tried on this machine - textures of every format the game makes registered as
 # materials, read by a compute shader through the table's GLSL and compared with the texels written; address modes,

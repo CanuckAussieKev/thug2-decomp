@@ -19,6 +19,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/gfx/mesh_formats.h"
 #include "engine/gfx/render_camera.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
@@ -57,6 +58,11 @@ constexpr float kPerByte = 1.0F / 255.0F;       // a dynamic light's
 constexpr int kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
 constexpr std::size_t kMaxSceneLights = 31;     // update_all_lights' limit
+constexpr uint32_t kFvfTexCountMask = 0xF00;    // a vertex format's count of texture coordinate sets
+constexpr uint32_t kPassEnvironment = 0x8;      // a material pass's flags: environment mapped (pc_material.cpp)
+constexpr uint32_t kPassCount = 4;              // a material's passes, at most
+constexpr uint32_t kBlendFixedFirst = 2;        // the blend modes taking the pass's fixed alpha: 2, 4, 6, 8, 10
+constexpr uint32_t kBlendFixedLast = 0xA;
 
 struct MeshEntry {
     rt::MeshId id = 0;
@@ -96,14 +102,16 @@ bool same_geometry(const rt::Geometry& a, const rt::Geometry& b)
            a.vertex_count == b.vertex_count && a.position_offset == b.position_offset && a.indices == b.indices &&
            a.index_offset == b.index_offset && a.index_count == b.index_count && a.indices_32bit == b.indices_32bit &&
            a.strip == b.strip && a.dynamic == b.dynamic && a.vertex_buffer_bytes == b.vertex_buffer_bytes &&
-           a.index_buffer_bytes == b.index_buffer_bytes && a.cpu_indices == b.cpu_indices;
+           a.index_buffer_bytes == b.index_buffer_bytes && a.cpu_indices == b.cpu_indices &&
+           a.uv_offset == b.uv_offset && a.uv_format == b.uv_format && a.colour_offset == b.colour_offset &&
+           a.colour_format == b.colour_format;
 }
 
 bool same_material(const rt::Material& a, const rt::Material& b)
 {
     return a.texture == b.texture && a.uv_set == b.uv_set && a.blend == b.blend && a.alpha_ref == b.alpha_ref &&
            a.colour == b.colour && a.flags == b.flags && a.address_u == b.address_u && a.address_v == b.address_v &&
-           a.filter == b.filter;
+           a.filter == b.filter && a.reflectivity == b.reflectivity && a.environment_pass == b.environment_pass;
 }
 
 // The vertex buffer a mesh was last drawn from (MeshRef::render: the current one, then the next is current).
@@ -147,6 +155,14 @@ bool geometry_of(const MeshRef* mesh, rt::Geometry* out, const VertexBufferData*
         .vertex_buffer_bytes = ((vb->flags & kVertexBufferShare) != 0U ? vb->arena_offset() : 0U) + vb->size(),
         .index_buffer_bytes = ib->size(),
         .cpu_indices = ib->indices(),
+        // (the texture coordinates and the colour at the mesh's offsets - 0: none, as texture_splats.cpp reads them -
+        // where its vertex format has them)
+        .uv_offset = mesh->uv_offset(),
+        .uv_format = mesh->uv_offset() != 0 && (mesh->fvf() & kFvfTexCountMask) != 0U ? rt::kUvFloat2
+                                                                                        : rt::kAttributeNone,
+        .colour_offset = mesh->color_offset(),
+        .colour_format = mesh->color_offset() != 0 && (mesh->fvf() & kFvfDiffuse) != 0U ? rt::kColourA8R8G8B8
+                                                                                         : rt::kAttributeNone,
     };
     *source = vb;
     return true;
@@ -201,6 +217,29 @@ uint32_t sampler_address(uint32_t mode)
     }
 }
 
+// How strongly a material mirrors its surroundings (R5's reflections): its first environment-mapped pass with a
+// texture (the game's shiny surfaces) - the brightest channel of the pass's colour (doubled, as drawn), times its fixed
+// alpha where the pass's blend mode takes it - or none.
+void reflectivity_of(const MaterialRef* material, rt::Material* out)
+{
+    const uint32_t passes = std::min(material->pass_count(), kPassCount);
+    for (uint32_t pass = 0; pass < passes; ++pass) {
+        if ((core::at(material->pass_flags(), pass) & kPassEnvironment) == 0U ||
+            core::at(material->textures(), pass) == nullptr) {
+            continue;
+        }
+        const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
+        float strength = std::max({core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)}) * kDoubled;
+        const uint32_t mode = core::at(material->blend_modes(), pass) & static_cast<uint32_t>(kBlendModeMask);
+        if (mode >= kBlendFixedFirst && mode <= kBlendFixedLast && (mode % 2) == 0) {
+            strength *= core::at(colour, 3);
+        }
+        out->reflectivity = std::isfinite(strength) ? std::clamp(strength, 0.0F, 1.0F) : 0.0F;
+        out->environment_pass = pass;
+        return;
+    }
+}
+
 // A material as a hit shader reads it: its first pass.
 rt::Material material_of(const MaterialRef* material)
 {
@@ -225,6 +264,7 @@ rt::Material material_of(const MaterialRef* material)
     } else if (material->alpha_ref() != 0U) {
         out.flags |= rt::kAlphaTested;
     }
+    reflectivity_of(material, &out);
     return out;
 }
 

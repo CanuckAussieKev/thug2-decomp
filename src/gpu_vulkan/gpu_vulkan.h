@@ -71,4 +71,15 @@ struct RtAoSettings {
 void set_rt_ao_settings(const RtAoSettings& settings);
 [[nodiscard]] RtAoSettings rt_ao_settings();
 
+// NOT ORIGINAL - ray-traced reflections (vulkan_rt_reflections.h, docs/design/vulkan.md R5): [Graphics] rt_reflections,
+// rt_reflection_strength. Nothing is drawn differently while `on` is false, when ray tracing isn't enabled on the device,
+// or where no surface is reflective.
+inline constexpr float kRtReflectionStrength = 0.5F; // (rt_reflection_strength's default)
+struct RtReflectionSettings {
+    bool on = false;
+    float strength = kRtReflectionStrength; // how far a fully reflective surface's colour goes toward what it mirrors (0 - 1)
+};
+void set_rt_reflection_settings(const RtReflectionSettings& settings);
+[[nodiscard]] RtReflectionSettings rt_reflection_settings();
+
 } // namespace render::vulkan

@@ -341,6 +341,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
 | `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
 | `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
+| `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
+| `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it) |
 
 **`[Miscellaneous]`** - from PartyMod
 

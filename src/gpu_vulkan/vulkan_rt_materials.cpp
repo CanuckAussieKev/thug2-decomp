@@ -89,6 +89,8 @@ struct Material {
     float alpha_ref;
     uint flags;
     vec4 colour;
+    float reflectivity;
+    uint environment_pass;
 };
 layout(set = THUG2_MATERIAL_SET, binding = 0, scalar) readonly buffer MaterialRecords { Material material_records[]; };
 layout(set = THUG2_MATERIAL_SET, binding = 1) uniform sampler material_samplers[32];
@@ -98,7 +100,7 @@ const uint MATERIAL_TRANSPARENT = 64u;
 Material material(uint id)
 {
     if (id >= uint(material_records.length())) {
-        return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0));
+        return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0), 0.0, 0xFFFFFFFFu);
     }
     return material_records[id];
 }
@@ -149,7 +151,9 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot)
                           .blend = material.blend,
                           .alpha_ref = material.alpha_ref,
                           .flags = material.flags,
-                          .colour = material.colour};
+                          .colour = material.colour,
+                          .reflectivity = material.reflectivity,
+                          .environment_pass = material.environment_pass};
 }
 
 std::string_view material_glsl() { return kMaterialGlsl; }

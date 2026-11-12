@@ -153,6 +153,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `on` logs showing "rt_ao: the first ambient occlusion pass" and no skip. After R2: `node tools/game/rt_shadows_check.ts
   run --effect ao --expect drawn --game C:\Games\THUG2-<n> --out <folder> --build <x64 build> --baseline-build <main's
   x64 build> --groups foun,BO`.
+  `--effect reflections` (both commands): ray-traced reflections (`[Graphics] rt_reflections`) - `rt_reflections=0` /
+  `1` with `rt_shadows=0`, `rt_ao=0`; `--expect drawn`: per spot by its group's `on` log - where the pass ran ("rt_reflections:
+  the first reflection pass"), at most 60% of the picture changed (lighter or darker) and at most 0.1% turned black (a
+  NaN, a missing texture); where the level has nothing reflective ("nothing reflective in the scene"), on and off the
+  same; at least one group drew reflections and some spot changed by 0.1% or more; no "couldn't" line.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed

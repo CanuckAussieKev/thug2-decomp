@@ -32,6 +32,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_rt_scene.cpp
     vulkan_rt_shadows.cpp
     vulkan_rt_effects.cpp
+    vulkan_rt_reflections.cpp
     vulkan_rt_glsl.cpp
     vulkan_rt_materials.cpp
 )
