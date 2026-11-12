@@ -17,13 +17,17 @@ type Text = Extract<Literal, { type: 3 | 4 }>;
 // A literal and the command whose arguments hold it (0: none).
 type Found = { literal: Text; call: number };
 
-// The string literals of a module, in order (its definitions' - the names table aside).
+const PREFIX = checksum("prefix") >>> 0;
+
+// The string literals of a module, in order (its definitions' - the names table aside; `prefix:` arguments too).
 export function stringLiterals(ir: ModuleIR): Found[] {
     const out: Found[] = [];
     const walk = (node: unknown, call: number): void => {
         if (Array.isArray(node)) for (const item of node) walk(item, call);
         else if (node && typeof node === "object") {
             const expr = node as { kind?: string; value?: unknown; name?: number };
+            // (a `prefix:` argument - Kill / Create / Visible prefix=...: the start of node names, never text)
+            if (expr.kind === undefined && "value" in expr && (expr.name ?? 0) >>> 0 === PREFIX) return;
             if (expr.kind === "literal") {
                 const value = expr.value as Literal;
                 if (value.type === 3 || value.type === 4) out.push({ literal: value, call });
