@@ -25,6 +25,7 @@ namespace {
 // (graphics_options_state()).
 struct GraphicsOptionsState {
     Options options_{};
+    LiveReload live_reload_ = nullptr;
 };
 
 GraphicsOptionsState& graphics_options_state()
@@ -39,6 +40,14 @@ constexpr float kMaxScale = 8.0F;
 } // namespace
 
 Options& get_pull() { return graphics_options_state().options_; }
+
+void set_live_reload(LiveReload reload) { graphics_options_state().live_reload_ = reload; }
+
+bool reload_live(const char* key)
+{
+    const LiveReload reload = graphics_options_state().live_reload_;
+    return reload != nullptr && key != nullptr && reload(key);
+}
 
 void read_in()
 {

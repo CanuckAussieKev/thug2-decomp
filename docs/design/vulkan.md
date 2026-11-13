@@ -1595,6 +1595,24 @@ off by default - nothing is drawn differently then: no listener, no motion bit, 
   every ray-traced effect on, HDR, `off` with 8x MSAA, 1920 x 1080, the RTX 5070 Ti): `on` against `off` mean PSNR /
   SSIM - DLSS quality 34.65 dB / 0.944, performance 34.52 / 0.951, DLAA 35.16 / 0.945; FSR quality 35.61 / 0.958,
   performance 34.39 / 0.940; worst spot z_dt-back (30.7 dB); nothing black; the logs say every view was upscaled.
+
+### Changing the settings while the game runs (the Options screen)
+
+`app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,
+`read_rt_gi`, `read_rt_reflections`, `read_hdr`, `read_rt_fog`, `read_rt_sun`, `read_rt_sky`, `read_rt_relit`,
+`read_upscale`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
+end's Options screen writes a `[Graphics]` key it calls `render::graphics_options::reload_live(key)`: a key of an
+effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
+the sun / shafts / bloom / sky model's, the sky and clouds', relit's) has that effect's settings read again and set
+through its `set_rt_*_settings` - each takes the backend's lock and adds or removes its view listener, as at
+start-up; the shadows are followed by the bounce (their `off` clears the baked sun it wants). Effects' histories start
+again, and the sky is matched again, so a change shows at once. What the device or the level's load was made for
+waits for the restart: `renderer`, `ray_tracing` (the device's extensions), `rt_hdr` (the colour targets' format - a
+live reload keeps the start-up value for the HDR pass, the fog, the sun and the sky), `upscaler` / `upscale_quality` /
+`ray_reconstruction` (the targets and the provider), `rt_tessellation` (read once, when meshes load) and
+`anisotropy` / `msaa` / the distance scales. On Direct3D 9 nothing is installed: the key is written and the screen says
+"Restart to apply".
+
 ## Order of work
 
 | # | task | depends on | start |
