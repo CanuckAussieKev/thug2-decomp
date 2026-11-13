@@ -77,7 +77,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     when given (`camera off` lets go), and `capture <frames> [folder]` saves the next 1-600 frames, every one, as
     `Screenshots\<folder>\frame_0001.png ...` with one `series.txt` (the sidecar, and each frame's game frame / vblank /
     clock). While a series runs the main loop doesn't count the capture's time, so no frame is skipped: the series is
-    the game's frames 1/60 s of game time apart. Script command too: `TeleportSkaterStanding pos=(x, y, z) heading=f`.
+    the game's frames 1/60 s of game time apart. `capture <frames> [folder] afterload` starts at the first frame drawn
+    after the next level's loading screen (not the front end's) and is done at once (armed): with `-Level`, a level's
+    first frame onward (a `camera` given before the load holds through it). Script command too:
+    `TeleportSkaterStanding pos=(x, y, z) heading=f`.
     E.g. the user's screenshot spot, still and drifting sideways:
     `-Level foun -Commands "waitfor level foun 150;teleport -4087.3 -390 2386.6 -177.3;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949;wait 60;capture 120 still;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.05 0 0;capture 120 side"`.
   - **One ray, two ways** (ray tracing's check against the game's collision): `rtprobe <x> <y> <z> <dx> <dy> <dz> [max]`
@@ -135,6 +138,14 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (Vulkan minus Direct3D 9), the largest, the pixels over the threshold, their bounding rectangle and the three 80x80
   cells holding most of them; also the same over every pixel. `report.txt` / `report.json`; `--pictures` writes
   `sbs/<name>.png` (Direct3D 9 | Vulkan | the difference x4, the noise mask blue).
+- `node tools/game/first_frame_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
+  [--settings <ini>] [--levels BO,AU,z_dt,foun] [--set Graphics.key=value]...` - the first frame after a load
+  (docs/design/vulkan.md "The first frame after a load"): under the workspace's lock, the build deployed, each level
+  started with `-Level` and a camera held through the load, `capture 61 ... afterload`; `on` the [Graphics] of
+  `--settings` (default the main install's ini, read only; the window's keys left as the workspace's), `off` the same
+  with ray tracing and every `rt_` effect off. Then `compare <folder> [--threshold 12] [--grow 2]`: frame 1 against
+  frame 60 outside the noise (`off`'s frame 1 / 60 and `on`'s frames 50 - 60): at most 0.5% of the pixels changed and a
+  mean difference of at most 0.6; the log's new-world line before the series' first frame; the times reported.
 - `node tools/game/rt_shadows_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
   [--baseline-build <folder>] [--groups foun,BO] [--runs 2] [--owner <name>] [--set Graphics.rt_shadow_strength=0.5]...
   [--expect shadows|none]` - ray-traced sun shadows (`[Graphics] rt_shadows`) in the game: under the workspace's lock,
@@ -185,6 +196,20 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   brightened more often than the baked-bright ones (more in the shade); the `on` logs showing "rt_gi: the first indirect
   light pass" and no skip. `--set Graphics.rt_gi_rays=4` etc. try the other settings; the passes' device time is in the
   logs ("rt_gi: <x> ms a pass on the device").
+  `--effect tess` (both commands): smoothed curves (`[Graphics] rt_tessellation`) - 0 / 1, the rest as the ini and --set
+  have it; the plan's `qpsch` and `qpBO` groups (`--groups qpsch,qpBO`: sch's quarter pipe still and with the skater
+  riding up it, fences, barriers, a taxi; BO's start, cannons, statues). `--expect drawn`: the mean luma change at most 6,
+  at most 0.1% turned black (a hole) or white (the sky through a crack), some spot changed by 0.05% or more; the `on`
+  logs show "rt_tessellation: on" and a "meshes smoothed" line, the `off` ones neither; the levels' smoothing totals and
+  the frame times reported.
+- `node tools/game/tess_gap.ts run --game C:\Games\THUG2-<n> --build <x64 build> --level <name> --at x,y,z,heading --out
+  <folder> [--set S.key=v]...` - how far the drawn surfaces are from the collision with `rt_tessellation` 0 and 1: under
+  the workspace's lock, the build deployed, the level loaded twice (`ray_tracing=1`), the skater stood at --at and a fan
+  of rays (every 10 degrees round, four pitches down, from 150 units over him) cast with `colprobe` and `rtprobe`; per
+  ray hitting a slope (the collision's normal 0.2 - 0.97 up) on the same surface both ways, the gap along its normal
+  (positive: the drawn surface behind the collision - the wheels float; negative: they sink). Fails when the smoothing
+  moved a surface more than --cap (2). `report <folder>` reads the logs again. E.g. sch's quarter pipe: `--level sch
+  --at 960,-440,2550,90`.
 - `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
   [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
   (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed

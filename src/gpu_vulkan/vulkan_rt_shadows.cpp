@@ -842,7 +842,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     if (sun != Sun::kFound) {
-        // (waiting for the level's baked sun - its world stands still a second first -, or a level whose bake shows
+        // (no baked sun fitted yet - a new world gets it in its first frame, before it is drawn -, or a level whose bake shows
         // none: indoors, lit by its lamps - nothing to add; rt_record logs the fit)
         return false;
     }

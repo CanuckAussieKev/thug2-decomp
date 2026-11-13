@@ -873,7 +873,8 @@ the original's own lighting already says otherwise, is decided so:
   directional lights are the light manager's two (toward (0.75, 0.5, 0.43) and (-0.79, 0.5, -0.37)) in every level -
   they light the skater and the objects, not the level - so tracing toward the first one put the shadows where the
   level's bake has none (BO, sch: 65-95% of each picture darkened, the sunlit paving with it). The level's own sun is in
-  its world meshes' vertex colours: once the world has stood still for 60 frames `render_pc/rt_record` samples its
+  its world meshes' vertex colours: in a new world's first frame, before it is drawn ("The first frame after a load"
+  below), `render_pc/rt_record` samples its
   upward-facing triangles (the colour's luma at each) and `fit_baked_sun` traces every sample toward 240 directions
   over the sky (then 60 within 10 degrees of the best, 40 within 3): the direction whose "not blocked" correlates best
   with the brightness is the sun (BO heading -75 / elevation 52, z_dt 44 / 53, z_ho 45 / 58, sch -45 / 36; about 1.5-2.7
@@ -1261,6 +1262,137 @@ their depth and stay in front of any sky).
   with clouds at half resolution 0.15 ms (march 0.11, temporal 0.01, composite 0.02) and 7.4 ms (5.0, 0.9, 1.5). In the
   game at 1280 x 720 with 8 x MSAA and every other effect on: 0.04 - 0.10 ms on the RTX 5070 Ti (the windows' averages,
   loading screens included).
+
+### The first frame after a load
+
+With the effects on, the first frame the player sees after a load is as complete as one a second later - nothing
+fades in. Before, four things were deferred: the baked sun was fitted only once the world had stood still for 60
+frames (shadows, the bounce light, the fog's shafts and the haze's sun skipped until then, then ~0.35 s of tracing
+mid-play); the BLASes' compaction ran a few frames later (memory only - every BLAS was already built in the first
+frame); the temporal effects (AO, GI, fog) started from empty histories and faded in over 12 - 32 frames; and the sky
+model's table / sun colour was made by the sun's pass, after the bounce light had read last frame's colour. Now:
+
+- **A new world's work in its first frame** (`render_pc/rt_record`): the loaded scenes' key (each non-sky scene, its
+  meshes and their count - not which are shown, so a sector turned on or off keeps the fit) differs from the one last
+  settled - a level's first frame, the editor's load. Right after that frame's `begin_frame` and before any view is
+  drawn: `RayTracing::settle` (added to the contract; the Vulkan backend finishes the frame's work, then builds the
+  frame's scene again - which collects the compacted sizes, copies each static BLAS into its smaller structure and
+  rebuilds the TLAS over the new addresses - in rounds until no size is waited for), then the baked sun's fit when it is
+  wanted. The frame is presented over the loading screen's last picture, so this is loading time. Log: "rt: a new
+  world's first frame: ... ms in all before it is drawn" and "rt: the new world's first frame took ... ms".
+- **Every history starts again** with a new world (`settle` resets the AO's, GI's and fog's): a camera held at the
+  same place across the load would otherwise find the last world's history.
+- **Meshes not skinned yet are traced by nothing**: a mesh skinned on the processor is recorded as a transparent
+  instance (mask 0x80) until one of its vertex buffers has been written after it was first recorded - before that its
+  buffers hold the unskinned data, which in a level's first frame cast large wrong shadows and occlusion (AU: 40% of the
+  first picture darkened, the seeded histories carrying it for ~30 frames). The same held for a ped appearing mid-play.
+- **The frame's sun before the views**: `RayTracing::prepare_frame` (added; every frame after `begin_frame`) - the
+  Vulkan backend brings the sky model's table and `rt::set_sun_light` up to date for the frame's sun while the sun's
+  effects or the sky model are on.
+- **Seeded histories** (`gpu_vulkan/vulkan_rt_history.h`): a history that starts again - a new viewport or target, a
+  load, a viewport not drawn the frame before, the settings changed, or a **cut** (the camera moved more than 250 units
+  or turned more than 45 degrees between two frames: a teleport, a restart, looking behind) - runs the trace and the
+  temporal pass as many times in that frame as the history holds, each with the next frame's directions / jitter from
+  the same camera: AO and GI 32 times (then the spatial filter once), the fog 12 marches. The frame shows what a still
+  camera shows after that many frames; pixels disoccluded in a continuing shot still start again on their own. The cost
+  is that many passes in the one frame (logged once per effect: "a history started again ... seeded").
+- **Pipelines**: every effect's pipelines are made the first time its pass runs - now all in that first frame, before
+  it is presented (the fog's and the shadows' no longer wait for the sun). The RT shaders are compiled by glslang each
+  run (no SPIR-V cache yet - the front end's first frame pays for most of it: 0.3 - 2 s measured, the driver's own cache
+  warm or not).
+- **Off**: with no ray-tracing backend `rt_record` does nothing; with ray tracing but no effect wanting the sun, only
+  the compaction (milliseconds).
+- **Checked**: `thug2_vulkan_rt_effects_check` (the first denoised frame and a camera cut against the 256-ray reference,
+  every history 32 long), `thug2_vulkan_rt_gi_check` (the first frame against its reference), `thug2_vulkan_rt_fog_check`
+  (the first frame's history full and converged; the raw march compared at the seeded frame index). In the game,
+  `tools/game/first_frame_check.ts` (tools/game/README.md): the automation channel's `capture 61 <folder> afterload`
+  takes a level's first frame and the 60 after it from a camera held through the load, with the user's `[Graphics]`
+  (`on`) and with ray tracing off (`off`: the scene's own motion); frame 1 against frame 60 outside both noise masks.
+  Measured (RTX 5070 Ti, 1280 x 720, the user's settings: every effect, msaa 8): BO 0.000% of the compared pixels
+  changed, AU 0.007%, z_dt 0.081%, foun 0.015% (at most 0.5%); the work before the first frame is drawn 255 / 361 / 186
+  / 265 ms (the structures 13 - 55 ms of it, the rest the sun's fit), the first frame 389 / 1557 / 330 / 365 ms in all
+  (the seeded histories and the pipelines first used there; the front end's first frame ~330 ms). Before, the first
+  frame showed no shadows / bounce / haze sun and AO / GI faded in; the fit's ~0.35 s came a second into play.
+
+### Smoothed curves (`rt_tessellation`)
+
+THUG2's curves are facets: a quarter pipe is 6-12 flat strips, a rail 6-8 sides, a cannon wheel or a car's wing a few
+dozen triangles, and their silhouettes and shading show it. `[Graphics] rt_tessellation=1` (off by default;
+`rt_tessellation=0` loads and draws exactly what main does - one test of a flag per mesh at load) rounds them off.
+
+- **Where it is done: once, at load, on the processor** (`engine/gfx/smooth_tess`, `render_pc/mesh_smoothing`). A
+  scene mesh's body (`read_mesh`, before its buffers are made) gets its curved triangles split: the new vertices after
+  its own, a new strip for its first level of detail. Nothing in the draw path changes - the fixed-function emulation,
+  the pipelines, the Direct3D 9 renderer and the ray tracing all get more triangles - so it costs no shader variant, no
+  tessellation stage (absent from the AMD integrated GPU's and MoltenVK's portability subsets anyway) and no mesh
+  shaders, and **what rays see is what is drawn**: `rt_record` registers each mesh's first level of detail from its
+  buffers, so its BLAS is built from the smoothed geometry (the shadows, occlusion and reflections fall on the rounded
+  surface; `rtprobe` hits it - below). The other levels of detail keep the original vertices (still first) and strips.
+  One reader keeps the original triangles: the baked sun's samples (R4: `fit_baked_sun` and the bake's agreement walk
+  the world's triangles, each counted the same) - split triangles would weigh 9 - 16 times and move the fitted sun (sch:
+  elevation 36 -> 31, the agreement's samples 195,000 -> 673,000: shadows changed level-wide, the first check run caught
+  it); `mesh_smoothing` keeps each smoothed mesh's original strip by its index buffer (shared copies share it, copies
+  copy it) and `rt_record` samples that.
+  Distance-adaptive factors would mean a second strip per mesh or a tessellation stage; instead each mesh gets the level
+  its curves need (below), which keeps it crack-free with a fixed vertex buffer.
+- **Which meshes**: every scene mesh (levels, objects, cars - models loaded from memory too) with a plain vertex format
+  (a position, optionally a normal, a colour and texture coordinate pairs), not skinned (skaters and peds are left
+  out), no per-vertex colour animation, no bone-scaled positions, not dynamic, its material's first pass neither
+  transparent (decals, glass, water) nor cut out (alpha reference above 8: foliage, fences' meshes). Within a mesh only
+  triangles with a **curved edge** are split: the corners' normals come from the geometry (the file's normals are
+  lighting, and most level meshes have none) - faces joined across edges where they meet at under 50 degrees (smoothing
+  groups, the faces' normals averaged by their corner angles) - and an edge is curved when exactly two faces of the mesh
+  share it, wound alike, at under 50 degrees, and its curve leaves the straight edge by more than 0.02 units. Flat walls
+  and floors (parallel normals: no curve), hard edges (creases), open edges and the meshes' boundaries stay straight.
+  Measured: BO 585 of 2173 meshes (11,577 triangles split; indices 39,250 -> 294,202), sch 961 of 1711 (24,380;
+  117,492 -> 650,697); 52 / 104 ms at load.
+- **The shape**: Phong tessellation (Boubekeur and Alexa 2008: a point of the flat triangle pulled toward its corners'
+  tangent planes) with shape factor 0.5, raised per edge by 2 (1 / cos h - 1) / sin^2 h (h half the angle between the
+  edge's two normals) so an edge's middle lies on the circular arc its normals describe; inside a triangle the edges'
+  factors blend toward their own edge. On a 16-sided cylinder of radius 100 the new points lie within 0.02 of the circle
+  (the facets: 1.92); on an 8-sided rail of radius 3, 0.008 (0.23). A mesh's level (2 - `rt_tess_level`, default 3) is
+  the one that follows its largest curve to about 0.05 units (the error falls as 1 / level^2).
+- **Crack-free**: one level a mesh, so two split triangles on an edge cut it alike; a curved edge's points are made from
+  its two ends' positions and normals only, in one order (the lower welded position first), so the triangles on it - with
+  the same vertex indices or across a texture seam (positions repeated) - get the same points to the bit; a straight edge
+  of a split triangle is not cut: its points collapse onto its two ends (degenerate slivers, a fan), so meshes and
+  triangles beside it meet it at its original two vertices - no T-junctions anywhere.
+- **Collision is the original's** (nothing in physics changes; the game's collision is its own `.col` data), so the
+  drawn surface must stay near it: each mesh's largest distance of a new point from its original flat triangle is
+  measured, and past `rt_tess_max_deviation` (default 2 units) the shape factor is scaled down until it is exactly that.
+  Measured per level ([debug] `tess_log=1` logs every mesh): sch's median 0.69, BO's 1.36; 270 meshes a level reach the
+  cap (big low-poly shapes - mounds, domes, statues - whose uncapped bulge would be 2 - 99 units). At sch's quarter pipe
+  `tools/game/tess_gap.ts` (a fan of rays cast both through the collision - `colprobe` - and the ray-traced scene -
+  `rtprobe` - with rt_tessellation 0 and 1, the gap along the slope's normal) finds the drawn surface moved by at most
+  0.77 (mean 0.16) and only behind the collision (the arc lies behind its chords): the wheels can float that much over
+  the drawn curve between its original vertices, never sink (0.04 at most in front); the original's own drawn meshes
+  already differ from its collision by up to 2.5 there.
+- **Displacement** (`rt_displacement` > 0: units for the full height range): a new point moves along the smoothed normal
+  by scale x (height - 0.5), inside the cap left by the curve; only new points shared outright by both triangles of an
+  edge, or inside a triangle (a seam's two sides would read different texels and open); never on thin meshes (bounds'
+  smallest side under 24 units: rails, poles). The heights come from `mesh_smoothing::set_height_lookup` - the seam for
+  generated height maps (a material's lookup on the processor, at load); none is installed yet, and
+  `rt_tess_test_heights=1` gives every material a test pattern (ridges along u) to see it work.
+- **Checked**: `thug2_tess_check` (processor only - the tessellation runs there, so it is the same on every GPU): a
+  16-sided cylinder with a seam down its side and one round its middle (every inner edge shared by two triangles wound
+  opposite ways after welding by position; the seam's new points made on both sides at the same positions; texture
+  coordinates continuous; every triangle still facing out; the original vertices first and unchanged; nothing NaN),
+  capped to 0.5 (the deviation exactly the cap, every point between the facets and the circle), displaced by a ridged
+  height (within the cap, still crack-free); an 8-sided rail (smoothed, not displaced); a quarter pipe with floor and
+  deck in two meshes side by side (on the arc within 0.0014 between its end segments - 0.26 at the floor's and the
+  coping's corners, which have one side's normals only -, the deck behind the coping's crease untouched, the two meshes
+  meeting at their original vertices only); a flat floor, a box and `rt_tess_level=1` unchanged; a mesh too big for 16
+  bits left as it is. In the game `tools/game/rt_shadows_check.ts --effect tess` (the plan's `qpsch` / `qpBO` groups:
+  sch's quarter pipe still and with the skater riding up it, fences, barriers, a taxi; BO's start, cannons, statues):
+  off against main's build changed 0.00 - 0.01% (identical but for animation), on against off bounded (mean luma change
+  at most 0.8, nothing turned black or white - no holes, no sky through a crack).
+- **Cost**: the draws' triangles - the smoothed meshes' indices x 5.5 - 7.5 (BO 39,250 -> 294,202; the split triangles'
+  rows are strips of their own, joined by degenerate triangles); in sch at the start with the user's settings (every
+  ray-traced effect on, 8 x MSAA, 1280 x 720, RTX 5070 Ti) the frame lines read 21.9 / 24.5 ms against 22.0 / 25.1 off -
+  within the run-to-run noise (the frame is bound by the processor; the device waits 0.3 ms); memory: sch +66,780
+  vertices (~2.5 MB) and +533,205 indices (~1 MB); 50 - 180 ms more at load.
+- **Not done**: no distance-adaptive or screen-space factors (one level a mesh, made at load: changing it needs the level
+  reloaded); skinned meshes; the generated height maps (the seam is there).
 
 ## Order of work
 

@@ -1020,22 +1020,9 @@ void run_open(render::Gpu& gpu, std::span<const SceneMesh> floor, Tally* tally)
     release_targets(gpu, targets);
 }
 
-void run_denoised(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+// The denoised light read back against the 256-ray reference: near it, every history full.
+void compare_denoised(Tally* tally)
 {
-    text::print("denoised (%u rays a frame), a still camera:\n", kDenoisedRays);
-    Targets targets;
-    const bool made = make_targets(gpu, 0, &targets);
-    tally->check(made, "the targets made");
-    if (!made) {
-        release_targets(gpu, targets);
-        return;
-    }
-    render::vulkan::set_rt_gi_settings(settings_for(true, kDenoisedRays, true));
-    int passes = 0;
-    for (int frame = 0; frame < kStillFrames; ++frame) {
-        passes += static_cast<int>(draw_frame(gpu, targets, meshes, static_cast<uint64_t>(frame) + 1));
-    }
-    tally->check(passes == kStillFrames, text::format("%d frames, %d passes", kStillFrames, passes));
     render::vulkan::RtAoTexels final_light;
     const bool read = read_gi(render::vulkan::RtGiImage::kFinal, &final_light);
     tally->check(read && not_finite(final_light) == 0,
@@ -1090,6 +1077,30 @@ void run_denoised(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
         tally->check(short_history == 0, text::format("every history full (%u frames): %d not",
                                                       render::vulkan::kAoMaxHistory, short_history));
     }
+}
+
+void run_denoised(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("denoised (%u rays a frame), a still camera:\n", kDenoisedRays);
+    Targets targets;
+    const bool made = make_targets(gpu, 0, &targets);
+    tally->check(made, "the targets made");
+    if (!made) {
+        release_targets(gpu, targets);
+        return;
+    }
+    render::vulkan::set_rt_gi_settings(settings_for(true, kDenoisedRays, true));
+    // (added by the first frame) the first frame: its history seeded with a full history's rays
+    // (vulkan_rt_history.h) - as near the reference, every history full
+    int passes = static_cast<int>(draw_frame(gpu, targets, meshes, 1));
+    text::print("  the first frame (its history seeded):\n");
+    compare_denoised(tally);
+    for (int frame = 1; frame < kStillFrames; ++frame) {
+        passes += static_cast<int>(draw_frame(gpu, targets, meshes, static_cast<uint64_t>(frame) + 1));
+    }
+    tally->check(passes == kStillFrames, text::format("%d frames, %d passes", kStillFrames, passes));
+    text::print("  after %d frames:\n", kStillFrames);
+    compare_denoised(tally);
     release_targets(gpu, targets);
 }
 

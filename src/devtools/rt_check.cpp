@@ -259,6 +259,20 @@ public:
         }
     }
 
+    // (added by the first frame) passed on as they are
+    void settle(const rt::FrameRecord& record) override
+    {
+        if (inner_ != nullptr) {
+            inner_->settle(record);
+        }
+    }
+    void prepare_frame() override
+    {
+        if (inner_ != nullptr) {
+            inner_->prepare_frame();
+        }
+    }
+
     [[nodiscard]] bool wants_draws() const override { return true; }
 
     void mesh_drawn(rt::MeshId mesh, const rt::Rows& object_to_world) override
