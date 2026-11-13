@@ -23,6 +23,12 @@
 //     beside the red wall, its far side from the sun in shade -: both effects' raw rays averaged over 48 frames step at
 //     its triangles' edges no more than within a triangle; the same sphere without normals (the depth's per-triangle
 //     normal) does step there - the facets the skater showed.
+//   - (added for the skinned meshes' attributes) The red wall as the skater's skinned meshes' vertices (format 0x152:
+//     the normal at 12, the colour at 24, the uv at 28 - not the scene file's offsets 24 / 28 / 32 the mesh itself
+//     gives), textured white at its texture coordinates and blue elsewhere, its geometry's attributes worked out from
+//     the format (engine/gfx/rt_vertex_attributes.h, as render_pc's frame record does): the rays as they are pass as
+//     with the untextured red wall (its albedo the texel x its colour: the same red); given the mesh's own offsets (as
+//     before) they don't - the bounce takes the blue.
 //   thug2_vulkan_rt_gi_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
@@ -52,6 +58,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_vertex_attributes.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -101,6 +108,21 @@ constexpr unsigned kRawRays = 4;
 constexpr unsigned kDenoisedRays = 2;
 constexpr int kStillFrames = 48;
 constexpr uint32_t kWorldOpaque = rt::kWorld | rt::kOpaque | rt::kCastsShadow;
+// (added for the skinned meshes' attributes) The vertex the CPU skinning writes (render_pc/pc_mesh_load.cpp
+// set_up_skinning, pc_mesh_render.cpp get_skin): XYZ | NORMAL | DIFFUSE | TEX1 - and the offsets the scene file gives
+// such a mesh (its packed vertex's), which the geometry table was once filled from.
+constexpr uint32_t kFvfSkinned = 0x152;
+constexpr uint32_t kSkinnedStride = 36;
+constexpr uint32_t kSkinnedNormal = 12;
+constexpr uint32_t kSkinnedColour = 24;
+constexpr uint32_t kSkinnedUv = 28;
+constexpr uint32_t kSceneFileColour = 28;
+constexpr uint32_t kSceneFileUv = 32;
+constexpr uint32_t kSkinnedVertexColour = 0x8030C050U; // (green: the bounce leaves vertex colours out)
+constexpr float kWhiteTexelUv = 0.75F;                  // the 2 x 2 texture's white texel (1, 1); the others blue
+constexpr uint32_t kTextureSide = 2;
+constexpr uint32_t kWhiteTexel = 0xFFFFFFFFU;
+constexpr uint32_t kBlueTexel = 0xFF0000FFU;
 
 struct Options {
     int display = 0;
@@ -593,6 +615,107 @@ void release_solid(render::Gpu& gpu, SceneMesh* mesh)
         gpu.release_vertex_buffer(mesh->vertices);
     }
     *mesh = SceneMesh{};
+}
+
+// --- (added for the skinned meshes' attributes) the red wall as a skinned mesh's vertices ---------------------------
+
+// The 2 x 2 texture: texel (1, 1) white, the others blue.
+bool make_texture(render::Gpu& gpu, render::GpuTexture** made)
+{
+    if (gpu.create_texture({.width = kTextureSide,
+                            .height = kTextureSide,
+                            .levels = 1,
+                            .usage = 0,
+                            .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           made) != value::kResultOk) {
+        *made = nullptr;
+        return false;
+    }
+    render::GpuLockedRect locked;
+    if (gpu.lock_texture(*made, 0, &locked, nullptr, 0) != value::kResultOk) {
+        return false;
+    }
+    const auto pitch = static_cast<std::size_t>(locked.pitch);
+    const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits), pitch + (kTextureSide * kPixelBytes));
+    for (uint32_t row = 0; row < kTextureSide; ++row) {
+        for (uint32_t column = 0; column < kTextureSide; ++column) {
+            put_word(into, (row * pitch) + (column * kPixelBytes),
+                     row == 1 && column == 1 ? kWhiteTexel : kBlueTexel);
+        }
+    }
+    gpu.unlock_texture(*made, 0);
+    return true;
+}
+
+// A solid's mesh in the skinned meshes' vertex (format 0x152: each triangle's normal, a green vertex colour, every
+// corner's texture coordinates on the white texel) and its material (that texture, sampled nearest, times the
+// solid's albedo: the same colour as make_solid's untextured one). `scene_file`: the geometry given the mesh's own
+// offsets, as the frame record once did, in place of the format's.
+bool make_skinned_solid(render::Gpu& gpu, const Solid& solid, render::GpuTexture* texture, bool scene_file,
+                        SceneMesh* mesh)
+{
+    mesh->triangles = triangles_of(solid);
+    mesh->drawn = solid.drawn;
+    std::vector<uint8_t> bytes(mesh->triangles.size() * kSkinnedStride);
+    for (std::size_t i = 0; i < mesh->triangles.size(); ++i) {
+        const std::size_t base = i * kSkinnedStride;
+        const std::size_t first = i - (i % 3);
+        const auto corner = [&](std::size_t which) {
+            const std::array<float, 3>& at = core::at(mesh->triangles, first + which);
+            return Vec3{core::at(at, 0), core::at(at, 1), core::at(at, 2)};
+        };
+        const std::array<float, 3> normal =
+            floats(normalised(cross(minus(corner(1), corner(0)), minus(corner(2), corner(0)))));
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            put_float(bytes, base + (axis * sizeof(float)), core::at(core::at(mesh->triangles, i), axis));
+            put_float(bytes, base + kSkinnedNormal + (axis * sizeof(float)), core::at(normal, axis));
+        }
+        put_word(bytes, base + kSkinnedColour, kSkinnedVertexColour);
+        put_float(bytes, base + kSkinnedUv, kWhiteTexelUv);
+        put_float(bytes, base + kSkinnedUv + sizeof(float), kWhiteTexelUv);
+    }
+    void* data = nullptr;
+    if (gpu.create_vertex_buffer(static_cast<uint32_t>(bytes.size()), 0, kFvfSkinned, value::kPoolDefault,
+                                 &mesh->vertices) != value::kResultOk ||
+        gpu.lock_vertex_buffer(mesh->vertices, 0, 0, &data, 0) != value::kResultOk) {
+        return false;
+    }
+    std::memcpy(data, bytes.data(), bytes.size());
+    if (gpu.unlock_vertex_buffer(mesh->vertices) != value::kResultOk) {
+        return false;
+    }
+    rt::Geometry geometry{.vertices = mesh->vertices,
+                          .vertex_offset = 0,
+                          .vertex_stride = kSkinnedStride,
+                          .vertex_count = static_cast<uint32_t>(mesh->triangles.size()),
+                          .position_offset = 0,
+                          .indices = nullptr,
+                          .index_offset = 0,
+                          .index_count = 0,
+                          .indices_32bit = false,
+                          .strip = false,
+                          .dynamic = false};
+    if (!rt::set_vertex_attributes(kFvfSkinned, &geometry)) {
+        return false;
+    }
+    if (scene_file) {
+        geometry.colour_offset = kSceneFileColour;
+        geometry.uv_offset = kSceneFileUv;
+    }
+    mesh->id = rt::next_mesh_id();
+    rt::ray_tracing()->add_mesh(mesh->id, geometry);
+    mesh->material = rt::next_material_id();
+    rt::Material surface;
+    surface.texture = texture;
+    surface.address_u = value::kAddressClamp;
+    surface.address_v = value::kAddressClamp;
+    surface.filter = value::kFilterPoint;
+    surface.colour = {static_cast<float>(core::at(solid.albedo, 0)), static_cast<float>(core::at(solid.albedo, 1)),
+                      static_cast<float>(core::at(solid.albedo, 2)), 1.0F};
+    surface.flags = rt::kOpaque;
+    rt::ray_tracing()->set_material(mesh->material, surface);
+    return true;
 }
 
 // --- drawing it through the Gpu ----------------------------------------------------------------------------------
@@ -1439,6 +1562,47 @@ int window_position(int display)
     return position;
 }
 
+// (added for the skinned meshes' attributes) The scene with its red wall in the skinned meshes' vertex: the rays as
+// they are against the same processor answers as the untextured wall's; then with the mesh's own offsets, which must
+// fail them.
+void run_skinned(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("the red wall as a skinned mesh's vertices (format %X, stride %u: the normal at %u, the colour at %u, "
+                "the uv at %u):\n",
+                kFvfSkinned, kSkinnedStride, kSkinnedNormal, kSkinnedColour, kSkinnedUv);
+    constexpr rt::VertexAttributes kFound = rt::vertex_attributes(kFvfSkinned);
+    static_assert(kFound.position == 0 && kFound.normal == kSkinnedNormal && kFound.colour == kSkinnedColour &&
+                      kFound.uv == kSkinnedUv && kFound.uv_sets == 1 && kFound.bytes == kSkinnedStride,
+                  "the skinned vertex's attributes where get_skin writes them");
+    constexpr std::size_t kWall = 1;
+    render::GpuTexture* texture = nullptr;
+    std::vector<SceneMesh> scene(meshes.begin(), meshes.end());
+    SceneMesh wall;
+    bool made = make_texture(gpu, &texture) &&
+                make_skinned_solid(gpu, core::at(kRoom, kWall), texture, false, &wall);
+    tally->check(made, "the skinned wall made (its texture, mesh and material)");
+    if (made) {
+        core::at(scene, kWall) = wall;
+        run_raw(gpu, scene, 0, tally);
+    }
+    release_solid(gpu, &wall);
+    made = made && make_skinned_solid(gpu, core::at(kRoom, kWall), texture, true, &wall);
+    if (made) {
+        text::print("  (the same wall given the mesh's own offsets - colour %u, uv %u -, which must fail:)\n",
+                    kSceneFileColour, kSceneFileUv);
+        core::at(scene, kWall) = wall;
+        Tally wrong;
+        run_raw(gpu, scene, 0, &wrong);
+        tally->check(wrong.failed > 0,
+                     text::format("the mesh's own offsets don't give the wall's albedo: %d of their checks failed",
+                                  wrong.failed));
+    }
+    release_solid(gpu, &wall);
+    if (texture != nullptr) {
+        gpu.release_texture(texture);
+    }
+}
+
 enum class Opened : uint8_t { kYes, kNoDevice, kNoRayQueries };
 Opened open_device(const Options& options, SDL_Window* window)
 {
@@ -1507,6 +1671,7 @@ int run(const Options& options, SDL_Window* window)
         run_open(gpu, std::span(meshes).first(1), &tally);
         run_denoised(gpu, meshes, &tally);
         run_smooth(gpu, meshes, &tally);
+        run_skinned(gpu, meshes, &tally);
     }
     for (SceneMesh& mesh : meshes) {
         release_solid(gpu, &mesh);

@@ -35,6 +35,7 @@
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
+#include "engine/gfx/rt_vertex_attributes.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/memory/arena_alloc.h"
 #include "platform/platform_config.h"
@@ -74,12 +75,6 @@ constexpr float kPerByte = 1.0F / 255.0F;       // a dynamic light's
 constexpr int kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
 // The baked sun's fit (engine/gfx/rt_sun.h)
-constexpr uint32_t kFvfNormal = 0x10;           // a vertex format's normal (three floats after the position)
-constexpr uint32_t kFvfPointSize = 0x20;        // ... its point size (a float)
-constexpr uint32_t kFvfDiffuse = 0x40;          // ... its diffuse colour (B, G, R, A bytes) - the baked lighting
-constexpr uint32_t kPositionBytes = 12;
-constexpr uint32_t kBlendWeightBytes = 4;
-constexpr uint32_t kNormalBytes = 12;
 constexpr uint32_t kColourBytes = 4;
 constexpr float kLumaRed = 0.299F;              // a colour's brightness (Rec. 601 luma)
 constexpr float kLumaGreen = 0.587F;
@@ -92,8 +87,6 @@ constexpr float kMinUp = 0.7F;                  // the samples' triangles face u
 constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
 constexpr std::size_t kMaxSceneLights = 31;     // update_all_lights' limit
-constexpr uint32_t kFvfTexCountMask = 0xF00;    // a vertex format's count of texture coordinate sets
-constexpr uint32_t kFvfTexCountShift = 8;
 constexpr uint32_t kPassEnvironment = 0x8;      // a material pass's flags: environment mapped (pc_material.cpp)
 constexpr uint32_t kPassCount = 4;              // a material's passes, at most
 constexpr uint32_t kPassTextureAlpha = 0x1000;  // a pass's flags: its alpha from the texture only (pixel_shaders.cpp)
@@ -180,17 +173,36 @@ VertexBuffer* last_drawn_buffer(const MeshRef* mesh)
     return mesh->vertex_store(index);
 }
 
-// (added for the skater's smooth shading) Where a vertex of this format holds its normal - three floats after the
-// position and its blend weights, as Direct3D lays a vertex format out and the buffers are drawn with -, or 0: none.
-// (Not the mesh's normal_offset(): the skater's skinned meshes (format 152) give 24 there - their colour's place in the
-// vertex the skinning writes - with the normal at 12.)
-uint32_t fvf_normal_offset(uint32_t fvf)
+// (added for the skinned meshes' attributes) A mesh's own normal / colour / uv offsets against where its vertex format
+// puts them (rt_vertex_attributes.h: the format is what the buffer is drawn with, and what the geometry table reads by),
+// logged once for each format, stride and offsets that disagree. The skater's skinned meshes always do - their
+// offsets are the scene file's packed vertex's -; any other mesh would be a surprise worth knowing about.
+// A traced attribute's offset as the log shows it (-1: none).
+int shown(uint32_t format, uint32_t offset) { return format != rt::kAttributeNone ? static_cast<int>(offset) : -1; }
+
+void report_offsets(const MeshRef* mesh, const rt::Geometry& geometry)
 {
-    const uint32_t position = fvf & kPositionMask;
-    if (position < kPositionXyz || position > kPositionXyzB5 || (position % 2) != 0 || (fvf & kFvfNormal) == 0U) {
-        return 0;
+    const auto own = [](uint8_t offset, uint32_t format, uint32_t derived) {
+        return format != rt::kAttributeNone ? uint32_t{offset} != derived : offset != 0U;
+    };
+    if (!own(mesh->normal_offset(), geometry.normal_format, geometry.normal_offset) &&
+        !own(mesh->color_offset(), geometry.colour_format, geometry.colour_offset) &&
+        !own(mesh->uv_offset(), geometry.uv_format, geometry.uv_offset)) {
+        return;
     }
-    return kPositionBytes + (kBlendWeightBytes * ((position - kPositionXyz) / 2));
+    const uint64_t key = (uint64_t{mesh->fvf()} << 32U) | (uint64_t{mesh->stride()} << 24U) |
+                         (uint64_t{mesh->normal_offset()} << 16U) | (uint64_t{mesh->color_offset()} << 8U) |
+                         uint64_t{mesh->uv_offset()};
+    static core::NoDestroy<std::unordered_set<uint64_t>> logged;
+    if (!logged.get().insert(key).second) {
+        return;
+    }
+    get_log("rt: a mesh's own attribute offsets (normal %u colour %u uv %u) aren't its vertex format's %X, stride %u "
+            "(normal %d colour %d uv %d, -1: none) - the format's used%s",
+            unsigned{mesh->normal_offset()}, unsigned{mesh->color_offset()}, unsigned{mesh->uv_offset()}, mesh->fvf(),
+            unsigned{mesh->stride()}, shown(geometry.normal_format, geometry.normal_offset),
+            shown(geometry.colour_format, geometry.colour_offset), shown(geometry.uv_format, geometry.uv_offset),
+            mesh->per_vertex_data() != nullptr ? " (skinned: the offsets are its packed vertex's, as expected)" : "");
 }
 
 // A mesh's triangles where the card has them (its first level of detail), or false: nothing to trace (no indices, no
@@ -225,20 +237,12 @@ bool geometry_of(const MeshRef* mesh, rt::Geometry* out, const VertexBufferData*
         .vertex_buffer_bytes = ((vb->flags & kVertexBufferShare) != 0U ? vb->arena_offset() : 0U) + vb->size(),
         .index_buffer_bytes = ib->size(),
         .cpu_indices = ib->indices(),
-        // (the texture coordinates and the colour at the mesh's offsets - 0: none, as texture_splats.cpp reads them -
-        // where its vertex format has them)
-        .uv_offset = mesh->uv_offset(),
-        .uv_format = mesh->uv_offset() != 0 && (mesh->fvf() & kFvfTexCountMask) != 0U ? rt::kUvFloat2
-                                                                                        : rt::kAttributeNone,
-        .colour_offset = mesh->color_offset(),
-        .colour_format = mesh->color_offset() != 0 && (mesh->fvf() & kFvfDiffuse) != 0U ? rt::kColourA8R8G8B8
-                                                                                         : rt::kAttributeNone,
-        // (one set a pass: the vertex format's count, two floats each)
-        .uv_sets = (mesh->fvf() & kFvfTexCountMask) >> kFvfTexCountShift,
-        // (added for the skater's smooth shading: its vertex normals, where its format has them)
-        .normal_offset = fvf_normal_offset(mesh->fvf()),
-        .normal_format = fvf_normal_offset(mesh->fvf()) != 0 ? rt::kNormalFloat3 : rt::kAttributeNone,
     };
+    // (every attribute where the vertex format the buffer is drawn with puts it - not the mesh's own offsets, which for
+    // a skinned mesh are its packed vertex's: rt_vertex_attributes.h)
+    if (!rt::set_vertex_attributes(mesh->fvf(), out)) {
+        return false;
+    }
     *source = vb;
     return true;
 }
@@ -261,6 +265,7 @@ rt::MeshId mesh_id(const MeshRef* mesh, rt::RayTracing& rt)
         const MeshEntry entry{.id = rt::next_mesh_id(), .geometry = geometry, .source = source, .frame = st.frame};
         rt.add_mesh(entry.id, geometry);
         st.meshes.emplace(mesh, entry);
+        report_offsets(mesh, geometry);
         return entry.id;
     }
     MeshEntry& entry = found->second;
@@ -614,17 +619,20 @@ void log_object_mesh(const MeshRef* mesh, rt::MeshId id, uint32_t flags, rt::Mat
         return;
     }
     found->second = flags;
+    const rt::Geometry& geometry = state().meshes.at(mesh).geometry;
     const MaterialRef* surface = mesh->material();
     get_log("rt: object mesh %u: flags %04X, material %u (%08X, alpha ref %u, first pass blend %u flags %04X), "
-            "%u vertices, %u vertex buffers, bone %d, skinned %s, format %X, stride %u, offsets normal %u colour %u "
-            "uv %u",
+            "%u vertices, %u vertex buffers, bone %d, skinned %s, format %X, stride %u, its offsets normal %u colour %u "
+            "uv %u, traced at normal %d colour %d uv %d (%u sets; -1: none)",
             static_cast<unsigned>(id), flags, static_cast<unsigned>(material),
             surface != nullptr ? surface->checksum() : 0U, surface != nullptr ? unsigned{surface->alpha_ref()} : 0U,
             surface != nullptr ? core::at(surface->blend_modes(), 0) : 0U,
             surface != nullptr ? core::at(surface->pass_flags(), 0) : 0U, mesh->vertex_count(),
             unsigned{mesh->vertex_buffer_count()}, mesh->bone() == kNoBoneByte ? kNoBone : int{mesh->bone()},
             mesh->per_vertex_data() != nullptr ? "yes" : "no", mesh->fvf(), unsigned{mesh->stride()},
-            unsigned{mesh->normal_offset()}, unsigned{mesh->color_offset()}, unsigned{mesh->uv_offset()});
+            unsigned{mesh->normal_offset()}, unsigned{mesh->color_offset()}, unsigned{mesh->uv_offset()},
+            shown(geometry.normal_format, geometry.normal_offset), shown(geometry.colour_format, geometry.colour_offset),
+            shown(geometry.uv_format, geometry.uv_offset), geometry.uv_sets);
 }
 
 // One instance of a mesh with a world transform (a Direct3D matrix).
@@ -729,20 +737,6 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
 }
 
 // --- the baked sun (engine/gfx/rt_sun.h) ------------------------------------------------------------------------------
-
-// Where a vertex's diffuse colour is in a vertex of this format, or false: none (or a position not of three floats).
-bool colour_offset(uint32_t fvf, uint32_t* offset)
-{
-    const uint32_t position = fvf & kPositionMask;
-    if (position < kPositionXyz || position > kPositionXyzB5 || (position % 2) != 0 || (fvf & kFvfDiffuse) == 0U) {
-        return false;
-    }
-    uint32_t at = kPositionBytes + (kBlendWeightBytes * ((position - kPositionXyz) / 2));
-    at += (fvf & kFvfNormal) != 0U ? kNormalBytes : 0U;
-    at += (fvf & kFvfPointSize) != 0U ? static_cast<uint32_t>(sizeof(float)) : 0U;
-    *offset = at;
-    return true;
-}
 
 // A mesh's triangles as the sampler walks them, read from the copies in memory: their count, a triangle's corners, a
 // vertex's position and its baked colour's brightness.
@@ -856,12 +850,12 @@ std::vector<MeshTriangles> sampled_meshes(bool as_drawn)
         }
         const rt::Geometry& geometry = found->second.geometry;
         const VertexBufferData& source = *found->second.source;
-        uint32_t colour = 0;
+        // (the colour where the vertex format puts it - rt_vertex_attributes.h -, within the vertex)
         if (source.data() == nullptr || geometry.cpu_indices == nullptr || geometry.dynamic ||
-            geometry.vertex_stride == 0 || !colour_offset(mesh->fvf(), &colour) ||
-            colour + kColourBytes > geometry.vertex_stride) {
+            geometry.vertex_stride == 0 || geometry.colour_format != rt::kColourA8R8G8B8) {
             continue;
         }
+        const uint32_t colour = geometry.colour_offset;
         // Not original - a mesh smoothed at load (mesh_smoothing.h) sampled on its original triangles (its original
         // vertices are still first), so the sun and the bake's agreement are found as without smoothing.
         rt::Geometry sampled = geometry;
