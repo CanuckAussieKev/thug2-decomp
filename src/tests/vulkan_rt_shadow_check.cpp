@@ -360,7 +360,11 @@ Answer reference(const View& view, Pixel pixel, uint32_t casters, bool sky)
     const Vec3 light = toward_light();
     constexpr double kOffSurface = 1e-6;
     const Vec3 origin = step(step(kEye, direction, nearest.distance), nearest.normal, kOffSurface);
-    answer.shadowed = dot(nearest.normal, light) <= 0.0 || caster_hit(origin, light, casters);
+    // (an object's face - the skater's - takes the world's shadows only, and is never shadowed for facing away from the
+    // light: the pass's normal is the triangle's, flat - vulkan_rt_shadows.cpp)
+    const bool object = (core::at(kSolids, answer.surface - 1).mask & render::vulkan::kMaskObjects) != 0;
+    answer.shadowed = object ? caster_hit(origin, light, casters & ~render::vulkan::kMaskObjects)
+                             : dot(nearest.normal, light) <= 0.0 || caster_hit(origin, light, casters);
     if (answer.shadowed && sky) {
         sky_test(origin, casters, &answer);
     }

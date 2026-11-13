@@ -7,6 +7,7 @@ import type { Image } from "thug2-level-converter-core/lib/frame_diff.ts";
 import { readPlan } from "./renderer_parity.ts";
 import {
     anyShadow,
+    brighterAllowances,
     configValues,
     darkestRatio,
     darkOverBright,
@@ -146,6 +147,10 @@ test("the configurations' ini values, and the plan's level groups", () => {
     const plan = readPlan(fs.readFileSync(path.join(here, "rt_shadows.json"), "utf8"));
     assert.ok(plan.groups.length >= 5);
     for (const g of plan.groups) assert.ok(g.level && g.spots?.length, g.name);
+    // (the skater's spot: its own shadow from the game hidden while the traced one is cast - a little brightened)
+    const allowed = brighterAllowances(plan);
+    assert.equal(allowed.get("nj-skater"), 0.015);
+    assert.equal(allowed.has("BO-yard"), false);
 });
 
 const AO: Limits = { ...LIMITS, expect: "shadows", strength: 0.6, effect: "ao" };
