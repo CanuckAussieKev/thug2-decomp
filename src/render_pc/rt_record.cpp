@@ -1,6 +1,7 @@
 // NOT ORIGINAL - ray tracing's frame as data: see rt_record.h.
 
 #include "render_pc/rt_record.h"
+#include "render_pc/mesh_smoothing.h"
 
 #include <algorithm>
 #include <array>
@@ -517,7 +518,7 @@ bool colour_offset(uint32_t fvf, uint32_t* offset)
 class MeshTriangles {
 public:
     MeshTriangles(const rt::Geometry& geometry, const VertexBufferData& source, uint32_t colour)
-        : geometry_(&geometry),
+        : geometry_(geometry),
           vertices_(source.data(), source.size()),
           colour_(colour),
           index_bytes_(geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t))
@@ -526,25 +527,25 @@ public:
 
     [[nodiscard]] uint32_t count() const
     {
-        if (geometry_->strip) {
-            return geometry_->index_count >= 3 ? geometry_->index_count - 2 : 0U;
+        if (geometry_.strip) {
+            return geometry_.index_count >= 3 ? geometry_.index_count - 2 : 0U;
         }
-        return geometry_->index_count / 3;
+        return geometry_.index_count / 3;
     }
     // The triangle's three vertex indices, or false (degenerate, or outside the vertices).
     bool corners(uint32_t triangle, std::array<uint32_t, 3>* out) const
     {
-        const uint32_t first = geometry_->strip ? triangle : triangle * 3;
+        const uint32_t first = geometry_.strip ? triangle : triangle * 3;
         *out = {index(first), index(first + 1), index(first + 2)};
         const uint32_t limit =
-            std::min(geometry_->vertex_count, static_cast<uint32_t>(vertices_.size() / geometry_->vertex_stride));
+            std::min(geometry_.vertex_count, static_cast<uint32_t>(vertices_.size() / geometry_.vertex_stride));
         const auto [one, two, three] = *out;
         return one != two && two != three && one != three && one < limit && two < limit && three < limit;
     }
     [[nodiscard]] rt::Vec3 position(uint32_t vertex) const
     {
         rt::Vec3 out{};
-        std::memcpy(out.data(), vertices_.subspan(std::size_t{vertex} * geometry_->vertex_stride, sizeof(out)).data(),
+        std::memcpy(out.data(), vertices_.subspan(std::size_t{vertex} * geometry_.vertex_stride, sizeof(out)).data(),
                     sizeof(out));
         return out;
     }
@@ -553,7 +554,7 @@ public:
     {
         std::array<uint8_t, kColourBytes> bgra{};
         std::memcpy(bgra.data(),
-                    vertices_.subspan((std::size_t{vertex} * geometry_->vertex_stride) + colour_, bgra.size()).data(),
+                    vertices_.subspan((std::size_t{vertex} * geometry_.vertex_stride) + colour_, bgra.size()).data(),
                     bgra.size());
         return (kLumaBlue * static_cast<float>(std::get<0>(bgra))) + (kLumaGreen * static_cast<float>(std::get<1>(bgra))) +
                (kLumaRed * static_cast<float>(std::get<2>(bgra)));
@@ -562,10 +563,10 @@ public:
 private:
     [[nodiscard]] uint32_t index(uint32_t at) const
     {
-        const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry_->cpu_indices),
-                                               (std::size_t{geometry_->index_offset} + geometry_->index_count) *
+        const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry_.cpu_indices),
+                                               (std::size_t{geometry_.index_offset} + geometry_.index_count) *
                                                    index_bytes_);
-        const std::size_t byte = (std::size_t{geometry_->index_offset} + at) * index_bytes_;
+        const std::size_t byte = (std::size_t{geometry_.index_offset} + at) * index_bytes_;
         if (index_bytes_ == sizeof(uint32_t)) {
             uint32_t value = 0;
             std::memcpy(&value, indices.subspan(byte, sizeof(value)).data(), sizeof(value));
@@ -576,7 +577,7 @@ private:
         return value;
     }
 
-    const rt::Geometry* geometry_;
+    rt::Geometry geometry_; // (a copy: the sampled triangles may be other than the drawn ones - sampled_meshes)
     std::span<const uint8_t> vertices_;
     uint32_t colour_; // the colour's offset in a vertex
     std::size_t index_bytes_;
@@ -623,7 +624,18 @@ std::vector<MeshTriangles> sampled_meshes()
             colour + kColourBytes > geometry.vertex_stride) {
             continue;
         }
-        meshes.emplace_back(geometry, source, colour);
+        // Not original - a mesh smoothed at load (mesh_smoothing.h) sampled on its original triangles (its original
+        // vertices are still first), so the sun and the bake's agreement are found as without smoothing.
+        rt::Geometry sampled = geometry;
+        const std::span<const uint16_t> original = mesh_smoothing::original_strip(core::at(mesh->index_buffers(), 0));
+        if (!original.empty()) {
+            sampled.cpu_indices = original.data();
+            sampled.index_offset = 0;
+            sampled.index_count = static_cast<uint32_t>(original.size());
+            sampled.indices_32bit = false;
+            sampled.strip = true;
+        }
+        meshes.emplace_back(sampled, source, colour);
     }
     return meshes;
 }

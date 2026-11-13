@@ -12,6 +12,8 @@
 #include <cstring>
 #include <numbers>
 #include <span>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
@@ -46,6 +48,13 @@ struct Settings {
     bool test_heights = false;
     bool log_meshes = false; // [debug] tess_log: a line a smoothed mesh
 };
+
+// The smoothed meshes' original strips (original_strip).
+std::unordered_map<const IndexBufferData*, std::vector<uint16_t>>& originals()
+{
+    static std::unordered_map<const IndexBufferData*, std::vector<uint16_t>> kept;
+    return kept;
+}
 
 HeightForMaterial& height_slot()
 {
@@ -156,18 +165,46 @@ bool on() { return settings().on; }
 
 void set_height_lookup(HeightForMaterial lookup) { height_slot() = lookup; }
 
-void smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material, bool dynamic)
+void remember_original(const IndexBufferData* drawn, std::vector<uint16_t> original)
+{
+    if (drawn != nullptr && !original.empty()) {
+        originals()[drawn] = std::move(original);
+    }
+}
+
+std::span<const uint16_t> original_strip(const IndexBufferData* drawn)
+{
+    const auto found = originals().find(drawn);
+    return found == originals().end() ? std::span<const uint16_t>{} : std::span<const uint16_t>(found->second);
+}
+
+void copy_original(const IndexBufferData* from, const IndexBufferData* to)
+{
+    const std::span<const uint16_t> original = original_strip(from);
+    if (!original.empty() && to != nullptr) {
+        originals()[to] = std::vector<uint16_t>(original.begin(), original.end());
+    }
+}
+
+void forget_original(const IndexBufferData* drawn)
+{
+    if (!originals().empty()) {
+        originals().erase(drawn);
+    }
+}
+
+std::vector<uint16_t> smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material, bool dynamic)
 {
     if (!on() || body == nullptr || material == nullptr || dynamic || body->has_vertex_bytes || !body->scaled.empty() ||
         fvf == 0 || core::at(body->index_counts, 0) < 3) {
-        return;
+        return {};
     }
     if ((core::at(material->pass_flags(), 0) & kPassTransparent) != 0U || material->alpha_ref() > kCutOutAlphaRef) {
-        return;
+        return {};
     }
     tess::VertexLayout layout;
     if (!layout_of(fvf, *body, &layout) || !scene_format::vertices_fit(*body, body->stride)) {
-        return;
+        return {};
     }
     // The material's heights: the installed lookup's (the generated height maps), else the test pattern when asked.
     tess::Options options = settings().options;
@@ -190,7 +227,7 @@ void smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* 
     sum.milliseconds +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
     if (!result.changed) {
-        return;
+        return {};
     }
     ++sum.meshes;
     sum.triangles_before += result.triangles;
@@ -228,8 +265,10 @@ void smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* 
     // vertices, still first)
     body->vertices = result.vertices;
     body->vertex_count = static_cast<uint16_t>(result.vertex_count);
+    std::vector<uint16_t> original(strip.begin(), strip.begin() + core::at(body->index_counts, 0));
     strip = result.strip;
     core::at(body->index_counts, 0) = static_cast<uint16_t>(result.strip.size());
+    return original;
 }
 
 void log_totals(const char* scene)

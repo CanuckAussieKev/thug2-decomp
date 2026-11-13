@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
+#include <vector>
 
 #include "engine/gfx/smooth_tess.h"
 
@@ -15,6 +17,7 @@ struct MeshBody;
 namespace render {
 
 struct MaterialRef;
+struct IndexBufferData;
 
 namespace mesh_smoothing {
 
@@ -24,7 +27,19 @@ namespace mesh_smoothing {
 // The mesh body (read_mesh: the file's, before the buffers are made) smoothed when it can be: a vertex format of a
 // position, an optional normal and colour and texture coordinate pairs; not skinned, no per-vertex colour animation,
 // no bone-scaled positions, not dynamic; its material neither transparent nor cut out.
-void smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material, bool dynamic);
+// Returns the first level of detail's strip as the file had it when the body was smoothed (empty: left as it was), for
+// remember_original.
+[[nodiscard]] std::vector<uint16_t> smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material,
+                                                bool dynamic);
+
+// A smoothed mesh's original strip, by its first level of detail's index buffer (shared by the copies that share its
+// buffers; copied with those that copy them): what the baked sun's samples read (rt_record), so the level's sun and the
+// bake's agreement are found on the original surfaces, as without smoothing (the original vertices are still first).
+// Empty: not smoothed. Forgotten when the buffer is destroyed.
+void remember_original(const IndexBufferData* drawn, std::vector<uint16_t> original);
+[[nodiscard]] std::span<const uint16_t> original_strip(const IndexBufferData* drawn);
+void copy_original(const IndexBufferData* from, const IndexBufferData* to);
+void forget_original(const IndexBufferData* drawn);
 
 // The heights a material's mesh is displaced by ([Graphics] rt_displacement above 0): the lookup fills `out` (its lookup
 // and context; the scale is the setting's) and says whether the material has a height map. The seam for the generated
