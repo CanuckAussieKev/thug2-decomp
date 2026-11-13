@@ -14,6 +14,7 @@
 #endif
 
 #include "base/core/checked_index.h"
+#include "base/core/compiler.h"
 #include "base/maths/mat4.h"
 #include "base/maths/trig.h"
 
@@ -31,10 +32,11 @@ using Vector3 = std::array<float, 3>;
 using Matrix = std::array<float, kMatrixFloats>;
 
 // (row r, column c)
-float element(ConstFloats16 matrix, int row, int column) { return core::at(matrix, (row * kSide) + column); }
+// (THUG2_FORCEINLINE: the transforms' inner loops - the skinning's per vertex - left these as calls)
+THUG2_FORCEINLINE float element(ConstFloats16 matrix, int row, int column) { return core::at(matrix, (row * kSide) + column); }
 
 // The row vector (v, w) times column j of m, as D3DX sums it: (x m0 + y m1) + (z m2 + w m3).
-float row_times_column(ConstFloats4 v, ConstFloats16 matrix, int column)
+THUG2_FORCEINLINE float row_times_column(ConstFloats4 v, ConstFloats16 matrix, int column)
 {
     const float p0 = core::at(v, 0) * element(matrix, 0, column);
     const float p1 = core::at(v, 1) * element(matrix, 1, column);

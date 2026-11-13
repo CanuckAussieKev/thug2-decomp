@@ -11,6 +11,7 @@
 #include <gsl/util>
 
 #include "base/core/api.h"
+#include "base/core/compiler.h"
 
 // NOT ORIGINAL - indexing checked against the extent: core::at(container, index) is gsl::at (an index outside the
 // array, std::array, std::vector or std::span ends the game with a report instead of reading or writing past it),
@@ -58,6 +59,23 @@ inline void set_out_of_range_handler(OutOfRangeHandler handler) { detail::out_of
     return detail::out_of_range_slot().load(std::memory_order_relaxed);
 }
 
+namespace detail {
+// An index outside the extent: reported and the stand-in element given under soft_bounds, else gsl::at's failure (the
+// game ends). Out of line, never inlined: the check in `at` is then a compare and a branch, small enough for the
+// compiler to inline `at` - and the little accessors built on it - into the hot loops (the matrices' elements, the
+// draws' state).
+template <typename Reference, typename Container>
+THUG2_NOINLINE Reference out_of_range(Container&& container, gsl::index checked, const std::source_location& where)
+{
+    using Element = std::remove_cvref_t<Reference>;
+    if (const OutOfRangeHandler handler = out_of_range_handler()) {
+        handler(where, checked, static_cast<std::ptrdiff_t>(std::size(container)));
+        return stand_in_element<Element>();
+    }
+    return gsl::at(std::forward<Container>(container), checked);
+}
+} // namespace detail
+
 template <typename Container, typename Index>
     requires std::integral<Index> || std::is_enum_v<Index>
 constexpr auto at(Container&& container, Index index, const std::source_location where = std::source_location::current())
@@ -69,11 +87,8 @@ constexpr auto at(Container&& container, Index index, const std::source_location
     if constexpr (!std::is_enum_v<Element> && std::is_default_constructible_v<Element> && std::is_move_assignable_v<Element>) {
         if (!std::is_constant_evaluated()) {
             const auto extent = static_cast<std::ptrdiff_t>(std::size(container));
-            if (checked < 0 || checked >= extent) {
-                if (const OutOfRangeHandler handler = out_of_range_handler()) {
-                    handler(where, checked, extent);
-                    return detail::stand_in_element<Element>();
-                }
+            if (checked < 0 || checked >= extent) [[unlikely]] {
+                return detail::out_of_range<Reference>(std::forward<Container>(container), checked, where);
             }
         }
     }

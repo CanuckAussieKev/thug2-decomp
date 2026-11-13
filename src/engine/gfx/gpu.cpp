@@ -177,21 +177,6 @@ void GpuStateBlock::reset()
     viewport = GpuViewport{};
 }
 
-uint32_t GpuStateBlock::render_state(GpuRenderState state) const
-{
-    return core::at(render_states, core::to_underlying(state));
-}
-
-uint32_t GpuStateBlock::stage_state(uint32_t stage, GpuStageState state) const
-{
-    return core::at(core::at(stage_states, stage), core::to_underlying(state));
-}
-
-uint32_t GpuStateBlock::sampler_state(uint32_t sampler, GpuSamplerState state) const
-{
-    return core::at(core::at(sampler_states, sampler), core::to_underlying(state));
-}
-
 int GpuStateBlock::enabled_light_count() const { return std::popcount(lights_enabled); }
 
 void GpuStateBlock::record_render_state(GpuRenderState state, uint32_t value)

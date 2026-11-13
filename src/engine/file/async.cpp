@@ -566,7 +566,10 @@ bool PcAsyncFileHandle::os_read_finished()
     }
     bool done = false;
     if (outcome_val() == kErrorIoPending) {
-        done = async_ctl_.Internal != kStatusPending;
+        // (read each time - the system writes it when the read completes: os_read_chunk waits in an empty loop on this,
+        // and with this inlined there a plain read was made once, before the loop - a load that never finished)
+        const volatile ULONG_PTR& status = async_ctl_.Internal;
+        done = status != kStatusPending;
         if (done) {
             uint32_t bytes = 0;
             fs::disk().overlapped_result(file_ref_, &async_ctl_, &bytes, false);

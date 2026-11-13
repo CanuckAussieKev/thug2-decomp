@@ -3,6 +3,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
+#include "platform/frame_profile.h"
 #include "engine/gfx/rt_sun.h"
 
 #include <algorithm>
@@ -73,6 +74,7 @@ void remove_view_listener(ViewListener* listener) { std::erase(view_listeners(),
 
 void opaque_view_drawn(const ViewDrawn& view)
 {
+    const frame_profile::Scope phase("fx_opaque"); // (where a frame's time goes - platform/frame_profile.h)
     for (ViewListener* listener : view_listeners()) {
         listener->opaque_drawn(view);
     }
@@ -80,6 +82,7 @@ void opaque_view_drawn(const ViewDrawn& view)
 
 void world_view_drawn(const ViewDrawn& view)
 {
+    const frame_profile::Scope phase("fx_world");
     for (ViewListener* listener : view_listeners()) {
         listener->world_drawn(view);
     }
@@ -89,6 +92,7 @@ bool view_listened() { return !view_listeners().empty(); }
 
 void view_begins(const ViewDrawn& view)
 {
+    const frame_profile::Scope phase("fx_view_begins");
     for (ViewListener* listener : view_listeners()) {
         listener->view_begins(view);
     }
@@ -487,6 +491,7 @@ SkyReplacement sky_replacement()
 
 void sky_view_drawn(const ViewDrawn& view)
 {
+    const frame_profile::Scope phase("fx_sky");
     for (ViewListener* listener : view_listeners()) {
         listener->sky_drawn(view);
     }

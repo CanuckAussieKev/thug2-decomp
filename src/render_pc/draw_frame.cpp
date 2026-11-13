@@ -45,6 +45,7 @@
 #include "render_pc/render_state.h"
 #include "render_pc/scene_render.h"
 #include "render_pc/rt_record.h"
+#include "platform/frame_profile.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
 #include "platform/run_log.h"
@@ -1212,10 +1213,16 @@ void draw_world()
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
         // Not original - ray tracing's record (rt_record.h): the frame's instances and lights. Original behaviour:
         // nothing.
-        rt_record::record_frame();
+        {
+            const frame_profile::Scope phase("rt_record"); // (not original: [debug] frame_profile)
+            rt_record::record_frame();
+        }
         set_render_state(RenderStateId::kZWrite, 1);
         set_render_state(RenderStateId::kZTest, 1);
-        render_shadow_textures();
+        {
+            const frame_profile::Scope phase("shadow_textures"); // (not original: [debug] frame_profile)
+            render_shadow_textures();
+        }
         // Not original - the sky's backdrop captured once per sky scene for a renderer that draws its own sky
         // (capture_sky). Original behaviour: nothing.
         capture_sky();
@@ -1233,6 +1240,7 @@ void draw_world()
             // Original behaviour: the render mode (0x006FA734) isn't read.
             wireframe::begin_world();
             view_mode::begin_world(); // (not original either: the editor's view modes - render_pc/view_mode.h)
+            const frame_profile::Scope phase("viewports"); // (not original: [debug] frame_profile)
             for (int i = 0; i < count; ++i) {
                 draw_viewport(i);
             }
@@ -1269,6 +1277,7 @@ void draw_world()
         // Not original - the 2D left out while an extension asks (ext::draws_2d: the demo viewer's HUD switch).
         // Original behaviour: always drawn.
         if (ext::draws_2d()) {
+            const frame_profile::Scope phase("2d"); // (not original: [debug] frame_profile)
             draw_2d_with_black_bars();
         }
         // Not original - the game view: the window drawn to again (what the extensions draw over the frame - the

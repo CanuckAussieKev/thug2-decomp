@@ -8,6 +8,8 @@
 
 // A function that must stay a real call (crash tests).
 #define THUG2_NOINLINE __declspec(noinline)
+// A tiny function always inlined: the hot loops' element accessors, which the compiler's heuristics left as calls.
+#define THUG2_FORCEINLINE __forceinline
 // The address the current function returns to (a debug tag).
 #define THUG2_RETURN_ADDRESS() _ReturnAddress()
 // An MSVC warning switched for the rest of the file / the next line: THUG2_MSVC_WARNING(disable : 4996).
@@ -16,6 +18,7 @@
 #else
 
 #define THUG2_NOINLINE __attribute__((noinline))
+#define THUG2_FORCEINLINE inline __attribute__((always_inline))
 #define THUG2_RETURN_ADDRESS() __builtin_return_address(0)
 #define THUG2_MSVC_WARNING(...)
 

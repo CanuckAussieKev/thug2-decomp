@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <utility>
 #include <new>
+#include <optional>
 
 #include "base/core/dbg.h"
 #include "engine/memory/mem.h"
@@ -28,6 +29,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/gpu_context.h"
 #include "platform/run_log.h"
+#include "platform/frame_profile.h"
 #include "platform/sdl_window.h"
 #include "engine/pad_input/sdl_input.h"
 #include "engine/objects/objects_shared.h"
@@ -85,6 +87,31 @@ void after_render() { sys::game_hooks().after_render(); } // (uses the skate mod
 void end_scene() { render::engine::end_render(); }      // EndScene, Present
 
 uint8_t cinema_bars_on() { return render::renderer().render_camera().letterbox_active_; }
+
+// NOT ORIGINAL - the frame's wait mostly slept: until `spin` before `due` (performance-counter ticks) on a
+// high-resolution waitable timer, when more than that is left. The main loop's Sleep(0) loop held a core busy for the
+// whole wait (each game running - and the workspaces' copies beside it - took a core from the others and from the
+// processor's boost); it now spins only the last moments, so the frame still starts at its time. Nothing when the
+// timer can't be made (older Windows): the spin does it all, as before.
+void sleep_until_near(uint64_t due, uint64_t now, int64_t frequency)
+{
+    constexpr int64_t kSpinMicroseconds = 2000; // (the timer wakes within a few hundred microseconds of its time)
+    constexpr int64_t kMicrosecondsPerSecond = 1000000;
+    constexpr int64_t kTicksPer100ns = 10; // (a waitable timer's relative time: 100 ns units, negative)
+    static HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    if (timer == nullptr || due <= now) {
+        return;
+    }
+    const auto left = static_cast<int64_t>((due - now) * kMicrosecondsPerSecond / static_cast<uint64_t>(frequency));
+    if (left <= kSpinMicroseconds) {
+        return;
+    }
+    LARGE_INTEGER wait;
+    wait.QuadPart = -(left - kSpinMicroseconds) * kTicksPer100ns;
+    if (SetWaitableTimer(timer, &wait, 0, nullptr, nullptr, FALSE) != 0) {
+        WaitForSingleObject(timer, INFINITE);
+    }
+}
 
 } // namespace
 
@@ -222,6 +249,8 @@ void Hub::get_main_loop()
     is_finished_ = 0U;
     for (bool repeat = true; repeat; repeat = (is_finished_ == 0U)) {
         ++frames_run(); // (not original - see frames_run)
+        frame_profile::loop_begin(); // (not original: [debug] frame_profile - platform/frame_profile.h)
+        std::optional<frame_profile::Scope> events_phase(std::in_place, "events");
         if ((screen_saver_timeout != 0U) && frames_since_screen_saver++ >= kScreenSaverResetFrames) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
@@ -260,13 +289,23 @@ void Hub::get_main_loop()
             render::engine_parts().set_suppress_draw(true);
         }
 
+        events_phase.reset();
         // Wait for the frame's time (60 a second). Not original: not while an extension runs flat out (pace.flat_out).
         QueryPerformanceCounter(&counter);
         auto now = static_cast<uint64_t>(counter.QuadPart);
-        while (!pace.flat_out && now < frame_start + frame_ticks) {
-            Sleep(0);
+        if (!pace.flat_out) {
+            const frame_profile::Scope pace_phase("pace");
+            // Not original - most of a long wait slept (sleep_until_near): the loop below then spins only the last
+            // moments, so the frame starts when it did, without a core held busy the whole time.
+            // Original behaviour: Sleep(0) until the frame's time.
+            sleep_until_near(frame_start + frame_ticks, now, frequency.QuadPart);
             QueryPerformanceCounter(&counter);
             now = static_cast<uint64_t>(counter.QuadPart);
+            while (now < frame_start + frame_ticks) {
+                Sleep(0);
+                QueryPerformanceCounter(&counter);
+                now = static_cast<uint64_t>(counter.QuadPart);
+            }
         }
         uint64_t elapsed = now - frame_start;
         if (elapsed > frame_ticks * kFarBehindFrames) { // far behind (a pause): start counting again from one frame ago
@@ -299,6 +338,7 @@ void Hub::get_main_loop()
             render::engine_parts().set_suppress_draw(true);
         }
 
+        const bool drawn = !render::engine_parts().suppress_draw(); // (not original: for frame_profile)
         // Not original - a held simulation (pace.hold: the demo viewer paused or slowed) counts no clock and runs no
         // task: the frame is drawn again as the last logic frame left it. Original behaviour: always a logic frame.
         if (!pace.hold) {
@@ -309,21 +349,32 @@ void Hub::get_main_loop()
                 --profile_frames_;
                 profiling_ = 1;
             }
-            run_tasks(system_tasks_, profiling_ != 0);
+            {
+                const frame_profile::Scope phase("system");
+                run_tasks(system_tasks_, profiling_ != 0);
+            }
+            const frame_profile::Scope phase("logic");
             run_tasks(logic_tasks_, profiling_ != 0);
         } else {
             ext::held_frame();
         }
-        if (!render::engine_parts().suppress_draw()) {
-            begin_scene();
+        {
+            const frame_profile::Scope phase("render");
+            if (!render::engine_parts().suppress_draw()) {
+                begin_scene();
+            }
+            render_frame_letterboxed();
+            after_render();
         }
-        render_frame_letterboxed();
-        after_render();
         // Not original - the extensions (engine/ext/extension.h; the screenshot key: the frame read just before it's
         // presented).
         // Original behaviour: the scene is ended and presented.
-        ext::before_present(!render::engine_parts().suppress_draw());
+        {
+            const frame_profile::Scope phase("before_present"); // (not original: [debug] frame_profile)
+            ext::before_present(!render::engine_parts().suppress_draw());
+        }
         if (!render::engine_parts().suppress_draw()) {
+            const frame_profile::Scope phase("present");
             end_scene();
         }
         // Not original - an extension that keeps every frame (engine/ext/extension.h; the screenshot key's frame
@@ -338,6 +389,7 @@ void Hub::get_main_loop()
             frame_clock::update_frame_length();
         }
         profiling_ = 0;
+        frame_profile::loop_end(drawn, render::engine_parts().loading_screen_up());
     }
     is_finished_ = done_on_entry;
 }

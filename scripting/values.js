@@ -330,7 +330,10 @@ globalThis.qbValues = (() => {
                 put(out, f[0], clone(f[1], "value", w), w);
             }
         };
-        const each = (list) => {
+        // (named: it calls itself by its own name, not through the `each` binding - a closure that captures its own
+        // binding is a cycle QuickJS frees only in a full collection, with this call's Work, its context and the task
+        // behind it)
+        const each = function eachEntry(list) {
             for (const entry of list) {
                 w.step();
                 if (entry === null) {
@@ -339,7 +342,7 @@ globalThis.qbValues = (() => {
                 }
                 // A Random among the fields: the drawn branch's entries, in this place.
                 if (typeof entry === "object" && typeof entry.group === "function") {
-                    each(entry.group());
+                    eachEntry(entry.group());
                     continue;
                 }
                 const f = entry();

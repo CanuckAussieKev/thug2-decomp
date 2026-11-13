@@ -360,7 +360,7 @@ globalThis.qb = (() => {
             if (rng && (t.status === 'finished' || t.status === 'fault')) rng.forget(t.id);
             return snapshot(t);
         },
-        cancel(id) { const removed=tasks.delete(id); if (removed && rng) rng.forget(id); return removed; },
+        cancel(id) { const t=tasks.get(id); if (t) t.generator=null; const removed=tasks.delete(id); if (removed && rng) rng.forget(id); return removed; },
         // --- the game's levels (a level: one call-stack level of a script record running a JavaScript script) ---
         // begin: a level of script `n` with the record's parameters `args`; owner: the record's id (stored randoms).
         begin(id, n, args, owner) {
@@ -396,8 +396,10 @@ globalThis.qb = (() => {
                 throw e;
             } finally { active = null; }
         },
-        // A level gone (its record reset, its level popped): forgotten.
-        drop(id) { tasks.delete(id); },
+        // A level gone (its record reset, its level popped): forgotten. (Its generator let go of first: a level
+        // dropped while waiting on a command holds its task in that call's frame - task -> generator -> ... -> call ->
+        // task - a cycle only QuickJS's collector frees, one full collection of the heap every few seconds.)
+        drop(id) { const t = tasks.get(id); if (t) t.generator = null; tasks.delete(id); },
         // An assignment by the level itself (name, the value as stored): sent back with its next answer.
         touched(n, value) { if (game && active && !active.dirty) active.assigned.push([n, value]); },
     });

@@ -1,6 +1,7 @@
 // NOT ORIGINAL - ray tracing's frame as data: see rt_record.h.
 
 #include "render_pc/rt_record.h"
+#include "platform/frame_profile.h"
 #include "render_pc/mesh_smoothing.h"
 
 #include <algorithm>
@@ -1179,6 +1180,7 @@ void camera_chosen(int viewport)
                                                        core::at(camera.position, 2)}});
     if (!st.begun) {
         st.begun = true;
+        const frame_profile::Scope phase("rt_begin"); // (where a frame's time goes - platform/frame_profile.h)
         rt->begin_frame(rt::frame_record());
         new_world_work(*rt); // (added by the first frame: a new world's structures and sun, before it is drawn)
         relit_work(*rt);
