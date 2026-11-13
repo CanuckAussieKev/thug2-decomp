@@ -76,8 +76,8 @@ int reload_dictionary(TextureSet* dictionary, const char* file)
     }
     const std::vector<BitmapTexture*> read = textures_of(fresh->textures());
     int swapped = 0;
-    for (BitmapTexture* from : read) {
-        BitmapTexture* to = dictionary->fetch_skin(from->checksum());
+    for (const BitmapTexture* from : read) {
+        const BitmapTexture* to = dictionary->fetch_skin(from->checksum());
         if (to == nullptr || !swappable(to) || !swappable(from)) {
             continue;
         }

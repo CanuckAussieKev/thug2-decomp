@@ -6,11 +6,13 @@
 #include <array>
 #include <cctype>
 #include <chrono>
+#include <ratio>
 #include <cstddef>
 #include <cstdint>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/core/format.h"
@@ -54,7 +56,7 @@ TextureSetsState& state()
 std::string lower(std::string_view text)
 {
     std::string out(text);
-    std::ranges::transform(out, out.begin(), [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); });
+    std::ranges::transform(out, out.begin(), [](char ch) { return static_cast<char>(std::tolower(static_cast<unsigned char>(ch))); });
     return out;
 }
 
@@ -93,20 +95,20 @@ std::string usable(const std::string& wanted)
 
 void read_once()
 {
-    TextureSetsState& s = state();
-    if (s.read) {
+    TextureSetsState& st = state();
+    if (st.read) {
         return;
     }
-    s.read = true;
+    st.read = true;
     const std::string setting = ini_setting();
-    s.active = usable(setting);
+    st.active = usable(setting);
     const std::vector<std::string> sets = installed_sets();
     std::string listed;
     for (const std::string& set : sets) {
         listed += (listed.empty() ? "" : ", ") + set;
     }
-    if (!sets.empty() || s.active != kOriginal) {
-        get_log("texture sets: %s in use (installed: %s)", s.active.c_str(), listed.empty() ? "none" : listed.c_str());
+    if (!sets.empty() || st.active != kOriginal) {
+        get_log("texture sets: %s in use (installed: %s)", st.active.c_str(), listed.empty() ? "none" : listed.c_str());
     }
 }
 
@@ -198,29 +200,29 @@ bool request_from_ini()
 
 bool tick()
 {
-    TextureSetsState& s = state();
-    if (s.wanted.empty()) {
+    TextureSetsState& st = state();
+    if (st.wanted.empty()) {
         return false;
     }
-    const std::string to = s.wanted;
-    s.wanted.clear();
-    if (to == s.active) {
+    const std::string to = st.wanted;
+    st.wanted.clear();
+    if (to == st.active) {
         return false;
     }
-    const std::string from = s.active;
-    s.active = to; // (the data overlay serves the new set's files from here on)
+    const std::string from = st.active;
+    st.active = to; // (the data overlay serves the new set's files from here on)
     const auto start = std::chrono::steady_clock::now();
     int dictionaries = 0;
     int textures = 0;
     int failed = 0;
-    if (s.reloader != nullptr) {
+    if (st.reloader != nullptr) {
         // (a copy: a reload adds or removes no dictionary, but the list is the loader's)
-        const std::vector<LoadedDictionary> loaded = s.dictionaries;
+        const std::vector<LoadedDictionary> loaded = st.dictionaries;
         for (const LoadedDictionary& entry : loaded) {
             if (!entry.file.starts_with(kLevelsPrefix) || find_tex_dict(entry.key) != entry.dictionary) {
                 continue; // (the level's only: a model's next load takes the set)
             }
-            const int swapped = s.reloader(entry.dictionary, entry.file.c_str());
+            const int swapped = st.reloader(entry.dictionary, entry.file.c_str());
             if (swapped < 0) {
                 ++failed;
                 continue;
@@ -230,10 +232,10 @@ bool tick()
         }
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-    s.last_switch = text::format("%s -> %s: %d dictionaries read again (%d textures) in %.0f ms%s", from.c_str(),
+    st.last_switch = text::format("%s -> %s: %d dictionaries read again (%d textures) in %.0f ms%s", from.c_str(),
                                  to.c_str(), dictionaries, textures, ms,
                                  failed != 0 ? text::format(", %d couldn't be read", failed).c_str() : "");
-    get_log("texture sets: %s", s.last_switch.c_str());
+    get_log("texture sets: %s", st.last_switch.c_str());
     memory::log_memory_use((std::string("after the texture set ") + to).c_str());
     return true;
 }

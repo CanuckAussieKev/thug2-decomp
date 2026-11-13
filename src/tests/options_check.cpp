@@ -251,8 +251,8 @@ void check_choice_filter()
     for (size_t i = 0; i < spec.choices.size(); ++i) {
         expect(options::choice_shown(spec, i), std::string("without a filter every choice is shown: ") + core::at(spec.choices, i).value);
     }
-    options::set_choice_filter([](const options::Spec& s, const char* value) {
-        return std::strcmp(s.key, "texture_set") != 0 || std::strcmp(value, "seedvr2") != 0;
+    options::set_choice_filter([](const options::Spec& filtered, const char* value) {
+        return std::strcmp(filtered.key, "texture_set") != 0 || std::strcmp(value, "seedvr2") != 0;
     });
     expect(options::choice_shown(spec, 0) && options::choice_shown(spec, 1) && !options::choice_shown(spec, 2),
            "the filter hides a set that isn't installed");
