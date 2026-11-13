@@ -57,7 +57,6 @@ constexpr uint32_t kGroupSide = 8;
 constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
 constexpr double kSingular = 1e-300;
-constexpr double kShortest = 1e-6;   // a light direction shorter than this: none
 constexpr uint32_t kSampleCycle = 4; // the pixel of each 2 x 2 block marched cycles through 4 frames
 
 // The full-screen triangle (three vertices, no buffers).
@@ -1267,10 +1266,11 @@ float from_half(uint16_t half)
     return sign != 0 ? -value : value;
 }
 
-// The level's sun: the console's override (rt sun), else the one fitted from the level's bake (engine/gfx/rt_sun.h -
-// the frame record's directional lights are the skater's and the objects', the same two in every level). None while the
-// fit hasn't run yet, or when the bake shows no sun (an indoor level): the fog is then lit by its ambient share alone -
-// no shafts. The fit is asked for while the fog is on (render_pc fits a new world in its first frame).
+// The scene's sun (rt_scene.h scene_sun - changed by the scene's sun: the console's `rt sun`, else rt_sun_source's, the
+// one every effect lights by; the frame record's directional lights are the skater's and the objects', the same two in
+// every level). None while the fit hasn't run yet, or when the bake shows no sun (an indoor level): the fog is then lit
+// by its ambient share alone - no shafts. The fit is asked for while the fog is on (render_pc fits a new world in its
+// first frame).
 void read_sun()
 {
     FogState& own = fog_state();
@@ -1279,21 +1279,12 @@ void read_sun()
     }
     own.have_sun = false;
     own.sun_tint = {1.0F, 1.0F, 1.0F}; // (the bake has no colour for its sun: the fog's own colour carries the hue)
-    std::array<float, 3> toward{};
-    bool found = rt::sun_override(&toward);
-    if (!found) {
-        const rt::BakedSun& baked = rt::baked_sun();
-        found = baked.scene != 0 && baked.found;
-        toward = baked.toward;
-    }
-    const double length = std::hypot(static_cast<double>(core::at(toward, 0)), static_cast<double>(core::at(toward, 1)),
-                                     static_cast<double>(core::at(toward, 2)));
-    if (!found || !(length > kShortest) || !std::isfinite(length)) {
+    const rt::SceneSun scene = rt::scene_sun();
+    rt::note_sun_used(rt::SunUser::kFog, scene.found(), scene.toward);
+    if (!scene.found()) {
         return;
     }
-    for (std::size_t i = 0; i < 3; ++i) {
-        core::at(own.to_sun, i) = static_cast<float>(static_cast<double>(core::at(toward, i)) / length);
-    }
+    own.to_sun = scene.toward;
     own.have_sun = true;
     // (added by the sun's glare) with the sky model (or rt_sun_colour) the sun has a colour: the fog's sunlit light is
     // tinted by it, its brightness kept (Rec. 709 luma 1)
@@ -1681,8 +1672,11 @@ void set_rt_fog_settings(const RtFogSettings& settings)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         fog_state().settings = kept;
-        rt_fog_reset_history(state);
-        replacing() = false;
+        // (a split comparison's swap between its sides keeps each side's history - rt_scene.h settings_swap)
+        if (!rt::settings_swap()) {
+            rt_fog_reset_history(state);
+            replacing() = false;
+        }
     }
     if (kept.on) {
         rt::add_view_listener(&listener());

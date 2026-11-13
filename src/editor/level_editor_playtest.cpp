@@ -658,7 +658,7 @@ void link_record(modules::FrontEnd* front_end)
     if (level_editor_playtest_state().rec_.open && (level_editor_playtest_state().rec_.load != load || !recording())) {
         close_run(level_editor_playtest_state().rec_.load != load ? "another level loaded" : "recording turned off");
     }
-    const bool paused = (front_end != nullptr) && front_end->is_halted();
+    const bool paused = (front_end != nullptr) && front_end->is_paused();
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!recording() || paused || !skater || render::current_level() == 0 || !layout::editing_copy()) {
         level_editor_playtest_state().rec_.last_ticks_ = 0;
@@ -755,7 +755,7 @@ void restart_step(modules::FrontEnd* front_end)
         level_editor_playtest_state().restart_ = 0;
         return;
     }
-    const bool paused = (front_end != nullptr) && front_end->is_halted();
+    const bool paused = (front_end != nullptr) && front_end->is_paused();
     if (paused || level_editor_playtest_state().restart_frames_ < 4 || !objects::find_object(kSkater) ||
         render::current_level() == 0) {
         return;

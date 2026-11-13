@@ -28,6 +28,9 @@ class Source;
 //   -demo-video <file.mp4>                      saves it as a video ([demo] video_fps / video_quality / video_codec /
 //                                               video_scale: engine/media/video_writer.h), then the game quits;
 //   -demo-quit                                  quits at the end (without -demo-capture).
+//   -viewer                                     in the demo viewer (devtools/demo_viewer.h: a timeline, cameras,
+//                                               keyframes, the split comparison); with -demo-video, the viewer's
+//                                               camera path (the demo's .camera.txt) saved as that video, then it quits.
 // In the game: the pause menu's DEMOS (the data overlay's scripts, tools/pipeline/menu_level/demo_menu.ts, call the
 // script commands Demo_Item, Demo_GetEntry, Demo_Record, Demo_Stop and Demo_Play): RECORD DEMO (as F6; STOP RECORDING
 // saves, the frames in the pause menu left out), PLAY DEMO and SAVE AS VIDEO (thug2-decomp-videos\<demo>.mp4) from a
@@ -56,6 +59,9 @@ input::Source& input_source();
 std::string record_now(const std::string& name);
 std::string stop_now();
 std::string play_now(const std::string& name);
+// The demo played in the demo viewer (devtools/demo_viewer.h): the pause menu's DEMOS > WATCH REPLAY, -demo <name>
+// -viewer, the console's `demo view <name>`.
+std::string view_now(const std::string& name);
 // The demo played and saved as a video as it plays: thug2-decomp-videos\<name>.mp4.
 std::string save_video_now(const std::string& name);
 std::string status_text();

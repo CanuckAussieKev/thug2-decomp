@@ -1404,17 +1404,19 @@ bool find_sun(Backend& state, const RtSunSettings& settings, std::array<float, 3
     SunState& own = sun_state();
     const bool want_sun = settings.sun || settings.shafts;
     const bool have_sun = want_sun && visible_sun(toward);
+    if (want_sun) {
+        rt::note_sun_used(rt::SunUser::kDrawnSun, have_sun, *toward);
+    }
     rt::set_sun_glare_replaced(settings.sun && have_sun);
     if (have_sun && *toward != own.logged_toward) {
-        // (logged when the sun moves: a new level, the time of day)
+        // (logged when the sun moves: a new level, the time of day, rt_sun_source)
         own.logged_toward = *toward;
-        std::array<float, 3> game{};
-        const bool from_game = !rt::sun_override(&game) && rt::game_sun(&game) && game == *toward;
+        const rt::SceneSun scene = rt::scene_sun();
         get_log("vulkan: rt_sun: the sun toward (%.3f, %.3f, %.3f), %.1f degrees up - %s",
                 static_cast<double>(core::at(*toward, 0)), static_cast<double>(core::at(*toward, 1)),
                 static_cast<double>(core::at(*toward, 2)),
                 std::asin(std::clamp(static_cast<double>(core::at(*toward, 1)), -1.0, 1.0)) * kDegreesPerRadian,
-                from_game ? "where the game shows its sun" : "the level's baked sun (or the override)");
+                scene.found() ? rt::sun_origin_name(scene.origin) : "where the game shows its sun (lighting nothing)");
     }
     if (want_sun && !have_sun) {
         sky_without_sun();
@@ -1676,8 +1678,14 @@ void set_rt_sun_settings(const RtSunSettings& settings)
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         sun_settings_held() = kept;
-        invalidate_sky();
-        rt::set_sun_glare_replaced(false);
+        // (a split comparison's swap between its sides: the sky's model kept - rt_scene.h settings_swap)
+        // (and the original's sun left out on the side whose backend draws it - its pass tells again when it draws)
+        if (!rt::settings_swap()) {
+            invalidate_sky();
+            rt::set_sun_glare_replaced(false);
+        } else {
+            rt::set_sun_glare_replaced(kept.sun);
+        }
     }
     if (kept.sun || kept.shafts || kept.bloom) {
         rt::add_view_listener(&listener());

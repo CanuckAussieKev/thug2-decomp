@@ -209,7 +209,7 @@ bool at_update(modules::FrontEnd* front_end)
         return false;
     }
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
-    const bool paused = (front_end != nullptr) && front_end->is_halted();
+    const bool paused = (front_end != nullptr) && front_end->is_paused();
     start_spot().at_frames_ = in_level && !paused ? start_spot().at_frames_ + 1 : 0;
     if (start_spot().at_frames_ < kAtSettleFrames) {
         return true;
@@ -331,7 +331,7 @@ void tick_frame(modules::FrontEnd* front_end)
         // tools/game/load_check.ps1)
         if (!started_load().pools_logged_ && started_load().started_) {
             const bool up = render::current_level() != 0 && objects::find_object(kSkater) != nullptr &&
-                            !((front_end != nullptr) && front_end->is_halted());
+                            !((front_end != nullptr) && front_end->is_paused());
             started_load().pool_frames_ = up ? started_load().pool_frames_ + 1 : 0;
             if (started_load().pool_frames_ >= kLevelSettleFrames) {
                 started_load().pools_logged_ = true;
@@ -355,7 +355,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool own_menu = sys::editor_mode::on() || !frontend::data_overlay::is_present();
     const bool menu_scripts =
         is_script(name_hash("main_menu_skate_now")) || (own_menu && is_script(name_hash("main_menu_exit")));
-    if (render::current_level() != 0 || (front_end && front_end->is_halted()) || !menu_scripts) {
+    if (render::current_level() != 0 || (front_end && front_end->is_paused()) || !menu_scripts) {
         return;
     }
     if (++start_level_state().frames_ < kSettleFrames) {

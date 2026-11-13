@@ -596,6 +596,8 @@ public:
         double number = 0.0;
         bool is_flag = false;
         bool flag = false;
+        bool is_text = false; // (added by the scene's sun: "sun": "level")
+        std::string text;
     };
     bool value(Scalar* scalar)
     {
@@ -605,8 +607,8 @@ public:
         }
         const char ch = core::at(text_, at_);
         if (ch == '"') {
-            std::string ignored;
-            return string(&ignored);
+            scalar->is_text = true;
+            return string(&scalar->text);
         }
         if (ch == '{' || ch == '[') {
             return skip_container();
@@ -685,6 +687,8 @@ bool parse_level(JsonReader& reader, RelitLevel* level)
             level->off = !scalar.flag;
         } else if (key == "strength" && scalar.is_number) {
             level->strength = std::clamp(static_cast<float>(scalar.number), 0.0F, 1.0F);
+        } else if (key == "sun" && scalar.is_text) {
+            level->keeps_baked_sun = scalar.text == "level";
         }
         if (reader.take('}')) {
             return true;

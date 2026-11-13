@@ -65,6 +65,7 @@
                     "src/engine/ui/text_element.h",
                     "src/engine/ui/ui_backend.h",
                     "src/game/front_end/front_end.h",
+                    "src/game/front_end/live_pause.h",
                     "src/game/front_end/menu_pad_event.h",
                     "src/game/front_end/start_level.h",
                     "src/game/online/net_game_state.h",

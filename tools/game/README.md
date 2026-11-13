@@ -108,7 +108,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     the share of pixels that flicker (>= 2% of the steps) per region, the mean difference, and a heat map. With the
     camera still only animation changes pixels; with a slow drift surfaces change a little and z-fighting / crawling
     ones a lot.
-  - Status: frames, ready, main_menu, where (front_end / level), paused, loading, level, game_mode, focus (the focused
+  - Status: frames, ready, main_menu, where (front_end / level), paused (the pause menu up), live_paused (the world running behind it), loading, level, game_mode, focus (the focused
     elements' ids), selected (the focused menus' items), lines_read / lines_done, current, last, result, errors,
     refusals. Unknown ids show as 0x<hex>: name them in a `waitfor` once and they're shown by name.
   - **Never online:** `run` refuses the network / online scripts (every script of the game's net files, and names with
@@ -254,6 +254,15 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `now:<key>`, `ctrl:<key>` (the mouse commands only work with the game in front - not in workspaces).
 - `window_shot.ps1 -ProcessId <pid> -Path <png>` - one game window with PrintWindow, also in the background.
   `game_shot.ps1 -Path <png>` - the game's window while it's in front. **Never capture the whole screen.**
+- **The demo viewer from a test** (docs/demos.md "The viewer"): `run_game.ps1 ... -Extra -demo,<name>,-viewer` (or
+  `-Commands "console demo view <name>"` in a level), then `game_cmd.ps1 -Commands "console viewer seek 300"`,
+  `"console viewer status"` (frame, paused / playing / seeking, camera, keys, the last seek's time and rate), `console
+  viewer pause | play | step [n] | speed <x> | camera free | free <x> <y> <z> <yaw> <pitch> | key add | export [file] |
+  exit`. While the viewer is paused the game's logic doesn't run - and with it the automation channel's own frame - so
+  only `console` and `echo` lines run then (the others wait for a frame that runs; `wait <frames>` counts logic frames:
+  don't wait while it's paused). A playback's drift is in `thug2-decomp-demos\<demo>.play.run.json` once it reaches the
+  demo's end (each seek back starts the run's check again). `console compare on | off | set <key> <value> | status` is
+  the split comparison (`[Graphics] compare_split`, `[Compare]`).
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
   (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front_end/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T

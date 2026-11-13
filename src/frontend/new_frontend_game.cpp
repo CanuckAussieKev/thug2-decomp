@@ -38,7 +38,7 @@ uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::
 
 uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident(); }
 
-bool get_paused(modules::FrontEnd* front_end) { return (front_end != nullptr) && front_end->is_halted(); }
+bool get_paused(modules::FrontEnd* front_end) { return (front_end != nullptr) && front_end->is_paused(); }
 
 } // namespace
 

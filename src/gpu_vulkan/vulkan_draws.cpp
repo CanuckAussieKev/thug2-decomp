@@ -45,6 +45,7 @@
 #include "gpu_vulkan/vulkan_rt_sun.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_style.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
@@ -855,6 +856,7 @@ void release_draw_objects(Backend& state)
     release_rt_sky(state); // (NOT ORIGINAL - the sky's atmosphere and clouds: vulkan_rt_sky_pass.h)
     release_rt_sun(state); // (NOT ORIGINAL - the sun's, the bloom's and the sky's: vulkan_rt_sun.h)
     release_upscale(state); // (NOT ORIGINAL - the upscaler's: vulkan_upscale.h)
+    release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);

@@ -472,7 +472,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed = down && thaw_bmx_state().key_up_;
     thaw_bmx_state().key_up_ = !down;
     if (!pressed || frame_loop::frames_run() == 0 || (ext::game_owner() != nullptr) ||
-        (front_end && front_end->is_halted()) || render::current_level() == 0) {
+        (front_end && front_end->is_paused()) || render::current_level() == 0) {
         return;
     }
     run_if_there(kToggleScript, nullptr);

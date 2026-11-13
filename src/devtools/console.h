@@ -17,7 +17,9 @@ class Extension;
 //   clear           the console's lines cleared
 //   rt summary      ray tracing's contract check ([debug] rt_contract_check=1, rt_check.h): its counts, violations
 //   rt dump [file]  the last frame's ray-tracing record as JSON in the game folder
-//   rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it; rt_scene.h set_sun_override)
+//   rt sun <x y z> | off  every effect's sun set by hand (toward it; rt_scene.h set_sun_override); `rt sun` alone: the
+//                   scene's sun and the one each effect used last; `rt sun source <game | level | x,y,z | h,e>`:
+//                   rt_sun_source for this run
 //   help            the commands
 namespace devtools::console {
 

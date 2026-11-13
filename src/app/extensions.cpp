@@ -7,6 +7,7 @@
 #include "platform/app_window.h"
 #include "platform/run_log.h"
 #include "devtools/automation.h"
+#include "devtools/compare_split.h"
 #include "devtools/console.h"
 #include "devtools/demo.h"
 #include "devtools/extensions.h"
@@ -76,6 +77,9 @@ void register_extensions()
     ext::add(editor());
     ext::add(sys::debug_mode::extension());
     ext::add(frontend::begin_level::extension());
+    // (the split comparison before the demos: its views after the editor's, its divider and labels drawn before a demo's
+    // video takes its picture - devtools/compare_split.h)
+    ext::add(devtools::compare_split::extension());
     ext::add(devtools::demo::extension()); // (right after the start level: a demo starts its level at the same point of
                                            // the frame as -level does)
     ext::add(frontend::automation::extension());

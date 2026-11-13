@@ -561,19 +561,19 @@ void drive_menus(modules::FrontEnd* front_end)
     // The front end, or a level's pause menu; never the park editor's own cursor.
     void* manager = frontend::UiTree::sole();
     bool menus = (manager != nullptr) && (root_element(manager) != nullptr) &&
-                 (render::current_level() == 0 || front_end->is_halted());
-    if (menus && in_park_editor() && !front_end->is_halted()) {
+                 (render::current_level() == 0 || front_end->is_paused());
+    if (menus && in_park_editor() && !front_end->is_paused()) {
         menus = false;
     }
     if (debug_enabled()) {
         // (debug_mouse: each change of whether the mouse drives the menus, with what decided it)
         static int s_last_menus = -1;
         static int s_last_paused = -1;
-        if (static_cast<int>(menus) != s_last_menus || static_cast<int>(front_end->is_halted()) != s_last_paused) {
+        if (static_cast<int>(menus) != s_last_menus || static_cast<int>(front_end->is_paused()) != s_last_paused) {
             s_last_menus = static_cast<int>(menus);
-            s_last_paused = static_cast<int>(front_end->is_halted());
+            s_last_paused = static_cast<int>(front_end->is_paused());
             get_log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
-                    menus ? "active" : "inactive", render::current_level(), front_end->is_halted(), manager != nullptr,
+                    menus ? "active" : "inactive", render::current_level(), front_end->is_paused(), manager != nullptr,
                     (manager != nullptr) && root_element(manager) != nullptr, in_park_editor());
         }
     }

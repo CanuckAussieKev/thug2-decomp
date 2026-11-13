@@ -25,6 +25,7 @@
 #include <array>
 #include "base/core/checksums.h"
 #include "game/front_end/front_end.h"
+#include "game/front_end/live_pause.h"
 #include "game/skate/play_trackers.h"
 #include "engine/ui/ui_backend.h"
 #include "frontend/mouse_menus.h"
@@ -109,7 +110,7 @@ modules::FrontEnd* the_front_end() { return modules::front_end_instance().get();
 } // namespace internal
 namespace {
 
-bool get_paused() { return (the_front_end() != nullptr) && the_front_end()->is_halted(); }
+bool get_paused() { return (the_front_end() != nullptr) && the_front_end()->is_paused(); }
 bool loading_screen_up()
 {
     return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||
@@ -364,6 +365,8 @@ void use_option(int option, const char* value)
             *feature = on; // (the restart tester's, the level editor's)
         } else if (std::strcmp(spec.key, "continue_music") == 0) {
             audio::continue_music::is_switched_on() = on;
+        } else if (std::strcmp(spec.key, "live_pause") == 0) {
+            modules::live_pause::is_switched_on() = on;
         } else if (std::strcmp(spec.key, "respect_locks") == 0) {
             menu_state().set_views(get_views(menu_state().levels_purpose() == LevelsFor::kNet));
         }

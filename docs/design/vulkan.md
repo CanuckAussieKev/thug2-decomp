@@ -869,7 +869,8 @@ nothing but test one pointer while no `RayTracing` is installed.
 The ray-traced shadows (`gpu_vulkan/vulkan_rt_shadows`) darken a pixel where the sun is blocked. Which sun, and where
 the original's own lighting already says otherwise, is decided so:
 
-- **The baked sun** (`engine/gfx/rt_sun`, `[Graphics] rt_shadow_sun=bake`, the default). The frame record's
+- **The baked sun** (`engine/gfx/rt_sun`; today one of `rt_sun_source`'s choices - "One sun for every effect"
+  below). The frame record's
   directional lights are the light manager's two (toward (0.75, 0.5, 0.43) and (-0.79, 0.5, -0.37)) in every level -
   they light the skater and the objects, not the level - so tracing toward the first one put the shadows where the
   level's bake has none (BO, sch: 65-95% of each picture darkened, the sunlit paving with it). The level's own sun is in
@@ -879,8 +880,9 @@ the original's own lighting already says otherwise, is decided so:
   over the sky (then 60 within 10 degrees of the best, 40 within 3): the direction whose "not blocked" correlates best
   with the brightness is the sun (BO heading -75 / elevation 52, z_dt 44 / 53, z_ho 45 / 58, sch -45 / 36; about 1.5-2.7
   million rays, 150-370 ms once a level). Its score is the confidence: under 0.3 the bake shows no sun (the Foundry:
-  0.07 - indoors, lit by its lamps) and the level gets no shadow pass. `rt_shadow_sun=light` keeps the frame record's
-  first light, `x,y,z` a fixed direction; the console's `rt sun <x y z> | off` overrides both (a check aid).
+  0.07 - indoors, lit by its lamps) and the level gets no shadow pass. (`rt_shadow_sun=light | x,y,z` once chose the
+  frame record's first light or a fixed direction; retired with it.) The console's `rt sun <x y z> | off` overrides
+  every effect's sun (a check aid).
 - **Where the bake agrees** (`rt_shadow_match_bake=1`). With the sun found, about 100,000 points of the upward faces are
   traced toward it once more; over a grid of the level seen from above (as many cells as give each about 8 blocked
   points, at most 64 a side: 150-170 units in the levels tried) each cell gets the share of its blocked points whose
@@ -1063,11 +1065,11 @@ only ever added light. Four settings, all off by default, change that; each work
 - **Which sun is drawn.** The sun the player sees is the game's own: render_pc's `draw_viewport` tells rt_scene where
   `sun::render` would put its sprite every viewport (`rt::set_game_sun`, a contract addition - render's theta / phi
   from the level's SetSun / InitSun), and the disc, its glare and the rays are drawn there (`rt_sun_place=game`, the
-  default). It needn't be the baked sun the level was lit with: z_dt's and BO's game sun is 20 degrees up toward +z,
-  their baked ones 53 and 52 degrees up elsewhere - the original game had the same split (its sprite against its bake).
-  `rt_sun_place=bake` draws it at the baked sun; with no game sun shown the baked one is used. The lighting - the
-  shadows, the bounce, the fog's shafts and the sky table - keeps the baked sun. The disc's colour is the model's for
-  the drawn sun's elevation (or `rt_sun_colour`).
+  default then). It needn't be the baked sun the level was lit with: z_dt's and BO's game sun is 20 degrees up toward
+  +z, their baked ones 53 and 52 degrees up elsewhere - the original game had the same split (its sprite against its
+  bake). (Changed by "One sun for every effect" below: the disc is drawn at the scene's sun - the one the shadows, the
+  bounce, the fog's shafts and the sky table light by -, the game's shown sun only where there is none; `rt_sun_place`
+  is retired.) The disc's colour is the model's for the drawn sun's elevation (or `rt_sun_colour`).
 - **The pass** (`gpu_vulkan/vulkan_rt_sun`, a listener at `world_drawn`, `rt::ViewOrder::kSun` = 600 - after the fog,
   before tone mapping): the viewport's colour copied out; (1) the rays (`rt_shafts`, half resolution): from each texel
   toward the sun's vanishing point on the screen, 48 points along the whole way (the start jittered by interleaved
@@ -1132,15 +1134,31 @@ blue); the glass was the reflections'.
   `[debug] rt_reflection_materials=1`): `rt::Material::reflection_class` - water: a pass with a UV wibble or a texture
   animation (moving water textures); glass: the environment pass lerped in by the first pass's alpha (blend modes 12 /
   13 - the reflection painted into the clear parts of a texture: the windows in AU's and BA's wall textures, e.g.
-  8A6663D9 on the user's building), or a first pass that is seen through (transparent, alpha or fixed blend); shiny:
-  the rest (an opaque surface with its reflection added or blended over: metal, paint, polished floors). And
-  `reflection_mask`: modes 13 / 12 mirror only where the first pass's alpha is clear / opaque, as the game's pixel shader
-  lerps its environment pass in. Both are in R3's material record (56 bytes a row then; 64 with the surface maps' `surface_texture` and `f0` - "One F0" below).
+  8A6663D9 on the user's building), or under a later pass blended over it by its alpha (a wall texture whose clear
+  texels are its windows, the environment map drawn first: BO's brick buildings), or a first pass that is seen through
+  (transparent, alpha or fixed blend); shiny: the rest (an opaque surface with its reflection added or blended over:
+  metal, paint, polished floors). And `reflection_mask`: modes 13 / 12 - the environment lerped in by the pass before's
+  alpha, the glass's own colour put back (below). Both are in R3's material record (56 bytes a row then; 100 now, with the surface maps' `surface_texture` and `f0` - "One F0" below - and the mask passes' nine words).
+- **Where a surface reflects: its environment pass's share** (`environment_share` in rt_record.cpp; the user's Boston
+  street, `rt_shadows.json` BO-facade: a whole brick facade turned mirror-grey, not just its windows). The game's
+  generated pixel shader (`render_pc/pixel_shaders.cpp`) puts the first pass in r0 and blends each later pass into it by
+  its mode, a pass's alpha being its texel's (pass flag 0x1000) or the vertex alpha x the texel's, doubled. So the
+  environment colour E reaches the screen scaled by its own mode (after the first pass: 1 add, 5 blend, 2 / 6 by the
+  fixed alpha, 12 / 13 by the pass before's alpha; 3 / 4 subtract it, 7 - 10 multiply or brighten by its alpha alone,
+  0 and 11 do nothing - those draw no environment colour: not reflective) and then by every later pass's: 5 x (1 - a)
+  (the wall drawn over its windows), 6 x (1 - fixed alpha), 7 x a, 8 x fixed alpha, 12 / 13 x (1 - a) / a of the pass
+  before; adds, subtracts and brightens leave it. The constant factors go into the reflectivity, the per-pixel ones
+  into `rt::Material::mask_passes` (up to three: a pass's texture, its texture coordinate set - pass n reads set n,
+  `rt::Geometry::uv_sets` -, addressing, kMaskClear 1 - a / kMaskOpaque a, whether the vertex alpha counts); R3's record
+  carries each one's texture slot, sampler and mode (100 bytes a row with the surface maps' two fields before them), and the reflection pass multiplies the weight by
+  every factor at the pixel (each texture at the level of its own coordinates' footprint; Fresnel on or off). BO's
+  facades are an environment pass first (a 32 x 32 sky picture) under the wall texture by mode 5: before, the
+  reflectivity of the environment pass covered the whole wall; now only where the wall texture is clear.
 - **Fresnel** (`rt_reflection_fresnel=1`, the default; 0 the first version's look): the pixel's weight from Schlick's
   curve at the cosine c between the view and the triangle's normal - water F0 0.02, glass `rt_glass_reflectance` (0.2; real glass's 0.04 left AU's panes - bright textures, not dark rooms - with a mean change of 1.4 levels against the first version's 12: no reflection to see): weight = reflectivity x
   min(1, 2 x strength) x (F0 + (1 - F0)(1 - c)^5) (the default strength 0.5 is the physical amount); shiny surfaces
   keep reflectivity x strength face-on and rise along the same curve to reflectivity x min(1, 2 x strength) at grazing
-  angles. x the mask at the pixel (the first pass's texel alpha at the pixel's footprint). Schlick's curve is within
+  angles. x the mask at the pixel (the mask passes' factors, above). Schlick's curve is within
   0.06 of the exact reflectance of water (n 1.333) and glass (n 1.5) at every angle (the check).
 - **Masked glass's own colour.** Where the game lerped its environment map in by the texture's alpha it drew the sky
   picture *in place of* the texture - there is no glass colour in the frame to show face-on. The pass puts it back: the
@@ -1173,8 +1191,10 @@ blue); the glass was the reflections'.
   mesh's buffers taking turns) now refits as `mesh_changed` does - before, it kept the pose the structure was built
   with (`thug2_vulkan_rt_check`: a mesh's two buffers taking turns, update_mesh only). `[debug] rt_objects=1` logs each
   object mesh's flags as ray tracing sees them (the skater's six alpha-blended parts cast no shadow, as before).
-- **Checked:** `thug2_vulkan_rt_reflections_check` (96 checks): Schlick against the exact Fresnel; the mirror as water,
-  glass (four samples), glass at real glass's 0.04, shiny and both masks - every clear-cut reflected pixel's colour and the pass's own weight (its
+- **Checked:** `thug2_vulkan_rt_reflections_check` (115 checks): Schlick against the exact Fresnel; the mirror as water,
+  glass (four samples), glass at real glass's 0.04, shiny and both masks, and the floor under a cover pass (stripes of
+  clear and opaque texels through its second texture coordinate set, with Fresnel and without: the opaque stripes
+  exactly as without the pass) - every clear-cut reflected pixel's colour and the pass's own weight (its
   image's alpha, within 1.5e-3) against the processor's for the angle it is seen at, the masked glass's colour put back
   (hits and misses); rough glass against the same glass as a mirror (the light added 0.96 - 0.98 of it, softer, no pixel
   black, no NaN, every weight at most the mirror's); the first version's cases with Fresnel off unchanged. The shadow
@@ -1485,8 +1505,8 @@ mode separates them and lights the level again.
   (the level's `scale`, 0.7 - 1.4) keeps the level's mean brightness the bake's.
 - **Relit:** scale x tint x E' + residual (`rt_relit_residual=0` leaves the residual out), blended with the bake by
   `rt_relit_strength`. At the bake's own sun it is the bake again (detail 1: within a byte at 99.6% of the check's
-  vertices). E' takes the sun where it is now - `rt_relit_sun=bake` (the default; the console's `rt sun` overrides it),
-  `game` (the sun the game shows: rt::game_sun) or `x,y,z` - its rays traced again when it moves (150,000 vertices a
+  vertices). E' takes the sun where it is now - the scene's sun (`rt_sun_source`, "One sun for every effect" below;
+  `rt_relit_sun` before it) - its rays traced again when it moves (150,000 vertices a
   frame), then its sky rays for the bounce of the new light (the hits' colours the relit ones; 40,000 vertices a
   frame); and the sun's colour: with `rt_sky_model=1` the model's colour at its elevation over the colour at the bake's
   (the bake's own colour kept at the bake's sun).
@@ -1522,10 +1542,72 @@ mode separates them and lights the level again.
   degrees up toward +z in z_dt, BO, BA, toward +x in AU, against the bakes' 50 - 53): mean vertex brightness 3 - 7%
   lower, 47 - 72% of the vertices changed, the sun warmer by the sky model's (1, 0.95, 0.85) - z_dt's street 25 luma
   darker in the picture (its stairs and pavement turned away from the low sun), BO's yard 5, AU 4, BA 2.
-- **Not done / limits:** with `rt_relit_sun=game` the ray-traced shadows, bounce and fog keep the baked sun (only the
-  console's `rt sun` moves them all); the soft edge of a lamp's pool partly stays in the tints (and so dims with a
+- **Not done / limits:** (with `rt_relit_sun=game` the ray-traced shadows, bounce and fog kept the baked sun - fixed by
+  `rt_sun_source`, below); the soft edge of a lamp's pool partly stays in the tints (and so dims with a
   lower sun); walls whose vertices start their rays on the floor's plane see half their hemisphere as the GPU rounds it;
   the analysis runs at the baked sun's fit, after the loading screen, not during it.
+
+### One sun for every effect (`rt_sun_source`)
+
+Before this, each effect picked its own sun: the shadows `rt_shadow_sun` (the baked one), the drawn disc `rt_sun_place`
+(the game's), relit `rt_relit_sun`, and the sky model the game's. With mixed choices the lighting, the shadows and
+the disc pointed different ways. Now `engine/gfx/rt_scene.h` `scene_sun()` is the only accessor, and every effect
+asks it: the shadows, the bounce (`rt_gi`), the fog's shafts and haze, the drawn disc with its glare, rays and bloom,
+the sky table, the sky model and clouds, relit, and through relit the skater's and objects' turned lights. The rules
+are the pure `rt_sun.h` `resolve_scene_sun`, in this order:
+
+1. The console's `rt sun x y z`.
+2. `rt_sun_source=x,y,z` or `heading,elevation`: a fixed direction, for experiments.
+3. No baked-sun fit yet: no sun. The bake shows no sun (indoors): none, whatever the setting, and the level keeps its
+   bake.
+4. `level` (the default): the baked sun.
+5. `game`: the game's shown sun (`rt::game_sun`), but only when relit relights the level, its entry in
+   `rt_relit_levels.json` doesn't say `"sun": "level"`, and the sun is at least 10 degrees up. Otherwise the baked sun.
+
+A counter changes whenever the direction or the origin changes. `rt_shadow_sun`, `rt_sun_place` and `rt_relit_sun`
+are retired; the log names them when an ini still has them. The Options screen has one "Sun" row (Sky | Level) at the
+top of the Lighting tab, and changing it is live: the shadows, bounce, fog, sun, sky and relit settings are read
+again, so their histories reset and relit traces again. The console's `rt sun` prints the scene's sun, the game's,
+the baked one and the sun each effect used last; `rt sun source <...>` switches for one run.
+
+**Game against the bake.** A sun other than the baked one can't light the bake: its shadows point the other way. So:
+
+- `rt_sun_source` other than `level` turns `rt_relit` on (logged).
+- The game's sun is used only once relit has the level's model. Until then the scene's sun is the baked one, so there
+  is never a mismatch.
+- The shadows' agreement grid (`rt_shadow_match_bake`) is made again for the new sun once relit has written every mesh
+  for it (`rt_relit_world::settled`): `render_pc/rt_record` `other_sun_work` takes the same samples, with the relit
+  colours (tint x the new light + the residual), and traces them toward the scene's sun. The relit colours hold the
+  bake's shadows turned to that sun, and lamps and glows (the residual) keep the traced shadow off where they lit the
+  bake. `rt::agreement_for(direction)` gives the shadow pass the grid for its sun (the baked one or this one); until it
+  exists the traced shadow applies everywhere. The roof test is traced at run time and needs no change.
+
+**Checked:**
+- `thug2_rt_scene_check` covers the rules and `rt_sun_source`'s text.
+- `thug2_vulkan_rt_sun_check` adds 9 checks (RTX 5070 Ti and AMD Radeon). In each mode - fixed, switched, level, game
+  relit, game not yet relit, entry keeps the bake, game sun too low, none shown, indoors - the shadows, fog and drawn
+  sun all receive the scene's sun, and the counter moves exactly when the sun changes.
+- In the game, `tools/game/sun_source_check.ts` ran the 15 main levels with the user's look (every effect, 8x MSAA,
+  DLSS), each with `level` and with `game`, four spots a level. The Level | Game pictures are in its `side\` folder.
+
+**Results in the game:**
+- **Every effect on one sun.** In every level and both modes, all six effects that asked held the scene's sun. The one
+  exception is relit with `level`: it lights by its cached model's own fit, kept so the bake comes back exactly, which a
+  new load's fit puts within 1 - 3 degrees.
+- **No sun in 5 levels.** AP, CA, NO, SE and SE2 have a bake that shows no sun. They get no sun in either mode, and their
+  pictures are the same in both.
+- **The game's sun is a default.** It is the same in 12 of the 15 levels: heading 0, 20 degrees up. AU's is heading 65,
+  SE's lies on the horizon and NO shows none. The baked suns are the artists' real ones: 32 - 62 degrees up, every
+  heading.
+- **Relit by the game's sun:**
+  - The shadows, the disc and the lit faces agree, as BA's banner shadow cast toward the disc shows.
+  - The levels are mostly darker and flatter, since a 20-degree sun leaves the bake's sunlit ground in shade. DJ's
+    pictures fall to 0.55 - 0.83 of Level's brightness, AU's to 0.64 - 0.85, SC's to 0.60 - 0.84. AU's road shows
+    blotchy relit shadows. TR, already dark, gets 1.3% more black.
+  - Others brighten where the low sun faces the camera: LA 1.14 - 1.33x, PH up to 1.38x, ST up to 1.30x.
+  - No NaN or black holes: black share within 0.2% of Level everywhere but TR.
+- **Hence `level` is the default.** DJ, AU and SC are listed `"sun": "level"` in `rt_relit_levels.json` for those who
+  pick `game`.
 
 ### Upscaling: DLSS and FSR (`upscaler`)
 
@@ -1725,11 +1807,62 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   shader's arithmetic (frame, two normalisations, GGX) is ten times the original's there. The game's frame lines were
   too few to separate the difference from the noise (35 - 40 ms either way with everything on).
 
+### Art style: the toon filter (`rt_style`)
+
+`gpu_vulkan/vulkan_style` (`[Graphics] rt_style`, off by default; no ray tracing or HDR needed). A post-process that
+makes the world look like a cartoon - painted colour fields, a few shades of light, dark ink lines - drawn by the last
+listener at `rt::world_view_drawn` (`ViewOrder::kStyle`, 975: after the tone mapping, so it works on the display's 0 - 1,
+and after the upscaler, so with DLSS / FSR it runs at the output's resolution); the 2D (HUD, menus, text) is drawn after
+it and never filtered. Each viewport separately (split screen: nothing is read across its edge).
+
+- **The passes** (vulkan_style.h has the formulas): the viewport's colour copied out (a multisampled target resolved
+  first; the result written to every sample); the depth made linear (compute: the projection's w, R32F; the far value
+  - nothing drawn, the sky - marked); the colour at half resolution (compute: 2 x 2 means), smoothed by a generalized
+  Kuwahara filter (compute: the four overlapping quadrants of radius r, each's mean weighted by 1 / (1 + (255^2
+  variance)^4) - texture detail flattens, edges between fields stay); then one full-screen triangle per pixel: the
+  smoothed colour brought back up edge-aware (a joint bilateral upsample guided by the pixel's own colour), its OKLab
+  lightness put in `rt_style_bands` soft-edged bands (30% of it kept as it was, so the darkest shades aren't crushed; hue kept, chroma x `rt_style_saturation`), the outline mixed in,
+  the result mixed over the original by `rt_style_strength`.
+- **The outlines** come from the linear depth alone: per axis, with the neighbours h pixels away, s = 1 - z (1/z_a +
+  1/z_b) / 2 - zero on any plane however steeply it is seen (1/z is affine across a flat surface on the screen), positive
+  where the pixel stands out toward the camera (the near side of a silhouette, a ridge), negative where it is recessed
+  (a valley, the far side of a silhouette). |s| x f / h (f the focal length in pixels) is a crease's change of slope,
+  independent of the resolution and the distance; smoothstepped, cut on the far side of a step (the line stays on the
+  object in front - a silhouette's line is one-sided and h wide), creases at 75%, faded out from 2,500 to 9,000 units
+  (distant geometry would turn into a mesh of lines), none on the sky. The ink: the toon colour's OKLab lightness x 0.2,
+  chroma x 1.3 - dark and tinted by what it outlines, never pure black. h and r scale with the picture's height (given
+  for 720 lines).
+- **Depth surfaces** are made samplable whenever the format allows (`style_depth_usage`), so `rt_style` can be turned on
+  from the Options screen with no restart; without a samplable depth there are no outlines (logged once).
+- **Settings** (all live - `kLiveKeys` `rt_style*`): `rt_style` 0 / 1, `rt_style_strength` (1), `rt_style_smooth` (4:
+  the Kuwahara radius in 720-line pixels; 0 none), `rt_style_bands` (5; 0 none), `rt_style_outlines` (1; 0 none),
+  `rt_style_outline_width` (1), `rt_style_saturation` (1.15). The Options screen's Colour tab: Art style (Off / Toon) and
+  its six knobs.
+- **Checked:** `thug2_vulkan_style_check` (72 checks, the RTX 5070 Ti and the integrated Radeon, validation with
+  synchronization validation 0): a 256 x 128 view drawn with screen-space quads at known depths (a box against the sky,
+  a tilted floor, a ridge) and filled with noisy fields, a grey gradient and NaN / infinities. The Kuwahara pass's
+  output (read back) within a step of `style_kuwahara`'s (largest 0.0024); the composite against `style_reference` fed
+  the pass's own smoothed colour and linear depth: every pixel within 2.5 steps (largest 0.12 - 0.56); against the twin
+  alone at most 2% past (the smoothing's 16-bit rounding crossing a band's soft edge: 0 - 1.2% here); finite, 0 - 1,
+  alpha kept; the linear depth (the box at 200.00, the sky marked); the smoothing calms the noise (spread 0.087 ->
+  0.020), the bands make plateaus (226 of 255 neighbours equal), the outline lies along the box's edges on the box,
+  none on the sky beside it, down the ridge's crease, none inside the planes; a viewport changes nothing outside it bit
+  for bit; `rt_style=0` and strength 0 record no pass; an 8-bit target; four samples (the resolve filtered, written to
+  every sample). Cost (2 compute passes at half resolution, 1 at the depth's, a full-screen triangle): 0.15 ms at
+  1920 x 1080, 0.34 ms at 2560 x 1440 on the RTX 5070 Ti; 6.2 / 15.4 ms on the integrated Radeon (the Kuwahara loop).
+- **In the game** (the user's settings - ray tracing, HDR, DLSS Ray Reconstruction at 67%, 2560 x 1440 - with
+  `rt_style=1`): BO, AU, BA, z_dt and the front end's main menu and Options screen before / after; the HUD, the menus'
+  text and the score stay sharp, the world reads as painted fields with soft-edged shade bands and dark ink round
+  objects, rails, steps and the skater. The passes cost 0.48 - 0.51 ms a frame on the RTX 5070 Ti (the log's
+  "rt_style: the passes take"; 0.82 ms with smoothing 6 and lines 2). Known: alpha-tested decals a little above the
+  ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
+  crease lines.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,
 `read_rt_gi`, `read_rt_reflections`, `read_hdr`, `read_rt_fog`, `read_rt_sun`, `read_rt_sky`, `read_rt_relit`,
-`read_upscale`, `read_rt_pbr`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
+`read_upscale`, `read_rt_pbr`, `read_style`) and installs `reload_live_key` through `render::graphics_options::set_live_reload`. When the new front
 end's Options screen writes a `[Graphics]` key it calls `render::graphics_options::reload_live(key)`: a key of an
 effect (`kLiveKeys`: the shadows', occlusion's, the bounce's, the reflections', the tone mapping's numbers, the fog's,
 the sun / shafts / bloom / sky model's, the sky and clouds', relit's, the per-pixel lighting's - `rt_pbr`, `rt_pbr_*`)

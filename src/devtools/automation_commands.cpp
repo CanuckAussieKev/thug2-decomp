@@ -70,7 +70,7 @@ bool condition_holds(const OrderCode& command)
     case Condition::kInGame: {
         auto* front_end = modules::front_end_instance().get();
         return (current_load_state() != 0U) && !in_front_end() && skater_present() &&
-               !((front_end != nullptr) && front_end->is_halted());
+               !((front_end != nullptr) && front_end->is_paused());
     }
     case Condition::kStageMap: {
         std::string name = command.target;

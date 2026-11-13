@@ -29,15 +29,16 @@
 // `scale`, kept within kRelitScaleRange) makes the relit level's mean brightness at the bake's own sun the bake's.
 //
 // A vertex relit: scale x tint x E' + residual (the residual left out with rt_relit_residual=0), E' the model's light
-// with the sun where it is now (its rays traced again when it moves: the console's `rt sun`, rt_relit_sun=game or
-// x,y,z) and its colour (a's) turned by the sky model's when one is on (rt_sky_model: the sun's colour at its new
+// with the sun where it is now (its rays traced again when it moves: rt_scene.h scene_sun - the console's `rt sun`,
+// [Graphics] rt_sun_source=game or x,y,z) and its colour (a's) turned by the sky model's when one is on (rt_sky_model: the sun's colour at its new
 // elevation over the colour at the bake's - the bake's own colour kept at the bake's sun); blended with the bake by
 // `strength`. At the bake's own sun the relit vertex is the bake again (within the clamps, exactly with detail 1 and
 // the residual kept) - the decomposition loses nothing; what changes is what a moved or recoloured sun does to it.
 //
 // A level whose bake shows no sun (BakedSun::found false: the Foundry, indoors - lit by its lamps) has no sun term to
 // fit: it keeps its bake (relit_model's `valid` false). So does a level listed off in rt_relit_levels.json (or the
-// user's thug2-decomp-relit.json beside the exe), whose entries can also set the level's strength.
+// user's thug2-decomp-relit.json beside the exe), whose entries can also set the level's strength and keep its baked
+// sun under rt_sun_source=game ("sun": "level").
 //
 // API-neutral: the rays go through RayTracing::probe_many (the Vulkan Gpu's, or a check's). render_pc/rt_relit_world
 // gathers the world's meshes, keeps the results (cached on disk) and writes the colours into the vertex buffers the game
@@ -76,20 +77,13 @@ inline constexpr std::array<float, 2> kRelitScaleRange{0.7F, 1.4F};
 inline constexpr float kRelitPerByte = 1.0F / 128.0F; // a colour byte as light: 128 is 1 (the passes double it)
 inline constexpr float kRelitMaxValue = 255.0F / 128.0F;
 
-// [Graphics] rt_relit_sun: which sun the world is relit by.
-enum class RelitSun : uint8_t {
-    kBake,  // the level's baked sun (the default; the console's `rt sun` overrides it)
-    kGame,  // the sun the game shows (its sprite's direction: SetSun / InitSun, the time of day)
-    kFixed, // rt_relit_sun=x,y,z (toward the sun)
-};
-
 struct RelitSettings {
     bool on = false;
     float strength = 1.0F; // 0: the bake as it is; 1: fully relit
     bool residual = true;  // the bake's light the model can't explain (lamps) kept
     float detail = 1.0F;   // how much of each vertex's own tint stays where the model vouches for it
-    RelitSun sun = RelitSun::kBake;
-    Vec3 fixed{}; // kFixed's direction
+    // (changed by the scene's sun: the sun the world is relit by is rt_scene.h relit_target_sun - [Graphics]
+    // rt_sun_source, every effect's; rt_relit_sun is retired)
     uint32_t sky_rays = kRelitSkyRays;
     uint32_t sun_rays = kRelitSunRays;
     bool cache = true; // the analysis kept on disk (thug2-decomp-relit\ beside the exe)
@@ -105,8 +99,10 @@ struct RelitLevel {
     std::string name;       // the level's scene, as LoadScene names it (z_dt, BO, foun...)
     bool off = false;       // "relit": false - the level keeps its bake
     float strength = -1.0F; // "strength": 0 - 1 (below 0: not set - the setting's)
+    bool keeps_baked_sun = false; // (added by the scene's sun) "sun": "level" - lit by its baked sun under rt_sun_source=game
 };
-// The levels a document lists: {"levels": {"<name>": {"relit": false, "strength": 0.5}, ...}} (other keys ignored).
+// The levels a document lists: {"levels": {"<name>": {"relit": false, "strength": 0.5, "sun": "level"}, ...}} (other
+// keys ignored; "sun": "game" - the default - undoes a "level" listed before).
 // False when it isn't such a document (`out` keeps what was read before the error).
 bool parse_relit_levels(std::string_view json, std::vector<RelitLevel>* out);
 // The built-in list (src/engine/gfx/rt_relit_levels.json).

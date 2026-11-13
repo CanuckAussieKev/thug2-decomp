@@ -113,7 +113,7 @@ class Struct;
 // are skipped (counted as done, logged).
 //
 // Status file (JSON, one object): frames, ready (the main menu has been up), main_menu (it's up now), where
-// ("starting", "front_end", "level"), paused, loading (a loading screen is up - choose and press wait for it to go,
+// ("starting", "front_end", "level"), paused, live_paused, loading (a loading screen is up - choose and press wait for it to go,
 // at most 5 s), level (the skate module's level without Load_: Mainmenu, BO...; 0x<hex> if not known), game_mode,
 // focus (the focused elements' ids), selected (the focused menus' selected items), lines_read, lines_done, queued,
 // current (the command running), last (the last command finished), result ("ok", "error: ...", "refused: ...",
@@ -143,6 +143,10 @@ bool& is_switched_on();
 // Once a frame from the front end's input logic (its extension): the command file, the running command, the
 // status file; and the -run script.
 void tick_frame(modules::FrontEnd* front_end);
+// A loop whose simulation is held (the demo viewer paused - engine/ext/extension.h LoopPace): the command file read and
+// the commands at its head that don't need the game to run - `console` and `echo` - run; the others wait for a frame
+// that runs. The status file written.
+void held_tick();
 // The buttons a `press` holds, added to port 0's PS2-format control data (its input source's poll, after the
 // keyboard's and the controller's, before the bits are inverted: a set bit is a button down).
 void add_pad_buttons(int port, std::span<uint8_t> data);
@@ -242,6 +246,7 @@ std::string describe(const OrderCode& command);
 struct Standing {
     uint32_t frames;
     bool ready, main_menu_, paused, loading;
+    bool live_paused; // (paused with the world running - game/front_end/live_pause.h)
     std::string where, level, game_mode_;
     std::vector<std::string> focus, selected;
     int lines_read_, lines_done_, queued;

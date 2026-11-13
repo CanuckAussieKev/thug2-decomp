@@ -60,14 +60,12 @@ struct RtShadowSettings {
     bool covered = false;
     unsigned sky_rays = kRtShadowSkyRays; // the sky test's rays a pixel (1 - 16: straight up, the rest slanted round it)
     // Shadows only where the level's bake agrees (engine/gfx/rt_sun.h make_agreement): where its colours are bright
-    // although the sun is blocked - lamps, a roof or a caster the bake left out - none. Only with the baked sun.
+    // although the sun is blocked - lamps, a roof or a caster the bake left out - none. The grid is the baked sun's, or
+    // with another scene sun (rt_sun_source=game) the one made from the relit colours for it (rt_scene.h
+    // agreement_for); none made for it yet: the traced shadow everywhere.
     bool match_bake = true;
-    // The sun traced toward (rt_shadow_sun): the one the level's lighting was baked with, found from its vertex colours
-    // (engine/gfx/rt_sun.h - none in a level whose bake shows no sun: no shadows there); the frame's first directional
-    // light (the game's, which lights the skater - the same in every level); or a fixed direction toward the sun.
-    enum class SunSource : uint8_t { kBake, kLight, kFixed };
-    SunSource sun = SunSource::kBake;
-    std::array<float, 3> fixed_sun{0.0F, 1.0F, 0.0F};
+    // (changed by the scene's sun: the sun traced toward is rt_scene.h scene_sun - [Graphics] rt_sun_source -, every
+    // effect's; rt_shadow_sun is retired)
 };
 void set_rt_shadow_settings(const RtShadowSettings& settings);
 [[nodiscard]] RtShadowSettings rt_shadow_settings();
@@ -185,7 +183,6 @@ inline constexpr float kRtShaftStrength = 0.8F;  // (rt_shaft_strength's default
 struct RtSunSettings {
     bool sun = false;          // the sun's disc and glare drawn, the original's sun sprite and lens flare hidden
     float sun_size = 1.0F;     // x the disc's default size (0.25 - 4)
-    bool place_game = true;    // rt_sun_place: the disc and rays where the game shows its sun (else the baked sun's)
     bool bloom = false;        // the frame's bright light spread (energy-conserving, a mip chain)
     float bloom_strength = kRtBloomStrength; // the share of each pixel's light spread (0 - 0.5)
     bool shafts = false;       // screen-space rays from the sun over what blocks it
@@ -275,5 +272,23 @@ struct RtPbrSettings {
 };
 void set_rt_pbr_settings(const RtPbrSettings& settings);
 [[nodiscard]] RtPbrSettings rt_pbr_settings();
+// NOT ORIGINAL - an art style (vulkan_style.h; docs/design/vulkan.md "Art style"): [Graphics] rt_style,
+// rt_style_strength, rt_style_smooth, rt_style_bands, rt_style_outlines, rt_style_outline_width, rt_style_saturation -
+// all put to use at once. A post-process over each viewport's world after the tone mapping and the upscaler, before the
+// 2D. style 0 (the default): nothing changes. No ray tracing or HDR needed.
+inline constexpr float kStyleSmooth = 4.0F;      // (rt_style_smooth's default)
+inline constexpr float kStyleBands = 5.0F;       // (rt_style_bands')
+inline constexpr float kStyleSaturation = 1.15F; // (rt_style_saturation's)
+struct StyleSettings {
+    unsigned style = 0;                  // 0: off; 1: toon
+    float strength = 1.0F;               // the filtered picture over the original (0 - 1)
+    float smooth = kStyleSmooth;         // the painterly smoothing's radius in pixels of a 720-line picture (0: none - 16)
+    float bands = kStyleBands;           // lightness bands (0: none - 16)
+    float outlines = 1.0F;               // the outlines' strength (0: none - 1)
+    float outline_width = 1.0F;          // in pixels of a 720-line picture (0 - 4)
+    float saturation = kStyleSaturation; // the colours' chroma x this (0 - 2)
+};
+void set_style_settings(const StyleSettings& settings);
+[[nodiscard]] StyleSettings style_settings();
 
 } // namespace render::vulkan

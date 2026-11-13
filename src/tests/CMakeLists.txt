@@ -60,6 +60,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_viewer_check.exe: the demo viewer's camera path (devtools/demo_camera_path.h: the keys' interpolation,
+# continuity, the yaw's wrap, the sidecar written and read back) and the split comparison's projection crop
+# (engine/gfx/rt_scene.h crop_clip_space) checked (src/tests/viewer_check.cpp).
+if(TARGET thug2_base)
+    add_executable(thug2_viewer_check viewer_check.cpp "${PROJECT_SOURCE_DIR}/src/devtools/demo_camera_path.cpp")
+    target_link_libraries(thug2_viewer_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_tess_check.exe: the smoothed curves' tessellation (engine/gfx/smooth_tess.h) on a faceted
 # cylinder, a rail and a quarter pipe against their analytic surfaces - no cracks, the cap, displacement
 # (src/tests/tess_check.cpp).
@@ -182,6 +190,17 @@ if(TARGET thug2_gpu_vulkan)
     add_executable(thug2_vulkan_hdr_check vulkan_hdr_check.cpp)
     target_link_libraries(thug2_vulkan_hdr_check PRIVATE thug2_gpu_vulkan sdl3)
     target_compile_definitions(thug2_vulkan_hdr_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_style_check.exe: the art style's toon filter (gpu_vulkan/vulkan_style.h) on this machine -
+# synthetic pictures and depths (a box, a tilted floor, a ridge, the sky; noise, a gradient, not-a-number) filtered
+# through rt_scene's listener and compared with the processor's twin; the smoothing, the bands and the outlines where
+# they belong; a viewport (outside untouched), the style off and strength 0 (no pass), an 8-bit and a multisampled
+# target; the cost at 2560x1440 (src/tests/vulkan_style_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_style_check vulkan_style_check.cpp)
+    target_link_libraries(thug2_vulkan_style_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_style_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
 # NOT ORIGINAL - thug2_vulkan_upscale_check.exe: the Vulkan Gpu's upscaling (gpu_vulkan/vulkan_upscale.h) and its motion

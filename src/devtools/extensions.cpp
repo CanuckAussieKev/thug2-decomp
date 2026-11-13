@@ -52,6 +52,7 @@ public:
     // (a test's picture of the window - PrintWindow - shows the frame now, not the last one drawn before the window lost
     // the focus)
     bool draws_unfocused() override { return is_switched_on(); }
+    void held_frame() override { held_tick(); }
 };
 } // namespace
 

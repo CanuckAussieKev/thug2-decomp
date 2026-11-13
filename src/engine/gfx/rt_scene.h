@@ -10,6 +10,7 @@
 // body), so the others' branches still build.
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -48,6 +49,9 @@ struct Geometry {
     uint32_t uv_format = 0; // kAttributeNone or kUvFloat2
     uint32_t colour_offset = 0;
     uint32_t colour_format = 0; // kAttributeNone or kColourA8R8G8B8
+    // (added for the reflections' masks) How many texture coordinate sets follow one another from uv_offset (two floats
+    // each: a material's pass n reads set n) - 0 read as 1 where uv_format says there are coordinates.
+    uint32_t uv_sets = 0;
 };
 inline constexpr uint32_t kAttributeNone = 0;
 inline constexpr uint32_t kUvFloat2 = 1;
@@ -112,10 +116,31 @@ struct Material {
     // (added for the water and glass) What kind of reflective surface it is (kReflectShiny / Water / Glass; render_pc/rt_record.cpp
     // classify_reflective says how it is told): it picks the Fresnel reflectance face-on and the reflection's roughness.
     uint32_t reflection_class = 0;
-    // (added for the glass) Where on the texture the surface reflects (kReflectEverywhere / WhereBaseClear / WhereBaseOpaque): the game's windows are often
-    // painted into a wall's texture, the environment-mapped pass lerped in by the first pass's alpha.
+    // (added for the glass) Whether the environment pass is lerped in by the pass before's alpha (blend modes 12 / 13:
+    // kReflectWhereBaseClear / WhereBaseOpaque - the game's windows painted into a wall's texture, the environment map
+    // drawn there in place of the texture: the glass's own colour is put back under the reflection) or not
+    // (kReflectEverywhere). Where it reflects is mask_passes' (below) - that pass among them.
     uint32_t reflection_mask = 0;
+    // (added for the walls with windows) The passes whose texels say where the reflection shows (MaskPass): the game's
+    // later passes drawn over the environment-mapped one (a wall texture whose clear parts are its windows, the
+    // environment map under it), and the pass whose alpha blend modes 12 / 13 lerp the environment in by. The weight is
+    // the reflectivity times each one's factor at the pixel (unused ones: kind kMaskNone).
+    struct MaskPass {
+        GpuTexture* texture = nullptr; // null: untextured (alpha 1)
+        uint32_t kind = 0;             // kMaskNone / kMaskClear (1 - a) / kMaskOpaque (a)
+        uint32_t uv_set = 0;           // the texture coordinate set (the pass's number)
+        uint32_t address_u = 1;        // as above (gpu_value::kAddress*)
+        uint32_t address_v = 1;
+        bool texture_alpha = false; // a = the texel's alpha (the pass's flag 0x1000), else the vertex alpha x the
+                                    // texel's, doubled (clamped to 1), as the game's pixel shader takes it
+        bool operator==(const MaskPass&) const = default;
+    };
+    static constexpr std::size_t kMaskPasses = 3;
+    std::array<MaskPass, kMaskPasses> mask_passes{};
 };
+inline constexpr uint32_t kMaskNone = 0;
+inline constexpr uint32_t kMaskClear = 1;  // the reflection shows where the pass's alpha is 0
+inline constexpr uint32_t kMaskOpaque = 2; // where it is 1
 
 // Material::reflection_class's values (the reflection shaders' CLASS_*).
 inline constexpr uint32_t kReflectShiny = 0; // metal, paint, polished floors: the game's reflectivity face-on as well
@@ -126,7 +151,8 @@ inline constexpr uint32_t kReflectGlass = 2; // windows: little face-on (rt_glas
 // (tools/pbr_maps/classes.ts).
 inline constexpr float kReflectWaterF0 = 0.02F;
 
-// Material::reflection_mask's values (the shaders' MASK_*): how the first pass's texel alpha (a) scales the reflectivity.
+// Material::reflection_mask's values (the shaders' MASK_*): how the environment pass is blended in by the pass before's
+// texel alpha (a) - that pass is in mask_passes with kMaskClear / kMaskOpaque to match.
 inline constexpr uint32_t kReflectEverywhere = 0;      // 1
 inline constexpr uint32_t kReflectWhereBaseClear = 1;  // 1 - a (the environment pass's blend mode 13: lerped in where
                                                        // the base is clear)
@@ -291,6 +317,7 @@ inline constexpr int kSun = 600;        // (added by the sun's glare) the sun's 
 inline constexpr int kToneMapping = 900; // HDR -> the display (world_drawn, last)
 inline constexpr int kSky = 50;          // (added by the sky) the atmosphere and the clouds (sky_drawn)
 inline constexpr int kUpscale = 950;      // (added by the upscaler) the view's lower resolution up to its output_rect
+inline constexpr int kStyle = 975;        // (added by the art style) the toon filter, at the output's size (world_drawn)
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);
@@ -405,6 +432,75 @@ bool object_shadows_replaced();
 void set_game_sun(const std::array<float, 3>* toward_sun);
 bool game_sun(std::array<float, 3>* toward_sun);
 
+// --- (added by the scene's sun) one sun for every effect - [Graphics] rt_sun_source -----------------------------------
+// The shadows, the bounce light, the fog's shafts and haze, the drawn sun (its disc, glare, rays, bloom), the sky model
+// and the clouds, the relit mode and the objects' turned lights all ask scene_sun() which sun lights the scene, so they
+// agree. Which one it is (rt_sun.h resolve_scene_sun has the rules):
+//   - the console's `rt sun x y z` (set_sun_override) above everything;
+//   - kGame: the sun the game shows (game_sun - the level's SetSun / InitSun) where the relit mode relights
+//     the level by it (render_pc/rt_relit_world says so through set_sun_relight); else - the relit mode can't (no model,
+//     the level opted out), the level's entry asks for its baked sun ("sun": "level" in rt_relit_levels.json), the game
+//     shows no sun or one lower than kMinGameSunDegrees - the baked sun;
+//   - kLevel (the default - docs/design/vulkan.md "One sun for every effect" has why): the baked sun (BakedSun:
+//     fitted from the level's vertex colours);
+//   - kFixed: rt_sun_source=x,y,z or heading,elevation (an experiment; relit relights by it as by the game's).
+// A level whose bake shows no sun (indoors) has none, whatever the choice: it keeps its bake (no sun shadows, no shafts).
+enum class SunSource : uint8_t { kGame, kLevel, kFixed };
+struct SunChoice {
+    SunSource source = SunSource::kLevel;
+    std::array<float, 3> fixed{}; // kFixed's direction (toward the sun)
+};
+void set_sun_choice(const SunChoice& choice);
+SunChoice sun_choice();
+// What the relit mode says about the level now (render_pc/rt_relit_world, each frame it runs).
+struct SunRelight {
+    bool relights = false;         // the level is relit (a model found, not opted out): another sun can light it
+    bool level_keeps_bake = false; // the level's entry asks for its baked sun under kGame ("sun": "level")
+};
+void set_sun_relight(const SunRelight& relight);
+SunRelight sun_relight();
+enum class SunOrigin : uint8_t {
+    kNone,     // the bake shows no sun (indoors): no sun effects
+    kWaiting,  // the level's baked sun not fitted yet
+    kOverride, // the console's
+    kGame,     // the sun the game shows
+    kLevel,    // the baked sun
+    kFixed,    // rt_sun_source=x,y,z / heading,elevation
+};
+struct SceneSun {
+    SunOrigin origin = SunOrigin::kNone;
+    std::array<float, 3> toward{}; // normalised (when found)
+    uint64_t serial = 0;           // (scene_sun) a new number each time the direction or the origin changes
+    [[nodiscard]] bool found() const
+    {
+        return origin == SunOrigin::kOverride || origin == SunOrigin::kGame || origin == SunOrigin::kLevel ||
+               origin == SunOrigin::kFixed;
+    }
+};
+SceneSun scene_sun();
+// The sun the relit mode lights by: scene_sun() as if the level were relit (relit asks before it says it relights).
+SceneSun relit_target_sun();
+const char* sun_origin_name(SunOrigin origin);
+// The effects that light by the sun, each noting the sun it used last (the console's `rt sun` lists them; the checks
+// compare them): all hold the same direction.
+enum class SunUser : uint8_t { kShadows, kBounce, kFog, kDrawnSun, kSky, kRelit, kCount };
+const char* sun_user_name(SunUser user);
+struct SunUsed {
+    bool noted = false; // the effect asked since the last clear
+    bool have = false;  // ... and had a sun
+    std::array<float, 3> toward{};
+};
+void note_sun_used(SunUser user, bool have, const std::array<float, 3>& toward);
+SunUsed sun_used(SunUser user);
+void clear_sun_used();
+// The agreement grid (BakedSun's fields; `toward` its sun) for the scene's sun when it isn't the baked one: made by
+// render_pc/rt_record once the relit mode has written the colours for that sun - the relit colours hold the bake's
+// shadows for it, and lamps and glows (the residual) keep the traced shadow off as the bake's own light did. `scene`
+// numbers it (another than any fit's). agreement_for gives the grid for a direction: the baked sun's own, or this one's,
+// or null (none for it yet: the traced shadow everywhere).
+void set_sun_agreement(BakedSun agreement);
+const BakedSun* agreement_for(const std::array<float, 3>& toward);
+
 // --- (added by the sky) a sky drawn by the backend - the Vulkan Gpu's [Graphics] rt_sky ------------------------------
 // While `on`, render_pc's draw_viewport draws the sky scene's opaque meshes (the backdrop: its dome, a ground ring), then
 // tells the listeners (sky_view_drawn -> ViewListener::sky_drawn), who draw the sky over the pixels nothing of the world
@@ -446,5 +542,32 @@ void set_sky_capture_wanted(bool wanted);
 bool sky_capture_wanted();
 void set_sky_capture(const SkyCapture& capture);
 SkyCapture sky_capture();
+
+// --- (added by the split comparison) two sets of settings, one each side of a divider ------------------------------
+// [Graphics] compare_split (devtools/compare_split.h): the first viewport drawn twice, its left part with the effects'
+// settings A and its right part with B (render::graphics_options::compare_*) - each view a crop of the whole viewport's
+// projection (crop_clip_space), so every pass sees its side's rectangle and keeps its own per-rectangle history.
+// While settings_swap() is true, a backend's settings set again are such a swap between the two sides: the histories,
+// matches and caches made for a side are kept (each side's view has its own) - nothing starts again.
+void set_settings_swap(bool swapping);
+bool settings_swap();
+// The depth targets made samplable for the effects although none of the effects on now samples them: side B turns on
+// one that side A has off. Read when a backend makes its depth targets - set before them (compare_split=1 from the
+// start), it is in effect from the first frame; set later, once they are made again (the window resized, a restart).
+void set_depth_sampling_wanted(bool wanted);
+bool depth_sampling_wanted();
+
+// The clip-space scale and offset that crop a projection to `part` (x, y, width, height - 0..1 of the viewport, y down):
+// x' = x * scale_x + w * offset_x, y' = y * scale_y + w * offset_y - {scale_x, scale_y, offset_x, offset_y}. The part's
+// square of normalised device coordinates becomes the whole -1..1 (D3D's: x right, y up).
+[[nodiscard]] inline std::array<float, 4> crop_clip_space(const std::array<float, 4>& part)
+{
+    const double width = std::get<2>(part) > 0.0F ? static_cast<double>(std::get<2>(part)) : 1.0;
+    const double height = std::get<3>(part) > 0.0F ? static_cast<double>(std::get<3>(part)) : 1.0;
+    const double centre_x = (2.0 * static_cast<double>(std::get<0>(part))) + width - 1.0;
+    const double centre_y = 1.0 - (2.0 * static_cast<double>(std::get<1>(part))) - height;
+    return {static_cast<float>(1.0 / width), static_cast<float>(1.0 / height), static_cast<float>(-centre_x / width),
+            static_cast<float>(-centre_y / height)};
+}
 
 } // namespace render::rt

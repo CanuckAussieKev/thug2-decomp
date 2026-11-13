@@ -37,6 +37,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include "engine/sys/model_viewer.h"
+#include "platform/run_log.h"
 #include <gsl/pointers>
 #include <array>
 #include "base/core/down_cast.h"
@@ -583,6 +584,10 @@ void FrontEnd::set_analog_stick_active_for_menus(bool active)
 // 0x0054F960
 void FrontEnd::get_pause_game(bool pause)
 {
+    // (not original - a live pause ends first: unpaused, or frozen as the original from here - live_pause.h)
+    if (live_paused_) {
+        pause_live(false);
+    }
     if (pause == is_halted_) {
         return;
     }
@@ -637,6 +642,41 @@ void FrontEnd::get_pause_game(bool pause)
     params->put_int(checksums::Name{0U}, script::fetch_int_value(kViewMode));
     commands::cfunc_set_view_mode(params, script::Context());
     delete_params(params);
+}
+
+// NOT ORIGINAL - the live pause (live_pause.h): the local skaters frozen as the original pause freezes them (input,
+// physics, score held) and the menus taking the pad; the world - the object updates, the spawned scripts, the game
+// clock, the main loop's logic tasks - left running.
+void FrontEnd::pause_live(bool pause)
+{
+    if (pause == live_paused_ || (pause && is_halted_)) {
+        return;
+    }
+    live_paused_ = pause;
+    if (modules::Skate* skate = modules::Skate::sole()) {
+        int count = 0;
+        for (const memory::ListNode* node = skate->riders().list_link().next(); node && !node->is_head();
+             node = node->next()) {
+            ++count;
+        }
+        for (int i = 0; i < count; ++i) {
+            auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(i));
+            if (!skater) {
+                continue;
+            }
+            if (pause) {
+                skater->get_freeze();
+            } else {
+                skater->unpause();
+            }
+        }
+    }
+    if (pause) {
+        stored_menus_active() = true;
+        get_log("pause: live - the world runs behind the pause menu, the skater held");
+    } else {
+        get_log("pause: live pause over");
+    }
 }
 
 // 0x0054FB40
@@ -695,6 +735,9 @@ void FrontEnd::front_end_tick(FrontEndTask* task)
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     modules::FrontEnd::tick_frame(task->content()->is_halted_);
+    if (task->content()->live_paused_) {
+        stored_menus_active() = true; // (not original: the live pause's menus, as the frozen pause's - live_pause.h)
+    }
     frontend::UiTree::sole()->tick_frame();
     memory::Hub::get_pull()->leave_heap_scope();
 }

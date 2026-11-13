@@ -183,6 +183,7 @@ Useful start-up switches:
 | `-level <name> -record <demo>` | Records a demo from the level's start; F6 (or quitting) saves `thug2-decomp-demos\<demo>.demo`. In a level, F6 alone restarts it and records; F6 again saves. |
 | `-demo <demo>` | Plays the demo back in its level (`-demo-capture <folder>` saves its frames as PNGs, `-demo-every N` one in N, then quits; `-demo-video <file.mp4>` saves it as a video, then quits; `-demo-quit` quits at the end). |
 | Pause menu > DEMOS | RECORD DEMO (the level starts again and records; the pause menu's STOP RECORDING saves), PLAY DEMO (a saved demo replayed in its level - any button hands the controls back), SAVE AS VIDEO (`thug2-decomp-videos\<demo>.mp4`; `[demo] video_fps` 60, `video_quality` 80, `video_codec` auto / h264 / mpeg4, `video_scale` 100 %). See [docs/demos.md](docs/demos.md). |
+| `-demo <demo> -viewer` | The demo in the viewer: a timeline (play / pause, scrub, frame steps, 0.1x-4x, a loop region), seeking (back: the level loaded again and run on to the frame), cameras (the game's, free, orbit, fixed ones, keyframes - kept in `<demo>.camera.txt`), the HUD on / off and SAVE AS VIDEO of the keyframed path; with `-demo-video <file.mp4>` the path is saved as that video, then the game quits. Also the pause menu's DEMOS > WATCH REPLAY and the console's `demo view <demo>`. See [docs/demos.md](docs/demos.md) "The viewer". |
 | `node tools/game/demo_compare.ts --demo <demo> --game <folder> --set A:Graphics.msaa=0 --set B:Graphics.msaa=8` | Renders a demo once per set of settings and puts the frames side by side (`--layout split / wipe / diff`), with a report of any difference in the run. See [docs/demos.md](docs/demos.md). |
 
 ### The level editor
@@ -294,6 +295,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `start_at` | (none) | With a start level: the skater put standing at `x,y,z[,heading]` once it's up (as `-at`) |
 | `screenshots` | 1 | The screenshot key (Print Screen, or F12 if Windows' Snipping Tool takes it): a PNG and a `.txt` of the game's state; `screenshot_dir=` changes the folder |
 | `restart_tester` | 1 | F8 puts the skater at the level's next unvisited restart |
+| `live_pause` | 1 | In single-player Free Skate the pause menu doesn't freeze the world: peds, cars, particles, the sky and the level's scripts keep going and every frame is drawn (graphics changes in Options show behind the menu); the skater is held where he was, his score and combo untouched. Career / story, classic, timed and 2-player modes, network games, the park editor and demos pause as ever; 0 = the original freeze everywhere (Options: Gameplay, Pause) |
 | `level_select_loading_screens` | 1 | A level's loading screen is its level select picture with a clean bar over it (when the overlay was made with `make_menu_level.ts`; 0 = the original loading pictures) |
 | `loading_console` | 1 | A panel on the loading screen: what is loading, the time since the load began and "last activity N s ago" (orange after 10 s with nothing new: probably a hang); 0 = the original loading screen |
 | `debug_mode` | 0 | Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera (F9) |
@@ -373,8 +375,8 @@ for the restart
 | `rt_white_point` | 1.25 | With `rt_hdr=1`: the brightness shown as pure white (1-8); 1 clips at white as the game does |
 | `rt_saturation` / `rt_contrast` | 1 | With `rt_hdr=1`: colour (0 grey, above 1 stronger) and contrast (a power about mid-grey; above 1 more) |
 | `rt_grade_lut` | (none) | With `rt_hdr=1`: a colour-grading table (a `.cube` 3D LUT) in the game folder, or a full path, applied last |
-| `rt_shadow_sun` | bake | The sun the shadows fall from: `bake` - the one the level's own lighting was made with, found from it when the level starts (a level lit only by its lamps, indoors, gets no ray-traced shadows); `light` - the game's light for the skater (the same in every level); or `x,y,z` toward the sun |
-| `rt_shadow_match_bake` | 1 | With the baked sun: no ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out); 0 shadows wherever the sun is blocked |
+| `rt_sun_source` | level | The one sun everything is lit by - the shadows, the bounced light, the fog's rays, the sun drawn in the sky with its glare and rays, the sky and clouds, the relit level and the skater's light: `level` - the one the level's own lighting was made with, found from it when the level starts; `game` - the sun the game shows in the level's sky (the level is relit by it, `rt_relit` turned on for that; a level whose sky sun is lower than 10 degrees, or listed with `"sun": "level"` in the relit levels' list, keeps its own - most levels show the same low default sun, so this mostly darkens them); or `x,y,z` toward the sun / `heading,elevation` in degrees. A level lit only by its lamps (indoors) gets no sun either way. Replaces `rt_shadow_sun`, `rt_sun_place` and `rt_relit_sun` |
+| `rt_shadow_match_bake` | 1 | No ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out) - the level's own lighting, or with `rt_sun_source=game` the relit one; 0 shadows wherever the sun is blocked |
 | `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |
 | `rt_shadow_sky_rays` | 5 | Rays a pixel that look for the sky (1-16) |
 | `rt_fog` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's fog volumetric - the same colour and distances, but the sun shines through it in shafts where the level lets it and the fog stays darker in the shade. The sun only where the level's own lighting shows one (not indoors); levels without fog: `rt_fog_haze` |
@@ -388,7 +390,6 @@ for the restart
 | `rt_fog_haze_height` | 600 | With `rt_sky_model=1`: world units over which the haze thins going up from the level's ground |
 | `rt_sun` | 0 | On Vulkan: 1 draws the sun itself - a bright disc with a glow round it, light spilling past the edges in front of it - where the game shows its sun, instead of the game's sun sprite and lens flare (both hidden). A level with no sun at all keeps the game's |
 | `rt_sun_size` | 1 | How big the sun's disc is (0.25-4) |
-| `rt_sun_place` | game | Where the sun is drawn: `game` - where the game shows its sun (its sky's sun, as the old sprite was); `bake` - where the level's lighting says it is (the shadows' sun) |
 | `rt_sun_colour` | auto | The sun's colour: `auto` - from its height (warm when low, white when high); or `r,g,b` (0-1 each) |
 | `rt_shafts` | 0 | On Vulkan: 1 adds rays of light from the sun past buildings, trees and edges when it is on or near the screen |
 | `rt_shaft_strength` | 0.8 | How bright the rays are (0-4) |
@@ -408,10 +409,9 @@ for the restart
 | `rt_tess_max_deviation` | 2 | How far (world units, an inch each) a smoothed surface may move from the original one - the largest gap between the wheels and what is drawn |
 | `rt_displacement` | 0 | With `rt_tessellation`: how far (world units) a surface's height map raises and lowers it, inside `rt_tess_max_deviation`; thin meshes (rails) never move. Needs height maps - none are there yet (`rt_tess_test_heights=1` shows a test pattern of ridges) |
 | `rt_tess_test_heights` | 0 | With `rt_displacement`: 1 gives every surface a test height map (ridges) - to see the displacement work until real height maps are there |
-| `rt_relit` | 0 | On Vulkan with `ray_tracing=1`: 1 takes each level's baked lighting apart into its surfaces' colours and the light of its sun, sky and bounced light (worked out with rays when the level starts, a second or two the first time; kept in `thug2-decomp-relit\` beside the exe after that) and lights the level again - with its own sun it looks as before; moved (`rt_relit_sun`, the console's `rt sun`) or coloured by `rt_sky_model`, the shadows, shade and bounced light follow. A level lit only by its lamps (indoors) keeps its lighting |
+| `rt_relit` | 0 | On Vulkan with `ray_tracing=1`: 1 takes each level's baked lighting apart into its surfaces' colours and the light of its sun, sky and bounced light (worked out with rays when the level starts, a second or two the first time; kept in `thug2-decomp-relit\` beside the exe after that) and lights the level again - with its own sun it looks as before; moved (`rt_sun_source`, the console's `rt sun`) or coloured by `rt_sky_model`, the shadows, shade and bounced light follow. A level lit only by its lamps (indoors) keeps its lighting |
 | `rt_relit_strength` | 1 | How much of the relit light is used (0 the level's own lighting, 1 all relit) |
 | `rt_relit_residual` | 1 | 1 keeps the light the sun and sky can't explain - lamps, glows - as the level had it; 0 leaves it out |
-| `rt_relit_sun` | bake | The sun the level is relit by: `bake` - the one its lighting was made with; `game` - the sun the game shows in its sky; or `x,y,z` toward the sun |
 | `rt_relit_detail` | 1 | How much of each spot's own baked shading is kept where the sun and sky explain it (0-1; 0 relights the most) |
 | `upscaler` | off | On Vulkan (64-bit build): `dlss` (NVIDIA RTX), `fsr` (AMD FSR - any GPU) or `auto` (DLSS on NVIDIA, else FSR) draws the world at a lower resolution and rebuilds it at the window's - faster, smoother edges; the HUD and menus stay sharp. Multisampling (`msaa`, `AntiAliasing`) is off while it is on. `off` changes nothing |
 | `upscale_quality` | quality | With `upscaler`: how much is drawn - `dlaa` (all of it: anti-aliasing only), `quality` (67%), `balanced` (58%), `performance` (50%), `ultra` (33%) |
@@ -422,6 +422,13 @@ for the restart
 | `rt_pbr_specular` | 1 | How strong the highlights are (0: none) |
 | `rt_pbr_normal_strength` | 1 | How deep the surface maps' bumps look (0: flat, 2: twice as deep) |
 | `rt_pbr_objects` | 1 | 0: only surfaces with a map are lit per pixel (skaters and objects keep the game's own lighting) |
+| `rt_style` | 0 | On Vulkan (no ray tracing or HDR needed): 1 gives the world a cartoon look - textures flattened into painted colour, light in a few soft-edged shades, dark ink lines round objects and along their edges. The HUD and menus are left as they are. All the `rt_style` keys change at once in the Options screen |
+| `rt_style_strength` | 1 | With `rt_style`: how much of the cartoon look is laid over the game's picture (0-1) |
+| `rt_style_smooth` | 4 | With `rt_style`: how far the paint smooths texture detail away (pixels of a 720-line picture, scaled with the window; 0 keeps the textures) |
+| `rt_style_bands` | 5 | With `rt_style`: how many shades of light and dark each colour gets (0: smooth shading) |
+| `rt_style_outlines` | 1 | With `rt_style`: how dark the ink lines are (0: none). They thin out into the distance; the sky has none |
+| `rt_style_outline_width` | 1 | With `rt_style`: how thick the ink lines are (pixels of a 720-line picture, scaled with the window) |
+| `rt_style_saturation` | 1.15 | With `rt_style`: how strong the colours are (1 as they are) |
 
 **`[Miscellaneous]`** - from PartyMod
 
@@ -434,6 +441,7 @@ for the restart
 | `OnlineDomain` | `openspy.net` | The online service's domain (see Online play) |
 | `OnlineGameName` / `OnlineGameKey` | (empty) | The online identity: empty = THUG2's own; `thugpro` = THUGPRO's lobbies (see Online play) |
 | `Debug` | 0 | Opens a console window with the game's debug output |
+| `[Graphics] compare_split` / `compare_divider` / `compare_labels`, `[Compare]` | 0 / 0.5 / 1, empty | A split comparison: the screen-space effects with `[Graphics]`'s settings left of a divider (A) and with `[Compare]`'s values over them on the right (B - e.g. `rt_ao=1`); the divider dragged with the mouse or Alt+Left / Right; the demo viewer's Compare panel sets them too. What can't differ per side (renderer, ray_tracing, rt_hdr, the upscaler - off while split -, rt_tessellation, rt_relit, msaa) is drawn the same on both. The console: `compare on / off / set <key> <value>` - [docs/demos.md](docs/demos.md) "The split comparison" |
 | `[demo] video_fps` / `video_quality` / `video_codec` / `video_scale` | 60 / 80 / auto / 100 | A demo saved as a video (SAVE AS VIDEO, `-demo-video`): frames a second (1-60, the game's own 60 at most), quality 1-100, the encoder (`auto`: NVIDIA's H.264, else Windows' H.264, else MPEG-4; `h264`; `mpeg4`), the size in % of the game's picture (10-400). Video only, no sound - [docs/demos.md](docs/demos.md) |
 | `[online] thugpro_peer` | 0 | Chat and server info with THUGPRO players (on by itself with `OnlineGameName=thugpro`) |
 

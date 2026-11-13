@@ -16,6 +16,9 @@
 //   lod_distance_scale=1   objects' LOD distances (lod_dist1: where they stop animating, lod_dist2: where they stop
 //                           being drawn) multiplied (0.25-8).
 #include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace render::graphics_options {
 
@@ -55,5 +58,25 @@ using LiveReload = bool (*)(const char* key);
 void set_live_reload(LiveReload reload);
 // The key's new value from the ini put to use now; false when nothing did (no renderer that changes it live).
 bool reload_live(const char* key);
+
+// --- A split comparison (devtools/compare_split.h: [Graphics] compare_split, the demo viewer's Compare panel) ---
+
+// The backend's two sets of the screen-space effects' settings: A - [Graphics] as the ini has it - and B - the same with
+// `overrides` ([Graphics] key, value) put over it. `prepare` makes both (again after an override or the ini changes;
+// true when the backend has a split: Vulkan's), naming in `both_sides` the overrides that can't differ per side (not an
+// effect's, or read only at start-up: renderer, ray_tracing, rt_hdr, upscaler, rt_tessellation, rt_relit, the texture
+// sets...) - left out of B. `apply(side)` sets side 0 (A) or 1 (B) as a swap (rt::settings_swap: the histories kept);
+// `end` puts A back for good. The backend installs it (app/renderer_choice.cpp, on Vulkan).
+using CompareSettings = std::vector<std::pair<std::string, std::string>>;
+struct CompareBackend {
+    bool (*prepare)(const CompareSettings& overrides, std::vector<std::string>* both_sides) = nullptr;
+    void (*apply)(int side) = nullptr;
+    void (*end)() = nullptr;
+};
+void set_compare_backend(const CompareBackend& backend);
+// (false, nothing named: no backend that splits - Direct3D 9: both sides the same)
+bool compare_prepare(const CompareSettings& overrides, std::vector<std::string>* both_sides);
+void compare_apply(int side);
+void compare_end();
 
 } // namespace render::graphics_options

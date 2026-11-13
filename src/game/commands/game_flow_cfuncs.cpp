@@ -29,6 +29,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/file/packs.h"
 #include "game/front_end/front_end.h"
+#include "game/front_end/live_pause.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/online/gamenet_manager.h"
 #include "engine/objects/compositemgr.h"
@@ -441,7 +442,15 @@ bool cfunc_un_pause_skater(script::Struct* params, script::Context /*context*/)
 // 0x005A05C0: PauseGame: the game paused, the calling script carrying on.
 bool cfunc_pause_game(script::Struct* /*params*/, script::Context context)
 {
-    modules::front_end_instance()->get_pause_game(true);
+    // (not original - the Start button's pause in single-player free skate keeps the world running, and so do the
+    // pause menu's own PauseGames while it's on: game/front_end/live_pause.h)
+    modules::FrontEnd* front_end = modules::front_end_instance().get();
+    if (front_end->is_live_paused() || modules::live_pause::applies(context)) {
+        front_end->pause_live(true);
+        context.resume_child_script();
+        return true;
+    }
+    front_end->get_pause_game(true);
     context.resume_child_script();
     return true;
 }
@@ -457,7 +466,9 @@ bool cfunc_un_pause_game(script::Struct* /*params*/, script::Context /*context*/
 // command's own parameters.
 bool cfunc_game_is_paused(script::Struct* params, script::Context /*context*/)
 {
-    if (!objects::simulation_halted()) {
+    // (not original - the live pause counts as paused: the skater is held as in the frozen one, and a script that
+    // pauses again - a controller pulled out - must put back what it found; game/front_end/live_pause.h)
+    if (!objects::simulation_halted() && !modules::front_end_instance()->is_live_paused()) {
         return false;
     }
     params->put_name_key(checksums::Name{kPausedAnswerKey}, kPausedAnswerKey);

@@ -149,6 +149,7 @@ std::string status_json(const Standing& status)
     field("main_menu", boolean(status.main_menu_));
     field("where", json_string(status.where));
     field("paused", boolean(status.paused));
+    field("live_paused", boolean(status.live_paused));
     field("loading", boolean(status.loading));
     field("level", json_string(status.level));
     field("game_mode", json_string(status.game_mode_));

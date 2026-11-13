@@ -41,6 +41,7 @@
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_rt_sun.h"
+#include "gpu_vulkan/vulkan_style.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
@@ -344,6 +345,19 @@ long make_render_target(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
     return kOk;
 }
 
+// NOT ORIGINAL - a split comparison's side B turning on an effect that samples the depth while side A has it off
+// (rt_scene.h depth_sampling_wanted): the depth made samplable all the same.
+VkImageUsageFlags compare_depth_usage(const Backend& state, VkFormat format)
+{
+    if (!rt::depth_sampling_wanted() || !state.context.ray_tracing_enabled()) {
+        return 0;
+    }
+    VkFormatProperties properties{};
+    vkGetPhysicalDeviceFormatProperties(state.context.physical_device(), format, &properties);
+    return (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0 ? VK_IMAGE_USAGE_SAMPLED_BIT
+                                                                                         : 0;
+}
+
 long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface** out)
 {
     *out = nullptr;
@@ -369,7 +383,9 @@ long make_depth_surface(Backend& state, const GpuSurfaceDesc& desc, GpuSurface**
                                             rt_fog_depth_usage(state, plan->format) |
                                             rt_sun_depth_usage(state, plan->format) | // (and the sun's: vulkan_rt_sun.h)
                                             rt_sky_depth_usage(state, plan->format) | // (and the sky's)
-                                            upscale_depth_usage(state, plan->format), // (the upscaler's: vulkan_upscale.h)
+                                            upscale_depth_usage(state, plan->format) | // (the upscaler's: vulkan_upscale.h)
+                                            compare_depth_usage(state, plan->format) | // (a split comparison's side B)
+                                            style_depth_usage(state, plan->format), // (the art style's: vulkan_style.h)
                                .alpha_one = false};
     if (!state.memory.create_image(request, &surface->image)) {
         destroy_surface(state, surface);

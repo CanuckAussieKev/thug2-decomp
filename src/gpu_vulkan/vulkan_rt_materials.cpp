@@ -96,6 +96,9 @@ struct Material {
     uint reflection_mask;
     uint surface_slot;
     float f0;
+    uint mask_texture[3];
+    uint mask_sampler[3];
+    uint mask_mode[3];
 };
 layout(set = THUG2_MATERIAL_SET, binding = 0, scalar) readonly buffer MaterialRecords { Material material_records[]; };
 layout(set = THUG2_MATERIAL_SET, binding = 1) uniform sampler material_samplers[32];
@@ -105,7 +108,8 @@ const uint MATERIAL_TRANSPARENT = 64u;
 Material material(uint id)
 {
     if (id >= uint(material_records.length())) {
-        return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0), 0.0, 0xFFFFFFFFu, 0u, 0u, 0u, 0.0);
+        return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0), 0.0, 0xFFFFFFFFu, 0u, 0u, 0u, 0.0, uint[3](0u, 0u, 0u),
+                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u));
     }
     return material_records[id];
 }
@@ -151,6 +155,14 @@ vec4 material_surface_lod(uint id, vec2 uv, float lod)
     return textureLod(sampler2D(material_textures[nonuniformEXT(m.surface_slot)], material_samplers[nonuniformEXT(chosen)]),
                       uv, lod);
 }
+float material_mask_alpha(uint id, uint k, vec2 uv, float lod)
+{
+    Material m = material(id);
+    uint slot = m.mask_texture[k];
+    uint chosen = min(m.mask_sampler[k], 31u);
+    return textureLod(sampler2D(material_textures[nonuniformEXT(slot)], material_samplers[nonuniformEXT(chosen)]),
+                      uv, lod).a;
+}
 )";
 
 } // namespace
@@ -167,9 +179,10 @@ float record_f0(const rt::Material& material, float map_f0)
     return material.reflection_class == rt::kReflectWater ? rt::kReflectWaterF0 : map_f0;
 }
 
-MaterialRecord material_record(const rt::Material& material, uint32_t slot)
+MaterialRecord material_record(const rt::Material& material, uint32_t slot,
+                               const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots)
 {
-    return MaterialRecord{.texture = slot,
+    MaterialRecord record{.texture = slot,
                           .sampler = material_sampler_index(material),
                           .uv_set = material.uv_set,
                           .blend = material.blend,
@@ -182,6 +195,21 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot)
                           .reflection_mask = material.reflection_mask,
                           .surface_texture = 0,
                           .f0 = record_f0(material, 0.0F)};
+
+    for (std::size_t k = 0; k < rt::Material::kMaskPasses; ++k) {
+        const rt::Material::MaskPass& mask = core::at(material.mask_passes, k);
+        if (mask.kind == rt::kMaskNone) {
+            continue;
+        }
+        // (filtered linearly, as the pass's own texture is)
+        core::at(record.mask_texture, k) = core::at(mask_slots, k);
+        core::at(record.mask_sampler, k) = (kMaterialAddressModes * kMaterialAddressModes) +
+                                           (address_place(mask.address_u) * kMaterialAddressModes) +
+                                           address_place(mask.address_v);
+        core::at(record.mask_mode, k) = (mask.kind & 0xFU) | ((mask.uv_set & 0xFU) << kMaskUvSetShift) |
+                                        (mask.texture_alpha ? kMaskTextureAlpha : 0U);
+    }
+    return record;
 }
 
 std::string_view material_glsl() { return kMaterialGlsl; }
@@ -319,6 +347,7 @@ void MaterialTable::shutdown(Backend& state)
     }
     records_.clear();
     record_textures_.clear();
+    record_mask_textures_.clear();
     dirty_.clear();
     dirty_mark_.clear();
     slots_.clear();
@@ -496,13 +525,28 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
     if (records_.size() <= id) {
         records_.resize(static_cast<std::size_t>(id) + 1);
         record_textures_.resize(static_cast<std::size_t>(id) + 1, nullptr);
+        record_mask_textures_.resize(static_cast<std::size_t>(id) + 1);
     }
     Texture* const texture = material.texture != nullptr ? object(material.texture) : nullptr;
     const uint32_t slot = texture != nullptr ? slot_for(texture) : 0;
     MaterialRecord& record = core::at(records_, id);
     const bool user_known = core::at(record_textures_, id) == texture && record.texture == slot;
-    record = material_record(material, slot);
+    // (the mask passes' textures: slots of their own, their users noted as the first texture's)
+    std::array<Texture*, rt::Material::kMaskPasses> masks{};
+    std::array<uint32_t, rt::Material::kMaskPasses> mask_slots{};
+    std::array<bool, rt::Material::kMaskPasses> mask_known{};
+    for (std::size_t k = 0; k < rt::Material::kMaskPasses; ++k) {
+        const rt::Material::MaskPass& mask = core::at(material.mask_passes, k);
+        Texture* const mask_texture =
+            mask.kind != rt::kMaskNone && mask.texture != nullptr ? object(mask.texture) : nullptr;
+        core::at(masks, k) = mask_texture;
+        core::at(mask_slots, k) = mask_texture != nullptr ? slot_for(mask_texture) : 0;
+        core::at(mask_known, k) = core::at(core::at(record_mask_textures_, id), k) == mask_texture &&
+                                  core::at(record.mask_texture, k) == core::at(mask_slots, k);
+    }
+    record = material_record(material, slot, mask_slots);
     core::at(record_textures_, id) = texture;
+    core::at(record_mask_textures_, id) = masks;
     if (slot != 0 && !user_known) {
         core::at(slot_users_, slot).push_back(id);
     }
@@ -512,6 +556,11 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
         record.f0 = record_f0(material, surface_map_f0(texture));
         if (record.surface_texture != 0) {
             core::at(slot_users_, record.surface_texture).push_back(id);
+        }
+    }
+    for (std::size_t k = 0; k < rt::Material::kMaskPasses; ++k) {
+        if (core::at(mask_slots, k) != 0 && !core::at(mask_known, k)) {
+            core::at(slot_users_, core::at(mask_slots, k)).push_back(id);
         }
     }
     mark_dirty(id);
@@ -525,6 +574,7 @@ void MaterialTable::remove(rt::MaterialId id)
     }
     core::at(records_, id) = MaterialRecord{};
     core::at(record_textures_, id) = nullptr;
+    core::at(record_mask_textures_, id) = {};
     mark_dirty(id);
 }
 
@@ -550,6 +600,13 @@ void MaterialTable::texture_released(Backend& state, Texture* texture)
         if (core::at(records_, id).surface_texture == slot) { // (NOT ORIGINAL - rt_pbr: a surface map let go of)
             core::at(records_, id).surface_texture = 0;
             mark_dirty(id);
+        }
+        for (std::size_t k = 0; k < rt::Material::kMaskPasses; ++k) {
+            if (core::at(core::at(record_mask_textures_, id), k) == texture) {
+                core::at(core::at(records_, id).mask_texture, k) = 0;
+                core::at(core::at(record_mask_textures_, id), k) = nullptr;
+                mark_dirty(id);
+            }
         }
     }
     core::at(slot_users_, slot).clear();

@@ -33,7 +33,6 @@ namespace {
 // The once-only reports' keys (Backend::reported).
 constexpr uint64_t kReportNoRayTracing = 0x52340001U;
 constexpr uint64_t kReportNoScene = 0x52340002U;
-constexpr uint64_t kReportNoLight = 0x52340003U;
 constexpr uint64_t kReportTargets = 0x52340004U;
 constexpr uint64_t kReportPipeline = 0x52340005U;
 constexpr uint64_t kReportFirstPass = 0x52340006U;
@@ -48,7 +47,6 @@ constexpr std::size_t kMatrixSide = 4;
 constexpr std::size_t kMatrixFloats = kMatrixSide * kMatrixSide;
 constexpr std::size_t kPushConstantBytes = 128; // (the space every Vulkan device has)
 constexpr double kSingular = 1e-300;            // a pivot this small: the matrix can't be inverted
-constexpr double kShortest = 1e-6;              // a light direction shorter than this: none
 
 // The full-screen triangle (three vertices, no buffers).
 constexpr const char* kVertexSource = R"(#version 460
@@ -284,13 +282,11 @@ struct PassPipeline {
 struct ShadowState {
     RtShadowSettings settings;
     VkAccelerationStructureKHR scene = VK_NULL_HANDLE;
-    bool have_light = false;
-    std::array<float, 3> to_light{}; // the last directional light seen (toward it)
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
     DeviceBuffer agreement;                  // the bake's agreement (update_agreement)
-    uint64_t agreement_scene = ~uint64_t{0}; // the baked sun's fit it holds (0: none - the header says no grid)
+    uint64_t agreement_scene = ~uint64_t{0}; // the grid it holds (its BakedSun::scene; 0: none - the header says so)
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::vector<PassPipeline> pipelines;
     bool failed = false; // the shaders or layouts couldn't be made (not tried again)
@@ -414,30 +410,28 @@ bool ensure_layouts(Backend& state, std::string* error)
     return own.vertex != VK_NULL_HANDLE;
 }
 
-// The agreement's buffer written when the baked sun's fit (or match_bake) changed: its header, then its cells (a grid
-// of at most kAgreementSide x kAgreementSide). (Written while frames in flight may read it: once a level, at its start
-// - the frame or two that mix both see the level's own anyway.)
-void update_agreement(Backend& state)
+// The agreement's buffer written when the grid for the sun traced toward (rt_scene.h agreement_for: the baked sun's, or
+// the relit colours' for another scene sun) or match_bake changed: its header, then its cells (a grid of at most
+// kAgreementSide x kAgreementSide). (Written while frames in flight may read it: at a level's start, or when the scene's
+// sun moves - the frame or two that mix both are the sun's change anyway.)
+void update_agreement(Backend& state, const std::array<float, 3>& to_light)
 {
     ShadowState& own = shadows();
-    const rt::BakedSun& baked = rt::baked_sun();
-    const bool used = own.settings.match_bake && own.settings.sun == RtShadowSettings::SunSource::kBake &&
-                      !baked.agreement.empty() &&
-                      baked.agreement.size() == static_cast<std::size_t>(baked.columns) * baked.rows &&
-                      baked.columns <= rt::kAgreementSide && baked.rows <= rt::kAgreementSide;
-    const uint64_t key = used ? baked.scene : 0U;
+    const rt::BakedSun* grid = own.settings.match_bake ? rt::agreement_for(to_light) : nullptr;
+    const bool used = grid != nullptr && !grid->agreement.empty() &&
+                      grid->agreement.size() == static_cast<std::size_t>(grid->columns) * grid->rows &&
+                      grid->columns <= rt::kAgreementSide && grid->rows <= rt::kAgreementSide;
+    const uint64_t key = used ? grid->scene : 0U;
     if (key == own.agreement_scene) {
         return;
     }
     own.agreement_scene = key;
     AgreementHeader header{};
-    if (used) {
-        header.area = {std::get<0>(baked.origin), std::get<1>(baked.origin), 1.0F / baked.cell, 1.0F};
-        header.size = {baked.columns, baked.rows, 0U, 0U};
-    }
     const std::span<uint8_t> mapped(static_cast<uint8_t*>(own.agreement.mapped), kAgreementBytes);
     if (used) {
-        std::memcpy(mapped.subspan(sizeof(header)).data(), baked.agreement.data(), baked.agreement.size() * sizeof(float));
+        header.area = {std::get<0>(grid->origin), std::get<1>(grid->origin), 1.0F / grid->cell, 1.0F};
+        header.size = {grid->columns, grid->rows, 0U, 0U};
+        std::memcpy(mapped.subspan(sizeof(header)).data(), grid->agreement.data(), grid->agreement.size() * sizeof(float));
     }
     std::memcpy(mapped.data(), &header, sizeof(header));
     state.memory.flush(own.agreement, 0, kAgreementBytes);
@@ -696,59 +690,20 @@ void log_lights()
     }
 }
 
-// A direction (toward the sun) normalised into `out`, or false: too short, not finite.
-bool unit_toward(const std::array<float, 3>& toward, std::array<float, 3>* out)
+// The sun the pass traces toward (changed by the scene's sun): rt_scene.h scene_sun - the console's `rt sun`, else
+// [Graphics] rt_sun_source's (the game's sun where the level is relit by it, the baked sun, a fixed direction) - the one
+// every effect lights by. Waiting: the level's baked sun not fitted yet; none: its bake shows no sun (indoors).
+enum class Sun : uint8_t { kFound, kWaiting, kNoneBaked };
+Sun sun_direction(std::array<float, 3>* to_light)
 {
-    const auto [x, y, z] = toward;
-    const double length = std::hypot(static_cast<double>(x), static_cast<double>(y), static_cast<double>(z));
-    if (!(length > kShortest) || !std::isfinite(length)) {
-        return false;
-    }
-    for (std::size_t i = 0; i < 3; ++i) {
-        core::at(*out, i) = static_cast<float>(static_cast<double>(core::at(toward, i)) / length);
-    }
-    return true;
-}
-
-// The frame's first directional light (toward it), or the last one seen.
-bool light_direction(std::array<float, 3>* to_light)
-{
-    ShadowState& own = shadows();
     log_lights();
-    for (const rt::Light& light : rt::frame_record().lights) {
-        if (light.kind == rt::Light::Kind::kDirectional &&
-            unit_toward({-std::get<0>(light.direction), -std::get<1>(light.direction), -std::get<2>(light.direction)},
-                        &own.to_light)) {
-            own.have_light = true;
-            break;
-        }
-    }
-    *to_light = own.to_light;
-    return own.have_light;
-}
-
-// The sun the pass traces toward: the console's (rt sun), else the settings' - the baked sun (rt_sun.h), the frame's
-// light or a fixed direction.
-enum class Sun : uint8_t { kFound, kNoLight, kWaiting, kNoneBaked };
-Sun sun_direction(const RtShadowSettings& settings, std::array<float, 3>* to_light)
-{
-    std::array<float, 3> set{};
-    if (rt::sun_override(&set) && unit_toward(set, to_light)) {
+    const rt::SceneSun sun = rt::scene_sun();
+    rt::note_sun_used(rt::SunUser::kShadows, sun.found(), sun.toward);
+    if (sun.found()) {
+        *to_light = sun.toward;
         return Sun::kFound;
     }
-    switch (settings.sun) {
-    case RtShadowSettings::SunSource::kFixed:
-        return unit_toward(settings.fixed_sun, to_light) ? Sun::kFound : Sun::kNoLight;
-    case RtShadowSettings::SunSource::kLight:
-        return light_direction(to_light) ? Sun::kFound : Sun::kNoLight;
-    case RtShadowSettings::SunSource::kBake:
-        break;
-    }
-    const rt::BakedSun& baked = rt::baked_sun();
-    if (baked.scene == 0) {
-        return Sun::kWaiting;
-    }
-    return baked.found && unit_toward(baked.toward, to_light) ? Sun::kFound : Sun::kNoneBaked;
+    return sun.origin == rt::SunOrigin::kWaiting ? Sun::kWaiting : Sun::kNoneBaked;
 }
 
 } // namespace
@@ -764,7 +719,7 @@ void set_rt_shadow_settings(const RtShadowSettings& settings)
         const std::scoped_lock lock(backend().mutex);
         shadows().settings = kept;
     }
-    rt::set_baked_sun_wanted(kept.on && kept.sun == RtShadowSettings::SunSource::kBake);
+    rt::set_baked_sun_wanted(kept.on); // (every scene sun but a fixed one needs the fit: an indoor level has none)
     if (!kept.on || !kept.objects) {
         rt::set_object_shadows_replaced(false); // (the objects' own shadows back)
     }
@@ -812,7 +767,7 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
     // being fitted again (the world changed: a second or two without a pass), which flashed the original's shadow
     // back between two of ours
     std::array<float, 3> toward{};
-    const bool refitting = shadows().settings.on && sun_direction(shadows().settings, &toward) == Sun::kWaiting;
+    const bool refitting = shadows().settings.on && sun_direction(&toward) == Sun::kWaiting;
     rt::set_object_shadows_replaced(shadows().settings.objects &&
                                     (drawn || (refitting && rt::object_shadows_replaced())));
     return drawn;
@@ -839,13 +794,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     std::array<float, 3> to_light{};
-    const Sun sun = sun_direction(own.settings, &to_light);
-    if (sun == Sun::kNoLight) {
-        if (first_report(state, kReportNoLight)) {
-            get_log("vulkan: rt_shadows: no directional light in the frame record - the shadow pass skipped");
-        }
-        return false;
-    }
+    const Sun sun = sun_direction(&to_light);
     if (sun != Sun::kFound) {
         // (no baked sun fitted yet - a new world gets it in its first frame, before it is drawn -, or a level whose bake shows
         // none: indoors, lit by its lamps - nothing to add; rt_record logs the fit)
@@ -949,7 +898,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const VkDescriptorImageInfo depth_image{.sampler = own.sampler,
                                             .imageView = depth->view,
                                             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
-    update_agreement(state);
+    update_agreement(state, to_light);
     const VkDescriptorBufferInfo agreement{.buffer = own.agreement.buffer, .offset = 0, .range = kAgreementBytes};
     std::array<VkWriteDescriptorSet, 3> writes{};
     for (VkWriteDescriptorSet& write : writes) {
