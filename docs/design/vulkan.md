@@ -1334,10 +1334,11 @@ dozen triangles, and their silhouettes and shading show it. `[Graphics] rt_tesse
   sch's quarter pipe still and with the skater riding up it, fences, barriers, a taxi; BO's start, cannons, statues):
   off against main's build changed 0.00 - 0.01% (identical but for animation), on against off bounded (mean luma change
   at most 0.8, nothing turned black or white - no holes, no sky through a crack).
-- **Cost**: the draws' triangles - BO 7.5 x the indices of the smoothed meshes (the split triangles' rows are strips of
-  their own, joined by degenerate triangles), about +2 ms a frame at 1280 x 720 with 8 x MSAA in the check's short runs
-  (off 25.5, on 27.8 ms: loading included, a rough figure); memory: sch +66,780 vertices (~2.5 MB at its 36-40 byte
-  vertices) and +533,205 indices (~1 MB).
+- **Cost**: the draws' triangles - the smoothed meshes' indices x 5.5 - 7.5 (BO 39,250 -> 294,202; the split triangles'
+  rows are strips of their own, joined by degenerate triangles); in sch at the start with the user's settings (every
+  ray-traced effect on, 8 x MSAA, 1280 x 720, RTX 5070 Ti) the frame lines read 21.9 / 24.5 ms against 22.0 / 25.1 off -
+  within the run-to-run noise (the frame is bound by the processor; the device waits 0.3 ms); memory: sch +66,780
+  vertices (~2.5 MB) and +533,205 indices (~1 MB); 50 - 180 ms more at load.
 - **Not done**: no distance-adaptive or screen-space factors (one level a mesh, made at load: changing it needs the level
   reloaded); skinned meshes; the generated height maps (the seam is there).
 
