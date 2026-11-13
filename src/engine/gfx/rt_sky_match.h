@@ -10,7 +10,7 @@
 // exactly) is left out. Its cloudiness c is how grey it is: c = 1 - (saturation - kCloudGrey) / (kSkyBlue - kCloudGrey)
 // clamped to 0 - 1, the saturation (max - min) / max of the colour - a painted sky's blue is saturated, its clouds and
 // haze white or grey. In each band of elevation:
-//   - the clear sky's colour: the texels' mean weighted by (1 - c)^2 (+ kClearFloor: a band of nothing but cloud still
+//   - the clear sky's colour: the texels' mean weighted by 1 - c (+ kClearFloor: a band of nothing but cloud still
 //     gives its mean);
 //   - everything's mean (clouds included);
 //   - the share of the band the backdrop covers;
@@ -24,7 +24,8 @@ namespace render::rt {
 
 using Colour = std::array<float, 3>; // display-referred, 0 - 1
 
-// The bands, low to high: below the ground's edge (under kGroundHighest degrees), the horizon, half way up, overhead.
+// The bands, low to high: just below the horizon (what meets it: a painted sea, the far ground), the horizon, half way
+// up, overhead.
 enum class SkyBand : uint8_t { kGround = 0, kHorizon = 1, kMiddle = 2, kZenith = 3 };
 inline constexpr std::size_t kSkyBands = 4;
 // Each band's elevations (degrees) - low, high - and the elevation its colour is placed at (the sky's gains are
@@ -35,7 +36,7 @@ struct BandRange {
     double centre = 0.0;
 };
 inline constexpr std::array<BandRange, kSkyBands> kSkyBandRanges{{
-    {.low = -90.0, .high = -3.0, .centre = -20.0},
+    {.low = -8.0, .high = -0.5, .centre = -3.0},
     {.low = 0.0, .high = 10.0, .centre = 4.0},
     {.low = 15.0, .high = 45.0, .centre = 30.0},
     {.low = 55.0, .high = 90.0, .centre = 72.0},
@@ -43,14 +44,14 @@ inline constexpr std::array<BandRange, kSkyBands> kSkyBandRanges{{
 inline constexpr double kCloudGrey = 0.10; // saturation at or under this: all cloud
 inline constexpr double kSkyBlue = 0.32;   // at or over this: all clear sky
 inline constexpr double kClearFloor = 0.02;
-inline constexpr double kCoverageLowest = 5.0; // degrees
-inline constexpr double kCoverageHighest = 60.0;
+inline constexpr double kCoverageLowest = 3.0; // degrees (the sky a player sees most)
+inline constexpr double kCoverageHighest = 35.0;
 
 // The capture as bytes: 3 x 2 faces of face_size, 4 bytes a texel, rows top down.
 struct SkyCaptureTexels {
     std::span<const uint8_t> bytes;
     uint32_t face_size = 0;
-    bool bgra = true;            // B, G, R, A in memory (Direct3D's A8R8G8B8); else R, G, B, A
+    bool bgra = true;               // B, G, R, A in memory (Direct3D's A8R8G8B8); else R, G, B, A
     std::array<uint8_t, 3> clear{}; // the clear colour's bytes (R, G, B): texels of exactly it are left out
 };
 
@@ -69,7 +70,12 @@ struct CaptureTexel {
     std::array<double, 3> direction{};
     double weight = 0.0;
 };
-[[nodiscard]] CaptureTexel capture_texel(uint32_t face, uint32_t x, uint32_t y, uint32_t face_size);
+struct CaptureSpot {
+    uint32_t face = 0;
+    uint32_t x = 0; // in the face, from its left
+    uint32_t y = 0; // from its top
+};
+[[nodiscard]] CaptureTexel capture_texel(const CaptureSpot& spot, uint32_t face_size);
 // A colour's cloudiness (0: clear sky, 1: cloud).
 [[nodiscard]] double cloudiness(const Colour& colour);
 

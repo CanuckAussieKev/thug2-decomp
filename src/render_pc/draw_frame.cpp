@@ -907,7 +907,8 @@ void draw_viewport(int index)
 
 // Not original - the sky scene's backdrop captured for a renderer that draws its own sky (rt_scene.h
 // sky_capture_wanted: the Vulkan Gpu's rt_sky matches its atmosphere and clouds to the level's own sky): once per sky
-// scene, its opaque meshes drawn from the origin toward each of rt::kSkyCaptureFaces (a 90-degree square view) into a
+// scene, all its meshes (the backdrop and its layers: painted cloud cards count as its clouds) drawn from the origin toward
+// each of rt::kSkyCaptureFaces (a 90-degree square view) into a
 // texture of 3 x 2 faces, cleared to the background colour first, then handed over (rt::set_sky_capture).
 constexpr uint32_t kSkyCaptureFaceSize = 128;
 constexpr uint32_t kSkyCaptureColumns = 3;
@@ -1002,7 +1003,7 @@ void capture_sky()
         stored_near_z() = kDefaultNearZ;
         choose_camera(&orientation, &origin, {.angle = kSkyCaptureAngle, .aspect = kSkyCaptureAspect, .zoom = 1.0F},
                       true);
-        draw_scene_group(sky, kRenderOpaque | kRenderNoCulling, 0);
+        draw_scene_group(sky, kRenderOpaque | kRenderTransparent | kRenderNoCulling, 0);
     }
     set_sampler_state(0, kSamplerMipFilter, mip_filter);
     set_sampler_state(0, kSamplerMinFilter, min_filter);

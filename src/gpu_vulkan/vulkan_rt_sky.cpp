@@ -401,7 +401,7 @@ constexpr std::size_t kAtmosphereConstantBytes = 80;
 static_assert(sizeof(AtmosphereConstants) == kAtmosphereConstantBytes, "the shaders' push-constant block");
 
 constexpr uint32_t kTransmittanceSteps = 40;
-constexpr double kGroundFade = 0.10; // radians below the horizon over which the ground's colour comes in
+constexpr double kGroundFade = 0.05; // radians below the horizon over which the ground's colour comes in (the far ground hazed into the horizon's sky above it)
 
 // The atmosphere's objects and tables.
 struct AtmosphereState {
@@ -556,11 +556,14 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
 
 // A push-descriptor set layout of a storage image at 0 and `samplers` combined image samplers after it, and a
 // pipeline layout of it with `constants` bytes of push constants.
-bool make_layout(VkDevice device, uint32_t samplers, uint32_t constants, VkDescriptorSetLayout* set_layout,
-                 VkPipelineLayout* layout)
+struct LayoutShape {
+    uint32_t samplers = 0;  // combined image samplers after the storage image
+    uint32_t constants = 0; // push constants' bytes
+};
+bool make_layout(VkDevice device, const LayoutShape& shape, VkDescriptorSetLayout* set_layout, VkPipelineLayout* layout)
 {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
-    for (uint32_t binding = 0; binding <= samplers; ++binding) {
+    for (uint32_t binding = 0; binding <= shape.samplers; ++binding) {
         bindings.push_back({.binding = binding,
                             .descriptorType = binding == 0 ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
                                                            : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -577,7 +580,7 @@ bool make_layout(VkDevice device, uint32_t samplers, uint32_t constants, VkDescr
         *set_layout = VK_NULL_HANDLE;
         return false;
     }
-    const VkPushConstantRange range{.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = constants};
+    const VkPushConstantRange range{.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = shape.constants};
     const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                                  .pNext = nullptr,
                                                  .flags = 0,
@@ -610,7 +613,7 @@ bool make_objects(Backend& state, std::string* error)
     sampler_info.maxLod = 0.0F;
     // (binding 1: the sky-view table, read by the table's FROM_SKY_VIEW variant - added by the sky)
     if (vkCreateSampler(device, &sampler_info, nullptr, &own.sampler) != VK_SUCCESS ||
-        !make_layout(device, 1, sizeof(TableConstants), &own.set_layout, &own.layout)) {
+        !make_layout(device, {.samplers = 1, .constants = sizeof(TableConstants)}, &own.set_layout, &own.layout)) {
         *error = "the descriptor layout, the pipeline layout or the sampler";
         return false;
     }
@@ -789,15 +792,28 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
     const VkDescriptorImageInfo view{.sampler = own.sampler,
                                      .imageView = atmosphere.sky_view_table.view,
                                      .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
-    std::array<VkWriteDescriptorSet, 2> writes{};
-    for (std::size_t i = 0; i < writes.size(); ++i) {
-        VkWriteDescriptorSet& write = core::at(writes, i);
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstBinding = static_cast<uint32_t>(i);
-        write.descriptorCount = 1;
-        write.descriptorType = i == 0 ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        write.pImageInfo = i == 0 ? &out : &view;
-    }
+    const std::array<VkWriteDescriptorSet, 2> writes{{
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+         .pNext = nullptr,
+         .dstSet = VK_NULL_HANDLE,
+         .dstBinding = 0,
+         .dstArrayElement = 0,
+         .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+         .pImageInfo = &out,
+         .pBufferInfo = nullptr,
+         .pTexelBufferView = nullptr},
+        {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+         .pNext = nullptr,
+         .dstSet = VK_NULL_HANDLE,
+         .dstBinding = 1,
+         .dstArrayElement = 0,
+         .descriptorCount = 1,
+         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+         .pImageInfo = &view,
+         .pBufferInfo = nullptr,
+         .pTexelBufferView = nullptr},
+    }};
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, follow ? 2U : 1U, writes.data());
     vkCmdPushConstants(commands, own.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);
     vkCmdDispatch(commands, (rt::kSkyLutWidth + kGroupSide - 1) / kGroupSide,
@@ -952,7 +968,7 @@ bool make_atmosphere_objects(Backend& state, std::string* error)
     }
     const VkDevice device = state.context.device();
     if (own.layout == VK_NULL_HANDLE &&
-        !make_layout(device, 2, sizeof(AtmosphereConstants), &own.set_layout, &own.layout)) {
+        !make_layout(device, {.samplers = 2, .constants = sizeof(AtmosphereConstants)}, &own.set_layout, &own.layout)) {
         *error = "the atmosphere's layouts";
         return false;
     }
@@ -993,7 +1009,7 @@ bool make_storage(Backend& state, uint32_t width, uint32_t height, Image* out)
 // One of the atmosphere's passes: `target` written, the transmittance and Psi read.
 void atmosphere_pass(VkCommandBuffer commands, VkPipeline pipeline, Image* target, const AtmosphereConstants& constants)
 {
-    AtmosphereState& own = atmosphere_state();
+    const AtmosphereState& own = atmosphere_state();
     const VkSampler sampler = sky_state().sampler;
     Memory::transition(commands, target, VK_IMAGE_LAYOUT_GENERAL, true);
     const std::array<VkDescriptorImageInfo, 3> infos{{
@@ -1011,7 +1027,12 @@ void atmosphere_pass(VkCommandBuffer commands, VkPipeline pipeline, Image* targe
         write.pImageInfo = &core::at(infos, i);
     }
     // (the table being written is not read: only the others bound beside it)
-    const uint32_t count = pipeline == own.transmittance ? 1U : (pipeline == own.multiple ? 2U : 3U);
+    uint32_t count = 3U;
+    if (pipeline == own.transmittance) {
+        count = 1U;
+    } else if (pipeline == own.multiple) {
+        count = 2U;
+    }
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, count, writes.data());
     vkCmdPushConstants(commands, own.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(constants), &constants);

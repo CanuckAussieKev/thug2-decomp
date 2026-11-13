@@ -77,7 +77,7 @@ void release_sky(Backend& state);
 // made once), Psi (32 x 32, once) and the sky seen from the viewer (192 x 108, exposed linear radiance), made again
 // whenever its input changes: the drawn sky's sun, the gains that match it to the level (each band's colour multiplied
 // - the horizon's, half way up's, overhead's, interpolated between their elevations) and the ground's colour that
-// replaces the model's below the horizon (by `ground_share`, coming in over the first 0.1 radians down).
+// replaces the model's below the horizon (by `ground_share`, coming in over the first 0.05 radians down: the far ground hazed into the horizon).
 struct AtmosphereInput {
     std::array<float, 3> sun{0.0F, 1.0F, 0.0F}; // toward the drawn sky's sun (world, normalised)
     std::array<std::array<float, 3>, 3> gains{{{1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}};

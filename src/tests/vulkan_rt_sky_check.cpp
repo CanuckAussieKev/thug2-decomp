@@ -37,6 +37,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -90,6 +91,66 @@ constexpr double kPerByte = 1.0 / 255.0;
 constexpr double kPi = std::numbers::pi;
 constexpr double kDegrees = kPi / 180.0;
 constexpr double kHalf = 0.5;
+constexpr float kHalfF = 0.5F;
+constexpr std::array<double, 3> kLuma{0.2126, 0.7152, 0.0722};
+constexpr double kParallel = 1e-12;
+constexpr double kNinetyNinth = 0.99;
+constexpr double kNinetyFifth = 0.95;
+constexpr double kByteMax = 255.0;
+constexpr uint8_t kOpaqueByte = 255;
+constexpr double kTinyLuma = 1e-9;
+constexpr float kSameValue = 1e-5F;
+// the atmosphere's checks: which texels (every n-th), how close
+constexpr uint32_t kTransmittanceRowStep = 3;
+constexpr uint32_t kTransmittanceColumnStep = 7;
+constexpr uint32_t kMultipleStep = 5;
+constexpr uint32_t kViewRowStep = 4;
+constexpr uint32_t kViewColumnStep = 6;
+constexpr uint32_t kSingleViewSteps = 32;
+constexpr uint32_t kSingleLightSteps = 16;
+constexpr double kMostTransmittanceError99 = 0.004;
+constexpr double kMostTransmittanceErrorMean = 0.001;
+constexpr double kPsiFloorShare = 0.05; // (Psi compared absolutely under this share of its brightest channel)
+constexpr double kMostPsiErrorMean = 0.02;
+constexpr double kMostPsiError95 = 0.05;
+constexpr double kViewFloor = 0.01;
+constexpr double kAboveHorizon = 0.05;
+constexpr double kMostViewErrorMean = 0.02;
+constexpr double kMostViewError99 = 0.08;
+constexpr double kLeastMultipleGain = 1.03;
+constexpr double kJustAboveHorizon = 0.03;
+// the match's
+constexpr uint64_t kMatchedSerial = 101;
+constexpr uint64_t kPlainSerial = 102;
+constexpr float kLeastCloudShare = 0.1F;
+constexpr float kMostCloudShare = 0.6F;
+constexpr double kMostMatchError = 0.03;
+constexpr float kWholeShare = 0.99F;
+// the composite's
+constexpr double kFloatFloor = 0.05;
+constexpr double kMostFloatError99 = 0.01;
+constexpr double kMostByteError99 = 2.5 / kByteMax;
+constexpr int kLeastSurfaces = 1000;
+// the clouds'
+constexpr float kCheckCoverage = 0.7F;
+constexpr uint32_t kNoiseSamples = 400;
+constexpr int kNoiseSlack = 200; // (one value in this many may be more than a step off)
+constexpr int kLeastMarched = 2000;
+constexpr int kCloudedShare = 20; // (at least one marched texel in this many with cloud)
+constexpr double kCloudy = 0.9;
+constexpr double kLightFloor = 0.05;
+constexpr double kMostTransmittance95 = 0.02;
+constexpr double kMostTransmittanceMean = 0.01;
+constexpr double kMostLight95 = 0.05;
+constexpr double kMostLightMean = 0.02;
+constexpr double kSteadier = 0.3;
+constexpr double kTinyChange = 1e-6;
+constexpr float kClampSlack = 0.002F;
+constexpr int kLeastChecked = 1000;
+// the perf run's
+constexpr int kPerfFrames = 140;
+constexpr int kPerfWarmUp = 20;
+constexpr float kPerfMatch = 0.8F;
 
 struct Options {
     int display = 0;
@@ -170,7 +231,11 @@ std::array<float, 3> floats(const Vec3& v)
 {
     return {static_cast<float>(x_of(v)), static_cast<float>(y_of(v)), static_cast<float>(z_of(v))};
 }
-double luma(const Rgb& c) { return (0.2126 * c[0]) + (0.7152 * c[1]) + (0.0722 * c[2]); }
+double luma(const Rgb& colour)
+{
+    return (core::at(kLuma, 0) * core::at(colour, 0)) + (core::at(kLuma, 1) * core::at(colour, 1)) +
+           (core::at(kLuma, 2) * core::at(colour, 2));
+}
 
 double percentile(std::vector<double> values, double share)
 {
@@ -190,7 +255,10 @@ double mean_of(const std::vector<double>& values)
     return values.empty() ? 0.0 : sum / static_cast<double>(values.size());
 }
 // relative where it is bright enough, else absolute (against `floor`)
-double error_of(double got, double want, double floor) { return std::abs(got - want) / std::max(std::abs(want), floor); }
+double error_of(double got, double want, double floor)
+{
+    return std::abs(got - want) / std::max(std::abs(want), floor);
+}
 
 // --- the scene ---------------------------------------------------------------------------------------------------------
 
@@ -217,16 +285,19 @@ struct Pose {
     Vec3 at{};
 };
 // in front of the wall, looking past its top into the sky (the sun ahead)
-Pose sky_pose() { return {.eye = {0.0, 60.0, 260.0}, .at = {0.0, 160.0, 0.0}}; }
+constexpr Vec3 kSkyEye{0.0, 60.0, 260.0};
+constexpr Vec3 kSkyAt{0.0, 160.0, 0.0};
+Pose sky_pose() { return {.eye = kSkyEye, .at = kSkyAt}; }
 // the same eye turned 8 degrees to the side
 Pose turned_pose()
 {
     const double turn = 8.0 * kDegrees;
     const Pose pose = sky_pose();
-    const Vec3 d = minus(pose.at, pose.eye);
+    const Vec3 way = minus(pose.at, pose.eye);
     return {.eye = pose.eye,
-            .at = step(pose.eye, Vec3{(x_of(d) * std::cos(turn)) + (z_of(d) * std::sin(turn)), y_of(d),
-                                      (-x_of(d) * std::sin(turn)) + (z_of(d) * std::cos(turn))},
+            .at = step(pose.eye,
+                       Vec3{(x_of(way) * std::cos(turn)) + (z_of(way) * std::sin(turn)), y_of(way),
+                            (-x_of(way) * std::sin(turn)) + (z_of(way) * std::cos(turn))},
                        1.0)};
 }
 
@@ -264,18 +335,18 @@ double intersect(const Solid& solid, const Vec3& origin, const Vec3& direction)
     double enter = 0.0;
     double leave = kNoHit;
     for (std::size_t axis = 0; axis < 3; ++axis) {
-        const double o = core::at(origin, axis);
-        const double d = core::at(direction, axis);
+        const double from = core::at(origin, axis);
+        const double along = core::at(direction, axis);
         const double low = core::at(solid.low, axis);
         const double high = core::at(solid.high, axis);
-        if (std::abs(d) < 1e-12) {
-            if (o < low || o > high) {
+        if (std::abs(along) < kParallel) {
+            if (from < low || from > high) {
                 return kNoHit;
             }
             continue;
         }
-        enter = std::max(enter, ((d > 0.0 ? low : high) - o) / d);
-        leave = std::min(leave, ((d > 0.0 ? high : low) - o) / d);
+        enter = std::max(enter, ((along > 0.0 ? low : high) - from) / along);
+        leave = std::min(leave, ((along > 0.0 ? high : low) - from) / along);
         if (enter > leave) {
             return kNoHit;
         }
@@ -306,26 +377,31 @@ View view_from(const Pose& pose, uint32_t width, uint32_t height)
     view.height = height;
     return view;
 }
-// the direction through a point of the target (whole coordinates: pixel centres)
-Vec3 direction_at(const View& view, double x, double y)
+// A point of the target (whole coordinates: pixel centres).
+struct Point {
+    double x = 0.0;
+    double y = 0.0;
+};
+// the direction through a point of the target
+Vec3 direction_at(const View& view, const Point& at)
 {
-    const double ndc_x = (x / (kHalf * view.width)) - 1.0;
-    const double ndc_y = 1.0 - (y / (kHalf * view.height));
+    const double ndc_x = (at.x / (kHalf * view.width)) - 1.0;
+    const double ndc_y = 1.0 - (at.y / (kHalf * view.height));
     return normalised(step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height),
                            view.back, -1.0));
 }
-bool sky_at(const View& view, double x, double y)
+bool sky_at(const View& view, const Point& at)
 {
-    const Vec3 d = direction_at(view, x, y);
-    return std::ranges::all_of(kSolids, [&](const Solid& solid) { return intersect(solid, view.eye, d) == kNoHit; });
+    const Vec3 way = direction_at(view, at);
+    return std::ranges::all_of(kSolids, [&](const Solid& solid) { return intersect(solid, view.eye, way) == kNoHit; });
 }
 // sky or surface in a whole 3 x 3 neighbourhood
 bool clear_cut(const View& view, int x, int y, bool* sky)
 {
-    *sky = sky_at(view, x, y);
+    *sky = sky_at(view, {.x = static_cast<double>(x), .y = static_cast<double>(y)});
     for (int dy = -1; dy <= 1; ++dy) {
         for (int dx = -1; dx <= 1; ++dx) {
-            if (sky_at(view, x + dx, y + dy) != *sky) {
+            if (sky_at(view, {.x = static_cast<double>(x + dx), .y = static_cast<double>(y + dy)}) != *sky) {
                 return false;
             }
         }
@@ -351,8 +427,8 @@ Matrices matrices_for(const Pose& pose, uint32_t width, uint32_t height)
     maths::matrix_look_at_rh(out.view, floats(pose.eye), floats(pose.at), floats(kUp));
     const double lens_width = 2.0 * kNearZ * kHalfFovTan;
     const double lens_height = lens_width * static_cast<double>(height) / static_cast<double>(width);
-    maths::matrix_perspective_rh(out.projection, static_cast<float>(lens_width), static_cast<float>(lens_height), kNearZ,
-                                 kFarZ);
+    maths::matrix_perspective_rh(out.projection, static_cast<float>(lens_width), static_cast<float>(lens_height),
+                                 kNearZ, kFarZ);
     return out;
 }
 
@@ -383,8 +459,8 @@ void draw_scene(render::Gpu& gpu, const Pose& pose, uint32_t width, uint32_t hei
             vertices.push_back({.position = corner, .colour = solid.colour});
         }
     }
-    gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(vertices.size() / 3), vertices.data(),
-                         sizeof(ColourVertex));
+    gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(vertices.size() / 3),
+                         vertices.data(), sizeof(ColourVertex));
 }
 
 rt::ViewDrawn view_drawn(const Pose& pose, uint32_t width, uint32_t height)
@@ -464,7 +540,8 @@ bool read_colour(const Targets& targets, std::vector<Rgb>* out)
 {
     std::vector<uint8_t> bytes;
     const std::size_t pixels = static_cast<std::size_t>(targets.width) * targets.height;
-    if (!vk::read_surface(targets.colour, &bytes) || bytes.size() != pixels * (targets.floats ? kHalfPixelBytes : kPixelBytes)) {
+    if (!vk::read_surface(targets.colour, &bytes) ||
+        bytes.size() != pixels * (targets.floats ? kHalfPixelBytes : kPixelBytes)) {
         return false;
     }
     out->resize(pixels);
@@ -473,7 +550,8 @@ bool read_colour(const Targets& targets, std::vector<Rgb>* out)
         if (targets.floats) {
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 uint16_t half = 0;
-                std::memcpy(&half, &core::at(bytes, (i * kHalfPixelBytes) + (channel * sizeof(uint16_t))), sizeof(half));
+                std::memcpy(&half, &core::at(bytes, (i * kHalfPixelBytes) + (channel * sizeof(uint16_t))),
+                            sizeof(half));
                 core::at(colour, channel) = vk::half_to_float(half);
             }
         } else {
@@ -491,7 +569,7 @@ vk::RtSkySettings sky_settings(bool clouds, bool hdr, float match = 1.0F)
     settings.on = true;
     settings.match = match;
     settings.clouds = clouds;
-    settings.coverage = 0.45F;
+    settings.coverage = kCheckCoverage;
     settings.speed = 0.0F;
     settings.quality = 1;
     settings.hdr = hdr;
@@ -519,11 +597,17 @@ Rgb sky_view_at(const vk::AtmosphereTexels& table, const Vec3& dir, const Vec3& 
 {
     const double hs = std::hypot(x_of(sun), z_of(sun));
     const double hv = std::hypot(x_of(dir), z_of(dir));
-    const double c = (hs > 1e-5 && hv > 1e-5) ? ((x_of(sun) * x_of(dir)) + (z_of(sun) * z_of(dir))) / (hs * hv) : 1.0;
-    const double azimuth = std::acos(std::clamp(c, -1.0, 1.0));
-    const double e = std::asin(std::clamp(y_of(dir), -1.0, 1.0));
+    constexpr double kFlat = 1e-5;
+    const double cosine =
+        (hs > kFlat && hv > kFlat) ? ((x_of(sun) * x_of(dir)) + (z_of(sun) * z_of(dir))) / (hs * hv) : 1.0;
+    const double azimuth = std::acos(std::clamp(cosine, -1.0, 1.0));
+    const double elevation = std::asin(std::clamp(y_of(dir), -1.0, 1.0));
     const double u = std::sqrt(azimuth / kPi);
-    const double v = kHalf + (kHalf * (e < 0.0 ? -1.0 : (e > 0.0 ? 1.0 : 0.0)) * std::sqrt(std::abs(e) / (kPi / 2.0)));
+    double sign = 0.0;
+    if (elevation != 0.0) {
+        sign = elevation < 0.0 ? -1.0 : 1.0;
+    }
+    const double v = kHalf + (kHalf * sign * std::sqrt(std::abs(elevation) / (kPi / 2.0)));
     const double x = std::clamp((u * table.width) - kHalf, 0.0, table.width - 1.0);
     const double y = std::clamp((v * table.height) - kHalf, 0.0, table.height - 1.0);
     const auto x0 = static_cast<uint32_t>(x);
@@ -560,48 +644,55 @@ void run_atmosphere(render::Gpu& gpu, Tally* tally)
                      transmittance.width == rt::kTransmittanceWidth && transmittance.height == rt::kTransmittanceHeight,
                  "the transmittance table read back");
     std::vector<double> errors;
-    for (uint32_t row = 0; row < transmittance.height; row += 3) {
-        for (uint32_t column = 0; column < transmittance.width; column += 7) {
+    for (uint32_t row = 0; row < transmittance.height; row += kTransmittanceRowStep) {
+        for (uint32_t column = 0; column < transmittance.width; column += kTransmittanceColumnStep) {
             const rt::RadiusCosine point = rt::transmittance_lut_point((column + kHalf) / transmittance.width,
                                                                        (row + kHalf) / transmittance.height);
             const rt::Rgb want = rt::transmittance_to_top(point, 2048);
             const std::array<float, 4>& got =
                 core::at(transmittance.texels, (static_cast<std::size_t>(row) * transmittance.width) + column);
-            for (std::size_t c = 0; c < 3; ++c) {
-                errors.push_back(std::abs(core::at(got, c) - core::at(want, c)));
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                errors.push_back(std::abs(core::at(got, channel) - core::at(want, channel)));
             }
         }
     }
-    tally->check(percentile(errors, 0.99) < 0.004 && mean_of(errors) < 0.001,
+    tally->check(percentile(errors, kNinetyNinth) < kMostTransmittanceError99 &&
+                     mean_of(errors) < kMostTransmittanceErrorMean,
                  text::format("the transmittance against 2048 segments (%zu values): mean %.5f, 99th percentile %.5f",
-                              errors.size(), mean_of(errors), percentile(errors, 0.99)));
+                              errors.size(), mean_of(errors), percentile(errors, kNinetyNinth)));
     tally->check(count_not_finite(transmittance.texels) == 0, "no NaN in the transmittance");
     // Psi
     vk::AtmosphereTexels multiple;
     tally->check(read_table(vk::AtmosphereTable::kMultiple, &multiple) && multiple.width == rt::kMultipleWidth,
                  "the multiple-scattering table read back");
     errors.clear();
-    for (uint32_t row = 0; row < multiple.height; row += 5) {
-        for (uint32_t column = 0; column < multiple.width; column += 5) {
+    for (uint32_t row = 0; row < multiple.height; row += kMultipleStep) {
+        for (uint32_t column = 0; column < multiple.width; column += kMultipleStep) {
             const double altitude = (row + kHalf) / multiple.height * (rt::kTopRadius - rt::kGroundRadius);
             const double cos_sun = (((column + kHalf) / multiple.width) * 2.0) - 1.0;
-            const rt::Rgb want = rt::multiple_scattering(altitude, cos_sun, rt::kMultipleSteps, 256);
-            const std::array<float, 4>& got = core::at(multiple.texels, (static_cast<std::size_t>(row) * multiple.width) + column);
-            const double most = std::max({want[0], want[1], want[2]});
-            for (std::size_t c = 0; c < 3; ++c) {
-                errors.push_back(error_of(core::at(got, c), core::at(want, c), std::max(most * 0.05, 1e-9)));
+            const rt::Rgb want = rt::multiple_scattering({.altitude = altitude, .cos_sun = cos_sun},
+                                                         {.steps = rt::kMultipleSteps, .light = 256});
+            const std::array<float, 4>& got =
+                core::at(multiple.texels, (static_cast<std::size_t>(row) * multiple.width) + column);
+            const double most = std::max({core::at(want, 0), core::at(want, 1), core::at(want, 2)});
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                errors.push_back(error_of(core::at(got, channel), core::at(want, channel),
+                                          std::max(most * kPsiFloorShare, kTinyLuma)));
             }
         }
     }
-    tally->check(mean_of(errors) < 0.02 && percentile(errors, 0.95) < 0.05,
+    tally->check(mean_of(errors) < kMostPsiErrorMean && percentile(errors, kNinetyFifth) < kMostPsiError95,
                  text::format("Psi against rt_sky.h's integral (%zu values, relative): mean %.4f, 95th percentile %.4f",
-                              errors.size(), mean_of(errors), percentile(errors, 0.95)));
+                              errors.size(), mean_of(errors), percentile(errors, kNinetyFifth)));
     // the sky-view table at two sun elevations
     text::print("  (the processor's Psi table: a moment)\n");
-    const rt::MultipleTable cpu_table = rt::multiple_table(rt::kMultipleSteps, 64);
-    for (const double elevation_degrees : {10.0, 45.0}) {
+    const rt::MultipleTable cpu_table = rt::multiple_table({.steps = rt::kMultipleSteps, .light = 64});
+    constexpr std::array<double, 2> kSunElevations{10.0, 45.0};
+    for (const double elevation_degrees : kSunElevations) {
         const double elevation = elevation_degrees * kDegrees;
-        const Vec3 sun{std::cos(elevation) * 0.6, std::sin(elevation), std::cos(elevation) * -0.8};
+        constexpr double kSunX = 0.6; // (the sun's heading: x, z)
+        constexpr double kSunZ = -0.8;
+        const Vec3 sun{std::cos(elevation) * kSunX, std::sin(elevation), std::cos(elevation) * kSunZ};
         vk::AtmosphereInput input;
         input.sun = floats(sun);
         {
@@ -616,30 +707,36 @@ void run_atmosphere(render::Gpu& gpu, Tally* tally)
         double single_sum = 0.0;
         double multiple_sum = 0.0;
         const rt::MultipleTable no_table;
-        for (uint32_t row = 0; row < view.height; row += 4) {
-            for (uint32_t column = 0; column < view.width; column += 6) {
-                const rt::Dir dir = rt::sky_view_direction((column + kHalf) / view.width, (row + kHalf) / view.height);
+        for (uint32_t row = 0; row < view.height; row += kViewRowStep) {
+            for (uint32_t column = 0; column < view.width; column += kViewColumnStep) {
+                const rt::Dir dir =
+                    rt::sky_view_direction({(column + kHalf) / view.width, (row + kHalf) / view.height});
                 const rt::Rgb want = rt::sky_radiance_ms(dir, rt::sun_direction_at(elevation),
                                                          {.view = rt::kSkyViewSteps, .light = 256}, cpu_table);
-                const std::array<float, 4>& got = core::at(view.texels, (static_cast<std::size_t>(row) * view.width) + column);
-                for (std::size_t c = 0; c < 3; ++c) {
-                    const double exposed = core::at(want, c) * rt::sky_exposure();
-                    errors.push_back(error_of(core::at(got, c), exposed, 0.01));
+                const std::array<float, 4>& got =
+                    core::at(view.texels, (static_cast<std::size_t>(row) * view.width) + column);
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    const double exposed = core::at(want, channel) * rt::sky_exposure();
+                    errors.push_back(error_of(core::at(got, channel), exposed, kViewFloor));
                 }
-                if (core::at(dir, 1) > 0.05) {
-                    single_sum += luma(rt::sky_radiance(dir, rt::sun_direction_at(elevation), {.view = 32, .light = 16}));
+                if (core::at(dir, 1) > kAboveHorizon) {
+                    single_sum += luma(rt::sky_radiance(dir, rt::sun_direction_at(elevation),
+                                                        {.view = kSingleViewSteps, .light = kSingleLightSteps}));
                     multiple_sum += luma(want);
                 }
             }
         }
-        tally->check(mean_of(errors) < 0.02 && percentile(errors, 0.99) < 0.08,
-                     text::format("  the sky-view table against sky_radiance_ms (%zu values): mean %.4f, 99th percentile %.4f",
-                                  errors.size(), mean_of(errors), percentile(errors, 0.99)));
-        tally->check(multiple_sum > single_sum * 1.03,
-                     text::format("  the light scattered more than once brightens the sky (x %.3f)", multiple_sum / single_sum));
+        tally->check(
+            mean_of(errors) < kMostViewErrorMean && percentile(errors, kNinetyNinth) < kMostViewError99,
+            text::format("  the sky-view table against sky_radiance_ms (%zu values): mean %.4f, 99th percentile %.4f",
+                         errors.size(), mean_of(errors), percentile(errors, kNinetyNinth)));
+        tally->check(
+            multiple_sum > single_sum * kLeastMultipleGain,
+            text::format("  the light scattered more than once brightens the sky (x %.3f)", multiple_sum / single_sum));
         const Rgb zenith = sky_view_at(view, {0.0, 1.0, 0.0}, sun);
-        const Rgb horizon = sky_view_at(view, normalised({-x_of(sun), 0.03, -z_of(sun)}), sun);
-        tally->check(zenith[2] / std::max(luma(zenith), 1e-9) > horizon[2] / std::max(luma(horizon), 1e-9),
+        const Rgb horizon = sky_view_at(view, normalised({-x_of(sun), kJustAboveHorizon, -z_of(sun)}), sun);
+        tally->check(core::at(zenith, 2) / std::max(luma(zenith), kTinyLuma) >
+                         core::at(horizon, 2) / std::max(luma(horizon), kTinyLuma),
                      "  the zenith bluer than the horizon (away from the sun)");
         tally->check(count_not_finite(view.texels) == 0, "  no NaN in the sky-view table");
     }
@@ -652,29 +749,41 @@ constexpr uint32_t kFace = 64;
 // A painted sky: blue darkening upward, white cloud blobs 10 - 40 degrees up, a dark sea below the horizon.
 std::vector<uint8_t> painted_sky()
 {
-    std::vector<uint8_t> bytes(static_cast<std::size_t>(kFace) * 3 * kFace * 2 * 4);
-    for (uint32_t face = 0; face < 6; ++face) {
-        for (uint32_t y = 0; y < kFace; ++y) {
-            for (uint32_t x = 0; x < kFace; ++x) {
-                const rt::CaptureTexel texel = rt::capture_texel(face, x, y, kFace);
-                const double e = std::asin(texel.direction[1]) / kDegrees;
-                const double a = std::atan2(texel.direction[2], texel.direction[0]);
-                std::array<double, 3> rgb{};
-                if (e < -1.0) {
-                    rgb = {0.10, 0.20, 0.30};
-                } else {
-                    const double t = std::clamp(e / 90.0, 0.0, 1.0);
-                    rgb = {0.75 - (0.45 * t), 0.82 - (0.32 * t), 0.95 - (0.05 * t)};
-                    const bool cloud = e > 10.0 && e < 40.0 && std::sin(a * 5.0) > 0.4;
-                    if (cloud) {
-                        rgb = {0.93, 0.93, 0.95};
+    constexpr uint32_t kFaces = 6;
+    constexpr uint32_t kAcross = 3;
+    constexpr Rgb kSea{0.10, 0.20, 0.30};
+    constexpr Rgb kLow{0.75, 0.82, 0.95};  // the sky at the horizon
+    constexpr Rgb kRise{0.45, 0.32, 0.05}; // darker by this overhead
+    constexpr Rgb kCloud{0.93, 0.93, 0.95};
+    constexpr double kCloudLowest = 10.0; // degrees
+    constexpr double kCloudHighest = 40.0;
+    constexpr double kCloudLobes = 5.0; // round the horizon
+    constexpr double kCloudEdge = 0.4;
+    std::vector<uint8_t> bytes(static_cast<std::size_t>(kFace) * kAcross * kFace * 2 * kPixelBytes);
+    for (uint32_t face = 0; face < kFaces; ++face) {
+        for (uint32_t row = 0; row < kFace; ++row) {
+            for (uint32_t column = 0; column < kFace; ++column) {
+                const rt::CaptureTexel texel = rt::capture_texel({.face = face, .x = column, .y = row}, kFace);
+                const double elevation = std::asin(core::at(texel.direction, 1)) / kDegrees;
+                const double azimuth = std::atan2(core::at(texel.direction, 2), core::at(texel.direction, 0));
+                Rgb rgb = kSea;
+                if (elevation >= -1.0) {
+                    const double height = std::clamp(elevation / 90.0, 0.0, 1.0);
+                    for (std::size_t channel = 0; channel < 3; ++channel) {
+                        core::at(rgb, channel) = core::at(kLow, channel) - (core::at(kRise, channel) * height);
+                    }
+                    if (elevation > kCloudLowest && elevation < kCloudHighest &&
+                        std::sin(azimuth * kCloudLobes) > kCloudEdge) {
+                        rgb = kCloud;
                     }
                 }
-                const std::size_t at = ((static_cast<std::size_t>((face / 3) * kFace + y) * kFace * 3) + ((face % 3) * kFace) + x) * 4;
-                core::at(bytes, at + 0) = static_cast<uint8_t>(std::lround(rgb[2] * 255.0));
-                core::at(bytes, at + 1) = static_cast<uint8_t>(std::lround(rgb[1] * 255.0));
-                core::at(bytes, at + 2) = static_cast<uint8_t>(std::lround(rgb[0] * 255.0));
-                core::at(bytes, at + 3) = 255;
+                const std::size_t at = ((static_cast<std::size_t>(((face / kAcross) * kFace) + row) * kFace * kAcross) +
+                                        (static_cast<std::size_t>(face % kAcross) * kFace) + column) *
+                                       kPixelBytes;
+                core::at(bytes, at + 0) = static_cast<uint8_t>(std::lround(core::at(rgb, 2) * kByteMax));
+                core::at(bytes, at + 1) = static_cast<uint8_t>(std::lround(core::at(rgb, 1) * kByteMax));
+                core::at(bytes, at + 2) = static_cast<uint8_t>(std::lround(core::at(rgb, 0) * kByteMax));
+                core::at(bytes, at + 3) = kOpaqueByte;
             }
         }
     }
@@ -697,9 +806,12 @@ void run_match(render::Gpu& gpu, Tally* tally)
     render::GpuLockedRect locked{};
     bool filled = made && gpu.lock_texture(texture, 0, &locked, nullptr, 0) == value::kResultOk;
     if (filled) {
+        const std::size_t row_bytes = static_cast<std::size_t>(kFace) * 3 * kPixelBytes;
+        const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits),
+                                      static_cast<std::size_t>(locked.pitch) * (static_cast<std::size_t>(kFace) * 2));
         for (uint32_t row = 0; row < kFace * 2; ++row) {
-            std::memcpy(static_cast<uint8_t*>(locked.bits) + (static_cast<std::ptrdiff_t>(row) * locked.pitch),
-                        &core::at(bytes, static_cast<std::size_t>(row) * kFace * 3 * 4), static_cast<std::size_t>(kFace) * 3 * 4);
+            std::memcpy(&core::at(into, static_cast<std::size_t>(row) * static_cast<std::size_t>(locked.pitch)),
+                        &core::at(bytes, static_cast<std::size_t>(row) * row_bytes), row_bytes);
         }
         filled = gpu.unlock_texture(texture, 0) == value::kResultOk;
     }
@@ -712,13 +824,16 @@ void run_match(render::Gpu& gpu, Tally* tally)
     const auto centre_means = [](const vk::AtmosphereTexels& view) {
         std::array<Rgb, rt::kSkyBands> out{};
         for (std::size_t band = 1; band < rt::kSkyBands; ++band) {
-            const double e = rt::kSkyBandRanges[band].centre * kDegrees;
+            const double elevation = core::at(rt::kSkyBandRanges, band).centre * kDegrees;
             constexpr int kAzimuths = 64;
-            for (int i = 0; i < kAzimuths; ++i) {
-                const double a = 2.0 * kPi * (i + kHalf) / kAzimuths;
-                const Rgb c = sky_view_at(view, {std::cos(e) * std::cos(a), std::sin(e), std::cos(e) * std::sin(a)}, to_sun());
+            for (int index = 0; index < kAzimuths; ++index) {
+                const double azimuth = 2.0 * kPi * (index + kHalf) / kAzimuths;
+                const Rgb colour = sky_view_at(view,
+                                               {std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
+                                                std::cos(elevation) * std::sin(azimuth)},
+                                               to_sun());
                 for (std::size_t ch = 0; ch < 3; ++ch) {
-                    out[band][ch] += c[ch] / kAzimuths;
+                    core::at(core::at(out, band), ch) += core::at(colour, ch) / kAzimuths;
                 }
             }
         }
@@ -726,47 +841,63 @@ void run_match(render::Gpu& gpu, Tally* tally)
     };
     std::array<Rgb, rt::kSkyBands> model{};
     for (const float strength : {0.0F, 1.0F}) {
-        rt::set_sky_capture({.texture = texture, .face_size = kFace, .serial = strength > 0.5F ? 101U : 102U, .scene = 1, .clear = {}});
+        rt::set_sky_capture({.texture = texture,
+                             .face_size = kFace,
+                             .serial = strength > kHalfF ? kMatchedSerial : kPlainSerial,
+                             .scene = 1,
+                             .clear = {}});
         vk::set_rt_sky_settings(sky_settings(true, false, strength));
-        tally->check(draw_frame(gpu, targets, sky_pose()) == 1, text::format("a pass with rt_sky_match=%.0f", static_cast<double>(strength)));
+        tally->check(draw_frame(gpu, targets, sky_pose()) == 1,
+                     text::format("a pass with rt_sky_match=%.0f", static_cast<double>(strength)));
         const vk::RtSkyMatch match = vk::rt_sky_match();
         const rt::SkyLook& got = match.look;
-        bool same = got.valid == want.valid && std::abs(got.coverage - want.coverage) < 1e-5F;
+        bool same = got.valid == want.valid && std::abs(got.coverage - want.coverage) < kSameValue;
         for (std::size_t band = 0; band < rt::kSkyBands; ++band) {
-            for (std::size_t c = 0; c < 3; ++c) {
-                same = same && std::abs(got.clear[band][c] - want.clear[band][c]) < 1e-5F &&
-                       std::abs(got.all[band][c] - want.all[band][c]) < 1e-5F;
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                same = same &&
+                       std::abs(core::at(core::at(got.clear, band), channel) -
+                                core::at(core::at(want.clear, band), channel)) < kSameValue &&
+                       std::abs(core::at(core::at(got.all, band), channel) -
+                                core::at(core::at(want.all, band), channel)) < kSameValue;
             }
         }
         vk::AtmosphereTexels view;
         read_table(vk::AtmosphereTable::kSkyView, &view);
         const std::array<Rgb, rt::kSkyBands> means = centre_means(view);
-        if (strength < 0.5F) {
-            tally->check(same, text::format("the device's analysis of the capture is the processor's (clouds %.0f%%, zenith %.2f "
-                                            "%.2f %.2f, ground %.0f%% covered)",
-                                            100.0 * got.coverage, static_cast<double>(got.clear[3][0]),
-                                            static_cast<double>(got.clear[3][1]), static_cast<double>(got.clear[3][2]),
-                                            100.0 * got.covered[0]));
-            tally->check(got.coverage > 0.1F && got.coverage < 0.6F, "  the clouds' share found (some, not all)");
+        if (strength < kHalfF) {
+            tally->check(
+                same, text::format(
+                          "the device's analysis of the capture is the processor's (clouds %.0f%%, zenith %.2f "
+                          "%.2f %.2f, ground %.0f%% covered)",
+                          100.0 * got.coverage, static_cast<double>(core::at(core::at(got.clear, 3), 0)),
+                          static_cast<double>(core::at(core::at(got.clear, 3), 1)),
+                          static_cast<double>(core::at(core::at(got.clear, 3), 2)), 100.0 * core::at(got.covered, 0)));
+            tally->check(got.coverage > kLeastCloudShare && got.coverage < kMostCloudShare,
+                         "  the clouds' share found (some, not all)");
             bool unit = true;
             for (const std::array<float, 3>& gain : match.atmosphere.gains) {
-                unit = unit && std::ranges::all_of(gain, [](float g) { return g == 1.0F; });
+                unit = unit && std::ranges::all_of(gain, [](float value) { return value == 1.0F; });
             }
-            tally->check(unit && match.atmosphere.ground_share == 0.0F, "  rt_sky_match=0: the model's own sky (gains 1)");
+            tally->check(unit && match.atmosphere.ground_share == 0.0F,
+                         "  rt_sky_match=0: the model's own sky (gains 1)");
             model = means;
             continue;
         }
         double worst = 0.0;
         for (std::size_t band = 1; band < rt::kSkyBands; ++band) {
             for (std::size_t ch = 0; ch < 3; ++ch) {
-                const double target = std::pow(static_cast<double>(want.clear[band][ch]), rt::kDisplayGamma);
-                const double expected = model[band][ch] * target / static_cast<double>(match.model[band][ch]);
-                worst = std::max(worst, std::abs(means[band][ch] - expected) / expected);
+                const double target =
+                    std::pow(static_cast<double>(core::at(core::at(want.clear, band), ch)), rt::kDisplayGamma);
+                const double expected = core::at(core::at(model, band), ch) * target /
+                                        static_cast<double>(core::at(core::at(match.model, band), ch));
+                worst = std::max(worst, std::abs(core::at(core::at(means, band), ch) - expected) / expected);
             }
         }
-        tally->check(worst < 0.03, text::format("  rt_sky_match=1: each band's centre the model x the capture's clear colour "
-                                                "over the model's band (worst %.4f)", worst));
-        tally->check(match.atmosphere.ground_share > 0.99F, "  the capture's sea used below the horizon");
+        tally->check(worst < kMostMatchError,
+                     text::format("  rt_sky_match=1: each band's centre the model x the capture's clear colour "
+                                  "over the model's band (worst %.4f)",
+                                  worst));
+        tally->check(match.atmosphere.ground_share > kWholeShare, "  the capture's sea used below the horizon");
     }
     rt::set_sky_capture({});
     vk::set_rt_sky_settings({});
@@ -797,35 +928,39 @@ void run_composite(render::Gpu& gpu, bool floats, Tally* tally)
     int surfaces = 0;
     int surfaces_changed = 0;
     double brightest = 0.0;
-    for (int y = 2; y < static_cast<int>(kTargetHeight) - 2; ++y) {
-        for (int x = 2; x < static_cast<int>(kTargetWidth) - 2; ++x) {
+    for (int row = 2; row < static_cast<int>(kTargetHeight) - 2; ++row) {
+        for (int column = 2; column < static_cast<int>(kTargetWidth) - 2; ++column) {
             bool sky = false;
-            if (!clear_cut(view, x, y, &sky)) {
+            if (!clear_cut(view, column, row, &sky)) {
                 continue;
             }
-            const std::size_t i = (static_cast<std::size_t>(y) * kTargetWidth) + x;
+            const std::size_t pixel = (static_cast<std::size_t>(row) * kTargetWidth) + column;
             if (!sky) {
                 ++surfaces;
-                surfaces_changed += before[i] != after[i] ? 1 : 0;
+                surfaces_changed += core::at(before, pixel) != core::at(after, pixel) ? 1 : 0;
                 continue;
             }
-            const Rgb linear = sky_view_at(table, direction_at(view, x, y), to_sun());
-            for (std::size_t c = 0; c < 3; ++c) {
-                double want = std::pow(linear[c], 1.0 / 2.2);
+            const Rgb linear = sky_view_at(
+                table, direction_at(view, {.x = static_cast<double>(column), .y = static_cast<double>(row)}), to_sun());
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                double want = std::pow(core::at(linear, channel), 1.0 / rt::kDisplayGamma);
                 if (!floats) {
                     want = std::min(want, 1.0);
                 }
-                brightest = std::max(brightest, after[i][c]);
-                sky_errors.push_back(floats ? error_of(after[i][c], want, 0.05) : std::abs(after[i][c] - want));
+                brightest = std::max(brightest, core::at(core::at(after, pixel), channel));
+                sky_errors.push_back(floats ? error_of(core::at(core::at(after, pixel), channel), want, kFloatFloor)
+                                            : std::abs(core::at(core::at(after, pixel), channel) - want));
             }
         }
     }
-    tally->check(!sky_errors.empty() && percentile(sky_errors, 0.99) < (floats ? 0.01 : 2.5 / 255.0),
-                 text::format("every clear-cut sky pixel the sky-view table's colour (%zu values; 99th percentile %.4f)",
-                              sky_errors.size(), percentile(sky_errors, 0.99)));
-    tally->check(surfaces > 1000 && surfaces_changed == 0,
+    tally->check(
+        !sky_errors.empty() && percentile(sky_errors, kNinetyNinth) < (floats ? kMostFloatError99 : kMostByteError99),
+        text::format("every clear-cut sky pixel the sky-view table's colour (%zu values; 99th percentile %.4f)",
+                     sky_errors.size(), percentile(sky_errors, kNinetyNinth)));
+    tally->check(surfaces > kLeastSurfaces && surfaces_changed == 0,
                  text::format("every surface pixel unchanged (%d of %d changed)", surfaces_changed, surfaces));
-    tally->check(floats || brightest <= 1.0, text::format("the brightest sky value %.3f (8-bit: at most 1)", brightest));
+    tally->check(floats || brightest <= 1.0,
+                 text::format("the brightest sky value %.3f (8-bit: at most 1)", brightest));
     vk::set_rt_sky_settings({});
     release_targets(gpu, targets);
 }
@@ -839,27 +974,228 @@ bool read_sky(vk::RtSkyImage which, vk::RtSkyTexels* out)
     return vk::read_rt_sky_image(state, {0, 0, kTargetWidth, kTargetHeight}, which, out);
 }
 
-float jitter_of(uint32_t x, uint32_t y, float offset)
+// A low-resolution texel.
+struct Texel {
+    uint32_t x = 0;
+    uint32_t y = 0;
+};
+
+// interleaved gradient noise + the frame's offset, as the shader (vulkan_rt_sky_pass.cpp jitter_at), in floats
+float jitter_of(const Texel& texel, float offset)
 {
-    const float inner = (0.06711056F * static_cast<float>(x)) + (0.00583715F * static_cast<float>(y));
-    const float a = inner - std::floor(inner);
-    const float b = 52.9829189F * a;
-    const float j = b - std::floor(b);
-    const float s = j + offset;
-    return s - std::floor(s);
+    constexpr float kAcross = 0.06711056F;
+    constexpr float kDown = 0.00583715F;
+    constexpr float kScale = 52.9829189F;
+    const float inner = (kAcross * static_cast<float>(texel.x)) + (kDown * static_cast<float>(texel.y));
+    const float first = inner - std::floor(inner);
+    const float scaled = kScale * first;
+    const float noise = scaled - std::floor(scaled);
+    const float shifted = noise + offset;
+    return shifted - std::floor(shifted);
 }
 
 // the direction the device marches for a low-resolution texel (vulkan_rt_sky_pass.cpp low_centre / direction_of)
-Vec3 march_direction(const vk::RtSkyFrame& frame, uint32_t x, uint32_t y)
+Vec3 march_direction(const vk::RtSkyFrame& frame, const Texel& texel)
 {
-    const double px = (static_cast<double>(x) * frame.scale) + (0.5 * (frame.scale - 1.0));
-    const double py = (static_cast<double>(y) * frame.scale) + (0.5 * (frame.scale - 1.0));
-    const std::array<float, 16>& m = frame.to_world; // column-major
-    std::array<double, 4> w{};
-    for (std::size_t row = 0; row < 4; ++row) {
-        w[row] = (m[row] * px) + (m[4 + row] * py) + (m[8 + row] * 0.5) + m[12 + row];
+    const double px = (static_cast<double>(texel.x) * frame.scale) + (kHalf * (frame.scale - 1.0));
+    const double py = (static_cast<double>(texel.y) * frame.scale) + (kHalf * (frame.scale - 1.0));
+    const std::array<float, vk::kSkyMatrixFloats>& matrix = frame.to_world; // column-major
+    constexpr std::size_t kSide = 4;
+    std::array<double, kSide> w{};
+    for (std::size_t row = 0; row < kSide; ++row) {
+        core::at(w, row) = (core::at(matrix, row) * px) + (core::at(matrix, kSide + row) * py) +
+                           (core::at(matrix, (2 * kSide) + row) * kHalf) + core::at(matrix, (3 * kSide) + row);
     }
-    return normalised({(w[0] / w[3]) - frame.camera[0], (w[1] / w[3]) - frame.camera[1], (w[2] / w[3]) - frame.camera[2]});
+    return normalised({(core::at(w, 0) / core::at(w, 3)) - core::at(frame.camera, 0),
+                       (core::at(w, 1) / core::at(w, 3)) - core::at(frame.camera, 1),
+                       (core::at(w, 2) / core::at(w, 3)) - core::at(frame.camera, 2)});
+}
+
+// The device's noise against rt_clouds.h's texels (sampled through the three textures).
+void check_noise(const rt::CloudNoise& noise, Tally* tally)
+{
+    constexpr uint32_t kStepX = 37;
+    constexpr uint32_t kStepY = 59;
+    constexpr uint32_t kStepZ = 83;
+    int noise_checked = 0;
+    int noise_off = 0;
+    const auto off_by = [](const std::vector<uint8_t>& bytes, std::size_t at, double want) {
+        return std::abs(core::at(bytes, at) - std::lround(want * kByteMax)) > 1 ? 1 : 0;
+    };
+    for (uint32_t index = 0; index < kNoiseSamples; ++index) {
+        const uint32_t x = (index * kStepX) % rt::kCloudShapeSize;
+        const uint32_t y = (index * kStepY) % rt::kCloudShapeSize;
+        const uint32_t z = (index * kStepZ) % rt::kCloudShapeSize;
+        const uint32_t dx = x % rt::kCloudDetailSize;
+        const uint32_t dy = y % rt::kCloudDetailSize;
+        const uint32_t dz = z % rt::kCloudDetailSize;
+        const std::array<double, 4> shape = rt::cloud_shape_texel(x, y, z);
+        const std::array<double, 4> detail = rt::cloud_detail_texel(dx, dy, dz);
+        const std::array<double, 4> weather = rt::cloud_weather_texel({x * 2, y * 2});
+        const std::size_t at = (((static_cast<std::size_t>(z) * rt::kCloudShapeSize) + y) * rt::kCloudShapeSize) + x;
+        const std::size_t at_detail =
+            (((static_cast<std::size_t>(dz) * rt::kCloudDetailSize) + dy) * rt::kCloudDetailSize) + dx;
+        const std::size_t at_weather =
+            (static_cast<std::size_t>(y * 2) * rt::kCloudWeatherSize) + (static_cast<std::size_t>(x) * 2);
+        for (std::size_t channel = 0; channel < kPixelBytes; ++channel) {
+            noise_off += off_by(noise.shape, (at * kPixelBytes) + channel, core::at(shape, channel));
+            noise_off += off_by(noise.detail, (at_detail * kPixelBytes) + channel, core::at(detail, channel));
+            noise_off += off_by(noise.weather, (at_weather * kPixelBytes) + channel, core::at(weather, channel));
+            noise_checked += 3;
+        }
+    }
+    tally->check(noise_off <= noise_checked / kNoiseSlack,
+                 text::format("the device's noise is rt_clouds.h's (%d of %d values more than a step off)", noise_off,
+                              noise_checked));
+}
+
+// Every marched texel against the processor's march of the same ray on the device's noise.
+void check_march(const rt::CloudNoise& noise, const vk::RtSkyTexels& march, const vk::RtSkyTexels& info, Tally* tally)
+{
+    const vk::RtSkyFrame frame = vk::rt_sky_frame();
+    std::vector<double> t_errors;
+    std::vector<double> l_errors;
+    int marched = 0;
+    int clouded = 0;
+    for (uint32_t row = 0; row < march.height; ++row) {
+        for (uint32_t column = 0; column < march.width; ++column) {
+            const std::size_t index = (static_cast<std::size_t>(row) * march.width) + column;
+            if (core::at(core::at(info.texels, index), 1) < kHalfF) {
+                continue;
+            }
+            ++marched;
+            rt::CloudRay ray;
+            ray.camera_altitude = frame.camera_altitude;
+            ray.offset = frame.offset;
+            ray.direction = march_direction(frame, {.x = column, .y = row});
+            ray.to_sun = {core::at(frame.sun, 0), core::at(frame.sun, 1), core::at(frame.sun, 2)};
+            ray.coverage = frame.coverage;
+            ray.density_scale = 1.0;
+            ray.steps = frame.steps;
+            ray.jitter = jitter_of({.x = column, .y = row}, frame.jitter_offset);
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(ray.sun_light, channel) = core::at(frame.sun_light, channel);
+                core::at(ray.ambient_bottom, channel) = core::at(frame.ambient_bottom, channel);
+                core::at(ray.ambient_top, channel) = core::at(frame.ambient_top, channel);
+            }
+            const rt::CloudResult want = rt::march_clouds(noise, ray);
+            const std::array<float, 4>& got = core::at(march.texels, index);
+            t_errors.push_back(std::abs(core::at(got, 3) - want.transmittance));
+            const double light = luma({core::at(want.light, 0), core::at(want.light, 1), core::at(want.light, 2)});
+            l_errors.push_back(std::abs(luma({core::at(got, 0), core::at(got, 1), core::at(got, 2)}) - light) /
+                               std::max(kLightFloor, light));
+            clouded += want.transmittance < kCloudy ? 1 : 0;
+        }
+    }
+    tally->check(marched > kLeastMarched && clouded > marched / kCloudedShare,
+                 text::format("%d texels marched (sky in their block), %d with cloud", marched, clouded));
+    tally->check(percentile(t_errors, kNinetyFifth) < kMostTransmittance95 &&
+                     mean_of(t_errors) < kMostTransmittanceMean,
+                 text::format("  the transmittance against the processor's march: mean %.4f, 95th percentile %.4f",
+                              mean_of(t_errors), percentile(t_errors, kNinetyFifth)));
+    tally->check(percentile(l_errors, kNinetyFifth) < kMostLight95 && mean_of(l_errors) < kMostLightMean,
+                 text::format("  the light against it (relative): mean %.4f, 95th percentile %.4f", mean_of(l_errors),
+                              percentile(l_errors, kNinetyFifth)));
+    tally->check(count_not_finite(march.texels) == 0, "  no NaN in the march");
+}
+
+// After still frames the history changes less from frame to frame than the march does.
+void check_steady(render::Gpu& gpu, const Targets& targets, const vk::RtSkyTexels& info, Tally* tally)
+{
+    vk::RtSkyTexels last;
+    vk::RtSkyTexels history;
+    vk::RtSkyTexels previous_march;
+    vk::RtSkyTexels now;
+    constexpr int kStillFrames = 30;
+    for (int index = 0; index < kStillFrames; ++index) {
+        draw_frame(gpu, targets, sky_pose());
+        if (index >= kStillFrames - 2) {
+            last = history;
+            read_sky(vk::RtSkyImage::kHistory, &history);
+            previous_march = now;
+            read_sky(vk::RtSkyImage::kMarch, &now);
+        }
+    }
+    double history_change = 0.0;
+    double march_change = 0.0;
+    for (std::size_t texel = 0; texel < now.texels.size(); ++texel) {
+        if (core::at(core::at(info.texels, texel), 1) > kHalfF) {
+            history_change +=
+                std::abs(core::at(core::at(history.texels, texel), 3) - core::at(core::at(last.texels, texel), 3));
+            march_change += std::abs(core::at(core::at(now.texels, texel), 3) -
+                                     core::at(core::at(previous_march.texels, texel), 3));
+        }
+    }
+    tally->check(vk::rt_sky_frame().history && history_change < kSteadier * std::max(march_change, kTinyChange),
+                 text::format("after %d still frames the history steadier than the march (changes %.3f against %.3f)",
+                              kStillFrames, history_change, march_change));
+    tally->check(count_not_finite(history.texels) == 0, "  no NaN in the history");
+}
+
+// A texel's 3 x 3 neighbourhood's least and most (its marched texels').
+struct Bounds {
+    std::array<float, 4> least{};
+    std::array<float, 4> most{};
+};
+Bounds bounds_round(const vk::RtSkyTexels& march, const vk::RtSkyTexels& info, int column, int row)
+{
+    const auto width = static_cast<int>(march.width);
+    const auto height = static_cast<int>(march.height);
+    Bounds out{.least = core::at(march.texels, (static_cast<std::size_t>(row) * width) + column),
+               .most = core::at(march.texels, (static_cast<std::size_t>(row) * width) + column)};
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const std::size_t neighbour = (static_cast<std::size_t>(std::clamp(row + dy, 0, height - 1)) * width) +
+                                          std::clamp(column + dx, 0, width - 1);
+            if (core::at(core::at(info.texels, neighbour), 1) <= kHalfF) {
+                continue;
+            }
+            for (std::size_t channel = 0; channel < kPixelBytes; ++channel) {
+                core::at(out.least, channel) =
+                    std::min(core::at(out.least, channel), core::at(core::at(march.texels, neighbour), channel));
+                core::at(out.most, channel) =
+                    std::max(core::at(out.most, channel), core::at(core::at(march.texels, neighbour), channel));
+            }
+        }
+    }
+    return out;
+}
+
+// A turned camera: every history texel held inside this frame's neighbourhood (no ghost).
+void check_turned(render::Gpu& gpu, const Targets& targets, Tally* tally)
+{
+    draw_frame(gpu, targets, turned_pose());
+    vk::RtSkyTexels march;
+    vk::RtSkyTexels info;
+    vk::RtSkyTexels history;
+    read_sky(vk::RtSkyImage::kMarch, &march);
+    read_sky(vk::RtSkyImage::kMarchInfo, &info);
+    read_sky(vk::RtSkyImage::kHistory, &history);
+    int outside = 0;
+    int checked = 0;
+    for (int row = 0; std::cmp_less(row, march.height); ++row) {
+        for (int column = 0; std::cmp_less(column, march.width); ++column) {
+            const std::size_t index = (static_cast<std::size_t>(row) * march.width) + column;
+            if (core::at(core::at(info.texels, index), 1) < kHalfF) {
+                continue;
+            }
+            const Bounds bounds = bounds_round(march, info, column, row);
+            ++checked;
+            for (std::size_t channel = 0; channel < kPixelBytes; ++channel) {
+                const float value = core::at(core::at(history.texels, index), channel);
+                const float slack = kClampSlack + (kClampSlack * std::abs(core::at(bounds.most, channel)));
+                outside +=
+                    value < core::at(bounds.least, channel) - slack || value > core::at(bounds.most, channel) + slack
+                        ? 1
+                        : 0;
+            }
+        }
+    }
+    tally->check(
+        checked > kLeastChecked && outside == 0,
+        text::format("a camera turned 8 degrees: every history texel within this frame's 3 x 3 neighbourhood (%d "
+                     "outside of %d texels) - no ghost",
+                     outside, checked));
 }
 
 void run_clouds(render::Gpu& gpu, Tally* tally)
@@ -869,166 +1205,27 @@ void run_clouds(render::Gpu& gpu, Tally* tally)
     Targets targets;
     tally->check(make_targets(gpu, kTargetWidth, kTargetHeight, false, &targets), "the targets made");
     rt::set_sky_capture({});
-    vk::set_rt_sky_settings(sky_settings(true, false, 0.0F));
     tally->check(draw_frame(gpu, targets, sky_pose()) == 1, "a pass with rt_clouds=1");
-    // the noise
     rt::CloudNoise noise;
     {
         vk::Backend& state = vk::backend();
         const std::scoped_lock lock(state.mutex);
         tally->check(vk::read_cloud_noise(state, &noise), "the noise read back");
     }
-    int noise_checked = 0;
-    int noise_off = 0;
-    for (uint32_t i = 0; i < 400; ++i) {
-        const uint32_t x = (i * 37U) % rt::kCloudShapeSize;
-        const uint32_t y = (i * 59U) % rt::kCloudShapeSize;
-        const uint32_t z = (i * 83U) % rt::kCloudShapeSize;
-        const std::array<double, 4> shape = rt::cloud_shape_texel(x, y, z);
-        const std::size_t at = (((static_cast<std::size_t>(z) * rt::kCloudShapeSize) + y) * rt::kCloudShapeSize) + x;
-        const std::array<double, 4> detail = rt::cloud_detail_texel(x % rt::kCloudDetailSize, y % rt::kCloudDetailSize,
-                                                                    z % rt::kCloudDetailSize);
-        const std::size_t at_detail = (((static_cast<std::size_t>(z % rt::kCloudDetailSize) * rt::kCloudDetailSize) +
-                                        (y % rt::kCloudDetailSize)) * rt::kCloudDetailSize) + (x % rt::kCloudDetailSize);
-        const std::array<double, 4> weather = rt::cloud_weather_texel(x * 2, y * 2);
-        const std::size_t at_weather = (static_cast<std::size_t>(y * 2) * rt::kCloudWeatherSize) + (x * 2);
-        for (std::size_t c = 0; c < 4; ++c) {
-            noise_off += std::abs(noise.shape[(at * 4) + c] - std::lround(shape[c] * 255.0)) > 1 ? 1 : 0;
-            noise_off += std::abs(noise.detail[(at_detail * 4) + c] - std::lround(detail[c] * 255.0)) > 1 ? 1 : 0;
-            noise_off += std::abs(noise.weather[(at_weather * 4) + c] - std::lround(weather[c] * 255.0)) > 1 ? 1 : 0;
-            noise_checked += 3;
-        }
-    }
-    tally->check(noise_off <= noise_checked / 200,
-                 text::format("the device's noise is rt_clouds.h's (%d of %d values more than a step off)", noise_off, noise_checked));
-    // the march, texel by texel
+    check_noise(noise, tally);
     vk::RtSkyTexels march;
     vk::RtSkyTexels info;
     tally->check(read_sky(vk::RtSkyImage::kMarch, &march) && read_sky(vk::RtSkyImage::kMarchInfo, &info),
                  "the march read back");
-    const vk::RtSkyFrame frame = vk::rt_sky_frame();
-    std::vector<double> t_errors;
-    std::vector<double> l_errors;
-    int marched = 0;
-    int clouded = 0;
-    for (uint32_t y = 0; y < march.height; ++y) {
-        for (uint32_t x = 0; x < march.width; ++x) {
-            const std::size_t i = (static_cast<std::size_t>(y) * march.width) + x;
-            if (info.texels[i][1] < 0.5F) {
-                continue;
-            }
-            ++marched;
-            rt::CloudRay ray;
-            ray.camera_altitude = frame.camera_altitude;
-            ray.offset = frame.offset;
-            ray.direction = march_direction(frame, x, y);
-            ray.to_sun = {frame.sun[0], frame.sun[1], frame.sun[2]};
-            ray.coverage = frame.coverage;
-            ray.density_scale = 1.0;
-            ray.steps = frame.steps;
-            ray.jitter = jitter_of(x, y, frame.jitter_offset);
-            for (std::size_t c = 0; c < 3; ++c) {
-                ray.sun_light[c] = frame.sun_light[c];
-                ray.ambient_bottom[c] = frame.ambient_bottom[c];
-                ray.ambient_top[c] = frame.ambient_top[c];
-            }
-            const rt::CloudResult want = rt::march_clouds(noise, ray);
-            const std::array<float, 4>& got = march.texels[i];
-            t_errors.push_back(std::abs(got[3] - want.transmittance));
-            const double light = luma({want.light[0], want.light[1], want.light[2]});
-            l_errors.push_back(std::abs(luma({got[0], got[1], got[2]}) - light) / std::max(light, 0.05));
-            clouded += want.transmittance < 0.9 ? 1 : 0;
-        }
-    }
-    tally->check(marched > 2000 && clouded > marched / 20,
-                 text::format("%d texels marched (sky in their block), %d with cloud", marched, clouded));
-    tally->check(percentile(t_errors, 0.95) < 0.02 && mean_of(t_errors) < 0.01,
-                 text::format("  the transmittance against the processor's march: mean %.4f, 95th percentile %.4f",
-                              mean_of(t_errors), percentile(t_errors, 0.95)));
-    tally->check(percentile(l_errors, 0.95) < 0.05 && mean_of(l_errors) < 0.02,
-                 text::format("  the light against it (relative): mean %.4f, 95th percentile %.4f", mean_of(l_errors),
-                              percentile(l_errors, 0.95)));
-    tally->check(count_not_finite(march.texels) == 0, "  no NaN in the march");
-    // temporal: still frames
-    vk::RtSkyTexels last;
-    vk::RtSkyTexels history;
-    vk::RtSkyTexels previous_march = march;
-    double history_change = 0.0;
-    double march_change = 0.0;
-    constexpr int kStillFrames = 30;
-    for (int i = 0; i < kStillFrames; ++i) {
-        draw_frame(gpu, targets, sky_pose());
-        if (i >= kStillFrames - 2) {
-            last = history;
-            read_sky(vk::RtSkyImage::kHistory, &history);
-        }
-        if (i == kStillFrames - 1) {
-            vk::RtSkyTexels now;
-            read_sky(vk::RtSkyImage::kMarch, &now);
-            for (std::size_t t = 0; t < now.texels.size(); ++t) {
-                if (info.texels[t][1] > 0.5F) {
-                    history_change += std::abs(history.texels[t][3] - last.texels[t][3]);
-                    march_change += std::abs(now.texels[t][3] - previous_march.texels[t][3]);
-                }
-            }
-        }
-        if (i == kStillFrames - 2) {
-            read_sky(vk::RtSkyImage::kMarch, &previous_march);
-        }
-    }
-    tally->check(vk::rt_sky_frame().history && history_change < 0.3 * std::max(march_change, 1e-6),
-                 text::format("after %d still frames the history steadier than the march (changes %.3f against %.3f)",
-                              kStillFrames, history_change, march_change));
-    tally->check(count_not_finite(history.texels) == 0, "  no NaN in the history");
-    // a turned camera: the history inside this frame's neighbourhood
-    draw_frame(gpu, targets, turned_pose());
-    vk::RtSkyTexels turned_march;
-    vk::RtSkyTexels turned_info;
-    vk::RtSkyTexels turned_history;
-    read_sky(vk::RtSkyImage::kMarch, &turned_march);
-    read_sky(vk::RtSkyImage::kMarchInfo, &turned_info);
-    read_sky(vk::RtSkyImage::kHistory, &turned_history);
-    int outside = 0;
-    int checked = 0;
-    const auto w = static_cast<int>(turned_march.width);
-    const auto h = static_cast<int>(turned_march.height);
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            const std::size_t i = (static_cast<std::size_t>(y) * w) + x;
-            if (turned_info.texels[i][1] < 0.5F) {
-                continue;
-            }
-            std::array<float, 4> least = turned_march.texels[i];
-            std::array<float, 4> most = least;
-            for (int dy = -1; dy <= 1; ++dy) {
-                for (int dx = -1; dx <= 1; ++dx) {
-                    const std::size_t n = (static_cast<std::size_t>(std::clamp(y + dy, 0, h - 1)) * w) + std::clamp(x + dx, 0, w - 1);
-                    if (turned_info.texels[n][1] > 0.5F) {
-                        for (std::size_t c = 0; c < 4; ++c) {
-                            least[c] = std::min(least[c], turned_march.texels[n][c]);
-                            most[c] = std::max(most[c], turned_march.texels[n][c]);
-                        }
-                    }
-                }
-            }
-            ++checked;
-            for (std::size_t c = 0; c < 4; ++c) {
-                const float v = turned_history.texels[i][c];
-                const float slack = 0.002F + (0.002F * std::abs(most[c]));
-                outside += v < least[c] - slack || v > most[c] + slack ? 1 : 0;
-            }
-        }
-    }
-    tally->check(checked > 1000 && outside == 0,
-                 text::format("a camera turned 8 degrees: every history texel within this frame's 3 x 3 neighbourhood (%d "
-                              "outside of %d texels) - no ghost",
-                              outside, checked));
-    // the composite with clouds: no NaN, nothing black where the sky is
+    check_march(noise, march, info, tally);
+    check_steady(gpu, targets, info, tally);
+    check_turned(gpu, targets, tally);
+    // the composite with clouds: no NaN
     std::vector<Rgb> colour;
     read_colour(targets, &colour);
     int bad = 0;
-    for (const Rgb& c : colour) {
-        bad += std::ranges::all_of(c, [](double v) { return std::isfinite(v); }) ? 0 : 1;
+    for (const Rgb& pixel : colour) {
+        bad += std::ranges::all_of(pixel, [](double value) { return std::isfinite(value); }) ? 0 : 1;
     }
     tally->check(bad == 0, "the composite with clouds: no NaN");
     vk::set_rt_sky_settings({});
@@ -1041,7 +1238,8 @@ void run_off(render::Gpu& gpu, Tally* tally)
 {
     text::print("rt_sky=0:\n");
     vk::set_rt_sky_settings({});
-    tally->check(!rt::sky_replacement().on && !rt::sky_capture_wanted(), "render_pc not asked to replace or capture the sky");
+    tally->check(!rt::sky_replacement().on && !rt::sky_capture_wanted(),
+                 "render_pc not asked to replace or capture the sky");
     Targets targets;
     make_targets(gpu, kTargetWidth, kTargetHeight, false, &targets);
     const uint64_t before = vk::rt_sky_passes();
@@ -1059,22 +1257,25 @@ void run_off(render::Gpu& gpu, Tally* tally)
 void run_perf(render::Gpu& gpu)
 {
     text::print("the cost at %u x %u:\n", kPerfWidth, kPerfHeight);
-    vk::set_rt_sky_settings(sky_settings(true, true, 0.8F));
+    vk::set_rt_sky_settings(sky_settings(true, true, kPerfMatch));
     Targets targets;
     make_targets(gpu, kPerfWidth, kPerfHeight, true, &targets);
     for (const unsigned quality : {1U, 0U, 2U}) {
         for (const bool clouds : {false, true}) {
-            vk::RtSkySettings settings = sky_settings(clouds, true, 0.8F);
+            if (!clouds && quality != 1) {
+                continue; // (the sky alone is the same at every quality)
+            }
+            vk::RtSkySettings settings = sky_settings(clouds, true, kPerfMatch);
             settings.quality = quality;
             vk::set_rt_sky_settings(settings);
             // (each frame's work finished: its timestamps read 8 passes later - the warm-up's left out)
             vk::RtSkyTiming before = vk::rt_sky_timing();
-            for (int i = 0; i < 140; ++i) {
-                draw_frame(gpu, targets, i % 2 == 0 ? sky_pose() : turned_pose());
+            for (int frame = 0; frame < kPerfFrames; ++frame) {
+                draw_frame(gpu, targets, frame % 2 == 0 ? sky_pose() : turned_pose());
                 vk::Backend& state = vk::backend();
                 const std::scoped_lock lock(state.mutex);
                 vk::finish_work(state);
-                if (i == 20) {
+                if (frame == kPerfWarmUp) {
                     before = vk::rt_sky_timing();
                 }
             }
@@ -1085,21 +1286,19 @@ void run_perf(render::Gpu& gpu)
             }
             draw_frame(gpu, targets, sky_pose());
             const vk::RtSkyTiming after = vk::rt_sky_timing();
-            const double samples = static_cast<double>(after.samples - before.samples);
+            const auto samples = static_cast<double>(after.samples - before.samples);
             if (samples < 1.0) {
                 text::print("  no timing\n");
                 continue;
             }
             std::array<double, 3> parts{};
             for (std::size_t i = 0; i < 3; ++i) {
-                parts[i] = (after.milliseconds[i] - before.milliseconds[i]) / samples;
+                core::at(parts, i) = (core::at(after.milliseconds, i) - core::at(before.milliseconds, i)) / samples;
             }
             text::print("  %s, quality %u: %.3f ms - clouds %.3f, temporal %.3f, composite %.3f (%.0f passes timed)\n",
-                        clouds ? "clouds" : "sky alone", quality, parts[0] + parts[1] + parts[2], parts[0], parts[1], parts[2],
-                        samples);
-            if (!clouds && quality != 1) {
-                break;
-            }
+                        clouds ? "clouds" : "sky alone", quality,
+                        core::at(parts, 0) + core::at(parts, 1) + core::at(parts, 2), core::at(parts, 0),
+                        core::at(parts, 1), core::at(parts, 2), samples);
         }
     }
     vk::set_rt_sky_settings({});
@@ -1127,9 +1326,11 @@ int window_position(int display)
 
 bool open_device(const Options& options, SDL_Window* window)
 {
-    vk::set_context_options(
-        {.validation = options.validation, .device_index = options.device, .on_message = print_line, .ray_tracing = false},
-        window);
+    vk::set_context_options({.validation = options.validation,
+                             .device_index = options.device,
+                             .on_message = print_line,
+                             .ray_tracing = false},
+                            window);
     // (on before the device: its depth surfaces are made samplable)
     vk::set_rt_sky_settings(sky_settings(true, false));
     render::GpuContext& context = vk::gpu_context();
@@ -1138,7 +1339,8 @@ bool open_device(const Options& options, SDL_Window* window)
         return false;
     }
     const vk::Backend& state = vk::backend();
-    text::print("validation layer: %s\n", state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
+    text::print("validation layer: %s\n",
+                state.context.validation_on() ? "on" : "off (not installed, or not asked for)");
     context.configure({.width = kWindowWidth,
                        .height = kWindowHeight,
                        .windowed = true,

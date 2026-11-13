@@ -36,9 +36,11 @@ struct BandSums {
 
 std::array<double, 3> cross3(const std::array<float, 3>& a, const std::array<float, 3>& b)
 {
-    return {(static_cast<double>(a[1]) * b[2]) - (static_cast<double>(a[2]) * b[1]),
-            (static_cast<double>(a[2]) * b[0]) - (static_cast<double>(a[0]) * b[2]),
-            (static_cast<double>(a[0]) * b[1]) - (static_cast<double>(a[1]) * b[0])};
+    return {
+        (static_cast<double>(core::at(a, 1)) * core::at(b, 2)) - (static_cast<double>(core::at(a, 2)) * core::at(b, 1)),
+        (static_cast<double>(core::at(a, 2)) * core::at(b, 0)) - (static_cast<double>(core::at(a, 0)) * core::at(b, 2)),
+        (static_cast<double>(core::at(a, 0)) * core::at(b, 1)) -
+            (static_cast<double>(core::at(a, 1)) * core::at(b, 0))};
 }
 
 Colour mean_of(const Sum& sum, double weight, const Colour& otherwise)
@@ -46,24 +48,25 @@ Colour mean_of(const Sum& sum, double weight, const Colour& otherwise)
     if (!(weight > 0.0)) {
         return otherwise;
     }
-    return {static_cast<float>(sum[0] / weight), static_cast<float>(sum[1] / weight), static_cast<float>(sum[2] / weight)};
+    return {static_cast<float>(core::at(sum, 0) / weight), static_cast<float>(core::at(sum, 1) / weight),
+            static_cast<float>(core::at(sum, 2) / weight)};
 }
 
 void add(Sum* sum, const Colour& colour, double weight)
 {
-    for (std::size_t c = 0; c < 3; ++c) {
-        core::at(*sum, c) += static_cast<double>(core::at(colour, c)) * weight;
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        core::at(*sum, channel) += static_cast<double>(core::at(colour, channel)) * weight;
     }
 }
 
 } // namespace
 
-CaptureTexel capture_texel(uint32_t face, uint32_t x, uint32_t y, uint32_t face_size)
+CaptureTexel capture_texel(const CaptureSpot& spot, uint32_t face_size)
 {
-    const SkyCaptureFace& side = core::at(kSkyCaptureFaces, face % kSkyCaptureFaces.size());
+    const SkyCaptureFace& side = core::at(kSkyCaptureFaces, spot.face % kSkyCaptureFaces.size());
     const double size = std::max(1U, face_size);
-    const double across = ((2.0 * (static_cast<double>(x) + kHalf)) / size) - 1.0;
-    const double up = 1.0 - ((2.0 * (static_cast<double>(y) + kHalf)) / size);
+    const double across = ((2.0 * (static_cast<double>(spot.x) + kHalf)) / size) - 1.0;
+    const double up = 1.0 - ((2.0 * (static_cast<double>(spot.y) + kHalf)) / size);
     const std::array<double, 3> right = cross3(side.forward, side.up); // (render_pc's right-handed look-at)
     std::array<double, 3> direction{};
     double length = 0.0;
@@ -82,8 +85,8 @@ CaptureTexel capture_texel(uint32_t face, uint32_t x, uint32_t y, uint32_t face_
 
 double cloudiness(const Colour& colour)
 {
-    const double most = std::max({colour[0], colour[1], colour[2]});
-    const double least = std::min({colour[0], colour[1], colour[2]});
+    const double most = std::max({core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)});
+    const double least = std::min({core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)});
     const double saturation = most > 1e-3 ? (most - least) / most : 0.0;
     return std::clamp(1.0 - ((saturation - kCloudGrey) / (kSkyBlue - kCloudGrey)), 0.0, 1.0);
 }
@@ -106,20 +109,21 @@ SkyLook analyse_sky(const SkyCaptureTexels& capture)
     for (uint32_t face = 0; face < kSkyCaptureFaces.size(); ++face) {
         const std::size_t left = static_cast<std::size_t>(face % kColumns) * size;
         const std::size_t top = static_cast<std::size_t>(face / kColumns) * size;
-        for (uint32_t y = 0; y < size; ++y) {
-            for (uint32_t x = 0; x < size; ++x) {
-                const std::size_t at = (((top + y) * width) + left + x) * kBytesPerTexel;
+        for (uint32_t row = 0; row < size; ++row) {
+            for (uint32_t column = 0; column < size; ++column) {
+                const std::size_t at = (((top + row) * width) + left + column) * kBytesPerTexel;
                 const uint8_t first = core::at(capture.bytes, at);
                 const uint8_t second = core::at(capture.bytes, at + 1);
                 const uint8_t third = core::at(capture.bytes, at + 2);
-                const std::array<uint8_t, 3> rgb =
-                    capture.bgra ? std::array<uint8_t, 3>{third, second, first} : std::array<uint8_t, 3>{first, second, third};
-                const CaptureTexel texel = capture_texel(face, x, y, size);
-                const double elevation = std::asin(std::clamp(texel.direction[1], -1.0, 1.0)) * kDegrees;
+                const std::array<uint8_t, 3> rgb = capture.bgra ? std::array<uint8_t, 3>{third, second, first}
+                                                                : std::array<uint8_t, 3>{first, second, third};
+                const CaptureTexel texel = capture_texel({.face = face, .x = column, .y = row}, size);
+                const double elevation = std::asin(std::clamp(core::at(texel.direction, 1), -1.0, 1.0)) * kDegrees;
                 const bool drawn = rgb != capture.clear;
-                const Colour colour{static_cast<float>(rgb[0] * kPerByte), static_cast<float>(rgb[1] * kPerByte),
-                                    static_cast<float>(rgb[2] * kPerByte)};
-                const double c = cloudiness(colour);
+                const Colour colour{static_cast<float>(core::at(rgb, 0) * kPerByte),
+                                    static_cast<float>(core::at(rgb, 1) * kPerByte),
+                                    static_cast<float>(core::at(rgb, 2) * kPerByte)};
+                const double cloudy = cloudiness(colour);
                 for (std::size_t band = 0; band < kSkyBands; ++band) {
                     const BandRange& range = core::at(kSkyBandRanges, band);
                     if (elevation < range.low || elevation > range.high) {
@@ -131,7 +135,7 @@ SkyLook analyse_sky(const SkyCaptureTexels& capture)
                         continue;
                     }
                     sums.covered += texel.weight;
-                    const double clear_weight = texel.weight * (((1.0 - c) * (1.0 - c)) + kClearFloor);
+                    const double clear_weight = texel.weight * ((1.0 - cloudy) + kClearFloor);
                     add(&sums.clear, colour, clear_weight);
                     sums.clear_weight += clear_weight;
                     add(&sums.all, colour, texel.weight);
@@ -141,13 +145,16 @@ SkyLook analyse_sky(const SkyCaptureTexels& capture)
                     continue;
                 }
                 if (elevation >= kCoverageLowest && elevation <= kCoverageHighest) {
-                    coverage_sum += c * texel.weight;
+                    coverage_sum += cloudy * texel.weight;
                     coverage_weight += texel.weight;
-                    add(&cloud, colour, c * c * texel.weight);
-                    cloud_weight += c * c * texel.weight;
+                    add(&cloud, colour, cloudy * cloudy * texel.weight);
+                    cloud_weight += cloudy * cloudy * texel.weight;
                 }
                 if (elevation > 0.0) {
-                    luma_sum += ((kLuma[0] * colour[0]) + (kLuma[1] * colour[1]) + (kLuma[2] * colour[2])) * texel.weight;
+                    luma_sum +=
+                        ((core::at(kLuma, 0) * core::at(colour, 0)) + (core::at(kLuma, 1) * core::at(colour, 1)) +
+                         (core::at(kLuma, 2) * core::at(colour, 2))) *
+                        texel.weight;
                     luma_weight += texel.weight;
                 }
             }
@@ -164,8 +171,9 @@ SkyLook analyse_sky(const SkyCaptureTexels& capture)
     look.cloud = mean_of(cloud, cloud_weight, Colour{1.0F, 1.0F, 1.0F});
     look.brightness = luma_weight > 0.0 ? static_cast<float>(luma_sum / luma_weight) : 0.0F;
     // a sky worth matching: the backdrop covers some of the upper sky
-    look.valid = core::at(look.covered, static_cast<std::size_t>(SkyBand::kHorizon)) > 0.25F ||
-                 core::at(look.covered, static_cast<std::size_t>(SkyBand::kMiddle)) > 0.25F;
+    constexpr float kLeastCovered = 0.25F;
+    look.valid = core::at(look.covered, static_cast<std::size_t>(SkyBand::kHorizon)) > kLeastCovered ||
+                 core::at(look.covered, static_cast<std::size_t>(SkyBand::kMiddle)) > kLeastCovered;
     return look;
 }
 

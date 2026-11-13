@@ -154,7 +154,7 @@ float cloud_density(vec3 point, float coverage, bool detail)
         return 0.0;
     }
     vec4 weather = textureLod(u_cloud_weather, point.xz / CLOUD_WEATHER_SCALE, 0.0);
-    float cover = c_saturate(2.0 * coverage - 1.0 + weather.r);
+    float cover = c_saturate((weather.r - (1.0 - coverage)) * CLOUD_COVER_EDGE);
     if (cover <= 0.0) {
         return 0.0;
     }
@@ -166,12 +166,12 @@ float cloud_density(vec3 point, float coverage, bool detail)
     vec4 shape = textureLod(u_cloud_shape, point / CLOUD_SHAPE_SCALE, 0.0);
     float fbm = shape.g * 0.625 + shape.b * 0.25 + shape.a * 0.125;
     float base = c_saturate(c_remap(shape.r, fbm - 1.0, 1.0, 0.0, 1.0)) * profile;
-    float density = c_saturate(c_remap(base, 1.0 - cover, 1.0, 0.0, 1.0)) * cover;
+    float density = c_saturate(c_remap(base, 1.0 - CLOUD_COVER_THRESHOLD * cover, 1.0, 0.0, 1.0)) * profile;
     if (detail && density > 0.0) {
         vec4 fine = textureLod(u_cloud_detail, point / CLOUD_DETAIL_SCALE, 0.0);
         float detail_fbm = fine.r * 0.625 + fine.g * 0.25 + fine.b * 0.125;
         float erode = mix(detail_fbm, 1.0 - detail_fbm, c_saturate(height * 5.0));
-        density = c_saturate(c_remap(density, erode * 0.3, 1.0, 0.0, 1.0));
+        density = c_saturate(c_remap(density, erode * CLOUD_DETAIL_EROSION, 1.0, 0.0, 1.0));
     }
     return density;
 }
@@ -333,7 +333,8 @@ std::string number(double value)
 std::string noise_defines()
 {
     return "#define SHAPE_SIZE " + std::to_string(rt::kCloudShapeSize) + "\n#define DETAIL_SIZE " +
-           std::to_string(rt::kCloudDetailSize) + "\n#define WEATHER_SIZE " + std::to_string(rt::kCloudWeatherSize) + "\n";
+           std::to_string(rt::kCloudDetailSize) + "\n#define WEATHER_SIZE " + std::to_string(rt::kCloudWeatherSize) +
+           "\n";
 }
 
 bool make_volume(Backend& state, uint32_t size, bool three_d, Image* out)
@@ -356,7 +357,8 @@ bool make_volume(Backend& state, uint32_t size, bool three_d, Image* out)
                                  .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
     VmaAllocationCreateInfo allocation{};
     allocation.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    if (vmaCreateImage(state.memory.allocator(), &info, &allocation, &out->image, &out->allocation, nullptr) != VK_SUCCESS) {
+    if (vmaCreateImage(state.memory.allocator(), &info, &allocation, &out->image, &out->allocation, nullptr) !=
+        VK_SUCCESS) {
         *out = Image{};
         return false;
     }
@@ -426,7 +428,8 @@ bool make_noise_objects(Backend& state, std::string* error)
 
 VkPipeline make_generator(VkDevice device, VkPipelineLayout layout, const char* which, std::string* error)
 {
-    const std::string source = std::string("#version 460\n#define ") + which + "\n" + noise_defines() + kNoise + kNoiseMain;
+    const std::string source =
+        std::string("#version 460\n#define ") + which + "\n" + noise_defines() + kNoise + kNoiseMain;
     const CompiledShader compiled = compile_rt_glsl(RtShaderStage::kCompute, source);
     if (!compiled.ok) {
         *error = compiled.log;
@@ -469,7 +472,8 @@ void generate(VkCommandBuffer commands, VkPipeline pipeline, Image* image, uint3
 {
     const NoiseState& own = noise_state();
     Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
-    const VkDescriptorImageInfo out{.sampler = VK_NULL_HANDLE, .imageView = image->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    const VkDescriptorImageInfo out{
+        .sampler = VK_NULL_HANDLE, .imageView = image->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
     VkWriteDescriptorSet write{};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.dstBinding = 0;
@@ -504,16 +508,16 @@ bool update_cloud_noise(Backend& state, VkCommandBuffer commands)
         }
     }
     if (ok) {
-        generate(commands, pipelines[0], &own.shape, rt::kCloudShapeSize, true);
-        generate(commands, pipelines[1], &own.detail, rt::kCloudDetailSize, true);
-        generate(commands, pipelines[2], &own.weather, rt::kCloudWeatherSize, false);
+        generate(commands, core::at(pipelines, 0), &own.shape, rt::kCloudShapeSize, true);
+        generate(commands, core::at(pipelines, 1), &own.detail, rt::kCloudDetailSize, true);
+        generate(commands, core::at(pipelines, 2), &own.weather, rt::kCloudWeatherSize, false);
         const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                       .pNext = nullptr,
                                       .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
                                       .dstAccessMask = VK_ACCESS_SHADER_READ_BIT};
         vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &written,
-                             0, nullptr, 0, nullptr);
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
+                             &written, 0, nullptr, 0, nullptr);
         state.bound = BoundState{};
         cloud_noise_used(state.frames.serial());
     }
@@ -528,8 +532,8 @@ bool update_cloud_noise(Backend& state, VkCommandBuffer commands)
     }
     own.made = true;
     if (state.reported.insert(kReportMade).second) {
-        get_log("vulkan: rt_clouds: the clouds' noise made (%u^3 shape, %u^3 detail, %u^2 weather)", rt::kCloudShapeSize,
-                rt::kCloudDetailSize, rt::kCloudWeatherSize);
+        get_log("vulkan: rt_clouds: the clouds' noise made (%u^3 shape, %u^3 detail, %u^2 weather)",
+                rt::kCloudShapeSize, rt::kCloudDetailSize, rt::kCloudWeatherSize);
     }
     return true;
 }
@@ -537,8 +541,13 @@ bool update_cloud_noise(Backend& state, VkCommandBuffer commands)
 VkDescriptorImageInfo cloud_noise_descriptor(uint32_t which)
 {
     const NoiseState& own = noise_state();
-    const Image& image = which == 0 ? own.shape : (which == 1 ? own.detail : own.weather);
-    return {.sampler = own.sampler, .imageView = image.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    const Image* image = &own.weather;
+    if (which == 0) {
+        image = &own.shape;
+    } else if (which == 1) {
+        image = &own.detail;
+    }
+    return {.sampler = own.sampler, .imageView = image->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
 }
 
 void cloud_noise_used(uint64_t serial)
@@ -569,6 +578,9 @@ std::string cloud_glsl(uint32_t first_binding)
     add("CLOUD_DETAIL_SCALE", number(rt::kCloudDetailScale));
     add("CLOUD_WEATHER_SCALE", number(rt::kCloudWeatherScale));
     add("CLOUD_DENSITY", number(rt::kCloudDensity));
+    add("CLOUD_COVER_EDGE", number(rt::kCoverEdge));
+    add("CLOUD_COVER_THRESHOLD", number(rt::kCoverThreshold));
+    add("CLOUD_DETAIL_EROSION", number(rt::kDetailErosion));
     add("CLOUD_FAR", number(rt::kCloudFar));
     add("CLOUD_LIGHT_STEP", number(rt::kCloudLightStep));
     add("CLOUD_LIGHT_GROWTH", number(rt::kCloudLightGrowth));
@@ -601,14 +613,17 @@ bool read_cloud_noise(Backend& state, rt::CloudNoise* out)
         }
         const bool done = state.memory.submit_now([&](VkCommandBuffer commands) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-            const VkBufferImageCopy region{
-                .bufferOffset = 0,
-                .bufferRowLength = 0,
-                .bufferImageHeight = 0,
-                .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-                .imageOffset = {.x = 0, .y = 0, .z = 0},
-                .imageExtent = {.width = size, .height = size, .depth = three_d ? size : 1}};
-            vkCmdCopyImageToBuffer(commands, image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, read_back.buffer, 1, &region);
+            const VkBufferImageCopy region{.bufferOffset = 0,
+                                           .bufferRowLength = 0,
+                                           .bufferImageHeight = 0,
+                                           .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                .mipLevel = 0,
+                                                                .baseArrayLayer = 0,
+                                                                .layerCount = 1},
+                                           .imageOffset = {.x = 0, .y = 0, .z = 0},
+                                           .imageExtent = {.width = size, .height = size, .depth = three_d ? size : 1}};
+            vkCmdCopyImageToBuffer(commands, image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, read_back.buffer, 1,
+                                   &region);
             Memory::transition(commands, image, image->resting);
         });
         if (done) {

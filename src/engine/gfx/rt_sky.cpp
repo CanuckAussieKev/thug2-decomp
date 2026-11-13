@@ -220,22 +220,22 @@ namespace {
 double horizon_span() { return std::sqrt((kTopRadius * kTopRadius) - (kGroundRadius * kGroundRadius)); }
 
 // a texel centre's 0 - 1 coordinate back to 0 - 1 over the table's whole range (and the other way)
-double unit_from_texel(double u, uint32_t size)
+double unit_from_texel(double source, uint32_t size)
 {
     const double texel = 1.0 / static_cast<double>(size);
-    return std::clamp((u - (kHalf * texel)) / (1.0 - texel), 0.0, 1.0);
+    return std::clamp((source - (kHalf * texel)) / (1.0 - texel), 0.0, 1.0);
 }
-double texel_from_unit(double x, uint32_t size)
+double texel_from_unit(double source, uint32_t size)
 {
     const double texel = 1.0 / static_cast<double>(size);
-    return (kHalf * texel) + (std::clamp(x, 0.0, 1.0) * (1.0 - texel));
+    return (kHalf * texel) + (std::clamp(source, 0.0, 1.0) * (1.0 - texel));
 }
 
 Dir from_radius_cosine(const RadiusCosine& point) { return {0.0, point.radius, 0.0}; }
 Dir direction_of_cosine(double cosine)
 {
-    const double c = std::clamp(cosine, -1.0, 1.0);
-    return {std::sqrt(std::max(0.0, 1.0 - (c * c))), c, 0.0};
+    const double clamped = std::clamp(cosine, -1.0, 1.0);
+    return {std::sqrt(std::max(0.0, 1.0 - (clamped * clamped))), clamped, 0.0};
 }
 
 Rgb scattering_of(const Densities& here)
@@ -272,31 +272,33 @@ RadiusCosine transmittance_lut_point(double u, double v)
     const double radius = std::sqrt((rho * rho) + (kGroundRadius * kGroundRadius));
     const double d_min = kTopRadius - radius;
     const double d_max = rho + span;
-    const double d = d_min + (x_mu * (d_max - d_min));
-    const double cosine = d <= 0.0 ? 1.0 : ((span * span) - (rho * rho) - (d * d)) / (2.0 * radius * d);
+    const double to_top = d_min + (x_mu * (d_max - d_min));
+    const double cosine =
+        to_top <= 0.0 ? 1.0 : ((span * span) - (rho * rho) - (to_top * to_top)) / (2.0 * radius * to_top);
     return {.radius = radius, .cosine = std::clamp(cosine, -1.0, 1.0)};
 }
 
 std::array<double, 2> transmittance_lut_uv(const RadiusCosine& point)
 {
     const double span = horizon_span();
-    const double r = point.radius;
-    const double rho = std::sqrt(std::max(0.0, (r * r) - (kGroundRadius * kGroundRadius)));
+    const double radius = point.radius;
+    const double rho = std::sqrt(std::max(0.0, (radius * radius) - (kGroundRadius * kGroundRadius)));
     const double mu = point.cosine;
-    const double d = std::max(0.0, (-r * mu) + std::sqrt(std::max(0.0, ((r * r) * ((mu * mu) - 1.0)) + (kTopRadius * kTopRadius))));
-    const double d_min = kTopRadius - r;
+    const double to_top = std::max(
+        0.0, (-radius * mu) + std::sqrt(std::max(0.0, ((radius * radius) * ((mu * mu) - 1.0)) + (kTopRadius * kTopRadius))));
+    const double d_min = kTopRadius - radius;
     const double d_max = rho + span;
-    const double x_mu = d_max > d_min ? (d - d_min) / (d_max - d_min) : 0.0;
+    const double x_mu = d_max > d_min ? (to_top - d_min) / (d_max - d_min) : 0.0;
     return {texel_from_unit(x_mu, kTransmittanceWidth), texel_from_unit(rho / span, kTransmittanceHeight)};
 }
 
 Rgb transmittance_to_top(const RadiusCosine& point, uint32_t steps)
 {
     const Ray ray{.origin = from_radius_cosine(point), .direction = direction_of_cosine(point.cosine)};
-    const double r = point.radius;
+    const double radius = point.radius;
     const double mu = point.cosine;
-    const double length =
-        std::max(0.0, (-r * mu) + std::sqrt(std::max(0.0, ((r * r) * ((mu * mu) - 1.0)) + (kTopRadius * kTopRadius))));
+    const double length = std::max(
+        0.0, (-radius * mu) + std::sqrt(std::max(0.0, ((radius * radius) * ((mu * mu) - 1.0)) + (kTopRadius * kTopRadius))));
     const uint32_t count = std::max(1U, steps);
     const double span = length / static_cast<double>(count);
     Densities depth;
@@ -308,8 +310,12 @@ Rgb transmittance_to_top(const RadiusCosine& point, uint32_t steps)
     return transmittance_of(extinction_of(depth));
 }
 
-Rgb multiple_scattering(double altitude, double cos_sun, uint32_t steps, uint32_t light_steps)
+Rgb multiple_scattering(const AtmospherePoint& place, const MultipleSteps& steps_given)
 {
+    const double altitude = place.altitude;
+    const double cos_sun = place.cos_sun;
+    const uint32_t steps = steps_given.steps;
+    const uint32_t light_steps = steps_given.light;
     const Dir origin{0.0, kGroundRadius + std::max(altitude, 0.0), 0.0};
     const Dir sun = direction_of_cosine(cos_sun);
     const uint32_t side = kMultipleDirectionsSide;
@@ -332,38 +338,40 @@ Rgb multiple_scattering(double altitude, double cos_sun, uint32_t steps, uint32_
                 const Rgb sigma_s = scattering_of(here);
                 const Rgb sigma_t = extinction_of(here);
                 const Rgb sun_t = sun_seen_from(point, sun, light_steps);
-                for (std::size_t c = 0; c < 3; ++c) {
-                    const double t = core::at(sigma_t, c);
-                    const double kept = std::exp(-t * span);
-                    const double integral = t > 0.0 ? (1.0 - kept) / t : span; // integral of exp(-t s) over the step
-                    core::at(second, c) += core::at(throughput, c) * core::at(sigma_s, c) * core::at(sun_t, c) *
-                                           (1.0 / kFourPi) * integral;
-                    core::at(transfer, c) += core::at(throughput, c) * core::at(sigma_s, c) * integral;
-                    core::at(throughput, c) *= kept;
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    const double extinction = core::at(sigma_t, channel);
+                    const double kept = std::exp(-extinction * span);
+                    // (the integral of exp(-extinction s) over the step)
+                    const double integral = extinction > 0.0 ? (1.0 - kept) / extinction : span;
+                    core::at(second, channel) += core::at(throughput, channel) * core::at(sigma_s, channel) *
+                                                 core::at(sun_t, channel) * (1.0 / kFourPi) * integral;
+                    core::at(transfer, channel) += core::at(throughput, channel) * core::at(sigma_s, channel) * integral;
+                    core::at(throughput, channel) *= kept;
                 }
             }
             if (ground) {
                 const Dir at_ground = along(ray, length);
                 const double up = dot3(at_ground, sun) / std::max(length3(at_ground), 1.0);
                 const Rgb sun_t = sun_seen_from(at_ground, sun, light_steps);
-                for (std::size_t c = 0; c < 3; ++c) {
-                    core::at(second, c) +=
-                        core::at(throughput, c) * core::at(sun_t, c) * std::max(up, 0.0) * kGroundAlbedo / kPi;
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    core::at(second, channel) += core::at(throughput, channel) * core::at(sun_t, channel) *
+                                                 std::max(up, 0.0) * kGroundAlbedo / kPi;
                 }
             }
         }
     }
     const double directions = static_cast<double>(side) * static_cast<double>(side);
     Rgb psi{};
-    for (std::size_t c = 0; c < 3; ++c) {
-        const double l2 = core::at(second, c) / directions;
-        const double f = core::at(transfer, c) / directions;
-        core::at(psi, c) = l2 / std::max(1.0 - f, 1e-6);
+    constexpr double kLeastRemaining = 1e-6;
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        const double l2 = core::at(second, channel) / directions;
+        const double back = core::at(transfer, channel) / directions;
+        core::at(psi, channel) = l2 / std::max(1.0 - back, kLeastRemaining);
     }
     return psi;
 }
 
-MultipleTable multiple_table(uint32_t steps, uint32_t light_steps)
+MultipleTable multiple_table(const MultipleSteps& steps)
 {
     MultipleTable table(static_cast<std::size_t>(kMultipleWidth) * kMultipleHeight);
     for (uint32_t row = 0; row < kMultipleHeight; ++row) {
@@ -371,14 +379,16 @@ MultipleTable multiple_table(uint32_t steps, uint32_t light_steps)
         for (uint32_t column = 0; column < kMultipleWidth; ++column) {
             const double cos_sun = (((static_cast<double>(column) + kHalf) / kMultipleWidth) * 2.0) - 1.0;
             core::at(table, (static_cast<std::size_t>(row) * kMultipleWidth) + column) =
-                multiple_scattering(altitude, cos_sun, steps, light_steps);
+                multiple_scattering({.altitude = altitude, .cos_sun = cos_sun}, steps);
         }
     }
     return table;
 }
 
-Rgb multiple_from_table(const MultipleTable& table, double altitude, double cos_sun)
+Rgb multiple_from_table(const MultipleTable& table, const AtmospherePoint& place)
 {
+    const double altitude = place.altitude;
+    const double cos_sun = place.cos_sun;
     if (table.size() != static_cast<std::size_t>(kMultipleWidth) * kMultipleHeight) {
         return {};
     }
@@ -395,10 +405,10 @@ Rgb multiple_from_table(const MultipleTable& table, double altitude, double cos_
         return core::at(table, (static_cast<std::size_t>(row) * kMultipleWidth) + column);
     };
     Rgb out{};
-    for (std::size_t c = 0; c < 3; ++c) {
-        const double top = (core::at(at(x0, y0), c) * (1.0 - fx)) + (core::at(at(x1, y0), c) * fx);
-        const double bottom = (core::at(at(x0, y1), c) * (1.0 - fx)) + (core::at(at(x1, y1), c) * fx);
-        core::at(out, c) = (top * (1.0 - fy)) + (bottom * fy);
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        const double top = (core::at(at(x0, y0), channel) * (1.0 - fx)) + (core::at(at(x1, y0), channel) * fx);
+        const double bottom = (core::at(at(x0, y1), channel) * (1.0 - fx)) + (core::at(at(x1, y1), channel) * fx);
+        core::at(out, channel) = (top * (1.0 - fy)) + (bottom * fy);
     }
     return out;
 }
@@ -410,9 +420,10 @@ Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, cons
     const double length = ray_length(ray, &ground);
     const double mu = dot3(view, sun);
     const double rayleigh_phase = kRayleighPhase * (1.0 + (mu * mu));
-    const double g = kMieG;
-    const double mie_phase = kMiePhase * ((1.0 - (g * g)) * (1.0 + (mu * mu))) /
-                             ((2.0 + (g * g)) * std::pow(1.0 + (g * g) - (2.0 * g * mu), kMiePower));
+    const double asymmetry = kMieG;
+    const double mie_phase =
+        kMiePhase * ((1.0 - (asymmetry * asymmetry)) * (1.0 + (mu * mu))) /
+        ((2.0 + (asymmetry * asymmetry)) * std::pow(1.0 + (asymmetry * asymmetry) - (2.0 * asymmetry * mu), kMiePower));
     Rgb sum{};
     Densities travelled;
     const uint32_t segments = std::max(1U, steps.view);
@@ -426,7 +437,7 @@ Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, cons
         const Rgb seen = transmittance_of(extinction_of(to_here));
         const Rgb sun_t = sun_seen_from(point, sun, steps.light);
         const double radius = length3(point);
-        const Rgb psi = multiple_from_table(table, radius - kGroundRadius, dot3(point, sun) / radius);
+        const Rgb psi = multiple_from_table(table, {.altitude = radius - kGroundRadius, .cos_sun = dot3(point, sun) / radius});
         for (std::size_t channel = 0; channel < sum.size(); ++channel) {
             const double rayleigh_s = core::at(kRayleigh, channel) * here.rayleigh;
             const double mie_s = kMieScattering * here.mie;
@@ -450,11 +461,13 @@ Rgb sky_radiance_ms(const Dir& view, const Dir& sun, const SkySteps& steps, cons
     return sum;
 }
 
-Dir sky_view_direction(double u, double v)
+Dir sky_view_direction(const std::array<double, 2>& uv)
 {
+    const double u = core::at(uv, 0);
+    const double v = core::at(uv, 1);
     const double azimuth = kPi * u * u;
-    const double s = (2.0 * v) - 1.0;
-    const double elevation = (s < 0.0 ? -1.0 : 1.0) * s * s * (kPi / 2.0);
+    const double signed_root = (2.0 * v) - 1.0;
+    const double elevation = (signed_root < 0.0 ? -1.0 : 1.0) * signed_root * signed_root * (kPi / 2.0);
     return {std::cos(elevation) * std::cos(azimuth), std::sin(elevation), std::cos(elevation) * std::sin(azimuth)};
 }
 

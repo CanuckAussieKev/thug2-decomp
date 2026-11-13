@@ -349,8 +349,8 @@ void set_sky_replacement(const SkyReplacement& replacement);
 SkyReplacement sky_replacement();
 void sky_view_drawn(const ViewDrawn& view);
 
-// (added by the sky) The level's own sky as it looks: while sky_capture_wanted(), render_pc draws the sky scene's opaque
-// meshes once per sky scene into a texture from the origin in six directions - kSkyCaptureFaces, a 90-degree square
+// (added by the sky) The level's own sky as it looks: while sky_capture_wanted(), render_pc draws the sky scene's meshes
+// (its backdrop and its layers) once per sky scene into a texture from the origin in six directions - kSkyCaptureFaces, a 90-degree square
 // view each, laid out 3 across and 2 down (face i at column i % 3, row i / 3), face_size pixels a side, cleared to
 // `clear` (the background colour) where the backdrop draws nothing - and hands it over (set_sky_capture). The texture
 // stays valid until the next capture (a new serial). What a backend's sky is matched to.

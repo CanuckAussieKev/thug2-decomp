@@ -380,6 +380,12 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
+| `rt_sky` | 0 | On Vulkan (no ray tracing needed): 1 replaces the level's painted sky dome with a real sky - the light of the air scattered once and many times, bright round the sun, pale at the horizon - tinted toward the level's own sky so each level keeps its colours. The haze of `rt_fog_haze` fades distant buildings into this sky |
+| `rt_sky_match` | 0.8 | With `rt_sky`: how far the sky takes the level's own colours (0: the plain model; 1: the old sky's colours band by band) |
+| `rt_clouds` | 0 | With `rt_sky`: 1 adds volumetric clouds, lit by the sun (bright edges toward it), drifting slowly with the game clock; the level's painted cloud cards are left out then |
+| `rt_cloud_coverage` | auto | How much of the sky is cloud: `auto` - as much as the level's own sky had; or 0-1 (0 clear, 1 overcast) |
+| `rt_cloud_speed` | 1 | How fast the clouds drift (0 still; 2 twice as fast) |
+| `rt_cloud_quality` | 1 | 0 quarter resolution (fastest), 1 half, 2 full |
 
 **`[Miscellaneous]`** - from PartyMod
 

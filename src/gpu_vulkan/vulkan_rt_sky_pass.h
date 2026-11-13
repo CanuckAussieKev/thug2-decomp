@@ -39,12 +39,13 @@ namespace render::vulkan {
 struct Backend;
 struct Image;
 
-inline constexpr float kSkyHistoryBlend = 0.1F;   // this frame's share of a texel with a history
+inline constexpr float kSkyHistoryBlend = 0.1F;         // this frame's share of a texel with a history
 inline constexpr double kCloudAerialDistance = 32000.0; // metres: the clouds fade into the sky by e over this
-inline constexpr double kCloudSunScale = 0.6;     // the sun's light on the clouds x the sky's exposure
-inline constexpr double kCloudAmbientTop = 1.0;   // the sky's light on the clouds' tops (x the zenith's)
-inline constexpr double kCloudAmbientBottom = 0.6; // and their bases (x the horizon's)
+inline constexpr double kCloudSunScale = 0.8;           // the sun's light on the clouds x the sky's exposure
+inline constexpr double kCloudAmbientTop = 0.8;         // the sky's light on the clouds' tops (x the zenith's)
+inline constexpr double kCloudAmbientBottom = 0.4;      // and their bases (x the horizon's)
 inline constexpr uint32_t kSkyViewSlots = 4;
+inline constexpr std::size_t kSkyMatrixFloats = 16;
 inline constexpr std::array<float, 3> kDefaultSkySun{0.36F, 0.77F, 0.53F}; // (50 degrees up: no sun anywhere)
 
 // The depth usage the sky's passes need (sampled) - make_depth_surface.
@@ -58,9 +59,10 @@ bool record_rt_sky_pass(Backend& state, const rt::ViewDrawn& view);
 struct RtSkyMatch {
     uint64_t capture_serial = 0;
     rt::SkyLook look;
-    std::array<std::array<float, 3>, 4> model{};  // the model's band colours (exposed linear; ground, horizon, middle, zenith)
-    AtmosphereInput atmosphere;                   // what the sky-view table is made with
-    float coverage = 0.0F;                        // the clouds' coverage used
+    std::array<std::array<float, 3>, 4>
+        model{};                // the model's band colours (exposed linear; ground, horizon, middle, zenith)
+    AtmosphereInput atmosphere; // what the sky-view table is made with
+    float coverage = 0.0F;      // the clouds' coverage used
     std::array<float, 3> cloud_gain{1.0F, 1.0F, 1.0F};
 };
 [[nodiscard]] RtSkyMatch rt_sky_match();
@@ -69,8 +71,8 @@ struct RtSkyMatch {
 struct RtSkyFrame {
     std::array<float, 3> sun{};
     std::array<float, 3> camera{};
-    double camera_altitude = 0.0;     // metres
-    std::array<double, 2> offset{};   // metres: the clouds' offset (the camera's place + the drift)
+    double camera_altitude = 0.0;   // metres
+    std::array<double, 2> offset{}; // metres: the clouds' offset (the camera's place + the drift)
     std::array<float, 3> sun_light{};
     std::array<float, 3> ambient_bottom{};
     std::array<float, 3> ambient_top{};
@@ -78,7 +80,7 @@ struct RtSkyFrame {
     uint32_t steps = 0;
     uint32_t scale = 1;
     float jitter_offset = 0.0F;
-    std::array<float, 16> to_world{}; // column-major: the target's pixel (x, y, depth, 1) -> world
+    std::array<float, kSkyMatrixFloats> to_world{}; // column-major: the target's pixel (x, y, depth, 1) -> world
     bool history = false;
 };
 [[nodiscard]] RtSkyFrame rt_sky_frame();

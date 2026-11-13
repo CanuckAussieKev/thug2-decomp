@@ -46,6 +46,9 @@ constexpr uint64_t kReportImages = 0x534B5004U;
 constexpr uint64_t kReportNoRoom = 0x534B5005U;
 constexpr uint64_t kReportNoSun = 0x534B5006U;
 constexpr uint64_t kReportNoCapture = 0x534B5007U;
+constexpr uint64_t kReportShadows = 0x534B5008U;
+constexpr uint32_t kShadowSamples = 4;
+constexpr double kShadowStrength = 0.65; // how dark a cloud's full shadow is (0 - 1)
 
 constexpr uint32_t kGroupSide = 8;
 constexpr std::size_t kMatrixSide = 4;
@@ -242,6 +245,42 @@ void main()
 }
 )";
 
+// 5. The clouds' shadows on the world (rt_cloud_shadows; at opaque_drawn): each surface pixel's way to the sun through
+// the layer, its density at kShadowSamples heights (no detail), its transmittance; the colour multiplied toward it.
+constexpr const char* kShadowBody = R"(
+#ifdef MULTISAMPLED
+layout(set = 0, binding = 0) uniform sampler2DMS u_depth;
+#else
+layout(set = 0, binding = 0) uniform sampler2D u_depth;
+#endif
+layout(location = 0) out vec4 o_colour;
+
+void main()
+{
+    ivec2 p = ivec2(gl_FragCoord.xy);
+    float d = texelFetch(u_depth, p, 0).r;
+    if (d >= 1.0) {
+        discard;
+    }
+    vec4 w = sky.to_world * vec4(vec2(p), d, 1.0);
+    vec3 at = w.xyz / w.w;
+    float altitude = sky.camera.w + (at.y - sky.camera.y) / GAME_UNITS_PER_METRE;
+    vec2 across = sky.offset.xy + (at.xz - sky.camera.xz) / GAME_UNITS_PER_METRE;
+    vec3 sun = sky.sun.xyz;
+    float rise = max(sun.y, 0.08);
+    float depth = 0.0;
+    for (int k = 0; k < SHADOW_SAMPLES; ++k) {
+        float h = CLOUD_BASE + (float(k) + 0.5) / float(SHADOW_SAMPLES) * (CLOUD_TOP - CLOUD_BASE);
+        float t = (h - altitude) / rise;
+        vec3 point = vec3(across.x + sun.x * t, h, across.y + sun.z * t);
+        depth += cloud_density(point, sky.sun.w, false);
+    }
+    depth *= CLOUD_DENSITY * sky.sun_light.w * (CLOUD_TOP - CLOUD_BASE) / float(SHADOW_SAMPLES) / rise;
+    float kept = mix(1.0, exp(-depth), SHADOW_STRENGTH * smoothstep(0.02, 0.15, sun.y));
+    o_colour = vec4(vec3(kept), 1.0);
+}
+)";
+
 struct SkyBlock {
     std::array<float, kMatrixFloats> to_world{};
     std::array<float, kMatrixFloats> prev_to_pixel{};
@@ -281,6 +320,7 @@ struct CompositePipeline {
     VkFormat depth = VK_FORMAT_UNDEFINED;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     bool clouds = false;
+    bool shadow = false; // the clouds' shadows' pass (no depth attachment, the colour multiplied)
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -290,8 +330,8 @@ struct SkySlot {
     uint32_t scale = 1;
     Image march;      // rgb light, a transmittance
     Image march_info; // x distance, y 1 where marched
-    std::array<Image, 2> history{};
-    std::array<Image, 2> history_info{};
+    std::array<Image, 2> history;
+    std::array<Image, 2> history_info;
     uint32_t current = 0; // the history written last
     bool fresh = true;
     bool has_history = false;
@@ -343,10 +383,19 @@ SkyPassState& pass_state()
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
 
+bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view);
+
 class SkyListener final : public rt::ViewListener {
 public:
     [[nodiscard]] int order() const override { return rt::ViewOrder::kSky; }
-    void opaque_drawn(const rt::ViewDrawn& view) override { (void)view; }
+    void opaque_drawn(const rt::ViewDrawn& view) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        if (state.device_made && state.draws_made) {
+            record_shadow_pass(state, view);
+        }
+    }
     void sky_drawn(const rt::ViewDrawn& view) override
     {
         Backend& state = backend();
@@ -374,7 +423,8 @@ bool invert(Matrix matrix, Matrix* inverse)
     for (std::size_t column = 0; column < kMatrixSide; ++column) {
         std::size_t pivot = column;
         for (std::size_t row = column + 1; row < kMatrixSide; ++row) {
-            if (std::abs(core::at(core::at(matrix, row), column)) > std::abs(core::at(core::at(matrix, pivot), column))) {
+            if (std::abs(core::at(core::at(matrix, row), column)) >
+                std::abs(core::at(core::at(matrix, pivot), column))) {
                 pivot = row;
             }
         }
@@ -488,6 +538,9 @@ std::string source_of(const char* body, const char* define)
     }
     source += atmosphere_glsl(kBindingTransmittance, kBindingSkyView);
     source += cloud_glsl(kBindingCloudNoise);
+    source += "#define GAME_UNITS_PER_METRE " + std::to_string(rt::kGameUnitsPerMetre) + "\n";
+    source += "#define SHADOW_SAMPLES " + std::to_string(kShadowSamples) + "\n";
+    source += "#define SHADOW_STRENGTH " + std::to_string(kShadowStrength) + "\n";
     source += kCommon;
     source += body;
     return source;
@@ -596,8 +649,8 @@ bool ensure_objects(Backend& state, std::string* error)
     }
     for (std::size_t multisampled = 0; multisampled < 2; ++multisampled) {
         if (core::at(own.march, multisampled) == VK_NULL_HANDLE) {
-            core::at(own.march, multisampled) =
-                make_compute(device, own.layout, source_of(kMarchBody, multisampled != 0 ? "MULTISAMPLED" : nullptr), error);
+            core::at(own.march, multisampled) = make_compute(
+                device, own.layout, source_of(kMarchBody, multisampled != 0 ? "MULTISAMPLED" : nullptr), error);
         }
         if (core::at(own.march, multisampled) == VK_NULL_HANDLE) {
             return false;
@@ -609,17 +662,23 @@ bool ensure_objects(Backend& state, std::string* error)
 
 // The composite's pipeline for a colour target and its depth (made on first use): rgb written, alpha kept, the depth
 // tested (at the far plane, less or equal: the sky's samples), not written.
-VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& depth, bool clouds, std::string* error)
+VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& depth, bool clouds, std::string* error,
+                              bool shadow = false)
 {
     SkyPassState& own = pass_state();
     for (const CompositePipeline& made : own.composites) {
         if (made.colour == colour.format && made.depth == depth.format && made.samples == colour.samples &&
-            made.clouds == clouds) {
+            made.clouds == clouds && made.shadow == shadow) {
             return made.pipeline;
         }
     }
     const VkDevice device = state.context.device();
-    const VkShaderModule fragment = make_module(device, RtShaderStage::kFragment, source_of(kCompositeBody, clouds ? "CLOUDS" : nullptr), error);
+    const VkShaderModule fragment =
+        shadow ? make_module(device, RtShaderStage::kFragment,
+                             source_of(kShadowBody, depth.samples != VK_SAMPLE_COUNT_1_BIT ? "MULTISAMPLED" : nullptr),
+                             error)
+               : make_module(device, RtShaderStage::kFragment, source_of(kCompositeBody, clouds ? "CLOUDS" : nullptr),
+                             error);
     if (fragment == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
     }
@@ -654,16 +713,30 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
     raster.cullMode = VK_CULL_MODE_NONE;
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster.lineWidth = 1.0F;
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = colour.samples;
+    const VkPipelineMultisampleStateCreateInfo multisample{.sType =
+                                                               VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                           .pNext = nullptr,
+                                                           .flags = 0,
+                                                           .rasterizationSamples = colour.samples,
+                                                           .sampleShadingEnable = VK_FALSE,
+                                                           .minSampleShading = 0.0F,
+                                                           .pSampleMask = nullptr,
+                                                           .alphaToCoverageEnable = VK_FALSE,
+                                                           .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth_state{};
     depth_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth_state.depthTestEnable = VK_TRUE;
+    depth_state.depthTestEnable = shadow ? VK_FALSE : VK_TRUE;
     depth_state.depthWriteEnable = VK_FALSE;
     depth_state.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     VkPipelineColorBlendAttachmentState blend{};
-    blend.blendEnable = VK_FALSE;
+    blend.blendEnable = shadow ? VK_TRUE : VK_FALSE;
+    // (the shadows: the colour times the shader's - DST_COLOR x source + ZERO)
+    blend.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+    blend.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    blend.colorBlendOp = VK_BLEND_OP_ADD;
+    blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blend.alphaBlendOp = VK_BLEND_OP_ADD;
     blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
     VkPipelineColorBlendStateCreateInfo blending{};
     blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -679,7 +752,7 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     rendering.colorAttachmentCount = 1;
     rendering.pColorAttachmentFormats = &colour_format;
-    rendering.depthAttachmentFormat = depth.format;
+    rendering.depthAttachmentFormat = shadow ? VK_FORMAT_UNDEFINED : depth.format;
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &rendering;
@@ -701,8 +774,12 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
         *error = "vkCreateGraphicsPipelines failed";
         return VK_NULL_HANDLE;
     }
-    own.composites.push_back(
-        {.colour = colour.format, .depth = depth.format, .samples = colour.samples, .clouds = clouds, .pipeline = pipeline});
+    own.composites.push_back({.colour = colour.format,
+                              .depth = depth.format,
+                              .samples = colour.samples,
+                              .clouds = clouds,
+                              .shadow = shadow,
+                              .pipeline = pipeline});
     return pipeline;
 }
 
@@ -736,8 +813,12 @@ bool targets_usable(const Image* colour, const Image* depth)
 
 std::vector<Image*> images_of(SkySlot& slot)
 {
-    return {&slot.march, &slot.march_info, &slot.history[0], &slot.history[1], &slot.history_info[0],
-            &slot.history_info[1]};
+    return {&slot.march,
+            &slot.march_info,
+            &core::at(slot.history, 0),
+            &core::at(slot.history, 1),
+            &core::at(slot.history_info, 0),
+            &core::at(slot.history_info, 1)};
 }
 
 void release_slot(Backend& state, SkySlot* slot, bool now)
@@ -788,8 +869,8 @@ SkySlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, uint32_t 
         }
     }
     if (own.slots.size() >= kSkyViewSlots) {
-        const auto oldest =
-            std::ranges::min_element(own.slots, {}, [](const std::unique_ptr<SkySlot>& slot) { return slot->last_use; });
+        const auto oldest = std::ranges::min_element(
+            own.slots, {}, [](const std::unique_ptr<SkySlot>& slot) { return slot->last_use; });
         release_slot(state, oldest->get(), false);
         own.slots.erase(oldest);
     }
@@ -806,7 +887,8 @@ SkySlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, uint32_t 
     if (!made) {
         release_slot(state, &slot, true);
         if (first_report(state, kReportImages)) {
-            get_log("vulkan: rt_sky: the clouds' images (%ux%u) couldn't be made - no clouds there", low.width, low.height);
+            get_log("vulkan: rt_sky: the clouds' images (%ux%u) couldn't be made - no clouds there", low.width,
+                    low.height);
         }
         return nullptr;
     }
@@ -847,8 +929,8 @@ void clear_slot(VkCommandBuffer commands, SkySlot* slot)
                                   .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
                                   .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &cleared, 0,
-                         nullptr, 0, nullptr);
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &cleared,
+                         0, nullptr, 0, nullptr);
     slot->fresh = false;
 }
 
@@ -884,10 +966,13 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
     };
     if (bound.depth != nullptr) {
         add(kBindingDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {.sampler = own.nearest, .imageView = bound.depth->view, .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL});
+            {.sampler = own.nearest,
+             .imageView = bound.depth->view,
+             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL});
     }
     if (bound.sky) {
-        add(kBindingSkyView, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, atmosphere_descriptor(AtmosphereTable::kSkyView));
+        add(kBindingSkyView, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            atmosphere_descriptor(AtmosphereTable::kSkyView));
         add(kBindingTransmittance, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             atmosphere_descriptor(AtmosphereTable::kTransmittance));
     }
@@ -896,7 +981,8 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
             add(kBindingCloudNoise + i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cloud_noise_descriptor(i));
         }
     }
-    const std::array<std::pair<uint32_t, const Image*>, 2> sampled{{{kBindingHistA, bound.hist_a}, {kBindingHistB, bound.hist_b}}};
+    const std::array<std::pair<uint32_t, const Image*>, 2> sampled{
+        {{kBindingHistA, bound.hist_a}, {kBindingHistB, bound.hist_b}}};
     for (const auto& [binding, image] : sampled) {
         if (image != nullptr) {
             add(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -905,8 +991,10 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
                  .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
         }
     }
-    const std::array<std::pair<uint32_t, const Image*>, 4> storage{
-        {{kBindingOutA, bound.out_a}, {kBindingOutB, bound.out_b}, {kBindingLoadA, bound.load_a}, {kBindingLoadB, bound.load_b}}};
+    const std::array<std::pair<uint32_t, const Image*>, 4> storage{{{kBindingOutA, bound.out_a},
+                                                                    {kBindingOutB, bound.out_b},
+                                                                    {kBindingLoadA, bound.load_a},
+                                                                    {kBindingLoadB, bound.load_b}}};
     for (const auto& [binding, image] : storage) {
         if (image != nullptr) {
             add(binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -929,21 +1017,23 @@ void compute_done(VkCommandBuffer commands)
                                   .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
                                   .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &written, 0,
-                         nullptr, 0, nullptr);
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &written,
+                         0, nullptr, 0, nullptr);
 }
 
 void dispatch(VkCommandBuffer commands, VkPipeline pipeline, const PassBindings& bound, const Extent& extent)
 {
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     push_descriptors(commands, VK_PIPELINE_BIND_POINT_COMPUTE, bound);
-    vkCmdDispatch(commands, (extent.width + kGroupSide - 1) / kGroupSide, (extent.height + kGroupSide - 1) / kGroupSide, 1);
+    vkCmdDispatch(commands, (extent.width + kGroupSide - 1) / kGroupSide, (extent.height + kGroupSide - 1) / kGroupSide,
+                  1);
     compute_done(commands);
 }
 
 void depth_barrier(VkCommandBuffer commands, Image* depth, VkImageLayout layout, bool to_passes)
 {
-    const VkPipelineStageFlags tests = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    const VkPipelineStageFlags tests =
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     const VkPipelineStageFlags passes = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     const VkImageMemoryBarrier barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -957,15 +1047,16 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, VkImageLayout layout,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = depth->image,
-        .subresourceRange = {.aspectMask = depth->aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
+        .subresourceRange =
+            {.aspectMask = depth->aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1},
     };
-    vkCmdPipelineBarrier(commands, to_passes ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : passes, to_passes ? passes : tests, 0, 0,
-                         nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(commands, to_passes ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : passes, to_passes ? passes : tests,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
     depth->layout = layout;
 }
 
-void record_composite(VkCommandBuffer commands, VkPipeline pipeline, Image* colour, Image* depth, const PassBindings& bound,
-                      const std::array<uint32_t, 4>& rect)
+void record_composite(VkCommandBuffer commands, VkPipeline pipeline, Image* colour, Image* depth,
+                      const PassBindings& bound, const std::array<uint32_t, 4>& rect)
 {
     Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
     VkRenderingAttachmentInfo colour_info{};
@@ -976,19 +1067,22 @@ void record_composite(VkCommandBuffer commands, VkPipeline pipeline, Image* colo
     colour_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     VkRenderingAttachmentInfo depth_info{};
     depth_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depth_info.imageView = depth->attachment_view != VK_NULL_HANDLE ? depth->attachment_view : depth->view;
+    if (depth != nullptr) {
+        depth_info.imageView = depth->attachment_view != VK_NULL_HANDLE ? depth->attachment_view : depth->view;
+    }
     depth_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     depth_info.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     depth_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    const VkRect2D area{.offset = {.x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1))},
-                        .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3)}};
+    const VkRect2D area{
+        .offset = {.x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1))},
+        .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3)}};
     VkRenderingInfo info{};
     info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     info.renderArea = area;
     info.layerCount = 1;
     info.colorAttachmentCount = 1;
     info.pColorAttachments = &colour_info;
-    info.pDepthAttachment = &depth_info;
+    info.pDepthAttachment = depth == nullptr ? nullptr : &depth_info;
     vkCmdBeginRendering(commands, &info);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     const VkViewport viewport{.x = static_cast<float>(area.offset.x),
@@ -1045,7 +1139,8 @@ void read_timer(Backend& state, uint32_t set, const std::array<uint32_t, 4>& rec
         return;
     }
     for (std::size_t i = 0; i < kTimerPoints; ++i) {
-        if (core::at(stamps, i).available == 0 || (i > 0 && core::at(stamps, i).value < core::at(stamps, i - 1).value)) {
+        if (core::at(stamps, i).available == 0 ||
+            (i > 0 && core::at(stamps, i).value < core::at(stamps, i - 1).value)) {
             return;
         }
     }
@@ -1053,7 +1148,8 @@ void read_timer(Backend& state, uint32_t set, const std::array<uint32_t, 4>& rec
     ++own.window_samples;
     for (std::size_t part = 0; part < own.timing.milliseconds.size(); ++part) {
         const double milliseconds =
-            static_cast<double>(core::at(stamps, part + 1).value - core::at(stamps, part).value) * own.tick_milliseconds;
+            static_cast<double>(core::at(stamps, part + 1).value - core::at(stamps, part).value) *
+            own.tick_milliseconds;
         core::at(own.timing.milliseconds, part) += milliseconds;
         core::at(own.window_milliseconds, part) += milliseconds;
     }
@@ -1062,8 +1158,9 @@ void read_timer(Backend& state, uint32_t set, const std::array<uint32_t, 4>& rec
         const std::array<double, 3>& w = own.window_milliseconds;
         get_log("vulkan: rt_sky: the passes take %.3f ms on the device - clouds %.3f, temporal %.3f, composite %.3f "
                 "(%ux%u; the last %llu passes' average)",
-                (core::at(w, 0) + core::at(w, 1) + core::at(w, 2)) / count, core::at(w, 0) / count, core::at(w, 1) / count,
-                core::at(w, 2) / count, core::at(rect, 2), core::at(rect, 3), static_cast<unsigned long long>(own.window_samples));
+                (core::at(w, 0) + core::at(w, 1) + core::at(w, 2)) / count, core::at(w, 0) / count,
+                core::at(w, 1) / count, core::at(w, 2) / count, core::at(rect, 2), core::at(rect, 3),
+                static_cast<unsigned long long>(own.window_samples));
         own.window_samples = 0;
         own.window_milliseconds = {};
     }
@@ -1107,15 +1204,17 @@ using Linear = std::array<double, 3>;
 Linear linear_of(const rt::Colour& display)
 {
     Linear out{};
-    for (std::size_t c = 0; c < 3; ++c) {
-        core::at(out, c) = std::pow(std::max(static_cast<double>(core::at(display, c)), 0.0), rt::kDisplayGamma);
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        core::at(out, channel) =
+            std::pow(std::max(static_cast<double>(core::at(display, channel)), 0.0), rt::kDisplayGamma);
     }
     return out;
 }
 
 double luma_of(const Linear& colour)
 {
-    return (kLuma[0] * colour[0]) + (kLuma[1] * colour[1]) + (kLuma[2] * colour[2]);
+    return (core::at(kLuma, 0) * core::at(colour, 0)) + (core::at(kLuma, 1) * core::at(colour, 1)) +
+           (core::at(kLuma, 2) * core::at(colour, 2));
 }
 
 // The model's mean (exposed linear) over each band of elevation, from the sky-view table (every azimuth; weighted by
@@ -1126,8 +1225,8 @@ std::array<Linear, rt::kSkyBands> band_means(const AtmosphereTexels& table)
     std::array<double, rt::kSkyBands> weights{};
     for (uint32_t row = 0; row < table.height; ++row) {
         const double v = (row + 0.5) / table.height;
-        const double s = (2.0 * v) - 1.0;
-        const double elevation = (s < 0.0 ? -1.0 : 1.0) * s * s * (kPi / 2.0);
+        const double signed_root = (2.0 * v) - 1.0;
+        const double elevation = (signed_root < 0.0 ? -1.0 : 1.0) * signed_root * signed_root * (kPi / 2.0);
         const double degrees = elevation / kDegrees;
         for (std::size_t band = 0; band < rt::kSkyBands; ++band) {
             const rt::BandRange& range = core::at(rt::kSkyBandRanges, band);
@@ -1140,16 +1239,17 @@ std::array<Linear, rt::kSkyBands> band_means(const AtmosphereTexels& table)
                 const double weight = std::cos(elevation) * u;
                 const std::array<float, 4>& texel =
                     core::at(table.texels, (static_cast<std::size_t>(row) * table.width) + column);
-                for (std::size_t c = 0; c < 3; ++c) {
-                    core::at(core::at(sums, band), c) += weight * std::max(0.0, static_cast<double>(core::at(texel, c)));
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    core::at(core::at(sums, band), channel) +=
+                        weight * std::max(0.0, static_cast<double>(core::at(texel, channel)));
                 }
                 core::at(weights, band) += weight;
             }
         }
     }
     for (std::size_t band = 0; band < rt::kSkyBands; ++band) {
-        for (double& c : core::at(sums, band)) {
-            c = core::at(weights, band) > 0.0 ? c / core::at(weights, band) : 0.0;
+        for (double& value : core::at(sums, band)) {
+            value = core::at(weights, band) > 0.0 ? value / core::at(weights, band) : 0.0;
         }
     }
     return sums;
@@ -1158,11 +1258,11 @@ std::array<Linear, rt::kSkyBands> band_means(const AtmosphereTexels& table)
 // The capture read back and analysed (false: none, or it can't be read).
 bool read_capture(Backend& state, const rt::SkyCapture& capture, rt::SkyLook* look)
 {
-    const Texture* texture = texture_of(capture.texture);
+    Texture* texture = capture.texture != nullptr ? object(capture.texture) : nullptr;
     if (texture == nullptr || capture.face_size == 0) {
         return false;
     }
-    Image* image = const_cast<Image*>(&texture->image); // NOLINT(cppcoreguidelines-pro-type-const-cast): read back only
+    Image* image = &texture->image;
     const bool bgra = image->format == VK_FORMAT_B8G8R8A8_UNORM || image->format == VK_FORMAT_B8G8R8A8_SRGB;
     const bool rgba = image->format == VK_FORMAT_R8G8B8A8_UNORM || image->format == VK_FORMAT_R8G8B8A8_SRGB;
     if ((!bgra && !rgba) || !finish_work(state)) {
@@ -1173,7 +1273,9 @@ bool read_capture(Backend& state, const rt::SkyCapture& capture, rt::SkyLook* lo
         return false;
     }
     constexpr double kBytes = 255.0;
-    const auto byte_of = [](float value) { return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * kBytes)); };
+    const auto byte_of = [](float value) {
+        return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * kBytes));
+    };
     *look = rt::analyse_sky({.bytes = bytes,
                              .face_size = capture.face_size,
                              .bgra = bgra,
@@ -1196,9 +1298,11 @@ void match_from(const RtSkySettings& settings, const std::array<float, 3>& sun, 
             const Linear target = linear_of(settings.clouds ? core::at(look.clear, band) : core::at(look.all, band));
             const std::array<float, 3>& model = core::at(match->model, band);
             std::array<float, 3>& gain = core::at(input.gains, band - 1);
-            for (std::size_t c = 0; c < 3; ++c) {
-                const double ratio = core::at(model, c) > 1e-6 ? core::at(target, c) / core::at(model, c) : 1.0;
-                core::at(gain, c) = static_cast<float>(std::pow(std::clamp(ratio, kLeastGain, kMostGain), strength));
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                const double ratio =
+                    core::at(model, channel) > 1e-6 ? core::at(target, channel) / core::at(model, channel) : 1.0;
+                core::at(gain, channel) =
+                    static_cast<float>(std::pow(std::clamp(ratio, kLeastGain, kMostGain), strength));
             }
             core::at(input.gain_elevations, band - 1) =
                 static_cast<float>(core::at(rt::kSkyBandRanges, band).centre * kDegrees);
@@ -1206,14 +1310,15 @@ void match_from(const RtSkySettings& settings, const std::array<float, 3>& sun, 
         const auto ground = static_cast<std::size_t>(rt::SkyBand::kGround);
         if (core::at(look.covered, ground) > kGroundCovered) {
             const Linear colour = linear_of(core::at(look.all, ground));
-            input.ground = {static_cast<float>(colour[0]), static_cast<float>(colour[1]), static_cast<float>(colour[2])};
+            input.ground = {static_cast<float>(core::at(colour, 0)), static_cast<float>(core::at(colour, 1)),
+                            static_cast<float>(core::at(colour, 2))};
             input.ground_share = static_cast<float>(strength);
         }
     }
     // the clouds: their coverage (auto: from the level's), their colour (its hue, and how bright they are beside its
     // clear sky - a white cloud about 1.5 x as bright as the blue behind it)
-    constexpr double kCoverageBase = 0.32;
-    constexpr double kCoverageShare = 0.5;
+    constexpr double kCoverageBase = 0.35;
+    constexpr double kCoverageShare = 0.7;
     constexpr double kWhiteOverBlue = 1.5;
     constexpr double kDarkest = 0.35;
     constexpr double kBrightest = 1.3;
@@ -1223,12 +1328,14 @@ void match_from(const RtSkySettings& settings, const std::array<float, 3>& sun, 
     match->cloud_gain = {1.0F, 1.0F, 1.0F};
     if (look.valid) {
         const Linear cloud = linear_of(look.cloud);
-        const double most = std::max({cloud[0], cloud[1], cloud[2], 1e-6});
-        const double sky_luma = luma_of(linear_of(core::at(look.clear, static_cast<std::size_t>(rt::SkyBand::kMiddle))));
-        const double brightness = std::clamp(luma_of(cloud) / std::max(sky_luma, 0.02) / kWhiteOverBlue, kDarkest, kBrightest);
-        for (std::size_t c = 0; c < 3; ++c) {
-            core::at(match->cloud_gain, c) =
-                static_cast<float>(std::pow((cloud[c] / most) * brightness, strength));
+        const double most = std::max({core::at(cloud, 0), core::at(cloud, 1), core::at(cloud, 2), 1e-6});
+        const double sky_luma =
+            luma_of(linear_of(core::at(look.clear, static_cast<std::size_t>(rt::SkyBand::kMiddle))));
+        const double brightness =
+            std::clamp(luma_of(cloud) / std::max(sky_luma, 0.02) / kWhiteOverBlue, kDarkest, kBrightest);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(match->cloud_gain, channel) =
+                static_cast<float>(std::pow((core::at(cloud, channel) / most) * brightness, strength));
         }
     }
 }
@@ -1236,25 +1343,37 @@ void match_from(const RtSkySettings& settings, const std::array<float, 3>& sun, 
 void log_match(const RtSkyMatch& match, uint32_t scene)
 {
     const rt::SkyLook& look = match.look;
-    const auto rgb = [](const rt::Colour& c) { return std::array<double, 3>{c[0], c[1], c[2]}; };
+    const auto rgb = [](const rt::Colour& colour) {
+        return std::array<double, 3>{core::at(colour, 0), core::at(colour, 1), core::at(colour, 2)};
+    };
     const std::array<double, 3> zenith = rgb(core::at(look.clear, 3));
     const std::array<double, 3> middle = rgb(core::at(look.clear, 2));
     const std::array<double, 3> horizon = rgb(core::at(look.clear, 1));
     const std::array<double, 3> ground = rgb(core::at(look.all, 0));
-    get_log("vulkan: rt_sky: the level's sky (scene %08x): clear zenith %.3f %.3f %.3f, half way %.3f %.3f %.3f, horizon "
-            "%.3f %.3f %.3f; ground %.3f %.3f %.3f (%.0f%% covered); clouds %.0f%% of it, colour %.3f %.3f %.3f; "
-            "brightness %.3f%s",
-            scene, zenith[0], zenith[1], zenith[2], middle[0], middle[1], middle[2], horizon[0], horizon[1], horizon[2], ground[0],
-            ground[1], ground[2], 100.0 * core::at(look.covered, 0), 100.0 * look.coverage, static_cast<double>(look.cloud[0]),
-            static_cast<double>(look.cloud[1]), static_cast<double>(look.cloud[2]), static_cast<double>(look.brightness), look.valid ? "" : " - too little of it to match: the model alone");
+    get_log(
+        "vulkan: rt_sky: the level's sky (scene %08x): clear zenith %.3f %.3f %.3f, half way %.3f %.3f %.3f, horizon "
+        "%.3f %.3f %.3f; ground %.3f %.3f %.3f (%.0f%% covered); clouds %.0f%% of it, colour %.3f %.3f %.3f; "
+        "brightness %.3f%s",
+        scene, core::at(zenith, 0), core::at(zenith, 1), core::at(zenith, 2), core::at(middle, 0), core::at(middle, 1),
+        core::at(middle, 2), core::at(horizon, 0), core::at(horizon, 1), core::at(horizon, 2), core::at(ground, 0),
+        core::at(ground, 1), core::at(ground, 2), 100.0 * core::at(look.covered, 0), 100.0 * look.coverage,
+        static_cast<double>(core::at(look.cloud, 0)), static_cast<double>(core::at(look.cloud, 1)),
+        static_cast<double>(core::at(look.cloud, 2)), static_cast<double>(look.brightness),
+        look.valid ? "" : " - too little of it to match: the model alone");
     const AtmosphereInput& in = match.atmosphere;
     get_log("vulkan: rt_sky: matched - gains horizon %.2f %.2f %.2f, half way %.2f %.2f %.2f, overhead %.2f %.2f %.2f; "
             "ground %.0f%%; clouds' coverage %.2f, colour x %.2f %.2f %.2f",
-            static_cast<double>(in.gains[0][0]), static_cast<double>(in.gains[0][1]), static_cast<double>(in.gains[0][2]),
-            static_cast<double>(in.gains[1][0]), static_cast<double>(in.gains[1][1]), static_cast<double>(in.gains[1][2]),
-            static_cast<double>(in.gains[2][0]), static_cast<double>(in.gains[2][1]), static_cast<double>(in.gains[2][2]),
-            100.0 * in.ground_share, static_cast<double>(match.coverage), static_cast<double>(match.cloud_gain[0]),
-            static_cast<double>(match.cloud_gain[1]), static_cast<double>(match.cloud_gain[2]));
+            static_cast<double>(core::at(core::at(in.gains, 0), 0)),
+            static_cast<double>(core::at(core::at(in.gains, 0), 1)),
+            static_cast<double>(core::at(core::at(in.gains, 0), 2)),
+            static_cast<double>(core::at(core::at(in.gains, 1), 0)),
+            static_cast<double>(core::at(core::at(in.gains, 1), 1)),
+            static_cast<double>(core::at(core::at(in.gains, 1), 2)),
+            static_cast<double>(core::at(core::at(in.gains, 2), 0)),
+            static_cast<double>(core::at(core::at(in.gains, 2), 1)),
+            static_cast<double>(core::at(core::at(in.gains, 2), 2)), 100.0 * in.ground_share,
+            static_cast<double>(match.coverage), static_cast<double>(core::at(match.cloud_gain, 0)),
+            static_cast<double>(core::at(match.cloud_gain, 1)), static_cast<double>(core::at(match.cloud_gain, 2)));
 }
 
 // The sun the sky is drawn for: the visible one, else a default (logged once).
@@ -1276,7 +1395,9 @@ bool ensure_match(Backend& state, const std::array<float, 3>& sun)
 {
     SkyPassState& own = pass_state();
     const rt::SkyCapture capture = rt::sky_capture();
-    const float same = (sun[0] * own.matched_sun[0]) + (sun[1] * own.matched_sun[1]) + (sun[2] * own.matched_sun[2]);
+    const float same = (core::at(sun, 0) * core::at(own.matched_sun, 0)) +
+                       (core::at(sun, 1) * core::at(own.matched_sun, 1)) +
+                       (core::at(sun, 2) * core::at(own.matched_sun, 2));
     const bool new_capture = capture.serial != own.match.capture_serial;
     if (own.matched && !new_capture && same >= kSameSun && own.matched_settings == own.settings_serial) {
         return true;
@@ -1303,8 +1424,9 @@ bool ensure_match(Backend& state, const std::array<float, 3>& sun)
     if (read_atmosphere_table(state, AtmosphereTable::kSkyView, &table)) {
         const std::array<Linear, rt::kSkyBands> means = band_means(table);
         for (std::size_t band = 0; band < rt::kSkyBands; ++band) {
-            for (std::size_t c = 0; c < 3; ++c) {
-                core::at(core::at(own.match.model, band), c) = static_cast<float>(core::at(core::at(means, band), c));
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(core::at(own.match.model, band), channel) =
+                    static_cast<float>(core::at(core::at(means, band), channel));
             }
         }
     }
@@ -1342,8 +1464,8 @@ uint32_t scale_for(unsigned quality)
 }
 
 // The block for a view, and the frame's parameters (the check's).
-SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const Matrix& to_world, const std::array<float, 3>& sun,
-                   RtSkyFrame* frame)
+SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const Matrix& to_world,
+                   const std::array<float, 3>& sun, RtSkyFrame* frame)
 {
     const SkyPassState& own = pass_state();
     const RtSkySettings& settings = own.settings;
@@ -1358,36 +1480,45 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     const rt::BakedSun& baked = rt::baked_sun();
     const double ground = baked.ground_known ? baked.ground : 0.0;
     const double altitude =
-        rt::kViewerAltitude + std::max(0.0, (static_cast<double>(view.camera.position[1]) - ground) / rt::kGameUnitsPerMetre);
+        rt::kViewerAltitude +
+        std::max(0.0, (static_cast<double>(core::at(view.camera.position, 1)) - ground) / rt::kGameUnitsPerMetre);
     const double drift = static_cast<double>(settings.speed) * rt::kCloudWindSpeed * view.game_seconds;
-    const std::array<double, 2> offset{(view.camera.position[0] / rt::kGameUnitsPerMetre) + (rt::kCloudWind[0] * drift),
-                                       (view.camera.position[2] / rt::kGameUnitsPerMetre) + (rt::kCloudWind[1] * drift)};
+    const std::array<double, 2> offset{
+        (core::at(view.camera.position, 0) / rt::kGameUnitsPerMetre) + (core::at(rt::kCloudWind, 0) * drift),
+        (core::at(view.camera.position, 2) / rt::kGameUnitsPerMetre) + (core::at(rt::kCloudWind, 1) * drift)};
     // the sun's light at the clouds (the atmosphere's transmittance half way up the layer) and the sky's
     const double layer = rt::kGroundRadius + (0.5 * (rt::kCloudBase + rt::kCloudTop));
-    const rt::Rgb through = rt::transmittance_to_top({.radius = layer, .cosine = std::clamp(static_cast<double>(sun[1]), -1.0, 1.0)}, 64);
+    const rt::Rgb through = rt::transmittance_to_top(
+        {.radius = layer, .cosine = std::clamp(static_cast<double>(core::at(sun, 1)), -1.0, 1.0)}, 64);
     const double sun_scale = rt::sky_exposure() * kCloudSunScale;
     const AtmosphereInput& atmosphere = own.match.atmosphere;
     std::array<float, 3> sun_light{};
     std::array<float, 3> ambient_bottom{};
     std::array<float, 3> ambient_top{};
-    for (std::size_t c = 0; c < 3; ++c) {
-        core::at(sun_light, c) = static_cast<float>(core::at(through, c) * sun_scale);
-        const double horizon = core::at(core::at(own.match.model, 1), c) * core::at(core::at(atmosphere.gains, 0), c);
-        const double zenith = core::at(core::at(own.match.model, 3), c) * core::at(core::at(atmosphere.gains, 2), c);
-        core::at(ambient_bottom, c) = static_cast<float>(horizon * kCloudAmbientBottom);
-        core::at(ambient_top, c) = static_cast<float>(zenith * kCloudAmbientTop);
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        core::at(sun_light, channel) = static_cast<float>(core::at(through, channel) * sun_scale);
+        const double horizon =
+            core::at(core::at(own.match.model, 1), channel) * core::at(core::at(atmosphere.gains, 0), channel);
+        const double zenith =
+            core::at(core::at(own.match.model, 3), channel) * core::at(core::at(atmosphere.gains, 2), channel);
+        core::at(ambient_bottom, channel) = static_cast<float>(horizon * kCloudAmbientBottom);
+        core::at(ambient_top, channel) = static_cast<float>(zenith * kCloudAmbientTop);
     }
     const uint64_t frames = slot != nullptr ? slot->frames : 0;
     const auto jitter_offset = static_cast<float>(std::fmod(static_cast<double>(frames) * kGolden, 1.0));
-    block.camera = {view.camera.position[0], view.camera.position[1], view.camera.position[2], static_cast<float>(altitude)};
-    block.sun = {sun[0], sun[1], sun[2], own.match.coverage};
-    block.sun_light = {sun_light[0], sun_light[1], sun_light[2], 1.0F};
-    block.ambient_bottom = {ambient_bottom[0], ambient_bottom[1], ambient_bottom[2], static_cast<float>(kCloudAerialDistance)};
-    block.ambient_top = {ambient_top[0], ambient_top[1], ambient_top[2], jitter_offset};
-    block.offset = {static_cast<float>(offset[0]), static_cast<float>(offset[1]), kSkyHistoryBlend, 0.0F};
-    block.cloud_tint = {own.match.cloud_gain[0], own.match.cloud_gain[1], own.match.cloud_gain[2], 0.0F};
-    block.rect = {static_cast<int32_t>(recording.rect[0]), static_cast<int32_t>(recording.rect[1]),
-                  static_cast<int32_t>(recording.rect[2]), static_cast<int32_t>(recording.rect[3])};
+    block.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
+                    core::at(view.camera.position, 2), static_cast<float>(altitude)};
+    block.sun = {core::at(sun, 0), core::at(sun, 1), core::at(sun, 2), own.match.coverage};
+    block.sun_light = {core::at(sun_light, 0), core::at(sun_light, 1), core::at(sun_light, 2), 1.0F};
+    block.ambient_bottom = {core::at(ambient_bottom, 0), core::at(ambient_bottom, 1), core::at(ambient_bottom, 2),
+                            static_cast<float>(kCloudAerialDistance)};
+    block.ambient_top = {core::at(ambient_top, 0), core::at(ambient_top, 1), core::at(ambient_top, 2), jitter_offset};
+    block.offset = {static_cast<float>(core::at(offset, 0)), static_cast<float>(core::at(offset, 1)), kSkyHistoryBlend,
+                    0.0F};
+    block.cloud_tint = {core::at(own.match.cloud_gain, 0), core::at(own.match.cloud_gain, 1),
+                        core::at(own.match.cloud_gain, 2), 0.0F};
+    block.rect = {static_cast<int32_t>(core::at(recording.rect, 0)), static_cast<int32_t>(core::at(recording.rect, 1)),
+                  static_cast<int32_t>(core::at(recording.rect, 2)), static_cast<int32_t>(core::at(recording.rect, 3))};
     const uint32_t scale = scale_for(settings.quality);
     const Extent low = low_extent(recording.rect, scale);
     block.low = {static_cast<int32_t>(low.width), static_cast<int32_t>(low.height), static_cast<int32_t>(scale),
@@ -1485,6 +1616,85 @@ void record_commands(Backend& state, const Recording& recording, VkCommandBuffer
     }
 }
 
+// The clouds' shadows over a viewport's opaque world (rt_cloud_shadows; the listener's opaque_drawn). False: skipped.
+bool record_shadow_pass(Backend& state, const rt::ViewDrawn& view)
+{
+    const SkyPassState& own = pass_state();
+    const RtSkySettings& settings = own.settings;
+    if (own.failed || !settings.on || !settings.clouds || !settings.cloud_shadows || !own.matched) {
+        return false;
+    }
+    Recording recording;
+    recording.colour = image_of(core::at(state.targets, 0));
+    recording.depth = image_of(state.depth);
+    if (!targets_usable(recording.colour, recording.depth)) {
+        return false;
+    }
+    const Extent target = recording.colour->extent;
+    const uint32_t left = std::min(core::at(view.rect, 0), target.width);
+    const uint32_t top = std::min(core::at(view.rect, 1), target.height);
+    recording.rect = {left, top, std::min(core::at(view.rect, 2), target.width - left),
+                      std::min(core::at(view.rect, 3), target.height - top)};
+    if (core::at(recording.rect, 2) == 0 || core::at(recording.rect, 3) == 0) {
+        return false;
+    }
+    rt::ViewDrawn clipped = view;
+    clipped.rect = recording.rect;
+    Matrix to_world{};
+    if (!invert(world_to_pixel(clipped), &to_world)) {
+        return false;
+    }
+    std::string error;
+    VkCommandBuffer commands = outside_pass(state);
+    if (!ensure_objects(state, &error) || !update_cloud_noise(state, commands)) {
+        return false;
+    }
+    const VkPipeline pipeline = composite_pipeline(state, *recording.colour, *recording.depth, true, &error, true);
+    if (pipeline == VK_NULL_HANDLE) {
+        return false;
+    }
+    recording.clouds = true;
+    RtSkyFrame unused;
+    const SkyBlock block = block_for(clipped, recording, to_world, own.frame.sun, &unused);
+    const void* const block_bytes = &block;
+    const std::optional<RingSpan> span =
+        state.ring.copy(std::span(static_cast<const uint8_t*>(block_bytes), sizeof(block)), state.uniform_alignment);
+    if (!span) {
+        return false;
+    }
+    depth_barrier(commands, recording.depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
+    record_composite(commands, pipeline, recording.colour, nullptr,
+                     {.depth = recording.depth,
+                      .clouds = true,
+                      .block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(block)}},
+                     recording.rect);
+    depth_barrier(commands, recording.depth, recording.depth->resting, false);
+    if (recording.colour->layout != recording.colour->resting) {
+        Memory::transition(commands, recording.colour, recording.colour->resting);
+    }
+    state.bound = BoundState{};
+    const uint64_t serial = state.frames.serial();
+    recording.colour->used = serial;
+    recording.depth->used = serial;
+    cloud_noise_used(serial);
+    if (first_report(state, kReportShadows)) {
+        get_log("vulkan: rt_sky: the clouds' shadows drawn over the level (%ux%u)", core::at(recording.rect, 2),
+                core::at(recording.rect, 3));
+    }
+    return true;
+}
+
+const char* clouds_text(bool clouds, unsigned quality)
+{
+    if (!clouds) {
+        return "";
+    }
+    if (quality == 0) {
+        return " and clouds at a quarter resolution";
+    }
+    return quality == 1 ? " and clouds at half resolution" : " and clouds at full resolution";
+}
+
 bool record_pass(Backend& state, const rt::ViewDrawn& view)
 {
     SkyPassState& own = pass_state();
@@ -1499,11 +1709,18 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         if (first_report(state, kReportTargets)) {
             const Image* colour = recording.colour;
             const Image* depth = recording.depth;
-            get_log("vulkan: rt_sky: the bound targets can't be drawn over (no samplable depth of the colour's size and "
-                    "samples: colour %s, depth %s%s) - the original sky kept there",
-                    colour == nullptr ? "none" : text::format("%ux%u x%u", colour->extent.width, colour->extent.height, static_cast<unsigned>(colour->samples)).c_str(),
-                    depth == nullptr ? "none" : text::format("%ux%u x%u", depth->extent.width, depth->extent.height, static_cast<unsigned>(depth->samples)).c_str(),
-                    depth != nullptr && (depth->usage & VK_IMAGE_USAGE_SAMPLED_BIT) == 0 ? ", not samplable" : "");
+            get_log(
+                "vulkan: rt_sky: the bound targets can't be drawn over (no samplable depth of the colour's size and "
+                "samples: colour %s, depth %s%s) - the original sky kept there",
+                colour == nullptr ? "none"
+                                  : text::format("%ux%u x%u", colour->extent.width, colour->extent.height,
+                                                 static_cast<unsigned>(colour->samples))
+                                        .c_str(),
+                depth == nullptr ? "none"
+                                 : text::format("%ux%u x%u", depth->extent.width, depth->extent.height,
+                                                static_cast<unsigned>(depth->samples))
+                                       .c_str(),
+                depth != nullptr && (depth->usage & VK_IMAGE_USAGE_SAMPLED_BIT) == 0 ? ", not samplable" : "");
         }
         return false;
     }
@@ -1575,13 +1792,10 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     ++own.passes;
     if (first_report(state, kReportFirst)) {
         get_log("vulkan: rt_sky: the first pass (%ux%u, %u sample%s; the atmosphere%s; sun %.1f degrees up)",
-                core::at(recording.rect, 2), core::at(recording.rect, 3), static_cast<unsigned>(recording.colour->samples),
-                recording.colour->samples == 1 ? "" : "s",
-                recording.clouds ? (settings.quality == 0   ? " and clouds at a quarter resolution"
-                                    : settings.quality == 1 ? " and clouds at half resolution"
-                                                            : " and clouds at full resolution")
-                                 : "",
-                std::asin(std::clamp(static_cast<double>(sun[1]), -1.0, 1.0)) / kDegrees);
+                core::at(recording.rect, 2), core::at(recording.rect, 3),
+                static_cast<unsigned>(recording.colour->samples), recording.colour->samples == 1 ? "" : "s",
+                clouds_text(recording.clouds, settings.quality),
+                std::asin(std::clamp(static_cast<double>(core::at(sun, 1)), -1.0, 1.0)) / kDegrees);
     }
     return true;
 }
@@ -1593,7 +1807,8 @@ void set_rt_sky_settings(const RtSkySettings& settings)
     RtSkySettings kept = settings;
     kept.match = std::isfinite(kept.match) ? std::clamp(kept.match, 0.0F, 1.0F) : kRtSkyMatch;
     kept.coverage = std::isfinite(kept.coverage) ? std::min(kept.coverage, 1.0F) : kRtCloudCoverageAuto;
-    kept.speed = std::isfinite(kept.speed) ? std::clamp(kept.speed, 0.0F, 20.0F) : 1.0F;
+    constexpr float kFastest = 20.0F;
+    kept.speed = std::isfinite(kept.speed) ? std::clamp(kept.speed, 0.0F, kFastest) : 1.0F;
     kept.quality = std::min(kept.quality, 2U);
     {
         Backend& state = backend();
@@ -1629,7 +1844,8 @@ VkImageUsageFlags rt_sky_depth_usage(const Backend& state, VkFormat format)
     }
     VkFormatProperties properties{};
     vkGetPhysicalDeviceFormatProperties(state.context.physical_device(), format, &properties);
-    return (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0 ? VK_IMAGE_USAGE_SAMPLED_BIT : 0;
+    return (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0 ? VK_IMAGE_USAGE_SAMPLED_BIT
+                                                                                         : 0;
 }
 
 bool record_rt_sky_pass(Backend& state, const rt::ViewDrawn& view) { return record_pass(state, view); }
