@@ -22,6 +22,7 @@
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "platform/run_log.h"
@@ -761,7 +762,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view);
 
 bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
 {
-    const bool drawn = record_pass(state, view);
+    // (added by cel shading, vulkan_cel_draw.h: while its draws trace the sun's shadows themselves, none here)
+    const bool drawn = !cel_owns_shadows(state) && record_pass(state, view);
     // (added for the skater's shadow) while this pass casts the objects' shadows, their own (the skater's projected
     // one, the peds' blobs) are hidden; a view without a pass gives them back - but not while the baked sun is only
     // being fitted again (the world changed: a second or two without a pass), which flashed the original's shadow

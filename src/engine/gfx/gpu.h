@@ -650,6 +650,15 @@ public:
         uint32_t previous_offset = 0;
     };
     virtual void set_motion_source(const MotionSource& source) { (void)source; }
+    // NOT ORIGINAL - cel shading (added by rt_cel; engine/gfx/rt_cel.h): the draws from `vertices` at `offset` read the
+    // relit world's decomposition from `stream` too (rt_cel.h's three words a vertex, vertex for vertex; null: none).
+    // Direct3D 9 ignores it.
+    struct CelSource {
+        GpuVertexBuffer* vertices = nullptr;
+        uint32_t offset = 0;
+        GpuVertexBuffer* stream = nullptr;
+    };
+    virtual void set_cel_source(const CelSource& source) { (void)source; }
 
 private:
     GpuStateBlock block_;

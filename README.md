@@ -414,6 +414,12 @@ for the restart
 | `rt_relit_strength` | 1 | How much of the relit light is used (0 the level's own lighting, 1 all relit) |
 | `rt_relit_residual` | 1 | 1 keeps the light the sun and sky can't explain - lamps, glows - as the level had it; 0 leaves it out |
 | `rt_relit_detail` | 1 | How much of each spot's own baked shading is kept where the sun and sky explain it (0-1; 0 relights the most) |
+| `rt_cel` | 0 | On Vulkan: 1 draws the game cel-shaded - light in a few flat bands with crisp edges, shadows in a cool tint, a rim of light round skaters and peds, ink outlines (thick round characters and objects, thin over the level), flatter textures and a banded sky (with `rt_sky`). Fullest with `ray_tracing=1` and `rt_relit=1` (the level's own light banded, hard ray-traced shadows); without them the level's baked light is banded. Works beside `rt_style`. All the `rt_cel` keys change at once |
+| `rt_cel_bands` | 3 | With `rt_cel`: how many steps of sunlight (2-4, the shadow among them) |
+| `rt_cel_shadow_colour` | 0.62,0.66,0.86 | With `rt_cel`: the shadows' tint, `r,g,b` (0-1 or 0-255) or `#rrggbb` |
+| `rt_cel_rim` | 0.5 | With `rt_cel`: how bright the rim light round skaters and objects is (0: none) |
+| `rt_cel_outline_width` | 1 | With `rt_cel`: how thick the ink outlines are (0: none) |
+| `rt_cel_flatten` | 0.5 | With `rt_cel`: how far texture detail is flattened into colour (0-1) |
 | `upscaler` | off | On Vulkan (64-bit build): `dlss` (NVIDIA RTX), `fsr` (AMD FSR - any GPU) or `auto` (DLSS on NVIDIA, else FSR) draws the world at a lower resolution and rebuilds it at the window's - faster, smoother edges; the HUD and menus stay sharp. Multisampling (`msaa`, `AntiAliasing`) is off while it is on. `off` changes nothing |
 | `upscale_quality` | quality | With `upscaler`: how much is drawn - `dlaa` (all of it: anti-aliasing only), `quality` (67%), `balanced` (58%), `performance` (50%), `ultra` (33%) |
 | `ray_reconstruction` | 0 | With `upscaler=dlss` on an RTX GPU: 1 lets DLSS Ray Reconstruction clean up the ray-traced effects' noise (`rt_ao`, `rt_gi`) instead of their own filters |

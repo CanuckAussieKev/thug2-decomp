@@ -3,7 +3,8 @@
 // make (ff_shader_check_model.h), generates each key's GLSL, compiles it with glslang, validates the SPIR-V with
 // SPIRV-Tools' validator (when the build has it: THUG2_SPIRV_VALIDATOR), and - unless --no-gpu - hands every module and
 // a pipeline for each sampled pair of shaders to a Vulkan driver (ff_shader_check_gpu.h).
-//   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion]
+//   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion] [--cel]
+// --cel (added by cel shading): every pair that takes the bands added again with them (engine/gfx/rt_cel.h; add_cel_keys).
 // --surface (NOT ORIGINAL - rt_pbr): every pair that can be lit per pixel (ff_key.h kSurface*) added again with each
 // combination of the per-pixel lighting's bits (the map, lit by lights) - compiled, validated and made into pipelines
 // with the rest.
@@ -71,6 +72,7 @@ struct Options {
     std::string dump;
     bool surface = false;
     bool motion = false;
+    bool cel = false; // (added by cel shading)
 };
 
 Options read_options(std::span<char*> arguments)
@@ -81,6 +83,8 @@ Options read_options(std::span<char*> arguments)
         const bool has_value = i + 1 < arguments.size();
         if (argument == "--surface") {
             options.surface = true;
+        } else if (argument == "--cel") {
+            options.cel = true;
         } else if (argument == "--motion") {
             options.motion = true;
         } else if (argument == "--all-materials") {
@@ -265,6 +269,42 @@ void add_surface_keys(ff_check::KeySets& sets)
     text::print("surface: %u fragment keys lit per pixel added\n", static_cast<unsigned>(added));
 }
 
+// (added by cel shading) Each pair again with the bands (the world's bake, lit by lights, the outline's hull) - made into
+// pipelines with the rest -, and its halves with the relit world's stream (modules only: this check's pipelines have no
+// second stream). The ray-traced visibility (kSurfaceCelShadow) needs SPIR-V 1.4 and a ray-tracing device:
+// thug2_vulkan_cel_check makes those.
+void add_cel_keys(ff_check::KeySets& sets)
+{
+    using namespace render::vulkan;
+    const std::vector<ShaderKey> pairs = sets.pairs;
+    std::size_t added = 0;
+    std::size_t streams = 0;
+    for (const ShaderKey& pair : pairs) {
+        for (const uint8_t bits :
+             {static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel), static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel | kSurfaceLit),
+              static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel | kSurfaceLit | kSurfaceCelHull),
+              static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel | kSurfaceCelStream)}) {
+            ShaderKey key = pair;
+            key.fragment.surface = bits;
+            key = normalised(key);
+            if (key.fragment.surface == 0 || (key.fragment.surface & kSurfaceCel) == 0U) {
+                continue;
+            }
+            sets.vertex.insert(key.vertex);
+            if (sets.fragment.insert(key.fragment).second) {
+                ++added;
+            }
+            if ((key.vertex.surface & kVertexCelStream) != 0U) {
+                ++streams;
+                continue;
+            }
+            sets.pairs.push_back(key);
+        }
+    }
+    text::print("cel: %u fragment keys in bands added (%u with the stream: modules only)\n", static_cast<unsigned>(added),
+                static_cast<unsigned>(streams));
+}
+
 // (the upscaler's) Each pair's halves again with the motion vectors, where the key takes them (not pre-transformed).
 void add_motion_keys(ff_check::KeySets& sets)
 {
@@ -292,6 +332,9 @@ int run(const Options& options)
     ff_check::KeySets sets = ff_check::measured_keys(options.all_materials);
     if (options.surface) {
         add_surface_keys(sets);
+    }
+    if (options.cel) {
+        add_cel_keys(sets);
     }
     if (options.motion) {
         add_motion_keys(sets);

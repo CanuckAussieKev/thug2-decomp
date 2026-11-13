@@ -214,6 +214,16 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_grass_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_cel_check.exe: cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h) on this machine
+# - the bands of a lit gradient (the relit stream, 2 - 4 bands; the bake without it; an object lit by a light, its rim),
+# the shadow band's tint, hard ray-traced shadows (with ray tracing), a lit cube's hull and the world's lines, flatter
+# textures, rt_cel=0 the original's bytes; the cost at 2560x1440 (src/tests/vulkan_cel_check.cpp).
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_cel_check vulkan_cel_check.cpp)
+    target_link_libraries(thug2_vulkan_cel_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_cel_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_upscale_check.exe: the Vulkan Gpu's upscaling (gpu_vulkan/vulkan_upscale.h) and its motion
 # vectors (gpu_vulkan/vulkan_motion.h) on this machine - the jitter sequence; every clear-cut pixel's motion of a still
 # ground, a moving quad, a skinned quad and the sky against the processor's reprojection; FSR (or DLSS with --dlss) on a

@@ -21,6 +21,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
@@ -2250,9 +2251,10 @@ void rt_gi_reset_history(Backend& state)
     reset_effect_history(indirect());
 }
 
-bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view) { return record_effect(state, effects(), view); }
+// (added by cel shading, vulkan_cel_draw.h: its bands take the soft gradients away - no occlusion, no bounce while on)
+bool record_rt_ao_pass(Backend& state, const rt::ViewDrawn& view) { return !cel_on() && record_effect(state, effects(), view); }
 
-bool record_rt_gi_pass(Backend& state, const rt::ViewDrawn& view) { return record_effect(state, indirect(), view); }
+bool record_rt_gi_pass(Backend& state, const rt::ViewDrawn& view) { return !cel_on() && record_effect(state, indirect(), view); }
 
 uint64_t rt_ao_passes() { return effects().passes; }
 

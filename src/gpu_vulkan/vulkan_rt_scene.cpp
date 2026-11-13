@@ -27,6 +27,7 @@
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -1362,6 +1363,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
         frame.built = false;
         made.any_built = false;
         rt_shadows_set_scene_locked(VK_NULL_HANDLE);
+        cel_set_scene_locked(VK_NULL_HANDLE); // (added by cel shading: its draws' ray queries)
         rt_effects_set_scene_locked(VK_NULL_HANDLE);
         rt_fog_set_scene_locked(VK_NULL_HANDLE);
         return;
@@ -1399,6 +1401,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
         frame.built = false;
         made.any_built = false;
         rt_shadows_set_scene_locked(VK_NULL_HANDLE);
+        cel_set_scene_locked(VK_NULL_HANDLE); // (added by cel shading: its draws' ray queries)
         rt_effects_set_scene_locked(VK_NULL_HANDLE);
         rt_fog_set_scene_locked(VK_NULL_HANDLE);
         return;
@@ -1424,6 +1427,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
     barrier(commands, kBuildStage, VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, kAfterBuild,
             VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR);
     rt_shadows_set_scene_locked(frame.tlas.handle); // (R4's pass traces this frame's TLAS)
+    cel_set_scene_locked(frame.tlas.handle); // (added by cel shading: the draws' ray queries)
     rt_effects_set_scene_locked(frame.tlas.handle); // (R5's ambient occlusion too)
     rt_fog_set_scene_locked(frame.tlas.handle);     // (and the volumetric fog)
     frame.frame = record.frame;
@@ -1761,6 +1765,7 @@ void release_ray_tracing(Backend& state)
         rt::set_ray_tracing(nullptr);
     }
     rt_shadows_set_scene_locked(VK_NULL_HANDLE);
+    cel_set_scene_locked(VK_NULL_HANDLE); // (added by cel shading)
     rt_effects_set_scene_locked(VK_NULL_HANDLE);
     rt_fog_set_scene_locked(VK_NULL_HANDLE);
     count_bytes(made);

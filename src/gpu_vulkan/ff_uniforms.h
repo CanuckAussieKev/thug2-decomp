@@ -27,6 +27,10 @@ constexpr uint32_t kFirstTextureBinding = 2; // stage n's texture (combined imag
 // FragmentKey::surface set (pushed only for their draws)
 constexpr uint32_t kSurfaceUniformsBinding = 6; // SurfaceUniforms
 constexpr uint32_t kSurfaceMapBinding = 7;      // stage 0's texture's surface map (kSurfaceMap)
+// (added by cel shading, vulkan_cel.h) read only by keys with kSurfaceCel (pushed only for their draws); the scene
+// only in the layout of a device with ray tracing (kSurfaceCelShadow)
+constexpr uint32_t kCelUniformsBinding = 8; // CelUniforms (vertex and fragment)
+constexpr uint32_t kCelSceneBinding = 9;    // the frame's top-level acceleration structure
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -38,6 +42,10 @@ constexpr uint32_t kFirstTexSetLocation = 4; // set n at 4 + n: one to four floa
 // (added by the upscaler) The position the frame before (three floats; binding 1: the vertices the CPU wrote then, or
 // the same ones) - read with VertexKey::motion.
 constexpr uint32_t kPreviousPositionLocation = kFirstTexSetLocation + kMaxTexSets;
+// (added by cel shading) The cel stream's three words (D3DCOLOR each; binding 2, rt_cel.h's layout) - read with
+// VertexKey::surface's kVertexCelStream.
+constexpr uint32_t kCelLocation = kPreviousPositionLocation + 1;
+constexpr uint32_t kCelStreamBinding = 2;
 
 // Binding 0, the vertex shader's.
 struct VertexUniforms {
@@ -92,6 +100,19 @@ struct SurfaceUniforms {
     Float4 relit{};      // reserved for the relit mode (kSurfaceRelit; zeros)
 };
 
+// (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.
+struct CelUniforms {
+    Float4 bands{};      // x: the sun's steps (bands - 1); y: the bias; z: the edges' width (x fwidth); w: the bake's stops
+    Float4 shadow{};     // rgb: the shadow band's tint; w: the rim's strength
+    Float4 sun_world{};  // xyz: toward the scene's sun (world); w: 1 when there is one
+    Float4 sun_light{};  // rgb: the relit model's sun light (light units: 1 the bake's 128); w: the rim's threshold
+    std::array<Float4, 3> eye_to_world{}; // camera space (the vertex shader's eye) to the world: rows, w the offset
+    Float4 ray{};        // x: the ray's start off the surface; y: along the sun; z: its length; w: the ambient's stops
+    Float4 flatten{};    // x: the blurred sample's mip bias; y: how far the colour goes toward it; z: the residual's step
+    Float4 outline{};    // x: the hull's width (pixels); y: the ink's lightness; z: its chroma; w: the fallback's shadow low
+    Float4 limits{};     // x: the fallback's shadow high; y: 1 objects trace the world's mask too; z, w: unused
+};
+
 constexpr std::size_t kMatrixBytes = 64;
 constexpr std::size_t kVectorBytes = 16;
 static_assert(offsetof(VertexUniforms, texture_matrix) == 3 * kMatrixBytes, "std140: matrices are 64 bytes");
@@ -107,5 +128,7 @@ static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) 
 static_assert(sizeof(FragmentUniforms) == kFragmentVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 6;
 static_assert(sizeof(SurfaceUniforms) == kSurfaceVectors * kVectorBytes, "std140: no padding");
+constexpr std::size_t kCelVectors = 11;
+static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no padding");
 
 } // namespace render::vulkan

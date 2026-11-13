@@ -146,7 +146,21 @@ constexpr uint8_t kSurfaceLit = 0x04;      // lit by the draw's own lights (obje
 // Reserved for the relit mode (another work stream: the bake separated from the artists' tint and relit): its own
 // light in place of the bake's - it keeps kSurfaceLighting's per-pixel normal and specular (vulkan_surface.h).
 constexpr uint8_t kSurfaceRelit = 0x08;
-constexpr uint8_t kSurfaceKnown = kSurfaceLighting | kSurfaceMap | kSurfaceLit | kSurfaceRelit;
+// (added by cel shading - [Graphics] rt_cel, engine/gfx/rt_cel.h, vulkan_cel.h) with kSurfaceLighting: the light put in
+// bands per pixel (CelUniforms at kCelUniformsBinding) - the world's vertex colour banded, or with kSurfaceLit the
+// draw's lights; kSurfaceCelStream: the relit world's decomposition read from the cel stream (binding 2, kCelLocation);
+// kSurfaceCelShadow: the sun's visibility traced per pixel (a ray query through kCelSceneBinding); kSurfaceCelHull: the
+// draw's outline - an inverted hull, its colour the ink.
+constexpr uint8_t kSurfaceCel = 0x10;
+constexpr uint8_t kSurfaceCelStream = 0x20;
+constexpr uint8_t kSurfaceCelShadow = 0x40;
+constexpr uint8_t kSurfaceCelHull = 0x80;
+constexpr uint8_t kSurfaceKnown = kSurfaceLighting | kSurfaceMap | kSurfaceLit | kSurfaceRelit | kSurfaceCel |
+                                  kSurfaceCelStream | kSurfaceCelShadow | kSurfaceCelHull;
+// VertexKey::surface's bits (1 alone: rt_pbr's inputs, as before cel shading).
+constexpr uint8_t kVertexSurfaceInputs = 0x01;
+constexpr uint8_t kVertexCelStream = 0x02; // the cel stream's three words read and handed on
+constexpr uint8_t kVertexCelHull = 0x04;   // the position pushed out along the normal (the outline's hull)
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;

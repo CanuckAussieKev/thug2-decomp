@@ -25,6 +25,9 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/mesh_records.h"
+#include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
@@ -105,6 +108,9 @@ struct Entry {
     uint64_t written = 0;  // the lighting its colours were written with (0: the originals)
     bool dirty = false;    // its bounce traced again since: to be written
     uint64_t listed = 0;   // the update that last put it in the order (State::listing)
+    // (added by cel shading - engine/gfx/rt_cel.h) its decomposition as the cel stream, and what it was written for
+    GpuVertexBuffer* cel = nullptr;
+    uint64_t cel_written = 0;
 };
 
 struct Cached {
@@ -553,11 +559,34 @@ void restore(Entry& entry)
     }
 }
 
+// (added by cel shading) an entry's cel stream let go of
+void release_cel(Entry& entry)
+{
+    if (entry.cel != nullptr) {
+        gpu().release_vertex_buffer(entry.cel);
+        entry.cel = nullptr;
+    }
+    entry.cel_written = 0;
+}
+
+void release_all_cel()
+{
+    bool any = false;
+    for (auto& [buffer, entry] : state().entries) {
+        any = any || entry.cel != nullptr;
+        release_cel(entry);
+    }
+    if (any || rt::cel_world().relit) {
+        rt::set_cel_world({});
+    }
+}
+
 void restore_all()
 {
     for (auto& [buffer, entry] : state().entries) {
         restore(entry);
     }
+    release_all_cel(); // (added by cel shading: the stream goes with the relit colours)
 }
 
 // The sun the world is lit by now, and whether there is one (changed by the scene's sun: rt_scene.h relit_target_sun -
@@ -858,6 +887,62 @@ void write_relit(uint64_t lighting, const rt::RelitLighting& light)
     }
 }
 
+// (added by cel shading - engine/gfx/rt_cel.h) Each entry's cel stream written where its relit colours are (the same
+// lighting, the cel settings' number with it), and the world's sun light published for the draws; with rt_cel off,
+// the streams let go of.
+void write_cel(uint64_t lighting, const rt::RelitLighting& light)
+{
+    State& st = state();
+    if (!rt::cel_settings().on) {
+        release_all_cel();
+        return;
+    }
+    uint64_t wanted = fnv_value(lighting, rt::cel_settings_serial());
+    wanted = wanted == 0 ? 1 : wanted;
+    std::size_t written = 0;
+    for (const VertexBufferData* buffer : st.order) {
+        Entry& entry = st.entries.at(buffer);
+        if (!entry.analysed || entry.written != lighting || entry.cel_written == wanted) {
+            continue;
+        }
+        const auto count = static_cast<uint32_t>(entry.originals.size());
+        if (count == 0) {
+            continue;
+        }
+        if (entry.cel == nullptr &&
+            gpu().create_vertex_buffer(count * rt::kCelStreamBytes, gpu_value::kUsageWriteOnly, 0, gpu_value::kPoolDefault,
+                                       &entry.cel) < 0) {
+            entry.cel = nullptr;
+            continue;
+        }
+        void* locked = nullptr;
+        if (gpu().lock_vertex_buffer(entry.cel, 0, 0, &locked, 0) < 0 || locked == nullptr) {
+            continue;
+        }
+        const std::span<uint8_t> bytes(static_cast<uint8_t*>(locked), std::size_t{count} * rt::kCelStreamBytes);
+        for (std::size_t vi = 0; vi < count; ++vi) {
+            const rt::CelWords words = vi < entry.light.size() && core::at(entry.animated, vi) == 0
+                                           ? rt::cel_stream_words(st.model, core::at(entry.light, vi), light)
+                                           : rt::kCelNoStream;
+            std::memcpy(bytes.subspan(vi * rt::kCelStreamBytes, rt::kCelStreamBytes).data(), words.data(),
+                        rt::kCelStreamBytes);
+        }
+        gpu().unlock_vertex_buffer(entry.cel);
+        entry.cel_written = wanted;
+        ++written;
+    }
+    rt::Rgbf sun{};
+    for (std::size_t ch = 0; ch < sun.size(); ++ch) {
+        core::at(sun, ch) = core::at(st.model.sun, ch) * core::at(light.sun_colour, ch);
+    }
+    rt::set_cel_world({.relit = true, .sun = sun, .toward = light.toward});
+    if (written > 0) {
+        get_log("rt_cel: %zu meshes' cel streams written (the sun's light %.3f %.3f %.3f)", written,
+                static_cast<double>(std::get<0>(sun)), static_cast<double>(std::get<1>(sun)),
+                static_cast<double>(std::get<2>(sun)));
+    }
+}
+
 } // namespace
 
 void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& tracer)
@@ -978,7 +1063,15 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
     rebounce(tracer, settings, light);
     st.wanted_lighting = lighting;
     write_relit(lighting, light);
+    write_cel(lighting, light); // (added by cel shading)
     rt::note_sun_used(rt::SunUser::kRelit, true, st.sun);
+}
+
+GpuVertexBuffer* cel_stream(const VertexBufferData* buffer)
+{
+    const State& st = state();
+    const auto found = st.entries.find(buffer);
+    return found != st.entries.end() && found->second.cel_written != 0 ? found->second.cel : nullptr;
 }
 
 void mesh_released(const MeshRef* mesh)
@@ -992,6 +1085,7 @@ void mesh_released(const MeshRef* mesh)
     st.buffer_of.erase(found);
     const auto entry = st.entries.find(buffer);
     if (entry != st.entries.end() && entry->second.mesh == mesh) {
+        release_cel(entry->second); // (added by cel shading)
         st.entries.erase(entry);
         std::erase(st.order, buffer);
     }
