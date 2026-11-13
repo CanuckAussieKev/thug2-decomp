@@ -30,6 +30,8 @@
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
 #include "render_pc/rt_record.h"
+#include "render_pc/rt_relit_world.h"
+#include "engine/gfx/rt_cel.h"
 #include <bit>
 
 namespace render {
@@ -295,6 +297,12 @@ void MeshRef::render()
             motion.previous_offset = before->arena_offset();
         }
         gpu().set_motion_source(motion);
+    }
+    // Not original - cel shading (engine/gfx/rt_cel.h): the relit world's stream for this mesh's draws (none: its
+    // vertex colour banded). Original behaviour: nothing.
+    if (rt::cel_shading_on()) {
+        gpu().set_cel_source(
+            {.vertices = vb->buffer(), .offset = vb->arena_offset(), .stream = rt_relit_world::cel_stream(vb)});
     }
     const int level = lod_level();
     gpu().set_indices(index_buffer_at(this, level)->buffer());

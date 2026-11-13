@@ -75,7 +75,9 @@ public:
 
     // The set layout (push descriptors: the two uniform blocks and the stages' textures), the pipeline layout, and the
     // caches read from the files in `folder` (ending in a separator; empty: none kept).
-    bool init(VkDevice device, VkPhysicalDevice physical, const std::string& folder);
+    // (added by cel shading) `ray_queries`: the device has ray tracing - the layout gets the scene's binding
+    // (kCelSceneBinding) and fragment shaders that trace (kSurfaceCelShadow) can be made.
+    bool init(VkDevice device, VkPhysicalDevice physical, const std::string& folder, bool ray_queries = false);
     // The caches written and everything destroyed (the device idle).
     void shutdown();
     // The caches written to disk now (when something new was made since the last time).
@@ -107,7 +109,7 @@ public:
 private:
     VkShaderModule module(bool vertex, const ShaderKey& key, std::string* error);
     // GLSL's module: its SPIR-V from the disk cache or compiled; VK_NULL_HANDLE when it doesn't compile.
-    VkShaderModule spirv_module(ShaderStage stage, const std::string& source, std::string* error);
+    VkShaderModule spirv_module(ShaderStage stage, const std::string& source, std::string* error, bool ray_query = false);
     void load(const std::string& folder);
 
     VkDevice device_ = nullptr;
@@ -122,6 +124,7 @@ private:
     std::unordered_map<uint64_t, VkPipeline> screen_pipelines_;   // by the fragment's hash and the format (and the UI's)
     std::unordered_map<uint64_t, std::vector<uint32_t>> spirv_; // by the GLSL's hash
     bool dirty_ = false;
+    bool ray_queries_ = false; // (added by cel shading)
     PipelineStats stats_;
 };
 

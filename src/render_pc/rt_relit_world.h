@@ -27,6 +27,7 @@
 #include <span>
 #include <string>
 
+#include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 
 namespace render {
@@ -68,6 +69,9 @@ struct ObjectLighting {
 // and bounce traced, the writes done): `sun` that sun, `lighting` a number for that lighting (another when anything
 // that changes the colours changed). rt_record makes the shadows' agreement grid for that sun from them.
 bool settled(std::array<float, 3>* sun, uint64_t* lighting);
+// (added by cel shading - engine/gfx/rt_cel.h) The cel stream of a buffer the mode has relit, while rt_cel is on (its
+// three words a vertex, vertex for vertex); null: none - the draws band its vertex colour.
+[[nodiscard]] GpuVertexBuffer* cel_stream(const VertexBufferData* buffer);
 // The console's `rt relit` (devtools/rt_check.cpp): the state in a line.
 [[nodiscard]] std::string status_text();
 

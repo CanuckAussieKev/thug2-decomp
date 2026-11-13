@@ -27,6 +27,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_ring.h"
@@ -206,11 +207,41 @@ layout(set = 0, binding = 12, rgba16f) uniform readonly image2D i_b;
 #endif
 layout(location = 0) out vec4 o_colour;
 
+#ifdef CEL
+// (added by cel shading - engine/gfx/rt_cel.h; [Graphics] rt_cel) the atmosphere in flat bands of elevation (6 from the
+// horizon to the top, narrower low down: the colour at each band's middle, its azimuth kept) and its brightness in
+// half-stop steps (the sun's glow in rings); every edge anti-aliased over about a pixel
+float cel_step(float t)
+{
+    float w = clamp(fwidth(t) * 0.75, 0.001, 0.5);
+    return floor(t) + smoothstep(1.0 - w, 1.0, fract(t));
+}
+vec3 cel_atmosphere(vec3 dir)
+{
+    float t = sqrt(asin(clamp(dir.y, 0.0, 1.0)) / 1.5707963) * 6.0;
+    float q = cel_step(t);
+    float e = pow(min(q + 0.5, 6.0) / 6.0, 2.0) * 1.5707963;
+    vec2 h = dir.xz;
+    float hl = length(h);
+    h = hl > 1e-6 ? h / hl : vec2(1.0, 0.0);
+    vec3 dq = dir.y < 0.0 ? dir : vec3(h.x * cos(e), sin(e), h.y * cos(e));
+    vec3 c = sky_view_linear(dq, sky.sun.xyz);
+    float y = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    float lt = log2(max(y, 1e-6)) * 2.0;
+    float lq = cel_step(lt);
+    return y > 1e-6 ? c * (exp2((lq + 0.5) * 0.5) / y) : c;
+}
+#endif
+
 void main()
 {
     vec2 p = floor(gl_FragCoord.xy);
     vec3 dir = direction_of(p);
+#ifdef CEL
+    vec3 light = cel_atmosphere(dir);
+#else
     vec3 light = sky_view_linear(dir, sky.sun.xyz);
+#endif
 #ifdef CLOUDS
     {
         vec2 low = (p - vec2(sky.rect.xy) - 0.5 * float(sky.low.z - 1)) / float(sky.low.z);
@@ -230,12 +261,29 @@ void main()
                 weights += w;
             }
         }
+#ifdef CEL
+        // (added by cel shading) the clouds' cover with a crisp edge, their own colour in two-thirds-of-a-stop steps
+        // (lit and shaded sides as flat tones) - derivatives taken outside any branch on the pixel's values
+        bool any = weights > 1e-4;
+        vec4 cloud = any ? sum / weights : vec4(0.0, 0.0, 0.0, 1.0);
+        float fade = any ? exp(-(distance / weights) / sky.ambient_bottom.w) : 0.0;
+        float cover = 1.0 - clamp(cloud.a, 0.0, 1.0);
+        float cw = clamp(fwidth(cover) * 0.75, 0.002, 0.25);
+        float shape = smoothstep(0.3 - cw, 0.3 + cw, cover);
+        vec3 own = max(cloud.rgb, vec3(0.0)) / max(cover, 0.05);
+        float oy = dot(own, vec3(0.2126, 0.7152, 0.0722));
+        float ot = log2(max(oy, 1e-6)) * 1.5;
+        float oq = cel_step(ot);
+        own = oy > 1e-6 ? own * (exp2((oq + 0.5) / 1.5) / oy) : own;
+        light = mix(light, own * sky.cloud_tint.rgb, shape * fade);
+#else
         if (weights > 1e-4) {
             vec4 cloud = sum / weights;
             float fade = exp(-(distance / weights) / sky.ambient_bottom.w);
             float transmittance = mix(1.0, clamp(cloud.a, 0.0, 1.0), fade);
             light = light * transmittance + max(cloud.rgb, vec3(0.0)) * sky.cloud_tint.rgb * fade;
         }
+#endif
     }
 #endif
     vec3 shown = pow(max(light, vec3(0.0)), vec3(1.0 / 2.2));
@@ -368,6 +416,7 @@ struct CompositePipeline {
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     bool clouds = false;
     bool shadow = false; // the clouds' shadows' pass (no depth attachment, the colour multiplied)
+    bool cel = false;    // (added by cel shading: the stylised sky, CEL)
     VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
@@ -712,12 +761,12 @@ bool ensure_objects(Backend& state, std::string* error)
 // The composite's pipeline for a colour target and its depth (made on first use): rgb written, alpha kept, the depth
 // tested (at the far plane, less or equal: the sky's samples), not written.
 VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& depth, bool clouds, std::string* error,
-                              bool shadow = false)
+                              bool shadow = false, bool cel = false)
 {
     SkyPassState& own = pass_state();
     for (const CompositePipeline& made : own.composites) {
         if (made.colour == colour.format && made.depth == depth.format && made.samples == colour.samples &&
-            made.clouds == clouds && made.shadow == shadow) {
+            made.clouds == clouds && made.shadow == shadow && made.cel == cel) {
             return made.pipeline;
         }
     }
@@ -726,7 +775,9 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
         shadow ? make_module(device, RtShaderStage::kFragment,
                              source_of(kShadowBody, depth.samples != VK_SAMPLE_COUNT_1_BIT ? "MULTISAMPLED" : nullptr),
                              error)
-               : make_module(device, RtShaderStage::kFragment, source_of(kCompositeBody, clouds ? "CLOUDS" : nullptr),
+               : make_module(device, RtShaderStage::kFragment,
+                             source_of(kCompositeBody, cel ? (clouds ? "CLOUDS\n#define CEL" : "CEL") // (added by cel shading)
+                                                           : (clouds ? "CLOUDS" : nullptr)),
                              error);
     if (fragment == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
@@ -828,6 +879,7 @@ VkPipeline composite_pipeline(Backend& state, const Image& colour, const Image& 
                               .samples = colour.samples,
                               .clouds = clouds,
                               .shadow = shadow,
+                              .cel = cel,
                               .pipeline = pipeline});
     return pipeline;
 }
@@ -1842,7 +1894,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
             clear_slot(commands, recording.slot);
         }
     }
-    recording.composite = composite_pipeline(state, *recording.colour, *recording.depth, recording.clouds, &error);
+    recording.composite = composite_pipeline(state, *recording.colour, *recording.depth, recording.clouds, &error, false,
+                                             cel_on()); // (added by cel shading: the stylised sky)
     if (recording.composite == VK_NULL_HANDLE) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {

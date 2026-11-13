@@ -373,7 +373,25 @@ ShaderKey normalised(const ShaderKey& key)
     if (!result.vertex.lighting) {
         result.fragment.surface = static_cast<uint8_t>(result.fragment.surface & ~kSurfaceLit);
     }
-    result.vertex.surface = result.fragment.surface != 0 ? 1 : 0;
+    // (added by cel shading) its bits only with kSurfaceCel; the hull needs the vertex's normal, the stream a world
+    // draw (not lit by lights)
+    uint8_t& surface = result.fragment.surface;
+    if ((surface & kSurfaceCel) == 0U) {
+        surface = static_cast<uint8_t>(surface & ~(kSurfaceCelStream | kSurfaceCelShadow | kSurfaceCelHull));
+    }
+    if ((result.vertex.fvf & kFvfNormal) == 0U) {
+        surface = static_cast<uint8_t>(surface & ~kSurfaceCelHull);
+    }
+    if ((surface & kSurfaceLit) != 0U) {
+        surface = static_cast<uint8_t>(surface & ~kSurfaceCelStream);
+    }
+    result.vertex.surface = surface != 0 ? kVertexSurfaceInputs : 0;
+    if ((surface & kSurfaceCelStream) != 0U) {
+        result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelStream);
+    }
+    if ((surface & kSurfaceCelHull) != 0U) {
+        result.vertex.surface = static_cast<uint8_t>(result.vertex.surface | kVertexCelHull);
+    }
     return result;
 }
 
@@ -455,6 +473,9 @@ std::string describe(const VertexKey& key)
     }
     text += key.motion != 0U ? " motion" : "";
     text += key.surface != 0 ? " surface" : "";
+    if (key.surface > kVertexSurfaceInputs) {
+        text += "=" + std::to_string(key.surface); // (added by cel shading: its stream or hull)
+    }
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         if ((key.coord_mask & bit(stage)) == 0U) {
             continue;

@@ -29,6 +29,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_jpeg.h"
@@ -1187,6 +1188,13 @@ public:
         state.motion.source = {.key = source.key,
                                .previous = previous != nullptr && state.buffers.contains(previous) ? previous : nullptr,
                                .previous_offset = source.previous_offset};
+    }
+    // NOT ORIGINAL - cel shading's stream for the next draws (vulkan_cel_draw.h).
+    void set_cel_source(const CelSource& source) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        set_cel_source_locked(state, source);
     }
     long save_surface_jpeg(const char* file, GpuSurface* surface) override
     {

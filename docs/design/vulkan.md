@@ -1858,6 +1858,84 @@ it and never filtered. Each viewport separately (split screen: nothing is read a
   ground (shadow and stain decals) get outlines of their own (a real depth step); a low-poly hill's facets show faint
   crease lines.
 
+### Cel shading (`rt_cel`)
+
+`engine/gfx/rt_cel` (the settings, the stream's layout, the bands' formulas and their twins on the processor),
+`gpu_vulkan/vulkan_cel` (which draws are banded, their uniforms, the world's outlines), the fixed-function generator
+(`ff_key.h` `kSurfaceCel*`, `ff_shaders.cpp` "the light in bands"), `render_pc/rt_relit_world` (the stream);
+`[Graphics] rt_cel` (off by default), `rt_cel_bands`, `rt_cel_shadow_colour`, `rt_cel_rim`, `rt_cel_outline_width`,
+`rt_cel_flatten`. A rendering mode, not a filter: the light is put in bands in the draws' own fragment shaders, where it
+is worked out; the toon filter (`rt_style`) is independent and both may be on.
+
+- **The relit world** (`rt_relit=1`): relit already knows each vertex's parts. With `rt_cel` on it also writes a second
+  vertex stream per world mesh (`cel_stream_words`: three D3DCOLOR words a vertex - the sky's and bounce's light and
+  N.L toward the relit sun; the tint x the level's scale and the vertex's share of the sun's rays; the lamps' residual
+  and a flag), a GpuVertexBuffer render_pc names per draw (`Gpu::CelSource`, set in `MeshRef`'s draw beside the motion
+  source); the Vulkan Gpu binds it at binding 2 (`kCelLocation` 13 - 15). Each pixel:
+  `tint x (ambient_q x mix(shadow colour, 1, q) + sun x q) + residual_q` - q the sun's term `N.L x visibility` in
+  `rt_cel_bands - 1` steps (the step a little early: + 0.15), ambient_q the sky's and bounce's light in whole stops,
+  residual_q the lamps' light in steps of 0.25 (hue kept in both), `sun` the relit model's sun light (a x the sun's
+  colour, published by render_pc: `rt::set_cel_world`). A vertex the game animates carries the flag 0: its pixels are
+  banded as the bake.
+- **Hard shadows.** With ray tracing the visibility is a ray query in the fragment shader (`kSurfaceCelShadow`; GLSL 4.60,
+  SPIR-V 1.4; the frame's TLAS at `kCelSceneBinding` 9, only in a ray-tracing device's layout - the vulkan_rt_scene
+  builder hands it over as it does the shadows'): from the pixel's world point (`eye_to_world`, the view's inverse) 2
+  units off the surface along its face normal and 1 toward the sun, the level's opaque geometry (mask 0x01), terminated
+  on the first hit - no penumbra. Rays only where the sun's term could reach the first band. The stream's N.L excludes
+  the vertex's own share then (which is the fallback without ray tracing), and the ray-traced shadows' pass steps aside
+  (`cel_owns_shadows`): the shadow band is the shadow. The skater's own projected shadow comes back with it.
+- **Without relit** (or a level that keeps its bake): the vertex colour's luminance in steps of `2 / (bands - 1)` stops,
+  its hue kept, the shadow colour over the steps below 0.3 - 0.55 of the bake's light.
+- **Objects** (lit by lights with normals: the skater, peds, cars): each light's N.L per pixel in bands (the key light's
+  - the first - times the traced visibility), the shadow colour on the ambient part where the key light is off, and a
+  rim band where `1 - N.V` passes 0.62 (`rt_cel_rim` x (the key light + 0.3), dimmer in the shadow band).
+- **Every band edge** is anti-aliased over about a pixel: the band's position's screen derivative (`fwidth`) x 0.75 as
+  the smoothstep's half width; every derivative is taken in uniform control flow (before any branch on a pixel's
+  value).
+- **Outlines.** Objects: an inverted hull - each lit draw that doesn't blend is drawn again (`kSurfaceCelHull`: the
+  vertices pushed out along their normals by 2.5 x `rt_cel_outline_width` pixels of a 720-line picture, measured on the
+  screen; the faces toward the camera culled; the program's colour turned into ink). The world: a pass after the
+  upscaler (`ViewOrder::kCel` = 960, world_drawn, before the toon filter): the toon filter's measure of a bend or step
+  in the linear depth with the neighbours `rt_cel_outline_width` depth pixels away (one-sided: the line on the object
+  in front), creases at 60%, faded out from 2,500 to 9,000 units. Ink: the surface's own colour, luminance x 0.28,
+  chroma x 1.25 (`rt::cel_ink`).
+- **Flatter textures** (`rt_cel_flatten`): each sampled texture's colour mixed by the setting toward the same texture
+  2.5 mips blurrier; its alpha untouched (cut-outs keep their edges). The edge-preserving filter done once per texture
+  was not needed for the look and isn't done.
+- **The sky** (`rt_sky`): the composite's `CEL` variant - the atmosphere in 6 flat bands of elevation (narrower low
+  down; the colour at each band's middle, its azimuth kept) and its brightness in half stops (the sun's glow in rings);
+  the clouds' cover with a crisp edge at 0.3 and their own colour in two-thirds-of-a-stop steps.
+- **Steps aside:** the ambient occlusion and the one-bounce light passes while the mode is on (their soft gradients
+  are what it takes away; relit's own bounce is in the ambient), the ray-traced shadows' pass while the draws trace.
+- **Settings** (all live - `kLiveKeys` `rt_cel*`; the stream is rewritten when they change): `rt_cel` 0 / 1,
+  `rt_cel_bands` (3; 2 - 4), `rt_cel_shadow_colour` (0.62,0.66,0.86 - `r,g,b` or `#rrggbb`), `rt_cel_rim` (0.5),
+  `rt_cel_outline_width` (1; 0 none), `rt_cel_flatten` (0.5). The Options screen's Lighting tab: Cel shading and its
+  five knobs.
+- **rt_cel=0:** no key gets the bits (`cel_draw` returns none), so every generated shader is byte-identical to before
+  (`thug2_ff_shader_check --surface --motion` against main's: the same GLSL); the descriptor layout gained the
+  cel block's binding (8) and, on a ray-tracing device, the scene's (9), pushed only for cel draws.
+- **Checked:** `thug2_vulkan_cel_check` (24 checks; the RTX 5070 Ti and the AMD Radeon, validation with synchronization
+  validation 0): the twins (the colour's text, `bands` levels, the stream's words); the stream's bands of a lit
+  gradient for 2, 3 and 4 bands - every pixel away from an edge the processor's twin (worst 0.0004), as many plateaus
+  as bands, each edge at most two pixels, the shadow band's blue / red the colour's (1.388 / 1.387); the bake banded
+  (100% the twin's); an object lit by a light (100%, 3 plateaus) and its rim (every pixel past the threshold brighter,
+  the rest unchanged); hard shadows - a ground whose vertices say "no sun" lit only by the traced visibility under a
+  box in this check's own acceleration structures: 22,024 pixels lit or in the shadow band exactly as the processor's
+  ray says, none between, the edge's two pixels left out; a lit cube's hull (97% of the ring two pixels round its
+  silhouette ink, nothing further out or on the cube changed); the world's lines (on a box's edge on the box, none
+  inside, on the wall or the sky); flatten 0.8 (a checkerboard's spread 0.30 -> 0.11); `rt_cel=0` the same picture as
+  before the mode was ever on and the original's formula; every pixel finite. `thug2_ff_shader_check --cel`: every key
+  that takes the bands generated, compiled, validated and made into pipelines (the stream's as modules).
+  Cost (`--perf`, device timestamps, a full-screen layer at 2560 x 1440): RTX 5070 Ti - the bands +0.07 ms, the traced
+  visibility +0.68 ms (one ray a pixel), objects with the rim and the hull 0.52 ms, the world's lines +0.20 ms; the AMD
+  integrated GPU 2.5 / 2.2 / 4.9 / 3.4 ms. In the game the world's lines measured 0.42 ms at 2560 x 1440 (the log's
+  "the outlines' pass takes"), and the occlusion and bounce passes it switches off cost more than that.
+- **In the game** (THUG2-5, the user's `[Graphics]` - every ray-traced effect, relit by the game's sun, HDR, DLSS Ray
+  Reconstruction, 2560 x 1440 - with `rt_cel` 0 / 1): BO, AU, BA, z_dt. Hard traced shadows with the cool shadow band,
+  flat lit faces, ink round the skater and along the level's silhouettes, the HUD untouched. Known: a low-poly hill's
+  triangles show as faint crease lines and their per-vertex N.L as faceted band edges; alpha-tested foliage gets ink
+  round its cut-outs; the per-vertex N.L of a large flat-shaded wall makes its terminator follow the triangles.
+
 ### Changing the settings while the game runs (the Options screen)
 
 `app/renderer_choice.cpp` reads each effect's settings in a function of its own (`read_rt_shadows`, `read_rt_ao`,

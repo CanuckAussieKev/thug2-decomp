@@ -53,6 +53,24 @@ constexpr const char* kSurfaceVaryingsIn =
     "layout(location = 7) in vec3 v_surface_normal;\nlayout(location = 8) in vec3 v_surface_eye;\n"
     "layout(location = 9) in vec4 v_surface_base;\nlayout(location = 10) in vec4 v_surface_cd;";
 
+// (added by cel shading - vulkan_cel.h, engine/gfx/rt_cel.h) The cel stream's words handed on (13 - 15, after the
+// motion's), and the block both halves read (ff_uniforms.h CelUniforms).
+constexpr const char* kCelVaryingsOut = "layout(location = 13) out vec4 v_cel_light;\nlayout(location = 14) out vec4 "
+                                        "v_cel_tint;\nlayout(location = 15) out vec4 v_cel_residual;";
+constexpr const char* kCelVaryingsIn = "layout(location = 13) in vec4 v_cel_light;\nlayout(location = 14) in vec4 "
+                                       "v_cel_tint;\nlayout(location = 15) in vec4 v_cel_residual;";
+constexpr const char* kCelBlock = R"(layout(set = 0, binding = 8, std140) uniform CelUniforms {
+    vec4 bands;
+    vec4 shadow;
+    vec4 sun_world;
+    vec4 sun_light;
+    vec4 eye_to_world[3];
+    vec4 ray;
+    vec4 flatten;
+    vec4 outline;
+    vec4 limits;
+} c;)";
+
 // --- the vertex shader -------------------------------------------------------------------------------------------
 
 void vertex_declarations(std::string& out, const VertexKey& key)
@@ -96,6 +114,15 @@ void vertex_declarations(std::string& out, const VertexKey& key)
     }
     if (key.surface != 0) {
         add(out, {kSurfaceVaryingsOut});
+    }
+    if ((key.surface & kVertexCelStream) != 0U) { // (added by cel shading)
+        for (uint32_t word = 0; word < 3; ++word) {
+            add(out, {"layout(location = ", num(kCelLocation + word), ") in vec4 a_cel", num(word), ";"});
+        }
+        add(out, {kCelVaryingsOut});
+    }
+    if ((key.surface & kVertexCelHull) != 0U) {
+        add(out, {kCelBlock});
     }
     add(out, {key.points ? "out gl_PerVertex { vec4 gl_Position; float gl_PointSize; };"
                          : "out gl_PerVertex { vec4 gl_Position; };"});
@@ -394,6 +421,115 @@ float surface_ggx(vec3 n, vec3 v, vec3 l, float rough, float f0)
     return min(3.14159265 * d * g * f / (4.0 * nv), 16.0);
 })";
 
+// --- (added by cel shading - [Graphics] rt_cel) the light in bands -----------------------------------------------------
+// (vulkan_cel.h; engine/gfx/rt_cel.h has the formulas and their twins on the processor) A key with kSurfaceCel puts
+// its light in bands where surface_lighting builds surface_v0:
+//   - the world, with the cel stream (kSurfaceCelStream: the relit decomposition - ambient a, N.L, tint t, the sun's
+//     share, residual r): q = the sun's light N.L x the visibility in bands (c.bands.x steps, crisp - the edge one
+//     pixel wide from the derivatives -, the visibility a ray query toward the sun with kSurfaceCelShadow, else the
+//     vertex's share), then t x (a in whole stops x mix(shadow colour, 1, q) + the sun's light x q) + r in steps;
+//     a pixel whose stream is missing (an animated vertex) is banded as the bake;
+//   - the world without it: the bake's luminance in steps of c.bands.w stops, its hue kept, the shadow colour over
+//     the dark steps;
+//   - lit draws (kSurfaceLit): each light's N.L in bands (the key light's - the first - times the visibility), the
+//     shadow colour on the ambient where the key light is off, a rim band where 1 - N.V passes c.sun_light.w;
+//   - the hull (kSurfaceCelHull): no lighting - the draw's own colour turned into ink after the program.
+// Every derivative is taken in uniform control flow (the bands' widths before any branch on a pixel's values).
+constexpr const char* kCelFunctions = R"(float cel_luma(vec3 v) { return dot(v, vec3(0.2126, 0.7152, 0.0722)); }
+float cel_round(float t, float w) { float i = floor(t); return i + smoothstep(0.5 - w, 0.5 + w, t - i); }
+float cel_width(float t) { return clamp(fwidth(t) * c.bands.z, 0.001, 0.5); }
+vec3 cel_ink(vec3 colour)
+{
+    float y = cel_luma(colour);
+    return clamp((vec3(y) + (colour - vec3(y)) * c.outline.z) * c.outline.y, 0.0, 1.0);
+})";
+
+constexpr const char* kCelVisibility = R"(layout(set = 0, binding = 9) uniform accelerationStructureEXT cel_scene;
+float cel_visible(vec3 eye, vec3 eye_normal, uint mask)
+{
+    vec4 p = vec4(eye, 1.0);
+    vec3 world = vec3(dot(c.eye_to_world[0], p), dot(c.eye_to_world[1], p), dot(c.eye_to_world[2], p));
+    vec3 n = vec3(dot(c.eye_to_world[0].xyz, eye_normal), dot(c.eye_to_world[1].xyz, eye_normal),
+                  dot(c.eye_to_world[2].xyz, eye_normal));
+    vec3 to = c.sun_world.xyz;
+    if (dot(n, to) < 0.0) n = -n;
+    vec3 origin = world + n * c.ray.x + to * c.ray.y;
+    rayQueryEXT q;
+    rayQueryInitializeEXT(q, cel_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0, to,
+                          c.ray.z);
+    while (rayQueryProceedEXT(q)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+})";
+
+void cel_declarations(std::string& out, const FragmentKey& key)
+{
+    add(out, {kCelBlock});
+    if ((key.surface & kSurfaceCelStream) != 0U) {
+        add(out, {kCelVaryingsIn});
+    }
+    add(out, {kCelFunctions});
+    if ((key.surface & kSurfaceCelShadow) != 0U) {
+        add(out, {kCelVisibility});
+    }
+}
+
+void cel_lighting(std::string& out, const FragmentKey& key)
+{
+    const bool shadow = (key.surface & kSurfaceCelShadow) != 0U;
+    if ((key.surface & kSurfaceLit) != 0U) {
+        add(out, {"    float cel_vis = 1.0;"});
+        if (shadow) {
+            add(out, {"    if (c.sun_world.w > 0.5 && dot(surface_geo, s.light_toward[0].xyz) > -0.2) cel_vis = "
+                      "cel_visible(surface_eye, surface_geo, 0x01u);"});
+        }
+        add(out, {"    vec3 cel_light = vec3(0.0);\n    vec3 cel_key = vec3(0.0);\n    float cel_kq = 1.0;\n"
+                  "    bool cel_first = true;\n"
+                  "    for (int i = 0; i < 8; ++i) {\n"
+                  "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
+                  "        float t = clamp(dot(surface_n, l), 0.0, 1.0) * c.bands.x + c.bands.y;\n"
+                  "        float q = clamp(cel_round(t, cel_width(t)) / c.bands.x, 0.0, 1.0);\n"
+                  "        if (cel_first) {\n            q *= cel_vis;\n            cel_kq = q;\n"
+                  "            cel_key = s.light_colour[i].rgb;\n            cel_first = false;\n        }\n"
+                  "        cel_light += s.light_colour[i].rgb * q;\n    }\n"
+                  "    float cel_rt = 1.0 - max(dot(surface_n, surface_v), 0.0);\n"
+                  "    float cel_rw = clamp(fwidth(cel_rt) * c.bands.z, 0.005, 0.25);\n"
+                  "    float cel_rim = c.shadow.w * smoothstep(c.sun_light.w - cel_rw, c.sun_light.w + cel_rw, cel_rt);\n"
+                  "    vec3 cel_rim_colour = (cel_key + vec3(0.3)) * (0.35 + 0.65 * cel_kq) * cel_rim;\n"
+                  "    vec4 surface_v0 = vec4(clamp(v_surface_base.rgb * mix(c.shadow.rgb, vec3(1.0), cel_kq) + "
+                  "v_surface_cd.rgb * cel_light + cel_rim_colour, 0.0, 1.0), v_surface_cd.a);"});
+        return;
+    }
+    // the bake banded (also the stream's fallback)
+    add(out, {"    vec3 cel_bake = v_diffuse.rgb * 2.0;\n    float cel_by = cel_luma(cel_bake);\n"
+              "    float cel_bt = log2(max(cel_by, 1.0e-4)) / c.bands.w;\n"
+              "    float cel_bq = exp2(cel_round(cel_bt, cel_width(cel_bt)) * c.bands.w);\n"
+              "    vec3 cel_out = cel_by > 0.001 ? cel_bake * (cel_bq / cel_by) * mix(vec3(1.0), c.shadow.rgb, 1.0 - "
+              "smoothstep(c.outline.w, c.limits.x, cel_bq)) : cel_bake;"});
+    if ((key.surface & kSurfaceCelStream) != 0U) {
+        add(out, {"    vec3 cel_amb = v_cel_light.rgb * 2.0;\n    float cel_ndl = v_cel_light.a;\n"
+                  "    vec3 cel_tint = v_cel_tint.rgb * 2.0;\n    vec3 cel_res = v_cel_residual.rgb * 2.0;\n"
+                  "    float cel_vis = v_cel_tint.a;"});
+        if (shadow) {
+            add(out, {"    cel_vis = 1.0;\n"
+                      "    if (c.sun_world.w > 0.5 && cel_ndl * c.bands.x + c.bands.y > 0.3) cel_vis = cel_visible(surface_eye, "
+                      "surface_face, 0x01u);"});
+        }
+        add(out, {"    float cel_st = clamp(cel_ndl * cel_vis, 0.0, 1.0) * c.bands.x + c.bands.y;\n"
+                  "    float cel_q = clamp(cel_round(cel_st, cel_width(cel_st)) / c.bands.x, 0.0, 1.0);\n"
+                  "    float cel_ay = cel_luma(cel_amb);\n"
+                  "    float cel_at = log2(max(cel_ay, 1.0e-4)) / c.ray.w;\n"
+                  "    float cel_aq = cel_ay > 0.001 ? exp2(cel_round(cel_at, cel_width(cel_at)) * c.ray.w) / cel_ay : 1.0;\n"
+                  "    float cel_ry = cel_luma(cel_res);\n    float cel_rt = cel_ry / c.flatten.z;\n"
+                  "    float cel_rq = cel_ry > 0.001 ? cel_round(cel_rt, cel_width(cel_rt)) * c.flatten.z / cel_ry : 0.0;\n"
+                  "    vec3 cel_shade = mix(c.shadow.rgb, vec3(1.0), cel_q);\n"
+                  "    vec3 cel_relit = cel_tint * (cel_amb * cel_aq * cel_shade + c.sun_light.rgb * cel_q) + cel_res * "
+                  "cel_rq;\n"
+                  "    if (v_cel_residual.a > 0.5) cel_out = cel_relit;"});
+    }
+    add(out, {"    vec4 surface_v0 = vec4(clamp(cel_out * 0.5, 0.0, 1.0), v_diffuse.a);"});
+}
+
 void surface_declarations(std::string& out, const FragmentKey& key)
 {
     constexpr uint32_t kBlockBinding = 6; // (kSurfaceBlock's numbers)
@@ -406,10 +542,17 @@ void surface_declarations(std::string& out, const FragmentKey& key)
         add(out, {"layout(set = 0, binding = 7) uniform sampler2D surface_map;"});
     }
     add(out, {kSurfaceBlock});
+    if ((key.surface & kSurfaceCel) != 0U) {
+        cel_declarations(out, key); // (added by cel shading)
+    }
 }
 
 void surface_lighting(std::string& out, const FragmentKey& key)
 {
+    if ((key.surface & kSurfaceCelHull) != 0U) { // (added by cel shading: the hull is ink - no light)
+        add(out, {"    vec4 surface_v0 = v_diffuse;\n    vec3 surface_specular = vec3(0.0);"});
+        return;
+    }
     add(out, {"    vec3 surface_eye = v_surface_eye;\n    vec3 surface_dx = dFdx(surface_eye);\n"
               "    vec3 surface_dy = dFdy(surface_eye);\n    vec3 surface_face = cross(surface_dx, surface_dy);\n"
               "    surface_face = dot(surface_face, surface_face) > 0.0 ? normalize(surface_face) : vec3(0.0, 0.0, -1.0);\n"
@@ -436,6 +579,10 @@ void surface_lighting(std::string& out, const FragmentKey& key)
                   "        }\n    }"});
     }
     add(out, {"    surface_rough = clamp(surface_rough, 0.08, 1.0);\n    vec3 surface_specular = vec3(0.0);"});
+    if ((key.surface & kSurfaceCel) != 0U) {
+        cel_lighting(out, key); // (added by cel shading)
+        return;
+    }
     if ((key.surface & kSurfaceLit) != 0U) {
         add(out, {"    vec3 surface_light = vec3(0.0);\n    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
@@ -663,6 +810,11 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
     add(out, {"    vec4 c4 = clamp(u.constant[4], -1.0, 1.0);"});
     for (uint32_t index = 0; index < textures; ++index) {
         add(out, {"    vec4 t", num(index), " = texture(t", num(index), "_map, ", coord_of(key, index), ");"});
+        if ((key.surface & kSurfaceCel) != 0U && (key.surface & kSurfaceCelHull) == 0U) {
+            // (added by cel shading - rt_cel_flatten) the colour toward a blurrier mip, its alpha (cut-outs) as it was
+            add(out, {"    t", num(index), ".rgb = mix(t", num(index), ".rgb, texture(t", num(index), "_map, ",
+                      coord_of(key, index), ", c.flatten.x).rgb, c.flatten.y);"});
+        }
     }
 }
 
@@ -811,6 +963,9 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
     if (key.surface != 0) {
         add(out, {"    colour.rgb += surface_specular * s.params.x;"});
     }
+    if ((key.surface & kSurfaceCelHull) != 0U) {
+        add(out, {"    colour.rgb = cel_ink(clamp(colour.rgb, 0.0, 1.0));"}); // (added by cel shading: the outline)
+    }
 }
 
 // Fog (after the stages or the pixel shader, as Direct3D 9 applies it): colour = f colour + (1 - f) the fog colour. Table
@@ -868,6 +1023,20 @@ std::string vertex_shader_glsl(const VertexKey& key)
     if (key.surface != 0) {
         add(out, {"    v_surface_normal = normal;\n    v_surface_eye = eye.xyz;"}); // (NOT ORIGINAL - rt_pbr)
     }
+    if ((key.surface & kVertexCelStream) != 0U) { // (added by cel shading: the stream handed on)
+        add(out, {"    v_cel_light = a_cel0;\n    v_cel_tint = a_cel1;\n    v_cel_residual = a_cel2;"});
+    }
+    if ((key.surface & kVertexCelHull) != 0U) {
+        // (added by cel shading) the outline's hull: each vertex pushed out along its normal as seen on the screen,
+        // c.outline.x pixels whatever its distance (the normal's direction in pixels, then back to clip space)
+        add(out, {"    {\n        vec4 hull_n = u.projection * vec4(normal, 0.0);\n"
+                  "        vec2 hull_px = vec2(u.pixel.x > 0.0 ? hull_n.x / u.pixel.x : 0.0, u.pixel.y > 0.0 ? -hull_n.y / "
+                  "u.pixel.y : 0.0);\n"
+                  "        float hull_len = length(hull_px);\n"
+                  "        if (hull_len > 1.0e-6) {\n"
+                  "            gl_Position.xy += (hull_px / hull_len) * c.outline.x * 2.0 * u.pixel.xy * gl_Position.w;\n"
+                  "        }\n    }"});
+    }
     vertex_fog(out, key);
     vertex_coords(out, key);
     vertex_point_size(out, key);
@@ -878,7 +1047,12 @@ std::string vertex_shader_glsl(const VertexKey& key)
 std::string fragment_shader_glsl(const FragmentKey& key)
 {
     const uint32_t sampled = sampled_stages(key);
-    std::string out = "#version 450\n// generated: " + describe(key) + "\n";
+    // (added by cel shading: the sun's visibility per pixel - ray queries are GLSL 4.60's)
+    const bool traced = (key.surface & kSurfaceCelShadow) != 0U;
+    std::string out = std::string(traced ? "#version 460\n" : "#version 450\n") + "// generated: " + describe(key) + "\n";
+    if (traced) {
+        out += "#extension GL_EXT_ray_query : require\n";
+    }
     fragment_declarations(out, key, sampled);
     add(out, {"void main()\n{"});
     fragment_program(out, key, sampled);

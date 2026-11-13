@@ -17,11 +17,13 @@
 #include "base/core/checked_index.h"
 #include "base/core/layout_32bit.h"
 #include "engine/file/disk.h"
+#include "engine/gfx/rt_cel.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_shaders.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_draw_state.h"
+#include "gpu_vulkan/vulkan_rt_glsl.h"
 
 namespace render::vulkan {
 
@@ -142,11 +144,11 @@ std::size_t PipelineKeyHash::operator()(const PipelineKey& key) const
     return static_cast<std::size_t>(fnv1a(raw));
 }
 
-bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder)
+bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder, bool ray_queries)
 {
     device_ = device;
     folder_ = folder;
-    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 2> bindings{};
+    std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4> bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                              .descriptorCount = 1,
@@ -176,10 +178,23 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                            .descriptorCount = 1,
                                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                            .pImmutableSamplers = nullptr};
+    // (added by cel shading - vulkan_cel.h) its block, and with ray queries the frame's scene: pushed only for the keys
+    // that read them
+    core::at(bindings, 4 + kStageCount) = {.binding = kCelUniformsBinding,
+                                           .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                           .descriptorCount = 1,
+                                           .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                           .pImmutableSamplers = nullptr};
+    core::at(bindings, 5 + kStageCount) = {.binding = kCelSceneBinding,
+                                           .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                                           .descriptorCount = 1,
+                                           .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                           .pImmutableSamplers = nullptr};
+    ray_queries_ = ray_queries;
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
-                                                   .bindingCount = static_cast<uint32_t>(bindings.size()),
+                                                   .bindingCount = static_cast<uint32_t>(bindings.size()) - (ray_queries ? 0U : 1U),
                                                    .pBindings = bindings.data()};
     if (vkCreateDescriptorSetLayout(device_, &set_info, nullptr, &set_layout_) != VK_SUCCESS) {
         return false;
@@ -320,13 +335,14 @@ void Pipelines::shutdown()
     stats_ = {};
 }
 
-VkShaderModule Pipelines::spirv_module(ShaderStage stage, const std::string& source, std::string* error)
+VkShaderModule Pipelines::spirv_module(ShaderStage stage, const std::string& source, std::string* error, bool ray_query)
 {
     const uint64_t hash = text_hash(source);
     auto kept = spirv_.find(hash);
     if (kept == spirv_.end()) {
         const auto start = std::chrono::steady_clock::now();
-        CompiledShader compiled = compile_glsl(stage, source);
+        CompiledShader compiled =
+            ray_query ? compile_rt_glsl(RtShaderStage::kFragment, source) : compile_glsl(stage, source);
         stats_.compile_seconds += seconds_since(start);
         ++stats_.shaders_compiled;
         if (!compiled.ok) {
@@ -369,7 +385,18 @@ VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string*
         }
     }
     const std::string source = vertex ? vertex_shader_glsl(key.vertex) : fragment_shader_glsl(key.fragment);
-    const VkShaderModule made = spirv_module(vertex ? ShaderStage::kVertex : ShaderStage::kFragment, source, error);
+    // (added by cel shading) a fragment shader with ray queries needs SPIR-V 1.4 (the ray-tracing work's compiler);
+    // none on a device without them
+    const bool ray_query = !vertex && (key.fragment.surface & kSurfaceCelShadow) != 0U;
+    if (ray_query && !ray_queries_) {
+        if (error != nullptr) {
+            *error = "a ray query on a device without ray tracing";
+        }
+        fragment_modules_.emplace(key.fragment, VK_NULL_HANDLE);
+        return VK_NULL_HANDLE;
+    }
+    const VkShaderModule made =
+        spirv_module(vertex ? ShaderStage::kVertex : ShaderStage::kFragment, source, error, ray_query);
     if (vertex) {
         vertex_modules_.emplace(key.vertex, made);
     } else {
@@ -407,22 +434,40 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
         const VertexLayout layout = vertex_layout(key.shaders.vertex.fvf);
         // (the upscaler's motion: binding 1 - the vertices of the frame before, the same layout - its position)
         const bool motion_input = key.shaders.vertex.motion != 0U;
-        const std::array<VkVertexInputBindingDescription, 2> bindings{{
+        // (added by cel shading: the cel stream at binding 2 - three D3DCOLOR words a vertex, rt_cel.h)
+        const bool cel_input = (key.shaders.vertex.surface & kVertexCelStream) != 0U;
+        std::array<VkVertexInputBindingDescription, 3> bindings{{
             {.binding = 0, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
             {.binding = 1, .stride = layout.bytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+            {.binding = kCelStreamBinding, .stride = rt::kCelStreamBytes, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
         }};
-        std::array<VkVertexInputAttributeDescription, kMostAttributes + 1> attributes{};
+        uint32_t binding_count = motion_input ? 2U : 1U;
+        if (cel_input) {
+            if (!motion_input) {
+                core::at(bindings, 1) = core::at(bindings, 2); // (the descriptions needn't be in order of binding)
+            }
+            ++binding_count;
+        }
+        std::array<VkVertexInputAttributeDescription, kMostAttributes + 4> attributes{};
         std::copy_n(layout.attributes.begin(), layout.count, attributes.begin());
         uint32_t attribute_count = layout.count;
         if (motion_input) {
             core::at(attributes, attribute_count++) = {
                 .location = kPreviousPositionLocation, .binding = 1, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0};
         }
+        if (cel_input) {
+            for (uint32_t word = 0; word < rt::kCelStreamWords; ++word) {
+                core::at(attributes, attribute_count++) = {.location = kCelLocation + word,
+                                                           .binding = kCelStreamBinding,
+                                                           .format = VK_FORMAT_B8G8R8A8_UNORM,
+                                                           .offset = word * 4};
+            }
+        }
         const VkPipelineVertexInputStateCreateInfo input{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
-            .vertexBindingDescriptionCount = motion_input ? 2U : 1U,
+            .vertexBindingDescriptionCount = binding_count,
             .pVertexBindingDescriptions = bindings.data(),
             .vertexAttributeDescriptionCount = attribute_count,
             .pVertexAttributeDescriptions = attributes.data()};

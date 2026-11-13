@@ -16,6 +16,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/render_device.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -32,6 +33,7 @@
 #include "gpu_d3d9/gpu_d3d9.h"
 #ifdef THUG2_VULKAN
 #include "gpu_vulkan/gpu_vulkan.h"
+#include "gpu_vulkan/vulkan_cel.h"
 #endif
 
 namespace app {
@@ -421,6 +423,26 @@ void read_style()
          .saturation = ini_float("rt_style_saturation", defaults.saturation)});
 }
 
+// NOT ORIGINAL - cel shading (engine/gfx/rt_cel.h, gpu_vulkan/vulkan_cel.h): off unless asked for; the relit mode's
+// decomposition and ray tracing make it fuller (the light in bands from the relit world's parts, hard traced shadows)
+void read_rt_cel()
+{
+    const render::rt::CelSettings defaults;
+    render::rt::CelSettings cel{.on = graphics_flag("rt_cel", false),
+                                .bands = static_cast<uint32_t>(std::max(0, graphics_int("rt_cel_bands", static_cast<int>(defaults.bands)))),
+                                .shadow_colour = defaults.shadow_colour,
+                                .rim = ini_float("rt_cel_rim", defaults.rim),
+                                .outline_width = ini_float("rt_cel_outline_width", defaults.outline_width),
+                                .flatten = ini_float("rt_cel_flatten", defaults.flatten)};
+    constexpr std::size_t kLongest = 32;
+    std::array<char, kLongest> text{};
+    graphics_text("rt_cel_shadow_colour", "", text.data(), text.size());
+    if (text.front() != '\0' && !render::rt::parse_cel_colour(text.data(), &cel.shadow_colour)) {
+        get_log("[Graphics] rt_cel_shadow_colour=%s isn't r,g,b or #rrggbb - the default kept", text.data());
+    }
+    render::vulkan::set_cel_settings(cel);
+}
+
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
 // with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
 // upscaling, rt_tessellation - waits for the restart.
@@ -477,6 +499,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
     LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
     LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)
+    LiveKey{.key = "rt_cel", .prefix = true, .read = &read_rt_cel},   // (added by cel shading: rt_cel and every rt_cel_)
 };
 
 // (added by the split comparison - engine/gfx/graphics_options.h CompareBackend, devtools/compare_split.h) The effects'
@@ -713,6 +736,7 @@ void install_vulkan()
     read_upscale();
     read_rt_pbr();
     read_style();
+    read_rt_cel(); // (added by cel shading)
     render::graphics_options::set_live_reload(&reload_live_key);
     render::graphics_options::set_compare_backend(
         {.prepare = &compare_prepare, .apply = &compare_apply, .end = &compare_end});

@@ -1,4 +1,4 @@
-﻿// NOT ORIGINAL - the Vulkan Gpu's draws, rendering passes, transfers and frames (vulkan_backend.h's second half;
+// NOT ORIGINAL - the Vulkan Gpu's draws, rendering passes, transfers and frames (vulkan_backend.h's second half;
 // docs/design/vulkan.md, V7). The caller holds the backend's lock.
 //
 // - Passes are inferred (V5d): a draw or clear opens one on the device's targets (render target 0, the depth surface)
@@ -27,9 +27,11 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/rt_cel.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_draw_state.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -397,6 +399,10 @@ struct SurfaceDescriptors {
     bool has_map = false;
     VkDescriptorBufferInfo block{};
     VkDescriptorImageInfo map{};
+    // (added by cel shading, vulkan_cel_draw.h) its block, and the scene its ray queries trace (VK_NULL_HANDLE: none)
+    bool cel = false;
+    VkDescriptorBufferInfo cel_block{};
+    VkAccelerationStructureKHR scene = VK_NULL_HANDLE;
 };
 
 void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
@@ -407,11 +413,11 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
                                               (!surface.has_map || same_image_info(bound.pushed_surface_map, surface.map)));
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, bound.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
-                      std::ranges::equal(images, bound.images, same_image_info) && same_surface;
+                      std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel;
     if (same) {
         return;
     }
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 2> writes{};
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -441,11 +447,29 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
             map.pImageInfo = &surface.map;
         }
     }
+    // (added by cel shading) its block, and the scene for the ray queries; a cel draw's descriptors are always pushed
+    const VkWriteDescriptorSetAccelerationStructureKHR scene{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &surface.scene};
+    if (surface.cel) {
+        VkWriteDescriptorSet& block = core::at(writes, count++);
+        block.dstBinding = kCelUniformsBinding;
+        block.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        block.pBufferInfo = &surface.cel_block;
+        if (surface.scene != VK_NULL_HANDLE) {
+            VkWriteDescriptorSet& traced = core::at(writes, count++);
+            traced.pNext = &scene;
+            traced.dstBinding = kCelSceneBinding;
+            traced.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        }
+    }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
     bound.images = images;
     bound.pushed_vertex_block = bound.vertex_block;
     bound.pushed_fragment_block = bound.fragment_block;
-    bound.descriptors_set = true;
+    bound.descriptors_set = !surface.cel; // (added by cel shading: the next draw pushes again - its block is per draw)
     bound.surface_pushed = surface.on;
     bound.pushed_surface_block = surface.block;
     bound.pushed_surface_map = surface.map;
@@ -806,7 +830,8 @@ bool create_draw_objects(Backend& state)
     }
     if (!state.staging.init(&state.memory, VK_BUFFER_USAGE_TRANSFER_SRC_BIT) ||
         !state.frames.init(state.context, &state.memory, {.draws = &state.ring, .staging = &state.staging}) ||
-        !state.pipelines.init(state.context.device(), state.context.physical_device(), state.cache_folder)) {
+        !state.pipelines.init(state.context.device(), state.context.physical_device(), state.cache_folder,
+                              state.context.ray_tracing_enabled())) {
         return false;
     }
     VkPhysicalDeviceProperties properties{};
@@ -857,6 +882,7 @@ void release_draw_objects(Backend& state)
     release_rt_sun(state); // (NOT ORIGINAL - the sun's, the bloom's and the sky's: vulkan_rt_sun.h)
     release_upscale(state); // (NOT ORIGINAL - the upscaler's: vulkan_upscale.h)
     release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
+    release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);
@@ -971,7 +997,9 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         shaders.fragment.motion = 1;
     }
     // NOT ORIGINAL - per-pixel lighting where the draw takes it ([Graphics] rt_pbr, vulkan_surface.h; nothing with it off)
-    const SurfaceDraw surface = surface_draw(block, shaders);
+    // - or (added by cel shading, vulkan_cel_draw.h; [Graphics] rt_cel) the light in bands, which takes its place
+    const CelDraw cel = cel_draw(state, block, shaders, call);
+    const SurfaceDraw surface = cel.flags != 0 ? SurfaceDraw{.flags = cel.flags} : surface_draw(block, shaders);
     if (surface.flags != 0) {
         shaders.fragment.surface = surface.flags;
         shaders = normalised(shaders);
@@ -1034,6 +1062,21 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             surface_descriptors.has_map = true;
             surface_descriptors.map = {.sampler = core::at(descriptors, 0).sampler, .imageView = shown.view, .imageLayout = shown.layout};
         }
+        if ((shaders.fragment.surface & kSurfaceCel) != 0U) { // (added by cel shading)
+            CelUniforms cel_uniforms{};
+            fill_cel_uniforms(state, block, &cel_uniforms);
+            const void* const data = &cel_uniforms;
+            const std::optional<RingSpan> span = state.ring.copy(
+                std::span<const uint8_t>(static_cast<const uint8_t*>(data), sizeof(cel_uniforms)), state.uniform_alignment);
+            if (!span) {
+                return gpu_value::kResultInvalidCall;
+            }
+            surface_descriptors.cel = true;
+            surface_descriptors.cel_block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(cel_uniforms)};
+            if ((shaders.fragment.surface & kSurfaceCelShadow) != 0U) {
+                surface_descriptors.scene = cel_scene();
+            }
+        }
     }
     BoundState& bound = state.bound;
     if (pipeline != bound.pipeline) {
@@ -1061,18 +1104,48 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
             bound.previous_stride = stride;
         }
     }
-    if (call.indexed) {
-        if (call.index_buffer != bound.index_buffer || call.index_offset != bound.index_offset ||
-            call.index_type != bound.index_type) {
-            vkCmdBindIndexBuffer(commands, call.index_buffer, call.index_offset, call.index_type);
-            bound.index_buffer = call.index_buffer;
-            bound.index_offset = call.index_offset;
-            bound.index_type = call.index_type;
-        }
-        vkCmdDrawIndexed(commands, call.vertices, 1, call.first_index, call.base_vertex, 0);
-    } else {
-        vkCmdDraw(commands, call.vertices, 1, call.first_vertex, 0);
+    if ((shaders.vertex.surface & kVertexCelStream) != 0U && cel.stream != nullptr) {
+        // (added by cel shading: the relit world's stream at binding 2, vertex for vertex from its start)
+        const VkBuffer stream_buffer = cel_stream_buffer(state, cel.stream);
+        const VkDeviceSize stream_offset = 0;
+        const VkDeviceSize stream_stride = rt::kCelStreamBytes;
+        vkCmdBindVertexBuffers2(commands, kCelStreamBinding, 1, &stream_buffer, &stream_offset, nullptr, &stream_stride);
     }
+    const auto issue = [&]() {
+        if (call.indexed) {
+            if (call.index_buffer != bound.index_buffer || call.index_offset != bound.index_offset ||
+                call.index_type != bound.index_type) {
+                vkCmdBindIndexBuffer(commands, call.index_buffer, call.index_offset, call.index_type);
+                bound.index_buffer = call.index_buffer;
+                bound.index_offset = call.index_offset;
+                bound.index_type = call.index_type;
+            }
+            vkCmdDrawIndexed(commands, call.vertices, 1, call.first_index, call.base_vertex, 0);
+        } else {
+            vkCmdDraw(commands, call.vertices, 1, call.first_vertex, 0);
+        }
+    };
+    issue();
+    // (added by cel shading) a lit object's outline: the same vertices again as an inverted hull - pushed out along
+    // their normals, the faces turned toward the camera culled, its colour the ink
+    bool hull_drawn = false;
+    if (cel.hull && (shaders.fragment.surface & kSurfaceLit) != 0U) {
+        ShaderKey hull = shaders;
+        hull.fragment.surface = static_cast<uint8_t>(kSurfaceLighting | kSurfaceCel | kSurfaceLit | kSurfaceCelHull);
+        hull = normalised(hull);
+        const VkPipeline hull_pipeline = (hull.fragment.surface & kSurfaceCelHull) != 0U
+                                             ? state.pipelines.pipeline(pipeline_key(state, block, hull, call.primitive), &error)
+                                             : VK_NULL_HANDLE;
+        if (hull_pipeline != VK_NULL_HANDLE) {
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, hull_pipeline);
+            bound.pipeline = hull_pipeline;
+            vkCmdSetCullMode(commands, VK_CULL_MODE_FRONT_BIT);
+            bound.cull = VK_CULL_MODE_FRONT_BIT;
+            issue();
+            hull_drawn = true;
+        }
+    }
+    count_cel_draw(shaders.fragment.surface, hull_drawn);
     const uint64_t serial = state.frames.serial();
     for (Image* image : images) {
         if (image != nullptr) {
