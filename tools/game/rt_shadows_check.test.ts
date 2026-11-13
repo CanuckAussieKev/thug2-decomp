@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -20,6 +21,7 @@ import {
     noiseOf,
     otsuThreshold,
     shadowDifference,
+    tessTotals,
 } from "./rt_shadows_check.ts";
 
 const SHADOWS: Limits = { ...LIMITS, expect: "shadows", strength: 0.5 };
@@ -431,4 +433,45 @@ test("gi: the configurations and the logs", () => {
         /skipped/,
     );
     assert.deepEqual(logProblems("off", "x\n", "shadows", "gi"), []);
+});
+
+const TESS: Limits = { ...LIMITS, expect: "shadows", strength: 2, effect: "tess" };
+const SMOOTHED_LINE =
+    "rt_tessellation: levels\\sch\\sch.scn.Xbx - 961 of 1711 meshes smoothed: 24380 of their 44290 triangles split, +66780 vertices, indices 117492 -> 650697; deviation at most 2.000 (99.058 uncapped, 257 capped), displacement 0.000; 123.4 ms";
+
+test("tess: a small shift passes; a big change, black holes or white cracks fail; something must change", () => {
+    const off = flat(40, 40, 120);
+    const edge = { ...off, rgb: new Uint8Array(off.rgb) };
+    edge.rgb.fill(150, 0, 40 * 3); // (an edge moved: one row a little lighter)
+    assert.deepEqual(judgeSpot("a", shadowDifference(off, edge, null, 8), null, TESS).problems, []);
+    assert.ok(anyShadow([judgeSpot("a", shadowDifference(off, edge, null, 8), null, TESS)], TESS));
+    assert.ok(!anyShadow([judgeSpot("a", shadowDifference(off, off, null, 8), null, TESS)], TESS));
+    assert.match(
+        judgeSpot("b", shadowDifference(off, flat(40, 40, 160), null, 8), null, TESS).problems.join(),
+        /luma by 40/,
+    );
+    const hole = { ...off, rgb: new Uint8Array(off.rgb) };
+    hole.rgb.fill(0, 0, 10 * 3);
+    assert.match(judgeSpot("c", shadowDifference(off, hole, null, 8), null, TESS).problems.join(), /turned black/);
+    const crack = { ...off, rgb: new Uint8Array(off.rgb) };
+    crack.rgb.fill(255, 0, 10 * 3);
+    assert.match(judgeSpot("d", shadowDifference(off, crack, null, 8), null, TESS).problems.join(), /turned white/);
+});
+
+test("tess: its ini values, log lines and totals", () => {
+    assert.deepEqual(configValues("on", "tess"), { "Graphics.rt_tessellation": "1" });
+    assert.deepEqual(configValues("off", "tess"), { "Graphics.rt_tessellation": "0" });
+    assert.deepEqual(configValues("baseline", "tess"), {});
+    const on = `rt_tessellation: on - level up to 3, deviation at most 2.00, displacement 0.00\n${SMOOTHED_LINE}`;
+    assert.deepEqual(logProblems("on", on, "shadows", "tess"), []);
+    assert.match(logProblems("on", "", "shadows", "tess").join(), /not on/);
+    assert.match(logProblems("on", "rt_tessellation: on - level up to 3", "shadows", "tess").join(), /no mesh/);
+    assert.match(logProblems("off", on, "shadows", "tess").join(), /smoothed in the off log/);
+    assert.deepEqual(logProblems("off", "", "shadows", "tess"), []);
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), "tess-totals-"));
+    fs.writeFileSync(path.join(folder, "qpsch.log"), `${on}\n`);
+    const totals = tessTotals([folder]);
+    fs.rmSync(folder, { recursive: true });
+    assert.equal(totals.length, 1);
+    assert.match(totals[0]!, /qpsch: levels\\sch\\sch\.scn\.Xbx - 961 of 1711 meshes, .* deviation at most 2\.000/);
 });

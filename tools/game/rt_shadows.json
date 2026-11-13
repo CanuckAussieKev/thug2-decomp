@@ -1,5 +1,5 @@
 {
-  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU).",
+  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU). qp* groups: smoothed curves (--effect tess) - quarter pipes, round props and pillars in sch and BO, the camera held on each (the meshes [debug] tess_log=1 lists).",
   "groups": [
     {
       "name": "foun",
@@ -177,6 +177,95 @@
             "teleport -4087.3 -390 2386.6 -177.3",
             "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949",
             "wait 120"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "qpsch",
+      "level": "sch",
+      "spots": [
+        {
+          "name": "qpsch-west1",
+          "commands": [
+            "camera -2341.0 -293.0 -1935.0 -0.864 -0.259 -0.432",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "qpsch-west2",
+          "commands": [
+            "camera -2941.0 -293.0 -1935.0 0.864 -0.259 -0.432",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-east1",
+          "commands": [
+            "camera 6313.0 -94.0 701.0 -0.432 -0.259 -0.864",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-east2",
+          "commands": [
+            "camera 6313.0 -94.0 101.0 -0.432 -0.259 0.864",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-north1",
+          "commands": [
+            "camera 538.0 -294.0 3923.0 -0.352 -0.317 -0.881",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-north2",
+          "commands": [
+            "camera 538.0 -294.0 3423.0 -0.352 -0.317 0.881",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-bank",
+          "commands": [
+            "camera 1260.0 -305.0 4578.0 -0.890 -0.285 -0.356",
+            "wait 90"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "qpBO",
+      "level": "BO",
+      "spots": [
+        {
+          "name": "qpBO-round",
+          "commands": [
+            "camera -854.0 145.0 1447.0 -0.667 -0.333 -0.667",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "qpBO-pillars",
+          "commands": [
+            "camera 256.0 507.0 -2246.0 -0.680 -0.272 -0.680",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpBO-prop",
+          "commands": [
+            "camera -799.0 280.0 426.0 -0.680 -0.272 -0.680",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpBO-side",
+          "commands": [
+            "camera 2260.0 256.0 -2556.0 -0.864 -0.259 -0.432",
+            "wait 90"
           ]
         }
       ]
