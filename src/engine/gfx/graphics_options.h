@@ -47,4 +47,13 @@ int pick_samples(int option, bool (*supported)(int samples, void* context), void
 // A distance multiplied by a scale - the same float when the scale is 1 (the default: bit for bit the original).
 float get_scaled(float distance, float scale);
 
+// --- Settings changed while the game runs (the Options screen) ---
+
+// What applies a [Graphics] key the renderer reads again at once: the backend installs it (app/renderer_choice.cpp, on
+// Vulkan); true when it applied `key` (false: it isn't one that changes while the game runs).
+using LiveReload = bool (*)(const char* key);
+void set_live_reload(LiveReload reload);
+// The key's new value from the ini put to use now; false when nothing did (no renderer that changes it live).
+bool reload_live(const char* key);
+
 } // namespace render::graphics_options

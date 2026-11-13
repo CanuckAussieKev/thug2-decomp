@@ -20,6 +20,11 @@
 //   [--pbr-maps classical|chord|none]  (NOT ORIGINAL - [Graphics] rt_pbr) surface maps made beside the level texture
 //              dictionaries (tools/pbr_maps/pbr_maps.ts; chord also needs --chord <folder>), recorded with the made
 //              files so --restore removes them; none (the default) makes none
+//   [--hd-textures pbrify|seedvr2|none]  after unpacking (or on a game already unpacked: only this) the levels'
+//              textures upscaled by that AI model and installed - none (the default) puts the originals back;
+//              [--hd-levels BO,AU] only those levels, [--hd-scope all] every .tex.xbx, not only the levels' - the
+//              pipeline's hd_textures/base.ts (its README: the models' setup, caches, what is skipped). --restore
+//              puts the original textures back first.
 //
 // A .qb that doesn't translate is an error (listed; the exit code 1): the game reads no .qb - that file isn't loaded. <game>\thug2-decomp-backup\
 // unpacked.json lists what was moved and made, for --restore.
@@ -29,6 +34,7 @@ import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { chordGenerator } from "../pbr_maps/chord.ts";
 import { make as makeSurfaceMaps } from "../pbr_maps/pbr_maps.ts";
+import * as hdBase from "../pipeline/hd_textures/base.ts";
 import { emitData } from "./emit_data.ts";
 import { emitTS } from "./emit_ts.ts";
 import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
@@ -122,6 +128,7 @@ export function restore(game: string): { moved: number; removed: number } {
     const root = gameRoot(game);
     const record = readRecord(root);
     if (!record) throw Error(`${root}: not unpacked (no ${BACKUP}\\unpacked.json)`);
+    hdBase.restore(root); // (the HD textures' originals first: they're kept in the backup folder too)
     for (const made of record.made) rmSync(join(root, made), { force: true });
     for (const folder of record.folders) rmSync(join(root, folder), { recursive: true, force: true });
     let moved = 0;
@@ -345,17 +352,29 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const args = process.argv.slice(2);
     const at = args.indexOf("--game");
     const game = at >= 0 ? args[at + 1] : undefined;
-    if (!game) throw Error("Usage: node tools/qbjs/unpack_game.ts --game <folder> [--refresh | --restore] [--check]");
+    if (!game)
+        throw Error(
+            "Usage: node tools/qbjs/unpack_game.ts --game <folder> [--refresh | --restore] [--check] " +
+                "[--hd-textures pbrify|seedvr2|none [--hd-levels a,b] [--hd-scope levels|all]] " +
+                "[--pbr-maps classical|chord|none [--chord <folder>]]",
+        );
+    const hd = hdBase.parseBaseArgs(args);
     if (args.includes("--restore") || args.includes("--refresh")) {
         const put = restore(game);
         console.log(`put back: ${put.moved} files moved back, ${put.removed} made files / folders removed`);
     }
-    if (!args.includes("--restore")) {
-        const pbrAt = args.indexOf("--pbr-maps");
-        const generator = pbrAt >= 0 ? args[pbrAt + 1] : "none";
-        if (generator === "pbrnxt") throw Error("--pbr-maps pbrnxt: no such model was found (classical or chord)");
-        if (generator !== "none" && generator !== "classical" && generator !== "chord")
-            throw Error(`--pbr-maps ${generator}: classical, chord or none`);
+    const pbrAt = args.indexOf("--pbr-maps");
+    const generator = pbrAt >= 0 ? args[pbrAt + 1] : "none";
+    if (generator === "pbrnxt") throw Error("--pbr-maps pbrnxt: no such model was found (classical or chord)");
+    if (generator !== "none" && generator !== "classical" && generator !== "chord")
+        throw Error(`--pbr-maps ${generator}: classical, chord or none`);
+    // (the maps are matched to their textures by content: made from the originals, upscaled ones would find none)
+    if (generator !== "none" && hd.model)
+        throw Error("--pbr-maps with --hd-textures: install the textures first, then make the maps (pbr_maps.ts make)");
+    if (!args.includes("--restore") && !args.includes("--refresh") && hd.model && readRecord(gameRoot(game))) {
+        // (already unpacked: only the textures)
+        hdBase.installAndReport(gameRoot(game), hd);
+    } else if (!args.includes("--restore")) {
         const chordAt = args.indexOf("--chord");
         const { record, failed } = unpack(game, args.includes("--check"), {
             generator,
@@ -367,5 +386,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
                 `archives' files, loose)`,
         );
         if (failed.length) process.exitCode = 1;
+        hdBase.installAndReport(gameRoot(game), hd);
     }
 }

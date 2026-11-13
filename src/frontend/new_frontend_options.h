@@ -13,6 +13,7 @@ namespace frontend::new_frontend::options {
 enum class Apply : uint8_t {
     kLive,     // at once (the feature's switch is set as the ini is written)
     kRelaunch, // the next time the game starts (read once at start-up)
+    kPreset,   // not a key of its own: a choice sets several others (graphics_preset - preset_values)
 };
 
 struct Choice {
@@ -33,12 +34,17 @@ struct Spec {
 struct GroupSet {
     const char* id;        // "graphics", ... (automation)
     const char* name;      // "Graphics"
-    std::vector<int> rows; // indices into get_specs()
+    std::vector<int> rows; // indices into get_specs() (named by key in the groups' table; resolved once)
 };
 
-// Every option offered, and the groups they are shown in (Graphics, Interface, Gameplay, Online, Mods, Sound).
+// Every option offered, and the groups they are shown in (Graphics, Lighting, Surfaces, Sky, Colour, Upscaling,
+// Interface, Gameplay, Online, Mods, Sound).
 const std::vector<Spec>& get_specs();
 const std::vector<GroupSet>& bunches();
+// What is wrong with the tables, one line each ("" when nothing): a group's key that is no setting, a setting in no
+// group or in two, a fallback that is no choice, two choices with one value, a preset's key or value that is no
+// setting's choice. (bunches() asserts it is empty; the options check prints it.)
+std::string check_tables();
 // The option `section`/`key` (any case): its index, -1 if none.
 int get_find(const std::string& section, const std::string& key);
 
@@ -46,6 +52,19 @@ int get_find(const std::string& section, const std::string& key);
 // file - the fallback. A value matching no choice: the fallback too (the screen shows what the game uses for it ...
 // as near as the choices go).
 int choice_of(const Spec& spec, const std::string& value, bool present);
+
+// --- the graphics preset (the Graphics group's first row: Custom, Original, High, Ultra) ---
+
+struct PresetValue {
+    const char* key; // a [Graphics] key
+    const char* value;
+};
+// The preset setting's index in get_specs().
+int preset_option();
+// What choosing the preset's `choice` writes ([Graphics] keys and values; none for Custom).
+const std::vector<PresetValue>& preset_values(int choice);
+// The preset the ini text's [Graphics] keys are (Custom, 0, when they are no preset's).
+int preset_of(const std::string& text);
 
 // --- ini text (the file as GetPrivateProfileString reads it: [section] lines, key=value lines, ';' / '#' comment
 // lines; names in any case, spaces around them ignored) ---
@@ -56,7 +75,8 @@ struct IniKey {
     std::string key;
 };
 
-// The value of `at`'s key in its section (the first such line, as Windows reads it). False if there is none.
+// The value of `at`'s key in its section (the first such line of the first such section, as Windows reads it). False if
+// there is none.
 bool ini_get(const std::string& text, const IniKey& at, std::string* value);
 // The text with `at`'s key = `value` in its section: the first such line's value replaced (its spacing before the '=' kept), or
 // a line added after the section's last line that isn't blank (a missing section added at the end) - every other

@@ -68,6 +68,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_tess_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_options_check.exe: the new front end's Options screen's tables - every setting in one group (named
+# by key), its default among its choices, each choice written to an ini text and read back, the graphics presets
+# (src/tests/options_check.cpp; frontend/new_frontend_options.cpp is pure: no game).
+if(TARGET thug2_base)
+    add_executable(thug2_options_check options_check.cpp "${PROJECT_SOURCE_DIR}/src/frontend/new_frontend_options.cpp")
+    target_link_libraries(thug2_options_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
 # deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
 if(TARGET thug2_platform)

@@ -52,6 +52,53 @@ constexpr float kNoteLineBox = 15.6F; // the note's line: its size times its lin
 constexpr float kNoteGap = 8.0F;
 
 constexpr float kScreenNoteTop = 36.0F; // the note along the top, level with the header
+constexpr float kOptionListBottom = 692.0F; // where the options' list ends (as the level select's)
+
+// The options' list's first row shown, per group: it scrolls when a group has more rows than fit, keeping a row of
+// margin round the selection while the list goes on.
+struct OptionsScroll {
+    int group = -1;
+    int first = 0;
+};
+OptionsScroll& options_scroll()
+{
+    static OptionsScroll scroll;
+    return scroll;
+}
+struct OptionsList {
+    int group;    // the group shown
+    int selected; // its selected row
+    int count;    // its rows (and the Game options row)
+    int fit;      // how many are shown
+};
+int first_option_row(const OptionsList& list)
+{
+    OptionsScroll& scroll = options_scroll();
+    if (scroll.group != list.group) {
+        scroll = {.group = list.group, .first = 0};
+    }
+    scroll.first = std::min(scroll.first, std::max(0, list.selected - 1));
+    if (list.selected + 2 > scroll.first + list.fit) {
+        scroll.first = list.selected + 2 - list.fit;
+    }
+    scroll.first = std::clamp(scroll.first, 0, std::max(0, list.count - list.fit));
+    return scroll.first;
+}
+
+// Whether the setting shows "Restart to apply" in yellow: changed since the game started and not put to use yet (a
+// preset: while any setting it sets is).
+bool restart_pending(const std::vector<bool>& pending, const options::Spec& spec, int option)
+{
+    const auto is_pending = [&pending](int index) {
+        return index >= 0 && std::cmp_less(index, pending.size()) && core::at(pending, index);
+    };
+    if (spec.apply != options::Apply::kPreset) {
+        return is_pending(option);
+    }
+    return std::ranges::any_of(options::preset_values(1), [&](const options::PresetValue& set) {
+        return is_pending(options::get_find(spec.section, set.key));
+    });
+}
 
 // The level select: the coloured edge, when the launch counts as done, the variant label's and records' text buffers,
 // the kicker's gap, the wipe's skew.
@@ -94,8 +141,11 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
     const float row_h = rs.row_height_;
     Style value = mono12(kMuted, false);
     const int count = static_cast<int>(rows.size()) + 1;
-    for (int i = 0; i < count; ++i) {
-        const float top = list_top + (static_cast<float>(i) * row_h);
+    const int fit = std::max(1, static_cast<int>((kOptionListBottom - list_top) / row_h));
+    const int first =
+        first_option_row({.group = menu.option_group(), .selected = menu.option_row(), .count = count, .fit = fit});
+    for (int i = first; i < std::min(count, first + fit); ++i) {
+        const float top = list_top + (static_cast<float>(i - first) * row_h);
         const bool action = std::cmp_equal(i, rows.size());
         const char* label = action ? text_tools::kGameOptions : core::at(specs, core::at(rows, i)).label;
         // (a short label for the row: the design's 40 px type in a 470 px column)
@@ -176,10 +226,11 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
         bottom = y0 - kPanelStackGap;
         // When it's seen ("Restart to apply" - yellow once changed; nothing for a live one), its ini key only behind
         // [frontend] show_ini_keys=1, what it does (when it has a line).
-        const bool pending = std::cmp_less(option, ctx.extras->restart_pending_.size()) &&
-                             core::at(ctx.extras->restart_pending_, option);
-        const std::string when =
-            spec.apply == options::Apply::kLive ? std::string() : std::string(text_tools::kRestartToApply);
+        const bool pending = restart_pending(ctx.extras->restart_pending_, spec, option);
+        // (a live one too while the renderer can't change it now - restart_pending_)
+        const std::string when = spec.apply == options::Apply::kRelaunch || pending
+                                     ? std::string(text_tools::kRestartToApply)
+                                     : std::string();
         const std::string where =
             ctx.extras->show_ini_keys_ ? std::string("[") + spec.section + "] " + spec.key : std::string();
         if (!when.empty() || !where.empty()) {

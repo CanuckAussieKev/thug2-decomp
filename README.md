@@ -320,7 +320,13 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
-**`[Graphics]`** - from PartyMod, plus ours
+**`[Graphics]`** - from PartyMod, plus ours. With `new_frontend=1` the Options screen sets ours from the game (its
+Graphics, Lighting, Surfaces, Sky, Colour and Upscaling tabs; the Graphics tab's preset sets every effect at once:
+Original - all off; High - `ray_tracing`, `rt_shadows`, `rt_ao`, `rt_reflections`, `rt_sky`, `rt_sky_model`, `rt_sun`,
+`rt_shafts`, `rt_hdr`, `rt_bloom`, `rt_tessellation`; Ultra - every effect, `rt_gi`, `rt_relit`, `rt_pbr`, `rt_fog`
+and `rt_clouds` too; upscaling is left as it is). On Vulkan the effects' settings change at once; `renderer`,
+`ray_tracing`, `rt_hdr`, `rt_tessellation`, the upscaling keys, `anisotropy`, `msaa` and the distance scales wait
+for the restart
 
 | Key | Default | Effect |
 |---|---|---|

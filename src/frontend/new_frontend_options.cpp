@@ -4,9 +4,12 @@
 #include "frontend/new_frontend_text.h"
 #include "base/core/checked_index.h"
 
+#include <array>
+#include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace frontend::new_frontend::options {
@@ -95,25 +98,147 @@ bool get_key_of(const std::string& line, std::string* key, size_t* equals)
     return !key->empty();
 }
 
+// A [Graphics] setting of the renderer's: Off / On, or the choices given (`fallback`: the default's index - README's
+// settings table).
+Spec graphics_switch(const char* key, const char* label, const char* help, int fallback, Apply apply)
+{
+    return {.section = "Graphics", .key = key, .label = label, .help = help, .choices = off_on(), .fallback = fallback, .apply = apply};
+}
+Spec graphics_choice(const char* key, const char* label, const char* help, std::vector<Choice> choices, int fallback,
+                     Apply apply)
+{
+    return {.section = "Graphics",
+            .key = key,
+            .label = label,
+            .help = help,
+            .choices = std::move(choices),
+            .fallback = fallback,
+            .apply = apply};
+}
+
+// The settings of each group, by key (resolved to get_specs()'s indices once, by bunches()).
+struct GroupKeys {
+    const char* id;
+    const char* name;
+    std::vector<const char*> keys;
+};
+const std::vector<GroupKeys>& group_keys()
+{
+    static const std::vector<GroupKeys> kGroups = {
+        {.id = "graphics",
+         .name = text_tools::kGroupGraphics,
+         .keys = {"graphics_preset", "renderer", "ray_tracing", "anisotropy", "msaa", "draw_distance_scale",
+                  "lod_distance_scale", "rt_tessellation", "rt_tess_max_deviation"}},
+        {.id = "lighting",
+         .name = text_tools::kGroupLighting,
+         .keys = {"rt_shadows", "rt_shadow_strength", "rt_shadow_softness", "rt_shadow_objects", "rt_shadow_sun", "rt_ao",
+                  "rt_ao_strength", "rt_ao_radius", "rt_ao_rays", "rt_gi", "rt_gi_strength", "rt_gi_rays"}},
+        {.id = "surfaces",
+         .name = text_tools::kGroupSurfaces,
+         .keys = {"rt_relit", "rt_relit_strength", "rt_relit_sun", "rt_pbr", "rt_pbr_specular", "rt_pbr_normal_strength",
+                  "rt_reflections", "rt_reflection_strength", "rt_reflection_fresnel", "rt_glass_reflectance",
+                  "rt_glass_roughness"}},
+        {.id = "sky",
+         .name = text_tools::kGroupSky,
+         .keys = {"rt_sky", "rt_clouds", "rt_cloud_coverage", "rt_cloud_quality", "rt_sky_model", "rt_sun", "rt_sun_colour",
+                  "rt_shafts", "rt_fog", "rt_fog_haze", "rt_fog_haze_density"}},
+        {.id = "colour",
+         .name = text_tools::kGroupColour,
+         .keys = {"rt_hdr", "rt_exposure", "rt_tonemap", "rt_white_point", "rt_saturation", "rt_contrast", "rt_bloom",
+                  "rt_bloom_strength"}},
+        {.id = "upscaling", .name = text_tools::kGroupUpscaling, .keys = {"upscaler", "upscale_quality", "ray_reconstruction"}},
+        {.id = "interface", .name = text_tools::kGroupInterface, .keys = {"new_frontend", "hd_ui", "mouse_menus", "loading_console"}},
+        {.id = "gameplay",
+         .name = text_tools::kGroupGameplay,
+         .keys = {"skip_intro_movies", "restart_tester", "screenshots", "respect_locks"}},
+        {.id = "online", .name = text_tools::kGroupOnline, .keys = {"OnlineGameName", "thugpro_peer", "thugpro_parts"}},
+        {.id = "mods", .name = text_tools::kGroupMods, .keys = {"anteara_mod", "thaw_bmx", "debug_mode"}},
+        {.id = "sound", .name = text_tools::kGroupSound, .keys = {"continue_music"}},
+    };
+    return kGroups;
+}
+
+// The keys a graphics preset sets, and each preset's values for them (in that order): Original - every effect off, the
+// game as it was; High - the cheaper effects (shadows, occlusion, reflections, the sky and sun, HDR, bloom, smooth
+// curves); Ultra - every effect on. Upscaling is left as it is (it trades sharpness for speed, whatever the preset).
+constexpr std::array kPresetKeys = {"ray_tracing", "rt_shadows",   "rt_ao", "rt_gi",  "rt_reflections", "rt_relit",
+                                    "rt_pbr",      "rt_fog",       "rt_sky", "rt_sky_model", "rt_clouds", "rt_sun",
+                                    "rt_shafts",   "rt_bloom",     "rt_hdr", "rt_tessellation"};
+constexpr std::array<const char*, kPresetKeys.size()> kPresetOriginal = {"0", "0", "0", "0", "0", "0", "0", "0",
+                                                                         "0", "0", "0", "0", "0", "0", "0", "0"};
+constexpr std::array<const char*, kPresetKeys.size()> kPresetHigh = {"1", "1", "1", "0", "1", "0", "0", "0",
+                                                                     "1", "1", "0", "1", "1", "1", "1", "1"};
+constexpr std::array<const char*, kPresetKeys.size()> kPresetUltra = {"1", "1", "1", "1", "1", "1", "1", "1",
+                                                                      "1", "1", "1", "1", "1", "1", "1", "1"};
+
+std::vector<PresetValue> preset_list(const std::array<const char*, kPresetKeys.size()>& values)
+{
+    std::vector<PresetValue> list;
+    list.reserve(kPresetKeys.size());
+    for (size_t i = 0; i < kPresetKeys.size(); ++i) {
+        list.push_back({.key = core::at(kPresetKeys, i), .value = core::at(values, i)});
+    }
+    return list;
+}
+
+// The setting whose key is `key` (keys are one setting's each - check_tables): its index, -1 if none.
+int find_key(const char* key)
+{
+    const std::vector<Spec>& specs = get_specs();
+    for (size_t i = 0; i < specs.size(); ++i) {
+        if (get_same(core::at(specs, i).key, key)) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+// The choice `value` is (numbers compared as numbers), -1 if none.
+int match_choice(const Spec& spec, const std::string& value)
+{
+    const std::string v = get_trim(value);
+    double number = 0.0;
+    const bool is_number = get_number(v, &number);
+    for (size_t i = 0; i < spec.choices.size(); ++i) {
+        const char* choice = core::at(spec.choices, i).value;
+        double number_value = 0.0;
+        if (is_number && get_number(choice, &number_value) ? number == number_value : get_same(v, choice)) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
 } // namespace
 
 const std::vector<Spec>& get_specs()
 {
-    // (the words: new_frontend_text.h)
+    // (the words: new_frontend_text.h; the groups name them by key - group_keys())
+    using text_tools::kOff;
     static const std::vector<Spec> kSpecs = {
-        // Graphics (engine/gfx/graphics_options.h)
+        // Graphics: the preset, the renderer (app/renderer_choice.h), engine/gfx/graphics_options.h, smooth curves
+        // (render_pc/mesh_smoothing.h)
+        graphics_choice("graphics_preset", text_tools::kOptPreset, text_tools::kOptPresetHelp,
+                        {{.value = "", .label = text_tools::kPresetCustom},
+                         {.value = "original", .label = text_tools::kPresetOriginal},
+                         {.value = "high", .label = text_tools::kPresetHigh},
+                         {.value = "ultra", .label = text_tools::kPresetUltra}},
+                        0, Apply::kPreset),
+        graphics_choice("renderer", text_tools::kOptRenderer, text_tools::kOptRendererHelp,
+                        {{.value = "vulkan", .label = "Vulkan"}, {.value = "d3d9", .label = "Direct3D 9"}}, 0, Apply::kRelaunch),
+        graphics_switch("ray_tracing", text_tools::kOptRayTracing, text_tools::kOptRayTracingHelp, 0, Apply::kRelaunch),
         {.section = "Graphics",
          .key = "anisotropy",
          .label = text_tools::kOptAnisotropy,
          .help = text_tools::kOptAnisotropyHelp,
-         .choices = {{.value = "0", .label = text_tools::kOff}, {.value = "2", .label = "2x"}, {.value = "4", .label = "4x"}, {.value = "8", .label = "8x"}, {.value = "16", .label = "16x"}},
+         .choices = {{.value = "0", .label = kOff}, {.value = "2", .label = "2x"}, {.value = "4", .label = "4x"}, {.value = "8", .label = "8x"}, {.value = "16", .label = "16x"}},
          .fallback = 0,
          .apply = Apply::kRelaunch},
         {.section = "Graphics",
          .key = "msaa",
          .label = text_tools::kOptMsaa,
          .help = text_tools::kOptMsaaHelp,
-         .choices = {{.value = "0", .label = text_tools::kOff}, {.value = "2", .label = "2x"}, {.value = "4", .label = "4x"}, {.value = "8", .label = "8x"}},
+         .choices = {{.value = "0", .label = kOff}, {.value = "2", .label = "2x"}, {.value = "4", .label = "4x"}, {.value = "8", .label = "8x"}},
          .fallback = 0,
          .apply = Apply::kRelaunch},
         {.section = "Graphics",
@@ -130,6 +255,115 @@ const std::vector<Spec>& get_specs()
          .choices = {{.value = "1", .label = "1x"}, {.value = "1.5", .label = "1.5x"}, {.value = "2", .label = "2x"}, {.value = "3", .label = "3x"}},
          .fallback = 0,
          .apply = Apply::kRelaunch},
+        graphics_switch("rt_tessellation", text_tools::kOptTessellation, text_tools::kOptTessellationHelp, 0, Apply::kRelaunch),
+        graphics_choice("rt_tess_max_deviation", text_tools::kOptTessDeviation, text_tools::kOptTessDeviationHelp,
+                        {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "3", .label = "3"}, {.value = "4", .label = "4"}},
+                        1, Apply::kRelaunch),
+        // Lighting: shadows (gpu_vulkan/vulkan_rt_shadows.h), occlusion and bounce light (vulkan_rt_effects.h)
+        graphics_switch("rt_shadows", text_tools::kOptShadows, text_tools::kOptShadowsHelp, 0, Apply::kLive),
+        graphics_choice("rt_shadow_strength", text_tools::kOptShadowStrength, "",
+                        {{.value = "0.25", .label = "25%"}, {.value = "0.5", .label = "50%"}, {.value = "0.75", .label = "75%"}, {.value = "1", .label = "100%"}},
+                        1, Apply::kLive),
+        graphics_choice("rt_shadow_softness", text_tools::kOptShadowSoftness, "",
+                        {{.value = "0", .label = "Hard"}, {.value = "0.5", .label = "0.5"}, {.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}},
+                        0, Apply::kLive),
+        graphics_switch("rt_shadow_objects", text_tools::kOptShadowObjects, text_tools::kOptShadowObjectsHelp, 1, Apply::kLive),
+        graphics_choice("rt_shadow_sun", text_tools::kOptShadowSun, text_tools::kOptShadowSunHelp,
+                        {{.value = "bake", .label = "Level"}, {.value = "light", .label = "Skater light"}}, 0, Apply::kLive),
+        graphics_switch("rt_ao", text_tools::kOptAo, text_tools::kOptAoHelp, 0, Apply::kLive),
+        graphics_choice("rt_ao_strength", text_tools::kOptAoStrength, "",
+                        {{.value = "0.3", .label = "30%"}, {.value = "0.45", .label = "45%"}, {.value = "0.6", .label = "60%"}, {.value = "0.8", .label = "80%"}, {.value = "1", .label = "100%"}},
+                        2, Apply::kLive),
+        graphics_choice("rt_ao_radius", text_tools::kOptAoRadius, "",
+                        {{.value = "24", .label = "24"}, {.value = "48", .label = "48"}, {.value = "96", .label = "96"}, {.value = "192", .label = "192"}},
+                        1, Apply::kLive),
+        graphics_choice("rt_ao_rays", text_tools::kOptAoRays, "",
+                        {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}, {.value = "8", .label = "8"}},
+                        2, Apply::kLive),
+        graphics_switch("rt_gi", text_tools::kOptGi, text_tools::kOptGiHelp, 0, Apply::kLive),
+        graphics_choice("rt_gi_strength", text_tools::kOptGiStrength, "",
+                        {{.value = "0.5", .label = "50%"}, {.value = "1", .label = "100%"}, {.value = "1.5", .label = "150%"}, {.value = "2", .label = "200%"}},
+                        1, Apply::kLive),
+        graphics_choice("rt_gi_rays", text_tools::kOptGiRays, "",
+                        {{.value = "1", .label = "1"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}, {.value = "8", .label = "8"}},
+                        1, Apply::kLive),
+        // Surfaces: relit levels (engine/gfx/rt_relit.h), per-pixel lighting (rt_pbr), reflections
+        // (gpu_vulkan/vulkan_rt_reflections.h)
+        graphics_switch("rt_relit", text_tools::kOptRelit, text_tools::kOptRelitHelp, 0, Apply::kLive),
+        graphics_choice("rt_relit_strength", text_tools::kOptRelitStrength, "",
+                        {{.value = "0.25", .label = "25%"}, {.value = "0.5", .label = "50%"}, {.value = "0.75", .label = "75%"}, {.value = "1", .label = "100%"}},
+                        3, Apply::kLive),
+        graphics_choice("rt_relit_sun", text_tools::kOptRelitSun, text_tools::kOptRelitSunHelp,
+                        {{.value = "bake", .label = "Level"}, {.value = "game", .label = "Sky"}}, 0, Apply::kLive),
+        graphics_switch("rt_pbr", text_tools::kOptPbr, text_tools::kOptPbrHelp, 0, Apply::kLive),
+        graphics_choice("rt_pbr_specular", text_tools::kOptPbrSpecular, "",
+                        {{.value = "0", .label = kOff}, {.value = "0.5", .label = "50%"}, {.value = "1", .label = "100%"}, {.value = "1.5", .label = "150%"}, {.value = "2", .label = "200%"}},
+                        2, Apply::kLive),
+        graphics_choice("rt_pbr_normal_strength", text_tools::kOptPbrNormal, "",
+                        {{.value = "0", .label = "Flat"}, {.value = "0.5", .label = "50%"}, {.value = "1", .label = "100%"}, {.value = "1.5", .label = "150%"}, {.value = "2", .label = "200%"}},
+                        2, Apply::kLive),
+        graphics_switch("rt_reflections", text_tools::kOptReflections, text_tools::kOptReflectionsHelp, 0, Apply::kLive),
+        graphics_choice("rt_reflection_strength", text_tools::kOptReflectionStrength, "",
+                        {{.value = "0.25", .label = "25%"}, {.value = "0.5", .label = "50%"}, {.value = "0.75", .label = "75%"}, {.value = "1", .label = "100%"}},
+                        1, Apply::kLive),
+        graphics_switch("rt_reflection_fresnel", text_tools::kOptFresnel, text_tools::kOptFresnelHelp, 1, Apply::kLive),
+        graphics_choice("rt_glass_reflectance", text_tools::kOptGlassReflectance, "",
+                        {{.value = "0.04", .label = "Real"}, {.value = "0.1", .label = "10%"}, {.value = "0.2", .label = "20%"}, {.value = "0.35", .label = "35%"}},
+                        2, Apply::kLive),
+        graphics_choice("rt_glass_roughness", text_tools::kOptGlassRoughness, "",
+                        {{.value = "0", .label = "Mirror"}, {.value = "0.05", .label = text_tools::kLow}, {.value = "0.1", .label = text_tools::kMedium}, {.value = "0.2", .label = text_tools::kHigh}},
+                        1, Apply::kLive),
+        // Sky: the sky and clouds (gpu_vulkan/vulkan_rt_sky_pass.h), the sun, its rays and the sky model
+        // (vulkan_rt_sun.h), the fog and haze (vulkan_rt_fog.h)
+        graphics_switch("rt_sky", text_tools::kOptSky, text_tools::kOptSkyHelp, 0, Apply::kLive),
+        graphics_switch("rt_clouds", text_tools::kOptClouds, text_tools::kOptCloudsHelp, 0, Apply::kLive),
+        graphics_choice("rt_cloud_coverage", text_tools::kOptCloudCoverage, "",
+                        {{.value = "auto", .label = text_tools::kAuto}, {.value = "0", .label = "Clear"}, {.value = "0.25", .label = "25%"}, {.value = "0.5", .label = "50%"}, {.value = "0.75", .label = "75%"}, {.value = "1", .label = "Overcast"}},
+                        0, Apply::kLive),
+        graphics_choice("rt_cloud_quality", text_tools::kOptCloudQuality, "",
+                        {{.value = "0", .label = text_tools::kLow}, {.value = "1", .label = text_tools::kMedium}, {.value = "2", .label = text_tools::kHigh}},
+                        1, Apply::kLive),
+        graphics_switch("rt_sky_model", text_tools::kOptSkyModel, text_tools::kOptSkyModelHelp, 0, Apply::kLive),
+        graphics_switch("rt_sun", text_tools::kOptSun, text_tools::kOptSunHelp, 0, Apply::kLive),
+        graphics_choice("rt_sun_colour", text_tools::kOptSunColour, "",
+                        {{.value = "auto", .label = text_tools::kAuto}, {.value = "1,0.85,0.7", .label = "Warm"}, {.value = "1,1,1", .label = "White"}, {.value = "0.85,0.92,1", .label = "Cool"}},
+                        0, Apply::kLive),
+        graphics_switch("rt_shafts", text_tools::kOptShafts, text_tools::kOptShaftsHelp, 0, Apply::kLive),
+        graphics_switch("rt_fog", text_tools::kOptFog, text_tools::kOptFogHelp, 0, Apply::kLive),
+        graphics_switch("rt_fog_haze", text_tools::kOptHaze, text_tools::kOptHazeHelp, 1, Apply::kLive),
+        graphics_choice("rt_fog_haze_density", text_tools::kOptHazeDensity, "",
+                        {{.value = "0.15", .label = text_tools::kLow}, {.value = "0.3", .label = text_tools::kMedium}, {.value = "0.6", .label = text_tools::kHigh}, {.value = "1", .label = "Thick"}},
+                        1, Apply::kLive),
+        // Colour: HDR and its tone mapping (gpu_vulkan/vulkan_hdr.h; rt_hdr itself the device's targets' format), the
+        // bloom (vulkan_rt_sun.h)
+        graphics_switch("rt_hdr", text_tools::kOptHdr, text_tools::kOptHdrHelp, 0, Apply::kRelaunch),
+        graphics_choice("rt_exposure", text_tools::kOptExposure, "",
+                        {{.value = "-1", .label = "-1"}, {.value = "-0.5", .label = "-0.5"}, {.value = "0", .label = "0"}, {.value = "0.5", .label = "+0.5"}, {.value = "1", .label = "+1"}},
+                        2, Apply::kLive),
+        graphics_choice("rt_tonemap", text_tools::kOptTonemap, "",
+                        {{.value = "0", .label = "Game"}, {.value = "1", .label = "Filmic"}}, 0, Apply::kLive),
+        graphics_choice("rt_white_point", text_tools::kOptWhitePoint, "",
+                        {{.value = "1", .label = "1"}, {.value = "1.25", .label = "1.25"}, {.value = "2", .label = "2"}, {.value = "4", .label = "4"}},
+                        1, Apply::kLive),
+        graphics_choice("rt_saturation", text_tools::kOptSaturation, "",
+                        {{.value = "0.8", .label = "80%"}, {.value = "1", .label = "100%"}, {.value = "1.2", .label = "120%"}, {.value = "1.4", .label = "140%"}},
+                        1, Apply::kLive),
+        graphics_choice("rt_contrast", text_tools::kOptContrast, "",
+                        {{.value = "0.9", .label = "90%"}, {.value = "1", .label = "100%"}, {.value = "1.1", .label = "110%"}, {.value = "1.2", .label = "120%"}},
+                        1, Apply::kLive),
+        graphics_switch("rt_bloom", text_tools::kOptBloom, text_tools::kOptBloomHelp, 0, Apply::kLive),
+        graphics_choice("rt_bloom_strength", text_tools::kOptBloomStrength, "",
+                        {{.value = "0.02", .label = text_tools::kLow}, {.value = "0.05", .label = text_tools::kMedium}, {.value = "0.1", .label = text_tools::kHigh}, {.value = "0.2", .label = "Max"}},
+                        1, Apply::kLive),
+        // Upscaling (gpu_vulkan/vulkan_upscale.h): the device's targets and the provider are made for it
+        graphics_choice("upscaler", text_tools::kOptUpscaler, text_tools::kOptUpscalerHelp,
+                        {{.value = "off", .label = kOff}, {.value = "auto", .label = text_tools::kAuto}, {.value = "dlss", .label = "DLSS"}, {.value = "fsr", .label = "FSR"}},
+                        0, Apply::kRelaunch),
+        graphics_choice("upscale_quality", text_tools::kOptUpscaleQuality, text_tools::kOptUpscaleQualityHelp,
+                        {{.value = "dlaa", .label = "DLAA"}, {.value = "quality", .label = "Quality"}, {.value = "balanced", .label = "Balanced"}, {.value = "performance", .label = "Perf"}, {.value = "ultra", .label = "Ultra perf"}},
+                        1, Apply::kRelaunch),
+        graphics_switch("ray_reconstruction", text_tools::kOptRayReconstruction, text_tools::kOptRayReconstructionHelp, 0,
+                        Apply::kRelaunch),
         // Interface
         {.section = "features", .key = "new_frontend", .label = text_tools::kOptNewFrontend, .help = text_tools::kOptNewFrontendHelp, .choices = off_on(), .fallback = 0,
          .apply = Apply::kRelaunch},
@@ -165,7 +399,7 @@ const std::vector<Spec>& get_specs()
          .key = "thugpro_parts",
          .label = text_tools::kOptThugproParts,
          .help = text_tools::kOptThugproPartsHelp,
-         .choices = {{.value = "0", .label = text_tools::kOff}, {.value = "1", .label = text_tools::kOptThugproPartsHidden}, {.value = "2", .label = text_tools::kOptThugproPartsShown}},
+         .choices = {{.value = "0", .label = kOff}, {.value = "1", .label = text_tools::kOptThugproPartsHidden}, {.value = "2", .label = text_tools::kOptThugproPartsShown}},
          .fallback = 1,
          .apply = Apply::kRelaunch},
         // Mods
@@ -180,19 +414,131 @@ const std::vector<Spec>& get_specs()
     return kSpecs;
 }
 
+std::string check_tables()
+{
+    const std::vector<Spec>& specs = get_specs();
+    std::string problems;
+    const auto add = [&problems](const std::string& line) { problems += line + "\n"; };
+    std::vector<int> groups_of(specs.size(), 0);
+    for (const GroupKeys& group : group_keys()) {
+        for (const char* key : group.keys) {
+            const int found = find_key(key);
+            if (found < 0) {
+                add(std::string("group ") + group.id + ": " + key + " is no setting");
+            } else {
+                ++core::at(groups_of, found);
+            }
+        }
+    }
+    for (size_t i = 0; i < specs.size(); ++i) {
+        const Spec& spec = core::at(specs, i);
+        const std::string name = std::string("[") + spec.section + "] " + spec.key;
+        if (core::at(groups_of, i) != 1) {
+            add(name + " is in " + std::to_string(core::at(groups_of, i)) + " groups");
+        }
+        if (find_key(spec.key) != static_cast<int>(i)) {
+            add(name + ": another setting has its key");
+        }
+        if (spec.label == nullptr || *spec.label == '\0' || spec.help == nullptr) {
+            add(name + " has no label");
+        }
+        if (spec.fallback < 0 || std::cmp_greater_equal(spec.fallback, spec.choices.size())) {
+            add(name + ": its fallback is no choice");
+        }
+        for (size_t at = 0; at < spec.choices.size(); ++at) {
+            const int first = match_choice(spec, core::at(spec.choices, at).value);
+            if (std::cmp_not_equal(first, at)) {
+                add(name + ": choices " + std::to_string(first) + " and " + std::to_string(at) + " are one value");
+            }
+        }
+    }
+    for (int choice = 1; std::cmp_less(choice, core::at(specs, preset_option()).choices.size()); ++choice) {
+        for (const PresetValue& set : preset_values(choice)) {
+            const int found = find_key(set.key);
+            if (found < 0 || !get_same(core::at(specs, found).section, "Graphics")) {
+                add(std::string("preset ") + std::to_string(choice) + ": " + set.key + " is no [Graphics] setting");
+                continue;
+            }
+            if (match_choice(core::at(specs, found), set.value) < 0) {
+                add(std::string("preset ") + std::to_string(choice) + ": " + set.key + "=" + set.value + " is no choice");
+            }
+        }
+    }
+    return problems;
+}
+
 const std::vector<GroupSet>& bunches()
 {
-    static const std::vector<GroupSet> kGroups = {
-        {.id = "graphics", .name = text_tools::kGroupGraphics, .rows = {0, 1, 2, 3}},
-        {.id = "interface", .name = text_tools::kGroupInterface, .rows = {4, 5, 6, 7}},
-        {.id = "gameplay", .name = text_tools::kGroupGameplay, .rows = {8, 9, 10, 11}},
-        {.id = "online", .name = text_tools::kGroupOnline, .rows = {12, 13, 14}},
-        {.id = "mods", .name = text_tools::kGroupMods, .rows = {15, 16, 17}},
-        {.id = "sound", .name = text_tools::kGroupSound, .rows = {18}},
-    };
-    // (the rows are get_specs()'s indices: a setting added or removed there moves the groups after it)
+    // (resolved from the keys once: a setting added or removed in get_specs() moves no other group's rows)
+    static const std::vector<GroupSet> kGroups = [] {
+        std::vector<GroupSet> groups;
+        for (const GroupKeys& keys : group_keys()) {
+            GroupSet group{.id = keys.id, .name = keys.name, .rows = {}};
+            for (const char* key : keys.keys) {
+                const int found = find_key(key);
+                if (found >= 0) {
+                    group.rows.push_back(found);
+                }
+            }
+            groups.push_back(std::move(group));
+        }
+        assert(check_tables().empty() && "the options' tables: see check_tables()");
+        return groups;
+    }();
     return kGroups;
 }
+
+int preset_option()
+{
+    static const int kIndex = find_key("graphics_preset");
+    return kIndex;
+}
+
+const std::vector<PresetValue>& preset_values(int choice)
+{
+    static const std::vector<PresetValue> kNone;
+    static const std::vector<PresetValue> kOriginal = preset_list(kPresetOriginal);
+    static const std::vector<PresetValue> kHigh = preset_list(kPresetHigh);
+    static const std::vector<PresetValue> kUltra = preset_list(kPresetUltra);
+    switch (choice) {
+    case 1:
+        return kOriginal;
+    case 2:
+        return kHigh;
+    case 3:
+        return kUltra;
+    default:
+        return kNone;
+    }
+}
+
+int preset_of(const std::string& text)
+{
+    const std::vector<Spec>& specs = get_specs();
+    const int choices = static_cast<int>(core::at(specs, preset_option()).choices.size());
+    for (int choice = 1; choice < choices; ++choice) {
+        bool all = true;
+        for (const PresetValue& set : preset_values(choice)) {
+            const int found = find_key(set.key);
+            if (found < 0) {
+                all = false;
+                break;
+            }
+            const Spec& spec = core::at(specs, found);
+            std::string value;
+            const bool present = ini_get(text, {.section = spec.section, .key = spec.key}, &value);
+            if (choice_of(spec, value, present) != choice_of(spec, set.value, true)) {
+                all = false;
+                break;
+            }
+        }
+        if (all) {
+            return choice;
+        }
+    }
+    return 0;
+}
+
 int get_find(const std::string& section, const std::string& key)
 {
     const std::vector<Spec>& specs = get_specs();
@@ -209,18 +555,9 @@ int choice_of(const Spec& spec, const std::string& value, bool present)
     if (!present) {
         return spec.fallback;
     }
-    const std::string v = get_trim(value);
-    double number = 0.0;
-    const bool is_number = get_number(v, &number);
-    for (size_t i = 0; i < spec.choices.size(); ++i) {
-        const char* choice = core::at(spec.choices, i).value;
-        double number_value = 0.0;
-        if (is_number && get_number(choice, &number_value) ? number == number_value : get_same(v, choice)) {
-            return static_cast<int>(i);
-        }
-    }
     // (an empty value is the game's default; a number between the choices: the fallback as well)
-    return spec.fallback;
+    const int matched = match_choice(spec, value);
+    return matched >= 0 ? matched : spec.fallback;
 }
 
 bool ini_get(const std::string& text, const IniKey& at, std::string* value)
@@ -232,6 +569,9 @@ bool ini_get(const std::string& text, const IniKey& at, std::string* value)
         const std::string line = text.substr(segment.start, segment.end - segment.start);
         std::string name;
         if (section_of(line, &name)) {
+            if (in_section) {
+                return false; // (only the first section of the name: Windows reads no other - a second [Graphics] is ignored)
+            }
             in_section = get_same(name, section);
             continue;
         }

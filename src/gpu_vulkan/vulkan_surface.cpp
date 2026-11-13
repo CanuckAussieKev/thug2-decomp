@@ -53,7 +53,7 @@ struct FrameSun {
 
 struct SurfaceState {
     std::mutex mutex;
-    RtPbrSettings settings; // (written by set_rt_pbr_settings at start-up; the draws read their own copy below)
+    RtPbrSettings settings; // (set_rt_pbr_settings: at start-up and on a live change - the Options screen, game thread)
     RtPbrSettings draw_settings; // (the draw thread's: set with settings, read without the lock)
     FrameSun sun;
     std::unordered_map<const Texture*, MapEntry> maps;

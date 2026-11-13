@@ -9,7 +9,9 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <string_view>
 
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/ui_backend.h"
@@ -152,17 +154,23 @@ void read_rt_sun_colour(render::vulkan::RtSunSettings* settings)
 }
 #endif
 
-// The Vulkan backend: render_pc's device over Vulkan's Gpu and GpuContext, and its UI backend (src/gpu_vulkan; the
-// ImGui parts have none on Vulkan yet). The shader and pipeline caches are kept beside the exe.
-void install_vulkan()
-{
 #ifdef THUG2_VULKAN
-    render::vulkan::configure({.device_index = build_info::get_int(build_info::kGraphics, "vulkan_device", -1),
-                               .cache_folder = build_info::executable_directory(),
-                               .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false),
-                               .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
-    // NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h): off unless asked for, and only with
-    // ray_tracing=1 on a device that has it
+// What the device was made for: rt_hdr as the game started (its colour targets' format). A setting read again while
+// the game runs keeps it - a changed rt_hdr waits for the restart.
+struct LiveState {
+    bool hdr_at_start = false;
+};
+
+LiveState& live_state()
+{
+    static LiveState state;
+    return state;
+}
+
+// NOT ORIGINAL - ray-traced sun shadows (gpu_vulkan/vulkan_rt_shadows.h): off unless asked for, and only with
+// ray_tracing=1 on a device that has it
+void read_rt_shadows()
+{
     render::vulkan::RtShadowSettings shadows{
          .on = build_info::fetch_flag(build_info::kGraphics, "rt_shadows", false),
          .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
@@ -178,7 +186,11 @@ void install_vulkan()
          .match_bake = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_match_bake", true)};
     read_rt_shadow_sun(&shadows);
     render::vulkan::set_rt_shadow_settings(shadows);
-    // NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h): likewise
+}
+
+// NOT ORIGINAL - ray-traced ambient occlusion (gpu_vulkan/vulkan_rt_effects.h): likewise
+void read_rt_ao()
+{
     render::vulkan::set_rt_ao_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_ao", false),
          .strength = ini_float("rt_ao_strength", render::vulkan::RtAoSettings{}.strength),
@@ -187,7 +199,12 @@ void install_vulkan()
              std::max(1, build_info::get_int(build_info::kGraphics, "rt_ao_rays",
                                              static_cast<int>(render::vulkan::RtAoSettings{}.rays)))),
          .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_ao_denoise", true)});
-    // NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h): likewise
+}
+
+// NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h): likewise. (After the shadows':
+// their `off` clears the baked sun the bounce wants.)
+void read_rt_gi()
+{
     render::vulkan::set_rt_gi_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_gi", false),
          .strength = ini_float("rt_gi_strength", render::vulkan::RtGiSettings{}.strength),
@@ -196,35 +213,52 @@ void install_vulkan()
              std::max(1, build_info::get_int(build_info::kGraphics, "rt_gi_rays",
                                              static_cast<int>(render::vulkan::RtGiSettings{}.rays)))),
          .denoise = build_info::fetch_flag(build_info::kGraphics, "rt_gi_denoise", true)});
-    // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
+}
+
+// The shadows read again, and the bounce after them (see read_rt_gi).
+void read_rt_shadows_and_gi()
+{
+    read_rt_shadows();
+    read_rt_gi();
+}
+
+// NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
+void read_rt_reflections()
+{
     render::vulkan::set_rt_reflection_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),
          .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
          .fresnel = build_info::fetch_flag(build_info::kGraphics, "rt_reflection_fresnel", true),
          .glass_roughness = ini_float("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
          .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance)});
-    // NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h): off unless asked for; no ray tracing
-    // needed. The grading table's path is the game folder's unless it is a full one.
-    {
-        constexpr std::size_t kLongestPath = 260;
-        std::array<char, kLongestPath> lut{};
-        build_info::fetch_text(build_info::kGraphics, "rt_grade_lut", "", lut.data(), lut.size());
-        std::string lut_path(lut.data());
-        const bool full = lut_path.find(':') == 1 || lut_path.starts_with('\\') || lut_path.starts_with('/');
-        if (!lut_path.empty() && !full) {
-            lut_path = build_info::executable_directory() + lut_path;
-        }
-        const render::vulkan::HdrSettings defaults;
-        render::vulkan::set_hdr_settings(
-            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false),
-             .exposure = ini_float("rt_exposure", defaults.exposure),
-             .tonemap = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_tonemap", 0))),
-             .saturation = ini_float("rt_saturation", defaults.saturation),
-             .contrast = ini_float("rt_contrast", defaults.contrast),
-             .white_point = ini_float("rt_white_point", defaults.white_point),
-             .grade_lut = lut_path});
+}
+
+// NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h): off unless asked for; no ray tracing
+// needed. The grading table's path is the game folder's unless it is a full one.
+void read_hdr()
+{
+    constexpr std::size_t kLongestPath = 260;
+    std::array<char, kLongestPath> lut{};
+    build_info::fetch_text(build_info::kGraphics, "rt_grade_lut", "", lut.data(), lut.size());
+    std::string lut_path(lut.data());
+    const bool full = lut_path.find(':') == 1 || lut_path.starts_with('\\') || lut_path.starts_with('/');
+    if (!lut_path.empty() && !full) {
+        lut_path = build_info::executable_directory() + lut_path;
     }
-    // NOT ORIGINAL - volumetric fog and light shafts (gpu_vulkan/vulkan_rt_fog.h): likewise
+    const render::vulkan::HdrSettings defaults;
+    render::vulkan::set_hdr_settings(
+        {.on = live_state().hdr_at_start,
+         .exposure = ini_float("rt_exposure", defaults.exposure),
+         .tonemap = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_tonemap", 0))),
+         .saturation = ini_float("rt_saturation", defaults.saturation),
+         .contrast = ini_float("rt_contrast", defaults.contrast),
+         .white_point = ini_float("rt_white_point", defaults.white_point),
+         .grade_lut = lut_path});
+}
+
+// NOT ORIGINAL - volumetric fog and light shafts (gpu_vulkan/vulkan_rt_fog.h): likewise
+void read_rt_fog()
+{
     render::vulkan::set_rt_fog_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_fog", false),
          .density = ini_float("rt_fog_density", render::vulkan::RtFogSettings{}.density),
@@ -234,104 +268,200 @@ void install_vulkan()
              1, build_info::get_int(build_info::kGraphics, "rt_fog_steps", static_cast<int>(render::vulkan::kRtFogSteps)))),
          .mode = build_info::get_int(build_info::kGraphics, "rt_fog_mode", 0) == 1 ? render::vulkan::RtFogMode::kShafts
                                                                                    : render::vulkan::RtFogMode::kReplace,
-         .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false),
+         .hdr = live_state().hdr_at_start,
          .haze = build_info::fetch_flag(build_info::kGraphics, "rt_fog_haze", true),
          .haze_density = ini_float("rt_fog_haze_density", render::vulkan::RtFogSettings{}.haze_density),
          .haze_height = ini_float("rt_fog_haze_height", render::vulkan::RtFogSettings{}.haze_height)});
-    // NOT ORIGINAL - the sun's disc and glare, screen-space rays, the bloom and the sky model
-    // (gpu_vulkan/vulkan_rt_sun.h, vulkan_rt_sky.h): off unless asked for; the bloom needs no ray tracing
-    {
-        render::vulkan::RtSunSettings sun{
-            .sun = build_info::fetch_flag(build_info::kGraphics, "rt_sun", false),
-            .sun_size = ini_float("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
-            .bloom = build_info::fetch_flag(build_info::kGraphics, "rt_bloom", false),
-            .bloom_strength = ini_float("rt_bloom_strength", render::vulkan::kRtBloomStrength),
-            .shafts = build_info::fetch_flag(build_info::kGraphics, "rt_shafts", false),
-            .shaft_strength = ini_float("rt_shaft_strength", render::vulkan::kRtShaftStrength),
-            .sky_model = build_info::fetch_flag(build_info::kGraphics, "rt_sky_model", false),
-            .lens_dirt = build_info::fetch_flag(build_info::kGraphics, "rt_lens_dirt", false),
-            .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)};
-        read_rt_sun_colour(&sun);
-        // [Graphics] rt_sun_place: game (the default: where the game shows its sun) or bake (the lighting's sun)
-        constexpr std::size_t kLongest = 16;
-        std::array<char, kLongest> place{};
-        build_info::fetch_text(build_info::kGraphics, "rt_sun_place", "game", place.data(), place.size());
-        sun.place_game = std::string(place.data()) != "bake";
-        render::vulkan::set_rt_sun_settings(sun);
-    }
-    // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h): off unless
-    // asked for; no ray tracing needed. rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
-    {
-        constexpr std::size_t kLongest = 16;
-        std::array<char, kLongest> coverage{};
-        build_info::fetch_text(build_info::kGraphics, "rt_cloud_coverage", "auto", coverage.data(), coverage.size());
-        float cover = render::vulkan::kRtCloudCoverageAuto;
-        const std::string cover_text(coverage.data());
-        if (!cover_text.empty() && cover_text != "auto") {
-            char* end = nullptr;
-            const double parsed = std::strtod(cover_text.c_str(), &end);
-            if (end != cover_text.c_str() && std::isfinite(parsed)) {
-                cover = static_cast<float>(parsed);
-            } else {
-                get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
-            }
+}
+
+// NOT ORIGINAL - the sun's disc and glare, screen-space rays, the bloom and the sky model
+// (gpu_vulkan/vulkan_rt_sun.h, vulkan_rt_sky.h): off unless asked for; the bloom needs no ray tracing
+void read_rt_sun()
+{
+    render::vulkan::RtSunSettings sun{
+        .sun = build_info::fetch_flag(build_info::kGraphics, "rt_sun", false),
+        .sun_size = ini_float("rt_sun_size", render::vulkan::RtSunSettings{}.sun_size),
+        .bloom = build_info::fetch_flag(build_info::kGraphics, "rt_bloom", false),
+        .bloom_strength = ini_float("rt_bloom_strength", render::vulkan::kRtBloomStrength),
+        .shafts = build_info::fetch_flag(build_info::kGraphics, "rt_shafts", false),
+        .shaft_strength = ini_float("rt_shaft_strength", render::vulkan::kRtShaftStrength),
+        .sky_model = build_info::fetch_flag(build_info::kGraphics, "rt_sky_model", false),
+        .lens_dirt = build_info::fetch_flag(build_info::kGraphics, "rt_lens_dirt", false),
+        .hdr = live_state().hdr_at_start};
+    read_rt_sun_colour(&sun);
+    // [Graphics] rt_sun_place: game (the default: where the game shows its sun) or bake (the lighting's sun)
+    constexpr std::size_t kLongest = 16;
+    std::array<char, kLongest> place{};
+    build_info::fetch_text(build_info::kGraphics, "rt_sun_place", "game", place.data(), place.size());
+    sun.place_game = std::string(place.data()) != "bake";
+    render::vulkan::set_rt_sun_settings(sun);
+}
+
+// NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h): off unless
+// asked for; no ray tracing needed. rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
+void read_rt_sky()
+{
+    constexpr std::size_t kLongest = 16;
+    std::array<char, kLongest> coverage{};
+    build_info::fetch_text(build_info::kGraphics, "rt_cloud_coverage", "auto", coverage.data(), coverage.size());
+    float cover = render::vulkan::kRtCloudCoverageAuto;
+    const std::string cover_text(coverage.data());
+    if (!cover_text.empty() && cover_text != "auto") {
+        char* end = nullptr;
+        const double parsed = std::strtod(cover_text.c_str(), &end);
+        if (end != cover_text.c_str() && std::isfinite(parsed)) {
+            cover = static_cast<float>(parsed);
+        } else {
+            get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
         }
-        render::vulkan::set_rt_sky_settings(
-            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_sky", false),
-             .match = ini_float("rt_sky_match", render::vulkan::kRtSkyMatch),
-             .clouds = build_info::fetch_flag(build_info::kGraphics, "rt_clouds", false),
-             .coverage = cover,
-             .speed = ini_float("rt_cloud_speed", 1.0F),
-             .quality = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_cloud_quality", 1))),
-             .cloud_shadows = build_info::fetch_flag(build_info::kGraphics, "rt_cloud_shadows", false),
-             .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)});
     }
-    // NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): off unless asked for; it needs
-    // ray tracing (the rays that take the bake apart)
-    {
-        render::rt::RelitSettings relit{
-            .on = build_info::fetch_flag(build_info::kGraphics, "rt_relit", false),
-            .strength = ini_float("rt_relit_strength", render::rt::RelitSettings{}.strength),
-            .residual = build_info::fetch_flag(build_info::kGraphics, "rt_relit_residual", true),
-            .detail = ini_float("rt_relit_detail", render::rt::RelitSettings{}.detail),
-            .sky_rays = static_cast<uint32_t>(std::max(
-                1, build_info::get_int(build_info::kGraphics, "rt_relit_sky_rays", static_cast<int>(render::rt::kRelitSkyRays)))),
-            .sun_rays = static_cast<uint32_t>(std::max(
-                1, build_info::get_int(build_info::kGraphics, "rt_relit_sun_rays", static_cast<int>(render::rt::kRelitSunRays)))),
-            .cache = build_info::fetch_flag(build_info::kGraphics, "rt_relit_cache", true)};
-        read_rt_relit_sun(&relit);
-        render::rt::set_relit_settings(relit);
+    render::vulkan::set_rt_sky_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_sky", false),
+         .match = ini_float("rt_sky_match", render::vulkan::kRtSkyMatch),
+         .clouds = build_info::fetch_flag(build_info::kGraphics, "rt_clouds", false),
+         .coverage = cover,
+         .speed = ini_float("rt_cloud_speed", 1.0F),
+         .quality = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_cloud_quality", 1))),
+         .cloud_shadows = build_info::fetch_flag(build_info::kGraphics, "rt_cloud_shadows", false),
+         .hdr = live_state().hdr_at_start});
+}
+
+// NOT ORIGINAL - the relit mode (engine/gfx/rt_relit.h, render_pc/rt_relit_world.h): off unless asked for; it needs
+// ray tracing (the rays that take the bake apart)
+void read_rt_relit()
+{
+    render::rt::RelitSettings relit{
+        .on = build_info::fetch_flag(build_info::kGraphics, "rt_relit", false),
+        .strength = ini_float("rt_relit_strength", render::rt::RelitSettings{}.strength),
+        .residual = build_info::fetch_flag(build_info::kGraphics, "rt_relit_residual", true),
+        .detail = ini_float("rt_relit_detail", render::rt::RelitSettings{}.detail),
+        .sky_rays = static_cast<uint32_t>(std::max(
+            1, build_info::get_int(build_info::kGraphics, "rt_relit_sky_rays", static_cast<int>(render::rt::kRelitSkyRays)))),
+        .sun_rays = static_cast<uint32_t>(std::max(
+            1, build_info::get_int(build_info::kGraphics, "rt_relit_sun_rays", static_cast<int>(render::rt::kRelitSunRays)))),
+        .cache = build_info::fetch_flag(build_info::kGraphics, "rt_relit_cache", true)};
+    read_rt_relit_sun(&relit);
+    render::rt::set_relit_settings(relit);
+}
+
+// NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): off unless asked for; DLSS / FSR from beside the exe. Read
+// at start-up only (the device's targets and the provider are made for it).
+void read_upscale()
+{
+    constexpr std::size_t kLongest = 32;
+    std::array<char, kLongest> text{};
+    render::vulkan::UpscaleSettings upscale;
+    build_info::fetch_text(build_info::kGraphics, "upscaler", "off", text.data(), text.size());
+    if (!render::vulkan::parse_upscaler(text.data(), &upscale.upscaler)) {
+        get_log("[Graphics] upscaler=%s isn't off, dlss, fsr or auto - off", text.data());
     }
-    // NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): off unless asked for; DLSS / FSR from beside the exe
-    {
-        constexpr std::size_t kLongest = 32;
-        std::array<char, kLongest> text{};
-        render::vulkan::UpscaleSettings upscale;
-        build_info::fetch_text(build_info::kGraphics, "upscaler", "off", text.data(), text.size());
-        if (!render::vulkan::parse_upscaler(text.data(), &upscale.upscaler)) {
-            get_log("[Graphics] upscaler=%s isn't off, dlss, fsr or auto - off", text.data());
-        }
-        text = {};
-        build_info::fetch_text(build_info::kGraphics, "upscale_quality", "quality", text.data(), text.size());
-        if (!render::vulkan::parse_upscale_quality(text.data(), &upscale.quality)) {
-            get_log("[Graphics] upscale_quality=%s isn't dlaa, quality, balanced, performance or ultra - quality",
-                    text.data());
-        }
-        upscale.ray_reconstruction = build_info::fetch_flag(build_info::kGraphics, "ray_reconstruction", false);
-        upscale.sharpness = ini_float("upscale_sharpness", 0.0F);
-        upscale.fsr_major = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "fsr_version", 0)));
-        render::vulkan::set_upscale_settings(upscale);
+    text = {};
+    build_info::fetch_text(build_info::kGraphics, "upscale_quality", "quality", text.data(), text.size());
+    if (!render::vulkan::parse_upscale_quality(text.data(), &upscale.quality)) {
+        get_log("[Graphics] upscale_quality=%s isn't dlaa, quality, balanced, performance or ultra - quality",
+                text.data());
     }
-    // NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h): off
-    // unless asked for; no ray tracing needed (with it, the bake's sun found by ray tracing lights the maps)
-    {
-        const render::vulkan::RtPbrSettings defaults;
-        render::vulkan::set_rt_pbr_settings(
-            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_pbr", false),
-             .specular = std::max(0.0F, ini_float("rt_pbr_specular", defaults.specular)),
-             .normal_strength = std::max(0.0F, ini_float("rt_pbr_normal_strength", defaults.normal_strength)),
-             .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
+    upscale.ray_reconstruction = build_info::fetch_flag(build_info::kGraphics, "ray_reconstruction", false);
+    upscale.sharpness = ini_float("upscale_sharpness", 0.0F);
+    upscale.fsr_major = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "fsr_version", 0)));
+    render::vulkan::set_upscale_settings(upscale);
+}
+
+// NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h): off unless
+// asked for; no ray tracing needed (with it, the bake's sun found by ray tracing lights the maps)
+void read_rt_pbr()
+{
+    const render::vulkan::RtPbrSettings defaults;
+    render::vulkan::set_rt_pbr_settings(
+        {.on = build_info::fetch_flag(build_info::kGraphics, "rt_pbr", false),
+         .specular = std::max(0.0F, ini_float("rt_pbr_specular", defaults.specular)),
+         .normal_strength = std::max(0.0F, ini_float("rt_pbr_normal_strength", defaults.normal_strength)),
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
+}
+
+// The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
+// with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
+// upscaling, rt_tessellation - waits for the restart.
+struct LiveKey {
+    const char* key;
+    bool prefix;
+    void (*read)();
+};
+constexpr std::array kLiveKeys = {
+    LiveKey{.key = "rt_shadows", .prefix = false, .read = &read_rt_shadows_and_gi},
+    LiveKey{.key = "rt_shadow_", .prefix = true, .read = &read_rt_shadows_and_gi},
+    LiveKey{.key = "rt_ao", .prefix = false, .read = &read_rt_ao},
+    LiveKey{.key = "rt_ao_", .prefix = true, .read = &read_rt_ao},
+    LiveKey{.key = "rt_gi", .prefix = false, .read = &read_rt_gi},
+    LiveKey{.key = "rt_gi_", .prefix = true, .read = &read_rt_gi},
+    LiveKey{.key = "rt_reflections", .prefix = false, .read = &read_rt_reflections},
+    LiveKey{.key = "rt_reflection_", .prefix = true, .read = &read_rt_reflections},
+    LiveKey{.key = "rt_glass_", .prefix = true, .read = &read_rt_reflections},
+    LiveKey{.key = "rt_exposure", .prefix = false, .read = &read_hdr},
+    LiveKey{.key = "rt_tonemap", .prefix = false, .read = &read_hdr},
+    LiveKey{.key = "rt_white_point", .prefix = false, .read = &read_hdr},
+    LiveKey{.key = "rt_saturation", .prefix = false, .read = &read_hdr},
+    LiveKey{.key = "rt_contrast", .prefix = false, .read = &read_hdr},
+    LiveKey{.key = "rt_grade_lut", .prefix = false, .read = &read_hdr},
+    LiveKey{.key = "rt_fog", .prefix = false, .read = &read_rt_fog},
+    LiveKey{.key = "rt_fog_", .prefix = true, .read = &read_rt_fog},
+    LiveKey{.key = "rt_sun", .prefix = false, .read = &read_rt_sun},
+    LiveKey{.key = "rt_sun_", .prefix = true, .read = &read_rt_sun},
+    LiveKey{.key = "rt_shafts", .prefix = false, .read = &read_rt_sun},
+    LiveKey{.key = "rt_shaft_", .prefix = true, .read = &read_rt_sun},
+    LiveKey{.key = "rt_bloom", .prefix = false, .read = &read_rt_sun},
+    LiveKey{.key = "rt_bloom_", .prefix = true, .read = &read_rt_sun},
+    LiveKey{.key = "rt_sky_model", .prefix = false, .read = &read_rt_sun},
+    LiveKey{.key = "rt_lens_dirt", .prefix = false, .read = &read_rt_sun},
+    LiveKey{.key = "rt_sky", .prefix = false, .read = &read_rt_sky},
+    LiveKey{.key = "rt_sky_match", .prefix = false, .read = &read_rt_sky},
+    LiveKey{.key = "rt_clouds", .prefix = false, .read = &read_rt_sky},
+    LiveKey{.key = "rt_cloud_", .prefix = true, .read = &read_rt_sky},
+    LiveKey{.key = "rt_relit", .prefix = false, .read = &read_rt_relit},
+    LiveKey{.key = "rt_relit_", .prefix = true, .read = &read_rt_relit},
+    LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
+    LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
+};
+
+// A [Graphics] key changed while the game runs: its effect's settings read again (true), or false when it waits for
+// the restart.
+bool reload_live_key(const char* key)
+{
+    const std::string_view name(key);
+    const auto live = std::ranges::find_if(
+        kLiveKeys, [name](const LiveKey& each) { return each.prefix ? name.starts_with(each.key) : name == each.key; });
+    if (live == kLiveKeys.end()) {
+        return false;
     }
+    live->read();
+    get_log("renderer: [Graphics] %s changed - put to use at once", key);
+    return true;
+}
+#endif
+
+// The Vulkan backend: render_pc's device over Vulkan's Gpu and GpuContext, and its UI backend (src/gpu_vulkan; the
+// ImGui parts have none on Vulkan yet). The shader and pipeline caches are kept beside the exe. The effects' settings
+// are read here and again, one effect at a time, when the Options screen changes one (reload_live_key).
+void install_vulkan()
+{
+#ifdef THUG2_VULKAN
+    render::vulkan::configure({.device_index = build_info::get_int(build_info::kGraphics, "vulkan_device", -1),
+                               .cache_folder = build_info::executable_directory(),
+                               .validation = build_info::fetch_flag(build_info::kGraphics, "vulkan_validation", false),
+                               .ray_tracing = build_info::fetch_flag(build_info::kGraphics, "ray_tracing", false)});
+    live_state().hdr_at_start = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false);
+    read_rt_shadows();
+    read_rt_ao();
+    read_rt_gi();
+    read_rt_reflections();
+    read_hdr();
+    read_rt_fog();
+    read_rt_sun();
+    read_rt_sky();
+    read_rt_relit();
+    read_upscale();
+    read_rt_pbr();
+    render::graphics_options::set_live_reload(&reload_live_key);
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());
