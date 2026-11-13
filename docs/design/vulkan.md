@@ -1111,6 +1111,72 @@ only ever added light. Four settings, all off by default, change that; each work
   unchanged on both GPUs. In the game, `tools/game/rt_shadows_check.ts --effect sun` (z_dt and BO, five spots, two runs,
   main's build as the baseline): `off` against main's build 0.00-0.01% changed; `on` bounded (mean luma change 0.7-25,
   nothing black, at most 3.8% white - the disc and its glare with the sun in open sky).
+
+### Upscaling: DLSS and FSR (`upscaler`)
+
+`gpu_vulkan/vulkan_upscale` (+ `vulkan_motion`, `vulkan_upscale_fsr`, `vulkan_upscale_dlss`; `[Graphics] upscaler=off|dlss|fsr|auto`,
+`upscale_quality=dlaa|quality|balanced|performance|ultra`, `ray_reconstruction`, `upscale_sharpness`, `fsr_version`;
+off by default - nothing is drawn differently then: no listener, no motion bit, the scale never published).
+
+- **The world drawn smaller** (contract additions in `engine/gfx/rt_scene.h`: `ViewScale`, `view_begins`,
+  `ViewDrawn::output_rect` / `jitter`, `ViewOrder::kUpscale` = 950). The upscaler publishes a scale (1, 0.667, 0.588,
+  0.5, 0.333) and the frame's jitter; render_pc's `draw_viewport` then draws the window's one viewport (not a split view,
+  not the editor's game-view picture) into the top-left part of its rectangle, its projection moved by the jitter
+  (`rt::jitter_projection`: Halton (2, 3), ceil(8 x ratio^2) phases - FSR's and DLSS's advice). Everything up to
+  `world_view_drawn` - the opaque passes, the ray-traced effects at `opaque_drawn`, the transparent passes, particles,
+  fog, the sun, the tone mapping - works on that smaller rectangle as on a smaller window (the effects' histories
+  reproject through the jittered cameras: sub-pixel noise their clamps take). The listener at `kUpscale` fills the
+  whole rectangle; the game's own screen effects and the 2D come after, at the full size. The editor's mouse ray keeps
+  the full rectangle (`ext::ViewNote::rect`).
+- **Motion vectors** (`vulkan_motion.h`). From `view_begins` to the upscale every pass on the view's target has a
+  second colour attachment (RGBA16F: x, y the move to the pixel's place the frame before in 0 - 1 of the picture, z the
+  largest alpha a blended draw left - the reactive mask). Every 3D draw gets the fixed-function emulation's motion bit
+  (`VertexKey::motion` / `FragmentKey::motion`, `PipelineKey::motion`; a separate addition to the vertex stage: two
+  varyings, the previous position at location 12 from binding 1, `VertexUniforms::previous_clip` / `motion_jitter`):
+  the position this frame without its jitter, and the frame before's through that frame's world (the draw's
+  `Gpu::MotionSource::key` - render_pc's mesh and instance; key 0: the level, which doesn't move), view (the camera's
+  the frame before; its rotation alone for the sky) and unjittered projection. Skinned meshes: render_pc's buffers take
+  turns, so the frame before's pose is the buffer before (`MotionSource::previous_vertices`). Opaque draws write x, y;
+  blended ones only z (blend MAX); pre-transformed ones nothing. The device gets `independentBlend`.
+- **The preparation pass** (compute, at `kUpscale` after the tone mapping): where no draw wrote a motion (the
+  attachment's clear, x = 1000: the sky, cleared pixels) the camera's motion of the point at the pixel's depth; the
+  depth as R32F; the reactive mask (z, at most 0.9); the colour blitted to RGBA16F. Then the provider, then its output
+  blitted over `output_rect`. Direct3D 9's pixel centres (the Vulkan Gpu moves every draw half a pixel) are told to the
+  providers through the jitter offset: each provider's convention (`UpscaleJitterTerms`) was measured, see the check.
+- **FSR**: AMD's FSR SDK 2.4.0's C API (MIT headers) and its signed `amd_fidelityfx_loader_vk.dll` /
+  `amd_fidelityfx_upscaler_vk.dll` (FSR 3.1.6; FSR 4 on the GPUs that have it, `fsr_version=3` keeps 3.1), loaded at run
+  time; non-linear (display-referred) colour, the reactive mask, optional sharpening. Its passes need 16-bit floats and
+  integers and compute-shader derivatives: the device gets them when an upscaler is set (`UpscaleAdditions`).
+- **DLSS**: NVIDIA Streamline 2.14.16 (MIT) with DLSS 310.9.16, manual hooking: `sl.interposer.dll` (signature checked)
+  initialised before the instance; its instance / device extensions, Vulkan 1.2 / 1.3 features and queues through
+  `ContextAdditions` (`vulkan_context.h`); `slSetVulkanInfo` when the device is made; its mandatory present / swapchain /
+  wait-idle hooks by putting its proxies into volk's function pointers. Per frame: a frame token, the constants (the
+  unjittered matrices, clip to the frame before's clip, the jitter, `mvecScale` 1, LDR colour), the tags (colour in and
+  out, depth, motion, the reactive mask as "bias current colour"), one evaluation. DLAA is its `dlaa` mode.
+- **Ray Reconstruction** (`ray_reconstruction=1`, sl.dlss_d): fed the same frame plus guides - the "albedo" is the
+  opaque colour before any ray-traced effect (copied first at `opaque_drawn`), so what the effects add or take away is
+  the lighting it denoises; normals from the depth (view space, roughness 1 packed); no specular albedo. While it runs,
+  the occlusion's and the bounce light's own denoisers are skipped (their raw rays reach the frame). Fits: AO and GI
+  (modulations of a baked frame). Doesn't fit: reflections (a mirror ray, no noise: left as is), the shadows (no
+  denoiser of their own), fog / sun (screen-space, after the frame). Not measured for quality yet (needs the game).
+- **DLSS 5 / neural rendering**: no public SDK - nothing done.
+- **MSAA**: off while upscaling (`sample_quality_levels` answers 0 for more than one sample, `create_device` drops the
+  request) - the world's target must have one sample.
+- **Licences**: THIRD_PARTY_NOTICES.md - FSR's DLLs under AMD's binary licence (redistributable with its notice), the
+  DLSS DLLs under NVIDIA's RTX SDKs licence (with an application, not alone; attribution in its credits), Streamline
+  MIT; the files are fetched at configure time (`cmake/upscalers.cmake`, SHA-256 checked, 64-bit Windows, `THUG2_FSR` /
+  `THUG2_DLSS`), never committed; their licence files are copied beside them.
+- **Checked:** `thug2_vulkan_upscale_check` (validation with synchronization; the RTX 5070 Ti and the AMD Radeon
+  integrated GPU): the jitter (Halton values, phases 8 / 18 / 32 / 72, centred); every clear-cut pixel's motion of a
+  still ground, a moving and turning quad (its key), a skinned quad (the previous buffer) and the sky (from the depth)
+  against the processor's reprojection - worst 0.002 px; FSR and DLSS on a lattice of thin bars after 48 still frames
+  against a 4 x 4 supersampled reference (PSNR, the full size without AA 17.40 dB): FSR 67% 19.44 / 19.50 (NVIDIA /
+  AMD), 59% 18.83, 50% 17.33 / 17.20, 100% 19.63; DLSS 67% 19.93, 50% 20.01, 33% 19.10, DLAA 19.99; each provider's
+  offset beats the jitter's sign reversed and no / reversed pixel-centre alignment; output size, no NaN; FSR the same
+  bytes twice from a fresh start (not at 100% on the AMD GPU). Validation 0 of ours; inside the vendor libraries'
+  own passes FSR's shaders draw format warnings (32-bit declared on images it makes 16-bit) and NGX
+  synchronization notes on its own buffers - counted apart. The other Vulkan checks pass unchanged on both GPUs.
+  In the game: `tools/game/rt_shadows_check.ts --effect upscale --upscaler dlss:quality` (see out record).
 ## Order of work
 
 | # | task | depends on | start |
