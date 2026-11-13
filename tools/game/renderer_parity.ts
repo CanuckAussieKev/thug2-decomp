@@ -381,7 +381,7 @@ export function presentTime(log: string): number | null {
 
 // --- running the game -------------------------------------------------------------------------------------------------
 
-function powershell(
+export function powershell(
     script: string,
     args: string[],
     env: NodeJS.ProcessEnv,
@@ -431,7 +431,7 @@ function copyBuild(from: string, game: string): void {
 
 const BAD = /^(EXCEPTION|RUN-TIME CHECK|DEBUG CRT|PURE VIRTUAL|INVALID PARAMETER|ABORT|BUFFER OVERRUN)/m;
 
-async function runGroup(
+export async function runGroup(
     game: string,
     group: PlanGroup,
     renderer: string,

@@ -109,7 +109,9 @@ nothing (`archive.cpp`, `packs.cpp`) and the game reads every file loose; the lo
 archive in its folder (the script check runs each version of a file). `--restore` puts everything back (its record:
 `thug2-decomp-backup\unpacked.json`, the `.ts` and `.json` it made among them); `--refresh` puts back and unpacks again - after `make_menu_level.ts` or a
 converter rewrote an overlay (until then the game reads such a file's new `.qb`, not its old `.ts`: the `.ts` names the
-hash of the `.qb` it was made from).
+hash of the `.qb` it was made from). `--hd-textures pbrify|seedvr2|none` (default none) also puts the levels'
+textures upscaled x4 by that AI model into the data overlay - on the player's machine, from the player's files, nothing
+of it shipped; on an unpacked game it switches sets (tools/pipeline/hd_textures/README.md "The base game").
 
 - **Languages** (`tools/qbjs/localize.ts`): one set of scripts for every language, its text as tokens -
   `tr("bo_scripts.smash_5_tea_barrels")` - with each language's text in its table, English's too: `Data\lang\en.json`,
