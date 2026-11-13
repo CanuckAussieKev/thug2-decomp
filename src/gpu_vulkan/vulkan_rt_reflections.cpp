@@ -46,6 +46,8 @@ constexpr uint64_t kReportNoMirrors = 0x52360007U;
 constexpr uint64_t kReportNoMaterials = 0x52360008U;
 
 constexpr float kMaxStrength = 1.0F;
+constexpr float kMaxRoughness = 0.5F; // rt_glass_roughness at most (radians)
+constexpr uint32_t kRoughRays = 4;    // the rays a rough (glass) pixel traces
 constexpr float kOffsetScale = 1.0F; // the reflection ray's start pushed off the surface by this much, growing with distance
 constexpr uint32_t kGroupSide = 8;   // the trace pass's work groups: 8 x 8 pixels
 constexpr uint32_t kSurfaceGroup = 64; // the check's trace: rays per work group
@@ -79,6 +81,7 @@ layout(set = 0, binding = 1) uniform sampler2DMS u_depth;
 layout(set = 0, binding = 1) uniform sampler2D u_depth;
 #endif
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_out;
+layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D o_base;
 layout(set = 0, binding = 3, std140) uniform Pass {
     mat4 to_world;
     vec4 camera;
@@ -88,9 +91,38 @@ layout(set = 0, binding = 3, std140) uniform Pass {
     vec4 ambient;
     vec4 light_direction[4];
     vec4 light_colour[4];
+    vec4 fresnel; // x 1: Fresnel on; y the glass's roughness (radians); z the rays a rough pixel traces; w glass's F0
 } pass;
 
 const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
+const uint CLASS_WATER = 1u;      // (rt::kReflectWater, kReflectGlass)
+const uint CLASS_GLASS = 2u;
+const uint MASK_BASE_CLEAR = 1u;  // (rt::kReflectWhereBaseClear / Opaque)
+const uint MASK_BASE_OPAQUE = 2u;
+const float F0_WATER = 0.02;      // the reflectance face-on (Schlick's F0): water's, index 1.33 (glass's: fresnel.w)
+
+
+// How much of the reflection the pixel shows: `c` the cosine between the view and the surface's normal.
+//  - Fresnel off: reflectivity x strength at every angle (the first version);
+//  - water and glass: Schlick's F0 + (1 - F0)(1 - c)^5, x the reflectivity (the game's art: how shiny it made it) x
+//    2 strength (at most 1: the default strength, 0.5, is the physical amount);
+//  - other shiny surfaces: reflectivity x strength face-on (as before), rising by Schlick's curve toward the
+//    reflectivity x 2 strength (at most the reflectivity) at grazing angles.
+float reflection_weight(float reflectivity, uint kind, float c)
+{
+    float strength = pass.params.x;
+    if (pass.fresnel.x < 0.5) {
+        return reflectivity * strength;
+    }
+    float schlick = pow(1.0 - clamp(c, 0.0, 1.0), 5.0);
+    float most = reflectivity * min(1.0, 2.0 * strength);
+    if (kind == CLASS_WATER || kind == CLASS_GLASS) {
+        float f0 = kind == CLASS_WATER ? F0_WATER : pass.fresnel.w;
+        return most * (f0 + (1.0 - f0) * schlick);
+    }
+    float face_on = reflectivity * strength;
+    return face_on + (max(most, face_on) - face_on) * schlick;
+}
 
 vec3 world_at(ivec2 p, float d)
 {
@@ -188,6 +220,7 @@ void main()
     ivec2 p = pass.rect.xy + local;
     float d = texelFetch(u_depth, p, 0).r;
     vec4 result = vec4(0.0);
+    vec4 base_layer = vec4(0.0); // (the masked glass's own colour x its share, and the share)
     if (d < 1.0) {
         vec3 eye = pass.camera.xyz;
         vec3 here = world_at(p, d);
@@ -217,22 +250,82 @@ void main()
                     }
                     vec3 point = eye + view * t;
                     float offset = pass.params.z * (1.0 + t * 0.0005 + t * t * 6e-8);
-                    vec4 seen = reflected(point + n * offset, reflect(view, n), t);
-                    if (seen.a > 0.0) {
-                        result = vec4(seen.rgb, clamp(reflectivity * pass.params.x, 0.0, 1.0));
+                    Material surface = material(id);
+                    // (the mask: where on its texture the surface reflects - the first pass's alpha at the pixel's
+                    // footprint, as the game's pixel shader lerps its environment pass in)
+                    float mask = 1.0;
+                    float weight = reflection_weight(reflectivity, surface.reflection_class, -dot(view, n));
+                    if (pass.fresnel.x >= 0.5 && surface.reflection_mask != 0u) {
+                        vec2 bary = rayQueryGetIntersectionBarycentricsEXT(query, true);
+                        vec4 texel = material_texel_lod(id, hit_uv(v, bary), level_for(id, v, a, b, c, pass.ambient.w * t));
+                        mask = surface.reflection_mask == MASK_BASE_CLEAR ? 1.0 - texel.a : texel.a;
+                        // The game drew its environment map there in place of the texture (its pixel shader's lerp by
+                        // the alpha): the glass's own colour - the texel x the pass's colour x the vertex colour
+                        // doubled (objects: the frame's lights), as that shader would have drawn it - is put back
+                        // under the reflection: face-on the pane shows (1 - F) of it, the reflection the rest; the
+                        // environment map is kept only for what the rays miss (the base layer, premultiplied).
+                        uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
+                        vec3 light = (geometry_record(instance).instance_flags & INSTANCE_OBJECT) != 0u ? lighting(n)
+                                   : ((v.flags & GEOMETRY_COLOUR) != 0u ? hit_colour(v, bary).rgb * 2.0 : vec3(1.0));
+                        vec3 own = clamp(texel.rgb * surface.colour.rgb * light, 0.0, 1.0);
+                        float share = mask * (1.0 - clamp(weight, 0.0, 1.0));
+                        base_layer = vec4(own * share, share);
+                    }
+                    weight *= mask;
+                    vec3 mirror = reflect(view, n);
+                    float rough = pass.fresnel.x >= 0.5 && surface.reflection_class == CLASS_GLASS ? pass.fresnel.y : 0.0;
+                    vec4 seen = vec4(0.0);
+                    if (weight <= 0.0) {
+                        // (nothing of it shows: no ray)
+                    } else if (rough > 0.0) {
+                        // a rough surface: rays spread over a cone round the mirror direction (a golden-angle disc of
+                        // directions, turned by a quarter of its step in each pixel of a 2 x 2 block - the apply's
+                        // 3 x 3 blur then sees four times the directions, with no noise), their hits averaged; the
+                        // share that hit something scales the weight (the misses keep the game's environment map)
+                        vec3 across = normalize(abs(mirror.y) < 0.99 ? cross(mirror, vec3(0.0, 1.0, 0.0))
+                                                                     : cross(mirror, vec3(1.0, 0.0, 0.0)));
+                        vec3 up = cross(mirror, across);
+                        uint rays = max(uint(pass.fresnel.z), 1u);
+                        float turn = 6.2831853 / float(rays) * (float((p.x & 1) + 2 * (p.y & 1)) / 4.0);
+                        vec3 sum = vec3(0.0);
+                        float hits = 0.0;
+                        for (uint i = 0u; i < rays; ++i) {
+                            float radius = sqrt((float(i) + 0.5) / float(rays)) * rough;
+                            float angle = float(i) * 2.39996323 + turn;
+                            vec3 d = normalize(mirror + (across * cos(angle) + up * sin(angle)) * radius);
+                            if (dot(d, n) <= 0.0) {
+                                d = mirror; // (below the surface: the mirror direction instead)
+                            }
+                            vec4 one = reflected(point + n * offset, d, t);
+                            sum += one.rgb * one.a;
+                            hits += one.a;
+                        }
+                        if (hits > 0.0) {
+                            // (negative: a rough pixel - the apply pass blurs it with its rough neighbours)
+                            seen = vec4(sum / hits, -(hits / float(rays)));
+                        }
+                    } else {
+                        seen = reflected(point + n * offset, mirror, t);
+                    }
+                    if (seen.a != 0.0) {
+                        result = vec4(seen.rgb, sign(seen.a) * clamp(abs(seen.a) * weight, 0.0, 1.0));
                     }
                 }
             }
         }
     }
     imageStore(o_out, local, result);
+    imageStore(o_base, local, base_layer);
 }
 )";
 
-// Step 2: the colour mixed toward the reflection by its weight (an alpha blend; the pixels without one discarded).
+// Step 2: the colour mixed toward the reflection by its weight - premultiplied: (base layer + reflection x weight) +
+// colour x (1 - the base's share - the weight), the base layer the masked glass's own colour; the pixels with neither
+// discarded.
 constexpr const char* kApplyBody = R"(
 layout(push_constant) uniform Apply { ivec4 rect; } apply;
 layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
+layout(set = 0, binding = 8, rgba16f) uniform readonly image2D u_base;
 layout(location = 0) out vec4 o_colour;
 
 void main()
@@ -242,10 +335,31 @@ void main()
         discard;
     }
     vec4 reflection = imageLoad(u_in, local);
-    if (!(reflection.a > 0.0)) {
+    vec4 base = imageLoad(u_base, local);
+    if (!(abs(reflection.a) > 0.0) && !(base.a > 0.0)) {
         discard;
     }
-    o_colour = vec4(clamp(reflection.rgb, 0.0, 1.0), clamp(reflection.a, 0.0, 1.0));
+    vec3 colour = reflection.rgb;
+    if (reflection.a < 0.0) {
+        // a rough pixel (its weight negative): its few rays' noise blurred with its rough neighbours' (a 3 x 3 tent,
+        // each by its weight); a mirror pixel is taken as it is
+        vec3 sum = vec3(0.0);
+        float total = 0.0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                ivec2 q = clamp(local + ivec2(dx, dy), ivec2(0), apply.rect.zw - ivec2(1));
+                vec4 other = imageLoad(u_in, q);
+                if (other.a < 0.0) {
+                    float k = float((2 - abs(dx)) * (2 - abs(dy))) * -other.a;
+                    sum += other.rgb * k;
+                    total += k;
+                }
+            }
+        }
+        colour = sum / total;
+    }
+    float weight = clamp(abs(reflection.a), 0.0, 1.0);
+    o_colour = vec4(max(base.rgb, vec3(0.0)) + clamp(colour, 0.0, 1.0) * weight, clamp(base.a + weight, 0.0, 1.0));
 }
 )";
 
@@ -332,8 +446,9 @@ struct TraceBlock {
     std::array<float, 4> ambient{};
     std::array<std::array<float, 4>, kMaxLights> light_direction{};
     std::array<std::array<float, 4>, kMaxLights> light_colour{};
+    std::array<float, 4> fresnel{};
 };
-constexpr std::size_t kTraceBlockBytes = 272;
+constexpr std::size_t kTraceBlockBytes = 288;
 static_assert(sizeof(TraceBlock) == kTraceBlockBytes, "the shader's Pass block (std140)");
 
 // The bindings of set 0 (push descriptors): 0 the scene, 1 the depth, 2 the reflection written, 3 the pass's block,
@@ -346,7 +461,8 @@ constexpr uint32_t kBindingIn = 4;
 constexpr uint32_t kBindingRays = 5;
 constexpr uint32_t kBindingHits = 6;
 constexpr uint32_t kBindingGeometry = 7;
-constexpr uint32_t kBindingCount = 8;
+constexpr uint32_t kBindingBase = 8; // (added for the glass) the base layer: written by the trace, read by the apply
+constexpr uint32_t kBindingCount = 9;
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 constexpr uint32_t kPushBytes = 16; // the apply's rect, the check's count
@@ -365,6 +481,7 @@ struct ViewSlot {
     std::array<uint32_t, 4> rect{};
     Extent target;
     Image reflection;
+    Image base; // (added for the glass) masked glass's own colour, premultiplied by its share (kBindingBase)
     bool fresh = true; // made, not moved to GENERAL yet
     uint64_t last_use = 0;
 };
@@ -502,7 +619,7 @@ bool ensure_layouts(Backend& state, std::string* error)
             type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         } else if (binding == kBindingDepth) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        } else if (binding == kBindingOut || binding == kBindingIn) {
+        } else if (binding == kBindingOut || binding == kBindingIn || binding == kBindingBase) {
             type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         } else if (binding == kBindingBlock) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -657,10 +774,10 @@ VkPipeline apply_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits
         .alphaToOneEnable = VK_FALSE};
     VkPipelineDepthStencilStateCreateInfo depth{};
     depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    // colour toward the reflection by its weight: (src x a) + (dst x (1 - a)); alpha kept
+    // colour toward the reflection by its weight: src (premultiplied) + (dst x (1 - a)); alpha kept
     VkPipelineColorBlendAttachmentState blend{};
     blend.blendEnable = VK_TRUE;
-    blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // (premultiplied: the shader writes the reflection x its weight)
     blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     blend.colorBlendOp = VK_BLEND_OP_ADD;
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -923,6 +1040,7 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
         const auto oldest = std::ranges::min_element(
             own.slots, {}, [](const std::unique_ptr<ViewSlot>& slot) { return slot->last_use; });
         retire_image(state, &(*oldest)->reflection);
+        retire_image(state, &(*oldest)->base);
         own.slots.erase(oldest);
     }
     auto made_slot = std::make_unique<ViewSlot>();
@@ -938,14 +1056,18 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
                                .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
                                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                                .alpha_one = false};
-    if (!state.memory.create_image(request, &made_slot->reflection)) {
+    if (!state.memory.create_image(request, &made_slot->reflection) ||
+        !state.memory.create_image(request, &made_slot->base)) {
+        state.memory.destroy_image(&made_slot->reflection);
+        state.memory.destroy_image(&made_slot->base);
         if (first_report(state, kReportImages)) {
             get_log("vulkan: rt_reflections: the viewport's image (%ux%u) couldn't be made - the pass skipped there",
                     core::at(rect, 2), core::at(rect, 3));
         }
         return nullptr;
     }
-    made_slot->reflection.resting = VK_IMAGE_LAYOUT_GENERAL; // (a storage image: written and read in place)
+    made_slot->reflection.resting = VK_IMAGE_LAYOUT_GENERAL; // (storage images: written and read in place)
+    made_slot->base.resting = VK_IMAGE_LAYOUT_GENERAL;
     own.slots.push_back(std::move(made_slot));
     return own.slots.back().get();
 }
@@ -953,7 +1075,7 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
 // A new image moved to GENERAL (every texel is written by the trace before anything reads it).
 void prepare_slot(VkCommandBuffer commands, ViewSlot* slot)
 {
-    const VkImageMemoryBarrier barrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    VkImageMemoryBarrier barrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                                        .pNext = nullptr,
                                        .srcAccessMask = 0,
                                        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
@@ -969,7 +1091,11 @@ void prepare_slot(VkCommandBuffer commands, ViewSlot* slot)
                                                             .layerCount = 1}};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr,
                          0, nullptr, 1, &barrier);
+    barrier.image = slot->base.image;
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &barrier);
     slot->reflection.layout = VK_IMAGE_LAYOUT_GENERAL;
+    slot->base.layout = VK_IMAGE_LAYOUT_GENERAL;
     slot->fresh = false;
 }
 
@@ -1001,7 +1127,7 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, VkImageLayout layout,
 
 // The trace's descriptors: the scene, the depth, the image written, the block and the geometry table.
 void push_trace_descriptors(VkCommandBuffer commands, VkAccelerationStructureKHR tlas, const Image* depth,
-                            const Image* out, const RingSpan& block, const SceneView& scene)
+                            const Image* out, const Image* base, const RingSpan& block, const SceneView& scene)
 {
     const ReflectionState& own = reflections();
     const VkWriteDescriptorSetAccelerationStructureKHR structure{
@@ -1014,6 +1140,8 @@ void push_trace_descriptors(VkCommandBuffer commands, VkAccelerationStructureKHR
                                            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
     const VkDescriptorImageInfo out_info{
         .sampler = VK_NULL_HANDLE, .imageView = out->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    const VkDescriptorImageInfo base_info{
+        .sampler = VK_NULL_HANDLE, .imageView = base->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
     const VkDescriptorBufferInfo block_info{.buffer = block.buffer, .offset = block.offset, .range = sizeof(TraceBlock)};
     const VkDescriptorBufferInfo geometry_info{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes};
     const auto write = [](uint32_t binding, VkDescriptorType type) {
@@ -1030,19 +1158,21 @@ void push_trace_descriptors(VkCommandBuffer commands, VkAccelerationStructureKHR
         write(kBindingOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
         write(kBindingBlock, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER),
         write(kBindingGeometry, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER),
+        write(kBindingBase, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
     };
     writes.at(0).pNext = &structure;
     writes.at(1).pImageInfo = &depth_info;
     writes.at(2).pImageInfo = &out_info;
     writes.at(3).pBufferInfo = &block_info;
     writes.at(4).pBufferInfo = &geometry_info;
+    writes.back().pImageInfo = &base_info;
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
                               static_cast<uint32_t>(writes.size()), writes.data());
 }
 
 // The colour mixed toward the reflection over the viewport.
 void record_apply(Backend& state, VkCommandBuffer commands, VkPipeline pipeline, Image* colour, const Image* reflection,
-                  const std::array<int32_t, 4>& rect)
+                  const Image* base, const std::array<int32_t, 4>& rect)
 {
     (void)state;
     const ReflectionState& own = reflections();
@@ -1075,13 +1205,20 @@ void record_apply(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
     vkCmdSetScissor(commands, 0, 1, &area);
     const VkDescriptorImageInfo in_info{
         .sampler = VK_NULL_HANDLE, .imageView = reflection->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstBinding = kBindingIn;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    write.pImageInfo = &in_info;
-    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, own.layout, 0, 1, &write);
+    const VkDescriptorImageInfo base_info{
+        .sampler = VK_NULL_HANDLE, .imageView = base->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    std::array<VkWriteDescriptorSet, 2> writes{};
+    for (VkWriteDescriptorSet& write : writes) {
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    }
+    writes.front().dstBinding = kBindingIn;
+    writes.front().pImageInfo = &in_info;
+    writes.back().dstBinding = kBindingBase;
+    writes.back().pImageInfo = &base_info;
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, own.layout, 0,
+                              static_cast<uint32_t>(writes.size()), writes.data());
     vkCmdPushConstants(commands, own.layout, kStages, 0, kPushBytes, rect.data());
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
@@ -1112,6 +1249,8 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     }
     block.ambient.back() = angle;
     block.extra = {static_cast<int32_t>(kReflectionMask), static_cast<int32_t>(lights), 0, 0};
+    block.fresnel = {own.settings.fresnel ? 1.0F : 0.0F, own.settings.glass_roughness, static_cast<float>(kRoughRays),
+                     own.settings.glass_reflectance};
     return block;
 }
 
@@ -1121,6 +1260,10 @@ void set_rt_reflection_settings(const RtReflectionSettings& settings)
 {
     RtReflectionSettings kept = settings;
     kept.strength = std::isfinite(kept.strength) ? std::clamp(kept.strength, 0.0F, kMaxStrength) : 0.0F;
+    kept.glass_roughness =
+        std::isfinite(kept.glass_roughness) ? std::clamp(kept.glass_roughness, 0.0F, kMaxRoughness) : 0.0F;
+    kept.glass_reflectance =
+        std::isfinite(kept.glass_reflectance) ? std::clamp(kept.glass_reflectance, 0.0F, 1.0F) : kRtGlassReflectance;
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
@@ -1262,7 +1405,7 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     // 1. the rays
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
                       core::at(own.trace, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U));
-    push_trace_descriptors(commands, scene.tlas, depth, &slot->reflection, *block_span, scene);
+    push_trace_descriptors(commands, scene.tlas, depth, &slot->reflection, &slot->base, *block_span, scene);
     const VkDescriptorSet material_set = state.materials.descriptor_set();
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
                             nullptr);
@@ -1276,7 +1419,7 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     depth_barrier(commands, depth, depth->resting, false);
 
     // 2. the colour mixed
-    record_apply(state, commands, apply, colour, &slot->reflection, rect);
+    record_apply(state, commands, apply, colour, &slot->reflection, &slot->base, rect);
     if (colour->layout != colour->resting) {
         Memory::transition(commands, colour, colour->resting);
     }
@@ -1285,12 +1428,14 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     colour->used = serial;
     depth->used = serial;
     slot->reflection.used = serial;
+    slot->base.used = serial;
     ++own.passes;
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_reflections: the first reflection pass (%ux%u, %u reflective instances of %u, strength "
-                "%.2f)",
+                "%.2f, Fresnel %s, glass roughness %.3f)",
                 width, height, scene.reflective_instances, scene.instances,
-                static_cast<double>(own.settings.strength));
+                static_cast<double>(own.settings.strength), own.settings.fresnel ? "on" : "off",
+                static_cast<double>(own.settings.glass_roughness));
     }
     return true;
 }
@@ -1463,6 +1608,7 @@ void release_rt_reflections(Backend& state)
     const VkDevice device = state.context.device();
     for (const std::unique_ptr<ViewSlot>& slot : own.slots) {
         state.memory.destroy_image(&slot->reflection);
+        state.memory.destroy_image(&slot->base);
     }
     own.slots.clear();
     if (device != nullptr) {

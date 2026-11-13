@@ -134,7 +134,9 @@ void install_vulkan()
          .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
          .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
          .rays = static_cast<unsigned>(std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_rays", 4))),
-         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", false),
+         // (1 by default since the water and glass work: the skater's own projected shadow - a blocky 256 x 256
+         // texture - is hidden while the ray-traced one is drawn; rt::object_shadows_replaced)
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", true),
          .covered = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_covered", false),
          .sky_rays = static_cast<unsigned>(
              std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_sky_rays",
@@ -163,7 +165,10 @@ void install_vulkan()
     // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
     render::vulkan::set_rt_reflection_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),
-         .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength)});
+         .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
+         .fresnel = build_info::fetch_flag(build_info::kGraphics, "rt_reflection_fresnel", true),
+         .glass_roughness = ini_float("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
+         .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance)});
     // NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h): off unless asked for; no ray tracing
     // needed. The grading table's path is the game folder's unless it is a full one.
     {
