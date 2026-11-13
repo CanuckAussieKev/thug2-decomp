@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include <span>
 #include <array>
 
@@ -238,5 +239,21 @@ void construct_grass_textures()
 
 // 0x00640DC0 (a static initialiser): the grass animation's 17 textures, empty (as above).
 void construct_grass_texture_animation() { pc_grass_state().grass_texture_animation_.fill(TextureImage{}); }
+
+// NOT ORIGINAL - (pc_grass.h)
+void grass_texture_swapped(const void* was_texture, const TextureImage& now)
+{
+    PcGrassState& grass = pc_grass_state();
+    for (TextureImage* copy : {&grass.grass_texture0_, &grass.grass_texture1_}) {
+        if (copy->texture != nullptr && copy->texture == was_texture) {
+            *copy = now;
+        }
+    }
+    for (TextureImage& copy : grass.grass_texture_animation_) {
+        if (copy.texture != nullptr && copy.texture == was_texture) {
+            copy = now;
+        }
+    }
+}
 
 } // namespace render

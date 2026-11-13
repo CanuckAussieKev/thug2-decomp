@@ -22,4 +22,11 @@ bool make_animated_grass(PcGeom* geom, MeshRef* mesh);
 // positions, added to the geom; the mesh then flagged 0x80. False without a material or layers.
 bool make_grass(PcGeom* geom, MeshRef* mesh);
 
+struct TextureImage;
+
+// NOT ORIGINAL - a texture set switch (texture_set_reload.h): the animated grass's copy of the sky texture's record
+// made again when that texture's image (`was_texture` its old device texture) was swapped for `now` - the copy would
+// keep the old device texture, released with the old image.
+void grass_texture_swapped(const void* was_texture, const TextureImage& now);
+
 } // namespace render

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -52,6 +53,14 @@ int get_find(const std::string& section, const std::string& key);
 // file - the fallback. A value matching no choice: the fallback too (the screen shows what the game uses for it ...
 // as near as the choices go).
 int choice_of(const Spec& spec, const std::string& value, bool present);
+
+// --- choices the game can't offer now (a texture set that isn't installed) ---
+
+// Whether a setting's choice is offered: the filter the game installs (new_frontend.cpp - the texture sets installed);
+// without one every choice is (as the options check sees them).
+using ChoiceFilter = bool (*)(const Spec& spec, const char* value);
+void set_choice_filter(ChoiceFilter filter);
+[[nodiscard]] bool choice_shown(const Spec& spec, size_t choice);
 
 // --- the graphics preset (the Graphics group's first row: Custom, Original, High, Ultra) ---
 

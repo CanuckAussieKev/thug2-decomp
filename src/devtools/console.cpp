@@ -22,6 +22,7 @@
 #include "devtools/demo.h"
 #include "devtools/demo_viewer.h"
 #include "engine/ext/extension.h"
+#include "engine/gfx/texture_sets.h"
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_event.h"
 #include "engine/script/cscript.h"
@@ -181,6 +182,7 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "rt summary      ray tracing's contract check: its counts and violations\n"
                               "rt dump [file]  the last frame's ray-tracing record as JSON (game folder)\n"
                               "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
+                              "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
                               "help            this list";
 
 // --- the window ------------------------------------------------------------------------------------------------------
@@ -439,6 +441,9 @@ std::string run_command(const std::string& line)
     }
     if (command == "rt") {
         return rt_check::console_command(rest);
+    }
+    if (command == "textures") {
+        return render::texture_sets::console_command(rest);
     }
     return "unknown command: " + command + " (help lists them)";
 }

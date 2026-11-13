@@ -21,10 +21,12 @@
 //              dictionaries (tools/pbr_maps/pbr_maps.ts; chord also needs --chord <folder>), recorded with the made
 //              files so --restore removes them; none (the default) makes none
 //   [--hd-textures pbrify|seedvr2|none]  after unpacking (or on a game already unpacked: only this) the levels'
-//              textures upscaled by that AI model and installed - none (the default) puts the originals back;
+//              textures upscaled by that AI model and installed as a set of their own, selected ([Graphics]
+//              texture_set; [--hd-no-select] leaves the ini alone) - none takes every set out;
 //              [--hd-levels BO,AU] only those levels, [--hd-scope all] every .tex.xbx, not only the levels' - the
 //              pipeline's hd_textures/base.ts (its README: the models' setup, caches, what is skipped). --restore
-//              puts the original textures back first.
+//              keeps the sets (thug2-decomp-textures: they serve a packed game as well) and puts back an earlier
+//              version's install, which wrote over the data overlay's files.
 //
 // A .qb that doesn't translate is an error (listed; the exit code 1): the game reads no .qb - that file isn't loaded. <game>\thug2-decomp-backup\
 // unpacked.json lists what was moved and made, for --restore.
@@ -128,7 +130,7 @@ export function restore(game: string): { moved: number; removed: number } {
     const root = gameRoot(game);
     const record = readRecord(root);
     if (!record) throw Error(`${root}: not unpacked (no ${BACKUP}\\unpacked.json)`);
-    hdBase.restore(root); // (the HD textures' originals first: they're kept in the backup folder too)
+    hdBase.restoreLegacy(root); // (an earlier HD install's originals first: they're kept in the backup folder too)
     for (const made of record.made) rmSync(join(root, made), { force: true });
     for (const folder of record.folders) rmSync(join(root, folder), { recursive: true, force: true });
     let moved = 0;

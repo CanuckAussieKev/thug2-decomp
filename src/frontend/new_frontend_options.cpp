@@ -127,7 +127,7 @@ const std::vector<GroupKeys>& group_keys()
     static const std::vector<GroupKeys> kGroups = {
         {.id = "graphics",
          .name = text_tools::kGroupGraphics,
-         .keys = {"graphics_preset", "renderer", "ray_tracing", "anisotropy", "msaa", "draw_distance_scale",
+         .keys = {"graphics_preset", "renderer", "ray_tracing", "texture_set", "anisotropy", "msaa", "draw_distance_scale",
                   "lod_distance_scale", "rt_tessellation", "rt_tess_max_deviation"}},
         {.id = "lighting",
          .name = text_tools::kGroupLighting,
@@ -227,6 +227,13 @@ const std::vector<Spec>& get_specs()
         graphics_choice("renderer", text_tools::kOptRenderer, text_tools::kOptRendererHelp,
                         {{.value = "vulkan", .label = "Vulkan"}, {.value = "d3d9", .label = "Direct3D 9"}}, 0, Apply::kRelaunch),
         graphics_switch("ray_tracing", text_tools::kOptRayTracing, text_tools::kOptRayTracingHelp, 0, Apply::kRelaunch),
+        // (engine/gfx/texture_sets.h: the upscaled sets tools/pipeline/hd_textures/base.ts installs - the screen lists
+        // the ones installed, set_choice_filter)
+        graphics_choice("texture_set", text_tools::kOptTextureSet, text_tools::kOptTextureSetHelp,
+                        {{.value = "original", .label = text_tools::kTextureSetOriginal},
+                         {.value = "pbrify", .label = "PBRify"},
+                         {.value = "seedvr2", .label = "SeedVR2"}},
+                        0, Apply::kLive),
         {.section = "Graphics",
          .key = "anisotropy",
          .label = text_tools::kOptAnisotropy,
@@ -493,6 +500,25 @@ const std::vector<GroupSet>& bunches()
         return groups;
     }();
     return kGroups;
+}
+
+namespace {
+ChoiceFilter& choice_filter()
+{
+    static ChoiceFilter filter = nullptr;
+    return filter;
+}
+} // namespace
+
+void set_choice_filter(ChoiceFilter filter) { choice_filter() = filter; }
+
+bool choice_shown(const Spec& spec, size_t choice)
+{
+    if (choice >= spec.choices.size()) {
+        return false;
+    }
+    const ChoiceFilter filter = choice_filter();
+    return filter == nullptr || filter(spec, core::at(spec.choices, choice).value);
 }
 
 int preset_option()

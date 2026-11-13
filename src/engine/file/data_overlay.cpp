@@ -14,6 +14,7 @@
 
 #include "engine/ext/extension.h"
 #include "engine/gfx/hd_ui.h"
+#include "engine/gfx/texture_sets.h"
 #include "engine/file/thugpro_cas.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
@@ -108,9 +109,12 @@ bool get_overlay_path(const char* name, std::span<char, file::kOverlayPathSize> 
     std::array<char, file::kOverlayPathSize> relative{};
     overlay_name(name, relative);
     std::string full;
-    // First, while [features] hd_ui is on: the upscaled menu images and fonts (engine/gfx/hd_ui.h), in the hd_ui folder
+    // First, a texture dictionary of the texture set in use ([Graphics] texture_set - engine/gfx/texture_sets.h: its
+    // own folder beside this one, under the same names; none while the original textures are in use).
+    render::texture_sets::file_for(relative.data(), &full);
+    // Then, while [features] hd_ui is on: the upscaled menu images and fonts (engine/gfx/hd_ui.h), in the hd_ui folder
     // under the same names (also the ones inside the .prx packs, which the overlay serves by name).
-    if (kOverlay && render::hd_ui::is_switched_on()) {
+    if (kOverlay && full.empty() && render::hd_ui::is_switched_on()) {
         const std::string candidate = get_folder() + "\\hd_ui\\" + relative.data();
         if (is_file(candidate)) {
             full = candidate;

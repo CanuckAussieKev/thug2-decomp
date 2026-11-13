@@ -103,6 +103,7 @@ add_library(thug2_engine STATIC
     gfx/screen_effects.cpp
     gfx/engine_texture.cpp
     gfx/texture_dict.cpp
+    gfx/texture_sets.cpp
     gfx/engine_scene_sectors.cpp
     gfx/engine_scene_list.cpp
     gfx/frame_source.cpp

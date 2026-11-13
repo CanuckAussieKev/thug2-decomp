@@ -147,6 +147,9 @@ inline constexpr const char* kGroupOnline = "Online";
 inline constexpr const char* kGroupMods = "Mods";
 inline constexpr const char* kGroupSound = "Sound";
 // Each option: its name, its help line ("" none) and the choices that aren't Off / On.
+inline constexpr const char* kOptTextureSet = "Textures";
+inline constexpr const char* kOptTextureSetHelp = "The original textures or an upscaled set. Changes the level you're in.";
+inline constexpr const char* kTextureSetOriginal = "Original";
 inline constexpr const char* kOptAnisotropy = "Anisotropic filtering";
 inline constexpr const char* kOptAnisotropyHelp = "Sharper textures at an angle.";
 inline constexpr const char* kOptMsaa = "Anti-aliasing";

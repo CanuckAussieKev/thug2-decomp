@@ -20,6 +20,8 @@
 //     before. One switch for the whole mod for now (per-feature switches would go in the mod's scripts).
 //   - Files in its hd_ui folder (the menus' images and fonts upscaled, make_menu_level.ts --hd-ui) are used before all
 //     of those while [features] hd_ui=1 (default 0) and are never read otherwise (src/engine/gfx/hd_ui.h).
+//   - Before everything: a texture dictionary (.tex.xbx) of the texture set in use, from its own folder beside this
+//     one (thug2-decomp-textures\<set> - [Graphics] texture_set, engine/gfx/texture_sets.h; none for the original).
 namespace frontend::data_overlay {
 
 
