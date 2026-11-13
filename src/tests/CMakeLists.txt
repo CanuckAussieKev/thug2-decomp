@@ -184,6 +184,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_hdr_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_style_check.exe: the art style's toon filter (gpu_vulkan/vulkan_style.h) on this machine -
+# synthetic pictures and depths (a box, a tilted floor, a ridge, the sky; noise, a gradient, not-a-number) filtered
+# through rt_scene's listener and compared with the processor's twin; the smoothing, the bands and the outlines where
+# they belong; a viewport (outside untouched), the style off and strength 0 (no pass), an 8-bit and a multisampled
+# target; the cost at 2560x1440 (src/tests/vulkan_style_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_style_check vulkan_style_check.cpp)
+    target_link_libraries(thug2_vulkan_style_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_style_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_upscale_check.exe: the Vulkan Gpu's upscaling (gpu_vulkan/vulkan_upscale.h) and its motion
 # vectors (gpu_vulkan/vulkan_motion.h) on this machine - the jitter sequence; every clear-cut pixel's motion of a still
 # ground, a moving quad, a skinned quad and the sky against the processor's reprojection; FSR (or DLSS with --dlss) on a

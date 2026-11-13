@@ -379,6 +379,21 @@ void read_rt_pbr()
          .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
 }
 
+// NOT ORIGINAL - an art style, the toon filter (gpu_vulkan/vulkan_style.h): off unless asked for; no ray tracing or HDR
+// needed
+void read_style()
+{
+    const render::vulkan::StyleSettings defaults;
+    render::vulkan::set_style_settings(
+        {.style = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_style", 0))),
+         .strength = ini_float("rt_style_strength", defaults.strength),
+         .smooth = ini_float("rt_style_smooth", defaults.smooth),
+         .bands = ini_float("rt_style_bands", defaults.bands),
+         .outlines = ini_float("rt_style_outlines", defaults.outlines),
+         .outline_width = ini_float("rt_style_outline_width", defaults.outline_width),
+         .saturation = ini_float("rt_style_saturation", defaults.saturation)});
+}
+
 // The [Graphics] keys a change of which is put to use at once (the Options screen): each key (or every key starting
 // with it, `prefix`) and what reads its effect's settings again. Everything else - renderer, ray_tracing, rt_hdr,
 // upscaling, rt_tessellation - waits for the restart.
@@ -421,6 +436,7 @@ constexpr std::array kLiveKeys = {
     LiveKey{.key = "rt_relit_", .prefix = true, .read = &read_rt_relit},
     LiveKey{.key = "rt_pbr", .prefix = false, .read = &read_rt_pbr},
     LiveKey{.key = "rt_pbr_", .prefix = true, .read = &read_rt_pbr},
+    LiveKey{.key = "rt_style", .prefix = true, .read = &read_style}, // (rt_style and every rt_style_)
 };
 
 // A [Graphics] key changed while the game runs: its effect's settings read again (true), or false when it waits for
@@ -461,6 +477,7 @@ void install_vulkan()
     read_rt_relit();
     read_upscale();
     read_rt_pbr();
+    read_style();
     render::graphics_options::set_live_reload(&reload_live_key);
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
