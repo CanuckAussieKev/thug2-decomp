@@ -147,6 +147,13 @@ constexpr uint8_t kSurfaceLit = 0x04;      // lit by the draw's own lights (obje
 // light in place of the bake's - it keeps kSurfaceLighting's per-pixel normal and specular (vulkan_surface.h).
 constexpr uint8_t kSurfaceRelit = 0x08;
 constexpr uint8_t kSurfaceKnown = kSurfaceLighting | kSurfaceMap | kSurfaceLit | kSurfaceRelit;
+// (NOT ORIGINAL - [Graphics] rt_water, gpu_vulkan/vulkan_water.h) A water surface: the program's colour shaded as water
+// (waves, reflection, refraction, depth colour, foam, the sun's glitter) where the surface faces up - on the same
+// programs as the per-pixel lighting, independent of its bits (a key may have this bit alone). The vertex half's
+// `surface` is 1 with it (the eye-space position handed on).
+constexpr uint8_t kSurfaceWater = 0x10;
+// The per-pixel lighting's bits (everything but the water's).
+[[nodiscard]] constexpr bool surface_lit_per_pixel(uint8_t surface) { return (surface & kSurfaceKnown) != 0U; }
 
 // The stages the key holds: the game uses up to four textures with its pixel shaders, and up to two stages without.
 constexpr std::size_t kStageCount = 4;

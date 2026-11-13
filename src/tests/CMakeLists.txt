@@ -203,6 +203,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_style_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_water_check.exe: water shading ([Graphics] rt_water, gpu_vulkan/vulkan_water.h) on this
+# machine - a synthetic shore drawn through render::Gpu: calm water against the processor (refraction, absorption, the
+# deep colour, Fresnel), rt_water off and an unmarked draw byte for byte the original's, foam only where shallow, waves
+# that move with the game's clock and repeat with it, the sun's glitter above 1, the ripple texture against its twin
+# (src/tests/vulkan_water_check.cpp). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_water_check vulkan_water_check.cpp)
+    target_link_libraries(thug2_vulkan_water_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_water_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_upscale_check.exe: the Vulkan Gpu's upscaling (gpu_vulkan/vulkan_upscale.h) and its motion
 # vectors (gpu_vulkan/vulkan_motion.h) on this machine - the jitter sequence; every clear-cut pixel's motion of a still
 # ground, a moving quad, a skinned quad and the sky against the processor's reprojection; FSR (or DLSS with --dlss) on a

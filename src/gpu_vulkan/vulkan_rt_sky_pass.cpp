@@ -1913,7 +1913,7 @@ void set_rt_sky_settings(const RtSkySettings& settings)
         set_table_follows_sky_view(kept.on);
     }
     rt::set_sky_replacement({.on = kept.on, .keep_layers = !kept.clouds});
-    rt::set_sky_capture_wanted(kept.on);
+    rt::set_sky_capture_wanted(kept.on || water_settings().on); // (NOT ORIGINAL - rt_water reflects the captured sky too)
     if (kept.on) {
         rt::add_view_listener(&listener());
     } else {

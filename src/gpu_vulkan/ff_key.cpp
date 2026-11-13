@@ -118,10 +118,14 @@ bool takes_surface(const FragmentKey& key)
 
 void normalise_fragment(FragmentKey& key, bool points)
 {
+    const bool water = (key.surface & kSurfaceWater) != 0U && takes_surface(key) && !points; // (NOT ORIGINAL - rt_water)
     if (!takes_surface(key) || points || (key.surface & kSurfaceLighting) == 0U) {
         key.surface = 0;
     }
     key.surface = static_cast<uint8_t>(key.surface & kSurfaceKnown);
+    if (water) {
+        key.surface = static_cast<uint8_t>(key.surface | kSurfaceWater);
+    }
     if (key.program != PixelProgram::kStages) {
         key.stages = {};
         key.specular_add = false;

@@ -15,6 +15,7 @@
 #include "engine/gfx/mesh_formats.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
+#include "gpu_vulkan/water_shader.h"
 
 namespace render::vulkan {
 
@@ -478,8 +479,13 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
             add(out, {"layout(location = ", num(3 + stage), ") in vec4 v_tex", num(stage), ";"});
         }
     }
-    if (key.surface != 0) {
+    if (surface_lit_per_pixel(key.surface)) {
         surface_declarations(out, key);
+    } else if (key.surface != 0) {
+        add(out, {kSurfaceVaryingsIn}); // (NOT ORIGINAL - rt_water: the water's inputs alone)
+    }
+    if ((key.surface & kSurfaceWater) != 0U) {
+        add(out, {water_declarations_glsl()}); // (NOT ORIGINAL - rt_water, water_shader.h)
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
     if (key.motion != 0U) {
@@ -650,7 +656,7 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
 
 void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
 {
-    add(out, {"    vec4 v0 = ", key.surface != 0 ? "surface_v0" : "v_diffuse",
+    add(out, {"    vec4 v0 = ", surface_lit_per_pixel(key.surface) ? "surface_v0" : "v_diffuse",
               ";\n    vec4 v1 = v_specular;\n    vec4 r0 = vec4(0.0);\n    vec4 r1 = vec4(0.0);"});
     if (key.unlit != 0) {
         // The unlit twin (render_pc/view_mode.cpp): each whole v0 operand is c7 = 0.5 there. The game's shaders read v0
@@ -798,7 +804,7 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
     if (key.program == PixelProgram::kMaterial) {
         textures = key.material_passes;
     }
-    if (key.surface != 0) {
+    if (surface_lit_per_pixel(key.surface)) {
         surface_lighting(out, key); // (NOT ORIGINAL - rt_pbr)
     }
     ps_common(out, key, textures);
@@ -808,7 +814,7 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
         ps_fixed(out, key.program);
     }
     add(out, {"    vec4 colour = r0;"});
-    if (key.surface != 0) {
+    if (surface_lit_per_pixel(key.surface)) {
         add(out, {"    colour.rgb += surface_specular * s.params.x;"});
     }
 }
@@ -883,8 +889,16 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     add(out, {"void main()\n{"});
     fragment_program(out, key, sampled);
     add(out, {"    colour = clamp(colour, 0.0, 1.0);"});
+    const bool water = (key.surface & kSurfaceWater) != 0U; // (NOT ORIGINAL - rt_water, water_shader.h)
+    if (water) {
+        add(out, {"    float water_alpha = colour.a;\n    colour = water_shade(colour, t0, ", coord_of(key, 0),
+                  ", water_alpha);"});
+    }
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
+    if (water) {
+        add(out, {"    colour.a = water_alpha;"});
+    }
     if (key.motion != 0U) {
         // the move to where the point was the frame before, in 0 - 1 of the viewport (Direct3D's y up: down on screen);
         // a point behind the camera then: none

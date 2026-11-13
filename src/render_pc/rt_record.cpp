@@ -36,6 +36,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/surface_material.h"
+#include "engine/gfx/water_surfaces.h"
 #include "engine/memory/arena_alloc.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
@@ -46,6 +47,7 @@
 #include "render_pc/rt_relit_world.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
+#include "render_pc/water_materials.h"
 
 namespace render::rt_record {
 
@@ -491,6 +493,12 @@ rt::Material material_of(const MaterialRef* material)
         out.flags |= rt::kAlphaTested;
     }
     reflectivity_of(material, &out);
+    // (NOT ORIGINAL - [Graphics] rt_water) a water material the backend shades as water (render_pc/water_materials.h)
+    // reflects there, along its waves: the reflection pass leaves it alone
+    if (water::wanted() && out.reflection_class == rt::kReflectWater && water_materials::is_water(material)) {
+        out.reflectivity = 0.0F;
+        out.environment_pass = rt::kNoEnvironmentPass;
+    }
     return out;
 }
 

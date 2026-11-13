@@ -28,6 +28,7 @@
 #include "base/maths/mat4.h"
 #include "base/core/same_bits.h"
 #include "render_pc/rt_record.h"
+#include "render_pc/water_materials.h"
 
 namespace render {
 
@@ -339,6 +340,7 @@ void MaterialRef::hand_in()
     if (renderer().submit_locked() != 0U) {
         return;
     }
+    water_materials::note_material(this); // NOT ORIGINAL - [Graphics] rt_water: water draws marked (water_materials.h)
     choose_blend_mode(core::at(blend_modes_, 0));
     set_common_states(this);
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {

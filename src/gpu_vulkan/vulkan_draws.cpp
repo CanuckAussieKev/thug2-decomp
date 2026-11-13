@@ -49,6 +49,7 @@
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
+#include "gpu_vulkan/vulkan_water.h"
 #include "platform/run_log.h"
 #include "platform/frame_profile.h"
 
@@ -400,7 +401,7 @@ struct SurfaceDescriptors {
 };
 
 void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array<VkDescriptorImageInfo, kStageCount>& images,
-                      const SurfaceDescriptors& surface = {})
+                      const SurfaceDescriptors& surface = {}, const WaterDescriptors& water = {})
 {
     BoundState& bound = state.bound;
     const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
@@ -408,10 +409,10 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, bound.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, bound.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface;
-    if (same) {
+    if (same && !water.on) {
         return;
     }
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 2> writes{};
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 2 + 5> writes{}; // (NOT ORIGINAL - + rt_water's five)
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -439,6 +440,24 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const std::array
             map.dstBinding = kSurfaceMapBinding;
             map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             map.pImageInfo = &surface.map;
+        }
+    }
+    if (water.on) { // (NOT ORIGINAL - rt_water: the water's block, the copy behind it, the sky, the ripples)
+        VkWriteDescriptorSet& block = core::at(writes, count++);
+        block.dstBinding = kWaterUniformsBinding;
+        block.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        block.pBufferInfo = &water.block;
+        const std::array<std::pair<uint32_t, const VkDescriptorImageInfo*>, 4> images_of_water{{
+            {kWaterSceneBinding, &water.scene},
+            {kWaterDepthBinding, &water.depth},
+            {kWaterSkyBinding, &water.sky},
+            {kWaterWavesBinding, &water.waves},
+        }};
+        for (const auto& [binding, info] : images_of_water) {
+            VkWriteDescriptorSet& image = core::at(writes, count++);
+            image.dstBinding = binding;
+            image.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            image.pImageInfo = info;
         }
     }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
@@ -857,6 +876,7 @@ void release_draw_objects(Backend& state)
     release_rt_sun(state); // (NOT ORIGINAL - the sun's, the bloom's and the sky's: vulkan_rt_sun.h)
     release_upscale(state); // (NOT ORIGINAL - the upscaler's: vulkan_upscale.h)
     release_style(state); // (NOT ORIGINAL - the art style's: vulkan_style.h)
+    release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);
@@ -976,6 +996,17 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         shaders.fragment.surface = surface.flags;
         shaders = normalised(shaders);
     }
+    // NOT ORIGINAL - water shaded where render_pc marked the material ([Graphics] rt_water, vulkan_water.h; nothing with
+    // it off): the key with the water bit, the copy behind the water made first (outside the pass)
+    WaterDescriptors water;
+    if (water_candidate(state, block)) {
+        ShaderKey with_water = shaders;
+        with_water.fragment.surface = static_cast<uint8_t>(with_water.fragment.surface | kSurfaceWater);
+        with_water = normalised(with_water);
+        if ((with_water.fragment.surface & kSurfaceWater) != 0U && prepare_water_draw(state, block, &water)) {
+            shaders = with_water;
+        }
+    }
     std::string why;
     if (!supported(shaders, &why)) {
         if (first_report(state, hash_of(shaders.vertex) ^ hash_of(shaders.fragment))) {
@@ -1024,7 +1055,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         return gpu_value::kResultInvalidCall;
     }
     SurfaceDescriptors surface_descriptors; // NOT ORIGINAL - rt_pbr
-    if (shaders.fragment.surface != 0) {
+    if (surface_lit_per_pixel(shaders.fragment.surface)) {
         surface_descriptors.on = true;
         if (!set_surface_uniforms(state, block, surface, &surface_descriptors.block)) {
             return gpu_value::kResultInvalidCall;
@@ -1041,7 +1072,7 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         bound.pipeline = pipeline;
     }
     set_dynamic_states(state, commands, block, call);
-    push_descriptors(state, commands, descriptors, surface_descriptors);
+    push_descriptors(state, commands, descriptors, surface_descriptors, water);
     if (call.vertex_buffer != bound.vertex_buffer || call.vertex_offset != bound.vertex_offset ||
         call.stride != bound.vertex_stride) {
         const VkDeviceSize stride = call.stride;
@@ -1081,6 +1112,9 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
     }
     if (surface_image != nullptr) {
         surface_image->used = serial;
+    }
+    if (water.on) {
+        water_draw_recorded(state); // (NOT ORIGINAL - rt_water)
     }
     ++state.stats.draws;
     return kOk;

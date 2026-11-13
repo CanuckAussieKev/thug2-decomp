@@ -50,6 +50,7 @@ add_library(thug2_render_pc STATIC
     pc_viewport.cpp
     pc_weather.cpp
     rt_record.cpp
+    water_materials.cpp
     mesh_smoothing.cpp
     rt_relit_world.cpp
     pc_billboards.cpp

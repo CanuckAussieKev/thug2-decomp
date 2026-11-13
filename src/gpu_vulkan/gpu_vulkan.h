@@ -290,5 +290,25 @@ struct StyleSettings {
 };
 void set_style_settings(const StyleSettings& settings);
 [[nodiscard]] StyleSettings style_settings();
+// NOT ORIGINAL - water shading (vulkan_water.h; docs/design/vulkan.md "Water"): [Graphics] rt_water, rt_water_waves,
+// rt_water_wind, rt_water_wind_heading, rt_water_clarity, rt_water_foam, rt_water_tint. The game's water surfaces (the
+// moving materials render_pc marks - engine/gfx/water_surfaces.h - where they face up) drawn with waves, a reflection,
+// refraction, colour by depth, shoreline foam and the sun's glitter. on false (the default): every draw as before. No
+// ray tracing needed (with it, the baked sun lights the glitter); Direct3D 9 ignores it.
+inline constexpr float kWaterHeadingAuto = -1.0F; // rt_water_wind_heading=auto: the level's own
+struct WaterSettings {
+    bool on = false;
+    float waves = 1.0F;   // x the level's wave height (0: flat - 3)
+    float wind = 1.0F;    // the wind's strength: the ripples' size and speed (0 - 2)
+    float heading = kWaterHeadingAuto; // the way the wind blows, degrees from world +x toward +z (negative: the level's)
+    float clarity = 1.0F; // x how far one sees into the level's water (0: opaque - 4)
+    float foam = 1.0F;    // the shoreline foam (0: none - 2)
+    bool tint_auto = true;              // rt_water_tint=auto: each water texture's own colour
+    std::array<float, 3> tint{0.2F, 0.45F, 0.5F}; // rt_water_tint=r,g,b (0 - 1)
+    bool hdr = false;     // rt_hdr=1: the sun's glitter above 1 kept
+    bool screen_reflections = true; // the reflections marched over the screen (else the sky alone)
+};
+void set_water_settings(const WaterSettings& settings);
+[[nodiscard]] WaterSettings water_settings();
 
 } // namespace render::vulkan
