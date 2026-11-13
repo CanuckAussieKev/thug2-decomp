@@ -373,6 +373,9 @@ const char* find_script_checksum_name(uint32_t checksum)
     return nullptr;
 }
 
+// NOT ORIGINAL (qb.h)
+bool script_checksum_names_open() { return script_label_table() != nullptr; }
+
 // 0x0046F9F0
 void free_script_checksum_names()
 {

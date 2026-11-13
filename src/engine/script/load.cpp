@@ -321,11 +321,19 @@ void restart_changed_scripts()
 void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
     // NOT ORIGINAL - its standalone TypeScript module defines the file (load.h; a level's node array, read as an asset:
-    // in an unpacked game - tools/qbjs/unpack_game.ts - with nothing read)
-    if (qb_standalone_hook() && qb_standalone_hook()(filename, temporary != 0)) {
-        free_script_checksum_names(); // (as read_qb_file does first)
-        restart_changed_scripts();
-        return;
+    // in an unpacked game - tools/qbjs/unpack_game.ts - with nothing read). The checksum names' table as read_qb_file
+    // makes it first: emptied, and there when the names are wanted - the module's registerNames fills it, so a node
+    // array's prefixes (add_node_array_prefixes, after this) know its nodes' names. (Without it every Create / Kill /
+    // Visible prefix= in a level found no node: Barcelona's bridge quarter pipe never made, its rails left.)
+    if (qb_standalone_hook()) {
+        free_script_checksum_names();
+        if (use_qb_names != 0) {
+            allocate_script_checksum_names(false);
+        }
+        if (qb_standalone_hook()(filename, temporary != 0)) {
+            restart_changed_scripts();
+            return;
+        }
     }
     if (data.size() < sizeof(uint32_t)) {
         debug::printf("%s: no .qb to read\n", filename);
@@ -355,9 +363,10 @@ void load_qb(const char* filename, int unused, int temporary)
         const int size = packs::get_file_size(checksums::hash_from_text(filename));
         parse_precompiled_qb(filename, std::span<uint8_t>(data, size > 0 ? static_cast<size_t>(size) : 0), unused);
         load_checksum_names(filename);
-    } else if (qb_standalone_hook() && qb_standalone_hook()(filename, temporary != 0)) {
-        // NOT ORIGINAL - its standalone TypeScript module defined the file (load.h): no .qb read
-        free_script_checksum_names(); // (as read_qb_file does first)
+    } else if (qb_standalone_hook() && (free_script_checksum_names(), qb_standalone_hook()(filename, temporary != 0))) {
+        // NOT ORIGINAL - its standalone TypeScript module defined the file (load.h): no .qb read. (The checksum names'
+        // table emptied first, as read_qb_file does: this read wants no names kept - the module's go to the debug
+        // names only.)
     } else {
         memory::enter_heap_scope(manager->top_down_heap());
         // Originally from PartyMod Fixes (its call at 0x0046EE80): packs::ReadIn, then the binary patch for the file if there is one

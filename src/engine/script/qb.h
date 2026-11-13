@@ -164,6 +164,10 @@ MutableTokens store_word16(MutableTokens bytes, uint16_t value);
 void add_script_checksum_name(uint32_t checksum, const char* name);
 const char* find_script_checksum_name(uint32_t checksum);
 void free_script_checksum_names();
+// NOT ORIGINAL - whether that table is there: a file read with its names wanted (load_qb_data's use_qb_names - a
+// level's node array, whose nodes' names give add_node_array_prefixes the prefixes Create / Kill prefix= look up).
+// A standalone TypeScript module's names go into it then, as read_qb_file's do (ts_bridge.cpp registerNames).
+bool script_checksum_names_open();
 // NOT ORIGINAL - every .qb's checksum names kept for our tools (the level editor's HUD: node names such as
 // Fire_Tender), once keep_qb_names(true) - read_qb_file notes each (the game only keeps them with its debug names on).
 THUG2_API void keep_qb_names(bool keep);

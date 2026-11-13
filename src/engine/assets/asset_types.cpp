@@ -38,6 +38,8 @@
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "base/core/gathered_call.h"
+#include "engine/script/nodes.h"
+#include "platform/run_log.h"
 
 namespace assets {
 
@@ -65,6 +67,32 @@ static_assert(core::layout_32bit(kSkinParamBytes == kOriginalSkinParamBytes),
 static_assert(sizeof(SkinParams) % 4 == 0 && kSkinParamBytes <= kParamBlockBytes, "copied as words into a pool block");
 constexpr int kSkinCollisionParamWords = 0x11;
 constexpr int kTexDictParamWords = 0x13;
+
+// NOT ORIGINAL - a level's node array whose file didn't give its nodes' names (the checksum names' table that
+// add_node_array_prefixes reads - load_qb_data's use_qb_names): Create / Kill / Visible prefix= never find those nodes
+// (TypeScript mode once read none - a level's prefix= scripts did nothing). Logged once per array.
+void log_unnamed_nodes(const char* file, const char* array_name)
+{
+    script::Array* nodes = script::fetch_list(array_name);
+    if (!nodes) {
+        return;
+    }
+    uint32_t unnamed = 0;
+    uint32_t named = 0;
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
+        const uint32_t name = level_nodes::get_node_name(nodes->struct_at(i));
+        if (name == 0U) {
+            continue;
+        }
+        ++named;
+        const char* text = script::find_script_checksum_name(name);
+        unnamed += (!text || *text == '\0') ? 1U : 0U;
+    }
+    if (unnamed != 0U) {
+        get_log("nodes: %s - %u of %u named nodes have no name text: prefix= commands won't find them", file, unnamed,
+                named);
+    }
+}
 
 // Checksums (the text each hashes; "text unknown" where the name isn't known).
 constexpr uint32_t kAssertOnMissingAssets = 0x25DC7904U; // AssertOnMissingAssets
@@ -476,6 +504,7 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
     level_nodes::make_node_array_name(args_, array_name);
     parse_qb_file(args_, buffer, size);
     level_nodes::node_manager_instance()->add_node_array(level_nodes::node_array_checksum(args_), owned_);
+    log_unnamed_nodes(args_, array_name.data());
     script::free_script_checksum_names();
     script::Array* nodes = script::fetch_list(array_name.data());
     array_name_ = checksums::hash_from_text(array_name.data());

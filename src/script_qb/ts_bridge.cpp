@@ -785,7 +785,13 @@ JSValue native_register_names(JSContext* c, JSValueConst /*self*/, int /*argc*/,
         const JSValue text = JS_GetPropertyUint32(c, argv[0], i + 1);
         const uint32_t checksum = to_u32(c, number);
         if (const char* name = JS_ToCString(c, text)) {
-            register_name_hash(checksum, name);
+            // (as read_qb_file: into the file's checksum names when its reader wants them - a level's node array -,
+            // which registers it too; else registered only)
+            if (script_checksum_names_open()) {
+                add_script_checksum_name(checksum, name);
+            } else {
+                register_name_hash(checksum, name);
+            }
             note_qb_name(checksum, name);
             JS_FreeCString(c, name);
         }
