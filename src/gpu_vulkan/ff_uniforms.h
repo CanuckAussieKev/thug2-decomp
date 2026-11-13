@@ -23,6 +23,10 @@ using Float4x4 = std::array<float, kMatrixFloats>; // a D3DMATRIX's 16 floats, r
 constexpr uint32_t kVertexUniformsBinding = 0;
 constexpr uint32_t kFragmentUniformsBinding = 1;
 constexpr uint32_t kFirstTextureBinding = 2; // stage n's texture (combined image and sampler) at 2 + n
+// (NOT ORIGINAL - [Graphics] rt_pbr, vulkan_surface.h) the per-pixel lighting's: read only by keys with
+// FragmentKey::surface set (pushed only for their draws)
+constexpr uint32_t kSurfaceUniformsBinding = 6; // SurfaceUniforms
+constexpr uint32_t kSurfaceMapBinding = 7;      // stage 0's texture's surface map (kSurfaceMap)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -75,6 +79,19 @@ struct FragmentUniforms {
     Float4 alpha_reference{};         // x: D3DRS_ALPHAREF, 0-255
 };
 
+// (NOT ORIGINAL - rt_pbr) Binding 6, the per-pixel lighting's (fragment shader). Directions are in camera space (the
+// vertex shader's eye space), toward the light, normalised. vulkan_surface.cpp fills it.
+struct SurfaceUniforms {
+    std::array<Float4, kMaxLights> light_toward{}; // the draw's enabled lights (kSurfaceLit); a zero vector: none
+    std::array<Float4, kMaxLights> light_colour{}; // their diffuse colours (rgb)
+    Float4 sun{};        // toward the sun the bake was lit by (xyz); w: its weight 0 - 1 (0: no sun - the sky alone)
+    Float4 sun_colour{}; // rgb: the sun's light; w: the ambient share a of a sunlit surface's baked light (> 0)
+    Float4 sky{};        // xyz: up (the world's +y); w: how much of the normal map's detail shows in the shade (0 - 1)
+    Float4 params{};     // x: specular strength, y: normal strength, z: roughness without a map, w: F0
+    Float4 shade{};      // x, y: the bake's light level (luma of 2 x v0) from in shade to sunlit; z, w: the detail's range
+    Float4 relit{};      // reserved for the relit mode (kSurfaceRelit; zeros)
+};
+
 constexpr std::size_t kMatrixBytes = 64;
 constexpr std::size_t kVectorBytes = 16;
 static_assert(offsetof(VertexUniforms, texture_matrix) == 3 * kMatrixBytes, "std140: matrices are 64 bytes");
@@ -88,5 +105,7 @@ static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms
 static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + kVectorBytes,
               "std140: no padding");
 static_assert(sizeof(FragmentUniforms) == kFragmentVectors * kVectorBytes, "std140: no padding");
+constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 6;
+static_assert(sizeof(SurfaceUniforms) == kSurfaceVectors * kVectorBytes, "std140: no padding");
 
 } // namespace render::vulkan

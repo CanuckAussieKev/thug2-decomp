@@ -322,6 +322,16 @@ void install_vulkan()
         upscale.fsr_major = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "fsr_version", 0)));
         render::vulkan::set_upscale_settings(upscale);
     }
+    // NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h): off
+    // unless asked for; no ray tracing needed (with it, the bake's sun found by ray tracing lights the maps)
+    {
+        const render::vulkan::RtPbrSettings defaults;
+        render::vulkan::set_rt_pbr_settings(
+            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_pbr", false),
+             .specular = std::max(0.0F, ini_float("rt_pbr_specular", defaults.specular)),
+             .normal_strength = std::max(0.0F, ini_float("rt_pbr_normal_strength", defaults.normal_strength)),
+             .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
+    }
     render::install_device(render::d3d9::device());
     render::install_gpu(render::vulkan::gpu());
     render::install_gpu_context(render::vulkan::gpu_context());

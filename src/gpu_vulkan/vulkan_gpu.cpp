@@ -46,6 +46,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_samplers.h"
+#include "gpu_vulkan/vulkan_surface.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -103,7 +104,9 @@ uint32_t release(Backend& state, Texture* texture)
     }
     const uint32_t left = --texture->refs;
     if (left == 0) {
+        Texture* const map = take_surface_map(texture); // NOT ORIGINAL - its surface map (rt_pbr) goes with it
         destroy_texture(state, texture);
+        release(state, map);
     }
     return left;
 }

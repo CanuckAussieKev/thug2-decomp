@@ -121,6 +121,10 @@ struct Material {
 inline constexpr uint32_t kReflectShiny = 0; // metal, paint, polished floors: the game's reflectivity face-on as well
 inline constexpr uint32_t kReflectWater = 1; // the sea, pools, puddles: 2% face-on, a mirror at grazing angles
 inline constexpr uint32_t kReflectGlass = 2; // windows: little face-on (rt_glass_reflectance), slightly rough
+// Water's Fresnel reflectance face-on (Schlick's F0; index 1.33): the reflections' and the material table's (its
+// MaterialRecord::f0 - gpu_vulkan/vulkan_rt_materials.h); the surface maps' water class gives the same
+// (tools/pbr_maps/classes.ts).
+inline constexpr float kReflectWaterF0 = 0.02F;
 
 // Material::reflection_mask's values (the shaders' MASK_*): how the first pass's texel alpha (a) scales the reflectivity.
 inline constexpr uint32_t kReflectEverywhere = 0;      // 1

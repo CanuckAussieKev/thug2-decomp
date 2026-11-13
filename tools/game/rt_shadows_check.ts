@@ -20,12 +20,20 @@
 //   (rt_shadows, rt_ao and rt_reflections 0 in both; rt_fog_mode etc. from --set), with its own checks (below).
 //   --effect gi (both commands): one-bounce indirect light ([Graphics] rt_gi, vulkan_rt_effects.h) - rt_gi 0 / 1
 //   (rt_shadows, rt_ao and rt_reflections 0 in both), with its own checks (below).
+//   --effect upscale (both commands): upscaling ([Graphics] upscaler, vulkan_upscale.h) - `off` upscaler=off (the
+//   picture at the window's size, with the workspace's msaa), `on` the --upscaler given (dlss:quality, fsr:performance...;
+//   upscale_quality after the colon); the rest of the ini as the workspace and --set have it (the user's effects: --set
+//   Graphics.rt_gi=1 ...). compare: per spot, `on` against `off` - PSNR and SSIM (luma, 8x8 windows), the pixels turned
+//   black; each configuration's frame time from its logs; `on`'s logs must say the frames were upscaled.
 //   --effect sun (both commands): the sun's disc and glare, the screen-space rays, the bloom and the sky model
 //   ([Graphics] rt_sun, rt_shafts, rt_bloom, rt_sky_model - vulkan_rt_sun.h, vulkan_rt_sky.h) - all four 0 / 1 together;
 //   the other effects as the workspace's ini and --set have them (the user's look: --set Graphics.rt_shadows=1 ...).
 //   --effect relit (both commands): the relit mode ([Graphics] rt_relit, engine/gfx/rt_relit.h - the bake taken apart
 //   and lit again) - rt_relit 0 / 1, the other effects as the workspace's ini and --set have them; --set reaches the
 //   baseline too (main's build with the same look: `off` must be it).
+//   --effect pbr (both commands): per-pixel lighting and surface maps ([Graphics] rt_pbr, vulkan_surface.h) - rt_pbr
+//   0 / 1, the other effects as the workspace's ini and --set have them; the workspace's levels need their surface maps
+//   (tools/pbr_maps/pbr_maps.ts make).
 //
 // run: under the workspace's lock (game_lock.ps1, released at the end - which puts the folder's own build and ini back),
 // the x64 build deployed (deploy_build.ps1 -Arch x64: the exe and every DLL beside it), then for each run and each
@@ -130,6 +138,12 @@
 //     - the logs: "rt_relit: ... meshes written" (or the level's "the bake shows no sun") in every `on` group's, no
 //       "couldn't" line, no crash; no "rt_relit:" line in `off`'s; the analysis's lines ("rt_relit: level ...: N meshes
 //       (C from the cache, T traced ...), X ms") and the frame times reported.
+//   --effect pbr --expect drawn: on against off
+//     - bounded: the picture's mean luma change at most 25 (the maps reshape the bake's light, the highlights add
+//       some; they don't relight the level); turned black at most 0.1%; turned white at most 2% (highlights);
+//     - drawn: some spot changed (lighter or darker) in 0.5% of its pixels or more;
+//     - the logs: "rt_pbr: per-pixel lighting on" and a "surface maps: ... attached" line with some attached in every
+//       `on` group's, neither in `off`'s, no crash; the frame times of each configuration reported (the cost).
 // report.txt / report.json in the folder; exit 1 when a check fails.
 
 import { spawn } from "node:child_process";
@@ -154,7 +168,7 @@ import {
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: rt_shadows_check.ts run --game <workspace> --out <folder> --build <folder> [--baseline-build <folder>]
-                           [--effect shadows|ao|reflections|hdr|fog|gi|sun|sky|tess|relit] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
+                           [--effect shadows|ao|reflections|hdr|fog|gi|sun|sky|tess|relit|upscale|pbr] [--upscaler dlss|fsr|auto[:quality]] [--plan <plan.json>] [--groups a,b] [--runs N] [--owner name] [--set S.key=v]...
        rt_shadows_check.ts compare <folder> [--expect shadows|drawn|none|brighter] [--strength 0.5] [--threshold 8] [--grow 1]
 
 Ray-traced sun shadows in the game: the same spots with rt_shadows off and on, compared (tools/game/README.md).`;
@@ -163,7 +177,19 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIGS = ["off", "on", "baseline"] as const;
 export type Config = (typeof CONFIGS)[number];
 // R4's sun shadows, R5's ambient occlusion and reflections, HDR, the fog, the one-bounce indirect light
-export type Effect = "shadows" | "ao" | "reflections" | "hdr" | "fog" | "gi" | "sun" | "sky" | "tess" | "relit";
+export type Effect =
+    | "shadows"
+    | "ao"
+    | "reflections"
+    | "hdr"
+    | "fog"
+    | "gi"
+    | "sun"
+    | "sky"
+    | "tess"
+    | "relit"
+    | "upscale"
+    | "pbr";
 export const EFFECTS: readonly Effect[] = [
     "shadows",
     "ao",
@@ -175,10 +201,32 @@ export const EFFECTS: readonly Effect[] = [
     "sky",
     "tess",
     "relit",
+    "upscale",
+    "pbr",
 ];
+
+// --effect upscale: what `on` asks for (--upscaler upscaler[:quality]).
+let upscalerOn = { upscaler: "fsr", quality: "quality" };
+export function setUpscalerOn(text: string): boolean {
+    const [upscaler, quality] = text.split(":");
+    if (!upscaler || !["dlss", "fsr", "auto"].includes(upscaler)) return false;
+    upscalerOn = { upscaler, quality: quality ?? "quality" };
+    return true;
+}
 
 // The ini values a configuration adds.
 export function configValues(config: Config, effect: Effect = "shadows"): Record<string, string> {
+    if (effect === "upscale") {
+        if (config === "baseline") return {};
+        return config === "on"
+            ? { "Graphics.upscaler": upscalerOn.upscaler, "Graphics.upscale_quality": upscalerOn.quality }
+            : { "Graphics.upscaler": "off" };
+    }
+    if (effect === "pbr") {
+        // (per-pixel lighting alone toggled; the rest as the workspace's ini and --set have it)
+        if (config === "baseline") return {};
+        return { "Graphics.rt_pbr": config === "on" ? "1" : "0" };
+    }
     if (effect === "sky") {
         // (the atmosphere and the clouds together; the other effects as the ini and --set have them)
         if (config === "baseline") return {};
@@ -562,6 +610,16 @@ export function judgeSpot(
             problems.push(`turned black relit: ${pct(share(difference.blackened, difference))}`);
         if (share(difference.whitened, difference) > MAX_WHITENED)
             problems.push(`turned white relit: ${pct(share(difference.whitened, difference))}`);
+    } else if (limits.expect === "shadows" && limits.effect === "pbr") {
+        // (the maps reshape the bake's light and add highlights: bounded, nothing black, little blown out)
+        if (difference.meanLumaChange > MAX_PBR_LUMA_CHANGE)
+            problems.push(
+                `per-pixel lighting changed the picture's luma by ${difference.meanLumaChange.toFixed(1)} on average`,
+            );
+        if (share(difference.blackened, difference) > limits.maxBrighter)
+            problems.push(`turned black with per-pixel lighting: ${pct(share(difference.blackened, difference))}`);
+        if (share(difference.whitened, difference) > MAX_PBR_WHITENED)
+            problems.push(`turned white with per-pixel lighting: ${pct(share(difference.whitened, difference))}`);
     } else if (limits.expect === "shadows" && limits.effect === "fog") {
         // (the fog may touch the whole picture - the haze looking toward the sun -, but not by much on average)
         if (difference.meanLumaChange > MAX_FOG_LUMA_CHANGE)
@@ -678,6 +736,10 @@ export function anyShadow(verdicts: readonly SpotVerdict[], limits: Limits): boo
         return verdicts.some(
             (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= MIN_TESS_CHANGED_SOMEWHERE,
         );
+    if (limits.effect === "pbr")
+        return verdicts.some(
+            (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= limits.minDarkenedSomewhere,
+        );
     if (limits.effect === "reflections")
         return verdicts.some(
             (v) => share(v.difference.brighter + v.difference.darkened, v.difference) >= MIN_REFLECTED_SOMEWHERE,
@@ -693,6 +755,11 @@ export const MAX_FOG_LUMA_CHANGE = 40;
 // (the sun: the disc and the glare round it are white - a few percent of a picture facing the sun; the haze and the
 // bloom change the rest a little)
 export const MAX_SUN_WHITENED = 0.04;
+// (per-pixel lighting: the mean luma change a picture may get, 0..255, and the share that may turn white - highlights)
+export const MAX_PBR_LUMA_CHANGE = 25;
+export const MAX_PBR_WHITENED = 0.02;
+export const PBR_ON = "rt_pbr: per-pixel lighting on";
+const MAPS_ATTACHED = /surface maps: .* - ([0-9]+) of [0-9]+ maps attached/g;
 export const MAX_SUN_LUMA_CHANGE = 45;
 // (the smoothed curves: the mean luma change a picture may get, and the least share some spot must change)
 export const MAX_TESS_LUMA_CHANGE = 6;
@@ -798,6 +865,16 @@ export function logProblems(
         if (failed) problems.push(`log: ${failed[0]}`);
         if (expect === "shadows" && !RELIT_WRITTEN.test(log) && !log.includes(RELIT_NO_SUN))
             problems.push("no relit colours written in the log, nor a bake without a sun");
+        return problems;
+    }
+    if (effect === "pbr") {
+        if (config !== "on") {
+            if (log.includes(PBR_ON)) problems.push(`per-pixel lighting on in the ${config} log`);
+            return problems;
+        }
+        if (!log.includes(PBR_ON)) problems.push("per-pixel lighting not on in the log");
+        const attached = [...log.matchAll(MAPS_ATTACHED)].reduce((sum, m) => sum + Number(m[1]), 0);
+        if (expect === "shadows" && attached === 0) problems.push("no surface map attached (made for this workspace?)");
         return problems;
     }
     if (effect === "sun") {
@@ -906,6 +983,154 @@ export function brighterAllowances(plan: { groups: readonly { spots?: readonly P
     return out;
 }
 
+// --- upscaling's comparison ---------------------------------------------------------------------------------------
+
+const lumaOf = (picture: Image, index: number): number =>
+    0.2126 * picture.rgb[index * 3]! + 0.7152 * picture.rgb[index * 3 + 1]! + 0.0722 * picture.rgb[index * 3 + 2]!;
+
+// The peak signal-to-noise ratio of `picture` against `reference` (dB, the colour channels; 99: the same).
+export function psnr(picture: Image, reference: Image): number {
+    let sum = 0;
+    const count = Math.min(picture.rgb.length, reference.rgb.length);
+    for (let i = 0; i < count; i++) {
+        const d = picture.rgb[i]! - reference.rgb[i]!;
+        sum += d * d;
+    }
+    const mse = sum / Math.max(1, count);
+    return mse <= 0 ? 99 : 10 * Math.log10((255 * 255) / mse);
+}
+
+// The structural similarity of the two pictures' luma, the mean over 8 x 8 windows (Wang et al.'s constants).
+export function ssim(picture: Image, reference: Image): number {
+    const window = 8;
+    const c1 = (0.01 * 255) ** 2;
+    const c2 = (0.03 * 255) ** 2;
+    let total = 0;
+    let windows = 0;
+    for (let y = 0; y + window <= picture.height; y += window) {
+        for (let x = 0; x + window <= picture.width; x += window) {
+            let ma = 0;
+            let mb = 0;
+            for (let j = 0; j < window; j++)
+                for (let i = 0; i < window; i++) {
+                    const at = (y + j) * picture.width + x + i;
+                    ma += lumaOf(picture, at);
+                    mb += lumaOf(reference, at);
+                }
+            const n = window * window;
+            ma /= n;
+            mb /= n;
+            let va = 0;
+            let vb = 0;
+            let cov = 0;
+            for (let j = 0; j < window; j++)
+                for (let i = 0; i < window; i++) {
+                    const at = (y + j) * picture.width + x + i;
+                    const a = lumaOf(picture, at) - ma;
+                    const b = lumaOf(reference, at) - mb;
+                    va += a * a;
+                    vb += b * b;
+                    cov += a * b;
+                }
+            va /= n - 1;
+            vb /= n - 1;
+            cov /= n - 1;
+            total += ((2 * ma * mb + c1) * (2 * cov + c2)) / ((ma * ma + mb * mb + c1) * (va + vb + c2));
+            windows++;
+        }
+    }
+    return windows ? total / windows : 1;
+}
+
+// The share of the picture's pixels black (every channel under 4) where the reference's aren't.
+export function blackenedShare(picture: Image, reference: Image): number {
+    let count = 0;
+    const pixels = Math.min(picture.width * picture.height, reference.width * reference.height);
+    for (let p = 0; p < pixels; p++) {
+        const black = (img: Image): boolean =>
+            img.rgb[p * 3]! < 4 && img.rgb[p * 3 + 1]! < 4 && img.rgb[p * 3 + 2]! < 4;
+        if (black(picture) && !black(reference)) count++;
+    }
+    return count / Math.max(1, pixels);
+}
+
+export const UPSCALED_FIRST = "upscaler: the first frame upscaled by";
+const UPSCALER_FAILED = /upscaler: .*(failed|can't run|couldn't)/;
+// (a spot's picture on and off, at least this alike: the upscaler rebuilt the same view)
+export const UPSCALE_MIN_PSNR = 20;
+export const UPSCALE_MAX_BLACKENED = 0.002;
+
+function compareUpscale(out: string, runs: Record<Config, string[]>): number {
+    const names = fs
+        .readdirSync(runs.off[0]!)
+        .filter((f) => f.endsWith(".png") && fs.existsSync(path.join(runs.on[0]!, f)))
+        .sort();
+    const lines: string[] = [`upscale: ${upscalerOn.upscaler}:${upscalerOn.quality} against off`];
+    let failed = false;
+    let sumPsnr = 0;
+    let sumSsim = 0;
+    for (const name of names) {
+        const off = readPicture(path.join(runs.off[0]!, name));
+        const on = readPicture(path.join(runs.on[0]!, name));
+        if (off.width !== on.width || off.height !== on.height) {
+            failed = true;
+            lines.push(`FAIL ${name}: ${on.width}x${on.height} against ${off.width}x${off.height}`);
+            continue;
+        }
+        const p = psnr(on, off);
+        const q = ssim(on, off);
+        const black = blackenedShare(on, off);
+        sumPsnr += p;
+        sumSsim += q;
+        const problems: string[] = [];
+        if (p < UPSCALE_MIN_PSNR) problems.push(`PSNR under ${UPSCALE_MIN_PSNR}`);
+        if (black > UPSCALE_MAX_BLACKENED) problems.push(`${pct(black)} turned black`);
+        if (problems.length) failed = true;
+        lines.push(
+            `${problems.length ? "FAIL " : ""}${name.replace(/\.png$/i, "")}: PSNR ${p.toFixed(2)} dB, SSIM ${q.toFixed(4)}, turned black ${pct(black)}${problems.length ? ` - ${problems.join("; ")}` : ""}`,
+        );
+    }
+    if (names.length)
+        lines.push(`mean: PSNR ${(sumPsnr / names.length).toFixed(2)} dB, SSIM ${(sumSsim / names.length).toFixed(4)}`);
+    for (const config of ["off", "on"] as const) {
+        const logs = runs[config].flatMap((folder) =>
+            fs
+                .readdirSync(folder)
+                .filter((f) => f.endsWith(".log"))
+                .map((f) => fs.readFileSync(path.join(folder, f), "utf8")),
+        );
+        const all = logs.join("\n");
+        const times = frameTimes(all);
+        if (times.lines)
+            lines.push(
+                `${config}: ${times.frame.toFixed(2)} ms a frame, ${times.working.toFixed(2)} ms not waiting (${times.lines} Vulkan frame lines)`,
+            );
+        const bad = BAD.exec(all);
+        if (bad) {
+            failed = true;
+            lines.push(`FAIL ${config} log: ${bad[0]}`);
+        }
+        if (config === "on") {
+            const failedLine = UPSCALER_FAILED.exec(all);
+            if (failedLine) {
+                failed = true;
+                lines.push(`FAIL on log: ${failedLine[0]}`);
+            }
+            if (!all.includes(UPSCALED_FIRST)) {
+                failed = true;
+                lines.push("FAIL no upscaled frame in the on logs");
+            }
+        } else if (all.includes(UPSCALED_FIRST)) {
+            failed = true;
+            lines.push("FAIL an upscaled frame in the off logs");
+        }
+    }
+    lines.push(failed ? "upscale check: FAILED" : "upscale check: passed");
+    fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
+    for (const l of lines) print(l);
+    return failed ? 1 : 0;
+}
+
 function compareFolder(
     out: string,
     limits: Limits,
@@ -915,6 +1140,7 @@ function compareFolder(
 ): number {
     const runs = Object.fromEntries(CONFIGS.map((c) => [c, runFolders(out, c)])) as Record<Config, string[]>;
     if (!runs.off.length || !runs.on.length) exitWith(`${out} needs off/run<k> and on/run<k> folders`);
+    if (limits.effect === "upscale") return compareUpscale(out, runs);
     const names = fs
         .readdirSync(runs.off[0]!)
         .filter((f) => f.endsWith(".png") && fs.existsSync(path.join(runs.on[0]!, f)))
@@ -1008,7 +1234,8 @@ function compareFolder(
                 limits.effect === "sun" ||
                 limits.effect === "sky" ||
                 limits.effect === "tess" ||
-                limits.effect === "relit"
+                limits.effect === "relit" ||
+                limits.effect === "pbr"
                     ? `, turned black ${pct(share(d.blackened, d))}, turned white ${pct(share(d.whitened, d))}, mean luma change ${d.meanLumaChange.toFixed(1)}`
                     : "") +
                 (limits.effect === "gi"
@@ -1065,8 +1292,15 @@ function compareFolder(
             sky: "sky",
             tess: "smoothing",
             relit: "relit colours",
+            upscale: "upscaling",
+            pbr: "per-pixel lighting",
         }[limits.effect ?? "shadows"];
-        const how = limits.effect === "gi" ? "brightened" : limits.effect === "tess" ? "changed" : "darkened";
+        const how =
+            limits.effect === "gi"
+                ? "brightened"
+                : limits.effect === "tess" || limits.effect === "pbr"
+                  ? "changed"
+                  : "darkened";
         lines.push(`FAIL no spot ${how} by ${pct(limits.minDarkenedSomewhere)} or more: no ${drawn} drawn`);
     }
     if (limits.expect === "shadows" && limits.effect === "gi") {
@@ -1103,7 +1337,7 @@ function compareFolder(
                     lines.push(
                         `relit's analysis, ${path.basename(folder)}/${f.slice(0, -4)}: ${m[2]} meshes (${m[3]} from the cache, ${m[4]} traced: ${m[5]} vertices, ${m[6]} rays) in ${m[7]} ms`,
                     );
-    if (limits.effect === "hdr" || limits.effect === "tess" || limits.effect === "relit") {
+    if (limits.effect === "hdr" || limits.effect === "tess" || limits.effect === "relit" || limits.effect === "pbr") {
         if (limits.effect === "hdr" && !anyShadow(verdicts, limits)) {
             failed = true;
             lines.push(`FAIL no spot brighter by ${HDR_LEAST_BRIGHTER} or more on average with the exposure raised`);
@@ -1133,6 +1367,8 @@ function compareFolder(
         sky: "rt_sky check",
         tess: "rt_tessellation check",
         relit: "rt_relit check",
+        upscale: "upscale check",
+        pbr: "rt_pbr check",
     }[limits.effect ?? "shadows"];
     lines.push(failed ? `${title}: FAILED` : `${title}: passed`);
     fs.writeFileSync(path.join(out, "report.txt"), `${lines.join("\n")}\n`);
@@ -1314,6 +1550,7 @@ async function main(): Promise<number> {
             set: { type: "string", multiple: true },
             expect: { type: "string", default: "shadows" },
             effect: { type: "string", default: "shadows" },
+            upscaler: { type: "string", default: "fsr:quality" },
             strength: { type: "string" },
             threshold: { type: "string", default: "8" },
             grow: { type: "string", default: "1" },
@@ -1325,8 +1562,9 @@ async function main(): Promise<number> {
     if (expect !== "shadows" && expect !== "none" && expect !== "brighter")
         exitWith("--expect shadows | drawn | none | brighter");
     if (!(EFFECTS as readonly string[]).includes(values.effect))
-        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun | sky | tess | relit");
+        exitWith("--effect shadows | ao | reflections | hdr | fog | gi | sun | sky | tess | relit | upscale | pbr");
     const effect = values.effect as Effect;
+    if (!setUpscalerOn(values.upscaler)) exitWith("--upscaler dlss|fsr|auto[:dlaa|quality|balanced|performance|ultra]");
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
         const eq = s.indexOf("=");
@@ -1346,6 +1584,8 @@ async function main(): Promise<number> {
         sky: "Graphics.rt_sky_match",
         tess: "Graphics.rt_tess_max_deviation",
         relit: "Graphics.rt_relit_strength",
+        upscale: "Graphics.upscale_sharpness",
+        pbr: "Graphics.rt_pbr_specular",
     }[effect];
     const strength = Number(
         set[strengthKey] ??
@@ -1361,6 +1601,8 @@ async function main(): Promise<number> {
                 sky: "0.8",
                 tess: "2",
                 relit: "1",
+                upscale: "0",
+                pbr: "1",
             }[effect],
     );
     const limits: Limits = { ...LIMITS, expect, strength, effect };

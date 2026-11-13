@@ -218,7 +218,7 @@ SDK; its GLSL front end and SPIR-V back end only) is linked into `gpu_vulkan` an
 it is drawn (`ShaderLibrary`); V7 adds the pipeline cache on disk and can warm it from a scene's materials. SPIRV-Tools'
 validator (same release; its build needs Python 3) is linked by the check alone. Shaders target Vulkan 1.0 / SPIR-V 1.0.
 
-**The key.** `ShaderKey` = `VertexKey` (36 bytes) + `FragmentKey` (48 bytes): plain bytes with no padding, compared and
+**The key.** `ShaderKey` = `VertexKey` (40 bytes) + `FragmentKey` (48 bytes): plain bytes with no padding, compared and
 hashed as bytes, every enumerator with Direct3D 9's own number. `normalised()` clears what a half doesn't read (stages
 after the first disabled one, arguments an operation doesn't read, CURRENT at stage 0 as DIFFUSE, lighting fields
 with lighting off, coordinates of stages not sampled, material modes without shader code...), so the halves are
@@ -1135,7 +1135,7 @@ blue); the glass was the reflections'.
   8A6663D9 on the user's building), or a first pass that is seen through (transparent, alpha or fixed blend); shiny:
   the rest (an opaque surface with its reflection added or blended over: metal, paint, polished floors). And
   `reflection_mask`: modes 13 / 12 mirror only where the first pass's alpha is clear / opaque, as the game's pixel shader
-  lerps its environment pass in. Both are in R3's material record (56 bytes a row now).
+  lerps its environment pass in. Both are in R3's material record (56 bytes a row then; 64 with the surface maps' `surface_texture` and `f0` - "One F0" below).
 - **Fresnel** (`rt_reflection_fresnel=1`, the default; 0 the first version's look): the pixel's weight from Schlick's
   curve at the cosine c between the view and the triangle's normal - water F0 0.02, glass `rt_glass_reflectance` (0.2; real glass's 0.04 left AU's panes - bright textures, not dark rooms - with a mean change of 1.4 levels against the first version's 12: no reflection to see): weight = reflectivity x
   min(1, 2 x strength) x (F0 + (1 - F0)(1 - c)^5) (the default strength 0.5 is the physical amount); shiny surfaces
@@ -1595,6 +1595,135 @@ off by default - nothing is drawn differently then: no listener, no motion bit, 
   every ray-traced effect on, HDR, `off` with 8x MSAA, 1920 x 1080, the RTX 5070 Ti): `on` against `off` mean PSNR /
   SSIM - DLSS quality 34.65 dB / 0.944, performance 34.52 / 0.951, DLAA 35.16 / 0.945; FSR quality 35.61 / 0.958,
   performance 34.39 / 0.940; worst spot z_dt-back (30.7 dB); nothing black; the logs say every view was upscaled.
+### Per-pixel lighting and surface maps (`rt_pbr`)
+
+`gpu_vulkan/vulkan_surface` + the fixed-function generator (`ff_key.h` `kSurface*`, `ff_shaders.cpp` "the per-pixel
+lighting"), `[Graphics] rt_pbr` (off by default), `rt_pbr_specular`, `rt_pbr_normal_strength`, `rt_pbr_objects`. No ray
+tracing needed; with it the bake's sun (R4's fit) is the light the maps answer to.
+
+- **The maps** are made offline from the player's own textures (`tools/pbr_maps/pbr_maps.ts make --game <folder>`, or
+  `unpack_game.ts --pbr-maps classical`, recorded so `--restore` removes them): for each level dictionary
+  `levels\<x>\<x>.tex.xbx` the game reads (skies left out) - the data overlay's copy (`thug2-decomp-data`: the ported
+  levels), else an archive's in `Data\pre`, else the loose one - a file `<x>.tex.xbx.pbr` beside that copy (in the
+  overlay, or in `Data\levels\<x>` for an archive's) (`formats/surface_map_format.h`:
+  "T2SM" v1, entries of checksum, the texture's content hash - FNV-1a 64 of its first level as stored -, size, class,
+  generator, F0, then RGBA8 texels: normal x along +u, y along +v as 0 - 255 for -1 - 1, roughness, height 0.5 = the
+  surface). A map is used only for the texels it was made from: an upscaled or modded texture keeps none until the
+  maps are made again (the log says so per dictionary).
+- **Which generator.** The classical one (`classical.ts`): height = the band-passed luma (scales 1-8 texels x size /
+  256, dark is low), normals by a Sobel filter x 3 x the class's bump, roughness = the class's base ± half its range by
+  the local grain. CHORD (Ubisoft La Forge, SIGGRAPH Asia 2025) was the model candidate: its weights
+  (Hugging Face `Ubisoft/ubisoft-laforge-chord`, `chord_v1.safetensors`) are gated behind accepting Ubisoft's terms and
+  licensed for academic or research use only (the Ubisoft Machine Learning License, Research-Only - Copyleft; outputs
+  unclaimed) - so it is not fetched, shipped or run here: `--generator chord --chord <folder>` runs a player's own
+  set-up (`chord.ts`: its `test.py`, its maps read back, OpenGL normals turned to +v, the roughness clamped into the
+  class) and falls back to the classical maps per texture. "PBRnxt" (MIT) was not found. The classical generator is the
+  default and the only one measured. CHORD also expects 1024 x 1024 generated, tileable textures; THUG2's are 64 - 256
+  texels of DXT-compressed photo art.
+- **Which textures** (`classes.ts`, in order): skipped - smaller than 16 texels, environment maps (the sky pictures
+  sphere-mapped on), textures used only as a later pass (overlays, light maps), decal passes, blended passes whose
+  texture is see-through (> 10% of it under 0.9 alpha, the game's doubled alpha read: 128 is opaque), cut-outs (> 20%
+  under half alpha) unless green (foliage), flat art and text (< 24 distinct 5-bit colours). The six levels of the
+  in-game check (foun, z_dt, BO, z_ho, sch, AU with their `_net` dictionaries): 2,697 maps of 5,222 textures in 12 s -
+  1,240 skipped as see-through, 444 overlays, 300 cut-outs, 251 flat art / text, 224 decals; classed concrete 987,
+  default 793, stone 449, wood 196, foliage 136, ground 45, tile 26, water 25, metal 23, asphalt 15, glass 2. (A first
+  look in BO had the default class at 0.45 - 0.8 and the normals at 4 x: plastered walls sparkled - raised to 0.55 -
+  0.85, 3 x.)
+- **Roughness** - AI or classical, a generator's roughness is clamped into its texture's class's range; the class from
+  the level's materials (a material with an environment pass is shiny: grey - metal, see-through - glass, else glazed
+  tile) and the texture's colour statistics (hue, saturation, luma, grain, streaks):
+
+  | class | roughness range | base | F0 | bump |
+  |---|---|---|---|---|
+  | default (painted) | 0.55 - 0.85 | 0.72 | 0.04 | 0.5 |
+  | asphalt | 0.75 - 0.95 | 0.88 | 0.04 | 1.0 |
+  | concrete | 0.7 - 0.95 | 0.85 | 0.04 | 0.8 |
+  | stone, brick | 0.6 - 0.95 | 0.8 | 0.04 | 1.3 |
+  | metal | 0.25 - 0.6 | 0.4 | 0.6 | 0.4 |
+  | wood | 0.55 - 0.85 | 0.7 | 0.04 | 0.7 |
+  | glass | 0.05 - 0.2 | 0.1 | 0.04 | 0 |
+  | water | 0.03 - 0.12 | 0.06 | 0.02 | 0.2 |
+  | foliage | 0.6 - 0.85 | 0.75 | 0.04 | 0.6 |
+  | ground (dirt, sand) | 0.8 - 1.0 | 0.92 | 0.04 | 1.0 |
+  | fabric, skin | 0.7 - 0.95 | 0.85 | 0.04 | 0.5 |
+  | tile (glazed) | 0.2 - 0.5 | 0.35 | 0.04 | 0.6 |
+
+- **In the game.** With `rt_pbr=1` the Vulkan Gpu installs `engine/gfx/surface_maps.h`'s `SurfaceMaps`; render_pc's
+  dictionary loader (`render_pc/surface_map_load`) reads `<file>.pbr` and attaches each map to its texture (matched by
+  checksum and content hash). The map becomes an A8R8G8B8 texture with its mips made on the processor (normals averaged
+  and renormalised, roughness widened where they spread - Toksvig: alpha^2 + (1 - |n|) / |n|) and is let go of with its
+  texture. The dictionaries the game loads by name - levels' and models' (`load_tex_dict`, from an archive or a
+  file) - are looked up; those handed over as memory (`load_tex_dict_from_memory`: the asset loader's) get none.
+- **Which draws.** A draw whose program ends by multiplying with the vertex colour - a material's generated shader, the
+  single-texture `kTextureVertexX4` / `kTextureConstantAlpha` - not pre-transformed, not points: with a map on its first
+  texture it gets `kSurfaceLighting | kSurfaceMap` (+ `kSurfaceLit` when lit by lights with normals); without one, a
+  lit draw with normals gets `kSurfaceLighting | kSurfaceLit` (objects lit per pixel; `rt_pbr_objects=0` leaves them).
+  Everything else - and every draw with `rt_pbr=0` - keeps `surface` 0: its key's bytes, and so its shaders, are the
+  same as without this work (all 50,180 shaders the ff check generates are byte-identical to main's).
+- **The shader.** The vertex shader adds the camera-space normal and position and the lighting's parts that don't
+  depend on the normal (Ce + Ca (Ga + sum La), and Cd). The fragment shader: the normal - the vertex's, or the
+  triangle's own from the position's derivatives - bent by the map through a tangent frame made per pixel: the
+  gradients of u and v along the surface from the screen derivatives of the position and stage 0's coordinates,
+  (du/dx (dP/dy x N) + du/dy (N x dP/dx)) x sign(N . (dP/dx x dP/dy)), scaled by the longer of the two; no frame where
+  the coordinates don't change (beyond rounding). Lit draws: Direct3D 9's diffuse formula per pixel with the draw's
+  lights. The world: the bake kept, scaled by (a + N'.L) / (a + N.L) toward the sun where the bake is sunlit (its light
+  level, luma of 2 x v0, from 0.35 to 0.8) and by (1.5 + N'.up) / (1.5 + N.up) at 0.5 elsewhere (the sky), the scale held to
+  0.55 - 1.5; a = 0.45. The sun: the console's `rt sun`, else the bake's (R4's fit, with ray tracing), else the game's
+  shown sun at half weight, else none (the sky's part alone). Then the program runs with that in place of v0, and GGX
+  specular (Smith-Schlick, Schlick's Fresnel with the class's F0, pi x the BRDF x N.L - the convention in which the
+  diffuse term is the light x N.L) is added x `rt_pbr_specular`, per light or toward the sun where sunlit.
+- **Why per pixel and not per-mesh tangents.** The game's meshes have no tangents, share arenas, and the CPU rewrites
+  the skinned ones each frame; a tangent stream would need a second vertex binding per draw kept in step with all of
+  that. The derivative frame is the per-triangle (Lengyel) tangent frame exactly - what a MikkTSpace pass gives a flat
+  triangle before averaging at the vertices - follows the skinning by itself and turns with a mirrored mapping; the
+  check below compares it with the quad's own u / v gradients. The price: the frame is per triangle (a curved surface's
+  map is lit facet by facet along its tangents; its normal stays the interpolated one).
+- **How the effects meet it.** R4's shadows, R5's occlusion and the bounce are full-screen passes after the opaque
+  world: they act per pixel on what the lighting wrote (the traced shadow darkens the bent highlights with the rest).
+  R3's material table carries each material's map (`MaterialRecord::surface_texture`, its slot in the bindless array)
+  with `material_has_surface()` / `material_surface_lod()` in `material_glsl()` - for hit shading, a normal-mapped
+  bounce and rough reflections; GI doesn't read it yet. The record is 64 bytes a row: the water / glass work's
+  `reflection_class` and `reflection_mask`, then `surface_texture` and `f0`.
+- **One F0.** `MaterialRecord::f0` is the material's Fresnel reflectance face-on, decided in one place
+  (`record_f0()`, vulkan_rt_materials): a material the reflections class as water (`rt::kReflectWater`) gets
+  `rt::kReflectWaterF0` (0.02, engine/gfx/rt_scene.h) whatever its map says; any other its surface map's class's F0
+  (0 without a map). The reflections pass reads water's F0 from the record (it had its own 0.02 constant); glass keeps
+  `rt_glass_reflectance` (an art setting - the game's windows are reflective sheets, real glass's 0.04 showed nothing)
+  and shiny surfaces their reflectivity-based curve. The maps' classes give water 0.02 too (tools/pbr_maps/classes.ts),
+  so the per-pixel highlight (SurfaceUniforms' F0, from the map) and the reflections agree on a water texture.
+- **The key's bytes with the upscaler.** `FragmentKey::surface` and `motion` took its two spare bytes; `VertexKey`
+  had one spare, so it grew from 36 to 40 bytes (`motion`, `surface`, three spare - no padding). The varyings: the
+  per-pixel lighting's at locations 7 - 10, the motion vectors' at 11 and 12; a draw can have both (its fragment shader
+  writes `o_motion` at location 1 after the lit colour). With `rt_pbr=0` and `upscaler=off` the generated shaders are
+  byte-identical to before.
+- **Hooks for the other work streams.** The relit mode: `ff_key.h` `kSurfaceRelit` (reserved) and
+  `SurfaceUniforms::relit` - a key with it keeps the per-pixel normal (`surface_n`, `surface_geo`), view (`surface_v`),
+  roughness and specular, and replaces the bake's term where `surface_lighting()` builds `surface_v0`. Tessellation /
+  displacement: the height is the map's alpha (0.5 the surface), bound at `kSurfaceMapBinding` (7) for a key with
+  `kSurfaceMap` and in the material table (`surface_texture`); `surface_map_for(colour)` finds a texture's map.
+- **Checked.** `thug2_vulkan_pbr_check` (28 checks; the RTX 5070 Ti and the AMD Radeon, validation and synchronization
+  validation 0): a quad drawn with the game's material shader and a synthetic map (an 8 x 8 grid of tilted normals and
+  stepped roughness, point-sampled) into a float target, each of ~12,000 - 15,500 clear-cut pixels against the
+  processor's ray-cast of the same formulas with the quad's own tangent frame - lit facing the camera, turned 35 / 20
+  degrees, u mirrored, the mapping turned 90 degrees, u and v mirrored, baked sunlit and in the shade, no normals in the
+  vertices, constant coordinates (no frame), no map (lights per pixel): 100% within 0.003, the worst 0.0005 (16-bit
+  floats); `rt_pbr` off: the original's shader against Direct3D 9's vertex lighting the same way; every pixel finite;
+  the map changes a baked picture. `thug2_vulkan_rt_materials_check` (+2): a map in its own bindless slot, read through
+  the material texel for texel, cleared when its texture goes. `thug2_ff_shader_check --surface`: every key that can
+  take the bits (45,792 fragment keys more: 99,042 modules, 153,962 pipelines) generated, compiled, validated and
+  made into pipelines - none refused, no validation message, on both GPUs. `thug2_format_check`: the file's reader and
+  the TypeScript writer on one sample (the same bytes). `tools/pbr_maps/*.test.ts`: the hash, the file, the classical
+  maps' orientation (+u, +v), the classes. In the game: `tools/game/rt_shadows_check.ts --effect pbr` - with the
+  user's settings (every ray-traced effect on, 8x MSAA) 13 spots in foun, z_dt, BO, z_ho, sch and AU: mean luma change
+  1.0 - 7.0 of 255, at most 0.05% turned black and 0.01% white, maps attached in every level; with a plain ini and
+  main's build as the baseline, `rt_pbr=0` against main 0.00 - 0.01% (the noise). The sky's ratio was (1 + N'.up) /
+  (1 + N.up) in those runs: foun's indoor bake (no sun) was darkened at the clamp (8.9% of foun-deck, median 0.55);
+  with (1.5 + ...) foun, BO and z_dt again: foun-deck 0.9% changed (median 0.86), mean luma change 0.4 - 6.9.
+- **Cost** (`thug2_vulkan_pbr_check --perf`: a full-screen 1920 x 1080 layer of the material shader with a map):
+  RTX 5070 Ti 0.041 ms off, 0.056 lit, 0.052 baked; the AMD Radeon integrated GPU 0.21 ms off, 2.1 lit, 2.2 baked - the
+  shader's arithmetic (frame, two normalisations, GGX) is ten times the original's there. The game's frame lines were
+  too few to separate the difference from the noise (35 - 40 ms either way with everything on).
+
 ## Order of work
 
 | # | task | depends on | start |
@@ -1624,6 +1753,8 @@ off by default - nothing is drawn differently then: no listener, no motion bit, 
 | R5 fog | Volumetric fog and light shafts | R2, R4's baked sun | done - `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default): the level's own linear fog as a medium of the same transmittance, lit by the baked sun through ray queries at half resolution with temporal accumulation and a depth-aware upsample; replaces the game's fog (`rt_fog_mode=0`) or adds the shafts over it (1); a level without fog gets a haze's shafts (`rt_fog_haze`) - "Volumetric fog and light shafts" above |
 | GI | One-bounce diffuse indirect light ("secondary lighting") with ray queries | R2, R3, R5, the baked sun | done: `gpu_vulkan/vulkan_rt_effects` (`[Graphics] rt_gi`, `rt_gi_strength` / `_rays` / `_distance` / `_denoise`, off by default), a view listener at `kIndirect`: the sun's light bounced once off what is around a pixel (hits shaded with R3's material at R2's texture coordinates, a shadow ray toward the level's baked sun), R5's denoiser over the colour, added to the frame as strength x the pixel's albedo x the light through a screen blend (see "One-bounce indirect light"). `thug2_vulkan_rt_gi_check` (29 checks, both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect gi`; 1080p on the RTX 5070 Ti: 1.5 / 2.0 / 2.4 ms for 1 / 2 / 4 rays |
 | Sun | The sun, its glare, screen-space rays, an energy-conserving bloom and a sky model (aerial perspective) | R2, R4's baked sun, R5 fog, H1 | done: `gpu_vulkan/vulkan_rt_sun` + `vulkan_rt_sky`, `engine/gfx/rt_sky` (`[Graphics] rt_sun`, `rt_shafts`, `rt_bloom`, `rt_sky_model`, off by default): the original's sun sprite and lens flare replaced by a disc and aureole where the game shows its sun, radial rays over the depth's sky mask, a 13-tap / tent mip-chain bloom over float intermediates (the same with `rt_hdr` 0 and 1), the haze as aerial perspective coloured by a single-scattering sky (see "The sun, its glare and the sky"). `thug2_vulkan_rt_sun_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect sun` |
+| PBR | Per-pixel lighting and surface maps (normal, roughness, height) made from the original textures | V3, V7 (R3, R4's sun to use them fully) | done: `gpu_vulkan/vulkan_surface`, `ff_key` `kSurface*`, `tools/pbr_maps` (`[Graphics] rt_pbr`, off by default): the classical generator, the bake relit per pixel toward its sun and the sky, objects' lights per pixel, GGX highlights, the maps in R3's table (see "Per-pixel lighting and surface maps"). `thug2_vulkan_pbr_check` (both GPUs, validation and synchronization 0); `tools/game/rt_shadows_check.ts --effect pbr` |
+
 
 ```
 V1 -> V2 -> V6 ----------> V7 -> V8 -> V11 -> R1 -> R2 -> R4 -> R5

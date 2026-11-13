@@ -411,6 +411,10 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `ray_reconstruction` | 0 | With `upscaler=dlss` on an RTX GPU: 1 lets DLSS Ray Reconstruction clean up the ray-traced effects' noise (`rt_ao`, `rt_gi`) instead of their own filters |
 | `upscale_sharpness` | 0 | With `upscaler=fsr`: 0-1 sharpening after the upscale |
 | `fsr_version` | 0 | With `upscaler=fsr`: 0 the newest FSR the GPU runs (FSR 4 on the GPUs that have it), 3 FSR 3.1 |
+| `rt_pbr` | 0 | On Vulkan (no ray tracing needed; best with it): 1 lights surfaces per pixel - the textures' bumps and cracks catch the sun, shiny ones get highlights, and skaters and objects are lit per pixel. Needs the surface maps made from your textures first: `node tools/pbr_maps/pbr_maps.ts make --game <folder>` (or `unpack_game.ts --pbr-maps classical`); `remove` takes them away |
+| `rt_pbr_specular` | 1 | How strong the highlights are (0: none) |
+| `rt_pbr_normal_strength` | 1 | How deep the surface maps' bumps look (0: flat, 2: twice as deep) |
+| `rt_pbr_objects` | 1 | 0: only surfaces with a map are lit per pixel (skaters and objects keep the game's own lighting) |
 
 **`[Miscellaneous]`** - from PartyMod
 

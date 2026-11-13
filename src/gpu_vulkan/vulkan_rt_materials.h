@@ -54,7 +54,7 @@ inline constexpr uint32_t kMaterialRecordsBinding = 0;
 inline constexpr uint32_t kMaterialSamplersBinding = 1;
 inline constexpr uint32_t kMaterialTexturesBinding = 2;
 
-// A row of binding 0 (scalar layout: 56 bytes). The GLSL's `Material` has the same members in the same order.
+// A row of binding 0 (scalar layout: 64 bytes). The GLSL's `Material` has the same members in the same order.
 struct MaterialRecord {
     uint32_t texture = 0; // slot in textures[] (0: white)
     uint32_t sampler = 0; // index in samplers[]
@@ -70,21 +70,32 @@ struct MaterialRecord {
     // (rt::kReflectEverywhere...)
     uint32_t reflection_class = 0;
     uint32_t reflection_mask = 0;
+    // (added by the per-pixel lighting, rt_pbr - vulkan_surface.h) the texture's surface map's slot in textures[] (0:
+    // none): RGBA = tangent-space normal x (+u), y (+v) as 0 - 1 for -1 - 1, roughness, height (0.5: the surface) - for
+    // displacement (tessellation), hit shading and the effects
+    uint32_t surface_texture = 0;
+    // The surface's Fresnel reflectance face-on (Schlick's F0) - the one value the ray-traced passes read: water
+    // (reflection_class rt::kReflectWater) rt::kReflectWaterF0 whatever its map says; otherwise its surface map's class's
+    // (surface_map_format.h; 0: no map). Glass's reflections take rt_glass_reflectance instead (an art setting, not a
+    // material's: the game's windows are painted reflective sheets). record_f0() decides it.
+    float f0 = 0.0F;
 };
-inline constexpr std::size_t kMaterialRecordBytes = 56;
+inline constexpr std::size_t kMaterialRecordBytes = 64;
 static_assert(sizeof(MaterialRecord) == kMaterialRecordBytes);
 
 // The sampler index for a material's address modes (gpu_value::kAddress*) and filter (gpu_value::kFilter*).
 uint32_t material_sampler_index(const rt::Material& material);
-// A record as the table writes it for `material` with its texture in `slot`.
+// A record as the table writes it for `material` with its texture in `slot` (no surface map: the table adds it).
 MaterialRecord material_record(const rt::Material& material, uint32_t slot);
+// MaterialRecord::f0 for `material` whose surface map's class gives `map_f0` (0: no map): water's reflection class wins.
+[[nodiscard]] float record_f0(const rt::Material& material, float map_f0);
 
 // The GLSL a shader puts right after its `#version 460` (and its own #extension lines; `#define THUG2_MATERIAL_SET n`
 // first to bind the table at set n, 1 by default). It enables GL_EXT_nonuniform_qualifier and
 // GL_EXT_scalar_block_layout, declares the three bindings and:
 //   struct Material { uint texture_slot; uint sampler_index; uint uv_set; uint blend; float alpha_ref; uint flags;
 //                     vec4 colour; float reflectivity; uint environment_pass;
-//                     uint reflection_class; uint reflection_mask; };
+//                     uint reflection_class; uint reflection_mask; uint surface_slot; float f0; };
 //   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
 //   vec4 material_texel(uint id, vec2 uv)            - its texture at level 0 through its sampler (non-uniform indexing)
@@ -93,6 +104,10 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot);
 //   bool material_alpha_passes(uint id, float alpha) - the alpha test: true unless MATERIAL_ALPHA_TESTED and the
 //                                                      8-bit alpha is below the 8-bit reference (GREATEREQUAL)
 //   bool material_alpha_passes_at(uint id, vec2 uv)  - the same for material_sample(id, uv).a
+//   (rt_pbr) bool material_has_surface(uint id)      - whether its texture has a surface map
+//   vec4 material_surface_lod(uint id, vec2 uv, float lod) - the map's texel through the material's sampler: normal
+//                                                      x, y (0 - 1 for -1 - 1), roughness, height; (0.5, 0.5, 1, 0.5)
+//                                                      without a map
 // The UVs are the caller's: the material says which set (uv_set) its texture uses.
 std::string_view material_glsl();
 
