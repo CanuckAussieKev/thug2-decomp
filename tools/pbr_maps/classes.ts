@@ -33,7 +33,7 @@ export interface ClassRule {
 // The rules. F0: 0.04 for dielectrics (water 0.02, glass 0.04); a metal's is its colour in reality - one number here,
 // 0.6, as the per-pixel lighting keeps a scalar F0. Bump: how much relief the class shows at the game's texel sizes.
 export const RULES: Record<ClassName, ClassRule> = {
-    default: { min: 0.45, max: 0.8, base: 0.62, f0: 0.04, bump: 0.6 },
+    default: { min: 0.55, max: 0.85, base: 0.72, f0: 0.04, bump: 0.5 },
     asphalt: { min: 0.75, max: 0.95, base: 0.88, f0: 0.04, bump: 1.0 },
     concrete: { min: 0.7, max: 0.95, base: 0.85, f0: 0.04, bump: 0.8 },
     stone: { min: 0.6, max: 0.95, base: 0.8, f0: 0.04, bump: 1.3 },

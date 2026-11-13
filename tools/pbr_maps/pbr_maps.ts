@@ -18,8 +18,9 @@
 // not beside the dictionaries - the game folder only read. unpack_game.ts --pbr-maps runs `make` and records the
 // files for --restore.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { decode } from "thug2-level-converter-core/level_port/dxt.ts";
+import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { readTex, type Texture } from "thug2-level-converter-core/level_port/tex.ts";
 import * as scene from "thug2-level-converter-core/level_port/thug2_scene.ts";
 import { exitWith, isMain } from "thug2-level-converter-core/lib/cli.ts";
@@ -68,13 +69,88 @@ const walk = (path: string): string[] =>
           ? readdirSync(path).flatMap((name) => walk(join(path, name)))
           : [path];
 
-// The level dictionaries: Data\levels\<x>\*.tex.xbx but the skies'.
-export function dictionaries(root: string, levels?: string[]): string[] {
+// A level dictionary as the game reads it: its name under Data ("levels/bo/bo.tex.xbx", lower case, / between parts),
+// its bytes and its scene's (<x>.scn.xbx beside it; null: none).
+export interface Dictionary {
+    name: string;
+    tex: () => Buffer;
+    scn: () => Buffer | null;
+    folder: string; // where its maps go, relative to the game's root: "Data" or the overlay's folder
+}
+
+const levelOf = (name: string): string => name.split("/")[1] ?? "";
+
+// The data overlay the game reads before Data (src/engine/file/data_overlay.cpp: thug2-decomp-data - the ported levels,
+// the new front end's files); the converters' staging folders beside it aren't read.
+export const DATA_OVERLAY = "thug2-decomp-data";
+const dataOverlays = (root: string): string[] => (existsSync(join(root, DATA_OVERLAY)) ? [DATA_OVERLAY] : []);
+
+// The level dictionaries (levels/<x>/*.tex.xbx, the skies' left out): loose under Data\levels, in the archives of
+// Data\pre, and in the data overlay (thug2-decomp-data: the ported levels) - the game reads the overlay's copy
+// first, then its loaded archives', then Data's; the maps go beside the copy it reads (an archive's: in Data).
+export function dictionaries(root: string, levels?: string[]): Dictionary[] {
     const wanted = levels?.map((l) => l.toLowerCase());
-    return walk(join(root, "Data", "levels"))
-        .filter((path) => path.toLowerCase().endsWith(".tex.xbx"))
-        .filter((path) => !basename(dirname(path)).toLowerCase().endsWith("_sky"))
-        .filter((path) => !wanted || wanted.includes(basename(dirname(path)).toLowerCase()));
+    const keep = (name: string): boolean =>
+        name.startsWith("levels/") &&
+        name.endsWith(".tex.xbx") &&
+        !levelOf(name).endsWith("_sky") &&
+        (!wanted || wanted.includes(levelOf(name)));
+    const found = new Map<string, Dictionary>();
+    const loose = new Map<string, string>();
+    for (const path of walk(join(root, "Data", "levels"))) {
+        loose.set(relative(join(root, "Data"), path).replaceAll("\\", "/").toLowerCase(), path);
+    }
+    for (const [name, path] of loose) {
+        if (!keep(name)) continue;
+        const scn = loose.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
+        found.set(name, {
+            name,
+            tex: () => readFileSync(path),
+            scn: () => (scn ? readFileSync(scn) : null),
+            folder: "Data",
+        });
+    }
+    const pre = join(root, "Data", "pre");
+    const archives = existsSync(pre) ? readdirSync(pre).filter((f) => f.toLowerCase().endsWith(".prx")) : [];
+    for (const archive of archives) {
+        const inside = new Map<string, Buffer>();
+        try {
+            for (const [entry, data] of prx.entries(join(pre, archive), (n) => /\.(tex|scn)\.xbx$/i.test(n))) {
+                inside.set(entry.replaceAll("\\", "/").toLowerCase(), data);
+            }
+        } catch {
+            continue;
+        }
+        for (const [name, data] of inside) {
+            if (!keep(name)) continue;
+            const scn = inside.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
+            const looseScn = loose.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
+            found.set(name, {
+                name,
+                tex: () => data,
+                scn: () => scn ?? (looseScn ? readFileSync(looseScn) : null),
+                folder: "Data",
+            });
+        }
+    }
+    for (const overlay of dataOverlays(root)) {
+        const levelsFolder = join(root, overlay, "levels");
+        const files = new Map<string, string>();
+        for (const path of walk(levelsFolder)) {
+            files.set(relative(join(root, overlay), path).replaceAll("\\", "/").toLowerCase(), path);
+        }
+        for (const [name, path] of files) {
+            if (!keep(name)) continue;
+            const scn = files.get(name.replace(/\.tex\.xbx$/, ".scn.xbx"));
+            found.set(name, {
+                name,
+                tex: () => readFileSync(path),
+                scn: () => (scn ? readFileSync(scn) : null),
+                folder: overlay,
+            });
+        }
+    }
+    return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // The first level's texels as RGBA (null: a format not read - palettes).
@@ -104,14 +180,13 @@ export function textureRgba(texture: Texture): Rgba | null {
     return { width, height, data };
 }
 
-// How the dictionary's level uses each texture (its scene beside it: <x>.scn.xbx for <x>.tex.xbx).
-export function usageOf(texFile: string): Map<number, Usage> {
+// How the dictionary's level uses each texture (its scene: <x>.scn.xbx for <x>.tex.xbx).
+export function usageOf(scn: Buffer | null): Map<number, Usage> {
     const usage = new Map<number, Usage>();
-    const scnFile = texFile.replace(/\.tex\.xbx$/i, ".scn.xbx");
-    if (!existsSync(scnFile)) return usage;
+    if (!scn) return usage;
     let parsed: scene.Scene;
     try {
-        parsed = scene.readScene(readFileSync(scnFile), basename(scnFile));
+        parsed = scene.readScene(scn, "scene");
     } catch {
         return usage;
     }
@@ -263,15 +338,15 @@ export function make(game: string, options: MakeOptions): MakeResult {
     const log = options.log ?? (() => {});
     const result: MakeResult = { made: [], maps: 0, skipped: new Map(), classes: new Map() };
     const skip = (why: string) => result.skipped.set(why, (result.skipped.get(why) ?? 0) + 1);
-    for (const texFile of dictionaries(root, options.levels)) {
+    for (const dictionary of dictionaries(root, options.levels)) {
         let textures: Texture[];
         try {
-            textures = readTex(readFileSync(texFile), basename(texFile)).textures;
+            textures = readTex(dictionary.tex(), dictionary.name).textures;
         } catch (error) {
-            log(`${relative(root, texFile)}: not read (${(error as Error).message})`);
+            log(`${dictionary.name}: not read (${(error as Error).message})`);
             continue;
         }
-        const usage = usageOf(texFile);
+        const usage = usageOf(dictionary.scn());
         const images = new Map<string, Rgba>();
         const names = new Map<string, ClassName>();
         const keyed = new Map<string, Texture>();
@@ -322,7 +397,7 @@ export function make(game: string, options: MakeOptions): MakeResult {
             result.classes.set(name, (result.classes.get(name) ?? 0) + 1);
             if (options.pictures && pictures < (options.samples ?? 6) && image.width >= 64) {
                 const picture = sideBySide(image, texels);
-                const folder = join(options.pictures, basename(dirname(texFile)).toLowerCase());
+                const folder = join(options.pictures, levelOf(dictionary.name));
                 mkdirSync(folder, { recursive: true });
                 writeFileSync(
                     join(folder, `${key}_${name}.png`),
@@ -332,7 +407,7 @@ export function make(game: string, options: MakeOptions): MakeResult {
             }
         }
         if (!entries.length) continue;
-        const out = options.out ? join(options.out, `${relative(root, texFile)}${SUFFIX}`) : `${texFile}${SUFFIX}`;
+        const out = join(options.out ?? root, dictionary.folder, `${dictionary.name}${SUFFIX}`);
         mkdirSync(dirname(out), { recursive: true });
         writeFileSync(out, writePbr(entries));
         result.made.push(options.out ? out : relative(root, out));
@@ -342,11 +417,12 @@ export function make(game: string, options: MakeOptions): MakeResult {
     return result;
 }
 
-// Every surface-map file under Data\levels removed (only files that are ours: the magic checked). Returns how many.
+// Every surface-map file under Data\levels and the overlays' levels removed (only files that are ours: the magic checked). Returns how many.
 export function remove(game: string): number {
     const root = gameRoot(game);
     let removed = 0;
-    for (const path of walk(join(root, "Data", "levels"))) {
+    const folders = [join(root, "Data", "levels"), ...dataOverlays(root).map((o) => join(root, o, "levels"))];
+    for (const path of folders.flatMap(walk)) {
         if (!path.toLowerCase().endsWith(`.tex.xbx${SUFFIX}`)) continue;
         try {
             readPbr(readFileSync(path));

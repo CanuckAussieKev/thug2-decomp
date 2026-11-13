@@ -1119,13 +1119,15 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
 
 - **The maps** are made offline from the player's own textures (`tools/pbr_maps/pbr_maps.ts make --game <folder>`, or
   `unpack_game.ts --pbr-maps classical`, recorded so `--restore` removes them): for each level dictionary
-  `Data\levels\<x>\<x>.tex.xbx` (skies left out) a file `<x>.tex.xbx.pbr` beside it (`formats/surface_map_format.h`:
+  `levels\<x>\<x>.tex.xbx` the game reads (skies left out) - the data overlay's copy (`thug2-decomp-data`: the ported
+  levels), else an archive's in `Data\pre`, else the loose one - a file `<x>.tex.xbx.pbr` beside that copy (in the
+  overlay, or in `Data\levels\<x>` for an archive's) (`formats/surface_map_format.h`:
   "T2SM" v1, entries of checksum, the texture's content hash - FNV-1a 64 of its first level as stored -, size, class,
   generator, F0, then RGBA8 texels: normal x along +u, y along +v as 0 - 255 for -1 - 1, roughness, height 0.5 = the
   surface). A map is used only for the texels it was made from: an upscaled or modded texture keeps none until the
   maps are made again (the log says so per dictionary).
 - **Which generator.** The classical one (`classical.ts`): height = the band-passed luma (scales 1-8 texels x size /
-  256, dark is low), normals by a Sobel filter x 4 x the class's bump, roughness = the class's base ± half its range by
+  256, dark is low), normals by a Sobel filter x 3 x the class's bump, roughness = the class's base ± half its range by
   the local grain. CHORD (Ubisoft La Forge, SIGGRAPH Asia 2025) was the model candidate: its weights
   (Hugging Face `Ubisoft/ubisoft-laforge-chord`, `chord_v1.safetensors`) are gated behind accepting Ubisoft's terms and
   licensed for academic or research use only (the Ubisoft Machine Learning License, Research-Only - Copyleft; outputs
@@ -1137,15 +1139,19 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
 - **Which textures** (`classes.ts`, in order): skipped - smaller than 16 texels, environment maps (the sky pictures
   sphere-mapped on), textures used only as a later pass (overlays, light maps), decal passes, blended passes whose
   texture is see-through (> 10% of it under 0.9 alpha, the game's doubled alpha read: 128 is opaque), cut-outs (> 20%
-  under half alpha) unless green (foliage), flat art and text (< 24 distinct 5-bit colours). BO: 755 maps of 1576
-  textures (its two dictionaries); 467 skipped as see-through, 138 overlays, 86 cut-outs, 68 flat art / text.
+  under half alpha) unless green (foliage), flat art and text (< 24 distinct 5-bit colours). The six levels of the
+  in-game check (foun, z_dt, BO, z_ho, sch, AU with their `_net` dictionaries): 2,697 maps of 5,222 textures in 12 s -
+  1,240 skipped as see-through, 444 overlays, 300 cut-outs, 251 flat art / text, 224 decals; classed concrete 987,
+  default 793, stone 449, wood 196, foliage 136, ground 45, tile 26, water 25, metal 23, asphalt 15, glass 2. (A first
+  look in BO had the default class at 0.45 - 0.8 and the normals at 4 x: plastered walls sparkled - raised to 0.55 -
+  0.85, 3 x.)
 - **Roughness** - AI or classical, a generator's roughness is clamped into its texture's class's range; the class from
   the level's materials (a material with an environment pass is shiny: grey - metal, see-through - glass, else glazed
   tile) and the texture's colour statistics (hue, saturation, luma, grain, streaks):
 
   | class | roughness range | base | F0 | bump |
   |---|---|---|---|---|
-  | default (painted) | 0.45 - 0.8 | 0.62 | 0.04 | 0.6 |
+  | default (painted) | 0.55 - 0.85 | 0.72 | 0.04 | 0.5 |
   | asphalt | 0.75 - 0.95 | 0.88 | 0.04 | 1.0 |
   | concrete | 0.7 - 0.95 | 0.85 | 0.04 | 0.8 |
   | stone, brick | 0.6 - 0.95 | 0.8 | 0.04 | 1.3 |
@@ -1162,7 +1168,8 @@ tracing needed; with it the bake's sun (R4's fit) is the light the maps answer t
   dictionary loader (`render_pc/surface_map_load`) reads `<file>.pbr` and attaches each map to its texture (matched by
   checksum and content hash). The map becomes an A8R8G8B8 texture with its mips made on the processor (normals averaged
   and renormalised, roughness widened where they spread - Toksvig: alpha^2 + (1 - |n|) / |n|) and is let go of with its
-  texture. Dictionaries loaded from memory (archives) get none: the maps are for the loose files (an unpacked game).
+  texture. The dictionaries the game loads by name - levels' and models' (`load_tex_dict`, from an archive or a
+  file) - are looked up; those handed over as memory (`load_tex_dict_from_memory`: the asset loader's) get none.
 - **Which draws.** A draw whose program ends by multiplying with the vertex colour - a material's generated shader, the
   single-texture `kTextureVertexX4` / `kTextureConstantAlpha` - not pre-transformed, not points: with a map on its first
   texture it gets `kSurfaceLighting | kSurfaceMap` (+ `kSurfaceLit` when lit by lights with normals); without one, a

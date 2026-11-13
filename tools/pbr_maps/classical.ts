@@ -7,7 +7,7 @@
 //   height    0.5 + sum over scales s of w_s (luma - blur_s(luma)) / (4 sigma) - the band-passed luma (dark is low:
 //             cracks, mortar, gaps), scales 1, 2, 4, 8 texels x size / 256 with weights 0.4, 0.3, 0.2, 0.1, sigma the
 //             band's deviation, clamped to 0 - 1
-//   normal    (-dh/du x k, -dh/dv x k, 1) normalised, the central differences of a Sobel kernel, k = 4 x the class's
+//   normal    (-dh/du x k, -dh/dv x k, 1) normalised, the central differences of a Sobel kernel, k = 3 x the class's
 //             bump (rows grow downward: +v)
 //   roughness the class's base + its half-range x tanh((g - mean g) / deviation of g) / 2, g the local grain (the
 //             blurred |luma - blur_1(luma)|), clamped to the class's range
@@ -98,7 +98,7 @@ export function normalsFrom(heights: Float32Array, width: number, height: number
     const out = new Float32Array(heights.length * 3);
     const at = (x: number, y: number) =>
         heights[(((y % height) + height) % height) * width + (((x % width) + width) % width)]!;
-    const k = 4 * bump;
+    const k = 3 * bump;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const du =
