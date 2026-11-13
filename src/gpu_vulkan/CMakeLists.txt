@@ -52,6 +52,12 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_cel.cpp
     vulkan_water.cpp
     water_shader.cpp
+    # NOT ORIGINAL - the vhs, retro and watercolour art styles (vulkan_style_film.h)
+    vulkan_style_film.cpp
+    vulkan_style_kit.cpp
+    vulkan_style_vhs.cpp
+    vulkan_style_retro.cpp
+    vulkan_style_watercolour.cpp
 )
 # volk: the Vulkan loader, opened at run time (no import library) - public, as the context's header declares Vulkan's
 # functions through it; vulkan_memory_allocator: device memory (VMA, compiled once: cmake/vulkan_libraries.cmake) - public,

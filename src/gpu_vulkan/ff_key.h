@@ -207,7 +207,11 @@ struct VertexKey {
     // fragment shader. Never with pre-transformed positions.
     uint8_t motion = 0;
     uint8_t surface = 0; // (NOT ORIGINAL - rt_pbr) 1: the per-pixel lighting's inputs written (FragmentKey::surface)
-    std::array<uint8_t, 3> spare{}; // (keeps the key free of padding: it is hashed as bytes)
+    // (NOT ORIGINAL - the retro art style, vulkan_style_film.h) 1: the position snapped to a low-resolution grid and
+    // the attributes interpolated affinely on the screen (VertexUniforms::retro). Never with pre-transformed positions;
+    // 0 leaves the key's bytes - and its shader - exactly as without the style.
+    uint8_t retro = 0;
+    std::array<uint8_t, 2> spare{}; // (keeps the key free of padding: it is hashed as bytes)
     std::array<TexCoordKey, kStageCount> coords{};
 
     bool operator==(const VertexKey&) const = default;

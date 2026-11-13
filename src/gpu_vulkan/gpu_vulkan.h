@@ -283,9 +283,9 @@ enum class ArtStyle : uint8_t {
     kToon = 1,        // flat paint, soft shade bands, dark tinted ink (vulkan_style.cpp)
     kComic = 2,       // a skate-zine comic: bold black ink, halftone dots, posterized fills (vulkan_style_looks.cpp)
     kSketch = 3,      // pencil on paper: cross-hatching by darkness, graphite lines, paper grain (vulkan_style_looks.cpp)
-    kVhs = 4,         // (not built in yet)
-    kRetro = 5,       // (not built in yet)
-    kWatercolour = 6, // (not built in yet)
+    kVhs = 4,         // a 90s camcorder tape: fisheye, colour bleed, wobble, REC (vulkan_style_vhs.cpp)
+    kRetro = 5,       // a 32-bit console: snapped vertices, warped textures, few colours (vulkan_style_retro.cpp)
+    kWatercolour = 6, // a wash painting on paper (vulkan_style_watercolour.cpp)
     kNoir = 7,        // a high-contrast duotone, film grain, a vignette (vulkan_style_looks.cpp)
     kThermal = 8,     // a false-colour heat camera (vulkan_style_looks.cpp)
 };

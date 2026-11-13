@@ -50,6 +50,7 @@
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_style.h"
 #include "gpu_vulkan/vulkan_grass.h"
+#include "gpu_vulkan/vulkan_style_film.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_samplers.h"
 #include "gpu_vulkan/vulkan_surface.h"
@@ -360,6 +361,9 @@ bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& k
         fill_motion_uniforms(state, block, &vertex);
     } else if (state.motion.active && fvf_pre_transformed(key.fvf)) {
         scale_pre_transformed(state, &vertex);
+    }
+    if (key.retro != 0U) { // (NOT ORIGINAL - the retro art style's grid: vulkan_style_film.h)
+        vertex.retro = retro_vertex_uniform({.width = block.viewport.width, .height = block.viewport.height});
     }
     const auto copy = [&state](const void* data, std::size_t bytes, VkDescriptorBufferInfo* where) {
         const std::span<const uint8_t> raw(static_cast<const uint8_t*>(data), bytes);
@@ -1020,6 +1024,7 @@ void release_draw_objects(Backend& state)
     release_grass(state); // (NOT ORIGINAL - the grass's: vulkan_grass.h)
     release_cel(state); // (NOT ORIGINAL - cel shading's outlines: vulkan_cel_draw.h)
     release_water(state); // (NOT ORIGINAL - rt_water's: vulkan_water.h)
+    release_film_looks(state); // (NOT ORIGINAL - the vhs / retro / watercolour styles': vulkan_style_film.h)
     state.memory.destroy_image(&state.blank);
     state.memory.destroy_image(&state.present_source);
     state.memory.destroy_image(&state.gamma_source);
@@ -1133,6 +1138,8 @@ long record_draw(Backend& state, const GpuStateBlock& block, const DrawCall& cal
         shaders.vertex.motion = 1;
         shaders.fragment.motion = 1;
     }
+    // NOT ORIGINAL - the retro art style's geometry (vulkan_style_film.h): a 3D draw of a view's world while it is on
+    shaders.vertex.retro = retro_key_bit(shaders.vertex.fvf);
     // NOT ORIGINAL - per-pixel lighting where the draw takes it ([Graphics] rt_pbr, vulkan_surface.h; nothing with it off)
     // - or (added by cel shading, vulkan_cel_draw.h; [Graphics] rt_cel) the light in bands, which takes its place
     const CelDraw cel = cel_draw(state, block, shaders, call);

@@ -23,6 +23,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
+#include "gpu_vulkan/vulkan_style_film.h" // (NOT ORIGINAL hook: the vhs, retro and watercolour styles)
 #include "gpu_vulkan/vulkan_style_looks.h"
 #include "gpu_vulkan/vulkan_style_twin.h"
 #include "gpu_vulkan/vulkan_upscale.h"
@@ -1217,11 +1218,11 @@ bool style_built(ArtStyle style)
     case ArtStyle::kSketch:
     case ArtStyle::kNoir:
     case ArtStyle::kThermal:
-        return true;
-    case ArtStyle::kOff:
-    case ArtStyle::kVhs:         // (another branch builds it: its case goes here)
+    case ArtStyle::kVhs:         // (vulkan_style_film.h)
     case ArtStyle::kRetro:       // (likewise)
     case ArtStyle::kWatercolour: // (likewise)
+        return true;
+    case ArtStyle::kOff:
         break;
     }
     return false;
@@ -1690,6 +1691,12 @@ bool record_style_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     ViewPlan plan;
+    // NOT ORIGINAL hook - the vhs, retro and watercolour styles: their own passes over the planned colour
+    // (vulkan_style_film.h)
+    if (is_film_look(own.settings.style)) {
+        return plan_view(state, view, &plan) &&
+               record_film_pass(state, view, own.settings, {.colour = plan.colour, .shown = plan.shown});
+    }
     VkPipeline composite = VK_NULL_HANDLE;
     if (!plan_view(state, view, &plan) || !ensure_pass_objects(state, plan, &composite)) {
         return false;

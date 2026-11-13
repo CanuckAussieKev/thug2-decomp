@@ -211,6 +211,7 @@ void normalise_vertex(VertexKey& key)
     const bool pre_transformed = fvf_pre_transformed(key.fvf);
     if (pre_transformed) {
         key.motion = 0;
+        key.retro = 0;
     }
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         TexCoordKey& coords = core::at(key.coords, stage);
@@ -478,6 +479,7 @@ std::string describe(const VertexKey& key)
     if (key.surface > kVertexSurfaceInputs) {
         text += "=" + std::to_string(key.surface); // (added by cel shading: its stream or hull)
     }
+    text += key.retro != 0U ? " retro" : "";
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         if ((key.coord_mask & bit(stage)) == 0U) {
             continue;

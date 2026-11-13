@@ -34,6 +34,7 @@
 #ifdef THUG2_VULKAN
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_cel.h"
+#include "gpu_vulkan/style_film_settings.h"
 #endif
 
 namespace app {
@@ -419,6 +420,35 @@ void read_rt_pbr()
          .objects = build_info::fetch_flag(build_info::kGraphics, "rt_pbr_objects", true)});
 }
 
+// NOT ORIGINAL - the vhs, retro and watercolour art styles' knobs (gpu_vulkan/vulkan_style_film.h), with rt_style as the
+// toon's reading set it (the retro geometry is on with it)
+void read_style_film()
+{
+    const render::vulkan::VhsSettings vhs;
+    const render::vulkan::RetroSettings retro;
+    const render::vulkan::WatercolourSettings watercolour;
+    render::vulkan::set_film_settings(
+        {.style = render::vulkan::style_settings().style,
+         .vhs = {.fisheye = ini_float("rt_style_vhs_fisheye", vhs.fisheye),
+                 .bleed = ini_float("rt_style_vhs_bleed", vhs.bleed),
+                 .wobble = ini_float("rt_style_vhs_wobble", vhs.wobble),
+                 .noise = ini_float("rt_style_vhs_noise", vhs.noise),
+                 .scanlines = ini_float("rt_style_vhs_scanlines", vhs.scanlines),
+                 .saturation = ini_float("rt_style_vhs_saturation", vhs.saturation),
+                 .overlay = build_info::fetch_flag(build_info::kGraphics, "rt_style_vhs_overlay", vhs.overlay)},
+         .retro = {.lines = ini_float("rt_style_retro_lines", retro.lines),
+                   .bits = ini_float("rt_style_retro_bits", retro.bits),
+                   .dither = ini_float("rt_style_retro_dither", retro.dither),
+                   .snap = ini_float("rt_style_retro_snap", retro.snap),
+                   .affine = ini_float("rt_style_retro_affine", retro.affine)},
+         .watercolour = {.bleed = ini_float("rt_style_watercolour_bleed", watercolour.bleed),
+                         .flow = ini_float("rt_style_watercolour_flow", watercolour.flow),
+                         .granulation = ini_float("rt_style_watercolour_granulation", watercolour.granulation),
+                         .edges = ini_float("rt_style_watercolour_edges", watercolour.edges),
+                         .paper = ini_float("rt_style_watercolour_paper", watercolour.paper),
+                         .outlines = ini_float("rt_style_watercolour_outlines", watercolour.outlines)}});
+}
+
 // NOT ORIGINAL - an art style, the toon filter (gpu_vulkan/vulkan_style.h): off unless asked for; no ray tracing or HDR
 // needed
 // [Graphics] rt_style_noir_dark / _light: r,g,b; anything else is the default (logged when it isn't empty).
@@ -462,6 +492,7 @@ void read_style()
                                         .focus = ini_float("rt_style_thermal_focus", defaults.focus),
                                         .noir_dark = style_colour("rt_style_noir_dark", defaults.noir_dark),
                                         .noir_light = style_colour("rt_style_noir_light", defaults.noir_light)});
+    read_style_film();
 }
 
 // NOT ORIGINAL - grass (gpu_vulkan/vulkan_grass.h): blades where the level's collision says grass; off unless asked for,
