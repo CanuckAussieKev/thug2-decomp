@@ -16,7 +16,9 @@ foreach ($l in $Levels) {
     $r = & "$PSScriptRoot\run_game.ps1" -Game $Game -Seconds $Seconds -Shot $l -ShotDir $ShotDir -Level $l -Renderer $Renderer -Arch $Arch
     $text = Get-Content $log -ErrorAction SilentlyContinue
     # (case-sensitive: the scripts' SetOnExceptionScript lines aren't errors; the reports: src/platform/crash.h)
-    $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|^INVALID PARAMETER|^PURE VIRTUAL CALL|^ABORT|^BUFFER OVERRUN|^GAME CRT MESSAGE|SELFTEST' |
+    # ("have no name text": a node array whose nodes' names its file didn't give - prefix= Create / Kill missed them,
+    # src/engine/script/node_prefixes.cpp)
+    $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|^INVALID PARAMETER|^PURE VIRTUAL CALL|^ABORT|^BUFFER OVERRUN|^GAME CRT MESSAGE|SELFTEST|have no name text' |
         Where-Object { $_.Line -notmatch 'self-tests: skipped' } | Select-Object -First 3
     $loaded = ($text | Select-String -SimpleMatch "levels\$l\$l.col.xbx" | Measure-Object).Count -gt 0
     # (the script pools once the level is up - start_level.cpp's line; CComponent / CStruct, and any pool full)
