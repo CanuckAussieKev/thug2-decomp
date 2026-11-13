@@ -316,6 +316,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
 | `rt_contract_check` | 0 | Checks every call the renderer makes to ray tracing (meshes, materials, each frame's instances, lights and cameras, every world draw against the frame's record) and logs `rt-check:` lines - violations and a summary every 600 frames; the console's `rt summary` / `rt dump [file]` (the frame record as JSON). `node tools/game/rt_contract.ts` runs it across levels and renderers in a workspace |
+| `tess_log` | 0 | With `[Graphics] rt_tessellation=1`: a line for every mesh smoothed at load - where it is, its size, the triangles split, its level and how far it moved from the original (`rt_tessellation: mesh at ...`) |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
@@ -343,7 +344,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1) |
 | `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
 | `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
-| `rt_shadow_objects` | 0 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too (the skater's own shadow is drawn anyway) |
+| `rt_shadow_objects` | 1 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too, and their own blocky shadows are hidden while the sun's are drawn (a level with no sun keeps them); 0: only the level casts, the skater keeps the game's shadow |
 | `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion - corners, the ground under ledges and around objects darkened by how much of the sky they see |
 | `rt_ao_strength` | 0.6 | How dark full occlusion is: the share of the colour it takes away (0-1) |
 | `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
@@ -355,7 +356,10 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
 | `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
 | `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
-| `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it) |
+| `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it; with `rt_reflection_fresnel=1` 0.5 is the natural amount) |
+| `rt_reflection_fresnel` | 1 | 1: how much a surface reflects depends on the angle you see it at - water and glass show their own colour looking straight at them and turn into mirrors toward grazing angles, windows show their glass instead of the game's painted sky; 0: the same reflection at every angle |
+| `rt_glass_roughness` | 0.05 | How blurry glass reflections are (radians; 0 a perfect mirror) |
+| `rt_glass_reflectance` | 0.2 | How much glass reflects looking straight at it (0.04 is real glass - against the game's bright window textures its reflection all but disappears) |
 | `rt_hdr` | 0 | On Vulkan (no ray tracing needed): 1 draws the world in high dynamic range - brighter than white kept - and maps it back to the screen before the HUD; with the settings below left alone it looks like 0 (the brightest whites a touch softer) |
 | `rt_exposure` | 0 | With `rt_hdr=1`: stops of light (+1 twice as bright, -1 half) |
 | `rt_tonemap` | 0 | With `rt_hdr=1`: 0 keeps the game's colours and rolls off only the brightest toward `rt_white_point`; 1 a filmic curve (ACES) - deeper shadows, brighter mid-tones |
@@ -373,7 +377,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_fog_anisotropy` | 0.3 | How much brighter the fog is looking toward the sun (-0.9-0.9; 0 the same every way) |
 | `rt_fog_steps` | 32 | Samples along each ray (4-128): fewer is faster, more is smoother shafts |
 | `rt_fog_haze` | 1 | In a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone. With `rt_sky_model=1` the haze becomes real air: distant buildings fade toward the sky's colour, it is thicker near the ground, and it is clearly brighter where the sun lights it than in the shade |
-| `rt_fog_haze_density` | 1 | With `rt_sky_model=1`: how thick that air is (1 the default; 2 twice as hazy) |
+| `rt_fog_haze_density` | 0.3 | With `rt_sky_model=1`: how thick that air is (1 three times the default and a lot hazier - far water milky, the view into a low sun whited out) |
 | `rt_fog_haze_height` | 600 | With `rt_sky_model=1`: world units over which the haze thins going up from the level's ground |
 | `rt_sun` | 0 | On Vulkan: 1 draws the sun itself - a bright disc with a glow round it, light spilling past the edges in front of it - where the game shows its sun, instead of the game's sun sprite and lens flare (both hidden). A level with no sun at all keeps the game's |
 | `rt_sun_size` | 1 | How big the sun's disc is (0.25-4) |
@@ -385,6 +389,18 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
 | `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
 | `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
+| `rt_sky` | 0 | On Vulkan (no ray tracing needed): 1 replaces the level's painted sky dome with a real sky - the light of the air scattered once and many times, bright round the sun, pale at the horizon - tinted toward the level's own sky so each level keeps its colours. The haze of `rt_fog_haze` fades distant buildings into this sky |
+| `rt_sky_match` | 0.8 | With `rt_sky`: how far the sky takes the level's own colours (0: the plain model; 1: the old sky's colours band by band) |
+| `rt_clouds` | 0 | With `rt_sky`: 1 adds volumetric clouds, lit by the sun (bright edges toward it), drifting slowly with the game clock; the level's painted cloud cards are left out then |
+| `rt_cloud_coverage` | auto | How much of the sky is cloud: `auto` - as much as the level's own sky had; or 0-1 (0 clear, 1 overcast) |
+| `rt_cloud_speed` | 1 | How fast the clouds drift (0 still; 2 twice as fast) |
+| `rt_cloud_quality` | 1 | 0 quarter resolution (fastest), 1 half, 2 full |
+| `rt_cloud_shadows` | 0 | With `rt_clouds`: 1 lets the clouds' shadows drift over the level |
+| `rt_tessellation` | 0 | Any renderer: 1 rounds off the levels' and objects' faceted curves - quarter pipes, rails, pipes, car bodies, round props - when a level loads (more triangles that follow the curve; flat walls, hard edges, see-through and cut-out surfaces, skaters and peds stay as they are). The skater still rides the original surfaces: the drawn ones stay within `rt_tess_max_deviation` of them. Takes effect from the next level loaded |
+| `rt_tess_level` | 3 | The most pieces a curved edge is cut into (2-8; each mesh gets as many as its curves need, up to this) |
+| `rt_tess_max_deviation` | 2 | How far (world units, an inch each) a smoothed surface may move from the original one - the largest gap between the wheels and what is drawn |
+| `rt_displacement` | 0 | With `rt_tessellation`: how far (world units) a surface's height map raises and lowers it, inside `rt_tess_max_deviation`; thin meshes (rails) never move. Needs height maps - none are there yet (`rt_tess_test_heights=1` shows a test pattern of ridges) |
+| `rt_tess_test_heights` | 0 | With `rt_displacement`: 1 gives every surface a test height map (ridges) - to see the displacement work until real height maps are there |
 | `upscaler` | off | On Vulkan (64-bit build): `dlss` (NVIDIA RTX), `fsr` (AMD FSR - any GPU) or `auto` (DLSS on NVIDIA, else FSR) draws the world at a lower resolution and rebuilds it at the window's - faster, smoother edges; the HUD and menus stay sharp. Multisampling (`msaa`, `AntiAliasing`) is off while it is on. `off` changes nothing |
 | `upscale_quality` | quality | With `upscaler`: how much is drawn - `dlaa` (all of it: anti-aliasing only), `quality` (67%), `balanced` (58%), `performance` (50%), `ultra` (33%) |
 | `ray_reconstruction` | 0 | With `upscaler=dlss` on an RTX GPU: 1 lets DLSS Ray Reconstruction clean up the ray-traced effects' noise (`rt_ao`, `rt_gi`) instead of their own filters |

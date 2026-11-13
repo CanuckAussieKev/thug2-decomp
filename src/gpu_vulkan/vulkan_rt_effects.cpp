@@ -24,6 +24,7 @@
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_rt_history.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
@@ -43,6 +44,7 @@ constexpr uint64_t kReportPipeline = 0x52350004U;
 constexpr uint64_t kReportFirstPass = 0x52350005U;
 constexpr uint64_t kReportImages = 0x52350006U;
 constexpr uint64_t kReportNoMaterials = 0x52350007U;
+constexpr uint64_t kReportSeeded = 0x52350008U; // (added by the first frame: a history seeded - vulkan_rt_history.h)
 constexpr uint64_t kReportIndirect = 0x00000100U; // (added to a key: the indirect light's report)
 
 constexpr float kMaxStrength = 1.0F;
@@ -703,6 +705,7 @@ struct ViewSlot {
     uint64_t frame_drawn = 0;       // Backend::frame when last drawn
     uint64_t passes = 0;            // the frame index of the directions
     Matrix world_to_pixel{};        // the camera of the frame before
+    HistoryCamera camera;           // (added by the first frame) ... as a cut is told by (vulkan_rt_history.h)
     Image* applied = nullptr;       // what the last apply read
     Image* history_written = nullptr;
     uint64_t last_use = 0;
@@ -1765,33 +1768,37 @@ void log_first_pass(const EffectsState& own, const std::array<uint32_t, 4>& rect
             static_cast<double>(own.settings.strength), filtered);
 }
 
-// Steps 2 and 3, the history and the spatial filter, after the rays of the slot's current frame; returns the image the
-// apply reads.
+// Step 2, the history, after the rays of the slot's current frame: written into the slot's current history.
 struct DenoiseInputs {
     bool have_before = false;
     float rays = 1.0F;
     float unit = 1.0F; // the most one ray can bring
 };
-Image* record_denoise(VkCommandBuffer commands, const EffectsState& own, ViewSlot* slot, const PassConstants& constants,
-                      const DenoiseInputs& inputs)
+Image* record_temporal(VkCommandBuffer commands, const EffectsState& own, ViewSlot* slot, const PassConstants& constants,
+                       const DenoiseInputs& inputs)
 {
     const uint32_t now = slot->current;
     const uint32_t before = now ^ 1U;
-    const Image* const guide = &core::at(slot->guides, now);
-    // 2. the history
     PassConstants temporal = constants;
     temporal.matrix = column_major(slot->world_to_pixel);
     temporal.params = {static_cast<float>(kAoMaxHistory), inputs.have_before ? 1.0F : 0.0F, inputs.rays, inputs.unit};
     Image* const history = &core::at(slot->histories, now);
     dispatch(commands, own, own.temporal,
              {.out = history,
-              .guide = guide,
+              .guide = &core::at(slot->guides, now),
               .in = &slot->raw,
               .guide_before = &core::at(slot->guides, before),
               .history = &core::at(slot->histories, before)},
              temporal);
     slot->history_written = history;
-    // 3. the spatial filter
+    return history;
+}
+
+// Step 3, the spatial filter over the history just written; returns the image the apply reads.
+Image* record_filter(VkCommandBuffer commands, const EffectsState& own, ViewSlot* slot, const PassConstants& constants,
+                     const DenoiseInputs& inputs, Image* history)
+{
+    const Image* const guide = &core::at(slot->guides, slot->current);
     Image* result = history;
     PassConstants filter = constants;
     filter.params = {0.0F, 0.0F, inputs.rays, inputs.unit};
@@ -1873,9 +1880,12 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
         return false;
     }
     const bool denoise = effect_denoised(own);
-    const bool have_before = denoise && slot->have_before && slot->frame_drawn + 1 >= state.frame;
-    const uint32_t now = slot->current;
-    const uint32_t before = now ^ 1U;
+    bool have_before = denoise && slot->have_before && slot->frame_drawn + 1 >= state.frame;
+    const bool cut = have_before && camera_cut(slot->camera, view.camera);
+    have_before = have_before && !cut;
+    // (added by the first frame - vulkan_rt_history.h: a history that starts again is seeded with a full history's
+    // frames of rays, so nothing fades in)
+    const uint32_t seeds = seed_frames(denoise, !have_before, kAoMaxHistory);
 
     VkCommandBuffer commands = outside_pass(state);
     const bool timed = ensure_timing(state, own);
@@ -1897,33 +1907,49 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     constants.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                         core::at(view.camera.position, 2), 0.0F};
     const auto rays = static_cast<float>(effect_rays(own));
+    const DenoiseInputs inputs{.have_before = have_before, .rays = rays, .unit = unit};
 
-    // 1. the rays
     PassConstants trace = constants;
     trace.matrix = column_major(to_world);
     const std::array<float, 2> sample = sample_zero_offset(colour->samples, own.standard_samples);
     trace.params = {rgb ? own.gi.distance : own.settings.radius, rays, kOffsetScale, sample.front()};
     core::at(trace.camera, 3) = sample.back();
-    trace.extra = {static_cast<int32_t>(slot->passes % kSequenceWrap), static_cast<int32_t>(rgb ? kGiMask : kAoMask),
-                   0, 0};
-    const Image* const guide = &core::at(slot->guides, now);
-    PassImages trace_images{.scene = true, .depth = depth, .out = &slot->raw, .guide = guide};
-    if (rgb) {
-        trace_images.albedo = &slot->albedo;
-        trace_images.geometry = own.geometry;
-        trace_images.geometry_bytes = own.geometry_bytes;
-        trace_images.lights = lights_span->buffer;
-        trace_images.lights_offset = lights_span->offset;
-        const VkDescriptorSet material_set = state.materials.descriptor_set();
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set,
-                                0, nullptr);
-    }
-    dispatch(commands, own, core::at(own.trace, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U), trace_images,
-             trace);
     Image* result = &slot->raw;
     slot->history_written = nullptr;
+    for (uint32_t seed = 0; seed < seeds; ++seed) {
+        if (seed > 0) {
+            // (the next frame's rays from the same camera: the history just written is the one before)
+            slot->current ^= 1U;
+            ++slot->passes;
+            slot->world_to_pixel = to_pixel;
+        }
+        // 1. the rays
+        trace.extra = {static_cast<int32_t>(slot->passes % kSequenceWrap),
+                       static_cast<int32_t>(rgb ? kGiMask : kAoMask), 0, 0};
+        PassImages trace_images{
+            .scene = true, .depth = depth, .out = &slot->raw, .guide = &core::at(slot->guides, slot->current)};
+        if (rgb) {
+            trace_images.albedo = &slot->albedo;
+            trace_images.geometry = own.geometry;
+            trace_images.geometry_bytes = own.geometry_bytes;
+            trace_images.lights = lights_span->buffer;
+            trace_images.lights_offset = lights_span->offset;
+            const VkDescriptorSet material_set = state.materials.descriptor_set();
+            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1,
+                                    &material_set, 0, nullptr);
+        }
+        dispatch(commands, own, core::at(own.trace, colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U), trace_images,
+                 trace);
+        // 2. the history
+        if (denoise) {
+            DenoiseInputs step = inputs;
+            step.have_before = have_before || seed > 0;
+            result = record_temporal(commands, own, slot, constants, step);
+        }
+    }
+    // 3. the spatial filter
     if (denoise) {
-        result = record_denoise(commands, own, slot, constants, {.have_before = have_before, .rays = rays, .unit = unit});
+        result = record_filter(commands, own, slot, constants, inputs, result);
     }
     depth_barrier(commands, depth, depth->resting, false);
 
@@ -1952,11 +1978,17 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     }
     slot->applied = result;
     slot->world_to_pixel = to_pixel;
+    slot->camera = history_camera(view.camera);
     slot->have_before = denoise;
     slot->frame_drawn = state.frame;
-    slot->current = before;
+    slot->current ^= 1U;
     ++slot->passes;
     ++own.passes;
+    if (seeds > 1 && first_report(state, kReportSeeded + key)) {
+        get_log("vulkan: %s: a history started again (%s) - seeded with %u frames' rays in one (nothing fades in; "
+                "logged once)",
+                effect_name(own), cut ? "a camera cut" : "a new view, a load or the settings", seeds);
+    }
     if (first_report(state, kReportFirstPass + key)) {
         log_first_pass(own, clipped.rect, float_format(colour->format), lights.to_sun.back() > 0.0F);
     }
@@ -2099,7 +2131,7 @@ void set_rt_gi_settings(const RtGiSettings& settings)
         indirect().gi = kept;
         reset_effect_history(indirect());
     }
-    // (the bounce's sun is the level's baked one: render_pc fits it once a world stands still. Set after the shadows'
+    // (the bounce's sun is the level's baked one: render_pc fits it in a new world's first frame. Set after the shadows'
     // settings - renderer_choice's order -, whose own `off` would clear it)
     if (kept.on) {
         rt::set_baked_sun_wanted(true);

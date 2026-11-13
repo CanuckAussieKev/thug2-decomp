@@ -389,9 +389,14 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     case Op::kCollisionProbe:
         return run_collision_probe(runner, command);
     case Op::kCapture: {
-        const std::string failed = sys::screenshot::start_series(command.frames, command.target);
+        const std::string failed =
+            sys::screenshot::start_series(command.frames, command.target, {.after_load = command.after_load});
         if (!failed.empty()) {
             get_fail(runner, failed, false);
+            return true;
+        }
+        if (command.after_load) {
+            get_finish(runner, "armed: from the first frame after the next loading screen");
             return true;
         }
         return false; // (Continue: done once written)

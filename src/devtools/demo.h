@@ -35,8 +35,9 @@ class Source;
 // stick pushed stops it and the controls are theirs (that frame's input too: Start pauses). REC / REPLAY / SAVING
 // VIDEO in the top-right corner (devtools/demo_overlay.h; never in a capture or a video).
 // What makes the run the same each time: the load starts from the same random numbers (both streams and the C
-// runtime's rand seeded from the demo), the main loop's logic is a fixed 1/60 s a frame, every frame is drawn
-// (no frame skipped to catch up, also in the background) and port 0's control data each frame is the recorded one -
+// runtime's rand seeded from the demo), the main loop's logic is a fixed 1/60 s a frame whether the frame is drawn
+// or not (a live recording or playback skips late frames' drawing like any play, so it runs at real speed; a capture or
+// a video draws every frame, however long it takes) and port 0's control data each frame is the recorded one -
 // the input after the keyboard, the controller and the automation channel are added up; once the level is up the
 // random numbers and the clocks are put back as the recording had them. A check track (the skater and the camera
 // every frame from the level's first) is recorded with the input; a playback compares its own with it and logs the

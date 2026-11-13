@@ -27,6 +27,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_ring.h"
+#include "gpu_vulkan/vulkan_rt_history.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "platform/run_log.h"
@@ -44,6 +45,7 @@ constexpr uint64_t kReportFirstPass = 0x52460005U;
 constexpr uint64_t kReportImages = 0x52460006U;
 constexpr uint64_t kReportNoFog = 0x52460007U;
 constexpr uint64_t kReportNoRoom = 0x52460008U;
+constexpr uint64_t kReportSeeded = 0x52460009U; // (added by the first frame: a history seeded - vulkan_rt_history.h)
 
 constexpr float kMaxDensity = 8.0F;
 constexpr float kMaxHeight = 1.0e6F;
@@ -219,6 +221,16 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
     if (b > 0.0) {
         vec3 level = normalize(vec3(direction.x, max(direction.y, AERIAL_LOWEST), direction.z));
         vec3 sky_colour = sky_display(level, fog.sun.xyz);
+        // (the glow toward the sun capped: the haze no brighter than the sky at the same height a quarter turn from
+        // the sun, x (1 + AERIAL_GLOW) - the table's aureole near a low sun whited out a harbour looking into it)
+        vec2 flat_sun = fog.sun.xz;
+        float flat_length = length(flat_sun);
+        if (flat_length > 1e-5) {
+            vec2 across = vec2(-flat_sun.y, flat_sun.x) / flat_length;
+            float horizontal = length(level.xz);
+            vec3 side = vec3(across.x * horizontal, level.y, across.y * horizontal);
+            sky_colour = min(sky_colour, sky_display(side, fog.sun.xyz) * (1.0 + AERIAL_GLOW));
+        }
         int steps = fog.low.w;
         float u = fract(jitter_at(local) + fog.fog_range.w);
         for (int i = 0; i < steps; ++i) {
@@ -478,6 +490,7 @@ struct ViewSlot {
     uint64_t passes = 0; // the frame index of the jitter
     Matrix world_to_pixel{};
     std::array<float, 3> camera{};
+    HistoryCamera shot; // (added by the first frame) the camera of the frame before as a cut is told by
     bool written = false; // a history was written (read_rt_fog_image's)
     uint64_t last_use = 0;
 };
@@ -581,6 +594,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, bool aer
     if (aerial) {
         source += "#define AERIAL\n";
         source += "#define AERIAL_LOWEST " + std::to_string(kFogAerialLowest) + "\n";
+        source += "#define AERIAL_GLOW " + std::to_string(kFogAerialGlow) + "\n";
     }
     if (traces) {
         source += "#extension GL_EXT_ray_query : require\n";
@@ -1256,7 +1270,7 @@ float from_half(uint16_t half)
 // The level's sun: the console's override (rt sun), else the one fitted from the level's bake (engine/gfx/rt_sun.h -
 // the frame record's directional lights are the skater's and the objects', the same two in every level). None while the
 // fit hasn't run yet, or when the bake shows no sun (an indoor level): the fog is then lit by its ambient share alone -
-// no shafts. The fit is asked for while the fog is on (render_pc fits once a world has stood still a moment).
+// no shafts. The fit is asked for while the fog is on (render_pc fits a new world in its first frame).
 void read_sun()
 {
     FogState& own = fog_state();
@@ -1505,20 +1519,30 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         // (no fog in the level: a thin haze whose sunlit light alone is added - shafts mode - rt_fog_haze)
         clipped.fog = {.on = true, .start = 0.0F, .end = kFogHazeEnd, .colour = kFogHazeColour};
     }
-    const bool have_before = slot->have_before && slot->frame_drawn + 1 >= state.frame;
-    const FogBlock block = block_for(clipped, to_world, *slot, have_before, colour->samples);
-    const void* const block_bytes = &block;
-    const std::optional<RingSpan> span =
-        state.ring.copy(std::span(static_cast<const uint8_t*>(block_bytes), sizeof(block)), state.uniform_alignment);
-    if (!span) {
+    bool have_before = slot->have_before && slot->frame_drawn + 1 >= state.frame;
+    const bool cut = have_before && camera_cut(slot->shot, view.camera);
+    have_before = have_before && !cut;
+    // (added by the first frame - vulkan_rt_history.h: a history that starts again is seeded with a full history's
+    // frames of marches, so nothing fades in)
+    const uint32_t seeds = seed_frames(true, !have_before, kFogMaxHistory);
+    FogBlock block = block_for(clipped, to_world, *slot, have_before, colour->samples);
+    const auto block_in_ring = [&state](const FogBlock& written) -> std::optional<VkDescriptorBufferInfo> {
+        const void* const block_bytes = &written;
+        const std::optional<RingSpan> span = state.ring.copy(
+            std::span(static_cast<const uint8_t*>(block_bytes), sizeof(written)), state.uniform_alignment);
+        if (!span) {
+            return std::nullopt;
+        }
+        return VkDescriptorBufferInfo{.buffer = span->buffer, .offset = span->offset, .range = sizeof(written)};
+    };
+    std::optional<VkDescriptorBufferInfo> first_block = block_in_ring(block);
+    if (!first_block) {
         if (first_report(state, kReportNoRoom)) {
             get_log("vulkan: rt_fog: no room in the ring for the pass's block - the fog pass skipped");
         }
         return false;
     }
-    const VkDescriptorBufferInfo block_info{.buffer = span->buffer, .offset = span->offset, .range = sizeof(block)};
-    const uint32_t now = slot->current;
-    const uint32_t before = now ^ 1U;
+    VkDescriptorBufferInfo block_info = *first_block;
     const Extent low = low_extent(clipped.rect);
 
     if (slot->fresh) {
@@ -1551,28 +1575,49 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &ready, 0, nullptr, 0, nullptr);
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
 
-    // 1. the march
     const std::size_t variant = (colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U) | (own.aerial ? 2U : 0U);
-    dispatch(commands, core::at(own.march, variant),
-             {.scene = true,
-              .sky = own.aerial,
-              .depth = depth,
-              .out = &slot->raw,
-              .out_info = &slot->raw_info,
-              .block = block_info},
-             low);
-    // 2. the history
-    const Image* const history = &core::at(slot->histories, now);
-    const Image* const history_info = &core::at(slot->history_info, now);
-    dispatch(commands, own.temporal,
-             {.out = history,
-              .out_info = history_info,
-              .in = &slot->raw,
-              .in_info = &slot->raw_info,
-              .history = &core::at(slot->histories, before),
-              .history_info = &core::at(slot->history_info, before),
-              .block = block_info},
-             low);
+    const Image* history = nullptr;
+    const Image* history_info = nullptr;
+    for (uint32_t seed = 0; seed < seeds; ++seed) {
+        if (seed > 0) {
+            // (the next frame's march from the same camera: the history just written is the one before)
+            slot->current ^= 1U;
+            ++slot->passes;
+            slot->world_to_pixel = to_pixel;
+            slot->camera = view.camera.position;
+            block = block_for(clipped, to_world, *slot, true, colour->samples);
+            const std::optional<VkDescriptorBufferInfo> next = block_in_ring(block);
+            if (!next) {
+                slot->current ^= 1U; // (no room for more: the history so far is the frame's)
+                --slot->passes;
+                break;
+            }
+            block_info = *next;
+        }
+        const uint32_t now = slot->current;
+        const uint32_t before = now ^ 1U;
+        // 1. the march
+        dispatch(commands, core::at(own.march, variant),
+                 {.scene = true,
+                  .sky = own.aerial,
+                  .depth = depth,
+                  .out = &slot->raw,
+                  .out_info = &slot->raw_info,
+                  .block = block_info},
+                 low);
+        // 2. the history
+        history = &core::at(slot->histories, now);
+        history_info = &core::at(slot->history_info, now);
+        dispatch(commands, own.temporal,
+                 {.out = history,
+                  .out_info = history_info,
+                  .in = &slot->raw,
+                  .in_info = &slot->raw_info,
+                  .history = &core::at(slot->histories, before),
+                  .history_info = &core::at(slot->history_info, before),
+                  .block = block_info},
+                 low);
+    }
     // 3. the composite
     record_composite(commands, composite, colour,
                      {.depth = depth, .in = history, .in_info = history_info, .block = block_info}, clipped.rect);
@@ -1593,12 +1638,18 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     }
     slot->world_to_pixel = to_pixel;
     slot->camera = view.camera.position;
+    slot->shot = history_camera(view.camera);
     slot->have_before = true;
     slot->written = true;
     slot->frame_drawn = state.frame;
-    slot->current = before;
+    slot->current ^= 1U;
     ++slot->passes;
     ++own.passes;
+    if (seeds > 1 && first_report(state, kReportSeeded)) {
+        get_log("vulkan: rt_fog: a history started again (%s) - seeded with %u frames' marches in one (nothing fades "
+                "in; logged once)",
+                cut ? "a camera cut" : "a new view, a load or the settings", seeds);
+    }
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_fog: the first fog pass (%ux%u at 1/%u, %u steps, %s, fog %.0f - %.0f, density %.2f, "
                 "height %.0f, anisotropy %.2f, %s)",

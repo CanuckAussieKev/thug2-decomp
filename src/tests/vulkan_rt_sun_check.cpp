@@ -1345,14 +1345,26 @@ double sky_luma_toward(const Vec3& direction)
     const double azimuth = std::acos(
         std::clamp(((x_of(level) * x_of(to_sun())) + (z_of(level) * z_of(to_sun()))) / horizontal, -1.0, 1.0));
     const double elevation = std::asin(std::clamp(y_of(level), -1.0, 1.0));
-    const render::rt::Dir model_dir{std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
-                                    std::cos(elevation) * std::sin(azimuth)};
     const render::rt::Dir model_sun = render::rt::sun_direction_at(std::asin(y_of(to_sun())));
-    const Rgb radiance = render::rt::sky_radiance(model_dir, model_sun, kSkyReference);
-    Rgb display{};
+    const auto display_at = [&](double toward) {
+        const render::rt::Dir model_dir{std::cos(elevation) * std::cos(toward), std::sin(elevation),
+                                        std::cos(elevation) * std::sin(toward)};
+        const Rgb radiance = render::rt::sky_radiance(model_dir, model_sun, kSkyReference);
+        Rgb display{};
+        for (std::size_t channel = 0; channel < display.size(); ++channel) {
+            core::at(display, channel) =
+                std::pow(core::at(radiance, channel) * render::rt::sky_exposure(), 1.0 / render::rt::kDisplayGamma);
+        }
+        return display;
+    };
+    // (the glow toward the sun capped as the march caps it: no brighter than a quarter turn from the sun at the same
+    // height x (1 + kFogAerialGlow))
+    constexpr double kQuarterTurn = 1.5707963267948966;
+    Rgb display = display_at(azimuth);
+    const Rgb side = display_at(kQuarterTurn);
     for (std::size_t channel = 0; channel < display.size(); ++channel) {
-        core::at(display, channel) =
-            std::pow(core::at(radiance, channel) * render::rt::sky_exposure(), 1.0 / render::rt::kDisplayGamma);
+        core::at(display, channel) = std::min(core::at(display, channel),
+                                              core::at(side, channel) * (1.0 + static_cast<double>(vk::kFogAerialGlow)));
     }
     return luma(display);
 }

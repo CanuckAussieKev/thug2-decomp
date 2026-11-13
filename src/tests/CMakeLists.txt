@@ -59,6 +59,14 @@ if(TARGET thug2_base)
     target_link_libraries(thug2_rt_scene_check PRIVATE thug2_base)
 endif()
 
+# NOT ORIGINAL - thug2_tess_check.exe: the smoothed curves' tessellation (engine/gfx/smooth_tess.h) on a faceted
+# cylinder, a rail and a quarter pipe against their analytic surfaces - no cracks, the cap, displacement
+# (src/tests/tess_check.cpp).
+if(TARGET thug2_base)
+    add_executable(thug2_tess_check tess_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/smooth_tess.cpp")
+    target_link_libraries(thug2_tess_check PRIVATE thug2_base)
+endif()
+
 # NOT ORIGINAL - thug2_crash_check.exe: the game's crash report (src/platform/crash.h) caused on purpose, a few calls
 # deep, into thug2-decomp.log next to the check (src/tests/crash_check.cpp; `thug2_crash_check [kind]`).
 if(TARGET thug2_platform)
@@ -216,6 +224,16 @@ if(TARGET thug2_gpu_vulkan)
     add_executable(thug2_vulkan_rt_sun_check vulkan_rt_sun_check.cpp)
     target_link_libraries(thug2_vulkan_rt_sun_check PRIVATE thug2_gpu_vulkan sdl3)
     target_compile_definitions(thug2_vulkan_rt_sun_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# NOT ORIGINAL - thug2_vulkan_rt_sky_check.exe: the Vulkan Gpu's sky - the atmosphere's tables against rt_sky.h's
+# multiple-scattering integrals, the level's sky analysed and matched, the composite against the sky-view table, the
+# clouds' noise and march against engine/gfx/rt_clouds.h's processor twins, their temporal pass converging without
+# ghosts (src/tests/vulkan_rt_sky_check.cpp; --perf: the cost at 1920 x 1080). No ray tracing needed.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_rt_sky_check vulkan_rt_sky_check.cpp)
+    target_link_libraries(thug2_vulkan_rt_sky_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_rt_sky_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
 # NOT ORIGINAL - thug2_vulkan_rt_materials_check.exe: ray tracing's material table and bindless textures

@@ -134,7 +134,9 @@ void install_vulkan()
          .strength = ini_float("rt_shadow_strength", render::vulkan::RtShadowSettings{}.strength),
          .softness = ini_float("rt_shadow_softness", render::vulkan::RtShadowSettings{}.softness),
          .rays = static_cast<unsigned>(std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_rays", 4))),
-         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", false),
+         // (1 by default since the water and glass work: the skater's own projected shadow - a blocky 256 x 256
+         // texture - is hidden while the ray-traced one is drawn; rt::object_shadows_replaced)
+         .objects = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_objects", true),
          .covered = build_info::fetch_flag(build_info::kGraphics, "rt_shadow_covered", false),
          .sky_rays = static_cast<unsigned>(
              std::max(1, build_info::get_int(build_info::kGraphics, "rt_shadow_sky_rays",
@@ -163,7 +165,10 @@ void install_vulkan()
     // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h): likewise
     render::vulkan::set_rt_reflection_settings(
         {.on = build_info::fetch_flag(build_info::kGraphics, "rt_reflections", false),
-         .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength)});
+         .strength = ini_float("rt_reflection_strength", render::vulkan::RtReflectionSettings{}.strength),
+         .fresnel = build_info::fetch_flag(build_info::kGraphics, "rt_reflection_fresnel", true),
+         .glass_roughness = ini_float("rt_glass_roughness", render::vulkan::kRtGlassRoughness),
+         .glass_reflectance = ini_float("rt_glass_reflectance", render::vulkan::kRtGlassReflectance)});
     // NOT ORIGINAL - HDR rendering and tone mapping (gpu_vulkan/vulkan_hdr.h): off unless asked for; no ray tracing
     // needed. The grading table's path is the game folder's unless it is a full one.
     {
@@ -220,6 +225,32 @@ void install_vulkan()
         sun.place_game = std::string(place.data()) != "bake";
         render::vulkan::set_rt_sun_settings(sun);
     }
+    // NOT ORIGINAL - a modern sky: the atmosphere and volumetric clouds (gpu_vulkan/vulkan_rt_sky_pass.h): off unless
+    // asked for; no ray tracing needed. rt_cloud_coverage: auto (the level's own sky) or 0 - 1.
+    {
+        constexpr std::size_t kLongest = 16;
+        std::array<char, kLongest> coverage{};
+        build_info::fetch_text(build_info::kGraphics, "rt_cloud_coverage", "auto", coverage.data(), coverage.size());
+        float cover = render::vulkan::kRtCloudCoverageAuto;
+        const std::string cover_text(coverage.data());
+        if (!cover_text.empty() && cover_text != "auto") {
+            char* end = nullptr;
+            const double parsed = std::strtod(cover_text.c_str(), &end);
+            if (end != cover_text.c_str() && std::isfinite(parsed)) {
+                cover = static_cast<float>(parsed);
+            } else {
+                get_log("[Graphics] rt_cloud_coverage=%s isn't auto or 0 - 1 - auto used", cover_text.c_str());
+            }
+        }
+        render::vulkan::set_rt_sky_settings(
+            {.on = build_info::fetch_flag(build_info::kGraphics, "rt_sky", false),
+             .match = ini_float("rt_sky_match", render::vulkan::kRtSkyMatch),
+             .clouds = build_info::fetch_flag(build_info::kGraphics, "rt_clouds", false),
+             .coverage = cover,
+             .speed = ini_float("rt_cloud_speed", 1.0F),
+             .quality = static_cast<unsigned>(std::max(0, build_info::get_int(build_info::kGraphics, "rt_cloud_quality", 1))),
+             .cloud_shadows = build_info::fetch_flag(build_info::kGraphics, "rt_cloud_shadows", false),
+             .hdr = build_info::fetch_flag(build_info::kGraphics, "rt_hdr", false)});
     // NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): off unless asked for; DLSS / FSR from beside the exe
     {
         constexpr std::size_t kLongest = 32;
