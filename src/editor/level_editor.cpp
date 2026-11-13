@@ -42,6 +42,7 @@
 #include "editor/level_editor_shell.h"
 #include "editor/level_editor_split.h"
 #include "editor/level_editor_playtest.h"
+#include "game/front_end/front_end.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_ruler.h"
 #include "editor/level_editor_scale.h"
@@ -368,6 +369,10 @@ bool cfunc_start(script::Struct* /*params*/, script::Context /*context*/)
     }
     if (editor_session().active_) {
         return true;
+    }
+    // (the pause menu's live pause - game/front_end/live_pause.h - becomes the frozen pause the editor's tools expect)
+    if (modules::FrontEnd* front_end = modules::front_end_instance().get(); front_end && front_end->is_live_paused()) {
+        front_end->get_pause_game(true);
     }
     // The level becomes its edited copy (its saved layout put in place if it wasn't) - never in a network session or a
     // career-type mode (the player told why on screen: the pause menu stays).

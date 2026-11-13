@@ -71,7 +71,12 @@ struct FrontEnd final : public PartUnit {
     [[nodiscard]] const std::array<std::unique_ptr<FrontEndInputHandler>, 2>& pad_listeners() const { return pad_listeners_; }
     std::array<int, 2>& device_server_map() { return device_server_map_; }
     [[nodiscard]] const std::array<int, 2>& device_server_map() const { return device_server_map_; }
+    // The world frozen: the original's pause (get_pause_game).
     [[nodiscard]] bool is_halted() const { return is_halted_; }
+    // NOT ORIGINAL - the game paused, frozen or live (the live pause - game/front_end/live_pause.h: the pause menu up
+    // with the world running): what the tools that wait for or refuse the pause menu ask.
+    [[nodiscard]] bool is_paused() const { return is_halted_ || live_paused_; }
+    [[nodiscard]] bool is_live_paused() const { return live_paused_; }
     void set_hold_repeat_ms(int value) { hold_repeat_ms_ = value; }
     void set_auto_repeat_rate(int value) { auto_repeat_rate_ = value; }
     std::array<PadMapping, 2>& pad_mappings() { return pad_mappings_; }
@@ -96,6 +101,7 @@ private:
     bool check_startup_script_;  // +0x15C: the first input frame looks at the global below once
     bool startup_script_on_;     // +0x15D
     uint32_t startup_script_id_; // +0x160: the spawned script's unique id
+    bool live_paused_ = false;   // NOT ORIGINAL: the live pause is on (pause_live)
 
 public:
 
@@ -137,6 +143,9 @@ public:
     static void set_analog_stick_active_for_menus(bool active);
     // 0x0054F960: pauses or unpauses the game (controllers' motors, scripts, skaters, the object updates...).
     THUG2_API void get_pause_game(bool pause);
+    // NOT ORIGINAL - the live pause (game/front_end/live_pause.h) on or off: on, the local skaters frozen and the menus
+    // taking the pad, the world left running; off, the skaters unfrozen. get_pause_game ends it first.
+    void pause_live(bool pause);
     // 0x0054FD00: each handler moved to the handler list of the controller device_server_map_ names.
     void update_input_mappings();
 

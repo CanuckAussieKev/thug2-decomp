@@ -53,7 +53,7 @@ EditStart& edit_start()
 void edit_update(modules::FrontEnd* front_end)
 {
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
-    const bool paused = (front_end != nullptr) && front_end->is_halted();
+    const bool paused = (front_end != nullptr) && front_end->is_paused();
     if (edit_start().edit_ == Edit::kWaitLevel) {
         edit_start().edit_frames_ = in_level && !paused ? edit_start().edit_frames_ + 1 : 0;
         if (edit_start().edit_frames_ < kLevelSettleFrames) {

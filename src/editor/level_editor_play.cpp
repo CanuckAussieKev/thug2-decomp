@@ -146,7 +146,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed = (down && play_start().key_up_) || level_editor_play_state().return_asked_;
     play_start().key_up_ = !down;
     level_editor_play_state().return_asked_ = false;
-    const bool paused = (front_end != nullptr) && front_end->is_halted();
+    const bool paused = (front_end != nullptr) && front_end->is_paused();
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     // Esc while playing from here goes back to the editor, as editors' play modes do (Unity / Unreal: Esc stops
     // playing), rather than to the pause menu: the game doesn't get the key (takes_pause_key), the game is paused

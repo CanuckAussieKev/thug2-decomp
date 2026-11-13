@@ -737,7 +737,7 @@ namespace internal {
 // menu has the focus but none of the focused menus takes pad events (a menu still coming in).
 bool menus_ignore_pad(modules::FrontEnd* front_end)
 {
-    if (!in_front_end() && !(front_end && front_end->is_halted())) {
+    if (!in_front_end() && !(front_end && front_end->is_paused())) {
         return false;
     }
     if (menu_input_blocked(front_end)) {
@@ -885,7 +885,8 @@ void write_status(Runner& runner)
     status.ready = runner.ready;
     status.main_menu_ = runner.menu_settled_;
     auto* front_end = modules::front_end_instance().get();
-    status.paused = (front_end != nullptr) && front_end->is_halted();
+    status.paused = (front_end != nullptr) && front_end->is_paused();
+    status.live_paused = (front_end != nullptr) && front_end->is_live_paused();
     status.loading = loading_screen_up();
     const uint32_t load = current_load_state();
     if (load == 0U) {

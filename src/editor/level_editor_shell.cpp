@@ -204,7 +204,7 @@ bool game_ready(modules::FrontEnd* front_end)
         return true;
     }
     // (the data overlay's main menu has main_menu_skate_now, the game's own main_menu_exit)
-    const bool menu_up = !((front_end != nullptr) && front_end->is_halted()) &&
+    const bool menu_up = !((front_end != nullptr) && front_end->is_paused()) &&
                          (is_script("main_menu_skate_now") || is_script("main_menu_exit"));
     shell_state().settle_frames = menu_up ? shell_state().settle_frames + 1 : 0;
     return shell_state().settle_frames >= kFrontEndSettleFrames;
@@ -825,7 +825,7 @@ void tick_frame(modules::FrontEnd* front_end)
     case Phase::kStart:
         break;
     case Phase::kLeaving: {
-        const bool paused = (front_end != nullptr) && front_end->is_halted();
+        const bool paused = (front_end != nullptr) && front_end->is_paused();
         if (level_editor::live_now() || !paused) {
             if (state.phase_frames > kLeaveMostFrames) {
                 show_start("The editor didn't close - " + state.wanted.title + " not opened");

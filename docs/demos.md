@@ -136,6 +136,8 @@ before the change 0.99 - every playback identical to the recording (1283 check p
   from anywhere but a fresh start (seen: an ollie from a held X lost - the button's press time came from the run before).
   Record again to get one that plays the same from the menu.
 - A frame one run didn't draw (no camera noted) isn't counted as a difference: only the skater is compared there.
+- While a demo records or plays the pause menu freezes the game as the original did, whatever `[features] live_pause`
+  says (`src/game/front_end/live_pause.h`): a run recorded with one pause and played back with the other would part.
 - Keys our own tools read directly aren't in the demo (F7 BMX, F8 restart tester, F9 free camera, the console, mouse
   clicks on menus): using them while recording makes the playback differ.
 - Only port 0 is recorded (single player).

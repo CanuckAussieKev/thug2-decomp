@@ -50,6 +50,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/sys/stopwatch.h"
 #include "formats/demo_format.h"
+#include "game/front_end/live_pause.h"
 #include "game/front_end/front_end.h"
 #include "game/front_end/start_level.h"
 #include "game/rider/skater_state.h"
@@ -353,7 +354,7 @@ CheckPoint point_now(uint32_t frame)
 {
     CheckPoint point;
     point.frame = frame;
-    if (state().front_end != nullptr && state().front_end->is_halted()) {
+    if (state().front_end != nullptr && state().front_end->is_paused()) {
         point.flags |= demo_format::kPaused;
     }
     if (auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater))) {
@@ -453,7 +454,7 @@ void trim_paused_end()
 {
     State& run = state();
     Demo& demo = run.demo;
-    if (!(run.front_end != nullptr && run.front_end->is_halted()) || run.last_running + 1 >= demo.inputs.size()) {
+    if (!(run.front_end != nullptr && run.front_end->is_paused()) || run.last_running + 1 >= demo.inputs.size()) {
         return;
     }
     const auto frames = static_cast<size_t>(run.last_running) + 1;
@@ -902,7 +903,7 @@ void frame_ending(bool rendering)
         if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
             run.demo.checks.push_back(point_now(now));
         }
-        if (!(run.front_end != nullptr && run.front_end->is_halted())) {
+        if (!(run.front_end != nullptr && run.front_end->is_paused())) {
             run.last_running = now;
         }
     } else {
@@ -946,7 +947,7 @@ void check_key(modules::FrontEnd* front_end)
     }
     if (run.phase == Phase::kRecording || run.phase == Phase::kPlaying) {
         stop_now();
-    } else if (run.phase == Phase::kOff && !(front_end != nullptr && front_end->is_halted())) {
+    } else if (run.phase == Phase::kOff && !(front_end != nullptr && front_end->is_paused())) {
         const std::string result = record_now("");
         if (!result.empty()) {
             get_log("demo: F6 - %s", result.c_str());
@@ -961,9 +962,12 @@ void menu_tick(modules::FrontEnd* front_end, bool game_owned)
     if (!game_owned) {
         check_key(front_end);
     }
+    // (a demo's pause is the original freeze, whatever [features] live_pause says - game/front_end/live_pause.h: a
+    // recording and its playback then pause alike)
+    modules::live_pause::demo_running() = run.phase != Phase::kOff;
     // -demo: once the main menu has been up a moment (its scripts loaded), as -level starts its level
     if (run.phase == Phase::kPlayArmed && run.from_command_line) {
-        const bool menu = render::current_level() == 0 && !(front_end != nullptr && front_end->is_halted()) &&
+        const bool menu = render::current_level() == 0 && !(front_end != nullptr && front_end->is_paused()) &&
                           script::resolve_symbol(checksums::hash_from_text("main_menu_skate_now")) != nullptr;
         run.menu_frames = menu ? run.menu_frames + 1 : 0;
         if (run.menu_frames >= kMenuSettleFrames) {

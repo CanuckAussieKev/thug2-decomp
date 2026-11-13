@@ -108,7 +108,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     the share of pixels that flicker (>= 2% of the steps) per region, the mean difference, and a heat map. With the
     camera still only animation changes pixels; with a slow drift surfaces change a little and z-fighting / crawling
     ones a lot.
-  - Status: frames, ready, main_menu, where (front_end / level), paused, loading, level, game_mode, focus (the focused
+  - Status: frames, ready, main_menu, where (front_end / level), paused (the pause menu up), live_paused (the world running behind it), loading, level, game_mode, focus (the focused
     elements' ids), selected (the focused menus' items), lines_read / lines_done, current, last, result, errors,
     refusals. Unknown ids show as 0x<hex>: name them in a `waitfor` once and they're shown by name.
   - **Never online:** `run` refuses the network / online scripts (every script of the game's net files, and names with

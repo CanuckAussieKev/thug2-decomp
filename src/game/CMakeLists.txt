@@ -15,6 +15,7 @@ add_library(thug2_game STATIC
     park_editing/gap_slots.cpp
     park_editing/piece_menu.cpp
     front_end/front_end.cpp
+    front_end/live_pause.cpp
     front_end/menu_pad_event.cpp
     front_end/start_level.cpp
     commands/career_complete.cpp

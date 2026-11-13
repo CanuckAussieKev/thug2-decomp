@@ -286,6 +286,9 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     const char* paused = "";
     if (front_end) {
         paused = front_end->is_halted() ? "yes" : "no";
+        if (front_end->is_live_paused()) {
+            paused = "live"; // (the pause menu up, the world running - game/front_end/live_pause.h)
+        }
     }
     game.fields.push_back({.key = "paused", .value = paused});
     game.fields.push_back({.key = "loading screen", .value = loading ? "yes" : "no"});
