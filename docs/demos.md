@@ -88,11 +88,15 @@ real time only decides whether a frame is drawn or skipped to catch up. A demo p
    (the stopwatch's vblanks and the game clock - `frame_clock::set_vblanks_since_reset`, `set_game_clock_snapshot`) are
    noted; a playback puts them back at the same frame, so anything that reads the time or draws a random number sees
    the same values.
-4. **Every frame drawn.** While a demo records or plays, no frame is skipped and the game keeps drawing in the
-   background (`keeps_every_frame`, `draws_unfocused`; the main loop then draws a late frame too -
-   `engine/sys/mlp.cpp`): the same frames run the same draw-side code, and a capture has a picture for every frame.
-   (Before that last change a ray-traced run left ~10 frames of 1192 undrawn - the skater's track was still identical,
-   only the camera went unnoted on those frames.)
+4. **Real speed live, every frame when rendered.** A live recording or playback (RECORD DEMO, F6, PLAY DEMO,
+   `-record`, `-demo`) runs at the game's own pace like any play: a frame that is late isn't drawn, so the game keeps
+   up with real time however long the picture takes. That changes nothing in the run - the logic is one fixed step a
+   loop whether the frame is drawn or not. A tool's playback (`-demo-capture`, `-demo-video`, SAVE AS VIDEO) renders
+   the run instead: no frame is skipped (`keeps_every_frame`; the main loop then draws a late frame too -
+   `engine/sys/mlp.cpp`) and a capture or a video has a picture for every frame - slower than real time when the
+   frames are heavy, but the video plays at the recorded game time. The game keeps drawing in the background while a
+   demo runs (`draws_unfocused`). When a recording or playback ends the log gives its pace (`demo: ... pace - game s
+   in real s`, and the frames not drawn).
 5. **The skater.** The profile (appearance, trick style, specials, its info and stats) is saved with the demo and put
    back before a playback if the current one differs.
 
@@ -115,6 +119,13 @@ identical check tracks over every frame. What could make them differ, and so wou
 anything the game updates only when it is drawn (animation or particles advanced by the renderer), culling or LOD that
 feeds back into the logic, and frames left undrawn (a device reset when the window comes back to the front logs
 "wasn't drawn" during a capture).
+
+Live recording and playback at real speed (2026-11-13, BO, 2560x1440 asked - a 1920x1080 window -, Vulkan, `ray_tracing=1`
+and every `rt_*` effect, MSAA 8): before, every frame was drawn and the game ran slow - 0.61 game s a real second while
+recording, 0.52 while playing back (normal play with the same settings: 0.97). Now: recording 0.97 (481 of 1283 frames
+not drawn), playback 0.89 / 0.95 (effects on: 230 / 561 not drawn) and 1.00 (effects off: 533 not drawn), the demo made
+before the change 0.99 - every playback identical to the recording (1283 check points). Saved as a video it took 102 s
+(every frame drawn) and the video has 1284 frames at 60 a second: the run's 21.4 s.
 
 ## Limits
 
