@@ -219,6 +219,16 @@ void march_aerial(ivec2 q, ivec2 local, vec3 direction, float distance)
     if (b > 0.0) {
         vec3 level = normalize(vec3(direction.x, max(direction.y, AERIAL_LOWEST), direction.z));
         vec3 sky_colour = sky_display(level, fog.sun.xyz);
+        // (the glow toward the sun capped: the haze no brighter than the sky at the same height a quarter turn from
+        // the sun, x (1 + AERIAL_GLOW) - the table's aureole near a low sun whited out a harbour looking into it)
+        vec2 flat_sun = fog.sun.xz;
+        float flat_length = length(flat_sun);
+        if (flat_length > 1e-5) {
+            vec2 across = vec2(-flat_sun.y, flat_sun.x) / flat_length;
+            float horizontal = length(level.xz);
+            vec3 side = vec3(across.x * horizontal, level.y, across.y * horizontal);
+            sky_colour = min(sky_colour, sky_display(side, fog.sun.xyz) * (1.0 + AERIAL_GLOW));
+        }
         int steps = fog.low.w;
         float u = fract(jitter_at(local) + fog.fog_range.w);
         for (int i = 0; i < steps; ++i) {
@@ -581,6 +591,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, bool aer
     if (aerial) {
         source += "#define AERIAL\n";
         source += "#define AERIAL_LOWEST " + std::to_string(kFogAerialLowest) + "\n";
+        source += "#define AERIAL_GLOW " + std::to_string(kFogAerialGlow) + "\n";
     }
     if (traces) {
         source += "#extension GL_EXT_ray_query : require\n";

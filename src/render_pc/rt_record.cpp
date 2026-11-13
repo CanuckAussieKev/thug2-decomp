@@ -11,12 +11,14 @@
 #include <cstring>
 #include <ratio>
 #include <span>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "base/core/no_destroy.h"
 #include "base/maths/mat4.h"
 #include "engine/gfx/engine_parts.h"
@@ -31,6 +33,7 @@
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/memory/arena_alloc.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "render_pc/bitmap_texture.h"
 #include "render_pc/geom.h"
@@ -47,6 +50,8 @@ constexpr uint32_t kMeshShown = 0x40;           // a mesh's flags: drawn (the sc
 constexpr uint32_t kMeshHidden = 0x210;         // ... and not with these
 constexpr uint32_t kVertexBufferShare = 4;      // a vertex buffer's flags: a share of an arena's buffer
 constexpr uint32_t kPassTransparent = 0x40;     // a material's first pass: drawn with the transparent meshes
+constexpr uint32_t kPassUvWibble = 0x1;         // a pass's flags: its texture matrix from its UV wibble (pc_material.cpp)
+constexpr uint32_t kPassTextureAnim = 0x800;    // ... its texture from the material's texture animation
 constexpr uint32_t kPrimitiveList = 4;          // a mesh's primitive type: a triangle list
 constexpr uint32_t kPrimitiveStrip = 5;         // ... a strip
 constexpr uint32_t kFormatIndex32 = 102;        // an index buffer's format: 32-bit indices
@@ -142,7 +147,8 @@ bool same_material(const rt::Material& a, const rt::Material& b)
 {
     return a.texture == b.texture && a.uv_set == b.uv_set && a.blend == b.blend && a.alpha_ref == b.alpha_ref &&
            a.colour == b.colour && a.flags == b.flags && a.address_u == b.address_u && a.address_v == b.address_v &&
-           a.filter == b.filter && a.reflectivity == b.reflectivity && a.environment_pass == b.environment_pass;
+           a.filter == b.filter && a.reflectivity == b.reflectivity && a.environment_pass == b.environment_pass &&
+           a.reflection_class == b.reflection_class && a.reflection_mask == b.reflection_mask;
 }
 
 // The vertex buffer a mesh was last drawn from (MeshRef::render: the current one, then the next is current).
@@ -248,6 +254,45 @@ uint32_t sampler_address(uint32_t mode)
     }
 }
 
+// What kind of reflective surface a material is, from how the game draws it (its environment-mapped pass `env`) - read
+// off the levels' own materials ([debug] rt_reflection_materials=1 logs them; AU, BA):
+// - water: a pass with a UV wibble or a texture animation (pass flags 0x1 / 0x800, or the material's texture
+//   animation) - the game's moving water textures;
+// - glass: the environment pass lerped in by the first pass's alpha (blend modes 12 / 13 - the reflection painted into
+//   the clear parts of a texture: AU's and BA's windows in their wall textures, 8A6663D9 on the user's glass building),
+//   or a first pass that is seen through (the transparent flag 0x40, or an alpha / fixed blend: panes over a frame,
+//   and the single-pass sheens drawn over windows);
+// - shiny: the rest - an opaque surface with a reflection added or blended over it (metal, paint, polished floors).
+// The mask: modes 13 / 12 mirror only where the first pass is clear / opaque (rt::kReflectWhereBase*), as the game's own
+// pixel shader lerps the environment in (render_pc/pixel_shaders.cpp).
+void classify_reflective(const MaterialRef* material, uint32_t env, rt::Material* out)
+{
+    const uint32_t passes = std::min(material->pass_count(), kPassCount);
+    bool moving = material->texture_anim() != nullptr;
+    for (uint32_t pass = 0; pass < passes; ++pass) {
+        moving = moving || (core::at(material->pass_flags(), pass) & (kPassUvWibble | kPassTextureAnim)) != 0U ||
+                 core::at(material->uv_wibble(), pass) != nullptr;
+    }
+    const uint32_t env_mode = core::at(material->blend_modes(), env) & static_cast<uint32_t>(kBlendModeMask);
+    const uint32_t first_mode = core::at(material->blend_modes(), 0) & static_cast<uint32_t>(kBlendModeMask);
+    const bool masked = env > 0 && (env_mode == static_cast<uint32_t>(kBlendModeLerpPrevious) ||
+                                    env_mode == static_cast<uint32_t>(kBlendModeLerpFromPrevious));
+    const bool see_through = (core::at(material->pass_flags(), 0) & kPassTransparent) != 0U ||
+                             first_mode == static_cast<uint32_t>(kBlendModeAlpha) ||
+                             first_mode == static_cast<uint32_t>(kBlendModeFixBlend);
+    if (moving) {
+        out->reflection_class = rt::kReflectWater;
+    } else if (masked || see_through) {
+        out->reflection_class = rt::kReflectGlass;
+    } else {
+        out->reflection_class = rt::kReflectShiny;
+    }
+    if (masked) {
+        out->reflection_mask = env_mode == static_cast<uint32_t>(kBlendModeLerpFromPrevious) ? rt::kReflectWhereBaseClear
+                                                                                            : rt::kReflectWhereBaseOpaque;
+    }
+}
+
 // How strongly a material mirrors its surroundings (R5's reflections): its first environment-mapped pass with a
 // texture (the game's shiny surfaces) - the brightest channel of the pass's colour (doubled, as drawn), times its fixed
 // alpha where the pass's blend mode takes it - or none.
@@ -267,6 +312,7 @@ void reflectivity_of(const MaterialRef* material, rt::Material* out)
         }
         out->reflectivity = std::isfinite(strength) ? std::clamp(strength, 0.0F, 1.0F) : 0.0F;
         out->environment_pass = pass;
+        classify_reflective(material, pass, out);
         return;
     }
 }
@@ -299,6 +345,37 @@ rt::Material material_of(const MaterialRef* material)
     return out;
 }
 
+// [debug] rt_reflection_materials=1: each reflective material's passes logged once, when first registered (how
+// R5b's surfaces were classified - water, glass, other).
+void log_reflective_material(const MaterialRef* material, const rt::Material& out, rt::MaterialId id)
+{
+    static const bool kWanted = build_info::fetch_flag("debug", "rt_reflection_materials", false);
+    if (!kWanted) {
+        return;
+    }
+    std::string text = text::format("rt: reflective material %u = %08X (name %08X): reflectivity %.2f, class %u, mask %u, "
+                                    "sort %u, two-sided %u, alpha ref %u, texture anim %s",
+                                    static_cast<unsigned>(id), material->checksum(), material->name_hash(),
+                                    static_cast<double>(out.reflectivity), static_cast<unsigned>(out.reflection_class),
+                                    static_cast<unsigned>(out.reflection_mask), unsigned{material->sort_flag()},
+                                    unsigned{material->two_sided()}, unsigned{material->alpha_ref()},
+                                    material->texture_anim() != nullptr ? "yes" : "no");
+    const uint32_t count = std::min(material->pass_count(), kPassCount);
+    for (uint32_t pass = 0; pass < count; ++pass) {
+        const TextureImage* texture = core::at(material->textures(), pass);
+        const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
+        text += text::format(" | pass %u flags %04X blend %u colour %.2f %.2f %.2f %.2f tex %08X %ux%u%s", pass,
+                             core::at(material->pass_flags(), pass), core::at(material->blend_modes(), pass),
+                             static_cast<double>(core::at(colour, 0)), static_cast<double>(core::at(colour, 1)),
+                             static_cast<double>(core::at(colour, 2)), static_cast<double>(core::at(colour, 3)),
+                             texture != nullptr ? texture->checksum : 0U,
+                             texture != nullptr ? unsigned{texture->width} : 0U,
+                             texture != nullptr ? unsigned{texture->height} : 0U,
+                             core::at(material->uv_wibble(), pass) != nullptr ? " wibble" : "");
+    }
+    get_log("%s", text.c_str());
+}
+
 // The material's id - given (again, when its first pass changed) once a frame - or 0 for none.
 rt::MaterialId material_id(const MaterialRef* material, rt::RayTracing& rt)
 {
@@ -315,6 +392,9 @@ rt::MaterialId material_id(const MaterialRef* material, rt::RayTracing& rt)
     }
     entry.frame = st.frame;
     const rt::Material now = material_of(material);
+    if (made && now.reflectivity > 0.0F) {
+        log_reflective_material(material, now, entry.id);
+    }
     if (made || !same_material(entry.material, now)) {
         entry.material = now;
         rt.set_material(entry.id, now);

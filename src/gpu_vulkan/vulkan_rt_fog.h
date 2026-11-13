@@ -80,6 +80,10 @@ inline constexpr float kFogAerialExtinction = 1.0F / 12000.0F;
 inline constexpr float kFogAerialFar = 40000.0F;
 inline constexpr float kFogAerialSkyShare = 0.45F;
 inline constexpr float kFogAerialLowest = 0.03F; // radians
+// (added for Barcelona's harbour looking into a low sun) The haze's light is no brighter than the model's sky at the
+// same height a quarter turn from the sun x (1 + kFogAerialGlow): the table's aureole round a low sun lit all the haze
+// toward it white.
+inline constexpr float kFogAerialGlow = 0.35F;
 
 // The scene the rays are traced through (R2's TLAS; VK_NULL_HANDLE: none - the pass is then skipped, logged once). The
 // same contract as rt_shadows_set_scene (vulkan_rt_shadows.h). Thread: any (it takes the backend's lock) -

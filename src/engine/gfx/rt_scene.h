@@ -109,7 +109,24 @@ struct Material {
     // which pass that is (its index; kNoEnvironmentPass: none).
     float reflectivity = 0.0F;
     uint32_t environment_pass = kNoEnvironmentPass;
+    // (added for the water and glass) What kind of reflective surface it is (kReflectShiny / Water / Glass; render_pc/rt_record.cpp
+    // classify_reflective says how it is told): it picks the Fresnel reflectance face-on and the reflection's roughness.
+    uint32_t reflection_class = 0;
+    // (added for the glass) Where on the texture the surface reflects (kReflectEverywhere / WhereBaseClear / WhereBaseOpaque): the game's windows are often
+    // painted into a wall's texture, the environment-mapped pass lerped in by the first pass's alpha.
+    uint32_t reflection_mask = 0;
 };
+
+// Material::reflection_class's values (the reflection shaders' CLASS_*).
+inline constexpr uint32_t kReflectShiny = 0; // metal, paint, polished floors: the game's reflectivity face-on as well
+inline constexpr uint32_t kReflectWater = 1; // the sea, pools, puddles: 2% face-on, a mirror at grazing angles
+inline constexpr uint32_t kReflectGlass = 2; // windows: little face-on (rt_glass_reflectance), slightly rough
+
+// Material::reflection_mask's values (the shaders' MASK_*): how the first pass's texel alpha (a) scales the reflectivity.
+inline constexpr uint32_t kReflectEverywhere = 0;      // 1
+inline constexpr uint32_t kReflectWhereBaseClear = 1;  // 1 - a (the environment pass's blend mode 13: lerped in where
+                                                       // the base is clear)
+inline constexpr uint32_t kReflectWhereBaseOpaque = 2; // a (blend mode 12: lerped in where the base is opaque)
 
 // What was drawn this frame (R1): filled by render_pc between begin_frame_record and end_frame_record.
 struct FrameRecord {
@@ -320,6 +337,13 @@ SunLight sun_light();
 // screen elements hidden). False (the default, Direct3D 9): the original's sun drawn as always.
 void set_sun_glare_replaced(bool replaced);
 bool sun_glare_replaced();
+
+// (added for the skater's shadow) Whether a backend's shadow pass casts the objects' shadows - the skater's, the peds',
+// the vehicles' - from the sun this frame (the Vulkan Gpu's [Graphics] rt_shadows with rt_shadow_objects, a pass drawn):
+// the objects' own shadows (engine/objects/shadow_component: the skater's projected one, the peds' blobs) are then
+// hidden. False (the default, Direct3D 9, no sun in the level, the pass off): the original's shadows drawn as always.
+void set_object_shadows_replaced(bool replaced);
+bool object_shadows_replaced();
 
 // (added by the sun's glare) Where the game shows its sun (render_pc: the sun sprite's direction from the camera - a
 // level's SetSun / InitSun, the time of day -, toward it, normalised; told each viewport whether it is drawn or
