@@ -42,6 +42,8 @@ constexpr std::size_t kMinTeleportWordsWithBoard = 5; // teleport's words when t
 constexpr std::size_t kTeleportWordsWithHeading = 5;
 constexpr std::size_t kCameraWordsFixed = 7;  // camera: x y z and the direction
 constexpr std::size_t kCameraWordsDrift = 10; // ... and the drift
+constexpr std::size_t kProbeWords = 7;         // rtprobe / colprobe: x y z and the direction
+constexpr std::size_t kProbeWordsWithReach = 8; // ... and how far
 
 constexpr int kMaxLoggedTrickCount = 100000;
 constexpr int kDefaultFrontendSeconds = 10;
@@ -450,15 +452,37 @@ bool parse_camera(const CommandWords& words, OrderCode& command, std::string* er
     return true;
 }
 
+// rtprobe / colprobe: a ray (NOT ORIGINAL - ray tracing's check against the game's collision)
+bool parse_probe(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    const std::vector<std::string>& tokens = *words.tokens;
+    const size_t count = tokens.size();
+    command.op = words.keyword == "rtprobe" ? Op::kRayProbe : Op::kCollisionProbe;
+    if ((count != kProbeWords && count != kProbeWordsWithReach) || !read_numbers(tokens, 1, &command.numbers)) {
+        return fail_with(error, words.keyword + " <x> <y> <z> <dx> <dy> <dz> [max]");
+    }
+    if (::core::at(command.numbers, 3) == 0.0F && ::core::at(command.numbers, 4) == 0.0F &&
+        ::core::at(command.numbers, kDirectionZIndex) == 0.0F) {
+        return fail_with(error, words.keyword + ": the direction is zero");
+    }
+    if (count == kProbeWordsWithReach && ::core::at(command.numbers, kProbeWords - 1) <= 0.0F) {
+        return fail_with(error, words.keyword + ": max is a distance above 0");
+    }
+    return true;
+}
+
 bool parse_capture(const CommandWords& words, OrderCode& command, std::string* error)
 {
     const std::vector<std::string>& tokens = *words.tokens;
     const size_t count = tokens.size();
     command.op = Op::kCapture;
-    if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames)) {
-        return fail_with(error, "capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
+    // (added by the first frame) a last word `afterload`: from the first frame after the next loading screen
+    command.after_load = count >= 3 && get_lower(tokens.back()) == "afterload";
+    const size_t used = command.after_load ? count - 1 : count;
+    if (used < 2 || used > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames)) {
+        return fail_with(error, "capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder] [afterload]");
     }
-    if (count == 3) {
+    if (used == 3) {
         std::string folder = ::core::at(tokens, 2);
         if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"') {
             folder = folder.substr(1, folder.size() - 2);
@@ -578,6 +602,8 @@ constexpr auto kCommandParsers = std::to_array<CommandParser>({
     {.keyword = "teleport", .parse = parse_teleport},
     {.keyword = "camera", .parse = parse_camera},
     {.keyword = "capture", .parse = parse_capture},
+    {.keyword = "rtprobe", .parse = parse_probe},
+    {.keyword = "colprobe", .parse = parse_probe},
     {.keyword = "trace", .parse = parse_trace},
     {.keyword = "logtricks", .parse = parse_logtricks},
     {.keyword = "fe", .parse = parse_fe},

@@ -4,6 +4,7 @@ add_library(thug2_formats STATIC
     anim_format.cpp
     bundle_format.cpp
     collision_format.cpp
+    demo_format.cpp
     font_format.cpp
     image_format.cpp
     lzss_unpack.cpp

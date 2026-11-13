@@ -2,6 +2,7 @@
 // double precision where it keeps them in registers).
 
 #include "render_pc/sub_mesh.h"
+#include "render_pc/mesh_smoothing.h"
 #include "base/core/layout_32bit.h"
 #include "engine/gfx/mesh_records.h"
 #include "engine/gfx/gpu.h"
@@ -247,6 +248,8 @@ MeshRef* MeshRef::replicate(bool share)
             upload_indices(from); // (the original's too)
             upload_indices(buffer); // (the slot's)
         }
+        // (not original: a smoothed mesh's original strip kept for its copy too, mesh_smoothing.h)
+        mesh_smoothing::copy_original(core::at(index_buffers_, 0), core::at(copy->index_buffers_, 0));
         copy->unknowna4_ = unknowna4_;
         copy->unknowna8_ = unknowna8_;
         if (per_vertex_data_) {

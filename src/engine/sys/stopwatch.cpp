@@ -193,6 +193,16 @@ void wait_for_vblank()
     }
 }
 
+uint64_t vblanks_since_reset() { return get_vblanks(); }
+
+void set_vblanks_since_reset(uint64_t vblanks)
+{
+    const uint64_t delta = vblanks - get_vblanks(); // (wraps for a move back: the sums below wrap back with it)
+    get_vblanks() = vblanks;
+    last_frame_vblank() += delta;
+    previous_frame_vblank() += delta;
+}
+
 // 0x005BE8E0
 uint64_t fetch_retrace_count() { return elapsed_refreshes(); }
 

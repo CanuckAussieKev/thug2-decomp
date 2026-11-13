@@ -2,7 +2,8 @@
 // ([features] ts_scripts=1, docs/qb-ts.md "Unpacked"). Every archive in Data\pre (.prx, the French and German .prf /
 // .prd and their patches .ppf / .ppd) and every .qb (Data's, the data overlay's, the ported levels' overlays) is moved
 // to <game>\thug2-decomp-backup at the same path; each .qb becomes a .ts: its TypeScript (emit_ts.ts), which the game
-// runs as it loads the file (src/script_qb/ts_bridge.cpp load_standalone); and every file of the archives goes loose
+// runs as it loads the file (src/script_qb/ts_bridge.cpp load_standalone), and a .json beside it: its globals
+// (emit_data.ts, qb_data.ts - read by the game straight into its cells); and every file of the archives goes loose
 // where its name says in Data (Data\levels\bo\BO.scn.xbx, Data\levels\bo\BO_scripts.ts...), the archive's copy over a
 // loose one that differs (that one backed up too) - the game loads no archive and reads it all loose. The French and
 // German archives aren't unpacked: their scripts are the English ones with other text, so the scripts' text becomes
@@ -25,10 +26,11 @@
 // A .qb that doesn't translate is an error (listed; the exit code 1): the game reads no .qb - that file isn't loaded. <game>\thug2-decomp-backup\
 // unpacked.json lists what was moved and made, for --restore.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import * as hdBase from "../pipeline/hd_textures/base.ts";
+import { emitData } from "./emit_data.ts";
 import { emitTS } from "./emit_ts.ts";
 import { fileHash, gameRoot, scriptBytes } from "./game_scripts.ts";
 import type { ModuleIR } from "./ir.ts";
@@ -70,21 +72,27 @@ function scriptFolders(root: string): string[] {
 // A .qb's TypeScript with its manifest line; null when it doesn't translate. `source`: its name in the runtime
 // ("Data\\levels\\bo\\bo_scripts.qb", lower case - as game_scripts.ts qbVersions names them), `name` its game path.
 // localize: the IR's text given tokens before it's written (localize.ts).
+// The globals are the module's data (`json`, null when it has none: emit_data.ts, docs/qb-ts.md "Data") - the file's
+// <name>.json beside its <name>.ts; the manifest's `globals` counts them (the game wants the .json when it isn't 0).
 export function scriptTS(
     source: string,
     name: string,
     read: Buffer,
     check = false,
     localize?: (ir: ModuleIR) => void,
-): string | null {
+): { ts: string; json: string | null } | null {
     const bytes = scriptBytes(name, read);
     try {
         const ir = readIR(bytes, source);
         localize?.(ir);
-        const ts = emitTS(ir, {}, { check });
+        const from = fileHash(bytes);
+        const data = basename(name).replace(/\.qb$/i, ".json");
+        const json = emitData(ir, from);
+        const ts = emitTS(ir, {}, { check, data });
         const names = Object.entries(ir.names ?? {}).flatMap(([n, text]) => [Number(n), text]);
-        const manifest = JSON.stringify({ source, from: fileHash(bytes), names });
-        return `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`;
+        const globals = ir.definitions.filter((d) => d.kind === "global").length;
+        const manifest = JSON.stringify({ source, from, globals, names });
+        return { ts: `${ts.endsWith("\n") ? ts : `${ts}\n`}// qb-file ${manifest}\n`, json };
     } catch {
         return null;
     }
@@ -138,6 +146,15 @@ export function restore(game: string): { moved: number; removed: number } {
 export function unpack(game: string, check = false): { record: Record; failed: string[] } {
     const root = gameRoot(game);
     if (readRecord(root)) throw Error(`${root}: already unpacked (--refresh to do it again, --restore to put it back)`);
+    // (unpacked with its record gone - the backup folder moved away: the boot scripts' archive missing, its .ts there -
+    // unpacking again would take the made files for originals)
+    if (
+        !existsSync(join(root, "Data", "pre", "qb_scripts.prx")) &&
+        existsSync(join(root, "Data", "scripts", "game", "levels.ts"))
+    )
+        throw Error(
+            `${root}: already unpacked, without ${BACKUP}\\unpacked.json (moved away?) - put that folder back first`,
+        );
     const record: Record = { moved: [], made: [], folders: [] };
     const failed: string[] = [];
     const rel = (path: string) => relative(root, path);
@@ -209,10 +226,11 @@ export function unpack(game: string, check = false): { record: Record; failed: s
                     localizer.localize(source, ir, Object.fromEntries(versions), unpatched);
                 };
                 archiveScripts.add(entry.name.replace(/\//g, "\\").toLowerCase());
-                const ts = scriptTS(source, entry.name, data, check, check ? undefined : localize);
-                if (ts !== null) {
+                const made = scriptTS(source, entry.name, data, check, check ? undefined : localize);
+                if (made !== null) {
                     mkdirSync(dirname(path), { recursive: true });
-                    writeFileSync(path.replace(/\.qb$/i, ".ts"), ts);
+                    writeFileSync(path.replace(/\.qb$/i, ".ts"), made.ts);
+                    if (made.json !== null) writeFileSync(path.replace(/\.qb$/i, ".json"), made.json);
                     continue;
                 }
                 failed.push(`${rel(folder)}\\${entry.name}`);
@@ -242,13 +260,14 @@ export function unpack(game: string, check = false): { record: Record; failed: s
             const localize = (ir: ModuleIR) => {
                 localizer.localize(source, ir, {});
             };
-            const ts = scriptTS(source, name, readFileSync(path), check, check || plain ? undefined : localize);
+            const made = scriptTS(source, name, readFileSync(path), check, check || plain ? undefined : localize);
             move(path); // (one that doesn't translate too: the game reads no .qb)
-            if (ts === null) {
+            if (made === null) {
                 failed.push(rel(path));
                 continue;
             }
-            make(path.replace(/\.qb$/i, ".ts"), ts);
+            make(path.replace(/\.qb$/i, ".ts"), made.ts);
+            if (made.json !== null) make(path.replace(/\.qb$/i, ".json"), made.json);
         }
         save();
     }

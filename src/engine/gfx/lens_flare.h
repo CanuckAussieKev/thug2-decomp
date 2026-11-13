@@ -104,5 +104,11 @@ void show_flare(const maths::Vec4* sun, float time);
 // 0x00443870: the sun drawn for `camera` (each frame): the sun and corona, the visibility query, the lens flare
 // shown or faded (MaybeHideLensFlare).
 void render(gfx::ViewCam* camera);
+// NOT ORIGINAL - the sun drawn by a ray-tracing backend instead (rt_scene.h sun_glare_replaced): nothing of the
+// original's drawn, the lens flare's elements faded out at once if they are shown.
+void hide_for_replacement();
+// NOT ORIGINAL - where the sun is drawn (render's direction from the camera, toward it, normalised): false while it
+// isn't shown (no SetSun / InitSun, or hidden).
+bool visible_direction(std::array<float, 3>* toward);
 
 } // namespace sun

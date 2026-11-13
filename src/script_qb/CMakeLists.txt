@@ -27,6 +27,7 @@ add_library(thug2_script_qb STATIC
     cscript_ts.cpp
     script_check.cpp
     ts_bridge.cpp
+    ts_data.cpp
     qb_host.cpp
     "${THUG2_TS_SOURCES_HEADER}"
 )

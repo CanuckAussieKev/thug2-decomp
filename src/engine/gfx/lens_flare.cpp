@@ -2,6 +2,7 @@
 
 #include "engine/gfx/lens_flare.h"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -580,6 +581,41 @@ void render(gfx::ViewCam* camera)
         } else {
             show_flare(&screen, morph_in_time());
         }
+    }
+}
+
+// NOT ORIGINAL (lens_flare.h): render's direction (theta round the vertical, phi up), normalised
+bool visible_direction(std::array<float, 3>* toward)
+{
+    if (!get_shown()) {
+        return false;
+    }
+    maths::Mat4 rotation{};
+    rotation.reset_to_identity();
+    rotation.rotate_y(get_theta());
+    maths::Vec4 direction = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 1.0F};
+    direction = direction * rotation;
+    rotation.reset_to_identity();
+    maths::Vec4 axis = maths::cross_vec(direction, maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F});
+    axis.make_unit();
+    rotation.spin_by(axis, get_phi());
+    direction = direction * rotation;
+    const double length = std::sqrt((static_cast<double>(direction.x) * direction.x) +
+                                    (static_cast<double>(direction.y) * direction.y) +
+                                    (static_cast<double>(direction.z) * direction.z));
+    if (!(length > 0.0) || !std::isfinite(length)) {
+        return false;
+    }
+    *toward = {static_cast<float>(direction.x / length), static_cast<float>(direction.y / length),
+               static_cast<float>(direction.z / length)};
+    return true;
+}
+
+// NOT ORIGINAL (lens_flare.h)
+void hide_for_replacement()
+{
+    if (!flare_hidden()) {
+        hide_flare(nullptr, script::Context());
     }
 }
 

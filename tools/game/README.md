@@ -66,7 +66,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `teleport`, `camera`, `capture` (below),
     `logtricks [count]` (a test: one trick by skater 0 over the level's trick objects - all, or the first `count` - through
     the trick object manager's log_trick_objects; the result says how many objects / clusters and changed hands: THUG2's
-    own change mask crashed past 128), `echo <text>`, `quit`. A failure or refusal
+    own change mask crashed past 128), `rtprobe` / `colprobe` (below), `echo <text>`, `quit`. A failure or refusal
     skips the rest of the batch. After a `quit` the scripts wait for the process to exit and report its exit code
     ("the game exited (code 0) after its quit"; ok only with 0), whichever came first - the game's last status or
     its exit.
@@ -77,9 +77,19 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     when given (`camera off` lets go), and `capture <frames> [folder]` saves the next 1-600 frames, every one, as
     `Screenshots\<folder>\frame_0001.png ...` with one `series.txt` (the sidecar, and each frame's game frame / vblank /
     clock). While a series runs the main loop doesn't count the capture's time, so no frame is skipped: the series is
-    the game's frames 1/60 s of game time apart. Script command too: `TeleportSkaterStanding pos=(x, y, z) heading=f`.
+    the game's frames 1/60 s of game time apart. `capture <frames> [folder] afterload` starts at the first frame drawn
+    after the next level's loading screen (not the front end's) and is done at once (armed): with `-Level`, a level's
+    first frame onward (a `camera` given before the load holds through it). Script command too:
+    `TeleportSkaterStanding pos=(x, y, z) heading=f`.
     E.g. the user's screenshot spot, still and drifting sideways:
     `-Level foun -Commands "waitfor level foun 150;teleport -4087.3 -390 2386.6 -177.3;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949;wait 60;capture 120 still;camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949 0.05 0 0;capture 120 side"`.
+  - **One ray, two ways** (ray tracing's check against the game's collision): `rtprobe <x> <y> <z> <dx> <dy> <dz> [max]`
+    traces the ray from (x, y, z) along (dx, dy, dz) up to `max` (default 100000) through the ray-traced scene's last
+    TLAS (renderer=vulkan with `[Graphics] ray_tracing=1`; src/gpu_vulkan/vulkan_rt_scene.h) - the result is
+    `hit <distance> instance <i> mesh <id> material <id> primitive <p> point <x y z>`, `miss`, or `no scene` (no ray
+    tracing, or no frame built yet). `colprobe` takes the same arguments and casts the game's own collision feeler
+    (static collision and movable objects, src/engine/render/probe_ray.h): `hit <distance> point <x y z> normal <x y z>
+    face <f> object <checksum>` or `miss`; in a level only. Both are read from the status file's `result`.
   - **Following the skater:** `trace <frames>` writes `<folder>\thug2-decomp-trace.txt` - a line every game frame
     for the next 1-36000 frames: frame, position, velocity, the up row's y, the SkaterState state (0 ground, 1 air,
     2 wall, 3 lip, 4 rail, 5 wallplant) and physics (0 skating, 1 walking), bailing, doing a trick, the combo so far
@@ -128,6 +138,85 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (Vulkan minus Direct3D 9), the largest, the pixels over the threshold, their bounding rectangle and the three 80x80
   cells holding most of them; also the same over every pixel. `report.txt` / `report.json`; `--pictures` writes
   `sbs/<name>.png` (Direct3D 9 | Vulkan | the difference x4, the noise mask blue).
+- `node tools/game/first_frame_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
+  [--settings <ini>] [--levels BO,AU,z_dt,foun] [--set Graphics.key=value]...` - the first frame after a load
+  (docs/design/vulkan.md "The first frame after a load"): under the workspace's lock, the build deployed, each level
+  started with `-Level` and a camera held through the load, `capture 61 ... afterload`; `on` the [Graphics] of
+  `--settings` (default the main install's ini, read only; the window's keys left as the workspace's), `off` the same
+  with ray tracing and every `rt_` effect off. Then `compare <folder> [--threshold 12] [--grow 2]`: frame 1 against
+  frame 60 outside the noise (`off`'s frame 1 / 60 and `on`'s frames 50 - 60): at most 0.5% of the pixels changed and a
+  mean difference of at most 0.6; the log's new-world line before the series' first frame; the times reported.
+- `node tools/game/rt_shadows_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
+  [--baseline-build <folder>] [--groups foun,BO] [--runs 2] [--owner <name>] [--set Graphics.rt_shadow_strength=0.5]...
+  [--expect shadows|none]` - ray-traced sun shadows (`[Graphics] rt_shadows`) in the game: under the workspace's lock,
+  the x64 build deployed (deploy_build.ps1 -Arch x64), the spots of `rt_shadows.json` (renderer_parity's five levels)
+  captured with `ray_tracing=1` and `rt_shadows=0` / `1` (and `--baseline-build`'s exe as the workspace's ini has it)
+  into `<out>/<off|on|baseline>/run<k>/`, then compared outside each configuration's run-to-run noise. `--expect shadows`:
+  the shadows only darken (at most 0.1% of the pixels lighter), at most 80% of a picture darkened and at least 0.5% in
+  some spot, the darkened pixels' median brightness ratio from 1 - strength - 0.2 to 0.9 (where 1% or more is
+  darkened), the sun lined up with the level's bake (over every spot, the pixels `off` shows darker - under its Otsu
+  threshold - darkened at least 1.5 times as often as the brighter ones), a level whose bake shows no sun (the log's
+  "rt: the baked sun: none") unchanged, the `on` logs showing the pass (or that "none") and no skip; the share of the
+  darkened pixels in the picture's lower half is reported. `--expect none` (no
+  acceleration structures yet): on and off the same, the pass logged as skipped. The baseline: off and baseline the
+  same. `compare <folder>` does the comparison again; report.txt / report.json, exit 1 on a failure.
+  `--effect ao` (both commands): ray-traced ambient occlusion (`[Graphics] rt_ao`) instead - `rt_ao=0` / `1` with
+  `rt_shadows=0`; `--expect drawn` (= `shadows`): the occlusion only darkens (at most 0.1% lighter), at most 60% of a
+  picture darkened and at least 0.5% somewhere, at most 0.1% darker than full occlusion leaves (1 - `rt_ao_strength` -
+  0.05: a NaN or runaway value shows as black), the darkened pixels' median ratio no lower than 1 - strength - 0.2, the
+  `on` logs showing "rt_ao: the first ambient occlusion pass" and no skip. After R2: `node tools/game/rt_shadows_check.ts
+  run --effect ao --expect drawn --game C:\Games\THUG2-<n> --out <folder> --build <x64 build> --baseline-build <main's
+  x64 build> --groups foun,BO`.
+  `--effect reflections` (both commands): ray-traced reflections (`[Graphics] rt_reflections`) - `rt_reflections=0` /
+  `1` with `rt_shadows=0`, `rt_ao=0`; `--expect drawn`: per spot by its group's `on` log - where the pass ran ("rt_reflections:
+  the first reflection pass"), at most 60% of the picture changed (lighter or darker) and at most 0.1% turned black (a
+  NaN, a missing texture); where the level has nothing reflective ("nothing reflective in the scene"), on and off the
+  same; at least one group drew reflections and some spot changed by 0.1% or more; no "couldn't" line.
+  `--effect hdr` (both commands): HDR rendering and tone mapping (`[Graphics] rt_hdr`) - `rt_hdr=0` / `1`, the rest of
+  the ini as the workspace has it (`--set` reaches both: `--set Graphics.rt_exposure=1` changes only `on`,
+  `--set Graphics.ray_tracing=1 --set Graphics.rt_shadows=1 ...` puts the ray-traced effects on float targets in both);
+  `--expect drawn` (the defaults): per spot at most 0.1% of the pixels changed by more than 12 in a channel and the
+  mean at most 1.0 (the shoulder takes white to ~247; a material pass above 1 no longer clipped before the next
+  multiplies it changes a few pixels more), the largest and the mean reported; `--expect brighter` (exposure raised): at most 0.1% darker or turned
+  black, pure-white pixels growing by at most 10 points of the picture, some spot +2 or more on average. Both: the `on`
+  logs show "rt_hdr: the first tone-mapping pass", the `off` ones none; each configuration's frame times (the Vulkan
+  "ms a frame" lines) reported. With `--baseline-build <main's x64 build>`, off against main's build: at most 0.1%
+  changed. E.g. `node tools/game/rt_shadows_check.ts run --effect hdr --game C:\Games\THUG2-<n> --out <folder> --build
+  <x64 build> --baseline-build <main's> --groups foun,z_dt,BO`.
+  `--effect fog` (both commands): volumetric fog and light shafts (`[Graphics] rt_fog`) - `rt_fog=0` / `1` with
+  `rt_shadows=0`, `rt_ao=0`, `rt_reflections=0` (`--set Graphics.rt_fog_mode=1` etc. for the other settings);
+  `--expect drawn`: the picture's mean luma change at most 40 (the share changed is reported), at most 0.1% turned black (a NaN, garbage) and 0.5% turned white
+  (the fog or the sky blown out); every `on` log shows "rt_fog: the first fog pass" (or "the level has no fog"), at
+  least one group drew the fog, no "couldn't" line; the passes' device time from the logs ("rt_fog: the passes take")
+  in the report.
+  `--effect gi` (both commands): one-bounce indirect light (`[Graphics] rt_gi`) - `rt_gi=0` / `1` with `rt_shadows`,
+  `rt_ao`, `rt_reflections` 0; `--expect drawn`: the bounce only adds light (at most 0.1% darker, 0.1% turned black, 0.1%
+  lighter by more than 112 in luma - a NaN or runaway value), at most 80% of a picture brightened and at least 0.5%
+  somewhere; a level whose bake shows no sun ("rt: the baked sun: none") unchanged; over every spot the baked-dark pixels
+  brightened more often than the baked-bright ones (more in the shade); the `on` logs showing "rt_gi: the first indirect
+  light pass" and no skip. `--set Graphics.rt_gi_rays=4` etc. try the other settings; the passes' device time is in the
+  logs ("rt_gi: <x> ms a pass on the device").
+  `--effect tess` (both commands): smoothed curves (`[Graphics] rt_tessellation`) - 0 / 1, the rest as the ini and --set
+  have it; the plan's `qpsch` and `qpBO` groups (`--groups qpsch,qpBO`: sch's quarter pipe still and with the skater
+  riding up it, fences, barriers, a taxi; BO's start, cannons, statues). `--expect drawn`: the mean luma change at most 6,
+  at most 0.1% turned black (a hole) or white (the sky through a crack), some spot changed by 0.05% or more; the `on`
+  logs show "rt_tessellation: on" and a "meshes smoothed" line, the `off` ones neither; the levels' smoothing totals and
+  the frame times reported.
+- `node tools/game/tess_gap.ts run --game C:\Games\THUG2-<n> --build <x64 build> --level <name> --at x,y,z,heading --out
+  <folder> [--set S.key=v]...` - how far the drawn surfaces are from the collision with `rt_tessellation` 0 and 1: under
+  the workspace's lock, the build deployed, the level loaded twice (`ray_tracing=1`), the skater stood at --at and a fan
+  of rays (every 10 degrees round, four pitches down, from 150 units over him) cast with `colprobe` and `rtprobe`; per
+  ray hitting a slope (the collision's normal 0.2 - 0.97 up) on the same surface both ways, the gap along its normal
+  (positive: the drawn surface behind the collision - the wheels float; negative: they sink). Fails when the smoothing
+  moved a surface more than --cap (2). `report <folder>` reads the logs again. E.g. sch's quarter pipe: `--level sch
+  --at 960,-440,2550,90`.
+- `node tools/game/rt_contract.ts run --game C:\Games\THUG2-<n> [--build <folder>] [--arch x64] [--renderers vulkan,d3d9]
+  [--scenarios levels,anteara] [--owner <name>] [--out <folder>]` - ray tracing's contract checked in the game
+  (src/devtools/rt_check.h, `[debug] rt_contract_check=1`): under the workspace's lock, --build deployed
+  (deploy_build.ps1), then per renderer `levels` (BO with the skater pushed off and riding, then LA, SE and foun loaded in
+  turn, riding in foun; the frame record dumped as JSON) and `anteara` (Anteara Mod's BO, loaded from the main menu - with `-level` its start-up never finished - riding). Each run's log and
+  `rt-frame-<renderer>.json` go to --out (default `out\rt-contract`); a run fails on any `rt-check: VIOLATION`, no
+  frame or draw checked, or a crash. `node tools/game/rt_contract.ts read <log>` reads one log the same way.
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
   doesn't reach SDL). Keys: down, up, left, right, enter, esc, `pause` (4 s), `shot`, `hold:<key>:<ms>`,
   `now:<key>`, `ctrl:<key>` (the mouse commands only work with the game in front - not in workspaces).
@@ -163,6 +252,14 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
   the errors (the pools: the log's `script pools in use in <level>` line, written once the level is up -
   src/game/front_end/start_level.cpp; and any `pool ... full` / `80% full` line).
+- `start_level_check.ps1 -Game <folder> [-Levels BO,bo,LA] [-Anteara 0,1] [-Runs 1] [-Seconds 90]` - the game started
+  with `-level <name>` for each level name (as typed: BO and bo both) and each `[features] anteara_mod` value: each run
+  passes when the automation status is in that level, not loading, within -Seconds; else the log's tail is printed and
+  the game closed. The scripts as the folder has them (unpacked by tools/qbjs/unpack_game.ts: set `ts_scripts=1`
+  yourself). Exit code: the runs that failed.
+- A game that hangs (its window stops responding, the loading screen drawn on and on):
+  `python -I tools/standalone/first_fault.py <exe> <folder> --seconds 60 --stacks-at-end -- -level <name>` runs it
+  under the debugger and, when the time is up, prints every thread's calls (the main thread first) - a 64-bit build.
 - `node tools/game/heap_report.ts <log> [<second log>]` - the memory manager's heaps once each level was up (the log's
   `memory heap in <level>:` lines: region, use, peak and blocks of every heap, src/engine/memory/memory_report.h) as a
   table; with two logs (a 32-bit and an x64 build's) side by side - each heap's region and peak in both, the growth

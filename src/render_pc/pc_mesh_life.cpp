@@ -28,6 +28,8 @@
 #include "engine/memory/mem.h"
 #include "base/maths/mat4.h"
 #include "base/core/raw_view.h"
+#include "render_pc/mesh_smoothing.h"
+#include "render_pc/rt_record.h"
 
 namespace render {
 
@@ -106,6 +108,7 @@ long MeshRef::apply_vertex_colors()
     if (!per_vertex_bytes_) {
         return 0;
     }
+    const rt_record::ColourWrite colours_only; // (not original: ray tracing's record - the positions are as they were)
     VertexBuffer* vb = vertex_store(current_vertex_buffer_);
     vb->set_lock_size(vb->size());
     vb->set_lock_offset(0);
@@ -215,6 +218,7 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
 // 0x004D67F0
 void release_buffers()
 {
+    rt_record::forget_meshes(); // (not original: ray tracing's record - the meshes given again after the reset)
     gpu().set_stream_source(0, nullptr, 0, 0);
     gpu().set_indices(nullptr);
     for (const BufferNode* node = vertex_buffer_list(); node; node = node->next) {
@@ -292,6 +296,7 @@ void recreate_buffers()
 // 0x004D69E0
 MeshRef::~MeshRef()
 {
+    rt_record::mesh_released(this); // (not original: ray tracing's record)
     if ((flags_ & kMeshFlagBillboard) != 0U) {
         billboard_pool().remove_mesh(this);
     }
@@ -299,6 +304,7 @@ MeshRef::~MeshRef()
         memory::Hub::dealloc(transform);
     }
     if ((flags_ & 1) == 0U) { // (its own buffers, not another mesh's)
+        mesh_smoothing::forget_original(core::at(index_buffers_, 0)); // (not original: mesh_smoothing.h)
         for (IndexBufferData*& ib : index_buffers_) {
             if (ib) {
                 static_cast<IdxStore*>(ib)->teardown();

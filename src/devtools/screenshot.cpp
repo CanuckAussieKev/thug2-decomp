@@ -531,6 +531,9 @@ void get_take()
 struct Series {
     std::string folder; // (ending in a backslash)
     int total = 0, taken = 0;
+    int every = 1, wait = 0; // a picture every `every` rendered frames: `wait` more to go before the next
+    bool after_load = false;   // (added by the first frame) waiting for a loading screen to come and go first
+    bool loading_seen = false; // ... it came
     std::string sidecar; // (made at the first frame, written at the end with the frames' times)
     std::string times;   // a line a frame: its number, the game's frame and vblank count, the game clock (ms)
     std::atomic<int> in_flight_{0}, written{0};
@@ -631,9 +634,30 @@ void tick_series(bool rendering)
     if (!series) {
         return;
     }
+    if (series->after_load) {
+        if (loading_screen_up()) {
+            series->loading_seen = true;
+            return;
+        }
+        if (!series->loading_seen || !rendering) {
+            return;
+        }
+        const uint32_t level = current_load_state();
+        if (level == 0 || level == kLoadMainMenu) {
+            series->loading_seen = false; // (the front end's loading screen: a level's is waited for)
+            return;
+        }
+        series->after_load = false;
+        get_log("screenshot: series - the first frame after the loading screen");
+    }
     if (series->taken < series->total) {
         if (rendering) {
-            take_series_frame();
+            if (series->wait > 0) {
+                --series->wait;
+            } else {
+                series->wait = series->every - 1;
+                take_series_frame();
+            }
         }
         return;
     }
@@ -752,13 +776,14 @@ void before_present(bool rendering)
     tick_message();
 }
 
-std::string start_series(int frames, const std::string& folder)
+std::string start_series(int frames, const std::string& folder, SeriesOptions options)
 {
     if (stored_series()) {
         return "a series is running";
     }
-    if (frames < 1 || frames > kMaxSeriesFrames) {
-        return "1 to " + std::to_string(kMaxSeriesFrames) + " frames";
+    const int most = options.long_series ? kMaxLongSeriesFrames : kMaxSeriesFrames;
+    if (frames < 1 || frames > most) {
+        return "1 to " + std::to_string(most) + " frames";
     }
     const std::string base = get_folder();
     if (base.empty()) {
@@ -791,6 +816,8 @@ std::string start_series(int frames, const std::string& folder)
     auto series = std::make_shared<Series>();
     series->folder = path;
     series->total = frames;
+    series->every = std::max(options.every, 1);
+    series->after_load = options.after_load;
     stored_series() = series;
     series_result_state() = "running";
     get_log("screenshot: series of %d frames into %s", frames, path.c_str());

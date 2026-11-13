@@ -15,6 +15,7 @@ add_library(thug2_app OBJECT
     startup_init.cpp
     command_table.cpp
     renderer_choice.cpp
+    encode_video.cpp
 )
 # The layers the shared start-up composes (the backends it installs, the game and below).
 target_link_libraries(thug2_app PUBLIC thug2_game thug2_render_pc thug2_gpu_d3d9

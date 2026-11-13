@@ -67,6 +67,18 @@ void pause_game_clock(bool pause)
     get_pace() = pause ? 0.0F : get_time_scale();
 }
 
+GameClockSnapshot game_clock_snapshot()
+{
+    return {.last_change = last_change(), .pace = get_pace(), .offset = objects::clock_offset()};
+}
+
+void set_game_clock_snapshot(const GameClockSnapshot& snapshot)
+{
+    last_change() = snapshot.last_change;
+    get_pace() = snapshot.pace;
+    objects::set_clock_offset(snapshot.offset);
+}
+
 // 0x0044ED70
 void set_game_clock_speed(float speed)
 {

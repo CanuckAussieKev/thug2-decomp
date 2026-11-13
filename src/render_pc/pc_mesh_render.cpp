@@ -29,6 +29,7 @@
 #include "render_pc/outline_draw.h"
 #include "engine/gfx/engine_parts.h"
 #include "base/maths/vec4.h"
+#include "render_pc/rt_record.h"
 #include <bit>
 
 namespace render {
@@ -273,6 +274,7 @@ void MeshRef::render()
     const int level = lod_level();
     gpu().set_indices(index_buffer_at(this, level)->buffer());
     const uint32_t primitives = index_count_at(this, level) - 2U;
+    rt_record::mesh_drawn(this); // (not original: ray tracing's record - a check's draw count)
     if (flat || renderer().shaders_available()) {
         count_draw(primitives);
         gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0, primitives);

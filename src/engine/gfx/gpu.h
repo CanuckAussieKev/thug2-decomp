@@ -222,6 +222,11 @@ inline constexpr uint32_t kFormatD24S8 = 75;
 inline constexpr uint32_t kFormatDxt1 = 0x31545844;
 inline constexpr uint32_t kFormatDxt3 = 0x33545844;
 inline constexpr uint32_t kFormatDxt5 = 0x35545844;
+// NOT ORIGINAL - HDR (rt_scene.h hdr_colour, the Vulkan Gpu's [Graphics] rt_hdr): four 16-bit floats per pixel -
+// D3DFMT_A16B16G16R16F, and one of our own read with alpha 1 as X8R8G8B8 is (the screen copies the world is drawn into).
+// The game asks for them only while rt::hdr_colour() is true; Direct3D 9 never sees the second.
+inline constexpr uint32_t kFormatA16B16G16R16F = 113;
+inline constexpr uint32_t kFormatX16B16G16R16F = 0x46363158; // ('X16F': not a Direct3D 9 format)
 // a resource's pool: in video memory (lost with the device), managed (kept in system memory too), system memory only,
 // scratch (never given to the device); a texture drawn into
 inline constexpr uint32_t kPoolManaged = 1;

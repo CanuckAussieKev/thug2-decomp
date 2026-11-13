@@ -62,7 +62,12 @@ class Struct;
 //                                         slow exact move: z-fighting shows); `camera off` lets it go
 //   capture <frames> [folder]             the next <frames> rendered frames (1-600), every one, as frame_0001.png ...
 //                                         in the screenshot folder's <folder> (default series_<time>), with one
-//                                         series.txt (devtools/screenshot.h start_series); done once all are written
+//                                         series.txt (devtools/screenshot.h start_series); done once all are written.
+//   capture <frames> [folder] afterload   the same from the first frame drawn after the next loading screen of a level
+//                                         (not the front end's) is taken down - its first frame (`capture 61 x
+//                                         afterload` while -level loads it); done at once (armed) - the series is
+//                                         written while the next commands run; the log's "screenshot: series - ok"
+//                                         line says when
 //   trace <frames>                        the local skater traced for the next <frames> game frames (1-36000) into
 //                                         thug2-decomp-trace.txt (rewritten): a line a frame - frame, position,
 //                                         velocity, the up row's y, the SkaterState state (0 ground, 1 air, 2 wall,
@@ -85,6 +90,16 @@ class Struct;
 //                                         <up|down|left|right|confirm|back|resume|prevtab|nexttab>. Online's Play
 //                                         online is refused. `waitfor fe <screen> [seconds]`: until that screen is
 //                                         shown and still.
+//   rtprobe <x> <y> <z> <dx> <dy> <dz> [max]
+//                                         one ray traced through the ray-traced scene's last TLAS (renderer=vulkan,
+//                                         [Graphics] ray_tracing=1; gpu_vulkan/vulkan_rt_scene.h): from (x, y, z) along
+//                                         (dx, dy, dz) up to `max` (default 100000) - the result "hit <distance>
+//                                         instance <i> mesh <id> material <id> primitive <p> point <x y z>", "miss", or
+//                                         "no scene" (no ray tracing, or no frame built yet)
+//   colprobe <x> <y> <z> <dx> <dy> <dz> [max]
+//                                         the same ray through the game's own collision (a collision feeler, movable
+//                                         objects included): "hit <distance> point <x y z> normal <x y z> face <f>
+//                                         object <checksum>" or "miss". In a level only.
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   console <line>                        the developer console's command (console.h), its output logged and the result
 //   quit                                  the game closes (as its window's close button)
@@ -155,7 +170,9 @@ enum class Op : uint8_t {
     kLogTricks,
     kCrash,
     kTrace,
-    kFrontend
+    kFrontend,
+    kRayProbe,      // NOT ORIGINAL (ray tracing, R2): rtprobe
+    kCollisionProbe // colprobe
 };
 enum class Condition : uint8_t { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
 
@@ -176,7 +193,8 @@ struct OrderCode {
     Condition condition{};      // waitfor
     int frames{};               // press / wait / capture
     int seconds{};              // choose / focus / waitfor: the timeout
-    std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
+    std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz; rtprobe / colprobe: x y z dx dy dz [max]
+    bool after_load{};          // (added by the first frame) capture ... afterload
 };
 
 enum class CommandLineOutcome : uint8_t { kOrderCode, kVacant, kError };
@@ -213,6 +231,10 @@ std::string element_refusal(const frontend::UiWidget* element);
 std::string refusal_by_name(const OrderCode& command);
 // The name of a checksum if known (the tables and the names commands used), else 0x<hex>.
 std::string get_name_of(uint32_t checksum);
+// Why a command that plays is refused now - online, a network game ("" if it isn't) - and whether a loading screen is
+// up: as the channel sees them (also the demos' - devtools/demo.h).
+std::string online_refusal();
+bool loading_now();
 // A command as text (for the log and the status).
 std::string describe(const OrderCode& command);
 

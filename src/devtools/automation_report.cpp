@@ -117,7 +117,18 @@ std::string describe(const OrderCode& command)
         return text;
     }
     case Op::kCapture:
-        return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
+        return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target) +
+               (command.after_load ? " afterload" : "");
+    case Op::kRayProbe:
+    case Op::kCollisionProbe: {
+        std::string text = command.op == Op::kRayProbe ? "rtprobe" : "colprobe";
+        for (const float number : command.numbers) {
+            std::array<char, kNumberTextSize> value{};
+            text::format_to(value, " %g", static_cast<double>(number));
+            text += value.data();
+        }
+        return text;
+    }
     case Op::kLogTricks:
         return "logtricks" + ((command.frames != 0) ? " " + std::to_string(command.frames) : std::string());
     case Op::kTrace:

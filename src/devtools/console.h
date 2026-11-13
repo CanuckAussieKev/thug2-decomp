@@ -15,6 +15,9 @@ class Extension;
 //   scripts [text]  the scripts running now (those whose names hold `text`), each level of each call stack with the
 //                   interpreter running it - QB or TS (a TypeScript module's level: [features] ts_scripts=1)
 //   clear           the console's lines cleared
+//   rt summary      ray tracing's contract check ([debug] rt_contract_check=1, rt_check.h): its counts, violations
+//   rt dump [file]  the last frame's ray-tracing record as JSON in the game folder
+//   rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it; rt_scene.h set_sun_override)
 //   help            the commands
 namespace devtools::console {
 

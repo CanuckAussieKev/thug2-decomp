@@ -67,6 +67,7 @@ add_library(thug2_engine STATIC
     audio/audio_device.cpp
     audio/muted_device.cpp
     media/movie.cpp
+    media/video_writer.cpp
     audio/bink_stream.cpp
     audio/bink_stream_files.cpp
     audio/music_player.cpp
@@ -127,6 +128,11 @@ add_library(thug2_engine STATIC
     gfx/gpu.cpp
     gfx/gpu_context.cpp
     gfx/rt_scene.cpp
+    gfx/smooth_tess.cpp
+    gfx/rt_sun.cpp
+    gfx/rt_sky.cpp
+    gfx/rt_sky_match.cpp
+    gfx/rt_clouds.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp
     gfx/occlusion.cpp

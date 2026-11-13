@@ -20,6 +20,7 @@ namespace {
 constexpr uint32_t kBlockSide = 4;       // a BC / DXT block: 4x4 pixels
 constexpr uint32_t kBc1BlockBytes = 8;   // DXT1
 constexpr uint32_t kBc23BlockBytes = 16; // DXT3, DXT5
+constexpr uint32_t kTexelBytes64 = 8; // (four 16-bit floats)
 constexpr uint32_t kTexelBytes32 = 4;
 constexpr uint32_t kTexelBytes16 = 2;
 constexpr uint32_t kTexelBytes8 = 1;
@@ -128,6 +129,11 @@ std::optional<FormatPlan> plan_format(uint32_t d3d_format, const FormatSupport& 
                           .aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT};
     case gpu_value::kFormatD16:
         return FormatPlan{.format = VK_FORMAT_D16_UNORM, .aspect = VK_IMAGE_ASPECT_DEPTH_BIT};
+    // NOT ORIGINAL - HDR's floating-point targets (vulkan_hdr.h): the same 8 bytes a texel in both
+    case gpu_value::kFormatA16B16G16R16F:
+        return FormatPlan{.format = VK_FORMAT_R16G16B16A16_SFLOAT};
+    case gpu_value::kFormatX16B16G16R16F:
+        return FormatPlan{.format = VK_FORMAT_R16G16B16A16_SFLOAT, .alpha_one = true};
     default:
         return std::nullopt;
     }
@@ -148,6 +154,9 @@ uint32_t d3d_pixel_bytes(uint32_t d3d_format)
         return kTexelBytes16;
     case gpu_value::kFormatP8:
         return kTexelBytes8;
+    case gpu_value::kFormatA16B16G16R16F: // (NOT ORIGINAL - HDR)
+    case gpu_value::kFormatX16B16G16R16F:
+        return kTexelBytes64;
     default:
         return 0;
     }

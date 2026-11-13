@@ -33,6 +33,7 @@
 #include "engine/gfx/vertex_view.h"
 #include "engine/gfx/renderer.h"
 #include "render_pc/mesh_pass.h"
+#include "render_pc/mesh_smoothing.h"
 
 namespace render {
 
@@ -178,6 +179,14 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         in.fail();
         return false;
     }
+    // Not original - smoothed curves ([Graphics] rt_tessellation, mesh_smoothing.h): the body's curved triangles split
+    // before its buffers are made. Original behaviour: the body as read.
+    std::vector<uint16_t> original_strip;
+    if (mesh_smoothing::on()) {
+        original_strip = mesh_smoothing::smooth_body(
+            &body, vertex_format(core::at(body.vertex_types, 0)),
+            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
+    }
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
         core::at(mesh->index_counts(), i) = core::at(body.index_counts, i);
         const uint16_t count = core::at(body.index_counts, i);
@@ -190,6 +199,8 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         std::memcpy(ib->indices(), core::at(body.indices, i).data(), count * 2U);
         ib->get_unlock();
     }
+    // (not original: the smoothed mesh's original strip kept for the baked sun's samples, mesh_smoothing.h)
+    mesh_smoothing::remember_original(core::at(mesh->index_buffers(), 0), std::move(original_strip));
     mesh->set_stride(body.stride);
     mesh->set_vertex_count(body.vertex_count);
     mesh->set_vertex_buffer_count(body.vertex_buffer_count);

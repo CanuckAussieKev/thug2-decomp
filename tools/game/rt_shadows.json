@@ -1,0 +1,304 @@
+{
+  "_about": "The spots tools/game/rt_shadows_check.ts captures with [Graphics] rt_shadows off and on: renderer_parity.json's five smoke levels (the skater stood still with teleport, the camera held with camera), the sky shot among them (nothing to darken there); AU-sea - the open sea meeting the sky dome's painted sea (the aerial haze's seam: --effect sun --groups AU); AU-beach, AU-glass and BA-harbour - the user's sea, glass and sun-facing harbour views (the water and glass: --effect reflections --groups AU,BA with the user's settings by --set). qp* groups: smoothed curves (--effect tess) - sch's quarter pipe (still, and the skater riding up it), round props, fences, a car; BO's start, cannons and statues.",
+  "groups": [
+    {
+      "name": "foun",
+      "level": "foun",
+      "spots": [
+        {
+          "name": "foun-shot",
+          "commands": [
+            "teleport -4087.3 -390 2386.6 -177.3",
+            "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "foun-sky",
+          "commands": [
+            "camera -4080.9 -293.7 2523.3 0.6 0.35 -0.72",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "foun-deck",
+          "commands": [
+            "teleport -3568.4 -202 -959.1 105",
+            "camera off",
+            "wait 150"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "z_dt",
+      "level": "z_dt",
+      "spots": [
+        {
+          "name": "z_dt-street",
+          "commands": [
+            "teleport -1420.8 6.0 2407.4 99.9",
+            "camera -1338.5 83.4 2291.3 -0.570 -0.178 0.802",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "z_dt-back",
+          "commands": [
+            "camera -1338.5 83.4 2291.3 0.570 -0.05 -0.802",
+            "wait 60"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BO",
+      "level": "BO",
+      "spots": [
+        {
+          "name": "BO-yard",
+          "commands": [
+            "teleport 1029.6 286.2 -2171.4 53.2",
+            "camera 1003.8 308.6 -1989.1 0.158 0.145 -0.977",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "BO-up",
+          "commands": [
+            "teleport 695.8 396.8 -2719.6 0.3",
+            "camera 877.5 348.8 -2724.2 -0.898 0.438 0.031",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "BO-far",
+          "commands": [
+            "teleport 2882.2 131.3 -2114.5 114.1",
+            "camera 2980.2 212.8 -1996.2 -0.626 -0.191 -0.756",
+            "wait 120"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "z_ho",
+      "level": "z_ho",
+      "spots": [
+        {
+          "name": "z_ho-start",
+          "commands": [
+            "teleport -2785.2 -220.1 2824.3 52.8",
+            "camera -2639.7 -154.6 2904.4 -0.768 -0.144 -0.624",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "z_ho-turn",
+          "commands": [
+            "teleport -2309.0 -240.0 3162.6 -158.1",
+            "camera -2430.9 -159.5 3232.0 0.851 -0.202 -0.485",
+            "wait 120"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sch",
+      "level": "sch",
+      "spots": [
+        {
+          "name": "sch-court",
+          "commands": [
+            "teleport 1584.1 -413.5 1433.4 165.2",
+            "camera 1580.0 -364.8 1601.2 0.026 0.008 -1.000",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "sch-trees",
+          "commands": [
+            "teleport 1320.4 -474.7 1567.1 -10.1",
+            "camera 1172.1 -395.9 1586.3 0.976 -0.179 -0.126",
+            "wait 120"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AU",
+      "level": "AU",
+      "spots": [
+        {
+          "name": "AU-sea",
+          "commands": [
+            "teleport -2640.6 170.4 7490.0 -163.1",
+            "camera -2599.5 247.8 7625.6 -0.286 -0.179 -0.941",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "AU-beach",
+          "commands": [
+            "teleport -2483.1 170.4 7591.5 174.5",
+            "camera -2493.8 247.9 7732.8 0.074 -0.180 -0.981",
+            "wait 150"
+          ]
+        },
+        {
+          "name": "AU-glass",
+          "commands": [
+            "teleport 959.0 245.9 8055.8 131.1",
+            "camera 910.6 329.3 8187.6 0.336 -0.221 -0.916",
+            "wait 150"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BA",
+      "level": "BA",
+      "spots": [
+        {
+          "name": "BA-harbour",
+          "commands": [
+            "teleport 2920.3 39.1 3139.2 11.6",
+            "camera 2891.8 116.4 3000.4 0.197 -0.179 0.964",
+            "wait 150"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unlit",
+      "level": "foun",
+      "spots": [
+        {
+          "name": "unlit-shot",
+          "commands": [
+            "teleport -4087.3 -390 2386.6 -177.3",
+            "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949",
+            "wait 120"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "wireframe",
+      "level": "foun",
+      "spots": [
+        {
+          "name": "wireframe-shot",
+          "commands": [
+            "teleport -4087.3 -390 2386.6 -177.3",
+            "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949",
+            "wait 120"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "collision",
+      "level": "foun",
+      "spots": [
+        {
+          "name": "collision-shot",
+          "commands": [
+            "teleport -4087.3 -390 2386.6 -177.3",
+            "camera -4080.9 -293.7 2523.3 -0.044 -0.311 -0.949",
+            "wait 120"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "qpsch",
+      "level": "sch",
+      "spots": [
+        {
+          "name": "qpsch-start",
+          "commands": [
+            "wait 120"
+          ]
+        },
+        {
+          "name": "qpsch-qp",
+          "commands": [
+            "camera 1000.0 -400.0 2700.0 -0.794 -0.080 -0.602",
+            "wait 60"
+          ]
+        },
+        {
+          "name": "qpsch-ride",
+          "commands": [
+            "camera 870.0 -400.0 2380.0 -0.380 -0.080 0.921",
+            "teleport 1000 -440 2550 -90 board",
+            "press up 60",
+            "wait 4"
+          ]
+        },
+        {
+          "name": "qpsch-fences",
+          "commands": [
+            "camera -2341.0 -293.0 -1935.0 -0.864 -0.259 -0.432",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-barriers",
+          "commands": [
+            "camera 6313.0 -94.0 701.0 -0.432 -0.259 -0.864",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-railing",
+          "commands": [
+            "camera 538.0 -294.0 3423.0 -0.352 -0.317 0.881",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpsch-taxi",
+          "commands": [
+            "camera 1260.0 -305.0 4578.0 -0.890 -0.285 -0.356",
+            "wait 90"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "qpBO",
+      "level": "BO",
+      "spots": [
+        {
+          "name": "qpBO-start",
+          "commands": [
+            "wait 120"
+          ]
+        },
+        {
+          "name": "qpBO-cannons",
+          "commands": [
+            "camera -854.0 145.0 1447.0 -0.667 -0.333 -0.667",
+            "wait 120"
+          ]
+        },
+        {
+          "name": "qpBO-statue",
+          "commands": [
+            "camera -799.0 280.0 426.0 -0.680 -0.272 -0.680",
+            "wait 90"
+          ]
+        },
+        {
+          "name": "qpBO-steps",
+          "commands": [
+            "camera 256.0 507.0 -2246.0 -0.680 -0.272 -0.680",
+            "wait 90"
+          ]
+        }
+      ]
+    }
+  ]
+}

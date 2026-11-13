@@ -57,7 +57,17 @@ bool last_view(std::span<float, 3> position, std::span<float, 3> forward);
 // a time).
 constexpr int kMaxSeriesFrames = 600;
 constexpr int kSeriesInFlight = 6;
-std::string start_series(int frames, const std::string& folder);
+// A demo's capture (devtools/demo.h) asks for more: up to kMaxLongSeriesFrames pictures, one every `every` rendered
+// frames (the first taken at once).
+constexpr int kMaxLongSeriesFrames = 60 * 60 * 30;
+struct SeriesOptions {
+    bool long_series = false;
+    int every = 1;
+    // (added by the first frame) The first picture is the first frame drawn after the next loading screen of a level
+    // (not the front end's) is taken down - the level's first frame -, not the next frame drawn.
+    bool after_load = false;
+};
+std::string start_series(int frames, const std::string& folder, SeriesOptions options = {});
 // Whether a series is still being captured or written.
 bool series_running();
 // The last series' result: "ok: <n> frames in <folder>" or "error: ...".

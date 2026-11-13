@@ -13,11 +13,21 @@ import { test } from "node:test";
 const SRC = join(import.meta.dirname, "..", "src");
 
 // The programs outside the backend that see Vulkan: the context check (it makes a context with the backend's code and
-// prints it) and the fixed-function shader check's sources (it compiles, validates and hands the backend's shaders to
-// the driver).
+// prints it), the Gpu and ray tracing checks (they read the backend's objects back) and the fixed-function shader
+// check's sources (it compiles, validates and hands the backend's shaders to the driver).
 const CHECKS = new Set([
     "tests/vulkan_context_check.cpp",
     "tests/vulkan_gpu_check.cpp",
+    "tests/vulkan_rt_check.cpp",
+    "tests/vulkan_rt_shadow_check.cpp",
+    "tests/vulkan_rt_effects_check.cpp",
+    "tests/vulkan_rt_gi_check.cpp",
+    "tests/vulkan_rt_reflections_check.cpp",
+    "tests/vulkan_hdr_check.cpp",
+    "tests/vulkan_rt_fog_check.cpp",
+    "tests/vulkan_rt_sun_check.cpp",
+    "tests/vulkan_rt_sky_check.cpp",
+    "tests/vulkan_rt_materials_check.cpp",
     "tests/ff_shader_check.cpp",
     "tests/ff_shader_check_gpu.cpp",
     "tests/ff_shader_check_model.cpp",

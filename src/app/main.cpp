@@ -37,6 +37,9 @@
 #include "engine/net/transport.h"
 #include "engine/media/movie.h"
 #include "media_ffmpeg/ffmpeg_movie.h"
+#include "media_ffmpeg/ffmpeg_video.h"
+#include "engine/media/video_writer.h"
+#include "app/encode_video.h"
 #include "engine/script/host.h"
 #include "script_qb/qb_host.h"
 #include "script_qb/ts_bridge.h"
@@ -77,6 +80,11 @@ void load_system_direct_input()
 // (its parameters named as the Windows SDK declares them)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine, int nShowCmd)
 {
+    // NOT ORIGINAL: -encode-video - the exe as a video encoder (app/encode_video.h), before anything of the game's (no
+    // log of its own: a game's log in the folder is left as it is).
+    if (int exit_code = 0; app::run_encode_video(&exit_code)) {
+        return exit_code;
+    }
     // NOT ORIGINAL: the debugger output and the run log's error lines behind the base layer's sinks; thug2-decomp.log
     // next to the exe and the crash handling (a crash logged with its call stack, never a dialog).
     platform::install_output_sinks();
@@ -147,6 +155,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
         get_log("movies: FFmpeg's DLLs can't be used (above): the movies and the music / sound streams won't play");
     }
     media::install_movie(media::ffmpeg::movie());
+    // NOT ORIGINAL: the video writer the demos are saved as videos with (engine/media/video_writer.h): FFmpeg's encoders
+    // and MP4 muxer (media_ffmpeg/ffmpeg_video.h).
+    media::install_video_writer(media::ffmpeg::open_video_writer);
     // NOT ORIGINAL: the input sources (engine/pad_input/input_source.h), in the original's order: DirectInput's (the
     // keyboard read once a frame, the joysticks, the original's pad read - none made since PartyMod's input), SDL's
     // game controllers and keyboard, then the exe's extensions' (the game's: the test-automation channel's pressed

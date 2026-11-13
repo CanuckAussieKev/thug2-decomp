@@ -162,6 +162,10 @@ It needs Linux, or Windows with WSL (an Ubuntu distribution; `--distro` picks an
 sudo apt-get install gcc-mingw-w64-i686-win32 gcc-mingw-w64-x86-64-win32 gcc make xz-utils
 ```
 
+The same DLLs save demos as videos (the MP4 muxer and the h264_nvenc, h264_mf and mpeg4 encoders - no GPL parts; the
+build also fetches NVIDIA's encoder headers, nv-codec-headers, MIT). Older decode-only DLLs still play the movies; the
+video export then says it can't encode.
+
 The build fetches the release tarball and checks its SHA-256. The CMake build copies the DLLs next to the exe; when you
 copy the game by hand, put them there with the other DLLs. They are loaded by name at run time, so any LGPL build of the
 same major versions can replace them.
@@ -176,6 +180,10 @@ Useful start-up switches:
 | `-edit <name>` or `[features] edit_level=<name>` | Starts the level editor (as `thug2-editor.exe -edit <name>`) and opens it in that level (without its plugin, `plugins\thug2-level-editor.dll`, the level opens in free skate). |
 | `-level <name> -at x,y,z[,heading]` or `[features] start_at=` | Once the level is up, the skater stands at that spot, facing `heading` (degrees, 0 = +z, 90 = +x). |
 | `node tools/game/edit_level.ts` | Lists every installed level by game; `edit_level.ts <name>` starts one in the editor. |
+| `-level <name> -record <demo>` | Records a demo from the level's start; F6 (or quitting) saves `thug2-decomp-demos\<demo>.demo`. In a level, F6 alone restarts it and records; F6 again saves. |
+| `-demo <demo>` | Plays the demo back in its level (`-demo-capture <folder>` saves its frames as PNGs, `-demo-every N` one in N, then quits; `-demo-video <file.mp4>` saves it as a video, then quits; `-demo-quit` quits at the end). |
+| Pause menu > DEMOS | RECORD DEMO (the level starts again and records; the pause menu's STOP RECORDING saves), PLAY DEMO (a saved demo replayed in its level - any button hands the controls back), SAVE AS VIDEO (`thug2-decomp-videos\<demo>.mp4`; `[demo] video_fps` 60, `video_quality` 80, `video_codec` auto / h264 / mpeg4, `video_scale` 100 %). See [docs/demos.md](docs/demos.md). |
+| `node tools/game/demo_compare.ts --demo <demo> --game <folder> --set A:Graphics.msaa=0 --set B:Graphics.msaa=8` | Renders a demo once per set of settings and puts the frames side by side (`--layout split / wipe / diff`), with a report of any difference in the run. See [docs/demos.md](docs/demos.md). |
 
 ### The level editor
 
@@ -293,7 +301,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `thaw_bmx_wheels` | 1 | The bike finds the ground under both wheels, as THAW does (0 = the skater's own ground check) |
 | `thaw_bmx_shadow` | 1 | The bike drawn into the rider's shadow |
 | `anteara_mod` | 0 | Plays Anteara Mod from the overlay (`tools/anteara/README.md`) |
-| `ts_scripts` | 0 | The game's scripts: 0 = the `.qb` files (in the `.pre` / `.prx` archives), 1 = the unpacked game - no archives, no `.qb`, each script from its `.ts` (`node tools/qbjs/unpack_game.ts --game <folder>`; `--restore` puts the archives and `.qb` files back, which 0 needs) - [docs/qb-ts.md](docs/qb-ts.md) |
+| `ts_scripts` | 0 | The game's scripts: 0 = the `.qb` files (in the `.pre` / `.prx` archives), 1 = the unpacked game - no archives, no `.qb`, each script file from its `.ts` (its scripts) and `.json` (its globals) (`node tools/qbjs/unpack_game.ts --game <folder>`; `--restore` puts the archives and `.qb` files back, which 0 needs) - [docs/qb-ts.md](docs/qb-ts.md) |
 | `language` | (the game's) | With `ts_scripts=1`: the scripts' text from `Data\lang\<code>.json` - `en`, `fr`, `de` (English where a table has no text) |
 | `create_100_cas` | 1 | GAME OPTIONS > CREATE 100% CAS |
 | `thugpro_parts` | 1 | THUGPRO's extra CAS parts and boards, read from your THUGPRO install by reference (2 also shows them in CAS, 0 off; `thugpro_folder=` another install) |
@@ -307,6 +315,8 @@ The ini sits in the game folder. Every key is optional; the default applies when
 |---|---|---|
 | `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
+| `rt_contract_check` | 0 | Checks every call the renderer makes to ray tracing (meshes, materials, each frame's instances, lights and cameras, every world draw against the frame's record) and logs `rt-check:` lines - violations and a summary every 600 frames; the console's `rt summary` / `rt dump [file]` (the frame record as JSON). `node tools/game/rt_contract.ts` runs it across levels and renderers in a workspace |
+| `tess_log` | 0 | With `[Graphics] rt_tessellation=1`: a line for every mesh smoothed at load - where it is, its size, the triangles split, its level and how far it moved from the original (`rt_tessellation: mesh at ...`) |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
 | `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
@@ -329,6 +339,68 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `vulkan_device` | -1 | On Vulkan: the GPU, by Vulkan's numbering (-1: the best, a discrete one first) |
 | `vulkan_validation` | 0 | On Vulkan: 1 uses the Khronos validation layer when a 32-bit one can be loaded (its messages in the log) |
 | `draw_distance_scale` / `lod_distance_scale` | 1 | Multiply the far plane / objects' level-of-detail distances |
+| `ray_tracing` | 0 | On Vulkan: 1 turns on the GPU's ray-tracing extensions where it has them all (the effects below need it) |
+| `rt_shadows` | 0 | On Vulkan with `ray_tracing=1` (a GPU with ray queries, the 64-bit build): 1 adds ray-traced sun shadows - each pixel of the world darkened where the level blocks the sun |
+| `rt_shadow_strength` | 0.5 | How dark a ray-traced shadow is: the share of the colour it takes away (0-1) |
+| `rt_shadow_softness` | 0 | The sun's size in degrees (0-5): 0 gives hard edges, more gives soft ones traced with `rt_shadow_rays` rays a pixel |
+| `rt_shadow_rays` | 4 | Rays a pixel for soft shadows (1-16) |
+| `rt_shadow_objects` | 1 | 1: the skater, pedestrians and vehicles cast ray-traced shadows too, and their own blocky shadows are hidden while the sun's are drawn (a level with no sun keeps them); 0: only the level casts, the skater keeps the game's shadow |
+| `rt_ao` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced ambient occlusion - corners, the ground under ledges and around objects darkened by how much of the sky they see |
+| `rt_ao_strength` | 0.6 | How dark full occlusion is: the share of the colour it takes away (0-1) |
+| `rt_ao_radius` | 48 | How far (world units) a ray looks for something in the way (1-1000) |
+| `rt_ao_rays` | 4 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
+| `rt_ao_denoise` | 1 | 0: each frame's rays as they are (noisy - to see what the denoiser works from) |
+| `rt_gi` | 0 | On Vulkan with `ray_tracing=1`: 1 adds one bounce of ray-traced light - shaded ground and corners beside sunlit walls pick up their colour and brightness (lit by the level's own sun; nothing changes in a level with none, indoors) |
+| `rt_gi_strength` | 1 | How much of the bounced light is added (0-4) |
+| `rt_gi_rays` | 2 | Rays a pixel each frame (1-16); the denoiser adds up the frames |
+| `rt_gi_distance` | 600 | How far (world units) a ray looks for a surface to bounce from (1-5000) |
+| `rt_gi_denoise` | 1 | 0: each frame's rays as they are (noisy) |
+| `rt_reflections` | 0 | On Vulkan with `ray_tracing=1`: 1 adds ray-traced reflections to the level's shiny surfaces (the ones the game gives an environment map) - what is really around them, mirrored |
+| `rt_reflection_strength` | 0.5 | How much a fully shiny surface shows its reflection (0-1; each surface's own shine scales it; with `rt_reflection_fresnel=1` 0.5 is the natural amount) |
+| `rt_reflection_fresnel` | 1 | 1: how much a surface reflects depends on the angle you see it at - water and glass show their own colour looking straight at them and turn into mirrors toward grazing angles, windows show their glass instead of the game's painted sky; 0: the same reflection at every angle |
+| `rt_glass_roughness` | 0.05 | How blurry glass reflections are (radians; 0 a perfect mirror) |
+| `rt_glass_reflectance` | 0.2 | How much glass reflects looking straight at it (0.04 is real glass - against the game's bright window textures its reflection all but disappears) |
+| `rt_hdr` | 0 | On Vulkan (no ray tracing needed): 1 draws the world in high dynamic range - brighter than white kept - and maps it back to the screen before the HUD; with the settings below left alone it looks like 0 (the brightest whites a touch softer) |
+| `rt_exposure` | 0 | With `rt_hdr=1`: stops of light (+1 twice as bright, -1 half) |
+| `rt_tonemap` | 0 | With `rt_hdr=1`: 0 keeps the game's colours and rolls off only the brightest toward `rt_white_point`; 1 a filmic curve (ACES) - deeper shadows, brighter mid-tones |
+| `rt_white_point` | 1.25 | With `rt_hdr=1`: the brightness shown as pure white (1-8); 1 clips at white as the game does |
+| `rt_saturation` / `rt_contrast` | 1 | With `rt_hdr=1`: colour (0 grey, above 1 stronger) and contrast (a power about mid-grey; above 1 more) |
+| `rt_grade_lut` | (none) | With `rt_hdr=1`: a colour-grading table (a `.cube` 3D LUT) in the game folder, or a full path, applied last |
+| `rt_shadow_sun` | bake | The sun the shadows fall from: `bake` - the one the level's own lighting was made with, found from it when the level starts (a level lit only by its lamps, indoors, gets no ray-traced shadows); `light` - the game's light for the skater (the same in every level); or `x,y,z` toward the sun |
+| `rt_shadow_match_bake` | 1 | With the baked sun: no ray-traced shadow where the level's lighting is bright although the sun is blocked (lamps, a roof it left out); 0 shadows wherever the sun is blocked |
+| `rt_shadow_covered` | 0 | 1: ray-traced shadows under roofs too; 0 leaves a spot that sees no sky as the level lit it |
+| `rt_shadow_sky_rays` | 5 | Rays a pixel that look for the sky (1-16) |
+| `rt_fog` | 0 | On Vulkan with `ray_tracing=1`: 1 makes the level's fog volumetric - the same colour and distances, but the sun shines through it in shafts where the level lets it and the fog stays darker in the shade. The sun only where the level's own lighting shows one (not indoors); levels without fog: `rt_fog_haze` |
+| `rt_fog_mode` | 0 | 0: the volumetric fog replaces the level's own; 1: the level's fog kept as it was, only the sunlit shafts added over it |
+| `rt_fog_density` | 1 | How thick the fog is against the level's own (0-8; 1 the same) |
+| `rt_fog_height` | 0 | World units over which the fog thins going up from the camera's height (0: even everywhere; e.g. 800 for ground fog) |
+| `rt_fog_anisotropy` | 0.3 | How much brighter the fog is looking toward the sun (-0.9-0.9; 0 the same every way) |
+| `rt_fog_steps` | 32 | Samples along each ray (4-128): fewer is faster, more is smoother shafts |
+| `rt_fog_haze` | 1 | In a level with no fog (most of them, unless `DistanceClipping=1` and `Fog=1`): 1 adds a thin haze that only shows where the sun shines through it - shafts and a glow toward the sun; 0 leaves such levels alone. With `rt_sky_model=1` the haze becomes real air: distant buildings fade toward the sky's colour, it is thicker near the ground, and it is clearly brighter where the sun lights it than in the shade |
+| `rt_fog_haze_density` | 0.3 | With `rt_sky_model=1`: how thick that air is (1 three times the default and a lot hazier - far water milky, the view into a low sun whited out) |
+| `rt_fog_haze_height` | 600 | With `rt_sky_model=1`: world units over which the haze thins going up from the level's ground |
+| `rt_sun` | 0 | On Vulkan: 1 draws the sun itself - a bright disc with a glow round it, light spilling past the edges in front of it - where the game shows its sun, instead of the game's sun sprite and lens flare (both hidden). A level with no sun at all keeps the game's |
+| `rt_sun_size` | 1 | How big the sun's disc is (0.25-4) |
+| `rt_sun_place` | game | Where the sun is drawn: `game` - where the game shows its sun (its sky's sun, as the old sprite was); `bake` - where the level's lighting says it is (the shadows' sun) |
+| `rt_sun_colour` | auto | The sun's colour: `auto` - from its height (warm when low, white when high); or `r,g,b` (0-1 each) |
+| `rt_shafts` | 0 | On Vulkan: 1 adds rays of light from the sun past buildings, trees and edges when it is on or near the screen |
+| `rt_shaft_strength` | 0.8 | How bright the rays are (0-4) |
+| `rt_bloom` | 0 | On Vulkan (no ray tracing needed): 1 lets bright light glow softly into what is round it - the sun, lit sky, bright windows. It only moves light, never adds it; left alone when a level turns on the game's own bloom (the sun's glow still drawn) |
+| `rt_bloom_strength` | 0.05 | How much of each pixel's light spreads (0-0.5) |
+| `rt_sky_model` | 0 | On Vulkan with `ray_tracing=1`: 1 gives the level's sun the colour a real sky would (warm low, white high) and turns `rt_fog_haze` into aerial perspective; the bounced light (`rt_gi`) and the fog's sunlight take the sun's colour |
+| `rt_lens_dirt` | 0 | With `rt_bloom` or `rt_sun`: 1 shows faint dirt on the lens where bright light blooms |
+| `rt_sky` | 0 | On Vulkan (no ray tracing needed): 1 replaces the level's painted sky dome with a real sky - the light of the air scattered once and many times, bright round the sun, pale at the horizon - tinted toward the level's own sky so each level keeps its colours. The haze of `rt_fog_haze` fades distant buildings into this sky |
+| `rt_sky_match` | 0.8 | With `rt_sky`: how far the sky takes the level's own colours (0: the plain model; 1: the old sky's colours band by band) |
+| `rt_clouds` | 0 | With `rt_sky`: 1 adds volumetric clouds, lit by the sun (bright edges toward it), drifting slowly with the game clock; the level's painted cloud cards are left out then |
+| `rt_cloud_coverage` | auto | How much of the sky is cloud: `auto` - as much as the level's own sky had; or 0-1 (0 clear, 1 overcast) |
+| `rt_cloud_speed` | 1 | How fast the clouds drift (0 still; 2 twice as fast) |
+| `rt_cloud_quality` | 1 | 0 quarter resolution (fastest), 1 half, 2 full |
+| `rt_cloud_shadows` | 0 | With `rt_clouds`: 1 lets the clouds' shadows drift over the level |
+| `rt_tessellation` | 0 | Any renderer: 1 rounds off the levels' and objects' faceted curves - quarter pipes, rails, pipes, car bodies, round props - when a level loads (more triangles that follow the curve; flat walls, hard edges, see-through and cut-out surfaces, skaters and peds stay as they are). The skater still rides the original surfaces: the drawn ones stay within `rt_tess_max_deviation` of them. Takes effect from the next level loaded |
+| `rt_tess_level` | 3 | The most pieces a curved edge is cut into (2-8; each mesh gets as many as its curves need, up to this) |
+| `rt_tess_max_deviation` | 2 | How far (world units, an inch each) a smoothed surface may move from the original one - the largest gap between the wheels and what is drawn |
+| `rt_displacement` | 0 | With `rt_tessellation`: how far (world units) a surface's height map raises and lowers it, inside `rt_tess_max_deviation`; thin meshes (rails) never move. Needs height maps - none are there yet (`rt_tess_test_heights=1` shows a test pattern of ridges) |
+| `rt_tess_test_heights` | 0 | With `rt_displacement`: 1 gives every surface a test height map (ridges) - to see the displacement work until real height maps are there |
 
 **`[Miscellaneous]`** - from PartyMod
 
@@ -341,13 +413,14 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `OnlineDomain` | `openspy.net` | The online service's domain (see Online play) |
 | `OnlineGameName` / `OnlineGameKey` | (empty) | The online identity: empty = THUG2's own; `thugpro` = THUGPRO's lobbies (see Online play) |
 | `Debug` | 0 | Opens a console window with the game's debug output |
+| `[demo] video_fps` / `video_quality` / `video_codec` / `video_scale` | 60 / 80 / auto / 100 | A demo saved as a video (SAVE AS VIDEO, `-demo-video`): frames a second (1-60, the game's own 60 at most), quality 1-100, the encoder (`auto`: NVIDIA's H.264, else Windows' H.264, else MPEG-4; `h264`; `mpeg4`), the size in % of the game's picture (10-400). Video only, no sound - [docs/demos.md](docs/demos.md) |
 | `[online] thugpro_peer` | 0 | Chat and server info with THUGPRO players (on by itself with `OnlineGameName=thugpro`) |
 
 **`[Keybinds]`**, **`[Gamepad]`**, **`[Logging]`**
 
 | Key | Default | Effect |
 |---|---|---|
-| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings (SDL 2 scan codes, as PartyMod wrote them - they still mean the same keys); plus `Screenshot=` and `ThawBmx=` (an SDL key name or scan code) |
+| `[Keybinds]` (PartyMod's keys) | PartyMod's | Keyboard bindings (SDL 2 scan codes, as PartyMod wrote them - they still mean the same keys); plus `Screenshot=`, `ThawBmx=` and `DemoRecord=` (an SDL key name or scan code) |
 | `[Gamepad]` (PartyMod's keys) | PartyMod's | Controller bindings by button number: 0 A, 1 B, 2 X, 3 Y, 4 Back, 5 Guide, 6 Start, 7 / 8 left / right stick, 9 / 10 left / right shoulder, 11-14 d-pad up / down / left / right, 15 Misc1 (Share, Capture, Mic), 16-19 paddles (right 1, left 1, right 2, left 2), 20 touchpad, 21 / 22 right / left trigger, 23-27 Misc2-Misc6 (extra buttons some controllers have); -1 none |
 | `[Gamepad] MovementStick` / `CameraStick` | left / right | Which stick moves and which turns the camera |
 | `[Logging] Level` | 2 | How much goes into the log |
