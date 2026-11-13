@@ -138,7 +138,7 @@ const std::vector<GroupKeys>& group_keys()
          .name = text_tools::kGroupSurfaces,
          .keys = {"rt_relit", "rt_relit_strength", "rt_pbr", "rt_pbr_specular", "rt_pbr_normal_strength",
                   "rt_reflections", "rt_reflection_strength", "rt_reflection_fresnel", "rt_glass_reflectance",
-                  "rt_glass_roughness"}},
+                  "rt_glass_roughness", "grass", "grass_density", "grass_height", "grass_distance"}},
         {.id = "sky",
          .name = text_tools::kGroupSky,
          .keys = {"rt_sky", "rt_clouds", "rt_cloud_coverage", "rt_cloud_quality", "rt_sky_model", "rt_sun", "rt_sun_colour",
@@ -397,6 +397,17 @@ const std::vector<Spec>& get_specs()
                         2, Apply::kLive),
         graphics_choice("rt_glass_roughness", text_tools::kOptGlassRoughness, "",
                         {{.value = "0", .label = "Mirror"}, {.value = "0.05", .label = text_tools::kLow}, {.value = "0.1", .label = text_tools::kMedium}, {.value = "0.2", .label = text_tools::kHigh}},
+                        1, Apply::kLive),
+        // (the grass: gpu_vulkan/vulkan_grass.h - blades on the levels' lawns)
+        graphics_switch("grass", text_tools::kOptGrass, text_tools::kOptGrassHelp, 0, Apply::kLive),
+        graphics_choice("grass_density", text_tools::kOptGrassDensity, "",
+                        {{.value = "0.5", .label = text_tools::kLow}, {.value = "1", .label = text_tools::kMedium}, {.value = "1.5", .label = text_tools::kHigh}, {.value = "2.5", .label = "Thick"}},
+                        1, Apply::kLive),
+        graphics_choice("grass_height", text_tools::kOptGrassHeight, "",
+                        {{.value = "0.6", .label = "Short"}, {.value = "1", .label = text_tools::kMedium}, {.value = "1.5", .label = "Long"}, {.value = "2.2", .label = "Wild"}},
+                        1, Apply::kLive),
+        graphics_choice("grass_distance", text_tools::kOptGrassDistance, "",
+                        {{.value = "30", .label = "30 m"}, {.value = "50", .label = "50 m"}, {.value = "80", .label = "80 m"}, {.value = "120", .label = "120 m"}},
                         1, Apply::kLive),
         // Sky: the sky and clouds (gpu_vulkan/vulkan_rt_sky_pass.h), the sun, its rays and the sky model
         // (vulkan_rt_sun.h), the fog and haze (vulkan_rt_fog.h)

@@ -136,6 +136,7 @@ add_library(thug2_engine STATIC
     gfx/rt_sky_match.cpp
     gfx/rt_clouds.cpp
     gfx/rt_relit.cpp
+    gfx/grass.cpp
     gfx/ui_backend.cpp
     gfx/view_modes.cpp
     gfx/occlusion.cpp

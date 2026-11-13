@@ -430,6 +430,10 @@ for the restart
 | `rt_style_outlines` | 1 | With `rt_style`: how dark the ink lines are (0: none). They thin out into the distance; the sky has none |
 | `rt_style_outline_width` | 1 | With `rt_style`: how thick the ink lines are (pixels of a 720-line picture, scaled with the window) |
 | `rt_style_saturation` | 1.15 | With `rt_style`: how strong the colours are (1 as they are) |
+| `grass` | 0 | On Vulkan (no ray tracing needed): 1 grows real blades of grass where a level's ground is grass (its collision's grass terrain - Boston's common, Skatopia, the parks). They take the colour and light of the lawn under them, sway in the wind, part round the skater and peds, fade into the lawn in the distance and never grow through ramps, rails, paths or anything standing on the lawn. Only the picture: the lawn rides as before. All the `grass` keys change at once in the Options screen |
+| `grass_density` | 1 | With `grass`: how many blades (1: about 240 a square metre; 0.25-4) |
+| `grass_height` | 1 | With `grass`: how tall the blades are (1: about 3-9 inches; 0.25-3) |
+| `grass_distance` | 50 | With `grass`: metres out to where the blades have sunk into the lawn (10-200) |
 
 **`[Miscellaneous]`** - from PartyMod
 

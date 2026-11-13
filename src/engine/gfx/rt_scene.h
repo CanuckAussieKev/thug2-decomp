@@ -324,6 +324,7 @@ inline constexpr int kToneMapping = 900; // HDR -> the display (world_drawn, las
 inline constexpr int kSky = 50;          // (added by the sky) the atmosphere and the clouds (sky_drawn)
 inline constexpr int kUpscale = 950;      // (added by the upscaler) the view's lower resolution up to its output_rect
 inline constexpr int kStyle = 975;        // (added by the art style) the toon filter, at the output's size (world_drawn)
+inline constexpr int kGrass = 450;        // (added by the grass) the blades, over the shaded ground (opaque_drawn)
 } // namespace ViewOrder
 void add_view_listener(ViewListener* listener);
 void remove_view_listener(ViewListener* listener);
