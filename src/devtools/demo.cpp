@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cctype>
@@ -157,6 +158,10 @@ struct State {
     bool taken_over = false;
     bool video_failed = false;
     bool picture_taken = false; // (this frame's, in draw_over_frame)
+    // the pace from the level up: real time against game time (a frame each 1/60 s), and the frames not drawn
+    std::chrono::steady_clock::time_point pace_start;
+    uint32_t pace_frame = 0;
+    uint32_t undrawn = 0;
 };
 
 State& state()
@@ -166,6 +171,39 @@ State& state()
 }
 
 bool running() { return state().phase == Phase::kRecording || state().phase == Phase::kPlaying; }
+
+// A tool's playback renders the run rather than showing it: -demo-capture, -demo-video and SAVE AS VIDEO take a
+// picture of every frame however long it takes (the main loop skips none). A live recording or playback runs at the
+// game's own pace like any play - its late frames go undrawn to catch up; the logic is one fixed 1/60 s step a loop
+// either way, so the run is the same.
+bool renders_offline()
+{
+    const State& run = state();
+    return run.phase == Phase::kPlaying && (!run.capture.empty() || !run.video.empty());
+}
+
+// The pace from the level up (noted there), logged when a recording or playback ends: game seconds a real second
+// (1.00: real time; below: the game ran slow), and the frames not drawn to keep up.
+void start_pace()
+{
+    State& run = state();
+    run.pace_start = std::chrono::steady_clock::now();
+    run.pace_frame = run.frame;
+    run.undrawn = 0;
+}
+
+void log_pace(const char* what)
+{
+    const State& run = state();
+    if (!run.up || run.frame <= run.pace_frame) {
+        return;
+    }
+    constexpr double kFramesPerSecond = 60.0;
+    const double real = std::chrono::duration<double>(std::chrono::steady_clock::now() - run.pace_start).count();
+    const double game = (run.frame - run.pace_frame) / kFramesPerSecond;
+    get_log("demo: %s pace - %.2f game s in %.2f s (%.3f game s a second), %u of %u frames not drawn", what, game, real,
+            real > 0.0 ? game / real : 0.0, run.undrawn, run.frame - run.pace_frame);
+}
 
 std::string demos_folder() { return game_folder_path("thug2-decomp-demos") + "\\"; }
 
@@ -430,6 +468,7 @@ void trim_paused_end()
 std::string save_recording()
 {
     State& run = state();
+    log_pace("recording");
     run.phase = Phase::kOff;
     run.counting = false;
     trim_paused_end();
@@ -698,6 +737,7 @@ void finish_playback(bool ended)
         how = "stopped - the player took over";
     }
     get_log("demo: %s %s - drift: %s%s", run.name.c_str(), how, verdict.c_str(), run.random_matched ? "" : " (the random numbers differed when the level was up: put back)");
+    log_pace(renders_offline() ? "rendered playback" : "playback");
     end_video(ended);
     const std::string base = output_base();
     fs::write_text(base + "track.txt", run.track);
@@ -805,6 +845,7 @@ void playback_level_up(uint32_t now)
 {
     State& run = state();
     run.up = true;
+    start_pace();
     run.up_matched = level_up(run.demo.level_load);
     if (!run.up_matched) {
         get_log("demo: the level isn't up yet at frame %u, where the recording's was", now);
@@ -846,12 +887,16 @@ void frame_ending(bool rendering)
         return;
     }
     const uint32_t now = run.frame - 1;
+    if (run.up && !rendering) {
+        ++run.undrawn;
+    }
     if (run.phase == Phase::kRecording) {
         if (!run.up && level_up(run.demo.level_load)) {
             run.up = true;
             run.demo.up_frame = now;
             run.demo.random_at_up = random_now();
             run.demo.clocks = clocks_now();
+            start_pace();
             get_log("demo: %s up at frame %u - the check track starts", run.demo.level.c_str(), now);
         }
         if (run.up && (now - run.demo.up_frame) % run.demo.check_stride == 0) {
@@ -1188,7 +1233,9 @@ public:
         }
     }
     void before_present(bool rendering) override { frame_ending(rendering); }
-    bool keeps_every_frame() override { return running(); }
+    // (a tool's playback only: a live recording or playback skips late frames' drawing like any play, so it runs at
+    // real speed - every frame kept there was slow motion once a frame took longer than 1/60 s to draw)
+    bool keeps_every_frame() override { return renders_offline(); }
     bool draws_unfocused() override { return running() || state().phase == Phase::kPlayArmed; }
     bool holds_quit() override
     {
