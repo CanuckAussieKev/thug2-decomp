@@ -140,14 +140,30 @@ float agreement_at(vec3 p)
 const float OFFSET_SCALE = 1.0; // the ray's start pushed off the surface by this much, growing with distance
 const float SKY_TILT = 0.6;     // the sky test's slanted rays: this far out from straight up per unit up (about 31 deg)
 
+const uint OBJECTS_MASK = 0x02u; // (kMaskObjects: the skater, peds, vehicles)
+uint g_mask = 0u;                // the instance mask the pixel's rays are traced with
+
 float blocked(vec3 origin, vec3 direction)
 {
     rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,
-                          floatBitsToUint(pc.camera.w) & 0xFFu, origin, 0.0, direction, pc.shape.z);
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, g_mask, origin, 0.0,
+                          direction, pc.shape.z);
     while (rayQueryProceedEXT(query)) {
     }
     return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 0.0 : 1.0;
+}
+
+// (added for the skater's shadow) Whether the pixel shows an object - a ray from the camera through it against the
+// objects alone ends where the depth does.
+bool on_object(vec3 here, vec3 to_camera, float distance)
+{
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, OBJECTS_MASK, pc.camera.xyz, 0.0,
+                          -to_camera / max(distance, 1e-6), distance * 1.02 + 2.0);
+    while (rayQueryProceedEXT(query)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT &&
+           rayQueryGetIntersectionTEXT(query, true) >= distance - (2.0 + 0.02 * distance);
 }
 
 void main()
@@ -161,6 +177,13 @@ void main()
     vec3 here = world_at(p, d);
     vec3 to_camera = pc.camera.xyz - here;
     float distance = length(to_camera);
+    g_mask = floatBitsToUint(pc.camera.w) & 0xFFu;
+    // (added for the skater's shadow) an object casts onto the world, not onto itself or another object: its
+    // low-poly body traced against itself drew blotches and acne over the skater - the objects receive the world's
+    // shadows only
+    if ((g_mask & OBJECTS_MASK) != 0u && on_object(here, to_camera, distance)) {
+        g_mask &= ~OBJECTS_MASK;
+    }
     vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
     float normal_length = length(normal);
     normal = normal_length > 1e-20 ? normal / normal_length : to_camera / max(distance, 1e-6);
@@ -724,6 +747,9 @@ void set_rt_shadow_settings(const RtShadowSettings& settings)
         shadows().settings = kept;
     }
     rt::set_baked_sun_wanted(kept.on && kept.sun == RtShadowSettings::SunSource::kBake);
+    if (!kept.on || !kept.objects) {
+        rt::set_object_shadows_replaced(false); // (the objects' own shadows back)
+    }
     if (kept.on) {
         rt::add_view_listener(&listener());
     } else {
@@ -756,7 +782,22 @@ VkImageUsageFlags rt_shadow_depth_usage(const Backend& state, VkFormat format)
                                                                                          : 0;
 }
 
+namespace {
+bool record_pass(Backend& state, const rt::ViewDrawn& view);
+} // namespace
+
 bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
+{
+    const bool drawn = record_pass(state, view);
+    // (added for the skater's shadow) while this pass casts the objects' shadows, their own (the skater's projected
+    // one, the peds' blobs) are hidden; a view without a pass - no baked sun yet, a level whose bake shows none - gives
+    // them back
+    rt::set_object_shadows_replaced(drawn && shadows().settings.objects);
+    return drawn;
+}
+
+namespace {
+bool record_pass(Backend& state, const rt::ViewDrawn& view)
 {
     ShadowState& own = shadows();
     if (!own.settings.on || own.failed) {
@@ -933,6 +974,7 @@ bool record_rt_shadow_pass(Backend& state, const rt::ViewDrawn& view)
     }
     return true;
 }
+} // namespace
 
 uint64_t rt_shadow_passes() { return shadows().passes; }
 
@@ -940,6 +982,7 @@ void release_rt_shadows(Backend& state)
 {
     ShadowState& own = shadows();
     const VkDevice device = state.context.device();
+    rt::set_object_shadows_replaced(false);
     if (device != nullptr) {
         for (const PassPipeline& made : own.pipelines) {
             vkDestroyPipeline(device, made.pipeline, nullptr);

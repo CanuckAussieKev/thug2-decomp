@@ -161,6 +161,11 @@ std::atomic<bool>& glare_slot()
     static std::atomic<bool> replaced{false};
     return replaced;
 }
+std::atomic<bool>& object_shadows_slot()
+{
+    static std::atomic<bool> replaced{false};
+    return replaced;
+}
 } // namespace
 
 void set_sun_light(const SunLight& light)
@@ -179,6 +184,9 @@ SunLight sun_light()
 
 void set_sun_glare_replaced(bool replaced) { glare_slot().store(replaced, std::memory_order_relaxed); }
 bool sun_glare_replaced() { return glare_slot().load(std::memory_order_relaxed); }
+
+void set_object_shadows_replaced(bool replaced) { object_shadows_slot().store(replaced, std::memory_order_relaxed); }
+bool object_shadows_replaced() { return object_shadows_slot().load(std::memory_order_relaxed); }
 
 namespace {
 SunOverride& game_sun_slot()
